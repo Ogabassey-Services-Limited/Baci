@@ -1,9 +1,35 @@
 import type { Metadata } from 'next';
+import {
+  HERO_DESKTOP_LCP_SRC,
+  HERO_MOBILE_LCP_SRC,
+  OGABASSEY_HERO_PRELOAD_IDENTIFIERS,
+} from '@/components/storefront/ogabassey/components/hero-data';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { StorefrontPageContent } from '../storefront-page-content';
+
+function OgabasseyHeroPreloads() {
+  return (
+    <>
+      <link
+        rel="preload"
+        as="image"
+        href={HERO_DESKTOP_LCP_SRC}
+        fetchPriority="high"
+        media="(min-width: 768px)"
+      />
+      <link
+        rel="preload"
+        as="image"
+        href={HERO_MOBILE_LCP_SRC}
+        fetchPriority="high"
+        media="(max-width: 767px)"
+      />
+    </>
+  );
+}
 
 export async function generateMetadata({
   params,
@@ -101,10 +127,22 @@ export async function generateMetadata({
   };
 }
 
-export default function StorefrontPage({
+export default async function StorefrontPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
+  const resolvedParams = await params;
+  if (
+    OGABASSEY_HERO_PRELOAD_IDENTIFIERS.has(resolvedParams.slug.toLowerCase())
+  ) {
+    return (
+      <>
+        <OgabasseyHeroPreloads />
+        <StorefrontPageContent params={params} />
+      </>
+    );
+  }
+
   return <StorefrontPageContent params={params} />;
 }

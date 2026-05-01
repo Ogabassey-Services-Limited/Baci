@@ -7,10 +7,10 @@ export const DEFAULT_PAGE_SPEED_ROUTES = [
 ] as const;
 
 export const CATEGORY_THRESHOLDS = {
-  performance: 0.8,
+  performance: 0.9,
   accessibility: 0.9,
   seo: 0.9,
-  'best-practices': 0.85,
+  'best-practices': 0.9,
 } as const;
 
 export const AUDIT_THRESHOLDS = {

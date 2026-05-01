@@ -1,6 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  HERO_DESKTOP_LCP_SRC,
+  HERO_MOBILE_LCP_SRC,
+} from '@/components/storefront/ogabassey/components/hero-data';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 
 const { mockStorefrontContent, mockStorefrontPageContent } = vi.hoisted(() => ({
@@ -105,6 +109,11 @@ const actualStorefrontPageContentModule = await vi.importActual<
 
 describe('Storefront homepage structured data', () => {
   beforeEach(() => {
+    document
+      .querySelectorAll('link[rel="preload"][as="image"]')
+      .forEach((link) => {
+        link.remove();
+      });
     vi.mocked(getRequestScopedMerchant).mockReset();
     mockStorefrontContent.mockReset();
     mockStorefrontPageContent.mockReset();
@@ -253,22 +262,70 @@ describe('Storefront homepage structured data', () => {
     );
   });
 
-  it('defers homepage first paint to the route loader when the page content suspends', () => {
+  it('defers homepage first paint to the route loader when the page content suspends', async () => {
     mockStorefrontPageContent.mockImplementation(() => {
       throw new Promise(() => {
         // Keep the page content suspended behind the route-level loader.
       });
     });
 
+    const page = await StorefrontPage({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+    });
+
     render(
-      <Suspense fallback={<div>Route loader fallback</div>}>
-        <StorefrontPage params={Promise.resolve({ slug: 'ogabassey' })} />
-      </Suspense>
+      <Suspense fallback={<div>Route loader fallback</div>}>{page}</Suspense>
     );
 
     expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
     expect(
       screen.queryByText('Storefront page content')
+    ).not.toBeInTheDocument();
+  });
+
+  it('preloads viewport-specific OgaBassey hero LCP images from the server page', async () => {
+    render(
+      await StorefrontPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
+    );
+    const preloads = Array.from(
+      document.querySelectorAll<HTMLLinkElement>(
+        'link[rel="preload"][as="image"]'
+      )
+    );
+
+    expect(preloads).toHaveLength(2);
+    expect(
+      preloads.map((preloadLink) => ({
+        as: preloadLink.getAttribute('as'),
+        fetchPriority: preloadLink.getAttribute('fetchpriority'),
+        href: preloadLink.getAttribute('href'),
+        media: preloadLink.getAttribute('media'),
+      }))
+    ).toEqual([
+      {
+        as: 'image',
+        fetchPriority: 'high',
+        href: HERO_DESKTOP_LCP_SRC,
+        media: '(min-width: 768px)',
+      },
+      {
+        as: 'image',
+        fetchPriority: 'high',
+        href: HERO_MOBILE_LCP_SRC,
+        media: '(max-width: 767px)',
+      },
+    ]);
+  });
+
+  it('does not preload OgaBassey hero images for other storefronts', async () => {
+    render(
+      await StorefrontPage({
+        params: Promise.resolve({ slug: 'another-shop' }),
+      })
+    );
+
+    expect(
+      document.querySelector('link[rel="preload"][as="image"]')
     ).not.toBeInTheDocument();
   });
 });

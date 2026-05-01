@@ -218,25 +218,34 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
       </div>
 
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
-        {slides.map((slide, idx) => (
-          <button
-            key={idx}
-            type="button"
-            aria-label={`Go to banner slide ${idx + 1}`}
-            onClick={() => setCurrentSlide(idx)}
-            className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${idx === currentSlide
-              ? 'w-6 bg-white'
-              : 'w-1.5 bg-white/40 hover:bg-white/70'
-              }`}
-            style={{
-              backgroundColor:
-                slide.type === 'ad' && idx === currentSlide
-                  ? '#DC2626'
-                  : undefined, // Red indicator for ad slide active state if visible
-              opacity: slide.type === 'ad' && idx !== currentSlide ? 0.3 : 1,
-            }}
-          />
-        ))}
+        {slides.map((slide, idx) => {
+          const isCurrentSlide = idx === currentSlide;
+          const isActiveAdSlide = slide.type === 'ad' && isCurrentSlide;
+
+          return (
+            <button
+              key={idx}
+              type="button"
+              aria-label={`Go to banner slide ${idx + 1}: ${slide.title ?? 'Sponsored placement'}`}
+              onClick={() => setCurrentSlide(idx)}
+              className="group flex h-11 min-w-11 items-center justify-center rounded-full"
+            >
+              <span
+                className={`block h-1.5 rounded-full transition-all duration-300 shadow-sm ${isCurrentSlide
+                  ? 'w-6'
+                  : 'w-1.5 group-hover:[background-color:color-mix(in_srgb,var(--store-on-primary,#ffffff)_70%,transparent)]'
+                  } ${slide.type === 'ad' && !isCurrentSlide ? 'opacity-30' : 'opacity-100'}`}
+                style={{
+                  backgroundColor: isCurrentSlide
+                    ? isActiveAdSlide
+                      ? 'var(--store-primary, #dc2626)'
+                      : 'var(--store-on-primary, #ffffff)'
+                    : 'color-mix(in srgb, var(--store-on-primary, #ffffff) 40%, transparent)',
+                }}
+              />
+            </button>
+          );
+        })}
       </div>
     </div>
   );

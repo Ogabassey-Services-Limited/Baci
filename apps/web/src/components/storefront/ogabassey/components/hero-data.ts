@@ -31,6 +31,16 @@ type ImportedImageAsset = { src: string } | string;
 const getImportedImageSrc = (asset: ImportedImageAsset) =>
   typeof asset === 'string' ? asset : asset.src;
 
+export const HERO_DESKTOP_LCP_SRC = getImportedImageSrc(
+  iphoneHeroDesktopAsset
+);
+export const HERO_MOBILE_LCP_SRC = getImportedImageSrc(iphoneHeroMobileAsset);
+export const OGABASSEY_HERO_PRELOAD_IDENTIFIERS = new Set([
+  'ogabassey',
+  'ogabassey.com',
+  'www.ogabassey.com',
+]);
+
 export const NEW_ARRIVALS_PROMO_IMAGE =
   'https://cdn.ogabassey.com/core-assets/products/macbook-pro.avif';
 export const FLASH_SALE_PROMO_IMAGE =
@@ -43,7 +53,7 @@ export const MOBILE_SLIDES: HeroSlideData[] = [
     title: 'iPhone 17 Pro Max',
     subtitle: 'Beyond IMAGINATION with the new nebula finish.',
     bgClass: 'bg-[#F5F5F7]',
-    src: getImportedImageSrc(iphoneHeroMobileAsset),
+    src: HERO_MOBILE_LCP_SRC,
     textColor: 'text-gray-900',
     imageFit: 'contain',
   },
@@ -72,7 +82,7 @@ export const DESKTOP_IPHONE_SLIDES: HeroDesktopSlideData[] = [
     subtitle: 'Pro Max',
     headline: 'Beyond',
     headlineSuffix: 'IMAGINATION',
-    image: getImportedImageSrc(iphoneHeroDesktopAsset),
+    image: HERO_DESKTOP_LCP_SRC,
     theme: 'light',
   },
   {
@@ -82,7 +92,7 @@ export const DESKTOP_IPHONE_SLIDES: HeroDesktopSlideData[] = [
     headline: 'Forged in',
     headlineSuffix: 'TITANIUM',
     image:
-      'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-7inch-bluetitanium?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1692845702708',
+      'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-7inch-bluetitanium?wid=1920&hei=1080&fmt=p-jpg&qlt=80&.v=1692845702708',
     theme: 'light',
   },
   {
@@ -92,7 +102,7 @@ export const DESKTOP_IPHONE_SLIDES: HeroDesktopSlideData[] = [
     headline: 'Monster',
     headlineSuffix: 'PERFORMANCE',
     image:
-      'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-7inch-blacktitanium?wid=5120&hei=2880&fmt=p-jpg&qlt=80&.v=1692845702708',
+      'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-7inch-blacktitanium?wid=1920&hei=1080&fmt=p-jpg&qlt=80&.v=1692845702708',
     theme: 'light',
   },
 ];

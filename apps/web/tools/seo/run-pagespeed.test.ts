@@ -29,6 +29,7 @@ describe('run-pagespeed', () => {
     expect(result.failures.map((failure) => failure.metric)).toEqual([
       'performance',
       'seo',
+      'best-practices',
       'lcp',
       'cls',
       'inp',

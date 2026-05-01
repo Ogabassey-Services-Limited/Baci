@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/image', () => ({
@@ -79,5 +79,16 @@ describe('BannerCarousel', () => {
     })) {
       expect(button).toHaveAttribute('type', 'button');
     }
+  });
+
+  it('changes slides from accessible banner slide controls', () => {
+    render(<BannerCarousel />);
+    const newArrivalsControl = screen.getByRole('button', {
+      name: /new arrivals/i,
+    });
+
+    fireEvent.click(newArrivalsControl);
+
+    expect(screen.getByAltText('New Arrivals')).toBeInTheDocument();
   });
 });
