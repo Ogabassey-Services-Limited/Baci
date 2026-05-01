@@ -226,6 +226,7 @@ export const TransactionRowSchema = z.object({
     'bonus',
     'adjustment',
     'expiry',
+    'refund',
   ]),
   amount: z.number(),
   description: z.string().nullable().optional(),

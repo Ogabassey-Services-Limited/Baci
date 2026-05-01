@@ -1,0 +1,6 @@
+-- Supabase MCP recorded a duplicate live migration entry for
+-- include_wallet_topup_credits_in_wallet_backfill while applying the hotfix.
+-- The full function body is defined by the preceding 20260501071652 migration.
+-- This no-op mirrors the duplicate 20260501071917 live history row created
+-- during the May 1, 2026 PR hotfix, so local migrations stay aligned with the
+-- target database without redefining the function a second time.

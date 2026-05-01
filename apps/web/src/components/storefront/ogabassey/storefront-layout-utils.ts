@@ -7,11 +7,13 @@ import type { MerchantData } from '@/hooks/use-merchant';
 import {
   getContrastingTextColor,
   hexToHslComponents,
+  hexToRgba,
 } from '@/lib/color-utils';
 
 const DEFAULT_PRIMARY_COLOR = '#d62027';
 const DEFAULT_BACKGROUND_HSL = '0 0% 6%';
 const DEFAULT_FOREGROUND_HSL = '0 0% 98%';
+const STORE_BORDER_ALPHA = 0.24;
 
 export type OgabasseyChromeSection = 'header' | 'footer' | 'overlay';
 
@@ -64,6 +66,7 @@ export function getOgabasseyLayoutStyle(
 ): CSSProperties {
   const backgroundColor = merchant?.brand_colors?.background;
   const primaryColor = merchant?.brand_colors?.primary || DEFAULT_PRIMARY_COLOR;
+  const primaryTextColor = getContrastingTextColor(primaryColor);
   const accentColor = merchant?.brand_colors?.accent || DEFAULT_PRIMARY_COLOR;
 
   return {
@@ -80,15 +83,16 @@ export function getOgabasseyLayoutStyle(
       ? hexToHslComponents(getContrastingTextColor(backgroundColor))
       : DEFAULT_FOREGROUND_HSL,
     '--primary': hexToHslComponents(primaryColor),
-    '--primary-foreground': hexToHslComponents(
-      getContrastingTextColor(primaryColor)
-    ),
+    '--primary-foreground': hexToHslComponents(primaryTextColor),
     '--accent': hexToHslComponents(accentColor),
     '--accent-foreground': hexToHslComponents(
       getContrastingTextColor(accentColor)
     ),
     '--ring': hexToHslComponents(primaryColor),
     '--store-primary': primaryColor,
+    '--store-primary-text': primaryTextColor,
+    '--store-on-primary': primaryTextColor,
+    '--store-border': hexToRgba(primaryColor, STORE_BORDER_ALPHA),
     '--store-accent': accentColor,
   } as CSSProperties;
 }

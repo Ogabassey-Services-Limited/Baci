@@ -1,21 +1,11 @@
-/**
- * Wallet Data Hook - 2025 Best Practices
- *
- * Features:
- * - TanStack Query for caching & deduplication
- * - Suspense-ready with useSuspenseQuery option
- * - Optimistic updates for instant UI feedback
- * - Real-time sync via Supabase channels
- * - Type-safe with Zod inference
- */
-
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 import { z } from 'zod';
+import { useShallow } from 'zustand/react/shallow';
+import { CONFIG } from '@/lib/config';
 import { calculateCommerce, supabase } from '@/lib/supabase';
 import { CustomerRowSchema, TransactionRowSchema } from '@/lib/validation';
-import { useShallow } from 'zustand/react/shallow';
 import { useAuthStore } from '@/stores/auth-store';
 
 // ============================================
@@ -36,7 +26,8 @@ interface Transaction {
     | 'redemption'
     | 'bonus'
     | 'adjustment'
-    | 'expiry';
+    | 'expiry'
+    | 'refund';
   amount: number;
   description: string;
   created_at: string;
@@ -46,6 +37,14 @@ interface WalletQueryData {
   wallet: WalletData;
   transactions: Transaction[];
 }
+
+const WalletTransactionDataSchema = TransactionRowSchema.omit({
+  amount: true,
+  id: true,
+}).extend({
+  amount: z.union([z.number(), z.string()]),
+  id: z.string(),
+});
 
 const RedeemLoyaltyRpcResponseSchema = z.discriminatedUnion('success', [
   z
@@ -67,38 +66,162 @@ const RedeemLoyaltyRpcResponseSchema = z.discriminatedUnion('success', [
 // QUERY KEYS (Centralized for cache management)
 // ============================================
 
+const WALLET_QUERY_ROOT = ['wallet'] as const;
+
+interface WalletDataKeyInput {
+  merchantId: string;
+  ownerId: string;
+}
+
+function walletDataKey(
+  owner: WalletDataKeyInput
+): readonly ['wallet', 'data', 'v3', string, string] {
+  if (!owner.merchantId) {
+    throw new Error('wallet data query keys require a merchantId');
+  }
+
+  return [
+    ...WALLET_QUERY_ROOT,
+    'data',
+    'v3',
+    owner.ownerId,
+    owner.merchantId,
+  ] as const;
+}
+
 export const walletKeys = {
-  all: ['wallet'] as const,
-  data: (customerId: string) =>
-    [...walletKeys.all, 'data', customerId] as const,
+  all: WALLET_QUERY_ROOT,
+  data: walletDataKey,
   transactions: (customerId: string) =>
     [...walletKeys.all, 'transactions', customerId] as const,
 };
+
+type WalletQueryKey = ReturnType<typeof walletKeys.data>;
 
 // ============================================
 // FETCHERS
 // ============================================
 
+function coerceDatabaseNumber(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value === 'string') {
+    const trimmedValue = value.trim();
+    if (!trimmedValue) {
+      return null;
+    }
+
+    const numericValue = Number(trimmedValue);
+    return Number.isFinite(numericValue) ? numericValue : null;
+  }
+
+  return null;
+}
+
+function normalizeWalletTransaction(row: unknown): Transaction | null {
+  const validation = WalletTransactionDataSchema.safeParse(row);
+  if (!validation.success) {
+    return null;
+  }
+
+  const amount = coerceDatabaseNumber(validation.data.amount);
+  if (amount === null) {
+    return null;
+  }
+
+  return {
+    ...validation.data,
+    amount,
+    description: validation.data.description ?? '',
+  };
+}
+
+function getEmptyWalletData(loyaltyPoints: unknown = 0): WalletQueryData {
+  return {
+    wallet: {
+      balance: 0,
+      loyalty_points: coerceDatabaseNumber(loyaltyPoints) ?? 0,
+    },
+    transactions: [],
+  };
+}
+
 async function fetchWalletData(
-  customerId: string,
-  merchantId: string
+  customerId: string | null,
+  merchantId: string,
+  userId: string | null
 ): Promise<WalletQueryData> {
-  // Step 1: Fetch customer loyalty points + wallet record in parallel
-  const [customerResult, walletResult] = await Promise.all([
-    supabase
-      .from('customers')
-      .select('loyalty_points')
-      .eq('id', customerId)
-      .single(),
-    supabase
-      .from('customer_wallets')
-      .select('id, available_balance')
-      .eq('customer_id', customerId)
-      .eq('merchant_id', merchantId)
-      .maybeSingle(), // Wallet may not exist yet for new customers
-  ]);
+  // Step 1: Resolve the customer first. On app restore, the auth user can be
+  // ready before customer hydration finishes, so fall back to RLS-scoped lookup.
+  let customerQuery = supabase
+    .from('customers')
+    .select('id, loyalty_points')
+    .eq('merchant_id', merchantId);
+
+  if (customerId) {
+    customerQuery = customerQuery.eq('id', customerId);
+  } else if (userId) {
+    customerQuery = customerQuery.eq('user_id', userId);
+  }
+
+  const customerResult = await customerQuery.limit(2);
 
   if (customerResult.error) throw customerResult.error;
+
+  const customerRows = Array.isArray(customerResult.data)
+    ? customerResult.data
+    : [];
+
+  if (customerRows.length === 0) {
+    return getEmptyWalletData();
+  }
+
+  if (customerRows.length > 1) {
+    console.warn('Expected one customer wallet owner, received multiple rows', {
+      customerId,
+      merchantId,
+      userId,
+    });
+    return getEmptyWalletData();
+  }
+
+  const customerRow = customerRows[0];
+  const resolvedCustomerId =
+    customerId ?? (typeof customerRow.id === 'string' ? customerRow.id : '');
+
+  // Without a customer_id filter, customer_wallets.maybeSingle() can fail as
+  // soon as the merchant has more than one wallet. Return the empty wallet
+  // state until auth/customer hydration can provide a scoped customer.
+  if (!resolvedCustomerId) {
+    const customerValidation = CustomerRowSchema.pick({
+      loyalty_points: true,
+    }).safeParse(customerRow);
+    const safeLoyaltyPoints =
+      customerValidation.success &&
+      customerValidation.data.loyalty_points != null
+        ? (coerceDatabaseNumber(customerValidation.data.loyalty_points) ?? 0)
+        : (coerceDatabaseNumber(customerRow.loyalty_points) ?? 0);
+
+    return {
+      wallet: {
+        balance: 0,
+        loyalty_points: safeLoyaltyPoints,
+      },
+      transactions: [],
+    };
+  }
+
+  let walletQuery = supabase
+    .from('customer_wallets')
+    .select('id, available_balance')
+    .eq('merchant_id', merchantId);
+
+  walletQuery = walletQuery.eq('customer_id', resolvedCustomerId);
+
+  const walletResult = await walletQuery.maybeSingle();
+
   if (walletResult.error) throw walletResult.error;
 
   // Step 2: Fetch customer wallet transactions if wallet exists.
@@ -111,32 +234,31 @@ async function fetchWalletData(
       .order('created_at', { ascending: false })
       .limit(20);
 
-    if (!txResult.error && txResult.data) {
-      const validation = z.array(TransactionRowSchema).safeParse(txResult.data);
-      transactionRows = (
-        validation.success ? validation.data : txResult.data
-      ).map((t) => ({
-        ...t,
-        description: (t as { description?: string | null }).description ?? '',
-      })) as Transaction[];
+    if (txResult.error) throw txResult.error;
+
+    if (txResult.data) {
+      transactionRows = txResult.data.reduce<Transaction[]>((rows, row) => {
+        const transaction = normalizeWalletTransaction(row);
+        if (transaction) {
+          rows.push(transaction);
+        }
+        return rows;
+      }, []);
     }
   }
 
   // Validate customer data
   const customerValidation = CustomerRowSchema.pick({
     loyalty_points: true,
-  }).safeParse(customerResult.data);
+  }).safeParse(customerRow);
 
   const safeBalance =
-    typeof walletResult.data?.available_balance === 'number'
-      ? walletResult.data.available_balance
-      : 0;
+    coerceDatabaseNumber(walletResult.data?.available_balance) ?? 0;
 
-  const safeLoyaltyPoints = customerValidation.success
-    ? (customerValidation.data.loyalty_points ?? 0)
-    : typeof customerResult.data?.loyalty_points === 'number'
-      ? customerResult.data.loyalty_points
-      : 0;
+  const safeLoyaltyPoints =
+    customerValidation.success && customerValidation.data.loyalty_points != null
+      ? (coerceDatabaseNumber(customerValidation.data.loyalty_points) ?? 0)
+      : (coerceDatabaseNumber(customerRow.loyalty_points) ?? 0);
 
   return {
     wallet: {
@@ -156,18 +278,25 @@ async function fetchWalletData(
  */
 export function useWallet() {
   const queryClient = useQueryClient();
-  const { customer, merchantId } = useAuthStore(
+  const { customer, merchantId, user } = useAuthStore(
     useShallow((state) => ({
       customer: state.customer,
       merchantId: state.merchantId,
+      user: state.user,
     }))
   );
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const walletOwnerId = customer?.id ?? user?.id ?? '';
+  const activeMerchantId = merchantId || CONFIG.MERCHANT_ID;
 
   const query = useQuery({
-    queryKey: walletKeys.data(customer?.id || ''),
-    queryFn: () => fetchWalletData(customer?.id ?? '', merchantId ?? ''),
-    enabled: !!customer?.id && !!merchantId,
+    queryKey: walletKeys.data({
+      merchantId: activeMerchantId,
+      ownerId: walletOwnerId,
+    }),
+    queryFn: () =>
+      fetchWalletData(customer?.id ?? null, activeMerchantId, user?.id ?? null),
+    enabled: !!walletOwnerId && !!activeMerchantId,
     staleTime: 30_000, // Consider fresh for 30 seconds
     gcTime: 5 * 60_000, // Keep in cache for 5 minutes
   });
@@ -200,7 +329,10 @@ export function useWallet() {
           // Only invalidate if still mounted
           if (isMounted) {
             queryClient.invalidateQueries({
-              queryKey: walletKeys.data(customer.id),
+              queryKey: walletKeys.data({
+                merchantId: activeMerchantId,
+                ownerId: customer.id,
+              }),
             });
           }
         }
@@ -216,7 +348,10 @@ export function useWallet() {
         () => {
           if (isMounted) {
             queryClient.invalidateQueries({
-              queryKey: walletKeys.data(customer.id),
+              queryKey: walletKeys.data({
+                merchantId: activeMerchantId,
+                ownerId: customer.id,
+              }),
             });
           }
         }
@@ -233,7 +368,7 @@ export function useWallet() {
         channelRef.current = null;
       }
     };
-  }, [customer?.id, queryClient]);
+  }, [activeMerchantId, customer?.id, queryClient]);
 
   return query;
 }
@@ -243,26 +378,31 @@ export function useWallet() {
  */
 export function useRedeemPoints() {
   const queryClient = useQueryClient();
-  const { customer, merchantId } = useAuthStore(
+  const { customer, merchantId, user } = useAuthStore(
     useShallow((state) => ({
       customer: state.customer,
       merchantId: state.merchantId,
+      user: state.user,
     }))
   );
+  const activeMerchantId = merchantId || CONFIG.MERCHANT_ID;
 
   return useMutation({
     mutationFn: async (points: number) => {
-      if (!customer?.id || !merchantId) {
+      if (!customer?.id || !activeMerchantId) {
         throw new Error('Authentication required. Please sign in again.');
       }
 
       // Capture in local variables to prevent stale closure if auth changes mid-request
       const customerId = customer.id;
-      const currentMerchantId = merchantId;
+      const currentMerchantId = activeMerchantId;
 
       // Look up current points balance from cached wallet data
       const cachedData = queryClient.getQueryData<WalletQueryData>(
-        walletKeys.data(customerId)
+        walletKeys.data({
+          merchantId: currentMerchantId,
+          ownerId: customerId,
+        })
       );
       const currentPoints = cachedData?.wallet?.loyalty_points ?? 0;
 
@@ -311,50 +451,59 @@ export function useRedeemPoints() {
 
     // 2025 Best Practice: Optimistic updates
     onMutate: async (points) => {
+      const walletOwnerId = customer?.id ?? user?.id ?? '';
+      if (!walletOwnerId || !activeMerchantId) {
+        return { previousData: undefined, queryKey: undefined };
+      }
+
+      const queryKey: WalletQueryKey = walletKeys.data({
+        merchantId: activeMerchantId,
+        ownerId: walletOwnerId,
+      });
+
       // Cancel outgoing refetches
       await queryClient.cancelQueries({
-        queryKey: walletKeys.data(customer?.id || ''),
+        queryKey,
       });
 
       // Snapshot previous value
-      const previousData = queryClient.getQueryData<WalletQueryData>(
-        walletKeys.data(customer?.id || '')
-      );
+      const previousData = queryClient.getQueryData<WalletQueryData>(queryKey);
 
       // Optimistically update points only; balance is not updated optimistically
       // because the actual conversion rate is determined server-side by calculateCommerce.
       // The real balance will be synced on query invalidation after mutation settles.
       if (previousData) {
-        queryClient.setQueryData<WalletQueryData>(
-          walletKeys.data(customer?.id || ''),
-          {
-            ...previousData,
-            wallet: {
-              ...previousData.wallet,
-              loyalty_points: previousData.wallet.loyalty_points - points,
-            },
-          }
+        const nextLoyaltyPoints = Math.max(
+          0,
+          previousData.wallet.loyalty_points - points
         );
+
+        queryClient.setQueryData<WalletQueryData>(queryKey, {
+          ...previousData,
+          wallet: {
+            ...previousData.wallet,
+            loyalty_points: nextLoyaltyPoints,
+          },
+        });
       }
 
-      return { previousData };
+      return { previousData, queryKey };
     },
 
     // Rollback on error
     onError: (_err, _points, context) => {
-      if (context?.previousData) {
-        queryClient.setQueryData(
-          walletKeys.data(customer?.id || ''),
-          context.previousData
-        );
+      if (context?.previousData && context.queryKey) {
+        queryClient.setQueryData(context.queryKey, context.previousData);
       }
     },
 
     // Refetch after success or error
-    onSettled: () => {
-      queryClient.invalidateQueries({
-        queryKey: walletKeys.data(customer?.id || ''),
-      });
+    onSettled: (_data, _error, _points, context) => {
+      if (context?.queryKey) {
+        queryClient.invalidateQueries({
+          queryKey: context.queryKey,
+        });
+      }
     },
   });
 }

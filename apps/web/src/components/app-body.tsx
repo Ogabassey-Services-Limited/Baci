@@ -2,8 +2,14 @@
 
 import dynamic from 'next/dynamic';
 import type { MerchantData } from '@/hooks/use-merchant';
-import { getContrastingTextColor, hexToHslComponents } from '@/lib/color-utils';
+import {
+  getContrastingTextColor,
+  hexToHslComponents,
+  hexToRgba,
+} from '@/lib/color-utils';
 import { cn } from '@/lib/utils';
+
+const STORE_BORDER_ALPHA = 0.24;
 
 // Dynamically import non-critical components to reduce initial bundle size
 // These components appear after user interaction or with delay
@@ -52,6 +58,9 @@ export default function AppBody({
    */
   applyMerchantCoreThemeVariables?: boolean;
 }) {
+  const primaryTextColor = merchant?.brand_colors
+    ? getContrastingTextColor(merchant.brand_colors.primary)
+    : undefined;
   // Define CSS variables for the merchant's theme
   const themeStyle = merchant?.brand_colors
     ? {
@@ -85,8 +94,11 @@ export default function AppBody({
         '--store-primary': merchant.brand_colors.primary,
         '--store-background': merchant.brand_colors.background,
         '--store-accent': merchant.brand_colors.accent,
-        '--store-primary-text': getContrastingTextColor(
-          merchant.brand_colors.primary
+        '--store-primary-text': primaryTextColor,
+        '--store-on-primary': primaryTextColor,
+        '--store-border': hexToRgba(
+          merchant.brand_colors.primary,
+          STORE_BORDER_ALPHA
         ),
         '--store-background-text': getContrastingTextColor(
           merchant.brand_colors.background

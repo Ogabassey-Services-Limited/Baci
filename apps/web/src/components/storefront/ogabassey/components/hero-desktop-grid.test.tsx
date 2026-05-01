@@ -28,10 +28,15 @@ vi.mock('next/image', () => ({
         )
       )}
       alt={String(props.alt ?? '')}
+      data-priority={String(Boolean(props.priority))}
     />
   ),
 }));
 
+import {
+  FLASH_SALE_PROMO_IMAGE,
+  NEW_ARRIVALS_PROMO_IMAGE,
+} from './hero-data';
 import { HeroDesktopGrid } from './hero-desktop-grid';
 
 describe('HeroDesktopGrid', () => {
@@ -50,5 +55,28 @@ describe('HeroDesktopGrid', () => {
 
     expect(screen.getByRole('button', { name: /go to slide 2/i })).toBeInTheDocument();
   });
-});
 
+  it('uses valid CDN product assets for the secondary promo panels', () => {
+    const { container } = render(
+      <HeroDesktopGrid getHref={(path) => `/ogabassey${path}`} />
+    );
+    const sources = Array.from(container.querySelectorAll('img')).map((image) =>
+      image.getAttribute('src')
+    );
+
+    expect(sources).toEqual(
+      expect.not.arrayContaining([
+        'https://cdn.ogabassey.com/products/flash-sale-banner.avif',
+        'https://cdn.ogabassey.com/products/new-arrivals-banner.avif',
+        '/website%20designs/Macbooks/macbook%20pro.avif',
+        '/website%20designs/GAMES/PS5%20SLIM%20CONSOLE%201TB.avif',
+      ])
+    );
+    expect(sources).toEqual(
+      expect.arrayContaining([
+        FLASH_SALE_PROMO_IMAGE,
+        NEW_ARRIVALS_PROMO_IMAGE,
+      ])
+    );
+  });
+});

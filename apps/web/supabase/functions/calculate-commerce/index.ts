@@ -1,12 +1,8 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-
-const KUDA_COMMISSION_RATES: Record<string, number> = {
-  MTN_AIRTIME: 0.03,
-  AIRTEL_AIRTIME: 0.03,
-  GLO_AIRTIME: 0.04,
-  '9MOBILE_AIRTIME': 0.05,
-  DEFAULT: 0.02,
-};
+import {
+  getVtuCommissionRate,
+  normalizeVtuCommissionCategory,
+} from '../../../src/lib/vtu-commission-rates.ts';
 
 console.log('Hello from calculate-commerce!');
 
@@ -34,11 +30,16 @@ Deno.serve(async (req) => {
           category = 'AIRTIME',
           merchantSplit = 50,
         } = data;
-        const key = `${provider.toUpperCase()}_${category}`;
-        const rate =
-          KUDA_COMMISSION_RATES[key] || KUDA_COMMISSION_RATES.DEFAULT;
+        const { cap, rate } = getVtuCommissionRate(
+          String(provider ?? ''),
+          normalizeVtuCommissionCategory(category)
+        );
 
-        const totalCommission = amount * rate;
+        let totalCommission = amount * rate;
+        if (cap && totalCommission > cap) {
+          totalCommission = cap;
+        }
+
         const merchantEarning = totalCommission * (merchantSplit / 100);
         const platformEarning = totalCommission - merchantEarning;
 

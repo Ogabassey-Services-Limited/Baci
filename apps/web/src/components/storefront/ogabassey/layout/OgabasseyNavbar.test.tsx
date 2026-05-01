@@ -50,6 +50,12 @@ vi.mock('next/navigation', () => ({
   })),
 }));
 
+vi.mock('next/dynamic', () => ({
+  default: () => function DynamicComponentMock() {
+    return null;
+  },
+}));
+
 vi.mock('@/hooks/cart', () => ({
   useCart: vi.fn(() => ({
     totalItems: 3,
@@ -160,6 +166,19 @@ describe('OgabasseyNavbar', () => {
     fireEvent.click(await screen.findByRole('button', { name: /select product/i }));
 
     expect(mocks.push).toHaveBeenCalledWith('/ogabassey/products/iphone%2015');
+  });
+
+  it('names the mobile menu button for assistive technology', () => {
+    render(<OgabasseyNavbar storeSlug="/ogabassey" />);
+
+    const menuButton = screen.getByRole('button', { name: /open menu/i });
+
+    expect(menuButton).toHaveAttribute('type', 'button');
+    expect(menuButton).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(menuButton);
+
+    expect(menuButton).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('pushes store-prefixed blog search routes on the blog page', () => {

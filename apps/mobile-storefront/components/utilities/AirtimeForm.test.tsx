@@ -7,6 +7,7 @@ import {
 } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import type { ExtractState } from 'zustand/vanilla';
+import { BRAND } from '@/constants/Colors';
 import { VtuPaymentStillProcessingError } from '@/lib/vtu-checkout';
 import type { useAuthStore as useAuthStoreType } from '@/stores/auth-store';
 import { AirtimeForm } from './AirtimeForm';
@@ -148,14 +149,32 @@ describe('AirtimeForm', () => {
     jest.restoreAllMocks();
   });
 
-  it('shows manual network options before a provider is selected', () => {
+  it('keeps network provider cards hidden until manual selection', () => {
     render(<AirtimeForm onSuccess={jest.fn()} />);
 
     expect(screen.getByText('Phone Number')).toBeOnTheScreen();
     expect(screen.getByText('Select Network')).toBeOnTheScreen();
     expect(screen.getByText('Choose manually')).toBeOnTheScreen();
+    expect(screen.queryByText('MTN')).toBeNull();
+    expect(screen.queryByText('Airtel')).toBeNull();
+
+    fireEvent.press(screen.getByLabelText('Choose network manually'));
+
     expect(screen.getByText('MTN')).toBeOnTheScreen();
     expect(screen.getByText('Airtel')).toBeOnTheScreen();
+  });
+
+  it('does not auto-expand network options for unknown phone prefixes', () => {
+    render(<AirtimeForm onSuccess={jest.fn()} />);
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('08012345678'),
+      '08012345678'
+    );
+
+    expect(screen.getByText('Choose manually')).toBeOnTheScreen();
+    expect(screen.queryByText('MTN')).toBeNull();
+    expect(screen.queryByText('Airtel')).toBeNull();
   });
 
   it('collapses to the detected network after phone entry', async () => {
@@ -172,6 +191,41 @@ describe('AirtimeForm', () => {
     expect(screen.queryByText('Airtel')).toBeNull();
   });
 
+  it('clears the detected network when the phone number is erased', async () => {
+    render(<AirtimeForm onSuccess={jest.fn()} />);
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('08012345678'),
+      '08031234567'
+    );
+    await waitFor(() => expect(screen.getByText('Network')).toBeOnTheScreen());
+
+    fireEvent.changeText(screen.getByPlaceholderText('08012345678'), '');
+
+    expect(screen.queryByText('Network')).toBeNull();
+    expect(screen.queryByText('MTN')).toBeNull();
+    expect(screen.getByText('Choose manually')).toBeOnTheScreen();
+  });
+
+  it('clears a stale detected network when phone edits become an unknown prefix', async () => {
+    render(<AirtimeForm onSuccess={jest.fn()} />);
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('08012345678'),
+      '08031234567'
+    );
+    await waitFor(() => expect(screen.getByText('Network')).toBeOnTheScreen());
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('08012345678'),
+      '08001234567'
+    );
+
+    expect(screen.queryByText('Network')).toBeNull();
+    expect(screen.queryByText('MTN')).toBeNull();
+    expect(screen.getByText('Choose manually')).toBeOnTheScreen();
+  });
+
   it('expands network options from the selected network card', async () => {
     render(<AirtimeForm initialProvider="mtn" onSuccess={jest.fn()} />);
 
@@ -182,6 +236,26 @@ describe('AirtimeForm', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Airtel')).toBeOnTheScreen();
+    });
+  });
+
+  it('highlights a quick amount when tapped', () => {
+    render(<AirtimeForm onSuccess={jest.fn()} />);
+
+    fireEvent.press(screen.getByText('₦1,000'));
+
+    expect(screen.getByText('₦1,000')).toHaveStyle({
+      color: BRAND.onPrimary,
+    });
+  });
+
+  it('highlights the matching quick amount when typed manually', () => {
+    render(<AirtimeForm onSuccess={jest.fn()} />);
+
+    fireEvent.changeText(screen.getByPlaceholderText('1,000'), '1000');
+
+    expect(screen.getByText('₦1,000')).toHaveStyle({
+      color: BRAND.onPrimary,
     });
   });
 

@@ -3,6 +3,7 @@
 import { Play } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
+import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 import { asRoute } from '@/lib/routes';
 import { AdUnit } from './AdUnit';
@@ -14,6 +15,21 @@ interface HeroMobileCarouselProps {
   hasResolvedViewport: boolean;
   isDesktopViewport: boolean;
 }
+
+const STORE_PRIMARY_FALLBACK = 'var(--store-primary, #d62027)';
+const STORE_BORDER_FALLBACK = 'var(--store-border, rgba(214, 32, 39, 0.24))';
+const STORE_ON_PRIMARY_FALLBACK = 'var(--store-on-primary, #ffffff)';
+
+const HERO_CTA_STYLE: CSSProperties = {
+  backgroundColor: STORE_PRIMARY_FALLBACK,
+  borderColor: STORE_BORDER_FALLBACK,
+  color: STORE_ON_PRIMARY_FALLBACK,
+};
+
+const getIndicatorStyle = (isActive: boolean): CSSProperties => ({
+  backgroundColor: isActive ? STORE_PRIMARY_FALLBACK : STORE_BORDER_FALLBACK,
+  opacity: isActive ? 1 : 0.65,
+});
 
 export function HeroMobileCarousel({
   getHref,
@@ -68,7 +84,8 @@ export function HeroMobileCarousel({
                   <Link
                     href={asRoute(getHref('/products'))}
                     prefetch={false}
-                    className={`mt-3 text-[10px] font-bold px-4 py-2 rounded-full shadow-sm transition-all border inline-block ${slide.textColor === 'text-white' ? 'bg-white/20 hover:bg-white/30 border-white/30 text-white' : 'bg-black/5 hover:bg-black/10 border-black/10 text-gray-900'}`}
+                    className="mt-3 inline-flex min-h-12 items-center justify-center text-xs font-bold px-5 py-2 rounded-full shadow-sm transition-opacity hover:opacity-90 border"
+                    style={HERO_CTA_STYLE}
                   >
                     Shop Now
                   </Link>
@@ -89,7 +106,9 @@ export function HeroMobileCarousel({
                           ? 'object-contain object-right'
                           : 'object-cover'
                       }
-                      priority={slide.id === 1}
+                      priority={index === 0}
+                      // Lighthouse did not see a high fetch priority from priority alone with the custom loader.
+                      fetchPriority={index === 0 ? 'high' : undefined}
                       quality={70}
                     />
                   </div>
@@ -142,7 +161,8 @@ export function HeroMobileCarousel({
                 </h2>
                 <p className="text-xs opacity-90 mb-3">{slide.subtitle}</p>
                 <button
-                  className="text-[10px] font-bold px-4 py-2 rounded-full bg-white text-black flex items-center gap-1 w-fit"
+                  className="text-xs font-bold px-4 py-2 rounded-full flex min-h-12 items-center gap-1 w-fit border"
+                  style={HERO_CTA_STYLE}
                   aria-label="Watch video demo"
                 >
                   <Play size={10} fill="currentColor" aria-hidden="true" />
@@ -173,24 +193,20 @@ export function HeroMobileCarousel({
       <div className="absolute bottom-3 left-6 flex gap-1.5 z-20">
         {MOBILE_SLIDES.map((slide, idx) => {
           const isActive = currentSlide === idx;
-          const isWhiteText =
-            slide.type !== 'ad' && slide.textColor === 'text-white';
 
           return (
             <button
               key={slide.id}
               type="button"
               onClick={() => setCurrentSlide(idx)}
-              className={`h-1 rounded-full transition-all duration-300 cursor-pointer ${isActive
-                ? isWhiteText
-                  ? 'w-5 bg-white'
-                  : 'w-5 bg-gray-900'
-                : isWhiteText
-                  ? 'w-1.5 bg-white/40'
-                  : 'w-1.5 bg-gray-900/20'
-                }`}
+              className="flex h-12 min-w-12 items-center justify-center rounded-full cursor-pointer"
               aria-label={`Go to hero slide ${idx + 1}`}
-            />
+            >
+              <span
+                className={`block h-1 rounded-full transition-[width,background-color,opacity] duration-300 ${isActive ? 'w-5' : 'w-1.5'}`}
+                style={getIndicatorStyle(isActive)}
+              />
+            </button>
           );
         })}
       </div>

@@ -15,6 +15,17 @@ interface PaymentSuccessViewProps {
   paymentKind?: PaymentKind;
 }
 
+function getRedirectMessage(paymentKind?: PaymentKind) {
+  switch (paymentKind) {
+    case PAYMENT_KINDS.VTU:
+      return 'Redirecting to your utility confirmation...';
+    case PAYMENT_KINDS.WALLET:
+      return 'Redirecting to your wallet...';
+    default:
+      return 'Redirecting to your order confirmation...';
+  }
+}
+
 export function PaymentSuccessView({
   colors,
   paymentKind,
@@ -46,9 +57,7 @@ export function PaymentSuccessView({
           Payment Successful!
         </Text>
         <Text style={[styles.statusMessage, { color: colors.textSecondary }]}>
-          {paymentKind === PAYMENT_KINDS.VTU
-            ? 'Redirecting to your utility confirmation...'
-            : 'Redirecting to your order confirmation...'}
+          {getRedirectMessage(paymentKind)}
         </Text>
         <ActivityIndicator
           accessibilityLabel="Redirecting after payment success"
