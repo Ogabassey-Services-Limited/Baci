@@ -40,7 +40,7 @@ export async function readAgenticMutationRequest({
     };
   }
 
-  const idempotencyKey = request.headers.get('idempotency-key') ?? '';
+  const idempotencyKey = request.headers.get('idempotency-key')?.trim() ?? '';
   if (requireIdempotency && !idempotencyKey) {
     return {
       ok: false,

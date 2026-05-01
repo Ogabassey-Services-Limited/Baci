@@ -1,4 +1,5 @@
 import { createHmac } from 'node:crypto';
+import { getAgenticSigningKeys } from '@/env';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 
 export const AGENTIC_API_VERSION = '2026-04-30';
@@ -129,9 +130,6 @@ function canonicalRequestSignaturePayload({
   });
 }
 
-export function getAgenticSigningSecrets() {
-  return [
-    process.env.OPENAI_AGENTIC_SIGNING_KEY,
-    process.env.OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS,
-  ].filter((value): value is string => Boolean(value));
+export function getAgenticSigningSecrets(): string[] {
+  return getAgenticSigningKeys();
 }

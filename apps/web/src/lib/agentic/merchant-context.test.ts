@@ -1,8 +1,6 @@
+// @vitest-environment node
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import {
-  getConfiguredAgenticMerchantSlug,
-  resolveAgenticMerchantContext,
-} from '@/lib/agentic/merchant-context';
 
 function createMerchantLookupMock(data: unknown, error: unknown = null) {
   const maybeSingle = vi.fn().mockResolvedValue({ data, error });
@@ -17,33 +15,48 @@ function createMerchantLookupMock(data: unknown, error: unknown = null) {
   };
 }
 
-describe('resolveAgenticMerchantContext', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
+function stubBaseEnv() {
+  vi.stubEnv('NODE_ENV', 'test');
+  vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-role-key');
+  vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://supabase.example.com');
+  vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'anon-key');
+}
 
-  it('resolves the default Ogabassey merchant context', async () => {
-    const mock = createMerchantLookupMock({
-      business_name: 'Ogabassey',
-      id: 'merchant-1',
-      paystack_subaccount_code: 'ACCT_test123',
-      slug: 'ogabassey',
-    });
+function stubCompleteAgenticRuntimeEnv() {
+  vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'demo-store');
+  vi.stubEnv('OPENAI_AGENTIC_API_KEY', 'agent-api-key');
+  vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY', 'confirmation-key');
+  vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', 'signing-key');
+  vi.stubEnv('PAYSTACK_SECRET_KEY', 'paystack-secret');
+}
+
+function loadMerchantContextModule() {
+  vi.resetModules();
+  return import('@/lib/agentic/merchant-context');
+}
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.resetModules();
+});
+
+describe('resolveAgenticMerchantContext', () => {
+  it('returns null when no agentic merchant slug is configured', async () => {
+    stubBaseEnv();
+    const { resolveAgenticMerchantContext } = await loadMerchantContextModule();
+    const mock = createMerchantLookupMock(null);
 
     const context = await resolveAgenticMerchantContext(mock.supabase as never);
 
-    expect(context).toEqual({
-      business_name: 'Ogabassey',
-      custom_domain: undefined,
-      id: 'merchant-1',
-      paystack_subaccount_code: 'ACCT_test123',
-      slug: 'ogabassey',
-    });
-    expect(mock.eq).toHaveBeenCalledWith('slug', 'ogabassey');
+    expect(context).toBeNull();
+    expect(mock.from).not.toHaveBeenCalled();
   });
 
   it('uses the configured agentic merchant slug when present', async () => {
+    stubBaseEnv();
     vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'demo-store');
+    const { getConfiguredAgenticMerchantSlug, resolveAgenticMerchantContext } =
+      await loadMerchantContextModule();
     const mock = createMerchantLookupMock({
       business_name: 'Demo Store',
       id: 'merchant-2',
@@ -59,10 +72,40 @@ describe('resolveAgenticMerchantContext', () => {
   });
 
   it('returns null when the configured merchant cannot be resolved', async () => {
+    stubBaseEnv();
+    vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'missing-store');
+    const { resolveAgenticMerchantContext } = await loadMerchantContextModule();
     const mock = createMerchantLookupMock(null, { message: 'not found' });
 
     const context = await resolveAgenticMerchantContext(mock.supabase as never);
 
     expect(context).toBeNull();
+  });
+});
+
+describe('isAgenticCheckoutRuntimeConfigured', () => {
+  it('requires all runtime checkout secrets before advertising checkout', async () => {
+    stubBaseEnv();
+    stubCompleteAgenticRuntimeEnv();
+    const { isAgenticCheckoutRuntimeConfigured } =
+      await loadMerchantContextModule();
+
+    expect(isAgenticCheckoutRuntimeConfigured()).toBe(true);
+  });
+
+  it.each([
+    'OPENAI_AGENTIC_MERCHANT_SLUG',
+    'OPENAI_AGENTIC_API_KEY',
+    'OPENAI_AGENTIC_CONFIRMATION_KEY',
+    'OPENAI_AGENTIC_SIGNING_KEY',
+    'PAYSTACK_SECRET_KEY',
+  ])('does not advertise checkout when %s is missing', async (envKey) => {
+    stubBaseEnv();
+    stubCompleteAgenticRuntimeEnv();
+    vi.stubEnv(envKey, '');
+    const { isAgenticCheckoutRuntimeConfigured } =
+      await loadMerchantContextModule();
+
+    expect(isAgenticCheckoutRuntimeConfigured()).toBe(false);
   });
 });

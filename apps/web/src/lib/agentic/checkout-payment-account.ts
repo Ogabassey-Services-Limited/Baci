@@ -20,8 +20,20 @@ export async function createAgenticCheckoutPaymentAccount({
   paystackSubaccountCode,
 }: {
   buyer: AgenticCheckoutBuyer;
-  paystackSubaccountCode: string;
+  paystackSubaccountCode: string | null | undefined;
 }): Promise<CreateCheckoutPaymentAccountResult> {
+  const normalizedSubaccountCode =
+    typeof paystackSubaccountCode === 'string'
+      ? paystackSubaccountCode.trim()
+      : '';
+  if (!normalizedSubaccountCode) {
+    return {
+      error: new Error('Merchant Paystack subaccount is not configured'),
+      errorMessage: 'Merchant Paystack subaccount is not configured',
+      ok: false,
+    };
+  }
+
   try {
     const account = await createDedicatedVirtualAccount(
       {
@@ -30,7 +42,7 @@ export async function createAgenticCheckoutPaymentAccount({
         last_name: buyer.last_name,
         phone: buyer.phone_number,
       },
-      { subaccount: paystackSubaccountCode }
+      { subaccount: normalizedSubaccountCode }
     );
 
     return {

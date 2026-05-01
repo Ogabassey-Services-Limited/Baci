@@ -39,8 +39,8 @@ describe('checkout completion authorization response helpers', () => {
   });
 
   it('returns only configured checkout authorization secrets', () => {
-    vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY', 'current-secret');
-    vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS', '');
+    vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY', ' current-secret ');
+    vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS', ' ');
 
     expect(getCheckoutCompletionAuthorizationSecrets()).toEqual([
       'current-secret',

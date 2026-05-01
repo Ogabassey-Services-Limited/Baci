@@ -31,6 +31,12 @@ const serverSchema = z
     KORAPAY_SECRET_KEY: z.string().optional(),
     JUICYWAY_SECRET_KEY: z.string().optional(),
     PAYSTACK_SECRET_KEY: z.string().optional(),
+    OPENAI_AGENTIC_API_KEY: z.string().optional(),
+    OPENAI_AGENTIC_CONFIRMATION_KEY: z.string().optional(),
+    OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS: z.string().optional(),
+    OPENAI_AGENTIC_MERCHANT_SLUG: z.string().optional(),
+    OPENAI_AGENTIC_SIGNING_KEY: z.string().optional(),
+    OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS: z.string().optional(),
 
     // Email
     ZEPTOMAIL_TOKEN: z.string().optional(),
@@ -94,7 +100,16 @@ const serverSchema = z
     JUMIA_CLIENT_SECRET: z.string().optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.NODE_ENV !== 'production' || value.SUPABASE_JWT_SECRET) {
+    const isGitHubActionsBuild =
+      process.env.GITHUB_ACTIONS === 'true' &&
+      Boolean(process.env.GITHUB_RUN_ID) &&
+      Boolean(process.env.GITHUB_REPOSITORY);
+
+    if (
+      value.NODE_ENV !== 'production' ||
+      isGitHubActionsBuild ||
+      value.SUPABASE_JWT_SECRET
+    ) {
       return;
     }
 
@@ -180,6 +195,15 @@ const getEnv = () => {
         KORAPAY_SECRET_KEY: process.env.KORAPAY_SECRET_KEY,
         JUICYWAY_SECRET_KEY: process.env.JUICYWAY_SECRET_KEY,
         PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY,
+        OPENAI_AGENTIC_API_KEY: process.env.OPENAI_AGENTIC_API_KEY,
+        OPENAI_AGENTIC_CONFIRMATION_KEY:
+          process.env.OPENAI_AGENTIC_CONFIRMATION_KEY,
+        OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS:
+          process.env.OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS,
+        OPENAI_AGENTIC_MERCHANT_SLUG: process.env.OPENAI_AGENTIC_MERCHANT_SLUG,
+        OPENAI_AGENTIC_SIGNING_KEY: process.env.OPENAI_AGENTIC_SIGNING_KEY,
+        OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS:
+          process.env.OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS,
         ZEPTOMAIL_TOKEN: process.env.ZEPTOMAIL_TOKEN,
         GOOGLE_GENAI_API_KEY: process.env.GOOGLE_GENAI_API_KEY,
         GEMINI_API_KEY: process.env.GEMINI_API_KEY,
@@ -293,6 +317,57 @@ export const getKorapaySecretKey = () => env?.KORAPAY_SECRET_KEY;
 export const getKorapayPublicKey = () => env?.KORAPAY_PUBLIC_KEY;
 export const getJuicywaySecretKey = () => env?.JUICYWAY_SECRET_KEY;
 export const getJuicywayBaseUrl = () => env?.JUICYWAY_BASE_URL;
+const isBrowserRuntime = () =>
+  // Server-route tests run in jsdom, so agentic server-only getters use this
+  // helper to avoid treating Vitest's window shim as a real browser runtime.
+  typeof window !== 'undefined' && process.env.NODE_ENV !== 'test';
+const trimSecret = (value: string | undefined): string => value?.trim() ?? '';
+
+// Agentic runtime secrets are read at call time so serverless env rotations and
+// tests that stub process.env after module load use the current secret values.
+export const getAgenticApiKey = () => {
+  if (isBrowserRuntime()) return undefined;
+  const apiKey = trimSecret(
+    process.env.OPENAI_AGENTIC_API_KEY ?? env?.OPENAI_AGENTIC_API_KEY
+  );
+  return apiKey || undefined;
+};
+export const getAgenticConfirmationKeys = () => {
+  if (isBrowserRuntime()) return [];
+  return [
+    process.env.OPENAI_AGENTIC_CONFIRMATION_KEY ??
+      env?.OPENAI_AGENTIC_CONFIRMATION_KEY,
+    process.env.OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS ??
+      env?.OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS,
+  ]
+    .map(trimSecret)
+    .filter((value) => value.length > 0);
+};
+export const getAgenticMerchantSlug = () => {
+  if (isBrowserRuntime()) return undefined;
+  const slug = trimSecret(
+    process.env.OPENAI_AGENTIC_MERCHANT_SLUG ??
+      env?.OPENAI_AGENTIC_MERCHANT_SLUG
+  );
+  return slug || undefined;
+};
+export const getAgenticSigningKeys = () => {
+  if (isBrowserRuntime()) return [];
+  return [
+    process.env.OPENAI_AGENTIC_SIGNING_KEY ?? env?.OPENAI_AGENTIC_SIGNING_KEY,
+    process.env.OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS ??
+      env?.OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS,
+  ]
+    .map(trimSecret)
+    .filter((value) => value.length > 0);
+};
+export const getPaystackSecretKey = () => {
+  if (isBrowserRuntime()) return undefined;
+  const secret = trimSecret(
+    process.env.PAYSTACK_SECRET_KEY ?? env?.PAYSTACK_SECRET_KEY
+  );
+  return secret || undefined;
+};
 export const getZeptoMailToken = () => env?.ZEPTOMAIL_TOKEN;
 export const getGeminiApiKey = () =>
   env?.GOOGLE_GENAI_API_KEY || env?.GEMINI_API_KEY;

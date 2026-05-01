@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import { getRootDomain } from '@/env';
-import { getConfiguredAgenticMerchantSlug } from '@/lib/agentic/merchant-context';
+import {
+  getConfiguredAgenticMerchantSlug,
+  isAgenticCheckoutRuntimeConfigured,
+} from '@/lib/agentic/merchant-context';
 import { isValidPaystackSubaccountCode } from '@/lib/agentic/paystack';
 import {
   AGENTIC_API_VERSION,
@@ -68,6 +71,7 @@ export async function GET(request: Request) {
   const baseUrl = buildRequestBaseUrl(request);
   const slug = merchant.slug;
   const checkoutEnabled =
+    isAgenticCheckoutRuntimeConfigured() &&
     slug === getConfiguredAgenticMerchantSlug() &&
     isValidPaystackSubaccountCode(merchant.paystack_subaccount_code);
   const checkoutLinks = checkoutEnabled ? buildCheckoutLinks(baseUrl) : {};

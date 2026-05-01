@@ -7,11 +7,9 @@ import {
   buildCheckoutSessionInsert,
   mapCheckoutSessionStatus,
 } from '@/lib/agentic/checkout-storage';
-import {
-  reserveAgenticIdempotencyKey,
-  storeAgenticIdempotencyResponse,
-} from '@/lib/agentic/idempotency';
+import { reserveAgenticIdempotencyKey } from '@/lib/agentic/idempotency';
 import { getAgenticIdempotencyErrorStatus } from '@/lib/agentic/idempotency-response';
+import { buildStoredAgenticIdempotencyResponse } from '@/lib/agentic/idempotency-response-storage';
 import { resolveAgenticMerchantContext } from '@/lib/agentic/merchant-context';
 import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
@@ -102,13 +100,40 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const sessionCalc = await calculateCheckoutSession(
-      supabase,
-      items,
-      null,
-      currency,
-      merchant.id
-    );
+    const respond = (
+      response: unknown,
+      status: number,
+      storageFailureResponse?: Record<string, unknown>
+    ): Promise<NextResponse> =>
+      buildStoredAgenticIdempotencyResponse({
+        idempotencyKey: mutation.idempotencyKey,
+        merchantId: merchant.id,
+        requestId: mutation.requestId,
+        response,
+        route: CREATE_IDEMPOTENCY_ROUTE,
+        status,
+        storageFailureResponse,
+        supabase,
+      });
+
+    let sessionCalc: Awaited<ReturnType<typeof calculateCheckoutSession>>;
+    try {
+      sessionCalc = await calculateCheckoutSession(
+        supabase,
+        items,
+        null,
+        currency,
+        merchant.id
+      );
+    } catch (error) {
+      logger.error({
+        message: 'Agentic checkout session calculation failed',
+        error,
+        idempotencyKey: mutation.idempotencyKey,
+        merchantId: merchant.id,
+      });
+      return respond({ error: 'Checkout calculation failed' }, 500);
+    }
 
     // 3. Create Session in DB
     const sessionId = `agentic_${randomUUID()}`;
@@ -139,7 +164,7 @@ export async function POST(request: NextRequest) {
         idempotencyKey: mutation.idempotencyKey,
         merchantId: merchant.id,
       });
-      return NextResponse.json({ error: 'Database error' }, { status: 500 });
+      return respond({ error: 'Database error' }, 500);
     }
 
     // 4. Response
@@ -162,40 +187,11 @@ export async function POST(request: NextRequest) {
       totals: sessionCalc.totals,
     });
 
-    const idempotencyStore = await storeAgenticIdempotencyResponse({
-      key: mutation.idempotencyKey,
-      merchantId: merchant.id,
-      response: responsePayload,
-      route: CREATE_IDEMPOTENCY_ROUTE,
-      status: 201,
-      supabase,
-    });
-    if (!idempotencyStore.ok) {
-      logger.error({
-        message: 'Failed to store agentic checkout idempotency response',
-        error: idempotencyStore.error,
-        idempotencyKey: mutation.idempotencyKey,
-        merchantId: merchant.id,
-        route: CREATE_IDEMPOTENCY_ROUTE,
-        sessionId: responseSessionId,
-      });
-      return NextResponse.json(
-        {
-          error: 'Idempotency response storage failed',
-          idempotency_key: mutation.idempotencyKey,
-          recovery_action: 'read_checkout_session',
-          session_id: responseSessionId,
-        },
-        { status: 503 }
-      );
-    }
-
-    return NextResponse.json(responsePayload, {
-      status: 201,
-      headers: {
-        'idempotency-key': mutation.idempotencyKey,
-        'request-id': mutation.requestId,
-      },
+    return respond(responsePayload, 201, {
+      error: 'Idempotency response storage failed',
+      idempotency_key: mutation.idempotencyKey,
+      recovery_action: 'read_checkout_session',
+      session_id: responseSessionId,
     });
   } catch (err) {
     logger.error({

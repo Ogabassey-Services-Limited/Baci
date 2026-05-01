@@ -2,7 +2,10 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST } from '@/app/api/agentic/checkout_sessions/[id]/complete/route';
 import { calculateCheckoutSession } from '@/lib/agentic/checkout';
-import { reserveAgenticIdempotencyKey } from '@/lib/agentic/idempotency';
+import {
+  reserveAgenticIdempotencyKey,
+  storeAgenticIdempotencyResponse,
+} from '@/lib/agentic/idempotency';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -19,6 +22,7 @@ vi.mock('@/lib/agentic/checkout', () => ({
 
 vi.mock('@/lib/agentic/idempotency', () => ({
   reserveAgenticIdempotencyKey: vi.fn(),
+  storeAgenticIdempotencyResponse: vi.fn(),
 }));
 
 vi.mock('@/lib/agentic/merchant-context', () => ({
@@ -73,6 +77,10 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete database errors', ()
       ok: true,
       state: 'reserved',
     });
+    vi.mocked(storeAgenticIdempotencyResponse).mockResolvedValue({
+      error: null,
+      ok: true,
+    });
   });
 
   it('returns 500 when the session read fails', async () => {
@@ -109,6 +117,15 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete database errors', ()
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: 'Database error' });
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
+    expect(storeAgenticIdempotencyResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'idem-1',
+        response: { error: 'Database error' },
+        route: 'checkout_sessions.complete',
+        status: 500,
+      })
+    );
+    expect(storeAgenticIdempotencyResponse).toHaveBeenCalledTimes(1);
   });
 
   it('returns 500 when the stored cart items are malformed', async () => {
@@ -160,6 +177,15 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete database errors', ()
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: 'Invalid session cart items' });
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
+    expect(storeAgenticIdempotencyResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'idem-1',
+        response: { error: 'Invalid session cart items' },
+        route: 'checkout_sessions.complete',
+        status: 500,
+      })
+    );
+    expect(storeAgenticIdempotencyResponse).toHaveBeenCalledTimes(1);
   });
 
   it('returns 409 when the final checkout calculation has item errors', async () => {
@@ -243,5 +269,17 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete database errors', ()
       error: 'Checkout calculation has errors',
       messages: [expect.objectContaining({ code: 'out_of_stock' })],
     });
+    expect(storeAgenticIdempotencyResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'idem-1',
+        response: expect.objectContaining({
+          error: 'Checkout calculation has errors',
+          messages: [expect.objectContaining({ code: 'out_of_stock' })],
+        }),
+        route: 'checkout_sessions.complete',
+        status: 409,
+      })
+    );
+    expect(storeAgenticIdempotencyResponse).toHaveBeenCalledTimes(1);
   });
 });

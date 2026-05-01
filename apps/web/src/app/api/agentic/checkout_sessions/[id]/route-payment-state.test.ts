@@ -1,7 +1,10 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { calculateCheckoutSession } from '@/lib/agentic/checkout';
-import { reserveAgenticIdempotencyKey } from '@/lib/agentic/idempotency';
+import {
+  reserveAgenticIdempotencyKey,
+  storeAgenticIdempotencyResponse,
+} from '@/lib/agentic/idempotency';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -60,6 +63,10 @@ describe('POST /api/agentic/checkout_sessions/[id] payment state', () => {
     vi.mocked(reserveAgenticIdempotencyKey).mockResolvedValue({
       ok: true,
       state: 'reserved',
+    });
+    vi.mocked(storeAgenticIdempotencyResponse).mockResolvedValue({
+      error: null,
+      ok: true,
     });
     vi.mocked(reserveAgenticRequestId).mockResolvedValue({ ok: true });
   });
@@ -131,6 +138,17 @@ describe('POST /api/agentic/checkout_sessions/[id] payment state', () => {
       error: 'Session already has pending payment',
       status: 'payment_pending',
     });
+    expect(storeAgenticIdempotencyResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'idem-1',
+        response: {
+          error: 'Session already has pending payment',
+          status: 'payment_pending',
+        },
+        route: 'checkout_sessions.update',
+        status: 409,
+      })
+    );
     expect(updateSpy).not.toHaveBeenCalled();
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });

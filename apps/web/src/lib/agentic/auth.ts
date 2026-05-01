@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import { getAgenticApiKey } from '@/env';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 
 /**
@@ -14,8 +15,8 @@ export function verifyAgenticApiKey(request: NextRequest): boolean {
     return false;
   }
 
-  const token = authHeader.split(' ')[1];
-  const expectedToken = process.env.OPENAI_AGENTIC_API_KEY;
+  const token = authHeader.slice('Bearer '.length);
+  const expectedToken = getAgenticApiKey();
 
   if (!expectedToken) {
     console.warn('OPENAI_AGENTIC_API_KEY is not set in environment variables');

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { finalizeAgenticCheckoutPayment } from '@/lib/agentic/checkout-completion-finalize';
 import {
   createAgenticCheckoutOrder,
@@ -54,7 +54,10 @@ const sessionCalc = {
   messages: [],
 };
 
-function createUpdateChain(data: Record<string, unknown> | null) {
+function createUpdateChain(
+  data: Record<string, unknown> | null,
+  error: unknown = null
+) {
   const chain = {
     contains: vi.fn(),
     eq: vi.fn(),
@@ -67,7 +70,7 @@ function createUpdateChain(data: Record<string, unknown> | null) {
   chain.in.mockReturnValue(chain);
   chain.is.mockReturnValue(chain);
   chain.select.mockReturnValue({
-    maybeSingle: vi.fn().mockResolvedValue({ data, error: null }),
+    maybeSingle: vi.fn().mockResolvedValue({ data, error }),
   });
 
   return chain;
@@ -117,8 +120,19 @@ function finalizeInput(supabase: unknown) {
 }
 
 describe('finalizeAgenticCheckoutPayment', () => {
-  it('does not create an order when the finalization claim is already taken', async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(markAgenticCheckoutOrderCanceled).mockResolvedValue({
+      error: null,
+      updated: true,
+    });
+    vi.mocked(storeAgenticIdempotencyResponse).mockResolvedValue({
+      error: null,
+      ok: true,
+    });
+  });
+
+  it('does not create an order when the finalization claim is already taken', async () => {
     const claimChain = createUpdateChain(null);
     const supabase = createSupabaseWithUpdateChains([claimChain]);
 
@@ -132,10 +146,42 @@ describe('finalizeAgenticCheckoutPayment', () => {
       error: 'Session finalization already in progress',
     });
     expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
+    expect(storeAgenticIdempotencyResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'idem-1',
+        response: expect.objectContaining({
+          error: 'Session finalization already in progress',
+        }),
+        route: 'checkout_sessions.complete',
+        status: 409,
+      })
+    );
+  });
+
+  it('returns a database error when the finalization claim write fails', async () => {
+    const claimChain = createUpdateChain(null, { message: 'claim failed' });
+    const supabase = createSupabaseWithUpdateChains([claimChain]);
+
+    const response = await finalizeAgenticCheckoutPayment(
+      finalizeInput(supabase)
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Database error' });
+    expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
+    expect(storeAgenticIdempotencyResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'idem-1',
+        response: { error: 'Database error' },
+        route: 'checkout_sessions.complete',
+        status: 500,
+      })
+    );
+    expect(sendAgenticOrderCreatedWebhook).not.toHaveBeenCalled();
   });
 
   it('does not expose internal order creation errors to agents', async () => {
-    vi.clearAllMocks();
     const claimChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const releaseChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const supabase = createSupabaseWithUpdateChains([claimChain, releaseChain]);
@@ -158,8 +204,60 @@ describe('finalizeAgenticCheckoutPayment', () => {
     expect(body).not.toHaveProperty('details');
   });
 
+  it('cancels the created order and releases the claim when session finalization fails', async () => {
+    const claimChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const finalChain = createUpdateChain(null, { message: 'update failed' });
+    const releaseChain = createUpdateChain({ session_id: 'agentic_session_1' });
+    const supabase = createSupabaseWithUpdateChains([
+      claimChain,
+      finalChain,
+      releaseChain,
+    ]);
+    vi.mocked(createAgenticCheckoutOrder).mockResolvedValue({
+      data: { order: { id: 'order-1' } },
+      error: undefined,
+      ok: true,
+      orderId: 'order-1',
+      status: 201,
+      statusText: 'Created',
+    });
+
+    const response = await finalizeAgenticCheckoutPayment(
+      finalizeInput(supabase)
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Database error' });
+    expect(markAgenticCheckoutOrderCanceled).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        orderId: 'order-1',
+        sessionId: 'agentic_session_1',
+      })
+    );
+    expect(releaseChain.contains).toHaveBeenCalledWith('metadata', {
+      agentic: {
+        finalization_claim: buildOrderFinalizationClaim({
+          idempotencyKey: 'idem-1',
+          requestId: 'req_123',
+          sessionId: 'agentic_session_1',
+        }),
+        payment_state: 'order_finalizing',
+      },
+    });
+    expect(storeAgenticIdempotencyResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'idem-1',
+        response: { error: 'Database error' },
+        route: 'checkout_sessions.complete',
+        status: 500,
+      })
+    );
+    expect(sendAgenticOrderCreatedWebhook).not.toHaveBeenCalled();
+  });
+
   it('guards final order persistence with an order_id null claim', async () => {
-    vi.clearAllMocks();
     const claimChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const finalChain = createUpdateChain({ session_id: 'agentic_session_1' });
     const supabase = createSupabaseWithUpdateChains([claimChain, finalChain]);
@@ -171,11 +269,6 @@ describe('finalizeAgenticCheckoutPayment', () => {
       status: 201,
       statusText: 'Created',
     });
-    vi.mocked(storeAgenticIdempotencyResponse).mockResolvedValue({
-      error: null,
-      ok: true,
-    });
-
     const response = await finalizeAgenticCheckoutPayment(
       finalizeInput(supabase)
     );

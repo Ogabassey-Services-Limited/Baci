@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+// @vitest-environment node
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetMerchantByIdentifier = vi.fn();
 
@@ -10,6 +12,15 @@ vi.mock('@/lib/cached-data', () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   vi.resetModules();
+  vi.stubEnv('NODE_ENV', 'test');
+  vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-role-key');
+  vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://supabase.example.com');
+  vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'anon-key');
+  vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'ogabassey');
+  vi.stubEnv('OPENAI_AGENTIC_API_KEY', 'agent-api-key');
+  vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY', 'confirmation-key');
+  vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', 'signing-key');
+  vi.stubEnv('PAYSTACK_SECRET_KEY', 'paystack-secret');
 
   mockGetMerchantByIdentifier.mockResolvedValue({
     id: 'merchant-1',
@@ -19,6 +30,11 @@ beforeEach(() => {
     custom_domain: 'ogabassey.com',
   });
 });
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe('GET /agent-commerce.json', () => {
   it('returns Ogabassey agent commerce capabilities for the custom domain', async () => {
     const { GET } = await import('./route');

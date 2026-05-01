@@ -185,6 +185,33 @@ describe('prepareAgenticCheckoutPayment', () => {
     });
   });
 
+  it('returns a database error when the payment setup claim write fails', async () => {
+    vi.mocked(claimCheckoutPaymentSetup).mockResolvedValue({
+      claimed: false,
+      error: {
+        code: 'PGRST000',
+        details: '',
+        hint: '',
+        message: 'claim write failed',
+        name: 'PostgrestError',
+        toJSON() {
+          return this;
+        },
+      },
+      session: null,
+    });
+
+    const result = await prepareAgenticCheckoutPayment(paymentInput());
+
+    expect(result).toEqual({
+      body: { error: 'Database error' },
+      ok: false,
+      status: 500,
+    });
+    expect(createAgenticCheckoutPaymentAccount).not.toHaveBeenCalled();
+    expect(releaseCheckoutPaymentClaim).not.toHaveBeenCalled();
+  });
+
   it('releases the claim when payment account creation fails', async () => {
     vi.mocked(claimCheckoutPaymentSetup).mockResolvedValue({
       claimed: true,

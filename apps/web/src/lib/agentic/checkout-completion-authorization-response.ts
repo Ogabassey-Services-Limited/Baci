@@ -1,3 +1,4 @@
+import { getAgenticConfirmationKeys } from '@/env';
 import type { GPTTotal } from '@/lib/agentic/checkout';
 import type { AgenticMetadata } from '@/lib/agentic/checkout-storage';
 import { logger } from '@/lib/logger';
@@ -35,10 +36,7 @@ export function getCheckoutGrandTotal(totals: GPTTotal[]): number {
 }
 
 export function getCheckoutCompletionAuthorizationSecrets(): string[] {
-  return [
-    process.env.OPENAI_AGENTIC_CONFIRMATION_KEY,
-    process.env.OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS,
-  ].filter((value): value is string => Boolean(value));
+  return getAgenticConfirmationKeys();
 }
 
 export function buildAuthorizationErrorBody(

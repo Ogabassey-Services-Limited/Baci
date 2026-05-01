@@ -1,6 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-
-const DEFAULT_AGENTIC_MERCHANT_SLUG = 'ogabassey';
+import {
+  getAgenticApiKey,
+  getAgenticConfirmationKeys,
+  getAgenticMerchantSlug,
+  getAgenticSigningKeys,
+  getPaystackSecretKey,
+} from '@/env';
 
 export interface AgenticMerchantContext {
   business_name: string | null;
@@ -10,10 +15,22 @@ export interface AgenticMerchantContext {
   slug: string;
 }
 
-export function getConfiguredAgenticMerchantSlug(): string {
-  return (
-    process.env.OPENAI_AGENTIC_MERCHANT_SLUG?.trim() ||
-    DEFAULT_AGENTIC_MERCHANT_SLUG
+export function getConfiguredAgenticMerchantSlug(): string | undefined {
+  return getAgenticMerchantSlug();
+}
+
+export function isAgenticCheckoutRuntimeConfigured(): boolean {
+  const confirmationKeys = getAgenticConfirmationKeys();
+  const signingKeys = getAgenticSigningKeys();
+
+  return Boolean(
+    getConfiguredAgenticMerchantSlug() &&
+      getAgenticApiKey()?.trim() &&
+      confirmationKeys.length > 0 &&
+      confirmationKeys.every((key) => key.trim().length > 0) &&
+      signingKeys.length > 0 &&
+      signingKeys.every((key) => key.trim().length > 0) &&
+      getPaystackSecretKey()?.trim()
   );
 }
 
@@ -21,6 +38,9 @@ export async function resolveAgenticMerchantContext(
   supabase: SupabaseClient
 ): Promise<AgenticMerchantContext | null> {
   const merchantSlug = getConfiguredAgenticMerchantSlug();
+  if (!merchantSlug) {
+    return null;
+  }
 
   const { data, error } = await supabase
     .from('merchants')

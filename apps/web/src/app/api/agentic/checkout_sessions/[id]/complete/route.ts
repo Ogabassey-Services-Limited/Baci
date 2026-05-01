@@ -22,11 +22,9 @@ import {
   buildAgenticMetadata,
   mapCheckoutSessionStatus,
 } from '@/lib/agentic/checkout-storage';
-import {
-  reserveAgenticIdempotencyKey,
-  storeAgenticIdempotencyResponse,
-} from '@/lib/agentic/idempotency';
+import { reserveAgenticIdempotencyKey } from '@/lib/agentic/idempotency';
 import { getAgenticIdempotencyErrorStatus } from '@/lib/agentic/idempotency-response';
+import { buildStoredAgenticIdempotencyResponse } from '@/lib/agentic/idempotency-response-storage';
 import { resolveAgenticMerchantContext } from '@/lib/agentic/merchant-context';
 import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
@@ -117,6 +115,16 @@ export async function POST(
         },
       });
     }
+    const respond = async (response: unknown, status: number) =>
+      buildStoredAgenticIdempotencyResponse({
+        idempotencyKey: mutation.idempotencyKey,
+        merchantId: merchant.id,
+        requestId: mutation.requestId,
+        response,
+        route: COMPLETE_IDEMPOTENCY_ROUTE,
+        status,
+        supabase,
+      });
 
     const { data: session, error } = await getAgenticCheckoutSession({
       merchantId: merchant.id,
@@ -130,15 +138,11 @@ export async function POST(
         error,
         sessionId: params.id,
       });
-      return NextResponse.json({ error: 'Database error' }, { status: 500 });
+      return await respond({ error: 'Database error' }, 500);
     }
-    if (!session)
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    if (!session) return await respond({ error: 'Session not found' }, 404);
     if (session.status === 'completed')
-      return NextResponse.json(
-        { error: 'Session already completed' },
-        { status: 409 }
-      );
+      return await respond({ error: 'Session already completed' }, 409);
 
     const parsedCartItems = agenticCheckoutItemsSchema.safeParse(
       session.cart_items
@@ -149,39 +153,43 @@ export async function POST(
         error: parsedCartItems.error.flatten(),
         sessionId: params.id,
       });
-      return NextResponse.json(
-        { error: 'Invalid session cart items' },
-        { status: 500 }
-      );
+      return await respond({ error: 'Invalid session cart items' }, 500);
     }
 
     // 1. Recalculate final totals to ensure accuracy
-    const sessionCalc = await calculateCheckoutSession(
-      supabase,
-      parsedCartItems.data,
-      session.shipping_method,
-      session.currency,
-      merchant.id
-    );
+    let sessionCalc: Awaited<ReturnType<typeof calculateCheckoutSession>>;
+    try {
+      sessionCalc = await calculateCheckoutSession(
+        supabase,
+        parsedCartItems.data,
+        session.shipping_method,
+        session.currency,
+        merchant.id
+      );
+    } catch (error) {
+      logger.error({
+        message: 'Agentic checkout calculation failed',
+        error,
+        sessionId: params.id,
+      });
+      return await respond({ error: 'Checkout calculation failed' }, 500);
+    }
     const calculationErrors = sessionCalc.messages.filter(
       (message) => message.type === 'error'
     );
     if (calculationErrors.length > 0) {
-      return NextResponse.json(
+      return await respond(
         {
           error: 'Checkout calculation has errors',
           messages: calculationErrors,
         },
-        { status: 409 }
+        409
       );
     }
     const grandTotal = getCheckoutGrandTotal(sessionCalc.totals);
 
-    if (!grandTotal)
-      return NextResponse.json(
-        { error: 'Could not calculate total' },
-        { status: 500 }
-      );
+    if (!Number.isFinite(grandTotal))
+      return await respond({ error: 'Could not calculate total' }, 500);
 
     const status = mapCheckoutSessionStatus({
       status: session.status,
@@ -189,12 +197,12 @@ export async function POST(
       hasLineItems: sessionCalc.lineItems.length > 0,
     });
     if (status !== 'ready_for_payment') {
-      return NextResponse.json(
+      return await respond(
         {
           error: 'Session is not ready for payment',
           status,
         },
-        { status: 409 }
+        409
       );
     }
 
@@ -206,9 +214,9 @@ export async function POST(
       sessionId: session.session_id,
     });
     if (!authorization.ok) {
-      return NextResponse.json(
+      return await respond(
         buildAuthorizationErrorBody(authorization.code),
-        { status: getAuthorizationErrorStatus(authorization.code) }
+        getAuthorizationErrorStatus(authorization.code)
       );
     }
 
@@ -226,21 +234,10 @@ export async function POST(
         sessionCalc,
       });
       if (existingPaymentState) {
-        await storeAgenticIdempotencyResponse({
-          key: mutation.idempotencyKey,
-          merchantId: merchant.id,
-          response: existingPaymentState.body,
-          route: COMPLETE_IDEMPOTENCY_ROUTE,
-          status: existingPaymentState.status,
-          supabase,
-        });
-        return NextResponse.json(existingPaymentState.body, {
-          status: existingPaymentState.status,
-          headers: {
-            'idempotency-key': mutation.idempotencyKey,
-            'request-id': mutation.requestId,
-          },
-        });
+        return await respond(
+          existingPaymentState.body,
+          existingPaymentState.status
+        );
       }
     }
 
@@ -269,12 +266,10 @@ export async function POST(
       supabase,
     });
     if (!preparedPayment.ok) {
-      return NextResponse.json(preparedPayment.body, {
-        status: preparedPayment.status,
-      });
+      return await respond(preparedPayment.body, preparedPayment.status);
     }
 
-    return finalizeAgenticCheckoutPayment({
+    return await finalizeAgenticCheckoutPayment({
       buyer,
       dvaAccount: preparedPayment.payment.dvaAccount,
       idempotencyKey: mutation.idempotencyKey,

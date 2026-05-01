@@ -65,6 +65,34 @@ describe('createAgenticCheckoutPaymentAccount', () => {
     });
   });
 
+  it('fails closed when the merchant subaccount is blank after trimming', async () => {
+    const result = await createAgenticCheckoutPaymentAccount({
+      buyer,
+      paystackSubaccountCode: '   ',
+    });
+
+    expect(result).toEqual({
+      error: expect.any(Error),
+      errorMessage: 'Merchant Paystack subaccount is not configured',
+      ok: false,
+    });
+    expect(mockCreateDedicatedVirtualAccount).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the merchant subaccount is null', async () => {
+    const result = await createAgenticCheckoutPaymentAccount({
+      buyer,
+      paystackSubaccountCode: null,
+    });
+
+    expect(result).toEqual({
+      error: expect.any(Error),
+      errorMessage: 'Merchant Paystack subaccount is not configured',
+      ok: false,
+    });
+    expect(mockCreateDedicatedVirtualAccount).not.toHaveBeenCalled();
+  });
+
   it('returns the fallback failure message for non-error rejections', async () => {
     mockCreateDedicatedVirtualAccount.mockRejectedValue('network timeout');
 

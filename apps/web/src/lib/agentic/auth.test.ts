@@ -21,6 +21,28 @@ describe('verifyAgenticApiKey', () => {
     );
   });
 
+  it('trims the configured API key before comparing tokens', () => {
+    vi.stubEnv('OPENAI_AGENTIC_API_KEY', '  test-secret-key  ');
+
+    expect(verifyAgenticApiKey(makeRequest('Bearer test-secret-key'))).toBe(
+      true
+    );
+  });
+
+  it('trims non-space whitespace around the configured API key', () => {
+    vi.stubEnv('OPENAI_AGENTIC_API_KEY', '\ttest-secret-key\n');
+
+    expect(verifyAgenticApiKey(makeRequest('Bearer test-secret-key'))).toBe(
+      true
+    );
+  });
+
+  it('does not trim whitespace in the presented bearer token', () => {
+    expect(verifyAgenticApiKey(makeRequest('Bearer  test-secret-key  '))).toBe(
+      false
+    );
+  });
+
   it('returns false for wrong token', () => {
     expect(verifyAgenticApiKey(makeRequest('Bearer wrong-key'))).toBe(false);
   });

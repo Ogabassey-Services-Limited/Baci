@@ -1,26 +1,23 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
-import {
-  type CheckoutItem,
-  calculateCheckoutSession,
-} from '@/lib/agentic/checkout';
+import { calculateCheckoutSession } from '@/lib/agentic/checkout';
 import { hasCheckoutPaymentSideEffect } from '@/lib/agentic/checkout-completion-response';
 import {
   getAgenticCheckoutSession,
   MUTABLE_CHECKOUT_SESSION_STATUSES,
 } from '@/lib/agentic/checkout-session-record';
 import { mapCheckoutSessionStatus } from '@/lib/agentic/checkout-storage';
-import {
-  reserveAgenticIdempotencyKey,
-  storeAgenticIdempotencyResponse,
-} from '@/lib/agentic/idempotency';
+import { reserveAgenticIdempotencyKey } from '@/lib/agentic/idempotency';
 import { getAgenticIdempotencyErrorStatus } from '@/lib/agentic/idempotency-response';
+import { buildStoredAgenticIdempotencyResponse } from '@/lib/agentic/idempotency-response-storage';
 import { resolveAgenticMerchantContext } from '@/lib/agentic/merchant-context';
 import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { getAgenticReplayErrorStatus } from '@/lib/agentic/request-replay-response';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
+import { logger } from '@/lib/logger';
 import { createServiceClient } from '@/lib/supabase/service';
+import { agenticCheckoutItemsSchema } from '@/schemas/agentic-checkout';
 
 const CANCEL_IDEMPOTENCY_ROUTE = 'checkout_sessions.cancel';
 
@@ -89,6 +86,16 @@ export async function POST(
         },
       });
     }
+    const respond = (response: unknown, status: number) =>
+      buildStoredAgenticIdempotencyResponse({
+        idempotencyKey: mutation.idempotencyKey,
+        merchantId: merchant.id,
+        requestId: mutation.requestId,
+        response,
+        route: CANCEL_IDEMPOTENCY_ROUTE,
+        status,
+        supabase,
+      });
 
     // Check if exists
     const { data: session, error: fetchError } =
@@ -98,25 +105,26 @@ export async function POST(
         supabase,
       });
 
-    if (fetchError || !session)
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    if (fetchError) {
+      logger.error({
+        message: 'Failed to fetch checkout session',
+        error: fetchError,
+        sessionId: params.id,
+      });
+      return respond({ error: 'Database error' }, 500);
+    }
+    if (!session) return respond({ error: 'Session not found' }, 404);
     if (session.status === 'completed')
-      return NextResponse.json(
-        { error: 'Cannot cancel completed session' },
-        { status: 409 }
-      );
+      return respond({ error: 'Cannot cancel completed session' }, 409);
     if (!MUTABLE_CHECKOUT_SESSION_STATUSES.includes(session.status))
-      return NextResponse.json(
-        { error: 'Session cannot be canceled' },
-        { status: 409 }
-      );
+      return respond({ error: 'Session cannot be canceled' }, 409);
     if (hasCheckoutPaymentSideEffect(session))
-      return NextResponse.json(
+      return respond(
         {
           error: 'Session already has pending payment',
           status: 'payment_pending',
         },
-        { status: 409 }
+        409
       );
 
     // Update status
@@ -133,26 +141,56 @@ export async function POST(
       .maybeSingle();
 
     if (updateError) {
-      console.error('Failed to cancel checkout session:', updateError);
-      return NextResponse.json({ error: 'Database error' }, { status: 500 });
+      logger.error({
+        message: 'Failed to cancel checkout session',
+        error: updateError,
+        sessionId: params.id,
+      });
+      return respond({ error: 'Database error' }, 500);
     }
     if (!updatedSession) {
-      return NextResponse.json(
+      return respond(
         {
-          error: 'Session already has pending payment',
-          status: 'payment_pending',
+          error: 'Session was modified concurrently',
+          status: 'concurrent_modification',
         },
-        { status: 409 }
+        409
       );
     }
 
-    const sessionCalc = await calculateCheckoutSession(
-      supabase,
-      session.cart_items as CheckoutItem[],
-      session.shipping_method,
-      session.currency,
-      merchant.id
+    const parsedCartItems = agenticCheckoutItemsSchema.safeParse(
+      session.cart_items
     );
+    let sessionCalc: Awaited<ReturnType<typeof calculateCheckoutSession>> = {
+      fulfillmentOptions: [],
+      lineItems: [],
+      messages: [],
+      selectedOptionId: session.shipping_method ?? undefined,
+      totals: [],
+    };
+    if (parsedCartItems.success) {
+      try {
+        sessionCalc = await calculateCheckoutSession(
+          supabase,
+          parsedCartItems.data,
+          session.shipping_method,
+          session.currency,
+          merchant.id
+        );
+      } catch (error) {
+        logger.warn({
+          message: 'Canceled checkout session response calculation failed',
+          error,
+          sessionId: params.id,
+        });
+      }
+    } else {
+      logger.warn({
+        message: 'Canceled checkout session has invalid cart items',
+        error: parsedCartItems.error.flatten(),
+        sessionId: params.id,
+      });
+    }
 
     const responsePayload = {
       id: session.session_id,
@@ -170,23 +208,13 @@ export async function POST(
       messages: sessionCalc.messages,
     };
 
-    await storeAgenticIdempotencyResponse({
-      key: mutation.idempotencyKey,
-      merchantId: merchant.id,
-      response: responsePayload,
-      route: CANCEL_IDEMPOTENCY_ROUTE,
-      status: 200,
-      supabase,
-    });
-
-    return NextResponse.json(responsePayload, {
-      headers: {
-        'idempotency-key': mutation.idempotencyKey,
-        'request-id': mutation.requestId,
-      },
-    });
+    return respond(responsePayload, 200);
   } catch (err: unknown) {
-    console.error('Agentic Checkout Cancel Error:', err);
+    logger.error({
+      message: 'Agentic checkout cancel error',
+      error: err,
+      sessionId: params.id,
+    });
     return NextResponse.json(
       { error: 'Internal Server Error' },
       { status: 500 }

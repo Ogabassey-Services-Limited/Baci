@@ -280,6 +280,9 @@ describe('POST /api/agentic/checkout_sessions', () => {
     const body = await response.json();
 
     expect(response.status).toBe(503);
+    expect(response.headers.get('x-idempotency-warning')).toBe(
+      'response-not-stored'
+    );
     expect(body).toEqual({
       error: 'Idempotency response storage failed',
       idempotency_key: 'idem-1',
@@ -288,8 +291,7 @@ describe('POST /api/agentic/checkout_sessions', () => {
     });
     expect(errorSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        message: 'Failed to store agentic checkout idempotency response',
-        idempotencyKey: 'idem-1',
+        message: 'Failed to store agentic idempotency response',
         merchantId: 'merchant-1',
         route: 'checkout_sessions.create',
       })

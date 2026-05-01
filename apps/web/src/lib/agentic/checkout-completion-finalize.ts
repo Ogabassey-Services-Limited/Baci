@@ -1,5 +1,4 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { NextResponse } from 'next/server';
 import type {
   calculateCheckoutSession,
   GPTTotal,
@@ -24,11 +23,46 @@ import {
   releaseAgenticOrderFinalizationClaim,
 } from '@/lib/agentic/checkout-order-finalization-claim';
 import type { AgenticMetadata } from '@/lib/agentic/checkout-storage';
-import { storeAgenticIdempotencyResponse } from '@/lib/agentic/idempotency';
+import { buildStoredAgenticIdempotencyResponse } from '@/lib/agentic/idempotency-response-storage';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 
 type CheckoutCalculation = Awaited<ReturnType<typeof calculateCheckoutSession>>;
+
+async function releaseFinalizationClaimSafely({
+  finalizationClaim,
+  merchantId,
+  metadata,
+  orderError,
+  sessionId,
+  supabase,
+}: {
+  finalizationClaim: string;
+  merchantId: string;
+  metadata: AgenticMetadata;
+  orderError: unknown;
+  sessionId: string;
+  supabase: SupabaseClient;
+}) {
+  try {
+    await releaseAgenticOrderFinalizationClaim({
+      finalizationClaim,
+      merchantId,
+      metadata,
+      orderError,
+      sessionId,
+      supabase,
+    });
+    return null;
+  } catch (error) {
+    logger.error({
+      error: sanitizeForLog(error),
+      message: 'Agentic checkout order finalization claim release threw',
+      sessionId: sanitizeForLog(sessionId),
+    });
+    return error;
+  }
+}
 
 export async function finalizeAgenticCheckoutPayment({
   buyer,
@@ -65,6 +99,16 @@ export async function finalizeAgenticCheckoutPayment({
     requestId,
     sessionId,
   });
+  const respond = (response: unknown, status: number) =>
+    buildStoredAgenticIdempotencyResponse({
+      idempotencyKey,
+      merchantId,
+      requestId,
+      response,
+      route,
+      status,
+      supabase,
+    });
   const claim = await claimAgenticOrderFinalization({
     buyer,
     dvaAccount,
@@ -74,18 +118,25 @@ export async function finalizeAgenticCheckoutPayment({
     sessionId,
     supabase,
   });
+  if (claim.error) {
+    logger.error({
+      error: sanitizeForLog(claim.error),
+      message: 'Agentic checkout order finalization claim write failed',
+      sessionId: sanitizeForLog(sessionId),
+    });
+    return respond({ error: 'Database error' }, 500);
+  }
   if (!claim.claimed) {
     logger.warn({
-      error: claim.error,
       message: 'Agentic checkout order finalization claim failed',
       sessionId: sanitizeForLog(sessionId),
     });
-    return NextResponse.json(
+    return respond(
       {
         error: 'Session finalization already in progress',
         status: 'payment_pending',
       },
-      { status: 409 }
+      409
     );
   }
 
@@ -95,10 +146,28 @@ export async function finalizeAgenticCheckoutPayment({
     session: orderSession,
     sessionCalc: orderSessionCalc,
   });
-  const orderResult = await createAgenticCheckoutOrder(orderPayload);
+  let orderResult: Awaited<ReturnType<typeof createAgenticCheckoutOrder>>;
+  try {
+    orderResult = await createAgenticCheckoutOrder(orderPayload);
+  } catch (error) {
+    await releaseFinalizationClaimSafely({
+      finalizationClaim,
+      merchantId,
+      metadata,
+      orderError: error,
+      sessionId,
+      supabase,
+    });
+    logger.error({
+      error: sanitizeForLog(error),
+      message: 'Order creation threw',
+      sessionId: sanitizeForLog(sessionId),
+    });
+    return respond({ error: 'Order creation failed' }, 500);
+  }
 
   if (!orderResult.ok) {
-    await releaseAgenticOrderFinalizationClaim({
+    await releaseFinalizationClaimSafely({
       finalizationClaim,
       merchantId,
       metadata,
@@ -113,15 +182,12 @@ export async function finalizeAgenticCheckoutPayment({
       status: orderResult.status,
       statusText: orderResult.statusText,
     });
-    return NextResponse.json(
-      { error: 'Order creation failed' },
-      { status: 500 }
-    );
+    return respond({ error: 'Order creation failed' }, 500);
   }
 
   const orderId = orderResult.orderId;
   if (!orderId) {
-    await releaseAgenticOrderFinalizationClaim({
+    await releaseFinalizationClaimSafely({
       finalizationClaim,
       merchantId,
       metadata,
@@ -133,10 +199,7 @@ export async function finalizeAgenticCheckoutPayment({
       message: 'Order creation response omitted order id',
       sessionId: sanitizeForLog(sessionId),
     });
-    return NextResponse.json(
-      { error: 'Order creation failed' },
-      { status: 500 }
-    );
+    return respond({ error: 'Order creation failed' }, 500);
   }
 
   const updatePayload = buildPaymentPendingSessionUpdate({
@@ -169,12 +232,27 @@ export async function finalizeAgenticCheckoutPayment({
       sessionId,
       supabase,
     });
+    let releaseError: unknown = null;
+    releaseError = await releaseFinalizationClaimSafely({
+      finalizationClaim,
+      merchantId,
+      metadata,
+      orderError: updateError ?? 'No checkout session row updated',
+      sessionId,
+      supabase,
+    });
     logger.error({
-      error: { cancellationError: cancellation.error, updateError },
+      error: {
+        cancellationError: cancellation.error
+          ? sanitizeForLog(cancellation.error)
+          : null,
+        releaseError: releaseError ? sanitizeForLog(releaseError) : null,
+        updateError: updateError ? sanitizeForLog(updateError) : null,
+      },
       message: 'Checkout session payment state update failed',
       sessionId: sanitizeForLog(sessionId),
     });
-    return NextResponse.json({ error: 'Database error' }, { status: 500 });
+    return respond({ error: 'Database error' }, 500);
   }
 
   sendAgenticOrderCreatedWebhook({
@@ -194,19 +272,5 @@ export async function finalizeAgenticCheckoutPayment({
     session: orderSession,
     sessionCalc: orderSessionCalc,
   });
-  await storeAgenticIdempotencyResponse({
-    key: idempotencyKey,
-    merchantId,
-    response: responsePayload,
-    route,
-    status: 200,
-    supabase,
-  });
-
-  return NextResponse.json(responsePayload, {
-    headers: {
-      'idempotency-key': idempotencyKey,
-      'request-id': requestId,
-    },
-  });
+  return respond(responsePayload, 200);
 }

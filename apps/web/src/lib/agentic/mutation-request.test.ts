@@ -46,6 +46,17 @@ describe('readAgenticMutationRequest', () => {
     });
   });
 
+  it('trims the idempotency key before reservation use', async () => {
+    const result = await readAgenticMutationRequest({
+      request: request('{"items":[]}', { 'idempotency-key': '  idem-1  ' }),
+    });
+
+    expect(result).toMatchObject({
+      idempotencyKey: 'idem-1',
+      ok: true,
+    });
+  });
+
   it('uses an empty object for signed empty request bodies', async () => {
     const result = await readAgenticMutationRequest({ request: request('') });
 
@@ -55,6 +66,20 @@ describe('readAgenticMutationRequest', () => {
   it('rejects missing required idempotency keys', async () => {
     const result = await readAgenticMutationRequest({
       request: request('{}', { 'idempotency-key': '' }),
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.response.status).toBe(400);
+      await expect(result.response.json()).resolves.toEqual({
+        error: 'Missing idempotency key',
+      });
+    }
+  });
+
+  it('rejects whitespace-only required idempotency keys', async () => {
+    const result = await readAgenticMutationRequest({
+      request: request('{}', { 'idempotency-key': '   ' }),
     });
 
     expect(result.ok).toBe(false);

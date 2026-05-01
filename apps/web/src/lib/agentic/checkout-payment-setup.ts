@@ -80,6 +80,18 @@ export async function prepareAgenticCheckoutPayment({
     supabase,
   });
 
+  if (claim.error) {
+    logger.error({
+      message: 'Checkout payment setup claim failed',
+      error: sanitizeForLog(claim.error),
+      sessionId: sanitizeForLog(sessionId),
+    });
+    return {
+      body: { error: 'Database error' },
+      ok: false,
+      status: 500,
+    };
+  }
   if (!claim.claimed || !claim.session) {
     return {
       body: {
@@ -199,7 +211,7 @@ export async function prepareAgenticCheckoutPayment({
   if (!paymentAccount.ok) {
     logger.error({
       message: 'DVA Creation Failed',
-      error: paymentAccount.error,
+      error: sanitizeForLog(paymentAccount.error),
       sessionId: sanitizeForLog(sessionId),
     });
     await releaseClaim({ payment_error: paymentAccount.errorMessage });
@@ -240,7 +252,6 @@ export async function prepareAgenticCheckoutPayment({
       message: 'Checkout payment account state update failed',
       error: sanitizeForLog(accountReady.error),
       paymentAccount: maskedAccountNumber,
-      paymentAccountNumber: paymentAccount.account.account_number,
       sessionId: sanitizeForLog(sessionId),
     });
     if (conflict) {
