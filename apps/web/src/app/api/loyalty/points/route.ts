@@ -59,7 +59,11 @@ export async function GET(request: NextRequest) {
       count,
     } = await supabase
       .from('points_transactions')
-      .select('*', { count: 'exact' })
+      // PERFORMANCE: Use explicit column selection instead of .select('*') to prevent overfetching full rows
+      .select(
+        'id, customer_id, merchant_id, type, points, balance_after, source, source_id, description, expires_at, expired, metadata, created_at',
+        { count: 'exact' }
+      )
       .eq('merchant_id', merchantId)
       .eq('customer_id', customerId)
       .order('created_at', { ascending: false })
