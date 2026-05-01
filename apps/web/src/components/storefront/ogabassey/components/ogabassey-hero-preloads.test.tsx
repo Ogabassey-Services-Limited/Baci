@@ -37,7 +37,7 @@ describe('OgabasseyHeroPreloads', () => {
     expect(dnsHrefs.sort()).toEqual([...expectedOrigins].sort());
   });
 
-  it('marks every preconnect link as anonymous cross-origin', () => {
+  it('omits crossorigin so the preconnect pool matches the no-CORS image fetches', () => {
     clearHints();
     render(<OgabasseyHeroPreloads />);
 
@@ -45,8 +45,11 @@ describe('OgabasseyHeroPreloads', () => {
       document.querySelectorAll<HTMLLinkElement>('link[rel="preconnect"]')
     );
     expect(preconnects.length).toBeGreaterThan(0);
+    // Next.js <Image> requests these origins without CORS. A `crossorigin`
+    // preconnect would open a separate connection pool the actual <img>
+    // GETs can't reuse, defeating the warmup.
     for (const link of preconnects) {
-      expect(link).toHaveAttribute('crossorigin', 'anonymous');
+      expect(link).not.toHaveAttribute('crossorigin');
     }
   });
 

@@ -25,13 +25,14 @@ export function OgabasseyHeroPreloads() {
       {OGABASSEY_HERO_PRECONNECT_ORIGINS.map((origin) => (
         <link key={`dns-${origin}`} rel="dns-prefetch" href={origin} />
       ))}
+      {/*
+        No `crossOrigin` attribute: Next.js <Image> requests these assets
+        without CORS, so preconnecting with crossorigin would open a
+        CORS-specific connection pool that the actual <img> GETs cannot
+        reuse, defeating the warmup. Match the request mode of the fetch.
+      */}
       {OGABASSEY_HERO_PRECONNECT_ORIGINS.map((origin) => (
-        <link
-          key={`preconnect-${origin}`}
-          rel="preconnect"
-          href={origin}
-          crossOrigin="anonymous"
-        />
+        <link key={`preconnect-${origin}`} rel="preconnect" href={origin} />
       ))}
       <link
         rel="preload"

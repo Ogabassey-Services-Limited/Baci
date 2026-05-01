@@ -337,8 +337,10 @@ describe('Storefront homepage structured data', () => {
     expect(preconnects.map((l) => l.getAttribute('href')).sort()).toEqual(
       [...expectedOrigins].sort()
     );
+    // No crossorigin — the <Image> fetches are no-CORS, and a CORS preconnect
+    // pool would not be reused by them.
     for (const link of preconnects) {
-      expect(link).toHaveAttribute('crossorigin', 'anonymous');
+      expect(link).not.toHaveAttribute('crossorigin');
     }
 
     const dnsHints = Array.from(
