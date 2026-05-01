@@ -68,38 +68,24 @@ const RedeemLoyaltyRpcResponseSchema = z.discriminatedUnion('success', [
 const WALLET_QUERY_ROOT = ['wallet'] as const;
 
 interface WalletDataKeyInput {
-  merchantId?: string | null;
+  merchantId: string;
   ownerId: string;
 }
 
 function walletDataKey(
-  ownerId: string,
-  merchantId?: string | null
-):
-  | readonly ['wallet', 'data', 'v3', string]
-  | readonly ['wallet', 'data', 'v3', string, string];
-function walletDataKey(
   owner: WalletDataKeyInput
-):
-  | readonly ['wallet', 'data', 'v3', string]
-  | readonly ['wallet', 'data', 'v3', string, string];
-function walletDataKey(
-  owner: string | WalletDataKeyInput,
-  merchantId?: string | null
-) {
-  const ownerId = typeof owner === 'string' ? owner : owner.ownerId;
-  const resolvedMerchantId =
-    typeof owner === 'string' ? merchantId : owner.merchantId;
+): readonly ['wallet', 'data', 'v3', string, string] {
+  if (!owner.merchantId) {
+    throw new Error('wallet data query keys require a merchantId');
+  }
 
-  return resolvedMerchantId
-    ? ([
-        ...WALLET_QUERY_ROOT,
-        'data',
-        'v3',
-        ownerId,
-        resolvedMerchantId,
-      ] as const)
-    : ([...WALLET_QUERY_ROOT, 'data', 'v3', ownerId] as const);
+  return [
+    ...WALLET_QUERY_ROOT,
+    'data',
+    'v3',
+    owner.ownerId,
+    owner.merchantId,
+  ] as const;
 }
 
 export const walletKeys = {
@@ -303,7 +289,10 @@ export function useWallet() {
   const activeMerchantId = merchantId || CONFIG.MERCHANT_ID;
 
   const query = useQuery({
-    queryKey: walletKeys.data(walletOwnerId, activeMerchantId),
+    queryKey: walletKeys.data({
+      merchantId: activeMerchantId,
+      ownerId: walletOwnerId,
+    }),
     queryFn: () =>
       fetchWalletData(customer?.id ?? null, activeMerchantId, user?.id ?? null),
     enabled: !!walletOwnerId && !!activeMerchantId,
@@ -339,7 +328,10 @@ export function useWallet() {
           // Only invalidate if still mounted
           if (isMounted) {
             queryClient.invalidateQueries({
-              queryKey: walletKeys.data(customer.id, activeMerchantId),
+              queryKey: walletKeys.data({
+                merchantId: activeMerchantId,
+                ownerId: customer.id,
+              }),
             });
           }
         }
@@ -355,7 +347,10 @@ export function useWallet() {
         () => {
           if (isMounted) {
             queryClient.invalidateQueries({
-              queryKey: walletKeys.data(customer.id, activeMerchantId),
+              queryKey: walletKeys.data({
+                merchantId: activeMerchantId,
+                ownerId: customer.id,
+              }),
             });
           }
         }
@@ -403,7 +398,10 @@ export function useRedeemPoints() {
 
       // Look up current points balance from cached wallet data
       const cachedData = queryClient.getQueryData<WalletQueryData>(
-        walletKeys.data(customerId, currentMerchantId)
+        walletKeys.data({
+          merchantId: currentMerchantId,
+          ownerId: customerId,
+        })
       );
       const currentPoints = cachedData?.wallet?.loyalty_points ?? 0;
 
@@ -453,10 +451,14 @@ export function useRedeemPoints() {
     // 2025 Best Practice: Optimistic updates
     onMutate: async (points) => {
       const walletOwnerId = customer?.id ?? user?.id ?? '';
-      const queryKey: WalletQueryKey = walletKeys.data(
-        walletOwnerId,
-        activeMerchantId
-      );
+      if (!walletOwnerId || !activeMerchantId) {
+        return { previousData: undefined, queryKey: undefined };
+      }
+
+      const queryKey: WalletQueryKey = walletKeys.data({
+        merchantId: activeMerchantId,
+        ownerId: walletOwnerId,
+      });
 
       // Cancel outgoing refetches
       await queryClient.cancelQueries({

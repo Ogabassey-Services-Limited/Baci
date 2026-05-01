@@ -7,6 +7,13 @@ const mockInitializePaystackTransaction = vi.fn();
 const mockInitializeKorapayPayment = vi.fn();
 const mockFrom = vi.fn();
 
+vi.mock('@/env', () => ({
+  env: {
+    NEXT_PUBLIC_ROOT_DOMAIN: 'usebaci.com',
+    NODE_ENV: 'production',
+  },
+}));
+
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
     mockAuthenticateApiRequest(...args),
@@ -111,7 +118,17 @@ function mockSupabaseTables({
 
     if (table === 'transactions') {
       return {
-        insert: vi.fn().mockResolvedValue({ error: transactionError }),
+        insert: vi.fn().mockReturnValue({
+          select: vi.fn().mockReturnValue({
+            single: vi.fn().mockResolvedValue({
+              data: transactionError ? null : { id: 'txn-1' },
+              error: transactionError,
+            }),
+          }),
+        }),
+        update: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+        }),
       };
     }
 
@@ -223,7 +240,7 @@ describe('POST /api/storefront/customer/wallet/top-up/initialize', () => {
     expect(mockInitializeKorapayPayment).not.toHaveBeenCalled();
   });
 
-  it('keeps korapay disabled by default when the setting is null', async () => {
+  it('uses the database default when korapay setting is null', async () => {
     mockSupabaseTables({
       settings: {
         korapay_enabled: null,
@@ -241,11 +258,12 @@ describe('POST /api/storefront/customer/wallet/top-up/initialize', () => {
     );
     const data = await response.json();
 
-    expect(response.status).toBe(400);
-    expect(data).toEqual({
-      error: 'korapay is not enabled for wallet top-ups',
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({
+      gateway: 'korapay',
+      success: true,
     });
-    expect(mockInitializeKorapayPayment).not.toHaveBeenCalled();
+    expect(mockInitializeKorapayPayment).toHaveBeenCalledTimes(1);
   });
 
   it('returns 500 without exposing upstream payment errors', async () => {

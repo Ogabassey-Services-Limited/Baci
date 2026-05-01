@@ -61,12 +61,22 @@ describe('initializeWalletTopUp', () => {
     expect(mockFetchWithTimeout).toHaveBeenCalledWith(
       'https://usebaci.com/api/storefront/customer/wallet/top-up/initialize',
       expect.objectContaining({
+        body: expect.any(String),
         headers: expect.objectContaining({
           Authorization: 'Bearer token-123',
         }),
         method: 'POST',
       })
     );
+    const [, requestOptions] = mockFetchWithTimeout.mock.calls[0];
+    const requestBody = JSON.parse(String(requestOptions.body));
+    expect(requestBody).toEqual({
+      amount: 50,
+      customerName: 'Test Customer',
+      customerPhone: '08012345678',
+      gateway: 'paystack',
+      merchantSlug: 'demo-store',
+    });
   });
 
   it('throws before initializing when the authenticated user is missing', async () => {

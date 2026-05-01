@@ -329,13 +329,13 @@ describe('UtilityPurchaseScreen', () => {
 
     render(<UtilityPurchaseScreen />);
 
-    await waitFor(() => {
-      expect(mockInvalidateQueries).not.toHaveBeenCalledWith({
-        queryKey: walletKeys.data({
-          merchantId: TEST_MERCHANT_ID,
-          ownerId: 'customer-1',
-        }),
-      });
+    await screen.findByText('Purchase success successful 08031234567');
+
+    expect(mockInvalidateQueries).not.toHaveBeenCalledWith({
+      queryKey: walletKeys.data({
+        merchantId: TEST_MERCHANT_ID,
+        ownerId: 'customer-1',
+      }),
     });
   });
 

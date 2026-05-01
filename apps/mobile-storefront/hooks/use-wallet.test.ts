@@ -103,7 +103,7 @@ function createTestClient() {
 function setupHook() {
   const queryClient = createTestClient();
   queryClient.setQueryData<WalletQueryData>(
-    walletKeys.data('customer-1', 'merchant-1'),
+    walletKeys.data({ merchantId: 'merchant-1', ownerId: 'customer-1' }),
     {
       wallet: { balance: 0, loyalty_points: 1000 },
       transactions: [],
@@ -617,8 +617,14 @@ describe('useRedeemPoints', () => {
       })
     );
     const { result, unmount, queryClient } = setupHook();
-    const originalQueryKey = walletKeys.data('customer-1', 'merchant-1');
-    const changedQueryKey = walletKeys.data('customer-2', 'merchant-2');
+    const originalQueryKey = walletKeys.data({
+      merchantId: 'merchant-1',
+      ownerId: 'customer-1',
+    });
+    const changedQueryKey = walletKeys.data({
+      merchantId: 'merchant-2',
+      ownerId: 'customer-2',
+    });
     queryClient.setQueryData<WalletQueryData>(originalQueryKey, {
       wallet: { balance: 0, loyalty_points: 1000 },
       transactions: [],
@@ -674,7 +680,10 @@ describe('useRedeemPoints', () => {
       })
     );
     const { result, unmount, queryClient } = setupHook();
-    const queryKey = walletKeys.data('customer-1', 'merchant-1');
+    const queryKey = walletKeys.data({
+      merchantId: 'merchant-1',
+      ownerId: 'customer-1',
+    });
     queryClient.setQueryData<WalletQueryData>(queryKey, {
       wallet: { balance: 0, loyalty_points: 50 },
       transactions: [],

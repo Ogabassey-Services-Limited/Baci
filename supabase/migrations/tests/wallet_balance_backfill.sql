@@ -12,6 +12,85 @@
 
 BEGIN ISOLATION LEVEL REPEATABLE READ;
 
+INSERT INTO public.merchants (id, email, business_name, slug)
+VALUES (
+  '00000000-0000-4000-8000-000000000101',
+  'wallet-backfill-test@example.com',
+  'Wallet Backfill Test',
+  'wallet-backfill-test'
+);
+
+INSERT INTO public.customers (id, merchant_id, email, first_name)
+VALUES (
+  '00000000-0000-4000-8000-000000000102',
+  '00000000-0000-4000-8000-000000000101',
+  'wallet-backfill-customer@example.com',
+  'Wallet'
+);
+
+INSERT INTO public.customer_wallets (
+  id,
+  customer_id,
+  merchant_id,
+  available_balance,
+  total_earned,
+  total_redeemed,
+  created_at
+)
+VALUES (
+  '00000000-0000-4000-8000-000000000103',
+  '00000000-0000-4000-8000-000000000102',
+  '00000000-0000-4000-8000-000000000101',
+  0,
+  0,
+  0,
+  '2026-05-01 00:00:00+00'
+);
+
+INSERT INTO public.customer_wallet_transactions (
+  id,
+  wallet_id,
+  customer_id,
+  merchant_id,
+  type,
+  amount,
+  balance_after,
+  source_type,
+  source_id,
+  status,
+  description,
+  created_at
+)
+VALUES
+  (
+    '00000000-0000-4000-8000-000000000104',
+    '00000000-0000-4000-8000-000000000103',
+    '00000000-0000-4000-8000-000000000102',
+    '00000000-0000-4000-8000-000000000101',
+    'refund',
+    100,
+    0,
+    'wallet_backfill_test',
+    '00000000-0000-4000-8000-000000000201',
+    'completed',
+    'Backfill refund fixture',
+    '2026-05-01 00:01:00+00'
+  ),
+  (
+    '00000000-0000-4000-8000-000000000105',
+    '00000000-0000-4000-8000-000000000103',
+    '00000000-0000-4000-8000-000000000102',
+    '00000000-0000-4000-8000-000000000101',
+    'debit',
+    25,
+    0,
+    'wallet_backfill_test',
+    '00000000-0000-4000-8000-000000000202',
+    'completed',
+    'Backfill debit fixture',
+    '2026-05-01 00:02:00+00'
+  );
+
 CREATE TEMP TABLE wallet_balance_backfill_result ON COMMIT DROP AS
 SELECT *
 FROM public.backfill_wallet_balances();
@@ -99,6 +178,26 @@ BEGIN
       mismatch_count;
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.customer_wallet_transactions
+    WHERE
+      id = '00000000-0000-4000-8000-000000000104'
+      AND balance_after = 100
+  ) THEN
+    RAISE EXCEPTION 'seeded refund transaction balance_after was not backfilled';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.customer_wallet_transactions
+    WHERE
+      id = '00000000-0000-4000-8000-000000000105'
+      AND balance_after = 75
+  ) THEN
+    RAISE EXCEPTION 'seeded debit transaction balance_after was not backfilled';
+  END IF;
+
   WITH customer_rollup AS (
     SELECT
       cw.id AS wallet_id,
@@ -162,6 +261,18 @@ BEGIN
 
   IF mismatch_count <> 0 THEN
     RAISE EXCEPTION 'customer_wallets aggregate mismatch count: %', mismatch_count;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.customer_wallets
+    WHERE
+      id = '00000000-0000-4000-8000-000000000103'
+      AND available_balance = 75
+      AND total_earned = 0
+      AND total_redeemed = 0
+  ) THEN
+    RAISE EXCEPTION 'seeded customer wallet aggregate was not backfilled';
   END IF;
 
   WITH ordered_merchant_transactions AS (

@@ -33,6 +33,23 @@ describe('wallet top-up schemas', () => {
     ).toBe(false);
   });
 
+  it('accepts the minimum wallet top-up amount', () => {
+    const result = walletTopUpInitializeSchema.safeParse({
+      amount: WALLET_TOP_UP_MIN_AMOUNT,
+      gateway: 'paystack',
+      merchantSlug: 'ogabassey',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({
+        amount: WALLET_TOP_UP_MIN_AMOUNT,
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+      });
+    }
+  });
+
   it('accepts the maximum wallet top-up amount', () => {
     expect(
       walletTopUpInitializeSchema.safeParse({

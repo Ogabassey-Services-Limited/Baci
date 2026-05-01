@@ -21,7 +21,16 @@ const VTU_COMMISSION_CATEGORY_ALIASES: Record<string, VtuCommissionCategory> = {
   POWER: 'ELECTRICITY',
 };
 
-export const VTU_COMMISSION_RATES: Record<string, VtuCommissionRate> = {
+const createCommissionRates = (
+  rates: Record<string, VtuCommissionRate>
+): Readonly<Record<string, Readonly<VtuCommissionRate>>> =>
+  Object.freeze(
+    Object.fromEntries(
+      Object.entries(rates).map(([key, rate]) => [key, Object.freeze(rate)])
+    ) as Record<string, Readonly<VtuCommissionRate>>
+  );
+
+export const VTU_COMMISSION_RATES = createCommissionRates({
   MTN_AIRTIME: { rate: 0.03 },
   AIRTEL_AIRTIME: { rate: 0.03 },
   GLO_AIRTIME: { rate: 0.05 },
@@ -59,7 +68,7 @@ export const VTU_COMMISSION_RATES: Record<string, VtuCommissionRate> = {
   MSPORT_BETTING: { rate: 0.001 },
   BETPAWA_BETTING: { rate: 0.007 },
   DEFAULT: { rate: 0.02 },
-};
+});
 
 const VTU_COMMISSION_PROVIDER_ALIASES = {
   AIRTIME: [
@@ -179,9 +188,10 @@ export function getVtuCommissionRate(
   const normalizedCategory = normalizeVtuCommissionCategory(category);
   const providerKey = resolveProviderRateKey(provider, normalizedCategory);
 
-  return (
+  const rate =
     VTU_COMMISSION_RATES[`${providerKey}_${normalizedCategory}`] ??
     VTU_COMMISSION_RATES[providerKey] ??
-    VTU_COMMISSION_RATES.DEFAULT
-  );
+    VTU_COMMISSION_RATES.DEFAULT;
+
+  return { ...rate };
 }

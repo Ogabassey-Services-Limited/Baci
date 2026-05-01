@@ -60,4 +60,33 @@ describe('waitForWalletTopUpConfirmation', () => {
     ).rejects.toBeInstanceOf(WalletTopUpStillProcessingError);
     expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1);
   });
+
+  it('fails fast for non-retryable confirmation errors', async () => {
+    expect.assertions(4);
+
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+      json: async () => ({
+        error: 'Payment verification failed',
+      }),
+    });
+
+    let caughtError: unknown;
+    try {
+      await waitForWalletTopUpConfirmation({
+        gateway: 'paystack',
+        maxAttempts: 3,
+        reference: 'WALLET-123',
+      });
+    } catch (error) {
+      caughtError = error;
+    }
+
+    expect(caughtError).toBeInstanceOf(Error);
+    expect(caughtError).not.toBeInstanceOf(WalletTopUpStillProcessingError);
+    expect((caughtError as Error).message).toBe('Payment verification failed');
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1);
+  });
 });

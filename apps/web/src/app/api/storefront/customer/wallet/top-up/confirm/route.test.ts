@@ -58,6 +58,7 @@ function makeRequest(body: Record<string, unknown>) {
 const defaultTransaction = {
   amount: 2500,
   currency: 'NGN',
+  gateway: 'paystack',
   id: 'txn-1',
   merchant_id: 'merchant-1',
   metadata: {
@@ -107,9 +108,11 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: defaultTransaction,
-                error: null,
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: defaultTransaction,
+                  error: null,
+                }),
               }),
             }),
           }),
@@ -212,9 +215,11 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: null,
-                error: null,
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: null,
+                  error: null,
+                }),
               }),
             }),
           }),
@@ -266,6 +271,84 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
     });
   });
 
+  it('uses the stored transaction gateway when the request gateway mismatches', async () => {
+    const response = await POST(
+      makeRequest({
+        gateway: 'korapay',
+        merchantSlug: 'ogabassey',
+        reference: 'WAL-123',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({
+      reference: 'WAL-123',
+      status: 'successful',
+      success: true,
+    });
+    expect(mockVerifyPaystackTransaction).toHaveBeenCalledWith('WAL-123');
+    expect(mockCreditWalletTopUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gateway: 'paystack',
+        reference: 'WAL-123',
+      })
+    );
+  });
+
+  it('returns 500 without exposing provider verification outages', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockVerifyPaystackTransaction.mockResolvedValueOnce({
+      code: 'NETWORK_ERROR',
+      error: 'provider timeout',
+      success: false,
+    });
+
+    const response = await POST(
+      makeRequest({
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+        reference: 'WAL-123',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data).toEqual({ error: 'Payment verification failed' });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Wallet top-up payment verification failed',
+      expect.objectContaining({
+        code: 'NETWORK_ERROR',
+        error: 'provider timeout',
+      })
+    );
+    expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('returns 400 for client-side verification failures', async () => {
+    mockVerifyPaystackTransaction.mockResolvedValueOnce({
+      code: 'VALIDATION_ERROR',
+      error: 'Invalid transaction reference format',
+      success: false,
+    });
+
+    const response = await POST(
+      makeRequest({
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+        reference: 'WAL-123',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toEqual({ error: 'Invalid transaction reference format' });
+    expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+  });
+
   it('retries the idempotent wallet credit when another request already completed the transaction', async () => {
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
@@ -285,9 +368,11 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: defaultTransaction,
-                error: null,
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: defaultTransaction,
+                  error: null,
+                }),
               }),
             }),
           }),
@@ -359,9 +444,11 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              maybeSingle: vi.fn().mockResolvedValue({
-                data: { ...defaultTransaction, status: 'completed' },
-                error: null,
+              eq: vi.fn().mockReturnValue({
+                maybeSingle: vi.fn().mockResolvedValue({
+                  data: { ...defaultTransaction, status: 'completed' },
+                  error: null,
+                }),
               }),
             }),
           }),

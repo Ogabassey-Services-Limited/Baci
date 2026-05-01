@@ -28,6 +28,10 @@ function getVerifiedCurrency(payload: Record<string, unknown>) {
   return typeof payload.currency === 'string' ? payload.currency : null;
 }
 
+function isWalletTopUpGateway(value: unknown): value is 'paystack' | 'korapay' {
+  return value === 'paystack' || value === 'korapay';
+}
+
 const TERMINAL_PAYMENT_STATUSES = new Set([
   'abandoned',
   'cancelled',
@@ -40,6 +44,15 @@ const TERMINAL_PAYMENT_STATUSES = new Set([
 
 function isTerminalPaymentStatus(status: string) {
   return TERMINAL_PAYMENT_STATUSES.has(status.trim().toLowerCase());
+}
+
+function isClientVerificationError(code?: string) {
+  return (
+    code === 'VALIDATION_ERROR' ||
+    code === 'INVALID_REFERENCE' ||
+    code === 'NOT_FOUND' ||
+    code === 'HTTP_404'
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -102,15 +115,16 @@ export async function POST(request: NextRequest) {
 
     const { data: transaction, error: transactionError } = await supabase
       .from('transactions')
-      .select('id, amount, currency, status, metadata, merchant_id')
+      .select('id, amount, currency, gateway, status, metadata, merchant_id')
       .eq('gateway_reference', parsed.data.reference)
+      .eq('merchant_id', merchant.id)
       .maybeSingle();
 
     if (transactionError || !transaction) {
       return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
     }
 
-    if (transaction.merchant_id !== merchant.id) {
+    if (!isWalletTopUpGateway(transaction.gateway)) {
       return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
     }
 
@@ -125,16 +139,16 @@ export async function POST(request: NextRequest) {
 
     let verification:
       | { success: true; data: Record<string, unknown> }
-      | { success: false; error: string };
+      | { success: false; code?: string; error: string };
 
-    if (parsed.data.gateway === 'paystack') {
+    if (transaction.gateway === 'paystack') {
       const result = await verifyPaystackTransaction(parsed.data.reference);
       verification = result.success
         ? {
             data: result.data as unknown as Record<string, unknown>,
             success: true,
           }
-        : { error: result.error, success: false };
+        : { code: result.code, error: result.error, success: false };
     } else {
       const result = await verifyKorapayPayment(parsed.data.reference);
       verification = result.success
@@ -142,15 +156,31 @@ export async function POST(request: NextRequest) {
             data: result.data as unknown as Record<string, unknown>,
             success: true,
           }
-        : { error: result.error, success: false };
+        : { code: result.code, error: result.error, success: false };
     }
 
     if (!verification.success) {
-      return NextResponse.json({ error: verification.error }, { status: 400 });
+      if (isClientVerificationError(verification.code)) {
+        return NextResponse.json(
+          { error: verification.error },
+          { status: 400 }
+        );
+      }
+
+      console.error('Wallet top-up payment verification failed', {
+        code: verification.code,
+        error: verification.error,
+        gateway: transaction.gateway,
+        reference: parsed.data.reference,
+      });
+      return NextResponse.json(
+        { error: 'Payment verification failed' },
+        { status: 500 }
+      );
     }
 
     const verifiedAmount = getVerifiedAmount(
-      parsed.data.gateway,
+      transaction.gateway,
       verification.data
     );
     if (verifiedAmount === null) {
@@ -235,7 +265,7 @@ export async function POST(request: NextRequest) {
     const walletCredit = await creditWalletTopUp({
       amount: Number(transaction.amount),
       customerId: customer.id,
-      gateway: parsed.data.gateway,
+      gateway: transaction.gateway,
       merchantId: merchant.id,
       reference: parsed.data.reference,
       supabase,

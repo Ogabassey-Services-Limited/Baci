@@ -1,5 +1,6 @@
 import { customAlphabet } from 'nanoid';
 import { type NextRequest, NextResponse } from 'next/server';
+import { env } from '@/env';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { WALLET_TOP_UP_TRANSACTION_TYPE } from '@/lib/customer-wallet-top-up';
@@ -42,7 +43,7 @@ function selectWalletTopUpGateway({
   settings: GatewaySettings;
 }): WalletTopUpGateway {
   const paystackEnabled = settings.paystack_enabled ?? true;
-  const korapayEnabled = settings.korapay_enabled ?? false;
+  const korapayEnabled = settings.korapay_enabled ?? true;
 
   if (requestedGateway) {
     if (requestedGateway === 'paystack' && paystackEnabled) return 'paystack';
@@ -149,8 +150,8 @@ export async function POST(request: NextRequest) {
       12
     );
     const paymentReference = `WAL-${nanoidUppercase()}`;
-    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+    const rootDomain = env.NEXT_PUBLIC_ROOT_DOMAIN;
+    const protocol = env.NODE_ENV === 'production' ? 'https' : 'http';
     const callbackUrl = `${protocol}://${merchant.slug}.${rootDomain}/checkout/success?reference=${paymentReference}&kind=wallet`;
     const notificationUrl = `${protocol}://${rootDomain}/api/payments/webhook`;
     const metadata = {
@@ -165,65 +166,110 @@ export async function POST(request: NextRequest) {
     let checkoutUrl = '';
     let gatewayResponse: Record<string, unknown> | null = null;
 
-    if (gateway === 'paystack') {
-      const paystack = await initializePaystackTransaction({
-        amount: Math.round(parsed.data.amount * 100),
-        callback_url: callbackUrl,
-        email: customerEmail,
-        metadata,
-        phone: parsed.data.customerPhone || customer.phone || undefined,
-        reference: paymentReference,
-        ...(merchant.paystack_subaccount_code && {
-          subaccount: merchant.paystack_subaccount_code,
-        }),
-      });
+    const { data: insertedTransaction, error: transactionError } =
+      await supabase
+        .from('transactions')
+        .insert({
+          amount: parsed.data.amount,
+          currency: 'NGN',
+          description: 'Customer wallet top-up',
+          gateway,
+          gateway_reference: paymentReference,
+          merchant_amount: parsed.data.amount,
+          merchant_id: merchant.id,
+          metadata,
+          order_id: null,
+          platform_fee: 0,
+          status: 'pending',
+          transaction_type: 'payment',
+        })
+        .select('id')
+        .single();
 
-      authorizationUrl = paystack.authorization_url;
-      checkoutUrl = paystack.authorization_url;
-      gatewayResponse = paystack as unknown as Record<string, unknown>;
-    } else {
-      const korapay = await initializeKorapayPayment({
-        amount: parsed.data.amount,
-        currency: 'NGN',
-        customer: {
-          email: customerEmail,
-          name: customerName,
-        },
-        merchant_bears_cost: true,
-        metadata,
-        notification_url: notificationUrl,
-        redirect_url: callbackUrl,
-        reference: paymentReference,
-      });
-
-      authorizationUrl = korapay.authorization_url;
-      checkoutUrl = korapay.checkout_url;
-      gatewayResponse = korapay as unknown as Record<string, unknown>;
-    }
-
-    const { error: transactionError } = await supabase
-      .from('transactions')
-      .insert({
-        amount: parsed.data.amount,
-        currency: 'NGN',
-        description: 'Customer wallet top-up',
-        gateway,
-        gateway_reference: paymentReference,
-        gateway_response: gatewayResponse,
-        merchant_amount: parsed.data.amount,
-        merchant_id: merchant.id,
-        metadata,
-        order_id: null,
-        platform_fee: 0,
-        status: 'pending',
-        transaction_type: 'payment',
-      });
-
-    if (transactionError) {
+    if (transactionError || !insertedTransaction?.id) {
       console.error('Failed to create wallet top-up transaction', {
-        error: transactionError.message,
+        error: transactionError?.message,
         merchantId: merchant.id,
         reference: paymentReference,
+      });
+      return createErrorResponse('Failed to initialize wallet top-up', 500);
+    }
+
+    try {
+      if (gateway === 'paystack') {
+        const paystack = await initializePaystackTransaction({
+          amount: Math.round(parsed.data.amount * 100),
+          callback_url: callbackUrl,
+          email: customerEmail,
+          metadata,
+          phone: parsed.data.customerPhone || customer.phone || undefined,
+          reference: paymentReference,
+          ...(merchant.paystack_subaccount_code && {
+            subaccount: merchant.paystack_subaccount_code,
+          }),
+        });
+
+        authorizationUrl = paystack.authorization_url;
+        checkoutUrl = paystack.authorization_url;
+        gatewayResponse = paystack as unknown as Record<string, unknown>;
+      } else {
+        const korapay = await initializeKorapayPayment({
+          amount: parsed.data.amount,
+          currency: 'NGN',
+          customer: {
+            email: customerEmail,
+            name: customerName,
+          },
+          merchant_bears_cost: true,
+          metadata,
+          notification_url: notificationUrl,
+          redirect_url: callbackUrl,
+          reference: paymentReference,
+        });
+
+        authorizationUrl = korapay.authorization_url;
+        checkoutUrl = korapay.checkout_url;
+        gatewayResponse = korapay as unknown as Record<string, unknown>;
+      }
+    } catch (error) {
+      const { error: failUpdateError } = await supabase
+        .from('transactions')
+        .update({
+          gateway_response: {
+            error:
+              error instanceof Error ? error.message : 'Gateway init failed',
+          },
+          status: 'failed',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', insertedTransaction.id);
+
+      if (failUpdateError) {
+        console.error('Failed to mark wallet top-up transaction as failed', {
+          error: failUpdateError.message,
+          originalError: error instanceof Error ? error.message : error,
+          transactionId: insertedTransaction.id,
+        });
+      }
+
+      throw error;
+    }
+
+    const { error: updateError } = await supabase
+      .from('transactions')
+      .update({
+        gateway_response: gatewayResponse,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', insertedTransaction.id);
+
+    if (updateError) {
+      console.error('Failed to update wallet top-up transaction', {
+        authorizationUrl,
+        error: updateError.message,
+        merchantId: merchant.id,
+        reference: paymentReference,
+        transactionId: insertedTransaction.id,
       });
       return createErrorResponse('Failed to initialize wallet top-up', 500);
     }
