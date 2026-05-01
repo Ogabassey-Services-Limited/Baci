@@ -18,6 +18,13 @@ interface PaymentSession {
   shipping_address?: unknown;
 }
 
+const AGENTIC_ORDER_SOURCE = 'agentic_ai';
+const BANK_TRANSFER_PAYMENT_METHOD = 'bank_transfer';
+const PAYSTACK_PAYMENT_PROVIDER = 'paystack';
+const PAYMENT_PENDING_STATE = 'payment_pending';
+const PENDING_STATUS = 'pending';
+const PROCESSING_STATUS = 'processing';
+
 export function buildAgenticCheckoutOrderPayload({
   buyer,
   dvaAccount,
@@ -46,12 +53,12 @@ export function buildAgenticCheckoutOrderPayload({
     })),
     subtotal: getSubtotalAmount(sessionCalc.totals),
     shipping_fee: getFulfillmentAmount(sessionCalc.totals),
-    payment_method: 'bank_transfer',
-    payment_status: 'pending',
+    payment_method: BANK_TRANSFER_PAYMENT_METHOD,
+    payment_status: PENDING_STATUS,
     payment_provider_reference: dvaAccount.account_number,
-    shipping_status: 'pending',
+    shipping_status: PENDING_STATUS,
     shipping_address: session.shipping_address,
-    source: 'agentic_ai',
+    source: AGENTIC_ORDER_SOURCE,
     notes: `Agentic Checkout Session: ${session.session_id} | DVA: ${dvaAccount.bank_name} - ${dvaAccount.account_number}`,
   };
 }
@@ -68,13 +75,13 @@ export function buildPaymentPendingSessionUpdate({
   orderId: string;
 }) {
   return {
-    status: 'processing',
+    status: PROCESSING_STATUS,
     order_id: orderId,
     customer_email: buyer.email,
     customer_name: buildBuyerDisplayName(buyer),
     customer_phone: buyer.phone_number,
-    payment_method: 'bank_transfer',
-    payment_provider: 'paystack',
+    payment_method: BANK_TRANSFER_PAYMENT_METHOD,
+    payment_provider: PAYSTACK_PAYMENT_PROVIDER,
     payment_reference: dvaAccount.account_number,
     virtual_account_bank: dvaAccount.bank_name,
     virtual_account_name: dvaAccount.account_name,
@@ -85,7 +92,7 @@ export function buildPaymentPendingSessionUpdate({
         ...(metadata.agentic ?? {}),
         buyer,
         dva_account: dvaAccount,
-        payment_state: 'payment_pending',
+        payment_state: PAYMENT_PENDING_STATE,
       },
     },
   };
