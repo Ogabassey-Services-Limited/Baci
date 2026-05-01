@@ -74,6 +74,11 @@ function getResponseErrorMessage(data: Record<string, unknown>) {
     : 'Request failed. Please try again.';
 }
 
+function getOptionalString(value: string | null | undefined) {
+  const trimmedValue = value?.trim();
+  return trimmedValue ? trimmedValue : undefined;
+}
+
 async function parseJsonResponse(response: Response) {
   let data: Record<string, unknown>;
   try {
@@ -105,16 +110,17 @@ export async function initializeWalletTopUp({
   gateway?: WalletTopUpGateway;
 }): Promise<WalletTopUpInitializeResponse> {
   const accessToken = await getAccessToken();
+  const requestBody = {
+    amount,
+    customerName: getOptionalString(customerName),
+    customerPhone: getOptionalString(customerPhone),
+    gateway,
+    merchantSlug: CONFIG.MERCHANT_SLUG,
+  };
   const response = await fetchWithTimeout(
     `${API_URL}/api/storefront/customer/wallet/top-up/initialize`,
     {
-      body: JSON.stringify({
-        amount,
-        customerName,
-        customerPhone,
-        gateway,
-        merchantSlug: CONFIG.MERCHANT_SLUG,
-      }),
+      body: JSON.stringify(requestBody),
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
