@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { RADIUS, SPACING } from '@/constants/theme';
-import type { EditableProductVariant } from '@/lib/product-variant-form';
 import type { EditableProductCondition } from '@/lib/product-condition';
+import type { EditableProductVariant } from '@/lib/product-variant-form';
 
 interface VariantConditionEditorProps {
   colors: {

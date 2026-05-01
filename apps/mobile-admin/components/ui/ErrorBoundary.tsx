@@ -78,7 +78,7 @@ function ErrorFallback({
           style={({ pressed }) => [
             styles.button,
             { backgroundColor: colors.primary },
-            pressed && { opacity: 0.7 }
+            pressed && { opacity: 0.7 },
           ]}
           onPress={onReset}
           accessibilityRole="button"

@@ -18,9 +18,7 @@ function escapeScriptValue(value: string): string {
   return JSON.stringify(value);
 }
 
-function buildEditorContentPostMessageScript(
-  type: 'ai_request'
-): string {
+function buildEditorContentPostMessageScript(type: 'ai_request'): string {
   return `
     const editor = document.getElementById('editor');
     const content = editor instanceof HTMLElement ? editor.innerHTML : '';

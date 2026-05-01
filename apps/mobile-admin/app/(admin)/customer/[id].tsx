@@ -1,5 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
 import { getCustomerDisplayName } from '@baci/shared';
+import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ActivityIndicator,

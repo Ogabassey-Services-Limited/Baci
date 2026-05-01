@@ -90,7 +90,9 @@ describe('NewCustomerAddressInput', () => {
     fireEvent.change(screen.getByLabelText('Search Address'), {
       target: { value: '12 Allen Avenue' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Choose suggested address' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Choose suggested address' })
+    );
 
     expect(googlePlacesState.lastProps?.query).toMatchObject({
       components: 'country:gh',

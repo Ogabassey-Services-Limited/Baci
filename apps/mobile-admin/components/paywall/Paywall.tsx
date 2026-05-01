@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import {
@@ -13,10 +14,9 @@ import {
   View,
 } from 'react-native';
 import type { PurchasesPackage } from 'react-native-purchases';
-import { Ionicons } from '@expo/vector-icons';
-import { RADIUS, SPACING, TYPOGRAPHY } from '../../constants/theme';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
+import { RADIUS, SPACING, TYPOGRAPHY } from '../../constants/theme';
 
 const { width: _width } = Dimensions.get('window');
 
@@ -257,7 +257,12 @@ export default function Paywall({ onClose }: PaywallProps) {
       </ScrollView>
 
       {/* Sticky Bottom Actions */}
-      <View style={[styles.stickyFooter, { borderTopColor: colors.border, backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.stickyFooter,
+          { borderTopColor: colors.border, backgroundColor: colors.background },
+        ]}
+      >
         <Pressable
           onPress={onPurchase}
           disabled={!selectedPackage || isLoading}

@@ -220,9 +220,7 @@ describe('NewOrderProductSheet', () => {
 
     render(<NewOrderProductSheet controller={controller} />);
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Create new product' })
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Create new product' }));
 
     expect(controller.closeProductModal).toHaveBeenCalledTimes(1);
     expect(routerState.push).toHaveBeenCalledWith('/product/new');

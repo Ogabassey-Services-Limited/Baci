@@ -471,7 +471,10 @@ export default function AnalyticsScreen() {
                 ]}
               >
                 <Text
-                  style={[styles.retryButtonText, { color: colors.textOnPrimary }]}
+                  style={[
+                    styles.retryButtonText,
+                    { color: colors.textOnPrimary },
+                  ]}
                 >
                   Try again
                 </Text>

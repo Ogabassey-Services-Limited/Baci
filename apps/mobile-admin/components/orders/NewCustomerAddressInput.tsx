@@ -1,10 +1,10 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { Alert, Text, TextInput, View } from 'react-native';
-import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import type { CountryCode } from 'react-native-country-picker-modal';
+import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import type { ThemeColors } from '@/constants/theme';
-import type { NewCustomerDraft } from './new-order.types';
 import { styles } from './new-order.styles';
+import type { NewCustomerDraft } from './new-order.types';
 
 interface NewCustomerAddressInputProps {
   address: string;

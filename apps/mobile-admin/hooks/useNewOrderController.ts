@@ -12,9 +12,9 @@ import { DEFAULT_COUNTRY_CODE } from '@/components/orders/new-order.shared';
 import type {
   CustomerInfo,
   OrderItem,
-  SelectedParentProduct,
   SelectableCustomer,
   SelectableOrderProduct,
+  SelectedParentProduct,
 } from '@/components/orders/new-order.types';
 import { useAuth } from '@/hooks/useAuth';
 import { useCreateCustomer } from '@/hooks/useCustomers';

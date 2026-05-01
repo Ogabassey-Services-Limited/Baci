@@ -6,15 +6,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useCurrency } from '@/hooks/useCurrency';
+import { useTheme } from '@/hooks/useTheme';
 import {
   type TopSellingProduct,
   useTopSellingProducts,
 } from '@/hooks/useTopSellingProducts';
-import { useTheme } from '@/hooks/useTheme';
 
 function getSingleParam(value?: string | string[]) {
   return Array.isArray(value) ? value[0] : value;

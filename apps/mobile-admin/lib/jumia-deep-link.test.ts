@@ -25,9 +25,7 @@ describe('rewriteJumiaDeepLinkPath', () => {
   });
 
   it('returns the original input when deep-link parsing fails', () => {
-    expect(rewriteJumiaDeepLinkPath('baciadmin://%zz')).toBe(
-      'baciadmin://%zz'
-    );
+    expect(rewriteJumiaDeepLinkPath('baciadmin://%zz')).toBe('baciadmin://%zz');
   });
 
   it('leaves unrelated deep links unchanged', () => {

@@ -20,11 +20,7 @@ vi.mock('@/hooks/useTheme', () => ({
 
 vi.mock('@/components/ui/SafeImage', () => ({
   default: ({ source }: { source?: { uri?: string } }) => (
-    <div
-      aria-label="Receipt preview"
-      data-src={source?.uri}
-      role="img"
-    />
+    <div aria-label="Receipt preview" data-src={source?.uri} role="img" />
   ),
 }));
 
@@ -129,10 +125,9 @@ describe('ExpenseFormFields', () => {
       />
     );
 
-    expect(screen.getByRole('img', { name: 'Receipt preview' })).toHaveAttribute(
-      'data-src',
-      'file:///receipt.jpg'
-    );
+    expect(
+      screen.getByRole('img', { name: 'Receipt preview' })
+    ).toHaveAttribute('data-src', 'file:///receipt.jpg');
     expect(screen.getByText('Change')).toBeInTheDocument();
   });
 

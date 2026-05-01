@@ -1,7 +1,4 @@
-import {
-  SHIPPING_STATUS_CONFIG,
-  type ShippingStatus,
-} from '@baci/shared';
+import { SHIPPING_STATUS_CONFIG, type ShippingStatus } from '@baci/shared';
 import type { ThemeColors } from '@/constants/theme';
 import type { OrderSourceInfo } from './order-details.types';
 
