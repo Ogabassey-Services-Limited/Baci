@@ -50,7 +50,11 @@ export function NewOrderProductSheetEmptyState({
     return (
       <View style={{ padding: 20 }}>
         <Text
-          style={{ color: colors.textSecondary, fontSize: 14, textAlign: 'center' }}
+          style={{
+            color: colors.textSecondary,
+            fontSize: 14,
+            textAlign: 'center',
+          }}
         >
           No sellable variants are available for this product yet.
         </Text>
@@ -87,7 +91,11 @@ export function NewOrderProductSheetEmptyState({
   return (
     <View style={{ padding: 20 }}>
       <Text
-        style={{ color: colors.textSecondary, fontSize: 14, textAlign: 'center' }}
+        style={{
+          color: colors.textSecondary,
+          fontSize: 14,
+          textAlign: 'center',
+        }}
       >
         {productSearch.trim()
           ? 'No products match that search yet.'
@@ -109,7 +117,11 @@ function NewOrderRetryState({
   return (
     <View style={{ alignItems: 'center', gap: 12, padding: 20 }}>
       <Text
-        style={{ color: colors.textSecondary, fontSize: 14, textAlign: 'center' }}
+        style={{
+          color: colors.textSecondary,
+          fontSize: 14,
+          textAlign: 'center',
+        }}
       >
         {message}
       </Text>

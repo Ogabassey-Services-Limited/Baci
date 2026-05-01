@@ -1,6 +1,9 @@
 import { useState } from 'react';
-import type { ShipmentCompletionMode, ShipmentFlowStep } from '@/lib/order-shipment';
 import type { OrderItemSnapshot } from '@/components/orders/OrderItemDetailModal';
+import type {
+  ShipmentCompletionMode,
+  ShipmentFlowStep,
+} from '@/lib/order-shipment';
 
 export interface OrderDetailsSuccessModalState {
   actionLabel: string;
@@ -40,14 +43,14 @@ export function useOrderDetailsUiState() {
     useState<ShipmentCompletionMode>('provider');
   const [successModal, setSuccessModal] =
     useState<OrderDetailsSuccessModalState>({
-    visible: false,
-    title: 'Success!',
-    message: '',
-    subMessage: '',
-    actionLabel: '',
-    actionVariant: 'default',
-    showAction: false,
-  });
+      visible: false,
+      title: 'Success!',
+      message: '',
+      subMessage: '',
+      actionLabel: '',
+      actionVariant: 'default',
+      showAction: false,
+    });
 
   return {
     creditNotes,

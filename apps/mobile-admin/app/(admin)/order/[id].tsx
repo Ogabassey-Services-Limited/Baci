@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
-import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
 import { OrderDetailsScreenContent } from '@/components/orders/OrderDetailsScreenContent';
+import { InvalidRouteScreen } from '@/components/ui/InvalidRouteScreen';
 import { useOrderDetailsController } from '@/hooks/useOrderDetailsController';
 
 export default function OrderDetailsScreen() {

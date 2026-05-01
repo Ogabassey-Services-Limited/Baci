@@ -1,7 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import type { ThemeColors } from '@/constants/theme';
+import {
+  ActivityIndicator,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import SafeImage from '@/components/ui/SafeImage';
+import type { ThemeColors } from '@/constants/theme';
 
 interface ProductImageCardProps {
   colors: ThemeColors;
@@ -29,9 +35,7 @@ export function ProductImageCard({
       accessibilityHint="Double tap to upload or change product image"
     >
       {isUploading ? (
-        <View
-          style={[styles.placeholder, { backgroundColor: colors.inputBg }]}
-        >
+        <View style={[styles.placeholder, { backgroundColor: colors.inputBg }]}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : imageUrl ? (
@@ -43,26 +47,22 @@ export function ProductImageCard({
             transition={200}
           />
           <View style={styles.overlay}>
-            <Ionicons
-              name="camera"
-              size={24}
-              color={colors.textOnPrimary}
-            />
+            <Ionicons name="camera" size={24} color={colors.textOnPrimary} />
             <Text style={[styles.overlayText, { color: colors.textOnPrimary }]}>
               Change Image
             </Text>
           </View>
         </View>
       ) : (
-        <View
-          style={[styles.placeholder, { backgroundColor: colors.inputBg }]}
-        >
+        <View style={[styles.placeholder, { backgroundColor: colors.inputBg }]}>
           <Ionicons
             name="image-outline"
             size={48}
             color={colors.textSecondary}
           />
-          <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.placeholderText, { color: colors.textSecondary }]}
+          >
             Tap to upload image
           </Text>
         </View>

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
-import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import SafeImage from '@/components/ui/SafeImage';
+import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { getTranslucentColor } from '@/lib/colors/sanitize-css-color';
 import { NewOrderSummarySection } from './NewOrderSummarySection';
 import { styles } from './new-order.styles';
@@ -191,7 +191,10 @@ export function NewOrderItemsSection({
                   accessible
                   hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
                   onPress={() => handleQuantityChange(item.id, -1)}
-                  style={[styles.qtyBtn, { backgroundColor: colors.backgroundLight }]}
+                  style={[
+                    styles.qtyBtn,
+                    { backgroundColor: colors.backgroundLight },
+                  ]}
                 >
                   <Ionicons
                     color={item.quantity > 1 ? colors.text : colors.error}
@@ -215,7 +218,10 @@ export function NewOrderItemsSection({
                   accessible
                   hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
                   onPress={() => handleQuantityChange(item.id, 1)}
-                  style={[styles.qtyBtn, { backgroundColor: colors.backgroundLight }]}
+                  style={[
+                    styles.qtyBtn,
+                    { backgroundColor: colors.backgroundLight },
+                  ]}
                 >
                   <Ionicons color={colors.text} name="add" size={16} />
                 </Pressable>

@@ -1,5 +1,5 @@
-import { generateReceiptHtml, sanitizeSvg } from '@baci/shared';
 import type { ReceiptMerchant, ReceiptOrder } from '@baci/shared';
+import { generateReceiptHtml, sanitizeSvg } from '@baci/shared';
 import { Alert } from 'react-native';
 import type { OrderDetailsRecord } from '@/components/orders/order-details.types';
 import { supabase } from '@/lib/supabase';

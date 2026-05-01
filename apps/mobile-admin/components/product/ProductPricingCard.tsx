@@ -65,10 +65,13 @@ export function ProductPricingCard({
         {profit.active ? (
           <Text style={[styles.profitValue, { color: profit.color }]}>
             {currencySymbol}
-            {new Intl.NumberFormat().format(price - costPrice)} ({profit.percentage})
+            {new Intl.NumberFormat().format(price - costPrice)} (
+            {profit.percentage})
           </Text>
         ) : (
-          <Text style={[styles.emptyProfitText, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.emptyProfitText, { color: colors.textSecondary }]}
+          >
             Enter cost price to calculate margin
           </Text>
         )}

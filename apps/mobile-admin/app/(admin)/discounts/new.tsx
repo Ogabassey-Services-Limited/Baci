@@ -2,7 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Controller, type FieldErrors, type Resolver, useForm } from 'react-hook-form';
+import {
+  Controller,
+  type FieldErrors,
+  type Resolver,
+  useForm,
+} from 'react-hook-form';
 import {
   // Switch,
   ActivityIndicator,
@@ -68,21 +73,24 @@ const discountResolver: Resolver<
   }
 
   const { fieldErrors } = result.error.flatten();
-  const errors = Object.entries(fieldErrors).reduce((accumulator, entry) => {
-    const [fieldName, messages] = entry;
-    const message = messages?.[0];
+  const errors = Object.entries(fieldErrors).reduce(
+    (accumulator, entry) => {
+      const [fieldName, messages] = entry;
+      const message = messages?.[0];
 
-    if (!message) {
+      if (!message) {
+        return accumulator;
+      }
+
+      accumulator[fieldName as keyof DiscountFormInput] = {
+        type: 'manual',
+        message,
+      };
+
       return accumulator;
-    }
-
-    accumulator[fieldName as keyof DiscountFormInput] = {
-      type: 'manual',
-      message,
-    };
-
-    return accumulator;
-  }, {} as FieldErrors<DiscountFormInput>);
+    },
+    {} as FieldErrors<DiscountFormInput>
+  );
 
   return {
     values: {} as never,

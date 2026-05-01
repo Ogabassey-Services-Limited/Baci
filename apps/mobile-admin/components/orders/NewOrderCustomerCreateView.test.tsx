@@ -1,11 +1,11 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { CountryCode } from 'react-native-country-picker-modal';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createEmptyNewCustomerDraft } from '@/components/orders/new-order.defaults';
 import type { SelectableCustomer } from '@/components/orders/new-order.types';
-import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { LIGHT_COLORS } from '@/constants/theme';
+import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { DEFAULT_COUNTRY_CODE } from './new-order.shared';
 
 type GooglePlacesProps = {
@@ -30,7 +30,9 @@ vi.mock('react-native-google-places-autocomplete', () => ({
       <div>
         <input
           aria-label={props.placeholder ?? 'Search Address'}
-          onChange={(event) => props.textInputProps?.onChangeText?.(event.target.value)}
+          onChange={(event) =>
+            props.textInputProps?.onChangeText?.(event.target.value)
+          }
           value={props.textInputProps?.value ?? ''}
         />
         <button
@@ -58,7 +60,11 @@ vi.mock('react-native-phone-number-input', () => ({
     onChangeFormattedText?: (value: string) => void;
   }) => (
     <div>
-      <input aria-label="Phone Number" defaultValue={defaultValue ?? ''} onChange={(event) => onChangeFormattedText?.(event.target.value)} />
+      <input
+        aria-label="Phone Number"
+        defaultValue={defaultValue ?? ''}
+        onChange={(event) => onChangeFormattedText?.(event.target.value)}
+      />
       <button
         aria-label="Switch phone country"
         onClick={() => onChangeCountry?.({ cca2: 'GH' })}
@@ -140,10 +146,7 @@ type CustomerCreateController = Pick<
   | 'setSelectedCountryCode'
 >;
 
-function applyStateUpdate<T>(
-  update: React.SetStateAction<T>,
-  previous: T
-): T {
+function applyStateUpdate<T>(update: React.SetStateAction<T>, previous: T): T {
   return typeof update === 'function'
     ? (update as (value: T) => T)(previous)
     : update;
@@ -154,8 +157,7 @@ function makeController(overrides: Partial<CustomerCreateController> = {}) {
     duplicateCustomer:
       overrides.duplicateCustomer ?? (null as SelectableCustomer | null),
     newCustomer: overrides.newCustomer ?? createEmptyNewCustomerDraft(),
-    selectedCountryCode:
-      overrides.selectedCountryCode ?? DEFAULT_COUNTRY_CODE,
+    selectedCountryCode: overrides.selectedCountryCode ?? DEFAULT_COUNTRY_CODE,
   };
 
   const controller: CustomerCreateController = {
@@ -173,7 +175,10 @@ function makeController(overrides: Partial<CustomerCreateController> = {}) {
     setDuplicateCustomer:
       overrides.setDuplicateCustomer ??
       vi.fn((value: React.SetStateAction<SelectableCustomer | null>) => {
-        state.duplicateCustomer = applyStateUpdate(value, state.duplicateCustomer);
+        state.duplicateCustomer = applyStateUpdate(
+          value,
+          state.duplicateCustomer
+        );
       }),
     setIsCreatingCustomer: overrides.setIsCreatingCustomer ?? vi.fn(),
     setNewCustomer:
@@ -220,22 +225,31 @@ describe('NewOrderCustomerCreateView', () => {
 
   it('updates the draft fields and keeps the address input controlled', () => {
     const harness = makeController();
-    const view = render(<NewOrderCustomerCreateView controller={harness.snapshot()} />);
+    const view = render(
+      <NewOrderCustomerCreateView controller={harness.snapshot()} />
+    );
     const rerender = () =>
-      view.rerender(<NewOrderCustomerCreateView controller={harness.snapshot()} />);
-    ([['First Name', 'Ada'], ['Last Name', 'Lovelace']] as const).forEach(
-      ([placeholder, value]) => {
+      view.rerender(
+        <NewOrderCustomerCreateView controller={harness.snapshot()} />
+      );
+    (
+      [
+        ['First Name', 'Ada'],
+        ['Last Name', 'Lovelace'],
+      ] as const
+    ).forEach(([placeholder, value]) => {
       fireEvent.change(screen.getByPlaceholderText(placeholder), {
         target: { value },
       });
       rerender();
-      }
-    );
+    });
     fireEvent.change(screen.getByLabelText('Phone Number'), {
       target: { value: '08012345678' },
     });
     rerender();
-    fireEvent.click(screen.getByRole('button', { name: 'Switch phone country' }));
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Switch phone country' })
+    );
     rerender();
     fireEvent.change(screen.getByLabelText('Search Address'), {
       target: { value: '12 Allen' },
@@ -244,7 +258,9 @@ describe('NewOrderCustomerCreateView', () => {
     expect(screen.getByPlaceholderText('First Name')).toHaveValue('Ada');
     expect(screen.getByPlaceholderText('Last Name')).toHaveValue('Lovelace');
     expect(screen.getByLabelText('Search Address')).toHaveValue('12 Allen');
-    expect(harness.controller.setSelectedCountryCode).toHaveBeenCalledWith('GH');
+    expect(harness.controller.setSelectedCountryCode).toHaveBeenCalledWith(
+      'GH'
+    );
     expect(googlePlacesState.lastProps?.query).toMatchObject({
       components: 'country:gh',
       key: 'maps-test-key',
@@ -264,8 +280,9 @@ describe('NewOrderCustomerCreateView', () => {
 
   it('renders a loading state while the customer mutation is pending', () => {
     const harness = makeController({
-      createCustomerMutation:
-        { isPending: true } as CustomerCreateController['createCustomerMutation'],
+      createCustomerMutation: {
+        isPending: true,
+      } as CustomerCreateController['createCustomerMutation'],
     });
 
     render(<NewOrderCustomerCreateView controller={harness.snapshot()} />);
@@ -276,22 +293,30 @@ describe('NewOrderCustomerCreateView', () => {
 
   it('surfaces an existing duplicate customer and reuses it from the banner', () => {
     const duplicateCustomer: SelectableCustomer = {
-      address: '12 Allen Avenue', email: 'ada@example.com', first_name: 'Ada', id: 'customer-1', last_name: 'Lovelace', phone: '08012345678',
+      address: '12 Allen Avenue',
+      email: 'ada@example.com',
+      first_name: 'Ada',
+      id: 'customer-1',
+      last_name: 'Lovelace',
+      phone: '08012345678',
     };
     const harness = makeController({ duplicateCustomer });
     render(<NewOrderCustomerCreateView controller={harness.snapshot()} />);
     expect(screen.getByText('⚠️ Customer Already Exists')).toBeInTheDocument();
     expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();
     expect(screen.getByText('08012345678')).toBeInTheDocument();
-    const useExistingCustomerButton =
-      screen.getByText('Use This').closest('button');
+    const useExistingCustomerButton = screen
+      .getByText('Use This')
+      .closest('button');
     expect(useExistingCustomerButton).not.toBeNull();
     fireEvent.click(useExistingCustomerButton!);
     expect(harness.controller.handleSelectCustomer).toHaveBeenCalledWith(
       duplicateCustomer
     );
     expect(harness.controller.setDuplicateCustomer).toHaveBeenCalledWith(null);
-    expect(harness.controller.setIsCreatingCustomer).toHaveBeenCalledWith(false);
+    expect(harness.controller.setIsCreatingCustomer).toHaveBeenCalledWith(
+      false
+    );
     expect(harness.controller.resetNewCustomerForm).toHaveBeenCalledTimes(1);
   });
 });

@@ -8,8 +8,11 @@ import { useTheme } from '@/hooks/useTheme';
 export default function AuthLayout() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { hasSeenOnboarding, isLoading: onboardingLoading } = useOnboarding();
-  const { merchant, isLoading: merchantLoading, error: merchantError } =
-    useMerchant();
+  const {
+    merchant,
+    isLoading: merchantLoading,
+    error: merchantError,
+  } = useMerchant();
   const { colors } = useTheme();
   const segments = useSegments();
 

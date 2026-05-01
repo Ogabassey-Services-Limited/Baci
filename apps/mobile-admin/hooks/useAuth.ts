@@ -22,7 +22,10 @@ export interface UseAuthReturn {
     password: string
   ) => Promise<{ cancelled?: boolean; error: string | null }>;
   signInWithApple: () => Promise<{ cancelled?: boolean; error: string | null }>;
-  signInWithGoogle: () => Promise<{ cancelled?: boolean; error: string | null }>;
+  signInWithGoogle: () => Promise<{
+    cancelled?: boolean;
+    error: string | null;
+  }>;
   signOut: (onBeforeSignOut?: () => Promise<void>) => Promise<void>;
 }
 

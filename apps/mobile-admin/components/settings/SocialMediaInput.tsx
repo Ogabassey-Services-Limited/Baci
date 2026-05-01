@@ -4,8 +4,8 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 import {
   RADIUS,
   SPACING,
-  TYPOGRAPHY,
   type ThemeColors,
+  TYPOGRAPHY,
 } from '@/constants/theme';
 import type { MerchantSocialMedia } from '@/hooks/useMerchant';
 

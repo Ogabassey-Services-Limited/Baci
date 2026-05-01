@@ -1,12 +1,12 @@
 import type { Dispatch, SetStateAction } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
-import type { SelectableCustomer } from './new-order.types';
 import {
   getCustomerDisplayContact,
   getCustomerDisplayInitial,
   getCustomerDisplayName,
 } from './new-order.shared';
+import type { SelectableCustomer } from './new-order.types';
 
 interface DuplicateCustomerBannerProps {
   colors: ThemeColors;

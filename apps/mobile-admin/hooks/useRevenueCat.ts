@@ -13,7 +13,6 @@ export function useRevenueCat() {
     if (needsInit) {
       store.initialize();
     }
-
   }, [store]);
 
   return store;

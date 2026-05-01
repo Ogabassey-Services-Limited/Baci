@@ -21,7 +21,12 @@ vi.mock('react-native', async () => {
     }: {
       accessibilityLabel?: string;
       children?: React.ReactNode;
-      hitSlop?: { top?: number; right?: number; bottom?: number; left?: number };
+      hitSlop?: {
+        top?: number;
+        right?: number;
+        bottom?: number;
+        left?: number;
+      };
       onPress?: () => void;
     }) =>
       React.createElement(
@@ -217,9 +222,7 @@ describe('NewOrderSummarySection', () => {
 
     render(<NewOrderSummarySection controller={controller} />);
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /Edit Shipping Fee/ })
-    );
+    fireEvent.click(screen.getByRole('button', { name: /Edit Shipping Fee/ }));
 
     expect(controller.setShowFinancialModal).toHaveBeenCalledTimes(1);
     expect(controller.setShowFinancialModal).toHaveBeenCalledWith({

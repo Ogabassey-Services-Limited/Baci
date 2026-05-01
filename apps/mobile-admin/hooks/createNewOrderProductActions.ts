@@ -4,8 +4,8 @@ import { createEmptyCustomItemDraft } from '@/components/orders/new-order.defaul
 import type {
   CustomItemDraft,
   OrderItem,
-  SelectedParentProduct,
   SelectableOrderProduct,
+  SelectedParentProduct,
 } from '@/components/orders/new-order.types';
 import { buildManualOrderLineItem } from '@/lib/manual-order-line-item';
 import { mergeOrderItem } from '@/lib/order-items';

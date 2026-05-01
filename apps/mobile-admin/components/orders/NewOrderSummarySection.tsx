@@ -60,7 +60,10 @@ export function NewOrderSummarySection({
           setFinancialValue(discount > 0 ? discount.toString() : '');
           setShowFinancialModal({ type: 'discount', visible: true });
         }}
-        style={({ pressed }) => [styles.summaryRow, pressed && { opacity: 0.7 }]}
+        style={({ pressed }) => [
+          styles.summaryRow,
+          pressed && { opacity: 0.7 },
+        ]}
       >
         <View style={{ alignItems: 'center', flexDirection: 'row', gap: 4 }}>
           <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
@@ -87,7 +90,10 @@ export function NewOrderSummarySection({
           setFinancialValue(shippingFee > 0 ? shippingFee.toString() : '');
           setShowFinancialModal({ type: 'shipping', visible: true });
         }}
-        style={({ pressed }) => [styles.summaryRow, pressed && { opacity: 0.7 }]}
+        style={({ pressed }) => [
+          styles.summaryRow,
+          pressed && { opacity: 0.7 },
+        ]}
       >
         <View style={{ alignItems: 'center', flexDirection: 'row', gap: 4 }}>
           <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
@@ -114,7 +120,10 @@ export function NewOrderSummarySection({
           setFinancialValue(taxes > 0 ? taxes.toString() : '');
           setShowFinancialModal({ type: 'tax', visible: true });
         }}
-        style={({ pressed }) => [styles.summaryRow, pressed && { opacity: 0.7 }]}
+        style={({ pressed }) => [
+          styles.summaryRow,
+          pressed && { opacity: 0.7 },
+        ]}
       >
         <View style={{ alignItems: 'center', flexDirection: 'row', gap: 4 }}>
           <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>

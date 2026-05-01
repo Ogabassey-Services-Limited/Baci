@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  formatVatPercentage,
   formatPriceInput,
+  formatVatPercentage,
   getCustomerDisplayContact,
   getCustomerDisplayInitial,
   getCustomerDisplayName,
