@@ -64,15 +64,21 @@ export function useAirtimeFormController({
   const handlePhoneChange = (text: string) => {
     const digits = text.replace(/\D/g, '');
     setPhoneNumber(digits);
+    if (!digits) {
+      setSelectedProvider(null);
+      setIsNetworkPickerExpanded(false);
+      return;
+    }
+
     const detected = detectNetwork(digits);
     if (detected) {
       setSelectedProvider(detected);
       setIsNetworkPickerExpanded(false);
       return;
     }
-    if (digits.length >= 4) {
-      setIsNetworkPickerExpanded(true);
-    }
+
+    setSelectedProvider(null);
+    setIsNetworkPickerExpanded(false);
   };
 
   const updateAmount = (value: string) => {

@@ -9,7 +9,8 @@ const trimmedOptionalString = (message: string) =>
 const optionalOrderIdentifier = z.string().trim().optional();
 
 const optionalPositiveAmount = z.preprocess(
-  (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+  (value) =>
+    typeof value === 'string' && value.trim() === '' ? undefined : value,
   z.coerce
     .number({ message: 'Amount must be a valid number' })
     .finite('Amount cannot be Infinity or NaN')
@@ -29,7 +30,7 @@ export const PaymentGatewayParamsSchema = z
     ).url('Invalid authorization URL'),
     reference: trimmedRequiredString('Reference is required'),
     amount: optionalPositiveAmount,
-    paymentKind: z.enum(['order', 'vtu']).default('order'),
+    paymentKind: z.enum(['order', 'vtu', 'wallet']).default('order'),
     utilityType: z
       .enum(['airtime', 'data', 'tv', 'power', 'gaming'])
       .optional(),
@@ -52,6 +53,17 @@ export const PaymentGatewayParamsSchema = z
           code: 'custom',
           message: 'Customer identifier is required for VTU payments',
           path: ['customerIdentifier'],
+        });
+      }
+      return;
+    }
+
+    if (data.paymentKind === 'wallet') {
+      if (data.amount === undefined) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Amount is required for wallet top-up payments',
+          path: ['amount'],
         });
       }
       return;

@@ -52,7 +52,11 @@ export async function GET(request: Request) {
     // Build query
     let query = supabase
       .from('vtu_transactions')
-      .select('*', { count: 'exact' })
+      // PERFORMANCE: Use explicit column selection instead of .select('*') to prevent overfetching full rows
+      .select(
+        'id, merchant_id, customer_id, order_id, type, network_provider, phone_number, amount, request_reference, transaction_id, status, source, platform_commission, merchant_commission, metadata, error_message, created_at, updated_at',
+        { count: 'exact' }
+      )
       .eq('merchant_id', merchantId)
       .order('created_at', { ascending: false });
 

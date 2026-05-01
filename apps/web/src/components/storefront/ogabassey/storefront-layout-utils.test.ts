@@ -64,6 +64,8 @@ describe('storefront-layout-utils', () => {
     }) as Record<string, string>;
 
     expect(style['--store-primary']).toBe('#111111');
+    expect(style['--store-on-primary']).toBe('#FFFFFF');
+    expect(style['--store-border']).toBe('rgba(17, 17, 17, 0.24)');
     expect(style['--store-accent']).toBe('#eeeeee');
     expect(style['--background']).toBe('0 0% 100%');
     expect(style['--foreground']).toBe('0 0% 0%');
@@ -73,6 +75,8 @@ describe('storefront-layout-utils', () => {
     const style = getOgabasseyLayoutStyle(undefined) as Record<string, string>;
 
     expect(style['--store-primary']).toBe('#d62027');
+    expect(style['--store-on-primary']).toBe('#FFFFFF');
+    expect(style['--store-border']).toBe('rgba(214, 32, 39, 0.24)');
     expect(style['--store-accent']).toBe('#d62027');
     expect(style['--background']).toBe('0 0% 6%');
     expect(style['--foreground']).toBe('0 0% 98%');

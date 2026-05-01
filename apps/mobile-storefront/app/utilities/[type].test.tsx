@@ -10,11 +10,17 @@ import type {
   UtilityHistoryFilter,
   VTUHistoryTransaction,
 } from '@/hooks/use-vtu-history';
+import { walletKeys } from '@/hooks/use-wallet';
+
+// Test constants
+const EXPECTED_UTILITY_TAB_COUNT = 5;
+const TEST_MERCHANT_ID = 'merchant-1';
 
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
 const mockBack = jest.fn();
 const mockCanGoBack = jest.fn();
+const mockInvalidateQueries = jest.fn();
 type UtilityRouteParams = {
   amount?: string;
   cashbackAmount?: string;
@@ -90,6 +96,12 @@ jest.mock('expo-router', () => ({
 
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, right: 0, bottom: 0, left: 0 }),
+}));
+
+jest.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({
+    invalidateQueries: mockInvalidateQueries,
+  }),
 }));
 
 jest.mock('@/components/useColorScheme', () => ({
@@ -168,8 +180,17 @@ jest.mock('@/components/utilities/PurchaseSuccess', () => {
 
 jest.mock('@/stores/auth-store', () => ({
   useAuthStore: (
-    selector: (state: { session: { access_token: string } | null }) => unknown
-  ) => selector({ session: { access_token: 'token' } }),
+    selector: (state: {
+      customer: { id: string } | null;
+      merchantId: string | null;
+      session: { access_token: string } | null;
+    }) => unknown
+  ) =>
+    selector({
+      customer: { id: 'customer-1' },
+      merchantId: TEST_MERCHANT_ID,
+      session: { access_token: 'token' },
+    }),
 }));
 
 jest.mock('@/hooks/use-keyboard', () => ({
@@ -218,29 +239,34 @@ describe('UtilityPurchaseScreen', () => {
     });
   });
 
-  it('does not render utility submenus on the airtime screen', () => {
+  it('renders utility submenus on the airtime screen', () => {
     mockUseLocalSearchParams.mockReturnValue({ type: 'airtime' });
 
     render(<UtilityPurchaseScreen />);
 
     expect(screen.getByText('Airtime form')).toBeOnTheScreen();
-    expect(screen.queryByTestId('utility-type-tabs')).toBeNull();
-    expect(screen.queryByLabelText('Data utility service')).toBeNull();
+    expect(screen.getAllByRole('tab')).toHaveLength(EXPECTED_UTILITY_TAB_COUNT);
+    expect(screen.getByLabelText('Data utility service')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Airtime utility service')
+    ).toHaveAccessibilityState({
+      selected: true,
+    });
   });
 
-  it('routes to the airtime screen before hiding utility submenus', async () => {
-    const { rerender } = render(<UtilityPurchaseScreen />);
+  it('switches to airtime locally while keeping utility submenus visible', () => {
+    render(<UtilityPurchaseScreen />);
 
     fireEvent.press(screen.getByLabelText('Airtime utility service'));
 
-    expect(mockReplace).toHaveBeenCalledWith('/utilities/airtime');
-    mockUseLocalSearchParams.mockReturnValue({ type: 'airtime' });
-    rerender(<UtilityPurchaseScreen />);
-
-    await waitFor(() => {
-      expect(screen.queryByTestId('utility-type-tabs')).toBeNull();
-    });
+    expect(mockReplace).not.toHaveBeenCalledWith('/utilities/airtime');
+    expect(screen.getAllByRole('tab')).toHaveLength(EXPECTED_UTILITY_TAB_COUNT);
     expect(screen.getByText('Airtime form')).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Airtime utility service')
+    ).toHaveAccessibilityState({
+      selected: true,
+    });
   });
 
   it('uses the header back button for utility screens', () => {
@@ -265,6 +291,52 @@ describe('UtilityPurchaseScreen', () => {
     expect(
       screen.getByText('Purchase success processing 43901766923')
     ).toBeOnTheScreen();
+  });
+
+  it('refreshes the wallet cache when a utility success includes cashback', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      amount: '1000',
+      cashbackAmount: '50',
+      cashbackNewBalance: '1200',
+      customerIdentifier: '08031234567',
+      paymentStatus: 'successful',
+      reference: 'ref-cashback',
+      type: 'airtime',
+    });
+
+    render(<UtilityPurchaseScreen />);
+
+    await waitFor(() => {
+      expect(mockInvalidateQueries).toHaveBeenCalledWith({
+        queryKey: walletKeys.data({
+          merchantId: TEST_MERCHANT_ID,
+          ownerId: 'customer-1',
+        }),
+      });
+    });
+  });
+
+  it('does not refresh the wallet cache when a utility success has no cashback', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      amount: '1000',
+      cashbackAmount: '0',
+      cashbackNewBalance: '1200',
+      customerIdentifier: '08031234567',
+      paymentStatus: 'successful',
+      reference: 'ref-no-cashback',
+      type: 'airtime',
+    });
+
+    render(<UtilityPurchaseScreen />);
+
+    await screen.findByText('Purchase success successful 08031234567');
+
+    expect(mockInvalidateQueries).not.toHaveBeenCalledWith({
+      queryKey: walletKeys.data({
+        merchantId: TEST_MERCHANT_ID,
+        ownerId: 'customer-1',
+      }),
+    });
   });
 
   it('prefills the current form from the last successful transaction quick action', () => {

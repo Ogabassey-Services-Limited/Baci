@@ -21,6 +21,9 @@ export function AirtimeForm(props: AirtimeFormProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const form = useAirtimeFormController(props);
+  const shouldShowSelectedNetwork =
+    Boolean(form.selectedProvider) && !form.isNetworkPickerExpanded;
+  const shouldShowManualNetworkPicker = form.isNetworkPickerExpanded;
 
   return (
     <>
@@ -56,7 +59,7 @@ export function AirtimeForm(props: AirtimeFormProps) {
           />
         </View>
 
-        {form.selectedProvider && !form.isNetworkPickerExpanded ? (
+        {shouldShowSelectedNetwork ? (
           <View
             style={[
               styles.selectedNetworkCard,
@@ -104,7 +107,7 @@ export function AirtimeForm(props: AirtimeFormProps) {
               <Text style={[styles.sectionTitle, { color: colors.text }]}>
                 Select Network
               </Text>
-              {!form.isNetworkPickerExpanded ? (
+              {!shouldShowManualNetworkPicker ? (
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Choose network manually"
@@ -119,10 +122,12 @@ export function AirtimeForm(props: AirtimeFormProps) {
                 </Pressable>
               ) : null}
             </View>
-            <ProviderGrid
-              selectedProvider={form.selectedProvider}
-              onSelect={form.handleProviderSelect}
-            />
+            {shouldShowManualNetworkPicker ? (
+              <ProviderGrid
+                selectedProvider={form.selectedProvider}
+                onSelect={form.handleProviderSelect}
+              />
+            ) : null}
           </View>
         )}
 
@@ -146,17 +151,40 @@ export function AirtimeForm(props: AirtimeFormProps) {
             onChangeText={(text) => form.setAmount(text.replace(/\D/g, ''))}
           />
           <View style={styles.quickAmounts}>
-            {QUICK_AMOUNTS.map((amount) => (
-              <Pressable
-                key={amount}
-                style={[styles.quickChip, { borderColor: colors.border }]}
-                onPress={() => form.setAmount(String(amount))}
-              >
-                <Text style={[styles.quickChipText, { color: colors.text }]}>
-                  ₦{amount.toLocaleString()}
-                </Text>
-              </Pressable>
-            ))}
+            {QUICK_AMOUNTS.map((amount) => {
+              const isSelectedAmount = form.numericAmount === amount;
+
+              return (
+                <Pressable
+                  key={amount}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelectedAmount }}
+                  style={[
+                    styles.quickChip,
+                    {
+                      backgroundColor: isSelectedAmount
+                        ? BRAND.primary
+                        : colors.background,
+                      borderColor: isSelectedAmount
+                        ? BRAND.primary
+                        : colors.border,
+                    },
+                  ]}
+                  onPress={() => form.setAmount(String(amount))}
+                >
+                  <Text
+                    style={[
+                      styles.quickChipText,
+                      {
+                        color: isSelectedAmount ? BRAND.onPrimary : colors.text,
+                      },
+                    ]}
+                  >
+                    ₦{amount.toLocaleString()}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
 

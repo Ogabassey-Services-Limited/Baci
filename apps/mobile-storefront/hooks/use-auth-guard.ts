@@ -146,10 +146,11 @@ export function useRequireAuth() {
  * Useful for conditional UI rendering
  */
 export function useAuthStatus() {
-  const { user, customer, isInitialized, isLoading } = useAuthStore(
+  const { user, customer, merchantId, isInitialized, isLoading } = useAuthStore(
     useShallow((state) => ({
       user: state.user,
       customer: state.customer,
+      merchantId: state.merchantId,
       isInitialized: state.isInitialized,
       isLoading: state.isLoading,
     }))
@@ -160,6 +161,7 @@ export function useAuthStatus() {
     isGuest: user === null,
     isInitialized,
     isLoading,
+    merchantId,
     user,
     customer,
   };
