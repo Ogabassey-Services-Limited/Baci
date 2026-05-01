@@ -204,10 +204,12 @@ export async function createOllamaChatResponse({
     });
   } catch (error) {
     cleanup();
-    if (error instanceof Error && error.name === 'AbortError') {
-      // Disambiguate via the abort reason carried on the merged signal —
-      // resilient to races where both the upstream signal and the timeout
-      // fire close together.
+    // Modern Node (undici) and Chromium reject fetch with the merged
+    // signal's abort reason directly — so `error.name` may be the reason's
+    // name (e.g. 'TimeoutError'), not the legacy 'AbortError'. Inspect the
+    // merged signal first so timeout/upstream cancellations are surfaced
+    // with our documented messages instead of leaking the raw DOMException.
+    if (ollamaSignal.aborted) {
       if (isOllamaTimeoutAbort(ollamaSignal)) {
         throw new Error('Ollama chat request timed out');
       }

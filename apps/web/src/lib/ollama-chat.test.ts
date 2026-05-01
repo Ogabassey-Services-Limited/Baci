@@ -256,6 +256,78 @@ describe('createOllamaChatResponse', () => {
     expect((observedSignal?.reason as DOMException).name).toBe('TimeoutError');
   });
 
+  it('maps timeouts to the documented message even when fetch rejects with signal.reason (undici behavior)', async () => {
+    vi.useFakeTimers();
+    let rejection: unknown;
+    // Modern Node/undici and Chromium reject fetch with the merged signal's
+    // `reason` directly. Mimic that here so the test fails if the catch
+    // branch only handles legacy `AbortError`-named exceptions.
+    const mockFetch = vi.fn((_input: unknown, init?: RequestInit) => {
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener(
+          'abort',
+          () => reject(init.signal?.reason),
+          { once: true }
+        );
+      });
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const request = createOllamaChatResponse({
+      baseUrl: 'https://ollama.example.com',
+      model: 'gemma4:e4b',
+      messages: [{ role: 'user', content: 'Hi' }],
+      timeoutMs: 25,
+    }).then(
+      () => undefined,
+      (error: unknown) => {
+        rejection = error;
+      }
+    );
+
+    await vi.advanceTimersByTimeAsync(25);
+    await request;
+
+    expect(rejection).toBeInstanceOf(Error);
+    expect((rejection as Error).message).toBe('Ollama chat request timed out');
+    // The TimeoutError DOMException must NOT leak through to the caller —
+    // the public contract is the wrapped Error with the documented message.
+    expect((rejection as Error).name).not.toBe('TimeoutError');
+  });
+
+  it('maps upstream cancellations even when fetch rejects with signal.reason', async () => {
+    let rejection: unknown;
+    const mockFetch = vi.fn((_input: unknown, init?: RequestInit) => {
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener(
+          'abort',
+          () => reject(init.signal?.reason),
+          { once: true }
+        );
+      });
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const upstream = new AbortController();
+    const request = createOllamaChatResponse({
+      baseUrl: 'https://ollama.example.com',
+      model: 'gemma4:e4b',
+      messages: [{ role: 'user', content: 'Hi' }],
+      signal: upstream.signal,
+    }).then(
+      () => undefined,
+      (error: unknown) => {
+        rejection = error;
+      }
+    );
+
+    upstream.abort(new DOMException('user cancelled', 'AbortError'));
+    await request;
+
+    expect(rejection).toBeInstanceOf(Error);
+    expect((rejection as Error).message).toBe('Ollama chat request aborted');
+  });
+
   it('forwards an upstream abort reason onto the merged signal', async () => {
     let observedSignal: AbortSignal | undefined;
     let rejection: unknown;
