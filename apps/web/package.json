@@ -157,7 +157,7 @@
     "@typescript-eslint/parser": "^8.56.1",
     "@unlighthouse/cli": "^0.17.7",
     "@unlighthouse/core": "^0.17.7",
-    "@vitejs/plugin-react": "^5.1.4",
+    "@vitejs/plugin-react": "^6.0.1",
     "babel-plugin-react-compiler": "^1.0.0",
     "baseline-browser-mapping": "^2.10.7",
     "change-case": "^5.4.4",
