@@ -112,7 +112,9 @@ export const CalculateOrderOutput = z.object({
 export const CalculateVTUInput = z.object({
   amount: z.number().positive(),
   provider: z.string().min(1, 'Provider is required'),
-  category: z.enum(['AIRTIME', 'DATA']).optional(),
+  category: z
+    .enum(['AIRTIME', 'DATA', 'ELECTRICITY', 'CABLE', 'BETTING'])
+    .optional(),
   merchantSplit: z.number().min(0).max(100).optional(),
 });
 

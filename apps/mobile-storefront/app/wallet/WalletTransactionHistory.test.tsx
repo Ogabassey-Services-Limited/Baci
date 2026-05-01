@@ -50,6 +50,26 @@ describe('WalletTransactionHistory', () => {
     expect(screen.getByText('+₦2,500.75')).toBeTruthy();
   });
 
+  it('renders refund transactions as wallet inflows', () => {
+    render(
+      <WalletTransactionHistory
+        colors={Colors.light}
+        transactions={[
+          {
+            amount: 1200,
+            created_at: '2026-05-01T09:00:00.000Z',
+            description: 'Refund - Wallet top-up',
+            id: 'tx-refund-1',
+            type: 'refund',
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText('Refund - Wallet top-up')).toBeTruthy();
+    expect(screen.getByText('+₦1,200')).toBeTruthy();
+  });
+
   it('shows the empty state when there are no transactions', () => {
     render(
       <WalletTransactionHistory colors={Colors.light} transactions={[]} />

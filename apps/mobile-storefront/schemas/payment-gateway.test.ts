@@ -135,6 +135,40 @@ describe('PaymentGatewayParamsSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('does not require order identifiers for wallet top-up payments', () => {
+    const result = PaymentGatewayParamsSchema.safeParse({
+      amount: '2500',
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      paymentKind: 'wallet',
+      reference: 'WAL-123',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.amount).toBe(2500);
+      expect(result.data.paymentKind).toBe('wallet');
+      expect(result.data.reference).toBe('WAL-123');
+    }
+  });
+
+  it('requires a positive amount for wallet top-up payments', () => {
+    const result = PaymentGatewayParamsSchema.safeParse({
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      paymentKind: 'wallet',
+      reference: 'WAL-123',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(extractIssuePaths(result.error.issues)).toContain('amount');
+      expect(extractIssueMessages(result.error.issues)).toContain(
+        'Amount is required for wallet top-up payments'
+      );
+    }
+  });
+
   it('parses a valid VTU checkout payload with a positive numeric amount', () => {
     const result = PaymentGatewayParamsSchema.parse({
       amount: '1500.50',
