@@ -214,6 +214,93 @@ describe('createOllamaChatResponse', () => {
     expect(mockResponse.text).toHaveBeenCalledOnce();
   });
 
+  it('marks the merged signal with a TimeoutError reason when the deadline elapses', async () => {
+    vi.useFakeTimers();
+    let observedSignal: AbortSignal | undefined;
+    let rejection: unknown;
+    const mockFetch = vi.fn((_input: unknown, init?: RequestInit) => {
+      observedSignal = init?.signal ?? undefined;
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener(
+          'abort',
+          () => {
+            const error = new Error('Aborted');
+            error.name = 'AbortError';
+            reject(error);
+          },
+          { once: true }
+        );
+      });
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const request = createOllamaChatResponse({
+      baseUrl: 'https://ollama.example.com',
+      model: 'gemma4:e4b',
+      messages: [{ role: 'user', content: 'Hi' }],
+      timeoutMs: 25,
+    }).then(
+      () => undefined,
+      (error: unknown) => {
+        rejection = error;
+      }
+    );
+
+    await vi.advanceTimersByTimeAsync(25);
+    await request;
+
+    expect(rejection).toBeInstanceOf(Error);
+    expect((rejection as Error).message).toBe('Ollama chat request timed out');
+    expect(observedSignal?.aborted).toBe(true);
+    expect(observedSignal?.reason).toBeInstanceOf(DOMException);
+    expect((observedSignal?.reason as DOMException).name).toBe('TimeoutError');
+  });
+
+  it('forwards an upstream abort reason onto the merged signal', async () => {
+    let observedSignal: AbortSignal | undefined;
+    let rejection: unknown;
+    const mockFetch = vi.fn((_input: unknown, init?: RequestInit) => {
+      observedSignal = init?.signal ?? undefined;
+      return new Promise<Response>((_resolve, reject) => {
+        init?.signal?.addEventListener(
+          'abort',
+          () => {
+            const error = new Error('Aborted');
+            error.name = 'AbortError';
+            reject(error);
+          },
+          { once: true }
+        );
+      });
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    const upstream = new AbortController();
+    const request = createOllamaChatResponse({
+      baseUrl: 'https://ollama.example.com',
+      model: 'gemma4:e4b',
+      messages: [{ role: 'user', content: 'Hi' }],
+      signal: upstream.signal,
+    }).then(
+      () => undefined,
+      (error: unknown) => {
+        rejection = error;
+      }
+    );
+
+    const upstreamReason = new DOMException(
+      'user navigated away',
+      'AbortError'
+    );
+    upstream.abort(upstreamReason);
+    await request;
+
+    expect(rejection).toBeInstanceOf(Error);
+    expect((rejection as Error).message).toBe('Ollama chat request aborted');
+    expect(observedSignal?.aborted).toBe(true);
+    expect(observedSignal?.reason).toBe(upstreamReason);
+  });
+
   it('surfaces invalid streaming JSON without leaking chunk content', async () => {
     expect.assertions(4);
 
