@@ -154,7 +154,7 @@ describe('GET /api/agentic/checkout_sessions/[id]', () => {
 
     expect(response.status).toBe(400);
     expect(body).toMatchObject({ error: 'Invalid route params' });
-    expect(readAgenticSignedRequest).not.toHaveBeenCalled();
+    expect(readAgenticMutationRequest).not.toHaveBeenCalled();
     expect(createServiceClient).not.toHaveBeenCalled();
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });

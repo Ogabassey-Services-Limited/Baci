@@ -129,6 +129,9 @@ export async function reserveAgenticIdempotencyKey({
     if (reclaimed.ok) {
       return { ok: true, state: 'reserved' };
     }
+    if (reclaimed.error) {
+      return { error: IDEMPOTENCY_RESERVATION_FAILED_ERROR, ok: false };
+    }
 
     return { error: IDEMPOTENCY_REQUEST_IN_PROGRESS_ERROR, ok: false };
   }
@@ -159,7 +162,7 @@ async function reclaimStaleIdempotencyReservation({
   requestHash: string;
   route: string;
   supabase: SupabaseClient;
-}): Promise<{ ok: boolean }> {
+}): Promise<{ error?: unknown; ok: boolean }> {
   if (!isStaleInProgressReservation(record, now)) {
     return { ok: false };
   }
@@ -192,7 +195,7 @@ async function reclaimStaleIdempotencyReservation({
       merchantId,
       route,
     });
-    return { ok: false };
+    return { error, ok: false };
   }
 
   return { ok: !!data };

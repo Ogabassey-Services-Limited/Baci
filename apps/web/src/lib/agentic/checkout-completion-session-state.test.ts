@@ -94,6 +94,51 @@ describe('resolveCheckoutCompletionSessionState', () => {
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 
+  it('resumes order-finalizing sessions from stored state', async () => {
+    const session = {
+      ...readySession,
+      // Deliberately invalid: resume must use the stored payment snapshot.
+      cart_items: [{ invalid: true }] as never,
+      metadata: {
+        agentic: {
+          dva_account: {
+            account_name: 'Baci Test',
+            account_number: '1234567890',
+            bank_name: 'Paystack-Titan',
+          },
+          finalization_claim: 'claim-1',
+          line_items: lineItems,
+          payment_state: 'order_finalizing',
+          totals,
+        },
+      },
+    };
+
+    const result = await resolveCheckoutCompletionSessionState({
+      authorizationSecrets: [],
+      completionAuthorization: undefined,
+      merchantId: 'merchant-1',
+      session,
+      sessionId: 'agentic_session_1',
+      supabase: {} as never,
+    });
+
+    expect(result).toMatchObject({
+      canResumePaymentAccount: true,
+      ok: true,
+      sessionCalc: {
+        lineItems,
+        selectedOptionId: 'pickup_store_1',
+        totals,
+      },
+      storedDvaAccount: {
+        account_number: '1234567890',
+        bank_name: 'Paystack-Titan',
+      },
+    });
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
+  });
+
   it('returns a conflict when payment-account-ready state is incomplete', async () => {
     const session = {
       ...readySession,

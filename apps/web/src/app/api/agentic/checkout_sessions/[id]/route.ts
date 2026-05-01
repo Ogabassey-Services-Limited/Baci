@@ -1,10 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { calculateCheckoutSession } from '@/lib/agentic/checkout';
-import {
-  hasCheckoutPaymentSideEffect,
-  resolveExistingPaymentState,
-} from '@/lib/agentic/checkout-completion-response';
+import { hasCheckoutPaymentSideEffect } from '@/lib/agentic/checkout-completion-response';
 import {
   getAgenticCheckoutSession,
   MUTABLE_CHECKOUT_SESSION_STATUSES,
@@ -14,122 +11,54 @@ import {
   buildCheckoutSessionUpdate,
   mapCheckoutSessionStatus,
 } from '@/lib/agentic/checkout-storage';
-import {
-  reserveAgenticIdempotencyKey,
-  storeAgenticIdempotencyResponse,
-} from '@/lib/agentic/idempotency';
+import { reserveAgenticIdempotencyKey } from '@/lib/agentic/idempotency';
 import { getAgenticIdempotencyErrorStatus } from '@/lib/agentic/idempotency-response';
+import { buildStoredAgenticIdempotencyResponse } from '@/lib/agentic/idempotency-response-storage';
 import { resolveAgenticMerchantContext } from '@/lib/agentic/merchant-context';
 import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { getAgenticReplayErrorStatus } from '@/lib/agentic/request-replay-response';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
+import { logger } from '@/lib/logger';
+import { sanitizeForLog } from '@/lib/sanitize-core';
 import { buildStoreUrl } from '@/lib/store-url';
 import { createServiceClient } from '@/lib/supabase/service';
-import {
-  agenticCheckoutItemsSchema,
-  agenticCheckoutUpdateSchema,
-} from '@/schemas/agentic-checkout';
+import { agenticCheckoutUpdateSchema } from '@/schemas/agentic-checkout';
+import { agenticCheckoutSessionRouteParamsSchema } from '@/schemas/agentic-checkout-session-route-params';
+import { handleAgenticCheckoutSessionGet } from './route-get-handler';
 
 const UPDATE_IDEMPOTENCY_ROUTE = 'checkout_sessions.update';
 type SessionRouteProps = { params: Promise<{ id: string }> };
 
-export async function GET(request: NextRequest, props: SessionRouteProps) {
-  const params = await props.params;
-  if (!verifyAgenticApiKey(request))
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  const signedRead = await readAgenticMutationRequest({
-    request,
-    requireIdempotency: false,
-  });
-  if (!signedRead.ok) return signedRead.response;
-  const bootstrap = createServiceClient();
-  const merchant = await resolveAgenticMerchantContext(bootstrap);
-  if (!merchant) {
-    return NextResponse.json(
-      { error: 'Agentic merchant not found' },
-      { status: 500 }
-    );
-  }
-  const supabase = createAgenticScopedSupabaseClient({
-    merchantId: merchant.id,
-    merchantSlug: merchant.slug,
-  });
-  const { data: session, error } = await getAgenticCheckoutSession({
-    merchantId: merchant.id,
-    sessionId: params.id,
-    supabase,
-  });
-  if (error) {
-    console.error('Failed to fetch checkout session:', error);
-    return NextResponse.json({ error: 'Database error' }, { status: 500 });
-  }
-  if (!session)
-    return NextResponse.json({ error: 'Session not found' }, { status: 404 });
-  const existingPaymentState = resolveExistingPaymentState({ session });
-  if (existingPaymentState) {
-    return NextResponse.json(existingPaymentState.body, {
-      status: existingPaymentState.status,
-    });
-  }
-  const parsedCartItems = agenticCheckoutItemsSchema.safeParse(
-    session.cart_items
-  );
-  if (!parsedCartItems.success) {
-    return NextResponse.json(
-      { error: 'Invalid session cart items' },
-      { status: 500 }
-    );
-  }
-  let sessionCalc: Awaited<ReturnType<typeof calculateCheckoutSession>>;
-  try {
-    sessionCalc = await calculateCheckoutSession(
-      supabase,
-      parsedCartItems.data,
-      session.shipping_method,
-      session.currency,
-      merchant.id
-    );
-  } catch {
-    return NextResponse.json(
-      { error: 'Checkout calculation failed' },
-      { status: 500 }
-    );
-  }
-  const paymentState = resolveExistingPaymentState({ session, sessionCalc });
-  if (paymentState)
-    return NextResponse.json(paymentState.body, {
-      status: paymentState.status,
-    });
-  const status = mapCheckoutSessionStatus({
-    status: session.status,
-    hasFulfillmentAddress: !!session.shipping_address,
-    hasLineItems: sessionCalc.lineItems.length > 0,
-  });
-  return NextResponse.json(
-    buildCheckoutSessionStateResponse({
-      currency: session.currency,
-      fulfillmentOptionId: session.shipping_method,
-      fulfillmentOptions: sessionCalc.fulfillmentOptions,
-      lineItems: sessionCalc.lineItems,
-      messages: sessionCalc.messages,
-      policyBaseUrl: buildStoreUrl(merchant),
-      sessionId: session.session_id,
-      shippingAddress: session.shipping_address,
-      status,
-      totals: sessionCalc.totals,
-    })
-  );
+export function GET(request: NextRequest, props: SessionRouteProps) {
+  return handleAgenticCheckoutSessionGet(request, props);
 }
 
 export async function POST(request: NextRequest, props: SessionRouteProps) {
   const params = await props.params;
   if (!verifyAgenticApiKey(request))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const parsedParams =
+    agenticCheckoutSessionRouteParamsSchema.safeParse(params);
+  if (!parsedParams.success) {
+    return NextResponse.json(
+      {
+        error: 'Invalid route params',
+        details: parsedParams.error.flatten(),
+      },
+      { status: 400 }
+    );
+  }
+  const { id: sessionId } = parsedParams.data;
+
   const mutation = await readAgenticMutationRequest({ request });
   if (!mutation.ok) {
     return mutation.response;
   }
+  let respondWithIdempotency:
+    | ((response: unknown, status: number) => Promise<NextResponse>)
+    | null = null;
+
   try {
     const parsed = agenticCheckoutUpdateSchema.safeParse(mutation.body);
     if (!parsed.success) {
@@ -179,6 +108,17 @@ export async function POST(request: NextRequest, props: SessionRouteProps) {
         },
       });
     }
+    respondWithIdempotency = (response: unknown, status: number) =>
+      buildStoredAgenticIdempotencyResponse({
+        idempotencyKey: mutation.idempotencyKey,
+        merchantId: merchant.id,
+        requestId: mutation.requestId,
+        response,
+        route: UPDATE_IDEMPOTENCY_ROUTE,
+        status,
+        storageFailureResponse: { error: 'Internal Server Error' },
+        supabase,
+      });
     const replayReservation = await reserveAgenticRequestId({
       apiVersion: mutation.apiVersion,
       idempotencyKey: mutation.idempotencyKey,
@@ -187,25 +127,42 @@ export async function POST(request: NextRequest, props: SessionRouteProps) {
       supabase,
     });
     if (!replayReservation.ok) {
-      return NextResponse.json(
+      return await respondWithIdempotency(
         { error: replayReservation.error },
-        { status: getAgenticReplayErrorStatus(replayReservation.error) }
+        getAgenticReplayErrorStatus(replayReservation.error)
       );
     }
+    const respond = (response: unknown, status: number) =>
+      respondWithIdempotency?.(response, status) ??
+      buildStoredAgenticIdempotencyResponse({
+        idempotencyKey: mutation.idempotencyKey,
+        merchantId: merchant.id,
+        requestId: mutation.requestId,
+        response,
+        route: UPDATE_IDEMPOTENCY_ROUTE,
+        status,
+        storageFailureResponse: { error: 'Internal Server Error' },
+        supabase,
+      });
+
     const { data: session, error } = await getAgenticCheckoutSession({
       merchantId: merchant.id,
-      sessionId: params.id,
+      sessionId,
       supabase,
     });
     if (error) {
-      console.error('Failed to fetch checkout session:', error);
-      return NextResponse.json({ error: 'Database error' }, { status: 500 });
+      logger.error({
+        message: 'Failed to fetch checkout session',
+        error: sanitizeForLog(error),
+        sessionId,
+      });
+      return await respond({ error: 'Database error' }, 500);
     }
     if (!session) {
-      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+      return await respond({ error: 'Session not found' }, 404);
     }
     if (!MUTABLE_CHECKOUT_SESSION_STATUSES.includes(session.status)) {
-      return NextResponse.json(
+      return await respond(
         {
           error: 'Session cannot be updated',
           status: mapCheckoutSessionStatus({
@@ -214,16 +171,16 @@ export async function POST(request: NextRequest, props: SessionRouteProps) {
             hasLineItems: session.cart_items.length > 0,
           }),
         },
-        { status: 409 }
+        409
       );
     }
     if (hasCheckoutPaymentSideEffect(session)) {
-      return NextResponse.json(
+      return await respond(
         {
           error: 'Session already has pending payment',
           status: 'payment_pending',
         },
-        { status: 409 }
+        409
       );
     }
     const newItems = items ?? session.cart_items;
@@ -263,7 +220,7 @@ export async function POST(request: NextRequest, props: SessionRouteProps) {
     const { data: updatedSession, error: updateError } = await supabase
       .from('checkout_sessions')
       .update(updatePayload)
-      .eq('session_id', params.id)
+      .eq('session_id', sessionId)
       .eq('merchant_id', merchant.id)
       .is('order_id', null)
       .is('payment_reference', null)
@@ -272,16 +229,20 @@ export async function POST(request: NextRequest, props: SessionRouteProps) {
       .select('session_id')
       .maybeSingle();
     if (updateError) {
-      console.error('Failed to update checkout session:', updateError);
-      return NextResponse.json({ error: 'Database error' }, { status: 500 });
+      logger.error({
+        message: 'Failed to update checkout session',
+        error: sanitizeForLog(updateError),
+        sessionId,
+      });
+      return await respond({ error: 'Database error' }, 500);
     }
     if (!updatedSession) {
-      return NextResponse.json(
+      return await respond(
         {
           error: 'Session already has pending payment',
           status: 'payment_pending',
         },
-        { status: 409 }
+        409
       );
     }
     const responsePayload = buildCheckoutSessionStateResponse({
@@ -296,25 +257,21 @@ export async function POST(request: NextRequest, props: SessionRouteProps) {
       status,
       totals: sessionCalc.totals,
     });
-    await storeAgenticIdempotencyResponse({
-      key: mutation.idempotencyKey,
-      merchantId: merchant.id,
-      response: responsePayload,
-      route: UPDATE_IDEMPOTENCY_ROUTE,
-      status: 200,
-      supabase,
+    return await respond(responsePayload, 200);
+  } catch (err: unknown) {
+    const body = { error: 'Internal Server Error' };
+    logger.error({
+      message: 'Agentic checkout update error',
+      error: sanitizeForLog(err),
+      sessionId,
     });
-    return NextResponse.json(responsePayload, {
-      headers: {
-        'idempotency-key': mutation.idempotencyKey,
-        'request-id': mutation.requestId,
-      },
-    });
-  } catch (err) {
-    console.error('Agentic Checkout Update Error:', err);
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    );
+    if (respondWithIdempotency) {
+      try {
+        return await respondWithIdempotency(body, 500);
+      } catch {
+        return NextResponse.json(body, { status: 500 });
+      }
+    }
+    return NextResponse.json(body, { status: 500 });
   }
 }

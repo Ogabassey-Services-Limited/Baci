@@ -258,6 +258,42 @@ describe('agentic idempotency', () => {
     );
   });
 
+  it('returns reservation failure when stale reservation reclaim fails', async () => {
+    const body = '{"items":[]}';
+    const now = new Date('2026-04-30T12:00:00.000Z');
+    const mock = createSupabaseMock({
+      existingRecord: {
+        request_hash: hashIdempotencyRequest({
+          ...defaultFingerprint,
+          body,
+        }),
+        response_body: null,
+        status_code: null,
+        updated_at: '2026-04-30T11:55:00.000Z',
+      },
+      insertError: { code: '23505', message: 'duplicate key' },
+      staleReservationUpdateError: {
+        code: 'PGRST000',
+        message: 'database unavailable',
+      },
+    });
+
+    const result = await reserveAgenticIdempotencyKey({
+      ...defaultFingerprint,
+      body,
+      key: 'idem-1',
+      merchantId: 'merchant-1',
+      now,
+      route: 'checkout_sessions.create',
+      supabase: mock.supabase as never,
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: IDEMPOTENCY_RESERVATION_FAILED_ERROR,
+    });
+  });
+
   it('returns reservation failure when the existing record lookup fails', async () => {
     const mock = createSupabaseMock({
       insertError: { code: '23505', message: 'duplicate key' },

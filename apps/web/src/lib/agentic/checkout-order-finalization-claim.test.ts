@@ -96,6 +96,45 @@ describe('agentic checkout order finalization claim', () => {
     expect(result).toEqual({ claimed: false, error: null });
   });
 
+  it('reclaims an existing matching order-finalizing claim', async () => {
+    const initialClaimChain = createUpdateChain({ data: null, error: null });
+    const existingClaimChain = createUpdateChain({
+      data: { session_id: 'agentic_session_1' },
+      error: null,
+    });
+    const updateSpy = vi
+      .fn()
+      .mockReturnValueOnce(initialClaimChain)
+      .mockReturnValueOnce(existingClaimChain);
+    const supabase = {
+      from: vi.fn(() => ({ update: updateSpy })),
+    };
+
+    const result = await claimAgenticOrderFinalization({
+      buyer,
+      dvaAccount,
+      finalizationClaim: 'claim-1',
+      merchantId: 'merchant-1',
+      metadata: {
+        agentic: {
+          finalization_claim: 'claim-1',
+          payment_state: 'order_finalizing',
+        },
+      },
+      sessionId: 'agentic_session_1',
+      supabase: supabase as never,
+    });
+
+    expect(result).toEqual({ claimed: true, error: null });
+    expect(updateSpy).toHaveBeenCalledTimes(2);
+    expect(existingClaimChain.contains).toHaveBeenCalledWith('metadata', {
+      agentic: {
+        finalization_claim: 'claim-1',
+        payment_state: 'order_finalizing',
+      },
+    });
+  });
+
   it('returns Supabase errors from finalization claim writes', async () => {
     const claimError = { message: 'claim failed' };
     const chain = createUpdateChain({ data: null, error: claimError });

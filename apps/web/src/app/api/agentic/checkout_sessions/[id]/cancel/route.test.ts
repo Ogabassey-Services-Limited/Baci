@@ -102,7 +102,7 @@ function mockCheckoutSessionLookup({
     eq: vi.fn(),
     maybeSingle: vi.fn().mockResolvedValue({
       data: session,
-      error: session ? null : { message: 'not found' },
+      error: null,
     }),
   };
   readChain.eq.mockReturnValue(readChain);
@@ -296,5 +296,33 @@ describe('POST /api/agentic/checkout_sessions/[id]/cancel', () => {
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: 'Database error' });
     expect(updateSpy).toHaveBeenCalledWith({ status: 'abandoned' });
+  });
+
+  it('cancels even when response recalculation fails', async () => {
+    const { updateSpy } = mockCheckoutSessionLookup({
+      session: buildSession(),
+    });
+    vi.mocked(calculateCheckoutSession).mockRejectedValue(
+      new Error('shipping unavailable')
+    );
+
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout_sessions/agentic_session_1/cancel',
+      { method: 'POST', headers: { 'idempotency-key': 'idem-1' } }
+    );
+    const params = { params: Promise.resolve({ id: 'agentic_session_1' }) };
+
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(updateSpy).toHaveBeenCalledWith({ status: 'abandoned' });
+    expect(body).toMatchObject({
+      id: 'agentic_session_1',
+      status: 'canceled',
+      line_items: [],
+      totals: [],
+    });
   });
 });

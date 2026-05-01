@@ -71,7 +71,36 @@ export async function claimAgenticOrderFinalization({
     .select('session_id')
     .maybeSingle();
 
+  if (
+    !error &&
+    !data &&
+    hasMatchingOrderFinalizationClaim({ finalizationClaim, metadata })
+  ) {
+    return reclaimExistingOrderFinalizationClaim({
+      buyer,
+      dvaAccount,
+      finalizationClaim,
+      merchantId,
+      metadata,
+      sessionId,
+      supabase,
+    });
+  }
+
   return { claimed: !error && !!data, error };
+}
+
+function hasMatchingOrderFinalizationClaim({
+  finalizationClaim,
+  metadata,
+}: {
+  finalizationClaim: string;
+  metadata: AgenticMetadata;
+}) {
+  return (
+    metadata.agentic?.payment_state === 'order_finalizing' &&
+    metadata.agentic?.finalization_claim === finalizationClaim
+  );
 }
 
 export async function releaseAgenticOrderFinalizationClaim({
@@ -117,6 +146,59 @@ export async function releaseAgenticOrderFinalizationClaim({
       sessionId: sanitizeForLog(sessionId),
     });
   }
+}
+
+async function reclaimExistingOrderFinalizationClaim({
+  buyer,
+  dvaAccount,
+  finalizationClaim,
+  merchantId,
+  metadata,
+  sessionId,
+  supabase,
+}: {
+  buyer: AgenticCheckoutBuyer;
+  dvaAccount: StoredDvaAccount;
+  finalizationClaim: string;
+  merchantId: string;
+  metadata: AgenticMetadata;
+  sessionId: string;
+  supabase: SupabaseClient;
+}) {
+  const { data, error } = await supabase
+    .from('checkout_sessions')
+    .update({
+      metadata: buildOrderFinalizationMetadata({
+        buyer,
+        dvaAccount,
+        finalizationClaim,
+        metadata,
+        paymentState: 'order_finalizing',
+      }),
+    })
+    .eq('session_id', sessionId)
+    .eq('merchant_id', merchantId)
+    .eq('payment_reference', dvaAccount.account_number)
+    .is('order_id', null)
+    .in('status', ['pending', 'processing'])
+    .contains('metadata', {
+      agentic: {
+        finalization_claim: finalizationClaim,
+        payment_state: 'order_finalizing',
+      },
+    })
+    .select('session_id')
+    .maybeSingle();
+
+  if (error) {
+    logger.error({
+      error: sanitizeForLog(error),
+      message: 'Agentic checkout order finalization claim reclaim failed',
+      sessionId: sanitizeForLog(sessionId),
+    });
+  }
+
+  return { claimed: !error && !!data, error };
 }
 
 function buildOrderFinalizationMetadata({

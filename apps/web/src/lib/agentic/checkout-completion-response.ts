@@ -155,6 +155,7 @@ export function hasCheckoutPaymentSideEffect(
   return (
     paymentState === 'claiming_payment' ||
     paymentState === 'payment_account_ready' ||
+    paymentState === 'order_finalizing' ||
     paymentState === 'payment_pending' ||
     !!session.order_id ||
     !!session.payment_reference ||

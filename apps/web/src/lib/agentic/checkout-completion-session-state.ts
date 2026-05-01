@@ -18,7 +18,6 @@ import {
 } from '@/lib/agentic/checkout-completion-response';
 import { buildPaymentAccountConflictResponse } from '@/lib/agentic/checkout-payment-account-conflict';
 import type { CheckoutSessionCalculation } from '@/lib/agentic/checkout-payment-setup-types';
-import { parseAgenticCheckoutSessionItems } from '@/lib/agentic/checkout-session-items';
 import type { AgenticCheckoutSessionRecord } from '@/lib/agentic/checkout-session-record';
 import {
   type AgenticMetadata,
@@ -26,6 +25,8 @@ import {
   mapCheckoutSessionStatus,
 } from '@/lib/agentic/checkout-storage';
 import { logger } from '@/lib/logger';
+import { sanitizeForLog } from '@/lib/sanitize-core';
+import { agenticCheckoutItemsSchema } from '@/schemas/agentic-checkout';
 
 interface CheckoutCompletionSessionStateInput {
   authorizationSecrets: string[];
@@ -56,10 +57,13 @@ export async function resolveCheckoutCompletionSessionState({
 }: CheckoutCompletionSessionStateInput): Promise<CheckoutCompletionSessionState> {
   const paymentState = getAgenticPaymentState(session.metadata);
 
-  if (paymentState === 'payment_account_ready') {
+  if (
+    paymentState === 'payment_account_ready' ||
+    paymentState === 'order_finalizing'
+  ) {
     if (session.metadata == null) {
       logger.warn({
-        message: 'Payment-account-ready session is missing metadata',
+        message: 'Payment side-effect session is missing metadata',
         paymentState,
         sessionId,
       });
@@ -92,11 +96,13 @@ export async function resolveCheckoutCompletionSessionState({
     };
   }
 
-  const parsedCartItems = parseAgenticCheckoutSessionItems(session.cart_items);
-  if (!parsedCartItems.ok) {
+  const parsedCartItems = agenticCheckoutItemsSchema.safeParse(
+    session.cart_items
+  );
+  if (!parsedCartItems.success) {
     logger.error({
       message: 'Agentic checkout session has invalid cart items',
-      error: parsedCartItems.error,
+      error: sanitizeForLog(parsedCartItems.error.flatten()),
       sessionId,
     });
     return {
@@ -110,7 +116,7 @@ export async function resolveCheckoutCompletionSessionState({
   try {
     sessionCalc = await calculateCheckoutSession(
       supabase,
-      parsedCartItems.items,
+      parsedCartItems.data,
       session.shipping_method,
       session.currency,
       merchantId
