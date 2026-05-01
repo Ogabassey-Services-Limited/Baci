@@ -1,0 +1,336 @@
+import { NextRequest } from 'next/server';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockAuthenticateApiRequest = vi.fn();
+const mockResolveVtuCustomer = vi.fn();
+const mockVerifyPaystackTransaction = vi.fn();
+const mockCreditWalletTopUp = vi.fn();
+const mockFrom = vi.fn();
+
+vi.mock('@/lib/api-auth', () => ({
+  authenticateApiRequest: (...args: unknown[]) =>
+    mockAuthenticateApiRequest(...args),
+}));
+
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: vi.fn(() =>
+    Promise.resolve({ valid: true, response: null })
+  ),
+}));
+
+vi.mock('@/lib/paystack', () => ({
+  verifyTransaction: (...args: unknown[]) =>
+    mockVerifyPaystackTransaction(...args),
+}));
+
+vi.mock('@/lib/korapay', () => ({
+  verifyPayment: vi.fn(),
+}));
+
+vi.mock('@/lib/customer-wallet-top-up', () => ({
+  creditWalletTopUp: (...args: unknown[]) => mockCreditWalletTopUp(...args),
+  WALLET_TOP_UP_TRANSACTION_TYPE: 'wallet_topup',
+}));
+
+vi.mock('@/lib/vtu-pending-transaction', () => ({
+  resolveVtuCustomer: (...args: unknown[]) => mockResolveVtuCustomer(...args),
+}));
+
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({
+    from: mockFrom,
+  })),
+}));
+
+import { POST } from './route';
+
+function makeRequest(body: Record<string, unknown>) {
+  return new NextRequest(
+    'http://localhost:3000/api/storefront/customer/wallet/top-up/confirm',
+    {
+      body: JSON.stringify(body),
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    }
+  );
+}
+
+const defaultTransaction = {
+  amount: 2500,
+  currency: 'NGN',
+  id: 'txn-1',
+  merchant_id: 'merchant-1',
+  metadata: {
+    customer_id: 'customer-1',
+    transaction_type: 'wallet_topup',
+  },
+  status: 'pending',
+};
+
+describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase: {},
+      user: { email: 'customer@example.com', id: 'user-1' },
+    });
+    mockResolveVtuCustomer.mockResolvedValue({ id: 'customer-1' });
+    mockVerifyPaystackTransaction.mockResolvedValue({
+      data: {
+        amount: 250000,
+        status: 'success',
+      },
+      success: true,
+    });
+    mockCreditWalletTopUp.mockResolvedValue({
+      balance: 7500,
+      reference: 'WAL-123',
+      transactionId: 'wallet-tx-1',
+    });
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({
+                data: { id: 'merchant-1' },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+
+      if (table === 'transactions') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: defaultTransaction,
+                error: null,
+              }),
+            }),
+          }),
+          update: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              neq: vi.fn().mockReturnValue({
+                select: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: { id: 'txn-1' },
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    });
+  });
+
+  it('returns 404 when the wallet top-up payment does not exist', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({
+                data: { id: 'merchant-1' },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === 'transactions') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: null,
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const response = await POST(
+      makeRequest({
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+        reference: 'WAL-123',
+      })
+    );
+
+    expect(response.status).toBe(404);
+  });
+
+  it('confirms payment and credits the customer wallet idempotently', async () => {
+    const response = await POST(
+      makeRequest({
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+        reference: 'WAL-123',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toEqual({
+      amount: 2500,
+      reference: 'WAL-123',
+      status: 'successful',
+      success: true,
+      wallet: {
+        balance: 7500,
+      },
+    });
+    expect(mockCreditWalletTopUp).toHaveBeenCalledWith({
+      amount: 2500,
+      customerId: 'customer-1',
+      gateway: 'paystack',
+      merchantId: 'merchant-1',
+      reference: 'WAL-123',
+      supabase: expect.any(Object),
+      transactionId: 'txn-1',
+    });
+  });
+
+  it('does not credit the wallet when another request already claimed the transaction', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({
+                data: { id: 'merchant-1' },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+
+      if (table === 'transactions') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: defaultTransaction,
+                error: null,
+              }),
+            }),
+          }),
+          update: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              neq: vi.fn().mockReturnValue({
+                select: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: null,
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const response = await POST(
+      makeRequest({
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+        reference: 'WAL-123',
+      })
+    );
+
+    expect(response.status).toBe(409);
+    expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+  });
+
+  it('does not credit the wallet when the transaction was already completed', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              single: vi.fn().mockResolvedValue({
+                data: { id: 'merchant-1' },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+
+      if (table === 'transactions') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: { ...defaultTransaction, status: 'completed' },
+                error: null,
+              }),
+            }),
+          }),
+          update: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              neq: vi.fn().mockReturnValue({
+                select: vi.fn().mockReturnValue({
+                  maybeSingle: vi.fn().mockResolvedValue({
+                    data: null,
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+          }),
+        };
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const response = await POST(
+      makeRequest({
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+        reference: 'WAL-123',
+      })
+    );
+
+    expect(response.status).toBe(409);
+    expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+  });
+
+  it('rejects successful gateway responses without a verified amount', async () => {
+    mockVerifyPaystackTransaction.mockResolvedValueOnce({
+      data: {
+        status: 'success',
+      },
+      success: true,
+    });
+
+    const response = await POST(
+      makeRequest({
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+        reference: 'WAL-123',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toEqual({ error: 'Unable to verify payment amount' });
+    expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+  });
+});

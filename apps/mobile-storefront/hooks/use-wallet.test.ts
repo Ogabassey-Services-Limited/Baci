@@ -1,22 +1,40 @@
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  jest,
+} from '@jest/globals';
 import { notifyManager } from '@tanstack/query-core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { createElement, type PropsWithChildren } from 'react';
 
-const mockCalculateCommerce = jest.fn();
-const mockRpc = jest.fn();
-const mockFrom = jest.fn();
+const mockCalculateCommerce =
+  jest.fn<(type: string, payload: unknown) => Promise<unknown>>();
+const mockRpc = jest.fn<(name: string, params?: unknown) => Promise<unknown>>();
+const mockFrom = jest.fn<(table: string) => unknown>();
 
 jest.mock('@/lib/supabase', () => ({
-  calculateCommerce: (...args: unknown[]) => mockCalculateCommerce(...args),
+  calculateCommerce: (type: string, payload: unknown) =>
+    mockCalculateCommerce(type, payload),
   supabase: {
     channel: jest.fn(() => ({
       on: jest.fn().mockReturnThis(),
       subscribe: jest.fn(),
     })),
-    from: (...args: unknown[]) => mockFrom(...args),
+    from: (table: string) => mockFrom(table),
     removeChannel: jest.fn(),
-    rpc: (...args: unknown[]) => mockRpc(...args),
+    rpc: (name: string, params?: unknown) => mockRpc(name, params),
+  },
+}));
+
+jest.mock('@/lib/config', () => ({
+  CONFIG: {
+    MERCHANT_ID: 'configured-merchant',
+    MERCHANT_SLUG: 'ogabassey',
   },
 }));
 
@@ -27,12 +45,23 @@ jest.mock('@/stores/auth-store', () => {
     useAuthStore: create(() => ({
       customer: { id: 'customer-1', email: 'customer@example.com' },
       merchantId: 'merchant-1',
+      user: { id: 'user-1' },
     })),
   };
 });
 
 import { useRedeemPoints, useWallet, walletKeys } from '@/hooks/use-wallet';
 import { useAuthStore } from '@/stores/auth-store';
+
+function createMockUser(id = 'user-1') {
+  return {
+    app_metadata: {},
+    aud: 'authenticated',
+    created_at: '2026-04-30T00:00:00.000Z',
+    id,
+    user_metadata: {},
+  } as NonNullable<ReturnType<typeof useAuthStore.getState>['user']>;
+}
 
 type WalletQueryData = {
   wallet: { balance: number; loyalty_points: number };
@@ -73,10 +102,13 @@ function createTestClient() {
 
 function setupHook() {
   const queryClient = createTestClient();
-  queryClient.setQueryData<WalletQueryData>(walletKeys.data('customer-1'), {
-    wallet: { balance: 0, loyalty_points: 1000 },
-    transactions: [],
-  });
+  queryClient.setQueryData<WalletQueryData>(
+    walletKeys.data('customer-1', 'merchant-1'),
+    {
+      wallet: { balance: 0, loyalty_points: 1000 },
+      transactions: [],
+    }
+  );
 
   const hook = renderHook(() => useRedeemPoints(), {
     wrapper: createWrapper(queryClient),
@@ -92,6 +124,7 @@ beforeEach(() => {
     useAuthStore.setState({
       customer: { id: 'customer-1', email: 'customer@example.com' },
       merchantId: 'merchant-1',
+      user: createMockUser('user-1'),
     });
   });
 
@@ -127,28 +160,49 @@ function setupWalletTableMocks({
   transactionsResult?: ReturnType<typeof createQueryResult>;
   walletResult?: ReturnType<typeof createQueryResult>;
 } = {}) {
-  const customerSingle = jest.fn().mockResolvedValue(customerResult);
-  const walletMaybeSingle = jest.fn().mockResolvedValue(walletResult);
-  const txLimit = jest.fn().mockResolvedValue(transactionsResult);
+  const customerMaybeSingle = jest
+    .fn<() => Promise<ReturnType<typeof createQueryResult>>>()
+    .mockResolvedValue(customerResult);
+  const walletMaybeSingle = jest
+    .fn<() => Promise<ReturnType<typeof createQueryResult>>>()
+    .mockResolvedValue(walletResult);
+  const txLimit = jest
+    .fn<() => Promise<ReturnType<typeof createQueryResult>>>()
+    .mockResolvedValue(transactionsResult);
   const tableCalls: string[] = [];
+  const customerFilters: [string, unknown][] = [];
 
   mockFrom.mockImplementation((table: string) => {
     tableCalls.push(table);
 
     if (table === 'customers') {
+      const customerEqChain = {
+        eq: jest.fn((column: string, value: unknown) => {
+          customerFilters.push([column, value]);
+          return customerEqChain;
+        }),
+        maybeSingle: customerMaybeSingle,
+      };
+
       return {
         select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({ single: customerSingle }),
+          eq: jest.fn((column: string, value: unknown) => {
+            customerFilters.push([column, value]);
+            return customerEqChain;
+          }),
         }),
       };
     }
 
     if (table === 'customer_wallets') {
+      const walletEqChain = {
+        eq: jest.fn(() => walletEqChain),
+        maybeSingle: walletMaybeSingle,
+      };
+
       return {
         select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            eq: jest.fn().mockReturnValue({ maybeSingle: walletMaybeSingle }),
-          }),
+          eq: jest.fn(() => walletEqChain),
         }),
       };
     }
@@ -166,7 +220,7 @@ function setupWalletTableMocks({
     throw new Error(`Unexpected table: ${table}`);
   });
 
-  return { tableCalls };
+  return { customerFilters, tableCalls };
 }
 
 describe('useWallet', () => {
@@ -189,6 +243,111 @@ describe('useWallet', () => {
         type: 'cashback',
       }),
     ]);
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('normalizes wallet numeric fields returned as Postgres strings', async () => {
+    setupWalletTableMocks({
+      transactionsResult: createQueryResult([
+        {
+          amount: '0.75',
+          created_at: '2026-04-30T20:53:51.407Z',
+          description: 'Cashback - Airtime MTN ₦100',
+          id: 'wallet-tx-1',
+          type: 'cashback',
+        },
+      ]),
+      walletResult: createQueryResult({
+        available_balance: '3.25',
+        id: 'wallet-1',
+      }),
+    });
+    const queryClient = createTestClient();
+
+    const { result, unmount } = renderHook(() => useWallet(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    expect(result.current.data?.wallet.balance).toBe(3.25);
+    expect(result.current.data?.transactions).toEqual([
+      expect.objectContaining({
+        amount: 0.75,
+        description: 'Cashback - Airtime MTN ₦100',
+        type: 'cashback',
+      }),
+    ]);
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('loads wallet data while customer hydration is still pending', async () => {
+    const { customerFilters } = setupWalletTableMocks({
+      customerResult: createQueryResult({
+        id: 'customer-1',
+        loyalty_points: 1200,
+      }),
+      walletResult: createQueryResult({
+        available_balance: '3.25',
+        id: 'wallet-1',
+      }),
+    });
+    act(() => {
+      useAuthStore.setState({
+        customer: null,
+        merchantId: 'merchant-1',
+        user: createMockUser('user-1'),
+      });
+    });
+    const queryClient = createTestClient();
+
+    const { result, unmount } = renderHook(() => useWallet(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    expect(result.current.data?.wallet).toEqual({
+      balance: 3.25,
+      loyalty_points: 1200,
+    });
+    expect(customerFilters).toContainEqual(['user_id', 'user-1']);
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('uses the configured merchant when auth merchant hydration is still pending', async () => {
+    setupWalletTableMocks({
+      customerResult: createQueryResult({
+        id: 'customer-1',
+        loyalty_points: 1200,
+      }),
+      walletResult: createQueryResult({
+        available_balance: '3.25',
+        id: 'wallet-1',
+      }),
+    });
+    act(() => {
+      useAuthStore.setState({
+        customer: null,
+        merchantId: null,
+        user: createMockUser('user-1'),
+      });
+    });
+    const queryClient = createTestClient();
+
+    const { result, unmount } = renderHook(() => useWallet(), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.data).toBeDefined());
+
+    expect(result.current.data?.wallet.balance).toBe(3.25);
 
     unmount();
     queryClient.clear();

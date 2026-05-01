@@ -1,9 +1,15 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { router, useLocalSearchParams } from 'expo-router';
 import { type ComponentProps, useEffect, useRef, useState } from 'react';
 import { Alert } from 'react-native';
 import type { WebView, WebViewNavigation } from 'react-native-webview';
 import { useToast } from '@/components/ui/Toast';
 import { setClipboardString } from '@/lib/clipboard';
+import {
+  type WalletTopUpGateway,
+  WalletTopUpStillProcessingError,
+  waitForWalletTopUpConfirmation,
+} from '@/lib/wallet-top-up';
 import { PaymentGatewayParamsSchema } from '@/schemas/payment-gateway';
 import { useCartStore } from '@/stores/cart-store';
 import { createPaymentGatewayMessageHandler } from './create-payment-gateway-message-handler';
@@ -21,8 +27,25 @@ type WebViewErrorEvent = Parameters<
 >[0];
 
 const PAYMENT_SUCCESS_NAV_DELAY_MS = 1500;
+const WALLET_QUERY_KEY = ['wallet'] as const;
+
+function isWalletTopUpGateway(value: unknown): value is WalletTopUpGateway {
+  return value === 'paystack' || value === 'korapay';
+}
+
+function getCloseConfirmationMessage(paymentKind?: string) {
+  switch (paymentKind) {
+    case PAYMENT_KINDS.VTU:
+      return 'If you leave now, this utility payment may remain incomplete until you retry it.';
+    case PAYMENT_KINDS.WALLET:
+      return 'If you leave now, your wallet top-up may remain incomplete until you retry it.';
+    default:
+      return 'Your order has been created. If you leave, you can complete payment later from your orders page.';
+  }
+}
 
 export function usePaymentGatewayController() {
+  const queryClient = useQueryClient();
   const params = useLocalSearchParams<Record<string, string>>();
   const webViewRef = useRef<WebView>(null);
   const copiedGatewayTextRef = useRef<string | null>(null);
@@ -134,6 +157,62 @@ export function usePaymentGatewayController() {
     });
   };
 
+  const beginWalletTopUpCompletion = () => {
+    if (
+      paymentCompletionStartedRef.current ||
+      status === 'processing' ||
+      status === 'success'
+    ) {
+      return;
+    }
+
+    if (!isWalletTopUpGateway(gateway) || !reference) {
+      setStatus('error');
+      setErrorMessage('Wallet top-up details are incomplete.');
+      return;
+    }
+
+    paymentCompletionStartedRef.current = true;
+    setStatus('processing');
+
+    void (async () => {
+      try {
+        await waitForWalletTopUpConfirmation({ gateway, reference });
+        if (!isMountedRef.current) {
+          return;
+        }
+        await queryClient.invalidateQueries({ queryKey: WALLET_QUERY_KEY });
+        if (!isMountedRef.current) {
+          return;
+        }
+        setStatus('success');
+        scheduleDelayedNavigation(() => {
+          router.replace('/wallet');
+        });
+      } catch (error) {
+        if (!isMountedRef.current) {
+          return;
+        }
+
+        if (error instanceof WalletTopUpStillProcessingError) {
+          setStatus('success');
+          scheduleDelayedNavigation(() => {
+            router.replace('/wallet');
+          });
+          return;
+        }
+
+        paymentCompletionStartedRef.current = false;
+        setStatus('error');
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : 'Wallet top-up could not be confirmed.'
+        );
+      }
+    })();
+  };
+
   const beginPaymentCompletion = () => {
     if (
       paymentCompletionStartedRef.current ||
@@ -145,6 +224,11 @@ export function usePaymentGatewayController() {
 
     if (paymentKind === PAYMENT_KINDS.VTU) {
       beginVtuPaymentCompletion();
+      return;
+    }
+
+    if (paymentKind === PAYMENT_KINDS.WALLET) {
+      beginWalletTopUpCompletion();
       return;
     }
 
@@ -198,16 +282,10 @@ export function usePaymentGatewayController() {
   });
 
   const handleClose = () => {
-    Alert.alert(
-      'Cancel Payment?',
-      paymentKind === PAYMENT_KINDS.VTU
-        ? 'If you leave now, this utility payment may remain incomplete until you retry it.'
-        : 'Your order has been created. If you leave, you can complete payment later from your orders page.',
-      [
-        { text: 'Continue Payment', style: 'cancel' },
-        { text: 'Leave', style: 'destructive', onPress: () => router.back() },
-      ]
-    );
+    Alert.alert('Cancel Payment?', getCloseConfirmationMessage(paymentKind), [
+      { text: 'Continue Payment', style: 'cancel' },
+      { text: 'Leave', style: 'destructive', onPress: () => router.back() },
+    ]);
   };
 
   return {
@@ -258,7 +336,8 @@ export function usePaymentGatewayController() {
     },
     handleShouldStartLoadWithRequest: (request: { url: string }) => {
       if (
-        paymentKind === PAYMENT_KINDS.VTU &&
+        (paymentKind === PAYMENT_KINDS.VTU ||
+          paymentKind === PAYMENT_KINDS.WALLET) &&
         isPaymentCompletionRedirect(request.url)
       ) {
         beginPaymentCompletion();

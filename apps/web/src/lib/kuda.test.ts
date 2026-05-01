@@ -20,6 +20,20 @@ describe('Kuda API Client', () => {
     vi.restoreAllMocks();
   });
 
+  describe('commission rates', () => {
+    it('uses biller pricing rates from the current Kuda pricing sheet', async () => {
+      const { getCommissionRate } = await import('./kuda');
+
+      expect(getCommissionRate('Glo', 'AIRTIME')).toEqual({ rate: 0.05 });
+      expect(getCommissionRate('9mobile', 'DATA')).toEqual({ rate: 0.045 });
+      expect(
+        getCommissionRate('EKEDC NG - EKEDC PREPAID', 'ELECTRICITY')
+      ).toEqual({ rate: 0.01 });
+      expect(getCommissionRate('DSTV', 'CABLE')).toEqual({ rate: 0.015 });
+      expect(getCommissionRate('BETPAWA', 'BETTING')).toEqual({ rate: 0.007 });
+    });
+  });
+
   // Helper to mock generic Kuda API success response
   const mockKudaResponse = (data: any, message = 'Success') => {
     return Promise.resolve({

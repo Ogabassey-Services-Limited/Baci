@@ -7,12 +7,16 @@ import {
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
+import { waitForWalletTopUpConfirmation } from '@/lib/wallet-top-up';
 import { usePaymentGatewayController } from './use-payment-gateway-controller';
 
 const mockClearCart = jest.fn();
 const mockToastError = jest.fn();
 const mockToastSuccess = jest.fn();
 const mockToastComponent = jest.fn(() => null);
+const mockInvalidateQueries = jest.fn<(options: unknown) => Promise<void>>(() =>
+  Promise.resolve()
+);
 
 let mockSearchParams: Record<string, string> = {};
 
@@ -48,12 +52,34 @@ jest.mock('@/lib/vtu-checkout', () => {
   };
 });
 
+jest.mock('@/lib/wallet-top-up', () => ({
+  waitForWalletTopUpConfirmation: jest.fn(),
+  WalletTopUpStillProcessingError: class WalletTopUpStillProcessingError extends Error {
+    reference: string;
+
+    constructor(reference: string) {
+      super('Wallet top-up is still processing. Check your wallet shortly.');
+      this.name = 'WalletTopUpStillProcessingError';
+      this.reference = reference;
+    }
+  },
+}));
+
+jest.mock('@tanstack/react-query', () => ({
+  useQueryClient: () => ({
+    invalidateQueries: mockInvalidateQueries,
+  }),
+}));
+
 jest.mock('@/stores/cart-store', () => ({
   useCartStore: (selector: (state: { clearCart: () => void }) => unknown) =>
     selector({ clearCart: mockClearCart }),
 }));
 
 const mockWaitForVtuConfirmation = jest.mocked(waitForVtuConfirmation);
+const mockWaitForWalletTopUpConfirmation = jest.mocked(
+  waitForWalletTopUpConfirmation
+);
 
 const orderParams = {
   amount: '1000',
@@ -73,6 +99,14 @@ const vtuParams = {
   paymentKind: 'vtu',
   reference: 'VTU-123',
   utilityType: 'power',
+};
+
+const walletParams = {
+  amount: '2500',
+  authorizationUrl: 'https://checkout.paystack.com/test',
+  gateway: 'paystack',
+  paymentKind: 'wallet',
+  reference: 'WAL-123',
 };
 
 function navigation(url: string) {
@@ -98,6 +132,15 @@ describe('usePaymentGatewayController', () => {
       amount: 2500,
       reference: 'VTU-123',
       status: 'successful',
+    });
+    mockWaitForWalletTopUpConfirmation.mockResolvedValue({
+      amount: 2500,
+      reference: 'WAL-123',
+      status: 'successful',
+      success: true,
+      wallet: {
+        balance: 7500,
+      },
     });
   });
 
@@ -270,6 +313,37 @@ describe('usePaymentGatewayController', () => {
     });
   });
 
+  it('confirms wallet top-ups, refreshes wallet data, and returns to wallet', async () => {
+    jest.useFakeTimers({ advanceTimers: true });
+    mockSearchParams = { ...walletParams };
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleNavigationChange(
+        navigation('https://usebaci.com/checkout/success?reference=WAL-123')
+      );
+    });
+
+    expect(result.current.status).toBe('processing');
+    await waitFor(() =>
+      expect(mockWaitForWalletTopUpConfirmation).toHaveBeenCalledWith({
+        gateway: 'paystack',
+        reference: 'WAL-123',
+      })
+    );
+    await waitFor(() => expect(result.current.status).toBe('success'));
+    expect(mockInvalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['wallet'],
+    });
+
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(router.replace).toHaveBeenCalledWith('/wallet');
+    expect(mockClearCart).not.toHaveBeenCalled();
+  });
+
   it('ignores stale successful VTU confirmations after retry', async () => {
     jest.useFakeTimers({ advanceTimers: true });
     mockSearchParams = { ...vtuParams };
@@ -300,6 +374,7 @@ describe('usePaymentGatewayController', () => {
         reference: 'VTU-123',
         status: 'successful',
       });
+      await confirmation.promise;
     });
     act(() => {
       jest.runOnlyPendingTimers();
@@ -338,6 +413,7 @@ describe('usePaymentGatewayController', () => {
           reference: 'VTU-123',
         })
       );
+      await confirmation.promise.catch(() => undefined);
     });
 
     expect(result.current.status).toBe('loading');
@@ -422,6 +498,7 @@ describe('usePaymentGatewayController', () => {
           reference: 'VTU-123',
         })
       );
+      await confirmation.promise.catch(() => undefined);
     });
 
     expect(router.replace).not.toHaveBeenCalled();

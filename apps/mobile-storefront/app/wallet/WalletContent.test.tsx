@@ -23,15 +23,22 @@ describe('WalletContent', () => {
   const props = {
     colors: Colors.light,
     contentContainerStyle: { paddingTop: 20, paddingBottom: 32 },
+    fundAmount: '',
+    isFundPending: false,
     isRedeemPending: false,
     isRefetching: false,
     loyaltyPoints: 2000,
+    onChangeFundAmount: jest.fn(),
     onChangeRedeemPoints: jest.fn(),
+    onConfirmFund: jest.fn(),
     onConfirmRedeem: jest.fn(),
+    onOpenFundPanel: jest.fn(),
     onOpenRedeemPanel: jest.fn(),
     onRefresh: jest.fn(),
+    onResetFund: jest.fn(),
     onResetRedeem: jest.fn(),
     redeemPoints: '',
+    showFundPanel: false,
     showRedeemPanel: false,
     transactions: [
       {
@@ -57,6 +64,22 @@ describe('WalletContent', () => {
     expect(screen.getByText('2,000 pts')).toBeOnTheScreen();
     expect(screen.getByText('Order cashback')).toBeOnTheScreen();
     expect(screen.getByText('+₦2,500.75')).toBeOnTheScreen();
+  });
+
+  it('opens the top-up panel and leaves only withdrawal disabled', () => {
+    render(<WalletContent {...props} showFundPanel fundAmount="1000" />);
+
+    fireEvent.press(screen.getByLabelText('Add funds to wallet'));
+    fireEvent.changeText(screen.getByLabelText('Wallet top-up amount'), '2500');
+    fireEvent.press(screen.getByLabelText('Confirm wallet top-up'));
+    fireEvent.press(screen.getByLabelText('Cancel wallet top-up'));
+
+    expect(props.onOpenFundPanel).toHaveBeenCalledTimes(1);
+    expect(props.onChangeFundAmount).toHaveBeenCalledWith('2500');
+    expect(props.onConfirmFund).toHaveBeenCalledTimes(1);
+    expect(props.onResetFund).toHaveBeenCalledTimes(1);
+    expect(screen.getByLabelText('Withdraw from wallet')).toBeDisabled();
+    expect(screen.getByLabelText('Add funds to wallet')).not.toBeDisabled();
   });
 
   it('fires the redemption callbacks from the loyalty section and inline panel', () => {
