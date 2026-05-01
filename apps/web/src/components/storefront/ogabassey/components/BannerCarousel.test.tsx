@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/image', () => ({
@@ -78,6 +78,66 @@ describe('BannerCarousel', () => {
       name: /go to banner slide/i,
     })) {
       expect(button).toHaveAttribute('type', 'button');
+    }
+  });
+
+  it('marks the active control with aria-current and exposes the matching slide as visible to assistive tech', () => {
+    const { container } = render(<BannerCarousel />);
+    const slideControls = screen.getAllByRole('button', {
+      name: /go to banner slide/i,
+    });
+    const newArrivalsControl = screen.getByRole('button', {
+      name: /new arrivals/i,
+    });
+    // Slides expose ARIA carousel semantics — query by the spec attribute
+    // rather than Tailwind class names so the test survives style refactors.
+    const slides = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        '[aria-roledescription="slide"]'
+      )
+    );
+
+    expect(slides.length).toBe(slideControls.length);
+
+    const visibleSlides = () =>
+      slides.filter((slide) => slide.getAttribute('aria-hidden') === 'false');
+    expect(visibleSlides()).toHaveLength(1);
+    expect(visibleSlides()[0]).not.toBe(slides[slideControls.indexOf(newArrivalsControl)]);
+
+    fireEvent.click(newArrivalsControl);
+
+    const newArrivalsIdx = slideControls.indexOf(newArrivalsControl);
+    expect(newArrivalsControl).toHaveAttribute('aria-current', 'true');
+    expect(visibleSlides()).toEqual([slides[newArrivalsIdx]]);
+
+    for (const [idx, btn] of slideControls.entries()) {
+      if (btn !== newArrivalsControl) {
+        expect(btn).not.toHaveAttribute('aria-current');
+        expect(slides[idx]).toHaveAttribute('aria-hidden', 'true');
+      }
+    }
+  });
+
+  it('marks non-active slides inert so their focusable descendants are not tabbable', () => {
+    const { container } = render(<BannerCarousel />);
+    const slides = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        '[aria-roledescription="slide"]'
+      )
+    );
+
+    const inertSlides = slides.filter((slide) => slide.hasAttribute('inert'));
+    const interactiveSlides = slides.filter(
+      (slide) => !slide.hasAttribute('inert')
+    );
+
+    // Exactly one slide is interactive at a time; the rest are inert so links
+    // like "Shop Now" inside hidden slides cannot receive keyboard focus.
+    expect(interactiveSlides).toHaveLength(1);
+    expect(inertSlides).toHaveLength(slides.length - 1);
+    expect(interactiveSlides[0]).toHaveAttribute('aria-hidden', 'false');
+    for (const slide of inertSlides) {
+      expect(slide).toHaveAttribute('aria-hidden', 'true');
     }
   });
 });

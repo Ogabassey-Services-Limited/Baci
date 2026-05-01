@@ -33,7 +33,7 @@ describe('DeferredChatWidget', () => {
     render(<DeferredChatWidget loadChatWidget={loadChatWidget} />);
 
     expect(
-      screen.getByRole('button', { name: 'Open chat assistant' })
+      screen.getByRole('button', { name: 'Open AI chat assistant' })
     ).toBeInTheDocument();
     expect(loadChatWidget).not.toHaveBeenCalled();
     expect(screen.queryByText('Loaded chat runtime')).not.toBeInTheDocument();
@@ -50,7 +50,7 @@ describe('DeferredChatWidget', () => {
     render(<DeferredChatWidget loadChatWidget={loadChatWidget} />);
 
     await user.click(
-      screen.getByRole('button', { name: 'Open chat assistant' })
+      screen.getByRole('button', { name: 'Open AI chat assistant' })
     );
 
     expect(loadChatWidget).toHaveBeenCalledOnce();
