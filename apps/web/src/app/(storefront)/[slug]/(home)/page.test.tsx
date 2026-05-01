@@ -5,6 +5,7 @@ import {
   HERO_DESKTOP_LCP_SRC,
   HERO_MOBILE_LCP_SRC,
 } from '@/components/storefront/ogabassey/components/hero-data';
+import { OGABASSEY_HERO_PRECONNECT_ORIGINS } from '@/components/storefront/ogabassey/components/ogabassey-hero-preloads';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 
 const { mockStorefrontContent, mockStorefrontPageContent } = vi.hoisted(() => ({
@@ -324,16 +325,11 @@ describe('Storefront homepage structured data', () => {
       await StorefrontPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
     );
 
-    const expectedOrigins = [
-      'https://cdn.ogabassey.com',
-      'https://store.storeimages.cdn-apple.com',
-    ];
-
     const preconnects = Array.from(
       document.querySelectorAll<HTMLLinkElement>('link[rel="preconnect"]')
     );
     expect(preconnects.map((l) => l.getAttribute('href'))).toEqual(
-      expectedOrigins
+      Array.from(OGABASSEY_HERO_PRECONNECT_ORIGINS)
     );
     for (const link of preconnects) {
       expect(link).toHaveAttribute('crossorigin', 'anonymous');
@@ -343,7 +339,7 @@ describe('Storefront homepage structured data', () => {
       document.querySelectorAll<HTMLLinkElement>('link[rel="dns-prefetch"]')
     );
     expect(dnsHints.map((l) => l.getAttribute('href'))).toEqual(
-      expectedOrigins
+      Array.from(OGABASSEY_HERO_PRECONNECT_ORIGINS)
     );
   });
 

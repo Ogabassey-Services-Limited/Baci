@@ -158,7 +158,14 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
         style={{ transform: `translateX(-${currentSlide * 100}%)` }}
       >
         {slides.map((slide, idx) => (
-          <div key={slide.id} className="w-full h-full flex-shrink-0 relative">
+          <div
+            key={slide.id}
+            className="w-full h-full flex-shrink-0 relative"
+            aria-hidden={idx !== currentSlide}
+            role="group"
+            aria-roledescription="slide"
+            aria-label={`Slide ${idx + 1}: ${slide.title ?? 'Sponsored placement'}`}
+          >
             {slide.type === 'image' ? (
               <div className="w-full h-full relative overflow-hidden group">
                 <Image

@@ -81,7 +81,7 @@ describe('BannerCarousel', () => {
     }
   });
 
-  it('marks the active control with aria-current and shifts the carousel track on click', () => {
+  it('marks the active control with aria-current and exposes the matching slide as visible to assistive tech', () => {
     const { container } = render(<BannerCarousel />);
     const slideControls = screen.getAllByRole('button', {
       name: /go to banner slide/i,
@@ -89,28 +89,32 @@ describe('BannerCarousel', () => {
     const newArrivalsControl = screen.getByRole('button', {
       name: /new arrivals/i,
     });
-    const initialActive = slideControls.find(
-      (btn) => btn.getAttribute('aria-current') === 'true'
+    // Slides expose ARIA carousel semantics — query by the spec attribute
+    // rather than Tailwind class names so the test survives style refactors.
+    const slides = Array.from(
+      container.querySelectorAll<HTMLElement>(
+        '[aria-roledescription="slide"]'
+      )
     );
 
-    expect(initialActive).toBeDefined();
-    expect(initialActive).not.toBe(newArrivalsControl);
+    expect(slides.length).toBe(slideControls.length);
 
-    const track = container.querySelector<HTMLElement>(
-      'div.flex.h-full.transition-transform'
-    );
-    expect(track).toBeTruthy();
-    const initialTransform = track?.style.transform;
+    const visibleSlides = () =>
+      slides.filter((slide) => slide.getAttribute('aria-hidden') === 'false');
+    expect(visibleSlides()).toHaveLength(1);
+    expect(visibleSlides()[0]).not.toBe(slides[slideControls.indexOf(newArrivalsControl)]);
 
     fireEvent.click(newArrivalsControl);
 
+    const newArrivalsIdx = slideControls.indexOf(newArrivalsControl);
     expect(newArrivalsControl).toHaveAttribute('aria-current', 'true');
-    for (const btn of slideControls) {
+    expect(visibleSlides()).toEqual([slides[newArrivalsIdx]]);
+
+    for (const [idx, btn] of slideControls.entries()) {
       if (btn !== newArrivalsControl) {
         expect(btn).not.toHaveAttribute('aria-current');
+        expect(slides[idx]).toHaveAttribute('aria-hidden', 'true');
       }
     }
-    expect(track?.style.transform).not.toBe(initialTransform);
-    expect(track?.style.transform).toMatch(/translateX\(-\d+/);
   });
 });
