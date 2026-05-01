@@ -3,8 +3,8 @@ import { render, screen } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import type { ThemeColors } from '@/constants/theme';
-import type { OrderDetailsItem } from './order-details.types';
 import { OrderDetailsItemsAndPaymentSection } from './OrderDetailsItemsAndPaymentSection';
+import type { OrderDetailsItem } from './order-details.types';
 
 const mocks = vi.hoisted(() => ({
   itemsCard: vi.fn(),

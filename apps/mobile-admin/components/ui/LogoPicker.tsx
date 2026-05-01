@@ -150,11 +150,17 @@ export function LogoPicker({
         </View>
       )}
       <Pressable
-        style={({ pressed }) => [styles.changeLogoButton, { borderColor: colors.border }, pressed && { opacity: 0.7 }]}
+        style={({ pressed }) => [
+          styles.changeLogoButton,
+          { borderColor: colors.border },
+          pressed && { opacity: 0.7 },
+        ]}
         onPress={handleImagePick}
         disabled={isUploading}
         accessibilityRole="button"
-        accessibilityLabel={isUploading ? 'Uploading store logo' : 'Change store logo'}
+        accessibilityLabel={
+          isUploading ? 'Uploading store logo' : 'Change store logo'
+        }
         accessibilityHint="Opens image gallery to select a new logo"
         accessibilityState={{ disabled: isUploading }}
       >

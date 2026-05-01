@@ -33,12 +33,7 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
         { backgroundColor: colors.card, borderTopColor: colors.border },
       ]}
     >
-      <View
-        style={[
-          styles.paymentToggle,
-          { backgroundColor: colors.inputBg },
-        ]}
-      >
+      <View style={[styles.paymentToggle, { backgroundColor: colors.inputBg }]}>
         {(['unpaid', 'paid', 'partially_paid'] as PaymentStatus[]).map(
           (status) => {
             const isSelected = paymentStatus === status;
@@ -79,7 +74,9 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
                     },
                   ]}
                 >
-                  {status === 'partially_paid' ? 'Partial' : status.toUpperCase()}
+                  {status === 'partially_paid'
+                    ? 'Partial'
+                    : status.toUpperCase()}
                 </Text>
               </Pressable>
             );
@@ -126,7 +123,11 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
                 }}
               >
                 <Ionicons
-                  color={paymentMethod === method.id ? colors.textOnPrimary : colors.text}
+                  color={
+                    paymentMethod === method.id
+                      ? colors.textOnPrimary
+                      : colors.text
+                  }
                   name={method.icon as keyof typeof Ionicons.glyphMap}
                   size={18}
                 />
@@ -197,7 +198,9 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityState={{ disabled: isSubmitting || orderItems.length === 0 }}
+          accessibilityState={{
+            disabled: isSubmitting || orderItems.length === 0,
+          }}
           disabled={isSubmitting || orderItems.length === 0}
           onPress={handleSubmit}
           style={[

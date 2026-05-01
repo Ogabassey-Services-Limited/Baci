@@ -33,7 +33,7 @@ export function ReceiptPreviewModal({
       style={({ pressed }) => [
         styles.shareBtn,
         { backgroundColor: isPaid ? '#059669' : colors.primary },
-        pressed && { opacity: 0.7 }
+        pressed && { opacity: 0.7 },
       ]}
       accessibilityRole="button"
       accessibilityLabel="Share as PDF"

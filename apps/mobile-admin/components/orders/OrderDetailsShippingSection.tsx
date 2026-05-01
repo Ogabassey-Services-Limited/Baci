@@ -28,7 +28,9 @@ export function OrderDetailsShippingSection({
           size={18}
           color={colors.text}
         />
-        <Text style={[styles.title, { color: colors.text }]}>Shipping Address</Text>
+        <Text style={[styles.title, { color: colors.text }]}>
+          Shipping Address
+        </Text>
       </View>
       <Text style={[styles.addressText, { color: colors.textSecondary }]}>
         {address}

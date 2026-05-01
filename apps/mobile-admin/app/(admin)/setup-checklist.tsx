@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import type { ThemeColors } from '@/constants/theme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useStorePublish } from '@/hooks/useStorePublish';
@@ -25,11 +26,15 @@ const CATEGORY_ICONS: Record<string, string> = {
   marketing: 'megaphone-outline',
 };
 
-const PRIORITY_COLORS = {
-  required: { bg: '#FEF2F2', border: '#FECACA', text: '#DC2626' },
-  recommended: { bg: '#FFFBEB', border: '#FDE68A', text: '#D97706' },
-  optional: { bg: '#EFF6FF', border: '#BFDBFE', text: '#2563EB' },
-};
+const getPriorityColors = (colors: ThemeColors) => ({
+  required: { bg: colors.errorLight, border: colors.error, text: colors.error },
+  recommended: {
+    bg: colors.warningLight,
+    border: colors.warning,
+    text: colors.warning,
+  },
+  optional: { bg: colors.infoLight, border: colors.info, text: colors.info },
+});
 
 const PRIORITY_LABELS = {
   required: 'Required',
@@ -83,7 +88,7 @@ export default function SetupChecklistScreen() {
   if (!readiness) return null;
 
   const renderItem = (item: SetupItem, isNext: boolean) => {
-    const priorityColor = PRIORITY_COLORS[item.priority];
+    const priorityColor = getPriorityColors(colors)[item.priority];
     const _iconName =
       (CATEGORY_ICONS[item.category] as keyof typeof Ionicons.glyphMap) ||
       'list-outline';
@@ -227,22 +232,32 @@ export default function SetupChecklistScreen() {
           style={[
             styles.headerCard,
             {
-              backgroundColor: isPublishing ? colors.card : '#F0F9FF',
-              borderColor: '#BAE6FD',
+              backgroundColor: isPublishing ? colors.card : colors.infoLight,
+              borderColor: isPublishing ? colors.border : colors.info,
               borderWidth: 1,
             },
           ]}
         >
           <View style={styles.headerRow}>
             <View style={styles.headerTextContainer}>
-              <Text style={[styles.headerTitle, { color: '#0369A1' }]}>
+              <Text
+                style={[
+                  styles.headerTitle,
+                  { color: isPublishing ? colors.text : colors.info },
+                ]}
+              >
                 {readiness.isPublished
                   ? 'Store is Live 🚀'
                   : readiness.isReady
                     ? 'Ready to Launch 🚀'
                     : 'Finish Setup'}
               </Text>
-              <Text style={[styles.headerSubtitle, { color: '#0C4A6E' }]}>
+              <Text
+                style={[
+                  styles.headerSubtitle,
+                  { color: isPublishing ? colors.textSecondary : colors.info },
+                ]}
+              >
                 {readiness.isPublished
                   ? 'Keep improving your store to boost sales.'
                   : readiness.isReady
@@ -250,8 +265,13 @@ export default function SetupChecklistScreen() {
                     : `${readiness.completedRequired} of ${readiness.totalRequired} required steps complete`}
               </Text>
             </View>
-            <View style={styles.progressCircle}>
-              <Text style={[styles.progressText, { color: '#0284C7' }]}>
+            <View
+              style={[
+                styles.progressCircle,
+                { backgroundColor: colors.infoLight, borderColor: colors.info },
+              ]}
+            >
+              <Text style={[styles.progressText, { color: colors.info }]}>
                 {readiness.overallProgress}%
               </Text>
             </View>
@@ -268,9 +288,16 @@ export default function SetupChecklistScreen() {
               disabled={isPublishing}
             >
               {isPublishing ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={colors.textOnPrimary} />
               ) : (
-                <Text style={styles.publishButtonText}>Publish Store Now</Text>
+                <Text
+                  style={[
+                    styles.publishButtonText,
+                    { color: colors.textOnPrimary },
+                  ]}
+                >
+                  Publish Store Now
+                </Text>
               )}
             </Pressable>
           )}
@@ -324,11 +351,9 @@ const styles = StyleSheet.create({
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: '#E0F2FE',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,
-    borderColor: '#7DD3FC',
   },
   progressText: {
     fontSize: TYPOGRAPHY.size.sm,
@@ -341,7 +366,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   publishButtonText: {
-    color: '#fff',
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     fontSize: TYPOGRAPHY.size.md,
   },

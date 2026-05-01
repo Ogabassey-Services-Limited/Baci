@@ -73,15 +73,15 @@ vi.mock('@/components/ui/SuccessModal', () => ({
     visible ? (
       <div>
         {actionLabel ? (
-          <button aria-label={actionLabel} onClick={onActionPress} type="button">
+          <button
+            aria-label={actionLabel}
+            onClick={onActionPress}
+            type="button"
+          >
             {actionLabel}
           </button>
         ) : null}
-        <button
-          aria-label="Create New Sale"
-          onClick={onClose}
-          type="button"
-        >
+        <button aria-label="Create New Sale" onClick={onClose} type="button">
           Create New Sale
         </button>
       </div>

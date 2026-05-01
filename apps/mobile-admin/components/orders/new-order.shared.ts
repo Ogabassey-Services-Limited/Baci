@@ -27,7 +27,9 @@ function getTrimmedValue(value?: string | null) {
   return trimmedValue ? trimmedValue : null;
 }
 
-export function getCustomerDisplayName(customer: CustomerDisplayFields): string {
+export function getCustomerDisplayName(
+  customer: CustomerDisplayFields
+): string {
   const fullName = [customer.first_name, customer.last_name]
     .map((value) => getTrimmedValue(value))
     .filter((value): value is string => Boolean(value))
@@ -78,7 +80,9 @@ export function formatPriceInput(value: string | undefined): string {
       : safeInteger;
   const decimalValue = rawDecimals.join('');
 
-  return decimalValue ? `${formattedInteger}.${decimalValue}` : formattedInteger;
+  return decimalValue
+    ? `${formattedInteger}.${decimalValue}`
+    : formattedInteger;
 }
 
 export function formatVatPercentage(vatRate: number): string {

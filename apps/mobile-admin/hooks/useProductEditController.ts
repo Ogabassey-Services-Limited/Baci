@@ -72,7 +72,8 @@ export function useProductEditController() {
   })();
   const id = validatedParams?.id;
   const isEditing = id !== 'new' && id !== undefined;
-  const generateSKU = () => `SKU-${Crypto.randomUUID().replace(/-/g, '').substring(0, 8).toUpperCase()}`;
+  const generateSKU = () =>
+    `SKU-${Crypto.randomUUID().replace(/-/g, '').substring(0, 8).toUpperCase()}`;
 
   const [formData, setFormData] = useState<ProductEditFormData>(() =>
     createInitialProductEditFormData(
@@ -174,8 +175,15 @@ export function useProductEditController() {
   const updateFormData = (updates: Partial<ProductEditFormData>) => {
     setFormData((previous) => ({ ...previous, ...updates }));
   };
-  const updatePricing = (updates: Pick<Partial<ProductEditFormData>, 'cost_price' | 'price'>) => updateFormData(updates);
-  const updateInventory = (updates: Pick<Partial<ProductEditFormData>, 'low_stock_threshold' | 'manage_stock'>) => updateFormData(updates);
+  const updatePricing = (
+    updates: Pick<Partial<ProductEditFormData>, 'cost_price' | 'price'>
+  ) => updateFormData(updates);
+  const updateInventory = (
+    updates: Pick<
+      Partial<ProductEditFormData>,
+      'low_stock_threshold' | 'manage_stock'
+    >
+  ) => updateFormData(updates);
 
   const updateCategory = (category: { id: string; name: string }) => {
     setFormData((previous) => ({

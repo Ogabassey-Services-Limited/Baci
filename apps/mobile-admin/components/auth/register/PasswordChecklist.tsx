@@ -1,7 +1,7 @@
 import { Text, View } from 'react-native';
+import { useTheme } from '@/hooks/useTheme';
 import type { PasswordValidationResult } from '@/lib/password-utils';
 import { ChecklistItem } from './ChecklistItem';
-import { useTheme } from '@/hooks/useTheme';
 import { getStyles } from './register.styles';
 
 interface PasswordChecklistProps {

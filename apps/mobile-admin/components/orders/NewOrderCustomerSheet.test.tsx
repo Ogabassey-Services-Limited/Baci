@@ -19,7 +19,11 @@ vi.mock('@/components/ui/AppPageSheet', () => ({
   }) =>
     visible ? (
       <section aria-label="customer-sheet">
-        <button aria-label="Close customer sheet" onClick={onClose} type="button">
+        <button
+          aria-label="Close customer sheet"
+          onClick={onClose}
+          type="button"
+        >
           Close
         </button>
         <h1>{title}</h1>

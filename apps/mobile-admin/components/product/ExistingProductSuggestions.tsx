@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { RADIUS, SPACING, type ThemeColors } from '@/constants/theme';
-import {
-  type ProductMatchCandidate,
-  type RankedProductMatch,
+import type {
+  ProductMatchCandidate,
+  RankedProductMatch,
 } from '@/lib/product-matching';
 
 interface ExistingProductSuggestionsProps {

@@ -37,7 +37,8 @@ function collectVariantAttributeValues(value: unknown): string[] {
 export function formatVariantAttributesSummary(
   variantAttributes: unknown
 ): string | null {
-  const values = collectVariantAttributeValues(variantAttributes).filter(Boolean);
+  const values =
+    collectVariantAttributeValues(variantAttributes).filter(Boolean);
   const uniqueValues = values.filter(
     (value, index) => values.indexOf(value) === index
   );
