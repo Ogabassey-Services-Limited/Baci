@@ -1,3 +1,4 @@
+import { jest } from '@jest/globals';
 import {
   API_BASE_URL,
   EDGE_MARGIN,
@@ -10,7 +11,20 @@ import {
   SNAP_THRESHOLD,
 } from './constants';
 
+const originalChatPoweredByLabel =
+  process.env.EXPO_PUBLIC_CHAT_POWERED_BY_LABEL;
+
 describe('chat constants', () => {
+  afterEach(() => {
+    if (originalChatPoweredByLabel === undefined) {
+      delete process.env.EXPO_PUBLIC_CHAT_POWERED_BY_LABEL;
+    } else {
+      process.env.EXPO_PUBLIC_CHAT_POWERED_BY_LABEL =
+        originalChatPoweredByLabel;
+    }
+    jest.resetModules();
+  });
+
   describe('HIDDEN_ROUTES', () => {
     it('is a non-empty array', () => {
       expect(Array.isArray(HIDDEN_ROUTES)).toBe(true);
@@ -56,6 +70,31 @@ describe('chat constants', () => {
     it('starts with "https://"', () => {
       expect(typeof API_BASE_URL).toBe('string');
       expect(API_BASE_URL.startsWith('https://')).toBe(true);
+    });
+  });
+
+  describe('CHAT_POWERED_BY_LABEL', () => {
+    it('hides the underlying LLM provider', async () => {
+      delete process.env.EXPO_PUBLIC_CHAT_POWERED_BY_LABEL;
+      jest.resetModules();
+
+      const { CHAT_POWERED_BY_LABEL: defaultLabel } = await import(
+        './constants'
+      );
+
+      expect(typeof defaultLabel).toBe('string');
+      expect(defaultLabel).toBe('Powered by Ogabassey AI');
+    });
+
+    it('uses the configured branded attribution when provided', async () => {
+      process.env.EXPO_PUBLIC_CHAT_POWERED_BY_LABEL = '  Powered by Local AI  ';
+      jest.resetModules();
+
+      const { CHAT_POWERED_BY_LABEL: configuredLabel } = await import(
+        './constants'
+      );
+
+      expect(configuredLabel).toBe('Powered by Local AI');
     });
   });
 

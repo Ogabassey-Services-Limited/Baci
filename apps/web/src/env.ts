@@ -28,6 +28,7 @@ const serverSchema = z.object({
   // AI
   GOOGLE_GENAI_API_KEY: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
+  AI_CHAT_MODEL: z.string().default('gemma4:e4b'),
 
   // BNPL
   CREDIT_DIRECT_PRIVATE_KEY: z.string().optional(),
@@ -114,6 +115,21 @@ const formatErrors = (
     })
     .filter(Boolean);
 
+const MODEL_NAME_LINE_BREAK_PATTERN = /\\n|\r?\n|\r/g;
+
+const validateSanitizedModel = (
+  value: string | undefined,
+  name: string
+): string => {
+  const model = value?.replace(MODEL_NAME_LINE_BREAK_PATTERN, '').trim() ?? '';
+
+  if (!model) {
+    throw new Error(`${name} must resolve to a non-empty model name`);
+  }
+
+  return model;
+};
+
 /**
  * Validates and returns the environment variables.
  * Throws an error in non-production environments if validation fails.
@@ -145,6 +161,7 @@ const getEnv = () => {
         ZEPTOMAIL_TOKEN: process.env.ZEPTOMAIL_TOKEN,
         GOOGLE_GENAI_API_KEY: process.env.GOOGLE_GENAI_API_KEY,
         GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+        AI_CHAT_MODEL: process.env.AI_CHAT_MODEL,
         CREDIT_DIRECT_PRIVATE_KEY: process.env.CREDIT_DIRECT_PRIVATE_KEY,
         NODE_ENV: process.env.NODE_ENV,
         JUICYWAY_BASE_URL: process.env.JUICYWAY_BASE_URL,
@@ -249,6 +266,11 @@ export const getJuicywayBaseUrl = () => env?.JUICYWAY_BASE_URL;
 export const getZeptoMailToken = () => env?.ZEPTOMAIL_TOKEN;
 export const getGeminiApiKey = () =>
   env?.GOOGLE_GENAI_API_KEY || env?.GEMINI_API_KEY;
+export const getAiChatModel = () => {
+  if (typeof window !== 'undefined')
+    throw new Error('AI_CHAT_MODEL cannot be accessed on the client');
+  return validateSanitizedModel(env.AI_CHAT_MODEL, 'AI_CHAT_MODEL');
+};
 export const getCreditDirectPublicKey = () => env?.CREDIT_DIRECT_PUBLIC_KEY;
 export const getCreditDirectPrivateKey = () => env?.CREDIT_DIRECT_PRIVATE_KEY;
 
@@ -363,7 +385,7 @@ export const getOllamaBaseUrl = () => {
 export const getOllamaCacModel = () => {
   if (typeof window !== 'undefined')
     throw new Error('OLLAMA_CAC_MODEL cannot be accessed on the client');
-  return env.OLLAMA_CAC_MODEL;
+  return validateSanitizedModel(env.OLLAMA_CAC_MODEL, 'OLLAMA_CAC_MODEL');
 };
 export const getOllamaBasicAuth = () => {
   if (typeof window !== 'undefined')
