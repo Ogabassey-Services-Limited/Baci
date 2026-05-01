@@ -82,7 +82,7 @@ export function DeferredChatWidget({
               ? 'bg-transparent border-none shadow-none text-red-600'
               : 'bg-white/60 backdrop-blur-md text-red-600 hover:bg-white hover:border-red-100 shadow-xl border border-gray-100'
           } ${isLoading ? 'opacity-70 cursor-wait' : ''}`}
-          aria-label="Open chat assistant"
+          aria-label="Open AI chat assistant"
         >
           {isSanta ? (
             <div className="relative w-full h-full">

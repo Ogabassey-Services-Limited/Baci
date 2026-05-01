@@ -21,14 +21,18 @@ The scheduled workflow in `.github/workflows/seo-monitoring.yml` reads:
   - Defaults to `https://usebaci.com`
 - Repository variable `SEO_MERCHANT_ORIGINS`
   - Optional comma-separated merchant origins for crawl-surface checks
+  - Defaults to `https://ogabassey.com` when unset
 - Repository variable `PAGESPEED_EXTRA_URLS`
   - Optional comma-separated additional URLs for PageSpeed audits
+  - Uses `PAGESPEED_EXTRA_URLS` when set; otherwise inherits `SEO_MERCHANT_ORIGINS`, including its `https://ogabassey.com` default
 - Repository variable `PAGESPEED_STRATEGIES`
   - Optional, defaults to `mobile,desktop`
 - Repository variable `PAGE_SPEED_TIMEOUT_MS`
   - Optional positive integer override for the per-request PSI timeout in milliseconds
 - Repository secret `PAGESPEED_INSIGHTS_API_KEY`
   - Optional but recommended for stable quota
+- Repository secret `SEO_MONITORING_SLACK_WEBHOOK_URL`
+  - Optional Slack incoming webhook used only when the scheduled monitoring workflow fails
 
 ## Scope
 

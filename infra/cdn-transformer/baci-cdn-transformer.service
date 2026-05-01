@@ -20,10 +20,13 @@ RestartSec=5
 TimeoutStartSec=10
 TimeoutStopSec=15
 LimitNOFILE=4096
-LimitNPROC=128
+# The live Node/Sharp process idles above 100 threads on this VPS; 128 prevented startup.
+# Keep process/thread headroom above the measured baseline while MAX_CONCURRENT_TRANSFORMS limits work.
+LimitNPROC=512
 MemoryAccounting=yes
 CPUAccounting=yes
-MemoryMax=512M
+# Sharp transforms can spike memory during resize/encode; cap at 1G and alert before sustained 80% usage.
+MemoryMax=1G
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
