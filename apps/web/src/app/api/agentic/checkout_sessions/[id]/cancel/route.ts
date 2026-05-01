@@ -48,19 +48,6 @@ export async function POST(
       merchantId: merchant.id,
       merchantSlug: merchant.slug,
     });
-    const replayReservation = await reserveAgenticRequestId({
-      apiVersion: mutation.apiVersion,
-      idempotencyKey: mutation.idempotencyKey,
-      merchantId: merchant.id,
-      requestId: mutation.requestId,
-      supabase,
-    });
-    if (!replayReservation.ok) {
-      return NextResponse.json(
-        { error: replayReservation.error },
-        { status: getAgenticReplayErrorStatus(replayReservation.error) }
-      );
-    }
     const idempotency = await reserveAgenticIdempotencyKey({
       apiVersion: mutation.apiVersion,
       body: mutation.rawBody,
@@ -85,6 +72,19 @@ export async function POST(
           'request-id': mutation.requestId,
         },
       });
+    }
+    const replayReservation = await reserveAgenticRequestId({
+      apiVersion: mutation.apiVersion,
+      idempotencyKey: mutation.idempotencyKey,
+      merchantId: merchant.id,
+      requestId: mutation.requestId,
+      supabase,
+    });
+    if (!replayReservation.ok) {
+      return NextResponse.json(
+        { error: replayReservation.error },
+        { status: getAgenticReplayErrorStatus(replayReservation.error) }
+      );
     }
     const respond = (response: unknown, status: number) =>
       buildStoredAgenticIdempotencyResponse({
@@ -111,15 +111,15 @@ export async function POST(
         error: fetchError,
         sessionId: params.id,
       });
-      return respond({ error: 'Database error' }, 500);
+      return await respond({ error: 'Database error' }, 500);
     }
-    if (!session) return respond({ error: 'Session not found' }, 404);
+    if (!session) return await respond({ error: 'Session not found' }, 404);
     if (session.status === 'completed')
-      return respond({ error: 'Cannot cancel completed session' }, 409);
+      return await respond({ error: 'Cannot cancel completed session' }, 409);
     if (!MUTABLE_CHECKOUT_SESSION_STATUSES.includes(session.status))
-      return respond({ error: 'Session cannot be canceled' }, 409);
+      return await respond({ error: 'Session cannot be canceled' }, 409);
     if (hasCheckoutPaymentSideEffect(session))
-      return respond(
+      return await respond(
         {
           error: 'Session already has pending payment',
           status: 'payment_pending',
@@ -146,10 +146,10 @@ export async function POST(
         error: updateError,
         sessionId: params.id,
       });
-      return respond({ error: 'Database error' }, 500);
+      return await respond({ error: 'Database error' }, 500);
     }
     if (!updatedSession) {
-      return respond(
+      return await respond(
         {
           error: 'Session was modified concurrently',
           status: 'concurrent_modification',
@@ -208,7 +208,7 @@ export async function POST(
       messages: sessionCalc.messages,
     };
 
-    return respond(responsePayload, 200);
+    return await respond(responsePayload, 200);
   } catch (err: unknown) {
     logger.error({
       message: 'Agentic checkout cancel error',

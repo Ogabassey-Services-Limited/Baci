@@ -77,19 +77,6 @@ export async function POST(
       merchantId: merchant.id,
       merchantSlug: merchant.slug,
     });
-    const replayReservation = await reserveAgenticRequestId({
-      apiVersion: mutation.apiVersion,
-      idempotencyKey: mutation.idempotencyKey,
-      merchantId: merchant.id,
-      requestId: mutation.requestId,
-      supabase,
-    });
-    if (!replayReservation.ok) {
-      return NextResponse.json(
-        { error: replayReservation.error },
-        { status: getAgenticReplayErrorStatus(replayReservation.error) }
-      );
-    }
     const idempotency = await reserveAgenticIdempotencyKey({
       apiVersion: mutation.apiVersion,
       body: mutation.rawBody,
@@ -114,6 +101,19 @@ export async function POST(
           'request-id': mutation.requestId,
         },
       });
+    }
+    const replayReservation = await reserveAgenticRequestId({
+      apiVersion: mutation.apiVersion,
+      idempotencyKey: mutation.idempotencyKey,
+      merchantId: merchant.id,
+      requestId: mutation.requestId,
+      supabase,
+    });
+    if (!replayReservation.ok) {
+      return NextResponse.json(
+        { error: replayReservation.error },
+        { status: getAgenticReplayErrorStatus(replayReservation.error) }
+      );
     }
     const respond = async (response: unknown, status: number) =>
       buildStoredAgenticIdempotencyResponse({

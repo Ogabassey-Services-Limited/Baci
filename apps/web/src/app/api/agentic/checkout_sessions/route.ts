@@ -60,20 +60,6 @@ export async function POST(request: NextRequest) {
       merchantId: merchant.id,
       merchantSlug: merchant.slug,
     });
-    const replayReservation = await reserveAgenticRequestId({
-      apiVersion: mutation.apiVersion,
-      idempotencyKey: mutation.idempotencyKey,
-      merchantId: merchant.id,
-      requestId: mutation.requestId,
-      supabase,
-    });
-    if (!replayReservation.ok) {
-      return NextResponse.json(
-        { error: replayReservation.error },
-        { status: getAgenticReplayErrorStatus(replayReservation.error) }
-      );
-    }
-
     const idempotency = await reserveAgenticIdempotencyKey({
       apiVersion: mutation.apiVersion,
       body: mutation.rawBody,
@@ -98,6 +84,19 @@ export async function POST(request: NextRequest) {
           'request-id': mutation.requestId,
         },
       });
+    }
+    const replayReservation = await reserveAgenticRequestId({
+      apiVersion: mutation.apiVersion,
+      idempotencyKey: mutation.idempotencyKey,
+      merchantId: merchant.id,
+      requestId: mutation.requestId,
+      supabase,
+    });
+    if (!replayReservation.ok) {
+      return NextResponse.json(
+        { error: replayReservation.error },
+        { status: getAgenticReplayErrorStatus(replayReservation.error) }
+      );
     }
 
     const respond = (
@@ -132,7 +131,7 @@ export async function POST(request: NextRequest) {
         idempotencyKey: mutation.idempotencyKey,
         merchantId: merchant.id,
       });
-      return respond({ error: 'Checkout calculation failed' }, 500);
+      return await respond({ error: 'Checkout calculation failed' }, 500);
     }
 
     // 3. Create Session in DB
@@ -164,7 +163,7 @@ export async function POST(request: NextRequest) {
         idempotencyKey: mutation.idempotencyKey,
         merchantId: merchant.id,
       });
-      return respond({ error: 'Database error' }, 500);
+      return await respond({ error: 'Database error' }, 500);
     }
 
     // 4. Response
@@ -187,7 +186,7 @@ export async function POST(request: NextRequest) {
       totals: sessionCalc.totals,
     });
 
-    return respond(responsePayload, 201, {
+    return await respond(responsePayload, 201, {
       error: 'Idempotency response storage failed',
       idempotency_key: mutation.idempotencyKey,
       recovery_action: 'read_checkout_session',
