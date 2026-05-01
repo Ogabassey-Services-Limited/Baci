@@ -22,16 +22,19 @@ vi.mock('react-native', async () => {
     Pressable: ({
       accessibilityLabel,
       children,
+      hitSlop,
       onPress,
     }: {
       accessibilityLabel?: string;
       children?: React.ReactNode;
+      hitSlop?: { top: number; right: number; bottom: number; left: number };
       onPress?: () => void;
     }) =>
       React.createElement(
         'button',
         {
           'aria-label': accessibilityLabel,
+          'data-hit-slop': hitSlop ? JSON.stringify(hitSlop) : undefined,
           onClick: () => onPress?.(),
           type: 'button',
         },
@@ -156,5 +159,52 @@ describe('NewOrderItemsSection', () => {
     expect(controller.setShowEditItemModal).toHaveBeenCalledWith(true);
     expect(controller.handleQuantityChange).toHaveBeenCalledWith('item-1', -1);
     expect(controller.handleQuantityChange).toHaveBeenCalledWith('item-1', 1);
+  });
+
+  it('applies a >=12px hitSlop to the quantity +/- buttons for easier tapping', () => {
+    const item = {
+      details: '',
+      id: 'item-1',
+      image_url: undefined,
+      name: 'Baci Phone',
+      price: 25000,
+      product_id: 'product-1',
+      quantity: 2,
+      variant_id: null,
+      variant_name: null,
+    };
+    const controller = makeController({ orderItems: [item] });
+
+    render(<NewOrderItemsSection controller={controller} />);
+
+    const decreaseBtn = screen.getByRole('button', {
+      name: 'Decrease quantity for Baci Phone, current 2',
+    });
+    const increaseBtn = screen.getByRole('button', {
+      name: 'Increase quantity for Baci Phone, current 2',
+    });
+
+    const expected = { top: 12, right: 12, bottom: 12, left: 12 };
+
+    expect(decreaseBtn.getAttribute('data-hit-slop')).toBe(
+      JSON.stringify(expected)
+    );
+    expect(increaseBtn.getAttribute('data-hit-slop')).toBe(
+      JSON.stringify(expected)
+    );
+
+    const decreaseSlop = JSON.parse(
+      decreaseBtn.getAttribute('data-hit-slop') ?? '{}'
+    );
+    const increaseSlop = JSON.parse(
+      increaseBtn.getAttribute('data-hit-slop') ?? '{}'
+    );
+
+    for (const slop of [decreaseSlop, increaseSlop]) {
+      expect(slop.top).toBeGreaterThanOrEqual(12);
+      expect(slop.right).toBeGreaterThanOrEqual(12);
+      expect(slop.bottom).toBeGreaterThanOrEqual(12);
+      expect(slop.left).toBeGreaterThanOrEqual(12);
+    }
   });
 });
