@@ -26,7 +26,17 @@ export type AgenticMutationRequest =
     }
   | { ok: false; response: NextResponse };
 
-export async function readAgenticMutationRequest({
+export function readAgenticMutationRequest({
+  requireIdempotency = true,
+  request,
+}: {
+  requireIdempotency?: boolean;
+  request: NextRequest;
+}): Promise<AgenticMutationRequest> {
+  return readAgenticSignedRequest({ request, requireIdempotency });
+}
+
+export async function readAgenticSignedRequest({
   requireIdempotency = true,
   request,
 }: {

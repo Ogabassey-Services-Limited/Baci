@@ -26,7 +26,10 @@ import { getAgenticReplayErrorStatus } from '@/lib/agentic/request-replay-respon
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { buildStoreUrl } from '@/lib/store-url';
 import { createServiceClient } from '@/lib/supabase/service';
-import { agenticCheckoutUpdateSchema } from '@/schemas/agentic-checkout';
+import {
+  agenticCheckoutItemsSchema,
+  agenticCheckoutUpdateSchema,
+} from '@/schemas/agentic-checkout';
 
 const UPDATE_IDEMPOTENCY_ROUTE = 'checkout_sessions.update';
 type SessionRouteProps = { params: Promise<{ id: string }> };
@@ -63,13 +66,30 @@ export async function GET(request: NextRequest, props: SessionRouteProps) {
   }
   if (!session)
     return NextResponse.json({ error: 'Session not found' }, { status: 404 });
-  const sessionCalc = await calculateCheckoutSession(
-    supabase,
-    session.cart_items,
-    session.shipping_method,
-    session.currency,
-    merchant.id
+  const parsedCartItems = agenticCheckoutItemsSchema.safeParse(
+    session.cart_items
   );
+  if (!parsedCartItems.success) {
+    return NextResponse.json(
+      { error: 'Invalid session cart items' },
+      { status: 500 }
+    );
+  }
+  let sessionCalc: Awaited<ReturnType<typeof calculateCheckoutSession>>;
+  try {
+    sessionCalc = await calculateCheckoutSession(
+      supabase,
+      parsedCartItems.data,
+      session.shipping_method,
+      session.currency,
+      merchant.id
+    );
+  } catch {
+    return NextResponse.json(
+      { error: 'Checkout calculation failed' },
+      { status: 500 }
+    );
+  }
   const paymentState = resolveExistingPaymentState({
     session,
     sessionCalc,

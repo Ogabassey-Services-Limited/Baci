@@ -1,34 +1,158 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { NextRequest } from 'next/server';
-import { POST as createOrder } from '@/app/api/orders/route';
 import type { AgenticCheckoutBuyer } from '@/lib/agentic/checkout-completion-response';
 import { sendAgenticWebhook } from '@/lib/agentic/webhooks';
 import { logger } from '@/lib/logger';
+import { sanitizeForLog } from '@/lib/sanitize-core';
+import { orderCreateSchema } from '@/schemas/orders';
 
-const AGENTIC_INTERNAL_HEADER = 'x-agentic-internal';
-const ORDERS_API_PATH = 'http://internal.baci/api/orders';
+const CLIENT_ORDER_ERROR_CODES = new Set([
+  'invalid_items',
+  'invalid_quantity',
+  'invalid_variant',
+  'insufficient_stock',
+  'insufficient_variant_stock',
+  'merchant_not_found',
+  'customer_email_required',
+  'customer_name_required',
+  'items_required',
+  'user_id_mismatch',
+  'invalid_payment_status',
+  'discount_amount_not_supported',
+  '22P02',
+]);
+
+export interface AgenticCheckoutOrderResult {
+  data: Record<string, unknown>;
+  error?: string;
+  ok: boolean;
+  orderId?: string;
+  status: number;
+  statusText: string;
+}
 
 export async function createAgenticCheckoutOrder(
-  orderPayload: Record<string, unknown>
-) {
-  const request = new NextRequest(ORDERS_API_PATH, {
-    method: 'POST',
-    body: JSON.stringify(orderPayload),
-    headers: {
-      'content-type': 'application/json',
-      [AGENTIC_INTERNAL_HEADER]: 'true',
-    },
+  orderPayload: Record<string, unknown>,
+  supabase: SupabaseClient
+): Promise<AgenticCheckoutOrderResult> {
+  const parseResult = orderCreateSchema.safeParse(orderPayload);
+  if (!parseResult.success) {
+    return {
+      data: { error: 'Invalid request data' },
+      error: 'Invalid request data',
+      ok: false,
+      orderId: undefined,
+      status: 400,
+      statusText: 'Bad Request',
+    };
+  }
+
+  const body = parseResult.data;
+  const orderItemsPayload = body.items.map((item) => {
+    const itemPrice = item.negotiatedPrice ?? item.price;
+    const hasAssurance = item.has_assurance || false;
+
+    return {
+      assurance_fee: hasAssurance ? calculateAssuranceFee(itemPrice) : 0,
+      condition: item.condition,
+      has_assurance: hasAssurance,
+      image_url: item.imageUrl ?? item.image_url ?? null,
+      product_id: item.product_id || item.productId || item.id,
+      quantity: item.quantity,
+      variant_attributes:
+        item.variantAttributes || item.variant_attributes || {},
+      variant_id: item.variantId || item.variant_id,
+    };
   });
-  const response = await createOrder(request);
-  const data = (await response.json()) as Record<string, unknown>;
+
+  if (orderItemsPayload.some((item) => !item.product_id)) {
+    return {
+      data: { error: 'Invalid order items' },
+      error: 'Invalid order items',
+      ok: false,
+      orderId: undefined,
+      status: 400,
+      statusText: 'Bad Request',
+    };
+  }
+
+  const { data: orderRows, error: orderError } = await supabase.rpc(
+    'create_storefront_order',
+    {
+      p_ad_tracking: body.ad_tracking ?? null,
+      p_customer_email: body.customer_email,
+      p_customer_name: body.customer_name,
+      p_customer_phone: body.customer_phone ?? null,
+      p_discount_amount: body.discount_amount,
+      p_items: orderItemsPayload,
+      p_merchant_id: body.merchant_id,
+      p_notes: body.notes ?? null,
+      p_payment_method: body.payment_method,
+      p_payment_status: body.payment_status,
+      p_selected_quote_id: body.selected_quote_id || null,
+      p_shipping_address: body.shipping_address || null,
+      p_shipping_fee: body.shipping_fee,
+      p_shipping_provider: body.shipping_provider ?? null,
+      p_shipping_status: body.shipping_status,
+      p_source: body.source,
+      p_tax_amount: body.tax_amount,
+      p_tracking_number: body.tracking_number ?? null,
+      // Agentic checkout is API-key scoped, not tied to a customer auth session.
+      p_user_id: null,
+    }
+  );
+
+  const order = Array.isArray(orderRows) ? orderRows[0] : orderRows;
+  if (orderError || !order) {
+    const code = typeof orderError?.code === 'string' ? orderError.code : null;
+    const message =
+      typeof orderError?.message === 'string'
+        ? orderError.message
+        : code || 'Failed to create order';
+    const isClientError =
+      (code ? CLIENT_ORDER_ERROR_CODES.has(code) : false) ||
+      CLIENT_ORDER_ERROR_CODES.has(message);
+    const safeError = isClientError
+      ? (code ?? message)
+      : 'Unable to create order';
+
+    logger.error({
+      code,
+      error: sanitizeForLog(orderError),
+      message: 'Agentic checkout order RPC failed',
+    });
+
+    return {
+      data: { details: safeError, error: 'Failed to create order' },
+      error: safeError,
+      ok: false,
+      orderId: undefined,
+      status: isClientError ? 400 : 500,
+      statusText: isClientError ? 'Bad Request' : 'Internal Server Error',
+    };
+  }
+
+  const orderId = typeof order.id === 'string' ? order.id : undefined;
+  const amountDueToGateway = toFiniteAmount(order.total);
+  if (!isFiniteAmountLike(order.total)) {
+    logger.error({
+      message: 'Agentic checkout order returned invalid total',
+      orderId,
+      total: sanitizeForLog(order.total),
+    });
+  }
+  const data = {
+    amountDueToGateway,
+    order,
+    wallet: null,
+  };
 
   return {
     data,
-    error: typeof data.error === 'string' ? data.error : undefined,
-    ok: response.status === 200 || response.status === 201,
+    error: undefined,
+    ok: true,
     orderId: getCreatedOrderId(data),
-    status: response.status,
-    statusText: response.statusText,
+    status: 201,
+    statusText: 'Created',
   };
 }
 
@@ -84,6 +208,21 @@ export async function markAgenticCheckoutOrderCanceled({
     .maybeSingle();
 
   return { error, updated: !error && !!data };
+}
+
+function calculateAssuranceFee(itemPrice: number) {
+  return Math.round(itemPrice * 0.05 * 100) / 100;
+}
+
+function isFiniteAmountLike(value: unknown) {
+  return (
+    value !== null && value !== undefined && Number.isFinite(Number(value))
+  );
+}
+
+function toFiniteAmount(value: unknown) {
+  const amount = Number(value ?? 0);
+  return Number.isFinite(amount) ? amount : 0;
 }
 
 function getCreatedOrderId(data: Record<string, unknown>) {

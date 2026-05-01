@@ -85,6 +85,87 @@ function mockSession(session: Record<string, unknown>) {
   return { updateSpy };
 }
 
+function getPaymentState(payload: unknown) {
+  const metadata =
+    payload && typeof payload === 'object' && 'metadata' in payload
+      ? (payload as { metadata?: { agentic?: { payment_state?: unknown } } })
+          .metadata
+      : undefined;
+  return metadata?.agentic?.payment_state;
+}
+
+function createClaimUpdateChain() {
+  const chain = {} as Record<
+    'eq' | 'is' | 'not' | 'select',
+    ReturnType<typeof vi.fn>
+  >;
+  const maybeSingle = vi.fn().mockResolvedValue({
+    data: readySession,
+    error: null,
+  });
+  chain.eq = vi.fn(() => chain);
+  chain.is = vi.fn(() => chain);
+  chain.not = vi.fn(() => chain);
+  chain.select = vi.fn(() => ({ maybeSingle }));
+  return chain;
+}
+
+function createFinalUpdateChain() {
+  const maybeSingle = vi.fn().mockResolvedValue({
+    data: { session_id: 'agentic_session_1' },
+    error: null,
+  });
+  const chain = {} as Record<
+    'contains' | 'eq' | 'in' | 'is' | 'select',
+    ReturnType<typeof vi.fn>
+  >;
+  chain.contains = vi.fn(() => chain);
+  chain.eq = vi.fn(() => chain);
+  chain.in = vi.fn(() => chain);
+  chain.is = vi.fn(() => chain);
+  chain.select = vi.fn(() => ({ maybeSingle }));
+  return chain;
+}
+
+function createSessionReadChain() {
+  const chain = {} as Record<'eq' | 'maybeSingle', ReturnType<typeof vi.fn>>;
+  chain.eq = vi.fn(() => chain);
+  chain.maybeSingle = vi.fn().mockResolvedValue({
+    data: readySession,
+    error: null,
+  });
+  return chain;
+}
+
+function mockSuccessfulPaymentSessionSupabase() {
+  const updateSpy = vi.fn((payload: Record<string, unknown>) =>
+    getPaymentState(payload) === 'claiming_payment'
+      ? createClaimUpdateChain()
+      : createFinalUpdateChain()
+  );
+  const readChain = createSessionReadChain();
+
+  const supabase = {
+    from: vi.fn((table: string) => {
+      if (table === 'checkout_sessions') {
+        return {
+          select: vi.fn(() => readChain),
+          update: updateSpy,
+        };
+      }
+
+      throw new Error(`Unexpected table ${table}`);
+    }),
+  };
+
+  vi.mocked(createServiceClient).mockReturnValue(supabase as never);
+  vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
+    supabase as never
+  );
+
+  return { readChain, supabase, updateSpy };
+}
+
 function mockCalculatedSession({ total = 500000 }: { total?: number } = {}) {
   vi.mocked(calculateCheckoutSession).mockResolvedValue({
     fulfillmentOptions: [],
@@ -112,7 +193,9 @@ function mockCalculatedSession({ total = 500000 }: { total?: number } = {}) {
 
 export const paymentStateTestHelpers = {
   buildCompleteRequest,
+  getPaymentState,
   mockCalculatedSession,
+  mockSuccessfulPaymentSessionSupabase,
   mockSession,
   readySession,
 };

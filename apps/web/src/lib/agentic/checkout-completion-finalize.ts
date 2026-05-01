@@ -148,7 +148,7 @@ export async function finalizeAgenticCheckoutPayment({
   });
   let orderResult: Awaited<ReturnType<typeof createAgenticCheckoutOrder>>;
   try {
-    orderResult = await createAgenticCheckoutOrder(orderPayload);
+    orderResult = await createAgenticCheckoutOrder(orderPayload, supabase);
   } catch (error) {
     await releaseFinalizationClaimSafely({
       finalizationClaim,

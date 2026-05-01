@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { POST as createOrder } from '@/app/api/orders/route';
+import { createAgenticCheckoutOrder } from '@/lib/agentic/checkout-order-dispatch';
 import {
   reserveAgenticIdempotencyKey,
   storeAgenticIdempotencyResponse,
@@ -57,7 +57,11 @@ vi.mock('@/lib/agentic/request-replay', () => ({
 vi.mock('@/lib/agentic/scoped-supabase', () => ({
   createAgenticScopedSupabaseClient: vi.fn(),
 }));
-vi.mock('@/app/api/orders/route', () => ({ POST: vi.fn() }));
+vi.mock('@/lib/agentic/checkout-order-dispatch', () => ({
+  createAgenticCheckoutOrder: vi.fn(),
+  markAgenticCheckoutOrderCanceled: vi.fn(),
+  sendAgenticOrderCreatedWebhook: vi.fn(),
+}));
 vi.mock('@/lib/supabase/service', () => ({ createServiceClient: vi.fn() }));
 
 const {
@@ -112,7 +116,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
     });
     expect(updateSpy).not.toHaveBeenCalled();
     expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
-    expect(createOrder).not.toHaveBeenCalled();
+    expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
   });
 
   it('returns existing payment details without creating duplicate DVA or order', async () => {
@@ -145,7 +149,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
 
     expect(response.status).toBe(200);
     expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
-    expect(createOrder).not.toHaveBeenCalled();
+    expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
     expect(updateSpy).not.toHaveBeenCalled();
     expect(body).toMatchObject({
       id: 'agentic_session_1',
@@ -191,7 +195,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
 
     expect(response.status).toBe(200);
     expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
-    expect(createOrder).not.toHaveBeenCalled();
+    expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
     expect(updateSpy).not.toHaveBeenCalled();
     expect(body).toMatchObject({
       id: 'agentic_session_1',
@@ -224,6 +228,29 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
     });
     expect(updateSpy).not.toHaveBeenCalled();
     expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
-    expect(createOrder).not.toHaveBeenCalled();
+    expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
+  });
+
+  it('does not treat a zero grand total as a missing total', async () => {
+    const { updateSpy } = mockSession(readySession);
+    mockCalculatedSession({ total: 0 });
+
+    const params = { params: Promise.resolve({ id: 'agentic_session_1' }) };
+    const { POST } = await import('./route');
+    const response = await POST(
+      buildCompleteRequest({ confirmationAmount: 1 }),
+      params
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toMatchObject({
+      code: 'CONFIRMATION_MISMATCH',
+      error: 'Checkout authorization invalid',
+      retryable: false,
+    });
+    expect(updateSpy).not.toHaveBeenCalled();
+    expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
+    expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
   });
 });
