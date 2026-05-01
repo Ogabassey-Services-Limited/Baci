@@ -24,6 +24,10 @@ function getVerifiedAmount(
   return gateway === 'paystack' ? rawAmount / 100 : rawAmount;
 }
 
+function getVerifiedCurrency(payload: Record<string, unknown>) {
+  return typeof payload.currency === 'string' ? payload.currency : null;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
@@ -142,6 +146,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const verifiedCurrency = getVerifiedCurrency(verification.data);
+    const transactionCurrency =
+      typeof transaction.currency === 'string' ? transaction.currency : null;
+    if (
+      !verifiedCurrency ||
+      !transactionCurrency ||
+      verifiedCurrency.toUpperCase() !== transactionCurrency.toUpperCase()
+    ) {
+      return NextResponse.json(
+        { error: 'Payment currency mismatch' },
+        { status: 400 }
+      );
+    }
+
     if (Math.abs(verifiedAmount - Number(transaction.amount)) > 0.01) {
       return NextResponse.json(
         { error: 'Payment amount mismatch' },
@@ -210,13 +228,9 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
+    console.error('Failed to confirm wallet top-up', error);
     return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : 'Failed to confirm wallet top-up',
-      },
+      { error: 'Failed to confirm wallet top-up' },
       { status: 500 }
     );
   }

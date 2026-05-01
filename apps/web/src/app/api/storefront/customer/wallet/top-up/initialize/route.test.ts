@@ -59,9 +59,9 @@ interface MockMerchant {
 }
 
 interface MockSettings {
-  korapay_enabled: boolean;
-  paystack_enabled: boolean;
-  preferred_local_gateway: string;
+  korapay_enabled: boolean | null;
+  paystack_enabled: boolean | null;
+  preferred_local_gateway: string | null;
 }
 
 const defaultMerchant: MockMerchant = {
@@ -179,6 +179,57 @@ describe('POST /api/storefront/customer/wallet/top-up/initialize', () => {
     mockSupabaseTables({
       merchant: { ...defaultMerchant, paystack_subaccount_code: null },
       settings: { ...defaultSettings, korapay_enabled: false },
+    });
+
+    const response = await POST(
+      makeRequest({
+        amount: 2500,
+        gateway: 'korapay',
+        merchantSlug: 'ogabassey',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toEqual({
+      error: 'korapay is not enabled for wallet top-ups',
+    });
+    expect(mockInitializeKorapayPayment).not.toHaveBeenCalled();
+  });
+
+  it('uses gateway defaults when settings columns are null', async () => {
+    mockSupabaseTables({
+      settings: {
+        korapay_enabled: null,
+        paystack_enabled: null,
+        preferred_local_gateway: null,
+      },
+    });
+
+    const response = await POST(
+      makeRequest({
+        amount: 2500,
+        merchantSlug: 'ogabassey',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({
+      gateway: 'paystack',
+      success: true,
+    });
+    expect(mockInitializePaystackTransaction).toHaveBeenCalledTimes(1);
+    expect(mockInitializeKorapayPayment).not.toHaveBeenCalled();
+  });
+
+  it('keeps korapay disabled by default when the setting is null', async () => {
+    mockSupabaseTables({
+      settings: {
+        korapay_enabled: null,
+        paystack_enabled: true,
+        preferred_local_gateway: null,
+      },
     });
 
     const response = await POST(

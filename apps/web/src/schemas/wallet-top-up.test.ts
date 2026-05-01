@@ -86,11 +86,36 @@ describe('wallet top-up schemas', () => {
     ).toBe(false);
   });
 
+  it.each([
+    { merchantSlug: '', reference: 'WAL-123' },
+    { merchantSlug: '   ', reference: 'WAL-123' },
+    { merchantSlug: 'ogabassey', reference: '' },
+    { merchantSlug: 'ogabassey', reference: '   ' },
+  ])('rejects blank confirm strings for %o', ({ merchantSlug, reference }) => {
+    expect(
+      walletTopUpConfirmSchema.safeParse({
+        gateway: 'paystack',
+        merchantSlug,
+        reference,
+      }).success
+    ).toBe(false);
+  });
+
+  it('rejects unsupported confirm gateway values', () => {
+    expect(
+      walletTopUpConfirmSchema.safeParse({
+        gateway: 'stripe',
+        merchantSlug: 'ogabassey',
+        reference: 'WAL-123',
+      }).success
+    ).toBe(false);
+  });
+
   it('parses a valid confirm payload', () => {
     const result = walletTopUpConfirmSchema.safeParse({
       gateway: 'korapay',
-      merchantSlug: 'ogabassey',
-      reference: 'WAL-123',
+      merchantSlug: '  ogabassey  ',
+      reference: '  WAL-123  ',
     });
 
     expect(result.success).toBe(true);

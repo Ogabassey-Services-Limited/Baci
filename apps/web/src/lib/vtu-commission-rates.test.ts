@@ -2,9 +2,26 @@ import { describe, expect, it } from 'vitest';
 import {
   getVtuCommissionRate,
   normalizeVtuCommissionCategory,
+  VTU_COMMISSION_RATES,
 } from '@/lib/vtu-commission-rates';
 
 describe('vtu commission rates', () => {
+  const commissionMatrixCases = Object.entries(VTU_COMMISSION_RATES)
+    .filter(([key]) => key !== 'DEFAULT')
+    .flatMap(([key, value]) => {
+      const separatorIndex = key.lastIndexOf('_');
+      if (separatorIndex === -1) {
+        return [];
+      }
+      return [
+        [
+          key.slice(0, separatorIndex),
+          key.slice(separatorIndex + 1),
+          value.rate,
+        ] as const,
+      ];
+    });
+
   it.each([
     ['airtime', 'AIRTIME'],
     ['Cable TV', 'CABLE'],
@@ -17,11 +34,20 @@ describe('vtu commission rates', () => {
     expect(normalizeVtuCommissionCategory(value)).toBe(expected);
   });
 
+  it.each(
+    commissionMatrixCases
+  )('returns %s + %s specific rate %s', (provider, category, expectedRate) => {
+    expect(getVtuCommissionRate(provider, category)).toEqual({
+      rate: expectedRate,
+    });
+  });
+
   it.each([
     ['Glo Nigeria', 'AIRTIME', 0.05],
+    ['MTN NG', 'DATA', 0.03],
     ['Ikeja Electric', 'ELECTRICITY', 0.008],
     ['Naija Bet', 'BETTING', 0.001],
-  ] as const)('returns %s + %s specific rate %s', (provider, category, expectedRate) => {
+  ] as const)('normalizes alias %s + %s to rate %s', (provider, category, expectedRate) => {
     expect(getVtuCommissionRate(provider, category)).toEqual({
       rate: expectedRate,
     });

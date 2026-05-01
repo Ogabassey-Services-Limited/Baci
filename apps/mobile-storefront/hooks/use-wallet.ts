@@ -65,12 +65,46 @@ const RedeemLoyaltyRpcResponseSchema = z.discriminatedUnion('success', [
 // QUERY KEYS (Centralized for cache management)
 // ============================================
 
+const WALLET_QUERY_ROOT = ['wallet'] as const;
+
+interface WalletDataKeyInput {
+  merchantId?: string | null;
+  ownerId: string;
+}
+
+function walletDataKey(
+  ownerId: string,
+  merchantId?: string | null
+):
+  | readonly ['wallet', 'data', 'v3', string]
+  | readonly ['wallet', 'data', 'v3', string, string];
+function walletDataKey(
+  owner: WalletDataKeyInput
+):
+  | readonly ['wallet', 'data', 'v3', string]
+  | readonly ['wallet', 'data', 'v3', string, string];
+function walletDataKey(
+  owner: string | WalletDataKeyInput,
+  merchantId?: string | null
+) {
+  const ownerId = typeof owner === 'string' ? owner : owner.ownerId;
+  const resolvedMerchantId =
+    typeof owner === 'string' ? merchantId : owner.merchantId;
+
+  return resolvedMerchantId
+    ? ([
+        ...WALLET_QUERY_ROOT,
+        'data',
+        'v3',
+        ownerId,
+        resolvedMerchantId,
+      ] as const)
+    : ([...WALLET_QUERY_ROOT, 'data', 'v3', ownerId] as const);
+}
+
 export const walletKeys = {
-  all: ['wallet'] as const,
-  data: (customerId: string, merchantId?: string | null) =>
-    merchantId
-      ? ([...walletKeys.all, 'data', 'v3', customerId, merchantId] as const)
-      : ([...walletKeys.all, 'data', 'v3', customerId] as const),
+  all: WALLET_QUERY_ROOT,
+  data: walletDataKey,
   transactions: (customerId: string) =>
     [...walletKeys.all, 'transactions', customerId] as const,
 };
@@ -436,11 +470,16 @@ export function useRedeemPoints() {
       // because the actual conversion rate is determined server-side by calculateCommerce.
       // The real balance will be synced on query invalidation after mutation settles.
       if (previousData) {
+        const nextLoyaltyPoints = Math.max(
+          0,
+          previousData.wallet.loyalty_points - points
+        );
+
         queryClient.setQueryData<WalletQueryData>(queryKey, {
           ...previousData,
           wallet: {
             ...previousData.wallet,
-            loyalty_points: previousData.wallet.loyalty_points - points,
+            loyalty_points: nextLoyaltyPoints,
           },
         });
       }

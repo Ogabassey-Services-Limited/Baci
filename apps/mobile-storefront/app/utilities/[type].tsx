@@ -31,6 +31,7 @@ import {
 } from '@/constants/network-providers';
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { walletKeys } from '@/hooks/use-wallet';
+import { CONFIG } from '@/lib/config';
 import { RouteRepeatParamsSchema } from '@/schemas/utility-purchase';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -149,6 +150,8 @@ export default function UtilityPurchaseScreen() {
   const headerOffset = Math.max(insets.top, 42);
   const isAuthenticated = useAuthStore((state) => !!state.session);
   const customerId = useAuthStore((state) => state.customer?.id);
+  const merchantId = useAuthStore((state) => state.merchantId);
+  const activeMerchantId = merchantId || CONFIG.MERCHANT_ID;
   const routeType =
     params.type && isValidUtilityType(params.type) ? params.type : null;
   const [successData, setSuccessData] = useState<UtilityPurchaseResult | null>(
@@ -189,9 +192,13 @@ export default function UtilityPurchaseScreen() {
     }
 
     void queryClient.invalidateQueries({
-      queryKey: walletKeys.data(customerId),
+      queryKey: walletKeys.data({
+        merchantId: activeMerchantId,
+        ownerId: customerId,
+      }),
     });
   }, [
+    activeMerchantId,
     currentType,
     customerId,
     queryClient,

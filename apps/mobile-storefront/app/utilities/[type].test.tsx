@@ -14,6 +14,7 @@ import { walletKeys } from '@/hooks/use-wallet';
 
 // Test constants
 const EXPECTED_UTILITY_TAB_COUNT = 5;
+const TEST_MERCHANT_ID = 'merchant-1';
 
 const mockPush = jest.fn();
 const mockReplace = jest.fn();
@@ -181,11 +182,13 @@ jest.mock('@/stores/auth-store', () => ({
   useAuthStore: (
     selector: (state: {
       customer: { id: string } | null;
+      merchantId: string | null;
       session: { access_token: string } | null;
     }) => unknown
   ) =>
     selector({
       customer: { id: 'customer-1' },
+      merchantId: TEST_MERCHANT_ID,
       session: { access_token: 'token' },
     }),
 }));
@@ -305,7 +308,33 @@ describe('UtilityPurchaseScreen', () => {
 
     await waitFor(() => {
       expect(mockInvalidateQueries).toHaveBeenCalledWith({
-        queryKey: walletKeys.data('customer-1'),
+        queryKey: walletKeys.data({
+          merchantId: TEST_MERCHANT_ID,
+          ownerId: 'customer-1',
+        }),
+      });
+    });
+  });
+
+  it('does not refresh the wallet cache when a utility success has no cashback', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      amount: '1000',
+      cashbackAmount: '0',
+      cashbackNewBalance: '1200',
+      customerIdentifier: '08031234567',
+      paymentStatus: 'successful',
+      reference: 'ref-no-cashback',
+      type: 'airtime',
+    });
+
+    render(<UtilityPurchaseScreen />);
+
+    await waitFor(() => {
+      expect(mockInvalidateQueries).not.toHaveBeenCalledWith({
+        queryKey: walletKeys.data({
+          merchantId: TEST_MERCHANT_ID,
+          ownerId: 'customer-1',
+        }),
       });
     });
   });

@@ -141,18 +141,35 @@ function resolveProviderRateKey(
   const compactProvider =
     typeof provider === 'string' ? compactLookupText(provider) : '';
   const aliases = VTU_COMMISSION_PROVIDER_ALIASES[category];
+  let bestPartialMatch: { aliasLength: number; providerKey: string } | null =
+    null;
 
   for (const [providerKey, providerAliases] of aliases) {
     if (
-      providerAliases.some((alias) =>
-        compactProvider.includes(compactLookupText(alias))
+      providerAliases.some(
+        (alias) => compactProvider === compactLookupText(alias)
       )
     ) {
       return providerKey;
     }
   }
 
-  return compactProvider;
+  for (const [providerKey, providerAliases] of aliases) {
+    for (const alias of providerAliases) {
+      const compactAlias = compactLookupText(alias);
+      if (
+        compactProvider.includes(compactAlias) &&
+        compactAlias.length > (bestPartialMatch?.aliasLength ?? 0)
+      ) {
+        bestPartialMatch = {
+          aliasLength: compactAlias.length,
+          providerKey,
+        };
+      }
+    }
+  }
+
+  return bestPartialMatch?.providerKey ?? compactProvider;
 }
 
 export function getVtuCommissionRate(

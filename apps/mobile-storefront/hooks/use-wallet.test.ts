@@ -389,7 +389,7 @@ describe('useWallet', () => {
   });
 
   it('uses the configured merchant when auth merchant hydration is still pending', async () => {
-    setupWalletTableMocks({
+    const { customerFilters } = setupWalletTableMocks({
       customerResult: createQueryResult({
         id: 'customer-1',
         loyalty_points: 1200,
@@ -415,6 +415,10 @@ describe('useWallet', () => {
     await waitFor(() => expect(result.current.data).toBeDefined());
 
     expect(result.current.data?.wallet.balance).toBe(3.25);
+    expect(customerFilters).toContainEqual([
+      'merchant_id',
+      'configured-merchant',
+    ]);
 
     unmount();
     queryClient.clear();
@@ -658,6 +662,58 @@ describe('useRedeemPoints', () => {
     });
 
     invalidateSpy.mockRestore();
+    unmount();
+    queryClient.clear();
+  });
+
+  it('clamps optimistic loyalty points at zero', async () => {
+    let resolveCommerce: ((value: unknown) => void) | undefined;
+    mockCalculateCommerce.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCommerce = resolve;
+      })
+    );
+    const { result, unmount, queryClient } = setupHook();
+    const queryKey = walletKeys.data('customer-1', 'merchant-1');
+    queryClient.setQueryData<WalletQueryData>(queryKey, {
+      wallet: { balance: 0, loyalty_points: 50 },
+      transactions: [],
+    });
+
+    let mutationPromise!: Promise<unknown>;
+    act(() => {
+      mutationPromise = result.current.mutateAsync(100);
+    });
+
+    await waitFor(() =>
+      expect(
+        queryClient.getQueryData<WalletQueryData>(queryKey)?.wallet
+          .loyalty_points
+      ).toBe(0)
+    );
+
+    mockRpc.mockResolvedValue({
+      data: {
+        new_points_balance: 0,
+        new_wallet_balance: 1000,
+        points_deducted: 50,
+        success: true,
+        wallet_credited: 1000,
+      },
+      error: null,
+    });
+    act(() => {
+      resolveCommerce?.({
+        remainingPoints: 0,
+        success: true,
+        walletCredit: 1000,
+      });
+    });
+
+    await act(async () => {
+      await mutationPromise;
+    });
+
     unmount();
     queryClient.clear();
   });

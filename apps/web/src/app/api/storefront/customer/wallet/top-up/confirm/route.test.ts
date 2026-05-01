@@ -79,6 +79,7 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
     mockVerifyPaystackTransaction.mockResolvedValue({
       data: {
         amount: 250000,
+        currency: 'NGN',
         status: 'success',
       },
       success: true,
@@ -167,6 +168,9 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
   });
 
   it('returns 500 when gateway verification throws unexpectedly', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     mockVerifyPaystackTransaction.mockRejectedValueOnce(
       new Error('gateway unavailable')
     );
@@ -181,8 +185,13 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
     const data = await response.json();
 
     expect(response.status).toBe(500);
-    expect(data).toEqual({ error: 'gateway unavailable' });
+    expect(data).toEqual({ error: 'Failed to confirm wallet top-up' });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to confirm wallet top-up',
+      expect.any(Error)
+    );
     expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
   });
 
   it('returns 404 when the wallet top-up payment does not exist', async () => {
@@ -408,6 +417,7 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
   it('rejects successful gateway responses without a verified amount', async () => {
     mockVerifyPaystackTransaction.mockResolvedValueOnce({
       data: {
+        currency: 'NGN',
         status: 'success',
       },
       success: true,
@@ -424,6 +434,30 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
 
     expect(response.status).toBe(400);
     expect(data).toEqual({ error: 'Unable to verify payment amount' });
+    expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+  });
+
+  it('rejects successful gateway responses with a mismatched currency', async () => {
+    mockVerifyPaystackTransaction.mockResolvedValueOnce({
+      data: {
+        amount: 250000,
+        currency: 'USD',
+        status: 'success',
+      },
+      success: true,
+    });
+
+    const response = await POST(
+      makeRequest({
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+        reference: 'WAL-123',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toEqual({ error: 'Payment currency mismatch' });
     expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
   });
 });

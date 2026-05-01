@@ -41,8 +41,8 @@ function selectWalletTopUpGateway({
   requestedGateway?: WalletTopUpGateway;
   settings: GatewaySettings;
 }): WalletTopUpGateway {
-  const paystackEnabled = settings.paystack_enabled !== false;
-  const korapayEnabled = settings.korapay_enabled !== false;
+  const paystackEnabled = settings.paystack_enabled ?? true;
+  const korapayEnabled = settings.korapay_enabled ?? false;
 
   if (requestedGateway) {
     if (requestedGateway === 'paystack' && paystackEnabled) return 'paystack';
