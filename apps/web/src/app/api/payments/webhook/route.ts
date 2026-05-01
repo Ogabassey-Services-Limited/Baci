@@ -26,7 +26,7 @@ import {
   calculatePlatformFee,
   verifyTransaction as verifyPaystackPayment,
 } from '@/lib/paystack';
-import { isValidUuid } from '@/lib/sanitize-core';
+import { isValidUuid, sanitizeForLog } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
@@ -1038,11 +1038,15 @@ export async function POST(request: NextRequest) {
           },
         });
         if (!agenticSessionPayment.ok) {
-          logger.warn({
+          logger.error({
             message: 'Agentic checkout session reconciliation failed',
             reference,
-            error: agenticSessionPayment.error,
+            error: sanitizeForLog(agenticSessionPayment.error),
           });
+          return NextResponse.json(
+            { error: 'Agentic checkout session reconciliation failed' },
+            { status: 500 }
+          );
         }
       }
       return NextResponse.json({ message: 'Already processed' });
@@ -1705,11 +1709,15 @@ export async function POST(request: NextRequest) {
         },
       });
       if (!agenticSessionPayment.ok) {
-        logger.warn({
+        logger.error({
           message: 'Agentic checkout session reconciliation failed',
           reference,
-          error: agenticSessionPayment.error,
+          error: sanitizeForLog(agenticSessionPayment.error),
         });
+        return NextResponse.json(
+          { error: 'Agentic checkout session reconciliation failed' },
+          { status: 500 }
+        );
       }
     }
 

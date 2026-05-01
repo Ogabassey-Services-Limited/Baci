@@ -16,8 +16,10 @@ import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { getAgenticReplayErrorStatus } from '@/lib/agentic/request-replay-response';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { logger } from '@/lib/logger';
+import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createServiceClient } from '@/lib/supabase/service';
 import { agenticCheckoutItemsSchema } from '@/schemas/agentic-checkout';
+import { agenticCheckoutSessionRouteParamsSchema } from '@/schemas/agentic-checkout-session-route-params';
 
 const CANCEL_IDEMPOTENCY_ROUTE = 'checkout_sessions.cancel';
 
@@ -26,9 +28,21 @@ export async function POST(
   props: { params: Promise<{ id: string }> }
 ) {
   const params = await props.params; // Next.js 15+ await params
-
   if (!verifyAgenticApiKey(request))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const parsedParams =
+    agenticCheckoutSessionRouteParamsSchema.safeParse(params);
+  if (!parsedParams.success) {
+    return NextResponse.json(
+      {
+        error: 'Invalid route params',
+        details: parsedParams.error.flatten(),
+      },
+      { status: 400 }
+    );
+  }
+  const { id: sessionId } = parsedParams.data;
 
   const mutation = await readAgenticMutationRequest({ request });
   if (!mutation.ok) {
@@ -101,15 +115,15 @@ export async function POST(
     const { data: session, error: fetchError } =
       await getAgenticCheckoutSession({
         merchantId: merchant.id,
-        sessionId: params.id,
+        sessionId,
         supabase,
       });
 
     if (fetchError) {
       logger.error({
         message: 'Failed to fetch checkout session',
-        error: fetchError,
-        sessionId: params.id,
+        error: sanitizeForLog(fetchError),
+        sessionId,
       });
       return await respond({ error: 'Database error' }, 500);
     }
@@ -131,7 +145,7 @@ export async function POST(
     const { data: updatedSession, error: updateError } = await supabase
       .from('checkout_sessions')
       .update({ status: 'abandoned' })
-      .eq('session_id', params.id)
+      .eq('session_id', sessionId)
       .eq('merchant_id', merchant.id)
       .is('order_id', null)
       .is('payment_reference', null)
@@ -143,8 +157,8 @@ export async function POST(
     if (updateError) {
       logger.error({
         message: 'Failed to cancel checkout session',
-        error: updateError,
-        sessionId: params.id,
+        error: sanitizeForLog(updateError),
+        sessionId,
       });
       return await respond({ error: 'Database error' }, 500);
     }
@@ -180,15 +194,15 @@ export async function POST(
       } catch (error) {
         logger.warn({
           message: 'Canceled checkout session response calculation failed',
-          error,
-          sessionId: params.id,
+          error: sanitizeForLog(error),
+          sessionId,
         });
       }
     } else {
       logger.warn({
         message: 'Canceled checkout session has invalid cart items',
-        error: parsedCartItems.error.flatten(),
-        sessionId: params.id,
+        error: sanitizeForLog(parsedCartItems.error.flatten()),
+        sessionId,
       });
     }
 
@@ -212,8 +226,8 @@ export async function POST(
   } catch (err: unknown) {
     logger.error({
       message: 'Agentic checkout cancel error',
-      error: err,
-      sessionId: params.id,
+      error: sanitizeForLog(err),
+      sessionId,
     });
     return NextResponse.json(
       { error: 'Internal Server Error' },

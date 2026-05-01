@@ -212,6 +212,19 @@ describe('POST /api/agentic/checkout_sessions/[id]', () => {
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 
+  it('returns 400 when the session id route param is invalid', async () => {
+    const { POST } = await import('./route');
+    const response = await POST(createRequest({ items: [] }), {
+      params: Promise.resolve({ id: '../bad' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({ error: 'Invalid route params' });
+    expect(createServiceClient).not.toHaveBeenCalled();
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
+  });
+
   it('updates an existing checkout session with merchant-scoped guards', async () => {
     const mock = createCheckoutSupabaseMock();
     vi.mocked(createServiceClient).mockReturnValue(mock.supabase);

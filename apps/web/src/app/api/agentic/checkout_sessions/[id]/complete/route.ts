@@ -18,8 +18,10 @@ import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { getAgenticReplayErrorStatus } from '@/lib/agentic/request-replay-response';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { logger } from '@/lib/logger';
+import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createServiceClient } from '@/lib/supabase/service';
 import { agenticCheckoutCompleteSchema } from '@/schemas/agentic-checkout';
+import { agenticCheckoutSessionRouteParamsSchema } from '@/schemas/agentic-checkout-session-route-params';
 
 const COMPLETE_IDEMPOTENCY_ROUTE = 'checkout_sessions.complete';
 
@@ -30,6 +32,19 @@ export async function POST(
   const params = await props.params;
   if (!verifyAgenticApiKey(request))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const parsedParams =
+    agenticCheckoutSessionRouteParamsSchema.safeParse(params);
+  if (!parsedParams.success) {
+    return NextResponse.json(
+      {
+        error: 'Invalid route params',
+        details: parsedParams.error.flatten(),
+      },
+      { status: 400 }
+    );
+  }
+  const { id: sessionId } = parsedParams.data;
 
   const mutation = await readAgenticMutationRequest({ request });
   if (!mutation.ok) {
@@ -112,15 +127,15 @@ export async function POST(
 
     const { data: session, error } = await getAgenticCheckoutSession({
       merchantId: merchant.id,
-      sessionId: params.id,
+      sessionId,
       supabase,
     });
 
     if (error) {
       logger.error({
         message: 'Agentic checkout session read failed',
-        error,
-        sessionId: params.id,
+        error: sanitizeForLog(error),
+        sessionId,
       });
       return await respond({ error: 'Database error' }, 500);
     }
@@ -147,7 +162,7 @@ export async function POST(
       completionAuthorization: completion_authorization,
       merchantId: merchant.id,
       session,
-      sessionId: params.id,
+      sessionId,
       supabase,
     });
     if (!completionState.ok) {
@@ -164,7 +179,7 @@ export async function POST(
       paystackSubaccountCode: merchant.paystack_subaccount_code,
       session,
       sessionCalc: completionState.sessionCalc,
-      sessionId: params.id,
+      sessionId,
       storedDvaAccount: completionState.storedDvaAccount,
       supabase,
     });
@@ -182,14 +197,14 @@ export async function POST(
       orderSessionCalc: preparedPayment.payment.sessionCalc,
       requestId: mutation.requestId,
       route: COMPLETE_IDEMPOTENCY_ROUTE,
-      sessionId: params.id,
+      sessionId,
       supabase,
     });
   } catch (error: unknown) {
     logger.error({
       message: 'Agentic checkout complete failed',
-      error,
-      sessionId: params.id,
+      error: sanitizeForLog(error),
+      sessionId,
     });
     return NextResponse.json(
       { error: 'Internal Server Error' },

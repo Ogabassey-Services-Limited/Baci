@@ -815,12 +815,12 @@ describe('POST /api/payments/webhook', () => {
       const response = await POST(request);
       const data = await response.json();
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(500);
       expect(data).toMatchObject({
-        message: 'Already processed',
+        error: 'Agentic checkout session reconciliation failed',
       });
       expect(mockMarkAgenticPaystackDvaSessionPaid).toHaveBeenCalled();
-      expect(logger.warn).toHaveBeenCalledWith(
+      expect(logger.error).toHaveBeenCalledWith(
         expect.objectContaining({
           message: 'Agentic checkout session reconciliation failed',
           reference: 'REF123',
@@ -1532,11 +1532,11 @@ describe('POST /api/payments/webhook', () => {
       const response = await POST(request);
       const data = await response.json();
 
-      expect(response.status).toBe(200);
+      expect(response.status).toBe(500);
       expect(data).toMatchObject({
-        message: 'Payment processed successfully',
+        error: 'Agentic checkout session reconciliation failed',
       });
-      expect(logger.warn).toHaveBeenCalledWith(
+      expect(logger.error).toHaveBeenCalledWith(
         expect.objectContaining({
           message: 'Agentic checkout session reconciliation failed',
           reference: 'REF123',

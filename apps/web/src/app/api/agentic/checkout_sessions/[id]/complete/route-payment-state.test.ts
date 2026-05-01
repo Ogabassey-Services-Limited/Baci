@@ -117,6 +117,19 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
     vi.unstubAllEnvs();
   });
 
+  it('returns 400 when the session id route param is invalid', async () => {
+    const { POST } = await import('./route');
+    const response = await POST(buildCompleteRequest(), {
+      params: Promise.resolve({ id: '../bad' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({ error: 'Invalid route params' });
+    expect(mockResolveAgenticMerchantContext).not.toHaveBeenCalled();
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
+  });
+
   it('requires completion authorization before payment side effects', async () => {
     const { updateSpy } = mockSession(readySession);
     mockCalculatedSession();

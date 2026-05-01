@@ -141,6 +141,24 @@ describe('GET /api/agentic/checkout_sessions/[id]', () => {
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 
+  it('returns 400 when the session id route param is invalid', async () => {
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout_sessions/%2E%2E'
+    );
+
+    const { GET } = await import('./route');
+    const response = await GET(request, {
+      params: Promise.resolve({ id: '../bad' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({ error: 'Invalid route params' });
+    expect(readAgenticSignedRequest).not.toHaveBeenCalled();
+    expect(createServiceClient).not.toHaveBeenCalled();
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
+  });
+
   it('returns 500 when stored cart items are malformed', async () => {
     mockCheckoutSessionRead({
       session_id: 'agentic_session_1',
