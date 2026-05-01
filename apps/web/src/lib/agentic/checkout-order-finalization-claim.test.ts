@@ -17,7 +17,12 @@ const dvaAccount = {
   bank_name: 'Paystack-Titan',
 };
 
-function createUpdateChain() {
+function createUpdateChain(
+  result: { data: unknown; error: unknown } = {
+    data: { session_id: 'agentic_session_1' },
+    error: null,
+  }
+) {
   const chain = {
     contains: vi.fn(),
     eq: vi.fn(),
@@ -30,10 +35,7 @@ function createUpdateChain() {
   chain.in.mockReturnValue(chain);
   chain.is.mockReturnValue(chain);
   chain.select.mockReturnValue({
-    maybeSingle: vi.fn().mockResolvedValue({
-      data: { session_id: 'agentic_session_1' },
-      error: null,
-    }),
+    maybeSingle: vi.fn().mockResolvedValue(result),
   });
 
   return chain;
@@ -73,5 +75,44 @@ describe('agentic checkout order finalization claim', () => {
     expect(chain.contains).toHaveBeenCalledWith('metadata', {
       agentic: { payment_state: 'payment_account_ready' },
     });
+  });
+
+  it('returns not claimed when finalization claim update matches no rows', async () => {
+    const chain = createUpdateChain({ data: null, error: null });
+    const supabase = {
+      from: vi.fn(() => ({ update: vi.fn(() => chain) })),
+    };
+
+    const result = await claimAgenticOrderFinalization({
+      buyer,
+      dvaAccount,
+      finalizationClaim: 'claim-1',
+      merchantId: 'merchant-1',
+      metadata: { agentic: { payment_state: 'payment_account_ready' } },
+      sessionId: 'agentic_session_1',
+      supabase: supabase as never,
+    });
+
+    expect(result).toEqual({ claimed: false, error: null });
+  });
+
+  it('returns Supabase errors from finalization claim writes', async () => {
+    const claimError = { message: 'claim failed' };
+    const chain = createUpdateChain({ data: null, error: claimError });
+    const supabase = {
+      from: vi.fn(() => ({ update: vi.fn(() => chain) })),
+    };
+
+    const result = await claimAgenticOrderFinalization({
+      buyer,
+      dvaAccount,
+      finalizationClaim: 'claim-1',
+      merchantId: 'merchant-1',
+      metadata: { agentic: { payment_state: 'payment_account_ready' } },
+      sessionId: 'agentic_session_1',
+      supabase: supabase as never,
+    });
+
+    expect(result).toEqual({ claimed: false, error: claimError });
   });
 });

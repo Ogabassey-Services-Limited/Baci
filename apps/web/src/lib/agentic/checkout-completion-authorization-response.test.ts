@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   buildAuthorizationErrorBody,
   getAuthorizationErrorStatus,
@@ -7,6 +7,10 @@ import {
 } from '@/lib/agentic/checkout-completion-authorization-response';
 
 describe('checkout completion authorization response helpers', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('reads numeric and string checkout totals', () => {
     expect(
       getCheckoutGrandTotal([
@@ -45,7 +49,5 @@ describe('checkout completion authorization response helpers', () => {
     expect(getCheckoutCompletionAuthorizationSecrets()).toEqual([
       'current-secret',
     ]);
-
-    vi.unstubAllEnvs();
   });
 });

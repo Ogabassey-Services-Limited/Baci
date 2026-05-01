@@ -56,4 +56,52 @@ describe('markAgenticPaystackDvaSessionPaid', () => {
       })
     );
   });
+
+  it('returns non-ok when the paid session update fails', async () => {
+    const readChain = {
+      eq: vi.fn(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          metadata: {
+            agentic: {
+              dva_account: { account_number: '9930000902' },
+              payment_state: 'payment_pending',
+            },
+          },
+          status: 'processing',
+        },
+        error: null,
+      }),
+    };
+    readChain.eq.mockReturnValue(readChain);
+    const updateError = { message: 'update failed' };
+    const updateChain = {
+      eq: vi.fn(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: null,
+        error: updateError,
+      }),
+      select: vi.fn(),
+    };
+    updateChain.eq.mockReturnValue(updateChain);
+    updateChain.select.mockReturnValue(updateChain);
+    const update = vi.fn(() => updateChain);
+    const from = vi.fn(() => ({ select: vi.fn(() => readChain), update }));
+
+    const result = await markAgenticPaystackDvaSessionPaid({
+      gatewayReference: 'paystack-ref-1',
+      supabase: { from } as never,
+      transaction: {
+        merchant_id: 'merchant-1',
+        metadata: {
+          agentic_checkout_session_id: 'agentic_session_1',
+          agentic_virtual_account_number: '9930000902',
+          transaction_type: 'agentic_checkout_payment',
+        },
+        order_id: 'order-1',
+      },
+    });
+
+    expect(result).toEqual({ error: updateError, ok: false });
+  });
 });

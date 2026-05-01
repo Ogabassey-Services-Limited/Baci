@@ -14,6 +14,20 @@ function createQueryChain(data: unknown[], error: unknown = null) {
   return chain;
 }
 
+function createCheckoutSupabase(productQuery: unknown, variantQuery: unknown) {
+  return {
+    from: vi.fn((table: string) => {
+      if (table === 'products') {
+        return productQuery;
+      }
+      if (table === 'product_variants') {
+        return variantQuery;
+      }
+      throw new Error(`Unexpected table ${table}`);
+    }),
+  };
+}
+
 describe('calculateCheckoutSession', () => {
   it('scopes product and variant lookups to the merchant', async () => {
     const productQuery = createQueryChain([
@@ -27,17 +41,7 @@ describe('calculateCheckoutSession', () => {
       },
     ]);
     const variantQuery = createQueryChain([]);
-    const supabase = {
-      from: vi.fn((table: string) => {
-        if (table === 'products') {
-          return productQuery;
-        }
-        if (table === 'product_variants') {
-          return variantQuery;
-        }
-        throw new Error(`Unexpected table ${table}`);
-      }),
-    };
+    const supabase = createCheckoutSupabase(productQuery, variantQuery);
 
     const result = await calculateCheckoutSession(
       supabase as never,
@@ -64,11 +68,7 @@ describe('calculateCheckoutSession', () => {
       },
     ]);
     const variantQuery = createQueryChain([]);
-    const supabase = {
-      from: vi.fn((table: string) =>
-        table === 'products' ? productQuery : variantQuery
-      ),
-    };
+    const supabase = createCheckoutSupabase(productQuery, variantQuery);
 
     const result = await calculateCheckoutSession(
       supabase as never,
@@ -94,11 +94,7 @@ describe('calculateCheckoutSession', () => {
         stock_quantity: 0,
       },
     ]);
-    const supabase = {
-      from: vi.fn((table: string) =>
-        table === 'products' ? productQuery : variantQuery
-      ),
-    };
+    const supabase = createCheckoutSupabase(productQuery, variantQuery);
 
     const result = await calculateCheckoutSession(
       supabase as never,
@@ -120,17 +116,7 @@ describe('calculateCheckoutSession', () => {
   it('fails when product lookup returns a database error', async () => {
     const productQuery = createQueryChain([], { message: 'query failed' });
     const variantQuery = createQueryChain([]);
-    const supabase = {
-      from: vi.fn((table: string) => {
-        if (table === 'products') {
-          return productQuery;
-        }
-        if (table === 'product_variants') {
-          return variantQuery;
-        }
-        throw new Error(`Unexpected table ${table}`);
-      }),
-    };
+    const supabase = createCheckoutSupabase(productQuery, variantQuery);
 
     await expect(
       calculateCheckoutSession(

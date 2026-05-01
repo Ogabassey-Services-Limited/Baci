@@ -167,4 +167,25 @@ describe('agentic checkout order dispatch', () => {
 
     expect(result).toEqual({ error: null, updated: false });
   });
+
+  it('returns Supabase errors from order cancellation updates', async () => {
+    const cancelError = { message: 'cancel failed' };
+    const maybeSingle = vi
+      .fn()
+      .mockResolvedValue({ data: null, error: cancelError });
+    const select = vi.fn(() => ({ maybeSingle }));
+    const secondEq = vi.fn(() => ({ select }));
+    const firstEq = vi.fn(() => ({ eq: secondEq }));
+    const update = vi.fn(() => ({ eq: firstEq }));
+    const from = vi.fn(() => ({ update }));
+
+    const result = await markAgenticCheckoutOrderCanceled({
+      merchantId: 'merchant-1',
+      orderId: 'order-1',
+      sessionId: 'agentic_session_1',
+      supabase: { from } as unknown as SupabaseClient,
+    });
+
+    expect(result).toEqual({ error: cancelError, updated: false });
+  });
 });

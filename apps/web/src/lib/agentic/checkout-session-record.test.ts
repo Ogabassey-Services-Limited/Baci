@@ -26,6 +26,25 @@ describe('agentic checkout session record', () => {
     expect(eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
   });
 
+  it('returns Supabase errors from session lookups', async () => {
+    const lookupError = { message: 'lookup failed' };
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: null,
+      error: lookupError,
+    });
+    const eq = vi.fn(() => ({ eq, maybeSingle }));
+    const select = vi.fn(() => ({ eq }));
+    const from = vi.fn(() => ({ select }));
+
+    const result = await getAgenticCheckoutSession({
+      merchantId: 'merchant-1',
+      sessionId: 'agentic_session_1',
+      supabase: { from } as never,
+    });
+
+    expect(result).toEqual({ data: null, error: lookupError });
+  });
+
   it('limits mutable session writes to pending and processing states', () => {
     expect(MUTABLE_CHECKOUT_SESSION_STATUSES).toEqual([
       'pending',

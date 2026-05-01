@@ -140,9 +140,10 @@ function buildOrderFinalizationMetadata({
       ...(metadata.agentic ?? {}),
       ...(buyer ? { buyer } : {}),
       ...(dvaAccount ? { dva_account: dvaAccount } : {}),
+      ...(orderError === undefined
+        ? {}
+        : { finalization_error: sanitizeForLog(orderError) }),
       finalization_claim: finalizationClaim,
-      finalization_error:
-        orderError === undefined ? undefined : sanitizeForLog(orderError),
       finalization_updated_at: new Date().toISOString(),
       payment_state: paymentState,
     },

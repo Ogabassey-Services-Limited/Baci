@@ -54,6 +54,17 @@ describe('releaseCheckoutPaymentClaimAfterFailure', () => {
     );
   });
 
+  it('does not log when claim release succeeds', async () => {
+    vi.mocked(releaseCheckoutPaymentClaim).mockResolvedValue({
+      error: null,
+      released: true,
+    });
+
+    await releaseCheckoutPaymentClaimAfterFailure(releaseInput as never);
+
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
   it('logs when claim release throws', async () => {
     vi.mocked(releaseCheckoutPaymentClaim).mockRejectedValue(new Error('boom'));
 

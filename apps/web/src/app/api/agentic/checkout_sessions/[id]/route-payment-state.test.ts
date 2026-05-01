@@ -152,4 +152,111 @@ describe('POST /api/agentic/checkout_sessions/[id] payment state', () => {
     expect(updateSpy).not.toHaveBeenCalled();
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
+
+  it('updates mutable sessions and stores the successful idempotency response', async () => {
+    const readChain = {
+      eq: vi.fn(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: {
+          id: 'session-1',
+          session_id: 'agentic_session_1',
+          status: 'pending',
+          cart_items: [{ id: 'product-1', quantity: 1 }],
+          currency: 'NGN',
+          shipping_method: null,
+          shipping_address: null,
+          order_id: null,
+          payment_reference: null,
+          virtual_account_number: null,
+          metadata: { agentic: {} },
+        },
+        error: null,
+      }),
+    };
+    readChain.eq.mockReturnValue(readChain);
+    const updateChain = {
+      eq: vi.fn(),
+      in: vi.fn(),
+      is: vi.fn(),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { session_id: 'agentic_session_1' },
+        error: null,
+      }),
+      select: vi.fn(),
+    };
+    updateChain.eq.mockReturnValue(updateChain);
+    updateChain.in.mockReturnValue(updateChain);
+    updateChain.is.mockReturnValue(updateChain);
+    updateChain.select.mockReturnValue(updateChain);
+    const updateSpy = vi.fn(() => updateChain);
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === 'checkout_sessions') {
+          return {
+            select: vi.fn(() => readChain),
+            update: updateSpy,
+          };
+        }
+
+        throw new Error(`Unexpected table ${table}`);
+      }),
+    };
+    vi.mocked(createServiceClient).mockReturnValue(supabase as never);
+    vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
+      supabase as never
+    );
+    vi.mocked(calculateCheckoutSession).mockResolvedValue({
+      fulfillmentOptions: [],
+      lineItems: [
+        {
+          id: 'line_item_1',
+          item: {
+            id: 'product-1',
+            product_id: 'product-1',
+            quantity: 1,
+            title: 'Phone',
+          },
+          base_amount: 500000,
+          discount: 0,
+          subtotal: 500000,
+          tax: 0,
+          total: 500000,
+        },
+      ],
+      messages: [],
+      selectedOptionId: undefined,
+      totals: [{ type: 'total', display_text: 'Total', amount: 500000 }],
+    });
+
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout_sessions/agentic_session_1',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'idem-1',
+        },
+        body: JSON.stringify({
+          items: [{ id: 'product-1', quantity: 1 }],
+        }),
+      }
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      params: Promise.resolve({ id: 'agentic_session_1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.status).toBe('not_ready_for_payment');
+    expect(updateSpy).toHaveBeenCalled();
+    expect(storeAgenticIdempotencyResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'idem-1',
+        route: 'checkout_sessions.update',
+        status: 200,
+      })
+    );
+  });
 });
