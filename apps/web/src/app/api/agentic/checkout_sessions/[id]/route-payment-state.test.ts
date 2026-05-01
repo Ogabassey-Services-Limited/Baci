@@ -93,9 +93,9 @@ describe('POST /api/agentic/checkout_sessions/[id] payment state', () => {
           currency: 'NGN',
           shipping_method: 'pickup_store_1',
           shipping_address: { city: 'Lagos' },
-          order_id: 'order-1',
-          payment_reference: '1234567890',
-          virtual_account_number: '1234567890',
+          order_id: null,
+          payment_reference: null,
+          virtual_account_number: null,
           metadata: {
             agentic: { payment_state: 'payment_pending' },
           },

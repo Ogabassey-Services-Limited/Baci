@@ -255,7 +255,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/cancel', () => {
     const { updateSpy } = mockCheckoutSessionLookup({
       session: buildSession({
         metadata: { agentic: { payment_state: 'payment_pending' } },
-        payment_reference: '1234567890',
+        payment_reference: null,
       }),
     });
 

@@ -21,6 +21,7 @@ beforeEach(() => {
   vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY', 'confirmation-key');
   vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', 'signing-key');
   vi.stubEnv('PAYSTACK_SECRET_KEY', 'paystack-secret');
+  vi.stubEnv('SUPABASE_JWT_SECRET', 'supabase-jwt-secret');
 
   mockGetMerchantByIdentifier.mockResolvedValue({
     id: 'merchant-1',

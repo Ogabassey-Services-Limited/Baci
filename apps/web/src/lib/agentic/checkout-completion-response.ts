@@ -108,7 +108,7 @@ export function resolveExistingPaymentState({
       ? storedBuyer
       : buyer;
     const responseSessionCalc =
-      sessionCalc ?? getStoredCheckoutPaymentSnapshot(session.metadata);
+      getStoredCheckoutPaymentSnapshot(session.metadata) ?? sessionCalc;
 
     if (!responseBuyer || !responseSessionCalc) {
       return {

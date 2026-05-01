@@ -32,6 +32,14 @@ export async function POST(request: NextRequest) {
     return mutation.response;
   }
 
+  let respondWithIdempotency:
+    | ((
+        response: unknown,
+        status: number,
+        storageFailureResponse?: Record<string, unknown>
+      ) => Promise<NextResponse>)
+    | null = null;
+
   try {
     const parsed = checkoutSessionSchema.safeParse(mutation.body);
     if (!parsed.success) {
@@ -85,6 +93,21 @@ export async function POST(request: NextRequest) {
         },
       });
     }
+    respondWithIdempotency = (
+      response: unknown,
+      status: number,
+      storageFailureResponse?: Record<string, unknown>
+    ): Promise<NextResponse> =>
+      buildStoredAgenticIdempotencyResponse({
+        idempotencyKey: mutation.idempotencyKey,
+        merchantId: merchant.id,
+        requestId: mutation.requestId,
+        response,
+        route: CREATE_IDEMPOTENCY_ROUTE,
+        status,
+        storageFailureResponse,
+        supabase,
+      });
     const replayReservation = await reserveAgenticRequestId({
       apiVersion: mutation.apiVersion,
       idempotencyKey: mutation.idempotencyKey,
@@ -93,9 +116,9 @@ export async function POST(request: NextRequest) {
       supabase,
     });
     if (!replayReservation.ok) {
-      return NextResponse.json(
+      return await respondWithIdempotency(
         { error: replayReservation.error },
-        { status: getAgenticReplayErrorStatus(replayReservation.error) }
+        getAgenticReplayErrorStatus(replayReservation.error)
       );
     }
 
@@ -104,6 +127,7 @@ export async function POST(request: NextRequest) {
       status: number,
       storageFailureResponse?: Record<string, unknown>
     ): Promise<NextResponse> =>
+      respondWithIdempotency?.(response, status, storageFailureResponse) ??
       buildStoredAgenticIdempotencyResponse({
         idempotencyKey: mutation.idempotencyKey,
         merchantId: merchant.id,
@@ -193,15 +217,20 @@ export async function POST(request: NextRequest) {
       session_id: responseSessionId,
     });
   } catch (err) {
+    const body = { error: 'Internal Server Error' };
     logger.error({
       message: 'Agentic checkout session create error',
       error: err,
       idempotencyKey: mutation.idempotencyKey,
       requestId: mutation.requestId,
     });
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    );
+    if (respondWithIdempotency) {
+      try {
+        return await respondWithIdempotency(body, 500);
+      } catch {
+        return NextResponse.json(body, { status: 500 });
+      }
+    }
+    return NextResponse.json(body, { status: 500 });
   }
 }

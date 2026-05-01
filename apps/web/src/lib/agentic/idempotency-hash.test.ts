@@ -43,7 +43,24 @@ describe('hashIdempotencyRequest', () => {
       method: 'post',
       pathname: '/api/agentic/checkout_sessions',
     });
+    const changedVersion = hashIdempotencyRequest({
+      apiVersion: '2026-05-01',
+      body: '{"items":[]}',
+      method: 'post',
+      pathname: '/api/agentic/checkout_sessions',
+    });
+    const changedPathname = hashIdempotencyRequest({
+      apiVersion: '2026-04-30',
+      body: '{"items":[]}',
+      method: 'post',
+      pathname: '/api/agentic/checkout_sessions/agentic_session_1',
+    });
 
     expect(changed).not.toBe(base);
+    expect(changedVersion).not.toBe(base);
+    expect(changedPathname).not.toBe(base);
+    expect(changed).not.toBe(changedVersion);
+    expect(changed).not.toBe(changedPathname);
+    expect(changedVersion).not.toBe(changedPathname);
   });
 });

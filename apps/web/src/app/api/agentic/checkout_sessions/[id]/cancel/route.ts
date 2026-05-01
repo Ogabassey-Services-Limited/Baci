@@ -49,6 +49,10 @@ export async function POST(
     return mutation.response;
   }
 
+  let respondWithIdempotency:
+    | ((response: unknown, status: number) => Promise<NextResponse>)
+    | null = null;
+
   try {
     const bootstrap = createServiceClient();
     const merchant = await resolveAgenticMerchantContext(bootstrap);
@@ -87,6 +91,16 @@ export async function POST(
         },
       });
     }
+    respondWithIdempotency = (response: unknown, status: number) =>
+      buildStoredAgenticIdempotencyResponse({
+        idempotencyKey: mutation.idempotencyKey,
+        merchantId: merchant.id,
+        requestId: mutation.requestId,
+        response,
+        route: CANCEL_IDEMPOTENCY_ROUTE,
+        status,
+        supabase,
+      });
     const replayReservation = await reserveAgenticRequestId({
       apiVersion: mutation.apiVersion,
       idempotencyKey: mutation.idempotencyKey,
@@ -95,12 +109,13 @@ export async function POST(
       supabase,
     });
     if (!replayReservation.ok) {
-      return NextResponse.json(
+      return await respondWithIdempotency(
         { error: replayReservation.error },
-        { status: getAgenticReplayErrorStatus(replayReservation.error) }
+        getAgenticReplayErrorStatus(replayReservation.error)
       );
     }
     const respond = (response: unknown, status: number) =>
+      respondWithIdempotency?.(response, status) ??
       buildStoredAgenticIdempotencyResponse({
         idempotencyKey: mutation.idempotencyKey,
         merchantId: merchant.id,
@@ -224,14 +239,19 @@ export async function POST(
 
     return await respond(responsePayload, 200);
   } catch (err: unknown) {
+    const body = { error: 'Internal Server Error' };
     logger.error({
       message: 'Agentic checkout cancel error',
       error: sanitizeForLog(err),
       sessionId,
     });
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    );
+    if (respondWithIdempotency) {
+      try {
+        return await respondWithIdempotency(body, 500);
+      } catch {
+        return NextResponse.json(body, { status: 500 });
+      }
+    }
+    return NextResponse.json(body, { status: 500 });
   }
 }

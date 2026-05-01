@@ -57,6 +57,14 @@ export async function resolveCheckoutCompletionSessionState({
   const paymentState = getAgenticPaymentState(session.metadata);
 
   if (paymentState === 'payment_account_ready') {
+    if (session.metadata == null) {
+      logger.warn({
+        message: 'Payment-account-ready session is missing metadata',
+        paymentState,
+        sessionId,
+      });
+    }
+
     const storedDvaAccount = getStoredDvaAccount(session);
     const snapshot = getStoredCheckoutPaymentSnapshot(session.metadata);
     if (!storedDvaAccount || !snapshot || session.order_id) {

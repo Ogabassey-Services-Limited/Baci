@@ -37,6 +37,16 @@ describe('checkout completion authorization response helpers', () => {
       error: 'Human confirmation required',
       retryable: true,
     });
+    expect(buildAuthorizationErrorBody('SERVER_CONFIGURATION_ERROR')).toEqual({
+      code: 'SERVER_CONFIGURATION_ERROR',
+      error: 'Checkout authorization is temporarily unavailable',
+      retryable: false,
+    });
+    expect(buildAuthorizationErrorBody('AUTHORIZATION_INVALID')).toEqual({
+      code: 'AUTHORIZATION_INVALID',
+      error: 'Checkout authorization invalid',
+      retryable: false,
+    });
     expect(getAuthorizationErrorStatus('CONFIRMATION_REQUIRED')).toBe(428);
     expect(getAuthorizationErrorStatus('SERVER_CONFIGURATION_ERROR')).toBe(503);
     expect(getAuthorizationErrorStatus('AUTHORIZATION_INVALID')).toBe(403);

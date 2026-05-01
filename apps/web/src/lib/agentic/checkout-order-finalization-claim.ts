@@ -89,7 +89,7 @@ export async function releaseAgenticOrderFinalizationClaim({
   sessionId: string;
   supabase: SupabaseClient;
 }) {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('checkout_sessions')
     .update({
       metadata: buildOrderFinalizationMetadata({
@@ -110,9 +110,9 @@ export async function releaseAgenticOrderFinalizationClaim({
     .select('session_id')
     .maybeSingle();
 
-  if (error) {
+  if (error || !data) {
     logger.error({
-      error,
+      error: sanitizeForLog(error ?? 'No checkout session row matched'),
       message: 'Agentic checkout order finalization claim release failed',
       sessionId: sanitizeForLog(sessionId),
     });

@@ -21,6 +21,7 @@ function stubBaseEnv() {
   vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', '');
   vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS', '');
   vi.stubEnv('PAYSTACK_SECRET_KEY', '');
+  vi.stubEnv('SUPABASE_JWT_SECRET', '');
 }
 
 function stubAgenticCheckoutEnv() {
@@ -29,6 +30,7 @@ function stubAgenticCheckoutEnv() {
   vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY', 'confirmation-key');
   vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', 'signing-key');
   vi.stubEnv('PAYSTACK_SECRET_KEY', 'paystack-secret');
+  vi.stubEnv('SUPABASE_JWT_SECRET', 'supabase-jwt-secret');
 }
 
 describe('GET /agent-commerce.json checkout capabilities', () => {

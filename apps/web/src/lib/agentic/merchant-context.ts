@@ -5,6 +5,7 @@ import {
   getAgenticMerchantSlug,
   getAgenticSigningKeys,
   getPaystackSecretKey,
+  getSupabaseJwtSecret,
 } from '@/env';
 
 export interface AgenticMerchantContext {
@@ -22,13 +23,21 @@ export function getConfiguredAgenticMerchantSlug(): string | undefined {
 export function isAgenticCheckoutRuntimeConfigured(): boolean {
   const confirmationKeys = getAgenticConfirmationKeys();
   const signingKeys = getAgenticSigningKeys();
+  let supabaseJwtSecret: string | undefined;
+  try {
+    supabaseJwtSecret = getSupabaseJwtSecret();
+  } catch {
+    supabaseJwtSecret = undefined;
+  }
 
   return Boolean(
     getConfiguredAgenticMerchantSlug() &&
       getAgenticApiKey() &&
       confirmationKeys.length > 0 &&
       signingKeys.length > 0 &&
-      getPaystackSecretKey()
+      // Optional Paystack getter trims runtime env and returns undefined when absent.
+      getPaystackSecretKey() &&
+      supabaseJwtSecret
   );
 }
 

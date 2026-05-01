@@ -28,6 +28,7 @@ function stubCompleteAgenticRuntimeEnv() {
   vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY', 'confirmation-key');
   vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', 'signing-key');
   vi.stubEnv('PAYSTACK_SECRET_KEY', 'paystack-secret');
+  vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
 }
 
 function loadMerchantContextModule() {
@@ -99,6 +100,7 @@ describe('isAgenticCheckoutRuntimeConfigured', () => {
     'OPENAI_AGENTIC_CONFIRMATION_KEY',
     'OPENAI_AGENTIC_SIGNING_KEY',
     'PAYSTACK_SECRET_KEY',
+    'SUPABASE_JWT_SECRET',
   ])('does not advertise checkout when %s is missing', async (envKey) => {
     stubBaseEnv();
     stubCompleteAgenticRuntimeEnv();

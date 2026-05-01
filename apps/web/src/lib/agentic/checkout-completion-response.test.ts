@@ -149,6 +149,54 @@ describe('agentic checkout completion response', () => {
     });
   });
 
+  it('prefers the stored payment snapshot over a fresh recalculation', () => {
+    const storedLineItems = [
+      {
+        ...sessionCalc.lineItems[0],
+        id: 'stored_line',
+        total: 400000,
+      },
+    ];
+    const storedTotals = [
+      { type: 'total' as const, display_text: 'Total Due', amount: 400000 },
+    ];
+    const storedPaymentDetails = {
+      account_name: 'Baci Test',
+      account_number: '1234567890',
+      bank_name: 'Paystack-Titan',
+    };
+    const resolution = resolveExistingPaymentState({
+      buyer,
+      session: {
+        currency: 'NGN',
+        metadata: {
+          agentic: {
+            buyer,
+            line_items: storedLineItems,
+            payment_state: 'payment_pending',
+            totals: storedTotals,
+          },
+        },
+        order_id: 'order-1',
+        payment_reference: '1234567890',
+        session_id: 'agentic_session_1',
+        virtual_account_bank: storedPaymentDetails.bank_name,
+        virtual_account_name: storedPaymentDetails.account_name,
+        virtual_account_number: '1234567890',
+      },
+      sessionCalc,
+    });
+
+    expect(resolution).toMatchObject({
+      status: 200,
+      body: {
+        line_items: storedLineItems,
+        payment_details: storedPaymentDetails,
+        totals: storedTotals,
+      },
+    });
+  });
+
   it('blocks retry when a prior payment side effect exists without full DVA details', () => {
     const resolution = resolveExistingPaymentState({
       buyer,
