@@ -110,6 +110,45 @@ describe('agentic checkout completion response', () => {
     });
   });
 
+  it('returns pending payment details from the stored checkout snapshot', () => {
+    const resolution = resolveExistingPaymentState({
+      session: {
+        currency: 'NGN',
+        metadata: {
+          agentic: {
+            buyer,
+            line_items: sessionCalc.lineItems,
+            payment_state: 'payment_pending',
+            totals: sessionCalc.totals,
+          },
+        },
+        order_id: 'order-1',
+        payment_reference: '1234567890',
+        session_id: 'agentic_session_1',
+        shipping_method: 'pickup_store_1',
+        virtual_account_bank: 'Paystack-Titan',
+        virtual_account_name: 'Baci Test',
+        virtual_account_number: '1234567890',
+      },
+    });
+
+    expect(resolution).toMatchObject({
+      status: 200,
+      body: {
+        buyer,
+        id: 'agentic_session_1',
+        line_items: sessionCalc.lineItems,
+        order_id: 'order-1',
+        payment_details: {
+          account_name: 'Baci Test',
+          account_number: '1234567890',
+          bank_name: 'Paystack-Titan',
+        },
+        totals: sessionCalc.totals,
+      },
+    });
+  });
+
   it('blocks retry when a prior payment side effect exists without full DVA details', () => {
     const resolution = resolveExistingPaymentState({
       buyer,

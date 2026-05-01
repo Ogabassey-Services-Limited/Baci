@@ -1,4 +1,4 @@
-import type { calculateCheckoutSession } from '@/lib/agentic/checkout';
+import type { GPTLineItem, GPTTotal } from '@/lib/agentic/checkout';
 
 export interface AgenticCheckoutBuyer {
   email: string;
@@ -38,7 +38,12 @@ interface PaymentPendingResponseInput {
   dvaAccount: StoredDvaAccount;
   orderId?: string | null;
   session: StoredCheckoutCompletionSession;
-  sessionCalc: Awaited<ReturnType<typeof calculateCheckoutSession>>;
+  sessionCalc: CheckoutPaymentSnapshot;
+}
+
+export interface CheckoutPaymentSnapshot {
+  lineItems: GPTLineItem[];
+  totals: GPTTotal[];
 }
 
 export function buildPaymentPendingCheckoutResponse({
@@ -92,7 +97,7 @@ export function resolveExistingPaymentState({
 }: {
   buyer?: AgenticCheckoutBuyer;
   session: StoredCheckoutCompletionSession;
-  sessionCalc: Awaited<ReturnType<typeof calculateCheckoutSession>>;
+  sessionCalc?: CheckoutPaymentSnapshot;
 }) {
   const paymentState = getAgenticPaymentState(session.metadata);
   const dvaAccount = getStoredDvaAccount(session);
@@ -102,8 +107,10 @@ export function resolveExistingPaymentState({
     const responseBuyer = isAgenticCheckoutBuyer(storedBuyer)
       ? storedBuyer
       : buyer;
+    const responseSessionCalc =
+      sessionCalc ?? getStoredCheckoutPaymentSnapshot(session.metadata);
 
-    if (!responseBuyer) {
+    if (!responseBuyer || !responseSessionCalc) {
       return {
         body: {
           error: 'Session already has pending payment',
@@ -120,7 +127,7 @@ export function resolveExistingPaymentState({
         dvaAccount,
         orderId: session.order_id,
         session,
-        sessionCalc,
+        sessionCalc: responseSessionCalc,
       }),
       status: 200,
     };
@@ -208,6 +215,64 @@ function getAgenticMetadataValue(metadata: unknown, key: string) {
   }
 
   return (agentic as Record<string, unknown>)[key];
+}
+
+function getStoredCheckoutPaymentSnapshot(
+  metadata: unknown
+): CheckoutPaymentSnapshot | null {
+  const lineItems = getAgenticMetadataValue(metadata, 'line_items');
+  const totals = getAgenticMetadataValue(metadata, 'totals');
+
+  if (
+    !Array.isArray(lineItems) ||
+    !Array.isArray(totals) ||
+    !lineItems.every(isStoredLineItem) ||
+    !totals.every(isStoredTotal)
+  ) {
+    return null;
+  }
+
+  return {
+    lineItems: lineItems as GPTLineItem[],
+    totals: totals as GPTTotal[],
+  };
+}
+
+function isStoredLineItem(value: unknown): value is GPTLineItem {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const lineItem = value as Record<string, unknown>;
+  const item = lineItem.item;
+
+  return (
+    typeof lineItem.id === 'string' &&
+    typeof lineItem.base_amount === 'number' &&
+    typeof lineItem.discount === 'number' &&
+    typeof lineItem.subtotal === 'number' &&
+    typeof lineItem.tax === 'number' &&
+    typeof lineItem.total === 'number' &&
+    !!item &&
+    typeof item === 'object' &&
+    typeof (item as Record<string, unknown>).id === 'string' &&
+    typeof (item as Record<string, unknown>).product_id === 'string' &&
+    typeof (item as Record<string, unknown>).quantity === 'number'
+  );
+}
+
+function isStoredTotal(value: unknown): value is GPTTotal {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const total = value as Record<string, unknown>;
+
+  return (
+    typeof total.type === 'string' &&
+    typeof total.display_text === 'string' &&
+    (typeof total.amount === 'number' || typeof total.amount === 'string')
+  );
 }
 
 function isAgenticCheckoutBuyer(value: unknown): value is AgenticCheckoutBuyer {

@@ -66,6 +66,12 @@ export async function GET(request: NextRequest, props: SessionRouteProps) {
   }
   if (!session)
     return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+  const existingPaymentState = resolveExistingPaymentState({ session });
+  if (existingPaymentState) {
+    return NextResponse.json(existingPaymentState.body, {
+      status: existingPaymentState.status,
+    });
+  }
   const parsedCartItems = agenticCheckoutItemsSchema.safeParse(
     session.cart_items
   );
@@ -90,15 +96,11 @@ export async function GET(request: NextRequest, props: SessionRouteProps) {
       { status: 500 }
     );
   }
-  const paymentState = resolveExistingPaymentState({
-    session,
-    sessionCalc,
-  });
-  if (paymentState) {
+  const paymentState = resolveExistingPaymentState({ session, sessionCalc });
+  if (paymentState)
     return NextResponse.json(paymentState.body, {
       status: paymentState.status,
     });
-  }
   const status = mapCheckoutSessionStatus({
     status: session.status,
     hasFulfillmentAddress: !!session.shipping_address,

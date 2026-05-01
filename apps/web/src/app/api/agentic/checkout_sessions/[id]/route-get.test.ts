@@ -56,6 +56,26 @@ function mockCheckoutSessionRead(session: Record<string, unknown> | null) {
   );
 }
 
+const storedCheckoutSnapshot = {
+  line_items: [
+    {
+      base_amount: 500000,
+      discount: 0,
+      id: 'line_product-1',
+      item: {
+        id: 'product-1',
+        product_id: 'product-1',
+        quantity: 1,
+        title: 'Phone',
+      },
+      subtotal: 500000,
+      tax: 0,
+      total: 500000,
+    },
+  ],
+  totals: [{ type: 'total', display_text: 'Total Due', amount: 500000 }],
+};
+
 describe('GET /api/agentic/checkout_sessions/[id]', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -146,6 +166,61 @@ describe('GET /api/agentic/checkout_sessions/[id]', () => {
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: 'Invalid session cart items' });
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it('returns stored pending-payment state before cart recalculation', async () => {
+    // Malformed cart items prove payment_pending recovery bypasses cart validation.
+    mockCheckoutSessionRead({
+      session_id: 'agentic_session_1',
+      status: 'processing',
+      cart_items: [{ id: '', quantity: 0 }],
+      currency: 'NGN',
+      shipping_method: 'pickup_store_1',
+      shipping_address: { city: 'Lagos' },
+      order_id: 'order-1',
+      payment_reference: '1234567890',
+      virtual_account_bank: 'Paystack-Titan',
+      virtual_account_name: 'Baci Test',
+      virtual_account_number: '1234567890',
+      metadata: {
+        agentic: {
+          buyer: {
+            email: 'buyer@example.com',
+            first_name: 'Ada',
+            last_name: 'Lovelace',
+            phone_number: '+2348012345678',
+          },
+          payment_state: 'payment_pending',
+          ...storedCheckoutSnapshot,
+        },
+      },
+    });
+    vi.mocked(calculateCheckoutSession).mockRejectedValue(
+      new Error('calculation failed')
+    );
+
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout_sessions/agentic_session_1'
+    );
+
+    const { GET } = await import('./route');
+    const response = await GET(request, routeParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
+    expect(body).toMatchObject({
+      id: 'agentic_session_1',
+      line_items: storedCheckoutSnapshot.line_items,
+      order_id: 'order-1',
+      payment_details: {
+        account_name: 'Baci Test',
+        account_number: '1234567890',
+        bank_name: 'Paystack-Titan',
+      },
+      status: 'ready_for_payment',
+      totals: storedCheckoutSnapshot.totals,
+    });
   });
 
   it('returns 500 when checkout calculation fails', async () => {

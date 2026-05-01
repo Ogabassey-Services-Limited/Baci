@@ -15,6 +15,7 @@ import {
   getStoredDvaAccount,
   resolveExistingPaymentState,
 } from '@/lib/agentic/checkout-completion-response';
+import { buildPaymentAccountConflictResponse } from '@/lib/agentic/checkout-payment-account-conflict';
 import { prepareAgenticCheckoutPayment } from '@/lib/agentic/checkout-payment-setup';
 import { getAgenticCheckoutSession } from '@/lib/agentic/checkout-session-record';
 import {
@@ -144,6 +145,19 @@ export async function POST(
     if (session.status === 'completed')
       return await respond({ error: 'Session already completed' }, 409);
 
+    const paymentState = getAgenticPaymentState(session.metadata);
+    const existingPaymentState =
+      paymentState === 'payment_account_ready' ||
+      paymentState === 'order_finalizing'
+        ? null
+        : resolveExistingPaymentState({ buyer, session });
+    if (existingPaymentState) {
+      return await respond(
+        existingPaymentState.body,
+        existingPaymentState.status
+      );
+    }
+
     const parsedCartItems = agenticCheckoutItemsSchema.safeParse(
       session.cart_items
     );
@@ -156,7 +170,6 @@ export async function POST(
       return await respond({ error: 'Invalid session cart items' }, 500);
     }
 
-    // 1. Recalculate final totals to ensure accuracy
     let sessionCalc: Awaited<ReturnType<typeof calculateCheckoutSession>>;
     try {
       sessionCalc = await calculateCheckoutSession(
@@ -187,23 +200,15 @@ export async function POST(
       );
     }
     const storedDvaAccount = getStoredDvaAccount(session);
-    const paymentState = getAgenticPaymentState(session.metadata);
     const canResumePaymentAccount =
       paymentState === 'payment_account_ready' &&
       !!storedDvaAccount &&
       !session.order_id;
-    if (!canResumePaymentAccount) {
-      const existingPaymentState = resolveExistingPaymentState({
-        buyer,
-        session,
-        sessionCalc,
-      });
-      if (existingPaymentState) {
-        return await respond(
-          existingPaymentState.body,
-          existingPaymentState.status
-        );
-      }
+    if (!canResumePaymentAccount && paymentState === 'payment_account_ready') {
+      return await respond(
+        buildPaymentAccountConflictResponse({ orderId: session.order_id }),
+        409
+      );
     }
 
     const grandTotal = getCheckoutGrandTotal(sessionCalc.totals);

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { calculateCheckoutSession } from '@/lib/agentic/checkout';
 import { createAgenticCheckoutOrder } from '@/lib/agentic/checkout-order-dispatch';
 import {
   reserveAgenticIdempotencyKey,
@@ -71,6 +72,26 @@ const {
   readySession,
 } = paymentStateTestHelpers;
 
+const storedCheckoutSnapshot = {
+  line_items: [
+    {
+      base_amount: 500000,
+      discount: 0,
+      id: 'line_product-1',
+      item: {
+        id: 'product-1',
+        product_id: 'product-1',
+        quantity: 1,
+        title: 'Phone',
+      },
+      subtotal: 500000,
+      tax: 0,
+      total: 500000,
+    },
+  ],
+  totals: [{ type: 'total', display_text: 'Total Due', amount: 500000 }],
+};
+
 describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -137,10 +158,10 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
             phone_number: '+2348012345678',
           },
           payment_state: 'payment_pending',
+          ...storedCheckoutSnapshot,
         },
       },
     });
-    mockCalculatedSession();
 
     const params = { params: Promise.resolve({ id: 'agentic_session_1' }) };
     const { POST } = await import('./route');
@@ -151,6 +172,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
     expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
     expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
     expect(updateSpy).not.toHaveBeenCalled();
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
     expect(body).toMatchObject({
       id: 'agentic_session_1',
       status: 'ready_for_payment',
@@ -180,10 +202,10 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
             phone_number: '+2348012345678',
           },
           payment_state: 'payment_pending',
+          ...storedCheckoutSnapshot,
         },
       },
     });
-    mockCalculatedSession();
 
     const params = { params: Promise.resolve({ id: 'agentic_session_1' }) };
     const { POST } = await import('./route');
@@ -197,6 +219,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete payment state', () =
     expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
     expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
     expect(updateSpy).not.toHaveBeenCalled();
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
     expect(body).toMatchObject({
       id: 'agentic_session_1',
       status: 'ready_for_payment',
