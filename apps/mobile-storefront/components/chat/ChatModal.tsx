@@ -12,12 +12,16 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
+import { useKeyboard } from '@/hooks/use-keyboard';
 import { CHAT_POWERED_BY_LABEL } from './constants';
 import { styles } from './styles';
 import { TypingIndicator } from './TypingIndicator';
 import { type ChatMessage, SUGGESTIONS } from './types';
+
+const CHAT_INPUT_KEYBOARD_GAP = 8;
 
 interface ChatModalProps {
   visible: boolean;
@@ -50,6 +54,12 @@ export function ChatModal({
 }: ChatModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const insets = useSafeAreaInsets();
+  const { isKeyboardVisible, keyboardHeight } = useKeyboard();
+  const keyboardLift =
+    Platform.OS === 'ios' && isKeyboardVisible
+      ? Math.max(keyboardHeight - insets.bottom, 0) + CHAT_INPUT_KEYBOARD_GAP
+      : 0;
 
   const handleClose = () => {
     Keyboard.dismiss();
@@ -128,7 +138,7 @@ export function ChatModal({
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle="pageSheet"
+      presentationStyle="fullScreen"
       onRequestClose={handleClose}
     >
       <SafeAreaView
@@ -204,7 +214,7 @@ export function ChatModal({
 
         <KeyboardAvoidingView
           style={styles.messagesWrapper}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          behavior={Platform.OS === 'ios' ? undefined : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
         >
           <FlashList
@@ -243,8 +253,10 @@ export function ChatModal({
               {
                 backgroundColor: santaMode ? '#FFF5F5' : colors.background,
                 borderTopColor: colors.border,
+                paddingBottom: keyboardLift || undefined,
               },
             ]}
+            testID="chat-input-container"
           >
             {renderSuggestions()}
             <View style={styles.inputRow}>
@@ -268,6 +280,7 @@ export function ChatModal({
                 returnKeyType="send"
                 editable={!isLoading}
                 multiline={false}
+                accessibilityLabel="Chat message input"
               />
               <Pressable
                 style={[

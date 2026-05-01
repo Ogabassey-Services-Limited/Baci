@@ -10,10 +10,9 @@ jest.mock('@/components/useColorScheme', () => ({
   useColorScheme: () => mockColorScheme,
 }));
 
-function getTabStyle(label: string) {
-  const style = screen.getByLabelText(label).props.style;
+function getTabStyle(type: string) {
   return StyleSheet.flatten(
-    typeof style === 'function' ? style({ pressed: false }) : style
+    screen.getByTestId(`utility-tab-${type}-pill`).props.style
   );
 }
 
@@ -36,30 +35,9 @@ function fireMeasuredLayouts(viewportWidth: number) {
   });
 
   for (const [type, width] of Object.entries(MEASURED_TAB_WIDTHS)) {
-    fireEvent(
-      screen.getByLabelText(`${labelForType(type)} utility service`),
-      'layout',
-      {
-        nativeEvent: { layout: { width, height: 38, x: 0, y: 0 } },
-      }
-    );
-  }
-}
-
-function labelForType(type: string): string {
-  switch (type) {
-    case 'airtime':
-      return 'Airtime';
-    case 'data':
-      return 'Data';
-    case 'tv':
-      return 'TV';
-    case 'power':
-      return 'Power';
-    case 'gaming':
-      return 'Gaming';
-    default:
-      throw new Error(`Unknown utility type: ${type}`);
+    fireEvent(screen.getByTestId(`utility-tab-${type}-pill`), 'layout', {
+      nativeEvent: { layout: { width, height: 38, x: 0, y: 0 } },
+    });
   }
 }
 
@@ -114,9 +92,9 @@ describe('UtilityTypeTabs', () => {
   it('keeps utility submenus rendered as flexible horizontal pills', () => {
     render(<UtilityTypeTabs selectedType="power" onSelect={jest.fn()} />);
 
-    // Tabs auto-size to their text content via paddingHorizontal — no
-    // hardcoded widths so a11y font scaling and localization work.
-    const powerStyle = getTabStyle('Power utility service');
+    // Tabs auto-size above a stable minimum via paddingHorizontal, so compact
+    // labels do not collapse while longer labels can still grow.
+    const powerStyle = getTabStyle('power');
     expect(powerStyle).toMatchObject({
       backgroundColor: BRAND.primary,
       borderColor: BRAND.primary,
@@ -125,14 +103,14 @@ describe('UtilityTypeTabs', () => {
       flexDirection: 'row',
       flexShrink: 0,
     });
+    expect(powerStyle.minWidth).toBeGreaterThan(0);
     expect(powerStyle.paddingHorizontal).toBeGreaterThan(0);
     expect(powerStyle).not.toHaveProperty('width');
 
-    const airtimeStyle = getTabStyle('Airtime utility service');
+    const airtimeStyle = getTabStyle('airtime');
     expect(airtimeStyle).toMatchObject({
       backgroundColor: Colors.light.muted,
       borderColor: Colors.light.border,
-      marginRight: SPACING.sm,
     });
     expect(airtimeStyle).not.toHaveProperty('width');
 

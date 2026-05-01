@@ -1,20 +1,8 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { type Href, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useColorScheme } from '@/components/useColorScheme';
-import { AirtimeForm } from '@/components/utilities/AirtimeForm';
-import { BillForm } from '@/components/utilities/BillForm';
-import { DataForm } from '@/components/utilities/DataForm';
-import { UtilityTypeTabs } from '@/components/utilities/UtilityTypeTabs';
-import Colors from '@/constants/Colors';
-import {
-  NETWORK_PROVIDERS,
-  type NetworkProviderId,
-} from '@/constants/network-providers';
-import { useKeyboard } from '@/hooks/use-keyboard';
-import { RouteRepeatParamsSchema } from '@/schemas/utility-purchase';
-import { useAuthStore } from '@/stores/auth-store';
 import { InvalidUtilityServiceView } from '@/app/utilities/InvalidUtilityServiceView';
 import { QuickRepeatPrompt } from '@/app/utilities/QuickRepeatPrompt';
 import { UtilityHeader } from '@/app/utilities/UtilityHeader';
@@ -31,6 +19,21 @@ import type {
   UtilityPurchaseResult,
   ValidUtilityType,
 } from '@/app/utilities/utility-purchase.types';
+import { useColorScheme } from '@/components/useColorScheme';
+import { AirtimeForm } from '@/components/utilities/AirtimeForm';
+import { BillForm } from '@/components/utilities/BillForm';
+import { DataForm } from '@/components/utilities/DataForm';
+import { UtilityTypeTabs } from '@/components/utilities/UtilityTypeTabs';
+import Colors from '@/constants/Colors';
+import {
+  NETWORK_PROVIDERS,
+  type NetworkProviderId,
+} from '@/constants/network-providers';
+import { useKeyboard } from '@/hooks/use-keyboard';
+import { walletKeys } from '@/hooks/use-wallet';
+import { CONFIG } from '@/lib/config';
+import { RouteRepeatParamsSchema } from '@/schemas/utility-purchase';
+import { useAuthStore } from '@/stores/auth-store';
 
 interface UtilityRouteParams extends RawRouteRepeatParams {
   type: string;
@@ -138,6 +141,7 @@ export default function UtilityPurchaseScreen() {
   const repeatParams = repeatParamsResult.success
     ? repeatParamsResult.data
     : {};
+  const queryClient = useQueryClient();
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -145,6 +149,9 @@ export default function UtilityPurchaseScreen() {
   const { isKeyboardVisible } = useKeyboard();
   const headerOffset = Math.max(insets.top, 42);
   const isAuthenticated = useAuthStore((state) => !!state.session);
+  const customerId = useAuthStore((state) => state.customer?.id);
+  const merchantId = useAuthStore((state) => state.merchantId);
+  const activeMerchantId = merchantId || CONFIG.MERCHANT_ID;
   const routeType =
     params.type && isValidUtilityType(params.type) ? params.type : null;
   const [successData, setSuccessData] = useState<UtilityPurchaseResult | null>(
@@ -164,12 +171,40 @@ export default function UtilityPurchaseScreen() {
     routeType,
     title,
   });
+  const resolvedSuccessData = successData ?? getParamSuccessData(params);
+  const successCashbackAmount = resolvedSuccessData?.cashback?.amount ?? 0;
+  const successReference = resolvedSuccessData?.reference;
 
   useEffect(() => {
     if (routeType) {
       setSelectedType(routeType);
     }
   }, [routeType]);
+
+  useEffect(() => {
+    if (
+      !currentType ||
+      !customerId ||
+      !successReference ||
+      successCashbackAmount <= 0
+    ) {
+      return;
+    }
+
+    void queryClient.invalidateQueries({
+      queryKey: walletKeys.data({
+        merchantId: activeMerchantId,
+        ownerId: customerId,
+      }),
+    });
+  }, [
+    activeMerchantId,
+    currentType,
+    customerId,
+    queryClient,
+    successCashbackAmount,
+    successReference,
+  ]);
 
   const handleGoBack = () => {
     if (router.canGoBack()) {
@@ -181,10 +216,6 @@ export default function UtilityPurchaseScreen() {
 
   const handleUtilityTypeChange = (nextType: ValidUtilityType) => {
     if (nextType !== currentType) {
-      if (nextType === 'airtime') {
-        router.replace('/utilities/airtime' as Href);
-        return;
-      }
       setSelectedType(nextType);
     }
   };
@@ -199,7 +230,6 @@ export default function UtilityPurchaseScreen() {
     );
   }
 
-  const resolvedSuccessData = successData ?? getParamSuccessData(params);
   if (resolvedSuccessData) {
     return (
       <UtilityPurchaseSuccessView
@@ -213,8 +243,6 @@ export default function UtilityPurchaseScreen() {
       />
     );
   }
-
-  const shouldShowUtilityTypeTabs = currentType !== 'airtime';
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -237,12 +265,10 @@ export default function UtilityPurchaseScreen() {
         keyboardVerticalOffset={headerOffset}
         style={styles.container}
       >
-        {shouldShowUtilityTypeTabs ? (
-          <UtilityTypeTabs
-            selectedType={currentType}
-            onSelect={handleUtilityTypeChange}
-          />
-        ) : null}
+        <UtilityTypeTabs
+          selectedType={currentType}
+          onSelect={handleUtilityTypeChange}
+        />
         {currentType === 'airtime' ? (
           <AirtimeForm
             key={`airtime-${quickRepeat.repeatRevision}`}
