@@ -480,6 +480,7 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
+    expect(mockVerifyPaystackTransaction).not.toHaveBeenCalled();
     expect(data).toEqual({
       amount: 2500,
       reference: 'WAL-123',

@@ -137,6 +137,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Payment not found' }, { status: 404 });
     }
 
+    if (transaction.status === 'completed') {
+      console.info('Transaction already completed, retrying wallet credit', {
+        reference: parsed.data.reference,
+        transactionId: transaction.id,
+      });
+      const walletCredit = await creditWalletTopUp({
+        amount: Number(transaction.amount),
+        customerId: customer.id,
+        gateway: transaction.gateway,
+        merchantId: merchant.id,
+        reference: parsed.data.reference,
+        supabase,
+        transactionId: transaction.id,
+      });
+
+      return NextResponse.json({
+        amount: Number(transaction.amount),
+        reference: walletCredit.reference,
+        status: 'successful',
+        success: true,
+        wallet: {
+          balance: walletCredit.balance,
+        },
+      });
+    }
+
     let verification:
       | { success: true; data: Record<string, unknown> }
       | { success: false; code?: string; error: string };

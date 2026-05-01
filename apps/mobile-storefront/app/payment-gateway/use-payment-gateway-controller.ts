@@ -195,10 +195,9 @@ export function usePaymentGatewayController() {
         }
 
         if (error instanceof WalletTopUpStillProcessingError) {
-          setStatus('success');
-          scheduleDelayedNavigation(() => {
-            router.replace('/wallet');
-          });
+          paymentCompletionStartedRef.current = false;
+          setStatus('error');
+          setErrorMessage(error.message);
           return;
         }
 

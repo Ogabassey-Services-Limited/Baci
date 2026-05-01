@@ -7,7 +7,10 @@ import {
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
-import { waitForWalletTopUpConfirmation } from '@/lib/wallet-top-up';
+import {
+  WalletTopUpStillProcessingError,
+  waitForWalletTopUpConfirmation,
+} from '@/lib/wallet-top-up';
 import { usePaymentGatewayController } from './use-payment-gateway-controller';
 
 const mockClearCart = jest.fn();
@@ -342,6 +345,28 @@ describe('usePaymentGatewayController', () => {
 
     expect(router.replace).toHaveBeenCalledWith('/wallet');
     expect(mockClearCart).not.toHaveBeenCalled();
+  });
+
+  it('keeps wallet top-ups retryable when confirmation is still processing', async () => {
+    jest.useFakeTimers({ advanceTimers: true });
+    mockSearchParams = { ...walletParams };
+    mockWaitForWalletTopUpConfirmation.mockRejectedValueOnce(
+      new WalletTopUpStillProcessingError('WAL-123')
+    );
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleNavigationChange(
+        navigation('https://usebaci.com/checkout/success?reference=WAL-123')
+      );
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('error'));
+    expect(result.current.errorMessage).toBe(
+      'Wallet top-up is still processing. Check your wallet shortly.'
+    );
+    expect(mockInvalidateQueries).not.toHaveBeenCalled();
+    expect(router.replace).not.toHaveBeenCalledWith('/wallet');
   });
 
   it('ignores stale successful VTU confirmations after retry', async () => {
