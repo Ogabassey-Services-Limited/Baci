@@ -20,7 +20,8 @@ export interface WalletTransaction {
     | 'redemption'
     | 'bonus'
     | 'adjustment'
-    | 'expiry';
+    | 'expiry'
+    | 'refund';
 }
 
 interface WalletTransactionHistoryProps {
@@ -36,6 +37,7 @@ const TRANSACTION_TYPE_LABELS: Record<WalletTransaction['type'], string> = {
   bonus: 'Bonus',
   adjustment: 'Adjustment',
   expiry: 'Expiry',
+  refund: 'Refund',
 };
 
 function humanizeTransactionType(type: WalletTransaction['type']): string {
@@ -80,7 +82,9 @@ export function WalletTransactionHistory({
       ) : (
         transactions.map((transaction) => {
           const isCredit =
-            ['credit', 'cashback', 'bonus'].includes(transaction.type) ||
+            ['credit', 'cashback', 'bonus', 'refund'].includes(
+              transaction.type
+            ) ||
             (transaction.type === 'adjustment' && transaction.amount > 0);
           const isDebit =
             ['debit', 'redemption', 'expiry'].includes(transaction.type) ||

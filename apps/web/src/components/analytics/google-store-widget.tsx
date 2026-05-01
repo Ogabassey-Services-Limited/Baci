@@ -36,7 +36,38 @@ declare global {
 
 const WIDGET_SCRIPT_SRC =
   'https://www.gstatic.com/shopping/merchant/merchantwidget.js';
-const WIDGET_DEFER_TIMEOUT_MS = 3500;
+const WIDGET_DEFER_TIMEOUT_MS = 20000;
+const MERCHANT_WIDGET_IFRAME_ID = 'merchantwidgetiframe';
+export const MERCHANT_WIDGET_IFRAME_TITLE =
+  'Google Store badge and merchant quality widget';
+
+function resolveMerchantWidgetFrame() {
+  const frameById = document.getElementById(MERCHANT_WIDGET_IFRAME_ID);
+
+  if (frameById instanceof HTMLIFrameElement) {
+    return frameById;
+  }
+
+  return document.querySelector<HTMLIFrameElement>(
+    [
+      'iframe[src*="google.com/shopping/merchantverse"]',
+      'iframe[src*="googleusercontent.com/shopping/merchantverse"]',
+    ].join(', ')
+  );
+}
+
+function titleMerchantWidgetFrame() {
+  const frame = resolveMerchantWidgetFrame();
+
+  if (!frame) {
+    return false;
+  }
+
+  frame.title = MERCHANT_WIDGET_IFRAME_TITLE;
+  frame.setAttribute('aria-label', MERCHANT_WIDGET_IFRAME_TITLE);
+
+  return true;
+}
 
 export function GoogleStoreWidget({
   merchant,
@@ -98,9 +129,6 @@ export function GoogleStoreWidget({
     };
 
     const timeoutId = window.setTimeout(loadScript, WIDGET_DEFER_TIMEOUT_MS);
-    const idleCallbackId = window.requestIdleCallback?.(loadScript, {
-      timeout: WIDGET_DEFER_TIMEOUT_MS,
-    });
 
     const handleInteraction = () => {
       loadScript();
@@ -119,10 +147,6 @@ export function GoogleStoreWidget({
     return () => {
       cancelled = true;
       window.clearTimeout(timeoutId);
-
-      if (idleCallbackId !== undefined) {
-        window.cancelIdleCallback?.(idleCallbackId);
-      }
 
       window.removeEventListener('pointerdown', handleInteraction);
       window.removeEventListener('keydown', handleInteraction);
@@ -153,8 +177,26 @@ export function GoogleStoreWidget({
       // Ogabassey uses a fixed mobile nav; lift the widget above it.
       mobileBottomMargin: 104,
     });
+    titleMerchantWidgetFrame();
     setWidgetStarted(true);
   }, [domainMatches, enabled, scriptLoaded, shouldLoadScript, widgetStarted]);
+
+  useEffect(() => {
+    if (!widgetStarted || titleMerchantWidgetFrame()) {
+      return;
+    }
+
+    const observer = new MutationObserver(() => {
+      if (titleMerchantWidgetFrame()) {
+        observer.disconnect();
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [widgetStarted]);
 
   if (!enabled || !domainMatches || !shouldLoadScript) {
     return null;

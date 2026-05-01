@@ -1,7 +1,12 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
 import { upsertPaystackAuthorization } from '@/lib/customer-saved-payment-methods';
+import {
+  creditWalletTopUp,
+  WALLET_TOP_UP_TRANSACTION_TYPE,
+} from '@/lib/customer-wallet-top-up';
 import { triggerDomainEdgeConfigSync } from '@/lib/edge-config-sync';
 import {
   generateOrderConfirmationEmail,
@@ -25,6 +30,13 @@ import { sendEmail } from '@/lib/zeptomail';
 import { referenceSchema } from '@/schemas/payments';
 
 type PaymentGateway = 'paystack' | 'korapay';
+
+interface PaymentTransactionRecord {
+  amount: number | string | null;
+  id: string;
+  merchant_id: string;
+  metadata: Record<string, unknown> | null;
+}
 
 /**
  * Detect which payment gateway sent the webhook
@@ -60,6 +72,83 @@ function getVerifiedAmount(
   const amount = gateway === 'paystack' ? rawAmount / 100 : rawAmount;
 
   return { amount, currency };
+}
+
+async function handleWalletTopUpIfNeeded({
+  gateway,
+  reference,
+  supabase,
+  transaction,
+}: {
+  gateway: PaymentGateway;
+  reference: string;
+  supabase: SupabaseClient;
+  transaction: PaymentTransactionRecord;
+}) {
+  const metadata = transaction.metadata ?? {};
+  if (metadata.transaction_type !== WALLET_TOP_UP_TRANSACTION_TYPE) {
+    return null;
+  }
+
+  if (typeof metadata.customer_id !== 'string') {
+    logger.error({
+      message: 'Wallet top-up metadata missing customer id',
+      reference,
+      transactionId: transaction.id,
+    });
+    return NextResponse.json(
+      { error: 'Wallet top-up customer not found' },
+      { status: 400 }
+    );
+  }
+
+  const amount = Number(transaction.amount);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    logger.error({
+      message: 'Wallet top-up transaction has invalid amount',
+      amount: transaction.amount,
+      reference,
+      transactionId: transaction.id,
+    });
+    return NextResponse.json(
+      { error: 'Invalid wallet top-up amount' },
+      { status: 400 }
+    );
+  }
+
+  let walletCredit: Awaited<ReturnType<typeof creditWalletTopUp>>;
+  try {
+    walletCredit = await creditWalletTopUp({
+      amount,
+      customerId: metadata.customer_id,
+      gateway,
+      merchantId: transaction.merchant_id,
+      reference,
+      supabase,
+      transactionId: transaction.id,
+    });
+  } catch (error) {
+    logger.error({
+      message: 'Wallet top-up credit failed',
+      customerId: metadata.customer_id,
+      error,
+      gateway,
+      reference,
+      transactionId: transaction.id,
+    });
+    return NextResponse.json(
+      { error: 'Failed to credit wallet top-up' },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({
+    message: 'Wallet top-up credited',
+    reference: walletCredit.reference,
+    wallet: {
+      balance: walletCredit.balance,
+    },
+  });
 }
 
 /**
@@ -884,6 +973,22 @@ export async function POST(request: NextRequest) {
     }
 
     if (!updatedTxn) {
+      const walletTopUpResponse = await handleWalletTopUpIfNeeded({
+        gateway,
+        reference,
+        supabase,
+        transaction: {
+          amount: transaction.amount,
+          id: transaction.id,
+          merchant_id: transaction.merchant_id,
+          metadata,
+        },
+      });
+
+      if (walletTopUpResponse) {
+        return walletTopUpResponse;
+      }
+
       if (
         metadata?.transaction_type === 'vtu_purchase' &&
         typeof metadata.vtu_transaction_id === 'string'
@@ -903,6 +1008,22 @@ export async function POST(request: NextRequest) {
 
       logger.info({ message: 'Transaction already processed', reference });
       return NextResponse.json({ message: 'Already processed' });
+    }
+
+    const walletTopUpResponse = await handleWalletTopUpIfNeeded({
+      gateway,
+      reference,
+      supabase,
+      transaction: {
+        amount: transaction.amount,
+        id: transaction.id,
+        merchant_id: transaction.merchant_id,
+        metadata,
+      },
+    });
+
+    if (walletTopUpResponse) {
+      return walletTopUpResponse;
     }
 
     if (

@@ -41,6 +41,8 @@ export type VTUPurchaseResult = z.infer<typeof VTUPurchaseResultSchema>;
 export function useVTUPurchase() {
   const queryClient = useQueryClient();
   const customer = useAuthStore((state) => state.customer);
+  const merchantId = useAuthStore((state) => state.merchantId);
+  const activeMerchantId = merchantId || CONFIG.MERCHANT_ID;
 
   return useMutation({
     mutationFn: async (
@@ -122,9 +124,12 @@ export function useVTUPurchase() {
         });
 
         // Invalidate wallet query so balance refreshes
-        if (customer?.id) {
+        if (customer?.id && activeMerchantId) {
           void queryClient.invalidateQueries({
-            queryKey: walletKeys.data(customer.id),
+            queryKey: walletKeys.data({
+              merchantId: activeMerchantId,
+              ownerId: customer.id,
+            }),
           });
         }
       }

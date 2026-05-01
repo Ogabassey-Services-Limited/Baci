@@ -6,6 +6,7 @@ const BALANCE_DIVIDER_COLOR = 'rgba(255,255,255,0.2)';
 const BALANCE_TEXT_COLOR = 'rgba(255,255,255,0.8)';
 const COMPACT_PADDING_X = 10;
 const COMPACT_PADDING_Y = 6;
+const DISABLED_BALANCE_OPACITY = 0.6;
 const FIELD_PADDING_Y = 14;
 const ICON_SIZE = 40;
 const PANEL_GAP = 12;
@@ -22,6 +23,17 @@ export const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: SPACING.xl,
+  },
+  tabHeader: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.md,
+  },
+  tabHeaderTitle: {
+    fontSize: TYPOGRAPHY.size.xl,
+    fontWeight: TYPOGRAPHY.weight.bold,
   },
   emptyTitle: {
     fontSize: TYPOGRAPHY.size.lg,
@@ -64,6 +76,9 @@ export const styles = StyleSheet.create({
     color: WHITE,
     fontSize: TYPOGRAPHY.size.base,
     fontWeight: TYPOGRAPHY.weight.semibold,
+  },
+  disabledBalanceAction: {
+    opacity: DISABLED_BALANCE_OPACITY,
   },
   divider: {
     width: 1,

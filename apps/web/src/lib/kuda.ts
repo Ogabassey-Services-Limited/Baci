@@ -6,6 +6,11 @@
  */
 
 import crypto from 'node:crypto';
+import {
+  getVtuCommissionRate,
+  VTU_COMMISSION_RATES,
+  type VtuCommissionCategory,
+} from '@/lib/vtu-commission-rates';
 
 export { detectNetworkProvider } from './detect-network-provider';
 
@@ -1081,49 +1086,7 @@ export function getAirtimeDenominations(): number[] {
   return [100, 200, 500, 1000, 2000, 5000];
 }
 
-/**
- * Kuda commission rates by provider and category
- * Source: Kuda VTU documentation
- */
-export const KUDA_COMMISSION_RATES: Record<
-  string,
-  { rate: number; cap?: number }
-> = {
-  // Airtime
-  MTN_AIRTIME: { rate: 0.03 },
-  AIRTEL_AIRTIME: { rate: 0.03 },
-  GLO_AIRTIME: { rate: 0.04 },
-  '9MOBILE_AIRTIME': { rate: 0.05 },
-
-  // Data
-  MTN_DATA: { rate: 0.03 },
-  AIRTEL_DATA: { rate: 0.03 },
-  GLO_DATA: { rate: 0.04 },
-  '9MOBILE_DATA': { rate: 0.05 },
-  SPECTRANET_DATA: { rate: 0.02 },
-  SMILE_DATA: { rate: 0.02 },
-
-  // Cable TV
-  DSTV: { rate: 0.016 },
-  GOTV: { rate: 0.016 },
-  STARTIMES: { rate: 0.012 },
-  SHOWMAX: { rate: 0.02 },
-
-  // Electricity
-  AEDC: { rate: 0.012 },
-  EEDC: { rate: 0.012, cap: 2500 },
-  KAEDCO: { rate: 0.012 },
-  PHEDC: { rate: 0.012 },
-  JEDC: { rate: 0.01 },
-  IBEDC: { rate: 0.01 },
-  IKEDC: { rate: 0.008 },
-  EKEDC: { rate: 0.01, cap: 4000 },
-  BEDC: { rate: 0.012 },
-  KEDCO: { rate: 0.01 },
-
-  // Default fallback
-  DEFAULT: { rate: 0.02 },
-};
+export const KUDA_COMMISSION_RATES = VTU_COMMISSION_RATES;
 
 /**
  * Get commission rate for a provider
@@ -1133,14 +1096,9 @@ export const KUDA_COMMISSION_RATES: Record<
  */
 export function getCommissionRate(
   provider: string,
-  category: 'AIRTIME' | 'DATA' | 'ELECTRICITY' | 'CABLE' = 'AIRTIME'
+  category: VtuCommissionCategory = 'AIRTIME'
 ): { rate: number; cap?: number } {
-  const key = `${provider.toUpperCase()}_${category}`;
-  return (
-    KUDA_COMMISSION_RATES[key] ||
-    KUDA_COMMISSION_RATES[provider.toUpperCase()] ||
-    KUDA_COMMISSION_RATES.DEFAULT
-  );
+  return getVtuCommissionRate(provider, category);
 }
 
 /**
@@ -1160,8 +1118,8 @@ export function getCommissionRate(
  */
 export function calculateVTUCommission(
   amount: number,
-  provider: NetworkProvider,
-  category: 'AIRTIME' | 'DATA' = 'AIRTIME',
+  provider: NetworkProvider | string,
+  category: VtuCommissionCategory = 'AIRTIME',
   merchantSplitPercentage: number = 50 // Merchant gets 50% of commission by default
 ): {
   platformEarning: number;

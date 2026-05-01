@@ -15,6 +15,7 @@ export const isPaymentGateway = (value: unknown): value is PaymentGateway =>
 export const PAYMENT_KINDS = {
   ORDER: 'order',
   VTU: 'vtu',
+  WALLET: 'wallet',
 } as const;
 
 export type PaymentKind = (typeof PAYMENT_KINDS)[keyof typeof PAYMENT_KINDS];

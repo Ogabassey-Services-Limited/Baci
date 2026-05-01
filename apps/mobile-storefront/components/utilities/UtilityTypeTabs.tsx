@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING, withAlpha } from '@/constants/Colors';
-import { UTILITY_TYPE_TAB_PRESSED_STYLE } from './utility-type-tabs.constants';
 
 type IoniconsName = ComponentProps<typeof Ionicons>['name'];
 
@@ -29,12 +28,20 @@ const UTILITY_TYPES = [
   { type: 'gaming', label: 'Gaming', icon: 'game-controller-outline' },
 ] as const satisfies readonly UtilityTypeDefinition[];
 
-const TAB_MIN_HEIGHT = 38;
-const TAB_HORIZONTAL_PADDING = 14;
-const TAB_ICON_MARGIN_END = 6;
-const LABEL_FONT_SIZE = 13;
+const TAB_MIN_HEIGHT = 40;
+const TAB_HORIZONTAL_PADDING = 16;
+const TAB_ICON_MARGIN_END = 8;
+const TAB_ICON_SIZE = 20;
+const LABEL_FONT_SIZE = 15;
 const TAB_SIDE_INSET = SPACING.md;
 const TAB_ITEM_GAP = SPACING.sm;
+const TAB_MIN_WIDTHS: Record<UtilityType, number> = {
+  airtime: 96,
+  data: 78,
+  tv: 78,
+  power: 92,
+  gaming: 108,
+};
 
 export type UtilityType = (typeof UTILITY_TYPES)[number]['type'];
 
@@ -136,46 +143,57 @@ export function UtilityTypeTabs({
           const isSelected = item.type === selectedType;
 
           return (
-            <Pressable
+            <View
               key={item.type}
-              accessibilityRole="tab"
-              accessibilityLabel={`${item.label} utility service`}
-              accessibilityState={{ selected: isSelected }}
-              accessibilityHint={`Switch to ${item.label} utility payments`}
-              testID={`utility-tab-${item.type}`}
-              onPress={() => onSelect(item.type)}
-              onLayout={handleTabLayout(item.type)}
-              android_ripple={{
-                color: isSelected
-                  ? withAlpha(BRAND.onPrimary, 0.14)
-                  : colors.border,
-              }}
-              style={({ pressed }) => [
-                styles.tab,
-                {
-                  backgroundColor: isSelected ? BRAND.primary : colors.muted,
-                  borderColor: isSelected ? BRAND.primary : colors.border,
-                },
-                index < UTILITY_TYPES.length - 1 && styles.tabSpacing,
-                pressed && styles.pressedTab,
-              ]}
+              style={
+                index < UTILITY_TYPES.length - 1 ? styles.tabSpacing : null
+              }
             >
-              <Ionicons
-                name={item.icon}
-                size={17}
-                color={isSelected ? BRAND.onPrimary : colors.icon}
-                style={styles.icon}
-              />
-              <Text
-                numberOfLines={1}
-                style={[
-                  styles.label,
-                  { color: isSelected ? BRAND.onPrimary : colors.text },
-                ]}
+              <Pressable
+                accessibilityRole="tab"
+                accessibilityLabel={`${item.label} utility service`}
+                accessibilityState={{ selected: isSelected }}
+                accessibilityHint={`Switch to ${item.label} utility payments`}
+                testID={`utility-tab-${item.type}`}
+                onPress={() => onSelect(item.type)}
+                android_ripple={{
+                  color: isSelected
+                    ? withAlpha(BRAND.onPrimary, 0.14)
+                    : colors.border,
+                }}
               >
-                {item.label}
-              </Text>
-            </Pressable>
+                <View
+                  onLayout={handleTabLayout(item.type)}
+                  testID={`utility-tab-${item.type}-pill`}
+                  style={[
+                    styles.tab,
+                    {
+                      backgroundColor: isSelected
+                        ? BRAND.primary
+                        : colors.muted,
+                      borderColor: isSelected ? BRAND.primary : colors.border,
+                      minWidth: TAB_MIN_WIDTHS[item.type],
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={item.icon}
+                    size={TAB_ICON_SIZE}
+                    color={isSelected ? BRAND.onPrimary : colors.icon}
+                    style={styles.icon}
+                  />
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.label,
+                      { color: isSelected ? BRAND.onPrimary : colors.text },
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                </View>
+              </Pressable>
+            </View>
           );
         })}
       </ScrollView>
@@ -205,7 +223,6 @@ const styles = StyleSheet.create({
   tabSpacing: {
     marginRight: TAB_ITEM_GAP,
   },
-  pressedTab: UTILITY_TYPE_TAB_PRESSED_STYLE,
   icon: {
     marginRight: TAB_ICON_MARGIN_END,
   },

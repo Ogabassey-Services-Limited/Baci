@@ -5,6 +5,11 @@ let rateLimitAllowed = true;
 let rateLimitResetIn = 0;
 let generateTextResult = { text: 'AI response' };
 let generateTextError: Error | null = null;
+let ollamaBaseUrl: string | undefined;
+let ollamaBasicAuth: string | undefined;
+let ollamaError: Error | null = null;
+let ollamaStreamError: Error | null = null;
+let ollamaResponseText = 'Gemma response';
 
 // ---- Mocks ----
 
@@ -32,6 +37,43 @@ vi.mock('@/ai/provider', () => ({
       : { allowed: false, resetIn: rateLimitResetIn }
   ),
   activeTextModel: 'mock-model',
+}));
+
+vi.mock('@/env', () => ({
+  getAiChatModel: vi.fn(() => 'gemma4:e4b'),
+  getOllamaBaseUrl: vi.fn(() => ollamaBaseUrl),
+  getOllamaBasicAuth: vi.fn(() => ollamaBasicAuth),
+}));
+
+vi.mock('@/lib/ollama-chat', () => ({
+  createOllamaChatResponse: vi.fn(() => {
+    if (ollamaError) {
+      return Promise.reject(ollamaError);
+    }
+
+    if (ollamaStreamError) {
+      const streamError = ollamaStreamError;
+
+      return Promise.resolve(
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.error(streamError);
+            },
+          }),
+          {
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+          }
+        )
+      );
+    }
+
+    return Promise.resolve(
+      new Response(ollamaResponseText, {
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      })
+    );
+  }),
 }));
 
 vi.mock('@/ai/chat-tool-handlers', () => ({
@@ -66,6 +108,7 @@ vi.mock('@/lib/sanitize', () => ({
 
 // ---- Import handler AFTER mocks ----
 import { generateText } from 'ai';
+import { createOllamaChatResponse } from '@/lib/ollama-chat';
 import { sanitizeHtml } from '@/lib/sanitize';
 import { POST } from './route';
 
@@ -77,6 +120,18 @@ function makeRequest(body: unknown): Request {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+}
+
+function makeAbortedRequest(body: unknown): Request {
+  const controller = new AbortController();
+  const request = new Request('http://localhost:3000/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: controller.signal,
+  });
+  controller.abort();
+  return request;
 }
 
 function makeInvalidJsonRequest(): Request {
@@ -96,6 +151,11 @@ describe('POST /api/chat', () => {
     rateLimitResetIn = 0;
     generateTextResult = { text: 'AI response' };
     generateTextError = null;
+    ollamaBaseUrl = undefined;
+    ollamaBasicAuth = undefined;
+    ollamaError = null;
+    ollamaStreamError = null;
+    ollamaResponseText = 'Gemma response';
   });
 
   it('returns 429 when rate limited', async () => {
@@ -162,6 +222,171 @@ describe('POST /api/chat', () => {
     );
     const text = await response.text();
     expect(text).toBe('AI response');
+  });
+
+  it('uses VPS Gemma through Ollama when configured', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Show me phones' }],
+      })
+    );
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('Gemma response');
+    expect(createOllamaChatResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        baseUrl: 'https://ollama.example.com',
+        model: 'gemma4:e4b',
+        messages: expect.arrayContaining([
+          expect.objectContaining({
+            role: 'system',
+            content: expect.stringContaining('VPS-hosted gemma4:e4b'),
+          }),
+          expect.objectContaining({
+            role: 'user',
+            content: 'Show me phones',
+          }),
+        ]),
+      })
+    );
+    expect(generateText).not.toHaveBeenCalled();
+  });
+
+  it('falls back to Gemini when the Ollama request fails', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaError = new Error('Ollama unavailable');
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Show me phones' }],
+      })
+    );
+    const text = await response.text();
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(text).toBe('AI response');
+    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Ollama request failed; falling back to Gemini:',
+      'Ollama unavailable'
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('does not fall back to Gemini when the client aborts the Ollama request', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaError = new Error('Ollama chat request aborted');
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeAbortedRequest({
+        messages: [{ role: 'user', content: 'Show me phones' }],
+      })
+    );
+    const json = await response.json();
+
+    // Assert
+    expect(response.status).toBe(499);
+    expect(json.error).toBe('Client Closed Request');
+    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).not.toHaveBeenCalled();
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it('falls back to Gemini when the Ollama stream fails before completion', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaStreamError = new Error(
+      'Invalid Ollama chat chunk JSON: Unexpected end of JSON input; payloadLength=42'
+    );
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Show me phones' }],
+      })
+    );
+    const text = await response.text();
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(text).toBe('AI response');
+    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Ollama request failed; falling back to Gemini:',
+      'Invalid Ollama chat chunk JSON: Unexpected end of JSON input; payloadLength=42'
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('falls back to Gemini when Ollama returns an empty completion', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaResponseText = '   ';
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Show me phones' }],
+      })
+    );
+    const text = await response.text();
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(text).toBe('AI response');
+    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Ollama request failed; falling back to Gemini:',
+      'Ollama chat returned an empty completion'
+    );
+    warnSpy.mockRestore();
+  });
+
+  it('forwards Ollama Basic Auth when configured', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaBasicAuth = 'user:password';
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Show me phones' }],
+      })
+    );
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(createOllamaChatResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        basicAuth: 'user:password',
+      })
+    );
   });
 
   it('sanitizes user messages', async () => {

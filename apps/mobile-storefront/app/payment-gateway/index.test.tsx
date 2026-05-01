@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   act,
   fireEvent,
@@ -181,6 +182,21 @@ jest.mock('@/stores/cart-store', () => ({
     selector({ clearCart: jest.fn() }),
 }));
 
+function renderPaymentGatewayScreen() {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      mutations: { retry: false },
+      queries: { retry: false },
+    },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <PaymentGatewayScreen />
+    </QueryClientProvider>
+  );
+}
+
 describe('PaymentGatewayScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -197,7 +213,7 @@ describe('PaymentGatewayScreen', () => {
   });
 
   it('does not apply a top safe-area inset under the native stack header', () => {
-    render(<PaymentGatewayScreen />);
+    renderPaymentGatewayScreen();
 
     expect(screen.getByLabelText('safe-area-edges:bottom')).toBeTruthy();
     expect(screen.getByText('Secure Paystack Checkout')).toBeTruthy();
@@ -207,7 +223,7 @@ describe('PaymentGatewayScreen', () => {
   });
 
   it('copies generic gateway text once from WebView clipboard messages', async () => {
-    render(<PaymentGatewayScreen />);
+    renderPaymentGatewayScreen();
 
     expect(screen.getByText('clipboard-bridge:enabled')).toBeTruthy();
     expect(screen.getByText('clipboard-main-frame-only:false')).toBeTruthy();
@@ -231,13 +247,13 @@ describe('PaymentGatewayScreen', () => {
   it('keeps decimal precision in the amount banner', () => {
     mockSearchParams = { ...mockSearchParams, amount: '1500.50' };
 
-    render(<PaymentGatewayScreen />);
+    renderPaymentGatewayScreen();
 
     expect(screen.getByText('₦1,500.50')).toBeTruthy();
   });
 
   it('auto-copies a detected gateway account number without showing a second copy button', async () => {
-    render(<PaymentGatewayScreen />);
+    renderPaymentGatewayScreen();
 
     fireEvent.press(screen.getByLabelText('mock-payment-account-detected'));
 
@@ -265,7 +281,7 @@ describe('PaymentGatewayScreen', () => {
         })
     );
 
-    render(<PaymentGatewayScreen />);
+    renderPaymentGatewayScreen();
 
     fireEvent.press(screen.getByLabelText('mock-payment-success-navigation'));
 
@@ -309,7 +325,7 @@ describe('PaymentGatewayScreen', () => {
         status: 'successful',
       });
 
-    render(<PaymentGatewayScreen />);
+    renderPaymentGatewayScreen();
 
     fireEvent.press(screen.getByLabelText('mock-payment-success-navigation'));
 
