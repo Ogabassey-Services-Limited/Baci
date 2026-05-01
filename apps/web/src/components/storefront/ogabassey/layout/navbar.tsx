@@ -120,9 +120,10 @@ export const OgabasseyNavbar: React.FC<NavbarProps> = ({
                 <Link
                   href={`${basePath}/account` as `/${string}`}
                   prefetch={false}
+                  aria-label="View account"
                   className="flex items-center justify-center hover:text-white transition-colors"
                 >
-                  <User size={22} />
+                  <User size={22} aria-hidden="true" />
                 </Link>
               </div>
             </div>

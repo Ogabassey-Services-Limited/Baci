@@ -44,16 +44,33 @@ function parseOllamaChunk(line: string): OllamaChatChunk {
   }
 }
 
+// Distinct DOMException name so the catch handler can tell timeout aborts
+// apart from upstream cancellations without relying on a race-prone
+// `upstreamSignal?.aborted` check.
+const OLLAMA_CHAT_TIMEOUT_REASON_NAME = 'TimeoutError';
+
+function createOllamaTimeoutReason(): DOMException {
+  return new DOMException(
+    'Ollama chat request timed out',
+    OLLAMA_CHAT_TIMEOUT_REASON_NAME
+  );
+}
+
 function createAbortSignal(
   upstreamSignal: AbortSignal | undefined,
   timeoutMs: number
 ): { signal: AbortSignal; cleanup: () => void } {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  const timeoutId = setTimeout(
+    () => controller.abort(createOllamaTimeoutReason()),
+    timeoutMs
+  );
 
-  const abortFromUpstream = () => controller.abort();
+  // Forward the upstream's reason so callers can introspect why the request
+  // was cancelled (e.g. user navigation vs. an explicit AbortController call).
+  const abortFromUpstream = () => controller.abort(upstreamSignal?.reason);
   if (upstreamSignal?.aborted) {
-    controller.abort();
+    controller.abort(upstreamSignal.reason);
   } else {
     upstreamSignal?.addEventListener('abort', abortFromUpstream, {
       once: true,
@@ -67,6 +84,14 @@ function createAbortSignal(
       upstreamSignal?.removeEventListener('abort', abortFromUpstream);
     },
   };
+}
+
+function isOllamaTimeoutAbort(signal: AbortSignal): boolean {
+  return (
+    signal.aborted &&
+    signal.reason instanceof DOMException &&
+    signal.reason.name === OLLAMA_CHAT_TIMEOUT_REASON_NAME
+  );
 }
 
 function createTextStream(
@@ -179,11 +204,16 @@ export async function createOllamaChatResponse({
     });
   } catch (error) {
     cleanup();
-    if (error instanceof Error && error.name === 'AbortError') {
-      if (signal?.aborted) {
-        throw new Error('Ollama chat request aborted');
+    // Modern Node (undici) and Chromium reject fetch with the merged
+    // signal's abort reason directly — so `error.name` may be the reason's
+    // name (e.g. 'TimeoutError'), not the legacy 'AbortError'. Inspect the
+    // merged signal first so timeout/upstream cancellations are surfaced
+    // with our documented messages instead of leaking the raw DOMException.
+    if (ollamaSignal.aborted) {
+      if (isOllamaTimeoutAbort(ollamaSignal)) {
+        throw new Error('Ollama chat request timed out');
       }
-      throw new Error('Ollama chat request timed out');
+      throw new Error('Ollama chat request aborted');
     }
     throw error;
   }
