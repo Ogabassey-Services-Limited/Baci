@@ -45,8 +45,12 @@ export function NewOrderScreenContent({
           headerTitle: 'New Sale',
           headerLeft: () => (
             <Pressable
+              accessibilityHint="Discards the current order draft and returns to the previous screen"
+              accessibilityLabel="Cancel new order"
+              accessibilityRole="button"
+              hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
               onPress={() => router.back()}
-              style={{ paddingRight: 16 }}
+              style={({ pressed }) => [{ paddingRight: 16 }, pressed && { opacity: 0.7 }]}
             >
               <Text style={{ color: colors.text, fontSize: 16 }}>Cancel</Text>
             </Pressable>
