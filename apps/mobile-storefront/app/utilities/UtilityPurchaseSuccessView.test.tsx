@@ -12,6 +12,12 @@ jest.mock('expo-router', () => ({
   },
 }));
 
+const mockBackfilledVoucherPin = jest.fn<() => string | null>(() => null);
+
+jest.mock('@/hooks/use-vtu-voucher-pin-backfill', () => ({
+  useVtuVoucherPinBackfill: () => mockBackfilledVoucherPin(),
+}));
+
 jest.mock('@/components/utilities/PurchaseSuccess', () => {
   const { Pressable, Text, View } =
     jest.requireActual<typeof import('react-native')>('react-native');
@@ -62,6 +68,7 @@ jest.mock('@/components/utilities/PurchaseSuccess', () => {
 describe('UtilityPurchaseSuccessView', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockBackfilledVoucherPin.mockReturnValue(null);
   });
 
   it('hides the native header and passes purchase data to the success view', () => {
@@ -126,5 +133,28 @@ describe('UtilityPurchaseSuccessView', () => {
     );
 
     expect(onCreateAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it('falls back to a backfilled voucher pin when the route param is missing', () => {
+    mockBackfilledVoucherPin.mockReturnValue('9999-0000');
+
+    render(
+      <UtilityPurchaseSuccessView
+        bottomPadding={32}
+        colors={Colors.light}
+        data={{
+          amount: 2000,
+          customerIdentifier: '43901766923',
+          reference: 'ref-power',
+          status: 'successful',
+        }}
+        headerOffset={20}
+        isAuthenticated={true}
+        onCreateAccount={jest.fn()}
+        type="power"
+      />
+    );
+
+    expect(screen.getByText('Voucher 9999-0000')).toBeOnTheScreen();
   });
 });

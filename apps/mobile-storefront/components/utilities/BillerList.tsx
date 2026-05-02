@@ -1,12 +1,12 @@
 import {
   ActivityIndicator,
   Image,
+  type ImageStyle,
   Pressable,
+  type StyleProp,
   StyleSheet,
   Text,
   View,
-  type ImageStyle,
-  type StyleProp,
   type ViewStyle,
 } from 'react-native';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -123,7 +123,7 @@ export function BillerList({
           styles.selectedCard,
           {
             backgroundColor: hasSelectedBiller
-              ? BRAND.primaryLight
+              ? BRAND.primaryAlpha06
               : colors.card,
             borderColor: hasSelectedBiller ? BRAND.primary : colors.border,
           },

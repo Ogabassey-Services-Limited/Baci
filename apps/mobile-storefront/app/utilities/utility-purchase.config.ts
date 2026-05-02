@@ -1,10 +1,10 @@
-import type { UtilityRepeatDefaults } from '@/lib/utility-repeat';
 import {
   type RawRouteRepeatParams,
   type RouteRepeatParams,
   VALID_UTILITY_TYPES,
   type ValidUtilityType,
 } from '@/app/utilities/utility-purchase.types';
+import type { UtilityRepeatDefaults } from '@/lib/utility-repeat';
 
 export const UTILITY_TYPE_TITLES: Record<ValidUtilityType, string> = {
   airtime: 'Airtime',
@@ -34,6 +34,7 @@ export function getRouteRepeatDefaults(
     billerName: params.repeatBillerName,
     billItemIdentifier: params.repeatBillItemIdentifier,
     customerIdentifier: params.repeatCustomerIdentifier,
+    customerName: params.repeatCustomerName,
     dataPlanCode: params.repeatDataPlanCode,
     isVerified:
       params.repeatVerified === true ||

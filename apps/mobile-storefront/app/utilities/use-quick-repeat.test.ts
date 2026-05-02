@@ -11,9 +11,7 @@ jest.mock('@/hooks/use-vtu-history', () => ({
 const mockUseVTUHistory = jest.mocked(useVTUHistory);
 type MockVTUHistoryReturn = ReturnType<typeof useVTUHistory>;
 
-function mockVTUHistoryReturn(
-  overrides: Partial<MockVTUHistoryReturn> = {}
-) {
+function mockVTUHistoryReturn(overrides: Partial<MockVTUHistoryReturn> = {}) {
   mockUseVTUHistory.mockReturnValue({
     data: [],
     error: null,
@@ -122,6 +120,29 @@ describe('useQuickRepeat', () => {
       phoneNumber: '08012345678',
     });
     expect(result.current.isRepeatPaymentReady).toBe(true);
+  });
+
+  it('forwards a verified meter-owner name from the route into repeat defaults', () => {
+    const { result } = renderHook(() =>
+      useQuickRepeat({
+        currentType: 'power',
+        historyFilter: 'power',
+        isKeyboardVisible: false,
+        repeatAmount: 2000,
+        repeatBillerName: 'EKEDC NG',
+        repeatBillItemIdentifier: 'KUD-ELE-EKED-001',
+        repeatCustomerIdentifier: '43901766923',
+        repeatCustomerName: 'JANE CUSTOMER',
+        repeatVerified: true,
+        routeType: 'power',
+        title: 'Electricity',
+      })
+    );
+
+    expect(result.current.repeatDefaults).toMatchObject({
+      customerIdentifier: '43901766923',
+      customerName: 'JANE CUSTOMER',
+    });
   });
 
   it('returns a loading notice while recent transactions are loading', () => {

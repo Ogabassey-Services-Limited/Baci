@@ -149,7 +149,13 @@ export async function preparePendingVtuTransaction({
 }: {
   supabase: SupabaseClient;
   user: User;
-  input: PurchaseInput;
+  /**
+   * `customerName` here is the **bill customer-of-record** (e.g. meter owner
+   * returned by Kuda verify), not the buyer. It is persisted on
+   * `vtu_transactions.customer_name` so receipts and "Repeat last" can
+   * surface the verified name.
+   */
+  input: PurchaseInput & { customerName?: string };
   source: PurchaseInput['source'];
   requireCustomer?: boolean;
 }): Promise<PreparedVtuTransaction> {
@@ -263,6 +269,7 @@ export async function preparePendingVtuTransaction({
       biller_name: input.billerName ?? null,
       biller_item_code: input.billItemIdentifier ?? null,
       customer_identifier: input.customerIdentifier ?? null,
+      customer_name: input.customerName?.trim() || null,
       metadata: {
         dataPlanCode: input.dataPlanCode,
         originalPhoneNumber: input.phoneNumber,

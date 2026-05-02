@@ -204,6 +204,10 @@ jest.mock('@/hooks/use-vtu-history', () => ({
     mockUseVTUHistory(filter, limit),
 }));
 
+jest.mock('@/hooks/use-vtu-voucher-pin-backfill', () => ({
+  useVtuVoucherPinBackfill: () => null,
+}));
+
 describe('UtilityPurchaseScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();

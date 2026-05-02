@@ -46,6 +46,7 @@ interface BaseRouteRepeatParams {
   repeatBillerName?: string;
   repeatBillItemIdentifier?: string;
   repeatCustomerIdentifier?: string;
+  repeatCustomerName?: string;
   repeatDataPlanCode?: string;
   repeatNetworkProvider?: string;
   repeatPhoneNumber?: string;

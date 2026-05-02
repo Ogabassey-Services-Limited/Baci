@@ -28,6 +28,13 @@ export interface BillFormController {
   isProviderPickerExpanded: boolean;
   isRepeatPaymentActive: boolean;
   numericAmount: number;
+  /**
+   * Bill customer-of-record name (meter owner / account holder), populated
+   * either from the last successful purchase ("Repeat last") or from the live
+   * verify response. Used to render the verified name and to send through to
+   * the API so future repeats keep working.
+   */
+  verifiedCustomerName: string | null;
   payment: ReturnType<typeof useUtilityPayment>;
   resetVerification: () => void;
   scheduleNextStepScroll: (nextStepY: number) => void;

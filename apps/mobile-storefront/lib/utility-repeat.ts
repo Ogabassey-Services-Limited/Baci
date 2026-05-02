@@ -8,6 +8,7 @@ export interface UtilityRepeatRouteParams {
   repeatBillerName?: string;
   repeatBillItemIdentifier?: string;
   repeatCustomerIdentifier?: string;
+  repeatCustomerName?: string;
   repeatDataPlanCode?: string;
   repeatNetworkProvider?: string;
   repeatPhoneNumber?: string;
@@ -20,6 +21,7 @@ export interface UtilityRepeatDefaults {
   billerName?: string;
   billItemIdentifier?: string;
   customerIdentifier?: string;
+  customerName?: string;
   dataPlanCode?: string;
   isVerified?: boolean;
   networkProvider?: string;
@@ -113,6 +115,9 @@ function getDefaults(
     ...(transaction.customer_identifier && {
       customerIdentifier: transaction.customer_identifier,
     }),
+    ...(transaction.customer_name && {
+      customerName: transaction.customer_name,
+    }),
     ...(transaction.phone_number && {
       phoneNumber: transaction.phone_number,
     }),
@@ -138,6 +143,9 @@ function getRouteParams(
     }),
     ...(defaults.customerIdentifier && {
       repeatCustomerIdentifier: defaults.customerIdentifier,
+    }),
+    ...(defaults.customerName && {
+      repeatCustomerName: defaults.customerName,
     }),
     ...(defaults.dataPlanCode && { repeatDataPlanCode: defaults.dataPlanCode }),
     ...(defaults.networkProvider && {

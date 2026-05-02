@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { NigerianPhoneSchema } from '@/lib/validation/auth-schemas';
 
-const repeatAmountSchema = z
-  .coerce.number()
+const repeatAmountSchema = z.coerce
+  .number()
   .finite()
   .positive('Repeat amount must be greater than 0')
   .optional();
@@ -40,6 +40,7 @@ export const RouteRepeatParamsSchema = z.object({
   repeatBillerName: trimmedOptionalString,
   repeatBillItemIdentifier: trimmedOptionalString,
   repeatCustomerIdentifier: trimmedOptionalString,
+  repeatCustomerName: trimmedOptionalString,
   repeatDataPlanCode: trimmedOptionalString,
   repeatNetworkProvider: trimmedOptionalString,
   repeatPhoneNumber: repeatPhoneNumberSchema,

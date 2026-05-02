@@ -33,7 +33,9 @@ describe('BillItemSelectionSection', () => {
         billItemSelection={billItemSelection}
         colors={Colors.light}
         customerId="1234567890"
-        handleBillItemSelect={jest.fn<(depth: number, billItem: BillItem) => void>()}
+        handleBillItemSelect={jest.fn<
+          (depth: number, billItem: BillItem) => void
+        >()}
         handleVerify={jest.fn()}
         isBillItemSelectionComplete={true}
         isRepeatPaymentActive={false}
@@ -53,5 +55,61 @@ describe('BillItemSelectionSection', () => {
     );
 
     expect(screen.getByText('Meter number not found')).toBeOnTheScreen();
+  });
+
+  it('shows the repeat customer name as a verified meter owner during repeat', () => {
+    render(
+      <BillItemSelectionSection
+        billItemSelection={billItemSelection}
+        colors={Colors.light}
+        customerId="43901766923"
+        handleBillItemSelect={jest.fn<
+          (depth: number, billItem: BillItem) => void
+        >()}
+        handleVerify={jest.fn()}
+        isBillItemSelectionComplete={true}
+        isRepeatPaymentActive={true}
+        verifiedCustomerName="JANE CUSTOMER"
+        selectedBillItemIdentifier="prepaid"
+        selectedBillerId="ekedc"
+        setCustomerId={jest.fn()}
+        setIsRepeatPaymentActive={jest.fn()}
+        type="power"
+        verify={createVerifyState({})}
+      />
+    );
+
+    expect(screen.getByText('JANE CUSTOMER')).toBeOnTheScreen();
+    expect(screen.getByText('Customer verified')).toBeOnTheScreen();
+    expect(
+      screen.getByText('Using details from your previous successful purchase.')
+    ).toBeOnTheScreen();
+  });
+
+  it('shows the repeat banner without a verification card when no name is known', () => {
+    render(
+      <BillItemSelectionSection
+        billItemSelection={billItemSelection}
+        colors={Colors.light}
+        customerId="43901766923"
+        handleBillItemSelect={jest.fn<
+          (depth: number, billItem: BillItem) => void
+        >()}
+        handleVerify={jest.fn()}
+        isBillItemSelectionComplete={true}
+        isRepeatPaymentActive={true}
+        selectedBillItemIdentifier="prepaid"
+        selectedBillerId="ekedc"
+        setCustomerId={jest.fn()}
+        setIsRepeatPaymentActive={jest.fn()}
+        type="power"
+        verify={createVerifyState({})}
+      />
+    );
+
+    expect(screen.queryByText('Customer verified')).toBeNull();
+    expect(
+      screen.getByText('Using details from your previous successful purchase.')
+    ).toBeOnTheScreen();
   });
 });

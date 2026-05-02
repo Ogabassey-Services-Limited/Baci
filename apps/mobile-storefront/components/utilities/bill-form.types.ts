@@ -38,5 +38,11 @@ export interface BillFormProps {
    * account identifier. Mask before logging or analytics.
    */
   initialCustomerIdentifier?: string;
+  /**
+   * Verified customer-of-record name from the previous successful purchase
+   * (e.g. the meter owner). Used only to surface a confirmation label when the
+   * verified state is restored from history.
+   */
+  initialCustomerName?: string;
   isRepeatPaymentReady?: boolean;
 }
