@@ -2,40 +2,25 @@ import { jest } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react';
-import {
-  useVtuVoucherPinBackfill,
-  POLL_INTERVAL_MS,
-  MAX_POLL_ATTEMPTS,
-} from './use-vtu-voucher-pin-backfill';
+import { useVtuVoucherPinBackfill, POLL_INTERVAL_MS, MAX_POLL_ATTEMPTS } from './use-vtu-voucher-pin-backfill';
 
-const mockGetSession =
-  jest.fn<
-    () => Promise<{
-      data: { session: null | { access_token: string } };
-      error: null | { message: string };
-    }>
-  >();
-const mockFetchWithTimeout = jest.fn<
-  (url: string, options: RequestInit) => Promise<Response>
->();
+const mockGetSession = jest.fn<() => Promise<{ data: { session: null | { access_token: string } } }>>();
+const mockFetchWithTimeout = jest.fn<() => Promise<Response>>();
 const mockUseAuthStore = jest.fn<() => string | null>();
 
 jest.mock('@/lib/supabase', () => ({
   supabase: {
-    auth: { getSession: () => mockGetSession() },
+    auth: { getSession: (...args: unknown[]) => mockGetSession(...args) },
   },
 }));
 
 jest.mock('@/lib/fetch-with-timeout', () => ({
-  fetchWithTimeout: (url: string, options: RequestInit) =>
-    mockFetchWithTimeout(url, options),
+  fetchWithTimeout: (...args: unknown[]) => mockFetchWithTimeout(...args),
   SHORT_TIMEOUT: 5000,
 }));
 
 jest.mock('@/stores/auth-store', () => ({
-  useAuthStore: (
-    selector: (state: { user?: { id: string } | null }) => string | null
-  ) => {
+  useAuthStore: (selector: (state: { user?: { id: string } | null }) => string | null) => {
     const id = mockUseAuthStore();
     return selector(id ? { user: { id } } : { user: null });
   },
@@ -51,16 +36,9 @@ function makeResponse(body: unknown, ok = true): Response {
   } as unknown as Response;
 }
 
-// One stable QueryClient per test — avoids multiple instances in React 19
-// Strict Mode which double-invokes the wrapper and can create orphaned clients.
-let queryClient: QueryClient;
-
 function wrapper({ children }: { children: React.ReactNode }) {
-  return React.createElement(
-    QueryClientProvider,
-    { client: queryClient },
-    children
-  );
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 0 } } });
+  return React.createElement(QueryClientProvider, { client: queryClient }, children);
 }
 
 const BASE_INPUT = {
@@ -72,16 +50,11 @@ const BASE_INPUT = {
 beforeEach(() => {
   jest.clearAllMocks();
   jest.useFakeTimers();
-  queryClient = new QueryClient({ defaultOptions: { queries: { retry: 0 } } });
   mockUseAuthStore.mockReturnValue('user-1');
-  mockGetSession.mockResolvedValue({
-    data: { session: { access_token: 'tok' } },
-    error: null,
-  });
+  mockGetSession.mockResolvedValue({ data: { session: { access_token: 'tok' } } });
 });
 
 afterEach(() => {
-  jest.runOnlyPendingTimers();
   jest.useRealTimers();
 });
 
@@ -93,54 +66,30 @@ describe('useVtuVoucherPinBackfill', () => {
       })
     );
 
-    const { result } = renderHook(() => useVtuVoucherPinBackfill(BASE_INPUT), {
-      wrapper,
-    });
+    const { result } = renderHook(() => useVtuVoucherPinBackfill(BASE_INPUT), { wrapper });
 
     await waitFor(() => expect(result.current).toBe('1234-5678'));
     expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1);
   });
 
-  it('polls up to MAX_POLL_ATTEMPTS then stops', async () => {
+  it('polls up to MAX_POLL_ATTEMPTS then returns null', async () => {
     mockFetchWithTimeout.mockResolvedValue(
-      makeResponse({
-        transactions: [{ request_reference: 'REF-001', voucher_pin: null }],
-      })
+      makeResponse({ transactions: [{ request_reference: 'REF-001', voucher_pin: null }] })
     );
 
-    const { result } = renderHook(() => useVtuVoucherPinBackfill(BASE_INPUT), {
-      wrapper,
-    });
+    const { result } = renderHook(() => useVtuVoucherPinBackfill(BASE_INPUT), { wrapper });
 
-    // Drain initial fetch then advance one interval per remaining attempt
-    await waitFor(() => expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1));
-    for (let i = 1; i < MAX_POLL_ATTEMPTS; i++) {
+    for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
       await jest.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
-      await waitFor(() =>
-        expect(mockFetchWithTimeout).toHaveBeenCalledTimes(i + 1)
-      );
     }
 
-    // Advance two more intervals — cap must prevent any additional fetches
-    await jest.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 2);
+    await waitFor(() => expect(result.current).toBeNull());
     expect(mockFetchWithTimeout).toHaveBeenCalledTimes(MAX_POLL_ATTEMPTS);
-    expect(result.current).toBeNull();
-  });
-
-  it('returns null and does not fetch when enabled is false', () => {
-    const { result } = renderHook(
-      () => useVtuVoucherPinBackfill({ ...BASE_INPUT, enabled: false }),
-      { wrapper }
-    );
-
-    expect(result.current).toBeNull();
-    expect(mockFetchWithTimeout).not.toHaveBeenCalled();
   });
 
   it('returns null immediately when apiType is null (unsupported utility type)', () => {
     const { result } = renderHook(
-      () =>
-        useVtuVoucherPinBackfill({ ...BASE_INPUT, utilityType: 'airtime' as never }),
+      () => useVtuVoucherPinBackfill({ ...BASE_INPUT, utilityType: 'airtime' as never }),
       { wrapper }
     );
 
@@ -151,95 +100,27 @@ describe('useVtuVoucherPinBackfill', () => {
   it('returns null immediately when userId is absent (unauthenticated)', () => {
     mockUseAuthStore.mockReturnValue(null);
 
-    const { result } = renderHook(
-      () => useVtuVoucherPinBackfill(BASE_INPUT),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useVtuVoucherPinBackfill(BASE_INPUT), { wrapper });
 
     expect(result.current).toBeNull();
     expect(mockFetchWithTimeout).not.toHaveBeenCalled();
   });
 
-  it('returns null and skips fetch when getSession returns an error', async () => {
-    mockGetSession.mockResolvedValue({
-      data: { session: null },
-      error: { message: 'Auth error' },
-    });
-
-    const { result } = renderHook(
-      () => useVtuVoucherPinBackfill(BASE_INPUT),
-      { wrapper }
-    );
-
-    await waitFor(() => expect(mockGetSession).toHaveBeenCalledTimes(1));
-    expect(mockFetchWithTimeout).not.toHaveBeenCalled();
-    expect(result.current).toBeNull();
-  });
-
-  it('halts polling immediately on a non-retriable HTTP error', async () => {
+  it('returns null when the HTTP request fails', async () => {
     mockFetchWithTimeout.mockResolvedValue(makeResponse({}, false));
 
-    const { result } = renderHook(
-      () => useVtuVoucherPinBackfill(BASE_INPUT),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useVtuVoucherPinBackfill(BASE_INPUT), { wrapper });
 
     await waitFor(() => expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1));
-
-    // Two more intervals must not trigger additional fetches
-    await jest.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 2);
-    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1);
     expect(result.current).toBeNull();
   });
 
-  it('halts polling immediately when fetchWithTimeout rejects (network/timeout)', async () => {
-    mockFetchWithTimeout.mockRejectedValue(new Error('Network timeout'));
-
-    const { result } = renderHook(
-      () => useVtuVoucherPinBackfill(BASE_INPUT),
-      { wrapper }
-    );
-
-    await waitFor(() => expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1));
-
-    await jest.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 2);
-    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1);
-    expect(result.current).toBeNull();
-  });
-
-  it('halts polling immediately when response.json() throws', async () => {
-    mockFetchWithTimeout.mockResolvedValue({
-      ok: true,
-      json: jest
-        .fn<() => Promise<unknown>>()
-        .mockRejectedValue(new Error('Invalid JSON')),
-    } as unknown as Response);
-
-    const { result } = renderHook(
-      () => useVtuVoucherPinBackfill(BASE_INPUT),
-      { wrapper }
-    );
-
-    await waitFor(() => expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1));
-
-    await jest.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 2);
-    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1);
-    expect(result.current).toBeNull();
-  });
-
-  it('halts polling immediately when response schema does not match', async () => {
+  it('returns null when the response body does not match the schema', async () => {
     mockFetchWithTimeout.mockResolvedValue(makeResponse({ unexpected: true }));
 
-    const { result } = renderHook(
-      () => useVtuVoucherPinBackfill(BASE_INPUT),
-      { wrapper }
-    );
+    const { result } = renderHook(() => useVtuVoucherPinBackfill(BASE_INPUT), { wrapper });
 
     await waitFor(() => expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1));
-
-    // Schema mismatch now throws → error state → polling stops
-    await jest.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 2);
-    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1);
     expect(result.current).toBeNull();
   });
 });

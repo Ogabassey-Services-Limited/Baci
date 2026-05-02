@@ -1,18 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
-import { z } from 'zod';
 import type { ValidUtilityType } from '@/app/utilities/utility-purchase.types';
 import { EXPO_PUBLIC_API_URL } from '@/env';
 import { CONFIG } from '@/lib/config';
 import { fetchWithTimeout, SHORT_TIMEOUT } from '@/lib/fetch-with-timeout';
 import { supabase } from '@/lib/supabase';
+import { VtuHistoryResponseSchema } from '@/schemas/vtu-history';
 import { useAuthStore } from '@/stores/auth-store';
 
 // Bill-style purchases (electricity, TV, betting) may receive their voucher /
 // token after the initial confirm response returns, once the upstream provider
 // reports back. Poll the history endpoint until the pin is persisted so the
 // success screen can surface it without forcing the user to re-open history.
-const POLL_INTERVAL_MS = 3000;
-const MAX_POLL_ATTEMPTS = 10;
+export const POLL_INTERVAL_MS = 3000;
+export const MAX_POLL_ATTEMPTS = 10;
 
 const UTILITY_TYPE_TO_API_TYPE: Partial<
   Record<ValidUtilityType, 'electricity' | 'cable_tv' | 'betting'>
@@ -22,14 +22,6 @@ const UTILITY_TYPE_TO_API_TYPE: Partial<
   gaming: 'betting',
 };
 
-const HistoryResponseSchema = z.object({
-  transactions: z.array(
-    z.object({
-      request_reference: z.string(),
-      voucher_pin: z.string().nullable().optional(),
-    })
-  ),
-});
 
 interface UseVtuVoucherPinBackfillInput {
   enabled: boolean;
@@ -51,12 +43,12 @@ export function useVtuVoucherPinBackfill({
     enabled: queryEnabled,
     staleTime: 0,
     gcTime: 0,
+    retry: 0,
     refetchInterval: (q) => {
       if (q.state.data) {
         return false;
       }
-      const attempts = q.state.dataUpdateCount + q.state.fetchFailureCount;
-      if (attempts >= MAX_POLL_ATTEMPTS) {
+      if (q.state.dataUpdateCount >= MAX_POLL_ATTEMPTS) {
         return false;
       }
       return POLL_INTERVAL_MS;
@@ -92,7 +84,7 @@ export function useVtuVoucherPinBackfill({
       }
 
       const data = await response.json();
-      const parsed = HistoryResponseSchema.safeParse(data);
+      const parsed = VtuHistoryResponseSchema.safeParse(data);
       if (!parsed.success) {
         return null;
       }
