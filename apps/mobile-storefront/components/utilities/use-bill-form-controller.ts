@@ -103,7 +103,10 @@ export function useBillFormController({
     if (verify.data?.verified && pendingVerificationKeyRef.current) {
       setVerifiedSelectionKey(pendingVerificationKeyRef.current);
       pendingVerificationKeyRef.current = null;
-      setVerifiedCustomerName(verify.data.customerName?.trim() || null);
+      const verifiedName = verify.data.customerName?.trim();
+      if (verifiedName) {
+        setVerifiedCustomerName(verifiedName);
+      }
     }
   }, [verify.data?.verified, verify.data?.customerName]);
 
