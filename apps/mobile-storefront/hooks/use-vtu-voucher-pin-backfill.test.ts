@@ -126,15 +126,17 @@ describe('useVtuVoucherPinBackfill', () => {
     expect(mockFetchWithTimeout).not.toHaveBeenCalled();
   });
 
-  it('returns null when the HTTP request fails', async () => {
+  it('halts polling immediately and returns null on a non-retriable HTTP error', async () => {
     mockFetchWithTimeout.mockResolvedValue(makeResponse({}, false));
 
     const { result } = renderHook(() => useVtuVoucherPinBackfill(BASE_INPUT), { wrapper });
 
-    await waitFor(() => {
-      expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1);
-      expect(result.current).toBeNull();
-    });
+    await waitFor(() => expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1));
+
+    // Advance past two poll intervals — the error state must stop further fetches
+    await jest.advanceTimersByTimeAsync(POLL_INTERVAL_MS * 2);
+    expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1);
+    expect(result.current).toBeNull();
   });
 
   it('returns null when the response body does not match the schema', async () => {
