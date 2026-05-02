@@ -471,14 +471,12 @@ export default function CustomersScreen() {
 
   // Navigation callbacks
   const handleCustomerPress = (id: string) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    router.push(`/customer/${id}` as any);
+    router.push(`/customer/${id}` as Parameters<typeof router.push>[0]);
   };
 
   const handleFailedOrderPress = (item: FailedOrder) => {
     if (item.customer_id) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      router.push(`/customer/${item.customer_id}` as any);
+      router.push(`/customer/${item.customer_id}` as Parameters<typeof router.push>[0]);
     } else {
       router.push(`/order/${item.id}`);
     }

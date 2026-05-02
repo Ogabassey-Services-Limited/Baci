@@ -20,7 +20,7 @@ interface AuthTelemetryEvent {
 }
 
 declare global {
-  // eslint-disable-next-line no-var
+  // biome-ignore lint/style/noVar: Global variables require var
   var __BACI_AUTH_TELEMETRY__: AuthTelemetryEvent[] | undefined;
 }
 
