@@ -57,6 +57,7 @@ interface BillItemSelectionSectionProps {
   handleVerify: () => void;
   isBillItemSelectionComplete: boolean;
   isRepeatPaymentActive: boolean;
+  verifiedCustomerName?: string | null;
   selectedBillItemIdentifier: string | null;
   selectedBillerId: string;
   setCustomerId: (value: string) => void;
@@ -73,6 +74,7 @@ export function BillItemSelectionSection({
   handleVerify,
   isBillItemSelectionComplete,
   isRepeatPaymentActive,
+  verifiedCustomerName,
   selectedBillItemIdentifier,
   selectedBillerId,
   setCustomerId,
@@ -236,11 +238,25 @@ export function BillItemSelectionSection({
           </View>
 
           {isRepeatPaymentActive ? (
-            <Text
-              style={[styles.repeatReadyText, { color: colors.textSecondary }]}
-            >
-              Using details from your previous successful purchase.
-            </Text>
+            <>
+              {verifiedCustomerName ? (
+                <View style={styles.verificationCardSpacing}>
+                  <VerificationCard
+                    verified={true}
+                    customerName={verifiedCustomerName}
+                    isLoading={false}
+                  />
+                </View>
+              ) : null}
+              <Text
+                style={[
+                  styles.repeatReadyText,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                Using details from your previous successful purchase.
+              </Text>
+            </>
           ) : verify.data || verify.isPending || verify.error ? (
             <View style={styles.verificationCardSpacing}>
               <VerificationCard

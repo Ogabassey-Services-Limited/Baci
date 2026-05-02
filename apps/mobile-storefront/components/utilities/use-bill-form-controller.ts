@@ -39,6 +39,7 @@ export function useBillFormController({
   initialBillerName,
   initialBillItemIdentifier,
   initialCustomerIdentifier,
+  initialCustomerName,
   isRepeatPaymentReady = false,
   type,
   onSuccess,
@@ -61,6 +62,9 @@ export function useBillFormController({
   const [isProviderPickerExpanded, setIsProviderPickerExpanded] =
     useState(true);
   const [isRepeatPaymentActive, setIsRepeatPaymentActive] = useState(false);
+  const [verifiedCustomerName, setVerifiedCustomerName] = useState<
+    string | null
+  >(initialCustomerName ?? null);
   const [shouldScrollToNextStep, setShouldScrollToNextStep] = useState(false);
   const [shouldScrollToPayment, setShouldScrollToPayment] = useState(false);
   const pendingVerificationKeyRef = useRef<string | null>(null);
@@ -99,8 +103,12 @@ export function useBillFormController({
     if (verify.data?.verified && pendingVerificationKeyRef.current) {
       setVerifiedSelectionKey(pendingVerificationKeyRef.current);
       pendingVerificationKeyRef.current = null;
+      const verifiedName = verify.data.customerName?.trim();
+      if (verifiedName) {
+        setVerifiedCustomerName(verifiedName);
+      }
     }
-  }, [verify.data?.verified]);
+  }, [verify.data?.verified, verify.data?.customerName]);
 
   useEffect(() => {
     if (hasInitializedRef.current || !billersQuery.data?.length) {
@@ -148,6 +156,11 @@ export function useBillFormController({
     }
   };
 
+  const deactivateRepeatPayment = () => {
+    setIsRepeatPaymentActive(false);
+    setVerifiedCustomerName(null);
+  };
+
   const handleBillerSelect = (biller: Biller) => {
     const nextCodes = getResolvedBillItemCodes(biller.billItems);
     const nextSelection = resolveBillItemSelection(biller.billItems, nextCodes);
@@ -155,7 +168,7 @@ export function useBillFormController({
     setSelectedBillItemCodes(nextCodes);
     setIsProviderPickerExpanded(false);
     setShouldScrollToNextStep(true);
-    setIsRepeatPaymentActive(false);
+    deactivateRepeatPayment();
     setAmount(getAmountForLeaf(nextSelection.leaf));
     resetVerification();
   };
@@ -175,7 +188,7 @@ export function useBillFormController({
       nextCodes
     );
     setSelectedBillItemCodes(nextCodes);
-    setIsRepeatPaymentActive(false);
+    deactivateRepeatPayment();
     setAmount(getAmountForLeaf(nextSelection.leaf));
     setShouldScrollToNextStep(true);
     resetVerification();
@@ -225,6 +238,7 @@ export function useBillFormController({
     selectedBillItemPathLabel,
     setIsSubmitting: updateSubmitting,
     type,
+    verifiedCustomerName,
   });
 
   const handlePaymentLayout = (event: LayoutChangeEvent) => {
@@ -270,6 +284,7 @@ export function useBillFormController({
     isProviderPickerExpanded,
     isRepeatPaymentActive,
     numericAmount,
+    verifiedCustomerName,
     payment,
     resetVerification,
     scheduleNextStepScroll,
@@ -277,7 +292,13 @@ export function useBillFormController({
     selectedBiller,
     selectedBillItemIdentifier,
     setProviderPickerExpanded: setIsProviderPickerExpanded,
-    setRepeatPaymentActive: setIsRepeatPaymentActive,
+    setRepeatPaymentActive: (isActive: boolean) => {
+      if (!isActive) {
+        deactivateRepeatPayment();
+        return;
+      }
+      setIsRepeatPaymentActive(true);
+    },
     shouldScrollToNextStep,
     updateAmount: setAmount,
     updateCustomerId: (value: string) => {

@@ -44,6 +44,13 @@ interface CreateBillFormPurchaseHandlerInput {
   selectedBillItemPathLabel: string;
   setIsSubmitting: (isSubmitting: boolean) => void;
   type: BillFormProps['type'];
+  /**
+   * Verified bill customer-of-record name (meter owner / account holder)
+   * from the verify step or a previous successful purchase. When present,
+   * sent as the API payload's `customerName` so the row's `customer_name`
+   * column reflects the bill recipient, not the buyer.
+   */
+  verifiedCustomerName: string | null;
 }
 
 function getSafePaymentErrorMessage(error: unknown): string {
@@ -68,6 +75,7 @@ export function createBillFormPurchaseHandler({
   selectedBillItemPathLabel,
   setIsSubmitting,
   type,
+  verifiedCustomerName,
 }: CreateBillFormPurchaseHandlerInput) {
   return async () => {
     dismissKeyboard();
@@ -110,10 +118,16 @@ export function createBillFormPurchaseHandler({
         return;
       }
 
-      const customerName =
+      const buyerName =
         [customer?.first_name, customer?.last_name].filter(Boolean).join(' ') ||
         customer?.email ||
         undefined;
+      // The bill `customer_name` column represents the bill customer-of-record
+      // (meter owner / account holder), so prefer the verified name when we
+      // have it. Falls back to the buyer name only when verification produced
+      // no name — keeps existing legacy receipts from going blank.
+      const customerName =
+        verifiedCustomerName?.trim() || buyerName;
       const payload = {
         amount: numericAmount,
         billItemIdentifier: selectedBillItemIdentifier ?? undefined,

@@ -2,6 +2,7 @@ import { Stack } from 'expo-router';
 import { View } from 'react-native';
 import { PurchaseSuccess } from '@/components/utilities/PurchaseSuccess';
 import type Colors from '@/constants/Colors';
+import { useVtuVoucherPinBackfill } from '@/hooks/use-vtu-voucher-pin-backfill';
 import { utilityPurchaseStyles as styles } from './utility-purchase.styles';
 import type {
   UtilityPurchaseResult,
@@ -35,6 +36,13 @@ export function UtilityPurchaseSuccessView({
   type,
   bottomPadding,
 }: UtilityPurchaseSuccessViewProps) {
+  const backfilledVoucherPin = useVtuVoucherPinBackfill({
+    enabled: data.status === 'successful' && !data.voucherPin,
+    reference: data.reference,
+    utilityType: type,
+  });
+  const voucherPin = data.voucherPin || backfilledVoucherPin;
+
   return (
     <View
       style={[
@@ -56,7 +64,7 @@ export function UtilityPurchaseSuccessView({
         isAuthenticated={isAuthenticated}
         onCreateAccount={onCreateAccount}
         status={data.status}
-        voucherPin={data.voucherPin ?? null}
+        voucherPin={voucherPin ?? null}
       />
     </View>
   );

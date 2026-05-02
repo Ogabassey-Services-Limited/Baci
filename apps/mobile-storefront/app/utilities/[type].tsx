@@ -63,6 +63,7 @@ const UTILITY_ROUTE_PARAM_KEYS = [
   'repeatBillerName',
   'repeatBillItemIdentifier',
   'repeatCustomerIdentifier',
+  'repeatCustomerName',
   'repeatDataPlanCode',
   'repeatNetworkProvider',
   'repeatPhoneNumber',
@@ -303,6 +304,7 @@ export default function UtilityPurchaseScreen() {
             initialCustomerIdentifier={
               quickRepeat.repeatDefaults.customerIdentifier
             }
+            initialCustomerName={quickRepeat.repeatDefaults.customerName}
             isRepeatPaymentReady={quickRepeat.isRepeatPaymentReady}
             type={currentType}
             onSuccess={setSuccessData}

@@ -241,4 +241,46 @@ describe('preparePendingVtuTransaction', () => {
       percentResult.effectiveMerchantEarning
     );
   });
+
+  it('persists customerName from the input as the row customer_name', async () => {
+    const { insert, supabase } = createMockSupabase();
+
+    await preparePendingVtuTransaction({
+      supabase,
+      user: {
+        id: 'user-1',
+        email: 'customer@example.com',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['user'],
+      input: {
+        merchantSlug: 'ogabassey',
+        type: 'electricity',
+        amount: 2000,
+        billerName: 'EKEDC NG',
+        billItemIdentifier: 'KUD-ELE-EKED-001',
+        customerIdentifier: '43901766923',
+        customerName: 'JANE METER-OWNER',
+        source: 'checkout',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['input'],
+      source: 'checkout',
+      requireCustomer: true,
+    });
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({ customer_name: 'JANE METER-OWNER' })
+    );
+  });
+
+  it('falls back to null customer_name when input has none', async () => {
+    const { insert, supabase } = createMockSupabase();
+
+    await prepareAirtime(supabase);
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({ customer_name: null })
+    );
+  });
 });

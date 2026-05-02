@@ -32,6 +32,7 @@ export function useQuickRepeat({
   repeatBillerName,
   repeatBillItemIdentifier,
   repeatCustomerIdentifier,
+  repeatCustomerName,
   repeatDataPlanCode,
   repeatNetworkProvider,
   repeatPhoneNumber,
@@ -39,8 +40,8 @@ export function useQuickRepeat({
   routeType,
   title,
 }: UseQuickRepeatInput) {
-  const [repeatDefaults, setRepeatDefaults] =
-    useState<UtilityRepeatDefaults>(() =>
+  const [repeatDefaults, setRepeatDefaults] = useState<UtilityRepeatDefaults>(
+    () =>
       routeType && currentType === routeType
         ? getRouteRepeatDefaults(
             buildRouteRepeatParams({
@@ -48,6 +49,7 @@ export function useQuickRepeat({
               repeatBillerName,
               repeatBillItemIdentifier,
               repeatCustomerIdentifier,
+              repeatCustomerName,
               repeatDataPlanCode,
               repeatNetworkProvider,
               repeatPhoneNumber,
@@ -55,7 +57,7 @@ export function useQuickRepeat({
             })
           )
         : {}
-    );
+  );
   const [repeatRevision, setRepeatRevision] = useState(0);
   const [isQuickRepeatDismissed, setIsQuickRepeatDismissed] = useState(false);
   const didInitializeRef = useRef(false);
@@ -79,6 +81,7 @@ export function useQuickRepeat({
               repeatBillerName,
               repeatBillItemIdentifier,
               repeatCustomerIdentifier,
+              repeatCustomerName,
               repeatDataPlanCode,
               repeatNetworkProvider,
               repeatPhoneNumber,
@@ -96,6 +99,7 @@ export function useQuickRepeat({
     repeatBillerName,
     repeatBillItemIdentifier,
     repeatCustomerIdentifier,
+    repeatCustomerName,
     repeatDataPlanCode,
     repeatNetworkProvider,
     repeatPhoneNumber,

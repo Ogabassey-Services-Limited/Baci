@@ -61,6 +61,7 @@ export function BillForm(props: BillFormProps) {
               handleVerify={form.handleVerify}
               isBillItemSelectionComplete={form.isBillItemSelectionComplete}
               isRepeatPaymentActive={form.isRepeatPaymentActive}
+              verifiedCustomerName={form.verifiedCustomerName}
               selectedBillItemIdentifier={form.selectedBillItemIdentifier}
               selectedBillerId={form.selectedBiller.billerId}
               setCustomerId={form.updateCustomerId}

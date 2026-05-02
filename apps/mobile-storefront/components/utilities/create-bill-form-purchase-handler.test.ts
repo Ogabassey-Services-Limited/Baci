@@ -61,6 +61,7 @@ function createValidHandler(overrides = {}) {
     selectedBillItemPathLabel: 'Postpaid',
     setIsSubmitting: jest.fn(),
     type: 'power',
+    verifiedCustomerName: null,
     ...overrides,
   });
 }
@@ -87,5 +88,50 @@ describe('createBillFormPurchaseHandler', () => {
       'Payment Failed',
       'Payment failed. Please try again.'
     );
+  });
+
+  it('sends the verified meter-owner name as customerName, overriding the buyer name', async () => {
+    mockInitializeVtuCheckout.mockResolvedValueOnce({
+      authorization_url: 'https://gateway/auth',
+      gateway: 'paystack',
+      reference: 'PAY-123',
+    });
+    const handlePurchase = createValidHandler({
+      customer: {
+        first_name: 'Bassey',
+        last_name: 'John',
+        email: 'bassey@example.com',
+      },
+      verifiedCustomerName: 'JANE METER-OWNER',
+    });
+
+    await handlePurchase();
+
+    expect(mockInitializeVtuCheckout).toHaveBeenCalledTimes(1);
+    expect(mockInitializeVtuCheckout.mock.calls[0][0]).toMatchObject({
+      customerName: 'JANE METER-OWNER',
+    });
+  });
+
+  it('falls back to the buyer name when no verified meter-owner name is provided', async () => {
+    mockInitializeVtuCheckout.mockResolvedValueOnce({
+      authorization_url: 'https://gateway/auth',
+      gateway: 'paystack',
+      reference: 'PAY-456',
+    });
+    const handlePurchase = createValidHandler({
+      customer: {
+        first_name: 'Bassey',
+        last_name: 'John',
+        email: 'bassey@example.com',
+      },
+      verifiedCustomerName: null,
+    });
+
+    await handlePurchase();
+
+    expect(mockInitializeVtuCheckout.mock.calls[0][0]).toMatchObject({
+      customerName: 'Bassey John',
+    });
   });
 });
