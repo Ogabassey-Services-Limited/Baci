@@ -59,9 +59,12 @@ export function useVtuVoucherPinBackfill({
     },
     queryFn: async () => {
       fetchCountRef.current += 1;
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+
+      const { data: sessionData, error: sessionError } =
+        await supabase.auth.getSession();
+      if (sessionError || !sessionData.session) {
+        return null;
+      }
 
       const params = new URLSearchParams({
         merchantSlug: CONFIG.MERCHANT_SLUG,
@@ -71,30 +74,39 @@ export function useVtuVoucherPinBackfill({
         params.set('type', apiType);
       }
 
-      const response = await fetchWithTimeout(
-        `${EXPO_PUBLIC_API_URL}/api/vtu/history?${params.toString()}`,
-        {
-          method: 'GET',
-          timeout: SHORT_TIMEOUT,
-          headers: {
-            'Content-Type': 'application/json',
-            ...(session?.access_token && {
-              Authorization: `Bearer ${session.access_token}`,
-            }),
-          },
+      let response: Response;
+      let body: unknown;
+      try {
+        response = await fetchWithTimeout(
+          `${EXPO_PUBLIC_API_URL}/api/vtu/history?${params.toString()}`,
+          {
+            method: 'GET',
+            timeout: SHORT_TIMEOUT,
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${sessionData.session.access_token}`,
+            },
+          }
+        );
+        if (!response.ok) {
+          // Throw so React Query sets status='error', halting refetchInterval
+          // immediately instead of wasting attempts on a non-retriable error.
+          throw new Error(`VTU history fetch failed: ${response.status}`);
         }
-      );
-      if (!response.ok) {
-        // Throw so React Query sets status='error', which halts refetchInterval
-        // immediately instead of wasting remaining poll attempts on a broken
-        // auth or bad-request error that won't recover without user action.
-        throw new Error(`VTU history fetch failed: ${response.status}`);
+        body = await response.json();
+      } catch (error) {
+        // Re-throw HTTP errors; wrap network/timeout/parse failures so the
+        // error state is set and polling stops.
+        throw error instanceof Error
+          ? error
+          : new Error('VTU history fetch failed');
       }
 
-      const data = await response.json();
-      const parsed = VtuHistoryResponseSchema.safeParse(data);
+      const parsed = VtuHistoryResponseSchema.safeParse(body);
       if (!parsed.success) {
-        return null;
+        // Broken contract — throw so polling halts instead of burning remaining
+        // attempts returning null that React Query treats as successful empty data.
+        throw new Error('VTU history response schema mismatch');
       }
 
       const match = parsed.data.transactions.find(
