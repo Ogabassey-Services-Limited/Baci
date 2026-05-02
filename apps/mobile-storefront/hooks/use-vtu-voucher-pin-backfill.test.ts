@@ -5,17 +5,18 @@ import React from 'react';
 import { useVtuVoucherPinBackfill, POLL_INTERVAL_MS, MAX_POLL_ATTEMPTS } from './use-vtu-voucher-pin-backfill';
 
 const mockGetSession = jest.fn<() => Promise<{ data: { session: null | { access_token: string } } }>>();
-const mockFetchWithTimeout = jest.fn<() => Promise<Response>>();
+const mockFetchWithTimeout = jest.fn<(url: string, options: RequestInit) => Promise<Response>>();
 const mockUseAuthStore = jest.fn<() => string | null>();
 
 jest.mock('@/lib/supabase', () => ({
   supabase: {
-    auth: { getSession: (...args: unknown[]) => mockGetSession(...args) },
+    auth: { getSession: () => mockGetSession() },
   },
 }));
 
 jest.mock('@/lib/fetch-with-timeout', () => ({
-  fetchWithTimeout: (...args: unknown[]) => mockFetchWithTimeout(...args),
+  fetchWithTimeout: (url: string, options: RequestInit) =>
+    mockFetchWithTimeout(url, options),
   SHORT_TIMEOUT: 5000,
 }));
 
