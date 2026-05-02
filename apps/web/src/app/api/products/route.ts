@@ -596,7 +596,8 @@ export async function POST(request: NextRequest) {
         category: body.category,
         color: (variantWriteProjections.color ?? body.color?.trim()) || null,
       })
-      .select()
+      // PERFORMANCE: Use explicit column selection instead of .select() to prevent overfetching full product rows on insertion, as only the ID is needed below
+      .select('id')
       .single();
 
     if (productError) {
