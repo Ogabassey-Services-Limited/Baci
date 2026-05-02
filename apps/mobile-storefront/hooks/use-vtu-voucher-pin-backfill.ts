@@ -49,7 +49,7 @@ export function useVtuVoucherPinBackfill({
     gcTime: 0,
     retry: 0,
     refetchInterval: (q) => {
-      if (q.state.data) {
+      if (q.state.data || q.state.status === 'error') {
         return false;
       }
       if (fetchCountRef.current >= MAX_POLL_ATTEMPTS) {
@@ -85,7 +85,10 @@ export function useVtuVoucherPinBackfill({
         }
       );
       if (!response.ok) {
-        return null;
+        // Throw so React Query sets status='error', which halts refetchInterval
+        // immediately instead of wasting remaining poll attempts on a broken
+        // auth or bad-request error that won't recover without user action.
+        throw new Error(`VTU history fetch failed: ${response.status}`);
       }
 
       const data = await response.json();
