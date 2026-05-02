@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useRef } from 'react';
 import type { ValidUtilityType } from '@/app/utilities/utility-purchase.types';
 import { EXPO_PUBLIC_API_URL } from '@/env';
 import { CONFIG } from '@/lib/config';
@@ -37,6 +38,9 @@ export function useVtuVoucherPinBackfill({
   const userId = useAuthStore((state) => state.user?.id ?? null);
   const apiType = UTILITY_TYPE_TO_API_TYPE[utilityType] ?? null;
   const queryEnabled = Boolean(enabled && reference && apiType && userId);
+  // dataUpdateCount only increments on referential change; null === null keeps
+  // it at 1 forever. Track fetch attempts independently so the cap is reliable.
+  const fetchCountRef = useRef(0);
 
   const query = useQuery<string | null>({
     queryKey: ['vtu', 'voucher-pin-backfill', userId, apiType, reference],
@@ -48,12 +52,13 @@ export function useVtuVoucherPinBackfill({
       if (q.state.data) {
         return false;
       }
-      if (q.state.dataUpdateCount >= MAX_POLL_ATTEMPTS) {
+      if (fetchCountRef.current >= MAX_POLL_ATTEMPTS) {
         return false;
       }
       return POLL_INTERVAL_MS;
     },
     queryFn: async () => {
+      fetchCountRef.current += 1;
       const {
         data: { session },
       } = await supabase.auth.getSession();
