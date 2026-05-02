@@ -384,6 +384,8 @@ export const BRAND = {
   onSecondary: palette.black,
   primaryLight: palette.red[100],
   primaryDark: palette.red[700],
+  // 6% alpha tint of primary — safe on any background (light & dark mode)
+  primaryAlpha06: 'rgba(220, 38, 38, 0.06)',
   secondary: palette.amber[500],
   tagline: 'Shop Phones & Tech',
 };

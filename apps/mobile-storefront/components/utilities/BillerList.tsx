@@ -123,7 +123,7 @@ export function BillerList({
           styles.selectedCard,
           {
             backgroundColor: hasSelectedBiller
-              ? `${BRAND.primary}10`
+              ? BRAND.primaryAlpha06
               : colors.card,
             borderColor: hasSelectedBiller ? BRAND.primary : colors.border,
           },

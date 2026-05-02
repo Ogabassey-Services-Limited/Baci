@@ -56,6 +56,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  jest.runOnlyPendingTimers();
   jest.useRealTimers();
 });
 
@@ -73,19 +74,37 @@ describe('useVtuVoucherPinBackfill', () => {
     expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1);
   });
 
-  it('polls up to MAX_POLL_ATTEMPTS then returns null', async () => {
+  it('polls up to MAX_POLL_ATTEMPTS then stops', async () => {
     mockFetchWithTimeout.mockResolvedValue(
       makeResponse({ transactions: [{ request_reference: 'REF-001', voucher_pin: null }] })
     );
 
     const { result } = renderHook(() => useVtuVoucherPinBackfill(BASE_INPUT), { wrapper });
 
-    for (let i = 0; i < MAX_POLL_ATTEMPTS; i++) {
+    // Drain the initial fetch then advance one interval per remaining attempt
+    await waitFor(() => expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1));
+    for (let i = 1; i < MAX_POLL_ATTEMPTS; i++) {
       await jest.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+      await waitFor(() =>
+        expect(mockFetchWithTimeout).toHaveBeenCalledTimes(i + 1)
+      );
     }
 
-    await waitFor(() => expect(result.current).toBeNull());
+    // Advance one more interval — the hook must NOT fire an extra request
+    await jest.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+    await jest.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
     expect(mockFetchWithTimeout).toHaveBeenCalledTimes(MAX_POLL_ATTEMPTS);
+    expect(result.current).toBeNull();
+  });
+
+  it('returns null and does not fetch when enabled is false', () => {
+    const { result } = renderHook(
+      () => useVtuVoucherPinBackfill({ ...BASE_INPUT, enabled: false }),
+      { wrapper }
+    );
+
+    expect(result.current).toBeNull();
+    expect(mockFetchWithTimeout).not.toHaveBeenCalled();
   });
 
   it('returns null immediately when apiType is null (unsupported utility type)', () => {
@@ -112,8 +131,10 @@ describe('useVtuVoucherPinBackfill', () => {
 
     const { result } = renderHook(() => useVtuVoucherPinBackfill(BASE_INPUT), { wrapper });
 
-    await waitFor(() => expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1));
-    expect(result.current).toBeNull();
+    await waitFor(() => {
+      expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1);
+      expect(result.current).toBeNull();
+    });
   });
 
   it('returns null when the response body does not match the schema', async () => {
@@ -121,7 +142,9 @@ describe('useVtuVoucherPinBackfill', () => {
 
     const { result } = renderHook(() => useVtuVoucherPinBackfill(BASE_INPUT), { wrapper });
 
-    await waitFor(() => expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1));
-    expect(result.current).toBeNull();
+    await waitFor(() => {
+      expect(mockFetchWithTimeout).toHaveBeenCalledTimes(1);
+      expect(result.current).toBeNull();
+    });
   });
 });
