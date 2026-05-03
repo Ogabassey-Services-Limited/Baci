@@ -70,18 +70,22 @@ export function RecordPaymentSheet({
       <Text style={[styles.label, { color: colors.textSecondary }]}>
         Amount Paid
       </Text>
-      <TextInput
-        accessibilityLabel="Payment amount"
-        keyboardType="numeric"
-        onChangeText={onAmountChange}
-        placeholder={`${currencySymbol}0`}
-        placeholderTextColor={colors.textSecondary}
-        style={[
-          styles.input,
-          { borderColor: colors.border, color: colors.text },
-        ]}
-        value={paymentAmount}
-      />
+      <View style={[styles.inputRow, { borderColor: colors.border }]}>
+        <Text style={[styles.currencyPrefix, { color: colors.textSecondary }]}>
+          {currencySymbol}
+        </Text>
+        <TextInput
+          accessibilityLabel="Payment amount"
+          keyboardType="numeric"
+          onChangeText={onAmountChange}
+          placeholder="0"
+          placeholderTextColor={colors.textSecondary}
+          style={[styles.inputInner, { color: colors.text }]}
+          value={
+            paymentAmount ? Number(paymentAmount).toLocaleString('en-NG') : ''
+          }
+        />
+      </View>
 
       <Text style={[styles.label, { color: colors.textSecondary }]}>
         Payment Method
@@ -182,6 +186,23 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.lg,
     marginBottom: SPACING.lg,
     paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+  },
+  inputRow: {
+    alignItems: 'center',
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    flexDirection: 'row',
+    marginBottom: SPACING.lg,
+    paddingHorizontal: SPACING.md,
+  },
+  currencyPrefix: {
+    fontSize: TYPOGRAPHY.size.lg,
+    paddingRight: SPACING.xs,
+  },
+  inputInner: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.size.lg,
     paddingVertical: SPACING.md,
   },
   methodRow: {
