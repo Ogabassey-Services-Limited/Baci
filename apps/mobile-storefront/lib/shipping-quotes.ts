@@ -47,7 +47,8 @@ function buildShippingQuoteItemKey(item: CartItem): string {
 export function buildShippingQuoteContextKey(
   state: string,
   city: string,
-  items: CartItem[]
+  items: CartItem[],
+  address = ''
 ): string {
   if (!state.trim() || !city.trim() || items.length === 0) {
     return '';
@@ -55,7 +56,7 @@ export function buildShippingQuoteContextKey(
 
   const itemKey = items.map(buildShippingQuoteItemKey).sort().join('|');
 
-  return `${normalizeFragment(state)}::${normalizeFragment(city)}::${itemKey}`;
+  return `${normalizeFragment(state)}::${normalizeFragment(city)}::${normalizeFragment(address)}::${itemKey}`;
 }
 
 export function getPreferredShippingQuoteId(

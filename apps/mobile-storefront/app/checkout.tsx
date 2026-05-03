@@ -45,7 +45,24 @@ import {
   SafeAreaView,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import {
+  type CheckoutStep,
+  CheckoutStepper,
+} from '@/components/checkout/CheckoutStepper';
 import { CryptoSelectionModal } from '@/components/checkout/CryptoSelectionModal';
+import { DeliveryMethodCard } from '@/components/checkout/DeliveryMethodCard';
+import { DeliveryNotesCard } from '@/components/checkout/DeliveryNotesCard';
+import { ShippingQuotesCard } from '@/components/checkout/ShippingQuotesCard';
+import {
+  PICKUP_STATION_ADDRESS_LINES,
+  PICKUP_STATION_CITY,
+  PICKUP_STATION_STATE,
+  PickupStationCard,
+} from '@/components/checkout/PickupStationCard';
+import type {
+  DeliveryMethod,
+  ShippingQuote,
+} from '@/components/checkout/types';
 import {
   PaymentMethodSelector,
   type PaymentMethodType,
@@ -98,8 +115,6 @@ import { scheduleLocalNotification } from '@/services/push-notifications';
 import type { Customer } from '@/stores/auth-store';
 import { type CartItem, formatPrice, useCartStore } from '@/stores/cart-store';
 
-type CheckoutStep = 'address' | 'payment' | 'review';
-type DeliveryMethod = 'door' | 'airport' | 'pickup_station';
 
 type ThemeColors = (typeof Colors)[keyof typeof Colors];
 
@@ -110,18 +125,6 @@ type TextInputAutoComplete = React.ComponentProps<
 const shippingAddressResolver = zodResolver(
   ShippingAddressSchema as unknown as Parameters<typeof zodResolver>[0]
 ) as unknown as Resolver<ShippingAddressInput>;
-
-interface ShippingQuote {
-  id: string | number;
-  displayName: string;
-  price: number;
-  carrierName?: string;
-  provider?: string;
-  estimatedDays?: number;
-  deliveryRange?: string;
-  serviceTier?: string;
-  isStationPickup?: boolean;
-}
 
 interface QuoteResponse {
   quotes: {
@@ -135,13 +138,6 @@ interface ShippingLocation {
 }
 
 const AIRPORT_DELIVERY_FEE = 25000;
-const PICKUP_STATION_ADDRESS_LINES = [
-  'Taiyelolu Towers',
-  'First Floor',
-  '2 Olaide Tomori Street Ikeja Lagos',
-] as const;
-const PICKUP_STATION_CITY = 'Ikeja';
-const PICKUP_STATION_STATE = 'Lagos';
 
 interface PendingCryptoOrder {
   order: OrderResponse['order'];
@@ -174,12 +170,6 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
   payforme: 'Pay for Me',
 };
 
-const STEP_PILL_LABELS: Record<CheckoutStep, string> = {
-  address: 'Delivery',
-  payment: 'Payment',
-  review: 'Review',
-};
-
 function getPaymentTabForMethod(method: PaymentMethodType): PaymentTab {
   if (method === 'credpal' || method === 'credit_direct') {
     return 'installments';
@@ -188,6 +178,16 @@ function getPaymentTabForMethod(method: PaymentMethodType): PaymentTab {
     return 'pay_later';
   }
   return 'full';
+}
+
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
+function getAddressLabelIcon(label: string | null | undefined): IoniconName {
+  const normalized = (label ?? '').toLowerCase().trim();
+  if (normalized === 'home') return 'home-outline';
+  if (normalized === 'work' || normalized === 'office') return 'business-outline';
+  if (normalized === 'school' || normalized === 'university') return 'school-outline';
+  return 'location-outline';
 }
 
 function getDeliveryMethodFee(
@@ -541,6 +541,8 @@ export default function CheckoutScreen() {
   const colors = Colors[colorScheme ?? 'light'];
   const isDark = (colorScheme ?? 'light') === 'dark';
   const insets = useSafeAreaInsets();
+  const addressScrollRef = React.useRef<ScrollView>(null);
+  const addressScrollOffsetRef = React.useRef(0);
 
   const items = useCartStore((state) => state.items);
   const subtotal = useCartStore((state) => state.subtotal());
@@ -661,7 +663,8 @@ export default function CheckoutScreen() {
   const currentShippingQuoteContextKey = buildShippingQuoteContextKey(
     watchedState,
     watchedCity,
-    items
+    items,
+    watchedAddress
   );
 
   const hasTrackedStart = useRef(false);
@@ -996,6 +999,24 @@ export default function CheckoutScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={`Use ${savedAddress.label || 'saved'} address`}
               >
+                <View
+                  style={[
+                    styles.savedAddressIconWrap,
+                    {
+                      backgroundColor: isSelected
+                        ? `${BRAND.primary}18`
+                        : isDark
+                          ? 'rgba(255,255,255,0.07)'
+                          : palette.gray[100],
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name={getAddressLabelIcon(savedAddress.label)}
+                    size={18}
+                    color={isSelected ? BRAND.primary : colors.textSecondary}
+                  />
+                </View>
                 <View style={styles.savedAddressOptionBody}>
                   <View style={styles.savedAddressOptionTitleRow}>
                     <Text
@@ -1004,7 +1025,7 @@ export default function CheckoutScreen() {
                         { color: colors.text },
                       ]}
                     >
-                      {savedAddress.label || 'Saved Address'}
+                      {savedAddress.full_name}
                     </Text>
                     {savedAddress.is_default && (
                       <View
@@ -1030,16 +1051,7 @@ export default function CheckoutScreen() {
                       { color: colors.textSecondary },
                     ]}
                   >
-                    {savedAddress.full_name}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.savedAddressMeta,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {savedAddress.address}, {savedAddress.city},{' '}
-                    {savedAddress.state}
+                    {savedAddress.address}
                   </Text>
                 </View>
                 <Ionicons
@@ -1376,6 +1388,31 @@ export default function CheckoutScreen() {
   );
   const deliveryFee = getDeliveryMethodFee(deliveryMethod, selectedQuote);
 
+  const handleRetryShippingQuotes = () => {
+    if (!watchedState || !watchedCity) return;
+    const shouldResetSelection =
+      resolvedShippingQuoteContextKey !== currentShippingQuoteContextKey;
+    fetchShippingQuotes({
+      apiUrl: API_BASE_URL,
+      state: watchedState,
+      city: watchedCity,
+      items,
+      customer,
+      watchedFirstName,
+      watchedLastName,
+      watchedPhone,
+      watchedAddress,
+      watchedEmail,
+      setIsLoadingQuotes,
+      setSelectedQuoteId,
+      setResolvedShippingQuoteContextKey,
+      setShippingQuotes,
+      previousSelectedQuoteId: shouldResetSelection ? null : selectedQuoteId,
+      quoteContextKey: currentShippingQuoteContextKey,
+      shouldResetSelection,
+    });
+  };
+
   // Calculate total assurance fee from cart items (2026 Best Practice: Single Source of Truth)
   const assuranceFee = items.reduce((sum, item) => {
     if (item.hasAssurance) {
@@ -1463,7 +1500,16 @@ export default function CheckoutScreen() {
     Keyboard.dismiss();
 
     if (step === 'address') {
-      handleSubmit(onAddressSubmit, handleAddressValidationError)();
+      if (deliveryMethod === 'pickup_station') {
+        setValue('address', PICKUP_STATION_ADDRESS_LINES.join(', '), {
+          shouldValidate: true,
+        });
+        setValue('city', PICKUP_STATION_CITY, { shouldValidate: true });
+        setValue('state', PICKUP_STATION_STATE, { shouldValidate: true });
+        handleSubmit(onAddressSubmit, handleAddressValidationError)();
+      } else {
+        handleSubmit(onAddressSubmit, handleAddressValidationError)();
+      }
     } else if (step === 'payment') {
       if (!selectedPayment) {
         Alert.alert(
@@ -2079,144 +2125,9 @@ export default function CheckoutScreen() {
     );
   });
 
-  const renderStepIndicator = () => {
-    const steps: CheckoutStep[] = ['address', 'payment', 'review'];
-    const currentIndex = steps.indexOf(step);
-
-    return (
-      <View style={styles.stepIndicator}>
-        <View style={styles.stepHeaderRow}>
-          <Text style={[styles.stepTitle, { color: colors.text }]}>
-            Checkout
-          </Text>
-          <View
-            style={[
-              styles.stepBadge,
-              {
-                backgroundColor: isDark
-                  ? 'rgba(217, 59, 48, 0.16)'
-                  : palette.red[50],
-              },
-            ]}
-          >
-            <Ionicons name="checkmark" size={12} color={BRAND.primary} />
-            <Text style={[styles.stepBadgeText, { color: BRAND.primary }]}>
-              {items.length} item{items.length === 1 ? '' : 's'}
-            </Text>
-          </View>
-        </View>
-        <Text style={[styles.stepSubtitle, { color: colors.textSecondary }]}>
-          Step {currentIndex + 1} of 3
-        </Text>
-        <View
-          style={[
-            styles.stepProgress,
-            {
-              backgroundColor: isDark
-                ? 'rgba(148, 163, 184, 0.16)'
-                : palette.gray[200],
-            },
-          ]}
-        >
-          <View
-            style={[
-              styles.stepProgressActive,
-              { width: `${((currentIndex + 1) / 3) * 100}%` },
-            ]}
-          />
-        </View>
-        <View style={styles.stepPills}>
-          {steps.map((s, index) => {
-            const isActive = s === step;
-            const isCompleted = index < currentIndex;
-            const isClickable = index <= currentIndex;
-            return (
-              <Pressable
-                key={s}
-                onPress={() => {
-                  if (isClickable && s !== step) {
-                    setStep(s);
-                  }
-                }}
-                disabled={!isClickable || s === step}
-                style={[
-                  styles.stepPill,
-                  {
-                    backgroundColor: isActive
-                      ? isDark
-                        ? 'rgba(217, 59, 48, 0.16)'
-                        : palette.red[50]
-                      : colors.card,
-                    borderColor:
-                      isActive || isCompleted
-                        ? BRAND.primary
-                        : isDark
-                          ? 'rgba(255, 255, 255, 0.08)'
-                          : colors.border,
-                    opacity: isClickable ? 1 : 0.72,
-                  },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={`Go to ${STEP_PILL_LABELS[s]} step`}
-                accessibilityState={{ disabled: !isClickable || s === step }}
-              >
-                <View
-                  style={[
-                    styles.stepPillDot,
-                    {
-                      backgroundColor:
-                        isActive || isCompleted
-                          ? BRAND.primary
-                          : isDark
-                            ? 'rgba(148, 163, 184, 0.22)'
-                            : palette.gray[200],
-                    },
-                  ]}
-                >
-                  {isCompleted ? (
-                    <Ionicons name="checkmark" size={12} color="#FFFFFF" />
-                  ) : (
-                    <Text
-                      style={[
-                        styles.stepPillNumber,
-                        {
-                          color:
-                            isActive || isCompleted
-                              ? '#FFFFFF'
-                              : colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      {index + 1}
-                    </Text>
-                  )}
-                </View>
-                <Text
-                  style={[
-                    styles.stepPillText,
-                    {
-                      color: isActive
-                        ? isDark
-                          ? '#FDECEA'
-                          : BRAND.primary
-                        : isCompleted
-                          ? colors.text
-                          : colors.textSecondary,
-                    },
-                  ]}
-                >
-                  {STEP_PILL_LABELS[s]}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </View>
-    );
-  };
-
   const renderAddressForm = () => (
     <ScrollView
+      ref={addressScrollRef}
       style={styles.formContainer}
       contentContainerStyle={[
         styles.formContent,
@@ -2225,6 +2136,10 @@ export default function CheckoutScreen() {
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="on-drag"
+      onScroll={(e) => {
+        addressScrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+      }}
+      scrollEventThrottle={16}
     >
       <View style={styles.sectionHeader}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -2495,6 +2410,23 @@ export default function CheckoutScreen() {
         )}
       </View>
 
+      <DeliveryMethodCard
+        colors={colors}
+        isDark={isDark}
+        selectedMethod={deliveryMethod}
+        onSelectMethod={setDeliveryMethod}
+        doorSubtitle={
+          selectedQuote != null
+            ? getDeliveryMethodSummary('door', selectedQuote)
+            : 'Rates loaded after you enter your address'
+        }
+        doorPrice={
+          selectedQuote != null ? formatPrice(selectedQuote.price) : '—'
+        }
+        airportFee={AIRPORT_DELIVERY_FEE}
+      />
+
+      {deliveryMethod !== 'pickup_station' && (
       <View
         style={[
           styles.card,
@@ -2651,6 +2583,8 @@ export default function CheckoutScreen() {
                     <AddressAutocomplete
                       value={value}
                       onChangeText={onChange}
+                      scrollRef={addressScrollRef}
+                      scrollOffsetRef={addressScrollOffsetRef}
                       onSelect={(place) => {
                         onChange(place.formattedAddress || '');
                         const normalizedState = place.state
@@ -2821,476 +2755,35 @@ export default function CheckoutScreen() {
           </View>
         )}
       </View>
+      )}
 
-      <View
-        style={[
-          styles.card,
-          {
-            backgroundColor: colors.card,
-            borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-          },
-        ]}
-      >
-        <View style={styles.cardHeader}>
-          <Ionicons name="cube-outline" size={16} color={BRAND.primary} />
-          <Text style={[styles.cardTitle, { color: colors.text }]}>
-            Delivery Methods
-          </Text>
-        </View>
-        <View style={styles.cardBody}>
-          <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-            Choose how you want to receive this order.
-          </Text>
+      {deliveryMethod === 'pickup_station' && (
+        <PickupStationCard colors={colors} isDark={isDark} />
+      )}
 
-          <View style={styles.deliveryMethodList}>
-            {(
-              [
-                {
-                  id: 'door',
-                  title: 'Door delivery',
-                  subtitle:
-                    selectedQuote != null
-                      ? getDeliveryMethodSummary('door', selectedQuote)
-                      : 'Use our current Topship delivery options',
-                  price:
-                    selectedQuote != null
-                      ? formatPrice(selectedQuote.price)
-                      : 'Select option',
-                },
-                {
-                  id: 'airport',
-                  title: 'Airport Delivery (Outside Lagos)',
-                  subtitle: 'Est Delivery within 24-48 working hours',
-                  price: formatPrice(AIRPORT_DELIVERY_FEE),
-                },
-                {
-                  id: 'pickup_station',
-                  title: 'Pick Up Station',
-                  subtitle: PICKUP_STATION_ADDRESS_LINES.join(', '),
-                  price: 'Free',
-                },
-              ] as const
-            ).map((option) => {
-              const isSelected = deliveryMethod === option.id;
+      {deliveryMethod === 'door' && watchedState && watchedCity && (
+        <ShippingQuotesCard
+          colors={colors}
+          isDark={isDark}
+          isLoadingQuotes={isLoadingQuotes}
+          shippingQuotes={shippingQuotes}
+          selectedQuoteId={selectedQuoteId}
+          onSelectQuote={setSelectedQuoteId}
+          onRetryQuotes={handleRetryShippingQuotes}
+        />
+      )}
 
-              return (
-                <Pressable
-                  key={option.id}
-                  onPress={() => setDeliveryMethod(option.id)}
-                  style={[
-                    styles.deliveryMethodCard,
-                    {
-                      borderColor: isSelected ? BRAND.primary : colors.border,
-                      backgroundColor: isSelected
-                        ? isDark
-                          ? 'rgba(217, 59, 48, 0.14)'
-                          : palette.red[50]
-                        : colors.background,
-                    },
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Select ${option.title}`}
-                >
-                  <View style={styles.deliveryMethodTopRow}>
-                    <View style={styles.deliveryMethodLabelWrap}>
-                      <Text
-                        style={[
-                          styles.deliveryMethodTitle,
-                          {
-                            color: isSelected ? BRAND.primary : colors.text,
-                          },
-                        ]}
-                      >
-                        {option.title}
-                      </Text>
-                      <Text
-                        style={[
-                          styles.deliveryMethodSubtitle,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        {option.subtitle}
-                      </Text>
-                    </View>
-                    <View style={styles.deliveryMethodMeta}>
-                      <Text
-                        style={[
-                          styles.deliveryMethodPrice,
-                          {
-                            color: isSelected ? BRAND.primary : colors.text,
-                          },
-                        ]}
-                      >
-                        {option.price}
-                      </Text>
-                      <Ionicons
-                        name={
-                          isSelected ? 'checkmark-circle' : 'ellipse-outline'
-                        }
-                        size={20}
-                        color={
-                          isSelected ? BRAND.primary : colors.textSecondary
-                        }
-                      />
-                    </View>
-                  </View>
-
-                  {isSelected && option.id === 'door' ? (
-                    <View style={styles.deliveryMethodExpanded}>
-                      {!watchedState || !watchedCity ? (
-                        <Text
-                          style={[
-                            styles.helperText,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          Select your state and city to load Topship delivery
-                          options.
-                        </Text>
-                      ) : isLoadingQuotes ? (
-                        <View style={styles.quoteLoadingRow}>
-                          <ActivityIndicator
-                            size="small"
-                            color={BRAND.primary}
-                          />
-                          <Text
-                            style={[
-                              styles.helperText,
-                              { color: colors.textSecondary },
-                            ]}
-                          >
-                            Fetching delivery options...
-                          </Text>
-                        </View>
-                      ) : shippingQuotes.length === 0 ? (
-                        <Pressable
-                          onPress={() => {
-                            if (watchedState && watchedCity) {
-                              const shouldResetSelection =
-                                resolvedShippingQuoteContextKey !==
-                                currentShippingQuoteContextKey;
-                              fetchShippingQuotes({
-                                apiUrl: API_BASE_URL,
-                                state: watchedState,
-                                city: watchedCity,
-                                items,
-                                customer,
-                                watchedFirstName,
-                                watchedLastName,
-                                watchedPhone,
-                                watchedAddress,
-                                watchedEmail,
-                                setIsLoadingQuotes,
-                                setSelectedQuoteId,
-                                setResolvedShippingQuoteContextKey,
-                                setShippingQuotes,
-                                previousSelectedQuoteId: shouldResetSelection
-                                  ? null
-                                  : selectedQuoteId,
-                                quoteContextKey: currentShippingQuoteContextKey,
-                                shouldResetSelection,
-                              });
-                            }
-                          }}
-                          style={[
-                            styles.retryCard,
-                            {
-                              borderColor: isDark
-                                ? 'rgba(245, 158, 11, 0.4)'
-                                : '#FCD34D',
-                              backgroundColor: isDark
-                                ? 'rgba(245, 158, 11, 0.08)'
-                                : '#FFFBEB',
-                            },
-                          ]}
-                          accessibilityRole="button"
-                          accessibilityLabel="Reload delivery rates"
-                        >
-                          <View
-                            style={[
-                              styles.retryIconWrap,
-                              {
-                                backgroundColor: isDark
-                                  ? 'rgba(245, 158, 11, 0.14)'
-                                  : '#FEF3C7',
-                              },
-                            ]}
-                          >
-                            <Ionicons
-                              name="car-outline"
-                              size={22}
-                              color={isDark ? colors.warning : '#B45309'}
-                            />
-                          </View>
-                          <View style={styles.retryTextWrap}>
-                            <Text
-                              style={[
-                                styles.retryTitle,
-                                { color: isDark ? colors.text : '#111827' },
-                              ]}
-                            >
-                              Oops! Rates took a detour
-                            </Text>
-                            <Text
-                              style={[
-                                styles.retrySubtitle,
-                                {
-                                  color: isDark
-                                    ? colors.textSecondary
-                                    : '#B45309',
-                                },
-                              ]}
-                            >
-                              Our delivery partners are a bit slow today. Tap
-                              here to try again.
-                            </Text>
-                          </View>
-                          <View
-                            style={[
-                              styles.retryBadge,
-                              {
-                                backgroundColor: isDark
-                                  ? 'rgba(245, 158, 11, 0.14)'
-                                  : '#FEF3C7',
-                              },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.retryBadgeText,
-                                {
-                                  color: isDark ? colors.warning : '#B45309',
-                                },
-                              ]}
-                            >
-                              Refresh Rates
-                            </Text>
-                          </View>
-                        </Pressable>
-                      ) : (
-                        shippingQuotes.map((quote) => {
-                          const isSelectedQuote =
-                            String(quote.id) === String(selectedQuoteId);
-                          const eta =
-                            quote.deliveryRange ||
-                            (quote.estimatedDays
-                              ? `${quote.estimatedDays} days`
-                              : 'ETA unavailable');
-
-                          const carrier =
-                            quote.carrierName || quote.provider || 'Delivery';
-
-                          return (
-                            <Pressable
-                              key={String(quote.id)}
-                              onPress={() =>
-                                setSelectedQuoteId(String(quote.id))
-                              }
-                              style={[
-                                styles.quoteRow,
-                                {
-                                  borderColor: isSelectedQuote
-                                    ? BRAND.primary
-                                    : colors.border,
-                                  backgroundColor: isSelectedQuote
-                                    ? isDark
-                                      ? 'rgba(217, 59, 48, 0.16)'
-                                      : palette.red[50]
-                                    : colors.card,
-                                },
-                              ]}
-                              accessibilityRole="button"
-                              accessibilityLabel={`Select ${quote.displayName} for ${formatPrice(quote.price)}`}
-                            >
-                              <View style={styles.quoteInfo}>
-                                <View style={styles.quoteHeader}>
-                                  <Text
-                                    style={[
-                                      styles.quoteTitle,
-                                      {
-                                        color: isSelectedQuote
-                                          ? isDark
-                                            ? '#FDECEA'
-                                            : BRAND.primary
-                                          : colors.text,
-                                      },
-                                    ]}
-                                  >
-                                    {quote.displayName}
-                                  </Text>
-                                  {carrier.includes('GIG') && (
-                                    <View style={styles.quoteBadgeDark}>
-                                      <Text style={styles.quoteBadgeText}>
-                                        GIGL
-                                      </Text>
-                                    </View>
-                                  )}
-                                  {carrier
-                                    .toLowerCase()
-                                    .includes('topship') && (
-                                    <View style={styles.quoteBadge}>
-                                      <Text style={styles.quoteBadgeText}>
-                                        Topship
-                                      </Text>
-                                    </View>
-                                  )}
-                                </View>
-                                <Text
-                                  style={[
-                                    styles.quoteMeta,
-                                    {
-                                      color: isSelectedQuote
-                                        ? isDark
-                                          ? palette.gray[200]
-                                          : '#B42318'
-                                        : colors.textSecondary,
-                                    },
-                                  ]}
-                                >
-                                  {carrier} • Est. {eta}
-                                </Text>
-                              </View>
-                              <View style={styles.quoteRight}>
-                                <Text
-                                  style={[
-                                    styles.quotePrice,
-                                    {
-                                      color: isSelectedQuote
-                                        ? isDark
-                                          ? '#FFF5F4'
-                                          : BRAND.primary
-                                        : colors.text,
-                                    },
-                                  ]}
-                                >
-                                  {formatPrice(quote.price)}
-                                </Text>
-                                <Ionicons
-                                  name={
-                                    isSelectedQuote
-                                      ? 'checkmark-circle'
-                                      : 'ellipse-outline'
-                                  }
-                                  size={20}
-                                  color={
-                                    isSelectedQuote
-                                      ? BRAND.primary
-                                      : colors.textSecondary
-                                  }
-                                />
-                              </View>
-                            </Pressable>
-                          );
-                        })
-                      )}
-                    </View>
-                  ) : null}
-
-                  {isSelected && option.id === 'airport' ? (
-                    <View
-                      style={[
-                        styles.deliveryMethodExpanded,
-                        styles.deliveryStaticInfo,
-                        {
-                          backgroundColor: isDark
-                            ? 'rgba(255, 255, 255, 0.04)'
-                            : palette.gray[50],
-                          borderColor: colors.border,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.deliveryStaticTitle,
-                          { color: colors.text },
-                        ]}
-                      >
-                        Airport Delivery
-                      </Text>
-                      <Text
-                        style={[
-                          styles.deliveryStaticText,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        Est Delivery within 24-48 working hours
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  {isSelected && option.id === 'pickup_station' ? (
-                    <View
-                      style={[
-                        styles.deliveryMethodExpanded,
-                        styles.deliveryStaticInfo,
-                        {
-                          backgroundColor: isDark
-                            ? 'rgba(255, 255, 255, 0.04)'
-                            : palette.gray[50],
-                          borderColor: colors.border,
-                        },
-                      ]}
-                    >
-                      {PICKUP_STATION_ADDRESS_LINES.map((line) => (
-                        <Text
-                          key={line}
-                          style={[
-                            styles.deliveryStaticText,
-                            {
-                              color: colors.text,
-                              fontWeight:
-                                line === PICKUP_STATION_ADDRESS_LINES[0]
-                                  ? '700'
-                                  : '500',
-                            },
-                          ]}
-                        >
-                          {line}
-                        </Text>
-                      ))}
-                    </View>
-                  ) : null}
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-      </View>
-
-      <View
-        style={[
-          styles.card,
-          {
-            backgroundColor: colors.card,
-            borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-          },
-        ]}
-      >
-        <View style={styles.cardHeader}>
-          <Ionicons
-            name="chatbubble-ellipses-outline"
-            size={16}
-            color={colors.textSecondary}
-          />
-          <Text style={[styles.cardTitle, { color: colors.text }]}>
-            Delivery Notes
-          </Text>
-        </View>
-        <View style={styles.cardBody}>
-          <Text style={[styles.label, { color: colors.textSecondary }]}>
-            Notes (Optional)
-          </Text>
-          <FormField
-            name="notes"
-            label=""
-            placeholder="Any special instructions for delivery"
-            multiline
-            control={control}
-            errors={errors}
-            colors={colors}
-          />
-        </View>
-      </View>
+      <DeliveryNotesCard colors={colors} isDark={isDark}>
+        <FormField
+          name="notes"
+          label=""
+          placeholder="Any special instructions for delivery"
+          multiline
+          control={control}
+          errors={errors}
+          colors={colors}
+        />
+      </DeliveryNotesCard>
     </ScrollView>
   );
 
@@ -3362,7 +2855,7 @@ export default function CheckoutScreen() {
         >
           <View style={styles.reviewHeader}>
             <Text style={[styles.reviewTitle, { color: colors.text }]}>
-              Delivery
+              Delivery Method
             </Text>
             <Pressable onPress={() => setStep('address')}>
               <Text style={[styles.editLink, { color: BRAND.primary }]}>
@@ -3373,24 +2866,48 @@ export default function CheckoutScreen() {
           <Text style={[styles.reviewTextStrong, { color: colors.text }]}>
             {getDeliveryMethodLabel(deliveryMethod)}
           </Text>
-          <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-            {getDeliveryMethodSummary(deliveryMethod, selectedQuote)}
-          </Text>
-          <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
+          {selectedQuote && deliveryMethod === 'door' && (
+            <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
+              {selectedQuote.displayName}
+              {(selectedQuote.deliveryRange || selectedQuote.estimatedDays)
+                ? ` • ${selectedQuote.deliveryRange ?? `${selectedQuote.estimatedDays} days`}`
+                : null}
+            </Text>
+          )}
+          {deliveryMethod === 'airport' && (
+            <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
+              Est. 24–48 working hours
+            </Text>
+          )}
+        </View>
+
+        <View
+          style={[
+            styles.reviewCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+              ...SHADOWS.sm,
+            },
+          ]}
+        >
+          <View style={styles.reviewHeader}>
+            <Text style={[styles.reviewTitle, { color: colors.text }]}>
+              Delivery Address
+            </Text>
+          </View>
+          <Text style={[styles.reviewText, { color: colors.text }]}>
             {address.firstName} {address.lastName}
-          </Text>
-          <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
-            {address.email}
           </Text>
           <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
             {address.phone}
           </Text>
           <Text style={[styles.reviewText, { color: colors.textSecondary }]}>
             {deliveryMethod === 'pickup_station'
-              ? PICKUP_STATION_ADDRESS_LINES.join(', ')
+              ? PICKUP_STATION_ADDRESS_LINES.join('\n')
               : deliveryMethod === 'airport'
                 ? `${address.city}, ${address.state}`
-                : `${address.address}, ${address.city}, ${address.state}`}
+                : address.address}
           </Text>
         </View>
 
@@ -3554,7 +3071,13 @@ export default function CheckoutScreen() {
           style={[styles.contentShell, { backgroundColor: colors.muted }]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
-          {renderStepIndicator()}
+          <CheckoutStepper
+            step={step}
+            setStep={setStep}
+            itemCount={items.length}
+            colors={colors}
+            isDark={isDark}
+          />
 
           {step === 'address' && renderAddressForm()}
           {step === 'payment' && renderPaymentOptions()}
@@ -3739,7 +3262,10 @@ export default function CheckoutScreen() {
           setCitySearch('');
         }}
       >
-        <View style={styles.pickerOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.pickerOverlay}
+        >
           <View style={[styles.pickerSheet, { backgroundColor: colors.card }]}>
             <View style={styles.pickerHeader}>
               <Text style={[styles.pickerTitle, { color: colors.text }]}>
@@ -3867,7 +3393,7 @@ export default function CheckoutScreen() {
               }
             />
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <CryptoSelectionModal
@@ -4151,80 +3677,6 @@ const styles = StyleSheet.create({
   screenHeaderSpacer: {
     width: 40,
   },
-  stepIndicator: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.md,
-    paddingBottom: SPACING.md,
-  },
-  stepHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.xs,
-  },
-  stepTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  stepBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: palette.red[50],
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: RADIUS.full,
-  },
-  stepBadgeText: {
-    fontSize: 12,
-    color: BRAND.primary,
-    fontWeight: '600',
-  },
-  stepSubtitle: {
-    fontSize: 13,
-    marginBottom: SPACING.sm,
-  },
-  stepProgress: {
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: palette.gray[200],
-    overflow: 'hidden',
-    marginBottom: SPACING.sm,
-  },
-  stepProgressActive: {
-    height: 6,
-    backgroundColor: BRAND.primary,
-  },
-  stepPills: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  stepPill: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: RADIUS.xl,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  stepPillDot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepPillNumber: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  stepPillText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
   formContainer: {
     flex: 1,
     paddingHorizontal: SPACING.md,
@@ -4411,6 +3863,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  savedAddressIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   savedAddressOptionBody: {
     flex: 1,

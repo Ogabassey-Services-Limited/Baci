@@ -243,16 +243,11 @@ export async function createOrder(
         body: JSON.stringify(orderPayload),
       },
       {
-        maxRetries: 3,
-        timeout: DEFAULT_TIMEOUT, // 30 seconds
-        onRetry: (attempt, error, delayMs) => {
-          log.debug(`Retry ${attempt} after ${delayMs}ms: ${error.message}`);
-          trackEvent('order_creation_retry', {
-            attempt,
-            error: error.message,
-            delayMs,
-          });
-        },
+        // 2026 Best Practice: Order creation is non-idempotent on the server side
+        // (no Idempotency-Key handling). Retrying creates duplicate orders, so
+        // make a single attempt and let the user retry from the UI on failure.
+        maxRetries: 0,
+        timeout: 60000, // 60s — gives the web API room for email/notification
       }
     );
 
