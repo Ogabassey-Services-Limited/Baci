@@ -243,16 +243,11 @@ export async function createOrder(
         body: JSON.stringify(orderPayload),
       },
       {
-        maxRetries: 3,
-        timeout: DEFAULT_TIMEOUT, // 30 seconds
-        onRetry: (attempt, error, delayMs) => {
-          log.debug(`Retry ${attempt} after ${delayMs}ms: ${error.message}`);
-          trackEvent('order_creation_retry', {
-            attempt,
-            error: error.message,
-            delayMs,
-          });
-        },
+        // 2026 Best Practice: Order creation is non-idempotent on the server side
+        // (no Idempotency-Key handling). Retrying creates duplicate orders, so
+        // make a single attempt and let the user retry from the UI on failure.
+        maxRetries: 0,
+        timeout: DEFAULT_TIMEOUT,
       }
     );
 
@@ -517,11 +512,10 @@ export async function createOrderWithOfflineSupport(
       const order = await createOrder(request);
       return { order, queued: false };
     } catch (error) {
-      // If network error during request, queue it
-      if (
-        error instanceof OrderError &&
-        (error.code === 'NETWORK_ERROR' || error.code === 'TIMEOUT_ERROR')
-      ) {
+      // Only queue errors where the server definitely did NOT receive the request.
+      // TIMEOUT_ERROR has unknown outcome — the order may have been created server-side,
+      // so queuing it for replay risks creating a duplicate order.
+      if (error instanceof OrderError && error.code === 'NETWORK_ERROR') {
         const queueId = await offlineQueue.enqueue('create_order', request);
         trackEvent('order_queued_after_failure', {
           queueId,

@@ -46,8 +46,13 @@ const mockFetchResponse: MockFetchResponse = {
   status: 200,
   json: mockFetchJson,
 };
+interface RetryOptions {
+  maxRetries?: number;
+  timeout?: number;
+}
+
 const mockFetchWithRetry = jest.fn<
-  (url: string, options?: MockFetchOptions) => Promise<MockFetchResponse>
+  (url: string, options?: MockFetchOptions, retryOptions?: RetryOptions) => Promise<MockFetchResponse>
 >(async () => mockFetchResponse);
 
 mockNetInfoFetch.mockResolvedValue({ isConnected: true });
@@ -335,6 +340,30 @@ describe('createOrder — variant_attributes', () => {
     expect(body.shipping_provider).toBe('TOPSHIP');
   });
 
+  it('passes maxRetries: 0 to fetchWithRetry so orders are never automatically retried', async () => {
+    const { createOrder } = require('./orders');
+
+    await createOrder({
+      customer_email: 'test@example.com',
+      customer_name: 'Test User',
+      customer_phone: '+2348012345678',
+      items: [{ id: 'prod-1', name: 'Product', quantity: 1, price: 5000 }],
+      subtotal: 5000,
+      shipping_fee: 500,
+      payment_method: 'pay_on_delivery',
+      shipping_address: {
+        firstName: 'Test',
+        lastName: 'User',
+        address: '123 St',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    });
+
+    const retryOptions = mockFetchWithRetry.mock.calls.at(-1)?.[2];
+    expect(retryOptions?.maxRetries).toBe(0);
+  });
+
   it('accepts successful order responses that omit created_at', async () => {
     const { createOrder } = require('./orders');
 
@@ -376,5 +405,75 @@ describe('createOrder — variant_attributes', () => {
     })) as CreateOrderResult;
 
     expect(result.order.created_at).toEqual(expect.any(String));
+  });
+});
+
+describe('createOrderWithOfflineSupport — offline queue contract', () => {
+  const baseRequest = {
+    customer_email: 'buyer@example.com',
+    customer_name: 'Test Buyer',
+    customer_phone: '+2348012345678',
+    items: [{ id: 'item-1', name: 'Product', quantity: 1, price: 5000 }],
+    subtotal: 5000,
+    shipping_fee: 500,
+    payment_method: 'pay_on_delivery' as const,
+    shipping_address: {
+      firstName: 'Test',
+      lastName: 'Buyer',
+      address: '123 St',
+      city: 'Lagos',
+      state: 'Lagos',
+    },
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockNetInfoFetch.mockResolvedValue({ isConnected: true });
+    mockSupabaseGetSession.mockResolvedValue({
+      data: { session: { access_token: 'token-123' } },
+    });
+    mockSupabaseGetUser.mockResolvedValue({
+      data: { user: { id: 'user-1' } },
+      error: null,
+    });
+    const { offlineQueue } = require('@/lib/offline-queue');
+    jest.mocked(offlineQueue.enqueue).mockResolvedValue('queue-id-1');
+  });
+
+  it('returns the order without queuing when the request succeeds', async () => {
+    const { createOrderWithOfflineSupport } = require('./orders');
+    mockFetchWithRetry.mockResolvedValueOnce(mockFetchResponse);
+
+    const result = await createOrderWithOfflineSupport(baseRequest);
+
+    expect(result.queued).toBe(false);
+    expect(result.order).toBeDefined();
+    const { offlineQueue } = require('@/lib/offline-queue');
+    expect(offlineQueue.enqueue).not.toHaveBeenCalled();
+  });
+
+  it('queues the order when createOrder encounters a NETWORK_ERROR', async () => {
+    const { createOrderWithOfflineSupport } = require('./orders');
+    const { NetworkError } = require('@/lib/api');
+    mockFetchWithRetry.mockRejectedValueOnce(new NetworkError('connection refused'));
+
+    const result = await createOrderWithOfflineSupport(baseRequest);
+
+    expect(result.queued).toBe(true);
+    const { offlineQueue } = require('@/lib/offline-queue');
+    expect(offlineQueue.enqueue).toHaveBeenCalledWith('create_order', baseRequest);
+  });
+
+  it('re-throws TIMEOUT_ERROR without queuing to avoid duplicate orders', async () => {
+    const { createOrderWithOfflineSupport } = require('./orders');
+    const { TimeoutError } = require('@/lib/api');
+    mockFetchWithRetry.mockRejectedValueOnce(new TimeoutError('timed out'));
+
+    await expect(createOrderWithOfflineSupport(baseRequest)).rejects.toMatchObject({
+      code: 'TIMEOUT_ERROR',
+    });
+
+    const { offlineQueue } = require('@/lib/offline-queue');
+    expect(offlineQueue.enqueue).not.toHaveBeenCalled();
   });
 });

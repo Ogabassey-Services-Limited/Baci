@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -133,11 +134,10 @@ describe('OgabasseyNavbar', () => {
   });
 
   it('keeps rendered links under the store slug when the slug includes a leading slash', async () => {
+    const user = userEvent.setup();
     render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /shop by category/i })
-    );
+    await user.click(screen.getByRole('button', { name: /shop by category/i }));
 
     await screen.findByRole('link', { name: 'Phones' });
 
@@ -160,15 +160,17 @@ describe('OgabasseyNavbar', () => {
   });
 
   it('pushes store-prefixed product routes from search selection', async () => {
+    const user = userEvent.setup();
     render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 
-    fireEvent.focus(screen.getByRole('searchbox', { name: /search products/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /select product/i }));
+    await user.click(screen.getByRole('searchbox', { name: /search products/i }));
+    await user.click(await screen.findByRole('button', { name: /select product/i }));
 
     expect(mocks.push).toHaveBeenCalledWith('/ogabassey/products/iphone%2015');
   });
 
-  it('names the mobile menu button for assistive technology', () => {
+  it('names the mobile menu button for assistive technology', async () => {
+    const user = userEvent.setup();
     render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 
     const menuButton = screen.getByRole('button', { name: /open menu/i });
@@ -176,12 +178,13 @@ describe('OgabasseyNavbar', () => {
     expect(menuButton).toHaveAttribute('type', 'button');
     expect(menuButton).toHaveAttribute('aria-expanded', 'false');
 
-    fireEvent.click(menuButton);
+    await user.click(menuButton);
 
     expect(menuButton).toHaveAttribute('aria-expanded', 'true');
   });
 
-  it('pushes store-prefixed blog search routes on the blog page', () => {
+  it('pushes store-prefixed blog search routes on the blog page', async () => {
+    const user = userEvent.setup();
     mocks.pathname = '/ogabassey/blog';
 
     render(<OgabasseyNavbar storeSlug="/ogabassey" />);
@@ -190,24 +193,22 @@ describe('OgabasseyNavbar', () => {
       name: /search blog posts/i,
     });
 
-    fireEvent.change(input, { target: { value: 'flash sale' } });
-    const form = input.closest('form');
-    if (!(form instanceof HTMLFormElement)) {
-      throw new Error('Expected the blog search input to be inside a form');
-    }
-    fireEvent.submit(form);
+    await user.clear(input);
+    await user.type(input, 'flash sale');
+    await user.keyboard('{Enter}');
 
     expect(mocks.push).toHaveBeenCalledWith(
       '/ogabassey/blog?search=flash%20sale'
     );
   });
 
-  it('uses store-prefixed routes for navigation links', () => {
+  it('uses store-prefixed routes for navigation links', async () => {
+    const user = userEvent.setup();
     render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 
-    fireEvent.click(screen.getByRole('link', { name: /imei checker/i }));
-    fireEvent.click(screen.getByRole('link', { name: /repairs/i }));
-    fireEvent.click(screen.getByRole('link', { name: /wallet/i }));
+    await user.click(screen.getByRole('link', { name: /imei checker/i }));
+    await user.click(screen.getByRole('link', { name: /repairs/i }));
+    await user.click(screen.getByRole('link', { name: /wallet/i }));
 
     expect(mocks.push).toHaveBeenCalledWith('/ogabassey/imei-check');
     expect(mocks.push).toHaveBeenCalledWith('/ogabassey/repairs');
@@ -224,13 +225,12 @@ describe('OgabasseyNavbar', () => {
   });
 
   it('emits root-relative first-render links for domain-routed storefronts', async () => {
+    const user = userEvent.setup();
     mocks.pathname = '/blog';
 
     render(<OgabasseyNavbar storeSlug="" />);
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /shop by category/i })
-    );
+    await user.click(screen.getByRole('button', { name: /shop by category/i }));
 
     await screen.findByRole('link', { name: 'Phones' });
 
@@ -260,11 +260,10 @@ describe('OgabasseyNavbar', () => {
   });
 
   it('disables prefetch on visible shell navigation links', async () => {
+    const user = userEvent.setup();
     render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /shop by category/i })
-    );
+    await user.click(screen.getByRole('button', { name: /shop by category/i }));
 
     expect(screen.getByRole('link', { name: /store logo/i })).toHaveAttribute(
       'data-prefetch',
@@ -289,22 +288,25 @@ describe('OgabasseyNavbar', () => {
   });
 
   it('rejects invalid product URLs from search selection', async () => {
+    const user = userEvent.setup();
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    render(<OgabasseyNavbar storeSlug="/ogabassey" />);
+    try {
+      render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 
-    fireEvent.focus(screen.getByRole('searchbox', { name: /search products/i }));
-    fireEvent.click(
-      await screen.findByRole('button', { name: /select invalid product/i })
-    );
+      await user.click(screen.getByRole('searchbox', { name: /search products/i }));
+      await user.click(
+        await screen.findByRole('button', { name: /select invalid product/i })
+      );
 
-    expect(mocks.asRoute).not.toHaveBeenCalledWith('https://example.com/bad');
-    expect(mocks.push).not.toHaveBeenCalled();
-    expect(consoleWarn).toHaveBeenCalledWith(
-      'Invalid product URL rejected:',
-      'https://example.com/bad'
-    );
-
-    consoleWarn.mockRestore();
+      expect(mocks.asRoute).not.toHaveBeenCalledWith('https://example.com/bad');
+      expect(mocks.push).not.toHaveBeenCalled();
+      expect(consoleWarn).toHaveBeenCalledWith(
+        'Invalid product URL rejected:',
+        'https://example.com/bad'
+      );
+    } finally {
+      consoleWarn.mockRestore();
+    }
   });
 });

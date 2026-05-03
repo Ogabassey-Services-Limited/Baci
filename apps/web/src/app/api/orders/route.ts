@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { type NextRequest, NextResponse } from 'next/server';
+import { after, type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import {
   generateOrderConfirmationEmail,
@@ -461,181 +461,176 @@ export async function POST(request: NextRequest) {
     // - /api/payments/juicyway/webhook/route.ts (for Juicyway)
     // This prevents sending confirmation emails for abandoned/unpaid orders.
     //
-    // Exceptions (send immediately):
+    // Exceptions (send immediately, but fire-and-forget via after()):
     // - POD (Pay on Delivery) or Invoice: no payment gateway redirect
     // - Wallet-paid orders: payment already confirmed via wallet redemption
+    //
+    // after() runs after the response is sent — email/push never block the response.
     const isWalletFullyPaid = walletFinalized;
     if (payOnDelivery || payment_method === 'invoice' || isWalletFullyPaid) {
-      try {
-        if (merchant.business_name && merchant.slug) {
-          const rootDomain =
-            process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-          const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
+      if (merchant.business_name && merchant.slug) {
+        const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+        const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
 
-          // Format items for email template
-          const emailItems = items.map((item: EmailOrderItem) => ({
-            name: (() => {
-              const baseName = item.name || item.productName || 'Product';
-              const variantLabel = formatVariantAttributesLabel(
+        const emailItems = items.map((item: EmailOrderItem) => ({
+          name: (() => {
+            const baseName = item.name || item.productName || 'Product';
+            const variantLabel = formatVariantAttributesLabel(
+              (
+                item as EmailOrderItem & {
+                  variantAttributes?: Record<string, string>;
+                  variant_attributes?: Record<string, string>;
+                }
+              ).variantAttributes ||
                 (
                   item as EmailOrderItem & {
                     variantAttributes?: Record<string, string>;
                     variant_attributes?: Record<string, string>;
                   }
-                ).variantAttributes ||
-                  (
-                    item as EmailOrderItem & {
-                      variantAttributes?: Record<string, string>;
-                      variant_attributes?: Record<string, string>;
-                    }
-                  ).variant_attributes
-              );
+                ).variant_attributes
+            );
+            return variantLabel ? `${baseName} (${variantLabel})` : baseName;
+          })(),
+          quantity: item.quantity || 1,
+          price: item.price || 0,
+        }));
 
-              return variantLabel ? `${baseName} (${variantLabel})` : baseName;
-            })(),
-            quantity: item.quantity || 1,
-            price: item.price || 0,
-          }));
+        const emailData = {
+          orderNumber: orderNum,
+          customerName: customer_name,
+          items: emailItems,
+          subtotal: orderSubtotal,
+          shippingFee: orderShippingFee,
+          total: orderTotal,
+          shippingAddress: {
+            address: shipping_address?.address || '',
+            city: shipping_address?.city || '',
+            state: shipping_address?.state || '',
+            phone: customer_phone || '',
+          },
+          merchantName: merchant.business_name,
+          merchantUrl,
+          merchantTin: merchant.tax_identification_number ?? undefined,
+          merchantRcNumber: merchant.cac_rc_number ?? undefined,
+        };
 
-          // Generate email content
-          const emailData = {
-            orderNumber: orderNum,
-            customerName: customer_name,
-            items: emailItems,
-            subtotal: orderSubtotal,
-            shippingFee: orderShippingFee,
-            total: orderTotal,
-            shippingAddress: {
-              address: shipping_address?.address || '',
-              city: shipping_address?.city || '',
-              state: shipping_address?.state || '',
-              phone: customer_phone || '',
-            },
-            merchantName: merchant.business_name,
-            merchantUrl,
-            merchantTin: merchant.tax_identification_number ?? undefined,
-            merchantRcNumber: merchant.cac_rc_number ?? undefined,
-          };
+        const htmlContent = generateOrderConfirmationEmail(emailData);
+        const textContent = generateOrderConfirmationText(emailData);
 
-          const htmlContent = generateOrderConfirmationEmail(emailData);
-          const textContent = generateOrderConfirmationText(emailData);
+        const replyToEmail =
+          merchant.support_email ||
+          merchant.email ||
+          `support@${merchant.slug}.${rootDomain}`;
+        const senderName = merchant.email_sender_name
+          ? `${merchant.email_sender_name} Orders`
+          : merchant.business_name
+            ? `${merchant.business_name} Orders`
+            : undefined;
 
-          // Send and verify the result before returning so POD/invoice/wallet-paid
-          // orders do not lose confirmation emails when the request lifecycle ends.
-          // Use merchant's support_email as reply-to (so customer replies go to merchant)
-          // Use merchant's email_sender_name for branding (e.g., "Ogabassey Orders" instead of "Baci Orders")
-          const replyToEmail =
-            merchant.support_email ||
-            merchant.email ||
-            `support@${merchant.slug}.${rootDomain}`;
-          const senderName = merchant.email_sender_name
-            ? `${merchant.email_sender_name} Orders`
-            : merchant.business_name
-              ? `${merchant.business_name} Orders`
-              : undefined;
-
-          const emailResult = await sendEmail({
-            to: customer_email,
-            toName: customer_name,
-            subject: `Order Confirmation - #${emailData.orderNumber}`,
-            htmlContent,
-            textContent,
-            replyTo: replyToEmail,
-            emailType: 'orders',
-            fromName: senderName,
-            auditContext: {
-              merchantId: merchant_id,
-              orderId: order.id,
-              customerId: customer_id,
-              metadata: {
-                trigger: 'order_create_immediate_confirmation',
-                paymentMethod: payment_method,
+        // Fire-and-forget: send email after response is delivered so slow/failing
+        // ZeptoMail calls never block or time out the order creation response.
+        after(async () => {
+          try {
+            const emailResult = await sendEmail({
+              to: customer_email,
+              toName: customer_name,
+              subject: `Order Confirmation - #${emailData.orderNumber}`,
+              htmlContent,
+              textContent,
+              replyTo: replyToEmail,
+              emailType: 'orders',
+              fromName: senderName,
+              auditContext: {
+                merchantId: merchant_id,
+                orderId: order.id,
+                customerId: customer_id,
+                metadata: {
+                  trigger: 'order_create_immediate_confirmation',
+                  paymentMethod: payment_method,
+                },
               },
-            },
-          });
-
-          if (!emailResult.success) {
-            logger.error({
-              message: 'Failed to send order confirmation email',
-              orderId: order.id,
-              paymentMethod: payment_method,
-              emailError: emailResult.error,
-              emailErrorCode: emailResult.errorCode,
-              emailErrorDetails: emailResult.errorDetails,
             });
-          } else {
-            logger.info({
-              message: 'Order confirmation email sent',
-              orderId: order.id,
-              paymentMethod: payment_method,
-              messageId: emailResult.messageId,
+
+            if (!emailResult.success) {
+              logger.error({
+                message: 'Failed to send order confirmation email',
+                orderId: order.id,
+                paymentMethod: payment_method,
+                emailError: emailResult.error,
+                emailErrorCode: emailResult.errorCode,
+                emailErrorDetails: emailResult.errorDetails,
+              });
+            } else {
+              logger.info({
+                message: 'Order confirmation email sent',
+                orderId: order.id,
+                paymentMethod: payment_method,
+                messageId: emailResult.messageId,
+              });
+            }
+          } catch (emailError) {
+            logger.error({
+              message: 'Error sending order confirmation email',
+              error: emailError,
             });
           }
-        }
-      } catch (emailError) {
-        // Don't fail the order creation if email fails
-        logger.error({
-          message: 'Error preparing order confirmation email',
-          error: emailError,
         });
       }
-    }
 
-    // Notify merchant of new order — only for POD/invoice/wallet-paid orders.
-    // Gateway-payment orders (Paystack, Korapay, etc.) are notified via their webhook handlers
-    // to avoid duplicate notifications.
-    if (payOnDelivery || payment_method === 'invoice' || isWalletFullyPaid) {
-      try {
-        const pushResult = await notifyNewOrder(
-          merchant_id,
-          order.id,
-          orderNum,
-          customer_name,
-          orderTotal
-        );
-        if (pushResult.failed > 0 || pushResult.errors.length > 0) {
-          logger.warn({
-            message: 'New order push notification was not fully delivered',
-            orderId: order.id,
-            merchantId: merchant_id,
-            sent: pushResult.sent,
-            failed: pushResult.failed,
-            errors: pushResult.errors,
-          });
-        }
-      } catch (err) {
-        logger.error({ message: 'Push notification failed', error: err });
-      }
-
-      if (isWalletFullyPaid) {
+      // Notify merchant of new order — fire-and-forget via after() for the same reason.
+      after(async () => {
         try {
-          const paymentPushResult = await notifyPaymentReceived(
+          const pushResult = await notifyNewOrder(
             merchant_id,
-            orderTotal,
-            order.currency || 'NGN',
+            order.id,
             orderNum,
-            order.id
+            customer_name,
+            orderTotal
           );
-          if (
-            paymentPushResult.failed > 0 ||
-            paymentPushResult.errors.length > 0
-          ) {
+          if (pushResult.failed > 0 || pushResult.errors.length > 0) {
             logger.warn({
-              message: 'Payment push notification was not fully delivered',
+              message: 'New order push notification was not fully delivered',
               orderId: order.id,
               merchantId: merchant_id,
-              sent: paymentPushResult.sent,
-              failed: paymentPushResult.failed,
-              errors: paymentPushResult.errors,
+              sent: pushResult.sent,
+              failed: pushResult.failed,
+              errors: pushResult.errors,
             });
           }
         } catch (err) {
-          logger.error({
-            message: 'Payment push notification failed',
-            error: err,
-          });
+          logger.error({ message: 'Push notification failed', error: err });
         }
-      }
+
+        if (isWalletFullyPaid) {
+          try {
+            const paymentPushResult = await notifyPaymentReceived(
+              merchant_id,
+              orderTotal,
+              order.currency || 'NGN',
+              orderNum,
+              order.id
+            );
+            if (
+              paymentPushResult.failed > 0 ||
+              paymentPushResult.errors.length > 0
+            ) {
+              logger.warn({
+                message: 'Payment push notification was not fully delivered',
+                orderId: order.id,
+                merchantId: merchant_id,
+                sent: paymentPushResult.sent,
+                failed: paymentPushResult.failed,
+                errors: paymentPushResult.errors,
+              });
+            }
+          } catch (err) {
+            logger.error({
+              message: 'Payment push notification failed',
+              error: err,
+            });
+          }
+        }
+      });
     }
 
     const responseOrder = isWalletFullyPaid

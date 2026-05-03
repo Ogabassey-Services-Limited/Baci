@@ -2,11 +2,22 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
-    "types": ["jest", "node", "react", "react-native"],
+    "types": [
+      "jest",
+      "node",
+      "react",
+      "react-native"
+    ],
     "paths": {
-      "@/*": ["./*"],
-      "@baci/shared": ["../../packages/shared/src"],
-      "@baci/shared/*": ["../../packages/shared/src/*"]
+      "@/*": [
+        "./*"
+      ],
+      "@baci/shared": [
+        "../../packages/shared/src"
+      ],
+      "@baci/shared/*": [
+        "../../packages/shared/src/*"
+      ]
     }
   },
   "include": [
@@ -26,7 +37,6 @@
     "jest.config.ts",
     "jest.setup.ts",
     "expo-env.d.ts",
-    ".expo/types/**/*.ts",
     "nativewind-env.d.ts"
   ]
 }

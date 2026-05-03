@@ -1166,7 +1166,7 @@ export const CheckoutPage: React.FC = () => {
           setIsProcessing(false);
           return;
         }
-        finalAddress = `${newAddressStreet}, ${newAddressCity}, ${newAddressState}`;
+        finalAddress = newAddressStreet;
         finalCity = newAddressCity;
         finalState = newAddressState;
       } else {

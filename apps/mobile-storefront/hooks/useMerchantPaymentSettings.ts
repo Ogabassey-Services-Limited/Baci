@@ -35,7 +35,7 @@ export function useMerchantPaymentSettings() {
       if (error) throw error;
       return data as PaymentSettings;
     },
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 }
 
