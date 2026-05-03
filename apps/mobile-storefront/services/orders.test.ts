@@ -46,8 +46,13 @@ const mockFetchResponse: MockFetchResponse = {
   status: 200,
   json: mockFetchJson,
 };
+interface RetryOptions {
+  maxRetries?: number;
+  timeout?: number;
+}
+
 const mockFetchWithRetry = jest.fn<
-  (url: string, options?: MockFetchOptions) => Promise<MockFetchResponse>
+  (url: string, options?: MockFetchOptions, retryOptions?: RetryOptions) => Promise<MockFetchResponse>
 >(async () => mockFetchResponse);
 
 mockNetInfoFetch.mockResolvedValue({ isConnected: true });
@@ -355,10 +360,7 @@ describe('createOrder — variant_attributes', () => {
       },
     });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const retryOptions = (mockFetchWithRetry.mock.calls.at(-1) as any)?.[2] as
-      | { maxRetries?: number }
-      | undefined;
+    const retryOptions = mockFetchWithRetry.mock.calls.at(-1)?.[2];
     expect(retryOptions?.maxRetries).toBe(0);
   });
 
@@ -435,8 +437,19 @@ describe('createOrderWithOfflineSupport — offline queue contract', () => {
       error: null,
     });
     const { offlineQueue } = require('@/lib/offline-queue');
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (offlineQueue.enqueue as jest.Mock<any>).mockResolvedValue('queue-id-1');
+    jest.mocked(offlineQueue.enqueue).mockResolvedValue('queue-id-1');
+  });
+
+  it('returns the order without queuing when the request succeeds', async () => {
+    const { createOrderWithOfflineSupport } = require('./orders');
+    mockFetchWithRetry.mockResolvedValueOnce(mockFetchResponse);
+
+    const result = await createOrderWithOfflineSupport(baseRequest);
+
+    expect(result.queued).toBe(false);
+    expect(result.order).toBeDefined();
+    const { offlineQueue } = require('@/lib/offline-queue');
+    expect(offlineQueue.enqueue).not.toHaveBeenCalled();
   });
 
   it('queues the order when createOrder encounters a NETWORK_ERROR', async () => {

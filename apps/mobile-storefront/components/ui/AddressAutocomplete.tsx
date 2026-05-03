@@ -130,6 +130,7 @@ export function AddressAutocomplete({
   const [isFocused, setIsFocused] = useState(false);
 
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const blurCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wrapperRef = useRef<View>(null);
   const keyboardHeightRef = useRef(0);
 
@@ -139,6 +140,10 @@ export function AddressAutocomplete({
       if (debounceTimer.current) {
         clearTimeout(debounceTimer.current);
         debounceTimer.current = null;
+      }
+      if (blurCloseTimerRef.current) {
+        clearTimeout(blurCloseTimerRef.current);
+        blurCloseTimerRef.current = null;
       }
     };
   }, []);
@@ -332,6 +337,10 @@ export function AddressAutocomplete({
           value={internalValue}
           onChangeText={handleInputChange}
           onFocus={(event) => {
+            if (blurCloseTimerRef.current) {
+              clearTimeout(blurCloseTimerRef.current);
+              blurCloseTimerRef.current = null;
+            }
             setIsFocused(true);
             if (internalValue.trim().length >= 2) {
               setIsOpen(true);
@@ -340,8 +349,14 @@ export function AddressAutocomplete({
           }}
           onBlur={(event) => {
             setIsFocused(false);
+            if (blurCloseTimerRef.current) {
+              clearTimeout(blurCloseTimerRef.current);
+            }
             // Delay so prediction-item taps can fire before the dropdown closes
-            setTimeout(() => setIsOpen(false), 150);
+            blurCloseTimerRef.current = setTimeout(() => {
+              setIsOpen(false);
+              blurCloseTimerRef.current = null;
+            }, 150);
             onBlur?.(event);
           }}
           placeholder={placeholder}

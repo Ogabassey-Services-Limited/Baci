@@ -2612,7 +2612,10 @@ export default function CheckoutScreen() {
                   render={({ field: { value, onChange } }) => (
                     <AddressAutocomplete
                       value={value}
-                      onChangeText={onChange}
+                      onChangeText={(text) => {
+                        onChange(text);
+                        setCommittedAddress('');
+                      }}
                       scrollRef={addressScrollRef}
                       scrollOffsetRef={addressScrollOffsetRef}
                       onSelect={(place) => {
