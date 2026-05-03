@@ -22,8 +22,8 @@ const purchaseSchemaBase = z.object({
   customerIdentifier: z.string().optional(),
   billerName: z.string().optional(),
   // Bill customer info (electricity / cable / betting)
-  customerName: z.string().optional(),
-  customerPhone: z.string().optional(),
+  customerName: z.string().min(1).optional(),
+  customerPhone: z.string().min(1).optional(),
   // Common optional fields
   customerId: z.string().uuid().optional(),
   orderId: z.string().uuid().optional(),
