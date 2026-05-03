@@ -163,6 +163,7 @@ export function AddressAutocomplete({
   useEffect(() => {
     if (!isOpen || predictions.length === 0 || !scrollRef?.current) return;
     wrapperRef.current?.measureInWindow((_x, screenY, _w, inputHeight) => {
+      if (screenY <= 0 || inputHeight <= 0) return;
       const DROPDOWN_HEIGHT = 280;
       const PADDING = 16;
       const screenHeight = Dimensions.get('window').height;

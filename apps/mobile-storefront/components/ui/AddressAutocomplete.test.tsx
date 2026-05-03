@@ -167,5 +167,44 @@ describe('AddressAutocomplete', () => {
 
       measureSpy.mockRestore();
     });
+
+    it('does not call scrollRef.scrollTo when measureInWindow returns zeroed coordinates', async () => {
+      mockFetchSuccess();
+
+      const scrollRef = { current: { scrollTo: jest.fn() } };
+      const scrollOffsetRef = { current: 0 };
+
+      jest.spyOn(Dimensions, 'get').mockReturnValue({
+        width: 375,
+        height: 800,
+        scale: 2,
+        fontScale: 1,
+      });
+      jest.spyOn(Keyboard, 'metrics').mockReturnValue({
+        height: 300,
+        screenX: 0,
+        screenY: 500,
+        width: 375,
+      });
+
+      // screenY=0, inputHeight=0 — view unmounted / not yet laid out
+      type MeasureFn = (cb: (x: number, y: number, w: number, h: number) => void) => void;
+      const measureSpy = jest
+        .spyOn(View.prototype as { measureInWindow: MeasureFn }, 'measureInWindow')
+        .mockImplementation((cb) => cb(0, 0, 375, 0));
+
+      render(
+        <AddressAutocomplete
+          scrollRef={scrollRef as unknown as React.RefObject<import('react-native').ScrollView | null>}
+          scrollOffsetRef={scrollOffsetRef as React.RefObject<number>}
+        />
+      );
+
+      await typeAndWaitForPredictions();
+
+      expect(scrollRef.current.scrollTo).not.toHaveBeenCalled();
+
+      measureSpy.mockRestore();
+    });
   });
 });
