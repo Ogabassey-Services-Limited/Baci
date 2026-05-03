@@ -2614,6 +2614,12 @@ export default function CheckoutScreen() {
                       value={value}
                       onChangeText={(text) => {
                         onChange(text);
+                        // If the user edits after committing via autocomplete, invalidate
+                        // the resolved context key so the next state/city change forces a
+                        // fresh fetch against the new typed address.
+                        if (committedAddress) {
+                          setResolvedShippingQuoteContextKey('');
+                        }
                         setCommittedAddress('');
                       }}
                       scrollRef={addressScrollRef}
