@@ -141,9 +141,10 @@ export default function DateRangePicker({
             </Text>
             <Pressable
               onPress={onClose}
-              hitSlop={10}
+              hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
               accessibilityRole="button"
               accessibilityLabel="Close date picker"
+              accessibilityHint="Closes the date picker modal"
             >
               <Ionicons name="close" size={24} color={colors.textMuted} />
             </Pressable>
@@ -274,8 +275,10 @@ export default function DateRangePicker({
                   <Pressable
                     onPress={() => setViewDate(subMonths(viewDate, 1))}
                     style={styles.navButton}
+                    hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
                     accessibilityRole="button"
                     accessibilityLabel="Previous month"
+                    accessibilityHint="Changes the calendar to the previous month"
                   >
                     <Ionicons
                       name="chevron-back"
@@ -289,8 +292,10 @@ export default function DateRangePicker({
                   <Pressable
                     onPress={() => setViewDate(addMonths(viewDate, 1))}
                     style={styles.navButton}
+                    hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
                     accessibilityRole="button"
                     accessibilityLabel="Next month"
+                    accessibilityHint="Changes the calendar to the next month"
                   >
                     <Ionicons
                       name="chevron-forward"
