@@ -4,10 +4,12 @@ import {
   extractMetadataField,
   hasRecentBackfillSchedule,
   isString,
+  MAX_VOUCHER_PIN_BACKFILL_ATTEMPTS,
   normalizeMetadata,
   scheduleVoucherPinBackfill,
   shouldBackfillForType,
   TOKEN_BACKFILL_DEDUPE_WINDOW_MS,
+  VOUCHER_PIN_BACKFILL_ATTEMPTS_KEY,
   VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY,
 } from '@/lib/vtu-voucher-backfill';
 
@@ -130,9 +132,25 @@ describe('vtu-voucher-backfill', () => {
     ).toBe(false);
   });
 
-  it('marks metadata and defers voucher-pin backfill for eligible transactions', async () => {
+  it('reports a recent schedule when attempt cap is reached regardless of timestamp', () => {
+    expect(
+      hasRecentBackfillSchedule({
+        [VOUCHER_PIN_BACKFILL_ATTEMPTS_KEY]: MAX_VOUCHER_PIN_BACKFILL_ATTEMPTS,
+      })
+    ).toBe(true);
+    // One below the cap is still allowed
+    expect(
+      hasRecentBackfillSchedule({
+        [VOUCHER_PIN_BACKFILL_ATTEMPTS_KEY]:
+          MAX_VOUCHER_PIN_BACKFILL_ATTEMPTS - 1,
+      })
+    ).toBe(false);
+  });
+
+  it('marks metadata (with attempt counter) and defers voucher-pin backfill for eligible transactions', async () => {
     const updateQuery = createUpdateQueryMock();
     const { supabase, update } = createSupabaseMock(updateQuery);
+    mocks.backfillVtuVoucherPin.mockResolvedValue('1234-5678');
 
     const scheduled = await scheduleVoucherPinBackfill({
       metadata: { alpha: 'first' },
@@ -147,6 +165,7 @@ describe('vtu-voucher-backfill', () => {
       metadata: {
         alpha: 'first',
         [VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY]: '2026-04-29T12:00:00.000Z',
+        [VOUCHER_PIN_BACKFILL_ATTEMPTS_KEY]: 1,
       },
     });
     expect(updateQuery.eq).toHaveBeenCalledWith('id', 'tx-1');
@@ -178,10 +197,56 @@ describe('vtu-voucher-backfill', () => {
       metadata: {
         alpha: 'first',
         [VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY]: '2026-04-29T12:00:00.000Z',
+        [VOUCHER_PIN_BACKFILL_ATTEMPTS_KEY]: 1,
       },
       supabase,
       transactionId: 'tx-1',
     });
+
+    // Pin was found — no timestamp clear needed
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
+  it('clears the scheduled timestamp when backfill returns no pin so the next poll can retry', async () => {
+    const updateQuery = createUpdateQueryMock();
+    const { supabase, update } = createSupabaseMock(updateQuery);
+    mocks.backfillVtuVoucherPin.mockResolvedValue(undefined);
+
+    await scheduleVoucherPinBackfill({
+      metadata: { alpha: 'first' },
+      originalMetadata: { alpha: 'first' },
+      supabase,
+      transaction: createTransaction(),
+      voucherPin: null,
+    });
+
+    const deferredBackfill = mocks.after.mock.calls[0]?.[0] as
+      | (() => Promise<void>)
+      | undefined;
+    await deferredBackfill?.();
+
+    // update called twice: once to mark scheduled, once to clear the timestamp
+    expect(update).toHaveBeenCalledTimes(2);
+    expect(update).toHaveBeenLastCalledWith({
+      metadata: expect.not.objectContaining({
+        [VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY]: expect.anything(),
+      }),
+    });
+    expect(update).toHaveBeenLastCalledWith({
+      metadata: expect.objectContaining({
+        [VOUCHER_PIN_BACKFILL_ATTEMPTS_KEY]: 1,
+      }),
+    });
+
+    // OCC: the clear must compare against the scheduled metadata so concurrent
+    // writes (e.g. webhooks) are not clobbered.
+    expect(updateQuery.filter).toHaveBeenCalledTimes(2);
+    const clearFilterArg = String(
+      updateQuery.filter.mock.lastCall?.[2]
+    ).replace(/::jsonb$/, '');
+    expect(JSON.parse(clearFilterArg)).toHaveProperty(
+      VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY
+    );
   });
 
   it('uses a null metadata comparison when the original metadata is absent', async () => {

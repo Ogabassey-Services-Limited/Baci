@@ -155,7 +155,7 @@ export async function preparePendingVtuTransaction({
    * `vtu_transactions.customer_name` so receipts and "Repeat last" can
    * surface the verified name.
    */
-  input: PurchaseInput & { customerName?: string };
+  input: PurchaseInput;
   source: PurchaseInput['source'];
   requireCustomer?: boolean;
 }): Promise<PreparedVtuTransaction> {
@@ -165,6 +165,16 @@ export async function preparePendingVtuTransaction({
 
   if (isTelco && (!formattedPhone || !isValidPhoneNumber(formattedPhone))) {
     throw new Error('Invalid phone number');
+  }
+
+  // Normalize buyer phone for non-telco (electricity / cable / betting) so Kuda
+  // can deliver tokens / confirmations to their real number.
+  const rawCustomerPhone = input.customerPhone
+    ? formatPhoneNumber(input.customerPhone)
+    : '';
+  const normalizedCustomerPhone = rawCustomerPhone || undefined;
+  if (normalizedCustomerPhone && !isValidPhoneNumber(normalizedCustomerPhone)) {
+    throw new Error('Invalid customer phone number');
   }
 
   const { data: merchant, error: merchantError } = await supabase
@@ -273,6 +283,7 @@ export async function preparePendingVtuTransaction({
       metadata: {
         dataPlanCode: input.dataPlanCode,
         originalPhoneNumber: input.phoneNumber,
+        customerPhone: normalizedCustomerPhone ?? null,
         originalMerchantCommission: commissions.merchantEarning,
         customerCashbackEnabled,
         customerCashbackRate,

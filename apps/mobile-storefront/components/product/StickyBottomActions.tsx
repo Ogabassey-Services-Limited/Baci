@@ -73,7 +73,7 @@ export function StickyBottomActions({
         >
           <Pressable
             onPress={(e) => onDecrement(e)}
-            style={styles.qtyButton}
+            style={[styles.qtyButton, { borderRightColor: colors.border }]}
             hitSlop={10}
             accessibilityLabel={
               quantityInCart === 1 ? 'Remove from cart' : 'Decrease quantity'
@@ -88,9 +88,9 @@ export function StickyBottomActions({
           </Pressable>
 
           <View style={styles.qtyCenter}>
-            <Text style={styles.qtyLabel}>In Cart</Text>
+            <Text style={[styles.qtyLabel, { color: colors.textSecondary }]}>In Cart</Text>
             <TextInput
-              style={styles.qtyInput}
+              style={[styles.qtyInput, { color: colors.text }]}
               value={localQty}
               onChangeText={onLocalQtyChange}
               onBlur={onLocalQtyBlur}
@@ -103,7 +103,7 @@ export function StickyBottomActions({
 
           <Pressable
             onPress={(e) => onIncrement(e)}
-            style={styles.qtyButtonRight}
+            style={[styles.qtyButtonRight, { borderLeftColor: colors.border }]}
             hitSlop={10}
             accessibilityLabel="Increase quantity"
             accessibilityRole="button"
@@ -231,7 +231,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRightWidth: 1,
-    borderRightColor: '#FEE2E2',
   },
   qtyButtonRight: {
     width: 50,
@@ -239,7 +238,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderLeftWidth: 1,
-    borderLeftColor: '#FEE2E2',
   },
   qtyCenter: {
     flex: 1,
@@ -248,7 +246,6 @@ const styles = StyleSheet.create({
   },
   qtyLabel: {
     fontSize: 9,
-    color: '#9CA3AF',
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -257,7 +254,6 @@ const styles = StyleSheet.create({
   qtyInput: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#111827',
     textAlign: 'center',
     minWidth: 40,
     padding: 0,

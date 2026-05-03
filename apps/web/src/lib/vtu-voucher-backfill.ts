@@ -10,7 +10,14 @@ export const TOKEN_BACKFILL_TYPES = new Set([
 export const MAX_TOKEN_BACKFILL_SCHEDULES = 3;
 export const VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY =
   'voucherPinBackfillScheduledAt';
-export const TOKEN_BACKFILL_DEDUPE_WINDOW_MS = 15 * 60 * 1000;
+export const VOUCHER_PIN_BACKFILL_ATTEMPTS_KEY = 'voucherPinBackfillAttempts';
+// After a no-pin result, clear the timestamp so the next mobile poll can
+// retry immediately. Stop retrying after this many Kuda BILL_TSQ calls.
+export const MAX_VOUCHER_PIN_BACKFILL_ATTEMPTS = 10;
+// Short dedupe window: only block a second concurrent attempt within the same
+// request burst. Once the after() callback clears the timestamp, the next poll
+// can schedule a fresh attempt.
+export const TOKEN_BACKFILL_DEDUPE_WINDOW_MS = 5_000;
 
 export type MetadataRecord = Record<string, unknown>;
 
@@ -89,7 +96,17 @@ export function shouldBackfillForType(type: unknown): boolean {
   return TOKEN_BACKFILL_TYPES.has(String(type));
 }
 
+function getBackfillAttempts(metadata: MetadataRecord): number {
+  const raw = metadata[VOUCHER_PIN_BACKFILL_ATTEMPTS_KEY];
+  return typeof raw === 'number' && Number.isFinite(raw) ? raw : 0;
+}
+
 export function hasRecentBackfillSchedule(metadata: MetadataRecord): boolean {
+  // Hard stop: exhausted all retry attempts.
+  if (getBackfillAttempts(metadata) >= MAX_VOUCHER_PIN_BACKFILL_ATTEMPTS) {
+    return true;
+  }
+
   const scheduledAt = extractMetadataField(
     metadata,
     VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY,
@@ -116,6 +133,7 @@ async function markVoucherPinBackfillScheduled({
   const nextMetadata = {
     ...metadata,
     [VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY]: new Date().toISOString(),
+    [VOUCHER_PIN_BACKFILL_ATTEMPTS_KEY]: getBackfillAttempts(metadata) + 1,
   };
   let updateQuery = supabase
     .from('vtu_transactions')
@@ -143,6 +161,40 @@ async function markVoucherPinBackfillScheduled({
   }
 
   return Array.isArray(data) && data.length > 0 ? nextMetadata : null;
+}
+
+/**
+ * After a no-pin result from Kuda, clear voucherPinBackfillScheduledAt so the
+ * next mobile history poll can immediately schedule a fresh attempt (up to the
+ * attempt cap).
+ */
+/**
+ * Clears voucherPinBackfillScheduledAt using compare-and-set so concurrent
+ * metadata writes (e.g. webhooks) are not clobbered.
+ */
+async function clearVoucherPinBackfillTimestamp({
+  currentMetadata,
+  supabase,
+  transactionId,
+}: {
+  currentMetadata: MetadataRecord;
+  supabase: ReturnType<typeof createAdminClient>;
+  transactionId: string;
+}): Promise<void> {
+  const { [VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY]: _dropped, ...rest } =
+    currentMetadata;
+  const { error } = await supabase
+    .from('vtu_transactions')
+    .update({ metadata: rest })
+    .eq('id', transactionId)
+    .filter('metadata', 'eq', stableJsonStringify(currentMetadata));
+
+  if (error) {
+    console.error(
+      'Failed to clear VTU voucher-pin backfill timestamp after no-pin result:',
+      { error, transactionId }
+    );
+  }
 }
 
 export async function scheduleVoucherPinBackfill({
@@ -188,7 +240,7 @@ export async function scheduleVoucherPinBackfill({
 
   after(async () => {
     try {
-      await backfillVtuVoucherPin({
+      const pin = await backfillVtuVoucherPin({
         billRequestRef: isString(transaction.request_reference)
           ? transaction.request_reference
           : null,
@@ -199,6 +251,17 @@ export async function scheduleVoucherPinBackfill({
         supabase,
         transactionId,
       });
+
+      // Kuda didn't return a pin yet — clear the timestamp so the next mobile
+      // poll can schedule a fresh attempt immediately instead of waiting for
+      // the 15-minute dedupe window.
+      if (!pin) {
+        await clearVoucherPinBackfillTimestamp({
+          currentMetadata: scheduledMetadata,
+          supabase,
+          transactionId,
+        });
+      }
     } catch (error) {
       console.error('Failed to backfill VTU voucher pin from history:', {
         error,

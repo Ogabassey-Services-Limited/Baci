@@ -85,6 +85,9 @@ function getSafeMetadataDiagnostics(metadata: Record<string, unknown>) {
   if ('customerName' in metadata) {
     diagnostics.customerName = '[REDACTED]';
   }
+  if ('customerPhone' in metadata) {
+    diagnostics.customerPhone = '[REDACTED]';
+  }
 
   return diagnostics;
 }
@@ -920,12 +923,19 @@ function executeVtuPurchase(
     });
   }
 
+  const customerPhone =
+    typeof row.metadata?.customerPhone === 'string' &&
+    row.metadata.customerPhone
+      ? row.metadata.customerPhone
+      : undefined;
+
   return purchaseBill(
     row.biller_item_code,
     row.customer_identifier,
     row.amount,
     customerFirstName,
-    row.request_reference
+    row.request_reference,
+    customerPhone
   );
 }
 

@@ -21,7 +21,7 @@ export function BillForm(props: BillFormProps) {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: form.footerSpacerHeight },
+          { paddingBottom: form.footerSpacerHeight + (props.extraScrollPadding ?? 0) },
         ]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
