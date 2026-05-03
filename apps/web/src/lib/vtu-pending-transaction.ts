@@ -167,6 +167,15 @@ export async function preparePendingVtuTransaction({
     throw new Error('Invalid phone number');
   }
 
+  // Normalize buyer phone for non-telco (electricity / cable / betting) so Kuda
+  // can deliver tokens / confirmations to their real number.
+  const normalizedCustomerPhone = input.customerPhone
+    ? formatPhoneNumber(input.customerPhone)
+    : undefined;
+  if (normalizedCustomerPhone && !isValidPhoneNumber(normalizedCustomerPhone)) {
+    throw new Error('Invalid customer phone number');
+  }
+
   const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
     .select('id, slug, business_name, paystack_subaccount_code')
@@ -273,7 +282,7 @@ export async function preparePendingVtuTransaction({
       metadata: {
         dataPlanCode: input.dataPlanCode,
         originalPhoneNumber: input.phoneNumber,
-        customerPhone: input.customerPhone ?? null,
+        customerPhone: normalizedCustomerPhone ?? null,
         originalMerchantCommission: commissions.merchantEarning,
         customerCashbackEnabled,
         customerCashbackRate,

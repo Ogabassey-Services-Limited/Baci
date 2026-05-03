@@ -73,7 +73,7 @@ export function StickyBottomActions({
         >
           <Pressable
             onPress={(e) => onDecrement(e)}
-            style={styles.qtyButton}
+            style={[styles.qtyButton, { borderRightColor: colors.border }]}
             hitSlop={10}
             accessibilityLabel={
               quantityInCart === 1 ? 'Remove from cart' : 'Decrease quantity'
@@ -103,7 +103,7 @@ export function StickyBottomActions({
 
           <Pressable
             onPress={(e) => onIncrement(e)}
-            style={styles.qtyButtonRight}
+            style={[styles.qtyButtonRight, { borderLeftColor: colors.border }]}
             hitSlop={10}
             accessibilityLabel="Increase quantity"
             accessibilityRole="button"

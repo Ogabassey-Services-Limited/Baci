@@ -168,6 +168,10 @@ async function markVoucherPinBackfillScheduled({
  * next mobile history poll can immediately schedule a fresh attempt (up to the
  * attempt cap).
  */
+/**
+ * Clears voucherPinBackfillScheduledAt using compare-and-set so concurrent
+ * metadata writes (e.g. webhooks) are not clobbered.
+ */
 async function clearVoucherPinBackfillTimestamp({
   currentMetadata,
   supabase,
@@ -182,7 +186,8 @@ async function clearVoucherPinBackfillTimestamp({
   const { error } = await supabase
     .from('vtu_transactions')
     .update({ metadata: rest })
-    .eq('id', transactionId);
+    .eq('id', transactionId)
+    .filter('metadata', 'eq', stableJsonStringify(currentMetadata));
 
   if (error) {
     console.error(

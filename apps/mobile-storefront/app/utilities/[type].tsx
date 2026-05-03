@@ -73,6 +73,7 @@ const UTILITY_ROUTE_PARAM_KEYS = [
 ] as const satisfies readonly UtilityRouteParamKey[];
 
 const QUICK_REPEAT_BOTTOM_OFFSET = 92; // Keeps the prompt above fixed payment controls.
+const QUICK_REPEAT_PROMPT_HEIGHT = 68; // Approximate rendered height of the QuickRepeatPrompt banner.
 
 function getNetworkProviderId(
   value: string | undefined
@@ -149,6 +150,8 @@ export default function UtilityPurchaseScreen() {
   const insets = useSafeAreaInsets();
   const { isKeyboardVisible } = useKeyboard();
   const headerOffset = Math.max(insets.top, 42);
+  const quickRepeatScrollCompensation =
+    Math.max(insets.bottom, 12) + QUICK_REPEAT_BOTTOM_OFFSET;
   const isAuthenticated = useAuthStore((state) => !!state.session);
   const customerId = useAuthStore((state) => state.customer?.id);
   const merchantId = useAuthStore((state) => state.merchantId);
@@ -310,14 +313,14 @@ export default function UtilityPurchaseScreen() {
             onSuccess={setSuccessData}
             extraScrollPadding={
               quickRepeat.showQuickRepeat
-                ? Math.max(insets.bottom, 12) + QUICK_REPEAT_BOTTOM_OFFSET + 68
+                ? quickRepeatScrollCompensation + QUICK_REPEAT_PROMPT_HEIGHT
                 : 0
             }
           />
         ) : null}
       </KeyboardAvoidingView>
       <QuickRepeatPrompt
-        bottom={Math.max(insets.bottom, 12) + QUICK_REPEAT_BOTTOM_OFFSET}
+        bottom={quickRepeatScrollCompensation}
         colors={colors}
         isLoading={quickRepeat.isRecentTransactionsLoading}
         lastTransaction={quickRepeat.lastTransaction}
