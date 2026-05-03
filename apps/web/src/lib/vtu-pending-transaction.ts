@@ -155,7 +155,7 @@ export async function preparePendingVtuTransaction({
    * `vtu_transactions.customer_name` so receipts and "Repeat last" can
    * surface the verified name.
    */
-  input: PurchaseInput & { customerName?: string };
+  input: PurchaseInput & { customerName?: string; customerPhone?: string };
   source: PurchaseInput['source'];
   requireCustomer?: boolean;
 }): Promise<PreparedVtuTransaction> {
@@ -273,6 +273,7 @@ export async function preparePendingVtuTransaction({
       metadata: {
         dataPlanCode: input.dataPlanCode,
         originalPhoneNumber: input.phoneNumber,
+        customerPhone: input.customerPhone ?? null,
         originalMerchantCommission: commissions.merchantEarning,
         customerCashbackEnabled,
         customerCashbackRate,

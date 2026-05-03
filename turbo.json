@@ -27,7 +27,8 @@
         "CAC_API_URL",
         "OLLAMA_BASE_URL",
         "OLLAMA_CAC_MODEL",
-        "OLLAMA_BASIC_AUTH"
+        "OLLAMA_BASIC_AUTH",
+        "SUPABASE_JWT_SECRET"
       ]
     },
     "dev": {

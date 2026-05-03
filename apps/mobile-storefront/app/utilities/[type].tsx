@@ -308,6 +308,11 @@ export default function UtilityPurchaseScreen() {
             isRepeatPaymentReady={quickRepeat.isRepeatPaymentReady}
             type={currentType}
             onSuccess={setSuccessData}
+            extraScrollPadding={
+              quickRepeat.showQuickRepeat
+                ? Math.max(insets.bottom, 12) + QUICK_REPEAT_BOTTOM_OFFSET + 68
+                : 0
+            }
           />
         ) : null}
       </KeyboardAvoidingView>

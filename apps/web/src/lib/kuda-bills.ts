@@ -82,7 +82,8 @@ export async function purchaseBill(
   customerIdentification: string,
   amount: number,
   customerName: string = 'Customer',
-  requestRef?: string
+  requestRef?: string,
+  customerPhone?: string
 ): Promise<PurchaseResult> {
   const reference = requestRef || generateRequestRef();
 
@@ -98,7 +99,10 @@ export async function purchaseBill(
       {
         CustomerFirstName: customerName,
         CustomerIdentifier: customerIdentification,
-        PhoneNumber: customerIdentification,
+        // Use the customer's real phone for notifications/token SMS delivery.
+        // Falls back to customerIdentification only when no phone is available
+        // (legacy behaviour for older transactions missing this field).
+        PhoneNumber: customerPhone || customerIdentification,
         BillItemIdentifier: billItemIdentifier,
         Amount: (amount * 100).toString(), // Convert Naira to Kobo
         trackingReference: reference,

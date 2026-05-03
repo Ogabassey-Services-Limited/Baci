@@ -45,4 +45,6 @@ export interface BillFormProps {
    */
   initialCustomerName?: string;
   isRepeatPaymentReady?: boolean;
+  /** Extra bottom padding to clear floating overlays (e.g. the QuickRepeatPrompt). */
+  extraScrollPadding?: number;
 }

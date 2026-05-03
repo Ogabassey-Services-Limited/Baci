@@ -88,9 +88,9 @@ export function StickyBottomActions({
           </Pressable>
 
           <View style={styles.qtyCenter}>
-            <Text style={styles.qtyLabel}>In Cart</Text>
+            <Text style={[styles.qtyLabel, { color: colors.textSecondary }]}>In Cart</Text>
             <TextInput
-              style={styles.qtyInput}
+              style={[styles.qtyInput, { color: colors.text }]}
               value={localQty}
               onChangeText={onLocalQtyChange}
               onBlur={onLocalQtyBlur}
