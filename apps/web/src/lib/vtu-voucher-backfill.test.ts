@@ -227,7 +227,7 @@ describe('vtu-voucher-backfill', () => {
 
     // update called twice: once to mark scheduled, once to clear the timestamp
     expect(update).toHaveBeenCalledTimes(2);
-    const allUpdateCalls = update.mock.calls as [
+    const allUpdateCalls = update.mock.calls as unknown as [
       { metadata: Record<string, unknown> },
     ][];
     const clearCall = allUpdateCalls[1]?.[0];
@@ -242,7 +242,7 @@ describe('vtu-voucher-backfill', () => {
 
     // OCC: the clear must compare against the scheduled metadata so concurrent
     // writes (e.g. webhooks) are not clobbered.
-    const filterCalls = updateQuery.filter.mock.calls as [
+    const filterCalls = updateQuery.filter.mock.calls as unknown as [
       string,
       string,
       string,
