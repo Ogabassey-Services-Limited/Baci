@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -56,6 +57,16 @@ export function RecordPaymentSheet({
   paymentNotes,
   visible,
 }: RecordPaymentSheetProps) {
+  const [isAmountFocused, setIsAmountFocused] = useState(false);
+
+  // Show raw digits while editing so toLocaleString commas don't cause NaN.
+  // Display the formatted value only when blurred.
+  const displayedAmount = isAmountFocused
+    ? paymentAmount
+    : paymentAmount
+      ? Number(paymentAmount.replace(/,/g, '')).toLocaleString('en-NG')
+      : '';
+
   return (
     <AppSheetModal
       accessibilityLabel="Record payment sheet"
@@ -77,13 +88,13 @@ export function RecordPaymentSheet({
         <TextInput
           accessibilityLabel="Payment amount"
           keyboardType="numeric"
-          onChangeText={onAmountChange}
+          onBlur={() => setIsAmountFocused(false)}
+          onChangeText={(text) => onAmountChange(text.replace(/[^0-9.]/g, ''))}
+          onFocus={() => setIsAmountFocused(true)}
           placeholder="0"
           placeholderTextColor={colors.textSecondary}
           style={[styles.inputInner, { color: colors.text }]}
-          value={
-            paymentAmount ? Number(paymentAmount).toLocaleString('en-NG') : ''
-          }
+          value={displayedAmount}
         />
       </View>
 
