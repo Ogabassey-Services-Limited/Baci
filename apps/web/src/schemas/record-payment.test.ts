@@ -35,12 +35,12 @@ describe('recordPaymentBodySchema', () => {
     }
   });
 
-  it('rejects missing references', () => {
+  it('accepts a payload without reference (reference is optional)', () => {
     const result = recordPaymentBodySchema.safeParse({
       amount: 5000,
       payment_method: 'bank_transfer',
     });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 });
