@@ -21,6 +21,9 @@ const purchaseSchemaBase = z.object({
   billItemIdentifier: z.string().optional(),
   customerIdentifier: z.string().optional(),
   billerName: z.string().optional(),
+  // Bill customer info (electricity / cable / betting)
+  customerName: z.string().optional(),
+  customerPhone: z.string().optional(),
   // Common optional fields
   customerId: z.string().uuid().optional(),
   orderId: z.string().uuid().optional(),
@@ -107,8 +110,6 @@ export const vtuCheckoutGatewayEnum = z.enum([
 
 export const vtuCheckoutInitializeSchema = purchaseSchemaBase
   .extend({
-    customerName: z.string().min(1).optional(),
-    customerPhone: z.string().min(1).optional(),
     gateway: vtuCheckoutGatewayEnum,
   })
   .superRefine(applyPurchaseRequirements);
@@ -125,8 +126,6 @@ export const vtuSavedPaymentMethodsQuerySchema = z.object({
 
 export const vtuSavedCardChargeSchema = purchaseSchemaBase
   .extend({
-    customerName: z.string().min(1).optional(),
-    customerPhone: z.string().min(1).optional(),
     gateway: vtuCheckoutGatewayEnum,
     savedPaymentMethodId: z.string().uuid('Saved payment method id is invalid'),
   })
