@@ -169,9 +169,10 @@ export async function preparePendingVtuTransaction({
 
   // Normalize buyer phone for non-telco (electricity / cable / betting) so Kuda
   // can deliver tokens / confirmations to their real number.
-  const normalizedCustomerPhone = input.customerPhone
+  const rawCustomerPhone = input.customerPhone
     ? formatPhoneNumber(input.customerPhone)
-    : undefined;
+    : '';
+  const normalizedCustomerPhone = rawCustomerPhone || undefined;
   if (normalizedCustomerPhone && !isValidPhoneNumber(normalizedCustomerPhone)) {
     throw new Error('Invalid customer phone number');
   }

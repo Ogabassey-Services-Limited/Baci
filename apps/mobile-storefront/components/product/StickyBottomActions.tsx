@@ -231,7 +231,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRightWidth: 1,
-    borderRightColor: '#FEE2E2',
   },
   qtyButtonRight: {
     width: 50,
@@ -239,7 +238,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderLeftWidth: 1,
-    borderLeftColor: '#FEE2E2',
   },
   qtyCenter: {
     flex: 1,
@@ -248,7 +246,6 @@ const styles = StyleSheet.create({
   },
   qtyLabel: {
     fontSize: 9,
-    color: '#9CA3AF',
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -257,7 +254,6 @@ const styles = StyleSheet.create({
   qtyInput: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#111827',
     textAlign: 'center',
     minWidth: 40,
     padding: 0,
