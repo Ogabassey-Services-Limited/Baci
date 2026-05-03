@@ -10,7 +10,7 @@ let client: SendMailClient | null = null;
 function getClient(): SendMailClient {
   if (client) return client;
 
-  const token = process.env.ZEPTOMAIL_TOKEN;
+  const token = process.env.ZEPTOMAIL_TOKEN?.trim();
   if (!token) {
     throw new Error('ZEPTOMAIL_TOKEN environment variable is not configured');
   }
@@ -23,8 +23,10 @@ function getClient(): SendMailClient {
   return client;
 }
 
-// Default sender configuration
-const DEFAULT_FROM_DOMAIN = process.env.ZEPTOMAIL_FROM_DOMAIN || 'usebaci.com';
+// Default sender configuration — trim to guard against env vars set with `echo` (trailing \n)
+const DEFAULT_FROM_DOMAIN = (
+  process.env.ZEPTOMAIL_FROM_DOMAIN || 'usebaci.com'
+).trim();
 
 // Email type to sender address mapping
 export type EmailType =
