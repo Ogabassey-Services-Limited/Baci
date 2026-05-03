@@ -355,7 +355,8 @@ describe('createOrder — variant_attributes', () => {
       },
     });
 
-    const retryOptions = mockFetchWithRetry.mock.calls.at(-1)?.[2] as
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const retryOptions = (mockFetchWithRetry.mock.calls.at(-1) as any)?.[2] as
       | { maxRetries?: number }
       | undefined;
     expect(retryOptions?.maxRetries).toBe(0);
@@ -434,7 +435,8 @@ describe('createOrderWithOfflineSupport — offline queue contract', () => {
       error: null,
     });
     const { offlineQueue } = require('@/lib/offline-queue');
-    (offlineQueue.enqueue as jest.Mock).mockResolvedValue('queue-id-1');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (offlineQueue.enqueue as jest.Mock<any>).mockResolvedValue('queue-id-1');
   });
 
   it('queues the order when createOrder encounters a NETWORK_ERROR', async () => {
