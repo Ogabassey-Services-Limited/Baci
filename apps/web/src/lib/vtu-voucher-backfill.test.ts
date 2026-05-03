@@ -227,33 +227,24 @@ describe('vtu-voucher-backfill', () => {
 
     // update called twice: once to mark scheduled, once to clear the timestamp
     expect(update).toHaveBeenCalledTimes(2);
-    const allUpdateCalls = update.mock.calls as unknown as [
-      { metadata: Record<string, unknown> },
-    ][];
-    const clearCall = allUpdateCalls[1]?.[0];
-    expect(clearCall?.metadata).not.toHaveProperty(
-      VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY
-    );
-    // Attempt counter must be preserved
-    expect(clearCall?.metadata).toHaveProperty(
-      VOUCHER_PIN_BACKFILL_ATTEMPTS_KEY,
-      1
-    );
+    expect(update).toHaveBeenLastCalledWith({
+      metadata: expect.not.objectContaining({
+        [VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY]: expect.anything(),
+      }),
+    });
+    expect(update).toHaveBeenLastCalledWith({
+      metadata: expect.objectContaining({
+        [VOUCHER_PIN_BACKFILL_ATTEMPTS_KEY]: 1,
+      }),
+    });
 
     // OCC: the clear must compare against the scheduled metadata so concurrent
     // writes (e.g. webhooks) are not clobbered.
-    const filterCalls = updateQuery.filter.mock.calls as unknown as [
-      string,
-      string,
-      string,
-    ][];
-    expect(filterCalls).toHaveLength(2);
-    const clearFilterArg = String(filterCalls[1]?.[2]).replace(/::jsonb$/, '');
-    const parsedClearFilter = JSON.parse(clearFilterArg) as Record<
-      string,
-      unknown
-    >;
-    expect(parsedClearFilter).toHaveProperty(
+    expect(updateQuery.filter).toHaveBeenCalledTimes(2);
+    const clearFilterArg = String(
+      updateQuery.filter.mock.lastCall?.[2]
+    ).replace(/::jsonb$/, '');
+    expect(JSON.parse(clearFilterArg)).toHaveProperty(
       VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY
     );
   });
