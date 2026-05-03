@@ -247,7 +247,7 @@ export async function createOrder(
         // (no Idempotency-Key handling). Retrying creates duplicate orders, so
         // make a single attempt and let the user retry from the UI on failure.
         maxRetries: 0,
-        timeout: 60000, // 60s — gives the web API room for email/notification
+        timeout: DEFAULT_TIMEOUT,
       }
     );
 
