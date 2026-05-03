@@ -468,13 +468,6 @@ export async function POST(request: NextRequest) {
     // after() runs after the response is sent — email/push never block the response.
     const isWalletFullyPaid = walletFinalized;
     if (payOnDelivery || payment_method === 'invoice' || isWalletFullyPaid) {
-      // Capture values needed inside after() closures before they go out of scope
-      const capturedOrderId = order.id;
-      const capturedOrderNum = orderNum;
-      const capturedMerchantId = merchant_id;
-      const capturedCustomerId = customer_id;
-      const capturedPaymentMethod = payment_method;
-
       if (merchant.business_name && merchant.slug) {
         const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
         const merchantUrl = `https://${merchant.slug}.${rootDomain}`;
@@ -503,7 +496,7 @@ export async function POST(request: NextRequest) {
         }));
 
         const emailData = {
-          orderNumber: capturedOrderNum,
+          orderNumber: orderNum,
           customerName: customer_name,
           items: emailItems,
           subtotal: orderSubtotal,
@@ -548,12 +541,12 @@ export async function POST(request: NextRequest) {
               emailType: 'orders',
               fromName: senderName,
               auditContext: {
-                merchantId: capturedMerchantId,
-                orderId: capturedOrderId,
-                customerId: capturedCustomerId,
+                merchantId: merchant_id,
+                orderId: order.id,
+                customerId: customer_id,
                 metadata: {
                   trigger: 'order_create_immediate_confirmation',
-                  paymentMethod: capturedPaymentMethod,
+                  paymentMethod: payment_method,
                 },
               },
             });
@@ -561,8 +554,8 @@ export async function POST(request: NextRequest) {
             if (!emailResult.success) {
               logger.error({
                 message: 'Failed to send order confirmation email',
-                orderId: capturedOrderId,
-                paymentMethod: capturedPaymentMethod,
+                orderId: order.id,
+                paymentMethod: payment_method,
                 emailError: emailResult.error,
                 emailErrorCode: emailResult.errorCode,
                 emailErrorDetails: emailResult.errorDetails,
@@ -570,8 +563,8 @@ export async function POST(request: NextRequest) {
             } else {
               logger.info({
                 message: 'Order confirmation email sent',
-                orderId: capturedOrderId,
-                paymentMethod: capturedPaymentMethod,
+                orderId: order.id,
+                paymentMethod: payment_method,
                 messageId: emailResult.messageId,
               });
             }
@@ -588,17 +581,17 @@ export async function POST(request: NextRequest) {
       after(async () => {
         try {
           const pushResult = await notifyNewOrder(
-            capturedMerchantId,
-            capturedOrderId,
-            capturedOrderNum,
+            merchant_id,
+            order.id,
+            orderNum,
             customer_name,
             orderTotal
           );
           if (pushResult.failed > 0 || pushResult.errors.length > 0) {
             logger.warn({
               message: 'New order push notification was not fully delivered',
-              orderId: capturedOrderId,
-              merchantId: capturedMerchantId,
+              orderId: order.id,
+              merchantId: merchant_id,
               sent: pushResult.sent,
               failed: pushResult.failed,
               errors: pushResult.errors,
@@ -611,11 +604,11 @@ export async function POST(request: NextRequest) {
         if (isWalletFullyPaid) {
           try {
             const paymentPushResult = await notifyPaymentReceived(
-              capturedMerchantId,
+              merchant_id,
               orderTotal,
               order.currency || 'NGN',
-              capturedOrderNum,
-              capturedOrderId
+              orderNum,
+              order.id
             );
             if (
               paymentPushResult.failed > 0 ||
@@ -623,8 +616,8 @@ export async function POST(request: NextRequest) {
             ) {
               logger.warn({
                 message: 'Payment push notification was not fully delivered',
-                orderId: capturedOrderId,
-                merchantId: capturedMerchantId,
+                orderId: order.id,
+                merchantId: merchant_id,
                 sent: paymentPushResult.sent,
                 failed: paymentPushResult.failed,
                 errors: paymentPushResult.errors,

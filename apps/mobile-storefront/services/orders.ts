@@ -512,11 +512,10 @@ export async function createOrderWithOfflineSupport(
       const order = await createOrder(request);
       return { order, queued: false };
     } catch (error) {
-      // If network error during request, queue it
-      if (
-        error instanceof OrderError &&
-        (error.code === 'NETWORK_ERROR' || error.code === 'TIMEOUT_ERROR')
-      ) {
+      // Only queue errors where the server definitely did NOT receive the request.
+      // TIMEOUT_ERROR has unknown outcome — the order may have been created server-side,
+      // so queuing it for replay risks creating a duplicate order.
+      if (error instanceof OrderError && error.code === 'NETWORK_ERROR') {
         const queueId = await offlineQueue.enqueue('create_order', request);
         trackEvent('order_queued_after_failure', {
           queueId,

@@ -660,11 +660,17 @@ export default function CheckoutScreen() {
   const watchedFirstName = watch('firstName');
   const watchedLastName = watch('lastName');
   const watchedEmail = watch('email');
+
+  // Only include the address in the shipping-quote context key when the user
+  // has committed to a specific address (via autocomplete selection or saved-address
+  // apply). Using watchedAddress directly would rebuild the key on every keystroke,
+  // triggering a Topship re-fetch for each character typed.
+  const [committedAddress, setCommittedAddress] = React.useState('');
   const currentShippingQuoteContextKey = buildShippingQuoteContextKey(
     watchedState,
     watchedCity,
     items,
-    watchedAddress
+    committedAddress
   );
 
   const hasTrackedStart = useRef(false);
@@ -720,6 +726,7 @@ export default function CheckoutScreen() {
     setValue('address', checkoutValues.address, { shouldValidate: true });
     setValue('city', checkoutValues.city, { shouldValidate: true });
     setValue('state', checkoutValues.state, { shouldValidate: true });
+    setCommittedAddress(checkoutValues.address);
     setSelectedSavedAddressId(savedAddress.id);
     setIsAddingNewAddress(false);
     setSaveAsDefaultAddress(Boolean(savedAddress.is_default));
@@ -1390,6 +1397,11 @@ export default function CheckoutScreen() {
 
   const handleRetryShippingQuotes = () => {
     if (!watchedState || !watchedCity) return;
+    if (shippingQuoteAbortRef.current) {
+      shippingQuoteAbortRef.current.abort();
+    }
+    const controller = new AbortController();
+    shippingQuoteAbortRef.current = controller;
     const shouldResetSelection =
       resolvedShippingQuoteContextKey !== currentShippingQuoteContextKey;
     fetchShippingQuotes({
@@ -1410,6 +1422,7 @@ export default function CheckoutScreen() {
       previousSelectedQuoteId: shouldResetSelection ? null : selectedQuoteId,
       quoteContextKey: currentShippingQuoteContextKey,
       shouldResetSelection,
+      signal: controller.signal,
     });
   };
 
@@ -1501,11 +1514,11 @@ export default function CheckoutScreen() {
 
     if (step === 'address') {
       if (deliveryMethod === 'pickup_station') {
-        setValue('address', PICKUP_STATION_ADDRESS_LINES.join(', '), {
-          shouldValidate: true,
-        });
+        const pickupAddress = PICKUP_STATION_ADDRESS_LINES.join(', ');
+        setValue('address', pickupAddress, { shouldValidate: true });
         setValue('city', PICKUP_STATION_CITY, { shouldValidate: true });
         setValue('state', PICKUP_STATION_STATE, { shouldValidate: true });
+        setCommittedAddress(pickupAddress);
         handleSubmit(onAddressSubmit, handleAddressValidationError)();
       } else {
         handleSubmit(onAddressSubmit, handleAddressValidationError)();
@@ -2586,7 +2599,9 @@ export default function CheckoutScreen() {
                       scrollRef={addressScrollRef}
                       scrollOffsetRef={addressScrollOffsetRef}
                       onSelect={(place) => {
-                        onChange(place.formattedAddress || '');
+                        const selectedAddress = place.formattedAddress || '';
+                        onChange(selectedAddress);
+                        setCommittedAddress(selectedAddress);
                         const normalizedState = place.state
                           ? normalizeStateName(place.state, shippingStates)
                           : '';

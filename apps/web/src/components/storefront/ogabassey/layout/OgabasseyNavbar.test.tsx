@@ -291,20 +291,22 @@ describe('OgabasseyNavbar', () => {
     const user = userEvent.setup();
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    render(<OgabasseyNavbar storeSlug="/ogabassey" />);
+    try {
+      render(<OgabasseyNavbar storeSlug="/ogabassey" />);
 
-    await user.click(screen.getByRole('searchbox', { name: /search products/i }));
-    await user.click(
-      await screen.findByRole('button', { name: /select invalid product/i })
-    );
+      await user.click(screen.getByRole('searchbox', { name: /search products/i }));
+      await user.click(
+        await screen.findByRole('button', { name: /select invalid product/i })
+      );
 
-    expect(mocks.asRoute).not.toHaveBeenCalledWith('https://example.com/bad');
-    expect(mocks.push).not.toHaveBeenCalled();
-    expect(consoleWarn).toHaveBeenCalledWith(
-      'Invalid product URL rejected:',
-      'https://example.com/bad'
-    );
-
-    consoleWarn.mockRestore();
+      expect(mocks.asRoute).not.toHaveBeenCalledWith('https://example.com/bad');
+      expect(mocks.push).not.toHaveBeenCalled();
+      expect(consoleWarn).toHaveBeenCalledWith(
+        'Invalid product URL rejected:',
+        'https://example.com/bad'
+      );
+    } finally {
+      consoleWarn.mockRestore();
+    }
   });
 });
