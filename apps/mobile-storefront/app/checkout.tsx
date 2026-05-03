@@ -85,6 +85,7 @@ import {
   getMerchantTaxRate,
   useMerchantPaymentSettings,
 } from '@/hooks/useMerchantPaymentSettings';
+import { getAddressLabelIcon } from '@/app/addresses/get-address-label-icon';
 import { resolveApiBaseUrl } from '@/lib/api-url';
 import { deriveCheckoutIdentity } from '@/lib/checkout-identity';
 import {
@@ -180,15 +181,6 @@ function getPaymentTabForMethod(method: PaymentMethodType): PaymentTab {
   return 'full';
 }
 
-type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
-
-function getAddressLabelIcon(label: string | null | undefined): IoniconName {
-  const normalized = (label ?? '').toLowerCase().trim();
-  if (normalized === 'home') return 'home-outline';
-  if (normalized === 'work' || normalized === 'office') return 'business-outline';
-  if (normalized === 'school' || normalized === 'university') return 'school-outline';
-  return 'location-outline';
-}
 
 function getDeliveryMethodFee(
   deliveryMethod: DeliveryMethod,
@@ -818,6 +810,7 @@ export default function CheckoutScreen() {
       setSelectedSavedAddressId(defaultAddr.id);
       setIsAddingNewAddress(false);
       setSaveAsDefaultAddress(Boolean(defaultAddr.is_default));
+      setCommittedAddress(checkoutValues.address);
       setIsContactCollapsed(true);
       setIsDeliveryCollapsed(true);
       hasHydratedSavedAddressRef.current = true;
@@ -2129,8 +2122,7 @@ export default function CheckoutScreen() {
   };
 
   // 2026 Fix: Wrap submission in handleSubmit to enforce validation
-  const handlePlaceOrder = handleSubmit(onCheckoutSubmit, (errors) => {
-    console.log('Validation errors:', errors);
+  const handlePlaceOrder = handleSubmit(onCheckoutSubmit, (_errors) => {
     Alert.alert(
       'Incomplete Details',
       'Please fill in all required fields (Address, City, Phone) to place your order.',

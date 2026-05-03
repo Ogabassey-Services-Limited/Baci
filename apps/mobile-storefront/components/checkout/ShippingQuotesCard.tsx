@@ -110,7 +110,7 @@ export function ShippingQuotesCard({
                       >
                         {quote.displayName}
                       </Text>
-                      {carrier.includes('GIG') && (
+                      {carrier.toLowerCase().includes('gig') && (
                         <View style={styles.badgeDark}>
                           <Text style={styles.badgeText}>GIGL</Text>
                         </View>
