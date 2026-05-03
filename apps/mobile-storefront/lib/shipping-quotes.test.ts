@@ -33,7 +33,7 @@ describe('shipping quote helpers', () => {
     const key = buildShippingQuoteContextKey('Lagos', 'Ikeja', items);
 
     expect(key).toBe(
-      'lagos::ikeja::["prod-1","var-1",2,1000]|["prod-2","",1,450]'
+      'lagos::ikeja::::["prod-1","var-1",2,1000]|["prod-2","",1,450]'
     );
   });
 
