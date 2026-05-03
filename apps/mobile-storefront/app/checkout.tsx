@@ -567,6 +567,11 @@ export default function CheckoutScreen() {
   const [paymentTab, setPaymentTab] = React.useState<PaymentTab>('full');
   const [deliveryMethod, setDeliveryMethod] =
     React.useState<DeliveryMethod>('door');
+  const savedDoorAddressRef = React.useRef<{
+    address: string;
+    city: string;
+    state: string;
+  } | null>(null);
 
   const [shippingStates, setShippingStates] = React.useState<string[]>([]);
   const [shippingCities, setShippingCities] = React.useState<string[]>([]);
@@ -1531,6 +1536,26 @@ export default function CheckoutScreen() {
     }
   };
 
+  const handleSelectDeliveryMethod = (method: DeliveryMethod) => {
+    if (method === 'pickup_station' && deliveryMethod !== 'pickup_station') {
+      savedDoorAddressRef.current = {
+        address: watchedAddress,
+        city: watchedCity,
+        state: watchedState,
+      };
+    } else if (method !== 'pickup_station' && deliveryMethod === 'pickup_station') {
+      const saved = savedDoorAddressRef.current;
+      if (saved) {
+        setValue('address', saved.address, { shouldValidate: false });
+        setValue('city', saved.city, { shouldValidate: false });
+        setValue('state', saved.state, { shouldValidate: false });
+        setCommittedAddress(saved.address);
+        savedDoorAddressRef.current = null;
+      }
+    }
+    setDeliveryMethod(method);
+  };
+
   const handleSelectState = (state: string) => {
     setValue('state', state, { shouldValidate: true });
     setValue('city', '', { shouldValidate: true });
@@ -2419,7 +2444,7 @@ export default function CheckoutScreen() {
         colors={colors}
         isDark={isDark}
         selectedMethod={deliveryMethod}
-        onSelectMethod={setDeliveryMethod}
+        onSelectMethod={handleSelectDeliveryMethod}
         doorSubtitle={
           selectedQuote != null
             ? getDeliveryMethodSummary('door', selectedQuote)

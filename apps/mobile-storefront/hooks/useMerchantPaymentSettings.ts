@@ -36,7 +36,6 @@ export function useMerchantPaymentSettings() {
       return data as PaymentSettings;
     },
     staleTime: 5 * 60 * 1000,
-    refetchOnMount: 'always', // Always re-fetch on mount so admin toggles appear immediately
   });
 }
 

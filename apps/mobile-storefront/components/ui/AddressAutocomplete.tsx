@@ -161,7 +161,8 @@ export function AddressAutocomplete({
       const DROPDOWN_HEIGHT = 280;
       const PADDING = 16;
       const screenHeight = Dimensions.get('window').height;
-      const keyboardTop = screenHeight - keyboardHeightRef.current;
+      const kbHeight = keyboardHeightRef.current || Keyboard.metrics()?.height || 0;
+      const keyboardTop = screenHeight - kbHeight;
       const dropdownBottom = screenY + inputHeight + DROPDOWN_HEIGHT + PADDING;
       if (dropdownBottom > keyboardTop) {
         const overflow = dropdownBottom - keyboardTop;
@@ -339,6 +340,8 @@ export function AddressAutocomplete({
           }}
           onBlur={(event) => {
             setIsFocused(false);
+            // Delay so prediction-item taps can fire before the dropdown closes
+            setTimeout(() => setIsOpen(false), 150);
             onBlur?.(event);
           }}
           placeholder={placeholder}
