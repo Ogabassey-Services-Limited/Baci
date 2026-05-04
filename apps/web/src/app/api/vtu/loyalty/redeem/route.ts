@@ -207,20 +207,33 @@ export async function POST(request: Request) {
       .eq('id', rewardId);
 
     // Log the redemption in loyalty history
-    await supabase.from('loyalty_transactions').insert({
-      customer_id: customer.id,
-      merchant_id: reward.merchant_id,
-      type: 'redeemed',
-      points: -reward.points_required,
-      description: `Redeemed ${reward.points_required} points for ₦${reward.airtime_amount} airtime`,
-      metadata: {
-        reward_type: 'airtime',
-        reward_id: rewardId,
-        phone_number: formattedPhone,
-        network_provider: networkProvider,
+    const { error: insertTxError } = await supabase
+      .from('loyalty_transactions')
+      .insert({
+        customer_id: customer.id,
+        merchant_id: reward.merchant_id,
+        type: 'redeemed',
+        points: -reward.points_required,
+        description: `Redeemed ${reward.points_required} points for ₦${reward.airtime_amount} airtime`,
+        metadata: {
+          reward_type: 'airtime',
+          reward_id: rewardId,
+          phone_number: formattedPhone,
+          network_provider: networkProvider,
+          vtu_transaction_id: transaction.id,
+        },
+      });
+    if (insertTxError) {
+      // The airtime was already sent through the VTU provider and the
+      // customer's points balance was already decremented. A 500 here
+      // would mislead the client into retrying and redeeming again. Log
+      // the audit gap for reconciliation and return success.
+      console.error('Airtime redeemed but failed to log loyalty transaction:', {
+        error: insertTxError,
+        customer_id: customer.id,
         vtu_transaction_id: transaction.id,
-      },
-    });
+      });
+    }
 
     return NextResponse.json({
       success: true,

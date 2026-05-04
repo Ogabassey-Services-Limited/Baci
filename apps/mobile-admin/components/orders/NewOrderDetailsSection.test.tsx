@@ -202,6 +202,33 @@ describe('NewOrderDetailsSection', () => {
     expect(screen.getByText('Recipient Phone')).toBeInTheDocument();
   });
 
+  // Accessibility regression — exercises the accessibilityHint /
+  // accessibilityState branches added when the date Pressable was made
+  // toggle-aware. We can't assert DOM aria-* attrs here because this
+  // suite runs JSDOM + react-native-web with the props-only adapter
+  // (RNW doesn't translate accessibilityHint/accessibilityState into
+  // DOM attrs in this config). The closest assertion is that the
+  // component renders + responds to onPress in both states without
+  // throwing — proves the conditional branches at line 65-72 are safe.
+  it('renders the date Pressable in collapsed state and responds to onPress', () => {
+    const controller = makeController({ showDatePicker: false });
+    render(<NewOrderDetailsSection controller={controller} />);
+
+    const dateButton = screen.getByRole('button', { name: /Date/i });
+    fireEvent.click(dateButton);
+
+    expect(controller.setShowDatePicker).toHaveBeenCalled();
+  });
+
+  it('renders the date Pressable in expanded state without throwing', () => {
+    const controller = makeController({ showDatePicker: true });
+    render(<NewOrderDetailsSection controller={controller} />);
+
+    // When expanded, both the toggle row and the picker render, so
+    // assert at least the toggle row is present (text 'Date').
+    expect(screen.getAllByText(/Date/i).length).toBeGreaterThan(0);
+  });
+
   it('updates the selected date when the picker fires on iOS/web-style platforms', () => {
     platformState.OS = 'ios';
     const controller = makeController({ showDatePicker: true });

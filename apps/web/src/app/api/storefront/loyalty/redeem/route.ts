@@ -136,14 +136,27 @@ export async function POST(request: NextRequest) {
     }
 
     // Record points transaction
-    await supabase.from('points_transactions').insert({
-      merchant_id,
-      customer_id,
-      points: -reward.points_required,
-      type: 'redemption',
-      description: `Redeemed: ${reward.name}`,
-      reference_id: redemption.id,
-    });
+    const { error: insertTxError } = await supabase
+      .from('points_transactions')
+      .insert({
+        merchant_id,
+        customer_id,
+        points: -reward.points_required,
+        type: 'redemption',
+        description: `Redeemed: ${reward.name}`,
+        reference_id: redemption.id,
+      });
+    if (insertTxError) {
+      // The reward redemption row was already created and the customer's
+      // points balance was already decremented. Returning 500 here would
+      // make retried requests double-redeem. Log the audit failure and
+      // return success — the missing points_transactions row is a gap for
+      // monitoring/reconciliation, not a client-facing error.
+      console.error(
+        'Reward redeemed but failed to record points transaction:',
+        { error: insertTxError, redemption_id: redemption.id, customer_id }
+      );
+    }
 
     return NextResponse.json({
       success: true,
