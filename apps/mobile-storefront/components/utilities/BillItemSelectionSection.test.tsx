@@ -30,13 +30,17 @@ describe('BillItemSelectionSection', () => {
   it('shows a plain-object verification error message', () => {
     render(
       <BillItemSelectionSection
+        beneficiaries={[]}
         billItemSelection={billItemSelection}
         colors={Colors.light}
         customerId="1234567890"
         handleBillItemSelect={jest.fn<
           (depth: number, billItem: BillItem) => void
         >()}
+        handleSelectBeneficiary={jest.fn()}
         handleVerify={jest.fn()}
+        beneficiaries={[]}
+        handleSelectBeneficiary={jest.fn()}
         isBillItemSelectionComplete={true}
         isRepeatPaymentActive={false}
         selectedBillItemIdentifier="postpaid"
@@ -67,6 +71,8 @@ describe('BillItemSelectionSection', () => {
           (depth: number, billItem: BillItem) => void
         >()}
         handleVerify={jest.fn()}
+        beneficiaries={[]}
+        handleSelectBeneficiary={jest.fn()}
         isBillItemSelectionComplete={true}
         isRepeatPaymentActive={true}
         verifiedCustomerName="JANE CUSTOMER"
@@ -96,6 +102,8 @@ describe('BillItemSelectionSection', () => {
           (depth: number, billItem: BillItem) => void
         >()}
         handleVerify={jest.fn()}
+        beneficiaries={[]}
+        handleSelectBeneficiary={jest.fn()}
         isBillItemSelectionComplete={true}
         isRepeatPaymentActive={true}
         selectedBillItemIdentifier="prepaid"
