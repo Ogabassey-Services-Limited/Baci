@@ -97,9 +97,13 @@ export default function SetupChecklistScreen() {
       <Pressable
         key={item.id}
         onPress={() =>
+          // item.href is a dynamic string from CHECKLIST_ITEMS config; the
+          // typed `pathname/params` form requires a literal pathname
+          // known at compile time. Cast is intentional for config-driven
+          // navigation. New routes added to CHECKLIST_ITEMS must still be
+          // valid Expo Router paths.
           item.href.startsWith('/')
-            ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              router.push(item.href as any)
+            ? router.push(item.href as Parameters<typeof router.push>[0])
             : undefined
         }
         style={[

@@ -596,7 +596,8 @@ export async function POST(request: NextRequest) {
         category: body.category,
         color: (variantWriteProjections.color ?? body.color?.trim()) || null,
       })
-      .select()
+      // PERFORMANCE: Use explicit column selection instead of .select() to prevent overfetching full product rows on insertion, as only the ID is needed below
+      .select('id')
       .single();
 
     if (productError) {
@@ -629,7 +630,33 @@ export async function POST(request: NextRequest) {
         .insert(variantsToInsert);
 
       if (variantsError) {
-        console.error('Error creating variants:', variantsError);
+        // The product row was created with has_variants=true but the
+        // variants insert failed. Roll back the product row so we don't
+        // leave an orphaned has_variants=true product without variants —
+        // that state breaks downstream stock/availability resolution.
+        console.error('Error creating variants:', variantsError, {
+          productId: product?.id,
+          variantCount: variantsToInsert.length,
+        });
+        const { error: rollbackError } = await supabase
+          .from('products')
+          .delete()
+          .eq('id', product.id);
+        if (rollbackError) {
+          console.error(
+            'Failed to roll back orphaned product after variant insert failure:',
+            { productId: product.id, variantsError, rollbackError }
+          );
+        }
+        return NextResponse.json(
+          {
+            error: 'Failed to create product variants',
+            details: variantsError.message,
+            productId: product?.id,
+            rolledBack: !rollbackError,
+          },
+          { status: 500 }
+        );
       }
     }
 

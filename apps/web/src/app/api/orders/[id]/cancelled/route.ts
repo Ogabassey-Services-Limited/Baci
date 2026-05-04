@@ -117,8 +117,12 @@ export async function POST(
     const refundAmount = amountPaid;
 
     // Process actual refund if payment was made
-    let refundResult: { success: boolean; refundId?: number; error?: string } =
-      { success: false };
+    let refundResult: {
+      success: boolean;
+      refundId?: number;
+      error?: string;
+      auditRecordFailed?: boolean;
+    } = { success: false };
     if (amountPaid > 0 && order.payment_status === 'paid') {
       // Look up the transaction for this order
       const { data: transaction } = await supabase
@@ -165,17 +169,37 @@ export async function POST(
 
         // Create refund transaction record
         if (refundResult.success) {
-          await supabase.from('transactions').insert({
-            merchant_id: order.merchant_id,
-            order_id: id,
-            transaction_type: 'refund',
-            amount: refundAmount,
-            currency: 'NGN',
-            status: 'completed',
-            gateway: transaction.gateway,
-            gateway_reference: String(refundResult.refundId),
-            description: `Refund for cancelled order #${order.order_number || id.slice(0, 8)}`,
-          });
+          const { error: insertTxError } = await supabase
+            .from('transactions')
+            .insert({
+              merchant_id: order.merchant_id,
+              order_id: id,
+              transaction_type: 'refund',
+              amount: refundAmount,
+              currency: 'NGN',
+              status: 'completed',
+              gateway: transaction.gateway,
+              gateway_reference: String(refundResult.refundId),
+              description: `Refund for cancelled order #${order.order_number || id.slice(0, 8)}`,
+            });
+          if (insertTxError) {
+            // Refund already succeeded with the gateway. A 500 here would
+            // make a retried request re-issue the refund (double-refund
+            // risk) since the gateway is the authoritative ledger. Log the
+            // audit failure and continue to return the success response;
+            // monitoring picks up the audit-record gap from logs.
+            logger.error({
+              message:
+                'Refund processed but failed to create transaction audit record',
+              error: insertTxError,
+              orderId: id,
+              refundId: refundResult.refundId,
+            });
+            refundResult = {
+              ...refundResult,
+              auditRecordFailed: true,
+            };
+          }
         }
       } else {
         logger.warn({

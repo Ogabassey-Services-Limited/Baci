@@ -130,13 +130,21 @@ export async function POST(request: NextRequest) {
         console.error('Error awarding referrer bonus:', referrerUpdateError);
       } else {
         // Record referrer transaction
-        await supabase.from('points_transactions').insert({
-          merchant_id,
-          customer_id: referrerId,
-          points: settings.referral_bonus_referrer,
-          type: 'referral',
-          description: 'Referral bonus - new customer signup',
-        });
+        const { error: referrerTxError } = await supabase
+          .from('points_transactions')
+          .insert({
+            merchant_id,
+            customer_id: referrerId,
+            points: settings.referral_bonus_referrer,
+            type: 'referral',
+            description: 'Referral bonus - new customer signup',
+          });
+        if (referrerTxError) {
+          console.error(
+            'Error recording referrer points transaction:',
+            referrerTxError
+          );
+        }
       }
     }
 

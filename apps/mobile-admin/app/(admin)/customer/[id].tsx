@@ -204,8 +204,12 @@ export default function CustomerDetailsScreen() {
                 />
               </Pressable>
               <Pressable
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onPress={() => router.push(`/customer/edit/${id}` as any)}
+                onPress={() =>
+                  router.push({
+                    pathname: '/(admin)/customer/edit/[id]',
+                    params: { id },
+                  })
+                }
                 style={{ padding: SPACING.sm }}
               >
                 <Ionicons
@@ -379,7 +383,12 @@ export default function CustomerDetailsScreen() {
                   { backgroundColor: colors.card },
                   shadows.sm,
                 ]}
-                onPress={() => router.push(`/order/${order.id}`)}
+                onPress={() =>
+                  router.push({
+                    pathname: '/(admin)/order/[id]',
+                    params: { id: order.id },
+                  })
+                }
               >
                 <View
                   style={[
