@@ -80,6 +80,14 @@ jobs:
     # condition becomes false in a future change) cannot let a web deploy
     # land against an out-of-date schema.
     if: always() && github.ref == 'refs/heads/main' && needs.db-migrations.result == 'success' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true')
+    # Cross-workflow VPS mutex — the self-hosted runners (baci-deploy,
+    # baci-deploy-2, baci-android, baci-lighthouse) all live on the same
+    # 16GB host. Without a shared lock, a Next build (5-7GB peak) and an
+    # Android Gradle build (5-6GB peak) can race and OOM-kill each other.
+    # This serializes all heavy VPS jobs.
+    concurrency:
+      group: vps-heavy-build
+      cancel-in-progress: false
     runs-on: baci-deploy
     timeout-minutes: 20
     env:
