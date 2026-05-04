@@ -160,7 +160,7 @@ export const ReviewSchema = z.object({
 });
 
 export const ReviewStatsSchema = z.object({
-  average_rating: z.number(),
+  average_rating: z.number().nullable(),
   review_count: z.number(),
   rating_distribution: z.record(z.string(), z.number()),
 });
@@ -173,7 +173,7 @@ export const ReviewsApiResponseSchema = z.object({
       page: z.number(),
       limit: z.number(),
       totalPages: z.number(),
-      totalCount: z.number(),
+      totalCount: z.number().optional(),
     })
     .optional(),
 });
