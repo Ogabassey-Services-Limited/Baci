@@ -2,8 +2,8 @@ import { jest } from '@jest/globals';
 import { waitFor } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import { PAYMENT_CLIPBOARD_BRIDGE } from '@/constants/payment-clipboard-bridge';
-import { PAYMENT_KINDS } from './payment-gateway.helpers';
 import { createPaymentGatewayMessageHandler } from './create-payment-gateway-message-handler';
+import { PAYMENT_KINDS } from './payment-gateway.helpers';
 
 jest.mock('expo-router', () => ({
   router: {
@@ -18,13 +18,14 @@ function createHandler(
 ) {
   const copiedGatewayTextRef = { current: null as string | null };
   const clearCart = jest.fn();
-  const confirmVtuPaymentSuccess = jest.fn<
-    (input: {
-      amount: number;
-      customerIdentifier?: string;
-      reference: string;
-    }) => void
-  >();
+  const confirmVtuPaymentSuccess =
+    jest.fn<
+      (input: {
+        amount: number;
+        customerIdentifier?: string;
+        reference: string;
+      }) => void
+    >();
   const copyGatewayText = jest.fn<
     (text: string, success: string, failure?: string) => Promise<void>
   >(() => Promise.resolve());

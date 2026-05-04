@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useRef } from 'react';
-import type { ValidUtilityType } from '@/app/utilities/utility-purchase.types';
+import type { ValidUtilityType } from '@/components/utilities/utility-purchase.types';
 import { EXPO_PUBLIC_API_URL } from '@/env';
 import { CONFIG } from '@/lib/config';
 import { fetchWithTimeout, SHORT_TIMEOUT } from '@/lib/fetch-with-timeout';
@@ -22,7 +22,6 @@ const UTILITY_TYPE_TO_API_TYPE: Partial<
   tv: 'cable_tv',
   gaming: 'betting',
 };
-
 
 interface UseVtuVoucherPinBackfillInput {
   enabled: boolean;

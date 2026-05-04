@@ -5,8 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   PAYMENT_KINDS,
   type PaymentKind,
-} from '@/app/payment-gateway/payment-gateway.helpers';
-import { paymentGatewayStyles as styles } from '@/app/payment-gateway/payment-gateway.styles';
+} from '@/components/payment-gateway/payment-gateway.helpers';
+import { paymentGatewayStyles as styles } from '@/components/payment-gateway/payment-gateway.styles';
 import type Colors from '@/constants/Colors';
 import { withAlpha } from '@/constants/Colors';
 

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import type React from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { utilityPurchaseStyles as styles } from '@/app/utilities/utility-purchase.styles';
+import { utilityPurchaseStyles as styles } from '@/components/utilities/utility-purchase.styles';
 
 type UtilityHeaderIconName = React.ComponentProps<typeof Ionicons>['name'];
 

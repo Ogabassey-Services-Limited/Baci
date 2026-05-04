@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
-import { paymentGatewayStyles as styles } from '@/app/payment-gateway/payment-gateway.styles';
+import { paymentGatewayStyles as styles } from '@/components/payment-gateway/payment-gateway.styles';
 import type Colors from '@/constants/Colors';
 import { BRAND, withAlpha } from '@/constants/Colors';
 import { PAYMENT_CLIPBOARD_BRIDGE } from '@/constants/payment-clipboard-bridge';
