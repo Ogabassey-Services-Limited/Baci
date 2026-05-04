@@ -45,13 +45,11 @@ import {
   TOOL_DESCRIPTIONS,
 } from '@/ai/chat-tools';
 import { activeTextModel, checkRateLimit } from '@/ai/provider';
+import { getAiChatModel, getOllamaBaseUrl, getOllamaBasicAuth } from '@/env';
+import { createOllamaChatResponse } from '@/lib/ollama-chat';
 import { sanitizeHtml } from '@/lib/sanitize';
 
-export const maxDuration = 60; // Allow longer for multi-step agentic flows
-
-// ============================================
-// REQUEST SCHEMA
-// ============================================
+export const maxDuration = 120; // VPS-hosted Gemma can be slower on cold starts
 
 const chatRequestSchema = z.object({
   messages: z
@@ -65,10 +63,6 @@ const chatRequestSchema = z.object({
     .max(50),
   sessionId: z.string().optional(),
 });
-
-// ============================================
-// SYSTEM PROMPT
-// ============================================
 
 const AGENTIC_SYSTEM_PROMPT = `You are Ogabassey AI, an intelligent shopping assistant for Ogabassey, Nigeria's premier gadget store.
 
@@ -118,10 +112,6 @@ You MUST ask for their email if you don't have it, then check payment status.
 - Don't make up product information - always use the search tool
 - If product not found, say so honestly and suggest alternatives`;
 
-// ============================================
-// HELPER FUNCTIONS
-// ============================================
-
 function generateSessionId(ip: string): string {
   return crypto
     .createHash('sha256')
@@ -130,9 +120,25 @@ function generateSessionId(ip: string): string {
     .slice(0, 16);
 }
 
-// ============================================
-// POST HANDLER
-// ============================================
+function buildOllamaMessages(
+  messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
+) {
+  return [
+    {
+      role: 'system' as const,
+      content: `${AGENTIC_SYSTEM_PROMPT}
+
+You are currently powered by VPS-hosted Gemma 4. Tool/function calling is not available in this mode, so do not pretend that you checked live inventory, generated a bank account, or verified payment unless that information is explicitly present in the conversation. For exact availability, prices, checkout, or payment confirmation, guide the customer to the store checkout or support.`,
+    },
+    ...messages
+      .filter((msg) => msg.role !== 'system')
+      .map((msg) => ({
+        role:
+          msg.role === 'assistant' ? ('assistant' as const) : ('user' as const),
+        content: msg.content,
+      })),
+  ];
+}
 
 export async function POST(req: Request) {
   try {
@@ -190,6 +196,17 @@ export async function POST(req: Request) {
       ...msg,
       content: msg.role === 'user' ? sanitizeHtml(msg.content) : msg.content,
     }));
+
+    const ollamaBaseUrl = getOllamaBaseUrl();
+    if (ollamaBaseUrl) {
+      return await createOllamaChatResponse({
+        baseUrl: ollamaBaseUrl,
+        model: getAiChatModel(),
+        basicAuth: getOllamaBasicAuth(),
+        messages: buildOllamaMessages(sanitizedMessages),
+        signal: req.signal,
+      });
+    }
 
     // 5. Run agentic generation with tools
     // Using AI SDK 5.0 tool format with inputSchema

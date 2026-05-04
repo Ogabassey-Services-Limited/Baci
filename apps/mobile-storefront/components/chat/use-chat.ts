@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Platform, type TextInput } from 'react-native';
 import { createLogger } from '@/lib/logger';
 import { useUIStore } from '@/stores/ui-store';
-import { API_BASE_URL } from './constants';
+import { API_BASE_URL, CHAT_REQUEST_TIMEOUT_MS } from './constants';
 import { readChatResponseText } from './read-chat-response';
 import type { ChatMessage } from './types';
 
@@ -62,7 +62,9 @@ export function useChat(santaMode: boolean) {
     if (!messageText.trim() || isLoadingRef.current) return;
 
     if (Platform.OS === 'ios') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
+        () => undefined
+      );
     }
 
     const userMessage: ChatMessage = {
@@ -84,7 +86,10 @@ export function useChat(santaMode: boolean) {
         : `${API_BASE_URL}/api/chat`;
 
       const controller = new AbortController();
-      const _timeoutId = setTimeout(() => controller.abort(), 30_000);
+      const _timeoutId = setTimeout(
+        () => controller.abort(),
+        CHAT_REQUEST_TIMEOUT_MS
+      );
 
       // Capture history before setMessages so concurrent renders can't duplicate
       const currentMessages = messagesRef.current;
@@ -153,7 +158,7 @@ export function useChat(santaMode: boolean) {
         if (Platform.OS === 'ios') {
           Haptics.notificationAsync(
             Haptics.NotificationFeedbackType.Success
-          ).catch(() => {});
+          ).catch(() => undefined);
         }
       } finally {
         clearTimeout(_timeoutId);

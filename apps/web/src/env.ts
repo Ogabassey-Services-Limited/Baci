@@ -28,6 +28,7 @@ const serverSchema = z.object({
   // AI
   GOOGLE_GENAI_API_KEY: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
+  AI_CHAT_MODEL: z.string().default('gemma4:e4b'),
 
   // BNPL
   CREDIT_DIRECT_PRIVATE_KEY: z.string().optional(),
@@ -145,6 +146,7 @@ const getEnv = () => {
         ZEPTOMAIL_TOKEN: process.env.ZEPTOMAIL_TOKEN,
         GOOGLE_GENAI_API_KEY: process.env.GOOGLE_GENAI_API_KEY,
         GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+        AI_CHAT_MODEL: process.env.AI_CHAT_MODEL,
         CREDIT_DIRECT_PRIVATE_KEY: process.env.CREDIT_DIRECT_PRIVATE_KEY,
         NODE_ENV: process.env.NODE_ENV,
         JUICYWAY_BASE_URL: process.env.JUICYWAY_BASE_URL,
@@ -249,6 +251,11 @@ export const getJuicywayBaseUrl = () => env?.JUICYWAY_BASE_URL;
 export const getZeptoMailToken = () => env?.ZEPTOMAIL_TOKEN;
 export const getGeminiApiKey = () =>
   env?.GOOGLE_GENAI_API_KEY || env?.GEMINI_API_KEY;
+export const getAiChatModel = () => {
+  if (typeof window !== 'undefined')
+    throw new Error('AI_CHAT_MODEL cannot be accessed on the client');
+  return env.AI_CHAT_MODEL.replace(/\\n/g, '').trim();
+};
 export const getCreditDirectPublicKey = () => env?.CREDIT_DIRECT_PUBLIC_KEY;
 export const getCreditDirectPrivateKey = () => env?.CREDIT_DIRECT_PRIVATE_KEY;
 

@@ -133,7 +133,6 @@ export function ChatModal({
       <SafeAreaView
         style={[styles.modalContainer, { backgroundColor: colors.background }]}
       >
-        {/* Header */}
         <View
           style={[
             styles.header,
@@ -202,7 +201,6 @@ export function ChatModal({
           </Pressable>
         </View>
 
-        {/* Messages */}
         <KeyboardAvoidingView
           style={styles.messagesWrapper}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -238,7 +236,6 @@ export function ChatModal({
             }
           />
 
-          {/* Input Area */}
           <View
             style={[
               styles.inputContainer,
@@ -292,7 +289,7 @@ export function ChatModal({
               </Pressable>
             </View>
             <Text style={[styles.poweredBy, { color: colors.textSecondary }]}>
-              Powered by Google Gemini
+              Powered by VPS Gemma 4
             </Text>
           </View>
         </KeyboardAvoidingView>
