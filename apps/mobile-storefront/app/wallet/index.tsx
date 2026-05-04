@@ -4,6 +4,8 @@ import { ActivityIndicator, Alert, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
+import { WalletContent } from '@/components/wallet/WalletContent';
+import { styles } from '@/components/wallet/wallet.styles';
 import { WALLET_TAB_SCROLL_PADDING_BOTTOM } from '@/components/wallet/wallet-tab.constants';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
@@ -20,8 +22,6 @@ import {
 import { trackError, trackEvent } from '@/services/analytics';
 import { scheduleLocalNotification } from '@/services/push-notifications';
 import { useAuthStore } from '@/stores/auth-store';
-import { WalletContent } from './WalletContent';
-import { styles } from './wallet.styles';
 
 const log = createLogger('Wallet');
 

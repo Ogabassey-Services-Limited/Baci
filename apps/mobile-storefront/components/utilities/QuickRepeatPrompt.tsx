@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
-import { utilityPurchaseStyles as styles } from '@/app/utilities/utility-purchase.styles';
+import { utilityPurchaseStyles as styles } from '@/components/utilities/utility-purchase.styles';
 import type Colors from '@/constants/Colors';
 import type { VTUHistoryTransaction } from '@/hooks/use-vtu-history';
 

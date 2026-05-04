@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
-import { PAYMENT_KINDS } from '@/app/payment-gateway/payment-gateway.helpers';
+import { PAYMENT_KINDS } from '@/components/payment-gateway/payment-gateway.helpers';
 import Colors from '@/constants/Colors';
 import { PaymentSuccessView } from './PaymentSuccessView';
 
