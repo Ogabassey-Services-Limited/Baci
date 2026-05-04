@@ -3,14 +3,14 @@
  * Handles card payment checkout via Paystack, Korapay, and Juicyway
  */
 
+import { InvalidCheckoutView } from '@/components/payment-gateway/InvalidCheckoutView';
+import { PaymentErrorView } from '@/components/payment-gateway/PaymentErrorView';
+import { PaymentGatewayCheckoutView } from '@/components/payment-gateway/PaymentGatewayCheckoutView';
+import { PaymentProcessingView } from '@/components/payment-gateway/PaymentProcessingView';
+import { PaymentSuccessView } from '@/components/payment-gateway/PaymentSuccessView';
+import { usePaymentGatewayController } from '@/components/payment-gateway/use-payment-gateway-controller';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
-import { InvalidCheckoutView } from './InvalidCheckoutView';
-import { PaymentErrorView } from './PaymentErrorView';
-import { PaymentGatewayCheckoutView } from './PaymentGatewayCheckoutView';
-import { PaymentProcessingView } from './PaymentProcessingView';
-import { PaymentSuccessView } from './PaymentSuccessView';
-import { usePaymentGatewayController } from './use-payment-gateway-controller';
 
 export default function PaymentGatewayScreen() {
   const colorScheme = useColorScheme();

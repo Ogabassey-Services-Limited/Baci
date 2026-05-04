@@ -1,7 +1,7 @@
 import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { InvalidUtilityServiceView } from '@/components/utilities/InvalidUtilityServiceView';
 import Colors from '@/constants/Colors';
-import { InvalidUtilityServiceView } from '@/app/utilities/InvalidUtilityServiceView';
 
 const mockStackScreen = jest.fn((_props: unknown) => null);
 

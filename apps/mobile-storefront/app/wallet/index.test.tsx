@@ -162,7 +162,7 @@ jest.mock('@/lib/logger', () => ({
   }),
 }));
 
-jest.mock('./WalletContent', () => ({
+jest.mock('@/components/wallet/WalletContent', () => ({
   WalletContent: (props: MockWalletContentProps) => mockWalletContent(props),
 }));
 

@@ -10,6 +10,16 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { AddressCard } from '@/components/addresses/AddressCard';
+import { AddressEmptyState } from '@/components/addresses/AddressEmptyState';
+import {
+  ADDRESS_DELETE_PROMPT_TITLE,
+  ADDRESS_EMPTY_ADD_ACTION_LABEL,
+  ADDRESS_LIST_BOTTOM_PADDING,
+} from '@/components/addresses/constants';
+import { loadAddresses } from '@/components/addresses/load-addresses';
+import { styles } from '@/components/addresses/styles';
+import type { Address } from '@/components/addresses/types';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, palette } from '@/constants/Colors';
@@ -19,16 +29,6 @@ import { createLogger } from '@/lib/logger';
 import { normalizeSavedAddresses } from '@/lib/saved-addresses';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
-import { AddressCard } from './AddressCard';
-import { AddressEmptyState } from './AddressEmptyState';
-import {
-  ADDRESS_DELETE_PROMPT_TITLE,
-  ADDRESS_EMPTY_ADD_ACTION_LABEL,
-  ADDRESS_LIST_BOTTOM_PADDING,
-} from './constants';
-import { loadAddresses } from './load-addresses';
-import { styles } from './styles';
-import type { Address } from './types';
 
 const log = createLogger('Addresses');
 
