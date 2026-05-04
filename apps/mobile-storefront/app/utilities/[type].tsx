@@ -2,19 +2,6 @@ import { type Href, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useColorScheme } from '@/components/useColorScheme';
-import { AirtimeForm } from '@/components/utilities/AirtimeForm';
-import { BillForm } from '@/components/utilities/BillForm';
-import { DataForm } from '@/components/utilities/DataForm';
-import { UtilityTypeTabs } from '@/components/utilities/UtilityTypeTabs';
-import Colors from '@/constants/Colors';
-import {
-  NETWORK_PROVIDERS,
-  type NetworkProviderId,
-} from '@/constants/network-providers';
-import { useKeyboard } from '@/hooks/use-keyboard';
-import { RouteRepeatParamsSchema } from '@/schemas/utility-purchase';
-import { useAuthStore } from '@/stores/auth-store';
 import { InvalidUtilityServiceView } from '@/app/utilities/InvalidUtilityServiceView';
 import { QuickRepeatPrompt } from '@/app/utilities/QuickRepeatPrompt';
 import { UtilityHeader } from '@/app/utilities/UtilityHeader';
@@ -31,6 +18,19 @@ import type {
   UtilityPurchaseResult,
   ValidUtilityType,
 } from '@/app/utilities/utility-purchase.types';
+import { useColorScheme } from '@/components/useColorScheme';
+import { AirtimeForm } from '@/components/utilities/AirtimeForm';
+import { BillForm } from '@/components/utilities/BillForm';
+import { DataForm } from '@/components/utilities/DataForm';
+import { UtilityTypeTabs } from '@/components/utilities/UtilityTypeTabs';
+import Colors from '@/constants/Colors';
+import {
+  NETWORK_PROVIDERS,
+  type NetworkProviderId,
+} from '@/constants/network-providers';
+import { useKeyboard } from '@/hooks/use-keyboard';
+import { RouteRepeatParamsSchema } from '@/schemas/utility-purchase';
+import { useAuthStore } from '@/stores/auth-store';
 
 interface UtilityRouteParams extends RawRouteRepeatParams {
   type: string;
@@ -68,7 +68,10 @@ const UTILITY_ROUTE_PARAM_KEYS = [
   'voucherPin',
 ] as const satisfies readonly UtilityRouteParamKey[];
 
-const QUICK_REPEAT_BOTTOM_OFFSET = 92; // Keeps the prompt above fixed payment controls.
+// Must be >= the footer height (120px) across all form types (airtime/data/bill).
+// On Android with insets.bottom=0 the computed bottom is max(0,12)+offset;
+// at 92 that gave 104px which fell inside the 120px footer on gesture-nav devices.
+const QUICK_REPEAT_BOTTOM_OFFSET = 120;
 
 function getNetworkProviderId(
   value: string | undefined
