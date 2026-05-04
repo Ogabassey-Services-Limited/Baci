@@ -39,8 +39,6 @@ describe('BillItemSelectionSection', () => {
         >()}
         handleSelectBeneficiary={jest.fn()}
         handleVerify={jest.fn()}
-        beneficiaries={[]}
-        handleSelectBeneficiary={jest.fn()}
         isBillItemSelectionComplete={true}
         isRepeatPaymentActive={false}
         selectedBillItemIdentifier="postpaid"
