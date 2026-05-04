@@ -7,6 +7,12 @@ import { useUtilityPayment } from '@/hooks/use-utility-payment';
 import type { Biller, BillItem } from '@/hooks/use-vtu-billers';
 import { useVTUBillers } from '@/hooks/use-vtu-billers';
 import { useVTUVerify } from '@/hooks/use-vtu-verify';
+import {
+  filterBeneficiaries,
+  getBeneficiaries,
+  saveBeneficiary,
+  type UtilityBeneficiary,
+} from '@/lib/utility-beneficiaries';
 import { useAuthStore } from '@/stores/auth-store';
 import {
   BILL_FORM_FOOTER_ERROR_BUFFER,
@@ -72,6 +78,9 @@ export function useBillFormController({
   const [verifiedSelectionKey, setVerifiedSelectionKey] = useState<
     string | null
   >(null);
+  const [allBeneficiaries, setAllBeneficiaries] = useState<
+    UtilityBeneficiary[]
+  >([]);
   const scrollViewRef = useRef<ScrollView>(null);
   const scheduleNextStepScroll = useNextStepScroll(scrollViewRef, () => {
     setShouldScrollToNextStep(false);
@@ -99,13 +108,62 @@ export function useBillFormController({
     isRepeatPaymentActive || verifiedSelectionKey === currentVerificationKey
   );
 
+  const beneficiaries =
+    selectedBiller && selectedBillItemIdentifier
+      ? filterBeneficiaries(
+          allBeneficiaries,
+          selectedBiller.billerId,
+          selectedBillItemIdentifier
+        )
+      : [];
+
+  // Load beneficiaries on mount and reload when biller/item or signed-in
+  // customer changes. Beneficiaries are scoped to the authenticated customer
+  // so they don't leak across users on the same device.
+  const authenticatedCustomerId = customer?.id ?? null;
+  useEffect(() => {
+    getBeneficiaries(authenticatedCustomerId)
+      .then(setAllBeneficiaries)
+      .catch((err) => console.error('getBeneficiaries failed', err));
+  }, [authenticatedCustomerId]);
+
   useEffect(() => {
     if (verify.data?.verified && pendingVerificationKeyRef.current) {
       setVerifiedSelectionKey(pendingVerificationKeyRef.current);
       pendingVerificationKeyRef.current = null;
       setVerifiedCustomerName(verify.data.customerName?.trim() || null);
+
+      // Persist the verified beneficiary for future sessions.
+      const customerName = verify.data?.customerName;
+      const biller = selectedBiller;
+      const billItemId = selectedBillItemIdentifier;
+      const normalizedCustomerId = customerId.trim();
+      if (biller && billItemId && customerName) {
+        saveBeneficiary(authenticatedCustomerId, {
+          billerId: biller.billerId,
+          billerName: biller.billerName,
+          billItemIdentifier: billItemId,
+          customerId: normalizedCustomerId,
+          customerName,
+        })
+          .then(() => getBeneficiaries(authenticatedCustomerId))
+          .then(setAllBeneficiaries)
+          .catch((err) =>
+            console.error(
+              'utility-beneficiaries: post-verification save failed',
+              err
+            )
+          );
+      }
     }
-  }, [verify.data?.verified, verify.data?.customerName]);
+  }, [
+    verify.data?.verified,
+    verify.data?.customerName,
+    selectedBillItemIdentifier,
+    selectedBiller,
+    customerId,
+    authenticatedCustomerId,
+  ]);
 
   useEffect(() => {
     if (hasInitializedRef.current || !billersQuery.data?.length) {
@@ -214,6 +272,12 @@ export function useBillFormController({
     });
   };
 
+  const handleSelectBeneficiary = (beneficiary: UtilityBeneficiary) => {
+    setCustomerId(beneficiary.customerId);
+    deactivateRepeatPayment();
+    resetVerification();
+  };
+
   const updateSubmitting = (nextIsSubmitting: boolean) => {
     isSubmittingRef.current = nextIsSubmitting;
     setIsSubmitting(nextIsSubmitting);
@@ -254,6 +318,7 @@ export function useBillFormController({
 
   return {
     amount,
+    beneficiaries,
     billersQuery,
     billItemSelection,
     canShowPayment,
@@ -273,6 +338,7 @@ export function useBillFormController({
     handleBillerSelect,
     handlePaymentLayout,
     handlePurchase,
+    handleSelectBeneficiary,
     handleVerify,
     isBillItemSelectionComplete,
     isBusy: isSubmitting,

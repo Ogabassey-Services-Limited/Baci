@@ -4,10 +4,12 @@ import type { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { useUtilityPayment } from '@/hooks/use-utility-payment';
 import type { Biller, BillItem, useVTUBillers } from '@/hooks/use-vtu-billers';
 import type { useVTUVerify } from '@/hooks/use-vtu-verify';
+import type { UtilityBeneficiary } from '@/lib/utility-beneficiaries';
 import type { resolveBillItemSelection } from './bill-item-selection';
 
 export interface BillFormController {
   amount: string;
+  beneficiaries: UtilityBeneficiary[];
   billersQuery: ReturnType<typeof useVTUBillers>;
   billItemSelection: ReturnType<typeof resolveBillItemSelection>;
   canShowPayment: boolean;
@@ -19,6 +21,7 @@ export interface BillFormController {
   handleBillerSelect: (biller: Biller) => void;
   handlePaymentLayout: (event: LayoutChangeEvent) => void;
   handlePurchase: () => Promise<void>;
+  handleSelectBeneficiary: (beneficiary: UtilityBeneficiary) => void;
   handleVerify: () => void;
   insets: ReturnType<typeof useSafeAreaInsets>;
   isBillItemSelectionComplete: boolean;
