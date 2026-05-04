@@ -8,7 +8,5 @@
  *   dotenv -e .env.local -- npx tsx src/scripts/test-kuda-ekedc.ts <meter> [amount] [--buy]
  */
 describe('test-kuda-ekedc (manual diagnostic script)', () => {
-  it('is a CLI-only script with no unit-testable exports', () => {
-    expect(true).toBe(true);
-  });
+  it.todo('is a CLI-only script with no unit-testable exports — run manually via CLI');
 });

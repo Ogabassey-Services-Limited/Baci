@@ -89,7 +89,7 @@ export function BillItemSelectionSection({
   verify,
 }: BillItemSelectionSectionProps) {
   const trimmedCustomerId = customerId.trim();
-  const _isVerified = isRepeatPaymentActive || (verify.data?.verified ?? false);
+  const isVerified = isRepeatPaymentActive || (verify.data?.verified ?? false);
   const isVerifyDisabled =
     !trimmedCustomerId || !selectedBillItemIdentifier || verify.isPending;
 
@@ -194,7 +194,7 @@ export function BillItemSelectionSection({
                 setIsRepeatPaymentActive(false);
               }}
             />
-            {_isVerified ? (
+            {isVerified ? (
               <View
                 style={[
                   styles.verifiedPill,

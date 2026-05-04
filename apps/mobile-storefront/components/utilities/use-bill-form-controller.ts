@@ -117,20 +117,12 @@ export function useBillFormController({
         )
       : [];
 
-  // Load all saved beneficiaries once on mount.
+  // Load beneficiaries on mount and reload when biller/item changes.
   useEffect(() => {
     getBeneficiaries()
       .then(setAllBeneficiaries)
-      .catch(() => {});
-  }, []);
-
-  // Reload beneficiaries when biller/item changes so the list stays in sync.
-  useEffect(() => {
-    if (!selectedBiller || !selectedBillItemIdentifier) return;
-    getBeneficiaries()
-      .then(setAllBeneficiaries)
-      .catch(() => {});
-  }, [selectedBiller?.billerId, selectedBillItemIdentifier, selectedBiller]);
+      .catch((err) => console.error('getBeneficiaries failed', err));
+  }, [selectedBiller?.billerId, selectedBillItemIdentifier]);
 
   useEffect(() => {
     if (verify.data?.verified && pendingVerificationKeyRef.current) {
@@ -142,6 +134,7 @@ export function useBillFormController({
       const customerName = verify.data?.customerName;
       const biller = selectedBiller;
       const billItemId = selectedBillItemIdentifier;
+      const normalizedCustomerId = customerId.trim();
       if (biller && billItemId && customerName) {
         saveBeneficiary({
           billerId: biller.billerId,
@@ -159,10 +152,8 @@ export function useBillFormController({
     verify.data?.verified,
     verify.data?.customerName,
     selectedBillItemIdentifier,
-    selectedBiller?.billerName,
-    selectedBiller?.billerId,
     selectedBiller,
-    normalizedCustomerId,
+    customerId,
   ]);
 
   useEffect(() => {
@@ -274,6 +265,7 @@ export function useBillFormController({
 
   const handleSelectBeneficiary = (beneficiary: UtilityBeneficiary) => {
     setCustomerId(beneficiary.customerId);
+    deactivateRepeatPayment();
     resetVerification();
   };
 

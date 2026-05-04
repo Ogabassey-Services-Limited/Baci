@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { RADIUS, SPACING } from '@/constants/Colors';
 import type { UtilityBeneficiary } from '@/lib/utility-beneficiaries';
+
+const AVATAR_SIZE = 40;
 
 const AVATAR_COLORS = [
   '#4B6BFB',
@@ -47,29 +49,23 @@ export function BeneficiaryList({
       <Text style={[styles.label, { color: colors.textSecondary }]}>
         Select Beneficiary
       </Text>
-      <View
+      <FlatList
+        data={beneficiaries}
+        keyExtractor={(item) => item.id}
         style={[
           styles.list,
           { backgroundColor: colors.card, borderColor: colors.border },
         ]}
-      >
-        {beneficiaries.map((beneficiary, index) => {
-          const initials = getInitials(beneficiary.customerName);
-          const avatarColor = getAvatarColor(beneficiary.id);
+        renderItem={({ item }) => {
+          const initials = getInitials(item.customerName);
+          const avatarColor = getAvatarColor(item.id);
 
           return (
             <Pressable
-              key={beneficiary.id}
-              style={[
-                styles.row,
-                index > 0 && {
-                  borderTopWidth: StyleSheet.hairlineWidth,
-                  borderTopColor: colors.border,
-                },
-              ]}
-              onPress={() => onSelect(beneficiary)}
+              style={styles.row}
+              onPress={() => onSelect(item)}
               accessibilityRole="button"
-              accessibilityLabel={`Select ${beneficiary.customerName}, Meter Number ${beneficiary.customerId}`}
+              accessibilityLabel={`Select ${item.customerName}, Meter Number ${item.customerId}`}
             >
               <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
                 <Text style={styles.avatarText}>{initials}</Text>
@@ -79,10 +75,10 @@ export function BeneficiaryList({
                   style={[styles.name, { color: colors.text }]}
                   numberOfLines={1}
                 >
-                  {beneficiary.customerName.toUpperCase()}
+                  {item.customerName.toUpperCase()}
                 </Text>
                 <Text style={[styles.meter, { color: colors.textSecondary }]}>
-                  Meter Number: {beneficiary.customerId}
+                  Meter Number: {item.customerId}
                 </Text>
               </View>
               <Ionicons
@@ -92,8 +88,16 @@ export function BeneficiaryList({
               />
             </Pressable>
           );
-        })}
-      </View>
+        }}
+        ItemSeparatorComponent={() => (
+          <View
+            style={{
+              borderTopWidth: StyleSheet.hairlineWidth,
+              borderTopColor: colors.border,
+            }}
+          />
+        )}
+      />
     </View>
   );
 }
@@ -110,10 +114,10 @@ const styles = StyleSheet.create({
   },
   avatar: {
     alignItems: 'center',
-    borderRadius: 20,
-    height: 40,
+    borderRadius: AVATAR_SIZE / 2,
+    height: AVATAR_SIZE,
     justifyContent: 'center',
-    width: 40,
+    width: AVATAR_SIZE,
   },
   avatarText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   info: { flex: 1 },
