@@ -13,6 +13,13 @@ import {
   Text,
   View,
 } from 'react-native';
+import {
+  ABOUT_LINKS,
+  APPEARANCE_OPTIONS,
+} from '@/components/settings/constants';
+import { SettingsCardSection } from '@/components/settings/SettingsCardSection';
+import { SettingsSectionRow } from '@/components/settings/SettingsSectionRow';
+import { styles } from '@/components/settings/styles';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useToast } from '@/components/ui/Toast';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -22,10 +29,6 @@ import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import { queryClient } from '@/lib/query-client';
 import { removeStorageItems } from '@/lib/storage';
 import { type AppearanceMode, useSettingsStore } from '@/stores/settings-store';
-import { ABOUT_LINKS, APPEARANCE_OPTIONS } from './constants';
-import { SettingsCardSection } from './SettingsCardSection';
-import { SettingsSectionRow } from './SettingsSectionRow';
-import { styles } from './styles';
 
 export default function SettingsScreen() {
   const colorScheme = useColorScheme();

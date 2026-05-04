@@ -1,6 +1,6 @@
 import { jest } from '@jest/globals';
 import { renderHook } from '@testing-library/react-native';
-import { useQuickRepeat } from '@/app/utilities/use-quick-repeat';
+import { useQuickRepeat } from '@/components/utilities/use-quick-repeat';
 import type { VTUHistoryTransaction } from '@/hooks/use-vtu-history';
 import { useVTUHistory } from '@/hooks/use-vtu-history';
 

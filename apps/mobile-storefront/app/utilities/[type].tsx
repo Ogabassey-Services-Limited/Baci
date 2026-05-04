@@ -3,27 +3,27 @@ import { type Href, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { InvalidUtilityServiceView } from '@/app/utilities/InvalidUtilityServiceView';
-import { QuickRepeatPrompt } from '@/app/utilities/QuickRepeatPrompt';
-import { UtilityHeader } from '@/app/utilities/UtilityHeader';
-import { UtilityPurchaseSuccessView } from '@/app/utilities/UtilityPurchaseSuccessView';
-import { useQuickRepeat } from '@/app/utilities/use-quick-repeat';
-import {
-  isBillUtilityType,
-  isValidUtilityType,
-  UTILITY_TYPE_TITLES,
-} from '@/app/utilities/utility-purchase.config';
-import { utilityPurchaseStyles as styles } from '@/app/utilities/utility-purchase.styles';
-import type {
-  RawRouteRepeatParams,
-  UtilityPurchaseResult,
-  ValidUtilityType,
-} from '@/app/utilities/utility-purchase.types';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AirtimeForm } from '@/components/utilities/AirtimeForm';
 import { BillForm } from '@/components/utilities/BillForm';
 import { DataForm } from '@/components/utilities/DataForm';
+import { InvalidUtilityServiceView } from '@/components/utilities/InvalidUtilityServiceView';
+import { QuickRepeatPrompt } from '@/components/utilities/QuickRepeatPrompt';
+import { UtilityHeader } from '@/components/utilities/UtilityHeader';
+import { UtilityPurchaseSuccessView } from '@/components/utilities/UtilityPurchaseSuccessView';
 import { UtilityTypeTabs } from '@/components/utilities/UtilityTypeTabs';
+import { useQuickRepeat } from '@/components/utilities/use-quick-repeat';
+import {
+  isBillUtilityType,
+  isValidUtilityType,
+  UTILITY_TYPE_TITLES,
+} from '@/components/utilities/utility-purchase.config';
+import { utilityPurchaseStyles as styles } from '@/components/utilities/utility-purchase.styles';
+import type {
+  RawRouteRepeatParams,
+  UtilityPurchaseResult,
+  ValidUtilityType,
+} from '@/components/utilities/utility-purchase.types';
 import Colors from '@/constants/Colors';
 import {
   NETWORK_PROVIDERS,

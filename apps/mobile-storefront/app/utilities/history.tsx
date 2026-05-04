@@ -8,20 +8,20 @@ import {
 } from 'react-native';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
+import { utilityHistoryHelpers } from '@/components/utilities/history.helpers';
+import { styles } from '@/components/utilities/history.styles';
+import UtilityHistoryEmptyState from '@/components/utilities/UtilityHistoryEmptyState';
+import UtilityHistoryFilters from '@/components/utilities/UtilityHistoryFilters';
+import UtilityTransactionCard from '@/components/utilities/UtilityTransactionCard';
+import { useUtilityHistoryActions } from '@/components/utilities/use-utility-history-actions';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useStorefrontInsets } from '@/hooks/use-storefront-insets';
 import {
   type UtilityHistoryFilter,
-  type VTUHistoryTransaction,
   useVTUHistory,
+  type VTUHistoryTransaction,
 } from '@/hooks/use-vtu-history';
-import { utilityHistoryHelpers } from './history.helpers';
-import { styles } from './history.styles';
-import UtilityHistoryEmptyState from './UtilityHistoryEmptyState';
-import UtilityHistoryFilters from './UtilityHistoryFilters';
-import UtilityTransactionCard from './UtilityTransactionCard';
-import { useUtilityHistoryActions } from './use-utility-history-actions';
 
 const EMPTY_TRANSACTIONS: VTUHistoryTransaction[] = [];
 

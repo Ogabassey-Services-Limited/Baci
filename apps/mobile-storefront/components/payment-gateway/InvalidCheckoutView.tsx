@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { paymentGatewayStyles as styles } from '@/app/payment-gateway/payment-gateway.styles';
+import { paymentGatewayStyles as styles } from '@/components/payment-gateway/payment-gateway.styles';
 import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 
