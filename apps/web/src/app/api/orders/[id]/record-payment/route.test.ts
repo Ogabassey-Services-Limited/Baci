@@ -158,7 +158,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
     // Assert
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: 'Invalid amount' });
+    expect(data).toEqual({ error: 'Invalid request body' });
   });
 
   it('returns 400 when amount is negative', async () => {
@@ -176,7 +176,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
     // Assert
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: 'Invalid amount' });
+    expect(data).toEqual({ error: 'Invalid request body' });
   });
 
   it('returns 400 when amount is not numeric', async () => {
@@ -194,7 +194,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
     // Assert
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: 'Invalid amount' });
+    expect(data).toEqual({ error: 'Invalid request body' });
   });
 
   it('returns 400 when the body is not an object', async () => {

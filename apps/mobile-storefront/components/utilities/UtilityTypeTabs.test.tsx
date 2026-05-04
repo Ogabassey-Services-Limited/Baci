@@ -29,29 +29,26 @@ describe('UtilityTypeTabs', () => {
   it.each([
     ['light', Colors.light],
     ['dark', Colors.dark],
-  ] as const)(
-    'marks the selected type and applies %s theme styling',
-    (colorScheme, expectedColors) => {
-      mockColorScheme = colorScheme;
+  ] as const)('marks the selected type and applies %s theme styling', (colorScheme, expectedColors) => {
+    mockColorScheme = colorScheme;
 
-      render(<UtilityTypeTabs selectedType="data" onSelect={jest.fn()} />);
+    render(<UtilityTypeTabs selectedType="data" onSelect={jest.fn()} />);
 
-      expect(
-        screen.getByLabelText('Data utility service')
-      ).toHaveAccessibilityState({
-        selected: true,
-      });
-      expect(
-        StyleSheet.flatten(screen.getByTestId('utility-type-tabs').props.style)
-      ).toMatchObject({
-        backgroundColor: expectedColors.background,
-        borderBottomColor: expectedColors.border,
-      });
-      expect(screen.getByText('Airtime')).toHaveStyle({
-        color: expectedColors.text,
-      });
-    }
-  );
+    expect(
+      screen.getByLabelText('Data utility service')
+    ).toHaveAccessibilityState({
+      selected: true,
+    });
+    expect(
+      StyleSheet.flatten(screen.getByTestId('utility-type-tabs').props.style)
+    ).toMatchObject({
+      backgroundColor: expectedColors.background,
+      borderBottomColor: expectedColors.border,
+    });
+    expect(screen.getByText('Airtime')).toHaveStyle({
+      color: expectedColors.text,
+    });
+  });
 
   it('calls onSelect when a submenu is pressed', () => {
     const onSelect = jest.fn();
