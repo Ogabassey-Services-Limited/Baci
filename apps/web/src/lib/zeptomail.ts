@@ -23,10 +23,9 @@ function getClient(): SendMailClient {
   return client;
 }
 
-// Default sender configuration — trim to guard against env vars set with `echo` (trailing \n)
-const DEFAULT_FROM_DOMAIN = (
-  process.env.ZEPTOMAIL_FROM_DOMAIN || 'usebaci.com'
-).trim();
+// Trim first so a whitespace-only value doesn't masquerade as a real domain.
+const DEFAULT_FROM_DOMAIN =
+  process.env.ZEPTOMAIL_FROM_DOMAIN?.trim() || 'usebaci.com';
 
 // Email type to sender address mapping
 export type EmailType =

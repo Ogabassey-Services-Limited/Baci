@@ -1,6 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
+import { RADIUS, SPACING } from '@/constants/Colors';
+
+const AMBER_300 = '#FCD34D';
+const AMBER_100 = '#FEF3C7';
+const AMBER_700 = '#B45309';
 
 type ColorsScheme = (typeof Colors)['light'];
 
@@ -21,7 +26,7 @@ export function ShippingQuotesRetryCard({
       style={[
         styles.retryCard,
         {
-          borderColor: isDark ? 'rgba(245, 158, 11, 0.4)' : '#FCD34D',
+          borderColor: isDark ? 'rgba(245, 158, 11, 0.4)' : AMBER_300,
           backgroundColor: isDark ? 'rgba(245, 158, 11, 0.08)' : '#FFFBEB',
         },
       ]}
@@ -32,14 +37,14 @@ export function ShippingQuotesRetryCard({
         style={[
           styles.retryIconWrap,
           {
-            backgroundColor: isDark ? 'rgba(245, 158, 11, 0.14)' : '#FEF3C7',
+            backgroundColor: isDark ? 'rgba(245, 158, 11, 0.14)' : AMBER_100,
           },
         ]}
       >
         <Ionicons
           name="car-outline"
           size={22}
-          color={isDark ? colors.warning : '#B45309'}
+          color={isDark ? colors.warning : AMBER_700}
         />
       </View>
       <View style={styles.retryTextWrap}>
@@ -51,7 +56,7 @@ export function ShippingQuotesRetryCard({
         <Text
           style={[
             styles.retrySubtitle,
-            { color: isDark ? colors.textSecondary : '#B45309' },
+            { color: isDark ? colors.textSecondary : AMBER_700 },
           ]}
         >
           Our delivery partners are a bit slow today. Tap here to try again.
@@ -61,14 +66,14 @@ export function ShippingQuotesRetryCard({
         style={[
           styles.retryBadge,
           {
-            backgroundColor: isDark ? 'rgba(245, 158, 11, 0.14)' : '#FEF3C7',
+            backgroundColor: isDark ? 'rgba(245, 158, 11, 0.14)' : AMBER_100,
           },
         ]}
       >
         <Text
           style={[
             styles.retryBadgeText,
-            { color: isDark ? colors.warning : '#B45309' },
+            { color: isDark ? colors.warning : AMBER_700 },
           ]}
         >
           Refresh Rates
@@ -82,15 +87,15 @@ const styles = StyleSheet.create({
   retryCard: {
     borderWidth: 2,
     borderStyle: 'dashed',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: RADIUS['2xl'],
+    padding: SPACING.md,
     alignItems: 'center',
     gap: 10,
   },
   retryIconWrap: {
     width: 44,
     height: 44,
-    borderRadius: 22,
+    borderRadius: RADIUS.full,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -103,13 +108,13 @@ const styles = StyleSheet.create({
   },
   retrySubtitle: {
     fontSize: 12,
-    marginTop: 4,
+    marginTop: SPACING.xs,
     textAlign: 'center',
   },
   retryBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 999,
+    borderRadius: RADIUS.full,
   },
   retryBadgeText: {
     fontSize: 11,

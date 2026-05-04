@@ -164,23 +164,26 @@ export async function POST(
       );
     }
 
-    // Application-level duplicate guard (pre-insert).
+    // Application-level duplicate guard (pre-insert). Only applies when the
+    // caller provides a reference — reference-less payments skip this check.
     // NOTE: A concurrent request can still slip through this check. The DB-level
     // unique constraint on (order_id, gateway_reference) is the true safeguard.
-    const existingTransaction = transactions?.find(
-      (t) => t.gateway_reference === reference
-    );
-    if (existingTransaction) {
-      logger.warn({
-        message: 'RecordPayment duplicate reference rejected',
-        orderId: id,
-        merchantId: merchant.id,
-        reference,
-      });
-      return NextResponse.json(
-        { error: 'Duplicate payment reference', code: 'DUPLICATE_REFERENCE' },
-        { status: 409 }
+    if (reference) {
+      const existingTransaction = transactions?.find(
+        (t) => t.gateway_reference === reference
       );
+      if (existingTransaction) {
+        logger.warn({
+          message: 'RecordPayment duplicate reference rejected',
+          orderId: id,
+          merchantId: merchant.id,
+          reference,
+        });
+        return NextResponse.json(
+          { error: 'Duplicate payment reference', code: 'DUPLICATE_REFERENCE' },
+          { status: 409 }
+        );
+      }
     }
 
     // 3. Calculate Totals

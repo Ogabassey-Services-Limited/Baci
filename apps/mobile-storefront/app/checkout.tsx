@@ -658,16 +658,19 @@ export default function CheckoutScreen() {
   const watchedLastName = watch('lastName');
   const watchedEmail = watch('email');
 
-  // Only include the address in the shipping-quote context key when the user
-  // has committed to a specific address (via autocomplete selection or saved-address
-  // apply). Using watchedAddress directly would rebuild the key on every keystroke,
-  // triggering a Topship re-fetch for each character typed.
+  // Use committedAddress (set via autocomplete or saved-address) when available.
+  // When the user types an address manually and city+state are both selected,
+  // fall back to watchedAddress so the context key stays current without
+  // needing an autocomplete selection.
   const [committedAddress, setCommittedAddress] = React.useState('');
+  const effectiveAddress =
+    committedAddress ||
+    (watchedCity && watchedState ? watchedAddress : '');
   const currentShippingQuoteContextKey = buildShippingQuoteContextKey(
     watchedState,
     watchedCity,
     items,
-    committedAddress
+    effectiveAddress
   );
 
   const hasTrackedStart = useRef(false);
@@ -3115,7 +3118,7 @@ export default function CheckoutScreen() {
           <CheckoutStepper
             step={step}
             setStep={setStep}
-            itemCount={items.length}
+            itemCount={items.reduce((acc, item) => acc + item.quantity, 0)}
             colors={colors}
             isDark={isDark}
           />
