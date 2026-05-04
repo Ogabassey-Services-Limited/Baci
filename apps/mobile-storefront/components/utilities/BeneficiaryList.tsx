@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Fragment } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';
 import { RADIUS, SPACING } from '@/constants/Colors';
 import type { UtilityBeneficiary } from '@/lib/utility-beneficiaries';
@@ -49,55 +50,56 @@ export function BeneficiaryList({
       <Text style={[styles.label, { color: colors.textSecondary }]}>
         Select Beneficiary
       </Text>
-      <FlatList
-        data={beneficiaries}
-        keyExtractor={(item) => item.id}
+      <View
         style={[
           styles.list,
           { backgroundColor: colors.card, borderColor: colors.border },
         ]}
-        renderItem={({ item }) => {
+      >
+        {beneficiaries.map((item, index) => {
           const initials = getInitials(item.customerName);
           const avatarColor = getAvatarColor(item.id);
 
           return (
-            <Pressable
-              style={styles.row}
-              onPress={() => onSelect(item)}
-              accessibilityRole="button"
-              accessibilityLabel={`Select ${item.customerName}, Meter Number ${item.customerId}`}
-            >
-              <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-                <Text style={styles.avatarText}>{initials}</Text>
-              </View>
-              <View style={styles.info}>
-                <Text
-                  style={[styles.name, { color: colors.text }]}
-                  numberOfLines={1}
-                >
-                  {item.customerName.toUpperCase()}
-                </Text>
-                <Text style={[styles.meter, { color: colors.textSecondary }]}>
-                  Meter Number: {item.customerId}
-                </Text>
-              </View>
-              <Ionicons
-                name="chevron-forward"
-                size={16}
-                color={colors.textSecondary}
-              />
-            </Pressable>
+            <Fragment key={item.id}>
+              {index > 0 && (
+                <View
+                  style={{
+                    borderTopWidth: StyleSheet.hairlineWidth,
+                    borderTopColor: colors.border,
+                  }}
+                />
+              )}
+              <Pressable
+                style={styles.row}
+                onPress={() => onSelect(item)}
+                accessibilityRole="button"
+                accessibilityLabel={`Select ${item.customerName}, Meter Number ${item.customerId}`}
+              >
+                <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
+                  <Text style={styles.avatarText}>{initials}</Text>
+                </View>
+                <View style={styles.info}>
+                  <Text
+                    style={[styles.name, { color: colors.text }]}
+                    numberOfLines={1}
+                  >
+                    {item.customerName.toUpperCase()}
+                  </Text>
+                  <Text style={[styles.meter, { color: colors.textSecondary }]}>
+                    Meter Number: {item.customerId}
+                  </Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color={colors.textSecondary}
+                />
+              </Pressable>
+            </Fragment>
           );
-        }}
-        ItemSeparatorComponent={() => (
-          <View
-            style={{
-              borderTopWidth: StyleSheet.hairlineWidth,
-              borderTopColor: colors.border,
-            }}
-          />
-        )}
-      />
+        })}
+      </View>
     </View>
   );
 }
