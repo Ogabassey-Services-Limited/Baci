@@ -37,7 +37,7 @@ jobs:
           pnpm config set store-dir "${PNPM_STORE_DIR}"
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Ensure Chromium is available
         # puppeteer-core (used by Unlighthouse) requires a Chrome/Chromium

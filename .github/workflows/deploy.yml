@@ -102,9 +102,9 @@ jobs:
           # issues, so caching it causes Post Run path validation errors.
       - name: Reset pnpm store to fix cross-runner install issues
         run: |
-          export PNPM_STORE_DIR="${RUNNER_TEMP}/pnpm-store"
-          rm -rf "${PNPM_STORE_DIR}" || true
-          pnpm config set store-dir "${PNPM_STORE_DIR}"
+          echo "PNPM_STORE_DIR=${RUNNER_TEMP}/pnpm-store" >> "$GITHUB_ENV"
+          rm -rf "${RUNNER_TEMP}/pnpm-store" || true
+          pnpm config set store-dir "${RUNNER_TEMP}/pnpm-store"
       - run: .github/scripts/pnpm-install-with-retry.sh --frozen-lockfile
       # Pin vercel CLI + allow esbuild postinstall so pnpm 10's strict
       # ERR_PNPM_IGNORED_BUILDS does not block the dlx tmp install. Bumping
