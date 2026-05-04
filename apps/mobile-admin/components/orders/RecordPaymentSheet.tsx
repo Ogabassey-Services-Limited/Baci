@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -56,6 +57,17 @@ export function RecordPaymentSheet({
   paymentNotes,
   visible,
 }: RecordPaymentSheetProps) {
+  const [isAmountFocused, setIsAmountFocused] = useState(false);
+
+  // Show raw digits while editing so toLocaleString commas don't cause NaN.
+  // Display the formatted value only when blurred.
+  const raw = paymentAmount?.replace(/,/g, '') || '';
+  const displayedAmount = isAmountFocused
+    ? paymentAmount
+    : raw !== '' && !Number.isNaN(Number(raw)) && Number.isFinite(Number(raw))
+      ? Number(raw).toLocaleString('en-NG')
+      : '';
+
   return (
     <AppSheetModal
       accessibilityLabel="Record payment sheet"
@@ -70,18 +82,32 @@ export function RecordPaymentSheet({
       <Text style={[styles.label, { color: colors.textSecondary }]}>
         Amount Paid
       </Text>
-      <TextInput
-        accessibilityLabel="Payment amount"
-        keyboardType="numeric"
-        onChangeText={onAmountChange}
-        placeholder={`${currencySymbol}0`}
-        placeholderTextColor={colors.textSecondary}
-        style={[
-          styles.input,
-          { borderColor: colors.border, color: colors.text },
-        ]}
-        value={paymentAmount}
-      />
+      <View style={[styles.inputRow, { borderColor: colors.border }]}>
+        <Text style={[styles.currencyPrefix, { color: colors.textSecondary }]}>
+          {currencySymbol}
+        </Text>
+        <TextInput
+          accessibilityLabel="Payment amount"
+          keyboardType="numeric"
+          onBlur={() => setIsAmountFocused(false)}
+          onChangeText={(text) => {
+            const digits = text.replace(/[^0-9.]/g, '');
+            const parts = digits.split('.');
+            const normalized =
+              parts.length > 1
+                ? `${parts[0]}.${parts.slice(1).join('').slice(0, 2)}`
+                : parts[0];
+            onAmountChange(
+              normalized.startsWith('.') ? `0${normalized}` : normalized
+            );
+          }}
+          onFocus={() => setIsAmountFocused(true)}
+          placeholder="0"
+          placeholderTextColor={colors.textSecondary}
+          style={[styles.inputInner, { color: colors.text }]}
+          value={displayedAmount}
+        />
+      </View>
 
       <Text style={[styles.label, { color: colors.textSecondary }]}>
         Payment Method
@@ -182,6 +208,23 @@ const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.lg,
     marginBottom: SPACING.lg,
     paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
+  },
+  inputRow: {
+    alignItems: 'center',
+    borderRadius: RADIUS.md,
+    borderWidth: 1,
+    flexDirection: 'row',
+    marginBottom: SPACING.lg,
+    paddingHorizontal: SPACING.md,
+  },
+  currencyPrefix: {
+    fontSize: TYPOGRAPHY.size.lg,
+    paddingRight: SPACING.xs,
+  },
+  inputInner: {
+    flex: 1,
+    fontSize: TYPOGRAPHY.size.lg,
     paddingVertical: SPACING.md,
   },
   methodRow: {

@@ -93,6 +93,7 @@ export function ShippingQuotesCard({
                   ]}
                   accessibilityRole="button"
                   accessibilityLabel={`Select ${quote.displayName} for ${formatPrice(quote.price)}`}
+                  accessibilityState={{ selected: isSelected }}
                 >
                   <View style={styles.quoteInfo}>
                     <View style={styles.quoteHeader}>
@@ -117,7 +118,7 @@ export function ShippingQuotesCard({
                       )}
                       {carrier.toLowerCase().includes('topship') && (
                         <View style={styles.badge}>
-                          <Text style={styles.badgeText}>Topship</Text>
+                          <Text style={styles.badgeTextLight}>Topship</Text>
                         </View>
                       )}
                     </View>
@@ -250,6 +251,12 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  badgeTextLight: {
+    color: '#0F172A',
     fontSize: 9,
     fontWeight: '700',
     textTransform: 'uppercase',

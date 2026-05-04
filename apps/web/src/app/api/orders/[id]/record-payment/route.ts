@@ -164,23 +164,27 @@ export async function POST(
       );
     }
 
-    // Application-level duplicate guard (pre-insert).
+    // Application-level duplicate guard (pre-insert). Only applies when the
+    // caller provides a reference — reference-less payments skip this check.
     // NOTE: A concurrent request can still slip through this check. The DB-level
-    // unique constraint on (order_id, gateway_reference) is the true safeguard.
-    const existingTransaction = transactions?.find(
-      (t) => t.gateway_reference === reference
-    );
-    if (existingTransaction) {
-      logger.warn({
-        message: 'RecordPayment duplicate reference rejected',
-        orderId: id,
-        merchantId: merchant.id,
-        reference,
-      });
-      return NextResponse.json(
-        { error: 'Duplicate payment reference', code: 'DUPLICATE_REFERENCE' },
-        { status: 409 }
+    // partial unique index on (order_id, gateway_reference) WHERE gateway_reference
+    // IS NOT NULL (migration 20260504120000) is the authoritative safeguard.
+    if (reference) {
+      const existingTransaction = transactions?.find(
+        (t) => t.gateway_reference === reference
       );
+      if (existingTransaction) {
+        logger.warn({
+          message: 'RecordPayment duplicate reference rejected',
+          orderId: id,
+          merchantId: merchant.id,
+          reference,
+        });
+        return NextResponse.json(
+          { error: 'Duplicate payment reference', code: 'DUPLICATE_REFERENCE' },
+          { status: 409 }
+        );
+      }
     }
 
     // 3. Calculate Totals
@@ -234,8 +238,8 @@ export async function POST(
 
     // 4. Create Transaction
     // The pre-insert duplicate guard above catches known duplicates.
-    // A DB-level unique constraint on (order_id, gateway_reference) provides
-    // the authoritative safeguard against concurrent duplicate inserts.
+    // The partial unique index (migration 20260504120000) enforces uniqueness
+    // at the DB level for concurrent inserts with the same reference.
     const { error: transactionError } = await supabase
       .from('transactions')
       .insert({

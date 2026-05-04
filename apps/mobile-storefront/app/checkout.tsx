@@ -658,16 +658,19 @@ export default function CheckoutScreen() {
   const watchedLastName = watch('lastName');
   const watchedEmail = watch('email');
 
-  // Only include the address in the shipping-quote context key when the user
-  // has committed to a specific address (via autocomplete selection or saved-address
-  // apply). Using watchedAddress directly would rebuild the key on every keystroke,
-  // triggering a Topship re-fetch for each character typed.
+  // Use committedAddress (set via autocomplete or saved-address) when available.
+  // When the user types an address manually and city+state are both selected,
+  // fall back to watchedAddress so the context key stays current without
+  // needing an autocomplete selection.
   const [committedAddress, setCommittedAddress] = React.useState('');
+  const effectiveAddress =
+    committedAddress ||
+    (watchedCity && watchedState ? watchedAddress : '');
   const currentShippingQuoteContextKey = buildShippingQuoteContextKey(
     watchedState,
     watchedCity,
     items,
-    committedAddress
+    effectiveAddress
   );
 
   const hasTrackedStart = useRef(false);
@@ -1338,6 +1341,15 @@ export default function CheckoutScreen() {
       shippingQuoteAbortRef.current.abort();
     }
 
+    // Pickup station and airport delivery don't use dynamic shipping quotes
+    if (deliveryMethod !== 'door') {
+      shippingQuoteAbortRef.current = null;
+      setShippingQuotes([]);
+      setSelectedQuoteId('');
+      setResolvedShippingQuoteContextKey('');
+      return;
+    }
+
     if (watchedState && watchedCity) {
       const controller = new AbortController();
       shippingQuoteAbortRef.current = controller;
@@ -1381,6 +1393,7 @@ export default function CheckoutScreen() {
       }
     };
   }, [
+    deliveryMethod,
     watchedState,
     watchedCity,
     items,
@@ -1512,11 +1525,13 @@ export default function CheckoutScreen() {
 
     if (step === 'address') {
       if (deliveryMethod === 'pickup_station') {
-        const pickupAddress = PICKUP_STATION_ADDRESS_LINES.join(', ');
-        setValue('address', pickupAddress, { shouldValidate: true });
+        // For pickup station, supply the fixed address to the form for validation
+        // without persisting it as the user's door address via setCommittedAddress.
+        setValue('address', PICKUP_STATION_ADDRESS_LINES.join(', '), {
+          shouldValidate: true,
+        });
         setValue('city', PICKUP_STATION_CITY, { shouldValidate: true });
         setValue('state', PICKUP_STATION_STATE, { shouldValidate: true });
-        setCommittedAddress(pickupAddress);
         handleSubmit(onAddressSubmit, handleAddressValidationError)();
       } else {
         handleSubmit(onAddressSubmit, handleAddressValidationError)();
@@ -3115,7 +3130,7 @@ export default function CheckoutScreen() {
           <CheckoutStepper
             step={step}
             setStep={setStep}
-            itemCount={items.length}
+            itemCount={items.reduce((acc, item) => acc + item.quantity, 0)}
             colors={colors}
             isDark={isDark}
           />

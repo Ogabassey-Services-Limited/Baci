@@ -302,7 +302,7 @@ export async function generateMetadata(
   if (!productResult) {
     notFound();
   }
-  const { merchant, product } = productResult;
+  const { product } = productResult;
   if (!product) {
     // Don't issue a redirect from generateMetadata — Next.js can't change
     // HTTP status from here and falls back to an HTML <meta refresh>, which
@@ -310,7 +310,6 @@ export async function generateMetadata(
     // component handler runs in parallel and throws permanentRedirect at the
     // pre-render stage, which produces a real HTTP 308. Returning bare,
     // noindex metadata here is a safety net for that race.
-    void merchant;
     return { robots: { index: false, follow: false } };
   }
   // Mirror the page-component redirect checks so we can emit noindex metadata
@@ -325,6 +324,7 @@ export async function generateMetadata(
   ) {
     return { robots: { index: false, follow: false } };
   }
+  const { merchant } = productResult;
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   let canonicalUrl = normalizeStorefrontCanonicalUrl(
     product.canonical_url,
