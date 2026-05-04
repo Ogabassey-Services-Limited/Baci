@@ -120,42 +120,67 @@ export function useBillFormController({
   // Load beneficiaries on mount and reload when biller/item or signed-in
   // customer changes. Beneficiaries are scoped to the authenticated customer
   // so they don't leak across users on the same device.
+  // The cleanup flag ignores stale resolutions when the auth user changes
+  // (e.g. logout/login) while a pending getBeneficiaries promise is in
+  // flight, so the previous user's results never overwrite the new
+  // user's state.
   const authenticatedCustomerId = customer?.id ?? null;
   useEffect(() => {
+    let cancelled = false;
     getBeneficiaries(authenticatedCustomerId)
-      .then(setAllBeneficiaries)
+      .then((result) => {
+        if (!cancelled) {
+          setAllBeneficiaries(result);
+        }
+      })
       .catch((err) => console.error('getBeneficiaries failed', err));
+    return () => {
+      cancelled = true;
+    };
   }, [authenticatedCustomerId]);
 
   useEffect(() => {
-    if (verify.data?.verified && pendingVerificationKeyRef.current) {
-      setVerifiedSelectionKey(pendingVerificationKeyRef.current);
-      pendingVerificationKeyRef.current = null;
-      setVerifiedCustomerName(verify.data.customerName?.trim() || null);
-
-      // Persist the verified beneficiary for future sessions.
-      const customerName = verify.data?.customerName;
-      const biller = selectedBiller;
-      const billItemId = selectedBillItemIdentifier;
-      const normalizedCustomerId = customerId.trim();
-      if (biller && billItemId && customerName) {
-        saveBeneficiary(authenticatedCustomerId, {
-          billerId: biller.billerId,
-          billerName: biller.billerName,
-          billItemIdentifier: billItemId,
-          customerId: normalizedCustomerId,
-          customerName,
-        })
-          .then(() => getBeneficiaries(authenticatedCustomerId))
-          .then(setAllBeneficiaries)
-          .catch((err) =>
-            console.error(
-              'utility-beneficiaries: post-verification save failed',
-              err
-            )
-          );
-      }
+    if (!(verify.data?.verified && pendingVerificationKeyRef.current)) {
+      return;
     }
+    setVerifiedSelectionKey(pendingVerificationKeyRef.current);
+    pendingVerificationKeyRef.current = null;
+    setVerifiedCustomerName(verify.data.customerName?.trim() || null);
+
+    // Persist the verified beneficiary for future sessions.
+    const customerName = verify.data?.customerName;
+    const biller = selectedBiller;
+    const billItemId = selectedBillItemIdentifier;
+    const normalizedCustomerId = customerId.trim();
+    if (!(biller && billItemId && customerName)) {
+      return;
+    }
+    // Capture the auth user at request start so a logout/login mid-flight
+    // doesn't reseed state with the prior user's beneficiaries.
+    const requestUserId = authenticatedCustomerId;
+    let cancelled = false;
+    saveBeneficiary(requestUserId, {
+      billerId: biller.billerId,
+      billerName: biller.billerName,
+      billItemIdentifier: billItemId,
+      customerId: normalizedCustomerId,
+      customerName,
+    })
+      .then(() => getBeneficiaries(requestUserId))
+      .then((result) => {
+        if (!cancelled && requestUserId === authenticatedCustomerId) {
+          setAllBeneficiaries(result);
+        }
+      })
+      .catch((err) =>
+        console.error(
+          'utility-beneficiaries: post-verification save failed',
+          err
+        )
+      );
+    return () => {
+      cancelled = true;
+    };
   }, [
     verify.data?.verified,
     verify.data?.customerName,
@@ -366,6 +391,10 @@ export function useBillFormController({
     updateAmount: setAmount,
     updateCustomerId: (value: string) => {
       setCustomerId(value);
+      // Editing the customer/meter ID invalidates any in-flight repeat-payment
+      // session — clear it so canShowPayment can't stay true with stale
+      // verified state attached to the previous identifier.
+      deactivateRepeatPayment();
       resetVerification();
     },
     verify,

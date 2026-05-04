@@ -46,9 +46,12 @@ jest.mock('@/hooks/use-utility-payment', () => ({
   }),
 }));
 
+// Mutable auth state so tests can simulate logout/login between renders.
+let mockAuthCustomer: { id: string } | null = null;
 jest.mock('@/stores/auth-store', () => ({
-  useAuthStore: jest.fn((selector: (state: { customer: null }) => null) =>
-    selector({ customer: null })
+  useAuthStore: jest.fn(
+    (selector: (state: { customer: { id: string } | null }) => unknown) =>
+      selector({ customer: mockAuthCustomer })
   ),
 }));
 
@@ -73,8 +76,10 @@ jest.mock('./create-bill-form-purchase-handler', () => ({
 }));
 
 // --- Beneficiary mocks ---
-const mockGetBeneficiaries = jest.fn<() => Promise<UtilityBeneficiary[]>>();
-const mockSaveBeneficiary = jest.fn<() => Promise<void>>();
+const mockGetBeneficiaries =
+  jest.fn<(authId: unknown) => Promise<UtilityBeneficiary[]>>();
+const mockSaveBeneficiary =
+  jest.fn<(authId: unknown, input: unknown) => Promise<void>>();
 const mockFilterBeneficiaries =
   jest.fn<
     (
@@ -86,8 +91,9 @@ const mockFilterBeneficiaries =
 
 jest.mock('@/lib/utility-beneficiaries', () => ({
   getBeneficiaries: (...args: unknown[]) =>
-    mockGetBeneficiaries(...(args as [])),
-  saveBeneficiary: (...args: unknown[]) => mockSaveBeneficiary(...(args as [])),
+    mockGetBeneficiaries(...(args as [unknown])),
+  saveBeneficiary: (...args: unknown[]) =>
+    mockSaveBeneficiary(...(args as [unknown, unknown])),
   filterBeneficiaries: (...args: unknown[]) =>
     mockFilterBeneficiaries(
       ...(args as [UtilityBeneficiary[], string, string])
@@ -122,6 +128,7 @@ describe('useBillFormController', () => {
     jest.clearAllMocks();
     mockVerifyData = undefined;
     mockVerifyIsPending = false;
+    mockAuthCustomer = null;
     // Default stubs: empty beneficiaries, passthrough filter
     mockGetBeneficiaries.mockResolvedValue([]);
     mockSaveBeneficiary.mockResolvedValue(undefined);
@@ -321,5 +328,98 @@ describe('useBillFormController', () => {
         })
       );
     });
+  });
+
+  it('ignores stale getBeneficiaries results when the auth user changes mid-flight', async () => {
+    // Customer A's getBeneficiaries promise stays pending while we switch
+    // to Customer B. When A's resolution finally lands it must NOT overwrite
+    // B's already-loaded state.
+    let resolveCustomerA: (value: UtilityBeneficiary[]) => void = () => {};
+    const customerAPromise = new Promise<UtilityBeneficiary[]>((resolve) => {
+      resolveCustomerA = resolve;
+    });
+    const CUSTOMER_A_BENEFICIARY: UtilityBeneficiary = {
+      ...MOCK_BENEFICIARY,
+      id: 'A:ekedc:123',
+      customerId: '123',
+      customerName: 'CUSTOMER A',
+    };
+    const CUSTOMER_B_BENEFICIARY: UtilityBeneficiary = {
+      ...MOCK_BENEFICIARY,
+      id: 'B:ekedc:456',
+      customerId: '456',
+      customerName: 'CUSTOMER B',
+    };
+
+    mockGetBeneficiaries.mockImplementation(
+      async (authId: unknown): Promise<UtilityBeneficiary[]> => {
+        if (authId === 'customer-A') return customerAPromise;
+        if (authId === 'customer-B') return [CUSTOMER_B_BENEFICIARY];
+        return [];
+      }
+    );
+    mockFilterBeneficiaries.mockImplementation((arr) => arr);
+
+    mockAuthCustomer = { id: 'customer-A' };
+    const useBillFormController = await importController();
+    const { result, rerender } = renderHook(() =>
+      useBillFormController(makeProps())
+    );
+
+    // Switch to customer B BEFORE customer A's promise resolves
+    mockAuthCustomer = { id: 'customer-B' };
+    rerender({});
+
+    // Now resolve customer A's stale promise — it must be ignored
+    resolveCustomerA([CUSTOMER_A_BENEFICIARY]);
+
+    // Select biller so beneficiaries flow through filter
+    act(() => {
+      result.current.handleBillerSelect(MOCK_BILLER as never);
+    });
+
+    await waitFor(() => {
+      expect(mockFilterBeneficiaries).toHaveBeenCalledWith(
+        [CUSTOMER_B_BENEFICIARY],
+        'ekedc',
+        'ekedc'
+      );
+    });
+    // The stale customer-A result must NOT have made it into state.
+    expect(mockFilterBeneficiaries).not.toHaveBeenCalledWith(
+      [CUSTOMER_A_BENEFICIARY],
+      expect.anything(),
+      expect.anything()
+    );
+  });
+
+  it('updateCustomerId clears repeat-payment mode and verification', async () => {
+    const useBillFormController = await importController();
+    const { result } = renderHook(() =>
+      useBillFormController(
+        makeProps({
+          initialCustomerIdentifier: '43901766923',
+          initialCustomerName: 'PREFILLED OWNER',
+        })
+      )
+    );
+
+    // Activate repeat-payment mode (handleBillerSelect would itself
+    // deactivate it, so we activate AFTER any other setup).
+    act(() => {
+      result.current.setRepeatPaymentActive(true);
+    });
+    expect(result.current.isRepeatPaymentActive).toBe(true);
+    expect(result.current.verifiedCustomerName).toBe('PREFILLED OWNER');
+
+    // Editing the meter number must invalidate the prior verification AND
+    // exit repeat-payment mode so canShowPayment can't stay true with
+    // stale state attached to the previous identifier.
+    act(() => {
+      result.current.updateCustomerId('43900000000');
+    });
+    expect(result.current.isRepeatPaymentActive).toBe(false);
+    expect(result.current.verifiedCustomerName).toBeNull();
+    expect(result.current.canShowPayment).toBe(false);
   });
 });

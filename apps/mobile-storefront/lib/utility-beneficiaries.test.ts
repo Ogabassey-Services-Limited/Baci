@@ -226,6 +226,65 @@ describe('saveBeneficiary', () => {
     expect(consoleSpy).toHaveBeenCalled();
     consoleSpy.mockRestore();
   });
+
+  it('serializes concurrent saves so neither overwrites the other (write-lock)', async () => {
+    // Arrange: an in-memory map that mimics AsyncStorage so the second save
+    // observes the first save's result. The first setItem returns a
+    // controllable pending promise, the second resolves immediately. A naive
+    // implementation (no lock) would race-condition: both saves read the
+    // empty initial state, both write 1-element arrays, and the second
+    // write clobbers the first.
+    const store = new Map<string, string>();
+    let resolveFirstSet: () => void = () => undefined;
+    const firstSetPending = new Promise<void>((resolve) => {
+      resolveFirstSet = resolve;
+    });
+
+    mockGetItem.mockImplementation(
+      async (key: string) => store.get(key) ?? null
+    );
+    mockSetItem.mockImplementationOnce(async (key: string, value: string) => {
+      // Don't commit until released — the second save must wait on the lock
+      // before it observes the first result.
+      await firstSetPending;
+      store.set(key, value);
+    });
+    mockSetItem.mockImplementation(async (key: string, value: string) => {
+      store.set(key, value);
+    });
+
+    const FIRST = {
+      ...BASE_INPUT,
+      customerId: '11111111111',
+      customerName: 'FIRST CUSTOMER',
+    };
+    const SECOND = {
+      ...BASE_INPUT,
+      customerId: '22222222222',
+      customerName: 'SECOND CUSTOMER',
+    };
+
+    const firstSave = saveBeneficiary(AUTH_USER_ID, FIRST);
+    const secondSave = saveBeneficiary(AUTH_USER_ID, SECOND);
+
+    // Release the first save; the lock should make the second one wait
+    // until the first observable state lands.
+    resolveFirstSet();
+    await Promise.all([firstSave, secondSave]);
+
+    // Both setItem calls used the customer-scoped key.
+    expect(mockSetItem).toHaveBeenCalledTimes(2);
+    expect(mockSetItem.mock.calls[0]?.[0]).toBe(STORAGE_KEY);
+    expect(mockSetItem.mock.calls[1]?.[0]).toBe(STORAGE_KEY);
+
+    // Final state: both beneficiaries present, most recently saved at index 0.
+    const finalRaw = store.get(STORAGE_KEY);
+    expect(finalRaw).toBeDefined();
+    const final = JSON.parse(finalRaw as string) as UtilityBeneficiary[];
+    expect(final).toHaveLength(2);
+    expect(final[0]?.customerId).toBe('22222222222');
+    expect(final[1]?.customerId).toBe('11111111111');
+  });
 });
 
 describe('filterBeneficiaries', () => {
