@@ -9,6 +9,10 @@ import type { AD_CONFIG } from '../config/ads';
 import { AdUnit } from './AdUnit';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
+import {
+  FLASH_SALE_PROMO_IMAGE,
+  NEW_ARRIVALS_PROMO_IMAGE,
+} from './hero-data';
 
 interface BannerSlide {
   id: number;
@@ -26,7 +30,7 @@ const BANNER_SLIDES: BannerSlide[] = [
   {
     id: 1,
     type: 'image',
-    imageUrl: 'https://cdn.ogabassey.com/products/flash-sale-banner.avif',
+    imageUrl: FLASH_SALE_PROMO_IMAGE,
     title: 'Flash Sale',
     subtitle: 'Up to 50% Off Selected Items',
     bgColor: 'bg-red-600',
@@ -40,7 +44,7 @@ const BANNER_SLIDES: BannerSlide[] = [
   {
     id: 3,
     type: 'image',
-    imageUrl: 'https://cdn.ogabassey.com/products/new-arrivals-banner.avif',
+    imageUrl: NEW_ARRIVALS_PROMO_IMAGE,
     title: 'New Arrivals',
     subtitle: 'Check out the latest tech',
     bgColor: 'bg-black',
@@ -163,7 +167,13 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
                   fill
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1400px"
                   className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-                  priority={idx === 0}
+                  priority={Boolean(categoryImage) && idx === 0}
+                  loading={
+                    categoryImage && idx === 0 ? undefined : 'lazy'
+                  }
+                  fetchPriority={
+                    categoryImage && idx === 0 ? 'high' : 'low'
+                  }
                 />
                 <div
                   className={`absolute inset-0 bg-gradient-to-r ${slide.bgColor === 'bg-black' ? 'from-black/80' : 'from-red-900/80'} to-transparent flex flex-col justify-center px-8 md:px-16`}

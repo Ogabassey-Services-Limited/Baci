@@ -28,6 +28,7 @@ vi.mock('next/image', () => ({
         )
       )}
       alt={String(props.alt ?? '')}
+      data-priority={String(Boolean(props.priority))}
     />
   ),
 }));
@@ -50,5 +51,20 @@ describe('HeroDesktopGrid', () => {
 
     expect(screen.getByRole('button', { name: /go to slide 2/i })).toBeInTheDocument();
   });
-});
 
+  it('uses valid local assets for the secondary promo panels', () => {
+    const { container } = render(
+      <HeroDesktopGrid getHref={(path) => `/ogabassey${path}`} />
+    );
+    const sources = Array.from(container.querySelectorAll('img')).map((image) =>
+      image.getAttribute('src')
+    );
+
+    expect(sources).toEqual(
+      expect.not.arrayContaining([
+        'https://cdn.ogabassey.com/products/flash-sale-banner.avif',
+        'https://cdn.ogabassey.com/products/new-arrivals-banner.avif',
+      ])
+    );
+  });
+});

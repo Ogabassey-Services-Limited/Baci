@@ -28,6 +28,18 @@ export interface HeroDesktopSlideData {
   theme: 'light' | 'dark';
 }
 
+type ImportedImageAsset = { src: string } | string;
+
+const getImportedImageSrc = (asset: ImportedImageAsset) =>
+  typeof asset === 'string' ? asset : asset.src;
+
+export const NEW_ARRIVALS_PROMO_IMAGE = encodeURI(
+  '/website designs/Macbooks/macbook pro.avif'
+);
+export const FLASH_SALE_PROMO_IMAGE = encodeURI(
+  '/website designs/GAMES/PS5 SLIM CONSOLE 1TB.avif'
+);
+
 export const MOBILE_SLIDES: HeroSlideData[] = [
   {
     id: 1,
@@ -35,7 +47,7 @@ export const MOBILE_SLIDES: HeroSlideData[] = [
     title: 'iPhone 17 Pro Max',
     subtitle: 'Beyond IMAGINATION with the new nebula finish.',
     bgClass: 'bg-[#F5F5F7]',
-    src: iphoneHeroMobileAsset.src,
+    src: getImportedImageSrc(iphoneHeroMobileAsset),
     textColor: 'text-gray-900',
     imageFit: 'contain',
   },
@@ -64,7 +76,7 @@ export const DESKTOP_IPHONE_SLIDES: HeroDesktopSlideData[] = [
     subtitle: 'Pro Max',
     headline: 'Beyond',
     headlineSuffix: 'IMAGINATION',
-    image: iphoneHeroDesktopAsset.src,
+    image: getImportedImageSrc(iphoneHeroDesktopAsset),
     theme: 'light',
   },
   {
