@@ -6,8 +6,9 @@ import type { BillFormProps } from './bill-form.types';
 const mockVerifyMutate = jest.fn();
 const mockVerifyReset = jest.fn();
 
-let mockVerifyData: { verified: boolean; customerName?: string | null } | undefined =
-  undefined;
+let mockVerifyData:
+  | { verified: boolean; customerName?: string | null }
+  | undefined;
 let mockVerifyIsPending = false;
 
 jest.mock('@/hooks/use-vtu-verify', () => ({
@@ -74,16 +75,18 @@ jest.mock('./create-bill-form-purchase-handler', () => ({
 // --- Beneficiary mocks ---
 const mockGetBeneficiaries = jest.fn<() => Promise<UtilityBeneficiary[]>>();
 const mockSaveBeneficiary = jest.fn<() => Promise<void>>();
-const mockFilterBeneficiaries = jest.fn<
-  (
-    beneficiaries: UtilityBeneficiary[],
-    billerId: string,
-    billItemIdentifier: string
-  ) => UtilityBeneficiary[]
->();
+const mockFilterBeneficiaries =
+  jest.fn<
+    (
+      beneficiaries: UtilityBeneficiary[],
+      billerId: string,
+      billItemIdentifier: string
+    ) => UtilityBeneficiary[]
+  >();
 
 jest.mock('@/lib/utility-beneficiaries', () => ({
-  getBeneficiaries: (...args: unknown[]) => mockGetBeneficiaries(...(args as [])),
+  getBeneficiaries: (...args: unknown[]) =>
+    mockGetBeneficiaries(...(args as [])),
   saveBeneficiary: (...args: unknown[]) => mockSaveBeneficiary(...(args as [])),
   filterBeneficiaries: (...args: unknown[]) =>
     mockFilterBeneficiaries(
@@ -128,7 +131,9 @@ describe('useBillFormController', () => {
   it('initializes verifiedCustomerName from initialCustomerName', async () => {
     const useBillFormController = await importController();
     const { result } = renderHook(() =>
-      useBillFormController(makeProps({ initialCustomerName: 'JANE METER-OWNER' }))
+      useBillFormController(
+        makeProps({ initialCustomerName: 'JANE METER-OWNER' })
+      )
     );
 
     expect(result.current.verifiedCustomerName).toBe('JANE METER-OWNER');
@@ -207,7 +212,10 @@ describe('useBillFormController', () => {
     const useBillFormController = await importController();
     const { result } = renderHook(() =>
       useBillFormController(
-        makeProps({ initialCustomerName: 'SOME OWNER', isRepeatPaymentReady: true })
+        makeProps({
+          initialCustomerName: 'SOME OWNER',
+          isRepeatPaymentReady: true,
+        })
       )
     );
 
@@ -302,7 +310,9 @@ describe('useBillFormController', () => {
     rerender({});
 
     await waitFor(() => {
+      // Signature: saveBeneficiary(authenticatedCustomerId, input)
       expect(mockSaveBeneficiary).toHaveBeenCalledWith(
+        null,
         expect.objectContaining({
           billerId: 'ekedc',
           billerName: 'EKEDC NG',

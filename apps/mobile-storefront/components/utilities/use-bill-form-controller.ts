@@ -117,12 +117,15 @@ export function useBillFormController({
         )
       : [];
 
-  // Load beneficiaries on mount and reload when biller/item changes.
+  // Load beneficiaries on mount and reload when biller/item or signed-in
+  // customer changes. Beneficiaries are scoped to the authenticated customer
+  // so they don't leak across users on the same device.
+  const authenticatedCustomerId = customer?.id ?? null;
   useEffect(() => {
-    getBeneficiaries()
+    getBeneficiaries(authenticatedCustomerId)
       .then(setAllBeneficiaries)
       .catch((err) => console.error('getBeneficiaries failed', err));
-  }, [selectedBiller?.billerId, selectedBillItemIdentifier]);
+  }, [authenticatedCustomerId]);
 
   useEffect(() => {
     if (verify.data?.verified && pendingVerificationKeyRef.current) {
@@ -136,16 +139,21 @@ export function useBillFormController({
       const billItemId = selectedBillItemIdentifier;
       const normalizedCustomerId = customerId.trim();
       if (biller && billItemId && customerName) {
-        saveBeneficiary({
+        saveBeneficiary(authenticatedCustomerId, {
           billerId: biller.billerId,
           billerName: biller.billerName,
           billItemIdentifier: billItemId,
           customerId: normalizedCustomerId,
           customerName,
         })
-          .then(() => getBeneficiaries())
+          .then(() => getBeneficiaries(authenticatedCustomerId))
           .then(setAllBeneficiaries)
-          .catch(() => {});
+          .catch((err) =>
+            console.error(
+              'utility-beneficiaries: post-verification save failed',
+              err
+            )
+          );
       }
     }
   }, [
@@ -154,6 +162,7 @@ export function useBillFormController({
     selectedBillItemIdentifier,
     selectedBiller,
     customerId,
+    authenticatedCustomerId,
   ]);
 
   useEffect(() => {
