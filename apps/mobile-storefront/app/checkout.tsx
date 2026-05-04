@@ -658,14 +658,11 @@ export default function CheckoutScreen() {
   const watchedLastName = watch('lastName');
   const watchedEmail = watch('email');
 
-  // Use committedAddress (set via autocomplete or saved-address) when available.
-  // When the user types an address manually and city+state are both selected,
-  // fall back to watchedAddress so the context key stays current without
-  // needing an autocomplete selection.
+  // committedAddress is set when the user picks an autocomplete suggestion or
+  // loads a saved address. Only committed addresses drive re-fetches — using
+  // watchedAddress here would trigger a new API call on every keystroke.
   const [committedAddress, setCommittedAddress] = React.useState('');
-  const effectiveAddress =
-    committedAddress ||
-    (watchedCity && watchedState ? watchedAddress : '');
+  const effectiveAddress = committedAddress;
   const currentShippingQuoteContextKey = buildShippingQuoteContextKey(
     watchedState,
     watchedCity,
