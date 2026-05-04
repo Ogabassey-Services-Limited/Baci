@@ -17,7 +17,8 @@ export async function getBeneficiaries(): Promise<UtilityBeneficiary[]> {
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as UtilityBeneficiary[];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as UtilityBeneficiary[]) : [];
   } catch {
     return [];
   }
@@ -26,7 +27,7 @@ export async function getBeneficiaries(): Promise<UtilityBeneficiary[]> {
 export async function saveBeneficiary(
   input: Omit<UtilityBeneficiary, 'id' | 'lastUsed'>
 ): Promise<void> {
-  const id = `${input.billerId}:${input.billItemIdentifier}:${input.customerId}`;
+  const id = `${encodeURIComponent(input.billerId)}:${encodeURIComponent(input.billItemIdentifier)}:${encodeURIComponent(input.customerId)}`;
   const existing = await getBeneficiaries();
   const updated = [
     { ...input, id, lastUsed: Date.now() },

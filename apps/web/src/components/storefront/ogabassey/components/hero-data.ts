@@ -1,5 +1,3 @@
-'use client';
-
 import iphoneHeroDesktopAsset from './assets/iphone-17-pro-max-desktop.avif';
 import iphoneHeroMobileAsset from './assets/iphone-17-pro-max-mobile.avif';
 

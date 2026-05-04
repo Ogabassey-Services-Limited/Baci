@@ -37,6 +37,7 @@ declare global {
 const WIDGET_SCRIPT_SRC =
   'https://www.gstatic.com/shopping/merchant/merchantwidget.js';
 const WIDGET_DEFER_TIMEOUT_MS = 20000;
+const WIDGET_TITLE_RETRY_MS = 5000;
 const MERCHANT_WIDGET_IFRAME_ID = 'merchantwidgetiframe';
 export const MERCHANT_WIDGET_IFRAME_TITLE =
   'Google Store badge and merchant quality widget';
@@ -180,7 +181,7 @@ export function GoogleStoreWidget({
 
     const timeoutId = window.setTimeout(() => {
       observer.disconnect();
-    }, 5000);
+    }, WIDGET_TITLE_RETRY_MS);
 
     return () => {
       window.clearTimeout(timeoutId);

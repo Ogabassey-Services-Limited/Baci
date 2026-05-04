@@ -92,4 +92,13 @@ describe('recordPaymentBodySchema', () => {
 
     expect(result.success).toBe(true);
   });
+
+  it('accepts amount with exactly 2 decimal places', () => {
+    const result = recordPaymentBodySchema.safeParse({
+      ...basePayload,
+      amount: 100.55,
+    });
+
+    expect(result.success).toBe(true);
+  });
 });

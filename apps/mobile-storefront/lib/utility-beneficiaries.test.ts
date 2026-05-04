@@ -5,7 +5,7 @@ import {
   getBeneficiaries,
   saveBeneficiary,
   type UtilityBeneficiary,
-} from './utility-beneficiaries';
+} from '@/lib/utility-beneficiaries';
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
   __esModule: true,

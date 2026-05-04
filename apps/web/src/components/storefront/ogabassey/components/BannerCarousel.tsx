@@ -158,7 +158,13 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
         style={{ transform: `translateX(-${currentSlide * 100}%)` }}
       >
         {slides.map((slide, idx) => (
-          <div key={slide.id} className="w-full h-full flex-shrink-0 relative">
+          <div
+            key={slide.id}
+            className="w-full h-full flex-shrink-0 relative"
+            role="group"
+            aria-label={`Slide ${idx + 1} of ${slides.length}${slide.title ? `: ${slide.title}` : ''}`}
+            aria-hidden={idx !== currentSlide}
+          >
             {slide.type === 'image' ? (
               <div className="w-full h-full relative overflow-hidden group">
                 <Image
@@ -221,7 +227,10 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
         {slides.map((slide, idx) => (
           <button
             key={idx}
+            type="button"
             onClick={() => setCurrentSlide(idx)}
+            aria-label={`Go to slide ${idx + 1}${slide.title ? `: ${slide.title}` : ''}`}
+            aria-current={idx === currentSlide ? 'true' : undefined}
             className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${idx === currentSlide
               ? 'w-6 bg-white'
               : 'w-1.5 bg-white/40 hover:bg-white/70'

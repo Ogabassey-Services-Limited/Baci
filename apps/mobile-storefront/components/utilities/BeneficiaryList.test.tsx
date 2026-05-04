@@ -47,10 +47,10 @@ describe('BeneficiaryList', () => {
       />
     );
 
-    expect(screen.getByText('OLUROTIMI ADEBANJO')).toBeTruthy();
-    expect(screen.getByText('Meter Number: 43901766923')).toBeTruthy();
-    expect(screen.getByText('OLADIMEJI OLUROTIMI')).toBeTruthy();
-    expect(screen.getByText('Meter Number: 43901577981')).toBeTruthy();
+    expect(screen.getByText('OLUROTIMI ADEBANJO')).toBeOnTheScreen();
+    expect(screen.getByText('Meter Number: 43901766923')).toBeOnTheScreen();
+    expect(screen.getByText('OLADIMEJI OLUROTIMI')).toBeOnTheScreen();
+    expect(screen.getByText('Meter Number: 43901577981')).toBeOnTheScreen();
   });
 
   it('calls onSelect with the correct beneficiary when a row is pressed', () => {
@@ -80,7 +80,7 @@ describe('BeneficiaryList', () => {
         onSelect={jest.fn()}
       />
     );
-    expect(screen.getByText('OA')).toBeTruthy();
+    expect(screen.getByText('OA')).toBeOnTheScreen();
   });
 
   it('shows "Select Beneficiary" label', () => {
@@ -91,6 +91,6 @@ describe('BeneficiaryList', () => {
         onSelect={jest.fn()}
       />
     );
-    expect(screen.getByText('Select Beneficiary')).toBeTruthy();
+    expect(screen.getByText('Select Beneficiary')).toBeOnTheScreen();
   });
 });
