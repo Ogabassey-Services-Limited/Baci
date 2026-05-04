@@ -117,19 +117,6 @@ export async function purchaseBill(
       reference
     );
 
-    // Log full purchase response so we can identify the exact token field name.
-    // Remove once token field is confirmed.
-    console.log(
-      '[purchaseBill] raw response:',
-      JSON.stringify({
-        billItemIdentifier,
-        reference,
-        status: response.status,
-        message: response.message,
-        data: response.data,
-      })
-    );
-
     const pin =
       normalizeKudaString(response.data?.pin) ??
       normalizeKudaString(response.data?.Pin) ??

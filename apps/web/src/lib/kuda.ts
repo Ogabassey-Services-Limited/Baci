@@ -237,7 +237,17 @@ interface KudaTransactionStatusData {
   Status?: number | string;
   message?: string;
   Message?: string;
-  pin?: number | string | null;
+  // Electricity TSQ returns pin as an object { number, serial, instructions };
+  // airtime/data return it as a plain string. Both shapes must be handled.
+  pin?:
+    | number
+    | string
+    | {
+        number?: string | null;
+        serial?: string | null;
+        instructions?: string | null;
+      }
+    | null;
   Pin?: number | string | null;
   PIN?: number | string | null;
   token?: number | string | null;
@@ -277,8 +287,17 @@ function extractKudaVoucherPin(data: KudaTransactionStatusData | undefined) {
     return undefined;
   }
 
+  // Electricity TSQ returns pin as { number, serial, instructions }; extract .number first.
+  const pinObj =
+    data.pin && typeof data.pin === 'object' ? data.pin : undefined;
+
   return (
-    normalizeKudaString(data.pin) ??
+    normalizeKudaString(pinObj?.number) ??
+    normalizeKudaString(
+      typeof data.pin !== 'object'
+        ? (data.pin as number | string | null | undefined)
+        : undefined
+    ) ??
     normalizeKudaString(data.Pin) ??
     normalizeKudaString(data.PIN) ??
     normalizeKudaString(data.token) ??
@@ -802,17 +821,6 @@ export async function checkTransactionStatus(
     } else if (!message) {
       message = response.message || message;
     }
-
-    // Log full TSQ response to identify token field name. Remove once confirmed.
-    console.log(
-      '[checkTransactionStatus] raw response:',
-      JSON.stringify({
-        query: data,
-        status: response.status,
-        message: response.message,
-        data: response.data,
-      })
-    );
 
     const pin = extractKudaVoucherPin(response.data);
     if (pin) {
