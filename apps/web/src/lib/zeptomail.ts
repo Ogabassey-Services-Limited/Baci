@@ -1,4 +1,5 @@
 import { SendMailClient } from 'zeptomail';
+import { getZeptoMailFromDomain, getZeptoMailToken } from '@/env';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // Lazy-initialized client
@@ -10,7 +11,7 @@ let client: SendMailClient | null = null;
 function getClient(): SendMailClient {
   if (client) return client;
 
-  const token = process.env.ZEPTOMAIL_TOKEN?.trim();
+  const token = getZeptoMailToken();
   if (!token) {
     throw new Error('ZEPTOMAIL_TOKEN environment variable is not configured');
   }
@@ -23,9 +24,7 @@ function getClient(): SendMailClient {
   return client;
 }
 
-// Trim first so a whitespace-only value doesn't masquerade as a real domain.
-const DEFAULT_FROM_DOMAIN =
-  process.env.ZEPTOMAIL_FROM_DOMAIN?.trim() || 'usebaci.com';
+const DEFAULT_FROM_DOMAIN = getZeptoMailFromDomain();
 
 // Email type to sender address mapping
 export type EmailType =

@@ -1344,6 +1344,7 @@ export default function CheckoutScreen() {
     // Pickup station and airport delivery don't use dynamic shipping quotes
     if (deliveryMethod !== 'door') {
       shippingQuoteAbortRef.current = null;
+      setIsLoadingQuotes(false);
       setShippingQuotes([]);
       setSelectedQuoteId('');
       setResolvedShippingQuoteContextKey('');

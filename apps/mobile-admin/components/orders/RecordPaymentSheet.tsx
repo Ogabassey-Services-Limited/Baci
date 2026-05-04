@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -58,6 +58,10 @@ export function RecordPaymentSheet({
   visible,
 }: RecordPaymentSheetProps) {
   const [isAmountFocused, setIsAmountFocused] = useState(false);
+
+  useEffect(() => {
+    if (!visible) setIsAmountFocused(false);
+  }, [visible]);
 
   // Show raw digits while editing so toLocaleString commas don't cause NaN.
   // Display the formatted value only when blurred.

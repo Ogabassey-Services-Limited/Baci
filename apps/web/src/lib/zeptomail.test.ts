@@ -4,6 +4,9 @@ const sendMailMock = vi.fn();
 const sendMailWithTemplateMock = vi.fn();
 const mailBatchWithTemplateMock = vi.fn();
 
+const getZeptoMailTokenMock = vi.fn<[], string | undefined>();
+const getZeptoMailFromDomainMock = vi.fn<[], string>();
+
 const auditState = {
   inserts: [] as unknown[],
   updates: [] as Array<{ patch: Record<string, unknown>; ids: string[] }>,
@@ -16,6 +19,11 @@ vi.mock('zeptomail', () => ({
     sendMailWithTemplate = sendMailWithTemplateMock;
     mailBatchWithTemplate = mailBatchWithTemplateMock;
   },
+}));
+
+vi.mock('@/env', () => ({
+  getZeptoMailToken: getZeptoMailTokenMock,
+  getZeptoMailFromDomain: getZeptoMailFromDomainMock,
 }));
 
 vi.mock('@/lib/supabase/admin', () => ({
@@ -48,10 +56,37 @@ describe('zeptomail audit logging', () => {
     auditState.inserts = [];
     auditState.updates = [];
     auditState.nextId = 1;
-    process.env.ZEPTOMAIL_TOKEN = 'test-token';
-    process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
-    process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'anon-key';
+    getZeptoMailTokenMock.mockReturnValue('test-token');
+    getZeptoMailFromDomainMock.mockReturnValue('usebaci.com');
+  });
+
+  it('returns failure when ZEPTOMAIL_TOKEN is whitespace-only', async () => {
+    getZeptoMailTokenMock.mockReturnValue(undefined);
+    const { sendEmail } = await import('./zeptomail');
+
+    const result = await sendEmail({
+      to: 'customer@example.com',
+      subject: 'Test',
+      htmlContent: '<p>Hello</p>',
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/ZEPTOMAIL_TOKEN/);
+  });
+
+  it('falls back to usebaci.com sender when ZEPTOMAIL_FROM_DOMAIN is whitespace-only', async () => {
+    getZeptoMailFromDomainMock.mockReturnValue('usebaci.com');
+    sendMailMock.mockResolvedValue({ request_id: 'domain-test' });
+    const { sendEmail } = await import('./zeptomail');
+
+    await sendEmail({
+      to: 'customer@example.com',
+      subject: 'Test',
+      htmlContent: '<p>Hello</p>',
+    });
+
+    const callArgs = sendMailMock.mock.calls[0]?.[0];
+    expect(callArgs?.from?.address).toMatch(/@usebaci\.com$/);
   });
 
   it('logs accepted HTML email attempts with audit context', async () => {
