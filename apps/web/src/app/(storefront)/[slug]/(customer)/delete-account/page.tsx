@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
+import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { getTemplate } from '@/templates/registry';
 
@@ -108,8 +109,7 @@ async function DeleteAccountContent({ params }: PageProps) {
           const DeleteAccountComponent = components.DeleteAccount;
           return (
             <DeleteAccountComponent
-              // biome-ignore lint/suspicious/noExplicitAny: CachedMerchant is a superset of what template components need
-              merchant={merchant as any}
+              merchant={toTemplateMerchantData(merchant)}
               storeSlug={merchant.slug}
               isPreview={false}
             />

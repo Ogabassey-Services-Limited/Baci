@@ -2334,6 +2334,7 @@ export const CheckoutPage: React.FC = () => {
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setIsAuthModalOpen(true)}
                   className="px-4 py-2 bg-white text-blue-600 font-bold text-xs rounded-lg border border-blue-200 hover:bg-blue-50 transition-colors shadow-sm active:scale-95"
                 >
@@ -2559,6 +2560,7 @@ export const CheckoutPage: React.FC = () => {
                               Where should we deliver?
                             </label>
                             <button
+                              type="button"
                               onClick={() => setIsNewAddressMode(!isNewAddressMode)}
                               className="text-xs font-bold text-[var(--store-primary)] hover:underline"
                             >
@@ -3225,6 +3227,7 @@ export const CheckoutPage: React.FC = () => {
                       </label>
                     )}
                     <button
+                      type="button"
                       onClick={handlePlaceOrder}
                       disabled={
                         isProcessing ||
@@ -3408,6 +3411,7 @@ export const CheckoutPage: React.FC = () => {
               )}
 
               <button
+                type="button"
                 onClick={handlePlaceOrder}
                 disabled={
                   isProcessing ||
