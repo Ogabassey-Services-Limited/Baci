@@ -89,7 +89,15 @@ export function RecordPaymentSheet({
           accessibilityLabel="Payment amount"
           keyboardType="numeric"
           onBlur={() => setIsAmountFocused(false)}
-          onChangeText={(text) => onAmountChange(text.replace(/[^0-9.]/g, ''))}
+          onChangeText={(text) => {
+            const digits = text.replace(/[^0-9.]/g, '');
+            const parts = digits.split('.');
+            const normalized =
+              parts.length > 1
+                ? `${parts[0]}.${parts.slice(1).join('').slice(0, 2)}`
+                : parts[0];
+            onAmountChange(normalized);
+          }}
           onFocus={() => setIsAmountFocused(true)}
           placeholder="0"
           placeholderTextColor={colors.textSecondary}

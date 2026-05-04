@@ -44,33 +44,51 @@ describe('recordPaymentBodySchema', () => {
     expect(result.success).toBe(true);
   });
 
+  // Shared base so amount-focused tests only vary the amount field
+  const basePayload = { payment_method: 'cash' };
+
   it('coerces string amount to number', () => {
-    const result = recordPaymentBodySchema.safeParse({ amount: '129026' });
+    const result = recordPaymentBodySchema.safeParse({
+      ...basePayload,
+      amount: '129026',
+    });
 
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.amount).toBe(129026);
   });
 
   it('rejects zero amount', () => {
-    const result = recordPaymentBodySchema.safeParse({ amount: 0 });
+    const result = recordPaymentBodySchema.safeParse({
+      ...basePayload,
+      amount: 0,
+    });
 
     expect(result.success).toBe(false);
   });
 
   it('rejects negative amount', () => {
-    const result = recordPaymentBodySchema.safeParse({ amount: -100 });
+    const result = recordPaymentBodySchema.safeParse({
+      ...basePayload,
+      amount: -100,
+    });
 
     expect(result.success).toBe(false);
   });
 
   it('rejects amount with more than 2 decimal places', () => {
-    const result = recordPaymentBodySchema.safeParse({ amount: 100.001 });
+    const result = recordPaymentBodySchema.safeParse({
+      ...basePayload,
+      amount: 100.001,
+    });
 
     expect(result.success).toBe(false);
   });
 
   it('accepts amount with up to 2 decimal places', () => {
-    const result = recordPaymentBodySchema.safeParse({ amount: 100.5 });
+    const result = recordPaymentBodySchema.safeParse({
+      ...basePayload,
+      amount: 100.5,
+    });
 
     expect(result.success).toBe(true);
   });

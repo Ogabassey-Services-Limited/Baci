@@ -1463,11 +1463,7 @@ export default function CheckoutScreen() {
     Keyboard.dismiss();
 
     if (step === 'address') {
-      if (deliveryMethod === 'pickup_station') {
-        onAddressSubmit(getValues());
-      } else {
-        handleSubmit(onAddressSubmit, handleAddressValidationError)();
-      }
+      handleSubmit(onAddressSubmit, handleAddressValidationError)();
     } else if (step === 'payment') {
       if (!selectedPayment) {
         Alert.alert(
@@ -2668,7 +2664,7 @@ export default function CheckoutScreen() {
                                 setShippingQuotes,
                                 previousSelectedQuoteId: shouldResetSelection
                                   ? null
-                                  : selectedQuoteId,
+                                  : selectedQuoteIdRef.current,
                                 quoteContextKey: currentShippingQuoteContextKey,
                                 shouldResetSelection,
                                 signal: controller.signal,
@@ -3793,7 +3789,10 @@ export default function CheckoutScreen() {
           setCitySearch('');
         }}
       >
-        <View style={styles.pickerOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.pickerOverlay}
+        >
           <View style={[styles.pickerSheet, { backgroundColor: colors.card }]}>
             <View style={styles.pickerHeader}>
               <Text style={[styles.pickerTitle, { color: colors.text }]}>
@@ -3921,7 +3920,7 @@ export default function CheckoutScreen() {
               }
             />
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <CryptoSelectionModal
