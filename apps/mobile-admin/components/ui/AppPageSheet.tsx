@@ -81,7 +81,7 @@ export function AppPageSheet({
             <Pressable
               accessibilityLabel={closeLabel}
               accessibilityRole="button"
-              hitSlop={8}
+              hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
               onPress={onClose}
               style={({ pressed }) => [
                 styles.headerButton,
