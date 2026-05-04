@@ -240,4 +240,86 @@ describe('RecordPaymentSheet', () => {
       screen.queryByLabelText('Record payment sheet')
     ).not.toBeInTheDocument();
   });
+
+  it('shows empty string for a non-numeric paymentAmount (NaN-safe display)', () => {
+    render(
+      <RecordPaymentSheet
+        colors={colors}
+        currencySymbol="₦"
+        isConfirmDisabled={false}
+        isSubmitting={false}
+        onAmountChange={vi.fn()}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        onMethodChange={vi.fn()}
+        onNotesChange={vi.fn()}
+        paymentAmount="abc"
+        paymentMethod=""
+        paymentNotes=""
+        visible={true}
+      />
+    );
+
+    // "abc" strips to "" → Number("") is 0 but raw is "" so displayedAmount = ""
+    const input = screen.getByLabelText('Payment amount') as HTMLInputElement;
+    expect(input.value).toBe('');
+  });
+
+  it('prepends zero when input starts with a decimal point (leading-zero guard)', () => {
+    const onAmountChange = vi.fn();
+
+    render(
+      <RecordPaymentSheet
+        colors={colors}
+        currencySymbol="₦"
+        isConfirmDisabled={false}
+        isSubmitting={false}
+        onAmountChange={onAmountChange}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        onMethodChange={vi.fn()}
+        onNotesChange={vi.fn()}
+        paymentAmount=""
+        paymentMethod=""
+        paymentNotes=""
+        visible={true}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Payment amount'), {
+      target: { value: '.5' },
+    });
+
+    // ".5" → digits ".5" → normalized ".5" → starts with "." → "0.5"
+    expect(onAmountChange).toHaveBeenCalledWith('0.5');
+  });
+
+  it('strips non-numeric characters from the amount input', () => {
+    const onAmountChange = vi.fn();
+
+    render(
+      <RecordPaymentSheet
+        colors={colors}
+        currencySymbol="₦"
+        isConfirmDisabled={false}
+        isSubmitting={false}
+        onAmountChange={onAmountChange}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+        onMethodChange={vi.fn()}
+        onNotesChange={vi.fn()}
+        paymentAmount=""
+        paymentMethod=""
+        paymentNotes=""
+        visible={true}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Payment amount'), {
+      target: { value: '1,500abc' },
+    });
+
+    // Non-digit, non-dot chars stripped → "1500abc" → "1500"
+    expect(onAmountChange).toHaveBeenCalledWith('1500');
+  });
 });
