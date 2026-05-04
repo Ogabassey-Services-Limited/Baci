@@ -9,6 +9,8 @@ import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import type { BillItem } from '@/hooks/use-vtu-billers';
 import type { useVTUVerify } from '@/hooks/use-vtu-verify';
+import type { UtilityBeneficiary } from '@/lib/utility-beneficiaries';
+import { BeneficiaryList } from './BeneficiaryList';
 import {
   IDENTIFIER_LABELS,
   IDENTIFIER_PLACEHOLDERS,
@@ -50,10 +52,12 @@ function getVerifyErrorMessage(error: unknown): string | undefined {
 }
 
 interface BillItemSelectionSectionProps {
+  beneficiaries: UtilityBeneficiary[];
   billItemSelection: BillItemSelectionState;
   colors: typeof Colors.light;
   customerId: string;
   handleBillItemSelect: (depth: number, billItem: BillItem) => void;
+  handleSelectBeneficiary: (beneficiary: UtilityBeneficiary) => void;
   handleVerify: () => void;
   isBillItemSelectionComplete: boolean;
   isRepeatPaymentActive: boolean;
@@ -66,10 +70,12 @@ interface BillItemSelectionSectionProps {
 }
 
 export function BillItemSelectionSection({
+  beneficiaries,
   billItemSelection,
   colors,
   customerId,
   handleBillItemSelect,
+  handleSelectBeneficiary,
   handleVerify,
   isBillItemSelectionComplete,
   isRepeatPaymentActive,
@@ -81,6 +87,7 @@ export function BillItemSelectionSection({
   verify,
 }: BillItemSelectionSectionProps) {
   const trimmedCustomerId = customerId.trim();
+  const _isVerified = isRepeatPaymentActive || (verify.data?.verified ?? false);
   const isVerifyDisabled =
     !trimmedCustomerId || !selectedBillItemIdentifier || verify.isPending;
 
@@ -185,7 +192,7 @@ export function BillItemSelectionSection({
                 setIsRepeatPaymentActive(false);
               }}
             />
-            {isRepeatPaymentActive ? (
+            {_isVerified ? (
               <View
                 style={[
                   styles.verifiedPill,
@@ -235,12 +242,23 @@ export function BillItemSelectionSection({
             )}
           </View>
 
+          <BeneficiaryList
+            beneficiaries={beneficiaries}
+            colors={colors}
+            onSelect={handleSelectBeneficiary}
+          />
+
           {isRepeatPaymentActive ? (
-            <Text
-              style={[styles.repeatReadyText, { color: colors.textSecondary }]}
-            >
-              Using details from your previous successful purchase.
-            </Text>
+            <View style={styles.verificationCardSpacing}>
+              <VerificationCard
+                verified={true}
+                customerName={
+                  beneficiaries.find((b) => b.customerId === customerId.trim())
+                    ?.customerName
+                }
+                isLoading={false}
+              />
+            </View>
           ) : verify.data || verify.isPending || verify.error ? (
             <View style={styles.verificationCardSpacing}>
               <VerificationCard

@@ -30,10 +30,14 @@ describe('BillItemSelectionSection', () => {
   it('shows a plain-object verification error message', () => {
     render(
       <BillItemSelectionSection
+        beneficiaries={[]}
         billItemSelection={billItemSelection}
         colors={Colors.light}
         customerId="1234567890"
-        handleBillItemSelect={jest.fn<(depth: number, billItem: BillItem) => void>()}
+        handleBillItemSelect={jest.fn<
+          (depth: number, billItem: BillItem) => void
+        >()}
+        handleSelectBeneficiary={jest.fn()}
         handleVerify={jest.fn()}
         isBillItemSelectionComplete={true}
         isRepeatPaymentActive={false}

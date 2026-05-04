@@ -1,5 +1,5 @@
+import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { describe, expect, it, vi } from 'vitest';
 import Colors from '@/constants/Colors';
 import type { UtilityBeneficiary } from '@/lib/utility-beneficiaries';
 import { BeneficiaryList } from './BeneficiaryList';
@@ -29,7 +29,11 @@ const BENEFICIARY_B: UtilityBeneficiary = {
 describe('BeneficiaryList', () => {
   it('renders nothing when beneficiaries list is empty', () => {
     const { toJSON } = render(
-      <BeneficiaryList beneficiaries={[]} colors={colors} onSelect={vi.fn()} />
+      <BeneficiaryList
+        beneficiaries={[]}
+        colors={colors}
+        onSelect={jest.fn()}
+      />
     );
     expect(toJSON()).toBeNull();
   });
@@ -39,7 +43,7 @@ describe('BeneficiaryList', () => {
       <BeneficiaryList
         beneficiaries={[BENEFICIARY_A, BENEFICIARY_B]}
         colors={colors}
-        onSelect={vi.fn()}
+        onSelect={jest.fn()}
       />
     );
 
@@ -50,7 +54,7 @@ describe('BeneficiaryList', () => {
   });
 
   it('calls onSelect with the correct beneficiary when a row is pressed', () => {
-    const onSelect = vi.fn();
+    const onSelect = jest.fn();
     render(
       <BeneficiaryList
         beneficiaries={[BENEFICIARY_A, BENEFICIARY_B]}
@@ -73,7 +77,7 @@ describe('BeneficiaryList', () => {
       <BeneficiaryList
         beneficiaries={[BENEFICIARY_A]}
         colors={colors}
-        onSelect={vi.fn()}
+        onSelect={jest.fn()}
       />
     );
     expect(screen.getByText('OA')).toBeTruthy();
@@ -84,7 +88,7 @@ describe('BeneficiaryList', () => {
       <BeneficiaryList
         beneficiaries={[BENEFICIARY_A]}
         colors={colors}
-        onSelect={vi.fn()}
+        onSelect={jest.fn()}
       />
     );
     expect(screen.getByText('Select Beneficiary')).toBeTruthy();

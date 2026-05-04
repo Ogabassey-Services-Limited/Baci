@@ -54,10 +54,12 @@ export function BillForm(props: BillFormProps) {
             }}
           >
             <BillItemSelectionSection
+              beneficiaries={form.beneficiaries}
               billItemSelection={form.billItemSelection}
               colors={colors}
               customerId={form.customerId}
               handleBillItemSelect={form.handleBillItemSelect}
+              handleSelectBeneficiary={form.handleSelectBeneficiary}
               handleVerify={form.handleVerify}
               isBillItemSelectionComplete={form.isBillItemSelectionComplete}
               isRepeatPaymentActive={form.isRepeatPaymentActive}
