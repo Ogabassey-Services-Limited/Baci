@@ -4,8 +4,8 @@ const sendMailMock = vi.fn();
 const sendMailWithTemplateMock = vi.fn();
 const mailBatchWithTemplateMock = vi.fn();
 
-const getZeptoMailTokenMock = vi.fn<[], string | undefined>();
-const getZeptoMailFromDomainMock = vi.fn<[], string>();
+const getZeptoMailTokenMock = vi.fn<() => string | undefined>();
+const getZeptoMailFromDomainMock = vi.fn<() => string>();
 
 const auditState = {
   inserts: [] as unknown[],
