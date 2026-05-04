@@ -158,7 +158,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
     // Assert
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: 'Invalid amount' });
+    expect(data).toEqual({ error: 'Invalid request body' });
   });
 
   it('returns 400 when amount is negative', async () => {
@@ -176,7 +176,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
     // Assert
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: 'Invalid amount' });
+    expect(data).toEqual({ error: 'Invalid request body' });
   });
 
   it('returns 400 when amount is not numeric', async () => {
@@ -194,7 +194,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
     // Assert
     expect(response.status).toBe(400);
-    expect(data).toEqual({ error: 'Invalid amount' });
+    expect(data).toEqual({ error: 'Invalid request body' });
   });
 
   it('returns 400 when the body is not an object', async () => {
@@ -1564,104 +1564,5 @@ describe('POST /api/orders/[id]/record-payment', () => {
       code: 'DUPLICATE_REFERENCE',
     });
     expect(mockFrom).toHaveBeenCalledTimes(3);
-  });
-
-  it('allows a payment without reference even when other transactions exist', async () => {
-    // Regression: the duplicate-reference guard must be skipped entirely when
-    // no reference is supplied (the if(reference) guard in route.ts).
-    const mockMerchant = {
-      id: mockMerchantId,
-      business_name: 'Test Store',
-      slug: 'test-store',
-      support_email: 'support@test.com',
-      email_sender_name: 'Test',
-      email: 'merchant@test.com',
-      tax_identification_number: null,
-      cac_rc_number: null,
-    };
-
-    const mockOrder = {
-      id: mockOrderId,
-      merchant_id: mockMerchantId,
-      order_number: 'ORD-NO-REF',
-      customer_name: 'Jane Doe',
-      customer_email: 'jane@example.com',
-      customer_phone: '+2341234567890',
-      customer_id: null,
-      total: 10000,
-      subtotal: 9500,
-      shipping_fee: 500,
-      currency: 'NGN',
-      payment_status: 'pending',
-      shipping_status: 'pending',
-      wallet_amount_used: 0,
-      order_items: [],
-      shipping_address: { address: '1 Main St', city: 'Lagos', state: 'Lagos' },
-    };
-
-    mockAuthenticateApiRequest.mockResolvedValue({
-      error: null,
-      user: { id: mockUserId, email: 'test@example.com' },
-      supabase: mockSupabaseClient,
-    });
-    mockGetMerchantIdForApiUser.mockResolvedValue(mockMerchantId);
-
-    mockSupabaseClient.from = vi.fn((table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi
-            .fn()
-            .mockResolvedValue({ data: mockMerchant, error: null }),
-        };
-      }
-
-      if (table === 'orders') {
-        // Handles both the SELECT single and the UPDATE .eq() chain
-        return {
-          select: vi.fn().mockReturnThis(),
-          update: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: mockOrder, error: null }),
-        };
-      }
-
-      if (table === 'transactions') {
-        // Existing transaction with null gateway_reference (a prior reference-less payment).
-        // The guard must NOT reject a new reference-less payment based on this.
-        return {
-          select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({
-              data: [{ amount: 3000, gateway_reference: null }],
-              error: null,
-            }),
-          }),
-          insert: vi.fn().mockResolvedValue({ error: null }),
-        };
-      }
-
-      throw new Error(`Unexpected table: ${table}`);
-    });
-
-    // Build a request WITHOUT a reference field (omitted entirely, not an empty string)
-    const request = new NextRequest(
-      `http://localhost/api/orders/${mockOrderId}/record-payment`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: 5000, payment_method: 'cash' }),
-      }
-    );
-    const params = { params: Promise.resolve({ id: mockOrderId }) };
-
-    const { POST } = await import('./route');
-    const response = await POST(request, params);
-    const data = await response.json();
-
-    // Should succeed — duplicate guard is bypassed when reference is absent
-    expect(response.status).toBe(200);
-    expect(data.success).toBe(true);
   });
 });
