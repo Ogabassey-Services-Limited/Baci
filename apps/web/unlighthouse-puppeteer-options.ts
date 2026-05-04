@@ -17,7 +17,10 @@ export function getUnlighthousePuppeteerOptions(
   env: NodeJS.ProcessEnv = process.env
 ): UnlighthousePuppeteerOptions {
   const executablePath = env.PUPPETEER_EXECUTABLE_PATH;
-  const options: UnlighthousePuppeteerOptions = { args: CI_CHROME_ARGS };
+  // Spread to a fresh array — Unlighthouse's option-merging may push() onto
+  // options.args, which would silently corrupt CI_CHROME_ARGS for every
+  // subsequent invocation in the same module instance.
+  const options: UnlighthousePuppeteerOptions = { args: [...CI_CHROME_ARGS] };
   if (executablePath) {
     options.executablePath = executablePath;
   }

@@ -39,11 +39,10 @@ jobs:
   build-and-deploy:
     name: Build Storefront AAB & Upload to Play Store
     runs-on: baci-android
-    # Cross-workflow VPS mutex — see deploy.yml. The Android Gradle build
-    # peaks ~5-6GB (JDK + Hermes + parallel clang++) which can OOM-kill
-    # a concurrent Next build on the same 16GB host.
+    # Cross-workflow VPS mutex — see android-release.yml. Shares
+    # `vps-android-build` with the admin Android workflow so they serialise.
     concurrency:
-      group: vps-heavy-build
+      group: vps-android-build
       cancel-in-progress: false
     timeout-minutes: 45
 

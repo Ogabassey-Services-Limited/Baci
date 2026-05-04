@@ -39,11 +39,16 @@ jobs:
   build-and-deploy:
     name: Build AAB & Upload to Play Store
     runs-on: baci-android
-    # Cross-workflow VPS mutex — see deploy.yml. The Android Gradle build
-    # peaks ~5-6GB (JDK + Hermes + parallel clang++) which can OOM-kill
-    # a concurrent Next build on the same 16GB host.
+    # Cross-workflow VPS mutex — separate from `vps-deploy-build` to avoid
+    # silent-pending-cancel when 3+ heavy jobs queue against a single group
+    # (GHA only allows 1 running + 1 pending; a 3rd arrival evicts the
+    # pending one regardless of `cancel-in-progress: false`). Admin and
+    # storefront Android share `vps-android-build` so they serialise against
+    # each other but can run concurrently with deploy/unlighthouse — the
+    # collision surfaces as a visible OOM/retry rather than a silently
+    # cancelled Play Store release.
     concurrency:
-      group: vps-heavy-build
+      group: vps-android-build
       cancel-in-progress: false
     timeout-minutes: 45
 

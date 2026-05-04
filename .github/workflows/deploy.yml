@@ -82,11 +82,14 @@ jobs:
     if: always() && github.ref == 'refs/heads/main' && needs.db-migrations.result == 'success' && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true')
     # Cross-workflow VPS mutex — the self-hosted runners (baci-deploy,
     # baci-deploy-2, baci-android, baci-lighthouse) all live on the same
-    # 16GB host. Without a shared lock, a Next build (5-7GB peak) and an
-    # Android Gradle build (5-6GB peak) can race and OOM-kill each other.
-    # This serializes all heavy VPS jobs.
+    # 16GB host. Without a lock, a Next build (5-7GB peak) and a Lighthouse
+    # Chrome run (3-4GB peak) can race and OOM-kill each other. Splitting
+    # deploy/lighthouse from android (`vps-android-build`) avoids GHA's
+    # silent-pending-cancel: a single group with 3 contenders silently drops
+    # the pending one. Two groups can still race deploy↔android, but that
+    # surfaces as a visible OOM/retry instead of a missed Play Store release.
     concurrency:
-      group: vps-heavy-build
+      group: vps-deploy-build
       cancel-in-progress: false
     runs-on: baci-deploy
     timeout-minutes: 20
