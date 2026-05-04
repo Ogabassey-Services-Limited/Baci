@@ -13,6 +13,12 @@ jobs:
   unlighthouse:
     name: SEO & Core Web Vitals Audit
     runs-on: baci-deploy
+    # Cross-workflow VPS mutex — see deploy.yml for the rationale.
+    # Unlighthouse spawns headless Chrome (1-2GB) plus serves the Next
+    # production build, so it needs the deploy-build slot.
+    concurrency:
+      group: vps-deploy-build
+      cancel-in-progress: false
     timeout-minutes: 20
 
     permissions:

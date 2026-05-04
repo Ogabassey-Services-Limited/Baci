@@ -39,6 +39,11 @@ jobs:
   build-and-deploy:
     name: Build Storefront AAB & Upload to Play Store
     runs-on: baci-android
+    # Cross-workflow VPS mutex — see android-release.yml. Shares
+    # `vps-android-build` with the admin Android workflow so they serialise.
+    concurrency:
+      group: vps-android-build
+      cancel-in-progress: false
     timeout-minutes: 45
 
     steps:

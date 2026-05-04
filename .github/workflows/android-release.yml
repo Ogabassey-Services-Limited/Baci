@@ -39,6 +39,17 @@ jobs:
   build-and-deploy:
     name: Build AAB & Upload to Play Store
     runs-on: baci-android
+    # Cross-workflow VPS mutex — separate from `vps-deploy-build` to avoid
+    # silent-pending-cancel when 3+ heavy jobs queue against a single group
+    # (GHA only allows 1 running + 1 pending; a 3rd arrival evicts the
+    # pending one regardless of `cancel-in-progress: false`). Admin and
+    # storefront Android share `vps-android-build` so they serialise against
+    # each other but can run concurrently with deploy/unlighthouse — the
+    # collision surfaces as a visible OOM/retry rather than a silently
+    # cancelled Play Store release.
+    concurrency:
+      group: vps-android-build
+      cancel-in-progress: false
     timeout-minutes: 45
 
     steps:
