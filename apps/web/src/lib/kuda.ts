@@ -803,6 +803,17 @@ export async function checkTransactionStatus(
       message = response.message || message;
     }
 
+    // Log full TSQ response to identify token field name. Remove once confirmed.
+    console.log(
+      '[checkTransactionStatus] raw response:',
+      JSON.stringify({
+        query: data,
+        status: response.status,
+        message: response.message,
+        data: response.data,
+      })
+    );
+
     const pin = extractKudaVoucherPin(response.data);
     if (pin) {
       status = 'successful';

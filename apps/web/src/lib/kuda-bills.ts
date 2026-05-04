@@ -87,12 +87,23 @@ export async function purchaseBill(
   const reference = requestRef || generateRequestRef();
 
   try {
-    // Kuda purchase response: { reference: string; pin: string | null }
+    // Kuda may return the vend token under different field names depending on
+    // the biller type (pin/Pin for airtime, meterToken/vendCode/token for
+    // electricity, voucher for betting, etc.).
     const response = await kudaRequest<{
       Reference?: string;
-      Pin?: string | null;
       reference?: string;
-      pin?: string | null;
+      Pin?: number | string | null;
+      pin?: number | string | null;
+      PIN?: number | string | null;
+      Token?: number | string | null;
+      token?: number | string | null;
+      MeterToken?: number | string | null;
+      meterToken?: number | string | null;
+      VendCode?: number | string | null;
+      vendCode?: number | string | null;
+      Voucher?: number | string | null;
+      voucher?: number | string | null;
     }>(
       KudaServiceType.ADMIN_PURCHASE_BILL,
       {
@@ -106,9 +117,31 @@ export async function purchaseBill(
       reference
     );
 
+    // Log full purchase response so we can identify the exact token field name.
+    // Remove once token field is confirmed.
+    console.log(
+      '[purchaseBill] raw response:',
+      JSON.stringify({
+        billItemIdentifier,
+        reference,
+        status: response.status,
+        message: response.message,
+        data: response.data,
+      })
+    );
+
     const pin =
       normalizeKudaString(response.data?.pin) ??
-      normalizeKudaString(response.data?.Pin);
+      normalizeKudaString(response.data?.Pin) ??
+      normalizeKudaString(response.data?.PIN) ??
+      normalizeKudaString(response.data?.token) ??
+      normalizeKudaString(response.data?.Token) ??
+      normalizeKudaString(response.data?.meterToken) ??
+      normalizeKudaString(response.data?.MeterToken) ??
+      normalizeKudaString(response.data?.vendCode) ??
+      normalizeKudaString(response.data?.VendCode) ??
+      normalizeKudaString(response.data?.voucher) ??
+      normalizeKudaString(response.data?.Voucher);
     const transactionId =
       normalizeKudaString(response.data?.reference) ??
       normalizeKudaString(response.data?.Reference);
