@@ -117,8 +117,12 @@ export async function POST(
     const refundAmount = amountPaid;
 
     // Process actual refund if payment was made
-    let refundResult: { success: boolean; refundId?: number; error?: string } =
-      { success: false };
+    let refundResult: {
+      success: boolean;
+      refundId?: number;
+      error?: string;
+      auditRecordFailed?: boolean;
+    } = { success: false };
     if (amountPaid > 0 && order.payment_status === 'paid') {
       // Look up the transaction for this order
       const { data: transaction } = await supabase
@@ -179,21 +183,22 @@ export async function POST(
               description: `Refund for cancelled order #${order.order_number || id.slice(0, 8)}`,
             });
           if (insertTxError) {
+            // Refund already succeeded with the gateway. A 500 here would
+            // make a retried request re-issue the refund (double-refund
+            // risk) since the gateway is the authoritative ledger. Log the
+            // audit failure and continue to return the success response;
+            // monitoring picks up the audit-record gap from logs.
             logger.error({
-              message: 'Failed to create refund transaction record',
+              message:
+                'Refund processed but failed to create transaction audit record',
               error: insertTxError,
               orderId: id,
+              refundId: refundResult.refundId,
             });
-            // We should still return the refund success but indicate transaction logging failed,
-            // or perhaps return an error. Given the webhook context, we might just log it,
-            // but Warden philosophy says don't fail silently. Let's return a 500 if the transaction fails.
-            return NextResponse.json(
-              {
-                error:
-                  'Refund processed but failed to create transaction record',
-              },
-              { status: 500 }
-            );
+            refundResult = {
+              ...refundResult,
+              auditRecordFailed: true,
+            };
           }
         }
       } else {

@@ -218,7 +218,9 @@ async function fetchDashboardStats(
     customersQuery,
     totalCustomersQuery,
     revenueQuery,
-    previousPeriodRevenueQuery ? previousPeriodRevenueQuery : Promise.resolve({ data: null, error: null }),
+    previousPeriodRevenueQuery
+      ? previousPeriodRevenueQuery
+      : Promise.resolve({ data: null, error: null }),
     visitsQuery,
   ]);
 
@@ -226,51 +228,36 @@ async function fetchDashboardStats(
     console.log('[DashboardStats] Orders:', orders, 'Error:', ordersError);
   }
 
-  if (pendingOrdersError) {
-    console.error('[DashboardStats] Pending orders error:', pendingOrdersError);
-  }
+  // Surface the first query error to React Query so UI shows real failure
+  // state instead of fake zeros from `?? 0` fallbacks.
+  const firstError =
+    ordersError ??
+    pendingOrdersError ??
+    itemsError ??
+    newCustomersError ??
+    totalCustomersError ??
+    revenueError ??
+    prevRevenueResult?.error ??
+    visitsError ??
+    null;
 
-  if (itemsError) {
-    console.error('[DashboardStats] Items data error:', itemsError);
+  if (firstError) {
+    console.error('[DashboardStats] Query error:', firstError);
+    throw firstError;
   }
 
   const totalItems =
     itemsData?.reduce((sum, item) => sum + (item.quantity || 1), 0) ?? 0;
 
-  if (newCustomersError) {
-    console.error('[DashboardStats] New customers error:', newCustomersError);
-  }
-
-  if (totalCustomersError) {
-    console.error(
-      '[DashboardStats] Total customers error:',
-      totalCustomersError
-    );
-  }
-
-  if (revenueError) {
-    console.error('[DashboardStats] Revenue data error:', revenueError);
-  }
-
   const revenue =
     revenueData?.reduce((sum, order) => sum + (order.total || 0), 0) ?? 0;
   const avgOrderValue = orders && orders > 0 ? revenue / orders : 0;
 
-  let previousPeriodRevenue = 0;
-  if (prevRevenueResult && prevRevenueResult.error) {
-    console.error(
-      '[DashboardStats] Previous revenue error:',
-      prevRevenueResult.error
-    );
-  }
-  if (prevRevenueResult && prevRevenueResult.data) {
-    previousPeriodRevenue =
-      prevRevenueResult.data.reduce((sum, order) => sum + (order.total || 0), 0) ?? 0;
-  }
-
-  if (visitsError) {
-    console.error('[DashboardStats] Visits error:', visitsError);
-  }
+  const previousPeriodRevenue =
+    prevRevenueResult?.data?.reduce(
+      (sum, order) => sum + (order.total || 0),
+      0
+    ) ?? 0;
 
   return {
     orders: orders ?? 0,

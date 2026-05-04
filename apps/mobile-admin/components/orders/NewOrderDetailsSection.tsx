@@ -63,9 +63,14 @@ export function NewOrderDetailsSection({
     <>
       <View style={[styles.card, { backgroundColor: colors.card }]}>
         <Pressable
-          accessibilityHint="Opens a calendar to change the order date"
+          accessibilityHint={
+            showDatePicker
+              ? 'Closes the calendar'
+              : 'Opens a calendar to change the order date'
+          }
           accessibilityLabel="Select order date"
           accessibilityRole="button"
+          accessibilityState={{ expanded: showDatePicker }}
           onPress={() => setShowDatePicker((previous) => !previous)}
           style={({ pressed }) => [
             styles.listRow,

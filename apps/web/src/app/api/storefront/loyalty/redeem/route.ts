@@ -147,10 +147,14 @@ export async function POST(request: NextRequest) {
         reference_id: redemption.id,
       });
     if (insertTxError) {
-      console.error('Error recording points transaction:', insertTxError);
-      return NextResponse.json(
-        { error: 'Failed to record points transaction' },
-        { status: 500 }
+      // The reward redemption row was already created and the customer's
+      // points balance was already decremented. Returning 500 here would
+      // make retried requests double-redeem. Log the audit failure and
+      // return success — the missing points_transactions row is a gap for
+      // monitoring/reconciliation, not a client-facing error.
+      console.error(
+        'Reward redeemed but failed to record points transaction:',
+        { error: insertTxError, redemption_id: redemption.id, customer_id }
       );
     }
 

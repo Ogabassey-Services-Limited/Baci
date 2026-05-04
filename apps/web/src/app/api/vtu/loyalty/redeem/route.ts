@@ -224,11 +224,15 @@ export async function POST(request: Request) {
         },
       });
     if (insertTxError) {
-      console.error('Error logging loyalty transaction:', insertTxError);
-      return NextResponse.json(
-        { error: 'Failed to log loyalty transaction' },
-        { status: 500 }
-      );
+      // The airtime was already sent through the VTU provider and the
+      // customer's points balance was already decremented. A 500 here
+      // would mislead the client into retrying and redeeming again. Log
+      // the audit gap for reconciliation and return success.
+      console.error('Airtime redeemed but failed to log loyalty transaction:', {
+        error: insertTxError,
+        customer_id: customer.id,
+        vtu_transaction_id: transaction.id,
+      });
     }
 
     return NextResponse.json({
