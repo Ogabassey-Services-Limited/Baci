@@ -35,10 +35,30 @@ describe('recordPaymentBodySchema', () => {
     }
   });
 
-  it('rejects missing references', () => {
+  it('accepts a payload without reference (reference is optional)', () => {
     const result = recordPaymentBodySchema.safeParse({
       amount: 5000,
       payment_method: 'bank_transfer',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects an empty reference string', () => {
+    const result = recordPaymentBodySchema.safeParse({
+      amount: 5000,
+      payment_method: 'bank_transfer',
+      reference: '',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a whitespace-only reference string', () => {
+    const result = recordPaymentBodySchema.safeParse({
+      amount: 5000,
+      payment_method: 'bank_transfer',
+      reference: '   ',
     });
 
     expect(result.success).toBe(false);

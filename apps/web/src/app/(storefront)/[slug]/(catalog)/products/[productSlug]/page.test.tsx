@@ -190,6 +190,8 @@ vi.mock('./product-detail-client', () => ({
 
 import ProductPage, { generateMetadata } from './page';
 
+const stubParent = Promise.resolve({}) as never;
+
 const baseMerchant = {
   id: 'merchant-1',
   business_name: 'TestStore',
@@ -362,7 +364,7 @@ describe('products/[productSlug] page', () => {
           }),
           searchParams: Promise.resolve({}),
         },
-        Promise.resolve({}) as never
+        stubParent
       );
 
       expect(metadata.robots).toMatchObject({ index: false, follow: false });
@@ -380,7 +382,7 @@ describe('products/[productSlug] page', () => {
           }),
           searchParams: Promise.resolve({}),
         },
-        Promise.resolve({}) as never
+        stubParent
       );
 
       expect(metadata.robots).toMatchObject({ index: false, follow: false });
@@ -437,7 +439,7 @@ describe('products/[productSlug] page', () => {
           }),
           searchParams: Promise.resolve({}),
         },
-        Promise.resolve({}) as never
+        stubParent
       );
 
       expect(mockPermanentRedirect).not.toHaveBeenCalled();
@@ -468,7 +470,7 @@ describe('products/[productSlug] page', () => {
           }),
           searchParams: Promise.resolve({}),
         },
-        Promise.resolve({}) as never
+        stubParent
       );
 
       expect(metadata.alternates?.canonical).toBe(
@@ -508,7 +510,7 @@ describe('products/[productSlug] page', () => {
           utm_source: 'google',
         }),
       },
-      Promise.resolve({}) as never
+      stubParent
     );
 
     expect(metadata.robots).toMatchObject({ index: false, follow: false });
@@ -537,7 +539,7 @@ describe('products/[productSlug] page', () => {
         }),
         searchParams: Promise.resolve({}),
       },
-      Promise.resolve({}) as never
+      stubParent
     );
 
     expect(metadata.robots).toMatchObject({ index: false, follow: false });
@@ -590,7 +592,7 @@ describe('products/[productSlug] page', () => {
         }),
         searchParams: Promise.resolve({}),
       },
-      Promise.resolve({}) as never
+      stubParent
     );
 
     expect(metadata.robots).toMatchObject({ index: false, follow: false });
@@ -630,7 +632,7 @@ describe('products/[productSlug] page', () => {
         }),
         searchParams: Promise.resolve({}),
       },
-      Promise.resolve({}) as never
+      stubParent
     );
 
     expect(metadata.robots).toMatchObject({ index: false, follow: false });
@@ -657,7 +659,7 @@ describe('products/[productSlug] page', () => {
         }),
         searchParams: Promise.resolve({}),
       },
-      Promise.resolve({}) as never
+      stubParent
     );
 
     expect(metadata.description).toBe(
@@ -708,7 +710,7 @@ describe('products/[productSlug] page', () => {
         }),
         searchParams: Promise.resolve({}),
       },
-      Promise.resolve({}) as never
+      stubParent
     );
 
     expect(metadata.robots).toMatchObject({ index: false, follow: false });

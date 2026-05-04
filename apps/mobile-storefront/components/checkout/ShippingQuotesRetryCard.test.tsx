@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { render, screen, userEvent } from '@testing-library/react-native';
 import { ShippingQuotesRetryCard } from './ShippingQuotesRetryCard';
 
 const mockColors = {
@@ -23,7 +23,7 @@ describe('ShippingQuotesRetryCard', () => {
     expect(screen.getByText(/refresh rates/i)).toBeTruthy();
   });
 
-  it('calls onRetryQuotes when the pressable is tapped', () => {
+  it('calls onRetryQuotes when the pressable is tapped', async () => {
     const onRetryQuotes = jest.fn();
     render(
       <ShippingQuotesRetryCard
@@ -33,7 +33,7 @@ describe('ShippingQuotesRetryCard', () => {
       />
     );
 
-    fireEvent.press(screen.getByRole('button', { name: /reload delivery rates/i }));
+    await userEvent.press(screen.getByRole('button', { name: /reload delivery rates/i }));
     expect(onRetryQuotes).toHaveBeenCalledTimes(1);
   });
 

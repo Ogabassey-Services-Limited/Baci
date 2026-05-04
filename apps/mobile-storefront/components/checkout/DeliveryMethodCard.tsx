@@ -13,6 +13,8 @@ import type Colors from '@/constants/Colors';
 import { BRAND, palette, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { formatPrice } from '@/stores/cart-store';
 
+const DELIVERY_ESTIMATE = 'Est Delivery within 24-48 working hours';
+
 type ColorsScheme = (typeof Colors)['light'];
 
 interface DeliveryMethodCardProps {
@@ -44,7 +46,7 @@ export function DeliveryMethodCard({
     {
       id: 'airport',
       title: 'Airport Delivery (Outside Lagos)',
-      subtitle: 'Est Delivery within 24-48 working hours',
+      subtitle: DELIVERY_ESTIMATE,
       price: formatPrice(airportFee),
     },
     {
@@ -97,6 +99,7 @@ export function DeliveryMethodCard({
                 ]}
                 accessibilityRole="button"
                 accessibilityLabel={`Select ${option.title}`}
+                accessibilityState={{ selected: isSelected }}
               >
                 <View style={styles.deliveryMethodTopRow}>
                   <View style={styles.deliveryMethodLabelWrap}>
@@ -159,7 +162,7 @@ export function DeliveryMethodCard({
                         { color: colors.textSecondary },
                       ]}
                     >
-                      Est Delivery within 24-48 working hours
+                      {DELIVERY_ESTIMATE}
                     </Text>
                   </View>
                 ) : null}

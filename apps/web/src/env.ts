@@ -40,6 +40,7 @@ const serverSchema = z
 
     // Email
     ZEPTOMAIL_TOKEN: z.string().optional(),
+    ZEPTOMAIL_FROM_DOMAIN: z.string().optional(),
 
     // AI
     GOOGLE_GENAI_API_KEY: z.string().optional(),
@@ -205,6 +206,7 @@ const getEnv = () => {
         OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS:
           process.env.OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS,
         ZEPTOMAIL_TOKEN: process.env.ZEPTOMAIL_TOKEN,
+        ZEPTOMAIL_FROM_DOMAIN: process.env.ZEPTOMAIL_FROM_DOMAIN,
         GOOGLE_GENAI_API_KEY: process.env.GOOGLE_GENAI_API_KEY,
         GEMINI_API_KEY: process.env.GEMINI_API_KEY,
         AI_CHAT_MODEL: process.env.AI_CHAT_MODEL,
@@ -368,7 +370,10 @@ export const getPaystackSecretKey = () => {
   );
   return secret || undefined;
 };
-export const getZeptoMailToken = () => env?.ZEPTOMAIL_TOKEN;
+export const getZeptoMailToken = () =>
+  env?.ZEPTOMAIL_TOKEN?.trim() || undefined;
+export const getZeptoMailFromDomain = () =>
+  env?.ZEPTOMAIL_FROM_DOMAIN?.trim() || 'usebaci.com';
 export const getGeminiApiKey = () =>
   env?.GOOGLE_GENAI_API_KEY || env?.GEMINI_API_KEY;
 export const getAiChatModel = () => {
