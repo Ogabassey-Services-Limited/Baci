@@ -383,7 +383,12 @@ export default function CustomerDetailsScreen() {
                   { backgroundColor: colors.card },
                   shadows.sm,
                 ]}
-                onPress={() => router.push(`/order/${order.id}`)}
+                onPress={() =>
+                  router.push({
+                    pathname: '/(admin)/order/[id]',
+                    params: { id: order.id },
+                  })
+                }
               >
                 <View
                   style={[
