@@ -110,7 +110,8 @@ function getPreviousPeriodDateRange(
   }
 }
 
-async function fetchDashboardStats(
+// Exported for testing the throw-on-error behavior in isolation.
+export async function fetchDashboardStats(
   merchantId: string,
   period: TimePeriod
 ): Promise<DashboardStats> {

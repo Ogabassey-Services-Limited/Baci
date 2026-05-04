@@ -204,7 +204,12 @@ export default function CustomerDetailsScreen() {
                 />
               </Pressable>
               <Pressable
-                onPress={() => router.push(`/customer/edit/${id}` as Parameters<typeof router.push>[0])}
+                onPress={() =>
+                  router.push({
+                    pathname: '/(admin)/customer/edit/[id]',
+                    params: { id },
+                  })
+                }
                 style={{ padding: SPACING.sm }}
               >
                 <Ionicons
