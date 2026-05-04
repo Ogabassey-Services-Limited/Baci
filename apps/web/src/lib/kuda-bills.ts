@@ -111,7 +111,7 @@ export async function purchaseBill(
         CustomerIdentifier: customerIdentification,
         PhoneNumber: customerIdentification,
         BillItemIdentifier: billItemIdentifier,
-        Amount: (amount * 100).toString(), // Convert Naira to Kobo
+        Amount: Math.round(amount * 100).toString(), // Convert Naira to Kobo
         trackingReference: reference,
       },
       reference
