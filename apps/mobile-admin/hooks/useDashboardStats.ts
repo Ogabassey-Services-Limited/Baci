@@ -135,21 +135,12 @@ async function fetchDashboardStats(
     ordersQuery = ordersQuery.gte('created_at', start);
   }
 
-  const { count: orders, error: ordersError } = await ordersQuery;
-  if (__DEV__) {
-    console.log('[DashboardStats] Orders:', orders, 'Error:', ordersError);
-  }
-
   // Fetch pending orders (always total, not filtered by period)
-  const { count: pendingOrders, error: pendingOrdersError } = await supabase
+  const pendingOrdersQuery = supabase
     .from('orders')
     .select('id', { count: 'exact', head: true })
     .eq('merchant_id', merchantId)
     .eq('shipping_status', 'pending');
-
-  if (pendingOrdersError) {
-    console.error('[DashboardStats] Pending orders error:', pendingOrdersError);
-  }
 
   // Fetch total items for period
   let itemsQuery = supabase
@@ -161,15 +152,6 @@ async function fetchDashboardStats(
     itemsQuery = itemsQuery.gte('orders.created_at', start);
   }
 
-  const { data: itemsData, error: itemsError } = await itemsQuery;
-
-  if (itemsError) {
-    console.error('[DashboardStats] Items data error:', itemsError);
-  }
-
-  const totalItems =
-    itemsData?.reduce((sum, item) => sum + (item.quantity || 1), 0) ?? 0;
-
   // Fetch customers for period
   let customersQuery = supabase
     .from('customers')
@@ -180,29 +162,13 @@ async function fetchDashboardStats(
     customersQuery = customersQuery.gte('created_at', start);
   }
 
-  const { count: newCustomers, error: newCustomersError } =
-    await customersQuery;
-
-  if (newCustomersError) {
-    console.error('[DashboardStats] New customers error:', newCustomersError);
-  }
-
   // Total customers (always all-time)
-  const { count: totalCustomers, error: totalCustomersError } = await supabase
+  const totalCustomersQuery = supabase
     .from('customers')
     .select('id', { count: 'exact', head: true })
     .eq('merchant_id', merchantId);
 
-  if (totalCustomersError) {
-    console.error(
-      '[DashboardStats] Total customers error:',
-      totalCustomersError
-    );
-  }
-
   // Fetch revenue for period (total order value - gross revenue)
-  // Note: This shows total order value regardless of payment status
-  // for a more useful dashboard metric
   let revenueQuery = supabase
     .from('orders')
     .select('total')
@@ -212,36 +178,16 @@ async function fetchDashboardStats(
     revenueQuery = revenueQuery.gte('created_at', start);
   }
 
-  const { data: revenueData, error: revenueError } = await revenueQuery;
-
-  if (revenueError) {
-    console.error('[DashboardStats] Revenue data error:', revenueError);
-  }
-
-  const revenue =
-    revenueData?.reduce((sum, order) => sum + (order.total || 0), 0) ?? 0;
-  const avgOrderValue = orders && orders > 0 ? revenue / orders : 0;
-
   // Fetch previous period revenue for comparison
-  let previousPeriodRevenue = 0;
+  let previousPeriodRevenueQuery = null;
   const prevPeriod = getPreviousPeriodDateRange(period);
   if (prevPeriod) {
-    const { data: prevRevenueData, error: prevRevenueError } = await supabase
+    previousPeriodRevenueQuery = supabase
       .from('orders')
       .select('total')
       .eq('merchant_id', merchantId)
       .gte('created_at', prevPeriod.start!)
       .lt('created_at', prevPeriod.end);
-
-    if (prevRevenueError) {
-      console.error(
-        '[DashboardStats] Previous revenue error:',
-        prevRevenueError
-      );
-    }
-
-    previousPeriodRevenue =
-      prevRevenueData?.reduce((sum, order) => sum + (order.total || 0), 0) ?? 0;
   }
 
   // Fetch visits for period
@@ -255,7 +201,72 @@ async function fetchDashboardStats(
     visitsQuery = visitsQuery.gte('created_at', start);
   }
 
-  const { count: visits, error: visitsError } = await visitsQuery;
+  // PERFORMANCE: Use Promise.all to fetch independent queries concurrently
+  const [
+    { count: orders, error: ordersError },
+    { count: pendingOrders, error: pendingOrdersError },
+    { data: itemsData, error: itemsError },
+    { count: newCustomers, error: newCustomersError },
+    { count: totalCustomers, error: totalCustomersError },
+    { data: revenueData, error: revenueError },
+    prevRevenueResult,
+    { count: visits, error: visitsError },
+  ] = await Promise.all([
+    ordersQuery,
+    pendingOrdersQuery,
+    itemsQuery,
+    customersQuery,
+    totalCustomersQuery,
+    revenueQuery,
+    previousPeriodRevenueQuery ? previousPeriodRevenueQuery : Promise.resolve({ data: null, error: null }),
+    visitsQuery,
+  ]);
+
+  if (__DEV__) {
+    console.log('[DashboardStats] Orders:', orders, 'Error:', ordersError);
+  }
+
+  if (pendingOrdersError) {
+    console.error('[DashboardStats] Pending orders error:', pendingOrdersError);
+  }
+
+  if (itemsError) {
+    console.error('[DashboardStats] Items data error:', itemsError);
+  }
+
+  const totalItems =
+    itemsData?.reduce((sum, item) => sum + (item.quantity || 1), 0) ?? 0;
+
+  if (newCustomersError) {
+    console.error('[DashboardStats] New customers error:', newCustomersError);
+  }
+
+  if (totalCustomersError) {
+    console.error(
+      '[DashboardStats] Total customers error:',
+      totalCustomersError
+    );
+  }
+
+  if (revenueError) {
+    console.error('[DashboardStats] Revenue data error:', revenueError);
+  }
+
+  const revenue =
+    revenueData?.reduce((sum, order) => sum + (order.total || 0), 0) ?? 0;
+  const avgOrderValue = orders && orders > 0 ? revenue / orders : 0;
+
+  let previousPeriodRevenue = 0;
+  if (prevRevenueResult && prevRevenueResult.error) {
+    console.error(
+      '[DashboardStats] Previous revenue error:',
+      prevRevenueResult.error
+    );
+  }
+  if (prevRevenueResult && prevRevenueResult.data) {
+    previousPeriodRevenue =
+      prevRevenueResult.data.reduce((sum, order) => sum + (order.total || 0), 0) ?? 0;
+  }
 
   if (visitsError) {
     console.error('[DashboardStats] Visits error:', visitsError);

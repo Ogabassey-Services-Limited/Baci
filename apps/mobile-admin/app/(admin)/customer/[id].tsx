@@ -204,8 +204,7 @@ export default function CustomerDetailsScreen() {
                 />
               </Pressable>
               <Pressable
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onPress={() => router.push(`/customer/edit/${id}` as any)}
+                onPress={() => router.push(`/customer/edit/${id}` as Parameters<typeof router.push>[0])}
                 style={{ padding: SPACING.sm }}
               >
                 <Ionicons

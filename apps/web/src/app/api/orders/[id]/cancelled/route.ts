@@ -165,17 +165,36 @@ export async function POST(
 
         // Create refund transaction record
         if (refundResult.success) {
-          await supabase.from('transactions').insert({
-            merchant_id: order.merchant_id,
-            order_id: id,
-            transaction_type: 'refund',
-            amount: refundAmount,
-            currency: 'NGN',
-            status: 'completed',
-            gateway: transaction.gateway,
-            gateway_reference: String(refundResult.refundId),
-            description: `Refund for cancelled order #${order.order_number || id.slice(0, 8)}`,
-          });
+          const { error: insertTxError } = await supabase
+            .from('transactions')
+            .insert({
+              merchant_id: order.merchant_id,
+              order_id: id,
+              transaction_type: 'refund',
+              amount: refundAmount,
+              currency: 'NGN',
+              status: 'completed',
+              gateway: transaction.gateway,
+              gateway_reference: String(refundResult.refundId),
+              description: `Refund for cancelled order #${order.order_number || id.slice(0, 8)}`,
+            });
+          if (insertTxError) {
+            logger.error({
+              message: 'Failed to create refund transaction record',
+              error: insertTxError,
+              orderId: id,
+            });
+            // We should still return the refund success but indicate transaction logging failed,
+            // or perhaps return an error. Given the webhook context, we might just log it,
+            // but Warden philosophy says don't fail silently. Let's return a 500 if the transaction fails.
+            return NextResponse.json(
+              {
+                error:
+                  'Refund processed but failed to create transaction record',
+              },
+              { status: 500 }
+            );
+          }
         }
       } else {
         logger.warn({

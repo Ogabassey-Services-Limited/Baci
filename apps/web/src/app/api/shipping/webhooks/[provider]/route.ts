@@ -206,13 +206,21 @@ export async function POST(
     const supabase = getServiceClient();
 
     // Store webhook event for debugging
-    await supabase.from('shipping_webhook_events').insert({
-      provider: providerUpper,
-      event_type: 'status_update',
-      tracking_number: event.trackingNumber,
-      payload: event.rawPayload,
-      processed: false,
-    });
+    const { error: insertEventError } = await supabase
+      .from('shipping_webhook_events')
+      .insert({
+        provider: providerUpper,
+        event_type: 'status_update',
+        tracking_number: event.trackingNumber,
+        payload: event.rawPayload,
+        processed: false,
+      });
+    if (insertEventError) {
+      console.error(
+        'Error inserting shipping webhook event:',
+        insertEventError
+      );
+    }
 
     // Find shipment by tracking number or provider shipment ID
     let shipmentQuery = supabase

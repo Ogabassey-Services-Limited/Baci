@@ -63,12 +63,14 @@ export function NewOrderDetailsSection({
     <>
       <View style={[styles.card, { backgroundColor: colors.card }]}>
         <Pressable
+          accessibilityHint="Opens a calendar to change the order date"
           accessibilityLabel="Select order date"
           accessibilityRole="button"
           onPress={() => setShowDatePicker((previous) => !previous)}
-          style={[
+          style={({ pressed }) => [
             styles.listRow,
             { borderBottomColor: colors.border, borderBottomWidth: 1 },
+            pressed && { opacity: 0.7 },
           ]}
         >
           <View
@@ -116,10 +118,11 @@ export function NewOrderDetailsSection({
         ) : null}
 
         <Pressable
+          accessibilityHint="Opens a modal to select or create a customer"
           accessibilityLabel="Select customer"
           accessibilityRole="button"
           onPress={() => setShowCustomerModal(true)}
-          style={styles.listRow}
+          style={({ pressed }) => [styles.listRow, pressed && { opacity: 0.7 }]}
         >
           <View
             style={[
@@ -200,6 +203,7 @@ export function NewOrderDetailsSection({
             </Text>
           </View>
           <Switch
+            accessibilityHint="Toggles whether the delivery address is the same as the customer's address"
             accessibilityLabel="Deliver to same person"
             accessibilityRole="switch"
             accessibilityState={{ checked: sameAsCustomer }}

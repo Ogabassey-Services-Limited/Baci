@@ -136,14 +136,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Record points transaction
-    await supabase.from('points_transactions').insert({
-      merchant_id,
-      customer_id,
-      points: -reward.points_required,
-      type: 'redemption',
-      description: `Redeemed: ${reward.name}`,
-      reference_id: redemption.id,
-    });
+    const { error: insertTxError } = await supabase
+      .from('points_transactions')
+      .insert({
+        merchant_id,
+        customer_id,
+        points: -reward.points_required,
+        type: 'redemption',
+        description: `Redeemed: ${reward.name}`,
+        reference_id: redemption.id,
+      });
+    if (insertTxError) {
+      console.error('Error recording points transaction:', insertTxError);
+      return NextResponse.json(
+        { error: 'Failed to record points transaction' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
