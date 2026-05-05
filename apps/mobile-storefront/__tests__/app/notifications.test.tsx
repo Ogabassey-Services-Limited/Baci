@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
-import { StyleSheet, View } from 'react-native';
-import NotificationsScreen from './notifications';
+import type React from 'react';
+import { StyleSheet, View, type ViewProps } from 'react-native';
+import NotificationsScreen from '@/app/notifications';
 
 interface MockFlashListProps {
   children?: React.ReactNode;
@@ -12,16 +13,23 @@ type MockNotificationsListStyleOptions = {
   includeBottomInset?: boolean;
 };
 
+interface MockStorefrontShellProps extends ViewProps {
+  children?: React.ReactNode;
+  edges?: readonly string[];
+}
+
 const mockFlashList = jest.fn(({ children, ...props }: MockFlashListProps) => (
   <View testID="notifications-flash-list" {...props}>
     {children}
   </View>
 ));
-const mockStorefrontScreenShell = jest.fn(({ children, ...props }) => (
-  <View testID="storefront-screen-shell" {...props}>
-    {children}
-  </View>
-));
+const mockStorefrontScreenShell = jest.fn(
+  ({ children, ...props }: MockStorefrontShellProps) => (
+    <View testID="storefront-screen-shell" {...props}>
+      {children}
+    </View>
+  )
+);
 const mockGetListContentStyle =
   jest.fn<
     (options?: MockNotificationsListStyleOptions) => {
@@ -159,12 +167,12 @@ describe('NotificationsScreen', () => {
   it('renders the signed-in empty-state copy', () => {
     render(<NotificationsScreen />);
 
-    expect(screen.getByText('No notifications yet')).toBeTruthy();
+    expect(screen.getByText('No notifications yet')).toBeOnTheScreen();
     expect(
       screen.getByText(
         "We'll notify you about order updates and special offers"
       )
-    ).toBeTruthy();
+    ).toBeOnTheScreen();
   });
 
   it('renders the guest empty-state copy when no user is present', () => {
@@ -174,6 +182,6 @@ describe('NotificationsScreen', () => {
 
     expect(
       screen.getByText('Sign in to receive order updates and special offers')
-    ).toBeTruthy();
+    ).toBeOnTheScreen();
   });
 });

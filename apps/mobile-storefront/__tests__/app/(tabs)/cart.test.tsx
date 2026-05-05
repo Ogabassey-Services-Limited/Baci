@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
+import CartScreen from '@/app/(tabs)/cart';
 import Colors from '@/constants/Colors';
-import CartScreen from './cart';
 
 type MockAuthStatus = {
   customer: null;

@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { View } from 'react-native';
+import SavedTabScreen from '@/app/(tabs)/saved';
 import { SPACING } from '@/constants/Colors';
 import { SAVED_LIST_BOTTOM_PADDING } from '@/constants/saved-list-layout';
 import type { SavedItem } from '@/stores/saved-store';
-import SavedTabScreen from './saved';
 
 interface MockFlashListProps {
   children?: React.ReactNode;

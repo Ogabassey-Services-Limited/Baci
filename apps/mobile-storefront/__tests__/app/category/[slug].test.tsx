@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { View } from 'react-native';
-import CategoryScreen from './[slug]';
+import CategoryScreen from '@/app/category/[slug]';
 
 interface MockFlashListProps {
   children?: React.ReactNode;
@@ -23,16 +23,23 @@ type MockCategoryListStyleOptions = {
   paddingTop?: number;
 };
 
+type MockStorefrontScreenShellProps = {
+  children?: React.ReactNode;
+  [key: string]: unknown;
+};
+
 const mockFlashList = jest.fn(({ children, ...props }: MockFlashListProps) => (
   <View testID="category-flash-list" {...props}>
     {children}
   </View>
 ));
-const mockStorefrontScreenShell = jest.fn(({ children, ...props }) => (
-  <View testID="storefront-screen-shell" {...props}>
-    {children}
-  </View>
-));
+const mockStorefrontScreenShell = jest.fn(
+  ({ children, ...props }: MockStorefrontScreenShellProps) => (
+    <View testID="storefront-screen-shell" {...props}>
+      {children}
+    </View>
+  )
+);
 const mockGetListContentStyle =
   jest.fn<
     (options?: MockCategoryListStyleOptions) => {

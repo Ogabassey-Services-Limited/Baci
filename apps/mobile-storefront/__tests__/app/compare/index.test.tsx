@@ -81,7 +81,7 @@ jest.mock('@/stores/cart-store', () => ({
   ) => selector({ addItem: mockAddItem }),
 }));
 
-import CompareScreen from './index';
+import CompareScreen from '@/app/compare';
 
 describe('CompareScreen', () => {
   beforeEach(() => {

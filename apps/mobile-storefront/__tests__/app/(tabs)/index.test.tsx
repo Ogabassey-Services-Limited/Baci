@@ -7,7 +7,7 @@ import {
   HomeScreen,
   mockGetTemplateConfig,
   setupHomeScreenTestState,
-} from '../../test-support/(tabs)/index.test-utils';
+} from '../../../test-support/(tabs)/index.test-utils';
 
 describe('HomeScreen', () => {
   setupHomeScreenTestState();

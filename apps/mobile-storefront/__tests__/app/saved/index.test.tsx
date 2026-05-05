@@ -121,7 +121,7 @@ jest.mock('@/types/product', () => ({
   getDiscountPercentage: () => null,
 }));
 
-import SavedItemsScreen from './index';
+import SavedItemsScreen from '@/app/saved';
 
 const makeSavedItem = (overrides: Partial<SavedItem> = {}): SavedItem => ({
   id: 'item-1',

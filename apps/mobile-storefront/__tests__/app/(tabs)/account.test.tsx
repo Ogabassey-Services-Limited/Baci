@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
 import { View } from 'react-native';
-import AccountScreen from './account';
+import AccountScreen from '@/app/(tabs)/account';
 
 interface MockStorefrontScreenShellProps {
   children?: React.ReactNode;

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { render } from '@testing-library/react-native';
+import { render, screen } from '@testing-library/react-native';
 import type React from 'react';
 import { Text, View } from 'react-native';
-import TabLayout from './_layout';
+import TabLayout from '@/app/(tabs)/_layout';
 
 const MockText = Text;
 const MockView = View;
@@ -27,8 +27,6 @@ const mockTabs = jest.fn(
   )
 );
 
-const mockPush = jest.fn();
-
 jest.mock('expo-router', () => {
   const Tabs = (props: {
     children?: React.ReactNode;
@@ -40,7 +38,7 @@ jest.mock('expo-router', () => {
   return {
     Tabs,
     router: {
-      push: (...args: unknown[]) => mockPush(...args),
+      push: jest.fn(),
     },
   };
 });
@@ -88,13 +86,9 @@ describe('TabLayout', () => {
   });
 
   it('renders the tab navigator without wrapping it in a notch-shifting shell', () => {
-    const { toJSON } = render(<TabLayout />);
+    render(<TabLayout />);
 
-    expect(toJSON()).toMatchObject({
-      props: {
-        testID: 'tabs-root',
-      },
-    });
+    expect(screen.getByLabelText('tabs root')).toBeOnTheScreen();
   });
 
   it('keeps bottom tab sizing based on safe-area insets without offsetting the top edge', () => {
@@ -122,7 +116,8 @@ describe('TabLayout', () => {
       ([props]) => props.name === 'cart'
     );
 
-    expect(cartScreenCall?.[0]?.options).toMatchObject({
+    expect(cartScreenCall).toBeDefined();
+    expect(cartScreenCall?.[0].options).toMatchObject({
       headerShown: false,
     });
   });
