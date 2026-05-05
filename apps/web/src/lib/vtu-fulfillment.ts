@@ -43,7 +43,13 @@ export type FulfilledVtuResult =
       status: 'successful';
       voucherPin?: string;
     }
-  | { amount: number; error: string; reference: string; status: 'failed' }
+  | {
+      amount: number;
+      error: string;
+      reference: string;
+      refundedToWallet?: number;
+      status: 'failed';
+    }
   | { amount: number; reference: string; status: 'processing' };
 
 function getCustomerFirstName(row: VtuTransactionRow, merchantName: string) {
@@ -193,6 +199,81 @@ function setMetadataValue(
   }
   metadata[key] = value;
   return true;
+}
+
+/**
+ * Refund a failed VTU vend's payment to the customer wallet so the customer
+ * can retry from wallet credit instead of waiting on a card refund.
+ *
+ * Gates:
+ *  - row.customer_id must be set (no wallet to credit otherwise)
+ *  - row.amount must be positive
+ *  - metadata.paymentReference must exist (proxy for "money was actually
+ *    collected via a gateway" — direct/test purchases are never refunded)
+ *
+ * Idempotent at the RPC layer via pg_advisory_xact_lock + a uniqueness
+ * lookup on (source_type='vtu_transaction_refund', source_id, type='refund').
+ * Also writes metadata.refundIssued / metadata.refundAmount for visibility.
+ */
+async function refundVtuToCustomerWallet({
+  metadata,
+  row,
+  supabase,
+}: {
+  metadata: Record<string, unknown>;
+  row: VtuTransactionRow;
+  supabase: SupabaseClient;
+}): Promise<{
+  metadataChanged: boolean;
+  refundIssued: boolean;
+  refundedAmount: number;
+}> {
+  const refundedAmount = Number(row.amount ?? 0);
+
+  if (!row.customer_id || refundedAmount <= 0) {
+    return { metadataChanged: false, refundIssued: false, refundedAmount: 0 };
+  }
+  if (typeof metadata.paymentReference !== 'string') {
+    return { metadataChanged: false, refundIssued: false, refundedAmount: 0 };
+  }
+  if (metadata.refundIssued === true) {
+    // Already refunded on a prior fulfillment pass.
+    return {
+      metadataChanged: false,
+      refundIssued: true,
+      refundedAmount: Number(metadata.refundAmount ?? refundedAmount),
+    };
+  }
+
+  const { error } = await supabase.rpc('refund_customer_wallet_for_vtu', {
+    p_customer_id: row.customer_id,
+    p_merchant_id: row.merchant_id,
+    p_amount: refundedAmount,
+    p_vtu_transaction_id: row.id,
+    p_description: `Refund for failed ${VTU_TYPE_LABELS[row.type]} ${getVtuProviderLabel(row)} purchase ₦${row.amount}`,
+  });
+
+  if (error) {
+    console.error('Failed to refund VTU payment to customer wallet:', {
+      amount: refundedAmount,
+      customerId: row.customer_id,
+      error: error.message,
+      merchantId: row.merchant_id,
+      rpc: 'refund_customer_wallet_for_vtu',
+      transactionId: row.id,
+    });
+    return { metadataChanged: false, refundIssued: false, refundedAmount: 0 };
+  }
+
+  let metadataChanged = setMetadataValue(metadata, 'refundIssued', true);
+  metadataChanged =
+    setMetadataValue(metadata, 'refundAmount', refundedAmount) ||
+    metadataChanged;
+  metadataChanged =
+    setMetadataValue(metadata, 'refundedAt', new Date().toISOString()) ||
+    metadataChanged;
+
+  return { metadataChanged, refundIssued: true, refundedAmount };
 }
 
 export class VtuPersistenceError extends Error {
@@ -960,10 +1041,32 @@ export async function fulfillPendingVtuTransaction({
   }
 
   if (row.status === 'failed' && !retryFailed) {
+    // Existing failed row — issue (or confirm) the wallet refund so the
+    // customer can retry from wallet credit. Idempotent.
+    const refundMetadata = { ...(row.metadata ?? {}) };
+    const refund = await refundVtuToCustomerWallet({
+      metadata: refundMetadata,
+      row,
+      supabase,
+    });
+    if (refund.metadataChanged) {
+      const { error: refundMetadataUpdateError } = await supabase
+        .from('vtu_transactions')
+        .update({ metadata: refundMetadata })
+        .eq('id', row.id);
+      if (refundMetadataUpdateError) {
+        console.error('Failed to persist VTU refund metadata:', {
+          error: refundMetadataUpdateError.message,
+          metadata: getSafeMetadataDiagnostics(refundMetadata),
+          transactionId: row.id,
+        });
+      }
+    }
     return {
       amount: Number(row.amount) || 0,
       error: row.error_message || 'Purchase failed',
       reference: row.request_reference,
+      ...(refund.refundIssued && { refundedToWallet: refund.refundedAmount }),
       status: 'failed',
     };
   }
@@ -1071,10 +1174,32 @@ export async function fulfillPendingVtuTransaction({
   }
 
   if (!result.success) {
+    // Fresh vend failure: refund the customer wallet so they can retry from
+    // credit. Idempotent at the RPC layer; safe to call on retries.
+    const refundMetadata = { ...updatedMetadata };
+    const refund = await refundVtuToCustomerWallet({
+      metadata: refundMetadata,
+      row,
+      supabase,
+    });
+    if (refund.metadataChanged) {
+      const { error: refundMetadataUpdateError } = await supabase
+        .from('vtu_transactions')
+        .update({ metadata: refundMetadata })
+        .eq('id', row.id);
+      if (refundMetadataUpdateError) {
+        console.error('Failed to persist VTU refund metadata:', {
+          error: refundMetadataUpdateError.message,
+          metadata: getSafeMetadataDiagnostics(refundMetadata),
+          transactionId: row.id,
+        });
+      }
+    }
     return {
       amount: Number(row.amount) || 0,
       error: result.message,
       reference: row.request_reference,
+      ...(refund.refundIssued && { refundedToWallet: refund.refundedAmount }),
       status: 'failed',
     };
   }

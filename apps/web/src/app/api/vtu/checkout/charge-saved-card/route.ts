@@ -219,7 +219,13 @@ export async function POST(request: NextRequest) {
 
     if (fulfillment.status === 'failed') {
       return NextResponse.json(
-        { error: fulfillment.error, reference: fulfillment.reference },
+        {
+          error: fulfillment.error,
+          reference: fulfillment.reference,
+          ...(fulfillment.refundedToWallet !== undefined && {
+            refundedToWallet: fulfillment.refundedToWallet,
+          }),
+        },
         { status: 400 }
       );
     }

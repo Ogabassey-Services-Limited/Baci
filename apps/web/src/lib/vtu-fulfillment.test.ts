@@ -1282,4 +1282,196 @@ describe('fulfillPendingVtuTransaction', () => {
       }
     );
   });
+
+  describe('refund-to-wallet on failed vend', () => {
+    const FAILED_ROW_BASE = {
+      id: 'vtu-1',
+      merchant_id: 'merchant-1',
+      customer_id: 'customer-1',
+      type: 'electricity' as const,
+      network_provider: 'EKEDC NG',
+      phone_number: '08012345678',
+      amount: 1000,
+      request_reference: 'VTU-123',
+      transaction_id: 'kuda-ref-1',
+      error_message: 'Vend rejected (biller status: k11)',
+      merchant_commission: 10,
+      customer_cashback: 50,
+      biller_name: 'EKEDC NG - EKEDC PREPAID',
+      biller_item_code: 'KUD-ELE-EKED-002',
+      customer_identifier: '43901766923',
+    };
+
+    it('refunds the customer wallet when an already-failed row is replayed', async () => {
+      const updatePayloads: unknown[] = [];
+      const rpcImpl = vi.fn((name: string) =>
+        Promise.resolve(
+          name === 'refund_customer_wallet_for_vtu'
+            ? {
+                data: [
+                  {
+                    success: true,
+                    new_balance: 1050,
+                    transaction_id: 'ledger-1',
+                  },
+                ],
+                error: null,
+              }
+            : { data: null, error: null }
+        )
+      );
+
+      const supabase = createPendingTransactionSupabaseMock({
+        transactionRow: {
+          ...FAILED_ROW_BASE,
+          status: 'failed',
+          metadata: { paymentReference: 'VTU-PAYSTACK-123' },
+        },
+        rpcImpl,
+        updatePayloads,
+      });
+
+      const result = await fulfillPendingVtuTransaction({
+        retryFailed: false,
+        supabase,
+        transactionId: 'vtu-1',
+      });
+
+      expect(result).toMatchObject({
+        amount: 1000,
+        error: 'Vend rejected (biller status: k11)',
+        reference: 'VTU-123',
+        refundedToWallet: 1000,
+        status: 'failed',
+      });
+      expect(rpcImpl).toHaveBeenCalledWith('refund_customer_wallet_for_vtu', {
+        p_amount: 1000,
+        p_customer_id: 'customer-1',
+        p_description: expect.any(String),
+        p_merchant_id: 'merchant-1',
+        p_vtu_transaction_id: 'vtu-1',
+      });
+      const refundMetadataPayload = findPayloadWithMetadata(
+        updatePayloads,
+        (metadata) => metadata.refundIssued === true
+      );
+      expect(refundMetadataPayload?.metadata).toMatchObject({
+        refundAmount: 1000,
+        refundIssued: true,
+      });
+    });
+
+    it('skips the refund when the row has no customer_id', async () => {
+      const rpcImpl = vi.fn(() => Promise.resolve({ data: null, error: null }));
+      const supabase = createPendingTransactionSupabaseMock({
+        transactionRow: {
+          ...FAILED_ROW_BASE,
+          customer_id: null,
+          status: 'failed',
+          metadata: { paymentReference: 'VTU-PAYSTACK-123' },
+        },
+        rpcImpl,
+      });
+
+      const result = await fulfillPendingVtuTransaction({
+        retryFailed: false,
+        supabase,
+        transactionId: 'vtu-1',
+      });
+
+      expect(result).toMatchObject({ status: 'failed' });
+      expect(result).not.toHaveProperty('refundedToWallet');
+      expect(rpcImpl).not.toHaveBeenCalledWith(
+        'refund_customer_wallet_for_vtu',
+        expect.anything()
+      );
+    });
+
+    it('skips the refund when paymentReference is missing (unpaid direct purchase)', async () => {
+      const rpcImpl = vi.fn(() => Promise.resolve({ data: null, error: null }));
+      const supabase = createPendingTransactionSupabaseMock({
+        transactionRow: {
+          ...FAILED_ROW_BASE,
+          status: 'failed',
+          metadata: {},
+        },
+        rpcImpl,
+      });
+
+      const result = await fulfillPendingVtuTransaction({
+        retryFailed: false,
+        supabase,
+        transactionId: 'vtu-1',
+      });
+
+      expect(result).toMatchObject({ status: 'failed' });
+      expect(result).not.toHaveProperty('refundedToWallet');
+      expect(rpcImpl).not.toHaveBeenCalledWith(
+        'refund_customer_wallet_for_vtu',
+        expect.anything()
+      );
+    });
+
+    it('reports the prior refund without re-calling the RPC when metadata.refundIssued is already true', async () => {
+      const rpcImpl = vi.fn(() => Promise.resolve({ data: null, error: null }));
+      const supabase = createPendingTransactionSupabaseMock({
+        transactionRow: {
+          ...FAILED_ROW_BASE,
+          status: 'failed',
+          metadata: {
+            paymentReference: 'VTU-PAYSTACK-123',
+            refundIssued: true,
+            refundAmount: 1000,
+          },
+        },
+        rpcImpl,
+      });
+
+      const result = await fulfillPendingVtuTransaction({
+        retryFailed: false,
+        supabase,
+        transactionId: 'vtu-1',
+      });
+
+      expect(result).toMatchObject({
+        refundedToWallet: 1000,
+        status: 'failed',
+      });
+      expect(rpcImpl).not.toHaveBeenCalledWith(
+        'refund_customer_wallet_for_vtu',
+        expect.anything()
+      );
+    });
+
+    it('returns failed without refundedToWallet when the refund RPC errors', async () => {
+      const rpcImpl = vi.fn((name: string) =>
+        Promise.resolve(
+          name === 'refund_customer_wallet_for_vtu'
+            ? { data: null, error: { message: 'database is down' } }
+            : { data: null, error: null }
+        )
+      );
+      const supabase = createPendingTransactionSupabaseMock({
+        transactionRow: {
+          ...FAILED_ROW_BASE,
+          status: 'failed',
+          metadata: { paymentReference: 'VTU-PAYSTACK-123' },
+        },
+        rpcImpl,
+      });
+
+      const result = await fulfillPendingVtuTransaction({
+        retryFailed: false,
+        supabase,
+        transactionId: 'vtu-1',
+      });
+
+      expect(result).toMatchObject({ status: 'failed' });
+      expect(result).not.toHaveProperty('refundedToWallet');
+      expect(rpcImpl).toHaveBeenCalledWith(
+        'refund_customer_wallet_for_vtu',
+        expect.anything()
+      );
+    });
+  });
 });
