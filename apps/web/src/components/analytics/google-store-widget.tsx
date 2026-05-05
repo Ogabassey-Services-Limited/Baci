@@ -139,10 +139,6 @@ export function GoogleStoreWidget({
       once: true,
     });
     window.addEventListener('keydown', handleInteraction, { once: true });
-    window.addEventListener('scroll', handleInteraction, {
-      passive: true,
-      once: true,
-    });
 
     return () => {
       cancelled = true;
@@ -150,7 +146,6 @@ export function GoogleStoreWidget({
 
       window.removeEventListener('pointerdown', handleInteraction);
       window.removeEventListener('keydown', handleInteraction);
-      window.removeEventListener('scroll', handleInteraction);
     };
   }, [domainMatches, enabled, shouldLoadScript, skipActivationDelay]);
 

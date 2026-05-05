@@ -78,10 +78,6 @@ export function useDeferredActivation({
         passive: true,
       });
       window.addEventListener('keydown', activate, { once: true });
-      window.addEventListener('scroll', activate, {
-        once: true,
-        passive: true,
-      });
     }
 
     return () => {
@@ -105,7 +101,6 @@ export function useDeferredActivation({
 
       window.removeEventListener('pointerdown', activate);
       window.removeEventListener('keydown', activate);
-      window.removeEventListener('scroll', activate);
     };
   }, [activateOnIdle, activateOnInteraction, enabled, isActivated, timeoutMs]);
 

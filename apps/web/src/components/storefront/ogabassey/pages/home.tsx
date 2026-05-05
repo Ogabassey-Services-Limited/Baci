@@ -6,6 +6,11 @@ import { DeferredShellFeature } from '../components/deferred-shell-feature';
 import { BannerCarousel } from '../components/BannerCarousel';
 import { HomeProductGrid } from '../components/HomeProductGrid';
 import { Hero } from '../components/Hero';
+import {
+  BANNER_CAROUSEL_MOUNT_DELAY_MS,
+  DEFERRED_SHELL_MOUNT_DELAY_MS,
+  HOMEPAGE_STRIP_AD_BOOT_DELAY_MS,
+} from '../config/ads';
 
 import { AdUnit } from '../components/AdUnit';
 
@@ -28,7 +33,7 @@ export const OgabasseyHomePage: React.FC<HomePageProps> = ({
 
       {/* Ad Placement: Homepage Strip */}
       <DeferredShellFeature
-        timeoutMs={4500}
+        timeoutMs={DEFERRED_SHELL_MOUNT_DELAY_MS}
         activateOnInteraction={false}
         activateOnIdle={false}
         fallback={(
@@ -41,14 +46,18 @@ export const OgabasseyHomePage: React.FC<HomePageProps> = ({
         )}
       >
         <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-4">
-          <AdUnit placementKey="HOMEPAGE_STRIP" />
+          <AdUnit
+            placementKey="HOMEPAGE_STRIP"
+            bootDelayMs={HOMEPAGE_STRIP_AD_BOOT_DELAY_MS}
+          />
         </div>
       </DeferredShellFeature>
 
       {/* Horizontal Carousel Banner - Desktop Only */}
       <DeferredShellFeature
-        timeoutMs={1800}
+        timeoutMs={BANNER_CAROUSEL_MOUNT_DELAY_MS}
         activateOnInteraction={false}
+        activateOnIdle={false}
         fallback={(
           <div
             aria-hidden="true"
