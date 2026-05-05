@@ -480,6 +480,7 @@ export default function ImeiCheckerScreen() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
         >
           {/* Hero Section */}
           <View style={styles.heroSection}>

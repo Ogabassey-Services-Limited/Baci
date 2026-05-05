@@ -120,6 +120,10 @@ describe('ChatModal', () => {
     ).toMatchObject({
       paddingBottom: 274,
     });
+    expect(screen.getByTestId('keyboard-container')).toHaveProp(
+      'enabled',
+      false
+    );
     expect(screen.getByLabelText('Chat message input')).toBeOnTheScreen();
   });
 

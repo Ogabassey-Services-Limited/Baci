@@ -22,7 +22,6 @@ import { TypingIndicator } from './TypingIndicator';
 import { type ChatMessage, SUGGESTIONS } from './types';
 
 const CHAT_INPUT_KEYBOARD_GAP = 8;
-const CHAT_KEYBOARD_VERTICAL_OFFSET = 20;
 
 interface ChatModalProps {
   visible: boolean;
@@ -213,10 +212,7 @@ export function ChatModal({
           </Pressable>
         </View>
 
-        <AppKeyboardContainer
-          style={styles.messagesWrapper}
-          keyboardVerticalOffset={CHAT_KEYBOARD_VERTICAL_OFFSET}
-        >
+        <AppKeyboardContainer style={styles.messagesWrapper} enabled={false}>
           <FlashList
             ref={flatListRef}
             data={messages}
