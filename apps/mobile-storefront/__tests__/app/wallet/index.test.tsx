@@ -347,7 +347,7 @@ describe('WalletScreen', () => {
     render(<WalletScreen />);
 
     expect(screen.getByText('Preparing your wallet...')).toBeOnTheScreen();
-    expect(screen.getByTestId('wallet-activity-indicator')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Preparing wallet')).toBeOnTheScreen();
   });
 
   it('renders wallet data while the customer record is still hydrating', () => {

@@ -346,7 +346,7 @@ describe('PaymentGatewayScreen', () => {
     await waitFor(() =>
       expect(screen.getByText('Payment Successful!')).toBeTruthy()
     );
-    act(() => {
+    await act(async () => {
       jest.runOnlyPendingTimers();
     });
     await waitFor(() =>

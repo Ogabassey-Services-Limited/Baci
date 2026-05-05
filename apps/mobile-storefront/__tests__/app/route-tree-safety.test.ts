@@ -9,6 +9,10 @@ const EXPO_ROUTER_SPECIAL_FILES = new Set([
   '+html.tsx',
   '+html.js',
   '+html.jsx',
+  '+native-intent.ts',
+  '+native-intent.tsx',
+  '+native-intent.js',
+  '+native-intent.jsx',
   '+not-found.ts',
   '+not-found.tsx',
   '+not-found.js',
@@ -39,9 +43,12 @@ function collectModuleFiles(currentPath: string): string[] {
       return collectModuleFiles(entryPath);
     }
 
-    return ROUTE_MODULE_EXTENSION_PATTERN.test(entry.name)
-      ? [path.relative(APP_ROOT, entryPath)]
-      : [];
+    if (!ROUTE_MODULE_EXTENSION_PATTERN.test(entry.name)) {
+      return [];
+    }
+
+    const relativePath = path.relative(APP_ROOT, entryPath);
+    return [relativePath.split(path.sep).join('/')];
   });
 }
 

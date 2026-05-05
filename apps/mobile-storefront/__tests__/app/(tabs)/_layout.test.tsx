@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
 import type React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import TabLayout from '@/app/(tabs)/_layout';
 import { TAB_BAR_BASE_HEIGHT } from '@/constants/layout';
 
@@ -20,7 +20,7 @@ type MockTabsScreenProps = {
 type MockTabsProps = {
   children?: React.ReactNode;
   screenOptions?: {
-    tabBarStyle?: Record<string, unknown>;
+    tabBarStyle?: ViewStyle;
   };
 };
 
