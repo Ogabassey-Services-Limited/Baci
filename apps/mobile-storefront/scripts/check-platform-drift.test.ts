@@ -83,6 +83,28 @@ describe('check-platform-drift', () => {
     expect(result.stderr).toContain('Do not disable Android keyboard avoidance');
   });
 
+  it('passes when an existing forbidden keyboard pattern is explicitly baselined', () => {
+    const root = createFixture({
+      'app/login.tsx':
+        "const view = <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} />;",
+      'config/platform-branch-allowlist.json': JSON.stringify({
+        platformBranches: [],
+        knownForbiddenPatterns: [
+          {
+            path: 'app/login.tsx',
+            patternId: 'ios-keyboard-avoidance',
+            justification: 'Phase 3 migrates this screen to shared keyboard primitives.',
+          },
+        ],
+      }),
+    });
+
+    const result = runDriftCheck(root);
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('1 known forbidden pattern baseline');
+  });
+
   it('reports malformed allowlist JSON', () => {
     const root = createFixture({
       'app/index.tsx': "const isIOS = Platform.OS === 'ios';",
