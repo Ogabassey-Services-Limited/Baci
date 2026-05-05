@@ -93,6 +93,46 @@ function createMockMerchant(): CachedMerchant {
   };
 }
 
+type StorefrontHomeProduct = Awaited<
+  ReturnType<typeof getCachedStorefrontHomeProducts>
+>[number];
+
+function createMockHomeProduct(
+  overrides: Partial<StorefrontHomeProduct> = {}
+): StorefrontHomeProduct {
+  return {
+    id: 'product-1',
+    name: 'Galaxy Fold',
+    slug: 'galaxy-fold',
+    description: 'Premium foldable phone.',
+    price: 1200000,
+    compare_at_price: null,
+    images: null,
+    category: 'Smartphones',
+    brand: null,
+    condition: null,
+    stock: 3,
+    stock_quantity: null,
+    manage_stock: false,
+    low_stock_threshold: null,
+    product_categories: [],
+    ...overrides,
+  };
+}
+
+function createMockProductCategories(): StorefrontHomeProduct['product_categories'] {
+  return [
+    {
+      categories: [
+        {
+          name: 'Smartphones',
+          slug: 'smartphones',
+        },
+      ],
+    },
+  ];
+}
+
 const mockMerchant = createMockMerchant();
 
 afterEach(() => {
@@ -127,7 +167,7 @@ describe('StorefrontContent', () => {
             <div data-testid="template-home">{String(props.storeSlug)}</div>
           ),
         }),
-    } as ReturnType<typeof getTemplate>);
+    } as unknown as ReturnType<typeof getTemplate>);
 
     const result = await StorefrontContent({ merchant: mockMerchant });
     render(result as React.ReactElement);
@@ -145,7 +185,7 @@ describe('StorefrontContent', () => {
     vi.mocked(resolveStorefrontTemplateId).mockReturnValue('ogabassey');
     vi.mocked(getTemplate).mockReturnValue({
       getComponents: () => Promise.reject(new Error('render failure')),
-    } as ReturnType<typeof getTemplate>);
+    } as unknown as ReturnType<typeof getTemplate>);
 
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(
       // intentionally suppress console.error during test
@@ -161,21 +201,17 @@ describe('StorefrontContent', () => {
 
   it('emits collection schema for homepage featured products', async () => {
     vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
-      {
+      createMockHomeProduct({
         id: 'product-1',
         name: 'Galaxy Fold',
         description: '<p>Premium foldable phone.</p>',
-        status: 'active',
         price: 1200000,
         manage_stock: false,
         stock: 3,
-        image: 'https://cdn.example.com/fold.jpg',
-        imageLarge: 'https://cdn.example.com/fold-large.jpg',
-        imageHint: 'fold',
         category: 'Smartphones',
         slug: 'galaxy-fold',
-      },
-    ] as never);
+      }),
+    ]);
 
     const result = await StorefrontContent({ merchant: mockMerchant });
 
@@ -193,6 +229,118 @@ describe('StorefrontContent', () => {
 
     expect(schema['@type']).toBe('CollectionPage');
     expect(schema.mainEntity?.['@type']).toBe('ItemList');
+  });
+
+  it('caps OgaBassey homepage collection schema to first-render products', async () => {
+    const { resolveStorefrontTemplateId } = await import(
+      './resolve-storefront-template'
+    );
+    const { getTemplate } = await import('@/templates/registry');
+
+    vi.mocked(resolveStorefrontTemplateId).mockReturnValue('ogabassey');
+    vi.mocked(getTemplate).mockReturnValue({
+      getComponents: () =>
+        Promise.resolve({
+          Home: () => <div data-testid="template-home">OgaBassey</div>,
+        }),
+    } as unknown as ReturnType<typeof getTemplate>);
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue(
+      Array.from({ length: 12 }, (_, index) =>
+        createMockHomeProduct({
+          id: `product-${index + 1}`,
+          name: `Product ${index + 1}`,
+          description: `Description ${index + 1}`,
+          price: 100000 + index,
+          manage_stock: false,
+          stock: 3,
+          category: 'Smartphones',
+          slug: `product-${index + 1}`,
+        })
+      )
+    );
+
+    const result = await StorefrontContent({ merchant: mockMerchant });
+    render(result as React.ReactElement);
+
+    const schemaScript = document.querySelector(
+      'script[type="application/ld+json"]'
+    );
+    expect(schemaScript).not.toBeNull();
+    const schema = JSON.parse(schemaScript?.textContent || '{}') as {
+      mainEntity?: {
+        itemListElement?: Array<{
+          item?: { name?: string };
+        }>;
+      };
+    };
+
+    expect(schema).toBeDefined();
+    expect(schema.mainEntity).toBeDefined();
+    expect(schema.mainEntity?.itemListElement).toHaveLength(8);
+    expect(
+      schema.mainEntity?.itemListElement?.map((entry) => entry.item?.name)
+    ).toEqual([
+      'Product 1',
+      'Product 2',
+      'Product 3',
+      'Product 4',
+      'Product 5',
+      'Product 6',
+      'Product 7',
+      'Product 8',
+    ]);
+  });
+
+  it('preserves full product fields for non-OgaBassey templates', async () => {
+    const { resolveStorefrontTemplateId } = await import(
+      './resolve-storefront-template'
+    );
+    const { getTemplate } = await import('@/templates/registry');
+    const templateHome = vi.fn(() => (
+      <div data-testid="template-home">Home</div>
+    ));
+
+    vi.mocked(resolveStorefrontTemplateId).mockReturnValue('electronics');
+    vi.mocked(getTemplate).mockReturnValue({
+      getComponents: () =>
+        Promise.resolve({
+          Home: templateHome,
+        }),
+    } as unknown as ReturnType<typeof getTemplate>);
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
+      createMockHomeProduct({
+        id: 'full-product',
+        name: 'Full Product',
+        description: 'Full description',
+        price: 1200000,
+        manage_stock: false,
+        stock: 3,
+        category: 'Smartphones',
+        slug: 'full-product',
+        product_categories: createMockProductCategories(),
+      }),
+    ]);
+
+    const result = await StorefrontContent({ merchant: mockMerchant });
+    render(result as React.ReactElement);
+
+    expect(templateHome).toHaveBeenCalledWith(
+      expect.objectContaining({
+        products: [
+          expect.objectContaining({
+            id: 'full-product',
+            description: 'Full description',
+            price: 1200000,
+            categories: [
+              expect.objectContaining({
+                slug: 'smartphones',
+              }),
+            ],
+          }),
+        ],
+      }),
+      undefined
+    );
   });
 
   it('hides the homepage Blog discovery link when blog feature is disabled', async () => {

@@ -1,4 +1,5 @@
 import type { Product as StorefrontProduct } from '@/lib/products';
+import { OGABASSEY_HOME_PRODUCT_FEED_LIMIT } from './config/products';
 import type { Product as OgabasseyProduct } from './types';
 
 type ConditionLabel = 'New' | 'Used' | 'Open Box' | 'New & Used';
@@ -84,4 +85,12 @@ export function mapStorefrontProductsToOgabasseyProducts(
       has_condition_offers: product.has_condition_offers,
     };
   });
+}
+
+export function createOgabasseyHomeProductFeed(
+  storefrontProducts: StorefrontProduct[]
+): OgabasseyProduct[] {
+  return mapStorefrontProductsToOgabasseyProducts(
+    storefrontProducts.slice(0, OGABASSEY_HOME_PRODUCT_FEED_LIMIT)
+  );
 }

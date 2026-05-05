@@ -28,6 +28,7 @@ vi.mock('next/image', () => ({
         )
       )}
       alt={String(props.alt ?? '')}
+      data-priority={String(Boolean(props.priority))}
     />
   ),
 }));
@@ -121,6 +122,8 @@ describe('HeroMobileCarousel', () => {
 
     expect(highPriorityImages).toHaveLength(1);
     expect(highPriorityImages[0]).toHaveAccessibleName('iPhone 17 Pro Max');
+    expect(highPriorityImages[0]).toHaveAttribute('data-priority', 'false');
+    expect(highPriorityImages[0]).toHaveAttribute('loading', 'eager');
   });
 
   it('uses theme variables for the hero CTA and slide controls', () => {

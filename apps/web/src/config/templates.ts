@@ -8,6 +8,8 @@ export interface Template {
   previewImage?: string;
 }
 
+export const OGABASSEY_TEMPLATE_ID = 'ogabassey';
+
 export const TEMPLATES: Template[] = [
   {
     id: 'modern-minimal',
@@ -29,7 +31,7 @@ export const TEMPLATES: Template[] = [
     isPremium: true,
   },
   {
-    id: 'ogabassey',
+    id: OGABASSEY_TEMPLATE_ID,
     name: 'Ogabassey',
     description: 'Custom template for Ogabassey Gadgets.',
     isPremium: true,
@@ -319,7 +321,7 @@ export const getTemplateData = (
       },
     ],
   },
-  ogabassey: {
+  [OGABASSEY_TEMPLATE_ID]: {
     root: { title: 'Ogabassey Store' },
     content: [
       {

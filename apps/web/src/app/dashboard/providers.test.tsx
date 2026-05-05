@@ -23,6 +23,12 @@ vi.mock('@/contexts/NonceProvider', () => ({
   useNonce: () => ({ nonce: 'nonce-123' }),
 }));
 
+vi.mock('@/contexts/MotionNonceProvider', () => ({
+  MotionNonceProvider: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="motion-nonce-provider">{children}</div>
+  ),
+}));
+
 vi.mock('@/components/csrf-initializer', () => ({
   CsrfInitializer: () => <div data-testid="csrf-initializer" />,
 }));
@@ -94,6 +100,16 @@ describe('DashboardProviders', () => {
     );
 
     expect(screen.getByTestId('theme-provider')).toBeInTheDocument();
+  });
+
+  it('opts the dashboard route into Framer nonce support', () => {
+    render(
+      <DashboardProviders>
+        <div>Content</div>
+      </DashboardProviders>
+    );
+
+    expect(screen.getByTestId('motion-nonce-provider')).toBeInTheDocument();
   });
 
   it('wraps children in MerchantProvider', () => {
