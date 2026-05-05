@@ -219,6 +219,84 @@ describe('PaymentMethodSelector', () => {
       expect(onWalletToggle).toHaveBeenCalledWith({ use: true, amount: 1000 });
     });
 
+    it('hides the wallet row when the BNPL tab is selected (installments)', () => {
+      // The BNPL branch in checkout.tsx returns early without spreading
+      // buildWalletOrderFields, so a wallet selection there would be
+      // silently dropped. Hide the toggle so the user never sees a
+      // selection that won't be honored.
+      render(
+        <PaymentMethodSelector
+          selectedMethod={'credit_direct' as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="installments"
+          onSelectTab={() => {}}
+          orderTotal={120000}
+          walletMode="orders"
+          walletBalance={5000}
+          walletOrderTotal={120000}
+        />
+      );
+
+      expect(screen.queryByLabelText(/wallet/i)).toBeNull();
+    });
+
+    it('hides the wallet row when the pay_later tab is selected', () => {
+      render(
+        <PaymentMethodSelector
+          selectedMethod={'invoice' as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="pay_later"
+          onSelectTab={() => {}}
+          orderTotal={5000}
+          walletMode="orders"
+          walletBalance={5000}
+          walletOrderTotal={5000}
+        />
+      );
+
+      expect(screen.queryByLabelText(/wallet/i)).toBeNull();
+    });
+
+    it.each(['pay_on_delivery', 'juicyway'] as const)(
+      'hides the wallet row for %s (no real-time settlement of residual)',
+      (method) => {
+        render(
+          <PaymentMethodSelector
+            selectedMethod={method as PaymentMethodType}
+            onSelectMethod={() => {}}
+            selectedTab="full"
+            onSelectTab={() => {}}
+            orderTotal={5000}
+            walletMode="orders"
+            walletBalance={3000}
+            walletOrderTotal={5000}
+          />
+        );
+
+        expect(screen.queryByLabelText(/wallet/i)).toBeNull();
+      }
+    );
+
+    it.each(['paystack', 'korapay', 'bank_transfer'] as const)(
+      'shows the wallet row for %s (gateway can settle the residual)',
+      (method) => {
+        render(
+          <PaymentMethodSelector
+            selectedMethod={method as PaymentMethodType}
+            onSelectMethod={() => {}}
+            selectedTab="full"
+            onSelectTab={() => {}}
+            orderTotal={5000}
+            walletMode="orders"
+            walletBalance={3000}
+            walletOrderTotal={5000}
+          />
+        );
+
+        expect(screen.getByLabelText(/use wallet credit/i)).toBeTruthy();
+      }
+    );
+
     it('emits walletSelection with use=false when toggled off', () => {
       const onWalletToggle = jest.fn();
 

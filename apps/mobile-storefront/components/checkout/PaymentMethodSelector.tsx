@@ -12,7 +12,10 @@ import creditDirectLogoSource from '@/assets/images/creditdirect.jpg';
 import credpalLogoSource from '@/assets/images/credpal.png';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, palette, RADIUS, SPACING } from '@/constants/Colors';
+import type { WalletSelection } from '@/lib/wallet-payment-helpers';
 import { formatPrice } from '@/stores/cart-store';
+
+export type { WalletSelection };
 
 export type PaymentMethodType =
   | 'paystack'
@@ -119,11 +122,6 @@ const PAYMENT_METHODS: PaymentMethod[] = [
  */
 export type WalletMode = 'orders' | 'vtu' | 'off';
 
-export interface WalletSelection {
-  use: boolean;
-  amount: number;
-}
-
 interface PaymentMethodSelectorProps {
   selectedMethod: PaymentMethodType;
   onSelectMethod: (method: PaymentMethodType) => void;
@@ -215,11 +213,30 @@ export function PaymentMethodSelector({
   // and the customer actually has a positive balance to spend. The VTU
   // surface keeps walletMode='off' (the default) until PR B's server
   // support exists.
+  //
+  // Additionally restricted to flows that BOTH (a) forward wallet fields
+  // into createOrder and (b) can settle the residual through a real-time
+  // gateway:
+  //   - selectedTab must be 'full' (the BNPL `installments` and
+  //     `pay_later` branches return early in checkout.tsx without spreading
+  //     buildWalletOrderFields, so a wallet selection there would be
+  //     silently dropped at order creation).
+  //   - selectedMethod must NOT be pay_on_delivery / invoice / payforme
+  //     (no upfront payment to settle a residual against) or juicyway
+  //     (cart-vs-residual amount drift guard in handleCryptoConfirm
+  //     would falsely abort the crypto flow).
+  // Allowed methods today: paystack, korapay, bank_transfer.
   const walletEffectiveTotal = walletOrderTotal ?? orderTotal;
+  const isWalletCompatibleMethod =
+    selectedMethod === 'paystack' ||
+    selectedMethod === 'korapay' ||
+    selectedMethod === 'bank_transfer';
   const walletShouldRender =
     walletMode === 'orders' &&
     walletBalance > 0 &&
-    walletEffectiveTotal > 0;
+    walletEffectiveTotal > 0 &&
+    selectedTab === 'full' &&
+    isWalletCompatibleMethod;
   const walletCoversFully = walletShouldRender &&
     walletBalance >= walletEffectiveTotal;
   const walletPortion = walletShouldRender

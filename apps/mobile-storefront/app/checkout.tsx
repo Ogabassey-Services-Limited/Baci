@@ -1772,6 +1772,26 @@ export default function CheckoutScreen() {
     }, 0);
     const snapshotDeliveryFee = deliveryFee;
     const snapshotTaxAmount = orderTotals?.taxAmount ?? 0;
+    const snapshotTotal =
+      snapshotSubtotal + snapshotDeliveryFee + snapshotTaxAmount;
+    // Recompute the wallet amount at submit time against the snapshotted
+    // total + the live walletBalance, ignoring the captured
+    // walletSelection.amount. Between toggle and submit the total can
+    // shift (shipping quote update, tax recompute) and the wallet
+    // balance can move (concurrent refunds / cashback). Clamping to
+    // min(walletBalance, snapshotTotal) keeps the submitted amount
+    // consistent with what the server will actually see and prevents a
+    // stale wallet_amount from over- or under-debiting.
+    const liveWalletSelection: WalletSelection | undefined =
+      walletSelection?.use === true
+        ? {
+            use: true,
+            amount: Math.max(
+              0,
+              Math.min(walletBalance, snapshotTotal)
+            ),
+          }
+        : undefined;
 
     try {
       trackCheckoutStep('review');
@@ -1898,7 +1918,7 @@ export default function CheckoutScreen() {
         payment_method: paymentMethodForOrder,
         shipping_address: orderShippingAddress,
         source: 'mobile_app',
-        ...buildWalletOrderFields(walletSelection),
+        ...buildWalletOrderFields(liveWalletSelection),
       });
 
       const { order } = orderResponse;
