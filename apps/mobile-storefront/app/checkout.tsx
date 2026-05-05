@@ -1782,8 +1782,23 @@ export default function CheckoutScreen() {
     // min(walletBalance, snapshotTotal) keeps the submitted amount
     // consistent with what the server will actually see and prevents a
     // stale wallet_amount from over- or under-debiting.
+    //
+    // Also enforce the same payment-method gate the picker uses
+    // (PaymentMethodSelector.tsx → walletShouldRender). If the user
+    // toggled wallet on while a compatible method was selected and then
+    // switched to an incompatible one (BNPL / pay-later / pay_on_delivery
+    // / juicyway / invoice / payforme), the picker hides the row but
+    // walletSelection.use is still true. Drop the wallet payload here so
+    // the API doesn't receive a stale wallet redemption that would either
+    // be silently ignored (BNPL/pay_later branch) or break the Juicyway
+    // amount-drift guard in handleCryptoConfirm.
+    const isWalletCompatibleSubmit =
+      paymentTab === 'full' &&
+      (selectedPayment === 'paystack' ||
+        selectedPayment === 'korapay' ||
+        selectedPayment === 'bank_transfer');
     const liveWalletSelection: WalletSelection | undefined =
-      walletSelection?.use === true
+      walletSelection?.use === true && isWalletCompatibleSubmit
         ? {
             use: true,
             amount: Math.max(
@@ -1992,6 +2007,13 @@ export default function CheckoutScreen() {
         })();
       };
 
+      // When the server fully settled the order from wallet credit,
+      // attribute the completion to 'wallet' in analytics rather than
+      // the still-set selectedPayment value. Otherwise wallet-funded
+      // orders skew payment dashboards as paystack/korapay/bank_transfer.
+      const completedPaymentMethod = isWalletFullyPaidOrder(orderResponse)
+        ? 'wallet'
+        : selectedPayment;
       trackOrderCompleted({
         orderId: order.id,
         orderNumber,
@@ -2001,7 +2023,7 @@ export default function CheckoutScreen() {
         tax: snapshotTaxAmount,
         currency: 'NGN',
         itemCount: itemsSnapshot.reduce((acc, item) => acc + item.quantity, 0),
-        paymentMethod: selectedPayment,
+        paymentMethod: completedPaymentMethod,
       });
 
       // Route based on payment method
