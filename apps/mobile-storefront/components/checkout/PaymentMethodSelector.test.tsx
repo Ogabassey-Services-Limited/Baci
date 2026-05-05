@@ -297,6 +297,36 @@ describe('PaymentMethodSelector', () => {
       }
     );
 
+    it('suppresses the active-radio visual on gateway rows when wallet fully covers and is active', () => {
+      // Regression: when wallet covers the full order AND the toggle is
+      // on, the gateway list becomes informational. Showing two competing
+      // active radios (wallet row + gateway row) is confusing UX. The
+      // gateway rows render with checked=false and disabled=true while
+      // the wallet selection is active, so only the wallet row appears
+      // selected. The underlying `selectedMethod` prop is preserved
+      // unchanged.
+      render(
+        <PaymentMethodSelector
+          selectedMethod={'paystack' as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="full"
+          onSelectTab={() => {}}
+          orderTotal={1000}
+          walletMode="orders"
+          walletBalance={1500}
+          walletOrderTotal={1000}
+          walletSelection={{ use: true, amount: 1000 }}
+          onWalletToggle={() => {}}
+        />
+      );
+
+      const paystackRow = screen.getByLabelText(/Pay with Card/i);
+      // Gateway row is no longer the active selection while wallet
+      // covers fully and is selected.
+      expect(paystackRow.props.accessibilityState.checked).toBe(false);
+      expect(paystackRow.props.accessibilityState.disabled).toBe(true);
+    });
+
     it('emits walletSelection with use=false when toggled off', () => {
       const onWalletToggle = jest.fn();
 

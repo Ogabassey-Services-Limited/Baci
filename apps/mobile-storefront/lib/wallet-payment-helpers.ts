@@ -22,10 +22,15 @@ export interface WalletSelection {
 
 // Accepts the full /api/orders response or any superset of it. The check
 // only depends on `amountDueToGateway` and `wallet.amountUsed`; any extra
-// fields are ignored.
+// fields are ignored. The wallet field is permissive at the type level
+// (null | undefined | object) because we cannot trust the server to
+// always include it — older responses or partial payloads must not
+// crash the client.
 interface MinimalOrderResponseShape {
   amountDueToGateway: number;
-  wallet: { amountUsed: number; [extra: string]: unknown } | null;
+  wallet?:
+    | { amountUsed: number; [extra: string]: unknown }
+    | null;
 }
 
 export function isWalletFullyPaidOrder(
@@ -33,8 +38,7 @@ export function isWalletFullyPaidOrder(
 ): boolean {
   return (
     orderResponse.amountDueToGateway === 0 &&
-    orderResponse.wallet !== null &&
-    orderResponse.wallet.amountUsed > 0
+    (orderResponse.wallet?.amountUsed ?? 0) > 0
   );
 }
 

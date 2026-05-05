@@ -44,6 +44,17 @@ describe('isWalletFullyPaidOrder', () => {
     ).toBe(false);
   });
 
+  it('returns false when wallet is undefined (older response shapes / partial payloads)', () => {
+    // Regression: a previous draft did `wallet !== null && wallet.amountUsed`,
+    // which would throw on `wallet === undefined` because
+    // `undefined !== null` is true and accessing .amountUsed on undefined
+    // crashes. Optional chaining keeps it safe.
+    expect(isWalletFullyPaidOrder({ amountDueToGateway: 0 })).toBe(false);
+    expect(
+      isWalletFullyPaidOrder({ amountDueToGateway: 0, wallet: undefined })
+    ).toBe(false);
+  });
+
   it('returns false when amountDueToGateway is positive even with a wallet block', () => {
     expect(
       isWalletFullyPaidOrder({

@@ -524,8 +524,17 @@ export function PaymentMethodSelector({
         accessibilityLiveRegion="polite"
       >
         {filteredMethods.map((method) => {
-          const isSelected = selectedMethod === method.id;
-          const isDisabled = method.disabled;
+          // When wallet fully covers the order AND the user has the
+          // wallet row toggled on, the gateway list becomes informational
+          // — there's no residual to settle. Suppress the active-radio
+          // visual on every gateway row so the picker doesn't show two
+          // competing "selected" indicators. The underlying selectedMethod
+          // is preserved so it can still be sent to the server for
+          // receipt/accounting purposes.
+          const walletSuppressesGateway = walletCoversFully && walletIsActive;
+          const isSelected =
+            selectedMethod === method.id && !walletSuppressesGateway;
+          const isDisabled = method.disabled || walletSuppressesGateway;
 
           return (
             <Pressable
