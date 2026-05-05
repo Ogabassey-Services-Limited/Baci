@@ -8,9 +8,13 @@
 import { withKudaElectricityBillItems } from '@baci/shared/lib';
 import {
   type Biller,
+  buildKudaVendMessage,
+  extractKudaVoucherPin,
   generateRequestRef,
   getBillersByType,
+  isKudaVendSuccessful,
   KudaServiceType,
+  type KudaTransactionStatusData,
   kudaRequest,
   type PurchaseResult,
   verifyBillCustomer,
@@ -82,64 +86,46 @@ export async function purchaseBill(
   customerIdentification: string,
   amount: number,
   customerName: string = 'Customer',
-  requestRef?: string
+  requestRef?: string,
+  customerPhone?: string
 ): Promise<PurchaseResult> {
   const reference = requestRef || generateRequestRef();
 
   try {
-    // Kuda may return the vend token under different field names depending on
-    // the biller type (pin/Pin for airtime, meterToken/vendCode/token for
-    // electricity, voucher for betting, etc.).
-    const response = await kudaRequest<{
-      Reference?: string;
-      reference?: string;
-      Pin?: number | string | null;
-      pin?: number | string | null;
-      PIN?: number | string | null;
-      Token?: number | string | null;
-      token?: number | string | null;
-      MeterToken?: number | string | null;
-      meterToken?: number | string | null;
-      VendCode?: number | string | null;
-      vendCode?: number | string | null;
-      Voucher?: number | string | null;
-      voucher?: number | string | null;
-    }>(
+    const response = await kudaRequest<
+      KudaTransactionStatusData & { reference?: string; Reference?: string }
+    >(
       KudaServiceType.ADMIN_PURCHASE_BILL,
       {
         CustomerFirstName: customerName,
         CustomerIdentifier: customerIdentification,
-        PhoneNumber: customerIdentification,
+        // For electricity/cable_tv/betting, customerIdentification is a meter
+        // number / decoder / wallet — not a phone. Use the customer's real
+        // phone for SMS token delivery; only fall back to customerIdentification
+        // when no phone is captured (legacy rows).
+        PhoneNumber: customerPhone || customerIdentification,
         BillItemIdentifier: billItemIdentifier,
-        Amount: (amount * 100).toString(), // Convert Naira to Kobo
+        Amount: Math.round(amount * 100).toString(), // Naira → Kobo
         trackingReference: reference,
       },
       reference
     );
 
-    const pin =
-      normalizeKudaString(response.data?.pin) ??
-      normalizeKudaString(response.data?.Pin) ??
-      normalizeKudaString(response.data?.PIN) ??
-      normalizeKudaString(response.data?.token) ??
-      normalizeKudaString(response.data?.Token) ??
-      normalizeKudaString(response.data?.meterToken) ??
-      normalizeKudaString(response.data?.MeterToken) ??
-      normalizeKudaString(response.data?.vendCode) ??
-      normalizeKudaString(response.data?.VendCode) ??
-      normalizeKudaString(response.data?.voucher) ??
-      normalizeKudaString(response.data?.Voucher);
+    const vendSucceeded = isKudaVendSuccessful(response.status, response.data);
+    const pin = extractKudaVoucherPin(response.data);
     const transactionId =
       normalizeKudaString(response.data?.reference) ??
       normalizeKudaString(response.data?.Reference);
 
     return {
-      success: response.status,
+      success: vendSucceeded,
       reference,
       transactionId,
       ...(pin && { pin }),
-      message: response.message,
-      status: response.status ? 'successful' : 'failed',
+      message: vendSucceeded
+        ? response.message
+        : buildKudaVendMessage(response.message, response.data),
+      status: vendSucceeded ? 'successful' : 'failed',
       amount,
     };
   } catch (error) {
