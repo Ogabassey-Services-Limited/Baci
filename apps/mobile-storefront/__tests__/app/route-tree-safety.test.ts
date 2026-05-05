@@ -3,7 +3,10 @@ import path from 'node:path';
 
 const APP_ROOT = path.resolve(__dirname, '../../app');
 
-const ROUTE_MODULE_EXTENSION_PATTERN = /\.(ts|tsx|js|jsx)$/;
+const ROUTE_MODULE_EXTENSION_PATTERN =
+  /\.(?:(?:android|ios|native|web)\.)?(ts|tsx|js|jsx)$/;
+const ROUTE_PLATFORM_SEGMENT_PATTERN =
+  /\.(android|ios|native|web)\.(ts|tsx|js|jsx)$/;
 const EXPO_ROUTER_SPECIAL_FILES = new Set([
   '+html.ts',
   '+html.tsx',
@@ -58,32 +61,40 @@ function collectModuleFiles(currentPath: string): string[] {
 
 function isRouteFile(relativePath: string): boolean {
   const fileName = path.basename(relativePath);
+  const routeFileName = fileName.replace(
+    ROUTE_PLATFORM_SEGMENT_PATTERN,
+    '.$2'
+  );
+  const routePath = relativePath.replace(
+    ROUTE_PLATFORM_SEGMENT_PATTERN,
+    '.$2'
+  );
 
-  if (EXPO_ROUTER_SPECIAL_FILES.has(fileName)) {
+  if (EXPO_ROUTER_SPECIAL_FILES.has(routeFileName)) {
     return true;
   }
 
-  if (/^_layout\.(ts|tsx|js|jsx)$/.test(fileName)) {
+  if (/^_layout\.(ts|tsx|js|jsx)$/.test(routeFileName)) {
     return true;
   }
 
-  if (/^index\.(ts|tsx|js|jsx)$/.test(fileName)) {
+  if (/^index\.(ts|tsx|js|jsx)$/.test(routeFileName)) {
     return true;
   }
 
-  if (/^.+\+api\.(ts|tsx|js|jsx)$/.test(fileName)) {
+  if (/^.+\+api\.(ts|tsx|js|jsx)$/.test(routeFileName)) {
     return true;
   }
 
   if (
     /^(?:\[[a-zA-Z0-9_-]+\]|\[\.\.\.[a-zA-Z0-9_-]+\]|\[\[\.\.\.[a-zA-Z0-9_-]+\]\])\.(ts|tsx|js|jsx)$/.test(
-      fileName
+      routeFileName
     )
   ) {
     return true;
   }
 
-  return EXPLICIT_STATIC_ROUTES.has(relativePath);
+  return EXPLICIT_STATIC_ROUTES.has(routePath);
 }
 
 describe('app route tree safety', () => {
@@ -93,13 +104,18 @@ describe('app route tree safety', () => {
     ['+native-intent.tsx'],
     ['+not-found.tsx'],
     ['_layout.tsx'],
+    ['_layout.web.tsx'],
     ['index.tsx'],
+    ['index.ios.tsx'],
     ['category/[slug].tsx'],
+    ['category/[slug].android.tsx'],
     ['orders/[...params].tsx'],
     ['utilities/[[...optional]].tsx'],
     ['api/products+api.ts'],
+    ['api/products+api.web.ts'],
     ['api/inventory.refresh+api.tsx'],
     ['search.tsx'],
+    ['search.native.tsx'],
   ])('allows valid Expo Router module %s', (routeModule) => {
     expect(isRouteFile(routeModule)).toBe(true);
   });
