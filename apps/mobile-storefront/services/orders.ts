@@ -80,6 +80,13 @@ const CreateOrderRequestSchema = z.object({
   selected_quote_id: z.string().uuid().optional(),
   shipping_provider: z.string().optional(),
   source: z.string().default('mobile_app'),
+  // Wallet payment selection. Both fields are optional so existing
+  // non-wallet flows are unaffected. The payload-construction guard
+  // below requires BOTH fields to be present-and-valid before they
+  // reach the API — a malformed `{ use_wallet_credit: true,
+  // wallet_amount: undefined }` is dropped, not forwarded.
+  use_wallet_credit: z.boolean().optional(),
+  wallet_amount: z.number().nonnegative().optional(),
 });
 
 // Order response schema
@@ -221,6 +228,17 @@ export async function createOrder(
     source: 'mobile_app',
     // Include user_id if authenticated for customer profile linking
     ...(!authError && user?.id && { user_id: user.id }),
+    // Wallet payment selection. Forward only when the intent is fully
+    // formed: opt-in true AND a positive numeric amount. A malformed
+    // `{ use_wallet_credit: true, wallet_amount: undefined }` (or 0 /
+    // negative) gets dropped here so the server never sees a partial
+    // wallet intent.
+    ...(request.use_wallet_credit === true &&
+      typeof request.wallet_amount === 'number' &&
+      request.wallet_amount > 0 && {
+        use_wallet_credit: request.use_wallet_credit,
+        wallet_amount: request.wallet_amount,
+      }),
   };
 
   try {
