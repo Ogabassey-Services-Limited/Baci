@@ -265,10 +265,7 @@ export default function UtilityPurchaseScreen() {
         topInset={insets.top}
         surfaceColor={colors.background}
       />
-      <AppKeyboardContainer
-        keyboardVerticalOffset={headerOffset}
-        style={styles.container}
-      >
+      <AppKeyboardContainer style={styles.container}>
         <UtilityTypeTabs
           selectedType={currentType}
           onSelect={handleUtilityTypeChange}

@@ -15,7 +15,14 @@ describe('AppKeyboardAwareScrollView', () => {
       'keyboardShouldPersistTaps',
       'handled'
     );
-    expect(screen.getByTestId('keyboard-aware-scroll-view')).toHaveProp('bottomOffset', 24);
+    expect(screen.getByTestId('keyboard-aware-scroll-view')).toHaveProp(
+      'bottomOffset',
+      24
+    );
+    expect(screen.getByTestId('keyboard-aware-scroll-view')).toHaveProp(
+      'contentInsetAdjustmentBehavior',
+      'automatic'
+    );
   });
 
   it('forwards scroll props and content container styling', () => {
@@ -33,7 +40,9 @@ describe('AppKeyboardAwareScrollView', () => {
 
     expect(scrollView).toHaveProp('bottomOffset', 88);
     expect(scrollView).toHaveProp('keyboardShouldPersistTaps', 'always');
-    expect(StyleSheet.flatten(scrollView.props.contentContainerStyle)).toMatchObject({
+    expect(
+      StyleSheet.flatten(scrollView.props.contentContainerStyle)
+    ).toMatchObject({
       paddingBottom: 32,
     });
   });
