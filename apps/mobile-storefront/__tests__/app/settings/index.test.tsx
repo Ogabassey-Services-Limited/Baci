@@ -153,7 +153,32 @@ describe('SettingsScreen', () => {
     expect(mockUnregisterPush).toHaveBeenCalledTimes(1);
   });
 
+  it('registers push notifications when the switch is turned on', () => {
+    mockUsePushNotifications.mockReturnValue({
+      isLoading: false,
+      isRegistered: false,
+      register: mockRegisterPush,
+      unregister: mockUnregisterPush,
+    });
+
+    render(<SettingsScreen />);
+
+    fireEvent(
+      screen.getByLabelText('Toggle push notifications'),
+      'valueChange',
+      true
+    );
+
+    expect(mockRegisterPush).toHaveBeenCalledTimes(1);
+  });
+
   it('shows an error toast when enabling notifications fails', async () => {
+    mockUsePushNotifications.mockReturnValue({
+      isLoading: false,
+      isRegistered: false,
+      register: mockRegisterPush,
+      unregister: mockUnregisterPush,
+    });
     mockRegisterPush.mockRejectedValueOnce(new Error('push failed'));
 
     render(<SettingsScreen />);

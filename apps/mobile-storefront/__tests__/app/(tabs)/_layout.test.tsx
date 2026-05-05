@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
 import type React from 'react';
-import { Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import TabLayout from '@/app/(tabs)/_layout';
 import { TAB_BAR_BASE_HEIGHT } from '@/constants/layout';
 
@@ -17,28 +17,34 @@ type MockTabsScreenProps = {
   name: string;
   options?: Record<string, unknown>;
 };
+type MockTabsProps = {
+  children?: React.ReactNode;
+  screenOptions?: {
+    tabBarStyle?: Record<string, unknown>;
+  };
+};
 
-const mockTabsScreen = jest.fn(({ name }: MockTabsScreenProps) => (
-  <MockText>{name}</MockText>
+const mockTabsScreen = jest.fn(({ name, options }: MockTabsScreenProps) => (
+  <MockText
+    accessibilityLabel={`${name} screen header ${
+      options?.headerShown === false ? 'hidden' : 'shown'
+    }`}
+  >
+    {name}
+  </MockText>
 ));
-const mockTabs = jest.fn(
-  ({
-    children,
-  }: {
-    children?: React.ReactNode;
-    screenOptions?: Record<string, unknown>;
-  }) => (
-    <MockView testID="tabs-root" accessibilityLabel="tabs root">
-      {children}
-    </MockView>
-  )
-);
+const mockTabs = jest.fn(({ children, screenOptions }: MockTabsProps) => (
+  <MockView
+    testID="tabs-root"
+    accessibilityLabel="tabs root"
+    style={screenOptions?.tabBarStyle}
+  >
+    {children}
+  </MockView>
+));
 
 jest.mock('expo-router', () => {
-  const Tabs = (props: {
-    children?: React.ReactNode;
-    screenOptions?: Record<string, unknown>;
-  }) => mockTabs(props);
+  const Tabs = (props: MockTabsProps) => mockTabs(props);
 
   Tabs.Screen = (props: MockTabsScreenProps) => mockTabsScreen(props);
 
@@ -82,10 +88,6 @@ jest.mock('@/stores/auth-store', () => ({
     }),
 }));
 
-function findScreenCallByName(name: string) {
-  return mockTabsScreen.mock.calls.find(([props]) => props.name === name);
-}
-
 describe('TabLayout', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -100,16 +102,11 @@ describe('TabLayout', () => {
   it('keeps bottom tab sizing based on safe-area insets without offsetting the top edge', () => {
     render(<TabLayout />);
 
-    const screenOptions = mockTabs.mock.calls[0]?.[0]?.screenOptions as
-      | {
-          tabBarStyle?: {
-            height?: number;
-            paddingBottom?: number;
-          };
-        }
-      | undefined;
+    const tabsRootStyle = StyleSheet.flatten(
+      screen.getByLabelText('tabs root').props.style
+    );
 
-    expect(screenOptions?.tabBarStyle).toMatchObject({
+    expect(tabsRootStyle).toMatchObject({
       height: TAB_BAR_BASE_HEIGHT + mockSafeAreaInsets.bottom,
       paddingBottom: Math.max(mockSafeAreaInsets.bottom - 4, 8),
     });
@@ -118,11 +115,6 @@ describe('TabLayout', () => {
   it('explicitly keeps the cart tab header hidden', () => {
     render(<TabLayout />);
 
-    const cartScreenCall = findScreenCallByName('cart');
-
-    expect(cartScreenCall).toBeDefined();
-    expect(cartScreenCall?.[0].options).toMatchObject({
-      headerShown: false,
-    });
+    expect(screen.getByLabelText('cart screen header hidden')).toBeOnTheScreen();
   });
 });
