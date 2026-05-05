@@ -1493,6 +1493,43 @@ describe('fulfillPendingVtuTransaction', () => {
       );
     });
 
+    it('refuses to retry a row that has already been refunded (prevents double-credit)', async () => {
+      // Once metadata.refundIssued is true, retryFailed must NOT execute a
+      // second vend attempt: if it succeeded, the customer would keep both
+      // the wallet refund AND the successful vend.
+      const rpcImpl = vi.fn(() => Promise.resolve({ data: null, error: null }));
+      const supabase = createPendingTransactionSupabaseMock({
+        transactionRow: {
+          ...FAILED_ROW_BASE,
+          status: 'failed',
+          metadata: {
+            refundIssued: true,
+            refundAmount: 1000,
+            refundedAt: '2026-05-05T08:00:00.000Z',
+          },
+        },
+        rpcImpl,
+      });
+
+      const result = await fulfillPendingVtuTransaction({
+        retryFailed: true, // /api/vtu/checkout/confirm passes this
+        supabase,
+        transactionId: 'vtu-1',
+      });
+
+      expect(result).toMatchObject({
+        amount: 1000,
+        reference: 'VTU-123',
+        refundedToWallet: 1000,
+        status: 'failed',
+      });
+      // No reconciliation, no retry, no purchase mock invocation.
+      expect(mockCheckTransactionStatus).not.toHaveBeenCalled();
+      expect(mockPurchaseAirtime).not.toHaveBeenCalled();
+      expect(mockPurchaseData).not.toHaveBeenCalled();
+      expect(mockPurchaseBill).not.toHaveBeenCalled();
+    });
+
     it('returns failed without refundedToWallet when the refund RPC errors', async () => {
       const rpcImpl = vi.fn((name: string) =>
         Promise.resolve(

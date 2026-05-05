@@ -1095,6 +1095,25 @@ export async function fulfillPendingVtuTransaction({
   }
 
   if (row.status === 'failed' && retryFailed) {
+    // Once a failed row has been refunded to the customer wallet, we MUST
+    // NOT retry the same row. If the retry succeeded, the customer would
+    // keep both the wallet refund AND the successful vend value — a direct
+    // monetary loss. The customer should place a new purchase that draws
+    // from the wallet credit instead.
+    const existingMetadata = (row.metadata ?? {}) as Record<string, unknown>;
+    if (existingMetadata.refundIssued === true) {
+      const refundAmount = Number(existingMetadata.refundAmount);
+      return {
+        amount: Number(row.amount) || 0,
+        error:
+          row.error_message ||
+          'Original payment was refunded to wallet — please retry as a new purchase.',
+        reference: row.request_reference,
+        ...(Number.isFinite(refundAmount) &&
+          refundAmount > 0 && { refundedToWallet: refundAmount }),
+        status: 'failed',
+      };
+    }
     const reconciliation = await reconcileFailedVtuRetry({ row, supabase });
     if (reconciliation.action === 'return') {
       return reconciliation.result;
