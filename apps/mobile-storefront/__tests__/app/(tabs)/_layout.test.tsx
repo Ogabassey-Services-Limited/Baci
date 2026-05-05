@@ -3,9 +3,16 @@ import { render, screen } from '@testing-library/react-native';
 import type React from 'react';
 import { Text, View } from 'react-native';
 import TabLayout from '@/app/(tabs)/_layout';
+import { TAB_BAR_BASE_HEIGHT } from '@/constants/layout';
 
 const MockText = Text;
 const MockView = View;
+const mockSafeAreaInsets = {
+  top: 59,
+  right: 0,
+  bottom: 34,
+  left: 0,
+};
 type MockTabsScreenProps = {
   name: string;
   options?: Record<string, unknown>;
@@ -44,12 +51,7 @@ jest.mock('expo-router', () => {
 });
 
 jest.mock('react-native-safe-area-context', () => ({
-  useSafeAreaInsets: () => ({
-    top: 59,
-    right: 0,
-    bottom: 34,
-    left: 0,
-  }),
+  useSafeAreaInsets: () => mockSafeAreaInsets,
 }));
 
 jest.mock('zustand/react/shallow', () => ({
@@ -80,6 +82,10 @@ jest.mock('@/stores/auth-store', () => ({
     }),
 }));
 
+function findScreenCallByName(name: string) {
+  return mockTabsScreen.mock.calls.find(([props]) => props.name === name);
+}
+
 describe('TabLayout', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -104,17 +110,15 @@ describe('TabLayout', () => {
       | undefined;
 
     expect(screenOptions?.tabBarStyle).toMatchObject({
-      height: 83,
-      paddingBottom: 30,
+      height: TAB_BAR_BASE_HEIGHT + mockSafeAreaInsets.bottom,
+      paddingBottom: Math.max(mockSafeAreaInsets.bottom - 4, 8),
     });
   });
 
   it('explicitly keeps the cart tab header hidden', () => {
     render(<TabLayout />);
 
-    const cartScreenCall = mockTabsScreen.mock.calls.find(
-      ([props]) => props.name === 'cart'
-    );
+    const cartScreenCall = findScreenCallByName('cart');
 
     expect(cartScreenCall).toBeDefined();
     expect(cartScreenCall?.[0].options).toMatchObject({

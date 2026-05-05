@@ -3,7 +3,17 @@ import path from 'node:path';
 
 const APP_ROOT = path.resolve(__dirname, '../../app');
 
-const EXPO_ROUTER_SPECIAL_FILES = new Set(['+html.tsx', '+not-found.tsx']);
+const ROUTE_MODULE_EXTENSION_PATTERN = /\.(ts|tsx|js|jsx)$/;
+const EXPO_ROUTER_SPECIAL_FILES = new Set([
+  '+html.ts',
+  '+html.tsx',
+  '+html.js',
+  '+html.jsx',
+  '+not-found.ts',
+  '+not-found.tsx',
+  '+not-found.js',
+  '+not-found.jsx',
+]);
 const EXPLICIT_STATIC_ROUTES = new Set([
   '(tabs)/account.tsx',
   '(tabs)/cart.tsx',
@@ -29,7 +39,7 @@ function collectModuleFiles(currentPath: string): string[] {
       return collectModuleFiles(entryPath);
     }
 
-    return /\.(ts|tsx|js|jsx)$/.test(entry.name)
+    return ROUTE_MODULE_EXTENSION_PATTERN.test(entry.name)
       ? [path.relative(APP_ROOT, entryPath)]
       : [];
   });
@@ -42,15 +52,19 @@ function isRouteFile(relativePath: string): boolean {
     return true;
   }
 
-  if (/^_layout\.(ts|tsx)$/.test(fileName)) {
+  if (/^_layout\.(ts|tsx|js|jsx)$/.test(fileName)) {
     return true;
   }
 
-  if (/^index\.(ts|tsx)$/.test(fileName)) {
+  if (/^index\.(ts|tsx|js|jsx)$/.test(fileName)) {
     return true;
   }
 
-  if (/^\[\[?\.{0,3}[a-zA-Z0-9_-]+\]?\]\.(ts|tsx)$/.test(fileName)) {
+  if (
+    /^(?:\[[a-zA-Z0-9_-]+\]|\[\.\.\.[a-zA-Z0-9_-]+\]|\[\[\.\.\.[a-zA-Z0-9_-]+\]\])\.(ts|tsx|js|jsx)$/.test(
+      fileName
+    )
+  ) {
     return true;
   }
 

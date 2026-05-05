@@ -57,6 +57,8 @@ jest.mock('expo-router', () => ({
 
 import DeleteAccountScreen from '@/app/profile/delete-account';
 
+const APPLE_REVOKE_URL = 'https://support.apple.com/en-us/102571';
+
 describe('DeleteAccountScreen', () => {
   beforeEach(() => {
     jest.restoreAllMocks();
@@ -74,9 +76,11 @@ describe('DeleteAccountScreen', () => {
   it('renders deletion warnings and retention copy', () => {
     render(<DeleteAccountScreen />);
 
-    expect(screen.getByText('Delete your account')).toBeTruthy();
-    expect(screen.getByText('What will be deleted now')).toBeTruthy();
-    expect(screen.getByText('What we retain for compliance')).toBeTruthy();
+    expect(screen.getByText('Delete your account')).toBeOnTheScreen();
+    expect(screen.getByText('What will be deleted now')).toBeOnTheScreen();
+    expect(
+      screen.getByText('What we retain for compliance')
+    ).toBeOnTheScreen();
   });
 
   it('requires confirmation before enabling delete button', () => {
@@ -181,10 +185,10 @@ describe('DeleteAccountScreen', () => {
 
     render(<DeleteAccountScreen />);
 
-    expect(screen.getByText('Signed in with Apple?')).toBeTruthy();
+    expect(screen.getByText('Signed in with Apple?')).toBeOnTheScreen();
     expect(
       screen.getByRole('button', { name: 'Open Apple revoke guide' })
-    ).toBeTruthy();
+    ).toBeOnTheScreen();
   });
 
   it('shows an error toast if opening Apple revoke link fails', async () => {
@@ -210,12 +214,8 @@ describe('DeleteAccountScreen', () => {
     );
 
     await waitFor(() => {
-      expect(canOpenUrlSpy).toHaveBeenCalledWith(
-        'https://support.apple.com/en-us/102571'
-      );
-      expect(openUrlSpy).toHaveBeenCalledWith(
-        'https://support.apple.com/en-us/102571'
-      );
+      expect(canOpenUrlSpy).toHaveBeenCalledWith(APPLE_REVOKE_URL);
+      expect(openUrlSpy).toHaveBeenCalledWith(APPLE_REVOKE_URL);
       expect(mockToastError).toHaveBeenCalledWith(
         'Unable to open Apple support link on this device.'
       );
@@ -242,9 +242,7 @@ describe('DeleteAccountScreen', () => {
     );
 
     await waitFor(() => {
-      expect(canOpenUrlSpy).toHaveBeenCalledWith(
-        'https://support.apple.com/en-us/102571'
-      );
+      expect(canOpenUrlSpy).toHaveBeenCalledWith(APPLE_REVOKE_URL);
       expect(mockToastError).toHaveBeenCalledWith(
         'Unable to open Apple support link on this device.'
       );

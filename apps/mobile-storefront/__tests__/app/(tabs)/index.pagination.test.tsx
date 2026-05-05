@@ -151,7 +151,7 @@ describe('HomeScreen pagination', () => {
   });
 
   it('resets the load-more baseline when the active home dataset changes', () => {
-    const refetch = jest.fn();
+    const refetch = jest.fn(async () => undefined);
     let pageConfig = {
       content: [
         { type: 'HeroCarousel', props: { id: 'hero-1', slides: [] } },

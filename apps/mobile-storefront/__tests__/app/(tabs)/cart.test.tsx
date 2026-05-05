@@ -180,6 +180,9 @@ describe('CartScreen theming', () => {
     expect(
       StyleSheet.flatten(screen.getByText('Device Protection (+5%)').props.style)
     ).toMatchObject({ color: Colors.light.textSecondary });
+    expect(
+      StyleSheet.flatten(screen.getByText('Secure Checkout').props.style)
+    ).toMatchObject({ color: Colors.light.textSecondary });
   });
 });
 

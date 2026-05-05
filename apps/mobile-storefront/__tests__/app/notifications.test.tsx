@@ -160,8 +160,8 @@ describe('NotificationsScreen', () => {
       href: '/auth/login?returnTo=%2Fnotifications',
     });
     expect(
-      screen.getByTestId('notifications-redirect').props.accessibilityLabel
-    ).toBe('/auth/login?returnTo=%2Fnotifications');
+      screen.getByLabelText('/auth/login?returnTo=%2Fnotifications')
+    ).toBeOnTheScreen();
   });
 
   it('renders the signed-in empty-state copy', () => {

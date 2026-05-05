@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
-import { View } from 'react-native';
+import type React from 'react';
+import { View, type ViewProps } from 'react-native';
 import SavedTabScreen from '@/app/(tabs)/saved';
 import { SPACING } from '@/constants/Colors';
 import { SAVED_LIST_BOTTOM_PADDING } from '@/constants/saved-list-layout';
@@ -10,6 +11,11 @@ interface MockFlashListProps {
   children?: React.ReactNode;
   [key: string]: unknown;
 }
+
+type MockStorefrontScreenShellProps = ViewProps & {
+  children?: React.ReactNode;
+  edges?: string[];
+};
 
 type MockListStyleOptions = {
   gap?: number;
@@ -23,11 +29,13 @@ const mockFlashList = jest.fn(({ children, ...props }: MockFlashListProps) => (
     {children}
   </View>
 ));
-const mockStorefrontScreenShell = jest.fn(({ children, ...props }) => (
-  <View testID="storefront-screen-shell" {...props}>
-    {children}
-  </View>
-));
+const mockStorefrontScreenShell = jest.fn(
+  ({ children, ...props }: MockStorefrontScreenShellProps) => (
+    <View testID="storefront-screen-shell" {...props}>
+      {children}
+    </View>
+  )
+);
 const mockGetListContentStyle =
   jest.fn<
     (options?: MockListStyleOptions) => {
@@ -88,9 +96,8 @@ jest.mock('@/components/storefront/StorefrontScreenShell', () => ({
   StorefrontScreenShell: ({
     children,
     ...props
-  }: {
-    children?: React.ReactNode;
-  }) => mockStorefrontScreenShell({ children, ...props }),
+  }: MockStorefrontScreenShellProps) =>
+    mockStorefrontScreenShell({ children, ...props }),
 }));
 
 jest.mock('@/hooks/use-storefront-insets', () => ({
