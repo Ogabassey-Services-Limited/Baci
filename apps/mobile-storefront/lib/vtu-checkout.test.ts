@@ -9,11 +9,13 @@ import {
 import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
 import {
   chargeSavedVtuCard,
+  chargeWalletForVtu,
   confirmVtuCheckout,
   initializeVtuCheckout,
   listSavedVtuCards,
   normalizeVtuCheckoutPayload,
   VTU_CHECKOUT_INITIALIZE_URL,
+  VTU_CHECKOUT_WALLET_ONLY_URL,
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
@@ -336,5 +338,108 @@ describe('vtu-checkout service', () => {
       authorization_url: 'https://paystack.com/pay/auth',
       requires_authorization: true,
     });
+  });
+
+  // Phase B.8 — wallet-payment threading. Three behaviours pinned at
+  // the network layer:
+  //   1. Hybrid initialize forwards walletAmount to the server.
+  //   2. Card-only initialize strips walletAmount entirely (no
+  //      `walletAmount: 0` noise; mirrors orders' guard).
+  //   3. Wallet-only POSTs to the dedicated route with a fresh
+  //      Idempotency-Key header.
+
+  it('initializeVtuCheckout: forwards walletAmount when positive (hybrid)', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        authorization_url: 'https://paystack.com/pay/abc',
+        gateway: 'paystack',
+        reference: 'VTU-123',
+        vtu_reference: 'REQ-123',
+        vtu_transaction_id: 'vtu-1',
+      }),
+    });
+
+    await initializeVtuCheckout({
+      amount: 1000,
+      gateway: 'paystack',
+      networkProvider: 'mtn',
+      phoneNumber: '08012345678',
+      type: 'airtime',
+      walletAmount: 300,
+    });
+
+    expect(parseMockRequestBody()).toMatchObject({
+      walletAmount: 300,
+      amount: 1000,
+    });
+  });
+
+  it('initializeVtuCheckout: strips walletAmount when 0 (card-only)', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        authorization_url: 'https://paystack.com/pay/abc',
+        gateway: 'paystack',
+        reference: 'VTU-123',
+        vtu_reference: 'REQ-123',
+        vtu_transaction_id: 'vtu-1',
+      }),
+    });
+
+    await initializeVtuCheckout({
+      amount: 1000,
+      gateway: 'paystack',
+      networkProvider: 'mtn',
+      phoneNumber: '08012345678',
+      type: 'airtime',
+      walletAmount: 0,
+    });
+
+    expect(parseMockRequestBody()).not.toHaveProperty('walletAmount');
+  });
+
+  it('chargeWalletForVtu: posts to wallet-only with the caller-supplied Idempotency-Key header', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: 'successful',
+        reference: 'VTU-456',
+        amount: 1000,
+      }),
+    });
+
+    // Caller-supplied UUID — the contract change. The form
+    // controller holds this key in a ref so a network failure
+    // doesn't lose it; chargeWalletForVtu is a pure transport.
+    const idempotencyKey = '11111111-2222-3333-4444-555555555555';
+    const result = await chargeWalletForVtu({
+      amount: 1000,
+      networkProvider: 'mtn',
+      phoneNumber: '08012345678',
+      type: 'airtime',
+      walletAmount: 1000,
+      idempotencyKey,
+    });
+
+    expect(result).toMatchObject({
+      status: 'successful',
+      reference: 'VTU-456',
+    });
+    const [url, init] = mockFetchWithTimeout.mock.calls[0] ?? [];
+    expect(url).toBe(VTU_CHECKOUT_WALLET_ONLY_URL);
+    const headers = (init as RequestInit).headers as Record<string, string>;
+    expect(headers['Idempotency-Key']).toBe(idempotencyKey);
+    const body = parseMockRequestBody();
+    expect(body).toMatchObject({
+      walletAmount: 1000,
+      amount: 1000,
+    });
+    // The key MUST stay in the header, NOT be sent as a request
+    // body field — leaking it into the body would defeat the
+    // schema's parsed shape and could expose the key in logs.
+    expect(body).not.toHaveProperty('idempotencyKey');
   });
 });

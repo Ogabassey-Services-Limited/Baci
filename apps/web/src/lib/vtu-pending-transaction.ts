@@ -290,6 +290,20 @@ export async function preparePendingVtuTransaction({
         paystackEnabled: featureSettings.paystack_enabled ?? true,
         korapayEnabled: featureSettings.korapay_enabled ?? true,
         paymentPending: true,
+        // Wallet payment split. Written whenever walletAmount > 0
+        // (including the wallet-only case where wallet === amount and
+        // card === 0). Phase B.5's debit hook in
+        // fulfillPendingVtuTransaction reads `paymentSplit.wallet > 0`
+        // as the signal to call redeem_vtu_wallet_payment, so the
+        // wallet-only path MUST set the field for the debit to fire.
+        ...(input.walletAmount && input.walletAmount > 0
+          ? {
+              paymentSplit: {
+                wallet: input.walletAmount,
+                card: input.amount - input.walletAmount,
+              },
+            }
+          : {}),
       },
     })
     .select(

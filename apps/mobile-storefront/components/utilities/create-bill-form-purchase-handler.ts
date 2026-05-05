@@ -2,8 +2,10 @@ import { router } from 'expo-router';
 import { Alert } from 'react-native';
 import type { useUtilityPayment } from '@/hooks/use-utility-payment';
 import type { Biller } from '@/hooks/use-vtu-billers';
+import { NetworkError, TimeoutError } from '@/lib/fetch-with-timeout';
 import {
   chargeSavedVtuCard,
+  chargeWalletForVtu,
   initializeVtuCheckout,
   isSavedVtuCardChargeProcessing,
   requiresSavedVtuCardAuthorization,
@@ -110,7 +112,16 @@ export function createBillFormPurchaseHandler({
         );
         return;
       }
-      if (!payment.selectedSavedCardId && !payment.selectedGateway) {
+      const walletAmount =
+        payment.walletSelection?.use === true ? payment.walletSelection.amount : 0;
+      const isWalletOnly = walletAmount > 0 && walletAmount === numericAmount;
+      // Card / gateway is only required when there's a residual to
+      // charge. Full wallet-coverage skips the gateway entirely.
+      if (
+        !isWalletOnly &&
+        !payment.selectedSavedCardId &&
+        !payment.selectedGateway
+      ) {
         Alert.alert(
           'Select Payment Method',
           'Choose a payment method before continuing.'
@@ -138,7 +149,54 @@ export function createBillFormPurchaseHandler({
         customerName,
         customerPhone: customer?.phone || undefined,
         type: billType,
+        ...(walletAmount > 0 ? { walletAmount } : {}),
       };
+
+      if (isWalletOnly) {
+        const idempotencyKey = payment.getWalletIdempotencyKey();
+        try {
+          const result = await chargeWalletForVtu({
+            amount: numericAmount,
+            billItemIdentifier: payload.billItemIdentifier,
+            billerName: payload.billerName,
+            customerIdentifier: customerId,
+            customerName,
+            customerPhone: payload.customerPhone,
+            type: billType,
+            walletAmount: numericAmount,
+            idempotencyKey,
+          });
+          payment.resetWalletIdempotencyKey();
+          if (result.status === 'processing') {
+            onSuccess({
+              amount: result.amount ?? numericAmount,
+              customerIdentifier: customerId,
+              reference: result.reference,
+              status: 'processing',
+            });
+            return;
+          }
+          onSuccess({
+            amount: result.amount ?? numericAmount,
+            cashback: result.cashback,
+            customerIdentifier: customerId,
+            reference: result.reference,
+            status: 'successful',
+            voucherPin: result.voucherPin,
+          });
+          return;
+        } catch (error) {
+          // Keep the idempotency key on network failures so the user's
+          // retry hits the route's dedupe table; rotate it on
+          // definitive server responses (4xx/5xx with a body).
+          if (
+            !(error instanceof TimeoutError || error instanceof NetworkError)
+          ) {
+            payment.resetWalletIdempotencyKey();
+          }
+          throw error;
+        }
+      }
       if (payment.selectedSavedCardId) {
         const result = await chargeSavedVtuCard({
           ...payload,

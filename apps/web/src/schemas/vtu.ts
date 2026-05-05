@@ -30,6 +30,12 @@ const purchaseSchemaBase = z.object({
   source: z
     .enum(['checkout', 'loyalty_reward', 'direct', 'gift', 'storefront_modal'])
     .default('direct'),
+  // Wallet payment leg. Optional; when present, the customer's wallet
+  // covers `walletAmount` of the bill and the gateway charges
+  // `amount - walletAmount` (residual). `walletAmount === amount` is the
+  // wallet-only path. Cross-field rule (walletAmount <= amount) is in
+  // applyPurchaseRequirements so every derived schema picks it up.
+  walletAmount: z.number().nonnegative().optional(),
 });
 
 type PurchaseRequirementValues = z.infer<typeof purchaseSchemaBase>;
@@ -76,6 +82,14 @@ function applyPurchaseRequirements(
         path: ['customerIdentifier'],
       });
     }
+  }
+
+  if (data.walletAmount !== undefined && data.walletAmount > data.amount) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'walletAmount cannot exceed amount',
+      path: ['walletAmount'],
+    });
   }
 }
 
@@ -128,6 +142,16 @@ export const vtuSavedCardChargeSchema = purchaseSchemaBase
   .extend({
     gateway: vtuCheckoutGatewayEnum,
     savedPaymentMethodId: z.string().uuid('Saved payment method id is invalid'),
+  })
+  .superRefine(applyPurchaseRequirements);
+
+// Wallet-only VTU checkout. Requires walletAmount > 0; the route
+// additionally enforces walletAmount === amount (full coverage).
+export const vtuWalletOnlyChargeSchema = purchaseSchemaBase
+  .extend({
+    walletAmount: z
+      .number()
+      .positive('walletAmount is required for wallet-only checkout'),
   })
   .superRefine(applyPurchaseRequirements);
 

@@ -283,4 +283,83 @@ describe('preparePendingVtuTransaction', () => {
       expect.objectContaining({ customer_name: null })
     );
   });
+
+  describe('paymentSplit metadata (Phase B.4)', () => {
+    // Phase B.4 contract: when walletAmount > 0, write
+    //   metadata.paymentSplit = { wallet: walletAmount, card: amount - walletAmount }
+    // INCLUDING the wallet-only case (walletAmount === amount → card: 0).
+    // Phase B.5's debit hook gates on `paymentSplit.wallet > 0`, so
+    // wallet-only flows MUST set the field to trigger the debit.
+    function prepareWithWalletAmount(
+      supabase: PrepareSupabase,
+      walletAmount: number | undefined
+    ) {
+      return preparePendingVtuTransaction({
+        supabase,
+        user: {
+          id: 'user-1',
+          email: 'customer@example.com',
+        } as unknown as Parameters<
+          typeof preparePendingVtuTransaction
+        >[0]['user'],
+        input: {
+          merchantSlug: 'ogabassey',
+          type: 'airtime',
+          amount: 1000,
+          phoneNumber: '08012345678',
+          networkProvider: 'mtn',
+          source: 'checkout',
+          ...(walletAmount !== undefined && { walletAmount }),
+        },
+        source: 'checkout',
+        requireCustomer: true,
+      });
+    }
+
+    it('writes paymentSplit { wallet, card } for hybrid (0 < walletAmount < amount)', async () => {
+      const { insert, supabase } = createMockSupabase();
+      await prepareWithWalletAmount(supabase, 300);
+
+      expect(insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            paymentSplit: { wallet: 300, card: 700 },
+          }),
+        })
+      );
+    });
+
+    it('writes paymentSplit { wallet: amount, card: 0 } for wallet-only coverage', async () => {
+      // Critical for Phase B.5: fulfillment gates the wallet debit on
+      // paymentSplit.wallet > 0. Wallet-only must still write the field so
+      // the debit fires.
+      const { insert, supabase } = createMockSupabase();
+      await prepareWithWalletAmount(supabase, 1000);
+
+      expect(insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            paymentSplit: { wallet: 1000, card: 0 },
+          }),
+        })
+      );
+    });
+
+    it('does NOT write paymentSplit when walletAmount is 0 or absent (card-only)', async () => {
+      const { insert, supabase } = createMockSupabase();
+      await prepareWithWalletAmount(supabase, undefined);
+
+      const insertCall = insert.mock.calls[0]?.[0] as
+        | { metadata?: Record<string, unknown> }
+        | undefined;
+      expect(insertCall?.metadata).not.toHaveProperty('paymentSplit');
+
+      insert.mockClear();
+      await prepareWithWalletAmount(supabase, 0);
+      const zeroCall = insert.mock.calls[0]?.[0] as
+        | { metadata?: Record<string, unknown> }
+        | undefined;
+      expect(zeroCall?.metadata).not.toHaveProperty('paymentSplit');
+    });
+  });
 });

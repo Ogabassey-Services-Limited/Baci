@@ -22,6 +22,10 @@ jest.mock('@/lib/vtu-checkout', () => ({
   listSavedVtuCards: () => mockListSavedVtuCards(),
 }));
 
+jest.mock('@/hooks/use-wallet', () => ({
+  useWallet: () => ({ data: { wallet: { balance: 0 } } }),
+}));
+
 jest.mock('@/stores/auth-store', () => ({
   useAuthStore: (selector: (state: { session: { access_token: string } }) => unknown) =>
     selector({ session: { access_token: 'token-123' } }),
@@ -101,5 +105,27 @@ describe('useUtilityPayment', () => {
 
     expect(result.current.selectedGateway).toBe('korapay');
     expect(result.current.selectedSavedCardId).toBeNull();
+  });
+
+  // Phase B.8 — wallet state is owned by useUtilityPayment so all
+  // three VTU controllers (bill / airtime / data) read & write the
+  // same selection. Pin the public shape so a future refactor that
+  // moves the state elsewhere can't silently break the controllers.
+  it('exposes walletBalance, walletSelection, and setWalletSelection', async () => {
+    const { result } = renderHook(() => useUtilityPayment(), {
+      wrapper: createWrapper(),
+    });
+
+    expect(result.current.walletBalance).toBe(0);
+    expect(result.current.walletSelection).toBeUndefined();
+
+    act(() => {
+      result.current.setWalletSelection({ use: true, amount: 500 });
+    });
+
+    expect(result.current.walletSelection).toEqual({
+      use: true,
+      amount: 500,
+    });
   });
 });

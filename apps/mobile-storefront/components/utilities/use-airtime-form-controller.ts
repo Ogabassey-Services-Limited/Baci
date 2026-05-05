@@ -6,9 +6,11 @@ import { SPACING } from '@/constants/Colors';
 import { NETWORK_PROVIDERS } from '@/constants/network-providers';
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { useUtilityPayment } from '@/hooks/use-utility-payment';
+import { NetworkError, TimeoutError } from '@/lib/fetch-with-timeout';
 import { detectNetwork } from '@/lib/network-utils';
 import {
   chargeSavedVtuCard,
+  chargeWalletForVtu,
   initializeVtuCheckout,
   isSavedVtuCardChargeProcessing,
   requiresSavedVtuCardAuthorization,
@@ -103,7 +105,14 @@ export function useAirtimeFormController({
       isSubmittingRef.current = false;
       return;
     }
-    if (!payment.selectedSavedCardId && !payment.selectedGateway) {
+    const walletAmount =
+      payment.walletSelection?.use === true ? payment.walletSelection.amount : 0;
+    const isWalletOnly = walletAmount > 0 && walletAmount === numericAmount;
+    if (
+      !isWalletOnly &&
+      !payment.selectedSavedCardId &&
+      !payment.selectedGateway
+    ) {
       Alert.alert(
         'Select Payment Method',
         'Choose a payment method before continuing.'
@@ -120,6 +129,48 @@ export function useAirtimeFormController({
         // Email is the best available customer label when names are incomplete.
         customer?.email ||
         'Customer';
+
+      if (isWalletOnly) {
+        const idempotencyKey = payment.getWalletIdempotencyKey();
+        try {
+          const result = await chargeWalletForVtu({
+            amount: numericAmount,
+            customerName,
+            customerPhone: customer?.phone,
+            networkProvider: selectedProvider,
+            phoneNumber,
+            type: 'airtime',
+            walletAmount: numericAmount,
+            idempotencyKey,
+          });
+          payment.resetWalletIdempotencyKey();
+          if (result.status === 'processing') {
+            onSuccess({
+              amount: result.amount ?? numericAmount,
+              customerIdentifier: phoneNumber,
+              reference: result.reference,
+              status: 'processing',
+            });
+            return;
+          }
+          onSuccess({
+            amount: result.amount ?? numericAmount,
+            cashback: result.cashback,
+            reference: result.reference,
+            status: 'successful',
+            voucherPin: result.voucherPin,
+          });
+          return;
+        } catch (error) {
+          if (
+            !(error instanceof TimeoutError || error instanceof NetworkError)
+          ) {
+            payment.resetWalletIdempotencyKey();
+          }
+          throw error;
+        }
+      }
+
       if (payment.selectedSavedCardId) {
         const result = await chargeSavedVtuCard({
           amount: numericAmount,
@@ -129,6 +180,7 @@ export function useAirtimeFormController({
           phoneNumber,
           savedPaymentMethodId: payment.selectedSavedCardId,
           type: 'airtime',
+          ...(walletAmount > 0 ? { walletAmount } : {}),
         });
 
         if (requiresSavedVtuCardAuthorization(result)) {
@@ -205,6 +257,7 @@ export function useAirtimeFormController({
         gateway: selectedGateway,
         networkProvider: selectedProvider,
         phoneNumber,
+        ...(walletAmount > 0 ? { walletAmount } : {}),
       });
       router.push({
         pathname: '/payment-gateway',

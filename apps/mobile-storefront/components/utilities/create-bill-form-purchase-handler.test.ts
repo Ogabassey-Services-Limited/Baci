@@ -49,6 +49,11 @@ function createValidHandler(overrides = {}) {
       selectedGateway: 'paystack',
       selectedSavedCardId: null,
       supportedGateways: ['paystack'],
+      walletBalance: 0,
+      walletSelection: undefined,
+      setWalletSelection: jest.fn(),
+      getWalletIdempotencyKey: jest.fn(() => 'test-key'),
+      resetWalletIdempotencyKey: jest.fn(),
     },
     selectedBiller: {
       billerId: 'ekedc',

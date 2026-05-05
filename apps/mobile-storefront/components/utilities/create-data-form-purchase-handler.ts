@@ -1,8 +1,10 @@
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
 import type { useUtilityPayment } from '@/hooks/use-utility-payment';
+import { NetworkError, TimeoutError } from '@/lib/fetch-with-timeout';
 import {
   chargeSavedVtuCard,
+  chargeWalletForVtu,
   initializeVtuCheckout,
   isSavedVtuCardChargeProcessing,
   requiresSavedVtuCardAuthorization,
@@ -75,7 +77,14 @@ export function createDataFormPurchaseHandler({
       );
       return;
     }
-    if (!payment.selectedSavedCardId && !payment.selectedGateway) {
+    const walletAmount =
+      payment.walletSelection?.use === true ? payment.walletSelection.amount : 0;
+    const isWalletOnly = walletAmount > 0 && walletAmount === planAmount;
+    if (
+      !isWalletOnly &&
+      !payment.selectedSavedCardId &&
+      !payment.selectedGateway
+    ) {
       Alert.alert(
         'Select Payment Method',
         'Choose a payment method before continuing.'
@@ -90,6 +99,44 @@ export function createDataFormPurchaseHandler({
         customer?.email ||
         undefined;
 
+      if (isWalletOnly) {
+        const idempotencyKey = payment.getWalletIdempotencyKey();
+        try {
+          const result = await chargeWalletForVtu({
+            amount: planAmount,
+            customerName,
+            customerPhone: customer?.phone || undefined,
+            dataPlanCode: selectedPlan,
+            networkProvider: selectedProvider,
+            phoneNumber,
+            type: 'data',
+            walletAmount: planAmount,
+            idempotencyKey,
+          });
+          payment.resetWalletIdempotencyKey();
+          onSuccess({
+            amount: result.amount ?? planAmount,
+            cashback: result.cashback
+              ? {
+                  amount: result.cashback.amount,
+                  newBalance: result.cashback.newBalance,
+                }
+              : undefined,
+            reference: result.reference,
+            status: result.status,
+            voucherPin: result.voucherPin,
+          });
+          return;
+        } catch (error) {
+          if (
+            !(error instanceof TimeoutError || error instanceof NetworkError)
+          ) {
+            payment.resetWalletIdempotencyKey();
+          }
+          throw error;
+        }
+      }
+
       if (payment.selectedSavedCardId) {
         const result = await chargeSavedVtuCard({
           amount: planAmount,
@@ -100,6 +147,7 @@ export function createDataFormPurchaseHandler({
           phoneNumber,
           savedPaymentMethodId: payment.selectedSavedCardId,
           type: 'data',
+          ...(walletAmount > 0 ? { walletAmount } : {}),
         });
 
         if (requiresSavedVtuCardAuthorization(result)) {
@@ -176,6 +224,7 @@ export function createDataFormPurchaseHandler({
         networkProvider: selectedProvider,
         phoneNumber,
         type: 'data',
+        ...(walletAmount > 0 ? { walletAmount } : {}),
       });
       router.push({
         pathname: '/payment-gateway',

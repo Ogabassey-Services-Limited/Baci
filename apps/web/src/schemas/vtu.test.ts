@@ -5,6 +5,9 @@ import {
   COMMISSION_CATEGORY_MAP,
   purchaseSchema,
   verifySchema,
+  vtuCheckoutInitializeSchema,
+  vtuSavedCardChargeSchema,
+  vtuWalletOnlyChargeSchema,
 } from './vtu';
 
 describe('billTypeEnum', () => {
@@ -522,5 +525,137 @@ describe('COMMISSION_CATEGORY_MAP', () => {
     for (const value of values) {
       expect(value).toBe(value.toUpperCase());
     }
+  });
+});
+
+describe('walletAmount on the shared base', () => {
+  // Pin: walletAmount lives on `purchaseSchemaBase` so every derived schema
+  // (purchaseSchema / vtuCheckoutInitializeSchema / vtuSavedCardChargeSchema)
+  // inherits it. The riskiest path is `vtuCheckoutInitializeSchema` —
+  // initialize is what mobile partial-coverage uses, and a silently-stripped
+  // walletAmount there means the gateway gets charged the full amount.
+  const baseAirtime = {
+    merchantSlug: 'test-merchant',
+    amount: 1000,
+    type: 'airtime' as const,
+    phoneNumber: '08012345678',
+    networkProvider: 'MTN',
+  };
+
+  it('purchaseSchema accepts walletAmount when it does not exceed amount', () => {
+    const result = purchaseSchema.safeParse({
+      ...baseAirtime,
+      walletAmount: 500,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.walletAmount).toBe(500);
+    }
+  });
+
+  it('vtuCheckoutInitializeSchema accepts walletAmount (silent-strip regression pin)', () => {
+    const result = vtuCheckoutInitializeSchema.safeParse({
+      ...baseAirtime,
+      gateway: 'paystack',
+      walletAmount: 500,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.walletAmount).toBe(500);
+    }
+  });
+
+  it('vtuSavedCardChargeSchema accepts walletAmount', () => {
+    const result = vtuSavedCardChargeSchema.safeParse({
+      ...baseAirtime,
+      gateway: 'paystack',
+      savedPaymentMethodId: '11111111-2222-3333-4444-555555555555',
+      walletAmount: 500,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.walletAmount).toBe(500);
+    }
+  });
+
+  it('rejects walletAmount that exceeds amount', () => {
+    const result = purchaseSchema.safeParse({
+      ...baseAirtime,
+      walletAmount: 1500,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects negative walletAmount', () => {
+    const result = purchaseSchema.safeParse({
+      ...baseAirtime,
+      walletAmount: -1,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('treats walletAmount as optional (omitted is valid)', () => {
+    const result = purchaseSchema.safeParse(baseAirtime);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.walletAmount).toBeUndefined();
+    }
+  });
+
+  it('walletAmount === amount is valid (full-coverage path)', () => {
+    const result = vtuCheckoutInitializeSchema.safeParse({
+      ...baseAirtime,
+      gateway: 'paystack',
+      walletAmount: 1000,
+    });
+    expect(result.success).toBe(true);
+  });
+});
+
+// vtuWalletOnlyChargeSchema is the validation surface for the
+// /api/vtu/checkout/wallet-only route. It tightens the base schema by
+// REQUIRING walletAmount > 0 (unlike the optional walletAmount on the
+// other derived schemas) — a wallet-only request without a positive
+// walletAmount is structurally a card-only request that took the
+// wrong path. The route additionally enforces walletAmount === amount
+// (full-coverage); the schema accepts any positive walletAmount <=
+// amount and lets the route reject partial coverage with a clear
+// "use the regular initialize endpoint" 4xx.
+describe('vtuWalletOnlyChargeSchema', () => {
+  const baseAirtime = {
+    merchantSlug: 'ogabassey',
+    amount: 1000,
+    type: 'airtime' as const,
+    phoneNumber: '08012345678',
+    networkProvider: 'MTN',
+  };
+
+  it('accepts walletAmount === amount (the full-coverage happy path)', () => {
+    const result = vtuWalletOnlyChargeSchema.safeParse({
+      ...baseAirtime,
+      walletAmount: 1000,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects walletAmount === 0 (the route requires a positive amount)', () => {
+    const result = vtuWalletOnlyChargeSchema.safeParse({
+      ...baseAirtime,
+      walletAmount: 0,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects walletAmount > amount via the cross-field rule', () => {
+    const result = vtuWalletOnlyChargeSchema.safeParse({
+      ...baseAirtime,
+      walletAmount: 1500,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects missing walletAmount (the field is required here)', () => {
+    const result = vtuWalletOnlyChargeSchema.safeParse({ ...baseAirtime });
+    expect(result.success).toBe(false);
   });
 });

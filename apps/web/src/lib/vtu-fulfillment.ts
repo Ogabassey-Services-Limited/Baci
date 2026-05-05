@@ -10,6 +10,68 @@ import { purchaseBill } from '@/lib/kuda-bills';
 import { normalizeVtuNetworkProvider } from '@/lib/normalize-vtu-network-provider';
 import { VTU_TYPE_LABELS } from '@/lib/vtu-pending-transaction';
 
+/**
+ * Wire contract with `redeem_vtu_wallet_payment` (Phase B.1 migration).
+ * The RPC raises `RAISE EXCEPTION USING ERRCODE = 'P0001', MESSAGE =
+ * 'insufficient_wallet_balance'` when the customer's wallet has dropped
+ * below the requested debit amount between checkout-init and webhook.
+ *
+ * Callers MUST match on this exact MESSAGE string. ERRCODE 'P0001' is the
+ * default for plpgsql RAISE without USING ERRCODE so code matching alone
+ * is not sufficient.
+ *
+ * If you change this string, also update the migration:
+ *   supabase/migrations/<ts>_redeem_vtu_wallet_payment.sql
+ */
+export const INSUFFICIENT_WALLET_BALANCE_MESSAGE =
+  'insufficient_wallet_balance';
+
+/**
+ * Centralised matcher for the wallet-debit "insufficient balance" RPC
+ * error. The migration's contract is that the RPC raises with
+ * MESSAGE='insufficient_wallet_balance' (P0001). Today supabase-js
+ * surfaces that string verbatim on `error.message`, but historical
+ * versions have wrapped the raw PG message with extra context
+ * (e.g. `ERROR: insufficient_wallet_balance\nWHERE: PL/pgSQL ...`).
+ * Match both the strict and the wrapped form so a future supabase-js
+ * bump can't silently route every wallet-race into the
+ * non-balance-error branch (which would turn each insufficient-balance
+ * into a `VtuPersistenceError`, a webhook retry loop, and leave the
+ * customer's card-portion never refunded).
+ */
+export function isInsufficientWalletBalanceError(
+  error: { message?: string; code?: string } | null | undefined
+): boolean {
+  const message = error?.message;
+  if (!message) return false;
+  if (message === INSUFFICIENT_WALLET_BALANCE_MESSAGE) return true;
+  // Defense-in-depth: substring match scoped to P0001 errors so we
+  // don't accidentally match the literal phrase appearing elsewhere.
+  return (
+    error?.code === 'P0001' &&
+    message.includes(INSUFFICIENT_WALLET_BALANCE_MESSAGE)
+  );
+}
+
+interface PaymentSplit {
+  wallet: number;
+  card: number;
+}
+
+function readPaymentSplit(
+  metadata: Record<string, unknown> | null | undefined
+): PaymentSplit | null {
+  const split = metadata?.paymentSplit as Partial<PaymentSplit> | undefined;
+  if (
+    !split ||
+    typeof split.wallet !== 'number' ||
+    typeof split.card !== 'number'
+  ) {
+    return null;
+  }
+  return { wallet: split.wallet, card: split.card };
+}
+
 interface VtuTransactionRow {
   amount: number;
   biller_item_code: string | null;
@@ -234,18 +296,32 @@ async function refundVtuToCustomerWallet({
   metadata,
   row,
   supabase,
+  refundContext = 'kuda_failure',
 }: {
   metadata: Record<string, unknown>;
   row: VtuTransactionRow;
   supabase: SupabaseClient;
+  /**
+   * `kuda_failure` (default): the vend was actually attempted and the
+   * upstream provider rejected it. If the wallet leg was already debited
+   * (`metadata.walletDebited === true`), reverse it; refund the card
+   * portion as fresh wallet credit.
+   *
+   * `wallet_race`: the strict-amount wallet RPC raised
+   * `insufficient_wallet_balance` BEFORE the vend ran. The wallet was
+   * never debited, so there is nothing to reverse. Only the card portion
+   * needs refunding (and only if cardPortion > 0 — wallet-only flows
+   * with no gateway charge produce no ledger row at all).
+   */
+  refundContext?: 'kuda_failure' | 'wallet_race';
 }): Promise<{
   metadataChanged: boolean;
   refundIssued: boolean;
   refundedAmount: number;
 }> {
-  const refundedAmount = Number(row.amount ?? 0);
+  const totalAmount = Number(row.amount ?? 0);
 
-  if (!row.customer_id || refundedAmount <= 0) {
+  if (!row.customer_id || totalAmount <= 0) {
     return { metadataChanged: false, refundIssued: false, refundedAmount: 0 };
   }
   if (row.source !== 'checkout') {
@@ -256,21 +332,215 @@ async function refundVtuToCustomerWallet({
     return {
       metadataChanged: false,
       refundIssued: true,
-      refundedAmount: Number(metadata.refundAmount ?? refundedAmount),
+      refundedAmount: Number(metadata.refundAmount ?? totalAmount),
     };
   }
 
+  const paymentSplit = readPaymentSplit(metadata);
+  const walletWasDebited = metadata.walletDebited === true;
+
+  // Dispatch by refund context. The branches were extracted into named
+  // helpers so each can be reasoned about (and tested) in isolation. The
+  // P1 invariant: a `kuda_failure` context with `paymentSplit` MUST also
+  // have `walletDebited === true`. If it doesn't, the wallet leg was
+  // never charged — falling through to the card-only branch would refund
+  // `totalAmount` and over-credit by `paymentSplit.wallet`. Throw rather
+  // than guess.
+  if (refundContext === 'kuda_failure' && paymentSplit && walletWasDebited) {
+    return await refundHybridKudaFailure({
+      metadata,
+      row,
+      supabase,
+      paymentSplit,
+    });
+  }
+  if (refundContext === 'wallet_race' && paymentSplit) {
+    return await refundHybridWalletRace({
+      metadata,
+      row,
+      supabase,
+      paymentSplit,
+    });
+  }
+  if (refundContext === 'kuda_failure' && paymentSplit && !walletWasDebited) {
+    // Logically equivalent to wallet-race (wallet never debited), but
+    // arriving here from the Kuda-failure context means an upstream
+    // sequencing bug has put the row into an inconsistent state. The
+    // fail-closed pattern PR #1466 introduced: throw so the caller's
+    // retry mechanism re-runs with a clean slate rather than silently
+    // refunding the wrong amount.
+    throwVtuPersistenceError(
+      `Refund dispatch invariant violated for ${row.id}: paymentSplit present, walletDebited=false, refundContext=kuda_failure`
+    );
+  }
+  // Card-only path (no paymentSplit): refund the full row.amount as
+  // before. PR #1466's behaviour preserved.
+  return await refundCardOnly({ metadata, row, supabase, totalAmount });
+}
+
+interface RefundBranchInput {
+  metadata: Record<string, unknown>;
+  row: VtuTransactionRow;
+  supabase: SupabaseClient;
+}
+
+interface RefundBranchResult {
+  metadataChanged: boolean;
+  refundIssued: boolean;
+  refundedAmount: number;
+}
+
+function applyRefundMetadata(
+  metadata: Record<string, unknown>,
+  refundAmount: number,
+  refundContextLabel: string
+): boolean {
+  let metadataChanged = setMetadataValue(metadata, 'refundIssued', true);
+  metadataChanged =
+    setMetadataValue(metadata, 'refundAmount', refundAmount) || metadataChanged;
+  metadataChanged =
+    setMetadataValue(metadata, 'refundedAt', new Date().toISOString()) ||
+    metadataChanged;
+  metadataChanged =
+    setMetadataValue(metadata, 'refundContext', refundContextLabel) ||
+    metadataChanged;
+  return metadataChanged;
+}
+
+async function refundHybridKudaFailure({
+  metadata,
+  row,
+  supabase,
+  paymentSplit,
+}: RefundBranchInput & {
+  paymentSplit: PaymentSplit;
+}): Promise<RefundBranchResult> {
+  // Reverse the wallet leg first (idempotent at the RPC layer).
+  const { error: reverseError } = await supabase.rpc(
+    'reverse_vtu_wallet_payment',
+    {
+      p_vtu_transaction_id: row.id,
+      p_reason: `VTU vend failed: ${VTU_TYPE_LABELS[row.type]} ${getVtuProviderLabel(row)}`,
+      p_merchant_id: row.merchant_id,
+    }
+  );
+  if (reverseError) {
+    console.error('Failed to reverse VTU wallet portion:', {
+      customerId: row.customer_id,
+      error: reverseError.message,
+      merchantId: row.merchant_id,
+      rpc: 'reverse_vtu_wallet_payment',
+      transactionId: row.id,
+    });
+    return { metadataChanged: false, refundIssued: false, refundedAmount: 0 };
+  }
+  // Card portion refund (only if there was a card leg).
+  if (paymentSplit.card > 0) {
+    const { error: refundError } = await supabase.rpc(
+      'refund_customer_wallet_for_vtu',
+      {
+        p_customer_id: row.customer_id,
+        p_merchant_id: row.merchant_id,
+        p_amount: paymentSplit.card,
+        p_vtu_transaction_id: row.id,
+        p_description: `Refund (card portion) for failed ${VTU_TYPE_LABELS[row.type]} ${getVtuProviderLabel(row)} purchase`,
+      }
+    );
+    if (refundError) {
+      console.error('Failed to refund VTU card portion to customer wallet:', {
+        amount: paymentSplit.card,
+        customerId: row.customer_id,
+        error: refundError.message,
+        merchantId: row.merchant_id,
+        rpc: 'refund_customer_wallet_for_vtu',
+        transactionId: row.id,
+      });
+      return { metadataChanged: false, refundIssued: false, refundedAmount: 0 };
+    }
+  }
+  const metadataChanged = applyRefundMetadata(
+    metadata,
+    paymentSplit.card,
+    'hybrid_vend_failure'
+  );
+  return {
+    metadataChanged,
+    refundIssued: true,
+    refundedAmount: paymentSplit.card,
+  };
+}
+
+async function refundHybridWalletRace({
+  metadata,
+  row,
+  supabase,
+  paymentSplit,
+}: RefundBranchInput & {
+  paymentSplit: PaymentSplit;
+}): Promise<RefundBranchResult> {
+  // Wallet-only race (paymentSplit.card === 0): nothing to refund. Mark
+  // the row refunded for visibility but do NOT call the refund RPC — the
+  // wallet was never debited and no gateway charge was collected.
+  if (paymentSplit.card <= 0) {
+    const metadataChanged = applyRefundMetadata(
+      metadata,
+      0,
+      'wallet_only_race'
+    );
+    return { metadataChanged, refundIssued: true, refundedAmount: 0 };
+  }
+  const { error: raceRefundError } = await supabase.rpc(
+    'refund_customer_wallet_for_vtu',
+    {
+      p_customer_id: row.customer_id,
+      p_merchant_id: row.merchant_id,
+      p_amount: paymentSplit.card,
+      p_vtu_transaction_id: row.id,
+      p_description: `Wallet balance changed during checkout — card portion refunded for ${VTU_TYPE_LABELS[row.type]} ${getVtuProviderLabel(row)}`,
+    }
+  );
+  if (raceRefundError) {
+    console.error(
+      'Failed to refund VTU card portion (wallet race) to customer wallet:',
+      {
+        amount: paymentSplit.card,
+        customerId: row.customer_id,
+        error: raceRefundError.message,
+        merchantId: row.merchant_id,
+        rpc: 'refund_customer_wallet_for_vtu',
+        transactionId: row.id,
+      }
+    );
+    return { metadataChanged: false, refundIssued: false, refundedAmount: 0 };
+  }
+  const metadataChanged = applyRefundMetadata(
+    metadata,
+    paymentSplit.card,
+    'wallet_race'
+  );
+  return {
+    metadataChanged,
+    refundIssued: true,
+    refundedAmount: paymentSplit.card,
+  };
+}
+
+async function refundCardOnly({
+  metadata,
+  row,
+  supabase,
+  totalAmount,
+}: RefundBranchInput & { totalAmount: number }): Promise<RefundBranchResult> {
   const { error } = await supabase.rpc('refund_customer_wallet_for_vtu', {
     p_customer_id: row.customer_id,
     p_merchant_id: row.merchant_id,
-    p_amount: refundedAmount,
+    p_amount: totalAmount,
     p_vtu_transaction_id: row.id,
     p_description: `Refund for failed ${VTU_TYPE_LABELS[row.type]} ${getVtuProviderLabel(row)} purchase ₦${row.amount}`,
   });
-
   if (error) {
     console.error('Failed to refund VTU payment to customer wallet:', {
-      amount: refundedAmount,
+      amount: totalAmount,
       customerId: row.customer_id,
       error: error.message,
       merchantId: row.merchant_id,
@@ -279,16 +549,16 @@ async function refundVtuToCustomerWallet({
     });
     return { metadataChanged: false, refundIssued: false, refundedAmount: 0 };
   }
-
-  let metadataChanged = setMetadataValue(metadata, 'refundIssued', true);
-  metadataChanged =
-    setMetadataValue(metadata, 'refundAmount', refundedAmount) ||
-    metadataChanged;
-  metadataChanged =
-    setMetadataValue(metadata, 'refundedAt', new Date().toISOString()) ||
-    metadataChanged;
-
-  return { metadataChanged, refundIssued: true, refundedAmount };
+  // Use the shared helper so all three refund branches write
+  // metadata (refundIssued / refundAmount / refundedAt / refundContext)
+  // the same way. Without this an ops query like "find refunds where
+  // refundContext=card_only" would miss this path's rows.
+  const metadataChanged = applyRefundMetadata(
+    metadata,
+    totalAmount,
+    'card_only'
+  );
+  return { metadataChanged, refundIssued: true, refundedAmount: totalAmount };
 }
 
 export class VtuPersistenceError extends Error {
@@ -1206,6 +1476,130 @@ export async function fulfillPendingVtuTransaction({
     .select('business_name')
     .eq('id', row.merchant_id)
     .single();
+
+  // === Phase B.5: debit wallet BEFORE vend ===
+  // When the customer committed to a hybrid (wallet+card) or wallet-only
+  // payment, the wallet leg must clear before Kuda is called. If the
+  // wallet RPC raises insufficient_wallet_balance (concurrent redemption
+  // / multi-tab / refund race) we MUST NOT vend — we'd be giving away
+  // value the customer can't pay for. Compensate by:
+  //   - hybrid: refund the gateway-collected card portion only
+  //   - wallet-only: nothing was collected; just mark the row failed
+  // Idempotent at the RPC layer (advisory lock + uniqueness on
+  // source_type='vtu_wallet_payment', source_id, type='redemption'), so
+  // a fulfillment retry that already debited returns the cached row and
+  // proceeds to the vend.
+  const preDebitMetadata = (row.metadata ?? {}) as Record<string, unknown>;
+  const paymentSplitForDebit = readPaymentSplit(preDebitMetadata);
+  if (
+    paymentSplitForDebit &&
+    paymentSplitForDebit.wallet > 0 &&
+    preDebitMetadata.walletDebited !== true &&
+    row.customer_id
+  ) {
+    const { error: debitError } = await supabase.rpc(
+      'redeem_vtu_wallet_payment',
+      {
+        p_customer_id: row.customer_id,
+        p_merchant_id: row.merchant_id,
+        p_amount: paymentSplitForDebit.wallet,
+        p_vtu_transaction_id: row.id,
+        p_description: `VTU wallet payment: ${VTU_TYPE_LABELS[row.type]} ${getVtuProviderLabel(row)}`,
+      }
+    );
+
+    if (debitError) {
+      // Wallet-race: insufficient balance at debit time. Compensate
+      // through refundVtuToCustomerWallet (refunds card portion only;
+      // wallet was never debited).
+      if (isInsufficientWalletBalanceError(debitError)) {
+        const raceMetadata = { ...preDebitMetadata };
+        const raceRefund = await refundVtuToCustomerWallet({
+          metadata: raceMetadata,
+          row,
+          supabase,
+          refundContext: 'wallet_race',
+        });
+        const failedPayload: {
+          error_message: string;
+          metadata: Record<string, unknown>;
+          status: 'failed';
+          transaction_id: string | null;
+        } = {
+          error_message:
+            'Wallet balance changed during checkout — payment refunded.',
+          metadata: raceMetadata,
+          status: 'failed',
+          transaction_id: row.transaction_id,
+        };
+        const persistError = await updateVtuPurchaseResultWithRetry({
+          payload: failedPayload,
+          row,
+          supabase,
+        });
+        if (persistError) {
+          console.error('Failed to persist wallet-race VTU result:', {
+            error: getErrorMessage(persistError),
+            metadata: getSafeMetadataDiagnostics(raceMetadata),
+            transactionId: row.id,
+          });
+          throwVtuPersistenceError('Failed to persist wallet-race VTU result');
+        }
+        return {
+          amount: Number(row.amount) || 0,
+          error: failedPayload.error_message,
+          reference: row.request_reference,
+          ...(raceRefund.refundIssued &&
+            raceRefund.refundedAmount > 0 && {
+              refundedToWallet: raceRefund.refundedAmount,
+            }),
+          status: 'failed',
+        };
+      }
+      // Any other RPC error: throw so the webhook caller retries the
+      // whole flow safely. The debit RPC is idempotent so re-running
+      // is safe.
+      console.error('VTU wallet debit RPC failed:', {
+        amount: paymentSplitForDebit.wallet,
+        customerId: row.customer_id,
+        error: debitError.message,
+        rpc: 'redeem_vtu_wallet_payment',
+        transactionId: row.id,
+      });
+      throwVtuPersistenceError(
+        `Failed to debit VTU wallet for ${row.id}: ${debitError.message}`
+      );
+    }
+
+    // Wallet debit succeeded — persist walletDebited=true via the same
+    // fail-closed retry pattern as the rest of vtu-fulfillment so a
+    // future retry sees the flag and skips the RPC (RPC is idempotent
+    // anyway, but the metadata flag avoids an extra round-trip).
+    const debitedMetadata = { ...preDebitMetadata, walletDebited: true };
+    const { error: walletDebitedPersistError } = await supabase
+      .from('vtu_transactions')
+      .update({ metadata: debitedMetadata })
+      .eq('id', row.id);
+    if (walletDebitedPersistError) {
+      // Fail closed: the wallet was credited via the (idempotent) RPC
+      // but the row still says walletDebited=false. Continuing would
+      // mean the next fulfillment retry calls the RPC again (cheap —
+      // it short-circuits on the existing ledger row) then vends. That
+      // is safe but wasteful; throw so the caller retries the metadata
+      // write before vending.
+      console.error('Failed to persist VTU walletDebited metadata:', {
+        error: walletDebitedPersistError.message,
+        metadata: getSafeMetadataDiagnostics(debitedMetadata),
+        transactionId: row.id,
+      });
+      throwVtuPersistenceError(
+        `Failed to persist walletDebited for ${row.id}: ${walletDebitedPersistError.message}`
+      );
+    }
+    // Mutate the row's metadata so downstream code (refund-on-Kuda-fail
+    // branch) sees walletDebited=true.
+    row.metadata = debitedMetadata;
+  }
 
   const result = await executeVtuPurchase(
     row,
