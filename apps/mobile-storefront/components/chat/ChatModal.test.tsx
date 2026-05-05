@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
 import type { ReactNode, RefObject } from 'react';
-import { Modal, StyleSheet, type TextInput } from 'react-native';
+import { Modal, Platform, StyleSheet, type TextInput } from 'react-native';
 import { ChatModal } from './ChatModal';
 import type { ChatMessage } from './types';
 
@@ -85,8 +85,14 @@ function renderChatModal() {
 }
 
 describe('ChatModal', () => {
+  const originalPlatformOS = Platform.OS;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      value: originalPlatformOS,
+    });
     mockUseKeyboard.mockReturnValue({
       dismissKeyboard: jest.fn(),
       isKeyboardVisible: false,
@@ -123,6 +129,21 @@ describe('ChatModal', () => {
     expect(screen.getByTestId('keyboard-container')).toHaveProp(
       'enabled',
       false
+    );
+    expect(screen.getByLabelText('Chat message input')).toBeOnTheScreen();
+  });
+
+  it('keeps shared keyboard avoidance enabled on Android', () => {
+    Object.defineProperty(Platform, 'OS', {
+      configurable: true,
+      value: 'android',
+    });
+
+    renderChatModal();
+
+    expect(screen.getByTestId('keyboard-container')).toHaveProp(
+      'enabled',
+      true
     );
     expect(screen.getByLabelText('Chat message input')).toBeOnTheScreen();
   });

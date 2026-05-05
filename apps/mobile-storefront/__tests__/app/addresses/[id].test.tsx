@@ -1,5 +1,6 @@
 import type React from 'react';
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -150,6 +151,10 @@ describe('AddressFormScreen', () => {
     });
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('keeps the absolute save footer inside the shared keyboard container', () => {
     render(<AddressFormScreen />);
 
@@ -157,10 +162,12 @@ describe('AddressFormScreen', () => {
     const saveAction = screen.getByText('Add Address');
 
     expect(keyboardContainer).toContainElement(saveAction);
-    expect(screen.getByTestId('keyboard-aware-scroll-view')).toBeOnTheScreen();
+    expect(screen.getByPlaceholderText('Enter full name')).toBeOnTheScreen();
   });
 
   it('saves a new address through the Supabase update path', async () => {
+    jest.useFakeTimers();
+
     render(<AddressFormScreen />);
 
     fireEvent.changeText(
@@ -225,7 +232,10 @@ describe('AddressFormScreen', () => {
     expect(mockToastSuccess).toHaveBeenCalledWith(
       'Address added successfully'
     );
-    expect(mockBack).not.toHaveBeenCalled();
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(mockBack).toHaveBeenCalledTimes(1);
   });
 
   it('shows an alert when saving the address fails', async () => {

@@ -212,7 +212,10 @@ export function ChatModal({
           </Pressable>
         </View>
 
-        <AppKeyboardContainer style={styles.messagesWrapper} enabled={false}>
+        <AppKeyboardContainer
+          style={styles.messagesWrapper}
+          enabled={Platform.OS === 'android'}
+        >
           <FlashList
             ref={flatListRef}
             data={messages}

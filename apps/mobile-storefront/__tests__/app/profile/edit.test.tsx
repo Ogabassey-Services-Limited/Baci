@@ -1,13 +1,22 @@
 import type { ReactNode } from 'react';
-import { render, screen } from '@testing-library/react-native';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
 import ProfileEditScreen from '@/app/profile/edit';
 
+const mockBack = jest.fn();
+const mockToastError = jest.fn();
+const mockToastSuccess = jest.fn();
 const mockUpdateProfile = jest.fn();
 
 jest.mock('expo-router', () => ({
   Redirect: () => null,
   router: {
-    back: jest.fn(),
+    back: () => mockBack(),
   },
   Stack: {
     Screen: () => null,
@@ -31,8 +40,8 @@ jest.mock('react-native-safe-area-context', () => ({
 
 jest.mock('@/components/ui/Toast', () => ({
   useToast: () => ({
-    error: jest.fn(),
-    success: jest.fn(),
+    error: (message: string) => mockToastError(message),
+    success: (message: string) => mockToastSuccess(message),
     Toast: () => null,
   }),
 }));
@@ -65,7 +74,7 @@ jest.mock('@/stores/auth-store', () => ({
         email: 'shopper@example.com',
         first_name: 'Ada',
         last_name: 'Lovelace',
-        phone: '08012345678',
+        phone: '00000000000',
       },
       updateProfile: mockUpdateProfile,
     }),
@@ -77,6 +86,10 @@ describe('ProfileEditScreen', () => {
     mockUpdateProfile.mockResolvedValue({ success: true });
   });
 
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('keeps the fixed save footer inside the shared keyboard container', () => {
     render(<ProfileEditScreen />);
 
@@ -84,6 +97,64 @@ describe('ProfileEditScreen', () => {
     const saveAction = screen.getByText('Save Changes');
 
     expect(keyboardContainer).toContainElement(saveAction);
-    expect(screen.getByTestId('keyboard-aware-scroll-view')).toBeOnTheScreen();
+    expect(screen.getByLabelText('First Name')).toBeOnTheScreen();
+  });
+
+  it('updates the profile and navigates back after the success toast', async () => {
+    jest.useFakeTimers();
+
+    render(<ProfileEditScreen />);
+
+    fireEvent.changeText(screen.getByLabelText('First Name'), 'Grace');
+    fireEvent.press(screen.getByLabelText('Save Changes'));
+
+    await waitFor(() => {
+      expect(mockUpdateProfile).toHaveBeenCalledWith({
+        first_name: 'Grace',
+        last_name: 'Lovelace',
+        phone: '00000000000',
+      });
+    });
+    expect(mockToastSuccess).toHaveBeenCalledWith(
+      'Profile updated successfully'
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(mockBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the profile update error returned by the store', async () => {
+    mockUpdateProfile.mockResolvedValueOnce({
+      error: 'Phone number is invalid',
+      success: false,
+    });
+
+    render(<ProfileEditScreen />);
+
+    fireEvent.changeText(screen.getByLabelText('First Name'), 'Grace');
+    fireEvent.press(screen.getByLabelText('Save Changes'));
+
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith('Phone number is invalid');
+    });
+    expect(mockBack).not.toHaveBeenCalled();
+  });
+
+  it('shows a generic error when profile update throws', async () => {
+    mockUpdateProfile.mockRejectedValueOnce(new Error('network failed'));
+
+    render(<ProfileEditScreen />);
+
+    fireEvent.changeText(screen.getByLabelText('First Name'), 'Grace');
+    fireEvent.press(screen.getByLabelText('Save Changes'));
+
+    await waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith(
+        'Something went wrong. Please try again.'
+      );
+    });
+    expect(mockBack).not.toHaveBeenCalled();
   });
 });

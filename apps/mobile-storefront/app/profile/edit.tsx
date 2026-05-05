@@ -259,6 +259,8 @@ export default function ProfileEditScreen() {
             ]}
             onPress={handleSubmit(onSubmit)}
             disabled={isSubmitting || !isDirty}
+            accessibilityRole="button"
+            accessibilityLabel="Save Changes"
           >
             {isSubmitting ? (
               <ActivityIndicator color="#FFFFFF" />
