@@ -1,75 +1,81 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import path from 'node:path';
 
 const APP_ROOT = path.resolve(__dirname, '../../app');
-const DISALLOWED_SUPPORT_FILES = [
-  'product/normalize-route-condition.ts',
-  'product/product-detail-screen.fixtures.ts',
-  'product/product-selection.ts',
-  'root-layout-nav.tsx',
-];
 
-function collectTestUtilsFiles(currentPath: string): string[] {
+const EXPO_ROUTER_SPECIAL_FILES = new Set(['+html.tsx', '+not-found.tsx']);
+const EXPLICIT_STATIC_ROUTES = new Set([
+  '(tabs)/account.tsx',
+  '(tabs)/cart.tsx',
+  '(tabs)/categories.tsx',
+  '(tabs)/saved.tsx',
+  '(tabs)/wallet.tsx',
+  'auth/callback.tsx',
+  'auth/login.tsx',
+  'checkout.tsx',
+  'notifications.tsx',
+  'order-success.tsx',
+  'profile/delete-account.tsx',
+  'profile/edit.tsx',
+  'search.tsx',
+  'utilities/history.tsx',
+]);
+
+function collectModuleFiles(currentPath: string): string[] {
   return readdirSync(currentPath, { withFileTypes: true }).flatMap((entry) => {
     const entryPath = path.join(currentPath, entry.name);
 
     if (entry.isDirectory()) {
-      return collectTestUtilsFiles(entryPath);
+      return collectModuleFiles(entryPath);
     }
 
-    return /\.test-utils\.(ts|tsx)$/.test(entry.name)
+    return /\.(ts|tsx|js|jsx)$/.test(entry.name)
       ? [path.relative(APP_ROOT, entryPath)]
       : [];
   });
 }
 
-function collectDisallowedSupportFiles(currentPath: string): string[] {
-  return readdirSync(currentPath, { withFileTypes: true }).flatMap((entry) => {
-    const entryPath = path.join(currentPath, entry.name);
+function isRouteFile(relativePath: string): boolean {
+  const fileName = path.basename(relativePath);
 
-    if (entry.isDirectory()) {
-      return collectDisallowedSupportFiles(entryPath);
-    }
+  if (EXPO_ROUTER_SPECIAL_FILES.has(fileName)) {
+    return true;
+  }
 
-    const relativePath = path.relative(APP_ROOT, entryPath);
+  if (/^_layout\.(ts|tsx)$/.test(fileName)) {
+    return true;
+  }
 
-    return DISALLOWED_SUPPORT_FILES.includes(relativePath)
-      ? [relativePath]
-      : [];
-  });
-}
+  if (/^index\.(ts|tsx)$/.test(fileName)) {
+    return true;
+  }
 
-const TAB_ROUTE_DIR = path.resolve(APP_ROOT, '(tabs)');
+  if (/^\[\[?\.{0,3}[a-zA-Z0-9_-]+\]?\]\.(ts|tsx)$/.test(fileName)) {
+    return true;
+  }
 
-// Expo Router auto-registers any non-underscored module file as a route.
-// Helper modules that live next to a tab screen (e.g. `wallet.styles.ts`)
-// therefore leak as `wallet.styles` tabs in the bottom bar.
-//
-// Match files of the form `<segment>.<segment>.<ext>` where:
-//   - both segments are lowercase alphanumeric or hyphens,
-//   - the middle segment is NOT `test` or `test-utils` (those are real test files),
-//   - extension is ts/tsx/js/jsx.
-function collectLeakedTabHelpers(): string[] {
-  return readdirSync(TAB_ROUTE_DIR).filter((fileName) =>
-    /^[a-z0-9-]+\.(?!test\.|test-utils\.)[a-z0-9-]+\.(ts|tsx|js|jsx)$/.test(
-      fileName
-    )
-  );
+  return EXPLICIT_STATIC_ROUTES.has(relativePath);
 }
 
 describe('app route tree safety', () => {
-  it('does not keep test utility modules inside the expo-router app directory', () => {
-    expect(collectTestUtilsFiles(APP_ROOT)).toEqual([]);
-  });
+  it('keeps the expo-router app directory route-only', () => {
+    const nonRouteFiles = collectModuleFiles(APP_ROOT).filter(
+      (filePath) => !isRouteFile(filePath)
+    );
 
-  it('keeps support modules out of the expo-router app directory', () => {
-    expect(collectDisallowedSupportFiles(APP_ROOT)).toEqual([]);
-  });
+    if (nonRouteFiles.length > 0) {
+      throw new Error(
+        [
+          'Found non-route module files under apps/mobile-storefront/app:',
+          ...nonRouteFiles.map((filePath) => `- ${filePath}`),
+          '',
+          'Move route tests to apps/mobile-storefront/__tests__/app/<route>/.',
+          'Move reusable UI to components/, stateful hooks to hooks/, and pure helpers/config to lib/ or feature folders outside app/.',
+          'Expo Router treats module files under app/ as route candidates, so app/ must stay route-only.',
+        ].join('\n')
+      );
+    }
 
-  it('keeps non-route helper modules out of the (tabs) directory', () => {
-    // Fail loudly if the (tabs) directory is missing or renamed — silently
-    // returning [] would let a structural regression slip through.
-    expect(existsSync(TAB_ROUTE_DIR)).toBe(true);
-    expect(collectLeakedTabHelpers()).toEqual([]);
+    expect(nonRouteFiles).toEqual([]);
   });
 });
