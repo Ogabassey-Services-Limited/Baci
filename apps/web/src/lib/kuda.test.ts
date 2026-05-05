@@ -506,4 +506,190 @@ describe('Kuda API Client', () => {
       ]);
     });
   });
+
+  describe('isKudaVendSuccessful', () => {
+    it('returns false immediately when the envelope status is false', async () => {
+      const { isKudaVendSuccessful } = await import('./kuda');
+      expect(isKudaVendSuccessful(false, { finalStatus: 'Successful' })).toBe(
+        false
+      );
+    });
+
+    it('falls back to the envelope when both finalStatus and transactionStatus are absent', async () => {
+      const { isKudaVendSuccessful } = await import('./kuda');
+      expect(isKudaVendSuccessful(true, undefined)).toBe(true);
+      expect(isKudaVendSuccessful(true, {})).toBe(true);
+      expect(isKudaVendSuccessful(true, { message: 'no statuses' })).toBe(true);
+    });
+
+    it('treats finalStatus="Successful" as success regardless of casing', async () => {
+      const { isKudaVendSuccessful } = await import('./kuda');
+      expect(isKudaVendSuccessful(true, { finalStatus: 'Successful' })).toBe(
+        true
+      );
+      expect(isKudaVendSuccessful(true, { finalStatus: 'SUCCESS' })).toBe(true);
+      expect(isKudaVendSuccessful(true, { finalStatus: 'completed' })).toBe(
+        true
+      );
+      expect(isKudaVendSuccessful(true, { FinalStatus: 'Complete' })).toBe(
+        true
+      );
+    });
+
+    it('returns false for non-success finalStatus values, including non-terminal ones', async () => {
+      const { isKudaVendSuccessful } = await import('./kuda');
+      expect(isKudaVendSuccessful(true, { finalStatus: 'Failed' })).toBe(false);
+      expect(isKudaVendSuccessful(true, { finalStatus: 'Pending' })).toBe(
+        false
+      );
+      expect(isKudaVendSuccessful(true, { finalStatus: 'Processing' })).toBe(
+        false
+      );
+      expect(isKudaVendSuccessful(true, { finalStatus: 'In Progress' })).toBe(
+        false
+      );
+      // Unknown new code Kuda might add: must not be silently treated as success.
+      expect(isKudaVendSuccessful(true, { finalStatus: 'k99-something' })).toBe(
+        false
+      );
+    });
+
+    it('does not fall through to transactionStatus when finalStatus is set', async () => {
+      const { isKudaVendSuccessful } = await import('./kuda');
+      // finalStatus says Pending; transactionStatus 3 would otherwise mean
+      // success. The presence of finalStatus must short-circuit.
+      expect(
+        isKudaVendSuccessful(true, {
+          finalStatus: 'Pending',
+          transactionStatus: 3,
+        })
+      ).toBe(false);
+    });
+
+    it('treats transactionStatus="3" as success when finalStatus is absent', async () => {
+      const { isKudaVendSuccessful } = await import('./kuda');
+      expect(isKudaVendSuccessful(true, { transactionStatus: 3 })).toBe(true);
+      expect(isKudaVendSuccessful(true, { transactionStatus: '3' })).toBe(true);
+      expect(isKudaVendSuccessful(true, { TransactionStatus: 3 })).toBe(true);
+    });
+
+    it('returns false for transactionStatus values other than 3', async () => {
+      const { isKudaVendSuccessful } = await import('./kuda');
+      expect(isKudaVendSuccessful(true, { transactionStatus: 2 })).toBe(false); // Failed
+      expect(isKudaVendSuccessful(true, { transactionStatus: 1 })).toBe(false); // Pending
+      expect(isKudaVendSuccessful(true, { transactionStatus: 0 })).toBe(false);
+      expect(isKudaVendSuccessful(true, { transactionStatus: 'unknown' })).toBe(
+        false
+      );
+    });
+  });
+
+  describe('extractKudaVoucherPin', () => {
+    it('returns undefined for missing or empty data', async () => {
+      const { extractKudaVoucherPin } = await import('./kuda');
+      expect(extractKudaVoucherPin(undefined)).toBeUndefined();
+      expect(extractKudaVoucherPin({})).toBeUndefined();
+      expect(extractKudaVoucherPin({ pin: null })).toBeUndefined();
+    });
+
+    it('extracts a string pin (legacy airtime/data shape)', async () => {
+      const { extractKudaVoucherPin } = await import('./kuda');
+      expect(extractKudaVoucherPin({ pin: '1234-5678' })).toBe('1234-5678');
+      expect(extractKudaVoucherPin({ Pin: '   abc   ' })).toBe('abc');
+    });
+
+    it('extracts the .number from the nested object pin (electricity shape)', async () => {
+      const { extractKudaVoucherPin } = await import('./kuda');
+      expect(
+        extractKudaVoucherPin({
+          pin: {
+            number: '3373-7728-6877-1154-6184',
+            serial: null,
+            instructions: null,
+          },
+        })
+      ).toBe('3373-7728-6877-1154-6184');
+    });
+
+    it('coerces numeric pins to strings', async () => {
+      const { extractKudaVoucherPin } = await import('./kuda');
+      expect(extractKudaVoucherPin({ pin: 12345678 })).toBe('12345678');
+      expect(extractKudaVoucherPin({ pin: { number: 87654321 } })).toBe(
+        '87654321'
+      );
+    });
+
+    it('falls through to alternative token field names', async () => {
+      const { extractKudaVoucherPin } = await import('./kuda');
+      expect(extractKudaVoucherPin({ Token: '999' })).toBe('999');
+      expect(extractKudaVoucherPin({ meterToken: { number: '111' } })).toBe(
+        '111'
+      );
+      expect(extractKudaVoucherPin({ vendCode: '222' })).toBe('222');
+      expect(extractKudaVoucherPin({ Voucher: { number: '333' } })).toBe('333');
+    });
+
+    it('skips empty object pins (failed vend) and falls through', async () => {
+      const { extractKudaVoucherPin } = await import('./kuda');
+      expect(
+        extractKudaVoucherPin({
+          pin: { number: null, serial: null, instructions: null },
+          token: 'fallback-token',
+        })
+      ).toBe('fallback-token');
+    });
+
+    it('skips whitespace-only pin values', async () => {
+      const { extractKudaVoucherPin } = await import('./kuda');
+      expect(
+        extractKudaVoucherPin({
+          pin: { number: '   ' },
+          Token: 'real-token',
+        })
+      ).toBe('real-token');
+    });
+  });
+
+  describe('buildKudaVendMessage', () => {
+    it('uses the supplied fallback when no biller status is present', async () => {
+      const { buildKudaVendMessage } = await import('./kuda');
+      expect(buildKudaVendMessage('Insufficient balance', undefined)).toBe(
+        'Insufficient balance'
+      );
+      expect(buildKudaVendMessage('Insufficient balance', {})).toBe(
+        'Insufficient balance'
+      );
+    });
+
+    it('appends billerAggregatorStatus to surface the upstream reject code', async () => {
+      const { buildKudaVendMessage } = await import('./kuda');
+      expect(
+        buildKudaVendMessage('Vend rejected', {
+          billerAggregatorStatus: 'k11',
+        })
+      ).toBe('Vend rejected (biller status: k11)');
+    });
+
+    it('falls back to a default message when the fallback is empty or whitespace', async () => {
+      const { buildKudaVendMessage } = await import('./kuda');
+      expect(buildKudaVendMessage('', { billerAggregatorStatus: 'k11' })).toBe(
+        'Bill purchase failed (biller status: k11)'
+      );
+      expect(
+        buildKudaVendMessage('   ', { billerAggregatorStatus: 'k11' })
+      ).toBe('Bill purchase failed (biller status: k11)');
+      expect(buildKudaVendMessage(undefined, undefined)).toBe(
+        'Bill purchase failed'
+      );
+    });
+
+    it('reads billerAggregatorStatus from either casing', async () => {
+      const { buildKudaVendMessage } = await import('./kuda');
+      expect(
+        buildKudaVendMessage('Vend rejected', {
+          BillerAggregatorStatus: 'k99',
+        })
+      ).toBe('Vend rejected (biller status: k99)');
+    });
+  });
 });
