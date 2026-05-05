@@ -2,16 +2,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Biller, PurchaseResult } from './kuda';
 import { getBillersByCategory, purchaseBill } from './kuda-bills';
 
-// Mock the kuda module
-vi.mock('./kuda', () => ({
-  KudaServiceType: {
-    ADMIN_PURCHASE_BILL: 'ADMIN_PURCHASE_BILL',
-  },
-  generateRequestRef: vi.fn(() => 'BACI-1234567890-abcd1234'),
-  getBillersByType: vi.fn(),
-  kudaRequest: vi.fn(),
-  verifyBillCustomer: vi.fn(),
-}));
+// Mock the kuda module — keep the pure helpers (vend-status / pin extraction
+// / message builder) real, only stub the network and ID-generation entry
+// points used by the bill purchase flow.
+vi.mock('./kuda', async () => {
+  const actual = await vi.importActual<typeof import('./kuda')>('./kuda');
+  return {
+    ...actual,
+    generateRequestRef: vi.fn(() => 'BACI-1234567890-abcd1234'),
+    getBillersByType: vi.fn(),
+    kudaRequest: vi.fn(),
+    verifyBillCustomer: vi.fn(),
+  };
+});
 
 // Import mocked functions after vi.mock
 import {

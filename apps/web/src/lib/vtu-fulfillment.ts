@@ -925,7 +925,11 @@ function executeVtuPurchase(
     row.customer_identifier,
     row.amount,
     customerFirstName,
-    row.request_reference
+    row.request_reference,
+    // For electricity/cable_tv/betting, customer_identifier is a meter / decoder
+    // / wallet — not a phone. Forward the captured customer phone so Kuda's SMS
+    // token delivery (and any biller-side phone validation) works correctly.
+    row.phone_number || undefined
   );
 }
 
