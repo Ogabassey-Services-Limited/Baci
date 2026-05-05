@@ -373,7 +373,10 @@ export function buildKudaVendMessage(
   fallback: string | undefined,
   data: KudaTransactionStatusData | undefined
 ): string {
-  const base = fallback?.trim() || 'Bill purchase failed';
+  // Category-neutral default: this helper is shared by airtime, data, and
+  // bill (electricity / cable / betting) call sites. A "Bill purchase failed"
+  // string would mislabel airtime/data failures.
+  const base = fallback?.trim() || 'Purchase failed';
   const aggregator =
     normalizeKudaString(data?.billerAggregatorStatus) ??
     normalizeKudaString(data?.BillerAggregatorStatus);

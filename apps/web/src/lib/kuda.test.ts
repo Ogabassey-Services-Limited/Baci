@@ -673,13 +673,13 @@ describe('Kuda API Client', () => {
     it('falls back to a default message when the fallback is empty or whitespace', async () => {
       const { buildKudaVendMessage } = await import('./kuda');
       expect(buildKudaVendMessage('', { billerAggregatorStatus: 'k11' })).toBe(
-        'Bill purchase failed (biller status: k11)'
+        'Purchase failed (biller status: k11)'
       );
       expect(
         buildKudaVendMessage('   ', { billerAggregatorStatus: 'k11' })
-      ).toBe('Bill purchase failed (biller status: k11)');
+      ).toBe('Purchase failed (biller status: k11)');
       expect(buildKudaVendMessage(undefined, undefined)).toBe(
-        'Bill purchase failed'
+        'Purchase failed'
       );
     });
 
