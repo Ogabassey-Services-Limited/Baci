@@ -1772,8 +1772,30 @@ export default function CheckoutScreen() {
     }, 0);
     const snapshotDeliveryFee = deliveryFee;
     const snapshotTaxAmount = orderTotals?.taxAmount ?? 0;
+    // Match the screen-level `total` (line ~1487:
+    //   subtotal + deliveryFee + assuranceFee + taxAmount)
+    // so the wallet row in the picker (which reads `total`) and the
+    // submitted wallet_amount agree. Without the assurance leg, an
+    // insured "full wallet" order would still owe the assurance fee to
+    // the gateway, breaking the wallet-only bypass and forcing an extra
+    // payment step.
+    const snapshotAssuranceFee = itemsSnapshot.reduce((sum, item) => {
+      if (!item.hasAssurance) {
+        return sum;
+      }
+      const effectivePrice = item.negotiatedPrice ?? item.price;
+      return (
+        sum +
+        Math.round(
+          effectivePrice * item.quantity * (item.assuranceRate ?? 0.05)
+        )
+      );
+    }, 0);
     const snapshotTotal =
-      snapshotSubtotal + snapshotDeliveryFee + snapshotTaxAmount;
+      snapshotSubtotal +
+      snapshotDeliveryFee +
+      snapshotAssuranceFee +
+      snapshotTaxAmount;
     // Recompute the wallet amount at submit time against the snapshotted
     // total + the live walletBalance, ignoring the captured
     // walletSelection.amount. Between toggle and submit the total can
