@@ -9,6 +9,10 @@ const EXPO_ROUTER_SPECIAL_FILES = new Set([
   '+html.tsx',
   '+html.js',
   '+html.jsx',
+  '+middleware.ts',
+  '+middleware.tsx',
+  '+middleware.js',
+  '+middleware.jsx',
   '+native-intent.ts',
   '+native-intent.tsx',
   '+native-intent.js',
@@ -67,6 +71,10 @@ function isRouteFile(relativePath: string): boolean {
     return true;
   }
 
+  if (/^.+\+api\.(ts|tsx|js|jsx)$/.test(fileName)) {
+    return true;
+  }
+
   if (
     /^(?:\[[a-zA-Z0-9_-]+\]|\[\.\.\.[a-zA-Z0-9_-]+\]|\[\[\.\.\.[a-zA-Z0-9_-]+\]\])\.(ts|tsx|js|jsx)$/.test(
       fileName
@@ -79,6 +87,23 @@ function isRouteFile(relativePath: string): boolean {
 }
 
 describe('app route tree safety', () => {
+  it.each([
+    ['+html.tsx'],
+    ['+middleware.ts'],
+    ['+native-intent.tsx'],
+    ['+not-found.tsx'],
+    ['_layout.tsx'],
+    ['index.tsx'],
+    ['category/[slug].tsx'],
+    ['orders/[...params].tsx'],
+    ['utilities/[[...optional]].tsx'],
+    ['api/products+api.ts'],
+    ['api/inventory.refresh+api.tsx'],
+    ['search.tsx'],
+  ])('allows valid Expo Router module %s', (routeModule) => {
+    expect(isRouteFile(routeModule)).toBe(true);
+  });
+
   it('keeps the expo-router app directory route-only', () => {
     const nonRouteFiles = collectModuleFiles(APP_ROOT).filter(
       (filePath) => !isRouteFile(filePath)
