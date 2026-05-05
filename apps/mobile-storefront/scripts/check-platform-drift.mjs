@@ -12,7 +12,15 @@ const FORBIDDEN_PATTERNS = [
     description:
       "Do not disable Android keyboard avoidance with `behavior={Platform.OS === 'ios' ? 'padding' : undefined}`.",
     pattern:
-      /behavior\s*=\s*\{\s*Platform\.OS\s*===\s*['"]ios['"]\s*\?\s*['"]padding['"]\s*:\s*undefined\s*\}/,
+      /behavior\s*=\s*\{\s*\(?\s*Platform\s*\.\s*OS\s*===\s*['"]ios['"]\s*\)?\s*\?\s*['"]padding['"]\s*:\s*undefined\s*\}/,
+  },
+  {
+    id: 'direct-keyboard-avoiding-view',
+    description:
+      'Do not import KeyboardAvoidingView directly; use AppKeyboardAwareScrollView or AppKeyboardContainer.',
+    pattern:
+      /import\s*\{[^}]*\bKeyboardAvoidingView\b[^}]*\}\s*from\s*['"]react-native['"]/,
+    allowedPaths: new Set(['components/ui/AppKeyboardContainer.tsx']),
   },
 ];
 
@@ -135,18 +143,25 @@ function readProjectFile(projectRoot, relativePath, sourceCache) {
   return source;
 }
 
-export function findPlatformBranchFiles(projectRoot, sourceCache = new Map()) {
+export function findPlatformBranchFiles(
+  projectRoot,
+  sourceCache = new Map(),
+  scannedSourceFiles = findScannedSourceFiles(projectRoot)
+) {
+  return scannedSourceFiles.filter((relativePath) => {
+    const source = readProjectFile(projectRoot, relativePath, sourceCache);
+    return PLATFORM_PATTERN.test(source);
+  });
+}
+
+export function findScannedSourceFiles(projectRoot) {
   return SCAN_DIRECTORIES.flatMap((directory) => {
     const absoluteDirectory = path.join(projectRoot, directory);
     if (!existsSync(absoluteDirectory)) return [];
 
     return listFiles(absoluteDirectory)
       .map((absolutePath) => normalizePath(path.relative(projectRoot, absolutePath)))
-      .filter((relativePath) => !isIgnored(relativePath))
-      .filter((relativePath) => {
-        const source = readProjectFile(projectRoot, relativePath, sourceCache);
-        return PLATFORM_PATTERN.test(source);
-      });
+      .filter((relativePath) => !isIgnored(relativePath));
   }).sort();
 }
 
@@ -154,13 +169,14 @@ export function findForbiddenPatternViolations(projectRoot, relativePaths, sourc
   return relativePaths.flatMap((relativePath) => {
     const source = readProjectFile(projectRoot, relativePath, sourceCache);
 
-    return FORBIDDEN_PATTERNS.filter(({ pattern }) => pattern.test(source)).map(
-      ({ description, id }) => ({
-        description,
-        file: relativePath,
-        patternId: id,
-      })
-    );
+    return FORBIDDEN_PATTERNS.filter(({ allowedPaths, pattern }) => {
+      if (allowedPaths?.has(relativePath)) return false;
+      return pattern.test(source);
+    }).map(({ description, id }) => ({
+      description,
+      file: relativePath,
+      patternId: id,
+    }));
   });
 }
 
@@ -208,12 +224,21 @@ function main() {
   }
 
   const sourceCache = new Map();
-  const foundFiles = findPlatformBranchFiles(projectRoot, sourceCache);
+  const scannedSourceFiles = findScannedSourceFiles(projectRoot);
+  const foundFiles = findPlatformBranchFiles(
+    projectRoot,
+    sourceCache,
+    scannedSourceFiles
+  );
   const nonAllowlistedFiles = findNonAllowlistedFiles(
     foundFiles,
     allowlist.platformBranches
   );
-  const violations = findForbiddenPatternViolations(projectRoot, foundFiles, sourceCache);
+  const violations = findForbiddenPatternViolations(
+    projectRoot,
+    scannedSourceFiles,
+    sourceCache
+  );
   const knownForbiddenSet = new Set(
     allowlist.knownForbiddenPatterns.map(({ path: knownPath, patternId }) =>
       createPatternKey(knownPath, patternId)

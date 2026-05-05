@@ -16,10 +16,7 @@ import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -27,6 +24,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
+import AppKeyboardAwareScrollView from '@/components/ui/AppKeyboardAwareScrollView';
 import { useToast } from '@/components/ui/Toast';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -186,14 +184,10 @@ export default function ProfileEditScreen() {
         }}
       />
 
-      <KeyboardAvoidingView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <ScrollView
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <AppKeyboardAwareScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >
           <View style={styles.formContainer}>
@@ -246,7 +240,7 @@ export default function ProfileEditScreen() {
               Email cannot be changed
             </Text>
           </View>
-        </ScrollView>
+        </AppKeyboardAwareScrollView>
 
         <SafeAreaView
           edges={['bottom']}
@@ -273,7 +267,7 @@ export default function ProfileEditScreen() {
 
         {/* 2026 Best Practice: Toast feedback component */}
         <toast.Toast />
-      </KeyboardAvoidingView>
+      </View>
     </>
   );
 }

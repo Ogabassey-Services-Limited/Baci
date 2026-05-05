@@ -22,7 +22,6 @@ import {
   BackHandler,
   FlatList,
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -70,6 +69,7 @@ import type {
   ShippingQuote,
 } from '@/components/checkout/types';
 import { AddressAutocomplete } from '@/components/ui/AddressAutocomplete';
+import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, {
@@ -3254,9 +3254,8 @@ export default function CheckoutScreen() {
           <View style={styles.screenHeaderSpacer} />
         </View>
 
-        <KeyboardAvoidingView
+        <AppKeyboardContainer
           style={[styles.contentShell, { backgroundColor: colors.muted }]}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <CheckoutStepper
             step={step}
@@ -3354,7 +3353,7 @@ export default function CheckoutScreen() {
               )}
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </AppKeyboardContainer>
       </SafeAreaView>
 
       {/* State Picker */}
@@ -3449,8 +3448,7 @@ export default function CheckoutScreen() {
           setCitySearch('');
         }}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        <AppKeyboardContainer
           style={styles.pickerOverlay}
         >
           <View style={[styles.pickerSheet, { backgroundColor: colors.card }]}>
@@ -3580,7 +3578,7 @@ export default function CheckoutScreen() {
               }
             />
           </View>
-        </KeyboardAvoidingView>
+        </AppKeyboardContainer>
       </Modal>
 
       <CryptoSelectionModal

@@ -1,8 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { type Href, Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, View } from 'react-native';
+import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
 import { AirtimeForm } from '@/components/utilities/AirtimeForm';
 import { BillForm } from '@/components/utilities/BillForm';
@@ -264,8 +265,7 @@ export default function UtilityPurchaseScreen() {
         topInset={insets.top}
         surfaceColor={colors.background}
       />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      <AppKeyboardContainer
         keyboardVerticalOffset={headerOffset}
         style={styles.container}
       >
@@ -318,7 +318,7 @@ export default function UtilityPurchaseScreen() {
             }
           />
         ) : null}
-      </KeyboardAvoidingView>
+      </AppKeyboardContainer>
       <QuickRepeatPrompt
         bottom={quickRepeatScrollCompensation}
         colors={colors}

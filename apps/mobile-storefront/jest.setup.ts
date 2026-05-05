@@ -1,4 +1,58 @@
 import '@testing-library/jest-native/extend-expect';
+import React, { type ReactNode } from 'react';
+import { ScrollView, View } from 'react-native';
+
+function mockKeyboardProvider({
+  children,
+  ...props
+}: {
+  children?: ReactNode;
+  [key: string]: unknown;
+}) {
+  return React.createElement(
+    View,
+    { testID: 'keyboard-provider', ...props },
+    children
+  );
+}
+
+function mockKeyboardAwareScrollView({
+  children,
+  ...props
+}: {
+  children?: ReactNode;
+  [key: string]: unknown;
+}) {
+  return React.createElement(
+    ScrollView,
+    { testID: 'keyboard-aware-scroll-view', ...props },
+    children
+  );
+}
+
+function mockKeyboardAvoidingView({
+  children,
+  ...props
+}: {
+  children?: ReactNode;
+  [key: string]: unknown;
+}) {
+  return React.createElement(
+    View,
+    { testID: 'keyboard-container', ...props },
+    children
+  );
+}
+
+mockKeyboardProvider.displayName = 'MockKeyboardProvider';
+mockKeyboardAwareScrollView.displayName = 'MockKeyboardAwareScrollView';
+mockKeyboardAvoidingView.displayName = 'MockKeyboardAvoidingView';
+
+jest.mock('react-native-keyboard-controller', () => ({
+  KeyboardAwareScrollView: mockKeyboardAwareScrollView,
+  KeyboardAvoidingView: mockKeyboardAvoidingView,
+  KeyboardProvider: mockKeyboardProvider,
+}));
 
 // Mock AsyncStorage
 jest.mock('@react-native-async-storage/async-storage', () =>

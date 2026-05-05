@@ -3,7 +3,6 @@ import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import type { RefObject } from 'react';
 import {
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -13,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useKeyboard } from '@/hooks/use-keyboard';
@@ -22,6 +22,7 @@ import { TypingIndicator } from './TypingIndicator';
 import { type ChatMessage, SUGGESTIONS } from './types';
 
 const CHAT_INPUT_KEYBOARD_GAP = 8;
+const CHAT_KEYBOARD_VERTICAL_OFFSET = 20;
 
 interface ChatModalProps {
   visible: boolean;
@@ -212,10 +213,9 @@ export function ChatModal({
           </Pressable>
         </View>
 
-        <KeyboardAvoidingView
+        <AppKeyboardContainer
           style={styles.messagesWrapper}
-          behavior={Platform.OS === 'ios' ? undefined : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+          keyboardVerticalOffset={CHAT_KEYBOARD_VERTICAL_OFFSET}
         >
           <FlashList
             ref={flatListRef}
@@ -306,7 +306,7 @@ export function ChatModal({
               {CHAT_POWERED_BY_LABEL}
             </Text>
           </View>
-        </KeyboardAvoidingView>
+        </AppKeyboardContainer>
       </SafeAreaView>
     </Modal>
   );

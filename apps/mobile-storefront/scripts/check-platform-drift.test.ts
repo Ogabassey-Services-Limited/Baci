@@ -87,9 +87,11 @@ describe('check-platform-drift', () => {
     const root = createFixture({
       'app/login.tsx': `const view = (
         <KeyboardAvoidingView
-          behavior={ Platform.OS === "ios"
+          behavior = {
+            (Platform . OS === "ios")
             ? "padding"
-            : undefined }
+            : undefined
+          }
         />
       );`,
       'config/platform-branch-allowlist.json': JSON.stringify({
@@ -169,6 +171,23 @@ describe('check-platform-drift', () => {
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('Stale known forbidden pattern baselines');
     expect(result.stderr).toContain('app/login.tsx: ios-keyboard-avoidance');
+  });
+
+  it('fails when source imports KeyboardAvoidingView directly', () => {
+    const root = createFixture({
+      'components/Form.tsx':
+        "import { KeyboardAvoidingView } from 'react-native';\nexport function Form() { return <KeyboardAvoidingView />; }",
+      'config/platform-branch-allowlist.json': JSON.stringify({
+        platformBranches: [],
+        knownForbiddenPatterns: [],
+      }),
+    });
+
+    const result = runDriftCheck(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('components/Form.tsx');
+    expect(result.stderr).toContain('Do not import KeyboardAvoidingView directly');
   });
 
   it('reports malformed allowlist JSON', () => {

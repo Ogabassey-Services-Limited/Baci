@@ -12,7 +12,6 @@ import {
   ActivityIndicator,
   Alert,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
@@ -22,6 +21,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { createLogger } from '@/lib/logger';
@@ -474,15 +474,11 @@ export default function ImeiCheckerScreen() {
         }}
       />
 
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <AppKeyboardContainer style={styles.keyboardView}>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
         >
           {/* Hero Section */}
@@ -752,7 +748,7 @@ export default function ImeiCheckerScreen() {
             )}
           </Pressable>
         </View>
-      </KeyboardAvoidingView>
+      </AppKeyboardContainer>
     </SafeAreaView>
   );
 }
