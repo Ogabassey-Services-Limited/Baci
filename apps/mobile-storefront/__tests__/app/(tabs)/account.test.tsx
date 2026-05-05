@@ -168,7 +168,7 @@ describe('AccountScreen', () => {
     });
   });
 
-  it('renders a loading state before auth initialization completes', () => {
+  it('renders a placeholder before auth initialization completes', () => {
     mockUseAuthStatus.mockReturnValue({
       isInitialized: false,
       user: null,

@@ -27,9 +27,11 @@ describe('HomeScreen', () => {
   });
 
   it('uses tab-bar clearance only when the chat widget is disabled', () => {
+    const template = createTemplateConfig();
+
     mockGetTemplateConfig.mockReturnValue({
-      ...createTemplateConfig(),
-      features: { chatWidget: false },
+      ...template,
+      features: { ...template.features, chatWidget: false },
     });
 
     render(<HomeScreen />);

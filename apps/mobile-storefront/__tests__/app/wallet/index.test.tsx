@@ -506,11 +506,12 @@ describe('WalletScreen', () => {
     );
 
     const successActions = alertSpy.mock.calls.at(-1)?.[2];
-    if (Array.isArray(successActions)) {
-      act(() => {
-        successActions[0]?.onPress?.();
-      });
-    }
+    expect(Array.isArray(successActions)).toBe(true);
+    expect(successActions).toHaveLength(1);
+
+    act(() => {
+      successActions?.[0]?.onPress?.();
+    });
 
     await waitFor(() => {
       const walletContentProps = mockWalletContent.mock.calls.at(-1)?.[0];
