@@ -557,6 +557,8 @@ export default function AddressFormScreen() {
           style={[styles.saveButton, { backgroundColor: BRAND.primary }]}
           onPress={handleSave}
           disabled={isSaving}
+          accessibilityRole="button"
+          accessibilityLabel={isNewAddress ? 'Add Address' : 'Save Changes'}
         >
           {isSaving ? (
             <ActivityIndicator color="#FFF" />
