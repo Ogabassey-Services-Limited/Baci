@@ -91,4 +91,155 @@ describe('PaymentMethodSelector', () => {
     expect(screen.queryByLabelText('Pay in installments')).toBeNull();
     expect(screen.getByLabelText('Pay later')).toBeTruthy();
   });
+
+  describe('wallet payment row', () => {
+    // Storefront checkout opts in via walletMode='orders'. VTU's
+    // UtilityPaymentOptions caller intentionally omits the prop (defaults
+    // to 'off') until PR B's server support exists, so the wallet row
+    // stays hidden in VTU until that lands. The hook call (useWallet)
+    // lives in the parent — the selector is presentation-only and
+    // receives `walletBalance` as a prop.
+
+    it('renders nothing wallet-related when walletMode is off (default — regression-pin for VTU)', () => {
+      render(
+        <PaymentMethodSelector
+          selectedMethod={'paystack' as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="full"
+          onSelectTab={() => {}}
+          orderTotal={1000}
+          walletBalance={800}
+          walletOrderTotal={1000}
+        />
+      );
+
+      expect(screen.queryByLabelText(/wallet/i)).toBeNull();
+      expect(screen.queryByText(/wallet credit/i)).toBeNull();
+    });
+
+    it('renders nothing wallet-related when walletMode is orders but balance is 0', () => {
+      render(
+        <PaymentMethodSelector
+          selectedMethod={'paystack' as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="full"
+          onSelectTab={() => {}}
+          orderTotal={1000}
+          walletMode="orders"
+          walletBalance={0}
+          walletOrderTotal={1000}
+        />
+      );
+
+      expect(screen.queryByLabelText(/wallet/i)).toBeNull();
+    });
+
+    it('renders the wallet row in partial-deductible mode when balance < orderTotal', () => {
+      render(
+        <PaymentMethodSelector
+          selectedMethod={'paystack' as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="full"
+          onSelectTab={() => {}}
+          orderTotal={1000}
+          walletMode="orders"
+          walletBalance={800}
+          walletOrderTotal={1000}
+        />
+      );
+
+      // Wallet row exposes its balance and the partial-deductible affordance
+      // so the user can see how much will be charged to the card.
+      expect(screen.getByLabelText(/use wallet credit/i)).toBeTruthy();
+      expect(screen.getByText(/₦800/)).toBeTruthy();
+      expect(screen.getByText(/₦200/)).toBeTruthy(); // residual to card
+    });
+
+    it('renders the wallet row in full-coverage mode when balance >= orderTotal', () => {
+      render(
+        <PaymentMethodSelector
+          selectedMethod={'paystack' as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="full"
+          onSelectTab={() => {}}
+          orderTotal={1000}
+          walletMode="orders"
+          walletBalance={1500}
+          walletOrderTotal={1000}
+        />
+      );
+
+      // Full coverage variant: wallet covers entire order, no card needed
+      // for this transaction. UI should make that explicit.
+      expect(screen.getByLabelText(/pay with wallet/i)).toBeTruthy();
+      expect(screen.getByText(/₦1,500/)).toBeTruthy();
+    });
+
+    it('emits walletSelection with use=true and amount=balance when partial wallet is toggled on', () => {
+      const onWalletToggle = jest.fn();
+
+      render(
+        <PaymentMethodSelector
+          selectedMethod={'paystack' as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="full"
+          onSelectTab={() => {}}
+          orderTotal={1000}
+          walletMode="orders"
+          walletBalance={800}
+          walletOrderTotal={1000}
+          onWalletToggle={onWalletToggle}
+        />
+      );
+
+      fireEvent.press(screen.getByLabelText(/use wallet credit/i));
+
+      expect(onWalletToggle).toHaveBeenCalledWith({ use: true, amount: 800 });
+    });
+
+    it('emits walletSelection with use=true and amount=orderTotal when wallet covers in full', () => {
+      const onWalletToggle = jest.fn();
+
+      render(
+        <PaymentMethodSelector
+          selectedMethod={'paystack' as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="full"
+          onSelectTab={() => {}}
+          orderTotal={1000}
+          walletMode="orders"
+          walletBalance={1500}
+          walletOrderTotal={1000}
+          onWalletToggle={onWalletToggle}
+        />
+      );
+
+      fireEvent.press(screen.getByLabelText(/pay with wallet/i));
+
+      expect(onWalletToggle).toHaveBeenCalledWith({ use: true, amount: 1000 });
+    });
+
+    it('emits walletSelection with use=false when toggled off', () => {
+      const onWalletToggle = jest.fn();
+
+      render(
+        <PaymentMethodSelector
+          selectedMethod={'paystack' as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="full"
+          onSelectTab={() => {}}
+          orderTotal={1000}
+          walletMode="orders"
+          walletBalance={800}
+          walletOrderTotal={1000}
+          walletSelection={{ use: true, amount: 800 }}
+          onWalletToggle={onWalletToggle}
+        />
+      );
+
+      fireEvent.press(screen.getByLabelText(/use wallet credit/i));
+
+      expect(onWalletToggle).toHaveBeenCalledWith({ use: false, amount: 0 });
+    });
+  });
 });

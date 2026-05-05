@@ -111,6 +111,12 @@ import {
   trackError,
   trackOrderCompleted,
 } from '@/services/analytics';
+import { useWallet } from '@/hooks/use-wallet';
+import {
+  buildWalletOrderFields,
+  isWalletFullyPaidOrder,
+  type WalletSelection,
+} from '@/lib/wallet-payment-helpers';
 import { createOrder, OrderError, type OrderResponse } from '@/services/orders';
 import { scheduleLocalNotification } from '@/services/push-notifications';
 import type { Customer } from '@/stores/auth-store';
@@ -563,6 +569,16 @@ export default function CheckoutScreen() {
   const [selectedPayment, setSelectedPayment] =
     React.useState<PaymentMethodType>('paystack');
   const [paymentTab, setPaymentTab] = React.useState<PaymentTab>('full');
+  // Wallet payment selection — independent from `selectedPayment`. The
+  // wallet can stack on top of any gateway method (partial deductible) or
+  // cover the order in full. The selection is fed into createOrder via
+  // `buildWalletOrderFields` and consumed by `<PaymentMethodSelector>`'s
+  // wallet row.
+  const [walletSelection, setWalletSelection] = React.useState<
+    WalletSelection | undefined
+  >(undefined);
+  const walletQuery = useWallet();
+  const walletBalance = walletQuery.data?.wallet?.balance ?? 0;
   const [deliveryMethod, setDeliveryMethod] =
     React.useState<DeliveryMethod>('door');
   const savedDoorAddressRef = React.useRef<{
@@ -1882,6 +1898,7 @@ export default function CheckoutScreen() {
         payment_method: paymentMethodForOrder,
         shipping_address: orderShippingAddress,
         source: 'mobile_app',
+        ...buildWalletOrderFields(walletSelection),
       });
 
       const { order } = orderResponse;
@@ -1986,6 +2003,42 @@ export default function CheckoutScreen() {
         setIsProcessing(false);
         isOrderInFlight.current = false;
         setShowCryptoSelection(true);
+        runPostOrderSideEffects();
+        return;
+      }
+
+      // Wallet-only short-circuit: when the server has already finalized
+      // the order from wallet credit, skip the gateway-initialize hop and
+      // navigate to the success screen directly. The /api/orders route
+      // calls finalize_wallet_order_payment when amountDueToGateway hits
+      // 0, so the order is already paid by the time we get here.
+      if (isWalletFullyPaidOrder(orderResponse)) {
+        clearCart();
+        const persistOpts = useCartStore.persist.getOptions();
+        const partialize = persistOpts.partialize ?? ((s: unknown) => s);
+        const persistedState = partialize(useCartStore.getState());
+        await AsyncStorage.setItem(
+          persistOpts.name ?? 'cart-storage',
+          JSON.stringify({
+            state: persistedState,
+            version: persistOpts.version ?? 0,
+          })
+        );
+        setIsProcessing(false);
+        router.replace({
+          pathname: '/order-success',
+          params: {
+            orderId: order.id,
+            orderNumber,
+            paymentMethod: 'wallet',
+            walletAmountUsed: String(
+              orderResponse.wallet?.amountUsed ?? 0
+            ),
+            ...(order.tracking_token && {
+              trackingToken: order.tracking_token,
+            }),
+          },
+        });
         runPostOrderSideEffects();
         return;
       }
@@ -2879,6 +2932,11 @@ export default function CheckoutScreen() {
         onSelectTab={handleSelectPaymentTab}
         orderTotal={total}
         enabledMethods={availablePaymentMethods}
+        walletMode="orders"
+        walletBalance={walletBalance}
+        walletOrderTotal={total}
+        walletSelection={walletSelection}
+        onWalletToggle={setWalletSelection}
       />
     </ScrollView>
   );
