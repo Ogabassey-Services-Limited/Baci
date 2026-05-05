@@ -231,28 +231,43 @@ interface KudaApiResponse<T = unknown> {
   data?: T;
 }
 
-interface KudaTransactionStatusData {
+// Kuda's electricity vend response wraps the meter token under `pin` as an
+// object: { number, serial, instructions }. Older docs document it as a plain
+// string for airtime/data, so callers must accept both shapes.
+type KudaVoucherPinValue =
+  | number
+  | string
+  | null
+  | {
+      number?: number | string | null;
+      serial?: number | string | null;
+      instructions?: string | null;
+    };
+
+export interface KudaTransactionStatusData {
   finalStatus?: string;
   FinalStatus?: string;
   transactionStatus?: number | string;
   TransactionStatus?: number | string;
   postingStatus?: number | string;
   PostingStatus?: number | string;
+  billerAggregatorStatus?: string;
+  BillerAggregatorStatus?: string;
   status?: number | string;
   Status?: number | string;
   message?: string;
   Message?: string;
-  pin?: number | string | null;
-  Pin?: number | string | null;
-  PIN?: number | string | null;
-  token?: number | string | null;
-  Token?: number | string | null;
-  meterToken?: number | string | null;
-  MeterToken?: number | string | null;
-  vendCode?: number | string | null;
-  VendCode?: number | string | null;
-  voucher?: number | string | null;
-  Voucher?: number | string | null;
+  pin?: KudaVoucherPinValue;
+  Pin?: KudaVoucherPinValue;
+  PIN?: KudaVoucherPinValue;
+  token?: KudaVoucherPinValue;
+  Token?: KudaVoucherPinValue;
+  meterToken?: KudaVoucherPinValue;
+  MeterToken?: KudaVoucherPinValue;
+  vendCode?: KudaVoucherPinValue;
+  VendCode?: KudaVoucherPinValue;
+  voucher?: KudaVoucherPinValue;
+  Voucher?: KudaVoucherPinValue;
 }
 
 type KudaTransactionStatusResult = {
@@ -277,24 +292,95 @@ function normalizeKudaString(value: number | string | null | undefined) {
   return undefined;
 }
 
-function extractKudaVoucherPin(data: KudaTransactionStatusData | undefined) {
+function normalizeKudaPinValue(value: KudaVoucherPinValue | undefined) {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  if (typeof value === 'object') {
+    return normalizeKudaString(value.number);
+  }
+  return normalizeKudaString(value);
+}
+
+export function extractKudaVoucherPin(
+  data: KudaTransactionStatusData | undefined
+) {
   if (!data) {
     return undefined;
   }
 
   return (
-    normalizeKudaString(data.pin) ??
-    normalizeKudaString(data.Pin) ??
-    normalizeKudaString(data.PIN) ??
-    normalizeKudaString(data.token) ??
-    normalizeKudaString(data.Token) ??
-    normalizeKudaString(data.meterToken) ??
-    normalizeKudaString(data.MeterToken) ??
-    normalizeKudaString(data.vendCode) ??
-    normalizeKudaString(data.VendCode) ??
-    normalizeKudaString(data.voucher) ??
-    normalizeKudaString(data.Voucher)
+    normalizeKudaPinValue(data.pin) ??
+    normalizeKudaPinValue(data.Pin) ??
+    normalizeKudaPinValue(data.PIN) ??
+    normalizeKudaPinValue(data.token) ??
+    normalizeKudaPinValue(data.Token) ??
+    normalizeKudaPinValue(data.meterToken) ??
+    normalizeKudaPinValue(data.MeterToken) ??
+    normalizeKudaPinValue(data.vendCode) ??
+    normalizeKudaPinValue(data.VendCode) ??
+    normalizeKudaPinValue(data.voucher) ??
+    normalizeKudaPinValue(data.Voucher)
   );
+}
+
+// Determine whether the vend itself succeeded.
+// `response.status: true` means Kuda accepted the API call; the actual vend
+// outcome is in `data.finalStatus` / `data.transactionStatus`. Treating the
+// envelope status as success silently marks Kuda-rejected purchases as
+// successful in our DB (the bug behind the EKEDC "reversal" reports).
+//
+// Kuda transactionStatus codes (observed):
+//   2 = Failed, 3 = Successful. Some endpoints omit it; fall back to finalStatus.
+export function isKudaVendSuccessful(
+  envelopeStatus: boolean,
+  data: KudaTransactionStatusData | undefined
+): boolean {
+  if (!envelopeStatus) return false;
+  if (!data) return envelopeStatus;
+  const final =
+    normalizeKudaString(data.finalStatus) ??
+    normalizeKudaString(data.FinalStatus);
+  if (final) {
+    const lowered = final.toLowerCase();
+    if (
+      lowered === 'successful' ||
+      lowered === 'success' ||
+      lowered === 'completed' ||
+      lowered === 'complete'
+    ) {
+      return true;
+    }
+    // Anything else with finalStatus set — failed, pending, processing,
+    // in-progress, or any unrecognized non-terminal value — must NOT be
+    // treated as success. Falling back to the envelope here would silently
+    // credit cashback for vends that haven't actually settled.
+    return false;
+  }
+  const txStatus =
+    normalizeKudaString(data.transactionStatus) ??
+    normalizeKudaString(data.TransactionStatus);
+  if (txStatus !== undefined) {
+    // 3 = Successful; everything else (2 = Failed, 1 = Pending, etc.) is
+    // not a confirmed success.
+    return txStatus === '3';
+  }
+  // Both finalStatus and transactionStatus absent: trust the envelope.
+  return envelopeStatus;
+}
+
+export function buildKudaVendMessage(
+  fallback: string | undefined,
+  data: KudaTransactionStatusData | undefined
+): string {
+  // Category-neutral default: this helper is shared by airtime, data, and
+  // bill (electricity / cable / betting) call sites. A "Bill purchase failed"
+  // string would mislabel airtime/data failures.
+  const base = fallback?.trim() || 'Purchase failed';
+  const aggregator =
+    normalizeKudaString(data?.billerAggregatorStatus) ??
+    normalizeKudaString(data?.BillerAggregatorStatus);
+  return aggregator ? `${base} (biller status: ${aggregator})` : base;
 }
 
 function extractKudaStatus(data: KudaTransactionStatusData | undefined) {
@@ -642,25 +728,22 @@ export async function purchaseAirtime(
   }
 
   try {
-    // Kuda purchase response: { reference: string; pin: string | null }
-    const response = await kudaRequest<{
-      Reference?: string;
-      Pin?: string | null;
-      reference?: string;
-      pin?: string | null;
-    }>(
+    const response = await kudaRequest<
+      KudaTransactionStatusData & { reference?: string; Reference?: string }
+    >(
       KudaServiceType.ADMIN_PURCHASE_BILL,
       {
         CustomerFirstName: customerName,
         CustomerIdentifier: phoneNumber,
         PhoneNumber: phoneNumber,
         BillItemIdentifier: billItemIdentifier,
-        Amount: (amount * 100).toString(), // Convert Naira to Kobo
+        Amount: Math.round(amount * 100).toString(), // Naira → Kobo
         trackingReference: reference,
       },
       reference
     );
 
+    const vendSucceeded = isKudaVendSuccessful(response.status, response.data);
     const pin = extractKudaVoucherPin(response.data);
     const normalizedReference = normalizeKudaString(reference);
     const transactionId =
@@ -669,12 +752,14 @@ export async function purchaseAirtime(
       normalizedReference;
 
     return {
-      success: response.status,
+      success: vendSucceeded,
       reference,
       transactionId,
       ...(pin && { pin }),
-      message: response.message,
-      status: response.status ? 'successful' : 'failed',
+      message: vendSucceeded
+        ? response.message
+        : buildKudaVendMessage(response.message, response.data),
+      status: vendSucceeded ? 'successful' : 'failed',
       amount,
       phoneNumber,
       provider: networkProvider,
@@ -707,25 +792,22 @@ export async function purchaseData(
   const reference = requestRef || generateRequestRef();
 
   try {
-    // Kuda purchase response: { reference: string; pin: string | null }
-    const response = await kudaRequest<{
-      Reference?: string;
-      Pin?: string | null;
-      reference?: string;
-      pin?: string | null;
-    }>(
+    const response = await kudaRequest<
+      KudaTransactionStatusData & { reference?: string; Reference?: string }
+    >(
       KudaServiceType.ADMIN_PURCHASE_BILL,
       {
         CustomerFirstName: customerName,
         CustomerIdentifier: phoneNumber,
         PhoneNumber: phoneNumber,
         BillItemIdentifier: dataPlanCode,
-        Amount: (amount * 100).toString(), // Convert Naira to Kobo
+        Amount: Math.round(amount * 100).toString(), // Naira → Kobo
         trackingReference: reference,
       },
       reference
     );
 
+    const vendSucceeded = isKudaVendSuccessful(response.status, response.data);
     const pin = extractKudaVoucherPin(response.data);
     const normalizedReference = normalizeKudaString(reference);
     const transactionId =
@@ -734,12 +816,14 @@ export async function purchaseData(
       normalizedReference;
 
     return {
-      success: response.status,
+      success: vendSucceeded,
       reference,
       transactionId,
       ...(pin && { pin }),
-      message: response.message,
-      status: response.status ? 'successful' : 'failed',
+      message: vendSucceeded
+        ? response.message
+        : buildKudaVendMessage(response.message, response.data),
+      status: vendSucceeded ? 'successful' : 'failed',
       amount,
       phoneNumber,
       provider: networkProvider,

@@ -2,16 +2,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Biller, PurchaseResult } from './kuda';
 import { getBillersByCategory, purchaseBill } from './kuda-bills';
 
-// Mock the kuda module
-vi.mock('./kuda', () => ({
-  KudaServiceType: {
-    ADMIN_PURCHASE_BILL: 'ADMIN_PURCHASE_BILL',
-  },
-  generateRequestRef: vi.fn(() => 'BACI-1234567890-abcd1234'),
-  getBillersByType: vi.fn(),
-  kudaRequest: vi.fn(),
-  verifyBillCustomer: vi.fn(),
-}));
+// Mock the kuda module — keep the pure helpers (vend-status / pin extraction
+// / message builder) real, only stub the network and ID-generation entry
+// points used by the bill purchase flow.
+vi.mock('./kuda', async () => {
+  const actual = await vi.importActual<typeof import('./kuda')>('./kuda');
+  return {
+    ...actual,
+    generateRequestRef: vi.fn(() => 'BACI-1234567890-abcd1234'),
+    getBillersByType: vi.fn(),
+    kudaRequest: vi.fn(),
+    verifyBillCustomer: vi.fn(),
+  };
+});
 
 // Import mocked functions after vi.mock
 import {
@@ -407,12 +410,17 @@ describe('purchaseBill', () => {
     expect(result.reference).toBe(customRef);
   });
 
-  it('uses customerIdentification for both PhoneNumber and CustomerIdentifier', async () => {
-    // Arrange
+  it('falls back to customerIdentification for PhoneNumber when no customerPhone is supplied', async () => {
+    // Arrange — legacy callers that don't yet thread phone through
     const mockResponse = {
       status: true,
       message: 'Success',
-      data: { reference: 'TXN-555', pin: null },
+      data: {
+        reference: 'TXN-555',
+        finalStatus: 'Successful',
+        transactionStatus: 3,
+        pin: null,
+      },
     };
     vi.mocked(kudaRequest).mockResolvedValue(mockResponse);
     const customerIdentification = '08012345678';
@@ -432,6 +440,87 @@ describe('purchaseBill', () => {
         trackingReference: expect.any(String),
       },
       expect.any(String)
+    );
+  });
+
+  it('sends the supplied customerPhone in PhoneNumber while keeping the meter as CustomerIdentifier', async () => {
+    // Regression: PR #1457 dropped the customerPhone parameter and started
+    // sending the meter number as PhoneNumber. EKEDC SMS token delivery
+    // cannot reach a non-phone-shaped value. PhoneNumber must be the
+    // customer's real phone when it's supplied.
+    const mockResponse = {
+      status: true,
+      message: 'Success',
+      data: {
+        reference: 'TXN-9001',
+        finalStatus: 'Successful',
+        transactionStatus: 3,
+        pin: { number: '3373-7728-6877-1154-6184' },
+      },
+    };
+    vi.mocked(kudaRequest).mockResolvedValue(mockResponse);
+    const meterNumber = '43901766923';
+    const customerPhone = '08146978921';
+    const fixedRef = 'BACI-FIXED-REF-001';
+
+    const result = await purchaseBill(
+      'KUD-ELE-EKED-002',
+      meterNumber,
+      1000,
+      'OLADIMEJI',
+      fixedRef,
+      customerPhone
+    );
+
+    expect(kudaRequest).toHaveBeenCalledWith(
+      KudaServiceType.ADMIN_PURCHASE_BILL,
+      {
+        CustomerFirstName: 'OLADIMEJI',
+        CustomerIdentifier: meterNumber,
+        PhoneNumber: customerPhone,
+        BillItemIdentifier: 'KUD-ELE-EKED-002',
+        Amount: '100000', // 1000 Naira = 100000 Kobo
+        trackingReference: fixedRef,
+      },
+      fixedRef
+    );
+    expect(result.reference).toBe(fixedRef);
+    expect(result.success).toBe(true);
+    expect(result.pin).toBe('3373-7728-6877-1154-6184');
+    expect(generateRequestRef).not.toHaveBeenCalled();
+  });
+
+  it('uses generateRequestRef when no requestRef is supplied', async () => {
+    const mockResponse = {
+      status: true,
+      message: 'Success',
+      data: {
+        reference: 'TXN-9002',
+        finalStatus: 'Successful',
+        transactionStatus: 3,
+      },
+    };
+    vi.mocked(kudaRequest).mockResolvedValue(mockResponse);
+
+    const result = await purchaseBill(
+      'KUD-ELE-EKED-002',
+      '43901766923',
+      500,
+      'Customer',
+      undefined,
+      '08146978921'
+    );
+
+    expect(generateRequestRef).toHaveBeenCalledTimes(1);
+    expect(result.reference).toBe('BACI-1234567890-abcd1234');
+    expect(kudaRequest).toHaveBeenCalledWith(
+      KudaServiceType.ADMIN_PURCHASE_BILL,
+      expect.objectContaining({
+        trackingReference: 'BACI-1234567890-abcd1234',
+        PhoneNumber: '08146978921',
+        CustomerIdentifier: '43901766923',
+      }),
+      'BACI-1234567890-abcd1234'
     );
   });
 
