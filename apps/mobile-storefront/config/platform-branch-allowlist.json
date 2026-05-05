@@ -1,0 +1,200 @@
+{
+  "platformBranches": [
+    {
+      "path": "app/(tabs)/cart.tsx",
+      "justification": "Reviewed existing cart haptics and list virtualization platform behavior."
+    },
+    {
+      "path": "app/(tabs)/categories.tsx",
+      "justification": "Reviewed Android-only list virtualization setting."
+    },
+    {
+      "path": "app/addresses/[id].tsx",
+      "justification": "Reviewed existing keyboard behavior pending Phase 3 keyboard primitive migration."
+    },
+    {
+      "path": "app/auth/login.tsx",
+      "justification": "Reviewed known iOS-only keyboard avoidance baseline pending Phase 3 keyboard primitive migration."
+    },
+    {
+      "path": "app/checkout.tsx",
+      "justification": "Reviewed known iOS-only keyboard avoidance baseline pending Phase 3 keyboard primitive migration."
+    },
+    {
+      "path": "app/imei-check/index.tsx",
+      "justification": "Reviewed known iOS-only keyboard avoidance baseline pending Phase 3 keyboard primitive migration."
+    },
+    {
+      "path": "app/profile/edit.tsx",
+      "justification": "Reviewed known iOS-only keyboard avoidance baseline pending Phase 3 keyboard primitive migration."
+    },
+    {
+      "path": "app/swap/index.tsx",
+      "justification": "Reviewed web guard for native-only swap interactions."
+    },
+    {
+      "path": "app/utilities/[type].tsx",
+      "justification": "Reviewed existing utility form keyboard behavior pending Phase 3 keyboard primitive migration."
+    },
+    {
+      "path": "components/ConnectivityBanner.tsx",
+      "justification": "Reviewed platform-specific banner shadow/elevation styling."
+    },
+    {
+      "path": "components/ExternalLink.tsx",
+      "justification": "Reviewed native-only external link browser handling."
+    },
+    {
+      "path": "components/OfflineNotice.tsx",
+      "justification": "Reviewed platform-specific notice shadow/elevation styling."
+    },
+    {
+      "path": "components/cart/checkout.styles.ts",
+      "justification": "Reviewed platform-specific checkout bottom spacing."
+    },
+    {
+      "path": "components/chat/ChatModal.tsx",
+      "justification": "Reviewed existing chat modal keyboard offsets pending Phase 3 keyboard primitive migration."
+    },
+    {
+      "path": "components/chat/ChatWidget.tsx",
+      "justification": "Reviewed iOS haptic branch for chat entry interaction."
+    },
+    {
+      "path": "components/chat/use-chat.ts",
+      "justification": "Reviewed iOS haptic branch for chat message interactions."
+    },
+    {
+      "path": "components/chat/use-draggable-fab.ts",
+      "justification": "Reviewed iOS haptic branch for draggable chat FAB interactions."
+    },
+    {
+      "path": "components/checkout/CheckoutIdentityModal.tsx",
+      "justification": "Reviewed legacy checkout identity keyboard behavior pending Phase 3 audit."
+    },
+    {
+      "path": "components/checkout/OrderSummary.tsx",
+      "justification": "Reviewed Android-specific compact order-summary layout."
+    },
+    {
+      "path": "components/checkout/checkout-identity/CheckoutIdentityModal.tsx",
+      "justification": "Reviewed checkout identity keyboard behavior pending Phase 3 keyboard primitive migration."
+    },
+    {
+      "path": "components/checkout/checkout-identity/components/SocialSignInButtons.tsx",
+      "justification": "Reviewed iOS-only Apple sign-in button rendering."
+    },
+    {
+      "path": "components/checkout/checkout-identity/hooks/useHapticFeedback.ts",
+      "justification": "Reviewed native-only haptic support guard."
+    },
+    {
+      "path": "components/modals/NegotiationModal.tsx",
+      "justification": "Reviewed known iOS-only keyboard avoidance baseline pending Phase 3 keyboard primitive migration."
+    },
+    {
+      "path": "components/navigation/DrawerMenu.tsx",
+      "justification": "Reviewed Android back-button behavior for drawer dismissal."
+    },
+    {
+      "path": "components/payment-gateway/PaymentGatewayCheckoutView.tsx",
+      "justification": "Reviewed Android WebView scaling behavior."
+    },
+    {
+      "path": "components/profile/MenuSection.tsx",
+      "justification": "Reviewed iOS haptic branch for profile menu interactions."
+    },
+    {
+      "path": "components/product/NegotiationModal.tsx",
+      "justification": "Reviewed known iOS-only keyboard avoidance baseline pending Phase 3 keyboard primitive migration."
+    },
+    {
+      "path": "components/receipts/ReceiptPreviewModal.tsx",
+      "justification": "Reviewed iOS safe-area top padding behavior for receipt preview."
+    },
+    {
+      "path": "components/storefront/FilterSheet.tsx",
+      "justification": "Reviewed existing filter sheet keyboard behavior pending Phase 3 keyboard primitive migration."
+    },
+    {
+      "path": "components/storefront/SearchDropdown.tsx",
+      "justification": "Reviewed platform-specific dropdown shadow/elevation styling."
+    },
+    {
+      "path": "components/ui/Button.tsx",
+      "justification": "Reviewed iOS haptic branch for shared button interactions."
+    },
+    {
+      "path": "components/ui/PermissionModal.tsx",
+      "justification": "Reviewed iOS haptic branches for permission modal actions."
+    },
+    {
+      "path": "components/ui/PhoneInput.tsx",
+      "justification": "Reviewed Android-only list virtualization setting."
+    },
+    {
+      "path": "hooks/use-cart.ts",
+      "justification": "Reviewed Android-specific cart notification behavior."
+    },
+    {
+      "path": "hooks/use-haptics.ts",
+      "justification": "Reviewed iOS-only haptics guard."
+    },
+    {
+      "path": "hooks/use-keyboard.ts",
+      "justification": "Reviewed low-level platform keyboard event names pending Phase 3 primitives."
+    },
+    {
+      "path": "hooks/use-push-notifications.ts",
+      "justification": "Reviewed web guard for native push notification registration."
+    },
+    {
+      "path": "lib/notifications.ts",
+      "justification": "Reviewed web and Android notification channel handling."
+    },
+    {
+      "path": "lib/supabase.ts",
+      "justification": "Reviewed web storage fallback for Supabase client."
+    },
+    {
+      "path": "services/ad-tracking.ts",
+      "justification": "Reviewed web guard and iOS attribution API handling."
+    },
+    {
+      "path": "services/push-notifications.ts",
+      "justification": "Reviewed web guard and Android notification channel setup."
+    }
+  ],
+  "knownForbiddenPatterns": [
+    {
+      "path": "app/auth/login.tsx",
+      "patternId": "ios-keyboard-avoidance",
+      "justification": "Phase 3 migrates login to shared keyboard primitives."
+    },
+    {
+      "path": "app/checkout.tsx",
+      "patternId": "ios-keyboard-avoidance",
+      "justification": "Phase 3 migrates checkout to shared keyboard primitives."
+    },
+    {
+      "path": "app/imei-check/index.tsx",
+      "patternId": "ios-keyboard-avoidance",
+      "justification": "Phase 3 migrates IMEI check to shared keyboard primitives."
+    },
+    {
+      "path": "app/profile/edit.tsx",
+      "patternId": "ios-keyboard-avoidance",
+      "justification": "Phase 3 migrates profile edit to shared keyboard primitives."
+    },
+    {
+      "path": "components/modals/NegotiationModal.tsx",
+      "patternId": "ios-keyboard-avoidance",
+      "justification": "Phase 3/5 migrate the global negotiation modal to shared keyboard primitives."
+    },
+    {
+      "path": "components/product/NegotiationModal.tsx",
+      "patternId": "ios-keyboard-avoidance",
+      "justification": "Phase 3/5 migrate the product negotiation modal to shared keyboard primitives."
+    }
+  ]
+}
