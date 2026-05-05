@@ -182,6 +182,35 @@ describe('GoogleStoreWidget', () => {
     expect(start).toHaveBeenCalledOnce();
   });
 
+  it('does not load the widget script on scroll before the defer window elapses', async () => {
+    const start = vi.fn();
+    window.merchantwidget = { start };
+    let unmount: (() => void) | undefined;
+
+    await act(async () => {
+      ({ unmount } = render(
+        <GoogleStoreWidget merchant={baseMerchant} hostname="ogabassey.com" />
+      ));
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      fireEvent.scroll(window);
+      await Promise.resolve();
+    });
+
+    expect(
+      screen.queryByTestId('google-store-widget-script')
+    ).not.toBeInTheDocument();
+    expect(start).not.toHaveBeenCalled();
+
+    // Manual teardown keeps the deferred widget timer from firing during
+    // afterEach cleanup; this test intentionally verifies scroll does not load.
+    act(() => {
+      unmount?.();
+    });
+  });
+
   it('supports passing only the merchant custom domain', () => {
     const start = vi.fn();
     window.merchantwidget = { start };

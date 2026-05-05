@@ -58,6 +58,30 @@ describe('DeferredShellFeature', () => {
     expect(screen.getByText('Interaction child')).toBeInTheDocument();
   });
 
+  it('does not activate passive deferred chrome on scroll alone', async () => {
+    render(
+      <DeferredShellFeature timeoutMs={5000}>
+        <div>Scroll child</div>
+      </DeferredShellFeature>
+    );
+
+    expect(screen.queryByText('Scroll child')).not.toBeInTheDocument();
+
+    fireEvent.scroll(window);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText('Scroll child')).not.toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    expect(screen.getByText('Scroll child')).toBeInTheDocument();
+  });
+
   it('can skip interaction listeners for passive shell features', async () => {
     render(
       <DeferredShellFeature
@@ -82,6 +106,33 @@ describe('DeferredShellFeature', () => {
     });
 
     expect(screen.getByText('Passive child')).toBeInTheDocument();
+  });
+
+  it('treats a zero timeout as interaction-only when idle activation is disabled', async () => {
+    render(
+      <DeferredShellFeature
+        timeoutMs={0}
+        activateOnIdle={false}
+      >
+        <div>Immediate child</div>
+      </DeferredShellFeature>
+    );
+
+    expect(screen.queryByText('Immediate child')).not.toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    expect(screen.queryByText('Immediate child')).not.toBeInTheDocument();
+
+    fireEvent.pointerDown(window);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText('Immediate child')).toBeInTheDocument();
   });
 
   it('stays unmounted when disabled', async () => {

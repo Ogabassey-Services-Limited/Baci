@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/image', () => ({
   default: (props: Record<string, unknown>) => (
@@ -25,14 +25,31 @@ vi.mock('@/hooks/use-merchant', () => ({
 vi.mock('@/lib/routes', () => ({
   asRoute: vi.fn((path: string) => path),
 }));
-vi.mock('../config/ads', () => ({ AD_CONFIG: {} }));
+vi.mock('../config/ads', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../config/ads')>();
+  return {
+    ...actual,
+    AD_CONFIG: {},
+  };
+});
+const mockAdUnit = vi.hoisted(() =>
+  vi.fn((props: Record<string, unknown>) => (
+    <div data-testid="ad-unit">{String(props.placementKey ?? 'Ad')}</div>
+  ))
+);
+
 vi.mock('./AdUnit', () => ({
-  AdUnit: () => <div data-testid="ad-unit">Ad</div>,
+  AdUnit: (props: Record<string, unknown>) => mockAdUnit(props),
 }));
 
 import { BannerCarousel } from './BannerCarousel';
+import { SPONSORED_SLIDE_AD_BOOT_DELAY_MS } from '../config/ads';
 
 describe('BannerCarousel', () => {
+  beforeEach(() => {
+    mockAdUnit.mockClear();
+  });
+
   it('renders without crashing', () => {
     const { container } = render(<BannerCarousel />);
     expect(container).toBeDefined();
@@ -139,5 +156,43 @@ describe('BannerCarousel', () => {
     for (const slide of inertSlides) {
       expect(slide).toHaveAttribute('aria-hidden', 'true');
     }
+  });
+
+  it('keeps the sponsored slide inactive until it becomes the visible slide', () => {
+    render(<BannerCarousel />);
+
+    expect(mockAdUnit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        placementKey: 'HEADER_LEADERBOARD',
+        bootDelayMs: SPONSORED_SLIDE_AD_BOOT_DELAY_MS,
+        isActive: false,
+      })
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /sponsored placement/i,
+      })
+    );
+
+    expect(mockAdUnit).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        placementKey: 'HEADER_LEADERBOARD',
+        isActive: true,
+      })
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /flash sale/i,
+      })
+    );
+
+    expect(mockAdUnit).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        placementKey: 'HEADER_LEADERBOARD',
+        isActive: false,
+      })
+    );
   });
 });

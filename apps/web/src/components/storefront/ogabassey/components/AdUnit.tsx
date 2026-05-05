@@ -15,6 +15,7 @@ interface AdUnitProps {
   refreshKey?: string | number;
   isActive?: boolean;
   loadStrategy?: 'viewport' | 'immediate';
+  bootDelayMs?: number;
 }
 
 // TODO: REPLACE WITH YOUR ACTUAL GOOGLE AD MANAGER NETWORK CODE
@@ -29,20 +30,46 @@ export const AdUnit: React.FC<AdUnitProps> = ({
   refreshKey,
   isActive = true,
   loadStrategy = 'viewport',
+  bootDelayMs = 0,
 }) => {
   const config = AD_CONFIG[placementKey];
   const containerRef = useRef<HTMLDivElement>(null);
   const adRef = useRef<HTMLDivElement>(null);
   const slotRef = useRef<googletag.Slot | null>(null);
+  const isActiveRef = useRef(isActive);
+  const slotLifecycleRef = useRef(0);
   const [isAdLoaded, setIsAdLoaded] = useState(false);
   const [shouldLoadSlot, setShouldLoadSlot] = useState(
     loadStrategy === 'immediate'
   );
+  const [hasBootDelayElapsed, setHasBootDelayElapsed] = useState(
+    bootDelayMs <= 0
+  );
+
+  useEffect(() => {
+    isActiveRef.current = isActive;
+  }, [isActive]);
 
   useEffect(() => {
     setShouldLoadSlot(loadStrategy === 'immediate');
     setIsAdLoaded(false);
   }, [config?.id, loadStrategy]);
+
+  useEffect(() => {
+    if (bootDelayMs <= 0) {
+      setHasBootDelayElapsed(true);
+      return;
+    }
+
+    setHasBootDelayElapsed(false);
+    const timeoutId = window.setTimeout(() => {
+      setHasBootDelayElapsed(true);
+    }, bootDelayMs);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [bootDelayMs, config?.id]);
 
   useEffect(() => {
     if (!config || loadStrategy === 'immediate' || !isActive || shouldLoadSlot) {
@@ -81,11 +108,11 @@ export const AdUnit: React.FC<AdUnitProps> = ({
   }, [config, isActive, loadStrategy, shouldLoadSlot]);
 
   useEffect(() => {
-    if (!config || !shouldLoadSlot) return;
+    if (!config || !isActive || !shouldLoadSlot || !hasBootDelayElapsed) return;
 
     const { id, width, height, mobileWidth, mobileHeight } = config;
     const slotPath = `${NETWORK_CODE}/${config.name.replace(/\s+/g, '_')}`; // Construct ad unit path
-    let cancelled = false;
+    const lifecycle = slotLifecycleRef.current;
 
     // Skip if this slot is already defined (React StrictMode double-render protection)
     if (definedSlots.has(id)) {
@@ -94,14 +121,22 @@ export const AdUnit: React.FC<AdUnitProps> = ({
 
     void ensureGoogleAdManagerBoot()
       .then(() => {
-        if (cancelled || definedSlots.has(id)) {
+        if (
+          lifecycle !== slotLifecycleRef.current ||
+          !isActiveRef.current ||
+          definedSlots.has(id)
+        ) {
           return;
         }
 
         const googletag = ensureGoogleTag();
 
         googletag.cmd.push(() => {
-          if (cancelled || definedSlots.has(id)) {
+          if (
+            lifecycle !== slotLifecycleRef.current ||
+            !isActiveRef.current ||
+            definedSlots.has(id)
+          ) {
             return;
           }
 
@@ -147,13 +182,17 @@ export const AdUnit: React.FC<AdUnitProps> = ({
       .catch(() => {
         setIsAdLoaded(false);
       });
+  }, [config, hasBootDelayElapsed, isActive, shouldLoadSlot]);
+
+  useEffect(() => {
+    if (!config) return;
+    const slotId = config.id;
 
     return () => {
-      cancelled = true;
-
-      // Cleanup: Destroy slot to prevent memory leaks in SPA navigation
+      slotLifecycleRef.current += 1;
+      // Cleanup only on unmount or placement changes. Carousel visibility changes
+      // should keep an already loaded GPT slot mounted.
       const slotToDestroy = slotRef.current;
-      const slotId = id;
       if (slotToDestroy) {
         const googletag = ensureGoogleTag();
 
@@ -164,11 +203,13 @@ export const AdUnit: React.FC<AdUnitProps> = ({
         });
       }
     };
-  }, [config, placementKey, shouldLoadSlot]);
+  }, [config]);
 
   // Effect to handle manual refresh triggers
   useEffect(() => {
-    if (!config || !slotRef.current || !window.googletag?.pubads) return;
+    if (!config || !isActive || !slotRef.current || !window.googletag?.pubads) {
+      return;
+    }
 
     // Check if we have a refresh trigger and a valid slot
     const slot = slotRef.current;
@@ -178,9 +219,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
         window.googletag.pubads().refresh([slot]);
       });
     }
-  }, [refreshKey, config]);
-
-
+  }, [refreshKey, config, isActive]);
 
   if (!config) return null;
 

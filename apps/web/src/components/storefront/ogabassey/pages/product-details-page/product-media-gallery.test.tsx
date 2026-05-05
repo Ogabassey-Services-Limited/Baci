@@ -55,6 +55,7 @@ describe('ProductMediaGallery', () => {
 
   afterEach(() => {
     vi.clearAllTimers();
+    vi.restoreAllMocks();
     vi.useRealTimers();
   });
 
@@ -82,7 +83,7 @@ describe('ProductMediaGallery', () => {
     ).toBeInTheDocument();
   });
 
-  it('activates thumbnail controls on interaction and forwards image selection', async () => {
+  it('activates thumbnail controls on pointer interaction and forwards image selection', async () => {
     const onSelectImage = vi.fn();
 
     render(
@@ -95,11 +96,39 @@ describe('ProductMediaGallery', () => {
     );
 
     await act(async () => {
-      fireEvent.scroll(window);
+      fireEvent.pointerDown(window);
     });
 
     fireEvent.click(screen.getByRole('button', { name: 'View image 3' }));
 
     expect(onSelectImage).toHaveBeenCalledWith(2);
+  });
+
+  it('does not activate thumbnail controls on passive scroll or wheel events', async () => {
+    // Mock readyState as loading so scheduleIdleActivation() cannot fall back to setTimeout(activate, 0) in jsdom.
+    vi.spyOn(document, 'readyState', 'get').mockReturnValue('loading');
+
+    render(
+      <ProductMediaGallery
+        onSelectImage={vi.fn()}
+        productData={buildProductData()}
+        selectedCondition="new"
+        selectedImage={0}
+      />,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'View image 2' }),
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.scroll(window);
+      fireEvent.wheel(window);
+      vi.advanceTimersByTime(1199);
+    });
+
+    expect(
+      screen.queryByRole('button', { name: 'View image 2' }),
+    ).not.toBeInTheDocument();
   });
 });
