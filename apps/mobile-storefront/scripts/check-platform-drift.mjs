@@ -20,7 +20,6 @@ const FORBIDDEN_PATTERNS = [
       'Do not import KeyboardAvoidingView directly; use AppKeyboardAwareScrollView or AppKeyboardContainer.',
     pattern:
       /import\s*\{[^}]*\bKeyboardAvoidingView\b[^}]*\}\s*from\s*['"]react-native['"]/,
-    allowedPaths: new Set(['components/ui/AppKeyboardContainer.tsx']),
   },
 ];
 

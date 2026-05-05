@@ -17,6 +17,7 @@ import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -24,7 +25,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
-import AppKeyboardAwareScrollView from '@/components/ui/AppKeyboardAwareScrollView';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useToast } from '@/components/ui/Toast';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -188,7 +188,7 @@ export default function ProfileEditScreen() {
       <AppKeyboardContainer
         style={[styles.container, { backgroundColor: colors.background }]}
       >
-        <AppKeyboardAwareScrollView
+        <ScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           keyboardDismissMode="on-drag"
@@ -243,7 +243,7 @@ export default function ProfileEditScreen() {
               Email cannot be changed
             </Text>
           </View>
-        </AppKeyboardAwareScrollView>
+        </ScrollView>
 
         <SafeAreaView
           edges={['bottom']}

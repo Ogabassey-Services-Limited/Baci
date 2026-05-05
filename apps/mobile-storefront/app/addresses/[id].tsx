@@ -18,7 +18,6 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import AppKeyboardAwareScrollView from '@/components/ui/AppKeyboardAwareScrollView';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useToast } from '@/components/ui/Toast';
 import { useColorScheme } from '@/components/useColorScheme';
@@ -298,8 +297,7 @@ export default function AddressFormScreen() {
     <AppKeyboardContainer
       style={[styles.container, { backgroundColor: colors.background }]}
     >
-      <AppKeyboardAwareScrollView
-        bottomOffset={100}
+      <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
         keyboardDismissMode="on-drag"
@@ -544,7 +542,7 @@ export default function AddressFormScreen() {
             </View>
           </View>
         </TouchableOpacity>
-      </AppKeyboardAwareScrollView>
+      </ScrollView>
 
       {/* Save Button */}
       <View
