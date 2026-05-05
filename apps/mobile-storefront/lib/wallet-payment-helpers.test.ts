@@ -11,11 +11,15 @@ describe('isWalletFullyPaidOrder', () => {
   // skip the /api/payments/initialize hop and go straight to the success
   // screen. Any other shape must NOT be misinterpreted as wallet-paid.
 
-  it('returns true when amountDueToGateway is 0 and wallet was used', () => {
+  const paidOrder = { payment_status: 'paid' as const };
+  const unpaidOrder = { payment_status: 'unpaid' as const };
+
+  it('returns true when order is server-stamped paid AND wallet covers fully', () => {
     expect(
       isWalletFullyPaidOrder({
         amountDueToGateway: 0,
         wallet: { amountUsed: 1000, newBalance: 0, transactionId: 'tx-1' },
+        order: paidOrder,
       })
     ).toBe(true);
   });
@@ -25,6 +29,7 @@ describe('isWalletFullyPaidOrder', () => {
       isWalletFullyPaidOrder({
         amountDueToGateway: 200,
         wallet: { amountUsed: 800, newBalance: 0, transactionId: 'tx-1' },
+        order: paidOrder,
       })
     ).toBe(false);
   });
@@ -34,13 +39,21 @@ describe('isWalletFullyPaidOrder', () => {
     // discounted) must NOT take the wallet-only success path because the
     // server-side finalize_wallet_order_payment was never called.
     expect(
-      isWalletFullyPaidOrder({ amountDueToGateway: 0, wallet: null })
+      isWalletFullyPaidOrder({
+        amountDueToGateway: 0,
+        wallet: null,
+        order: paidOrder,
+      })
     ).toBe(false);
   });
 
   it('returns false when the wallet response object is missing entirely', () => {
     expect(
-      isWalletFullyPaidOrder({ amountDueToGateway: 1000, wallet: null })
+      isWalletFullyPaidOrder({
+        amountDueToGateway: 1000,
+        wallet: null,
+        order: paidOrder,
+      })
     ).toBe(false);
   });
 
@@ -49,9 +62,15 @@ describe('isWalletFullyPaidOrder', () => {
     // which would throw on `wallet === undefined` because
     // `undefined !== null` is true and accessing .amountUsed on undefined
     // crashes. Optional chaining keeps it safe.
-    expect(isWalletFullyPaidOrder({ amountDueToGateway: 0 })).toBe(false);
     expect(
-      isWalletFullyPaidOrder({ amountDueToGateway: 0, wallet: undefined })
+      isWalletFullyPaidOrder({ amountDueToGateway: 0, order: paidOrder })
+    ).toBe(false);
+    expect(
+      isWalletFullyPaidOrder({
+        amountDueToGateway: 0,
+        wallet: undefined,
+        order: paidOrder,
+      })
     ).toBe(false);
   });
 
@@ -60,6 +79,31 @@ describe('isWalletFullyPaidOrder', () => {
       isWalletFullyPaidOrder({
         amountDueToGateway: 500,
         wallet: { amountUsed: 500, newBalance: 0, transactionId: 'tx-1' },
+        order: paidOrder,
+      })
+    ).toBe(false);
+  });
+
+  it('returns false when wallet covers fully but server did NOT stamp the order paid (finalize_wallet_order_payment failed)', () => {
+    // Regression: /api/orders/route.ts logs the finalize RPC error and
+    // returns the order as-is (payment_status still 'unpaid') with
+    // amountDueToGateway === 0 and wallet.amountUsed populated. Without
+    // the payment_status check, the client would clear the cart and
+    // route to success on an unpaid order.
+    expect(
+      isWalletFullyPaidOrder({
+        amountDueToGateway: 0,
+        wallet: { amountUsed: 1000, newBalance: 0, transactionId: 'tx-1' },
+        order: unpaidOrder,
+      })
+    ).toBe(false);
+  });
+
+  it('returns false when the order field is missing entirely', () => {
+    expect(
+      isWalletFullyPaidOrder({
+        amountDueToGateway: 0,
+        wallet: { amountUsed: 1000, newBalance: 0, transactionId: 'tx-1' },
       })
     ).toBe(false);
   });
