@@ -299,8 +299,10 @@ export default function AddressFormScreen() {
     >
       <ScrollView
         contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
         keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
       >
         {/* Address Label */}
         <View style={styles.section}>

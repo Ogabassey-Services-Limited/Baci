@@ -190,8 +190,10 @@ export default function ProfileEditScreen() {
       >
         <ScrollView
           style={styles.scrollView}
+          contentInsetAdjustmentBehavior="automatic"
           showsVerticalScrollIndicator={false}
           keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.formContainer}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
