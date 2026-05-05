@@ -106,9 +106,10 @@ export function HeroMobileCarousel({
                           ? 'object-contain object-right'
                           : 'object-cover'
                       }
-                      priority={index === 0}
-                      // Lighthouse did not see a high fetch priority from priority alone with the custom loader.
+                      // Manual viewport preloads cover discovery; keep only
+                      // fetch priority here to avoid duplicate preload links.
                       fetchPriority={index === 0 ? 'high' : undefined}
+                      loading={index === 0 ? 'eager' : 'lazy'}
                       quality={70}
                     />
                   </div>

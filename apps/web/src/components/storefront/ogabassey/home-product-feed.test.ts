@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { Product as StorefrontProduct } from '@/lib/products';
-import { mapStorefrontProductsToOgabasseyProducts } from './home-product-feed';
+import { OGABASSEY_HOME_PRODUCT_FEED_LIMIT } from './config/products';
+import {
+  createOgabasseyHomeProductFeed,
+  mapStorefrontProductsToOgabasseyProducts,
+} from './home-product-feed';
 
 function createStorefrontProduct(
   overrides: Partial<StorefrontProduct>
@@ -93,5 +97,75 @@ describe('mapStorefrontProductsToOgabasseyProducts', () => {
         has_condition_offers: true,
       })
     );
+  });
+});
+
+describe('createOgabasseyHomeProductFeed', () => {
+  it('caps and maps the OgaBassey homepage feed to the compact card shape', () => {
+    const products = Array.from(
+      { length: OGABASSEY_HOME_PRODUCT_FEED_LIMIT + 3 },
+      (_, index) =>
+        createStorefrontProduct({
+          id: `product-${index + 1}`,
+          name: `Product ${index + 1}`,
+          slug: `product-${index + 1}`,
+          description: `Description ${index + 1}`,
+          price: 100000 + index,
+          image: `/product-${index + 1}.jpg`,
+          imageLarge: `/large-product-${index + 1}.jpg`,
+        })
+    );
+
+    const result = createOgabasseyHomeProductFeed(products);
+
+    expect(result).toHaveLength(OGABASSEY_HOME_PRODUCT_FEED_LIMIT);
+    expect(result[0]).toEqual(
+      expect.objectContaining({
+        id: 'product-1',
+        name: 'Product 1',
+        price: '₦100,000',
+        image: '/product-1.jpg',
+      })
+    );
+    expect(result[0]).not.toHaveProperty('imageLarge');
+    expect(result[0]).not.toHaveProperty('product_categories');
+    expect(result.at(-1)?.id).toBe(
+      `product-${OGABASSEY_HOME_PRODUCT_FEED_LIMIT}`
+    );
+  });
+
+  it('returns an empty array when no homepage products are available', () => {
+    expect(createOgabasseyHomeProductFeed([])).toEqual([]);
+  });
+
+  it('keeps every product when the feed is below the homepage limit', () => {
+    const products = [
+      createStorefrontProduct({
+        id: 'product-1',
+        name: 'Product 1',
+        price: 100000,
+        image: '/product-1.jpg',
+      }),
+      createStorefrontProduct({
+        id: 'product-2',
+        name: 'Product 2',
+        price: 200000,
+        image: '/product-2.jpg',
+      }),
+    ];
+
+    const result = createOgabasseyHomeProductFeed(products);
+
+    expect(result).toHaveLength(products.length);
+    expect(result[1]).toEqual(
+      expect.objectContaining({
+        id: 'product-2',
+        name: 'Product 2',
+        price: '₦200,000',
+        image: '/product-2.jpg',
+      })
+    );
+    expect(result[1]).not.toHaveProperty('imageLarge');
+    expect(result[1]).not.toHaveProperty('product_categories');
   });
 });

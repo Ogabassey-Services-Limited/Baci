@@ -3,8 +3,10 @@ import Link from 'next/link';
 import { Suspense } from 'react';
 import { resolveStorefrontTemplateId } from '@/app/(storefront)/[slug]/resolve-storefront-template';
 import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
+import { OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT } from '@/components/storefront/ogabassey/config/products';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
+import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { getCachedNavigationCategories } from '@/lib/cached-categories';
 import {
   type CachedMerchant,
@@ -137,8 +139,12 @@ export async function StorefrontContent({
     product_categories: undefined,
   })) as unknown as Product[];
   const baseUrl = buildRequestScopedStoreUrl(merchant, headersList);
+  const schemaProducts =
+    templateId === OGABASSEY_TEMPLATE_ID
+      ? merchantProducts.slice(0, OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT)
+      : merchantProducts;
   const homeCollectionSchema =
-    merchantProducts.length > 0
+    schemaProducts.length > 0
       ? generateCollectionPageSchema({
           name: `${merchant.business_name} featured products`,
           description: generateMetaDescription(
@@ -147,7 +153,7 @@ export async function StorefrontContent({
               `Featured products from ${merchant.business_name}.`
           ),
           url: baseUrl,
-          products: merchantProducts,
+          products: schemaProducts,
           merchantName: merchant.business_name,
           currency: merchant.payout_currency || 'NGN',
         })

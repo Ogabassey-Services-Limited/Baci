@@ -285,6 +285,20 @@ describe('storefront layout metadata', () => {
     );
   });
 
+  it('leaves route-level alternates to page metadata', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(
+      baseMerchant as unknown as Awaited<
+        ReturnType<typeof getRequestScopedMerchant>
+      >
+    );
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+    });
+
+    expect(metadata.alternates).toBeUndefined();
+  });
+
   it('reads google verification from published_config when feature settings omit it', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue({
       ...baseMerchant,
