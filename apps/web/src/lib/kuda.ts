@@ -344,13 +344,6 @@ export function isKudaVendSuccessful(
   if (final) {
     const lowered = final.toLowerCase();
     if (
-      lowered === 'failed' ||
-      lowered === 'failure' ||
-      lowered === 'unsuccessful'
-    ) {
-      return false;
-    }
-    if (
       lowered === 'successful' ||
       lowered === 'success' ||
       lowered === 'completed' ||
@@ -358,13 +351,21 @@ export function isKudaVendSuccessful(
     ) {
       return true;
     }
+    // Anything else with finalStatus set — failed, pending, processing,
+    // in-progress, or any unrecognized non-terminal value — must NOT be
+    // treated as success. Falling back to the envelope here would silently
+    // credit cashback for vends that haven't actually settled.
+    return false;
   }
   const txStatus =
     normalizeKudaString(data.transactionStatus) ??
     normalizeKudaString(data.TransactionStatus);
-  if (txStatus === '2') return false;
-  if (txStatus === '3') return true;
-  // Indeterminate: trust the envelope, but only when finalStatus is absent.
+  if (txStatus !== undefined) {
+    // 3 = Successful; everything else (2 = Failed, 1 = Pending, etc.) is
+    // not a confirmed success.
+    return txStatus === '3';
+  }
+  // Both finalStatus and transactionStatus absent: trust the envelope.
   return envelopeStatus;
 }
 
