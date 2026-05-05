@@ -25,6 +25,13 @@ interface VtuTransactionRow {
   network_provider: string;
   phone_number: string;
   request_reference: string;
+  source:
+    | 'checkout'
+    | 'loyalty_reward'
+    | 'direct'
+    | 'gift'
+    | 'storefront_modal'
+    | null;
   status: 'pending' | 'processing' | 'successful' | 'failed';
   transaction_id: string | null;
   type: 'airtime' | 'data' | 'electricity' | 'cable_tv' | 'betting';
@@ -208,8 +215,16 @@ function setMetadataValue(
  * Gates:
  *  - row.customer_id must be set (no wallet to credit otherwise)
  *  - row.amount must be positive
- *  - metadata.paymentReference must exist (proxy for "money was actually
- *    collected via a gateway" — direct/test purchases are never refunded)
+ *  - row.source === 'checkout' — only checkout-sourced VTU transactions
+ *    actually collect money (via Paystack initialize OR saved-card charge);
+ *    'direct' and 'storefront_modal' are blocked at the API layer before
+ *    a row is ever created, and 'loyalty_reward' / 'gift' are funded by
+ *    points / merchant, not the customer's payment method.
+ *
+ * Note: an earlier draft gated on metadata.paymentReference but the
+ * saved-card charge path stores that on the transactions row only, not
+ * on vtu_transactions.metadata, so it would have skipped the refund for
+ * saved-card customers (the exact case we most want to cover).
  *
  * Idempotent at the RPC layer via pg_advisory_xact_lock + a uniqueness
  * lookup on (source_type='vtu_transaction_refund', source_id, type='refund').
@@ -233,7 +248,7 @@ async function refundVtuToCustomerWallet({
   if (!row.customer_id || refundedAmount <= 0) {
     return { metadataChanged: false, refundIssued: false, refundedAmount: 0 };
   }
-  if (typeof metadata.paymentReference !== 'string') {
+  if (row.source !== 'checkout') {
     return { metadataChanged: false, refundIssued: false, refundedAmount: 0 };
   }
   if (metadata.refundIssued === true) {
@@ -1026,7 +1041,7 @@ export async function fulfillPendingVtuTransaction({
   const { data: existing, error: existingError } = await supabase
     .from('vtu_transactions')
     .select(
-      'id, merchant_id, customer_id, type, network_provider, phone_number, amount, request_reference, transaction_id, status, metadata, error_message, merchant_commission, customer_cashback, biller_name, biller_item_code, customer_identifier'
+      'id, merchant_id, customer_id, type, network_provider, phone_number, amount, request_reference, transaction_id, status, metadata, error_message, merchant_commission, customer_cashback, biller_name, biller_item_code, customer_identifier, source'
     )
     .eq('id', transactionId)
     .single();

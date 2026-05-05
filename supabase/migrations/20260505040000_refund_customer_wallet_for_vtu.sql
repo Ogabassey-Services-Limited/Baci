@@ -13,6 +13,21 @@
 --      pair via pg_advisory_xact_lock + a uniqueness lookup, so concurrent or
 --      retried fulfillment attempts can't double-refund.
 
+-- Recreate the type check with the full set of values our wallet RPCs
+-- actually write. The original baseline constraint allowed only
+--   cashback, redemption, bonus, adjustment, expiry
+-- but credit_customer_wallet has since been extended to write 'credit' for
+-- wallet_topup sources (see 20260501065340_wallet_topup_credit_idempotency_…),
+-- and the wallet-balance backfill (20260501090716_include_refund_debit_…)
+-- already treats 'credit', 'debit', and 'refund' as first-class types. We
+-- now also need 'refund' for failed-VTU credits. Adding all of them at
+-- once keeps the constraint consistent with every code path that writes
+-- to this table.
+--
+-- Use ADD CONSTRAINT … NOT VALID followed by VALIDATE CONSTRAINT so the
+-- ADD step only takes a brief metadata-level lock; VALIDATE then scans
+-- existing rows under SHARE UPDATE EXCLUSIVE instead of ACCESS EXCLUSIVE,
+-- so concurrent reads/writes are not blocked on large ledger tables.
 ALTER TABLE public.customer_wallet_transactions
   DROP CONSTRAINT IF EXISTS customer_wallet_transactions_type_check;
 
@@ -26,10 +41,16 @@ ALTER TABLE public.customer_wallet_transactions
         'bonus'::text,
         'adjustment'::text,
         'expiry'::text,
+        'credit'::text,
+        'debit'::text,
         'refund'::text
       ]
     )
-  );
+  )
+  NOT VALID;
+
+ALTER TABLE public.customer_wallet_transactions
+  VALIDATE CONSTRAINT customer_wallet_transactions_type_check;
 
 CREATE OR REPLACE FUNCTION public.refund_customer_wallet_for_vtu(
   p_customer_id uuid,

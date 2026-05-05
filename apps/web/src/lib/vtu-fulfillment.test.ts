@@ -1300,6 +1300,7 @@ describe('fulfillPendingVtuTransaction', () => {
       biller_name: 'EKEDC NG - EKEDC PREPAID',
       biller_item_code: 'KUD-ELE-EKED-002',
       customer_identifier: '43901766923',
+      source: 'checkout' as const,
     };
 
     it('refunds the customer wallet when an already-failed row is replayed', async () => {
@@ -1368,7 +1369,7 @@ describe('fulfillPendingVtuTransaction', () => {
           ...FAILED_ROW_BASE,
           customer_id: null,
           status: 'failed',
-          metadata: { paymentReference: 'VTU-PAYSTACK-123' },
+          metadata: {},
         },
         rpcImpl,
       });
@@ -1387,11 +1388,14 @@ describe('fulfillPendingVtuTransaction', () => {
       );
     });
 
-    it('skips the refund when paymentReference is missing (unpaid direct purchase)', async () => {
+    it('skips the refund for non-checkout sources (e.g. loyalty_reward)', async () => {
+      // loyalty_reward, gift, direct, storefront_modal — none of these
+      // collect customer money, so there's nothing to refund.
       const rpcImpl = vi.fn(() => Promise.resolve({ data: null, error: null }));
       const supabase = createPendingTransactionSupabaseMock({
         transactionRow: {
           ...FAILED_ROW_BASE,
+          source: 'loyalty_reward',
           status: 'failed',
           metadata: {},
         },
@@ -1409,6 +1413,52 @@ describe('fulfillPendingVtuTransaction', () => {
       expect(rpcImpl).not.toHaveBeenCalledWith(
         'refund_customer_wallet_for_vtu',
         expect.anything()
+      );
+    });
+
+    it('refunds checkout-sourced rows even when paymentReference is absent (saved-card path)', async () => {
+      // Regression: an earlier draft gated on metadata.paymentReference,
+      // but the saved-card charge path stores that on the transactions row
+      // only — vtu_transactions.metadata has no paymentReference there.
+      // Gating on row.source === 'checkout' covers both flows.
+      const rpcImpl = vi.fn((name: string) =>
+        Promise.resolve(
+          name === 'refund_customer_wallet_for_vtu'
+            ? {
+                data: [
+                  {
+                    success: true,
+                    new_balance: 1050,
+                    transaction_id: 'ledger-saved-card',
+                  },
+                ],
+                error: null,
+              }
+            : { data: null, error: null }
+        )
+      );
+      const supabase = createPendingTransactionSupabaseMock({
+        transactionRow: {
+          ...FAILED_ROW_BASE,
+          status: 'failed',
+          metadata: {}, // saved-card path leaves vtu_transactions.metadata empty
+        },
+        rpcImpl,
+      });
+
+      const result = await fulfillPendingVtuTransaction({
+        retryFailed: false,
+        supabase,
+        transactionId: 'vtu-1',
+      });
+
+      expect(result).toMatchObject({
+        refundedToWallet: 1000,
+        status: 'failed',
+      });
+      expect(rpcImpl).toHaveBeenCalledWith(
+        'refund_customer_wallet_for_vtu',
+        expect.objectContaining({ p_amount: 1000 })
       );
     });
 
