@@ -83,7 +83,28 @@ describe('check-platform-drift', () => {
     expect(result.stderr).toContain('Do not disable Android keyboard avoidance');
   });
 
-  it('passes when an existing forbidden keyboard pattern is explicitly baselined', () => {
+  it('flags formatted variants of the forbidden iOS-only keyboard avoidance pattern', () => {
+    const root = createFixture({
+      'app/login.tsx': `const view = (
+        <KeyboardAvoidingView
+          behavior={ Platform.OS === "ios"
+            ? "padding"
+            : undefined }
+        />
+      );`,
+      'config/platform-branch-allowlist.json': JSON.stringify({
+        platformBranches: ['app/login.tsx'],
+      }),
+    });
+
+    const result = runDriftCheck(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('app/login.tsx');
+    expect(result.stderr).toContain('Do not disable Android keyboard avoidance');
+  });
+
+  it('still requires known forbidden files to be platform-branch allowlisted', () => {
     const root = createFixture({
       'app/login.tsx':
         "const view = <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} />;",
@@ -101,8 +122,53 @@ describe('check-platform-drift', () => {
 
     const result = runDriftCheck(root);
 
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('New files with Platform.OS / Platform.select');
+    expect(result.stderr).toContain('app/login.tsx');
+  });
+
+  it('passes when an existing forbidden keyboard pattern is explicitly baselined', () => {
+    const root = createFixture({
+      'app/login.tsx':
+        "const view = <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} />;",
+      'config/platform-branch-allowlist.json': JSON.stringify({
+        platformBranches: ['app/login.tsx'],
+        knownForbiddenPatterns: [
+          {
+            path: 'app/login.tsx',
+            patternId: 'ios-keyboard-avoidance',
+            justification: 'Phase 3 migrates this screen to shared keyboard primitives.',
+          },
+        ],
+      }),
+    });
+
+    const result = runDriftCheck(root);
+
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('1 known forbidden pattern baseline');
+  });
+
+  it('fails when a known forbidden baseline no longer matches source', () => {
+    const root = createFixture({
+      'app/login.tsx': "const isIOS = Platform.OS === 'ios';",
+      'config/platform-branch-allowlist.json': JSON.stringify({
+        platformBranches: ['app/login.tsx'],
+        knownForbiddenPatterns: [
+          {
+            path: 'app/login.tsx',
+            patternId: 'ios-keyboard-avoidance',
+            justification: 'Phase 3 migrates this screen to shared keyboard primitives.',
+          },
+        ],
+      }),
+    });
+
+    const result = runDriftCheck(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('Stale known forbidden pattern baselines');
+    expect(result.stderr).toContain('app/login.tsx: ios-keyboard-avoidance');
   });
 
   it('reports malformed allowlist JSON', () => {

@@ -11,7 +11,8 @@ const FORBIDDEN_PATTERNS = [
     id: 'ios-keyboard-avoidance',
     description:
       "Do not disable Android keyboard avoidance with `behavior={Platform.OS === 'ios' ? 'padding' : undefined}`.",
-    pattern: /behavior=\{Platform\.OS === ['"]ios['"] \? ['"]padding['"] : undefined\}/,
+    pattern:
+      /behavior\s*=\s*\{\s*Platform\.OS\s*===\s*['"]ios['"]\s*\?\s*['"]padding['"]\s*:\s*undefined\s*\}/,
   },
 ];
 
@@ -163,17 +164,10 @@ export function findForbiddenPatternViolations(projectRoot, relativePaths, sourc
   });
 }
 
-export function findNonAllowlistedFiles(foundFiles, platformBranches, knownForbiddenPatterns) {
+export function findNonAllowlistedFiles(foundFiles, platformBranches) {
   const platformBranchSet = new Set(platformBranches);
-  const knownForbiddenFileSet = new Set(
-    knownForbiddenPatterns.map(({ path: knownPath }) => knownPath)
-  );
 
-  return foundFiles.filter(
-    (relativePath) =>
-      !platformBranchSet.has(relativePath) &&
-      !knownForbiddenFileSet.has(relativePath)
-  );
+  return foundFiles.filter((relativePath) => !platformBranchSet.has(relativePath));
 }
 
 function main() {
@@ -217,8 +211,7 @@ function main() {
   const foundFiles = findPlatformBranchFiles(projectRoot, sourceCache);
   const nonAllowlistedFiles = findNonAllowlistedFiles(
     foundFiles,
-    allowlist.platformBranches,
-    allowlist.knownForbiddenPatterns
+    allowlist.platformBranches
   );
   const violations = findForbiddenPatternViolations(projectRoot, foundFiles, sourceCache);
   const knownForbiddenSet = new Set(

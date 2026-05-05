@@ -13,6 +13,22 @@
       "justification": "Reviewed existing keyboard behavior pending Phase 3 keyboard primitive migration."
     },
     {
+      "path": "app/auth/login.tsx",
+      "justification": "Reviewed known iOS-only keyboard avoidance baseline pending Phase 3 keyboard primitive migration."
+    },
+    {
+      "path": "app/checkout.tsx",
+      "justification": "Reviewed known iOS-only keyboard avoidance baseline pending Phase 3 keyboard primitive migration."
+    },
+    {
+      "path": "app/imei-check/index.tsx",
+      "justification": "Reviewed known iOS-only keyboard avoidance baseline pending Phase 3 keyboard primitive migration."
+    },
+    {
+      "path": "app/profile/edit.tsx",
+      "justification": "Reviewed known iOS-only keyboard avoidance baseline pending Phase 3 keyboard primitive migration."
+    },
+    {
       "path": "app/swap/index.tsx",
       "justification": "Reviewed web guard for native-only swap interactions."
     },
@@ -73,6 +89,10 @@
       "justification": "Reviewed native-only haptic support guard."
     },
     {
+      "path": "components/modals/NegotiationModal.tsx",
+      "justification": "Reviewed known iOS-only keyboard avoidance baseline pending Phase 3 keyboard primitive migration."
+    },
+    {
       "path": "components/navigation/DrawerMenu.tsx",
       "justification": "Reviewed Android back-button behavior for drawer dismissal."
     },
@@ -83,6 +103,10 @@
     {
       "path": "components/profile/MenuSection.tsx",
       "justification": "Reviewed iOS haptic branch for profile menu interactions."
+    },
+    {
+      "path": "components/product/NegotiationModal.tsx",
+      "justification": "Reviewed known iOS-only keyboard avoidance baseline pending Phase 3 keyboard primitive migration."
     },
     {
       "path": "components/receipts/ReceiptPreviewModal.tsx",
