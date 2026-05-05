@@ -13,14 +13,8 @@ This document provides instructions to rollback the modularization of `CheckoutI
 If you haven't committed the changes yet:
 
 ```bash
-# Restore original file
-git checkout HEAD -- apps/mobile-storefront/components/checkout/CheckoutIdentityModal.tsx
-
 # Remove the new module folder
 rm -rf apps/mobile-storefront/components/checkout/checkout-identity/
-
-# Remove backup file
-rm apps/mobile-storefront/components/checkout/CheckoutIdentityModal.backup.tsx
 ```
 
 ---
@@ -33,14 +27,8 @@ If you've already committed or the git history is not available:
 # Navigate to the checkout directory
 cd apps/mobile-storefront/components/checkout/
 
-# Restore from backup
-cp CheckoutIdentityModal.backup.tsx CheckoutIdentityModal.tsx
-
 # Remove the module folder
 rm -rf checkout-identity/
-
-# Remove backup file (optional)
-rm CheckoutIdentityModal.backup.tsx
 ```
 
 ---
@@ -56,8 +44,6 @@ components/checkout/
 ### After (Modular)
 ```
 components/checkout/
-├── CheckoutIdentityModal.tsx          # Re-export wrapper
-├── CheckoutIdentityModal.backup.tsx   # Original backup
 └── checkout-identity/
     ├── index.ts                       # Module exports
     ├── CheckoutIdentityModal.tsx      # Main component (~160 lines)

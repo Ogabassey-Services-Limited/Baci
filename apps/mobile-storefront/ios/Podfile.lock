@@ -218,7 +218,7 @@ PODS:
     - ZXingObjC/PDF417
   - ExpoClipboard (55.0.9):
     - ExpoModulesCore
-  - ExpoCrypto (55.0.10):
+  - ExpoCrypto (55.0.14):
     - ExpoModulesCore
   - ExpoDevice (55.0.10):
     - ExpoModulesCore
@@ -226,7 +226,7 @@ PODS:
     - ExpoModulesCore
   - ExpoFileSystem (55.0.12):
     - ExpoModulesCore
-  - ExpoFont (55.0.4):
+  - ExpoFont (55.0.6):
     - ExpoModulesCore
   - ExpoGlassEffect (55.0.8):
     - ExpoModulesCore
@@ -1870,6 +1870,51 @@ PODS:
     - FBSDKGamingServicesKit (~> 18.0)
     - FBSDKShareKit (~> 18.0)
     - React-Core
+  - react-native-keyboard-controller (1.21.7):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - react-native-keyboard-controller/common (= 1.21.7)
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
+  - react-native-keyboard-controller/common (1.21.7):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - react-native-netinfo (12.0.1):
     - hermes-engine
     - RCTRequired
@@ -2764,6 +2809,7 @@ DEPENDENCIES:
   - React-Mapbuffer (from `../../../node_modules/react-native/ReactCommon`)
   - React-microtasksnativemodule (from `../../../node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)
   - react-native-fbsdk-next (from `../../../node_modules/react-native-fbsdk-next`)
+  - react-native-keyboard-controller (from `../../../node_modules/react-native-keyboard-controller`)
   - "react-native-netinfo (from `../../../node_modules/@react-native-community/netinfo`)"
   - react-native-render-html (from `../../../node_modules/react-native-render-html`)
   - react-native-safe-area-context (from `../../../node_modules/react-native-safe-area-context`)
@@ -3012,6 +3058,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
   react-native-fbsdk-next:
     :path: "../../../node_modules/react-native-fbsdk-next"
+  react-native-keyboard-controller:
+    :path: "../../../node_modules/react-native-keyboard-controller"
   react-native-netinfo:
     :path: "../../../node_modules/@react-native-community/netinfo"
   react-native-render-html:
@@ -3122,11 +3170,11 @@ SPEC CHECKSUMS:
   ExpoAsset: 4efd0227e808dfa84d286aa3663ded641ef73479
   ExpoCamera: fee0aadc5cc2968f39a51d0b2f1ddbdf4dfe5d72
   ExpoClipboard: fba6501fed478667b1cc888e999f82fb2838c685
-  ExpoCrypto: 33a6c4fb9ccac7a4d784954d0db6c3ba292123e9
+  ExpoCrypto: 9fd0b78215cffa1aa20de026d452242401aa37dc
   ExpoDevice: 59e75517522497afec3b48bd1e31735f066a9f43
   ExpoDomWebView: f101fb3db4b6eec4163fca51f7507189b7e48661
   ExpoFileSystem: 4ed8ccc90671813c861f212fba3668fe133b7e68
-  ExpoFont: 1aa465cf9f8ac6b670405becba8b15473581b2dd
+  ExpoFont: cdd7a1d574a376fa003c713eff49e0a4df8672c7
   ExpoGlassEffect: 42361543f2c0c383df0cb779e3cd2496b47a585e
   ExpoHaptics: bc44f72943e785c2fdb912738a3665142569472d
   ExpoImage: 53ab717157f29bb5139f9f75b259f93f784b6847
@@ -3162,7 +3210,7 @@ SPEC CHECKSUMS:
   FirebaseCore: f4428e22415ea3b3eca652c2098413dabf2a23a9
   FirebaseCoreInternal: e7bbaeb00ab73011298f35ed223aa7371e212948
   GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
-  hermes-engine: 6b7b602b0fbca43d4716baab47772ca9a77d116e
+  hermes-engine: 330437d5b1b120c29f800a7b282dd6e30640593b
   libavif: 5f8e715bea24debec477006f21ef9e95432e254d
   libdav1d: 23581a4d8ec811ff171ed5e2e05cd27bad64c39f
   libwebp: 02b23773aedb6ff1fd38cec7a77b81414c6842a8
@@ -3180,7 +3228,7 @@ SPEC CHECKSUMS:
   React: 1ba7d364ade7d883a1ec055bfc3606f35fdee17b
   React-callinvoker: bc2a26f8d84fb01f003fc6de6c9337b64715f95b
   React-Core: 7840d3a80b43a95c5e80ef75146bd70925ebab0f
-  React-Core-prebuilt: 6ae29c6a046b7f477b114189104ec3ee74e36daf
+  React-Core-prebuilt: e1917988961faec985e9b810e4f00e02ee44a74d
   React-CoreModules: 2eb010400b63b89e53a324ffb3c112e4c7c3ce42
   React-cxxreact: a558e92199d26f145afa9e62c4233cf8e7950efe
   React-debug: d196e6df0599d78360b3211367e28c5583054133
@@ -3209,6 +3257,7 @@ SPEC CHECKSUMS:
   React-Mapbuffer: 0db00b587a6a6f0f6813e9fb2655e337261f513e
   React-microtasksnativemodule: 7ccd4c74006eec09a2df88ca31ba8b0c22c50a4d
   react-native-fbsdk-next: 325e4973a478f098bb9406fb2a13fa2e1f5dffeb
+  react-native-keyboard-controller: afb565d9bc6611e5a01f7c83b64df98974dd5d71
   react-native-netinfo: f6ef8e2319c27b4f48599b85fc827f64b69c5c6d
   react-native-render-html: 5afc4751f1a98621b3009432ef84c47019dcb2bd
   react-native-safe-area-context: 90476586077446d5eab1d41ac3e767b016ac41d6
@@ -3246,7 +3295,7 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: e96e93b493d8d86eeaee3e590ba0be53f6abe46f
   ReactCodegen: 0d7d78e221fde7ae406297d8de9baf54843b5c4d
   ReactCommon: 07572bf9e687c8a52fbe4a3641e9e3a1a477c78e
-  ReactNativeDependencies: 7b55cd01b9c27f9d116b666d93cf9cbea992ffb8
+  ReactNativeDependencies: c185d218ef20d46cff06ccf32ed283f081a19d52
   RNFBApp: 7a234f611af9c79d8ab4d0cfbbce7b266ee022e5
   RNGestureHandler: 2d9fbac3450b0317d1d599a1db9c5f230221370e
   RNReanimated: d9fffe90263607a6a770456b1a7931056c8698ab
