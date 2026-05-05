@@ -1530,6 +1530,113 @@ describe('fulfillPendingVtuTransaction', () => {
       expect(mockPurchaseBill).not.toHaveBeenCalled();
     });
 
+    it('blocks retry via the ledger when refundIssued metadata is missing but a refund row exists', async () => {
+      // Models the crash-between-RPC-and-metadata-write case: the wallet
+      // was credited in a prior fulfillment, but the metadata update failed
+      // so refundIssued !== true on this row. The retry path must consult
+      // the ledger and refuse to re-vend.
+      const supabaseLedgerSelect = {
+        eq: vi.fn(() => supabaseLedgerSelect),
+        order: vi.fn(() => supabaseLedgerSelect),
+        limit: vi.fn(() => supabaseLedgerSelect),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { amount: 1000 },
+          error: null,
+        }),
+      };
+      const transactionRow = {
+        ...FAILED_ROW_BASE,
+        status: 'failed',
+        metadata: {}, // metadata write previously failed; refundIssued absent
+      };
+      const supabase = {
+        from: vi.fn((table: string) => {
+          if (table === 'vtu_transactions') {
+            return {
+              select: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  single: vi.fn().mockResolvedValue({
+                    data: transactionRow,
+                    error: null,
+                  }),
+                })),
+              })),
+            };
+          }
+          if (table === 'customer_wallet_transactions') {
+            return { select: vi.fn(() => supabaseLedgerSelect) };
+          }
+          return { select: vi.fn() };
+        }),
+        rpc: vi.fn(() => Promise.resolve({ data: null, error: null })),
+      } as unknown as SupabaseStub;
+
+      const result = await fulfillPendingVtuTransaction({
+        retryFailed: true,
+        supabase,
+        transactionId: 'vtu-1',
+      });
+
+      expect(result).toMatchObject({
+        amount: 1000,
+        refundedToWallet: 1000,
+        status: 'failed',
+      });
+      expect(mockCheckTransactionStatus).not.toHaveBeenCalled();
+      expect(mockPurchaseAirtime).not.toHaveBeenCalled();
+      expect(mockPurchaseBill).not.toHaveBeenCalled();
+    });
+
+    it('throws VtuPersistenceError when refund RPC succeeded but metadata persistence fails', async () => {
+      // Fail-closed: the wallet was credited, but writing refundIssued=true
+      // back to vtu_transactions failed. Returning success here would let a
+      // later retry miss the cached flag (and the ledger source-of-truth on
+      // the retry path is the second line of defence). Surface the error so
+      // the next request retries the metadata write.
+      const rpcImpl = vi.fn((name: string) =>
+        Promise.resolve(
+          name === 'refund_customer_wallet_for_vtu'
+            ? {
+                data: [
+                  {
+                    success: true,
+                    new_balance: 1050,
+                    transaction_id: 'ledger-x',
+                  },
+                ],
+                error: null,
+              }
+            : { data: null, error: null }
+        )
+      );
+      const supabase = createPendingTransactionSupabaseMock({
+        transactionRow: {
+          ...FAILED_ROW_BASE,
+          status: 'failed',
+          metadata: {},
+        },
+        rpcImpl,
+        updateErrors: {
+          finalMetadata: { message: 'metadata write failed' },
+        },
+      });
+
+      await expect(
+        fulfillPendingVtuTransaction({
+          retryFailed: false,
+          supabase,
+          transactionId: 'vtu-1',
+        })
+      ).rejects.toThrow(/Failed to persist VTU refund metadata/);
+      // RPC must have been called even though we throw afterwards — the
+      // ledger row exists, so the next attempt (via the retryFailed path)
+      // will find it.
+      expect(rpcImpl).toHaveBeenCalledWith(
+        'refund_customer_wallet_for_vtu',
+        expect.anything()
+      );
+    });
+
     it('returns failed without refundedToWallet when the refund RPC errors', async () => {
       const rpcImpl = vi.fn((name: string) =>
         Promise.resolve(

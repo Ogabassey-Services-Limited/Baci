@@ -418,6 +418,36 @@ async function findExistingCustomerCashback({
   return data;
 }
 
+async function findExistingVtuRefundLedger({
+  row,
+  supabase,
+}: {
+  row: VtuTransactionRow;
+  supabase: SupabaseClient;
+}): Promise<{ amount: number } | null> {
+  if (!row.customer_id) return null;
+  const { data, error } = await supabase
+    .from('customer_wallet_transactions')
+    .select('amount')
+    .eq('customer_id', row.customer_id)
+    .eq('merchant_id', row.merchant_id)
+    .eq('source_type', 'vtu_transaction_refund')
+    .eq('source_id', row.id)
+    .eq('type', 'refund')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    // Fail closed: if we can't verify whether a refund row already exists,
+    // do NOT proceed with a retry — that's the path that would double-credit.
+    throwVtuPersistenceError(
+      `Failed to verify VTU refund ledger before retry: ${error.message}`
+    );
+  }
+  if (!data) return null;
+  return { amount: Number(data.amount) || 0 };
+}
+
 async function findExistingMerchantCommission({
   row,
   supabase,
@@ -1070,11 +1100,20 @@ export async function fulfillPendingVtuTransaction({
         .update({ metadata: refundMetadata })
         .eq('id', row.id);
       if (refundMetadataUpdateError) {
+        // Fail closed: the wallet was credited via the (idempotent) RPC, but
+        // the row still says refundIssued=false. If we silently returned, a
+        // later retryFailed call could miss the metadata flag and re-vend
+        // the same row, double-crediting the customer. Surface the failure
+        // so the next request retries the metadata write — the RPC will
+        // short-circuit on the existing ledger row.
         console.error('Failed to persist VTU refund metadata:', {
           error: refundMetadataUpdateError.message,
           metadata: getSafeMetadataDiagnostics(refundMetadata),
           transactionId: row.id,
         });
+        throwVtuPersistenceError(
+          `Failed to persist VTU refund metadata for ${row.id}: ${refundMetadataUpdateError.message}`
+        );
       }
     }
     return {
@@ -1100,17 +1139,30 @@ export async function fulfillPendingVtuTransaction({
     // keep both the wallet refund AND the successful vend value — a direct
     // monetary loss. The customer should place a new purchase that draws
     // from the wallet credit instead.
+    // Source-of-truth check: metadata.refundIssued is a cache; the
+    // customer_wallet_transactions ledger is authoritative. If a prior
+    // fulfillment crashed between the RPC commit and the metadata update,
+    // the cache flag would be missing even though the wallet was already
+    // credited. Read the ledger to catch that case before allowing a vend
+    // retry that would otherwise double-credit.
     const existingMetadata = (row.metadata ?? {}) as Record<string, unknown>;
-    if (existingMetadata.refundIssued === true) {
-      const refundAmount = Number(existingMetadata.refundAmount);
+    const cachedRefundIssued = existingMetadata.refundIssued === true;
+    const ledgerRefund = cachedRefundIssued
+      ? null
+      : await findExistingVtuRefundLedger({ row, supabase });
+    if (cachedRefundIssued || ledgerRefund) {
+      const refundAmount =
+        Number(existingMetadata.refundAmount) ||
+        ledgerRefund?.amount ||
+        Number(row.amount) ||
+        0;
       return {
         amount: Number(row.amount) || 0,
         error:
           row.error_message ||
           'Original payment was refunded to wallet — please retry as a new purchase.',
         reference: row.request_reference,
-        ...(Number.isFinite(refundAmount) &&
-          refundAmount > 0 && { refundedToWallet: refundAmount }),
+        ...(refundAmount > 0 && { refundedToWallet: refundAmount }),
         status: 'failed',
       };
     }
@@ -1222,11 +1274,17 @@ export async function fulfillPendingVtuTransaction({
         .update({ metadata: refundMetadata })
         .eq('id', row.id);
       if (refundMetadataUpdateError) {
+        // Fail closed — see the matching block above for rationale: the
+        // wallet was already credited via the idempotent RPC, so silently
+        // continuing here would let a later retry re-vend the same row.
         console.error('Failed to persist VTU refund metadata:', {
           error: refundMetadataUpdateError.message,
           metadata: getSafeMetadataDiagnostics(refundMetadata),
           transactionId: row.id,
         });
+        throwVtuPersistenceError(
+          `Failed to persist VTU refund metadata for ${row.id}: ${refundMetadataUpdateError.message}`
+        );
       }
     }
     return {
