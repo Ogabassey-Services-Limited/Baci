@@ -25,6 +25,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
 import AppKeyboardAwareScrollView from '@/components/ui/AppKeyboardAwareScrollView';
+import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useToast } from '@/components/ui/Toast';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -184,7 +185,9 @@ export default function ProfileEditScreen() {
         }}
       />
 
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <AppKeyboardContainer
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
         <AppKeyboardAwareScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
@@ -267,7 +270,7 @@ export default function ProfileEditScreen() {
 
         {/* 2026 Best Practice: Toast feedback component */}
         <toast.Toast />
-      </View>
+      </AppKeyboardContainer>
     </>
   );
 }
