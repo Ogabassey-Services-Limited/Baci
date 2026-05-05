@@ -1,75 +1,143 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import path from 'node:path';
 
 const APP_ROOT = path.resolve(__dirname, '../../app');
-const DISALLOWED_SUPPORT_FILES = [
-  'product/normalize-route-condition.ts',
-  'product/product-detail-screen.fixtures.ts',
-  'product/product-selection.ts',
-  'root-layout-nav.tsx',
-];
 
-function collectTestUtilsFiles(currentPath: string): string[] {
+const ROUTE_MODULE_EXTENSION_PATTERN =
+  /\.(?:(?:android|ios|native|web)\.)?(ts|tsx|js|jsx)$/;
+const ROUTE_PLATFORM_SEGMENT_PATTERN =
+  /\.(android|ios|native|web)\.(ts|tsx|js|jsx)$/;
+const EXPO_ROUTER_SPECIAL_FILES = new Set([
+  '+html.ts',
+  '+html.tsx',
+  '+html.js',
+  '+html.jsx',
+  '+middleware.ts',
+  '+middleware.tsx',
+  '+middleware.js',
+  '+middleware.jsx',
+  '+native-intent.ts',
+  '+native-intent.tsx',
+  '+native-intent.js',
+  '+native-intent.jsx',
+  '+not-found.ts',
+  '+not-found.tsx',
+  '+not-found.js',
+  '+not-found.jsx',
+]);
+const EXPLICIT_STATIC_ROUTES = new Set([
+  '(tabs)/account.tsx',
+  '(tabs)/cart.tsx',
+  '(tabs)/categories.tsx',
+  '(tabs)/saved.tsx',
+  '(tabs)/wallet.tsx',
+  'auth/callback.tsx',
+  'auth/login.tsx',
+  'checkout.tsx',
+  'notifications.tsx',
+  'order-success.tsx',
+  'profile/delete-account.tsx',
+  'profile/edit.tsx',
+  'search.tsx',
+  'utilities/history.tsx',
+]);
+
+function collectModuleFiles(currentPath: string): string[] {
   return readdirSync(currentPath, { withFileTypes: true }).flatMap((entry) => {
     const entryPath = path.join(currentPath, entry.name);
 
     if (entry.isDirectory()) {
-      return collectTestUtilsFiles(entryPath);
+      return collectModuleFiles(entryPath);
     }
 
-    return /\.test-utils\.(ts|tsx)$/.test(entry.name)
-      ? [path.relative(APP_ROOT, entryPath)]
-      : [];
-  });
-}
-
-function collectDisallowedSupportFiles(currentPath: string): string[] {
-  return readdirSync(currentPath, { withFileTypes: true }).flatMap((entry) => {
-    const entryPath = path.join(currentPath, entry.name);
-
-    if (entry.isDirectory()) {
-      return collectDisallowedSupportFiles(entryPath);
+    if (!ROUTE_MODULE_EXTENSION_PATTERN.test(entry.name)) {
+      return [];
     }
 
     const relativePath = path.relative(APP_ROOT, entryPath);
-
-    return DISALLOWED_SUPPORT_FILES.includes(relativePath)
-      ? [relativePath]
-      : [];
+    return [relativePath.split(path.sep).join('/')];
   });
 }
 
-const TAB_ROUTE_DIR = path.resolve(APP_ROOT, '(tabs)');
-
-// Expo Router auto-registers any non-underscored module file as a route.
-// Helper modules that live next to a tab screen (e.g. `wallet.styles.ts`)
-// therefore leak as `wallet.styles` tabs in the bottom bar.
-//
-// Match files of the form `<segment>.<segment>.<ext>` where:
-//   - both segments are lowercase alphanumeric or hyphens,
-//   - the middle segment is NOT `test` or `test-utils` (those are real test files),
-//   - extension is ts/tsx/js/jsx.
-function collectLeakedTabHelpers(): string[] {
-  return readdirSync(TAB_ROUTE_DIR).filter((fileName) =>
-    /^[a-z0-9-]+\.(?!test\.|test-utils\.)[a-z0-9-]+\.(ts|tsx|js|jsx)$/.test(
-      fileName
-    )
+function isRouteFile(relativePath: string): boolean {
+  const fileName = path.basename(relativePath);
+  const routeFileName = fileName.replace(
+    ROUTE_PLATFORM_SEGMENT_PATTERN,
+    '.$2'
   );
+  const routePath = relativePath.replace(
+    ROUTE_PLATFORM_SEGMENT_PATTERN,
+    '.$2'
+  );
+
+  if (EXPO_ROUTER_SPECIAL_FILES.has(routeFileName)) {
+    return true;
+  }
+
+  if (/^_layout\.(ts|tsx|js|jsx)$/.test(routeFileName)) {
+    return true;
+  }
+
+  if (/^index\.(ts|tsx|js|jsx)$/.test(routeFileName)) {
+    return true;
+  }
+
+  if (/^.+\+api\.(ts|tsx|js|jsx)$/.test(routeFileName)) {
+    return true;
+  }
+
+  if (
+    /^(?:\[[a-zA-Z0-9_-]+\]|\[\.\.\.[a-zA-Z0-9_-]+\]|\[\[\.\.\.[a-zA-Z0-9_-]+\]\])\.(ts|tsx|js|jsx)$/.test(
+      routeFileName
+    )
+  ) {
+    return true;
+  }
+
+  return EXPLICIT_STATIC_ROUTES.has(routePath);
 }
 
 describe('app route tree safety', () => {
-  it('does not keep test utility modules inside the expo-router app directory', () => {
-    expect(collectTestUtilsFiles(APP_ROOT)).toEqual([]);
+  it.each([
+    ['+html.tsx'],
+    ['+middleware.ts'],
+    ['+native-intent.tsx'],
+    ['+not-found.tsx'],
+    ['_layout.tsx'],
+    ['_layout.web.tsx'],
+    ['index.tsx'],
+    ['index.ios.tsx'],
+    ['category/[slug].tsx'],
+    ['category/[slug].android.tsx'],
+    ['orders/[...params].tsx'],
+    ['utilities/[[...optional]].tsx'],
+    ['api/products+api.ts'],
+    ['api/products+api.web.ts'],
+    ['api/inventory.refresh+api.tsx'],
+    ['search.tsx'],
+    ['search.native.tsx'],
+  ])('allows valid Expo Router module %s', (routeModule) => {
+    expect(isRouteFile(routeModule)).toBe(true);
   });
 
-  it('keeps support modules out of the expo-router app directory', () => {
-    expect(collectDisallowedSupportFiles(APP_ROOT)).toEqual([]);
-  });
+  it('keeps the expo-router app directory route-only', () => {
+    const nonRouteFiles = collectModuleFiles(APP_ROOT).filter(
+      (filePath) => !isRouteFile(filePath)
+    );
 
-  it('keeps non-route helper modules out of the (tabs) directory', () => {
-    // Fail loudly if the (tabs) directory is missing or renamed — silently
-    // returning [] would let a structural regression slip through.
-    expect(existsSync(TAB_ROUTE_DIR)).toBe(true);
-    expect(collectLeakedTabHelpers()).toEqual([]);
+    if (nonRouteFiles.length > 0) {
+      throw new Error(
+        [
+          'Found non-route module files under apps/mobile-storefront/app:',
+          ...nonRouteFiles.map((filePath) => `- ${filePath}`),
+          '',
+          'Move route tests to apps/mobile-storefront/__tests__/app/<route>/.',
+          'Move reusable UI to components/, stateful hooks to hooks/, and pure helpers/config to lib/ or feature folders outside app/.',
+          'Expo Router treats module files under app/ as route candidates, so app/ must stay route-only.',
+        ].join('\n')
+      );
+    }
+
+    expect(nonRouteFiles).toEqual([]);
   });
 });

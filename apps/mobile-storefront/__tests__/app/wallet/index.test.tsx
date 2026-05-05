@@ -8,9 +8,9 @@ import {
 } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Alert, Text, View } from 'react-native';
+import WalletScreen from '@/app/wallet';
 import { WALLET_TAB_SCROLL_PADDING_BOTTOM } from '@/components/wallet/wallet-tab.constants';
 import { SPACING } from '@/constants/Colors';
-import WalletScreen from './index';
 
 type MockStorefrontScreenShellProps = {
   children?: ReactNode;
@@ -346,8 +346,8 @@ describe('WalletScreen', () => {
 
     render(<WalletScreen />);
 
-    expect(screen.getByText('Preparing your wallet...')).toBeTruthy();
-    expect(screen.getByTestId('wallet-activity-indicator')).toBeTruthy();
+    expect(screen.getByText('Preparing your wallet...')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Preparing wallet')).toBeOnTheScreen();
   });
 
   it('renders wallet data while the customer record is still hydrating', () => {
@@ -359,7 +359,7 @@ describe('WalletScreen', () => {
 
     render(<WalletScreen />);
 
-    expect(screen.getByText('wallet-balance:125000')).toBeTruthy();
+    expect(screen.getByText('wallet-balance:125000')).toBeOnTheScreen();
     expect(screen.queryByText('Preparing your wallet...')).toBeNull();
   });
 
@@ -372,7 +372,7 @@ describe('WalletScreen', () => {
 
     render(<WalletScreen />);
 
-    expect(screen.getByText('wallet-balance:125000')).toBeTruthy();
+    expect(screen.getByText('wallet-balance:125000')).toBeOnTheScreen();
     expect(screen.queryByText('Preparing your wallet...')).toBeNull();
   });
 
@@ -415,8 +415,8 @@ describe('WalletScreen', () => {
 
     render(<WalletScreen />);
 
-    expect(screen.getByText('show-fund-panel:true')).toBeTruthy();
-    expect(screen.getByText('show-redeem-panel:false')).toBeTruthy();
+    expect(screen.getByText('show-fund-panel:true')).toBeOnTheScreen();
+    expect(screen.getByText('show-redeem-panel:false')).toBeOnTheScreen();
   });
 
   it('opens the reward redemption panel from the route action', () => {
@@ -424,8 +424,8 @@ describe('WalletScreen', () => {
 
     render(<WalletScreen />);
 
-    expect(screen.getByText('show-fund-panel:false')).toBeTruthy();
-    expect(screen.getByText('show-redeem-panel:true')).toBeTruthy();
+    expect(screen.getByText('show-fund-panel:false')).toBeOnTheScreen();
+    expect(screen.getByText('show-redeem-panel:true')).toBeOnTheScreen();
   });
 
   it('blocks invalid wallet top-up amounts before calling the API', () => {
@@ -506,11 +506,12 @@ describe('WalletScreen', () => {
     );
 
     const successActions = alertSpy.mock.calls.at(-1)?.[2];
-    if (Array.isArray(successActions)) {
-      act(() => {
-        successActions[0]?.onPress?.();
-      });
-    }
+    expect(Array.isArray(successActions)).toBe(true);
+    expect(successActions).toHaveLength(1);
+
+    act(() => {
+      successActions?.[0]?.onPress?.();
+    });
 
     await waitFor(() => {
       const walletContentProps = mockWalletContent.mock.calls.at(-1)?.[0];

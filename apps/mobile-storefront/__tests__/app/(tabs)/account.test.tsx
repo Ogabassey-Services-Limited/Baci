@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { render, screen } from '@testing-library/react-native';
 import { View } from 'react-native';
-import AccountScreen from './account';
+import AccountScreen from '@/app/(tabs)/account';
 
 interface MockStorefrontScreenShellProps {
   children?: React.ReactNode;
@@ -168,7 +168,7 @@ describe('AccountScreen', () => {
     });
   });
 
-  it('renders a loading state before auth initialization completes', () => {
+  it('renders a placeholder before auth initialization completes', () => {
     mockUseAuthStatus.mockReturnValue({
       isInitialized: false,
       user: null,

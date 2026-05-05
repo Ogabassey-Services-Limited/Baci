@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import {
   fireEvent,
   render,
@@ -7,9 +7,9 @@ import {
 } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Alert, View } from 'react-native';
+import AddressesScreen from '@/app/addresses';
 import { ADDRESS_LIST_BOTTOM_PADDING } from '@/components/addresses/constants';
 import type { Address } from '@/components/addresses/types';
-import AddressesScreen from './index';
 
 type MockStorefrontScreenShellProps = {
   children?: ReactNode;
@@ -148,6 +148,10 @@ describe('AddressesScreen', () => {
     });
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('uses the storefront shell and list inset helper for the addresses layout', async () => {
     render(<AddressesScreen />);
 
@@ -210,8 +214,8 @@ describe('AddressesScreen', () => {
       href: '/auth/login?returnTo=%2Faddresses',
     });
     expect(
-      screen.getByTestId('addresses-redirect').props.accessibilityLabel
-    ).toBe('/auth/login?returnTo=%2Faddresses');
+      screen.getByLabelText('/auth/login?returnTo=%2Faddresses')
+    ).toBeOnTheScreen();
   });
 
   it('renders the fetch error state when loading saved addresses fails', async () => {

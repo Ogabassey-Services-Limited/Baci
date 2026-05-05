@@ -9,12 +9,12 @@ import {
 } from '@testing-library/react-native';
 import { router } from 'expo-router';
 import type React from 'react';
+import PaymentGatewayScreen from '@/app/payment-gateway';
 import { setClipboardString } from '@/lib/clipboard';
 import {
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
-import PaymentGatewayScreen from './index';
 
 const mockToastError = jest.fn();
 const mockToastSuccess = jest.fn();
@@ -346,7 +346,7 @@ describe('PaymentGatewayScreen', () => {
     await waitFor(() =>
       expect(screen.getByText('Payment Successful!')).toBeTruthy()
     );
-    act(() => {
+    await act(async () => {
       jest.runOnlyPendingTimers();
     });
     await waitFor(() =>

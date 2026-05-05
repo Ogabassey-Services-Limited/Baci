@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
+import CartScreen from '@/app/(tabs)/cart';
 import Colors from '@/constants/Colors';
-import CartScreen from './cart';
 
 type MockAuthStatus = {
   customer: null;
@@ -179,6 +179,9 @@ describe('CartScreen theming', () => {
     ).toMatchObject({ color: Colors.light.text });
     expect(
       StyleSheet.flatten(screen.getByText('Device Protection (+5%)').props.style)
+    ).toMatchObject({ color: Colors.light.textSecondary });
+    expect(
+      StyleSheet.flatten(screen.getByText('Secure Checkout').props.style)
     ).toMatchObject({ color: Colors.light.textSecondary });
   });
 });

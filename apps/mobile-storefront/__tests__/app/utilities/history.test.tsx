@@ -14,9 +14,9 @@ import {
 } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Alert, View } from 'react-native';
+import UtilityHistoryScreen from '@/app/utilities/history';
 import Colors, { SPACING } from '@/constants/Colors';
 import type { VTUHistoryTransaction } from '@/hooks/use-vtu-history';
-import UtilityHistoryScreen from './history';
 
 interface MockStorefrontScreenShellProps {
   children?: ReactNode;

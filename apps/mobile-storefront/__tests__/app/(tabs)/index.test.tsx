@@ -7,7 +7,7 @@ import {
   HomeScreen,
   mockGetTemplateConfig,
   setupHomeScreenTestState,
-} from '../../test-support/(tabs)/index.test-utils';
+} from '../../../test-support/(tabs)/index.test-utils';
 
 describe('HomeScreen', () => {
   setupHomeScreenTestState();
@@ -27,9 +27,11 @@ describe('HomeScreen', () => {
   });
 
   it('uses tab-bar clearance only when the chat widget is disabled', () => {
+    const template = createTemplateConfig();
+
     mockGetTemplateConfig.mockReturnValue({
-      ...createTemplateConfig(),
-      features: { chatWidget: false },
+      ...template,
+      features: { ...template.features, chatWidget: false },
     });
 
     render(<HomeScreen />);

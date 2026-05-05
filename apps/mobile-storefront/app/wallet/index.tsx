@@ -208,6 +208,7 @@ export default function WalletScreen({
         <View style={[styles.container, styles.centered]}>
           <ActivityIndicator
             testID="wallet-activity-indicator"
+            accessibilityLabel="Preparing wallet"
             size="large"
             color={BRAND.primary}
           />
