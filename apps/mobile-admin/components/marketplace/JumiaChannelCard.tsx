@@ -15,6 +15,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { JUMIA_CONNECTION_STATUS } from '@/constants/marketplace';
 import { useMerchant } from '@/hooks/useMerchant';
 import { apiClient } from '@/lib/api-client';
 import { jumiaChannelCardStyles as styles } from './JumiaChannelCard.styles';
@@ -47,7 +48,7 @@ export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
     isFetching,
     isError: statusError,
   } = useQuery({
-    queryKey: ['jumia-connection-status', merchantId],
+    queryKey: [JUMIA_CONNECTION_STATUS, merchantId],
     queryFn: ({ signal }) =>
       apiClient<{ integrations?: JumiaIntegration[] }>(
         '/api/marketplace/jumia/connect',
@@ -114,7 +115,7 @@ export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
 
           if (exchangeData.success) {
             void queryClient.invalidateQueries({
-              queryKey: ['jumia-connection-status', merchantId],
+              queryKey: [JUMIA_CONNECTION_STATUS, merchantId],
             });
             Alert.alert('Success', 'Jumia account connected successfully!');
           } else {
@@ -165,14 +166,23 @@ export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
       );
 
       void queryClient.invalidateQueries({
-        queryKey: ['jumia-connection-status', merchantId],
+        queryKey: [JUMIA_CONNECTION_STATUS, merchantId],
       });
 
-      const failedResult = results.find(
-        (result) => result.status === 'rejected'
+      const failedResults = results.filter(
+        (result): result is PromiseRejectedResult =>
+          result.status === 'rejected'
       );
-      if (failedResult) {
-        throw failedResult.reason;
+      if (failedResults.length > 0) {
+        if (failedResults.length > 1) {
+          console.error(
+            '[JumiaChannelCard] disconnect failures',
+            failedResults.map((result) =>
+              getSafeJumiaErrorLog(result.reason)
+            )
+          );
+        }
+        throw failedResults[0].reason;
       }
 
       Alert.alert('Disconnected', 'Jumia account disconnected');

@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { JUMIA_CONNECTION_STATUS } from '@/constants/marketplace';
 import { JumiaChannelCard } from './JumiaChannelCard';
 
 const mocks = vi.hoisted(() => ({
@@ -138,7 +139,7 @@ describe('JumiaChannelCard', () => {
       );
     });
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['jumia-connection-status', 'merchant-1'],
+      queryKey: [JUMIA_CONNECTION_STATUS, 'merchant-1'],
     });
     expect(mocks.alert).toHaveBeenLastCalledWith(
       'Disconnected',
@@ -179,7 +180,7 @@ describe('JumiaChannelCard', () => {
       );
     });
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['jumia-connection-status', 'merchant-1'],
+      queryKey: [JUMIA_CONNECTION_STATUS, 'merchant-1'],
     });
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       '[JumiaChannelCard] disconnect failed',
@@ -218,13 +219,66 @@ describe('JumiaChannelCard', () => {
 
     await waitFor(() => {
       expect(mocks.invalidateQueries).toHaveBeenCalledWith({
-        queryKey: ['jumia-connection-status', 'merchant-1'],
+        queryKey: [JUMIA_CONNECTION_STATUS, 'merchant-1'],
       });
       expect(mocks.alert).toHaveBeenLastCalledWith(
         'Error',
         'Second integration failed'
       );
     });
+  });
+
+  it('logs all sanitized disconnect failures when multiple requests fail', async () => {
+    const firstError = new Error('First integration failed');
+    const secondError = new Error('Second integration failed');
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mocks.apiClient
+      .mockRejectedValueOnce(firstError)
+      .mockRejectedValueOnce(secondError);
+    mocks.useQuery.mockReturnValue({
+      data: { integrations: [{ id: 'int-1' }, { id: 'int-2' }] },
+      isError: false,
+      isFetching: false,
+      isLoading: false,
+    });
+
+    render(<JumiaChannelCard colors={colors} shadows={{ sm: {} }} />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /disconnect jumia account/i })
+    );
+
+    const buttons = mocks.alert.mock.calls[0]?.[2] as
+      | Array<{ onPress?: () => void; text: string }>
+      | undefined;
+    await act(async () => {
+      buttons?.find((button) => button.text === 'Disconnect')?.onPress?.();
+    });
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenLastCalledWith(
+        'Error',
+        'First integration failed'
+      );
+    });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[JumiaChannelCard] disconnect failures',
+      [
+        { name: 'Error', message: 'First integration failed' },
+        { name: 'Error', message: 'Second integration failed' },
+      ]
+    );
+    expect(consoleErrorSpy).not.toHaveBeenCalledWith(
+      expect.any(String),
+      firstError
+    );
+    expect(consoleErrorSpy).not.toHaveBeenCalledWith(
+      expect.any(String),
+      secondError
+    );
+    consoleErrorSpy.mockRestore();
   });
 
   it('disables the action while connection status is loading', () => {
