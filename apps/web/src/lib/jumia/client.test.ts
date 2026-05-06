@@ -40,12 +40,6 @@ const createMockSupabase = vi.hoisted(() => {
   };
 });
 
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() =>
-    createMockSupabase({ data: null, error: null })
-  ),
-}));
-
 vi.mock('@/schemas/jumia', async () => {
   const { z } = await vi.importActual<typeof import('zod')>('zod');
 
@@ -422,6 +416,29 @@ describe('JumiaClient', () => {
       const token = await client.getValidToken();
 
       expect(token).toBe('new-access-token');
+    });
+
+    it('does not fall back to an admin client when token refresh needs persistence', async () => {
+      const client = new JumiaClient({
+        integrationId: 'int-123',
+        merchantId: 'merchant-abc',
+        shopId: 'shop-456',
+        accessToken: 'expired-token',
+        refreshToken: 'refresh-tok',
+        tokenExpiresAt: new Date(Date.now() - 1000),
+        environment: 'production',
+      });
+
+      const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => TOKEN_RESPONSE,
+      });
+
+      await expect(client.getValidToken()).rejects.toMatchObject({
+        status: 500,
+        message: expect.stringContaining('Scoped Supabase client is required'),
+      });
     });
 
     it('records a reauthorization sync error when an expired OAuth token has no refresh token', async () => {

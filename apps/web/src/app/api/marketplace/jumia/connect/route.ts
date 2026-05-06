@@ -18,6 +18,7 @@ import {
 import { getJumiaAuthUrl, getJumiaRedirectUri } from '@/lib/jumia/helpers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { deleteJumiaConnectionQuerySchema } from '@/schemas/marketplace';
 
 const _jumiaConnectSchema = z.discriminatedUnion('connectionType', [
   z.object({
@@ -31,10 +32,6 @@ const _jumiaConnectSchema = z.discriminatedUnion('connectionType', [
     connectionType: z.literal('oauth'),
   }),
 ]);
-
-const deleteJumiaConnectionQuerySchema = z.object({
-  id: z.string().trim().min(1, 'Integration ID required'),
-});
 
 export async function POST(request: NextRequest) {
   try {

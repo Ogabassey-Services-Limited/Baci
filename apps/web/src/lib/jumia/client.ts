@@ -12,7 +12,6 @@ import {
   loadSingleJumiaMerchantIntegrationConfig,
 } from '@/lib/jumia/jumia-client-config';
 import { waitForJumiaRequestSlot } from '@/lib/jumia/jumia-rate-limiter';
-import { createAdminClient } from '@/lib/supabase/admin';
 import type { JumiaShop } from '@/schemas/jumia';
 import {
   JumiaShopsResponseSchema,
@@ -86,9 +85,20 @@ export class JumiaClient {
     );
   }
 
+  private getScopedSupabaseForPersistence(): SupabaseClient {
+    if (this.supabase) {
+      return this.supabase;
+    }
+
+    throw new JumiaApiError(
+      500,
+      'Scoped Supabase client is required to persist Jumia token state'
+    );
+  }
+
   async refreshAccessToken(): Promise<void> {
     if (!this.refreshToken?.trim()) {
-      const sb = this.supabase ?? createAdminClient();
+      const sb = this.getScopedSupabaseForPersistence();
       const { error: updateError } = await sb
         .from('marketplace_integrations')
         .update({ sync_error: MISSING_REFRESH_TOKEN_SYNC_ERROR })
@@ -134,7 +144,7 @@ export class JumiaClient {
       }
       this.tokenExpiresAt = new Date(Date.now() + data.expires_in * 1000);
 
-      const sb = this.supabase ?? createAdminClient();
+      const sb = this.getScopedSupabaseForPersistence();
       const { error: updateError } = await sb
         .from('marketplace_integrations')
         .update({
