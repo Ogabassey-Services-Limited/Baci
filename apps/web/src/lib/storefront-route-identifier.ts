@@ -1,7 +1,7 @@
 import type { headers } from 'next/headers';
 import { getRootDomain } from '@/env';
 
-export function resolveRouteIdentifier(
+export function resolveMerchantContextIdentifier(
   headersList: Awaited<ReturnType<typeof headers>>
 ) {
   const customDomain = headersList.get('x-custom-domain')?.toLowerCase();
@@ -12,6 +12,18 @@ export function resolveRouteIdentifier(
   const merchantSlug = headersList.get('x-merchant-slug')?.toLowerCase();
   if (merchantSlug) {
     return merchantSlug;
+  }
+
+  return '';
+}
+
+export function resolveRouteIdentifier(
+  headersList: Awaited<ReturnType<typeof headers>>
+) {
+  const merchantContextIdentifier =
+    resolveMerchantContextIdentifier(headersList);
+  if (merchantContextIdentifier) {
+    return merchantContextIdentifier;
   }
 
   const host = headersList.get('host')?.split(':')[0].toLowerCase();
