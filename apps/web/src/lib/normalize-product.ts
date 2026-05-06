@@ -169,7 +169,11 @@ function getJoinedCategories(raw: RawDbProduct): JoinedCategory[] {
 function normalizeProductKeySpecs(
   value: unknown
 ): ProductKeySpecsRecord | null {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+  if (Array.isArray(value)) {
+    return normalizeProductKeySpecs(value[0]);
+  }
+
+  if (!value || typeof value !== 'object') {
     return null;
   }
 
