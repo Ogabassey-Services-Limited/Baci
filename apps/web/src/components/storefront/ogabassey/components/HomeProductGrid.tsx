@@ -13,7 +13,7 @@ import type {
   ProductGridInteractionBindingsValue,
   ProductGridParticle,
 } from './ProductGridInteractionBindings';
-import { AdUnit } from './AdUnit';
+import { DeferredAdUnit } from './deferred-ad-unit';
 import { HomeProductGridCard } from './HomeProductGridCard';
 import type { ProductGridItemProps } from './ProductGridItem';
 import type { Product } from '../types';
@@ -213,7 +213,10 @@ export function HomeProductGrid({
 
               {inlineAdBreakpoints.includes(index + 1) && (
                 <div className="col-span-2 lg:col-span-4 flex items-center justify-center my-2 md:my-4">
-                  <AdUnit placementKey="PRODUCT_GRID_MPU" />
+                  <DeferredAdUnit
+                    placementKey="PRODUCT_GRID_MPU"
+                    timeoutMs={1}
+                  />
                 </div>
               )}
             </Fragment>

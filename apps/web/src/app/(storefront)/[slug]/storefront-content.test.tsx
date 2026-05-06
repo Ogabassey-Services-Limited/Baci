@@ -30,6 +30,24 @@ vi.mock('./storefront-wrapper', () => ({
 vi.mock('@/components/analytics/analytics-provider', () => ({
   AnalyticsProvider: () => null,
 }));
+vi.mock('@/components/storefront/ogabassey/pages/home', () => ({
+  OgabasseyHomePage: ({
+    products,
+    storeSlug,
+  }: {
+    products?: unknown[];
+    storeSlug?: string;
+  }) => (
+    <div data-testid="ogabassey-direct-home">
+      {storeSlug}:{products?.length ?? 0}
+    </div>
+  ),
+}));
+vi.mock('@/components/storefront/ogabassey/home-product-feed', () => ({
+  createOgabasseyHomeProductFeed: vi.fn((products: unknown[]) =>
+    products.slice(0, 1)
+  ),
+}));
 vi.mock('@/components/ui/skeletons', () => ({
   StorefrontPageSkeleton: () => <div data-testid="skeleton">Loading...</div>,
 }));
@@ -159,7 +177,7 @@ describe('StorefrontContent', () => {
     );
     const { getTemplate } = await import('@/templates/registry');
 
-    vi.mocked(resolveStorefrontTemplateId).mockReturnValue('ogabassey');
+    vi.mocked(resolveStorefrontTemplateId).mockReturnValue('electronics');
     vi.mocked(getTemplate).mockReturnValue({
       getComponents: () =>
         Promise.resolve({
@@ -176,13 +194,45 @@ describe('StorefrontContent', () => {
     expect(screen.getByText('test-store')).toBeInTheDocument();
   });
 
+  it('renders OgaBassey home without loading the generic template registry', async () => {
+    const { resolveStorefrontTemplateId } = await import(
+      './resolve-storefront-template'
+    );
+    const { getTemplate } = await import('@/templates/registry');
+    const { createOgabasseyHomeProductFeed } = await import(
+      '@/components/storefront/ogabassey/home-product-feed'
+    );
+
+    vi.mocked(resolveStorefrontTemplateId).mockReturnValue('ogabassey');
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
+      createMockHomeProduct({
+        id: 'ogabassey-product-1',
+        name: 'OgaBassey Product 1',
+        slug: 'ogabassey-product-1',
+      }),
+    ]);
+
+    const result = await StorefrontContent({ merchant: mockMerchant });
+    render(result as React.ReactElement);
+
+    expect(getTemplate).not.toHaveBeenCalled();
+    expect(createOgabasseyHomeProductFeed).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 'ogabassey-product-1' }),
+      ])
+    );
+    expect(screen.getByTestId('ogabassey-direct-home')).toHaveTextContent(
+      'test-store:1'
+    );
+  });
+
   it('falls back to StorefrontWrapper when template render throws', async () => {
     const { resolveStorefrontTemplateId } = await import(
       './resolve-storefront-template'
     );
     const { getTemplate } = await import('@/templates/registry');
 
-    vi.mocked(resolveStorefrontTemplateId).mockReturnValue('ogabassey');
+    vi.mocked(resolveStorefrontTemplateId).mockReturnValue('electronics');
     vi.mocked(getTemplate).mockReturnValue({
       getComponents: () => Promise.reject(new Error('render failure')),
     } as unknown as ReturnType<typeof getTemplate>);
@@ -235,15 +285,8 @@ describe('StorefrontContent', () => {
     const { resolveStorefrontTemplateId } = await import(
       './resolve-storefront-template'
     );
-    const { getTemplate } = await import('@/templates/registry');
 
     vi.mocked(resolveStorefrontTemplateId).mockReturnValue('ogabassey');
-    vi.mocked(getTemplate).mockReturnValue({
-      getComponents: () =>
-        Promise.resolve({
-          Home: () => <div data-testid="template-home">OgaBassey</div>,
-        }),
-    } as unknown as ReturnType<typeof getTemplate>);
     vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue(
       Array.from({ length: 12 }, (_, index) =>
         createMockHomeProduct({
