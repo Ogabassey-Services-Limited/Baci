@@ -202,6 +202,42 @@ describe('POST /api/vtu/checkout/confirm', () => {
     });
   });
 
+  // Phase B.7 regression-pin: when initialize records a hybrid
+  // payment, `transactions.amount` holds the residual (post-wallet)
+  // and the gateway returned the same residual. Confirm's
+  // amount-comparison guard MUST accept this. If a future change
+  // stored the full bill amount on `transactions` while charging
+  // the gateway a smaller residual, this test would fail with 400
+  // "Payment amount mismatch".
+  it('accepts hybrid residual: transaction.amount === gateway-verified residual', async () => {
+    mockFrom.mockImplementation(
+      createMockFrom({
+        transactionData: {
+          ...defaultPaymentTransaction,
+          amount: 600,
+        },
+      })
+    );
+    mockVerifyPaystackTransaction.mockResolvedValue({
+      success: true,
+      data: {
+        amount: 60000, // 600 NGN in kobo — the residual the gateway charged
+        status: 'success',
+      },
+    });
+
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        gateway: 'paystack',
+        reference: 'VTU-123',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockFulfillPendingVtuTransaction).toHaveBeenCalled();
+  });
+
   it('continues to VTU fulfillment when another process already claimed the payment', async () => {
     mockFrom.mockImplementation(
       createMockFrom({ updateResult: { data: null, error: null } })
