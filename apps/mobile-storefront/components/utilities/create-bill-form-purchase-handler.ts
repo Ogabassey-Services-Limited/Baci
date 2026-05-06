@@ -171,7 +171,9 @@ export function createBillFormPurchaseHandler({
             walletAmount: numericAmount,
             idempotencyKey,
           });
-          payment.resetWalletIdempotencyKey();
+          // 'processing' is non-terminal — the vend is still in flight
+          // server-side. Keep the key so a retry hits the route's
+          // dedupe row instead of creating a second VTU transaction.
           if (result.status === 'processing') {
             onSuccess({
               amount: result.amount ?? numericAmount,
@@ -181,6 +183,9 @@ export function createBillFormPurchaseHandler({
             });
             return;
           }
+          // Terminal success — rotate the key so the next user-initiated
+          // submit gets a fresh dedupe slot.
+          payment.resetWalletIdempotencyKey();
           onSuccess({
             amount: result.amount ?? numericAmount,
             cashback: result.cashback,

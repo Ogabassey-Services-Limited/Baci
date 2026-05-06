@@ -118,7 +118,13 @@ export function createDataFormPurchaseHandler({
             walletAmount: planAmount,
             idempotencyKey,
           });
-          payment.resetWalletIdempotencyKey();
+          // Only rotate on terminal success. 'processing' means the
+          // vend is still in flight server-side; rotating now would let
+          // a user-initiated retry bypass the route's dedupe row and
+          // create a duplicate VTU transaction.
+          if (result.status === 'successful') {
+            payment.resetWalletIdempotencyKey();
+          }
           onSuccess({
             amount: result.amount ?? planAmount,
             cashback: result.cashback

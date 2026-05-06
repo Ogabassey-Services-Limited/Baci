@@ -148,7 +148,9 @@ export function useAirtimeFormController({
             walletAmount: numericAmount,
             idempotencyKey,
           });
-          payment.resetWalletIdempotencyKey();
+          // 'processing' is non-terminal — the vend is still in flight
+          // server-side. Keep the key so a retry hits the route's
+          // dedupe row instead of creating a second VTU transaction.
           if (result.status === 'processing') {
             onSuccess({
               amount: result.amount ?? numericAmount,
@@ -158,6 +160,8 @@ export function useAirtimeFormController({
             });
             return;
           }
+          // Terminal success — rotate the key.
+          payment.resetWalletIdempotencyKey();
           onSuccess({
             amount: result.amount ?? numericAmount,
             cashback: result.cashback,

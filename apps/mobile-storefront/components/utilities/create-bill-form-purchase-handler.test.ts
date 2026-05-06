@@ -234,6 +234,50 @@ describe('createBillFormPurchaseHandler', () => {
       expect(resetWalletIdempotencyKey).not.toHaveBeenCalled();
     });
 
+    it('keeps the idempotency key when the server returns status="processing" (vend still in flight)', async () => {
+      // 'processing' is non-terminal — the wallet was debited and the
+      // vend was queued, but the biller hasn't confirmed yet. Rotating
+      // the key now would let a user-initiated retry bypass the
+      // dedupe row and create a SECOND VTU transaction while the
+      // first one is still in flight.
+      mockChargeWalletForVtu.mockResolvedValueOnce({
+        status: 'processing',
+        amount: 1000,
+        reference: 'WAL-PROC-1',
+      });
+      const onSuccess = jest.fn();
+      const resetWalletIdempotencyKey = jest.fn();
+      const handlePurchase = createValidHandler({
+        amount: '1000',
+        numericAmount: 1000,
+        onSuccess,
+        payment: {
+          cards: [],
+          isLoadingCards: false,
+          refetchCards: jest.fn<PaymentState['refetchCards']>(),
+          selectGateway: jest.fn(),
+          selectSavedCard: jest.fn(),
+          selectedGateway: 'paystack',
+          selectedSavedCardId: null,
+          supportedGateways: ['paystack'],
+          walletBalance: 1000,
+          walletSelection: { use: true, amount: 1000 },
+          setWalletSelection: jest.fn(),
+          getWalletIdempotencyKey: jest.fn(() => 'idem-key-proc'),
+          resetWalletIdempotencyKey,
+        },
+      });
+
+      await handlePurchase();
+
+      expect(mockChargeWalletForVtu).toHaveBeenCalledTimes(1);
+      // Key MUST stay so the next retry hits vtu_idempotency_keys.
+      expect(resetWalletIdempotencyKey).not.toHaveBeenCalled();
+      expect(onSuccess).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'processing' })
+      );
+    });
+
     it('rotates the idempotency key on a 4xx response (request rejected before any state)', async () => {
       // 4xx means the server validated and rejected the request
       // before any side effects. A retry with the same key would

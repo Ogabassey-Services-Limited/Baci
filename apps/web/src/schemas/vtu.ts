@@ -155,6 +155,10 @@ export const vtuWalletOnlyChargeSchema = purchaseSchemaBase
   })
   .superRefine(applyPurchaseRequirements);
 
+export type VtuWalletOnlyChargeInput = z.infer<
+  typeof vtuWalletOnlyChargeSchema
+>;
+
 /** Maps our bill type enum to commission calculation categories */
 export const COMMISSION_CATEGORY_MAP: Record<BillType, string> = {
   airtime: 'AIRTIME',

@@ -8,6 +8,7 @@ import {
   preparePendingVtuTransaction,
   resolveVtuCustomer,
 } from '@/lib/vtu-pending-transaction';
+import { computeVtuWalletRequestFingerprint } from '@/lib/vtu-wallet-fingerprint';
 import { vtuWalletOnlyChargeSchema } from '@/schemas/vtu';
 
 const UUID_PATTERN =
@@ -22,6 +23,7 @@ interface ExistingIdempotencyRow {
   vtu_transaction_id: string;
   customer_id: string;
   merchant_id: string;
+  request_fingerprint: string;
 }
 
 /**
@@ -64,7 +66,9 @@ async function findExistingIdempotencyRow(
 ): Promise<ExistingIdempotencyRow | null> {
   const { data, error } = await supabase
     .from('vtu_idempotency_keys')
-    .select('key, vtu_transaction_id, customer_id, merchant_id')
+    .select(
+      'key, vtu_transaction_id, customer_id, merchant_id, request_fingerprint'
+    )
     .eq('key', key)
     .maybeSingle();
   if (error) {
@@ -145,14 +149,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const requestFingerprint = computeVtuWalletRequestFingerprint(parsed.data);
+
     const supabase = createAdminClient();
     const existing = await findExistingIdempotencyRow(supabase, idempotencyKey);
 
-    // Replay path: reuse the existing vtu_transaction_id. Cross-customer
-    // collision rejected with 400 — a stolen key from one customer must
-    // not be replayable against another customer's row. Resolve the
-    // requesting customer first via merchant + auth.user, then compare
-    // to the recorded mapping.
+    // Replay path: reuse the existing vtu_transaction_id. Three guards
+    // before we trust the mapping:
+    //   1. Customer ownership (cross-customer collision → 400). A
+    //      stolen key from one customer must not be replayable
+    //      against another customer's row.
+    //   2. Payload fingerprint (changed-intent collision → 409). The
+    //      mobile client correctly keeps the key on TimeoutError /
+    //      NetworkError / 5xx, but the user could edit the form
+    //      between attempts. Replaying the original vend on a
+    //      changed payload would charge the wrong recipient/amount.
     if (existing) {
       const requestingCustomerId = await resolveRequestingCustomerId(
         supabase,
@@ -166,6 +177,12 @@ export async function POST(request: NextRequest) {
         return createErrorResponse(
           'Idempotency-Key does not belong to this customer.',
           400
+        );
+      }
+      if (existing.request_fingerprint !== requestFingerprint) {
+        return createErrorResponse(
+          'Idempotency-Key already used with a different request payload. Generate a fresh key for the new purchase.',
+          409
         );
       }
       const replayedFulfillment = await fulfillPendingVtuTransaction({
@@ -200,6 +217,7 @@ export async function POST(request: NextRequest) {
         vtu_transaction_id: prepared.transaction.id,
         customer_id: prepared.customer.id,
         merchant_id: prepared.merchant.id,
+        request_fingerprint: requestFingerprint,
       });
     if (insertError) {
       // Likely a parallel submit won the race on the PRIMARY KEY. Two
@@ -230,10 +248,9 @@ export async function POST(request: NextRequest) {
         idempotencyKey
       );
       if (racedExisting) {
-        // Same ownership check as the replay path above. Without
-        // this, a loser of the PK race could see the winner's
-        // fulfillment payload (e.g. a voucher PIN) returned in their
-        // own HTTP response — privilege-escalation-shaped.
+        // Same guards as the regular replay path: ownership (no
+        // privilege-escalation via PK race) AND fingerprint (no
+        // changed-intent silently fulfilling the winner's payload).
         if (
           !prepared.customer?.id ||
           racedExisting.customer_id !== prepared.customer.id
@@ -241,6 +258,12 @@ export async function POST(request: NextRequest) {
           return createErrorResponse(
             'Idempotency-Key does not belong to this customer.',
             400
+          );
+        }
+        if (racedExisting.request_fingerprint !== requestFingerprint) {
+          return createErrorResponse(
+            'Idempotency-Key already used with a different request payload. Generate a fresh key for the new purchase.',
+            409
           );
         }
         const replayedFulfillment = await fulfillPendingVtuTransaction({

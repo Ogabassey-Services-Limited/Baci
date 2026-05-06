@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { computeVtuWalletRequestFingerprint } from '@/lib/vtu-wallet-fingerprint';
 
 const {
   mockAuthenticate,
@@ -62,6 +63,7 @@ interface IdempotencyRowState {
     vtu_transaction_id: string;
     customer_id: string;
     merchant_id: string;
+    request_fingerprint: string;
   } | null;
   insertCalls: number;
 }
@@ -141,6 +143,15 @@ const VALID_BODY = {
   phoneNumber: '08012345678',
   networkProvider: 'MTN',
 };
+
+// The route injects `source: 'checkout'` before parsing; the schema
+// then validates and produces this shape. The route does NOT include
+// `merchantSlug` or `source` in the fingerprint (only recipient/intent
+// fields), so any value of those works for hashing.
+const VALID_BODY_FINGERPRINT = computeVtuWalletRequestFingerprint({
+  ...VALID_BODY,
+  source: 'checkout',
+} as Parameters<typeof computeVtuWalletRequestFingerprint>[0]);
 
 const VALID_KEY = '11111111-2222-3333-4444-555555555555';
 
@@ -280,6 +291,7 @@ describe('POST /api/vtu/checkout/wallet-only', () => {
         vtu_transaction_id: 'vtu-tx-existing',
         customer_id: 'customer-1',
         merchant_id: 'merchant-1',
+        request_fingerprint: VALID_BODY_FINGERPRINT,
       },
       insertCalls: 0,
     };
@@ -301,6 +313,74 @@ describe('POST /api/vtu/checkout/wallet-only', () => {
       transactionId: 'vtu-tx-existing',
     });
     expect(state.insertCalls).toBe(0);
+  });
+
+  it('changed-payload collision: same key with a different request fingerprint returns 409 instead of replaying', async () => {
+    // Scenario: user submits airtime to phone A for ₦1000; request
+    // times out so the mobile client (correctly) keeps the
+    // Idempotency-Key. Before retrying, the user edits the form to
+    // phone B / ₦2000. Without fingerprint protection the replay
+    // would silently fulfill the original (phone A) transaction.
+    // The route MUST refuse to replay and force the client to
+    // generate a fresh key for the new intent.
+    const state: IdempotencyRowState = {
+      row: {
+        key: VALID_KEY,
+        vtu_transaction_id: 'vtu-tx-original',
+        customer_id: 'customer-1',
+        merchant_id: 'merchant-1',
+        request_fingerprint: VALID_BODY_FINGERPRINT,
+      },
+      insertCalls: 0,
+    };
+    supabaseMockRef.current = buildSupabase(state);
+
+    const changedBody = {
+      ...VALID_BODY,
+      phoneNumber: '08099999999',
+      amount: 2000,
+      walletAmount: 2000,
+    };
+    const { status, body } = await callRoute(
+      makeRequest({ idempotencyKey: VALID_KEY, body: changedBody })
+    );
+
+    expect(status).toBe(409);
+    expect(body).toMatchObject({
+      error: expect.stringContaining('different request payload'),
+    });
+    // Critical: do NOT touch fulfillment when the key was reused with
+    // a different payload — that would be the silent-vend-wrong-target
+    // bug we're protecting against.
+    expect(mockFulfill).not.toHaveBeenCalled();
+    expect(mockPrepare).not.toHaveBeenCalled();
+    expect(state.insertCalls).toBe(0);
+  });
+
+  it('records the request fingerprint on the fresh-key insert path', async () => {
+    // Pin that the insert payload includes request_fingerprint so a
+    // future regression that drops the column from the insert is
+    // caught — without it, every replay would 409.
+    const state: IdempotencyRowState = { row: null, insertCalls: 0 };
+    supabaseMockRef.current = buildSupabase(state);
+    mockPrepare.mockResolvedValue({
+      transaction: { id: 'vtu-tx-new', merchant_id: 'merchant-1' },
+      customer: { id: 'customer-1', email: 'c@example.com' },
+      merchant: { id: 'merchant-1' },
+    });
+    mockFulfill.mockResolvedValue({
+      amount: 1000,
+      reference: 'VTU-REF-NEW',
+      status: 'successful',
+    });
+
+    const { status } = await callRoute(
+      makeRequest({ idempotencyKey: VALID_KEY })
+    );
+
+    expect(status).toBe(200);
+    expect(state.insertCalls).toBe(1);
+    expect(state.row?.request_fingerprint).toBe(VALID_BODY_FINGERPRINT);
   });
 
   it('PK-race recovery: refuses to fulfill when the racing winner row is owned by another customer', async () => {
@@ -414,6 +494,7 @@ describe('POST /api/vtu/checkout/wallet-only', () => {
         vtu_transaction_id: 'vtu-tx-other',
         customer_id: 'OTHER-CUSTOMER',
         merchant_id: 'merchant-1',
+        request_fingerprint: VALID_BODY_FINGERPRINT,
       },
       insertCalls: 0,
     };
