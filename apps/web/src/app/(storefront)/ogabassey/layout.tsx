@@ -7,12 +7,13 @@ import StorefrontLayout, {
   generateViewport,
 } from '@/app/(storefront)/[slug]/layout';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
-import { resolveRouteIdentifier } from '@/lib/storefront-route-identifier';
+import { resolveMerchantContextIdentifier } from '@/lib/storefront-route-identifier';
 
 async function resolveOgabasseyLayoutParams() {
   const headersList = await headers();
   return {
-    slug: resolveRouteIdentifier(headersList) || OGABASSEY_TEMPLATE_ID,
+    slug:
+      resolveMerchantContextIdentifier(headersList) || OGABASSEY_TEMPLATE_ID,
   };
 }
 

@@ -28,11 +28,11 @@ import {
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { canonicalizeCategorySlug } from '@/lib/storefront-canonical-url';
-import { resolveRouteIdentifier } from '@/lib/storefront-route-identifier';
+import { resolveMerchantContextIdentifier } from '@/lib/storefront-route-identifier';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 
 function resolveOgabasseyHomeMerchantIdentifier(headersList: Headers): string {
-  return resolveRouteIdentifier(headersList) || OGABASSEY_TEMPLATE_ID;
+  return resolveMerchantContextIdentifier(headersList) || OGABASSEY_TEMPLATE_ID;
 }
 
 function buildOrganizationGraphSchema(

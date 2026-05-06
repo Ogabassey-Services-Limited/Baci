@@ -188,6 +188,16 @@ describe('OgabasseyHomePageContent', () => {
     );
   });
 
+  it('falls back to the OgaBassey slug when only a deployment host is present', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([['host', 'baci-preview.vercel.app']])
+    );
+
+    await OgabasseyHomePageContent();
+
+    expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
+  });
+
   it('shows the unpublished storefront state when production store is disabled', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValueOnce({
       ...mockPublishedMerchant,

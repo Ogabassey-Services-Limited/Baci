@@ -84,6 +84,21 @@ describe('OgabasseyLayout', () => {
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey.com' });
   });
 
+  it('ignores deployment hosts without merchant context headers', async () => {
+    mockHeaders.mockResolvedValueOnce(
+      new Headers([['host', 'baci-preview.vercel.app']])
+    );
+
+    const result = await OgabasseyLayout({
+      children: <p>Home content</p>,
+    });
+
+    render(result);
+
+    const props = mockStorefrontLayout.mock.calls[0]?.[0];
+    await expect(props?.params).resolves.toEqual({ slug: 'ogabassey' });
+  });
+
   it('keeps the storefront viewport settings', () => {
     expect(generateViewport()).toEqual({
       width: 'device-width',
@@ -112,6 +127,17 @@ describe('OgabasseyLayout', () => {
     expect(metadata.manifest).toBeNull();
     const props = mockGenerateStorefrontLayoutMetadata.mock.calls[0]?.[0];
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey.com' });
+  });
+
+  it('uses OgaBassey metadata for deployment hosts without merchant context headers', async () => {
+    mockHeaders.mockResolvedValueOnce(
+      new Headers([['host', 'baci-preview.vercel.app']])
+    );
+
+    await generateMetadata();
+
+    const props = mockGenerateStorefrontLayoutMetadata.mock.calls[0]?.[0];
+    await expect(props?.params).resolves.toEqual({ slug: 'ogabassey' });
   });
 
   it('keeps the platform manifest disabled when merchant metadata fails', async () => {
