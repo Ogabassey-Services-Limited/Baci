@@ -6,8 +6,8 @@ import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 import { asRoute } from '@/lib/routes';
-import { AdUnit } from './AdUnit';
 import { useDeferredActivation } from './deferred-shell-feature';
+import { DeferredAdUnit } from './deferred-ad-unit';
 import { MOBILE_SLIDES } from './hero-data';
 
 interface HeroMobileCarouselProps {
@@ -106,9 +106,10 @@ export function HeroMobileCarousel({
                           ? 'object-contain object-right'
                           : 'object-cover'
                       }
-                      priority={index === 0}
-                      // Lighthouse did not see a high fetch priority from priority alone with the custom loader.
+                      // Manual viewport preloads cover discovery; keep only
+                      // fetch priority here to avoid duplicate preload links.
                       fetchPriority={index === 0 ? 'high' : undefined}
+                      loading={index === 0 ? 'eager' : 'lazy'}
                       quality={70}
                     />
                   </div>
@@ -178,11 +179,12 @@ export function HeroMobileCarousel({
                 Sponsored
               </div>
               <div className="w-full h-full flex items-center justify-center transform scale-90">
-                <AdUnit
+                <DeferredAdUnit
                   placementKey="HEADER_LEADERBOARD"
                   className="my-0"
                   isActive={index === currentSlide}
                   refreshKey={adRefreshTrigger}
+                  timeoutMs={1}
                 />
               </div>
             </div>

@@ -1282,4 +1282,390 @@ describe('fulfillPendingVtuTransaction', () => {
       }
     );
   });
+
+  describe('refund-to-wallet on failed vend', () => {
+    const FAILED_ROW_BASE = {
+      id: 'vtu-1',
+      merchant_id: 'merchant-1',
+      customer_id: 'customer-1',
+      type: 'electricity' as const,
+      network_provider: 'EKEDC NG',
+      phone_number: '08012345678',
+      amount: 1000,
+      request_reference: 'VTU-123',
+      transaction_id: 'kuda-ref-1',
+      error_message: 'Vend rejected (biller status: k11)',
+      merchant_commission: 10,
+      customer_cashback: 50,
+      biller_name: 'EKEDC NG - EKEDC PREPAID',
+      biller_item_code: 'KUD-ELE-EKED-002',
+      customer_identifier: '43901766923',
+      source: 'checkout' as const,
+    };
+
+    it('refunds the customer wallet when an already-failed row is replayed', async () => {
+      const updatePayloads: unknown[] = [];
+      const rpcImpl = vi.fn((name: string) =>
+        Promise.resolve(
+          name === 'refund_customer_wallet_for_vtu'
+            ? {
+                data: [
+                  {
+                    success: true,
+                    new_balance: 1050,
+                    transaction_id: 'ledger-1',
+                  },
+                ],
+                error: null,
+              }
+            : { data: null, error: null }
+        )
+      );
+
+      const supabase = createPendingTransactionSupabaseMock({
+        transactionRow: {
+          ...FAILED_ROW_BASE,
+          status: 'failed',
+          metadata: { paymentReference: 'VTU-PAYSTACK-123' },
+        },
+        rpcImpl,
+        updatePayloads,
+      });
+
+      const result = await fulfillPendingVtuTransaction({
+        retryFailed: false,
+        supabase,
+        transactionId: 'vtu-1',
+      });
+
+      expect(result).toMatchObject({
+        amount: 1000,
+        error: 'Vend rejected (biller status: k11)',
+        reference: 'VTU-123',
+        refundedToWallet: 1000,
+        status: 'failed',
+      });
+      expect(rpcImpl).toHaveBeenCalledWith('refund_customer_wallet_for_vtu', {
+        p_amount: 1000,
+        p_customer_id: 'customer-1',
+        p_description: expect.any(String),
+        p_merchant_id: 'merchant-1',
+        p_vtu_transaction_id: 'vtu-1',
+      });
+      const refundMetadataPayload = findPayloadWithMetadata(
+        updatePayloads,
+        (metadata) => metadata.refundIssued === true
+      );
+      expect(refundMetadataPayload?.metadata).toMatchObject({
+        refundAmount: 1000,
+        refundIssued: true,
+      });
+    });
+
+    it('skips the refund when the row has no customer_id', async () => {
+      const rpcImpl = vi.fn(() => Promise.resolve({ data: null, error: null }));
+      const supabase = createPendingTransactionSupabaseMock({
+        transactionRow: {
+          ...FAILED_ROW_BASE,
+          customer_id: null,
+          status: 'failed',
+          metadata: {},
+        },
+        rpcImpl,
+      });
+
+      const result = await fulfillPendingVtuTransaction({
+        retryFailed: false,
+        supabase,
+        transactionId: 'vtu-1',
+      });
+
+      expect(result).toMatchObject({ status: 'failed' });
+      expect(result).not.toHaveProperty('refundedToWallet');
+      expect(rpcImpl).not.toHaveBeenCalledWith(
+        'refund_customer_wallet_for_vtu',
+        expect.anything()
+      );
+    });
+
+    it('skips the refund for non-checkout sources (e.g. loyalty_reward)', async () => {
+      // loyalty_reward, gift, direct, storefront_modal — none of these
+      // collect customer money, so there's nothing to refund.
+      const rpcImpl = vi.fn(() => Promise.resolve({ data: null, error: null }));
+      const supabase = createPendingTransactionSupabaseMock({
+        transactionRow: {
+          ...FAILED_ROW_BASE,
+          source: 'loyalty_reward',
+          status: 'failed',
+          metadata: {},
+        },
+        rpcImpl,
+      });
+
+      const result = await fulfillPendingVtuTransaction({
+        retryFailed: false,
+        supabase,
+        transactionId: 'vtu-1',
+      });
+
+      expect(result).toMatchObject({ status: 'failed' });
+      expect(result).not.toHaveProperty('refundedToWallet');
+      expect(rpcImpl).not.toHaveBeenCalledWith(
+        'refund_customer_wallet_for_vtu',
+        expect.anything()
+      );
+    });
+
+    it('refunds checkout-sourced rows even when paymentReference is absent (saved-card path)', async () => {
+      // Regression: an earlier draft gated on metadata.paymentReference,
+      // but the saved-card charge path stores that on the transactions row
+      // only — vtu_transactions.metadata has no paymentReference there.
+      // Gating on row.source === 'checkout' covers both flows.
+      const rpcImpl = vi.fn((name: string) =>
+        Promise.resolve(
+          name === 'refund_customer_wallet_for_vtu'
+            ? {
+                data: [
+                  {
+                    success: true,
+                    new_balance: 1050,
+                    transaction_id: 'ledger-saved-card',
+                  },
+                ],
+                error: null,
+              }
+            : { data: null, error: null }
+        )
+      );
+      const supabase = createPendingTransactionSupabaseMock({
+        transactionRow: {
+          ...FAILED_ROW_BASE,
+          status: 'failed',
+          metadata: {}, // saved-card path leaves vtu_transactions.metadata empty
+        },
+        rpcImpl,
+      });
+
+      const result = await fulfillPendingVtuTransaction({
+        retryFailed: false,
+        supabase,
+        transactionId: 'vtu-1',
+      });
+
+      expect(result).toMatchObject({
+        refundedToWallet: 1000,
+        status: 'failed',
+      });
+      expect(rpcImpl).toHaveBeenCalledWith(
+        'refund_customer_wallet_for_vtu',
+        expect.objectContaining({ p_amount: 1000 })
+      );
+    });
+
+    it('reports the prior refund without re-calling the RPC when metadata.refundIssued is already true', async () => {
+      const rpcImpl = vi.fn(() => Promise.resolve({ data: null, error: null }));
+      const supabase = createPendingTransactionSupabaseMock({
+        transactionRow: {
+          ...FAILED_ROW_BASE,
+          status: 'failed',
+          metadata: {
+            paymentReference: 'VTU-PAYSTACK-123',
+            refundIssued: true,
+            refundAmount: 1000,
+          },
+        },
+        rpcImpl,
+      });
+
+      const result = await fulfillPendingVtuTransaction({
+        retryFailed: false,
+        supabase,
+        transactionId: 'vtu-1',
+      });
+
+      expect(result).toMatchObject({
+        refundedToWallet: 1000,
+        status: 'failed',
+      });
+      expect(rpcImpl).not.toHaveBeenCalledWith(
+        'refund_customer_wallet_for_vtu',
+        expect.anything()
+      );
+    });
+
+    it('refuses to retry a row that has already been refunded (prevents double-credit)', async () => {
+      // Once metadata.refundIssued is true, retryFailed must NOT execute a
+      // second vend attempt: if it succeeded, the customer would keep both
+      // the wallet refund AND the successful vend.
+      const rpcImpl = vi.fn(() => Promise.resolve({ data: null, error: null }));
+      const supabase = createPendingTransactionSupabaseMock({
+        transactionRow: {
+          ...FAILED_ROW_BASE,
+          status: 'failed',
+          metadata: {
+            refundIssued: true,
+            refundAmount: 1000,
+            refundedAt: '2026-05-05T08:00:00.000Z',
+          },
+        },
+        rpcImpl,
+      });
+
+      const result = await fulfillPendingVtuTransaction({
+        retryFailed: true, // /api/vtu/checkout/confirm passes this
+        supabase,
+        transactionId: 'vtu-1',
+      });
+
+      expect(result).toMatchObject({
+        amount: 1000,
+        reference: 'VTU-123',
+        refundedToWallet: 1000,
+        status: 'failed',
+      });
+      // No reconciliation, no retry, no purchase mock invocation.
+      expect(mockCheckTransactionStatus).not.toHaveBeenCalled();
+      expect(mockPurchaseAirtime).not.toHaveBeenCalled();
+      expect(mockPurchaseData).not.toHaveBeenCalled();
+      expect(mockPurchaseBill).not.toHaveBeenCalled();
+    });
+
+    it('blocks retry via the ledger when refundIssued metadata is missing but a refund row exists', async () => {
+      // Models the crash-between-RPC-and-metadata-write case: the wallet
+      // was credited in a prior fulfillment, but the metadata update failed
+      // so refundIssued !== true on this row. The retry path must consult
+      // the ledger and refuse to re-vend.
+      const supabaseLedgerSelect = {
+        eq: vi.fn(() => supabaseLedgerSelect),
+        order: vi.fn(() => supabaseLedgerSelect),
+        limit: vi.fn(() => supabaseLedgerSelect),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { amount: 1000 },
+          error: null,
+        }),
+      };
+      const transactionRow = {
+        ...FAILED_ROW_BASE,
+        status: 'failed',
+        metadata: {}, // metadata write previously failed; refundIssued absent
+      };
+      const supabase = {
+        from: vi.fn((table: string) => {
+          if (table === 'vtu_transactions') {
+            return {
+              select: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  single: vi.fn().mockResolvedValue({
+                    data: transactionRow,
+                    error: null,
+                  }),
+                })),
+              })),
+            };
+          }
+          if (table === 'customer_wallet_transactions') {
+            return { select: vi.fn(() => supabaseLedgerSelect) };
+          }
+          return { select: vi.fn() };
+        }),
+        rpc: vi.fn(() => Promise.resolve({ data: null, error: null })),
+      } as unknown as SupabaseStub;
+
+      const result = await fulfillPendingVtuTransaction({
+        retryFailed: true,
+        supabase,
+        transactionId: 'vtu-1',
+      });
+
+      expect(result).toMatchObject({
+        amount: 1000,
+        refundedToWallet: 1000,
+        status: 'failed',
+      });
+      expect(mockCheckTransactionStatus).not.toHaveBeenCalled();
+      expect(mockPurchaseAirtime).not.toHaveBeenCalled();
+      expect(mockPurchaseBill).not.toHaveBeenCalled();
+    });
+
+    it('throws VtuPersistenceError when refund RPC succeeded but metadata persistence fails', async () => {
+      // Fail-closed: the wallet was credited, but writing refundIssued=true
+      // back to vtu_transactions failed. Returning success here would let a
+      // later retry miss the cached flag (and the ledger source-of-truth on
+      // the retry path is the second line of defence). Surface the error so
+      // the next request retries the metadata write.
+      const rpcImpl = vi.fn((name: string) =>
+        Promise.resolve(
+          name === 'refund_customer_wallet_for_vtu'
+            ? {
+                data: [
+                  {
+                    success: true,
+                    new_balance: 1050,
+                    transaction_id: 'ledger-x',
+                  },
+                ],
+                error: null,
+              }
+            : { data: null, error: null }
+        )
+      );
+      const supabase = createPendingTransactionSupabaseMock({
+        transactionRow: {
+          ...FAILED_ROW_BASE,
+          status: 'failed',
+          metadata: {},
+        },
+        rpcImpl,
+        updateErrors: {
+          finalMetadata: { message: 'metadata write failed' },
+        },
+      });
+
+      await expect(
+        fulfillPendingVtuTransaction({
+          retryFailed: false,
+          supabase,
+          transactionId: 'vtu-1',
+        })
+      ).rejects.toThrow(/Failed to persist VTU refund metadata/);
+      // RPC must have been called even though we throw afterwards — the
+      // ledger row exists, so the next attempt (via the retryFailed path)
+      // will find it.
+      expect(rpcImpl).toHaveBeenCalledWith(
+        'refund_customer_wallet_for_vtu',
+        expect.anything()
+      );
+    });
+
+    it('returns failed without refundedToWallet when the refund RPC errors', async () => {
+      const rpcImpl = vi.fn((name: string) =>
+        Promise.resolve(
+          name === 'refund_customer_wallet_for_vtu'
+            ? { data: null, error: { message: 'database is down' } }
+            : { data: null, error: null }
+        )
+      );
+      const supabase = createPendingTransactionSupabaseMock({
+        transactionRow: {
+          ...FAILED_ROW_BASE,
+          status: 'failed',
+          metadata: { paymentReference: 'VTU-PAYSTACK-123' },
+        },
+        rpcImpl,
+      });
+
+      const result = await fulfillPendingVtuTransaction({
+        retryFailed: false,
+        supabase,
+        transactionId: 'vtu-1',
+      });
+
+      expect(result).toMatchObject({ status: 'failed' });
+      expect(result).not.toHaveProperty('refundedToWallet');
+      expect(rpcImpl).toHaveBeenCalledWith(
+        'refund_customer_wallet_for_vtu',
+        expect.anything()
+      );
+    });
+  });
 });

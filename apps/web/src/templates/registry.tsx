@@ -17,6 +17,7 @@
  */
 
 import type { ComponentType, ReactNode } from 'react';
+import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import type { MerchantData } from '@/hooks/use-merchant';
 import type { Product } from '@/lib/products';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
@@ -521,8 +522,8 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
     },
   },
 
-  'ogabassey': {
-    id: 'ogabassey',
+  [OGABASSEY_TEMPLATE_ID]: {
+    id: OGABASSEY_TEMPLATE_ID,
     name: 'Ogabassey',
     description: 'Premium gadget store template with hero carousel, utility panel, advanced product grid, and full e-commerce engine integration',
     thumbnail: '/template-previews/ogabassey.png',
@@ -545,7 +546,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
       const {
         OgabasseyHomePage,
       } = await import('@/components/storefront/ogabassey/pages/home');
-      const { mapStorefrontProductsToOgabasseyProducts } = await import(
+      const { createOgabasseyHomeProductFeed } = await import(
         '@/components/storefront/ogabassey/home-product-feed'
       );
 
@@ -562,7 +563,7 @@ export const TEMPLATE_REGISTRY: Record<string, TemplateDefinition> = {
       // Wrapper component
       const OgabasseyHome: React.ComponentType<TemplatePageProps> = (props) => {
         const homeProducts = props.products
-          ? mapStorefrontProductsToOgabasseyProducts(props.products)
+          ? createOgabasseyHomeProductFeed(props.products)
           : [];
 
         return (

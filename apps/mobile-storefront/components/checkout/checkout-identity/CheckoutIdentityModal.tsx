@@ -19,9 +19,7 @@ import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -29,6 +27,7 @@ import {
 } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { palette } from '@/constants/Colors';
 
 import {
@@ -100,8 +99,7 @@ export function CheckoutIdentityModal({
       accessibilityViewIsModal={true}
       accessibilityLabel="Checkout options modal"
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      <AppKeyboardContainer
         style={styles.container}
       >
         {/* Backdrop */}
@@ -184,7 +182,7 @@ export function CheckoutIdentityModal({
           {/* Footer */}
           <SecurityFooter />
         </Animated.View>
-      </KeyboardAvoidingView>
+      </AppKeyboardContainer>
     </Modal>
   );
 }

@@ -11,7 +11,6 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -22,6 +21,7 @@ import {
 } from 'react-native';
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
 import { useShallow } from 'zustand/react/shallow';
+import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { BRAND, palette, SHADOWS } from '@/constants/Colors';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
@@ -276,8 +276,7 @@ export const NegotiationModal: React.FC = () => {
       onRequestClose={closeNegotiation}
       accessibilityViewIsModal={true}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <AppKeyboardContainer
         style={styles.overlay}
       >
         <Pressable
@@ -535,7 +534,7 @@ export const NegotiationModal: React.FC = () => {
             )}
           </View>
         </Animated.View>
-      </KeyboardAvoidingView>
+      </AppKeyboardContainer>
     </Modal>
   );
 };

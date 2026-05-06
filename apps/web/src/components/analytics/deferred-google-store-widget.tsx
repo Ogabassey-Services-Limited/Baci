@@ -53,7 +53,6 @@ export function DeferredGoogleStoreWidget(
     function removeDeferredWidgetListeners() {
       window.removeEventListener('pointerdown', loadWidget);
       window.removeEventListener('keydown', loadWidget);
-      window.removeEventListener('scroll', loadWidget);
     }
 
     function loadWidget(event?: Event) {
@@ -96,9 +95,6 @@ export function DeferredGoogleStoreWidget(
       passive: true,
     });
     window.addEventListener('keydown', loadWidget);
-    window.addEventListener('scroll', loadWidget, {
-      passive: true,
-    });
 
     return () => {
       cancelled = true;

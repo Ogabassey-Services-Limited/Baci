@@ -84,7 +84,7 @@ describe('DeferredGoogleStoreWidget', () => {
       />
     );
 
-    fireEvent.scroll(window);
+    fireEvent.pointerDown(window);
 
     await act(async () => {
       await Promise.resolve();
@@ -92,6 +92,29 @@ describe('DeferredGoogleStoreWidget', () => {
 
     expect(loadWidgetModule).toHaveBeenCalledOnce();
     expect(screen.getByText('Widget ogabassey.com true')).toBeInTheDocument();
+  });
+
+  it('does not treat scroll as an early widget activation signal', async () => {
+    const loadWidgetModule = vi
+      .fn()
+      .mockResolvedValue(createTestWidgetModule());
+
+    render(
+      <DeferredGoogleStoreWidget
+        merchantCustomDomain="ogabassey.com"
+        enabled
+        loadWidgetModule={loadWidgetModule}
+      />
+    );
+
+    fireEvent.scroll(window);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(loadWidgetModule).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Widget ogabassey.com/)).not.toBeInTheDocument();
   });
 
   it('does not start a second widget import while the first import is pending', async () => {
@@ -111,7 +134,7 @@ describe('DeferredGoogleStoreWidget', () => {
       />
     );
 
-    fireEvent.scroll(window);
+    fireEvent.pointerDown(window);
     await act(async () => {
       await Promise.resolve();
     });
@@ -119,7 +142,7 @@ describe('DeferredGoogleStoreWidget', () => {
     act(() => {
       vi.advanceTimersByTime(20000);
     });
-    fireEvent.scroll(window);
+    fireEvent.pointerDown(window);
 
     expect(loadWidgetModule).toHaveBeenCalledOnce();
 
@@ -146,7 +169,7 @@ describe('DeferredGoogleStoreWidget', () => {
     );
 
     await act(async () => {
-      fireEvent.scroll(window);
+      fireEvent.pointerDown(window);
       await Promise.resolve();
     });
 
@@ -179,7 +202,7 @@ describe('DeferredGoogleStoreWidget', () => {
     );
 
     await act(async () => {
-      fireEvent.scroll(window);
+      fireEvent.pointerDown(window);
       await Promise.resolve();
     });
 
@@ -215,7 +238,7 @@ describe('DeferredGoogleStoreWidget', () => {
       />
     );
 
-    fireEvent.scroll(window);
+    fireEvent.pointerDown(window);
     fireEvent.pointerDown(window);
     fireEvent.keyDown(window);
     await act(async () => {
@@ -255,7 +278,7 @@ describe('DeferredGoogleStoreWidget', () => {
     );
 
     await act(async () => {
-      fireEvent.scroll(window);
+      fireEvent.pointerDown(window);
       await Promise.resolve();
     });
 
@@ -287,7 +310,7 @@ describe('DeferredGoogleStoreWidget', () => {
     );
 
     await act(async () => {
-      fireEvent.scroll(window);
+      fireEvent.pointerDown(window);
       await Promise.resolve();
     });
 

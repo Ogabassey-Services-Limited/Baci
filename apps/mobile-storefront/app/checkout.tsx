@@ -22,7 +22,6 @@ import {
   BackHandler,
   FlatList,
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -70,6 +69,7 @@ import type {
   ShippingQuote,
 } from '@/components/checkout/types';
 import { AddressAutocomplete } from '@/components/ui/AddressAutocomplete';
+import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { PhoneInput } from '@/components/ui/PhoneInput';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, {
@@ -111,6 +111,12 @@ import {
   trackError,
   trackOrderCompleted,
 } from '@/services/analytics';
+import { useWallet } from '@/hooks/use-wallet';
+import {
+  buildWalletOrderFields,
+  isWalletFullyPaidOrder,
+  type WalletSelection,
+} from '@/lib/wallet-payment-helpers';
 import { createOrder, OrderError, type OrderResponse } from '@/services/orders';
 import { scheduleLocalNotification } from '@/services/push-notifications';
 import type { Customer } from '@/stores/auth-store';
@@ -563,6 +569,16 @@ export default function CheckoutScreen() {
   const [selectedPayment, setSelectedPayment] =
     React.useState<PaymentMethodType>('paystack');
   const [paymentTab, setPaymentTab] = React.useState<PaymentTab>('full');
+  // Wallet payment selection — independent from `selectedPayment`. The
+  // wallet can stack on top of any gateway method (partial deductible) or
+  // cover the order in full. The selection is fed into createOrder via
+  // `buildWalletOrderFields` and consumed by `<PaymentMethodSelector>`'s
+  // wallet row.
+  const [walletSelection, setWalletSelection] = React.useState<
+    WalletSelection | undefined
+  >(undefined);
+  const walletQuery = useWallet();
+  const walletBalance = walletQuery.data?.wallet?.balance ?? 0;
   const [deliveryMethod, setDeliveryMethod] =
     React.useState<DeliveryMethod>('door');
   const savedDoorAddressRef = React.useRef<{
@@ -1756,6 +1772,63 @@ export default function CheckoutScreen() {
     }, 0);
     const snapshotDeliveryFee = deliveryFee;
     const snapshotTaxAmount = orderTotals?.taxAmount ?? 0;
+    // Match the screen-level `total` (line ~1487:
+    //   subtotal + deliveryFee + assuranceFee + taxAmount)
+    // so the wallet row in the picker (which reads `total`) and the
+    // submitted wallet_amount agree. Without the assurance leg, an
+    // insured "full wallet" order would still owe the assurance fee to
+    // the gateway, breaking the wallet-only bypass and forcing an extra
+    // payment step.
+    const snapshotAssuranceFee = itemsSnapshot.reduce((sum, item) => {
+      if (!item.hasAssurance) {
+        return sum;
+      }
+      const effectivePrice = item.negotiatedPrice ?? item.price;
+      return (
+        sum +
+        Math.round(
+          effectivePrice * item.quantity * (item.assuranceRate ?? 0.05)
+        )
+      );
+    }, 0);
+    const snapshotTotal =
+      snapshotSubtotal +
+      snapshotDeliveryFee +
+      snapshotAssuranceFee +
+      snapshotTaxAmount;
+    // Recompute the wallet amount at submit time against the snapshotted
+    // total + the live walletBalance, ignoring the captured
+    // walletSelection.amount. Between toggle and submit the total can
+    // shift (shipping quote update, tax recompute) and the wallet
+    // balance can move (concurrent refunds / cashback). Clamping to
+    // min(walletBalance, snapshotTotal) keeps the submitted amount
+    // consistent with what the server will actually see and prevents a
+    // stale wallet_amount from over- or under-debiting.
+    //
+    // Also enforce the same payment-method gate the picker uses
+    // (PaymentMethodSelector.tsx → walletShouldRender). If the user
+    // toggled wallet on while a compatible method was selected and then
+    // switched to an incompatible one (BNPL / pay-later / pay_on_delivery
+    // / juicyway / invoice / payforme), the picker hides the row but
+    // walletSelection.use is still true. Drop the wallet payload here so
+    // the API doesn't receive a stale wallet redemption that would either
+    // be silently ignored (BNPL/pay_later branch) or break the Juicyway
+    // amount-drift guard in handleCryptoConfirm.
+    const isWalletCompatibleSubmit =
+      paymentTab === 'full' &&
+      (selectedPayment === 'paystack' ||
+        selectedPayment === 'korapay' ||
+        selectedPayment === 'bank_transfer');
+    const liveWalletSelection: WalletSelection | undefined =
+      walletSelection?.use === true && isWalletCompatibleSubmit
+        ? {
+            use: true,
+            amount: Math.max(
+              0,
+              Math.min(walletBalance, snapshotTotal)
+            ),
+          }
+        : undefined;
 
     try {
       trackCheckoutStep('review');
@@ -1882,6 +1955,7 @@ export default function CheckoutScreen() {
         payment_method: paymentMethodForOrder,
         shipping_address: orderShippingAddress,
         source: 'mobile_app',
+        ...buildWalletOrderFields(liveWalletSelection),
       });
 
       const { order } = orderResponse;
@@ -1955,6 +2029,13 @@ export default function CheckoutScreen() {
         })();
       };
 
+      // When the server fully settled the order from wallet credit,
+      // attribute the completion to 'wallet' in analytics rather than
+      // the still-set selectedPayment value. Otherwise wallet-funded
+      // orders skew payment dashboards as paystack/korapay/bank_transfer.
+      const completedPaymentMethod = isWalletFullyPaidOrder(orderResponse)
+        ? 'wallet'
+        : selectedPayment;
       trackOrderCompleted({
         orderId: order.id,
         orderNumber,
@@ -1964,7 +2045,7 @@ export default function CheckoutScreen() {
         tax: snapshotTaxAmount,
         currency: 'NGN',
         itemCount: itemsSnapshot.reduce((acc, item) => acc + item.quantity, 0),
-        paymentMethod: selectedPayment,
+        paymentMethod: completedPaymentMethod,
       });
 
       // Route based on payment method
@@ -1986,6 +2067,42 @@ export default function CheckoutScreen() {
         setIsProcessing(false);
         isOrderInFlight.current = false;
         setShowCryptoSelection(true);
+        runPostOrderSideEffects();
+        return;
+      }
+
+      // Wallet-only short-circuit: when the server has already finalized
+      // the order from wallet credit, skip the gateway-initialize hop and
+      // navigate to the success screen directly. The /api/orders route
+      // calls finalize_wallet_order_payment when amountDueToGateway hits
+      // 0, so the order is already paid by the time we get here.
+      if (isWalletFullyPaidOrder(orderResponse)) {
+        clearCart();
+        const persistOpts = useCartStore.persist.getOptions();
+        const partialize = persistOpts.partialize ?? ((s: unknown) => s);
+        const persistedState = partialize(useCartStore.getState());
+        await AsyncStorage.setItem(
+          persistOpts.name ?? 'cart-storage',
+          JSON.stringify({
+            state: persistedState,
+            version: persistOpts.version ?? 0,
+          })
+        );
+        setIsProcessing(false);
+        router.replace({
+          pathname: '/order-success',
+          params: {
+            orderId: order.id,
+            orderNumber,
+            paymentMethod: 'wallet',
+            walletAmountUsed: String(
+              orderResponse.wallet?.amountUsed ?? 0
+            ),
+            ...(order.tracking_token && {
+              trackingToken: order.tracking_token,
+            }),
+          },
+        });
         runPostOrderSideEffects();
         return;
       }
@@ -2879,6 +2996,11 @@ export default function CheckoutScreen() {
         onSelectTab={handleSelectPaymentTab}
         orderTotal={total}
         enabledMethods={availablePaymentMethods}
+        walletMode="orders"
+        walletBalance={walletBalance}
+        walletOrderTotal={total}
+        walletSelection={walletSelection}
+        onWalletToggle={setWalletSelection}
       />
     </ScrollView>
   );
@@ -3132,9 +3254,8 @@ export default function CheckoutScreen() {
           <View style={styles.screenHeaderSpacer} />
         </View>
 
-        <KeyboardAvoidingView
+        <AppKeyboardContainer
           style={[styles.contentShell, { backgroundColor: colors.muted }]}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <CheckoutStepper
             step={step}
@@ -3232,7 +3353,7 @@ export default function CheckoutScreen() {
               )}
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </AppKeyboardContainer>
       </SafeAreaView>
 
       {/* State Picker */}
@@ -3327,8 +3448,7 @@ export default function CheckoutScreen() {
           setCitySearch('');
         }}
       >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        <AppKeyboardContainer
           style={styles.pickerOverlay}
         >
           <View style={[styles.pickerSheet, { backgroundColor: colors.card }]}>
@@ -3458,7 +3578,7 @@ export default function CheckoutScreen() {
               }
             />
           </View>
-        </KeyboardAvoidingView>
+        </AppKeyboardContainer>
       </Modal>
 
       <CryptoSelectionModal

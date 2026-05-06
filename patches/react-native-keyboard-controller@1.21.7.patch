@@ -1,0 +1,38 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 989c2c4c35ab4501af88127056f52d78f872f56e..5c92bbfb7d3b79ca72978f93d9960603f9cf2e6a 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -36,7 +36,10 @@ def reactNativeArchitectures() {
+ }
+ 
+ apply plugin: 'com.android.library'
+-apply plugin: 'kotlin-android'
++def builtInKotlinEnabled = !project.hasProperty("android.builtInKotlin") || project.property("android.builtInKotlin").toString().toBoolean()
++if (!builtInKotlinEnabled) {
++    apply plugin: 'org.jetbrains.kotlin.android'
++}
+ apply from: "$projectDir/react-native-helpers.gradle"
+ 
+ if (isNewArchitectureEnabled()) {
+@@ -72,14 +75,21 @@ android {
+           'src/fabric',
+           'build/generated/source/codegen/java'
+         ]
++        kotlin.srcDirs += [
++          'src/fabric',
++          'build/generated/source/codegen/java'
++        ]
+       } else {
+         java.srcDirs += ['src/paper']
++        kotlin.srcDirs += ['src/paper']
+       }
+ 
+       if (project.ext.shouldUseBaseReactPackage()) {
+         java.srcDirs += ['src/base']
++        kotlin.srcDirs += ['src/base']
+       } else {
+         java.srcDirs += ['src/turbo']
++        kotlin.srcDirs += ['src/turbo']
+       }
+     }
+   }

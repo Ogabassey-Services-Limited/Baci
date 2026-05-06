@@ -16,8 +16,6 @@ import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -27,6 +25,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { z } from 'zod';
+import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useToast } from '@/components/ui/Toast';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -186,15 +185,15 @@ export default function ProfileEditScreen() {
         }}
       />
 
-      <KeyboardAvoidingView
+      <AppKeyboardContainer
         style={[styles.container, { backgroundColor: colors.background }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <ScrollView
           style={styles.scrollView}
+          contentInsetAdjustmentBehavior="automatic"
           showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag"
+          keyboardShouldPersistTaps="handled"
         >
           <View style={styles.formContainer}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -262,6 +261,8 @@ export default function ProfileEditScreen() {
             ]}
             onPress={handleSubmit(onSubmit)}
             disabled={isSubmitting || !isDirty}
+            accessibilityRole="button"
+            accessibilityLabel="Save Changes"
           >
             {isSubmitting ? (
               <ActivityIndicator color="#FFFFFF" />
@@ -273,7 +274,7 @@ export default function ProfileEditScreen() {
 
         {/* 2026 Best Practice: Toast feedback component */}
         <toast.Toast />
-      </KeyboardAvoidingView>
+      </AppKeyboardContainer>
     </>
   );
 }

@@ -1,6 +1,6 @@
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
-import { generateSlug } from '@/lib/seo-utils';
+import { generateSlug, getProductUrl } from '@/lib/seo-utils';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
 
 export type RawProductImage =
@@ -15,12 +15,75 @@ type StorefrontProductVariants = Parameters<
   typeof normalizeStorefrontProductVariants
 >[0];
 
+interface CanonicalUrlCandidate {
+  canonical_url?: string | null;
+  category?: string | null;
+  category_slug?: string | null;
+  condition?: string | null;
+  condition_detail?: string | null;
+  id: string;
+  name: string;
+  slug?: string | null;
+}
+
+function normalizeRoutePath(path: string) {
+  return path.replace(/\/+$/, '') || '/';
+}
+
+function getMappedCanonicalUrl(
+  product: CanonicalUrlCandidate
+): string | undefined {
+  const canonicalUrl = product.canonical_url?.trim();
+  if (!canonicalUrl) {
+    return undefined;
+  }
+
+  let canonicalPath: string;
+  try {
+    canonicalPath = new URL(canonicalUrl, 'https://storefront.invalid')
+      .pathname;
+  } catch {
+    return undefined;
+  }
+
+  const productForUrl = {
+    id: product.id,
+    name: product.name,
+    slug: product.slug || undefined,
+    category: product.category || undefined,
+    category_slug: product.category_slug || undefined,
+    condition: product.condition || undefined,
+    condition_detail: product.condition_detail || undefined,
+  };
+  const expectedPath = normalizeRoutePath(
+    getProductUrl({ ...productForUrl, canonical_url: null })
+  );
+  const mappedCanonicalPath = normalizeRoutePath(
+    getProductUrl({ ...productForUrl, canonical_url: canonicalUrl })
+  );
+  const normalizedCanonicalPath = normalizeRoutePath(canonicalPath);
+
+  if (mappedCanonicalPath !== expectedPath) {
+    return undefined;
+  }
+
+  if (
+    normalizedCanonicalPath !== mappedCanonicalPath &&
+    !normalizedCanonicalPath.endsWith(mappedCanonicalPath)
+  ) {
+    return undefined;
+  }
+
+  return mappedCanonicalPath;
+}
+
 export interface LegacyCachedProduct {
   id: string;
   name: string;
   description?: string | null;
   status: string;
   slug?: string | null;
+  canonical_url?: string | null;
   sale_price?: number | null;
   base_price: number;
   track_quantity?: boolean | null;
@@ -52,6 +115,9 @@ export interface DetailedCachedProduct {
   description?: string | null;
   status?: string | null;
   slug?: string | null;
+  canonical_url?: string | null;
+  condition?: string | null;
+  condition_detail?: string | null;
   price?: number | string | null;
   compare_at_price?: number | string | null;
   manage_stock?: boolean | null;
@@ -138,6 +204,14 @@ export function mapLegacyCachedProductToProduct(
     description: cachedProduct.description || '',
     status: cachedProduct.status as 'draft' | 'active' | 'archived',
     slug: cachedProduct.slug || cachedProduct.id,
+    canonical_url: getMappedCanonicalUrl({
+      id: cachedProduct.id,
+      name: cachedProduct.name,
+      slug: cachedProduct.slug,
+      category: primaryCategory?.name,
+      category_slug: primaryCategory?.slug,
+      canonical_url: cachedProduct.canonical_url,
+    }),
     // Use nullish coalescing so a legitimate `0` sale_price (free promo,
     // giveaway) is preserved rather than coerced up to base_price.
     price: cachedProduct.sale_price ?? cachedProduct.base_price,
@@ -185,6 +259,12 @@ export function mapDetailedCachedProductToProduct(
       productId: detailedProduct.id,
     }
   );
+  const categoryName = primaryCategory?.name || detailedProduct.category;
+  const categorySlug =
+    primaryCategory?.slug ||
+    (detailedProduct.category
+      ? generateSlug(detailedProduct.category)
+      : undefined);
 
   return {
     id: detailedProduct.id,
@@ -196,6 +276,16 @@ export function mapDetailedCachedProductToProduct(
       | 'active'
       | 'archived',
     slug: detailedProduct.slug || detailedProduct.id,
+    canonical_url: getMappedCanonicalUrl({
+      id: detailedProduct.id,
+      name: detailedProduct.name,
+      slug: detailedProduct.slug,
+      category: categoryName,
+      category_slug: categorySlug,
+      canonical_url: detailedProduct.canonical_url,
+      condition: detailedProduct.condition,
+      condition_detail: detailedProduct.condition_detail,
+    }),
     price:
       typeof detailedProduct.price === 'string'
         ? Number.parseFloat(detailedProduct.price) || 0
@@ -213,12 +303,8 @@ export function mapDetailedCachedProductToProduct(
     brand: detailedProduct.brand || '',
     gtin: detailedProduct.gtin || '',
     mpn: detailedProduct.mpn || '',
-    category: primaryCategory?.name || detailedProduct.category || undefined,
-    category_slug:
-      primaryCategory?.slug ||
-      (detailedProduct.category
-        ? generateSlug(detailedProduct.category)
-        : undefined),
+    category: categoryName || undefined,
+    category_slug: categorySlug || undefined,
     categories: primaryCategory
       ? {
           id: primaryCategory.id,

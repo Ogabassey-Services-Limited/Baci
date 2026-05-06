@@ -10,6 +10,11 @@ export interface AdPlacement {
   type: 'banner' | 'sidebar' | 'in-feed' | 'sticky';
 }
 
+export const DEFERRED_SHELL_MOUNT_DELAY_MS = 1;
+export const BANNER_CAROUSEL_MOUNT_DELAY_MS = 1800;
+export const HOMEPAGE_STRIP_AD_BOOT_DELAY_MS = 12_000;
+export const SPONSORED_SLIDE_AD_BOOT_DELAY_MS = 9000;
+
 export const AD_CONFIG: Record<string, AdPlacement> = {
   // 1. HEADER LEADERBOARD (Standard)
   // Location: Top of pages, or inside the top Banner Carousel.

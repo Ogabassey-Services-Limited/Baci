@@ -80,6 +80,7 @@ describe('AdUnit', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     delete (globalThis as { IntersectionObserver?: typeof IntersectionObserver })
       .IntersectionObserver;
   });
@@ -107,9 +108,7 @@ describe('AdUnit', () => {
       await Promise.resolve();
     });
 
-    await waitFor(() => {
-      expect(ensureGoogleAdManagerBoot).toHaveBeenCalledOnce();
-    });
+    expect(ensureGoogleAdManagerBoot).toHaveBeenCalledOnce();
 
     await waitFor(() => {
       expect(window.googletag.defineSlot).toHaveBeenCalled();
@@ -143,8 +142,179 @@ describe('AdUnit', () => {
       await Promise.resolve();
     });
 
-    await waitFor(() => {
-      expect(ensureGoogleAdManagerBoot).toHaveBeenCalledOnce();
+    expect(ensureGoogleAdManagerBoot).toHaveBeenCalledOnce();
+  });
+
+  it('honors boot delay elapsed before viewport entry when loading GPT', async () => {
+    vi.useFakeTimers();
+
+    const { container } = render(
+      <AdUnit placementKey="HOMEPAGE_STRIP" bootDelayMs={9000} />
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(9000);
+      await Promise.resolve();
     });
+
+    expect(ensureGoogleAdManagerBoot).not.toHaveBeenCalled();
+
+    await act(async () => {
+      intersectionCallback?.(
+        [
+          {
+            isIntersecting: true,
+            intersectionRatio: 1,
+            target:
+              container.querySelector('#div-gpt-ad-home-strip') ??
+              document.body,
+          } as IntersectionObserverEntry,
+        ],
+        {} as IntersectionObserver
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(ensureGoogleAdManagerBoot).toHaveBeenCalledOnce();
+  });
+
+  it('remembers elapsed boot delay while a carousel ad is inactive', async () => {
+    vi.useFakeTimers();
+
+    const { container, rerender } = render(
+      <AdUnit
+        placementKey="HEADER_LEADERBOARD"
+        bootDelayMs={9000}
+        isActive={false}
+      />
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(9000);
+      await Promise.resolve();
+    });
+
+    rerender(
+      <AdUnit
+        placementKey="HEADER_LEADERBOARD"
+        bootDelayMs={9000}
+        isActive
+      />
+    );
+
+    await act(async () => {
+      intersectionCallback?.(
+        [
+          {
+            isIntersecting: true,
+            intersectionRatio: 1,
+            target:
+              container.querySelector('#div-gpt-ad-header') ?? document.body,
+          } as IntersectionObserverEntry,
+        ],
+        {} as IntersectionObserver
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(ensureGoogleAdManagerBoot).toHaveBeenCalledOnce();
+  });
+
+  it('keeps a loaded carousel ad slot mounted when the slide becomes inactive', async () => {
+    const { rerender } = render(
+      <AdUnit
+        placementKey="HEADER_LEADERBOARD"
+        isActive
+        loadStrategy="immediate"
+      />
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(window.googletag.defineSlot).toHaveBeenCalledOnce();
+      expect(window.googletag.display).toHaveBeenCalledOnce();
+    });
+
+    rerender(
+      <AdUnit
+        placementKey="HEADER_LEADERBOARD"
+        isActive={false}
+        loadStrategy="immediate"
+      />
+    );
+
+    expect(window.googletag.destroySlots).not.toHaveBeenCalled();
+
+    rerender(
+      <AdUnit
+        placementKey="HEADER_LEADERBOARD"
+        isActive
+        loadStrategy="immediate"
+      />
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(window.googletag.defineSlot).toHaveBeenCalledOnce();
+    expect(window.googletag.display).toHaveBeenCalledOnce();
+    expect(window.googletag.destroySlots).not.toHaveBeenCalled();
+  });
+
+  it('skips the pending boot when the slot becomes inactive before bootDelayMs completes', async () => {
+    vi.useFakeTimers();
+
+    const { container, rerender } = render(
+      <AdUnit
+        placementKey="HEADER_LEADERBOARD"
+        bootDelayMs={9000}
+        isActive
+      />
+    );
+
+    await act(async () => {
+      intersectionCallback?.(
+        [
+          {
+            isIntersecting: true,
+            intersectionRatio: 1,
+            target:
+              container.querySelector('#div-gpt-ad-header') ?? document.body,
+          } as IntersectionObserverEntry,
+        ],
+        {} as IntersectionObserver
+      );
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      vi.advanceTimersByTime(8999);
+      await Promise.resolve();
+    });
+
+    rerender(
+      <AdUnit
+        placementKey="HEADER_LEADERBOARD"
+        bootDelayMs={9000}
+        isActive={false}
+      />
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+      // Flush the bootDelayMs completion and AdUnit effects after isActive flips
+      // false so ensureGoogleAdManagerBoot stays off the inactive startup path.
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(ensureGoogleAdManagerBoot).not.toHaveBeenCalled();
   });
 });

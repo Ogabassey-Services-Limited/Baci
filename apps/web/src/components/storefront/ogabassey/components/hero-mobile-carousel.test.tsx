@@ -28,14 +28,20 @@ vi.mock('next/image', () => ({
         )
       )}
       alt={String(props.alt ?? '')}
+      data-priority={String(Boolean(props.priority))}
     />
   ),
 }));
 
-vi.mock('./AdUnit', () => ({
-  AdUnit: ({ placementKey }: { placementKey: string }) => (
+const mockDeferredAdUnit = vi.hoisted(() =>
+  vi.fn(({ placementKey }: { placementKey: string }) => (
     <div data-testid={`ad-${placementKey}`} />
-  ),
+  ))
+);
+
+vi.mock('./deferred-ad-unit', () => ({
+  DeferredAdUnit: (props: { placementKey: string }) =>
+    mockDeferredAdUnit(props),
 }));
 
 import { HeroMobileCarousel } from './hero-mobile-carousel';
@@ -121,6 +127,8 @@ describe('HeroMobileCarousel', () => {
 
     expect(highPriorityImages).toHaveLength(1);
     expect(highPriorityImages[0]).toHaveAccessibleName('iPhone 17 Pro Max');
+    expect(highPriorityImages[0]).toHaveAttribute('data-priority', 'false');
+    expect(highPriorityImages[0]).toHaveAttribute('loading', 'eager');
   });
 
   it('uses theme variables for the hero CTA and slide controls', () => {
@@ -183,5 +191,27 @@ describe('HeroMobileCarousel', () => {
     expect(
       screen.getByRole('button', { name: /go to hero slide 1/i })
     ).toHaveClass('h-12', 'min-w-12');
+  });
+
+  it('keeps the sponsored ad wrapper mounted across slide changes', () => {
+    render(
+      <HeroMobileCarousel
+        getHref={(path) => `/ogabassey${path}`}
+        hasResolvedViewport={true}
+        isDesktopViewport={false}
+      />
+    );
+
+    const sponsoredAdCall = mockDeferredAdUnit.mock.calls.find(
+      ([props]) =>
+        (props as { placementKey?: string }).placementKey ===
+        'HEADER_LEADERBOARD'
+    );
+
+    expect(sponsoredAdCall?.[0]).toEqual(
+      expect.not.objectContaining({
+        enabled: expect.any(Boolean),
+      })
+    );
   });
 });

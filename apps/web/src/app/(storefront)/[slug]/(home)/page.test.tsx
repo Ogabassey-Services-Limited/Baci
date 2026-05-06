@@ -103,7 +103,7 @@ const baseMerchant = {
   country: 'NG',
 };
 
-const { default: StorefrontPage } = await import('./page');
+const { default: StorefrontPage, generateMetadata } = await import('./page');
 const actualStorefrontPageContentModule = await vi.importActual<
   typeof import('../storefront-page-content')
 >('../storefront-page-content');
@@ -322,6 +322,46 @@ describe('Storefront homepage structured data', () => {
         },
       ])
     );
+  });
+
+  it('emits self-referencing canonical and hreflang alternates from page metadata', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(
+      baseMerchant as unknown as Awaited<
+        ReturnType<typeof getRequestScopedMerchant>
+      >
+    );
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+    });
+
+    expect(metadata.alternates).toEqual({
+      canonical: 'https://ogabassey.com',
+      languages: {
+        'en-NG': 'https://ogabassey.com',
+        'x-default': 'https://ogabassey.com',
+      },
+    });
+  });
+
+  it('omits Nigerian hreflang for storefronts outside Nigeria', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      ...baseMerchant,
+      slug: 'ghana-store',
+      custom_domain: 'ghana.example.com',
+      country: 'GH',
+    } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'ghana-store' }),
+    });
+
+    expect(metadata.alternates).toEqual({
+      canonical: 'https://ghana.example.com',
+      languages: {
+        'x-default': 'https://ghana.example.com',
+      },
+    });
   });
 
   it('emits preconnect + dns-prefetch hints for the OgaBassey LCP origins', async () => {

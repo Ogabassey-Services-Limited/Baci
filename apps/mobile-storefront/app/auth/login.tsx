@@ -10,10 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   BackHandler,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -21,6 +18,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GoogleLogo } from '@/components/icons/GoogleLogo';
+import AppKeyboardAwareScrollView from '@/components/ui/AppKeyboardAwareScrollView';
 import { Logo } from '@/components/ui/Logo';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
@@ -672,33 +670,31 @@ export default function LoginScreen() {
         }}
       />
 
-      <KeyboardAvoidingView
+      <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        edges={['bottom']}
       >
-        <SafeAreaView style={styles.safeArea} edges={['bottom']}>
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="on-drag"
-          >
-            <View style={styles.logoContainer}>
-              <Logo
-                color={colorScheme === 'dark' ? 'white' : 'black'}
-                width={180}
-                height={32}
-              />
-            </View>
+        <AppKeyboardAwareScrollView
+          style={styles.safeArea}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardDismissMode="on-drag"
+        >
+          <View style={styles.logoContainer}>
+            <Logo
+              color={colorScheme === 'dark' ? 'white' : 'black'}
+              width={180}
+              height={32}
+            />
+          </View>
 
-            {step === 'email'
-              ? renderEmailStep()
-              : step === 'otp'
-                ? renderOtpStep()
-                : renderPasswordStep()}
-          </ScrollView>
-        </SafeAreaView>
-      </KeyboardAvoidingView>
+          {step === 'email'
+            ? renderEmailStep()
+            : step === 'otp'
+              ? renderOtpStep()
+              : renderPasswordStep()}
+        </AppKeyboardAwareScrollView>
+      </SafeAreaView>
     </>
   );
 }

@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { SPONSORED_SLIDE_AD_BOOT_DELAY_MS } from '../config/ads';
 import type { AD_CONFIG } from '../config/ads';
 import {
   FLASH_SALE_PROMO_IMAGE,
@@ -14,17 +15,26 @@ import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { asRoute } from '@/lib/routes';
 
-interface BannerSlide {
+interface BaseBannerSlide {
   id: number;
-  type: 'image' | 'ad';
-  imageUrl?: string;
-  adPlacement?: keyof typeof AD_CONFIG;
   title?: string;
   subtitle?: string;
   link?: string;
   bgColor?: string;
   textColor?: string;
 }
+
+interface ImageBannerSlide extends BaseBannerSlide {
+  type: 'image';
+  imageUrl: string;
+}
+
+interface AdBannerSlide extends BaseBannerSlide {
+  type: 'ad';
+  adPlacement: keyof typeof AD_CONFIG;
+}
+
+type BannerSlide = ImageBannerSlide | AdBannerSlide;
 
 const BANNER_SLIDES: BannerSlide[] = [
   {
@@ -52,7 +62,7 @@ const BANNER_SLIDES: BannerSlide[] = [
   },
 ];
 
-interface BannerCarouselProps {
+export interface BannerCarouselProps {
   className?: string;
   categoryImage?: string | null;
   title?: string;
@@ -217,8 +227,10 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
                 <div className="transform scale-90 md:scale-100 w-full flex justify-center">
                   {/* We ensure the ad unit doesn't overflow */}
                   <AdUnit
-                    placementKey={slide.adPlacement!}
+                    placementKey={slide.adPlacement}
                     className="my-0"
+                    isActive={idx === currentSlide}
+                    bootDelayMs={SPONSORED_SLIDE_AD_BOOT_DELAY_MS}
                     refreshKey={adRefreshTrigger}
                   />
                 </div>

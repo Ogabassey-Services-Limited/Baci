@@ -1,6 +1,5 @@
 'use client';
 
-import { MotionConfig } from 'framer-motion';
 import { createContext, type ReactNode, useContext } from 'react';
 
 interface NonceContextValue {
@@ -14,15 +13,9 @@ interface NonceProviderProps {
   children: ReactNode;
 }
 
-/**
- * Provides nonce to Framer Motion for CSP compliance.
- * Framer Motion 11.0.9+ supports nonces via MotionConfig.
- */
 export function NonceProvider({ nonce, children }: NonceProviderProps) {
   return (
-    <NonceContext.Provider value={{ nonce }}>
-      <MotionConfig nonce={nonce}>{children}</MotionConfig>
-    </NonceContext.Provider>
+    <NonceContext.Provider value={{ nonce }}>{children}</NonceContext.Provider>
   );
 }
 
