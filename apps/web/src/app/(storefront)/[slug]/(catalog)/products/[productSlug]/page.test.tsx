@@ -722,12 +722,10 @@ describe('products/[productSlug] page', () => {
   });
 
   describe('schema URL consistency', () => {
-    it('uses getProductUrl for offer and breadcrumb URLs on fallback legacy pages', async () => {
+    it('passes getProductUrl output into JSON-LD and breadcrumb URLs on fallback legacy pages', async () => {
       mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
       mockHeaders.mockReturnValue(makeHeaders({}));
       mockGetProductUrl.mockReturnValue('/products/mystery-item');
-      const productSchema = { offers: {} as Record<string, unknown> };
-      mockGenerateProductSchema.mockReturnValue(productSchema);
 
       await ProductPage({
         params: Promise.resolve({
@@ -739,9 +737,15 @@ describe('products/[productSlug] page', () => {
 
       // getProductUrl should have been called
       expect(mockGetProductUrl).toHaveBeenCalled();
-      expect(productSchema.offers).toMatchObject({
-        url: 'https://teststore.usebaci.com/products/mystery-item',
-      });
+      expect(mockGenerateProductSchema).toHaveBeenCalledWith(
+        expect.any(Object),
+        'TestStore',
+        'NGN',
+        'NG',
+        null,
+        expect.any(Object),
+        { productUrl: 'https://teststore.usebaci.com/products/mystery-item' }
+      );
 
       // Breadcrumb schema should receive the same product URL
       expect(mockGenerateBreadcrumbSchema).toHaveBeenCalledWith(

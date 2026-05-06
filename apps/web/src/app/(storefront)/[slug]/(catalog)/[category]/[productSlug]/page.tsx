@@ -26,7 +26,6 @@ import {
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
-import { escapeHtml } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateBreadcrumbSchema,
@@ -321,6 +320,37 @@ function redirectInvalidVariantSelectionParams(
   }
 }
 
+function getValidatedProductUrl(
+  product: Product,
+  baseUrl: string,
+  merchantSlug: string
+) {
+  const finalProductPath = getProductUrl({
+    ...product,
+    canonical_url: null,
+  });
+  let canonicalUrl = normalizeStorefrontCanonicalUrl(
+    product.canonical_url,
+    baseUrl,
+    merchantSlug
+  );
+
+  if (canonicalUrl) {
+    try {
+      const canonicalPath =
+        new URL(canonicalUrl).pathname.replace(/\/+$/, '') || '/';
+      const normalizedFinalPath = finalProductPath.replace(/\/+$/, '') || '/';
+      if (canonicalPath !== normalizedFinalPath) {
+        canonicalUrl = undefined;
+      }
+    } catch {
+      canonicalUrl = undefined;
+    }
+  }
+
+  return canonicalUrl || `${baseUrl}${finalProductPath}`;
+}
+
 type CategoryProductResult =
   | {
       product: Product;
@@ -516,36 +546,7 @@ export async function generateMetadata({
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
 
-  // Construct canonical URL:
-  // 1. Use explicit canonical from product data if available AND it matches
-  //    the final PDP path (otherwise the canonical would itself redirect).
-  // 2. OR build the base path using getProductUrl (which handles categories).
-  const finalProductPath = getProductUrl({
-    ...product,
-    canonical_url: null,
-  });
-  let canonicalUrl = normalizeStorefrontCanonicalUrl(
-    product.canonical_url,
-    baseUrl,
-    merchant.slug
-  );
-
-  if (canonicalUrl) {
-    try {
-      const canonicalPath =
-        new URL(canonicalUrl).pathname.replace(/\/+$/, '') || '/';
-      const normalizedFinalPath = finalProductPath.replace(/\/+$/, '') || '/';
-      if (canonicalPath !== normalizedFinalPath) {
-        canonicalUrl = undefined;
-      }
-    } catch {
-      canonicalUrl = undefined;
-    }
-  }
-
-  if (!canonicalUrl) {
-    canonicalUrl = `${baseUrl}${finalProductPath}`;
-  }
+  const canonicalUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
   const productCategoryName =
     product.categories?.name ||
     product.category ||
@@ -714,8 +715,7 @@ export default async function CategoryProductPage({
         }
       : product;
 
-  const productPath = getProductUrl(product);
-  const productUrl = `${baseUrl}${productPath}`;
+  const productUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
 
   // Generate product schema (now handles merging custom schema_markup internally)
   const productSchema = generateProductSchema(
@@ -727,15 +727,6 @@ export default async function CategoryProductPage({
     trustProfile,
     { productUrl }
   );
-
-  // Set URL on offers — variant products have no top-level offers (each hasVariant entry has its own)
-  if (
-    productSchema.offers &&
-    !Array.isArray(productSchema.offers) &&
-    productSchema.offers['@type'] !== 'AggregateOffer'
-  ) {
-    productSchema.offers.url = escapeHtml(productUrl);
-  }
 
   // Generate breadcrumb schema with category
   // Use category_slug from product if available, otherwise generate from TEXT field

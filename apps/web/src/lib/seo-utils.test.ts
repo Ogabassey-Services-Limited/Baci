@@ -1011,6 +1011,19 @@ describe('generateProductSchema - condition mapping', () => {
     );
   });
 
+  it('does not default unsupported non-empty product conditions to NewCondition', () => {
+    const schema = generateProductSchema(
+      makeProduct({ condition: 'premium_used' as Product['condition'] }),
+      'TestStore',
+      'NGN',
+      'NG'
+    );
+
+    expect(
+      (schema.offers as Record<string, unknown>).itemCondition
+    ).toBeUndefined();
+  });
+
   it('maps open_box offer conditions to RefurbishedCondition', () => {
     const schema = generateProductSchema(
       makeProduct({

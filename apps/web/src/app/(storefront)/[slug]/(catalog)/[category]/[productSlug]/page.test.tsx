@@ -32,6 +32,7 @@ const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
 const mockBuildProductSemanticModel = vi.fn();
 const mockGetPublishedClusterPosts = vi.fn();
+const mockGenerateBreadcrumbSchema = vi.fn((_items: unknown) => ({}));
 const mockGenerateProductSchema = vi.fn((..._args: unknown[]) => ({}));
 
 vi.mock('next/navigation', () => ({
@@ -106,7 +107,8 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
 
 vi.mock('@/lib/seo-utils', () => ({
   constructCanonicalUrl: (base: string) => base,
-  generateBreadcrumbSchema: () => ({}),
+  generateBreadcrumbSchema: (items: unknown) =>
+    mockGenerateBreadcrumbSchema(items),
   generateMetaTitle: (title: string, options?: { suffix?: string }) =>
     options?.suffix ? `${title} | ${options.suffix}` : title,
   generateMetaDescription: (description: string, maxLength = 160) => {
@@ -131,7 +133,16 @@ vi.mock('@/lib/seo-utils', () => ({
     category?: string | null;
     categories?: { slug?: string } | null;
     category_slug?: string;
+    canonical_url?: string | null;
   }) => {
+    if (product.canonical_url) {
+      try {
+        return new URL(product.canonical_url).pathname;
+      } catch {
+        // Fall through to route construction for invalid canonical_url values.
+      }
+    }
+
     const productSlug = product.slug ?? product.id;
     const categorySlug =
       product.categories?.slug ||
@@ -433,6 +444,7 @@ describe('[category]/[productSlug] page metadata', () => {
 describe('[category]/[productSlug] page render', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGenerateBreadcrumbSchema.mockClear();
     mockGetEffectiveStock.mockReset();
     mockGetEffectiveStock.mockReturnValue(0);
     mockProductDetailClient.mockReset();
@@ -809,6 +821,65 @@ describe('[category]/[productSlug] page render', () => {
         productUrl:
           'https://teststore.usebaci.com/smartphones/samsung-galaxy-z-trifold',
       }
+    );
+  });
+
+  it('keeps JSON-LD and breadcrumbs aligned with the validated canonical URL when stored canonical_url is stale', async () => {
+    const expectedCanonicalUrl =
+      'https://teststore.usebaci.com/smartphones/samsung-galaxy-z-trifold';
+    mockGetCachedProductWithDetails.mockResolvedValue({
+      ...categorizedDetailedProduct,
+      name: 'Samsung Galaxy Z TriFold',
+      slug: 'samsung-galaxy-z-trifold',
+      category: 'Smartphones',
+      category_slug: 'smartphones',
+      categories: {
+        id: 'cat-smartphones',
+        name: 'Smartphones',
+        slug: 'smartphones',
+        parent_id: null,
+      },
+      canonical_url:
+        'https://teststore.usebaci.com/products/samsung-galaxy-z-trifold',
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'smartphones',
+        productSlug: 'samsung-galaxy-z-trifold',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    render(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'smartphones',
+          productSlug: 'samsung-galaxy-z-trifold',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(metadata.alternates?.canonical).toBe(expectedCanonicalUrl);
+    expect(mockGenerateProductSchema).toHaveBeenCalledWith(
+      expect.any(Object),
+      'TestStore',
+      'NGN',
+      'NG',
+      null,
+      expect.any(Object),
+      { productUrl: expectedCanonicalUrl }
+    );
+    expect(mockGenerateBreadcrumbSchema).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'Samsung Galaxy Z TriFold',
+          url: expectedCanonicalUrl,
+        }),
+      ])
     );
   });
 

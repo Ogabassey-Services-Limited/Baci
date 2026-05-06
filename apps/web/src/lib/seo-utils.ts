@@ -42,9 +42,11 @@ function normalizeCanonicalCategorySlug(
 }
 
 function getSchemaItemCondition(condition?: string | null) {
-  return (
-    toSchemaItemConditionUri(condition) ?? 'https://schema.org/NewCondition'
-  );
+  if (!condition || condition.trim() === '') {
+    return 'https://schema.org/NewCondition';
+  }
+
+  return toSchemaItemConditionUri(condition);
 }
 
 function getSchemaAvailability(product: {
@@ -600,30 +602,27 @@ interface ProductSchemaOptions {
   productUrl?: string;
 }
 
-function normalizeStructuredDataUrl(
-  url: string | undefined
-): string | undefined {
+function parseStructuredDataUrl(url: string | undefined): URL | undefined {
   if (!url) {
     return undefined;
   }
 
   try {
-    return new URL(url).toString();
+    return new URL(url);
   } catch {
     return undefined;
   }
 }
 
 function buildStructuredDataVariantUrl(
-  productUrl: string | undefined,
+  productUrl: URL | undefined,
   variant: ProductVariant
 ): string | undefined {
-  const normalizedProductUrl = normalizeStructuredDataUrl(productUrl);
-  if (!normalizedProductUrl) {
+  if (!productUrl) {
     return undefined;
   }
 
-  const url = new URL(normalizedProductUrl);
+  const url = new URL(productUrl);
   url.searchParams.set('variantId', variant.id);
 
   return url.toString();
@@ -658,9 +657,7 @@ export function generateProductSchema(
 
   const safeBrand = escapeHtml(product.brand || merchantName);
   const safeMerchantName = escapeHtml(merchantName);
-  const structuredDataProductUrl = normalizeStructuredDataUrl(
-    options.productUrl
-  );
+  const structuredDataProductUrl = parseStructuredDataUrl(options.productUrl);
   const shippingDetails = buildOfferShippingDetails(
     country,
     currency,
@@ -702,7 +699,9 @@ export function generateProductSchema(
     '@type': 'Product',
     name: safeName,
     description: safeDescription,
-    ...(structuredDataProductUrl && { url: structuredDataProductUrl }),
+    ...(structuredDataProductUrl && {
+      url: escapeHtml(structuredDataProductUrl.toString()),
+    }),
     ...(finalImages && { image: finalImages }),
     brand: {
       '@type': 'Brand',
@@ -714,7 +713,9 @@ export function generateProductSchema(
             '@type': 'Offer',
             price: offer.price,
             priceCurrency: currency,
-            ...(structuredDataProductUrl && { url: structuredDataProductUrl }),
+            ...(structuredDataProductUrl && {
+              url: escapeHtml(structuredDataProductUrl.toString()),
+            }),
             availability: getSchemaAvailability({
               manage_stock: product.manage_stock,
               stock_quantity: offer.stock_quantity,
@@ -734,7 +735,9 @@ export function generateProductSchema(
             '@type': 'Offer',
             price: product.price,
             priceCurrency: currency,
-            ...(structuredDataProductUrl && { url: structuredDataProductUrl }),
+            ...(structuredDataProductUrl && {
+              url: escapeHtml(structuredDataProductUrl.toString()),
+            }),
             availability: getSchemaAvailability(product),
             itemCondition: getSchemaItemCondition(product.condition),
             seller: {
@@ -1145,7 +1148,7 @@ export function generateProductSchema(
         '@type': 'Product',
         name: variantName,
         description: safeDescription,
-        ...(variantUrl && { url: variantUrl }),
+        ...(variantUrl && { url: escapeHtml(variantUrl) }),
         ...(variantImages && { image: variantImages }),
         brand: {
           '@type': 'Brand',
@@ -1161,7 +1164,7 @@ export function generateProductSchema(
           '@type': 'Offer',
           price: variantPrice,
           priceCurrency: currency,
-          ...(variantUrl && { url: variantUrl }),
+          ...(variantUrl && { url: escapeHtml(variantUrl) }),
           availability: getSchemaAvailability({
             manage_stock: product.manage_stock,
             stock_quantity: variant.stock_quantity,

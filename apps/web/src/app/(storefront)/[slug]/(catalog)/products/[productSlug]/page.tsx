@@ -15,7 +15,6 @@ import {
 } from '@/lib/cached-data';
 import type { Product } from '@/lib/products';
 import { asRoute } from '@/lib/routes';
-import { escapeHtml } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   constructCanonicalUrl,
@@ -459,13 +458,6 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
     trustProfile,
     { productUrl }
   );
-  if (
-    productSchema.offers &&
-    !Array.isArray(productSchema.offers) &&
-    productSchema.offers['@type'] !== 'AggregateOffer'
-  ) {
-    productSchema.offers.url = escapeHtml(productUrl);
-  }
   if (reviewStats && reviewStats.totalReviews > 0) {
     const aggregateRating = generateAggregateRating({
       averageRating: reviewStats.averageRating,
