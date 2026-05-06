@@ -9,6 +9,7 @@ import { PaymentMethodSelector } from '@/components/checkout/PaymentMethodSelect
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import type { SavedVtuCard } from '@/lib/vtu-checkout';
+import type { WalletSelection } from '@/lib/wallet-payment-helpers';
 import type { UtilityPaymentGateway } from '@/hooks/use-utility-payment';
 
 interface UtilityPaymentOptionsProps {
@@ -20,6 +21,16 @@ interface UtilityPaymentOptionsProps {
   selectedGateway: UtilityPaymentGateway;
   selectedSavedCardId: string | null;
   supportedGateways: UtilityPaymentGateway[];
+  /**
+   * Wallet payment opt-in. When `walletBalance > 0` AND the caller
+   * passes `onWalletToggle`, PaymentMethodSelector renders a wallet
+   * row (full-coverage radio when balance >= amount; partial-deduct
+   * checkbox otherwise). Defaults align with `walletMode='off'` so
+   * existing screens render unchanged until they opt in.
+   */
+  walletBalance?: number;
+  walletSelection?: WalletSelection;
+  onWalletToggle?: (selection: WalletSelection) => void;
 }
 
 export function UtilityPaymentOptions({
@@ -31,6 +42,9 @@ export function UtilityPaymentOptions({
   selectedGateway,
   selectedSavedCardId,
   supportedGateways,
+  walletBalance,
+  walletSelection,
+  onWalletToggle,
 }: UtilityPaymentOptionsProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -97,6 +111,11 @@ export function UtilityPaymentOptions({
         selectedMethod={selectedGateway}
         selectedTab="full"
         showInstallmentCalculator={false}
+        walletMode={onWalletToggle ? 'vtu' : 'off'}
+        walletBalance={walletBalance}
+        walletOrderTotal={amount}
+        walletSelection={walletSelection}
+        onWalletToggle={onWalletToggle}
       />
     </View>
   );

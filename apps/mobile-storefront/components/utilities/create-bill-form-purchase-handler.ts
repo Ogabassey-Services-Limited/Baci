@@ -4,9 +4,12 @@ import type { useUtilityPayment } from '@/hooks/use-utility-payment';
 import type { Biller } from '@/hooks/use-vtu-billers';
 import {
   chargeSavedVtuCard,
+  chargeWalletForVtu,
+  computeVtuWalletAmount,
   initializeVtuCheckout,
   isSavedVtuCardChargeProcessing,
   requiresSavedVtuCardAuthorization,
+  shouldRotateWalletIdempotencyKeyForError,
   type VTUPaymentGateway,
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
@@ -110,7 +113,20 @@ export function createBillFormPurchaseHandler({
         );
         return;
       }
-      if (!payment.selectedSavedCardId && !payment.selectedGateway) {
+      const walletAmount = computeVtuWalletAmount(
+        payment.walletSelection?.use === true
+          ? payment.walletSelection.amount
+          : 0,
+        numericAmount
+      );
+      const isWalletOnly = walletAmount > 0 && walletAmount === numericAmount;
+      // Card / gateway is only required when there's a residual to
+      // charge. Full wallet-coverage skips the gateway entirely.
+      if (
+        !isWalletOnly &&
+        !payment.selectedSavedCardId &&
+        !payment.selectedGateway
+      ) {
         Alert.alert(
           'Select Payment Method',
           'Choose a payment method before continuing.'
@@ -138,7 +154,59 @@ export function createBillFormPurchaseHandler({
         customerName,
         customerPhone: customer?.phone || undefined,
         type: billType,
+        ...(walletAmount > 0 ? { walletAmount } : {}),
       };
+
+      if (isWalletOnly) {
+        const idempotencyKey = payment.getWalletIdempotencyKey();
+        try {
+          const result = await chargeWalletForVtu({
+            amount: numericAmount,
+            billItemIdentifier: payload.billItemIdentifier,
+            billerName: payload.billerName,
+            customerIdentifier: customerId,
+            customerName,
+            customerPhone: payload.customerPhone,
+            type: billType,
+            walletAmount: numericAmount,
+            idempotencyKey,
+          });
+          // 'processing' is non-terminal — the vend is still in flight
+          // server-side. Keep the key so a retry hits the route's
+          // dedupe row instead of creating a second VTU transaction.
+          if (result.status === 'processing') {
+            onSuccess({
+              amount: result.amount ?? numericAmount,
+              customerIdentifier: customerId,
+              reference: result.reference,
+              status: 'processing',
+            });
+            return;
+          }
+          // Terminal success — rotate the key so the next user-initiated
+          // submit gets a fresh dedupe slot.
+          payment.resetWalletIdempotencyKey();
+          onSuccess({
+            amount: result.amount ?? numericAmount,
+            cashback: result.cashback,
+            customerIdentifier: customerId,
+            reference: result.reference,
+            status: 'successful',
+            voucherPin: result.voucherPin,
+          });
+          return;
+        } catch (error) {
+          // Keep the idempotency key for any error that leaves room for
+          // server state to have been persisted (network, timeout, 5xx,
+          // unknown) so the user's retry hits the route's dedupe table.
+          // Only rotate on 4xx — request was rejected before any state
+          // was created and the same key would just keep failing.
+          if (shouldRotateWalletIdempotencyKeyForError(error)) {
+            payment.resetWalletIdempotencyKey();
+          }
+          throw error;
+        }
+      }
       if (payment.selectedSavedCardId) {
         const result = await chargeSavedVtuCard({
           ...payload,

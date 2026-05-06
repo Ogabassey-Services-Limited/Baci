@@ -198,6 +198,9 @@ export function AirtimeForm(props: AirtimeFormProps) {
             selectedGateway={form.payment.selectedGateway}
             selectedSavedCardId={form.payment.selectedSavedCardId}
             supportedGateways={form.payment.supportedGateways}
+            walletBalance={form.payment.walletBalance}
+            walletSelection={form.payment.walletSelection}
+            onWalletToggle={form.payment.setWalletSelection}
           />
         </View>
       </ScrollView>
