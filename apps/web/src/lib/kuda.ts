@@ -7,11 +7,17 @@
 
 import crypto from 'node:crypto';
 import {
+  extractKudaVoucherPin,
+  type KudaVoucherTokenField,
+  normalizeKudaString,
+} from '@/lib/kuda-voucher-token';
+import {
   getVtuCommissionRate,
   VTU_COMMISSION_RATES,
   type VtuCommissionCategory,
 } from '@/lib/vtu-commission-rates';
 
+export { extractKudaVoucherPin } from '@/lib/kuda-voucher-token';
 export { detectNetworkProvider } from './detect-network-provider';
 
 // Environment configuration
@@ -231,19 +237,6 @@ interface KudaApiResponse<T = unknown> {
   data?: T;
 }
 
-// Kuda's electricity vend response wraps the meter token under `pin` as an
-// object: { number, serial, instructions }. Older docs document it as a plain
-// string for airtime/data, so callers must accept both shapes.
-type KudaVoucherPinValue =
-  | number
-  | string
-  | null
-  | {
-      number?: number | string | null;
-      serial?: number | string | null;
-      instructions?: string | null;
-    };
-
 export interface KudaTransactionStatusData {
   finalStatus?: string;
   FinalStatus?: string;
@@ -257,17 +250,17 @@ export interface KudaTransactionStatusData {
   Status?: number | string;
   message?: string;
   Message?: string;
-  pin?: KudaVoucherPinValue;
-  Pin?: KudaVoucherPinValue;
-  PIN?: KudaVoucherPinValue;
-  token?: KudaVoucherPinValue;
-  Token?: KudaVoucherPinValue;
-  meterToken?: KudaVoucherPinValue;
-  MeterToken?: KudaVoucherPinValue;
-  vendCode?: KudaVoucherPinValue;
-  VendCode?: KudaVoucherPinValue;
-  voucher?: KudaVoucherPinValue;
-  Voucher?: KudaVoucherPinValue;
+  pin?: KudaVoucherTokenField;
+  Pin?: KudaVoucherTokenField;
+  PIN?: KudaVoucherTokenField;
+  token?: KudaVoucherTokenField;
+  Token?: KudaVoucherTokenField;
+  meterToken?: KudaVoucherTokenField;
+  MeterToken?: KudaVoucherTokenField;
+  vendCode?: KudaVoucherTokenField;
+  VendCode?: KudaVoucherTokenField;
+  voucher?: KudaVoucherTokenField;
+  Voucher?: KudaVoucherTokenField;
 }
 
 type KudaTransactionStatusResult = {
@@ -278,51 +271,6 @@ type KudaTransactionStatusResult = {
 
 // Token storage (in production, use Redis or database)
 let cachedToken: { token: string; expiresAt: number } | null = null;
-
-function normalizeKudaString(value: number | string | null | undefined) {
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    return trimmed || undefined;
-  }
-
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return String(value);
-  }
-
-  return undefined;
-}
-
-function normalizeKudaPinValue(value: KudaVoucherPinValue | undefined) {
-  if (value === null || value === undefined) {
-    return undefined;
-  }
-  if (typeof value === 'object') {
-    return normalizeKudaString(value.number);
-  }
-  return normalizeKudaString(value);
-}
-
-export function extractKudaVoucherPin(
-  data: KudaTransactionStatusData | undefined
-) {
-  if (!data) {
-    return undefined;
-  }
-
-  return (
-    normalizeKudaPinValue(data.pin) ??
-    normalizeKudaPinValue(data.Pin) ??
-    normalizeKudaPinValue(data.PIN) ??
-    normalizeKudaPinValue(data.token) ??
-    normalizeKudaPinValue(data.Token) ??
-    normalizeKudaPinValue(data.meterToken) ??
-    normalizeKudaPinValue(data.MeterToken) ??
-    normalizeKudaPinValue(data.vendCode) ??
-    normalizeKudaPinValue(data.VendCode) ??
-    normalizeKudaPinValue(data.voucher) ??
-    normalizeKudaPinValue(data.Voucher)
-  );
-}
 
 // Determine whether the vend itself succeeded.
 // `response.status: true` means Kuda accepted the API call; the actual vend

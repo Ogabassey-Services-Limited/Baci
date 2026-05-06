@@ -7,9 +7,12 @@
 
 import { withKudaElectricityBillItems } from '@baci/shared/lib';
 import {
+  extractKudaVoucherPin,
+  normalizeKudaString,
+} from '@/lib/kuda-voucher-token';
+import {
   type Biller,
   buildKudaVendMessage,
-  extractKudaVoucherPin,
   generateRequestRef,
   getBillersByType,
   isKudaVendSuccessful,
@@ -40,19 +43,6 @@ const KUDA_CATEGORY_NAMES: Record<string, string> = {
   cable_tv: 'CableTv',
   betting: 'Betting',
 };
-
-function normalizeKudaString(value: number | string | null | undefined) {
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    return trimmed || undefined;
-  }
-
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return String(value);
-  }
-
-  return undefined;
-}
 
 /**
  * Get billers for a bill category using our enum.
