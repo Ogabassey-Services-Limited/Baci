@@ -19,7 +19,7 @@ vi.mock('next/server', () => ({
   connection: () => mockConnection(),
 }));
 
-vi.mock('../[slug]/layout', () => ({
+vi.mock('@/app/(storefront)/[slug]/layout', () => ({
   default: mockStorefrontLayout,
   generateViewport: () => ({
     width: 'device-width',

@@ -165,9 +165,9 @@ export async function OgabasseyHomePageContent() {
   const productDiscoveryLinks = merchantProducts
     .filter((product) => product.slug?.trim())
     .map((product) => {
-      const canonicalCategorySlug = canonicalizeCategorySlug(
-        product.category_slug
-      );
+      const canonicalCategorySlug = product.category_slug
+        ? canonicalizeCategorySlug(product.category_slug)
+        : undefined;
       const path = getProductUrl({
         id: String(product.id),
         name: product.name,
@@ -187,21 +187,13 @@ export async function OgabasseyHomePageContent() {
 
   return (
     <>
-      <script
-        type="application/ld+json"
-        // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON-LD schema from sanitized merchant data
-        dangerouslySetInnerHTML={{
-          __html: safeJsonLdStringify(buildOrganizationGraphSchema(merchant)),
-        }}
-      />
+      <script type="application/ld+json">
+        {safeJsonLdStringify(buildOrganizationGraphSchema(merchant))}
+      </script>
       {homeCollectionSchema ? (
-        <script
-          type="application/ld+json"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: CollectionPage schema serialized with safeJsonLdStringify
-          dangerouslySetInnerHTML={{
-            __html: safeJsonLdStringify(homeCollectionSchema),
-          }}
-        />
+        <script type="application/ld+json">
+          {safeJsonLdStringify(homeCollectionSchema)}
+        </script>
       ) : null}
       <AnalyticsProvider />
       <OgabasseyHomePage

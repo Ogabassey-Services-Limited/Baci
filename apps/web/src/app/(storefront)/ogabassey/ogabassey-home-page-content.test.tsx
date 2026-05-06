@@ -113,6 +113,7 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+import { notFound } from 'next/navigation';
 import { createOgabasseyHomeProductFeed } from '@/components/storefront/ogabassey/home-product-feed';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { OgabasseyHomePageContent } from './ogabassey-home-page-content';
@@ -181,5 +182,13 @@ describe('OgabasseyHomePageContent', () => {
     expect(screen.getByTestId('store-not-published')).toHaveTextContent(
       'OgaBassey'
     );
+  });
+
+  it('returns 404 when merchant lookup is null', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValueOnce(null);
+
+    await expect(OgabasseyHomePageContent()).rejects.toThrow('not-found');
+
+    expect(notFound).toHaveBeenCalledOnce();
   });
 });
