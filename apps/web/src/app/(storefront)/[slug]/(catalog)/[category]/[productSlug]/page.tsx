@@ -35,9 +35,9 @@ import {
   generateSlug,
   getIndexableRobotsMetadata,
   getProductUrl,
+  getValidatedProductUrl,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
-import { normalizeStorefrontCanonicalUrl } from '@/lib/storefront-canonical-url';
 import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
@@ -318,37 +318,6 @@ function redirectInvalidVariantSelectionParams(
   ) {
     permanentRedirect(getRedirectTargetPath(storeSlug, product));
   }
-}
-
-function getValidatedProductUrl(
-  product: Product,
-  baseUrl: string,
-  merchantSlug: string
-) {
-  const finalProductPath = getProductUrl({
-    ...product,
-    canonical_url: null,
-  });
-  let canonicalUrl = normalizeStorefrontCanonicalUrl(
-    product.canonical_url,
-    baseUrl,
-    merchantSlug
-  );
-
-  if (canonicalUrl) {
-    try {
-      const canonicalPath =
-        new URL(canonicalUrl).pathname.replace(/\/+$/, '') || '/';
-      const normalizedFinalPath = finalProductPath.replace(/\/+$/, '') || '/';
-      if (canonicalPath !== normalizedFinalPath) {
-        canonicalUrl = undefined;
-      }
-    } catch {
-      canonicalUrl = undefined;
-    }
-  }
-
-  return canonicalUrl || `${baseUrl}${finalProductPath}`;
 }
 
 type CategoryProductResult =

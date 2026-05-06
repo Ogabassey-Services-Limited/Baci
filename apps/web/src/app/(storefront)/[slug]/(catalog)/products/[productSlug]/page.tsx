@@ -17,7 +17,6 @@ import type { Product } from '@/lib/products';
 import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
-  constructCanonicalUrl,
   generateAggregateRating,
   generateBreadcrumbSchema,
   generateFAQSchema,
@@ -27,9 +26,9 @@ import {
   generateSlug,
   getIndexableRobotsMetadata,
   getProductUrl,
+  getValidatedProductUrl,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
-import { normalizeStorefrontCanonicalUrl } from '@/lib/storefront-canonical-url';
 import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
@@ -325,17 +324,7 @@ export async function generateMetadata(
   }
   const { merchant } = productResult;
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
-  let canonicalUrl = normalizeStorefrontCanonicalUrl(
-    product.canonical_url,
-    baseUrl
-  );
-  if (!canonicalUrl) {
-    const productPath = getProductUrl(product);
-    const basePath = `${baseUrl}${productPath}`;
-    canonicalUrl = constructCanonicalUrl(basePath, resolvedSearchParams, [
-      'variant',
-    ]);
-  }
+  const canonicalUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
   // Metadata needs a generic noun here; the UI uses a friendlier "All Products"
   // fallback later for visible copy when no category label exists.
   const productCategoryName =
@@ -447,8 +436,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       : product;
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
-  const productPath = getProductUrl(product);
-  const productUrl = `${baseUrl}${productPath}`;
+  const productUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
   const productSchema = generateProductSchema(
     productWithReviews,
     merchant.business_name || 'Baci Store',

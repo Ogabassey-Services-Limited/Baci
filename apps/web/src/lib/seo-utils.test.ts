@@ -2,6 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Product } from './products';
+import { safeJsonLdStringify } from './sanitize-json-ld';
 import {
   buildProductUrl,
   generateBreadcrumbSchema,
@@ -14,6 +15,7 @@ import {
   getEffectiveProductStock,
   getIndexableRobotsMetadata,
   getProductUrl,
+  getValidatedProductUrl,
 } from './seo-utils';
 import type { MerchantTrustProfile } from './storefront-trust/merchant-trust-profile-types';
 
@@ -190,6 +192,38 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
       'https://ogabassey.com/smartphones/pixel-10?source=web&variantId=variant+1'
     );
     expect(offer.url).toBe(variant.url);
+  });
+
+  it('omits structured-data URLs when productUrl uses an unsupported scheme', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        slug: 'test-product',
+        variants: [
+          {
+            id: 'v1',
+            product_id: 'test-123',
+            merchant_id: 'm1',
+            attributes: { storage: '128GB' },
+            stock_quantity: 5,
+          },
+        ],
+      }),
+      'TestStore',
+      'NGN',
+      'NG',
+      undefined,
+      undefined,
+      {
+        productUrl: 'mailto:support@example.com',
+      }
+    );
+    const variants = schema.hasVariant as Record<string, unknown>[];
+    const variant = variants[0] as Record<string, unknown>;
+    const offer = variant.offers as Record<string, unknown>;
+
+    expect(schema.url).toBeUndefined();
+    expect(variant.url).toBeUndefined();
+    expect(offer.url).toBeUndefined();
   });
 
   it('puts correct Offer on each hasVariant entry with fallback to parent price', () => {
@@ -523,6 +557,44 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
 
     expect(schema.description).toBe('The best gaming laptop for creators.');
   });
+
+  it('serializes product schema without double-escaping text or URL data', () => {
+    const imageUrl =
+      'https://cdn.example.com/products/pro.png?fit=cover&width=600';
+    const schema = generateProductSchema(
+      makeProduct({
+        name: 'AT&T <Pro>',
+        brand: 'B&O',
+        description: 'Premium & reliable.',
+        imageLarge: imageUrl,
+      }),
+      'Baci & Co',
+      'USD',
+      'NG',
+      undefined,
+      undefined,
+      {
+        productUrl: 'https://store.example.com/products/at-t-pro?source=web',
+      }
+    );
+
+    const serialized = safeJsonLdStringify(schema);
+    const parsed = JSON.parse(serialized) as Record<string, unknown>;
+    const brand = parsed.brand as Record<string, unknown>;
+    const offers = parsed.offers as Record<string, unknown>;
+    const seller = offers.seller as Record<string, unknown>;
+
+    expect(serialized).toContain('\\u003c');
+    expect(serialized).toContain('\\u0026');
+    expect(parsed.name).toBe('AT&T <Pro>');
+    expect(parsed.description).toBe('Premium & reliable.');
+    expect(parsed.url).toBe(
+      'https://store.example.com/products/at-t-pro?source=web'
+    );
+    expect(parsed.image).toEqual([imageUrl]);
+    expect(brand.name).toBe('B&O');
+    expect(seller.name).toBe('Baci & Co');
+  });
 });
 
 describe('getIndexableRobotsMetadata', () => {
@@ -744,6 +816,51 @@ describe('getProductUrl', () => {
         })
       )
     ).toBe('/phones/iphone-15');
+  });
+});
+
+describe('getValidatedProductUrl', () => {
+  it('reuses a matching canonical URL after normalizing it to the storefront origin', () => {
+    const url = getValidatedProductUrl(
+      makeProduct({
+        slug: 'pixel-10',
+        category_slug: 'smartphones',
+        canonical_url: 'https://usebaci.com/smartphones/pixel-10',
+      }),
+      'https://store.example.com',
+      'teststore'
+    );
+
+    expect(url).toBe('https://store.example.com/smartphones/pixel-10');
+  });
+
+  it('rejects stored canonical URLs with query strings or fragments', () => {
+    const url = getValidatedProductUrl(
+      makeProduct({
+        slug: 'pixel-10',
+        category_slug: 'smartphones',
+        canonical_url:
+          'https://store.example.com/smartphones/pixel-10?utm_source=google#reviews',
+      }),
+      'https://store.example.com',
+      'teststore'
+    );
+
+    expect(url).toBe('https://store.example.com/smartphones/pixel-10');
+  });
+
+  it('rejects stored canonical URLs whose path no longer matches the product route', () => {
+    const url = getValidatedProductUrl(
+      makeProduct({
+        slug: 'pixel-10',
+        category_slug: 'smartphones',
+        canonical_url: 'https://store.example.com/products/pixel-10',
+      }),
+      'https://store.example.com',
+      'teststore'
+    );
+
+    expect(url).toBe('https://store.example.com/smartphones/pixel-10');
   });
 });
 

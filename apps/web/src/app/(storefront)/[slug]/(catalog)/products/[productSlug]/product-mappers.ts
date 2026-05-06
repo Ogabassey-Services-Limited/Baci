@@ -21,6 +21,7 @@ export interface LegacyCachedProduct {
   description?: string | null;
   status: string;
   slug?: string | null;
+  canonical_url?: string | null;
   sale_price?: number | null;
   base_price: number;
   track_quantity?: boolean | null;
@@ -52,6 +53,7 @@ export interface DetailedCachedProduct {
   description?: string | null;
   status?: string | null;
   slug?: string | null;
+  canonical_url?: string | null;
   price?: number | string | null;
   compare_at_price?: number | string | null;
   manage_stock?: boolean | null;
@@ -138,6 +140,7 @@ export function mapLegacyCachedProductToProduct(
     description: cachedProduct.description || '',
     status: cachedProduct.status as 'draft' | 'active' | 'archived',
     slug: cachedProduct.slug || cachedProduct.id,
+    canonical_url: cachedProduct.canonical_url || undefined,
     // Use nullish coalescing so a legitimate `0` sale_price (free promo,
     // giveaway) is preserved rather than coerced up to base_price.
     price: cachedProduct.sale_price ?? cachedProduct.base_price,
@@ -196,6 +199,7 @@ export function mapDetailedCachedProductToProduct(
       | 'active'
       | 'archived',
     slug: detailedProduct.slug || detailedProduct.id,
+    canonical_url: detailedProduct.canonical_url || undefined,
     price:
       typeof detailedProduct.price === 'string'
         ? Number.parseFloat(detailedProduct.price) || 0

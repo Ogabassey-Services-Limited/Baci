@@ -105,6 +105,66 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
   safeJsonLdStringify: () => '{}',
 }));
 
+type MockProductUrlInput = {
+  id: string;
+  slug?: string;
+  category?: string | null;
+  categories?: { slug?: string } | null;
+  category_slug?: string;
+  canonical_url?: string | null;
+};
+
+function getMockProductUrl(product: MockProductUrlInput) {
+  if (product.canonical_url) {
+    try {
+      return new URL(product.canonical_url).pathname;
+    } catch {
+      // Fall through to route construction for invalid canonical_url values.
+    }
+  }
+
+  const productSlug = product.slug ?? product.id;
+  const categorySlug =
+    product.categories?.slug ||
+    product.category_slug ||
+    (product.category
+      ? product.category.toLowerCase().replace(/\s+/g, '-')
+      : undefined);
+
+  return categorySlug
+    ? `/${categorySlug}/${productSlug}`
+    : `/products/${productSlug}`;
+}
+
+function getMockValidatedProductUrl(
+  product: MockProductUrlInput,
+  baseUrl: string
+) {
+  const finalProductPath = getMockProductUrl({
+    ...product,
+    canonical_url: null,
+  });
+  if (product.canonical_url) {
+    try {
+      const parsedCanonicalUrl = new URL(product.canonical_url, baseUrl);
+      const canonicalPath =
+        parsedCanonicalUrl.pathname.replace(/\/+$/, '') || '/';
+      const normalizedFinalPath = finalProductPath.replace(/\/+$/, '') || '/';
+      if (
+        !parsedCanonicalUrl.search &&
+        !parsedCanonicalUrl.hash &&
+        canonicalPath === normalizedFinalPath
+      ) {
+        return `${new URL(baseUrl).origin}${parsedCanonicalUrl.pathname}`;
+      }
+    } catch {
+      // Fall through to the deterministic path below.
+    }
+  }
+
+  return `${baseUrl}${finalProductPath}`;
+}
+
 vi.mock('@/lib/seo-utils', () => ({
   constructCanonicalUrl: (base: string) => base,
   generateBreadcrumbSchema: (items: unknown) =>
@@ -127,34 +187,9 @@ vi.mock('@/lib/seo-utils', () => ({
     'max-snippet': -1,
     'max-video-preview': -1,
   }),
-  getProductUrl: (product: {
-    id: string;
-    slug?: string;
-    category?: string | null;
-    categories?: { slug?: string } | null;
-    category_slug?: string;
-    canonical_url?: string | null;
-  }) => {
-    if (product.canonical_url) {
-      try {
-        return new URL(product.canonical_url).pathname;
-      } catch {
-        // Fall through to route construction for invalid canonical_url values.
-      }
-    }
-
-    const productSlug = product.slug ?? product.id;
-    const categorySlug =
-      product.categories?.slug ||
-      product.category_slug ||
-      (product.category
-        ? product.category.toLowerCase().replace(/\s+/g, '-')
-        : undefined);
-
-    return categorySlug
-      ? `/${categorySlug}/${productSlug}`
-      : `/products/${productSlug}`;
-  },
+  getProductUrl: (product: MockProductUrlInput) => getMockProductUrl(product),
+  getValidatedProductUrl: (product: MockProductUrlInput, baseUrl: string) =>
+    getMockValidatedProductUrl(product, baseUrl),
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -444,7 +479,6 @@ describe('[category]/[productSlug] page metadata', () => {
 describe('[category]/[productSlug] page render', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGenerateBreadcrumbSchema.mockClear();
     mockGetEffectiveStock.mockReset();
     mockGetEffectiveStock.mockReturnValue(0);
     mockProductDetailClient.mockReset();
@@ -534,6 +568,7 @@ describe('[category]/[productSlug] page render', () => {
       ],
     });
 
+    // Deliberately render the page only to drive JSON-LD/breadcrumb side effects.
     render(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -586,6 +621,7 @@ describe('[category]/[productSlug] page render', () => {
       manage_stock: undefined,
     });
 
+    // Deliberately render the page only to drive JSON-LD/breadcrumb side effects.
     render(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -841,6 +877,64 @@ describe('[category]/[productSlug] page render', () => {
       },
       canonical_url:
         'https://teststore.usebaci.com/products/samsung-galaxy-z-trifold',
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'smartphones',
+        productSlug: 'samsung-galaxy-z-trifold',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    render(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'smartphones',
+          productSlug: 'samsung-galaxy-z-trifold',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(metadata.alternates?.canonical).toBe(expectedCanonicalUrl);
+    expect(mockGenerateProductSchema).toHaveBeenCalledWith(
+      expect.any(Object),
+      'TestStore',
+      'NGN',
+      'NG',
+      null,
+      expect.any(Object),
+      { productUrl: expectedCanonicalUrl }
+    );
+    expect(mockGenerateBreadcrumbSchema).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'Samsung Galaxy Z TriFold',
+          url: expectedCanonicalUrl,
+        }),
+      ])
+    );
+  });
+
+  it('does not reuse stored canonical_url query strings or fragments in JSON-LD and breadcrumbs', async () => {
+    const expectedCanonicalUrl =
+      'https://teststore.usebaci.com/smartphones/samsung-galaxy-z-trifold';
+    mockGetCachedProductWithDetails.mockResolvedValue({
+      ...categorizedDetailedProduct,
+      name: 'Samsung Galaxy Z TriFold',
+      slug: 'samsung-galaxy-z-trifold',
+      category: 'Smartphones',
+      category_slug: 'smartphones',
+      categories: {
+        id: 'cat-smartphones',
+        name: 'Smartphones',
+        slug: 'smartphones',
+        parent_id: null,
+      },
+      canonical_url: `${expectedCanonicalUrl}?utm_source=google#reviews`,
     });
 
     const metadata = await generateMetadata({

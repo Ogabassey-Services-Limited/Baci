@@ -94,6 +94,7 @@ type ProductUrlInput = {
   category?: string | null;
   categories?: { slug?: string } | null;
   category_slug?: string;
+  canonical_url?: string | null;
 };
 const defaultGetProductUrl = (product: ProductUrlInput) => {
   const productSlug = product.slug ?? product.id;
@@ -111,6 +112,12 @@ const defaultGetProductUrl = (product: ProductUrlInput) => {
 const mockGetProductUrl = vi.fn((product: ProductUrlInput) =>
   defaultGetProductUrl(product)
 );
+const defaultGetValidatedProductUrl = (
+  product: ProductUrlInput,
+  baseUrl: string,
+  _merchantSlug?: string | null
+) => `${baseUrl}${mockGetProductUrl({ ...product, canonical_url: null })}`;
+const mockGetValidatedProductUrl = vi.fn(defaultGetValidatedProductUrl);
 
 vi.mock('@/lib/seo-utils', () => ({
   constructCanonicalUrl: (base: string) => base,
@@ -137,6 +144,11 @@ vi.mock('@/lib/seo-utils', () => ({
     'max-video-preview': -1,
   }),
   getProductUrl: (product: ProductUrlInput) => mockGetProductUrl(product),
+  getValidatedProductUrl: (
+    product: ProductUrlInput,
+    baseUrl: string,
+    merchantSlug?: string | null
+  ) => mockGetValidatedProductUrl(product, baseUrl, merchantSlug),
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -282,6 +294,9 @@ describe('products/[productSlug] page', () => {
     mockHeaders.mockReturnValue(makeHeaders({}));
     mockGenerateProductSchema.mockImplementation(() => ({ offers: {} }));
     mockGetProductUrl.mockImplementation(defaultGetProductUrl);
+    mockGetValidatedProductUrl.mockImplementation(
+      defaultGetValidatedProductUrl
+    );
     mockNormalizeStorefrontProductVariants.mockReset();
     mockNormalizeStorefrontProductVariants.mockReturnValue([]);
     mockGetRequestScopedMerchant.mockResolvedValue(baseMerchant);
@@ -752,6 +767,60 @@ describe('products/[productSlug] page', () => {
         expect.arrayContaining([
           expect.objectContaining({
             url: expect.stringContaining('/products/mystery-item'),
+          }),
+        ])
+      );
+    });
+
+    it('uses the validated product URL for fallback metadata, JSON-LD, and breadcrumbs', async () => {
+      const productUrl = 'https://teststore.usebaci.com/products/mystery-item';
+      const product = {
+        ...uncategorizedProduct,
+        canonical_url: `${productUrl}?utm_source=google#reviews`,
+      };
+      mockGetCachedProduct.mockResolvedValue(product);
+      mockGetValidatedProductUrl.mockReturnValue(productUrl);
+
+      const metadata = await generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'mystery-item',
+          }),
+          searchParams: Promise.resolve({}),
+        },
+        stubParent
+      );
+
+      await ProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'mystery-item',
+        }),
+        searchParams: Promise.resolve({}),
+      });
+
+      expect(metadata.alternates?.canonical).toBe(productUrl);
+      expect(mockGetValidatedProductUrl).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canonical_url: `${productUrl}?utm_source=google#reviews`,
+        }),
+        'https://teststore.usebaci.com',
+        'teststore'
+      );
+      expect(mockGenerateProductSchema).toHaveBeenCalledWith(
+        expect.any(Object),
+        'TestStore',
+        'NGN',
+        'NG',
+        null,
+        expect.any(Object),
+        { productUrl }
+      );
+      expect(mockGenerateBreadcrumbSchema).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            url: productUrl,
           }),
         ])
       );

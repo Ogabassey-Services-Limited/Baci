@@ -711,6 +711,7 @@ export async function getCachedProducts(
         name,
         description,
         slug,
+        canonical_url,
         base_price,
         sale_price,
         currency,
