@@ -1,3 +1,4 @@
+import { normalizeProductKeySpecs } from '@/lib/product-key-specs-normalize';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
 import { generateSlug, getProductUrl } from '@/lib/seo-utils';
@@ -234,8 +235,9 @@ export function mapLegacyCachedProductToProduct(
     has_variants: normalizedVariants.length > 0,
     variants: normalizedVariants,
     specifications: cachedProduct.specifications as Product['specifications'],
-    product_key_specs:
-      cachedProduct.product_key_specs as Product['product_key_specs'],
+    product_key_specs: normalizeProductKeySpecs(
+      cachedProduct.product_key_specs
+    ) as Product['product_key_specs'],
   };
 }
 
@@ -327,7 +329,8 @@ export function mapDetailedCachedProductToProduct(
     offers: detailedProduct.offers ?? [],
     variants: normalizedVariants,
     specifications: detailedProduct.specifications as Product['specifications'],
-    product_key_specs:
-      detailedProduct.product_key_specs as Product['product_key_specs'],
+    product_key_specs: normalizeProductKeySpecs(
+      detailedProduct.product_key_specs
+    ) as Product['product_key_specs'],
   } as Product;
 }

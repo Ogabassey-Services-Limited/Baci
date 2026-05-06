@@ -36,6 +36,14 @@ export function readAgenticMutationRequest({
   return readAgenticSignedRequest({ request, requireIdempotency });
 }
 
+export function readAgenticQueryRequest({
+  request,
+}: {
+  request: NextRequest;
+}): Promise<AgenticMutationRequest> {
+  return readAgenticSignedRequest({ request, requireIdempotency: false });
+}
+
 export async function readAgenticSignedRequest({
   requireIdempotency = true,
   request,

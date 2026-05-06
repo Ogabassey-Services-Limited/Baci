@@ -1,6 +1,9 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
+import {
+  readAgenticMutationRequest,
+  readAgenticQueryRequest,
+} from '@/lib/agentic/mutation-request';
 import { verifyAgenticRequestIntegrity } from '@/lib/agentic/request-integrity';
 
 vi.mock('@/lib/agentic/request-integrity', () => ({
@@ -30,6 +33,13 @@ function request(
       ...headers,
     },
     method: 'POST',
+  });
+}
+
+function getRequest() {
+  return new NextRequest('http://localhost/api/agentic/orders/order-1', {
+    headers: { authorization: 'Bearer test' },
+    method: 'GET',
   });
 }
 
@@ -77,6 +87,26 @@ describe('readAgenticMutationRequest', () => {
     const result = await readAgenticMutationRequest({ request: request('') });
 
     expect(result).toMatchObject({ body: {}, ok: true });
+  });
+
+  it('reads signed GET query requests without a request body or idempotency key', async () => {
+    const result = await readAgenticQueryRequest({ request: getRequest() });
+
+    expect(result).toMatchObject({
+      body: {},
+      idempotencyKey: '',
+      method: 'GET',
+      ok: true,
+      pathname: '/api/agentic/orders/order-1',
+      rawBody: '',
+    });
+    expect(verifyAgenticRequestIntegrity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: '',
+        method: 'GET',
+        pathname: '/api/agentic/orders/order-1',
+      })
+    );
   });
 
   it('rejects missing required idempotency keys', async () => {

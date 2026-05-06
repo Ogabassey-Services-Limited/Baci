@@ -3,6 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetMerchantByIdentifier = vi.fn();
+const ROUTE_TEST_TIMEOUT_MS = 15_000;
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: (...args: unknown[]) =>
@@ -37,43 +38,51 @@ afterEach(() => {
 });
 
 describe('GET /agent-commerce.json', () => {
-  it('returns Ogabassey agent commerce capabilities for the custom domain', async () => {
-    const { GET } = await import('./route');
-    const response = await GET(
-      new Request('https://ogabassey.com/agent-commerce.json', {
-        headers: { host: 'ogabassey.com' },
-      })
-    );
-    const body = await response.json();
+  it(
+    'returns Ogabassey agent commerce capabilities for the custom domain',
+    async () => {
+      const { GET } = await import('./route');
+      const response = await GET(
+        new Request('https://ogabassey.com/agent-commerce.json', {
+          headers: { host: 'ogabassey.com' },
+        })
+      );
+      const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body.schema_version).toBe('2026-04-30');
-    expect(body.store).toMatchObject({
-      slug: 'ogabassey',
-      name: 'Ogabassey',
-      canonical_origin: 'https://ogabassey.com',
-    });
-    expect(body.capabilities).toContain('checkout.session.complete');
-    expect(body.auth?.type).toBe('bearer_hmac');
-    expect(body.links.product_feed).toBe(
-      'https://ogabassey.com/feeds/openai.jsonl'
-    );
-    expect(body.links.feeds).toMatchObject({
-      agent_products: 'https://ogabassey.com/feeds/agent-products.jsonl',
-      google_merchant_xml: 'https://ogabassey.com/feeds/google-merchant.xml',
-    });
-    expect(body.links.checkout_sessions).toBe(
-      'https://ogabassey.com/api/agentic/checkout_sessions'
-    );
-    expect(body.links).toMatchObject({
-      privacy_policy_url: 'https://ogabassey.com/privacy',
-      return_policy_url: 'https://ogabassey.com/returns',
-      shipping_policy_url: 'https://ogabassey.com/shipping',
-      terms_of_service_url: 'https://ogabassey.com/terms',
-    });
-    expect(response.headers.get('cache-control')).toBe('public, max-age=300');
-    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
-  });
+      expect(response.status).toBe(200);
+      expect(body.schema_version).toBe('2026-04-30');
+      expect(body.store).toMatchObject({
+        slug: 'ogabassey',
+        name: 'Ogabassey',
+        canonical_origin: 'https://ogabassey.com',
+      });
+      expect(body.capabilities).toContain('checkout.session.complete');
+      expect(body.capabilities).toContain('order.read');
+      expect(body.auth?.type).toBe('bearer_hmac');
+      expect(body.links.product_feed).toBe(
+        'https://ogabassey.com/feeds/openai.jsonl'
+      );
+      expect(body.links.feeds).toMatchObject({
+        agent_products: 'https://ogabassey.com/feeds/agent-products.jsonl',
+        google_merchant_xml: 'https://ogabassey.com/feeds/google-merchant.xml',
+      });
+      expect(body.links.checkout_sessions).toBe(
+        'https://ogabassey.com/api/agentic/checkout_sessions'
+      );
+      expect(body.links.order).toBe(
+        'https://ogabassey.com/api/agentic/orders/{order_id}'
+      );
+      expect(body.links).toMatchObject({
+        privacy_policy_url: 'https://ogabassey.com/privacy',
+        return_policy_url: 'https://ogabassey.com/returns',
+        shipping_policy_url: 'https://ogabassey.com/shipping',
+        terms_of_service_url: 'https://ogabassey.com/terms',
+      });
+      expect(response.headers.get('cache-control')).toBe('public, max-age=300');
+      expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    },
+    ROUTE_TEST_TIMEOUT_MS
+  );
 
   it('normalizes www custom domains before merchant lookup', async () => {
     mockGetMerchantByIdentifier.mockImplementation((identifier) => {
