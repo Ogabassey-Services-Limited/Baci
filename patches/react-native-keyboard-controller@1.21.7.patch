@@ -1,0 +1,16 @@
+diff --git a/android/build.gradle b/android/build.gradle
+index 989c2c4c35ab4501af88127056f52d78f872f56e..7cf8c8e34ef02e211e8757f1166ef59895454e70 100644
+--- a/android/build.gradle
++++ b/android/build.gradle
+@@ -36,7 +36,10 @@ def reactNativeArchitectures() {
+ }
+ 
+ apply plugin: 'com.android.library'
+-apply plugin: 'kotlin-android'
++def builtInKotlinEnabled = !project.hasProperty("android.builtInKotlin") || project.property("android.builtInKotlin").toString().toBoolean()
++if (!builtInKotlinEnabled) {
++    apply plugin: 'org.jetbrains.kotlin.android'
++}
+ apply from: "$projectDir/react-native-helpers.gradle"
+ 
+ if (isNewArchitectureEnabled()) {
