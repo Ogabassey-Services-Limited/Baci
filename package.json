@@ -46,13 +46,19 @@
       "next": "Pin to 16.2.4 to mitigate GHSA-q4gf-8mx6-v5v3 in Server Components.",
       "basic-ftp": "Pin to 5.3.0 to mitigate GHSA-rp42-5vxx-qpwr via transitive Lighthouse tooling.",
       "ajv@<6.14.0": "Pin legacy AJV 6 consumers to 6.14.0 to mitigate GHSA-2g4f-4pwh-qvx6 without forcing AJV 8 into older consumers.",
-      "@types/react": "Dedupe to a single version. Without this, pnpm hoists 19.2.13 at the root and nested copies at 19.2.14, causing TS2769 'two different types with this name' errors on react-native ref props."
+      "@types/react": "Dedupe to a single version. Without this, pnpm hoists 19.2.13 at the root and nested copies at 19.2.14, causing TS2769 'two different types with this name' errors on react-native ref props.",
+      "@firebase/util": "Dedupe to a single version. Two transitive consumers (@firebase/database-compat 2.1.0 vs 2.1.1) pull in @firebase/util 1.13.0 and 1.14.0 simultaneously; under node-linker=hoisted the second copy goes into nested node_modules/@firebase/database-types/node_modules/ and pnpm 10.28 races its own extraction there, failing with ENOENT on the temp-file rename. Reproduced in storefront Android runs 25457441264 and the 2026-05-01 466a00fc86 run.",
+      "@firebase/database-types": "Dedupe with @firebase/util — same reason.",
+      "@firebase/database-compat": "Dedupe with @firebase/util — same reason."
     },
     "overrides": {
       "defu": "6.1.6",
       "@xmldom/xmldom": "0.8.13",
       "follow-redirects": "^1.16.0",
       "@types/react": "19.2.14",
+      "@firebase/util": "1.14.0",
+      "@firebase/database-types": "1.0.17",
+      "@firebase/database-compat": "2.1.1",
       "smol-toml": ">=1.6.1",
       "picomatch": ">=4.0.4",
       "yaml": ">=2.8.3",
