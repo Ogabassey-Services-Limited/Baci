@@ -6,14 +6,15 @@ import { SPACING } from '@/constants/Colors';
 import { NETWORK_PROVIDERS } from '@/constants/network-providers';
 import { useKeyboard } from '@/hooks/use-keyboard';
 import { useUtilityPayment } from '@/hooks/use-utility-payment';
-import { NetworkError, TimeoutError } from '@/lib/fetch-with-timeout';
 import { detectNetwork } from '@/lib/network-utils';
 import {
   chargeSavedVtuCard,
   chargeWalletForVtu,
+  computeVtuWalletAmount,
   initializeVtuCheckout,
   isSavedVtuCardChargeProcessing,
   requiresSavedVtuCardAuthorization,
+  shouldRotateWalletIdempotencyKeyForError,
   type VTUPaymentGateway,
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
@@ -105,8 +106,12 @@ export function useAirtimeFormController({
       isSubmittingRef.current = false;
       return;
     }
-    const walletAmount =
-      payment.walletSelection?.use === true ? payment.walletSelection.amount : 0;
+    const walletAmount = computeVtuWalletAmount(
+      payment.walletSelection?.use === true
+        ? payment.walletSelection.amount
+        : 0,
+      numericAmount
+    );
     const isWalletOnly = walletAmount > 0 && walletAmount === numericAmount;
     if (
       !isWalletOnly &&
@@ -162,9 +167,10 @@ export function useAirtimeFormController({
           });
           return;
         } catch (error) {
-          if (
-            !(error instanceof TimeoutError || error instanceof NetworkError)
-          ) {
+          // Keep the key for ambiguous failures (network, timeout, 5xx,
+          // unknown) so the route's dedupe table protects retries.
+          // Rotate only on 4xx — request rejected before any state.
+          if (shouldRotateWalletIdempotencyKeyForError(error)) {
             payment.resetWalletIdempotencyKey();
           }
           throw error;

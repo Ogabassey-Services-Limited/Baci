@@ -2,13 +2,14 @@ import { router } from 'expo-router';
 import { Alert } from 'react-native';
 import type { useUtilityPayment } from '@/hooks/use-utility-payment';
 import type { Biller } from '@/hooks/use-vtu-billers';
-import { NetworkError, TimeoutError } from '@/lib/fetch-with-timeout';
 import {
   chargeSavedVtuCard,
   chargeWalletForVtu,
+  computeVtuWalletAmount,
   initializeVtuCheckout,
   isSavedVtuCardChargeProcessing,
   requiresSavedVtuCardAuthorization,
+  shouldRotateWalletIdempotencyKeyForError,
   type VTUPaymentGateway,
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
@@ -112,8 +113,12 @@ export function createBillFormPurchaseHandler({
         );
         return;
       }
-      const walletAmount =
-        payment.walletSelection?.use === true ? payment.walletSelection.amount : 0;
+      const walletAmount = computeVtuWalletAmount(
+        payment.walletSelection?.use === true
+          ? payment.walletSelection.amount
+          : 0,
+        numericAmount
+      );
       const isWalletOnly = walletAmount > 0 && walletAmount === numericAmount;
       // Card / gateway is only required when there's a residual to
       // charge. Full wallet-coverage skips the gateway entirely.
@@ -186,12 +191,12 @@ export function createBillFormPurchaseHandler({
           });
           return;
         } catch (error) {
-          // Keep the idempotency key on network failures so the user's
-          // retry hits the route's dedupe table; rotate it on
-          // definitive server responses (4xx/5xx with a body).
-          if (
-            !(error instanceof TimeoutError || error instanceof NetworkError)
-          ) {
+          // Keep the idempotency key for any error that leaves room for
+          // server state to have been persisted (network, timeout, 5xx,
+          // unknown) so the user's retry hits the route's dedupe table.
+          // Only rotate on 4xx — request was rejected before any state
+          // was created and the same key would just keep failing.
+          if (shouldRotateWalletIdempotencyKeyForError(error)) {
             payment.resetWalletIdempotencyKey();
           }
           throw error;

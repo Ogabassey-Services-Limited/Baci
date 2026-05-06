@@ -1,13 +1,14 @@
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
 import type { useUtilityPayment } from '@/hooks/use-utility-payment';
-import { NetworkError, TimeoutError } from '@/lib/fetch-with-timeout';
 import {
   chargeSavedVtuCard,
   chargeWalletForVtu,
+  computeVtuWalletAmount,
   initializeVtuCheckout,
   isSavedVtuCardChargeProcessing,
   requiresSavedVtuCardAuthorization,
+  shouldRotateWalletIdempotencyKeyForError,
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
@@ -77,8 +78,12 @@ export function createDataFormPurchaseHandler({
       );
       return;
     }
-    const walletAmount =
-      payment.walletSelection?.use === true ? payment.walletSelection.amount : 0;
+    const walletAmount = computeVtuWalletAmount(
+      payment.walletSelection?.use === true
+        ? payment.walletSelection.amount
+        : 0,
+      planAmount
+    );
     const isWalletOnly = walletAmount > 0 && walletAmount === planAmount;
     if (
       !isWalletOnly &&
@@ -128,9 +133,10 @@ export function createDataFormPurchaseHandler({
           });
           return;
         } catch (error) {
-          if (
-            !(error instanceof TimeoutError || error instanceof NetworkError)
-          ) {
+          // Keep the key for ambiguous failures (network, timeout, 5xx,
+          // unknown) so the route's dedupe table protects retries.
+          // Rotate only on 4xx — request rejected before any state.
+          if (shouldRotateWalletIdempotencyKeyForError(error)) {
             payment.resetWalletIdempotencyKey();
           }
           throw error;

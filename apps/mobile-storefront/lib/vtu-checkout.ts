@@ -1,7 +1,11 @@
 import { z } from 'zod';
 import { EXPO_PUBLIC_API_URL } from '@/env';
 import { CONFIG } from '@/lib/config';
-import { DEFAULT_TIMEOUT, fetchWithTimeout } from '@/lib/fetch-with-timeout';
+import {
+  DEFAULT_TIMEOUT,
+  fetchWithTimeout,
+  HttpError,
+} from '@/lib/fetch-with-timeout';
 import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
 import { supabase } from '@/lib/supabase';
 
@@ -225,7 +229,7 @@ function getResponseErrorMessage(data: Record<string, unknown>) {
 async function parseJsonResponse(response: Response) {
   const data = (await response.json()) as Record<string, unknown>;
   if (!response.ok) {
-    throw new Error(getResponseErrorMessage(data));
+    throw new HttpError(response.status, getResponseErrorMessage(data));
   }
 
   return data;
@@ -281,6 +285,50 @@ const WalletOnlyVtuResponseSchema = z.object({
 });
 
 export type WalletOnlyVtuResult = z.infer<typeof WalletOnlyVtuResponseSchema>;
+
+/**
+ * Clamp a stored wallet selection amount to the current bill total at
+ * submit time. Wallet selection is captured when the user toggles
+ * wallet on, so by the time submit fires the bill amount may have
+ * changed (different plan, different meter, edited input). Sending a
+ * stale `walletAmount > amount` would either trip the server's
+ * `walletAmount <= amount` refinement (400) or, worse, miss the
+ * wallet-only equality check and send a hybrid request the user didn't
+ * intend.
+ */
+export function computeVtuWalletAmount(
+  selectionAmount: number | undefined,
+  currentTotal: number
+): number {
+  if (
+    typeof selectionAmount !== 'number' ||
+    selectionAmount <= 0 ||
+    !Number.isFinite(selectionAmount) ||
+    !Number.isFinite(currentTotal) ||
+    currentTotal <= 0
+  ) {
+    return 0;
+  }
+  return Math.min(selectionAmount, currentTotal);
+}
+
+/**
+ * Decide whether a failed wallet-only attempt should rotate the
+ * caller's `Idempotency-Key`. Only definitive client failures (4xx) are
+ * safe to rotate on — those mean the request was rejected before any
+ * server state was persisted. Network errors, timeouts, 5xx responses,
+ * and unknown exceptions all leave open the possibility that the
+ * server already inserted the idempotency-key row and/or debited the
+ * wallet; rotating the key on those would let the next retry bypass
+ * the dedupe table and create a duplicate transaction.
+ */
+export function shouldRotateWalletIdempotencyKeyForError(
+  error: unknown
+): boolean {
+  return (
+    error instanceof HttpError && error.status >= 400 && error.status < 500
+  );
+}
 
 /**
  * Wallet-only VTU purchase. Caller must guarantee the wallet balance

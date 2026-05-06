@@ -7,13 +7,16 @@ import {
   jest,
 } from '@jest/globals';
 import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
+import { HttpError, NetworkError, TimeoutError } from '@/lib/fetch-with-timeout';
 import {
   chargeSavedVtuCard,
   chargeWalletForVtu,
+  computeVtuWalletAmount,
   confirmVtuCheckout,
   initializeVtuCheckout,
   listSavedVtuCards,
   normalizeVtuCheckoutPayload,
+  shouldRotateWalletIdempotencyKeyForError,
   VTU_CHECKOUT_INITIALIZE_URL,
   VTU_CHECKOUT_WALLET_ONLY_URL,
   VtuPaymentStillProcessingError,
@@ -67,10 +70,15 @@ jest.mock('expo-constants', () => ({
   },
 }));
 
-jest.mock('@/lib/fetch-with-timeout', () => ({
-  DEFAULT_TIMEOUT: 30000,
-  fetchWithTimeout: (...args: unknown[]) => mockFetchWithTimeout(...args),
-}));
+jest.mock('@/lib/fetch-with-timeout', () => {
+  const actual = jest.requireActual<
+    typeof import('@/lib/fetch-with-timeout')
+  >('@/lib/fetch-with-timeout');
+  return {
+    ...actual,
+    fetchWithTimeout: (...args: unknown[]) => mockFetchWithTimeout(...args),
+  };
+});
 
 jest.mock('@/lib/supabase', () => ({
   supabase: {
@@ -441,5 +449,89 @@ describe('vtu-checkout service', () => {
     // body field — leaking it into the body would defeat the
     // schema's parsed shape and could expose the key in logs.
     expect(body).not.toHaveProperty('idempotencyKey');
+  });
+});
+
+describe('computeVtuWalletAmount', () => {
+  it('clamps a stale selection amount down to the current bill total', () => {
+    // User enabled wallet for ₦1000 plan, then switched to a ₦500
+    // plan — the captured selection.amount is now larger than the
+    // bill. Without clamping the server would 400 on
+    // walletAmount > amount.
+    expect(computeVtuWalletAmount(1000, 500)).toBe(500);
+  });
+
+  it('passes through a selection amount within the bill total', () => {
+    expect(computeVtuWalletAmount(300, 1000)).toBe(300);
+  });
+
+  it('treats wallet-toggle-off (selection 0 or undefined) as no wallet contribution', () => {
+    expect(computeVtuWalletAmount(0, 1000)).toBe(0);
+    expect(computeVtuWalletAmount(undefined, 1000)).toBe(0);
+  });
+
+  it('rejects negative or non-finite inputs by returning 0', () => {
+    expect(computeVtuWalletAmount(-1, 1000)).toBe(0);
+    expect(computeVtuWalletAmount(Number.NaN, 1000)).toBe(0);
+    expect(computeVtuWalletAmount(500, Number.NaN)).toBe(0);
+    expect(computeVtuWalletAmount(500, 0)).toBe(0);
+  });
+});
+
+describe('shouldRotateWalletIdempotencyKeyForError', () => {
+  // The contract: keep the key (return false) for any failure that
+  // could leave server state in flight; only rotate (return true) on
+  // 4xx HTTP responses where the request was rejected before any
+  // state was created.
+
+  it('returns true for HTTP 400-499 (request rejected, no server state)', () => {
+    expect(
+      shouldRotateWalletIdempotencyKeyForError(new HttpError(400, 'bad'))
+    ).toBe(true);
+    expect(
+      shouldRotateWalletIdempotencyKeyForError(new HttpError(401, 'auth'))
+    ).toBe(true);
+    expect(
+      shouldRotateWalletIdempotencyKeyForError(new HttpError(422, 'invalid'))
+    ).toBe(true);
+    expect(
+      shouldRotateWalletIdempotencyKeyForError(new HttpError(499, 'closed'))
+    ).toBe(true);
+  });
+
+  it('returns false for HTTP 5xx — server may have persisted partial state', () => {
+    expect(
+      shouldRotateWalletIdempotencyKeyForError(new HttpError(500, 'oops'))
+    ).toBe(false);
+    expect(
+      shouldRotateWalletIdempotencyKeyForError(new HttpError(502, 'gateway'))
+    ).toBe(false);
+    expect(
+      shouldRotateWalletIdempotencyKeyForError(new HttpError(503, 'unavail'))
+    ).toBe(false);
+    expect(
+      shouldRotateWalletIdempotencyKeyForError(new HttpError(504, 'timeout'))
+    ).toBe(false);
+  });
+
+  it('returns false for network errors — request may not have reached the server', () => {
+    expect(
+      shouldRotateWalletIdempotencyKeyForError(new NetworkError('offline'))
+    ).toBe(false);
+  });
+
+  it('returns false for timeout errors — request status is unknown', () => {
+    expect(
+      shouldRotateWalletIdempotencyKeyForError(new TimeoutError(30000))
+    ).toBe(false);
+  });
+
+  it('returns false for unknown / non-HTTP errors — fail safe by keeping the key', () => {
+    expect(
+      shouldRotateWalletIdempotencyKeyForError(new Error('parse failed'))
+    ).toBe(false);
+    expect(shouldRotateWalletIdempotencyKeyForError('bare string')).toBe(false);
+    expect(shouldRotateWalletIdempotencyKeyForError(undefined)).toBe(false);
+    expect(shouldRotateWalletIdempotencyKeyForError(null)).toBe(false);
   });
 });
