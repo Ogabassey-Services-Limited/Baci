@@ -1,10 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   mockConnection,
   mockGenerateStorefrontLayoutMetadata,
+  mockHeaders,
   mockStorefrontLayout,
 } = vi.hoisted(() => ({
   mockConnection: vi.fn(() => Promise.resolve()),
@@ -21,6 +22,11 @@ const {
       params: Promise<{ slug: string }>;
     }) => <div data-testid="storefront-layout">{children}</div>
   ),
+  mockHeaders: vi.fn(() => Promise.resolve(new Headers())),
+}));
+
+vi.mock('next/headers', () => ({
+  headers: () => mockHeaders(),
 }));
 
 vi.mock('next/server', () => ({
@@ -42,6 +48,11 @@ import OgabasseyLayout, {
 } from '@/app/(storefront)/ogabassey/layout';
 
 describe('OgabasseyLayout', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockHeaders.mockResolvedValue(new Headers());
+  });
+
   it('delegates to the generic storefront layout with the OgaBassey slug', async () => {
     const result = await OgabasseyLayout({
       children: <p>Home content</p>,
@@ -56,6 +67,21 @@ describe('OgabasseyLayout', () => {
 
     const props = mockStorefrontLayout.mock.calls[0]?.[0];
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey' });
+  });
+
+  it('delegates custom-domain traffic with the request-derived identifier', async () => {
+    mockHeaders.mockResolvedValueOnce(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+
+    const result = await OgabasseyLayout({
+      children: <p>Home content</p>,
+    });
+
+    render(result);
+
+    const props = mockStorefrontLayout.mock.calls[0]?.[0];
+    await expect(props?.params).resolves.toEqual({ slug: 'ogabassey.com' });
   });
 
   it('keeps the storefront viewport settings', () => {
@@ -74,6 +100,18 @@ describe('OgabasseyLayout', () => {
     });
     const props = mockGenerateStorefrontLayoutMetadata.mock.calls[0]?.[0];
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey' });
+  });
+
+  it('delegates merchant-level metadata with the request-derived custom-domain identifier', async () => {
+    mockHeaders.mockResolvedValueOnce(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+
+    const metadata = await generateMetadata();
+
+    expect(metadata.manifest).toBeNull();
+    const props = mockGenerateStorefrontLayoutMetadata.mock.calls[0]?.[0];
+    await expect(props?.params).resolves.toEqual({ slug: 'ogabassey.com' });
   });
 
   it('keeps the platform manifest disabled when merchant metadata fails', async () => {
