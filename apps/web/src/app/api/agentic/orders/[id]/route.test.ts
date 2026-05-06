@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
+import { readAgenticQueryRequest } from '@/lib/agentic/mutation-request';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 const {
-  mockReadAgenticMutationRequest,
+  mockReadAgenticQueryRequest,
   mockResolveAgenticMerchantContext,
   mockVerifyAgenticApiKey,
 } = vi.hoisted(() => ({
-  mockReadAgenticMutationRequest: vi.fn(),
+  mockReadAgenticQueryRequest: vi.fn(),
   mockResolveAgenticMerchantContext: vi.fn(),
   mockVerifyAgenticApiKey: vi.fn(() => true),
 }));
@@ -22,7 +22,7 @@ vi.mock('@/lib/agentic/merchant-context', () => ({
   resolveAgenticMerchantContext: mockResolveAgenticMerchantContext,
 }));
 vi.mock('@/lib/agentic/mutation-request', () => ({
-  readAgenticMutationRequest: mockReadAgenticMutationRequest,
+  readAgenticQueryRequest: mockReadAgenticQueryRequest,
 }));
 vi.mock('@/lib/agentic/scoped-supabase', () => ({
   createAgenticScopedSupabaseClient: vi.fn(),
@@ -87,7 +87,7 @@ describe('GET /api/agentic/orders/[id]', () => {
       id: 'merchant-1',
       slug: 'ogabassey',
     });
-    mockReadAgenticMutationRequest.mockResolvedValue({
+    mockReadAgenticQueryRequest.mockResolvedValue({
       apiVersion: '2026-04-30',
       body: {},
       idempotencyKey: '',
@@ -134,13 +134,13 @@ describe('GET /api/agentic/orders/[id]', () => {
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: 'Unauthorized' });
-    expect(readAgenticMutationRequest).not.toHaveBeenCalled();
+    expect(readAgenticQueryRequest).not.toHaveBeenCalled();
     expect(createAdminClient).not.toHaveBeenCalled();
     expect(createAgenticScopedSupabaseClient).not.toHaveBeenCalled();
   });
 
   it('requires signed read integrity without requiring idempotency', async () => {
-    mockReadAgenticMutationRequest.mockResolvedValueOnce({
+    mockReadAgenticQueryRequest.mockResolvedValueOnce({
       ok: false,
       response: NextResponse.json(
         { error: 'Invalid signature' },
@@ -153,9 +153,8 @@ describe('GET /api/agentic/orders/[id]', () => {
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: 'Invalid signature' });
-    expect(readAgenticMutationRequest).toHaveBeenCalledWith({
+    expect(readAgenticQueryRequest).toHaveBeenCalledWith({
       request: expect.any(NextRequest),
-      requireIdempotency: false,
     });
     expect(createAdminClient).not.toHaveBeenCalled();
   });
@@ -168,7 +167,7 @@ describe('GET /api/agentic/orders/[id]', () => {
     expect(await response.json()).toMatchObject({
       error: 'Invalid route params',
     });
-    expect(readAgenticMutationRequest).not.toHaveBeenCalled();
+    expect(readAgenticQueryRequest).not.toHaveBeenCalled();
     expect(createAdminClient).not.toHaveBeenCalled();
   });
 

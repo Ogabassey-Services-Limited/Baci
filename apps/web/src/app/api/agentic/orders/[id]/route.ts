@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { resolveAgenticMerchantContext } from '@/lib/agentic/merchant-context';
-import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
+import { readAgenticQueryRequest } from '@/lib/agentic/mutation-request';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
@@ -32,9 +32,8 @@ export async function GET(
     );
   }
 
-  const signedRead = await readAgenticMutationRequest({
+  const signedRead = await readAgenticQueryRequest({
     request,
-    requireIdempotency: false,
   });
   if (!signedRead.ok) {
     return signedRead.response;
