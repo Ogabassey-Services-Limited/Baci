@@ -205,13 +205,13 @@ export async function OgabasseyHomePageContent() {
         aria-label="Storefront discovery links"
         className="mx-auto mt-8 max-w-[1400px] px-4 md:px-6"
       >
-        <div className="rounded-2xl border border-[var(--store-background-text,#111827)]/10 bg-[var(--store-background,#ffffff)] p-5">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-[var(--store-background-text,#111827)]/70">
+        <div className="rounded-2xl border border-[color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)] bg-[var(--store-background,#ffffff)] p-5">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-[color-mix(in_srgb,var(--store-background-text,#111827)_70%,transparent)]">
             Browse Popular Sections
           </h2>
           <div className="mt-3 flex flex-wrap gap-2">
             <Link
-              className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
+              className="rounded-full border border-[color-mix(in_srgb,var(--store-background-text,#111827)_15%,transparent)] px-3 py-1.5 text-xs font-medium text-[color-mix(in_srgb,var(--store-background-text,#111827)_80%,transparent)] transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
               href={asRoute(`${pathPrefix}/products`)}
               prefetch={false}
             >
@@ -219,7 +219,7 @@ export async function OgabasseyHomePageContent() {
             </Link>
             {merchant.feature_settings?.blog_enabled ? (
               <Link
-                className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
+                className="rounded-full border border-[color-mix(in_srgb,var(--store-background-text,#111827)_15%,transparent)] px-3 py-1.5 text-xs font-medium text-[color-mix(in_srgb,var(--store-background-text,#111827)_80%,transparent)] transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
                 href={asRoute(`${pathPrefix}/blog`)}
                 prefetch={false}
               >
@@ -229,7 +229,7 @@ export async function OgabasseyHomePageContent() {
             {categoryDiscoveryLinks.map((category) => (
               <Link
                 key={category.slug}
-                className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
+                className="rounded-full border border-[color-mix(in_srgb,var(--store-background-text,#111827)_15%,transparent)] px-3 py-1.5 text-xs font-medium text-[color-mix(in_srgb,var(--store-background-text,#111827)_80%,transparent)] transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
                 href={asRoute(`${pathPrefix}/${category.slug}`)}
                 prefetch={false}
               >
@@ -240,7 +240,7 @@ export async function OgabasseyHomePageContent() {
 
           {productDiscoveryLinks.length > 0 && (
             <>
-              <h3 className="mt-5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--store-background-text,#111827)]/55">
+              <h3 className="mt-5 text-xs font-semibold uppercase tracking-[0.08em] text-[color-mix(in_srgb,var(--store-background-text,#111827)_55%,transparent)]">
                 Featured Product Links
               </h3>
               <ul className="mt-2 grid gap-1 md:grid-cols-2 lg:grid-cols-3">

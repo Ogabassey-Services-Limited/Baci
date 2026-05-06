@@ -27,7 +27,10 @@ vi.mock('@/app/(storefront)/[slug]/layout', () => ({
   }),
 }));
 
-import OgabasseyLayout, { generateViewport } from './layout';
+import OgabasseyLayout, {
+  generateViewport,
+  metadata,
+} from '@/app/(storefront)/ogabassey/layout';
 
 describe('OgabasseyLayout', () => {
   it('delegates to the generic storefront layout with the OgaBassey slug', async () => {
@@ -51,5 +54,9 @@ describe('OgabasseyLayout', () => {
       width: 'device-width',
       initialScale: 1,
     });
+  });
+
+  it('disables the platform manifest on the OgaBassey home layout', () => {
+    expect(metadata.manifest).toBeNull();
   });
 });
