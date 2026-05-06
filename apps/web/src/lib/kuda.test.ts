@@ -307,6 +307,62 @@ describe('Kuda API Client', () => {
       ]);
     });
 
+    it('extracts an EKEDC meter token from nested TSQ pin objects', async () => {
+      const { checkTransactionStatus } = await import('@/lib/kuda');
+
+      const fetchMock = vi.fn().mockImplementation((url) => {
+        if (url.toString().includes('GetToken')) {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve('token'),
+          } as Response);
+        }
+
+        return mockKudaResponse(
+          {
+            FinalStatus: 'successful',
+            Pin: {
+              Number: '  0283-6213-2450-8322-0153  ',
+              Units: '29.4',
+            },
+          },
+          'Token found'
+        );
+      });
+      globalThis.fetch = fetchMock;
+
+      const result = await checkTransactionStatus('kuda-bill-1', 'VTU-123');
+
+      expect(result).toEqual({
+        message: 'Token found',
+        pin: '0283-6213-2450-8322-0153',
+        status: 'successful',
+      });
+    });
+
+    it('does not treat scalar TSQ data as a voucher token', async () => {
+      const { checkTransactionStatus } = await import('@/lib/kuda');
+
+      const fetchMock = vi.fn().mockImplementation((url) => {
+        if (url.toString().includes('GetToken')) {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve('token'),
+          } as Response);
+        }
+
+        return mockKudaResponse('Pending', 'Scalar status payload');
+      });
+      globalThis.fetch = fetchMock;
+
+      const result = await checkTransactionStatus('kuda-bill-1');
+
+      expect(result).toEqual({
+        message: 'Scalar status payload',
+        status: 'unknown',
+      });
+    });
+
     it('returns the highest-priority observed status when no token is found', async () => {
       const { checkTransactionStatus } = await import('@/lib/kuda');
 
