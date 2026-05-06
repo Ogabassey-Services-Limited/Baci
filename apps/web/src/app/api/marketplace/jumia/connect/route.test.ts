@@ -104,6 +104,8 @@ const MERCHANT_CTX = {
     permissions: {},
   },
 };
+const INTEGRATION_ID = '00000000-0000-4000-8000-000000000010';
+const OTHER_INTEGRATION_ID = '00000000-0000-4000-8000-000000000011';
 
 function makePostRequest(body: unknown) {
   return new NextRequest('http://localhost/api/marketplace/jumia/connect', {
@@ -262,7 +264,11 @@ describe('Connect POST', () => {
     setupAuth();
     mockSelect.mockReturnValue({
       single: vi.fn().mockResolvedValue({
-        data: { id: 'int-1', shop_id: 'default', shop_name: 'My Jumia Shop' },
+        data: {
+          id: INTEGRATION_ID,
+          shop_id: 'default',
+          shop_name: 'My Jumia Shop',
+        },
         error: null,
       }),
     });
@@ -486,7 +492,7 @@ describe('Connect GET', () => {
             eq: vi.fn().mockResolvedValue({
               data: [
                 {
-                  id: 'int-1',
+                  id: INTEGRATION_ID,
                   shop_id: 'shop-1',
                   shop_name: 'Jumia NG',
                   country_code: 'NG',
@@ -508,7 +514,7 @@ describe('Connect GET', () => {
       connected: true,
       integrations: [
         {
-          id: 'int-1',
+          id: INTEGRATION_ID,
           shop_id: 'shop-1',
           shop_name: 'Jumia NG',
           country_code: 'NG',
@@ -576,7 +582,7 @@ describe('Connect DELETE', () => {
 
   it('disconnects a Jumia integration for bearer-authenticated mobile requests', async () => {
     const maybeSingle = vi.fn().mockResolvedValue({
-      data: { id: 'int-1' },
+      data: { id: INTEGRATION_ID },
       error: null,
     });
     const select = vi.fn().mockReturnValue({ maybeSingle });
@@ -585,7 +591,7 @@ describe('Connect DELETE', () => {
     const update = vi.fn().mockReturnValue({ eq: eqId });
     mockSupabase.from.mockReturnValueOnce({ update });
 
-    const res = await DELETE(makeBearerDeleteRequest('?id=int-1'));
+    const res = await DELETE(makeBearerDeleteRequest(`?id=${INTEGRATION_ID}`));
 
     expect(res.status).toBe(200);
     await expect(res.json()).resolves.toEqual({
@@ -594,7 +600,7 @@ describe('Connect DELETE', () => {
     });
     expect(mockAuthenticateApiRequest).toHaveBeenCalled();
     expect(update).toHaveBeenCalledWith({ is_active: false });
-    expect(eqId).toHaveBeenCalledWith('id', 'int-1');
+    expect(eqId).toHaveBeenCalledWith('id', INTEGRATION_ID);
     expect(eqMerchant).toHaveBeenCalledWith(
       'merchant_id',
       MERCHANT_CTX.merchantId
@@ -619,6 +625,16 @@ describe('Connect DELETE', () => {
     });
   });
 
+  it('returns 400 when integration id is not a UUID', async () => {
+    const res = await DELETE(makeBearerDeleteRequest('?id=int-1'));
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toEqual({
+      error: 'Integration ID required',
+    });
+    expect(mockSupabase.from).not.toHaveBeenCalled();
+  });
+
   it('returns 500 when the disconnect update fails', async () => {
     const maybeSingle = vi.fn().mockResolvedValue({
       data: null,
@@ -631,7 +647,7 @@ describe('Connect DELETE', () => {
       update: vi.fn().mockReturnValue({ eq: eqId }),
     });
 
-    const res = await DELETE(makeBearerDeleteRequest('?id=int-1'));
+    const res = await DELETE(makeBearerDeleteRequest(`?id=${INTEGRATION_ID}`));
 
     expect(res.status).toBe(500);
     await expect(res.json()).resolves.toEqual({
@@ -651,7 +667,9 @@ describe('Connect DELETE', () => {
       update: vi.fn().mockReturnValue({ eq: eqId }),
     });
 
-    const res = await DELETE(makeBearerDeleteRequest('?id=other'));
+    const res = await DELETE(
+      makeBearerDeleteRequest(`?id=${OTHER_INTEGRATION_ID}`)
+    );
 
     expect(res.status).toBe(404);
     await expect(res.json()).resolves.toEqual({

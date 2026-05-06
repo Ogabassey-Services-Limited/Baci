@@ -51,9 +51,9 @@ describe('integrationIdSchema', () => {
 });
 
 describe('deleteJumiaConnectionQuerySchema', () => {
-  it('accepts a non-empty integration id', () => {
+  it('accepts a UUID integration id', () => {
     const result = deleteJumiaConnectionQuerySchema.safeParse({
-      id: 'int-123',
+      id: '550e8400-e29b-41d4-a716-446655440000',
     });
 
     expect(result.success).toBe(true);
@@ -67,6 +67,19 @@ describe('deleteJumiaConnectionQuerySchema', () => {
     expect(result.success).toBe(false);
     if (!result.success) {
       expect(result.error.issues[0].message).toBe('Integration ID required');
+    }
+  });
+
+  it('rejects a non-UUID integration id', () => {
+    const result = deleteJumiaConnectionQuerySchema.safeParse({
+      id: 'int-123',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toBe(
+        'integrationId must be a valid UUID'
+      );
     }
   });
 });
