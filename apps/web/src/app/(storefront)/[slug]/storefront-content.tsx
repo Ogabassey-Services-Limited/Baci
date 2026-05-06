@@ -107,20 +107,31 @@ async function loadGenericTemplateComponents(templateId: string) {
   return template.getComponents();
 }
 
-async function renderOgabasseyHomeTemplate({
-  categories,
-  merchantProducts,
-  storeSlug,
-}: {
-  categories: { name: string; slug: string }[];
-  merchantProducts: Product[];
-  storeSlug: string;
-}) {
+async function loadOgabasseyHomeTemplateModules() {
   const [{ OgabasseyHomePage }, { createOgabasseyHomeProductFeed }] =
     await Promise.all([
       import('@/components/storefront/ogabassey/pages/home'),
       import('@/components/storefront/ogabassey/home-product-feed'),
     ]);
+
+  return {
+    createOgabasseyHomeProductFeed,
+    OgabasseyHomePage,
+  };
+}
+
+function renderOgabasseyHomeTemplate({
+  categories,
+  merchantProducts,
+  modules,
+  storeSlug,
+}: {
+  categories: { name: string; slug: string }[];
+  merchantProducts: Product[];
+  modules: Awaited<ReturnType<typeof loadOgabasseyHomeTemplateModules>>;
+  storeSlug: string;
+}) {
+  const { createOgabasseyHomeProductFeed, OgabasseyHomePage } = modules;
 
   return (
     <OgabasseyHomePage
@@ -165,9 +176,37 @@ export async function StorefrontContent({
     merchant.template_id,
     merchant.business_type
   );
+  const ogabasseyHomeTemplatePromise =
+    templateId === OGABASSEY_TEMPLATE_ID
+      ? loadOgabasseyHomeTemplateModules().catch((error) => {
+          reportTemplateRenderFailure({
+            error,
+            merchantId: merchant.id,
+            templateId,
+          });
+          console.error('Failed to load OgaBassey storefront template:', {
+            merchantId: merchant.id,
+            templateId,
+            error,
+          });
+          return null;
+        })
+      : null;
   const genericComponentsPromise =
     templateId && templateId !== OGABASSEY_TEMPLATE_ID
-      ? loadGenericTemplateComponents(templateId)
+      ? loadGenericTemplateComponents(templateId).catch((error) => {
+          reportTemplateRenderFailure({
+            error,
+            merchantId: merchant.id,
+            templateId,
+          });
+          console.error('Failed to load storefront template components:', {
+            merchantId: merchant.id,
+            templateId,
+            error,
+          });
+          return null;
+        })
       : null;
 
   // Parallel data fetching — both use remote cache
@@ -321,20 +360,23 @@ export async function StorefrontContent({
   if (templateId) {
     if (templateId === OGABASSEY_TEMPLATE_ID) {
       try {
-        return (
-          <>
-            {homepageSchema}
-            <AnalyticsProvider />
-            {
-              await renderOgabasseyHomeTemplate({
+        const ogabasseyHomeTemplateModules = await ogabasseyHomeTemplatePromise;
+
+        if (ogabasseyHomeTemplateModules) {
+          return (
+            <>
+              {homepageSchema}
+              <AnalyticsProvider />
+              {renderOgabasseyHomeTemplate({
                 storeSlug: merchant.slug,
                 merchantProducts,
                 categories: categories || [],
-              })
-            }
-            {discoveryLinksSection}
-          </>
-        );
+                modules: ogabasseyHomeTemplateModules,
+              })}
+              {discoveryLinksSection}
+            </>
+          );
+        }
       } catch (error) {
         reportTemplateRenderFailure({
           error,

@@ -180,7 +180,6 @@ export function HeroMobileCarousel({
               </div>
               <div className="w-full h-full flex items-center justify-center transform scale-90">
                 <DeferredAdUnit
-                  enabled={index === currentSlide}
                   placementKey="HEADER_LEADERBOARD"
                   className="my-0"
                   isActive={index === currentSlide}

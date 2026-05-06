@@ -33,9 +33,6 @@ vi.mock('@baci/shared', () => ({
 vi.mock('../components/Hero', () => ({
   Hero: () => <div data-testid="hero">Hero</div>,
 }));
-vi.mock('../components/BannerCarousel', () => ({
-  BannerCarousel: () => <div data-testid="banner-carousel">Banner</div>,
-}));
 vi.mock('../components/HomeProductGrid', () => ({
   HomeProductGrid: (props: Record<string, unknown>) =>
     mockHomeProductGrid(props as Parameters<typeof mockHomeProductGrid>[0]),
@@ -106,6 +103,12 @@ describe('OgabasseyHomePage', () => {
     render(<OgabasseyHomePage products={[]} categories={[]} />);
 
     expect(screen.getByTestId('banner-carousel')).toBeInTheDocument();
+    expect(mockDeferredBannerCarousel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        className: 'h-40 md:h-52',
+        timeoutMs: expect.any(Number),
+      })
+    );
   });
 
   it('keeps the homepage strip ad out of the early main-thread window', () => {
@@ -131,10 +134,8 @@ describe('OgabasseyHomePage', () => {
       (homepageStripCall?.[0] as { bootDelayMs?: number }).bootDelayMs
     ).toBeGreaterThanOrEqual(9000);
 
-    expect(mockDeferredAdUnit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        timeoutMs: 1,
-      })
+    expect(homepageStripCall?.[0]).toEqual(
+      expect.objectContaining({ timeoutMs: 1 })
     );
   });
 });
