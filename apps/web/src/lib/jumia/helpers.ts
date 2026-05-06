@@ -40,11 +40,15 @@ export function getJumiaAuthUrl(config: {
   environment?: JumiaEnvironment;
 }): string {
   const baseUrl = getJumiaBaseUrl(config.environment);
+  // scope=openid alone left some merchants with access-token-only OAuth responses
+  // (Jumia omitted refresh_token), forcing daily reconnects. offline_access is the
+  // OIDC-standard signal to mint refresh tokens; verified accepted by Jumia's
+  // /login endpoint via curl probe on 2026-05-06.
   const params = new URLSearchParams({
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
     response_type: 'code',
-    scope: 'openid',
+    scope: 'openid offline_access',
     prompt: 'login',
     max_age: '0',
     state: config.state,
