@@ -7,6 +7,21 @@ import { buildStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { StorefrontPageContent } from '../storefront-page-content';
 
+function buildStorefrontLanguageAlternates(
+  baseUrl: string,
+  country: string | null | undefined
+): Record<string, string> {
+  const languages: Record<string, string> = {
+    'x-default': baseUrl,
+  };
+
+  if (country?.trim().toUpperCase() === 'NG') {
+    languages['en-NG'] = baseUrl;
+  }
+
+  return languages;
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -67,6 +82,7 @@ export async function generateMetadata({
     ],
     alternates: {
       canonical: baseUrl,
+      languages: buildStorefrontLanguageAlternates(baseUrl, merchant.country),
     },
     openGraph: {
       title: title,
