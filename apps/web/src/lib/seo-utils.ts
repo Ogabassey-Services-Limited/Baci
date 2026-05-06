@@ -4,11 +4,17 @@ import {
   toSchemaItemConditionUri,
 } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
-import type { Product, ProductSchemaMarkup, Review } from './products';
+import type {
+  Product,
+  ProductSchemaMarkup,
+  ProductVariant,
+  Review,
+} from './products';
 // Import from sanitize-core to avoid loading jsdom on server components
 import { escapeHtml, stripHtmlTags } from './sanitize-core';
-import { sanitizeSchemaMarkup } from './sanitize-json-ld';
+import { sanitizeSchemaMarkup, sanitizeSchemaUrl } from './sanitize-json-ld';
 import { normalizeSocialUrl } from './social';
+import { normalizeStorefrontCanonicalUrl } from './storefront-canonical-url';
 import type {
   MerchantTrustProfile,
   MerchantTrustProfileReturnFee,
@@ -37,6 +43,10 @@ function normalizeCanonicalCategorySlug(
 }
 
 function getSchemaItemCondition(condition?: string | null) {
+  if (!condition || condition.trim() === '') {
+    return 'https://schema.org/NewCondition';
+  }
+
   return toSchemaItemConditionUri(condition);
 }
 
@@ -182,6 +192,49 @@ export function getProductUrl(product: {
     product.categories?.name || product.category,
     categorySlug
   );
+}
+
+export function getValidatedProductUrl(
+  product: Parameters<typeof getProductUrl>[0],
+  baseUrl: string,
+  merchantSlug?: string | null
+): string {
+  let storeOrigin = '';
+  try {
+    storeOrigin = new URL(baseUrl).origin;
+  } catch {
+    storeOrigin = '';
+  }
+
+  const finalProductPath = getProductUrl({
+    ...product,
+    canonical_url: null,
+  });
+  let canonicalUrl = normalizeStorefrontCanonicalUrl(
+    product.canonical_url,
+    storeOrigin,
+    merchantSlug
+  );
+
+  if (canonicalUrl) {
+    try {
+      const parsedCanonicalUrl = new URL(canonicalUrl, baseUrl);
+      const canonicalPath =
+        parsedCanonicalUrl.pathname.replace(/\/+$/, '') || '/';
+      const normalizedFinalPath = finalProductPath.replace(/\/+$/, '') || '/';
+      if (
+        parsedCanonicalUrl.search ||
+        parsedCanonicalUrl.hash ||
+        canonicalPath !== normalizedFinalPath
+      ) {
+        canonicalUrl = undefined;
+      }
+    } catch {
+      canonicalUrl = undefined;
+    }
+  }
+
+  return canonicalUrl || `${storeOrigin}${finalProductPath}`;
 }
 
 const STOREFRONT_ROOT_SEGMENTS = new Set([
@@ -589,6 +642,41 @@ function buildMerchantReturnPolicyFromTrustProfile(
   };
 }
 
+interface ProductSchemaOptions {
+  productUrl?: string;
+}
+
+function parseStructuredDataUrl(url: string | undefined): URL | undefined {
+  if (!url) {
+    return undefined;
+  }
+
+  const sanitizedUrl = sanitizeSchemaUrl(url);
+  if (!sanitizedUrl) {
+    return undefined;
+  }
+
+  try {
+    return new URL(sanitizedUrl);
+  } catch {
+    return undefined;
+  }
+}
+
+function buildStructuredDataVariantUrl(
+  productUrl: URL | undefined,
+  variant: ProductVariant
+): string | undefined {
+  if (!productUrl) {
+    return undefined;
+  }
+
+  const url = new URL(productUrl);
+  url.searchParams.set('variantId', variant.id);
+
+  return url.toString();
+}
+
 /**
  * Generates JSON-LD structured data for a product (2025 Google best practices)
  * For products with variants, outputs @type ProductGroup with hasVariant (each variant has its own Offer).
@@ -601,10 +689,12 @@ export function generateProductSchema(
   currency: string = 'USD',
   country: string = 'NG', // Default to Nigeria
   merchantLogo?: string,
-  trustProfile?: MerchantTrustProfile
+  trustProfile?: MerchantTrustProfile,
+  options: ProductSchemaOptions = {}
 ): ProductSchemaMarkup & Record<string, unknown> {
-  // Sanitize all user-controlled string values to prevent XSS in JSON-LD context
-  const safeName = escapeHtml(product.name);
+  // Keep schema values as data. safeJsonLdStringify handles script-context escaping
+  // at serialization time so structured-data parsers receive unmodified values.
+  const safeName = product.name;
 
   // Provide a smart fallback for description to prevent "Missing field description" errors
   const rawDescription = product.meta_description || product.description;
@@ -612,11 +702,12 @@ export function generateProductSchema(
     ? generateMetaDescription(rawDescription)
     : '';
   const safeDescription = metaDescription
-    ? escapeHtml(metaDescription)
-    : `Buy ${safeName} from ${escapeHtml(merchantName)}. Best prices, fast delivery, and secure payments.`;
+    ? metaDescription
+    : `Buy ${safeName} from ${merchantName}. Best prices, fast delivery, and secure payments.`;
 
-  const safeBrand = escapeHtml(product.brand || merchantName);
-  const safeMerchantName = escapeHtml(merchantName);
+  const safeBrand = product.brand || merchantName;
+  const safeMerchantName = merchantName;
+  const structuredDataProductUrl = parseStructuredDataUrl(options.productUrl);
   const shippingDetails = buildOfferShippingDetails(
     country,
     currency,
@@ -633,13 +724,13 @@ export function generateProductSchema(
     safeImages = product.images
       .map((img) => {
         const raw = typeof img === 'string' ? img : img?.url;
-        return raw ? escapeHtml(raw) : '';
+        return raw || '';
       })
       .filter(Boolean);
   } else if (product.imageLarge) {
-    safeImages = [escapeHtml(product.imageLarge)];
+    safeImages = [product.imageLarge];
   } else if (product.image) {
-    safeImages = [escapeHtml(product.image)];
+    safeImages = [product.image];
   }
 
   // Filter out any empty strings
@@ -650,7 +741,7 @@ export function generateProductSchema(
     safeImages.length > 0
       ? safeImages
       : merchantLogo
-        ? [escapeHtml(merchantLogo)]
+        ? [merchantLogo]
         : undefined;
 
   const schema: ProductSchemaMarkup & Record<string, unknown> = {
@@ -658,6 +749,9 @@ export function generateProductSchema(
     '@type': 'Product',
     name: safeName,
     description: safeDescription,
+    ...(structuredDataProductUrl && {
+      url: structuredDataProductUrl.toString(),
+    }),
     ...(finalImages && { image: finalImages }),
     brand: {
       '@type': 'Brand',
@@ -669,6 +763,9 @@ export function generateProductSchema(
             '@type': 'Offer',
             price: offer.price,
             priceCurrency: currency,
+            ...(structuredDataProductUrl && {
+              url: structuredDataProductUrl.toString(),
+            }),
             availability: getSchemaAvailability({
               manage_stock: product.manage_stock,
               stock_quantity: offer.stock_quantity,
@@ -688,6 +785,9 @@ export function generateProductSchema(
             '@type': 'Offer',
             price: product.price,
             priceCurrency: currency,
+            ...(structuredDataProductUrl && {
+              url: structuredDataProductUrl.toString(),
+            }),
             availability: getSchemaAvailability(product),
             itemCondition: getSchemaItemCondition(product.condition),
             seller: {
@@ -702,31 +802,30 @@ export function generateProductSchema(
           },
   };
 
-  // Product identifiers (important for Google Merchant Center) - sanitized
+  // Product identifiers are important for Google Merchant Center.
   if (product.sku) {
-    schema.sku = escapeHtml(product.sku);
+    schema.sku = product.sku;
   }
 
   if (product.gtin) {
-    const safeGtin = escapeHtml(product.gtin);
-    schema.gtin = safeGtin;
+    schema.gtin = product.gtin;
     if (product.gtin.length === 13) {
-      schema.gtin13 = safeGtin;
+      schema.gtin13 = product.gtin;
     }
     if (product.gtin.length === 14) {
-      schema.gtin14 = safeGtin;
+      schema.gtin14 = product.gtin;
     }
   }
 
   if (product.mpn) {
-    schema.mpn = escapeHtml(product.mpn);
+    schema.mpn = product.mpn;
   }
 
-  // Category for Google Product Category - sanitized
+  // Category for Google Product Category.
   // Use joined categories.name from category_id, fallback to legacy TEXT field
   const categoryName = product.categories?.name || product.category;
   if (categoryName) {
-    schema.category = escapeHtml(categoryName);
+    schema.category = categoryName;
   }
 
   // Physical attributes
@@ -885,9 +984,7 @@ export function generateProductSchema(
         additionalProperties.push({
           '@type': 'PropertyValue',
           name: mapping.name,
-          value: mapping.format
-            ? escapeHtml(mapping.format(value))
-            : escapeHtml(String(value)),
+          value: mapping.format ? mapping.format(value) : String(value),
         });
       }
     }
@@ -900,8 +997,8 @@ export function generateProductSchema(
         for (const item of category.items) {
           additionalProperties.push({
             '@type': 'PropertyValue',
-            name: escapeHtml(item.label),
-            value: escapeHtml(item.value),
+            name: item.label,
+            value: item.value,
           });
         }
       }
@@ -948,9 +1045,9 @@ export function generateProductSchema(
     }
   }
 
-  // Color (useful for apparel) - sanitized
+  // Color (useful for apparel).
   if (product.color) {
-    schema.color = escapeHtml(product.color);
+    schema.color = product.color;
   }
 
   // Compare at price (for sales)
@@ -996,10 +1093,10 @@ export function generateProductSchema(
       '@type': 'Review',
       author: {
         '@type': 'Person',
-        name: escapeHtml(review.author),
+        name: review.author,
       },
-      datePublished: escapeHtml(review.datePublished),
-      reviewBody: escapeHtml(review.reviewBody),
+      datePublished: review.datePublished,
+      reviewBody: review.reviewBody,
       reviewRating: {
         '@type': 'Rating',
         ratingValue: review.reviewRating,
@@ -1022,7 +1119,7 @@ export function generateProductSchema(
   // @see https://schema.org/ProductGroup
   if (product.variants && product.variants.length > 0) {
     schema['@type'] = 'ProductGroup';
-    schema.productGroupID = escapeHtml(product.slug || product.id);
+    schema.productGroupID = product.slug || product.id;
 
     // Compute variesBy from unique attribute keys across all variants
     const allAttributeKeys = new Set<string>();
@@ -1065,6 +1162,10 @@ export function generateProductSchema(
     // Build hasVariant array — each variant becomes a @type Product
     schema.hasVariant = product.variants.map((variant) => {
       const variantPrice = variant.price_override ?? product.price;
+      const variantUrl = buildStructuredDataVariantUrl(
+        structuredDataProductUrl,
+        variant
+      );
       const variantCondition = getSchemaItemCondition(
         variant.condition ?? product.condition
       );
@@ -1073,16 +1174,12 @@ export function generateProductSchema(
       const attrValues = variant.attributes
         ? Object.values(variant.attributes).join(' / ')
         : '';
-      const variantName = attrValues
-        ? `${safeName} - ${escapeHtml(attrValues)}`
-        : safeName;
+      const variantName = attrValues ? `${safeName} - ${attrValues}` : safeName;
 
       // Variant images: use variant-specific images if available, fall back to parent images
       let variantImages: string[] | undefined;
       if (variant.images && variant.images.length > 0) {
-        const filtered = variant.images
-          .map((img) => escapeHtml(img))
-          .filter((img) => img.trim() !== '');
+        const filtered = variant.images.filter((img) => img.trim() !== '');
         if (filtered.length > 0) variantImages = filtered;
       }
 
@@ -1094,20 +1191,23 @@ export function generateProductSchema(
         '@type': 'Product',
         name: variantName,
         description: safeDescription,
+        ...(variantUrl && { url: variantUrl }),
         ...(variantImages && { image: variantImages }),
         brand: {
           '@type': 'Brand',
           name: safeBrand,
         },
-        ...(variantColor && { color: escapeHtml(variantColor) }),
-        ...(variantSize && { size: escapeHtml(variantSize) }),
-        sku: variant.sku ? escapeHtml(variant.sku) : variant.id,
-        ...(product.gtin && { gtin: escapeHtml(product.gtin) }),
-        ...(product.mpn && { mpn: escapeHtml(product.mpn) }),
+        inProductGroupWithID: schema.productGroupID,
+        ...(variantColor && { color: variantColor }),
+        ...(variantSize && { size: variantSize }),
+        sku: variant.sku || variant.id,
+        ...(product.gtin && { gtin: product.gtin }),
+        ...(product.mpn && { mpn: product.mpn }),
         offers: {
           '@type': 'Offer',
           price: variantPrice,
           priceCurrency: currency,
+          ...(variantUrl && { url: variantUrl }),
           availability: getSchemaAvailability({
             manage_stock: product.manage_stock,
             stock_quantity: variant.stock_quantity,
