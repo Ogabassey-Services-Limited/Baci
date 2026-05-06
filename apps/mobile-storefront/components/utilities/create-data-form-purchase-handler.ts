@@ -3,9 +3,12 @@ import { Alert } from 'react-native';
 import type { useUtilityPayment } from '@/hooks/use-utility-payment';
 import {
   chargeSavedVtuCard,
+  chargeWalletForVtu,
+  computeVtuWalletAmount,
   initializeVtuCheckout,
   isSavedVtuCardChargeProcessing,
   requiresSavedVtuCardAuthorization,
+  shouldRotateWalletIdempotencyKeyForError,
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
@@ -75,7 +78,18 @@ export function createDataFormPurchaseHandler({
       );
       return;
     }
-    if (!payment.selectedSavedCardId && !payment.selectedGateway) {
+    const walletAmount = computeVtuWalletAmount(
+      payment.walletSelection?.use === true
+        ? payment.walletSelection.amount
+        : 0,
+      planAmount
+    );
+    const isWalletOnly = walletAmount > 0 && walletAmount === planAmount;
+    if (
+      !isWalletOnly &&
+      !payment.selectedSavedCardId &&
+      !payment.selectedGateway
+    ) {
       Alert.alert(
         'Select Payment Method',
         'Choose a payment method before continuing.'
@@ -90,6 +104,51 @@ export function createDataFormPurchaseHandler({
         customer?.email ||
         undefined;
 
+      if (isWalletOnly) {
+        const idempotencyKey = payment.getWalletIdempotencyKey();
+        try {
+          const result = await chargeWalletForVtu({
+            amount: planAmount,
+            customerName,
+            customerPhone: customer?.phone || undefined,
+            dataPlanCode: selectedPlan,
+            networkProvider: selectedProvider,
+            phoneNumber,
+            type: 'data',
+            walletAmount: planAmount,
+            idempotencyKey,
+          });
+          // Only rotate on terminal success. 'processing' means the
+          // vend is still in flight server-side; rotating now would let
+          // a user-initiated retry bypass the route's dedupe row and
+          // create a duplicate VTU transaction.
+          if (result.status === 'successful') {
+            payment.resetWalletIdempotencyKey();
+          }
+          onSuccess({
+            amount: result.amount ?? planAmount,
+            cashback: result.cashback
+              ? {
+                  amount: result.cashback.amount,
+                  newBalance: result.cashback.newBalance,
+                }
+              : undefined,
+            reference: result.reference,
+            status: result.status,
+            voucherPin: result.voucherPin,
+          });
+          return;
+        } catch (error) {
+          // Keep the key for ambiguous failures (network, timeout, 5xx,
+          // unknown) so the route's dedupe table protects retries.
+          // Rotate only on 4xx — request rejected before any state.
+          if (shouldRotateWalletIdempotencyKeyForError(error)) {
+            payment.resetWalletIdempotencyKey();
+          }
+          throw error;
+        }
+      }
+
       if (payment.selectedSavedCardId) {
         const result = await chargeSavedVtuCard({
           amount: planAmount,
@@ -100,6 +159,7 @@ export function createDataFormPurchaseHandler({
           phoneNumber,
           savedPaymentMethodId: payment.selectedSavedCardId,
           type: 'data',
+          ...(walletAmount > 0 ? { walletAmount } : {}),
         });
 
         if (requiresSavedVtuCardAuthorization(result)) {
@@ -176,6 +236,7 @@ export function createDataFormPurchaseHandler({
         networkProvider: selectedProvider,
         phoneNumber,
         type: 'data',
+        ...(walletAmount > 0 ? { walletAmount } : {}),
       });
       router.push({
         pathname: '/payment-gateway',

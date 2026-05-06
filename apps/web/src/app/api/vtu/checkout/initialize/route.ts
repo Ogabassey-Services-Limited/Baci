@@ -45,6 +45,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Wallet residual: when the customer covers some of the bill from
+    // wallet credit, the gateway charges only the residual. Full
+    // coverage (`walletAmount === amount`) must use the wallet-only
+    // route so the path that has no `transactions` row / no Paystack
+    // hop runs — this route would create a `transactions.amount=0` row
+    // and a confusing zero-charge gateway call.
+    const walletAmount = parsed.data.walletAmount ?? 0;
+    if (walletAmount === parsed.data.amount && walletAmount > 0) {
+      return createErrorResponse(
+        'wallet-only payments must use /api/vtu/checkout/wallet-only.',
+        400
+      );
+    }
+    const residualAmount = parsed.data.amount - walletAmount;
+
     const supabase = createAdminClient();
     const prepared = await preparePendingVtuTransaction({
       supabase,
@@ -98,7 +113,7 @@ export async function POST(request: NextRequest) {
       if (parsed.data.gateway === 'paystack') {
         const paystack = await initializePaystackTransaction({
           email: customerEmail,
-          amount: Math.round(parsed.data.amount * 100),
+          amount: Math.round(residualAmount * 100),
           reference: paymentReference,
           callback_url: callbackUrl,
           metadata,
@@ -109,7 +124,7 @@ export async function POST(request: NextRequest) {
         gatewayResponse = paystack as unknown as Record<string, unknown>;
       } else {
         const korapay = await initializeKorapayPayment({
-          amount: parsed.data.amount,
+          amount: residualAmount,
           currency: 'NGN',
           customer: {
             email: customerEmail,
@@ -127,13 +142,18 @@ export async function POST(request: NextRequest) {
         gatewayResponse = korapay as unknown as Record<string, unknown>;
       }
 
+      // `transactions.amount` MUST equal what the gateway charged. The
+      // confirm route compares `verifiedAmount` from Paystack/Korapay
+      // against `transaction.amount` and rejects on mismatch — storing
+      // the full bill amount here would break confirm for hybrid
+      // payments.
       const { error: transactionError } = await supabase
         .from('transactions')
         .insert({
           merchant_id: prepared.merchant.id,
           order_id: null,
           transaction_type: 'payment',
-          amount: parsed.data.amount,
+          amount: residualAmount,
           currency: 'NGN',
           status: 'pending',
           gateway: parsed.data.gateway,

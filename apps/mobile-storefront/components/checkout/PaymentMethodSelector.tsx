@@ -111,9 +111,11 @@ const PAYMENT_METHODS: PaymentMethod[] = [
 
 /**
  * `walletMode` opts a caller into wallet payment UI. Defaults to `'off'`,
- * which is what every existing caller (including VTU's
- * UtilityPaymentOptions) gets without any changes — so VTU stays hidden
- * until PR B wires server support and switches to `walletMode='vtu'`.
+ * which is what every existing caller gets without any changes.
+ *
+ * - `'orders'`: PR A — storefront order checkout.
+ * - `'vtu'`:    PR B — VTU/bills checkout (UtilityPaymentOptions).
+ * - `'off'`:    no wallet row rendered (default).
  *
  * The selector is presentation-only. The caller is responsible for
  * fetching wallet balance via `useWallet()` and passing it as
@@ -231,8 +233,12 @@ export function PaymentMethodSelector({
     selectedMethod === 'paystack' ||
     selectedMethod === 'korapay' ||
     selectedMethod === 'bank_transfer';
+  // VTU's UtilityPaymentOptions hardcodes selectedTab='full' and only
+  // exposes paystack/korapay to the selector, both of which satisfy
+  // isWalletCompatibleMethod. The same render gate works for both
+  // 'orders' and 'vtu' callers.
   const walletShouldRender =
-    walletMode === 'orders' &&
+    (walletMode === 'orders' || walletMode === 'vtu') &&
     walletBalance > 0 &&
     walletEffectiveTotal > 0 &&
     selectedTab === 'full' &&
