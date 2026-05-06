@@ -1,5 +1,5 @@
 export {
   default,
+  generateMetadata,
   generateViewport,
-  metadata,
 } from '@/app/(storefront)/ogabassey/layout';

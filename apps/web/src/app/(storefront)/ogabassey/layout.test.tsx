@@ -2,8 +2,16 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-const { mockConnection, mockStorefrontLayout } = vi.hoisted(() => ({
+const {
+  mockConnection,
+  mockGenerateStorefrontLayoutMetadata,
+  mockStorefrontLayout,
+} = vi.hoisted(() => ({
   mockConnection: vi.fn(() => Promise.resolve()),
+  mockGenerateStorefrontLayoutMetadata: vi.fn(
+    (_props: { params: Promise<{ slug: string }> }) =>
+      Promise.resolve({ manifest: null })
+  ),
   mockStorefrontLayout: vi.fn(
     ({
       children,
@@ -21,6 +29,7 @@ vi.mock('next/server', () => ({
 
 vi.mock('@/app/(storefront)/[slug]/layout', () => ({
   default: mockStorefrontLayout,
+  generateMetadata: mockGenerateStorefrontLayoutMetadata,
   generateViewport: () => ({
     width: 'device-width',
     initialScale: 1,
@@ -28,8 +37,8 @@ vi.mock('@/app/(storefront)/[slug]/layout', () => ({
 }));
 
 import OgabasseyLayout, {
+  generateMetadata,
   generateViewport,
-  metadata,
 } from '@/app/(storefront)/ogabassey/layout';
 
 describe('OgabasseyLayout', () => {
@@ -56,7 +65,31 @@ describe('OgabasseyLayout', () => {
     });
   });
 
-  it('disables the platform manifest on the OgaBassey home layout', () => {
+  it('delegates merchant-level metadata to the generic storefront layout', async () => {
+    const metadata = await generateMetadata();
+
     expect(metadata.manifest).toBeNull();
+    expect(mockGenerateStorefrontLayoutMetadata).toHaveBeenCalledWith({
+      params: expect.any(Promise),
+    });
+    const props = mockGenerateStorefrontLayoutMetadata.mock.calls[0]?.[0];
+    await expect(props?.params).resolves.toEqual({ slug: 'ogabassey' });
+  });
+
+  it('keeps the platform manifest disabled when merchant metadata fails', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockGenerateStorefrontLayoutMetadata.mockRejectedValueOnce(
+      new Error('metadata failed')
+    );
+
+    try {
+      await expect(generateMetadata()).resolves.toEqual({
+        manifest: null,
+      });
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });
