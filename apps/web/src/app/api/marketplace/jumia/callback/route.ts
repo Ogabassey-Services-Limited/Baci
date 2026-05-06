@@ -32,6 +32,8 @@ function clearOAuthCookies(response: NextResponse): NextResponse {
   response.cookies.delete('jumia_merchant_id');
   response.cookies.delete('jumia_oauth_platform');
   response.cookies.delete('jumia_ticket_id');
+  // VARIANT-TEST: REMOVE — diagnostic harness, see helpers.ts comment.
+  response.cookies.delete('jumia_oauth_variant');
   return response;
 }
 
@@ -164,6 +166,9 @@ export async function GET(request: NextRequest) {
     }
     const jumiaRedirectUri = getJumiaRedirectUri(appUrl);
 
+    // VARIANT-TEST: REMOVE — diagnostic harness, see helpers.ts comment.
+    const variant = request.cookies.get('jumia_oauth_variant')?.value;
+
     let tokens: Awaited<ReturnType<typeof exchangeJumiaCode>>;
     try {
       tokens = await exchangeJumiaCode({
@@ -198,6 +203,22 @@ export async function GET(request: NextRequest) {
     }
 
     const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000);
+
+    // VARIANT-TEST: REMOVE — log Jumia's token-response shape (NO secrets) so we
+    // can A/B which auth-URL variant (if any) makes Jumia mint refresh tokens.
+    if (variant) {
+      logger.info({
+        message: '[Jumia OAuth Variant Test]',
+        variant,
+        merchantId,
+        has_access_token: Boolean(tokens.access_token),
+        has_refresh_token: Boolean(tokens.refresh_token),
+        has_refresh_expires_in: tokens.refresh_expires_in !== undefined,
+        expires_in: tokens.expires_in,
+        refresh_expires_in: tokens.refresh_expires_in ?? null,
+        token_type: tokens.token_type,
+      });
+    }
 
     const tempClient = new JumiaClient({
       integrationId: 'temp',
@@ -314,7 +335,12 @@ export async function GET(request: NextRequest) {
           !existingActiveShopIds.has(integration.shop_id)
       )
       .map((integration) => integration.shop_id);
-    const redirectQuery =
+    // VARIANT-TEST: REMOVE — append the variant outcome to the redirect so it
+    // surfaces in the browser URL bar (no need to dig through Vercel logs).
+    const variantResult = variant
+      ? `${variant}:has_refresh=${tokens.refresh_token ? 'true' : 'false'},re_exp=${tokens.refresh_expires_in ?? 'null'}`
+      : undefined;
+    const redirectQuery: Record<string, string | undefined> =
       newShopIds.length > 0
         ? {
             success: 'jumia_connected',
@@ -323,6 +349,9 @@ export async function GET(request: NextRequest) {
         : {
             success: 'jumia_connected',
           };
+    if (variantResult) {
+      redirectQuery.variant_result = variantResult;
+    }
     const response = createPlatformRedirect(request, redirectQuery);
     return clearOAuthCookies(response);
   } catch (error) {

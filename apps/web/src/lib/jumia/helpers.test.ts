@@ -154,6 +154,26 @@ describe('helpers', () => {
 
       expect(url).toContain('https://vendor-api-staging.jumia.com/login?');
     });
+
+    // VARIANT-TEST: REMOVE — diagnostic harness coverage.
+    it.each([
+      ['A', 'openid offline_access', 'login', null],
+      ['B', 'openid offline_access', 'consent', '0'],
+      ['C', 'offline_access openid', 'login', '0'],
+      ['D', 'offline_access', 'login', '0'],
+      ['E', 'openid offline_access', 'consent', null],
+    ] as const)('applies variant %s params to the auth URL', (variantId, expectedScope, expectedPrompt, expectedMaxAge) => {
+      const url = getJumiaAuthUrl({
+        clientId: 'cid',
+        redirectUri: 'https://example.com/cb',
+        state: 's',
+        variant: variantId,
+      });
+      const params = new URL(url).searchParams;
+      expect(params.get('scope')).toBe(expectedScope);
+      expect(params.get('prompt')).toBe(expectedPrompt);
+      expect(params.get('max_age')).toBe(expectedMaxAge);
+    });
   });
 
   describe('getJumiaRedirectUri', () => {

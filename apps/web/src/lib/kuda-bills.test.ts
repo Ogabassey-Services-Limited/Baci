@@ -238,6 +238,30 @@ describe('purchaseBill', () => {
     });
   });
 
+  it('extracts EKEDC meter tokens from nested purchase pin objects', async () => {
+    // Arrange
+    vi.mocked(kudaRequest).mockResolvedValue({
+      status: true,
+      message: 'Bill purchase successful',
+      data: {
+        reference: 'TXN-EKEDC-123',
+        Pin: {
+          Number: ' 0283-6213-2450-8322-0153 ',
+          Units: '29.4',
+        },
+      },
+    });
+
+    // Act
+    const result = await purchaseBill('KUD-ELE-EKED-002', '43901766923', 5000);
+
+    // Assert
+    expect(result).toMatchObject<Partial<PurchaseResult>>({
+      pin: '0283-6213-2450-8322-0153',
+      transactionId: 'TXN-EKEDC-123',
+    });
+  });
+
   it('prefers lowercase response fields when both casing variants are populated', async () => {
     // Arrange
     vi.mocked(kudaRequest).mockResolvedValue({
