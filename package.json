@@ -20,16 +20,16 @@
   "devDependencies": {
     "@biomejs/biome": "^2.4.11",
     "@eslint/js": "^10.0.0",
+    "@hono/node-server": "^1.19.13",
     "@unlighthouse/cli": "^0.17.7",
-    "tailwindcss": "^4.2.2",
+    "hono": "^4.12.14",
     "knip": "^5.83.1",
     "lefthook": "^2.1.0",
     "next": "16.2.4",
+    "tailwindcss": "^4.2.2",
     "turbo": "^2.9.1",
     "typescript": "^5.9.3",
-    "wait-on": "^9.0.5",
-    "hono": "^4.12.14",
-    "@hono/node-server": "^1.19.13"
+    "wait-on": "^9.0.5"
   },
   "pnpm": {
     "overrideNotes": {
@@ -152,7 +152,8 @@
       "react-native-webview@13.16.1": "patches/react-native-webview@13.16.1.patch",
       "react-native-worklets@0.8.1": "patches/react-native-worklets@0.8.1.patch",
       "react-native@0.84.1": "patches/react-native@0.84.1.patch",
-      "expo-dev-menu@55.0.17": "patches/expo-dev-menu@55.0.17.patch"
+      "expo-dev-menu@55.0.17": "patches/expo-dev-menu@55.0.17.patch",
+      "react-native-keyboard-controller@1.21.7": "patches/react-native-keyboard-controller@1.21.7.patch"
     }
   }
 }
