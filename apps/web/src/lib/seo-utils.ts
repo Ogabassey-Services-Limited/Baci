@@ -700,7 +700,7 @@ export function generateProductSchema(
     name: safeName,
     description: safeDescription,
     ...(structuredDataProductUrl && {
-      url: escapeHtml(structuredDataProductUrl.toString()),
+      url: structuredDataProductUrl.toString(),
     }),
     ...(finalImages && { image: finalImages }),
     brand: {
@@ -714,7 +714,7 @@ export function generateProductSchema(
             price: offer.price,
             priceCurrency: currency,
             ...(structuredDataProductUrl && {
-              url: escapeHtml(structuredDataProductUrl.toString()),
+              url: structuredDataProductUrl.toString(),
             }),
             availability: getSchemaAvailability({
               manage_stock: product.manage_stock,
@@ -736,7 +736,7 @@ export function generateProductSchema(
             price: product.price,
             priceCurrency: currency,
             ...(structuredDataProductUrl && {
-              url: escapeHtml(structuredDataProductUrl.toString()),
+              url: structuredDataProductUrl.toString(),
             }),
             availability: getSchemaAvailability(product),
             itemCondition: getSchemaItemCondition(product.condition),
@@ -1148,7 +1148,7 @@ export function generateProductSchema(
         '@type': 'Product',
         name: variantName,
         description: safeDescription,
-        ...(variantUrl && { url: escapeHtml(variantUrl) }),
+        ...(variantUrl && { url: variantUrl }),
         ...(variantImages && { image: variantImages }),
         brand: {
           '@type': 'Brand',
@@ -1164,7 +1164,7 @@ export function generateProductSchema(
           '@type': 'Offer',
           price: variantPrice,
           priceCurrency: currency,
-          ...(variantUrl && { url: escapeHtml(variantUrl) }),
+          ...(variantUrl && { url: variantUrl }),
           availability: getSchemaAvailability({
             manage_stock: product.manage_stock,
             stock_quantity: variant.stock_quantity,

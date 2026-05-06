@@ -3,14 +3,24 @@
 
 import { escapeHtml, sanitizeUrl } from './sanitize-core';
 
+const JSON_LD_SCRIPT_ESCAPE_REGEX = /[<>&\u2028\u2029]/g;
+
+const JSON_LD_SCRIPT_ESCAPE_MAP: Record<string, string> = {
+  '<': '\\u003c',
+  '>': '\\u003e',
+  '&': '\\u0026',
+  '\u2028': '\\u2028',
+  '\u2029': '\\u2029',
+};
+
 /**
- * Sanitize and escape a URL for use in JSON-LD schemas.
- * Validates the URL protocol and escapes HTML-sensitive characters.
+ * Validate and normalize a URL for use in JSON-LD schemas.
+ * Script-context escaping is handled by safeJsonLdStringify().
  */
 export function sanitizeSchemaUrl(url: string): string {
   const sanitized = sanitizeUrl(url);
   if (!sanitized) return '';
-  return escapeHtml(sanitized);
+  return sanitized;
 }
 
 /**
@@ -49,11 +59,15 @@ export function sanitizeSchemaMarkup<T>(obj: T): T {
 
 /**
  * Safely stringify a JSON-LD schema object for use in script tags.
- * Sanitizes all string values and returns a safe JSON string.
+ *
+ * Escape the serialized JSON for the HTML script context without changing the
+ * data values that JSON parsers, including structured-data crawlers, receive.
  */
 export function safeJsonLdStringify<T extends Record<string, unknown>>(
   schema: T
 ): string {
-  const sanitized = sanitizeSchemaMarkup(schema);
-  return JSON.stringify(sanitized);
+  return JSON.stringify(schema).replace(
+    JSON_LD_SCRIPT_ESCAPE_REGEX,
+    (match) => JSON_LD_SCRIPT_ESCAPE_MAP[match] ?? match
+  );
 }

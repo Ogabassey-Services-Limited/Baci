@@ -178,7 +178,7 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
       undefined,
       undefined,
       {
-        productUrl: 'https://ogabassey.com/smartphones/pixel-10',
+        productUrl: 'https://ogabassey.com/smartphones/pixel-10?source=web',
       }
     );
 
@@ -187,7 +187,7 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     const offer = variant.offers as Record<string, unknown>;
 
     expect(variant.url).toBe(
-      'https://ogabassey.com/smartphones/pixel-10?variantId=variant+1'
+      'https://ogabassey.com/smartphones/pixel-10?source=web&variantId=variant+1'
     );
     expect(offer.url).toBe(variant.url);
   });
