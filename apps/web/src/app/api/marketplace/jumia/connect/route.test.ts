@@ -611,8 +611,13 @@ describe('Connect DELETE', () => {
     const res = await DELETE(makeBearerDeleteRequest());
 
     expect(res.status).toBe(400);
-    await expect(res.json()).resolves.toEqual({
-      error: 'Integration ID required',
+    await expect(res.json()).resolves.toMatchObject({
+      error: 'Invalid input',
+      details: {
+        fieldErrors: {
+          id: expect.arrayContaining([expect.any(String)]),
+        },
+      },
     });
   });
 
@@ -620,8 +625,13 @@ describe('Connect DELETE', () => {
     const res = await DELETE(makeBearerDeleteRequest('?id=%20%20'));
 
     expect(res.status).toBe(400);
-    await expect(res.json()).resolves.toEqual({
-      error: 'Integration ID required',
+    await expect(res.json()).resolves.toMatchObject({
+      error: 'Invalid input',
+      details: {
+        fieldErrors: {
+          id: expect.arrayContaining([expect.any(String)]),
+        },
+      },
     });
   });
 
@@ -629,8 +639,13 @@ describe('Connect DELETE', () => {
     const res = await DELETE(makeBearerDeleteRequest('?id=int-1'));
 
     expect(res.status).toBe(400);
-    await expect(res.json()).resolves.toEqual({
-      error: 'Integration ID required',
+    await expect(res.json()).resolves.toMatchObject({
+      error: 'Invalid input',
+      details: {
+        fieldErrors: {
+          id: expect.arrayContaining([expect.any(String)]),
+        },
+      },
     });
     expect(mockSupabase.from).not.toHaveBeenCalled();
   });

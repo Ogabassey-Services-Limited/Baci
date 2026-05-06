@@ -465,7 +465,7 @@ export async function DELETE(request: NextRequest) {
 
     if (!parsedQuery.success) {
       return NextResponse.json(
-        { error: 'Integration ID required' },
+        { error: 'Invalid input', details: parsedQuery.error.flatten() },
         { status: 400 }
       );
     }
