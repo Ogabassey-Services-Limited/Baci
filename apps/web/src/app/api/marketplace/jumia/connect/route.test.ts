@@ -88,6 +88,13 @@ vi.mock('@/lib/api-auth', () => ({
 vi.mock('@/lib/jumia/helpers', () => ({
   getJumiaAuthUrl: (...args: unknown[]) => mockGetJumiaAuthUrl(...args),
   getJumiaRedirectUri: (appUrl: string) => mockGetJumiaRedirectUri(appUrl),
+  // VARIANT-TEST: REMOVE — diagnostic harness, see helpers.ts comment.
+  isJumiaAuthUrlVariant: (value: string | null | undefined) =>
+    value === 'A' ||
+    value === 'B' ||
+    value === 'C' ||
+    value === 'D' ||
+    value === 'E',
 }));
 
 vi.mock('@/env', () => ({
