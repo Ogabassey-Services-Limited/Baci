@@ -10,7 +10,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { agenticOrderRouteParamsSchema } from '@/schemas/agentic-order-route-params';
 
 const AGENTIC_ORDER_SELECT =
-  'id, status, payment_status, shipping_status, tracking_number, created_at, updated_at';
+  'id, payment_status, shipping_status, tracking_number, created_at, updated_at';
 
 export async function GET(
   request: NextRequest,
@@ -83,7 +83,6 @@ export async function GET(
 
   return NextResponse.json({
     id: order.id,
-    status: order.status,
     payment_status: order.payment_status,
     shipping_status: order.shipping_status,
     tracking_number: order.tracking_number,

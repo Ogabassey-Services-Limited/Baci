@@ -36,7 +36,6 @@ const orderRow = {
   id: orderId,
   payment_status: 'pending',
   shipping_status: 'pending',
-  status: 'pending',
   tracking_number: null,
   updated_at: '2026-04-28T12:00:00.000Z',
 };
@@ -66,16 +65,17 @@ function mockOrderRead({
     maybeSingle: vi.fn().mockResolvedValue({ data, error }),
   };
   orderChain.eq.mockReturnValue(orderChain);
+  const select = vi.fn((_projection: string) => orderChain);
   const scopedSupabase = {
     from: vi.fn((table: string) => {
-      if (table === 'orders') return { select: vi.fn(() => orderChain) };
+      if (table === 'orders') return { select };
       throw new Error(`Unexpected scoped table ${table}`);
     }),
   };
   vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
     scopedSupabase as never
   );
-  return { orderChain, scopedSupabase };
+  return { orderChain, scopedSupabase, select };
 }
 
 describe('GET /api/agentic/orders/[id]', () => {
@@ -103,7 +103,7 @@ describe('GET /api/agentic/orders/[id]', () => {
   });
 
   it('returns public post-purchase order state for an agentic order', async () => {
-    const { orderChain } = mockOrderRead({ data: orderRow });
+    const { orderChain, select } = mockOrderRead({ data: orderRow });
 
     const { GET } = await import('./route');
     const response = await GET(request(), routeParams());
@@ -119,6 +119,11 @@ describe('GET /api/agentic/orders/[id]', () => {
     expect(orderChain.eq).toHaveBeenCalledWith('id', orderId);
     expect(orderChain.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(orderChain.eq).toHaveBeenCalledWith('source', 'agentic_ai');
+    expect(select).toHaveBeenCalledWith(
+      'id, payment_status, shipping_status, tracking_number, created_at, updated_at'
+    );
+    const projection = vi.mocked(select).mock.calls[0]?.[0] ?? '';
+    expect(projection).not.toMatch(/(^|,\s*)status(\s*,|$)/);
   });
 
   it('returns 401 when API key verification fails', async () => {
