@@ -16,6 +16,7 @@ import {
   coerceStorefrontManageStock,
   getStorefrontAgentAvailability,
 } from '@/lib/storefront-agent-availability';
+import { normalizeProductKeySpecs } from './product-key-specs-normalize';
 
 const PLACEHOLDER_IMAGE =
   'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
@@ -164,29 +165,6 @@ function getJoinedCategories(raw: RawDbProduct): JoinedCategory[] {
     seenSlugs.add(category.slug);
     return true;
   });
-}
-
-function normalizeProductKeySpecs(
-  value: unknown
-): ProductKeySpecsRecord | null {
-  if (Array.isArray(value)) {
-    return normalizeProductKeySpecs(value[0]);
-  }
-
-  if (!value || typeof value !== 'object') {
-    return null;
-  }
-
-  const entries = Object.entries(value).filter(([, entryValue]) => {
-    return (
-      typeof entryValue === 'string' ||
-      typeof entryValue === 'number' ||
-      typeof entryValue === 'boolean' ||
-      typeof entryValue === 'undefined'
-    );
-  });
-
-  return entries.length > 0 ? Object.fromEntries(entries) : null;
 }
 
 /**
