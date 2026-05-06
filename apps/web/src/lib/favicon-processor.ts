@@ -1,5 +1,9 @@
 import { cookies } from 'next/headers';
 import sharp from 'sharp';
+import {
+  FAVICON_STORAGE_BUCKET,
+  getFaviconStoragePaths,
+} from '@/lib/favicon-storage-paths';
 import { sanitizeSvg } from '@/lib/sanitize';
 import { createClient } from '@/lib/supabase/server';
 
@@ -47,6 +51,7 @@ export async function processFavicon(
 
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
+  const storagePaths = getFaviconStoragePaths(merchantId);
 
   const result: FaviconUploadResult = {
     png_32_url: '',
@@ -61,10 +66,9 @@ export async function processFavicon(
     const sanitizedSvgString = sanitizeSvg(svgString);
     buffer = Buffer.from(sanitizedSvgString, 'utf-8');
 
-    const svgPath = `${merchantId}/icon.svg`;
     const { data: _svgData, error: svgError } = await supabase.storage
-      .from('favicons')
-      .upload(svgPath, buffer, {
+      .from(FAVICON_STORAGE_BUCKET)
+      .upload(storagePaths.svgPath, buffer, {
         contentType: 'image/svg+xml',
         upsert: true,
       });
@@ -73,7 +77,9 @@ export async function processFavicon(
 
     const {
       data: { publicUrl: svgUrl },
-    } = supabase.storage.from('favicons').getPublicUrl(svgPath);
+    } = supabase.storage
+      .from(FAVICON_STORAGE_BUCKET)
+      .getPublicUrl(storagePaths.svgPath);
 
     result.svg_url = svgUrl;
   }
@@ -88,10 +94,9 @@ export async function processFavicon(
     .png()
     .toBuffer();
 
-  const png32Path = `${merchantId}/icon-32.png`;
   const { error: png32Error } = await supabase.storage
-    .from('favicons')
-    .upload(png32Path, png32Buffer, {
+    .from(FAVICON_STORAGE_BUCKET)
+    .upload(storagePaths.png32Path, png32Buffer, {
       contentType: 'image/png',
       upsert: true,
     });
@@ -100,7 +105,9 @@ export async function processFavicon(
 
   const {
     data: { publicUrl: png32Url },
-  } = supabase.storage.from('favicons').getPublicUrl(png32Path);
+  } = supabase.storage
+    .from(FAVICON_STORAGE_BUCKET)
+    .getPublicUrl(storagePaths.png32Path);
 
   result.png_32_url = png32Url;
 
@@ -113,10 +120,9 @@ export async function processFavicon(
     .png()
     .toBuffer();
 
-  const png192Path = `${merchantId}/icon-192.png`;
   const { error: png192Error } = await supabase.storage
-    .from('favicons')
-    .upload(png192Path, png192Buffer, {
+    .from(FAVICON_STORAGE_BUCKET)
+    .upload(storagePaths.png192Path, png192Buffer, {
       contentType: 'image/png',
       upsert: true,
     });
@@ -125,7 +131,9 @@ export async function processFavicon(
 
   const {
     data: { publicUrl: png192Url },
-  } = supabase.storage.from('favicons').getPublicUrl(png192Path);
+  } = supabase.storage
+    .from(FAVICON_STORAGE_BUCKET)
+    .getPublicUrl(storagePaths.png192Path);
 
   result.png_192_url = png192Url;
 
@@ -138,10 +146,9 @@ export async function processFavicon(
     .png()
     .toBuffer();
 
-  const appleTouchPath = `${merchantId}/apple-touch-icon.png`;
   const { error: appleTouchError } = await supabase.storage
-    .from('favicons')
-    .upload(appleTouchPath, appleTouchBuffer, {
+    .from(FAVICON_STORAGE_BUCKET)
+    .upload(storagePaths.appleTouchPath, appleTouchBuffer, {
       contentType: 'image/png',
       upsert: true,
     });
@@ -150,7 +157,9 @@ export async function processFavicon(
 
   const {
     data: { publicUrl: appleTouchUrl },
-  } = supabase.storage.from('favicons').getPublicUrl(appleTouchPath);
+  } = supabase.storage
+    .from(FAVICON_STORAGE_BUCKET)
+    .getPublicUrl(storagePaths.appleTouchPath);
 
   result.apple_touch_url = appleTouchUrl;
 

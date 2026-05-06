@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   OGABASSEY_APPLE_TOUCH_ICON_URL,
   OGABASSEY_FAVICON_URL,
+  OGABASSEY_MERCHANT_ID,
   OGABASSEY_SOCIAL_IMAGE_URL,
   OGABASSEY_TWITTER_HANDLE,
   OGABASSEY_URL,
@@ -62,5 +63,16 @@ describe('OgabasseyStaticHomePage', () => {
       icon: OGABASSEY_FAVICON_URL,
       shortcut: OGABASSEY_FAVICON_URL,
     });
+  });
+
+  it('uses the active favicon upload bucket paths for static route icons', () => {
+    expect(OGABASSEY_FAVICON_URL).toContain(
+      `/storage/v1/object/public/favicons/${OGABASSEY_MERCHANT_ID}/icon-32.png`
+    );
+    expect(OGABASSEY_APPLE_TOUCH_ICON_URL).toContain(
+      `/storage/v1/object/public/favicons/${OGABASSEY_MERCHANT_ID}/apple-touch-icon.png`
+    );
+    expect(OGABASSEY_FAVICON_URL).not.toContain('/media/merchants/');
+    expect(OGABASSEY_APPLE_TOUCH_ICON_URL).not.toContain('/media/merchants/');
   });
 });
