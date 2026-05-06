@@ -7,13 +7,14 @@ import type React from 'react';
 import { Fragment, useEffect, useState } from 'react';
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useMerchantSafe } from '@/hooks/use-merchant';
+import { AD_CONFIG } from '../config/ads';
 import { products as mockProducts } from '../data/products';
 import { useDeferredActivation } from './deferred-shell-feature';
 import type {
   ProductGridInteractionBindingsValue,
   ProductGridParticle,
 } from './ProductGridInteractionBindings';
-import { AdUnit } from './AdUnit';
+import { DeferredAdUnit } from './deferred-ad-unit';
 import { HomeProductGridCard } from './HomeProductGridCard';
 import type { ProductGridItemProps } from './ProductGridItem';
 import type { Product } from '../types';
@@ -48,6 +49,7 @@ interface HomeProductGridProps {
 
 const PRODUCTS_PER_PAGE = 20;
 const NO_PARTICLES: ProductGridParticle[] = [];
+const PRODUCT_GRID_MPU_CONFIG = AD_CONFIG.PRODUCT_GRID_MPU;
 
 const STATIC_BINDINGS: ProductGridInteractionBindingsValue = {
   isAdded: () => false,
@@ -63,6 +65,40 @@ const STATIC_BINDINGS: ProductGridInteractionBindingsValue = {
   },
   particles: NO_PARTICLES,
 };
+
+function renderProductGridAdFallback() {
+  return (
+    <div
+      aria-hidden="true"
+      className="w-full flex justify-center items-center my-6"
+    >
+      <div className="flex flex-col items-center">
+        <span className="text-[9px] text-gray-300 uppercase tracking-widest mb-1 self-start ml-1">
+          Sponsored
+        </span>
+        <div
+          className="relative overflow-hidden bg-gray-50 border border-gray-100 flex flex-col items-center justify-center text-center shadow-sm"
+          style={{
+            minHeight: `${PRODUCT_GRID_MPU_CONFIG.mobileHeight}px`,
+            minWidth: `${PRODUCT_GRID_MPU_CONFIG.mobileWidth}px`,
+          }}
+        >
+          <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-4 -z-0 opacity-50 bg-[repeating-linear-gradient(45deg,#e5e7eb_0,#e5e7eb_1px,transparent_1px,transparent_10px)]">
+            <span className="text-xs font-bold text-gray-300 uppercase tracking-widest mb-1">
+              Ad Space
+            </span>
+            <span className="text-[10px] text-gray-400 font-medium">
+              {PRODUCT_GRID_MPU_CONFIG.name}
+            </span>
+            <span className="text-[9px] text-gray-300 mt-1">
+              {PRODUCT_GRID_MPU_CONFIG.width}x{PRODUCT_GRID_MPU_CONFIG.height}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function HomeProductGrid({
   storeSlug,
@@ -213,7 +249,11 @@ export function HomeProductGrid({
 
               {inlineAdBreakpoints.includes(index + 1) && (
                 <div className="col-span-2 lg:col-span-4 flex items-center justify-center my-2 md:my-4">
-                  <AdUnit placementKey="PRODUCT_GRID_MPU" />
+                  <DeferredAdUnit
+                    fallback={renderProductGridAdFallback()}
+                    placementKey="PRODUCT_GRID_MPU"
+                    timeoutMs={1}
+                  />
                 </div>
               )}
             </Fragment>
