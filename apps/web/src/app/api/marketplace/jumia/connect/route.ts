@@ -32,6 +32,10 @@ const _jumiaConnectSchema = z.discriminatedUnion('connectionType', [
   }),
 ]);
 
+const deleteJumiaConnectionQuerySchema = z.object({
+  id: z.string().trim().min(1, 'Integration ID required'),
+});
+
 export async function POST(request: NextRequest) {
   try {
     // CSRF validation
@@ -435,20 +439,16 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const auth = await authenticateApiRequest(request);
+    if (auth.error || !auth.user || !auth.supabase) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Get merchant for this user (prevents IDOR)
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id);
+    const merchantContext = await getMerchantForApiRequest(
+      auth.supabase,
+      auth.user.id
+    );
     if (!merchantContext) {
       return NextResponse.json(
         { error: 'Merchant not found' },
@@ -462,17 +462,20 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const integrationId = searchParams.get('id');
+    const parsedQuery = deleteJumiaConnectionQuerySchema.safeParse({
+      id: searchParams.get('id'),
+    });
 
-    if (!integrationId) {
+    if (!parsedQuery.success) {
       return NextResponse.json(
         { error: 'Integration ID required' },
         { status: 400 }
       );
     }
+    const { id: integrationId } = parsedQuery.data;
 
     // Deactivate the integration scoped to merchant (soft delete for audit trail)
-    const { data: updated, error: updateError } = await supabase
+    const { data: updated, error: updateError } = await auth.supabase
       .from('marketplace_integrations')
       .update({ is_active: false })
       .eq('id', integrationId)

@@ -12,17 +12,28 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { apiClient } from '@/lib/api-client';
+import { jumiaChannelCardStyles as styles } from './JumiaChannelCard.styles';
 
 interface JumiaChannelCardProps {
   colors: Record<string, string>;
   shadows: Record<string, object>;
+}
+
+interface JumiaIntegration {
+  id: string;
+}
+
+function getSafeJumiaErrorLog(error: unknown) {
+  if (error instanceof Error) {
+    return { name: error.name, message: error.message };
+  }
+
+  return { name: typeof error };
 }
 
 export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
@@ -38,7 +49,7 @@ export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
   } = useQuery({
     queryKey: ['jumia-connection-status', merchantId],
     queryFn: ({ signal }) =>
-      apiClient<{ integrations?: Array<{ id: string }> }>(
+      apiClient<{ integrations?: JumiaIntegration[] }>(
         '/api/marketplace/jumia/connect',
         { signal }
       ),
@@ -48,7 +59,8 @@ export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
   });
 
   const statusLoading = isLoading || isFetching;
-  const isConnected = (connectionData?.integrations?.length ?? 0) > 0;
+  const connectedIntegrations = connectionData?.integrations ?? [];
+  const isConnected = connectedIntegrations.length > 0;
   const [loading, setLoading] = useState(false);
 
   const handleConnect = async () => {
@@ -121,11 +133,80 @@ export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
         }
       }
     } catch (error) {
-      console.error('Jumia connect error:', error);
-      Alert.alert('Error', 'Failed to connect Jumia account');
+      console.error(
+        '[JumiaChannelCard] connect failed',
+        getSafeJumiaErrorLog(error)
+      );
+      Alert.alert(
+        'Error',
+        error instanceof Error
+          ? error.message
+          : 'Failed to connect Jumia account'
+      );
     } finally {
       setLoading(false);
     }
+  };
+
+  const disconnectJumia = async () => {
+    if (connectedIntegrations.length === 0) return;
+
+    setLoading(true);
+    try {
+      const results = await Promise.allSettled(
+        connectedIntegrations.map((integration) =>
+          apiClient(
+            `/api/marketplace/jumia/connect?id=${encodeURIComponent(
+              integration.id
+            )}`,
+            { method: 'DELETE' }
+          )
+        )
+      );
+
+      void queryClient.invalidateQueries({
+        queryKey: ['jumia-connection-status', merchantId],
+      });
+
+      const failedResult = results.find(
+        (result) => result.status === 'rejected'
+      );
+      if (failedResult) {
+        throw failedResult.reason;
+      }
+
+      Alert.alert('Disconnected', 'Jumia account disconnected');
+    } catch (error) {
+      console.error(
+        '[JumiaChannelCard] disconnect failed',
+        getSafeJumiaErrorLog(error)
+      );
+      Alert.alert(
+        'Error',
+        error instanceof Error
+          ? error.message
+          : 'Failed to disconnect Jumia account'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDisconnect = () => {
+    Alert.alert(
+      'Disconnect Jumia Account?',
+      'Order and product sync from Jumia will stop until you reconnect.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Disconnect',
+          style: 'destructive',
+          onPress: () => {
+            void disconnectJumia();
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -180,12 +261,14 @@ export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
       <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
       <Pressable
-        onPress={handleConnect}
-        disabled={loading || isConnected || statusLoading}
+        onPress={isConnected ? handleDisconnect : handleConnect}
+        disabled={loading || statusLoading}
         style={[
           styles.connectButton,
           {
-            backgroundColor: isConnected ? colors.cardHover : colors.primary,
+            backgroundColor: isConnected
+              ? colors.errorLight || colors.cardHover
+              : colors.primary,
             opacity: loading || statusLoading ? 0.7 : 1,
           },
         ]}
@@ -198,71 +281,13 @@ export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
           <Text
             style={[
               styles.connectButtonText,
-              { color: isConnected ? colors.textSecondary : '#FFF' },
+              { color: isConnected ? colors.error : '#FFF' },
             ]}
           >
-            {isConnected ? 'Connected to Jumia' : 'Connect Jumia Account'}
+            {isConnected ? 'Disconnect Jumia Account' : 'Connect Jumia Account'}
           </Text>
         )}
       </Pressable>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  card: {
-    borderRadius: RADIUS.lg,
-    padding: SPACING.lg,
-    marginBottom: SPACING.lg,
-  },
-  channelHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  iconText: {
-    color: '#FFF',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  channelInfo: { flex: 1 },
-  channelTitle: {
-    fontSize: TYPOGRAPHY.size.lg,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  channelDesc: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
-  badge: {
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: RADIUS.full,
-  },
-  badgeText: {
-    fontSize: 10,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    textTransform: 'uppercase',
-  },
-  divider: {
-    height: 1,
-    marginVertical: SPACING.lg,
-  },
-  connectButton: {
-    height: 48,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  connectButtonText: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-});
