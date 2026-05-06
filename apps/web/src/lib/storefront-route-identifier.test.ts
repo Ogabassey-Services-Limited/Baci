@@ -4,7 +4,10 @@ vi.mock('@/env', () => ({
   getRootDomain: () => 'usebaci.com',
 }));
 
-import { resolveRouteIdentifier } from '@/lib/storefront-route-identifier';
+import {
+  resolveMerchantContextIdentifier,
+  resolveRouteIdentifier,
+} from '@/lib/storefront-route-identifier';
 
 function createHeaders(entries: [string, string][]) {
   return new Headers(entries) as unknown as Awaited<
@@ -69,6 +72,35 @@ describe('resolveRouteIdentifier', () => {
     );
     expect(
       resolveRouteIdentifier(createHeaders([['host', '127.0.0.1:3000']]))
+    ).toBe('');
+  });
+});
+
+describe('resolveMerchantContextIdentifier', () => {
+  it('prefers the custom domain header', () => {
+    expect(
+      resolveMerchantContextIdentifier(
+        createHeaders([
+          ['x-custom-domain', 'Ogabassey.com'],
+          ['x-merchant-slug', 'ignored'],
+        ])
+      )
+    ).toBe('ogabassey.com');
+  });
+
+  it('falls back to the merchant slug header', () => {
+    expect(
+      resolveMerchantContextIdentifier(
+        createHeaders([['x-merchant-slug', 'Ogabassey']])
+      )
+    ).toBe('ogabassey');
+  });
+
+  it('ignores deployment hosts without merchant context headers', () => {
+    expect(
+      resolveMerchantContextIdentifier(
+        createHeaders([['host', 'baci-preview.vercel.app']])
+      )
     ).toBe('');
   });
 });

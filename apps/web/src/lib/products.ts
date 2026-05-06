@@ -267,6 +267,8 @@ export interface Product {
   }[];
 }
 
+export const PRODUCT_STATUS_ACTIVE = 'active' satisfies Product['status'];
+
 export const products: Product[] = [
   {
     id: 'p1',
