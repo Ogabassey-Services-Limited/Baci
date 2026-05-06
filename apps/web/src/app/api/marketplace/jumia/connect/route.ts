@@ -15,7 +15,11 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import { getJumiaAuthUrl, getJumiaRedirectUri } from '@/lib/jumia/helpers';
+import {
+  getJumiaAuthUrl,
+  getJumiaRedirectUri,
+  isJumiaAuthUrlVariant,
+} from '@/lib/jumia/helpers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { deleteJumiaConnectionQuerySchema } from '@/schemas/marketplace';
@@ -339,6 +343,12 @@ export async function GET(request: NextRequest) {
 
       const platform = searchParams.get('platform'); // 'mobile' or undefined
 
+      // VARIANT-TEST: REMOVE — diagnostic harness, see helpers.ts comment.
+      const rawVariant = searchParams.get('variant');
+      const variant = isJumiaAuthUrlVariant(rawVariant)
+        ? rawVariant
+        : undefined;
+
       // Generate state for CSRF protection
       const state = crypto.randomBytes(16).toString('hex');
 
@@ -346,6 +356,7 @@ export async function GET(request: NextRequest) {
         clientId: jumiaClientId,
         redirectUri: jumiaRedirectUri,
         state,
+        variant,
       });
 
       // return redirect to Jumia
@@ -365,6 +376,17 @@ export async function GET(request: NextRequest) {
         sameSite: 'lax',
         maxAge: 60 * 10, // 10 minutes
       });
+
+      // VARIANT-TEST: REMOVE — bind the variant to this OAuth roundtrip so the
+      // callback can log + report the resulting token-response shape.
+      if (variant) {
+        response.cookies.set('jumia_oauth_variant', variant, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 60 * 10,
+        });
+      }
 
       if (platform) {
         response.cookies.set('jumia_oauth_platform', platform, {
