@@ -52,6 +52,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Wallet residual: the saved card is charged for `amount -
+    // walletAmount`. Full coverage must use the wallet-only route so
+    // the no-card-charge path runs (a 0-amount Paystack call would
+    // either be rejected by the gateway or silently succeed with no
+    // money moved — neither is acceptable when the customer thinks
+    // they paid).
+    const walletAmount = parsed.data.walletAmount ?? 0;
+    if (walletAmount === parsed.data.amount && walletAmount > 0) {
+      return NextResponse.json(
+        {
+          error: 'wallet-only payments must use /api/vtu/checkout/wallet-only.',
+        },
+        { status: 400 }
+      );
+    }
+    const residualAmount = parsed.data.amount - walletAmount;
+
     const supabase = createAdminClient();
     const prepared = await preparePendingVtuTransaction({
       supabase,
@@ -121,13 +138,16 @@ export async function POST(request: NextRequest) {
       vtu_type: prepared.transaction.type,
     };
 
+    // `transactions.amount` MUST equal what the gateway charged so the
+    // confirm route's amount-comparison guard stays correct on hybrid
+    // payments. The full bill amount is on `vtu_transactions` already.
     const { error: txInsertError } = await supabase
       .from('transactions')
       .insert({
         merchant_id: prepared.merchant.id,
         order_id: null,
         transaction_type: 'payment',
-        amount: parsed.data.amount,
+        amount: residualAmount,
         currency: 'NGN',
         status: 'pending',
         gateway: 'paystack',
@@ -157,7 +177,7 @@ export async function POST(request: NextRequest) {
     }
 
     const chargeResult = await chargeAuthorization({
-      amount: Math.round(parsed.data.amount * 100),
+      amount: Math.round(residualAmount * 100),
       authorization_code: savedCard.authorization_code,
       callback_url: callbackUrl,
       email: customerEmail,

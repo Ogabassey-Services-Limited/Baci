@@ -8,6 +8,7 @@ const mockChargeAuthorization = vi.fn();
 const mockFulfillPendingVtuTransaction = vi.fn();
 const mockUpsertPaystackAuthorization = vi.fn();
 const mockFrom = vi.fn();
+const transactionsInsertCalls: Record<string, unknown>[] = [];
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
@@ -113,8 +114,14 @@ describe('POST /api/vtu/checkout/charge-saved-card', () => {
       amount: 1000,
       reference: 'VTU-123',
     });
-    mockFrom.mockImplementation(() => ({
-      insert: vi.fn().mockResolvedValue({ error: null }),
+    transactionsInsertCalls.length = 0;
+    mockFrom.mockImplementation((table: string) => ({
+      insert: vi.fn((row: Record<string, unknown>) => {
+        if (table === 'transactions') {
+          transactionsInsertCalls.push(row);
+        }
+        return Promise.resolve({ error: null });
+      }),
       update: vi.fn().mockReturnValue({
         eq: vi.fn().mockResolvedValue({ error: null }),
       }),
@@ -175,6 +182,85 @@ describe('POST /api/vtu/checkout/charge-saved-card', () => {
       reference: 'VTU-123',
     });
     expect(mockUpsertPaystackAuthorization).toHaveBeenCalled();
+    expect(mockFulfillPendingVtuTransaction).toHaveBeenCalledWith({
+      supabase: expect.any(Object),
+      transactionId: 'vtu-1',
+    });
+  });
+
+  // Phase B.7 — wallet residual coverage on saved-card charge.
+
+  it('passes through unchanged when walletAmount is 0', async () => {
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        amount: 1000,
+        walletAmount: 0,
+        gateway: 'paystack',
+        savedPaymentMethodId: '550e8400-e29b-41d4-a716-446655440000',
+        type: 'airtime',
+        phoneNumber: '08012345678',
+        networkProvider: 'MTN',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockChargeAuthorization).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 1000 * 100 })
+    );
+    expect(transactionsInsertCalls[0]).toMatchObject({ amount: 1000 });
+  });
+
+  it('rejects walletAmount === amount and directs the client to the wallet-only route', async () => {
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        amount: 1000,
+        walletAmount: 1000,
+        gateway: 'paystack',
+        savedPaymentMethodId: '550e8400-e29b-41d4-a716-446655440000',
+        type: 'airtime',
+        phoneNumber: '08012345678',
+        networkProvider: 'MTN',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toMatchObject({
+      error: expect.stringMatching(/wallet-only/i),
+    });
+    expect(mockChargeAuthorization).not.toHaveBeenCalled();
+    expect(transactionsInsertCalls).toHaveLength(0);
+    expect(mockFulfillPendingVtuTransaction).not.toHaveBeenCalled();
+  });
+
+  it('charges only the residual on the saved card when walletAmount < amount, and fulfillment runs after', async () => {
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        amount: 1000,
+        walletAmount: 400,
+        gateway: 'paystack',
+        savedPaymentMethodId: '550e8400-e29b-41d4-a716-446655440000',
+        type: 'airtime',
+        phoneNumber: '08012345678',
+        networkProvider: 'MTN',
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockChargeAuthorization).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 600 * 100 })
+    );
+    expect(transactionsInsertCalls[0]).toMatchObject({
+      amount: 600,
+      currency: 'NGN',
+      gateway: 'paystack',
+      status: 'pending',
+    });
+    // Fulfillment STILL runs — Phase B.5 reads paymentSplit from
+    // vtu_transactions.metadata and debits the wallet leg there.
     expect(mockFulfillPendingVtuTransaction).toHaveBeenCalledWith({
       supabase: expect.any(Object),
       transactionId: 'vtu-1',

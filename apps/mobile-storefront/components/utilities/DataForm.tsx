@@ -253,6 +253,9 @@ export function DataForm({
             selectedGateway={payment.selectedGateway}
             selectedSavedCardId={payment.selectedSavedCardId}
             supportedGateways={payment.supportedGateways}
+            walletBalance={payment.walletBalance}
+            walletSelection={payment.walletSelection}
+            onWalletToggle={payment.setWalletSelection}
           />
         </View>
       </ScrollView>
