@@ -155,13 +155,14 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     );
   });
 
-  it('builds stable variantId URLs and URL-encodes values', () => {
+  it('builds stable variantId URLs with decoded round-trip semantics', () => {
+    const variantId = 'variant 1';
     const schema = generateProductSchema(
       makeProduct({
         slug: 'pixel-10',
         variants: [
           {
-            id: 'variant 1',
+            id: variantId,
             product_id: 'test-123',
             merchant_id: 'm1',
             condition: 'refurbished',
@@ -188,8 +189,53 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     const variant = variants[0] as Record<string, unknown>;
     const offer = variant.offers as Record<string, unknown>;
 
-    expect(variant.url).toBe(
-      'https://ogabassey.com/smartphones/pixel-10?source=web&variantId=variant+1'
+    expect(new URL(String(variant.url)).searchParams.get('variantId')).toBe(
+      variantId
+    );
+    expect(new URL(String(offer.url)).searchParams.get('variantId')).toBe(
+      variantId
+    );
+    expect(offer.url).toBe(variant.url);
+  });
+
+  it('round-trips variantId URLs with reserved characters', () => {
+    const variantId = 'a&b';
+    const schema = generateProductSchema(
+      makeProduct({
+        slug: 'pixel-10',
+        variants: [
+          {
+            id: variantId,
+            product_id: 'test-123',
+            merchant_id: 'm1',
+            attributes: {
+              storage: '512 GB',
+              color: 'Porcelain',
+            },
+            price_override: 600000,
+            stock_quantity: 2,
+          },
+        ],
+      }),
+      'TestStore',
+      'NGN',
+      'NG',
+      undefined,
+      undefined,
+      {
+        productUrl: 'https://ogabassey.com/smartphones/pixel-10?source=web',
+      }
+    );
+
+    const variants = schema.hasVariant as Record<string, unknown>[];
+    const variant = variants[0] as Record<string, unknown>;
+    const offer = variant.offers as Record<string, unknown>;
+
+    expect(new URL(String(variant.url)).searchParams.get('variantId')).toBe(
+      variantId
+    );
+    expect(new URL(String(offer.url)).searchParams.get('variantId')).toBe(
+      variantId
     );
     expect(offer.url).toBe(variant.url);
   });
@@ -215,6 +261,38 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
       undefined,
       {
         productUrl: 'mailto:support@example.com',
+      }
+    );
+    const variants = schema.hasVariant as Record<string, unknown>[];
+    const variant = variants[0] as Record<string, unknown>;
+    const offer = variant.offers as Record<string, unknown>;
+
+    expect(schema.url).toBeUndefined();
+    expect(variant.url).toBeUndefined();
+    expect(offer.url).toBeUndefined();
+  });
+
+  it('omits structured-data URLs when productUrl uses a javascript scheme', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        slug: 'test-product',
+        variants: [
+          {
+            id: 'v1',
+            product_id: 'test-123',
+            merchant_id: 'm1',
+            attributes: { storage: '128GB' },
+            stock_quantity: 5,
+          },
+        ],
+      }),
+      'TestStore',
+      'NGN',
+      'NG',
+      undefined,
+      undefined,
+      {
+        productUrl: 'javascript:alert(1)',
       }
     );
     const variants = schema.hasVariant as Record<string, unknown>[];
@@ -820,6 +898,8 @@ describe('getProductUrl', () => {
 });
 
 describe('getValidatedProductUrl', () => {
+  const expectedPixelUrl = 'https://store.example.com/smartphones/pixel-10';
+
   it('reuses a matching canonical URL after normalizing it to the storefront origin', () => {
     const url = getValidatedProductUrl(
       makeProduct({
@@ -831,7 +911,7 @@ describe('getValidatedProductUrl', () => {
       'teststore'
     );
 
-    expect(url).toBe('https://store.example.com/smartphones/pixel-10');
+    expect(url).toBe(expectedPixelUrl);
   });
 
   it('rejects stored canonical URLs with query strings or fragments', () => {
@@ -846,7 +926,7 @@ describe('getValidatedProductUrl', () => {
       'teststore'
     );
 
-    expect(url).toBe('https://store.example.com/smartphones/pixel-10');
+    expect(url).toBe(expectedPixelUrl);
   });
 
   it('rejects stored canonical URLs whose path no longer matches the product route', () => {
@@ -860,7 +940,92 @@ describe('getValidatedProductUrl', () => {
       'teststore'
     );
 
-    expect(url).toBe('https://store.example.com/smartphones/pixel-10');
+    expect(url).toBe(expectedPixelUrl);
+  });
+
+  it('falls back to the slug route when canonical_url is undefined', () => {
+    const url = getValidatedProductUrl(
+      makeProduct({
+        slug: 'pixel-10',
+        category_slug: 'smartphones',
+        canonical_url: undefined,
+      }),
+      'https://store.example.com',
+      'teststore'
+    );
+
+    expect(url).toBe(expectedPixelUrl);
+  });
+
+  it('falls back to the slug route when canonical_url is null', () => {
+    const url = getValidatedProductUrl(
+      {
+        ...makeProduct({
+          slug: 'pixel-10',
+          category_slug: 'smartphones',
+        }),
+        // Intentional null override: runtime/external data can bypass Product typing.
+        canonical_url: null,
+      },
+      'https://store.example.com',
+      'teststore'
+    );
+
+    expect(url).toBe(expectedPixelUrl);
+  });
+
+  it('falls back to the slug route when canonical_url is malformed', () => {
+    const url = getValidatedProductUrl(
+      makeProduct({
+        slug: 'pixel-10',
+        category_slug: 'smartphones',
+        canonical_url: 'https://[invalid',
+      }),
+      'https://store.example.com',
+      'teststore'
+    );
+
+    expect(url).toBe(expectedPixelUrl);
+  });
+
+  it('falls back to the relative slug route when storeOrigin is empty', () => {
+    const url = getValidatedProductUrl(
+      makeProduct({
+        slug: 'pixel-10',
+        category_slug: 'smartphones',
+      }),
+      '',
+      'teststore'
+    );
+
+    expect(url).toBe('/smartphones/pixel-10');
+  });
+
+  it('falls back to the relative slug route when storeOrigin is malformed', () => {
+    const url = getValidatedProductUrl(
+      makeProduct({
+        slug: 'pixel-10',
+        category_slug: 'smartphones',
+      }),
+      'https://[invalid',
+      'teststore'
+    );
+
+    expect(url).toBe('/smartphones/pixel-10');
+  });
+
+  it('falls back to the slug route when same-origin canonical points to a different non-product path', () => {
+    const url = getValidatedProductUrl(
+      makeProduct({
+        slug: 'pixel-10',
+        category_slug: 'smartphones',
+        canonical_url: 'https://store.example.com/sale',
+      }),
+      'https://store.example.com',
+      'teststore'
+    );
+
+    expect(url).toBe(expectedPixelUrl);
   });
 });
 
@@ -1130,7 +1295,10 @@ describe('generateProductSchema - condition mapping', () => {
 
   it('does not default unsupported non-empty product conditions to NewCondition', () => {
     const schema = generateProductSchema(
-      makeProduct({ condition: 'premium_used' as Product['condition'] }),
+      makeProduct({
+        // Cast required: simulating an unknown value coming from external data.
+        condition: 'premium_used' as Product['condition'],
+      }),
       'TestStore',
       'NGN',
       'NG'

@@ -4,9 +4,42 @@ vi.mock('@/lib/storefront-product-variants', () => ({
   normalizeStorefrontProductVariants: () => [],
 }));
 
-vi.mock('@/lib/seo-utils', () => ({
-  generateSlug: (value: string) => value.toLowerCase().replace(/\s+/g, '-'),
-}));
+vi.mock('@/lib/seo-utils', () => {
+  const generateSlug = (value: string) =>
+    value.toLowerCase().replace(/\s+/g, '-');
+
+  return {
+    generateSlug,
+    getProductUrl: (product: {
+      canonical_url?: string | null;
+      category?: string | null;
+      category_slug?: string | null;
+      id: string;
+      name: string;
+      slug?: string | null;
+    }) => {
+      if (product.canonical_url) {
+        try {
+          return new URL(product.canonical_url, 'https://storefront.invalid')
+            .pathname;
+        } catch {
+          // Fall back to the slug route below.
+        }
+      }
+
+      const productSlug =
+        product.slug ||
+        (product.name ? generateSlug(product.name) : product.id);
+      const categorySlug =
+        product.category_slug ||
+        (product.category ? generateSlug(product.category) : undefined);
+
+      return categorySlug
+        ? `/${categorySlug}/${productSlug}`
+        : `/products/${productSlug}`;
+    },
+  };
+});
 
 import {
   mapDetailedCachedProductToProduct,

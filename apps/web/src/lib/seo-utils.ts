@@ -199,13 +199,20 @@ export function getValidatedProductUrl(
   baseUrl: string,
   merchantSlug?: string | null
 ): string {
+  let storeOrigin = '';
+  try {
+    storeOrigin = new URL(baseUrl).origin;
+  } catch {
+    storeOrigin = '';
+  }
+
   const finalProductPath = getProductUrl({
     ...product,
     canonical_url: null,
   });
   let canonicalUrl = normalizeStorefrontCanonicalUrl(
     product.canonical_url,
-    baseUrl,
+    storeOrigin,
     merchantSlug
   );
 
@@ -227,7 +234,7 @@ export function getValidatedProductUrl(
     }
   }
 
-  return canonicalUrl || `${baseUrl}${finalProductPath}`;
+  return canonicalUrl || `${storeOrigin}${finalProductPath}`;
 }
 
 const STOREFRONT_ROOT_SEGMENTS = new Set([

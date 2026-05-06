@@ -339,6 +339,34 @@ describe('products/[productSlug] page', () => {
     );
   });
 
+  it('redirects categorized products to the category URL when the cached product has a stale products canonical', async () => {
+    mockGetCachedProduct.mockResolvedValue({
+      ...categorizedProduct,
+      canonical_url: '/products/iphone-15',
+    });
+    mockHeaders.mockReturnValue(makeHeaders({}));
+    mockGetProductUrl.mockImplementation((product) => {
+      if (product.canonical_url) {
+        return new URL(product.canonical_url, 'https://storefront.invalid')
+          .pathname;
+      }
+
+      return defaultGetProductUrl(product);
+    });
+
+    await expect(
+      ProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'iphone-15',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_REDIRECT');
+
+    expect(mockPermanentRedirect).toHaveBeenCalledWith('/phones/iphone-15');
+  });
+
   it('defers generic PDP first paint to the route loader while the client page is pending', async () => {
     mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
     mockProductDetailClient.mockImplementation(() => {
@@ -803,7 +831,7 @@ describe('products/[productSlug] page', () => {
       expect(metadata.alternates?.canonical).toBe(productUrl);
       expect(mockGetValidatedProductUrl).toHaveBeenCalledWith(
         expect.objectContaining({
-          canonical_url: `${productUrl}?utm_source=google#reviews`,
+          canonical_url: '/products/mystery-item',
         }),
         'https://teststore.usebaci.com',
         'teststore'
