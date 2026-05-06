@@ -4,7 +4,12 @@ import {
   toSchemaItemConditionUri,
 } from '@baci/shared/lib';
 import type { Metadata, Route } from 'next';
-import type { Product, ProductSchemaMarkup, Review } from './products';
+import type {
+  Product,
+  ProductSchemaMarkup,
+  ProductVariant,
+  Review,
+} from './products';
 // Import from sanitize-core to avoid loading jsdom on server components
 import { escapeHtml, stripHtmlTags } from './sanitize-core';
 import { sanitizeSchemaMarkup } from './sanitize-json-ld';
@@ -37,7 +42,9 @@ function normalizeCanonicalCategorySlug(
 }
 
 function getSchemaItemCondition(condition?: string | null) {
-  return toSchemaItemConditionUri(condition);
+  return (
+    toSchemaItemConditionUri(condition) ?? 'https://schema.org/NewCondition'
+  );
 }
 
 function getSchemaAvailability(product: {
@@ -589,6 +596,39 @@ function buildMerchantReturnPolicyFromTrustProfile(
   };
 }
 
+interface ProductSchemaOptions {
+  productUrl?: string;
+}
+
+function normalizeStructuredDataUrl(
+  url: string | undefined
+): string | undefined {
+  if (!url) {
+    return undefined;
+  }
+
+  try {
+    return new URL(url).toString();
+  } catch {
+    return undefined;
+  }
+}
+
+function buildStructuredDataVariantUrl(
+  productUrl: string | undefined,
+  variant: ProductVariant
+): string | undefined {
+  const normalizedProductUrl = normalizeStructuredDataUrl(productUrl);
+  if (!normalizedProductUrl) {
+    return undefined;
+  }
+
+  const url = new URL(normalizedProductUrl);
+  url.searchParams.set('variantId', variant.id);
+
+  return url.toString();
+}
+
 /**
  * Generates JSON-LD structured data for a product (2025 Google best practices)
  * For products with variants, outputs @type ProductGroup with hasVariant (each variant has its own Offer).
@@ -601,7 +641,8 @@ export function generateProductSchema(
   currency: string = 'USD',
   country: string = 'NG', // Default to Nigeria
   merchantLogo?: string,
-  trustProfile?: MerchantTrustProfile
+  trustProfile?: MerchantTrustProfile,
+  options: ProductSchemaOptions = {}
 ): ProductSchemaMarkup & Record<string, unknown> {
   // Sanitize all user-controlled string values to prevent XSS in JSON-LD context
   const safeName = escapeHtml(product.name);
@@ -617,6 +658,9 @@ export function generateProductSchema(
 
   const safeBrand = escapeHtml(product.brand || merchantName);
   const safeMerchantName = escapeHtml(merchantName);
+  const structuredDataProductUrl = normalizeStructuredDataUrl(
+    options.productUrl
+  );
   const shippingDetails = buildOfferShippingDetails(
     country,
     currency,
@@ -658,6 +702,7 @@ export function generateProductSchema(
     '@type': 'Product',
     name: safeName,
     description: safeDescription,
+    ...(structuredDataProductUrl && { url: structuredDataProductUrl }),
     ...(finalImages && { image: finalImages }),
     brand: {
       '@type': 'Brand',
@@ -669,6 +714,7 @@ export function generateProductSchema(
             '@type': 'Offer',
             price: offer.price,
             priceCurrency: currency,
+            ...(structuredDataProductUrl && { url: structuredDataProductUrl }),
             availability: getSchemaAvailability({
               manage_stock: product.manage_stock,
               stock_quantity: offer.stock_quantity,
@@ -688,6 +734,7 @@ export function generateProductSchema(
             '@type': 'Offer',
             price: product.price,
             priceCurrency: currency,
+            ...(structuredDataProductUrl && { url: structuredDataProductUrl }),
             availability: getSchemaAvailability(product),
             itemCondition: getSchemaItemCondition(product.condition),
             seller: {
@@ -1065,6 +1112,10 @@ export function generateProductSchema(
     // Build hasVariant array — each variant becomes a @type Product
     schema.hasVariant = product.variants.map((variant) => {
       const variantPrice = variant.price_override ?? product.price;
+      const variantUrl = buildStructuredDataVariantUrl(
+        structuredDataProductUrl,
+        variant
+      );
       const variantCondition = getSchemaItemCondition(
         variant.condition ?? product.condition
       );
@@ -1094,11 +1145,13 @@ export function generateProductSchema(
         '@type': 'Product',
         name: variantName,
         description: safeDescription,
+        ...(variantUrl && { url: variantUrl }),
         ...(variantImages && { image: variantImages }),
         brand: {
           '@type': 'Brand',
           name: safeBrand,
         },
+        inProductGroupWithID: schema.productGroupID,
         ...(variantColor && { color: escapeHtml(variantColor) }),
         ...(variantSize && { size: escapeHtml(variantSize) }),
         sku: variant.sku ? escapeHtml(variant.sku) : variant.id,
@@ -1108,6 +1161,7 @@ export function generateProductSchema(
           '@type': 'Offer',
           price: variantPrice,
           priceCurrency: currency,
+          ...(variantUrl && { url: variantUrl }),
           availability: getSchemaAvailability({
             manage_stock: product.manage_stock,
             stock_quantity: variant.stock_quantity,

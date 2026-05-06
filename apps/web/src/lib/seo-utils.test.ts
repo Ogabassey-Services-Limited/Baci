@@ -98,8 +98,9 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
     expect(schema.productGroupID).toBe('test-product');
   });
 
-  it('removes top-level offers on ProductGroup (Google 2026 guideline)', () => {
+  it('keeps variant products as complete merchant listing offers without AggregateOffer', () => {
     const product = makeProduct({
+      slug: 'test-product',
       variants: [
         {
           id: 'v1',
@@ -120,11 +121,75 @@ describe('generateProductSchema - ProductGroup for variant products', () => {
       ],
     });
 
-    const schema = generateProductSchema(product, 'TestStore', 'NGN', 'NG');
+    const schema = generateProductSchema(
+      product,
+      'TestStore',
+      'NGN',
+      'NG',
+      undefined,
+      undefined,
+      {
+        productUrl: 'https://ogabassey.com/gaming/test-product',
+      }
+    );
+    const variants = schema.hasVariant as Record<string, unknown>[];
+    const firstVariant = variants[0] as Record<string, unknown>;
+    const firstOffer = firstVariant.offers as Record<string, unknown>;
 
-    // Google says: Don't use AggregateOffer for product variants
-    // Offers belong on individual variant Products only
+    expect(schema['@type']).toBe('ProductGroup');
     expect(schema.offers).toBeUndefined();
+    expect(schema.url).toBe('https://ogabassey.com/gaming/test-product');
+    expect(firstVariant.inProductGroupWithID).toBe('test-product');
+    expect(firstVariant.url).toBe(
+      'https://ogabassey.com/gaming/test-product?variantId=v1'
+    );
+    expect(firstOffer['@type']).toBe('Offer');
+    expect(firstOffer.price).toBe(50);
+    expect(firstOffer.priceCurrency).toBe('NGN');
+    expect(firstOffer.availability).toBe('https://schema.org/InStock');
+    expect(firstOffer.itemCondition).toBe('https://schema.org/NewCondition');
+    expect(firstOffer.url).toBe(
+      'https://ogabassey.com/gaming/test-product?variantId=v1'
+    );
+  });
+
+  it('builds stable variantId URLs and URL-encodes values', () => {
+    const schema = generateProductSchema(
+      makeProduct({
+        slug: 'pixel-10',
+        variants: [
+          {
+            id: 'variant 1',
+            product_id: 'test-123',
+            merchant_id: 'm1',
+            condition: 'refurbished',
+            attributes: {
+              storage: '256 GB',
+              color: 'Obsidian Black',
+            },
+            price_override: 500000,
+            stock_quantity: 3,
+          },
+        ],
+      }),
+      'TestStore',
+      'NGN',
+      'NG',
+      undefined,
+      undefined,
+      {
+        productUrl: 'https://ogabassey.com/smartphones/pixel-10',
+      }
+    );
+
+    const variants = schema.hasVariant as Record<string, unknown>[];
+    const variant = variants[0] as Record<string, unknown>;
+    const offer = variant.offers as Record<string, unknown>;
+
+    expect(variant.url).toBe(
+      'https://ogabassey.com/smartphones/pixel-10?variantId=variant+1'
+    );
+    expect(offer.url).toBe(variant.url);
   });
 
   it('puts correct Offer on each hasVariant entry with fallback to parent price', () => {

@@ -891,7 +891,7 @@ describe('products/[productSlug] page', () => {
       })
     );
     expect(mockGenerateProductSchema).toHaveBeenCalledWith(
-      expect.anything(),
+      expect.any(Object),
       'TestStore',
       'NGN',
       'NG',
@@ -899,7 +899,10 @@ describe('products/[productSlug] page', () => {
       expect.objectContaining({
         supportEmail: 'support@test.example',
         supportPhone: '+2348000000000',
-      })
+      }),
+      {
+        productUrl: 'https://teststore.usebaci.com/products/iphone-17-pro-max',
+      }
     );
   });
 });

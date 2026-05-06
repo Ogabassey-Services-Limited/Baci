@@ -714,6 +714,9 @@ export default async function CategoryProductPage({
         }
       : product;
 
+  const productPath = getProductUrl(product);
+  const productUrl = `${baseUrl}${productPath}`;
+
   // Generate product schema (now handles merging custom schema_markup internally)
   const productSchema = generateProductSchema(
     schemaProduct,
@@ -721,12 +724,9 @@ export default async function CategoryProductPage({
     merchant?.payout_currency || 'USD',
     merchant?.country || 'NG',
     merchant?.logo_url,
-    trustProfile
+    trustProfile,
+    { productUrl }
   );
-
-  // Build proper URL for schema
-  const productPath = getProductUrl(product);
-  const productUrl = `${baseUrl}${productPath}`;
 
   // Set URL on offers — variant products have no top-level offers (each hasVariant entry has its own)
   if (

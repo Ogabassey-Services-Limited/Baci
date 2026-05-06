@@ -448,16 +448,17 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       : product;
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
+  const productPath = getProductUrl(product);
+  const productUrl = `${baseUrl}${productPath}`;
   const productSchema = generateProductSchema(
     productWithReviews,
     merchant.business_name || 'Baci Store',
     merchant.payout_currency || 'USD',
     merchant.country || 'NG',
     merchant.logo_url,
-    trustProfile
+    trustProfile,
+    { productUrl }
   );
-  const productPath = getProductUrl(product);
-  const productUrl = `${baseUrl}${productPath}`;
   if (
     productSchema.offers &&
     !Array.isArray(productSchema.offers) &&

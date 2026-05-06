@@ -32,16 +32,7 @@ const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
 const mockBuildProductSemanticModel = vi.fn();
 const mockGetPublishedClusterPosts = vi.fn();
-const mockGenerateProductSchema = vi.fn(
-  (
-    _product: unknown,
-    _merchantName?: string,
-    _currency?: string,
-    _country?: string,
-    _merchantLogo?: string | null,
-    _trustProfile?: unknown
-  ) => ({})
-);
+const mockGenerateProductSchema = vi.fn((..._args: unknown[]) => ({}));
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
@@ -124,22 +115,8 @@ vi.mock('@/lib/seo-utils', () => ({
       ? plainText
       : `${plainText.slice(0, maxLength - 3)}...`;
   },
-  generateProductSchema: (
-    product: unknown,
-    merchantName?: string,
-    currency?: string,
-    country?: string,
-    merchantLogo?: string | null,
-    trustProfile?: unknown
-  ) =>
-    mockGenerateProductSchema(
-      product,
-      merchantName,
-      currency,
-      country,
-      merchantLogo,
-      trustProfile
-    ),
+  generateProductSchema: (...args: unknown[]) =>
+    mockGenerateProductSchema(...args),
   generateSlug: (name: string) => name.toLowerCase().replace(/\s+/g, '-'),
   getIndexableRobotsMetadata: () => ({
     index: true,
@@ -819,7 +796,7 @@ describe('[category]/[productSlug] page render', () => {
       })
     );
     expect(mockGenerateProductSchema).toHaveBeenCalledWith(
-      expect.anything(),
+      expect.any(Object),
       'TestStore',
       'NGN',
       'NG',
@@ -827,7 +804,11 @@ describe('[category]/[productSlug] page render', () => {
       expect.objectContaining({
         supportEmail: 'support@test.example',
         supportPhone: '+2348000000000',
-      })
+      }),
+      {
+        productUrl:
+          'https://teststore.usebaci.com/smartphones/samsung-galaxy-z-trifold',
+      }
     );
   });
 
