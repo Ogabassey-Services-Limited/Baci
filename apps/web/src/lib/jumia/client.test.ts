@@ -40,12 +40,6 @@ const createMockSupabase = vi.hoisted(() => {
   };
 });
 
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() =>
-    createMockSupabase({ data: null, error: null })
-  ),
-}));
-
 vi.mock('@/schemas/jumia', async () => {
   const { z } = await vi.importActual<typeof import('zod')>('zod');
 
@@ -422,6 +416,60 @@ describe('JumiaClient', () => {
       const token = await client.getValidToken();
 
       expect(token).toBe('new-access-token');
+    });
+
+    it('does not fall back to an admin client when token refresh needs persistence', async () => {
+      const client = new JumiaClient({
+        integrationId: 'int-123',
+        merchantId: 'merchant-abc',
+        shopId: 'shop-456',
+        accessToken: 'expired-token',
+        refreshToken: 'refresh-tok',
+        tokenExpiresAt: new Date(Date.now() - 1000),
+        environment: 'production',
+      });
+
+      const mockFetch = globalThis.fetch as ReturnType<typeof vi.fn>;
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => TOKEN_RESPONSE,
+      });
+
+      await expect(client.getValidToken()).rejects.toMatchObject({
+        status: 500,
+        message: expect.stringContaining('Scoped Supabase client is required'),
+      });
+    });
+
+    it('records a reauthorization sync error when an expired OAuth token has no refresh token', async () => {
+      const supabase = createMockSupabase({ data: null, error: null });
+      const client = new JumiaClient({
+        integrationId: 'int-123',
+        merchantId: 'merchant-abc',
+        shopId: 'shop-456',
+        accessToken: 'expired-token',
+        refreshToken: '',
+        tokenExpiresAt: new Date(Date.now() - 1000),
+        environment: 'production',
+        supabase,
+      });
+
+      await expect(client.getValidToken()).rejects.toMatchObject({
+        status: 401,
+        message: expect.stringContaining('Reconnect Jumia'),
+      });
+
+      expect(globalThis.fetch).not.toHaveBeenCalled();
+      const fromCall = supabase.from as ReturnType<typeof vi.fn>;
+      expect(fromCall).toHaveBeenCalledWith('marketplace_integrations');
+      const updateFn = fromCall.mock.results[0]?.value?.update;
+      expect(updateFn).toHaveBeenCalledWith({
+        sync_error:
+          'Reconnect Jumia to resume syncing. Jumia did not return a refresh token for this OAuth connection.',
+      });
+      const chain = supabase._chainable;
+      expect(chain.eq).toHaveBeenCalledWith('id', 'int-123');
+      expect(chain.eq).toHaveBeenCalledWith('merchant_id', 'merchant-abc');
     });
 
     it('triggers refresh when token is within the buffer window', async () => {

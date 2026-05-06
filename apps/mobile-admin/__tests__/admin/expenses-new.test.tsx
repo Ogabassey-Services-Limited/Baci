@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
     onDescriptionChange: ((_: string) => undefined) as (value: string) => void,
     onOpenCategorySheet: (() => undefined) as () => void,
     onReceiptPress: (() => undefined) as () => void,
+    receiptUri: null as string | null,
   },
   imagePicker: vi.fn(),
   insert: vi.fn(),
@@ -104,6 +105,7 @@ vi.mock('@/components/expenses/ExpenseFormFields', () => ({
     onDescriptionChange: (value: string) => void;
     onOpenCategorySheet: () => void;
     onReceiptPress: () => void;
+    receiptUri: string | null;
   }) => {
     mocks.expenseFieldsProps.amount = props.amount;
     mocks.expenseFieldsProps.description = props.description;
@@ -111,6 +113,7 @@ vi.mock('@/components/expenses/ExpenseFormFields', () => ({
     mocks.expenseFieldsProps.onDescriptionChange = props.onDescriptionChange;
     mocks.expenseFieldsProps.onOpenCategorySheet = props.onOpenCategorySheet;
     mocks.expenseFieldsProps.onReceiptPress = props.onReceiptPress;
+    mocks.expenseFieldsProps.receiptUri = props.receiptUri;
 
     return (
       <>
@@ -234,6 +237,7 @@ describe('AddExpenseScreen', () => {
     vi.clearAllMocks();
     mocks.expenseFieldsProps.amount = '';
     mocks.expenseFieldsProps.description = '';
+    mocks.expenseFieldsProps.receiptUri = null;
     mocks.insert.mockResolvedValue({ error: null });
     mocks.imagePicker.mockResolvedValue({ assets: [], canceled: true });
     mocks.upload.mockResolvedValue({ error: null });
@@ -289,6 +293,7 @@ describe('AddExpenseScreen', () => {
     fireEvent.click(screen.getByLabelText('Add expense receipt'));
     await waitFor(() => {
       expect(mocks.imagePicker).toHaveBeenCalled();
+      expect(mocks.expenseFieldsProps.receiptUri).toBe('file:///receipt.jpg');
     });
     fireEvent.click(screen.getByRole('button', { name: 'Save expense' }));
 

@@ -19,3 +19,11 @@ export const integrationIdSchema = z
   .uuid('integrationId must be a valid UUID');
 
 export type IntegrationId = z.infer<typeof integrationIdSchema>;
+
+export const deleteJumiaConnectionQuerySchema = z.object({
+  id: z
+    .string()
+    .trim()
+    .min(1, 'Integration ID required')
+    .pipe(integrationIdSchema),
+});

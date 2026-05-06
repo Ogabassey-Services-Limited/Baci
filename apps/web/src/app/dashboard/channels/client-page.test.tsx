@@ -237,16 +237,17 @@ describe('ChannelsClientPage', () => {
       expect(syncButtons).toHaveLength(2);
     });
 
-    it('renders disconnect buttons with aria-labels', () => {
+    it('renders visible disconnect buttons for each integration', () => {
       setupHook({ integrations: mockIntegrations });
       render(<ChannelsClientPage />);
 
       expect(
-        screen.getByRole('button', { name: /disconnect test shop/i })
+        screen.getByRole('button', { name: /disconnect jumia.*test shop/i })
       ).toBeInTheDocument();
       expect(
-        screen.getByRole('button', { name: /disconnect second shop/i })
+        screen.getByRole('button', { name: /disconnect jumia.*second shop/i })
       ).toBeInTheDocument();
+      expect(screen.getAllByText('Disconnect Jumia')).toHaveLength(2);
     });
 
     it('renders quick action links', () => {
@@ -279,7 +280,7 @@ describe('ChannelsClientPage', () => {
       render(<ChannelsClientPage />);
 
       await user.click(
-        screen.getByRole('button', { name: /disconnect test shop/i })
+        screen.getByRole('button', { name: /disconnect jumia.*test shop/i })
       );
 
       expect(screen.getByText('Disconnect Jumia Account?')).toBeInTheDocument();
@@ -292,7 +293,7 @@ describe('ChannelsClientPage', () => {
       render(<ChannelsClientPage />);
 
       await user.click(
-        screen.getByRole('button', { name: /disconnect test shop/i })
+        screen.getByRole('button', { name: /disconnect jumia.*test shop/i })
       );
 
       await user.click(screen.getByRole('button', { name: /^disconnect$/i }));
@@ -316,7 +317,7 @@ describe('ChannelsClientPage', () => {
       render(<ChannelsClientPage />);
 
       await user.click(
-        screen.getByRole('button', { name: /disconnect test shop/i })
+        screen.getByRole('button', { name: /disconnect jumia.*test shop/i })
       );
       await user.click(screen.getByRole('button', { name: /^disconnect$/i }));
 
@@ -335,7 +336,7 @@ describe('ChannelsClientPage', () => {
       render(<ChannelsClientPage />);
 
       await user.click(
-        screen.getByRole('button', { name: /disconnect test shop/i })
+        screen.getByRole('button', { name: /disconnect jumia.*test shop/i })
       );
 
       expect(screen.getByText('Disconnect Jumia Account?')).toBeInTheDocument();
