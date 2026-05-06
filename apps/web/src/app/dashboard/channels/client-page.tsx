@@ -284,7 +284,7 @@ export default function ChannelsClientPage() {
             {integrations.map((integration) => (
               <div
                 key={integration.id}
-                className="flex items-center justify-between p-4 rounded-lg border bg-muted/50"
+                className="flex flex-col gap-4 p-4 rounded-lg border bg-muted/50 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div>
                   <p className="font-medium">
@@ -302,7 +302,7 @@ export default function ChannelsClientPage() {
                   )}
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 sm:justify-end">
                   <Button
                     variant="outline"
                     size="sm"
@@ -338,13 +338,17 @@ export default function ChannelsClientPage() {
                     </span>
                   </Button>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="text-destructive hover:text-destructive"
+                    className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
                     onClick={() => setDisconnectId(integration.id)}
-                    aria-label={`Disconnect ${integration.shop_name || 'shop'}`}
                   >
                     <Unlink className="h-4 w-4" />
+                    <span>Disconnect Jumia</span>
+                    <span className="sr-only">
+                      {' '}
+                      for {integration.shop_name || 'shop'}
+                    </span>
                   </Button>
                 </div>
               </div>

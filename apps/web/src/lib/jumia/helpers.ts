@@ -168,15 +168,11 @@ export async function exchangeJumiaCode(config: {
       throw new JumiaApiError(response.status, 'Token exchange failed', body);
     }
 
-    const data = JumiaTokenResponseSchema.parse(await response.json());
-    if (!data.refresh_token) {
-      throw new JumiaApiError(
-        502,
-        'Token exchange response did not include a refresh token'
-      );
-    }
-
-    return data;
+    // Jumia Vendor Center may return access-token-only responses (no refresh_token).
+    // The schema marks it optional and storage paths persist null. Do not add a
+    // runtime throw here: access-token-only OAuth responses are valid, and adding
+    // a throw regresses the mobile/web Jumia connect flow.
+    return JumiaTokenResponseSchema.parse(await response.json());
   } catch (error) {
     if (error instanceof JumiaApiError) throw error;
     if (

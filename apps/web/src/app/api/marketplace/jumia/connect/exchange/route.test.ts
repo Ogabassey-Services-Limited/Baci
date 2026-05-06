@@ -5,11 +5,21 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 /*  Mocks                                                              */
 /* ------------------------------------------------------------------ */
 
-const mockAuthenticateApiRequest = vi.fn();
-const mockGetMerchantIdForApiUser = vi.fn();
-const mockAdminFrom = vi.fn();
-const mockExchangeJumiaCode = vi.fn();
-const mockGetShops = vi.fn();
+const {
+  mockAdminFrom,
+  mockAuthenticateApiRequest,
+  mockExchangeJumiaCode,
+  mockGetMerchantIdForApiUser,
+  mockGetShops,
+} = vi.hoisted(() => {
+  return {
+    mockAdminFrom: vi.fn(),
+    mockAuthenticateApiRequest: vi.fn(),
+    mockExchangeJumiaCode: vi.fn(),
+    mockGetMerchantIdForApiUser: vi.fn(),
+    mockGetShops: vi.fn(),
+  };
+});
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
@@ -220,6 +230,39 @@ describe('POST /api/marketplace/jumia/connect/exchange', () => {
     const body = await res.json();
     expect(body.success).toBe(true);
     expect(body.shops).toContain('shop-1');
+  });
+
+  it('returns 200 and persists when exchange omits refresh_token', async () => {
+    setupAuth();
+    setupTicketConsume(true);
+    setupTokenExchange();
+    setupShopDiscovery();
+    mockExchangeJumiaCode.mockResolvedValue({
+      access_token: 'only-access',
+      expires_in: 3600,
+    });
+
+    const res = await POST(
+      makeRequest({ code: 'no-refresh-code', ticketId: TICKET_ID })
+    );
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.success).toBe(true);
+    expect(body.incomplete).toBeUndefined();
+    expect(body.shops).toContain('shop-1');
+
+    const upsertTarget = mockUserSupabase.from.mock.results[1]?.value;
+    expect(upsertTarget.upsert).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          access_token: 'only-access',
+          refresh_token: null,
+          shop_id: 'shop-1',
+        }),
+      ],
+      { onConflict: 'merchant_id,platform,shop_id' }
+    );
   });
 
   it('returns incomplete when only fallback shop is created', async () => {

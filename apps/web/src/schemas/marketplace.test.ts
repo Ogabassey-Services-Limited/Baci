@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { integrationIdSchema } from './marketplace';
+import {
+  deleteJumiaConnectionQuerySchema,
+  integrationIdSchema,
+} from './marketplace';
 
 describe('integrationIdSchema', () => {
   it('accepts a valid UUID', () => {
@@ -44,5 +47,39 @@ describe('integrationIdSchema', () => {
   it('rejects undefined', () => {
     const result = integrationIdSchema.safeParse(undefined);
     expect(result.success).toBe(false);
+  });
+});
+
+describe('deleteJumiaConnectionQuerySchema', () => {
+  it('accepts a UUID integration id', () => {
+    const result = deleteJumiaConnectionQuerySchema.safeParse({
+      id: '550e8400-e29b-41d4-a716-446655440000',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a blank integration id', () => {
+    const result = deleteJumiaConnectionQuerySchema.safeParse({
+      id: '   ',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toBe('Integration ID required');
+    }
+  });
+
+  it('rejects a non-UUID integration id', () => {
+    const result = deleteJumiaConnectionQuerySchema.safeParse({
+      id: 'int-123',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toBe(
+        'integrationId must be a valid UUID'
+      );
+    }
   });
 });

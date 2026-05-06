@@ -12,7 +12,6 @@ import {
   loadSingleJumiaMerchantIntegrationConfig,
 } from '@/lib/jumia/jumia-client-config';
 import { waitForJumiaRequestSlot } from '@/lib/jumia/jumia-rate-limiter';
-import { createAdminClient } from '@/lib/supabase/admin';
 import type { JumiaShop } from '@/schemas/jumia';
 import {
   JumiaShopsResponseSchema,
@@ -22,6 +21,8 @@ import {
 export { JumiaApiError, jumiaErrorResponse } from '@/lib/jumia/helpers';
 
 const REQUEST_TIMEOUT_MS = 30_000;
+const MISSING_REFRESH_TOKEN_SYNC_ERROR =
+  'Reconnect Jumia to resume syncing. Jumia did not return a refresh token for this OAuth connection.';
 type JumiaRequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
 export class JumiaClient {
@@ -84,11 +85,30 @@ export class JumiaClient {
     );
   }
 
+  private getScopedSupabaseForPersistence(): SupabaseClient {
+    if (this.supabase) {
+      return this.supabase;
+    }
+
+    throw new JumiaApiError(
+      500,
+      'Scoped Supabase client is required to persist Jumia token state'
+    );
+  }
+
   async refreshAccessToken(): Promise<void> {
     if (!this.refreshToken?.trim()) {
+      const sb = this.getScopedSupabaseForPersistence();
+      const { error: updateError } = await sb
+        .from('marketplace_integrations')
+        .update({ sync_error: MISSING_REFRESH_TOKEN_SYNC_ERROR })
+        .eq('id', this.integrationId)
+        .eq('merchant_id', this.merchantId);
+
       throw new JumiaApiError(
         401,
-        'Refresh token is missing or invalid — user re-authorization required'
+        MISSING_REFRESH_TOKEN_SYNC_ERROR,
+        updateError ?? undefined
       );
     }
 
@@ -124,7 +144,7 @@ export class JumiaClient {
       }
       this.tokenExpiresAt = new Date(Date.now() + data.expires_in * 1000);
 
-      const sb = this.supabase ?? createAdminClient();
+      const sb = this.getScopedSupabaseForPersistence();
       const { error: updateError } = await sb
         .from('marketplace_integrations')
         .update({
