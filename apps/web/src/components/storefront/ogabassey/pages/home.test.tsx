@@ -1,5 +1,4 @@
 import { render, screen } from '@testing-library/react';
-import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '../types';
 
@@ -17,14 +16,14 @@ const mockHomeProductGrid = vi.hoisted(() =>
     )
   )
 );
-const mockDeferredShellFeature = vi.hoisted(() =>
-  vi.fn(({ children }: { children: ReactNode }) => (
-    <div data-testid="deferred-shell">{children}</div>
-  ))
-);
-const mockAdUnit = vi.hoisted(() =>
+const mockDeferredAdUnit = vi.hoisted(() =>
   vi.fn((props: Record<string, unknown>) => (
     <div data-testid="ad-unit">{String(props.placementKey ?? 'Ad')}</div>
+  ))
+);
+const mockDeferredBannerCarousel = vi.hoisted(() =>
+  vi.fn((props: Record<string, unknown>) => (
+    <div data-testid="banner-carousel">{String(props.className ?? '')}</div>
   ))
 );
 
@@ -34,23 +33,17 @@ vi.mock('@baci/shared', () => ({
 vi.mock('../components/Hero', () => ({
   Hero: () => <div data-testid="hero">Hero</div>,
 }));
-vi.mock('../components/BannerCarousel', () => ({
-  BannerCarousel: () => <div data-testid="banner-carousel">Banner</div>,
-}));
-vi.mock('../components/deferred-shell-feature', () => ({
-  DeferredShellFeature: (props: {
-    children: ReactNode;
-    timeoutMs?: number;
-    activateOnIdle?: boolean;
-    activateOnInteraction?: boolean;
-  }) => mockDeferredShellFeature(props),
-}));
 vi.mock('../components/HomeProductGrid', () => ({
   HomeProductGrid: (props: Record<string, unknown>) =>
     mockHomeProductGrid(props as Parameters<typeof mockHomeProductGrid>[0]),
 }));
-vi.mock('../components/AdUnit', () => ({
-  AdUnit: (props: Record<string, unknown>) => mockAdUnit(props),
+vi.mock('../components/deferred-ad-unit', () => ({
+  DeferredAdUnit: (props: Record<string, unknown>) =>
+    mockDeferredAdUnit(props),
+}));
+vi.mock('../components/deferred-banner-carousel', () => ({
+  DeferredBannerCarousel: (props: Record<string, unknown>) =>
+    mockDeferredBannerCarousel(props),
 }));
 
 import { OgabasseyHomePage } from './home';
@@ -110,19 +103,25 @@ describe('OgabasseyHomePage', () => {
     render(<OgabasseyHomePage products={[]} categories={[]} />);
 
     expect(screen.getByTestId('banner-carousel')).toBeInTheDocument();
+    expect(mockDeferredBannerCarousel).toHaveBeenCalledWith(
+      expect.objectContaining({
+        className: 'h-40 md:h-52',
+        timeoutMs: expect.any(Number),
+      })
+    );
   });
 
   it('keeps the homepage strip ad out of the early main-thread window', () => {
     render(<OgabasseyHomePage products={[]} categories={[]} />);
 
-    expect(mockAdUnit).toHaveBeenCalledWith(
+    expect(mockDeferredAdUnit).toHaveBeenCalledWith(
       expect.objectContaining({
         placementKey: 'HOMEPAGE_STRIP',
         bootDelayMs: expect.any(Number),
       })
     );
 
-    const homepageStripCall = mockAdUnit.mock.calls.find(
+    const homepageStripCall = mockDeferredAdUnit.mock.calls.find(
       ([props]) =>
         (props as { placementKey?: string }).placementKey === 'HOMEPAGE_STRIP'
     );
@@ -135,12 +134,8 @@ describe('OgabasseyHomePage', () => {
       (homepageStripCall?.[0] as { bootDelayMs?: number }).bootDelayMs
     ).toBeGreaterThanOrEqual(9000);
 
-    expect(mockDeferredShellFeature).toHaveBeenCalledWith(
-      expect.objectContaining({
-        timeoutMs: 1,
-        activateOnIdle: false,
-        activateOnInteraction: false,
-      })
+    expect(homepageStripCall?.[0]).toEqual(
+      expect.objectContaining({ timeoutMs: 1 })
     );
   });
 });

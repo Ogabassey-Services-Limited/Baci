@@ -6,8 +6,8 @@ import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 import { asRoute } from '@/lib/routes';
-import { AdUnit } from './AdUnit';
 import { useDeferredActivation } from './deferred-shell-feature';
+import { DeferredAdUnit } from './deferred-ad-unit';
 import { MOBILE_SLIDES } from './hero-data';
 
 interface HeroMobileCarouselProps {
@@ -179,11 +179,12 @@ export function HeroMobileCarousel({
                 Sponsored
               </div>
               <div className="w-full h-full flex items-center justify-center transform scale-90">
-                <AdUnit
+                <DeferredAdUnit
                   placementKey="HEADER_LEADERBOARD"
                   className="my-0"
                   isActive={index === currentSlide}
                   refreshKey={adRefreshTrigger}
+                  timeoutMs={1}
                 />
               </div>
             </div>
