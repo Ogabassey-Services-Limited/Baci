@@ -61,10 +61,6 @@ describe('product-response', () => {
     expect(fullTokens).not.toContain('*');
     expect(fullTokens).not.toContain('colors');
     expect(fullTokens).toContain('category_id');
-    expect(STOREFRONT_PRODUCTS_FULL_SELECT).toContain('product_key_specs (');
-    expect(STOREFRONT_PRODUCTS_FULL_SELECT).not.toMatch(
-      /,\s*product_key_specs\s*,/
-    );
     // `product_categories` is an aliased relation like
     // `product_categories:product_categories(...)` — strip the alias if present.
     const normalize = (token: string) => token.split(':')[0].trim();

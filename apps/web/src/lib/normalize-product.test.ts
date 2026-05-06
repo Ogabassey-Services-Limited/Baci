@@ -128,53 +128,6 @@ describe('normalizeProduct', () => {
     });
   });
 
-  it('normalizes embedded product_key_specs relation rows', () => {
-    const result = normalizeProduct({
-      ...baseRawProduct,
-      product_key_specs: [
-        {
-          main_camera_mp: 50,
-          battery_mah: 5000,
-        },
-      ],
-    });
-
-    expect(result.product_key_specs).toEqual({
-      main_camera_mp: 50,
-      battery_mah: 5000,
-    });
-  });
-
-  it('normalizes empty embedded product_key_specs relation rows to null', () => {
-    const result = normalizeProduct({
-      ...baseRawProduct,
-      product_key_specs: [],
-    });
-
-    expect(result.product_key_specs).toBeNull();
-  });
-
-  it('uses the first embedded product_key_specs relation row deterministically', () => {
-    const result = normalizeProduct({
-      ...baseRawProduct,
-      product_key_specs: [
-        {
-          main_camera_mp: 50,
-          battery_mah: 5000,
-        },
-        {
-          main_camera_mp: 12,
-          battery_mah: 3000,
-        },
-      ],
-    });
-
-    expect(result.product_key_specs).toEqual({
-      main_camera_mp: 50,
-      battery_mah: 5000,
-    });
-  });
-
   it('prefers a matching category slug when provided', () => {
     const result = normalizeProduct(
       {

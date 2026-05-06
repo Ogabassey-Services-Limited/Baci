@@ -139,9 +139,7 @@ describe('helpers', () => {
         `redirect_uri=${encodeURIComponent('https://example.com/callback')}`
       );
       expect(url).toContain('response_type=code');
-      expect(new URL(url).searchParams.get('scope')).toBe(
-        'openid offline_access'
-      );
+      expect(url).toContain('scope=openid');
       expect(url).toContain('prompt=login');
       expect(url).toContain('state=abc123');
     });

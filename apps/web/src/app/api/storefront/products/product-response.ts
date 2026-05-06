@@ -1,5 +1,4 @@
 import { normalizeProduct, type RawDbProduct } from '@/lib/normalize-product';
-import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
 import {
   coerceStorefrontManageStock,
   getStorefrontAgentAvailability,
@@ -25,7 +24,7 @@ export const STOREFRONT_PRODUCTS_FULL_SELECT = `
   low_stock_threshold,
   image_hint,
   specifications,
-  ${PRODUCT_KEY_SPECS_RELATION_SELECT},
+  product_key_specs,
   has_variants,
   sku,
   has_condition_offers,

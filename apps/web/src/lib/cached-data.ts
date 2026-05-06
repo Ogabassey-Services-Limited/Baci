@@ -9,7 +9,6 @@ import {
 } from '@/env';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
-import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import {
   isDomainIdentifier,
@@ -814,7 +813,7 @@ export async function getCachedProduct(
         images,
         color_images,
         created_at,
-        ${PRODUCT_KEY_SPECS_RELATION_SELECT},
+        product_key_specs,
         specifications,
         condition,
         variant_model,
@@ -1280,7 +1279,7 @@ export async function getCachedCategoryPageData(
     let query = supabase
       .from('products')
       .select(
-        `id, name, slug, description, price, compare_at_price, status, stock, stock_quantity, manage_stock, low_stock_threshold, condition, brand, category, color, images, image_hint, gtin, mpn, ${PRODUCT_KEY_SPECS_RELATION_SELECT}, created_at, updated_at`
+        'id, name, slug, description, price, compare_at_price, status, stock, stock_quantity, manage_stock, low_stock_threshold, condition, brand, category, color, images, image_hint, gtin, mpn, product_key_specs, created_at, updated_at'
       )
       .eq('merchant_id', merchantId)
       .eq('status', 'active');
@@ -1401,7 +1400,7 @@ export async function getCachedCategoryPageData(
           brand,
           condition,
           stock,
-          ${PRODUCT_KEY_SPECS_RELATION_SELECT},
+          product_key_specs,
           product_categories!inner(category_id, categories(name, slug))
         `)
       .eq('merchant_id', merchantId)
@@ -1430,7 +1429,7 @@ export async function getCachedCategoryPageData(
           brand,
           condition,
           stock,
-          ${PRODUCT_KEY_SPECS_RELATION_SELECT},
+          product_key_specs,
           product_categories(categories(name, slug))
         `)
       .eq('merchant_id', merchantId)

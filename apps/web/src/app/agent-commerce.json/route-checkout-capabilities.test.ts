@@ -91,7 +91,6 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
 
     expect(response.status).toBe(200);
     expect(body.capabilities).toContain('checkout.session.complete');
-    expect(body.capabilities).toContain('order.read');
     expect(body.auth).toMatchObject({
       type: 'bearer_hmac',
       request_signing: {
@@ -118,9 +117,6 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
     );
     expect(body.links.checkout_session_complete).toBe(
       'https://another.example/api/agentic/checkout_sessions/{session_id}/complete'
-    );
-    expect(body.links.order).toBe(
-      'https://another.example/api/agentic/orders/{order_id}'
     );
   });
 

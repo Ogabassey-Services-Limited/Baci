@@ -25,7 +25,6 @@ const AGENT_COMMERCE_CAPABILITIES = [
   'checkout.session.update',
   'checkout.session.complete',
   'checkout.session.cancel',
-  'order.read',
 ] as const;
 const AGENTIC_REQUIRED_HEADERS = [
   'api-version',
@@ -162,6 +161,5 @@ function buildCheckoutLinks(baseUrl: string) {
       baseUrl,
       '/api/agentic/checkout_sessions/{session_id}/cancel'
     ),
-    order: buildTemplateUrl(baseUrl, '/api/agentic/orders/{order_id}'),
   };
 }
