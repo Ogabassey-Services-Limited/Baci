@@ -534,12 +534,19 @@ describe('walletAmount on the shared base', () => {
   // inherits it. The riskiest path is `vtuCheckoutInitializeSchema` —
   // initialize is what mobile partial-coverage uses, and a silently-stripped
   // walletAmount there means the gateway gets charged the full amount.
+  //
+  // `source: 'checkout'` is required for any positive walletAmount —
+  // wallet credit is a customer-paid leg only valid for the checkout
+  // flow. Loyalty / gift / direct / storefront_modal sources MUST NOT
+  // carry walletAmount; the refund helper skips non-checkout rows so a
+  // failed vend would strand the debit.
   const baseAirtime = {
     merchantSlug: 'test-merchant',
     amount: 1000,
     type: 'airtime' as const,
     phoneNumber: '08012345678',
     networkProvider: 'MTN',
+    source: 'checkout' as const,
   };
 
   it('purchaseSchema accepts walletAmount when it does not exceed amount', () => {
@@ -610,6 +617,48 @@ describe('walletAmount on the shared base', () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it('rejects positive walletAmount on non-checkout sources (loyalty/gift/direct/storefront_modal)', () => {
+    // Wallet credit is customer-paid; non-checkout sources are
+    // settled differently and the refund helper skips them. Without
+    // this guard a non-checkout flow could trigger a wallet debit
+    // that would be permanently stranded on a vend failure.
+    for (const source of [
+      'loyalty_reward',
+      'gift',
+      'direct',
+      'storefront_modal',
+    ] as const) {
+      const result = purchaseSchema.safeParse({
+        ...baseAirtime,
+        source,
+        walletAmount: 500,
+      });
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(JSON.stringify(result.error.issues)).toContain(
+          'walletAmount is only valid for checkout-sourced purchases'
+        );
+      }
+    }
+  });
+
+  it('walletAmount: 0 (or omitted) is valid on non-checkout sources', () => {
+    // Regression-pin: the source guard MUST only fire when walletAmount
+    // is a positive number — non-checkout flows that don't touch the
+    // wallet at all should keep working unchanged.
+    const explicitZero = purchaseSchema.safeParse({
+      ...baseAirtime,
+      source: 'loyalty_reward',
+      walletAmount: 0,
+    });
+    expect(explicitZero.success).toBe(true);
+    const omitted = purchaseSchema.safeParse({
+      ...baseAirtime,
+      source: 'loyalty_reward',
+    });
+    expect(omitted.success).toBe(true);
+  });
 });
 
 // vtuWalletOnlyChargeSchema is the validation surface for the
@@ -622,12 +671,16 @@ describe('walletAmount on the shared base', () => {
 // amount and lets the route reject partial coverage with a clear
 // "use the regular initialize endpoint" 4xx.
 describe('vtuWalletOnlyChargeSchema', () => {
+  // The wallet-only ROUTE injects `source: 'checkout'` into the body
+  // before parsing. Mirror that here so these tests reflect what the
+  // schema actually sees in production.
   const baseAirtime = {
     merchantSlug: 'ogabassey',
     amount: 1000,
     type: 'airtime' as const,
     phoneNumber: '08012345678',
     networkProvider: 'MTN',
+    source: 'checkout' as const,
   };
 
   it('accepts walletAmount === amount (the full-coverage happy path)', () => {

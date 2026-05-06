@@ -1727,6 +1727,63 @@ describe('fulfillPendingVtuTransaction', () => {
       expect(walletDebitedPayload).toBeDefined();
     });
 
+    it('skips wallet debit for non-checkout sources even when paymentSplit is present (defense in depth)', async () => {
+      // Schema + prepare gate paymentSplit on source==='checkout', but
+      // the fulfillment layer adds a third check at the money-movement
+      // boundary. If a non-checkout row somehow carries paymentSplit
+      // (legacy data, manual SQL, future bypass), the wallet RPC must
+      // NOT fire — the refund helper would skip the row on a vend
+      // failure, leaving the customer permanently debited with no
+      // recovery path.
+      //
+      // This test pins ONLY the wallet-debit gate. Whether the vend
+      // itself succeeds depends on other concerns (reconciliation
+      // path for loyalty rewards, etc.) that are out of scope here.
+      const rpcCalls: string[] = [];
+      const rpcImpl = vi.fn((name: string) => {
+        rpcCalls.push(name);
+        return Promise.resolve({ data: null, error: null });
+      });
+      mockPurchaseAirtime.mockResolvedValueOnce({
+        success: true,
+        status: 'successful',
+        reference: 'KUDA-NC-1',
+        pin: null,
+      });
+      const supabase = createPendingTransactionSupabaseMock({
+        transactionRow: {
+          id: 'vtu-nc-1',
+          merchant_id: 'merchant-1',
+          customer_id: 'customer-1',
+          type: 'airtime',
+          network_provider: 'MTN',
+          phone_number: '08012345678',
+          amount: 1000,
+          request_reference: 'VTU-NC-1',
+          transaction_id: null,
+          status: 'pending',
+          metadata: { paymentSplit: { wallet: 1000, card: 0 } },
+          error_message: null,
+          merchant_commission: 10,
+          customer_cashback: 0,
+          biller_name: null,
+          biller_item_code: null,
+          customer_identifier: null,
+          source: 'loyalty_reward',
+        },
+        rpcImpl,
+      });
+
+      await fulfillPendingVtuTransaction({
+        supabase,
+        transactionId: 'vtu-nc-1',
+      });
+
+      // The wallet RPC must NOT have been called for a non-checkout row,
+      // regardless of what else happens in fulfillment downstream.
+      expect(rpcCalls).not.toContain('redeem_vtu_wallet_payment');
+    });
+
     it('hybrid wallet-race: redeem raises insufficient_wallet_balance, Kuda is NOT called, card portion is refunded', async () => {
       // Wallet balance dropped between initialize and webhook (concurrent
       // refund / cashback / multi-tab redemption). The RPC raises with

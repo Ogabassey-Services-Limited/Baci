@@ -1513,11 +1513,21 @@ export async function fulfillPendingVtuTransaction({
   // proceeds to the vend.
   const preDebitMetadata = (row.metadata ?? {}) as Record<string, unknown>;
   const paymentSplitForDebit = readPaymentSplit(preDebitMetadata);
+  // Mirror the source guard at line 327 in `refundVtuToCustomerWallet`:
+  // the refund helper short-circuits for non-checkout rows, which would
+  // strand a wallet debit on a non-checkout source if the vend later
+  // failed (the customer's wallet would be permanently charged with no
+  // automatic refund). Non-checkout flows (loyalty_reward / gift /
+  // direct / storefront_modal) MUST NOT debit the wallet — they're
+  // either pre-funded by the merchant (loyalty/gift) or follow a
+  // different settlement path. Only `checkout` is a customer-paid VTU
+  // where wallet credit is the user's chosen payment method.
   if (
     paymentSplitForDebit &&
     paymentSplitForDebit.wallet > 0 &&
     preDebitMetadata.walletDebited !== true &&
-    row.customer_id
+    row.customer_id &&
+    row.source === 'checkout'
   ) {
     const { error: debitError } = await supabase.rpc(
       'redeem_vtu_wallet_payment',

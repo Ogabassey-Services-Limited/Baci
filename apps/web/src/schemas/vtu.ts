@@ -91,6 +91,25 @@ function applyPurchaseRequirements(
       path: ['walletAmount'],
     });
   }
+
+  // Wallet credit is a customer-paid leg, only valid for the
+  // `checkout` source. Loyalty rewards, gifts, direct purchases, and
+  // the storefront modal are settled via different paths (merchant
+  // pre-funding, gateway only, etc.) and the refund helper in
+  // `vtu-fulfillment.ts:327` skips non-checkout rows — so a wallet
+  // debit triggered by a non-checkout flow would leave the customer
+  // permanently charged on a vend failure.
+  if (
+    data.walletAmount !== undefined &&
+    data.walletAmount > 0 &&
+    data.source !== 'checkout'
+  ) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'walletAmount is only valid for checkout-sourced purchases',
+      path: ['walletAmount'],
+    });
+  }
 }
 
 export const purchaseSchema = purchaseSchemaBase.superRefine(

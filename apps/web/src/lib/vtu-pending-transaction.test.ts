@@ -361,5 +361,38 @@ describe('preparePendingVtuTransaction', () => {
         | undefined;
       expect(zeroCall?.metadata).not.toHaveProperty('paymentSplit');
     });
+
+    it('does NOT write paymentSplit for non-checkout sources even when walletAmount > 0', async () => {
+      // Defense in depth alongside the schema check. The schema
+      // already rejects walletAmount > 0 on non-checkout sources at
+      // the API boundary, but the prepare step also gates the
+      // metadata write so a bypass (manual SQL, future code path) can
+      // never strand a wallet debit on a non-checkout row.
+      const { insert, supabase } = createMockSupabase();
+      await preparePendingVtuTransaction({
+        supabase,
+        user: {
+          id: 'user-1',
+          email: 'customer@example.com',
+        } as unknown as Parameters<
+          typeof preparePendingVtuTransaction
+        >[0]['user'],
+        input: {
+          merchantSlug: 'ogabassey',
+          type: 'airtime',
+          amount: 1000,
+          phoneNumber: '08012345678',
+          networkProvider: 'mtn',
+          source: 'loyalty_reward',
+          walletAmount: 1000,
+        },
+        source: 'loyalty_reward',
+        requireCustomer: true,
+      });
+      const insertCall = insert.mock.calls[0]?.[0] as
+        | { metadata?: Record<string, unknown> }
+        | undefined;
+      expect(insertCall?.metadata).not.toHaveProperty('paymentSplit');
+    });
   });
 });
