@@ -62,7 +62,7 @@ const BANNER_SLIDES: BannerSlide[] = [
   },
 ];
 
-interface BannerCarouselProps {
+export interface BannerCarouselProps {
   className?: string;
   categoryImage?: string | null;
   title?: string;

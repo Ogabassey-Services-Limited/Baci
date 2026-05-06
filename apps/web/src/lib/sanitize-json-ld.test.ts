@@ -11,9 +11,9 @@ describe('sanitizeSchemaUrl', () => {
     expect(result).toBe('https://example.com/product');
   });
 
-  it('escapes HTML characters in URLs', () => {
+  it('preserves URL data characters after validation', () => {
     const result = sanitizeSchemaUrl('https://example.com/a&b%3Cc');
-    expect(result).toContain('\\u0026');
+    expect(result).toBe('https://example.com/a&b%3Cc');
   });
 
   it('returns empty string for invalid URLs', () => {
@@ -66,15 +66,25 @@ describe('sanitizeSchemaMarkup', () => {
 });
 
 describe('safeJsonLdStringify', () => {
-  it('returns valid JSON string with sanitized values', () => {
+  it('returns script-safe JSON without changing parsed data values', () => {
     const schema = {
       '@type': 'Product',
       name: 'Test <b>Product</b>',
+      url: 'https://example.com/products/test?source=web&variantId=123',
+      line: 'one\u2028two\u2029three',
       price: 5000,
     };
     const result = safeJsonLdStringify(schema);
     const parsed = JSON.parse(result);
-    expect(parsed.name).toContain('\\u003cb\\u003e');
+    expect(result).toContain('\\u003c');
+    expect(result).toContain('\\u0026');
+    expect(result).toContain('\\u2028');
+    expect(result).toContain('\\u2029');
+    expect(parsed.name).toBe('Test <b>Product</b>');
+    expect(parsed.url).toBe(
+      'https://example.com/products/test?source=web&variantId=123'
+    );
+    expect(parsed.line).toBe('one\u2028two\u2029three');
     expect(parsed.price).toBe(5000);
   });
 });

@@ -364,6 +364,147 @@ describe('createOrder — variant_attributes', () => {
     expect(retryOptions?.maxRetries).toBe(0);
   });
 
+  it('forwards use_wallet_credit and wallet_amount when both are provided', async () => {
+    // Regression: PR A wires the storefront wallet payment-method into checkout.
+    // The createOrder service layer must thread these fields through to the API,
+    // otherwise the picker selection in the UI would never reach the server.
+    const { createOrder } = require('./orders');
+
+    await createOrder({
+      customer_email: 'test@example.com',
+      customer_name: 'Test User',
+      customer_phone: '+2348012345678',
+      items: [
+        {
+          id: 'prod-1',
+          name: 'MacBook Air M1',
+          quantity: 1,
+          price: 720000,
+        },
+      ],
+      subtotal: 720000,
+      shipping_fee: 2000,
+      payment_method: 'paystack',
+      use_wallet_credit: true,
+      wallet_amount: 500,
+      shipping_address: {
+        firstName: 'Test',
+        lastName: 'User',
+        address: '123 St',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    });
+
+    const body = getLastFetchBody();
+    expect(body.use_wallet_credit).toBe(true);
+    expect(body.wallet_amount).toBe(500);
+  });
+
+  it('omits wallet fields entirely when neither is provided (back-compat)', async () => {
+    // Pin the back-compat contract: orders that do not opt into wallet must
+    // not emit `use_wallet_credit: false / wallet_amount: undefined`. The
+    // server schema treats absent fields differently from explicit nullish
+    // values, and serialising undefined as null can flip the wallet path.
+    const { createOrder } = require('./orders');
+
+    await createOrder({
+      customer_email: 'test@example.com',
+      customer_name: 'Test User',
+      customer_phone: '+2348012345678',
+      items: [{ id: 'prod-1', name: 'Product', quantity: 1, price: 5000 }],
+      subtotal: 5000,
+      shipping_fee: 500,
+      payment_method: 'pay_on_delivery',
+      shipping_address: {
+        firstName: 'Test',
+        lastName: 'User',
+        address: '123 St',
+        city: 'Lagos',
+        state: 'Lagos',
+      },
+    });
+
+    const body = getLastFetchBody();
+    expect(body).not.toHaveProperty('use_wallet_credit');
+    expect(body).not.toHaveProperty('wallet_amount');
+  });
+
+  it('strips wallet fields when use_wallet_credit is true but wallet_amount is missing or zero', async () => {
+    // Runtime guard: a malformed `{ use_wallet_credit: true,
+    // wallet_amount: undefined | 0 }` must NOT reach the API. The schema
+    // permits these values (wallet_amount is optional + nonnegative), so
+    // the runtime guard is the layer that drops them. Negative amounts
+    // are caught one layer earlier by the Zod schema itself — see the
+    // dedicated rejection test below.
+    const { createOrder } = require('./orders');
+
+    for (const walletAmount of [undefined, 0]) {
+      jest.clearAllMocks();
+      mockFetchJson.mockResolvedValue({
+        order: {
+          id: 'order-x',
+          order_number: 'ORD-X',
+          total: 5500,
+          payment_status: 'unpaid',
+          shipping_status: 'pending',
+          created_at: '2026-03-31T00:00:00Z',
+          tracking_token: null,
+        },
+        wallet: null,
+        amountDueToGateway: 5500,
+      });
+
+      await createOrder({
+        customer_email: 'test@example.com',
+        customer_name: 'Test User',
+        customer_phone: '+2348012345678',
+        items: [{ id: 'prod-1', name: 'Product', quantity: 1, price: 5000 }],
+        subtotal: 5000,
+        shipping_fee: 500,
+        payment_method: 'paystack',
+        use_wallet_credit: true,
+        ...(walletAmount !== undefined && { wallet_amount: walletAmount }),
+        shipping_address: {
+          firstName: 'Test',
+          lastName: 'User',
+          address: '123 St',
+          city: 'Lagos',
+          state: 'Lagos',
+        },
+      });
+
+      const body = getLastFetchBody();
+      expect(body).not.toHaveProperty('use_wallet_credit');
+      expect(body).not.toHaveProperty('wallet_amount');
+    }
+  });
+
+  it('rejects negative wallet_amount at the schema boundary', async () => {
+    const { createOrder } = require('./orders');
+
+    await expect(
+      createOrder({
+        customer_email: 'test@example.com',
+        customer_name: 'Test User',
+        customer_phone: '+2348012345678',
+        items: [{ id: 'prod-1', name: 'Product', quantity: 1, price: 5000 }],
+        subtotal: 5000,
+        shipping_fee: 500,
+        payment_method: 'paystack',
+        use_wallet_credit: true,
+        wallet_amount: -100,
+        shipping_address: {
+          firstName: 'Test',
+          lastName: 'User',
+          address: '123 St',
+          city: 'Lagos',
+          state: 'Lagos',
+        },
+      })
+    ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' });
+  });
+
   it('accepts successful order responses that omit created_at', async () => {
     const { createOrder } = require('./orders');
 

@@ -9,7 +9,6 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -43,6 +42,7 @@ const loadNativeModules = async () => {
 loadNativeModules();
 
 import Animated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated';
+import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { BRAND, palette, SHADOWS } from '@/constants/Colors';
 import { createLogger } from '@/lib/logger';
 import { supabase } from '@/lib/supabase';
@@ -267,8 +267,7 @@ export function NegotiationModal({
       onRequestClose={onClose}
       accessibilityViewIsModal={true}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      <AppKeyboardContainer
         style={styles.overlay}
       >
         <Pressable
@@ -556,7 +555,7 @@ export function NegotiationModal({
             )}
           </View>
         </Animated.View>
-      </KeyboardAvoidingView>
+      </AppKeyboardContainer>
     </Modal>
   );
 }

@@ -11,8 +11,6 @@ import {
   ActivityIndicator,
   Alert,
   Keyboard,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,6 +18,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useToast } from '@/components/ui/Toast';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -295,16 +294,15 @@ export default function AddressFormScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
+    <AppKeyboardContainer
       style={[styles.container, { backgroundColor: colors.background }]}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={100}
     >
       <ScrollView
         contentContainerStyle={styles.content}
+        contentInsetAdjustmentBehavior="automatic"
         showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
       >
         {/* Address Label */}
         <View style={styles.section}>
@@ -559,6 +557,8 @@ export default function AddressFormScreen() {
           style={[styles.saveButton, { backgroundColor: BRAND.primary }]}
           onPress={handleSave}
           disabled={isSaving}
+          accessibilityRole="button"
+          accessibilityLabel={isNewAddress ? 'Add Address' : 'Save Changes'}
         >
           {isSaving ? (
             <ActivityIndicator color="#FFF" />
@@ -572,7 +572,7 @@ export default function AddressFormScreen() {
 
       {/* 2026 Best Practice: Toast feedback component */}
       <toast.Toast />
-    </KeyboardAvoidingView>
+    </AppKeyboardContainer>
   );
 }
 

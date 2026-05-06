@@ -94,6 +94,7 @@ type ProductUrlInput = {
   category?: string | null;
   categories?: { slug?: string } | null;
   category_slug?: string;
+  canonical_url?: string | null;
 };
 const defaultGetProductUrl = (product: ProductUrlInput) => {
   const productSlug = product.slug ?? product.id;
@@ -111,6 +112,12 @@ const defaultGetProductUrl = (product: ProductUrlInput) => {
 const mockGetProductUrl = vi.fn((product: ProductUrlInput) =>
   defaultGetProductUrl(product)
 );
+const defaultGetValidatedProductUrl = (
+  product: ProductUrlInput,
+  baseUrl: string,
+  _merchantSlug?: string | null
+) => `${baseUrl}${mockGetProductUrl({ ...product, canonical_url: null })}`;
+const mockGetValidatedProductUrl = vi.fn(defaultGetValidatedProductUrl);
 
 vi.mock('@/lib/seo-utils', () => ({
   constructCanonicalUrl: (base: string) => base,
@@ -137,6 +144,11 @@ vi.mock('@/lib/seo-utils', () => ({
     'max-video-preview': -1,
   }),
   getProductUrl: (product: ProductUrlInput) => mockGetProductUrl(product),
+  getValidatedProductUrl: (
+    product: ProductUrlInput,
+    baseUrl: string,
+    merchantSlug?: string | null
+  ) => mockGetValidatedProductUrl(product, baseUrl, merchantSlug),
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -282,6 +294,9 @@ describe('products/[productSlug] page', () => {
     mockHeaders.mockReturnValue(makeHeaders({}));
     mockGenerateProductSchema.mockImplementation(() => ({ offers: {} }));
     mockGetProductUrl.mockImplementation(defaultGetProductUrl);
+    mockGetValidatedProductUrl.mockImplementation(
+      defaultGetValidatedProductUrl
+    );
     mockNormalizeStorefrontProductVariants.mockReset();
     mockNormalizeStorefrontProductVariants.mockReturnValue([]);
     mockGetRequestScopedMerchant.mockResolvedValue(baseMerchant);
@@ -322,6 +337,34 @@ describe('products/[productSlug] page', () => {
     expect(mockPermanentRedirect).toHaveBeenCalledWith(
       '/teststore/phones/iphone-15'
     );
+  });
+
+  it('redirects categorized products to the category URL when the cached product has a stale products canonical', async () => {
+    mockGetCachedProduct.mockResolvedValue({
+      ...categorizedProduct,
+      canonical_url: '/products/iphone-15',
+    });
+    mockHeaders.mockReturnValue(makeHeaders({}));
+    mockGetProductUrl.mockImplementation((product) => {
+      if (product.canonical_url) {
+        return new URL(product.canonical_url, 'https://storefront.invalid')
+          .pathname;
+      }
+
+      return defaultGetProductUrl(product);
+    });
+
+    await expect(
+      ProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'iphone-15',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    ).rejects.toThrow('NEXT_REDIRECT');
+
+    expect(mockPermanentRedirect).toHaveBeenCalledWith('/phones/iphone-15');
   });
 
   it('defers generic PDP first paint to the route loader while the client page is pending', async () => {
@@ -722,12 +765,10 @@ describe('products/[productSlug] page', () => {
   });
 
   describe('schema URL consistency', () => {
-    it('uses getProductUrl for offer and breadcrumb URLs on fallback legacy pages', async () => {
+    it('passes getProductUrl output into JSON-LD and breadcrumb URLs on fallback legacy pages', async () => {
       mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
       mockHeaders.mockReturnValue(makeHeaders({}));
       mockGetProductUrl.mockReturnValue('/products/mystery-item');
-      const productSchema = { offers: {} as Record<string, unknown> };
-      mockGenerateProductSchema.mockReturnValue(productSchema);
 
       await ProductPage({
         params: Promise.resolve({
@@ -739,15 +780,75 @@ describe('products/[productSlug] page', () => {
 
       // getProductUrl should have been called
       expect(mockGetProductUrl).toHaveBeenCalled();
-      expect(productSchema.offers).toMatchObject({
-        url: 'https://teststore.usebaci.com/products/mystery-item',
-      });
+      expect(mockGenerateProductSchema).toHaveBeenCalledWith(
+        expect.any(Object),
+        'TestStore',
+        'NGN',
+        'NG',
+        null,
+        expect.any(Object),
+        { productUrl: 'https://teststore.usebaci.com/products/mystery-item' }
+      );
 
       // Breadcrumb schema should receive the same product URL
       expect(mockGenerateBreadcrumbSchema).toHaveBeenCalledWith(
         expect.arrayContaining([
           expect.objectContaining({
             url: expect.stringContaining('/products/mystery-item'),
+          }),
+        ])
+      );
+    });
+
+    it('uses the validated product URL for fallback metadata, JSON-LD, and breadcrumbs', async () => {
+      const productUrl = 'https://teststore.usebaci.com/products/mystery-item';
+      const product = {
+        ...uncategorizedProduct,
+        canonical_url: `${productUrl}?utm_source=google#reviews`,
+      };
+      mockGetCachedProduct.mockResolvedValue(product);
+      mockGetValidatedProductUrl.mockReturnValue(productUrl);
+
+      const metadata = await generateMetadata(
+        {
+          params: Promise.resolve({
+            slug: 'teststore',
+            productSlug: 'mystery-item',
+          }),
+          searchParams: Promise.resolve({}),
+        },
+        stubParent
+      );
+
+      await ProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'mystery-item',
+        }),
+        searchParams: Promise.resolve({}),
+      });
+
+      expect(metadata.alternates?.canonical).toBe(productUrl);
+      expect(mockGetValidatedProductUrl).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canonical_url: '/products/mystery-item',
+        }),
+        'https://teststore.usebaci.com',
+        'teststore'
+      );
+      expect(mockGenerateProductSchema).toHaveBeenCalledWith(
+        expect.any(Object),
+        'TestStore',
+        'NGN',
+        'NG',
+        null,
+        expect.any(Object),
+        { productUrl }
+      );
+      expect(mockGenerateBreadcrumbSchema).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            url: productUrl,
           }),
         ])
       );
@@ -891,7 +992,7 @@ describe('products/[productSlug] page', () => {
       })
     );
     expect(mockGenerateProductSchema).toHaveBeenCalledWith(
-      expect.anything(),
+      expect.any(Object),
       'TestStore',
       'NGN',
       'NG',
@@ -899,7 +1000,10 @@ describe('products/[productSlug] page', () => {
       expect.objectContaining({
         supportEmail: 'support@test.example',
         supportPhone: '+2348000000000',
-      })
+      }),
+      {
+        productUrl: 'https://teststore.usebaci.com/products/iphone-17-pro-max',
+      }
     );
   });
 });

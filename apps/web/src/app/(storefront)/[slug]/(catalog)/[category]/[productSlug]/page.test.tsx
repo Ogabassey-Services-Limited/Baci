@@ -32,16 +32,8 @@ const mockGetCachedProductWithDetails = vi.fn();
 const mockGetCachedCategoryPageData = vi.fn();
 const mockBuildProductSemanticModel = vi.fn();
 const mockGetPublishedClusterPosts = vi.fn();
-const mockGenerateProductSchema = vi.fn(
-  (
-    _product: unknown,
-    _merchantName?: string,
-    _currency?: string,
-    _country?: string,
-    _merchantLogo?: string | null,
-    _trustProfile?: unknown
-  ) => ({})
-);
+const mockGenerateBreadcrumbSchema = vi.fn((_items: unknown) => ({}));
+const mockGenerateProductSchema = vi.fn((..._args: unknown[]) => ({}));
 
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
@@ -113,9 +105,70 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
   safeJsonLdStringify: () => '{}',
 }));
 
+type MockProductUrlInput = {
+  id: string;
+  slug?: string;
+  category?: string | null;
+  categories?: { slug?: string } | null;
+  category_slug?: string;
+  canonical_url?: string | null;
+};
+
+function getMockProductUrl(product: MockProductUrlInput) {
+  if (product.canonical_url) {
+    try {
+      return new URL(product.canonical_url).pathname;
+    } catch {
+      // Fall through to route construction for invalid canonical_url values.
+    }
+  }
+
+  const productSlug = product.slug ?? product.id;
+  const categorySlug =
+    product.categories?.slug ||
+    product.category_slug ||
+    (product.category
+      ? product.category.toLowerCase().replace(/\s+/g, '-')
+      : undefined);
+
+  return categorySlug
+    ? `/${categorySlug}/${productSlug}`
+    : `/products/${productSlug}`;
+}
+
+function getMockValidatedProductUrl(
+  product: MockProductUrlInput,
+  baseUrl: string
+) {
+  const finalProductPath = getMockProductUrl({
+    ...product,
+    canonical_url: null,
+  });
+  if (product.canonical_url) {
+    try {
+      const parsedCanonicalUrl = new URL(product.canonical_url, baseUrl);
+      const canonicalPath =
+        parsedCanonicalUrl.pathname.replace(/\/+$/, '') || '/';
+      const normalizedFinalPath = finalProductPath.replace(/\/+$/, '') || '/';
+      if (
+        !parsedCanonicalUrl.search &&
+        !parsedCanonicalUrl.hash &&
+        canonicalPath === normalizedFinalPath
+      ) {
+        return `${new URL(baseUrl).origin}${parsedCanonicalUrl.pathname}`;
+      }
+    } catch {
+      // Fall through to the deterministic path below.
+    }
+  }
+
+  return `${baseUrl}${finalProductPath}`;
+}
+
 vi.mock('@/lib/seo-utils', () => ({
   constructCanonicalUrl: (base: string) => base,
-  generateBreadcrumbSchema: () => ({}),
+  generateBreadcrumbSchema: (items: unknown) =>
+    mockGenerateBreadcrumbSchema(items),
   generateMetaTitle: (title: string, options?: { suffix?: string }) =>
     options?.suffix ? `${title} | ${options.suffix}` : title,
   generateMetaDescription: (description: string, maxLength = 160) => {
@@ -124,22 +177,8 @@ vi.mock('@/lib/seo-utils', () => ({
       ? plainText
       : `${plainText.slice(0, maxLength - 3)}...`;
   },
-  generateProductSchema: (
-    product: unknown,
-    merchantName?: string,
-    currency?: string,
-    country?: string,
-    merchantLogo?: string | null,
-    trustProfile?: unknown
-  ) =>
-    mockGenerateProductSchema(
-      product,
-      merchantName,
-      currency,
-      country,
-      merchantLogo,
-      trustProfile
-    ),
+  generateProductSchema: (...args: unknown[]) =>
+    mockGenerateProductSchema(...args),
   generateSlug: (name: string) => name.toLowerCase().replace(/\s+/g, '-'),
   getIndexableRobotsMetadata: () => ({
     index: true,
@@ -148,25 +187,9 @@ vi.mock('@/lib/seo-utils', () => ({
     'max-snippet': -1,
     'max-video-preview': -1,
   }),
-  getProductUrl: (product: {
-    id: string;
-    slug?: string;
-    category?: string | null;
-    categories?: { slug?: string } | null;
-    category_slug?: string;
-  }) => {
-    const productSlug = product.slug ?? product.id;
-    const categorySlug =
-      product.categories?.slug ||
-      product.category_slug ||
-      (product.category
-        ? product.category.toLowerCase().replace(/\s+/g, '-')
-        : undefined);
-
-    return categorySlug
-      ? `/${categorySlug}/${productSlug}`
-      : `/products/${productSlug}`;
-  },
+  getProductUrl: (product: MockProductUrlInput) => getMockProductUrl(product),
+  getValidatedProductUrl: (product: MockProductUrlInput, baseUrl: string) =>
+    getMockValidatedProductUrl(product, baseUrl),
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -545,6 +568,7 @@ describe('[category]/[productSlug] page render', () => {
       ],
     });
 
+    // Deliberately render the page only to drive JSON-LD/breadcrumb side effects.
     render(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -597,6 +621,7 @@ describe('[category]/[productSlug] page render', () => {
       manage_stock: undefined,
     });
 
+    // Deliberately render the page only to drive JSON-LD/breadcrumb side effects.
     render(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -819,7 +844,7 @@ describe('[category]/[productSlug] page render', () => {
       })
     );
     expect(mockGenerateProductSchema).toHaveBeenCalledWith(
-      expect.anything(),
+      expect.any(Object),
       'TestStore',
       'NGN',
       'NG',
@@ -827,7 +852,128 @@ describe('[category]/[productSlug] page render', () => {
       expect.objectContaining({
         supportEmail: 'support@test.example',
         supportPhone: '+2348000000000',
+      }),
+      {
+        productUrl:
+          'https://teststore.usebaci.com/smartphones/samsung-galaxy-z-trifold',
+      }
+    );
+  });
+
+  it('keeps JSON-LD and breadcrumbs aligned with the validated canonical URL when stored canonical_url is stale', async () => {
+    const expectedCanonicalUrl =
+      'https://teststore.usebaci.com/smartphones/samsung-galaxy-z-trifold';
+    mockGetCachedProductWithDetails.mockResolvedValue({
+      ...categorizedDetailedProduct,
+      name: 'Samsung Galaxy Z TriFold',
+      slug: 'samsung-galaxy-z-trifold',
+      category: 'Smartphones',
+      category_slug: 'smartphones',
+      categories: {
+        id: 'cat-smartphones',
+        name: 'Smartphones',
+        slug: 'smartphones',
+        parent_id: null,
+      },
+      canonical_url:
+        'https://teststore.usebaci.com/products/samsung-galaxy-z-trifold',
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'smartphones',
+        productSlug: 'samsung-galaxy-z-trifold',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    render(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'smartphones',
+          productSlug: 'samsung-galaxy-z-trifold',
+        }),
+        searchParams: Promise.resolve({}),
       })
+    );
+
+    expect(metadata.alternates?.canonical).toBe(expectedCanonicalUrl);
+    expect(mockGenerateProductSchema).toHaveBeenCalledWith(
+      expect.any(Object),
+      'TestStore',
+      'NGN',
+      'NG',
+      null,
+      expect.any(Object),
+      { productUrl: expectedCanonicalUrl }
+    );
+    expect(mockGenerateBreadcrumbSchema).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'Samsung Galaxy Z TriFold',
+          url: expectedCanonicalUrl,
+        }),
+      ])
+    );
+  });
+
+  it('does not reuse stored canonical_url query strings or fragments in JSON-LD and breadcrumbs', async () => {
+    const expectedCanonicalUrl =
+      'https://teststore.usebaci.com/smartphones/samsung-galaxy-z-trifold';
+    mockGetCachedProductWithDetails.mockResolvedValue({
+      ...categorizedDetailedProduct,
+      name: 'Samsung Galaxy Z TriFold',
+      slug: 'samsung-galaxy-z-trifold',
+      category: 'Smartphones',
+      category_slug: 'smartphones',
+      categories: {
+        id: 'cat-smartphones',
+        name: 'Smartphones',
+        slug: 'smartphones',
+        parent_id: null,
+      },
+      canonical_url: `${expectedCanonicalUrl}?utm_source=google#reviews`,
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'smartphones',
+        productSlug: 'samsung-galaxy-z-trifold',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    render(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'smartphones',
+          productSlug: 'samsung-galaxy-z-trifold',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(metadata.alternates?.canonical).toBe(expectedCanonicalUrl);
+    expect(mockGenerateProductSchema).toHaveBeenCalledWith(
+      expect.any(Object),
+      'TestStore',
+      'NGN',
+      'NG',
+      null,
+      expect.any(Object),
+      { productUrl: expectedCanonicalUrl }
+    );
+    expect(mockGenerateBreadcrumbSchema).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'Samsung Galaxy Z TriFold',
+          url: expectedCanonicalUrl,
+        }),
+      ])
     );
   });
 

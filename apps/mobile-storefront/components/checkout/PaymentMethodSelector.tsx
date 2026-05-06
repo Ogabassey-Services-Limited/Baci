@@ -12,7 +12,10 @@ import creditDirectLogoSource from '@/assets/images/creditdirect.jpg';
 import credpalLogoSource from '@/assets/images/credpal.png';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, palette, RADIUS, SPACING } from '@/constants/Colors';
+import type { WalletSelection } from '@/lib/wallet-payment-helpers';
 import { formatPrice } from '@/stores/cart-store';
+
+export type { WalletSelection };
 
 export type PaymentMethodType =
   | 'paystack'
@@ -106,6 +109,19 @@ const PAYMENT_METHODS: PaymentMethod[] = [
   },
 ];
 
+/**
+ * `walletMode` opts a caller into wallet payment UI. Defaults to `'off'`,
+ * which is what every existing caller (including VTU's
+ * UtilityPaymentOptions) gets without any changes — so VTU stays hidden
+ * until PR B wires server support and switches to `walletMode='vtu'`.
+ *
+ * The selector is presentation-only. The caller is responsible for
+ * fetching wallet balance via `useWallet()` and passing it as
+ * `walletBalance`. Keeping the hook out of the shared component is what
+ * makes `walletMode='off'` an effective hard gate.
+ */
+export type WalletMode = 'orders' | 'vtu' | 'off';
+
 interface PaymentMethodSelectorProps {
   selectedMethod: PaymentMethodType;
   onSelectMethod: (method: PaymentMethodType) => void;
@@ -114,6 +130,11 @@ interface PaymentMethodSelectorProps {
   orderTotal: number;
   showInstallmentCalculator?: boolean;
   enabledMethods?: PaymentMethodType[];
+  walletMode?: WalletMode;
+  walletBalance?: number;
+  walletOrderTotal?: number;
+  walletSelection?: WalletSelection;
+  onWalletToggle?: (selection: WalletSelection) => void;
 }
 
 export function PaymentMethodSelector({
@@ -124,6 +145,11 @@ export function PaymentMethodSelector({
   orderTotal,
   showInstallmentCalculator = true,
   enabledMethods,
+  walletMode = 'off',
+  walletBalance = 0,
+  walletOrderTotal,
+  walletSelection,
+  onWalletToggle,
 }: PaymentMethodSelectorProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -182,8 +208,137 @@ export function PaymentMethodSelector({
     }
   }, [selectedTab, hasBNPLMethods, hasPayLaterMethods, onSelectTab]);
 
+  // === Wallet payment row (gated rollout) ===
+  // Only renders when the caller explicitly opts in via walletMode='orders'
+  // and the customer actually has a positive balance to spend. The VTU
+  // surface keeps walletMode='off' (the default) until PR B's server
+  // support exists.
+  //
+  // Additionally restricted to flows that BOTH (a) forward wallet fields
+  // into createOrder and (b) can settle the residual through a real-time
+  // gateway:
+  //   - selectedTab must be 'full' (the BNPL `installments` and
+  //     `pay_later` branches return early in checkout.tsx without spreading
+  //     buildWalletOrderFields, so a wallet selection there would be
+  //     silently dropped at order creation).
+  //   - selectedMethod must NOT be pay_on_delivery / invoice / payforme
+  //     (no upfront payment to settle a residual against) or juicyway
+  //     (cart-vs-residual amount drift guard in handleCryptoConfirm
+  //     would falsely abort the crypto flow).
+  // Allowed methods today: paystack, korapay, bank_transfer.
+  const walletEffectiveTotal = walletOrderTotal ?? orderTotal;
+  const isWalletCompatibleMethod =
+    selectedMethod === 'paystack' ||
+    selectedMethod === 'korapay' ||
+    selectedMethod === 'bank_transfer';
+  const walletShouldRender =
+    walletMode === 'orders' &&
+    walletBalance > 0 &&
+    walletEffectiveTotal > 0 &&
+    selectedTab === 'full' &&
+    isWalletCompatibleMethod;
+  const walletCoversFully = walletShouldRender &&
+    walletBalance >= walletEffectiveTotal;
+  const walletPortion = walletShouldRender
+    ? Math.min(walletBalance, walletEffectiveTotal)
+    : 0;
+  const walletResidualToCard = walletShouldRender
+    ? Math.max(walletEffectiveTotal - walletBalance, 0)
+    : 0;
+  const walletIsActive = walletSelection?.use === true;
+
+  const handleWalletToggle = () => {
+    if (!onWalletToggle) {
+      return;
+    }
+    if (walletIsActive) {
+      onWalletToggle({ use: false, amount: 0 });
+    } else {
+      onWalletToggle({ use: true, amount: walletPortion });
+    }
+  };
+
+  // Two distinct accessibility labels so the test contract (and screen
+  // readers) can disambiguate the full-coverage and partial variants.
+  const walletAccessibilityLabel = walletCoversFully
+    ? `Pay with wallet, ${formatPrice(walletBalance)} available`
+    : `Use wallet credit, ${formatPrice(walletPortion)} of ${formatPrice(walletEffectiveTotal)}`;
+
   return (
     <View style={styles.container}>
+      {walletShouldRender && (
+        <Pressable
+          onPress={handleWalletToggle}
+          style={[
+            styles.methodCard,
+            {
+              backgroundColor: colors.card,
+              borderColor: walletIsActive ? BRAND.primary : colors.border,
+            },
+          ]}
+          accessibilityRole={walletCoversFully ? 'radio' : 'checkbox'}
+          accessibilityState={{ checked: walletIsActive }}
+          accessibilityLabel={walletAccessibilityLabel}
+        >
+          <View
+            style={[
+              styles.methodIconContainer,
+              {
+                backgroundColor: walletIsActive
+                  ? `${BRAND.primary}20`
+                  : `${colors.textSecondary}10`,
+              },
+            ]}
+          >
+            <Ionicons
+              name="wallet-outline"
+              size={24}
+              color={walletIsActive ? BRAND.primary : colors.textSecondary}
+            />
+          </View>
+
+          <View style={styles.methodInfo}>
+            <Text
+              style={[
+                styles.methodLabel,
+                { color: walletIsActive ? BRAND.primary : colors.text },
+              ]}
+            >
+              {walletCoversFully ? 'Pay with wallet' : 'Use wallet credit'}
+            </Text>
+            <Text
+              style={[styles.methodDesc, { color: colors.textSecondary }]}
+            >
+              {walletCoversFully
+                ? `${formatPrice(walletBalance)} available · covers full order`
+                : `${formatPrice(walletPortion)} from wallet · ${formatPrice(walletResidualToCard)} from card`}
+            </Text>
+          </View>
+
+          <View
+            style={[
+              styles.radioOuter,
+              {
+                borderColor: walletIsActive ? BRAND.primary : colors.border,
+                borderRadius: walletCoversFully ? 11 : 4,
+              },
+            ]}
+          >
+            {walletIsActive && (
+              <View
+                style={[
+                  styles.radioInner,
+                  {
+                    backgroundColor: BRAND.primary,
+                    borderRadius: walletCoversFully ? 6 : 2,
+                  },
+                ]}
+              />
+            )}
+          </View>
+        </Pressable>
+      )}
+
       {/* Tab Selector — only show if BNPL methods are enabled */}
       {(hasBNPLMethods || hasPayLaterMethods) && (
         <View
@@ -369,8 +524,17 @@ export function PaymentMethodSelector({
         accessibilityLiveRegion="polite"
       >
         {filteredMethods.map((method) => {
-          const isSelected = selectedMethod === method.id;
-          const isDisabled = method.disabled;
+          // When wallet fully covers the order AND the user has the
+          // wallet row toggled on, the gateway list becomes informational
+          // — there's no residual to settle. Suppress the active-radio
+          // visual on every gateway row so the picker doesn't show two
+          // competing "selected" indicators. The underlying selectedMethod
+          // is preserved so it can still be sent to the server for
+          // receipt/accounting purposes.
+          const walletSuppressesGateway = walletCoversFully && walletIsActive;
+          const isSelected =
+            selectedMethod === method.id && !walletSuppressesGateway;
+          const isDisabled = method.disabled || walletSuppressesGateway;
 
           return (
             <Pressable
