@@ -363,14 +363,36 @@ async function refundVtuToCustomerWallet({
     });
   }
   if (refundContext === 'kuda_failure' && paymentSplit && !walletWasDebited) {
-    // Logically equivalent to wallet-race (wallet never debited), but
-    // arriving here from the Kuda-failure context means an upstream
-    // sequencing bug has put the row into an inconsistent state. The
-    // fail-closed pattern PR #1466 introduced: throw so the caller's
-    // retry mechanism re-runs with a clean slate rather than silently
-    // refunding the wrong amount.
+    // Logically equivalent to wallet-race (wallet never debited). The
+    // post-fact replay path defaults `refundContext` to 'kuda_failure'
+    // for any failed row, including rows whose original failure was a
+    // wallet-race — so this branch is reached during normal recovery,
+    // not just on invariant violations. Consult the ledger (the source
+    // of truth) before deciding which path we're on:
+    //   - refund row exists → wallet-race already compensated; sync
+    //     metadata and return so the customer isn't stuck in a 500
+    //     loop after a transient metadata-persist failure.
+    //   - no refund row → genuine invariant violation (vend was
+    //     attempted, wallet never debited, no compensation issued).
+    //     Fail closed so the webhook retries with a clean slate.
+    const existingRefund = await findExistingVtuRefundLedger({
+      row,
+      supabase,
+    });
+    if (existingRefund) {
+      const metadataChanged = applyRefundMetadata(
+        metadata,
+        existingRefund.amount,
+        'wallet_race'
+      );
+      return {
+        metadataChanged,
+        refundIssued: true,
+        refundedAmount: existingRefund.amount,
+      };
+    }
     throwVtuPersistenceError(
-      `Refund dispatch invariant violated for ${row.id}: paymentSplit present, walletDebited=false, refundContext=kuda_failure`
+      `Refund dispatch invariant violated for ${row.id}: paymentSplit present, walletDebited=false, refundContext=kuda_failure, no ledger refund row`
     );
   }
   // Card-only path (no paymentSplit): refund the full row.amount as

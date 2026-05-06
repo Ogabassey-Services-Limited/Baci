@@ -3,6 +3,7 @@ import {
   fulfillPendingVtuTransaction,
   INSUFFICIENT_WALLET_BALANCE_MESSAGE,
   isInsufficientWalletBalanceError,
+  VtuPersistenceError,
 } from '@/lib/vtu-fulfillment';
 
 const mockPurchaseAirtime = vi.fn();
@@ -1790,6 +1791,151 @@ describe('fulfillPendingVtuTransaction', () => {
       );
       expect(rpcImpl).not.toHaveBeenCalledWith(
         'reverse_vtu_wallet_payment',
+        expect.anything()
+      );
+    });
+
+    it('hybrid replay (post-fact) self-heals when the ledger has a refund row and metadata.refundIssued was lost', async () => {
+      // Crash-between-RPC-and-metadata-write specific to the wallet-race
+      // path: the card portion was refunded (ledger has the row), but the
+      // vtu_transactions UPDATE that should have flipped refundIssued=true
+      // failed to persist. On the next replay the post-fact path enters
+      // refundVtuToCustomerWallet with default refundContext='kuda_failure'
+      // and a row whose metadata still lacks both walletDebited AND
+      // refundIssued — formerly this branch threw VtuPersistenceError and
+      // pinned the row in a 500 loop. The new behavior: consult the ledger
+      // (the source of truth), find the refund, sync metadata, return
+      // refundIssued=true so the customer is no longer stuck.
+      const refundLedgerMaybeSingle = vi.fn().mockResolvedValue({
+        data: { amount: 700 },
+        error: null,
+      });
+      const transactionRow = {
+        ...FAILED_ROW_BASE,
+        status: 'failed',
+        metadata: { paymentSplit: { wallet: 300, card: 700 } },
+        // walletDebited absent, refundIssued absent
+      };
+      const updatePayloads: unknown[] = [];
+      const supabase = {
+        from: vi.fn((table: string) => {
+          if (table === 'vtu_transactions') {
+            return {
+              select: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  single: vi.fn().mockResolvedValue({
+                    data: transactionRow,
+                    error: null,
+                  }),
+                })),
+              })),
+              update: vi.fn((payload: unknown) => {
+                updatePayloads.push(payload);
+                return {
+                  eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+                };
+              }),
+            };
+          }
+          if (table === 'customer_wallet_transactions') {
+            const chain = {
+              eq: vi.fn(() => chain),
+              order: vi.fn(() => chain),
+              limit: vi.fn(() => chain),
+              maybeSingle: refundLedgerMaybeSingle,
+            };
+            return { select: vi.fn(() => chain) };
+          }
+          return { select: vi.fn() };
+        }),
+        rpc: vi.fn(() => Promise.resolve({ data: null, error: null })),
+      } as unknown as SupabaseStub;
+
+      const result = await fulfillPendingVtuTransaction({
+        supabase,
+        transactionId: 'vtu-1',
+      });
+
+      expect(result).toMatchObject({
+        amount: 1000,
+        refundedToWallet: 700,
+        status: 'failed',
+      });
+      expect(supabase.rpc).not.toHaveBeenCalledWith(
+        'refund_customer_wallet_for_vtu',
+        expect.anything()
+      );
+      expect(supabase.rpc).not.toHaveBeenCalledWith(
+        'reverse_vtu_wallet_payment',
+        expect.anything()
+      );
+      const persistedMetadata = updatePayloads
+        .map((p) =>
+          p && typeof p === 'object'
+            ? (p as Record<string, unknown>).metadata
+            : null
+        )
+        .find(
+          (m) => m && typeof m === 'object' && 'refundIssued' in (m as object)
+        ) as Record<string, unknown> | undefined;
+      expect(persistedMetadata).toMatchObject({
+        refundIssued: true,
+        refundAmount: 700,
+        refundContext: 'wallet_race',
+      });
+    });
+
+    it('hybrid replay (post-fact) throws VtuPersistenceError when no ledger refund row exists (genuine invariant violation)', async () => {
+      // The state we cannot silently recover from: a hybrid row marked
+      // failed, paymentSplit set, walletDebited=false, AND no refund row
+      // in the ledger. Means the vend was attempted without the wallet
+      // ever being debited AND no compensation was issued — a true
+      // upstream bug. Fail closed: throw so the caller's retry mechanism
+      // re-runs with a clean slate rather than guessing what to refund.
+      const transactionRow = {
+        ...FAILED_ROW_BASE,
+        status: 'failed',
+        metadata: { paymentSplit: { wallet: 300, card: 700 } },
+      };
+      const supabase = {
+        from: vi.fn((table: string) => {
+          if (table === 'vtu_transactions') {
+            return {
+              select: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  single: vi.fn().mockResolvedValue({
+                    data: transactionRow,
+                    error: null,
+                  }),
+                })),
+              })),
+            };
+          }
+          if (table === 'customer_wallet_transactions') {
+            const chain = {
+              eq: vi.fn(() => chain),
+              order: vi.fn(() => chain),
+              limit: vi.fn(() => chain),
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: null,
+                error: null,
+              }),
+            };
+            return { select: vi.fn(() => chain) };
+          }
+          return { select: vi.fn() };
+        }),
+        rpc: vi.fn(() => Promise.resolve({ data: null, error: null })),
+      } as unknown as SupabaseStub;
+
+      await expect(
+        fulfillPendingVtuTransaction({
+          supabase,
+          transactionId: 'vtu-1',
+        })
+      ).rejects.toThrow(VtuPersistenceError);
+      expect(supabase.rpc).not.toHaveBeenCalledWith(
+        'refund_customer_wallet_for_vtu',
         expect.anything()
       );
     });
