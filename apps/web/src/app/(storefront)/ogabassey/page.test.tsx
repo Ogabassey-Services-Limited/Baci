@@ -1,5 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import {
+  OGABASSEY_APPLE_TOUCH_ICON_URL,
+  OGABASSEY_FAVICON_URL,
+  OGABASSEY_SOCIAL_IMAGE_URL,
+  OGABASSEY_TWITTER_HANDLE,
+  OGABASSEY_URL,
+} from '@/config/ogabassey';
 
 vi.mock(
   '@/components/storefront/ogabassey/components/ogabassey-hero-preloads',
@@ -25,10 +32,10 @@ describe('OgabasseyStaticHomePage', () => {
   it('declares canonical, hreflang, favicon, and social image metadata for the static route', () => {
     expect(metadata.alternates).toEqual(
       expect.objectContaining({
-        canonical: 'https://ogabassey.com',
+        canonical: OGABASSEY_URL,
         languages: {
-          'en-NG': 'https://ogabassey.com',
-          'x-default': 'https://ogabassey.com',
+          'en-NG': OGABASSEY_URL,
+          'x-default': OGABASSEY_URL,
         },
       })
     );
@@ -38,7 +45,7 @@ describe('OgabasseyStaticHomePage', () => {
           {
             alt: 'OgaBassey storefront preview',
             height: 900,
-            url: 'https://ogabassey.com/template-previews/ogabassey-v2.png',
+            url: OGABASSEY_SOCIAL_IMAGE_URL,
             width: 1440,
           },
         ],
@@ -46,16 +53,14 @@ describe('OgabasseyStaticHomePage', () => {
     );
     expect(metadata.twitter).toEqual(
       expect.objectContaining({
-        images: ['https://ogabassey.com/template-previews/ogabassey-v2.png'],
-        site: '@ogabasseyy',
+        images: [OGABASSEY_SOCIAL_IMAGE_URL],
+        site: OGABASSEY_TWITTER_HANDLE,
       })
     );
     expect(metadata.icons).toEqual({
-      apple:
-        'https://aivqthbxdshhltbwipbr.supabase.co/storage/v1/object/public/media/merchants/6b5cb8a4-5575-456c-b936-8cdfae30db74/favicon/apple-touch-icon.png',
-      icon: 'https://aivqthbxdshhltbwipbr.supabase.co/storage/v1/object/public/media/merchants/6b5cb8a4-5575-456c-b936-8cdfae30db74/favicon/favicon-32.png',
-      shortcut:
-        'https://aivqthbxdshhltbwipbr.supabase.co/storage/v1/object/public/media/merchants/6b5cb8a4-5575-456c-b936-8cdfae30db74/favicon/favicon-32.png',
+      apple: OGABASSEY_APPLE_TOUCH_ICON_URL,
+      icon: OGABASSEY_FAVICON_URL,
+      shortcut: OGABASSEY_FAVICON_URL,
     });
   });
 });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { mapHomeProductsToTemplateProducts } from '@/app/(storefront)/ogabassey/ogabassey-home-product-adapter';
+import { PRODUCT_STATUS_ACTIVE } from '@/lib/products';
 
 type HomeProduct = Parameters<
   typeof mapHomeProductsToTemplateProducts
@@ -34,7 +35,7 @@ describe('mapHomeProductsToTemplateProducts', () => {
       expect.objectContaining({
         id: 'product-1',
         name: 'iPhone 17 Pro Max',
-        status: 'active',
+        status: PRODUCT_STATUS_ACTIVE,
         manage_stock: false,
         stock: 4,
         image: '/iphone.jpg',

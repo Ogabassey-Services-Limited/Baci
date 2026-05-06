@@ -1,5 +1,10 @@
 import type { getCachedStorefrontHomeProducts } from '@/lib/cached-data';
-import type { Product, ProductCondition, ProductImage } from '@/lib/products';
+import {
+  PRODUCT_STATUS_ACTIVE,
+  type Product,
+  type ProductCondition,
+  type ProductImage,
+} from '@/lib/products';
 
 type StorefrontHomeProduct = Awaited<
   ReturnType<typeof getCachedStorefrontHomeProducts>
@@ -97,7 +102,7 @@ export function mapHomeProductsToTemplateProducts(
       name: product.name,
       slug: product.slug ?? undefined,
       description: product.description || '',
-      status: 'active',
+      status: PRODUCT_STATUS_ACTIVE,
       price: product.price,
       compare_at_price: getNullableNumber(product.compare_at_price),
       manage_stock: product.manage_stock,

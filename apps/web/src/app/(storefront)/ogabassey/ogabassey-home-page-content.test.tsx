@@ -1,4 +1,10 @@
 import { render, screen } from '@testing-library/react';
+import {
+  Children,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedStorefrontHomeProducts } from '@/lib/cached-data';
 
@@ -143,6 +149,34 @@ function createProduct(): StorefrontHomeProduct {
   };
 }
 
+interface JsonLdScriptProps {
+  type?: string;
+  dangerouslySetInnerHTML?: {
+    __html: string;
+  };
+  children?: ReactNode;
+}
+
+function findJsonLdScriptElements(
+  node: ReactNode
+): ReactElement<JsonLdScriptProps>[] {
+  if (!isValidElement<JsonLdScriptProps>(node)) {
+    return [];
+  }
+
+  const current =
+    node.type === 'script' && node.props.type === 'application/ld+json'
+      ? [node]
+      : [];
+
+  return [
+    ...current,
+    ...Children.toArray(node.props.children).flatMap((child) =>
+      findJsonLdScriptElements(child)
+    ),
+  ];
+}
+
 describe('OgabasseyHomePageContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -196,6 +230,35 @@ describe('OgabasseyHomePageContent', () => {
     await OgabasseyHomePageContent();
 
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
+  });
+
+  it('emits raw parsable JSON-LD scripts', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValueOnce({
+      ...mockPublishedMerchant,
+      business_name: 'Oga & Bassey',
+    });
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
+      createProduct(),
+    ]);
+
+    const result = await OgabasseyHomePageContent();
+
+    const { container } = render(result as React.ReactElement);
+    const scripts = container.querySelectorAll(
+      'script[type="application/ld+json"]'
+    );
+
+    const scriptElements = findJsonLdScriptElements(result as React.ReactNode);
+
+    expect(scriptElements).toHaveLength(2);
+    for (const scriptElement of scriptElements) {
+      expect(scriptElement.props.children).toBeUndefined();
+      expect(scriptElement.props.dangerouslySetInnerHTML?.__html).toBeTruthy();
+    }
+    expect(scripts).toHaveLength(2);
+    expect(scripts[0]?.innerHTML).not.toContain('&amp;');
+    expect(() => JSON.parse(scripts[0]?.innerHTML || '')).not.toThrow();
+    expect(() => JSON.parse(scripts[1]?.innerHTML || '')).not.toThrow();
   });
 
   it('shows the unpublished storefront state when production store is disabled', async () => {
