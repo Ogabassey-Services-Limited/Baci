@@ -2,7 +2,8 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedStorefrontHomeProducts } from '@/lib/cached-data';
 
-const { mockPublishedMerchant } = vi.hoisted(() => ({
+const { mockHeaders, mockPublishedMerchant } = vi.hoisted(() => ({
+  mockHeaders: vi.fn(() => Promise.resolve(new Headers())),
   mockPublishedMerchant: {
     id: 'merchant-1',
     business_name: 'OgaBassey',
@@ -54,7 +55,7 @@ vi.mock('@/lib/cached-categories', () => ({
 }));
 
 vi.mock('next/headers', () => ({
-  headers: () => Promise.resolve(new Headers()),
+  headers: () => mockHeaders(),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -145,6 +146,7 @@ function createProduct(): StorefrontHomeProduct {
 describe('OgabasseyHomePageContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockHeaders.mockResolvedValue(new Headers());
   });
 
   it('renders the OgaBassey homepage without the generic storefront renderer', async () => {
@@ -166,6 +168,23 @@ describe('OgabasseyHomePageContent', () => {
     expect(screen.getByRole('link', { name: 'Smartphones' })).toHaveAttribute(
       'href',
       '/ogabassey/smartphones'
+    );
+    expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
+  });
+
+  it('resolves the homepage merchant from custom-domain request context', async () => {
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+
+    const result = await OgabasseyHomePageContent();
+
+    render(result as React.ReactElement);
+
+    expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey.com');
+    expect(screen.getByRole('link', { name: 'All Products' })).toHaveAttribute(
+      'href',
+      '/products'
     );
   });
 

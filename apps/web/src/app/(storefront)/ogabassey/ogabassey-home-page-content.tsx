@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { connection } from 'next/server';
+import { mapHomeProductsToTemplateProducts } from '@/app/(storefront)/ogabassey/ogabassey-home-product-adapter';
 import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
 import { OGABASSEY_HOME_SCHEMA_PRODUCT_LIMIT } from '@/components/storefront/ogabassey/config/products';
 import { createOgabasseyHomeProductFeed } from '@/components/storefront/ogabassey/home-product-feed';
@@ -13,7 +14,6 @@ import {
   getCachedStorefrontHomeProducts,
   getRequestScopedMerchant,
 } from '@/lib/cached-data';
-import type { Product } from '@/lib/products';
 import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
@@ -28,20 +28,11 @@ import {
 } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
 import { canonicalizeCategorySlug } from '@/lib/storefront-canonical-url';
+import { resolveRouteIdentifier } from '@/lib/storefront-route-identifier';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 
-type StorefrontHomeProduct = Awaited<
-  ReturnType<typeof getCachedStorefrontHomeProducts>
->[number];
-
-function mapHomeProductsToTemplateProducts(
-  products: StorefrontHomeProduct[]
-): Product[] {
-  return products.map((product) => ({
-    ...product,
-    categories: product.product_categories?.[0]?.categories || null,
-    product_categories: undefined,
-  })) as unknown as Product[];
+function resolveOgabasseyHomeMerchantIdentifier(headersList: Headers): string {
+  return resolveRouteIdentifier(headersList) || OGABASSEY_TEMPLATE_ID;
 }
 
 function buildOrganizationGraphSchema(
@@ -111,7 +102,10 @@ function buildOrganizationGraphSchema(
 export async function OgabasseyHomePageContent() {
   await connection();
 
-  const merchant = await getRequestScopedMerchant(OGABASSEY_TEMPLATE_ID);
+  const headersList = await headers();
+  const merchant = await getRequestScopedMerchant(
+    resolveOgabasseyHomeMerchantIdentifier(headersList)
+  );
 
   if (!merchant) {
     notFound();
@@ -122,10 +116,9 @@ export async function OgabasseyHomePageContent() {
     return <StoreNotPublished businessName={merchant.business_name} />;
   }
 
-  const [products, categories, headersList] = await Promise.all([
+  const [products, categories] = await Promise.all([
     getCachedStorefrontHomeProducts(merchant.id),
     getCachedNavigationCategories(merchant.id),
-    headers(),
   ]);
   const pathPrefix =
     headersList.has('x-custom-domain') || headersList.has('x-merchant-slug')
