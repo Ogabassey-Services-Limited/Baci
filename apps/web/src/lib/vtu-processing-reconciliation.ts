@@ -5,6 +5,7 @@ const RECONCILABLE_VTU_TYPES = ['electricity', 'cable_tv', 'betting'] as const;
 const DEFAULT_RECONCILIATION_LIMIT = 25;
 const MAX_RECONCILIATION_LIMIT = 50;
 const MIN_PROCESSING_AGE_MS = 45_000;
+const RECONCILIATION_PAGE_WINDOW_MS = 5 * 60 * 1000;
 
 interface ProcessingVtuCandidate {
   id: string;
@@ -34,8 +35,23 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
-function shouldPrioritizeNewestProcessingRows(now: Date) {
-  return now.getUTCMinutes() % 2 === 1;
+function getReconciliationPageOffset({
+  now,
+  pageSize,
+  totalCandidates,
+}: {
+  now: Date;
+  pageSize: number;
+  totalCandidates: null | number;
+}) {
+  if (totalCandidates === null || totalCandidates <= pageSize) {
+    return 0;
+  }
+
+  const pageCount = Math.ceil(totalCandidates / pageSize);
+  const pageIndex =
+    Math.floor(now.getTime() / RECONCILIATION_PAGE_WINDOW_MS) % pageCount;
+  return pageIndex * pageSize;
 }
 
 export async function reconcileProcessingVtuTransactions({
@@ -48,16 +64,35 @@ export async function reconcileProcessingVtuTransactions({
   supabase: SupabaseClient;
 }): Promise<VtuProcessingReconciliationSummary> {
   const olderThan = new Date(now.getTime() - MIN_PROCESSING_AGE_MS);
+  const pageSize = normalizeLimit(limit);
+  const { count, error: countError } = await supabase
+    .from('vtu_transactions')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'processing')
+    .in('type', [...RECONCILABLE_VTU_TYPES])
+    .lte('created_at', olderThan.toISOString())
+    .limit(1);
+
+  if (countError) {
+    throw new Error(
+      `Failed to count processing VTU transactions: ${countError.message}`
+    );
+  }
+
+  const pageOffset = getReconciliationPageOffset({
+    now,
+    pageSize,
+    totalCandidates: count,
+  });
   const { data, error } = await supabase
     .from('vtu_transactions')
     .select('id')
     .eq('status', 'processing')
     .in('type', [...RECONCILABLE_VTU_TYPES])
     .lte('created_at', olderThan.toISOString())
-    .order('created_at', {
-      ascending: !shouldPrioritizeNewestProcessingRows(now),
-    })
-    .limit(normalizeLimit(limit));
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true })
+    .range(pageOffset, pageOffset + pageSize - 1);
 
   if (error) {
     throw new Error(
