@@ -391,6 +391,29 @@ describe('Kuda API Client', () => {
       });
     });
 
+    it('maps numeric Kuda transactionStatus values to provider statuses', async () => {
+      const { checkTransactionStatus } = await import('@/lib/kuda');
+
+      const fetchMock = vi.fn().mockImplementation((url) => {
+        if (url.toString().includes('GetToken')) {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve('token'),
+          } as Response);
+        }
+
+        return mockKudaResponse({ transactionStatus: 2 }, 'Failed');
+      });
+      globalThis.fetch = fetchMock;
+
+      const result = await checkTransactionStatus('kuda-bill-1');
+
+      expect(result).toEqual({
+        message: 'Failed',
+        status: 'failed',
+      });
+    });
+
     it('throws all reference query errors when every status query fails', async () => {
       const { checkTransactionStatus } = await import('@/lib/kuda');
 

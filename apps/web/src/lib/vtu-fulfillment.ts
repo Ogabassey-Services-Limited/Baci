@@ -2,6 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { notifyCustomer } from '@/lib/expo-push';
 import {
   checkTransactionStatus,
+  formatPhoneNumber,
+  isValidPhoneNumber,
   type PurchaseResult,
   purchaseAirtime,
   purchaseData,
@@ -130,6 +132,22 @@ function getCustomerFirstName(row: VtuTransactionRow, merchantName: string) {
   }
 
   return merchantName || 'Customer';
+}
+
+function normalizeCustomerPhoneForBill(value: unknown) {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const formatted = formatPhoneNumber(value);
+  return isValidPhoneNumber(formatted) ? formatted : undefined;
+}
+
+function getCustomerPhoneForBill(row: VtuTransactionRow) {
+  return (
+    normalizeCustomerPhoneForBill(row.metadata?.customerPhone) ??
+    normalizeCustomerPhoneForBill(row.phone_number)
+  );
 }
 
 function getVoucherPinFromMetadata(metadata: Record<string, unknown> | null) {
@@ -591,8 +609,40 @@ export class VtuPersistenceError extends Error {
   }
 }
 
+interface RetryableVtuErrorContext {
+  failedMessage?: string;
+  failedMetadata?: Record<string, unknown>;
+  refundedAmount?: number;
+  transactionId: string;
+}
+
+export class RetryableVtuError extends Error {
+  context: RetryableVtuErrorContext;
+
+  constructor(message: string, context: RetryableVtuErrorContext) {
+    super(message);
+    Object.setPrototypeOf(this, RetryableVtuError.prototype);
+    this.name = 'RetryableVtuError';
+    this.context = context;
+  }
+}
+
+class VtuConcurrentUpdateError extends Error {
+  constructor(message: string) {
+    super(message);
+    Object.setPrototypeOf(this, VtuConcurrentUpdateError.prototype);
+    this.name = 'VtuConcurrentUpdateError';
+  }
+}
+
 function throwVtuPersistenceError(message: string): never {
   throw new VtuPersistenceError(message);
+}
+
+function isVtuConcurrentUpdateError(
+  error: unknown
+): error is VtuConcurrentUpdateError {
+  return error instanceof VtuConcurrentUpdateError;
 }
 
 const PURCHASE_RESULT_UPDATE_MAX_ATTEMPTS = 3;
@@ -620,6 +670,7 @@ function waitForRetryBackoff(delayMs: number) {
 }
 
 async function updateVtuPurchaseResultWithRetry({
+  expectedStatus,
   payload,
   row,
   supabase,
@@ -627,9 +678,10 @@ async function updateVtuPurchaseResultWithRetry({
   payload: {
     error_message: string | null;
     metadata: Record<string, unknown>;
-    status: 'successful' | 'failed';
+    status: 'processing' | 'successful' | 'failed';
     transaction_id: string | null;
   };
+  expectedStatus?: VtuTransactionRow['status'];
   row: VtuTransactionRow;
   supabase: SupabaseClient;
 }) {
@@ -640,12 +692,24 @@ async function updateVtuPurchaseResultWithRetry({
     attempt <= PURCHASE_RESULT_UPDATE_MAX_ATTEMPTS;
     attempt += 1
   ) {
-    const { error } = await supabase
+    const updateQuery = supabase
       .from('vtu_transactions')
       .update(payload)
       .eq('id', row.id);
 
+    const { data, error } = expectedStatus
+      ? await updateQuery
+          .eq('status', expectedStatus)
+          .select('id')
+          .maybeSingle()
+      : await updateQuery;
+
     if (!error) {
+      if (expectedStatus && !data) {
+        return new VtuConcurrentUpdateError(
+          `VTU transaction ${row.id} was no longer ${expectedStatus}`
+        );
+      }
       return null;
     }
 
@@ -1249,6 +1313,246 @@ async function reconcileFailedVtuRetry({
   }
 }
 
+function readMetadataRecord(value: unknown): Record<string, unknown> {
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  return {};
+}
+
+async function readCurrentVtuTransactionRow({
+  row,
+  supabase,
+}: {
+  row: VtuTransactionRow;
+  supabase: SupabaseClient;
+}): Promise<VtuTransactionRow> {
+  const { data, error } = await supabase
+    .from('vtu_transactions')
+    .select('error_message, metadata, status, transaction_id')
+    .eq('id', row.id)
+    .single();
+
+  if (error || !data) {
+    throw new VtuPersistenceError(
+      `Failed to read current VTU transaction ${row.id}: ${error?.message ?? 'not found'}`
+    );
+  }
+
+  const snapshot = data as {
+    error_message?: unknown;
+    metadata?: unknown;
+    status?: unknown;
+    transaction_id?: unknown;
+  };
+
+  return {
+    ...row,
+    error_message:
+      typeof snapshot.error_message === 'string'
+        ? snapshot.error_message
+        : null,
+    metadata: readMetadataRecord(snapshot.metadata),
+    status: normalizeDbVtuStatus(snapshot.status),
+    transaction_id:
+      typeof snapshot.transaction_id === 'string'
+        ? snapshot.transaction_id
+        : row.transaction_id,
+  };
+}
+
+async function resolveCurrentVtuTransactionState({
+  reconciledVoucherPin,
+  row,
+  supabase,
+}: {
+  reconciledVoucherPin?: string;
+  row: VtuTransactionRow;
+  supabase: SupabaseClient;
+}): Promise<FulfilledVtuResult> {
+  const currentRow = await readCurrentVtuTransactionRow({ row, supabase });
+
+  if (currentRow.status === 'successful') {
+    return resolveSuccessfulVtuTransaction({
+      reconciledVoucherPin,
+      row: currentRow,
+      supabase,
+    });
+  }
+
+  if (currentRow.status === 'failed') {
+    const metadata = currentRow.metadata ?? {};
+    const refundIssued = metadata.refundIssued === true;
+    const refundedAmount = Number(metadata.refundAmount ?? currentRow.amount);
+    if (!refundIssued) {
+      return {
+        amount: Number(currentRow.amount) || 0,
+        reference: currentRow.request_reference,
+        status: 'processing',
+      };
+    }
+    return {
+      amount: Number(currentRow.amount) || 0,
+      error: currentRow.error_message || 'Purchase failed',
+      reference: currentRow.request_reference,
+      ...(refundedAmount > 0 && { refundedToWallet: refundedAmount }),
+      status: 'failed',
+    };
+  }
+
+  return {
+    amount: Number(currentRow.amount) || 0,
+    reference: currentRow.request_reference,
+    status: 'processing',
+  };
+}
+
+async function reconcileProcessingVtuTransaction({
+  row,
+  supabase,
+}: {
+  row: VtuTransactionRow;
+  supabase: SupabaseClient;
+}): Promise<FulfilledVtuResult> {
+  try {
+    const providerStatus = await checkTransactionStatus(
+      row.transaction_id ?? undefined,
+      row.request_reference || undefined
+    );
+    const reconciledStatus = normalizeProviderStatus(providerStatus.status);
+    const currentRow = await readCurrentVtuTransactionRow({ row, supabase });
+    if (currentRow.status !== 'processing') {
+      return resolveCurrentVtuTransactionState({
+        reconciledVoucherPin: providerStatus.pin,
+        row: currentRow,
+        supabase,
+      });
+    }
+
+    if (reconciledStatus === 'successful') {
+      const successMetadata = { ...(currentRow.metadata ?? {}) };
+      const voucherPin = normalizeVoucherPin(providerStatus.pin);
+      if (voucherPin) {
+        successMetadata.voucherPin = voucherPin;
+      }
+      const successPersistError = await updateVtuPurchaseResultWithRetry({
+        payload: {
+          error_message: null,
+          metadata: successMetadata,
+          status: 'successful',
+          transaction_id: currentRow.transaction_id,
+        },
+        expectedStatus: 'processing',
+        row: currentRow,
+        supabase,
+      });
+      if (isVtuConcurrentUpdateError(successPersistError)) {
+        return resolveCurrentVtuTransactionState({
+          reconciledVoucherPin: voucherPin,
+          row: currentRow,
+          supabase,
+        });
+      }
+      if (successPersistError) {
+        throw new VtuPersistenceError(
+          `Failed to persist reconciled VTU success for ${currentRow.id}: ${getErrorMessage(successPersistError)}`
+        );
+      }
+      return resolveSuccessfulVtuTransaction({
+        reconciledVoucherPin: voucherPin,
+        row: {
+          ...currentRow,
+          error_message: null,
+          metadata: successMetadata,
+          status: 'successful',
+        },
+        supabase,
+      });
+    }
+
+    if (reconciledStatus === 'failed') {
+      const failedMetadata = { ...(currentRow.metadata ?? {}) };
+      const failedMessage =
+        providerStatus.message || 'Utility purchase failed with provider';
+      const failedPersistError = await updateVtuPurchaseResultWithRetry({
+        payload: {
+          error_message: failedMessage,
+          metadata: failedMetadata,
+          status: 'failed',
+          transaction_id: currentRow.transaction_id,
+        },
+        expectedStatus: 'processing',
+        row: currentRow,
+        supabase,
+      });
+      if (isVtuConcurrentUpdateError(failedPersistError)) {
+        return resolveCurrentVtuTransactionState({
+          row: currentRow,
+          supabase,
+        });
+      }
+      if (failedPersistError) {
+        throw new VtuPersistenceError(
+          `Failed to persist reconciled VTU failure for ${currentRow.id}: ${getErrorMessage(failedPersistError)}`
+        );
+      }
+      const refund = await refundVtuToCustomerWallet({
+        metadata: failedMetadata,
+        row: currentRow,
+        supabase,
+      });
+      if (refund.metadataChanged) {
+        const { error: refundMetadataUpdateError } = await supabase
+          .from('vtu_transactions')
+          .update({ metadata: failedMetadata })
+          .eq('id', currentRow.id)
+          .eq('status', 'failed');
+        if (refundMetadataUpdateError) {
+          throw new VtuPersistenceError(
+            `Failed to persist reconciled VTU refund metadata for ${currentRow.id}: ${refundMetadataUpdateError.message}`
+          );
+        }
+      }
+      if (!refund.refundIssued) {
+        throw new RetryableVtuError(
+          `Unable to confirm VTU refund before finalizing provider failure for ${currentRow.id}`,
+          {
+            failedMessage,
+            failedMetadata: getSafeMetadataDiagnostics(failedMetadata),
+            refundedAmount: refund.refundedAmount,
+            transactionId: currentRow.id,
+          }
+        );
+      }
+      return {
+        amount: Number(currentRow.amount) || 0,
+        error: failedMessage,
+        reference: currentRow.request_reference,
+        refundedToWallet: refund.refundedAmount,
+        status: 'failed',
+      };
+    }
+  } catch (error) {
+    if (
+      error instanceof RetryableVtuError ||
+      error instanceof VtuPersistenceError
+    ) {
+      throw error;
+    }
+
+    console.error('Failed to reconcile processing VTU transaction:', {
+      error: error instanceof Error ? error.message : String(error),
+      transactionId: row.id,
+    });
+  }
+
+  return {
+    amount: Number(row.amount) || 0,
+    reference: row.request_reference,
+    status: 'processing',
+  };
+}
+
 type NormalizedProvider = NonNullable<
   ReturnType<typeof normalizeVtuNetworkProvider>
 >;
@@ -1347,7 +1651,7 @@ function executeVtuPurchase(
     // For electricity/cable_tv/betting, customer_identifier is a meter / decoder
     // / wallet — not a phone. Forward the captured customer phone so Kuda's SMS
     // token delivery (and any biller-side phone validation) works correctly.
-    row.phone_number || undefined
+    getCustomerPhoneForBill(row)
   );
 }
 
@@ -1418,11 +1722,7 @@ export async function fulfillPendingVtuTransaction({
   }
 
   if (row.status === 'processing') {
-    return {
-      amount: Number(row.amount) || 0,
-      reference: row.request_reference,
-      status: 'processing',
-    };
+    return reconcileProcessingVtuTransaction({ row, supabase });
   }
 
   if (row.status === 'failed' && retryFailed) {
@@ -1566,9 +1866,13 @@ export async function fulfillPendingVtuTransaction({
         };
         const persistError = await updateVtuPurchaseResultWithRetry({
           payload: failedPayload,
+          expectedStatus: 'processing',
           row,
           supabase,
         });
+        if (isVtuConcurrentUpdateError(persistError)) {
+          return resolveCurrentVtuTransactionState({ row, supabase });
+        }
         if (persistError) {
           console.error('Failed to persist wallet-race VTU result:', {
             error: getErrorMessage(persistError),
@@ -1654,6 +1958,48 @@ export async function fulfillPendingVtuTransaction({
     ...(voucherPin && { voucherPin }),
   };
 
+  if (result.status === 'pending') {
+    const processingUpdatePayload: {
+      error_message: string | null;
+      metadata: Record<string, unknown>;
+      status: 'processing';
+      transaction_id: string | null;
+    } = {
+      error_message: result.message,
+      metadata: updatedMetadata,
+      status: 'processing',
+      transaction_id: result.transactionId ?? row.transaction_id,
+    };
+    const processingUpdateError = await updateVtuPurchaseResultWithRetry({
+      payload: processingUpdatePayload,
+      expectedStatus: 'processing',
+      row,
+      supabase,
+    });
+
+    if (isVtuConcurrentUpdateError(processingUpdateError)) {
+      return resolveCurrentVtuTransactionState({ row, supabase });
+    }
+
+    if (processingUpdateError) {
+      console.error('Failed to persist processing VTU purchase result:', {
+        errorMessage: processingUpdatePayload.error_message,
+        error: getErrorMessage(processingUpdateError),
+        metadata: getSafeMetadataDiagnostics(updatedMetadata),
+        status: processingUpdatePayload.status,
+        transactionId: row.id,
+        transactionReference: processingUpdatePayload.transaction_id,
+      });
+      throwVtuPersistenceError('Failed to persist processing VTU result');
+    }
+
+    return {
+      amount: Number(row.amount) || 0,
+      reference: row.request_reference,
+      status: 'processing',
+    };
+  }
+
   const purchaseUpdatePayload: {
     error_message: string | null;
     metadata: Record<string, unknown>;
@@ -1667,9 +2013,18 @@ export async function fulfillPendingVtuTransaction({
   };
   const purchaseUpdateError = await updateVtuPurchaseResultWithRetry({
     payload: purchaseUpdatePayload,
+    expectedStatus: 'processing',
     row,
     supabase,
   });
+
+  if (isVtuConcurrentUpdateError(purchaseUpdateError)) {
+    return resolveCurrentVtuTransactionState({
+      reconciledVoucherPin: voucherPin,
+      row,
+      supabase,
+    });
+  }
 
   if (purchaseUpdateError) {
     console.error('Failed to persist VTU purchase result:', {

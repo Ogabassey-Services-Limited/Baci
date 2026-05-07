@@ -2,6 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Biller, PurchaseResult } from './kuda';
 import { getBillersByCategory, purchaseBill } from './kuda-bills';
 
+const loggerMocks = vi.hoisted(() => ({
+  error: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+}));
+
 // Mock the kuda module — keep the pure helpers (vend-status / pin extraction
 // / message builder) real, only stub the network and ID-generation entry
 // points used by the bill purchase flow.
@@ -15,6 +21,10 @@ vi.mock('./kuda', async () => {
     verifyBillCustomer: vi.fn(),
   };
 });
+
+vi.mock('@/lib/logger', () => ({
+  logger: loggerMocks,
+}));
 
 // Import mocked functions after vi.mock
 import {
@@ -174,11 +184,12 @@ describe('purchaseBill', () => {
     vi.mocked(generateRequestRef).mockReturnValue('BACI-1234567890-abcd1234');
   });
 
-  it('returns success result when purchase succeeds', async () => {
-    // Arrange — Kuda returns { reference, pin } (not transactionReference)
+  it('returns pending when Kuda accepts a bill purchase without a vend status or token', async () => {
+    // Arrange — Kuda's envelope only means the request was accepted; without
+    // an inner vend status or token, the biller has not confirmed success.
     const mockResponse = {
       status: true,
-      message: 'Bill purchase successful',
+      message: 'Request successful',
       data: {
         reference: 'AMZMqDjSafTsobg',
         pin: null,
@@ -205,11 +216,11 @@ describe('purchaseBill', () => {
     );
 
     expect(result).toEqual<PurchaseResult>({
-      success: true,
+      success: false,
       reference: 'BACI-1234567890-abcd1234',
       transactionId: 'AMZMqDjSafTsobg',
-      message: 'Bill purchase successful',
-      status: 'successful',
+      message: 'Request successful',
+      status: 'pending',
       amount: 5000,
     });
   });
@@ -327,7 +338,8 @@ describe('purchaseBill', () => {
     // Assert
     expect(result.transactionId).toBeUndefined();
     expect(result.pin).toBeUndefined();
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
+    expect(result.status).toBe('pending');
   });
 
   it('returns failed result when Kuda API returns status false', async () => {

@@ -336,11 +336,22 @@ function extractKudaStatus(data: KudaTransactionStatusData | undefined) {
     return 'unknown';
   }
 
-  return (
+  const finalStatus =
     normalizeKudaString(data.finalStatus) ??
-    normalizeKudaString(data.FinalStatus) ??
+    normalizeKudaString(data.FinalStatus);
+  if (finalStatus) {
+    return finalStatus;
+  }
+
+  const transactionStatus =
     normalizeKudaString(data.transactionStatus) ??
-    normalizeKudaString(data.TransactionStatus) ??
+    normalizeKudaString(data.TransactionStatus);
+  if (transactionStatus === '3') return 'successful';
+  if (transactionStatus === '2') return 'failed';
+  if (transactionStatus === '1') return 'pending';
+
+  return (
+    transactionStatus ??
     normalizeKudaString(data.postingStatus) ??
     normalizeKudaString(data.PostingStatus) ??
     normalizeKudaString(data.status) ??

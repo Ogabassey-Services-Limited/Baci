@@ -21,6 +21,8 @@ vi.mock('@/lib/kuda', () => ({
   },
   purchaseAirtime: (...args: unknown[]) => mockPurchaseAirtime(...args),
   purchaseData: (...args: unknown[]) => mockPurchaseData(...args),
+  formatPhoneNumber: (value: string) => value.replace(/\D/g, ''),
+  isValidPhoneNumber: (value: string) => /^0[789][01]\d{8}$/.test(value),
   checkTransactionStatus: (...args: unknown[]) =>
     mockCheckTransactionStatus(...args),
 }));
@@ -47,6 +49,7 @@ interface PendingTransactionMockOptions {
   merchantData?: { business_name?: string };
   claimData?: { id: string } | null;
   notificationClaimData?: { id: string } | null;
+  purchaseUpdateData?: { id: string } | null;
   purchaseUpdateErrors?: Array<{ message: string } | null>;
   updateErrors?: {
     finalMetadata?: { message: string };
@@ -88,6 +91,21 @@ function isClaimOrErrorUpdate(payloadRecord: Record<string, unknown>): boolean {
   );
 }
 
+function createAwaitableUpdateChain<T>(
+  result: T,
+  maybeSingle: ReturnType<typeof vi.fn>
+) {
+  const chain = Promise.resolve(result) as Promise<T> & {
+    eq: ReturnType<typeof vi.fn>;
+    maybeSingle: ReturnType<typeof vi.fn>;
+    select: ReturnType<typeof vi.fn>;
+  };
+  chain.eq = vi.fn(() => chain);
+  chain.maybeSingle = maybeSingle;
+  chain.select = vi.fn(() => chain);
+  return chain;
+}
+
 function findPayloadWithMetadata(
   payloads: unknown[],
   predicate: (metadata: Record<string, unknown>) => boolean
@@ -117,6 +135,7 @@ function createPendingTransactionSupabaseMock({
   merchantData = { business_name: 'OgaBassey' },
   claimData = { id: 'vtu-1' },
   notificationClaimData = { id: 'vtu-1' },
+  purchaseUpdateData = { id: 'vtu-1' },
   purchaseUpdateErrors,
   updateErrors = {},
   updatePayloads = [],
@@ -165,7 +184,8 @@ function createPendingTransactionSupabaseMock({
             eq: vi.fn().mockReturnValue({
               single: vi.fn().mockResolvedValue({
                 data:
-                  columns === 'error_message, status'
+                  columns === 'error_message, status' ||
+                  columns === 'error_message, metadata, status, transaction_id'
                     ? (currentTransactionData ?? transactionRow)
                     : transactionRow,
                 error: null,
@@ -233,12 +253,17 @@ function createPendingTransactionSupabaseMock({
                 purchaseUpdateAttempt += 1;
               }
 
-              return {
-                eq: vi.fn().mockResolvedValue({
+              const purchaseUpdateMaybeSingle = vi.fn().mockResolvedValue({
+                data: updateError ? null : purchaseUpdateData,
+                error: updateError ?? null,
+              });
+              return createAwaitableUpdateChain(
+                {
                   data: null,
                   error: updateError ?? null,
-                }),
-              };
+                },
+                purchaseUpdateMaybeSingle
+              );
             }
 
             return {
@@ -1286,6 +1311,286 @@ describe('fulfillPendingVtuTransaction', () => {
         p_voucher_pin: '1234-5678-9012',
       }
     );
+  });
+
+  it('sends metadata.customerPhone to Kuda for bill purchases when phone_number contains the meter', async () => {
+    mockPurchaseBill.mockResolvedValue({
+      success: false,
+      reference: 'VTU-123',
+      message: 'Request successful',
+      transactionId: 'kuda-bill-1',
+      amount: 1000,
+      status: 'pending',
+    });
+    const updatePayloads: unknown[] = [];
+
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '43901766923',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'pending',
+        metadata: { customerPhone: '08146978921' },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC NG - EKEDC PREPAID',
+        biller_item_code: 'KUD-ELE-EKED-002',
+        customer_identifier: '43901766923',
+      },
+      updatePayloads,
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(mockPurchaseBill).toHaveBeenCalledWith(
+      'KUD-ELE-EKED-002',
+      '43901766923',
+      1000,
+      'OgaBassey',
+      'VTU-123',
+      '08146978921'
+    );
+    expect(result).toEqual({
+      amount: 1000,
+      reference: 'VTU-123',
+      status: 'processing',
+    });
+    expect(updatePayloads).toContainEqual(
+      expect.objectContaining({
+        error_message: 'Request successful',
+        status: 'processing',
+        transaction_id: 'kuda-bill-1',
+      })
+    );
+  });
+
+  it('reconciles a processing bill transaction to failed and refunds when Kuda later rejects it', async () => {
+    mockCheckTransactionStatus.mockResolvedValueOnce({
+      message: 'Request successful. (biller status: k11)',
+      status: 'failed',
+    });
+    const updatePayloads: unknown[] = [];
+
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '08146978921',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-bill-1',
+        status: 'processing',
+        metadata: {},
+        error_message: 'Request successful',
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC NG - EKEDC PREPAID',
+        biller_item_code: 'KUD-ELE-EKED-002',
+        customer_identifier: '43901766923',
+        source: 'checkout',
+      },
+      updatePayloads,
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(mockCheckTransactionStatus).toHaveBeenCalledWith(
+      'kuda-bill-1',
+      'VTU-123'
+    );
+    expect(mockPurchaseBill).not.toHaveBeenCalled();
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'refund_customer_wallet_for_vtu',
+      expect.objectContaining({
+        p_amount: 1000,
+        p_customer_id: 'customer-1',
+        p_vtu_transaction_id: 'vtu-1',
+      })
+    );
+    expect(result).toMatchObject({
+      amount: 1000,
+      error: 'Request successful. (biller status: k11)',
+      reference: 'VTU-123',
+      refundedToWallet: 1000,
+      status: 'failed',
+    });
+    expect(updatePayloads).toContainEqual(
+      expect.objectContaining({
+        error_message: 'Request successful. (biller status: k11)',
+        status: 'failed',
+      })
+    );
+  });
+
+  it('does not refund when processing reconciliation loses the terminal status claim', async () => {
+    mockCheckTransactionStatus.mockResolvedValueOnce({
+      message: 'Request successful. (biller status: k11)',
+      status: 'failed',
+    });
+    const rpcImpl = vi.fn(() => Promise.resolve({ data: null, error: null }));
+
+    const supabase = createPendingTransactionSupabaseMock({
+      currentTransactionData: {
+        error_message: null,
+        metadata: {
+          customerNotificationAttempted: true,
+          customerWalletCredited: true,
+          customerNewBalance: 1000,
+        },
+        status: 'successful',
+        transaction_id: 'kuda-bill-1',
+      },
+      purchaseUpdateData: null,
+      rpcImpl,
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '08146978921',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-bill-1',
+        status: 'processing',
+        metadata: {},
+        error_message: 'Request successful',
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC NG - EKEDC PREPAID',
+        biller_item_code: 'KUD-ELE-EKED-002',
+        customer_identifier: '43901766923',
+        source: 'checkout',
+      },
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(rpcImpl).not.toHaveBeenCalledWith(
+      'refund_customer_wallet_for_vtu',
+      expect.anything()
+    );
+    expect(result).toMatchObject({
+      amount: 1000,
+      reference: 'VTU-123',
+      status: 'successful',
+    });
+  });
+
+  it('throws a retryable error when a reconciled failure cannot issue the refund', async () => {
+    mockCheckTransactionStatus.mockResolvedValueOnce({
+      message: 'Request successful. (biller status: k11)',
+      status: 'failed',
+    });
+    const rpcImpl = vi.fn((name: string) =>
+      Promise.resolve(
+        name === 'refund_customer_wallet_for_vtu'
+          ? { data: null, error: { message: 'wallet RPC unavailable' } }
+          : { data: null, error: null }
+      )
+    );
+
+    const supabase = createPendingTransactionSupabaseMock({
+      rpcImpl,
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '08146978921',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-bill-1',
+        status: 'processing',
+        metadata: {},
+        error_message: 'Request successful',
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC NG - EKEDC PREPAID',
+        biller_item_code: 'KUD-ELE-EKED-002',
+        customer_identifier: '43901766923',
+        source: 'checkout',
+      },
+    });
+
+    await expect(
+      fulfillPendingVtuTransaction({
+        supabase,
+        transactionId: 'vtu-1',
+      })
+    ).rejects.toMatchObject({
+      context: {
+        failedMessage: 'Request successful. (biller status: k11)',
+        refundedAmount: 0,
+        transactionId: 'vtu-1',
+      },
+      name: 'RetryableVtuError',
+    });
+  });
+
+  it('reconciles a processing airtime transaction with Kuda status', async () => {
+    mockCheckTransactionStatus.mockResolvedValueOnce({
+      message: 'Request successful',
+      status: 'successful',
+    });
+
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'airtime',
+        network_provider: 'MTN',
+        phone_number: '08012345678',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-airtime-1',
+        status: 'processing',
+        metadata: {},
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: null,
+        biller_item_code: null,
+        customer_identifier: null,
+        source: 'checkout',
+      },
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(mockCheckTransactionStatus).toHaveBeenCalledWith(
+      'kuda-airtime-1',
+      'VTU-123'
+    );
+    expect(result).toMatchObject({
+      amount: 1000,
+      reference: 'VTU-123',
+      status: 'successful',
+    });
   });
 
   describe('refund-to-wallet on failed vend', () => {
