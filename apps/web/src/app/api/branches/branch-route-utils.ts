@@ -133,7 +133,7 @@ export async function authenticateAndResolveMerchant(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
   if (auth.error || !auth.user || !auth.supabase) {
     if (auth.error) {
-      console.error('[Branches] Authentication failed:', auth.error);
+      console.error('[Branches] Authentication failed');
     }
 
     return {

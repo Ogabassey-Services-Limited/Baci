@@ -3,6 +3,7 @@ import {
   applyBranchBackfill,
   decideBranchBackfill,
   evaluateMerchantBranchBackfill,
+  runBranchBackfillCli,
 } from '@/scripts/backfill-branch-ids';
 
 const merchantId = 'merchant-1';
@@ -196,5 +197,36 @@ describe('evaluateMerchantBranchBackfill', () => {
         branchId,
       })
     ).rejects.toThrow('Branch backfill RPC returned invalid update counts');
+  });
+});
+
+describe('runBranchBackfillCli', () => {
+  it('fails fast when a UUID merchant does not exist', async () => {
+    const uuid = '123e4567-e89b-42d3-a456-426614174000';
+    const branchesQuery = {
+      select: vi.fn(() => branchesQuery),
+      eq: vi.fn(() => branchesQuery),
+      then: (
+        resolve: (value: { data: unknown[]; error: null }) => unknown
+      ) => Promise.resolve({ data: [], error: null }).then(resolve),
+    };
+    const merchantsQuery = {
+      select: vi.fn(() => merchantsQuery),
+      eq: vi.fn(() => merchantsQuery),
+      maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })),
+    };
+    const supabase = {
+      from: vi.fn((table: string) =>
+        table === 'merchants' ? merchantsQuery : branchesQuery
+      ),
+      rpc: vi.fn(),
+    };
+
+    await expect(
+      runBranchBackfillCli(['--merchant', uuid], supabase)
+    ).rejects.toThrow(`Merchant not found: ${uuid}`);
+    expect(supabase.from).toHaveBeenCalledWith('merchants');
+    expect(supabase.from).not.toHaveBeenCalledWith('branches');
+    expect(supabase.rpc).not.toHaveBeenCalled();
   });
 });

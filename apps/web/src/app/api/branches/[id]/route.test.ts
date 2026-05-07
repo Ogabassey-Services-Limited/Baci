@@ -187,6 +187,21 @@ describe('/api/branches/[id]', () => {
     expect(mockFrom).not.toHaveBeenCalled();
   });
 
+  it('returns 500 for branch read errors other than missing rows', async () => {
+    const { GET } = await import('@/app/api/branches/[id]/route');
+    singleResult = {
+      data: null,
+      error: { code: 'PGRST000', message: 'database unavailable' },
+    };
+
+    const response = await GET(createRequest('GET'), routeParams());
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Internal server error',
+    });
+  });
+
   it('requires settings.edit for branch updates', async () => {
     const { PUT } = await import('@/app/api/branches/[id]/route');
     mockHasPermission.mockReturnValue(false);

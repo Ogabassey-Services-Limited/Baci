@@ -205,7 +205,7 @@ export default function StaffAccountsScreen() {
           onBranchSelect={setSelectedBranchId}
           selectedStaffId={selectedStaffId}
           onStaffSelect={setSelectedStaffId}
-          branches={branches}
+          branches={branchManagement.activeBranches}
           staffMembers={staffMembers}
           staffLoading={staffLoading}
           staffError={staffError}

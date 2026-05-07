@@ -15,7 +15,7 @@ describe('branch-scope-query', () => {
     ).toBe('123e4567-e89b-42d3-a456-426614174000');
   });
 
-  it('applies branch filters only when scope is branch-specific', () => {
+  it('applies branch filters when scope is branch', () => {
     const query = {
       eq: vi.fn(),
     };
@@ -31,9 +31,15 @@ describe('branch-scope-query', () => {
       'branch_id',
       '123e4567-e89b-42d3-a456-426614174000'
     );
+  });
 
-    query.eq.mockClear();
-    applyOrderBranchScope(query, { type: 'all' });
+  it('does not apply branch filters when scope is all', () => {
+    const query = {
+      eq: vi.fn(),
+    };
+    query.eq.mockImplementation(() => query);
+
+    expect(applyOrderBranchScope(query, { type: 'all' })).toBe(query);
 
     expect(query.eq).not.toHaveBeenCalled();
   });

@@ -178,6 +178,7 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['branches'] });
+      queryClient.invalidateQueries({ queryKey: ['branch-scope'] });
       callbacks.onBranchCreated?.();
       Alert.alert('Success', 'Branch created successfully!');
     },

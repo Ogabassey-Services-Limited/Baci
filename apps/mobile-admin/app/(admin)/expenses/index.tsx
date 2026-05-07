@@ -15,6 +15,7 @@ import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useBranchScope } from '@/hooks/useBranchScope';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
+import { getBranchScopeKey } from '@/lib/branch-scope-query';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/utils';
 import { ExpenseListItem } from './ExpenseListItem';
@@ -30,7 +31,7 @@ export default function ExpensesScreen() {
   const router = useRouter();
   const { merchant } = useMerchant();
   const { scope } = useBranchScope();
-  const branchScopeKey = scope.type === 'branch' ? scope.branchId : 'all';
+  const branchScopeKey = getBranchScopeKey(scope);
 
   const {
     data: expenses,

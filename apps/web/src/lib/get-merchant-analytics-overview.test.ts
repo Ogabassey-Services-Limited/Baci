@@ -63,6 +63,33 @@ describe('getMerchantAnalyticsOverview', () => {
     );
   });
 
+  it('forwards undefined branch id when analytics are not branch-scoped', async () => {
+    const supabase = {} as unknown as SupabaseClient;
+    const startDate = new Date('2026-05-01T00:00:00.000Z');
+    const endDate = new Date('2026-05-07T00:00:00.000Z');
+    const { previousEnd, previousStart } = getComparisonAnalyticsRange(
+      startDate,
+      endDate
+    );
+
+    await getMerchantAnalyticsOverview(
+      supabase,
+      'merchant-1',
+      startDate,
+      endDate
+    );
+
+    expect(fetchMerchantAnalyticsData).toHaveBeenCalledWith(
+      supabase,
+      'merchant-1',
+      startDate,
+      endDate,
+      previousStart,
+      previousEnd,
+      undefined
+    );
+  });
+
   it('propagates analytics query loader failures', async () => {
     mocks.fetchMerchantAnalyticsData.mockRejectedValueOnce(
       new Error('query failed')

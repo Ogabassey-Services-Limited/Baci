@@ -77,7 +77,7 @@ export function useBranchManagement({
 
   const handleBranchSubmit = () => {
     const normalizedName = newBranchName.trim();
-    const normalizedCity = newBranchCity.trim() || undefined;
+    const trimmedCity = newBranchCity.trim();
 
     if (!normalizedName) {
       Alert.alert('Branch name required', 'Enter a branch name to continue.');
@@ -92,7 +92,7 @@ export function useBranchManagement({
           branchId: editingBranchId,
           input: {
             name: normalizedName,
-            city: normalizedCity,
+            city: trimmedCity || null,
           },
         },
         {
@@ -110,7 +110,7 @@ export function useBranchManagement({
     createBranchMutation.mutate(
       {
         name: normalizedName,
-        city: normalizedCity,
+        city: trimmedCity || undefined,
       },
       {
         onError: () => {

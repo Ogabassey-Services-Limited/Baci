@@ -186,10 +186,16 @@ function pressAlertButton(title: string, label: string) {
   const alertCall = mocks.alert.mock.calls.find(
     ([alertTitle]) => alertTitle === title
   );
+  if (!alertCall) {
+    throw new Error(`Expected alert with title "${title}" to be called`);
+  }
   const buttons = alertCall?.[2] as Array<{
     onPress?: () => void;
     text?: string;
-  }>;
+  }> | undefined;
+  if (!buttons) {
+    throw new Error(`Expected alert "${title}" to include buttons`);
+  }
   buttons.find((button) => button.text === label)?.onPress?.();
 }
 
@@ -206,6 +212,21 @@ describe('StaffAccountsScreen branch management', () => {
 
     expect(screen.getByText(/Lagos main/)).toBeInTheDocument();
     expect(screen.getAllByText('Abuja').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Closed test branch')).not.toBeInTheDocument();
+  });
+
+  it('offers only active branches when creating a staff account', () => {
+    render(<StaffAccountsScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Create staff account' })
+    );
+
+    expect(
+      screen.getByRole('dialog', { name: 'Create staff account' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Lagos main')).toBeInTheDocument();
+    expect(screen.getByText('Abuja')).toBeInTheDocument();
     expect(screen.queryByText('Closed test branch')).not.toBeInTheDocument();
   });
 

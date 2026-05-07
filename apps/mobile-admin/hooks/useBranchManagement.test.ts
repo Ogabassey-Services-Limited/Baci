@@ -103,6 +103,33 @@ describe('useBranchManagement', () => {
     expect(result.current.isBranchMutationPending).toBe(true);
   });
 
+  it('preserves an explicitly cleared city when editing a branch', () => {
+    const { result, updateMutate } = renderBranchManagement();
+
+    act(() => {
+      result.current.openEditBranchModal('branch-1');
+    });
+    act(() => {
+      result.current.setNewBranchCity('');
+    });
+    act(() => {
+      result.current.handleBranchSubmit();
+    });
+
+    expect(updateMutate).toHaveBeenCalledWith(
+      {
+        branchId: 'branch-1',
+        input: {
+          name: 'Lagos main',
+          city: null,
+        },
+      },
+      expect.objectContaining({
+        onSuccess: expect.any(Function),
+      })
+    );
+  });
+
   it('guards deactivation inside the confirmation action', () => {
     const { deactivateMutate, result } = renderBranchManagement({
       branchRows: [branches[0]],

@@ -1,15 +1,15 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { hasPermission } from '@/lib/api-auth';
-import { checkCsrfProtection } from '@/lib/csrf';
-import { toUserAccess } from '@/lib/get-merchant-for-api-request';
-import { sanitizePhone, sanitizeText } from '@/lib/sanitize-core';
-import { branchIdParamSchema, branchUpdateSchema } from '@/schemas/branches';
 import {
   authenticateAndResolveMerchant,
   BRANCH_COLUMNS,
   BRANCH_DETAIL_COLUMNS,
   mapBranchMutationError,
-} from '../branch-route-utils';
+} from '@/app/api/branches/branch-route-utils';
+import { hasPermission } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
+import { toUserAccess } from '@/lib/get-merchant-for-api-request';
+import { sanitizePhone, sanitizeText } from '@/lib/sanitize-core';
+import { branchIdParamSchema, branchUpdateSchema } from '@/schemas/branches';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -43,7 +43,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .eq('active', true)
       .single();
 
-    if (error || !branch) {
+    if (error && error.code !== 'PGRST116') {
+      return NextResponse.json(
+        { error: 'Internal server error' },
+        { status: 500 }
+      );
+    }
+
+    if (error?.code === 'PGRST116' || !branch) {
       return NextResponse.json({ error: 'Branch not found' }, { status: 404 });
     }
 

@@ -312,32 +312,28 @@ export function useAnalyticsDetail({
         let prevOrders: AnalyticsOrder[] | null = null;
 
         if (metric === 'profits' || metric === 'revenue') {
+          let prevOrderItemsQuery = supabase
+            .from('order_items')
+            .select(`
+              quantity,
+              price,
+              products!inner(cost_price),
+              orders!inner(id, merchant_id, payment_status, branch_id, created_at)
+          `)
+            .eq('orders.merchant_id', merchant.id)
+            .eq('orders.payment_status', 'paid')
+            .gte('orders.created_at', prevStartDate.toISOString())
+            .lte('orders.created_at', prevEndDate.toISOString());
+          prevOrderItemsQuery = applyOrderBranchScope(
+            prevOrderItemsQuery,
+            scope,
+            'orders.branch_id'
+          );
+
           const [
             { data: profitsOrders, error: prevOrdersError },
             { data: profitsOrderItems, error: prevOrderItemsError },
-          ] = await Promise.all([
-            prevOrdersQuery,
-            (() => {
-              let prevOrderItemsQuery = supabase
-                .from('order_items')
-                .select(`
-                  quantity,
-                  price,
-                  products!inner(cost_price),
-                  orders!inner(id, merchant_id, payment_status, branch_id, created_at)
-              `)
-                .eq('orders.merchant_id', merchant.id)
-                .eq('orders.payment_status', 'paid')
-                .gte('orders.created_at', prevStartDate.toISOString())
-                .lte('orders.created_at', prevEndDate.toISOString());
-              prevOrderItemsQuery = applyOrderBranchScope(
-                prevOrderItemsQuery,
-                scope,
-                'orders.branch_id'
-              );
-              return prevOrderItemsQuery;
-            })(),
-          ]);
+          ] = await Promise.all([prevOrdersQuery, prevOrderItemsQuery]);
 
           if (prevOrdersError) {
             throw new Error(

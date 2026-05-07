@@ -173,7 +173,21 @@ async function resolveMerchantId(
   merchant: string
 ): Promise<string> {
   if (UUID_RE.test(merchant)) {
-    return merchant;
+    const { data, error } = await supabase
+      .from('merchants')
+      .select('id')
+      .eq('id', merchant)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Failed to resolve merchant id: ${error.message}`);
+    }
+
+    if (!data?.id) {
+      throw new Error(`Merchant not found: ${merchant}`);
+    }
+
+    return data.id;
   }
 
   if (DOMAIN_RE.test(merchant)) {

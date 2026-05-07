@@ -18,7 +18,7 @@ import {
   authenticateAndResolveMerchant,
   mapBranchMutationError,
   parseRequestedMerchantId,
-} from './branch-route-utils';
+} from '@/app/api/branches/branch-route-utils';
 
 const MERCHANT_ID = '123e4567-e89b-42d3-a456-426614174001';
 
@@ -154,6 +154,48 @@ describe('mapBranchMutationError', () => {
 });
 
 describe('authenticateAndResolveMerchant', () => {
+  it('returns the scoped Supabase client and merchant context when auth succeeds', async () => {
+    const supabase = {};
+    const merchantContext = {
+      merchantId: MERCHANT_ID,
+      businessName: 'Baci Store',
+    };
+    mocks.authenticateApiRequest.mockResolvedValueOnce({
+      error: null,
+      supabase,
+      user: { id: 'user-1' },
+    });
+    mocks.getMerchantForApiRequest.mockResolvedValueOnce(merchantContext);
+
+    const result = await authenticateAndResolveMerchant(
+      requestWithMerchant(MERCHANT_ID)
+    );
+
+    expect(result.response).toBeNull();
+    expect(result.supabase).toBe(supabase);
+    expect(result.merchantContext).toEqual(merchantContext);
+  });
+
+  it('returns merchant-not-found when the authenticated user has no merchant context', async () => {
+    mocks.authenticateApiRequest.mockResolvedValueOnce({
+      error: null,
+      supabase: {},
+      user: { id: 'user-1' },
+    });
+    mocks.getMerchantForApiRequest.mockResolvedValueOnce(null);
+
+    const result = await authenticateAndResolveMerchant(
+      requestWithMerchant(MERCHANT_ID)
+    );
+
+    expect(result.supabase).toBeNull();
+    expect(result.merchantContext).toBeNull();
+    expect(result.response?.status).toBe(404);
+    await expect(result.response?.json()).resolves.toEqual({
+      error: 'Merchant not found',
+    });
+  });
+
   it('returns a static unauthorized response for auth failures', async () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
@@ -173,7 +215,10 @@ describe('authenticateAndResolveMerchant', () => {
       error: 'Unauthorized',
     });
     expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[Branches] Authentication failed:',
+      '[Branches] Authentication failed'
+    );
+    expect(consoleErrorSpy).not.toHaveBeenCalledWith(
+      expect.any(String),
       'token contains sensitive detail'
     );
 

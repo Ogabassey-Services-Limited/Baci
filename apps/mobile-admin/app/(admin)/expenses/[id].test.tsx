@@ -2,17 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-type ExpenseDetail = {
-  amount: number;
-  branch_id: string | null;
-  category: string;
-  date: string;
-  description: string;
-  id: string;
-  receipt_url: string | null;
-  reference: string | null;
-};
+import type { ExpenseDetail } from './ExpenseDetailContent';
 
 const expenseFixture = (): ExpenseDetail => ({
   amount: 12500,
@@ -162,7 +152,7 @@ vi.mock('react-native', () => ({
   View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
-import ExpenseDetailScreen from '@/app/(admin)/expenses/[id]';
+import ExpenseDetailScreen from './[id]';
 
 describe('ExpenseDetailScreen', () => {
   beforeEach(() => {

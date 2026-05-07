@@ -134,6 +134,9 @@ describe('useStaffAccounts', () => {
     });
     expect(mocks.directInsert).not.toHaveBeenCalled();
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['branches'] });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['branch-scope'],
+    });
     expect(onBranchCreated).toHaveBeenCalledTimes(1);
   });
 
