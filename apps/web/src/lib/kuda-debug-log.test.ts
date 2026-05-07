@@ -90,6 +90,7 @@ describe('kuda-debug-log', () => {
     expect(loggerMocks.info).toHaveBeenCalledWith({
       message: 'Kuda raw response received',
       requestData: { BillResponseReference: 'kuda-bill-1' },
+      requestDataJson: '{"BillResponseReference":"kuda-bill-1"}',
       requestRef: 'REQ-123',
       rawResponse: {
         status: true,
@@ -101,6 +102,8 @@ describe('kuda-debug-log', () => {
           },
         },
       },
+      rawResponseJson:
+        '{"status":true,"data":{"Pin":{"redacted":true,"type":"string","length":9}}}',
       serviceType: 'BILL_TSQ',
     });
   });
