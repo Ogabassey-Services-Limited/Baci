@@ -1,7 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { HERO_DESKTOP_LCP_SRC } from '@/components/storefront/ogabassey/components/hero-data';
+import {
+  HERO_DESKTOP_LCP_SRC,
+  HERO_MOBILE_LCP_SRC,
+} from '@/components/storefront/ogabassey/components/hero-data';
 import { OGABASSEY_HERO_PRECONNECT_ORIGINS } from '@/components/storefront/ogabassey/components/ogabassey-hero-preloads';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 
@@ -283,7 +286,7 @@ describe('Storefront homepage structured data', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('preloads the desktop OgaBassey hero LCP image from the server page', async () => {
+  it('preloads viewport-scoped OgaBassey hero LCP images from the server page', async () => {
     render(
       await StorefrontPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
     );
@@ -293,21 +296,27 @@ describe('Storefront homepage structured data', () => {
       )
     );
 
-    expect(
-      preloads.map((preloadLink) => ({
-        as: preloadLink.getAttribute('as'),
-        fetchPriority: preloadLink.getAttribute('fetchpriority'),
-        href: preloadLink.getAttribute('href'),
-        media: preloadLink.getAttribute('media'),
-      }))
-    ).toEqual([
-      {
-        as: 'image',
-        fetchPriority: 'high',
-        href: HERO_DESKTOP_LCP_SRC,
-        media: '(min-width: 768px)',
-      },
-    ]);
+    const preloadAttributes = preloads.map((preloadLink) => ({
+      fetchPriority: preloadLink.getAttribute('fetchpriority'),
+      href: preloadLink.getAttribute('href'),
+      media: preloadLink.getAttribute('media'),
+    }));
+
+    expect(preloadAttributes).toHaveLength(2);
+    expect(preloadAttributes).toEqual(
+      expect.arrayContaining([
+        {
+          fetchPriority: 'high',
+          href: HERO_DESKTOP_LCP_SRC,
+          media: '(min-width: 768px)',
+        },
+        {
+          fetchPriority: 'high',
+          href: HERO_MOBILE_LCP_SRC,
+          media: '(max-width: 767px)',
+        },
+      ])
+    );
   });
 
   it('emits self-referencing canonical and hreflang alternates from page metadata', async () => {

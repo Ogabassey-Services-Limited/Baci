@@ -106,8 +106,9 @@ export function HeroMobileCarousel({
                           ? 'object-contain object-right'
                           : 'object-cover'
                       }
-                      // Manual viewport preloads cover discovery; keep only
-                      // fetch priority here to avoid duplicate preload links.
+                      // Manual viewport preloads own head discovery. Keep this
+                      // eager/high without Next Image priority/preload so the
+                      // browser does not receive an unconditional mobile hint.
                       fetchPriority={index === 0 ? 'high' : undefined}
                       loading={index === 0 ? 'eager' : 'lazy'}
                       quality={70}

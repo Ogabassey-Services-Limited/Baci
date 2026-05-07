@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { HERO_DESKTOP_LCP_SRC } from './hero-data';
+import { HERO_DESKTOP_LCP_SRC, HERO_MOBILE_LCP_SRC } from './hero-data';
 import {
   OGABASSEY_HERO_PRECONNECT_ORIGINS,
   OgabasseyHeroPreloads,
@@ -50,26 +50,32 @@ describe('OgabasseyHeroPreloads', () => {
     }
   });
 
-  it('emits only the manual desktop LCP preload', () => {
+  it('emits viewport-scoped manual LCP preloads', () => {
     clearHints();
     render(<OgabasseyHeroPreloads />);
 
     const preloads = Array.from(
       document.querySelectorAll<HTMLLinkElement>('link[rel="preload"][as="image"]')
     ).map((link) => ({
-      as: link.getAttribute('as'),
       fetchPriority: link.getAttribute('fetchpriority'),
       href: link.getAttribute('href'),
       media: link.getAttribute('media'),
     }));
 
-    expect(preloads).toEqual([
-      {
-        as: 'image',
-        fetchPriority: 'high',
-        href: HERO_DESKTOP_LCP_SRC,
-        media: '(min-width: 768px)',
-      },
-    ]);
+    expect(preloads).toHaveLength(2);
+    expect(preloads).toEqual(
+      expect.arrayContaining([
+        {
+          fetchPriority: 'high',
+          href: HERO_DESKTOP_LCP_SRC,
+          media: '(min-width: 768px)',
+        },
+        {
+          fetchPriority: 'high',
+          href: HERO_MOBILE_LCP_SRC,
+          media: '(max-width: 767px)',
+        },
+      ])
+    );
   });
 });
