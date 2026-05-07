@@ -515,11 +515,13 @@ describe('GET /api/vtu/history', () => {
     expect(vtuTransactionUpdatePayloads).toEqual([
       {
         metadata: expect.objectContaining({
-          voucherPinBackfillAttempts: 1,
           voucherPinBackfillScheduledAt: expect.any(String),
         }),
       },
     ]);
+    expect(vtuTransactionUpdatePayloads[0].metadata).not.toHaveProperty(
+      'voucherPinBackfillAttempts'
+    );
     expect(mockAfter).toHaveBeenCalledTimes(2);
 
     const scheduledReconciliation = mockAfter.mock.calls[1]?.[0] as

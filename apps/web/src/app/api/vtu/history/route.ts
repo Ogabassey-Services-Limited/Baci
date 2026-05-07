@@ -8,6 +8,7 @@ import {
   MAX_TOKEN_BACKFILL_SCHEDULES,
   normalizeMetadata,
   scheduleVoucherPinBackfill,
+  shouldBackfillForStatus,
   shouldBackfillForType,
 } from '@/lib/vtu-voucher-backfill';
 import { historyQuerySchema } from '@/schemas/vtu';
@@ -247,10 +248,7 @@ export async function GET(request: NextRequest) {
 
       if (
         candidate.voucherPin !== null ||
-        !(
-          candidate.transaction.status === 'successful' ||
-          candidate.transaction.status === 'processing'
-        ) ||
+        !shouldBackfillForStatus(candidate.transaction.status) ||
         !shouldBackfillForType(candidate.transaction.type) ||
         hasRecentBackfillSchedule(candidate.metadata)
       ) {

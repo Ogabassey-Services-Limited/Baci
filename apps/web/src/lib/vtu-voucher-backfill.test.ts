@@ -255,7 +255,7 @@ describe('vtu-voucher-backfill', () => {
     );
   });
 
-  it('defers processing transactions to fulfillment reconciliation', async () => {
+  it('defers processing transactions to fulfillment reconciliation without consuming a backfill attempt', async () => {
     const updateQuery = createUpdateQueryMock();
     const { supabase, update } = createSupabaseMock(updateQuery);
     mocks.fulfillPendingVtuTransaction.mockResolvedValue({
@@ -290,10 +290,25 @@ describe('vtu-voucher-backfill', () => {
         [VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY]: '2026-04-29T12:00:00.000Z',
       }),
     });
+    expect(update).toHaveBeenNthCalledWith(1, {
+      metadata: expect.not.objectContaining({
+        [VOUCHER_PIN_BACKFILL_ATTEMPTS_KEY]: expect.anything(),
+      }),
+    });
     expect(update).toHaveBeenCalledTimes(2);
     expect(update).toHaveBeenLastCalledWith({
       metadata: expect.not.objectContaining({
         [VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY]: expect.anything(),
+      }),
+    });
+    expect(update).toHaveBeenLastCalledWith({
+      metadata: expect.objectContaining({
+        alpha: 'first',
+      }),
+    });
+    expect(update).toHaveBeenLastCalledWith({
+      metadata: expect.not.objectContaining({
+        [VOUCHER_PIN_BACKFILL_ATTEMPTS_KEY]: expect.anything(),
       }),
     });
     expect(updateQuery.filter).toHaveBeenCalledTimes(2);

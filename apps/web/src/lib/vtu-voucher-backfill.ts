@@ -15,7 +15,8 @@ export const VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY =
   'voucherPinBackfillScheduledAt';
 export const VOUCHER_PIN_BACKFILL_ATTEMPTS_KEY = 'voucherPinBackfillAttempts';
 // After a no-pin result, clear the timestamp so the next mobile poll can
-// retry immediately. Stop retrying after this many Kuda BILL_TSQ calls.
+// retry immediately. Stop retrying successful no-pin rows after this many
+// Kuda BILL_TSQ calls.
 export const MAX_VOUCHER_PIN_BACKFILL_ATTEMPTS = 10;
 // Short dedupe window: only block a second concurrent attempt within the same
 // request burst. Once the after() callback clears the timestamp, the next poll
@@ -127,21 +128,26 @@ export function hasRecentBackfillSchedule(metadata: MetadataRecord): boolean {
 }
 
 async function markVoucherPinBackfillScheduled({
+  consumeAttempt,
   metadata,
   originalMetadata,
   supabase,
   transactionId,
 }: {
+  consumeAttempt: boolean;
   metadata: MetadataRecord;
   originalMetadata: unknown;
   supabase: ReturnType<typeof createAdminClient>;
   transactionId: string;
 }): Promise<MetadataRecord | null> {
-  const nextMetadata = {
+  const nextMetadata: MetadataRecord = {
     ...metadata,
     [VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY]: new Date().toISOString(),
-    [VOUCHER_PIN_BACKFILL_ATTEMPTS_KEY]: getBackfillAttempts(metadata) + 1,
   };
+  if (consumeAttempt) {
+    nextMetadata[VOUCHER_PIN_BACKFILL_ATTEMPTS_KEY] =
+      getBackfillAttempts(metadata) + 1;
+  }
   let updateQuery = supabase
     .from('vtu_transactions')
     .update({ metadata: nextMetadata })
@@ -235,6 +241,7 @@ export async function scheduleVoucherPinBackfill({
 
   const transactionId = transaction.id;
   const scheduledMetadata = await markVoucherPinBackfillScheduled({
+    consumeAttempt: transaction.status === 'successful',
     metadata,
     originalMetadata,
     supabase,

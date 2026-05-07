@@ -18,6 +18,7 @@ describe('Kuda API Client', () => {
   afterEach(() => {
     globalThis.fetch = originalFetch;
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   describe('commission rates', () => {
@@ -322,7 +323,7 @@ describe('Kuda API Client', () => {
           {
             FinalStatus: 'successful',
             Pin: {
-              Number: '  0283-6213-2450-8322-0153  ',
+              Number: '  TEST-EKEDC-TOKEN-ALPHA  ',
               Units: '29.4',
             },
           },
@@ -335,7 +336,7 @@ describe('Kuda API Client', () => {
 
       expect(result).toEqual({
         message: 'Token found',
-        pin: '0283-6213-2450-8322-0153',
+        pin: 'TEST-EKEDC-TOKEN-ALPHA',
         status: 'successful',
       });
     });
@@ -364,14 +365,14 @@ describe('Kuda API Client', () => {
     });
 
     it('logs sanitized raw Kuda TSQ responses when bill debug is enabled', async () => {
+      vi.stubEnv('KUDA_BILL_DEBUG', '1');
       const { checkTransactionStatus } = await import('@/lib/kuda');
-      const previousDebug = process.env.KUDA_BILL_DEBUG;
       const consoleInfoSpy = vi
         .spyOn(console, 'info')
         .mockImplementation(() => undefined);
       const meterNumber = '43901766923';
       const phoneNumber = '08146978921';
-      const tokenValue = '0283-6213-2450-8322-0153';
+      const tokenValue = 'TEST-EKEDC-TOKEN-ALPHA';
 
       const fetchMock = vi.fn().mockImplementation((url) => {
         if (url.toString().includes('GetToken')) {
@@ -397,8 +398,6 @@ describe('Kuda API Client', () => {
       globalThis.fetch = fetchMock;
 
       try {
-        process.env.KUDA_BILL_DEBUG = '1';
-
         await checkTransactionStatus('kuda-bill-1');
 
         const payload = consoleInfoSpy.mock.calls.find((call) =>
@@ -430,11 +429,7 @@ describe('Kuda API Client', () => {
         expect(serializedPayload).not.toContain(meterNumber);
         expect(serializedPayload).not.toContain(phoneNumber);
       } finally {
-        if (previousDebug === undefined) {
-          delete process.env.KUDA_BILL_DEBUG;
-        } else {
-          process.env.KUDA_BILL_DEBUG = previousDebug;
-        }
+        consoleInfoSpy.mockRestore();
       }
     });
 
@@ -783,12 +778,12 @@ describe('Kuda API Client', () => {
       expect(
         extractKudaVoucherPin({
           pin: {
-            number: '3373-7728-6877-1154-6184',
+            number: 'TEST-EKEDC-TOKEN-BETA',
             serial: null,
             instructions: null,
           },
         })
-      ).toBe('3373-7728-6877-1154-6184');
+      ).toBe('TEST-EKEDC-TOKEN-BETA');
     });
 
     it('coerces numeric pins to strings', async () => {

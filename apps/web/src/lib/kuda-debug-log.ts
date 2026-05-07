@@ -1,3 +1,4 @@
+import { getKudaBillDebug } from '@/env';
 import { logger } from '@/lib/logger';
 
 const KUDA_RAW_DEBUG_SERVICE_TYPES = new Set([
@@ -31,7 +32,7 @@ function normalizeKudaDebugKey(key: string) {
 }
 
 export function isKudaBillDebugEnabled() {
-  const value = process.env.KUDA_BILL_DEBUG?.trim().toLowerCase();
+  const value = getKudaBillDebug()?.trim().toLowerCase();
   return value === '1' || value === 'true' || value === 'yes';
 }
 
