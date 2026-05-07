@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockAuthenticateApiRequest = vi.fn();
 const mockPreparePendingVtuTransaction = vi.fn();
@@ -62,6 +62,10 @@ function makeRequest(body: Record<string, unknown>) {
 }
 
 describe('POST /api/vtu/checkout/charge-saved-card', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockAuthenticateApiRequest.mockResolvedValue({
@@ -218,6 +222,101 @@ describe('POST /api/vtu/checkout/charge-saved-card', () => {
       supabase: expect.any(Object),
       transactionId: 'vtu-1',
     });
+  });
+
+  it('returns the payment reference when saved-card fulfillment is still processing', async () => {
+    mockFulfillPendingVtuTransaction.mockResolvedValue({
+      status: 'processing',
+      reference: 'KUDA-REQ-123',
+    });
+
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        amount: 1000,
+        gateway: 'paystack',
+        savedPaymentMethodId: '550e8400-e29b-41d4-a716-446655440000',
+        type: 'airtime',
+        phoneNumber: '08012345678',
+        networkProvider: 'MTN',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(202);
+    expect(data).toMatchObject({
+      gateway: 'paystack',
+      reference: expect.stringMatching(/^VTU-[A-Z0-9]{12}$/),
+      status: 'processing',
+    });
+    expect(data.reference).not.toBe('KUDA-REQ-123');
+  });
+
+  it('keeps the saved-card charge processing when post-charge VTU fulfillment fails', async () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    mockFulfillPendingVtuTransaction.mockResolvedValue({
+      error: 'Provider vend is not ready',
+      reference: 'KUDA-REQ-123',
+      refundedToWallet: 1000,
+      status: 'failed',
+    });
+
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        amount: 1000,
+        gateway: 'paystack',
+        savedPaymentMethodId: '550e8400-e29b-41d4-a716-446655440000',
+        type: 'airtime',
+        phoneNumber: '08012345678',
+        networkProvider: 'MTN',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(202);
+    expect(data).toMatchObject({
+      gateway: 'paystack',
+      mayRequireManualCheck: true,
+      message: expect.stringMatching(/transaction history/i),
+      providerReference: 'KUDA-REQ-123',
+      reference: expect.stringMatching(/^VTU-[A-Z0-9]{12}$/),
+      refundedToWallet: 1000,
+      status: 'processing',
+    });
+    expect(consoleWarnSpy).toHaveBeenCalled();
+  });
+
+  it('keeps the saved-card charge processing when post-charge VTU fulfillment throws', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockFulfillPendingVtuTransaction.mockRejectedValue(
+      new Error('Kuda timeout')
+    );
+
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        amount: 1000,
+        gateway: 'paystack',
+        savedPaymentMethodId: '550e8400-e29b-41d4-a716-446655440000',
+        type: 'airtime',
+        phoneNumber: '08012345678',
+        networkProvider: 'MTN',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(202);
+    expect(data).toMatchObject({
+      gateway: 'paystack',
+      reference: expect.stringMatching(/^VTU-[A-Z0-9]{12}$/),
+      status: 'processing',
+    });
+    expect(consoleErrorSpy).toHaveBeenCalled();
   });
 
   // Phase B.7 — wallet residual coverage on saved-card charge.
