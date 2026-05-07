@@ -73,6 +73,46 @@ describe('UtilityPaymentOptions', () => {
     expect(mockOnSelectSavedCard).toHaveBeenCalledWith('card-1');
   });
 
+  it('marks the selected saved card and makes the generic Paystack row an alternate card option', () => {
+    render(
+      <UtilityPaymentOptions
+        amount={1000}
+        cards={[
+          {
+            id: 'card-1',
+            provider: 'paystack',
+            label: 'Access Bank ending 1234',
+            brand: 'visa',
+            bank: 'Access Bank',
+            last4: '1234',
+            exp_month: '08',
+            exp_year: '2030',
+            is_default: true,
+          },
+        ]}
+        isLoadingCards={false}
+        onSelectGateway={mockOnSelectGateway}
+        onSelectSavedCard={mockOnSelectSavedCard}
+        selectedGateway="paystack"
+        selectedSavedCardId="card-1"
+        supportedGateways={['paystack', 'korapay']}
+      />
+    );
+
+    const selectedSavedCard = screen.getByLabelText(
+      'Access Bank ending 1234. Expires 08/2030'
+    );
+
+    expect(selectedSavedCard.props.accessibilityRole).toBe('radio');
+    expect(selectedSavedCard.props.accessibilityState).toMatchObject({
+      checked: true,
+    });
+    expect(lastSelectorProps.current).toMatchObject({
+      suppressedSelectedMethods: ['paystack'],
+      methodLabelOverrides: { paystack: 'Use another card' },
+    });
+  });
+
   it('passes gateway selections through to the parent', () => {
     render(
       <UtilityPaymentOptions

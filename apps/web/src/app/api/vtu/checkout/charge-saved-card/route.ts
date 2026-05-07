@@ -222,6 +222,17 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    if (chargeResult.data.status === 'pending') {
+      return NextResponse.json(
+        {
+          gateway: 'paystack',
+          reference: paymentReference,
+          status: 'processing',
+        },
+        { status: 202 }
+      );
+    }
+
     if (chargeResult.data.status !== 'success') {
       return NextResponse.json(
         {
