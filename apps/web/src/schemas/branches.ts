@@ -1,12 +1,22 @@
 import { z } from 'zod';
 
-const optionalText = (max: number) =>
+const optionalCreateText = (max: number) =>
   z
     .string()
     .trim()
     .max(max)
     .transform((value) => value || undefined)
     .optional();
+
+const optionalUpdateText = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .transform((value) => value || null)
+    .nullable()
+    .optional();
+
 export const branchNameSchema = z
   .string()
   .trim()
@@ -22,10 +32,10 @@ export const requestedMerchantIdSchema = z.string().uuid('Invalid merchant id');
 export const branchCreateSchema = z
   .object({
     name: branchNameSchema,
-    address: optionalText(240),
-    city: optionalText(120),
-    state: optionalText(120),
-    phone: optionalText(32),
+    address: optionalCreateText(240),
+    city: optionalCreateText(120),
+    state: optionalCreateText(120),
+    phone: optionalCreateText(32),
     managerId: z.string().uuid('Invalid branch manager').optional(),
     isDefault: z.boolean().default(false),
   })
@@ -34,10 +44,10 @@ export const branchCreateSchema = z
 export const branchUpdateSchema = z
   .object({
     name: branchNameSchema.optional(),
-    address: optionalText(240),
-    city: optionalText(120),
-    state: optionalText(120),
-    phone: optionalText(32),
+    address: optionalUpdateText(240),
+    city: optionalUpdateText(120),
+    state: optionalUpdateText(120),
+    phone: optionalUpdateText(32),
     managerId: z.string().uuid('Invalid branch manager').nullable().optional(),
     isDefault: z.boolean().optional(),
   })

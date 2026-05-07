@@ -255,6 +255,32 @@ describe('/api/branches/[id]', () => {
     expect(response.status).toBe(200);
   });
 
+  it('clears optional branch metadata when blank update fields are submitted', async () => {
+    const { PUT } = await import('@/app/api/branches/[id]/route');
+
+    const response = await PUT(
+      createRequest('PUT', {
+        address: ' ',
+        city: '',
+        state: ' ',
+        phone: '',
+      }),
+      routeParams()
+    );
+
+    expect(update).toHaveBeenCalledWith({
+      address: null,
+      city: null,
+      state: null,
+      phone: null,
+    });
+    expect(updateEq).toHaveBeenCalledWith('id', BRANCH_ID);
+    expect(updateEq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
+    expect(updateEq).toHaveBeenCalledWith('active', true);
+    expect(updateSelect).toHaveBeenCalledWith(expect.not.stringContaining('*'));
+    expect(response.status).toBe(200);
+  });
+
   it('soft-deactivates branches through the database RPC only', async () => {
     const { DELETE } = await import('@/app/api/branches/[id]/route');
 

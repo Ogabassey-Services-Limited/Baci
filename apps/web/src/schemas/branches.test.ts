@@ -45,6 +45,28 @@ describe('branch schemas', () => {
     }
   });
 
+  it('normalizes blank optional branch create fields to explicit undefined values', () => {
+    const result = branchCreateSchema.safeParse({
+      name: 'Lagos main',
+      address: ' ',
+      city: '',
+      state: ' ',
+      phone: '',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toStrictEqual({
+        name: 'Lagos main',
+        address: undefined,
+        city: undefined,
+        state: undefined,
+        phone: undefined,
+        isDefault: false,
+      });
+    }
+  });
+
   it('rejects invalid branch create payloads', () => {
     const result = branchCreateSchema.safeParse({
       name: 'A',
@@ -75,6 +97,25 @@ describe('branch schemas', () => {
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it('normalizes blank optional branch update fields to null for clearing', () => {
+    const result = branchUpdateSchema.safeParse({
+      address: ' ',
+      city: '',
+      state: ' ',
+      phone: '',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({
+        address: null,
+        city: null,
+        state: null,
+        phone: null,
+      });
+    }
   });
 
   it('rejects active mutations on update', () => {

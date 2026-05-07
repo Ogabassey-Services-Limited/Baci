@@ -30,7 +30,6 @@ import {
   WelcomeHeader,
 } from '@/components/dashboard';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
-import { useBranchScope } from '@/hooks/useBranchScope';
 import { type TimePeriod, useDashboardStats } from '@/hooks/useDashboardStats';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useOrders } from '@/hooks/useOrders';
@@ -64,7 +63,6 @@ export default function HomeScreen() {
   }
   const { colors, shadows } = useTheme();
   const { merchant, storeUrl, isLive, primaryDomain } = useMerchant();
-  const { isAllLocations } = useBranchScope();
   const [period, setPeriod] = useState<TimePeriod>('week');
   const [showPeriodPicker, setShowPeriodPicker] = useState(false);
   const { stats, revenueData, refetch } = useDashboardStats(period);
@@ -378,13 +376,13 @@ export default function HomeScreen() {
               iconColor={colors.gold}
             />
             <StatCard
-              label={isAllLocations ? 'Visits (all stores)' : 'Visits'}
+              label="Visits (all stores)"
               value={formatMetric(stats?.visits ?? 0)}
               icon="globe-outline"
               iconColor={colors.info}
             />
             <StatCard
-              label={isAllLocations ? 'New (all stores)' : 'New'}
+              label="New (all stores)"
               value={formatMetric(stats?.newCustomers ?? 0)}
               icon="people-outline"
               iconColor={colors.success}
