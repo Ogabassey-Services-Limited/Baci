@@ -38,6 +38,9 @@ const serverSchema = z
     OPENAI_AGENTIC_SIGNING_KEY: z.string().optional(),
     OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS: z.string().optional(),
 
+    // Debug
+    KUDA_BILL_DEBUG: z.string().optional(),
+
     // Email
     ZEPTOMAIL_TOKEN: z.string().optional(),
     ZEPTOMAIL_FROM_DOMAIN: z.string().optional(),
@@ -196,6 +199,7 @@ const getEnv = () => {
         KORAPAY_SECRET_KEY: process.env.KORAPAY_SECRET_KEY,
         JUICYWAY_SECRET_KEY: process.env.JUICYWAY_SECRET_KEY,
         PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY,
+        KUDA_BILL_DEBUG: process.env.KUDA_BILL_DEBUG,
         OPENAI_AGENTIC_API_KEY: process.env.OPENAI_AGENTIC_API_KEY,
         OPENAI_AGENTIC_CONFIRMATION_KEY:
           process.env.OPENAI_AGENTIC_CONFIRMATION_KEY,
@@ -369,6 +373,11 @@ export const getPaystackSecretKey = () => {
     process.env.PAYSTACK_SECRET_KEY ?? env?.PAYSTACK_SECRET_KEY
   );
   return secret || undefined;
+};
+export const getKudaBillDebug = () => {
+  if (isBrowserRuntime()) return undefined;
+  const debug = trimSecret(process.env.KUDA_BILL_DEBUG ?? env?.KUDA_BILL_DEBUG);
+  return debug || undefined;
 };
 export const getZeptoMailToken = () =>
   env?.ZEPTOMAIL_TOKEN?.trim() || undefined;

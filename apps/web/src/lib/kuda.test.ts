@@ -18,6 +18,7 @@ describe('Kuda API Client', () => {
   afterEach(() => {
     globalThis.fetch = originalFetch;
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   describe('commission rates', () => {
@@ -322,7 +323,7 @@ describe('Kuda API Client', () => {
           {
             FinalStatus: 'successful',
             Pin: {
-              Number: '  0283-6213-2450-8322-0153  ',
+              Number: '  TEST-EKEDC-TOKEN-ALPHA  ',
               Units: '29.4',
             },
           },
@@ -335,7 +336,7 @@ describe('Kuda API Client', () => {
 
       expect(result).toEqual({
         message: 'Token found',
-        pin: '0283-6213-2450-8322-0153',
+        pin: 'TEST-EKEDC-TOKEN-ALPHA',
         status: 'successful',
       });
     });
@@ -361,6 +362,75 @@ describe('Kuda API Client', () => {
         message: 'Scalar status payload',
         status: 'unknown',
       });
+    });
+
+    it('logs sanitized raw Kuda TSQ responses when bill debug is enabled', async () => {
+      vi.stubEnv('KUDA_BILL_DEBUG', '1');
+      const { checkTransactionStatus } = await import('@/lib/kuda');
+      const consoleInfoSpy = vi
+        .spyOn(console, 'info')
+        .mockImplementation(() => undefined);
+      const meterNumber = '43901766923';
+      const phoneNumber = '08146978921';
+      const tokenValue = 'TEST-EKEDC-TOKEN-ALPHA';
+
+      const fetchMock = vi.fn().mockImplementation((url) => {
+        if (url.toString().includes('GetToken')) {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve('token'),
+          } as Response);
+        }
+
+        return mockKudaResponse(
+          {
+            FinalStatus: 'successful',
+            Pin: {
+              Number: tokenValue,
+              Units: '29.4',
+            },
+            CustomerIdentifier: meterNumber,
+            PhoneNumber: phoneNumber,
+          },
+          'Token found'
+        );
+      });
+      globalThis.fetch = fetchMock;
+
+      try {
+        await checkTransactionStatus('kuda-bill-1');
+
+        const payload = consoleInfoSpy.mock.calls.find((call) =>
+          String(call[0]).includes('Kuda raw response received')
+        )?.[1] as Record<string, unknown> | undefined;
+        expect(payload).toMatchObject({
+          message: 'Kuda raw response received',
+          serviceType: KudaServiceType.BILL_TSQ,
+          rawResponse: {
+            data: {
+              CustomerIdentifier: expect.objectContaining({
+                redacted: true,
+                type: 'string',
+              }),
+              PhoneNumber: expect.objectContaining({
+                redacted: true,
+                type: 'string',
+              }),
+              Pin: expect.objectContaining({
+                redacted: true,
+                type: 'object',
+                keys: expect.arrayContaining(['Number', 'Units']),
+              }),
+            },
+          },
+        });
+        const serializedPayload = JSON.stringify(payload);
+        expect(serializedPayload).not.toContain(tokenValue);
+        expect(serializedPayload).not.toContain(meterNumber);
+        expect(serializedPayload).not.toContain(phoneNumber);
+      } finally {
+        consoleInfoSpy.mockRestore();
+      }
     });
 
     it('returns the highest-priority observed status when no token is found', async () => {
@@ -708,12 +778,12 @@ describe('Kuda API Client', () => {
       expect(
         extractKudaVoucherPin({
           pin: {
-            number: '3373-7728-6877-1154-6184',
+            number: 'TEST-EKEDC-TOKEN-BETA',
             serial: null,
             instructions: null,
           },
         })
-      ).toBe('3373-7728-6877-1154-6184');
+      ).toBe('TEST-EKEDC-TOKEN-BETA');
     });
 
     it('coerces numeric pins to strings', async () => {

@@ -6,6 +6,7 @@
  */
 
 import crypto from 'node:crypto';
+import { logKudaRawResponse } from '@/lib/kuda-debug-log';
 import {
   extractKudaVoucherPin,
   type KudaVoucherTokenField,
@@ -534,6 +535,12 @@ export async function kudaRequest<T = unknown>(
   }
 
   const raw = await response.json();
+  logKudaRawResponse({
+    raw,
+    requestData: data,
+    requestRef: ref,
+    serviceType,
+  });
 
   // Normalize Kuda's mixed-case envelope (Status/status, Message/message, Data/data).
   // Some endpoints (e.g. VERIFY_BILL_CUSTOMER) return BOTH `data` and `Data` with
