@@ -13,6 +13,21 @@ import { fulfillPendingVtuTransaction } from '@/lib/vtu-fulfillment';
 import { preparePendingVtuTransaction } from '@/lib/vtu-pending-transaction';
 import { vtuSavedCardChargeSchema } from '@/schemas/vtu';
 
+function savedCardProcessingResponse(
+  paymentReference: string,
+  extras: Record<string, unknown> = {}
+) {
+  return NextResponse.json(
+    {
+      gateway: 'paystack',
+      reference: paymentReference,
+      status: 'processing',
+      ...extras,
+    },
+    { status: 202 }
+  );
+}
+
 export async function POST(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
@@ -52,12 +67,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Wallet residual: the saved card is charged for `amount -
-    // walletAmount`. Full coverage must use the wallet-only route so
-    // the no-card-charge path runs (a 0-amount Paystack call would
-    // either be rejected by the gateway or silently succeed with no
-    // money moved — neither is acceptable when the customer thinks
-    // they paid).
     const walletAmount = parsed.data.walletAmount ?? 0;
     if (walletAmount === parsed.data.amount && walletAmount > 0) {
       return NextResponse.json(
@@ -68,7 +77,6 @@ export async function POST(request: NextRequest) {
       );
     }
     const residualAmount = parsed.data.amount - walletAmount;
-
     const supabase = createAdminClient();
     const prepared = await preparePendingVtuTransaction({
       supabase,
@@ -77,7 +85,6 @@ export async function POST(request: NextRequest) {
       source: 'checkout',
       requireCustomer: true,
     });
-
     const customer = prepared.customer;
     if (!customer?.id) {
       return NextResponse.json(
@@ -85,7 +92,6 @@ export async function POST(request: NextRequest) {
         { status: 404 }
       );
     }
-
     const savedCard = await getSavedPaymentMethodById({
       supabase,
       merchantId: prepared.merchant.id,
@@ -137,10 +143,6 @@ export async function POST(request: NextRequest) {
       vtu_transaction_id: prepared.transaction.id,
       vtu_type: prepared.transaction.type,
     };
-
-    // `transactions.amount` MUST equal what the gateway charged so the
-    // confirm route's amount-comparison guard stays correct on hybrid
-    // payments. The full bill amount is on `vtu_transactions` already.
     const { error: txInsertError } = await supabase
       .from('transactions')
       .insert({
@@ -157,7 +159,6 @@ export async function POST(request: NextRequest) {
         platform_fee: 0,
         merchant_amount: 0,
       });
-
     if (txInsertError) {
       console.error('Failed to create transaction before charging saved card', {
         error: txInsertError.message,
@@ -175,7 +176,6 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-
     const chargeResult = await chargeAuthorization({
       amount: Math.round(residualAmount * 100),
       authorization_code: savedCard.authorization_code,
@@ -211,7 +211,6 @@ export async function POST(request: NextRequest) {
         authorization,
       });
     }
-
     if (chargeResult.data.paused && chargeResult.data.authorization_url) {
       return NextResponse.json({
         authorization_url: chargeResult.data.authorization_url,
@@ -223,16 +222,8 @@ export async function POST(request: NextRequest) {
     }
 
     if (chargeResult.data.status === 'pending') {
-      return NextResponse.json(
-        {
-          gateway: 'paystack',
-          reference: paymentReference,
-          status: 'processing',
-        },
-        { status: 202 }
-      );
+      return savedCardProcessingResponse(paymentReference);
     }
-
     if (chargeResult.data.status !== 'success') {
       return NextResponse.json(
         {
@@ -242,30 +233,40 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-
-    const fulfillment = await fulfillPendingVtuTransaction({
-      supabase,
-      transactionId: prepared.transaction.id,
-    });
-
+    let fulfillment: Awaited<ReturnType<typeof fulfillPendingVtuTransaction>>;
+    try {
+      fulfillment = await fulfillPendingVtuTransaction({
+        supabase,
+        transactionId: prepared.transaction.id,
+      });
+    } catch (error) {
+      console.error('Saved-card VTU fulfillment failed after charge', {
+        error: error instanceof Error ? error.message : String(error),
+        paymentReference,
+        vtuTransactionId: prepared.transaction.id,
+      });
+      return savedCardProcessingResponse(paymentReference);
+    }
     if (fulfillment.status === 'failed') {
-      return NextResponse.json(
-        {
-          error: fulfillment.error,
-          reference: fulfillment.reference,
-          ...(fulfillment.refundedToWallet !== undefined && {
-            refundedToWallet: fulfillment.refundedToWallet,
-          }),
-        },
-        { status: 400 }
-      );
+      console.warn('Saved-card VTU fulfillment returned failed after charge', {
+        paymentReference,
+        providerReference: fulfillment.reference,
+        refundedToWallet: fulfillment.refundedToWallet,
+        vtuTransactionId: prepared.transaction.id,
+      });
+      return savedCardProcessingResponse(paymentReference, {
+        mayRequireManualCheck: true,
+        message:
+          'Payment was charged, but fulfillment needs review. Check transaction history for final status.',
+        providerReference: fulfillment.reference,
+        ...(fulfillment.refundedToWallet !== undefined && {
+          refundedToWallet: fulfillment.refundedToWallet,
+        }),
+      });
     }
 
     if (fulfillment.status === 'processing') {
-      return NextResponse.json(
-        { reference: fulfillment.reference, status: 'processing' },
-        { status: 202 }
-      );
+      return savedCardProcessingResponse(paymentReference);
     }
 
     return NextResponse.json({

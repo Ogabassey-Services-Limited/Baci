@@ -112,6 +112,10 @@ const ChargeSavedCardProcessingSchema = z.object({
   status: z.literal('processing'),
   reference: z.string(),
   gateway: GatewayEnum.optional(),
+  mayRequireManualCheck: z.boolean().optional(),
+  message: z.string().optional(),
+  providerReference: z.string().optional(),
+  refundedToWallet: z.number().optional(),
 });
 
 export type VTUPaymentGateway = z.infer<typeof GatewayEnum>;

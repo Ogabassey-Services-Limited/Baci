@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { UtilityPaymentOptions } from '@/components/utilities/UtilityPaymentOptions';
+import type { SavedVtuCard } from '@/lib/vtu-checkout';
 
 const mockOnSelectGateway = jest.fn();
 const mockOnSelectSavedCard = jest.fn();
@@ -13,6 +14,18 @@ jest.mock('@/components/useColorScheme', () => ({
 // gating test can assert exactly what UtilityPaymentOptions forwards.
 const lastSelectorProps: { current: Record<string, unknown> | null } = {
   current: null,
+};
+
+const mockSavedCard: SavedVtuCard = {
+  id: 'card-1',
+  provider: 'paystack',
+  label: 'Access Bank ending 1234',
+  brand: 'visa',
+  bank: 'Access Bank',
+  last4: '1234',
+  exp_month: '08',
+  exp_year: '2030',
+  is_default: true,
 };
 
 jest.mock('@/components/checkout/PaymentMethodSelector', () => ({
@@ -45,19 +58,7 @@ describe('UtilityPaymentOptions', () => {
     render(
       <UtilityPaymentOptions
         amount={1000}
-        cards={[
-          {
-            id: 'card-1',
-            provider: 'paystack',
-            label: 'Access Bank ending 1234',
-            brand: 'visa',
-            bank: 'Access Bank',
-            last4: '1234',
-            exp_month: '08',
-            exp_year: '2030',
-            is_default: true,
-          },
-        ]}
+        cards={[mockSavedCard]}
         isLoadingCards={false}
         onSelectGateway={mockOnSelectGateway}
         onSelectSavedCard={mockOnSelectSavedCard}
@@ -77,19 +78,7 @@ describe('UtilityPaymentOptions', () => {
     render(
       <UtilityPaymentOptions
         amount={1000}
-        cards={[
-          {
-            id: 'card-1',
-            provider: 'paystack',
-            label: 'Access Bank ending 1234',
-            brand: 'visa',
-            bank: 'Access Bank',
-            last4: '1234',
-            exp_month: '08',
-            exp_year: '2030',
-            is_default: true,
-          },
-        ]}
+        cards={[mockSavedCard]}
         isLoadingCards={false}
         onSelectGateway={mockOnSelectGateway}
         onSelectSavedCard={mockOnSelectSavedCard}
@@ -110,6 +99,69 @@ describe('UtilityPaymentOptions', () => {
     expect(lastSelectorProps.current).toMatchObject({
       suppressedSelectedMethods: ['paystack'],
       methodLabelOverrides: { paystack: 'Use another card' },
+    });
+  });
+
+  it('does not mark a saved card selected while full-wallet payment is active', () => {
+    const onWalletToggle = jest.fn();
+
+    render(
+      <UtilityPaymentOptions
+        amount={1000}
+        cards={[mockSavedCard]}
+        isLoadingCards={false}
+        onSelectGateway={mockOnSelectGateway}
+        onSelectSavedCard={mockOnSelectSavedCard}
+        selectedGateway="paystack"
+        selectedSavedCardId="card-1"
+        supportedGateways={['paystack', 'korapay']}
+        walletBalance={1500}
+        walletSelection={{ use: true, amount: 1000 }}
+        onWalletToggle={onWalletToggle}
+      />
+    );
+
+    const savedCard = screen.getByLabelText(
+      'Access Bank ending 1234. Expires 08/2030'
+    );
+
+    expect(savedCard.props.accessibilityState).toMatchObject({
+      checked: false,
+    });
+    expect(lastSelectorProps.current?.suppressedSelectedMethods).toBeUndefined();
+
+    fireEvent.press(savedCard);
+
+    expect(onWalletToggle).toHaveBeenCalledWith({ amount: 0, use: false });
+    expect(mockOnSelectSavedCard).toHaveBeenCalledWith('card-1');
+  });
+
+  it('keeps a saved card selected when wallet credit only covers part of the bill', () => {
+    render(
+      <UtilityPaymentOptions
+        amount={1000}
+        cards={[mockSavedCard]}
+        isLoadingCards={false}
+        onSelectGateway={mockOnSelectGateway}
+        onSelectSavedCard={mockOnSelectSavedCard}
+        selectedGateway="paystack"
+        selectedSavedCardId="card-1"
+        supportedGateways={['paystack', 'korapay']}
+        walletBalance={500}
+        walletSelection={{ use: true, amount: 500 }}
+        onWalletToggle={jest.fn()}
+      />
+    );
+
+    const savedCard = screen.getByLabelText(
+      'Access Bank ending 1234. Expires 08/2030'
+    );
+
+    expect(savedCard.props.accessibilityState).toMatchObject({
+      checked: true,
+    });
+    expect(lastSelectorProps.current).toMatchObject({
+      suppressedSelectedMethods: ['paystack'],
     });
   });
 
