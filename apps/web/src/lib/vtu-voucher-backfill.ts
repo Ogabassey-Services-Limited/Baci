@@ -1,6 +1,9 @@
 import { after } from 'next/server';
 import type { createAdminClient } from '@/lib/supabase/admin';
-import { backfillVtuVoucherPin } from '@/lib/vtu-fulfillment';
+import {
+  backfillVtuVoucherPin,
+  fulfillPendingVtuTransaction,
+} from '@/lib/vtu-fulfillment';
 
 export const TOKEN_BACKFILL_TYPES = new Set([
   'electricity',
@@ -94,6 +97,10 @@ export function extractMetadataField<T>(
 
 export function shouldBackfillForType(type: unknown): boolean {
   return TOKEN_BACKFILL_TYPES.has(String(type));
+}
+
+export function shouldBackfillForStatus(status: unknown): boolean {
+  return status === 'successful' || status === 'processing';
 }
 
 function getBackfillAttempts(metadata: MetadataRecord): number {
@@ -212,7 +219,7 @@ export async function scheduleVoucherPinBackfill({
 }): Promise<boolean> {
   if (
     voucherPin !== null ||
-    transaction.status !== 'successful' ||
+    !shouldBackfillForStatus(transaction.status) ||
     !shouldBackfillForType(transaction.type) ||
     hasRecentBackfillSchedule(metadata)
   ) {
@@ -240,17 +247,27 @@ export async function scheduleVoucherPinBackfill({
 
   after(async () => {
     try {
-      const pin = await backfillVtuVoucherPin({
-        billRequestRef: isString(transaction.request_reference)
-          ? transaction.request_reference
-          : null,
-        billResponseReference: isString(transaction.transaction_id)
-          ? transaction.transaction_id
-          : null,
-        metadata: scheduledMetadata,
-        supabase,
-        transactionId,
-      });
+      const pin =
+        transaction.status === 'processing'
+          ? await fulfillPendingVtuTransaction({
+              supabase,
+              transactionId,
+            }).then((result) =>
+              result.status === 'successful'
+                ? (result.voucherPin ?? null)
+                : null
+            )
+          : await backfillVtuVoucherPin({
+              billRequestRef: isString(transaction.request_reference)
+                ? transaction.request_reference
+                : null,
+              billResponseReference: isString(transaction.transaction_id)
+                ? transaction.transaction_id
+                : null,
+              metadata: scheduledMetadata,
+              supabase,
+              transactionId,
+            });
 
       // Kuda didn't return a pin yet — clear the timestamp so the next mobile
       // poll can schedule a fresh attempt immediately instead of waiting for

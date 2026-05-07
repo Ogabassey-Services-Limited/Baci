@@ -37,7 +37,9 @@ export function UtilityPurchaseSuccessView({
   bottomPadding,
 }: UtilityPurchaseSuccessViewProps) {
   const backfilledVoucherPin = useVtuVoucherPinBackfill({
-    enabled: data.status === 'successful' && !data.voucherPin,
+    enabled:
+      (data.status === 'successful' || data.status === 'processing') &&
+      !data.voucherPin,
     reference: data.reference,
     utilityType: type,
   });

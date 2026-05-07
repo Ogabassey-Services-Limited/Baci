@@ -25,9 +25,12 @@ vi.mock('next/server', async () => {
 });
 
 const mockBackfillVtuVoucherPin = vi.fn();
+const mockFulfillPendingVtuTransaction = vi.fn();
 vi.mock('@/lib/vtu-fulfillment', () => ({
   backfillVtuVoucherPin: (...args: unknown[]) =>
     mockBackfillVtuVoucherPin(...args),
+  fulfillPendingVtuTransaction: (...args: unknown[]) =>
+    mockFulfillPendingVtuTransaction(...args),
 }));
 
 let merchantData: { id: string } | null = null;
@@ -180,6 +183,7 @@ describe('GET /api/vtu/history', () => {
     vi.clearAllMocks();
     mockAfter.mockReset();
     mockBackfillVtuVoucherPin.mockReset();
+    mockFulfillPendingVtuTransaction.mockReset();
     merchantData = { id: 'merchant-1' };
     merchantError = null;
     customerByUserIdData = { id: 'customer-1', user_id: 'user-1' };
@@ -455,6 +459,83 @@ describe('GET /api/vtu/history', () => {
       supabase: expect.any(Object),
       transactionId: 'tx-1',
     });
+  });
+
+  it('schedules processing bill reconciliation from history polling', async () => {
+    const { GET } = await import('./route');
+    transactionsData = [
+      {
+        id: 'tx-processing',
+        created_at: '2026-04-08T12:00:00.000Z',
+        type: 'electricity',
+        status: 'processing',
+        amount: '1000',
+        biller_name: 'EKEDC NG',
+        metadata: {
+          paymentReference: 'VTU-PAYSTACK-123',
+        },
+        request_reference: 'VTU-REQ-123',
+        transaction_id: 'kuda-bill-1',
+        customer_cashback: '0',
+      },
+    ];
+    paymentRowsData = [];
+    mockFulfillPendingVtuTransaction.mockResolvedValue({
+      amount: 1000,
+      reference: 'VTU-REQ-123',
+      status: 'processing',
+    });
+
+    const response = await GET(
+      makeRequest('?merchantSlug=ogabassey&type=electricity')
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.transactions).toEqual([
+      expect.objectContaining({
+        id: 'tx-processing',
+        status: 'processing',
+        voucher_pin: null,
+      }),
+    ]);
+    expect(mockAfter).toHaveBeenCalledTimes(1);
+
+    const scheduledBackfillClaim = mockAfter.mock.calls[0]?.[0] as
+      | (() => Promise<void>)
+      | undefined;
+    expect(scheduledBackfillClaim).toBeDefined();
+    if (!scheduledBackfillClaim) {
+      throw new Error(
+        'Expected processing reconciliation claim to be scheduled'
+      );
+    }
+    await scheduledBackfillClaim();
+
+    expect(vtuTransactionUpdatePayloads).toEqual([
+      {
+        metadata: expect.objectContaining({
+          voucherPinBackfillAttempts: 1,
+          voucherPinBackfillScheduledAt: expect.any(String),
+        }),
+      },
+    ]);
+    expect(mockAfter).toHaveBeenCalledTimes(2);
+
+    const scheduledReconciliation = mockAfter.mock.calls[1]?.[0] as
+      | (() => Promise<void>)
+      | undefined;
+    expect(scheduledReconciliation).toBeDefined();
+    if (!scheduledReconciliation) {
+      throw new Error('Expected processing reconciliation to be scheduled');
+    }
+    await scheduledReconciliation();
+
+    expect(mockFulfillPendingVtuTransaction).toHaveBeenCalledWith({
+      supabase: expect.any(Object),
+      transactionId: 'tx-processing',
+    });
+    expect(mockBackfillVtuVoucherPin).not.toHaveBeenCalled();
   });
 
   it('does not wait for voucher-pin backfill scheduling before returning history', async () => {
