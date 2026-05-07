@@ -45,7 +45,10 @@ interface PendingTransactionMockOptions {
   existingCustomerCashback?: { balance_after: number } | null;
   existingMerchantCommission?: { id: string } | null;
   transactionRow: Record<string, unknown>;
-  rpcImpl?: (name: string) => Promise<{ data: unknown; error: unknown }>;
+  rpcImpl?: (
+    name: string,
+    args?: Record<string, unknown>
+  ) => Promise<{ data: unknown; error: unknown }>;
   merchantData?: { business_name?: string };
   claimData?: Record<string, unknown> | null;
   notificationClaimData?: { id: string } | null;
@@ -306,7 +309,26 @@ function createPendingTransactionSupabaseMock({
         }),
       };
     }),
-    rpc: vi.fn(rpcImpl ?? (() => Promise.resolve({ data: null, error: null }))),
+    rpc: vi.fn((name: string, args?: Record<string, unknown>) => {
+      if (name === 'claim_vtu_customer_notification_attempt') {
+        return Promise.resolve({
+          data: notificationClaimData
+            ? {
+                ...(transactionRow.metadata &&
+                typeof transactionRow.metadata === 'object'
+                  ? (transactionRow.metadata as Record<string, unknown>)
+                  : {}),
+                customerNotificationAttempted: true,
+              }
+            : null,
+          error: null,
+        });
+      }
+
+      return rpcImpl
+        ? rpcImpl(name, args)
+        : Promise.resolve({ data: null, error: null });
+    }),
   } as unknown as SupabaseStub;
 }
 
@@ -452,6 +474,60 @@ describe('fulfillPendingVtuTransaction', () => {
         type: 'vtu_purchase_success',
         vtuType: 'airtime',
       },
+      'orders'
+    );
+  });
+
+  it('sends a token-ready notification for successful bill purchases with a voucher pin', async () => {
+    const supabase = createPendingTransactionSupabaseMock({
+      claimData: null,
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-1',
+        status: 'successful',
+        metadata: {
+          voucherPin: 'TOKEN-READY-1234',
+        },
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC PREPAID',
+        biller_item_code: 'KUD-ELE-EKED-002',
+        customer_identifier: '43901766923',
+      },
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(result).toMatchObject({
+      status: 'successful',
+      voucherPin: 'TOKEN-READY-1234',
+    });
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'claim_vtu_customer_notification_attempt',
+      { p_transaction_id: 'vtu-1' }
+    );
+    expect(mockNotifyCustomer).toHaveBeenCalledWith(
+      'user-1',
+      'Token ready',
+      'Your EKEDC PREPAID electricity token is ready. Tap to view it.',
+      expect.objectContaining({
+        reference: 'VTU-123',
+        transactionId: 'vtu-1',
+        type: 'vtu_token_ready',
+        utilityType: 'power',
+        vtuType: 'electricity',
+      }),
       'orders'
     );
   });

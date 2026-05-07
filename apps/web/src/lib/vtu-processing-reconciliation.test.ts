@@ -19,7 +19,6 @@ function createProcessingQuery({
 }) {
   const query = {
     eq: vi.fn(() => query),
-    gte: vi.fn(() => query),
     in: vi.fn(() => query),
     limit: vi.fn(async () => ({ data, error })),
     lte: vi.fn(() => query),
@@ -56,9 +55,7 @@ describe('reconcileProcessingVtuTransactions', () => {
     });
 
     expect(supabase.from).toHaveBeenCalledWith('vtu_transactions');
-    expect(query.select).toHaveBeenCalledWith(
-      'id, request_reference, transaction_id, type, created_at, updated_at'
-    );
+    expect(query.select).toHaveBeenCalledWith('id');
     expect(query.eq).toHaveBeenCalledWith('status', 'processing');
     expect(query.in).toHaveBeenCalledWith('type', [
       'electricity',
@@ -68,10 +65,6 @@ describe('reconcileProcessingVtuTransactions', () => {
     expect(query.lte).toHaveBeenCalledWith(
       'created_at',
       '2026-05-07T21:14:15.000Z'
-    );
-    expect(query.gte).toHaveBeenCalledWith(
-      'created_at',
-      '2026-05-06T21:15:00.000Z'
     );
     expect(query.order).toHaveBeenCalledWith('created_at', {
       ascending: true,

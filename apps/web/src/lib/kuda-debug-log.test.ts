@@ -108,6 +108,29 @@ describe('kuda-debug-log', () => {
     });
   });
 
+  it('serializes raw debug payloads with BigInt and circular values safely', async () => {
+    vi.stubEnv('KUDA_BILL_DEBUG', '1');
+    const { logKudaRawResponse } = await import('@/lib/kuda-debug-log');
+    const raw: Record<string, unknown> = {
+      status: true,
+      value: 10n,
+    };
+    raw.self = raw;
+
+    logKudaRawResponse({
+      raw,
+      requestData: { BillResponseReference: 'kuda-bill-1' },
+      requestRef: 'REQ-123',
+      serviceType: 'BILL_TSQ',
+    });
+
+    expect(loggerMocks.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rawResponseJson: '{"status":true,"value":"10","self":"[Circular]"}',
+      })
+    );
+  });
+
   it('does not log supported Kuda bill raw responses when debug is disabled', async () => {
     vi.stubEnv('KUDA_BILL_DEBUG', '0');
     const { logKudaRawResponse } = await import('@/lib/kuda-debug-log');

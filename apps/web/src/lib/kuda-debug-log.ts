@@ -69,26 +69,69 @@ function shouldRedactKudaDebugValue(key: string, value: unknown) {
 }
 
 export function redactKudaDebugPayload(value: unknown, depth = 0): unknown {
+  return redactKudaDebugValue(value, depth, new WeakSet<object>());
+}
+
+function redactKudaDebugValue(
+  value: unknown,
+  depth: number,
+  seen: WeakSet<object>
+): unknown {
   if (depth > 7) {
     return '[MAX_DEPTH]';
   }
 
   if (Array.isArray(value)) {
-    return value.map((item) => redactKudaDebugPayload(item, depth + 1));
+    if (seen.has(value)) {
+      return '[Circular]';
+    }
+    seen.add(value);
+    return value.map((item) => redactKudaDebugValue(item, depth + 1, seen));
   }
 
   if (!value || typeof value !== 'object') {
     return value;
   }
 
+  if (seen.has(value)) {
+    return '[Circular]';
+  }
+  seen.add(value);
+
   return Object.entries(value as Record<string, unknown>).reduce<
     Record<string, unknown>
   >((payload, [key, nestedValue]) => {
     payload[key] = shouldRedactKudaDebugValue(key, nestedValue)
       ? getDebugValueShape(nestedValue)
-      : redactKudaDebugPayload(nestedValue, depth + 1);
+      : redactKudaDebugValue(nestedValue, depth + 1, seen);
     return payload;
   }, {});
+}
+
+function safeSerialize(value: unknown) {
+  const seen = new WeakSet<object>();
+
+  try {
+    return JSON.stringify(value, (_key, nestedValue: unknown) => {
+      if (typeof nestedValue === 'bigint') {
+        return nestedValue.toString();
+      }
+
+      if (nestedValue && typeof nestedValue === 'object') {
+        if (seen.has(nestedValue)) {
+          return '[Circular]';
+        }
+        seen.add(nestedValue);
+      }
+
+      return nestedValue;
+    });
+  } catch (error) {
+    return JSON.stringify({
+      error: error instanceof Error ? error.message : String(error),
+      serializationFailed: true,
+    });
+  }
 }
 
 export function logKudaRawResponse({
@@ -115,10 +158,10 @@ export function logKudaRawResponse({
   logger.info({
     message: 'Kuda raw response received',
     requestData: redactedRequestData,
-    requestDataJson: JSON.stringify(redactedRequestData),
+    requestDataJson: safeSerialize(redactedRequestData),
     requestRef,
     rawResponse: redactedRawResponse,
-    rawResponseJson: JSON.stringify(redactedRawResponse),
+    rawResponseJson: safeSerialize(redactedRawResponse),
     serviceType,
   });
 }

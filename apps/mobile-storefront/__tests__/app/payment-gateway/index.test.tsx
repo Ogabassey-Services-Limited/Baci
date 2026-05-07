@@ -286,7 +286,14 @@ describe('PaymentGatewayScreen', () => {
     fireEvent.press(screen.getByLabelText('mock-payment-success-navigation'));
 
     expect(screen.queryByText('Order Confirmed!')).toBeNull();
-    expect(screen.getByText('Confirming Utility Purchase')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByText('Payment Received')).toBeTruthy();
+      expect(
+        screen.getByText(
+          "We're generating your token now. This usually takes 30-60 seconds, and we'll notify you when it's ready."
+        )
+      ).toBeTruthy();
+    });
 
     await act(async () => {
       rejectConfirmation?.(

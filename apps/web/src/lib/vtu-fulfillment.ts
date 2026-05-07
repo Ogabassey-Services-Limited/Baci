@@ -292,6 +292,27 @@ function getVtuProviderLabel(row: VtuTransactionRow) {
   return row.network_provider || row.biller_name || VTU_TYPE_LABELS[row.type];
 }
 
+function getStorefrontUtilityType(type: VtuTransactionRow['type']) {
+  switch (type) {
+    case 'airtime':
+      return 'airtime';
+    case 'data':
+      return 'data';
+    case 'electricity':
+      return 'power';
+    case 'cable_tv':
+      return 'tv';
+    case 'betting':
+      return 'gaming';
+    default:
+      return assertNeverVtuType(type);
+  }
+}
+
+function assertNeverVtuType(value: never): never {
+  throw new Error(`Unhandled VTU transaction type: ${value}`);
+}
+
 function setMetadataValue(
   metadata: Record<string, unknown>,
   key: string,
@@ -974,18 +995,12 @@ async function claimCustomerNotificationAttempt({
     return false;
   }
 
-  const claimedMetadata = { ...metadata };
-  setMetadataValue(claimedMetadata, 'customerNotificationAttempted', true);
-
-  const { data, error } = await supabase
-    .from('vtu_transactions')
-    .update({ metadata: claimedMetadata })
-    .eq('id', row.id)
-    .or(
-      'metadata->>customerNotificationAttempted.is.null,metadata->>customerNotificationAttempted.neq.true'
-    )
-    .select('id')
-    .maybeSingle();
+  const { data, error } = await supabase.rpc(
+    'claim_vtu_customer_notification_attempt',
+    {
+      p_transaction_id: row.id,
+    }
+  );
 
   if (error) {
     console.error('Failed to claim VTU customer notification attempt:', {
@@ -995,7 +1010,8 @@ async function claimCustomerNotificationAttempt({
     return false;
   }
 
-  if (!data) {
+  const claimedMetadata = readMetadataRecord(data);
+  if (Object.keys(claimedMetadata).length === 0) {
     return false;
   }
 
@@ -1047,27 +1063,45 @@ async function notifyVtuCustomerSuccess({
 
   const label = VTU_TYPE_LABELS[row.type];
   const provider = getVtuProviderLabel(row);
+  const voucherPin = getVoucherPinFromMetadata(metadata);
+  const isTokenReady =
+    canResolveBillVoucherPin(row.type) && Boolean(voucherPin);
   const baseBody = `Your ${provider} ${label.toLowerCase()} purchase of ${formatNaira(Number(row.amount) || 0)} was successful.`;
   const cashbackBody =
     cashbackAmount > 0 && customerWalletCredited
       ? ` ${formatNaira(cashbackAmount)} cashback was credited to your wallet.`
       : '';
-
-  let metadataChanged = true;
-
-  try {
-    const result = await notifyCustomer(
-      customer.user_id,
-      `${label} purchase successful`,
-      `${baseBody}${cashbackBody}`,
-      {
+  const title = isTokenReady ? 'Token ready' : `${label} purchase successful`;
+  const body = isTokenReady
+    ? `Your ${provider} ${label.toLowerCase()} token is ready. Tap to view it.${cashbackBody}`
+    : `${baseBody}${cashbackBody}`;
+  const payload = isTokenReady
+    ? {
+        amount: Number(row.amount) || 0,
+        cashbackAmount,
+        reference: row.request_reference,
+        transactionId: row.id,
+        type: 'vtu_token_ready',
+        utilityType: getStorefrontUtilityType(row.type),
+        vtuType: row.type,
+      }
+    : {
         amount: Number(row.amount) || 0,
         cashbackAmount,
         reference: row.request_reference,
         transactionId: row.id,
         type: 'vtu_purchase_success',
         vtuType: row.type,
-      },
+      };
+
+  let metadataChanged = true;
+
+  try {
+    const result = await notifyCustomer(
+      customer.user_id,
+      title,
+      body,
+      payload,
       'orders'
     );
 

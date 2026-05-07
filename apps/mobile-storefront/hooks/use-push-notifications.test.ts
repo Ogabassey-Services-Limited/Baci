@@ -25,6 +25,10 @@ const mockSavePushTokenToServer =
   jest.fn<
     (token: string, userId: string, merchantId?: string) => Promise<boolean>
   >();
+const mockRouterPush = jest.fn();
+let mockNotificationResponseCallback:
+  | ((response: Record<string, unknown>) => void)
+  | null = null;
 
 // push-token-storage mocks
 const mockGetStoredPushToken = jest.fn<() => Promise<string | null>>();
@@ -36,7 +40,7 @@ const mockSetPushOptOut =
 
 jest.mock('expo-router', () => ({
   router: {
-    push: jest.fn(),
+    push: mockRouterPush,
   },
 }));
 
@@ -44,9 +48,14 @@ jest.mock('expo-notifications', () => ({
   addNotificationReceivedListener: jest.fn(() => ({
     remove: mockNotificationListenerRemove,
   })),
-  addNotificationResponseReceivedListener: jest.fn(() => ({
-    remove: mockResponseListenerRemove,
-  })),
+  addNotificationResponseReceivedListener: jest.fn(
+    (callback: (response: Record<string, unknown>) => void) => {
+      mockNotificationResponseCallback = callback;
+      return {
+        remove: mockResponseListenerRemove,
+      };
+    }
+  ),
   getLastNotificationResponseAsync: jest
     .fn<() => Promise<null>>()
     .mockResolvedValue(null),
@@ -80,10 +89,19 @@ const mockedUseAuthStore = (
 
 const { usePushNotifications } =
   require('./use-push-notifications') as typeof import('./use-push-notifications');
+const { handleNotificationResponse } = jest.requireMock(
+  '@/services/push-notifications'
+) as {
+  handleNotificationResponse: jest.MockedFunction<
+    typeof import('@/services/push-notifications')['handleNotificationResponse']
+  >;
+};
 
 describe('usePushNotifications', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    handleNotificationResponse.mockReset();
+    mockNotificationResponseCallback = null;
     mockedUseAuthStore.mockImplementation((selector) =>
       selector({
         merchantId: 'merchant-1',
@@ -320,6 +338,32 @@ describe('usePushNotifications', () => {
     expect(result.current.pushToken).toBeNull();
     expect(result.current.registeredUserId).toBeNull();
     expect(result.current.isRegistered).toBe(false);
+  });
+
+  it('routes token-ready notification taps to utility history', async () => {
+    handleNotificationResponse.mockImplementation(
+      (
+        _response: unknown,
+        navigate: (
+          screen: string,
+          params?: Record<string, string>
+        ) => void
+      ) => {
+        navigate('utility-history', { type: 'power' });
+      }
+    );
+
+    renderHook(() => usePushNotifications());
+
+    await waitFor(() => {
+      expect(mockNotificationResponseCallback).not.toBeNull();
+    });
+
+    await act(async () => {
+      mockNotificationResponseCallback?.({});
+    });
+
+    expect(mockRouterPush).toHaveBeenCalledWith('/utilities/history?type=power');
   });
 
   // --- unregister() tests ---

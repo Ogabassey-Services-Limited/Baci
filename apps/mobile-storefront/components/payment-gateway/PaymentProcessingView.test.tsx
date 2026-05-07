@@ -16,17 +16,43 @@ describe('PaymentProcessingView', () => {
     jest.clearAllMocks();
   });
 
-  it('renders utility purchase confirmation copy', () => {
-    render(<PaymentProcessingView colors={Colors.light} />);
+  it('renders utility token-generation copy', () => {
+    render(
+      <PaymentProcessingView
+        colors={Colors.light}
+        paymentKind="vtu"
+        utilityType="power"
+      />
+    );
 
-    expect(screen.getByText('Confirming Utility Purchase')).toBeOnTheScreen();
+    expect(screen.getByText('Payment Received')).toBeOnTheScreen();
     expect(
       screen.getByText(
-        "We're confirming your token and receipt. This usually takes a few seconds."
+        "We're generating your token now. This usually takes 30-60 seconds, and we'll notify you when it's ready."
       )
     ).toBeOnTheScreen();
     expect(
-      screen.getByLabelText('Confirming utility purchase')
+      screen.getByLabelText('Generating utility token')
+    ).toBeOnTheScreen();
+  });
+
+  it('renders non-token utility completion copy', () => {
+    render(
+      <PaymentProcessingView
+        colors={Colors.light}
+        paymentKind="vtu"
+        utilityType="data"
+      />
+    );
+
+    expect(screen.getByText('Payment Received')).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        "We're completing your utility purchase now. This usually takes a few seconds."
+      )
+    ).toBeOnTheScreen();
+    expect(
+      screen.getByLabelText('Completing utility purchase')
     ).toBeOnTheScreen();
   });
 

@@ -40,6 +40,12 @@ export async function GET(request: NextRequest) {
     const summary = await reconcileProcessingVtuTransactions({
       supabase: createAdminClient(),
     });
+    if (summary.errored > 0) {
+      logger.warn({
+        message: 'Processing VTU reconciliation cron completed with errors',
+        summary,
+      });
+    }
     return NextResponse.json(summary);
   } catch (error) {
     logger.error({

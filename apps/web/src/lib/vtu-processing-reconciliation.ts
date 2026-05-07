@@ -5,7 +5,6 @@ const RECONCILABLE_VTU_TYPES = ['electricity', 'cable_tv', 'betting'] as const;
 const DEFAULT_RECONCILIATION_LIMIT = 25;
 const MAX_RECONCILIATION_LIMIT = 50;
 const MIN_PROCESSING_AGE_MS = 45_000;
-const MAX_PROCESSING_AGE_MS = 24 * 60 * 60 * 1000;
 
 interface ProcessingVtuCandidate {
   id: string;
@@ -45,16 +44,12 @@ export async function reconcileProcessingVtuTransactions({
   supabase: SupabaseClient;
 }): Promise<VtuProcessingReconciliationSummary> {
   const olderThan = new Date(now.getTime() - MIN_PROCESSING_AGE_MS);
-  const newerThan = new Date(now.getTime() - MAX_PROCESSING_AGE_MS);
   const { data, error } = await supabase
     .from('vtu_transactions')
-    .select(
-      'id, request_reference, transaction_id, type, created_at, updated_at'
-    )
+    .select('id')
     .eq('status', 'processing')
     .in('type', [...RECONCILABLE_VTU_TYPES])
     .lte('created_at', olderThan.toISOString())
-    .gte('created_at', newerThan.toISOString())
     .order('created_at', { ascending: true })
     .limit(normalizeLimit(limit));
 

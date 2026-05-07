@@ -12,6 +12,7 @@ vi.mock('@/lib/supabase/admin', () => ({
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
+    warn: vi.fn(),
   },
 }));
 
@@ -20,6 +21,7 @@ vi.mock('@/lib/vtu-processing-reconciliation', () => ({
 }));
 
 import { getCronSecret } from '@/env';
+import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { reconcileProcessingVtuTransactions } from '@/lib/vtu-processing-reconciliation';
 import { GET, maxDuration } from './route';
@@ -82,6 +84,26 @@ describe('GET /api/cron/reconcile-vtu-processing', () => {
     expect(createAdminClient).toHaveBeenCalledTimes(1);
     expect(reconcileProcessingVtuTransactions).toHaveBeenCalledWith({
       supabase: { admin: true },
+    });
+  });
+
+  it('logs a warning when reconciliation returns row-level errors', async () => {
+    const summary = {
+      checked: 2,
+      errored: 1,
+      errors: [{ message: 'Kuda TSQ unavailable', transactionId: 'tx-1' }],
+      failed: 0,
+      processing: 1,
+      successful: 0,
+    };
+    vi.mocked(reconcileProcessingVtuTransactions).mockResolvedValue(summary);
+
+    const response = await GET(createCronRequest());
+
+    expect(response.status).toBe(200);
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: 'Processing VTU reconciliation cron completed with errors',
+      summary,
     });
   });
 
