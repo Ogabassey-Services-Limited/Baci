@@ -19,6 +19,18 @@ const KNOWN_PROVIDER_LABELS: Record<string, string> = {
   TOPSHIP: 'Topship',
 };
 
+function getFirstNonBlankString(
+  ...values: Array<string | null | undefined>
+): string {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+  return '';
+}
+
 export function orderRequiresFulfillment(
   items: OrderItem[] | undefined
 ): boolean {
@@ -80,9 +92,11 @@ export function getInitialFulfillmentDetails(
   serialNumber: string;
 } {
   return {
-    imei: details?.imei?.trim() ?? '',
-    serialNumber:
-      details?.serialNumber?.trim() ?? details?.serial_number?.trim() ?? '',
+    imei: getFirstNonBlankString(details?.imei),
+    serialNumber: getFirstNonBlankString(
+      details?.serialNumber,
+      details?.serial_number
+    ),
   };
 }
 

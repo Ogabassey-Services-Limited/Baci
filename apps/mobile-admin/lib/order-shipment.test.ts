@@ -107,6 +107,7 @@ describe('order-shipment', () => {
     expect(
       getInitialFulfillmentDetails({
         imei: '',
+        serialNumber: ' ',
         serial_number: ' LEGACY-SN ',
       })
     ).toEqual({

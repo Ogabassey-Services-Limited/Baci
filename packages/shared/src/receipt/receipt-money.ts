@@ -1,0 +1,59 @@
+import type { ReceiptMerchant, ReceiptOrder } from './types';
+
+const CURRENCY_LOCALE_MAP: Record<string, string> = {
+  NGN: 'en-NG',
+  GHS: 'en-GH',
+  KES: 'en-KE',
+  USD: 'en-US',
+  GBP: 'en-GB',
+  EUR: 'de-DE',
+  ZAR: 'en-ZA',
+  XAF: 'fr-CM',
+  XOF: 'fr-SN',
+};
+
+const MONEY_TOLERANCE = 0.01;
+
+export type MoneyFormatter = (amount: number) => string;
+
+export function createMoneyFormatter(currencyCode: string): MoneyFormatter {
+  const locale = CURRENCY_LOCALE_MAP[currencyCode] || 'en-NG';
+  return (amount) =>
+    new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: currencyCode,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+}
+
+export function hexToRgba(hex: string, alpha: number): string {
+  const cleaned = hex.replace('#', '');
+  const r = Number.parseInt(cleaned.substring(0, 2), 16);
+  const g = Number.parseInt(cleaned.substring(2, 4), 16);
+  const b = Number.parseInt(cleaned.substring(4, 6), 16);
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) {
+    return `rgba(26, 26, 46, ${alpha})`;
+  }
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function almostEqual(left: number, right: number): boolean {
+  return Math.abs(left - right) <= MONEY_TOLERANCE;
+}
+
+export function shouldShowVatLine(
+  order: ReceiptOrder,
+  merchant: ReceiptMerchant
+): boolean {
+  if (
+    merchant.vat_registration_status !== 'registered' ||
+    order.tax_amount <= 0
+  ) {
+    return false;
+  }
+
+  const totalBeforeTax =
+    order.subtotal - order.discount_amount + order.shipping_fee;
+  return almostEqual(order.total, totalBeforeTax + order.tax_amount);
+}
