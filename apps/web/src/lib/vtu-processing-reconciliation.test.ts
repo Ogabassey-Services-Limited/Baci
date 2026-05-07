@@ -50,7 +50,7 @@ describe('reconcileProcessingVtuTransactions', () => {
 
     const result = await reconcileProcessingVtuTransactions({
       limit: 2,
-      now: new Date('2026-05-07T21:15:00.000Z'),
+      now: new Date('2026-05-07T21:14:00.000Z'),
       supabase: supabase as never,
     });
 
@@ -64,7 +64,7 @@ describe('reconcileProcessingVtuTransactions', () => {
     ]);
     expect(query.lte).toHaveBeenCalledWith(
       'created_at',
-      '2026-05-07T21:14:15.000Z'
+      '2026-05-07T21:13:15.000Z'
     );
     expect(query.order).toHaveBeenCalledWith('created_at', {
       ascending: true,
@@ -85,6 +85,29 @@ describe('reconcileProcessingVtuTransactions', () => {
       failed: 0,
       processing: 1,
       successful: 1,
+    });
+  });
+
+  it('prioritizes newest processing rows on alternating cron ticks', async () => {
+    const query = createProcessingQuery({
+      data: [{ id: 'tx-newest' }],
+    });
+    const supabase = createSupabase(query);
+    fulfillPendingVtuTransactionMock.mockResolvedValueOnce({
+      status: 'processing',
+    });
+
+    await reconcileProcessingVtuTransactions({
+      now: new Date('2026-05-07T21:15:00.000Z'),
+      supabase: supabase as never,
+    });
+
+    expect(query.order).toHaveBeenCalledWith('created_at', {
+      ascending: false,
+    });
+    expect(fulfillPendingVtuTransactionMock).toHaveBeenCalledWith({
+      supabase,
+      transactionId: 'tx-newest',
     });
   });
 

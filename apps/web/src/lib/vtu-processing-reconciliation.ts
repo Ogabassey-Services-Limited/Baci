@@ -34,6 +34,10 @@ function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
+function shouldPrioritizeNewestProcessingRows(now: Date) {
+  return now.getUTCMinutes() % 2 === 1;
+}
+
 export async function reconcileProcessingVtuTransactions({
   limit,
   now = new Date(),
@@ -50,7 +54,9 @@ export async function reconcileProcessingVtuTransactions({
     .eq('status', 'processing')
     .in('type', [...RECONCILABLE_VTU_TYPES])
     .lte('created_at', olderThan.toISOString())
-    .order('created_at', { ascending: true })
+    .order('created_at', {
+      ascending: !shouldPrioritizeNewestProcessingRows(now),
+    })
     .limit(normalizeLimit(limit));
 
   if (error) {
