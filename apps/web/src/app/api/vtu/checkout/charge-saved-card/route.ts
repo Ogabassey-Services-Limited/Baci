@@ -177,13 +177,22 @@ export async function POST(request: NextRequest) {
         error: txInsertError.message,
         vtuTransactionId: prepared.transaction.id,
       });
-      await supabase
+      const { error: vtuFailureUpdateError } = await supabase
         .from('vtu_transactions')
         .update({
           status: 'failed',
           error_message: 'Payment record creation failed',
         })
         .eq('id', prepared.transaction.id);
+      if (vtuFailureUpdateError) {
+        console.error(
+          'Failed to mark VTU transaction failed after payment record creation error',
+          {
+            error: vtuFailureUpdateError.message,
+            vtuTransactionId: prepared.transaction.id,
+          }
+        );
+      }
       return NextResponse.json(
         { error: 'Failed to create payment record' },
         { status: 500 }
@@ -202,7 +211,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: chargeResult.error }, { status: 400 });
     }
 
-    await supabase
+    const { error: txUpdateError } = await supabase
       .from('transactions')
       .update({
         gateway_response: chargeResult.data,
@@ -229,6 +238,13 @@ export async function POST(request: NextRequest) {
       });
     }
     if (chargeResult.data.paused && chargeResult.data.authorization_url) {
+      if (txUpdateError) {
+        console.error('Failed to persist paused saved-card payment status', {
+          error: txUpdateError.message,
+          paymentReference,
+          vtuTransactionId: prepared.transaction.id,
+        });
+      }
       return NextResponse.json({
         authorization_url: chargeResult.data.authorization_url,
         gateway: 'paystack',
@@ -239,25 +255,59 @@ export async function POST(request: NextRequest) {
     }
 
     if (chargeResult.data.status === 'pending') {
+      if (txUpdateError) {
+        console.error('Failed to persist pending saved-card payment status', {
+          error: txUpdateError.message,
+          paymentReference,
+          vtuTransactionId: prepared.transaction.id,
+        });
+      }
       return savedCardProcessingResponse(paymentReference);
     }
     if (chargeResult.data.status !== 'success') {
       const failureMessage = getSavedCardPaymentFailureMessage(
         chargeResult.data
       );
-      await supabase
+      const { error: vtuFailureUpdateError } = await supabase
         .from('vtu_transactions')
         .update({
           error_message: failureMessage,
           status: 'failed',
         })
         .eq('id', prepared.transaction.id);
+      if (txUpdateError || vtuFailureUpdateError) {
+        console.error('Failed to persist saved-card payment failure state', {
+          paymentError: failureMessage,
+          paymentReference,
+          transactionUpdateError: txUpdateError?.message,
+          vtuTransactionId: prepared.transaction.id,
+          vtuTransactionUpdateError: vtuFailureUpdateError?.message,
+        });
+        return NextResponse.json(
+          {
+            error:
+              'Payment failed, but we could not update the transaction status. Please check transaction history before retrying.',
+          },
+          { status: 500 }
+        );
+      }
       return NextResponse.json(
         {
           error: failureMessage,
         },
         { status: 400 }
       );
+    }
+    if (txUpdateError) {
+      console.error('Failed to persist successful saved-card payment status', {
+        error: txUpdateError.message,
+        paymentReference,
+        vtuTransactionId: prepared.transaction.id,
+      });
+      return savedCardProcessingResponse(paymentReference, {
+        message:
+          'Payment was received, but confirmation is still processing. Check transaction history for final status.',
+      });
     }
     let fulfillment: Awaited<ReturnType<typeof fulfillPendingVtuTransaction>>;
     try {
