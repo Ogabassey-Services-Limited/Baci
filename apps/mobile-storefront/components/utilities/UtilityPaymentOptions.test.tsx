@@ -30,20 +30,43 @@ const mockSavedCard: SavedVtuCard = {
 
 jest.mock('@/components/checkout/PaymentMethodSelector', () => ({
   PaymentMethodSelector: (props: {
-    onSelectMethod: (method: 'paystack' | 'korapay') => void;
+    enabledMethods?: Array<'paystack' | 'korapay' | 'bank_transfer'>;
+    methodBadgeOverrides?: Record<string, string>;
+    methodDescriptionOverrides?: Record<string, string>;
+    methodLabelOverrides?: Record<string, string>;
+    onSelectMethod: (method: 'paystack' | 'korapay' | 'bank_transfer') => void;
   }) => {
     lastSelectorProps.current = props as unknown as Record<string, unknown>;
     const { Pressable, Text, View } =
       jest.requireActual<typeof import('react-native')>('react-native');
+    const enabledMethods = props.enabledMethods ?? ['paystack', 'korapay'];
+    const labelFor = (method: 'paystack' | 'bank_transfer') =>
+      props.methodLabelOverrides?.[method] ??
+      (method === 'paystack' ? 'Pay with Card' : 'Bank Transfer');
 
     return (
       <View>
-        <Pressable onPress={() => props.onSelectMethod('paystack')}>
-          <Text>Pay with Card</Text>
-        </Pressable>
-        <Pressable onPress={() => props.onSelectMethod('korapay')}>
-          <Text>Pay with Korapay</Text>
-        </Pressable>
+        {enabledMethods.includes('paystack') ? (
+          <Pressable onPress={() => props.onSelectMethod('paystack')}>
+            <Text>{labelFor('paystack')}</Text>
+            {props.methodDescriptionOverrides?.paystack ? (
+              <Text>{props.methodDescriptionOverrides.paystack}</Text>
+            ) : null}
+            {props.methodBadgeOverrides?.paystack ? (
+              <Text>{props.methodBadgeOverrides.paystack}</Text>
+            ) : null}
+          </Pressable>
+        ) : null}
+        {enabledMethods.includes('bank_transfer') ? (
+          <Pressable onPress={() => props.onSelectMethod('bank_transfer')}>
+            <Text>{labelFor('bank_transfer')}</Text>
+          </Pressable>
+        ) : null}
+        {enabledMethods.includes('korapay') ? (
+          <Pressable onPress={() => props.onSelectMethod('korapay')}>
+            <Text>Pay with Korapay</Text>
+          </Pressable>
+        ) : null}
       </View>
     );
   },
@@ -98,7 +121,10 @@ describe('UtilityPaymentOptions', () => {
     });
     expect(lastSelectorProps.current).toMatchObject({
       suppressedSelectedMethods: ['paystack'],
-      methodLabelOverrides: { paystack: 'Use another card' },
+      methodLabelOverrides: {
+        bank_transfer: 'Pay with Bank Transfer',
+        paystack: 'Use another card',
+      },
     });
   });
 
@@ -181,6 +207,30 @@ describe('UtilityPaymentOptions', () => {
 
     fireEvent.press(screen.getByText('Pay with Korapay'));
     expect(mockOnSelectGateway).toHaveBeenCalledWith('korapay');
+  });
+
+  it('shows card and bank transfer options with Paystack trust and card cashback copy', () => {
+    render(
+      <UtilityPaymentOptions
+        amount={1000}
+        cards={[]}
+        isLoadingCards={false}
+        onSelectGateway={mockOnSelectGateway}
+        onSelectSavedCard={mockOnSelectSavedCard}
+        selectedGateway="paystack"
+        selectedSavedCardId={null}
+        supportedGateways={['paystack', 'bank_transfer']}
+      />
+    );
+
+    expect(screen.getByText('Pay with Card')).toBeTruthy();
+    expect(screen.getByText('Pay with Bank Transfer')).toBeTruthy();
+    expect(screen.getByText(/Secured by/i)).toBeTruthy();
+    expect(screen.getByText('Paystack')).toBeTruthy();
+    expect(
+      screen.getByText('2x cashback on your first card payment')
+    ).toBeTruthy();
+    expect(screen.getByText('2x cashback')).toBeTruthy();
   });
 
   // Phase B.8 — wallet gating contract. The shared selector treats

@@ -176,6 +176,33 @@ describe('vtu-checkout service', () => {
     });
   });
 
+  it('sends bank transfer as a utility checkout gateway while using Paystack for confirmation', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        authorization_url: 'https://paystack.com/pay/bank-transfer',
+        gateway: 'paystack',
+        reference: 'VTU-BANK-123',
+        vtu_reference: 'REQ-BANK-123',
+        vtu_transaction_id: 'vtu-bank-1',
+      }),
+    });
+
+    const result = await initializeVtuCheckout({
+      amount: 1000,
+      gateway: 'bank_transfer',
+      phoneNumber: '08012345678',
+      networkProvider: 'mtn',
+      type: 'airtime',
+    });
+
+    expect(result.gateway).toBe('paystack');
+    expect(parseMockRequestBody()).toMatchObject({
+      gateway: 'bank_transfer',
+    });
+  });
+
   it('confirms a successful VTU checkout', async () => {
     mockFetchWithTimeout.mockResolvedValue({
       ok: true,

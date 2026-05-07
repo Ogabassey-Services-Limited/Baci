@@ -9,6 +9,18 @@ const mockFulfillPendingVtuTransaction = vi.fn();
 const mockUpsertPaystackAuthorization = vi.fn();
 const mockFrom = vi.fn();
 const transactionsInsertCalls: Record<string, unknown>[] = [];
+const updateCalls: Array<{
+  eqColumn: string;
+  eqValue: unknown;
+  table: string;
+  values: Record<string, unknown>;
+}> = [];
+let updateErrorFor: (input: {
+  eqColumn: string;
+  eqValue: unknown;
+  table: string;
+  values: Record<string, unknown>;
+}) => Error | null = () => null;
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
@@ -118,7 +130,9 @@ describe('POST /api/vtu/checkout/charge-saved-card', () => {
       amount: 1000,
       reference: 'VTU-123',
     });
+    updateErrorFor = () => null;
     transactionsInsertCalls.length = 0;
+    updateCalls.length = 0;
     mockFrom.mockImplementation((table: string) => ({
       insert: vi.fn((row: Record<string, unknown>) => {
         if (table === 'transactions') {
@@ -126,9 +140,14 @@ describe('POST /api/vtu/checkout/charge-saved-card', () => {
         }
         return Promise.resolve({ error: null });
       }),
-      update: vi.fn().mockReturnValue({
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      }),
+      update: vi.fn((values: Record<string, unknown>) => ({
+        eq: vi.fn((eqColumn: string, eqValue: unknown) => {
+          updateCalls.push({ eqColumn, eqValue, table, values });
+          return Promise.resolve({
+            error: updateErrorFor({ eqColumn, eqValue, table, values }),
+          });
+        }),
+      })),
     }));
   });
 
@@ -194,6 +213,151 @@ describe('POST /api/vtu/checkout/charge-saved-card', () => {
       status: 'processing',
     });
     expect(mockFulfillPendingVtuTransaction).not.toHaveBeenCalled();
+  });
+
+  it('marks the payment and VTU rows failed when Paystack rejects the saved-card charge', async () => {
+    mockChargeAuthorization.mockResolvedValue({
+      success: true,
+      data: {
+        gateway_response: 'Insufficient funds',
+        reference: 'VTU-123',
+        status: 'failed',
+      },
+    });
+
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        amount: 1000,
+        gateway: 'paystack',
+        savedPaymentMethodId: '550e8400-e29b-41d4-a716-446655440000',
+        type: 'airtime',
+        phoneNumber: '08012345678',
+        networkProvider: 'MTN',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toMatchObject({ error: 'Insufficient funds' });
+    expect(mockFulfillPendingVtuTransaction).not.toHaveBeenCalled();
+    expect(updateCalls).toContainEqual(
+      expect.objectContaining({
+        eqColumn: 'gateway_reference',
+        table: 'transactions',
+        values: expect.objectContaining({
+          gateway_response: expect.objectContaining({
+            gateway_response: 'Insufficient funds',
+            status: 'failed',
+          }),
+          status: 'failed',
+        }),
+      })
+    );
+    expect(updateCalls).toContainEqual(
+      expect.objectContaining({
+        eqColumn: 'id',
+        eqValue: 'vtu-1',
+        table: 'vtu_transactions',
+        values: {
+          error_message: 'Insufficient funds',
+          status: 'failed',
+        },
+      })
+    );
+  });
+
+  it('returns 500 when the Paystack failure payment-row update cannot be persisted', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    updateErrorFor = ({ table }) =>
+      table === 'transactions' ? new Error('transaction update failed') : null;
+    mockChargeAuthorization.mockResolvedValue({
+      success: true,
+      data: {
+        gateway_response: 'Insufficient funds',
+        reference: 'VTU-123',
+        status: 'failed',
+      },
+    });
+
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        amount: 1000,
+        gateway: 'paystack',
+        savedPaymentMethodId: '550e8400-e29b-41d4-a716-446655440000',
+        type: 'airtime',
+        phoneNumber: '08012345678',
+        networkProvider: 'MTN',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data).toMatchObject({
+      error: expect.stringMatching(/could not update the transaction status/i),
+    });
+    expect(updateCalls).toContainEqual(
+      expect.objectContaining({
+        table: 'vtu_transactions',
+        values: {
+          error_message: 'Insufficient funds',
+          status: 'failed',
+        },
+      })
+    );
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to persist saved-card payment failure state',
+      expect.objectContaining({
+        paymentError: 'Insufficient funds',
+        transactionUpdateError: 'transaction update failed',
+      })
+    );
+  });
+
+  it('returns 500 when the Paystack failure VTU-row update cannot be persisted', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    updateErrorFor = ({ table }) =>
+      table === 'vtu_transactions'
+        ? new Error('vtu transaction update failed')
+        : null;
+    mockChargeAuthorization.mockResolvedValue({
+      success: true,
+      data: {
+        gateway_response: 'Insufficient funds',
+        reference: 'VTU-123',
+        status: 'failed',
+      },
+    });
+
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        amount: 1000,
+        gateway: 'paystack',
+        savedPaymentMethodId: '550e8400-e29b-41d4-a716-446655440000',
+        type: 'airtime',
+        phoneNumber: '08012345678',
+        networkProvider: 'MTN',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(data).toMatchObject({
+      error: expect.stringMatching(/could not update the transaction status/i),
+    });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to persist saved-card payment failure state',
+      expect.objectContaining({
+        paymentError: 'Insufficient funds',
+        vtuTransactionUpdateError: 'vtu transaction update failed',
+      })
+    );
   });
 
   it('returns the fulfilled VTU purchase when the saved-card charge succeeds', async () => {

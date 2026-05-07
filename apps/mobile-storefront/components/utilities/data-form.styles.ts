@@ -1,11 +1,11 @@
 import { StyleSheet } from 'react-native';
 import { SPACING } from '@/constants/Colors';
-import type { VTUPaymentGateway } from '@/lib/vtu-checkout';
+import type { VtuConfirmationGateway } from '@/lib/vtu-checkout';
 
 /** Height reserved for the absolutely-positioned payment footer */
 export const DATA_FOOTER_HEIGHT = 120;
 export const DATA_FOOTER_ERROR_BUFFER = 36;
-export const DATA_SAVED_CARD_CONFIRMATION_GATEWAY: VTUPaymentGateway =
+export const DATA_SAVED_CARD_CONFIRMATION_GATEWAY: VtuConfirmationGateway =
   'paystack';
 
 export const dataFormStyles = StyleSheet.create({
