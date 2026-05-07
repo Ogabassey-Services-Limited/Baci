@@ -150,6 +150,17 @@ function getCustomerPhoneForBill(row: VtuTransactionRow) {
   );
 }
 
+function getProviderTransactionId(row: VtuTransactionRow) {
+  const transactionId = row.transaction_id?.trim();
+  return transactionId ? transactionId : null;
+}
+
+function requiresVtuCustomerWalletRefund(row: VtuTransactionRow) {
+  return Boolean(
+    row.customer_id && row.source === 'checkout' && Number(row.amount) > 0
+  );
+}
+
 function getVoucherPinFromMetadata(metadata: Record<string, unknown> | null) {
   return normalizeVoucherPin(metadata?.voucherPin);
 }
@@ -1401,6 +1412,47 @@ async function resolveCurrentVtuTransactionState({
   };
 }
 
+async function claimProcessingVtuReconciliation({
+  row,
+  supabase,
+}: {
+  row: VtuTransactionRow;
+  supabase: SupabaseClient;
+}): Promise<VtuTransactionRow | null> {
+  const providerTransactionId = getProviderTransactionId(row);
+  if (!providerTransactionId) {
+    return null;
+  }
+
+  const metadata = {
+    ...(row.metadata ?? {}),
+    processingReconciliationClaimedAt: new Date().toISOString(),
+    processingReconciliationTransactionId: providerTransactionId,
+  };
+  const { data, error } = await supabase
+    .from('vtu_transactions')
+    .update({
+      metadata,
+      status: 'processing',
+      transaction_id: providerTransactionId,
+    })
+    .eq('id', row.id)
+    .eq('status', 'processing')
+    .eq('transaction_id', providerTransactionId)
+    .select('id')
+    .maybeSingle();
+
+  if (error) {
+    throw new VtuPersistenceError(
+      `Failed to claim VTU processing reconciliation for ${row.id}: ${error.message}`
+    );
+  }
+
+  return data
+    ? { ...row, metadata, transaction_id: providerTransactionId }
+    : null;
+}
+
 async function reconcileProcessingVtuTransaction({
   row,
   supabase,
@@ -1507,7 +1559,7 @@ async function reconcileProcessingVtuTransaction({
           );
         }
       }
-      if (!refund.refundIssued) {
+      if (requiresVtuCustomerWalletRefund(currentRow) && !refund.refundIssued) {
         throw new RetryableVtuError(
           `Unable to confirm VTU refund before finalizing provider failure for ${currentRow.id}`,
           {
@@ -1522,7 +1574,10 @@ async function reconcileProcessingVtuTransaction({
         amount: Number(currentRow.amount) || 0,
         error: failedMessage,
         reference: currentRow.request_reference,
-        refundedToWallet: refund.refundedAmount,
+        ...(refund.refundIssued &&
+          refund.refundedAmount > 0 && {
+            refundedToWallet: refund.refundedAmount,
+          }),
         status: 'failed',
       };
     }
@@ -1684,6 +1739,17 @@ export async function fulfillPendingVtuTransaction({
       row,
       supabase,
     });
+    if (requiresVtuCustomerWalletRefund(row) && !refund.refundIssued) {
+      throw new RetryableVtuError(
+        `Unable to confirm VTU refund before returning failed purchase for ${row.id}`,
+        {
+          failedMessage: row.error_message ?? undefined,
+          failedMetadata: getSafeMetadataDiagnostics(refundMetadata),
+          refundedAmount: refund.refundedAmount,
+          transactionId: row.id,
+        }
+      );
+    }
     if (refund.metadataChanged) {
       const { error: refundMetadataUpdateError } = await supabase
         .from('vtu_transactions')
@@ -1716,7 +1782,17 @@ export async function fulfillPendingVtuTransaction({
   }
 
   if (row.status === 'processing') {
-    return reconcileProcessingVtuTransaction({ row, supabase });
+    const reconciliationRow = await claimProcessingVtuReconciliation({
+      row,
+      supabase,
+    });
+    if (!reconciliationRow) {
+      return resolveCurrentVtuTransactionState({ row, supabase });
+    }
+    return reconcileProcessingVtuTransaction({
+      row: reconciliationRow,
+      supabase,
+    });
   }
 
   if (row.status === 'failed' && retryFailed) {

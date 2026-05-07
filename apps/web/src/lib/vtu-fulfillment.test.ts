@@ -47,7 +47,7 @@ interface PendingTransactionMockOptions {
   transactionRow: Record<string, unknown>;
   rpcImpl?: (name: string) => Promise<{ data: unknown; error: unknown }>;
   merchantData?: { business_name?: string };
-  claimData?: { id: string } | null;
+  claimData?: Record<string, unknown> | null;
   notificationClaimData?: { id: string } | null;
   purchaseUpdateData?: { id: string } | null;
   purchaseUpdateErrors?: Array<{ message: string } | null>;
@@ -266,15 +266,10 @@ function createPendingTransactionSupabaseMock({
               );
             }
 
-            return {
-              eq: vi.fn().mockReturnValue({
-                eq: vi.fn().mockReturnValue({
-                  select: vi.fn().mockReturnValue({
-                    maybeSingle: claimMaybeSingle,
-                  }),
-                }),
-              }),
-            };
+            return createAwaitableUpdateChain(
+              { data: null, error: null },
+              claimMaybeSingle
+            );
           }),
         };
       }
@@ -319,6 +314,7 @@ describe('fulfillPendingVtuTransaction', () => {
     mockPurchaseAirtime.mockReset();
     mockPurchaseData.mockReset();
     mockPurchaseBill.mockReset();
+    mockCheckTransactionStatus.mockReset();
     mockCheckTransactionStatus.mockResolvedValue({
       message: 'No token',
       status: 'successful',
@@ -1438,6 +1434,54 @@ describe('fulfillPendingVtuTransaction', () => {
     );
   });
 
+  it('leaves an actively vending processing row alone until Kuda returns a transaction id', async () => {
+    mockCheckTransactionStatus.mockResolvedValueOnce({
+      message: 'Request successful. (biller status: k11)',
+      status: 'failed',
+    });
+    const rpcImpl = vi.fn(() => Promise.resolve({ data: null, error: null }));
+
+    const supabase = createPendingTransactionSupabaseMock({
+      rpcImpl,
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '08146978921',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'processing',
+        metadata: {},
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC NG - EKEDC PREPAID',
+        biller_item_code: 'KUD-ELE-EKED-002',
+        customer_identifier: '43901766923',
+        source: 'checkout',
+      },
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(result).toEqual({
+      amount: 1000,
+      reference: 'VTU-123',
+      status: 'processing',
+    });
+    expect(mockCheckTransactionStatus).not.toHaveBeenCalled();
+    expect(rpcImpl).not.toHaveBeenCalledWith(
+      'refund_customer_wallet_for_vtu',
+      expect.anything()
+    );
+  });
+
   it('does not refund when processing reconciliation loses the terminal status claim', async () => {
     mockCheckTransactionStatus.mockResolvedValueOnce({
       message: 'Request successful. (biller status: k11)',
@@ -1601,6 +1645,54 @@ describe('fulfillPendingVtuTransaction', () => {
       },
       name: 'RetryableVtuError',
     });
+  });
+
+  it('returns failed when processing reconciliation intentionally skips the wallet refund', async () => {
+    mockCheckTransactionStatus.mockResolvedValueOnce({
+      message: 'Loyalty reward vend rejected',
+      status: 'failed',
+    });
+    const rpcImpl = vi.fn(() => Promise.resolve({ data: null, error: null }));
+
+    const supabase = createPendingTransactionSupabaseMock({
+      rpcImpl,
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'airtime',
+        network_provider: 'MTN',
+        phone_number: '08012345678',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-loyalty-1',
+        status: 'processing',
+        metadata: {},
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: null,
+        biller_item_code: null,
+        customer_identifier: null,
+        source: 'loyalty_reward',
+      },
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(result).toEqual({
+      amount: 1000,
+      error: 'Loyalty reward vend rejected',
+      reference: 'VTU-123',
+      status: 'failed',
+    });
+    expect(rpcImpl).not.toHaveBeenCalledWith(
+      'refund_customer_wallet_for_vtu',
+      expect.anything()
+    );
   });
 
   it('reconciles a processing airtime transaction with Kuda status', async () => {
@@ -2621,7 +2713,7 @@ describe('fulfillPendingVtuTransaction', () => {
       expect(mockPurchaseAirtime).toHaveBeenCalled();
     });
 
-    it('returns failed without refundedToWallet when the refund RPC errors', async () => {
+    it('throws a retryable error when an already-failed checkout row still cannot be refunded', async () => {
       const rpcImpl = vi.fn((name: string) =>
         Promise.resolve(
           name === 'refund_customer_wallet_for_vtu'
@@ -2638,14 +2730,19 @@ describe('fulfillPendingVtuTransaction', () => {
         rpcImpl,
       });
 
-      const result = await fulfillPendingVtuTransaction({
-        retryFailed: false,
-        supabase,
-        transactionId: 'vtu-1',
+      await expect(
+        fulfillPendingVtuTransaction({
+          retryFailed: false,
+          supabase,
+          transactionId: 'vtu-1',
+        })
+      ).rejects.toMatchObject({
+        context: {
+          refundedAmount: 0,
+          transactionId: 'vtu-1',
+        },
+        name: 'RetryableVtuError',
       });
-
-      expect(result).toMatchObject({ status: 'failed' });
-      expect(result).not.toHaveProperty('refundedToWallet');
       expect(rpcImpl).toHaveBeenCalledWith(
         'refund_customer_wallet_for_vtu',
         expect.anything()
