@@ -109,11 +109,16 @@ export function logKudaRawResponse({
     return;
   }
 
+  const redactedRequestData = redactKudaDebugPayload(requestData);
+  const redactedRawResponse = redactKudaDebugPayload(raw);
+
   logger.info({
     message: 'Kuda raw response received',
-    requestData: redactKudaDebugPayload(requestData),
+    requestData: redactedRequestData,
+    requestDataJson: JSON.stringify(redactedRequestData),
     requestRef,
-    rawResponse: redactKudaDebugPayload(raw),
+    rawResponse: redactedRawResponse,
+    rawResponseJson: JSON.stringify(redactedRawResponse),
     serviceType,
   });
 }
