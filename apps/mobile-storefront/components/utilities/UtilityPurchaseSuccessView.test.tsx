@@ -5,6 +5,7 @@ import { UtilityPurchaseSuccessView } from './UtilityPurchaseSuccessView';
 import type { UtilityPurchaseResult } from './utility-purchase.types';
 
 const mockStackScreen = jest.fn((_props: unknown) => null);
+let mockLastBackfillInput: unknown = null;
 
 jest.mock('expo-router', () => ({
   Stack: {
@@ -15,7 +16,10 @@ jest.mock('expo-router', () => ({
 const mockBackfilledVoucherPin = jest.fn<() => string | null>(() => null);
 
 jest.mock('@/hooks/use-vtu-voucher-pin-backfill', () => ({
-  useVtuVoucherPinBackfill: () => mockBackfilledVoucherPin(),
+  useVtuVoucherPinBackfill: (input: unknown) => {
+    mockLastBackfillInput = input;
+    return mockBackfilledVoucherPin();
+  },
 }));
 
 jest.mock('@/components/utilities/PurchaseSuccess', () => {
@@ -68,6 +72,7 @@ jest.mock('@/components/utilities/PurchaseSuccess', () => {
 describe('UtilityPurchaseSuccessView', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockLastBackfillInput = null;
     mockBackfilledVoucherPin.mockReturnValue(null);
   });
 
@@ -156,5 +161,56 @@ describe('UtilityPurchaseSuccessView', () => {
     );
 
     expect(screen.getByText('Voucher 9999-0000')).toBeOnTheScreen();
+  });
+
+  it('enables voucher backfill when a bill purchase is processing', () => {
+    render(
+      <UtilityPurchaseSuccessView
+        bottomPadding={32}
+        colors={Colors.light}
+        data={{
+          amount: 2000,
+          customerIdentifier: '43901766923',
+          reference: 'ref-processing',
+          status: 'processing',
+        }}
+        headerOffset={20}
+        isAuthenticated={true}
+        onCreateAccount={jest.fn()}
+        type="power"
+      />
+    );
+
+    expect(mockLastBackfillInput).toEqual({
+      enabled: true,
+      reference: 'ref-processing',
+      utilityType: 'power',
+    });
+  });
+
+  it('disables voucher backfill when the route already has a voucher pin', () => {
+    render(
+      <UtilityPurchaseSuccessView
+        bottomPadding={32}
+        colors={Colors.light}
+        data={{
+          amount: 2000,
+          customerIdentifier: '43901766923',
+          reference: 'ref-with-pin',
+          status: 'processing',
+          voucherPin: '1234-5678',
+        }}
+        headerOffset={20}
+        isAuthenticated={true}
+        onCreateAccount={jest.fn()}
+        type="power"
+      />
+    );
+
+    expect(mockLastBackfillInput).toEqual({
+      enabled: false,
+      reference: 'ref-with-pin',
+      utilityType: 'power',
+    });
   });
 });
