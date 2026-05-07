@@ -177,9 +177,10 @@ describe('GET /api/llm/[...segments]', () => {
       expect(response.status).toBe(200);
     });
 
-    it('returns 404 when no about content exists', async () => {
+    it('returns fallback about markdown when no about content exists', async () => {
       const merchant = { ...baseMerchant };
       getMerchantByIdentifier.mockResolvedValue(merchant);
+      buildStorefrontAboutMarkdown.mockReturnValue('# About\n');
 
       const { GET } = await import('./route');
       const response = await GET(
@@ -187,8 +188,11 @@ describe('GET /api/llm/[...segments]', () => {
         makeParams(['ogabassey', 'about'])
       );
 
-      expect(response.status).toBe(404);
-      expect(buildStorefrontAboutMarkdown).not.toHaveBeenCalled();
+      expect(response.status).toBe(200);
+      expect(buildStorefrontAboutMarkdown).toHaveBeenCalledWith(
+        merchant,
+        ORIGIN
+      );
     });
   });
 
@@ -295,9 +299,10 @@ describe('GET /api/llm/[...segments]', () => {
       expect(response.status).toBe(200);
     });
 
-    it('returns 404 when no faq content exists', async () => {
+    it('returns fallback faq markdown when no faq content exists', async () => {
       const merchant = { ...baseMerchant };
       getMerchantByIdentifier.mockResolvedValue(merchant);
+      buildStorefrontFaqMarkdown.mockReturnValue('# FAQ\n');
 
       const { GET } = await import('./route');
       const response = await GET(
@@ -305,8 +310,8 @@ describe('GET /api/llm/[...segments]', () => {
         makeParams(['ogabassey', 'faq'])
       );
 
-      expect(response.status).toBe(404);
-      expect(buildStorefrontFaqMarkdown).not.toHaveBeenCalled();
+      expect(response.status).toBe(200);
+      expect(buildStorefrontFaqMarkdown).toHaveBeenCalledWith(merchant, ORIGIN);
     });
   });
 

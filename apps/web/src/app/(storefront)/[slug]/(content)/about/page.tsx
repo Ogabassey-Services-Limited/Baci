@@ -36,10 +36,6 @@ export async function generateMetadata({
   const aboutPage = (merchant.about_page || {}) as MerchantAboutPage;
   const legacyAboutContent = merchant.pages?.about;
 
-  if (!hasAboutPageContent(aboutPage, legacyAboutContent)) {
-    notFound();
-  }
-
   const description =
     aboutPage.story ||
     aboutPage.mission ||
@@ -120,10 +116,6 @@ async function AboutContent({ params }: PageProps) {
 
   const aboutPage = (merchant.about_page || {}) as MerchantAboutPage;
   const legacyAboutContent = merchant.pages?.about;
-
-  if (!hasAboutPageContent(aboutPage, legacyAboutContent)) {
-    notFound();
-  }
 
   // Resolve template component server-side for SEO (H1 in SSR HTML)
   const templateId = merchant.template_id;

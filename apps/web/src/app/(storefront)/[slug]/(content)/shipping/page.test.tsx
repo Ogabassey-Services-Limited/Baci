@@ -155,7 +155,30 @@ describe('shipping page', () => {
     expect(screen.getByText('Nigeria')).toBeInTheDocument();
   });
 
-  it('notFound when no shipping content is present', async () => {
+  it('returns canonical fallback metadata when no shipping content is present', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      ...trustMerchant,
+      trust_profile: {
+        shipping_policy: {},
+      },
+    } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
+    mockBuildMerchantTrustProfile.mockReturnValue({
+      socialLinks: {},
+      derivedLinks: {},
+    });
+    const { generateMetadata } = await import('./page');
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://ogabassey.com/shipping'
+    );
+    expect(mockNotFound).not.toHaveBeenCalled();
+  });
+
+  it('renders fallback policy content when no shipping content is present', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue({
       ...trustMerchant,
       trust_profile: {
@@ -168,11 +191,17 @@ describe('shipping page', () => {
     });
     const { default: ShippingPage } = await import('./page');
 
-    await expect(
-      ShippingPage({
+    render(
+      await ShippingPage({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Shipping Policy' })
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('Not specified').length).toBeGreaterThan(0);
+    expect(mockNotFound).not.toHaveBeenCalled();
   });
 
   it('renders when only handling or shipping fee details exist', async () => {
