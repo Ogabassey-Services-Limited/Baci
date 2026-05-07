@@ -277,6 +277,11 @@ describe('POST /api/chat', () => {
     expect(response.status).toBe(200);
     expect(text).toBe('AI response');
     expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(createOllamaChatResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        timeoutMs: 8_000,
+      })
+    );
     expect(generateText).toHaveBeenCalledOnce();
     expect(warnSpy).toHaveBeenCalledWith(
       '[Agentic Chat] Ollama request failed; falling back to Gemini:',
