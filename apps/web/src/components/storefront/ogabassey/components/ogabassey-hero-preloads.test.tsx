@@ -1,6 +1,10 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { HERO_DESKTOP_LCP_SRC, HERO_MOBILE_LCP_SRC } from './hero-data';
+import {
+  HERO_DESKTOP_LCP_SRC,
+  HERO_MOBILE_LCP_FALLBACK_SRC,
+  HERO_MOBILE_LCP_SRC,
+} from './hero-data';
 import {
   OGABASSEY_HERO_PRECONNECT_ORIGINS,
   OgabasseyHeroPreloads,
@@ -60,6 +64,7 @@ describe('OgabasseyHeroPreloads', () => {
       fetchPriority: link.getAttribute('fetchpriority'),
       href: link.getAttribute('href'),
       media: link.getAttribute('media'),
+      type: link.getAttribute('type'),
     }));
 
     expect(preloads).toHaveLength(2);
@@ -69,13 +74,18 @@ describe('OgabasseyHeroPreloads', () => {
           fetchPriority: 'high',
           href: HERO_DESKTOP_LCP_SRC,
           media: '(min-width: 768px)',
+          type: 'image/avif',
         },
         {
           fetchPriority: 'high',
           href: HERO_MOBILE_LCP_SRC,
           media: '(max-width: 767px)',
+          type: 'image/avif',
         },
       ])
     );
+    expect(
+      preloads.some((preload) => preload.href === HERO_MOBILE_LCP_FALLBACK_SRC)
+    ).toBe(false);
   });
 });
