@@ -1,4 +1,9 @@
-import type { Order, OrderFulfillmentDetails, OrderItem } from '@baci/shared';
+import {
+  getFirstNonBlankString,
+  type Order,
+  type OrderFulfillmentDetails,
+  type OrderItem,
+} from '@baci/shared';
 
 export type ShipmentCompletionMode = 'provider' | 'self_fulfillment';
 export type ShipmentFlowStep = 'details' | 'method' | 'rider';
@@ -80,8 +85,11 @@ export function getInitialFulfillmentDetails(
   serialNumber: string;
 } {
   return {
-    imei: details?.imei?.trim() ?? '',
-    serialNumber: details?.serialNumber?.trim() ?? '',
+    imei: getFirstNonBlankString(details?.imei),
+    serialNumber: getFirstNonBlankString(
+      details?.serialNumber,
+      details?.serial_number
+    ),
   };
 }
 
