@@ -21,11 +21,19 @@ const IG_RESERVED_PATHS = new Set([
 const FACEBOOK_RESERVED_PATHS = new Set([
   'events',
   'groups',
+  'help',
+  'login',
   'marketplace',
+  'pages',
   'people',
+  'photo',
+  'photos',
   'profile.php',
+  'reel',
   'share',
   'sharer',
+  'stories',
+  'videos',
   'watch',
 ]);
 const TWITTER_RESERVED_PATHS = new Set(['home', 'i', 'intent', 'share']);
@@ -57,13 +65,16 @@ function isSocialHost(platform: SocialPlatform, hostname: string): boolean {
   );
 }
 
-function getFirstProfileSegment(
+function getRootProfileSegment(
   segments: string[],
   reservedPaths: Set<string>
 ): string | null {
-  return (
-    segments.find((part) => !reservedPaths.has(part.toLowerCase())) ?? null
-  );
+  const rootSegment = segments[0];
+  if (!rootSegment || reservedPaths.has(rootSegment.toLowerCase())) {
+    return null;
+  }
+
+  return rootSegment;
 }
 
 function normalizePlainSocialHandle(value: string): string | null {
@@ -117,17 +128,15 @@ function normalizeSocialHandle(
     let profileSegment: string | null = null;
 
     if (platform === 'instagram') {
-      profileSegment = getFirstProfileSegment(segments, IG_RESERVED_PATHS);
+      profileSegment = getRootProfileSegment(segments, IG_RESERVED_PATHS);
     } else if (platform === 'facebook') {
       profileSegment =
         getFacebookProfileId(url, segments) ??
-        getFirstProfileSegment(segments, FACEBOOK_RESERVED_PATHS);
+        getRootProfileSegment(segments, FACEBOOK_RESERVED_PATHS);
     } else if (platform === 'twitter') {
-      profileSegment = getFirstProfileSegment(segments, TWITTER_RESERVED_PATHS);
+      profileSegment = getRootProfileSegment(segments, TWITTER_RESERVED_PATHS);
     } else {
-      profileSegment =
-        segments.find((part) => part.startsWith('@')) ??
-        getFirstProfileSegment(segments, TIKTOK_RESERVED_PATHS);
+      profileSegment = getRootProfileSegment(segments, TIKTOK_RESERVED_PATHS);
     }
 
     return normalizePlainSocialHandle(profileSegment ?? '');

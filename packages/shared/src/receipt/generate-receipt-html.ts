@@ -7,6 +7,7 @@
  */
 
 import { escapeHtml } from './escape-html';
+import { normalizeReceiptColor } from './receipt-colors';
 import { renderReceiptDocument } from './receipt-document';
 import { createMoneyFormatter, hexToRgba } from './receipt-money';
 import { renderBankDetailsHtml } from './receipt-payment-instructions';
@@ -28,8 +29,11 @@ export function generateReceiptHtml(
   merchant: ReceiptMerchant,
   options: ReceiptOptions = {}
 ): string {
-  const brandPrimary = merchant.brand_colors?.primary || '#1a1a2e';
-  const brandAccent = merchant.brand_colors?.accent || brandPrimary;
+  const brandPrimary = normalizeReceiptColor(merchant.brand_colors?.primary);
+  const brandAccent = normalizeReceiptColor(
+    merchant.brand_colors?.accent,
+    brandPrimary
+  );
   const brandLight = hexToRgba(brandPrimary, 0.06);
   const brandCardBorder = hexToRgba(brandPrimary, 0.12);
 

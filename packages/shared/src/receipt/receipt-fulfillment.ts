@@ -1,3 +1,4 @@
+import { getFirstNonBlankString } from '../lib/string-values';
 import type { ReceiptOrder } from './types';
 
 export interface ReceiptFulfillmentRow {
@@ -5,24 +6,12 @@ export interface ReceiptFulfillmentRow {
   value: string;
 }
 
-function getFirstNonBlankValue(
-  ...values: Array<string | null | undefined>
-): string {
-  for (const value of values) {
-    const trimmed = value?.trim();
-    if (trimmed) {
-      return trimmed;
-    }
-  }
-  return '';
-}
-
 export function getReceiptFulfillmentRows(
   order: ReceiptOrder
 ): ReceiptFulfillmentRow[] {
   const details = order.fulfillment_details;
-  const imei = getFirstNonBlankValue(details?.imei);
-  const serialNumber = getFirstNonBlankValue(
+  const imei = getFirstNonBlankString(details?.imei);
+  const serialNumber = getFirstNonBlankString(
     details?.serialNumber,
     details?.serial_number
   );

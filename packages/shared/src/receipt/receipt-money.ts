@@ -42,6 +42,49 @@ function almostEqual(left: number, right: number): boolean {
   return Math.abs(left - right) <= MONEY_TOLERANCE;
 }
 
+function getTaxExclusiveTotal(order: ReceiptOrder): number {
+  return order.subtotal - order.discount_amount + order.shipping_fee;
+}
+
+function getIncludedTaxAmount(total: number, taxRate: number): number {
+  return total - total / (1 + taxRate / 100);
+}
+
+function getVatRate(merchant: ReceiptMerchant): number | null {
+  const vatRate = merchant.vat_rate;
+  if (
+    typeof vatRate !== 'number' ||
+    !Number.isFinite(vatRate) ||
+    vatRate <= 0
+  ) {
+    return null;
+  }
+
+  return vatRate;
+}
+
+function isTaxExclusiveTotal(order: ReceiptOrder): boolean {
+  return almostEqual(
+    order.total,
+    getTaxExclusiveTotal(order) + order.tax_amount
+  );
+}
+
+function isTaxInclusiveTotal(
+  order: ReceiptOrder,
+  merchant: ReceiptMerchant
+): boolean {
+  const vatRate = getVatRate(merchant);
+  if (vatRate === null) {
+    return false;
+  }
+
+  return (
+    almostEqual(order.total, getTaxExclusiveTotal(order)) &&
+    almostEqual(order.tax_amount, getIncludedTaxAmount(order.total, vatRate))
+  );
+}
+
 export function shouldShowVatLine(
   order: ReceiptOrder,
   merchant: ReceiptMerchant
@@ -53,7 +96,21 @@ export function shouldShowVatLine(
     return false;
   }
 
-  const totalBeforeTax =
-    order.subtotal - order.discount_amount + order.shipping_fee;
-  return almostEqual(order.total, totalBeforeTax + order.tax_amount);
+  return isTaxExclusiveTotal(order) || isTaxInclusiveTotal(order, merchant);
+}
+
+export function getReceiptDisplaySubtotal(
+  order: ReceiptOrder,
+  merchant: ReceiptMerchant
+): number {
+  if (
+    !shouldShowVatLine(order, merchant) ||
+    !isTaxInclusiveTotal(order, merchant)
+  ) {
+    return order.subtotal;
+  }
+
+  const displaySubtotal =
+    order.total - order.tax_amount - order.shipping_fee + order.discount_amount;
+  return displaySubtotal >= 0 ? displaySubtotal : order.subtotal;
 }

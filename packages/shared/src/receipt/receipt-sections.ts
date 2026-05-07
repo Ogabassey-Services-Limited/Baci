@@ -1,6 +1,10 @@
 import { escapeHtml, escapeJsString } from './escape-html';
 import { getReceiptFulfillmentRows } from './receipt-fulfillment';
-import { type MoneyFormatter, shouldShowVatLine } from './receipt-money';
+import {
+  getReceiptDisplaySubtotal,
+  type MoneyFormatter,
+  shouldShowVatLine,
+} from './receipt-money';
 import { sanitizeSvg } from './sanitize-svg';
 import type { ReceiptMerchant, ReceiptOptions, ReceiptOrder } from './types';
 
@@ -58,7 +62,7 @@ export function renderFinancialSummaryLines(
   isPaid: boolean
 ): string[] {
   const summaryLines: string[] = [
-    `<div class="sum-row"><span>Subtotal</span><span>${formatMoney(order.subtotal)}</span></div>`,
+    `<div class="sum-row"><span>Subtotal</span><span>${formatMoney(getReceiptDisplaySubtotal(order, merchant))}</span></div>`,
   ];
 
   if (order.shipping_fee > 0) {

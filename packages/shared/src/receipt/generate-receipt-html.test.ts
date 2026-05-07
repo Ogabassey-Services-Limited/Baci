@@ -442,8 +442,45 @@ describe('generateReceiptHtml', () => {
     );
 
     expect(html).toContain('VAT (7.5%)');
+    expect(html).toContain('₦935,000.00');
     expect(html).toContain('₦70,125.00');
     expect(html).toContain('₦1,005,125.00');
+  });
+
+  it('shows VAT when subtotal was backfilled from a tax-inclusive total', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        subtotal: 1005125,
+        tax_amount: 70125,
+        total: 1005125,
+      }),
+      createReceiptMerchant({
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+      })
+    );
+
+    expect(html).toContain('VAT (7.5%)');
+    expect(html).toContain('₦935,000.00');
+    expect(html).toContain('₦70,125.00');
+    expect(html).toContain('₦1,005,125.00');
+  });
+
+  it('does not emit unsafe brand colors into receipt styles', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder(),
+      createReceiptMerchant({
+        brand_colors: {
+          accent: 'rgb(12, 34, 56);}</style><script>alert(2)</script><style>',
+          background: '#ffffff',
+          primary: '#111827;}</style><script>alert(1)</script><style>',
+        },
+      })
+    );
+
+    expect(html).not.toContain('</style><script>');
+    expect(html).not.toContain('alert(1)');
+    expect(html).not.toContain('alert(2)');
   });
 
   it('normalizes social URLs into handles without tracking query text', () => {
@@ -496,5 +533,33 @@ describe('generateReceiptHtml', () => {
 
     expect(html).not.toContain('@61551234567890');
     expect(html).not.toContain('?id=');
+  });
+
+  it('does not treat reserved social content route ids as handles', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder(),
+      createReceiptMerchant({
+        social_media: {
+          facebook: 'https://facebook.com/groups/12345',
+          instagram: 'https://instagram.com/p/ABC123',
+          tiktok: 'https://www.tiktok.com/video/987',
+          twitter: 'https://x.com/i/status/54321',
+        },
+      })
+    );
+
+    expect(html).not.toContain('@ABC123');
+    expect(html).not.toContain('@abc123');
+    expect(html).not.toContain('@12345');
+    expect(html).not.toContain('@987');
+    expect(html).not.toContain('@54321');
+    expect(html).not.toContain('<span>@groups</span>');
+    expect(html).not.toContain('<span>@p</span>');
+    expect(html).not.toContain('<span>@video</span>');
+    expect(html).not.toContain('<span>@status</span>');
+    expect(html).not.toContain('facebook.com/groups');
+    expect(html).not.toContain('instagram.com/p');
+    expect(html).not.toContain('tiktok.com/video');
+    expect(html).not.toContain('x.com/i/status');
   });
 });

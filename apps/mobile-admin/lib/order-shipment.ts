@@ -1,4 +1,9 @@
-import type { Order, OrderFulfillmentDetails, OrderItem } from '@baci/shared';
+import {
+  getFirstNonBlankString,
+  type Order,
+  type OrderFulfillmentDetails,
+  type OrderItem,
+} from '@baci/shared';
 
 export type ShipmentCompletionMode = 'provider' | 'self_fulfillment';
 export type ShipmentFlowStep = 'details' | 'method' | 'rider';
@@ -18,18 +23,6 @@ const KNOWN_PROVIDER_LABELS: Record<string, string> = {
   SHIIP: 'Shiip',
   TOPSHIP: 'Topship',
 };
-
-function getFirstNonBlankString(
-  ...values: Array<string | null | undefined>
-): string {
-  for (const value of values) {
-    const trimmed = value?.trim();
-    if (trimmed) {
-      return trimmed;
-    }
-  }
-  return '';
-}
 
 export function orderRequiresFulfillment(
   items: OrderItem[] | undefined
