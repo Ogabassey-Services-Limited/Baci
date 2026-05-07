@@ -13,6 +13,24 @@ export interface ReceiptPaymentInstructionParams {
   isPaid: boolean;
 }
 
+function sanitizePaymentLink(rawLink: string): string | null {
+  const trimmed = rawLink.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(trimmed);
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+      return null;
+    }
+
+    return parsed.toString();
+  } catch {
+    return null;
+  }
+}
+
 export function renderBankDetailsHtml({
   order,
   merchant,
@@ -57,14 +75,17 @@ export function renderBankDetailsHtml({
     }
   }
 
-  if (options.paymentLink) {
+  const paymentLink = options.paymentLink
+    ? sanitizePaymentLink(options.paymentLink)
+    : null;
+  if (paymentLink) {
     parts.push(`
         <div class="bank-card">
           <div class="bank-label">Pay Online</div>
           <div style="text-align:center;padding:8px 0;">
-            <a href="${escapeHtml(options.paymentLink)}" style="display:inline-block;padding:8px 20px;background:${brandPrimary};color:#fff;border-radius:6px;text-decoration:none;font-weight:700;font-size:12px;">Pay Now</a>
+            <a href="${escapeHtml(paymentLink)}" style="display:inline-block;padding:8px 20px;background:${brandPrimary};color:#fff;border-radius:6px;text-decoration:none;font-weight:700;font-size:12px;">Pay Now</a>
           </div>
-          <div style="font-size:9px;color:#9ca3af;text-align:center;margin-top:6px;word-break:break-all;">${escapeHtml(options.paymentLink)}</div>
+          <div style="font-size:9px;color:#9ca3af;text-align:center;margin-top:6px;word-break:break-all;">${escapeHtml(paymentLink)}</div>
         </div>`);
   }
 

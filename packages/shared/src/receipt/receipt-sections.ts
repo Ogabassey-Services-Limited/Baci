@@ -14,6 +14,7 @@ export function renderLogoHtml(
   storeName: string,
   svgXml: string | undefined
 ): string {
+  const safeStoreName = escapeHtml(storeName);
   if (svgXml) {
     return `<div class="logo-svg">${sanitizeSvg(svgXml)}</div>`;
   }
@@ -22,10 +23,10 @@ export function renderLogoHtml(
     const storeNameForJs = escapeJsString(
       merchant.legal_entity_name || merchant.business_name || merchant.email
     );
-    return `<img src="${escapeHtml(merchant.logo_url)}" alt="${storeName}" class="logo-img" style="display: block !important;" onerror="this.src='https://placehold.co/200x80?text=' + encodeURIComponent('${storeNameForJs}')">`;
+    return `<img src="${escapeHtml(merchant.logo_url)}" alt="${safeStoreName}" class="logo-img" style="display: block !important;" onerror="this.src='https://placehold.co/200x80?text=' + encodeURIComponent('${storeNameForJs}')">`;
   }
 
-  return `<div class="logo-fallback">${storeName}</div>`;
+  return `<div class="logo-fallback">${safeStoreName}</div>`;
 }
 
 export function renderItemRows(

@@ -143,7 +143,7 @@ function normalizeSocialHandle(
       /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
     );
     if (!isSocialHost(platform, url.hostname)) {
-      return normalizePlainSocialHandle(trimmed);
+      return null;
     }
 
     const segments = url.pathname

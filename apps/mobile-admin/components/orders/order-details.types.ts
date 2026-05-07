@@ -1,3 +1,4 @@
+import type { OrderFulfillmentDetails } from '@baci/shared';
 import type { PaymentStatus, ShippingStatus } from '@/hooks/useOrders';
 
 export interface OrderDetailsItem {
@@ -21,11 +22,7 @@ export interface OrderDetailsRecord {
   customer_name: string;
   customer_phone: string | null;
   discount_amount: number;
-  fulfillment_details?: {
-    imei?: string;
-    serialNumber?: string;
-    serial_number?: string;
-  } | null;
+  fulfillment_details?: OrderFulfillmentDetails | null;
   id: string;
   is_credit_order?: boolean | null;
   items?: OrderDetailsItem[];

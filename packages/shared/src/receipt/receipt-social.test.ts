@@ -22,6 +22,26 @@ describe('buildSocialItems', () => {
     expect(items).not.toContain('?s=');
   });
 
+  it('normalizes mobile social subdomain URLs into handles', () => {
+    const items = buildSocialItems({
+      facebook: 'm.facebook.com/ogabasseyy?mibextid=abc',
+      twitter: 'mobile.twitter.com/bacisupport?s=20',
+    }).join('');
+
+    expect(items).toContain('@ogabasseyy');
+    expect(items).toContain('@bacisupport');
+    expect(items).not.toContain('@m.facebook.com');
+    expect(items).not.toContain('@mobile.twitter.com');
+  });
+
+  it('ignores URLs from the wrong social host', () => {
+    const items = buildSocialItems({
+      instagram: 'https://facebook.com/ogabasseyy',
+    });
+
+    expect(items).toEqual([]);
+  });
+
   it('normalizes Facebook pages category URLs to the page handle', () => {
     const [facebookItem] = buildSocialItems({
       facebook:
