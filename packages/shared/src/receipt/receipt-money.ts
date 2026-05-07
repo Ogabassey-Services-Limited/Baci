@@ -39,6 +39,27 @@ export function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
+function getStoredAmountPrecision(amount: number): number {
+  const [, fraction = ''] = Math.abs(amount).toString().split('.');
+  return fraction.replace(/0+$/, '').length;
+}
+
+function roundToPrecision(amount: number, precision: number): number {
+  const scale = 10 ** precision;
+  return Math.round(amount * scale) / scale;
+}
+
+function storedAmountMatchesComputed(
+  storedAmount: number,
+  computedAmount: number
+): boolean {
+  const precision = getStoredAmountPrecision(storedAmount);
+  return (
+    roundToPrecision(storedAmount, precision) ===
+    roundToPrecision(computedAmount, precision)
+  );
+}
+
 function almostEqual(left: number, right: number): boolean {
   return Math.abs(left - right) <= MONEY_TOLERANCE;
 }
@@ -94,7 +115,10 @@ function isTaxInclusiveTotal(
 
   return (
     almostEqual(order.total, getTaxExclusiveTotal(order)) &&
-    almostEqual(order.tax_amount, getIncludedTaxAmount(order.total, vatRate))
+    storedAmountMatchesComputed(
+      order.tax_amount,
+      getIncludedTaxAmount(order.total, vatRate)
+    )
   );
 }
 

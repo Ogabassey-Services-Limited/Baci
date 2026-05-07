@@ -467,6 +467,25 @@ describe('generateReceiptHtml', () => {
     expect(html).toContain('₦1,005,125.00');
   });
 
+  it('shows VAT when inclusive tax is rounded before persistence', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        subtotal: 1000,
+        tax_amount: 70,
+        total: 1000,
+      }),
+      createReceiptMerchant({
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+      })
+    );
+
+    expect(html).toContain('VAT (7.5%)');
+    expect(html).toContain('₦930.00');
+    expect(html).toContain('₦70.00');
+    expect(html).toContain('₦1,000.00');
+  });
+
   it('does not use the Nigerian VAT fallback for non-NGN backfilled totals', () => {
     const html = generateReceiptHtml(
       createReceiptOrder({
@@ -574,6 +593,38 @@ describe('generateReceiptHtml', () => {
     expect(html).not.toContain('?id=');
     expect(html).not.toContain('profile.php');
     expect(html).not.toContain('mibextid');
+  });
+
+  it('renders Facebook pages URLs as page handles', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder(),
+      createReceiptMerchant({
+        social_media: {
+          facebook:
+            'https://www.facebook.com/pages/Ogabassey-Store/1234567890?mibextid=ZbWKwL',
+        },
+      })
+    );
+
+    expect(html).toContain('@ogabassey-store');
+    expect(html).not.toContain('@Ogabassey-Store');
+    expect(html).not.toContain('@1234567890');
+    expect(html).not.toContain('mibextid');
+    expect(html).not.toContain('/pages/');
+  });
+
+  it('does not treat Facebook pages sub-routes as page handles', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder(),
+      createReceiptMerchant({
+        social_media: {
+          facebook: 'https://www.facebook.com/pages/create',
+        },
+      })
+    );
+
+    expect(html).not.toContain('@create');
+    expect(html).not.toContain('/pages/create');
   });
 
   it('does not consume Facebook profile.php ids from nested paths', () => {
