@@ -97,9 +97,12 @@ type DetailsController = Pick<
   | 'customer'
   | 'date'
   | 'deliveryInfo'
+  | 'branches'
+  | 'selectedBranchId'
   | 'sameAsCustomer'
   | 'setDate'
   | 'setDeliveryInfo'
+  | 'setSelectedBranchId'
   | 'setSameAsCustomer'
   | 'setShowCustomerModal'
   | 'setShowDatePicker'
@@ -132,6 +135,10 @@ function makeController(
       ...overrides.customer,
     },
     date: new Date('2024-01-02T00:00:00.000Z'),
+    branches: [
+      { id: 'branch-1', name: 'Lagos main', is_default: true },
+      { id: 'branch-2', name: 'Abuja branch', is_default: false },
+    ],
     deliveryInfo: {
       address: '',
       city: '',
@@ -141,8 +148,10 @@ function makeController(
       ...overrides.deliveryInfo,
     },
     sameAsCustomer: true,
+    selectedBranchId: 'branch-1',
     setDate: vi.fn(),
     setDeliveryInfo: vi.fn(),
+    setSelectedBranchId: vi.fn(),
     setSameAsCustomer: vi.fn(),
     setShowCustomerModal: vi.fn(),
     setShowDatePicker: vi.fn(),
@@ -200,6 +209,42 @@ describe('NewOrderDetailsSection', () => {
     expect(controller.setSameAsCustomer).toHaveBeenCalledWith(true);
     expect(screen.getByText('Recipient Name')).toBeInTheDocument();
     expect(screen.getByText('Recipient Phone')).toBeInTheDocument();
+  });
+
+  it('renders a branch selector when multiple active branches exist', () => {
+    const controller = makeController();
+
+    render(<NewOrderDetailsSection controller={controller} />);
+
+    expect(screen.getByText('Branch')).toBeInTheDocument();
+    expect(screen.getByText('Lagos main')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Abuja branch'));
+
+    expect(controller.setSelectedBranchId).toHaveBeenCalledWith('branch-2');
+  });
+
+  it('does not render a branch selector when only one active branch exists', () => {
+    const controller = makeController({
+      branches: [
+        {
+          id: 'branch-1',
+          merchant_id: 'merchant-1',
+          name: 'Lagos main',
+          address: null,
+          phone: null,
+          manager_id: null,
+          is_default: true,
+          active: true,
+          created_at: '2026-05-01T00:00:00.000Z',
+        },
+      ],
+    });
+
+    render(<NewOrderDetailsSection controller={controller} />);
+
+    expect(screen.queryByText('Branch')).not.toBeInTheDocument();
+    expect(screen.queryByText('Lagos main')).not.toBeInTheDocument();
   });
 
   // Accessibility regression — exercises the accessibilityHint /

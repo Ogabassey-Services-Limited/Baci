@@ -8,6 +8,7 @@ import { Stack } from 'expo-router';
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   Text,
@@ -21,6 +22,7 @@ import { StaffAccountCard } from '@/components/staff/StaffAccountCard';
 import { StaffAccountModal } from '@/components/staff/StaffAccountModal';
 import styles from '@/components/staff/staff-accounts.styles';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useDeactivateBranch, useUpdateBranch } from '@/hooks/useBranches';
 import { useStaff } from '@/hooks/useStaff';
 import { useStaffAccounts } from '@/hooks/useStaffAccounts';
 import { useTheme } from '@/hooks/useTheme';
@@ -35,6 +37,7 @@ export default function StaffAccountsScreen() {
   const [newAccountName, setNewAccountName] = useState('');
   const [newBranchName, setNewBranchName] = useState('');
   const [newBranchCity, setNewBranchCity] = useState('');
+  const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
 
@@ -60,12 +63,101 @@ export default function StaffAccountsScreen() {
       setNewBranchCity('');
     },
   });
+  const updateBranchMutation = useUpdateBranch();
+  const deactivateBranchMutation = useDeactivateBranch();
+  const activeBranches = (branches ?? []).filter((branch) => branch.active);
 
   const {
     data: staffMembers,
     isLoading: staffLoading,
     isError: staffError,
   } = useStaff();
+
+  const closeBranchModal = () => {
+    setShowBranchModal(false);
+    setEditingBranchId(null);
+    setNewBranchName('');
+    setNewBranchCity('');
+  };
+
+  const openCreateBranchModal = () => {
+    setEditingBranchId(null);
+    setNewBranchName('');
+    setNewBranchCity('');
+    setShowBranchModal(true);
+  };
+
+  const openEditBranchModal = (branchId: string) => {
+    const branch = activeBranches.find((item) => item.id === branchId);
+    if (!branch) return;
+
+    setEditingBranchId(branch.id);
+    setNewBranchName(branch.name);
+    setNewBranchCity(branch.city ?? '');
+    setShowBranchModal(true);
+  };
+
+  const handleBranchSubmit = () => {
+    const normalizedName = newBranchName.trim();
+    const normalizedCity = newBranchCity.trim() || undefined;
+
+    if (!normalizedName) {
+      Alert.alert('Branch name required', 'Enter a branch name to continue.');
+      return;
+    }
+
+    if (editingBranchId) {
+      updateBranchMutation.mutate(
+        {
+          branchId: editingBranchId,
+          input: {
+            name: normalizedName,
+            city: normalizedCity,
+          },
+        },
+        {
+          onError: () => {
+            Alert.alert('Update failed', 'Could not update this branch.');
+          },
+          onSuccess: closeBranchModal,
+        }
+      );
+      return;
+    }
+
+    createBranchMutation.mutate(
+      {
+        name: normalizedName,
+        city: normalizedCity,
+      }
+    );
+  };
+
+  const handleDeactivateBranch = (branchId: string) => {
+    if (activeBranches.length <= 1) {
+      Alert.alert('Branch required', 'At least one active branch is required.');
+      return;
+    }
+
+    Alert.alert(
+      'Deactivate branch',
+      'This branch will be hidden from branch selectors.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Deactivate',
+          style: 'destructive',
+          onPress: () => {
+            deactivateBranchMutation.mutate(branchId, {
+              onError: () => {
+                Alert.alert('Deactivate failed', 'Could not deactivate this branch.');
+              },
+            });
+          },
+        },
+      ]
+    );
+  };
 
   if (isLoading) {
     return (
@@ -236,7 +328,7 @@ export default function StaffAccountsScreen() {
                 />
               ))
             )
-          ) : (branches?.length || 0) === 0 ? (
+          ) : activeBranches.length === 0 ? (
             <View
               style={[
                 styles.emptyState,
@@ -269,12 +361,15 @@ export default function StaffAccountsScreen() {
               </Text>
             </View>
           ) : (
-            branches?.map((branch) => (
+            activeBranches.map((branch) => (
               <BranchCard
                 key={branch.id}
                 branch={branch}
                 colors={colors}
                 shadows={shadows}
+                canDeactivate={activeBranches.length > 1}
+                onDeactivate={handleDeactivateBranch}
+                onEdit={openEditBranchModal}
               />
             ))
           )}
@@ -303,7 +398,7 @@ export default function StaffAccountsScreen() {
           onPress={() =>
             activeTab === 'accounts'
               ? setShowAccountModal(true)
-              : setShowBranchModal(true)
+              : openCreateBranchModal()
           }
           accessibilityRole="button"
           accessibilityLabel={
@@ -341,19 +436,19 @@ export default function StaffAccountsScreen() {
 
         <BranchModal
           visible={showBranchModal}
+          mode={editingBranchId ? 'edit' : 'create'}
           colors={colors}
           branchName={newBranchName}
           onBranchNameChange={setNewBranchName}
           branchCity={newBranchCity}
           onBranchCityChange={setNewBranchCity}
-          isPending={createBranchMutation.isPending}
-          onSubmit={() =>
-            createBranchMutation.mutate({
-              name: newBranchName,
-              city: newBranchCity,
-            })
+          isPending={
+            editingBranchId
+              ? updateBranchMutation.isPending
+              : createBranchMutation.isPending
           }
-          onClose={() => setShowBranchModal(false)}
+          onSubmit={handleBranchSubmit}
+          onClose={closeBranchModal}
         />
       </SafeAreaView>
     </>

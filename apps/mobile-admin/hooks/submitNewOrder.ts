@@ -34,6 +34,7 @@ interface SubmitNewOrderParams {
   queryClient: QueryClient;
   sameAsCustomer: boolean;
   selectedChannel: OrderSource;
+  selectedBranchId?: string | null;
   setIsSubmitting: (value: boolean) => void;
   setLastOrderId: (value: string | null) => void;
   setShowSuccessModal: (value: boolean) => void;
@@ -59,6 +60,7 @@ export async function submitNewOrder({
   queryClient,
   sameAsCustomer,
   selectedChannel,
+  selectedBranchId,
   setIsSubmitting,
   setLastOrderId,
   setShowSuccessModal,
@@ -125,6 +127,10 @@ export async function submitNewOrder({
           phone: sanitizePhone(deliveryInfo.phone),
           state: sanitizeText(deliveryInfo.state, 100),
         };
+    const validatedBranchId = await validateSelectedBranch(
+      selectedBranchId,
+      merchantId
+    );
 
     const createdOrder = await createManualOrderWithItems(
       {
@@ -160,6 +166,7 @@ export async function submitNewOrder({
               : paymentStatus === 'paid'
                 ? total
                 : 0,
+          branch_id: validatedBranchId,
           currency: merchantCurrency || 'NGN',
           customer_email: sanitizedCustomerEmail,
           customer_id: customer.id,
@@ -204,6 +211,32 @@ export async function submitNewOrder({
     submittingRef.current = false;
     setIsSubmitting(false);
   }
+}
+
+async function validateSelectedBranch(
+  selectedBranchId: string | null | undefined,
+  merchantId: string
+) {
+  if (!selectedBranchId) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from('branches')
+    .select('id')
+    .eq('id', selectedBranchId)
+    .eq('merchant_id', merchantId)
+    .eq('active', true)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error('Failed to validate selected branch');
+  }
+  if (!data) {
+    throw new Error('Selected branch is not available for this merchant');
+  }
+
+  return data.id;
 }
 
 function generateOrderNumber() {

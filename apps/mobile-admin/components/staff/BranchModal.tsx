@@ -19,6 +19,7 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
 interface BranchModalProps {
   visible: boolean;
+  mode?: 'create' | 'edit';
   colors: ThemeColors;
   branchName: string;
   onBranchNameChange: (text: string) => void;
@@ -31,6 +32,7 @@ interface BranchModalProps {
 
 export function BranchModal({
   visible,
+  mode = 'create',
   colors,
   branchName,
   onBranchNameChange,
@@ -40,7 +42,15 @@ export function BranchModal({
   onSubmit,
   onClose,
 }: BranchModalProps) {
-  const isCreateDisabled = isPending || branchName.trim().length === 0;
+  const isSubmitDisabled = isPending || branchName.trim().length === 0;
+  const isEditing = mode === 'edit';
+  const dialogLabel = isEditing ? 'Edit branch' : 'Create branch';
+  const title = isEditing ? 'Edit Branch' : 'Create Branch';
+  const submitLabel = isEditing ? 'Save branch' : 'Create branch';
+  const submitText = isEditing ? 'Save' : 'Create';
+  const cancelLabel = isEditing
+    ? 'Cancel branch edit'
+    : 'Cancel branch creation';
   const sharedInputStyle: StyleProp<TextStyle> = [
     styles.input,
     {
@@ -52,15 +62,13 @@ export function BranchModal({
 
   return (
     <AppSheetModal
-      accessibilityLabel="Create branch"
+      accessibilityLabel={dialogLabel}
       onClose={onClose}
       scrollEnabled={false}
       sheetStyle={[styles.modalContent, { backgroundColor: colors.card }]}
       visible={visible}
     >
-      <Text style={[styles.modalTitle, { color: colors.text }]}>
-        Create Branch
-      </Text>
+      <Text style={[styles.modalTitle, { color: colors.text }]}>{title}</Text>
       <TextInput
         style={sharedInputStyle}
         placeholder="Branch name (e.g. Lagos Main)"
@@ -82,7 +90,7 @@ export function BranchModal({
           style={[styles.modalButton, { backgroundColor: colors.cardHover }]}
           onPress={onClose}
           accessibilityRole="button"
-          accessibilityLabel="Cancel branch creation"
+          accessibilityLabel={cancelLabel}
         >
           <Text style={[styles.modalButtonText, { color: colors.text }]}>
             Cancel
@@ -92,13 +100,13 @@ export function BranchModal({
           style={[
             styles.modalButton,
             { backgroundColor: colors.primary },
-            isCreateDisabled && styles.modalButtonDisabled,
+            isSubmitDisabled && styles.modalButtonDisabled,
           ]}
           onPress={onSubmit}
-          disabled={isCreateDisabled}
+          disabled={isSubmitDisabled}
           accessibilityRole="button"
-          accessibilityLabel="Create branch"
-          accessibilityState={{ disabled: isCreateDisabled }}
+          accessibilityLabel={submitLabel}
+          accessibilityState={{ disabled: isSubmitDisabled }}
         >
           {isPending ? (
             <ActivityIndicator size="small" color={colors.textOnPrimary} />
@@ -106,7 +114,7 @@ export function BranchModal({
             <Text
               style={[styles.modalButtonText, { color: colors.textOnPrimary }]}
             >
-              Create
+              {submitText}
             </Text>
           )}
         </Pressable>

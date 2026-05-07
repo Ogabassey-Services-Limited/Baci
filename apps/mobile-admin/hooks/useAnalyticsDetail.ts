@@ -10,7 +10,9 @@ import {
   getBucketIndex,
   getBuckets,
 } from '@/hooks/analyticsDetailBuckets';
+import { useBranchScope } from '@/hooks/useBranchScope';
 import { useMerchant } from '@/hooks/useMerchant';
+import type { BranchScope } from '@/schemas/branch';
 import { getPreviousAnalyticsDateRange } from '@/lib/analytics-period';
 import { supabase } from '@/lib/supabase';
 
@@ -26,6 +28,7 @@ interface JoinedOrder {
   id: string;
   merchant_id: string;
   payment_status: string;
+  branch_id?: string | null;
   created_at: string;
 }
 
@@ -82,6 +85,26 @@ const getJoinedRecord = <T>(value: T | T[] | null | undefined): T | null => {
   return value ?? null;
 };
 
+function getBranchScopeKey(scope: BranchScope): string {
+  return scope.type === 'branch' ? scope.branchId : 'all';
+}
+
+type BranchScopedQuery = {
+  eq: (column: string, value: string) => BranchScopedQuery;
+};
+
+function applyOrderBranchScope<Query>(
+  query: Query,
+  scope: BranchScope,
+  column = 'branch_id'
+): Query {
+  if (scope.type !== 'branch') {
+    return query;
+  }
+
+  return (query as BranchScopedQuery).eq(column, scope.branchId) as Query;
+}
+
 export function useAnalyticsDetail({
   endDate,
   filterLabel,
@@ -91,7 +114,9 @@ export function useAnalyticsDetail({
   includeComparison = false,
 }: UseAnalyticsDetailOptions) {
   const { merchant } = useMerchant();
+  const { scope } = useBranchScope();
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const branchScopeKey = getBranchScopeKey(scope);
 
   return useQuery<AnalyticsDetailData>({
     queryKey: [
@@ -104,6 +129,7 @@ export function useAnalyticsDetail({
       filterLabel,
       includeComparison,
       timezone,
+      branchScopeKey,
     ],
     queryFn: async () => {
       if (!merchant?.id) throw new Error('No merchant found');
@@ -133,30 +159,38 @@ export function useAnalyticsDetail({
       }
 
       // Fetch orders and order items concurrently
-      const [
-        { data: orders, error: ordersError },
-        { data: orderItems, error: orderItemsError },
-      ] = await Promise.all([
+      const ordersQuery = applyOrderBranchScope(
         supabase
           .from('orders')
-          .select('id, total, tax_amount, payment_status, created_at')
+          .select(
+            'id, total, tax_amount, payment_status, branch_id, created_at'
+          )
           .eq('merchant_id', merchant.id)
           .eq('payment_status', 'paid')
           .gte('created_at', startDateValue.toISOString())
           .lte('created_at', endDateValue.toISOString()),
+        scope
+      );
+      const orderItemsQuery = applyOrderBranchScope(
         supabase
           .from('order_items')
           .select(`
                     quantity,
                     price,
                     products!inner(cost_price),
-                    orders!inner(id, merchant_id, payment_status, created_at)
+                    orders!inner(id, merchant_id, payment_status, branch_id, created_at)
                 `)
           .eq('orders.merchant_id', merchant.id)
           .eq('orders.payment_status', 'paid')
           .gte('orders.created_at', startDateValue.toISOString())
           .lte('orders.created_at', endDateValue.toISOString()),
-      ]);
+        scope,
+        'orders.branch_id'
+      );
+      const [
+        { data: orders, error: ordersError },
+        { data: orderItems, error: orderItemsError },
+      ] = await Promise.all([ordersQuery, orderItemsQuery]);
 
       if (ordersError) {
         throw new Error(`Failed to fetch orders: ${ordersError.message}`);
@@ -282,13 +316,18 @@ export function useAnalyticsDetail({
         const prevStartDate = previousRange.startDate;
         const prevEndDate = previousRange.endDate;
 
-        const prevOrdersQuery = supabase
-          .from('orders')
-          .select('id, total, tax_amount, payment_status, created_at')
-          .eq('merchant_id', merchant.id)
-          .eq('payment_status', 'paid')
-          .gte('created_at', prevStartDate.toISOString())
-          .lte('created_at', prevEndDate.toISOString());
+        const prevOrdersQuery = applyOrderBranchScope(
+          supabase
+            .from('orders')
+            .select(
+              'id, total, tax_amount, payment_status, branch_id, created_at'
+            )
+            .eq('merchant_id', merchant.id)
+            .eq('payment_status', 'paid')
+            .gte('created_at', prevStartDate.toISOString())
+            .lte('created_at', prevEndDate.toISOString()),
+          scope
+        );
 
         let prevOrderItems: OrderItemWithJoins[] = [];
         let prevOrders: AnalyticsOrder[] | null = null;
@@ -299,18 +338,22 @@ export function useAnalyticsDetail({
             { data: profitsOrderItems, error: prevOrderItemsError },
           ] = await Promise.all([
             prevOrdersQuery,
-            supabase
-              .from('order_items')
-              .select(`
+            applyOrderBranchScope(
+              supabase
+                .from('order_items')
+                .select(`
                   quantity,
                   price,
                   products!inner(cost_price),
-                  orders!inner(id, merchant_id, payment_status, created_at)
+                  orders!inner(id, merchant_id, payment_status, branch_id, created_at)
               `)
-              .eq('orders.merchant_id', merchant.id)
-              .eq('orders.payment_status', 'paid')
-              .gte('orders.created_at', prevStartDate.toISOString())
-              .lte('orders.created_at', prevEndDate.toISOString()),
+                .eq('orders.merchant_id', merchant.id)
+                .eq('orders.payment_status', 'paid')
+                .gte('orders.created_at', prevStartDate.toISOString())
+                .lte('orders.created_at', prevEndDate.toISOString()),
+              scope,
+              'orders.branch_id'
+            ),
           ]);
 
           if (prevOrdersError) {

@@ -46,6 +46,11 @@ describe('order column constants', () => {
   it('WEB_ORDER_COLUMNS includes amount_paid for payment tracking', () => {
     expect(WEB_ORDER_COLUMNS).toContain('amount_paid');
   });
+
+  it('includes branch_id in web and mobile admin order contracts', () => {
+    expect(WEB_ORDER_COLUMNS).toContain('branch_id');
+    expect(MOBILE_ADMIN_ORDER_COLUMNS).toContain('branch_id');
+  });
 });
 
 describe('extractOrderDeliveryAddress', () => {

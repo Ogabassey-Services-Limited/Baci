@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const supabaseMock = vi.hoisted(() => {
   type ChainResult = { data?: unknown; count?: number; error?: unknown };
+  type ChainCall = { method: string; args: unknown[] };
+  type ChainRecord = { table: string; calls: ChainCall[] };
   // The chain calls used by fetchDashboardStats:
   //   from(table).select(...).eq(...).gte(...).lte(...) -> awaited promise
   // The terminal awaits the chain itself, so we make every chain method
@@ -9,12 +11,20 @@ const supabaseMock = vi.hoisted(() => {
   // the queued result for that chain instance.
   const queue: ChainResult[] = [];
   const calls: string[] = [];
+  const chains: ChainRecord[] = [];
 
   function makeChain(table: string) {
     calls.push(table);
     const chain: Record<string, unknown> = {};
+    const record: ChainRecord = { table, calls: [] };
+    chains.push(record);
     const result = queue.shift() ?? { data: [], count: 0, error: null };
-    const passthrough = () => chain;
+    const passthrough =
+      (method: string) =>
+      (...args: unknown[]) => {
+        record.calls.push({ method, args });
+        return chain;
+      };
     for (const method of [
       'select',
       'eq',
@@ -28,7 +38,7 @@ const supabaseMock = vi.hoisted(() => {
       'not',
       'limit',
     ]) {
-      chain[method] = passthrough;
+      chain[method] = passthrough(method);
     }
     chain.then = (resolve: (v: ChainResult) => unknown) =>
       Promise.resolve(result).then(resolve);
@@ -38,10 +48,12 @@ const supabaseMock = vi.hoisted(() => {
   return {
     queue,
     calls,
+    chains,
     from: (table: string) => makeChain(table),
     reset: () => {
       queue.length = 0;
       calls.length = 0;
+      chains.length = 0;
     },
     enqueue: (results: ChainResult[]) => {
       queue.push(...results);
@@ -55,6 +67,10 @@ vi.mock('@/lib/supabase', () => ({
 
 vi.mock('./useMerchant', () => ({
   useMerchant: vi.fn(),
+}));
+
+vi.mock('./useBranchScope', () => ({
+  useBranchScope: () => ({ scope: { type: 'all' } }),
 }));
 
 import { fetchDashboardStats } from './useDashboardStats';
@@ -158,5 +174,95 @@ describe('fetchDashboardStats', () => {
     // a batch (Promise.all) rather than serially with intermediate awaits
     // that would have allowed early returns.
     expect(supabaseMock.calls.length).toBe(8);
+  });
+
+  it('filters only branch-aware dashboard queries by concrete branch scope', async () => {
+    supabaseMock.enqueue([
+      ORDERS_OK,
+      PENDING_OK,
+      ITEMS_OK,
+      NEW_CUSTOMERS_OK,
+      TOTAL_CUSTOMERS_OK,
+      REVENUE_OK,
+      PREV_REVENUE_OK,
+      VISITS_OK,
+    ]);
+
+    await fetchDashboardStats('merchant-1', 'week', {
+      type: 'branch',
+      branchId: 'branch-1',
+    });
+
+    const branchEqCalls = supabaseMock.chains.flatMap((chain, index) =>
+      chain.calls
+        .filter(
+          (call) =>
+            call.method === 'eq' &&
+            (call.args[0] === 'branch_id' ||
+              call.args[0] === 'orders.branch_id')
+        )
+        .map((call) => ({
+          index,
+          table: chain.table,
+          column: call.args[0],
+          value: call.args[1],
+        }))
+    );
+
+    expect(branchEqCalls).toEqual([
+      { index: 0, table: 'orders', column: 'branch_id', value: 'branch-1' },
+      { index: 1, table: 'orders', column: 'branch_id', value: 'branch-1' },
+      {
+        index: 2,
+        table: 'order_items',
+        column: 'orders.branch_id',
+        value: 'branch-1',
+      },
+      { index: 5, table: 'orders', column: 'branch_id', value: 'branch-1' },
+      { index: 6, table: 'orders', column: 'branch_id', value: 'branch-1' },
+    ]);
+
+    const customerChains = supabaseMock.chains.filter(
+      (chain) => chain.table === 'customers'
+    );
+    const visitChain = supabaseMock.chains.find(
+      (chain) => chain.table === 'analytics_events'
+    );
+
+    expect(customerChains).toHaveLength(2);
+    expect(
+      customerChains.flatMap((chain) =>
+        chain.calls.filter((call) => call.args[0] === 'branch_id')
+      )
+    ).toEqual([]);
+    expect(
+      visitChain?.calls.filter((call) => call.args[0] === 'branch_id')
+    ).toEqual([]);
+  });
+
+  it('does not add branch filters for all-location dashboard scope', async () => {
+    supabaseMock.enqueue([
+      ORDERS_OK,
+      PENDING_OK,
+      ITEMS_OK,
+      NEW_CUSTOMERS_OK,
+      TOTAL_CUSTOMERS_OK,
+      REVENUE_OK,
+      PREV_REVENUE_OK,
+      VISITS_OK,
+    ]);
+
+    await fetchDashboardStats('merchant-1', 'week', { type: 'all' });
+
+    expect(
+      supabaseMock.chains.flatMap((chain) =>
+        chain.calls.filter(
+          (call) =>
+            call.method === 'eq' &&
+            (call.args[0] === 'branch_id' ||
+              call.args[0] === 'orders.branch_id')
+        )
+      )
+    ).toEqual([]);
   });
 });

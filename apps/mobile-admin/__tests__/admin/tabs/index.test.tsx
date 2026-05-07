@@ -85,6 +85,12 @@ vi.mock('@/hooks/useDashboardStats', () => ({
   }),
 }));
 
+vi.mock('@/hooks/useBranchScope', () => ({
+  useBranchScope: () => ({
+    isAllLocations: true,
+  }),
+}));
+
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({
     isLive: true,

@@ -9,7 +9,9 @@ import { z } from 'zod';
 import type { Branch, StaffAccount } from '@/components/staff/types';
 import { useMerchant } from '@/hooks/useMerchant';
 import { BASE_URL } from '@/lib/api-client';
+import { createBranch as createBranchViaApi } from '@/lib/branch-api';
 import { supabase } from '@/lib/supabase';
+import { CreateBranchSchema } from '@/schemas/branch';
 
 // 2026 Best Practice: Dynamic imports for native modules
 let Clipboard: typeof import('expo-clipboard') | null = null;
@@ -75,6 +77,7 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
         .from('branches')
         .select('id, name, address, city, is_default, active')
         .eq('merchant_id', merchant?.id)
+        .eq('active', true)
         .order('is_default', { ascending: false })
         .order('created_at', { ascending: true });
       if (error) {
@@ -157,12 +160,12 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
   });
 
   const createBranchMutation = useMutation({
-    mutationFn: async ({ name, city }: { name: string; city: string }) => {
-      const schema = z.object({
-        name: z.string().min(2, 'Branch name must be at least 2 characters'),
-        city: z.string().optional(),
+    mutationFn: async ({ name, city }: { name: string; city?: string }) => {
+      const normalizedCity = city?.trim() || undefined;
+      const validation = CreateBranchSchema.safeParse({
+        name,
+        city: normalizedCity,
       });
-      const validation = schema.safeParse({ name, city });
       if (!validation.success) {
         throw new Error(validation.error.issues[0].message);
       }
@@ -171,13 +174,7 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
         throw new Error('Merchant not found');
       }
 
-      const { data, error } = await supabase
-        .from('branches')
-        .insert({ merchant_id: merchant.id, name, city: city || null })
-        .select('id, name, city, address, is_default, active')
-        .single();
-      if (error) throw error;
-      return data;
+      return createBranchViaApi(validation.data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['branches'] });

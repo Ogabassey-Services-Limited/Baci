@@ -282,6 +282,7 @@ export default function ProductsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const { merchant } = useMerchant();
   const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
+  const inventoryScopeLabel = ' (all stores)';
 
   const [activeTab, setActiveTab] = useState<
     | 'all'
@@ -564,7 +565,7 @@ export default function ProductsScreen() {
             <Text
               style={[styles.summaryLabel, { color: colors.textSecondary }]}
             >
-              Total Value
+              {`Total Value${inventoryScopeLabel}`}
             </Text>
             <Text style={[styles.summaryValue, { color: colors.text }]}>
               {formatPrice(inventoryStats.inventoryValue, currencySymbol)}
@@ -579,7 +580,7 @@ export default function ProductsScreen() {
             <Text
               style={[styles.summaryLabel, { color: colors.textSecondary }]}
             >
-              Stock Cost
+              {`Stock Cost${inventoryScopeLabel}`}
             </Text>
             <Text style={[styles.summaryValue, { color: colors.text }]}>
               {formatPrice(inventoryStats.inventoryCost, currencySymbol)}
@@ -594,7 +595,7 @@ export default function ProductsScreen() {
             <Text
               style={[styles.summaryLabel, { color: colors.textSecondary }]}
             >
-              Total Units
+              {`Total Units${inventoryScopeLabel}`}
             </Text>
             <Text style={[styles.summaryValue, { color: colors.text }]}>
               {inventoryStats.totalStock.toLocaleString()}

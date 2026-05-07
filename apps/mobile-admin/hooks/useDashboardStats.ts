@@ -5,6 +5,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { ALL_BRANCH_SCOPE, type BranchScope } from '@/schemas/branch';
+import { useBranchScope } from './useBranchScope';
 import { useMerchant } from './useMerchant';
 
 export type TimePeriod = 'today' | 'week' | 'month' | 'all';
@@ -33,6 +35,16 @@ export interface TopProduct {
   imageUrl: string | null;
   totalSold: number;
   totalRevenue: number;
+}
+
+function getBranchScopeKey(scope: BranchScope): string {
+  return scope.type === 'branch' ? scope.branchId : 'all';
+}
+
+function applyOrderBranchScope<
+  Query extends { eq: (column: string, value: string) => Query },
+>(query: Query, scope: BranchScope, column = 'branch_id'): Query {
+  return scope.type === 'branch' ? query.eq(column, scope.branchId) : query;
 }
 
 function getDateRange(period: TimePeriod): {
@@ -113,7 +125,8 @@ function getPreviousPeriodDateRange(
 // Exported for testing the throw-on-error behavior in isolation.
 export async function fetchDashboardStats(
   merchantId: string,
-  period: TimePeriod
+  period: TimePeriod,
+  scope: BranchScope = ALL_BRANCH_SCOPE
 ): Promise<DashboardStats> {
   if (__DEV__) {
     console.log(
@@ -131,23 +144,26 @@ export async function fetchDashboardStats(
     .from('orders')
     .select('id', { count: 'exact', head: true })
     .eq('merchant_id', merchantId);
+  ordersQuery = applyOrderBranchScope(ordersQuery, scope);
 
   if (start) {
     ordersQuery = ordersQuery.gte('created_at', start);
   }
 
   // Fetch pending orders (always total, not filtered by period)
-  const pendingOrdersQuery = supabase
+  let pendingOrdersQuery = supabase
     .from('orders')
     .select('id', { count: 'exact', head: true })
     .eq('merchant_id', merchantId)
     .eq('shipping_status', 'pending');
+  pendingOrdersQuery = applyOrderBranchScope(pendingOrdersQuery, scope);
 
   // Fetch total items for period
   let itemsQuery = supabase
     .from('order_items')
-    .select('quantity, orders!inner(merchant_id, created_at)')
+    .select('quantity, orders!inner(merchant_id, branch_id, created_at)')
     .eq('orders.merchant_id', merchantId);
+  itemsQuery = applyOrderBranchScope(itemsQuery, scope, 'orders.branch_id');
 
   if (start) {
     itemsQuery = itemsQuery.gte('orders.created_at', start);
@@ -174,6 +190,7 @@ export async function fetchDashboardStats(
     .from('orders')
     .select('total')
     .eq('merchant_id', merchantId);
+  revenueQuery = applyOrderBranchScope(revenueQuery, scope);
 
   if (start) {
     revenueQuery = revenueQuery.gte('created_at', start);
@@ -189,6 +206,10 @@ export async function fetchDashboardStats(
       .eq('merchant_id', merchantId)
       .gte('created_at', prevPeriod.start!)
       .lt('created_at', prevPeriod.end);
+    previousPeriodRevenueQuery = applyOrderBranchScope(
+      previousPeriodRevenueQuery,
+      scope
+    );
   }
 
   // Fetch visits for period
@@ -275,7 +296,8 @@ export async function fetchDashboardStats(
 
 async function fetchRevenueChart(
   merchantId: string,
-  period: TimePeriod
+  period: TimePeriod,
+  scope: BranchScope = ALL_BRANCH_SCOPE
 ): Promise<RevenueDataPoint[]> {
   const now = new Date();
 
@@ -306,12 +328,19 @@ async function fetchRevenueChart(
   }
 
   // Single query for the entire period
-  const { data: orders } = await supabase
+  let ordersQuery = supabase
     .from('orders')
     .select('total, created_at')
     .eq('merchant_id', merchantId)
     .gte('created_at', rangeStart.toISOString())
     .lte('created_at', rangeEnd.toISOString());
+  ordersQuery = applyOrderBranchScope(ordersQuery, scope);
+
+  const { data: orders, error } = await ordersQuery;
+
+  if (error) {
+    throw new Error(`fetchRevenueChart orders query failed: ${error.message}`);
+  }
 
   // Bucket orders client-side
   if (period === 'today') {
@@ -555,18 +584,20 @@ async function fetchTopProducts(
 
 export function useDashboardStats(period: TimePeriod = 'week') {
   const { merchant } = useMerchant();
+  const scope = useBranchScope().scope;
   const merchantId = merchant?.id;
+  const branchScopeKey = getBranchScopeKey(scope);
 
   const statsQuery = useQuery({
-    queryKey: ['dashboard-stats', merchantId, period],
-    queryFn: () => fetchDashboardStats(merchantId!, period),
+    queryKey: ['dashboard-stats', merchantId, period, branchScopeKey],
+    queryFn: () => fetchDashboardStats(merchantId!, period, scope),
     enabled: !!merchantId,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 
   const chartQuery = useQuery({
-    queryKey: ['revenue-chart', merchantId, period],
-    queryFn: () => fetchRevenueChart(merchantId!, period),
+    queryKey: ['revenue-chart', merchantId, period, branchScopeKey],
+    queryFn: () => fetchRevenueChart(merchantId!, period, scope),
     enabled: !!merchantId,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });

@@ -13,6 +13,8 @@ import {
 import { expenseFormStyles } from '@/components/expenses/expense-form.styles';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { SPACING } from '@/constants/theme';
+import { useBranches } from '@/hooks/useBranches';
+import { useBranchScope } from '@/hooks/useBranchScope';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
@@ -21,6 +23,8 @@ import { createUploadFile, type RNFormData } from '@/types/upload';
 export default function AddExpenseScreen() {
   const { colors } = useTheme();
   const { merchant } = useMerchant();
+  const { data: branches = [], isLoading: branchesLoading } = useBranches();
+  const { scope } = useBranchScope();
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -33,11 +37,20 @@ export default function AddExpenseScreen() {
   const [isCategorySheetVisible, setCategorySheetVisible] = useState(false);
   const parsedAmount = Number.parseFloat(amount);
   const hasValidAmount = Number.isFinite(parsedAmount) && parsedAmount > 0;
+  const selectedBranchId =
+    scope.type === 'branch'
+      ? (scope.branchId ?? null)
+      : (branches.find((branch) => branch.is_default)?.id ??
+        branches[0]?.id ??
+        null);
+  const canSaveExpense =
+    hasValidAmount && !branchesLoading && selectedBranchId !== null;
 
   const createExpenseMutation = useMutation({
     mutationFn: async () => {
       if (!merchant?.id) throw new Error('Merchant ID missing');
       if (!hasValidAmount) throw new Error('Invalid expense amount');
+      if (!selectedBranchId) throw new Error('No active branch is available');
 
       let uploadedReceiptUrl: string | null = null;
 
@@ -79,6 +92,7 @@ export default function AddExpenseScreen() {
 
       const { error } = await supabase.from('expenses').insert({
         merchant_id: merchant.id,
+        branch_id: selectedBranchId,
         amount: parsedAmount,
         category: selectedCategory,
         description: description || null,
@@ -132,6 +146,16 @@ export default function AddExpenseScreen() {
       return;
     }
 
+    if (branchesLoading) {
+      Alert.alert('Branches loading', 'Please wait for branches to finish loading.');
+      return;
+    }
+
+    if (!selectedBranchId) {
+      Alert.alert('No branch available', 'Create an active branch before saving expenses.');
+      return;
+    }
+
     createExpenseMutation.mutate();
   };
 
@@ -169,14 +193,14 @@ export default function AddExpenseScreen() {
             <Pressable
               accessibilityLabel="Save expense"
               accessibilityRole="button"
-              disabled={!hasValidAmount || createExpenseMutation.isPending}
+              disabled={!canSaveExpense || createExpenseMutation.isPending}
               onPress={handleSaveExpense}
               style={[
                 expenseFormStyles.saveButton,
                 {
                   backgroundColor: colors.primary,
                   opacity:
-                    !hasValidAmount || createExpenseMutation.isPending
+                    !canSaveExpense || createExpenseMutation.isPending
                       ? 0.7
                       : 1,
                 },

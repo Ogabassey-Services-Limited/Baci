@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
+import { ALL_BRANCH_SCOPE, type BranchScope } from '@/schemas/branch';
+import { useBranchScope } from './useBranchScope';
 import { useMerchant } from './useMerchant';
 
 export interface OrderCounts {
@@ -12,59 +14,99 @@ export interface OrderCounts {
   returned: number;
 }
 
-async function fetchOrderCounts(merchantId: string): Promise<OrderCounts> {
+function getBranchScopeKey(scope: BranchScope): string {
+  return scope.type === 'branch' ? scope.branchId : 'all';
+}
+
+type BranchScopedQuery = {
+  eq: (column: string, value: string) => BranchScopedQuery;
+};
+
+function applyBranchScope<Query>(query: Query, scope: BranchScope): Query {
+  if (scope.type !== 'branch') {
+    return query;
+  }
+
+  return (query as BranchScopedQuery).eq('branch_id', scope.branchId) as Query;
+}
+
+export async function fetchOrderCounts(
+  merchantId: string,
+  scope: BranchScope = ALL_BRANCH_SCOPE
+): Promise<OrderCounts> {
   // We perform parallel queries for each status to get exact counts
   // This is more efficient than fetching all orders and filtering client-side for large datasets,
   // though for small shops, client-side might be fine. We stick to server-side counts for scalability.
 
   const queries = [
     // All orders
-    supabase
-      .from('orders')
-      .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', merchantId),
+    applyBranchScope(
+      supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('merchant_id', merchantId),
+      scope
+    ),
 
     // Pending
-    supabase
-      .from('orders')
-      .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', merchantId)
-      .eq('shipping_status', 'pending'),
+    applyBranchScope(
+      supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('merchant_id', merchantId)
+        .eq('shipping_status', 'pending'),
+      scope
+    ),
 
     // Processing
-    supabase
-      .from('orders')
-      .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', merchantId)
-      .eq('shipping_status', 'processing'),
+    applyBranchScope(
+      supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('merchant_id', merchantId)
+        .eq('shipping_status', 'processing'),
+      scope
+    ),
 
     // Shipped
-    supabase
-      .from('orders')
-      .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', merchantId)
-      .eq('shipping_status', 'shipped'),
+    applyBranchScope(
+      supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('merchant_id', merchantId)
+        .eq('shipping_status', 'shipped'),
+      scope
+    ),
 
     // Delivered
-    supabase
-      .from('orders')
-      .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', merchantId)
-      .eq('shipping_status', 'delivered'),
+    applyBranchScope(
+      supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('merchant_id', merchantId)
+        .eq('shipping_status', 'delivered'),
+      scope
+    ),
 
     // Cancelled
-    supabase
-      .from('orders')
-      .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', merchantId)
-      .eq('shipping_status', 'cancelled'),
+    applyBranchScope(
+      supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('merchant_id', merchantId)
+        .eq('shipping_status', 'cancelled'),
+      scope
+    ),
 
     // Returned
-    supabase
-      .from('orders')
-      .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', merchantId)
-      .eq('shipping_status', 'returned'),
+    applyBranchScope(
+      supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('merchant_id', merchantId)
+        .eq('shipping_status', 'returned'),
+      scope
+    ),
   ];
 
   const results = await Promise.all(queries);
@@ -101,11 +143,13 @@ async function fetchOrderCounts(merchantId: string): Promise<OrderCounts> {
 
 export function useOrderCounts() {
   const { merchant } = useMerchant();
+  const { scope } = useBranchScope();
   const merchantId = merchant?.id;
+  const branchScopeKey = getBranchScopeKey(scope);
 
   return useQuery({
-    queryKey: ['order-counts', merchantId],
-    queryFn: () => fetchOrderCounts(merchantId!),
+    queryKey: ['order-counts', merchantId, branchScopeKey],
+    queryFn: () => fetchOrderCounts(merchantId!, scope),
     enabled: !!merchantId,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });

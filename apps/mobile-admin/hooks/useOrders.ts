@@ -24,6 +24,8 @@ import { ORDER_COLUMNS } from '@/lib/orders';
 import { sanitizeSearchQuery } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 import { getJoinedRecord } from '@/lib/supabase-utils';
+import { ALL_BRANCH_SCOPE, type BranchScope } from '@/schemas/branch';
+import { useBranchScope } from './useBranchScope';
 import { useMerchant } from './useMerchant';
 
 // Re-export for backward compatibility
@@ -67,6 +69,10 @@ interface OrderItemRow {
 const PAGE_SIZE = 20;
 const ORDER_STATUS_UPDATE_TIMEOUT_MS = 15000;
 
+function getBranchScopeKey(scope: BranchScope): string {
+  return scope.type === 'branch' ? scope.branchId : 'all';
+}
+
 function parseResponsePayload(
   text: string
 ): Record<string, unknown> | string | null {
@@ -80,14 +86,15 @@ function parseResponsePayload(
     return text;
   }
 }
-async function fetchOrders(
+export async function fetchOrders(
   merchantId: string,
   cursor: number = 0,
   filters?: {
     status?: ShippingStatus;
     search?: string;
     dateFilter?: string | { start: Date; end: Date } | null;
-  }
+  },
+  scope: BranchScope = ALL_BRANCH_SCOPE
 ): Promise<OrdersPage> {
   let query = supabase
     .from('orders')
@@ -95,6 +102,10 @@ async function fetchOrders(
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false })
     .range(cursor, cursor + PAGE_SIZE - 1);
+
+  if (scope.type === 'branch') {
+    query = query.eq('branch_id', scope.branchId);
+  }
 
   if (filters?.status) {
     query = query.eq('shipping_status', filters.status);
@@ -240,7 +251,9 @@ export function useOrders(
   dateFilter: string | { start: Date; end: Date } | null = null
 ) {
   const { merchant } = useMerchant();
+  const { scope } = useBranchScope();
   const merchantId = merchant?.id;
+  const branchScopeKey = getBranchScopeKey(scope);
 
   // Construct filters object from new parameters
   const filters = {
@@ -250,13 +263,13 @@ export function useOrders(
   };
 
   return useInfiniteQuery({
-    queryKey: ['orders', merchantId, filters],
+    queryKey: ['orders', merchantId, filters, branchScopeKey],
     queryFn: ({ pageParam = 0 }) => {
       if (!merchantId) {
         throw new Error('Merchant ID is required');
       }
 
-      return fetchOrders(merchantId, pageParam, filters);
+      return fetchOrders(merchantId, pageParam, filters, scope);
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     initialPageParam: 0,

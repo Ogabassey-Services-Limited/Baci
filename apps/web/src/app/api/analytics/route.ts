@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const parsedQuery = analyticsQuerySchema.safeParse({
+      branchId: searchParams.get('branchId') ?? undefined,
       endDate: searchParams.get('endDate') ?? undefined,
       startDate: searchParams.get('startDate') ?? undefined,
     });
@@ -68,11 +69,41 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    const branchId = parsedQuery.data.branchId;
+    if (branchId) {
+      const { data: branch, error: branchError } = await auth.supabase
+        .from('branches')
+        .select('id')
+        .eq('id', branchId)
+        .eq('merchant_id', merchantContext.merchantId)
+        .eq('active', true)
+        .maybeSingle();
+
+      if (branchError) {
+        console.error('Analytics branch validation failed:', branchError);
+        return NextResponse.json(
+          {
+            code: 'BRANCH_VALIDATION_FAILED',
+            error: 'Failed to validate branch',
+          },
+          { status: 500 }
+        );
+      }
+
+      if (!branch) {
+        return NextResponse.json(
+          { code: 'BRANCH_NOT_FOUND', error: 'Branch not found' },
+          { status: 404 }
+        );
+      }
+    }
+
     const analytics = await getMerchantAnalyticsOverview(
       auth.supabase,
       merchantContext.merchantId,
       startDate,
-      endDate
+      endDate,
+      branchId
     );
 
     return NextResponse.json(analytics);

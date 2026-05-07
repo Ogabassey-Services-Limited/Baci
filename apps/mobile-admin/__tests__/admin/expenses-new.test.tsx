@@ -3,6 +3,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+type TestBranchScope = { type: 'all' } | { type: 'branch'; branchId: string };
+
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
   expenseFieldsProps: {
@@ -17,6 +19,9 @@ const mocks = vi.hoisted(() => ({
   imagePicker: vi.fn(),
   insert: vi.fn(),
   invalidateQueries: vi.fn(),
+  branches: [] as Array<{ id: string; is_default: boolean }>,
+  branchesLoading: false,
+  branchScope: { type: 'branch', branchId: 'branch-1' } as TestBranchScope,
   merchant: { id: 'merchant-1' },
   router: { back: vi.fn() },
   upload: vi.fn(),
@@ -79,6 +84,17 @@ vi.mock('@/hooks/useTheme', () => ({
       text: '#f8fafc',
       textOnPrimary: '#ffffff',
     },
+  }),
+}));
+
+vi.mock('@/hooks/useBranchScope', () => ({
+  useBranchScope: () => ({ scope: mocks.branchScope }),
+}));
+
+vi.mock('@/hooks/useBranches', () => ({
+  useBranches: () => ({
+    data: mocks.branches,
+    isLoading: mocks.branchesLoading,
   }),
 }));
 
@@ -238,6 +254,9 @@ describe('AddExpenseScreen', () => {
     mocks.expenseFieldsProps.amount = '';
     mocks.expenseFieldsProps.description = '';
     mocks.expenseFieldsProps.receiptUri = null;
+    mocks.branches = [];
+    mocks.branchesLoading = false;
+    mocks.branchScope = { type: 'branch', branchId: 'branch-1' };
     mocks.insert.mockResolvedValue({ error: null });
     mocks.imagePicker.mockResolvedValue({ assets: [], canceled: true });
     mocks.upload.mockResolvedValue({ error: null });
@@ -301,6 +320,7 @@ describe('AddExpenseScreen', () => {
       expect(mocks.upload).toHaveBeenCalled();
       expect(mocks.insert).toHaveBeenCalledWith({
         amount: 12500,
+        branch_id: 'branch-1',
         category: 'Inventory',
         description: 'Office internet',
         date: expect.any(String),
@@ -341,5 +361,19 @@ describe('AddExpenseScreen', () => {
     expect(mocks.router.back).not.toHaveBeenCalled();
 
     consoleErrorSpy.mockRestore();
+  });
+
+  it('prevents saving when no branch can be selected', () => {
+    mocks.branchScope = { type: 'all' };
+
+    render(<AddExpenseScreen />);
+
+    fireEvent.change(screen.getByLabelText('Expense amount'), {
+      target: { value: '12500' },
+    });
+    const saveButton = screen.getByRole('button', { name: 'Save expense' });
+
+    expect(saveButton).toBeDisabled();
+    expect(mocks.insert).not.toHaveBeenCalled();
   });
 });

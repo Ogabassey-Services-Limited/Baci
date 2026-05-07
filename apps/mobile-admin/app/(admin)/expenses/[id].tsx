@@ -18,6 +18,7 @@ import {
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useBranches } from '@/hooks/useBranches';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
@@ -26,14 +27,20 @@ export default function ExpenseDetailScreen() {
   const { colors, isDark, shadows } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { merchant } = useMerchant();
+  const { data: branches = [], isLoading: branchesLoading } = useBranches();
 
-  const { data: expense, isLoading } = useQuery({
+  const {
+    data: expense,
+    error: expenseError,
+    isError: hasExpenseError,
+    isLoading,
+  } = useQuery({
     queryKey: ['expense', id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('expenses')
         .select(
-          'id, amount, category, date, reference, description, receipt_url'
+          'id, amount, category, date, reference, description, receipt_url, branch_id'
         )
         .eq('id', id)
         .single();
@@ -46,6 +53,10 @@ export default function ExpenseDetailScreen() {
   const formatCurrency = (amount: number, currency: string) => {
     return `${currency === 'NGN' ? '₦' : currency}${amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
   };
+  const branchName = expense?.branch_id
+    ? (branches.find((branch) => branch.id === expense.branch_id)?.name ??
+      (branchesLoading ? 'Loading branch...' : 'Unknown branch'))
+    : 'Unassigned';
 
   if (isLoading) {
     return (
@@ -58,6 +69,29 @@ export default function ExpenseDetailScreen() {
       >
         <Text style={{ color: colors.textSecondary }}>
           Loading expense details...
+        </Text>
+      </View>
+    );
+  }
+
+  if (hasExpenseError) {
+    return (
+      <View
+        style={[
+          styles.container,
+          styles.center,
+          styles.errorContainer,
+          { backgroundColor: colors.background },
+        ]}
+      >
+        <Ionicons name="warning-outline" size={32} color={colors.textSecondary} />
+        <Text style={{ color: colors.textSecondary }}>
+          Could not load expense.
+        </Text>
+        <Text style={{ color: colors.textSecondary }}>
+          {expenseError instanceof Error
+            ? expenseError.message
+            : 'Please try again later.'}
         </Text>
       </View>
     );
@@ -150,6 +184,17 @@ export default function ExpenseDetailScreen() {
 
           <View style={styles.infoRow}>
             <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
+              Branch
+            </Text>
+            <Text style={[styles.infoValue, { color: colors.text }]}>
+              {branchName}
+            </Text>
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+          <View style={styles.infoRow}>
+            <Text style={[styles.infoLabel, { color: colors.textSecondary }]}>
               Description
             </Text>
             <Text
@@ -197,6 +242,10 @@ const styles = StyleSheet.create({
   center: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  errorContainer: {
+    gap: SPACING.sm,
+    padding: SPACING.lg,
   },
   scrollView: {
     flex: 1,

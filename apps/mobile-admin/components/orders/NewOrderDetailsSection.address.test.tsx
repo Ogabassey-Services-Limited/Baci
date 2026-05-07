@@ -100,6 +100,7 @@ function makeController(
       textSecondary: '#64748b',
       ...overrides.colors,
     },
+    branches: [],
     customer: {
       address: '',
       email: '',
@@ -118,14 +119,16 @@ function makeController(
       ...overrides.deliveryInfo,
     },
     sameAsCustomer: false,
+    selectedBranchId: null,
     setDate: vi.fn(),
     setDeliveryInfo: vi.fn(),
+    setSelectedBranchId: vi.fn(),
     setSameAsCustomer: vi.fn(),
     setShowCustomerModal: vi.fn(),
     setShowDatePicker: vi.fn(),
     showDatePicker: false,
     ...overrides,
-  } as ReturnType<typeof useNewOrderController>;
+  } as unknown as ReturnType<typeof useNewOrderController>;
 }
 
 describe('NewOrderDetailsSection address behavior', () => {

@@ -188,6 +188,7 @@ export default function InventoryScreen() {
     products.length;
   const lowStockCount = inventoryStats?.lowStockCount ?? 0;
   const outOfStockCount = inventoryStats?.outOfStockCount ?? 0;
+  const inventoryScopeLabel = ' (all stores)';
 
   // Navigation callback
   const handleProductPress = (id: string) => {
@@ -285,7 +286,7 @@ export default function InventoryScreen() {
       <View
         style={styles.statsRow}
         accessibilityRole="summary"
-        accessibilityLabel={`Inventory summary: ${totalProducts} products, ${lowStockCount} low stock, ${outOfStockCount} out of stock`}
+        accessibilityLabel={`Inventory summary${inventoryScopeLabel}: ${totalProducts} products, ${lowStockCount} low stock, ${outOfStockCount} out of stock`}
       >
         <View
           style={[
@@ -302,7 +303,7 @@ export default function InventoryScreen() {
             {totalProducts}
           </Text>
           <Text style={[styles.statLabel, { color: colors.textSecondary }]}>
-            Products
+            {`Products${inventoryScopeLabel}`}
           </Text>
         </View>
         <View
