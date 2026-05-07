@@ -186,6 +186,53 @@ describe('createOrderDetailsReceiptActions', () => {
     expect(setIsGeneratingReceipt).toHaveBeenLastCalledWith(false);
   });
 
+  it('includes saved fulfillment identifiers in the generated receipt html', async () => {
+    const setReceiptHtml = vi.fn();
+
+    const actions = createOrderDetailsReceiptActions({
+      isGeneratingReceipt: false,
+      merchant: {
+        business_name: 'Baci',
+        email: 'merchant@example.com',
+        id: 'merchant-1',
+      },
+      order: {
+        amount_paid: 15000,
+        balance: 0,
+        created_at: '2024-01-01T00:00:00.000Z',
+        customer_email: 'customer@example.com',
+        customer_name: 'Ada',
+        customer_phone: '08030000000',
+        discount_amount: 0,
+        fulfillment_details: {
+          imei: '353456789012345',
+          serialNumber: 'SN-123',
+        },
+        id: 'order-1',
+        items: [],
+        order_number: 'ORD-1',
+        payment_status: 'paid',
+        shipping_address: null,
+        shipping_status: 'pending',
+        total: 15000,
+        updated_at: '2024-01-01T00:00:00.000Z',
+      },
+      receiptHtml: '',
+      setIsGeneratingReceipt: vi.fn(),
+      setReceiptHtml,
+      setShowReceiptPreview: vi.fn(),
+    });
+
+    await actions.handleSendReceipt();
+
+    expect(setReceiptHtml).toHaveBeenCalledWith(
+      expect.stringContaining('353456789012345')
+    );
+    expect(setReceiptHtml).toHaveBeenCalledWith(
+      expect.stringContaining('SN-123')
+    );
+  });
+
   it('sanitizes fetched svg logos before previewing the receipt', async () => {
     mocks.fetch.mockResolvedValue({
       ok: true,

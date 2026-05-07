@@ -110,6 +110,7 @@ export function createOrderDetailsReceiptActions({
         customer_name: order.customer_name,
         customer_phone: order.customer_phone ?? null,
         discount_amount: Number(order.discount_amount) || 0,
+        fulfillment_details: order.fulfillment_details ?? null,
         is_credit_order: order.is_credit_order ?? false,
         items: (order.items ?? []).map((item) => ({
           price: Number(item.price) || 0,
