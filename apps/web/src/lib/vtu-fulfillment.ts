@@ -1384,18 +1384,12 @@ async function resolveCurrentVtuTransactionState({
     const metadata = currentRow.metadata ?? {};
     const refundIssued = metadata.refundIssued === true;
     const refundedAmount = Number(metadata.refundAmount ?? currentRow.amount);
-    if (!refundIssued) {
-      return {
-        amount: Number(currentRow.amount) || 0,
-        reference: currentRow.request_reference,
-        status: 'processing',
-      };
-    }
     return {
       amount: Number(currentRow.amount) || 0,
       error: currentRow.error_message || 'Purchase failed',
       reference: currentRow.request_reference,
-      ...(refundedAmount > 0 && { refundedToWallet: refundedAmount }),
+      ...(refundIssued &&
+        refundedAmount > 0 && { refundedToWallet: refundedAmount }),
       status: 'failed',
     };
   }

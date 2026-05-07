@@ -1496,6 +1496,61 @@ describe('fulfillPendingVtuTransaction', () => {
     });
   });
 
+  it('returns failed when processing reconciliation loses the claim to a non-refundable failed row', async () => {
+    mockCheckTransactionStatus.mockResolvedValueOnce({
+      message: 'Loyalty reward vend rejected',
+      status: 'failed',
+    });
+    const rpcImpl = vi.fn(() => Promise.resolve({ data: null, error: null }));
+
+    const supabase = createPendingTransactionSupabaseMock({
+      currentTransactionData: {
+        error_message: 'Loyalty reward vend rejected',
+        metadata: {},
+        status: 'failed',
+        transaction_id: 'kuda-loyalty-1',
+      },
+      purchaseUpdateData: null,
+      rpcImpl,
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: null,
+        type: 'airtime',
+        network_provider: 'MTN',
+        phone_number: '08012345678',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: 'kuda-loyalty-1',
+        status: 'processing',
+        metadata: {},
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: null,
+        biller_item_code: null,
+        customer_identifier: null,
+        source: 'loyalty_reward',
+      },
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(result).toEqual({
+      amount: 1000,
+      error: 'Loyalty reward vend rejected',
+      reference: 'VTU-123',
+      status: 'failed',
+    });
+    expect(rpcImpl).not.toHaveBeenCalledWith(
+      'refund_customer_wallet_for_vtu',
+      expect.anything()
+    );
+  });
+
   it('throws a retryable error when a reconciled failure cannot issue the refund', async () => {
     mockCheckTransactionStatus.mockResolvedValueOnce({
       message: 'Request successful. (biller status: k11)',
