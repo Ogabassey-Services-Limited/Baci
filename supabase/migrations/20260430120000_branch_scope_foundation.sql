@@ -39,7 +39,6 @@ WITH active_branches AS (
   SELECT
     id,
     merchant_id,
-    count(*) OVER (PARTITION BY merchant_id) AS active_count,
     row_number() OVER (
       PARTITION BY merchant_id
       ORDER BY created_at ASC, id ASC
@@ -52,8 +51,14 @@ SET is_default = true,
     updated_at = now()
 FROM active_branches ab
 WHERE b.id = ab.id
-  AND ab.active_count = 1
   AND ab.rn = 1
+  AND NOT EXISTS (
+    SELECT 1
+    FROM public.branches existing_default
+    WHERE existing_default.merchant_id = ab.merchant_id
+      AND existing_default.active = true
+      AND existing_default.is_default = true
+  )
   AND b.is_default IS DISTINCT FROM true;
 
 CREATE INDEX IF NOT EXISTS idx_orders_merchant_branch_created
