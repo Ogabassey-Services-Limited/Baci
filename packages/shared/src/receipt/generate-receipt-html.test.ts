@@ -395,6 +395,22 @@ describe('generateReceiptHtml', () => {
     expect(html).toContain('SN-123');
   });
 
+  it('falls back to legacy serial_number when serialNumber is blank', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        fulfillment_details: {
+          serialNumber: ' ',
+          serial_number: 'SN-LEGACY-123',
+        },
+      }),
+      createReceiptMerchant()
+    );
+
+    expect(html).toContain('S/N');
+    expect(html).toContain('SN-LEGACY-123');
+    expect(html.match(/S\/N/g) ?? []).toHaveLength(1);
+  });
+
   it('does not show stale VAT when the order total excludes the tax amount', () => {
     const html = generateReceiptHtml(
       createReceiptOrder({
@@ -448,5 +464,37 @@ describe('generateReceiptHtml', () => {
     expect(html).not.toContain('mibextid');
     expect(html).not.toContain('_t=');
     expect(html).not.toContain('@https://');
+  });
+
+  it('renders Facebook profile.php id URLs as deterministic handles', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder(),
+      createReceiptMerchant({
+        social_media: {
+          facebook:
+            'https://www.facebook.com/profile.php?id=61551234567890&mibextid=ZbWKwL',
+        },
+      })
+    );
+
+    expect(html).toContain('@61551234567890');
+    expect(html).not.toContain('?id=');
+    expect(html).not.toContain('profile.php');
+    expect(html).not.toContain('mibextid');
+  });
+
+  it('does not consume Facebook profile.php ids from nested paths', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder(),
+      createReceiptMerchant({
+        social_media: {
+          facebook:
+            'https://www.facebook.com/share/profile.php?id=61551234567890',
+        },
+      })
+    );
+
+    expect(html).not.toContain('@61551234567890');
+    expect(html).not.toContain('?id=');
   });
 });

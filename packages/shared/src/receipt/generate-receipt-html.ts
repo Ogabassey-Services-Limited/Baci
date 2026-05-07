@@ -118,6 +118,26 @@ function normalizePlainSocialHandle(value: string): string | null {
   return normalized || null;
 }
 
+function getFirstNonBlankValue(
+  ...values: Array<string | null | undefined>
+): string {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed) {
+      return trimmed;
+    }
+  }
+  return '';
+}
+
+function getFacebookProfileId(url: URL, segments: string[]): string | null {
+  if (segments[0]?.toLowerCase() !== 'profile.php') {
+    return null;
+  }
+
+  return normalizePlainSocialHandle(url.searchParams.get('id') ?? '');
+}
+
 function normalizeSocialHandle(
   platform: 'instagram' | 'facebook' | 'twitter' | 'tiktok',
   value: string | undefined
@@ -152,10 +172,9 @@ function normalizeSocialHandle(
     if (platform === 'instagram') {
       profileSegment = getFirstProfileSegment(segments, IG_RESERVED_PATHS);
     } else if (platform === 'facebook') {
-      profileSegment = getFirstProfileSegment(
-        segments,
-        FACEBOOK_RESERVED_PATHS
-      );
+      profileSegment =
+        getFacebookProfileId(url, segments) ??
+        getFirstProfileSegment(segments, FACEBOOK_RESERVED_PATHS);
     } else if (platform === 'twitter') {
       profileSegment = getFirstProfileSegment(segments, TWITTER_RESERVED_PATHS);
     } else {
@@ -172,9 +191,11 @@ function normalizeSocialHandle(
 
 function getReceiptFulfillmentRows(order: ReceiptOrder) {
   const details = order.fulfillment_details;
-  const imei = details?.imei?.trim() ?? '';
-  const serialNumber =
-    details?.serialNumber?.trim() ?? details?.serial_number?.trim() ?? '';
+  const imei = getFirstNonBlankValue(details?.imei);
+  const serialNumber = getFirstNonBlankValue(
+    details?.serialNumber,
+    details?.serial_number
+  );
 
   return [
     { label: 'IMEI', value: imei },
