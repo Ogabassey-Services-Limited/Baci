@@ -61,13 +61,22 @@ export function UtilityPaymentOptions({
         <View style={styles.cardsList}>
           {cards.map((card) => {
             const isSelected = selectedSavedCardId === card.id;
+            const savedCardMeta =
+              card.exp_month && card.exp_year
+                ? `Expires ${card.exp_month}/${card.exp_year}`
+                : 'Saved for faster payment';
             return (
               <Pressable
                 key={card.id}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: isSelected }}
+                accessibilityLabel={`${card.label}. ${savedCardMeta}`}
                 style={[
                   styles.savedCard,
                   {
-                    backgroundColor: isSelected ? `${BRAND.primary}12` : colors.card,
+                    backgroundColor: isSelected
+                      ? `${BRAND.primary}12`
+                      : colors.card,
                     borderColor: isSelected ? BRAND.primary : colors.border,
                   },
                 ]}
@@ -83,16 +92,28 @@ export function UtilityPaymentOptions({
                       { color: colors.textSecondary },
                     ]}
                   >
-                    {card.exp_month && card.exp_year
-                      ? `Expires ${card.exp_month}/${card.exp_year}`
-                      : 'Saved for faster payment'}
+                    {savedCardMeta}
                   </Text>
                 </View>
-                {card.is_default ? (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>Default</Text>
+                <View style={styles.savedCardActions}>
+                  {card.is_default ? (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>Default</Text>
+                    </View>
+                  ) : null}
+                  <View
+                    style={[
+                      styles.savedCardRadioOuter,
+                      {
+                        borderColor: isSelected ? BRAND.primary : colors.border,
+                      },
+                    ]}
+                  >
+                    {isSelected ? (
+                      <View style={styles.savedCardRadioInner} />
+                    ) : null}
                   </View>
-                ) : null}
+                </View>
               </Pressable>
             );
           })}
@@ -111,6 +132,12 @@ export function UtilityPaymentOptions({
         selectedMethod={selectedGateway}
         selectedTab="full"
         showInstallmentCalculator={false}
+        suppressedSelectedMethods={
+          selectedSavedCardId ? ['paystack'] : undefined
+        }
+        methodLabelOverrides={
+          cards.length > 0 ? { paystack: 'Use another card' } : undefined
+        }
         walletMode={onWalletToggle ? 'vtu' : 'off'}
         walletBalance={walletBalance}
         walletOrderTotal={amount}
@@ -152,12 +179,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: SPACING.md,
   },
+  savedCardActions: {
+    alignItems: 'flex-end',
+    gap: 8,
+  },
   savedCardCopy: {
     flex: 1,
     gap: 4,
   },
   savedCardMeta: {
     fontSize: 13,
+  },
+  savedCardRadioInner: {
+    backgroundColor: BRAND.primary,
+    borderRadius: 6,
+    height: 12,
+    width: 12,
+  },
+  savedCardRadioOuter: {
+    alignItems: 'center',
+    borderRadius: 11,
+    borderWidth: 2,
+    height: 22,
+    justifyContent: 'center',
+    width: 22,
   },
   savedCardTitle: {
     fontSize: 15,

@@ -137,6 +137,8 @@ interface PaymentMethodSelectorProps {
   walletOrderTotal?: number;
   walletSelection?: WalletSelection;
   onWalletToggle?: (selection: WalletSelection) => void;
+  suppressedSelectedMethods?: PaymentMethodType[];
+  methodLabelOverrides?: Partial<Record<PaymentMethodType, string>>;
 }
 
 export function PaymentMethodSelector({
@@ -152,6 +154,8 @@ export function PaymentMethodSelector({
   walletOrderTotal,
   walletSelection,
   onWalletToggle,
+  suppressedSelectedMethods = [],
+  methodLabelOverrides = {},
 }: PaymentMethodSelectorProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -243,8 +247,8 @@ export function PaymentMethodSelector({
     walletEffectiveTotal > 0 &&
     selectedTab === 'full' &&
     isWalletCompatibleMethod;
-  const walletCoversFully = walletShouldRender &&
-    walletBalance >= walletEffectiveTotal;
+  const walletCoversFully =
+    walletShouldRender && walletBalance >= walletEffectiveTotal;
   const walletPortion = walletShouldRender
     ? Math.min(walletBalance, walletEffectiveTotal)
     : 0;
@@ -312,9 +316,7 @@ export function PaymentMethodSelector({
             >
               {walletCoversFully ? 'Pay with wallet' : 'Use wallet credit'}
             </Text>
-            <Text
-              style={[styles.methodDesc, { color: colors.textSecondary }]}
-            >
+            <Text style={[styles.methodDesc, { color: colors.textSecondary }]}>
               {walletCoversFully
                 ? `${formatPrice(walletBalance)} available · covers full order`
                 : `${formatPrice(walletPortion)} from wallet · ${formatPrice(walletResidualToCard)} from card`}
@@ -538,9 +540,15 @@ export function PaymentMethodSelector({
           // is preserved so it can still be sent to the server for
           // receipt/accounting purposes.
           const walletSuppressesGateway = walletCoversFully && walletIsActive;
+          const selectionSuppressed = suppressedSelectedMethods.includes(
+            method.id
+          );
           const isSelected =
-            selectedMethod === method.id && !walletSuppressesGateway;
+            selectedMethod === method.id &&
+            !walletSuppressesGateway &&
+            !selectionSuppressed;
           const isDisabled = method.disabled || walletSuppressesGateway;
+          const methodLabel = methodLabelOverrides[method.id] ?? method.label;
 
           return (
             <Pressable
@@ -560,7 +568,7 @@ export function PaymentMethodSelector({
                 checked: isSelected,
                 disabled: isDisabled,
               }}
-              accessibilityLabel={`${method.label}. ${isDisabled ? method.disabledReason : method.description}`}
+              accessibilityLabel={`${methodLabel}. ${isDisabled ? method.disabledReason : method.description}`}
             >
               <View
                 style={[
@@ -594,7 +602,7 @@ export function PaymentMethodSelector({
                     { color: isSelected ? BRAND.primary : colors.text },
                   ]}
                 >
-                  {method.label}
+                  {methodLabel}
                 </Text>
                 <Text
                   style={[styles.methodDesc, { color: colors.textSecondary }]}
