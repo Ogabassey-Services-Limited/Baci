@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ExpenseDetail } from './ExpenseDetailContent';
+import type { ExpenseDetail } from './types';
 
 const expenseFixture = (): ExpenseDetail => ({
   amount: 12500,
@@ -38,6 +38,13 @@ const mocks = vi.hoisted(() => ({
     isError?: boolean;
     isLoading: boolean;
   } | null,
+  queryOptions: null as {
+    enabled?: boolean;
+    queryKey: readonly unknown[];
+  } | null,
+  branchScope: { type: 'branch', branchId: 'branch-1' } as
+    | { type: 'all' }
+    | { type: 'branch'; branchId: string },
   eqCalls: [] as unknown[][],
   linking: {
     canOpenURL: vi.fn(() => Promise.resolve(true)),
@@ -61,7 +68,16 @@ function makeExpenseQuery() {
 }
 
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: ({ queryFn }: { queryFn: () => Promise<unknown> }) => {
+  useQuery: ({
+    enabled,
+    queryFn,
+    queryKey,
+  }: {
+    enabled?: boolean;
+    queryFn: () => Promise<unknown>;
+    queryKey: readonly unknown[];
+  }) => {
+    mocks.queryOptions = { enabled, queryKey };
     if (mocks.queryState) {
       return mocks.queryState;
     }
@@ -85,6 +101,10 @@ vi.mock('@/hooks/useBranches', () => ({
     data: mocks.branches,
     isLoading: mocks.branchesLoading,
   }),
+}));
+
+vi.mock('@/hooks/useBranchScope', () => ({
+  useBranchScope: () => ({ scope: mocks.branchScope }),
 }));
 
 vi.mock('@/hooks/useMerchant', () => ({
@@ -166,6 +186,8 @@ describe('ExpenseDetailScreen', () => {
     mocks.linking.canOpenURL.mockResolvedValue(true);
     mocks.linking.openURL.mockResolvedValue(undefined);
     mocks.queryState = null;
+    mocks.queryOptions = null;
+    mocks.branchScope = { type: 'branch', branchId: 'branch-1' };
     mocks.eqCalls.length = 0;
     mocks.selectCalls.length = 0;
   });
@@ -177,6 +199,19 @@ describe('ExpenseDetailScreen', () => {
     expect(mocks.eqCalls).toContainEqual(['merchant_id', 'merchant-1']);
     expect(screen.getByText('Branch')).toBeInTheDocument();
     expect(screen.getByText('Lagos main')).toBeInTheDocument();
+  });
+
+  it('scopes branch detail lookups to the selected branch', () => {
+    render(<ExpenseDetailScreen />);
+
+    expect(mocks.queryOptions?.queryKey).toEqual([
+      'expense',
+      'merchant-1',
+      'branch-1',
+      'expense-1',
+    ]);
+    expect(mocks.queryOptions?.enabled).toBe(true);
+    expect(mocks.eqCalls).toContainEqual(['branch_id', 'branch-1']);
   });
 
   it('shows the loading state while the expense is loading', () => {

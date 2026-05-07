@@ -7,22 +7,24 @@ import { useQuery } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useBranchScope } from '@/hooks/useBranchScope';
 import { useBranches } from '@/hooks/useBranches';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
+import { getBranchScopeKey } from '@/lib/branch-scope-query';
 import { supabase } from '@/lib/supabase';
-import {
-  ExpenseDetails,
-  ExpenseStatusShell,
-  type ExpenseDetail,
-} from './ExpenseDetailContent';
+import { ExpenseDetails } from './ExpenseDetails';
+import { ExpenseStatusShell } from './ExpenseStatusShell';
 import { styles } from './expense-detail.styles';
+import type { ExpenseDetail } from './types';
 
 export default function ExpenseDetailScreen() {
   const { colors, isDark, shadows } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { merchant } = useMerchant();
+  const { scope } = useBranchScope();
   const { data: branches = [], isLoading: branchesLoading } = useBranches();
+  const branchScopeKey = getBranchScopeKey(scope);
 
   const {
     data: expense,
@@ -30,17 +32,22 @@ export default function ExpenseDetailScreen() {
     isError: hasExpenseError,
     isLoading,
   } = useQuery({
-    queryKey: ['expense', merchant?.id, id],
+    queryKey: ['expense', merchant?.id, branchScopeKey, id],
     queryFn: async () => {
       if (!merchant?.id) throw new Error('Merchant ID missing');
-      const { data, error } = await supabase
+      let query = supabase
         .from('expenses')
         .select(
           'id, amount, category, date, reference, description, receipt_url, branch_id'
         )
         .eq('id', id)
-        .eq('merchant_id', merchant.id)
-        .single();
+        .eq('merchant_id', merchant.id);
+
+      if (scope.type === 'branch') {
+        query = query.eq('branch_id', scope.branchId);
+      }
+
+      const { data, error } = await query.single();
       if (error) throw error;
       return data as ExpenseDetail;
     },

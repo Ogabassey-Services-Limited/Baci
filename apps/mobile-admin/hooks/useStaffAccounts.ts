@@ -170,10 +170,6 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
         throw new Error(validation.error.issues[0].message);
       }
 
-      if (!merchant?.id) {
-        throw new Error('Merchant not found');
-      }
-
       return createBranchViaApi(validation.data);
     },
     onSuccess: () => {

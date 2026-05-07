@@ -141,6 +141,10 @@ export const RADIUS = {
   full: 9999,
 };
 
+export const SIZE = {
+  display: 64,
+};
+
 export const TYPOGRAPHY = {
   // Font families (Inter)
   fontFamily: {

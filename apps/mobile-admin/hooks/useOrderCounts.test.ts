@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const supabaseMock = vi.hoisted(() => {
   type ChainCall = { method: string; args: unknown[] };
   const chains: ChainCall[][] = [];
+  const results: Array<{ count: number; error: { message: string } | null }> =
+    [];
 
   function makeChain() {
     const calls: ChainCall[] = [];
@@ -19,16 +21,28 @@ const supabaseMock = vi.hoisted(() => {
       chain[method] = passthrough(method);
     }
     chain.then = (
-      resolve: (value: { count: number; error: null }) => unknown
-    ) => Promise.resolve({ count: 1, error: null }).then(resolve);
+      resolve: (value: {
+        count: number;
+        error: { message: string } | null;
+      }) => unknown
+    ) =>
+      Promise.resolve(results.shift() ?? { count: 1, error: null }).then(
+        resolve
+      );
     return chain;
   }
 
   return {
     chains,
+    enqueue: (
+      nextResults: Array<{ count: number; error: { message: string } | null }>
+    ) => {
+      results.push(...nextResults);
+    },
     from: vi.fn(() => makeChain()),
     reset: () => {
       chains.length = 0;
+      results.length = 0;
     },
   };
 });
@@ -116,5 +130,33 @@ describe('fetchOrderCounts', () => {
       { method: 'eq', args: ['merchant_id', 'merchant-1'] },
       { method: 'eq', args: ['merchant_id', 'merchant-1'] },
     ]);
+  });
+
+  it('throws query errors while preserving merchant and branch filters', async () => {
+    supabaseMock.enqueue([
+      { count: 0, error: { message: 'Count failed' } },
+      { count: 1, error: null },
+      { count: 1, error: null },
+      { count: 1, error: null },
+      { count: 1, error: null },
+      { count: 1, error: null },
+      { count: 1, error: null },
+    ]);
+
+    await expect(
+      fetchOrderCounts('merchant-1', {
+        type: 'branch',
+        branchId: 'branch-1',
+      })
+    ).rejects.toThrow('Count failed');
+
+    expect(
+      supabaseMock.chains[0].filter((call) => call.method === 'eq')
+    ).toEqual(
+      expect.arrayContaining([
+        { method: 'eq', args: ['merchant_id', 'merchant-1'] },
+        { method: 'eq', args: ['branch_id', 'branch-1'] },
+      ])
+    );
   });
 });

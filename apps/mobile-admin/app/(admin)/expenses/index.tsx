@@ -20,11 +20,7 @@ import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/utils';
 import { ExpenseListItem } from './ExpenseListItem';
 import { styles } from './expenses-list.styles';
-import type { Expense } from './expenses-list.types';
-
-function getExpenseErrorMessage() {
-  return 'Please try again later.';
-}
+import { ExpenseSchema } from './expenses-list.types';
 
 export default function ExpensesScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -57,7 +53,7 @@ export default function ExpensesScreen() {
       const { data, error } = await query;
 
       if (error) throw error;
-      return (data ?? []) as Expense[];
+      return ExpenseSchema.array().parse(data ?? []);
     },
     enabled: !!merchant?.id,
   });
@@ -137,7 +133,7 @@ export default function ExpensesScreen() {
               Could not load expenses
             </Text>
             <Text style={[styles.emptySubtext, { color: colors.textMuted }]}>
-              {getExpenseErrorMessage()}
+              Please try again later.
             </Text>
           </View>
         ) : (

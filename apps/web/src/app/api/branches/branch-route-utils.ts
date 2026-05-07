@@ -105,8 +105,8 @@ export function mapBranchMutationError(
     lowerMessage.includes('only active branch');
 
   if (error.code === '23514' && isOnlyActiveBranchGuard) {
-    // TODO: Switch to a database constraint identifier when PostgREST exposes
-    // one consistently for this RPC guard instead of matching message text.
+    // The migration raises branches_require_active_branch; keep message checks
+    // as compatibility for databases that have not applied that revision yet.
     console.error(
       '[Branches] Only-active branch guard rejected mutation:',
       error

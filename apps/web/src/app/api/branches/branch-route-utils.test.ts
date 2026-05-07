@@ -206,22 +206,26 @@ describe('authenticateAndResolveMerchant', () => {
       user: null,
     });
 
-    const result = await authenticateAndResolveMerchant(requestWithMerchant());
+    try {
+      const result = await authenticateAndResolveMerchant(
+        requestWithMerchant()
+      );
 
-    expect(result.supabase).toBeNull();
-    expect(result.merchantContext).toBeNull();
-    expect(result.response?.status).toBe(401);
-    await expect(result.response?.json()).resolves.toEqual({
-      error: 'Unauthorized',
-    });
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[Branches] Authentication failed'
-    );
-    expect(consoleErrorSpy).not.toHaveBeenCalledWith(
-      expect.any(String),
-      'token contains sensitive detail'
-    );
-
-    consoleErrorSpy.mockRestore();
+      expect(result.supabase).toBeNull();
+      expect(result.merchantContext).toBeNull();
+      expect(result.response?.status).toBe(401);
+      await expect(result.response?.json()).resolves.toEqual({
+        error: 'Unauthorized',
+      });
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        '[Branches] Authentication failed'
+      );
+      expect(consoleErrorSpy).not.toHaveBeenCalledWith(
+        expect.any(String),
+        'token contains sensitive detail'
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 });

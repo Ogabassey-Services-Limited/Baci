@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const supabaseMock = vi.hoisted(() => {
   type ChainCall = { method: string; args: unknown[] };
   const chainCalls: ChainCall[] = [];
+  const chains: Array<{ table: string; calls: ChainCall[] }> = [];
   let result: {
     data: unknown[];
     count: number;
@@ -12,19 +13,33 @@ const supabaseMock = vi.hoisted(() => {
     count: 1,
     error: null,
   };
+  let orderDetailResult = {
+    data: {
+      id: 'order-1',
+      total: 100,
+      wallet_amount_used: 0,
+      recorded_by_user_id: null,
+    },
+    error: null as { message: string } | null,
+  };
 
-  function makeChain() {
+  function makeChain(table: string) {
     const chain: Record<string, unknown> = {};
+    const calls: ChainCall[] = [];
+    chains.push({ table, calls });
     const passthrough =
       (method: string) =>
       (...args: unknown[]) => {
-        chainCalls.push({ method, args });
+        const call = { method, args };
+        chainCalls.push(call);
+        calls.push(call);
         return chain;
       };
 
     for (const method of [
       'select',
       'eq',
+      'in',
       'or',
       'gte',
       'lte',
@@ -33,6 +48,8 @@ const supabaseMock = vi.hoisted(() => {
     ]) {
       chain[method] = passthrough(method);
     }
+    chain.single = () => Promise.resolve(orderDetailResult);
+    chain.maybeSingle = () => Promise.resolve({ data: null, error: null });
     chain.then = (
       resolve: (value: {
         data: unknown[];
@@ -45,12 +62,23 @@ const supabaseMock = vi.hoisted(() => {
 
   return {
     chainCalls,
-    from: vi.fn(() => makeChain()),
+    chains,
+    from: vi.fn((table: string) => makeChain(table)),
     reset: () => {
       chainCalls.length = 0;
+      chains.length = 0;
       result = {
         data: [{ id: 'order-1', order_items: [{ id: 'item-1' }] }],
         count: 1,
+        error: null,
+      };
+      orderDetailResult = {
+        data: {
+          id: 'order-1',
+          total: 100,
+          wallet_amount_used: 0,
+          recorded_by_user_id: null,
+        },
         error: null,
       };
     },
@@ -79,7 +107,7 @@ vi.mock('./useBranchScope', () => ({
   useBranchScope: () => ({ scope: { type: 'all' } }),
 }));
 
-import { fetchOrders } from './useOrders';
+import { fetchOrderById, fetchOrders } from './useOrders';
 
 describe('fetchOrders', () => {
   beforeEach(() => {
@@ -145,5 +173,24 @@ describe('fetchOrders', () => {
     await expect(
       fetchOrders('merchant-1', 0, {}, { type: 'all' })
     ).rejects.toThrow('Orders unavailable');
+  });
+
+  it('applies branch scope when fetching a single order by id', async () => {
+    await fetchOrderById('order-1', 'merchant-1', {
+      type: 'branch',
+      branchId: 'branch-1',
+    });
+
+    const orderQuery = supabaseMock.chains.find(
+      (chain) => chain.table === 'orders'
+    );
+
+    expect(orderQuery?.calls).toEqual(
+      expect.arrayContaining([
+        { method: 'eq', args: ['id', 'order-1'] },
+        { method: 'eq', args: ['merchant_id', 'merchant-1'] },
+        { method: 'eq', args: ['branch_id', 'branch-1'] },
+      ])
+    );
   });
 });

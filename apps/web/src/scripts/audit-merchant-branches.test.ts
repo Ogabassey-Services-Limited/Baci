@@ -78,6 +78,14 @@ describe('auditMerchantBranches', () => {
         name: 'Demo branch',
       },
     ]);
+    expect(audit.activeBranches).toEqual([
+      {
+        id: 'branch-1',
+        name: 'Demo branch',
+        isDefault: false,
+      },
+    ]);
+    expect(audit.inactiveFlaggedBranches).toEqual([]);
     expect(audit.hasActiveCleanupFailure).toBe(true);
   });
 });

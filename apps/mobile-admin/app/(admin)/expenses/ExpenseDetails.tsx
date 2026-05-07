@@ -7,92 +7,10 @@ import {
   ScrollView,
   Text,
   View,
-  type StyleProp,
-  type ViewStyle,
 } from 'react-native';
-import { styles } from '@/app/(admin)/expenses/expense-detail.styles';
 import { getTranslucentColor } from '@/lib/colors/sanitize-css-color';
-
-export interface ExpenseDetail {
-  id: string;
-  amount: number;
-  category: string;
-  date: string;
-  reference: string | null;
-  description: string | null;
-  receipt_url: string | null;
-  branch_id: string | null;
-}
-
-interface ExpenseDetailColors {
-  background: string;
-  border: string;
-  card: string;
-  primary: string;
-  text: string;
-  textSecondary: string;
-}
-
-interface ExpenseStatusShellProps {
-  status: 'loading' | 'error' | 'not-found';
-  colors: ExpenseDetailColors;
-  errorMessage?: string;
-}
-
-interface ExpenseDetailsProps {
-  expense: ExpenseDetail;
-  branchName: string;
-  colors: ExpenseDetailColors;
-  formattedAmount: string;
-  cardShadow?: StyleProp<ViewStyle>;
-}
-
-export function ExpenseStatusShell({
-  status,
-  colors,
-  errorMessage,
-}: ExpenseStatusShellProps) {
-  if (status === 'error') {
-    return (
-      <View
-        style={[
-          styles.container,
-          styles.center,
-          styles.errorContainer,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <Ionicons
-          name="warning-outline"
-          size={32}
-          color={colors.textSecondary}
-        />
-        <Text style={{ color: colors.textSecondary }}>
-          Could not load expense.
-        </Text>
-        <Text style={{ color: colors.textSecondary }}>
-          {errorMessage ?? 'Please try again later.'}
-        </Text>
-      </View>
-    );
-  }
-
-  return (
-    <View
-      style={[
-        styles.container,
-        styles.center,
-        { backgroundColor: colors.background },
-      ]}
-    >
-      <Text style={{ color: colors.textSecondary }}>
-        {status === 'loading'
-          ? 'Loading expense details...'
-          : 'Expense not found.'}
-      </Text>
-    </View>
-  );
-}
+import { styles } from './expense-detail.styles';
+import type { ExpenseDetailsProps } from './types';
 
 export function ExpenseDetails({
   expense,

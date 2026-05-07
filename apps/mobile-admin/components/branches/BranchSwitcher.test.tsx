@@ -90,7 +90,7 @@ vi.mock('react-native', async () => {
           'aria-pressed': accessibilityState?.selected,
           disabled,
           onClick: onPress,
-          role: accessibilityRole === 'button' ? 'button' : undefined,
+          role: accessibilityRole || 'button',
         },
         children
       ),
@@ -281,6 +281,12 @@ describe('BranchSwitcher', () => {
         name: 'Deactivate branch',
       })
     ).toBeDisabled();
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Deactivate branch',
+      })
+    );
+    expect(mocks.deactivateMutateAsync).not.toHaveBeenCalled();
   });
 
   it('deactivates a branch from the edit flow when another active branch exists', async () => {

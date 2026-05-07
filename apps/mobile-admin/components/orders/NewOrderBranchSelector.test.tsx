@@ -96,9 +96,52 @@ describe('NewOrderBranchSelector', () => {
       screen.getByRole('radio', { name: 'Select Lagos main branch' })
     ).toHaveAttribute('aria-checked', 'true');
 
-    fireEvent.click(
-      screen.getByRole('radio', { name: 'Select Abuja branch' })
+    fireEvent.click(screen.getByRole('radio', { name: 'Select Abuja branch' }));
+
+    expect(setSelectedBranchId).toHaveBeenCalledWith('branch-2');
+  });
+
+  it('renders no selector when there are no branch choices', () => {
+    const setSelectedBranchId = vi.fn();
+
+    render(
+      <NewOrderBranchSelector
+        branches={[]}
+        selectedBranchId={null}
+        setSelectedBranchId={setSelectedBranchId}
+        colors={colors}
+        styles={styles}
+      />
     );
+
+    expect(screen.queryByText('Branch')).not.toBeInTheDocument();
+    expect(screen.queryByRole('radiogroup')).not.toBeInTheDocument();
+    expect(setSelectedBranchId).not.toHaveBeenCalled();
+  });
+
+  it('leaves every radio unchecked when no branch is selected', () => {
+    const setSelectedBranchId = vi.fn();
+
+    render(
+      <NewOrderBranchSelector
+        branches={[
+          { id: 'branch-1', name: 'Lagos main' },
+          { id: 'branch-2', name: 'Abuja' },
+        ]}
+        selectedBranchId={null}
+        setSelectedBranchId={setSelectedBranchId}
+        colors={colors}
+        styles={styles}
+      />
+    );
+
+    expect(
+      screen
+        .getAllByRole('radio')
+        .every((radio) => radio.getAttribute('aria-checked') !== 'true')
+    ).toBe(true);
+
+    fireEvent.click(screen.getByRole('radio', { name: 'Select Abuja branch' }));
 
     expect(setSelectedBranchId).toHaveBeenCalledWith('branch-2');
   });

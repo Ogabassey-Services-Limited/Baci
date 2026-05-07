@@ -193,7 +193,7 @@ describe('fetchDashboardStats', () => {
       branchId: 'branch-1',
     });
 
-    const branchEqCalls = supabaseMock.chains.flatMap((chain, index) =>
+    const branchEqCalls = supabaseMock.chains.flatMap((chain) =>
       chain.calls
         .filter(
           (call) =>
@@ -202,24 +202,42 @@ describe('fetchDashboardStats', () => {
               call.args[0] === 'orders.branch_id')
         )
         .map((call) => ({
-          index,
           table: chain.table,
           column: call.args[0],
           value: call.args[1],
         }))
     );
 
-    expect(branchEqCalls).toEqual([
-      { index: 0, table: 'orders', column: 'branch_id', value: 'branch-1' },
-      { index: 1, table: 'orders', column: 'branch_id', value: 'branch-1' },
+    expect(branchEqCalls).toEqual(
+      expect.arrayContaining([
+        { table: 'orders', column: 'branch_id', value: 'branch-1' },
+        { table: 'orders', column: 'branch_id', value: 'branch-1' },
+        {
+          table: 'order_items',
+          column: 'orders.branch_id',
+          value: 'branch-1',
+        },
+        { table: 'orders', column: 'branch_id', value: 'branch-1' },
+        { table: 'orders', column: 'branch_id', value: 'branch-1' },
+      ])
+    );
+    expect(branchEqCalls).toHaveLength(5);
+    expect(
+      branchEqCalls.filter(
+        (call) => call.table === 'orders' && call.column === 'branch_id'
+      )
+    ).toHaveLength(4);
+    expect(
+      branchEqCalls.filter(
+        (call) =>
+          call.table === 'order_items' && call.column === 'orders.branch_id'
+      )
+    ).toEqual([
       {
-        index: 2,
         table: 'order_items',
         column: 'orders.branch_id',
         value: 'branch-1',
       },
-      { index: 5, table: 'orders', column: 'branch_id', value: 'branch-1' },
-      { index: 6, table: 'orders', column: 'branch_id', value: 'branch-1' },
     ]);
 
     const customerChains = supabaseMock.chains.filter(

@@ -157,6 +157,7 @@ describe('useCreateBranch', () => {
     expect(thrownError).toBeInstanceOf(Error);
     expect((thrownError as Error).message).toBe('No merchant');
     expect(mocks.createBranch).not.toHaveBeenCalled();
+    expect(mocks.directInsert).not.toHaveBeenCalled();
   });
 });
 

@@ -163,7 +163,7 @@ export async function fetchDashboardStats(
     itemsQuery = itemsQuery.gte('orders.created_at', start);
   }
 
-  // Fetch customers for period
+  // Customer counts intentionally stay cross-branch; (tabs)/index.tsx labels them as all stores.
   let customersQuery = supabase
     .from('customers')
     .select('id', { count: 'exact', head: true })
@@ -173,7 +173,7 @@ export async function fetchDashboardStats(
     customersQuery = customersQuery.gte('created_at', start);
   }
 
-  // Total customers (always all-time)
+  // Total customers intentionally stay cross-branch; (tabs)/index.tsx labels them as all stores.
   const totalCustomersQuery = supabase
     .from('customers')
     .select('id', { count: 'exact', head: true })
@@ -206,7 +206,7 @@ export async function fetchDashboardStats(
     );
   }
 
-  // Fetch visits for period
+  // Visits intentionally stay cross-branch; (tabs)/index.tsx labels them as all stores.
   let visitsQuery = supabase
     .from('analytics_events')
     .select('id', { count: 'exact', head: true })

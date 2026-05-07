@@ -180,7 +180,7 @@ vi.mock('react-native', () => ({
   View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
-import StaffAccountsScreen from '@/app/(admin)/staff-accounts';
+import StaffAccountsScreen from './staff-accounts';
 
 function pressAlertButton(title: string, label: string) {
   const alertCall = mocks.alert.mock.calls.find(
@@ -189,10 +189,12 @@ function pressAlertButton(title: string, label: string) {
   if (!alertCall) {
     throw new Error(`Expected alert with title "${title}" to be called`);
   }
-  const buttons = alertCall?.[2] as Array<{
-    onPress?: () => void;
-    text?: string;
-  }> | undefined;
+  const buttons = alertCall?.[2] as
+    | Array<{
+        onPress?: () => void;
+        text?: string;
+      }>
+    | undefined;
   if (!buttons) {
     throw new Error(`Expected alert "${title}" to include buttons`);
   }

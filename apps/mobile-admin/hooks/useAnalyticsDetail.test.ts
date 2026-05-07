@@ -1,3 +1,4 @@
+import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { BranchScope } from '@/schemas/branch';
 
@@ -95,7 +96,7 @@ describe('useAnalyticsDetail', () => {
   });
 
   it('filters order and order-item analytics by selected branch scope', async () => {
-    useAnalyticsDetail(options);
+    renderHook(() => useAnalyticsDetail(options));
     await Promise.all(mocks.queryPromises);
 
     expect(
@@ -126,7 +127,7 @@ describe('useAnalyticsDetail', () => {
   it('omits branch filters for all-location analytics detail scope', async () => {
     mocks.branchScope = { type: 'all' };
 
-    useAnalyticsDetail(options);
+    renderHook(() => useAnalyticsDetail(options));
     await Promise.all(mocks.queryPromises);
 
     expect(
@@ -151,9 +152,9 @@ describe('useAnalyticsDetail', () => {
       status: 'error',
     };
 
-    const result = useAnalyticsDetail(options);
+    const { result } = renderHook(() => useAnalyticsDetail(options));
 
-    expect(result.error).toBe(error);
-    expect(result.isError).toBe(true);
+    expect(result.current.error).toBe(error);
+    expect(result.current.isError).toBe(true);
   });
 });

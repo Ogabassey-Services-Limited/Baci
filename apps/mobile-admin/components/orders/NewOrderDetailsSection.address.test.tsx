@@ -71,12 +71,15 @@ vi.mock('react-native', async () => {
 type DetailsController = Pick<
   ReturnType<typeof useNewOrderController>,
   | 'colors'
+  | 'branches'
   | 'customer'
   | 'date'
   | 'deliveryInfo'
   | 'sameAsCustomer'
+  | 'selectedBranchId'
   | 'setDate'
   | 'setDeliveryInfo'
+  | 'setSelectedBranchId'
   | 'setSameAsCustomer'
   | 'setShowCustomerModal'
   | 'setShowDatePicker'

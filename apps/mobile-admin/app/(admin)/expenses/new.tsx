@@ -37,11 +37,14 @@ export default function AddExpenseScreen() {
   const [isCategorySheetVisible, setCategorySheetVisible] = useState(false);
   const parsedAmount = Number.parseFloat(amount);
   const hasValidAmount = Number.isFinite(parsedAmount) && parsedAmount > 0;
+  const activeBranches = branches.filter((branch) => branch.active);
   const selectedBranchId =
     scope.type === 'branch'
-      ? (scope.branchId ?? null)
-      : (branches.find((branch) => branch.is_default)?.id ??
-        branches[0]?.id ??
+      ? activeBranches.some((branch) => branch.id === scope.branchId)
+        ? scope.branchId
+        : null
+      : (activeBranches.find((branch) => branch.is_default)?.id ??
+        activeBranches[0]?.id ??
         null);
   const canSaveExpense =
     hasValidAmount && !branchesLoading && selectedBranchId !== null;
@@ -147,12 +150,18 @@ export default function AddExpenseScreen() {
     }
 
     if (branchesLoading) {
-      Alert.alert('Branches loading', 'Please wait for branches to finish loading.');
+      Alert.alert(
+        'Branches loading',
+        'Please wait for branches to finish loading.'
+      );
       return;
     }
 
     if (!selectedBranchId) {
-      Alert.alert('No branch available', 'Create an active branch before saving expenses.');
+      Alert.alert(
+        'No branch available',
+        'Create an active branch before saving expenses.'
+      );
       return;
     }
 

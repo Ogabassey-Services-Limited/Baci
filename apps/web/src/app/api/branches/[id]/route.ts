@@ -44,6 +44,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       .single();
 
     if (error && error.code !== 'PGRST116') {
+      console.error('[Branches] Failed fetching branch', {
+        branchId: parsedParams.data.id,
+        merchantId: authContext.merchantContext.merchantId,
+        error,
+      });
       return NextResponse.json(
         { error: 'Internal server error' },
         { status: 500 }

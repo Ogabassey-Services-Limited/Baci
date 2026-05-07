@@ -256,6 +256,8 @@ CREATE TRIGGER ensure_expenses_branch_matches_merchant
   EXECUTE FUNCTION public.ensure_branch_matches_merchant();
 
 DROP POLICY IF EXISTS "Merchants can manage their own expenses" ON public.expenses;
+-- Branch ownership is intentionally enforced by ensure_branch_matches_merchant
+-- so historical NULL branch expenses remain visible under merchant-scoped RLS.
 CREATE POLICY "Merchants can manage their own expenses"
   ON public.expenses
   TO authenticated
@@ -534,7 +536,9 @@ BEGIN
 
   IF v_other_active_count = 0 THEN
     RAISE EXCEPTION 'Cannot deactivate the only active branch'
-      USING ERRCODE = '23514';
+      USING
+        ERRCODE = '23514',
+        CONSTRAINT = 'branches_require_active_branch';
   END IF;
 
   IF v_branch.is_default IS TRUE THEN

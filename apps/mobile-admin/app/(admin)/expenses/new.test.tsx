@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => ({
   imagePicker: vi.fn(),
   insert: vi.fn(),
   invalidateQueries: vi.fn(),
-  branches: [] as Array<{ id: string; is_default: boolean }>,
+  branches: [] as Array<{ id: string; is_default: boolean; active?: boolean }>,
   branchesLoading: false,
   branchScope: { type: 'branch', branchId: 'branch-1' } as TestBranchScope,
   merchant: { id: 'merchant-1' },
@@ -254,7 +254,7 @@ describe('AddExpenseScreen', () => {
     mocks.expenseFieldsProps.amount = '';
     mocks.expenseFieldsProps.description = '';
     mocks.expenseFieldsProps.receiptUri = null;
-    mocks.branches = [];
+    mocks.branches = [{ id: 'branch-1', is_default: true, active: true }];
     mocks.branchesLoading = false;
     mocks.branchScope = { type: 'branch', branchId: 'branch-1' };
     mocks.insert.mockResolvedValue({ error: null });
@@ -365,6 +365,7 @@ describe('AddExpenseScreen', () => {
 
   it('prevents saving when no branch can be selected', () => {
     mocks.branchScope = { type: 'all' };
+    mocks.branches = [];
 
     render(<AddExpenseScreen />);
 
@@ -374,6 +375,22 @@ describe('AddExpenseScreen', () => {
     const saveButton = screen.getByRole('button', { name: 'Save expense' });
 
     expect(saveButton).toBeDisabled();
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it('does not fall back to inactive branches when all locations is selected', () => {
+    mocks.branchScope = { type: 'all' };
+    mocks.branches = [
+      { id: 'branch-inactive', is_default: true, active: false },
+    ];
+
+    render(<AddExpenseScreen />);
+
+    fireEvent.change(screen.getByLabelText('Expense amount'), {
+      target: { value: '12500' },
+    });
+
+    expect(screen.getByRole('button', { name: 'Save expense' })).toBeDisabled();
     expect(mocks.insert).not.toHaveBeenCalled();
   });
 });

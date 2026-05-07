@@ -98,12 +98,14 @@ export function BranchEditModal({
                 Edit Branch
               </Text>
               <Pressable
-                style={({ pressed }) => [pressed && !isBusy && { opacity: 0.7 }]}
+                style={({ pressed }) => [
+                  pressed && !isBusy && { opacity: 0.7 },
+                ]}
                 onPress={handleClose}
                 disabled={isBusy}
                 hitSlop={10}
                 accessibilityRole="button"
-                accessibilityLabel="Close modal"
+                accessibilityLabel="Close edit modal"
                 accessibilityState={{ disabled: isBusy }}
               >
                 <Ionicons name="close" size={24} color={colors.text} />
@@ -135,6 +137,7 @@ export function BranchEditModal({
                 placeholder="e.g. Lagos Main, Lekki Branch"
                 placeholderTextColor={colors.textMuted}
                 accessibilityLabel="Branch name input"
+                editable={!isBusy}
                 returnKeyType="next"
               />
               {nameError ? (
@@ -166,6 +169,7 @@ export function BranchEditModal({
                 placeholder="e.g. 123 Main Street, Lekki"
                 placeholderTextColor={colors.textMuted}
                 accessibilityLabel="Branch address input"
+                editable={!isBusy}
                 returnKeyType="done"
                 onSubmitEditing={handleSubmit}
               />
@@ -213,7 +217,9 @@ export function BranchEditModal({
                 onPress={handleSubmit}
                 disabled={isBusy}
                 accessibilityRole="button"
-                accessibilityLabel={isUpdating ? 'Saving branch' : 'Save branch'}
+                accessibilityLabel={
+                  isUpdating ? 'Saving branch' : 'Save branch'
+                }
                 accessibilityState={{ disabled: isBusy }}
               >
                 {isUpdating ? (

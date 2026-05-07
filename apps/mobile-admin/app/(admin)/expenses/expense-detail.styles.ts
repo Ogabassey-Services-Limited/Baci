@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { RADIUS, SIZE, SPACING, TYPOGRAPHY } from '@/constants/theme';
 
 export const styles = StyleSheet.create({
   container: {
@@ -27,15 +27,15 @@ export const styles = StyleSheet.create({
     gap: SPACING.sm,
   },
   iconContainer: {
-    width: 64,
-    height: 64,
+    width: SIZE.display,
+    height: SIZE.display,
     borderRadius: RADIUS.full,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: SPACING.xs,
   },
   amountText: {
-    fontSize: 32,
+    fontSize: TYPOGRAPHY.size['5xl'],
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
   categoryText: {

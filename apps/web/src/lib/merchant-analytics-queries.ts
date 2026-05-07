@@ -16,10 +16,6 @@ export interface MerchantAnalyticsQueryResults {
   recentOrdersResult: QueryResultLike;
 }
 
-type BranchFilteredQuery = {
-  eq: (column: string, value: string) => BranchFilteredQuery;
-};
-
 function applyOrderBranchFilter<Query>(
   query: Query,
   branchId: string | undefined,
@@ -29,7 +25,9 @@ function applyOrderBranchFilter<Query>(
     return query;
   }
 
-  return (query as BranchFilteredQuery).eq(column, branchId) as Query;
+  return (
+    query as unknown as { eq: (column: string, value: string) => Query }
+  ).eq(column, branchId);
 }
 
 /**

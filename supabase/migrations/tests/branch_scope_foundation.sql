@@ -573,7 +573,7 @@ BEGIN
     AND action IN ('branch.create', 'branch.update', 'branch.deactivate');
 
   IF branch_audit_count < 4 THEN
-    RAISE EXCEPTION 'expected branch mutation audit rows, found %', branch_audit_count;
+    RAISE EXCEPTION 'expected branch mutation audit rows for branch.create (b401,b402,b403,b404), default-switch branch.update rows (b401,b402), and branch.deactivate rows (b404,b401); expected at least 4, found %', branch_audit_count;
   END IF;
 END;
 $$ LANGUAGE plpgsql;

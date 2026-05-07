@@ -161,7 +161,9 @@ describe('BranchCreateModal', () => {
 
     render(<BranchCreateModal {...defaultProps} onClose={onClose} />);
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Close modal' })[0]);
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Close create branch modal' })
+    );
 
     expect(onClose).toHaveBeenCalledTimes(1);
   });

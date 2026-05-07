@@ -86,7 +86,7 @@ export function BranchCreateModal({
                 disabled={isLoading}
                 hitSlop={10}
                 accessibilityRole="button"
-                accessibilityLabel="Close modal"
+                accessibilityLabel="Close create branch modal"
                 accessibilityState={{ disabled: isLoading }}
               >
                 <Ionicons name="close" size={24} color={colors.text} />

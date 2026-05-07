@@ -51,6 +51,14 @@ describe('order column constants', () => {
     expect(WEB_ORDER_COLUMNS).toContain('branch_id');
     expect(MOBILE_ADMIN_ORDER_COLUMNS).toContain('branch_id');
   });
+
+  it('includes mobile admin order detail fields required by the app', () => {
+    expect(MOBILE_ADMIN_ORDER_COLUMNS).toContain('amount_paid');
+    expect(MOBILE_ADMIN_ORDER_COLUMNS).toContain('fulfillment_type');
+    expect(MOBILE_ADMIN_ORDER_COLUMNS).toContain('fulfillment_details');
+    expect(MOBILE_ADMIN_ORDER_COLUMNS).toContain('self_fulfillment_data');
+    expect(MOBILE_ADMIN_ORDER_COLUMNS).toContain('recorded_by_user_id');
+  });
 });
 
 describe('extractOrderDeliveryAddress', () => {

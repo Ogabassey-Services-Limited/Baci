@@ -104,4 +104,21 @@ describe('BranchCard', () => {
     fireEvent.click(deactivateButton);
     expect(onDeactivate).not.toHaveBeenCalled();
   });
+
+  it('does not render deactivation for inactive branches', () => {
+    render(
+      <BranchCard
+        branch={{ ...branch, active: false }}
+        colors={LIGHT_COLORS}
+        shadows={SHADOWS}
+        canDeactivate={true}
+        onDeactivate={vi.fn()}
+        onEdit={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Deactivate Lagos main' })
+    ).toBeNull();
+  });
 });

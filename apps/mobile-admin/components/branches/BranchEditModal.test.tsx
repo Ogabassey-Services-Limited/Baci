@@ -76,15 +76,18 @@ vi.mock('react-native', async () => {
       React.createElement('span', null, children),
     TextInput: ({
       accessibilityLabel,
+      editable,
       onChangeText,
       value,
     }: {
       accessibilityLabel?: string;
+      editable?: boolean;
       onChangeText?: (text: string) => void;
       value?: string;
     }) =>
       React.createElement('input', {
         'aria-label': accessibilityLabel,
+        disabled: editable === false,
         value: value ?? '',
         onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
           onChangeText?.(event.target.value),
@@ -181,9 +184,16 @@ describe('BranchEditModal', () => {
 
     render(<BranchEditModal {...props} />);
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Close modal' })[1]);
+    fireEvent.click(screen.getByRole('button', { name: 'Close edit modal' }));
 
     expect(props.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('locks editable fields while a branch mutation is busy', () => {
+    render(<BranchEditModal {...createProps({ isUpdating: true })} />);
+
+    expect(screen.getByLabelText('Branch name input')).toBeDisabled();
+    expect(screen.getByLabelText('Branch address input')).toBeDisabled();
   });
 
   it('calls deactivate when allowed', () => {

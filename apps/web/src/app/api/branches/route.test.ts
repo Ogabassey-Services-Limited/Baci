@@ -188,9 +188,26 @@ describe('/api/branches', () => {
 
     expect(response.status).toBe(401);
     await expect(response.json()).resolves.toEqual({
-      error: 'Invalid or expired token',
+      error: 'Unauthorized',
     });
     expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
+  });
+
+  it('returns a static unauthorized response for branch creation auth failures', async () => {
+    const { POST } = await import('@/app/api/branches/route');
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: 'token parser details',
+      user: null,
+      supabase: null,
+    });
+
+    const response = await POST(createRequest({ name: 'Lagos main' }));
+
+    expect(response.status).toBe(401);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Unauthorized',
+    });
+    expect(mockCheckCsrfProtection).not.toHaveBeenCalled();
   });
 
   it('requires settings.edit for branch creation', async () => {
@@ -213,6 +230,7 @@ describe('/api/branches', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Branch name must be at least 2 characters',
     });
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
     expect(insert).not.toHaveBeenCalled();
   });
 

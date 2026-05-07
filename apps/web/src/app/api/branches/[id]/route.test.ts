@@ -189,17 +189,32 @@ describe('/api/branches/[id]', () => {
 
   it('returns 500 for branch read errors other than missing rows', async () => {
     const { GET } = await import('@/app/api/branches/[id]/route');
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     singleResult = {
       data: null,
       error: { code: 'PGRST000', message: 'database unavailable' },
     };
 
-    const response = await GET(createRequest('GET'), routeParams());
+    try {
+      const response = await GET(createRequest('GET'), routeParams());
 
-    expect(response.status).toBe(500);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Internal server error',
-    });
+      expect(response.status).toBe(500);
+      await expect(response.json()).resolves.toEqual({
+        error: 'Internal server error',
+      });
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        '[Branches] Failed fetching branch',
+        expect.objectContaining({
+          branchId: BRANCH_ID,
+          error: singleResult.error,
+          merchantId: MERCHANT_ID,
+        })
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it('requires settings.edit for branch updates', async () => {

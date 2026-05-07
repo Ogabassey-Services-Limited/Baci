@@ -6,6 +6,7 @@ function createSupabaseMock() {
     table: string;
     calls: Array<{ method: string; args: unknown[] }>;
   }> = [];
+  const chainErrors: Partial<Record<string, Error>> = {};
 
   function makeChain(table: string) {
     const record = {
@@ -13,14 +14,15 @@ function createSupabaseMock() {
       calls: [] as Array<{ method: string; args: unknown[] }>,
     };
     chains.push(record);
+    const error = chainErrors[table] ?? null;
     const chain = Promise.resolve({
       count: 0,
-      data: [] as unknown[],
-      error: null,
+      data: error ? null : ([] as unknown[]),
+      error,
     }) as unknown as Promise<{
       count: number;
-      data: unknown[];
-      error: null;
+      data: unknown[] | null;
+      error: Error | null;
     }> &
       Record<string, unknown>;
     const passthrough =
@@ -38,6 +40,9 @@ function createSupabaseMock() {
 
   return {
     chains,
+    setChainError: (table: string, error: Error) => {
+      chainErrors[table] = error;
+    },
     from: (table: string) => makeChain(table),
   };
 }
@@ -94,5 +99,21 @@ describe('fetchMerchantAnalyticsData', () => {
     expect(
       blogQuery?.calls.filter((call) => call.args[0] === 'branch_id')
     ).toEqual([]);
+  });
+
+  it('propagates Supabase query errors to the caller', async () => {
+    const supabase = createSupabaseMock();
+    supabase.setChainError('orders', new Error('boom'));
+
+    const results = await fetchMerchantAnalyticsData(
+      supabase as never,
+      'merchant-1',
+      new Date('2026-05-01T00:00:00.000Z'),
+      new Date('2026-05-05T00:00:00.000Z'),
+      new Date('2026-04-26T00:00:00.000Z'),
+      new Date('2026-04-30T00:00:00.000Z')
+    );
+
+    expect(results.currentOrdersResult.error).toEqual(new Error('boom'));
   });
 });
