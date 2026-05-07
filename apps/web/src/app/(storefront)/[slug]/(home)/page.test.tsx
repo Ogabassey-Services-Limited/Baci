@@ -1,10 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  HERO_DESKTOP_LCP_SRC,
-  HERO_MOBILE_LCP_SRC,
-} from '@/components/storefront/ogabassey/components/hero-data';
+import { HERO_DESKTOP_LCP_SRC } from '@/components/storefront/ogabassey/components/hero-data';
 import { OGABASSEY_HERO_PRECONNECT_ORIGINS } from '@/components/storefront/ogabassey/components/ogabassey-hero-preloads';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 
@@ -286,7 +283,7 @@ describe('Storefront homepage structured data', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('preloads viewport-specific OgaBassey hero LCP images from the server page', async () => {
+  it('preloads the desktop OgaBassey hero LCP image from the server page', async () => {
     render(
       await StorefrontPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
     );
@@ -296,9 +293,6 @@ describe('Storefront homepage structured data', () => {
       )
     );
 
-    expect(preloads).toHaveLength(2);
-    // Order-insensitive: the browser picks at HTML-parse time via `media`,
-    // so insertion order is not part of the contract.
     expect(
       preloads.map((preloadLink) => ({
         as: preloadLink.getAttribute('as'),
@@ -306,22 +300,14 @@ describe('Storefront homepage structured data', () => {
         href: preloadLink.getAttribute('href'),
         media: preloadLink.getAttribute('media'),
       }))
-    ).toEqual(
-      expect.arrayContaining([
-        {
-          as: 'image',
-          fetchPriority: 'high',
-          href: HERO_DESKTOP_LCP_SRC,
-          media: '(min-width: 768px)',
-        },
-        {
-          as: 'image',
-          fetchPriority: 'high',
-          href: HERO_MOBILE_LCP_SRC,
-          media: '(max-width: 767px)',
-        },
-      ])
-    );
+    ).toEqual([
+      {
+        as: 'image',
+        fetchPriority: 'high',
+        href: HERO_DESKTOP_LCP_SRC,
+        media: '(min-width: 768px)',
+      },
+    ]);
   });
 
   it('emits self-referencing canonical and hreflang alternates from page metadata', async () => {

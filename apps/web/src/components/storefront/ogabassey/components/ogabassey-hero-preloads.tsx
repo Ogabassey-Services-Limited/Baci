@@ -1,6 +1,5 @@
 import {
   HERO_DESKTOP_LCP_SRC,
-  HERO_MOBILE_LCP_SRC,
 } from './hero-data';
 
 // Origins the OgaBassey storefront fetches above-the-fold assets from.
@@ -13,8 +12,10 @@ export const OGABASSEY_HERO_PRECONNECT_ORIGINS = [
 ] as const;
 
 /**
- * Resource hints + viewport-conditional preloads for the OgaBassey hero LCP
- * image. Renders only `<link>` tags; React 19 hoists them to `<head>`.
+ * Resource hints + the desktop hero LCP preload for OgaBassey. The mobile
+ * LCP image is already preloaded by Next Image from the eager, high-priority
+ * first mobile slide, so duplicating it here creates redundant preload work.
+ * Renders only `<link>` tags; React 19 hoists them to `<head>`.
  *
  * Mounted from the storefront home Server Component when the slug matches
  * one of `OGABASSEY_HERO_PRELOAD_IDENTIFIERS`.
@@ -40,13 +41,6 @@ export function OgabasseyHeroPreloads() {
         href={HERO_DESKTOP_LCP_SRC}
         fetchPriority="high"
         media="(min-width: 768px)"
-      />
-      <link
-        rel="preload"
-        as="image"
-        href={HERO_MOBILE_LCP_SRC}
-        fetchPriority="high"
-        media="(max-width: 767px)"
       />
     </>
   );

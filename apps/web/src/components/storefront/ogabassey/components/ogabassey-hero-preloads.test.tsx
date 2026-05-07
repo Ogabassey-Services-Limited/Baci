@@ -1,9 +1,6 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import {
-  HERO_DESKTOP_LCP_SRC,
-  HERO_MOBILE_LCP_SRC,
-} from './hero-data';
+import { HERO_DESKTOP_LCP_SRC } from './hero-data';
 import {
   OGABASSEY_HERO_PRECONNECT_ORIGINS,
   OgabasseyHeroPreloads,
@@ -53,7 +50,7 @@ describe('OgabasseyHeroPreloads', () => {
     }
   });
 
-  it('emits viewport-conditional preloads for the desktop and mobile LCP assets', () => {
+  it('emits only the manual desktop LCP preload', () => {
     clearHints();
     render(<OgabasseyHeroPreloads />);
 
@@ -66,22 +63,13 @@ describe('OgabasseyHeroPreloads', () => {
       media: link.getAttribute('media'),
     }));
 
-    expect(preloads).toHaveLength(2);
-    expect(preloads).toEqual(
-      expect.arrayContaining([
-        {
-          as: 'image',
-          fetchPriority: 'high',
-          href: HERO_DESKTOP_LCP_SRC,
-          media: '(min-width: 768px)',
-        },
-        {
-          as: 'image',
-          fetchPriority: 'high',
-          href: HERO_MOBILE_LCP_SRC,
-          media: '(max-width: 767px)',
-        },
-      ])
-    );
+    expect(preloads).toEqual([
+      {
+        as: 'image',
+        fetchPriority: 'high',
+        href: HERO_DESKTOP_LCP_SRC,
+        media: '(min-width: 768px)',
+      },
+    ]);
   });
 });
