@@ -20,10 +20,11 @@ export function renderLogoHtml(
   }
 
   if (merchant.logo_url) {
-    const storeNameForJs = escapeJsString(
-      merchant.legal_entity_name || merchant.business_name || merchant.email
-    );
-    return `<img src="${escapeHtml(merchant.logo_url)}" alt="${safeStoreName}" class="logo-img" style="display: block !important;" onerror="this.src='https://placehold.co/200x80?text=' + encodeURIComponent('${storeNameForJs}')">`;
+    const fallbackLogoUrl = `https://placehold.co/200x80?text=${encodeURIComponent(
+      storeName
+    )}`;
+    const fallbackLogoUrlForJs = escapeHtml(escapeJsString(fallbackLogoUrl));
+    return `<img src="${escapeHtml(merchant.logo_url)}" alt="${safeStoreName}" class="logo-img" style="display: block !important;" onerror="this.src='${fallbackLogoUrlForJs}'">`;
   }
 
   return `<div class="logo-fallback">${safeStoreName}</div>`;

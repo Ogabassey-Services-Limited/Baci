@@ -25,6 +25,17 @@ function createReceiptMerchant(
 }
 
 describe('renderLogoHtml', () => {
+  it('escapes store names exactly once in fallback logo text', () => {
+    const html = renderLogoHtml(
+      createReceiptMerchant(),
+      "A&B's Phones",
+      undefined
+    );
+
+    expect(html).toContain('A&amp;B&#039;s Phones');
+    expect(html).not.toContain('A&amp;amp;B');
+  });
+
   it('escapes store names in fallback logo text', () => {
     const html = renderLogoHtml(
       createReceiptMerchant(),
@@ -51,5 +62,20 @@ describe('renderLogoHtml', () => {
       'alt="Bad &quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;"'
     );
     expect(html).not.toContain('alt="Bad "><script>');
+  });
+
+  it('uses an encoded and escaped placeholder URL for broken logo images', () => {
+    const html = renderLogoHtml(
+      createReceiptMerchant({
+        logo_url: 'https://cdn.example.com/logo.png',
+      }),
+      'Bad "><script>alert(1)</script>',
+      undefined
+    );
+
+    expect(html).toContain(
+      'onerror="this.src=\'https://placehold.co/200x80?text=Bad%20%22%3E%3Cscript%3Ealert(1)%3C%2Fscript%3E\'"'
+    );
+    expect(html).not.toContain('Bad "><script>');
   });
 });

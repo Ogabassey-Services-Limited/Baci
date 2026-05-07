@@ -378,6 +378,19 @@ describe('generateReceiptHtml', () => {
     expect(html).toContain('Samsung Galaxy S22 Ultra (Black / 256GB)');
   });
 
+  it('does not double-escape merchant names in the logo fallback', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder(),
+      createReceiptMerchant({
+        business_name: "A&B's Phones",
+      })
+    );
+
+    expect(html).toContain('A&amp;B&#039;s Phones');
+    expect(html).not.toContain('A&amp;amp;B');
+    expect(html).not.toContain('&amp;#039;');
+  });
+
   it('includes saved IMEI and serial number details on the receipt', () => {
     const html = generateReceiptHtml(
       createReceiptOrder({

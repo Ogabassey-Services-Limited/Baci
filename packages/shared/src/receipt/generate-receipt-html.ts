@@ -6,7 +6,6 @@
  * Supports paid receipts, unpaid invoices, and partial payment breakdowns.
  */
 
-import { escapeHtml } from './escape-html';
 import { normalizeReceiptColor } from './receipt-colors';
 import { renderReceiptDocument } from './receipt-document';
 import { createMoneyFormatter, hexToRgba } from './receipt-money';
@@ -55,9 +54,8 @@ export function generateReceiptHtml(
     minute: '2-digit',
   });
 
-  const rawStoreName =
+  const storeName =
     merchant.legal_entity_name || merchant.business_name || merchant.email;
-  const storeName = escapeHtml(rawStoreName);
   const contactEmail = merchant.support_email || merchant.email;
   const contactPhone = merchant.support_phone || merchant.phone;
 
