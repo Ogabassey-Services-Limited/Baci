@@ -21,7 +21,11 @@ export interface OrderDetailsRecord {
   customer_name: string;
   customer_phone: string | null;
   discount_amount: number;
-  fulfillment_details?: { imei?: string; serialNumber?: string } | null;
+  fulfillment_details?: {
+    imei?: string;
+    serialNumber?: string;
+    serial_number?: string;
+  } | null;
   id: string;
   is_credit_order?: boolean | null;
   items?: OrderDetailsItem[];

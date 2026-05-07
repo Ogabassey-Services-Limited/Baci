@@ -105,6 +105,16 @@ describe('order-shipment', () => {
     });
 
     expect(
+      getInitialFulfillmentDetails({
+        imei: '',
+        serial_number: ' LEGACY-SN ',
+      })
+    ).toEqual({
+      imei: '',
+      serialNumber: 'LEGACY-SN',
+    });
+
+    expect(
       getDispatchPhoneFromOrder(
         createOrder({
           self_fulfillment_data: {

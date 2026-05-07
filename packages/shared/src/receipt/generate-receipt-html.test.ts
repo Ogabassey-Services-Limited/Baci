@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { generateReceiptHtml } from './generate-receipt-html';
 import { sanitizeSvg } from './sanitize-svg';
+import type { ReceiptMerchant, ReceiptOrder } from './types';
 
 describe('sanitizeSvg', () => {
   it('returns safe SVG unchanged', () => {
@@ -263,7 +264,8 @@ describe('sanitizeSvg', () => {
   });
 
   it('does not remove tag names that only start with dangerous prefixes', () => {
-    const safeSvg = '<svg><embedded data-safe="1"></embedded><circle r="5"/></svg>';
+    const safeSvg =
+      '<svg><embedded data-safe="1"></embedded><circle r="5"/></svg>';
     const result = sanitizeSvg(safeSvg);
     expect(result).toContain('<embedded data-safe="1"></embedded>');
     expect(result).toContain('<circle r="5"/>');
@@ -313,51 +315,138 @@ describe('sanitizeSvg', () => {
 });
 
 describe('generateReceiptHtml', () => {
+  function createReceiptOrder(
+    overrides: Partial<ReceiptOrder> = {}
+  ): ReceiptOrder {
+    return {
+      order_number: 'ORD-123',
+      created_at: '2026-04-08T18:02:55.974Z',
+      currency: 'NGN',
+      total: 500000,
+      subtotal: 500000,
+      shipping_fee: 0,
+      tax_amount: 0,
+      discount_amount: 0,
+      amount_paid: 500000,
+      balance: 0,
+      payment_status: 'paid',
+      payment_method: 'card',
+      customer_name: 'Akinola Ogunniran',
+      customer_email: 'akin@example.com',
+      customer_phone: null,
+      items: [
+        {
+          product_name: 'Samsung Galaxy S22 Ultra',
+          variant_name: 'Black / 256GB',
+          quantity: 1,
+          price: 500000,
+        },
+      ],
+      ...overrides,
+    };
+  }
+
+  function createReceiptMerchant(
+    overrides: Partial<ReceiptMerchant> = {}
+  ): ReceiptMerchant {
+    return {
+      business_name: 'Ogabassey',
+      logo_url: null,
+      email: 'hello@example.com',
+      phone: null,
+      support_email: null,
+      support_phone: null,
+      business_address: null,
+      cac_rc_number: null,
+      tax_identification_number: null,
+      legal_entity_name: null,
+      vat_registration_status: null,
+      vat_rate: null,
+      bank_code: null,
+      bank_account_number: null,
+      ...overrides,
+    };
+  }
+
   it('includes the variant label in receipt item rows', () => {
     const html = generateReceiptHtml(
-      {
-        order_number: 'ORD-123',
-        created_at: '2026-04-08T18:02:55.974Z',
-        currency: 'NGN',
-        total: 500000,
-        subtotal: 500000,
-        shipping_fee: 0,
-        tax_amount: 0,
-        discount_amount: 0,
-        amount_paid: 500000,
-        balance: 0,
-        payment_status: 'paid',
-        payment_method: 'card',
-        customer_name: 'Akinola Ogunniran',
-        customer_email: 'akin@example.com',
-        customer_phone: null,
-        items: [
-          {
-            product_name: 'Samsung Galaxy S22 Ultra',
-            variant_name: 'Black / 256GB',
-            quantity: 1,
-            price: 500000,
-          },
-        ],
-      },
-      {
-        business_name: 'Ogabassey',
-        logo_url: null,
-        email: 'hello@example.com',
-        phone: null,
-        support_email: null,
-        support_phone: null,
-        business_address: null,
-        cac_rc_number: null,
-        tax_identification_number: null,
-        legal_entity_name: null,
-        vat_registration_status: null,
-        vat_rate: null,
-        bank_code: null,
-        bank_account_number: null,
-      }
+      createReceiptOrder(),
+      createReceiptMerchant()
     );
 
     expect(html).toContain('Samsung Galaxy S22 Ultra (Black / 256GB)');
+  });
+
+  it('includes saved IMEI and serial number details on the receipt', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        fulfillment_details: {
+          imei: '353456789012345',
+          serialNumber: 'SN-123',
+        },
+      }),
+      createReceiptMerchant()
+    );
+
+    expect(html).toContain('Fulfillment Details');
+    expect(html).toContain('IMEI');
+    expect(html).toContain('353456789012345');
+    expect(html).toContain('S/N');
+    expect(html).toContain('SN-123');
+  });
+
+  it('does not show stale VAT when the order total excludes the tax amount', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        subtotal: 935000,
+        tax_amount: 70125,
+        total: 935000,
+      }),
+      createReceiptMerchant({
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+      })
+    );
+
+    expect(html).not.toContain('VAT (7.5%)');
+    expect(html).not.toContain('70125');
+  });
+
+  it('shows VAT when the order total includes the tax amount', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        subtotal: 935000,
+        tax_amount: 70125,
+        total: 1005125,
+      }),
+      createReceiptMerchant({
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+      })
+    );
+
+    expect(html).toContain('VAT (7.5%)');
+    expect(html).toContain('₦70,125.00');
+    expect(html).toContain('₦1,005,125.00');
+  });
+
+  it('normalizes social URLs into handles without tracking query text', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder(),
+      createReceiptMerchant({
+        social_media: {
+          instagram: 'https://instagram.com/ogabasseyy?igsh=MzRlODBiNWFlZA==',
+          facebook: 'https://facebook.com/ogabasseyy?mibextid=ZbWKwL',
+          twitter: 'https://x.com/ogabasseyy?s=20',
+          tiktok: 'https://www.tiktok.com/@ogabasseyy?_t=8abc123',
+        },
+      })
+    );
+
+    expect(html).toContain('@ogabasseyy');
+    expect(html).not.toContain('igsh');
+    expect(html).not.toContain('mibextid');
+    expect(html).not.toContain('_t=');
+    expect(html).not.toContain('@https://');
   });
 });

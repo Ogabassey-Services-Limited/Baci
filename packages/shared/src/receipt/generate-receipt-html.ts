@@ -9,11 +9,7 @@
 import { getBankNameFromCode } from './bank-codes';
 import { escapeHtml, escapeJsString } from './escape-html';
 import { sanitizeSvg } from './sanitize-svg';
-import type {
-  ReceiptMerchant,
-  ReceiptOptions,
-  ReceiptOrder,
-} from './types';
+import type { ReceiptMerchant, ReceiptOptions, ReceiptOrder } from './types';
 
 const CURRENCY_LOCALE_MAP: Record<string, string> = {
   NGN: 'en-NG',
@@ -27,6 +23,35 @@ const CURRENCY_LOCALE_MAP: Record<string, string> = {
   XOF: 'fr-SN',
 };
 
+const SOCIAL_HOSTS: Record<string, readonly string[]> = {
+  instagram: ['instagram.com'],
+  facebook: ['facebook.com', 'fb.com'],
+  twitter: ['x.com', 'twitter.com'],
+  tiktok: ['tiktok.com'],
+};
+
+const IG_RESERVED_PATHS = new Set([
+  'accounts',
+  'explore',
+  'p',
+  'reel',
+  'reels',
+  'stories',
+]);
+const FACEBOOK_RESERVED_PATHS = new Set([
+  'events',
+  'groups',
+  'marketplace',
+  'people',
+  'profile.php',
+  'share',
+  'sharer',
+  'watch',
+]);
+const TWITTER_RESERVED_PATHS = new Set(['home', 'i', 'intent', 'share']);
+const TIKTOK_RESERVED_PATHS = new Set(['discover', 'foryou', 'tag', 'video']);
+const MONEY_TOLERANCE = 0.01;
+
 function hexToRgba(hex: string, alpha: number): string {
   const cleaned = hex.replace('#', '');
   const r = Number.parseInt(cleaned.substring(0, 2), 16);
@@ -36,6 +61,125 @@ function hexToRgba(hex: string, alpha: number): string {
     return `rgba(26, 26, 46, ${alpha})`; // fallback
   }
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function almostEqual(left: number, right: number): boolean {
+  return Math.abs(left - right) <= MONEY_TOLERANCE;
+}
+
+function shouldShowVatLine(order: ReceiptOrder, merchant: ReceiptMerchant) {
+  if (
+    merchant.vat_registration_status !== 'registered' ||
+    order.tax_amount <= 0
+  ) {
+    return false;
+  }
+
+  const totalBeforeTax =
+    order.subtotal - order.discount_amount + order.shipping_fee;
+  return almostEqual(order.total, totalBeforeTax + order.tax_amount);
+}
+
+function safeDecodeUriComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function isSocialHost(platform: string, hostname: string): boolean {
+  const normalizedHost = hostname.toLowerCase().replace(/^www\./, '');
+  return (
+    SOCIAL_HOSTS[platform]?.some(
+      (host) => normalizedHost === host || normalizedHost.endsWith(`.${host}`)
+    ) ?? false
+  );
+}
+
+function getFirstProfileSegment(
+  segments: string[],
+  reservedPaths: Set<string>
+): string | null {
+  const segment = segments.find(
+    (part) => !reservedPaths.has(part.toLowerCase())
+  );
+  return segment ?? null;
+}
+
+function normalizePlainSocialHandle(value: string): string | null {
+  const handle = value
+    .trim()
+    .replace(/^@+/, '')
+    .split(/[/?#&]/)[0]
+    .replace(/^@+/, '')
+    .trim();
+  const normalized = handle.replace(/[^a-zA-Z0-9._-]/g, '');
+  return normalized || null;
+}
+
+function normalizeSocialHandle(
+  platform: 'instagram' | 'facebook' | 'twitter' | 'tiktok',
+  value: string | undefined
+): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const canParseAsUrl =
+    /^https?:\/\//i.test(trimmed) ||
+    /^(www\.)?(instagram|facebook|fb|x|twitter|tiktok)\.com\//i.test(trimmed);
+
+  if (!canParseAsUrl) {
+    return normalizePlainSocialHandle(trimmed);
+  }
+
+  try {
+    const url = new URL(
+      /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+    );
+    if (!isSocialHost(platform, url.hostname)) {
+      return normalizePlainSocialHandle(trimmed);
+    }
+
+    const segments = url.pathname
+      .split('/')
+      .map((part) => safeDecodeUriComponent(part).trim())
+      .filter(Boolean);
+    let profileSegment: string | null = null;
+
+    if (platform === 'instagram') {
+      profileSegment = getFirstProfileSegment(segments, IG_RESERVED_PATHS);
+    } else if (platform === 'facebook') {
+      profileSegment = getFirstProfileSegment(
+        segments,
+        FACEBOOK_RESERVED_PATHS
+      );
+    } else if (platform === 'twitter') {
+      profileSegment = getFirstProfileSegment(segments, TWITTER_RESERVED_PATHS);
+    } else {
+      profileSegment =
+        segments.find((part) => part.startsWith('@')) ??
+        getFirstProfileSegment(segments, TIKTOK_RESERVED_PATHS);
+    }
+
+    return normalizePlainSocialHandle(profileSegment ?? '');
+  } catch {
+    return normalizePlainSocialHandle(trimmed);
+  }
+}
+
+function getReceiptFulfillmentRows(order: ReceiptOrder) {
+  const details = order.fulfillment_details;
+  const imei = details?.imei?.trim() ?? '';
+  const serialNumber =
+    details?.serialNumber?.trim() ?? details?.serial_number?.trim() ?? '';
+
+  return [
+    { label: 'IMEI', value: imei },
+    { label: 'S/N', value: serialNumber },
+  ].filter((row) => row.value.length > 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -180,8 +324,7 @@ export function generateReceiptHtml(
     );
   }
 
-  const showVat =
-    merchant.vat_registration_status === 'registered' && order.tax_amount > 0;
+  const showVat = shouldShowVatLine(order, merchant);
   if (showVat) {
     const vatLabel = merchant.vat_rate ? `VAT (${merchant.vat_rate}%)` : 'VAT';
     summaryLines.push(
@@ -319,6 +462,26 @@ export function generateReceiptHtml(
     ? `<div class="qr-block"><img src="${options.qrCodeDataUri}" alt="QR Code" width="100" height="100"><div class="qr-caption">${isPaid ? 'Track your order' : 'Pay online'}</div></div>`
     : '';
 
+  const fulfillmentRows = getReceiptFulfillmentRows(order);
+  const fulfillmentDetailsHtml =
+    fulfillmentRows.length > 0
+      ? `
+      <div class="section-block">
+        <div class="section-label">Fulfillment Details</div>
+        <div class="fulfillment-grid">
+          ${fulfillmentRows
+            .map(
+              (row) => `
+          <div class="fulfillment-item">
+            <span class="fulfillment-key">${escapeHtml(row.label)}</span>
+            <span class="fulfillment-val">${escapeHtml(row.value)}</span>
+          </div>`
+            )
+            .join('')}
+        </div>
+      </div>`
+      : '';
+
   // -- Social handles (with icons & smart grouping) --
   const social = merchant.social_media;
   const socialIcons: Record<string, string> = {
@@ -333,14 +496,18 @@ export function generateReceiptHtml(
   };
   // Build entries: { platform, handle }
   const socialEntries: Array<{ platform: string; handle: string }> = [];
-  if (social?.instagram)
-    socialEntries.push({ platform: 'instagram', handle: social.instagram });
-  if (social?.facebook)
-    socialEntries.push({ platform: 'facebook', handle: social.facebook });
-  if (social?.twitter)
-    socialEntries.push({ platform: 'twitter', handle: social.twitter });
-  if (social?.tiktok)
-    socialEntries.push({ platform: 'tiktok', handle: social.tiktok });
+  const instagramHandle = normalizeSocialHandle('instagram', social?.instagram);
+  const facebookHandle = normalizeSocialHandle('facebook', social?.facebook);
+  const twitterHandle = normalizeSocialHandle('twitter', social?.twitter);
+  const tiktokHandle = normalizeSocialHandle('tiktok', social?.tiktok);
+  if (instagramHandle)
+    socialEntries.push({ platform: 'instagram', handle: instagramHandle });
+  if (facebookHandle)
+    socialEntries.push({ platform: 'facebook', handle: facebookHandle });
+  if (twitterHandle)
+    socialEntries.push({ platform: 'twitter', handle: twitterHandle });
+  if (tiktokHandle)
+    socialEntries.push({ platform: 'tiktok', handle: tiktokHandle });
 
   // Group by handle — if multiple platforms share the same handle, combine icons
   const socialItems: string[] = [];
@@ -525,6 +692,10 @@ export function generateReceiptHtml(
   /* Sections (payment history, bank details) */
   .section-block { margin-bottom: 16px; }
   .section-label { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px; color: #1a1a2e; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #e5e7eb; }
+  .fulfillment-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+  .fulfillment-item { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #e5e7eb; border-radius: 6px; background: #f9fafb; padding: 7px 10px; }
+  .fulfillment-key { font-size: 9px; font-weight: 800; color: ${brandPrimary}; text-transform: uppercase; letter-spacing: 0.6px; }
+  .fulfillment-val { font-family: 'SF Mono', Menlo, Monaco, monospace; font-size: 11px; font-weight: 700; color: #111827; }
 
   /* Transaction table */
   .tx-table { width: 100%; border-collapse: collapse; font-size: 11px; }
@@ -637,6 +808,9 @@ export function generateReceiptHtml(
         </div>
       </div>
     </div>
+
+    <!-- Fulfillment Details -->
+    ${fulfillmentDetailsHtml}
 
     <!-- Payment History -->
     ${paymentHistoryHtml}

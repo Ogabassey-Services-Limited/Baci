@@ -81,7 +81,8 @@ export function getInitialFulfillmentDetails(
 } {
   return {
     imei: details?.imei?.trim() ?? '',
-    serialNumber: details?.serialNumber?.trim() ?? '',
+    serialNumber:
+      details?.serialNumber?.trim() ?? details?.serial_number?.trim() ?? '',
   };
 }
 
