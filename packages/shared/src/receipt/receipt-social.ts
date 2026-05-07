@@ -124,7 +124,9 @@ function normalizeSocialHandle(
 
   const canParseAsUrl =
     /^https?:\/\//i.test(trimmed) ||
-    /^(www\.)?(instagram|facebook|fb|x|twitter|tiktok)\.com\//i.test(trimmed);
+    /^(?:[a-z0-9-]+\.)*(instagram|facebook|fb|x|twitter|tiktok)\.com\//i.test(
+      trimmed
+    );
 
   if (!canParseAsUrl) {
     return normalizePlainSocialHandle(trimmed);

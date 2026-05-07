@@ -578,6 +578,24 @@ describe('generateReceiptHtml', () => {
     expect(html).not.toContain('@https://');
   });
 
+  it('normalizes mobile social subdomain URLs into handles', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder(),
+      createReceiptMerchant({
+        social_media: {
+          facebook: 'm.facebook.com/ogabasseyy?mibextid=ZbWKwL',
+          twitter: 'mobile.twitter.com/bacisupport?s=20',
+        },
+      })
+    );
+
+    expect(html).toContain('@ogabasseyy');
+    expect(html).toContain('@bacisupport');
+    expect(html).not.toContain('@m.facebook.com');
+    expect(html).not.toContain('@mobile.twitter.com');
+    expect(html).not.toContain('mibextid');
+  });
+
   it('renders Facebook profile.php id URLs as deterministic handles', () => {
     const html = generateReceiptHtml(
       createReceiptOrder(),
