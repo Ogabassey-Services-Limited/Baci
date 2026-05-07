@@ -247,7 +247,10 @@ export async function GET(request: NextRequest) {
 
       if (
         candidate.voucherPin !== null ||
-        candidate.transaction.status !== 'successful' ||
+        !(
+          candidate.transaction.status === 'successful' ||
+          candidate.transaction.status === 'processing'
+        ) ||
         !shouldBackfillForType(candidate.transaction.type) ||
         hasRecentBackfillSchedule(candidate.metadata)
       ) {

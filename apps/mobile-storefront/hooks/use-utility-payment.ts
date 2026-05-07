@@ -37,6 +37,7 @@ export function useUtilityPayment() {
     enabled: isAuthenticated,
     queryKey: ['vtu-saved-cards'],
     queryFn: listSavedVtuCards,
+    refetchOnMount: 'always',
     staleTime: 5 * 60 * 1000,
   });
 
