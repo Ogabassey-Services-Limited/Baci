@@ -37,6 +37,7 @@ const FACEBOOK_RESERVED_PATHS = new Set([
   'watch',
 ]);
 const FACEBOOK_PAGES_RESERVED_PATHS = new Set([
+  'category',
   'create',
   'feed',
   'explore',
@@ -107,10 +108,15 @@ function getFacebookPagesProfileSegment(segments: string[]): string | null {
     return null;
   }
 
-  return getRootProfileSegment(
-    segments.slice(1),
-    FACEBOOK_PAGES_RESERVED_PATHS
-  );
+  const pageSegments = segments.slice(1);
+  if (pageSegments[0]?.toLowerCase() === 'category') {
+    return getRootProfileSegment(
+      pageSegments.slice(2),
+      FACEBOOK_PAGES_RESERVED_PATHS
+    );
+  }
+
+  return getRootProfileSegment(pageSegments, FACEBOOK_PAGES_RESERVED_PATHS);
 }
 
 function normalizeSocialHandle(

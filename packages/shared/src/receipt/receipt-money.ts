@@ -104,6 +104,14 @@ function isTaxExclusiveTotal(order: ReceiptOrder): boolean {
   );
 }
 
+function hasTaxInclusiveTotalShape(order: ReceiptOrder): boolean {
+  return (
+    almostEqual(order.total, getTaxExclusiveTotal(order)) ||
+    // Admin fallbacks can backfill a missing subtotal with the inclusive total.
+    almostEqual(order.subtotal, order.total)
+  );
+}
+
 function isTaxInclusiveTotal(
   order: ReceiptOrder,
   merchant: ReceiptMerchant
@@ -114,7 +122,7 @@ function isTaxInclusiveTotal(
   }
 
   return (
-    almostEqual(order.total, getTaxExclusiveTotal(order)) &&
+    hasTaxInclusiveTotalShape(order) &&
     storedAmountMatchesComputed(
       order.tax_amount,
       getIncludedTaxAmount(order.total, vatRate)

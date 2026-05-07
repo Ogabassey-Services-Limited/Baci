@@ -1,0 +1,38 @@
+import { describe, expect, it } from 'vitest';
+import { buildSocialItems } from './receipt-social';
+
+describe('buildSocialItems', () => {
+  it('returns no items for empty social settings', () => {
+    expect(buildSocialItems({})).toEqual([]);
+    expect(buildSocialItems(null)).toEqual([]);
+  });
+
+  it('normalizes common social URLs without path or query fragments', () => {
+    const items = buildSocialItems({
+      instagram: 'https://www.instagram.com/ogabasseyy?igsh=abc',
+      facebook: 'https://www.facebook.com/mystore?mibextid=abc',
+      twitter: 'https://x.com/bacisupport?s=20',
+    }).join('');
+
+    expect(items).toContain('@ogabasseyy');
+    expect(items).toContain('@mystore');
+    expect(items).toContain('@bacisupport');
+    expect(items).not.toContain('igsh');
+    expect(items).not.toContain('mibextid');
+    expect(items).not.toContain('?s=');
+  });
+
+  it('normalizes Facebook pages category URLs to the page handle', () => {
+    const [facebookItem] = buildSocialItems({
+      facebook:
+        'https://www.facebook.com/pages/category/Shopping-Retail/Ogabassey-Store/1234567890?mibextid=ZbWKwL',
+    });
+
+    expect(facebookItem).toBeDefined();
+    expect(facebookItem).toContain('@ogabassey-store');
+    expect(facebookItem).not.toContain('category');
+    expect(facebookItem).not.toContain('shopping-retail');
+    expect(facebookItem).not.toContain('1234567890');
+    expect(facebookItem).not.toContain('mibextid');
+  });
+});
