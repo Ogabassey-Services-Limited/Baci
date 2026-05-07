@@ -171,6 +171,22 @@ describe('/api/branches/[id]', () => {
     expect(mockFrom).not.toHaveBeenCalled();
   });
 
+  it('requires settings.edit to fetch branch details', async () => {
+    const { GET } = await import('@/app/api/branches/[id]/route');
+    mockHasPermission.mockReturnValue(false);
+
+    const response = await GET(createRequest('GET'), routeParams());
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({ error: 'Forbidden' });
+    expect(mockHasPermission).toHaveBeenCalledWith(
+      expect.objectContaining({ merchantId: MERCHANT_ID }),
+      'settings',
+      'edit'
+    );
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
   it('requires settings.edit for branch updates', async () => {
     const { PUT } = await import('@/app/api/branches/[id]/route');
     mockHasPermission.mockReturnValue(false);

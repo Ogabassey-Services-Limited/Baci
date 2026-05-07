@@ -4,24 +4,19 @@ import { modalSharedStyles } from './modal-shared.styles';
 
 export const styles = StyleSheet.create({
   ...modalSharedStyles,
-  deactivateButton: {
-    flex: 1,
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    alignItems: 'center',
-  },
-  deactivateButtonText: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  saveButton: {
+  cancelButton: {
     flex: 1,
     paddingVertical: SPACING.md,
     borderRadius: RADIUS.md,
     alignItems: 'center',
   },
-  saveButtonText: {
+  submitButton: {
+    flex: 2,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+  },
+  buttonText: {
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },

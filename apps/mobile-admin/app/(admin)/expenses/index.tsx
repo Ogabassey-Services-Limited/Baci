@@ -6,27 +6,23 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { useQuery } from '@tanstack/react-query';
-import { format, isSameMonth, parseISO } from 'date-fns';
+import { isSameMonth, parseISO } from 'date-fns';
 import { Stack, useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useBranchScope } from '@/hooks/useBranchScope';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/utils';
+import { ExpenseListItem } from './ExpenseListItem';
+import { styles } from './expenses-list.styles';
+import type { Expense } from './expenses-list.types';
 
-interface Expense {
-  id: string;
-  amount: number;
-  category: string;
-  description: string | null;
-  date: string;
-  receipt_url: string | null;
-  branch_id: string | null;
+function getExpenseErrorMessage() {
+  return 'Please try again later.';
 }
 
 export default function ExpensesScreen() {
@@ -38,7 +34,6 @@ export default function ExpensesScreen() {
 
   const {
     data: expenses,
-    error: expensesError,
     isError: hasExpensesError,
     isLoading,
   } = useQuery({
@@ -73,60 +68,6 @@ export default function ExpensesScreen() {
       .filter((e) => isSameMonth(parseISO(e.date), now))
       .reduce((sum, e) => sum + Number(e.amount), 0);
   })();
-
-  const renderExpenseItem = ({ item }: { item: Expense }) => (
-    <Pressable
-      style={[
-        styles.expenseItem,
-        { backgroundColor: colors.card, borderColor: colors.border },
-      ]}
-      onPress={() => router.push(`/expenses/${item.id}`)}
-    >
-      <View
-        style={[
-          styles.categoryIcon,
-          { backgroundColor: `${colors.primary}15` },
-        ]}
-      >
-        <Ionicons name="pricetag-outline" size={20} color={colors.primary} />
-      </View>
-
-      <View style={styles.expenseDetails}>
-        <Text style={[styles.expenseCategory, { color: colors.text }]}>
-          {item.category}
-        </Text>
-        {item.description ? (
-          <Text
-            style={[styles.expenseDescription, { color: colors.textSecondary }]}
-            numberOfLines={1}
-          >
-            {item.description}
-          </Text>
-        ) : null}
-        <Text style={[styles.expenseDate, { color: colors.textMuted }]}>
-          {format(parseISO(item.date), 'MMM d, yyyy')}
-        </Text>
-      </View>
-
-      <View style={styles.expenseAmount}>
-        <Text style={[styles.amountText, { color: colors.text }]}>
-          {formatCurrency(
-            item.amount,
-            undefined,
-            merchant?.payout_currency || 'NGN'
-          )}
-        </Text>
-        {item.receipt_url ? (
-          <Ionicons
-            name="document-attach-outline"
-            size={14}
-            color={colors.textSecondary}
-            style={{ marginTop: 4 }}
-          />
-        ) : null}
-      </View>
-    </Pressable>
-  );
 
   return (
     <>
@@ -194,21 +135,16 @@ export default function ExpensesScreen() {
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
               Could not load expenses
             </Text>
-            <Text
-              style={[
-                styles.emptySubtext,
-                { color: colors.textMuted },
-              ]}
-            >
-              {expensesError instanceof Error
-                ? expensesError.message
-                : 'Please try again later'}
+            <Text style={[styles.emptySubtext, { color: colors.textMuted }]}>
+              {getExpenseErrorMessage()}
             </Text>
           </View>
         ) : (
           <FlashList
             data={expenses ?? []}
-            renderItem={renderExpenseItem}
+            renderItem={({ item }) => (
+              <ExpenseListItem item={item} merchant={merchant} />
+            )}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
@@ -255,109 +191,3 @@ export default function ExpensesScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  headerButton: { padding: SPACING.sm },
-  summaryContainer: { padding: SPACING.lg, paddingBottom: SPACING.sm },
-  summaryCard: {
-    padding: SPACING.xl,
-    borderRadius: RADIUS.xl,
-  },
-  summaryLabel: {
-    color: '#ffffffcc',
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    marginBottom: SPACING.xs,
-  },
-  summaryAmount: {
-    color: '#FFFFFF',
-    fontSize: TYPOGRAPHY.size['3xl'],
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    marginBottom: SPACING.md,
-  },
-  summaryTrend: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  summaryTrendText: {
-    color: '#ffffffcc',
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-  },
-
-  listContent: { padding: SPACING.lg, paddingBottom: 100 },
-  expenseItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-  },
-  categoryIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: RADIUS.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  expenseDetails: { flex: 1 },
-  expenseCategory: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    marginBottom: 2,
-  },
-  expenseDescription: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    marginBottom: 2,
-  },
-  expenseDate: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-  },
-  expenseAmount: { alignItems: 'flex-end' },
-  amountText: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-
-  fab: {
-    position: 'absolute',
-    bottom: SPACING.xl,
-    right: SPACING.xl,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: SPACING['3xl'],
-    marginTop: SPACING.xl,
-  },
-  emptyText: {
-    marginTop: SPACING.md,
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    textAlign: 'center',
-  },
-  emptySubtext: {
-    marginTop: SPACING.xs,
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    textAlign: 'center',
-  },
-  emptyButton: {
-    marginTop: SPACING.lg,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: RADIUS.full,
-    borderWidth: 1,
-  },
-  emptyButtonText: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-});

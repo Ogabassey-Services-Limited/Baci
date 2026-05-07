@@ -1,4 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
+import {
+  applyOrderBranchScope,
+  getBranchScopeKey,
+} from '@/lib/branch-scope-query';
 import { supabase } from '@/lib/supabase';
 import { ALL_BRANCH_SCOPE, type BranchScope } from '@/schemas/branch';
 import { useBranchScope } from './useBranchScope';
@@ -14,22 +18,6 @@ export interface OrderCounts {
   returned: number;
 }
 
-function getBranchScopeKey(scope: BranchScope): string {
-  return scope.type === 'branch' ? scope.branchId : 'all';
-}
-
-type BranchScopedQuery = {
-  eq: (column: string, value: string) => BranchScopedQuery;
-};
-
-function applyBranchScope<Query>(query: Query, scope: BranchScope): Query {
-  if (scope.type !== 'branch') {
-    return query;
-  }
-
-  return (query as BranchScopedQuery).eq('branch_id', scope.branchId) as Query;
-}
-
 export async function fetchOrderCounts(
   merchantId: string,
   scope: BranchScope = ALL_BRANCH_SCOPE
@@ -38,80 +26,6 @@ export async function fetchOrderCounts(
   // This is more efficient than fetching all orders and filtering client-side for large datasets,
   // though for small shops, client-side might be fine. We stick to server-side counts for scalability.
 
-  const queries = [
-    // All orders
-    applyBranchScope(
-      supabase
-        .from('orders')
-        .select('id', { count: 'exact', head: true })
-        .eq('merchant_id', merchantId),
-      scope
-    ),
-
-    // Pending
-    applyBranchScope(
-      supabase
-        .from('orders')
-        .select('id', { count: 'exact', head: true })
-        .eq('merchant_id', merchantId)
-        .eq('shipping_status', 'pending'),
-      scope
-    ),
-
-    // Processing
-    applyBranchScope(
-      supabase
-        .from('orders')
-        .select('id', { count: 'exact', head: true })
-        .eq('merchant_id', merchantId)
-        .eq('shipping_status', 'processing'),
-      scope
-    ),
-
-    // Shipped
-    applyBranchScope(
-      supabase
-        .from('orders')
-        .select('id', { count: 'exact', head: true })
-        .eq('merchant_id', merchantId)
-        .eq('shipping_status', 'shipped'),
-      scope
-    ),
-
-    // Delivered
-    applyBranchScope(
-      supabase
-        .from('orders')
-        .select('id', { count: 'exact', head: true })
-        .eq('merchant_id', merchantId)
-        .eq('shipping_status', 'delivered'),
-      scope
-    ),
-
-    // Cancelled
-    applyBranchScope(
-      supabase
-        .from('orders')
-        .select('id', { count: 'exact', head: true })
-        .eq('merchant_id', merchantId)
-        .eq('shipping_status', 'cancelled'),
-      scope
-    ),
-
-    // Returned
-    applyBranchScope(
-      supabase
-        .from('orders')
-        .select('id', { count: 'exact', head: true })
-        .eq('merchant_id', merchantId)
-        .eq('shipping_status', 'returned'),
-      scope
-    ),
-  ];
-
-  const results = await Promise.all(queries);
-
-  // Check each result for errors
   const labels = [
     'all',
     'pending',
@@ -121,6 +35,25 @@ export async function fetchOrderCounts(
     'cancelled',
     'returned',
   ] as const;
+
+  const buildCountQuery = (status?: (typeof labels)[number]) => {
+    let query = supabase
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('merchant_id', merchantId);
+
+    if (status && status !== 'all') {
+      query = query.eq('shipping_status', status);
+    }
+
+    return applyOrderBranchScope(query, scope);
+  };
+
+  const results = await Promise.all(
+    labels.map((label) => buildCountQuery(label))
+  );
+
+  // Check each result for errors
   for (let i = 0; i < results.length; i++) {
     const result = results[i];
     if (result.error) {

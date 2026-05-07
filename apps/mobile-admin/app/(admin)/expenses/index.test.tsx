@@ -8,19 +8,16 @@ type TestBranchScope = { type: 'all' } | { type: 'branch'; branchId: string };
 const mocks = vi.hoisted(() => ({
   branchScope: { type: 'branch', branchId: 'branch-1' } as TestBranchScope,
   queryCalls: [] as Array<{ method: string; args: unknown[] }>,
-  queryPromises: [] as Array<Promise<unknown>>,
   queryResult: { data: [], error: null } as {
     data: unknown[] | null;
     error: Error | null;
   },
-  queryState: null as
-    | {
-        data?: unknown[];
-        error: Error | null;
-        isError: boolean;
-        isLoading: boolean;
-      }
-    | null,
+  queryState: null as {
+    data?: unknown[];
+    error: Error | null;
+    isError: boolean;
+    isLoading: boolean;
+  } | null,
   router: { back: vi.fn(), push: vi.fn() },
 }));
 
@@ -37,15 +34,26 @@ function makeQueryChain() {
     chain[method] = passthrough(method);
   }
   chain.then = (
-    resolve: (value: { data: unknown[] | null; error: Error | null }) => unknown,
+    resolve: (value: {
+      data: unknown[] | null;
+      error: Error | null;
+    }) => unknown,
     reject?: (reason?: unknown) => unknown
   ) => Promise.resolve(mocks.queryResult).then(resolve, reject);
   return chain;
 }
 
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: ({ queryFn }: { queryFn: () => Promise<unknown> }) => {
-    mocks.queryPromises.push(Promise.resolve(queryFn()));
+  useQuery: ({
+    enabled = true,
+    queryFn,
+  }: {
+    enabled?: boolean;
+    queryFn: () => Promise<unknown>;
+  }) => {
+    if (enabled) {
+      void queryFn();
+    }
     return (
       mocks.queryState ?? {
         data: [],
@@ -95,7 +103,7 @@ vi.mock('@shopify/flash-list', async () => {
   function renderEmptyComponent(
     ListEmptyComponent?: ComponentType | ReactNode
   ) {
-    if (!ListEmptyComponent) {
+    if (ListEmptyComponent == null) {
       return null;
     }
 
@@ -177,13 +185,12 @@ vi.mock('react-native', () => ({
   View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
-import ExpensesScreen from '@/app/(admin)/expenses';
+import ExpensesScreen from './index';
 
 describe('ExpensesScreen', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.queryCalls.length = 0;
-    mocks.queryPromises.length = 0;
     mocks.queryResult = { data: [], error: null };
     mocks.queryState = null;
     mocks.branchScope = { type: 'branch', branchId: 'branch-1' };
@@ -280,5 +287,7 @@ describe('ExpensesScreen', () => {
     render(<ExpensesScreen />);
 
     expect(screen.getByText('Could not load expenses')).toBeInTheDocument();
+    expect(screen.getByText('Please try again later.')).toBeInTheDocument();
+    expect(screen.queryByText('Database error')).not.toBeInTheDocument();
   });
 });

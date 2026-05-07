@@ -3,6 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const supabaseMock = vi.hoisted(() => {
   type ChainCall = { method: string; args: unknown[] };
   const chainCalls: ChainCall[] = [];
+  let result: {
+    data: unknown[];
+    count: number;
+    error: { message: string } | null;
+  } = {
+    data: [{ id: 'order-1', order_items: [{ id: 'item-1' }] }],
+    count: 1,
+    error: null,
+  };
 
   function makeChain() {
     const chain: Record<string, unknown> = {};
@@ -13,21 +22,24 @@ const supabaseMock = vi.hoisted(() => {
         return chain;
       };
 
-    for (const method of ['select', 'eq', 'or', 'gte', 'lte', 'order', 'range']) {
+    for (const method of [
+      'select',
+      'eq',
+      'or',
+      'gte',
+      'lte',
+      'order',
+      'range',
+    ]) {
       chain[method] = passthrough(method);
     }
     chain.then = (
       resolve: (value: {
         data: unknown[];
         count: number;
-        error: null;
+        error: { message: string } | null;
       }) => unknown
-    ) =>
-      Promise.resolve({
-        data: [{ id: 'order-1', order_items: [{ id: 'item-1' }] }],
-        count: 1,
-        error: null,
-      }).then(resolve);
+    ) => Promise.resolve(result).then(resolve);
     return chain;
   }
 
@@ -36,6 +48,14 @@ const supabaseMock = vi.hoisted(() => {
     from: vi.fn(() => makeChain()),
     reset: () => {
       chainCalls.length = 0;
+      result = {
+        data: [{ id: 'order-1', order_items: [{ id: 'item-1' }] }],
+        count: 1,
+        error: null,
+      };
+    },
+    setResult: (nextResult: typeof result) => {
+      result = nextResult;
     },
   };
 });
@@ -68,10 +88,15 @@ describe('fetchOrders', () => {
   });
 
   it('applies branch_id only when a concrete branch scope is selected', async () => {
-    await fetchOrders('merchant-1', 0, {}, {
-      type: 'branch',
-      branchId: 'branch-1',
-    });
+    await fetchOrders(
+      'merchant-1',
+      0,
+      {},
+      {
+        type: 'branch',
+        branchId: 'branch-1',
+      }
+    );
 
     expect(
       supabaseMock.chainCalls.filter(
@@ -88,5 +113,37 @@ describe('fetchOrders', () => {
         (call) => call.method === 'eq' && call.args[0] === 'branch_id'
       )
     ).toEqual([]);
+  });
+
+  it('throws when the branch-scoped orders query fails', async () => {
+    supabaseMock.setResult({
+      data: [],
+      count: 0,
+      error: { message: 'Orders unavailable' },
+    });
+
+    await expect(
+      fetchOrders(
+        'merchant-1',
+        0,
+        {},
+        {
+          type: 'branch',
+          branchId: 'branch-1',
+        }
+      )
+    ).rejects.toThrow('Orders unavailable');
+  });
+
+  it('throws when the all-location orders query fails', async () => {
+    supabaseMock.setResult({
+      data: [],
+      count: 0,
+      error: { message: 'Orders unavailable' },
+    });
+
+    await expect(
+      fetchOrders('merchant-1', 0, {}, { type: 'all' })
+    ).rejects.toThrow('Orders unavailable');
   });
 });

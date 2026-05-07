@@ -93,6 +93,38 @@ describe('mapBranchMutationError', () => {
     });
   });
 
+  it('maps default branch unique conflicts to 409', async () => {
+    const response = mapBranchMutationError(
+      {
+        code: '23505',
+        constraint: 'idx_branches_one_active_default_per_merchant',
+        message: 'duplicate key value violates unique constraint',
+      },
+      'Fallback'
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Default branch conflict',
+    });
+  });
+
+  it('maps other unique conflicts to 409', async () => {
+    const response = mapBranchMutationError(
+      {
+        code: '23505',
+        constraint: 'branches_name_key',
+        message: 'duplicate key value violates unique constraint',
+      },
+      'Fallback'
+    );
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Conflict',
+    });
+  });
+
   it('maps generic check violations to 400', async () => {
     const response = mapBranchMutationError(
       { code: '23514', message: 'Invalid branch assignment' },

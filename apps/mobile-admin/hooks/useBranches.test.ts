@@ -133,6 +133,9 @@ describe('useCreateBranch', () => {
     });
     expect(mocks.directInsert).not.toHaveBeenCalled();
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['branches'] });
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['branch-scope'],
+    });
   });
 
   it('fails fast when merchant context is missing', async () => {

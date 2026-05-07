@@ -66,10 +66,12 @@ describe('BranchPill', () => {
     );
 
     expect(screen.getByText('Lagos main')).toBeTruthy();
+    const button = screen.getByRole('button', {
+      name: 'Switch to Lagos main branch',
+    });
+    expect(button.getAttribute('aria-pressed')).toBe('true');
 
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Switch to Lagos main branch' })
-    );
+    fireEvent.click(button);
 
     expect(onPress).toHaveBeenCalledTimes(1);
   });

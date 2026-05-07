@@ -81,6 +81,24 @@ export function mapBranchMutationError(
 
   const lowerMessage = error.message?.toLowerCase() ?? '';
   const lowerDetails = error.details?.toLowerCase() ?? '';
+  const isDefaultBranchConflict =
+    error.constraint === 'idx_branches_one_active_default_per_merchant' ||
+    lowerDetails.includes('idx_branches_one_active_default_per_merchant') ||
+    lowerMessage.includes('idx_branches_one_active_default_per_merchant');
+
+  if (error.code === '23505' && isDefaultBranchConflict) {
+    console.warn('[Branches] Default branch conflict:', error);
+    return NextResponse.json(
+      { error: 'Default branch conflict' },
+      { status: 409 }
+    );
+  }
+
+  if (error.code === '23505') {
+    console.warn('[Branches] Unique branch conflict:', error);
+    return NextResponse.json({ error: 'Conflict' }, { status: 409 });
+  }
+
   const isOnlyActiveBranchGuard =
     error.constraint === 'branches_require_active_branch' ||
     lowerDetails.includes('only active branch') ||

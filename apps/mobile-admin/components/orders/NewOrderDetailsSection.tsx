@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { NewOrderAddressInput } from './NewOrderAddressInput';
+import { NewOrderBranchSelector } from './NewOrderBranchSelector';
 import { styles } from './new-order.styles';
 
 interface NewOrderDetailsSectionProps {
@@ -171,72 +172,13 @@ export function NewOrderDetailsSection({
           </View>
         </Pressable>
 
-        {branches.length > 1 ? (
-          <View
-            style={[
-              styles.listRow,
-              { borderTopColor: colors.border, borderTopWidth: 1 },
-            ]}
-          >
-            <View
-              style={[
-                styles.iconBox,
-                { backgroundColor: colors.backgroundLight },
-              ]}
-            >
-              <Ionicons color={colors.primary} name="business" size={20} />
-            </View>
-            <View style={{ flex: 1, gap: 8 }}>
-              <Text style={[styles.listLabel, { color: colors.text }]}>
-                Branch
-              </Text>
-              <View
-                accessibilityRole="radiogroup"
-                style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}
-              >
-                {branches.map((branch) => {
-                  const isSelected = branch.id === selectedBranchId;
-                  return (
-                    <Pressable
-                      key={branch.id}
-                      accessibilityLabel={`Select ${branch.name} branch`}
-                      accessibilityRole="radio"
-                      accessibilityState={{ checked: isSelected }}
-                      onPress={() => setSelectedBranchId(branch.id)}
-                      style={({ pressed }) => [
-                        {
-                          backgroundColor: isSelected
-                            ? colors.primary
-                            : colors.background,
-                          borderColor: isSelected
-                            ? colors.primary
-                            : colors.border,
-                          borderRadius: 999,
-                          borderWidth: 1,
-                          paddingHorizontal: 12,
-                          paddingVertical: 6,
-                        },
-                        pressed && { opacity: 0.7 },
-                      ]}
-                    >
-                      <Text
-                        style={{
-                          color: isSelected
-                            ? colors.textOnPrimary
-                            : colors.text,
-                          fontSize: 13,
-                          fontWeight: '600',
-                        }}
-                      >
-                        {branch.name}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-          </View>
-        ) : null}
+        <NewOrderBranchSelector
+          branches={branches}
+          selectedBranchId={selectedBranchId}
+          setSelectedBranchId={setSelectedBranchId}
+          colors={colors}
+          styles={styles}
+        />
       </View>
 
       <View

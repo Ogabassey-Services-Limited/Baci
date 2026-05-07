@@ -30,6 +30,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Invalid branch id' }, { status: 400 });
     }
 
+    const access = toUserAccess(authContext.merchantContext);
+    if (!hasPermission(access, 'settings', 'edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const { data: branch, error } = await authContext.supabase
       .from('branches')
       .select(BRANCH_DETAIL_COLUMNS)

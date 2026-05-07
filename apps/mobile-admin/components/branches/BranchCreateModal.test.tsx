@@ -4,6 +4,8 @@ import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { BranchCreateModal } from './BranchCreateModal';
 
+let lastModalOnRequestClose: (() => void) | undefined;
+
 vi.mock('@expo/vector-icons', async () => {
   const React = await import('react');
   return {
@@ -29,11 +31,16 @@ vi.mock('react-native', async () => {
     ActivityIndicator: () => React.createElement('span', null, 'loading'),
     Modal: ({
       children,
+      onRequestClose,
       visible,
     }: {
       children?: React.ReactNode;
+      onRequestClose?: () => void;
       visible: boolean;
-    }) => (visible ? React.createElement('div', null, children) : null),
+    }) => {
+      lastModalOnRequestClose = onRequestClose;
+      return visible ? React.createElement('div', null, children) : null;
+    },
     Pressable: ({
       accessibilityLabel,
       accessibilityRole,
@@ -113,12 +120,7 @@ describe('BranchCreateModal', () => {
   it('renders branch inputs and submits from the primary action', () => {
     const onSubmit = vi.fn();
 
-    render(
-      <BranchCreateModal
-        {...defaultProps}
-        onSubmit={onSubmit}
-      />
-    );
+    render(<BranchCreateModal {...defaultProps} onSubmit={onSubmit} />);
 
     expect(screen.getAllByText('Create Branch')).toHaveLength(2);
     expect(screen.getByLabelText('Branch name input')).toBeTruthy();
@@ -131,7 +133,9 @@ describe('BranchCreateModal', () => {
   it('disables the primary action while branch creation is loading', () => {
     render(<BranchCreateModal {...defaultProps} isLoading={true} />);
 
-    expect(screen.getByRole('button', { name: 'Creating branch' })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: 'Creating branch' })
+    ).toBeDisabled();
     expect(screen.getByText('loading')).toBeTruthy();
   });
 
@@ -160,5 +164,11 @@ describe('BranchCreateModal', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Close modal' })[0]);
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not wire hardware-close while branch creation is loading', () => {
+    render(<BranchCreateModal {...defaultProps} isLoading={true} />);
+
+    expect(lastModalOnRequestClose).toBeUndefined();
   });
 });

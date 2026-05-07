@@ -234,6 +234,8 @@ describe('BranchSwitcher create and active branch filtering', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create branch' }));
 
     expect(mocks.createMutateAsync).not.toHaveBeenCalled();
-    expect(screen.getByText(/2/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/(too (small|short).*2|expected string to have >=2)/i)
+    ).toBeInTheDocument();
   });
 });

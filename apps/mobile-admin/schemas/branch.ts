@@ -15,8 +15,8 @@ export const BranchSchema = z.object({
   manager_id: z.string().uuid().nullable(),
   is_default: z.boolean(),
   active: z.boolean(),
-  created_at: z.string().datetime(),
-  updated_at: z.string().datetime().optional(),
+  created_at: z.string().datetime({ offset: true }),
+  updated_at: z.string().datetime({ offset: true }).nullish(),
 });
 
 export const CreateBranchSchema = z

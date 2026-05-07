@@ -188,6 +188,7 @@ export default function InventoryScreen() {
     products.length;
   const lowStockCount = inventoryStats?.lowStockCount ?? 0;
   const outOfStockCount = inventoryStats?.outOfStockCount ?? 0;
+  // Product catalogue and inventory totals are always cross-branch; label is unconditional.
   const inventoryScopeLabel = ' (all stores)';
 
   // Navigation callback

@@ -254,10 +254,16 @@ describe('StaffAccountsScreen branch management', () => {
     });
     fireEvent.click(screen.getByRole('button', { name: 'Create branch' }));
 
-    expect(mocks.createBranch).toHaveBeenCalledWith({
-      name: 'Lekki',
-      city: 'Lagos',
-    });
+    expect(mocks.createBranch).toHaveBeenCalledWith(
+      {
+        name: 'Lekki',
+        city: 'Lagos',
+      },
+      expect.objectContaining({
+        onError: expect.any(Function),
+        onSuccess: expect.any(Function),
+      })
+    );
   });
 
   it('deactivates a default branch when another active branch exists', () => {

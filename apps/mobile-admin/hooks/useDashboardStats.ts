@@ -4,6 +4,10 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import {
+  applyOrderBranchScope,
+  getBranchScopeKey,
+} from '@/lib/branch-scope-query';
 import { supabase } from '@/lib/supabase';
 import { ALL_BRANCH_SCOPE, type BranchScope } from '@/schemas/branch';
 import { useBranchScope } from './useBranchScope';
@@ -35,16 +39,6 @@ export interface TopProduct {
   imageUrl: string | null;
   totalSold: number;
   totalRevenue: number;
-}
-
-function getBranchScopeKey(scope: BranchScope): string {
-  return scope.type === 'branch' ? scope.branchId : 'all';
-}
-
-function applyOrderBranchScope<
-  Query extends { eq: (column: string, value: string) => Query },
->(query: Query, scope: BranchScope, column = 'branch_id'): Query {
-  return scope.type === 'branch' ? query.eq(column, scope.branchId) : query;
 }
 
 function getDateRange(period: TimePeriod): {

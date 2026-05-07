@@ -76,6 +76,22 @@ describe('mobile branch schemas', () => {
     }
   });
 
+  it('accepts Supabase timestamps with timezone offsets', () => {
+    const utcResult = BranchSchema.safeParse({
+      ...validBranchRow,
+      created_at: '2026-05-07T10:36:08+00:00',
+      updated_at: '2026-05-07T10:36:08+00:00',
+    });
+    const offsetResult = BranchSchema.safeParse({
+      ...validBranchRow,
+      created_at: '2026-05-07T10:36:08+01:00',
+      updated_at: null,
+    });
+
+    expect(utcResult.success).toBe(true);
+    expect(offsetResult.success).toBe(true);
+  });
+
   it('rejects incorrect branch row field types', () => {
     const result = BranchSchema.safeParse({
       ...validBranchRow,

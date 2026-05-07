@@ -378,13 +378,13 @@ export default function HomeScreen() {
               iconColor={colors.gold}
             />
             <StatCard
-              label={isAllLocations ? 'Visits' : 'Visits (all stores)'}
+              label={isAllLocations ? 'Visits (all stores)' : 'Visits'}
               value={formatMetric(stats?.visits ?? 0)}
               icon="globe-outline"
               iconColor={colors.info}
             />
             <StatCard
-              label={isAllLocations ? 'New' : 'New (all stores)'}
+              label={isAllLocations ? 'New (all stores)' : 'New'}
               value={formatMetric(stats?.newCustomers ?? 0)}
               icon="people-outline"
               iconColor={colors.success}

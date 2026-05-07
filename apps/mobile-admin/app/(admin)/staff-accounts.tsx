@@ -6,22 +6,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BranchCard } from '@/components/staff/BranchCard';
 import { BranchModal } from '@/components/staff/BranchModal';
-import { StaffAccountCard } from '@/components/staff/StaffAccountCard';
+import { BranchesTabContent } from '@/components/staff/BranchesTabContent';
 import { StaffAccountModal } from '@/components/staff/StaffAccountModal';
+import { StaffAccountsStatusShell } from '@/components/staff/StaffAccountsStatusShell';
+import { StaffAccountsTabContent } from '@/components/staff/StaffAccountsTabContent';
 import styles from '@/components/staff/staff-accounts.styles';
-import { SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useBranchManagement } from '@/hooks/useBranchManagement';
 import { useDeactivateBranch, useUpdateBranch } from '@/hooks/useBranches';
 import { useStaff } from '@/hooks/useStaff';
 import { useStaffAccounts } from '@/hooks/useStaffAccounts';
@@ -33,11 +27,7 @@ export default function StaffAccountsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const [activeTab, setActiveTab] = useState<TabType>('accounts');
   const [showAccountModal, setShowAccountModal] = useState(false);
-  const [showBranchModal, setShowBranchModal] = useState(false);
   const [newAccountName, setNewAccountName] = useState('');
-  const [newBranchName, setNewBranchName] = useState('');
-  const [newBranchCity, setNewBranchCity] = useState('');
-  const [editingBranchId, setEditingBranchId] = useState<string | null>(null);
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
 
@@ -57,15 +47,15 @@ export default function StaffAccountsScreen() {
       setSelectedStaffId(null);
       setSelectedBranchId(null);
     },
-    onBranchCreated: () => {
-      setShowBranchModal(false);
-      setNewBranchName('');
-      setNewBranchCity('');
-    },
   });
   const updateBranchMutation = useUpdateBranch();
   const deactivateBranchMutation = useDeactivateBranch();
-  const activeBranches = (branches ?? []).filter((branch) => branch.active);
+  const branchManagement = useBranchManagement({
+    branches,
+    createBranchMutation,
+    updateBranchMutation,
+    deactivateBranchMutation,
+  });
 
   const {
     data: staffMembers,
@@ -73,148 +63,17 @@ export default function StaffAccountsScreen() {
     isError: staffError,
   } = useStaff();
 
-  const closeBranchModal = () => {
-    setShowBranchModal(false);
-    setEditingBranchId(null);
-    setNewBranchName('');
-    setNewBranchCity('');
-  };
-
-  const openCreateBranchModal = () => {
-    setEditingBranchId(null);
-    setNewBranchName('');
-    setNewBranchCity('');
-    setShowBranchModal(true);
-  };
-
-  const openEditBranchModal = (branchId: string) => {
-    const branch = activeBranches.find((item) => item.id === branchId);
-    if (!branch) return;
-
-    setEditingBranchId(branch.id);
-    setNewBranchName(branch.name);
-    setNewBranchCity(branch.city ?? '');
-    setShowBranchModal(true);
-  };
-
-  const handleBranchSubmit = () => {
-    const normalizedName = newBranchName.trim();
-    const normalizedCity = newBranchCity.trim() || undefined;
-
-    if (!normalizedName) {
-      Alert.alert('Branch name required', 'Enter a branch name to continue.');
-      return;
-    }
-
-    if (editingBranchId) {
-      updateBranchMutation.mutate(
-        {
-          branchId: editingBranchId,
-          input: {
-            name: normalizedName,
-            city: normalizedCity,
-          },
-        },
-        {
-          onError: () => {
-            Alert.alert('Update failed', 'Could not update this branch.');
-          },
-          onSuccess: closeBranchModal,
-        }
-      );
-      return;
-    }
-
-    createBranchMutation.mutate(
-      {
-        name: normalizedName,
-        city: normalizedCity,
-      }
-    );
-  };
-
-  const handleDeactivateBranch = (branchId: string) => {
-    if (activeBranches.length <= 1) {
-      Alert.alert('Branch required', 'At least one active branch is required.');
-      return;
-    }
-
-    Alert.alert(
-      'Deactivate branch',
-      'This branch will be hidden from branch selectors.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Deactivate',
-          style: 'destructive',
-          onPress: () => {
-            deactivateBranchMutation.mutate(branchId, {
-              onError: () => {
-                Alert.alert('Deactivate failed', 'Could not deactivate this branch.');
-              },
-            });
-          },
-        },
-      ]
-    );
-  };
-
   if (isLoading) {
-    return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      </SafeAreaView>
-    );
+    return <StaffAccountsStatusShell status="loading" colors={colors} />;
   }
 
   if (hasError) {
     return (
-      <SafeAreaView
-        style={[styles.container, { backgroundColor: colors.background }]}
-      >
-        <View style={styles.loadingContainer}>
-          <Ionicons
-            name="alert-circle-outline"
-            size={48}
-            color={colors.notification}
-          />
-          <Text
-            style={[
-              styles.emptyTitle,
-              { color: colors.text, marginTop: SPACING.md },
-            ]}
-          >
-            Failed to load data
-          </Text>
-          <Text
-            style={[styles.emptyDescription, { color: colors.textSecondary }]}
-          >
-            Please check your connection and try again.
-          </Text>
-          <Pressable
-            style={[
-              styles.retryButton,
-              { backgroundColor: colors.primary, marginTop: SPACING.lg },
-            ]}
-            onPress={retryAll}
-            accessibilityRole="button"
-            accessibilityLabel="Retry loading data"
-          >
-            <Text
-              style={{
-                color: colors.textOnPrimary,
-                fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-              }}
-            >
-              Retry
-            </Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
+      <StaffAccountsStatusShell
+        status="error"
+        colors={colors}
+        onRetry={retryAll}
+      />
     );
   }
 
@@ -285,93 +144,20 @@ export default function StaffAccountsScreen() {
           contentContainerStyle={styles.scrollContent}
         >
           {activeTab === 'accounts' ? (
-            (accounts?.length || 0) === 0 ? (
-              <View
-                style={[
-                  styles.emptyState,
-                  { backgroundColor: colors.card },
-                  shadows.sm,
-                ]}
-              >
-                <View
-                  style={[
-                    styles.emptyIcon,
-                    { backgroundColor: colors.primaryLight || '#E8F0FE' },
-                  ]}
-                >
-                  <Ionicons
-                    name="person-add-outline"
-                    size={32}
-                    color={colors.primary}
-                  />
-                </View>
-                <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                  No Staff Accounts Yet
-                </Text>
-                <Text
-                  style={[
-                    styles.emptyDescription,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  Create accounts to track sales by staff member.
-                </Text>
-              </View>
-            ) : (
-              accounts?.map((account) => (
-                <StaffAccountCard
-                  key={account.id}
-                  account={account}
-                  colors={colors}
-                  shadows={shadows}
-                  onCopyAccountNumber={copyToClipboard}
-                />
-              ))
-            )
-          ) : activeBranches.length === 0 ? (
-            <View
-              style={[
-                styles.emptyState,
-                { backgroundColor: colors.card },
-                shadows.sm,
-              ]}
-            >
-              <View
-                style={[
-                  styles.emptyIcon,
-                  { backgroundColor: colors.primaryLight || '#E8F0FE' },
-                ]}
-              >
-                <Ionicons
-                  name="business-outline"
-                  size={32}
-                  color={colors.primary}
-                />
-              </View>
-              <Text style={[styles.emptyTitle, { color: colors.text }]}>
-                No Branches Yet
-              </Text>
-              <Text
-                style={[
-                  styles.emptyDescription,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                Add store locations to organize staff accounts.
-              </Text>
-            </View>
+            <StaffAccountsTabContent
+              accounts={accounts}
+              colors={colors}
+              shadows={shadows}
+              onCopyAccountNumber={copyToClipboard}
+            />
           ) : (
-            activeBranches.map((branch) => (
-              <BranchCard
-                key={branch.id}
-                branch={branch}
-                colors={colors}
-                shadows={shadows}
-                canDeactivate={activeBranches.length > 1}
-                onDeactivate={handleDeactivateBranch}
-                onEdit={openEditBranchModal}
-              />
-            ))
+            <BranchesTabContent
+              activeBranches={branchManagement.activeBranches}
+              colors={colors}
+              shadows={shadows}
+              onDeactivate={branchManagement.handleDeactivateBranch}
+              onEdit={branchManagement.openEditBranchModal}
+            />
           )}
 
           <View
@@ -398,7 +184,7 @@ export default function StaffAccountsScreen() {
           onPress={() =>
             activeTab === 'accounts'
               ? setShowAccountModal(true)
-              : openCreateBranchModal()
+              : branchManagement.openCreateBranchModal()
           }
           accessibilityRole="button"
           accessibilityLabel={
@@ -435,20 +221,16 @@ export default function StaffAccountsScreen() {
         />
 
         <BranchModal
-          visible={showBranchModal}
-          mode={editingBranchId ? 'edit' : 'create'}
+          visible={branchManagement.showBranchModal}
+          mode={branchManagement.editingBranchId ? 'edit' : 'create'}
           colors={colors}
-          branchName={newBranchName}
-          onBranchNameChange={setNewBranchName}
-          branchCity={newBranchCity}
-          onBranchCityChange={setNewBranchCity}
-          isPending={
-            editingBranchId
-              ? updateBranchMutation.isPending
-              : createBranchMutation.isPending
-          }
-          onSubmit={handleBranchSubmit}
-          onClose={closeBranchModal}
+          branchName={branchManagement.newBranchName}
+          onBranchNameChange={branchManagement.setNewBranchName}
+          branchCity={branchManagement.newBranchCity}
+          onBranchCityChange={branchManagement.setNewBranchCity}
+          isPending={branchManagement.isBranchMutationPending}
+          onSubmit={branchManagement.handleBranchSubmit}
+          onClose={branchManagement.closeBranchModal}
         />
       </SafeAreaView>
     </>

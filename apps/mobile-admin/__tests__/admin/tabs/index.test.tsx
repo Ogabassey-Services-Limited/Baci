@@ -189,6 +189,8 @@ describe('HomeScreen', () => {
     render(<HomeScreen />);
 
     screen.getByText('welcome-header');
+    screen.getByText('Visits (all stores)');
+    screen.getByText('New (all stores)');
     expect(mocks.safeAreaEdges).toEqual(['top']);
   });
 });

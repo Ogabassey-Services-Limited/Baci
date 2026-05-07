@@ -30,7 +30,7 @@ const loadClipboardModule = async () => {
 
 interface UseStaffAccountsCallbacks {
   onAccountCreated: () => void;
-  onBranchCreated: () => void;
+  onBranchCreated?: () => void;
 }
 
 export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
@@ -178,7 +178,7 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['branches'] });
-      callbacks.onBranchCreated();
+      callbacks.onBranchCreated?.();
       Alert.alert('Success', 'Branch created successfully!');
     },
     onError: (error: Error) => {

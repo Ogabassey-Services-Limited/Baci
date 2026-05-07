@@ -280,7 +280,7 @@ describe('/api/branches', () => {
     const { POST } = await import('@/app/api/branches/route');
     insertResult = {
       data: null,
-      error: { message: 'Insert failed', code: '23505' },
+      error: { message: 'Insert failed', code: 'XX000' },
     };
 
     const response = await POST(

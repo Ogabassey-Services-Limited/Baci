@@ -12,8 +12,11 @@ import {
 } from '@/hooks/analyticsDetailBuckets';
 import { useBranchScope } from '@/hooks/useBranchScope';
 import { useMerchant } from '@/hooks/useMerchant';
-import type { BranchScope } from '@/schemas/branch';
 import { getPreviousAnalyticsDateRange } from '@/lib/analytics-period';
+import {
+  applyOrderBranchScope,
+  getBranchScopeKey,
+} from '@/lib/branch-scope-query';
 import { supabase } from '@/lib/supabase';
 
 export type { Granularity } from '@/hooks/analyticsDetailBuckets';
@@ -85,26 +88,6 @@ const getJoinedRecord = <T>(value: T | T[] | null | undefined): T | null => {
   return value ?? null;
 };
 
-function getBranchScopeKey(scope: BranchScope): string {
-  return scope.type === 'branch' ? scope.branchId : 'all';
-}
-
-type BranchScopedQuery = {
-  eq: (column: string, value: string) => BranchScopedQuery;
-};
-
-function applyOrderBranchScope<Query>(
-  query: Query,
-  scope: BranchScope,
-  column = 'branch_id'
-): Query {
-  if (scope.type !== 'branch') {
-    return query;
-  }
-
-  return (query as BranchScopedQuery).eq(column, scope.branchId) as Query;
-}
-
 export function useAnalyticsDetail({
   endDate,
   filterLabel,
@@ -159,31 +142,29 @@ export function useAnalyticsDetail({
       }
 
       // Fetch orders and order items concurrently
-      const ordersQuery = applyOrderBranchScope(
-        supabase
-          .from('orders')
-          .select(
-            'id, total, tax_amount, payment_status, branch_id, created_at'
-          )
-          .eq('merchant_id', merchant.id)
-          .eq('payment_status', 'paid')
-          .gte('created_at', startDateValue.toISOString())
-          .lte('created_at', endDateValue.toISOString()),
-        scope
-      );
-      const orderItemsQuery = applyOrderBranchScope(
-        supabase
-          .from('order_items')
-          .select(`
+      let ordersQuery = supabase
+        .from('orders')
+        .select('id, total, tax_amount, payment_status, branch_id, created_at')
+        .eq('merchant_id', merchant.id)
+        .eq('payment_status', 'paid')
+        .gte('created_at', startDateValue.toISOString())
+        .lte('created_at', endDateValue.toISOString());
+      ordersQuery = applyOrderBranchScope(ordersQuery, scope);
+
+      let orderItemsQuery = supabase
+        .from('order_items')
+        .select(`
                     quantity,
                     price,
                     products!inner(cost_price),
                     orders!inner(id, merchant_id, payment_status, branch_id, created_at)
                 `)
-          .eq('orders.merchant_id', merchant.id)
-          .eq('orders.payment_status', 'paid')
-          .gte('orders.created_at', startDateValue.toISOString())
-          .lte('orders.created_at', endDateValue.toISOString()),
+        .eq('orders.merchant_id', merchant.id)
+        .eq('orders.payment_status', 'paid')
+        .gte('orders.created_at', startDateValue.toISOString())
+        .lte('orders.created_at', endDateValue.toISOString());
+      orderItemsQuery = applyOrderBranchScope(
+        orderItemsQuery,
         scope,
         'orders.branch_id'
       );
@@ -316,18 +297,16 @@ export function useAnalyticsDetail({
         const prevStartDate = previousRange.startDate;
         const prevEndDate = previousRange.endDate;
 
-        const prevOrdersQuery = applyOrderBranchScope(
-          supabase
-            .from('orders')
-            .select(
-              'id, total, tax_amount, payment_status, branch_id, created_at'
-            )
-            .eq('merchant_id', merchant.id)
-            .eq('payment_status', 'paid')
-            .gte('created_at', prevStartDate.toISOString())
-            .lte('created_at', prevEndDate.toISOString()),
-          scope
-        );
+        let prevOrdersQuery = supabase
+          .from('orders')
+          .select(
+            'id, total, tax_amount, payment_status, branch_id, created_at'
+          )
+          .eq('merchant_id', merchant.id)
+          .eq('payment_status', 'paid')
+          .gte('created_at', prevStartDate.toISOString())
+          .lte('created_at', prevEndDate.toISOString());
+        prevOrdersQuery = applyOrderBranchScope(prevOrdersQuery, scope);
 
         let prevOrderItems: OrderItemWithJoins[] = [];
         let prevOrders: AnalyticsOrder[] | null = null;
@@ -338,8 +317,8 @@ export function useAnalyticsDetail({
             { data: profitsOrderItems, error: prevOrderItemsError },
           ] = await Promise.all([
             prevOrdersQuery,
-            applyOrderBranchScope(
-              supabase
+            (() => {
+              let prevOrderItemsQuery = supabase
                 .from('order_items')
                 .select(`
                   quantity,
@@ -350,10 +329,14 @@ export function useAnalyticsDetail({
                 .eq('orders.merchant_id', merchant.id)
                 .eq('orders.payment_status', 'paid')
                 .gte('orders.created_at', prevStartDate.toISOString())
-                .lte('orders.created_at', prevEndDate.toISOString()),
-              scope,
-              'orders.branch_id'
-            ),
+                .lte('orders.created_at', prevEndDate.toISOString());
+              prevOrderItemsQuery = applyOrderBranchScope(
+                prevOrderItemsQuery,
+                scope,
+                'orders.branch_id'
+              );
+              return prevOrderItemsQuery;
+            })(),
           ]);
 
           if (prevOrdersError) {

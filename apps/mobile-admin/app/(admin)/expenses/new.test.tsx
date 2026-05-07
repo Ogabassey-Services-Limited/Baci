@@ -246,7 +246,7 @@ vi.mock('react-native', () => ({
   View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
-import AddExpenseScreen from '@/app/(admin)/expenses/new';
+import AddExpenseScreen from './new';
 
 describe('AddExpenseScreen', () => {
   beforeEach(() => {
@@ -327,11 +327,11 @@ describe('AddExpenseScreen', () => {
         merchant_id: 'merchant-1',
         receipt_url: 'https://example.com/file',
       });
+      expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['expenses'],
+      });
     });
 
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['expenses'],
-    });
     await invokeAlertButton('Success');
     expect(mocks.router.back).toHaveBeenCalledTimes(1);
   });

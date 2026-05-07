@@ -20,6 +20,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { BASE_URL } from '@/lib/api-client';
+import { getBranchScopeKey } from '@/lib/branch-scope-query';
 import { ORDER_COLUMNS } from '@/lib/orders';
 import { sanitizeSearchQuery } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
@@ -68,10 +69,6 @@ interface OrderItemRow {
 
 const PAGE_SIZE = 20;
 const ORDER_STATUS_UPDATE_TIMEOUT_MS = 15000;
-
-function getBranchScopeKey(scope: BranchScope): string {
-  return scope.type === 'branch' ? scope.branchId : 'all';
-}
 
 function parseResponsePayload(
   text: string

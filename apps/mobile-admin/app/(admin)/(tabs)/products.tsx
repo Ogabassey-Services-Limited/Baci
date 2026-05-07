@@ -282,6 +282,7 @@ export default function ProductsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const { merchant } = useMerchant();
   const currencySymbol = getCurrencySymbol(merchant?.payout_currency);
+  // Product catalogue and inventory totals are always cross-branch; label is unconditional.
   const inventoryScopeLabel = ' (all stores)';
 
   const [activeTab, setActiveTab] = useState<

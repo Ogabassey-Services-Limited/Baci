@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -26,6 +26,7 @@ const expenseFixture = (): ExpenseDetail => ({
 });
 
 const mocks = vi.hoisted(() => ({
+  alert: vi.fn(),
   branches: [{ id: 'branch-1', name: 'Lagos main' }],
   branchesLoading: false,
   expenseResult: {
@@ -41,14 +42,17 @@ const mocks = vi.hoisted(() => ({
     },
     error: null,
   } as { data: ExpenseDetail | null; error: Error | null },
-  queryState: null as
-    | {
-        data?: unknown;
-        error?: Error | null;
-        isError?: boolean;
-        isLoading: boolean;
-      }
-    | null,
+  queryState: null as {
+    data?: unknown;
+    error?: Error | null;
+    isError?: boolean;
+    isLoading: boolean;
+  } | null,
+  eqCalls: [] as unknown[][],
+  linking: {
+    canOpenURL: vi.fn(() => Promise.resolve(true)),
+    openURL: vi.fn(() => Promise.resolve()),
+  },
   selectCalls: [] as unknown[][],
 }));
 
@@ -58,7 +62,10 @@ function makeExpenseQuery() {
     mocks.selectCalls.push(args);
     return chain;
   };
-  chain.eq = () => chain;
+  chain.eq = (...args: unknown[]) => {
+    mocks.eqCalls.push(args);
+    return chain;
+  };
   chain.single = () => Promise.resolve(mocks.expenseResult);
   return chain;
 }
@@ -92,7 +99,7 @@ vi.mock('@/hooks/useBranches', () => ({
 
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({
-    merchant: { payout_currency: 'NGN' },
+    merchant: { id: 'merchant-1', payout_currency: 'NGN' },
   }),
 }));
 
@@ -131,9 +138,20 @@ vi.mock('react-native-safe-area-context', () => ({
 }));
 
 vi.mock('react-native', () => ({
-  Alert: { alert: vi.fn() },
-  Pressable: ({ children }: { children?: ReactNode }) => (
-    <button type="button">{children}</button>
+  Alert: { alert: mocks.alert },
+  Linking: mocks.linking,
+  Pressable: ({
+    accessibilityLabel,
+    children,
+    onPress,
+  }: {
+    accessibilityLabel?: string;
+    children?: ReactNode;
+    onPress?: () => void;
+  }) => (
+    <button aria-label={accessibilityLabel} onClick={onPress} type="button">
+      {children}
+    </button>
   ),
   ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   StyleSheet: {
@@ -155,7 +173,10 @@ describe('ExpenseDetailScreen', () => {
       data: expenseFixture(),
       error: null,
     };
+    mocks.linking.canOpenURL.mockResolvedValue(true);
+    mocks.linking.openURL.mockResolvedValue(undefined);
     mocks.queryState = null;
+    mocks.eqCalls.length = 0;
     mocks.selectCalls.length = 0;
   });
 
@@ -163,6 +184,7 @@ describe('ExpenseDetailScreen', () => {
     render(<ExpenseDetailScreen />);
 
     expect(mocks.selectCalls[0]?.[0]).toContain('branch_id');
+    expect(mocks.eqCalls).toContainEqual(['merchant_id', 'merchant-1']);
     expect(screen.getByText('Branch')).toBeInTheDocument();
     expect(screen.getByText('Lagos main')).toBeInTheDocument();
   });
@@ -223,5 +245,49 @@ describe('ExpenseDetailScreen', () => {
     render(<ExpenseDetailScreen />);
 
     expect(screen.getByText('Unknown branch')).toBeInTheDocument();
+  });
+
+  it('opens http receipt links from the receipt action', async () => {
+    mocks.expenseResult.data = {
+      ...expenseFixture(),
+      receipt_url: 'https://example.com/receipt.jpg',
+    };
+
+    render(<ExpenseDetailScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'View attached receipt' })
+    );
+
+    await waitFor(() => {
+      expect(mocks.linking.canOpenURL).toHaveBeenCalledWith(
+        'https://example.com/receipt.jpg'
+      );
+      expect(mocks.linking.openURL).toHaveBeenCalledWith(
+        'https://example.com/receipt.jpg'
+      );
+    });
+  });
+
+  it('rejects non-http receipt links before opening them', async () => {
+    mocks.expenseResult.data = {
+      ...expenseFixture(),
+      receipt_url: 'javascript:alert(1)',
+    };
+
+    render(<ExpenseDetailScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'View attached receipt' })
+    );
+
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith(
+        'Receipt unavailable',
+        'This receipt link cannot be opened.'
+      );
+    });
+    expect(mocks.linking.canOpenURL).not.toHaveBeenCalled();
+    expect(mocks.linking.openURL).not.toHaveBeenCalled();
   });
 });

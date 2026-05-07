@@ -4,13 +4,12 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
 import { KeyboardAwareModalContainer } from '@/components/ui/KeyboardAwareModalContainer';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { styles } from './BranchCreateModal.styles';
 
 interface BranchCreateModalColors {
   background: string;
@@ -58,7 +57,7 @@ export function BranchCreateModal({
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={isLoading ? undefined : onClose}
     >
       <View style={styles.modalOverlay}>
         <Pressable
@@ -172,7 +171,7 @@ export function BranchCreateModal({
                 accessibilityLabel="Cancel branch creation"
                 accessibilityState={{ disabled: isLoading }}
               >
-                <Text style={[styles.cancelButtonText, { color: colors.text }]}>
+                <Text style={[styles.buttonText, { color: colors.text }]}>
                   Cancel
                 </Text>
               </Pressable>
@@ -198,10 +197,7 @@ export function BranchCreateModal({
                   />
                 ) : (
                   <Text
-                    style={[
-                      styles.submitButtonText,
-                      { color: colors.textOnPrimary },
-                    ]}
+                    style={[styles.buttonText, { color: colors.textOnPrimary }]}
                   >
                     Create Branch
                   </Text>
@@ -214,86 +210,3 @@ export function BranchCreateModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: SPACING.lg,
-  },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  modalKeyboardContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: SPACING.lg,
-  },
-  modalContent: {
-    width: '100%',
-    maxWidth: 400,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.xl,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.lg,
-  },
-  modalTitle: {
-    fontSize: TYPOGRAPHY.size.xl,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-  inputGroup: {
-    marginBottom: SPACING.md,
-  },
-  inputLabel: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    marginBottom: SPACING.xs,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-  },
-  errorText: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    marginTop: SPACING.xs,
-  },
-  modalActions: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-    marginTop: SPACING.lg,
-  },
-  cancelButton: {
-    flex: 1,
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-  },
-  cancelButtonText: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  submitButton: {
-    flex: 2,
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-  },
-  submitButtonText: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-});
