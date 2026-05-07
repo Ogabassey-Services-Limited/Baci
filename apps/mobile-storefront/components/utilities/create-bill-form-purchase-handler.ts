@@ -11,7 +11,7 @@ import {
   isSavedVtuCardChargeProcessing,
   requiresSavedVtuCardAuthorization,
   shouldRotateWalletIdempotencyKeyForError,
-  type VTUPaymentGateway,
+  type VtuConfirmationGateway,
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
@@ -19,7 +19,7 @@ import { IDENTIFIER_LABELS } from './bill-form.constants';
 import type { BillFormProps } from './bill-form.types';
 
 type PaymentState = ReturnType<typeof useUtilityPayment>;
-const SAVED_CARD_CONFIRMATION_GATEWAY: VTUPaymentGateway = 'paystack';
+const SAVED_CARD_CONFIRMATION_GATEWAY: VtuConfirmationGateway = 'paystack';
 const MIN_BILL_PAYMENT_AMOUNT = 50;
 const MAX_BILL_PAYMENT_AMOUNT = 500_000;
 const GENERIC_PAYMENT_ERROR_MESSAGE = 'Payment failed. Please try again.';

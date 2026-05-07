@@ -3,7 +3,10 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { initializePayment as initializeKorapayPayment } from '@/lib/korapay';
-import { initializeTransaction as initializePaystackTransaction } from '@/lib/paystack';
+import {
+  initializeTransaction as initializePaystackTransaction,
+  type PaymentChannel,
+} from '@/lib/paystack';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { preparePendingVtuTransaction } from '@/lib/vtu-pending-transaction';
 import { vtuCheckoutInitializeSchema } from '@/schemas/vtu';
@@ -35,13 +38,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Invalid input', details: parsed.error.flatten() },
         { status: 400 }
-      );
-    }
-
-    if (parsed.data.gateway === 'bank_transfer') {
-      return createErrorResponse(
-        'Bank transfer is not enabled for utility checkout yet.',
-        400
       );
     }
 
@@ -93,13 +89,24 @@ export async function POST(request: NextRequest) {
     const callbackUrl = `${protocol}://${prepared.merchant.slug}.${rootDomain}/checkout/success?reference=${paymentReference}&kind=vtu`;
     const cancelUrl = `${protocol}://${prepared.merchant.slug}.${rootDomain}/checkout/cancelled?reference=${paymentReference}&kind=vtu`;
     const notificationUrl = `${protocol}://${rootDomain}/api/payments/webhook`;
+    const paymentGateway =
+      parsed.data.gateway === 'korapay' ? 'korapay' : 'paystack';
+    const paymentChannel =
+      parsed.data.gateway === 'bank_transfer'
+        ? 'bank_transfer'
+        : parsed.data.gateway === 'paystack'
+          ? 'card'
+          : 'korapay';
 
     const metadata = {
       cancel_action: cancelUrl,
       customer_email: customerEmail,
       customer_id: prepared.customer?.id ?? null,
       customer_name: customerName,
+      gateway: paymentGateway,
       merchant_slug: prepared.merchant.slug,
+      paymentChannel,
+      selectedGateway: parsed.data.gateway,
       transaction_type: 'vtu_purchase',
       vtu_transaction_id: prepared.transaction.id,
       vtu_type: prepared.transaction.type,
@@ -110,8 +117,13 @@ export async function POST(request: NextRequest) {
       let checkoutUrl = '';
       let gatewayResponse: Record<string, unknown> | null = null;
 
-      if (parsed.data.gateway === 'paystack') {
+      if (paymentGateway === 'paystack') {
+        const channels: PaymentChannel[] =
+          parsed.data.gateway === 'bank_transfer'
+            ? ['bank_transfer']
+            : ['card'];
         const paystack = await initializePaystackTransaction({
+          channels,
           email: customerEmail,
           amount: Math.round(residualAmount * 100),
           reference: paymentReference,
@@ -156,7 +168,7 @@ export async function POST(request: NextRequest) {
           amount: residualAmount,
           currency: 'NGN',
           status: 'pending',
-          gateway: parsed.data.gateway,
+          gateway: paymentGateway,
           gateway_reference: paymentReference,
           gateway_response: gatewayResponse,
           description: `VTU checkout for ${prepared.transaction.type}`,
@@ -176,8 +188,10 @@ export async function POST(request: NextRequest) {
             ...(prepared.transaction.metadata ?? {}),
             customerEmail,
             customerName,
-            gateway: parsed.data.gateway,
+            gateway: paymentGateway,
+            paymentChannel,
             paymentReference,
+            selectedGateway: parsed.data.gateway,
             paymentTransactionType: 'gateway_checkout',
           },
         })
@@ -187,7 +201,7 @@ export async function POST(request: NextRequest) {
         success: true,
         authorization_url: authorizationUrl,
         checkout_url: checkoutUrl,
-        gateway: parsed.data.gateway,
+        gateway: paymentGateway,
         reference: paymentReference,
         vtu_reference: prepared.requestReference,
         vtu_transaction_id: prepared.transaction.id,
