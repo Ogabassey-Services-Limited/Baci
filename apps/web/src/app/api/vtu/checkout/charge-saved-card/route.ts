@@ -7,7 +7,10 @@ import {
   type PaystackAuthorization,
   upsertPaystackAuthorization,
 } from '@/lib/customer-saved-payment-methods';
-import { chargeAuthorization } from '@/lib/paystack';
+import {
+  type ChargeAuthorizationResponse,
+  chargeAuthorization,
+} from '@/lib/paystack';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fulfillPendingVtuTransaction } from '@/lib/vtu-fulfillment';
 import { preparePendingVtuTransaction } from '@/lib/vtu-pending-transaction';
@@ -25,6 +28,16 @@ function savedCardProcessingResponse(
       ...extras,
     },
     { status: 202 }
+  );
+}
+
+function getSavedCardPaymentFailureMessage(
+  chargeData: ChargeAuthorizationResponse
+) {
+  return (
+    chargeData.gateway_response ||
+    chargeData.message ||
+    'Saved card charge failed'
   );
 }
 
@@ -194,7 +207,11 @@ export async function POST(request: NextRequest) {
       .update({
         gateway_response: chargeResult.data,
         status:
-          chargeResult.data.status === 'success' ? 'completed' : 'pending',
+          chargeResult.data.status === 'success'
+            ? 'completed'
+            : chargeResult.data.status === 'pending'
+              ? 'pending'
+              : 'failed',
       })
       .eq('gateway_reference', paymentReference);
 
@@ -225,10 +242,19 @@ export async function POST(request: NextRequest) {
       return savedCardProcessingResponse(paymentReference);
     }
     if (chargeResult.data.status !== 'success') {
+      const failureMessage = getSavedCardPaymentFailureMessage(
+        chargeResult.data
+      );
+      await supabase
+        .from('vtu_transactions')
+        .update({
+          error_message: failureMessage,
+          status: 'failed',
+        })
+        .eq('id', prepared.transaction.id);
       return NextResponse.json(
         {
-          error:
-            chargeResult.data.gateway_response || 'Saved card charge failed',
+          error: failureMessage,
         },
         { status: 400 }
       );

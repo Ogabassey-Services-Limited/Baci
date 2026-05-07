@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { Alert } from 'react-native';
 import type { useUtilityPayment } from '@/hooks/use-utility-payment';
 import type { Biller } from '@/hooks/use-vtu-billers';
+import { HttpError } from '@/lib/fetch-with-timeout';
 import {
   chargeSavedVtuCard,
   chargeWalletForVtu,
@@ -57,9 +58,16 @@ interface CreateBillFormPurchaseHandlerInput {
 }
 
 function getSafePaymentErrorMessage(error: unknown): string {
-  return error instanceof VtuPaymentStillProcessingError
-    ? 'Payment is still processing. Please check your history shortly.'
-    : GENERIC_PAYMENT_ERROR_MESSAGE;
+  if (error instanceof VtuPaymentStillProcessingError) {
+    return 'Payment is still processing. Please check your history shortly.';
+  }
+
+  if (error instanceof HttpError && error.status >= 400 && error.status < 500) {
+    const message = error.message.trim();
+    return message || GENERIC_PAYMENT_ERROR_MESSAGE;
+  }
+
+  return GENERIC_PAYMENT_ERROR_MESSAGE;
 }
 
 export function createBillFormPurchaseHandler({
