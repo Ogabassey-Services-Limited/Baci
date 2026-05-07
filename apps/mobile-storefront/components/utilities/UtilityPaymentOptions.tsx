@@ -48,6 +48,11 @@ export function UtilityPaymentOptions({
 }: UtilityPaymentOptionsProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const walletCoversBill =
+    amount > 0 &&
+    Number.isFinite(walletSelection?.amount) &&
+    walletSelection?.use === true &&
+    walletSelection.amount >= amount;
 
   return (
     <View style={styles.container}>
@@ -60,7 +65,8 @@ export function UtilityPaymentOptions({
       ) : cards.length > 0 ? (
         <View style={styles.cardsList}>
           {cards.map((card) => {
-            const isSelected = selectedSavedCardId === card.id;
+            const isSelected =
+              !walletCoversBill && selectedSavedCardId === card.id;
             const savedCardMeta =
               card.exp_month && card.exp_year
                 ? `Expires ${card.exp_month}/${card.exp_year}`
@@ -80,7 +86,15 @@ export function UtilityPaymentOptions({
                     borderColor: isSelected ? BRAND.primary : colors.border,
                   },
                 ]}
-                onPress={() => onSelectSavedCard(card.id)}
+                onPress={() => {
+                  if (walletCoversBill && !onWalletToggle) {
+                    return;
+                  }
+                  if (walletCoversBill) {
+                    onWalletToggle?.({ amount: 0, use: false });
+                  }
+                  onSelectSavedCard(card.id);
+                }}
               >
                 <View style={styles.savedCardCopy}>
                   <Text style={[styles.savedCardTitle, { color: colors.text }]}>
@@ -133,7 +147,7 @@ export function UtilityPaymentOptions({
         selectedTab="full"
         showInstallmentCalculator={false}
         suppressedSelectedMethods={
-          selectedSavedCardId ? ['paystack'] : undefined
+          selectedSavedCardId && !walletCoversBill ? ['paystack'] : undefined
         }
         methodLabelOverrides={
           cards.length > 0 ? { paystack: 'Use another card' } : undefined
