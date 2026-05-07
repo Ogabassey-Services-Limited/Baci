@@ -160,6 +160,38 @@ describe('POST /api/vtu/checkout/charge-saved-card', () => {
     });
   });
 
+  it('returns processing when Paystack accepts the saved-card charge but has not completed it yet', async () => {
+    mockChargeAuthorization.mockResolvedValue({
+      success: true,
+      data: {
+        gateway_response: 'Pending',
+        reference: 'VTU-123',
+        status: 'pending',
+      },
+    });
+
+    const response = await POST(
+      makeRequest({
+        merchantSlug: 'ogabassey',
+        amount: 1000,
+        gateway: 'paystack',
+        savedPaymentMethodId: '550e8400-e29b-41d4-a716-446655440000',
+        type: 'airtime',
+        phoneNumber: '08012345678',
+        networkProvider: 'MTN',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(202);
+    expect(data).toMatchObject({
+      gateway: 'paystack',
+      reference: expect.stringMatching(/^VTU-[A-Z0-9]{12}$/),
+      status: 'processing',
+    });
+    expect(mockFulfillPendingVtuTransaction).not.toHaveBeenCalled();
+  });
+
   it('returns the fulfilled VTU purchase when the saved-card charge succeeds', async () => {
     const response = await POST(
       makeRequest({
