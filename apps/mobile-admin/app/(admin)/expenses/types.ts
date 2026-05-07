@@ -1,15 +1,7 @@
 import type { StyleProp, ViewStyle } from 'react-native';
+import type { ExpenseDetail } from '@/schemas/expense';
 
-export interface ExpenseDetail {
-  id: string;
-  amount: number;
-  category: string;
-  date: string;
-  reference: string | null;
-  description: string | null;
-  receipt_url: string | null;
-  branch_id: string | null;
-}
+export type { ExpenseDetail };
 
 export interface ExpenseDetailColors {
   background: string;

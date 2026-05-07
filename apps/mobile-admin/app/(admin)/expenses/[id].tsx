@@ -5,6 +5,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
+import type { ReactNode } from 'react';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useBranchScope } from '@/hooks/useBranchScope';
@@ -13,10 +14,14 @@ import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { getBranchScopeKey } from '@/lib/branch-scope-query';
 import { supabase } from '@/lib/supabase';
+import { formatCurrency } from '@/lib/utils';
+import {
+  ExpenseBranchLabelSchema,
+  ExpenseDetailSchema,
+} from '@/schemas/expense';
 import { ExpenseDetails } from './ExpenseDetails';
 import { ExpenseStatusShell } from './ExpenseStatusShell';
 import { styles } from './expense-detail.styles';
-import type { ExpenseDetail } from './types';
 
 export default function ExpenseDetailScreen() {
   const { colors, isDark, shadows } = useTheme();
@@ -47,22 +52,51 @@ export default function ExpenseDetailScreen() {
         query = query.eq('branch_id', scope.branchId);
       }
 
-      const { data, error } = await query.single();
+      const { data, error } = await query.maybeSingle();
       if (error) throw error;
-      return data as ExpenseDetail;
+      return data ? ExpenseDetailSchema.parse(data) : null;
     },
     enabled: !!id && !!merchant?.id,
   });
 
-  const formatCurrency = (amount: number, currency: string) => {
-    return `${currency === 'NGN' ? '₦' : currency}${amount.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`;
-  };
+  const activeBranchName = expense?.branch_id
+    ? branches.find((branch) => branch.id === expense.branch_id)?.name
+    : undefined;
+
+  const { data: historicalBranch, isLoading: historicalBranchLoading } =
+    useQuery({
+      queryKey: ['expense-branch', merchant?.id, expense?.branch_id],
+      queryFn: async () => {
+        if (!(merchant?.id && expense?.branch_id)) {
+          return null;
+        }
+
+        const { data, error } = await supabase
+          .from('branches')
+          .select('id, name')
+          .eq('id', expense.branch_id)
+          .eq('merchant_id', merchant.id)
+          .maybeSingle();
+
+        if (error) throw error;
+        return data ? ExpenseBranchLabelSchema.parse(data) : null;
+      },
+      enabled:
+        !!merchant?.id &&
+        !!expense?.branch_id &&
+        !activeBranchName &&
+        !branchesLoading,
+    });
+
   const branchName = expense?.branch_id
-    ? (branches.find((branch) => branch.id === expense.branch_id)?.name ??
-      (branchesLoading ? 'Loading branch...' : 'Unknown branch'))
+    ? (activeBranchName ??
+      historicalBranch?.name ??
+      (branchesLoading || historicalBranchLoading
+        ? 'Loading branch...'
+        : 'Unknown branch'))
     : 'Unassigned';
 
-  let content;
+  let content: ReactNode;
   if (isLoading) {
     content = <ExpenseStatusShell status="loading" colors={colors} />;
   } else if (hasExpenseError) {
@@ -85,6 +119,7 @@ export default function ExpenseDetailScreen() {
         colors={colors}
         formattedAmount={formatCurrency(
           expense.amount,
+          undefined,
           merchant?.payout_currency ?? 'NGN'
         )}
         cardShadow={shadows.sm}

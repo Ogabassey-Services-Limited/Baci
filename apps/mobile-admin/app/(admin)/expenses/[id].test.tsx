@@ -32,11 +32,19 @@ const mocks = vi.hoisted(() => ({
     },
     error: null,
   } as { data: ExpenseDetail | null; error: Error | null },
+  historicalBranchResult: {
+    data: { id: 'branch-1', name: 'Lagos main' },
+    error: null,
+  } as { data: { id: string; name: string } | null; error: Error | null },
   queryState: null as {
     data?: unknown;
     error?: Error | null;
     isError?: boolean;
     isLoading: boolean;
+  } | null,
+  branchQueryOptions: null as {
+    enabled?: boolean;
+    queryKey: readonly unknown[];
   } | null,
   queryOptions: null as {
     enabled?: boolean;
@@ -45,12 +53,17 @@ const mocks = vi.hoisted(() => ({
   branchScope: { type: 'branch', branchId: 'branch-1' } as
     | { type: 'all' }
     | { type: 'branch'; branchId: string },
+  branchEqCalls: [] as unknown[][],
+  branchMaybeSingleCalls: 0,
+  branchSelectCalls: [] as unknown[][],
   eqCalls: [] as unknown[][],
+  maybeSingleCalls: 0,
   linking: {
     canOpenURL: vi.fn(() => Promise.resolve(true)),
     openURL: vi.fn(() => Promise.resolve()),
   },
   selectCalls: [] as unknown[][],
+  singleCalls: 0,
 }));
 
 function makeExpenseQuery() {
@@ -63,7 +76,34 @@ function makeExpenseQuery() {
     mocks.eqCalls.push(args);
     return chain;
   };
-  chain.single = () => Promise.resolve(mocks.expenseResult);
+  chain.maybeSingle = () => {
+    mocks.maybeSingleCalls += 1;
+    return Promise.resolve(mocks.expenseResult);
+  };
+  chain.single = () => {
+    mocks.singleCalls += 1;
+    return Promise.resolve({
+      data: null,
+      error: new Error('JSON object requested, multiple (or no) rows returned'),
+    });
+  };
+  return chain;
+}
+
+function makeHistoricalBranchQuery() {
+  const chain: Record<string, unknown> = {};
+  chain.select = (...args: unknown[]) => {
+    mocks.branchSelectCalls.push(args);
+    return chain;
+  };
+  chain.eq = (...args: unknown[]) => {
+    mocks.branchEqCalls.push(args);
+    return chain;
+  };
+  chain.maybeSingle = () => {
+    mocks.branchMaybeSingleCalls += 1;
+    return Promise.resolve(mocks.historicalBranchResult);
+  };
   return chain;
 }
 
@@ -77,6 +117,17 @@ vi.mock('@tanstack/react-query', () => ({
     queryFn: () => Promise<unknown>;
     queryKey: readonly unknown[];
   }) => {
+    if (queryKey[0] === 'expense-branch') {
+      mocks.branchQueryOptions = { enabled, queryKey };
+      if (enabled) {
+        void queryFn();
+      }
+      return {
+        data: enabled ? mocks.historicalBranchResult.data : undefined,
+        isLoading: false,
+      };
+    }
+
     mocks.queryOptions = { enabled, queryKey };
     if (mocks.queryState) {
       return mocks.queryState;
@@ -92,7 +143,8 @@ vi.mock('@tanstack/react-query', () => ({
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from: () => makeExpenseQuery(),
+    from: (table: string) =>
+      table === 'branches' ? makeHistoricalBranchQuery() : makeExpenseQuery(),
   },
 }));
 
@@ -186,10 +238,20 @@ describe('ExpenseDetailScreen', () => {
     mocks.linking.canOpenURL.mockResolvedValue(true);
     mocks.linking.openURL.mockResolvedValue(undefined);
     mocks.queryState = null;
+    mocks.branchQueryOptions = null;
     mocks.queryOptions = null;
     mocks.branchScope = { type: 'branch', branchId: 'branch-1' };
+    mocks.branchEqCalls.length = 0;
+    mocks.branchMaybeSingleCalls = 0;
+    mocks.branchSelectCalls.length = 0;
     mocks.eqCalls.length = 0;
+    mocks.historicalBranchResult = {
+      data: { id: 'branch-1', name: 'Lagos main' },
+      error: null,
+    };
+    mocks.maybeSingleCalls = 0;
     mocks.selectCalls.length = 0;
+    mocks.singleCalls = 0;
   });
 
   it('selects and displays the expense branch', () => {
@@ -212,6 +274,13 @@ describe('ExpenseDetailScreen', () => {
     ]);
     expect(mocks.queryOptions?.enabled).toBe(true);
     expect(mocks.eqCalls).toContainEqual(['branch_id', 'branch-1']);
+  });
+
+  it('uses maybeSingle so branch misses can render as not found', () => {
+    render(<ExpenseDetailScreen />);
+
+    expect(mocks.maybeSingleCalls).toBe(1);
+    expect(mocks.singleCalls).toBe(0);
   });
 
   it('shows the loading state while the expense is loading', () => {
@@ -266,10 +335,28 @@ describe('ExpenseDetailScreen', () => {
 
   it('shows unknown branch when metadata does not include the expense branch', () => {
     mocks.branches = [];
+    mocks.historicalBranchResult = { data: null, error: null };
 
     render(<ExpenseDetailScreen />);
 
     expect(screen.getByText('Unknown branch')).toBeInTheDocument();
+  });
+
+  it('resolves inactive historical branch names outside the active branch list', () => {
+    mocks.branches = [];
+    mocks.historicalBranchResult = {
+      data: { id: 'branch-1', name: 'Archived Lagos' },
+      error: null,
+    };
+
+    render(<ExpenseDetailScreen />);
+
+    expect(mocks.branchSelectCalls[0]?.[0]).toBe('id, name');
+    expect(mocks.branchEqCalls).toContainEqual(['id', 'branch-1']);
+    expect(mocks.branchEqCalls).toContainEqual(['merchant_id', 'merchant-1']);
+    expect(mocks.branchMaybeSingleCalls).toBe(1);
+    expect(screen.getByText('Archived Lagos')).toBeInTheDocument();
+    expect(screen.queryByText('Unknown branch')).not.toBeInTheDocument();
   });
 
   it('opens http receipt links from the receipt action', async () => {
