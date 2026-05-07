@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { generateReceiptHtml } from './generate-receipt-html';
+import { DEFAULT_NG_VAT_RATE } from './receipt-money';
 import { sanitizeSvg } from './sanitize-svg';
 import type { ReceiptMerchant, ReceiptOrder } from './types';
 
@@ -460,6 +461,44 @@ describe('generateReceiptHtml', () => {
       })
     );
 
+    expect(html).toContain(`VAT (${DEFAULT_NG_VAT_RATE}%)`);
+    expect(html).toContain('₦935,000.00');
+    expect(html).toContain('₦70,125.00');
+    expect(html).toContain('₦1,005,125.00');
+  });
+
+  it('does not use the Nigerian VAT fallback for non-NGN backfilled totals', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        currency: 'USD',
+        subtotal: 1005125,
+        tax_amount: 70125,
+        total: 1005125,
+      }),
+      createReceiptMerchant({
+        vat_registration_status: 'registered',
+        vat_rate: null,
+      })
+    );
+
+    expect(html).not.toContain(`VAT (${DEFAULT_NG_VAT_RATE}%)`);
+    expect(html).not.toContain('$70,125.00');
+    expect(html).toContain('$1,005,125.00');
+  });
+
+  it('shows VAT for tax-inclusive backfilled totals when the merchant VAT rate is missing', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder({
+        subtotal: 1005125,
+        tax_amount: 70125,
+        total: 1005125,
+      }),
+      createReceiptMerchant({
+        vat_registration_status: 'registered',
+        vat_rate: null,
+      })
+    );
+
     expect(html).toContain('VAT (7.5%)');
     expect(html).toContain('₦935,000.00');
     expect(html).toContain('₦70,125.00');
@@ -481,6 +520,23 @@ describe('generateReceiptHtml', () => {
     expect(html).not.toContain('</style><script>');
     expect(html).not.toContain('alert(1)');
     expect(html).not.toContain('alert(2)');
+  });
+
+  it('escapes QR image data URIs before rendering', () => {
+    const html = generateReceiptHtml(
+      createReceiptOrder(),
+      createReceiptMerchant(),
+      {
+        qrCodeDataUri: 'data:image/png;base64,abc" onerror="alert(1)',
+      }
+    );
+
+    expect(html).not.toContain(
+      'src="data:image/png;base64,abc" onerror="alert(1)"'
+    );
+    expect(html).toContain(
+      'src="data:image/png;base64,abc&quot; onerror=&quot;alert(1)"'
+    );
   });
 
   it('normalizes social URLs into handles without tracking query text', () => {

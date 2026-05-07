@@ -2,6 +2,7 @@ import { escapeHtml, escapeJsString } from './escape-html';
 import { getReceiptFulfillmentRows } from './receipt-fulfillment';
 import {
   getReceiptDisplaySubtotal,
+  getReceiptVatRate,
   type MoneyFormatter,
   shouldShowVatLine,
 } from './receipt-money';
@@ -82,7 +83,8 @@ export function renderFinancialSummaryLines(
   }
 
   if (shouldShowVatLine(order, merchant)) {
-    const vatLabel = merchant.vat_rate ? `VAT (${merchant.vat_rate}%)` : 'VAT';
+    const vatRate = getReceiptVatRate(merchant, order.currency);
+    const vatLabel = escapeHtml(vatRate !== null ? `VAT (${vatRate}%)` : 'VAT');
     summaryLines.push(
       `<div class="sum-row"><span>${vatLabel}</span><span>${formatMoney(order.tax_amount)}</span></div>`
     );
@@ -139,7 +141,7 @@ export function renderPaymentHistoryHtml(
 
 export function renderQrHtml(options: ReceiptOptions, isPaid: boolean): string {
   return options.qrCodeDataUri
-    ? `<div class="qr-block"><img src="${options.qrCodeDataUri}" alt="QR Code" width="100" height="100"><div class="qr-caption">${isPaid ? 'Track your order' : 'Pay online'}</div></div>`
+    ? `<div class="qr-block"><img src="${escapeHtml(options.qrCodeDataUri)}" alt="QR Code" width="100" height="100"><div class="qr-caption">${isPaid ? 'Track your order' : 'Pay online'}</div></div>`
     : '';
 }
 

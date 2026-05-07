@@ -13,6 +13,7 @@ const CURRENCY_LOCALE_MAP: Record<string, string> = {
 };
 
 const MONEY_TOLERANCE = 0.01;
+export const DEFAULT_NG_VAT_RATE = 7.5;
 
 export type MoneyFormatter = (amount: number) => string;
 
@@ -50,8 +51,20 @@ function getIncludedTaxAmount(total: number, taxRate: number): number {
   return total - total / (1 + taxRate / 100);
 }
 
-function getVatRate(merchant: ReceiptMerchant): number | null {
+function getDefaultVatRateForCurrency(currencyCode: string): number | null {
+  const locale = CURRENCY_LOCALE_MAP[currencyCode.toUpperCase()];
+  return locale === 'en-NG' ? DEFAULT_NG_VAT_RATE : null;
+}
+
+export function getReceiptVatRate(
+  merchant: ReceiptMerchant,
+  currencyCode: string
+): number | null {
   const vatRate = merchant.vat_rate;
+  if (vatRate === null) {
+    return getDefaultVatRateForCurrency(currencyCode);
+  }
+
   if (
     typeof vatRate !== 'number' ||
     !Number.isFinite(vatRate) ||
@@ -74,7 +87,7 @@ function isTaxInclusiveTotal(
   order: ReceiptOrder,
   merchant: ReceiptMerchant
 ): boolean {
-  const vatRate = getVatRate(merchant);
+  const vatRate = getReceiptVatRate(merchant, order.currency);
   if (vatRate === null) {
     return false;
   }
