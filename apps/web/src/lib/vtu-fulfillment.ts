@@ -155,6 +155,11 @@ function getProviderTransactionId(row: VtuTransactionRow) {
   return transactionId ? transactionId : null;
 }
 
+function getProcessingProviderResponseMessage(row: VtuTransactionRow) {
+  const message = row.error_message?.trim();
+  return message ? message : null;
+}
+
 function requiresVtuCustomerWalletRefund(row: VtuTransactionRow) {
   return Boolean(
     row.customer_id && row.source === 'checkout' && Number(row.amount) > 0
@@ -1420,27 +1425,41 @@ async function claimProcessingVtuReconciliation({
   supabase: SupabaseClient;
 }): Promise<VtuTransactionRow | null> {
   const providerTransactionId = getProviderTransactionId(row);
-  if (!providerTransactionId) {
+  const providerResponseMessage = getProcessingProviderResponseMessage(row);
+  if (!providerTransactionId && !providerResponseMessage) {
     return null;
   }
 
   const metadata = {
     ...(row.metadata ?? {}),
     processingReconciliationClaimedAt: new Date().toISOString(),
-    processingReconciliationTransactionId: providerTransactionId,
+    processingReconciliationReference: row.request_reference,
+    ...(providerTransactionId && {
+      processingReconciliationTransactionId: providerTransactionId,
+    }),
   };
-  const { data, error } = await supabase
+  const claimPayload: {
+    metadata: Record<string, unknown>;
+    status: 'processing';
+    transaction_id?: string;
+  } = {
+    metadata,
+    status: 'processing',
+    ...(providerTransactionId && { transaction_id: providerTransactionId }),
+  };
+  let claimQuery = supabase
     .from('vtu_transactions')
-    .update({
-      metadata,
-      status: 'processing',
-      transaction_id: providerTransactionId,
-    })
+    .update(claimPayload)
     .eq('id', row.id)
-    .eq('status', 'processing')
-    .eq('transaction_id', providerTransactionId)
-    .select('id')
-    .maybeSingle();
+    .eq('status', 'processing');
+
+  claimQuery = providerTransactionId
+    ? claimQuery.eq('transaction_id', providerTransactionId)
+    : claimQuery
+        .is('transaction_id', null)
+        .eq('error_message', providerResponseMessage);
+
+  const { data, error } = await claimQuery.select('id').maybeSingle();
 
   if (error) {
     throw new VtuPersistenceError(

@@ -234,7 +234,7 @@ export async function purchaseBill(
       normalizeKudaString(response.data?.Reference);
 
     if (vendOutcome !== 'successful') {
-      logger.warn({
+      const incompletePurchaseLog = {
         message: 'Kuda bill purchase did not complete',
         envelopeStatus: response.status,
         hasPin: Boolean(pin),
@@ -242,7 +242,12 @@ export async function purchaseBill(
         vendOutcome,
         ...requestDiagnostics,
         ...getBillVendStatusDiagnostics(response.data),
-      });
+      };
+      if (vendOutcome === 'pending') {
+        logger.info(incompletePurchaseLog);
+      } else {
+        logger.warn(incompletePurchaseLog);
+      }
     }
 
     return {

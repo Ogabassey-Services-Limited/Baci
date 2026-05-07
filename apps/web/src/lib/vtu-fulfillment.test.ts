@@ -97,10 +97,12 @@ function createAwaitableUpdateChain<T>(
 ) {
   const chain = Promise.resolve(result) as Promise<T> & {
     eq: ReturnType<typeof vi.fn>;
+    is: ReturnType<typeof vi.fn>;
     maybeSingle: ReturnType<typeof vi.fn>;
     select: ReturnType<typeof vi.fn>;
   };
   chain.eq = vi.fn(() => chain);
+  chain.is = vi.fn(() => chain);
   chain.maybeSingle = maybeSingle;
   chain.select = vi.fn(() => chain);
   return chain;
@@ -1479,6 +1481,70 @@ describe('fulfillPendingVtuTransaction', () => {
     expect(rpcImpl).not.toHaveBeenCalledWith(
       'refund_customer_wallet_for_vtu',
       expect.anything()
+    );
+  });
+
+  it('reconciles a persisted processing bill row by request reference when Kuda returned no transaction id', async () => {
+    mockCheckTransactionStatus.mockResolvedValueOnce({
+      message: 'Request successful. (biller status: k11)',
+      status: 'failed',
+    });
+    const updatePayloads: unknown[] = [];
+
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'electricity',
+        network_provider: '',
+        phone_number: '08146978921',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'processing',
+        metadata: {},
+        error_message: 'Request successful',
+        merchant_commission: 0,
+        customer_cashback: 0,
+        biller_name: 'EKEDC NG - EKEDC PREPAID',
+        biller_item_code: 'KUD-ELE-EKED-002',
+        customer_identifier: '43901766923',
+        source: 'checkout',
+      },
+      updatePayloads,
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(mockCheckTransactionStatus).toHaveBeenCalledWith(
+      undefined,
+      'VTU-123'
+    );
+    expect(mockPurchaseBill).not.toHaveBeenCalled();
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'refund_customer_wallet_for_vtu',
+      expect.objectContaining({
+        p_amount: 1000,
+        p_customer_id: 'customer-1',
+        p_vtu_transaction_id: 'vtu-1',
+      })
+    );
+    expect(result).toMatchObject({
+      amount: 1000,
+      error: 'Request successful. (biller status: k11)',
+      reference: 'VTU-123',
+      refundedToWallet: 1000,
+      status: 'failed',
+    });
+    expect(updatePayloads).toContainEqual(
+      expect.objectContaining({
+        error_message: 'Request successful. (biller status: k11)',
+        status: 'failed',
+      })
     );
   });
 

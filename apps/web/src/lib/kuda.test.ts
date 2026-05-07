@@ -387,7 +387,7 @@ describe('Kuda API Client', () => {
 
       expect(result).toEqual({
         message: 'Processing',
-        status: 'processing',
+        status: 'pending',
       });
     });
 
@@ -403,6 +403,32 @@ describe('Kuda API Client', () => {
         }
 
         return mockKudaResponse({ transactionStatus: 2 }, 'Failed');
+      });
+      globalThis.fetch = fetchMock;
+
+      const result = await checkTransactionStatus('kuda-bill-1');
+
+      expect(result).toEqual({
+        message: 'Failed',
+        status: 'failed',
+      });
+    });
+
+    it('maps capitalized finalStatus failures before numeric transactionStatus fallback', async () => {
+      const { checkTransactionStatus } = await import('@/lib/kuda');
+
+      const fetchMock = vi.fn().mockImplementation((url) => {
+        if (url.toString().includes('GetToken')) {
+          return Promise.resolve({
+            ok: true,
+            text: () => Promise.resolve('token'),
+          } as Response);
+        }
+
+        return mockKudaResponse(
+          { finalStatus: 'Failed', transactionStatus: 3 },
+          'Failed'
+        );
       });
       globalThis.fetch = fetchMock;
 

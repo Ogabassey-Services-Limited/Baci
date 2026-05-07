@@ -225,6 +225,34 @@ describe('purchaseBill', () => {
     });
   });
 
+  it('logs accepted pending bill purchases below warning level', async () => {
+    // Arrange
+    vi.mocked(kudaRequest).mockResolvedValue({
+      status: true,
+      message: 'Request successful',
+      data: {
+        billerAggregatorStatus: 'k11',
+        reference: 'AMZMqDjSafTsobg',
+      },
+    });
+
+    // Act
+    await purchaseBill('EKEDC-PREPAID', '1234567890', 5000);
+
+    // Assert
+    expect(loggerMocks.warn).not.toHaveBeenCalled();
+    expect(loggerMocks.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Kuda bill purchase did not complete',
+        envelopeStatus: true,
+        hasPin: false,
+        hasTransactionId: true,
+        vendOutcome: 'pending',
+        billerAggregatorStatus: 'k11',
+      })
+    );
+  });
+
   it('uses the first meaningful pin and transaction reference after normalizing response casing variants', async () => {
     // Arrange
     const mockResponse = {
