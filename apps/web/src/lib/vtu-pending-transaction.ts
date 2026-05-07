@@ -268,7 +268,9 @@ export async function preparePendingVtuTransaction({
       network_provider: isTelco
         ? normalizedNetworkProvider
         : (input.billerName ?? ''),
-      phone_number: isTelco ? formattedPhone : (input.customerIdentifier ?? ''),
+      phone_number: isTelco
+        ? formattedPhone
+        : (normalizedCustomerPhone ?? input.customerIdentifier ?? ''),
       amount: input.amount,
       request_reference: requestReference,
       status: 'pending',

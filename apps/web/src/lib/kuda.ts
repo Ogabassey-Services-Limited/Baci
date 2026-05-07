@@ -269,6 +269,20 @@ type KudaTransactionStatusResult = {
   status: string;
 };
 
+function normalizeKudaStatusKey(status: string) {
+  return status
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');
+}
+
+const KUDA_SUCCESS_STATUS_KEYS = new Set([
+  'completed',
+  'complete',
+  'success',
+  'successful',
+]);
+
 // Token storage (in production, use Redis or database)
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
@@ -290,13 +304,7 @@ export function isKudaVendSuccessful(
     normalizeKudaString(data.finalStatus) ??
     normalizeKudaString(data.FinalStatus);
   if (final) {
-    const lowered = final.toLowerCase();
-    if (
-      lowered === 'successful' ||
-      lowered === 'success' ||
-      lowered === 'completed' ||
-      lowered === 'complete'
-    ) {
+    if (KUDA_SUCCESS_STATUS_KEYS.has(normalizeKudaStatusKey(final))) {
       return true;
     }
     // Anything else with finalStatus set — failed, pending, processing,
@@ -331,16 +339,49 @@ export function buildKudaVendMessage(
   return aggregator ? `${base} (biller status: ${aggregator})` : base;
 }
 
+function normalizeKudaStatusLabel(status: string) {
+  const compact = normalizeKudaStatusKey(status);
+  if (KUDA_SUCCESS_STATUS_KEYS.has(compact)) {
+    return 'successful';
+  }
+  if (
+    compact === 'failed' ||
+    compact === 'failure' ||
+    compact === 'unsuccessful'
+  ) {
+    return 'failed';
+  }
+  if (
+    compact === 'inprogress' ||
+    compact === 'processing' ||
+    compact === 'pending'
+  ) {
+    return 'pending';
+  }
+  return compact || 'unknown';
+}
+
 function extractKudaStatus(data: KudaTransactionStatusData | undefined) {
   if (!data) {
     return 'unknown';
   }
 
-  return (
+  const finalStatus =
     normalizeKudaString(data.finalStatus) ??
-    normalizeKudaString(data.FinalStatus) ??
+    normalizeKudaString(data.FinalStatus);
+  if (finalStatus) {
+    return normalizeKudaStatusLabel(finalStatus);
+  }
+
+  const transactionStatus =
     normalizeKudaString(data.transactionStatus) ??
-    normalizeKudaString(data.TransactionStatus) ??
+    normalizeKudaString(data.TransactionStatus);
+  if (transactionStatus === '3') return 'successful';
+  if (transactionStatus === '2') return 'failed';
+  if (transactionStatus === '1') return 'pending';
+
+  return (
+    transactionStatus ??
     normalizeKudaString(data.postingStatus) ??
     normalizeKudaString(data.PostingStatus) ??
     normalizeKudaString(data.status) ??
