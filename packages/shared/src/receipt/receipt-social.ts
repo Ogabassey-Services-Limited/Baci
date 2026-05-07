@@ -33,6 +33,7 @@ const FACEBOOK_RESERVED_PATHS = new Set([
   'marketplace',
   'pages',
   'people',
+  'pg',
   'photo',
   'photos',
   'profile.php',
@@ -124,6 +125,17 @@ function getFacebookPagesProfileSegment(segments: string[]): string | null {
   return getRootProfileSegment(pageSegments, FACEBOOK_PAGES_RESERVED_PATHS);
 }
 
+function getFacebookPgProfileSegment(segments: string[]): string | null {
+  if (segments[0]?.toLowerCase() !== 'pg') {
+    return null;
+  }
+
+  return getRootProfileSegment(
+    segments.slice(1),
+    FACEBOOK_PAGES_RESERVED_PATHS
+  );
+}
+
 function normalizeSocialHandle(
   platform: SocialPlatform,
   value: string | undefined
@@ -163,6 +175,7 @@ function normalizeSocialHandle(
       profileSegment =
         getFacebookProfileId(url, segments) ??
         getFacebookPagesProfileSegment(segments) ??
+        getFacebookPgProfileSegment(segments) ??
         getRootProfileSegment(segments, FACEBOOK_RESERVED_PATHS);
     } else if (platform === 'twitter') {
       profileSegment = getRootProfileSegment(segments, TWITTER_RESERVED_PATHS);

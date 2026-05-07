@@ -170,14 +170,38 @@ export function renderFulfillmentDetailsHtml(order: ReceiptOrder): string {
       </div>`;
 }
 
+function buildTermsUrl(rawStoreUrl: string | undefined): string | null {
+  const trimmed = rawStoreUrl?.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed) && !/^https?:\/\//i.test(trimmed)) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(
+      /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`
+    );
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null;
+    }
+    return `${parsed.origin}/terms`;
+  } catch {
+    return null;
+  }
+}
+
 export function renderTermsHtml(
   merchant: ReceiptMerchant,
   options: ReceiptOptions
 ): string {
   const rawTerms = merchant.pages?.terms;
+  const termsUrl = buildTermsUrl(options.storeUrl);
   if (!rawTerms) {
-    return options.storeUrl
-      ? `<div class="terms"><a href="https://${escapeHtml(options.storeUrl)}/terms">Terms &amp; Conditions</a></div>`
+    return termsUrl
+      ? `<div class="terms"><a href="${escapeHtml(termsUrl)}">Terms &amp; Conditions</a></div>`
       : '';
   }
 
@@ -197,8 +221,8 @@ export function renderTermsHtml(
 
   const truncated =
     plainTerms.length > 500 ? `${plainTerms.slice(0, 497)}...` : plainTerms;
-  const termsLink = options.storeUrl
-    ? ` <a href="https://${escapeHtml(options.storeUrl)}/terms">Read full terms</a>`
+  const termsLink = termsUrl
+    ? ` <a href="${escapeHtml(termsUrl)}">Read full terms</a>`
     : '';
   return `<div class="terms-block"><div class="terms-label">Terms &amp; Conditions</div><div class="terms-text">${escapeHtml(truncated)}</div>${termsLink ? `<div class="terms-link">${termsLink}</div>` : ''}</div>`;
 }

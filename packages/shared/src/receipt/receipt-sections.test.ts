@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderLogoHtml } from './receipt-sections';
+import { renderLogoHtml, renderTermsHtml } from './receipt-sections';
 import type { ReceiptMerchant } from './types';
 
 function createReceiptMerchant(
@@ -77,5 +77,37 @@ describe('renderLogoHtml', () => {
       'onerror="this.src=\'https://placehold.co/200x80?text=Bad%20%22%3E%3Cscript%3Ealert(1)%3C%2Fscript%3E\'"'
     );
     expect(html).not.toContain('Bad "><script>');
+  });
+});
+
+describe('renderTermsHtml', () => {
+  it('normalizes store URLs before rendering the default terms link', () => {
+    const html = renderTermsHtml(createReceiptMerchant(), {
+      storeUrl: 'https://shop.example.com/storefront?ref=receipt',
+    });
+
+    expect(html).toContain('href="https://shop.example.com/terms"');
+    expect(html).not.toContain('/storefront?ref=receipt/terms');
+  });
+
+  it('normalizes store URLs before rendering the full terms link', () => {
+    const html = renderTermsHtml(
+      createReceiptMerchant({ pages: { terms: '<p>Returns in 7 days</p>' } }),
+      {
+        storeUrl: 'shop.example.com/storefront/',
+      }
+    );
+
+    expect(html).toContain('Returns in 7 days');
+    expect(html).toContain('href="https://shop.example.com/terms"');
+    expect(html).not.toContain('/storefront//terms');
+  });
+
+  it('omits terms links for invalid store URLs', () => {
+    const html = renderTermsHtml(createReceiptMerchant(), {
+      storeUrl: 'javascript:alert(1)',
+    });
+
+    expect(html).toBe('');
   });
 });

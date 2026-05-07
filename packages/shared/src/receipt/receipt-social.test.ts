@@ -65,4 +65,15 @@ describe('buildSocialItems', () => {
     expect(facebookItem).not.toContain('1234567890');
     expect(facebookItem).not.toContain('mibextid');
   });
+
+  it('normalizes Facebook pg URLs to the page handle', () => {
+    const [facebookItem] = buildSocialItems({
+      facebook: 'https://www.facebook.com/pg/Ogabassey-Store/about/?ref=page',
+    });
+
+    expect(facebookItem).toBeDefined();
+    expect(facebookItem).toContain('@ogabassey-store');
+    expect(facebookItem).not.toContain('@pg');
+    expect(facebookItem).not.toContain('about');
+  });
 });
