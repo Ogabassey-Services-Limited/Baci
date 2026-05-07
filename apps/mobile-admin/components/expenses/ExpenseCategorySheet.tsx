@@ -67,7 +67,7 @@ export function ExpenseCategorySheet({
           >
             <Text
               style={[
-                expenseFormStyles.categoryOptionText,
+                expenseFormStyles.optionText,
                 {
                   color:
                     selectedCategory === category

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRef } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -55,6 +56,7 @@ export function BranchEditModal({
   canDeactivate,
   colors,
 }: BranchEditModalProps) {
+  const branchAddressRef = useRef<TextInput>(null);
   const isBusy = isUpdating || isDeactivating;
   const isDeactivateDisabled = isBusy || !canDeactivate;
   const handleClose = isBusy ? undefined : onClose;
@@ -139,6 +141,8 @@ export function BranchEditModal({
                 accessibilityLabel="Branch name input"
                 editable={!isBusy}
                 returnKeyType="next"
+                submitBehavior="submit"
+                onSubmitEditing={() => branchAddressRef.current?.focus()}
               />
               {nameError ? (
                 <Text
@@ -156,6 +160,7 @@ export function BranchEditModal({
                 Address (Optional)
               </Text>
               <TextInput
+                ref={branchAddressRef}
                 style={[
                   styles.input,
                   {

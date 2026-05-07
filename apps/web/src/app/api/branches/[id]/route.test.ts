@@ -246,6 +246,21 @@ describe('/api/branches/[id]', () => {
     expect(update).not.toHaveBeenCalled();
   });
 
+  it('rejects branch update names that are invalid after sanitization', async () => {
+    const { PUT } = await import('@/app/api/branches/[id]/route');
+
+    const response = await PUT(
+      createRequest('PUT', { name: '<b></b>' }),
+      routeParams()
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Branch name must be at least 2 characters',
+    });
+    expect(update).not.toHaveBeenCalled();
+  });
+
   it('returns 400 for malformed update JSON', async () => {
     const { PUT } = await import('@/app/api/branches/[id]/route');
 
@@ -304,6 +319,22 @@ describe('/api/branches/[id]', () => {
       state: null,
       phone: null,
     });
+    expect(updateEq).toHaveBeenCalledWith('id', BRANCH_ID);
+    expect(updateEq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
+    expect(updateEq).toHaveBeenCalledWith('active', true);
+    expect(updateSelect).toHaveBeenCalledWith(expect.not.stringContaining('*'));
+    expect(response.status).toBe(200);
+  });
+
+  it('sanitizes valid branch update names before updating', async () => {
+    const { PUT } = await import('@/app/api/branches/[id]/route');
+
+    const response = await PUT(
+      createRequest('PUT', { name: '<strong>My Branch</strong>' }),
+      routeParams()
+    );
+
+    expect(update).toHaveBeenCalledWith({ name: 'My Branch' });
     expect(updateEq).toHaveBeenCalledWith('id', BRANCH_ID);
     expect(updateEq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
     expect(updateEq).toHaveBeenCalledWith('active', true);

@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
+import { ExpenseBranchSelector } from '@/components/expenses/ExpenseBranchSelector';
 import { ExpenseCategorySheet } from '@/components/expenses/ExpenseCategorySheet';
 import { ExpenseFormFields } from '@/components/expenses/ExpenseFormFields';
 import {
@@ -34,18 +35,26 @@ export default function AddExpenseScreen() {
     EXPENSE_CATEGORIES[0]
   );
   const [receiptUri, setReceiptUri] = useState<string | null>(null);
+  const [manualBranchId, setManualBranchId] = useState<string | null>(null);
   const [isCategorySheetVisible, setCategorySheetVisible] = useState(false);
   const parsedAmount = Number.parseFloat(amount);
   const hasValidAmount = Number.isFinite(parsedAmount) && parsedAmount > 0;
   const activeBranches = branches.filter((branch) => branch.active);
+  const defaultBranchId =
+    activeBranches.find((branch) => branch.is_default)?.id ??
+    activeBranches[0]?.id ??
+    null;
+  const explicitBranchId =
+    manualBranchId &&
+    activeBranches.some((branch) => branch.id === manualBranchId)
+      ? manualBranchId
+      : null;
   const selectedBranchId =
     scope.type === 'branch'
       ? activeBranches.some((branch) => branch.id === scope.branchId)
         ? scope.branchId
         : null
-      : (activeBranches.find((branch) => branch.is_default)?.id ??
-        activeBranches[0]?.id ??
-        null);
+      : (explicitBranchId ?? defaultBranchId);
   const canSaveExpense =
     hasValidAmount && !branchesLoading && selectedBranchId !== null;
 
@@ -202,7 +211,7 @@ export default function AddExpenseScreen() {
             <Pressable
               accessibilityLabel="Save expense"
               accessibilityRole="button"
-              disabled={!canSaveExpense || createExpenseMutation.isPending}
+              disabled={createExpenseMutation.isPending}
               onPress={handleSaveExpense}
               style={[
                 expenseFormStyles.saveButton,
@@ -232,6 +241,13 @@ export default function AddExpenseScreen() {
         }
         style={{ backgroundColor: colors.background }}
       >
+        {scope.type === 'all' && !branchesLoading ? (
+          <ExpenseBranchSelector
+            branches={activeBranches}
+            onSelect={setManualBranchId}
+            selectedBranchId={selectedBranchId}
+          />
+        ) : null}
         <ExpenseFormFields
           amount={amount}
           description={description}

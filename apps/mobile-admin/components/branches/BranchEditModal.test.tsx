@@ -37,6 +37,49 @@ vi.mock('@/components/ui/KeyboardAwareModalContainer', async () => {
 
 vi.mock('react-native', async () => {
   const React = await import('react');
+  const TextInput = React.forwardRef(
+    (
+      {
+        accessibilityLabel,
+        editable,
+        onChangeText,
+        onSubmitEditing,
+        value,
+      }: {
+        accessibilityLabel?: string;
+        editable?: boolean;
+        onChangeText?: (text: string) => void;
+        onSubmitEditing?: () => void;
+        value?: string;
+      },
+      ref: React.ForwardedRef<{ focus: () => void }>
+    ) => {
+      const inputRef = React.useRef<HTMLInputElement>(null);
+      React.useImperativeHandle(
+        ref,
+        () => ({
+          focus: () => inputRef.current?.focus(),
+        }),
+        []
+      );
+
+      return React.createElement('input', {
+        'aria-label': accessibilityLabel,
+        disabled: editable === false,
+        ref: inputRef,
+        value: value ?? '',
+        onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+          onChangeText?.(event.target.value),
+        onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => {
+          if (event.key === 'Enter') {
+            onSubmitEditing?.();
+          }
+        },
+      });
+    }
+  );
+  TextInput.displayName = 'TextInput';
+
   return {
     ActivityIndicator: () => React.createElement('span', null, 'loading'),
     Modal: ({
@@ -74,24 +117,7 @@ vi.mock('react-native', async () => {
     },
     Text: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('span', null, children),
-    TextInput: ({
-      accessibilityLabel,
-      editable,
-      onChangeText,
-      value,
-    }: {
-      accessibilityLabel?: string;
-      editable?: boolean;
-      onChangeText?: (text: string) => void;
-      value?: string;
-    }) =>
-      React.createElement('input', {
-        'aria-label': accessibilityLabel,
-        disabled: editable === false,
-        value: value ?? '',
-        onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
-          onChangeText?.(event.target.value),
-      }),
+    TextInput,
     View: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
   };
@@ -194,6 +220,16 @@ describe('BranchEditModal', () => {
 
     expect(screen.getByLabelText('Branch name input')).toBeDisabled();
     expect(screen.getByLabelText('Branch address input')).toBeDisabled();
+  });
+
+  it('moves focus from branch name to address on submit', () => {
+    render(<BranchEditModal {...createProps()} />);
+
+    fireEvent.keyDown(screen.getByLabelText('Branch name input'), {
+      key: 'Enter',
+    });
+
+    expect(screen.getByLabelText('Branch address input')).toHaveFocus();
   });
 
   it('calls deactivate when allowed', () => {

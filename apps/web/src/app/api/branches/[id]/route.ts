@@ -9,7 +9,11 @@ import { hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { toUserAccess } from '@/lib/get-merchant-for-api-request';
 import { sanitizePhone, sanitizeText } from '@/lib/sanitize-core';
-import { branchIdParamSchema, branchUpdateSchema } from '@/schemas/branches';
+import {
+  branchIdParamSchema,
+  branchNameSchema,
+  branchUpdateSchema,
+} from '@/schemas/branches';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -115,7 +119,19 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const updateData: Record<string, string | boolean | null> = {};
     if (parsed.data.name !== undefined) {
-      updateData.name = sanitizeText(parsed.data.name, 120);
+      const sanitizedName = branchNameSchema.safeParse(
+        sanitizeText(parsed.data.name, 120)
+      );
+      if (!sanitizedName.success) {
+        return NextResponse.json(
+          {
+            error:
+              sanitizedName.error.issues[0]?.message || 'Invalid branch name',
+          },
+          { status: 400 }
+        );
+      }
+      updateData.name = sanitizedName.data;
     }
     if (parsed.data.address !== undefined) {
       updateData.address = parsed.data.address

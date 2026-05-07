@@ -234,6 +234,38 @@ describe('/api/branches', () => {
     expect(insert).not.toHaveBeenCalled();
   });
 
+  it('rejects branch creation names that are invalid after sanitization', async () => {
+    const { POST } = await import('@/app/api/branches/route');
+
+    const response = await POST(createRequest({ name: '<b></b>' }));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Branch name must be at least 2 characters',
+    });
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(insert).not.toHaveBeenCalled();
+  });
+
+  it('sanitizes valid branch creation names before inserting', async () => {
+    const { POST } = await import('@/app/api/branches/route');
+
+    const response = await POST(
+      createRequest({ name: '<strong>Lagos main</strong>' })
+    );
+
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      branch: branchRow,
+    });
+    expect(mockCheckCsrfProtection).toHaveBeenCalledWith(expect.any(Request));
+    expect(mockGetMerchantForApiRequest).toHaveBeenCalled();
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'Lagos main' })
+    );
+  });
+
   it('returns 400 for malformed branch creation JSON', async () => {
     const { POST } = await import('@/app/api/branches/route');
 

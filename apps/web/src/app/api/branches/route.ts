@@ -11,7 +11,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { sanitizePhone, sanitizeText } from '@/lib/sanitize-core';
-import { branchCreateSchema } from '@/schemas/branches';
+import { branchCreateSchema, branchNameSchema } from '@/schemas/branches';
 
 export async function GET(request: NextRequest) {
   try {
@@ -99,6 +99,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const sanitizedName = branchNameSchema.safeParse(
+      sanitizeText(parsed.data.name, 120)
+    );
+    if (!sanitizedName.success) {
+      return NextResponse.json(
+        {
+          error:
+            sanitizedName.error.issues[0]?.message || 'Invalid branch name',
+        },
+        { status: 400 }
+      );
+    }
+
     const merchantContext = await getMerchantForApiRequest(
       auth.supabase,
       auth.user.id,
@@ -116,13 +129,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { name, address, city, state, phone, managerId, isDefault } =
-      parsed.data;
+    const { address, city, state, phone, managerId, isDefault } = parsed.data;
     const { data: branch, error } = await auth.supabase
       .from('branches')
       .insert({
         merchant_id: merchantContext.merchantId,
-        name: sanitizeText(name, 120),
+        name: sanitizedName.data,
         address: address ? sanitizeText(address, 240) || null : null,
         city: city ? sanitizeText(city, 120) || null : null,
         state: state ? sanitizeText(state, 120) || null : null,

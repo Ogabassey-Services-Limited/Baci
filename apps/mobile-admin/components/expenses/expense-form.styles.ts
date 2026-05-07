@@ -1,5 +1,19 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+
+const selectorBase: ViewStyle = {
+  alignItems: 'center',
+  borderRadius: RADIUS.md,
+  borderWidth: 1,
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  padding: SPACING.md,
+};
+
+const optionText: TextStyle = {
+  fontFamily: TYPOGRAPHY.fontFamily.medium,
+  fontSize: TYPOGRAPHY.size.md,
+};
 
 export const expenseFormStyles = StyleSheet.create({
   content: {
@@ -41,17 +55,14 @@ export const expenseFormStyles = StyleSheet.create({
     padding: SPACING.md,
     textAlignVertical: 'top',
   },
-  selector: {
-    alignItems: 'center',
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: SPACING.md,
+  selector: selectorBase,
+  optionText,
+  branchList: {
+    gap: SPACING.sm,
   },
-  selectorText: {
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: TYPOGRAPHY.size.md,
+  branchOption: {
+    ...selectorBase,
+    minHeight: SPACING.touchTarget,
   },
   imageUpload: {
     alignItems: 'center',
@@ -122,9 +133,5 @@ export const expenseFormStyles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: SPACING.lg,
-  },
-  categoryOptionText: {
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: TYPOGRAPHY.size.md,
   },
 });
