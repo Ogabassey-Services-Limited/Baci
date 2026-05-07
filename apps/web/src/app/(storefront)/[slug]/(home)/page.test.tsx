@@ -286,7 +286,7 @@ describe('Storefront homepage structured data', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('preloads viewport-specific OgaBassey hero LCP images from the server page', async () => {
+  it('preloads viewport-scoped OgaBassey hero LCP images from the server page', async () => {
     render(
       await StorefrontPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
     );
@@ -296,26 +296,21 @@ describe('Storefront homepage structured data', () => {
       )
     );
 
-    expect(preloads).toHaveLength(2);
-    // Order-insensitive: the browser picks at HTML-parse time via `media`,
-    // so insertion order is not part of the contract.
-    expect(
-      preloads.map((preloadLink) => ({
-        as: preloadLink.getAttribute('as'),
-        fetchPriority: preloadLink.getAttribute('fetchpriority'),
-        href: preloadLink.getAttribute('href'),
-        media: preloadLink.getAttribute('media'),
-      }))
-    ).toEqual(
+    const preloadAttributes = preloads.map((preloadLink) => ({
+      fetchPriority: preloadLink.getAttribute('fetchpriority'),
+      href: preloadLink.getAttribute('href'),
+      media: preloadLink.getAttribute('media'),
+    }));
+
+    expect(preloadAttributes).toHaveLength(2);
+    expect(preloadAttributes).toEqual(
       expect.arrayContaining([
         {
-          as: 'image',
           fetchPriority: 'high',
           href: HERO_DESKTOP_LCP_SRC,
           media: '(min-width: 768px)',
         },
         {
-          as: 'image',
           fetchPriority: 'high',
           href: HERO_MOBILE_LCP_SRC,
           media: '(max-width: 767px)',

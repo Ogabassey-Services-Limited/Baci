@@ -13,8 +13,11 @@ export const OGABASSEY_HERO_PRECONNECT_ORIGINS = [
 ] as const;
 
 /**
- * Resource hints + viewport-conditional preloads for the OgaBassey hero LCP
- * image. Renders only `<link>` tags; React 19 hoists them to `<head>`.
+ * Resource hints + viewport-scoped hero LCP preloads for OgaBassey. These
+ * manual preloads avoid Next Image's unconditional `priority`/`preload` head
+ * hint while still making the mobile and desktop LCP candidates discoverable
+ * from the initial document. Renders only `<link>` tags; React 19 hoists them
+ * to `<head>`.
  *
  * Mounted from the storefront home Server Component when the slug matches
  * one of `OGABASSEY_HERO_PRELOAD_IDENTIFIERS`.
