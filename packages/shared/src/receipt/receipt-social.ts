@@ -3,11 +3,18 @@ import type { ReceiptMerchant } from './types';
 
 type SocialPlatform = 'instagram' | 'facebook' | 'twitter' | 'tiktok';
 
-const SOCIAL_HOSTS: Record<SocialPlatform, readonly string[]> = {
+const SOCIAL_PROFILE_HOSTS: Record<SocialPlatform, readonly string[]> = {
   instagram: ['instagram.com'],
-  facebook: ['facebook.com', 'fb.com'],
-  twitter: ['x.com', 'twitter.com'],
-  tiktok: ['tiktok.com'],
+  facebook: [
+    'facebook.com',
+    'fb.com',
+    'm.facebook.com',
+    'm.fb.com',
+    'mbasic.facebook.com',
+    'mobile.facebook.com',
+  ],
+  twitter: ['x.com', 'twitter.com', 'mobile.x.com', 'mobile.twitter.com'],
+  tiktok: ['tiktok.com', 'm.tiktok.com'],
 };
 
 const IG_RESERVED_PATHS = new Set([
@@ -67,9 +74,7 @@ function safeDecodeUriComponent(value: string): string {
 
 function isSocialHost(platform: SocialPlatform, hostname: string): boolean {
   const normalizedHost = hostname.toLowerCase().replace(/^www\./, '');
-  return SOCIAL_HOSTS[platform].some(
-    (host) => normalizedHost === host || normalizedHost.endsWith(`.${host}`)
-  );
+  return SOCIAL_PROFILE_HOSTS[platform].includes(normalizedHost);
 }
 
 function getRootProfileSegment(

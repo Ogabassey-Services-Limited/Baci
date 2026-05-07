@@ -34,6 +34,16 @@ describe('buildSocialItems', () => {
     expect(items).not.toContain('@mobile.twitter.com');
   });
 
+  it('ignores social redirect subdomains instead of rendering route names', () => {
+    const items = buildSocialItems({
+      facebook:
+        'https://l.facebook.com/l.php?u=https%3A%2F%2Ffacebook.com%2Fogabasseyy',
+    }).join('');
+
+    expect(items).toBe('');
+    expect(items).not.toContain('@l.php');
+  });
+
   it('ignores URLs from the wrong social host', () => {
     const items = buildSocialItems({
       instagram: 'https://facebook.com/ogabasseyy',
