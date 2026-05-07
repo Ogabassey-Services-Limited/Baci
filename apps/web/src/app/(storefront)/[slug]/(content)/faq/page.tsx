@@ -49,10 +49,6 @@ export async function generateMetadata({
     notFound();
   }
 
-  if (extractFaqItems(merchant).length === 0) {
-    notFound();
-  }
-
   const canonicalUrl = `${buildRequestScopedStoreUrl(merchant, await headers())}/faq`;
 
   return {
@@ -114,9 +110,6 @@ async function FAQContent({ params }: PageProps) {
   }
 
   const faqItems = extractFaqItems(merchant);
-  if (faqItems.length === 0) {
-    notFound();
-  }
 
   // Resolve template component server-side for SEO (H1 in SSR HTML)
   const templateId = merchant.template_id;

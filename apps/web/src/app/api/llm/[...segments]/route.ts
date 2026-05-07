@@ -17,7 +17,6 @@ import {
   markdownResponse,
   notFoundMarkdownResponse,
 } from '@/lib/llms-markdown';
-import { parseLegacyFAQ } from '@/types/faq';
 
 function notFound() {
   return notFoundMarkdownResponse('# Not Found\n');
@@ -81,7 +80,6 @@ async function handleLlmRequest(
   if (segments.length === 2) {
     switch (page) {
       case 'about':
-        if (!merchant.about_page && !merchant.pages?.about) return notFound();
         return markdownResponse(buildStorefrontAboutMarkdown(merchant, origin));
 
       case 'contact':
@@ -92,7 +90,6 @@ async function handleLlmRequest(
         );
 
       case 'faq': {
-        if (!hasFaqContent(merchant)) return notFound();
         return markdownResponse(buildStorefrontFaqMarkdown(merchant, origin));
       }
 
@@ -150,16 +147,4 @@ async function serveCategoryMarkdown(
   return markdownResponse(
     buildCategoryMarkdown(merchant, origin, category, data)
   );
-}
-
-function hasFaqContent(
-  merchant: NonNullable<Awaited<ReturnType<typeof getMerchantByIdentifier>>>
-) {
-  if (Array.isArray(merchant.faq_items) && merchant.faq_items.length > 0) {
-    return true;
-  }
-  if (merchant.pages?.faq) {
-    return parseLegacyFAQ(merchant.pages.faq).length > 0;
-  }
-  return false;
 }

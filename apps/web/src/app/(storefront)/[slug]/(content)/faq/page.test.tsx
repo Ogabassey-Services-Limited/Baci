@@ -148,19 +148,44 @@ describe('generateMetadata', () => {
     ).rejects.toThrow('NEXT_NOT_FOUND');
   });
 
-  it('calls notFound when no FAQ items exist', async () => {
+  it('returns fallback metadata when no FAQ items exist', async () => {
     vi.mocked(getMerchantByIdentifier).mockResolvedValue({
       business_name: 'Test Store',
       faq_items: [],
       pages: {},
     } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
 
-    await expect(
-      generateMetadata({ params: Promise.resolve({ slug: 'test' }) })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test' }),
+    });
+
+    expect(metadata.title).toBe('FAQ | Test Store');
+    expect(notFound).not.toHaveBeenCalled();
   });
 
-  it('calls notFound when faq_items is empty and legacy FAQ is unparsable', async () => {
+  it('returns metadata for the advertised FAQ page when no FAQ items exist', async () => {
+    vi.mocked(headers).mockResolvedValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
+      business_name: 'Test Store',
+      faq_items: [],
+      pages: {},
+      logo_url: null,
+      slug: 'test-store',
+      custom_domain: 'ogabassey.com',
+    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test' }),
+    });
+
+    expect(metadata.title).toBe('FAQ | Test Store');
+    expect(metadata.alternates?.canonical).toBe('https://ogabassey.com/faq');
+    expect(notFound).not.toHaveBeenCalled();
+  });
+
+  it('returns fallback metadata when faq_items is empty and legacy FAQ is unparsable', async () => {
     // Regression: truthy merchant.pages.faq that parseLegacyFAQ returns [] for
     vi.mocked(parseLegacyFAQ).mockReturnValue([]);
     vi.mocked(getMerchantByIdentifier).mockResolvedValue({
@@ -169,9 +194,12 @@ describe('generateMetadata', () => {
       pages: { faq: 'some unparsable content' },
     } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
 
-    await expect(
-      generateMetadata({ params: Promise.resolve({ slug: 'test' }) })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test' }),
+    });
+
+    expect(metadata.title).toBe('FAQ | Test Store');
+    expect(notFound).not.toHaveBeenCalled();
   });
 
   it('returns metadata when FAQ items exist', async () => {

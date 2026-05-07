@@ -169,7 +169,30 @@ describe('returns page', () => {
     expect(screen.getByText('14 days')).toBeInTheDocument();
   });
 
-  it('notFound when no return content is present', async () => {
+  it('returns canonical fallback metadata when no return content is present', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      ...trustMerchant,
+      trust_profile: {
+        return_policy: {},
+      },
+    } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
+    mockBuildMerchantTrustProfile.mockReturnValue({
+      socialLinks: {},
+      derivedLinks: {},
+    });
+    const { generateMetadata } = await import('./page');
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+    });
+
+    expect(metadata.alternates?.canonical).toBe(
+      'https://ogabassey.com/returns'
+    );
+    expect(mockNotFound).not.toHaveBeenCalled();
+  });
+
+  it('renders fallback policy content when no return content is present', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue({
       ...trustMerchant,
       trust_profile: {
@@ -182,11 +205,17 @@ describe('returns page', () => {
     });
     const { default: ReturnsPage } = await import('./page');
 
-    await expect(
-      ReturnsPage({
+    render(
+      await ReturnsPage({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Returns Policy' })
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('Not specified').length).toBeGreaterThan(0);
+    expect(mockNotFound).not.toHaveBeenCalled();
   });
 
   it('renders when only return method or fees exist', async () => {
