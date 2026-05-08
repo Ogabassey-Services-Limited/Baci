@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DESKTOP_IPHONE_SLIDES,
   HERO_DESKTOP_LCP_SRC,
+  HERO_MOBILE_LCP_FALLBACK_SRC,
   HERO_MOBILE_LCP_SRC,
   MOBILE_SLIDES,
   OGABASSEY_HERO_PRELOAD_IDENTIFIERS,
@@ -63,6 +64,7 @@ describe('hero-data exports', () => {
     expect(mobileLcpSlide).toBeDefined();
     expect(HERO_DESKTOP_LCP_SRC).toMatch(/\.avif(?:$|\?)/);
     expect(HERO_MOBILE_LCP_SRC).toMatch(/\.avif(?:$|\?)/);
+    expect(HERO_MOBILE_LCP_FALLBACK_SRC).toMatch(/\.jpg(?:$|\?)/);
     expect(desktopLcpSlide?.image).toBe(HERO_DESKTOP_LCP_SRC);
     expect(mobileLcpSlide?.src).toBe(HERO_MOBILE_LCP_SRC);
   });

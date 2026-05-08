@@ -49,6 +49,19 @@ vi.mock('next/image', () => ({
       alt={String(props.alt ?? '')}
     />
   ),
+  getImageProps: (props: Record<string, unknown>) => ({
+    props: {
+      alt: props.alt,
+      decoding: props.decoding,
+      fetchPriority: props.fetchPriority,
+      height: props.height,
+      loading: props.loading,
+      sizes: props.sizes,
+      src: props.src,
+      srcSet: `${String(props.src)} 640w, ${String(props.src)} 960w`,
+      width: props.width,
+    },
+  }),
 }));
 
 vi.mock('next/dynamic', () => ({

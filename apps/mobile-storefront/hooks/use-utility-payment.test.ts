@@ -10,10 +10,11 @@ const mockListSavedVtuCards = jest.fn();
 jest.mock('@/hooks/useMerchantPaymentSettings', () => ({
   useMerchantPaymentSettings: () => mockUseMerchantPaymentSettings(),
   getEnabledPaymentMethods: jest.fn((settings) => {
-    if (!settings) return ['paystack'];
+    if (!settings) return ['paystack', 'bank_transfer'];
     const methods = [];
     if (settings.paystack_enabled) methods.push('paystack');
     if (settings.korapay_enabled) methods.push('korapay');
+    if (settings.paystack_enabled) methods.push('bank_transfer');
     return methods;
   }),
 }));
@@ -98,7 +99,32 @@ describe('useUtilityPayment', () => {
       expect(result.current.selectedSavedCardId).toBe('card-1');
     });
 
-    expect(result.current.supportedGateways).toEqual(['paystack', 'korapay']);
+    expect(result.current.supportedGateways).toEqual([
+      'paystack',
+      'korapay',
+      'bank_transfer',
+    ]);
+  });
+
+  it('keeps saved card cleared when the user chooses another Paystack card', async () => {
+    const { result } = renderHook(() => useUtilityPayment(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.selectedSavedCardId).toBe('card-1');
+    });
+
+    act(() => {
+      result.current.selectGateway('paystack');
+    });
+
+    await waitFor(() => {
+      expect(result.current.selectedSavedCardId).toBeNull();
+    });
+    await act(async () => undefined);
+    expect(result.current.selectedGateway).toBe('paystack');
+    expect(result.current.selectedSavedCardId).toBeNull();
   });
 
   it('refetches saved cards when the payment form remounts', async () => {
