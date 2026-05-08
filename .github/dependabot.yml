@@ -30,25 +30,25 @@ updates:
         update-types: ["minor", "patch"]
 
   # ──────────────────────────────────────────────────────────────────────────
-  # Workspace root + mobile apps + shared packages.
-  # NO plugin-react ignore here — mobile-admin already runs
-  # @vitejs/plugin-react@^6.0.1 against vite 8 and should keep getting
-  # patches/minors/security fixes for it.
+  # Mobile apps + shared packages — NO plugin-react ignore here. mobile-admin
+  # already runs @vitejs/plugin-react@^6.0.1 against vite 8 and should keep
+  # getting 6.x patch/minor/security updates.
   #
-  # Note on `"/"` vs `"/apps/web"` overlap:
-  #   Dependabot v2's `directory` / `directories` paths scan the manifest
-  #   at each path *only* — they do NOT recurse into subdirectories
-  #   (https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference#directory--).
-  #   This repo uses pnpm workspaces declared in pnpm-workspace.yaml, NOT
-  #   in package.json's `workspaces` field, so Dependabot does not auto-
-  #   detect workspaces from root. `"/"` therefore scans only the root
-  #   package.json (which has 5 root-only devDeps: turbo, wait-on,
-  #   @eslint/js, hono, @hono/node-server) and does not overlap with the
-  #   `/apps/web` updater above.
+  # `"/"` is intentionally NOT listed below: Dependabot's official options
+  # reference forbids overlapping directories within the same ecosystem on
+  # the same target branch
+  # (https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference#directories--).
+  # Listing both `"/"` and `"/apps/web"` (the first updater) violates that
+  # rule and risks the validator dropping or merging blocks.
+  #
+  # Trade-off: 5 root-only devDeps (turbo, wait-on, @eslint/js, plus the
+  # `hono` / `@hono/node-server` override-only entries) won't be auto-
+  # bumped by Dependabot. They're stable infra/tooling — manual bumps are
+  # acceptable, and the override-only ones aren't bumpable by Dependabot
+  # anyway since they live in `pnpm.overrides` not `dependencies`.
   # ──────────────────────────────────────────────────────────────────────────
   - package-ecosystem: "npm"
     directories:
-      - "/"
       - "/apps/mobile-admin"
       - "/apps/mobile-storefront"
       - "/packages/shared"
