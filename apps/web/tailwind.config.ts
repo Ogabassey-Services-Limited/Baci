@@ -1,8 +1,11 @@
-import containerQueries from '@tailwindcss/container-queries';
+// Tailwind v4 migration notes:
+// - `@tailwindcss/container-queries` is built into v4 core, no plugin needed.
+// - `tailwindcss-animate` (v3-only) replaced by `tw-animate-css` loaded via
+//   `@import "tw-animate-css";` in `src/app/globals.css`.
+// - `@tailwindcss/typography` still works under v4 via the JS plugin entry.
 import typography from '@tailwindcss/typography';
 import type { Config } from 'tailwindcss';
 import plugin from 'tailwindcss/plugin';
-import tailwindcssAnimate from 'tailwindcss-animate';
 
 export default {
   // Dark variants fire when the element (or an ancestor) has `.dark`, unless
@@ -216,8 +219,6 @@ export default {
     },
   },
   plugins: [
-    tailwindcssAnimate,
-    containerQueries,
     typography,
     // Custom plugin for 2025 responsive best practices
     plugin(({ addUtilities, addComponents }) => {

@@ -1,6 +1,11 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind v4: single import replaces the three v3 directives.
+   The `@config` directive bridges the existing v3 tailwind.config.ts
+   (custom darkMode variant, theme.extend, typography plugin) into v4 mode.
+   `tw-animate-css` provides the v4-native replacements for the deprecated
+   `tailwindcss-animate` utilities (animate-in / slide-in-from-* / etc.). */
+@import "tailwindcss";
+@import "tw-animate-css";
+@config "../../tailwind.config.ts";
 
 @layer base {
   :root {
