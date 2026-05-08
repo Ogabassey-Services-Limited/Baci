@@ -10,7 +10,6 @@ import {
 
 export interface AgenticMerchantContext {
   business_name: string | null;
-  custom_domain?: string;
   id: string;
   paystack_subaccount_code: string | null;
   slug: string;
@@ -55,7 +54,7 @@ export async function resolveAgenticMerchantContext(
 
   const { data, error } = await supabase
     .from('merchants')
-    .select('id, slug, business_name, custom_domain, paystack_subaccount_code')
+    .select('id, slug, business_name, paystack_subaccount_code')
     .eq('slug', merchantSlug)
     .maybeSingle();
 
@@ -66,8 +65,6 @@ export async function resolveAgenticMerchantContext(
   return {
     business_name:
       typeof data.business_name === 'string' ? data.business_name : null,
-    custom_domain:
-      typeof data.custom_domain === 'string' ? data.custom_domain : undefined,
     id: data.id,
     paystack_subaccount_code:
       typeof data.paystack_subaccount_code === 'string'
