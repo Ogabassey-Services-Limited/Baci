@@ -11,6 +11,7 @@ function createMerchantLookupMock(data: unknown, error: unknown = null) {
   return {
     eq,
     from,
+    select,
     supabase: { from },
   };
 }
@@ -68,6 +69,10 @@ describe('resolveAgenticMerchantContext', () => {
     const context = await resolveAgenticMerchantContext(mock.supabase as never);
 
     expect(context?.id).toBe('merchant-2');
+    expect(mock.from).toHaveBeenCalledWith('merchants');
+    expect(mock.select).not.toHaveBeenCalledWith(
+      expect.stringContaining('custom_domain')
+    );
     expect(mock.eq).toHaveBeenCalledWith('slug', 'demo-store');
     expect(getConfiguredAgenticMerchantSlug()).toBe('demo-store');
   });
