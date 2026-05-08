@@ -14,7 +14,12 @@ const insert = vi.fn(() => ({ select: insertSelect }));
 const lookupEqSecond = vi.fn(() => ({ single: lookupSingle }));
 const lookupEqFirst = vi.fn(() => ({ eq: lookupEqSecond }));
 const select = vi.fn(() => ({ eq: lookupEqFirst }));
-const mockFrom = vi.fn(() => ({ select, insert }));
+const updateSingle = vi.fn();
+const updateSelect = vi.fn(() => ({ single: updateSingle }));
+const updateEqSecond = vi.fn(() => ({ select: updateSelect }));
+const updateEqFirst = vi.fn(() => ({ eq: updateEqSecond }));
+const update = vi.fn(() => ({ eq: updateEqFirst }));
+const mockFrom = vi.fn(() => ({ select, insert, update }));
 
 const MERCHANT_ID = '550e8400-e29b-41d4-a716-446655440000';
 
@@ -61,6 +66,11 @@ function resetDatabaseMocks() {
   lookupEqSecond.mockReset();
   lookupEqFirst.mockReset();
   select.mockReset();
+  updateSingle.mockReset();
+  updateSelect.mockReset();
+  updateEqSecond.mockReset();
+  updateEqFirst.mockReset();
+  update.mockReset();
   mockFrom.mockReset();
 
   insertSelect.mockImplementation(() => ({ single: insertSingle }));
@@ -68,7 +78,11 @@ function resetDatabaseMocks() {
   lookupEqSecond.mockImplementation(() => ({ single: lookupSingle }));
   lookupEqFirst.mockImplementation(() => ({ eq: lookupEqSecond }));
   select.mockImplementation(() => ({ eq: lookupEqFirst }));
-  mockFrom.mockImplementation(() => ({ select, insert }));
+  updateSelect.mockImplementation(() => ({ single: updateSingle }));
+  updateEqSecond.mockImplementation(() => ({ select: updateSelect }));
+  updateEqFirst.mockImplementation(() => ({ eq: updateEqSecond }));
+  update.mockImplementation(() => ({ eq: updateEqFirst }));
+  mockFrom.mockImplementation(() => ({ select, insert, update }));
 }
 
 function createRequest(
@@ -178,6 +192,30 @@ describe('POST /api/staff', () => {
       emailDelivery: { status: 'sent' },
       message: 'Staff member invited successfully',
     });
+  });
+
+  it('scopes removed-staff reactivation updates to the merchant', async () => {
+    const { POST } = await import('@/app/api/staff/route');
+    lookupSingle.mockResolvedValue({
+      data: { id: 'staff-removed-1', status: 'removed' },
+      error: null,
+    });
+    updateSingle.mockResolvedValue({
+      data: { id: 'staff-removed-1' },
+      error: null,
+    });
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(200);
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'pending',
+        user_id: null,
+      })
+    );
+    expect(updateEqFirst).toHaveBeenCalledWith('id', 'staff-removed-1');
+    expect(updateEqSecond).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
   });
 
   it('returns 403 when csrf validation fails', async () => {
