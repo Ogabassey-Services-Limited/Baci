@@ -8,9 +8,17 @@ const migrationPath = resolve(
   currentDirectory,
   '../../../../../supabase/migrations/20260508211500_agentic_storefront_order_guest_user.sql'
 );
+const conflictFixMigrationPath = resolve(
+  currentDirectory,
+  '../../../../../supabase/migrations/20260508232130_fix_storefront_order_rpc_merchant_conflict.sql'
+);
 
 function readMigrationSql() {
   return readFileSync(migrationPath, 'utf8');
+}
+
+function readConflictFixMigrationSql() {
+  return readFileSync(conflictFixMigrationPath, 'utf8');
 }
 
 describe('agentic storefront order RPC contract', () => {
@@ -45,5 +53,17 @@ describe('agentic storefront order RPC contract', () => {
     expect(sql).toMatch(
       /INSERT INTO customers \([\s\S]*user_id[\s\S]*p_user_id/
     );
+  });
+
+  it('uses a named customer conflict constraint to avoid output-column ambiguity', () => {
+    const sql = readConflictFixMigrationSql();
+
+    expect(sql).toContain(
+      'CREATE OR REPLACE FUNCTION public.create_storefront_order('
+    );
+    expect(sql).toContain(
+      'ON CONFLICT ON CONSTRAINT customers_merchant_id_email_key'
+    );
+    expect(sql).not.toContain('ON CONFLICT (merchant_id, email)');
   });
 });
