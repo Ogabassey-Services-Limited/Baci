@@ -52,8 +52,9 @@ export interface OrderItem {
 }
 
 export interface OrderFulfillmentDetails {
-  imei?: string;
-  serialNumber?: string;
+  imei?: string | null;
+  serialNumber?: string | null;
+  serial_number?: string | null;
 }
 
 export interface OrderSelfFulfillmentData {

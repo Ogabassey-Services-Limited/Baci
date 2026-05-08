@@ -13,13 +13,14 @@ const API_URL = EXPO_PUBLIC_API_URL;
 export const VTU_CHECKOUT_INITIALIZE_URL = `${API_URL}/api/vtu/checkout/initialize`;
 export const VTU_CHECKOUT_WALLET_ONLY_URL = `${API_URL}/api/vtu/checkout/wallet-only`;
 
-const GatewayEnum = z.enum(['paystack', 'korapay']);
+const GatewayEnum = z.enum(['paystack', 'korapay', 'bank_transfer']);
+const ConfirmationGatewayEnum = z.enum(['paystack', 'korapay']);
 
 const InitCheckoutResponseSchema = z.object({
   success: z.literal(true),
   authorization_url: z.string().url(),
   checkout_url: z.string().url().optional(),
-  gateway: GatewayEnum,
+  gateway: ConfirmationGatewayEnum,
   reference: z.string(),
   vtu_reference: z.string(),
   vtu_transaction_id: z.string(),
@@ -111,10 +112,15 @@ const ChargeSavedCardGatewaySchema = z.object({
 const ChargeSavedCardProcessingSchema = z.object({
   status: z.literal('processing'),
   reference: z.string(),
-  gateway: GatewayEnum.optional(),
+  gateway: ConfirmationGatewayEnum.optional(),
+  mayRequireManualCheck: z.boolean().optional(),
+  message: z.string().optional(),
+  providerReference: z.string().optional(),
+  refundedToWallet: z.number().optional(),
 });
 
 export type VTUPaymentGateway = z.infer<typeof GatewayEnum>;
+export type VtuConfirmationGateway = z.infer<typeof ConfirmationGatewayEnum>;
 export type VtuCheckoutConfirmation = z.infer<
   typeof ConfirmCheckoutResponseSchema
 >;
@@ -378,7 +384,7 @@ export async function confirmVtuCheckout({
   gateway,
   reference,
 }: {
-  gateway: VTUPaymentGateway;
+  gateway: VtuConfirmationGateway;
   reference: string;
 }) {
   const accessToken = await getAccessToken();
@@ -429,7 +435,7 @@ export async function waitForVtuConfirmation({
   maxAttempts = 10,
   reference,
 }: {
-  gateway: VTUPaymentGateway;
+  gateway: VtuConfirmationGateway;
   maxAttempts?: number;
   reference: string;
 }) {

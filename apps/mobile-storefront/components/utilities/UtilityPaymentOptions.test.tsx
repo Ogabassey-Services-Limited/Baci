@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { UtilityPaymentOptions } from '@/components/utilities/UtilityPaymentOptions';
+import type { SavedVtuCard } from '@/lib/vtu-checkout';
 
 const mockOnSelectGateway = jest.fn();
 const mockOnSelectSavedCard = jest.fn();
@@ -15,22 +16,57 @@ const lastSelectorProps: { current: Record<string, unknown> | null } = {
   current: null,
 };
 
+const mockSavedCard: SavedVtuCard = {
+  id: 'card-1',
+  provider: 'paystack',
+  label: 'Access Bank ending 1234',
+  brand: 'visa',
+  bank: 'Access Bank',
+  last4: '1234',
+  exp_month: '08',
+  exp_year: '2030',
+  is_default: true,
+};
+
 jest.mock('@/components/checkout/PaymentMethodSelector', () => ({
   PaymentMethodSelector: (props: {
-    onSelectMethod: (method: 'paystack' | 'korapay') => void;
+    enabledMethods?: Array<'paystack' | 'korapay' | 'bank_transfer'>;
+    methodBadgeOverrides?: Record<string, string>;
+    methodDescriptionOverrides?: Record<string, string>;
+    methodLabelOverrides?: Record<string, string>;
+    onSelectMethod: (method: 'paystack' | 'korapay' | 'bank_transfer') => void;
   }) => {
     lastSelectorProps.current = props as unknown as Record<string, unknown>;
     const { Pressable, Text, View } =
       jest.requireActual<typeof import('react-native')>('react-native');
+    const enabledMethods = props.enabledMethods ?? ['paystack', 'korapay'];
+    const labelFor = (method: 'paystack' | 'bank_transfer') =>
+      props.methodLabelOverrides?.[method] ??
+      (method === 'paystack' ? 'Pay with Card' : 'Bank Transfer');
 
     return (
       <View>
-        <Pressable onPress={() => props.onSelectMethod('paystack')}>
-          <Text>Pay with Card</Text>
-        </Pressable>
-        <Pressable onPress={() => props.onSelectMethod('korapay')}>
-          <Text>Pay with Korapay</Text>
-        </Pressable>
+        {enabledMethods.includes('paystack') ? (
+          <Pressable onPress={() => props.onSelectMethod('paystack')}>
+            <Text>{labelFor('paystack')}</Text>
+            {props.methodDescriptionOverrides?.paystack ? (
+              <Text>{props.methodDescriptionOverrides.paystack}</Text>
+            ) : null}
+            {props.methodBadgeOverrides?.paystack ? (
+              <Text>{props.methodBadgeOverrides.paystack}</Text>
+            ) : null}
+          </Pressable>
+        ) : null}
+        {enabledMethods.includes('bank_transfer') ? (
+          <Pressable onPress={() => props.onSelectMethod('bank_transfer')}>
+            <Text>{labelFor('bank_transfer')}</Text>
+          </Pressable>
+        ) : null}
+        {enabledMethods.includes('korapay') ? (
+          <Pressable onPress={() => props.onSelectMethod('korapay')}>
+            <Text>Pay with Korapay</Text>
+          </Pressable>
+        ) : null}
       </View>
     );
   },
@@ -45,19 +81,7 @@ describe('UtilityPaymentOptions', () => {
     render(
       <UtilityPaymentOptions
         amount={1000}
-        cards={[
-          {
-            id: 'card-1',
-            provider: 'paystack',
-            label: 'Access Bank ending 1234',
-            brand: 'visa',
-            bank: 'Access Bank',
-            last4: '1234',
-            exp_month: '08',
-            exp_year: '2030',
-            is_default: true,
-          },
-        ]}
+        cards={[mockSavedCard]}
         isLoadingCards={false}
         onSelectGateway={mockOnSelectGateway}
         onSelectSavedCard={mockOnSelectSavedCard}
@@ -77,19 +101,7 @@ describe('UtilityPaymentOptions', () => {
     render(
       <UtilityPaymentOptions
         amount={1000}
-        cards={[
-          {
-            id: 'card-1',
-            provider: 'paystack',
-            label: 'Access Bank ending 1234',
-            brand: 'visa',
-            bank: 'Access Bank',
-            last4: '1234',
-            exp_month: '08',
-            exp_year: '2030',
-            is_default: true,
-          },
-        ]}
+        cards={[mockSavedCard]}
         isLoadingCards={false}
         onSelectGateway={mockOnSelectGateway}
         onSelectSavedCard={mockOnSelectSavedCard}
@@ -109,7 +121,73 @@ describe('UtilityPaymentOptions', () => {
     });
     expect(lastSelectorProps.current).toMatchObject({
       suppressedSelectedMethods: ['paystack'],
-      methodLabelOverrides: { paystack: 'Use another card' },
+      methodLabelOverrides: {
+        bank_transfer: 'Pay with Bank Transfer',
+        paystack: 'Use another card',
+      },
+    });
+  });
+
+  it('does not mark a saved card selected while full-wallet payment is active', () => {
+    const onWalletToggle = jest.fn();
+
+    render(
+      <UtilityPaymentOptions
+        amount={1000}
+        cards={[mockSavedCard]}
+        isLoadingCards={false}
+        onSelectGateway={mockOnSelectGateway}
+        onSelectSavedCard={mockOnSelectSavedCard}
+        selectedGateway="paystack"
+        selectedSavedCardId="card-1"
+        supportedGateways={['paystack', 'korapay']}
+        walletBalance={1500}
+        walletSelection={{ use: true, amount: 1000 }}
+        onWalletToggle={onWalletToggle}
+      />
+    );
+
+    const savedCard = screen.getByLabelText(
+      'Access Bank ending 1234. Expires 08/2030'
+    );
+
+    expect(savedCard.props.accessibilityState).toMatchObject({
+      checked: false,
+    });
+    expect(lastSelectorProps.current?.suppressedSelectedMethods).toBeUndefined();
+
+    fireEvent.press(savedCard);
+
+    expect(onWalletToggle).toHaveBeenCalledWith({ amount: 0, use: false });
+    expect(mockOnSelectSavedCard).toHaveBeenCalledWith('card-1');
+  });
+
+  it('keeps a saved card selected when wallet credit only covers part of the bill', () => {
+    render(
+      <UtilityPaymentOptions
+        amount={1000}
+        cards={[mockSavedCard]}
+        isLoadingCards={false}
+        onSelectGateway={mockOnSelectGateway}
+        onSelectSavedCard={mockOnSelectSavedCard}
+        selectedGateway="paystack"
+        selectedSavedCardId="card-1"
+        supportedGateways={['paystack', 'korapay']}
+        walletBalance={500}
+        walletSelection={{ use: true, amount: 500 }}
+        onWalletToggle={jest.fn()}
+      />
+    );
+
+    const savedCard = screen.getByLabelText(
+      'Access Bank ending 1234. Expires 08/2030'
+    );
+
+    expect(savedCard.props.accessibilityState).toMatchObject({
+      checked: true,
+    });
+    expect(lastSelectorProps.current).toMatchObject({
+      suppressedSelectedMethods: ['paystack'],
     });
   });
 
@@ -129,6 +207,30 @@ describe('UtilityPaymentOptions', () => {
 
     fireEvent.press(screen.getByText('Pay with Korapay'));
     expect(mockOnSelectGateway).toHaveBeenCalledWith('korapay');
+  });
+
+  it('shows card and bank transfer options with Paystack trust and card cashback copy', () => {
+    render(
+      <UtilityPaymentOptions
+        amount={1000}
+        cards={[]}
+        isLoadingCards={false}
+        onSelectGateway={mockOnSelectGateway}
+        onSelectSavedCard={mockOnSelectSavedCard}
+        selectedGateway="paystack"
+        selectedSavedCardId={null}
+        supportedGateways={['paystack', 'bank_transfer']}
+      />
+    );
+
+    expect(screen.getByText('Pay with Card')).toBeTruthy();
+    expect(screen.getByText('Pay with Bank Transfer')).toBeTruthy();
+    expect(screen.getByText(/Secured by/i)).toBeTruthy();
+    expect(screen.getByText('Paystack')).toBeTruthy();
+    expect(
+      screen.getByText('2x cashback on your first card payment')
+    ).toBeTruthy();
+    expect(screen.getByText('2x cashback')).toBeTruthy();
   });
 
   // Phase B.8 — wallet gating contract. The shared selector treats

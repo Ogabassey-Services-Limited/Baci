@@ -359,6 +359,7 @@ export function usePaymentGatewayController() {
     paymentKind,
     status,
     toast,
+    utilityType,
     validatedParams,
     webViewRef,
   };

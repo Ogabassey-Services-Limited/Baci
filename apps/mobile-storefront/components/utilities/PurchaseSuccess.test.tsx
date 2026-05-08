@@ -68,7 +68,7 @@ describe('PurchaseSuccess', () => {
     jest.restoreAllMocks();
   });
 
-  it('shows the meter number when a utility payment is still processing', () => {
+  it('shows token-generation guidance when an electricity payment is still processing', () => {
     render(
       <PurchaseSuccess
         type="power"
@@ -84,7 +84,13 @@ describe('PurchaseSuccess', () => {
     expect(screen.getByText('Payment Received')).toBeOnTheScreen();
     expect(
       screen.getByText(
-        'Your electricity payment for 43901766923 is processing. We will update your utility history shortly.'
+        'Your electricity payment for 43901766923 was received. We are generating your token now.'
+      )
+    ).toBeOnTheScreen();
+    expect(screen.getByText('Generating your token')).toBeOnTheScreen();
+    expect(
+      screen.getByText(
+        "This usually takes 30-60 seconds. You can leave this screen; we'll notify you when the token is ready."
       )
     ).toBeOnTheScreen();
   });
