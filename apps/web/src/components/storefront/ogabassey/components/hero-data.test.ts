@@ -22,20 +22,14 @@ function getRequiredImageDimension(imageUrl: URL, key: 'wid' | 'hei') {
 }
 
 describe('hero-data exports', () => {
-  it('does not request oversized Apple desktop hero images', () => {
+  it('keeps desktop hero slides on the local iPhone 17 asset instead of Apple hotlinks', () => {
     const appleSlides = DESKTOP_IPHONE_SLIDES.filter((slide) =>
       slide.image.startsWith(APPLE_IMAGE_ORIGIN)
     );
 
-    expect(appleSlides.length).toBeGreaterThan(0);
-
-    for (const slide of appleSlides) {
-      const imageUrl = new URL(slide.image);
-      const width = getRequiredImageDimension(imageUrl, 'wid');
-      const height = getRequiredImageDimension(imageUrl, 'hei');
-
-      expect(width).toBeLessThanOrEqual(1920);
-      expect(height).toBeLessThanOrEqual(1080);
+    expect(appleSlides).toHaveLength(0);
+    for (const slide of DESKTOP_IPHONE_SLIDES) {
+      expect(slide.image).toBe(HERO_DESKTOP_LCP_SRC);
     }
   });
 
