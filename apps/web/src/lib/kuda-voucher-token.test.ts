@@ -117,6 +117,12 @@ describe('extractKudaTransactionId', () => {
     );
   });
 
+  it('prioritizes lowercase reference when both Kuda reference fields exist', () => {
+    expect(
+      extractKudaTransactionId({ reference: ' a ', Reference: ' b ' })
+    ).toBe('a');
+  });
+
   it('uses the fallback when Kuda does not return a reference', () => {
     expect(
       extractKudaTransactionId({ status: 'pending' }, ' REQUEST-REF ')
@@ -124,5 +130,9 @@ describe('extractKudaTransactionId', () => {
     expect(extractKudaTransactionId('Pending', ' REQUEST-REF ')).toBe(
       'REQUEST-REF'
     );
+  });
+
+  it('returns undefined when no Kuda reference or fallback exists', () => {
+    expect(extractKudaTransactionId({})).toBeUndefined();
   });
 });

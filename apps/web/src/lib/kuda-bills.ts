@@ -230,7 +230,7 @@ export async function purchaseBill(
       pin
     );
     const vendSucceeded = vendOutcome === 'successful';
-    const transactionId = extractKudaTransactionId(response.data);
+    const transactionId = extractKudaTransactionId(response.data, reference);
 
     if (vendOutcome !== 'successful') {
       const incompletePurchaseLog = {
