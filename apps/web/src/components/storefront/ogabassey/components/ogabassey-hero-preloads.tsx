@@ -3,14 +3,10 @@ import {
   HERO_MOBILE_LCP_SRC,
 } from './hero-data';
 
-// Origins the OgaBassey storefront fetches above-the-fold assets from.
-// React 19 hoists these <link> tags to <head> automatically; warming the
-// connection before the LCP image request is queued cuts handshake time
-// off the critical path.
-export const OGABASSEY_HERO_PRECONNECT_ORIGINS = [
-  'https://cdn.ogabassey.com',
-  'https://store.storeimages.cdn-apple.com',
-] as const;
+// Additional home-only origins to warm before LCP image discovery. The shared
+// OgaBassey layout owns the CDN warmup, and the hero slides now use local
+// first-party iPhone artwork, so this intentionally remains empty.
+export const OGABASSEY_HERO_PRECONNECT_ORIGINS = [] as const;
 
 /**
  * Resource hints + viewport-scoped hero LCP preloads for OgaBassey. These
