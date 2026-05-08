@@ -98,6 +98,7 @@ vi.mock('./storefront-layout-utils', () => ({
 }));
 
 import { OgabasseyStorefrontLayout } from './storefront-layout';
+import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 
 const merchant = {
   id: 'merchant-1',
@@ -130,11 +131,8 @@ describe('OgabasseyStorefrontLayout', () => {
       </OgabasseyStorefrontLayout>
     );
 
-    expect(mocks.prefetchDNS).toHaveBeenCalledWith('https://cdn.ogabassey.com');
-    expect(mocks.preconnect).toHaveBeenCalledWith(
-      'https://cdn.ogabassey.com',
-      { crossOrigin: '' }
-    );
+    expect(mocks.prefetchDNS).toHaveBeenCalledWith(OGABASSEY_CDN_ORIGIN);
+    expect(mocks.preconnect).toHaveBeenCalledWith(OGABASSEY_CDN_ORIGIN);
     expect(mocks.getOgabasseyBasePath).toHaveBeenCalledWith(
       'ogabassey',
       'path'
