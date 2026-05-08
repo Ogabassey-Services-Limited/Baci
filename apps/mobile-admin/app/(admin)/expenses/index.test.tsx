@@ -276,6 +276,39 @@ describe('ExpensesScreen', () => {
     expect(screen.getByText('Office internet')).toBeInTheDocument();
   });
 
+  it('ignores malformed expense dates when calculating the monthly total', () => {
+    mocks.queryState = {
+      data: [
+        {
+          amount: 12_500,
+          branch_id: 'branch-1',
+          category: 'Inventory',
+          date: new Date().toISOString(),
+          description: 'Office internet',
+          id: 'expense-1',
+          receipt_url: null,
+        },
+        {
+          amount: 99_999,
+          branch_id: 'branch-1',
+          category: 'Travel',
+          date: 'not-a-date',
+          description: 'Bad date row',
+          id: 'expense-2',
+          receipt_url: null,
+        },
+      ],
+      error: null,
+      isError: false,
+      isLoading: false,
+    };
+
+    expect(() => render(<ExpensesScreen />)).not.toThrow();
+    expect(screen.getByText('Total this Month')).toBeInTheDocument();
+    expect(screen.getAllByText(/12,500/)).toHaveLength(2);
+    expect(screen.getByText('Invalid date')).toBeInTheDocument();
+  });
+
   it('shows an error state when expenses fail to load', () => {
     mocks.queryState = {
       data: undefined,

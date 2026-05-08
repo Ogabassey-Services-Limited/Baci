@@ -26,8 +26,8 @@ vi.mock('@/lib/get-merchant-for-api-request', () => ({
 
 import { GET } from './route';
 
-function createRequest(url: string) {
-  return new NextRequest(url);
+function createRequest(url: string, headers?: HeadersInit) {
+  return new NextRequest(url, { headers });
 }
 
 const BRANCH_ID = '123e4567-e89b-42d3-a456-426614174001';
@@ -169,11 +169,17 @@ describe('GET /api/analytics', () => {
 
     const response = await GET(
       createRequest(
-        `http://localhost/api/analytics?startDate=2026-04-01T00:00:00.000Z&endDate=2026-04-10T23:59:59.999Z&branchId=${BRANCH_ID}`
+        `http://localhost/api/analytics?startDate=2026-04-01T00:00:00.000Z&endDate=2026-04-10T23:59:59.999Z&branchId=${BRANCH_ID}`,
+        { 'x-baci-merchant-id': '123e4567-e89b-42d3-a456-426614174099' }
       )
     );
 
     expect(response.status).toBe(200);
+    expect(mockGetMerchantForApiRequest).toHaveBeenCalledWith(
+      expect.anything(),
+      'user-1',
+      { requestedMerchantId: '123e4567-e89b-42d3-a456-426614174099' }
+    );
     expect(branchQuery.eq).toHaveBeenCalledWith('id', BRANCH_ID);
     expect(branchQuery.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(branchQuery.eq).toHaveBeenCalledWith('active', true);
@@ -184,6 +190,20 @@ describe('GET /api/analytics', () => {
       new Date('2026-04-10T23:59:59.999Z'),
       BRANCH_ID
     );
+  });
+
+  it('returns 400 when the requested merchant header is invalid', async () => {
+    const response = await GET(
+      createRequest(
+        `http://localhost/api/analytics?startDate=2026-04-01T00:00:00.000Z&endDate=2026-04-10T23:59:59.999Z&branchId=${BRANCH_ID}`,
+        { 'x-baci-merchant-id': 'not-a-uuid' }
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Invalid merchant context');
+    expect(mockGetMerchantAnalyticsOverview).not.toHaveBeenCalled();
   });
 
   it('returns 400 for an invalid branch id', async () => {

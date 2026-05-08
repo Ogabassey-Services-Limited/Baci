@@ -380,7 +380,6 @@ describe('AddExpenseScreen', () => {
         branch_id: 'branch-1',
         category: 'Inventory',
         description: 'Office internet',
-        date: expect.any(String),
         merchant_id: 'merchant-1',
         receipt_url: 'https://example.com/file',
       });

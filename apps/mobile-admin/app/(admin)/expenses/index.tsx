@@ -6,7 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { useQuery } from '@tanstack/react-query';
-import { isSameMonth, parseISO } from 'date-fns';
+import { isSameMonth, isValid, parseISO } from 'date-fns';
 import { Stack, useRouter } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
@@ -62,7 +62,10 @@ export default function ExpensesScreen() {
     if (!expenses) return 0;
     const now = new Date();
     return expenses
-      .filter((e) => isSameMonth(parseISO(e.date), now))
+      .filter((e) => {
+        const expenseDate = parseISO(e.date);
+        return isValid(expenseDate) && isSameMonth(expenseDate, now);
+      })
       .reduce((sum, e) => sum + Number(e.amount), 0);
   })();
 

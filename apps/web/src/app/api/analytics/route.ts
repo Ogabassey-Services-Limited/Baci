@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { parseRequestedMerchantId } from '@/app/api/branches/branch-route-utils';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { getMerchantAnalyticsOverview } from '@/lib/get-merchant-analytics-overview';
 import {
@@ -53,9 +54,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const requestedMerchant = parseRequestedMerchantId(request);
+    if (requestedMerchant.response) {
+      return requestedMerchant.response;
+    }
+
     const merchantContext = await getMerchantForApiRequest(
       auth.supabase,
-      auth.user.id
+      auth.user.id,
+      { requestedMerchantId: requestedMerchant.merchantId }
     );
     if (!merchantContext) {
       return NextResponse.json(

@@ -108,7 +108,6 @@ export default function AddExpenseScreen() {
         amount: parsedAmount,
         category: selectedCategory,
         description: description || null,
-        date: new Date().toISOString(),
         receipt_url: uploadedReceiptUrl,
       });
 
