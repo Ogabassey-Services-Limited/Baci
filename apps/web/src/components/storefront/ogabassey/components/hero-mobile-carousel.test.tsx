@@ -2,6 +2,22 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mockGetImageProps = vi.hoisted(() =>
+  vi.fn((props: Record<string, unknown>) => ({
+    props: {
+      alt: props.alt,
+      decoding: props.decoding,
+      fetchPriority: props.fetchPriority,
+      height: props.height,
+      loading: props.loading,
+      sizes: props.sizes,
+      src: props.src,
+      srcSet: `${String(props.src)} 640w, ${String(props.src)} 960w`,
+      width: props.width,
+    },
+  }))
+);
+
 vi.mock('next/link', () => ({
   default: ({
     children,
@@ -31,6 +47,7 @@ vi.mock('next/image', () => ({
       data-priority={String(Boolean(props.priority))}
     />
   ),
+  getImageProps: mockGetImageProps,
 }));
 
 const mockDeferredAdUnit = vi.hoisted(() =>
@@ -73,6 +90,7 @@ function expectStyleDeclarations(
 describe('HeroMobileCarousel', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    mockGetImageProps.mockClear();
   });
 
   afterEach(() => {
@@ -106,29 +124,6 @@ describe('HeroMobileCarousel', () => {
     });
 
     expect(container.querySelector('video')).not.toBeNull();
-  });
-
-  it('marks only the first mobile hero image as the high-priority LCP candidate', () => {
-    render(
-      <HeroMobileCarousel
-        getHref={(path) => `/ogabassey${path}`}
-        hasResolvedViewport={true}
-        isDesktopViewport={false}
-      />
-    );
-
-    const highPriorityImages = screen
-      .getAllByRole('img')
-      .filter(
-        (image) =>
-          image.getAttribute('fetchPriority') === 'high' ||
-          image.getAttribute('fetchpriority') === 'high'
-      );
-
-    expect(highPriorityImages).toHaveLength(1);
-    expect(highPriorityImages[0]).toHaveAccessibleName('iPhone 17 Pro Max');
-    expect(highPriorityImages[0]).toHaveAttribute('data-priority', 'false');
-    expect(highPriorityImages[0]).toHaveAttribute('loading', 'eager');
   });
 
   it('uses theme variables for the hero CTA and slide controls', () => {

@@ -68,27 +68,95 @@ function shouldRedactKudaDebugValue(key: string, value: unknown) {
   return typeof value === 'string' && /^\+?\d[\d\s-]{7,}$/.test(value.trim());
 }
 
+function sanitizeKudaDebugPrimitive(value: unknown) {
+  if (typeof value === 'bigint') {
+    return value.toString();
+  }
+
+  if (typeof value === 'symbol') {
+    return value.description ? `[Symbol:${value.description}]` : '[Symbol]';
+  }
+
+  return value;
+}
+
 export function redactKudaDebugPayload(value: unknown, depth = 0): unknown {
+  return redactKudaDebugValue(value, depth, new WeakSet<object>());
+}
+
+function redactKudaDebugValue(
+  value: unknown,
+  depth: number,
+  seen: WeakSet<object>
+): unknown {
   if (depth > 7) {
     return '[MAX_DEPTH]';
   }
 
   if (Array.isArray(value)) {
-    return value.map((item) => redactKudaDebugPayload(item, depth + 1));
+    if (seen.has(value)) {
+      return '[Circular]';
+    }
+    seen.add(value);
+    const redacted = value.map((item) =>
+      redactKudaDebugValue(item, depth + 1, seen)
+    );
+    seen.delete(value);
+    return redacted;
   }
 
   if (!value || typeof value !== 'object') {
-    return value;
+    return sanitizeKudaDebugPrimitive(value);
   }
 
-  return Object.entries(value as Record<string, unknown>).reduce<
+  if (seen.has(value)) {
+    return '[Circular]';
+  }
+  seen.add(value);
+
+  const redacted = Object.entries(value as Record<string, unknown>).reduce<
     Record<string, unknown>
   >((payload, [key, nestedValue]) => {
     payload[key] = shouldRedactKudaDebugValue(key, nestedValue)
       ? getDebugValueShape(nestedValue)
-      : redactKudaDebugPayload(nestedValue, depth + 1);
+      : redactKudaDebugValue(nestedValue, depth + 1, seen);
     return payload;
   }, {});
+  seen.delete(value);
+  return redacted;
+}
+
+export function safeSerialize(value: unknown) {
+  const ancestors: object[] = [];
+
+  try {
+    return JSON.stringify(value, function (this: unknown, _key, nestedValue) {
+      if (typeof nestedValue === 'bigint' || typeof nestedValue === 'symbol') {
+        return sanitizeKudaDebugPrimitive(nestedValue);
+      }
+
+      if (nestedValue && typeof nestedValue === 'object') {
+        while (
+          ancestors.length > 0 &&
+          ancestors[ancestors.length - 1] !== this
+        ) {
+          ancestors.pop();
+        }
+
+        if (ancestors.includes(nestedValue)) {
+          return '[Circular]';
+        }
+        ancestors.push(nestedValue);
+      }
+
+      return nestedValue;
+    });
+  } catch (error) {
+    return JSON.stringify({
+      error: error instanceof Error ? error.message : String(error),
+      serializationFailed: true,
+    });
+  }
 }
 
 export function logKudaRawResponse({
@@ -109,11 +177,16 @@ export function logKudaRawResponse({
     return;
   }
 
+  const redactedRequestData = redactKudaDebugPayload(requestData);
+  const redactedRawResponse = redactKudaDebugPayload(raw);
+
   logger.info({
     message: 'Kuda raw response received',
-    requestData: redactKudaDebugPayload(requestData),
+    requestData: redactedRequestData,
+    requestDataJson: safeSerialize(redactedRequestData),
     requestRef,
-    rawResponse: redactKudaDebugPayload(raw),
+    rawResponse: redactedRawResponse,
+    rawResponseJson: safeSerialize(redactedRawResponse),
     serviceType,
   });
 }

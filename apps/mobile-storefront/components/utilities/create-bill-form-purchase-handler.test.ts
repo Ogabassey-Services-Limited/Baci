@@ -13,6 +13,7 @@ const mockInitializeVtuCheckout = jest.fn<
     reference: string;
   }>
 >();
+const mockChargeSavedVtuCard = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 const mockChargeWalletForVtu = jest.fn<(...args: unknown[]) => Promise<unknown>>();
 
 jest.mock('expo-router', () => ({
@@ -27,7 +28,7 @@ jest.mock('@/lib/vtu-checkout', () => {
   );
   return {
     ...actual,
-    chargeSavedVtuCard: jest.fn(),
+    chargeSavedVtuCard: (...args: unknown[]) => mockChargeSavedVtuCard(...args),
     chargeWalletForVtu: (...args: unknown[]) => mockChargeWalletForVtu(...args),
     initializeVtuCheckout: (...args: unknown[]) =>
       mockInitializeVtuCheckout(...args),
@@ -100,6 +101,36 @@ describe('createBillFormPurchaseHandler', () => {
     expect(Alert.alert).toHaveBeenCalledWith(
       'Payment Failed',
       'Payment failed. Please try again.'
+    );
+  });
+
+  it('shows user-facing payment failure messages returned by the server', async () => {
+    mockChargeSavedVtuCard.mockRejectedValueOnce(
+      new HttpError(400, 'Insufficient funds')
+    );
+    const handlePurchase = createValidHandler({
+      payment: {
+        cards: [],
+        isLoadingCards: false,
+        refetchCards: jest.fn<PaymentState['refetchCards']>(),
+        selectGateway: jest.fn(),
+        selectSavedCard: jest.fn(),
+        selectedGateway: null,
+        selectedSavedCardId: 'card-1',
+        supportedGateways: ['paystack'],
+        walletBalance: 0,
+        walletSelection: undefined,
+        setWalletSelection: jest.fn(),
+        getWalletIdempotencyKey: jest.fn(() => 'test-key'),
+        resetWalletIdempotencyKey: jest.fn(),
+      },
+    });
+
+    await handlePurchase();
+
+    expect(Alert.alert).toHaveBeenCalledWith(
+      'Payment Failed',
+      'Insufficient funds'
     );
   });
 

@@ -43,13 +43,21 @@ export function OgabasseyHeroPreloads() {
         href={HERO_DESKTOP_LCP_SRC}
         fetchPriority="high"
         media="(min-width: 768px)"
+        type="image/avif"
       />
+      {/*
+        Keep this as a single typed AVIF preload. A parallel JPEG preload with
+        the same media query is fetched by AVIF-capable browsers too, because
+        they also support JPEG. Non-AVIF clients use the carousel's <picture>
+        JPEG fallback when the body is parsed.
+      */}
       <link
         rel="preload"
         as="image"
         href={HERO_MOBILE_LCP_SRC}
         fetchPriority="high"
         media="(max-width: 767px)"
+        type="image/avif"
       />
     </>
   );

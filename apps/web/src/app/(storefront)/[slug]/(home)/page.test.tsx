@@ -300,6 +300,7 @@ describe('Storefront homepage structured data', () => {
       fetchPriority: preloadLink.getAttribute('fetchpriority'),
       href: preloadLink.getAttribute('href'),
       media: preloadLink.getAttribute('media'),
+      type: preloadLink.getAttribute('type'),
     }));
 
     expect(preloadAttributes).toHaveLength(2);
@@ -309,11 +310,13 @@ describe('Storefront homepage structured data', () => {
           fetchPriority: 'high',
           href: HERO_DESKTOP_LCP_SRC,
           media: '(min-width: 768px)',
+          type: 'image/avif',
         },
         {
           fetchPriority: 'high',
           href: HERO_MOBILE_LCP_SRC,
           media: '(max-width: 767px)',
+          type: 'image/avif',
         },
       ])
     );

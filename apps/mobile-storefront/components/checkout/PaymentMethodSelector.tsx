@@ -138,6 +138,8 @@ interface PaymentMethodSelectorProps {
   walletSelection?: WalletSelection;
   onWalletToggle?: (selection: WalletSelection) => void;
   suppressedSelectedMethods?: PaymentMethodType[];
+  methodBadgeOverrides?: Partial<Record<PaymentMethodType, string>>;
+  methodDescriptionOverrides?: Partial<Record<PaymentMethodType, string>>;
   methodLabelOverrides?: Partial<Record<PaymentMethodType, string>>;
 }
 
@@ -155,6 +157,8 @@ export function PaymentMethodSelector({
   walletSelection,
   onWalletToggle,
   suppressedSelectedMethods = [],
+  methodBadgeOverrides = {},
+  methodDescriptionOverrides = {},
   methodLabelOverrides = {},
 }: PaymentMethodSelectorProps) {
   const colorScheme = useColorScheme();
@@ -548,6 +552,9 @@ export function PaymentMethodSelector({
             !walletSuppressesGateway &&
             !selectionSuppressed;
           const isDisabled = method.disabled || walletSuppressesGateway;
+          const methodBadge = methodBadgeOverrides[method.id];
+          const methodDescription =
+            methodDescriptionOverrides[method.id] ?? method.description;
           const methodLabel = methodLabelOverrides[method.id] ?? method.label;
 
           return (
@@ -568,7 +575,7 @@ export function PaymentMethodSelector({
                 checked: isSelected,
                 disabled: isDisabled,
               }}
-              accessibilityLabel={`${methodLabel}. ${isDisabled ? method.disabledReason : method.description}`}
+              accessibilityLabel={`${methodLabel}. ${isDisabled ? method.disabledReason : methodDescription}`}
             >
               <View
                 style={[
@@ -596,18 +603,25 @@ export function PaymentMethodSelector({
               </View>
 
               <View style={styles.methodInfo}>
-                <Text
-                  style={[
-                    styles.methodLabel,
-                    { color: isSelected ? BRAND.primary : colors.text },
-                  ]}
-                >
-                  {methodLabel}
-                </Text>
+                <View style={styles.methodTitleRow}>
+                  <Text
+                    style={[
+                      styles.methodLabel,
+                      { color: isSelected ? BRAND.primary : colors.text },
+                    ]}
+                  >
+                    {methodLabel}
+                  </Text>
+                  {methodBadge ? (
+                    <View style={styles.methodBadge}>
+                      <Text style={styles.methodBadgeText}>{methodBadge}</Text>
+                    </View>
+                  ) : null}
+                </View>
                 <Text
                   style={[styles.methodDesc, { color: colors.textSecondary }]}
                 >
-                  {isDisabled ? method.disabledReason : method.description}
+                  {isDisabled ? method.disabledReason : methodDescription}
                 </Text>
               </View>
 
@@ -803,9 +817,27 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: SPACING.md,
   },
+  methodBadge: {
+    backgroundColor: `${BRAND.primary}20`,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  methodBadgeText: {
+    color: BRAND.primary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
   methodLabel: {
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: '600',
+  },
+  methodTitleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 2,
   },
   methodDesc: {

@@ -11,6 +11,7 @@ const PURCHASE_SUCCESS_TOKENS = {
   buttonHeight: 50,
   compactGap: 6,
   compactSpacing: 12,
+  processingNoticeLineHeight: 20,
   tokenMinHeight: 36,
   voucherMarginBottom: 20,
   voucherPadding: 14,
@@ -34,6 +35,27 @@ export const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.base,
     textAlign: 'center',
     marginBottom: SPACING.xl,
+  },
+  processingNotice: {
+    width: '100%',
+    padding: SPACING.md,
+    borderRadius: RADIUS.xl,
+    borderWidth: 1,
+    marginBottom: SPACING.lg,
+  },
+  processingNoticeHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: SPACING.xs,
+    marginBottom: SPACING.xs,
+  },
+  processingNoticeTitle: {
+    fontSize: TYPOGRAPHY.size.base,
+    fontWeight: TYPOGRAPHY.weight.bold,
+  },
+  processingNoticeText: {
+    fontSize: TYPOGRAPHY.size.sm,
+    lineHeight: PURCHASE_SUCCESS_TOKENS.processingNoticeLineHeight,
   },
   referenceText: {
     fontSize: TYPOGRAPHY.size.sm,

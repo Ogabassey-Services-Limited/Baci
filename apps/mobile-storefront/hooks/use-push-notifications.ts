@@ -96,6 +96,11 @@ export function usePushNotifications(): UsePushNotificationsReturn {
         case 'wallet':
           router.push('/wallet');
           break;
+        case 'utility-history':
+          router.push(
+            `/utilities/history?type=${params?.type ?? 'power'}` as import('expo-router').Href
+          );
+          break;
         default:
           router.push('/');
       }

@@ -27,7 +27,14 @@ export function ProductAttributesCard({
     >
       <View style={styles.header}>
         <Text style={[styles.title, { color: colors.text }]}>Attributes</Text>
-        <Pressable onPress={onAdd} style={styles.addButton}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Add attribute"
+          accessibilityHint="Adds a new attribute row for this product"
+          hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
+          onPress={onAdd}
+          style={styles.addButton}
+        >
           <Ionicons name="add" size={20} color={colors.primary} />
           <Text style={[styles.addLabel, { color: colors.primary }]}>Add</Text>
         </Pressable>
@@ -78,6 +85,8 @@ export function ProductAttributesCard({
           <Pressable
             accessibilityLabel={`Remove attribute ${index + 1}`}
             accessibilityRole="button"
+            accessibilityHint={`Removes the attribute ${index + 1} from this product`}
+            hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
             onPress={() => onRemove(index)}
             style={styles.removeButton}
           >

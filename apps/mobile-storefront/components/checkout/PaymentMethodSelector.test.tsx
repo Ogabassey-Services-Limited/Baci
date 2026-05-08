@@ -113,6 +113,30 @@ describe('PaymentMethodSelector', () => {
     });
   });
 
+  it('applies payment method description and badge overrides', () => {
+    render(
+      <PaymentMethodSelector
+        selectedMethod={'paystack' as PaymentMethodType}
+        onSelectMethod={() => {}}
+        selectedTab="full"
+        onSelectTab={() => {}}
+        orderTotal={1000}
+        enabledMethods={['paystack', 'bank_transfer']}
+        methodDescriptionOverrides={{
+          paystack: '2x cashback on your first card payment',
+        }}
+        methodBadgeOverrides={{ paystack: '2x cashback' }}
+      />
+    );
+
+    expect(screen.getByText('Pay with Card')).toBeTruthy();
+    expect(
+      screen.getByText('2x cashback on your first card payment')
+    ).toBeTruthy();
+    expect(screen.getByText('2x cashback')).toBeTruthy();
+    expect(screen.getByText('Bank Transfer')).toBeTruthy();
+  });
+
   describe('wallet payment row', () => {
     // Storefront checkout opts in via walletMode='orders'. VTU's
     // UtilityPaymentOptions caller intentionally omits the prop (defaults

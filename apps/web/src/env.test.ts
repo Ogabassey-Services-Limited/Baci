@@ -11,12 +11,23 @@ function stubBaseEnv() {
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', 'https://supabase.example.com');
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'anon-key');
   delete process.env.SUPABASE_JWT_SECRET;
+  delete process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK;
 }
 
 function loadEnvModule() {
   vi.resetModules();
   return import('@/env');
 }
+
+const validAgenticPrivateJwk = JSON.stringify({
+  alg: 'ES256',
+  crv: 'P-256',
+  d: 'private-key-material',
+  kid: 'agentic-test-key',
+  kty: 'EC',
+  x: 'public-x-coordinate',
+  y: 'public-y-coordinate',
+});
 
 describe('env validation', () => {
   beforeEach(() => {
@@ -33,21 +44,37 @@ describe('env validation', () => {
     vi.resetModules();
   });
 
-  it('rejects production boot when SUPABASE_JWT_SECRET is missing outside GitHub Actions', async () => {
+  it('rejects production boot when Supabase JWT signing material is missing', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('GITHUB_ACTIONS', 'false');
     delete process.env.SUPABASE_JWT_SECRET;
+    delete process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK;
 
-    await expect(loadEnvModule()).rejects.toThrow('SUPABASE_JWT_SECRET');
+    await expect(loadEnvModule()).rejects.toThrow(
+      'SUPABASE_AGENTIC_JWT_PRIVATE_JWK'
+    );
   });
 
-  it('allows GitHub Actions production builds without runtime-only SUPABASE_JWT_SECRET', async () => {
+  it('treats whitespace-only Supabase JWT signing material as missing', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('GITHUB_ACTIONS', 'false');
+    vi.stubEnv('SUPABASE_JWT_SECRET', '   ');
+    vi.stubEnv('SUPABASE_AGENTIC_JWT_PRIVATE_JWK', '   ');
+
+    await expect(loadEnvModule()).rejects.toThrow(
+      'SUPABASE_AGENTIC_JWT_PRIVATE_JWK or SUPABASE_JWT_SECRET is required in production'
+    );
+  });
+
+  it('allows GitHub Actions production builds without runtime signing material', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('GITHUB_ACTIONS', 'true');
     vi.stubEnv('GITHUB_REPOSITORY', 'ogabasseyy/Baci');
-    vi.stubEnv('GITHUB_RUN_ID', '123456789');
+    vi.stubEnv('GITHUB_RUN_ID', '123');
     delete process.env.SUPABASE_JWT_SECRET;
+    delete process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK;
 
     await expect(loadEnvModule()).resolves.toBeDefined();
   });
@@ -59,14 +86,44 @@ describe('env validation', () => {
     vi.stubEnv('GITHUB_REPOSITORY', '');
     vi.stubEnv('GITHUB_RUN_ID', '');
     delete process.env.SUPABASE_JWT_SECRET;
+    delete process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK;
 
-    await expect(loadEnvModule()).rejects.toThrow('SUPABASE_JWT_SECRET');
+    await expect(loadEnvModule()).rejects.toThrow(
+      'SUPABASE_AGENTIC_JWT_PRIVATE_JWK or SUPABASE_JWT_SECRET is required in production'
+    );
+  });
+
+  it('allows production boot when an agentic JWT signing key is configured', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_AGENTIC_JWT_PRIVATE_JWK', validAgenticPrivateJwk);
+
+    await expect(loadEnvModule()).resolves.toBeDefined();
+  });
+
+  it('ignores a whitespace-only legacy JWT secret when an agentic signing key is configured', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', '   ');
+    vi.stubEnv('SUPABASE_AGENTIC_JWT_PRIVATE_JWK', validAgenticPrivateJwk);
+
+    await expect(loadEnvModule()).resolves.toBeDefined();
+  });
+
+  it('rejects production boot when the agentic JWT signing key is malformed', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv(
+      'SUPABASE_AGENTIC_JWT_PRIVATE_JWK',
+      '{"alg":"ES256","kid":"agentic-test-key"}'
+    );
+
+    await expect(loadEnvModule()).rejects.toThrow(
+      'SUPABASE_AGENTIC_JWT_PRIVATE_JWK must be an ES256 private EC JWK with kid'
+    );
   });
 
   it('rejects server boot when the service role key is missing', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     vi.stubEnv('NODE_ENV', 'production');
-    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
 
     await expect(loadEnvModule()).rejects.toThrow('SUPABASE_SERVICE_ROLE_KEY');
@@ -74,7 +131,15 @@ describe('env validation', () => {
 
   it('loads server env when required production secrets are present', async () => {
     vi.stubEnv('NODE_ENV', 'production');
-    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'legacy-test-secret');
+
+    await expect(loadEnvModule()).resolves.toBeDefined();
+  });
+
+  it('ignores a whitespace-only agentic signing key when a legacy JWT secret is configured', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'legacy-test-secret');
+    vi.stubEnv('SUPABASE_AGENTIC_JWT_PRIVATE_JWK', '   ');
 
     await expect(loadEnvModule()).resolves.toBeDefined();
   });
@@ -83,6 +148,7 @@ describe('env validation', () => {
     vi.stubGlobal('window', {});
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     delete process.env.SUPABASE_JWT_SECRET;
+    delete process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK;
 
     await expect(loadEnvModule()).resolves.toBeDefined();
   });
@@ -94,17 +160,23 @@ describe('env validation', () => {
     vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', '  signing-key  ');
     vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS', '   ');
     vi.stubEnv('PAYSTACK_SECRET_KEY', '  paystack-secret  ');
+    vi.stubEnv(
+      'SUPABASE_AGENTIC_JWT_PRIVATE_JWK',
+      `  ${validAgenticPrivateJwk}  `
+    );
     const {
       getAgenticApiKey,
       getAgenticConfirmationKeys,
       getAgenticSigningKeys,
       getPaystackSecretKey,
+      getSupabaseAgenticJwtPrivateJwk,
     } = await loadEnvModule();
 
     expect(getAgenticApiKey()).toBe('agent-api-key');
     expect(getAgenticConfirmationKeys()).toEqual(['confirmation-key']);
     expect(getAgenticSigningKeys()).toEqual(['signing-key']);
     expect(getPaystackSecretKey()).toBe('paystack-secret');
+    expect(getSupabaseAgenticJwtPrivateJwk()).toBe(validAgenticPrivateJwk);
   });
 
   it('treats empty agentic runtime secrets as unset', async () => {
