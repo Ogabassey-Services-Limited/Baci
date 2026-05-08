@@ -28,7 +28,13 @@ export default function PaymentGatewayScreen() {
   }
 
   if (controller.status === 'processing') {
-    return <PaymentProcessingView colors={colors} />;
+    return (
+      <PaymentProcessingView
+        colors={colors}
+        paymentKind={controller.paymentKind}
+        utilityType={controller.utilityType}
+      />
+    );
   }
 
   if (controller.status === 'success') {
