@@ -12,10 +12,7 @@ export async function GET(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
     if (!auth.user || !auth.supabase) {
-      return NextResponse.json(
-        { error: auth.error ?? 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const searchParams = request.nextUrl.searchParams;

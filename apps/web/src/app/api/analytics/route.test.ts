@@ -96,7 +96,7 @@ describe('GET /api/analytics', () => {
     const body = await response.json();
 
     expect(response.status).toBe(401);
-    expect(body.error).toBe('Invalid or expired token');
+    expect(body.error).toBe('Unauthorized');
     expect(mockGetMerchantAnalyticsOverview).not.toHaveBeenCalled();
   });
 
