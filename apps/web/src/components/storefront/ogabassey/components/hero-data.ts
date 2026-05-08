@@ -98,8 +98,7 @@ export const DESKTOP_IPHONE_SLIDES: HeroDesktopSlideData[] = [
     subtitle: 'Design',
     headline: 'Forged in',
     headlineSuffix: 'TITANIUM',
-    image:
-      'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-7inch-bluetitanium?wid=1920&hei=1080&fmt=p-jpg&qlt=80&.v=1692845702708',
+    image: HERO_DESKTOP_LCP_SRC,
     theme: 'light',
   },
   {
@@ -108,8 +107,7 @@ export const DESKTOP_IPHONE_SLIDES: HeroDesktopSlideData[] = [
     subtitle: 'Chip',
     headline: 'Monster',
     headlineSuffix: 'PERFORMANCE',
-    image:
-      'https://store.storeimages.cdn-apple.com/4982/as-images.apple.com/is/iphone-15-pro-finish-select-202309-6-7inch-blacktitanium?wid=1920&hei=1080&fmt=p-jpg&qlt=80&.v=1692845702708',
+    image: HERO_DESKTOP_LCP_SRC,
     theme: 'light',
   },
 ];

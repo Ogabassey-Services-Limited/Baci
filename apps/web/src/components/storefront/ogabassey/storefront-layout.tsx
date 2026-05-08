@@ -11,6 +11,7 @@ import {
   getOgabasseyBasePath,
   shouldEnableOgabasseyGoogleStoreWidget,
 } from './storefront-layout-utils';
+import { OGABASSEY_CDN_ORIGIN } from './config/storefront-origins';
 
 interface OgabasseyStorefrontLayoutProps {
   children: React.ReactNode;
@@ -27,10 +28,8 @@ export function OgabasseyStorefrontLayout({
   hideNavigation = false,
   routingMode = 'path',
 }: OgabasseyStorefrontLayoutProps) {
-  ReactDOM.prefetchDNS('https://cdn.ogabassey.com');
-  ReactDOM.preconnect('https://cdn.ogabassey.com', {
-    crossOrigin: '',
-  });
+  ReactDOM.prefetchDNS(OGABASSEY_CDN_ORIGIN);
+  ReactDOM.preconnect(OGABASSEY_CDN_ORIGIN);
 
   const basePath = getOgabasseyBasePath(merchant?.slug, routingMode);
   const shouldEnableGoogleStoreWidget =

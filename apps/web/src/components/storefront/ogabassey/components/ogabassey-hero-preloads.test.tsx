@@ -9,6 +9,7 @@ import {
   OGABASSEY_HERO_PRECONNECT_ORIGINS,
   OgabasseyHeroPreloads,
 } from './ogabassey-hero-preloads';
+import { OGABASSEY_CDN_ORIGIN } from '../config/storefront-origins';
 
 describe('OgabasseyHeroPreloads', () => {
   function clearHints() {
@@ -21,37 +22,33 @@ describe('OgabasseyHeroPreloads', () => {
       });
   }
 
-  it('emits dns-prefetch + preconnect hints for every origin in the constant', () => {
+  it('does not emit duplicate third-party warmups', () => {
     clearHints();
     render(<OgabasseyHeroPreloads />);
-
-    const expectedOrigins = Array.from(OGABASSEY_HERO_PRECONNECT_ORIGINS);
 
     const preconnectHrefs = Array.from(
       document.querySelectorAll<HTMLLinkElement>('link[rel="preconnect"]')
     ).map((l) => l.getAttribute('href'));
-    expect(preconnectHrefs.sort()).toEqual([...expectedOrigins].sort());
+    expect(preconnectHrefs).toEqual([]);
 
     const dnsHrefs = Array.from(
       document.querySelectorAll<HTMLLinkElement>('link[rel="dns-prefetch"]')
     ).map((l) => l.getAttribute('href'));
-    expect(dnsHrefs.sort()).toEqual([...expectedOrigins].sort());
+    expect(dnsHrefs).toEqual([]);
+    expect(OGABASSEY_HERO_PRECONNECT_ORIGINS).toEqual([]);
   });
 
-  it('omits crossorigin so the preconnect pool matches the no-CORS image fetches', () => {
+  it('leaves the shared CDN warmup to the OgaBassey layout', () => {
     clearHints();
     render(<OgabasseyHeroPreloads />);
 
-    const preconnects = Array.from(
-      document.querySelectorAll<HTMLLinkElement>('link[rel="preconnect"]')
-    );
-    expect(preconnects.length).toBeGreaterThan(0);
-    // Next.js <Image> requests these origins without CORS. A `crossorigin`
-    // preconnect would open a separate connection pool the actual <img>
-    // GETs can't reuse, defeating the warmup.
-    for (const link of preconnects) {
-      expect(link).not.toHaveAttribute('crossorigin');
-    }
+    const hintedOrigins = Array.from(
+      document.querySelectorAll<HTMLLinkElement>(
+        'link[rel="preconnect"], link[rel="dns-prefetch"]'
+      )
+    ).map((link) => link.getAttribute('href'));
+
+    expect(hintedOrigins).not.toContain(OGABASSEY_CDN_ORIGIN);
   });
 
   it('emits viewport-scoped manual LCP preloads', () => {
