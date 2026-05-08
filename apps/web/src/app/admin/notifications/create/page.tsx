@@ -50,7 +50,7 @@ import type {
 interface CreateNotificationResponse {
   merchants_notified?: number;
   scheduled_for?: string | null;
-  status: 'sent' | 'scheduled' | string;
+  status: 'sent' | 'scheduled' | (string & {});
 }
 
 const typeOptions: {

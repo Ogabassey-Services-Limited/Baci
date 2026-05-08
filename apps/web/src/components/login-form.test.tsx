@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockUseSearchParams = vi.fn(() => new URLSearchParams());
 const mockSignInWithOAuth = vi.fn(async () => ({ error: null }));
+const mockToast = vi.fn();
 
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
@@ -25,7 +26,7 @@ vi.mock('@/components/logo', () => ({
 }));
 
 vi.mock('@/hooks/use-toast', () => ({
-  useToast: () => ({ toast: vi.fn() }),
+  useToast: () => ({ toast: mockToast }),
 }));
 
 vi.mock('@/lib/supabase/client', () => ({
@@ -74,5 +75,24 @@ describe('LoginForm', () => {
         },
       });
     });
+  });
+
+  it('shows an error toast and re-enables OAuth when Google sign-in fails', async () => {
+    mockSignInWithOAuth.mockRejectedValueOnce(new Error('OAuth unavailable'));
+
+    render(<LoginForm />);
+
+    const googleButton = screen.getByRole('button', { name: /google/i });
+
+    fireEvent.click(googleButton);
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        description: 'OAuth unavailable',
+        title: 'Google Sign-in Failed',
+        variant: 'destructive',
+      });
+    });
+    expect(googleButton).toBeEnabled();
   });
 });

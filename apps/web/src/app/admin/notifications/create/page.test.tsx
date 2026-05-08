@@ -91,4 +91,28 @@ describe('CreateNotificationPage', () => {
     );
     expect(mockRouterPush).toHaveBeenCalledWith('/admin/notifications');
   });
+
+  it('shows an error toast and does not navigate when notification creation fails', async () => {
+    const user = userEvent.setup();
+    mockApiPost.mockRejectedValueOnce(new Error('CSRF token missing'));
+
+    render(<CreateNotificationPage />);
+
+    await user.type(screen.getByLabelText(/title/i), 'Maintenance window');
+    await user.type(
+      screen.getByLabelText(/message/i),
+      'Baci will run maintenance tonight.'
+    );
+    await user.click(screen.getByRole('button', { name: /send now/i }));
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        description: 'CSRF token missing',
+        title: 'Error',
+        variant: 'destructive',
+      });
+    });
+
+    expect(mockRouterPush).not.toHaveBeenCalled();
+  });
 });

@@ -148,4 +148,38 @@ describe('NotificationDetailsPage', () => {
     );
     expect(mockRouterPush).toHaveBeenCalledWith('/admin/notifications');
   });
+
+  it('shows an error toast and stays on the page when deletion fails', async () => {
+    const user = userEvent.setup();
+    const params = Promise.resolve({ id: 'notification-1' }) as ResolvedParams;
+    params.status = 'fulfilled';
+    params.value = { id: 'notification-1' };
+    mockApiDelete.mockRejectedValueOnce(new Error('Delete failed'));
+
+    render(
+      <Suspense fallback={<div>Loading route</div>}>
+        <NotificationDetailsPage params={params} />
+      </Suspense>
+    );
+
+    expect(
+      await screen.findByRole('heading', {
+        level: 1,
+        name: 'Maintenance window',
+      })
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^delete$/i }));
+    await user.click(screen.getAllByRole('button', { name: /^delete$/i })[1]);
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith({
+        description: 'Failed to delete notification',
+        title: 'Error',
+        variant: 'destructive',
+      });
+    });
+
+    expect(mockRouterPush).not.toHaveBeenCalled();
+  });
 });

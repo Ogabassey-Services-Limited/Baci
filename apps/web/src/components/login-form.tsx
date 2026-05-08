@@ -128,18 +128,32 @@ export default function LoginForm() {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
-      },
-    });
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+        },
+      });
 
-    if (error) {
+      if (!error) {
+        return;
+      }
+
       toast({
         variant: 'destructive',
         title: 'Google Sign-in Failed',
         description: error.message,
+      });
+      setIsGoogleLoading(false);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Google Sign-in Failed',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Unable to start Google sign-in',
       });
       setIsGoogleLoading(false);
     }
@@ -148,18 +162,32 @@ export default function LoginForm() {
   const handleAppleSignIn = async () => {
     setIsAppleLoading(true);
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'apple',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
-      },
-    });
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'apple',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+        },
+      });
 
-    if (error) {
+      if (!error) {
+        return;
+      }
+
       toast({
         variant: 'destructive',
         title: 'Apple Sign-in Failed',
         description: error.message,
+      });
+      setIsAppleLoading(false);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Apple Sign-in Failed',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Unable to start Apple sign-in',
       });
       setIsAppleLoading(false);
     }
