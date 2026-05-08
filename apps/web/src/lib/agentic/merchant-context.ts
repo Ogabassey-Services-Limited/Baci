@@ -5,12 +5,11 @@ import {
   getAgenticMerchantSlug,
   getAgenticSigningKeys,
   getPaystackSecretKey,
-  getSupabaseJwtSecret,
 } from '@/env';
+import { hasUsableAgenticJwtSigningMaterial } from '@/lib/agentic/jwt-signing-material';
 
 export interface AgenticMerchantContext {
   business_name: string | null;
-  custom_domain?: string;
   id: string;
   paystack_subaccount_code: string | null;
   slug: string;
@@ -23,21 +22,15 @@ export function getConfiguredAgenticMerchantSlug(): string | undefined {
 export function isAgenticCheckoutRuntimeConfigured(): boolean {
   const confirmationKeys = getAgenticConfirmationKeys();
   const signingKeys = getAgenticSigningKeys();
-  let supabaseJwtSecret: string | undefined;
-  try {
-    supabaseJwtSecret = getSupabaseJwtSecret();
-  } catch {
-    supabaseJwtSecret = undefined;
-  }
 
   return Boolean(
     getConfiguredAgenticMerchantSlug() &&
       getAgenticApiKey() &&
       hasOnlyNonBlankEntries(confirmationKeys) &&
       hasOnlyNonBlankEntries(signingKeys) &&
+      hasUsableAgenticJwtSigningMaterial() &&
       // Optional Paystack getter trims runtime env and returns undefined when absent.
-      getPaystackSecretKey() &&
-      supabaseJwtSecret
+      getPaystackSecretKey()
   );
 }
 
@@ -55,7 +48,7 @@ export async function resolveAgenticMerchantContext(
 
   const { data, error } = await supabase
     .from('merchants')
-    .select('id, slug, business_name, custom_domain, paystack_subaccount_code')
+    .select('id, slug, business_name, paystack_subaccount_code')
     .eq('slug', merchantSlug)
     .maybeSingle();
 
@@ -66,8 +59,6 @@ export async function resolveAgenticMerchantContext(
   return {
     business_name:
       typeof data.business_name === 'string' ? data.business_name : null,
-    custom_domain:
-      typeof data.custom_domain === 'string' ? data.custom_domain : undefined,
     id: data.id,
     paystack_subaccount_code:
       typeof data.paystack_subaccount_code === 'string'

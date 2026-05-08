@@ -7,6 +7,7 @@
 // Import shared types from monorepo
 import type {
   Order,
+  OrderFulfillmentDetails,
   OrderItem,
   PaymentStatus,
   ShippingStatus,
@@ -453,7 +454,7 @@ export function useOrder(orderId: string) {
       const balance = Math.max(0, (Number(order.total) || 0) - amountPaid);
 
       const orderWithMeta = order as typeof order & {
-        fulfillment_details?: { imei?: string; serialNumber?: string } | null;
+        fulfillment_details?: OrderFulfillmentDetails | null;
       };
 
       return {

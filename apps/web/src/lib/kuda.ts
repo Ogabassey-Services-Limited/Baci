@@ -8,6 +8,7 @@
 import crypto from 'node:crypto';
 import { logKudaRawResponse } from '@/lib/kuda-debug-log';
 import {
+  extractKudaTransactionId,
   extractKudaVoucherPin,
   type KudaVoucherTokenField,
   normalizeKudaString,
@@ -741,11 +742,7 @@ export async function purchaseAirtime(
 
     const vendSucceeded = isKudaVendSuccessful(response.status, response.data);
     const pin = extractKudaVoucherPin(response.data);
-    const normalizedReference = normalizeKudaString(reference);
-    const transactionId =
-      normalizeKudaString(response.data?.reference) ??
-      normalizeKudaString(response.data?.Reference) ??
-      normalizedReference;
+    const transactionId = extractKudaTransactionId(response.data, reference);
 
     return {
       success: vendSucceeded,
@@ -805,11 +802,7 @@ export async function purchaseData(
 
     const vendSucceeded = isKudaVendSuccessful(response.status, response.data);
     const pin = extractKudaVoucherPin(response.data);
-    const normalizedReference = normalizeKudaString(reference);
-    const transactionId =
-      normalizeKudaString(response.data?.reference) ??
-      normalizeKudaString(response.data?.Reference) ??
-      normalizedReference;
+    const transactionId = extractKudaTransactionId(response.data, reference);
 
     return {
       success: vendSucceeded,

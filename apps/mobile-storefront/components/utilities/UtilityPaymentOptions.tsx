@@ -12,6 +12,11 @@ import type { SavedVtuCard } from '@/lib/vtu-checkout';
 import type { WalletSelection } from '@/lib/wallet-payment-helpers';
 import type { UtilityPaymentGateway } from '@/hooks/use-utility-payment';
 
+const CARD_CASHBACK_BADGE = '2x cashback';
+const CARD_CASHBACK_DESCRIPTION = '2x cashback on your first card payment';
+const PAYSTACK_BLUE_DARK_MODE = '#5CD6FF';
+const PAYSTACK_BLUE = '#011B33';
+
 interface UtilityPaymentOptionsProps {
   amount: number;
   cards: SavedVtuCard[];
@@ -48,19 +53,64 @@ export function UtilityPaymentOptions({
 }: UtilityPaymentOptionsProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const walletCoversBill =
+    amount > 0 &&
+    Number.isFinite(walletSelection?.amount) &&
+    walletSelection?.use === true &&
+    walletSelection.amount >= amount;
+  const methodLabelOverrides = {
+    bank_transfer: 'Pay with Bank Transfer',
+    ...(cards.length > 0 ? { paystack: 'Use another card' } : {}),
+  };
+  const hasPaystackOption =
+    cards.length > 0 ||
+    supportedGateways.some(
+      (gateway) => gateway === 'paystack' || gateway === 'bank_transfer'
+    );
 
   return (
     <View style={styles.container}>
       <Text style={[styles.sectionTitle, { color: colors.text }]}>
         Payment Method
       </Text>
+      {hasPaystackOption ? (
+        <View
+          style={[
+            styles.paystackTrust,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Text
+            style={[styles.paystackTrustText, { color: colors.textSecondary }]}
+          >
+            Secured by
+          </Text>
+          <Text
+            style={[
+              styles.paystackWordmark,
+              {
+                color:
+                  (colorScheme ?? 'light') === 'dark'
+                    ? PAYSTACK_BLUE_DARK_MODE
+                    : PAYSTACK_BLUE,
+              },
+            ]}
+          >
+            Paystack
+          </Text>
+        </View>
+      ) : null}
 
       {isLoadingCards ? (
         <ActivityIndicator color={BRAND.primary} style={styles.loader} />
       ) : cards.length > 0 ? (
         <View style={styles.cardsList}>
           {cards.map((card) => {
-            const isSelected = selectedSavedCardId === card.id;
+            const isSelected =
+              !walletCoversBill && selectedSavedCardId === card.id;
             const savedCardMeta =
               card.exp_month && card.exp_year
                 ? `Expires ${card.exp_month}/${card.exp_year}`
@@ -80,7 +130,15 @@ export function UtilityPaymentOptions({
                     borderColor: isSelected ? BRAND.primary : colors.border,
                   },
                 ]}
-                onPress={() => onSelectSavedCard(card.id)}
+                onPress={() => {
+                  if (walletCoversBill && !onWalletToggle) {
+                    return;
+                  }
+                  if (walletCoversBill) {
+                    onWalletToggle?.({ amount: 0, use: false });
+                  }
+                  onSelectSavedCard(card.id);
+                }}
               >
                 <View style={styles.savedCardCopy}>
                   <Text style={[styles.savedCardTitle, { color: colors.text }]}>
@@ -123,7 +181,11 @@ export function UtilityPaymentOptions({
       <PaymentMethodSelector
         enabledMethods={supportedGateways}
         onSelectMethod={(method) => {
-          if (method === 'paystack' || method === 'korapay') {
+          if (
+            method === 'paystack' ||
+            method === 'korapay' ||
+            method === 'bank_transfer'
+          ) {
             onSelectGateway(method);
           }
         }}
@@ -133,11 +195,15 @@ export function UtilityPaymentOptions({
         selectedTab="full"
         showInstallmentCalculator={false}
         suppressedSelectedMethods={
-          selectedSavedCardId ? ['paystack'] : undefined
+          selectedSavedCardId && !walletCoversBill ? ['paystack'] : undefined
         }
-        methodLabelOverrides={
-          cards.length > 0 ? { paystack: 'Use another card' } : undefined
-        }
+        methodLabelOverrides={methodLabelOverrides}
+        methodDescriptionOverrides={{
+          paystack: CARD_CASHBACK_DESCRIPTION,
+        }}
+        methodBadgeOverrides={{
+          paystack: CARD_CASHBACK_BADGE,
+        }}
         walletMode={onWalletToggle ? 'vtu' : 'off'}
         walletBalance={walletBalance}
         walletOrderTotal={amount}
@@ -169,6 +235,25 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginBottom: SPACING.md,
+  },
+  paystackTrust: {
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: SPACING.md,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  paystackTrustText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  paystackWordmark: {
+    fontSize: 13,
+    fontWeight: '800',
   },
   savedCard: {
     alignItems: 'center',

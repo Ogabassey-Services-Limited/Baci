@@ -183,6 +183,38 @@ describe('getStorefrontNotificationNavigationTarget', () => {
       })
     ).toEqual({ screen: 'wallet' });
   });
+
+  it('routes VTU token-ready payloads to utility history', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'vtu_token_ready',
+        utilityType: 'power',
+      })
+    ).toEqual({
+      screen: 'utility-history',
+      params: { type: 'power' },
+    });
+  });
+
+  it('routes VTU token-ready payloads using snake_case utility_type', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'vtu_token_ready',
+        utility_type: 'power',
+      })
+    ).toEqual({
+      screen: 'utility-history',
+      params: { type: 'power' },
+    });
+  });
+
+  it('routes malformed VTU token-ready payloads home', () => {
+    expect(
+      getStorefrontNotificationNavigationTarget({
+        type: 'vtu_token_ready',
+      })
+    ).toEqual({ screen: 'home' });
+  });
 });
 
 describe('getAdminNotificationNavigationTarget — edge cases', () => {
