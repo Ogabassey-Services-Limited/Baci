@@ -109,9 +109,10 @@ export function useBranchSwitcherManagement({
     if (!editingBranch || isEditingRef.current || updateBranch.isPending) {
       return;
     }
+    // Updates send null for cleared fields so the API clears existing metadata.
     const input: UpdateBranchInput = {
       name: editName.trim(),
-      address: editAddress.trim() || undefined,
+      address: editAddress.trim() || null,
     };
     const result = UpdateBranchSchema.safeParse(input);
     if (!result.success) {

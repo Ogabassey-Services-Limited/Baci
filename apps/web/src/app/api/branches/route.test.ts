@@ -28,23 +28,30 @@ const branchRow = {
 
 type QueryResult = {
   data: unknown;
-  error: { message: string; code?: string } | null;
+  error: {
+    message: string;
+    code?: string;
+    constraint?: string;
+    details?: string;
+  } | null;
+  count?: number | null;
 };
 
 let listResult: QueryResult;
 let insertResult: QueryResult;
+let activeBranchCountResult: QueryResult;
 
 type ListQuery = Promise<QueryResult> & {
   eq: ReturnType<typeof vi.fn>;
   order: ReturnType<typeof vi.fn>;
-  select: ReturnType<typeof vi.fn>;
 };
 
 let listQuery: ListQuery;
+let activeBranchCountQuery: ListQuery;
+let branchSelect: ReturnType<typeof vi.fn>;
 
-function createListQuery(): ListQuery {
-  const query = Promise.resolve().then(() => listResult) as ListQuery;
-  query.select = vi.fn(() => query);
+function createQuery(getResult: () => QueryResult): ListQuery {
+  const query = Promise.resolve().then(getResult) as ListQuery;
   query.eq = vi.fn(() => query);
   query.order = vi.fn(() => query);
   return query;
@@ -55,12 +62,10 @@ const insertSelect = vi.fn(() => ({ single: insertSingle }));
 const insert = vi.fn(() => ({ select: insertSelect }));
 const mockFrom = vi.fn((table: string) => {
   if (table === 'branches') {
-    return Object.assign(listQuery, {
-      select: listQuery.select,
-      eq: listQuery.eq,
-      order: listQuery.order,
+    return {
+      select: branchSelect,
       insert,
-    });
+    };
   }
 
   throw new Error(`Unexpected table ${table}`);
@@ -112,13 +117,24 @@ describe('/api/branches', () => {
     mockHasPermission.mockReset();
     mockToUserAccess.mockReset();
     mockFrom.mockClear();
-    listQuery = createListQuery();
+    listQuery = createQuery(() => listResult);
+    activeBranchCountQuery = createQuery(() => activeBranchCountResult);
+    branchSelect = vi.fn(
+      (_columns: string, options?: { count?: string; head?: boolean }) => {
+        if (options?.count === 'exact' && options.head === true) {
+          return activeBranchCountQuery;
+        }
+
+        return listQuery;
+      }
+    );
     insert.mockClear();
     insertSelect.mockClear();
     insertSingle.mockClear();
 
     listResult = { data: [branchRow], error: null };
     insertResult = { data: branchRow, error: null };
+    activeBranchCountResult = { count: 1, data: null, error: null };
     mockAuthenticateApiRequest.mockResolvedValue({
       error: null,
       user: { id: USER_ID },
@@ -147,6 +163,7 @@ describe('/api/branches', () => {
 
   it('lists only active branches for mobile Bearer-authenticated requests', async () => {
     const { GET } = await import('@/app/api/branches/route');
+    const branchUtils = await import('@/app/api/branches/branch-route-utils');
     const request = createRequest(undefined, {
       authorization: 'Bearer mobile-token',
     });
@@ -154,6 +171,9 @@ describe('/api/branches', () => {
     const response = await GET(request);
 
     expect(mockAuthenticateApiRequest).toHaveBeenCalledWith(request);
+    expect(branchUtils.BRANCH_LIST_COLUMNS).toEqual(expect.any(String));
+    expect(branchUtils.BRANCH_LIST_COLUMNS).not.toContain('staff_members');
+    expect(branchSelect).toHaveBeenCalledWith(branchUtils.BRANCH_LIST_COLUMNS);
     expect(listQuery.eq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
     expect(listQuery.eq).toHaveBeenCalledWith('active', true);
     expect(response.status).toBe(200);
@@ -323,6 +343,82 @@ describe('/api/branches', () => {
     await expect(response.json()).resolves.toEqual({
       success: true,
       branch: branchRow,
+    });
+  });
+
+  it('marks the first active branch as default when the client omits default selection', async () => {
+    const { POST } = await import('@/app/api/branches/route');
+    activeBranchCountResult.count = 0;
+
+    const response = await POST(createRequest({ name: 'First branch' }));
+
+    expect(branchSelect).toHaveBeenCalledWith('id', {
+      count: 'exact',
+      head: true,
+    });
+    expect(activeBranchCountQuery.eq).toHaveBeenCalledWith(
+      'merchant_id',
+      MERCHANT_ID
+    );
+    expect(activeBranchCountQuery.eq).toHaveBeenCalledWith('active', true);
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        is_default: true,
+        name: 'First branch',
+      })
+    );
+    expect(response.status).toBe(201);
+  });
+
+  it('treats a null active branch count as a first-branch create', async () => {
+    const { POST } = await import('@/app/api/branches/route');
+    activeBranchCountResult.count = null;
+
+    const response = await POST(createRequest({ name: 'First branch' }));
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({ is_default: true })
+    );
+    expect(response.status).toBe(201);
+  });
+
+  it('retries first branch creation as non-default when another default wins concurrently', async () => {
+    const { POST } = await import('@/app/api/branches/route');
+    const retryBranch = {
+      ...branchRow,
+      name: 'First branch',
+      is_default: false,
+    };
+    activeBranchCountResult.count = 0;
+    insertSingle
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: '23505',
+          constraint: 'idx_branches_one_active_default_per_merchant',
+          message: 'duplicate key value violates unique constraint',
+        },
+      })
+      .mockResolvedValueOnce({ data: retryBranch, error: null });
+
+    const response = await POST(createRequest({ name: 'First branch' }));
+
+    expect(branchSelect).toHaveBeenCalledWith('id', {
+      count: 'exact',
+      head: true,
+    });
+    expect(insert).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ is_default: true })
+    );
+    expect(insert).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ is_default: false })
+    );
+    expect(response.status).toBe(201);
+    await expect(response.json()).resolves.toEqual({
+      success: true,
+      branch: retryBranch,
     });
   });
 

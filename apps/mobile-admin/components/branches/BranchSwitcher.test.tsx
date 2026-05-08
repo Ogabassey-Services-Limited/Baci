@@ -267,6 +267,28 @@ describe('BranchSwitcher', () => {
     });
   });
 
+  it('sends null when clearing a branch address in the edit flow', async () => {
+    render(<BranchSwitcher />);
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Manage Lagos main branch' })
+    );
+    fireEvent.change(screen.getByLabelText('Branch address input'), {
+      target: { value: '' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save branch' }));
+
+    await waitFor(() => {
+      expect(mocks.updateMutateAsync).toHaveBeenCalledWith({
+        branchId: '123e4567-e89b-42d3-a456-426614174001',
+        input: {
+          address: null,
+          name: 'Lagos main',
+        },
+      });
+    });
+  });
+
   it('disables deactivation when the selected branch is the only active branch', () => {
     mocks.branches = [mocks.branches[0]];
 

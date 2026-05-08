@@ -5,11 +5,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getBranchScopeStorageKey, useBranchScope } from '@/hooks/useBranchScope';
 
 const uuid = '123e4567-e89b-42d3-a456-426614174000';
+const staleUuid = '123e4567-e89b-42d3-a456-426614174001';
 
 const mocks = vi.hoisted(() => {
   const storageValues = new Map<string, string>();
 
   return {
+    branches: [{ id: '123e4567-e89b-42d3-a456-426614174000', active: true }],
+    branchesLoaded: true,
     merchant: { id: 'merchant-1' } as { id: string } | null,
     user: { id: 'user-1' } as { id: string } | null,
     storageValues,
@@ -29,6 +32,13 @@ vi.mock('@/hooks/useMerchant', () => ({
 
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({ user: mocks.user }),
+}));
+
+vi.mock('@/hooks/useBranches', () => ({
+  useBranches: () => ({
+    data: mocks.branches,
+    isSuccess: mocks.branchesLoaded,
+  }),
 }));
 
 vi.mock('@/lib/storage', () => ({
@@ -60,6 +70,8 @@ function createWrapper() {
 
 describe('useBranchScope', () => {
   beforeEach(() => {
+    mocks.branches = [{ id: uuid, active: true }];
+    mocks.branchesLoaded = true;
     mocks.merchant = { id: 'merchant-1' };
     mocks.user = { id: 'user-1' };
     mocks.storageValues.clear();
@@ -133,6 +145,34 @@ describe('useBranchScope', () => {
 
     expect(result.current.scope).toEqual({ type: 'branch', branchId: uuid });
     expect(result.current.branchId).toBe(uuid);
+  });
+
+  it('clears a persisted concrete branch scope when the branch is not in the current list', async () => {
+    const key = getBranchScopeStorageKey('merchant-1', 'user-1');
+    mocks.storageValues.set(key, staleUuid);
+    mocks.branches = [{ id: uuid, active: true }];
+    const { Wrapper } = createWrapper();
+
+    const { result } = renderHook(() => useBranchScope(), { wrapper: Wrapper });
+
+    await waitFor(() => {
+      expect(result.current.scope).toEqual({ type: 'all' });
+    });
+    expect(mocks.storageRemove).toHaveBeenCalledWith(key);
+  });
+
+  it('clears a persisted concrete branch scope when the branch is inactive', async () => {
+    const key = getBranchScopeStorageKey('merchant-1', 'user-1');
+    mocks.storageValues.set(key, staleUuid);
+    mocks.branches = [{ id: staleUuid, active: false }];
+    const { Wrapper } = createWrapper();
+
+    const { result } = renderHook(() => useBranchScope(), { wrapper: Wrapper });
+
+    await waitFor(() => {
+      expect(result.current.scope).toEqual({ type: 'all' });
+    });
+    expect(mocks.storageRemove).toHaveBeenCalledWith(key);
   });
 
   it('persists branch scope updates', async () => {

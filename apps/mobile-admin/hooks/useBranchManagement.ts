@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Alert } from 'react-native';
 import type { Branch } from '@/components/staff/types';
+import { useBranchScope } from '@/hooks/useBranchScope';
 import type { UpdateBranchInput } from '@/schemas/branch';
 
 interface MutationCallbacks {
@@ -42,6 +43,7 @@ export function useBranchManagement({
   updateBranchMutation,
   deactivateBranchMutation,
 }: UseBranchManagementOptions) {
+  const { scope, setAllLocations } = useBranchScope();
   const [showBranchModal, setShowBranchModal] = useState(false);
   const [newBranchName, setNewBranchName] = useState('');
   const [newBranchCity, setNewBranchCity] = useState('');
@@ -146,6 +148,11 @@ export function useBranchManagement({
                   'Deactivate failed',
                   'Could not deactivate this branch.'
                 );
+              },
+              onSuccess: () => {
+                if (scope.type === 'branch' && scope.branchId === branchId) {
+                  setAllLocations();
+                }
               },
             });
           },

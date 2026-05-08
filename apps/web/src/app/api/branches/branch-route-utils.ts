@@ -3,7 +3,7 @@ import { authenticateApiRequest } from '@/lib/api-auth';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { requestedMerchantIdSchema } from '@/schemas/branches';
 
-const BRANCH_BASE_COLUMNS = `
+const BRANCH_LIST_BASE_COLUMNS = `
   id,
   merchant_id,
   name,
@@ -15,7 +15,13 @@ const BRANCH_BASE_COLUMNS = `
   is_default,
   active,
   created_at,
-  updated_at,
+  updated_at
+`.trim();
+
+export const BRANCH_LIST_COLUMNS = BRANCH_LIST_BASE_COLUMNS;
+
+const BRANCH_BASE_COLUMNS = `
+  ${BRANCH_LIST_BASE_COLUMNS},
   staff_members:manager_id (
     id,
     name,
@@ -81,12 +87,7 @@ export function mapBranchMutationError(
 
   const lowerMessage = error.message?.toLowerCase() ?? '';
   const lowerDetails = error.details?.toLowerCase() ?? '';
-  const isDefaultBranchConflict =
-    error.constraint === 'idx_branches_one_active_default_per_merchant' ||
-    lowerDetails.includes('idx_branches_one_active_default_per_merchant') ||
-    lowerMessage.includes('idx_branches_one_active_default_per_merchant');
-
-  if (error.code === '23505' && isDefaultBranchConflict) {
+  if (isDefaultBranchConflictError(error)) {
     console.warn('[Branches] Default branch conflict:', error);
     return NextResponse.json(
       { error: 'Default branch conflict' },
@@ -127,6 +128,31 @@ export function mapBranchMutationError(
 
   console.error('[Branches] Unhandled mutation error:', error);
   return NextResponse.json({ error: fallback }, { status: 500 });
+}
+
+export function isDefaultBranchConflictError(
+  error:
+    | {
+        code?: string;
+        constraint?: string;
+        details?: string;
+        message?: string;
+      }
+    | null
+    | undefined
+) {
+  if (error?.code !== '23505') {
+    return false;
+  }
+
+  const lowerMessage = error.message?.toLowerCase() ?? '';
+  const lowerDetails = error.details?.toLowerCase() ?? '';
+
+  return (
+    error.constraint === 'idx_branches_one_active_default_per_merchant' ||
+    lowerDetails.includes('idx_branches_one_active_default_per_merchant') ||
+    lowerMessage.includes('idx_branches_one_active_default_per_merchant')
+  );
 }
 
 export async function authenticateAndResolveMerchant(request: NextRequest) {

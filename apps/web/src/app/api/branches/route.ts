@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import {
   BRANCH_COLUMNS,
+  BRANCH_LIST_COLUMNS,
+  isDefaultBranchConflictError,
   mapBranchMutationError,
   parseRequestedMerchantId,
 } from '@/app/api/branches/branch-route-utils';
@@ -39,7 +41,7 @@ export async function GET(request: NextRequest) {
 
     const { data: branches, error } = await auth.supabase
       .from('branches')
-      .select(BRANCH_COLUMNS)
+      .select(BRANCH_LIST_COLUMNS)
       .eq('merchant_id', merchantContext.merchantId)
       .eq('active', true)
       .order('is_default', { ascending: false })
@@ -129,21 +131,56 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    const { count: activeBranchCount, error: activeBranchCountError } =
+      await auth.supabase
+        .from('branches')
+        .select('id', { count: 'exact', head: true })
+        .eq('merchant_id', merchantContext.merchantId)
+        .eq('active', true);
+
+    if (activeBranchCountError) {
+      console.error(
+        'Branch active count query failed:',
+        activeBranchCountError
+      );
+      return NextResponse.json(
+        { error: 'Failed to create branch' },
+        { status: 500 }
+      );
+    }
+
     const { address, city, state, phone, managerId, isDefault } = parsed.data;
-    const { data: branch, error } = await auth.supabase
+    const isFirstActiveBranch = (activeBranchCount ?? 0) === 0;
+    const effectiveIsDefault = isFirstActiveBranch ? true : isDefault;
+    const branchInsert = {
+      merchant_id: merchantContext.merchantId,
+      name: sanitizedName.data,
+      address: address ? sanitizeText(address, 240) || null : null,
+      city: city ? sanitizeText(city, 120) || null : null,
+      state: state ? sanitizeText(state, 120) || null : null,
+      phone: phone ? sanitizePhone(phone) || null : null,
+      manager_id: managerId || null,
+      is_default: effectiveIsDefault,
+    };
+
+    let { data: branch, error } = await auth.supabase
       .from('branches')
-      .insert({
-        merchant_id: merchantContext.merchantId,
-        name: sanitizedName.data,
-        address: address ? sanitizeText(address, 240) || null : null,
-        city: city ? sanitizeText(city, 120) || null : null,
-        state: state ? sanitizeText(state, 120) || null : null,
-        phone: phone ? sanitizePhone(phone) || null : null,
-        manager_id: managerId || null,
-        is_default: isDefault,
-      })
+      .insert(branchInsert)
       .select(BRANCH_COLUMNS)
       .single();
+
+    if (
+      isFirstActiveBranch &&
+      isDefaultBranchConflictError(error ?? undefined)
+    ) {
+      const retryResult = await auth.supabase
+        .from('branches')
+        .insert({ ...branchInsert, is_default: false })
+        .select(BRANCH_COLUMNS)
+        .single();
+      branch = retryResult.data;
+      error = retryResult.error;
+    }
 
     if (error) {
       return mapBranchMutationError(error, 'Failed to create branch');

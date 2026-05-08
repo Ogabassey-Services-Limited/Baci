@@ -4,11 +4,24 @@ import type { Branch } from '@/components/staff/types';
 import { useBranchManagement } from '@/hooks/useBranchManagement';
 
 const alertMock = vi.hoisted(() => vi.fn());
+const branchScopeMocks = vi.hoisted(() => ({
+  scope: { type: 'all' } as
+    | { type: 'all' }
+    | { type: 'branch'; branchId: string },
+  setAllLocations: vi.fn(),
+}));
 
 vi.mock('react-native', () => ({
   Alert: {
     alert: alertMock,
   },
+}));
+
+vi.mock('@/hooks/useBranchScope', () => ({
+  useBranchScope: () => ({
+    scope: branchScopeMocks.scope,
+    setAllLocations: branchScopeMocks.setAllLocations,
+  }),
 }));
 
 const branches: Branch[] = [
@@ -69,6 +82,8 @@ function renderBranchManagement({
 describe('useBranchManagement', () => {
   beforeEach(() => {
     alertMock.mockReset();
+    branchScopeMocks.scope = { type: 'all' };
+    branchScopeMocks.setAllLocations.mockReset();
   });
 
   it('does not submit duplicate create mutations while create is pending', () => {
@@ -183,5 +198,65 @@ describe('useBranchManagement', () => {
     });
 
     expect(deactivateMutate).not.toHaveBeenCalled();
+  });
+
+  it('resets branch scope when the deactivated branch is currently selected', () => {
+    branchScopeMocks.scope = { type: 'branch', branchId: 'branch-1' };
+    const { deactivateMutate, result } = renderBranchManagement();
+
+    act(() => {
+      result.current.handleDeactivateBranch('branch-1');
+    });
+    const actions = alertMock.mock.calls[0][2] as Array<{
+      text: string;
+      onPress?: () => void;
+    }>;
+    const deactivateAction = actions.find(
+      (action) => action.text === 'Deactivate'
+    );
+
+    act(() => {
+      deactivateAction?.onPress?.();
+    });
+    expect(deactivateMutate).toHaveBeenCalledTimes(1);
+    const callbacks = deactivateMutate.mock.calls[0][1] as {
+      onSuccess?: () => void;
+    };
+
+    act(() => {
+      callbacks.onSuccess?.();
+    });
+
+    expect(branchScopeMocks.setAllLocations).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps branch scope when deactivating a different branch', () => {
+    branchScopeMocks.scope = { type: 'branch', branchId: 'branch-2' };
+    const { deactivateMutate, result } = renderBranchManagement();
+
+    act(() => {
+      result.current.handleDeactivateBranch('branch-1');
+    });
+    const actions = alertMock.mock.calls[0][2] as Array<{
+      text: string;
+      onPress?: () => void;
+    }>;
+    const deactivateAction = actions.find(
+      (action) => action.text === 'Deactivate'
+    );
+
+    act(() => {
+      deactivateAction?.onPress?.();
+    });
+    expect(deactivateMutate).toHaveBeenCalledTimes(1);
+    const callbacks = deactivateMutate.mock.calls[0][1] as {
+      onSuccess?: () => void;
+    };
+
+    act(() => {
+      callbacks.onSuccess?.();
+    });
+
+    expect(branchScopeMocks.setAllLocations).not.toHaveBeenCalled();
   });
 });

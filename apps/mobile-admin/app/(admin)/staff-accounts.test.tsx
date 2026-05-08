@@ -38,6 +38,10 @@ const mocks = vi.hoisted(() => {
     createBranch: vi.fn(),
     deactivateBranch: vi.fn(),
     alert: vi.fn(),
+    branchScope: { type: 'all' } as
+      | { type: 'all' }
+      | { type: 'branch'; branchId: string },
+    setAllLocations: vi.fn(),
     updateBranch: vi.fn(),
   };
 });
@@ -72,6 +76,13 @@ vi.mock('@/hooks/useBranches', () => ({
   useUpdateBranch: () => ({
     isPending: false,
     mutate: mocks.updateBranch,
+  }),
+}));
+
+vi.mock('@/hooks/useBranchScope', () => ({
+  useBranchScope: () => ({
+    scope: mocks.branchScope,
+    setAllLocations: mocks.setAllLocations,
   }),
 }));
 
@@ -204,6 +215,7 @@ function pressAlertButton(title: string, label: string) {
 describe('StaffAccountsScreen branch management', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.branchScope = { type: 'all' };
     mocks.branches = mocks.branchFixtures();
   });
 
