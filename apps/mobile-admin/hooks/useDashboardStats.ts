@@ -469,37 +469,33 @@ async function fetchRevenueChart(
   return monthBuckets.map(({ label, value }) => ({ label, value }));
 }
 
-async function fetchTopProducts(
+export async function fetchTopProducts(
   merchantId: string,
-  limit: number = 5
+  limit: number = 5,
+  scope: BranchScope = ALL_BRANCH_SCOPE
 ): Promise<TopProduct[]> {
   const startDate = new Date(0).toISOString();
   const endDate = new Date().toISOString();
 
-  // Get top selling products by quantity sold
-  const { data, error } = await supabase.rpc('get_top_products', {
-    p_merchant_id: merchantId,
-    p_start_date: startDate,
-    p_end_date: endDate,
-    p_limit: limit,
-  });
-
-  if (error) {
-    // Fallback: manual query if RPC doesn't exist
-    if (__DEV__) {
-      console.log('[DashboardStats] RPC not available, using fallback query');
-    }
-
-    const { data: orderItems } = await supabase
+  const fetchFromOrderItems = async () => {
+    let orderItemsQuery = supabase
       .from('order_items')
       .select(`
         quantity,
         price,
         product_id,
         products!inner(id, name, price, images),
-        orders!inner(merchant_id)
+        orders!inner(merchant_id, branch_id)
       `)
       .eq('orders.merchant_id', merchantId);
+
+    orderItemsQuery = applyOrderBranchScope(
+      orderItemsQuery,
+      scope,
+      'orders.branch_id'
+    );
+
+    const { data: orderItems } = await orderItemsQuery;
 
     if (!orderItems) return [];
 
@@ -555,6 +551,27 @@ async function fetchTopProducts(
       totalSold: p.totalSold,
       totalRevenue: p.totalRevenue,
     }));
+  };
+
+  if (scope.type === 'branch') {
+    return fetchFromOrderItems();
+  }
+
+  // Get top selling products by quantity sold
+  const { data, error } = await supabase.rpc('get_top_products', {
+    p_merchant_id: merchantId,
+    p_start_date: startDate,
+    p_end_date: endDate,
+    p_limit: limit,
+  });
+
+  if (error) {
+    // Fallback: manual query if RPC doesn't exist
+    if (__DEV__) {
+      console.log('[DashboardStats] RPC not available, using fallback query');
+    }
+
+    return fetchFromOrderItems();
   }
 
   return (data || []).map(
@@ -597,8 +614,8 @@ export function useDashboardStats(period: TimePeriod = 'week') {
   });
 
   const topProductsQuery = useQuery({
-    queryKey: ['top-products', merchantId],
-    queryFn: () => fetchTopProducts(merchantId!, 5),
+    queryKey: ['top-products', merchantId, branchScopeKey],
+    queryFn: () => fetchTopProducts(merchantId!, 5, scope),
     enabled: !!merchantId,
     staleTime: 1000 * 60 * 10, // 10 minutes
   });
