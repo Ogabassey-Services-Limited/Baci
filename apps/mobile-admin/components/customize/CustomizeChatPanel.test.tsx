@@ -61,6 +61,10 @@ vi.mock('react-native', () => ({
       {children}
     </button>
   ),
+  Platform: {
+    OS: 'ios',
+    select: (opts: Record<string, unknown>) => opts.ios || opts.default,
+  },
   StyleSheet: {
     create: (styles: Record<string, unknown>) => styles,
   },
