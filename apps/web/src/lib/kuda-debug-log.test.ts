@@ -148,6 +148,11 @@ describe('kuda-debug-log', () => {
 
     expect(loggerMocks.info).toHaveBeenCalledWith(
       expect.objectContaining({
+        rawResponse: expect.objectContaining({
+          self: '[Circular]',
+          status: true,
+          value: '10',
+        }),
         rawResponseJson: '{"status":true,"value":"10","self":"[Circular]"}',
       })
     );

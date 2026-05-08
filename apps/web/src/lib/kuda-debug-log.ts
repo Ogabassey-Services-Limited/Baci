@@ -68,6 +68,18 @@ function shouldRedactKudaDebugValue(key: string, value: unknown) {
   return typeof value === 'string' && /^\+?\d[\d\s-]{7,}$/.test(value.trim());
 }
 
+function sanitizeKudaDebugPrimitive(value: unknown) {
+  if (typeof value === 'bigint') {
+    return value.toString();
+  }
+
+  if (typeof value === 'symbol') {
+    return value.description ? `[Symbol:${value.description}]` : '[Symbol]';
+  }
+
+  return value;
+}
+
 export function redactKudaDebugPayload(value: unknown, depth = 0): unknown {
   return redactKudaDebugValue(value, depth, new WeakSet<object>());
 }
@@ -94,7 +106,7 @@ function redactKudaDebugValue(
   }
 
   if (!value || typeof value !== 'object') {
-    return value;
+    return sanitizeKudaDebugPrimitive(value);
   }
 
   if (seen.has(value)) {
@@ -119,8 +131,8 @@ export function safeSerialize(value: unknown) {
 
   try {
     return JSON.stringify(value, function (this: unknown, _key, nestedValue) {
-      if (typeof nestedValue === 'bigint') {
-        return nestedValue.toString();
+      if (typeof nestedValue === 'bigint' || typeof nestedValue === 'symbol') {
+        return sanitizeKudaDebugPrimitive(nestedValue);
       }
 
       if (nestedValue && typeof nestedValue === 'object') {
