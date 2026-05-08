@@ -54,6 +54,11 @@ describe('calculateCheckoutSession', () => {
     expect(result.messages).toEqual([]);
     expect(productQuery.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(variantQuery.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
+    expect(variantQuery.select).toHaveBeenCalledWith(
+      expect.stringContaining(
+        'product:products!product_variants_product_id_fkey'
+      )
+    );
   });
 
   it('treats unmanaged product stock as unlimited', async () => {

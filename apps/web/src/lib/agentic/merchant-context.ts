@@ -5,8 +5,8 @@ import {
   getAgenticMerchantSlug,
   getAgenticSigningKeys,
   getPaystackSecretKey,
-  getSupabaseJwtSecret,
 } from '@/env';
+import { hasUsableAgenticJwtSigningMaterial } from '@/lib/agentic/jwt-signing-material';
 
 export interface AgenticMerchantContext {
   business_name: string | null;
@@ -22,21 +22,15 @@ export function getConfiguredAgenticMerchantSlug(): string | undefined {
 export function isAgenticCheckoutRuntimeConfigured(): boolean {
   const confirmationKeys = getAgenticConfirmationKeys();
   const signingKeys = getAgenticSigningKeys();
-  let supabaseJwtSecret: string | undefined;
-  try {
-    supabaseJwtSecret = getSupabaseJwtSecret();
-  } catch {
-    supabaseJwtSecret = undefined;
-  }
 
   return Boolean(
     getConfiguredAgenticMerchantSlug() &&
       getAgenticApiKey() &&
       hasOnlyNonBlankEntries(confirmationKeys) &&
       hasOnlyNonBlankEntries(signingKeys) &&
+      hasUsableAgenticJwtSigningMaterial() &&
       // Optional Paystack getter trims runtime env and returns undefined when absent.
-      getPaystackSecretKey() &&
-      supabaseJwtSecret
+      getPaystackSecretKey()
   );
 }
 
