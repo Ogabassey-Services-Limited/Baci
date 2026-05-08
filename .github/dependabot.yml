@@ -34,6 +34,17 @@ updates:
   # NO plugin-react ignore here — mobile-admin already runs
   # @vitejs/plugin-react@^6.0.1 against vite 8 and should keep getting
   # patches/minors/security fixes for it.
+  #
+  # Note on `"/"` vs `"/apps/web"` overlap:
+  #   Dependabot v2's `directory` / `directories` paths scan the manifest
+  #   at each path *only* — they do NOT recurse into subdirectories
+  #   (https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference#directory--).
+  #   This repo uses pnpm workspaces declared in pnpm-workspace.yaml, NOT
+  #   in package.json's `workspaces` field, so Dependabot does not auto-
+  #   detect workspaces from root. `"/"` therefore scans only the root
+  #   package.json (which has 5 root-only devDeps: turbo, wait-on,
+  #   @eslint/js, hono, @hono/node-server) and does not overlap with the
+  #   `/apps/web` updater above.
   # ──────────────────────────────────────────────────────────────────────────
   - package-ecosystem: "npm"
     directories:
