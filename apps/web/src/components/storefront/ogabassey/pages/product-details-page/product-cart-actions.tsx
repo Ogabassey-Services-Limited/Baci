@@ -86,7 +86,7 @@ export function ProductCartActions({
             </div>
             <Link
               href={cartHref}
-              className="flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-(--store-primary) font-bold text-(--store-primary-text,#ffffff) shadow-lg transition-all hover:bg-(--store-primary)/90 hover:shadow-(--store-primary)/20"
+              className="flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-(--store-primary) font-bold text-(--store-primary-text,#ffffff) shadow-lg transition-all hover:bg-(--store-primary)/90 hover:shadow-(color:--store-primary)/20"
             >
               <ShoppingCart size={20} />
               View Cart
@@ -100,7 +100,7 @@ export function ProductCartActions({
             className={cn(
               'flex h-14 w-full items-center justify-center gap-2 rounded-xl font-bold shadow-lg transition-all',
               canPurchase
-                ? 'bg-(--store-primary) text-(--store-primary-text,#ffffff) hover:bg-(--store-primary)/90 hover:shadow-(--store-primary)/20'
+                ? 'bg-(--store-primary) text-(--store-primary-text,#ffffff) hover:bg-(--store-primary)/90 hover:shadow-(color:--store-primary)/20'
                 : 'cursor-not-allowed bg-(--store-background-text,#111827)/10 text-(--store-background-text,#111827)/45 shadow-none'
             )}
           >

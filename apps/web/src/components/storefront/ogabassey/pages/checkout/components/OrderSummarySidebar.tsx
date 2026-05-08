@@ -257,7 +257,7 @@ export function OrderSummarySidebar({
             (remainingAmount > 0 && !paymentMethod) ||
             (paymentMethod === 'payforme' && !isPayForMeValid)
           }
-          className="hidden lg:flex w-full bg-(--store-primary) hover:bg-(--store-primary)/90 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl items-center justify-center gap-2 transition-all shadow-lg hover:shadow-(--store-primary)/20 active:scale-[0.98]"
+          className="hidden lg:flex w-full bg-(--store-primary) hover:bg-(--store-primary)/90 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl items-center justify-center gap-2 transition-all shadow-lg hover:shadow-(color:--store-primary)/20 active:scale-[0.98]"
         >
           {isProcessing ? (
             <Loader2 className="animate-spin" />

@@ -477,7 +477,7 @@ export function PaymentStep({
                 (remainingAmount > 0 && !hasAvailableSelectedPaymentMethod) ||
                 (paymentMethod === 'payforme' && !isPayForMeValid)
               }
-              className="w-full bg-(--store-primary) hover:bg-(--store-primary)/90 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-(--store-primary)/20 active:scale-[0.98]"
+              className="w-full bg-(--store-primary) hover:bg-(--store-primary)/90 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-(color:--store-primary)/20 active:scale-[0.98]"
             >
               {isProcessing ? (
                 <Loader2 className="animate-spin" size={20} />

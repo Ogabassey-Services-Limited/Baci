@@ -139,7 +139,7 @@ export function DvaModal({
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="w-full py-4 bg-(--store-primary) text-white font-bold rounded-xl hover:bg-(--store-primary)/90 transition-colors shadow-lg shadow-(--store-primary)/20"
+              className="w-full py-4 bg-(--store-primary) text-white font-bold rounded-xl hover:bg-(--store-primary)/90 transition-colors shadow-lg shadow-(color:--store-primary)/20"
             >
               Confirm Transfer Sent
             </button>

@@ -153,7 +153,7 @@ export const OrderSuccessPage: React.FC = () => {
           <div className="mb-10">
             <button
               onClick={() => setIsInvoiceOpen(true)}
-              className="w-full bg-(--store-primary) hover:bg-(--store-primary)/90 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg hover:shadow-(--store-primary)/20 flex items-center justify-center gap-2 active:scale-[0.98]"
+              className="w-full bg-(--store-primary) hover:bg-(--store-primary)/90 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg hover:shadow-(color:--store-primary)/20 flex items-center justify-center gap-2 active:scale-[0.98]"
             >
               <Download size={20} /> Download Invoice
             </button>
@@ -200,7 +200,7 @@ export const OrderSuccessPage: React.FC = () => {
                 router.push(getUrl('/account/orders') as any);
               }
             }}
-            className="flex-1 bg-(--store-primary) text-white font-bold py-3.5 px-6 rounded-xl hover:bg-(--store-primary)/90 transition-all shadow-lg hover:shadow-(--store-primary)/20 active:scale-[0.98] flex items-center justify-center gap-2"
+            className="flex-1 bg-(--store-primary) text-white font-bold py-3.5 px-6 rounded-xl hover:bg-(--store-primary)/90 transition-all shadow-lg hover:shadow-(color:--store-primary)/20 active:scale-[0.98] flex items-center justify-center gap-2"
           >
             See Order Details <ArrowRight size={18} />
           </button>

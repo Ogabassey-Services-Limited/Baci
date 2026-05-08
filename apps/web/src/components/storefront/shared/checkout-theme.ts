@@ -81,7 +81,7 @@ export function cx(...classes: (string | undefined | false)[]): string {
  * text-red-700 → text-(--store-primary)
  * border-red-600 → border-(--store-primary)
  * ring-red-100 → ring-(--store-primary)/20
- * shadow-red-200 → shadow-(--store-primary)/20
+ * shadow-red-200 → shadow-(color:--store-primary)/20
  * focus:ring-red-500 → focus:ring-(--store-primary)
  * hover:bg-red-700 → hover:bg-(--store-primary)/90
  * hover:text-red-600 → hover:text-(--store-primary)

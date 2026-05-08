@@ -211,7 +211,7 @@ export function CryptoPaymentModal({
             className={`w-full py-3.5 font-bold rounded-xl transition-colors shadow-lg ${
               isVerifying
                 ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                : 'bg-(--store-primary) text-white hover:bg-(--store-primary)/90 shadow-(--store-primary)/20'
+                : 'bg-(--store-primary) text-white hover:bg-(--store-primary)/90 shadow-(color:--store-primary)/20'
             }`}
           >
             {isVerifying ? (

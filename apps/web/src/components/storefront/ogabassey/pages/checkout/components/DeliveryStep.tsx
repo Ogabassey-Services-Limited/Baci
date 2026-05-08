@@ -450,7 +450,7 @@ export function DeliveryStep({
                     setCompletedSteps(prev => ({ ...prev, delivery: true }));
                     setCurrentStep('payment');
                   }}
-                  className="w-full md:w-auto px-6 py-3 bg-(--store-primary) text-white font-bold rounded-xl hover:bg-(--store-primary)/90 transition-colors flex items-center justify-center gap-2 shadow-lg hover:shadow-(--store-primary)/20 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:shadow-none"
+                  className="w-full md:w-auto px-6 py-3 bg-(--store-primary) text-white font-bold rounded-xl hover:bg-(--store-primary)/90 transition-colors flex items-center justify-center gap-2 shadow-lg hover:shadow-(color:--store-primary)/20 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:shadow-none"
                   disabled={!isDeliveryValid}
                 >
                   Continue to Payment

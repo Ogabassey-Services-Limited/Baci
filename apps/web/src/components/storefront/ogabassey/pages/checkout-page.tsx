@@ -1964,7 +1964,7 @@ export const CheckoutPage: React.FC = () => {
                 type="button"
                 onClick={initializeCryptoPayment}
                 disabled={isInitializingCrypto}
-                className="w-full py-3.5 bg-(--store-primary) text-white font-bold rounded-xl hover:bg-(--store-primary)/90 transition-colors shadow-lg shadow-(--store-primary)/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-3.5 bg-(--store-primary) text-white font-bold rounded-xl hover:bg-(--store-primary)/90 transition-colors shadow-lg shadow-(color:--store-primary)/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isInitializingCrypto ? (
                   <>
@@ -2129,7 +2129,7 @@ export const CheckoutPage: React.FC = () => {
                 disabled={isVerifyingCrypto}
                 className={`w-full py-3.5 font-bold rounded-xl transition-colors shadow-lg ${isVerifyingCrypto
                   ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                  : 'bg-(--store-primary) text-white hover:bg-(--store-primary)/90 shadow-(--store-primary)/20'
+                  : 'bg-(--store-primary) text-white hover:bg-(--store-primary)/90 shadow-(color:--store-primary)/20'
                   }`}
               >
                 {isVerifyingCrypto ? (
@@ -2271,7 +2271,7 @@ export const CheckoutPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => window.location.reload()}
-                  className="w-full py-4 bg-(--store-primary) text-white font-bold rounded-xl hover:bg-(--store-primary)/90 transition-colors shadow-lg shadow-(--store-primary)/20"
+                  className="w-full py-4 bg-(--store-primary) text-white font-bold rounded-xl hover:bg-(--store-primary)/90 transition-colors shadow-lg shadow-(color:--store-primary)/20"
                 >
                   Confirm Transfer Sent
                 </button>
@@ -2292,7 +2292,7 @@ export const CheckoutPage: React.FC = () => {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-black text-gray-900 flex items-center gap-3">
-            <span className="w-10 h-10 bg-(--store-primary) text-white rounded-xl flex items-center justify-center shadow-(--store-primary)/20 shadow-lg">
+            <span className="w-10 h-10 bg-(--store-primary) text-white rounded-xl flex items-center justify-center shadow-(color:--store-primary)/20 shadow-lg">
               <ShieldCheck size={20} />
             </span>
             Secure Checkout
@@ -2877,7 +2877,7 @@ export const CheckoutPage: React.FC = () => {
                           setCompletedSteps(prev => ({ ...prev, delivery: true }));
                           setCurrentStep('payment');
                         }}
-                        className="w-full md:w-auto px-6 py-3 bg-(--store-primary) text-white font-bold rounded-xl hover:bg-(--store-primary)/90 transition-colors flex items-center justify-center gap-2 shadow-lg hover:shadow-(--store-primary)/20 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:shadow-none"
+                        className="w-full md:w-auto px-6 py-3 bg-(--store-primary) text-white font-bold rounded-xl hover:bg-(--store-primary)/90 transition-colors flex items-center justify-center gap-2 shadow-lg hover:shadow-(color:--store-primary)/20 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:shadow-none"
                         disabled={!isDeliveryValid}
                       >
                         Continue to Payment
@@ -3234,7 +3234,7 @@ export const CheckoutPage: React.FC = () => {
                         (remainingAmount > 0 && !paymentMethod) ||
                         (paymentMethod === 'payforme' && !isPayForMeValid)
                       }
-                      className="w-full bg-(--store-primary) hover:bg-(--store-primary)/90 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-(--store-primary)/20 active:scale-[0.98]"
+                      className="w-full bg-(--store-primary) hover:bg-(--store-primary)/90 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-(color:--store-primary)/20 active:scale-[0.98]"
                     >
                       {isProcessing ? (
                         <Loader2 className="animate-spin" size={20} />
@@ -3418,7 +3418,7 @@ export const CheckoutPage: React.FC = () => {
                   (remainingAmount > 0 && !paymentMethod) ||
                   (paymentMethod === 'payforme' && !isPayForMeValid)
                 }
-                className="hidden lg:flex w-full bg-(--store-primary) hover:bg-(--store-primary)/90 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl items-center justify-center gap-2 transition-all shadow-lg hover:shadow-(--store-primary)/20 active:scale-[0.98]"
+                className="hidden lg:flex w-full bg-(--store-primary) hover:bg-(--store-primary)/90 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl items-center justify-center gap-2 transition-all shadow-lg hover:shadow-(color:--store-primary)/20 active:scale-[0.98]"
               >
                 {isProcessing ? (
                   <Loader2 className="animate-spin" />
