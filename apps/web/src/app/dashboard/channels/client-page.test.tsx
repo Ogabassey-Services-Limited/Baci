@@ -247,7 +247,9 @@ describe('ChannelsClientPage', () => {
       expect(
         screen.getByRole('button', { name: /disconnect jumia.*second shop/i })
       ).toBeInTheDocument();
-      expect(screen.getAllByText('Disconnect Jumia')).toHaveLength(2);
+      expect(
+        screen.getAllByRole('button', { name: /disconnect jumia/i })
+      ).toHaveLength(2);
     });
 
     it('renders quick action links', () => {
