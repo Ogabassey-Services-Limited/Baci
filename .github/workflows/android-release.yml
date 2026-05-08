@@ -61,7 +61,7 @@ jobs:
         # ~/setup-pnpm/ — without it, concurrent jobs on the same VPS user race
         # each other's downloads and leave the binary half-written, manifesting
         # as `pnpm: 1: This: not found` exit 127 (runs 25461414210, 25467270212).
-        uses: pnpm/action-setup@903f9c1a6ebcba6cf41d87230be49611ac97822e # v6.0.3
+        uses: pnpm/action-setup@8912a9102ac27614460f54aedde9e1e7f9aec20d # v6.0.5
         with:
           standalone: true
           dest: ${{ runner.temp }}/setup-pnpm
