@@ -187,6 +187,7 @@ let insertError: unknown = null;
 let variantsInsertError: unknown = null;
 let existingProduct: unknown = null;
 let lastProductsQueryChain: {
+  delete: ReturnType<typeof vi.fn>;
   eq: ReturnType<typeof vi.fn>;
   insert: ReturnType<typeof vi.fn>;
   or: ReturnType<typeof vi.fn>;
@@ -226,6 +227,7 @@ const createMockSupabase = () => ({
     if (table === 'products') {
       const chain = {
         select: vi.fn(() => chain),
+        delete: vi.fn(() => chain),
         eq: vi.fn(() => chain),
         order: vi.fn(() => chain),
         or: vi.fn(() => chain),
@@ -688,6 +690,41 @@ describe('POST /api/products', () => {
         expect.objectContaining({
           color: 'Gold',
         })
+      );
+    });
+
+    it('scopes rollback deletes to the merchant when variant creation fails', async () => {
+      insertResult = {
+        id: PRODUCT_ID,
+        merchant_id: MERCHANT_ID,
+        name: 'Test Product',
+        has_variants: true,
+      };
+      variantsInsertError = { message: 'Variant insert failed' };
+
+      const res = await POST(
+        makePostRequest({
+          ...validCreateBody,
+          has_variants: true,
+          variants: [
+            {
+              attributes: { size: 'M' },
+              price: 5000,
+              stock_quantity: 10,
+              sku: 'SKU-M-RED',
+            },
+          ],
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(500);
+      expect(json.rolledBack).toBe(true);
+      expect(lastProductsQueryChain?.delete).toHaveBeenCalled();
+      expect(lastProductsQueryChain?.eq).toHaveBeenCalledWith('id', PRODUCT_ID);
+      expect(lastProductsQueryChain?.eq).toHaveBeenCalledWith(
+        'merchant_id',
+        MERCHANT_ID
       );
     });
 
