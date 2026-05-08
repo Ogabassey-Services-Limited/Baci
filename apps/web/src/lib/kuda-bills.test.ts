@@ -347,7 +347,7 @@ describe('purchaseBill', () => {
     });
   });
 
-  it('uses the local reference when all response transaction id variants are empty', async () => {
+  it('keeps transactionId unset when Kuda omits provider response references', async () => {
     // Arrange
     vi.mocked(kudaRequest).mockResolvedValue({
       status: true,
@@ -364,7 +364,7 @@ describe('purchaseBill', () => {
     const result = await purchaseBill('EKEDC-PREPAID', '1234567890', 5000);
 
     // Assert
-    expect(result.transactionId).toBe('BACI-1234567890-abcd1234');
+    expect(result.transactionId).toBeUndefined();
     expect(result.pin).toBeUndefined();
     expect(result.success).toBe(false);
     expect(result.status).toBe('pending');
@@ -386,7 +386,6 @@ describe('purchaseBill', () => {
     expect(result).toEqual<PurchaseResult>({
       success: false,
       reference: 'BACI-1234567890-abcd1234',
-      transactionId: 'BACI-1234567890-abcd1234',
       message: 'Insufficient balance',
       status: 'failed',
       amount: 3500,
