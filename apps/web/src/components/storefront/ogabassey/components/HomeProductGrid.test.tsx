@@ -35,8 +35,26 @@ vi.mock('next/dynamic', () => ({
   default: () => () => null,
 }));
 
-vi.mock('./AdUnit', () => ({
-  AdUnit: () => <div data-testid="ad-unit" />,
+const mockDeferredAdUnit = vi.hoisted(() =>
+  vi.fn(
+    ({
+      fallback,
+      placementKey,
+    }: {
+      fallback?: ReactNode;
+      placementKey: string;
+      timeoutMs?: number;
+    }) => (
+      <div data-testid={`deferred-ad-${placementKey}`}>
+        {fallback}
+      </div>
+    )
+  )
+);
+
+vi.mock('./deferred-ad-unit', () => ({
+  DeferredAdUnit: (props: { fallback?: ReactNode; placementKey: string }) =>
+    mockDeferredAdUnit(props),
 }));
 
 vi.mock('./HomeProductGridCard', () => ({
@@ -105,6 +123,7 @@ function createTestProduct(index: number): Product {
 describe('HomeProductGrid', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    mockDeferredAdUnit.mockClear();
     mockUseMerchantSafe.mockReturnValue(null);
   });
 
@@ -202,6 +221,31 @@ describe('HomeProductGrid', () => {
       'data-defer-image-loading',
       'true'
     );
+  });
+
+  it('reserves inline ad slot space before the deferred grid ad mounts', () => {
+    render(
+      <HomeProductGrid
+        storeSlug="test-store"
+        products={Array.from({ length: 8 }, (_, index) =>
+          createTestProduct(index + 1)
+        )}
+      />
+    );
+
+    expect(mockDeferredAdUnit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fallback: expect.anything(),
+        placementKey: 'PRODUCT_GRID_MPU',
+        timeoutMs: 1,
+      })
+    );
+    expect(screen.getByText('Sponsored')).toBeInTheDocument();
+    expect(screen.getByText('Ad Space')).toBeInTheDocument();
+    expect(screen.getByText('in_feed_mpu').closest('[style]')).toHaveStyle({
+      minHeight: '250px',
+      minWidth: '300px',
+    });
   });
 
   it('defers the interactive bindings import until activation', async () => {

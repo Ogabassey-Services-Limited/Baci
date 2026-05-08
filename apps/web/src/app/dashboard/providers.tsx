@@ -4,6 +4,7 @@ import { ThemeProvider } from 'next-themes';
 import AppBody from '@/components/app-body';
 import { CsrfInitializer } from '@/components/csrf-initializer';
 import { AuthProvider } from '@/contexts/auth-context';
+import { MotionNonceProvider } from '@/contexts/MotionNonceProvider';
 import { useNonce } from '@/contexts/NonceProvider';
 import { ProductProvider } from '@/contexts/product-context';
 import {
@@ -50,19 +51,21 @@ export function DashboardProviders({
       disableTransitionOnChange
       nonce={nonce}
     >
-      <AuthProvider>
-        <CsrfInitializer />
-        <MerchantProvider
-          initialMerchant={initialMerchant}
-          initialStaffAccess={initialStaffAccess}
-        >
-          <ProductProvider>
-            <DashboardClientLayout>
-              <ThemedDashboardLayout>{children}</ThemedDashboardLayout>
-            </DashboardClientLayout>
-          </ProductProvider>
-        </MerchantProvider>
-      </AuthProvider>
+      <MotionNonceProvider>
+        <AuthProvider>
+          <CsrfInitializer />
+          <MerchantProvider
+            initialMerchant={initialMerchant}
+            initialStaffAccess={initialStaffAccess}
+          >
+            <ProductProvider>
+              <DashboardClientLayout>
+                <ThemedDashboardLayout>{children}</ThemedDashboardLayout>
+              </DashboardClientLayout>
+            </ProductProvider>
+          </MerchantProvider>
+        </AuthProvider>
+      </MotionNonceProvider>
     </ThemeProvider>
   );
 }

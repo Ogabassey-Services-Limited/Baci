@@ -6,9 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -18,6 +16,7 @@ import {
 } from 'react-native';
 import Animated, { SlideInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { BRAND, RADIUS, SPACING, TYPOGRAPHY } from '@/constants/Colors';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -93,8 +92,7 @@ export function FilterSheet({
         >
           <View style={StyleSheet.absoluteFill} />
         </TouchableWithoutFeedback>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        <AppKeyboardContainer
           pointerEvents="box-none"
           style={styles.keyboardAvoidingView}
         >
@@ -346,7 +344,7 @@ export function FilterSheet({
               </Pressable>
             </View>
           </Animated.View>
-        </KeyboardAvoidingView>
+        </AppKeyboardContainer>
       </View>
     </Modal>
   );

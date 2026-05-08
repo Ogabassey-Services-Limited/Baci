@@ -25,9 +25,7 @@ describe('PaymentMethodSelector', () => {
     );
 
     expect(screen.getByText('Available in Lagos only.')).toBeTruthy();
-    expect(
-      screen.queryByText(/5% processing fee may apply/i)
-    ).toBeNull();
+    expect(screen.queryByText(/5% processing fee may apply/i)).toBeNull();
   });
 
   it('shows reordered installment providers with the requested messaging', () => {
@@ -50,9 +48,7 @@ describe('PaymentMethodSelector', () => {
     ).toBeTruthy();
     expect(screen.getByText('Credit Direct')).toBeTruthy();
     expect(screen.getByText('CredPal')).toBeTruthy();
-    expect(
-      screen.getByText('Salary Earners and Business Owners')
-    ).toBeTruthy();
+    expect(screen.getByText('Salary Earners and Business Owners')).toBeTruthy();
     expect(screen.getByText('Salary Earners Only')).toBeTruthy();
   });
 
@@ -90,6 +86,55 @@ describe('PaymentMethodSelector', () => {
 
     expect(screen.queryByLabelText('Pay in installments')).toBeNull();
     expect(screen.getByLabelText('Pay later')).toBeTruthy();
+  });
+
+  it('can show Paystack as an unselected alternate card option when a saved card owns the selection', () => {
+    render(
+      <PaymentMethodSelector
+        selectedMethod={'paystack' as PaymentMethodType}
+        onSelectMethod={() => {}}
+        selectedTab="full"
+        onSelectTab={() => {}}
+        orderTotal={1000}
+        enabledMethods={['paystack']}
+        suppressedSelectedMethods={['paystack']}
+        methodLabelOverrides={{ paystack: 'Use another card' }}
+      />
+    );
+
+    const alternateCard = screen.getByLabelText(
+      'Use another card. Visa, Mastercard, Verve'
+    );
+
+    expect(screen.queryByText('Pay with Card')).toBeNull();
+    expect(alternateCard.props.accessibilityState).toMatchObject({
+      checked: false,
+      disabled: false,
+    });
+  });
+
+  it('applies payment method description and badge overrides', () => {
+    render(
+      <PaymentMethodSelector
+        selectedMethod={'paystack' as PaymentMethodType}
+        onSelectMethod={() => {}}
+        selectedTab="full"
+        onSelectTab={() => {}}
+        orderTotal={1000}
+        enabledMethods={['paystack', 'bank_transfer']}
+        methodDescriptionOverrides={{
+          paystack: '2x cashback on your first card payment',
+        }}
+        methodBadgeOverrides={{ paystack: '2x cashback' }}
+      />
+    );
+
+    expect(screen.getByText('Pay with Card')).toBeTruthy();
+    expect(
+      screen.getByText('2x cashback on your first card payment')
+    ).toBeTruthy();
+    expect(screen.getByText('2x cashback')).toBeTruthy();
+    expect(screen.getByText('Bank Transfer')).toBeTruthy();
   });
 
   describe('wallet payment row', () => {
@@ -257,45 +302,46 @@ describe('PaymentMethodSelector', () => {
       expect(screen.queryByLabelText(/wallet/i)).toBeNull();
     });
 
-    it.each(['pay_on_delivery', 'juicyway'] as const)(
-      'hides the wallet row for %s (no real-time settlement of residual)',
-      (method) => {
-        render(
-          <PaymentMethodSelector
-            selectedMethod={method as PaymentMethodType}
-            onSelectMethod={() => {}}
-            selectedTab="full"
-            onSelectTab={() => {}}
-            orderTotal={5000}
-            walletMode="orders"
-            walletBalance={3000}
-            walletOrderTotal={5000}
-          />
-        );
+    it.each([
+      'pay_on_delivery',
+      'juicyway',
+    ] as const)('hides the wallet row for %s (no real-time settlement of residual)', (method) => {
+      render(
+        <PaymentMethodSelector
+          selectedMethod={method as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="full"
+          onSelectTab={() => {}}
+          orderTotal={5000}
+          walletMode="orders"
+          walletBalance={3000}
+          walletOrderTotal={5000}
+        />
+      );
 
-        expect(screen.queryByLabelText(/wallet/i)).toBeNull();
-      }
-    );
+      expect(screen.queryByLabelText(/wallet/i)).toBeNull();
+    });
 
-    it.each(['paystack', 'korapay', 'bank_transfer'] as const)(
-      'shows the wallet row for %s (gateway can settle the residual)',
-      (method) => {
-        render(
-          <PaymentMethodSelector
-            selectedMethod={method as PaymentMethodType}
-            onSelectMethod={() => {}}
-            selectedTab="full"
-            onSelectTab={() => {}}
-            orderTotal={5000}
-            walletMode="orders"
-            walletBalance={3000}
-            walletOrderTotal={5000}
-          />
-        );
+    it.each([
+      'paystack',
+      'korapay',
+      'bank_transfer',
+    ] as const)('shows the wallet row for %s (gateway can settle the residual)', (method) => {
+      render(
+        <PaymentMethodSelector
+          selectedMethod={method as PaymentMethodType}
+          onSelectMethod={() => {}}
+          selectedTab="full"
+          onSelectTab={() => {}}
+          orderTotal={5000}
+          walletMode="orders"
+          walletBalance={3000}
+          walletOrderTotal={5000}
+        />
+      );
 
-        expect(screen.getByLabelText(/use wallet credit/i)).toBeTruthy();
-      }
-    );
+      expect(screen.getByLabelText(/use wallet credit/i)).toBeTruthy();
+    });
 
     it('suppresses the active-radio visual on gateway rows when wallet fully covers and is active', () => {
       // Regression: when wallet covers the full order AND the toggle is

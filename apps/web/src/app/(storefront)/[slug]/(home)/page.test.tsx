@@ -103,7 +103,7 @@ const baseMerchant = {
   country: 'NG',
 };
 
-const { default: StorefrontPage } = await import('./page');
+const { default: StorefrontPage, generateMetadata } = await import('./page');
 const actualStorefrontPageContentModule = await vi.importActual<
   typeof import('../storefront-page-content')
 >('../storefront-page-content');
@@ -286,7 +286,7 @@ describe('Storefront homepage structured data', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('preloads viewport-specific OgaBassey hero LCP images from the server page', async () => {
+  it('preloads viewport-scoped OgaBassey hero LCP images from the server page', async () => {
     render(
       await StorefrontPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
     );
@@ -296,32 +296,70 @@ describe('Storefront homepage structured data', () => {
       )
     );
 
-    expect(preloads).toHaveLength(2);
-    // Order-insensitive: the browser picks at HTML-parse time via `media`,
-    // so insertion order is not part of the contract.
-    expect(
-      preloads.map((preloadLink) => ({
-        as: preloadLink.getAttribute('as'),
-        fetchPriority: preloadLink.getAttribute('fetchpriority'),
-        href: preloadLink.getAttribute('href'),
-        media: preloadLink.getAttribute('media'),
-      }))
-    ).toEqual(
+    const preloadAttributes = preloads.map((preloadLink) => ({
+      fetchPriority: preloadLink.getAttribute('fetchpriority'),
+      href: preloadLink.getAttribute('href'),
+      media: preloadLink.getAttribute('media'),
+      type: preloadLink.getAttribute('type'),
+    }));
+
+    expect(preloadAttributes).toHaveLength(2);
+    expect(preloadAttributes).toEqual(
       expect.arrayContaining([
         {
-          as: 'image',
           fetchPriority: 'high',
           href: HERO_DESKTOP_LCP_SRC,
           media: '(min-width: 768px)',
+          type: 'image/avif',
         },
         {
-          as: 'image',
           fetchPriority: 'high',
           href: HERO_MOBILE_LCP_SRC,
           media: '(max-width: 767px)',
+          type: 'image/avif',
         },
       ])
     );
+  });
+
+  it('emits self-referencing canonical and hreflang alternates from page metadata', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(
+      baseMerchant as unknown as Awaited<
+        ReturnType<typeof getRequestScopedMerchant>
+      >
+    );
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'ogabassey' }),
+    });
+
+    expect(metadata.alternates).toEqual({
+      canonical: 'https://ogabassey.com',
+      languages: {
+        'en-NG': 'https://ogabassey.com',
+        'x-default': 'https://ogabassey.com',
+      },
+    });
+  });
+
+  it('omits Nigerian hreflang for storefronts outside Nigeria', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      ...baseMerchant,
+      slug: 'ghana-store',
+      custom_domain: 'ghana.example.com',
+      country: 'GH',
+    } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'ghana-store' }),
+    });
+
+    expect(metadata.alternates).toEqual({
+      canonical: 'https://ghana.example.com',
+      languages: {
+        'x-default': 'https://ghana.example.com',
+      },
+    });
   });
 
   it('emits preconnect + dns-prefetch hints for the OgaBassey LCP origins', async () => {

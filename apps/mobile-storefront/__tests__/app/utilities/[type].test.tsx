@@ -219,6 +219,9 @@ describe('UtilityPurchaseScreen', () => {
   it('shows utility submenus and switches between utility types locally', () => {
     render(<UtilityPurchaseScreen />);
 
+    expect(
+      screen.getByTestId('keyboard-container').props.keyboardVerticalOffset
+    ).toBeUndefined();
     expect(screen.getByText('Electricity')).toBeOnTheScreen();
     fireEvent.press(screen.getByLabelText('View utility history'));
     expect(mockPush).toHaveBeenCalledWith('/utilities/history?type=power');

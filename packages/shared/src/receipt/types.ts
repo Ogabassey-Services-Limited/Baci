@@ -57,6 +57,11 @@ export interface ReceiptOrder {
     bank_name: string;
     account_name: string;
   } | null;
+  fulfillment_details?: {
+    imei?: string | null;
+    serialNumber?: string | null;
+    serial_number?: string | null;
+  } | null;
   items: Array<{
     product_name: string;
     name?: string;

@@ -33,21 +33,66 @@ export const TOKEN_REFRESH_BUFFER_MS = 5 * 60 * 1000;
 
 // ── OAuth: Authorization URL ──
 
+// VARIANT-TEST: REMOVE — diagnostic harness for refresh_token issuance hypothesis.
+// Each ID maps to a different OAuth auth-URL parameter combination; the connect
+// route reads ?variant=<id> from the request and threads it into getJumiaAuthUrl,
+// the callback logs the resulting token-response shape so we can A/B which combo
+// (if any) makes Jumia mint refresh tokens. Drop this whole block + getJumiaAuthUrl's
+// `variant` arg + the cookie in connect/callback once we have an answer.
+type JumiaAuthUrlVariant = 'A' | 'B' | 'C' | 'D' | 'E';
+
+const DEFAULT_AUTH_PARAMS: Record<string, string> = {
+  scope: 'openid offline_access',
+  prompt: 'login',
+  max_age: '0',
+};
+
+const VARIANT_AUTH_PARAMS: Record<
+  JumiaAuthUrlVariant,
+  Record<string, string>
+> = {
+  // A: drop max_age=0 (added by PR #990 for forced re-auth; might suppress refresh)
+  A: { scope: 'openid offline_access', prompt: 'login' },
+  // B: prompt=consent (some IdPs only mint refresh tokens after explicit consent)
+  B: { scope: 'openid offline_access', prompt: 'consent', max_age: '0' },
+  // C: scope reorder (some IdPs are order-sensitive)
+  C: { scope: 'offline_access openid', prompt: 'login', max_age: '0' },
+  // D: drop openid scope entirely — request only offline_access
+  D: { scope: 'offline_access', prompt: 'login', max_age: '0' },
+  // E: combined — drop max_age and switch to consent
+  E: { scope: 'openid offline_access', prompt: 'consent' },
+};
+
+export function isJumiaAuthUrlVariant(
+  value: string | null | undefined
+): value is JumiaAuthUrlVariant {
+  return (
+    value === 'A' ||
+    value === 'B' ||
+    value === 'C' ||
+    value === 'D' ||
+    value === 'E'
+  );
+}
+
 export function getJumiaAuthUrl(config: {
   clientId: string;
   redirectUri: string;
   state: string;
   environment?: JumiaEnvironment;
+  // VARIANT-TEST: REMOVE — diagnostic only. Default behavior unchanged when omitted.
+  variant?: JumiaAuthUrlVariant;
 }): string {
   const baseUrl = getJumiaBaseUrl(config.environment);
+  const variantParams = config.variant
+    ? VARIANT_AUTH_PARAMS[config.variant]
+    : DEFAULT_AUTH_PARAMS;
   const params = new URLSearchParams({
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
     response_type: 'code',
-    scope: 'openid',
-    prompt: 'login',
-    max_age: '0',
     state: config.state,
+    ...variantParams,
   });
   return `${baseUrl}/login?${params.toString()}`;
 }
@@ -168,15 +213,11 @@ export async function exchangeJumiaCode(config: {
       throw new JumiaApiError(response.status, 'Token exchange failed', body);
     }
 
-    const data = JumiaTokenResponseSchema.parse(await response.json());
-    if (!data.refresh_token) {
-      throw new JumiaApiError(
-        502,
-        'Token exchange response did not include a refresh token'
-      );
-    }
-
-    return data;
+    // Jumia Vendor Center may return access-token-only responses (no refresh_token).
+    // The schema marks it optional and storage paths persist null. Do not add a
+    // runtime throw here: access-token-only OAuth responses are valid, and adding
+    // a throw regresses the mobile/web Jumia connect flow.
+    return JumiaTokenResponseSchema.parse(await response.json());
   } catch (error) {
     if (error instanceof JumiaApiError) throw error;
     if (

@@ -1,0 +1,29 @@
+-- Add a request fingerprint to vtu_idempotency_keys so the wallet-only
+-- route can detect a key being reused with a CHANGED payload.
+--
+-- Background: the original idempotency contract checked only that the
+-- key belonged to the same customer. If the user's first attempt
+-- timed out, the mobile client (correctly) keeps the same key on
+-- retry — BUT the user could have edited the form between attempts
+-- (different meter, different amount, different recipient phone).
+-- Without a payload check, the replay would silently fulfill the
+-- original transaction and vend the wrong target.
+--
+-- Fix: store a SHA-256 fingerprint of the canonicalized request
+-- payload alongside the key. On replay, the route recomputes the
+-- fingerprint from the incoming body and rejects with 409 Conflict
+-- when it doesn't match. The same key can only ever fulfill the same
+-- intent.
+--
+-- The fingerprint covers: type, amount, walletAmount, networkProvider,
+-- phoneNumber, customerIdentifier, billerName, billItemIdentifier,
+-- dataPlanCode (the recipient/intent fields). Cosmetic fields like
+-- customerName / customerPhone are excluded — they don't change the
+-- target of the vend and we don't want to false-positive when a name
+-- is normalized differently between attempts.
+--
+-- The parent table was created in the same PR (commit
+-- 20260507130000_create_vtu_idempotency_keys.sql) so production has
+-- no rows yet — column ships NOT NULL with no backfill required.
+ALTER TABLE public.vtu_idempotency_keys
+  ADD COLUMN IF NOT EXISTS request_fingerprint text NOT NULL;

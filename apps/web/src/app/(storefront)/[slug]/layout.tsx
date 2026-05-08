@@ -7,6 +7,7 @@ import { OgabasseyStorefrontLayout } from '@/components/storefront/ogabassey/sto
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
 import { StorefrontThemeProvider } from '@/components/storefront/storefront-theme-provider';
 import { MOBILE_APPS } from '@/config/platform';
+import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { StorefrontCartProvider } from '@/hooks/cart/storefront-cart-provider';
 import { StorefrontMerchantProvider } from '@/hooks/merchant/storefront-merchant-provider';
 import type { MerchantData } from '@/hooks/use-merchant';
@@ -42,7 +43,7 @@ function StorefrontLayoutRenderer({
   // this layout is kept as an override-only escape hatch.
   const templateId = merchant.template_id;
 
-  if (templateId === 'ogabassey') {
+  if (templateId === OGABASSEY_TEMPLATE_ID) {
     return (
       <OgabasseyStorefrontLayout merchant={merchant} routingMode={routingMode}>
         {children}

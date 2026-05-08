@@ -87,6 +87,7 @@ export function DomainItemCard({
         disabled={actionLoading}
         accessibilityRole="button"
         accessibilityLabel={`Open options for ${domain.domain}`}
+        hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
       >
         <Ionicons
           name="ellipsis-vertical"

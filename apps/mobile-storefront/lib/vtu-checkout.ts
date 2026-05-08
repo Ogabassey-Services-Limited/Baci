@@ -1,20 +1,26 @@
 import { z } from 'zod';
 import { EXPO_PUBLIC_API_URL } from '@/env';
 import { CONFIG } from '@/lib/config';
-import { DEFAULT_TIMEOUT, fetchWithTimeout } from '@/lib/fetch-with-timeout';
+import {
+  DEFAULT_TIMEOUT,
+  fetchWithTimeout,
+  HttpError,
+} from '@/lib/fetch-with-timeout';
 import { MOBILE_TO_KUDA_PROVIDER } from '@/lib/network-utils';
 import { supabase } from '@/lib/supabase';
 
 const API_URL = EXPO_PUBLIC_API_URL;
 export const VTU_CHECKOUT_INITIALIZE_URL = `${API_URL}/api/vtu/checkout/initialize`;
+export const VTU_CHECKOUT_WALLET_ONLY_URL = `${API_URL}/api/vtu/checkout/wallet-only`;
 
-const GatewayEnum = z.enum(['paystack', 'korapay']);
+const GatewayEnum = z.enum(['paystack', 'korapay', 'bank_transfer']);
+const ConfirmationGatewayEnum = z.enum(['paystack', 'korapay']);
 
 const InitCheckoutResponseSchema = z.object({
   success: z.literal(true),
   authorization_url: z.string().url(),
   checkout_url: z.string().url().optional(),
-  gateway: GatewayEnum,
+  gateway: ConfirmationGatewayEnum,
   reference: z.string(),
   vtu_reference: z.string(),
   vtu_transaction_id: z.string(),
@@ -106,10 +112,15 @@ const ChargeSavedCardGatewaySchema = z.object({
 const ChargeSavedCardProcessingSchema = z.object({
   status: z.literal('processing'),
   reference: z.string(),
-  gateway: GatewayEnum.optional(),
+  gateway: ConfirmationGatewayEnum.optional(),
+  mayRequireManualCheck: z.boolean().optional(),
+  message: z.string().optional(),
+  providerReference: z.string().optional(),
+  refundedToWallet: z.number().optional(),
 });
 
 export type VTUPaymentGateway = z.infer<typeof GatewayEnum>;
+export type VtuConfirmationGateway = z.infer<typeof ConfirmationGatewayEnum>;
 export type VtuCheckoutConfirmation = z.infer<
   typeof ConfirmCheckoutResponseSchema
 >;
@@ -163,6 +174,16 @@ export interface VTUCheckoutPayload {
   networkProvider?: string;
   phoneNumber?: string;
   type: 'airtime' | 'data' | 'electricity' | 'cable_tv' | 'betting';
+  /**
+   * Wallet credit applied to this purchase. Optional, non-negative.
+   * - undefined / 0 → card-only (gateway charges full amount).
+   * - 0 < walletAmount < amount → hybrid (gateway charges residual,
+   *   wallet covers the rest in `fulfillPendingVtuTransaction`).
+   * - walletAmount === amount → MUST go through `chargeWalletForVtu()`
+   *   (the wallet-only route); the initialize / charge-saved-card
+   *   routes reject this with a 400 redirecting the client.
+   */
+  walletAmount?: number;
 }
 
 export function normalizeVtuCheckoutPayload<T extends object>(payload: T): T {
@@ -214,10 +235,28 @@ function getResponseErrorMessage(data: Record<string, unknown>) {
 async function parseJsonResponse(response: Response) {
   const data = (await response.json()) as Record<string, unknown>;
   if (!response.ok) {
-    throw new Error(getResponseErrorMessage(data));
+    throw new HttpError(response.status, getResponseErrorMessage(data));
   }
 
   return data;
+}
+
+/**
+ * Strip walletAmount from the request body unless it's a positive
+ * number. The web schema treats `walletAmount: 0` as "card-only"
+ * already, but sending an explicit `0` adds noise to the JSON. Same
+ * guard pattern as `services/orders.ts` for the orders flow.
+ */
+function buildVtuRequestBody<T extends VTUCheckoutPayload>(payload: T) {
+  const normalized = normalizeVtuCheckoutPayload(payload);
+  const { walletAmount, ...rest } = normalized;
+  return {
+    ...rest,
+    merchantSlug: CONFIG.MERCHANT_SLUG,
+    ...(typeof walletAmount === 'number' && walletAmount > 0
+      ? { walletAmount }
+      : {}),
+  };
 }
 
 export async function initializeVtuCheckout(payload: VTUCheckoutPayload) {
@@ -229,21 +268,123 @@ export async function initializeVtuCheckout(payload: VTUCheckoutPayload) {
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      ...normalizeVtuCheckoutPayload(payload),
-      merchantSlug: CONFIG.MERCHANT_SLUG,
-    }),
+    body: JSON.stringify(buildVtuRequestBody(payload)),
   });
 
   const data = await parseJsonResponse(response);
   return InitCheckoutResponseSchema.parse(data);
 }
 
+const WalletOnlyVtuResponseSchema = z.object({
+  status: z.enum(['successful', 'processing']),
+  reference: z.string(),
+  amount: z.number().optional(),
+  customerIdentifier: z.string().optional(),
+  voucherPin: z.string().optional(),
+  cashback: z
+    .object({
+      amount: z.number(),
+      credited: z.boolean(),
+      newBalance: z.number(),
+    })
+    .optional(),
+});
+
+export type WalletOnlyVtuResult = z.infer<typeof WalletOnlyVtuResponseSchema>;
+
+/**
+ * Clamp a stored wallet selection amount to the current bill total at
+ * submit time. Wallet selection is captured when the user toggles
+ * wallet on, so by the time submit fires the bill amount may have
+ * changed (different plan, different meter, edited input). Sending a
+ * stale `walletAmount > amount` would either trip the server's
+ * `walletAmount <= amount` refinement (400) or, worse, miss the
+ * wallet-only equality check and send a hybrid request the user didn't
+ * intend.
+ */
+export function computeVtuWalletAmount(
+  selectionAmount: number | undefined,
+  currentTotal: number
+): number {
+  if (
+    typeof selectionAmount !== 'number' ||
+    selectionAmount <= 0 ||
+    !Number.isFinite(selectionAmount) ||
+    !Number.isFinite(currentTotal) ||
+    currentTotal <= 0
+  ) {
+    return 0;
+  }
+  return Math.min(selectionAmount, currentTotal);
+}
+
+/**
+ * Decide whether a failed wallet-only attempt should rotate the
+ * caller's `Idempotency-Key`. Only definitive client failures (4xx) are
+ * safe to rotate on — those mean the request was rejected before any
+ * server state was persisted. Network errors, timeouts, 5xx responses,
+ * and unknown exceptions all leave open the possibility that the
+ * server already inserted the idempotency-key row and/or debited the
+ * wallet; rotating the key on those would let the next retry bypass
+ * the dedupe table and create a duplicate transaction.
+ */
+export function shouldRotateWalletIdempotencyKeyForError(
+  error: unknown
+): boolean {
+  return (
+    error instanceof HttpError && error.status >= 400 && error.status < 500
+  );
+}
+
+/**
+ * Wallet-only VTU purchase. Caller must guarantee the wallet balance
+ * covers the full bill amount (`walletAmount === amount`); the route
+ * rejects partial coverage with a 400.
+ *
+ * `idempotencyKey` is **caller-supplied** and MUST be reused for any
+ * user-initiated retry of the same purchase intent (e.g. after a
+ * network failure leaves the response in doubt). Generating a fresh
+ * key per attempt would defeat the route's idempotency table — the
+ * server can't tell two same-customer submits apart, debits the
+ * wallet twice, and vends twice. The form controllers hold the key
+ * in a ref and only rotate it once a definitive HTTP response (200
+ * or 4xx) lands.
+ */
+export async function chargeWalletForVtu(
+  payload: Omit<VTUCheckoutPayload, 'gateway'> & {
+    walletAmount: number;
+    idempotencyKey: string;
+  }
+) {
+  const accessToken = await getAccessToken();
+  const { idempotencyKey, ...rest } = payload;
+  const normalized = normalizeVtuCheckoutPayload(rest);
+  const response = await fetchWithTimeout(VTU_CHECKOUT_WALLET_ONLY_URL, {
+    method: 'POST',
+    timeout: DEFAULT_TIMEOUT,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      'Idempotency-Key': idempotencyKey,
+    },
+    body: JSON.stringify({
+      ...normalized,
+      merchantSlug: CONFIG.MERCHANT_SLUG,
+    }),
+  });
+
+  const data = await parseJsonResponse(response);
+  return WalletOnlyVtuResponseSchema.parse({
+    ...data,
+    status: normalizeConfirmCheckoutStatus(data.status),
+  });
+}
+
 export async function confirmVtuCheckout({
   gateway,
   reference,
 }: {
-  gateway: VTUPaymentGateway;
+  gateway: VtuConfirmationGateway;
   reference: string;
 }) {
   const accessToken = await getAccessToken();
@@ -294,7 +435,7 @@ export async function waitForVtuConfirmation({
   maxAttempts = 10,
   reference,
 }: {
-  gateway: VTUPaymentGateway;
+  gateway: VtuConfirmationGateway;
   maxAttempts?: number;
   reference: string;
 }) {
@@ -366,13 +507,12 @@ export async function chargeSavedVtuCard(
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        ...normalizeVtuCheckoutPayload({
+      body: JSON.stringify(
+        buildVtuRequestBody({
           ...payload,
           gateway: 'paystack',
-        }),
-        merchantSlug: CONFIG.MERCHANT_SLUG,
-      }),
+        })
+      ),
     }
   );
 

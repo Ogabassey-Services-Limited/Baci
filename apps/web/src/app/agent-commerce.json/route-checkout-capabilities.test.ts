@@ -1,13 +1,27 @@
 // @vitest-environment node
 
+import { generateKeyPairSync } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetMerchantByIdentifier = vi.fn();
+
+vi.mock('server-only', () => ({}));
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: (...args: unknown[]) =>
     mockGetMerchantByIdentifier(...args),
 }));
+
+function createValidAgenticPrivateJwk() {
+  const { privateKey } = generateKeyPairSync('ec', {
+    namedCurve: 'P-256',
+  });
+  return JSON.stringify({
+    ...privateKey.export({ format: 'jwk' }),
+    alg: 'ES256',
+    kid: 'agentic-test-key',
+  });
+}
 
 function stubBaseEnv() {
   vi.stubEnv('NODE_ENV', 'test');
@@ -20,8 +34,9 @@ function stubBaseEnv() {
   vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS', '');
   vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', '');
   vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS', '');
+  delete process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK;
+  delete process.env.SUPABASE_JWT_SECRET;
   vi.stubEnv('PAYSTACK_SECRET_KEY', '');
-  vi.stubEnv('SUPABASE_JWT_SECRET', '');
 }
 
 function stubAgenticCheckoutEnv() {
@@ -29,8 +44,23 @@ function stubAgenticCheckoutEnv() {
   vi.stubEnv('OPENAI_AGENTIC_API_KEY', 'agent-api-key');
   vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY', 'confirmation-key');
   vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', 'signing-key');
+  vi.stubEnv(
+    'SUPABASE_AGENTIC_JWT_PRIVATE_JWK',
+    createValidAgenticPrivateJwk()
+  );
   vi.stubEnv('PAYSTACK_SECRET_KEY', 'paystack-secret');
-  vi.stubEnv('SUPABASE_JWT_SECRET', 'supabase-jwt-secret');
+}
+
+function stubAgenticCheckoutEnvWithLegacyJwtSecret() {
+  stubAgenticCheckoutEnv();
+  delete process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK;
+  vi.stubEnv('SUPABASE_JWT_SECRET', 'legacy-jwt-secret');
+}
+
+function stubAgenticCheckoutEnvWithoutSigningMaterial() {
+  stubAgenticCheckoutEnv();
+  delete process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK;
+  delete process.env.SUPABASE_JWT_SECRET;
 }
 
 describe('GET /agent-commerce.json checkout capabilities', () => {
@@ -91,6 +121,7 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
 
     expect(response.status).toBe(200);
     expect(body.capabilities).toContain('checkout.session.complete');
+    expect(body.capabilities).toContain('order.read');
     expect(body.auth).toMatchObject({
       type: 'bearer_hmac',
       request_signing: {
@@ -118,6 +149,60 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
     expect(body.links.checkout_session_complete).toBe(
       'https://another.example/api/agentic/checkout_sessions/{session_id}/complete'
     );
+    expect(body.links.order).toBe(
+      'https://another.example/api/agentic/orders/{order_id}'
+    );
+  });
+
+  it('advertises checkout when legacy Supabase JWT signing material is configured', async () => {
+    stubAgenticCheckoutEnvWithLegacyJwtSecret();
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      business_name: 'Another Store',
+      custom_domain: 'another.example',
+      id: 'merchant-2',
+      paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+      slug: 'another-store',
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new Request('https://another.example/agent-commerce.json', {
+        headers: { host: 'another.example' },
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.capabilities).toContain('checkout.session.complete');
+    expect(body.capabilities).toContain('order.read');
+    expect(body.auth?.type).toBe('bearer_hmac');
+    expect(body.links.checkout_sessions).toBe(
+      'https://another.example/api/agentic/checkout_sessions'
+    );
+  });
+
+  it('does not advertise checkout when signing material is absent', async () => {
+    stubAgenticCheckoutEnvWithoutSigningMaterial();
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      business_name: 'Another Store',
+      custom_domain: 'another.example',
+      id: 'merchant-2',
+      paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+      slug: 'another-store',
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new Request('https://another.example/agent-commerce.json', {
+        headers: { host: 'another.example' },
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.capabilities).toEqual(['catalog.read']);
+    expect(body.auth).toBeNull();
+    expect(body.links.checkout_sessions).toBeUndefined();
   });
 
   it('does not advertise checkout when the merchant subaccount is missing', async () => {

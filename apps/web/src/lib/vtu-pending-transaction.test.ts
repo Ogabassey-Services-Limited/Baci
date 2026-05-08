@@ -274,6 +274,44 @@ describe('preparePendingVtuTransaction', () => {
     );
   });
 
+  it('stores the real buyer phone on non-telco VTU rows and keeps the meter as customer_identifier', async () => {
+    const { insert, supabase } = createMockSupabase();
+
+    await preparePendingVtuTransaction({
+      supabase,
+      user: {
+        id: 'user-1',
+        email: 'customer@example.com',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['user'],
+      input: {
+        merchantSlug: 'ogabassey',
+        type: 'electricity',
+        amount: 1000,
+        billerName: 'EKEDC NG',
+        billItemIdentifier: 'KUD-ELE-EKED-002',
+        customerIdentifier: '43901766923',
+        customerPhone: '08146978921',
+        source: 'checkout',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['input'],
+      source: 'checkout',
+      requireCustomer: true,
+    });
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customer_identifier: '43901766923',
+        phone_number: '08146978921',
+        metadata: expect.objectContaining({
+          customerPhone: '08146978921',
+        }),
+      })
+    );
+  });
+
   it('falls back to null customer_name when input has none', async () => {
     const { insert, supabase } = createMockSupabase();
 
@@ -282,5 +320,117 @@ describe('preparePendingVtuTransaction', () => {
     expect(insert).toHaveBeenCalledWith(
       expect.objectContaining({ customer_name: null })
     );
+  });
+
+  describe('paymentSplit metadata (Phase B.4)', () => {
+    // Phase B.4 contract: when walletAmount > 0, write
+    //   metadata.paymentSplit = { wallet: walletAmount, card: amount - walletAmount }
+    // INCLUDING the wallet-only case (walletAmount === amount → card: 0).
+    // Phase B.5's debit hook gates on `paymentSplit.wallet > 0`, so
+    // wallet-only flows MUST set the field to trigger the debit.
+    function prepareWithWalletAmount(
+      supabase: PrepareSupabase,
+      walletAmount: number | undefined
+    ) {
+      return preparePendingVtuTransaction({
+        supabase,
+        user: {
+          id: 'user-1',
+          email: 'customer@example.com',
+        } as unknown as Parameters<
+          typeof preparePendingVtuTransaction
+        >[0]['user'],
+        input: {
+          merchantSlug: 'ogabassey',
+          type: 'airtime',
+          amount: 1000,
+          phoneNumber: '08012345678',
+          networkProvider: 'mtn',
+          source: 'checkout',
+          ...(walletAmount !== undefined && { walletAmount }),
+        },
+        source: 'checkout',
+        requireCustomer: true,
+      });
+    }
+
+    it('writes paymentSplit { wallet, card } for hybrid (0 < walletAmount < amount)', async () => {
+      const { insert, supabase } = createMockSupabase();
+      await prepareWithWalletAmount(supabase, 300);
+
+      expect(insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            paymentSplit: { wallet: 300, card: 700 },
+          }),
+        })
+      );
+    });
+
+    it('writes paymentSplit { wallet: amount, card: 0 } for wallet-only coverage', async () => {
+      // Critical for Phase B.5: fulfillment gates the wallet debit on
+      // paymentSplit.wallet > 0. Wallet-only must still write the field so
+      // the debit fires.
+      const { insert, supabase } = createMockSupabase();
+      await prepareWithWalletAmount(supabase, 1000);
+
+      expect(insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            paymentSplit: { wallet: 1000, card: 0 },
+          }),
+        })
+      );
+    });
+
+    it('does NOT write paymentSplit when walletAmount is 0 or absent (card-only)', async () => {
+      const { insert, supabase } = createMockSupabase();
+      await prepareWithWalletAmount(supabase, undefined);
+
+      const insertCall = insert.mock.calls[0]?.[0] as
+        | { metadata?: Record<string, unknown> }
+        | undefined;
+      expect(insertCall?.metadata).not.toHaveProperty('paymentSplit');
+
+      insert.mockClear();
+      await prepareWithWalletAmount(supabase, 0);
+      const zeroCall = insert.mock.calls[0]?.[0] as
+        | { metadata?: Record<string, unknown> }
+        | undefined;
+      expect(zeroCall?.metadata).not.toHaveProperty('paymentSplit');
+    });
+
+    it('does NOT write paymentSplit for non-checkout sources even when walletAmount > 0', async () => {
+      // Defense in depth alongside the schema check. The schema
+      // already rejects walletAmount > 0 on non-checkout sources at
+      // the API boundary, but the prepare step also gates the
+      // metadata write so a bypass (manual SQL, future code path) can
+      // never strand a wallet debit on a non-checkout row.
+      const { insert, supabase } = createMockSupabase();
+      await preparePendingVtuTransaction({
+        supabase,
+        user: {
+          id: 'user-1',
+          email: 'customer@example.com',
+        } as unknown as Parameters<
+          typeof preparePendingVtuTransaction
+        >[0]['user'],
+        input: {
+          merchantSlug: 'ogabassey',
+          type: 'airtime',
+          amount: 1000,
+          phoneNumber: '08012345678',
+          networkProvider: 'mtn',
+          source: 'loyalty_reward',
+          walletAmount: 1000,
+        },
+        source: 'loyalty_reward',
+        requireCustomer: true,
+      });
+      const insertCall = insert.mock.calls[0]?.[0] as
+        | { metadata?: Record<string, unknown> }
+        | undefined;
+      expect(insertCall?.metadata).not.toHaveProperty('paymentSplit');
+    });
   });
 });

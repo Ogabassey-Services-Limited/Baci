@@ -45,6 +45,10 @@ const TYPE_LABELS: Record<string, string> = {
   gaming: 'betting',
 };
 
+function isTokenGeneratingType(type: string) {
+  return type === 'power' || type === 'tv' || type === 'gaming';
+}
+
 function getPurchaseMessage({
   identifier,
   status,
@@ -57,10 +61,14 @@ function getPurchaseMessage({
   const typeLabel = TYPE_LABELS[type] || type;
 
   switch (status) {
-    case 'processing':
+    case 'processing': {
+      const action = isTokenGeneratingType(type)
+        ? 'generating your token'
+        : 'completing your purchase';
       return identifier
-        ? `Your ${typeLabel} payment for ${identifier} is processing. We will update your utility history shortly.`
-        : `Your ${typeLabel} payment is processing. We will update your utility history shortly.`;
+        ? `Your ${typeLabel} payment for ${identifier} was received. We are ${action} now.`
+        : `Your ${typeLabel} payment was received. We are ${action} now.`;
+    }
     case 'failed':
       return identifier
         ? `Your ${typeLabel} purchase for ${identifier} failed. Please try again or use another payment method.`
@@ -169,6 +177,13 @@ export function PurchaseSuccess({
   const presentation = getPurchasePresentation(status);
   const receiptStatus = getReceiptStatus(status);
   const messageText = getPurchaseMessage({ identifier, status, type });
+  const isTokenGenerating = isTokenGeneratingType(type);
+  const processingNoticeTitle = isTokenGenerating
+    ? 'Generating your token'
+    : 'Completing your purchase';
+  const processingNoticeText = isTokenGenerating
+    ? "This usually takes 30-60 seconds. You can leave this screen; we'll notify you when the token is ready."
+    : "This can take a minute. You can leave this screen; we'll update your purchase history when it is ready.";
 
   return (
     <Animated.View entering={FadeIn} style={styles.container}>
@@ -191,6 +206,33 @@ export function PurchaseSuccess({
           Ref: {txReference}
         </Text>
       )}
+
+      {presentation.isProcessing ? (
+        <View
+          style={[
+            styles.processingNotice,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <View style={styles.processingNoticeHeader}>
+            <Ionicons name="flash-outline" size={18} color={BRAND.primary} />
+            <Text style={[styles.processingNoticeTitle, { color: colors.text }]}>
+              {processingNoticeTitle}
+            </Text>
+          </View>
+          <Text
+            style={[
+              styles.processingNoticeText,
+              { color: colors.textSecondary },
+            ]}
+          >
+            {processingNoticeText}
+          </Text>
+        </View>
+      ) : null}
 
       {voucherPin ? (
         <PurchaseVoucherCard colors={colors} voucherPin={voucherPin} />

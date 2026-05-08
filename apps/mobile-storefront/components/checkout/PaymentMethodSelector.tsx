@@ -111,9 +111,11 @@ const PAYMENT_METHODS: PaymentMethod[] = [
 
 /**
  * `walletMode` opts a caller into wallet payment UI. Defaults to `'off'`,
- * which is what every existing caller (including VTU's
- * UtilityPaymentOptions) gets without any changes — so VTU stays hidden
- * until PR B wires server support and switches to `walletMode='vtu'`.
+ * which is what every existing caller gets without any changes.
+ *
+ * - `'orders'`: PR A — storefront order checkout.
+ * - `'vtu'`:    PR B — VTU/bills checkout (UtilityPaymentOptions).
+ * - `'off'`:    no wallet row rendered (default).
  *
  * The selector is presentation-only. The caller is responsible for
  * fetching wallet balance via `useWallet()` and passing it as
@@ -135,6 +137,10 @@ interface PaymentMethodSelectorProps {
   walletOrderTotal?: number;
   walletSelection?: WalletSelection;
   onWalletToggle?: (selection: WalletSelection) => void;
+  suppressedSelectedMethods?: PaymentMethodType[];
+  methodBadgeOverrides?: Partial<Record<PaymentMethodType, string>>;
+  methodDescriptionOverrides?: Partial<Record<PaymentMethodType, string>>;
+  methodLabelOverrides?: Partial<Record<PaymentMethodType, string>>;
 }
 
 export function PaymentMethodSelector({
@@ -150,6 +156,10 @@ export function PaymentMethodSelector({
   walletOrderTotal,
   walletSelection,
   onWalletToggle,
+  suppressedSelectedMethods = [],
+  methodBadgeOverrides = {},
+  methodDescriptionOverrides = {},
+  methodLabelOverrides = {},
 }: PaymentMethodSelectorProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -231,14 +241,18 @@ export function PaymentMethodSelector({
     selectedMethod === 'paystack' ||
     selectedMethod === 'korapay' ||
     selectedMethod === 'bank_transfer';
+  // VTU's UtilityPaymentOptions hardcodes selectedTab='full' and only
+  // exposes paystack/korapay to the selector, both of which satisfy
+  // isWalletCompatibleMethod. The same render gate works for both
+  // 'orders' and 'vtu' callers.
   const walletShouldRender =
-    walletMode === 'orders' &&
+    (walletMode === 'orders' || walletMode === 'vtu') &&
     walletBalance > 0 &&
     walletEffectiveTotal > 0 &&
     selectedTab === 'full' &&
     isWalletCompatibleMethod;
-  const walletCoversFully = walletShouldRender &&
-    walletBalance >= walletEffectiveTotal;
+  const walletCoversFully =
+    walletShouldRender && walletBalance >= walletEffectiveTotal;
   const walletPortion = walletShouldRender
     ? Math.min(walletBalance, walletEffectiveTotal)
     : 0;
@@ -306,9 +320,7 @@ export function PaymentMethodSelector({
             >
               {walletCoversFully ? 'Pay with wallet' : 'Use wallet credit'}
             </Text>
-            <Text
-              style={[styles.methodDesc, { color: colors.textSecondary }]}
-            >
+            <Text style={[styles.methodDesc, { color: colors.textSecondary }]}>
               {walletCoversFully
                 ? `${formatPrice(walletBalance)} available · covers full order`
                 : `${formatPrice(walletPortion)} from wallet · ${formatPrice(walletResidualToCard)} from card`}
@@ -532,9 +544,18 @@ export function PaymentMethodSelector({
           // is preserved so it can still be sent to the server for
           // receipt/accounting purposes.
           const walletSuppressesGateway = walletCoversFully && walletIsActive;
+          const selectionSuppressed = suppressedSelectedMethods.includes(
+            method.id
+          );
           const isSelected =
-            selectedMethod === method.id && !walletSuppressesGateway;
+            selectedMethod === method.id &&
+            !walletSuppressesGateway &&
+            !selectionSuppressed;
           const isDisabled = method.disabled || walletSuppressesGateway;
+          const methodBadge = methodBadgeOverrides[method.id];
+          const methodDescription =
+            methodDescriptionOverrides[method.id] ?? method.description;
+          const methodLabel = methodLabelOverrides[method.id] ?? method.label;
 
           return (
             <Pressable
@@ -554,7 +575,7 @@ export function PaymentMethodSelector({
                 checked: isSelected,
                 disabled: isDisabled,
               }}
-              accessibilityLabel={`${method.label}. ${isDisabled ? method.disabledReason : method.description}`}
+              accessibilityLabel={`${methodLabel}. ${isDisabled ? method.disabledReason : methodDescription}`}
             >
               <View
                 style={[
@@ -582,18 +603,25 @@ export function PaymentMethodSelector({
               </View>
 
               <View style={styles.methodInfo}>
-                <Text
-                  style={[
-                    styles.methodLabel,
-                    { color: isSelected ? BRAND.primary : colors.text },
-                  ]}
-                >
-                  {method.label}
-                </Text>
+                <View style={styles.methodTitleRow}>
+                  <Text
+                    style={[
+                      styles.methodLabel,
+                      { color: isSelected ? BRAND.primary : colors.text },
+                    ]}
+                  >
+                    {methodLabel}
+                  </Text>
+                  {methodBadge ? (
+                    <View style={styles.methodBadge}>
+                      <Text style={styles.methodBadgeText}>{methodBadge}</Text>
+                    </View>
+                  ) : null}
+                </View>
                 <Text
                   style={[styles.methodDesc, { color: colors.textSecondary }]}
                 >
-                  {isDisabled ? method.disabledReason : method.description}
+                  {isDisabled ? method.disabledReason : methodDescription}
                 </Text>
               </View>
 
@@ -789,9 +817,27 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: SPACING.md,
   },
+  methodBadge: {
+    backgroundColor: `${BRAND.primary}20`,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  methodBadgeText: {
+    color: BRAND.primary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
   methodLabel: {
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: '600',
+  },
+  methodTitleRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
     marginBottom: 2,
   },
   methodDesc: {

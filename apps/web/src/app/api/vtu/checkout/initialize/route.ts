@@ -3,7 +3,10 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { initializePayment as initializeKorapayPayment } from '@/lib/korapay';
-import { initializeTransaction as initializePaystackTransaction } from '@/lib/paystack';
+import {
+  initializeTransaction as initializePaystackTransaction,
+  type PaymentChannel,
+} from '@/lib/paystack';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { preparePendingVtuTransaction } from '@/lib/vtu-pending-transaction';
 import { vtuCheckoutInitializeSchema } from '@/schemas/vtu';
@@ -38,12 +41,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (parsed.data.gateway === 'bank_transfer') {
+    // Wallet residual: when the customer covers some of the bill from
+    // wallet credit, the gateway charges only the residual. Full
+    // coverage (`walletAmount === amount`) must use the wallet-only
+    // route so the path that has no `transactions` row / no Paystack
+    // hop runs — this route would create a `transactions.amount=0` row
+    // and a confusing zero-charge gateway call.
+    const walletAmount = parsed.data.walletAmount ?? 0;
+    if (walletAmount === parsed.data.amount && walletAmount > 0) {
       return createErrorResponse(
-        'Bank transfer is not enabled for utility checkout yet.',
+        'wallet-only payments must use /api/vtu/checkout/wallet-only.',
         400
       );
     }
+    const residualAmount = parsed.data.amount - walletAmount;
 
     const supabase = createAdminClient();
     const prepared = await preparePendingVtuTransaction({
@@ -78,13 +89,24 @@ export async function POST(request: NextRequest) {
     const callbackUrl = `${protocol}://${prepared.merchant.slug}.${rootDomain}/checkout/success?reference=${paymentReference}&kind=vtu`;
     const cancelUrl = `${protocol}://${prepared.merchant.slug}.${rootDomain}/checkout/cancelled?reference=${paymentReference}&kind=vtu`;
     const notificationUrl = `${protocol}://${rootDomain}/api/payments/webhook`;
+    const paymentGateway =
+      parsed.data.gateway === 'korapay' ? 'korapay' : 'paystack';
+    const paymentChannel =
+      parsed.data.gateway === 'bank_transfer'
+        ? 'bank_transfer'
+        : parsed.data.gateway === 'paystack'
+          ? 'card'
+          : 'korapay';
 
     const metadata = {
       cancel_action: cancelUrl,
       customer_email: customerEmail,
       customer_id: prepared.customer?.id ?? null,
       customer_name: customerName,
+      gateway: paymentGateway,
       merchant_slug: prepared.merchant.slug,
+      paymentChannel,
+      selectedGateway: parsed.data.gateway,
       transaction_type: 'vtu_purchase',
       vtu_transaction_id: prepared.transaction.id,
       vtu_type: prepared.transaction.type,
@@ -95,10 +117,15 @@ export async function POST(request: NextRequest) {
       let checkoutUrl = '';
       let gatewayResponse: Record<string, unknown> | null = null;
 
-      if (parsed.data.gateway === 'paystack') {
+      if (paymentGateway === 'paystack') {
+        const channels: PaymentChannel[] =
+          parsed.data.gateway === 'bank_transfer'
+            ? ['bank_transfer']
+            : ['card'];
         const paystack = await initializePaystackTransaction({
+          channels,
           email: customerEmail,
-          amount: Math.round(parsed.data.amount * 100),
+          amount: Math.round(residualAmount * 100),
           reference: paymentReference,
           callback_url: callbackUrl,
           metadata,
@@ -109,7 +136,7 @@ export async function POST(request: NextRequest) {
         gatewayResponse = paystack as unknown as Record<string, unknown>;
       } else {
         const korapay = await initializeKorapayPayment({
-          amount: parsed.data.amount,
+          amount: residualAmount,
           currency: 'NGN',
           customer: {
             email: customerEmail,
@@ -127,16 +154,21 @@ export async function POST(request: NextRequest) {
         gatewayResponse = korapay as unknown as Record<string, unknown>;
       }
 
+      // `transactions.amount` MUST equal what the gateway charged. The
+      // confirm route compares `verifiedAmount` from Paystack/Korapay
+      // against `transaction.amount` and rejects on mismatch — storing
+      // the full bill amount here would break confirm for hybrid
+      // payments.
       const { error: transactionError } = await supabase
         .from('transactions')
         .insert({
           merchant_id: prepared.merchant.id,
           order_id: null,
           transaction_type: 'payment',
-          amount: parsed.data.amount,
+          amount: residualAmount,
           currency: 'NGN',
           status: 'pending',
-          gateway: parsed.data.gateway,
+          gateway: paymentGateway,
           gateway_reference: paymentReference,
           gateway_response: gatewayResponse,
           description: `VTU checkout for ${prepared.transaction.type}`,
@@ -156,8 +188,10 @@ export async function POST(request: NextRequest) {
             ...(prepared.transaction.metadata ?? {}),
             customerEmail,
             customerName,
-            gateway: parsed.data.gateway,
+            gateway: paymentGateway,
+            paymentChannel,
             paymentReference,
+            selectedGateway: parsed.data.gateway,
             paymentTransactionType: 'gateway_checkout',
           },
         })
@@ -167,7 +201,7 @@ export async function POST(request: NextRequest) {
         success: true,
         authorization_url: authorizationUrl,
         checkout_url: checkoutUrl,
-        gateway: parsed.data.gateway,
+        gateway: paymentGateway,
         reference: paymentReference,
         vtu_reference: prepared.requestReference,
         vtu_transaction_id: prepared.transaction.id,

@@ -83,7 +83,7 @@ describe('ProductAttributesCard', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add attribute' }));
 
     expect(
       screen.getByText('No attributes defined (e.g. Storage, RAM).')

@@ -2,6 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Biller, PurchaseResult } from './kuda';
 import { getBillersByCategory, purchaseBill } from './kuda-bills';
 
+const loggerMocks = vi.hoisted(() => ({
+  error: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+}));
+
 // Mock the kuda module — keep the pure helpers (vend-status / pin extraction
 // / message builder) real, only stub the network and ID-generation entry
 // points used by the bill purchase flow.
@@ -15,6 +21,10 @@ vi.mock('./kuda', async () => {
     verifyBillCustomer: vi.fn(),
   };
 });
+
+vi.mock('@/lib/logger', () => ({
+  logger: loggerMocks,
+}));
 
 // Import mocked functions after vi.mock
 import {
@@ -174,11 +184,12 @@ describe('purchaseBill', () => {
     vi.mocked(generateRequestRef).mockReturnValue('BACI-1234567890-abcd1234');
   });
 
-  it('returns success result when purchase succeeds', async () => {
-    // Arrange — Kuda returns { reference, pin } (not transactionReference)
+  it('returns pending when Kuda accepts a bill purchase without a vend status or token', async () => {
+    // Arrange — Kuda's envelope only means the request was accepted; without
+    // an inner vend status or token, the biller has not confirmed success.
     const mockResponse = {
       status: true,
-      message: 'Bill purchase successful',
+      message: 'Request successful',
       data: {
         reference: 'AMZMqDjSafTsobg',
         pin: null,
@@ -205,13 +216,41 @@ describe('purchaseBill', () => {
     );
 
     expect(result).toEqual<PurchaseResult>({
-      success: true,
+      success: false,
       reference: 'BACI-1234567890-abcd1234',
       transactionId: 'AMZMqDjSafTsobg',
-      message: 'Bill purchase successful',
-      status: 'successful',
+      message: 'Request successful',
+      status: 'pending',
       amount: 5000,
     });
+  });
+
+  it('logs accepted pending bill purchases below warning level', async () => {
+    // Arrange
+    vi.mocked(kudaRequest).mockResolvedValue({
+      status: true,
+      message: 'Request successful',
+      data: {
+        billerAggregatorStatus: 'k11',
+        reference: 'AMZMqDjSafTsobg',
+      },
+    });
+
+    // Act
+    await purchaseBill('EKEDC-PREPAID', '1234567890', 5000);
+
+    // Assert
+    expect(loggerMocks.warn).not.toHaveBeenCalled();
+    expect(loggerMocks.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Kuda bill purchase did not complete',
+        envelopeStatus: true,
+        hasPin: false,
+        hasTransactionId: true,
+        vendOutcome: 'pending',
+        billerAggregatorStatus: 'k11',
+      })
+    );
   });
 
   it('uses the first meaningful pin and transaction reference after normalizing response casing variants', async () => {
@@ -235,6 +274,30 @@ describe('purchaseBill', () => {
     expect(result).toMatchObject<Partial<PurchaseResult>>({
       pin: '1234-5678-9012',
       transactionId: 'TXN-UPPER-123',
+    });
+  });
+
+  it('extracts EKEDC meter tokens from nested purchase pin objects', async () => {
+    // Arrange
+    vi.mocked(kudaRequest).mockResolvedValue({
+      status: true,
+      message: 'Bill purchase successful',
+      data: {
+        reference: 'TXN-EKEDC-123',
+        Pin: {
+          Number: ' 0283-6213-2450-8322-0153 ',
+          Units: '29.4',
+        },
+      },
+    });
+
+    // Act
+    const result = await purchaseBill('KUD-ELE-EKED-002', '43901766923', 5000);
+
+    // Assert
+    expect(result).toMatchObject<Partial<PurchaseResult>>({
+      pin: '0283-6213-2450-8322-0153',
+      transactionId: 'TXN-EKEDC-123',
     });
   });
 
@@ -284,7 +347,7 @@ describe('purchaseBill', () => {
     });
   });
 
-  it('omits pin and transaction id when all response field variants are empty', async () => {
+  it('keeps transactionId unset when Kuda omits provider response references', async () => {
     // Arrange
     vi.mocked(kudaRequest).mockResolvedValue({
       status: true,
@@ -303,7 +366,8 @@ describe('purchaseBill', () => {
     // Assert
     expect(result.transactionId).toBeUndefined();
     expect(result.pin).toBeUndefined();
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
+    expect(result.status).toBe('pending');
   });
 
   it('returns failed result when Kuda API returns status false', async () => {
@@ -322,7 +386,6 @@ describe('purchaseBill', () => {
     expect(result).toEqual<PurchaseResult>({
       success: false,
       reference: 'BACI-1234567890-abcd1234',
-      transactionId: undefined,
       message: 'Insufficient balance',
       status: 'failed',
       amount: 3500,

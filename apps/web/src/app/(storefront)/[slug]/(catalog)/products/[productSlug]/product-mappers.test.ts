@@ -4,9 +4,42 @@ vi.mock('@/lib/storefront-product-variants', () => ({
   normalizeStorefrontProductVariants: () => [],
 }));
 
-vi.mock('@/lib/seo-utils', () => ({
-  generateSlug: (value: string) => value.toLowerCase().replace(/\s+/g, '-'),
-}));
+vi.mock('@/lib/seo-utils', () => {
+  const generateSlug = (value: string) =>
+    value.toLowerCase().replace(/\s+/g, '-');
+
+  return {
+    generateSlug,
+    getProductUrl: (product: {
+      canonical_url?: string | null;
+      category?: string | null;
+      category_slug?: string | null;
+      id: string;
+      name: string;
+      slug?: string | null;
+    }) => {
+      if (product.canonical_url) {
+        try {
+          return new URL(product.canonical_url, 'https://storefront.invalid')
+            .pathname;
+        } catch {
+          // Fall back to the slug route below.
+        }
+      }
+
+      const productSlug =
+        product.slug ||
+        (product.name ? generateSlug(product.name) : product.id);
+      const categorySlug =
+        product.category_slug ||
+        (product.category ? generateSlug(product.category) : undefined);
+
+      return categorySlug
+        ? `/${categorySlug}/${productSlug}`
+        : `/products/${productSlug}`;
+    },
+  };
+});
 
 import {
   mapDetailedCachedProductToProduct,
@@ -73,6 +106,40 @@ describe('product-mappers', () => {
     });
   });
 
+  it('flattens embedded key-spec relation rows for legacy cached products', () => {
+    const product = mapLegacyCachedProductToProduct(
+      {
+        id: 'prod-key-specs',
+        name: 'iPhone 16 Pro',
+        description: null,
+        status: 'active',
+        slug: 'iphone-16-pro',
+        sale_price: null,
+        base_price: 900000,
+        track_quantity: true,
+        quantity: 5,
+        images: [],
+        product_variants: [],
+        product_categories: [],
+        specifications: null,
+        product_key_specs: [
+          {
+            screen_size_inches: 6.3,
+            ram_gb: 8,
+            storage_gb: 256,
+          },
+        ],
+      },
+      'merchant-1'
+    );
+
+    expect(product.product_key_specs).toEqual({
+      screen_size_inches: 6.3,
+      ram_gb: 8,
+      storage_gb: 256,
+    });
+  });
+
   it('defaults detailed products to manage_stock false while keeping stock', () => {
     const product = mapDetailedCachedProductToProduct(
       {
@@ -109,6 +176,47 @@ describe('product-mappers', () => {
       stock: 7,
       category: 'Smart Phones',
       category_slug: 'smart-phones',
+    });
+  });
+
+  it('flattens embedded key-spec relation rows for detailed cached products', () => {
+    const product = mapDetailedCachedProductToProduct(
+      {
+        id: 'prod-detailed-key-specs',
+        merchant_id: 'merchant-1',
+        name: 'Galaxy S25',
+        description: null,
+        status: 'active',
+        slug: 'galaxy-s25',
+        price: 950000,
+        compare_at_price: null,
+        manage_stock: true,
+        stock: 3,
+        stock_quantity: 3,
+        images: [],
+        imageHint: null,
+        brand: null,
+        gtin: null,
+        mpn: null,
+        category: 'Phones',
+        categories: null,
+        product_variants: [],
+        specifications: null,
+        product_key_specs: [
+          {
+            chipset: 'Snapdragon',
+            has_5g: true,
+            battery_mah: 5000,
+          },
+        ],
+      },
+      'merchant-1'
+    );
+
+    expect(product.product_key_specs).toEqual({
+      chipset: 'Snapdragon',
+      has_5g: true,
+      battery_mah: 5000,
     });
   });
 

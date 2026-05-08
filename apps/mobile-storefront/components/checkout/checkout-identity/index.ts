@@ -7,19 +7,6 @@
  * - Haptic feedback
  * - User-friendly error messages
  *
- * ROLLBACK INSTRUCTIONS:
- * If you need to revert to the original monolithic component:
- *
- * 1. Copy the backup file back:
- *    cp CheckoutIdentityModal.backup.tsx CheckoutIdentityModal.tsx
- *
- * 2. Delete this module folder:
- *    rm -rf checkout-identity/
- *
- * 3. Or use git:
- *    git checkout HEAD -- apps/mobile-storefront/components/checkout/CheckoutIdentityModal.tsx
- *    rm -rf apps/mobile-storefront/components/checkout/checkout-identity/
- *
  * @module checkout-identity
  */
 

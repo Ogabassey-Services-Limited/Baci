@@ -182,16 +182,41 @@ describe('generateMetadata', () => {
     ).rejects.toThrow('NEXT_NOT_FOUND');
   });
 
-  it('calls notFound when about content is empty', async () => {
+  it('returns fallback metadata when about content is empty', async () => {
     vi.mocked(getMerchantByIdentifier).mockResolvedValue({
       business_name: 'Test Store',
       about_page: {},
       pages: {},
     } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
 
-    await expect(
-      generateMetadata({ params: Promise.resolve({ slug: 'test' }) })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test' }),
+    });
+
+    expect(metadata.title).toBe('About Us | Test Store');
+    expect(notFound).not.toHaveBeenCalled();
+  });
+
+  it('returns metadata for the advertised about page when content is empty', async () => {
+    vi.mocked(headers).mockResolvedValue(
+      new Headers([['x-custom-domain', 'ogabassey.com']])
+    );
+    vi.mocked(getMerchantByIdentifier).mockResolvedValue({
+      business_name: 'Test Store',
+      about_page: {},
+      pages: {},
+      logo_url: null,
+      slug: 'test-store',
+      custom_domain: 'ogabassey.com',
+    } as unknown as Awaited<ReturnType<typeof getMerchantByIdentifier>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'test' }),
+    });
+
+    expect(metadata.title).toBe('About Us | Test Store');
+    expect(metadata.alternates?.canonical).toBe('https://ogabassey.com/about');
+    expect(notFound).not.toHaveBeenCalled();
   });
 
   it('returns metadata when about content exists', async () => {

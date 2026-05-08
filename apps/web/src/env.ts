@@ -1,5 +1,6 @@
 // src/env.ts
 import z from 'zod';
+import { supabaseAgenticJwtPrivateJwkStringSchema } from '@/schemas/supabase-agentic-jwt-private-jwk';
 
 /**
  * A type-safe and validated way to access environment variables.
@@ -12,17 +13,20 @@ const booleanStringSchema = z
   .enum(['true', 'false'])
   .transform((value) => value === 'true');
 
+const optionalTrimmedStringSchema = z.preprocess((value) => {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  return trimmed || undefined;
+}, z.string().optional());
+
 const serverSchema = z
   .object({
     // Supabase (Server Admin)
     SUPABASE_SERVICE_ROLE_KEY: z
       .string()
       .min(1, 'SUPABASE_SERVICE_ROLE_KEY is required'),
-    SUPABASE_JWT_SECRET: z
-      .string()
-      .trim()
-      .min(1, 'SUPABASE_JWT_SECRET cannot be empty')
-      .optional(),
+    SUPABASE_JWT_SECRET: optionalTrimmedStringSchema,
+    SUPABASE_AGENTIC_JWT_PRIVATE_JWK: supabaseAgenticJwtPrivateJwkStringSchema,
 
     // Blog
     BLOG_PREVIEW_SECRET: z.string().default('dev-preview-secret'), // Fallback for dev
@@ -37,6 +41,9 @@ const serverSchema = z
     OPENAI_AGENTIC_MERCHANT_SLUG: z.string().optional(),
     OPENAI_AGENTIC_SIGNING_KEY: z.string().optional(),
     OPENAI_AGENTIC_SIGNING_KEY_PREVIOUS: z.string().optional(),
+
+    // Debug
+    KUDA_BILL_DEBUG: z.string().optional(),
 
     // Email
     ZEPTOMAIL_TOKEN: z.string().optional(),
@@ -100,6 +107,7 @@ const serverSchema = z
     JUMIA_CLIENT_ID: z.string().optional(),
     JUMIA_CLIENT_SECRET: z.string().optional(),
   })
+  .strict()
   .superRefine((value, ctx) => {
     const isGitHubActionsBuild =
       process.env.GITHUB_ACTIONS === 'true' &&
@@ -109,6 +117,7 @@ const serverSchema = z
     if (
       value.NODE_ENV !== 'production' ||
       isGitHubActionsBuild ||
+      value.SUPABASE_AGENTIC_JWT_PRIVATE_JWK ||
       value.SUPABASE_JWT_SECRET
     ) {
       return;
@@ -116,8 +125,9 @@ const serverSchema = z
 
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      message: 'SUPABASE_JWT_SECRET is required in production',
-      path: ['SUPABASE_JWT_SECRET'],
+      message:
+        'SUPABASE_AGENTIC_JWT_PRIVATE_JWK or SUPABASE_JWT_SECRET is required in production',
+      path: ['SUPABASE_AGENTIC_JWT_PRIVATE_JWK'],
     });
   });
 
@@ -192,10 +202,13 @@ const getEnv = () => {
     ? {
         SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
         SUPABASE_JWT_SECRET: process.env.SUPABASE_JWT_SECRET,
+        SUPABASE_AGENTIC_JWT_PRIVATE_JWK:
+          process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK,
         BLOG_PREVIEW_SECRET: process.env.BLOG_PREVIEW_SECRET,
         KORAPAY_SECRET_KEY: process.env.KORAPAY_SECRET_KEY,
         JUICYWAY_SECRET_KEY: process.env.JUICYWAY_SECRET_KEY,
         PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY,
+        KUDA_BILL_DEBUG: process.env.KUDA_BILL_DEBUG,
         OPENAI_AGENTIC_API_KEY: process.env.OPENAI_AGENTIC_API_KEY,
         OPENAI_AGENTIC_CONFIRMATION_KEY:
           process.env.OPENAI_AGENTIC_CONFIRMATION_KEY,
@@ -306,12 +319,32 @@ export const getSupabaseServiceRoleKey = (): string => {
   return env.SUPABASE_SERVICE_ROLE_KEY;
 };
 
+const isBrowserRuntime = () =>
+  // Server-route tests run in jsdom, so agentic server-only getters use this
+  // helper to avoid treating Vitest's window shim as a real browser runtime.
+  typeof window !== 'undefined' && process.env.NODE_ENV !== 'test';
+const trimSecret = (value: string | undefined): string => value?.trim() ?? '';
+
 export const getSupabaseJwtSecret = (): string => {
-  if (typeof window !== 'undefined')
+  if (isBrowserRuntime())
     throw new Error('SUPABASE_JWT_SECRET cannot be accessed on the client');
-  if (!env?.SUPABASE_JWT_SECRET)
-    throw new Error('SUPABASE_JWT_SECRET is not defined');
-  return env.SUPABASE_JWT_SECRET;
+  const jwtSecret = trimSecret(
+    process.env.SUPABASE_JWT_SECRET ?? env?.SUPABASE_JWT_SECRET
+  );
+  if (!jwtSecret) throw new Error('SUPABASE_JWT_SECRET is not defined');
+  return jwtSecret;
+};
+
+export const getSupabaseAgenticJwtPrivateJwk = (): string | undefined => {
+  if (isBrowserRuntime())
+    throw new Error(
+      'SUPABASE_AGENTIC_JWT_PRIVATE_JWK cannot be accessed on the client'
+    );
+  const privateJwk = trimSecret(
+    process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK ??
+      env?.SUPABASE_AGENTIC_JWT_PRIVATE_JWK
+  );
+  return privateJwk || undefined;
 };
 
 // Optional Getters
@@ -319,11 +352,6 @@ export const getKorapaySecretKey = () => env?.KORAPAY_SECRET_KEY;
 export const getKorapayPublicKey = () => env?.KORAPAY_PUBLIC_KEY;
 export const getJuicywaySecretKey = () => env?.JUICYWAY_SECRET_KEY;
 export const getJuicywayBaseUrl = () => env?.JUICYWAY_BASE_URL;
-const isBrowserRuntime = () =>
-  // Server-route tests run in jsdom, so agentic server-only getters use this
-  // helper to avoid treating Vitest's window shim as a real browser runtime.
-  typeof window !== 'undefined' && process.env.NODE_ENV !== 'test';
-const trimSecret = (value: string | undefined): string => value?.trim() ?? '';
 
 // Agentic runtime secrets are read at call time so serverless env rotations and
 // tests that stub process.env after module load use the current secret values.
@@ -369,6 +397,11 @@ export const getPaystackSecretKey = () => {
     process.env.PAYSTACK_SECRET_KEY ?? env?.PAYSTACK_SECRET_KEY
   );
   return secret || undefined;
+};
+export const getKudaBillDebug = () => {
+  if (isBrowserRuntime()) return undefined;
+  const debug = trimSecret(process.env.KUDA_BILL_DEBUG ?? env?.KUDA_BILL_DEBUG);
+  return debug || undefined;
 };
 export const getZeptoMailToken = () =>
   env?.ZEPTOMAIL_TOKEN?.trim() || undefined;

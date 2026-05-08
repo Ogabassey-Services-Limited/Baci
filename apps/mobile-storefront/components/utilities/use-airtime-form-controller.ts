@@ -9,10 +9,13 @@ import { useUtilityPayment } from '@/hooks/use-utility-payment';
 import { detectNetwork } from '@/lib/network-utils';
 import {
   chargeSavedVtuCard,
+  chargeWalletForVtu,
+  computeVtuWalletAmount,
   initializeVtuCheckout,
   isSavedVtuCardChargeProcessing,
   requiresSavedVtuCardAuthorization,
-  type VTUPaymentGateway,
+  shouldRotateWalletIdempotencyKeyForError,
+  type VtuConfirmationGateway,
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
@@ -23,7 +26,7 @@ import { formatUtilityAmountInput } from './utility-amount-format';
 
 const FOOTER_HEIGHT = 120;
 const FOOTER_ERROR_BUFFER = 36;
-const SAVED_CARD_CONFIRMATION_GATEWAY: VTUPaymentGateway = 'paystack';
+const SAVED_CARD_CONFIRMATION_GATEWAY: VtuConfirmationGateway = 'paystack';
 
 export function useAirtimeFormController({
   initialAmount,
@@ -103,7 +106,18 @@ export function useAirtimeFormController({
       isSubmittingRef.current = false;
       return;
     }
-    if (!payment.selectedSavedCardId && !payment.selectedGateway) {
+    const walletAmount = computeVtuWalletAmount(
+      payment.walletSelection?.use === true
+        ? payment.walletSelection.amount
+        : 0,
+      numericAmount
+    );
+    const isWalletOnly = walletAmount > 0 && walletAmount === numericAmount;
+    if (
+      !isWalletOnly &&
+      !payment.selectedSavedCardId &&
+      !payment.selectedGateway
+    ) {
       Alert.alert(
         'Select Payment Method',
         'Choose a payment method before continuing.'
@@ -120,6 +134,53 @@ export function useAirtimeFormController({
         // Email is the best available customer label when names are incomplete.
         customer?.email ||
         'Customer';
+
+      if (isWalletOnly) {
+        const idempotencyKey = payment.getWalletIdempotencyKey();
+        try {
+          const result = await chargeWalletForVtu({
+            amount: numericAmount,
+            customerName,
+            customerPhone: customer?.phone,
+            networkProvider: selectedProvider,
+            phoneNumber,
+            type: 'airtime',
+            walletAmount: numericAmount,
+            idempotencyKey,
+          });
+          // 'processing' is non-terminal — the vend is still in flight
+          // server-side. Keep the key so a retry hits the route's
+          // dedupe row instead of creating a second VTU transaction.
+          if (result.status === 'processing') {
+            onSuccess({
+              amount: result.amount ?? numericAmount,
+              customerIdentifier: phoneNumber,
+              reference: result.reference,
+              status: 'processing',
+            });
+            return;
+          }
+          // Terminal success — rotate the key.
+          payment.resetWalletIdempotencyKey();
+          onSuccess({
+            amount: result.amount ?? numericAmount,
+            cashback: result.cashback,
+            reference: result.reference,
+            status: 'successful',
+            voucherPin: result.voucherPin,
+          });
+          return;
+        } catch (error) {
+          // Keep the key for ambiguous failures (network, timeout, 5xx,
+          // unknown) so the route's dedupe table protects retries.
+          // Rotate only on 4xx — request rejected before any state.
+          if (shouldRotateWalletIdempotencyKeyForError(error)) {
+            payment.resetWalletIdempotencyKey();
+          }
+          throw error;
+        }
+      }
+
       if (payment.selectedSavedCardId) {
         const result = await chargeSavedVtuCard({
           amount: numericAmount,
@@ -129,6 +190,7 @@ export function useAirtimeFormController({
           phoneNumber,
           savedPaymentMethodId: payment.selectedSavedCardId,
           type: 'airtime',
+          ...(walletAmount > 0 ? { walletAmount } : {}),
         });
 
         if (requiresSavedVtuCardAuthorization(result)) {
@@ -205,6 +267,7 @@ export function useAirtimeFormController({
         gateway: selectedGateway,
         networkProvider: selectedProvider,
         phoneNumber,
+        ...(walletAmount > 0 ? { walletAmount } : {}),
       });
       router.push({
         pathname: '/payment-gateway',

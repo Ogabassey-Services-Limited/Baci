@@ -6,9 +6,14 @@ import Link from 'next/link';
 import type { CSSProperties } from 'react';
 import { useEffect, useState } from 'react';
 import { asRoute } from '@/lib/routes';
-import { AdUnit } from './AdUnit';
 import { useDeferredActivation } from './deferred-shell-feature';
+import { DeferredAdUnit } from './deferred-ad-unit';
 import { MOBILE_SLIDES } from './hero-data';
+import {
+  MOBILE_HERO_IMAGE_QUALITY,
+  MOBILE_HERO_IMAGE_SIZES,
+} from './hero-mobile-image-config';
+import { MobileLcpHeroImage } from './mobile-lcp-hero-image';
 
 interface HeroMobileCarouselProps {
   getHref: (path: string) => string;
@@ -38,6 +43,9 @@ export function HeroMobileCarousel({
 }: HeroMobileCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [adRefreshTrigger, setAdRefreshTrigger] = useState(0);
+  const isResolvedMobileViewport = hasResolvedViewport && !isDesktopViewport;
+  const shouldPrioritizeMobileLcpImage =
+    !hasResolvedViewport || isResolvedMobileViewport;
   const isMobileAutoplayReady = useDeferredActivation({
     enabled: hasResolvedViewport && !isDesktopViewport,
     timeoutMs: 15000,
@@ -66,59 +74,70 @@ export function HeroMobileCarousel({
 
   return (
     <div className="md:hidden mb-4 relative rounded-2xl overflow-hidden shadow-2xl h-48 ring-1 ring-black/5 order-1 bg-gray-100">
-      {MOBILE_SLIDES.map((slide, index) => (
-        <div
-          key={slide.id}
-          className={`absolute inset-0 transition-opacity [transition-duration:400ms] ease-in-out ${index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'} ${slide.bgClass}`}
-        >
-          {slide.type === 'image' && (
-            <>
-              <div className="relative h-full flex items-center p-6 z-10">
-                <div className={`max-w-[55%] ${slide.textColor}`}>
-                  <h2 className="text-2xl font-extrabold leading-tight mb-2 drop-shadow-sm font-sans">
-                    {slide.title}
-                  </h2>
-                  <p className="text-[11px] font-medium leading-relaxed opacity-90">
-                    {slide.subtitle}
-                  </p>
-                  <Link
-                    href={asRoute(getHref('/products'))}
-                    prefetch={false}
-                    className="mt-3 inline-flex min-h-12 items-center justify-center text-xs font-bold px-5 py-2 rounded-full shadow-sm transition-opacity hover:opacity-90 border"
-                    style={HERO_CTA_STYLE}
-                  >
-                    Shop Now
-                  </Link>
-                </div>
-              </div>
-              {slide.src ? (
-                <div className="absolute inset-0 z-0">
-                  <div
-                    className={`relative w-full h-full ${slide.imageFit === 'contain' ? 'w-[50%] ml-auto' : 'w-full'}`}
-                  >
-                    <Image
-                      src={slide.src}
-                      alt={slide.title || 'Hero slide'}
-                      fill
-                      sizes="(max-width: 768px) 100vw, 50vw"
-                      className={
-                        slide.imageFit === 'contain'
-                          ? 'object-contain object-right'
-                          : 'object-cover'
-                      }
-                      priority={index === 0}
-                      // Lighthouse did not see a high fetch priority from priority alone with the custom loader.
-                      fetchPriority={index === 0 ? 'high' : undefined}
-                      quality={70}
-                    />
+      {MOBILE_SLIDES.map((slide, index) => {
+        const isMobileLcpImage = index === 0 && slide.type === 'image';
+
+        return (
+          <div
+            key={slide.id}
+            className={`absolute inset-0 transition-opacity [transition-duration:400ms] ease-in-out ${index === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'} ${slide.bgClass}`}
+          >
+            {slide.type === 'image' && (
+              <>
+                <div className="relative h-full flex items-center p-6 z-10">
+                  <div className={`max-w-[55%] ${slide.textColor}`}>
+                    <h2 className="text-2xl font-extrabold leading-tight mb-2 drop-shadow-sm font-sans">
+                      {slide.title}
+                    </h2>
+                    <p className="text-[11px] font-medium leading-relaxed opacity-90">
+                      {slide.subtitle}
+                    </p>
+                    <Link
+                      href={asRoute(getHref('/products'))}
+                      prefetch={false}
+                      className="mt-3 inline-flex min-h-12 items-center justify-center text-xs font-bold px-5 py-2 rounded-full shadow-sm transition-opacity hover:opacity-90 border"
+                      style={HERO_CTA_STYLE}
+                    >
+                      Shop Now
+                    </Link>
                   </div>
                 </div>
-              ) : null}
-            </>
-          )}
+                {slide.src ? (
+                  <div className="absolute inset-0 z-0">
+                    <div
+                      className={`relative w-full h-full ${slide.imageFit === 'contain' ? 'w-[50%] ml-auto' : 'w-full'}`}
+                    >
+                      {isMobileLcpImage ? (
+                        <MobileLcpHeroImage
+                          alt={slide.title || 'Hero slide'}
+                          imageFit={slide.imageFit}
+                          isResolvedMobileViewport={isResolvedMobileViewport}
+                          shouldPrioritizeImage={shouldPrioritizeMobileLcpImage}
+                          src={slide.src}
+                        />
+                      ) : (
+                        <Image
+                          src={slide.src}
+                          alt={slide.title || 'Hero slide'}
+                          fill
+                          sizes={MOBILE_HERO_IMAGE_SIZES}
+                          className={
+                            slide.imageFit === 'contain'
+                              ? 'object-contain object-right'
+                              : 'object-cover'
+                          }
+                          loading="lazy"
+                          quality={MOBILE_HERO_IMAGE_QUALITY}
+                        />
+                      )}
+                    </div>
+                  </div>
+                ) : null}
+              </>
+            )}
 
-          {slide.type === 'video' && (
-            <>
+            {slide.type === 'video' && (
+              <>
               <div className="absolute inset-0">
                 {slide.poster && (
                   <Image
@@ -178,17 +197,19 @@ export function HeroMobileCarousel({
                 Sponsored
               </div>
               <div className="w-full h-full flex items-center justify-center transform scale-90">
-                <AdUnit
+                <DeferredAdUnit
                   placementKey="HEADER_LEADERBOARD"
                   className="my-0"
                   isActive={index === currentSlide}
                   refreshKey={adRefreshTrigger}
+                  timeoutMs={1}
                 />
               </div>
             </div>
-          )}
-        </div>
-      ))}
+            )}
+          </div>
+        );
+      })}
 
       <div className="absolute bottom-3 left-6 flex gap-1.5 z-20">
         {MOBILE_SLIDES.map((slide, idx) => {

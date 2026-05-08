@@ -2,6 +2,7 @@ import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import {
   HERO_DESKTOP_LCP_SRC,
+  HERO_MOBILE_LCP_FALLBACK_SRC,
   HERO_MOBILE_LCP_SRC,
 } from './hero-data';
 import {
@@ -53,35 +54,38 @@ describe('OgabasseyHeroPreloads', () => {
     }
   });
 
-  it('emits viewport-conditional preloads for the desktop and mobile LCP assets', () => {
+  it('emits viewport-scoped manual LCP preloads', () => {
     clearHints();
     render(<OgabasseyHeroPreloads />);
 
     const preloads = Array.from(
       document.querySelectorAll<HTMLLinkElement>('link[rel="preload"][as="image"]')
     ).map((link) => ({
-      as: link.getAttribute('as'),
       fetchPriority: link.getAttribute('fetchpriority'),
       href: link.getAttribute('href'),
       media: link.getAttribute('media'),
+      type: link.getAttribute('type'),
     }));
 
     expect(preloads).toHaveLength(2);
     expect(preloads).toEqual(
       expect.arrayContaining([
         {
-          as: 'image',
           fetchPriority: 'high',
           href: HERO_DESKTOP_LCP_SRC,
           media: '(min-width: 768px)',
+          type: 'image/avif',
         },
         {
-          as: 'image',
           fetchPriority: 'high',
           href: HERO_MOBILE_LCP_SRC,
           media: '(max-width: 767px)',
+          type: 'image/avif',
         },
       ])
     );
+    expect(
+      preloads.some((preload) => preload.href === HERO_MOBILE_LCP_FALLBACK_SRC)
+    ).toBe(false);
   });
 });

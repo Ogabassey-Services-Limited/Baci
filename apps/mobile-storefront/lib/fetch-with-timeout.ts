@@ -31,6 +31,23 @@ export class NetworkError extends Error {
   }
 }
 
+/**
+ * Thrown for non-2xx HTTP responses. Preserves `status` so callers can
+ * distinguish definitive client failures (4xx — request rejected, no
+ * server state) from ambiguous server failures (5xx — partial state may
+ * have been persisted). Idempotency-key callers MUST keep their key on
+ * 5xx so a retry hits the route's dedupe table; only 4xx is safe to
+ * rotate on.
+ */
+export class HttpError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'HttpError';
+    this.status = status;
+  }
+}
+
 interface FetchWithTimeoutOptions extends RequestInit {
   /** Timeout in milliseconds. Defaults to 30000 (30 seconds) */
   timeout?: number;

@@ -178,9 +178,10 @@ const nextConfig: NextConfig = {
     //   algorithm: 'sha256',
     // },
 
-    // Inline CSS to eliminate render-blocking CSS requests
-    // Replaces <link> tags with <style> tags for faster FCP/LCP
-    inlineCss: true,
+    // Keep CSS external. The inlineCss experiment inflated the streamed
+    // storefront HTML/RSC payload on ogabassey.com and duplicated large
+    // Tailwind/global CSS chunks in the initial document.
+    inlineCss: false,
 
     // Note: optimizeCss is disabled as it relies on Critters and is
     // incompatible with App Router streaming. Use stable CSS pipeline instead.

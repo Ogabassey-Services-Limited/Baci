@@ -106,6 +106,10 @@ jobs:
       - uses: pnpm/action-setup@903f9c1a6ebcba6cf41d87230be49611ac97822e # v6.0.3
         with:
           standalone: true
+          # Per-job pnpm install dir; without this, concurrent jobs on the same
+          # VPS user (baci-deploy + baci-android) race extractions into shared
+          # ~/setup-pnpm/ and corrupt each other's binary.
+          dest: ${{ runner.temp }}/setup-pnpm
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: "24"

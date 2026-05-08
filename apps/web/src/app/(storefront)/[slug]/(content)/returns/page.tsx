@@ -9,10 +9,7 @@ import {
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
-import {
-  buildMerchantTrustProfile,
-  hasPublishableReturnsPolicy,
-} from '@/lib/storefront-trust/build-merchant-trust-profile';
+import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -52,19 +49,11 @@ export async function generateMetadata({
     return { title: 'Returns Policy' };
   }
 
-  if (!hasPublishableReturnsPolicy(context.trustProfile)) {
-    notFound();
-  }
-
   const returnPolicy = context.trustProfile.returnPolicy;
-
-  if (!returnPolicy) {
-    notFound();
-  }
 
   const canonicalUrl = `${context.baseUrl}/returns`;
   const description = generateMetaDescription(
-    returnPolicy.summary
+    returnPolicy?.summary
       ? `${returnPolicy.summary} Returns policy for ${context.merchant.business_name}.`
       : `Returns policy for ${context.merchant.business_name}.`
   );
@@ -96,15 +85,7 @@ export default async function ReturnsPage({ params }: PageProps) {
     notFound();
   }
 
-  if (!hasPublishableReturnsPolicy(context.trustProfile)) {
-    notFound();
-  }
-
   const returnPolicy = context.trustProfile.returnPolicy;
-
-  if (!returnPolicy) {
-    notFound();
-  }
 
   const canonicalUrl = `${context.baseUrl}/returns`;
   const jsonLd = {
@@ -113,7 +94,7 @@ export default async function ReturnsPage({ params }: PageProps) {
     name: `Returns Policy | ${context.merchant.business_name}`,
     url: canonicalUrl,
     description:
-      returnPolicy.summary ||
+      returnPolicy?.summary ||
       `Returns policy for ${context.merchant.business_name}.`,
     isPartOf: {
       '@type': 'WebSite',

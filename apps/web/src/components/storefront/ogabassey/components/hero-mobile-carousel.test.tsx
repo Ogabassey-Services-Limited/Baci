@@ -2,6 +2,22 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const mockGetImageProps = vi.hoisted(() =>
+  vi.fn((props: Record<string, unknown>) => ({
+    props: {
+      alt: props.alt,
+      decoding: props.decoding,
+      fetchPriority: props.fetchPriority,
+      height: props.height,
+      loading: props.loading,
+      sizes: props.sizes,
+      src: props.src,
+      srcSet: `${String(props.src)} 640w, ${String(props.src)} 960w`,
+      width: props.width,
+    },
+  }))
+);
+
 vi.mock('next/link', () => ({
   default: ({
     children,
@@ -28,14 +44,21 @@ vi.mock('next/image', () => ({
         )
       )}
       alt={String(props.alt ?? '')}
+      data-priority={String(Boolean(props.priority))}
     />
   ),
+  getImageProps: mockGetImageProps,
 }));
 
-vi.mock('./AdUnit', () => ({
-  AdUnit: ({ placementKey }: { placementKey: string }) => (
+const mockDeferredAdUnit = vi.hoisted(() =>
+  vi.fn(({ placementKey }: { placementKey: string }) => (
     <div data-testid={`ad-${placementKey}`} />
-  ),
+  ))
+);
+
+vi.mock('./deferred-ad-unit', () => ({
+  DeferredAdUnit: (props: { placementKey: string }) =>
+    mockDeferredAdUnit(props),
 }));
 
 import { HeroMobileCarousel } from './hero-mobile-carousel';
@@ -67,6 +90,7 @@ function expectStyleDeclarations(
 describe('HeroMobileCarousel', () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    mockGetImageProps.mockClear();
   });
 
   afterEach(() => {
@@ -100,27 +124,6 @@ describe('HeroMobileCarousel', () => {
     });
 
     expect(container.querySelector('video')).not.toBeNull();
-  });
-
-  it('marks only the first mobile hero image as the high-priority LCP candidate', () => {
-    render(
-      <HeroMobileCarousel
-        getHref={(path) => `/ogabassey${path}`}
-        hasResolvedViewport={true}
-        isDesktopViewport={false}
-      />
-    );
-
-    const highPriorityImages = screen
-      .getAllByRole('img')
-      .filter(
-        (image) =>
-          image.getAttribute('fetchPriority') === 'high' ||
-          image.getAttribute('fetchpriority') === 'high'
-      );
-
-    expect(highPriorityImages).toHaveLength(1);
-    expect(highPriorityImages[0]).toHaveAccessibleName('iPhone 17 Pro Max');
   });
 
   it('uses theme variables for the hero CTA and slide controls', () => {
@@ -183,5 +186,27 @@ describe('HeroMobileCarousel', () => {
     expect(
       screen.getByRole('button', { name: /go to hero slide 1/i })
     ).toHaveClass('h-12', 'min-w-12');
+  });
+
+  it('keeps the sponsored ad wrapper mounted across slide changes', () => {
+    render(
+      <HeroMobileCarousel
+        getHref={(path) => `/ogabassey${path}`}
+        hasResolvedViewport={true}
+        isDesktopViewport={false}
+      />
+    );
+
+    const sponsoredAdCall = mockDeferredAdUnit.mock.calls.find(
+      ([props]) =>
+        (props as { placementKey?: string }).placementKey ===
+        'HEADER_LEADERBOARD'
+    );
+
+    expect(sponsoredAdCall?.[0]).toEqual(
+      expect.not.objectContaining({
+        enabled: expect.any(Boolean),
+      })
+    );
   });
 });

@@ -214,17 +214,16 @@ describe('escapeHtml', () => {
 });
 
 describe('sanitizeSchemaUrl', () => {
-  it('should validate and escape URL', () => {
-    // URL constructor encodes < and > to %3C and %3E
-    // Then escapeHtml escodes to unicode escape sequences
+  it('should validate and normalize URL', () => {
     const result = sanitizeSchemaUrl('https://example.com/path');
     expect(result).toBe('https://example.com/path');
   });
 
   it('should handle URLs with special characters', () => {
-    // Test escaping behavior after URL validation
-    const result = sanitizeSchemaUrl('https://example.com/path?q=test');
-    expect(result).toContain('https://example.com');
+    const result = sanitizeSchemaUrl(
+      'https://example.com/path?q=<tag>&ref=home'
+    );
+    expect(result).toBe('https://example.com/path?q=%3Ctag%3E&ref=home');
   });
 
   it('should reject invalid URLs', () => {

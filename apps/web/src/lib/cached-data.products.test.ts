@@ -80,6 +80,7 @@ describe('cached-data product query projections', () => {
     expect(harness.mockEq).toHaveBeenCalledWith('slug', 'iphone-16');
     const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
     expect(selectArg).not.toMatch(/\*\s*,/);
+    expect(selectArg).toContain('canonical_url');
   });
 
   it('getCachedProductWithDetails uses explicit column select without product_variants', async () => {
@@ -328,7 +329,8 @@ describe('cached-data product query projections', () => {
     );
     expect(harness.mockLimit).not.toHaveBeenCalled();
     const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
-    expect(selectArg).toContain('product_key_specs');
+    expect(selectArg).toContain('product_key_specs (');
+    expect(selectArg).not.toMatch(/,\s*product_key_specs\s*,/);
     expect(result.products).toEqual(productQueryResult.data);
   });
 });

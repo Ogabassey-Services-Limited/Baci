@@ -9,7 +9,7 @@ import {
   ensureGoogleTag,
 } from './google-ad-bootstrap';
 
-interface AdUnitProps {
+export interface AdUnitProps {
   placementKey: keyof typeof AD_CONFIG;
   className?: string;
   refreshKey?: string | number;

@@ -88,6 +88,13 @@ vi.mock('@/lib/api-auth', () => ({
 vi.mock('@/lib/jumia/helpers', () => ({
   getJumiaAuthUrl: (...args: unknown[]) => mockGetJumiaAuthUrl(...args),
   getJumiaRedirectUri: (appUrl: string) => mockGetJumiaRedirectUri(appUrl),
+  // VARIANT-TEST: REMOVE — diagnostic harness, see helpers.ts comment.
+  isJumiaAuthUrlVariant: (value: string | null | undefined) =>
+    value === 'A' ||
+    value === 'B' ||
+    value === 'C' ||
+    value === 'D' ||
+    value === 'E',
 }));
 
 vi.mock('@/env', () => ({
@@ -104,6 +111,8 @@ const MERCHANT_CTX = {
     permissions: {},
   },
 };
+const INTEGRATION_ID = '00000000-0000-4000-8000-000000000010';
+const OTHER_INTEGRATION_ID = '00000000-0000-4000-8000-000000000011';
 
 function makePostRequest(body: unknown) {
   return new NextRequest('http://localhost/api/marketplace/jumia/connect', {
@@ -130,6 +139,18 @@ function makeBearerGetRequest(search = '') {
   );
 }
 
+function makeBearerDeleteRequest(search = '') {
+  return new NextRequest(
+    `http://localhost/api/marketplace/jumia/connect${search}`,
+    {
+      method: 'DELETE',
+      headers: {
+        Authorization: 'Bearer test-token',
+      },
+    }
+  );
+}
+
 function setupAuth() {
   mockGetUser.mockResolvedValue({ data: { user: { id: 'u1' } }, error: null });
   mockGetMerchant.mockResolvedValue(MERCHANT_CTX);
@@ -142,7 +163,7 @@ function setupAuth() {
   });
 }
 
-import { GET, POST } from './route';
+import { DELETE, GET, POST } from './route';
 
 const originalAppUrl = process.env.NEXT_PUBLIC_APP_URL;
 const originalJumiaClientId = process.env.JUMIA_CLIENT_ID;
@@ -250,7 +271,11 @@ describe('Connect POST', () => {
     setupAuth();
     mockSelect.mockReturnValue({
       single: vi.fn().mockResolvedValue({
-        data: { id: 'int-1', shop_id: 'default', shop_name: 'My Jumia Shop' },
+        data: {
+          id: INTEGRATION_ID,
+          shop_id: 'default',
+          shop_name: 'My Jumia Shop',
+        },
         error: null,
       }),
     });
@@ -474,7 +499,7 @@ describe('Connect GET', () => {
             eq: vi.fn().mockResolvedValue({
               data: [
                 {
-                  id: 'int-1',
+                  id: INTEGRATION_ID,
                   shop_id: 'shop-1',
                   shop_name: 'Jumia NG',
                   country_code: 'NG',
@@ -496,7 +521,7 @@ describe('Connect GET', () => {
       connected: true,
       integrations: [
         {
-          id: 'int-1',
+          id: INTEGRATION_ID,
           shop_id: 'shop-1',
           shop_name: 'Jumia NG',
           country_code: 'NG',
@@ -528,6 +553,149 @@ describe('Connect GET', () => {
     expect(res.status).toBe(500);
     await expect(res.json()).resolves.toEqual({
       error: 'Database error',
+    });
+  });
+});
+
+describe('Connect DELETE', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setupAuth();
+    mockAuthenticateApiRequest.mockResolvedValue({
+      user: { id: 'u1' },
+      supabase: mockSupabase,
+      error: null,
+    });
+  });
+
+  afterEach(() => {
+    restoreEnv();
+  });
+
+  it('returns 401 when unauthenticated', async () => {
+    mockAuthenticateApiRequest.mockResolvedValue({
+      user: null,
+      supabase: null,
+      error: 'no',
+    });
+
+    const res = await DELETE(makeBearerDeleteRequest());
+
+    expect(res.status).toBe(401);
+    await expect(res.json()).resolves.toEqual({
+      error: 'Unauthorized',
+    });
+  });
+
+  it('disconnects a Jumia integration for bearer-authenticated mobile requests', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: { id: INTEGRATION_ID },
+      error: null,
+    });
+    const select = vi.fn().mockReturnValue({ maybeSingle });
+    const eqMerchant = vi.fn().mockReturnValue({ select });
+    const eqId = vi.fn().mockReturnValue({ eq: eqMerchant });
+    const update = vi.fn().mockReturnValue({ eq: eqId });
+    mockSupabase.from.mockReturnValueOnce({ update });
+
+    const res = await DELETE(makeBearerDeleteRequest(`?id=${INTEGRATION_ID}`));
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({
+      success: true,
+      message: 'Jumia account disconnected',
+    });
+    expect(mockAuthenticateApiRequest).toHaveBeenCalled();
+    expect(update).toHaveBeenCalledWith({ is_active: false });
+    expect(eqId).toHaveBeenCalledWith('id', INTEGRATION_ID);
+    expect(eqMerchant).toHaveBeenCalledWith(
+      'merchant_id',
+      MERCHANT_CTX.merchantId
+    );
+  });
+
+  it('returns 400 when integration id is missing', async () => {
+    const res = await DELETE(makeBearerDeleteRequest());
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: 'Invalid input',
+      details: {
+        fieldErrors: {
+          id: expect.arrayContaining([expect.any(String)]),
+        },
+      },
+    });
+  });
+
+  it('returns 400 when integration id is blank', async () => {
+    const res = await DELETE(makeBearerDeleteRequest('?id=%20%20'));
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: 'Invalid input',
+      details: {
+        fieldErrors: {
+          id: expect.arrayContaining([expect.any(String)]),
+        },
+      },
+    });
+  });
+
+  it('returns 400 when integration id is not a UUID', async () => {
+    const res = await DELETE(makeBearerDeleteRequest('?id=int-1'));
+
+    expect(res.status).toBe(400);
+    await expect(res.json()).resolves.toMatchObject({
+      error: 'Invalid input',
+      details: {
+        fieldErrors: {
+          id: expect.arrayContaining([expect.any(String)]),
+        },
+      },
+    });
+    expect(mockSupabase.from).not.toHaveBeenCalled();
+  });
+
+  it('returns 500 when the disconnect update fails', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: null,
+      error: { message: 'db error' },
+    });
+    const select = vi.fn().mockReturnValue({ maybeSingle });
+    const eqMerchant = vi.fn().mockReturnValue({ select });
+    const eqId = vi.fn().mockReturnValue({ eq: eqMerchant });
+    mockSupabase.from.mockReturnValueOnce({
+      update: vi.fn().mockReturnValue({ eq: eqId }),
+    });
+
+    const res = await DELETE(makeBearerDeleteRequest(`?id=${INTEGRATION_ID}`));
+
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({
+      error: 'Failed to disconnect',
+    });
+  });
+
+  it('returns 404 when integration is not found for the merchant', async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({
+      data: null,
+      error: null,
+    });
+    const select = vi.fn().mockReturnValue({ maybeSingle });
+    const eqMerchant = vi.fn().mockReturnValue({ select });
+    const eqId = vi.fn().mockReturnValue({ eq: eqMerchant });
+    mockSupabase.from.mockReturnValueOnce({
+      update: vi.fn().mockReturnValue({ eq: eqId }),
+    });
+
+    const res = await DELETE(
+      makeBearerDeleteRequest(`?id=${OTHER_INTEGRATION_ID}`)
+    );
+
+    expect(res.status).toBe(404);
+    await expect(res.json()).resolves.toEqual({
+      error: 'Integration not found',
     });
   });
 });
