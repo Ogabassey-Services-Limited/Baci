@@ -69,9 +69,9 @@ describe('AdminLayout', () => {
       AdminLayout({
         children: <div>Admin content</div>,
       })
-    ).rejects.toThrow('NEXT_REDIRECT:/login?redirectTo=%2Fadmin');
+    ).rejects.toThrow('NEXT_REDIRECT:/login?redirect=%2Fadmin');
 
-    expect(mockRedirect).toHaveBeenCalledWith('/login?redirectTo=%2Fadmin');
+    expect(mockRedirect).toHaveBeenCalledWith('/login?redirect=%2Fadmin');
   });
 
   it('redirects authenticated non-admin users to the merchant dashboard', async () => {

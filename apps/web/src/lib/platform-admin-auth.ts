@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers';
 import { createClient } from '@/lib/supabase/server';
 
 export type PlatformAdminAuth =
@@ -8,8 +7,7 @@ export type PlatformAdminAuth =
 
 export async function getPlatformAdminAuth(): Promise<PlatformAdminAuth> {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = await createClient();
     const {
       data: { user },
       error: userError,

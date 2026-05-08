@@ -1,14 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockCookies = vi.fn();
 const mockCreateClient = vi.fn();
 
-vi.mock('next/headers', () => ({
-  cookies: () => mockCookies(),
-}));
-
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: (cookieStore: unknown) => mockCreateClient(cookieStore),
+  createClient: () => mockCreateClient(),
 }));
 
 import { getPlatformAdminAuth } from './platform-admin-auth';
@@ -61,14 +56,13 @@ function createSupabaseMock({
 describe('getPlatformAdminAuth', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCookies.mockResolvedValue({ get: vi.fn(), set: vi.fn() });
   });
 
   it('checks the authenticated user before querying admin privileges', async () => {
     const supabaseMock = createSupabaseMock({
       user: { email: 'admin@example.com', id: 'user-1' },
     });
-    mockCreateClient.mockReturnValue(supabaseMock.supabase);
+    mockCreateClient.mockResolvedValue(supabaseMock.supabase);
 
     const result = await getPlatformAdminAuth();
 
@@ -77,13 +71,14 @@ describe('getPlatformAdminAuth', () => {
       user: { email: 'admin@example.com', id: 'user-1' },
     });
     expect(supabaseMock.getUser).toHaveBeenCalledOnce();
+    expect(mockCreateClient).toHaveBeenCalledWith();
     expect(supabaseMock.from).toHaveBeenCalledWith('merchants');
     expect(supabaseMock.select).toHaveBeenCalledWith('is_platform_admin');
   });
 
   it('does not query merchants when there is no authenticated user', async () => {
     const supabaseMock = createSupabaseMock({ user: null });
-    mockCreateClient.mockReturnValue(supabaseMock.supabase);
+    mockCreateClient.mockResolvedValue(supabaseMock.supabase);
 
     const result = await getPlatformAdminAuth();
 
@@ -99,7 +94,7 @@ describe('getPlatformAdminAuth', () => {
       },
       user: { email: 'merchant@example.com', id: 'user-2' },
     });
-    mockCreateClient.mockReturnValue(supabaseMock.supabase);
+    mockCreateClient.mockResolvedValue(supabaseMock.supabase);
 
     const result = await getPlatformAdminAuth();
 
@@ -114,7 +109,7 @@ describe('getPlatformAdminAuth', () => {
       },
       user: { email: 'admin@example.com', id: 'user-1' },
     });
-    mockCreateClient.mockReturnValue(supabaseMock.supabase);
+    mockCreateClient.mockResolvedValue(supabaseMock.supabase);
 
     const result = await getPlatformAdminAuth();
 

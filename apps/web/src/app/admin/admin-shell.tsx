@@ -278,7 +278,7 @@ export function AdminShell({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleSignOut}
-                  className="text-red-500 focus:bg-red-100 focus:text-red-700"
+                  className="text-destructive focus:bg-destructive/10 focus:text-destructive"
                 >
                   <LogOut className="mr-2 h-4 w-4" aria-hidden="true" />
                   <span>Logout</span>

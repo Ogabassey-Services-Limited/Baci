@@ -12,7 +12,7 @@ export default async function AdminLayout({
   const auth = await getPlatformAdminAuth();
 
   if (auth.status === 'unauthenticated') {
-    redirect('/login?redirectTo=%2Fadmin');
+    redirect('/login?redirect=%2Fadmin');
   }
 
   if (auth.status === 'forbidden') {
