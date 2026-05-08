@@ -181,7 +181,8 @@ export async function upsertDiscountCode(input: UpsertDiscountCodeInput) {
       .update(payload)
       .eq('id', validatedInput.id)
       .eq('merchant_id', merchant.id) // Ensure ownership
-      .select()
+      // ⚡ Bolt: PERFORMANCE: Explicitly select only the 'id' column instead of the full row to prevent overfetching data during updates
+      .select('id')
       .single();
 
     if (error) {
@@ -224,7 +225,8 @@ export async function deleteDiscountCode(id: string) {
     .delete()
     .eq('id', id)
     .eq('merchant_id', merchant.id) // Double check ownership
-    .select()
+    // ⚡ Bolt: PERFORMANCE: Explicitly select only the 'id' column instead of the full row to prevent overfetching data during deletes
+    .select('id')
     .single();
 
   if (error) {
