@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  extractKudaTransactionId,
   extractKudaVoucherPin,
   normalizeKudaString,
 } from '@/lib/kuda-voucher-token';
@@ -103,5 +104,25 @@ describe('extractKudaVoucherPin', () => {
       })
     ).toBe('TOKEN-WITHIN-LIMIT');
     expect(extractKudaVoucherPin(payload)).toBeUndefined();
+  });
+});
+
+describe('extractKudaTransactionId', () => {
+  it('extracts transaction ids from Kuda reference fields', () => {
+    expect(extractKudaTransactionId({ reference: ' REF-LOWER ' })).toBe(
+      'REF-LOWER'
+    );
+    expect(extractKudaTransactionId({ Reference: ' REF-UPPER ' })).toBe(
+      'REF-UPPER'
+    );
+  });
+
+  it('uses the fallback when Kuda does not return a reference', () => {
+    expect(
+      extractKudaTransactionId({ status: 'pending' }, ' REQUEST-REF ')
+    ).toBe('REQUEST-REF');
+    expect(extractKudaTransactionId('Pending', ' REQUEST-REF ')).toBe(
+      'REQUEST-REF'
+    );
   });
 });
