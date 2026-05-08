@@ -17,7 +17,7 @@ describe('vtu commission rates', () => {
         [
           key.slice(0, separatorIndex),
           key.slice(separatorIndex + 1),
-          value.rate,
+          value,
         ] as const,
       ];
     });
@@ -26,6 +26,9 @@ describe('vtu commission rates', () => {
     ['airtime', 'AIRTIME'],
     ['Cable TV', 'CABLE'],
     ['power', 'ELECTRICITY'],
+    ['JAMB', 'EDUCATION'],
+    ['cowry', 'TRANSPORT'],
+    ['ISP', 'INTERNET'],
     ['unknown', 'AIRTIME'],
     [null, 'AIRTIME'],
     [undefined, 'AIRTIME'],
@@ -36,21 +39,24 @@ describe('vtu commission rates', () => {
 
   it.each(
     commissionMatrixCases
-  )('returns %s + %s specific rate %s', (provider, category, expectedRate) => {
-    expect(getVtuCommissionRate(provider, category)).toEqual({
-      rate: expectedRate,
-    });
+  )('returns %s + %s specific rate', (provider, category, expectedRate) => {
+    expect(getVtuCommissionRate(provider, category)).toEqual(expectedRate);
   });
 
   it.each([
-    ['Glo Nigeria', 'AIRTIME', 0.05],
-    ['MTN NG', 'DATA', 0.03],
-    ['Ikeja Electric', 'ELECTRICITY', 0.008],
-    ['Naija Bet', 'BETTING', 0.001],
-  ] as const)('normalizes alias %s + %s to rate %s', (provider, category, expectedRate) => {
-    expect(getVtuCommissionRate(provider, category)).toEqual({
-      rate: expectedRate,
-    });
+    ['Glo Nigeria', 'AIRTIME', { rate: 0.05 }],
+    ['MTN NG', 'DATA', { rate: 0.03 }],
+    ['Ikeja Electric', 'ELECTRICITY', { rate: 0.008 }],
+    ['Naija Bet', 'BETTING', { rate: 0.001 }],
+    ['Showmax', 'CABLE', { rate: 0.02 }],
+    ['Football.com', 'BETTING', { rate: 0.005, cap: 800 }],
+    ['Access Bet', 'BETTING', { rate: 0.004, cap: 1000 }],
+    ['JAMB UTME', 'EDUCATION', { rate: 0.024 }],
+    ['Switch Solar', 'SOLAR', { rate: 0.004, cap: 500 }],
+    ['LASG Cowry', 'TRANSPORT', { rate: 0.008 }],
+    ['Spectranet', 'INTERNET', { rate: 0.02 }],
+  ] as const)('normalizes alias %s + %s to its rate', (provider, category, expectedRate) => {
+    expect(getVtuCommissionRate(provider, category)).toEqual(expectedRate);
   });
 
   it.each([
@@ -59,8 +65,20 @@ describe('vtu commission rates', () => {
     'ELECTRICITY',
     'CABLE',
     'BETTING',
+    'EDUCATION',
+    'SOLAR',
+    'TRANSPORT',
+    'INTERNET',
   ] as const)('falls back to the default commission rate for unknown providers in %s', (category) => {
     expect(getVtuCommissionRate('Unknown Provider', category)).toEqual({
+      rate: 0.02,
+    });
+  });
+
+  it('does not treat generic transport wording as LASG Cowry', () => {
+    expect(
+      getVtuCommissionRate('Unknown Transport Provider', 'TRANSPORT')
+    ).toEqual({
       rate: 0.02,
     });
   });
