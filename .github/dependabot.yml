@@ -1,12 +1,72 @@
 version: 2
 updates:
+  # ──────────────────────────────────────────────────────────────────────────
+  # apps/web — the only workspace stuck on the vitest 4 / vite 7 chain.
+  # The plugin-react ignore is scoped to this manifest only so other
+  # workspaces (mobile-admin, mobile-storefront) keep receiving 6.x
+  # patch/minor updates for their own (already-on-6.x) installations.
+  # ──────────────────────────────────────────────────────────────────────────
   - package-ecosystem: "npm"
-    directory: "/"
+    directory: "/apps/web"
     schedule:
       interval: "weekly"
+
+    # 2026 wave coordination — see docs/tooling-waves.md for the registry.
+    # Each entry blocks Dependabot from churn-opening PRs that can't merge
+    # cleanly until a transitive dep upgrade unblocks the wave.
+    ignore:
+      - dependency-name: "@vitejs/plugin-react"
+        versions: [">=6"]
+        # plugin-react@6 requires vite ^8 (peer); vitest@4 (apps/web's
+        # current vitest) only supports vite ^6 || ^7. Delete this entry
+        # when vitest 5 ships and a coordinated wave PR will land.
+
+    groups:
+      web-dev-deps-minor:
+        dependency-type: "development"
+        update-types: ["minor", "patch"]
+      web-prod-deps-minor:
+        dependency-type: "production"
+        update-types: ["minor", "patch"]
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Mobile apps + shared packages — NO plugin-react ignore here. mobile-admin
+  # already runs @vitejs/plugin-react@^6.0.1 against vite 8 and should keep
+  # getting 6.x patch/minor/security updates.
+  #
+  # `"/"` is intentionally NOT listed below: Dependabot's official options
+  # reference forbids overlapping directories within the same ecosystem on
+  # the same target branch
+  # (https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference#directories--).
+  # Listing both `"/"` and `"/apps/web"` (the first updater) violates that
+  # rule and risks the validator dropping or merging blocks.
+  #
+  # Trade-off: 5 root-only devDeps (turbo, wait-on, @eslint/js, plus the
+  # `hono` / `@hono/node-server` override-only entries) won't be auto-
+  # bumped by Dependabot. They're stable infra/tooling — manual bumps are
+  # acceptable, and the override-only ones aren't bumpable by Dependabot
+  # anyway since they live in `pnpm.overrides` not `dependencies`.
+  # ──────────────────────────────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directories:
+      - "/apps/mobile-admin"
+      - "/apps/mobile-storefront"
+      - "/packages/shared"
+    schedule:
+      interval: "weekly"
+    groups:
+      dev-deps-minor:
+        dependency-type: "development"
+        update-types: ["minor", "patch"]
+      prod-deps-minor:
+        dependency-type: "production"
+        update-types: ["minor", "patch"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    groups:
+      ci-actions-minor:
+        update-types: ["minor", "patch"]
