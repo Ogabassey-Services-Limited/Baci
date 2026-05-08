@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockCreateClient = vi.fn();
+const mockUnstableRethrow = vi.fn();
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: () => mockCreateClient(),
+}));
+
+vi.mock('next/navigation', () => ({
+  unstable_rethrow: (error: unknown) => mockUnstableRethrow(error),
 }));
 
 import { getPlatformAdminAuth } from './platform-admin-auth';
@@ -114,5 +119,26 @@ describe('getPlatformAdminAuth', () => {
     const result = await getPlatformAdminAuth();
 
     expect(result).toEqual({ status: 'forbidden' });
+  });
+
+  it('fails closed for ordinary unexpected auth helper errors', async () => {
+    const authError = new Error('Supabase auth unavailable');
+    mockCreateClient.mockRejectedValueOnce(authError);
+
+    const result = await getPlatformAdminAuth();
+
+    expect(result).toEqual({ status: 'unauthenticated' });
+    expect(mockUnstableRethrow).toHaveBeenCalledWith(authError);
+  });
+
+  it('rethrows Next.js dynamic bailout errors from the auth helper', async () => {
+    const dynamicBailoutError = new Error('DynamicServerError');
+    mockCreateClient.mockRejectedValueOnce(dynamicBailoutError);
+    mockUnstableRethrow.mockImplementationOnce((error) => {
+      throw error;
+    });
+
+    await expect(getPlatformAdminAuth()).rejects.toBe(dynamicBailoutError);
+    expect(mockUnstableRethrow).toHaveBeenCalledWith(dynamicBailoutError);
   });
 });

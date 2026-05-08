@@ -1,3 +1,5 @@
+import { unstable_rethrow } from 'next/navigation';
+
 import { createClient } from '@/lib/supabase/server';
 
 export type PlatformAdminAuth =
@@ -34,7 +36,8 @@ export async function getPlatformAdminAuth(): Promise<PlatformAdminAuth> {
         id: user.id,
       },
     };
-  } catch {
+  } catch (error) {
+    unstable_rethrow(error);
     return { status: 'unauthenticated' };
   }
 }
