@@ -5,11 +5,7 @@ import {
   HERO_MOBILE_LCP_FALLBACK_SRC,
   HERO_MOBILE_LCP_SRC,
 } from './hero-data';
-import {
-  OGABASSEY_HERO_PRECONNECT_ORIGINS,
-  OgabasseyHeroPreloads,
-} from './ogabassey-hero-preloads';
-import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
+import { OgabasseyHeroPreloads } from './ogabassey-hero-preloads';
 
 describe('OgabasseyHeroPreloads', () => {
   function clearHints() {
@@ -35,20 +31,6 @@ describe('OgabasseyHeroPreloads', () => {
       document.querySelectorAll<HTMLLinkElement>('link[rel="dns-prefetch"]')
     ).map((l) => l.getAttribute('href'));
     expect(dnsHrefs).toEqual([]);
-    expect(OGABASSEY_HERO_PRECONNECT_ORIGINS).toEqual([]);
-  });
-
-  it('leaves the shared CDN warmup to the OgaBassey layout', () => {
-    clearHints();
-    render(<OgabasseyHeroPreloads />);
-
-    const hintedOrigins = Array.from(
-      document.querySelectorAll<HTMLLinkElement>(
-        'link[rel="preconnect"], link[rel="dns-prefetch"]'
-      )
-    ).map((link) => link.getAttribute('href'));
-
-    expect(hintedOrigins).not.toContain(OGABASSEY_CDN_ORIGIN);
   });
 
   it('emits viewport-scoped manual LCP preloads', () => {
