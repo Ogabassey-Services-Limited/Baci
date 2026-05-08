@@ -158,6 +158,7 @@ describe('web cron worker', () => {
       for (const [path, env] of [
         ['/api/ai-jobs/worker', {}],
         ['/api/inventory/push-alerts', {}],
+        ['/api/cron/reconcile-vtu-processing', {}],
         ['/api/ai-jobs/worker', { BACI_WEB_CRON_TIMEOUT_MS: '1234' }],
       ]) {
         await runWebCron({
@@ -175,7 +176,7 @@ describe('web cron worker', () => {
       AbortSignal.timeout = originalTimeout;
     }
 
-    assert.deepEqual(timeoutCalls, [900_000, 600_000, 1234]);
+    assert.deepEqual(timeoutCalls, [900_000, 600_000, 360_000, 1234]);
   });
 
   it('supports POST cron endpoints with bearer authorization', async () => {

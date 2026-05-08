@@ -415,7 +415,10 @@ describe('fulfillPendingVtuTransaction', () => {
         request_reference: 'VTU-123',
         transaction_id: 'kuda-1',
         status: 'successful',
-        metadata: {},
+        metadata: {
+          customerNewBalance: 0,
+          customerWalletCredited: false,
+        },
         error_message: null,
         merchant_commission: 0,
         customer_cashback: 11.25,

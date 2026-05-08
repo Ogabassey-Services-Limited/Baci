@@ -1015,7 +1015,7 @@ async function claimCustomerNotificationAttempt({
     return false;
   }
 
-  Object.assign(metadata, claimedMetadata);
+  setMetadataValue(metadata, 'customerNotificationAttempted', true);
   return true;
 }
 
