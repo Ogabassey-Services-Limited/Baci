@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { useToast } from '@/hooks/use-toast';
+import { sanitizeRelativeRedirectPath } from '@/lib/auth-redirect';
 import { createClient } from '@/lib/supabase/client';
 
 const GoogleIcon = () => (
@@ -78,7 +79,10 @@ export default function LoginForm() {
 
   // Get email and redirect from URL
   const defaultEmail = searchParams.get('email') || '';
-  const redirectTo = searchParams.get('redirect') || '/dashboard';
+  const redirectTo = sanitizeRelativeRedirectPath(
+    searchParams.get('redirectTo') ?? searchParams.get('redirect'),
+    '/dashboard'
+  );
 
   // React 19 useActionState for login form
   const [loginState, loginFormAction] = useActionState(
@@ -127,7 +131,7 @@ export default function LoginForm() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
       },
     });
 
@@ -147,7 +151,7 @@ export default function LoginForm() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'apple',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
       },
     });
 
