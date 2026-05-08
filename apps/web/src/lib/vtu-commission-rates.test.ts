@@ -65,8 +65,20 @@ describe('vtu commission rates', () => {
     'ELECTRICITY',
     'CABLE',
     'BETTING',
+    'EDUCATION',
+    'SOLAR',
+    'TRANSPORT',
+    'INTERNET',
   ] as const)('falls back to the default commission rate for unknown providers in %s', (category) => {
     expect(getVtuCommissionRate('Unknown Provider', category)).toEqual({
+      rate: 0.02,
+    });
+  });
+
+  it('does not treat generic transport wording as LASG Cowry', () => {
+    expect(
+      getVtuCommissionRate('Unknown Transport Provider', 'TRANSPORT')
+    ).toEqual({
       rate: 0.02,
     });
   });
