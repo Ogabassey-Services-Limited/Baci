@@ -50,11 +50,11 @@ describe('LoginForm', () => {
       new URLSearchParams({ redirectTo: '/admin' })
     );
 
-    const { container } = render(<LoginForm />);
+    render(<LoginForm />);
 
-    expect(container.querySelector('input[name="redirectTo"]')).toHaveAttribute(
-      'value',
-      '/admin'
+    expect(screen.getByDisplayValue('/admin')).toHaveAttribute(
+      'name',
+      'redirectTo'
     );
   });
 

@@ -195,7 +195,9 @@ export default function CreateNotificationPage() {
             : 'Notification Scheduled',
         description:
           result.status === 'sent'
-            ? `Sent to ${result.merchants_notified} merchants`
+            ? typeof result.merchants_notified === 'number'
+              ? `Sent to ${result.merchants_notified} merchants`
+              : 'Notification has been sent'
             : result.scheduled_for
               ? `Scheduled for ${new Date(result.scheduled_for).toLocaleString()}`
               : 'Notification has been scheduled',

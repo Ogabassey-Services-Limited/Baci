@@ -125,12 +125,22 @@ export default function LoginForm() {
     }
   }, [forgotState.success, forgotState.error, toast]);
 
-  const handleGoogleSignIn = async () => {
-    setIsGoogleLoading(true);
+  const handleOAuthSignIn = async ({
+    provider,
+    label,
+    setLoading,
+  }: {
+    provider: 'google' | 'apple';
+    label: string;
+    setLoading: (v: boolean) => void;
+  }) => {
+    setLoading(true);
+    const failureTitle = `${label} Sign-in Failed`;
+    const fallbackMessage = `Unable to start ${label} sign-in`;
 
     try {
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
+        provider,
         options: {
           redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
         },
@@ -142,56 +152,33 @@ export default function LoginForm() {
 
       toast({
         variant: 'destructive',
-        title: 'Google Sign-in Failed',
+        title: failureTitle,
         description: error.message,
       });
-      setIsGoogleLoading(false);
+      setLoading(false);
     } catch (error) {
       toast({
         variant: 'destructive',
-        title: 'Google Sign-in Failed',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Unable to start Google sign-in',
+        title: failureTitle,
+        description: error instanceof Error ? error.message : fallbackMessage,
       });
-      setIsGoogleLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleAppleSignIn = async () => {
-    setIsAppleLoading(true);
+  const handleGoogleSignIn = () =>
+    handleOAuthSignIn({
+      provider: 'google',
+      label: 'Google',
+      setLoading: setIsGoogleLoading,
+    });
 
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
-        },
-      });
-
-      if (!error) {
-        return;
-      }
-
-      toast({
-        variant: 'destructive',
-        title: 'Apple Sign-in Failed',
-        description: error.message,
-      });
-      setIsAppleLoading(false);
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Apple Sign-in Failed',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Unable to start Apple sign-in',
-      });
-      setIsAppleLoading(false);
-    }
-  };
+  const handleAppleSignIn = () =>
+    handleOAuthSignIn({
+      provider: 'apple',
+      label: 'Apple',
+      setLoading: setIsAppleLoading,
+    });
 
   return (
     <main
