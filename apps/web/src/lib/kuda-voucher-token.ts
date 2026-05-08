@@ -92,6 +92,21 @@ export function normalizeKudaString(value: unknown): string | undefined {
   return undefined;
 }
 
+export function extractKudaTransactionId(
+  data: unknown,
+  fallback?: unknown
+): string | undefined {
+  if (!isRecord(data)) {
+    return normalizeKudaString(fallback);
+  }
+
+  return (
+    normalizeKudaString(data.reference) ??
+    normalizeKudaString(data.Reference) ??
+    normalizeKudaString(fallback)
+  );
+}
+
 function extractFromTokenValue(
   value: unknown,
   depth = 0,
