@@ -69,6 +69,28 @@ describe('kuda-debug-log', () => {
     expect(serialized).not.toContain('08146978921');
   });
 
+  it('preserves repeated sibling references while redacting real cycles', async () => {
+    const { redactKudaDebugPayload } = await import('@/lib/kuda-debug-log');
+    const shared = { status: 'ok' };
+    const cyclic: Record<string, unknown> = { label: 'root' };
+    cyclic.self = cyclic;
+
+    const payload = redactKudaDebugPayload({
+      first: shared,
+      second: shared,
+      cyclic,
+    });
+
+    expect(payload).toEqual({
+      first: { status: 'ok' },
+      second: { status: 'ok' },
+      cyclic: {
+        label: 'root',
+        self: '[Circular]',
+      },
+    });
+  });
+
   it('logs only supported Kuda bill raw responses when debug is enabled', async () => {
     vi.stubEnv('KUDA_BILL_DEBUG', '1');
     const { logKudaRawResponse } = await import('@/lib/kuda-debug-log');
@@ -128,6 +150,20 @@ describe('kuda-debug-log', () => {
       expect.objectContaining({
         rawResponseJson: '{"status":true,"value":"10","self":"[Circular]"}',
       })
+    );
+  });
+
+  it('serializes repeated sibling references without marking them circular', async () => {
+    const { safeSerialize } = await import('@/lib/kuda-debug-log');
+    const shared = { result: 'ok', value: 10n };
+    const payload: Record<string, unknown> = {
+      first: shared,
+      second: shared,
+    };
+    payload.self = payload;
+
+    expect(safeSerialize(payload)).toBe(
+      '{"first":{"result":"ok","value":"10"},"second":{"result":"ok","value":"10"},"self":"[Circular]"}'
     );
   });
 

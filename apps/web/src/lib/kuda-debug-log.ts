@@ -86,7 +86,11 @@ function redactKudaDebugValue(
       return '[Circular]';
     }
     seen.add(value);
-    return value.map((item) => redactKudaDebugValue(item, depth + 1, seen));
+    const redacted = value.map((item) =>
+      redactKudaDebugValue(item, depth + 1, seen)
+    );
+    seen.delete(value);
+    return redacted;
   }
 
   if (!value || typeof value !== 'object') {
@@ -98,7 +102,7 @@ function redactKudaDebugValue(
   }
   seen.add(value);
 
-  return Object.entries(value as Record<string, unknown>).reduce<
+  const redacted = Object.entries(value as Record<string, unknown>).reduce<
     Record<string, unknown>
   >((payload, [key, nestedValue]) => {
     payload[key] = shouldRedactKudaDebugValue(key, nestedValue)
@@ -106,22 +110,31 @@ function redactKudaDebugValue(
       : redactKudaDebugValue(nestedValue, depth + 1, seen);
     return payload;
   }, {});
+  seen.delete(value);
+  return redacted;
 }
 
-function safeSerialize(value: unknown) {
-  const seen = new WeakSet<object>();
+export function safeSerialize(value: unknown) {
+  const ancestors: object[] = [];
 
   try {
-    return JSON.stringify(value, (_key, nestedValue: unknown) => {
+    return JSON.stringify(value, function (this: unknown, _key, nestedValue) {
       if (typeof nestedValue === 'bigint') {
         return nestedValue.toString();
       }
 
       if (nestedValue && typeof nestedValue === 'object') {
-        if (seen.has(nestedValue)) {
+        while (
+          ancestors.length > 0 &&
+          ancestors[ancestors.length - 1] !== this
+        ) {
+          ancestors.pop();
+        }
+
+        if (ancestors.includes(nestedValue)) {
           return '[Circular]';
         }
-        seen.add(nestedValue);
+        ancestors.push(nestedValue);
       }
 
       return nestedValue;
