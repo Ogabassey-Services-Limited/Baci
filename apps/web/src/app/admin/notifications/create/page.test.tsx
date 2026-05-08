@@ -1,5 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -62,15 +61,15 @@ describe('CreateNotificationPage', () => {
   });
 
   it('submits notifications through the CSRF-aware admin API client', async () => {
-    const user = userEvent.setup();
     render(<CreateNotificationPage />);
 
-    await user.type(screen.getByLabelText(/title/i), 'Maintenance window');
-    await user.type(
-      screen.getByLabelText(/message/i),
-      'Baci will run maintenance tonight.'
-    );
-    await user.click(screen.getByRole('button', { name: /send now/i }));
+    fireEvent.change(screen.getByLabelText(/title/i), {
+      target: { value: 'Maintenance window' },
+    });
+    fireEvent.change(screen.getByLabelText(/message/i), {
+      target: { value: 'Baci will run maintenance tonight.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /send now/i }));
 
     await waitFor(() => {
       expect(mockApiPost).toHaveBeenCalledWith('/api/admin/notifications', {
@@ -93,17 +92,17 @@ describe('CreateNotificationPage', () => {
   });
 
   it('shows an error toast and does not navigate when notification creation fails', async () => {
-    const user = userEvent.setup();
     mockApiPost.mockRejectedValueOnce(new Error('CSRF token missing'));
 
     render(<CreateNotificationPage />);
 
-    await user.type(screen.getByLabelText(/title/i), 'Maintenance window');
-    await user.type(
-      screen.getByLabelText(/message/i),
-      'Baci will run maintenance tonight.'
-    );
-    await user.click(screen.getByRole('button', { name: /send now/i }));
+    fireEvent.change(screen.getByLabelText(/title/i), {
+      target: { value: 'Maintenance window' },
+    });
+    fireEvent.change(screen.getByLabelText(/message/i), {
+      target: { value: 'Baci will run maintenance tonight.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /send now/i }));
 
     await waitFor(() => {
       expect(mockToast).toHaveBeenCalledWith({
