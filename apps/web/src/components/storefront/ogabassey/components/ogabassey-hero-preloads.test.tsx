@@ -9,7 +9,7 @@ import {
   OGABASSEY_HERO_PRECONNECT_ORIGINS,
   OgabasseyHeroPreloads,
 } from './ogabassey-hero-preloads';
-import { OGABASSEY_CDN_ORIGIN } from '../config/storefront-origins';
+import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 
 describe('OgabasseyHeroPreloads', () => {
   function clearHints() {

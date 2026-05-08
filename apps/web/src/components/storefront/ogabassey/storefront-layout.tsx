@@ -11,7 +11,7 @@ import {
   getOgabasseyBasePath,
   shouldEnableOgabasseyGoogleStoreWidget,
 } from './storefront-layout-utils';
-import { OGABASSEY_CDN_ORIGIN } from './config/storefront-origins';
+import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 
 interface OgabasseyStorefrontLayoutProps {
   children: React.ReactNode;

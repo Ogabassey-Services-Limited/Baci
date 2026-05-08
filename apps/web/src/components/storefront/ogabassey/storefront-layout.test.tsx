@@ -98,7 +98,7 @@ vi.mock('./storefront-layout-utils', () => ({
 }));
 
 import { OgabasseyStorefrontLayout } from './storefront-layout';
-import { OGABASSEY_CDN_ORIGIN } from './config/storefront-origins';
+import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 
 const merchant = {
   id: 'merchant-1',
