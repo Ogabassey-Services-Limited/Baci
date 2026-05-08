@@ -15,6 +15,7 @@
   "app/(auth)/onboarding.tsx",
   "app/(auth)/register.tsx",
   "components/analytics/ReportsGenerator.ts",
+  "components/customize/CustomizeChatPanel.tsx",
   "components/discounts/DiscountItemSelector.tsx",
   "components/kyc/DateOfBirthPicker.tsx",
   "components/orders/NewOrderDetailsSection.tsx",
