@@ -70,7 +70,8 @@ describe('useAnalyticsOverview', () => {
     await Promise.all(mocks.queryPromises);
 
     expect(mocks.apiClient).toHaveBeenCalledWith(
-      '/api/analytics?endDate=2026-05-05T00%3A00%3A00.000Z&startDate=2026-05-01T00%3A00%3A00.000Z&branchId=branch-1'
+      '/api/analytics?endDate=2026-05-05T00%3A00%3A00.000Z&startDate=2026-05-01T00%3A00%3A00.000Z&branchId=branch-1',
+      { headers: { 'x-baci-merchant-id': 'merchant-1' } }
     );
   });
 
@@ -81,7 +82,8 @@ describe('useAnalyticsOverview', () => {
     await Promise.all(mocks.queryPromises);
 
     expect(mocks.apiClient).toHaveBeenCalledWith(
-      '/api/analytics?endDate=2026-05-05T00%3A00%3A00.000Z&startDate=2026-05-01T00%3A00%3A00.000Z'
+      '/api/analytics?endDate=2026-05-05T00%3A00%3A00.000Z&startDate=2026-05-01T00%3A00%3A00.000Z',
+      { headers: { 'x-baci-merchant-id': 'merchant-1' } }
     );
   });
 

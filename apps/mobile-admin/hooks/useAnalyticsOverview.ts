@@ -28,7 +28,10 @@ export function useAnalyticsOverview(range: AnalyticsDateRange) {
       }
 
       return apiClient<MerchantAnalyticsResponse>(
-        `/api/analytics?${params.toString()}`
+        `/api/analytics?${params.toString()}`,
+        {
+          headers: { 'x-baci-merchant-id': merchant?.id ?? '' },
+        }
       );
     },
     enabled: Boolean(merchant?.id),
