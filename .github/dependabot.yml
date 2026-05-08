@@ -5,8 +5,33 @@ updates:
     schedule:
       interval: "weekly"
 
+    # 2026 wave coordination — see docs/tooling-waves.md.
+    # Majors that depend on a coordinated peer-dep chain are ignored here so
+    # the bot stops opening churn PRs that can't merge cleanly. When the
+    # wave is ready (e.g. vitest 5 ships), delete the relevant ignore entry
+    # and Dependabot will reopen a coordinated PR set.
+    ignore:
+      - dependency-name: "@vitejs/plugin-react"
+        versions: [">=6"]
+        # plugin-react@6 requires vite ^8 (peer); vitest@4 requires vite ^6||^7.
+        # Unblock when vitest 5 lands.
+
+    # Group safe minor/patch bumps so they merge as one weekly PR per group
+    # instead of N independent PRs that each rebase against main and re-run CI.
+    # Majors stay individual so they get human-authored migration treatment.
+    groups:
+      dev-deps-minor:
+        dependency-type: "development"
+        update-types: ["minor", "patch"]
+      prod-deps-minor:
+        dependency-type: "production"
+        update-types: ["minor", "patch"]
+
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
+    groups:
+      ci-actions-minor:
+        update-types: ["minor", "patch"]
