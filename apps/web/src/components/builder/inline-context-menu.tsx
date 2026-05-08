@@ -109,7 +109,9 @@ export function InlineContextMenu({
                 aria-label="Edit Properties"
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 hover:bg-opacity-10 transition-all"
+                // bg-opacity-* removed in v4; hover bg is set inline via
+                // onMouseEnter below, so this class was already redundant.
+                className="h-8 w-8 p-0 transition-all"
                 style={{ color: '#2a2c6e' }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#2a2c6e10';

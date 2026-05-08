@@ -74,7 +74,7 @@ export default function UpdatePasswordPage() {
           <div className="mt-8">
             <Link
               href="/login"
-              className="text-sm font-semibold text-[#23255d] dark:text-yellow-500 hover:text-opacity-80"
+              className="text-sm font-semibold text-[#23255d] hover:text-[#23255d]/80 dark:text-yellow-500 dark:hover:text-yellow-500/80"
             >
               Go to Login &rarr;
             </Link>
@@ -131,7 +131,7 @@ export default function UpdatePasswordPage() {
             <button
               type="submit"
               disabled={loading}
-              className="group relative flex w-full justify-center rounded-md bg-[#23255d] px-3 py-3 text-sm font-semibold text-white hover:bg-opacity-90 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#23255d] disabled:opacity-70 transition-all shadow-md"
+              className="group relative flex w-full justify-center rounded-md bg-[#23255d] px-3 py-3 text-sm font-semibold text-white hover:bg-[#23255d]/90 focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#23255d] disabled:opacity-70 transition-all shadow-md"
             >
               {loading ? 'Updating...' : 'Update Password'}
             </button>

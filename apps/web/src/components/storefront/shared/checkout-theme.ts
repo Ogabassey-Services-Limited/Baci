@@ -51,7 +51,10 @@ export const checkoutStyles = {
   focusRing: 'focus:ring-(--store-primary) focus:border-(--store-primary)',
 
   // Shadows
-  primaryShadow: 'shadow-(--store-primary)/20',
+  // v4 needs the explicit `color:` annotation so the variable is parsed as
+  // a shadow color tint rather than a custom box-shadow value. Without it,
+  // the shadow inherits the default size but loses the brand-color tint.
+  primaryShadow: 'shadow-(color:--store-primary)/20',
 
   // Step indicator states
   stepActive: 'bg-(--store-primary)/10 text-(--store-primary)',

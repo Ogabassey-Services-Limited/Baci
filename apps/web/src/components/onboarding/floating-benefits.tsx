@@ -56,8 +56,10 @@ function BenefitPill({
     >
       <div
         className={cn(
-          'p-1.5 rounded-full bg-opacity-20 dark:bg-opacity-10',
-          color.replace('text-', 'bg-')
+          'p-1.5 rounded-full',
+          // v4 removed bg-opacity-*; apply slash-modifier on the
+          // dynamic bg color directly (light mode 20%, dark mode 10%).
+          `${color.replace('text-', 'bg-')}/20 dark:${color.replace('text-', 'bg-')}/10`
         )}
       >
         <Icon className={cn('w-4 h-4', color)} strokeWidth={2.5} />
