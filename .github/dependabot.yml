@@ -1,24 +1,48 @@
 version: 2
 updates:
+  # ──────────────────────────────────────────────────────────────────────────
+  # apps/web — the only workspace stuck on the vitest 4 / vite 7 chain.
+  # The plugin-react ignore is scoped to this manifest only so other
+  # workspaces (mobile-admin, mobile-storefront) keep receiving 6.x
+  # patch/minor updates for their own (already-on-6.x) installations.
+  # ──────────────────────────────────────────────────────────────────────────
   - package-ecosystem: "npm"
-    directory: "/"
+    directory: "/apps/web"
     schedule:
       interval: "weekly"
 
-    # 2026 wave coordination — see docs/tooling-waves.md.
-    # Majors that depend on a coordinated peer-dep chain are ignored here so
-    # the bot stops opening churn PRs that can't merge cleanly. When the
-    # wave is ready (e.g. vitest 5 ships), delete the relevant ignore entry
-    # and Dependabot will reopen a coordinated PR set.
+    # 2026 wave coordination — see docs/tooling-waves.md for the registry.
+    # Each entry blocks Dependabot from churn-opening PRs that can't merge
+    # cleanly until a transitive dep upgrade unblocks the wave.
     ignore:
       - dependency-name: "@vitejs/plugin-react"
         versions: [">=6"]
-        # plugin-react@6 requires vite ^8 (peer); vitest@4 requires vite ^6||^7.
-        # Unblock when vitest 5 lands.
+        # plugin-react@6 requires vite ^8 (peer); vitest@4 (apps/web's
+        # current vitest) only supports vite ^6 || ^7. Delete this entry
+        # when vitest 5 ships and a coordinated wave PR will land.
 
-    # Group safe minor/patch bumps so they merge as one weekly PR per group
-    # instead of N independent PRs that each rebase against main and re-run CI.
-    # Majors stay individual so they get human-authored migration treatment.
+    groups:
+      web-dev-deps-minor:
+        dependency-type: "development"
+        update-types: ["minor", "patch"]
+      web-prod-deps-minor:
+        dependency-type: "production"
+        update-types: ["minor", "patch"]
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Workspace root + mobile apps + shared packages.
+  # NO plugin-react ignore here — mobile-admin already runs
+  # @vitejs/plugin-react@^6.0.1 against vite 8 and should keep getting
+  # patches/minors/security fixes for it.
+  # ──────────────────────────────────────────────────────────────────────────
+  - package-ecosystem: "npm"
+    directories:
+      - "/"
+      - "/apps/mobile-admin"
+      - "/apps/mobile-storefront"
+      - "/packages/shared"
+    schedule:
+      interval: "weekly"
     groups:
       dev-deps-minor:
         dependency-type: "development"

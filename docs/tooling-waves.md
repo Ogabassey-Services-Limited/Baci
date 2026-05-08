@@ -8,7 +8,7 @@ When Dependabot proposes a major-version bump that requires a coordinated wave:
 
 1. **Don't merge the bot PR.** It's almost always a single-line `package.json` change without the migration code.
 2. **Close it,** with a comment pointing here.
-3. **Add an `ignore` entry to `.github/dependabot.yml`** so the bot stops reopening it — the version-decision-of-record now lives in config, not in an open PR.
+3. **Add an `ignore` entry to the relevant per-workspace `.github/dependabot.yml` updater** so the bot stops reopening it — the version-decision-of-record now lives in config, not in an open PR. Scope the entry to *only* the manifest where the wave is blocked (e.g. `directory: "/apps/web"`), not at workspace root, so other workspaces already on the target version keep getting patch/security updates.
 4. **Add the wave to the table below.**
 5. **When the wave is ready** (the trigger condition met), open a single hand-authored PR that does the whole migration coordinated, then delete the ignore entry.
 
@@ -16,9 +16,9 @@ This file is the registry. The `dependabot.yml` ignore section mirrors it.
 
 ## Active waves
 
-| Package | Stuck-at | Target | Trigger to unblock | Notes |
-|---|---|---|---|---|
-| `@vitejs/plugin-react` | `5.x` | `6.x` | `vitest@5` releases | plugin-react@6 requires `vite ^8`; vitest@4 requires `vite ^6 \|\| ^7`. The whole vite/vitest/plugin-react triplet has to move together. |
+| Package | Workspace | Stuck-at | Target | Trigger to unblock | Notes |
+|---|---|---|---|---|---|
+| `@vitejs/plugin-react` | `apps/web` | `5.x` | `6.x` | `vitest@5` releases | plugin-react@6 requires `vite ^8`; vitest@4 requires `vite ^6 \|\| ^7`. The whole vite/vitest/plugin-react triplet has to move together. **Scope:** `apps/web` only — `apps/mobile-admin` already runs plugin-react `^6.0.1` against vite 8 cleanly. |
 
 ## Closed waves (record)
 
