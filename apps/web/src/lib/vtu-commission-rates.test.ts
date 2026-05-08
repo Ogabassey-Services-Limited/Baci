@@ -75,6 +75,14 @@ describe('vtu commission rates', () => {
     });
   });
 
+  it('does not treat generic transport wording as LASG Cowry', () => {
+    expect(
+      getVtuCommissionRate('Unknown Transport Provider', 'TRANSPORT')
+    ).toEqual({
+      rate: 0.02,
+    });
+  });
+
   it.each([
     null,
     undefined,
