@@ -1,13 +1,16 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import {
-  authenticateAndResolveMerchant,
   BRANCH_COLUMNS,
   BRANCH_DETAIL_COLUMNS,
   mapBranchMutationError,
+  parseRequestedMerchantId,
 } from '@/app/api/branches/branch-route-utils';
-import { hasPermission } from '@/lib/api-auth';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { toUserAccess } from '@/lib/get-merchant-for-api-request';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
 import { sanitizePhone, sanitizeText } from '@/lib/sanitize-core';
 import {
   branchIdParamSchema,
@@ -19,19 +22,95 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+async function authenticateBranchRequest(request: NextRequest) {
+  const auth = await authenticateApiRequest(request);
+  if (auth.error || !auth.user || !auth.supabase) {
+    if (auth.error) {
+      console.error('[Branches] Authentication failed');
+    }
+
+    return {
+      response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+      supabase: null,
+      user: null,
+      merchantContext: null,
+    };
+  }
+
+  return {
+    response: null,
+    supabase: auth.supabase,
+    user: auth.user,
+    merchantContext: null,
+  };
+}
+
+async function resolveMerchantAfterValidation(
+  request: NextRequest,
+  auth: NonNullable<Awaited<ReturnType<typeof authenticateBranchRequest>>>
+) {
+  if (auth.response || !auth.supabase || !auth.user) {
+    return {
+      response: auth.response,
+      supabase: null,
+      user: null,
+      merchantContext: null,
+    };
+  }
+
+  const requestedMerchant = parseRequestedMerchantId(request);
+  if (requestedMerchant.response) {
+    return {
+      response: requestedMerchant.response,
+      supabase: null,
+      user: null,
+      merchantContext: null,
+    };
+  }
+
+  const merchantContext = await getMerchantForApiRequest(
+    auth.supabase,
+    auth.user.id,
+    { requestedMerchantId: requestedMerchant.merchantId }
+  );
+  if (!merchantContext) {
+    return {
+      response: NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      ),
+      supabase: null,
+      user: null,
+      merchantContext: null,
+    };
+  }
+
+  return {
+    response: null,
+    supabase: auth.supabase,
+    user: auth.user,
+    merchantContext,
+  };
+}
+
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const authContext = await authenticateAndResolveMerchant(request);
-    if (authContext.response) {
-      return authContext.response;
-    }
-    if (!authContext.supabase || !authContext.merchantContext) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await authenticateBranchRequest(request);
+    if (auth.response) {
+      return auth.response;
     }
 
     const parsedParams = branchIdParamSchema.safeParse(await params);
     if (!parsedParams.success) {
       return NextResponse.json({ error: 'Invalid branch id' }, { status: 400 });
+    }
+
+    const authContext = await resolveMerchantAfterValidation(request, auth);
+    if (authContext.response) {
+      return authContext.response;
+    }
+    if (!authContext.supabase || !authContext.merchantContext) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const access = toUserAccess(authContext.merchantContext);
@@ -75,12 +154,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const authContext = await authenticateAndResolveMerchant(request);
-    if (authContext.response) {
-      return authContext.response;
-    }
-    if (!authContext.supabase || !authContext.merchantContext) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await authenticateBranchRequest(request);
+    if (auth.response) {
+      return auth.response;
     }
 
     const { valid: csrfValid, response: csrfResponse } =
@@ -97,11 +173,6 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Invalid branch id' }, { status: 400 });
     }
 
-    const access = toUserAccess(authContext.merchantContext);
-    if (!hasPermission(access, 'settings', 'edit')) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
     let body: unknown;
     try {
       body = await request.json();
@@ -115,6 +186,19 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         { error: parsed.error.issues[0]?.message || 'Invalid input' },
         { status: 400 }
       );
+    }
+
+    const authContext = await resolveMerchantAfterValidation(request, auth);
+    if (authContext.response) {
+      return authContext.response;
+    }
+    if (!authContext.supabase || !authContext.merchantContext) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const access = toUserAccess(authContext.merchantContext);
+    if (!hasPermission(access, 'settings', 'edit')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const updateData: Record<string, string | boolean | null> = {};
@@ -185,7 +269,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const authContext = await authenticateAndResolveMerchant(request);
+    const auth = await authenticateBranchRequest(request);
+    if (auth.response) {
+      return auth.response;
+    }
+
+    const parsedParams = branchIdParamSchema.safeParse(await params);
+    if (!parsedParams.success) {
+      return NextResponse.json({ error: 'Invalid branch id' }, { status: 400 });
+    }
+
+    const authContext = await resolveMerchantAfterValidation(request, auth);
     if (authContext.response) {
       return authContext.response;
     }
@@ -200,11 +294,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         csrfResponse ??
         NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
       );
-    }
-
-    const parsedParams = branchIdParamSchema.safeParse(await params);
-    if (!parsedParams.success) {
-      return NextResponse.json({ error: 'Invalid branch id' }, { status: 400 });
     }
 
     const access = toUserAccess(authContext.merchantContext);

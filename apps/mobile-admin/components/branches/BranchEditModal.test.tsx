@@ -175,13 +175,17 @@ describe('BranchEditModal', () => {
   });
 
   it('disables deactivation when it would remove the only active branch', () => {
-    render(<BranchEditModal {...createProps({ canDeactivate: false })} />);
+    const props = createProps({ canDeactivate: false });
+    render(<BranchEditModal {...props} />);
 
-    expect(
-      screen.getByRole('button', {
-        name: 'Deactivate branch',
-      })
-    ).toBeDisabled();
+    const deactivateButton = screen.getByRole('button', {
+      name: 'Deactivate branch',
+    });
+    expect(deactivateButton).toBeDisabled();
+
+    fireEvent.click(deactivateButton);
+
+    expect(props.onDeactivate).not.toHaveBeenCalled();
   });
 
   it('shows validation and loading states', () => {

@@ -293,9 +293,10 @@ export function useUpdateOrderStatus() {
     },
     onMutate: async ({ orderId, status }) => {
       if (!merchant?.id)
-        return { previousOrders: [], previousOrder: undefined };
+        return { previousOrders: [], previousOrderQueries: [] };
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['orders', merchant.id] });
+      await queryClient.cancelQueries({ queryKey: ['order', orderId] });
 
       // Snapshot previous value
       const previousOrders = queryClient.getQueriesData<OrdersPage>({
@@ -322,14 +323,18 @@ export function useUpdateOrderStatus() {
         }
       );
 
-      // KEY FIX: Optimistically update the single order detail view
-      const previousOrder = queryClient.getQueryData(['order', orderId]);
-      queryClient.setQueryData(['order', orderId], (old: Order | undefined) => {
-        if (!old) return old;
-        return { ...old, shipping_status: status };
+      const previousOrderQueries = queryClient.getQueriesData<Order>({
+        queryKey: ['order', orderId],
       });
+      queryClient.setQueriesData<Order>(
+        { queryKey: ['order', orderId] },
+        (old) => {
+          if (!old) return old;
+          return { ...old, shipping_status: status };
+        }
+      );
 
-      return { previousOrders, previousOrder };
+      return { previousOrders, previousOrderQueries };
     },
     onError: (_err, vars, context) => {
       // Rollback on error
@@ -339,16 +344,16 @@ export function useUpdateOrderStatus() {
         });
         // Note: onSettled already invalidates orders query, no need to do it here
       }
-      if (context?.previousOrder) {
-        queryClient.setQueryData(
-          ['order', vars.orderId],
-          context.previousOrder
-        );
+      if (context?.previousOrderQueries) {
+        context.previousOrderQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
       }
     },
-    onSettled: () => {
+    onSettled: (_data, _error, vars) => {
       // Refetch after mutation
       queryClient.invalidateQueries({ queryKey: ['orders', merchant?.id] });
+      queryClient.invalidateQueries({ queryKey: ['order', vars.orderId] });
       queryClient.invalidateQueries({
         queryKey: ['dashboard-stats', merchant?.id],
       });

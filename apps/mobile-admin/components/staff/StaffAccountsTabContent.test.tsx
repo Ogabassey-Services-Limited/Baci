@@ -11,7 +11,12 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@expo/vector-icons', () => ({
-  Ionicons: ({ name }: { name: string }) => <span data-icon={name} />,
+  Ionicons: ({ name }: { name: string }) => (
+    <span
+      aria-label={name === 'person-add-outline' ? 'add person' : name}
+      role="img"
+    />
+  ),
 }));
 
 vi.mock('react-native', () => ({
@@ -55,9 +60,7 @@ describe('StaffAccountsTabContent', () => {
     );
 
     expect(screen.getByText('No Staff Accounts Yet')).toBeInTheDocument();
-    expect(
-      document.querySelector('[data-icon="person-add-outline"]')
-    ).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /add person/i })).toBeInTheDocument();
   });
 
   it('passes account rows to StaffAccountCard', () => {

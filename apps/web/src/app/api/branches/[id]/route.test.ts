@@ -168,6 +168,7 @@ describe('/api/branches/[id]', () => {
     const response = await GET(createRequest('GET'), routeParams('not-a-uuid'));
 
     expect(response.status).toBe(400);
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
     expect(mockFrom).not.toHaveBeenCalled();
   });
 
@@ -243,6 +244,7 @@ describe('/api/branches/[id]', () => {
     );
 
     expect(response.status).toBe(400);
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
   });
 

@@ -88,4 +88,45 @@ describe('auditMerchantBranches', () => {
     expect(audit.inactiveFlaggedBranches).toEqual([]);
     expect(audit.hasActiveCleanupFailure).toBe(true);
   });
+
+  it('categorizes active and inactive test branches from mixed branch lists', () => {
+    const audit = auditMerchantBranches([
+      {
+        id: 'branch-1',
+        name: 'Lagos main',
+        active: true,
+        is_default: true,
+      },
+      {
+        id: 'branch-2',
+        name: 'Test Branch',
+        active: true,
+        is_default: false,
+      },
+      {
+        id: 'branch-3',
+        name: 'Demo Branch',
+        active: false,
+        is_default: false,
+      },
+      {
+        id: 'branch-4',
+        name: 'Old branch',
+        active: false,
+        is_default: false,
+      },
+    ]);
+
+    expect(audit.activeBranches).toEqual([
+      { id: 'branch-1', name: 'Lagos main', isDefault: true },
+      { id: 'branch-2', name: 'Test Branch', isDefault: false },
+    ]);
+    expect(audit.activeFlaggedBranches).toEqual([
+      { id: 'branch-2', name: 'Test Branch' },
+    ]);
+    expect(audit.inactiveFlaggedBranches).toEqual([
+      { id: 'branch-3', name: 'Demo Branch' },
+    ]);
+    expect(audit.hasActiveCleanupFailure).toBe(true);
+  });
 });

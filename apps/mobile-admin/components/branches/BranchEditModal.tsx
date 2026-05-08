@@ -66,7 +66,7 @@ export function BranchEditModal({
     }
   };
   const handleDeactivate = () => {
-    if (!isBusy) {
+    if (!isBusy && canDeactivate) {
       onDeactivate();
     }
   };

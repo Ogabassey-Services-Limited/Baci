@@ -228,6 +228,8 @@ describe('useBranchManagement', () => {
     });
 
     expect(branchScopeMocks.setAllLocations).toHaveBeenCalledTimes(1);
+    expect(result.current.showBranchModal).toBe(false);
+    expect(result.current.editingBranchId).toBeNull();
   });
 
   it('keeps branch scope when deactivating a different branch', () => {
@@ -258,5 +260,77 @@ describe('useBranchManagement', () => {
     });
 
     expect(branchScopeMocks.setAllLocations).not.toHaveBeenCalled();
+  });
+
+  it('shows an alert when branch creation fails', () => {
+    const { createMutate, result } = renderBranchManagement();
+
+    act(() => {
+      result.current.setNewBranchName('Lekki');
+    });
+    act(() => {
+      result.current.handleBranchSubmit();
+    });
+
+    const callbacks = createMutate.mock.calls[0][1] as { onError?: () => void };
+    act(() => {
+      callbacks.onError?.();
+    });
+
+    expect(alertMock).toHaveBeenCalledWith(
+      'Create failed',
+      'Could not create this branch.'
+    );
+  });
+
+  it('shows an alert when branch update fails', () => {
+    const { result, updateMutate } = renderBranchManagement();
+
+    act(() => {
+      result.current.openEditBranchModal('branch-1');
+    });
+    act(() => {
+      result.current.handleBranchSubmit();
+    });
+
+    const callbacks = updateMutate.mock.calls[0][1] as { onError?: () => void };
+    act(() => {
+      callbacks.onError?.();
+    });
+
+    expect(alertMock).toHaveBeenCalledWith(
+      'Update failed',
+      'Could not update this branch.'
+    );
+  });
+
+  it('shows an alert when branch deactivation fails', () => {
+    const { deactivateMutate, result } = renderBranchManagement();
+
+    act(() => {
+      result.current.handleDeactivateBranch('branch-1');
+    });
+    const actions = alertMock.mock.calls[0][2] as Array<{
+      text: string;
+      onPress?: () => void;
+    }>;
+    const deactivateAction = actions.find(
+      (action) => action.text === 'Deactivate'
+    );
+    act(() => {
+      deactivateAction?.onPress?.();
+    });
+
+    const callbacks = deactivateMutate.mock.calls[0][1] as {
+      onError?: () => void;
+    };
+    act(() => {
+      callbacks.onError?.();
+    });
+
+    expect(alertMock).toHaveBeenCalledWith(
+      'Deactivate failed',
+      'Could not deactivate this branch.'
+    );
   });
 });

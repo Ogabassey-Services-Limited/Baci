@@ -153,6 +153,7 @@ export function useBranchManagement({
                 if (scope.type === 'branch' && scope.branchId === branchId) {
                   setAllLocations();
                 }
+                closeBranchModal();
               },
             });
           },
