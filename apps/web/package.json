@@ -174,7 +174,7 @@
     "puppeteer": "^24.39.0",
     "schema-dts": "^1.1.5",
     "sharp": "^0.34.5",
-    "tailwindcss": "^3.4.19",
+    "tailwindcss": "^4.3.0",
     "typedoc": "^0.28.16",
     "typedoc-plugin-markdown": "^4.10.0",
     "typescript": "^5.9.3",
