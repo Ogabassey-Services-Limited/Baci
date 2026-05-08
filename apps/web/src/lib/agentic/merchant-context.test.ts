@@ -1,6 +1,10 @@
 // @vitest-environment node
 
+import { generateKeyPairSync } from 'node:crypto';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+
+// server-only has no runtime exports; mock it so Vitest can import server modules.
+vi.mock('server-only', () => ({}));
 
 function createMerchantLookupMock(data: unknown, error: unknown = null) {
   const maybeSingle = vi.fn().mockResolvedValue({ data, error });
@@ -23,13 +27,39 @@ function stubBaseEnv() {
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY', 'anon-key');
 }
 
+function createValidAgenticPrivateJwk() {
+  const { privateKey } = generateKeyPairSync('ec', {
+    namedCurve: 'P-256',
+  });
+  return JSON.stringify({
+    ...privateKey.export({ format: 'jwk' }),
+    alg: 'ES256',
+    kid: 'agentic-test-key',
+  });
+}
+
+function createInvalidAgenticJwk(): string {
+  return JSON.stringify({
+    alg: 'ES256',
+    crv: 'P-256',
+    d: 'not-importable',
+    kid: 'agentic-test-key',
+    kty: 'EC',
+    x: 'not-importable',
+    y: 'not-importable',
+  });
+}
+
 function stubCompleteAgenticRuntimeEnv() {
   vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'demo-store');
   vi.stubEnv('OPENAI_AGENTIC_API_KEY', 'agent-api-key');
   vi.stubEnv('OPENAI_AGENTIC_CONFIRMATION_KEY', 'confirmation-key');
   vi.stubEnv('OPENAI_AGENTIC_SIGNING_KEY', 'signing-key');
   vi.stubEnv('PAYSTACK_SECRET_KEY', 'paystack-secret');
-  vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+  vi.stubEnv(
+    'SUPABASE_AGENTIC_JWT_PRIVATE_JWK',
+    createValidAgenticPrivateJwk()
+  );
 }
 
 function loadMerchantContextModule() {
@@ -104,12 +134,34 @@ describe('isAgenticCheckoutRuntimeConfigured', () => {
     'OPENAI_AGENTIC_API_KEY',
     'OPENAI_AGENTIC_CONFIRMATION_KEY',
     'OPENAI_AGENTIC_SIGNING_KEY',
+    'SUPABASE_AGENTIC_JWT_PRIVATE_JWK',
     'PAYSTACK_SECRET_KEY',
-    'SUPABASE_JWT_SECRET',
   ])('does not advertise checkout when %s is missing', async (envKey) => {
     stubBaseEnv();
     stubCompleteAgenticRuntimeEnv();
     vi.stubEnv(envKey, '');
+    const { isAgenticCheckoutRuntimeConfigured } =
+      await loadMerchantContextModule();
+
+    expect(isAgenticCheckoutRuntimeConfigured()).toBe(false);
+  });
+
+  it('advertises checkout when an invalid configured JWK can fall back to the legacy JWT secret', async () => {
+    stubBaseEnv();
+    stubCompleteAgenticRuntimeEnv();
+    vi.stubEnv('SUPABASE_AGENTIC_JWT_PRIVATE_JWK', createInvalidAgenticJwk());
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'legacy-secret');
+    const { isAgenticCheckoutRuntimeConfigured } =
+      await loadMerchantContextModule();
+
+    expect(isAgenticCheckoutRuntimeConfigured()).toBe(true);
+  });
+
+  it('does not advertise checkout when the configured JWK cannot be imported and no legacy JWT secret exists', async () => {
+    stubBaseEnv();
+    stubCompleteAgenticRuntimeEnv();
+    vi.stubEnv('SUPABASE_AGENTIC_JWT_PRIVATE_JWK', createInvalidAgenticJwk());
+    delete process.env.SUPABASE_JWT_SECRET;
     const { isAgenticCheckoutRuntimeConfigured } =
       await loadMerchantContextModule();
 
