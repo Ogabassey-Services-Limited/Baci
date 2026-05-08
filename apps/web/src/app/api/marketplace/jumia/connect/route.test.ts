@@ -580,6 +580,44 @@ describe('Connect DELETE', () => {
     });
   });
 
+  it('returns 403 on CSRF failure', async () => {
+    const { checkCsrfProtection } = await import('@/lib/csrf');
+    (checkCsrfProtection as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      valid: false,
+    });
+
+    const res = await DELETE(makeBearerDeleteRequest());
+
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toEqual({
+      error: 'CSRF validation failed',
+    });
+    expect(mockAuthenticateApiRequest).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when merchant is not found', async () => {
+    mockGetMerchant.mockResolvedValueOnce(null);
+
+    const res = await DELETE(makeBearerDeleteRequest());
+
+    expect(res.status).toBe(404);
+    await expect(res.json()).resolves.toEqual({
+      error: 'Merchant not found',
+    });
+  });
+
+  it('returns 403 when permission is denied', async () => {
+    const { hasPermission } = await import('@/lib/api-auth');
+    (hasPermission as ReturnType<typeof vi.fn>).mockReturnValueOnce(false);
+
+    const res = await DELETE(makeBearerDeleteRequest());
+
+    expect(res.status).toBe(403);
+    await expect(res.json()).resolves.toEqual({
+      error: 'Forbidden',
+    });
+  });
+
   it('disconnects a Jumia integration for bearer-authenticated mobile requests', async () => {
     const maybeSingle = vi.fn().mockResolvedValue({
       data: { id: INTEGRATION_ID },
