@@ -43,8 +43,13 @@ jest.mock('@/lib/supabase', () => ({
   supabase: { from: mockFrom },
 }));
 
-const { savePushTokenToServer } =
+const { handleNotificationResponse, savePushTokenToServer } =
   require('./push-notifications') as typeof import('./push-notifications');
+const { getStorefrontNotificationNavigationTarget } = jest.requireMock(
+  '@baci/shared/lib'
+) as {
+  getStorefrontNotificationNavigationTarget: jest.Mock;
+};
 
 describe('savePushTokenToServer', () => {
   beforeEach(() => {
@@ -83,5 +88,63 @@ describe('savePushTokenToServer', () => {
     expect(mockLogger.error).toHaveBeenCalledWith(
       'Refusing to save push token: empty token/userId/merchantId'
     );
+  });
+});
+
+describe('handleNotificationResponse', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('navigates token-ready notifications to utility history', () => {
+    const navigate = jest.fn();
+    const data = {
+      type: 'vtu_token_ready',
+      utilityType: 'power',
+    };
+    getStorefrontNotificationNavigationTarget.mockReturnValue({
+      screen: 'utility-history',
+      params: { type: 'power' },
+    });
+
+    handleNotificationResponse(
+      {
+        notification: {
+          request: {
+            content: {
+              data,
+            },
+          },
+        },
+      } as unknown as Parameters<typeof handleNotificationResponse>[0],
+      navigate
+    );
+
+    expect(navigate).toHaveBeenCalledWith('utility-history', {
+      type: 'power',
+    });
+    expect(getStorefrontNotificationNavigationTarget).toHaveBeenCalledWith(
+      data
+    );
+  });
+
+  it('does not navigate when notification payload has no target', () => {
+    const navigate = jest.fn();
+    getStorefrontNotificationNavigationTarget.mockReturnValue(null);
+
+    handleNotificationResponse(
+      {
+        notification: {
+          request: {
+            content: {
+              data: { type: 'unknown_type' },
+            },
+          },
+        },
+      } as unknown as Parameters<typeof handleNotificationResponse>[0],
+      navigate
+    );
+
+    expect(navigate).not.toHaveBeenCalled();
   });
 });

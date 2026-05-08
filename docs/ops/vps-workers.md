@@ -48,7 +48,9 @@ Some cron work intentionally remains in the web app because it needs web-only ru
 - `/api/cron/cleanup-orders`, scheduled daily at 01:00.
 - `/api/ai-jobs/worker`, scheduled daily at 02:00.
 - `/api/cron/process-settlements`, scheduled daily at 05:00.
+- `/api/cron/reconcile-vtu-processing`, scheduled every 5 minutes.
 - `/api/cron/wallet-payouts`, scheduled daily at 06:00.
+- `/api/cron/vtu-cashback-summaries`, scheduled monthly on the 1st at 08:30.
 - `/api/cron/publish-scheduled-posts`, scheduled every 15 minutes.
 - `/api/inventory/push-alerts`, scheduled every 6 hours.
 
@@ -58,7 +60,7 @@ These entries require `BACI_WEB_BASE_URL` and `CRON_SECRET` in `/home/bassey/bac
 
 If `process-import-jobs.sh` or `sync-jumia-orders.sh` fails, inspect the matching log in `/home/bassey/baci-workers/logs/` first. Stale locks can be checked with `ls -la /home/bassey/baci-workers/locks`; only remove a lock after confirming no matching worker process is running. Missing environment values should be fixed in `/home/bassey/baci-workers/.env` or the `BACI_WORKER_ENV` file used by cron.
 
-If a web cron wrapper fails, inspect the matching log first: `/home/bassey/baci-workers/logs/ai-jobs-worker.log`, `/home/bassey/baci-workers/logs/wallet-payouts.log`, `/home/bassey/baci-workers/logs/publish-scheduled-posts.log`, or `/home/bassey/baci-workers/logs/inventory-push-alerts.log`. A 401 almost always means the VPS `CRON_SECRET` does not match the web deployment.
+If a web cron wrapper fails, inspect the matching log first: `/home/bassey/baci-workers/logs/ai-jobs-worker.log`, `/home/bassey/baci-workers/logs/reconcile-vtu-processing.log`, `/home/bassey/baci-workers/logs/wallet-payouts.log`, `/home/bassey/baci-workers/logs/publish-scheduled-posts.log`, or `/home/bassey/baci-workers/logs/inventory-push-alerts.log`. A 401 almost always means the VPS `CRON_SECRET` does not match the web deployment.
 
 If a repo-backed TypeScript runner reports that `tsx` is missing, the separate Baci checkout used to run the web script was likely installed with production-only dependencies. Run `pnpm install --frozen-lockfile` in that checkout, then rerun the affected `/home/bassey/baci-workers/bin/*.sh` script.
 

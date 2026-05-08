@@ -124,7 +124,7 @@ export async function calculateCheckoutSession(
   const { data: variants, error: variantsError } = await supabase
     .from('product_variants')
     .select(
-      'id, merchant_id, product_id, price_override, stock_quantity, attributes, product:products(name, price, manage_stock, weight_value, weight_unit)'
+      'id, merchant_id, product_id, price_override, stock_quantity, attributes, product:products!product_variants_product_id_fkey(name, price, manage_stock, weight_value, weight_unit)'
     )
     .in('id', productIds)
     .eq('merchant_id', merchantId)

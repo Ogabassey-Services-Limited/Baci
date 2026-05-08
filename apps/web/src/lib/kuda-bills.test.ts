@@ -347,7 +347,7 @@ describe('purchaseBill', () => {
     });
   });
 
-  it('omits pin and transaction id when all response field variants are empty', async () => {
+  it('keeps transactionId unset when Kuda omits provider response references', async () => {
     // Arrange
     vi.mocked(kudaRequest).mockResolvedValue({
       status: true,
@@ -386,7 +386,6 @@ describe('purchaseBill', () => {
     expect(result).toEqual<PurchaseResult>({
       success: false,
       reference: 'BACI-1234567890-abcd1234',
-      transactionId: undefined,
       message: 'Insufficient balance',
       status: 'failed',
       amount: 3500,
