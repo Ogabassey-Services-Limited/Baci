@@ -233,6 +233,7 @@ export async function POST(request: NextRequest) {
             user_id: null,
           })
           .eq('id', existing.id)
+          .eq('merchant_id', merchantId)
           .select(STAFF_COLUMNS)
           .single();
 
