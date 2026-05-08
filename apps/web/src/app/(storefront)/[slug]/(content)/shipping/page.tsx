@@ -9,10 +9,7 @@ import {
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
-import {
-  buildMerchantTrustProfile,
-  hasPublishableShippingPolicy,
-} from '@/lib/storefront-trust/build-merchant-trust-profile';
+import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -52,19 +49,11 @@ export async function generateMetadata({
     return { title: 'Shipping Policy' };
   }
 
-  if (!hasPublishableShippingPolicy(context.trustProfile)) {
-    notFound();
-  }
-
   const shippingPolicy = context.trustProfile.shippingPolicy;
-
-  if (!shippingPolicy) {
-    notFound();
-  }
 
   const canonicalUrl = `${context.baseUrl}/shipping`;
   const description = generateMetaDescription(
-    shippingPolicy.summary
+    shippingPolicy?.summary
       ? `${shippingPolicy.summary} Shipping policy for ${context.merchant.business_name}.`
       : `Shipping policy for ${context.merchant.business_name}.`
   );
@@ -96,15 +85,7 @@ export default async function ShippingPage({ params }: PageProps) {
     notFound();
   }
 
-  if (!hasPublishableShippingPolicy(context.trustProfile)) {
-    notFound();
-  }
-
   const shippingPolicy = context.trustProfile.shippingPolicy;
-
-  if (!shippingPolicy) {
-    notFound();
-  }
 
   const canonicalUrl = `${context.baseUrl}/shipping`;
   const jsonLd = {
@@ -113,7 +94,7 @@ export default async function ShippingPage({ params }: PageProps) {
     name: `Shipping Policy | ${context.merchant.business_name}`,
     url: canonicalUrl,
     description:
-      shippingPolicy.summary ||
+      shippingPolicy?.summary ||
       `Shipping policy for ${context.merchant.business_name}.`,
     isPartOf: {
       '@type': 'WebSite',

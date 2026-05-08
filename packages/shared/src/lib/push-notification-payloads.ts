@@ -15,8 +15,11 @@ export type StorefrontNotificationNavigationTarget =
   | { screen: 'orders' }
   | { screen: 'product'; params: { slug: string } }
   | { screen: 'category'; params: { slug: string } }
+  | { screen: 'utility-history'; params: { type: StorefrontUtilityType } }
   | { screen: 'wallet' }
   | { screen: 'home' };
+
+type StorefrontUtilityType = 'airtime' | 'data' | 'gaming' | 'power' | 'tv';
 
 function readString(
   payload: PushPayload,
@@ -33,6 +36,23 @@ function readString(
   }
 
   return undefined;
+}
+
+function readStorefrontUtilityType(
+  payload: PushPayload,
+  ...keys: string[]
+): StorefrontUtilityType | undefined {
+  const value = readString(payload, ...keys);
+  switch (value) {
+    case 'airtime':
+    case 'data':
+    case 'gaming':
+    case 'power':
+    case 'tv':
+      return value;
+    default:
+      return undefined;
+  }
 }
 
 export function getAdminNotificationNavigationTarget(
@@ -120,6 +140,19 @@ export function getStorefrontNotificationNavigationTarget(
     }
     case 'vtu_cashback_monthly_summary':
       return { screen: 'wallet' };
+    case 'vtu_token_ready': {
+      const utilityType = readStorefrontUtilityType(
+        payload,
+        'utilityType',
+        'utility_type'
+      );
+      return utilityType
+        ? {
+            screen: 'utility-history',
+            params: { type: utilityType },
+          }
+        : { screen: 'home' };
+    }
     default:
       return { screen: 'home' };
   }

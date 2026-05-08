@@ -15,6 +15,7 @@ export type UtilityPaymentGateway = VTUPaymentGateway;
 const SUPPORTED_UTILITY_GATEWAYS: UtilityPaymentGateway[] = [
   'paystack',
   'korapay',
+  'bank_transfer',
 ];
 
 export function useUtilityPayment() {
@@ -22,6 +23,8 @@ export function useUtilityPayment() {
   const [selectedGateway, setSelectedGateway] =
     useState<UtilityPaymentGateway>('paystack');
   const [selectedSavedCardId, setSelectedSavedCardId] = useState<string | null>(null);
+  const [shouldAutoSelectDefaultCard, setShouldAutoSelectDefaultCard] =
+    useState(true);
   const [walletSelection, setWalletSelection] = useState<
     WalletSelection | undefined
   >(undefined);
@@ -37,6 +40,7 @@ export function useUtilityPayment() {
     enabled: isAuthenticated,
     queryKey: ['vtu-saved-cards'],
     queryFn: listSavedVtuCards,
+    refetchOnMount: 'always',
     staleTime: 5 * 60 * 1000,
   });
 
@@ -58,13 +62,19 @@ export function useUtilityPayment() {
   useEffect(() => {
     const defaultCard = savedCardsQuery.data?.find((card) => card.is_default);
     if (
+      shouldAutoSelectDefaultCard &&
       !selectedSavedCardId &&
       selectedGateway === 'paystack' &&
       defaultCard?.id
     ) {
       setSelectedSavedCardId(defaultCard.id);
     }
-  }, [savedCardsQuery.data, selectedGateway, selectedSavedCardId]);
+  }, [
+    savedCardsQuery.data,
+    selectedGateway,
+    selectedSavedCardId,
+    shouldAutoSelectDefaultCard,
+  ]);
 
   return {
     cards: savedCardsQuery.data ?? [],
@@ -73,10 +83,12 @@ export function useUtilityPayment() {
     selectedGateway,
     selectedSavedCardId,
     selectGateway: (gateway: UtilityPaymentGateway) => {
+      setShouldAutoSelectDefaultCard(false);
       setSelectedSavedCardId(null);
       setSelectedGateway(gateway);
     },
     selectSavedCard: (cardId: string) => {
+      setShouldAutoSelectDefaultCard(false);
       setSelectedSavedCardId(cardId);
       setSelectedGateway('paystack');
     },

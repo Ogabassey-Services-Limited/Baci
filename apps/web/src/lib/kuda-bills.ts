@@ -7,15 +7,16 @@
 
 import { withKudaElectricityBillItems } from '@baci/shared/lib';
 import {
+  extractKudaTransactionId,
   extractKudaVoucherPin,
   normalizeKudaString,
 } from '@/lib/kuda-voucher-token';
+import { logger } from '@/lib/logger';
 import {
   type Biller,
   buildKudaVendMessage,
   generateRequestRef,
   getBillersByType,
-  isKudaVendSuccessful,
   KudaServiceType,
   type KudaTransactionStatusData,
   kudaRequest,
@@ -43,6 +44,105 @@ const KUDA_CATEGORY_NAMES: Record<string, string> = {
   cable_tv: 'CableTv',
   betting: 'Betting',
 };
+
+type BillVendOutcome = 'successful' | 'pending' | 'failed';
+
+type BillPhoneNumberSource = 'customer_phone' | 'customer_identifier_fallback';
+
+function isKudaBillDebugEnabled() {
+  const value = process.env.KUDA_BILL_DEBUG?.trim().toLowerCase();
+  return value === '1' || value === 'true' || value === 'yes';
+}
+
+function getBillPhoneDiagnostics({
+  customerIdentification,
+  phoneNumber,
+  suppliedCustomerPhone,
+}: {
+  customerIdentification: string;
+  phoneNumber: string;
+  suppliedCustomerPhone: string | undefined;
+}): {
+  hasExplicitCustomerPhone: boolean;
+  phoneNumberMatchesCustomerIdentifier: boolean;
+  phoneNumberSource: BillPhoneNumberSource;
+} {
+  const hasExplicitCustomerPhone = suppliedCustomerPhone !== undefined;
+
+  return {
+    hasExplicitCustomerPhone,
+    phoneNumberMatchesCustomerIdentifier:
+      phoneNumber === customerIdentification,
+    phoneNumberSource: hasExplicitCustomerPhone
+      ? 'customer_phone'
+      : 'customer_identifier_fallback',
+  };
+}
+
+function getBillVendStatusDiagnostics(
+  data: KudaTransactionStatusData | undefined
+) {
+  return {
+    billerAggregatorStatus:
+      normalizeKudaString(data?.billerAggregatorStatus) ??
+      normalizeKudaString(data?.BillerAggregatorStatus),
+    finalStatus:
+      normalizeKudaString(data?.finalStatus) ??
+      normalizeKudaString(data?.FinalStatus),
+    postingStatus:
+      normalizeKudaString(data?.postingStatus) ??
+      normalizeKudaString(data?.PostingStatus),
+    transactionStatus:
+      normalizeKudaString(data?.transactionStatus) ??
+      normalizeKudaString(data?.TransactionStatus),
+  };
+}
+
+function normalizeBillVendOutcome(
+  envelopeStatus: boolean,
+  data: KudaTransactionStatusData | undefined,
+  pin: string | undefined
+): BillVendOutcome {
+  if (!envelopeStatus) return 'failed';
+  if (pin) return 'successful';
+
+  const final =
+    normalizeKudaString(data?.finalStatus) ??
+    normalizeKudaString(data?.FinalStatus);
+  if (final) {
+    const normalized = final.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (
+      normalized === 'successful' ||
+      normalized === 'success' ||
+      normalized === 'completed' ||
+      normalized === 'complete'
+    ) {
+      return 'successful';
+    }
+    if (
+      normalized === 'pending' ||
+      normalized === 'processing' ||
+      normalized === 'inprogress'
+    ) {
+      return 'pending';
+    }
+    return 'failed';
+  }
+
+  const transactionStatus =
+    normalizeKudaString(data?.transactionStatus) ??
+    normalizeKudaString(data?.TransactionStatus);
+  if (transactionStatus !== undefined) {
+    if (transactionStatus === '3') return 'successful';
+    if (transactionStatus === '1') return 'pending';
+    return 'failed';
+  }
+
+  // The envelope only says Kuda accepted the API request. For bill vends,
+  // absence of both a token and an inner vend status is not proof that the
+  // biller completed the vend.
+  return 'pending';
+}
 
 /**
  * Get billers for a bill category using our enum.
@@ -80,8 +180,30 @@ export async function purchaseBill(
   customerPhone?: string
 ): Promise<PurchaseResult> {
   const reference = requestRef || generateRequestRef();
+  const amountKobo = Math.round(amount * 100).toString();
+  const suppliedCustomerPhone = normalizeKudaString(customerPhone);
+  const phoneNumber = suppliedCustomerPhone ?? customerIdentification;
+  const requestDiagnostics = {
+    amount,
+    amountKobo,
+    billItemIdentifier,
+    reference,
+    serviceType: KudaServiceType.ADMIN_PURCHASE_BILL,
+    ...getBillPhoneDiagnostics({
+      customerIdentification,
+      phoneNumber,
+      suppliedCustomerPhone,
+    }),
+  };
 
   try {
+    if (isKudaBillDebugEnabled()) {
+      logger.info({
+        message: 'Kuda bill purchase request prepared',
+        ...requestDiagnostics,
+      });
+    }
+
     const response = await kudaRequest<
       KudaTransactionStatusData & { reference?: string; Reference?: string }
     >(
@@ -93,19 +215,39 @@ export async function purchaseBill(
         // number / decoder / wallet — not a phone. Use the customer's real
         // phone for SMS token delivery; only fall back to customerIdentification
         // when no phone is captured (legacy rows).
-        PhoneNumber: customerPhone || customerIdentification,
+        PhoneNumber: phoneNumber,
         BillItemIdentifier: billItemIdentifier,
-        Amount: Math.round(amount * 100).toString(), // Naira → Kobo
+        Amount: amountKobo, // Naira → Kobo
         trackingReference: reference,
       },
       reference
     );
 
-    const vendSucceeded = isKudaVendSuccessful(response.status, response.data);
     const pin = extractKudaVoucherPin(response.data);
-    const transactionId =
-      normalizeKudaString(response.data?.reference) ??
-      normalizeKudaString(response.data?.Reference);
+    const vendOutcome = normalizeBillVendOutcome(
+      response.status,
+      response.data,
+      pin
+    );
+    const vendSucceeded = vendOutcome === 'successful';
+    const transactionId = extractKudaTransactionId(response.data);
+
+    if (vendOutcome !== 'successful') {
+      const incompletePurchaseLog = {
+        message: 'Kuda bill purchase did not complete',
+        envelopeStatus: response.status,
+        hasPin: Boolean(pin),
+        hasTransactionId: Boolean(transactionId),
+        vendOutcome,
+        ...requestDiagnostics,
+        ...getBillVendStatusDiagnostics(response.data),
+      };
+      if (vendOutcome === 'pending') {
+        logger.info(incompletePurchaseLog);
+      } else {
+        logger.warn(incompletePurchaseLog);
+      }
+    }
 
     return {
       success: vendSucceeded,
@@ -115,7 +257,7 @@ export async function purchaseBill(
       message: vendSucceeded
         ? response.message
         : buildKudaVendMessage(response.message, response.data),
-      status: vendSucceeded ? 'successful' : 'failed',
+      status: vendOutcome,
       amount,
     };
   } catch (error) {

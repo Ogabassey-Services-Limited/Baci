@@ -274,6 +274,44 @@ describe('preparePendingVtuTransaction', () => {
     );
   });
 
+  it('stores the real buyer phone on non-telco VTU rows and keeps the meter as customer_identifier', async () => {
+    const { insert, supabase } = createMockSupabase();
+
+    await preparePendingVtuTransaction({
+      supabase,
+      user: {
+        id: 'user-1',
+        email: 'customer@example.com',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['user'],
+      input: {
+        merchantSlug: 'ogabassey',
+        type: 'electricity',
+        amount: 1000,
+        billerName: 'EKEDC NG',
+        billItemIdentifier: 'KUD-ELE-EKED-002',
+        customerIdentifier: '43901766923',
+        customerPhone: '08146978921',
+        source: 'checkout',
+      } as unknown as Parameters<
+        typeof preparePendingVtuTransaction
+      >[0]['input'],
+      source: 'checkout',
+      requireCustomer: true,
+    });
+
+    expect(insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        customer_identifier: '43901766923',
+        phone_number: '08146978921',
+        metadata: expect.objectContaining({
+          customerPhone: '08146978921',
+        }),
+      })
+    );
+  });
+
   it('falls back to null customer_name when input has none', async () => {
     const { insert, supabase } = createMockSupabase();
 

@@ -10,10 +10,11 @@ const mockListSavedVtuCards = jest.fn();
 jest.mock('@/hooks/useMerchantPaymentSettings', () => ({
   useMerchantPaymentSettings: () => mockUseMerchantPaymentSettings(),
   getEnabledPaymentMethods: jest.fn((settings) => {
-    if (!settings) return ['paystack'];
+    if (!settings) return ['paystack', 'bank_transfer'];
     const methods = [];
     if (settings.paystack_enabled) methods.push('paystack');
     if (settings.korapay_enabled) methods.push('korapay');
+    if (settings.paystack_enabled) methods.push('bank_transfer');
     return methods;
   }),
 }));
@@ -31,13 +32,24 @@ jest.mock('@/stores/auth-store', () => ({
     selector({ session: { access_token: 'token-123' } }),
 }));
 
-function createWrapper() {
-  const client = new QueryClient({
+function createTestQueryClient() {
+  return new QueryClient({
     defaultOptions: {
-      queries: { retry: false, gcTime: 0 },
+      queries: {
+        retry: false,
+        gcTime: Infinity,
+        refetchOnMount: false,
+        staleTime: Infinity,
+      },
     },
   });
+}
 
+function createWrapper() {
+  return createWrapperWithClient(createTestQueryClient());
+}
+
+function createWrapperWithClient(client: QueryClient) {
   return function Wrapper({ children }: PropsWithChildren) {
     return createElement(QueryClientProvider, { client }, children);
   };
@@ -87,7 +99,74 @@ describe('useUtilityPayment', () => {
       expect(result.current.selectedSavedCardId).toBe('card-1');
     });
 
-    expect(result.current.supportedGateways).toEqual(['paystack', 'korapay']);
+    expect(result.current.supportedGateways).toEqual([
+      'paystack',
+      'korapay',
+      'bank_transfer',
+    ]);
+  });
+
+  it('keeps saved card cleared when the user chooses another Paystack card', async () => {
+    const { result } = renderHook(() => useUtilityPayment(), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(result.current.selectedSavedCardId).toBe('card-1');
+    });
+
+    act(() => {
+      result.current.selectGateway('paystack');
+    });
+
+    await waitFor(() => {
+      expect(result.current.selectedSavedCardId).toBeNull();
+    });
+    await act(async () => undefined);
+    expect(result.current.selectedGateway).toBe('paystack');
+    expect(result.current.selectedSavedCardId).toBeNull();
+  });
+
+  it('refetches saved cards when the payment form remounts', async () => {
+    const client = createTestQueryClient();
+    mockListSavedVtuCards
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: 'card-1',
+          provider: 'paystack',
+          label: 'Access Bank ending 1234',
+          brand: 'visa',
+          bank: 'Access Bank',
+          last4: '1234',
+          exp_month: '08',
+          exp_year: '2030',
+          is_default: true,
+        },
+      ]);
+
+    const first = renderHook(() => useUtilityPayment(), {
+      wrapper: createWrapperWithClient(client),
+    });
+
+    await waitFor(() => {
+      expect(mockListSavedVtuCards).toHaveBeenCalledTimes(1);
+      expect(first.result.current.isLoadingCards).toBe(false);
+    });
+    expect(first.result.current.cards).toEqual([]);
+
+    first.unmount();
+
+    const second = renderHook(() => useUtilityPayment(), {
+      wrapper: createWrapperWithClient(client),
+    });
+
+    await waitFor(() => {
+      expect(mockListSavedVtuCards).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() => {
+      expect(second.result.current.selectedSavedCardId).toBe('card-1');
+    });
   });
 
   it('clears the saved card when a different gateway is selected', async () => {

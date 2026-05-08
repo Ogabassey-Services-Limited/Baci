@@ -15,7 +15,7 @@ import {
   isSavedVtuCardChargeProcessing,
   requiresSavedVtuCardAuthorization,
   shouldRotateWalletIdempotencyKeyForError,
-  type VTUPaymentGateway,
+  type VtuConfirmationGateway,
   VtuPaymentStillProcessingError,
   waitForVtuConfirmation,
 } from '@/lib/vtu-checkout';
@@ -26,7 +26,7 @@ import { formatUtilityAmountInput } from './utility-amount-format';
 
 const FOOTER_HEIGHT = 120;
 const FOOTER_ERROR_BUFFER = 36;
-const SAVED_CARD_CONFIRMATION_GATEWAY: VTUPaymentGateway = 'paystack';
+const SAVED_CARD_CONFIRMATION_GATEWAY: VtuConfirmationGateway = 'paystack';
 
 export function useAirtimeFormController({
   initialAmount,

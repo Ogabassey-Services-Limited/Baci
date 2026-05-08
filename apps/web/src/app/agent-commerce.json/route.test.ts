@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockGetMerchantByIdentifier = vi.fn();
 const ROUTE_TEST_TIMEOUT_MS = 15_000;
 
+vi.mock('server-only', () => ({}));
+
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: (...args: unknown[]) =>
     mockGetMerchantByIdentifier(...args),

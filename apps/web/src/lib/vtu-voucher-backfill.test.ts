@@ -7,6 +7,7 @@ import {
   MAX_VOUCHER_PIN_BACKFILL_ATTEMPTS,
   normalizeMetadata,
   scheduleVoucherPinBackfill,
+  shouldBackfillForStatus,
   shouldBackfillForType,
   TOKEN_BACKFILL_DEDUPE_WINDOW_MS,
   VOUCHER_PIN_BACKFILL_ATTEMPTS_KEY,
@@ -16,6 +17,7 @@ import {
 const mocks = vi.hoisted(() => ({
   after: vi.fn(),
   backfillVtuVoucherPin: vi.fn(),
+  fulfillPendingVtuTransaction: vi.fn(),
 }));
 
 vi.mock('next/server', () => ({
@@ -24,6 +26,7 @@ vi.mock('next/server', () => ({
 
 vi.mock('@/lib/vtu-fulfillment', () => ({
   backfillVtuVoucherPin: mocks.backfillVtuVoucherPin,
+  fulfillPendingVtuTransaction: mocks.fulfillPendingVtuTransaction,
 }));
 
 interface UpdateQueryMock {
@@ -115,6 +118,9 @@ describe('vtu-voucher-backfill', () => {
     expect(shouldBackfillForType('electricity')).toBe(true);
     expect(shouldBackfillForType('cable_tv')).toBe(true);
     expect(shouldBackfillForType('airtime')).toBe(false);
+    expect(shouldBackfillForStatus('successful')).toBe(true);
+    expect(shouldBackfillForStatus('processing')).toBe(true);
+    expect(shouldBackfillForStatus('failed')).toBe(false);
 
     expect(
       hasRecentBackfillSchedule({
@@ -249,6 +255,71 @@ describe('vtu-voucher-backfill', () => {
     );
   });
 
+  it('defers processing transactions to fulfillment reconciliation without consuming a backfill attempt', async () => {
+    const updateQuery = createUpdateQueryMock();
+    const { supabase, update } = createSupabaseMock(updateQuery);
+    mocks.fulfillPendingVtuTransaction.mockResolvedValue({
+      amount: 1000,
+      reference: 'REQ-123',
+      status: 'processing',
+    });
+
+    const scheduled = await scheduleVoucherPinBackfill({
+      metadata: { alpha: 'first' },
+      originalMetadata: { alpha: 'first' },
+      supabase,
+      transaction: createTransaction({ status: 'processing' }),
+      voucherPin: null,
+    });
+
+    expect(scheduled).toBe(true);
+
+    const deferredBackfill = mocks.after.mock.calls[0]?.[0] as
+      | (() => Promise<void>)
+      | undefined;
+    expect(deferredBackfill).toBeDefined();
+    await deferredBackfill?.();
+
+    expect(mocks.fulfillPendingVtuTransaction).toHaveBeenCalledWith({
+      supabase,
+      transactionId: 'tx-1',
+    });
+    expect(mocks.backfillVtuVoucherPin).not.toHaveBeenCalled();
+    expect(update).toHaveBeenNthCalledWith(1, {
+      metadata: expect.objectContaining({
+        [VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY]: '2026-04-29T12:00:00.000Z',
+      }),
+    });
+    expect(update).toHaveBeenNthCalledWith(1, {
+      metadata: expect.not.objectContaining({
+        [VOUCHER_PIN_BACKFILL_ATTEMPTS_KEY]: expect.anything(),
+      }),
+    });
+    expect(update).toHaveBeenCalledTimes(2);
+    expect(update).toHaveBeenLastCalledWith({
+      metadata: expect.not.objectContaining({
+        [VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY]: expect.anything(),
+      }),
+    });
+    expect(update).toHaveBeenLastCalledWith({
+      metadata: expect.objectContaining({
+        alpha: 'first',
+      }),
+    });
+    expect(update).toHaveBeenLastCalledWith({
+      metadata: expect.not.objectContaining({
+        [VOUCHER_PIN_BACKFILL_ATTEMPTS_KEY]: expect.anything(),
+      }),
+    });
+    expect(updateQuery.filter).toHaveBeenCalledTimes(2);
+    const clearFilterArg = String(
+      updateQuery.filter.mock.lastCall?.[2]
+    ).replace(/::jsonb$/, '');
+    expect(JSON.parse(clearFilterArg)).toHaveProperty(
+      VOUCHER_PIN_BACKFILL_SCHEDULED_AT_KEY
+    );
+  });
+
   it('uses a null metadata comparison when the original metadata is absent', async () => {
     const updateQuery = createUpdateQueryMock();
     const { supabase } = createSupabaseMock(updateQuery);
@@ -308,6 +379,16 @@ describe('vtu-voucher-backfill', () => {
         supabase,
         transaction: createTransaction(),
         voucherPin: '1234-5678',
+      })
+    ).resolves.toBe(false);
+
+    await expect(
+      scheduleVoucherPinBackfill({
+        metadata: {},
+        originalMetadata: {},
+        supabase,
+        transaction: createTransaction({ status: 'failed' }),
+        voucherPin: null,
       })
     ).resolves.toBe(false);
 

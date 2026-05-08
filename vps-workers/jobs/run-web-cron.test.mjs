@@ -55,6 +55,38 @@ describe('web cron worker', () => {
     assert.equal(signal instanceof AbortSignal, true);
   });
 
+  it('allows the processing VTU reconciliation cron endpoint', async () => {
+    const calls = [];
+    const result = await runWebCron({
+      path: '/api/cron/reconcile-vtu-processing',
+      env: {
+        BACI_WEB_BASE_URL: 'https://ogabassey.com',
+        CRON_SECRET: 'secret',
+      },
+      fetchFn: (url, init) => {
+        calls.push({ url, init });
+        return new Response('ok', { status: 200 });
+      },
+      logger: noopLogger,
+    });
+
+    assert.deepEqual(result, { status: 200, body: 'ok' });
+    assert.equal(calls.length, 1);
+    assert.equal(
+      calls[0].url,
+      'https://ogabassey.com/api/cron/reconcile-vtu-processing'
+    );
+    const { signal, ...initWithoutSignal } = calls[0].init;
+    assert.deepEqual(initWithoutSignal, {
+      method: 'GET',
+      headers: {
+        Authorization: 'Bearer secret',
+        'User-Agent': 'baci-vps-web-cron/1.0',
+      },
+    });
+    assert.equal(signal instanceof AbortSignal, true);
+  });
+
   it('rejects unsupported paths', () => {
     assert.throws(
       () =>
@@ -126,6 +158,7 @@ describe('web cron worker', () => {
       for (const [path, env] of [
         ['/api/ai-jobs/worker', {}],
         ['/api/inventory/push-alerts', {}],
+        ['/api/cron/reconcile-vtu-processing', {}],
         ['/api/ai-jobs/worker', { BACI_WEB_CRON_TIMEOUT_MS: '1234' }],
       ]) {
         await runWebCron({
@@ -143,7 +176,7 @@ describe('web cron worker', () => {
       AbortSignal.timeout = originalTimeout;
     }
 
-    assert.deepEqual(timeoutCalls, [900_000, 600_000, 1234]);
+    assert.deepEqual(timeoutCalls, [900_000, 600_000, 360_000, 1234]);
   });
 
   it('supports POST cron endpoints with bearer authorization', async () => {
