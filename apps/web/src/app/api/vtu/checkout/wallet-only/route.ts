@@ -236,7 +236,8 @@ export async function POST(request: NextRequest) {
         .from('vtu_transactions')
         .delete()
         .eq('id', prepared.transaction.id)
-        .eq('status', 'pending');
+        .eq('status', 'pending')
+        .eq('merchant_id', prepared.merchant.id);
       if (deleteError) {
         console.error('Failed to clean up orphan VTU row after key race:', {
           error: deleteError.message,
