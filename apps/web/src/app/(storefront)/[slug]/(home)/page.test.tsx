@@ -362,7 +362,7 @@ describe('Storefront homepage structured data', () => {
     });
   });
 
-  it('emits preconnect + dns-prefetch hints for the OgaBassey LCP origins', async () => {
+  it('does not duplicate layout-owned resource warmups from the home page', async () => {
     render(
       await StorefrontPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
     );
@@ -375,11 +375,6 @@ describe('Storefront homepage structured data', () => {
     expect(preconnects.map((l) => l.getAttribute('href')).sort()).toEqual(
       [...expectedOrigins].sort()
     );
-    // No crossorigin — the <Image> fetches are no-CORS, and a CORS preconnect
-    // pool would not be reused by them.
-    for (const link of preconnects) {
-      expect(link).not.toHaveAttribute('crossorigin');
-    }
 
     const dnsHints = Array.from(
       document.querySelectorAll<HTMLLinkElement>('link[rel="dns-prefetch"]')
