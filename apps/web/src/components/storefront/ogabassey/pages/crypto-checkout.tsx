@@ -314,7 +314,7 @@ export function CryptoCheckoutPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-emerald-600 to-emerald-500 p-4 flex items-center gap-2">
+        <div className="bg-linear-to-r from-emerald-600 to-emerald-500 p-4 flex items-center gap-2">
           <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
             <ShieldCheck size={16} className="text-white" />
           </div>
@@ -387,7 +387,7 @@ export function CryptoCheckoutPage() {
           {/* Warning */}
           <div className="bg-amber-50 border border-amber-100 rounded-lg p-3">
             <div className="flex items-start gap-2">
-              <AlertTriangle size={14} className="text-amber-600 mt-0.5 flex-shrink-0" />
+              <AlertTriangle size={14} className="text-amber-600 mt-0.5 shrink-0" />
               <p className="text-[11px] leading-relaxed text-amber-800">
                 <strong className="font-bold">Warning:</strong> Only send{' '}
                 <span className="font-bold">{cryptoData.currency}</span> on the{' '}
@@ -400,7 +400,7 @@ export function CryptoCheckoutPage() {
           {/* Confirmation Time */}
           {cryptoData.confirmation_time && (
             <div className="flex items-center gap-3 bg-emerald-50 rounded-xl p-4 border border-emerald-100">
-              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center shrink-0">
                 <Clock size={20} className="text-emerald-600" />
               </div>
               <div>

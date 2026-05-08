@@ -102,7 +102,7 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
         {!isSearching && activeCategory === 'All' && featuredPost && (
           <Link
             href={asRoute(`${basePath}/blog/${featuredPost.slug}`)}
-            className="group relative block mb-12 rounded-[2rem] overflow-hidden shadow-2xl h-[400px] md:h-[500px] transform transition-all hover:shadow-[0_20px_50px_rgba(0,0,0,0.15)]"
+            className="group relative block mb-12 rounded-4xl overflow-hidden shadow-2xl h-[400px] md:h-[500px] transform transition-all hover:shadow-[0_20px_50px_rgba(0,0,0,0.15)]"
           >
             <div className="absolute inset-0 bg-gray-900">
               <HeroImage
@@ -111,7 +111,7 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
                 className="object-cover opacity-90 transition-transform duration-1000 group-hover:scale-105"
                 fill
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/20 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-t from-gray-900 via-gray-900/20 to-transparent" />
             </div>
 
             <div className="absolute bottom-0 left-0 p-8 md:p-12 w-full md:w-3/4 lg:w-2/3">
@@ -120,13 +120,13 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
                   Featured Story
                 </span>
                 {featuredPost.category && (
-                  <span className="text-white/80 text-xs font-bold uppercase tracking-wider px-2 py-1 border border-white/20 rounded backdrop-blur-sm">
+                  <span className="text-white/80 text-xs font-bold uppercase tracking-wider px-2 py-1 border border-white/20 rounded backdrop-blur-xs">
                     {featuredPost.category}
                   </span>
                 )}
               </div>
 
-              <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-white mb-4 leading-[1] transition-colors group-hover:text-red-50">
+              <h2 className="text-3xl md:text-5xl lg:text-6xl font-black text-white mb-4 leading-none transition-colors group-hover:text-red-50">
                 {featuredPost.title}
               </h2>
 
@@ -178,7 +178,7 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
           )}
         </div>
         {/* 3. Categories as Filter Bar - Above Grid */}
-        <div className="sticky top-20 z-30 bg-gray-50/95 backdrop-blur-sm pt-2 pb-6 border-b border-gray-200/50 mb-10 -mx-4 px-4 md:px-0 md:mx-0">
+        <div className="sticky top-20 z-30 bg-gray-50/95 backdrop-blur-xs pt-2 pb-6 border-b border-gray-200/50 mb-10 -mx-4 px-4 md:px-0 md:mx-0">
           <div className="flex overflow-x-auto gap-2 md:gap-3 hide-scrollbar items-center">
             <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mr-2 shrink-0">
               Filter By:
@@ -261,7 +261,7 @@ export const OgabasseyV2Blog: React.FC<OgabasseyBlogProps> = ({
         </div>
 
         {/* Sustainability Tip Banner */}
-        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-3xl p-8 md:p-12 border border-green-100 flex flex-col md:flex-row items-center gap-8 mb-16 shadow-lg">
+        <div className="bg-linear-to-br from-green-50 to-emerald-50 rounded-3xl p-8 md:p-12 border border-green-100 flex flex-col md:flex-row items-center gap-8 mb-16 shadow-lg">
           <div className="bg-white p-6 rounded-2xl shadow-md text-green-600 shrink-0 transform rotate-3">
             <Battery size={40} />
           </div>

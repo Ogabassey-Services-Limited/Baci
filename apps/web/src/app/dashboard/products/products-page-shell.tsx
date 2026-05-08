@@ -71,7 +71,7 @@ export function ProductsPageShell({
     <div className="flex flex-col h-full">
       <div className="flex flex-col gap-4 mb-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold tracking-tight bg-linear-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
             Products 🛍️
           </h1>
           <ProductsPageActions

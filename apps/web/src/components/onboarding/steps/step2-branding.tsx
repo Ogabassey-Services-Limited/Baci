@@ -389,7 +389,7 @@ export default function Step2_Branding() {
               {/* Logo Canvas Area */}
               <div
                 className={cn(
-                  'relative aspect-[3/2] md:aspect-square w-full rounded-xl border border-white/10 overflow-hidden bg-muted/10 flex flex-col items-center justify-center transition-all shadow-inner',
+                  'relative aspect-3/2 md:aspect-square w-full rounded-xl border border-white/10 overflow-hidden bg-muted/10 flex flex-col items-center justify-center transition-all shadow-inner',
                   currentLogoDataUri || logoUrl
                     ? 'bg-white/5'
                     : 'border-dashed border-muted-foreground/20 hover:bg-muted/20'
@@ -506,7 +506,7 @@ export default function Step2_Branding() {
               </div>
 
               {/* Generator Control Card */}
-              <div className="bg-gradient-to-br from-white/5 to-white/0 dark:from-white/5 dark:to-transparent border border-white/10 rounded-xl pt-8 pb-10 px-6 md:p-6 flex flex-col items-center justify-center gap-0 md:gap-3 shadow-sm w-full max-w-full h-auto min-h-[160px] md:min-h-0 md:aspect-auto">
+              <div className="bg-linear-to-br from-white/5 to-white/0 dark:from-white/5 dark:to-transparent border border-white/10 rounded-xl pt-8 pb-10 px-6 md:p-6 flex flex-col items-center justify-center gap-0 md:gap-3 shadow-sm w-full max-w-full h-auto min-h-[160px] md:min-h-0 md:aspect-auto">
                 <div className="text-center space-y-1 hidden md:block">
                   <p className="text-sm text-muted-foreground leading-relaxed text-balance">
                     Customize your brand colors to match your style.
@@ -590,7 +590,7 @@ export default function Step2_Branding() {
               </div>
 
               {/* Generator Control Card - Compact on Mobile */}
-              <div className="bg-transparent md:bg-gradient-to-br md:from-white/5 md:to-white/0 md:dark:from-white/5 md:dark:to-transparent border-0 md:border md:border-white/10 rounded-xl p-0 md:p-5 flex flex-col gap-3 md:gap-4 shadow-none md:shadow-sm h-auto md:h-full md:min-h-[200px]">
+              <div className="bg-transparent md:bg-linear-to-br md:from-white/5 md:to-white/0 md:dark:from-white/5 md:dark:to-transparent border-0 md:border md:border-white/10 rounded-xl p-0 md:p-5 flex flex-col gap-3 md:gap-4 shadow-none md:shadow-sm h-auto md:h-full md:min-h-[200px]">
                 <div className="text-left space-y-4 hidden md:block">
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     Don't have a logo yet? No problem. Our AI can design a

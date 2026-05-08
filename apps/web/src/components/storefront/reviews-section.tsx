@@ -124,7 +124,7 @@ export function ReviewsSection({
         <h2 className="text-2xl font-bold">Customer Reviews</h2>
         <Button
           onClick={() => setShowForm(!showForm)}
-          variant={showForm ? 'outline' : 'default'}
+          variant={showForm ? 'outline-solid' : 'default'}
         >
           {showForm ? 'Cancel' : 'Write a Review'}
         </Button>

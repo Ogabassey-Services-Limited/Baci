@@ -67,7 +67,7 @@ export default function SantaClientPage() {
     <div className="space-y-6 animate-in fade-in duration-500">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-red-600 to-green-600 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold tracking-tight bg-linear-to-r from-red-600 to-green-600 bg-clip-text text-transparent">
             Santa Campaign Analytics 🎅
           </h1>
           <p className="text-muted-foreground">
@@ -190,7 +190,7 @@ export default function SantaClientPage() {
                                     : interaction.interaction_type ===
                                         'checkout_completed'
                                       ? 'secondary'
-                                      : 'outline'
+                                      : 'outline-solid'
                               }
                               className="capitalize"
                             >

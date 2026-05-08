@@ -133,11 +133,11 @@ function UpgradeModal() {
     .slice(0, 6);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-4 animate-in fade-in duration-200">
       {/* Backdrop */}
       <button
         type="button"
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm cursor-default border-none"
+        className="absolute inset-0 bg-black/60 backdrop-blur-xs cursor-default border-none"
         onClick={close}
         aria-label="Close modal"
       />
@@ -145,7 +145,7 @@ function UpgradeModal() {
       {/* Modal */}
       <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden animate-in zoom-in-95 duration-300">
         {/* Header with gradient */}
-        <div className="bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-600 px-6 py-8 text-white relative overflow-hidden">
+        <div className="bg-linear-to-br from-purple-600 via-indigo-600 to-blue-600 px-6 py-8 text-white relative overflow-hidden">
           {/* Background pattern */}
           <div className="absolute inset-0 opacity-10">
             <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-white/20 -translate-y-1/2 translate-x-1/2" />
@@ -163,7 +163,7 @@ function UpgradeModal() {
           </button>
 
           {/* Icon */}
-          <div className="w-16 h-16 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center mb-4">
+          <div className="w-16 h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center mb-4">
             <IconComponent size={32} className="text-white" />
           </div>
 
@@ -196,7 +196,7 @@ function UpgradeModal() {
             </p>
             {planFeatures.map(([key, meta]) => (
               <div key={key} className="flex items-center gap-3">
-                <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <div className="w-5 h-5 bg-green-100 rounded-full flex items-center justify-center shrink-0">
                   <Check size={12} className="text-green-600" />
                 </div>
                 <span className="text-gray-700">{meta.name}</span>
@@ -213,7 +213,7 @@ function UpgradeModal() {
           <div className="space-y-3">
             <button
               type="button"
-              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold py-3 px-6 rounded-xl hover:opacity-90 transition-opacity shadow-lg shadow-purple-200"
+              className="w-full bg-linear-to-r from-purple-600 to-indigo-600 text-white font-bold py-3 px-6 rounded-xl hover:opacity-90 transition-opacity shadow-lg shadow-purple-200"
               onClick={() => {
                 // TODO: Redirect to pricing page or Stripe checkout
                 window.location.href = '/dashboard/settings?tab=billing';

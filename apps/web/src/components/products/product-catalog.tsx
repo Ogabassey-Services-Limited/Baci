@@ -226,7 +226,7 @@ export function ProductCatalog({
   const currencySymbol = getCurrencySymbol(locale, currency);
 
   return (
-    <Card className="flex-1 flex flex-col border border-border/40 shadow-sm bg-white/50 dark:bg-card/30 backdrop-blur-sm">
+    <Card className="flex-1 flex flex-col border border-border/40 shadow-sm bg-white/50 dark:bg-card/30 backdrop-blur-xs">
       <CardHeader className="px-6 py-4 border-b border-primary/10">
         <div className="flex items-center justify-between">
           <div>

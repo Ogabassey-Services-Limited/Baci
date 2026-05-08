@@ -628,7 +628,7 @@ export function VariantBuilder({
                     key={variant.id || `variant-${index}`}
                     className="flex items-center gap-3 p-3 border rounded-lg bg-card"
                   >
-                    <div className="w-10 h-10 rounded border overflow-hidden flex-shrink-0 bg-muted">
+                    <div className="w-10 h-10 rounded border overflow-hidden shrink-0 bg-muted">
                       {variant.primary_image && (
                         <Image
                           src={variant.primary_image}
@@ -700,7 +700,7 @@ export function VariantBuilder({
                               (value) => (
                                 <span
                                   key={value}
-                                  className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-sm flex-shrink-0"
+                                  className="flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 text-primary rounded-md text-sm shrink-0"
                                 >
                                   {value}
                                   <button

@@ -212,7 +212,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
   const currentTier = SERVICE_TIERS[selectedTier];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
+    <div className="min-h-screen bg-linear-to-b from-gray-50 to-white pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 w-full flex-1">
         {/* Hero Section - More Compelling */}
         <div className="max-w-3xl mx-auto text-center mb-8">
@@ -274,7 +274,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
                   }}
                   onFocus={() => setShowSuggestions(true)}
                   placeholder="Type device name (e.g., iPhone 16, Samsung S24...)"
-                  className="w-full pl-12 pr-4 py-4 bg-white border border-gray-200 rounded-2xl focus:ring-4 focus:ring-red-500/10 focus:border-red-200 outline-none text-base transition-all"
+                  className="w-full pl-12 pr-4 py-4 bg-white border border-gray-200 rounded-2xl focus:ring-4 focus:ring-red-500/10 focus:border-red-200 outline-hidden text-base transition-all"
                 />
                 {searchLoading && (
                   <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
@@ -418,7 +418,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
                         setImei(e.target.value.replace(/\D/g, '').slice(0, 15))
                       }
                       placeholder="Enter 15-digit IMEI Number"
-                      className="w-full pl-12 pr-4 py-4 bg-gray-50 hover:bg-white focus:bg-white border border-transparent focus:border-red-100 rounded-2xl focus:ring-4 focus:ring-red-500/10 outline-none text-lg font-mono tracking-widest transition-all placeholder:font-sans placeholder:tracking-normal text-gray-900"
+                      className="w-full pl-12 pr-4 py-4 bg-gray-50 hover:bg-white focus:bg-white border border-transparent focus:border-red-100 rounded-2xl focus:ring-4 focus:ring-red-500/10 outline-hidden text-lg font-mono tracking-widest transition-all placeholder:font-sans placeholder:tracking-normal text-gray-900"
                     />
                   </div>
                   <button

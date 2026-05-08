@@ -26,7 +26,7 @@ export function Breadcrumbs({
   const separatorElement = {
     slash: <span className="mx-2 text-muted-foreground">/</span>,
     chevron: (
-      <ChevronRight className="mx-2 h-4 w-4 text-muted-foreground flex-shrink-0" />
+      <ChevronRight className="mx-2 h-4 w-4 text-muted-foreground shrink-0" />
     ),
     arrow: <span className="mx-2 text-muted-foreground">→</span>,
   };
@@ -56,7 +56,7 @@ export function Breadcrumbs({
                 <Link
                   href={asRoute(item.href)}
                   className={cn(
-                    'text-foreground hover:text-[var(--store-primary)] transition-colors',
+                    'text-foreground hover:text-(--store-primary) transition-colors',
                     isHome && 'flex items-center gap-1'
                   )}
                 >

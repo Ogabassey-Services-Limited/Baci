@@ -169,7 +169,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
         {/* Header */}
         <div className="flex items-center justify-between mb-6 shrink-0">
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <ShoppingCart className="text-[var(--store-primary)] fill-red-600" />
+            <ShoppingCart className="text-(--store-primary) fill-red-600" />
             Cart{' '}
             <span className="text-gray-400 text-lg font-medium">
               ({cart.length})
@@ -177,7 +177,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
           </h1>
           <Link
             href={`${basePath}` as any}
-            className="text-sm font-medium text-[var(--store-primary)] hover:text-[var(--store-primary)] hidden md:block"
+            className="text-sm font-medium text-(--store-primary) hover:text-(--store-primary) hidden md:block"
           >
             Continue Shopping
           </Link>
@@ -219,7 +219,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                       {/* Image */}
                       <Link
                         href={productHref}
-                        className="w-20 h-20 md:w-28 md:h-28 bg-gray-50 rounded-xl border border-gray-100 p-2 flex-shrink-0 flex items-center justify-center relative overflow-hidden"
+                        className="w-20 h-20 md:w-28 md:h-28 bg-gray-50 rounded-xl border border-gray-100 p-2 shrink-0 flex items-center justify-center relative overflow-hidden"
                       >
                         <Image
                           src={item.image || '/placeholder.png'}
@@ -237,7 +237,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                       {/* Content */}
                       <div className="flex-1 min-w-0 pr-8">
                         <Link href={productHref}>
-                          <h3 className="font-bold text-gray-900 text-sm md:text-base line-clamp-2 leading-tight mb-2 hover:text-[var(--store-primary)] transition-colors">
+                          <h3 className="font-bold text-gray-900 text-sm md:text-base line-clamp-2 leading-tight mb-2 hover:text-(--store-primary) transition-colors">
                             {item.name}
                           </h3>
                         </Link>
@@ -288,7 +288,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                       {/* Remove Button - Absolute Top Right */}
                       <button
                         onClick={() => removeFromCart(item.cartItemId)}
-                        className="absolute top-4 right-4 text-[var(--store-primary)] md:hover:text-[var(--store-primary)] p-1.5 md:hover:bg-[var(--store-primary)]/5 rounded-full transition-colors active:bg-[var(--store-primary)]/5"
+                        className="absolute top-4 right-4 text-(--store-primary) md:hover:text-(--store-primary) p-1.5 md:hover:bg-(--store-primary)/5 rounded-full transition-colors active:bg-(--store-primary)/5"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -354,11 +354,11 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                               onChange={() => toggleAssurance?.(item.cartItemId)}
                               className="peer sr-only"
                             />
-                            <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600" />
+                            <div className="w-9 h-5 bg-gray-200 peer-focus:outline-hidden rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600" />
                           </div>
                           <div className="flex flex-col">
                             <span className="text-xs font-bold text-gray-800 flex items-center gap-1.5">
-                              <ShieldCheck size={12} className="text-[var(--store-primary)]" />
+                              <ShieldCheck size={12} className="text-(--store-primary)" />
                               {merchantSlug === 'ogabassey' ? 'Ogabassey Assurance' : 'Order Protection'}
                             </span>
                             <p className="text-[10px] text-gray-500 leading-tight mt-0.5">
@@ -374,7 +374,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                                   ) : (
                                     'Standard Shipping Protection'
                                   )}
-                                  <span className="ml-1 text-[var(--store-primary)] font-bold">
+                                  <span className="ml-1 text-(--store-primary) font-bold">
                                     +₦{(assuranceCost || 0).toLocaleString()}
                                   </span>
                                 </>
@@ -399,7 +399,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                         ) : (
                           <button
                             onClick={() => openItemNegotiation(item)}
-                            className="flex items-center gap-1.5 text-xs font-bold text-[var(--store-primary)] md:hover:bg-[var(--store-primary)]/5 px-2 py-1.5 rounded-lg transition-colors border border-red-100 md:hover:border-[var(--store-primary)]/40 active:bg-[var(--store-primary)]/5 active:scale-95"
+                            className="flex items-center gap-1.5 text-xs font-bold text-(--store-primary) md:hover:bg-(--store-primary)/5 px-2 py-1.5 rounded-lg transition-colors border border-red-100 md:hover:border-(--store-primary)/40 active:bg-(--store-primary)/5 active:scale-95"
                           >
                             <AppNegotiateIcon size={14} />
                             <span>Negotiate</span>
@@ -424,7 +424,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                     onClick={openTotalNegotiation}
                     className="w-full bg-gray-100 md:hover:bg-gray-200 text-gray-900 font-bold py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-colors border border-gray-200 active:scale-[0.98] active:bg-gray-200"
                   >
-                    <AppNegotiateIcon size={18} className="text-[var(--store-primary)]" />
+                    <AppNegotiateIcon size={18} className="text-(--store-primary)" />
                     Negotiate Total
                   </button>
 
@@ -484,7 +484,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
             aria-label="Bulk Negotiate"
             title="Bulk Negotiate"
           >
-            <AppNegotiateIcon size={24} className="text-[var(--store-primary)]" />
+            <AppNegotiateIcon size={24} className="text-(--store-primary)" />
             <span className="text-[10px] font-bold text-gray-600 mt-0.5">Negotiate</span>
           </button>
 
@@ -521,7 +521,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
                     actuallyOpenItemNegotiation(pendingNegotiateItem);
                   }
                 }}
-                className="w-full bg-[var(--store-primary)] text-white font-bold py-3 px-4 rounded-xl hover:opacity-90 transition-opacity"
+                className="w-full bg-(--store-primary) text-white font-bold py-3 px-4 rounded-xl hover:opacity-90 transition-opacity"
               >
                 Negotiate This Item
               </button>

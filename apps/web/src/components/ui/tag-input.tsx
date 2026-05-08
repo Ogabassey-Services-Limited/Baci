@@ -139,7 +139,7 @@ export function TagInput({
               <button
                 type="button"
                 data-tag-remove={index}
-                className="ml-2 hover:bg-destructive/20 rounded-full p-0.5 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="ml-2 hover:bg-destructive/20 rounded-full p-0.5 cursor-pointer transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 onClick={(e) => {
                   e.stopPropagation();
                   removeTag(index);

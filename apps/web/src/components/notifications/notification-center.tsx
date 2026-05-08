@@ -172,7 +172,7 @@ function NotificationItem({ notification, onClick }: NotificationItemProps) {
     >
       <div className="flex gap-3">
         {/* Unread indicator */}
-        <div className="flex-shrink-0 mt-1">
+        <div className="shrink-0 mt-1">
           <div
             className={cn(
               'h-2 w-2 rounded-full',
@@ -195,7 +195,7 @@ function NotificationItem({ notification, onClick }: NotificationItemProps) {
             <Badge
               variant="outline"
               className={cn(
-                'text-xs flex-shrink-0',
+                'text-xs shrink-0',
                 typeStyles[notificationType]
               )}
             >

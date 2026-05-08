@@ -207,7 +207,7 @@ export default function DashboardClientPage({
         <Button
           onClick={handlePublishToggle}
           disabled={isPublishing}
-          variant={merchant?.is_published ? 'outline' : 'default'}
+          variant={merchant?.is_published ? 'outline-solid' : 'default'}
           className={cn(
             !merchant?.is_published && 'bg-green-600 hover:bg-green-700'
           )}
@@ -239,7 +239,7 @@ export default function DashboardClientPage({
                 <div className="flex items-center gap-2">
                   <h2 className="text-base font-semibold">
                     Hi,{' '}
-                    <span className="capitalize bg-gradient-to-r from-blue-600 via-cyan-500 to-blue-400 bg-clip-text text-transparent">
+                    <span className="capitalize bg-linear-to-r from-blue-600 via-cyan-500 to-blue-400 bg-clip-text text-transparent">
                       {merchant?.business_name?.split(' ')[0] || 'Merchant'}
                     </span>
                   </h2>
@@ -299,7 +299,7 @@ export default function DashboardClientPage({
 
         {/* Desktop Header */}
         <div className="hidden md:block space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold tracking-tight bg-linear-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
             Dashboard
           </h1>
           <p className="text-muted-foreground">
@@ -330,7 +330,7 @@ export default function DashboardClientPage({
           style={{ animationFillMode: 'both', animationDelay: '0.1s' }}
         >
           <BentoCard
-            className="bg-gradient-to-br from-primary/10 via-background to-accent/5 border-primary/20"
+            className="bg-linear-to-br from-primary/10 via-background to-accent/5 border-primary/20"
             noPadding
           >
             <div className="p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center gap-6">
@@ -382,7 +382,7 @@ export default function DashboardClientPage({
       {/* Mobile AI Insight Hero (Compact) */}
       {merchant?.is_published && (
         <div className="md:hidden mb-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          <div className="bg-gradient-to-r from-blue-50 to-white dark:from-blue-950/20 dark:to-background border border-blue-100 dark:border-blue-900 rounded-xl p-3 flex items-center gap-3 shadow-sm">
+          <div className="bg-linear-to-r from-blue-50 to-white dark:from-blue-950/20 dark:to-background border border-blue-100 dark:border-blue-900 rounded-xl p-3 flex items-center gap-3 shadow-sm">
             <div className="h-8 w-8 rounded-full bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center shrink-0">
               <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
             </div>

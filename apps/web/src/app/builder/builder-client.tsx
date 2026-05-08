@@ -704,7 +704,7 @@ export default function BuilderClient() {
         }}
       >
         <div className="flex flex-col h-screen bg-background">
-          <header className="h-14 border-b flex items-center justify-between px-4 bg-background/95 backdrop-blur z-10 shrink-0">
+          <header className="h-14 border-b flex items-center justify-between px-4 bg-background/95 backdrop-blur-sm z-10 shrink-0">
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="icon" asChild className="h-9 w-9">
                 <Link href="/dashboard">
@@ -787,7 +787,7 @@ export default function BuilderClient() {
                 }
                 aiTools={
                   <div className="space-y-4">
-                    <div className="p-4 border rounded-lg bg-gradient-to-br from-purple-50 to-blue-50 border-purple-200">
+                    <div className="p-4 border rounded-lg bg-linear-to-br from-purple-50 to-blue-50 border-purple-200">
                       <h3 className="font-semibold mb-2 flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-purple-600" />
                         Gemini AI Assistant
@@ -1008,7 +1008,7 @@ export default function BuilderClient() {
             </div>
 
             {!canEdit && (
-              <div className="absolute inset-0 flex items-center justify-center bg-background/65 backdrop-blur-sm">
+              <div className="absolute inset-0 flex items-center justify-center bg-background/65 backdrop-blur-xs">
                 <div className="max-w-md rounded-xl border bg-background p-6 text-center shadow-lg">
                   <h2 className="text-lg font-semibold">
                     Builder is in read-only mode

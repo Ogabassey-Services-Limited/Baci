@@ -118,13 +118,13 @@ export const SnowEffect: React.FC = () => {
   if (theme !== 'santa') return null;
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
+    <div className="fixed inset-0 pointer-events-none z-100 overflow-hidden">
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full"
       />
       {/* Festive Lights Decoration - CSS Overlay */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500/20 via-green-500/20 to-red-500/20 blur-sm" />
+      <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-red-500/20 via-green-500/20 to-red-500/20 blur-xs" />
     </div>
   );
 };

@@ -44,7 +44,7 @@ function decrementStorefrontLightScope(target: HTMLElement) {
  * Two layered mechanisms cooperate to force light mode:
  *
  * 1. The `.light` rule in globals.css re-declares all CSS custom properties to
- *    their light-mode values, so `bg-[var(--background)]` and friends resolve
+ *    their light-mode values, so `bg-(--background)` and friends resolve
  *    to light tokens inside this subtree.
  * 2. The `darkMode` selector in tailwind.config.ts excludes `.light` and its
  *    descendants from the `dark:` variant, so raw utilities like

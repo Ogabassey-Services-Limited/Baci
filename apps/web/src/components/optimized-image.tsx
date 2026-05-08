@@ -117,7 +117,7 @@ export function OptimizedImage({
       sizes={finalSizes}
       priority={finalPriority}
       loading={finalLoading}
-      placeholder={blur ? 'blur' : 'empty'}
+      placeholder={blur ? 'blur-sm' : 'empty'}
       blurDataURL={blur}
       onError={handleError}
       fetchPriority={finalFetchPriority}
@@ -195,7 +195,7 @@ export function ImagePlaceholder({
   const aspectClasses = {
     square: 'aspect-square',
     video: 'aspect-video',
-    portrait: 'aspect-[3/4]',
+    portrait: 'aspect-3/4',
   };
 
   return (

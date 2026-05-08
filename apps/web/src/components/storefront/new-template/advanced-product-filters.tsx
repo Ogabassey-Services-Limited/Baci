@@ -208,7 +208,7 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
                         <button
                           key={brand}
                           onClick={() => onSelectBrand(brand)}
-                          className={`px-3 py-1.5 text-xs font-bold rounded-md whitespace-nowrap transition-colors border flex-shrink-0 ${
+                          className={`px-3 py-1.5 text-xs font-bold rounded-md whitespace-nowrap transition-colors border shrink-0 ${
                             selectedBrand === brand
                               ? 'bg-gray-900 text-white border-gray-900'
                               : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'

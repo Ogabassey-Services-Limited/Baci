@@ -59,7 +59,7 @@ function EngineStatusIcon({ enabled }: { enabled: boolean }) {
 // Fixed action bar at bottom
 function PreviewActionBar({ template }: { template: TemplateDefinition }) {
   return (
-    <div className="fixed bottom-0 inset-x-0 z-50 bg-background/95 backdrop-blur-sm border-t border-border shadow-lg">
+    <div className="fixed bottom-0 inset-x-0 z-50 bg-background/95 backdrop-blur-xs border-t border-border shadow-lg">
       <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           <Badge className={statusColors[template.status]}>

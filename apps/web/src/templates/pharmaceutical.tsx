@@ -52,7 +52,7 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Hero Section - Professional Medical Theme */}
-            <section className="relative bg-gradient-to-br from-blue-600 to-blue-700 text-white">
+            <section className="relative bg-linear-to-br from-blue-600 to-blue-700 text-white">
                 <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djItaDJ2LTJoLTJ6bTAgNHYyaDJ2LTJoLTJ6bS0yIDJoLTJ2Mmgydi0yek0zMiAzOGgtMnYyaDJ2LTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-20" />
 
                 <div className="relative max-w-7xl mx-auto px-6 py-16">
@@ -111,7 +111,7 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
                             const Icon = badge.icon;
                             return (
                                 <div key={index} className="flex items-center gap-3">
-                                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
                                         <Icon className="w-6 h-6 text-blue-600" />
                                     </div>
                                     <div>
@@ -126,7 +126,7 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
             </section>
 
             {/* Prescription Upload CTA */}
-            <section className="bg-gradient-to-r from-green-50 to-blue-50 py-12">
+            <section className="bg-linear-to-r from-green-50 to-blue-50 py-12">
                 <div className="max-w-7xl mx-auto px-6">
                     <div className="bg-white rounded-2xl shadow-lg p-8 md:p-12">
                         <div className="grid md:grid-cols-2 gap-8 items-center">
@@ -145,7 +145,7 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
                                         'Order delivered to your doorstep'
                                     ].map((step, idx) => (
                                         <div key={idx} className="flex items-center gap-3">
-                                            <div className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
+                                            <div className="w-6 h-6 bg-green-500 text-white rounded-full flex items-center justify-center text-sm font-bold shrink-0">
                                                 {idx + 1}
                                             </div>
                                             <span className="text-gray-700">{step}</span>
@@ -157,7 +157,7 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
                                     Upload Prescription Now
                                 </button>
                             </div>
-                            <div className="relative h-64 bg-gradient-to-br from-blue-100 to-green-100 rounded-xl flex items-center justify-center">
+                            <div className="relative h-64 bg-linear-to-br from-blue-100 to-green-100 rounded-xl flex items-center justify-center">
                                 <div className="text-center">
                                     <Upload className="w-16 h-16 text-blue-600/30 mx-auto mb-3" />
                                     <p className="text-gray-500 text-sm">Prescription Upload Placeholder</p>
@@ -220,7 +220,7 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
 
                     {/* Custom styled filter bar that matches pharmaceutical theme */}
                     <div className="mb-8">
-                        <div className="bg-gradient-to-r from-blue-50 to-green-50 border border-blue-200 rounded-xl p-4 shadow-sm">
+                        <div className="bg-linear-to-r from-blue-50 to-green-50 border border-blue-200 rounded-xl p-4 shadow-sm">
                             <div className="flex flex-wrap justify-center gap-2">
                                 {categories.map((category) => {
                                     const isActive = selectedCategory === category.value;
@@ -293,7 +293,7 @@ export function PharmaceuticalHome(props: TemplatePageProps) {
             </section>
 
             {/* Stats Section */}
-            <section className="py-16 bg-gradient-to-r from-blue-600 to-blue-700 text-white">
+            <section className="py-16 bg-linear-to-r from-blue-600 to-blue-700 text-white">
                 <div className="max-w-5xl mx-auto px-6">
                     <div className="grid md:grid-cols-3 gap-8 text-center">
                         <div>

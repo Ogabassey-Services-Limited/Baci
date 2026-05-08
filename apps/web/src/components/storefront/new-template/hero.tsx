@@ -19,7 +19,7 @@ export const Hero: React.FC = () => {
               sizes="(max-width: 1024px) 100vw, 75vw"
               className="object-cover transition-transform duration-700 group-hover:scale-105 z-0"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent z-10" />
+            <div className="absolute inset-0 bg-linear-to-r from-black/80 via-black/40 to-transparent z-10" />
 
             <div className="relative z-20 flex flex-col justify-center h-full p-8 md:p-12 max-w-2xl">
               <span className="inline-block px-3 py-1 bg-red-600 text-white text-xs font-bold uppercase tracking-wider rounded-full w-fit mb-4 animate-in fade-in slide-in-from-left-4 duration-500">
@@ -27,7 +27,7 @@ export const Hero: React.FC = () => {
               </span>
               <h1 className="text-4xl md:text-6xl font-bold text-white mb-4 leading-tight animate-in fade-in slide-in-from-left-4 duration-700 delay-100">
                 Experience <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-500 to-orange-500">
+                <span className="text-transparent bg-clip-text bg-linear-to-r from-red-500 to-orange-500">
                   Next Gen
                 </span>{' '}
                 VR
@@ -70,7 +70,7 @@ export const Hero: React.FC = () => {
                 sizes="(max-width: 1024px) 100vw, 25vw"
                 className="object-cover transition-transform duration-700 group-hover:scale-105 z-0"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent z-10" />
+              <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent z-10" />
 
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[120px] font-bold text-white/5 pointer-events-none select-none leading-none z-10">
                 M4
@@ -105,7 +105,7 @@ export const Hero: React.FC = () => {
                 sizes="(max-width: 1024px) 100vw, 25vw"
                 className="object-cover transition-transform duration-700 group-hover:scale-105 z-0 opacity-80"
               />
-              <div className="absolute inset-0 bg-gradient-to-tr from-[#2D0C7E] via-[#2D0C7E]/60 to-transparent z-10" />
+              <div className="absolute inset-0 bg-linear-to-tr from-[#2D0C7E] via-[#2D0C7E]/60 to-transparent z-10" />
 
               <div className="absolute left-[-20px] bottom-10 text-[80px] font-bold text-white/5 -rotate-90 pointer-events-none select-none z-10 tracking-widest">
                 PLAYSTATION
@@ -134,7 +134,7 @@ export const Hero: React.FC = () => {
       <div className="w-full bg-white mt-4 md:mt-12 mb-8 border-y border-gray-100 py-6">
         <div className="max-w-[1400px] mx-auto px-4 md:px-6 flex flex-col md:flex-row items-center justify-between gap-6 md:gap-0">
           {/* Left Promo Message */}
-          <div className="bg-red-50 px-10 py-8 rounded-lg min-w-[280px] text-center xl:text-left xl:-translate-x-[5%]">
+          <div className="bg-red-50 px-10 py-8 rounded-lg min-w-[280px] text-center xl:text-left xl:translate-x-[-5%]">
             <span className="text-gray-900 font-medium text-xl">
               We Pay <span className="text-red-600 font-bold">YOU</span> When
             </span>

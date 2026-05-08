@@ -36,7 +36,7 @@ export function HeroDesktopGrid({ getHref }: HeroDesktopGridProps) {
             className={`absolute inset-0 transition-opacity [transition-duration:400ms] ease-in-out ${idx === currentIphoneSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
           >
             <div
-              className={`absolute inset-0 z-10 bg-gradient-to-r ${slide.theme === 'dark'
+              className={`absolute inset-0 z-10 bg-linear-to-r ${slide.theme === 'dark'
                 ? 'from-black/90 via-black/40 to-transparent'
                 : 'from-[#e4e4e6] via-[#e4e4e6]/60 to-transparent'
                 }`}
@@ -98,7 +98,7 @@ export function HeroDesktopGrid({ getHref }: HeroDesktopGridProps) {
                 event.stopPropagation();
                 setCurrentIphoneSlide(idx);
               }}
-              className={`h-2 rounded-full transition-all duration-300 backdrop-blur-sm ${idx === currentIphoneSlide
+              className={`h-2 rounded-full transition-all duration-300 backdrop-blur-xs ${idx === currentIphoneSlide
                 ? 'w-10 bg-primary'
                 : 'w-3 bg-gray-400/50 hover:bg-gray-400 hover:w-5'
                 }`}
@@ -119,7 +119,7 @@ export function HeroDesktopGrid({ getHref }: HeroDesktopGridProps) {
             loading="lazy"
             quality={60}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent z-10" />
+          <div className="absolute inset-0 bg-linear-to-t from-black via-black/40 to-transparent z-10" />
 
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[120px] font-bold text-white/5 pointer-events-none select-none leading-none z-10">
             M4
@@ -157,7 +157,7 @@ export function HeroDesktopGrid({ getHref }: HeroDesktopGridProps) {
             loading="lazy"
             quality={60}
           />
-          <div className="absolute inset-0 bg-gradient-to-tr from-[#2D0C7E] via-[#2D0C7E]/60 to-transparent z-10" />
+          <div className="absolute inset-0 bg-linear-to-tr from-[#2D0C7E] via-[#2D0C7E]/60 to-transparent z-10" />
 
           <div className="absolute left-[-20px] bottom-10 text-[80px] font-bold text-white/5 -rotate-90 pointer-events-none select-none z-10 tracking-widest">
             PLAYSTATION

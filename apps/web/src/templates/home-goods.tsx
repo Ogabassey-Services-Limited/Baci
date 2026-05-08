@@ -36,7 +36,7 @@ export function HomeGoodsHome(props: TemplatePageProps) {
     return (
         <div className="min-h-screen bg-stone-50">
                 {/* Hero Section - Warm & Inviting */}
-                <section className="relative h-[70vh] overflow-hidden bg-gradient-to-br from-amber-50 to-stone-100">
+                <section className="relative h-[70vh] overflow-hidden bg-linear-to-br from-amber-50 to-stone-100">
                     <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiM5OTk5OTkiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djItaDJ2LTJoLTJ6bTAgNHYyaDJ2LTJoLTJ6bS0yIDJoLTJ2Mmgydi0yek0zMiAzOGgtMnYyaDJ2LTJ6bTAgNGgtMnYyaDJ2LTJ6bS0yIDJoLTJ2Mmgydi0yek0yOCA0MmgtMnYyaDJ2LTJ6bTAgNGgtMnYyaDJ2LTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
 
                     <div className="relative max-w-7xl mx-auto h-full flex items-center px-6">
@@ -97,7 +97,7 @@ export function HomeGoodsHome(props: TemplatePageProps) {
                 </section>
 
                 {/* Featured Banner */}
-                <section className="py-16 bg-gradient-to-r from-stone-100 to-amber-50">
+                <section className="py-16 bg-linear-to-r from-stone-100 to-amber-50">
                     <div className="max-w-7xl mx-auto px-6">
                         <div className="grid md:grid-cols-2 gap-12 items-center">
                             <div>
@@ -124,7 +124,7 @@ export function HomeGoodsHome(props: TemplatePageProps) {
                                 </div>
                             </div>
                             <div className="relative h-96 rounded-2xl overflow-hidden shadow-2xl">
-                                <div className="absolute inset-0 bg-gradient-to-br from-amber-200 to-stone-300 flex items-center justify-center">
+                                <div className="absolute inset-0 bg-linear-to-br from-amber-200 to-stone-300 flex items-center justify-center">
                                     <div className="text-center">
                                         <HomeIcon className="w-24 h-24 text-white/50 mx-auto mb-4" />
                                         <p className="text-white/70 text-sm">Lifestyle Image Placeholder</p>

@@ -67,7 +67,7 @@ export const Hero: React.FC = () => {
         className="absolute top-0 left-0 right-0 h-14 bg-[#0F0F0F] z-0 md:hidden"
         aria-hidden="true"
       >
-        <div className="absolute inset-0 bg-gradient-to-b from-white/10 via-white/5 to-transparent" />
+        <div className="absolute inset-0 bg-linear-to-b from-white/10 via-white/5 to-transparent" />
       </div>
 
       <section className="max-w-[1400px] mx-auto px-4 md:px-6 relative z-10 pt-4 md:pt-6 flex flex-col">

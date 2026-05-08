@@ -42,7 +42,7 @@ export function ProductDetailsTabs({
             onClick={() => onSelectTab(value as ProductDetailsActiveTab)}
             className={`whitespace-nowrap px-6 pb-4 text-lg font-semibold transition-colors ${
               activeTab === value
-                ? 'border-b-2 border-[var(--store-primary)] text-[var(--store-primary)]'
+                ? 'border-b-2 border-(--store-primary) text-(--store-primary)'
                 : 'text-gray-500 md:hover:text-gray-800'
             } ${value === 'compare' ? 'flex items-center gap-2' : ''}`}
             role="tab"
@@ -148,7 +148,7 @@ export function ProductDetailsTabs({
                 disabled
                 aria-disabled="true"
                 title="Coming soon"
-                className="cursor-not-allowed text-sm font-bold text-[var(--store-primary)]/60"
+                className="cursor-not-allowed text-sm font-bold text-(--store-primary)/60"
               >
                 Write a Review
               </button>
@@ -171,7 +171,7 @@ export function ProductDetailsTabs({
                       ))}
                     </div>
                     <div
-                      className="absolute inset-0 overflow-hidden text-[color:var(--store-rating,#facc15)]"
+                      className="absolute inset-0 overflow-hidden text-(--store-rating,#facc15)"
                       style={{ width: normalizedReviewRatingWidth }}
                     >
                       <div className="flex w-max gap-1">

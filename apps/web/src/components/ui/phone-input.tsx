@@ -145,12 +145,12 @@ const CountrySelect = ({
           />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-2 overflow-visible bg-[var(--store-background,#fff)] text-[var(--store-background-text,#111)] border border-[color-mix(in_srgb,var(--store-primary,#ef4444)_20%,transparent)] shadow-xl rounded-xl">
-        <Command className="bg-transparent text-[var(--store-background-text,#111)] overflow-visible">
+      <PopoverContent className="w-[300px] p-2 overflow-visible bg-(--store-background,#fff) text-(--store-background-text,#111) border border-[color-mix(in_srgb,var(--store-primary,#ef4444)_20%,transparent)] shadow-xl rounded-xl">
+        <Command className="bg-transparent text-(--store-background-text,#111) overflow-visible">
           <CommandList>
             <ScrollArea className="h-72">
               <CommandInput
-                className="text-[var(--store-background-text,#111)] placeholder:text-[color-mix(in_srgb,var(--store-background-text,#111)_60%,transparent)]"
+                className="text-(--store-background-text,#111) placeholder:text-[color-mix(in_srgb,var(--store-background-text,#111)_60%,transparent)]"
                 placeholder="Search country..."
                 aria-label="Search country"
               />
@@ -165,7 +165,7 @@ const CountrySelect = ({
 
                     return (
                       <CommandItem
-                        className="gap-2 text-[var(--store-background-text,#111)] data-[selected=true]:bg-[var(--store-primary,#ef4444)] data-[selected=true]:text-[var(--store-primary-text,#fff)]"
+                        className="gap-2 text-(--store-background-text,#111) data-[selected=true]:bg-(--store-primary,#ef4444) data-[selected=true]:text-(--store-primary-text,#fff)"
                         key={option.value}
                         onSelect={() => handleSelect(option.value)}
                       >

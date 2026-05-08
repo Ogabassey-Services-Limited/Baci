@@ -589,7 +589,7 @@ export function RepairBookingWizard({
                 </div>
 
                 <div className="bg-blue-50 text-blue-800 p-4 rounded-md flex gap-3 items-start text-sm">
-                  <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
                   <p>
                     Submitting this request does not guarantee an appointment
                     slot. The merchant will review and confirm availability.

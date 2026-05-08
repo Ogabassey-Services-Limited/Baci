@@ -85,8 +85,8 @@ export function OgabasseyLoginPage() {
   return (
     <div className="min-h-screen flex flex-col relative overflow-hidden bg-[#FAFAFA]">
       {/* Soft Red Gradient Background - Premium Brand Touch */}
-      <div className="absolute -top-[10%] -right-[10%] w-[50%] h-[50%] bg-[#D62027]/5 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute -bottom-[10%] -left-[10%] w-[50%] h-[50%] bg-[#D62027]/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-[#D62027]/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#D62027]/5 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Subtle primary accent line at top */}
       <div className="absolute top-0 left-0 right-0 h-1.5 bg-[#D62027]" />

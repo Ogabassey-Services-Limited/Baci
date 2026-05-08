@@ -316,7 +316,7 @@ export const ProductDetails: React.FC = () => {
                                   prev.filter((f) => f !== 'Color')
                                 );
                               }}
-                              className={`group relative w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 outline-none focus:ring-4 focus:ring-red-100 ${
+                              className={`group relative w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300 outline-hidden focus:ring-4 focus:ring-red-100 ${
                                 isSelected
                                   ? 'border-[3px] border-red-600 scale-110 shadow-lg'
                                   : 'border border-gray-200 hover:border-gray-400 hover:scale-105'
@@ -464,9 +464,9 @@ export const ProductDetails: React.FC = () => {
 
       {/* --- SELECTION REQUIRED MODAL --- */}
       {isSelectionModalOpen && (
-        <div className="fixed inset-0 z-[80] flex items-end md:items-center justify-center px-0 md:px-4">
+        <div className="fixed inset-0 z-80 flex items-end md:items-center justify-center px-0 md:px-4">
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 backdrop-blur-xs"
             onClick={() => setIsSelectionModalOpen(false)}
           />
           <div className="bg-white w-full md:max-w-md md:rounded-2xl rounded-t-2xl shadow-2xl relative z-10 animate-in slide-in-from-bottom-10 duration-300">
@@ -528,7 +528,7 @@ export const ProductDetails: React.FC = () => {
                                 prev.filter((f) => f !== 'Color')
                               );
                             }}
-                            className={`group relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 outline-none focus:ring-4 focus:ring-red-100 active:scale-95 ${
+                            className={`group relative w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 outline-hidden focus:ring-4 focus:ring-red-100 active:scale-95 ${
                               isSelected
                                 ? 'border-[3px] border-red-600 scale-110 shadow-lg'
                                 : 'border border-gray-200 md:hover:border-gray-400 md:hover:scale-105 shadow-sm'

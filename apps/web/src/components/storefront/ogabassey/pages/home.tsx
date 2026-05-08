@@ -33,7 +33,7 @@ export const OgabasseyHomePage: React.FC<HomePageProps> = ({
           fallback={
             <div
               aria-hidden="true"
-              className="min-h-[120px] rounded-2xl bg-gray-50/80 border border-gray-100/80 [content-visibility:auto] [contain-intrinsic-size:1400px_120px]"
+              className="min-h-[120px] rounded-2xl bg-gray-50/80 border border-gray-100/80 content-auto [contain-intrinsic-size:1400px_120px]"
             />
           }
           placementKey="HOMEPAGE_STRIP"
@@ -43,13 +43,13 @@ export const OgabasseyHomePage: React.FC<HomePageProps> = ({
       </div>
 
       {/* Horizontal Carousel Banner - Desktop Only */}
-      <div className="hidden md:block max-w-[1400px] mx-auto px-4 md:px-6 py-4 md:py-6 [content-visibility:auto] [contain-intrinsic-size:1400px_220px]">
+      <div className="hidden md:block max-w-[1400px] mx-auto px-4 md:px-6 py-4 md:py-6 content-auto [contain-intrinsic-size:1400px_220px]">
         <DeferredBannerCarousel
           className="h-40 md:h-52"
           fallback={
             <div
               aria-hidden="true"
-              className="h-40 md:h-52 rounded-3xl bg-gray-100/80 border border-gray-100 [content-visibility:auto] [contain-intrinsic-size:1400px_220px]"
+              className="h-40 md:h-52 rounded-3xl bg-gray-100/80 border border-gray-100 content-auto [contain-intrinsic-size:1400px_220px]"
             />
           }
           timeoutMs={BANNER_CAROUSEL_MOUNT_DELAY_MS}

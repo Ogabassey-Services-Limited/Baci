@@ -27,7 +27,7 @@ export const SavedToast: React.FC<SavedToastProps> = ({
   if (!isVisible) return null;
 
   return (
-    <div className="fixed top-20 right-4 md:top-24 md:right-6 z-[90] animate-in slide-in-from-right-5 fade-in duration-300">
+    <div className="fixed top-20 right-4 md:top-24 md:right-6 z-90 animate-in slide-in-from-right-5 fade-in duration-300">
       <div className="bg-white rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-gray-100 p-4 flex items-center gap-3 pr-10 relative">
         <div
           className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 transition-colors ${type === 'add' ? 'bg-red-50 text-red-600' : 'bg-gray-100 text-gray-500'}`}

@@ -20,7 +20,7 @@ export default function PricingPage() {
     features: string[];
     cta: string;
     href: Route;
-    variant: 'default' | 'outline';
+    variant: 'default' | 'outline-solid';
     popular?: boolean;
   }[] = [
     {

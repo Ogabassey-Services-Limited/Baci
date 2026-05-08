@@ -791,7 +791,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                       onChange={handleQuantityChange}
                       onBlur={handleQuantityBlur}
                       onKeyDown={handleKeyDown}
-                      className="text-lg font-bold text-gray-900 w-16 text-center bg-transparent border-none outline-none p-0 focus:ring-0 focus:border-none"
+                      className="text-lg font-bold text-gray-900 w-16 text-center bg-transparent border-none outline-hidden p-0 focus:ring-0 focus:border-none"
                     />
                   </div>
                   <button

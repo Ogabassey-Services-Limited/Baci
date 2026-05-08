@@ -540,7 +540,7 @@ export default function DashboardClientLayout({
                       >
                         {/* Hover Glow Effect */}
                         {!isActive && (
-                          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <div className="absolute inset-0 bg-linear-to-r from-primary/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                         )}
 
                         <item.icon
@@ -574,7 +574,7 @@ export default function DashboardClientLayout({
                       </Link>
                     );
                   })}
-                  <div className="my-4 h-[1px] bg-gradient-to-r from-transparent via-border to-transparent" />
+                  <div className="my-4 h-px bg-linear-to-r from-transparent via-border to-transparent" />
                   <StoreLink
                     isMobile={false}
                     isCollapsed={isCollapsed}
@@ -589,7 +589,7 @@ export default function DashboardClientLayout({
             {/* Sidebar Footer (Upgrade Card) */}
             <div className="p-4 mt-auto">
               {!isCollapsed && (
-                <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary to-primary/80 p-4 text-primary-foreground shadow-lg">
+                <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-primary to-primary/80 p-4 text-primary-foreground shadow-lg">
                   <div className="absolute -right-4 -top-4 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
                   <h4 className="font-semibold relative z-10">
                     Upgrade to Pro
@@ -715,7 +715,7 @@ export default function DashboardClientLayout({
           </header>
 
           {/* Desktop Header Actions (Refactored to Block for safety) */}
-          <div className="hidden md:flex w-full justify-end items-center gap-3 px-6 pt-6 pb-2 z-20 bg-background/50 backdrop-blur-sm sticky top-0">
+          <div className="hidden md:flex w-full justify-end items-center gap-3 px-6 pt-6 pb-2 z-20 bg-background/50 backdrop-blur-xs sticky top-0">
             <div className="flex items-center gap-2 p-1.5 rounded-full bg-white/60 dark:bg-black/40 backdrop-blur-xl border border-white/20 shadow-sm ml-auto">
               <StoreLink
                 isMobile={false}
@@ -724,7 +724,7 @@ export default function DashboardClientLayout({
                 storeUrl={storeUrl}
                 customDomain={merchant?.custom_domain}
               />
-              <div className="w-[1px] h-4 bg-border/50" />
+              <div className="w-px h-4 bg-border/50" />
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -761,12 +761,12 @@ export default function DashboardClientLayout({
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <div className="w-[1px] h-4 bg-border/50" />
+              <div className="w-px h-4 bg-border/50" />
 
               <ThemeToggle />
               <NotificationCenter />
 
-              <div className="w-[1px] h-4 bg-border/50" />
+              <div className="w-px h-4 bg-border/50" />
 
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -818,7 +818,7 @@ export default function DashboardClientLayout({
       </div>
 
       {/* Mobile Bottom Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-t border-white/20 pb-[env(safe-area-inset-bottom)]">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-t border-white/20 safe-bottom">
         <div className="flex items-center justify-around h-16 px-2">
           <Link
             href="/dashboard"

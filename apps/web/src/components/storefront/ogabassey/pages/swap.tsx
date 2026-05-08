@@ -99,7 +99,7 @@ function TradeInModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
 
         {/* Header */}
@@ -287,7 +287,7 @@ export function OgabasseyV2Swap() {
         </p>
 
         {/* Hero Section */}
-        <div className="bg-gradient-to-r from-red-600 to-red-800 text-white rounded-2xl p-8 md:p-12 mb-10 relative overflow-hidden shadow-xl">
+        <div className="bg-linear-to-r from-red-600 to-red-800 text-white rounded-2xl p-8 md:p-12 mb-10 relative overflow-hidden shadow-xl">
           <div className="relative z-10 max-w-lg">
             <span className="inline-block bg-white/20 backdrop-blur-md text-xs font-bold px-3 py-1 rounded-full mb-4 uppercase tracking-wider">
               Powered by Gemini 3.0 Flash ✨

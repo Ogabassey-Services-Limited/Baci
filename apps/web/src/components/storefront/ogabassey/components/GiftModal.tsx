@@ -107,9 +107,9 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-xs"
         onClick={onClose}
       />
       <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl relative z-10 flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
@@ -196,7 +196,7 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
               <textarea
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 text-sm resize-none h-20"
+                className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-hidden focus:border-red-500 focus:ring-1 focus:ring-red-500 text-sm resize-none h-20"
                 placeholder="Full delivery address..."
               />
             </div>
@@ -208,7 +208,7 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
                 <span className="text-red-600 text-lg leading-none">*</span>
               </label>
               <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer border p-3 rounded-xl flex-1 hover:border-red-200 hover:bg-red-50 transition-colors has-[:checked]:border-red-600 has-[:checked]:bg-red-50">
+                <label className="flex items-center gap-2 cursor-pointer border p-3 rounded-xl flex-1 hover:border-red-200 hover:bg-red-50 transition-colors has-checked:border-red-600 has-checked:bg-red-50">
                   <input
                     type="radio"
                     name="senderType"
@@ -219,7 +219,7 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
                   />
                   <span className="text-sm font-medium">Send Anonymously</span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer border p-3 rounded-xl flex-1 hover:border-red-200 hover:bg-red-50 transition-colors has-[:checked]:border-red-600 has-[:checked]:bg-red-50">
+                <label className="flex items-center gap-2 cursor-pointer border p-3 rounded-xl flex-1 hover:border-red-200 hover:bg-red-50 transition-colors has-checked:border-red-600 has-checked:bg-red-50">
                   <input
                     type="radio"
                     name="senderType"
@@ -241,7 +241,7 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
                     type="text"
                     value={senderName}
                     onChange={(e) => setSenderName(e.target.value)}
-                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-red-500 text-sm"
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-hidden focus:border-red-500 text-sm"
                     placeholder="Your Name"
                   />
                 </div>
@@ -260,7 +260,7 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
                     type="text"
                     value={recipientName}
                     onChange={(e) => setRecipientName(e.target.value)}
-                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-red-500 text-sm"
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-hidden focus:border-red-500 text-sm"
                     placeholder="Name"
                   />
                 </div>
@@ -276,7 +276,7 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
                       type="email"
                       value={recipientEmail}
                       onChange={(e) => setRecipientEmail(e.target.value)}
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-red-500 text-sm"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-hidden focus:border-red-500 text-sm"
                       placeholder="Email"
                     />
                   </div>
@@ -291,7 +291,7 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
                       type="tel"
                       value={recipientPhone}
                       onChange={(e) => setRecipientPhone(e.target.value)}
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-red-500 text-sm"
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-hidden focus:border-red-500 text-sm"
                       placeholder="Phone"
                     />
                   </div>
@@ -306,7 +306,7 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
                   <textarea
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
-                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-red-500 text-sm resize-none h-24"
+                    className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-hidden focus:border-red-500 text-sm resize-none h-24"
                     placeholder="Add a personal note..."
                   />
                 </div>
@@ -319,7 +319,7 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
                   </label>
                   <div className="space-y-3">
                     <div>
-                      <label className="flex items-center justify-between cursor-pointer border p-3 rounded-xl hover:border-red-200 hover:bg-red-50 transition-colors has-[:checked]:border-red-600 has-[:checked]:bg-red-50">
+                      <label className="flex items-center justify-between cursor-pointer border p-3 rounded-xl hover:border-red-200 hover:bg-red-50 transition-colors has-checked:border-red-600 has-checked:bg-red-50">
                         <div className="flex items-center gap-2">
                           <input
                             type="radio"
@@ -352,7 +352,7 @@ export const GiftModal: React.FC<GiftModalProps> = ({ isOpen, onClose }) => {
                     </div>
 
                     <div>
-                      <label className="flex items-center justify-between cursor-pointer border p-3 rounded-xl hover:border-red-200 hover:bg-red-50 transition-colors has-[:checked]:border-red-600 has-[:checked]:bg-red-50">
+                      <label className="flex items-center justify-between cursor-pointer border p-3 rounded-xl hover:border-red-200 hover:bg-red-50 transition-colors has-checked:border-red-600 has-checked:bg-red-50">
                         <div className="flex items-center gap-2">
                           <input
                             type="radio"

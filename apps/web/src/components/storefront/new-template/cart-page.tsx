@@ -83,7 +83,7 @@ export const CartPage: React.FC = () => {
                   key={item.variant_id || item.id}
                   className="bg-white p-4 md:p-6 rounded-2xl shadow-sm border border-gray-100 flex gap-4 md:gap-6 group transition-all hover:shadow-md"
                 >
-                  <div className="w-24 h-24 md:w-32 md:h-32 bg-gray-50 rounded-xl flex-shrink-0 p-2">
+                  <div className="w-24 h-24 md:w-32 md:h-32 bg-gray-50 rounded-xl shrink-0 p-2">
                     <img
                       src={item.image}
                       alt={item.name}

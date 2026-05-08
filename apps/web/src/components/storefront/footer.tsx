@@ -221,7 +221,7 @@ export function StorefrontFooter() {
                     href={`mailto:${merchant.support_email}`}
                     className="flex items-center gap-2 hover:opacity-100 transition-opacity"
                   >
-                    <Mail className="h-4 w-4 flex-shrink-0" />
+                    <Mail className="h-4 w-4 shrink-0" />
                     <span>{merchant.support_email}</span>
                   </a>
                 )}
@@ -230,13 +230,13 @@ export function StorefrontFooter() {
                     href={`tel:${merchant.support_phone}`}
                     className="flex items-center gap-2 hover:opacity-100 transition-opacity"
                   >
-                    <Phone className="h-4 w-4 flex-shrink-0" />
+                    <Phone className="h-4 w-4 shrink-0" />
                     <span>{merchant.support_phone}</span>
                   </a>
                 )}
                 {merchant.business_address && (
                   <div className="flex items-start gap-2">
-                    <MapPin className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
                     <span>{merchant.business_address}</span>
                   </div>
                 )}

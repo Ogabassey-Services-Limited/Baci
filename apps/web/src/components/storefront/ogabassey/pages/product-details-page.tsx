@@ -170,12 +170,12 @@ export function ProductDetailsPage({
   const deferredDetailsFallback = (
     <div
       aria-hidden="true"
-      className="mt-12 min-h-[1200px] [content-visibility:auto] [contain-intrinsic-size:1400px_2200px]"
+      className="mt-12 min-h-[1200px] content-auto [contain-intrinsic-size:1400px_2200px]"
     />
   );
 
   return (
-    <div className="relative bg-[var(--store-background,#ffffff)] pb-32 pt-4">
+    <div className="relative bg-(--store-background,#ffffff) pb-32 pt-4">
       <div
         data-testid="product-banner-carousel"
         role="region"
@@ -234,9 +234,9 @@ export function ProductDetailsPage({
             showColorToast={showColorToast}
           />
 
-          <div className="hidden lg:col-span-3 lg:block lg:border-l lg:border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)] lg:pl-8">
+          <div className="hidden lg:col-span-3 lg:block lg:border-l lg:border-[color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)] lg:pl-8">
             <div className="sticky top-24">
-              <p className="mb-4 text-xs font-bold uppercase tracking-widest text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_50%,transparent)]">
+              <p className="mb-4 text-xs font-bold uppercase tracking-widest text-[color-mix(in_srgb,var(--store-background-text,#111827)_50%,transparent)]">
                 Sponsored
               </p>
               <AdUnit placementKey="SIDEBAR_HALF_PAGE" className="mb-6" />
@@ -247,7 +247,7 @@ export function ProductDetailsPage({
         {semanticSections}
 
         <DeferredShellFeature fallback={deferredDetailsFallback} timeoutMs={1800}>
-          <div className="[content-visibility:auto] [contain-intrinsic-size:1400px_2200px]">
+          <div className="content-auto [contain-intrinsic-size:1400px_2200px]">
             <div className="mb-12 mt-12">
               <AdUnit placementKey="CONTENT_BREAK" />
             </div>
@@ -271,12 +271,12 @@ export function ProductDetailsPage({
               <BrandProducts
                 product={relatedProductsProduct}
                 maxProducts={4}
-                className="border-t border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)] pt-8"
+                className="border-t border-[color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)] pt-8"
               />
               <PriceRangeProducts
                 product={relatedProductsProduct}
                 maxProducts={4}
-                className="border-t border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)]"
+                className="border-t border-[color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)]"
               />
             </div>
           </div>

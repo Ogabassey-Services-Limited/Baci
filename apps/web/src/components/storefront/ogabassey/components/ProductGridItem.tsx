@@ -132,7 +132,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
 
   return (
     <div
-      className={`bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl active:shadow-md active:scale-[0.99] transition-all duration-300 group flex flex-col h-full relative [content-visibility:auto] ${viewMode === 'list'
+      className={`bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl active:shadow-md active:scale-[0.99] transition-all duration-300 group flex flex-col h-full relative content-auto ${viewMode === 'list'
         ? '[contain-intrinsic-size:auto_220px]'
         : '[contain-intrinsic-size:auto_360px]'
         }`}
@@ -189,7 +189,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
                 : product.condition === 'New & Used'
                   ? 'bg-purple-600'
                   : product.condition === 'Multiple Conditions'
-                    ? 'bg-[var(--store-primary)]'
+                    ? 'bg-(--store-primary)'
                   : 'bg-stone-500'
               }`}
           >

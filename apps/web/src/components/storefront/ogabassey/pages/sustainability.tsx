@@ -234,7 +234,7 @@ export const OgabasseyV2Sustainability: React.FC = () => {
               alt="Electronic Repair"
               className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent">
+            <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent">
               <div className="absolute bottom-8 left-8 text-white">
                 <p className="font-bold text-xl mb-1">The Repair Lab</p>
                 <p className="text-sm text-gray-300">

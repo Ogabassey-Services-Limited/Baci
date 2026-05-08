@@ -102,7 +102,7 @@ export function Cart() {
                       </motion.p>
                       <motion.button
                         type="button"
-                        className="text-xs min-h-[44px] px-2 text-red-500 hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+                        className="text-xs min-h-[44px] px-2 text-red-500 hover:text-red-600 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
                         onClick={() => removeFromCart(item.id)}
                         aria-label={`Remove ${item.name} from cart`}
                         whileHover={{ scale: 1.05 }}

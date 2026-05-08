@@ -173,7 +173,7 @@ export const Navbar: React.FC = () => {
                 <input
                   type="text"
                   placeholder="Search for phones, laptops, accessories..."
-                  className="w-full h-12 pl-12 pr-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all text-sm font-medium"
+                  className="w-full h-12 pl-12 pr-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-hidden focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all text-sm font-medium"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onFocus={() => query.trim() && setShowDropdown(true)}

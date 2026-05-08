@@ -89,11 +89,11 @@ export const NativeProductRow: React.FC<NativeProductRowProps> = ({
         <div className={`col-span-full my-4 ${className}`}>
             {/* Row Header */}
             <div className="flex items-center gap-2 mb-4 px-1">
-                <div className="h-px flex-1 bg-gradient-to-r from-gray-200 to-transparent" />
+                <div className="h-px flex-1 bg-linear-to-r from-gray-200 to-transparent" />
                 <span className="text-gray-400 text-[10px] font-semibold uppercase tracking-widest px-2">
                     Sponsored Products
                 </span>
-                <div className="h-px flex-1 bg-gradient-to-l from-gray-200 to-transparent" />
+                <div className="h-px flex-1 bg-linear-to-l from-gray-200 to-transparent" />
             </div>
 
             {/* Ads Grid - 4 columns on desktop, 2 on mobile (matches product grid) */}
@@ -119,11 +119,11 @@ export const NativeProductRow: React.FC<NativeProductRowProps> = ({
 
             {/* Row Footer */}
             <div className="flex items-center gap-2 mt-4 px-1">
-                <div className="h-px flex-1 bg-gradient-to-r from-transparent to-gray-200" />
+                <div className="h-px flex-1 bg-linear-to-r from-transparent to-gray-200" />
                 <span className="text-gray-300 text-[9px] font-medium uppercase tracking-wide px-2">
                     Ad
                 </span>
-                <div className="h-px flex-1 bg-gradient-to-l from-transparent to-gray-200" />
+                <div className="h-px flex-1 bg-linear-to-l from-transparent to-gray-200" />
             </div>
         </div>
     );

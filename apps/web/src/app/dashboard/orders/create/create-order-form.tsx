@@ -212,7 +212,7 @@ export function CreateOrderForm() {
                             </Button>
                           </FormControl>
                         </PopoverTrigger>
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                        <PopoverContent className="w-(--radix-popover-trigger-width) p-0">
                           <Command>
                             <CommandInput
                               placeholder="Search customers..."
@@ -390,7 +390,7 @@ export function CreateOrderForm() {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent
-                    className="w-[--radix-popover-trigger-width] p-0"
+                    className="w-(--radix-popover-trigger-width) p-0"
                     align="start"
                   >
                     <Command>

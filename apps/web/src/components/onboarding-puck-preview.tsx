@@ -338,7 +338,7 @@ export function OnboardingPuckPreview({
   // Full Screen Modal for Expanded View
   if (isExpanded) {
     return (
-      <div className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300">
+      <div className="fixed inset-0 z-100 bg-background/95 backdrop-blur-xs flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300">
         <div className="relative w-full h-full max-w-[1600px] bg-background rounded-xl border shadow-2xl overflow-hidden flex flex-col">
           {/* Header */}
           <div className="h-14 border-b flex items-center justify-between px-6 bg-muted/10">
@@ -406,7 +406,7 @@ export function OnboardingPuckPreview({
     <div className="relative w-full h-full rounded-xl border border-white/10 bg-muted/20 overflow-hidden flex flex-col group">
       {/* Loading Overlay */}
       {isLoading && (
-        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-background/50 backdrop-blur-sm transition-opacity duration-200">
+        <div className="absolute inset-0 z-60 flex items-center justify-center bg-background/50 backdrop-blur-xs transition-opacity duration-200">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       )}

@@ -30,7 +30,7 @@ export function LivePreviewCard({
       <div className="block relative">
         <Link
           href={`/template-preview/${template.id}` as Route}
-          className="block h-[320px] overflow-hidden relative bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-inset"
+          className="block h-[320px] overflow-hidden relative bg-linear-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-primary focus:ring-inset"
           aria-label={`Preview ${template.name} template`}
         >
           {template.thumbnail ? (
@@ -117,12 +117,12 @@ export function SmallPreviewCard({
     <div className="group relative bg-card rounded-xl overflow-hidden border border-border hover:border-ring transition-all hover:-translate-y-1">
       <Link
         href={`/template-preview/${template.id}` as Route}
-        className="block focus:outline-none focus:ring-2 focus:ring-primary"
+        className="block focus:outline-hidden focus:ring-2 focus:ring-primary"
         aria-label={`Preview ${template.name} template`}
       >
-        <div className="aspect-[4/3] bg-muted relative">
+        <div className="aspect-4/3 bg-muted relative">
           {/* Mini Browser Bar */}
-          <div className="absolute top-0 inset-x-0 h-6 bg-black/5 dark:bg-black/20 backdrop-blur flex items-center px-3 z-10">
+          <div className="absolute top-0 inset-x-0 h-6 bg-black/5 dark:bg-black/20 backdrop-blur-sm flex items-center px-3 z-10">
             <div className="w-1.5 h-1.5 rounded-full bg-foreground/20" />
           </div>
 
@@ -146,7 +146,7 @@ export function SmallPreviewCard({
             )}
           </div>
 
-          <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-50 pointer-events-none" />
+          <div className="absolute inset-0 bg-linear-to-t from-background/80 to-transparent opacity-50 pointer-events-none" />
         </div>
       </Link>
 

@@ -32,7 +32,7 @@ export default function NotFound() {
               404
             </h1>
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-2xl md:text-3xl font-bold text-primary dark:text-white bg-white/80 dark:bg-black/80 backdrop-blur-sm px-6 py-2 rounded-full border border-slate-200 dark:border-slate-800 shadow-sm">
+              <span className="text-2xl md:text-3xl font-bold text-primary dark:text-white bg-white/80 dark:bg-black/80 backdrop-blur-xs px-6 py-2 rounded-full border border-slate-200 dark:border-slate-800 shadow-sm">
                 Page Not Found
               </span>
             </div>

@@ -352,11 +352,11 @@ export default function OrdersClientPage({
 
   return (
     <div className="relative flex h-full flex-col gap-4">
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background" />
-      <div className="pointer-events-none absolute left-0 top-0 -z-10 h-full w-full bg-[url('/grid.svg')] bg-center opacity-50 [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-primary/10 via-background to-background" />
+      <div className="pointer-events-none absolute left-0 top-0 -z-10 h-full w-full bg-[url('/grid.svg')] bg-center opacity-50 mask-[linear-gradient(180deg,white,rgba(255,255,255,0))]" />
 
       <div className="flex items-center justify-between">
-        <h1 className="bg-gradient-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
+        <h1 className="bg-linear-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-3xl font-bold tracking-tight text-transparent">
           Orders 📦
         </h1>
         <div className="flex items-center gap-2">

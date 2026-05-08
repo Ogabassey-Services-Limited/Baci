@@ -113,7 +113,7 @@ export default function ReceiptsPage() {
 
   if (merchantLoading || authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+      <div className="min-h-screen bg-linear-to-b from-background to-muted/20">
         <div className="container mx-auto max-w-5xl px-4 py-8">
           <Skeleton className="mb-4 h-8 w-56" />
           <Skeleton className="mb-4 h-11 w-full" />
@@ -125,7 +125,7 @@ export default function ReceiptsPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+      <div className="min-h-screen bg-linear-to-b from-background to-muted/20">
         <div className="container mx-auto max-w-5xl px-4 py-8">
           <ReceiptsStateCard
             title="Redirecting to sign in"
@@ -148,7 +148,7 @@ export default function ReceiptsPage() {
 
   if (!customer || !merchantSlug) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+      <div className="min-h-screen bg-linear-to-b from-background to-muted/20">
         <div className="container mx-auto max-w-5xl px-4 py-8">
           <ReceiptsStateCard
             title="Documents unavailable"
@@ -164,7 +164,7 @@ export default function ReceiptsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+    <div className="min-h-screen bg-linear-to-b from-background to-muted/20">
       <div className="container mx-auto max-w-5xl px-4 py-8">
         <div className="mb-6 flex items-center gap-3">
           <Button asChild size="icon" variant="ghost">

@@ -46,12 +46,12 @@ export function SantaWidget() {
           {/* biome-ignore lint/a11y/useKeyWithClickEvents: Backdrop click to close is supplementary to close button */}
           {/* biome-ignore lint/a11y/noStaticElementInteractions: Backdrop is a click-to-dismiss overlay */}
           <div
-            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/30 backdrop-blur-xs"
             onClick={() => setIsOpen(false)}
           />
 
           {/* Chat window */}
-          <div className="relative z-10 w-full h-[100dvh] md:h-[600px] md:max-w-md shadow-2xl md:rounded-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
+          <div className="relative z-10 w-full h-dvh md:h-[600px] md:max-w-md shadow-2xl md:rounded-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-300">
             <SantaChatDialog onClose={() => setIsOpen(false)} />
           </div>
         </div>

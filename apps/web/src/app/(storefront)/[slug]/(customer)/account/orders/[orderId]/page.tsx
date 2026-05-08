@@ -104,7 +104,7 @@ export default function CustomerOrderDetailsPage() {
 
   if (merchantLoading || authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+      <div className="min-h-screen bg-linear-to-b from-background to-muted/20">
         <div className="container mx-auto max-w-5xl px-4 py-8">
           <Skeleton className="mb-4 h-8 w-48" />
           <Skeleton className="mb-4 h-48" />
@@ -155,7 +155,7 @@ export default function CustomerOrderDetailsPage() {
 
   if (isLoadingOrder) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+      <div className="min-h-screen bg-linear-to-b from-background to-muted/20">
         <div className="container mx-auto max-w-5xl px-4 py-8">
           <div className="flex items-center justify-center py-20">
             <output aria-label="Loading order" className="sr-only">

@@ -98,7 +98,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   if (viewMode === 'grid') {
     return (
-      <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl transition-[box-shadow,transform] duration-300 group flex flex-col h-full relative active:scale-[0.98] md:active:scale-100 touch-manipulation [content-visibility:auto] [contain-intrinsic-size:auto_350px]">
+      <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm md:hover:shadow-xl transition-[box-shadow,transform] duration-300 group flex flex-col h-full relative active:scale-[0.98] md:active:scale-100 touch-manipulation content-auto [contain-intrinsic-size:auto_350px]">
         <Link
           href={productHref}
           title={linkTitle}
@@ -167,7 +167,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               onClick={toggleLike}
               className={`h-7 w-7 md:h-8 md:w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-95 ${isLiked
                 ? 'bg-white border-red-100 text-red-600'
-                : 'bg-white/90 backdrop-blur-sm border-white/50 text-gray-500 md:hover:text-red-600 md:hover:bg-white'
+                : 'bg-white/90 backdrop-blur-xs border-white/50 text-gray-500 md:hover:text-red-600 md:hover:bg-white'
                 }`}
               aria-label={isLiked ? 'Remove from wishlist' : 'Add to wishlist'}
               title={isLiked ? 'Remove from Wishlist' : 'Add to Wishlist'}
@@ -184,7 +184,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               onClick={toggleCompare}
               className={`h-7 w-7 md:h-8 md:w-8 flex items-center justify-center rounded-full shadow-sm border transition-all duration-200 pointer-events-auto active:scale-95 ${isComparing
                 ? 'bg-primary/10 border-primary/20 text-primary'
-                : 'bg-white/90 backdrop-blur-sm border-white/50 text-gray-500 md:hover:text-primary md:hover:bg-white'
+                : 'bg-white/90 backdrop-blur-xs border-white/50 text-gray-500 md:hover:text-primary md:hover:bg-white'
                 }`}
               aria-label={isComparing ? 'Remove from comparison' : 'Add to comparison'}
               title={isComparing ? 'Remove from Compare' : 'Add to Compare'}
@@ -254,7 +254,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   // --- LIST VIEW ---
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 transition-[box-shadow,border-color,transform] duration-300 group flex flex-row gap-4 md:gap-6 relative active:scale-[0.99] md:active:scale-100 touch-manipulation [content-visibility:auto] [contain-intrinsic-size:auto_200px]">
+    <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 transition-[box-shadow,border-color,transform] duration-300 group flex flex-row gap-4 md:gap-6 relative active:scale-[0.99] md:active:scale-100 touch-manipulation content-auto [contain-intrinsic-size:auto_200px]">
       <Link
         href={productHref}
         title={linkTitle}
@@ -267,7 +267,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       </Link>
 
       {/* Image (Left Side) */}
-      <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
+      <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
         <Image
           src={product.image || PLACEHOLDER_IMAGE}
           alt={product.name}
@@ -380,7 +380,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         title={isLiked ? 'Remove from Wishlist' : 'Add to Wishlist'}
         className={`absolute top-4 right-4 z-20 p-2 rounded-full transition-all duration-200 pointer-events-auto active:scale-95 ${isLiked
           ? 'bg-primary/10 text-primary'
-          : 'bg-white/80 backdrop-blur-sm text-gray-400 md:hover:bg-primary/10 md:hover:text-primary'
+          : 'bg-white/80 backdrop-blur-xs text-gray-400 md:hover:bg-primary/10 md:hover:text-primary'
           }`}
       >
         <Heart

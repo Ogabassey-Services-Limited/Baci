@@ -34,7 +34,7 @@ export function HomeProductGridCard({
   const productImage = product.image || product.images?.[0] || PLACEHOLDER_IMAGE;
 
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm transition-all duration-300 flex flex-col h-full relative [content-visibility:auto] [contain-intrinsic-size:auto_360px]">
+    <div className="bg-white border border-gray-100 rounded-2xl p-3 md:p-4 shadow-sm transition-all duration-300 flex flex-col h-full relative content-auto [contain-intrinsic-size:auto_360px]">
       <Link href={productHref} prefetch={false} className="absolute inset-0 z-0">
         <span className="sr-only">
           {product.name} - {product.price}

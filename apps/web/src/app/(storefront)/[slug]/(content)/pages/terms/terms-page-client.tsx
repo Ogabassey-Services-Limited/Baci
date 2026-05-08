@@ -40,7 +40,7 @@ export function TermsPageClient({ merchant, content }: TermsPageClientProps) {
 
             <main className="flex-1">
               {/* Hero Section */}
-              <section className="relative py-16 md:py-20 bg-gradient-to-b from-muted/50 to-background">
+              <section className="relative py-16 md:py-20 bg-linear-to-b from-muted/50 to-background">
                 <div className="container px-4 md:px-6 text-center">
                   <div className="flex justify-center mb-6">
                     <div className="p-4 bg-primary/10 rounded-full">
@@ -109,7 +109,7 @@ export function TermsPageClient({ merchant, content }: TermsPageClientProps) {
                         prose-h3:text-xl prose-h3:mt-6 prose-h3:mb-3
                         prose-p:text-muted-foreground prose-p:leading-relaxed
                         prose-li:text-muted-foreground
-                        prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
+                        prose-a:text-primary prose-a:no-underline prose-a:hover:underline"
                     />
                   ) : (
                     <div className="text-center text-muted-foreground py-12">

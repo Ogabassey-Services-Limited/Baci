@@ -33,7 +33,7 @@ export default function DeleteAccountPage() {
           </h2>
           <div className="space-y-6">
             <div className="flex gap-4">
-              <div className="flex-shrink-0 w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center font-semibold">
+              <div className="shrink-0 w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center font-semibold">
                 1
               </div>
               <div>
@@ -54,7 +54,7 @@ export default function DeleteAccountPage() {
             </div>
 
             <div className="flex gap-4">
-              <div className="flex-shrink-0 w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center font-semibold">
+              <div className="shrink-0 w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center font-semibold">
                 2
               </div>
               <div>
@@ -69,7 +69,7 @@ export default function DeleteAccountPage() {
             </div>
 
             <div className="flex gap-4">
-              <div className="flex-shrink-0 w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center font-semibold">
+              <div className="shrink-0 w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center font-semibold">
                 3
               </div>
               <div>
@@ -84,7 +84,7 @@ export default function DeleteAccountPage() {
             </div>
 
             <div className="flex gap-4">
-              <div className="flex-shrink-0 w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center font-semibold">
+              <div className="shrink-0 w-8 h-8 bg-red-600 text-white rounded-full flex items-center justify-center font-semibold">
                 4
               </div>
               <div>

@@ -148,7 +148,7 @@ async function DeleteAccountContent({ params }: PageProps) {
         </h2>
         <div className="space-y-6">
           <div className="flex gap-4">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-white bg-slate-900">
+            <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-white bg-slate-900">
               1
             </div>
             <div>
@@ -166,7 +166,7 @@ async function DeleteAccountContent({ params }: PageProps) {
           </div>
 
           <div className="flex gap-4">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-white bg-slate-900">
+            <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-white bg-slate-900">
               2
             </div>
             <div>
@@ -181,7 +181,7 @@ async function DeleteAccountContent({ params }: PageProps) {
           </div>
 
           <div className="flex gap-4">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-white bg-slate-900">
+            <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-white bg-slate-900">
               3
             </div>
             <div>
@@ -196,7 +196,7 @@ async function DeleteAccountContent({ params }: PageProps) {
           </div>
 
           <div className="flex gap-4">
-            <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-white bg-slate-900">
+            <div className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-semibold text-white bg-slate-900">
               4
             </div>
             <div>

@@ -436,7 +436,7 @@ export default function CustomerDetailClientPage({
                               : order.shipping_status === 'shipped'
                                 ? 'secondary'
                                 : order.shipping_status === 'processing'
-                                  ? 'outline'
+                                  ? 'outline-solid'
                                   : 'destructive'
                           }
                         >

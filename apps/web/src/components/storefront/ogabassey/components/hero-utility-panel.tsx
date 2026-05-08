@@ -105,7 +105,7 @@ export function HeroUtilityPanel() {
   };
 
   return (
-    <div className="w-full bg-white mt-3 md:mt-8 mb-6 border-y border-gray-100 md:py-5 [content-visibility:auto] [contain-intrinsic-size:1400px_260px]">
+    <div className="w-full bg-white mt-3 md:mt-8 mb-6 border-y border-gray-100 md:py-5 content-auto [contain-intrinsic-size:1400px_260px]">
       <div className="md:hidden px-4">
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-2">
           <div className="bg-primary/5 rounded-2xl py-3 px-4 mb-4 text-center">
@@ -133,7 +133,7 @@ export function HeroUtilityPanel() {
       </div>
 
       <div className="hidden md:flex max-w-[1400px] mx-auto px-4 md:px-6 flex-row items-center justify-between">
-        <div className="bg-primary/5 px-10 py-8 rounded-lg min-w-[280px] text-center xl:text-left xl:-translate-x-[5%]">
+        <div className="bg-primary/5 px-10 py-8 rounded-lg min-w-[280px] text-center xl:text-left xl:translate-x-[-5%]">
           <span className="text-gray-900 font-medium text-xl">
             We Pay <span className="text-primary font-bold">YOU</span> When
           </span>

@@ -98,7 +98,7 @@ export default function NotificationsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
+          <h1 className="text-3xl font-bold tracking-tight bg-linear-to-r from-primary via-purple-500 to-blue-600 bg-clip-text text-transparent">
             Notifications 🔔
           </h1>
           <p className="text-muted-foreground">
@@ -242,7 +242,7 @@ function NotificationCard({
       }}
     >
       {/* Icon */}
-      <div className={cn('flex-shrink-0 p-2 rounded-full', typeStyle.bg)}>
+      <div className={cn('shrink-0 p-2 rounded-full', typeStyle.bg)}>
         <Icon className="h-4 w-4" />
       </div>
 
@@ -260,7 +260,7 @@ function NotificationCard({
                 {notification.notification?.title}
               </h4>
               {isUnread && (
-                <span className="flex-shrink-0 h-2 w-2 bg-primary rounded-full" />
+                <span className="shrink-0 h-2 w-2 bg-primary rounded-full" />
               )}
             </div>
             <p className="text-sm text-muted-foreground mt-1 line-clamp-2">
@@ -269,7 +269,7 @@ function NotificationCard({
           </div>
           <Badge
             variant="outline"
-            className={cn('flex-shrink-0', typeStyle.bg)}
+            className={cn('shrink-0', typeStyle.bg)}
           >
             {type}
           </Badge>

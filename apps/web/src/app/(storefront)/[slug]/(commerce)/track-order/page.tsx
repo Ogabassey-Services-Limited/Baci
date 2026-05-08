@@ -190,7 +190,7 @@ function HorizontalProgressBar({
 
         {/* Active Progress Line */}
         <div
-          className="absolute top-5 left-0 h-1 bg-[var(--store-accent)] -translate-y-1/2 rounded-full z-0 transition-all duration-700 ease-in-out"
+          className="absolute top-5 left-0 h-1 bg-(--store-accent) -translate-y-1/2 rounded-full z-0 transition-all duration-700 ease-in-out"
           style={{ width: `${(activeIndex / (stages.length - 1)) * 100}%` }}
         />
 
@@ -206,7 +206,7 @@ function HorizontalProgressBar({
                 className={cn(
                   'w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 border-4',
                   isCompleted
-                    ? 'bg-[var(--store-accent)] border-[var(--store-accent)] text-[var(--store-accent-text)] scale-110 shadow-lg'
+                    ? 'bg-(--store-accent) border-(--store-accent) text-(--store-accent-text) scale-110 shadow-lg'
                     : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 text-gray-300'
                 )}
               >
@@ -221,7 +221,7 @@ function HorizontalProgressBar({
                   className={cn(
                     'text-sm font-medium transition-colors duration-300',
                     isCompleted
-                      ? 'text-[var(--store-accent)] font-bold'
+                      ? 'text-(--store-accent) font-bold'
                       : 'text-muted-foreground'
                   )}
                 >
@@ -703,7 +703,7 @@ function OrderTrackContent() {
                 {orderData.items.map((item) => (
                   <div key={item.id} className="flex gap-4">
                     {item.product_image && (
-                      <div className="relative w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                      <div className="relative w-16 h-16 bg-gray-100 rounded-lg overflow-hidden shrink-0">
                         <Image
                           src={item.product_image}
                           alt={item.product_name}

@@ -42,7 +42,7 @@ export default function CategoriesClientPage({
             </Link>
           </Button>
           <div>
-            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl font-bold tracking-tight bg-linear-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
               Categories 📂
             </h1>
             <p className="text-muted-foreground">

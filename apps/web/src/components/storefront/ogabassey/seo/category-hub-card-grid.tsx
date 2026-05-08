@@ -22,11 +22,11 @@ export function CategoryHubCardGrid({
   return (
     <section
       aria-labelledby={headingId}
-      className="space-y-4 rounded-3xl border border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)] bg-[var(--store-background,#ffffff)] p-5 md:p-6"
+      className="space-y-4 rounded-3xl border border-[color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)] bg-(--store-background,#ffffff) p-5 md:p-6"
     >
       <h3
         id={headingId}
-        className="text-lg font-semibold text-[var(--store-background-text,#111827)]"
+        className="text-lg font-semibold text-(--store-background-text,#111827)"
       >
         {title}
       </h3>
@@ -34,14 +34,14 @@ export function CategoryHubCardGrid({
         {cards.map((card) => (
           <article
             key={card.href}
-            className="flex h-full flex-col rounded-2xl border border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)] p-4"
+            className="flex h-full flex-col rounded-2xl border border-[color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)] p-4"
           >
             {card.eyebrow ? (
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--store-primary,#dc2626)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-(--store-primary,#dc2626)">
                 {card.eyebrow}
               </p>
             ) : null}
-            <h4 className="mt-2 text-base font-semibold text-[var(--store-background-text,#111827)]">
+            <h4 className="mt-2 text-base font-semibold text-(--store-background-text,#111827)">
               <a
                 href={card.href}
                 className="underline-offset-4 hover:underline"
@@ -49,14 +49,14 @@ export function CategoryHubCardGrid({
                 {card.title}
               </a>
             </h4>
-            <p className="mt-2 text-sm leading-6 text-[var(--store-background-text,#111827)]/70">
+            <p className="mt-2 text-sm leading-6 text-(--store-background-text,#111827)/70">
               {card.description}
             </p>
             {card.secondaryHref && card.secondaryLabel ? (
               <div className="mt-4">
                 <a
                   href={card.secondaryHref}
-                  className="text-sm font-semibold text-[var(--store-primary,#dc2626)] underline-offset-4 hover:underline"
+                  className="text-sm font-semibold text-(--store-primary,#dc2626) underline-offset-4 hover:underline"
                 >
                   {card.secondaryLabel}
                 </a>

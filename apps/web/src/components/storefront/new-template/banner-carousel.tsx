@@ -66,7 +66,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
         style={{ transform: `translateX(-${currentSlide * 100}%)` }}
       >
         {BANNER_SLIDES.map((slide, index) => (
-          <div key={slide.id} className="w-full h-full flex-shrink-0 relative">
+          <div key={slide.id} className="w-full h-full shrink-0 relative">
             {slide.type === 'image' && slide.imageUrl ? (
               <div className="w-full h-full relative overflow-hidden group">
                 <Image
@@ -78,7 +78,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
                   className="object-cover transition-transform duration-1000 group-hover:scale-105"
                 />
                 <div
-                  className={`absolute inset-0 bg-gradient-to-r ${slide.bgColor === 'bg-black' ? 'from-black/80' : 'from-red-900/80'} to-transparent flex flex-col justify-center px-8 md:px-16`}
+                  className={`absolute inset-0 bg-linear-to-r ${slide.bgColor === 'bg-black' ? 'from-black/80' : 'from-red-900/80'} to-transparent flex flex-col justify-center px-8 md:px-16`}
                 >
                   <h3
                     className={`text-2xl md:text-4xl font-bold ${slide.textColor} mb-2 leading-tight`}

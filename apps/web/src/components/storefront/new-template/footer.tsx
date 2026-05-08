@@ -18,7 +18,7 @@ export const Footer: React.FC = () => {
   return (
     <footer className="bg-[#0a0a0a] text-white pt-20 pb-10 relative overflow-hidden">
       {/* Decorative Elements */}
-      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-gray-800 to-transparent" />
+      <div className="absolute top-0 left-0 w-full h-px bg-linear-to-r from-transparent via-gray-800 to-transparent" />
       <div className="absolute -top-40 -right-40 w-80 h-80 bg-red-600/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[300px] bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] pointer-events-none" />
 

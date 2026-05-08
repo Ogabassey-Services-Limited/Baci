@@ -195,7 +195,7 @@ export function RelatedProducts({
               .map((p) => (
                 <ThemedCard
                   key={p.id}
-                  className="flex-shrink-0 w-[200px] sm:w-[260px] overflow-hidden hover:shadow-lg transition-shadow snap-start"
+                  className="shrink-0 w-[200px] sm:w-[260px] overflow-hidden hover:shadow-lg transition-shadow snap-start"
                   accentPosition="top"
                 >
                   <Link href={getProductUrl(p)} className="block relative">
@@ -215,7 +215,7 @@ export function RelatedProducts({
                   </Link>
                   <CardContent className="p-3">
                     <Link href={getProductUrl(p)}>
-                      <h3 className="font-medium text-sm line-clamp-2 hover:text-[var(--store-primary)] transition-colors">
+                      <h3 className="font-medium text-sm line-clamp-2 hover:text-(--store-primary) transition-colors">
                         {p.name}
                       </h3>
                     </Link>

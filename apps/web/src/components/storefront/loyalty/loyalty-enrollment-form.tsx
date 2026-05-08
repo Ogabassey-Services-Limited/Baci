@@ -107,7 +107,7 @@ export function LoyaltyEnrollmentForm({
 
   return (
     <Card className="overflow-hidden">
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-6 text-white">
+      <div className="bg-linear-to-r from-purple-600 to-pink-600 p-6 text-white">
         <div className="flex items-center gap-2 mb-2">
           <Sparkles className="h-5 w-5" />
           <span className="font-semibold">Rewards Program</span>
@@ -167,7 +167,7 @@ export function LoyaltyEnrollmentForm({
           <Button
             onClick={handleEnroll}
             disabled={enrolling}
-            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+            className="w-full bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
           >
             {enrolling ? 'Joining...' : 'Join Loyalty Program'}
           </Button>

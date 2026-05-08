@@ -35,7 +35,7 @@ export function OgabasseyCategories({
         <span className="text-base font-bold">Category</span>
       </div>
 
-      <div className="w-full max-w-screen-lg mx-auto">
+      <div className="w-full max-w-(--breakpoint-lg) mx-auto">
         <div className="flex flex-wrap justify-center md:justify-evenly gap-4 md:gap-8">
           {categories.map((category) => (
             <motion.div

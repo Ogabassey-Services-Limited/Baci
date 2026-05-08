@@ -50,15 +50,15 @@ export function BeautyHome(props: TemplatePageProps) {
     ];
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-[#FAF9F6] to-white">
+        <div className="min-h-screen bg-linear-to-b from-[#FAF9F6] to-white">
             {/* Hero Section - Soft & Elegant */}
-            <section className="relative overflow-hidden bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50">
+            <section className="relative overflow-hidden bg-linear-to-br from-pink-50 via-purple-50 to-blue-50">
                 <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNGRkQ2RTgiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')] opacity-40" />
 
                 <div className="relative max-w-7xl mx-auto px-6 py-24 text-center">
                     <div className="max-w-3xl mx-auto">
                         <div className="inline-block mb-6">
-                            <span className="px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full text-sm font-medium text-rose-800 shadow-sm">
+                            <span className="px-4 py-2 bg-white/80 backdrop-blur-xs rounded-full text-sm font-medium text-rose-800 shadow-sm">
                                 ✨ Discover Your Perfect Skincare Routine
                             </span>
                         </div>
@@ -99,7 +99,7 @@ export function BeautyHome(props: TemplatePageProps) {
             {/* Skin Type Quiz CTA */}
             <section id="quiz" className="py-16 -mt-12 relative z-10">
                 <div className="max-w-7xl mx-auto px-6">
-                    <div className="bg-gradient-to-r from-purple-100 to-pink-100 rounded-3xl shadow-2xl p-12">
+                    <div className="bg-linear-to-r from-purple-100 to-pink-100 rounded-3xl shadow-2xl p-12">
                         <div className="grid md:grid-cols-2 gap-12 items-center">
                             <div>
                                 <h2 className="text-4xl font-serif font-light text-gray-900 mb-4">
@@ -116,7 +116,7 @@ export function BeautyHome(props: TemplatePageProps) {
                                         'Build your perfect routine'
                                     ].map((item, idx) => (
                                         <li key={idx} className="flex items-center gap-3 text-gray-700">
-                                            <div className="w-6 h-6 bg-rose-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                            <div className="w-6 h-6 bg-rose-500 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">
                                                 {idx + 1}
                                             </div>
                                             <span>{item}</span>
@@ -127,7 +127,7 @@ export function BeautyHome(props: TemplatePageProps) {
                                     Start Quiz (2 min)
                                 </button>
                             </div>
-                            <div className="relative h-96 bg-gradient-to-br from-white to-purple-50 rounded-2xl flex items-center justify-center shadow-inner">
+                            <div className="relative h-96 bg-linear-to-br from-white to-purple-50 rounded-2xl flex items-center justify-center shadow-inner">
                                 <div className="text-center">
                                     <Sparkles className="w-20 h-20 text-rose-400 mx-auto mb-4" />
                                     <p className="text-gray-500">Interactive Quiz Placeholder</p>
@@ -194,7 +194,7 @@ export function BeautyHome(props: TemplatePageProps) {
 
                     {/* Custom styled filter bar that matches beauty theme */}
                     <div className="mb-8">
-                        <div className="bg-gradient-to-r from-pink-50 to-purple-50 border border-pink-200 rounded-2xl p-4 shadow-sm">
+                        <div className="bg-linear-to-r from-pink-50 to-purple-50 border border-pink-200 rounded-2xl p-4 shadow-sm">
                             <div className="flex flex-wrap justify-center gap-2">
                                 {skinConcerns.map((concern) => {
                                     const isActive = selectedConcern === concern.value;
@@ -225,7 +225,7 @@ export function BeautyHome(props: TemplatePageProps) {
             </section>
 
             {/* Ingredients We Love */}
-            <section className="py-16 bg-gradient-to-b from-white to-purple-50">
+            <section className="py-16 bg-linear-to-b from-white to-purple-50">
                 <div className="max-w-7xl mx-auto px-6">
                     <h2 className="text-4xl font-serif font-light text-center text-gray-900 mb-4">
                         Ingredients We Love
@@ -239,7 +239,7 @@ export function BeautyHome(props: TemplatePageProps) {
                             const Icon = ingredient.icon;
                             return (
                                 <div key={idx} className="p-8 bg-white rounded-2xl shadow-md hover:shadow-xl transition-shadow">
-                                    <div className="w-16 h-16 bg-gradient-to-br from-rose-100 to-purple-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                                    <div className="w-16 h-16 bg-linear-to-br from-rose-100 to-purple-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                                         <Icon className="w-8 h-8 text-rose-600" />
                                     </div>
                                     <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
@@ -270,8 +270,8 @@ export function BeautyHome(props: TemplatePageProps) {
 
                     <div className="grid md:grid-cols-3 gap-8">
                         {[1, 2, 3].map((idx) => (
-                            <div key={idx} className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-6 shadow-md hover:shadow-lg transition-shadow">
-                                <div className="aspect-square bg-gradient-to-br from-white to-purple-100 rounded-xl mb-4 flex items-center justify-center">
+                            <div key={idx} className="bg-linear-to-br from-purple-50 to-pink-50 rounded-2xl p-6 shadow-md hover:shadow-lg transition-shadow">
+                                <div className="aspect-square bg-linear-to-br from-white to-purple-100 rounded-xl mb-4 flex items-center justify-center">
                                     <div className="text-center">
                                         <Heart className="w-12 h-12 text-rose-300 mx-auto mb-2" />
                                         <p className="text-gray-500 text-sm">Before/After Photo</p>
@@ -295,7 +295,7 @@ export function BeautyHome(props: TemplatePageProps) {
             </section>
 
             {/* Routine Builder */}
-            <section className="py-16 bg-gradient-to-r from-purple-50 to-pink-50">
+            <section className="py-16 bg-linear-to-r from-purple-50 to-pink-50">
                 <div className="max-w-6xl mx-auto px-6">
                     <h2 className="text-4xl font-serif font-light text-center text-gray-900 mb-12">
                         Build Your Perfect Routine
@@ -310,7 +310,7 @@ export function BeautyHome(props: TemplatePageProps) {
                             const Icon = routine.icon;
                             return (
                                 <div key={idx} className="bg-white rounded-2xl p-8 shadow-lg">
-                                    <div className="w-16 h-16 bg-gradient-to-br from-rose-100 to-purple-100 rounded-full flex items-center justify-center mb-4 mx-auto">
+                                    <div className="w-16 h-16 bg-linear-to-br from-rose-100 to-purple-100 rounded-full flex items-center justify-center mb-4 mx-auto">
                                         <Icon className="w-8 h-8 text-rose-600" />
                                     </div>
                                     <h3 className="text-2xl font-serif text-center text-gray-900 mb-6">
@@ -319,7 +319,7 @@ export function BeautyHome(props: TemplatePageProps) {
                                     <ul className="space-y-3">
                                         {routine.steps.map((step, stepIdx) => (
                                             <li key={stepIdx} className="flex items-center gap-3 text-gray-700">
-                                                <span className="w-6 h-6 bg-rose-500 text-white rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                                                <span className="w-6 h-6 bg-rose-500 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">
                                                     {stepIdx + 1}
                                                 </span>
                                                 {step}

@@ -145,7 +145,7 @@ function InvitePage({
   token: string;
 }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-primary/5 to-secondary/5 p-4">
       <ThemedCard className="w-full max-w-md p-8 shadow-xl">
         <div className="text-center mb-8">
           <Logo className="mx-auto" />
@@ -204,7 +204,7 @@ function ErrorPage({
   currentEmail?: string;
 }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-500/5 to-orange-500/5 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-red-500/5 to-orange-500/5 p-4">
       <ThemedCard className="w-full max-w-md p-8 shadow-xl">
         <div className="text-center mb-8">
           <Logo className="mx-auto" />

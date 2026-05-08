@@ -31,7 +31,7 @@ export function JumiaSyncSettings({
           className={cn(
             'h-4 w-4',
             overrides.syncInventory || overrides.syncPrice
-              ? 'text-[var(--store-primary)]'
+              ? 'text-(--store-primary)'
               : 'text-muted-foreground'
           )}
         />

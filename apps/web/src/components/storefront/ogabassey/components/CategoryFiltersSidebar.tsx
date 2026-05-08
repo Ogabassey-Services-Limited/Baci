@@ -52,7 +52,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={`Search ${title}...`}
               aria-label={`Search ${title}`}
-              className="w-full pl-8 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-100"
+              className="w-full pl-8 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-hidden focus:border-red-500 focus:ring-1 focus:ring-red-100"
             />
             <Search
               size={12}
@@ -174,7 +174,7 @@ export const CategoryFiltersSidebar: React.FC<CategoryFiltersSidebarProps> = ({
                 )
               }
               placeholder="Min"
-              className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-red-500"
+              className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-hidden focus:border-red-500"
             />
           </div>
           <span className="text-gray-400 text-xs">-</span>
@@ -192,7 +192,7 @@ export const CategoryFiltersSidebar: React.FC<CategoryFiltersSidebarProps> = ({
                 )
               }
               placeholder="Max"
-              className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:border-red-500"
+              className="w-full px-3 py-2 text-xs bg-gray-50 border border-gray-200 rounded-lg focus:outline-hidden focus:border-red-500"
             />
           </div>
         </div>

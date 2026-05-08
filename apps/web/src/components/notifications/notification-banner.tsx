@@ -127,7 +127,7 @@ export function NotificationBanner({ className }: NotificationBannerProps) {
         aria-live="polite"
       >
         {/* Icon */}
-        <Icon className={cn('h-5 w-5 flex-shrink-0 mt-0.5', style.iconColor)} />
+        <Icon className={cn('h-5 w-5 shrink-0 mt-0.5', style.iconColor)} />
 
         {/* Content */}
         <div className="flex-1 min-w-0">
@@ -154,7 +154,7 @@ export function NotificationBanner({ className }: NotificationBannerProps) {
         <Button
           variant="ghost"
           size="icon"
-          className="h-6 w-6 flex-shrink-0 hover:bg-transparent"
+          className="h-6 w-6 shrink-0 hover:bg-transparent"
           onClick={handleDismiss}
           disabled={isDismissing}
           aria-label="Dismiss notification"
@@ -215,7 +215,7 @@ export function NotificationBannerStack({
             role="alert"
           >
             <Icon
-              className={cn('h-5 w-5 flex-shrink-0 mt-0.5', style.iconColor)}
+              className={cn('h-5 w-5 shrink-0 mt-0.5', style.iconColor)}
             />
 
             <div className="flex-1 min-w-0">
@@ -240,7 +240,7 @@ export function NotificationBannerStack({
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 flex-shrink-0 hover:bg-transparent"
+              className="h-6 w-6 shrink-0 hover:bg-transparent"
               onClick={() => handleDismiss(banner)}
               disabled={isDismissing}
               aria-label="Dismiss notification"

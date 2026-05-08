@@ -64,7 +64,7 @@ export function AboutPageClient({
 
             <main className="flex-1">
               {/* Hero Section */}
-              <section className="relative py-16 md:py-24 bg-gradient-to-b from-muted/50 to-background">
+              <section className="relative py-16 md:py-24 bg-linear-to-b from-muted/50 to-background">
                 <div className="container px-4 md:px-6 text-center">
                   <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-6">
                     About {merchant.business_name}
