@@ -18,3 +18,6 @@
 ## 2025-05-18 - [Fix Hardcoded Notification Colors]
 **Learning:** Hardcoded specific background (`#F0F9FF`), border (`#BAE6FD`), and text (`#DC2626`, `#0369A1`, `#0C4A6E`) colors used in notification and checklist cards break visibility in dark mode, making them difficult to read against dark backgrounds.
 **Action:** Replace hardcoded status/notification colors with their respective semantic theme tokens (e.g. `colors.infoLight`, `colors.info`, `colors.errorLight`, `colors.error`) using the `useTheme()` hook, to ensure proper contrast adjustments in dark mode automatically.
+## 2026-05-08 - Hardcoded Status/Contact Colors in Mobile Admin
+**Learning:** Hardcoded hex values like `#DCFCE7` (success light) or `#16A34A` (success dark) look fine in light mode but fail to adapt to dark mode backgrounds, making UI elements unreadable or visually inconsistent.
+**Action:** Replace all such hardcoded hex values with their semantic `useTheme()` equivalents like `colors.successLight` or `colors.info` to ensure cross-theme consistency.
