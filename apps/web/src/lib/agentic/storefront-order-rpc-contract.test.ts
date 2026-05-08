@@ -1,29 +1,38 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const currentDirectory = dirname(fileURLToPath(import.meta.url));
-const migrationPath = resolve(
+const migrationsDirectory = resolve(
   currentDirectory,
-  '../../../../../supabase/migrations/20260508211500_agentic_storefront_order_guest_user.sql'
+  '../../../../../supabase/migrations'
 );
-const conflictFixMigrationPath = resolve(
-  currentDirectory,
-  '../../../../../supabase/migrations/20260508232130_fix_storefront_order_rpc_merchant_conflict.sql'
-);
+const migrationFilePattern = /^\d{14}.*\.sql$/;
+const storefrontOrderRpcDefinitionPattern =
+  /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+(?:"public"\s*\.\s*"create_storefront_order"|public\.create_storefront_order)\s*\(/i;
 
-function readMigrationSql() {
-  return readFileSync(migrationPath, 'utf8');
-}
+function readLatestStorefrontOrderRpcMigrationSql() {
+  let latestSql: string | null = null;
+  for (const fileName of readdirSync(migrationsDirectory)
+    .filter((file) => migrationFilePattern.test(file))
+    .sort()) {
+    const sql = readFileSync(resolve(migrationsDirectory, fileName), 'utf8');
+    if (storefrontOrderRpcDefinitionPattern.test(sql)) {
+      latestSql = sql;
+    }
+  }
 
-function readConflictFixMigrationSql() {
-  return readFileSync(conflictFixMigrationPath, 'utf8');
+  if (!latestSql) {
+    throw new Error('No create_storefront_order migration found');
+  }
+
+  return latestSql;
 }
 
 describe('agentic storefront order RPC contract', () => {
-  it('replaces the RPC explicitly instead of patching function text dynamically', () => {
-    const sql = readMigrationSql();
+  it('replaces the latest RPC explicitly instead of patching function text dynamically', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
 
     expect(sql).toContain(
       'CREATE OR REPLACE FUNCTION public.create_storefront_order('
@@ -32,8 +41,8 @@ describe('agentic storefront order RPC contract', () => {
     expect(sql).not.toContain('EXECUTE v_updated_definition');
   });
 
-  it('keeps agentic checkout buyers guest-scoped while preserving standard auth binding', () => {
-    const sql = readMigrationSql();
+  it('keeps latest RPC agentic checkout buyers guest-scoped while preserving standard auth binding', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
 
     const agenticGuardIndex = sql.indexOf(
       'IF public.is_agentic_checkout_context() THEN'
@@ -55,8 +64,8 @@ describe('agentic storefront order RPC contract', () => {
     );
   });
 
-  it('uses a named customer conflict constraint to avoid output-column ambiguity', () => {
-    const sql = readConflictFixMigrationSql();
+  it('uses a named customer conflict constraint in the latest RPC to avoid output-column ambiguity', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
 
     expect(sql).toContain(
       'CREATE OR REPLACE FUNCTION public.create_storefront_order('
