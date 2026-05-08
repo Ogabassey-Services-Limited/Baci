@@ -207,7 +207,7 @@ export default function DashboardClientPage({
         <Button
           onClick={handlePublishToggle}
           disabled={isPublishing}
-          variant={merchant?.is_published ? 'outline-solid' : 'default'}
+          variant={merchant?.is_published ? 'outline' : 'default'}
           className={cn(
             !merchant?.is_published && 'bg-green-600 hover:bg-green-700'
           )}

@@ -48,8 +48,7 @@ export const checkoutStyles = {
     'bg-linear-to-r from-(--store-primary) to-(--store-primary)/80',
 
   // Focus states
-  focusRing:
-    'focus:ring-(--store-primary) focus:border-(--store-primary)',
+  focusRing: 'focus:ring-(--store-primary) focus:border-(--store-primary)',
 
   // Shadows
   primaryShadow: 'shadow-(--store-primary)/20',

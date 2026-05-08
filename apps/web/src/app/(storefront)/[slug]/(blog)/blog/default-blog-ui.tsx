@@ -111,7 +111,7 @@ export function DefaultBlogUi({
             <div className="flex flex-wrap gap-2 mb-8">
               <Link href={asRoute(`${basePath}/blog`)}>
                 <Badge
-                  variant={!category ? 'default' : 'outline-solid'}
+                  variant={!category ? 'default' : 'outline'}
                   className="cursor-pointer"
                 >
                   All
@@ -125,7 +125,7 @@ export function DefaultBlogUi({
                   )}
                 >
                   <Badge
-                    variant={category === cat ? 'default' : 'outline-solid'}
+                    variant={category === cat ? 'default' : 'outline'}
                     className="cursor-pointer"
                   >
                     {cat}

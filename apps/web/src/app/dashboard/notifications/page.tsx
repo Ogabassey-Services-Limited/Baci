@@ -267,10 +267,7 @@ function NotificationCard({
               {notification.notification?.message}
             </p>
           </div>
-          <Badge
-            variant="outline"
-            className={cn('shrink-0', typeStyle.bg)}
-          >
+          <Badge variant="outline" className={cn('shrink-0', typeStyle.bg)}>
             {type}
           </Badge>
         </div>

@@ -416,7 +416,7 @@ export function StorefrontProductGrid({
                     type="button"
                     aria-pressed={selectedCategory === category}
                     variant={
-                      selectedCategory === category ? 'default' : 'outline-solid'
+                      selectedCategory === category ? 'default' : 'outline'
                     }
                     colorRole={
                       selectedCategory === category ? 'primary' : 'accent'

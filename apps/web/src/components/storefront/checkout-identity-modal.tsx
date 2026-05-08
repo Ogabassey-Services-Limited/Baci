@@ -144,10 +144,7 @@ export function CheckoutIdentityModal({
 
                 <div className="p-4 bg-(--store-primary)/5 rounded-2xl border border-(--store-primary)/10 text-center">
                   <h3 className="font-bold text-gray-900 mb-1 flex items-center justify-center gap-2">
-                    <UserPlus
-                      size={16}
-                      className="text-(--store-primary)"
-                    />
+                    <UserPlus size={16} className="text-(--store-primary)" />
                     Create Account
                   </h3>
                   <p className="text-xs text-gray-600 mb-4">

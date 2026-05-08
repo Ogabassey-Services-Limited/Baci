@@ -68,7 +68,9 @@ describe('PaymentStep', () => {
       const { container } = render(<PaymentStep {...defaultProps} />);
 
       // Assert
-      const stepContainer = container.querySelector('.border-\\[var\\(--store-primary\\)\\]');
+      const stepContainer = container.querySelector(
+        '.border-\\(--store-primary\\)'
+      );
       expect(stepContainer).toBeInTheDocument();
     });
 

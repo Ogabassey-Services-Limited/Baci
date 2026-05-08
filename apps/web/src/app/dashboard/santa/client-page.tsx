@@ -190,7 +190,7 @@ export default function SantaClientPage() {
                                     : interaction.interaction_type ===
                                         'checkout_completed'
                                       ? 'secondary'
-                                      : 'outline-solid'
+                                      : 'outline'
                               }
                               className="capitalize"
                             >

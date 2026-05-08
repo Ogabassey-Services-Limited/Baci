@@ -74,7 +74,7 @@ export function DomainCard({ domain }: DomainCardProps) {
     const variants: Record<
       Domain['status'],
       {
-        variant: 'default' | 'secondary' | 'destructive' | 'outline-solid';
+        variant: 'default' | 'secondary' | 'destructive' | 'outline';
         label: string;
         icon: React.ComponentType<{ className?: string }>;
         className?: string;

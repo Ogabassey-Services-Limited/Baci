@@ -41,7 +41,7 @@ export function ThemedBadge({
   }
 
   // For outline variant, use border colors
-  if (variant === 'outline-solid') {
+  if (variant === 'outline') {
     return (
       <Badge
         {...props}

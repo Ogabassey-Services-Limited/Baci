@@ -243,7 +243,7 @@ type HeaderProps = {
   logoUrl?: string;
   storeName?: string;
   layout?: 'logo-left-nav-center' | 'logo-left-nav-right' | 'logo-center';
-  searchStyle?: 'outline-solid' | 'filled' | 'minimal';
+  searchStyle?: 'outline' | 'filled' | 'minimal';
   searchRadius?: 'none' | 'sm' | 'md' | 'full';
   paddingY?: 'sm' | 'md' | 'lg';
   glassEffect?: boolean;
@@ -725,7 +725,7 @@ export const builderConfig: Config<
           type: 'radio',
           label: 'Search Bar Style',
           options: [
-            { label: 'Outline', value: 'outline-solid' },
+            { label: 'Outline', value: 'outline' },
             { label: 'Filled', value: 'filled' },
             { label: 'Minimal', value: 'minimal' },
           ],
@@ -775,7 +775,7 @@ export const builderConfig: Config<
           url: '/signup',
         },
         layout: 'logo-left-nav-center',
-        searchStyle: 'outline-solid',
+        searchStyle: 'outline',
         searchRadius: 'md',
         paddingY: 'md',
         glassEffect: false,

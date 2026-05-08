@@ -53,7 +53,7 @@ export interface HeaderProps {
   logoUrl?: string;
   storeName?: string;
   layout?: 'logo-left-nav-center' | 'logo-left-nav-right' | 'logo-center';
-  searchStyle?: 'outline-solid' | 'filled' | 'minimal';
+  searchStyle?: 'outline' | 'filled' | 'minimal';
   searchRadius?: 'none' | 'sm' | 'md' | 'full';
   paddingY?: 'sm' | 'md' | 'lg';
   glassEffect?: boolean;
@@ -75,7 +75,7 @@ export function Header({
   logoUrl,
   storeName,
   layout = 'logo-left-nav-center',
-  searchStyle = 'outline-solid',
+  searchStyle = 'outline',
   searchRadius = 'full',
   paddingY = 'md',
   glassEffect = true,

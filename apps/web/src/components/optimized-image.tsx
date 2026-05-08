@@ -117,7 +117,7 @@ export function OptimizedImage({
       sizes={finalSizes}
       priority={finalPriority}
       loading={finalLoading}
-      placeholder={blur ? 'blur-sm' : 'empty'}
+      placeholder={blur ? 'blur' : 'empty'}
       blurDataURL={blur}
       onError={handleError}
       fetchPriority={finalFetchPriority}

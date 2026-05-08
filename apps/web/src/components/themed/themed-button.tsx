@@ -44,7 +44,7 @@ export function ThemedButton({
   }
 
   // For outline variant, apply border and text colors
-  if (variant === 'outline-solid') {
+  if (variant === 'outline') {
     return (
       <Button
         {...props}

@@ -194,10 +194,7 @@ function NotificationItem({ notification, onClick }: NotificationItemProps) {
             </p>
             <Badge
               variant="outline"
-              className={cn(
-                'text-xs shrink-0',
-                typeStyles[notificationType]
-              )}
+              className={cn('text-xs shrink-0', typeStyles[notificationType])}
             >
               {notificationType}
             </Badge>

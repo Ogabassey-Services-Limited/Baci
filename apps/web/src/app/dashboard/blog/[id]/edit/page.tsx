@@ -581,8 +581,8 @@ export default function EditBlogPostPage() {
   const statusBadgeVariant = {
     published: 'default' as const,
     draft: 'secondary' as const,
-    archived: 'outline-solid' as const,
-    scheduled: 'destructive' as const, // Using destructive (red) for scheduled to grab attention, or 'outline-solid' for secondary feel
+    archived: 'outline' as const,
+    scheduled: 'destructive' as const, // Using destructive (red) for scheduled to grab attention, or 'outline' for secondary feel
   };
 
   return (

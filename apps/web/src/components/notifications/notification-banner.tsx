@@ -214,9 +214,7 @@ export function NotificationBannerStack({
             )}
             role="alert"
           >
-            <Icon
-              className={cn('h-5 w-5 shrink-0 mt-0.5', style.iconColor)}
-            />
+            <Icon className={cn('h-5 w-5 shrink-0 mt-0.5', style.iconColor)} />
 
             <div className="flex-1 min-w-0">
               <h4 className="font-medium text-sm">{banner.title}</h4>
