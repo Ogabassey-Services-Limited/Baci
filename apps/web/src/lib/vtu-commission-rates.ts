@@ -3,7 +3,11 @@ export type VtuCommissionCategory =
   | 'DATA'
   | 'ELECTRICITY'
   | 'CABLE'
-  | 'BETTING';
+  | 'BETTING'
+  | 'EDUCATION'
+  | 'SOLAR'
+  | 'TRANSPORT'
+  | 'INTERNET';
 
 export interface VtuCommissionRate {
   rate: number;
@@ -19,6 +23,13 @@ const VTU_COMMISSION_CATEGORY_ALIASES: Record<string, VtuCommissionCategory> = {
   DATA: 'DATA',
   ELECTRICITY: 'ELECTRICITY',
   POWER: 'ELECTRICITY',
+  EDUCATION: 'EDUCATION',
+  JAMB: 'EDUCATION',
+  SOLAR: 'SOLAR',
+  TRANSPORT: 'TRANSPORT',
+  COWRY: 'TRANSPORT',
+  INTERNET: 'INTERNET',
+  ISP: 'INTERNET',
 };
 
 const createCommissionRates = (
@@ -67,6 +78,29 @@ export const VTU_COMMISSION_RATES = createCommissionRates({
   ILOT_BETTING: { rate: 0.007 },
   MSPORT_BETTING: { rate: 0.001 },
   BETPAWA_BETTING: { rate: 0.007 },
+  // Education
+  JAMB_UTME_EDUCATION: { rate: 0.024 },
+  JAMB_DE_EDUCATION: { rate: 0.024 },
+  // Solar
+  LUMOS_SOLAR: { rate: 0.004, cap: 500 },
+  PRIVIDA_SOLAR: { rate: 0.004, cap: 500 },
+  SWITCH_SOLAR_SOLAR: { rate: 0.004, cap: 500 },
+  GREENLIGHT_SOLAR: { rate: 0.004, cap: 500 },
+  // Transport
+  LASG_COWRY_TRANSPORT: { rate: 0.008 },
+  // Internet
+  SPECTRANET_INTERNET: { rate: 0.02 },
+  SMILE_INTERNET: { rate: 0.02 },
+  SWIFT_INTERNET: { rate: 0.006 },
+  IPNX_INTERNET: { rate: 0.002 },
+  // Additional Cable/Betting from Kuda
+  SHOWMAX_CABLE: { rate: 0.02 },
+  HALLBET_BETTING: { rate: 0.0016 },
+  FOOTBALL_COM_BETTING: { rate: 0.005, cap: 800 },
+  SUREBET_BETTING: { rate: 0.008 },
+  MLOTTO_BETTING: { rate: 0.002 },
+  BETBABA_BETTING: { rate: 0.0016 },
+  ACCESSBET_BETTING: { rate: 0.004, cap: 1000 },
   DEFAULT: { rate: 0.02 },
 });
 
@@ -101,6 +135,7 @@ const VTU_COMMISSION_PROVIDER_ALIASES = {
     ['DSTV', ['DSTV', 'DSTVNG']],
     ['GOTV', ['GOTV', 'GOTVNG']],
     ['STARTIMES', ['STARTIMES', 'STARTIMESNG']],
+    ['SHOWMAX', ['SHOWMAX']],
   ],
   BETTING: [
     ['SPORTYBET', ['SPORTYBET']],
@@ -116,6 +151,29 @@ const VTU_COMMISSION_PROVIDER_ALIASES = {
     ['ILOT', ['ILOT']],
     ['MSPORT', ['MSPORT']],
     ['BETPAWA', ['BETPAWA']],
+    ['HALLBET', ['HALLBET']],
+    ['FOOTBALL_COM', ['FOOTBALL COM', 'FOOTBALL.COM', 'FOOTBALLCOM']],
+    ['SUREBET', ['SUREBET']],
+    ['MLOTTO', ['MLOTTO']],
+    ['BETBABA', ['BETBABA']],
+    ['ACCESSBET', ['ACCESSBET']],
+  ],
+  EDUCATION: [
+    ['JAMB_UTME', ['JAMB UTME', 'UTME']],
+    ['JAMB_DE', ['JAMB DE', 'DIRECT ENTRY']],
+  ],
+  SOLAR: [
+    ['LUMOS', ['LUMOS']],
+    ['PRIVIDA', ['PRIVIDA']],
+    ['SWITCH_SOLAR', ['SWITCH SOLAR', 'SWITCH']],
+    ['GREENLIGHT', ['GREENLIGHT', 'GREENLIGHT PLANET']],
+  ],
+  TRANSPORT: [['LASG_COWRY', ['LASG COWRY', 'COWRY', 'TRANSPORT']]],
+  INTERNET: [
+    ['SPECTRANET', ['SPECTRANET']],
+    ['SMILE', ['SMILE']],
+    ['SWIFT', ['SWIFT']],
+    ['IPNX', ['IPNX']],
   ],
 } satisfies Record<
   VtuCommissionCategory,
