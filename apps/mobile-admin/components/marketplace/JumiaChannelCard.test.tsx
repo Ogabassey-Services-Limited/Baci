@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as WebBrowser from 'expo-web-browser';
 import { JUMIA_CONNECTION_STATUS } from '@/constants/marketplace';
 import { JumiaChannelCard } from './JumiaChannelCard';
 
@@ -93,6 +94,19 @@ const colors = {
   warning: '#ca8a04',
 };
 
+type AlertButton = { onPress?: () => void; text: string };
+
+async function invokeAlertButton(buttonText: string) {
+  const calls = mocks.alert.mock.calls;
+  const buttons = calls[calls.length - 1]?.[2] as AlertButton[] | undefined;
+  const button = buttons?.find((item) => item.text === buttonText);
+
+  expect(button).toBeDefined();
+  await act(async () => {
+    button?.onPress?.();
+  });
+}
+
 describe('JumiaChannelCard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -121,12 +135,7 @@ describe('JumiaChannelCard', () => {
       ])
     );
 
-    const buttons = mocks.alert.mock.calls[0]?.[2] as
-      | Array<{ onPress?: () => void; text: string }>
-      | undefined;
-    await act(async () => {
-      buttons?.find((button) => button.text === 'Disconnect')?.onPress?.();
-    });
+    await invokeAlertButton('Disconnect');
 
     await waitFor(() => {
       expect(mocks.apiClient).toHaveBeenCalledWith(
@@ -166,12 +175,7 @@ describe('JumiaChannelCard', () => {
       screen.getByRole('button', { name: /disconnect jumia account/i })
     );
 
-    const buttons = mocks.alert.mock.calls[0]?.[2] as
-      | Array<{ onPress?: () => void; text: string }>
-      | undefined;
-    await act(async () => {
-      buttons?.find((button) => button.text === 'Disconnect')?.onPress?.();
-    });
+    await invokeAlertButton('Disconnect');
 
     await waitFor(() => {
       expect(mocks.alert).toHaveBeenLastCalledWith(
@@ -210,12 +214,7 @@ describe('JumiaChannelCard', () => {
       screen.getByRole('button', { name: /disconnect jumia account/i })
     );
 
-    const buttons = mocks.alert.mock.calls[0]?.[2] as
-      | Array<{ onPress?: () => void; text: string }>
-      | undefined;
-    await act(async () => {
-      buttons?.find((button) => button.text === 'Disconnect')?.onPress?.();
-    });
+    await invokeAlertButton('Disconnect');
 
     await waitFor(() => {
       expect(mocks.invalidateQueries).toHaveBeenCalledWith({
@@ -250,12 +249,7 @@ describe('JumiaChannelCard', () => {
       screen.getByRole('button', { name: /disconnect jumia account/i })
     );
 
-    const buttons = mocks.alert.mock.calls[0]?.[2] as
-      | Array<{ onPress?: () => void; text: string }>
-      | undefined;
-    await act(async () => {
-      buttons?.find((button) => button.text === 'Disconnect')?.onPress?.();
-    });
+    await invokeAlertButton('Disconnect');
 
     await waitFor(() => {
       expect(mocks.alert).toHaveBeenLastCalledWith(
@@ -301,7 +295,15 @@ describe('JumiaChannelCard', () => {
     expect(mocks.alert).not.toHaveBeenCalled();
   });
 
-  it('shows the connect action when Jumia is not connected', () => {
+  it('starts the OAuth flow when Jumia is not connected', async () => {
+    const openAuthSessionAsync = vi.mocked(WebBrowser.openAuthSessionAsync);
+    mocks.apiClient.mockResolvedValueOnce({
+      ticket: 'ticket-1',
+      authUrl: 'https://usebaci.com/api/marketplace/jumia/connect?ticket=ticket-1',
+    });
+    openAuthSessionAsync.mockResolvedValueOnce({
+      type: 'cancel',
+    } as Awaited<ReturnType<typeof WebBrowser.openAuthSessionAsync>>);
     mocks.useQuery.mockReturnValue({
       data: { integrations: [] },
       isError: false,
@@ -314,6 +316,22 @@ describe('JumiaChannelCard', () => {
     expect(
       screen.getByRole('button', { name: /connect jumia account/i })
     ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /connect jumia account/i })
+    );
+
+    await waitFor(() => {
+      expect(mocks.apiClient).toHaveBeenCalledWith(
+        '/api/marketplace/jumia/connect/ticket',
+        { method: 'POST' }
+      );
+      expect(openAuthSessionAsync).toHaveBeenCalledWith(
+        'https://usebaci.com/api/marketplace/jumia/connect?ticket=ticket-1',
+        'baciadmin:///sales-channels',
+        { preferEphemeralSession: true }
+      );
+    });
   });
 
   it('logs sanitized details when Jumia connect fails', async () => {

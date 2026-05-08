@@ -272,10 +272,10 @@ export default function CustomerDetailsScreen() {
               </Text>
             </View>
             <Pressable
-              style={[styles.iconButton, { backgroundColor: '#DBEAFE' }]}
+              style={[styles.iconButton, { backgroundColor: colors.infoLight }]}
               onPress={handleEmail}
             >
-              <Ionicons name="mail" size={20} color="#2563EB" />
+              <Ionicons name="mail" size={20} color={colors.info} />
             </Pressable>
           </View>
 
@@ -293,10 +293,10 @@ export default function CustomerDetailsScreen() {
               </View>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <Pressable
-                  style={[styles.iconButton, { backgroundColor: '#DCFCE7' }]}
+                  style={[styles.iconButton, { backgroundColor: colors.successLight }]}
                   onPress={handleWhatsApp}
                 >
-                  <Ionicons name="logo-whatsapp" size={20} color="#16A34A" />
+                  <Ionicons name="logo-whatsapp" size={20} color={colors.success} />
                 </Pressable>
                 <Pressable
                   style={[styles.iconButton, { backgroundColor: colors.card }]}
@@ -353,8 +353,8 @@ export default function CustomerDetailsScreen() {
               shadows.sm,
             ]}
           >
-            <View style={[styles.statIcon, { backgroundColor: '#DCFCE7' }]}>
-              <Ionicons name="wallet" size={20} color="#16A34A" />
+            <View style={[styles.statIcon, { backgroundColor: colors.successLight }]}>
+              <Ionicons name="wallet" size={20} color={colors.success} />
             </View>
             <Text style={[styles.statValue, { color: colors.text }]}>
               {formatCurrency(customer.total_spent)}
@@ -396,7 +396,7 @@ export default function CustomerDetailsScreen() {
                     {
                       backgroundColor:
                         order.shipping_status === 'delivered'
-                          ? '#DCFCE7'
+                          ? colors.successLight
                           : colors.background,
                     },
                   ]}
@@ -406,7 +406,7 @@ export default function CustomerDetailsScreen() {
                     size={20}
                     color={
                       order.shipping_status === 'delivered'
-                        ? '#16A34A'
+                        ? colors.success
                         : colors.textMuted
                     }
                   />

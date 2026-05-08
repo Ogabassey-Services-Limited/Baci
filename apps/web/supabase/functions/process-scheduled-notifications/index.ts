@@ -125,8 +125,8 @@ Deno.serve(async (req: Request) => {
 
         const { error: insertError } = await supabase
           .from('merchant_notifications')
-          .insert(merchantNotifications)
-          .select();
+          .insert(merchantNotifications);
+        // ⚡ Bolt: PERFORMANCE: Removed unnecessary .select() since the returned inserted rows are not used, avoiding data overfetching
 
         if (insertError) {
           console.error('Error inserting merchant notifications', {

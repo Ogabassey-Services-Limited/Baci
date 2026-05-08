@@ -7,6 +7,7 @@
 
 import { withKudaElectricityBillItems } from '@baci/shared/lib';
 import {
+  extractKudaTransactionId,
   extractKudaVoucherPin,
   normalizeKudaString,
 } from '@/lib/kuda-voucher-token';
@@ -229,9 +230,7 @@ export async function purchaseBill(
       pin
     );
     const vendSucceeded = vendOutcome === 'successful';
-    const transactionId =
-      normalizeKudaString(response.data?.reference) ??
-      normalizeKudaString(response.data?.Reference);
+    const transactionId = extractKudaTransactionId(response.data);
 
     if (vendOutcome !== 'successful') {
       const incompletePurchaseLog = {
