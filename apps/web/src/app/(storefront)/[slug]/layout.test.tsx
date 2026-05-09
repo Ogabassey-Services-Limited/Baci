@@ -240,6 +240,7 @@ describe('storefront layout', () => {
     );
 
     expect(screen.getByText('Draft Store unpublished')).toBeInTheDocument();
+    expect(screen.queryByText('Storefront content')).not.toBeInTheDocument();
     expect(themeProviderRenders).toBe(1);
     expect(getStorefrontShellSnapshot).not.toHaveBeenCalled();
     expect(providerSnapshots).toEqual([]);
