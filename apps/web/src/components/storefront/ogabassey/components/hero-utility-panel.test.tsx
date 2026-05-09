@@ -53,5 +53,15 @@ describe('HeroUtilityPanel', () => {
 
     expect(screen.getAllByText(/data!/i)[0]).toBeInTheDocument();
   });
-});
 
+  it('does not use content visibility on the above-fold utility panel', () => {
+    const { container } = render(<HeroUtilityPanel />);
+
+    expect(container.firstElementChild).not.toHaveClass(
+      '[content-visibility:auto]'
+    );
+    expect(container.firstElementChild).not.toHaveClass(
+      '[contain-intrinsic-size:1400px_260px]'
+    );
+  });
+});
