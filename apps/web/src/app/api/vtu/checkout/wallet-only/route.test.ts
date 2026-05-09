@@ -459,7 +459,9 @@ describe('POST /api/vtu/checkout/wallet-only', () => {
           return {
             delete: vi.fn(() => ({
               eq: vi.fn(() => ({
-                eq: vi.fn().mockResolvedValue({ error: null }),
+                eq: vi.fn(() => ({
+                  eq: vi.fn().mockResolvedValue({ error: null }),
+                })),
               })),
             })),
           };

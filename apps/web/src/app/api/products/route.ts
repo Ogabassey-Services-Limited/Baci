@@ -641,7 +641,8 @@ export async function POST(request: NextRequest) {
         const { error: rollbackError } = await supabase
           .from('products')
           .delete()
-          .eq('id', product.id);
+          .eq('id', product.id)
+          .eq('merchant_id', merchantId);
         if (rollbackError) {
           console.error(
             'Failed to roll back orphaned product after variant insert failure:',
