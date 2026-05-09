@@ -268,3 +268,103 @@ describe('env model getters', () => {
     );
   });
 });
+
+describe('env LLM server validation', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    stubBaseEnv();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    vi.resetModules();
+  });
+
+  it('accepts an HTTPS LLM_SERVER_URL with a bearer', async () => {
+    vi.stubEnv('LLM_SERVER_URL', 'https://llm.example.com');
+    vi.stubEnv('LLM_SERVER_BEARER', 'a'.repeat(64));
+
+    const { getLlmServerUrl, getLlmServerBearer } = await loadEnvModule();
+    expect(getLlmServerUrl()).toBe('https://llm.example.com');
+    expect(getLlmServerBearer()).toBe('a'.repeat(64));
+  });
+
+  it('accepts an http://localhost LLM_SERVER_URL for dev', async () => {
+    vi.stubEnv('LLM_SERVER_URL', 'http://localhost:11500');
+    vi.stubEnv('LLM_SERVER_BEARER', 'dev-token');
+
+    const { getLlmServerUrl } = await loadEnvModule();
+    expect(getLlmServerUrl()).toBe('http://localhost:11500');
+  });
+
+  it('accepts an http://127.0.0.1 LLM_SERVER_URL for dev', async () => {
+    vi.stubEnv('LLM_SERVER_URL', 'http://127.0.0.1:11500');
+    vi.stubEnv('LLM_SERVER_BEARER', 'dev-token');
+
+    const { getLlmServerUrl } = await loadEnvModule();
+    expect(getLlmServerUrl()).toBe('http://127.0.0.1:11500');
+  });
+
+  it('rejects production boot with an http:// LLM_SERVER_URL pointing at a non-loopback host', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv('LLM_SERVER_URL', 'http://llm.example.com');
+    vi.stubEnv('LLM_SERVER_BEARER', 'a'.repeat(64));
+
+    await expect(loadEnvModule()).rejects.toThrow(/LLM_SERVER_URL/);
+  });
+
+  it('fails production boot when LLM_SERVER_URL is set but LLM_SERVER_BEARER is missing', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv('LLM_SERVER_URL', 'https://llm.example.com');
+    delete process.env.LLM_SERVER_BEARER;
+
+    await expect(loadEnvModule()).rejects.toThrow(/LLM_SERVER_BEARER/);
+  });
+
+  it('fails production boot when LLM_SERVER_URL is set but LLM_SERVER_BEARER is empty string', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv('LLM_SERVER_URL', 'https://llm.example.com');
+    vi.stubEnv('LLM_SERVER_BEARER', '');
+
+    await expect(loadEnvModule()).rejects.toThrow(/LLM_SERVER_BEARER/);
+  });
+
+  it('allows LLM_SERVER_BEARER to be unset when LLM_SERVER_URL is unset', async () => {
+    delete process.env.LLM_SERVER_URL;
+    delete process.env.LLM_SERVER_BEARER;
+
+    const { getLlmServerUrl, getLlmServerBearer } = await loadEnvModule();
+    expect(getLlmServerUrl()).toBeUndefined();
+    expect(getLlmServerBearer()).toBeUndefined();
+  });
+
+  it('returns the chat model alias gemma-4-e4b by default', async () => {
+    delete process.env.LLM_CHAT_MODEL;
+    const { getLlmChatModel } = await loadEnvModule();
+    expect(getLlmChatModel()).toBe('gemma-4-e4b');
+  });
+
+  it('honors a configured LLM_CHAT_MODEL after sanitization', async () => {
+    vi.stubEnv('LLM_CHAT_MODEL', '  gemma-4-e4b\\n\n\r ');
+    const { getLlmChatModel } = await loadEnvModule();
+    expect(getLlmChatModel()).toBe('gemma-4-e4b');
+  });
+
+  it('rejects blank LLM_CHAT_MODEL after sanitization', async () => {
+    vi.stubEnv('LLM_CHAT_MODEL', ' \\n\n\r ');
+    const { getLlmChatModel } = await loadEnvModule();
+    expect(() => getLlmChatModel()).toThrow(
+      'LLM_CHAT_MODEL must resolve to a non-empty model name'
+    );
+  });
+});

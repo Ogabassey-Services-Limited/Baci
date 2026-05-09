@@ -46,7 +46,15 @@ import {
 } from '@/ai/chat-tools';
 import { activeTextModel, checkRateLimit } from '@/ai/provider';
 import { AGENTIC_SYSTEM_PROMPT } from '@/config/agentic-chat-system-prompt';
-import { getAiChatModel, getOllamaBaseUrl, getOllamaBasicAuth } from '@/env';
+import {
+  getAiChatModel,
+  getLlmChatModel,
+  getLlmServerBearer,
+  getLlmServerUrl,
+  getOllamaBaseUrl,
+  getOllamaBasicAuth,
+} from '@/env';
+import { createLlmChatResponse } from '@/lib/llm-chat';
 import { createOllamaChatResponse } from '@/lib/ollama-chat';
 import { sanitizeHtml } from '@/lib/sanitize';
 
@@ -185,19 +193,19 @@ export async function POST(req: Request) {
       content: msg.role === 'user' ? sanitizeHtml(msg.content) : msg.content,
     }));
 
-    const ollamaBaseUrl = getOllamaBaseUrl();
-    if (ollamaBaseUrl) {
+    const llmServerUrl = getLlmServerUrl();
+    if (llmServerUrl) {
       try {
-        const chatModel = getAiChatModel();
-        const ollamaResponse = await createOllamaChatResponse({
-          baseUrl: ollamaBaseUrl,
+        const chatModel = getLlmChatModel();
+        const llmResponse = await createLlmChatResponse({
+          baseUrl: llmServerUrl,
+          bearer: getLlmServerBearer() ?? '',
           model: chatModel,
-          basicAuth: getOllamaBasicAuth(),
           messages: buildOllamaMessages(sanitizedMessages, chatModel),
           signal: req.signal,
           timeoutMs: OLLAMA_CUSTOMER_CHAT_TIMEOUT_MS,
         });
-        return await bufferOllamaTextResponse(ollamaResponse);
+        return await bufferOllamaTextResponse(llmResponse);
       } catch (error) {
         if (req.signal.aborted) {
           return new Response(
@@ -210,9 +218,40 @@ export async function POST(req: Request) {
         }
 
         console.warn(
-          '[Agentic Chat] Ollama request failed; falling back to Gemini:',
+          '[Agentic Chat] LLM server request failed; falling back to Gemini:',
           getSafeOllamaErrorMessage(error)
         );
+      }
+    } else {
+      const ollamaBaseUrl = getOllamaBaseUrl();
+      if (ollamaBaseUrl) {
+        try {
+          const chatModel = getAiChatModel();
+          const ollamaResponse = await createOllamaChatResponse({
+            baseUrl: ollamaBaseUrl,
+            model: chatModel,
+            basicAuth: getOllamaBasicAuth(),
+            messages: buildOllamaMessages(sanitizedMessages, chatModel),
+            signal: req.signal,
+            timeoutMs: OLLAMA_CUSTOMER_CHAT_TIMEOUT_MS,
+          });
+          return await bufferOllamaTextResponse(ollamaResponse);
+        } catch (error) {
+          if (req.signal.aborted) {
+            return new Response(
+              JSON.stringify({ error: 'Client Closed Request' }),
+              {
+                status: 499,
+                headers: { 'Content-Type': 'application/json' },
+              }
+            );
+          }
+
+          console.warn(
+            '[Agentic Chat] Ollama request failed; falling back to Gemini:',
+            getSafeOllamaErrorMessage(error)
+          );
+        }
       }
     }
 

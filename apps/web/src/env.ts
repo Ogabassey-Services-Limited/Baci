@@ -102,6 +102,25 @@ const serverSchema = z
     OLLAMA_CAC_MODEL: z.string().default('gemma4:e4b'),
     OLLAMA_BASIC_AUTH: z.string().optional(),
 
+    // LLM server (llama.cpp / OpenAI-compatible — Gemma 4 + MTP drafter on VPS)
+    LLM_SERVER_URL: z
+      .string()
+      .url()
+      .refine(
+        (u) => {
+          const url = new URL(u);
+          const isLocal =
+            url.hostname === 'localhost' ||
+            url.hostname.startsWith('127.') ||
+            url.hostname === '::1';
+          return u.startsWith('https://') || isLocal;
+        },
+        { message: 'LLM_SERVER_URL must use HTTPS (except for localhost)' }
+      )
+      .optional(),
+    LLM_SERVER_BEARER: z.string().min(1).optional(),
+    LLM_CHAT_MODEL: z.string().default('gemma-4-e4b'),
+
     // Jumia Marketplace
     JUMIA_ENVIRONMENT: z.enum(['staging', 'production']).default('staging'),
     JUMIA_CLIENT_ID: z.string().optional(),
@@ -129,6 +148,15 @@ const serverSchema = z
         'SUPABASE_AGENTIC_JWT_PRIVATE_JWK or SUPABASE_JWT_SECRET is required in production',
       path: ['SUPABASE_AGENTIC_JWT_PRIVATE_JWK'],
     });
+  })
+  .superRefine((value, ctx) => {
+    if (value.LLM_SERVER_URL && !value.LLM_SERVER_BEARER) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'LLM_SERVER_BEARER is required when LLM_SERVER_URL is set',
+        path: ['LLM_SERVER_BEARER'],
+      });
+    }
   });
 
 const clientSchema = z.object({
@@ -243,6 +271,9 @@ const getEnv = () => {
         OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL,
         OLLAMA_CAC_MODEL: process.env.OLLAMA_CAC_MODEL,
         OLLAMA_BASIC_AUTH: process.env.OLLAMA_BASIC_AUTH,
+        LLM_SERVER_URL: process.env.LLM_SERVER_URL,
+        LLM_SERVER_BEARER: process.env.LLM_SERVER_BEARER,
+        LLM_CHAT_MODEL: process.env.LLM_CHAT_MODEL,
       }
     : {};
 
@@ -532,6 +563,21 @@ export const getOllamaBasicAuth = () => {
   if (typeof window !== 'undefined')
     throw new Error('OLLAMA_BASIC_AUTH cannot be accessed on the client');
   return env?.OLLAMA_BASIC_AUTH;
+};
+export const getLlmServerUrl = () => {
+  if (typeof window !== 'undefined')
+    throw new Error('LLM_SERVER_URL cannot be accessed on the client');
+  return env?.LLM_SERVER_URL;
+};
+export const getLlmServerBearer = () => {
+  if (typeof window !== 'undefined')
+    throw new Error('LLM_SERVER_BEARER cannot be accessed on the client');
+  return env?.LLM_SERVER_BEARER;
+};
+export const getLlmChatModel = () => {
+  if (typeof window !== 'undefined')
+    throw new Error('LLM_CHAT_MODEL cannot be accessed on the client');
+  return validateSanitizedModel(env.LLM_CHAT_MODEL, 'LLM_CHAT_MODEL');
 };
 
 // Deprecated: No longer needed as we validate on import.
