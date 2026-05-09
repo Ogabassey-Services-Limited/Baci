@@ -23,11 +23,19 @@ describe('buildLlmBearerAuthHeader', () => {
     expect(buildLlmBearerAuthHeader(`  ${token}  `)).toBe(`Bearer ${token}`);
   });
 
-  it('rejects tokens containing control characters (CR/LF/NUL)', () => {
+  it('rejects tokens containing control characters (CR/LF/NUL/TAB)', () => {
     expect(buildLlmBearerAuthHeader('token\nwith-newline')).toBeNull();
     expect(buildLlmBearerAuthHeader('token\rwith-cr')).toBeNull();
     expect(buildLlmBearerAuthHeader('token\x00with-nul')).toBeNull();
     expect(buildLlmBearerAuthHeader('token\twith-tab')).toBeNull();
+  });
+
+  it('rejects "BearerXyz" (no separator) as a malformed full-header attempt', () => {
+    // Otherwise we'd silently emit "Bearer BearerXyz", which is almost
+    // certainly not what the caller meant.
+    expect(buildLlmBearerAuthHeader('BearerXyz')).toBeNull();
+    expect(buildLlmBearerAuthHeader('bearerToken')).toBeNull();
+    expect(buildLlmBearerAuthHeader('BEARER123')).toBeNull();
   });
 
   it('strips an existing "Bearer " prefix and rebuilds it (case-insensitive, single-space)', () => {

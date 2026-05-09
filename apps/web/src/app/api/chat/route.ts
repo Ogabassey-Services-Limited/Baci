@@ -59,7 +59,7 @@ import { createOllamaChatResponse } from '@/lib/ollama-chat';
 import { sanitizeHtml } from '@/lib/sanitize';
 
 export const maxDuration = 120; // VPS-hosted Gemma can be slower on cold starts
-const OLLAMA_CUSTOMER_CHAT_TIMEOUT_MS = 8_000;
+const CUSTOMER_CHAT_TIMEOUT_MS = 8_000;
 
 // ============================================
 // REQUEST SCHEMA
@@ -90,7 +90,7 @@ function generateSessionId(ip: string): string {
     .slice(0, 16);
 }
 
-function buildOllamaMessages(
+function buildChatMessages(
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
   model: string
 ) {
@@ -122,11 +122,13 @@ function getSafeOllamaErrorMessage(error: unknown): string {
   return message.replace(/https?:\/\/\S+/g, '[url]').slice(0, 300);
 }
 
-async function bufferOllamaTextResponse(response: Response): Promise<Response> {
-  // Read the Ollama stream before returning so parse/disconnect failures can still use Gemini fallback.
+async function bufferTextResponse(response: Response): Promise<Response> {
+  // Read the upstream stream before returning so parse/disconnect failures
+  // can still trigger the Gemini fallback. Used for both Ollama and llama-server
+  // backends — the message is intentionally backend-neutral.
   const text = await response.text();
   if (!text.trim()) {
-    throw new Error('Ollama chat returned an empty completion');
+    throw new Error('Chat returned an empty completion');
   }
 
   return new Response(text, {
@@ -199,13 +201,19 @@ export async function POST(req: Request) {
         const chatModel = getLlmChatModel();
         const llmResponse = await createLlmChatResponse({
           baseUrl: llmServerUrl,
+          // env.ts superRefine guarantees LLM_SERVER_BEARER is set whenever
+          // LLM_SERVER_URL is set (boot fails closed otherwise). The `?? ''`
+          // is a defensive belt-and-suspenders for dev/test where env
+          // validation may be bypassed; createLlmChatResponse rejects empty
+          // bearers with a clear "failed to build Bearer Authorization
+          // header" error that the catch below routes to the Gemini fallback.
           bearer: getLlmServerBearer() ?? '',
           model: chatModel,
-          messages: buildOllamaMessages(sanitizedMessages, chatModel),
+          messages: buildChatMessages(sanitizedMessages, chatModel),
           signal: req.signal,
-          timeoutMs: OLLAMA_CUSTOMER_CHAT_TIMEOUT_MS,
+          timeoutMs: CUSTOMER_CHAT_TIMEOUT_MS,
         });
-        return await bufferOllamaTextResponse(llmResponse);
+        return await bufferTextResponse(llmResponse);
       } catch (error) {
         if (req.signal.aborted) {
           return new Response(
@@ -231,11 +239,11 @@ export async function POST(req: Request) {
             baseUrl: ollamaBaseUrl,
             model: chatModel,
             basicAuth: getOllamaBasicAuth(),
-            messages: buildOllamaMessages(sanitizedMessages, chatModel),
+            messages: buildChatMessages(sanitizedMessages, chatModel),
             signal: req.signal,
-            timeoutMs: OLLAMA_CUSTOMER_CHAT_TIMEOUT_MS,
+            timeoutMs: CUSTOMER_CHAT_TIMEOUT_MS,
           });
-          return await bufferOllamaTextResponse(ollamaResponse);
+          return await bufferTextResponse(ollamaResponse);
         } catch (error) {
           if (req.signal.aborted) {
             return new Response(

@@ -28,6 +28,14 @@ export function buildLlmBearerAuthHeader(token: string): string | null {
     return `Bearer ${payload}`;
   }
 
+  // Reject inputs like "BearerXyz" (literal "Bearer" with no separator). These
+  // are almost certainly a malformed full-header attempt rather than a real
+  // token that happens to start with the substring "Bearer", and accepting
+  // them would silently produce "Bearer BearerXyz".
+  if (/^Bearer\S/i.test(trimmed)) {
+    return null;
+  }
+
   // Otherwise treat as a raw token.
   if (TOKEN_INVALID_PATTERN.test(trimmed)) {
     return null;

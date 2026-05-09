@@ -243,6 +243,12 @@ export async function createLlmChatResponse({
 
   if (!response.ok) {
     try {
+      // Swallow body-read errors with `.catch(() => '')`: the upstream status
+      // is the load-bearing signal we want to surface. If reading the body
+      // fails (network blip, malformed encoding), we still throw a useful
+      // `LLM chat returned <status>` rather than masking it with the body
+      // error. cleanup() in the finally block ensures the abort timer is
+      // cleared either way.
       const rawErrorText = await response.text().catch(() => '');
       const errorText = sanitizeUpstreamErrorText(rawErrorText);
       throw new Error(

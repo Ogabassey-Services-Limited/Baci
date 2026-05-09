@@ -414,7 +414,7 @@ describe('POST /api/chat', () => {
     expect(generateText).toHaveBeenCalledOnce();
     expect(warnSpy).toHaveBeenCalledWith(
       '[Agentic Chat] Ollama request failed; falling back to Gemini:',
-      'Ollama chat returned an empty completion'
+      'Chat returned an empty completion'
     );
     warnSpy.mockRestore();
   });
@@ -633,7 +633,7 @@ describe('POST /api/chat', () => {
     expect(generateText).toHaveBeenCalledOnce();
     expect(warnSpy).toHaveBeenCalledWith(
       '[Agentic Chat] LLM server request failed; falling back to Gemini:',
-      'Ollama chat returned an empty completion'
+      'Chat returned an empty completion'
     );
     warnSpy.mockRestore();
   });
