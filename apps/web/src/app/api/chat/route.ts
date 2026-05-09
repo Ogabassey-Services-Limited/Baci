@@ -111,7 +111,7 @@ You are currently powered by VPS-hosted ${model}. Tool/function calling is not a
   ];
 }
 
-function getSafeOllamaErrorMessage(error: unknown): string {
+function getSafeChatBackendErrorMessage(error: unknown): string {
   const message =
     error instanceof Error
       ? error.message
@@ -227,7 +227,7 @@ export async function POST(req: Request) {
 
         console.warn(
           '[Agentic Chat] LLM server request failed; falling back to Gemini:',
-          getSafeOllamaErrorMessage(error)
+          getSafeChatBackendErrorMessage(error)
         );
       }
     } else {
@@ -257,7 +257,7 @@ export async function POST(req: Request) {
 
           console.warn(
             '[Agentic Chat] Ollama request failed; falling back to Gemini:',
-            getSafeOllamaErrorMessage(error)
+            getSafeChatBackendErrorMessage(error)
           );
         }
       }

@@ -309,6 +309,16 @@ describe('env LLM server validation', () => {
     expect(getLlmServerUrl()).toBe('http://127.0.0.1:11500');
   });
 
+  it('accepts an http://[::1] LLM_SERVER_URL for IPv6 loopback dev', async () => {
+    // `new URL('http://[::1]:11500').hostname` returns the bracketed form
+    // '[::1]', not '::1'. The schema's localhost predicate must accept both.
+    vi.stubEnv('LLM_SERVER_URL', 'http://[::1]:11500');
+    vi.stubEnv('LLM_SERVER_BEARER', 'dev-token');
+
+    const { getLlmServerUrl } = await loadEnvModule();
+    expect(getLlmServerUrl()).toBe('http://[::1]:11500');
+  });
+
   it('rejects production boot with an http:// LLM_SERVER_URL pointing at a non-loopback host', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     vi.stubEnv('NODE_ENV', 'production');
@@ -335,6 +345,20 @@ describe('env LLM server validation', () => {
     vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
     vi.stubEnv('LLM_SERVER_URL', 'https://llm.example.com');
     vi.stubEnv('LLM_SERVER_BEARER', '');
+
+    await expect(loadEnvModule()).rejects.toThrow(/LLM_SERVER_BEARER/);
+  });
+
+  it('fails production boot when LLM_SERVER_BEARER is whitespace-only', async () => {
+    // .trim() in the schema collapses "   " to "" before .min(1), so the
+    // superRefine sees an undefined bearer and the boot fails closed —
+    // rather than booting with a blank bearer that always falls back to
+    // Gemini at runtime.
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv('LLM_SERVER_URL', 'https://llm.example.com');
+    vi.stubEnv('LLM_SERVER_BEARER', '   ');
 
     await expect(loadEnvModule()).rejects.toThrow(/LLM_SERVER_BEARER/);
   });

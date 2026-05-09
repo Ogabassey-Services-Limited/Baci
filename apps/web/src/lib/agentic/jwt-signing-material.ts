@@ -1,4 +1,10 @@
-import { createPrivateKey, type KeyObject } from 'node:crypto';
+import { createPrivateKey, type KeyObject, type webcrypto } from 'node:crypto';
+
+// `webcrypto.JsonWebKey` matches the param type expected by createPrivateKey
+// (`JsonWebKeyInput.key`) in @types/node 25.x. The global `JsonWebKey` from
+// lib.dom.d.ts is structurally similar but TypeScript treats them as distinct
+// in some toolchains, breaking CI typechecks.
+type JsonWebKey = webcrypto.JsonWebKey;
 import 'server-only';
 import { getSupabaseAgenticJwtPrivateJwk, getSupabaseJwtSecret } from '@/env';
 import { logger } from '@/lib/logger';

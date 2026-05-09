@@ -19,6 +19,31 @@ const optionalTrimmedStringSchema = z.preprocess((value) => {
   return trimmed || undefined;
 }, z.string().optional());
 
+/**
+ * URL schema that allows HTTP only when pointed at a loopback host.
+ * Reused by every "self-hosted backend on a known host" env var (Ollama,
+ * llama-server, etc.) so the policy is enforced consistently and a future
+ * tweak (e.g. allow `.localhost` TLD or unix sockets) lands in one place.
+ */
+function httpsOrLocalhostUrl(name: string) {
+  return z
+    .string()
+    .url()
+    .refine(
+      (u) => {
+        const url = new URL(u);
+        const host = url.hostname;
+        const isLocal =
+          host === 'localhost' ||
+          host.startsWith('127.') ||
+          host === '::1' ||
+          host === '[::1]'; // bracketed IPv6 literal — `new URL('http://[::1]:11500').hostname` returns '[::1]'
+        return u.startsWith('https://') || isLocal;
+      },
+      { message: `${name} must use HTTPS (except for localhost)` }
+    );
+}
+
 const serverSchema = z
   .object({
     // Supabase (Server Admin)
@@ -84,41 +109,16 @@ const serverSchema = z
         'https://icrp.cac.gov.ng/name_similarity_app/api/public_search/search'
       ),
     // Ollama (CAC certificate OCR — Gemma 4 on VPS)
-    OLLAMA_BASE_URL: z
-      .string()
-      .url()
-      .refine(
-        (u) => {
-          const url = new URL(u);
-          const isLocal =
-            url.hostname === 'localhost' ||
-            url.hostname.startsWith('127.') ||
-            url.hostname === '::1';
-          return u.startsWith('https://') || isLocal;
-        },
-        { message: 'OLLAMA_BASE_URL must use HTTPS (except for localhost)' }
-      )
-      .optional(),
+    OLLAMA_BASE_URL: httpsOrLocalhostUrl('OLLAMA_BASE_URL').optional(),
     OLLAMA_CAC_MODEL: z.string().default('gemma4:e4b'),
     OLLAMA_BASIC_AUTH: z.string().optional(),
 
     // LLM server (llama.cpp / OpenAI-compatible — Gemma 4 + MTP drafter on VPS)
-    LLM_SERVER_URL: z
-      .string()
-      .url()
-      .refine(
-        (u) => {
-          const url = new URL(u);
-          const isLocal =
-            url.hostname === 'localhost' ||
-            url.hostname.startsWith('127.') ||
-            url.hostname === '::1';
-          return u.startsWith('https://') || isLocal;
-        },
-        { message: 'LLM_SERVER_URL must use HTTPS (except for localhost)' }
-      )
-      .optional(),
-    LLM_SERVER_BEARER: z.string().min(1).optional(),
+    LLM_SERVER_URL: httpsOrLocalhostUrl('LLM_SERVER_URL').optional(),
+    // .trim() before .min(1) so a whitespace-only value (e.g. "   ") fails at
+    // boot via the superRefine below rather than silently producing an empty
+    // bearer at runtime that always falls back to Gemini.
+    LLM_SERVER_BEARER: z.string().trim().min(1).optional(),
     LLM_CHAT_MODEL: z.string().default('gemma-4-e4b'),
 
     // Jumia Marketplace

@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// ---- Test fixtures ----
+const TEST_LLM_SERVER_URL = 'https://llm.example.com';
+const TEST_LLM_SERVER_BEARER = 'a'.repeat(64);
+
 // ---- Module-scope mutable state for controlling mocks ----
 let rateLimitAllowed = true;
 let rateLimitResetIn = 0;
@@ -514,8 +518,8 @@ describe('POST /api/chat', () => {
   // ---- LLM server (llama.cpp / OpenAI-compatible) cases ----
 
   it('uses the LLM server when LLM_SERVER_URL is configured', async () => {
-    llmServerUrl = 'https://llm.example.com';
-    llmServerBearer = 'a'.repeat(64);
+    llmServerUrl = TEST_LLM_SERVER_URL;
+    llmServerBearer = TEST_LLM_SERVER_BEARER;
 
     const response = await POST(
       makeRequest({
@@ -527,8 +531,8 @@ describe('POST /api/chat', () => {
     expect(await response.text()).toBe('LLM response');
     expect(createLlmChatResponse).toHaveBeenCalledWith(
       expect.objectContaining({
-        baseUrl: 'https://llm.example.com',
-        bearer: 'a'.repeat(64),
+        baseUrl: TEST_LLM_SERVER_URL,
+        bearer: TEST_LLM_SERVER_BEARER,
         model: 'gemma-4-e4b',
         messages: expect.arrayContaining([
           expect.objectContaining({
@@ -547,8 +551,8 @@ describe('POST /api/chat', () => {
   });
 
   it('prefers LLM server over Ollama when both are configured', async () => {
-    llmServerUrl = 'https://llm.example.com';
-    llmServerBearer = 'a'.repeat(64);
+    llmServerUrl = TEST_LLM_SERVER_URL;
+    llmServerBearer = TEST_LLM_SERVER_BEARER;
     ollamaBaseUrl = 'https://ollama.example.com';
 
     const response = await POST(
@@ -564,8 +568,8 @@ describe('POST /api/chat', () => {
   });
 
   it('falls back to Gemini when the LLM server request fails', async () => {
-    llmServerUrl = 'https://llm.example.com';
-    llmServerBearer = 'a'.repeat(64);
+    llmServerUrl = TEST_LLM_SERVER_URL;
+    llmServerBearer = TEST_LLM_SERVER_BEARER;
     llmError = new Error('LLM chat returned 502');
     const warnSpy = vi
       .spyOn(console, 'warn')
@@ -589,8 +593,8 @@ describe('POST /api/chat', () => {
   });
 
   it('falls back to Gemini when the LLM stream errors mid-flight', async () => {
-    llmServerUrl = 'https://llm.example.com';
-    llmServerBearer = 'a'.repeat(64);
+    llmServerUrl = TEST_LLM_SERVER_URL;
+    llmServerBearer = TEST_LLM_SERVER_BEARER;
     llmStreamError = new Error('Invalid LLM chat chunk JSON');
     const warnSpy = vi
       .spyOn(console, 'warn')
@@ -614,8 +618,8 @@ describe('POST /api/chat', () => {
   });
 
   it('falls back to Gemini when the LLM server returns an empty completion', async () => {
-    llmServerUrl = 'https://llm.example.com';
-    llmServerBearer = 'a'.repeat(64);
+    llmServerUrl = TEST_LLM_SERVER_URL;
+    llmServerBearer = TEST_LLM_SERVER_BEARER;
     llmResponseText = '   ';
     const warnSpy = vi
       .spyOn(console, 'warn')
@@ -639,8 +643,8 @@ describe('POST /api/chat', () => {
   });
 
   it('does not fall back to Gemini when the client aborts the LLM request', async () => {
-    llmServerUrl = 'https://llm.example.com';
-    llmServerBearer = 'a'.repeat(64);
+    llmServerUrl = TEST_LLM_SERVER_URL;
+    llmServerBearer = TEST_LLM_SERVER_BEARER;
     llmError = new Error('LLM chat request aborted');
     const warnSpy = vi
       .spyOn(console, 'warn')
@@ -665,8 +669,8 @@ describe('POST /api/chat', () => {
     // Rationale: a misbehaving LLM server is a problem to surface, not silently
     // re-route to a stale Ollama. Two-step fallback adds latency without value
     // since Gemini is the durable safety net.
-    llmServerUrl = 'https://llm.example.com';
-    llmServerBearer = 'a'.repeat(64);
+    llmServerUrl = TEST_LLM_SERVER_URL;
+    llmServerBearer = TEST_LLM_SERVER_BEARER;
     ollamaBaseUrl = 'https://ollama.example.com';
     llmError = new Error('LLM chat returned 503');
     const warnSpy = vi
