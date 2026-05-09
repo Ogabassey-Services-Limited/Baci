@@ -19,6 +19,9 @@ vi.mock('@/env', () => ({
 vi.mock('@/lib/agentic/paystack-dva-webhook', () => ({
   confirmAgenticPaystackDvaPayment: mockConfirmAgenticPaystackDvaPayment,
   getPaystackDvaReceiverAccountNumber: mockGetPaystackDvaReceiverAccountNumber,
+}));
+
+vi.mock('@/lib/agentic/paystack-dva-session-paid', () => ({
   markAgenticPaystackDvaSessionPaid: mockMarkAgenticPaystackDvaSessionPaid,
 }));
 
@@ -921,6 +924,179 @@ describe('POST /api/payments/webhook', () => {
         expect.objectContaining({
           message: 'Transaction already processed',
           reference: 'REF123',
+        })
+      );
+    });
+
+    it('processes an agentic DVA transaction resolved during preflight when the generic lookup misses', async () => {
+      const body = {
+        event: 'charge.success',
+        data: {
+          authorization: {
+            receiver_bank_account_number: '9812858131',
+          },
+          reference: 'REF123',
+        },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          id: 1,
+          status: 'success',
+          amount: 10000,
+          reference: 'REF123',
+          currency: 'NGN',
+          channel: 'dedicated_nuban',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: {
+            customer_code: 'CUS_test',
+            email: 'test@example.com',
+            first_name: 'Test',
+            id: 1,
+            last_name: null,
+            phone: null,
+          },
+          metadata: null,
+          fees: 0,
+          fees_split: null,
+        },
+      });
+      mockGetPaystackDvaReceiverAccountNumber.mockReturnValue('9812858131');
+      mockConfirmAgenticPaystackDvaPayment.mockResolvedValueOnce({
+        handled: false,
+        transaction: {
+          amount: 100,
+          currency: 'NGN',
+          gateway_fee: null,
+          id: 'txn-123',
+          merchant_id: 'merchant-123',
+          metadata: {
+            agentic_checkout_session_id: 'agentic_session_1',
+            agentic_virtual_account_number: '9812858131',
+            transaction_type: 'agentic_checkout_payment',
+          },
+          order_id: 'order-123',
+          platform_fee: 2,
+        },
+      });
+      mockMarkAgenticPaystackDvaSessionPaid.mockResolvedValueOnce({
+        ok: true,
+      });
+
+      const transactionSelect = vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({
+          data: null,
+          error: { code: 'PGRST116', message: 'Not found' },
+        }),
+      });
+      const transactionUpdate = vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: 'txn-123' },
+          error: null,
+        }),
+        neq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+      });
+      const orderUpdate = vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({
+          data: {
+            ad_tracking: {},
+            currency: 'NGN',
+            customer_email: 'buyer@example.com',
+            customer_id: 'customer-123',
+            customer_name: 'Smoke Buyer',
+            customer_phone: '08000000000',
+            id: 'order-123',
+            merchant_id: 'merchant-123',
+            order_items: [],
+            order_number: 'ORD-123',
+            payment_status: 'paid',
+            shipping_address: {},
+            shipping_fee: '0',
+            shipping_status: 'processing',
+            subtotal: '100',
+            total: '100',
+            updated_at: '2026-01-01T00:00:00Z',
+          },
+          error: null,
+        }),
+      });
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          return {
+            select: transactionSelect,
+            update: transactionUpdate,
+          } as any;
+        }
+        if (table === 'orders') {
+          return { update: orderUpdate } as any;
+        }
+        if (table === 'merchants') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  business_name: 'Baci Smoke',
+                  cac_rc_number: null,
+                  email: 'merchant@example.com',
+                  email_sender_name: 'Baci Smoke',
+                  slug: 'ogabassey',
+                  support_email: 'support@example.com',
+                  tax_identification_number: null,
+                },
+                error: null,
+              }),
+            }),
+          } as any;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          update: vi.fn().mockReturnThis(),
+        } as any;
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        message: 'Payment processed successfully',
+        success: true,
+      });
+      expect(mockGetPaystackDvaReceiverAccountNumber).toHaveBeenCalledWith(
+        body
+      );
+      expect(mockConfirmAgenticPaystackDvaPayment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountNumber: '9812858131',
+          gatewayReference: 'REF123',
+          verifiedAmount: { amount: 100, currency: 'NGN' },
+        })
+      );
+      expect(transactionSelect).not.toHaveBeenCalled();
+      expect(transactionUpdate).toHaveBeenCalled();
+      expect(orderUpdate).toHaveBeenCalled();
+      expect(mockMarkAgenticPaystackDvaSessionPaid).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gatewayReference: 'REF123',
+          transaction: expect.objectContaining({
+            order_id: 'order-123',
+          }),
         })
       );
     });

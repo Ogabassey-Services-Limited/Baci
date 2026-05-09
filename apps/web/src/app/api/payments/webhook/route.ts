@@ -2,10 +2,15 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
+import { markAgenticPaystackDvaSessionPaid } from '@/lib/agentic/paystack-dva-session-paid';
+import {
+  AGENTIC_PAYSTACK_DVA_TRANSACTION_SELECT,
+  type AgenticPaystackDvaTransaction,
+  normalizeAgenticPaystackDvaTransaction,
+} from '@/lib/agentic/paystack-dva-transaction';
 import {
   confirmAgenticPaystackDvaPayment,
   getPaystackDvaReceiverAccountNumber,
-  markAgenticPaystackDvaSessionPaid,
 } from '@/lib/agentic/paystack-dva-webhook';
 import { upsertPaystackAuthorization } from '@/lib/customer-saved-payment-methods';
 import {
@@ -447,6 +452,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let resolvedAgenticTransaction: AgenticPaystackDvaTransaction | null = null;
     if (gateway === 'paystack') {
       const agenticDvaPayment = await confirmAgenticPaystackDvaPayment({
         accountNumber: getPaystackDvaReceiverAccountNumber(body),
@@ -460,6 +466,7 @@ export async function POST(request: NextRequest) {
           status: agenticDvaPayment.status,
         });
       }
+      resolvedAgenticTransaction = agenticDvaPayment.transaction ?? null;
     }
 
     // ============================================
@@ -952,14 +959,21 @@ export async function POST(request: NextRequest) {
     // STANDARD ORDER HANDLING
     // ============================================
 
-    // Find transaction record
-    const { data: transaction, error: transactionError } = await supabase
-      .from('transactions')
-      .select(
-        'id,amount,currency,merchant_id,metadata,order_id,gateway_fee,platform_fee'
-      )
-      .eq('gateway_reference', reference)
-      .single();
+    let transaction: AgenticPaystackDvaTransaction | null =
+      resolvedAgenticTransaction;
+    let transactionError: unknown = null;
+
+    if (!transaction) {
+      const transactionResult = await supabase
+        .from('transactions')
+        .select(AGENTIC_PAYSTACK_DVA_TRANSACTION_SELECT)
+        .eq('gateway_reference', reference)
+        .single();
+      transaction = transactionResult.data
+        ? normalizeAgenticPaystackDvaTransaction(transactionResult.data)
+        : null;
+      transactionError = transactionResult.error;
+    }
 
     if (transactionError || !transaction) {
       logger.error({
