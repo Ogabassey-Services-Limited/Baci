@@ -39,7 +39,7 @@ export function ShipmentFlowHeader({
         accessibilityRole="button"
         accessibilityState={{ disabled: isSubmitting }}
         disabled={isSubmitting}
-        hitSlop={8}
+        hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
         onPress={onClose}
         style={[
           styles.closeButton,
