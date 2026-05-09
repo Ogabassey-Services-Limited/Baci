@@ -139,6 +139,43 @@ describe('resolveCheckoutCompletionSessionState', () => {
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 
+  it('resumes pay-on-delivery finalization without requiring a DVA account', async () => {
+    const session = {
+      ...readySession,
+      cart_items: [{ invalid: true }] as never,
+      metadata: {
+        agentic: {
+          finalization_claim: 'claim-1',
+          line_items: lineItems,
+          payment_method: 'pay_on_delivery',
+          payment_state: 'order_finalizing',
+          totals,
+        },
+      },
+    };
+
+    const result = await resolveCheckoutCompletionSessionState({
+      authorizationSecrets: [],
+      completionAuthorization: undefined,
+      merchantId: 'merchant-1',
+      session,
+      sessionId: 'agentic_session_1',
+      supabase: {} as never,
+    });
+
+    expect(result).toMatchObject({
+      canResumePaymentAccount: false,
+      ok: true,
+      sessionCalc: {
+        lineItems,
+        selectedOptionId: 'pickup_store_1',
+        totals,
+      },
+      storedDvaAccount: null,
+    });
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
+  });
+
   it('returns a conflict when payment-account-ready state is incomplete', async () => {
     const session = {
       ...readySession,

@@ -111,6 +111,74 @@ describe('agenticCheckoutCompleteSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts pay on delivery without a payment token', () => {
+    const result = agenticCheckoutCompleteSchema.safeParse({
+      buyer: {
+        email: 'buyer@example.com',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        phone_number: '+2348012345678',
+      },
+      completion_authorization: {
+        amount: 500000,
+        confirmed_at: '2026-04-28T11:59:30.000Z',
+        currency: 'ngn',
+        session_id: 'agentic_session_1',
+        signature: 'a'.repeat(64),
+        type: 'human_confirmation',
+      },
+      payment_data: { provider: 'pay_on_delivery' },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.payment_data.provider).toBe('pay_on_delivery');
+    }
+  });
+
+  it('rejects pay on delivery with an unexpected payment token', () => {
+    const result = agenticCheckoutCompleteSchema.safeParse({
+      buyer: {
+        email: 'buyer@example.com',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        phone_number: '+2348012345678',
+      },
+      completion_authorization: {
+        amount: 500000,
+        confirmed_at: '2026-04-28T11:59:30.000Z',
+        currency: 'ngn',
+        session_id: 'agentic_session_1',
+        signature: 'a'.repeat(64),
+        type: 'human_confirmation',
+      },
+      payment_data: {
+        provider: 'pay_on_delivery',
+        token: 'unexpected-token',
+      },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects Paystack payment data with unexpected fields', () => {
+    const result = agenticCheckoutCompleteSchema.safeParse({
+      buyer: {
+        email: 'buyer@example.com',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        phone_number: '+2348012345678',
+      },
+      payment_data: {
+        provider: 'paystack',
+        token: 'confirmed-by-human',
+        unexpected: true,
+      },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it('rejects completion without a non-empty payment token', () => {
     const result = agenticCheckoutCompleteSchema.safeParse({
       buyer: {

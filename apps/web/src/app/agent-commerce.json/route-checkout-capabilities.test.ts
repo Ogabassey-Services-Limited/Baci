@@ -51,6 +51,11 @@ function stubAgenticCheckoutEnv() {
   vi.stubEnv('PAYSTACK_SECRET_KEY', 'paystack-secret');
 }
 
+function stubAgenticCheckoutEnvWithoutPaystack() {
+  stubAgenticCheckoutEnv();
+  vi.stubEnv('PAYSTACK_SECRET_KEY', '');
+}
+
 function stubAgenticCheckoutEnvWithLegacyJwtSecret() {
   stubAgenticCheckoutEnv();
   delete process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK;
@@ -122,6 +127,7 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
     expect(response.status).toBe(200);
     expect(body.capabilities).toContain('checkout.session.complete');
     expect(body.capabilities).toContain('order.read');
+    expect(body.payment_methods).toEqual(['paystack_bank_transfer']);
     expect(body.auth).toMatchObject({
       type: 'bearer_hmac',
       request_signing: {
@@ -228,6 +234,64 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
     expect(body.auth).toBeNull();
     expect(body.links.checkout_sessions).toBeUndefined();
     expect(body.links.checkout_session_complete).toBeUndefined();
+  });
+
+  it('does not advertise Paystack checkout when Paystack secret is missing', async () => {
+    stubAgenticCheckoutEnvWithoutPaystack();
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      business_name: 'Another Store',
+      custom_domain: 'another.example',
+      id: 'merchant-2',
+      paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+      slug: 'another-store',
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new Request('https://another.example/agent-commerce.json', {
+        headers: { host: 'another.example' },
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.capabilities).toEqual(['catalog.read']);
+    expect(body.payment_methods).toEqual([]);
+    expect(body.auth).toBeNull();
+    expect(body.links.checkout_sessions).toBeUndefined();
+    expect(body.links.checkout_session_complete).toBeUndefined();
+  });
+
+  it('advertises checkout when pay on delivery is enabled without a subaccount', async () => {
+    stubAgenticCheckoutEnvWithoutPaystack();
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      business_name: 'Another Store',
+      custom_domain: 'another.example',
+      feature_settings: { pay_on_delivery_enabled: true },
+      id: 'merchant-2',
+      paystack_subaccount_code: null,
+      slug: 'another-store',
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new Request('https://another.example/agent-commerce.json', {
+        headers: { host: 'another.example' },
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.capabilities).toContain('checkout.session.complete');
+    expect(body.capabilities).toContain('order.read');
+    expect(body.payment_methods).toEqual(['pay_on_delivery']);
+    expect(body.auth).not.toBeNull();
+    expect(body.links.checkout_sessions).toBe(
+      'https://another.example/api/agentic/checkout_sessions'
+    );
+    expect(body.links.checkout_session_complete).toBe(
+      'https://another.example/api/agentic/checkout_sessions/{session_id}/complete'
+    );
   });
 
   // Only discovery-safe catalog access is advertised when agent API env exists

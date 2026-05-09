@@ -77,13 +77,27 @@ const paymentMandateSchema = z.object({
   type: z.literal('payment_mandate'),
 });
 
-export const agenticCheckoutCompleteSchema = z.object({
-  buyer: agenticCheckoutBuyerSchema,
-  payment_data: z.object({
+const paystackPaymentDataSchema = z
+  .object({
     billing_address: agenticFulfillmentAddressSchema.optional(),
     provider: z.literal('paystack'),
     token: z.string().trim().min(1),
-  }),
+  })
+  .strict();
+
+const payOnDeliveryPaymentDataSchema = z
+  .object({
+    billing_address: agenticFulfillmentAddressSchema.optional(),
+    provider: z.literal('pay_on_delivery'),
+  })
+  .strict();
+
+export const agenticCheckoutCompleteSchema = z.object({
+  buyer: agenticCheckoutBuyerSchema,
+  payment_data: z.discriminatedUnion('provider', [
+    paystackPaymentDataSchema,
+    payOnDeliveryPaymentDataSchema,
+  ]),
   completion_authorization: z
     .union([humanConfirmationSchema, paymentMandateSchema])
     .nullish(),
