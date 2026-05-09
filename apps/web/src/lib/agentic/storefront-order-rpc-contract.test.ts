@@ -14,8 +14,13 @@ const storefrontOrderRpcDefinitionPattern = new RegExp(
   String.raw`CREATE\s+OR\s+REPLACE\s+FUNCTION\s+${storefrontOrderRpcNamePattern}\s*\(`,
   'i'
 );
-const storefrontOrderRpcDynamicPatchPattern =
-  /create_storefront_order[\s\S]*(?:pg_get_functiondef|EXECUTE)|(?:pg_get_functiondef|EXECUTE)[\s\S]*create_storefront_order/i;
+const storefrontOrderRpcDynamicPatchPatterns = [
+  /pg_get_functiondef\s*\([^;]*create_storefront_order/i,
+  new RegExp(
+    String.raw`EXECUTE\s+(?:format\s*\([^;]*create_storefront_order|['"][^;]*create_storefront_order|[^;]*CREATE\s+OR\s+REPLACE\s+FUNCTION\s+${storefrontOrderRpcNamePattern})`,
+    'i'
+  ),
+];
 const ambiguousCustomerConflictTargetPattern =
   /ON\s+CONFLICT\s*\(\s*merchant_id\s*,\s*email\s*\)/i;
 
@@ -27,7 +32,9 @@ function readLatestStorefrontOrderRpcMigrationSql() {
     const sql = readFileSync(resolve(migrationsDirectory, fileName), 'utf8');
     if (
       storefrontOrderRpcDefinitionPattern.test(sql) ||
-      storefrontOrderRpcDynamicPatchPattern.test(sql)
+      storefrontOrderRpcDynamicPatchPatterns.some((pattern) =>
+        pattern.test(sql)
+      )
     ) {
       return sql;
     }
