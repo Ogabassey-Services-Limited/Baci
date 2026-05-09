@@ -1,5 +1,6 @@
 'use client';
 
+import type { ComponentData } from '@puckeditor/core';
 import { usePuck } from '@puckeditor/core';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -34,10 +35,37 @@ interface PuckFieldConfig {
   }) => React.ReactNode;
 }
 
+// Internal state type for Puck as it does not export PrivateAppState
+interface PuckInternalState {
+  ui: {
+    selectedItem: ComponentData | null;
+    itemSelector: { index: number; zone?: string } | null;
+    // The actual state has selectedItem but it's not exported in AppState
+    // We type it here safely
+  };
+  config: {
+    components: Record<
+      string,
+      { label?: string; fields?: Record<string, PuckFieldConfig> }
+    >;
+  };
+  data: {
+    content: ComponentData[];
+    root: Record<string, unknown>;
+    zones?: Record<string, ComponentData[]>;
+  };
+}
+
 export function FloatingControls() {
   const { appState, dispatch } = usePuck();
-  // biome-ignore lint/suspicious/noExplicitAny: Puck's internal state structure is not exported
-  const state = appState as any;
+  // AppState doesn't expose `ui` or `config` directly, but the internal state does.
+  // Type guard to safely narrow the external state
+  function isPuckInternalState(state: unknown): state is PuckInternalState {
+    return typeof state === 'object' && state !== null && 'ui' in state;
+  }
+
+  if (!isPuckInternalState(appState)) return null;
+  const state = appState;
   // Safety check: Ensure state and ui exist before accessing
   if (!state?.ui) return null;
 
@@ -59,15 +87,13 @@ export function FloatingControls() {
   if (!fields) return null;
 
   // We'll use the setData approach as it's universally safe in Puck
-  // biome-ignore lint/suspicious/noExplicitAny: Puck field values can be any type
-  const safeFieldChange = (fieldName: string, value: any) => {
+  const safeFieldChange = (fieldName: string, value: unknown) => {
     const newContent = [...state.data.content];
     // Note: selectedItem.props.id might not be the item ID.
     // Puck items have an 'id' property at the root, not just in props.
     // selectedItem is the item itself.
     const itemIndex = newContent.findIndex(
-      // biome-ignore lint/suspicious/noExplicitAny: Puck content items are untyped
-      (item: any) => item.props.id === selectedItem.props.id
+      (item: ComponentData) => item.props.id === selectedItem.props.id
     );
 
     if (itemIndex !== -1) {
@@ -97,8 +123,7 @@ export function FloatingControls() {
           size="icon"
           className="h-6 w-6"
           onClick={() =>
-            // biome-ignore lint/suspicious/noExplicitAny: Puck dispatch types are internal
-            dispatch({ type: 'setUi', ui: { selectedItem: null } } as any)
+            dispatch({ type: 'setUi', ui: { itemSelector: null } })
           }
           aria-label="Close controls"
         >
