@@ -81,13 +81,15 @@ vi.mock('@/components/analytics/analytics-provider', () => ({
 vi.mock('@/components/storefront/ogabassey/pages/home', () => ({
   OgabasseyHomePage: ({
     products,
+    renderHero,
     storeSlug,
   }: {
     products?: unknown[];
+    renderHero?: boolean;
     storeSlug?: string;
   }) => (
     <div data-testid="ogabassey-home">
-      {storeSlug}:{products?.length ?? 0}
+      {storeSlug}:{products?.length ?? 0}:{String(renderHero)}
     </div>
   ),
 }));
@@ -181,6 +183,10 @@ describe('OgabasseyHomePageContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockHeaders.mockResolvedValue(new Headers());
+    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([]);
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(
+      mockPublishedMerchant
+    );
   });
 
   it('renders the OgaBassey homepage without the generic storefront renderer', async () => {
@@ -194,7 +200,7 @@ describe('OgabasseyHomePageContent', () => {
 
     expect(screen.getByTestId('analytics-provider')).toBeInTheDocument();
     expect(screen.getByTestId('ogabassey-home')).toHaveTextContent(
-      'ogabassey:1'
+      'ogabassey:1:true'
     );
     expect(createOgabasseyHomeProductFeed).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ id: 'product-1' })])
@@ -204,6 +210,17 @@ describe('OgabasseyHomePageContent', () => {
       '/ogabassey/smartphones'
     );
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
+  });
+
+  it('can omit the hero when the static route renders it before the dynamic boundary', async () => {
+    // beforeEach keeps the dynamic content feed empty so this assertion focuses on renderHero.
+    const result = await OgabasseyHomePageContent({ renderHero: false });
+
+    render(result as React.ReactElement);
+
+    expect(screen.getByTestId('ogabassey-home')).toHaveTextContent(
+      'ogabassey:0:false'
+    );
   });
 
   it('resolves the homepage merchant from custom-domain request context', async () => {

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import { Hero } from '@/components/storefront/ogabassey/components/Hero';
 import { OgabasseyHeroPreloads } from '@/components/storefront/ogabassey/components/ogabassey-hero-preloads';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import {
@@ -68,8 +69,10 @@ export default function OgabasseyStaticHomePage() {
   return (
     <>
       <OgabasseyHeroPreloads />
+      {/* Hero is a static client shell; keep it outside dynamic storefront data so mobile LCP can paint before streamed product/category content. */}
+      <Hero />
       <Suspense fallback={<StorefrontPageSkeleton />}>
-        <OgabasseyHomePageContent />
+        <OgabasseyHomePageContent renderHero={false} />
       </Suspense>
     </>
   );

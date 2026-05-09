@@ -35,6 +35,10 @@ function resolveOgabasseyHomeMerchantIdentifier(headersList: Headers): string {
   return resolveMerchantContextIdentifier(headersList) || OGABASSEY_TEMPLATE_ID;
 }
 
+interface OgabasseyHomePageContentProps {
+  renderHero?: boolean;
+}
+
 function buildOrganizationGraphSchema(
   merchant: NonNullable<Awaited<ReturnType<typeof getRequestScopedMerchant>>>
 ) {
@@ -99,7 +103,9 @@ function buildOrganizationGraphSchema(
   };
 }
 
-export async function OgabasseyHomePageContent() {
+export async function OgabasseyHomePageContent({
+  renderHero = true,
+}: OgabasseyHomePageContentProps = {}) {
   await connection();
 
   const headersList = await headers();
@@ -200,6 +206,7 @@ export async function OgabasseyHomePageContent() {
       <OgabasseyHomePage
         categories={categories || []}
         products={createOgabasseyHomeProductFeed(merchantProducts)}
+        renderHero={renderHero}
         storeSlug={merchant.slug}
       />
       <section

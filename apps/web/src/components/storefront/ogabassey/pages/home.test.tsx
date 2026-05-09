@@ -61,6 +61,20 @@ describe('OgabasseyHomePage', () => {
     expect(screen.getByTestId('product-grid')).toBeInTheDocument();
   });
 
+  it('can omit the hero when the route shell renders it outside dynamic content', () => {
+    render(
+      <OgabasseyHomePage
+        products={[]}
+        categories={[]}
+        renderHero={false}
+      />
+    );
+
+    expect(screen.queryByTestId('hero')).not.toBeInTheDocument();
+    expect(screen.getByTestId('ad-unit')).toBeInTheDocument();
+    expect(screen.getByTestId('product-grid')).toBeInTheDocument();
+  });
+
   it('passes products to the home product grid', () => {
     const testProducts: Product[] = [
       {

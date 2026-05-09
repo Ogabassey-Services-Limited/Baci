@@ -9,6 +9,12 @@ import {
   OGABASSEY_URL,
 } from '@/config/ogabassey';
 
+const mockOgabasseyHomePageContent = vi.hoisted(() =>
+  vi.fn(({ renderHero }: { renderHero?: boolean }) => (
+    <main>OgaBassey storefront: {String(renderHero)}</main>
+  ))
+);
+
 vi.mock(
   '@/components/storefront/ogabassey/components/ogabassey-hero-preloads',
   () => ({
@@ -16,8 +22,13 @@ vi.mock(
   })
 );
 
+vi.mock('@/components/storefront/ogabassey/components/Hero', () => ({
+  Hero: () => <section aria-label="OgaBassey hero">Hero shell</section>,
+}));
+
 vi.mock('./ogabassey-home-page-content', () => ({
-  OgabasseyHomePageContent: () => <main>OgaBassey storefront</main>,
+  OgabasseyHomePageContent: (props: { renderHero?: boolean }) =>
+    mockOgabasseyHomePageContent(props),
 }));
 
 import OgabasseyStaticHomePage, { metadata } from './page';
@@ -27,7 +38,15 @@ describe('OgabasseyStaticHomePage', () => {
     render(<OgabasseyStaticHomePage />);
 
     expect(screen.getByTestId('hero-preloads')).toBeInTheDocument();
-    expect(screen.getByRole('main')).toHaveTextContent('OgaBassey storefront');
+    expect(
+      screen.getByRole('region', { name: 'OgaBassey hero' })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('main')).toHaveTextContent(
+      'OgaBassey storefront: false'
+    );
+    expect(mockOgabasseyHomePageContent).toHaveBeenCalledWith({
+      renderHero: false,
+    });
   });
 
   it('declares canonical, hreflang, favicon, and social image metadata for the static route', () => {
