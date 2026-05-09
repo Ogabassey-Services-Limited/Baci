@@ -197,17 +197,19 @@ export async function POST(req: Request) {
 
     const llmServerUrl = getLlmServerUrl();
     if (llmServerUrl) {
+      // Resolve static config OUTSIDE the try so a misconfigured deployment
+      // (blank LLM_CHAT_MODEL, env-validation bypass, etc.) surfaces as a 500
+      // rather than getting silently logged as "LLM server request failed"
+      // and quietly falling back to Gemini. env.ts superRefine guarantees
+      // LLM_SERVER_BEARER is set whenever LLM_SERVER_URL is set; the `?? ''`
+      // covers test environments where env validation is bypassed —
+      // createLlmChatResponse will reject empty bearers loudly.
+      const chatModel = getLlmChatModel();
+      const bearer = getLlmServerBearer() ?? '';
       try {
-        const chatModel = getLlmChatModel();
         const llmResponse = await createLlmChatResponse({
           baseUrl: llmServerUrl,
-          // env.ts superRefine guarantees LLM_SERVER_BEARER is set whenever
-          // LLM_SERVER_URL is set (boot fails closed otherwise). The `?? ''`
-          // is a defensive belt-and-suspenders for dev/test where env
-          // validation may be bypassed; createLlmChatResponse rejects empty
-          // bearers with a clear "failed to build Bearer Authorization
-          // header" error that the catch below routes to the Gemini fallback.
-          bearer: getLlmServerBearer() ?? '',
+          bearer,
           model: chatModel,
           messages: buildChatMessages(sanitizedMessages, chatModel),
           signal: req.signal,

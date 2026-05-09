@@ -45,8 +45,14 @@ function sanitizeUpstreamErrorText(raw: string): string {
 function buildChatCompletionsUrl(baseUrl: string): string {
   // String-concatenation rather than `new URL('/v1/...', baseUrl)` so a path
   // prefix on baseUrl (e.g. `https://host/llm-mtp/`) is preserved instead of
-  // replaced. Also collapses an optional trailing slash to avoid `//v1/...`.
-  return `${baseUrl.replace(/\/+$/, '')}/v1/chat/completions`;
+  // replaced. Also normalize `baseUrl` to handle the two real-world shapes:
+  //   1. Plain host: `https://host`               -> append `/v1/chat/completions`
+  //   2. With API prefix: `https://host/v1`       -> append `/chat/completions`
+  // Without (2) handling, `https://host/v1` would silently become
+  // `https://host/v1/v1/chat/completions` (404), the request fails, and every
+  // chat falls back to Gemini — a hard-to-spot misconfiguration.
+  const trimmed = baseUrl.replace(/\/+$/, '').replace(/\/v1$/i, '');
+  return `${trimmed}/v1/chat/completions`;
 }
 
 function cleanModelName(model: string): string {

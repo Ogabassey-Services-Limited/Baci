@@ -375,6 +375,39 @@ describe('env LLM server validation', () => {
     await expect(loadEnvModule()).rejects.toThrow(/LLM_SERVER_BEARER/);
   });
 
+  it('fails production boot when LLM_SERVER_BEARER contains control characters', async () => {
+    // The schema reuses buildLlmBearerAuthHeader's validator, so invalid
+    // tokens fail at boot instead of being rejected per-request and
+    // silently routing to Gemini.
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv('LLM_SERVER_URL', 'https://llm.example.com');
+    vi.stubEnv('LLM_SERVER_BEARER', 'token\nwith-newline');
+
+    await expect(loadEnvModule()).rejects.toThrow(/LLM_SERVER_BEARER/);
+  });
+
+  it('fails production boot when LLM_SERVER_BEARER is "BearerXyz" (no separator)', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv('LLM_SERVER_URL', 'https://llm.example.com');
+    vi.stubEnv('LLM_SERVER_BEARER', 'BearerXyz');
+
+    await expect(loadEnvModule()).rejects.toThrow(/LLM_SERVER_BEARER/);
+  });
+
+  it('fails production boot when LLM_SERVER_BEARER exceeds 2048 chars', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv('LLM_SERVER_URL', 'https://llm.example.com');
+    vi.stubEnv('LLM_SERVER_BEARER', 'a'.repeat(2049));
+
+    await expect(loadEnvModule()).rejects.toThrow(/LLM_SERVER_BEARER/);
+  });
+
   it('accepts LLM_SERVER_BEARER set without LLM_SERVER_URL (orphan token is harmless)', async () => {
     // Policy: the schema does not require LLM_SERVER_URL to be set when
     // LLM_SERVER_BEARER is. The bearer is only consumed by the chat route

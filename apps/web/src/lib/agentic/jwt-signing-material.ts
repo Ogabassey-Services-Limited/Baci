@@ -1,10 +1,10 @@
-import { createPrivateKey, type KeyObject, type webcrypto } from 'node:crypto';
-
-// `webcrypto.JsonWebKey` matches the param type expected by createPrivateKey
-// (`JsonWebKeyInput.key`) in @types/node 25.x. The global `JsonWebKey` from
-// lib.dom.d.ts is structurally similar but TypeScript treats them as distinct
-// in some toolchains, breaking CI typechecks.
-type JsonWebKey = webcrypto.JsonWebKey;
+// Namespace import as a value (not type-only) so `crypto.webcrypto.JsonWebKey`
+// resolves to the exact type `createPrivateKey({ format: 'jwk' })` expects
+// via `JsonWebKeyInput.key` under @types/node 25.x. The global `JsonWebKey`
+// from lib.dom.d.ts is structurally similar but nominally distinct on some
+// CI toolchains, breaking the typecheck.
+// biome-ignore lint/style/useImportType: needs to be a value import — see comment above
+import * as crypto from 'node:crypto';
 import 'server-only';
 import { getSupabaseAgenticJwtPrivateJwk, getSupabaseJwtSecret } from '@/env';
 import { logger } from '@/lib/logger';
@@ -15,11 +15,11 @@ export type AgenticJwtSigningMaterial =
   | { secret: string; type: 'legacy-secret' }
   | {
       jwk: SupabaseAgenticPrivateJwk;
-      keyObject: KeyObject;
+      keyObject: crypto.KeyObject;
       type: 'private-jwk';
     };
 
-export type SupabaseAgenticPrivateJwk = JsonWebKey & {
+export type SupabaseAgenticPrivateJwk = crypto.webcrypto.JsonWebKey & {
   alg?: string;
   kid?: string;
 };
@@ -53,7 +53,7 @@ export function getAgenticJwtSigningMaterial(): AgenticJwtSigningMaterial {
       const jwk = parseSupabaseAgenticPrivateJwk(privateJwk);
       cachedPrivateJwkMaterial = {
         jwk,
-        keyObject: createPrivateKey({ format: 'jwk', key: jwk }),
+        keyObject: crypto.createPrivateKey({ format: 'jwk', key: jwk }),
         type: 'private-jwk',
       };
       cachedPrivateJwkRaw = privateJwk;

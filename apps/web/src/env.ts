@@ -1,5 +1,6 @@
 // src/env.ts
 import z from 'zod';
+import { buildLlmBearerAuthHeader } from '@/lib/llm-auth';
 import { supabaseAgenticJwtPrivateJwkStringSchema } from '@/schemas/supabase-agentic-jwt-private-jwk';
 
 /**
@@ -120,8 +121,20 @@ const serverSchema = z
     LLM_SERVER_URL: httpsOrLocalhostUrl('LLM_SERVER_URL').optional(),
     // .trim() before .min(1) so a whitespace-only value (e.g. "   ") fails at
     // boot via the superRefine below rather than silently producing an empty
-    // bearer at runtime that always falls back to Gemini.
-    LLM_SERVER_BEARER: z.string().trim().min(1).optional(),
+    // bearer at runtime that always falls back to Gemini. The buildLlmBearer
+    // refine reuses the request-time validation (length cap, control-char
+    // rejection, "BearerXyz" detection) so invalid tokens fail boot rather
+    // than passing here and getting rejected per-request inside the chat
+    // route — which would silently downgrade the deployment to Gemini.
+    LLM_SERVER_BEARER: z
+      .string()
+      .trim()
+      .min(1)
+      .refine((value) => buildLlmBearerAuthHeader(value) !== null, {
+        message:
+          'LLM_SERVER_BEARER must be a valid bearer token (no control chars, ≤2048 chars, not "BearerXyz")',
+      })
+      .optional(),
     LLM_CHAT_MODEL: z.string().default('gemma-4-e4b'),
 
     // Jumia Marketplace
@@ -568,17 +581,17 @@ export const getOllamaBasicAuth = () => {
   return env?.OLLAMA_BASIC_AUTH;
 };
 export const getLlmServerUrl = () => {
-  if (typeof window !== 'undefined')
+  if (isBrowserRuntime())
     throw new Error('LLM_SERVER_URL cannot be accessed on the client');
   return env?.LLM_SERVER_URL;
 };
 export const getLlmServerBearer = () => {
-  if (typeof window !== 'undefined')
+  if (isBrowserRuntime())
     throw new Error('LLM_SERVER_BEARER cannot be accessed on the client');
   return env?.LLM_SERVER_BEARER;
 };
 export const getLlmChatModel = () => {
-  if (typeof window !== 'undefined')
+  if (isBrowserRuntime())
     throw new Error('LLM_CHAT_MODEL cannot be accessed on the client');
   return validateSanitizedModel(env.LLM_CHAT_MODEL, 'LLM_CHAT_MODEL');
 };

@@ -58,6 +58,44 @@ describe('createLlmChatResponse', () => {
     );
   });
 
+  it('does not double the /v1 prefix when baseUrl already includes it', async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(streamFromText('data: [DONE]\n\n')));
+    vi.stubGlobal('fetch', mockFetch);
+
+    await createLlmChatResponse({
+      baseUrl: 'https://host:8080/v1',
+      bearer: VALID_BEARER,
+      model: 'gemma-4-e4b',
+      messages: [{ role: 'user', content: 'Hi' }],
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://host:8080/v1/chat/completions',
+      expect.anything()
+    );
+  });
+
+  it('also strips a trailing /v1/ (with slash) from baseUrl', async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(streamFromText('data: [DONE]\n\n')));
+    vi.stubGlobal('fetch', mockFetch);
+
+    await createLlmChatResponse({
+      baseUrl: 'https://host:8080/v1/',
+      bearer: VALID_BEARER,
+      model: 'gemma-4-e4b',
+      messages: [{ role: 'user', content: 'Hi' }],
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://host:8080/v1/chat/completions',
+      expect.anything()
+    );
+  });
+
   // ---------- Bearer auth ----------
 
   it('sends Authorization: Bearer <token> header', async () => {
