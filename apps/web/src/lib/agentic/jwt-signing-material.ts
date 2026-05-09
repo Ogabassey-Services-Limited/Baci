@@ -1,4 +1,4 @@
-import { createPrivateKey, type JsonWebKey, type KeyObject } from 'node:crypto';
+import { createPrivateKey, type KeyObject } from 'node:crypto';
 import 'server-only';
 import { getSupabaseAgenticJwtPrivateJwk, getSupabaseJwtSecret } from '@/env';
 import { logger } from '@/lib/logger';
