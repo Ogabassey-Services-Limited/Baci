@@ -62,6 +62,7 @@ DECLARE
   v_shipping_status TEXT := p_shipping_status;
   v_shipping_address JSONB := p_shipping_address;
   v_user_id UUID := auth.uid();
+  v_customer_record_phone TEXT;
   v_invalid_item_count INTEGER;
   v_invalid_quantity_count INTEGER;
   v_invalid_variant_count INTEGER;
@@ -227,12 +228,32 @@ BEGIN
   END IF;
 
   IF v_normalized_customer_phone IS NOT NULL THEN
+    PERFORM pg_advisory_xact_lock(
+      hashtext(p_merchant_id::text),
+      hashtext(v_normalized_customer_phone)
+    );
+  END IF;
+
+  IF p_user_id IS NOT NULL THEN
+    SELECT c.id
+      INTO v_customer_id
+    FROM customers c
+    WHERE c.merchant_id = p_merchant_id
+      AND c.user_id = p_user_id
+    ORDER BY c.id
+    LIMIT 1
+    FOR UPDATE;
+  END IF;
+
+  IF p_user_id IS NULL AND v_normalized_customer_phone IS NOT NULL THEN
     SELECT c.id
       INTO v_customer_id
     FROM customers c
     WHERE c.merchant_id = p_merchant_id
       AND c.phone = v_normalized_customer_phone
-    LIMIT 1;
+    ORDER BY c.id
+    LIMIT 1
+    FOR UPDATE;
   END IF;
 
   IF v_customer_id IS NOT NULL THEN
@@ -250,12 +271,42 @@ BEGIN
           THEN v_normalized_customer_email
         ELSE c.email
       END,
-      user_id = COALESCE(c.user_id, p_user_id),
+      phone = CASE
+        WHEN v_normalized_customer_phone IS NULL THEN c.phone
+        WHEN c.phone = v_normalized_customer_phone THEN c.phone
+        WHEN NOT EXISTS (
+          SELECT 1
+          FROM customers existing_phone
+          WHERE existing_phone.merchant_id = p_merchant_id
+            AND existing_phone.phone = v_normalized_customer_phone
+            AND existing_phone.id <> c.id
+        )
+          THEN v_normalized_customer_phone
+        ELSE c.phone
+      END,
+      user_id = CASE
+        WHEN c.user_id IS NULL THEN p_user_id
+        ELSE c.user_id
+      END,
       first_name = COALESCE(c.first_name, v_first_name),
       last_name = COALESCE(c.last_name, v_last_name)
     WHERE c.id = v_customer_id
     RETURNING c.id INTO v_customer_id;
   ELSE
+    v_customer_record_phone := v_normalized_customer_phone;
+
+    IF p_user_id IS NOT NULL
+      AND v_normalized_customer_phone IS NOT NULL
+      AND EXISTS (
+        SELECT 1
+        FROM customers existing_phone
+        WHERE existing_phone.merchant_id = p_merchant_id
+          AND existing_phone.phone = v_normalized_customer_phone
+      )
+    THEN
+      v_customer_record_phone := NULL;
+    END IF;
+
     INSERT INTO customers (
       merchant_id,
       email,
@@ -269,7 +320,7 @@ BEGIN
       v_normalized_customer_email,
       v_first_name,
       v_last_name,
-      v_normalized_customer_phone,
+      v_customer_record_phone,
       p_user_id
     )
     ON CONFLICT ON CONSTRAINT customers_merchant_id_email_key
@@ -353,6 +404,7 @@ BEGIN
       BOOL_OR(t.manage_stock) AS manage_stock
     FROM tmp_storefront_order_items t
     GROUP BY t.product_id, t.variant_id
+    ORDER BY t.product_id, t.variant_id
   LOOP
     IF stock_rec.manage_stock THEN
       IF stock_rec.variant_id IS NOT NULL THEN

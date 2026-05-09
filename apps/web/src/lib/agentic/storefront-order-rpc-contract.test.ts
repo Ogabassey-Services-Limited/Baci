@@ -85,23 +85,53 @@ describe('agentic storefront order RPC contract', () => {
     expect(sql).not.toMatch(ambiguousCustomerConflictTargetPattern);
   });
 
-  it('resolves an existing merchant customer by phone before inserting a new email customer', () => {
+  it('resolves authenticated customers by user before guest phone fallback', () => {
     const sql = readLatestStorefrontOrderRpcMigrationSql();
 
+    const userLookupIndex = sql.indexOf('AND c.user_id = p_user_id');
     const phoneLookupIndex = sql.indexOf(
       'AND c.phone = v_normalized_customer_phone'
     );
     const customerInsertIndex = sql.indexOf('INSERT INTO customers');
 
+    expect(userLookupIndex).toBeGreaterThan(-1);
     expect(phoneLookupIndex).toBeGreaterThan(-1);
     expect(customerInsertIndex).toBeGreaterThan(-1);
+    expect(userLookupIndex).toBeLessThan(phoneLookupIndex);
     expect(phoneLookupIndex).toBeLessThan(customerInsertIndex);
+    expect(sql).toContain(
+      'IF p_user_id IS NULL AND v_normalized_customer_phone IS NOT NULL THEN'
+    );
     expect(sql).toContain(
       "v_normalized_customer_phone TEXT := NULLIF(trim(COALESCE(p_customer_phone, '')), '')"
     );
-    expect(sql).toContain('v_normalized_customer_phone,');
+    expect(sql).toContain('v_customer_record_phone,');
     expect(sql).toContain(
       'WHEN customers.phone = EXCLUDED.phone THEN customers.phone'
     );
+  });
+
+  it('does not write a conflicting phone to a new authenticated customer record', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    expect(sql).toContain('v_customer_record_phone TEXT;');
+    expect(sql).toContain(
+      'v_customer_record_phone := v_normalized_customer_phone;'
+    );
+    expect(sql).toContain('IF p_user_id IS NOT NULL');
+    expect(sql).toContain('v_customer_record_phone := NULL;');
+    expect(sql).toContain('WHERE existing_phone.merchant_id = p_merchant_id');
+    expect(sql).toContain(
+      'AND existing_phone.phone = v_normalized_customer_phone'
+    );
+  });
+
+  it('serializes same-phone customer resolution and applies stock updates in a deterministic order', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    expect(sql).toContain('PERFORM pg_advisory_xact_lock(');
+    expect(sql).toContain('hashtext(p_merchant_id::text)');
+    expect(sql).toContain('hashtext(v_normalized_customer_phone)');
+    expect(sql).toContain('ORDER BY t.product_id, t.variant_id');
   });
 });
