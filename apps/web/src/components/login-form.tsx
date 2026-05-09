@@ -23,6 +23,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { SubmitButton } from '@/components/ui/submit-button';
 import { useToast } from '@/hooks/use-toast';
+import { sanitizeRelativeRedirectPath } from '@/lib/auth-redirect';
 import { createClient } from '@/lib/supabase/client';
 
 const GoogleIcon = () => (
@@ -78,7 +79,10 @@ export default function LoginForm() {
 
   // Get email and redirect from URL
   const defaultEmail = searchParams.get('email') || '';
-  const redirectTo = searchParams.get('redirect') || '/dashboard';
+  const redirectTo = sanitizeRelativeRedirectPath(
+    searchParams.get('redirectTo') ?? searchParams.get('redirect'),
+    '/dashboard'
+  );
 
   // React 19 useActionState for login form
   const [loginState, loginFormAction] = useActionState(
@@ -121,45 +125,60 @@ export default function LoginForm() {
     }
   }, [forgotState.success, forgotState.error, toast]);
 
-  const handleGoogleSignIn = async () => {
-    setIsGoogleLoading(true);
+  const handleOAuthSignIn = async ({
+    provider,
+    label,
+    setLoading,
+  }: {
+    provider: 'google' | 'apple';
+    label: string;
+    setLoading: (v: boolean) => void;
+  }) => {
+    setLoading(true);
+    const failureTitle = `${label} Sign-in Failed`;
+    const fallbackMessage = `Unable to start ${label} sign-in`;
 
-    const { error } = await supabase.auth.signInWithOAuth({
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+        },
+      });
+
+      if (!error) {
+        return;
+      }
+
+      toast({
+        variant: 'destructive',
+        title: failureTitle,
+        description: error.message,
+      });
+      setLoading(false);
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: failureTitle,
+        description: error instanceof Error ? error.message : fallbackMessage,
+      });
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = () =>
+    handleOAuthSignIn({
       provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
+      label: 'Google',
+      setLoading: setIsGoogleLoading,
     });
 
-    if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Google Sign-in Failed',
-        description: error.message,
-      });
-      setIsGoogleLoading(false);
-    }
-  };
-
-  const handleAppleSignIn = async () => {
-    setIsAppleLoading(true);
-
-    const { error } = await supabase.auth.signInWithOAuth({
+  const handleAppleSignIn = () =>
+    handleOAuthSignIn({
       provider: 'apple',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
+      label: 'Apple',
+      setLoading: setIsAppleLoading,
     });
-
-    if (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Apple Sign-in Failed',
-        description: error.message,
-      });
-      setIsAppleLoading(false);
-    }
-  };
 
   return (
     <main

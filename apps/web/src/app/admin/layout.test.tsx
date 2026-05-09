@@ -1,105 +1,37 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { PlatformAdminAuth } from '@/lib/platform-admin-auth';
 
-const mockPush = vi.fn();
-const mockToast = vi.fn();
-const mockUseAuth = vi.fn();
-const mockCreateClient = vi.fn();
-
-vi.mock('next/link', () => ({
-  default: ({
-    children,
-    href,
-    ...props
-  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
-    <a href={href} {...props}>
-      {children}
-    </a>
-  ),
-}));
+const mockGetPlatformAdminAuth = vi.fn<() => Promise<PlatformAdminAuth>>();
+const mockRedirect = vi.fn((path: string): never => {
+  throw new Error(`NEXT_REDIRECT:${path}`);
+});
 
 vi.mock('next/navigation', () => ({
-  usePathname: () => '/admin',
-  useRouter: () => ({
-    push: mockPush,
-  }),
+  redirect: (path: string) => mockRedirect(path),
 }));
 
 vi.mock('@/components/csrf-initializer', () => ({
   CsrfInitializer: () => <div data-testid="csrf-initializer" />,
 }));
 
-vi.mock('@/components/logo', () => ({
-  Logo: () => <span>Logo</span>,
+vi.mock('@/lib/platform-admin-auth', () => ({
+  getPlatformAdminAuth: () => mockGetPlatformAdminAuth(),
 }));
 
-vi.mock('@/components/ui/button', () => ({
-  Button: ({
+vi.mock('./admin-shell', () => ({
+  AdminShell: ({
+    adminEmail,
     children,
-    ...props
-  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button type="button" {...props}>
+  }: {
+    adminEmail: string | null;
+    children: ReactNode;
+  }) => (
+    <section data-admin-email={adminEmail ?? ''} data-testid="admin-shell">
       {children}
-    </button>
+    </section>
   ),
-}));
-
-vi.mock('@/components/ui/dropdown-menu', () => ({
-  DropdownMenu: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  DropdownMenuContent: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  DropdownMenuItem: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  DropdownMenuLabel: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  DropdownMenuSeparator: () => <hr />,
-  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-}));
-
-vi.mock('@/components/ui/sheet', () => ({
-  Sheet: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  SheetContent: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  SheetTrigger: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-}));
-
-vi.mock('@/components/ui/tooltip', () => ({
-  Tooltip: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  TooltipContent: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  TooltipProvider: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-  TooltipTrigger: ({ children }: { children: ReactNode }) => (
-    <div>{children}</div>
-  ),
-}));
-
-vi.mock('@/contexts/auth-context', () => ({
-  AuthProvider: ({ children }: { children: ReactNode }) => (
-    <div data-testid="auth-provider">{children}</div>
-  ),
-  useAuth: () => mockUseAuth(),
-}));
-
-vi.mock('@/hooks/use-toast', () => ({
-  useToast: () => ({ toast: mockToast }),
-}));
-
-vi.mock('@/lib/supabase/client', () => ({
-  createClient: () => mockCreateClient(),
 }));
 
 import AdminLayout from './layout';
@@ -107,72 +39,50 @@ import AdminLayout from './layout';
 describe('AdminLayout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseAuth.mockReturnValue({
-      loading: false,
-      signOut: vi.fn(),
-      user: { id: 'user-1', email: 'admin@example.com' },
-    });
-    mockCreateClient.mockReturnValue({
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi.fn().mockResolvedValue({
-              data: { is_platform_admin: true },
-              error: null,
-            }),
-          })),
-        })),
-      })),
+    mockGetPlatformAdminAuth.mockResolvedValue({
+      status: 'authenticated',
+      user: { email: 'admin@example.com', id: 'user-1' },
     });
   });
 
-  it('mounts CsrfInitializer while verifying admin access', () => {
-    mockUseAuth.mockReturnValue({
-      loading: true,
-      signOut: vi.fn(),
-      user: { id: 'user-1', email: 'admin@example.com' },
+  it('renders the admin shell only after server-side admin authorization passes', async () => {
+    const layout = await AdminLayout({
+      children: <div>Admin content</div>,
     });
 
-    render(
-      <AdminLayout>
-        <div>Admin content</div>
-      </AdminLayout>
-    );
+    render(layout);
 
+    expect(mockGetPlatformAdminAuth).toHaveBeenCalledOnce();
     expect(screen.getByTestId('csrf-initializer')).toBeInTheDocument();
-    expect(screen.getByTestId('auth-provider')).toBeInTheDocument();
-    expect(screen.getByText('Verifying admin access...')).toBeInTheDocument();
+    expect(screen.getByTestId('admin-shell')).toHaveAttribute(
+      'data-admin-email',
+      'admin@example.com'
+    );
+    expect(screen.getByText('Admin content')).toBeInTheDocument();
+    expect(mockRedirect).not.toHaveBeenCalled();
   });
 
-  it('mounts the CSRF initializer for verified admin sessions', async () => {
-    render(
-      <AdminLayout>
-        <div>Admin content</div>
-      </AdminLayout>
-    );
+  it('redirects unauthenticated users back to login with the admin return path', async () => {
+    mockGetPlatformAdminAuth.mockResolvedValue({ status: 'unauthenticated' });
 
-    await waitFor(() => {
-      expect(screen.getByText('Admin content')).toBeInTheDocument();
-    });
+    await expect(
+      AdminLayout({
+        children: <div>Admin content</div>,
+      })
+    ).rejects.toThrow('NEXT_REDIRECT:/login?redirect=%2Fadmin');
 
-    expect(screen.getByTestId('csrf-initializer')).toBeInTheDocument();
-    expect(mockPush).not.toHaveBeenCalled();
+    expect(mockRedirect).toHaveBeenCalledWith('/login?redirect=%2Fadmin');
   });
 
-  it('renders the local admin fallback while auth context is pending', () => {
-    mockUseAuth.mockImplementation(() => {
-      throw new Promise(() => {
-        // Intentionally never resolves to keep the local fallback visible.
-      });
-    });
+  it('redirects authenticated non-admin users to the merchant dashboard', async () => {
+    mockGetPlatformAdminAuth.mockResolvedValue({ status: 'forbidden' });
 
-    render(
-      <AdminLayout>
-        <div>Admin content</div>
-      </AdminLayout>
-    );
+    await expect(
+      AdminLayout({
+        children: <div>Admin content</div>,
+      })
+    ).rejects.toThrow('NEXT_REDIRECT:/dashboard');
 
-    expect(screen.getByRole('status')).toHaveTextContent('Loading admin panel');
-    expect(screen.getByTestId('csrf-initializer')).toBeInTheDocument();
+    expect(mockRedirect).toHaveBeenCalledWith('/dashboard');
   });
 });
