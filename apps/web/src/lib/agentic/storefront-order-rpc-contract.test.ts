@@ -85,7 +85,7 @@ describe('agentic storefront order RPC contract', () => {
     expect(sql).not.toMatch(ambiguousCustomerConflictTargetPattern);
   });
 
-  it('resolves authenticated customers by user before guest phone fallback', () => {
+  it('resolves authenticated customers by user before unbound guest phone fallback', () => {
     const sql = readLatestStorefrontOrderRpcMigrationSql();
 
     const userLookupIndex = sql.indexOf('AND c.user_id = p_user_id');
@@ -102,6 +102,7 @@ describe('agentic storefront order RPC contract', () => {
     expect(sql).toContain(
       'IF p_user_id IS NULL AND v_normalized_customer_phone IS NOT NULL THEN'
     );
+    expect(sql).toContain('AND c.user_id IS NULL');
     expect(sql).toContain(
       "v_normalized_customer_phone TEXT := NULLIF(trim(COALESCE(p_customer_phone, '')), '')"
     );
@@ -111,14 +112,14 @@ describe('agentic storefront order RPC contract', () => {
     );
   });
 
-  it('does not write a conflicting phone to a new authenticated customer record', () => {
+  it('does not write a conflicting phone to a new customer record', () => {
     const sql = readLatestStorefrontOrderRpcMigrationSql();
 
     expect(sql).toContain('v_customer_record_phone TEXT;');
     expect(sql).toContain(
       'v_customer_record_phone := v_normalized_customer_phone;'
     );
-    expect(sql).toContain('IF p_user_id IS NOT NULL');
+    expect(sql).toContain('IF v_normalized_customer_phone IS NOT NULL');
     expect(sql).toContain('v_customer_record_phone := NULL;');
     expect(sql).toContain('WHERE existing_phone.merchant_id = p_merchant_id');
     expect(sql).toContain(

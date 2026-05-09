@@ -251,6 +251,7 @@ BEGIN
     FROM customers c
     WHERE c.merchant_id = p_merchant_id
       AND c.phone = v_normalized_customer_phone
+      AND c.user_id IS NULL
     ORDER BY c.id
     LIMIT 1
     FOR UPDATE;
@@ -295,8 +296,7 @@ BEGIN
   ELSE
     v_customer_record_phone := v_normalized_customer_phone;
 
-    IF p_user_id IS NOT NULL
-      AND v_normalized_customer_phone IS NOT NULL
+    IF v_normalized_customer_phone IS NOT NULL
       AND EXISTS (
         SELECT 1
         FROM customers existing_phone
