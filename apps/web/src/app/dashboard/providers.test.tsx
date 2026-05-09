@@ -6,7 +6,6 @@ const appBodyMock = vi.fn(({ children }: { children: React.ReactNode }) => (
   <div data-testid="app-body">{children}</div>
 ));
 
-// Mock all provider dependencies to avoid deep rendering
 vi.mock('@/contexts/auth-context', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="auth-provider">{children}</div>
@@ -14,12 +13,31 @@ vi.mock('@/contexts/auth-context', () => ({
 }));
 
 vi.mock('next-themes', () => ({
-  ThemeProvider: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="theme-provider">{children}</div>
+  ThemeProvider: ({
+    children,
+    nonce,
+  }: {
+    children: React.ReactNode;
+    nonce?: string;
+  }) => (
+    <div data-nonce={nonce} data-testid="theme-provider">
+      {children}
+    </div>
   ),
 }));
 
 vi.mock('@/contexts/NonceProvider', () => ({
+  NonceProvider: ({
+    children,
+    nonce,
+  }: {
+    children: React.ReactNode;
+    nonce?: string;
+  }) => (
+    <div data-nonce={nonce} data-testid="nonce-provider">
+      {children}
+    </div>
+  ),
   useNonce: () => ({ nonce: 'nonce-123' }),
 }));
 
@@ -70,6 +88,32 @@ describe('DashboardProviders', () => {
 
     expect(screen.getByTestId('child-content')).toBeInTheDocument();
     expect(screen.getByText('Dashboard Content')).toBeInTheDocument();
+  });
+
+  it('wraps children in NonceProvider', () => {
+    render(
+      <DashboardProviders nonce="nonce-123">
+        <div>Content</div>
+      </DashboardProviders>
+    );
+
+    const nonceProvider = screen.getByTestId('nonce-provider');
+    expect(nonceProvider).toHaveAttribute('data-nonce', 'nonce-123');
+    expect(nonceProvider).toContainElement(screen.getByTestId('auth-provider'));
+    expect(nonceProvider).toContainElement(screen.getByText('Content'));
+  });
+
+  it('forwards the nonce to ThemeProvider', () => {
+    render(
+      <DashboardProviders nonce="nonce-123">
+        <div>Content</div>
+      </DashboardProviders>
+    );
+
+    expect(screen.getByTestId('theme-provider')).toHaveAttribute(
+      'data-nonce',
+      'nonce-123'
+    );
   });
 
   it('mounts CsrfInitializer for CSRF token initialization', () => {

@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
+import { BlogListingFallback } from '@/app/(storefront)/[slug]/(blog)/blog/BlogListingFallback';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import {
@@ -303,5 +305,9 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
 }
 
 export default function BlogPage(props: PageProps) {
-  return <BlogPageContent {...props} />;
+  return (
+    <Suspense fallback={<BlogListingFallback />}>
+      <BlogPageContent {...props} />
+    </Suspense>
+  );
 }
