@@ -48,7 +48,18 @@ describe('buildLlmBearerAuthHeader', () => {
   it('rejects "Bearer" with no payload, even if whitespace follows', () => {
     expect(buildLlmBearerAuthHeader('Bearer')).toBeNull();
     expect(buildLlmBearerAuthHeader('Bearer   ')).toBeNull();
-    expect(buildLlmBearerAuthHeader('bearer\t')).toBeNull();
+    // Use a regular space (not tab) so this case cleanly tests "no payload"
+    // rather than conflating with the control-character rejection test above.
+    expect(buildLlmBearerAuthHeader('bearer ')).toBeNull();
+  });
+
+  it('rejects tokens longer than 2048 chars (defense-in-depth)', () => {
+    const tooLong = 'a'.repeat(2049);
+    expect(buildLlmBearerAuthHeader(tooLong)).toBeNull();
+    expect(buildLlmBearerAuthHeader(`Bearer ${tooLong}`)).toBeNull();
+    // Boundary: exactly 2048 is allowed.
+    const justRight = 'a'.repeat(2048);
+    expect(buildLlmBearerAuthHeader(justRight)).toBe(`Bearer ${justRight}`);
   });
 
   it('returns a single Authorization header value, not an object', () => {

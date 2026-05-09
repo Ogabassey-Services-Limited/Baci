@@ -1,11 +1,16 @@
 const TOKEN_INVALID_PATTERN = /[\s\p{Cc}]/u;
+// Defense-in-depth: reject implausibly long tokens. Real OAuth Bearer tokens
+// (JWTs, opaque tokens) are well under this — 2048 covers RS512-signed JWTs
+// with reasonable claims while still bounding memory/CPU on this code path.
+const TOKEN_MAX_LENGTH = 2048;
 
 /**
  * Normalizes a Bearer token into an HTTP Authorization header.
  *
  * Accepts a raw token (`opaque-token`) or a full header
  * (`Bearer opaque-token`, case-insensitive). Empty input, whitespace-only,
- * control characters, or `Bearer` with no payload return null.
+ * control characters, `Bearer` with no payload, or tokens longer than
+ * TOKEN_MAX_LENGTH (2048) return null.
  */
 export function buildLlmBearerAuthHeader(token: string): string | null {
   const trimmed = token.trim();
@@ -22,7 +27,11 @@ export function buildLlmBearerAuthHeader(token: string): string | null {
       return null;
     }
     const payload = match[1].trim();
-    if (!payload || TOKEN_INVALID_PATTERN.test(payload)) {
+    if (
+      !payload ||
+      payload.length > TOKEN_MAX_LENGTH ||
+      TOKEN_INVALID_PATTERN.test(payload)
+    ) {
       return null;
     }
     return `Bearer ${payload}`;
@@ -37,7 +46,10 @@ export function buildLlmBearerAuthHeader(token: string): string | null {
   }
 
   // Otherwise treat as a raw token.
-  if (TOKEN_INVALID_PATTERN.test(trimmed)) {
+  if (
+    trimmed.length > TOKEN_MAX_LENGTH ||
+    TOKEN_INVALID_PATTERN.test(trimmed)
+  ) {
     return null;
   }
 

@@ -33,12 +33,15 @@ function httpsOrLocalhostUrl(name: string) {
       (u) => {
         const url = new URL(u);
         const host = url.hostname;
+        // `URL.hostname` for `http://[::1]:11500` is `::1` in spec-compliant
+        // implementations and `[::1]` in some older ones. Accept both forms
+        // defensively rather than betting on the runtime.
         const isLocal =
           host === 'localhost' ||
           host.startsWith('127.') ||
           host === '::1' ||
-          host === '[::1]'; // bracketed IPv6 literal — `new URL('http://[::1]:11500').hostname` returns '[::1]'
-        return u.startsWith('https://') || isLocal;
+          host === '[::1]';
+        return url.protocol === 'https:' || isLocal;
       },
       { message: `${name} must use HTTPS (except for localhost)` }
     );

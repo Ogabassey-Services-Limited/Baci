@@ -178,7 +178,11 @@ function createTextStream(
         }
 
         if (!done && buffer.trim()) {
-          processSseLine(buffer, controller, encoder);
+          // Capture the [DONE] return for parity with the main loop, even
+          // though we're already at end-of-stream — keeps semantics
+          // consistent if a server emits "data: [DONE]\n" without a
+          // trailing newline.
+          done = processSseLine(buffer, controller, encoder);
         }
 
         controller.close();

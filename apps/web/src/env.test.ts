@@ -297,26 +297,38 @@ describe('env LLM server validation', () => {
     vi.stubEnv('LLM_SERVER_URL', 'http://localhost:11500');
     vi.stubEnv('LLM_SERVER_BEARER', 'dev-token');
 
-    const { getLlmServerUrl } = await loadEnvModule();
+    const { getLlmServerUrl, getLlmServerBearer } = await loadEnvModule();
     expect(getLlmServerUrl()).toBe('http://localhost:11500');
+    expect(getLlmServerBearer()).toBe('dev-token');
   });
 
   it('accepts an http://127.0.0.1 LLM_SERVER_URL for dev', async () => {
     vi.stubEnv('LLM_SERVER_URL', 'http://127.0.0.1:11500');
     vi.stubEnv('LLM_SERVER_BEARER', 'dev-token');
 
-    const { getLlmServerUrl } = await loadEnvModule();
+    const { getLlmServerUrl, getLlmServerBearer } = await loadEnvModule();
     expect(getLlmServerUrl()).toBe('http://127.0.0.1:11500');
+    expect(getLlmServerBearer()).toBe('dev-token');
   });
 
   it('accepts an http://[::1] LLM_SERVER_URL for IPv6 loopback dev', async () => {
-    // `new URL('http://[::1]:11500').hostname` returns the bracketed form
-    // '[::1]', not '::1'. The schema's localhost predicate must accept both.
+    // `new URL('http://[::1]:11500').hostname` returns the unbracketed form
+    // '::1' in spec-compliant runtimes and '[::1]' in older ones. The schema's
+    // localhost predicate accepts both.
     vi.stubEnv('LLM_SERVER_URL', 'http://[::1]:11500');
     vi.stubEnv('LLM_SERVER_BEARER', 'dev-token');
 
-    const { getLlmServerUrl } = await loadEnvModule();
+    const { getLlmServerUrl, getLlmServerBearer } = await loadEnvModule();
     expect(getLlmServerUrl()).toBe('http://[::1]:11500');
+    expect(getLlmServerBearer()).toBe('dev-token');
+  });
+
+  it('trims surrounding whitespace from LLM_SERVER_BEARER', async () => {
+    vi.stubEnv('LLM_SERVER_URL', 'https://llm.example.com');
+    vi.stubEnv('LLM_SERVER_BEARER', '   abcdef-bearer   ');
+
+    const { getLlmServerBearer } = await loadEnvModule();
+    expect(getLlmServerBearer()).toBe('abcdef-bearer');
   });
 
   it('rejects production boot with an http:// LLM_SERVER_URL pointing at a non-loopback host', async () => {
@@ -361,6 +373,20 @@ describe('env LLM server validation', () => {
     vi.stubEnv('LLM_SERVER_BEARER', '   ');
 
     await expect(loadEnvModule()).rejects.toThrow(/LLM_SERVER_BEARER/);
+  });
+
+  it('accepts LLM_SERVER_BEARER set without LLM_SERVER_URL (orphan token is harmless)', async () => {
+    // Policy: the schema does not require LLM_SERVER_URL to be set when
+    // LLM_SERVER_BEARER is. The bearer is only consumed by the chat route
+    // when LLM_SERVER_URL is also set, so an orphan bearer is dead code,
+    // not a security issue. Documenting this so a future "must always pair"
+    // change is intentional.
+    delete process.env.LLM_SERVER_URL;
+    vi.stubEnv('LLM_SERVER_BEARER', 'a'.repeat(64));
+
+    const { getLlmServerUrl, getLlmServerBearer } = await loadEnvModule();
+    expect(getLlmServerUrl()).toBeUndefined();
+    expect(getLlmServerBearer()).toBe('a'.repeat(64));
   });
 
   it('allows LLM_SERVER_BEARER to be unset when LLM_SERVER_URL is unset', async () => {
