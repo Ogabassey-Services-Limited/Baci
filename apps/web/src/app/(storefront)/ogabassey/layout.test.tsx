@@ -53,14 +53,14 @@ describe('OgabasseyLayout', () => {
     mockHeaders.mockResolvedValue(new Headers());
   });
 
-  it('delegates to the generic storefront layout with the OgaBassey slug', async () => {
+  it('delegates to the generic storefront layout without forcing a dynamic connection', async () => {
     const result = await OgabasseyLayout({
       children: <p>Home content</p>,
     });
 
     render(result);
 
-    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockConnection).not.toHaveBeenCalled();
     expect(screen.getByTestId('storefront-layout')).toHaveTextContent(
       'Home content'
     );
