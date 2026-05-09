@@ -160,7 +160,8 @@ export async function PATCH(
       .update(updates)
       .eq('id', id)
       .eq('merchant_id', review.merchant_id)
-      .select()
+      // PERFORMANCE: Use explicit column selection instead of .select() to prevent overfetching full review rows on update
+      .select('id, status, merchant_response, merchant_response_at')
       .single();
 
     if (updateError) {
