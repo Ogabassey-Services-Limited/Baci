@@ -9,6 +9,7 @@
  * - Optimistic updates for instant feel
  */
 
+import { dedupeById } from '@baci/shared/lib';
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -22,20 +23,6 @@ import {
   type UseProductsOptions,
 } from '@/hooks/product-utils';
 import { useMerchant } from '@/hooks/use-merchant';
-import type { Product } from '@/types/product';
-
-function dedupeProductsById(products: Product[]) {
-  const seenProductIds = new Set<string>();
-
-  return products.filter((product) => {
-    if (seenProductIds.has(product.id)) {
-      return false;
-    }
-
-    seenProductIds.add(product.id);
-    return true;
-  });
-}
 
 export function useProducts(options: UseProductsOptions = {}) {
   const { data: merchant } = useMerchant();
@@ -53,7 +40,7 @@ export function useProducts(options: UseProductsOptions = {}) {
     enabled: !!merchantId && options.enabled !== false,
   });
 
-  const products = dedupeProductsById(
+  const products = dedupeById(
     query.data?.pages.flatMap((page) => page.products) || []
   );
   const total = query.data?.pages[0]?.total || 0;

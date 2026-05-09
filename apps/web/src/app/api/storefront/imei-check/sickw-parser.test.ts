@@ -1,0 +1,95 @@
+import { describe, expect, it } from 'vitest';
+import { parseSickwResponse } from './sickw-parser';
+
+describe('parseSickwResponse', () => {
+  it('parses html line breaks into structured check fields', () => {
+    const result = parseSickwResponse(
+      [
+        'Model Name: iPhone 15',
+        'Model Number: A3090',
+        'Blacklist Status: Clean',
+        'Find My iPhone: OFF',
+      ].join('<br>')
+    );
+
+    expect(result).toMatchObject({
+      device: 'iPhone 15',
+      modelNumber: 'A3090',
+      blacklistStatus: 'Clean',
+      icloudLock: 'OFF',
+      deviceType: 'apple',
+      verdictType: 'safe',
+    });
+  });
+
+  it('downgrades stolen blacklist results to danger', () => {
+    const result = parseSickwResponse(
+      'Model Name: Samsung S24<br>Blacklist: Reported stolen'
+    );
+
+    expect(result.status).toBe('Blacklisted');
+    expect(result.verdictType).toBe('danger');
+    expect(result.deviceType).toBe('android');
+    expect(result.score).toBeLessThan(100);
+  });
+
+  it('normalizes object payloads from beta provider responses', () => {
+    const result = parseSickwResponse({
+      'Model Name': 'Samsung S24',
+      Blacklist: 'Clean',
+      Extra: 'Ignored',
+    });
+
+    expect(result).toMatchObject({
+      blacklistStatus: 'Clean',
+      device: 'Samsung S24',
+      deviceType: 'android',
+      verdictType: 'safe',
+    });
+  });
+
+  it('sanitizes nested and encoded html from provider fields', () => {
+    const result = parseSickwResponse(
+      'Model Name: &lt;b&gt;iPhone 15&lt;/b&gt;<br>Blacklist Status: <div><p>Clean</p></div>'
+    );
+
+    expect(result.device).toBe('iPhone 15');
+    expect(result.blacklistStatus).toBe('Clean');
+  });
+
+  it('returns incomplete caution data for empty or malformed strings', () => {
+    expect(parseSickwResponse('')).toMatchObject({
+      status: 'Unknown',
+      verdictType: 'caution',
+      score: 90,
+    });
+
+    expect(
+      parseSickwResponse('not a provider key value response')
+    ).toMatchObject({
+      status: 'Unknown',
+      verdictType: 'caution',
+    });
+  });
+
+  it('handles nullish runtime inputs without throwing', () => {
+    expect(parseSickwResponse(null as never)).toMatchObject({
+      status: 'Unknown',
+      verdictType: 'caution',
+    });
+    expect(parseSickwResponse(undefined as never)).toMatchObject({
+      status: 'Unknown',
+      verdictType: 'caution',
+    });
+  });
+
+  it('keeps unknown blacklist values from forcing danger verdicts', () => {
+    const result = parseSickwResponse(
+      'Model Name: Pixel 8<br>Blacklist Status:   Not found   '
+    );
+
+    expect(result.status).toBe('Clean');
+    expect(result.verdictType).toBe('safe');
+    expect(result.deviceType).toBe('android');
+  });
+});

@@ -1,4 +1,5 @@
 import { prioritizeSmartphoneProducts } from '@baci/shared';
+import { dedupeById } from '@baci/shared/lib';
 import { useIsFocused } from '@react-navigation/native';
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
@@ -228,18 +229,7 @@ export default function ProductGrid({
     orderedProducts,
     paginationResetKey,
   });
-  const uniqueVisibleProducts = (() => {
-    const seenProductIds = new Set<string>();
-
-    return visibleProducts.filter((product) => {
-      if (seenProductIds.has(product.id)) {
-        return false;
-      }
-
-      seenProductIds.add(product.id);
-      return true;
-    });
-  })();
+  const uniqueVisibleProducts = dedupeById(visibleProducts);
 
   const currentVariant = viewMode === 'list' ? 'list' : variant;
   const hasRenderableProducts =
