@@ -9,34 +9,38 @@ const migrationsDirectory = resolve(
   '../../../../../supabase/migrations'
 );
 const migrationFilePattern = /^\d{14}.*\.sql$/;
-const storefrontOrderRpcDefinitionPattern =
-  /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+(?:"public"\s*\.\s*"create_storefront_order"|public\.create_storefront_order)\s*\(/i;
+const storefrontOrderRpcNamePattern = String.raw`(?:(?:"public"|public)\s*\.\s*(?:"create_storefront_order"|create_storefront_order)|(?:"create_storefront_order"|create_storefront_order))`;
+const storefrontOrderRpcDefinitionPattern = new RegExp(
+  String.raw`CREATE\s+OR\s+REPLACE\s+FUNCTION\s+${storefrontOrderRpcNamePattern}\s*\(`,
+  'i'
+);
+const storefrontOrderRpcDynamicPatchPattern =
+  /create_storefront_order[\s\S]*(?:pg_get_functiondef|EXECUTE)|(?:pg_get_functiondef|EXECUTE)[\s\S]*create_storefront_order/i;
+const ambiguousCustomerConflictTargetPattern =
+  /ON\s+CONFLICT\s*\(\s*merchant_id\s*,\s*email\s*\)/i;
 
 function readLatestStorefrontOrderRpcMigrationSql() {
-  let latestSql: string | null = null;
   for (const fileName of readdirSync(migrationsDirectory)
     .filter((file) => migrationFilePattern.test(file))
-    .sort()) {
+    .sort()
+    .reverse()) {
     const sql = readFileSync(resolve(migrationsDirectory, fileName), 'utf8');
-    if (storefrontOrderRpcDefinitionPattern.test(sql)) {
-      latestSql = sql;
+    if (
+      storefrontOrderRpcDefinitionPattern.test(sql) ||
+      storefrontOrderRpcDynamicPatchPattern.test(sql)
+    ) {
+      return sql;
     }
   }
 
-  if (!latestSql) {
-    throw new Error('No create_storefront_order migration found');
-  }
-
-  return latestSql;
+  throw new Error('No create_storefront_order migration found');
 }
 
 describe('agentic storefront order RPC contract', () => {
   it('replaces the latest RPC explicitly instead of patching function text dynamically', () => {
     const sql = readLatestStorefrontOrderRpcMigrationSql();
 
-    expect(sql).toContain(
-      'CREATE OR REPLACE FUNCTION public.create_storefront_order('
-    );
+    expect(sql).toMatch(storefrontOrderRpcDefinitionPattern);
     expect(sql).not.toContain('pg_get_functiondef');
     expect(sql).not.toContain('EXECUTE v_updated_definition');
   });
@@ -67,12 +71,10 @@ describe('agentic storefront order RPC contract', () => {
   it('uses a named customer conflict constraint in the latest RPC to avoid output-column ambiguity', () => {
     const sql = readLatestStorefrontOrderRpcMigrationSql();
 
-    expect(sql).toContain(
-      'CREATE OR REPLACE FUNCTION public.create_storefront_order('
-    );
+    expect(sql).toMatch(storefrontOrderRpcDefinitionPattern);
     expect(sql).toContain(
       'ON CONFLICT ON CONSTRAINT customers_merchant_id_email_key'
     );
-    expect(sql).not.toContain('ON CONFLICT (merchant_id, email)');
+    expect(sql).not.toMatch(ambiguousCustomerConflictTargetPattern);
   });
 });
