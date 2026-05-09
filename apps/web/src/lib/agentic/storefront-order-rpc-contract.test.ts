@@ -84,4 +84,24 @@ describe('agentic storefront order RPC contract', () => {
     );
     expect(sql).not.toMatch(ambiguousCustomerConflictTargetPattern);
   });
+
+  it('resolves an existing merchant customer by phone before inserting a new email customer', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    const phoneLookupIndex = sql.indexOf(
+      'AND c.phone = v_normalized_customer_phone'
+    );
+    const customerInsertIndex = sql.indexOf('INSERT INTO customers');
+
+    expect(phoneLookupIndex).toBeGreaterThan(-1);
+    expect(customerInsertIndex).toBeGreaterThan(-1);
+    expect(phoneLookupIndex).toBeLessThan(customerInsertIndex);
+    expect(sql).toContain(
+      "v_normalized_customer_phone TEXT := NULLIF(trim(COALESCE(p_customer_phone, '')), '')"
+    );
+    expect(sql).toContain('v_normalized_customer_phone,');
+    expect(sql).toContain(
+      'WHEN customers.phone = EXCLUDED.phone THEN customers.phone'
+    );
+  });
 });
