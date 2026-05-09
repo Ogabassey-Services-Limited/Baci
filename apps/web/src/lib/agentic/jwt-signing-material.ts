@@ -53,7 +53,17 @@ export function getAgenticJwtSigningMaterial(): AgenticJwtSigningMaterial {
       const jwk = parseSupabaseAgenticPrivateJwk(privateJwk);
       cachedPrivateJwkMaterial = {
         jwk,
-        keyObject: crypto.createPrivateKey({ format: 'jwk', key: jwk }),
+        // Explicit cast: TypeScript 5.9.x (used on CI) treats
+        // `crypto.webcrypto.JsonWebKey & { alg?; kid? }` as nominally
+        // distinct from the base `crypto.webcrypto.JsonWebKey` parameter
+        // even though they're structurally identical. TS 6.x (local) is
+        // happy without the cast. Casting via `as crypto.webcrypto.JsonWebKey`
+        // is safe because `SupabaseAgenticPrivateJwk` literally IS that type
+        // plus optional fields.
+        keyObject: crypto.createPrivateKey({
+          format: 'jwk',
+          key: jwk as crypto.webcrypto.JsonWebKey,
+        }),
         type: 'private-jwk',
       };
       cachedPrivateJwkRaw = privateJwk;
