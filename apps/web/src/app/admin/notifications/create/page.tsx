@@ -36,6 +36,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { apiPost } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import type {
   CreateNotificationInput,
@@ -45,6 +46,12 @@ import type {
   TargetSegment,
   TargetType,
 } from '@/types/notifications';
+
+interface CreateNotificationResponse {
+  merchants_notified?: number;
+  scheduled_for?: string | null;
+  status: 'sent' | 'scheduled' | (string & {});
+}
 
 const typeOptions: {
   value: NotificationType;
@@ -176,18 +183,10 @@ export default function CreateNotificationPage() {
         expires_at: expiresEnabled ? formData.expires_at : undefined,
       };
 
-      const response = await fetch('/api/admin/notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create notification');
-      }
-
-      const result = await response.json();
+      const result = await apiPost<CreateNotificationResponse>(
+        '/api/admin/notifications',
+        payload
+      );
 
       toast({
         title:
@@ -196,8 +195,12 @@ export default function CreateNotificationPage() {
             : 'Notification Scheduled',
         description:
           result.status === 'sent'
-            ? `Sent to ${result.merchants_notified} merchants`
-            : `Scheduled for ${new Date(result.scheduled_for).toLocaleString()}`,
+            ? typeof result.merchants_notified === 'number'
+              ? `Sent to ${result.merchants_notified} merchants`
+              : 'Notification has been sent'
+            : result.scheduled_for
+              ? `Scheduled for ${new Date(result.scheduled_for).toLocaleString()}`
+              : 'Notification has been scheduled',
       });
 
       router.push('/admin/notifications');

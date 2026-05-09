@@ -48,6 +48,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
+import { apiDelete } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import type {
   NotificationType,
@@ -128,13 +129,7 @@ export default function NotificationDetailsPage({
     setIsDeleting(true);
     setShowDeleteDialog(false);
     try {
-      const response = await fetch(`/api/admin/notifications/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete notification');
-      }
+      await apiDelete(`/api/admin/notifications/${id}`);
 
       toast({
         title: 'Deleted',
