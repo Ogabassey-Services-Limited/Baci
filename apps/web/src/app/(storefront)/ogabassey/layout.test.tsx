@@ -53,14 +53,14 @@ describe('OgabasseyLayout', () => {
     mockHeaders.mockResolvedValue(new Headers());
   });
 
-  it('delegates to the generic storefront layout with the OgaBassey slug', async () => {
-    const result = await OgabasseyLayout({
+  it('delegates to the generic storefront layout without forcing a dynamic connection', async () => {
+    const result = OgabasseyLayout({
       children: <p>Home content</p>,
     });
 
     render(result);
 
-    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockConnection).not.toHaveBeenCalled();
     expect(screen.getByTestId('storefront-layout')).toHaveTextContent(
       'Home content'
     );
@@ -74,7 +74,7 @@ describe('OgabasseyLayout', () => {
       new Headers([['x-custom-domain', 'ogabassey.com']])
     );
 
-    const result = await OgabasseyLayout({
+    const result = OgabasseyLayout({
       children: <p>Home content</p>,
     });
 
@@ -89,7 +89,7 @@ describe('OgabasseyLayout', () => {
       new Headers([['host', 'baci-preview.vercel.app']])
     );
 
-    const result = await OgabasseyLayout({
+    const result = OgabasseyLayout({
       children: <p>Home content</p>,
     });
 
