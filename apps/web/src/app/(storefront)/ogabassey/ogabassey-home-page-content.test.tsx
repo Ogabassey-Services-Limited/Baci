@@ -1,12 +1,6 @@
 import { render, screen } from '@testing-library/react';
-import {
-  Children,
-  isValidElement,
-  type ReactElement,
-  type ReactNode,
-} from 'react';
+import type { ReactElement } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getCachedStorefrontHomeProducts } from '@/lib/cached-data';
 
 const { mockHeaders, mockPublishedMerchant } = vi.hoisted(() => ({
   mockHeaders: vi.fn(() => Promise.resolve(new Headers())),
@@ -47,18 +41,11 @@ vi.mock('@/lib/cached-data', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,
-    getCachedStorefrontHomeProducts: vi.fn(() => Promise.resolve([])),
     getRequestScopedMerchant: vi.fn(() =>
       Promise.resolve(mockPublishedMerchant)
     ),
   };
 });
-
-vi.mock('@/lib/cached-categories', () => ({
-  getCachedNavigationCategories: vi.fn(() =>
-    Promise.resolve([{ name: 'Smartphones', slug: 'smartphones' }])
-  ),
-}));
 
 vi.mock('next/headers', () => ({
   headers: () => mockHeaders(),
@@ -74,29 +61,13 @@ vi.mock('next/server', () => ({
   connection: vi.fn(() => Promise.resolve()),
 }));
 
-vi.mock('@/components/analytics/analytics-provider', () => ({
-  AnalyticsProvider: () => <div data-testid="analytics-provider" />,
+vi.mock('@/components/storefront/ogabassey/components/Hero', () => ({
+  Hero: () => <section aria-label="OgaBassey hero">Hero shell</section>,
 }));
 
-vi.mock('@/components/storefront/ogabassey/pages/home', () => ({
-  OgabasseyHomePage: ({
-    products,
-    renderHero,
-    storeSlug,
-  }: {
-    products?: unknown[];
-    renderHero?: boolean;
-    storeSlug?: string;
-  }) => (
-    <div data-testid="ogabassey-home">
-      {storeSlug}:{products?.length ?? 0}:{String(renderHero)}
-    </div>
-  ),
-}));
-
-vi.mock('@/components/storefront/ogabassey/home-product-feed', () => ({
-  createOgabasseyHomeProductFeed: vi.fn((products: unknown[]) =>
-    products.slice(0, 1)
+vi.mock('./ogabassey-home-dynamic-content', () => ({
+  OgabasseyHomeDynamicContent: ({ pathPrefix }: { pathPrefix: string }) => (
+    <div data-testid="dynamic-content">{pathPrefix}</div>
   ),
 }));
 
@@ -123,103 +94,42 @@ vi.mock('next/link', () => ({
 }));
 
 import { notFound } from 'next/navigation';
-import { createOgabasseyHomeProductFeed } from '@/components/storefront/ogabassey/home-product-feed';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { OgabasseyHomePageContent } from './ogabassey-home-page-content';
-
-type StorefrontHomeProduct = Awaited<
-  ReturnType<typeof getCachedStorefrontHomeProducts>
->[number];
-
-function createProduct(): StorefrontHomeProduct {
-  return {
-    id: 'product-1',
-    name: 'iPhone 17 Pro Max',
-    slug: 'iphone-17-pro-max',
-    description: 'Apple flagship phone.',
-    price: 2500000,
-    compare_at_price: null,
-    images: null,
-    category: 'Smartphones',
-    brand: 'Apple',
-    condition: 'new',
-    stock: 4,
-    stock_quantity: null,
-    manage_stock: false,
-    low_stock_threshold: null,
-    product_categories: [],
-  };
-}
-
-interface JsonLdScriptProps {
-  type?: string;
-  dangerouslySetInnerHTML?: {
-    __html: string;
-  };
-  children?: ReactNode;
-}
-
-function findJsonLdScriptElements(
-  node: ReactNode
-): ReactElement<JsonLdScriptProps>[] {
-  if (!isValidElement<JsonLdScriptProps>(node)) {
-    return [];
-  }
-
-  const current =
-    node.type === 'script' && node.props.type === 'application/ld+json'
-      ? [node]
-      : [];
-
-  return [
-    ...current,
-    ...Children.toArray(node.props.children).flatMap((child) =>
-      findJsonLdScriptElements(child)
-    ),
-  ];
-}
 
 describe('OgabasseyHomePageContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockHeaders.mockResolvedValue(new Headers());
-    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([]);
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(
       mockPublishedMerchant
     );
   });
 
-  it('renders the OgaBassey homepage without the generic storefront renderer', async () => {
-    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
-      createProduct(),
-    ]);
-
+  it('renders the hero after the publication guard and streams dynamic content separately', async () => {
     const result = await OgabasseyHomePageContent();
 
-    render(result as React.ReactElement);
+    render(result as ReactElement);
 
-    expect(screen.getByTestId('analytics-provider')).toBeInTheDocument();
-    expect(screen.getByTestId('ogabassey-home')).toHaveTextContent(
-      'ogabassey:1:true'
-    );
-    expect(createOgabasseyHomeProductFeed).toHaveBeenCalledWith(
-      expect.arrayContaining([expect.objectContaining({ id: 'product-1' })])
-    );
-    expect(screen.getByRole('link', { name: 'Smartphones' })).toHaveAttribute(
-      'href',
-      '/ogabassey/smartphones'
+    expect(
+      screen.getByRole('region', { name: 'OgaBassey hero' })
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('dynamic-content')).toHaveTextContent(
+      '/ogabassey'
     );
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
   });
 
-  it('can omit the hero when the static route renders it before the dynamic boundary', async () => {
-    // beforeEach keeps the dynamic content feed empty so this assertion focuses on renderHero.
+  it('can omit the hero when another route shell renders it before dynamic content', async () => {
     const result = await OgabasseyHomePageContent({ renderHero: false });
 
-    render(result as React.ReactElement);
+    render(result as ReactElement);
 
-    expect(screen.getByTestId('ogabassey-home')).toHaveTextContent(
-      'ogabassey:0:false'
+    expect(
+      screen.queryByRole('region', { name: 'OgaBassey hero' })
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('dynamic-content')).toHaveTextContent(
+      '/ogabassey'
     );
   });
 
@@ -230,13 +140,10 @@ describe('OgabasseyHomePageContent', () => {
 
     const result = await OgabasseyHomePageContent();
 
-    render(result as React.ReactElement);
+    render(result as ReactElement);
 
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey.com');
-    expect(screen.getByRole('link', { name: 'All Products' })).toHaveAttribute(
-      'href',
-      '/products'
-    );
+    expect(screen.getByTestId('dynamic-content')).toBeEmptyDOMElement();
   });
 
   it('falls back to the OgaBassey slug when only a deployment host is present', async () => {
@@ -249,35 +156,6 @@ describe('OgabasseyHomePageContent', () => {
     expect(getRequestScopedMerchant).toHaveBeenCalledWith('ogabassey');
   });
 
-  it('emits raw parsable JSON-LD scripts', async () => {
-    vi.mocked(getRequestScopedMerchant).mockResolvedValueOnce({
-      ...mockPublishedMerchant,
-      business_name: 'Oga & Bassey',
-    });
-    vi.mocked(getCachedStorefrontHomeProducts).mockResolvedValue([
-      createProduct(),
-    ]);
-
-    const result = await OgabasseyHomePageContent();
-
-    const { container } = render(result as React.ReactElement);
-    const scripts = container.querySelectorAll(
-      'script[type="application/ld+json"]'
-    );
-
-    const scriptElements = findJsonLdScriptElements(result as React.ReactNode);
-
-    expect(scriptElements).toHaveLength(2);
-    for (const scriptElement of scriptElements) {
-      expect(scriptElement.props.children).toBeUndefined();
-      expect(scriptElement.props.dangerouslySetInnerHTML?.__html).toBeTruthy();
-    }
-    expect(scripts).toHaveLength(2);
-    expect(scripts[0]?.innerHTML).not.toContain('&amp;');
-    expect(() => JSON.parse(scripts[0]?.innerHTML || '')).not.toThrow();
-    expect(() => JSON.parse(scripts[1]?.innerHTML || '')).not.toThrow();
-  });
-
   it('shows the unpublished storefront state when production store is disabled', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValueOnce({
       ...mockPublishedMerchant,
@@ -286,11 +164,14 @@ describe('OgabasseyHomePageContent', () => {
 
     const result = await OgabasseyHomePageContent();
 
-    render(result as React.ReactElement);
+    render(result as ReactElement);
 
     expect(screen.getByTestId('store-not-published')).toHaveTextContent(
       'OgaBassey'
     );
+    expect(
+      screen.queryByRole('region', { name: 'OgaBassey hero' })
+    ).not.toBeInTheDocument();
   });
 
   it('returns 404 when merchant lookup is null', async () => {
