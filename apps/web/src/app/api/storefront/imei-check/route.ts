@@ -13,42 +13,6 @@ if (!SICKW_API_KEY) {
 
 // Service tiers with pricing (cost to us, we can markup for profit)
 const IMEI_SERVICE_TIERS = {
-  basic: {
-    id: '1',
-    name: 'Basic Check',
-    description: 'Device model identification',
-    price: 100, // ₦100 to customer
-    cost: 0.02, // $0.02 API cost
-    features: ['Device Model', 'Model Number'],
-    checksIncluded: ['device', 'modelNumber'],
-  },
-  blacklist: {
-    id: '2',
-    name: 'Blacklist Check',
-    description: 'Is this phone reported stolen?',
-    price: 300, // ₦300 to customer
-    cost: 0.04, // $0.04 API cost
-    features: ['Device Model', 'Blacklist Status', 'GSMA Database'],
-    checksIncluded: ['device', 'modelNumber', 'blacklistStatus'],
-  },
-  carrier: {
-    id: '25',
-    name: 'Carrier Check',
-    description: 'Network lock & carrier info',
-    price: 500, // ₦500 to customer
-    cost: 0.05, // $0.05 API cost
-    features: ['Device Model', 'Original Carrier', 'SIM Lock Status'],
-    checksIncluded: ['device', 'modelNumber', 'carrier', 'simLock'],
-  },
-  icloud: {
-    id: '4',
-    name: 'iCloud Check',
-    description: 'Find My iPhone status',
-    price: 800, // ₦800 to customer
-    cost: 0.08, // $0.08 API cost
-    features: ['Device Model', 'iCloud Lock', 'Find My iPhone'],
-    checksIncluded: ['device', 'modelNumber', 'icloud'],
-  },
   full: {
     id: '61',
     name: 'Full Verification',
@@ -56,22 +20,240 @@ const IMEI_SERVICE_TIERS = {
     price: 1500, // ₦1,500 to customer
     cost: 0.1, // $0.10 API cost
     features: [
-      'Device Model',
-      'iCloud Status',
-      'Blacklist Check',
-      'Carrier Info',
-      'SIM Lock',
+      'Device Model & Number',
+      'Serial Number',
+      'iCloud / Find My Status',
+      'Blacklist / Stolen Status',
+      'Carrier / Network Info',
+      'SIM Lock Status',
+      'Activation Status',
+      'Purchase Date',
+      'Purchase Country',
+      'Warranty Status',
+      'Refurbished / Demo Flags',
       'Trust Score',
+      'Buy / No-Buy Verdict',
     ],
     checksIncluded: [
       'device',
       'modelNumber',
+      'serialNumber',
       'icloud',
       'blacklistStatus',
       'carrier',
       'simLock',
+      'activationStatus',
+      'purchaseDate',
+      'purchaseCountry',
+      'warranty',
+      'refurbished',
+      'demoUnit',
+      'verdict',
     ],
     recommended: true,
+  },
+  activation: {
+    id: '88',
+    name: 'Non-Active Status PRO',
+    description: 'Check whether an Apple device has been activated',
+    price: 700, // ₦700 to customer
+    cost: 0.04, // $0.04 API cost
+    features: [
+      'Activation Status',
+      'Purchase Date',
+      'Purchase Country',
+      'Warranty Status',
+      'Model / Serial',
+    ],
+    checksIncluded: [
+      'device',
+      'modelNumber',
+      'serialNumber',
+      'activationStatus',
+      'purchaseDate',
+      'purchaseCountry',
+      'warranty',
+    ],
+  },
+  basic: {
+    id: '203',
+    name: 'Quick ID',
+    description: 'Identify brand and model from IMEI or serial',
+    price: 300, // ₦300 to customer
+    cost: 0.02, // $0.02 API cost
+    features: ['Brand', 'Device Model', 'Model Number'],
+    checksIncluded: ['device', 'modelNumber'],
+  },
+  blacklist: {
+    id: '54',
+    name: 'Stolen Check',
+    description: 'Is this phone reported stolen?',
+    price: 700, // ₦700 to customer
+    cost: 0.04, // $0.04 API cost
+    features: ['Device Model', 'Blacklist Status', 'GSMA Database'],
+    checksIncluded: ['device', 'modelNumber', 'blacklistStatus'],
+  },
+  blacklistPro: {
+    id: '6',
+    name: 'Stolen Check PRO',
+    description: 'Deeper worldwide lost/stolen blacklist lookup',
+    price: 2000, // ₦2,000 to customer
+    cost: 0.12, // $0.12 API cost
+    features: ['Worldwide Blacklist', 'Lost/Stolen Status', 'GSMA Database'],
+    checksIncluded: ['device', 'modelNumber', 'blacklistStatus'],
+  },
+  carrier: {
+    id: '103',
+    name: 'Network Check',
+    description: 'iPhone carrier and network info',
+    price: 1000, // ₦1,000 to customer
+    cost: 0.06, // $0.06 API cost
+    features: ['Original Carrier', 'Network Info', 'Device Model'],
+    checksIncluded: ['device', 'modelNumber', 'carrier'],
+  },
+  simLock: {
+    id: '8',
+    name: 'SIM Lock',
+    description: 'Check if the iPhone is locked to one carrier',
+    price: 500, // ₦500 to customer
+    cost: 0.025, // $0.025 API cost
+    features: ['SIM Lock Status', 'Carrier Lock Risk', 'Device Model'],
+    checksIncluded: ['device', 'modelNumber', 'simLock'],
+  },
+  icloud: {
+    id: '3',
+    name: 'Find My Check',
+    description: 'Find My iPhone status',
+    price: 300, // ₦300 to customer
+    cost: 0.02, // $0.02 API cost
+    features: ['Find My Status', 'iCloud Lock Risk', 'Device Model'],
+    checksIncluded: ['device', 'modelNumber', 'icloud'],
+  },
+  icloudPro: {
+    id: '66',
+    name: 'iCloud Lost Check PRO',
+    description: 'Clean/lost iCloud status for iPhone and Mac',
+    price: 3500, // ₦3,500 to customer
+    cost: 0.22, // $0.22 API cost
+    features: ['Clean/Lost Status', 'iCloud Risk', 'iPhone & Mac Support'],
+    checksIncluded: ['device', 'modelNumber', 'icloud'],
+  },
+  carrierFmi: {
+    id: '78',
+    name: 'Network + Find My',
+    description: 'Carrier and Find My status in one Apple check',
+    price: 1300, // ₦1,300 to customer
+    cost: 0.08, // $0.08 API cost
+    features: ['Carrier Info', 'Find My Status', 'Device Model'],
+    checksIncluded: ['device', 'modelNumber', 'carrier', 'icloud'],
+  },
+  appleBasic: {
+    id: '30',
+    name: 'Apple Basic Info',
+    description: 'Basic Apple model information',
+    price: 800, // ₦800 to customer
+    cost: 0.05, // $0.05 API cost
+    features: ['Apple Model', 'Model Number', 'Device Family'],
+    checksIncluded: ['device', 'modelNumber'],
+  },
+  serialInfo: {
+    id: '26',
+    name: 'Serial Info',
+    description: 'Apple serial lookup',
+    price: 200, // ₦200 to customer
+    cost: 0.01, // $0.01 API cost
+    features: ['Serial Number', 'Apple Device Info', 'Model Details'],
+    checksIncluded: ['device', 'modelNumber', 'serialNumber'],
+  },
+  replacementHistory: {
+    id: '29',
+    name: 'Replacement History',
+    description: 'Apple replacement and repair history',
+    price: 11500, // ₦11,500 to customer
+    cost: 0.7, // $0.70 API cost
+    features: ['Replacement History', 'Repair History', 'Apple Records'],
+    checksIncluded: ['device', 'modelNumber'],
+  },
+  demoUnit: {
+    id: '85',
+    name: 'Demo Unit Check',
+    description: 'Check whether the device is a retail demo unit',
+    price: 3300, // ₦3,300 to customer
+    cost: 0.2, // $0.20 API cost
+    features: ['Demo Unit Status', 'Retail Demo Risk', 'Apple Device Info'],
+    checksIncluded: ['device', 'modelNumber', 'demoUnit'],
+  },
+  mdm: {
+    id: '81',
+    name: 'MDM Lock Check',
+    description: 'Company or school management lock risk',
+    price: 5000, // ₦5,000 to customer
+    cost: 0.3, // $0.30 API cost
+    features: ['MDM Status', 'Management Lock Risk', 'Apple Device Info'],
+    checksIncluded: ['device', 'modelNumber'],
+  },
+  samsung: {
+    id: '80',
+    name: 'Samsung Info',
+    description: 'Basic Samsung device info',
+    price: 1000, // ₦1,000 to customer
+    cost: 0.06, // $0.06 API cost
+    features: ['Samsung Model', 'Device Info', 'IMEI Lookup'],
+    checksIncluded: ['device', 'modelNumber'],
+  },
+  samsungPro: {
+    id: '1',
+    name: 'Samsung Info PRO',
+    description: 'Detailed Samsung device info',
+    price: 1500, // ₦1,500 to customer
+    cost: 0.1, // $0.10 API cost
+    features: ['Samsung Model', 'Detailed Device Info', 'IMEI Lookup'],
+    checksIncluded: ['device', 'modelNumber'],
+  },
+  miLock: {
+    id: '206',
+    name: 'Mi Lock Check',
+    description: 'Xiaomi, Redmi and Poco account lock status',
+    price: 1500, // ₦1,500 to customer
+    cost: 0.1, // $0.10 API cost
+    features: ['Mi Lock Status', 'Xiaomi / Redmi / Poco', 'Device Info'],
+    checksIncluded: ['device', 'modelNumber'],
+  },
+  miLostPro: {
+    id: '58',
+    name: 'Mi Lost Check PRO',
+    description: 'Xiaomi, Redmi and Poco clean/lost status',
+    price: 8000, // ₦8,000 to customer
+    cost: 0.5, // $0.50 API cost
+    features: ['Mi Lock Clean/Lost', 'Xiaomi / Redmi / Poco', 'Device Info'],
+    checksIncluded: ['device', 'modelNumber'],
+  },
+  pixel: {
+    id: '42',
+    name: 'Pixel Info',
+    description: 'Google Pixel device info',
+    price: 2000, // ₦2,000 to customer
+    cost: 0.12, // $0.12 API cost
+    features: ['Pixel Model', 'Device Info', 'IMEI Lookup'],
+    checksIncluded: ['device', 'modelNumber'],
+  },
+  oppoRealme: {
+    id: '39',
+    name: 'Oppo/Realme Info',
+    description: 'Oppo, OnePlus and Realme device info',
+    price: 3300, // ₦3,300 to customer
+    cost: 0.2, // $0.20 API cost
+    features: ['Oppo / OnePlus / Realme', 'Device Info', 'IMEI Lookup'],
+    checksIncluded: ['device', 'modelNumber'],
+  },
+  transsion: {
+    id: '45',
+    name: 'Tecno/Infinix Info',
+    description: 'Tecno, Infinix, Itel and Sonim device info',
+    price: 500, // ₦500 to customer
+    cost: 0.03, // $0.03 API cost
+    features: ['Tecno / Infinix / Itel', 'Device Info', 'IMEI Lookup'],
+    checksIncluded: ['device', 'modelNumber'],
   },
 } as const;
 
@@ -90,6 +272,7 @@ interface ImeiCheckResult {
   deviceImage: string;
   score: number;
   // New fields
+  activationStatus?: string;
   serialNumber?: string;
   purchaseDate?: string;
   purchaseCountry?: string;
@@ -210,6 +393,7 @@ function parseSickwResponse(
     '';
 
   // New fields
+  const activationStatus = data['activation status'] || '';
   const serialNumber = data['serial number'] || '';
   const purchaseDate = data['estimated purchase date'] || '';
   const purchaseCountry = data['purchase country'] || '';
@@ -305,6 +489,7 @@ function parseSickwResponse(
     blacklistStatus: blacklist || 'Unknown',
     carrier: carrier || 'Unknown',
     simLock: simLock || 'Unknown',
+    activationStatus: activationStatus || undefined,
     serialNumber: serialNumber || undefined,
     purchaseDate: purchaseDate || undefined,
     purchaseCountry: purchaseCountry || undefined,
@@ -490,6 +675,7 @@ export async function POST(request: NextRequest) {
       carrier: parsed.carrier || 'Unknown',
       deviceImage,
       score: parsed.score || 50,
+      activationStatus: parsed.activationStatus,
       serialNumber: parsed.serialNumber,
       purchaseDate: parsed.purchaseDate,
       purchaseCountry: parsed.purchaseCountry,

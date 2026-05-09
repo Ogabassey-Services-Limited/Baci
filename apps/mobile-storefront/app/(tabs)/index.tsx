@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineNotice } from '@/components/OfflineNotice';
 import { BlockRenderer } from '@/components/storefront/BlockRenderer';
 import { Header } from '@/components/storefront/Header';
+import { HomeServiceCards } from '@/components/storefront/HomeServiceCards';
 import { SearchDropdown } from '@/components/storefront/SearchDropdown';
 // Footer component available but not currently rendered
 // import { Footer } from '@/components/storefront/Footer';
@@ -417,21 +418,34 @@ export default function HomeScreen() {
         scrollEventThrottle={16}
       >
         <Animated.View style={headerSpacerAnimatedStyle} />
-        {blocks.map((block: Block, index: number) => (
-          <View key={block.props?.id || `block-${index}`}>
-            <BlockRenderer
-              blocks={[block]}
-              productGridLoadMoreSignal={
-                block.type === 'ProductGrid' &&
-                block.props?.id === primaryProductGridId
-                  ? productGridLoadMoreSignal
-                  : 0
-              }
-              selectedCategoryId={selectedCategoryId}
-              onCategorySelect={handleCategorySelect}
-            />
-          </View>
-        ))}
+        {blocks.map((block: Block, index: number) => {
+          const isPrimaryProductGrid =
+            block.type === 'ProductGrid' &&
+            block.props?.id === primaryProductGridId;
+          const isUtilityBlock = block.type === 'CategoryRail';
+          const renderedBlock: Block = isPrimaryProductGrid
+            ? { ...block, props: { ...block.props, title: '' } }
+            : block;
+
+          return (
+            <View
+              key={block.props?.id || `block-${index}`}
+              style={styles.blockWrapper}
+            >
+              <BlockRenderer
+                blocks={[renderedBlock]}
+                productGridLoadMoreSignal={
+                  isPrimaryProductGrid ? productGridLoadMoreSignal : 0
+                }
+                selectedCategoryId={selectedCategoryId}
+                onCategorySelect={handleCategorySelect}
+              />
+              {isUtilityBlock ? (
+                <HomeServiceCards placement="belowUtility" />
+              ) : null}
+            </View>
+          );
+        })}
       </Animated.ScrollView>
       <PermissionModal
         visible={showPermissionModal}
@@ -472,5 +486,9 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flexGrow: 1,
+  },
+  blockWrapper: {
+    alignSelf: 'stretch',
+    width: '100%',
   },
 });

@@ -228,10 +228,22 @@ export default function ProductGrid({
     orderedProducts,
     paginationResetKey,
   });
+  const uniqueVisibleProducts = (() => {
+    const seenProductIds = new Set<string>();
+
+    return visibleProducts.filter((product) => {
+      if (seenProductIds.has(product.id)) {
+        return false;
+      }
+
+      seenProductIds.add(product.id);
+      return true;
+    });
+  })();
 
   const currentVariant = viewMode === 'list' ? 'list' : variant;
   const hasRenderableProducts =
-    visibleProducts.length > 0 || products.length > 0;
+    uniqueVisibleProducts.length > 0 || products.length > 0;
   const shouldShowFatalError =
     isError && isFetchedAfterMount && !isLoading && !hasRenderableProducts;
   const shouldShowInitialLoading =
@@ -317,14 +329,14 @@ export default function ProductGrid({
       {headerControls}
 
       <View style={currentVariant === 'list' ? styles.list : styles.grid}>
-        {visibleProducts.length === 0 && !isFetching ? (
+        {uniqueVisibleProducts.length === 0 && !isFetching ? (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyText, { color: palette.gray[400] }]}>
               No products match your criteria.
             </Text>
           </View>
         ) : (
-          visibleProducts.map((product) => (
+          uniqueVisibleProducts.map((product) => (
             <View
               key={product.id}
               style={

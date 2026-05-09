@@ -23,7 +23,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import Colors, { BRAND, RADIUS, SPACING, withAlpha } from '@/constants/Colors';
 import { createLogger } from '@/lib/logger';
 import {
   ImeiCheckApiResponseSchema,
@@ -34,68 +34,304 @@ import {
 
 const log = createLogger('ImeiChecker');
 
+const BRAND_FILTERS = [
+  { id: 'all', label: 'All' },
+  { id: 'apple', label: 'Apple' },
+  { id: 'samsung', label: 'Samsung' },
+  { id: 'android', label: 'Android' },
+] as const;
+
+type BrandFilter = (typeof BRAND_FILTERS)[number]['id'];
+type ServiceBrandScope = BrandFilter;
+
 // Service tiers for IMEI checking
 const SERVICE_TIERS = {
-  basic: {
-    id: 'basic',
-    name: 'Quick ID',
-    tagline: 'What phone is this?',
-    price: 100,
-    priceDisplay: '100',
-    features: ['Device Model', 'Model Number'],
-    icon: 'phone-portrait-outline' as const,
-  },
-  blacklist: {
-    id: 'blacklist',
-    name: 'Stolen Check',
-    tagline: 'Is it reported stolen?',
-    price: 300,
-    priceDisplay: '300',
-    features: ['Device Model', 'Blacklist Status', 'GSMA Database'],
-    icon: 'shield-outline' as const,
-  },
-  carrier: {
-    id: 'carrier',
-    name: 'Network Check',
-    tagline: 'Will my SIM work?',
-    price: 500,
-    priceDisplay: '500',
-    features: ['Device Model', 'Original Carrier', 'SIM Lock Status'],
-    icon: 'globe-outline' as const,
-  },
-  icloud: {
-    id: 'icloud',
-    name: 'iCloud Check',
-    tagline: 'Is Find My on?',
-    price: 800,
-    priceDisplay: '800',
-    features: ['Device Model', 'iCloud Lock', 'Activation Status'],
-    icon: 'lock-closed-outline' as const,
-  },
   full: {
     id: 'full',
     name: 'Full Report',
     tagline: 'Know everything',
     price: 1500,
-    priceDisplay: '1,500',
+    detail:
+      'Best first check for used iPhones: network, Find My and stolen/lost status in one report.',
     features: [
-      'Device Model',
-      'iCloud Status',
-      'Blacklist Check',
-      'Carrier Info',
-      'SIM Lock',
+      'Device Model & Number',
+      'Serial Number',
+      'iCloud / Find My Status',
+      'Blacklist / Stolen Status',
+      'Carrier / Network Info',
+      'SIM Lock Status',
+      'Activation Status',
+      'Purchase Date',
+      'Purchase Country',
+      'Warranty Status',
+      'Refurbished / Demo Flags',
       'Trust Score',
+      'Buy / No-Buy Verdict',
     ],
     icon: 'checkmark-circle-outline' as const,
     recommended: true,
+    brandScopes: ['all'] satisfies ServiceBrandScope[],
+  },
+  activation: {
+    id: 'activation',
+    name: 'Non-Active Status PRO',
+    tagline: 'Is it actually brand new?',
+    price: 700,
+    detail:
+      'Checks if Apple says the device has been activated. Useful when a seller claims a phone is brand new.',
+    features: [
+      'Activation Status',
+      'Purchase Date',
+      'Purchase Country',
+      'Warranty Status',
+      'Model / Serial',
+    ],
+    icon: 'sparkles-outline' as const,
+    brandScopes: ['apple'] satisfies ServiceBrandScope[],
+  },
+  blacklist: {
+    id: 'blacklist',
+    name: 'Stolen Check',
+    tagline: 'Is it reported stolen?',
+    price: 700,
+    detail: 'Checks worldwide lost/stolen blacklist records before you pay.',
+    features: ['Device Model', 'Blacklist Status', 'GSMA Database'],
+    icon: 'shield-outline' as const,
+    brandScopes: ['all'] satisfies ServiceBrandScope[],
+  },
+  blacklistPro: {
+    id: 'blacklistPro',
+    name: 'Stolen Check PRO',
+    tagline: 'Deeper blacklist lookup',
+    price: 2000,
+    detail:
+      'A deeper worldwide blacklist check for higher-risk devices or expensive purchases.',
+    features: ['Worldwide Blacklist', 'Lost/Stolen Status', 'GSMA Database'],
+    icon: 'shield-checkmark-outline' as const,
+    brandScopes: ['all'] satisfies ServiceBrandScope[],
+  },
+  carrier: {
+    id: 'carrier',
+    name: 'Network Check',
+    tagline: 'Will my SIM work?',
+    price: 1000,
+    detail:
+      'Shows the iPhone carrier/network so you know what network it belongs to.',
+    features: ['Original Carrier', 'Network Info', 'Device Model'],
+    icon: 'globe-outline' as const,
+    brandScopes: ['apple'] satisfies ServiceBrandScope[],
+  },
+  simLock: {
+    id: 'simLock',
+    name: 'SIM Lock',
+    tagline: 'Can it use any SIM?',
+    price: 500,
+    detail:
+      'Checks whether the iPhone is locked to one carrier or open for other SIM cards.',
+    features: ['SIM Lock Status', 'Carrier Lock Risk', 'Device Model'],
+    icon: 'phone-portrait-outline' as const,
+    brandScopes: ['apple'] satisfies ServiceBrandScope[],
+  },
+  icloud: {
+    id: 'icloud',
+    name: 'Find My Check',
+    tagline: 'Is Find My on?',
+    price: 300,
+    detail:
+      'Checks whether Find My/iCloud lock is on before you buy the device.',
+    features: ['Find My Status', 'iCloud Lock Risk', 'Device Model'],
+    icon: 'lock-closed-outline' as const,
+    brandScopes: ['apple'] satisfies ServiceBrandScope[],
+  },
+  icloudPro: {
+    id: 'icloudPro',
+    name: 'iCloud Lost Check PRO',
+    tagline: 'Clean or lost?',
+    price: 3500,
+    detail:
+      'Checks if an iPhone or Mac is clean or marked lost in iCloud-related records.',
+    features: ['Clean/Lost Status', 'iCloud Risk', 'iPhone & Mac Support'],
+    icon: 'lock-closed-outline' as const,
+    brandScopes: ['apple'] satisfies ServiceBrandScope[],
+  },
+  carrierFmi: {
+    id: 'carrierFmi',
+    name: 'Network + Find My',
+    tagline: 'Carrier and FMI',
+    price: 1300,
+    detail:
+      'Combines carrier/network information with Find My status for Apple devices.',
+    features: ['Carrier Info', 'Find My Status', 'Device Model'],
+    icon: 'globe-outline' as const,
+    brandScopes: ['apple'] satisfies ServiceBrandScope[],
+  },
+  basic: {
+    id: 'basic',
+    name: 'Quick ID',
+    tagline: 'What phone is this?',
+    price: 300,
+    detail: 'Identifies the brand and model from an IMEI or serial number.',
+    features: ['Brand', 'Device Model', 'Model Number'],
+    icon: 'phone-portrait-outline' as const,
+    brandScopes: ['all'] satisfies ServiceBrandScope[],
+  },
+  appleBasic: {
+    id: 'appleBasic',
+    name: 'Apple Basic Info',
+    tagline: 'Apple model details',
+    price: 800,
+    detail: 'Basic Apple device information before running deeper paid checks.',
+    features: ['Apple Model', 'Model Number', 'Device Family'],
+    icon: 'information-circle-outline' as const,
+    brandScopes: ['apple'] satisfies ServiceBrandScope[],
+  },
+  serialInfo: {
+    id: 'serialInfo',
+    name: 'Serial Info',
+    tagline: 'Apple serial lookup',
+    price: 200,
+    detail:
+      'Looks up Apple serial information when the seller provides a serial number.',
+    features: ['Serial Number', 'Apple Device Info', 'Model Details'],
+    icon: 'barcode-outline' as const,
+    brandScopes: ['apple'] satisfies ServiceBrandScope[],
+  },
+  replacementHistory: {
+    id: 'replacementHistory',
+    name: 'Replacement History',
+    tagline: 'Has Apple replaced it?',
+    price: 11500,
+    detail:
+      'Checks whether Apple replacement or repair history exists for the device.',
+    features: ['Replacement History', 'Repair History', 'Apple Records'],
+    icon: 'refresh-outline' as const,
+    brandScopes: ['apple'] satisfies ServiceBrandScope[],
+  },
+  demoUnit: {
+    id: 'demoUnit',
+    name: 'Demo Unit Check',
+    tagline: 'Was it a store demo?',
+    price: 3300,
+    detail: 'Checks whether the device appears to be a retail demo unit.',
+    features: ['Demo Unit Status', 'Retail Demo Risk', 'Apple Device Info'],
+    icon: 'storefront-outline' as const,
+    brandScopes: ['apple'] satisfies ServiceBrandScope[],
+  },
+  mdm: {
+    id: 'mdm',
+    name: 'MDM Lock Check',
+    tagline: 'Company/school lock',
+    price: 5000,
+    detail:
+      'Checks for mobile device management risk, common on company or school-owned devices.',
+    features: ['MDM Status', 'Management Lock Risk', 'Apple Device Info'],
+    icon: 'briefcase-outline' as const,
+    brandScopes: ['apple'] satisfies ServiceBrandScope[],
+  },
+  samsung: {
+    id: 'samsung',
+    name: 'Samsung Info',
+    tagline: 'Samsung device info',
+    price: 1000,
+    detail: 'Basic Samsung device information from IMEI.',
+    features: ['Samsung Model', 'Device Info', 'IMEI Lookup'],
+    icon: 'phone-portrait-outline' as const,
+    brandScopes: ['samsung'] satisfies ServiceBrandScope[],
+  },
+  samsungPro: {
+    id: 'samsungPro',
+    name: 'Samsung Info PRO',
+    tagline: 'Detailed Samsung info',
+    price: 1500,
+    detail: 'A deeper Samsung device information check.',
+    features: ['Samsung Model', 'Detailed Device Info', 'IMEI Lookup'],
+    icon: 'phone-portrait-outline' as const,
+    brandScopes: ['samsung'] satisfies ServiceBrandScope[],
+  },
+  miLock: {
+    id: 'miLock',
+    name: 'Mi Lock Check',
+    tagline: 'Xiaomi account lock',
+    price: 1500,
+    detail: 'Checks Xiaomi, Redmi and Poco account lock status.',
+    features: ['Mi Lock Status', 'Xiaomi / Redmi / Poco', 'Device Info'],
+    icon: 'lock-closed-outline' as const,
+    brandScopes: ['android'] satisfies ServiceBrandScope[],
+  },
+  miLostPro: {
+    id: 'miLostPro',
+    name: 'Mi Lost Check PRO',
+    tagline: 'Clean or lost?',
+    price: 8000,
+    detail:
+      'Checks whether a Xiaomi, Redmi or Poco device appears clean or lost.',
+    features: ['Mi Lock Clean/Lost', 'Xiaomi / Redmi / Poco', 'Device Info'],
+    icon: 'shield-checkmark-outline' as const,
+    brandScopes: ['android'] satisfies ServiceBrandScope[],
+  },
+  pixel: {
+    id: 'pixel',
+    name: 'Pixel Info',
+    tagline: 'Google Pixel details',
+    price: 2000,
+    detail: 'Google Pixel device information from IMEI.',
+    features: ['Pixel Model', 'Device Info', 'IMEI Lookup'],
+    icon: 'phone-portrait-outline' as const,
+    brandScopes: ['android'] satisfies ServiceBrandScope[],
+  },
+  oppoRealme: {
+    id: 'oppoRealme',
+    name: 'Oppo/Realme Info',
+    tagline: 'Oppo, OnePlus, Realme',
+    price: 3300,
+    detail: 'Device information for Oppo, OnePlus and Realme phones.',
+    features: ['Oppo / OnePlus / Realme', 'Device Info', 'IMEI Lookup'],
+    icon: 'phone-portrait-outline' as const,
+    brandScopes: ['android'] satisfies ServiceBrandScope[],
+  },
+  transsion: {
+    id: 'transsion',
+    name: 'Tecno/Infinix Info',
+    tagline: 'Tecno, Infinix, Itel',
+    price: 500,
+    detail: 'Device information for Tecno, Infinix, Itel and Sonim phones.',
+    features: ['Tecno / Infinix / Itel', 'Device Info', 'IMEI Lookup'],
+    icon: 'phone-portrait-outline' as const,
+    brandScopes: ['android'] satisfies ServiceBrandScope[],
   },
 } as const;
 
 type ServiceTier = keyof typeof SERVICE_TIERS;
 
+const PRIMARY_SERVICE_TIERS = [
+  'full',
+  'activation',
+  'blacklist',
+  'carrier',
+] satisfies ServiceTier[];
+const ALL_SERVICE_TIERS = Object.keys(SERVICE_TIERS) as ServiceTier[];
+
+function tierMatchesBrand(tierKey: ServiceTier, brand: BrandFilter): boolean {
+  const scopes: readonly ServiceBrandScope[] =
+    SERVICE_TIERS[tierKey].brandScopes;
+  return brand === 'all' || scopes.includes('all') || scopes.includes(brand);
+}
+
+function getVisibleServiceTiers(
+  brand: BrandFilter,
+  expanded: boolean
+): ServiceTier[] {
+  const baseTiers = expanded ? ALL_SERVICE_TIERS : PRIMARY_SERVICE_TIERS;
+  return baseTiers.filter((tierKey) => tierMatchesBrand(tierKey, brand));
+}
+
 // Using ImeiResult type from validation.ts
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ogabassey.com';
+
+function formatServicePrice(price: number): string {
+  return `₦${price.toLocaleString('en-NG')}`;
+}
 
 export default function ImeiCheckerScreen() {
   const colorScheme = useColorScheme();
@@ -103,6 +339,8 @@ export default function ImeiCheckerScreen() {
 
   const [imei, setImei] = useState('');
   const [selectedTier, setSelectedTier] = useState<ServiceTier>('full');
+  const [selectedBrand, setSelectedBrand] = useState<BrandFilter>('all');
+  const [showAllServices, setShowAllServices] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ImeiResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -161,7 +399,7 @@ export default function ImeiCheckerScreen() {
         'IMEI check API'
       );
 
-      if (!validated || !validated.success) {
+      if (!validated?.success) {
         setError('Invalid response from server. Please try again.');
         return;
       }
@@ -195,6 +433,34 @@ export default function ImeiCheckerScreen() {
   };
 
   const currentTier = SERVICE_TIERS[selectedTier];
+  const visibleServiceTiers = getVisibleServiceTiers(
+    selectedBrand,
+    showAllServices
+  );
+  const displayedServiceTiers =
+    visibleServiceTiers.length > 0
+      ? visibleServiceTiers
+      : PRIMARY_SERVICE_TIERS;
+
+  const handleBrandSelect = (brand: BrandFilter) => {
+    setSelectedBrand(brand);
+    const nextVisibleTiers = getVisibleServiceTiers(brand, showAllServices);
+    if (!nextVisibleTiers.includes(selectedTier)) {
+      setSelectedTier('full');
+    }
+  };
+
+  const handleToggleServices = () => {
+    const nextExpanded = !showAllServices;
+    setShowAllServices(nextExpanded);
+    const nextVisibleTiers = getVisibleServiceTiers(
+      selectedBrand,
+      nextExpanded
+    );
+    if (!nextVisibleTiers.includes(selectedTier)) {
+      setSelectedTier('full');
+    }
+  };
 
   const getVerdictColors = (type: 'safe' | 'caution' | 'danger') => {
     switch (type) {
@@ -244,8 +510,8 @@ export default function ImeiCheckerScreen() {
             style={[
               styles.resultHeader,
               {
-                backgroundColor:
-                  result.status === 'Clean' ? '#F0FDF4' : '#FEF2F2',
+                backgroundColor: colors.card,
+                borderColor: verdictColors.border,
               },
             ]}
           >
@@ -312,7 +578,12 @@ export default function ImeiCheckerScreen() {
           {/* Status Grid */}
           <View style={styles.statusGrid}>
             {/* Blacklist Status */}
-            <View style={[styles.statusCard, { backgroundColor: colors.card }]}>
+            <View
+              style={[
+                styles.statusCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
               <View
                 style={[
                   styles.statusIcon,
@@ -354,8 +625,44 @@ export default function ImeiCheckerScreen() {
               </View>
             </View>
 
+            {result.activationStatus && (
+              <View
+                style={[
+                  styles.statusCard,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.statusIcon,
+                    { backgroundColor: withAlpha(BRAND.primary, 0.1) },
+                  ]}
+                >
+                  <Ionicons name="sparkles" size={20} color={BRAND.primary} />
+                </View>
+                <View style={styles.statusInfo}>
+                  <Text
+                    style={[
+                      styles.statusLabel,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    Activation Status
+                  </Text>
+                  <Text style={[styles.statusValue, { color: colors.text }]}>
+                    {result.activationStatus}
+                  </Text>
+                </View>
+              </View>
+            )}
+
             {/* iCloud Lock */}
-            <View style={[styles.statusCard, { backgroundColor: colors.card }]}>
+            <View
+              style={[
+                styles.statusCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
               <View
                 style={[
                   styles.statusIcon,
@@ -396,7 +703,12 @@ export default function ImeiCheckerScreen() {
             </View>
 
             {/* SIM Lock */}
-            <View style={[styles.statusCard, { backgroundColor: colors.card }]}>
+            <View
+              style={[
+                styles.statusCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
               <View style={[styles.statusIcon, { backgroundColor: '#DBEAFE' }]}>
                 <Ionicons name="globe" size={20} color="#2563EB" />
               </View>
@@ -413,7 +725,12 @@ export default function ImeiCheckerScreen() {
             </View>
 
             {/* Carrier */}
-            <View style={[styles.statusCard, { backgroundColor: colors.card }]}>
+            <View
+              style={[
+                styles.statusCard,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
               <View style={[styles.statusIcon, { backgroundColor: '#EDE9FE' }]}>
                 <Ionicons name="cellular" size={20} color="#7C3AED" />
               </View>
@@ -446,7 +763,16 @@ export default function ImeiCheckerScreen() {
           </View>
 
           {/* Check Another */}
-          <Pressable style={styles.resetButton} onPress={handleReset}>
+          <Pressable
+            style={[
+              styles.resetButton,
+              {
+                backgroundColor: withAlpha(BRAND.primary, 0.06),
+                borderColor: withAlpha(BRAND.primary, 0.18),
+              },
+            ]}
+            onPress={handleReset}
+          >
             <Ionicons name="scan-outline" size={18} color={BRAND.primary} />
             <Text style={[styles.resetButtonText, { color: BRAND.primary }]}>
               Check Another Device
@@ -483,72 +809,117 @@ export default function ImeiCheckerScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Hero Section */}
-          <View style={styles.heroSection}>
-            <View
-              style={[styles.badge, { backgroundColor: `${BRAND.primary}15` }]}
-            >
-              <Ionicons
-                name="shield-checkmark"
-                size={14}
-                color={BRAND.primary}
-              />
-              <Text style={[styles.badgeText, { color: BRAND.primary }]}>
-                Trusted by 10,000+ Buyers
-              </Text>
+          <View
+            style={[
+              styles.heroCard,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <View style={styles.heroHeader}>
+              <View
+                style={[
+                  styles.heroIcon,
+                  { backgroundColor: withAlpha(BRAND.primary, 0.1) },
+                ]}
+              >
+                <Ionicons
+                  name="barcode-outline"
+                  size={24}
+                  color={BRAND.primary}
+                />
+              </View>
+              <View style={styles.heroCopy}>
+                <Text
+                  style={[styles.heroEyebrow, { color: BRAND.primary }]}
+                  numberOfLines={1}
+                >
+                  Device verification
+                </Text>
+                <Text style={[styles.heroTitle, { color: colors.text }]}>
+                  IMEI Checker
+                </Text>
+              </View>
             </View>
-
-            <Text style={[styles.heroTitle, { color: colors.text }]}>
-              Don't Get Scammed.{'\n'}
-              <Text style={{ color: BRAND.primary }}>Verify First.</Text>
-            </Text>
 
             <Text
               style={[styles.heroSubtitle, { color: colors.textSecondary }]}
             >
-              That "Brand New" iPhone might be stolen, iCloud locked, or
-              refurbished. One quick check can save you from losing money.
+              Check blacklist, iCloud and SIM lock status before you pay.
             </Text>
 
             <View style={styles.trustIndicators}>
-              <View style={styles.trustItem}>
-                <Ionicons name="checkmark" size={14} color="#059669" />
-                <Text
-                  style={[styles.trustText, { color: colors.textSecondary }]}
-                >
-                  Instant
-                </Text>
-              </View>
-              <View style={styles.trustItem}>
-                <Ionicons name="checkmark" size={14} color="#059669" />
-                <Text
-                  style={[styles.trustText, { color: colors.textSecondary }]}
-                >
-                  Official DB
-                </Text>
-              </View>
-              <View style={styles.trustItem}>
-                <Ionicons name="checkmark" size={14} color="#059669" />
-                <Text
-                  style={[styles.trustText, { color: colors.textSecondary }]}
-                >
-                  Accurate
-                </Text>
-              </View>
+              {['15-digit check', 'Official status', 'Instant report'].map(
+                (item) => (
+                  <View
+                    key={item}
+                    style={[
+                      styles.trustPill,
+                      { backgroundColor: withAlpha(BRAND.primary, 0.06) },
+                    ]}
+                  >
+                    <Ionicons name="checkmark" size={12} color="#059669" />
+                    <Text
+                      style={[
+                        styles.trustText,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      {item}
+                    </Text>
+                  </View>
+                )
+              )}
             </View>
           </View>
 
           {/* Service Tier Selection */}
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            Choose verification level:
-          </Text>
+          <View style={styles.sectionHeader}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              Report type
+            </Text>
+            <Text style={[styles.sectionMeta, { color: colors.textSecondary }]}>
+              {currentTier.name} - {formatServicePrice(currentTier.price)}
+            </Text>
+          </View>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.tierScroll}
-            contentContainerStyle={styles.tierScrollContent}
-          >
-            {(Object.keys(SERVICE_TIERS) as ServiceTier[]).map((tierKey) => {
+          <View style={styles.brandFilterRow}>
+            {BRAND_FILTERS.map((brand) => {
+              const isSelected = selectedBrand === brand.id;
+
+              return (
+                <Pressable
+                  key={brand.id}
+                  style={[
+                    styles.brandFilterChip,
+                    {
+                      backgroundColor: isSelected
+                        ? withAlpha(BRAND.primary, 0.1)
+                        : colors.card,
+                      borderColor: isSelected ? BRAND.primary : colors.border,
+                    },
+                  ]}
+                  onPress={() => handleBrandSelect(brand.id)}
+                >
+                  <Text
+                    style={[
+                      styles.brandFilterText,
+                      {
+                        color: isSelected ? BRAND.primary : colors.text,
+                      },
+                    ]}
+                  >
+                    {brand.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <View style={styles.tierGrid}>
+            {displayedServiceTiers.map((tierKey) => {
               const tier = SERVICE_TIERS[tierKey];
               const isSelected = selectedTier === tierKey;
 
@@ -558,7 +929,9 @@ export default function ImeiCheckerScreen() {
                   style={[
                     styles.tierCard,
                     {
-                      backgroundColor: colors.card,
+                      backgroundColor: isSelected
+                        ? withAlpha(BRAND.primary, 0.08)
+                        : colors.card,
                       borderColor: isSelected ? BRAND.primary : colors.border,
                     },
                   ]}
@@ -597,25 +970,62 @@ export default function ImeiCheckerScreen() {
                       { color: isSelected ? BRAND.primary : colors.text },
                     ]}
                   >
-                    {tier.priceDisplay}
+                    {formatServicePrice(tier.price)}
                   </Text>
                 </Pressable>
               );
             })}
-          </ScrollView>
+          </View>
+
+          <Pressable
+            style={[
+              styles.expandServicesButton,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+              },
+            ]}
+            onPress={handleToggleServices}
+          >
+            <Text style={[styles.expandServicesText, { color: colors.text }]}>
+              {showAllServices ? 'Show key checks' : 'Show all services'}
+            </Text>
+            <Ionicons
+              name={showAllServices ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={colors.textSecondary}
+            />
+          </Pressable>
 
           {/* Features */}
-          <View style={styles.featuresContainer}>
+          <View
+            style={[
+              styles.featuresContainer,
+              {
+                backgroundColor: withAlpha(BRAND.primary, 0.04),
+                borderColor: withAlpha(BRAND.primary, 0.12),
+              },
+            ]}
+          >
+            <Text style={[styles.featuresLabel, { color: colors.text }]}>
+              Included in {currentTier.name}
+            </Text>
             <Text
-              style={[styles.featuresLabel, { color: colors.textSecondary }]}
+              style={[styles.featuresDetail, { color: colors.textSecondary }]}
             >
-              What's included:
+              {currentTier.detail}
             </Text>
             <View style={styles.featuresList}>
               {currentTier.features.map((feature) => (
                 <View
                   key={feature}
-                  style={[styles.featureTag, { backgroundColor: colors.card }]}
+                  style={[
+                    styles.featureTag,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
+                  ]}
                 >
                   <Ionicons name="checkmark" size={12} color="#059669" />
                   <Text
@@ -632,14 +1042,44 @@ export default function ImeiCheckerScreen() {
           </View>
 
           {/* IMEI Input */}
-          <View style={[styles.inputCard, { backgroundColor: colors.card }]}>
+          <View
+            style={[
+              styles.inputCard,
+              {
+                backgroundColor: colors.card,
+                borderColor: imei.length === 15 ? BRAND.primary : colors.border,
+              },
+            ]}
+          >
+            <View style={styles.inputHeader}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                Enter 15-digit IMEI
+              </Text>
+              <Text
+                style={[
+                  styles.imeiCount,
+                  {
+                    color:
+                      imei.length === 15 ? BRAND.primary : colors.textSecondary,
+                  },
+                ]}
+              >
+                {imei.length}/15 digits
+              </Text>
+            </View>
             <View style={styles.inputWrapper}>
-              <Ionicons
-                name="barcode-outline"
-                size={20}
-                color={colors.textSecondary}
-                style={styles.inputIcon}
-              />
+              <View
+                style={[
+                  styles.inputIcon,
+                  { backgroundColor: withAlpha(BRAND.primary, 0.1) },
+                ]}
+              >
+                <Ionicons
+                  name="barcode-outline"
+                  size={18}
+                  color={BRAND.primary}
+                />
+              </View>
               <TextInput
                 style={[styles.imeiInput, { color: colors.text }]}
                 value={imei}
@@ -664,9 +1104,22 @@ export default function ImeiCheckerScreen() {
               )}
             </View>
 
-            <Text style={[styles.imeiCount, { color: colors.textSecondary }]}>
-              {imei.length}/15 digits
-            </Text>
+            <View
+              style={[
+                styles.inputProgressTrack,
+                { backgroundColor: withAlpha(BRAND.primary, 0.1) },
+              ]}
+            >
+              <View
+                style={[
+                  styles.inputProgressFill,
+                  {
+                    backgroundColor: BRAND.primary,
+                    width: `${(imei.length / 15) * 100}%`,
+                  },
+                ]}
+              />
+            </View>
           </View>
 
           {/* Error */}
@@ -678,10 +1131,22 @@ export default function ImeiCheckerScreen() {
           )}
 
           {/* How to Find IMEI */}
-          <View style={[styles.helpCard, { backgroundColor: colors.card }]}>
-            <Text style={[styles.helpTitle, { color: colors.text }]}>
-              How to find your IMEI:
-            </Text>
+          <View
+            style={[
+              styles.helpCard,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <View style={styles.helpHeader}>
+              <Ionicons
+                name="information-circle-outline"
+                size={18}
+                color={BRAND.primary}
+              />
+              <Text style={[styles.helpTitle, { color: colors.text }]}>
+                How to find your IMEI
+              </Text>
+            </View>
             <View style={styles.helpSteps}>
               <View style={styles.helpStep}>
                 <View style={styles.helpStepNumber}>
@@ -742,7 +1207,7 @@ export default function ImeiCheckerScreen() {
             ) : (
               <>
                 <Text style={styles.verifyButtonText}>
-                  Verify Now - {currentTier.priceDisplay}
+                  Verify Now - {formatServicePrice(currentTier.price)}
                 </Text>
                 <Ionicons name="sparkles" size={18} color="#FFF" />
               </>
@@ -765,73 +1230,123 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: SPACING.sm, // Reduced padding for tighter layout
-    paddingTop: 0,
+    padding: SPACING.md,
+    paddingTop: SPACING.sm,
     paddingBottom: 100,
   },
-  heroSection: {
-    alignItems: 'center',
-    marginBottom: 0,
-    marginTop: -8, // Pull content up significantly
+  heroCard: {
+    borderWidth: 1,
+    borderRadius: RADIUS['2xl'],
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
   },
-  badge: {
+  heroHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SPACING.xs,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.xs,
-    borderRadius: 20,
-    marginBottom: SPACING.sm, // Reduced from MD
+    gap: SPACING.md,
+    marginBottom: SPACING.sm,
   },
-  badgeText: {
+  heroIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: RADIUS.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroCopy: {
+    flex: 1,
+  },
+  heroEyebrow: {
     fontSize: 11,
-    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     textTransform: 'uppercase',
   },
   heroTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    textAlign: 'center',
-    lineHeight: 36,
-    marginBottom: SPACING.sm,
+    fontSize: 24,
+    fontFamily: 'Inter_700Bold',
+    lineHeight: 30,
+    marginTop: 2,
   },
   heroSubtitle: {
     fontSize: 14,
-    textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 21,
     marginBottom: SPACING.md,
   },
   trustIndicators: {
     flexDirection: 'row',
-    gap: SPACING.lg,
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
   },
-  trustItem: {
+  trustPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
   },
   trustText: {
-    fontSize: 12,
+    fontSize: 11,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.sm,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: SPACING.sm,
-    textAlign: 'center',
+    fontSize: 15,
+    fontFamily: 'Inter_700Bold',
   },
-  tierScroll: {
+  sectionMeta: {
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
+  },
+  brandFilterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
     marginBottom: SPACING.md,
   },
-  tierScrollContent: {
-    paddingHorizontal: SPACING.xs,
+  brandFilterChip: {
+    borderWidth: 1,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: 7,
+  },
+  brandFilterText: {
+    fontSize: 12,
+    fontFamily: 'Inter_700Bold',
+  },
+  tierGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: SPACING.sm,
+    marginBottom: SPACING.sm,
   },
   tierCard: {
-    width: 110,
-    padding: SPACING.md,
+    width: '48.8%',
+    minHeight: 124,
+    padding: SPACING.sm,
     borderRadius: RADIUS.lg,
-    borderWidth: 2,
+    borderWidth: 1.5,
+    justifyContent: 'space-between',
+  },
+  expandServicesButton: {
+    flexDirection: 'row',
+    alignSelf: 'center',
     alignItems: 'center',
+    gap: SPACING.xs,
+    borderWidth: 1,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  expandServicesText: {
+    fontSize: 12,
+    fontFamily: 'Inter_700Bold',
   },
   recommendedBadge: {
     position: 'absolute',
@@ -852,73 +1367,107 @@ const styles = StyleSheet.create({
   },
   tierName: {
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     marginTop: SPACING.xs,
-    textAlign: 'center',
   },
   tierTagline: {
     fontSize: 10,
     marginTop: 2,
-    textAlign: 'center',
   },
   tierPrice: {
     fontSize: 14,
-    fontWeight: '700',
+    fontFamily: 'Inter_700Bold',
     marginTop: SPACING.xs,
   },
   featuresContainer: {
+    borderWidth: 1,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
     marginBottom: SPACING.lg,
   },
   featuresLabel: {
     fontSize: 12,
-    marginBottom: SPACING.xs,
-    textAlign: 'center',
+    fontFamily: 'Inter_700Bold',
+    marginBottom: 4,
+  },
+  featuresDetail: {
+    fontSize: 12,
+    lineHeight: 17,
+    marginBottom: SPACING.sm,
   },
   featuresList: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center',
     gap: SPACING.xs,
   },
   featureTag: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    borderWidth: 1,
     paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingVertical: 6,
+    borderRadius: RADIUS.full,
   },
   featureText: {
     fontSize: 11,
   },
   inputCard: {
-    borderRadius: RADIUS.lg,
+    borderWidth: 1.5,
+    borderRadius: RADIUS['2xl'],
     padding: SPACING.md,
     marginBottom: SPACING.md,
+  },
+  inputHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontFamily: 'Inter_700Bold',
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 50,
   },
   inputIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: SPACING.sm,
   },
   imeiInput: {
     flex: 1,
-    fontSize: 18,
+    fontSize: 17,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     letterSpacing: 2,
   },
   imeiCount: {
     fontSize: 11,
-    textAlign: 'right',
-    marginTop: SPACING.xs,
+    fontFamily: 'Inter_700Bold',
+  },
+  inputProgressTrack: {
+    height: 4,
+    borderRadius: RADIUS.full,
+    marginTop: SPACING.sm,
+    overflow: 'hidden',
+  },
+  inputProgressFill: {
+    height: '100%',
+    borderRadius: RADIUS.full,
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
     backgroundColor: '#FEE2E2',
+    borderColor: '#FECACA',
+    borderWidth: 1,
     padding: SPACING.md,
     borderRadius: RADIUS.md,
     marginBottom: SPACING.md,
@@ -929,15 +1478,21 @@ const styles = StyleSheet.create({
     color: '#DC2626',
   },
   helpCard: {
+    borderWidth: 1,
     borderRadius: RADIUS.lg,
     padding: SPACING.md,
     marginBottom: SPACING.md,
   },
+  helpHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+    marginBottom: SPACING.sm,
+  },
   helpTitle: {
     fontSize: 13,
-    fontWeight: '600',
-    marginBottom: SPACING.sm,
-    textAlign: 'center',
+    fontFamily: 'Inter_700Bold',
   },
   helpSteps: {
     flexDirection: 'row',
@@ -997,9 +1552,10 @@ const styles = StyleSheet.create({
   resultHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: SPACING.md, // Reduced from LG
-    borderRadius: RADIUS.lg,
-    marginBottom: SPACING.sm, // Reduced from MD
+    padding: SPACING.md,
+    borderRadius: RADIUS['2xl'],
+    borderWidth: 1,
+    marginBottom: SPACING.md,
   },
   deviceImageContainer: {
     width: 80,
@@ -1059,6 +1615,7 @@ const styles = StyleSheet.create({
   statusCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    borderWidth: 1,
     padding: SPACING.md,
     borderRadius: RADIUS.lg,
     gap: SPACING.md,
@@ -1101,6 +1658,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: SPACING.xs,
+    borderWidth: 1,
+    borderRadius: RADIUS.lg,
     paddingVertical: SPACING.md,
   },
   resetButtonText: {

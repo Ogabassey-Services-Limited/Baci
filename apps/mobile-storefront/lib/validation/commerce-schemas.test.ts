@@ -169,6 +169,9 @@ describe('ImeiResultSchema', () => {
     carrier: 'Unlocked',
     deviceImage: 'https://cdn.example.com/iphone13pro.jpg',
     score: 94,
+    activationStatus: 'Activated',
+    purchaseDate: '2025-09-22',
+    warranty: 'AppleCare+',
     deviceType: 'apple' as const,
     verdict: 'Safe to buy',
     verdictType: 'safe' as const,
@@ -176,6 +179,17 @@ describe('ImeiResultSchema', () => {
 
   it('accepts valid payloads', () => {
     expect(ImeiResultSchema.safeParse(validImeiResult).success).toBe(true);
+  });
+
+  it('accepts payloads when extended API fields are omitted', () => {
+    const {
+      activationStatus: _activationStatus,
+      purchaseDate: _purchaseDate,
+      warranty: _warranty,
+      ...minimalImeiResult
+    } = validImeiResult;
+
+    expect(ImeiResultSchema.safeParse(minimalImeiResult).success).toBe(true);
   });
 
   it('rejects invalid payloads', () => {

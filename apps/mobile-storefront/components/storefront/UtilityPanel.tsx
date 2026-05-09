@@ -11,8 +11,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
+import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { type Category, useCategories } from '@/hooks';
 import { usePrefetchBillers } from '@/hooks/use-vtu-billers';
 
@@ -124,11 +124,7 @@ export function UtilityPanel({
   onCategorySelect,
   slug,
 }: UtilityPanelProps) {
-  const {
-    data: remoteCategories = [],
-    isLoading,
-    error,
-  } = useCategories();
+  const { data: remoteCategories = [], isLoading, error } = useCategories();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -172,6 +168,7 @@ export function UtilityPanel({
     return () => clearInterval(interval);
   }, [isManualUtility]);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: activeUtilityIndex intentionally restarts the promo text transition when the selected utility changes.
   useEffect(() => {
     promoWordProgress.setValue(0);
     Animated.timing(promoWordProgress, {
@@ -215,7 +212,12 @@ export function UtilityPanel({
 
   if (isLoading && categories.length === 0) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
+      <View
+        style={[
+          styles.container,
+          { backgroundColor: colors.card, borderColor: colors.border },
+        ]}
+      >
         <ActivityIndicator size="small" color={BRAND.primary} />
       </View>
     );
@@ -248,11 +250,23 @@ export function UtilityPanel({
   }
 
   return (
-    <View style={showContainer ? [styles.container, { backgroundColor: colors.card, borderColor: colors.border }] : styles.minimalContainer}>
+    <View
+      style={
+        showContainer
+          ? [
+              styles.container,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]
+          : styles.minimalContainer
+      }
+    >
       {/* Dynamic Unified Banner */}
       <View
         testID="utility-panel-promo-banner"
-        style={[styles.promoBanner, { backgroundColor: colors.promoBackground }]}
+        style={[
+          styles.promoBanner,
+          { backgroundColor: colors.promoBackground },
+        ]}
       >
         <View style={{ height: 16, justifyContent: 'center' }}>
           <Text style={[styles.promoText, { color: colors.textSecondary }]}>
@@ -299,7 +313,9 @@ export function UtilityPanel({
 const styles = StyleSheet.create({
   container: {
     marginHorizontal: SPACING.md,
-    marginVertical: SPACING.sm,
+    marginTop: -8,
+    marginBottom: 0,
+    transform: [{ translateY: 8 }],
     borderRadius: 24, // Web: rounded-3xl
     paddingVertical: SPACING.sm,
     borderWidth: 1,
