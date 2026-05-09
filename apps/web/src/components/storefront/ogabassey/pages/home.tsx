@@ -17,15 +17,17 @@ interface HomePageProps {
   storeSlug?: string;
   products?: Product[];
   categories?: { name: string; slug: string }[];
+  renderHero?: boolean;
 }
 
 export const OgabasseyHomePage: React.FC<HomePageProps> = ({
   storeSlug,
   products,
+  renderHero = true,
 }) => {
   return (
     <>
-      <Hero />
+      {renderHero && <Hero />}
 
       {/* Ad Placement: Homepage Strip */}
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 py-4">

@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { OgabasseyHeroPreloads } from '@/components/storefront/ogabassey/components/ogabassey-hero-preloads';
-import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
 import {
   OGABASSEY_APPLE_TOUCH_ICON_URL,
   OGABASSEY_DESCRIPTION,
@@ -68,7 +67,7 @@ export default function OgabasseyStaticHomePage() {
   return (
     <>
       <OgabasseyHeroPreloads />
-      <Suspense fallback={<StorefrontPageSkeleton />}>
+      <Suspense fallback={null}>
         <OgabasseyHomePageContent />
       </Suspense>
     </>
