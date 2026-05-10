@@ -2,7 +2,6 @@ import { generateObject } from 'ai';
 import { type NextRequest, NextResponse } from 'next/server';
 import z from 'zod';
 import {
-  ACTIVE_TEXT_MODEL_NAME,
   AI_RATE_LIMITS,
   activeTextModel,
   checkRateLimit,
@@ -60,15 +59,6 @@ const builderGeminiRequestSchema = z.object({
   currentConfig: aiBuilderConfigSchema,
 });
 
-const BUILDER_GEMINI_RETRY_CONFIG = {
-  maxRetries: 1,
-  initialDelayMs: 750,
-  maxDelayMs: 1500,
-  backoffMultiplier: 2,
-};
-
-const BUILDER_GEMINI_TIMEOUT_MS = 25_000;
-
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -86,39 +76,7 @@ function mergeThemeValue(existingValue: unknown, nextValue: unknown): unknown {
   return merged;
 }
 
-async function runBuilderGeminiWithTimeout<T>(
-  operation: (abortSignal: AbortSignal) => Promise<T>
-): Promise<T> {
-  const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    BUILDER_GEMINI_TIMEOUT_MS
-  );
-
-  try {
-    return await operation(controller.signal);
-  } catch (error) {
-    if (controller.signal.aborted) {
-      const timeoutError = new Error('builder_gemini_timeout');
-      timeoutError.name = 'BuilderGeminiTimeoutError';
-      throw timeoutError;
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
 export async function POST(req: NextRequest) {
-  const requestId = crypto.randomUUID();
-  const aiLogContext: {
-    userId?: string;
-    merchantId?: string;
-    model?: string;
-    promptLength?: number;
-    componentCount?: number;
-  } = {};
-
   try {
     const { valid, response } = await checkCsrfProtection(req);
     if (!valid) {
@@ -155,9 +113,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           error: 'Rate limit exceeded',
-          code: 'rate_limited',
           details: `Please wait ${Math.ceil(rateLimit.resetIn / 1000)} seconds before trying again.`,
-          requestId,
         },
         {
           status: 429,
@@ -196,15 +152,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid prompt' }, { status: 400 });
     }
 
-    Object.assign(aiLogContext, {
-      userId: user.id,
-      merchantId: merchantContext.merchantId,
-      model: ACTIVE_TEXT_MODEL_NAME,
-      promptLength: sanitizedPrompt.length,
-      componentCount: currentConfig.content.length,
-    });
-
-    const builtPrompt = `Current Configuration:
+    // Generate the updated config using Vercel AI SDK with retry logic
+    const result = await withRetry(async () => {
+      return await generateObject({
+        model: activeTextModel,
+        schema: aiBuilderConfigSchema,
+        system: BUILDER_GEMINI_SYSTEM_PROMPT,
+        prompt: `Current Configuration:
 \`\`\`json
 ${JSON.stringify(currentConfig, null, 2)
   .replace(/ignore (previous|all|above|prior)/gi, '[filtered]')
@@ -213,20 +167,9 @@ ${JSON.stringify(currentConfig, null, 2)
 
 User Request: ${sanitizedPrompt}
 
-Please return the complete updated configuration as valid JSON. Make intelligent modifications based on the request while preserving all existing structure and content unless explicitly asked to change or remove it.`;
-
-    // Generate the updated config using Vercel AI SDK with retry logic
-    const result = await runBuilderGeminiWithTimeout((abortSignal) =>
-      withRetry(async () => {
-        return await generateObject({
-          model: activeTextModel,
-          schema: aiBuilderConfigSchema,
-          system: BUILDER_GEMINI_SYSTEM_PROMPT,
-          prompt: builtPrompt,
-          abortSignal,
-        });
-      }, BUILDER_GEMINI_RETRY_CONFIG)
-    );
+Please return the complete updated configuration as valid JSON. Make intelligent modifications based on the request while preserving all existing structure and content unless explicitly asked to change or remove it.`,
+      });
+    });
 
     let updatedConfig = result.object;
 
@@ -258,23 +201,8 @@ Please return the complete updated configuration as valid JSON. Make intelligent
 
     // Validate the structure
     if (!updatedConfig.content || !Array.isArray(updatedConfig.content)) {
-      console.error('Gemini AI Builder Invalid Output:', {
-        requestId,
-        userId: aiLogContext.userId,
-        merchantId: aiLogContext.merchantId,
-        model: aiLogContext.model,
-        promptLength: aiLogContext.promptLength,
-        componentCount: aiLogContext.componentCount,
-        reason: 'missing_content_array',
-      });
-
-      return NextResponse.json(
-        {
-          error: 'AI editor returned an invalid draft',
-          code: 'ai_builder_invalid_output',
-          requestId,
-        },
-        { status: 502 }
+      throw new Error(
+        'Invalid configuration structure: missing or invalid content array'
       );
     }
 
@@ -296,25 +224,18 @@ Please return the complete updated configuration as valid JSON. Make intelligent
     );
   } catch (error) {
     // Log full error details server-side for debugging
-    console.error('Gemini AI Builder Error:', {
-      requestId,
-      userId: aiLogContext.userId,
-      merchantId: aiLogContext.merchantId,
-      model: aiLogContext.model,
-      promptLength: aiLogContext.promptLength,
-      componentCount: aiLogContext.componentCount,
-      errorName: error instanceof Error ? error.name : 'UnknownError',
-      errorMessage: error instanceof Error ? error.message : String(error),
+    console.error('Gemini AI Builder Error:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
     });
-
+    // Return generic error message to client to avoid exposing internal details
     return NextResponse.json(
       {
-        error: 'AI editor is temporarily unavailable',
-        code: 'ai_provider_unavailable',
-        requestId,
+        error: 'Failed to process AI request',
+        details: 'An unexpected error occurred. Please try again later.',
       },
-      { status: 503 }
+      { status: 500 }
     );
   }
 }

@@ -7,7 +7,6 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
-import { createAiJobSchema } from '@/schemas/ai-jobs';
 
 // POST /api/ai-jobs - Create a new AI job
 export async function POST(request: NextRequest) {
@@ -43,39 +42,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const merchantId = merchantContext.merchantId;
-
-    let body: unknown;
-    try {
-      body = await request.json();
-    } catch {
-      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
-    }
-
-    const parsedBody = createAiJobSchema.safeParse(body);
-    if (!parsedBody.success) {
-      return NextResponse.json(
-        { error: 'Invalid request body', details: parsedBody.error.flatten() },
-        { status: 400 }
-      );
-    }
-
-    const { type, input } = parsedBody.data;
-
     // Permission check
     const access = toUserAccess(merchantContext);
-    const requiredPermission =
-      type === 'storefront_layout_generation'
-        ? { resource: 'builder', action: 'edit' }
-        : { resource: 'products', action: 'create' };
-    if (
-      !hasPermission(
-        access,
-        requiredPermission.resource,
-        requiredPermission.action
-      )
-    ) {
+    if (!hasPermission(access, 'products', 'create')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const merchantId = merchantContext.merchantId;
+
+    const body = await request.json();
+    const { type, input } = body;
+
+    if (!type || !input) {
+      return NextResponse.json(
+        { error: 'Missing required fields: type, input' },
+        { status: 400 }
+      );
     }
 
     // Create job
@@ -87,7 +69,7 @@ export async function POST(request: NextRequest) {
         input,
         status: 'pending',
       })
-      .select('id, merchant_id, type, status, input, created_at')
+      .select()
       .single();
 
     if (jobError) {

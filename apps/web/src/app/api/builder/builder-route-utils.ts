@@ -15,7 +15,6 @@ import type {
   BuilderPublishInput,
 } from '@/schemas/builder';
 import { builderConfigSchema } from '@/schemas/builder';
-import { loadAiStorefrontDraftPreview } from './ai-draft-preview';
 
 const MINIMAL_BUILDER_CONFIG: BuilderConfigInput = {
   content: [],
@@ -72,9 +71,6 @@ export interface BuilderLoadPayload {
   degraded: boolean;
   degradedReason: BuilderDegradedReason | null;
   canEdit: boolean;
-  previewMode: 'ai_draft' | null;
-  aiDraftJobId: string | null;
-  canApplyAiDraft: boolean;
 }
 
 export type BuilderLoadResult =
@@ -247,8 +243,7 @@ export async function loadBuilderPayload(
   supabase: SupabaseClient,
   merchantId: string,
   pageSlug: string,
-  canEdit: boolean,
-  aiDraftJobId?: string
+  canEdit: boolean
 ): Promise<BuilderLoadResult> {
   const { data: merchant, error: merchantError } =
     await getMerchantTemplateData(supabase, merchantId);
@@ -260,15 +255,6 @@ export async function loadBuilderPayload(
         { status: 404 }
       ),
     };
-  }
-
-  if (aiDraftJobId) {
-    return loadAiStorefrontDraftPreview(
-      supabase,
-      merchantId,
-      aiDraftJobId,
-      canEdit
-    );
   }
 
   const { data: pageConfig, error: configError } = await getPageConfig(
@@ -315,9 +301,6 @@ export async function loadBuilderPayload(
       degraded: degradedReason !== null,
       degradedReason,
       canEdit: degradedReason === null && canEdit,
-      previewMode: null,
-      aiDraftJobId: null,
-      canApplyAiDraft: false,
     },
   };
 }

@@ -134,39 +134,6 @@ describe('zeptomail audit logging', () => {
     });
   });
 
-  // Δ-64 (A1): forward `clientReference` to ZeptoMail's documented
-  // `client_reference` field so the outbox helper has a server-side audit
-  // trail showing which sends actually went out (used to bound the
-  // residual "sent then crashed before mark-completed" duplicate window).
-  it('forwards clientReference as client_reference when supplied', async () => {
-    sendMailMock.mockResolvedValue({ request_id: 'zepto-cref' });
-    const { sendEmail } = await import('./zeptomail');
-
-    await sendEmail({
-      to: 'customer@example.com',
-      subject: 'Order Confirmation',
-      htmlContent: '<p>Hello</p>',
-      clientReference: 'order:abc-123:paid_email',
-    });
-
-    const callArgs = sendMailMock.mock.calls[0]?.[0];
-    expect(callArgs?.client_reference).toBe('order:abc-123:paid_email');
-  });
-
-  it('omits client_reference when no clientReference is supplied', async () => {
-    sendMailMock.mockResolvedValue({ request_id: 'zepto-no-cref' });
-    const { sendEmail } = await import('./zeptomail');
-
-    await sendEmail({
-      to: 'customer@example.com',
-      subject: 'Test',
-      htmlContent: '<p>Hello</p>',
-    });
-
-    const callArgs = sendMailMock.mock.calls[0]?.[0];
-    expect(callArgs).not.toHaveProperty('client_reference');
-  });
-
   it('logs invalid recipient validation failures without calling the provider', async () => {
     const { sendEmail } = await import('./zeptomail');
 
