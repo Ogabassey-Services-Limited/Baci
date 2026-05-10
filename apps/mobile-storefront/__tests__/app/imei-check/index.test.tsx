@@ -1,5 +1,12 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+
+const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+
+beforeEach(() => {
+  alertSpy.mockClear();
+});
 
 jest.mock('@expo/vector-icons', () => ({
   Ionicons: () => null,
@@ -61,5 +68,19 @@ describe('ImeiCheckerScreen', () => {
     fireEvent.press(screen.getByText('Samsung'));
 
     expect(screen.getByText('Samsung Info PRO')).toBeTruthy();
+  });
+
+  it('alerts the user and skips the request when an invalid IMEI is submitted', () => {
+    render(<ImeiCheckerScreen />);
+
+    const input = screen.getByPlaceholderText('Enter 15-digit IMEI');
+    // 15 digits, but the Luhn checksum is invalid so isValidIMEI() returns false.
+    fireEvent.changeText(input, '123456789012345');
+    fireEvent(input, 'submitEditing');
+
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Invalid IMEI',
+      expect.stringContaining('valid 15-digit IMEI')
+    );
   });
 });

@@ -10,6 +10,7 @@ import type { ImeiCheckResult } from './sickw-parser.types';
 
 const SICKW_API_URL = 'https://sickw.com/api.php';
 const SICKW_API_KEY = process.env.SICKW_API_KEY;
+const SICKW_REQUEST_TIMEOUT_MS = 15_000;
 
 if (!SICKW_API_KEY) {
   console.warn(
@@ -193,10 +194,29 @@ async function requestSickwCheck({
   | { ok: false; response: NextResponse }
 > {
   const apiUrl = `${SICKW_API_URL}?format=json&key=${SICKW_API_KEY}&imei=${imei}&service=${serviceId}`;
-  const response = await fetch(apiUrl, {
-    method: 'GET',
-    headers: { 'User-Agent': 'Baci-IMEI-Checker/1.0' },
-  });
+  let response: Response;
+  try {
+    response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: { 'User-Agent': 'Baci-IMEI-Checker/1.0' },
+      signal: AbortSignal.timeout(SICKW_REQUEST_TIMEOUT_MS),
+    });
+  } catch (err) {
+    const isAbort =
+      err instanceof Error &&
+      (err.name === 'AbortError' || err.name === 'TimeoutError');
+    console.error(
+      '[IMEI Check] SICKW request failed:',
+      isAbort ? 'timeout' : err
+    );
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { success: false, error: 'IMEI check service unavailable' },
+        { status: 503 }
+      ),
+    };
+  }
 
   if (!response.ok) {
     console.error(

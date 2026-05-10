@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetDeviceImage = vi.fn<(device: string) => string>(
   () => 'https://cdn.example.com/device.png'
@@ -26,6 +26,11 @@ describe('POST /api/storefront/imei-check', () => {
     vi.unstubAllEnvs();
     mockGetDeviceImage.mockClear();
     vi.stubGlobal('fetch', vi.fn());
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
   it('rejects unknown service tiers before calling the provider', async () => {
@@ -89,7 +94,7 @@ describe('POST /api/storefront/imei-check', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('returns a 500 when the provider request rejects', async () => {
+  it('returns 503 when the provider request rejects', async () => {
     vi.mocked(fetch).mockRejectedValueOnce(new Error('network down'));
     const { POST } = await importRoute();
 
@@ -98,8 +103,8 @@ describe('POST /api/storefront/imei-check', () => {
     );
     const body = (await response.json()) as { error: string };
 
-    expect(response.status).toBe(500);
-    expect(body.error).toBe('Internal server error');
+    expect(response.status).toBe(503);
+    expect(body.error).toBe('IMEI check service unavailable');
   });
 
   it('maps provider invalid-imei errors to a customer-safe 400', async () => {
@@ -119,5 +124,36 @@ describe('POST /api/storefront/imei-check', () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe('Invalid IMEI number');
+  });
+
+  it('returns 503 when SICKW_API_KEY is not configured', async () => {
+    vi.resetModules();
+    vi.unstubAllEnvs();
+    vi.stubEnv('SICKW_API_KEY', '');
+    const { POST } = await import('./route');
+
+    const response = await POST(
+      createRequest({ imei: '354442067957452', tier: 'full' })
+    );
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(503);
+    expect(body.error).toBe('Service configuration error');
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 when the upstream provider request times out', async () => {
+    const abortError = new Error('Request timed out');
+    abortError.name = 'TimeoutError';
+    vi.mocked(fetch).mockRejectedValueOnce(abortError);
+    const { POST } = await importRoute();
+
+    const response = await POST(
+      createRequest({ imei: '354442067957452', tier: 'full' })
+    );
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(503);
+    expect(body.error).toBe('IMEI check service unavailable');
   });
 });

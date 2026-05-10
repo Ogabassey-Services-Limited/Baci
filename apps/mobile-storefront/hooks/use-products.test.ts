@@ -118,4 +118,20 @@ describe('useProducts', () => {
       ]);
     });
   });
+
+  it('surfaces fetch errors and exposes an empty product list', async () => {
+    mockFetchProductsPage.mockRejectedValueOnce(new Error('network down'));
+    const queryClient = createQueryClient();
+
+    const { result } = renderHook(() => useProducts({ limit: 3 }), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+
+    expect(result.current.error).toBe('network down');
+    expect(result.current.products).toEqual([]);
+  });
 });
