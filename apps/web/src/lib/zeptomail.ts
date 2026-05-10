@@ -86,6 +86,13 @@ interface SendEmailParams {
   emailType?: EmailType;
   fromName?: string;
   auditContext?: EmailAuditContext;
+  // Δ-64 (A1): forwarded to ZeptoMail's documented `client_reference`
+  // field. The outbox helper sets this to `order:<id>:paid_email` so we
+  // have a server-side audit trail showing which sends actually went out
+  // — used to bound the residual "sent then crashed before mark-completed"
+  // duplicate window. Not an idempotency key (ZeptoMail does not support
+  // one); idempotency lives in the payment_side_effects claim row.
+  clientReference?: string;
 }
 
 interface SendEmailWithTemplateParams {
@@ -321,6 +328,7 @@ export async function sendEmail({
   emailType = 'noreply',
   fromName,
   auditContext,
+  clientReference,
 }: SendEmailParams): Promise<EmailResult> {
   const sender = getSenderAddress(emailType, fromName);
 
@@ -404,6 +412,10 @@ export async function sendEmail({
         subject,
         htmlbody: htmlContent,
         ...(textContent && { textbody: textContent }),
+        // Δ-64: forward to ZeptoMail's documented `client_reference` only
+        // when supplied; absent otherwise so unrelated calls don't have
+        // to set it. The omission test asserts this.
+        ...(clientReference && { client_reference: clientReference }),
         ...(replyTo && {
           reply_to: [
             {
