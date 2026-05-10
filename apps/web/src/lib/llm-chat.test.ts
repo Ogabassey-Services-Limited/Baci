@@ -96,6 +96,67 @@ describe('createLlmChatResponse', () => {
     );
   });
 
+  it('preserves query parameters (e.g. tenant=a) when appending the path', async () => {
+    // Regression for the raw-string-concat bug where
+    //   `https://host?tenant=a` + `/v1/chat/completions`
+    // produced `...?tenant=a/v1/chat/completions` (the suffix landed
+    // inside the query string, not after the path).
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(streamFromText('data: [DONE]\n\n')));
+    vi.stubGlobal('fetch', mockFetch);
+
+    await createLlmChatResponse({
+      baseUrl: 'https://llm.example.com?tenant=a',
+      bearer: VALID_BEARER,
+      model: 'gemma-4-e4b',
+      messages: [{ role: 'user', content: 'Hi' }],
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://llm.example.com/v1/chat/completions?tenant=a',
+      expect.anything()
+    );
+  });
+
+  it('preserves fragments when normalizing a /v1 baseUrl', async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(streamFromText('data: [DONE]\n\n')));
+    vi.stubGlobal('fetch', mockFetch);
+
+    await createLlmChatResponse({
+      baseUrl: 'https://llm.example.com/v1#frag',
+      bearer: VALID_BEARER,
+      model: 'gemma-4-e4b',
+      messages: [{ role: 'user', content: 'Hi' }],
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://llm.example.com/v1/chat/completions#frag',
+      expect.anything()
+    );
+  });
+
+  it('works with an http://localhost loopback baseUrl', async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValue(new Response(streamFromText('data: [DONE]\n\n')));
+    vi.stubGlobal('fetch', mockFetch);
+
+    await createLlmChatResponse({
+      baseUrl: 'http://localhost:11500',
+      bearer: VALID_BEARER,
+      model: 'gemma-4-e4b',
+      messages: [{ role: 'user', content: 'Hi' }],
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'http://localhost:11500/v1/chat/completions',
+      expect.anything()
+    );
+  });
+
   // ---------- Bearer auth ----------
 
   it('sends Authorization: Bearer <token> header', async () => {

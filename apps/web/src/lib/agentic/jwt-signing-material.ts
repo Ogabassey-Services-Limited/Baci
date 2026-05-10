@@ -1,9 +1,5 @@
-// Namespace import as a value (not type-only) so `crypto.webcrypto.JsonWebKey`
-// resolves to the exact type `createPrivateKey({ format: 'jwk' })` expects
-// via `JsonWebKeyInput.key` under @types/node 25.x. The global `JsonWebKey`
-// from lib.dom.d.ts is structurally similar but nominally distinct on some
-// CI toolchains, breaking the typecheck.
-// biome-ignore lint/style/useImportType: needs to be a value import — see comment above
+// Namespace import as a value (not type-only) because we use `crypto.createPrivateKey`
+// at runtime and `crypto.KeyObject` / `crypto.webcrypto.JsonWebKey` as types.
 import * as crypto from 'node:crypto';
 import 'server-only';
 import { getSupabaseAgenticJwtPrivateJwk, getSupabaseJwtSecret } from '@/env';
@@ -51,19 +47,18 @@ export function getAgenticJwtSigningMaterial(): AgenticJwtSigningMaterial {
       // Process-scoped cache. Key rotation is picked up when the raw env value changes
       // via redeploy or runtime env refresh.
       const jwk = parseSupabaseAgenticPrivateJwk(privateJwk);
+      // Cast the full input object so we don't have to name the inner `key`
+      // type — that field is `crypto.JsonWebKey` in @types/node@20 (the
+      // version pinned by apps/web) but `crypto.webcrypto.JsonWebKey` in
+      // @types/node@25+ (which gets hoisted in some installs). Casting the
+      // outer `JsonWebKeyInput` shape is portable across both versions.
+      const keyInput = {
+        format: 'jwk',
+        key: jwk,
+      } as unknown as Parameters<typeof crypto.createPrivateKey>[0];
       cachedPrivateJwkMaterial = {
         jwk,
-        // Explicit cast: TypeScript 5.9.x (used on CI) treats
-        // `crypto.webcrypto.JsonWebKey & { alg?; kid? }` as nominally
-        // distinct from the base `crypto.webcrypto.JsonWebKey` parameter
-        // even though they're structurally identical. TS 6.x (local) is
-        // happy without the cast. Casting via `as crypto.webcrypto.JsonWebKey`
-        // is safe because `SupabaseAgenticPrivateJwk` literally IS that type
-        // plus optional fields.
-        keyObject: crypto.createPrivateKey({
-          format: 'jwk',
-          key: jwk as crypto.webcrypto.JsonWebKey,
-        }),
+        keyObject: crypto.createPrivateKey(keyInput),
         type: 'private-jwk',
       };
       cachedPrivateJwkRaw = privateJwk;

@@ -43,16 +43,20 @@ function sanitizeUpstreamErrorText(raw: string): string {
 }
 
 function buildChatCompletionsUrl(baseUrl: string): string {
-  // String-concatenation rather than `new URL('/v1/...', baseUrl)` so a path
-  // prefix on baseUrl (e.g. `https://host/llm-mtp/`) is preserved instead of
-  // replaced. Also normalize `baseUrl` to handle the two real-world shapes:
-  //   1. Plain host: `https://host`               -> append `/v1/chat/completions`
-  //   2. With API prefix: `https://host/v1`       -> append `/chat/completions`
+  // Parse-then-rewrite the pathname (rather than raw string concat) so query
+  // params and fragments survive. A previous implementation concatenated:
+  //   `https://host?tenant=a` + `/v1/chat/completions`
+  //   -> `https://host?tenant=a/v1/chat/completions` (broken)
+  // We also normalize the path to handle the two real-world shapes:
+  //   1. Plain host:        `https://host`     -> `/v1/chat/completions`
+  //   2. With API prefix:   `https://host/v1`  -> `/v1/chat/completions`
   // Without (2) handling, `https://host/v1` would silently become
   // `https://host/v1/v1/chat/completions` (404), the request fails, and every
   // chat falls back to Gemini — a hard-to-spot misconfiguration.
-  const trimmed = baseUrl.replace(/\/+$/, '').replace(/\/v1$/i, '');
-  return `${trimmed}/v1/chat/completions`;
+  const url = new URL(baseUrl);
+  const trimmedPath = url.pathname.replace(/\/+$/, '').replace(/\/v1$/i, '');
+  url.pathname = `${trimmedPath}/v1/chat/completions`;
+  return url.toString();
 }
 
 function cleanModelName(model: string): string {
