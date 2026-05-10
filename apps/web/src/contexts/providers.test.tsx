@@ -12,7 +12,7 @@ const themeProviderMock = vi.fn(
     children: ReactNode;
     forcedTheme?: string;
     nonce?: string;
-  }) => <div data-testid="theme-provider">{children}</div>
+  }) => <section aria-label="Theme Provider">{children}</section>
 );
 
 vi.mock('next-themes', () => ({
@@ -25,13 +25,13 @@ vi.mock('next-themes', () => ({
 
 vi.mock('@/contexts/auth-context', () => ({
   AuthProvider: ({ children }: { children: ReactNode }) => (
-    <div data-testid="auth-provider">{children}</div>
+    <section aria-label="Auth Provider">{children}</section>
   ),
 }));
 
 vi.mock('@/hooks/use-cart', () => ({
   CartProvider: ({ children }: { children: ReactNode }) => (
-    <div data-testid="cart-provider">{children}</div>
+    <section aria-label="Cart Provider">{children}</section>
   ),
 }));
 
@@ -47,9 +47,15 @@ describe('Providers', () => {
       </Providers>
     );
 
-    const themeProvider = screen.getByTestId('theme-provider');
-    const authProvider = screen.getByTestId('auth-provider');
-    const cartProvider = screen.getByTestId('cart-provider');
+    const themeProvider = screen.getByRole('region', {
+      name: 'Theme Provider',
+    });
+    const authProvider = screen.getByRole('region', {
+      name: 'Auth Provider',
+    });
+    const cartProvider = screen.getByRole('region', {
+      name: 'Cart Provider',
+    });
     const content = screen.getByRole('main');
 
     expect(content).toHaveTextContent('App content');

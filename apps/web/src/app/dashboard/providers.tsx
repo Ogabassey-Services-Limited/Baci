@@ -37,6 +37,8 @@ interface DashboardProvidersProps {
   nonce?: string;
 }
 
+type DashboardProvidersContentProps = Omit<DashboardProvidersProps, 'nonce'>;
+
 export function DashboardProviders({
   children,
   initialMerchant,
@@ -59,7 +61,7 @@ function DashboardProvidersContent({
   children,
   initialMerchant,
   initialStaffAccess,
-}: DashboardProvidersProps) {
+}: DashboardProvidersContentProps) {
   const { nonce } = useNonce();
 
   return (
