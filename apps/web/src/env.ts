@@ -1,5 +1,6 @@
 // src/env.ts
 import z from 'zod';
+import { buildLlmBearerAuthHeader } from '@/lib/llm-auth';
 import { supabaseAgenticJwtPrivateJwkStringSchema } from '@/schemas/supabase-agentic-jwt-private-jwk';
 
 /**
@@ -18,6 +19,70 @@ const optionalTrimmedStringSchema = z.preprocess((value) => {
   const trimmed = value.trim();
   return trimmed || undefined;
 }, z.string().optional());
+
+/**
+ * Strict 127.0.0.0/8 hostname matcher. Anchored regex on the URL `hostname`
+ * (already brackets-stripped by the `URL` parser) so only true IPv4 loopback
+ * literals match — `127.example.com`, `127malicious`, `127.0.0.1.evil.com`
+ * are all rejected. Each octet is 0–255; the first is fixed at 127.
+ */
+const IPV4_LOOPBACK_REGEX =
+  /^127\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+
+/**
+ * Returns true for URLs that are safe to reach from this server:
+ *   - `https://...` for any host
+ *   - `http://...` for loopback only (localhost, 127.0.0.0/8, ::1)
+ *
+ * The loopback exception is restricted to the `http:` scheme so callers
+ * cannot smuggle `ftp://localhost` or `file://127.0.0.1` past the check.
+ * Invalid URLs return false rather than throwing so the surrounding Zod
+ * refine produces a clean validation error.
+ *
+ * Exported for direct unit testing — the schema below wraps it for reuse.
+ */
+export function isAllowedLlmServerUrl(rawUrl: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+
+  const protocol = parsed.protocol;
+  // `new URL('http://[::1]:11500').hostname` returns the unbracketed form
+  // '::1' in spec-compliant runtimes (Node ≥18, modern browsers). Older
+  // runtimes returned '[::1]'; accept both defensively. Lowercase to make
+  // 'LOCALHOST' / 'Localhost' equivalent to 'localhost'.
+  const host = parsed.hostname.toLowerCase();
+  const isLoopback =
+    host === 'localhost' ||
+    host === '::1' ||
+    host === '[::1]' ||
+    IPV4_LOOPBACK_REGEX.test(host);
+
+  if (isLoopback) {
+    // HTTPS on loopback is also fine — it's strictly tighter than HTTP.
+    return protocol === 'http:' || protocol === 'https:';
+  }
+
+  return protocol === 'https:';
+}
+
+/**
+ * URL schema that allows HTTP only when pointed at a loopback host.
+ * Reused by every "self-hosted backend on a known host" env var (Ollama,
+ * llama-server, etc.) so the policy is enforced consistently and a future
+ * tweak (e.g. allow `.localhost` TLD or unix sockets) lands in one place.
+ */
+function httpsOrLocalhostUrl(name: string) {
+  return z
+    .string()
+    .url()
+    .refine(isAllowedLlmServerUrl, {
+      message: `${name} must use HTTPS (except for http:// on loopback)`,
+    });
+}
 
 const serverSchema = z
   .object({
@@ -84,21 +149,7 @@ const serverSchema = z
         'https://icrp.cac.gov.ng/name_similarity_app/api/public_search/search'
       ),
     // Ollama (CAC certificate OCR — Gemma 4 on VPS)
-    OLLAMA_BASE_URL: z
-      .string()
-      .url()
-      .refine(
-        (u) => {
-          const url = new URL(u);
-          const isLocal =
-            url.hostname === 'localhost' ||
-            url.hostname.startsWith('127.') ||
-            url.hostname === '::1';
-          return u.startsWith('https://') || isLocal;
-        },
-        { message: 'OLLAMA_BASE_URL must use HTTPS (except for localhost)' }
-      )
-      .optional(),
+    OLLAMA_BASE_URL: httpsOrLocalhostUrl('OLLAMA_BASE_URL').optional(),
     OLLAMA_CAC_MODEL: z.string().default('gemma4:e4b'),
     OLLAMA_BASIC_AUTH: z.string().optional(),
     OLLAMA_STOREFRONT_BASE_URL: z
@@ -128,6 +179,20 @@ const serverSchema = z
       .default(90_000),
     AI_STOREFRONT_GENERATION_ENABLED: booleanStringSchema.default('false'),
 
+    // LLM server (llama.cpp / OpenAI-compatible — Gemma 4 + MTP drafter on VPS)
+    LLM_SERVER_URL: httpsOrLocalhostUrl('LLM_SERVER_URL').optional(),
+    // Blank placeholders are treated as unset; the superRefine below requires
+    // a real bearer only when LLM_SERVER_URL is configured.
+    LLM_SERVER_BEARER: optionalTrimmedStringSchema.refine(
+      (value) =>
+        value === undefined || buildLlmBearerAuthHeader(value) !== null,
+      {
+        message:
+          'LLM_SERVER_BEARER must be a valid bearer token (no control chars, ≤2048 chars, not "BearerXyz")',
+      }
+    ),
+    LLM_CHAT_MODEL: z.string().default('gemma-4-e4b'),
+
     // Jumia Marketplace
     JUMIA_ENVIRONMENT: z.enum(['staging', 'production']).default('staging'),
     JUMIA_CLIENT_ID: z.string().optional(),
@@ -155,6 +220,15 @@ const serverSchema = z
         'SUPABASE_AGENTIC_JWT_PRIVATE_JWK or SUPABASE_JWT_SECRET is required in production',
       path: ['SUPABASE_AGENTIC_JWT_PRIVATE_JWK'],
     });
+  })
+  .superRefine((value, ctx) => {
+    if (value.LLM_SERVER_URL && !value.LLM_SERVER_BEARER) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'LLM_SERVER_BEARER is required when LLM_SERVER_URL is set',
+        path: ['LLM_SERVER_BEARER'],
+      });
+    }
   });
 
 const clientSchema = z.object({
@@ -275,6 +349,9 @@ const getEnv = () => {
         OLLAMA_STOREFRONT_TIMEOUT_MS: process.env.OLLAMA_STOREFRONT_TIMEOUT_MS,
         AI_STOREFRONT_GENERATION_ENABLED:
           process.env.AI_STOREFRONT_GENERATION_ENABLED,
+        LLM_SERVER_URL: process.env.LLM_SERVER_URL,
+        LLM_SERVER_BEARER: process.env.LLM_SERVER_BEARER,
+        LLM_CHAT_MODEL: process.env.LLM_CHAT_MODEL,
       }
     : {};
 
@@ -566,21 +643,21 @@ export const getOllamaBasicAuth = () => {
   return env?.OLLAMA_BASIC_AUTH;
 };
 export const getOllamaStorefrontBaseUrl = () => {
-  if (typeof window !== 'undefined')
+  if (isBrowserRuntime())
     throw new Error(
       'OLLAMA_STOREFRONT_BASE_URL cannot be accessed on the client'
     );
   return env?.OLLAMA_STOREFRONT_BASE_URL;
 };
 export const getOllamaStorefrontBasicAuth = () => {
-  if (typeof window !== 'undefined')
+  if (isBrowserRuntime())
     throw new Error(
       'OLLAMA_STOREFRONT_BASIC_AUTH cannot be accessed on the client'
     );
   return env?.OLLAMA_STOREFRONT_BASIC_AUTH;
 };
 export const getOllamaStorefrontModel = () => {
-  if (typeof window !== 'undefined')
+  if (isBrowserRuntime())
     throw new Error('OLLAMA_STOREFRONT_MODEL cannot be accessed on the client');
   return validateSanitizedModel(
     env.OLLAMA_STOREFRONT_MODEL,
@@ -588,18 +665,33 @@ export const getOllamaStorefrontModel = () => {
   );
 };
 export const getOllamaStorefrontTimeoutMs = () => {
-  if (typeof window !== 'undefined')
+  if (isBrowserRuntime())
     throw new Error(
       'OLLAMA_STOREFRONT_TIMEOUT_MS cannot be accessed on the client'
     );
   return env.OLLAMA_STOREFRONT_TIMEOUT_MS;
 };
 export const isAiStorefrontGenerationEnabled = () => {
-  if (typeof window !== 'undefined')
+  if (isBrowserRuntime())
     throw new Error(
       'AI_STOREFRONT_GENERATION_ENABLED cannot be accessed on the client'
     );
   return env.AI_STOREFRONT_GENERATION_ENABLED;
+};
+export const getLlmServerUrl = () => {
+  if (isBrowserRuntime())
+    throw new Error('LLM_SERVER_URL cannot be accessed on the client');
+  return env?.LLM_SERVER_URL;
+};
+export const getLlmServerBearer = () => {
+  if (isBrowserRuntime())
+    throw new Error('LLM_SERVER_BEARER cannot be accessed on the client');
+  return env?.LLM_SERVER_BEARER;
+};
+export const getLlmChatModel = () => {
+  if (isBrowserRuntime())
+    throw new Error('LLM_CHAT_MODEL cannot be accessed on the client');
+  return validateSanitizedModel(env.LLM_CHAT_MODEL, 'LLM_CHAT_MODEL');
 };
 
 // Deprecated: No longer needed as we validate on import.

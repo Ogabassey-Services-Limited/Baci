@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER,
+  AGENTIC_PAYMENT_PROVIDER_PAY_ON_DELIVERY,
+  AGENTIC_PAYMENT_PROVIDER_PAYSTACK,
+} from '@/config/agentic-payment-methods';
 
 export const agenticCheckoutItemSchema = z.object({
   id: z.string().trim().min(1, 'Item id is required'),
@@ -77,13 +82,38 @@ const paymentMandateSchema = z.object({
   type: z.literal('payment_mandate'),
 });
 
+// Paystack provider accepts either the canonical name (`paystack`) or the
+// manifest-advertised method name (`paystack_bank_transfer`) as an alias, and
+// normalizes the parsed value to the canonical `paystack` so downstream code
+// can keep its `provider === 'paystack'` checks unchanged.
+const paystackPaymentDataSchema = z
+  .object({
+    billing_address: agenticFulfillmentAddressSchema.optional(),
+    provider: z
+      .union([
+        z.literal(AGENTIC_PAYMENT_PROVIDER_PAYSTACK),
+        z.literal(AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER),
+      ])
+      .transform(() => AGENTIC_PAYMENT_PROVIDER_PAYSTACK),
+    token: z.string().trim().min(1),
+  })
+  .strict();
+
+const payOnDeliveryPaymentDataSchema = z
+  .object({
+    billing_address: agenticFulfillmentAddressSchema.optional(),
+    provider: z.literal(AGENTIC_PAYMENT_PROVIDER_PAY_ON_DELIVERY),
+  })
+  .strict();
+
+export const agenticPaymentDataSchema = z.union([
+  paystackPaymentDataSchema,
+  payOnDeliveryPaymentDataSchema,
+]);
+
 export const agenticCheckoutCompleteSchema = z.object({
   buyer: agenticCheckoutBuyerSchema,
-  payment_data: z.object({
-    billing_address: agenticFulfillmentAddressSchema.optional(),
-    provider: z.literal('paystack'),
-    token: z.string().trim().min(1),
-  }),
+  payment_data: agenticPaymentDataSchema,
   completion_authorization: z
     .union([humanConfirmationSchema, paymentMandateSchema])
     .nullish(),

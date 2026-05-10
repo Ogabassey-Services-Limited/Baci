@@ -5,7 +5,7 @@ import { POST } from './route';
 const mocks = vi.hoisted(() => ({
   checkCsrfProtection: vi.fn(),
   checkRateLimit: vi.fn(),
-  getAuthenticatedUser: vi.fn(),
+  createClient: vi.fn(),
   getMerchantForApiRequest: vi.fn(),
 }));
 
@@ -17,8 +17,8 @@ vi.mock('@/lib/rate-limiter', () => ({
   checkRateLimit: mocks.checkRateLimit,
 }));
 
-vi.mock('@/lib/supabase/mobile-auth', () => ({
-  getAuthenticatedUser: mocks.getAuthenticatedUser,
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: mocks.createClient,
 }));
 
 vi.mock('@/lib/get-merchant-for-api-request', async () => {
@@ -48,6 +48,12 @@ function createApplySupabaseMock(options?: {
   });
 
   return {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({
+        data: { user: { id: 'user-1' } },
+        error: null,
+      }),
+    },
     rpc,
     from: vi.fn((table: string) => {
       if (table === 'ai_jobs') {
@@ -120,12 +126,24 @@ describe('POST /api/ai-jobs/[jobId]/apply', () => {
     });
   });
 
+  it('returns 401 when the web session is missing', async () => {
+    const supabase = createApplySupabaseMock();
+    supabase.auth.getUser.mockResolvedValue({
+      data: { user: null },
+      error: null,
+    });
+    mocks.createClient.mockResolvedValue(supabase);
+
+    const response = await POST(createApplyRequest(), routeContext());
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: 'Unauthorized' });
+    expect(mocks.checkCsrfProtection).not.toHaveBeenCalled();
+  });
+
   it('applies a fresh AI draft with the atomic RPC', async () => {
     const supabase = createApplySupabaseMock();
-    mocks.getAuthenticatedUser.mockResolvedValue({
-      user: { id: 'user-1' },
-      supabase,
-    });
+    mocks.createClient.mockResolvedValue(supabase);
 
     const response = await POST(createApplyRequest(), routeContext());
 
@@ -147,10 +165,7 @@ describe('POST /api/ai-jobs/[jobId]/apply', () => {
   it('returns 429 when the apply action is rate limited', async () => {
     const supabase = createApplySupabaseMock();
     mocks.checkRateLimit.mockResolvedValue(false);
-    mocks.getAuthenticatedUser.mockResolvedValue({
-      user: { id: 'user-1' },
-      supabase,
-    });
+    mocks.createClient.mockResolvedValue(supabase);
 
     const response = await POST(createApplyRequest(), routeContext());
 
@@ -164,10 +179,7 @@ describe('POST /api/ai-jobs/[jobId]/apply', () => {
 
   it('returns 400 for malformed JSON bodies', async () => {
     const supabase = createApplySupabaseMock();
-    mocks.getAuthenticatedUser.mockResolvedValue({
-      user: { id: 'user-1' },
-      supabase,
-    });
+    mocks.createClient.mockResolvedValue(supabase);
 
     const response = await POST(
       createApplyRequest('{bad json'),
@@ -183,10 +195,7 @@ describe('POST /api/ai-jobs/[jobId]/apply', () => {
     const supabase = createApplySupabaseMock({
       pageUpdatedAt: '2026-04-28T10:15:00.000Z',
     });
-    mocks.getAuthenticatedUser.mockResolvedValue({
-      user: { id: 'user-1' },
-      supabase,
-    });
+    mocks.createClient.mockResolvedValue(supabase);
 
     const response = await POST(createApplyRequest(), routeContext());
 
@@ -201,10 +210,7 @@ describe('POST /api/ai-jobs/[jobId]/apply', () => {
     const supabase = createApplySupabaseMock({
       pageUpdatedAt: '2026-04-28T10:15:00.000Z',
     });
-    mocks.getAuthenticatedUser.mockResolvedValue({
-      user: { id: 'user-1' },
-      supabase,
-    });
+    mocks.createClient.mockResolvedValue(supabase);
 
     const response = await POST(
       createApplyRequest(JSON.stringify({ force: true })),

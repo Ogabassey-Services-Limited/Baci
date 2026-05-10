@@ -6,7 +6,7 @@ import {
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
 import { checkRateLimit } from '@/lib/rate-limiter';
-import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
+import { createClient } from '@/lib/supabase/server';
 import { applyAiDraftSchema } from '@/schemas/ai-jobs';
 import { builderConfigSchema } from '@/schemas/builder';
 
@@ -54,14 +54,17 @@ async function readOptionalJsonBody(
 }
 
 export async function POST(request: NextRequest, context: RouteContext) {
-  const auth = await getAuthenticatedUser(request);
-  if (!auth)
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+  if (authError || !user)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { valid, response } = await checkCsrfProtection(request);
   if (!valid) return response as NextResponse;
 
-  const { user, supabase } = auth;
   const isAllowed = await checkRateLimit(
     supabase,
     user.id,
