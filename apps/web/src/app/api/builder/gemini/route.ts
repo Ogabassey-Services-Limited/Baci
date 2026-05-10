@@ -99,7 +99,9 @@ async function runBuilderGeminiWithTimeout<T>(
     return await operation(controller.signal);
   } catch (error) {
     if (controller.signal.aborted) {
-      throw new Error('builder_gemini_timeout');
+      const timeoutError = new Error('builder_gemini_timeout');
+      timeoutError.name = 'BuilderGeminiTimeoutError';
+      throw timeoutError;
     }
     throw error;
   } finally {
