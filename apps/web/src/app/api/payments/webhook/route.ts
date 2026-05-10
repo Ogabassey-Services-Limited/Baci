@@ -2,10 +2,15 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
+import { markAgenticPaystackDvaSessionPaid } from '@/lib/agentic/paystack-dva-session-paid';
+import {
+  AGENTIC_PAYSTACK_DVA_TRANSACTION_SELECT,
+  type AgenticPaystackDvaTransaction,
+  normalizeAgenticPaystackDvaTransaction,
+} from '@/lib/agentic/paystack-dva-transaction';
 import {
   confirmAgenticPaystackDvaPayment,
   getPaystackDvaReceiverAccountNumber,
-  markAgenticPaystackDvaSessionPaid,
 } from '@/lib/agentic/paystack-dva-webhook';
 import { upsertPaystackAuthorization } from '@/lib/customer-saved-payment-methods';
 import {
@@ -22,6 +27,7 @@ import { formatVariantAttributesLabel } from '@/lib/format-variant-attributes-la
 import { registerDomain } from '@/lib/go54';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
+import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import {
   calculatePlatformFee,
   verifyTransaction as verifyPaystackPayment,
@@ -447,6 +453,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let resolvedAgenticTransaction: AgenticPaystackDvaTransaction | null = null;
     if (gateway === 'paystack') {
       const agenticDvaPayment = await confirmAgenticPaystackDvaPayment({
         accountNumber: getPaystackDvaReceiverAccountNumber(body),
@@ -460,6 +467,7 @@ export async function POST(request: NextRequest) {
           status: agenticDvaPayment.status,
         });
       }
+      resolvedAgenticTransaction = agenticDvaPayment.transaction ?? null;
     }
 
     // ============================================
@@ -922,6 +930,10 @@ export async function POST(request: NextRequest) {
             p_gateway_fee: 0,
             p_platform_fee: platformFee,
             p_description: `Chat order payment via ${gateway}`,
+            // Δ-29 / Δ-59: traceability — gateway-side ref lives in metadata
+            // only (chat-order path has no separate BAC-* yet). Review
+            // feedback: key is gateway-prefixed, not hardcoded paystack.
+            p_metadata: { [`${gateway}_reference`]: reference },
           });
         } catch (settlementErr) {
           logger.warn({
@@ -952,14 +964,21 @@ export async function POST(request: NextRequest) {
     // STANDARD ORDER HANDLING
     // ============================================
 
-    // Find transaction record
-    const { data: transaction, error: transactionError } = await supabase
-      .from('transactions')
-      .select(
-        'id,amount,currency,merchant_id,metadata,order_id,gateway_fee,platform_fee'
-      )
-      .eq('gateway_reference', reference)
-      .single();
+    let transaction: AgenticPaystackDvaTransaction | null =
+      resolvedAgenticTransaction;
+    let transactionError: unknown = null;
+
+    if (!transaction) {
+      const transactionResult = await supabase
+        .from('transactions')
+        .select(AGENTIC_PAYSTACK_DVA_TRANSACTION_SELECT)
+        .eq('gateway_reference', reference)
+        .single();
+      transaction = transactionResult.data
+        ? normalizeAgenticPaystackDvaTransaction(transactionResult.data)
+        : null;
+      transactionError = transactionResult.error;
+    }
 
     if (transactionError || !transaction) {
       logger.error({
@@ -1695,7 +1714,10 @@ export async function POST(request: NextRequest) {
 
       // Calculate fees using proper platform fee structure (2% capped at ₦2,050)
       const grossAmount = Number(transaction.amount) || 0;
-      const gatewayFee = Number(transaction.gateway_fee) || 0;
+      // Δ-0b: source the gateway fee from the verified Paystack response
+      // (Korapay verify has no fee field, returns 0). The previous
+      // `transaction.gateway_fee` read referenced a column that does not exist.
+      const gatewayFee = extractVerifiedGatewayFeeNgn(gateway, gatewayResponse);
       // Use stored platform fee if available, otherwise calculate using proper formula
       const platformFee =
         Number(transaction.platform_fee) ||
@@ -1708,13 +1730,24 @@ export async function POST(request: NextRequest) {
           p_source_type: sourceType,
           p_source_id: sourceId,
           p_gateway: gateway,
-          p_gateway_reference: reference,
+          // Δ-22 invariant: settlement key is our BAC-* (transactions.gateway_reference),
+          // never Paystack's numeric ref. The Paystack ref lives in p_metadata only.
+          p_gateway_reference: transaction.gateway_reference ?? reference,
           p_gross_amount: grossAmount,
           p_gateway_fee: gatewayFee,
           p_platform_fee: platformFee,
           p_description: isDomainPurchase
             ? `Domain purchase via ${gateway}`
             : `Order payment via ${gateway}`,
+          // Δ-29: store the gateway-side ref + the fee we observed on the
+          // verified response for downstream auditing without polluting the
+          // canonical settlement key. Review feedback: key is gateway-
+          // prefixed (paystack_reference / korapay_reference / juicyway_
+          // reference), not hardcoded for one provider.
+          p_metadata: {
+            [`${gateway}_reference`]: reference,
+            verified_gateway_fee: gatewayFee,
+          },
         }
       );
 
