@@ -14,7 +14,7 @@ const pendingAgenticMetadata = {
 const pendingTransaction = {
   amount: '500000',
   currency: 'NGN',
-  gateway_fee: null,
+  gateway_reference: null,
   id: 'txn-1',
   merchant_id: 'merchant-1',
   metadata: {

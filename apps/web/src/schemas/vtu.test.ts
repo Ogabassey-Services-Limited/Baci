@@ -576,7 +576,7 @@ describe('walletAmount on the shared base', () => {
     const result = vtuSavedCardChargeSchema.safeParse({
       ...baseAirtime,
       gateway: 'paystack',
-      savedPaymentMethodId: '11111111-2222-3333-4444-555555555555',
+      savedPaymentMethodId: '11111111-2222-3333-8444-555555555555',
       walletAmount: 500,
     });
     expect(result.success).toBe(true);
