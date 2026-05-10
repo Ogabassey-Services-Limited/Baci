@@ -22,7 +22,14 @@ import {
   buildPayOnDeliveryOrderPayload,
 } from '@/lib/agentic/checkout-pay-on-delivery-payloads';
 import type { AgenticMetadata } from '@/lib/agentic/checkout-storage';
-import { buildStoredAgenticIdempotencyResponse } from '@/lib/agentic/idempotency-response-storage';
+import {
+  buildPersistedAgenticIdempotencyResponse,
+  buildStoredAgenticIdempotencyResponse,
+  persistAgenticIdempotencyResponse,
+} from '@/lib/agentic/idempotency-response-storage';
+// `buildStoredAgenticIdempotencyResponse` is still used for error paths via
+// the `respond` helper; the success path persists separately so the response
+// row is durable BEFORE the session.status flip to 'completed'.
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 
@@ -190,6 +197,43 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
     }
   }
 
+  // Build the success response body in-memory first so we can persist it as
+  // the idempotency record BEFORE flipping the session to 'completed'. If
+  // persistence fails after the status flip, retries hit the
+  // session.status === 'completed' early-conflict path in route.ts and the
+  // client can never recover the order details for an order that was created.
+  const successResponse = buildPayOnDeliveryCheckoutResponse({
+    buyer,
+    orderId,
+    session: orderSession,
+    sessionCalc: orderSessionCalc,
+  });
+
+  const persisted = await persistAgenticIdempotencyResponse({
+    idempotencyKey,
+    merchantId,
+    requestId,
+    response: successResponse,
+    route,
+    status: 200,
+    supabase,
+  });
+  if (!persisted.ok) {
+    // The order was created and finalization_order_id is durable in metadata;
+    // the session is still in 'order_finalizing'. Do NOT release the claim or
+    // cancel the order — a retry will resume via the marked finalization
+    // order id and attempt persistence again. Returning 503 mirrors the
+    // existing storage-failure contract from buildStoredAgenticIdempotencyResponse.
+    logger.error({
+      error: sanitizeForLog(persisted.error),
+      message:
+        'Pay-on-delivery idempotency persistence failed before status flip; leaving session in order_finalizing for retry resume',
+      orderId: sanitizeForLog(orderId),
+      sessionId: sanitizeForLog(sessionId),
+    });
+    return respond({ error: 'Idempotency response storage failed' }, 503);
+  }
+
   const updatePayload = buildPayOnDeliveryCompletedSessionUpdate({
     buyer,
     metadata,
@@ -250,13 +294,14 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
     total: total?.amount,
   });
 
-  return respond(
-    buildPayOnDeliveryCheckoutResponse({
-      buyer,
-      orderId,
-      session: orderSession,
-      sessionCalc: orderSessionCalc,
-    }),
-    200
-  );
+  // Idempotency record was already persisted above; just build the response
+  // shell here without re-persisting (the row is identical).
+  return buildPersistedAgenticIdempotencyResponse({
+    idempotencyKey,
+    merchantId,
+    requestId,
+    response: successResponse,
+    route,
+    status: 200,
+  });
 }

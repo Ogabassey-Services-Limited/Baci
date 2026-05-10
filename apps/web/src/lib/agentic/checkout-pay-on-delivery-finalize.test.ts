@@ -9,6 +9,12 @@ const mocks = vi.hoisted(() => ({
     order_id: 'order-1',
   })),
   buildPayOnDeliveryOrderPayload: vi.fn(() => ({ payload: true })),
+  buildPersistedAgenticIdempotencyResponse: vi.fn(
+    ({ response, status }: { response: unknown; status: number }) => ({
+      body: response,
+      status,
+    })
+  ),
   buildStoredAgenticIdempotencyResponse: vi.fn(
     ({ response, status }: { response: unknown; status: number }) => ({
       body: response,
@@ -21,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   getMarkedPayOnDeliveryFinalizationOrderId: vi.fn(),
   loggerError: vi.fn(),
   loggerWarn: vi.fn(),
+  persistAgenticIdempotencyResponse: vi.fn(),
   recordPayOnDeliveryOrderCreated: vi.fn(),
   releasePayOnDeliveryClaimSafely: vi.fn(),
   sendAgenticOrderCreatedWebhook: vi.fn(),
@@ -57,8 +64,11 @@ vi.mock('@/lib/agentic/checkout-pay-on-delivery-payloads', () => ({
 }));
 
 vi.mock('@/lib/agentic/idempotency-response-storage', () => ({
+  buildPersistedAgenticIdempotencyResponse:
+    mocks.buildPersistedAgenticIdempotencyResponse,
   buildStoredAgenticIdempotencyResponse:
     mocks.buildStoredAgenticIdempotencyResponse,
+  persistAgenticIdempotencyResponse: mocks.persistAgenticIdempotencyResponse,
 }));
 
 vi.mock('@/lib/logger', () => ({
@@ -140,6 +150,7 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
       ok: true,
       orderId: 'order-1',
     });
+    mocks.persistAgenticIdempotencyResponse.mockResolvedValue({ ok: true });
   });
 
   it('returns 500 when the claim helper reports an error', async () => {
@@ -312,5 +323,92 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
     expect(mocks.createAgenticCheckoutOrder).not.toHaveBeenCalled();
     expect(mocks.recordPayOnDeliveryOrderCreated).not.toHaveBeenCalled();
     expect(mocks.sendAgenticOrderCreatedWebhook).toHaveBeenCalledTimes(1);
+  });
+
+  it('leaves session in order_finalizing when idempotency persistence fails so retry can resume', async () => {
+    // Arrange: order creation + claim + marker all succeed; persistence fails.
+    mocks.persistAgenticIdempotencyResponse.mockResolvedValue({
+      error: { message: 'storage 503' },
+      ok: false,
+    });
+    const mock = buildSessionUpdateMock({
+      data: { session_id: 'agentic_session_1' },
+      error: null,
+    });
+
+    // Act
+    const result = await callFinalize(mock.supabase);
+
+    // Assert: status flip to 'completed' must NOT have been attempted, the
+    // claim must NOT have been released or the order canceled, and the
+    // success webhook must NOT have fired. Returned status conveys the
+    // transient storage failure so the client can retry; the retry will
+    // resume via the marked finalization_order_id.
+    expect(result).toEqual({
+      body: { error: 'Idempotency response storage failed' },
+      status: 503,
+    });
+    expect(mock.chain.update).not.toHaveBeenCalled();
+    expect(mock.supabase.from).not.toHaveBeenCalledWith('checkout_sessions');
+    expect(mocks.releasePayOnDeliveryClaimSafely).not.toHaveBeenCalled();
+    expect(
+      mocks.compensatePayOnDeliveryFinalizationFailure
+    ).not.toHaveBeenCalled();
+    expect(mocks.sendAgenticOrderCreatedWebhook).not.toHaveBeenCalled();
+    // The order WAS created, so this assertion is informational: the
+    // persisted finalization_order_id is what makes resume safe.
+    expect(mocks.createAgenticCheckoutOrder).toHaveBeenCalledTimes(1);
+    expect(mocks.recordPayOnDeliveryOrderCreated).toHaveBeenCalledTimes(1);
+  });
+
+  it('persists idempotency response BEFORE flipping checkout_sessions.status to completed', async () => {
+    // Arrange
+    const callOrder: string[] = [];
+    mocks.persistAgenticIdempotencyResponse.mockImplementation(() => {
+      callOrder.push('persist');
+      return Promise.resolve({ ok: true });
+    });
+    const mock = buildSessionUpdateMock({
+      data: { session_id: 'agentic_session_1' },
+      error: null,
+    });
+    mock.chain.update.mockImplementation(() => {
+      callOrder.push('session-update');
+      return mock.chain;
+    });
+
+    // Act
+    await callFinalize(mock.supabase);
+
+    // Assert: persistence must come strictly before the status flip update.
+    const persistIndex = callOrder.indexOf('persist');
+    const updateIndex = callOrder.indexOf('session-update');
+    expect(persistIndex).toBeGreaterThanOrEqual(0);
+    expect(updateIndex).toBeGreaterThanOrEqual(0);
+    expect(persistIndex).toBeLessThan(updateIndex);
+  });
+
+  it('does not re-persist the idempotency response after a successful status flip', async () => {
+    // Arrange: happy path.
+    const mock = buildSessionUpdateMock({
+      data: { session_id: 'agentic_session_1' },
+      error: null,
+    });
+
+    // Act
+    const result = await callFinalize(mock.supabase);
+
+    // Assert: success uses the in-memory shell builder, not the
+    // store-and-build helper. Persistence is called exactly once
+    // (the pre-flip durable write).
+    expect(result).toMatchObject({ status: 200 });
+    expect(mocks.persistAgenticIdempotencyResponse).toHaveBeenCalledTimes(1);
+    expect(
+      mocks.buildPersistedAgenticIdempotencyResponse
+    ).toHaveBeenCalledTimes(1);
+    // Error-path helper must not run on the success path.
+    expect(
+      mocks.buildStoredAgenticIdempotencyResponse
+    ).not.toHaveBeenCalledWith(expect.objectContaining({ status: 200 }));
   });
 });
