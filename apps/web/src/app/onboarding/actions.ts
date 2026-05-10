@@ -2,12 +2,7 @@
 
 import type { User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
-import {
-  getConfiguredAppUrl,
-  getOllamaStorefrontModel,
-  getRootDomain,
-  isAiStorefrontGenerationEnabled,
-} from '@/env';
+import { getConfiguredAppUrl, getRootDomain } from '@/env';
 import { sendWelcomeEmail } from '@/lib/email';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
@@ -299,66 +294,20 @@ export async function submitOnboarding(
         brandColors: safeBrandColors,
         merchant,
       });
-      const { data: insertedPageConfig, error: pageConfigInsertError } =
-        await adminSupabase
-          .from('page_configs')
-          .insert({
-            merchant_id: merchant.id,
-            page_slug: 'home',
-            page_name: 'Home',
-            draft_config: config,
-            published_config: config,
-            is_published: true,
-          })
-          .select('updated_at')
-          .single();
-
-      if (pageConfigInsertError || !insertedPageConfig) {
-        throw new Error(
-          `Failed to create starter page config: ${
-            pageConfigInsertError?.message ?? 'No page config returned'
-          }`
-        );
-      }
-
-      if (isAiStorefrontGenerationEnabled()) {
-        const idempotencyKey = `storefront-layout:${merchant.id}:home:onboarding`;
-        const { error: aiJobError } = await adminSupabase
-          .from('ai_jobs')
-          .insert({
-            merchant_id: merchant.id,
-            type: 'storefront_layout_generation',
-            status: 'pending',
-            idempotency_key: idempotencyKey,
-            input: {
-              pageSlug: 'home',
-              businessName,
-              businessType: finalBusinessType,
-              brandColors: safeBrandColors,
-              createdPageConfigUpdatedAt: insertedPageConfig.updated_at,
-            },
-            model: getOllamaStorefrontModel(),
-            metadata: {
-              source: 'onboarding',
-              createdPageConfigUpdatedAt: insertedPageConfig.updated_at,
-            },
-          });
-
-        if (aiJobError && aiJobError.code !== '23505') {
-          logger.error({
-            message: 'AI storefront generation job enqueue failed',
-            merchantId: merchant.id,
-            error: aiJobError,
-          });
-        }
-      }
+      await adminSupabase.from('page_configs').insert({
+        merchant_id: merchant.id,
+        page_slug: 'home',
+        page_name: 'Home',
+        draft_config: config,
+        published_config: config,
+        is_published: true,
+      });
     } catch (e) {
       logger.error({
         message: 'Template generation failed',
         merchantId: merchant.id,
         error: e,
       });
-      throw e;
     }
 
     // Assign Hero Images

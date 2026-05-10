@@ -47,19 +47,7 @@ export const builderPublishSchema = z.object({
   expectedLastUpdated: builderExpectedLastUpdatedSchema,
 });
 
-export const builderLoadQuerySchema = z.object({
-  slug: z.string().trim().min(1).optional().default('home'),
-  aiDraftJobId: z.string().uuid().optional(),
-});
-
 export type BuilderCreateInput = z.infer<typeof builderCreateSchema>;
 export type BuilderPublishInput = z.infer<typeof builderPublishSchema>;
-export type BuilderLoadQueryInput = z.infer<typeof builderLoadQuerySchema>;
 export type BuilderConfigInput = z.infer<typeof builderConfigSchema>;
 export type BuilderDegradedReason = z.infer<typeof builderDegradedReasonSchema>;
-
-export function parseBuilderConfigForAiDraft(
-  value: unknown
-): BuilderConfigInput {
-  return builderConfigSchema.parse(value);
-}

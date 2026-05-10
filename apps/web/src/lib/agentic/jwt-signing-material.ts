@@ -1,6 +1,4 @@
-// Namespace import as a value (not type-only) because we use `crypto.createPrivateKey`
-// at runtime and `crypto.KeyObject` / `crypto.JsonWebKey` as types.
-import * as crypto from 'node:crypto';
+import { createPrivateKey, type JsonWebKey, type KeyObject } from 'node:crypto';
 import 'server-only';
 import { getSupabaseAgenticJwtPrivateJwk, getSupabaseJwtSecret } from '@/env';
 import { logger } from '@/lib/logger';
@@ -11,11 +9,11 @@ export type AgenticJwtSigningMaterial =
   | { secret: string; type: 'legacy-secret' }
   | {
       jwk: SupabaseAgenticPrivateJwk;
-      keyObject: crypto.KeyObject;
+      keyObject: KeyObject;
       type: 'private-jwk';
     };
 
-export type SupabaseAgenticPrivateJwk = crypto.JsonWebKey & {
+export type SupabaseAgenticPrivateJwk = JsonWebKey & {
   alg?: string;
   kid?: string;
 };
@@ -47,18 +45,9 @@ export function getAgenticJwtSigningMaterial(): AgenticJwtSigningMaterial {
       // Process-scoped cache. Key rotation is picked up when the raw env value changes
       // via redeploy or runtime env refresh.
       const jwk = parseSupabaseAgenticPrivateJwk(privateJwk);
-      // Cast the full input object so we don't have to name the inner `key`
-      // type — that field is `crypto.JsonWebKey` in @types/node@20 (the
-      // version pinned by apps/web) but `crypto.webcrypto.JsonWebKey` in
-      // @types/node@25+ (which gets hoisted in some installs). Casting the
-      // outer `JsonWebKeyInput` shape is portable across both versions.
-      const keyInput = {
-        format: 'jwk',
-        key: jwk,
-      } as unknown as Parameters<typeof crypto.createPrivateKey>[0];
       cachedPrivateJwkMaterial = {
         jwk,
-        keyObject: crypto.createPrivateKey(keyInput),
+        keyObject: createPrivateKey({ format: 'jwk', key: jwk }),
         type: 'private-jwk',
       };
       cachedPrivateJwkRaw = privateJwk;

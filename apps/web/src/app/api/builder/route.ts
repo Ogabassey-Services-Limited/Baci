@@ -1,10 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { checkCsrfProtection } from '@/lib/csrf';
-import {
-  builderCreateSchema,
-  builderLoadQuerySchema,
-  builderPublishSchema,
-} from '@/schemas/builder';
+import { builderCreateSchema, builderPublishSchema } from '@/schemas/builder';
 import {
   getBuilderRequestContext,
   loadBuilderPayload,
@@ -13,33 +9,19 @@ import {
 } from './builder-route-utils';
 
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const pageSlug = searchParams.get('slug') || 'home';
+
   const contextResult = await getBuilderRequestContext(request, 'view');
   if (contextResult.response) {
     return contextResult.response;
   }
 
-  const { searchParams } = new URL(request.url);
-  const parsedQuery = builderLoadQuerySchema.safeParse({
-    slug: searchParams.get('slug') ?? undefined,
-    aiDraftJobId: searchParams.get('aiDraftJobId') ?? undefined,
-  });
-
-  if (!parsedQuery.success) {
-    return NextResponse.json(
-      {
-        error: 'Invalid request query',
-        details: parsedQuery.error.flatten(),
-      },
-      { status: 400 }
-    );
-  }
-
   const builderPayload = await loadBuilderPayload(
     contextResult.context.supabase,
     contextResult.context.merchantId,
-    parsedQuery.data.slug,
-    contextResult.context.canEdit,
-    parsedQuery.data.aiDraftJobId
+    pageSlug,
+    contextResult.context.canEdit
   );
   if (builderPayload.response) {
     return builderPayload.response;

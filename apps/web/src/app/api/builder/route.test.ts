@@ -26,7 +26,6 @@ describe('/api/builder route', () => {
       context: {
         merchantId: 'merchant-1',
         supabase: {},
-        canEdit: true,
       },
     });
   });
@@ -45,9 +44,6 @@ describe('/api/builder route', () => {
         degraded: false,
         degradedReason: null,
         canEdit: true,
-        previewMode: null,
-        aiDraftJobId: null,
-        canApplyAiDraft: true,
       },
     });
 
@@ -61,68 +57,7 @@ describe('/api/builder route', () => {
     expect(body.canEdit).toBe(true);
     expect(body.degraded).toBe(false);
     expect(mockGetBuilderRequestContext).toHaveBeenCalledWith(request, 'view');
-    expect(mockLoadBuilderPayload).toHaveBeenCalledWith(
-      {},
-      'merchant-1',
-      'home',
-      true,
-      undefined
-    );
-  });
-
-  it('passes the AI draft preview job id into the loader helper', async () => {
-    const aiDraftJobId = '5c0a0676-bd3f-495e-9f98-589f208c0d79';
-    mockLoadBuilderPayload.mockResolvedValue({
-      data: {
-        config: { content: [], root: { title: 'Home' }, zones: {} },
-        seo: null,
-        storeSettings: null,
-        setupSettings: null,
-        publishedConfig: null,
-        isPublished: false,
-        isDefault: false,
-        lastUpdated: '2026-04-28T10:00:00.000Z',
-        degraded: false,
-        degradedReason: null,
-        canEdit: false,
-        previewMode: 'ai_draft',
-        aiDraftJobId,
-        canApplyAiDraft: true,
-      },
-    });
-
-    const request = new NextRequest(
-      `http://localhost/api/builder?slug=home&aiDraftJobId=${aiDraftJobId}`
-    );
-
-    const { GET } = await import('./route');
-    const response = await GET(request);
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.previewMode).toBe('ai_draft');
-    expect(mockLoadBuilderPayload).toHaveBeenCalledWith(
-      {},
-      'merchant-1',
-      'home',
-      true,
-      aiDraftJobId
-    );
-  });
-
-  it('authenticates before rejecting malformed AI draft preview job ids', async () => {
-    const request = new NextRequest(
-      'http://localhost/api/builder?slug=home&aiDraftJobId=not-a-uuid'
-    );
-
-    const { GET } = await import('./route');
-    const response = await GET(request);
-    const body = await response.json();
-
-    expect(response.status).toBe(400);
-    expect(body.error).toBe('Invalid request query');
-    expect(mockGetBuilderRequestContext).toHaveBeenCalledWith(request, 'view');
-    expect(mockLoadBuilderPayload).not.toHaveBeenCalled();
+    expect(mockLoadBuilderPayload).toHaveBeenCalled();
   });
 
   it('returns the helper response when builder context fails', async () => {

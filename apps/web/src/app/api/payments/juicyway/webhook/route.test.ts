@@ -354,6 +354,7 @@ describe('POST /api/payments/juicyway/webhook', () => {
       status: 'pending',
       gateway_reference: 'TXN-123456',
       amount: '10000',
+      gateway_fee: '150',
       platform_fee: '150',
       merchant_id: 'merchant-123',
       order_id: 'order-123',
@@ -467,9 +468,6 @@ describe('POST /api/payments/juicyway/webhook', () => {
     expect(orderUpdated).toBe(true);
 
     // Verify settlement RPC was called via the admin (service-role) client.
-    // Δ-0a/Δ-0b: gateway_fee is no longer read from the transaction column
-    // (which doesn't exist); Juicyway verify carries no fee, so 0 is honest.
-    // Δ-29: traceability for the gateway-side ref now lives in p_metadata.
     expect(mockAdminSupabase.rpc).toHaveBeenCalledWith(
       'record_merchant_settlement',
       expect.objectContaining({
@@ -479,10 +477,9 @@ describe('POST /api/payments/juicyway/webhook', () => {
         p_gateway: 'juicyway',
         p_gateway_reference: 'TXN-123456',
         p_gross_amount: 10000,
-        p_gateway_fee: 0,
+        p_gateway_fee: 150,
         p_platform_fee: 150,
         p_description: 'Order payment via Juicyway',
-        p_metadata: { juicyway_reference: 'TXN-123456' },
       })
     );
   });
@@ -495,6 +492,7 @@ describe('POST /api/payments/juicyway/webhook', () => {
       status: 'pending',
       gateway_reference: 'TXN-123456',
       amount: '10000',
+      gateway_fee: '150',
       platform_fee: '150',
       merchant_id: 'merchant-123',
       order_id: null, // No order_id

@@ -43,12 +43,6 @@ interface PuckInternalState {
     // The actual state has selectedItem but it's not exported in AppState
     // We type it here safely
   };
-  config: {
-    components: Record<
-      string,
-      { label?: string; fields?: Record<string, PuckFieldConfig> }
-    >;
-  };
   data: {
     content: ComponentData[];
     root: Record<string, unknown>;
@@ -57,33 +51,19 @@ interface PuckInternalState {
 }
 
 export function FloatingControls() {
-  const { appState, dispatch } = usePuck();
-  // AppState doesn't expose `ui` or `config` directly, but the internal state does.
-  // Type guard to safely narrow the external state. Verifies every top-level
-  // property the cast to PuckInternalState promises so downstream accesses
-  // (state.data.content spread, state.config.components lookup) cannot throw.
+  const { appState, dispatch, config } = usePuck();
+  // AppState doesn't expose `ui` directly, but the internal state does.
+  // Type guard to safely narrow the external state
   function isPuckInternalState(state: unknown): state is PuckInternalState {
-    if (typeof state !== 'object' || state === null) return false;
-    if (!('ui' in state) || !('data' in state) || !('config' in state)) {
-      return false;
-    }
-    // Verify data.content is an array, since safeFieldChange spreads it.
-    const data = (state as { data?: unknown }).data;
-    if (typeof data !== 'object' || data === null) return false;
-    if (
-      !('content' in data) ||
-      !Array.isArray((data as { content?: unknown }).content)
-    ) {
-      return false;
-    }
-    return true;
+    return typeof state === 'object' && state !== null && 'ui' in state;
   }
 
   if (!isPuckInternalState(appState)) return null;
   const state = appState;
+  // Safety check: Ensure state and ui exist before accessing
+  if (!state?.ui) return null;
 
   const { selectedItem } = state.ui;
-  const { config } = state;
 
   if (!selectedItem?.props) return null;
 

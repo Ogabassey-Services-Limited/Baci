@@ -32,38 +32,6 @@
 - **Action Layer:** Phase 3 covers safe shopping actions: merchant-scoped checkout sessions, cart/update/complete/cancel operations, payment handoff, idempotency keys, HMAC/request-integrity headers, replay protection, order-status reads, and explicit human-confirmation or pre-authorized mandate boundaries before any order/payment side effect.
 - **Support Layer:** Customer-support chat health is a parallel operational track, not an agentic checkout gate. Phase 4 should still smoke-test `/api/chat` because a broken Ogabassey AI assistant lowers merchant trust, but agent commerce promotion can proceed when discovery, feeds, trust checks, checkout, payment handoff, and post-purchase reads are healthy. If `/api/chat` fails from provider-key issues, open a P1 support incident and rotate the Google/Gemini production key; only block agent-commerce release when the phase changes `/api/chat` or the mobile/web support client directly.
 
-## Current Execution Snapshot
-
-Updated 2026-05-09 after the Phase 3 production smoke path and follow-up PRs.
-
-This document remains the source of truth. Future agents should read this snapshot before starting new work, then use the detailed task sections below for implementation specifics.
-
-- **Completed baseline:** Phase 1 discovery/readability and Phase 2 Merchant Center/public machine feeds have been implemented and deployed through prior reviewed PRs. The storefront now exposes agent-readable discovery, feeds, and canonical machine routes without replacing the human ecommerce UI.
-- **Completed Phase 3 MVP:** Agentic checkout create, read, update, complete, cancel, Paystack DVA payment setup, request integrity, replay protection, idempotency, human-confirmation or mandate enforcement, and order read support have been implemented through reviewed PRs.
-- **Pending production hardening:** PR #1549 fixes the production smoke-test customer phone conflict in `public.create_storefront_order`. Do not treat Phase 3 as broadly launchable until this PR lands, deploys, and the production smoke test passes with both a unique buyer phone and an existing-phone/different-email buyer.
-- **Next implementation phase:** Phase 4 is now the main focus. Prioritize production verification, trust-layer audits, feed/API/page parity, JSON-LD checks, crawler monitoring, automated alerts, and real payment webhook reconciliation evidence before expanding the action surface.
-- **Operational follow-up:** The Ogabassey AI chat issue remains a supportability track, not an agentic checkout blocker, unless new work changes `/api/chat` or the mobile/web chat client. Keep provider-key rotation and chat smoke tests visible in Phase 4.
-
-### Focus Queue
-
-1. Merge and deploy PR #1549, then rerun production smoke tests for agentic checkout.
-2. Run a controlled Paystack end-to-end payment test with a low-value or sandbox flow, then verify webhook reconciliation updates the agentic checkout session, transaction, and order state.
-3. Add production monitoring for feed failures, checkout mutation failures, idempotency/replay rejections, DVA setup failures, webhook reconciliation failures, and `agent-commerce.json` capability drift.
-4. Build Phase 4 trust checks: product page HTML vs Product/Offer JSON-LD vs OpenAI feed vs Google Merchant feed vs storefront product API parity.
-5. Add crawler and AI-agent observability: log OpenAI, Google, Anthropic, Perplexity, and generic agent user agents by host, route, status, latency, and cache outcome.
-6. Define merchant dashboard controls for agentic commerce: readiness status, capability toggle, API key rotation, agent allowlist/denylist, failed checkout review, and feed health.
-7. Promote Baci's YC narrative from "AI ecommerce builder" to "agent-native commerce infrastructure for African merchants."
-
-### YC Positioning Lens
-
-Baci should be positioned as the commerce operating system for merchants in a world where buyers increasingly delegate discovery, comparison, and purchase to AI agents.
-
-- **Wedge:** African merchants need storefronts that are not only good for humans, but also readable, trusted, and actionable by agents across ChatGPT, Gemini, Claude, Google, and future shopping assistants.
-- **Differentiation:** Baci combines storefront generation, structured catalogs, feeds, trust profiles, payment handoff, logistics context, mobile/WhatsApp commerce, and merchant operations in one platform.
-- **Product thesis:** The next Shopify-like platform for emerging markets will expose every merchant as both a human storefront and an agentic commerce endpoint.
-- **Near-term proof:** Ogabassey becomes the reference merchant showing that Baci can make a real store discoverable, recommendable, and safely purchasable by agents.
-- **Long-term roadmap:** Expand from one agent-readable storefront to an adaptive merchant dashboard and cross-channel commerce agent that helps merchants manage catalog quality, stock, pricing, fulfillment, customer support, and growth.
-
 ## Mandatory Phase Review Gates
 
 Every phase below must stop at a review gate before the next phase starts. A phase is not complete until local tests pass, a fresh review sub-agent approves the phase diff, CodeRabbit raises no critical/high issues, and any accepted review feedback has been fixed and re-reviewed.

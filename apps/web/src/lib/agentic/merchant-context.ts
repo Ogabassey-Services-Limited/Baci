@@ -4,15 +4,13 @@ import {
   getAgenticConfirmationKeys,
   getAgenticMerchantSlug,
   getAgenticSigningKeys,
+  getPaystackSecretKey,
 } from '@/env';
 import { hasUsableAgenticJwtSigningMaterial } from '@/lib/agentic/jwt-signing-material';
-import { logger } from '@/lib/logger';
-import { sanitizeForLog } from '@/lib/sanitize-core';
 
 export interface AgenticMerchantContext {
   business_name: string | null;
   id: string;
-  pay_on_delivery_enabled: boolean;
   paystack_subaccount_code: string | null;
   slug: string;
 }
@@ -30,7 +28,9 @@ export function isAgenticCheckoutRuntimeConfigured(): boolean {
       getAgenticApiKey() &&
       hasOnlyNonBlankEntries(confirmationKeys) &&
       hasOnlyNonBlankEntries(signingKeys) &&
-      hasUsableAgenticJwtSigningMaterial()
+      hasUsableAgenticJwtSigningMaterial() &&
+      // Optional Paystack getter trims runtime env and returns undefined when absent.
+      getPaystackSecretKey()
   );
 }
 
@@ -56,27 +56,10 @@ export async function resolveAgenticMerchantContext(
     return null;
   }
 
-  const { data: featureSettings, error: featureSettingsError } = await supabase
-    .from('merchant_feature_settings')
-    .select('pay_on_delivery_enabled')
-    .eq('merchant_id', data.id)
-    .maybeSingle();
-
-  if (featureSettingsError) {
-    logger.error({
-      error: sanitizeForLog(featureSettingsError),
-      merchantId: data.id,
-      message: 'Agentic merchant feature settings lookup failed',
-    });
-  }
-
   return {
     business_name:
       typeof data.business_name === 'string' ? data.business_name : null,
     id: data.id,
-    pay_on_delivery_enabled:
-      !featureSettingsError &&
-      featureSettings?.pay_on_delivery_enabled === true,
     paystack_subaccount_code:
       typeof data.paystack_subaccount_code === 'string'
         ? data.paystack_subaccount_code

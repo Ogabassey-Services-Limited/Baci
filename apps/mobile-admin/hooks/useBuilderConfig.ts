@@ -7,8 +7,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { apiClient } from '@/lib/api-client';
-import { formatAiCopilotError } from './format-ai-copilot-error';
+
+// Web API base URL - uses the same Supabase project
+const WEB_API_BASE =
+  process.env.EXPO_PUBLIC_WEB_API_URL || 'https://usebaci.com';
 
 export interface BuilderConfig {
   content: Array<{
@@ -83,9 +85,26 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         throw new Error('Not authenticated');
       }
 
-      return apiClient<BuilderApiResponse>(
-        `/api/builder?slug=${encodeURIComponent(pageSlug)}`
+      const response = await fetch(
+        `${WEB_API_BASE}/api/builder?slug=${pageSlug}`,
+        {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
       );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+          errorData.error || `Failed to fetch config: ${response.status}`
+        );
+      }
+
+      const data = await response.json();
+      return data;
     },
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -114,46 +133,51 @@ export function useBuilderConfig(pageSlug: string = 'home') {
       };
       setMessages((prev) => [...prev, userMessage]);
 
-      try {
-        const data = await apiClient<GeminiResponse>('/api/builder/gemini', {
-          method: 'POST',
-          timeout: 30_000,
-          body: JSON.stringify({
-            prompt,
-            currentConfig: effectiveConfig,
-          }),
-        });
+      const response = await fetch(`${WEB_API_BASE}/api/builder/gemini`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt,
+          currentConfig: effectiveConfig,
+        }),
+      });
 
-        // Add success message to chat
-        const assistantMessage: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content:
-            "Done! I've updated your storefront. Check the preview to see the changes.",
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, assistantMessage]);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
 
-        // Update local config
-        setCurrentConfig(data.config);
-
-        return data.config;
-      } catch (error) {
-        const formattedError = formatAiCopilotError(error);
         // Add error message to chat
         const errorMessage: ChatMessage = {
           id: (Date.now() + 1).toString(),
           role: 'system',
-          content: formattedError.message,
+          content: errorData.error || 'Failed to process request',
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, errorMessage]);
 
-        throw Object.assign(new Error(formattedError.message), {
-          code: formattedError.code,
-          requestId: formattedError.requestId,
-        });
+        throw new Error(
+          errorData.error || `AI request failed: ${response.status}`
+        );
       }
+
+      const data: GeminiResponse = await response.json();
+
+      // Add success message to chat
+      const assistantMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content:
+          "Done! I've updated your storefront. Check the preview to see the changes.",
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+
+      // Update local config
+      setCurrentConfig(data.config);
+
+      return data.config;
     },
   });
 
@@ -169,14 +193,23 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         throw new Error('No configuration to save');
       }
 
-      await apiClient('/api/builder', {
+      const response = await fetch(`${WEB_API_BASE}/api/builder`, {
         method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           slug: pageSlug,
           config: effectiveConfig,
           name: 'Home',
         }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to save draft');
+      }
     },
     onSuccess: () => {
       // Clear local override so query cache becomes source of truth again
@@ -196,12 +229,21 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         throw new Error('Not authenticated');
       }
 
-      await apiClient('/api/builder', {
+      const response = await fetch(`${WEB_API_BASE}/api/builder`, {
         method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           slug: pageSlug,
         }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Failed to publish');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['builderConfig', pageSlug] });
