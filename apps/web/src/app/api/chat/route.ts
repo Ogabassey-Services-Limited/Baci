@@ -46,12 +46,20 @@ import {
 } from '@/ai/chat-tools';
 import { activeTextModel, checkRateLimit } from '@/ai/provider';
 import { AGENTIC_SYSTEM_PROMPT } from '@/config/agentic-chat-system-prompt';
-import { getAiChatModel, getOllamaBaseUrl, getOllamaBasicAuth } from '@/env';
+import {
+  getAiChatModel,
+  getLlmChatModel,
+  getLlmServerBearer,
+  getLlmServerUrl,
+  getOllamaBaseUrl,
+  getOllamaBasicAuth,
+} from '@/env';
+import { createLlmChatResponse } from '@/lib/llm-chat';
 import { createOllamaChatResponse } from '@/lib/ollama-chat';
 import { sanitizeHtml } from '@/lib/sanitize';
 
 export const maxDuration = 120; // VPS-hosted Gemma can be slower on cold starts
-const OLLAMA_CUSTOMER_CHAT_TIMEOUT_MS = 8_000;
+const CUSTOMER_CHAT_TIMEOUT_MS = 8_000;
 
 // ============================================
 // REQUEST SCHEMA
@@ -82,7 +90,7 @@ function generateSessionId(ip: string): string {
     .slice(0, 16);
 }
 
-function buildOllamaMessages(
+function buildChatMessages(
   messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
   model: string
 ) {
@@ -103,7 +111,7 @@ You are currently powered by VPS-hosted ${model}. Tool/function calling is not a
   ];
 }
 
-function getSafeOllamaErrorMessage(error: unknown): string {
+function getSafeChatBackendErrorMessage(error: unknown): string {
   const message =
     error instanceof Error
       ? error.message
@@ -114,11 +122,13 @@ function getSafeOllamaErrorMessage(error: unknown): string {
   return message.replace(/https?:\/\/\S+/g, '[url]').slice(0, 300);
 }
 
-async function bufferOllamaTextResponse(response: Response): Promise<Response> {
-  // Read the Ollama stream before returning so parse/disconnect failures can still use Gemini fallback.
+async function bufferTextResponse(response: Response): Promise<Response> {
+  // Read the upstream stream before returning so parse/disconnect failures
+  // can still trigger the Gemini fallback. Used for both Ollama and llama-server
+  // backends — the message is intentionally backend-neutral.
   const text = await response.text();
   if (!text.trim()) {
-    throw new Error('Ollama chat returned an empty completion');
+    throw new Error('Chat returned an empty completion');
   }
 
   return new Response(text, {
@@ -185,19 +195,27 @@ export async function POST(req: Request) {
       content: msg.role === 'user' ? sanitizeHtml(msg.content) : msg.content,
     }));
 
-    const ollamaBaseUrl = getOllamaBaseUrl();
-    if (ollamaBaseUrl) {
+    const llmServerUrl = getLlmServerUrl();
+    if (llmServerUrl) {
+      // Resolve static config OUTSIDE the try so a misconfigured deployment
+      // (blank LLM_CHAT_MODEL, env-validation bypass, etc.) surfaces as a 500
+      // rather than getting silently logged as "LLM server request failed"
+      // and quietly falling back to Gemini. env.ts superRefine guarantees
+      // LLM_SERVER_BEARER is set whenever LLM_SERVER_URL is set; the `?? ''`
+      // covers test environments where env validation is bypassed —
+      // createLlmChatResponse will reject empty bearers loudly.
+      const chatModel = getLlmChatModel();
+      const bearer = getLlmServerBearer() ?? '';
       try {
-        const chatModel = getAiChatModel();
-        const ollamaResponse = await createOllamaChatResponse({
-          baseUrl: ollamaBaseUrl,
+        const llmResponse = await createLlmChatResponse({
+          baseUrl: llmServerUrl,
+          bearer,
           model: chatModel,
-          basicAuth: getOllamaBasicAuth(),
-          messages: buildOllamaMessages(sanitizedMessages, chatModel),
+          messages: buildChatMessages(sanitizedMessages, chatModel),
           signal: req.signal,
-          timeoutMs: OLLAMA_CUSTOMER_CHAT_TIMEOUT_MS,
+          timeoutMs: CUSTOMER_CHAT_TIMEOUT_MS,
         });
-        return await bufferOllamaTextResponse(ollamaResponse);
+        return await bufferTextResponse(llmResponse);
       } catch (error) {
         if (req.signal.aborted) {
           return new Response(
@@ -210,9 +228,41 @@ export async function POST(req: Request) {
         }
 
         console.warn(
-          '[Agentic Chat] Ollama request failed; falling back to Gemini:',
-          getSafeOllamaErrorMessage(error)
+          '[Agentic Chat] LLM server request failed; falling back to Gemini:',
+          getSafeChatBackendErrorMessage(error)
         );
+      }
+    } else {
+      const ollamaBaseUrl = getOllamaBaseUrl();
+      if (ollamaBaseUrl) {
+        const chatModel = getAiChatModel();
+        const basicAuth = getOllamaBasicAuth();
+        try {
+          const ollamaResponse = await createOllamaChatResponse({
+            baseUrl: ollamaBaseUrl,
+            model: chatModel,
+            basicAuth,
+            messages: buildChatMessages(sanitizedMessages, chatModel),
+            signal: req.signal,
+            timeoutMs: CUSTOMER_CHAT_TIMEOUT_MS,
+          });
+          return await bufferTextResponse(ollamaResponse);
+        } catch (error) {
+          if (req.signal.aborted) {
+            return new Response(
+              JSON.stringify({ error: 'Client Closed Request' }),
+              {
+                status: 499,
+                headers: { 'Content-Type': 'application/json' },
+              }
+            );
+          }
+
+          console.warn(
+            '[Agentic Chat] Ollama request failed; falling back to Gemini:',
+            getSafeChatBackendErrorMessage(error)
+          );
+        }
       }
     }
 
