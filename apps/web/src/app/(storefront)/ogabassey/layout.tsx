@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
-import { connection } from 'next/server';
 import type { ReactNode } from 'react';
 import StorefrontLayout, {
   generateMetadata as generateStorefrontLayoutMetadata,
@@ -32,13 +31,7 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default async function OgabasseyLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  await connection();
-
+export default function OgabasseyLayout({ children }: { children: ReactNode }) {
   return (
     <StorefrontLayout params={resolveOgabasseyLayoutParams()}>
       {children}
