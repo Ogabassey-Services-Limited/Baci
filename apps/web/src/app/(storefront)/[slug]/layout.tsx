@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
-import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type React from 'react';
+import { Suspense } from 'react';
 import { DeferredPageViewTracker } from '@/components/storefront/deferred-page-view-tracker';
 import { OgabasseyStorefrontLayout } from '@/components/storefront/ogabassey/storefront-layout';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
@@ -12,7 +12,7 @@ import { StorefrontCartProvider } from '@/hooks/cart/storefront-cart-provider';
 import { StorefrontMerchantProvider } from '@/hooks/merchant/storefront-merchant-provider';
 import type { MerchantData } from '@/hooks/use-merchant';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
-import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { buildStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import {
   getStorefrontShellSnapshot,
@@ -117,8 +117,7 @@ export async function generateMetadata({
     merchant.site_description ||
     merchant.site_tagline ||
     `Shop ${merchant.business_name} - Buy gadgets, electronics, and more with flexible payment options in Nigeria.`;
-  const headersList = await headers();
-  const baseUrl = buildRequestScopedStoreUrl(merchant, headersList);
+  const baseUrl = buildStoreUrl(merchant);
   let metadataBase: URL | undefined;
 
   try {
@@ -211,7 +210,7 @@ function StorefrontThemeFrame({ children }: { children: React.ReactNode }) {
   return <StorefrontThemeProvider>{children}</StorefrontThemeProvider>;
 }
 
-export default async function StorefrontLayout(props: {
+export async function StorefrontLayoutContent(props: {
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
@@ -230,11 +229,9 @@ export default async function StorefrontLayout(props: {
   const isDevelopment = process.env.NODE_ENV === 'development';
   if (!shellSnapshotBase.merchant.is_published && !isDevelopment) {
     return (
-      <StorefrontThemeFrame>
-        <StoreNotPublished
-          businessName={shellSnapshotBase.merchant.business_name}
-        />
-      </StorefrontThemeFrame>
+      <StoreNotPublished
+        businessName={shellSnapshotBase.merchant.business_name}
+      />
     );
   }
 
@@ -245,10 +242,21 @@ export default async function StorefrontLayout(props: {
   }
 
   return (
+    <StorefrontShellFrame shellSnapshot={shellSnapshot}>
+      {props.children}
+    </StorefrontShellFrame>
+  );
+}
+
+export default function StorefrontLayout(props: {
+  children: React.ReactNode;
+  params: Promise<{ slug: string }>;
+}) {
+  return (
     <StorefrontThemeFrame>
-      <StorefrontShellFrame shellSnapshot={shellSnapshot}>
-        {props.children}
-      </StorefrontShellFrame>
+      <Suspense fallback={null}>
+        <StorefrontLayoutContent {...props} />
+      </Suspense>
     </StorefrontThemeFrame>
   );
 }

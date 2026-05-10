@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   mockConnection,
   mockGenerateStorefrontLayoutMetadata,
-  mockHeaders,
   mockStorefrontLayout,
 } = vi.hoisted(() => ({
   mockConnection: vi.fn(() => Promise.resolve()),
@@ -22,11 +21,6 @@ const {
       params: Promise<{ slug: string }>;
     }) => <div data-testid="storefront-layout">{children}</div>
   ),
-  mockHeaders: vi.fn(() => Promise.resolve(new Headers())),
-}));
-
-vi.mock('next/headers', () => ({
-  headers: () => mockHeaders(),
 }));
 
 vi.mock('next/server', () => ({
@@ -50,7 +44,6 @@ import OgabasseyLayout, {
 describe('OgabasseyLayout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockHeaders.mockResolvedValue(new Headers());
   });
 
   it('delegates to the generic storefront layout without forcing a dynamic connection', async () => {
@@ -64,36 +57,6 @@ describe('OgabasseyLayout', () => {
     expect(screen.getByTestId('storefront-layout')).toHaveTextContent(
       'Home content'
     );
-
-    const props = mockStorefrontLayout.mock.calls[0]?.[0];
-    await expect(props?.params).resolves.toEqual({ slug: 'ogabassey' });
-  });
-
-  it('delegates custom-domain traffic with the request-derived identifier', async () => {
-    mockHeaders.mockResolvedValueOnce(
-      new Headers([['x-custom-domain', 'ogabassey.com']])
-    );
-
-    const result = OgabasseyLayout({
-      children: <p>Home content</p>,
-    });
-
-    render(result);
-
-    const props = mockStorefrontLayout.mock.calls[0]?.[0];
-    await expect(props?.params).resolves.toEqual({ slug: 'ogabassey.com' });
-  });
-
-  it('ignores deployment hosts without merchant context headers', async () => {
-    mockHeaders.mockResolvedValueOnce(
-      new Headers([['host', 'baci-preview.vercel.app']])
-    );
-
-    const result = OgabasseyLayout({
-      children: <p>Home content</p>,
-    });
-
-    render(result);
 
     const props = mockStorefrontLayout.mock.calls[0]?.[0];
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey' });
@@ -113,29 +76,6 @@ describe('OgabasseyLayout', () => {
     expect(mockGenerateStorefrontLayoutMetadata).toHaveBeenCalledWith({
       params: expect.any(Promise),
     });
-    const props = mockGenerateStorefrontLayoutMetadata.mock.calls[0]?.[0];
-    await expect(props?.params).resolves.toEqual({ slug: 'ogabassey' });
-  });
-
-  it('delegates merchant-level metadata with the request-derived custom-domain identifier', async () => {
-    mockHeaders.mockResolvedValueOnce(
-      new Headers([['x-custom-domain', 'ogabassey.com']])
-    );
-
-    const metadata = await generateMetadata();
-
-    expect(metadata.manifest).toBeNull();
-    const props = mockGenerateStorefrontLayoutMetadata.mock.calls[0]?.[0];
-    await expect(props?.params).resolves.toEqual({ slug: 'ogabassey.com' });
-  });
-
-  it('uses OgaBassey metadata for deployment hosts without merchant context headers', async () => {
-    mockHeaders.mockResolvedValueOnce(
-      new Headers([['host', 'baci-preview.vercel.app']])
-    );
-
-    await generateMetadata();
-
     const props = mockGenerateStorefrontLayoutMetadata.mock.calls[0]?.[0];
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey' });
   });
