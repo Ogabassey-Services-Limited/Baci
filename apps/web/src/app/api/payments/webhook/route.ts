@@ -930,9 +930,10 @@ export async function POST(request: NextRequest) {
             p_gateway_fee: 0,
             p_platform_fee: platformFee,
             p_description: `Chat order payment via ${gateway}`,
-            // Δ-29 / Δ-59: traceability — Paystack's numeric ref lives in
-            // metadata only (chat-order path has no separate BAC-* yet).
-            p_metadata: { paystack_reference: reference },
+            // Δ-29 / Δ-59: traceability — gateway-side ref lives in metadata
+            // only (chat-order path has no separate BAC-* yet). Review
+            // feedback: key is gateway-prefixed, not hardcoded paystack.
+            p_metadata: { [`${gateway}_reference`]: reference },
           });
         } catch (settlementErr) {
           logger.warn({
@@ -1740,9 +1741,11 @@ export async function POST(request: NextRequest) {
             : `Order payment via ${gateway}`,
           // Δ-29: store the gateway-side ref + the fee we observed on the
           // verified response for downstream auditing without polluting the
-          // canonical settlement key.
+          // canonical settlement key. Review feedback: key is gateway-
+          // prefixed (paystack_reference / korapay_reference / juicyway_
+          // reference), not hardcoded for one provider.
           p_metadata: {
-            paystack_reference: reference,
+            [`${gateway}_reference`]: reference,
             verified_gateway_fee: gatewayFee,
           },
         }

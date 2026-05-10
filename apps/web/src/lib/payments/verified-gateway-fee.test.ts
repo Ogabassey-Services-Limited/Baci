@@ -26,6 +26,14 @@ describe('extractVerifiedGatewayFeeNgn', () => {
       expect(extractVerifiedGatewayFeeNgn('paystack', null)).toBe(0);
       expect(extractVerifiedGatewayFeeNgn('paystack', undefined)).toBe(0);
     });
+
+    it('returns 0 when fees is negative (review feedback: would over-credit merchant)', () => {
+      // A negative fee subtracted from gross would inflate the net amount
+      // credited to the merchant wallet. Treat as missing → 0 so settlement
+      // calc falls back to a safe baseline.
+      expect(extractVerifiedGatewayFeeNgn('paystack', { fees: -100 })).toBe(0);
+      expect(extractVerifiedGatewayFeeNgn('paystack', { fees: -0.01 })).toBe(0);
+    });
   });
 
   describe('korapay', () => {

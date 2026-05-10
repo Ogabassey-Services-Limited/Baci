@@ -1689,6 +1689,23 @@ describe('POST /api/payments/webhook', () => {
         success: true,
         message: 'Payment processed successfully',
       });
+
+      // Review feedback: assert the settlement RPC was called with the
+      // BAC-* canonical key (Δ-22) and gateway-prefixed metadata (review:
+      // not hardcoded paystack_reference). gateway_reference here is
+      // 'REF123' from the mocked transaction; gateway is 'korapay' from
+      // the x-korapay-signature header.
+      expect(mockServiceClient.rpc).toHaveBeenCalledWith(
+        'record_merchant_settlement',
+        expect.objectContaining({
+          p_gateway_reference: 'REF123',
+          p_gateway: 'korapay',
+          p_metadata: expect.objectContaining({
+            korapay_reference: 'REF123',
+            verified_gateway_fee: 0, // korapay verify response has no fees field
+          }),
+        })
+      );
     });
 
     it('returns retryable status when agentic session reconciliation fails after payment processing', async () => {
