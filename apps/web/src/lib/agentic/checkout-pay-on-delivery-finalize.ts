@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { AGENTIC_PAYMENT_METHOD_PAY_ON_DELIVERY } from '@/config/agentic-payment-methods';
 import type { calculateCheckoutSession } from '@/lib/agentic/checkout';
 import type { AgenticCheckoutBuyer } from '@/lib/agentic/checkout-completion-response';
 import {
@@ -204,7 +205,7 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
     .contains('metadata', {
       agentic: {
         finalization_claim: finalizationClaim,
-        payment_method: 'pay_on_delivery',
+        payment_method: AGENTIC_PAYMENT_METHOD_PAY_ON_DELIVERY,
         payment_state: 'order_finalizing',
       },
     })

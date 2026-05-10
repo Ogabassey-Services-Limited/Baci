@@ -1,3 +1,4 @@
+import { AGENTIC_PAYMENT_METHOD_PAY_ON_DELIVERY } from '@/config/agentic-payment-methods';
 import type { calculateCheckoutSession } from '@/lib/agentic/checkout';
 import type { AgenticCheckoutBuyer } from '@/lib/agentic/checkout-completion-response';
 import {
@@ -8,7 +9,9 @@ import {
 
 type CheckoutCalculation = Awaited<ReturnType<typeof calculateCheckoutSession>>;
 
-export const PAY_ON_DELIVERY_METHOD = 'pay_on_delivery';
+// Re-export under the legacy local name so existing consumers keep working
+// without having to be updated to the @/config import path.
+export const PAY_ON_DELIVERY_METHOD = AGENTIC_PAYMENT_METHOD_PAY_ON_DELIVERY;
 
 const AGENTIC_ORDER_SOURCE = 'agentic_ai';
 const PENDING_STATUS = 'pending';

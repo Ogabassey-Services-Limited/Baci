@@ -1,4 +1,8 @@
 import { NextResponse } from 'next/server';
+import {
+  AGENTIC_PAYMENT_METHOD_PAY_ON_DELIVERY,
+  AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER,
+} from '@/config/agentic-payment-methods';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import { getPaystackSecretKey, getRootDomain } from '@/env';
 import {
@@ -142,12 +146,12 @@ function buildAgenticPaymentMethods(merchant: MerchantPaymentConfig) {
     getPaystackSecretKey() &&
     isValidPaystackSubaccountCode(merchant.paystack_subaccount_code)
   ) {
-    methods.push('paystack_bank_transfer');
+    methods.push(AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER);
   }
   const payOnDeliveryEnabled =
     merchant.feature_settings?.pay_on_delivery_enabled;
   if (payOnDeliveryEnabled === true) {
-    methods.push('pay_on_delivery');
+    methods.push(AGENTIC_PAYMENT_METHOD_PAY_ON_DELIVERY);
   }
   return methods;
 }

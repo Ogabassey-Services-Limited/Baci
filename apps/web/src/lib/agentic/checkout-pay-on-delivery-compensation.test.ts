@@ -75,6 +75,25 @@ describe('pay-on-delivery finalization compensation', () => {
     );
   });
 
+  it('does not release the claim when cancellation reports no row updated', async () => {
+    mocks.markAgenticCheckoutOrderCanceled.mockResolvedValue({
+      error: null,
+      updated: false,
+    });
+
+    await compensatePayOnDeliveryFinalizationFailure(input);
+
+    expect(mocks.releasePayOnDeliveryFinalizationClaim).not.toHaveBeenCalled();
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Pay-on-delivery finalization failed after order creation',
+        error: expect.objectContaining({
+          cancellationUpdated: false,
+        }),
+      })
+    );
+  });
+
   it('logs and swallows release exceptions', async () => {
     mocks.releasePayOnDeliveryFinalizationClaim.mockRejectedValue(
       new Error('release failed')

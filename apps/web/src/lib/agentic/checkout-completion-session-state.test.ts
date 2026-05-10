@@ -176,6 +176,32 @@ describe('resolveCheckoutCompletionSessionState', () => {
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 
+  it('returns conflict for pay-on-delivery finalization when stored snapshot is missing', async () => {
+    const session = {
+      ...readySession,
+      metadata: {
+        agentic: {
+          payment_method: 'pay_on_delivery',
+          payment_state: 'order_finalizing',
+          totals,
+          // line_items intentionally omitted to simulate missing snapshot
+        },
+      },
+    };
+
+    const result = await resolveCheckoutCompletionSessionState({
+      authorizationSecrets: [],
+      completionAuthorization: undefined,
+      merchantId: 'merchant-1',
+      session,
+      sessionId: 'agentic_session_1',
+      supabase: {} as never,
+    });
+
+    expect(result).toMatchObject({ ok: false, status: 409 });
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
+  });
+
   it('returns a conflict when payment-account-ready state is incomplete', async () => {
     const session = {
       ...readySession,

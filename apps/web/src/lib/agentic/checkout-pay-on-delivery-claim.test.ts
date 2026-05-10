@@ -151,4 +151,91 @@ describe('pay-on-delivery finalization claim helpers', () => {
       })
     ).toBeNull();
   });
+
+  it('treats no-row updates as claimed when metadata already records the same claim (resume retry)', async () => {
+    const mock = createCheckoutSessionUpdateMock({
+      data: null,
+      error: null,
+    });
+
+    const result = await claimPayOnDeliveryFinalization({
+      buyer,
+      finalizationClaim: 'claim-1',
+      merchantId: 'merchant-1',
+      metadata: {
+        agentic: {
+          finalization_claim: 'claim-1',
+          payment_method: 'pay_on_delivery',
+          payment_state: 'order_finalizing',
+        },
+      },
+      sessionId: 'agentic_session_1',
+      supabase: mock.supabase as never,
+    });
+
+    expect(result).toEqual({ claimed: true, error: null });
+  });
+
+  it('reports not claimed when no row matched and metadata does not record the same claim', async () => {
+    const mock = createCheckoutSessionUpdateMock({
+      data: null,
+      error: null,
+    });
+
+    const result = await claimPayOnDeliveryFinalization({
+      buyer,
+      finalizationClaim: 'claim-1',
+      merchantId: 'merchant-1',
+      metadata: { agentic: {} },
+      sessionId: 'agentic_session_1',
+      supabase: mock.supabase as never,
+    });
+
+    expect(result).toEqual({ claimed: false, error: null });
+  });
+
+  it('reports release failure (and logs internally) when no row matched the conditional update', async () => {
+    const mock = createCheckoutSessionUpdateMock({
+      data: null,
+      error: null,
+    });
+
+    const result = await releasePayOnDeliveryFinalizationClaim({
+      finalizationClaim: 'claim-1',
+      merchantId: 'merchant-1',
+      metadata: {
+        agentic: {
+          finalization_claim: 'claim-1',
+          payment_method: 'pay_on_delivery',
+          payment_state: 'order_finalizing',
+        },
+      },
+      orderError: 'order failed',
+      sessionId: 'agentic_session_1',
+      supabase: mock.supabase as never,
+    });
+
+    expect(result).toEqual({
+      error: 'No checkout session row matched',
+      released: false,
+    });
+  });
+
+  it('reports recorded:false when the order-marker update matched no rows', async () => {
+    const mock = createCheckoutSessionUpdateMock({
+      data: null,
+      error: null,
+    });
+
+    const result = await recordPayOnDeliveryOrderCreated({
+      finalizationClaim: 'claim-1',
+      merchantId: 'merchant-1',
+      metadata: { agentic: { existing: true } },
+      orderId: 'order-1',
+      sessionId: 'agentic_session_1',
+      supabase: mock.supabase as never,
+    });
+
+    expect(result).toEqual({ error: null, recorded: false });
+  });
 });

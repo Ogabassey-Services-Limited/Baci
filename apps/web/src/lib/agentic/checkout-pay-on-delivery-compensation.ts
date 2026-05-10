@@ -70,7 +70,7 @@ export async function compensatePayOnDeliveryFinalizationFailure({
     cancellationError = error;
   }
 
-  if (!cancellationError) {
+  if (!cancellationError && cancellationUpdated) {
     await releasePayOnDeliveryClaimSafely({
       finalizationClaim,
       merchantId,
