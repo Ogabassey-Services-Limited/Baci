@@ -206,4 +206,66 @@ describe('agenticCheckoutCompleteSchema', () => {
 
     expect(result.success).toBe(false);
   });
+
+  it('accepts paystack_bank_transfer as a Paystack provider alias', () => {
+    const result = agenticCheckoutCompleteSchema.safeParse({
+      buyer: {
+        email: 'buyer@example.com',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        phone_number: '+2348012345678',
+      },
+      payment_data: {
+        provider: 'paystack_bank_transfer',
+        token: 'manifest-advertised-token',
+      },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.payment_data.provider).toBe('paystack');
+      if (result.data.payment_data.provider === 'paystack') {
+        expect(result.data.payment_data.token).toBe(
+          'manifest-advertised-token'
+        );
+      }
+    }
+  });
+
+  it('still accepts paystack as the canonical provider name', () => {
+    const result = agenticCheckoutCompleteSchema.safeParse({
+      buyer: {
+        email: 'buyer@example.com',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        phone_number: '+2348012345678',
+      },
+      payment_data: {
+        provider: 'paystack',
+        token: 'canonical-provider-token',
+      },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.payment_data.provider).toBe('paystack');
+    }
+  });
+
+  it('still rejects unexpected providers', () => {
+    const result = agenticCheckoutCompleteSchema.safeParse({
+      buyer: {
+        email: 'buyer@example.com',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        phone_number: '+2348012345678',
+      },
+      payment_data: {
+        provider: 'paystack_card',
+        token: 'invalid-provider-token',
+      },
+    });
+
+    expect(result.success).toBe(false);
+  });
 });
