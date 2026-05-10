@@ -1,12 +1,3 @@
-interface OpenAiChatChunk {
-  choices?: Array<{
-    delta?: {
-      content?: string;
-    };
-  }>;
-  error?: { message?: string } | string;
-}
-
 const ERROR_TEXT_MAX_CHARS = 200;
 const SSE_DONE_SENTINEL = '[DONE]';
 
@@ -19,9 +10,13 @@ export function sanitizeLlmUpstreamErrorText(raw: string): string {
   return `${flat.slice(0, ERROR_TEXT_MAX_CHARS)}…`;
 }
 
-function parseSseChunk(line: string): OpenAiChatChunk {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseSseChunk(line: string): unknown {
   try {
-    return JSON.parse(line) as OpenAiChatChunk;
+    return JSON.parse(line) as unknown;
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
     throw new Error(
@@ -30,10 +25,19 @@ function parseSseChunk(line: string): OpenAiChatChunk {
   }
 }
 
-function extractChunkError(chunk: OpenAiChatChunk): string | null {
-  if (!chunk.error) return null;
-  if (typeof chunk.error === 'string') return chunk.error;
-  return chunk.error.message ?? 'LLM chat error';
+function extractChunkError(chunk: unknown): string | null {
+  if (!isRecord(chunk) || !('error' in chunk)) return null;
+  const { error } = chunk;
+  if (typeof error === 'string') return error;
+  if (!isRecord(error)) return 'LLM chat error';
+  return typeof error.message === 'string' ? error.message : 'LLM chat error';
+}
+
+function extractChunkText(chunk: unknown): string {
+  if (!isRecord(chunk) || !Array.isArray(chunk.choices)) return '';
+  const [choice] = chunk.choices;
+  if (!isRecord(choice) || !isRecord(choice.delta)) return '';
+  return typeof choice.delta.content === 'string' ? choice.delta.content : '';
 }
 
 function processSseLine(
@@ -53,7 +57,7 @@ function processSseLine(
   if (errorMessage) {
     throw new Error(sanitizeLlmUpstreamErrorText(errorMessage));
   }
-  const text = chunk.choices?.[0]?.delta?.content ?? '';
+  const text = extractChunkText(chunk);
   if (text) {
     controller.enqueue(encoder.encode(text));
   }

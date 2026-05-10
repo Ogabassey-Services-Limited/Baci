@@ -68,6 +68,59 @@ describe('createLlmChatResponse stream parsing', () => {
     expect(await response.text()).toBe('answer');
   });
 
+  it('ignores non-string delta content from non-conforming chunks', async () => {
+    const sse = [
+      `data: ${JSON.stringify({
+        choices: [{ delta: { content: { unsafe: 'object' } } }],
+      })}`,
+      '',
+      'data: {"choices":[{"delta":{"content":"safe"}}]}',
+      '',
+      'data: [DONE]',
+      '',
+    ].join('\n');
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(streamFromText(sse)))
+    );
+
+    const response = await createLlmChatResponse({
+      baseUrl: 'https://llm.example.com',
+      bearer: VALID_BEARER,
+      model: 'gemma-4-e4b',
+      messages: [{ role: 'user', content: 'Hi' }],
+    });
+
+    expect(await response.text()).toBe('safe');
+  });
+
+  it('uses a safe fallback for non-string upstream error messages', async () => {
+    expect.assertions(2);
+    const sse = `data: ${JSON.stringify({
+      error: { message: { details: 'internal object' } },
+    })}\n\n`;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(streamFromText(sse)))
+    );
+
+    const response = await createLlmChatResponse({
+      baseUrl: 'https://llm.example.com',
+      bearer: VALID_BEARER,
+      model: 'gemma-4-e4b',
+      messages: [{ role: 'user', content: 'Hi' }],
+    });
+
+    try {
+      await response.text();
+      throw new Error('Expected streamed error chunk to reject');
+    } catch (error) {
+      expect(error).toBeInstanceOf(Error);
+      expect(error).toMatchObject({ message: 'LLM chat error' });
+    }
+  });
+
   it('terminates cleanly on the [DONE] sentinel and ignores following chunks', async () => {
     const sse = [
       'data: {"choices":[{"delta":{"content":"early"}}]}',

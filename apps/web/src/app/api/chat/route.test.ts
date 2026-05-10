@@ -151,6 +151,7 @@ vi.mock('@/lib/sanitize', () => ({
 
 // ---- Import handler AFTER mocks ----
 import { generateText } from 'ai';
+import { getAiChatModel } from '@/env';
 import { createLlmChatResponse } from '@/lib/llm-chat';
 import { createOllamaChatResponse } from '@/lib/ollama-chat';
 import { sanitizeHtml } from '@/lib/sanitize';
@@ -338,6 +339,32 @@ describe('POST /api/chat', () => {
       'Ollama unavailable'
     );
     warnSpy.mockRestore();
+  });
+
+  it('does not fall back to Gemini when Ollama config resolution fails', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    vi.mocked(getAiChatModel).mockImplementationOnce(() => {
+      throw new Error('Invalid Ollama model config');
+    });
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Show me phones' }],
+      })
+    );
+    const json = await response.json();
+
+    // Assert
+    expect(response.status).toBe(500);
+    expect(json.error).toBe('Internal server error');
+    expect(createOllamaChatResponse).not.toHaveBeenCalled();
+    expect(generateText).not.toHaveBeenCalled();
+    errorSpy.mockRestore();
   });
 
   it('does not fall back to Gemini when the client aborts the Ollama request', async () => {
