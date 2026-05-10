@@ -6,6 +6,7 @@ import {
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
+import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createServiceClient } from '@/lib/supabase/service';
 import { sendEmail } from '@/lib/zeptomail';
@@ -444,16 +445,33 @@ export async function GET(request: NextRequest) {
       }
 
       try {
+        // Δ-0b: use the verified gateway response for the fee, not 0.
+        const gatewayFee = extractVerifiedGatewayFeeNgn(
+          transaction.gateway as 'paystack' | 'korapay',
+          verification.gatewayResponse
+        );
+        const paystackRef =
+          typeof verification.gatewayResponse?.reference === 'string'
+            ? verification.gatewayResponse.reference
+            : null;
         await supabase.rpc('record_merchant_settlement', {
           p_merchant_id: transaction.merchant_id,
           p_source_type: 'order',
           p_source_id: order.id,
           p_gateway: transaction.gateway,
-          p_gateway_reference: parsedReference.data,
+          // Δ-22 invariant: settlement key is our BAC-*
+          // (transactions.gateway_reference). The Paystack numeric ref
+          // lives in p_metadata only.
+          p_gateway_reference: transaction.gateway_reference,
           p_gross_amount: Number(transaction.amount) || 0,
-          p_gateway_fee: 0,
+          p_gateway_fee: gatewayFee,
           p_platform_fee: Number(transaction.platform_fee) || 0,
           p_description: `Order payment via ${transaction.gateway}`,
+          // Δ-29: traceability for the gateway-side ref + verified fee.
+          p_metadata: {
+            ...(paystackRef ? { paystack_reference: paystackRef } : {}),
+            verified_gateway_fee: gatewayFee,
+          },
         });
       } catch (error) {
         logger.warn({

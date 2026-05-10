@@ -975,7 +975,7 @@ describe('POST /api/payments/webhook', () => {
         transaction: {
           amount: 100,
           currency: 'NGN',
-          gateway_fee: null,
+          gateway_reference: 'BAC-TEST123',
           id: 'txn-123',
           merchant_id: 'merchant-123',
           metadata: {
