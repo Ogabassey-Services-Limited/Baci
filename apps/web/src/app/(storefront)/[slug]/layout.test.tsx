@@ -73,10 +73,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('@/lib/store-url', () => ({
-  buildRequestScopedStoreUrl: (
-    merchant: { slug: string; custom_domain?: string },
-    _headers: Headers
-  ) =>
+  buildStoreUrl: (merchant: { slug: string; custom_domain?: string | null }) =>
     merchant.custom_domain
       ? `https://${merchant.custom_domain}`
       : `https://${merchant.slug}.usebaci.com`,
@@ -146,11 +143,8 @@ const baseShellSnapshotWithoutCategories = {
   basePath: baseShellSnapshot.basePath,
 };
 
-const {
-  default: StorefrontLayout,
-  generateMetadata,
-  generateViewport,
-} = await import('./layout');
+const { generateMetadata, generateViewport, StorefrontLayoutContent } =
+  await import('./layout');
 
 describe('storefront layout', () => {
   beforeEach(() => {
@@ -174,7 +168,7 @@ describe('storefront layout', () => {
       deferredSnapshot.promise
     );
 
-    const layoutPromise = StorefrontLayout({
+    const layoutPromise = StorefrontLayoutContent({
       params: Promise.resolve({ slug: 'ogabassey' }),
       children: <main>Storefront content</main>,
     });
@@ -198,7 +192,7 @@ describe('storefront layout', () => {
     render(await layoutPromise);
 
     expect(providerSnapshots).toEqual([baseShellSnapshot]);
-    expect(themeProviderRenders).toBe(1);
+    expect(themeProviderRenders).toBe(0);
     expect(screen.getByText('Storefront content')).toBeInTheDocument();
   });
 
@@ -206,7 +200,7 @@ describe('storefront layout', () => {
     vi.mocked(getStorefrontShellSnapshotBase).mockResolvedValue(null);
 
     await expect(
-      StorefrontLayout({
+      StorefrontLayoutContent({
         params: Promise.resolve({ slug: 'missing-store' }),
         children: <main>Storefront content</main>,
       })
@@ -233,7 +227,7 @@ describe('storefront layout', () => {
     );
 
     render(
-      await StorefrontLayout({
+      await StorefrontLayoutContent({
         params: Promise.resolve({ slug: 'draft-store' }),
         children: <main>Storefront content</main>,
       })
@@ -241,7 +235,7 @@ describe('storefront layout', () => {
 
     expect(screen.getByText('Draft Store unpublished')).toBeInTheDocument();
     expect(screen.queryByText('Storefront content')).not.toBeInTheDocument();
-    expect(themeProviderRenders).toBe(1);
+    expect(themeProviderRenders).toBe(0);
     expect(getStorefrontShellSnapshot).not.toHaveBeenCalled();
     expect(providerSnapshots).toEqual([]);
   });
