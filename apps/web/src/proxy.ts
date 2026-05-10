@@ -82,6 +82,7 @@ const IMAGE_FILES_REGEX =
   /\.(jpg|jpeg|png|gif|svg|ico|webp|avif|woff|woff2|ttf|eot)$/;
 const BOT_USER_AGENT_REGEX =
   /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator/i;
+const PROTOCOL_SCHEME_REGEX = /^[a-z][a-z0-9+.-]*:/i;
 const PRODUCT_PAGE_REGEX = /^\/[^/]+\/products\/[^/]+$/;
 const NESTED_PRODUCT_REGEX = /^\/[^/]+\/[^/]+\/[^/]+$/;
 const CATEGORY_PAGE_REGEX = /^\/[^/]+\/[^/]+\/?$/;
@@ -161,6 +162,30 @@ const RESERVED_STOREFRONT_SEGMENTS = new Set([
   'wallet',
   'wishlist',
 ]);
+
+function sanitizeProxyRedirectPath(
+  rawRedirect: string | null | undefined,
+  defaultPath = '/dashboard'
+): string {
+  if (!rawRedirect) {
+    return defaultPath;
+  }
+
+  if (
+    !rawRedirect.startsWith('/') ||
+    rawRedirect.startsWith('//') ||
+    PROTOCOL_SCHEME_REGEX.test(rawRedirect)
+  ) {
+    return defaultPath;
+  }
+
+  try {
+    const parsed = new URL(rawRedirect, 'https://usebaci.local');
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return defaultPath;
+  }
+}
 
 /**
  * If pathname starts with `prefix` (case-insensitive), return the corrected
@@ -935,7 +960,11 @@ export async function proxy(request: NextRequest) {
       */
       const url = request.nextUrl.clone();
       url.pathname = '/login';
-      url.searchParams.set('redirectTo', pathname);
+      url.search = '';
+      url.searchParams.set(
+        'redirect',
+        `${pathname}${request.nextUrl.search}${request.nextUrl.hash}`
+      );
       return applySecurityHeaders(
         NextResponse.redirect(url),
         pathname,
@@ -951,10 +980,15 @@ export async function proxy(request: NextRequest) {
     // Auth routes: redirect to dashboard if already logged in
     if (isAuthRoute && user) {
       // console.log('Middleware: User found on auth route, redirecting to dashboard');
-      const redirectTo = request.nextUrl.searchParams.get('redirectTo');
+      const redirectTo = sanitizeProxyRedirectPath(
+        request.nextUrl.searchParams.get('redirect') ??
+          request.nextUrl.searchParams.get('redirectTo')
+      );
       const url = request.nextUrl.clone();
-      url.pathname = redirectTo || '/dashboard';
-      url.search = '';
+      const redirectUrl = new URL(redirectTo, request.nextUrl.origin);
+      url.pathname = redirectUrl.pathname;
+      url.search = redirectUrl.search;
+      url.hash = redirectUrl.hash;
       return applySecurityHeaders(
         NextResponse.redirect(url),
         pathname,

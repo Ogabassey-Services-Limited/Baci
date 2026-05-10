@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn().mockResolvedValue({ valid: true }),
@@ -83,6 +83,12 @@ describe('POST /api/orders/[id]/record-payment', () => {
   const mockOrderId = 'order-123';
   const mockMerchantId = 'merchant-456';
   const mockUserId = 'user-789';
+
+  // Preload the route's email/payment dependency graph once so the first
+  // validation case measures handler behavior instead of module startup.
+  beforeAll(async () => {
+    await import('./route');
+  }, 10_000);
 
   beforeEach(() => {
     vi.clearAllMocks();

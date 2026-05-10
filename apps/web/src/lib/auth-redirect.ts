@@ -6,6 +6,13 @@ const LEGACY_PATH_ALIASES: Record<string, string> = {
   '/auth/update-password': '/update-password',
 };
 
+function hasControlCharacter(value: string): boolean {
+  return Array.from(value).some((character) => {
+    const code = character.charCodeAt(0);
+    return code <= 31 || code === 127;
+  });
+}
+
 function applyLegacyAlias(path: string): string {
   const url = new URL(path, 'https://usebaci.local');
   const pathname = LEGACY_PATH_ALIASES[url.pathname] ?? url.pathname;
@@ -23,6 +30,8 @@ export function sanitizeRelativeRedirectPath(
   if (
     !rawRedirect.startsWith('/') ||
     rawRedirect.startsWith('//') ||
+    rawRedirect.includes('\\') ||
+    hasControlCharacter(rawRedirect) ||
     /^[a-z][a-z0-9+.-]*:/i.test(rawRedirect)
   ) {
     return defaultPath;

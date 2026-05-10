@@ -135,6 +135,79 @@ describe('Middleware Proxy', () => {
     expect(csp).not.toContain("'unsafe-eval'");
   });
 
+  it('redirects unauthenticated admin requests to login with the canonical redirect key', async () => {
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/admin`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+    const location = res.headers.get('location');
+
+    expect(res.status).toBe(307);
+    if (!location) {
+      throw new Error('expected location header');
+    }
+
+    const redirected = new URL(location);
+    expect(redirected.pathname).toBe('/login');
+    expect(redirected.searchParams.get('redirect')).toBe('/admin');
+    expect(redirected.searchParams.has('redirectTo')).toBe(false);
+  });
+
+  it('preserves admin subpaths in canonical login redirects', async () => {
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}/admin/merchants?health=at_risk`
+    );
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+    const location = res.headers.get('location');
+
+    expect(res.status).toBe(307);
+    if (!location) {
+      throw new Error('expected location header');
+    }
+
+    const redirected = new URL(location);
+    expect(redirected.pathname).toBe('/login');
+    expect(redirected.searchParams.get('redirect')).toBe(
+      '/admin/merchants?health=at_risk'
+    );
+  });
+
+  it('redirects authenticated login requests using canonical redirect before legacy redirectTo', async () => {
+    vi.mocked(updateSession).mockResolvedValueOnce({
+      supabaseResponse: NextResponse.next(),
+      user: AUTHENTICATED_USER,
+    });
+
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}/login?redirect=%2Fadmin&redirectTo=%2Fdashboard`
+    );
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get('location')).toBe(`https://${ROOT_DOMAIN}/admin`);
+  });
+
+  it('keeps legacy redirectTo login compatibility for authenticated users', async () => {
+    vi.mocked(updateSession).mockResolvedValueOnce({
+      supabaseResponse: NextResponse.next(),
+      user: AUTHENTICATED_USER,
+    });
+
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}/login?redirectTo=%2Fadmin`
+    );
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get('location')).toBe(`https://${ROOT_DOMAIN}/admin`);
+  });
+
   it('should not rewrite API routes on subdomains (pass-through)', async () => {
     const req = new NextRequest(
       `https://ogabassey.${ROOT_DOMAIN}/api/storefront/products`

@@ -1,13 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockCookies = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
 const mockCreateClient = vi.fn();
-
-vi.mock('next/headers', () => ({
-  cookies: vi.fn(async () => mockCookies()),
-}));
 
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
   getMerchantForApiRequest: (...args: unknown[]) =>
@@ -157,14 +152,13 @@ describe('/api/admin/merchants', () => {
       ],
       error: null,
     };
-    mockCookies.mockReturnValue(new Map());
     mockGetMerchantForApiRequest.mockResolvedValue(merchantContext);
-    mockCreateClient.mockReturnValue(createMockSupabase());
+    mockCreateClient.mockResolvedValue(createMockSupabase());
   });
 
   it('returns 401 when the user is not authenticated', async () => {
     authUser = null;
-    mockCreateClient.mockReturnValue(createMockSupabase());
+    mockCreateClient.mockResolvedValue(createMockSupabase());
 
     const response = await GET(
       createRequest('http://localhost/api/admin/merchants')
@@ -190,7 +184,7 @@ describe('/api/admin/merchants', () => {
       data: { is_platform_admin: false },
       error: null,
     };
-    mockCreateClient.mockReturnValue(createMockSupabase());
+    mockCreateClient.mockResolvedValue(createMockSupabase());
 
     const response = await GET(
       createRequest('http://localhost/api/admin/merchants')
@@ -206,7 +200,7 @@ describe('/api/admin/merchants', () => {
       data: null,
       error: { message: 'rpc failed' },
     };
-    mockCreateClient.mockReturnValue(createMockSupabase());
+    mockCreateClient.mockResolvedValue(createMockSupabase());
 
     const response = await GET(
       createRequest('http://localhost/api/admin/merchants')
