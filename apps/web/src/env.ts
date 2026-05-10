@@ -155,22 +155,16 @@ const serverSchema = z
 
     // LLM server (llama.cpp / OpenAI-compatible — Gemma 4 + MTP drafter on VPS)
     LLM_SERVER_URL: httpsOrLocalhostUrl('LLM_SERVER_URL').optional(),
-    // .trim() before .min(1) so a whitespace-only value (e.g. "   ") fails at
-    // boot via the superRefine below rather than silently producing an empty
-    // bearer at runtime that always falls back to Gemini. The buildLlmBearer
-    // refine reuses the request-time validation (length cap, control-char
-    // rejection, "BearerXyz" detection) so invalid tokens fail boot rather
-    // than passing here and getting rejected per-request inside the chat
-    // route — which would silently downgrade the deployment to Gemini.
-    LLM_SERVER_BEARER: z
-      .string()
-      .trim()
-      .min(1)
-      .refine((value) => buildLlmBearerAuthHeader(value) !== null, {
+    // Blank placeholders are treated as unset; the superRefine below requires
+    // a real bearer only when LLM_SERVER_URL is configured.
+    LLM_SERVER_BEARER: optionalTrimmedStringSchema.refine(
+      (value) =>
+        value === undefined || buildLlmBearerAuthHeader(value) !== null,
+      {
         message:
           'LLM_SERVER_BEARER must be a valid bearer token (no control chars, ≤2048 chars, not "BearerXyz")',
-      })
-      .optional(),
+      }
+    ),
     LLM_CHAT_MODEL: z.string().default('gemma-4-e4b'),
 
     // Jumia Marketplace

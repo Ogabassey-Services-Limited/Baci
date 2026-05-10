@@ -144,7 +144,7 @@ function processSseLine(
   const chunk = parseSseChunk(payload);
   const errorMessage = extractChunkError(chunk);
   if (errorMessage) {
-    throw new Error(errorMessage);
+    throw new Error(sanitizeUpstreamErrorText(errorMessage));
   }
   const text = chunk.choices?.[0]?.delta?.content ?? '';
   if (text) {
@@ -159,12 +159,25 @@ function createTextStream(
 ): ReadableStream<Uint8Array> {
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
+  let cleanupDone = false;
+  let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+
+  const cleanupOnce = () => {
+    if (cleanupDone) return;
+    cleanupDone = true;
+    cleanup();
+  };
+
+  const cancelUpstream = async () => {
+    await reader?.cancel().catch(() => undefined);
+  };
 
   return new ReadableStream<Uint8Array>({
     async start(controller) {
-      const reader = body.getReader();
+      reader = body.getReader();
       let buffer = '';
       let done = false;
+      let shouldCancelUpstream = false;
 
       try {
         while (!done) {
@@ -180,6 +193,7 @@ function createTextStream(
 
             if (processSseLine(line, controller, encoder)) {
               done = true;
+              shouldCancelUpstream = true;
               break;
             }
 
@@ -193,15 +207,25 @@ function createTextStream(
           // consistent if a server emits "data: [DONE]\n" without a
           // trailing newline.
           done = processSseLine(buffer, controller, encoder);
+          shouldCancelUpstream = done;
         }
 
         controller.close();
       } catch (error) {
+        shouldCancelUpstream = true;
         controller.error(error);
       } finally {
-        cleanup();
-        reader.releaseLock();
+        if (shouldCancelUpstream) {
+          await cancelUpstream();
+        }
+        reader?.releaseLock();
+        reader = null;
+        cleanupOnce();
       }
+    },
+    async cancel() {
+      await cancelUpstream();
+      cleanupOnce();
     },
   });
 }
