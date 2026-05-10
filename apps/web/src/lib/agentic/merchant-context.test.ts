@@ -20,6 +20,45 @@ function createMerchantLookupMock(data: unknown, error: unknown = null) {
   };
 }
 
+function createMerchantWithFeatureSettingsLookupMock({
+  featureSettings,
+  featureSettingsError = null,
+  merchant,
+}: {
+  featureSettings: unknown;
+  featureSettingsError?: unknown;
+  merchant: unknown;
+}) {
+  const merchantMaybeSingle = vi.fn().mockResolvedValue({
+    data: merchant,
+    error: null,
+  });
+  const merchantEq = vi.fn(() => ({ maybeSingle: merchantMaybeSingle }));
+  const merchantSelect = vi.fn(() => ({ eq: merchantEq }));
+  const settingsMaybeSingle = vi.fn().mockResolvedValue({
+    data: featureSettings,
+    error: featureSettingsError,
+  });
+  const settingsEq = vi.fn(() => ({ maybeSingle: settingsMaybeSingle }));
+  const settingsSelect = vi.fn(() => ({ eq: settingsEq }));
+  const from = vi.fn((table: string) => {
+    if (table === 'merchants') return { select: merchantSelect };
+    if (table === 'merchant_feature_settings') {
+      return { select: settingsSelect };
+    }
+    throw new Error(`Unexpected table ${table}`);
+  });
+
+  return {
+    from,
+    merchantEq,
+    merchantSelect,
+    settingsEq,
+    settingsSelect,
+    supabase: { from },
+  };
+}
+
 function stubBaseEnv() {
   vi.stubEnv('NODE_ENV', 'test');
   vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'service-role-key');
@@ -107,6 +146,47 @@ describe('resolveAgenticMerchantContext', () => {
     expect(getConfiguredAgenticMerchantSlug()).toBe('demo-store');
   });
 
+  it('includes pay_on_delivery_enabled in the merchant context', async () => {
+    stubBaseEnv();
+    vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'demo-store');
+    const { resolveAgenticMerchantContext } = await loadMerchantContextModule();
+    const mock = createMerchantWithFeatureSettingsLookupMock({
+      featureSettings: { pay_on_delivery_enabled: true },
+      merchant: {
+        business_name: 'Demo Store',
+        id: 'merchant-2',
+        paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+        slug: 'demo-store',
+      },
+    });
+
+    const context = await resolveAgenticMerchantContext(mock.supabase as never);
+
+    expect(context?.pay_on_delivery_enabled).toBe(true);
+    expect(mock.settingsEq).toHaveBeenCalledWith('merchant_id', 'merchant-2');
+  });
+
+  it('defaults pay_on_delivery_enabled to false when feature settings cannot be read', async () => {
+    stubBaseEnv();
+    vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'demo-store');
+    const { resolveAgenticMerchantContext } = await loadMerchantContextModule();
+    const mock = createMerchantWithFeatureSettingsLookupMock({
+      featureSettings: null,
+      featureSettingsError: { message: 'settings unavailable' },
+      merchant: {
+        business_name: 'Demo Store',
+        id: 'merchant-2',
+        paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+        slug: 'demo-store',
+      },
+    });
+
+    const context = await resolveAgenticMerchantContext(mock.supabase as never);
+
+    expect(context?.id).toBe('merchant-2');
+    expect(context?.pay_on_delivery_enabled).toBe(false);
+  });
+
   it('returns null when the configured merchant cannot be resolved', async () => {
     stubBaseEnv();
     vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'missing-store');
@@ -135,7 +215,6 @@ describe('isAgenticCheckoutRuntimeConfigured', () => {
     'OPENAI_AGENTIC_CONFIRMATION_KEY',
     'OPENAI_AGENTIC_SIGNING_KEY',
     'SUPABASE_AGENTIC_JWT_PRIVATE_JWK',
-    'PAYSTACK_SECRET_KEY',
   ])('does not advertise checkout when %s is missing', async (envKey) => {
     stubBaseEnv();
     stubCompleteAgenticRuntimeEnv();
@@ -144,6 +223,16 @@ describe('isAgenticCheckoutRuntimeConfigured', () => {
       await loadMerchantContextModule();
 
     expect(isAgenticCheckoutRuntimeConfigured()).toBe(false);
+  });
+
+  it('does not require Paystack configuration for the common agentic runtime', async () => {
+    stubBaseEnv();
+    stubCompleteAgenticRuntimeEnv();
+    vi.stubEnv('PAYSTACK_SECRET_KEY', '');
+    const { isAgenticCheckoutRuntimeConfigured } =
+      await loadMerchantContextModule();
+
+    expect(isAgenticCheckoutRuntimeConfigured()).toBe(true);
   });
 
   it('advertises checkout when an invalid configured JWK can fall back to the legacy JWT secret', async () => {
