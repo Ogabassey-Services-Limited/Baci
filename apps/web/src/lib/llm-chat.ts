@@ -206,6 +206,13 @@ function createTextStream(
   });
 }
 
+/**
+ * Streams an OpenAI-compatible chat completion response.
+ *
+ * Defaults are tuned for customer-support chat: 90s timeout, 500 max tokens,
+ * and temperature 0.4. Callers with different latency or creativity needs
+ * should pass `timeoutMs`, `maxTokens`, or `temperature` explicitly.
+ */
 export async function createLlmChatResponse({
   baseUrl,
   bearer,
