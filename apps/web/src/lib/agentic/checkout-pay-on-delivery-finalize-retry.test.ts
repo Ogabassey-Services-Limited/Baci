@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => ({
   compensatePayOnDeliveryFinalizationFailure: vi.fn(),
   createAgenticCheckoutOrder: vi.fn(),
   getMarkedPayOnDeliveryFinalizationOrderId: vi.fn(),
+  handlePayOnDeliverySessionCompletionFailure: vi.fn(),
   loggerError: vi.fn(),
   loggerWarn: vi.fn(),
   persistAgenticIdempotencyResponse: vi.fn(),
@@ -63,6 +64,14 @@ vi.mock('@/lib/agentic/checkout-pay-on-delivery-payloads', () => ({
   PAY_ON_DELIVERY_METHOD: 'pay_on_delivery',
 }));
 
+vi.mock(
+  '@/lib/agentic/checkout-pay-on-delivery-session-completion-failure',
+  () => ({
+    handlePayOnDeliverySessionCompletionFailure:
+      mocks.handlePayOnDeliverySessionCompletionFailure,
+  })
+);
+
 vi.mock('@/lib/agentic/idempotency-response-storage', () => ({
   buildPersistedAgenticIdempotencyResponse:
     mocks.buildPersistedAgenticIdempotencyResponse,
@@ -83,14 +92,12 @@ const buyer = {
 };
 
 const metadata = { agentic: { existing: true } };
-
 const orderSession = {
   currency: 'NGN',
   merchant_id: 'merchant-1',
   session_id: 'agentic_session_1',
   shipping_address: { city: 'Lagos' },
 };
-
 const orderSessionCalc = {
   lineItems: [],
   totals: [{ type: 'total', amount: 500000 }],
@@ -113,10 +120,7 @@ function buildSessionUpdateMock(result: unknown) {
   chain.is.mockReturnValue(chain);
   chain.contains.mockReturnValue(chain);
   chain.select.mockReturnValue(chain);
-  return {
-    chain,
-    supabase: { from: vi.fn().mockReturnValue(chain) },
-  };
+  return { chain, supabase: { from: vi.fn().mockReturnValue(chain) } };
 }
 
 function callFinalize(supabase: unknown) {
@@ -134,7 +138,7 @@ function callFinalize(supabase: unknown) {
   });
 }
 
-describe('finalizeAgenticPayOnDeliveryCheckout', () => {
+describe('finalizeAgenticPayOnDeliveryCheckout retry behavior', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.getMarkedPayOnDeliveryFinalizationOrderId.mockReturnValue(null);
@@ -151,48 +155,27 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
       orderId: 'order-1',
     });
     mocks.persistAgenticIdempotencyResponse.mockResolvedValue({ ok: true });
+    mocks.handlePayOnDeliverySessionCompletionFailure.mockResolvedValue({
+      body: { error: 'Database error' },
+      status: 500,
+    });
   });
 
-  it('returns 500 when the claim helper reports an error', async () => {
-    mocks.claimPayOnDeliveryFinalization.mockResolvedValue({
-      claimed: false,
-      error: { message: 'db error' },
-    });
-    const supabase = buildSessionUpdateMock({
-      data: { session_id: 'x' },
-      error: null,
-    }).supabase;
+  it('delegates session-update failures to the post-success failure handler', async () => {
+    const updateError = { message: 'update failed' };
+    const mock = buildSessionUpdateMock({ data: null, error: updateError });
 
-    const result = await callFinalize(supabase);
+    const result = await callFinalize(mock.supabase);
 
     expect(result).toEqual({ body: { error: 'Database error' }, status: 500 });
-    expect(mocks.createAgenticCheckoutOrder).not.toHaveBeenCalled();
+    expect(
+      mocks.handlePayOnDeliverySessionCompletionFailure
+    ).toHaveBeenCalledWith(expect.objectContaining({ updateError }));
     expect(mocks.sendAgenticOrderCreatedWebhook).not.toHaveBeenCalled();
   });
 
-  it('returns 409 when the claim is not granted (already in progress)', async () => {
-    mocks.claimPayOnDeliveryFinalization.mockResolvedValue({
-      claimed: false,
-      error: null,
-    });
-    const supabase = buildSessionUpdateMock({
-      data: { session_id: 'x' },
-      error: null,
-    }).supabase;
-
-    const result = await callFinalize(supabase);
-
-    expect(result).toEqual({
-      body: {
-        error: 'Session finalization already in progress',
-        status: 'payment_pending',
-      },
-      status: 409,
-    });
-    expect(mocks.createAgenticCheckoutOrder).not.toHaveBeenCalled();
-  });
-
-  it('happy path: creates order, marks it, updates session, dispatches webhook', async () => {
+  it('skips order creation when metadata already has a marked finalization order id', async () => {
+    mocks.getMarkedPayOnDeliveryFinalizationOrderId.mockReturnValue('order-1');
     const mock = buildSessionUpdateMock({
       data: { session_id: 'agentic_session_1' },
       error: null,
@@ -201,94 +184,67 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
     const result = await callFinalize(mock.supabase);
 
     expect(result).toMatchObject({ status: 200 });
-    expect(mocks.createAgenticCheckoutOrder).toHaveBeenCalledTimes(1);
-    expect(mocks.recordPayOnDeliveryOrderCreated).toHaveBeenCalledTimes(1);
+    expect(mocks.createAgenticCheckoutOrder).not.toHaveBeenCalled();
+    expect(mocks.recordPayOnDeliveryOrderCreated).not.toHaveBeenCalled();
     expect(mocks.sendAgenticOrderCreatedWebhook).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses live claim metadata when a recovered claim already has an order marker', async () => {
+    const liveMetadata = {
+      agentic: {
+        existing: true,
+        finalization_claim: 'claim-1',
+        finalization_order_id: 'order-live',
+        payment_method: 'pay_on_delivery',
+        payment_state: 'order_finalizing',
+      },
+    };
+    mocks.claimPayOnDeliveryFinalization.mockResolvedValue({
+      claimed: true,
+      error: null,
+      metadata: liveMetadata,
+    });
+    mocks.getMarkedPayOnDeliveryFinalizationOrderId.mockReturnValue(
+      'order-live'
+    );
+    const mock = buildSessionUpdateMock({
+      data: { session_id: 'agentic_session_1' },
+      error: null,
+    });
+
+    const result = await callFinalize(mock.supabase);
+
+    expect(result).toMatchObject({ status: 200 });
+    expect(
+      mocks.getMarkedPayOnDeliveryFinalizationOrderId
+    ).toHaveBeenCalledWith(liveMetadata);
+    expect(mocks.createAgenticCheckoutOrder).not.toHaveBeenCalled();
+    expect(mocks.recordPayOnDeliveryOrderCreated).not.toHaveBeenCalled();
+    expect(mocks.buildPayOnDeliveryCompletedSessionUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: liveMetadata })
+    );
+  });
+
+  it('leaves session in order_finalizing when idempotency persistence fails', async () => {
+    mocks.persistAgenticIdempotencyResponse.mockResolvedValue({
+      error: { message: 'storage 503' },
+      ok: false,
+    });
+    const mock = buildSessionUpdateMock({
+      data: { session_id: 'agentic_session_1' },
+      error: null,
+    });
+
+    const result = await callFinalize(mock.supabase);
+
+    expect(result).toEqual({
+      body: { error: 'Idempotency response storage failed' },
+      status: 503,
+    });
+    expect(mock.chain.update).not.toHaveBeenCalled();
+    expect(mocks.releasePayOnDeliveryClaimSafely).not.toHaveBeenCalled();
     expect(
       mocks.compensatePayOnDeliveryFinalizationFailure
     ).not.toHaveBeenCalled();
-    expect(mocks.releasePayOnDeliveryClaimSafely).not.toHaveBeenCalled();
-  });
-
-  it('returns 500 and releases the claim when createAgenticCheckoutOrder throws', async () => {
-    mocks.createAgenticCheckoutOrder.mockRejectedValue(new Error('boom'));
-    const supabase = buildSessionUpdateMock({
-      data: { session_id: 'x' },
-      error: null,
-    }).supabase;
-
-    const result = await callFinalize(supabase);
-
-    expect(result).toEqual({
-      body: { error: 'Order creation failed' },
-      status: 500,
-    });
-    expect(mocks.releasePayOnDeliveryClaimSafely).toHaveBeenCalledTimes(1);
-    expect(mocks.sendAgenticOrderCreatedWebhook).not.toHaveBeenCalled();
-  });
-
-  it('returns 500 and releases the claim when createAgenticCheckoutOrder returns ok=false', async () => {
-    mocks.createAgenticCheckoutOrder.mockResolvedValue({
-      ok: false,
-      error: 'rejected',
-      statusText: 'Bad Request',
-    });
-    const supabase = buildSessionUpdateMock({
-      data: { session_id: 'x' },
-      error: null,
-    }).supabase;
-
-    const result = await callFinalize(supabase);
-
-    expect(result).toEqual({
-      body: { error: 'Order creation failed' },
-      status: 500,
-    });
-    expect(mocks.releasePayOnDeliveryClaimSafely).toHaveBeenCalledTimes(1);
-    expect(mocks.sendAgenticOrderCreatedWebhook).not.toHaveBeenCalled();
-  });
-
-  it('returns 500 and releases the claim when createAgenticCheckoutOrder is missing orderId', async () => {
-    mocks.createAgenticCheckoutOrder.mockResolvedValue({
-      ok: true,
-      orderId: undefined,
-    });
-    const supabase = buildSessionUpdateMock({
-      data: { session_id: 'x' },
-      error: null,
-    }).supabase;
-
-    const result = await callFinalize(supabase);
-
-    expect(result).toEqual({
-      body: { error: 'Order creation failed' },
-      status: 500,
-    });
-    expect(mocks.releasePayOnDeliveryClaimSafely).toHaveBeenCalledTimes(1);
-    expect(mocks.sendAgenticOrderCreatedWebhook).not.toHaveBeenCalled();
-  });
-
-  it('compensates and returns 500 when recordPayOnDeliveryOrderCreated reports recorded:false', async () => {
-    mocks.recordPayOnDeliveryOrderCreated.mockResolvedValue({
-      error: { message: 'no row' },
-      recorded: false,
-    });
-    const supabase = buildSessionUpdateMock({
-      data: { session_id: 'x' },
-      error: null,
-    }).supabase;
-
-    const result = await callFinalize(supabase);
-
-    expect(result).toEqual({ body: { error: 'Database error' }, status: 500 });
-    expect(
-      mocks.compensatePayOnDeliveryFinalizationFailure
-    ).toHaveBeenCalledTimes(1);
-    expect(
-      mocks.compensatePayOnDeliveryFinalizationFailure
-    ).toHaveBeenCalledWith(
-      expect.objectContaining({ orderError: { message: 'no row' } })
-    );
-    expect(mocks.sendAgenticOrderCreatedWebhook).not.toHaveBeenCalled();
   });
 });

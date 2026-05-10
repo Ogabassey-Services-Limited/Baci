@@ -13,6 +13,14 @@ const buyer = {
   phone_number: '+2348012345678',
 };
 
+const matchingClaimMetadata = {
+  agentic: {
+    finalization_claim: 'claim-1',
+    payment_method: 'pay_on_delivery',
+    payment_state: 'order_finalizing',
+  },
+};
+
 function createCheckoutSessionUpdateMock(result: unknown | unknown[]) {
   const results = Array.isArray(result) ? result : [result];
   const maybeSingle = vi.fn();
@@ -175,13 +183,7 @@ describe('pay-on-delivery finalization claim helpers', () => {
       buyer,
       finalizationClaim: 'claim-1',
       merchantId: 'merchant-1',
-      metadata: {
-        agentic: {
-          finalization_claim: 'claim-1',
-          payment_method: 'pay_on_delivery',
-          payment_state: 'order_finalizing',
-        },
-      },
+      metadata: matchingClaimMetadata,
       sessionId: 'agentic_session_1',
       supabase: mock.supabase as never,
     });
@@ -204,13 +206,7 @@ describe('pay-on-delivery finalization claim helpers', () => {
       buyer,
       finalizationClaim: 'claim-1',
       merchantId: 'merchant-1',
-      metadata: {
-        agentic: {
-          finalization_claim: 'claim-1',
-          payment_method: 'pay_on_delivery',
-          payment_state: 'order_finalizing',
-        },
-      },
+      metadata: matchingClaimMetadata,
       sessionId: 'agentic_session_1',
       supabase: mock.supabase as never,
     });
@@ -229,13 +225,7 @@ describe('pay-on-delivery finalization claim helpers', () => {
       buyer,
       finalizationClaim: 'claim-1',
       merchantId: 'merchant-1',
-      metadata: {
-        agentic: {
-          finalization_claim: 'claim-1',
-          payment_method: 'pay_on_delivery',
-          payment_state: 'order_finalizing',
-        },
-      },
+      metadata: matchingClaimMetadata,
       sessionId: 'agentic_session_1',
       supabase: mock.supabase as never,
     });
@@ -270,13 +260,7 @@ describe('pay-on-delivery finalization claim helpers', () => {
     const result = await releasePayOnDeliveryFinalizationClaim({
       finalizationClaim: 'claim-1',
       merchantId: 'merchant-1',
-      metadata: {
-        agentic: {
-          finalization_claim: 'claim-1',
-          payment_method: 'pay_on_delivery',
-          payment_state: 'order_finalizing',
-        },
-      },
+      metadata: matchingClaimMetadata,
       orderError: 'order failed',
       sessionId: 'agentic_session_1',
       supabase: mock.supabase as never,

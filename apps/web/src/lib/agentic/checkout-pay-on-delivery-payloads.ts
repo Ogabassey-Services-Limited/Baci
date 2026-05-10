@@ -143,6 +143,7 @@ function buildBuyerDisplayName(buyer: AgenticCheckoutBuyer): string {
 function buildCompletedPayOnDeliveryMetadata(metadata: AgenticMetadata) {
   const agentic = { ...(metadata.agentic ?? {}) };
   delete agentic.finalization_claim;
+  delete agentic.finalization_error;
   delete agentic.finalization_order_id;
   delete agentic.finalization_updated_at;
 

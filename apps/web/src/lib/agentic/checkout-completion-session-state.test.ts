@@ -181,6 +181,7 @@ describe('resolveCheckoutCompletionSessionState', () => {
       ...readySession,
       metadata: {
         agentic: {
+          finalization_claim: 'claim-1',
           payment_method: 'pay_on_delivery',
           payment_state: 'order_finalizing',
           totals,
@@ -198,7 +199,15 @@ describe('resolveCheckoutCompletionSessionState', () => {
       supabase: {} as never,
     });
 
-    expect(result).toMatchObject({ ok: false, status: 409 });
+    expect(result).toMatchObject({
+      body: {
+        error: 'Missing or corrupted DVA account',
+        order_id: null,
+        status: 'payment_account_missing',
+      },
+      ok: false,
+      status: 409,
+    });
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 

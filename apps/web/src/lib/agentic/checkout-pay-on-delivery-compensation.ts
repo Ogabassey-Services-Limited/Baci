@@ -19,9 +19,9 @@ export async function releasePayOnDeliveryClaimSafely({
   orderError: unknown;
   sessionId: string;
   supabase: SupabaseClient;
-}) {
+}): Promise<boolean> {
   try {
-    await releasePayOnDeliveryFinalizationClaim({
+    const release = await releasePayOnDeliveryFinalizationClaim({
       finalizationClaim,
       merchantId,
       metadata,
@@ -29,12 +29,14 @@ export async function releasePayOnDeliveryClaimSafely({
       sessionId,
       supabase,
     });
+    return release.released === true;
   } catch (error) {
     logger.error({
       error: sanitizeForLog(error),
       message: 'Pay-on-delivery finalization claim release threw',
       sessionId: sanitizeForLog(sessionId),
     });
+    return false;
   }
 }
 
@@ -57,6 +59,7 @@ export async function compensatePayOnDeliveryFinalizationFailure({
 }) {
   let cancellationError: unknown = null;
   let cancellationUpdated = false;
+  let releaseSucceeded: boolean | null = null;
   try {
     const cancellation = await markAgenticCheckoutOrderCanceled({
       merchantId,
@@ -71,7 +74,7 @@ export async function compensatePayOnDeliveryFinalizationFailure({
   }
 
   if (!cancellationError && cancellationUpdated) {
-    await releasePayOnDeliveryClaimSafely({
+    releaseSucceeded = await releasePayOnDeliveryClaimSafely({
       finalizationClaim,
       merchantId,
       metadata,
@@ -88,6 +91,7 @@ export async function compensatePayOnDeliveryFinalizationFailure({
         : null,
       cancellationUpdated,
       orderError: sanitizeForLog(orderError),
+      releaseSucceeded,
     },
     message: 'Pay-on-delivery finalization failed after order creation',
     orderId: sanitizeForLog(orderId),

@@ -21,6 +21,7 @@ import {
   buildPayOnDeliveryCompletedSessionUpdate,
   buildPayOnDeliveryOrderPayload,
 } from '@/lib/agentic/checkout-pay-on-delivery-payloads';
+import { handlePayOnDeliverySessionCompletionFailure } from '@/lib/agentic/checkout-pay-on-delivery-session-completion-failure';
 import type { AgenticMetadata } from '@/lib/agentic/checkout-storage';
 import {
   buildPersistedAgenticIdempotencyResponse,
@@ -246,22 +247,19 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
     .maybeSingle();
 
   if (updateError || !updatedSession) {
-    logger.error({
-      error: sanitizeForLog(updateError ?? 'No checkout session row updated'),
-      message: 'Pay-on-delivery checkout session completion failed',
-      orderId: sanitizeForLog(orderId),
-      sessionId: sanitizeForLog(sessionId),
-    });
-    await compensatePayOnDeliveryFinalizationFailure({
+    return handlePayOnDeliverySessionCompletionFailure({
       finalizationClaim,
+      idempotencyKey,
       merchantId,
       metadata: finalizationMetadata,
-      orderError: updateError ?? 'No checkout session row updated',
       orderId,
+      requestId,
+      route,
       sessionId,
+      successResponse,
       supabase,
+      updateError: updateError ?? 'No checkout session row updated',
     });
-    return respond({ error: 'Database error' }, 500);
   }
 
   const total = orderSessionCalc.totals.find(

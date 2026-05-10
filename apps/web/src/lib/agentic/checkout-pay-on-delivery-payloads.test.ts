@@ -85,6 +85,7 @@ describe('pay-on-delivery agentic checkout payloads', () => {
         agentic: {
           existing: true,
           finalization_claim: 'claim-1',
+          finalization_error: 'previous failure',
           finalization_order_id: 'order-1',
           finalization_updated_at: '2026-05-09T12:00:00.000Z',
         },
@@ -117,6 +118,7 @@ describe('pay-on-delivery agentic checkout payloads', () => {
       },
     });
     expect(update.metadata.agentic).not.toHaveProperty('finalization_claim');
+    expect(update.metadata.agentic).not.toHaveProperty('finalization_error');
     expect(update.metadata.agentic).not.toHaveProperty('finalization_order_id');
     expect(update.metadata.agentic).not.toHaveProperty(
       'finalization_updated_at'

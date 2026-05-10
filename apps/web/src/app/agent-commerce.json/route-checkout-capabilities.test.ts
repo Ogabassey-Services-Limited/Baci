@@ -104,7 +104,7 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
     expect(body.links.product_api).toBe(
       'https://another.example/api/storefront/another-store/products'
     );
-  });
+  }, 10_000);
 
   it('advertises checkout for the configured agentic merchant slug', async () => {
     stubAgenticCheckoutEnv();

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import {
   AGENTIC_PAYMENT_METHOD_PAY_ON_DELIVERY,
   AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER,
+  type AgenticPaymentMethod,
 } from '@/config/agentic-payment-methods';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import { getPaystackSecretKey, getRootDomain } from '@/env';
@@ -141,7 +142,7 @@ export async function GET(request: Request) {
 }
 
 function buildAgenticPaymentMethods(merchant: MerchantPaymentConfig) {
-  const methods: string[] = [];
+  const methods: AgenticPaymentMethod[] = [];
   if (
     getPaystackSecretKey() &&
     isValidPaystackSubaccountCode(merchant.paystack_subaccount_code)

@@ -34,6 +34,10 @@ const input = {
 describe('pay-on-delivery finalization compensation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.releasePayOnDeliveryFinalizationClaim.mockResolvedValue({
+      error: null,
+      released: true,
+    });
   });
 
   it('cancels the created order and releases the finalization claim', async () => {
@@ -94,13 +98,31 @@ describe('pay-on-delivery finalization compensation', () => {
     );
   });
 
-  it('logs and swallows release exceptions', async () => {
+  it('does not release the claim when order cancellation throws', async () => {
+    const thrown = new Error('cancel threw');
+    mocks.markAgenticCheckoutOrderCanceled.mockRejectedValue(thrown);
+
+    await compensatePayOnDeliveryFinalizationFailure(input);
+
+    expect(mocks.releasePayOnDeliveryFinalizationClaim).not.toHaveBeenCalled();
+    expect(mocks.loggerError).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({
+          cancellationError: '{}',
+        }),
+        message: 'Pay-on-delivery finalization failed after order creation',
+      })
+    );
+  });
+
+  it('logs release exceptions and reports release failure', async () => {
     mocks.releasePayOnDeliveryFinalizationClaim.mockRejectedValue(
       new Error('release failed')
     );
 
-    await releasePayOnDeliveryClaimSafely(input);
+    const released = await releasePayOnDeliveryClaimSafely(input);
 
+    expect(released).toBe(false);
     expect(mocks.loggerError).toHaveBeenCalledWith(
       expect.objectContaining({
         message: 'Pay-on-delivery finalization claim release threw',
