@@ -451,3 +451,68 @@ describe('env LLM server validation', () => {
     );
   });
 });
+
+describe('isAllowedLlmServerUrl', () => {
+  // Pure unit tests against the exported helper — no env stubbing needed.
+  // Covers the codex P1 (loose 127.* prefix) and P2 (any-scheme loopback)
+  // findings on PR #1552.
+  const accepted: ReadonlyArray<readonly [string, string]> = [
+    ['https public host', 'https://api.example.com/v1'],
+    ['http localhost', 'http://localhost:11500'],
+    ['http localhost (uppercase)', 'http://LOCALHOST:11500'],
+    ['http 127.0.0.1', 'http://127.0.0.1:11500'],
+    ['http 127.x.y.z within /8', 'http://127.255.255.254:8080'],
+    [
+      'https on loopback (tighter than http-loopback)',
+      'https://127.0.0.1:11500',
+    ],
+    // `new URL('http://[::1]:11500').hostname === '::1'` in Node ≥18.
+    ['http IPv6 loopback', 'http://[::1]:11500'],
+  ];
+
+  const rejected: ReadonlyArray<readonly [string, string]> = [
+    ['http on non-loopback host', 'http://example.com'],
+    // P1 — the actual regression: prefix match let arbitrary remote hosts
+    // bypass the HTTPS requirement just by starting with "127.".
+    [
+      'http 127.example.com (loose-match exploit)',
+      'http://127.example.com:11500',
+    ],
+    [
+      'http 127malicious (no dot — not a 127.x.y.z literal)',
+      'http://127malicious',
+    ],
+    [
+      'http 127.0.0.1.evil.com (loopback prefix on attacker host)',
+      'http://127.0.0.1.evil.com',
+    ],
+    // Note: `http://127.0.0` is canonicalized to hostname `127.0.0.0` by the
+    // WHATWG URL parser (and is a real loopback literal), so we can't use it
+    // as a "rejected" case. Likewise `http://127.0.0.256` THROWS at parse
+    // time, so the helper rejects it via the try/catch fallback rather than
+    // via the regex — covered below as a parse-failure case.
+    [
+      'http 127.0.0.256 (URL parse fails — octet out of range)',
+      'http://127.0.0.256',
+    ],
+    [
+      'http 127.0.0.1.1 (URL parse fails — too many octets)',
+      'http://127.0.0.1.1',
+    ],
+    // P2 — restricting the loopback exception to http:// only.
+    ['ftp on loopback', 'ftp://localhost:11500'],
+    ['file on loopback IPv4', 'file://127.0.0.1'],
+    ['ws on loopback', 'ws://localhost:11500'],
+    ['not a url', 'not a url'],
+  ];
+
+  it.each(accepted)('accepts: %s', async (_label, url) => {
+    const { isAllowedLlmServerUrl } = await import('@/env');
+    expect(isAllowedLlmServerUrl(url)).toBe(true);
+  });
+
+  it.each(rejected)('rejects: %s', async (_label, url) => {
+    const { isAllowedLlmServerUrl } = await import('@/env');
+    expect(isAllowedLlmServerUrl(url)).toBe(false);
+  });
+});

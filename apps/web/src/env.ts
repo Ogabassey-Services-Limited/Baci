@@ -21,6 +21,55 @@ const optionalTrimmedStringSchema = z.preprocess((value) => {
 }, z.string().optional());
 
 /**
+ * Strict 127.0.0.0/8 hostname matcher. Anchored regex on the URL `hostname`
+ * (already brackets-stripped by the `URL` parser) so only true IPv4 loopback
+ * literals match — `127.example.com`, `127malicious`, `127.0.0.1.evil.com`
+ * are all rejected. Each octet is 0–255; the first is fixed at 127.
+ */
+const IPV4_LOOPBACK_REGEX =
+  /^127\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+
+/**
+ * Returns true for URLs that are safe to reach from this server:
+ *   - `https://...` for any host
+ *   - `http://...` for loopback only (localhost, 127.0.0.0/8, ::1)
+ *
+ * The loopback exception is restricted to the `http:` scheme so callers
+ * cannot smuggle `ftp://localhost` or `file://127.0.0.1` past the check.
+ * Invalid URLs return false rather than throwing so the surrounding Zod
+ * refine produces a clean validation error.
+ *
+ * Exported for direct unit testing — the schema below wraps it for reuse.
+ */
+export function isAllowedLlmServerUrl(rawUrl: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+
+  const protocol = parsed.protocol;
+  // `new URL('http://[::1]:11500').hostname` returns the unbracketed form
+  // '::1' in spec-compliant runtimes (Node ≥18, modern browsers). Older
+  // runtimes returned '[::1]'; accept both defensively. Lowercase to make
+  // 'LOCALHOST' / 'Localhost' equivalent to 'localhost'.
+  const host = parsed.hostname.toLowerCase();
+  const isLoopback =
+    host === 'localhost' ||
+    host === '::1' ||
+    host === '[::1]' ||
+    IPV4_LOOPBACK_REGEX.test(host);
+
+  if (isLoopback) {
+    // HTTPS on loopback is also fine — it's strictly tighter than HTTP.
+    return protocol === 'http:' || protocol === 'https:';
+  }
+
+  return protocol === 'https:';
+}
+
+/**
  * URL schema that allows HTTP only when pointed at a loopback host.
  * Reused by every "self-hosted backend on a known host" env var (Ollama,
  * llama-server, etc.) so the policy is enforced consistently and a future
@@ -30,22 +79,9 @@ function httpsOrLocalhostUrl(name: string) {
   return z
     .string()
     .url()
-    .refine(
-      (u) => {
-        const url = new URL(u);
-        const host = url.hostname;
-        // `URL.hostname` for `http://[::1]:11500` is `::1` in spec-compliant
-        // implementations and `[::1]` in some older ones. Accept both forms
-        // defensively rather than betting on the runtime.
-        const isLocal =
-          host === 'localhost' ||
-          host.startsWith('127.') ||
-          host === '::1' ||
-          host === '[::1]';
-        return url.protocol === 'https:' || isLocal;
-      },
-      { message: `${name} must use HTTPS (except for localhost)` }
-    );
+    .refine(isAllowedLlmServerUrl, {
+      message: `${name} must use HTTPS (except for http:// on loopback)`,
+    });
 }
 
 const serverSchema = z
