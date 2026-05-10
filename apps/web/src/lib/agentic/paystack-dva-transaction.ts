@@ -1,10 +1,15 @@
+// Δ-0a / Δ-27: `transactions` has no `gateway_fee` column. The verified
+// Paystack response is the source of truth for fees (see webhook/route.ts
+// line 1698). `gateway_reference` is included so settlement can pass the
+// canonical BAC-* key per the Δ-22 invariant — Paystack's numeric ref
+// goes into `merchant_settlements.metadata.paystack_reference` only.
 export const AGENTIC_PAYSTACK_DVA_TRANSACTION_SELECT =
-  'id,amount,currency,merchant_id,metadata,order_id,gateway_fee,platform_fee';
+  'id,amount,currency,merchant_id,metadata,order_id,platform_fee,gateway_reference';
 
 export type AgenticPaystackDvaTransaction = {
   amount: number | null;
   currency: string | null;
-  gateway_fee: number | null;
+  gateway_reference: string | null;
   id: string;
   merchant_id: string;
   metadata: Record<string, unknown> | null;
@@ -24,7 +29,7 @@ export function normalizeAgenticPaystackDvaTransaction(
   return {
     amount: normalizeNullableNumber(record.amount),
     currency: typeof record.currency === 'string' ? record.currency : null,
-    gateway_fee: normalizeNullableNumber(record.gateway_fee),
+    gateway_reference: normalizeNullableString(record.gateway_reference),
     id,
     merchant_id: merchantId,
     metadata: toNullableRecord(record.metadata),
@@ -55,6 +60,12 @@ function normalizeNullableNumber(value: unknown): number | null {
     return Number.isFinite(parsed) ? parsed : null;
   }
   return null;
+}
+
+function normalizeNullableString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const normalized = value.trim();
+  return normalized ? normalized : null;
 }
 
 function toRecord(value: unknown): Record<string, unknown> {
