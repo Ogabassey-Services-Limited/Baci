@@ -6,6 +6,7 @@ import {
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
+import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createServiceClient } from '@/lib/supabase/service';
 import { sendEmail } from '@/lib/zeptomail';
@@ -444,17 +445,61 @@ export async function GET(request: NextRequest) {
       }
 
       try {
-        await supabase.rpc('record_merchant_settlement', {
-          p_merchant_id: transaction.merchant_id,
-          p_source_type: 'order',
-          p_source_id: order.id,
-          p_gateway: transaction.gateway,
-          p_gateway_reference: parsedReference.data,
-          p_gross_amount: Number(transaction.amount) || 0,
-          p_gateway_fee: 0,
-          p_platform_fee: Number(transaction.platform_fee) || 0,
-          p_description: `Order payment via ${transaction.gateway}`,
-        });
+        // Δ-0b: use the verified gateway response for the fee, not 0.
+        const gatewayFee = extractVerifiedGatewayFeeNgn(
+          transaction.gateway as 'paystack' | 'korapay',
+          verification.gatewayResponse
+        );
+        const gatewaySideRef =
+          typeof verification.gatewayResponse?.reference === 'string'
+            ? verification.gatewayResponse.reference
+            : null;
+        // Review feedback (high): `transaction.gateway_reference` is
+        // nullable. If null, passing it to ON CONFLICT bypasses the
+        // partial unique index (`WHERE gateway_reference IS NOT NULL`),
+        // silently disabling the idempotency guard. Fall back to the
+        // verified URL parameter so the settlement key is always populated.
+        const settlementKey =
+          transaction.gateway_reference ?? parsedReference.data;
+        // Review feedback: dynamic metadata key per gateway, not hardcoded
+        // 'paystack_reference'. The verify endpoint serves all gateways.
+        const metadataKey = `${transaction.gateway}_reference`;
+        const { error: settlementError } = await supabase.rpc(
+          'record_merchant_settlement',
+          {
+            p_merchant_id: transaction.merchant_id,
+            p_source_type: 'order',
+            p_source_id: order.id,
+            p_gateway: transaction.gateway,
+            // Δ-22 invariant: settlement key is our BAC-*
+            // (transactions.gateway_reference). The gateway-side ref
+            // lives in p_metadata only.
+            p_gateway_reference: settlementKey,
+            p_gross_amount: Number(transaction.amount) || 0,
+            p_gateway_fee: gatewayFee,
+            p_platform_fee: Number(transaction.platform_fee) || 0,
+            p_description: `Order payment via ${transaction.gateway}`,
+            // Δ-29: traceability for the gateway-side ref + verified fee.
+            p_metadata: {
+              ...(gatewaySideRef ? { [metadataKey]: gatewaySideRef } : {}),
+              verified_gateway_fee: gatewayFee,
+            },
+          }
+        );
+        // Review feedback: surface RPC errors instead of silently
+        // swallowing. Settlement is supplementary (don't fail the verify
+        // response) but log with full context for ops triage.
+        if (settlementError) {
+          logger.warn({
+            message:
+              'Payment verify route: record_merchant_settlement returned error',
+            error: settlementError,
+            merchantId: transaction.merchant_id,
+            orderId: order.id,
+            paystackReference: gatewaySideRef,
+            gatewayFee,
+          });
+        }
       } catch (error) {
         logger.warn({
           message: 'Payment verify route failed to record settlement',

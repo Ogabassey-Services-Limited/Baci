@@ -205,6 +205,11 @@ export function getAgenticPaymentState(metadata: unknown): string | null {
   return typeof value === 'string' ? value : null;
 }
 
+export function getAgenticPaymentMethod(metadata: unknown): string | null {
+  const value = getAgenticMetadataValue(metadata, 'payment_method');
+  return typeof value === 'string' ? value : null;
+}
+
 function getAgenticMetadataValue(metadata: unknown, key: string) {
   if (!metadata || typeof metadata !== 'object' || !('agentic' in metadata)) {
     return undefined;
