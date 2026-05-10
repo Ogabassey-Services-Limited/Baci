@@ -54,7 +54,30 @@ export async function claimPayOnDeliveryFinalization({
     !data &&
     hasMatchingPayOnDeliveryFinalizationClaim({ finalizationClaim, metadata })
   ) {
-    return { claimed: true, error: null };
+    const liveClaim = await readPayOnDeliveryFinalizationClaim({
+      finalizationClaim,
+      merchantId,
+      sessionId,
+      supabase,
+    });
+
+    if (liveClaim.error) {
+      return { claimed: false, error: liveClaim.error };
+    }
+
+    const liveMetadata = liveClaim.metadata;
+    if (
+      liveMetadata &&
+      hasMatchingPayOnDeliveryFinalizationClaim({
+        finalizationClaim,
+        metadata: liveMetadata,
+      }) &&
+      getMarkedPayOnDeliveryFinalizationOrderId(liveMetadata)
+    ) {
+      return { claimed: true, error: null, metadata: liveMetadata };
+    }
+
+    return { claimed: false, error: null };
   }
 
   return { claimed: !error && !!data, error };
@@ -174,6 +197,46 @@ function hasMatchingPayOnDeliveryFinalizationClaim({
     metadata.agentic?.payment_method === PAY_ON_DELIVERY_METHOD &&
     metadata.agentic?.payment_state === ORDER_FINALIZING_STATE
   );
+}
+
+async function readPayOnDeliveryFinalizationClaim({
+  finalizationClaim,
+  merchantId,
+  sessionId,
+  supabase,
+}: {
+  finalizationClaim: string;
+  merchantId: string;
+  sessionId: string;
+  supabase: SupabaseClient;
+}) {
+  const { data, error } = await supabase
+    .from('checkout_sessions')
+    .select('metadata')
+    .eq('session_id', sessionId)
+    .eq('merchant_id', merchantId)
+    .eq('payment_reference', finalizationClaim)
+    .contains('metadata', {
+      agentic: {
+        finalization_claim: finalizationClaim,
+        payment_method: PAY_ON_DELIVERY_METHOD,
+        payment_state: ORDER_FINALIZING_STATE,
+      },
+    })
+    .maybeSingle();
+
+  if (error || !data) {
+    return { error, metadata: null };
+  }
+
+  const row = data as { metadata?: unknown };
+  return { error: null, metadata: toAgenticMetadata(row.metadata) };
+}
+
+function toAgenticMetadata(value: unknown): AgenticMetadata | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as AgenticMetadata)
+    : null;
 }
 
 function buildReleasedPayOnDeliveryMetadata({

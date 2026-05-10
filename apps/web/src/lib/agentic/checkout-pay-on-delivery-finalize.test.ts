@@ -325,6 +325,45 @@ describe('finalizeAgenticPayOnDeliveryCheckout', () => {
     expect(mocks.sendAgenticOrderCreatedWebhook).toHaveBeenCalledTimes(1);
   });
 
+  it('uses live claim metadata when a recovered claim already has an order marker', async () => {
+    const liveMetadata = {
+      agentic: {
+        existing: true,
+        finalization_claim: 'claim-1',
+        finalization_order_id: 'order-live',
+        payment_method: 'pay_on_delivery',
+        payment_state: 'order_finalizing',
+      },
+    };
+    mocks.claimPayOnDeliveryFinalization.mockResolvedValue({
+      claimed: true,
+      error: null,
+      metadata: liveMetadata,
+    });
+    mocks.getMarkedPayOnDeliveryFinalizationOrderId.mockReturnValue(
+      'order-live'
+    );
+    const mock = buildSessionUpdateMock({
+      data: { session_id: 'agentic_session_1' },
+      error: null,
+    });
+
+    const result = await callFinalize(mock.supabase);
+
+    expect(result).toMatchObject({ status: 200 });
+    expect(
+      mocks.getMarkedPayOnDeliveryFinalizationOrderId
+    ).toHaveBeenCalledWith(liveMetadata);
+    expect(mocks.createAgenticCheckoutOrder).not.toHaveBeenCalled();
+    expect(mocks.recordPayOnDeliveryOrderCreated).not.toHaveBeenCalled();
+    expect(mocks.buildPayOnDeliveryCompletedSessionUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ metadata: liveMetadata })
+    );
+    expect(mocks.sendAgenticOrderCreatedWebhook).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: 'order-live' })
+    );
+  });
+
   it('leaves session in order_finalizing when idempotency persistence fails so retry can resume', async () => {
     // Arrange: order creation + claim + marker all succeed; persistence fails.
     mocks.persistAgenticIdempotencyResponse.mockResolvedValue({

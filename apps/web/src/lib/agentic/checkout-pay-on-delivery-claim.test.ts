@@ -13,8 +13,13 @@ const buyer = {
   phone_number: '+2348012345678',
 };
 
-function createCheckoutSessionUpdateMock(result: unknown) {
-  const maybeSingle = vi.fn().mockResolvedValue(result);
+function createCheckoutSessionUpdateMock(result: unknown | unknown[]) {
+  const results = Array.isArray(result) ? result : [result];
+  const maybeSingle = vi.fn();
+  for (const entry of results) {
+    maybeSingle.mockResolvedValueOnce(entry);
+  }
+  maybeSingle.mockResolvedValue(results[results.length - 1]);
   const chain = {
     contains: vi.fn(),
     eq: vi.fn(),
@@ -152,11 +157,19 @@ describe('pay-on-delivery finalization claim helpers', () => {
     ).toBeNull();
   });
 
-  it('treats no-row updates as claimed when metadata already records the same claim (resume retry)', async () => {
-    const mock = createCheckoutSessionUpdateMock({
-      data: null,
-      error: null,
-    });
+  it('requires a live matching order marker before resuming a no-row claim update', async () => {
+    const liveMetadata = {
+      agentic: {
+        finalization_claim: 'claim-1',
+        finalization_order_id: 'order-1',
+        payment_method: 'pay_on_delivery',
+        payment_state: 'order_finalizing',
+      },
+    };
+    const mock = createCheckoutSessionUpdateMock([
+      { data: null, error: null },
+      { data: { metadata: liveMetadata }, error: null },
+    ]);
 
     const result = await claimPayOnDeliveryFinalization({
       buyer,
@@ -173,7 +186,61 @@ describe('pay-on-delivery finalization claim helpers', () => {
       supabase: mock.supabase as never,
     });
 
-    expect(result).toEqual({ claimed: true, error: null });
+    expect(result).toEqual({
+      claimed: true,
+      error: null,
+      metadata: liveMetadata,
+    });
+    expect(mock.chain.select).toHaveBeenCalledWith('metadata');
+  });
+
+  it('does not resume a no-row claim update from stale in-memory metadata alone', async () => {
+    const mock = createCheckoutSessionUpdateMock([
+      { data: null, error: null },
+      { data: null, error: null },
+    ]);
+
+    const result = await claimPayOnDeliveryFinalization({
+      buyer,
+      finalizationClaim: 'claim-1',
+      merchantId: 'merchant-1',
+      metadata: {
+        agentic: {
+          finalization_claim: 'claim-1',
+          payment_method: 'pay_on_delivery',
+          payment_state: 'order_finalizing',
+        },
+      },
+      sessionId: 'agentic_session_1',
+      supabase: mock.supabase as never,
+    });
+
+    expect(result).toEqual({ claimed: false, error: null });
+  });
+
+  it('returns the live recheck error when claim recovery cannot be verified', async () => {
+    const readError = { message: 'read failed' };
+    const mock = createCheckoutSessionUpdateMock([
+      { data: null, error: null },
+      { data: null, error: readError },
+    ]);
+
+    const result = await claimPayOnDeliveryFinalization({
+      buyer,
+      finalizationClaim: 'claim-1',
+      merchantId: 'merchant-1',
+      metadata: {
+        agentic: {
+          finalization_claim: 'claim-1',
+          payment_method: 'pay_on_delivery',
+          payment_state: 'order_finalizing',
+        },
+      },
+      sessionId: 'agentic_session_1',
+      supabase: mock.supabase as never,
+    });
+
+    expect(result).toEqual({ claimed: false, error: readError });
   });
 
   it('reports not claimed when no row matched and metadata does not record the same claim', async () => {

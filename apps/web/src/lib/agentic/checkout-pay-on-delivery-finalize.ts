@@ -27,9 +27,6 @@ import {
   buildStoredAgenticIdempotencyResponse,
   persistAgenticIdempotencyResponse,
 } from '@/lib/agentic/idempotency-response-storage';
-// `buildStoredAgenticIdempotencyResponse` is still used for error paths via
-// the `respond` helper; the success path persists separately so the response
-// row is durable BEFORE the session.status flip to 'completed'.
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 
@@ -105,7 +102,9 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
     );
   }
 
-  let orderId = getMarkedPayOnDeliveryFinalizationOrderId(metadata);
+  const finalizationMetadata =
+    'metadata' in claim && claim.metadata ? claim.metadata : metadata;
+  let orderId = getMarkedPayOnDeliveryFinalizationOrderId(finalizationMetadata);
   if (!orderId) {
     const orderPayload = buildPayOnDeliveryOrderPayload({
       buyer,
@@ -119,7 +118,7 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
       await releasePayOnDeliveryClaimSafely({
         finalizationClaim,
         merchantId,
-        metadata,
+        metadata: finalizationMetadata,
         orderError: error,
         sessionId,
         supabase,
@@ -136,7 +135,7 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
       await releasePayOnDeliveryClaimSafely({
         finalizationClaim,
         merchantId,
-        metadata,
+        metadata: finalizationMetadata,
         orderError: orderResult.error ?? orderResult.statusText,
         sessionId,
         supabase,
@@ -154,7 +153,7 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
       await releasePayOnDeliveryClaimSafely({
         finalizationClaim,
         merchantId,
-        metadata,
+        metadata: finalizationMetadata,
         orderError: 'Missing order id',
         sessionId,
         supabase,
@@ -170,7 +169,7 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
     const marker = await recordPayOnDeliveryOrderCreated({
       finalizationClaim,
       merchantId,
-      metadata,
+      metadata: finalizationMetadata,
       orderId,
       sessionId,
       supabase,
@@ -187,7 +186,7 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
       await compensatePayOnDeliveryFinalizationFailure({
         finalizationClaim,
         merchantId,
-        metadata,
+        metadata: finalizationMetadata,
         orderError: marker.error ?? 'No checkout session row updated',
         orderId,
         sessionId,
@@ -197,11 +196,6 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
     }
   }
 
-  // Build the success response body in-memory first so we can persist it as
-  // the idempotency record BEFORE flipping the session to 'completed'. If
-  // persistence fails after the status flip, retries hit the
-  // session.status === 'completed' early-conflict path in route.ts and the
-  // client can never recover the order details for an order that was created.
   const successResponse = buildPayOnDeliveryCheckoutResponse({
     buyer,
     orderId,
@@ -219,11 +213,6 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
     supabase,
   });
   if (!persisted.ok) {
-    // The order was created and finalization_order_id is durable in metadata;
-    // the session is still in 'order_finalizing'. Do NOT release the claim or
-    // cancel the order — a retry will resume via the marked finalization
-    // order id and attempt persistence again. Returning 503 mirrors the
-    // existing storage-failure contract from buildStoredAgenticIdempotencyResponse.
     logger.error({
       error: sanitizeForLog(persisted.error),
       message:
@@ -236,7 +225,7 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
 
   const updatePayload = buildPayOnDeliveryCompletedSessionUpdate({
     buyer,
-    metadata,
+    metadata: finalizationMetadata,
     orderId,
   });
   const { data: updatedSession, error: updateError } = await supabase
@@ -266,7 +255,7 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
     await compensatePayOnDeliveryFinalizationFailure({
       finalizationClaim,
       merchantId,
-      metadata,
+      metadata: finalizationMetadata,
       orderError: updateError ?? 'No checkout session row updated',
       orderId,
       sessionId,
@@ -294,8 +283,6 @@ export async function finalizeAgenticPayOnDeliveryCheckout({
     total: total?.amount,
   });
 
-  // Idempotency record was already persisted above; just build the response
-  // shell here without re-persisting (the row is identical).
   return buildPersistedAgenticIdempotencyResponse({
     idempotencyKey,
     merchantId,
