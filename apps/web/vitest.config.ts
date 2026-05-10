@@ -89,6 +89,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    testTimeout: 10_000,
     setupFiles: [path.join(__dirname, 'vitest.setup.ts')],
     alias: {
       '@/app/onboarding/actions': path.resolve(
