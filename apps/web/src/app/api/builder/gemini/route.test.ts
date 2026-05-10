@@ -30,6 +30,7 @@ vi.mock('ai', () => ({
 }));
 
 vi.mock('@/ai/provider', () => ({
+  ACTIVE_TEXT_MODEL_NAME: 'gemini-3-flash-preview',
   AI_RATE_LIMITS: {
     builder: { requests: 10, windowMs: 60 * 1000 },
   },
