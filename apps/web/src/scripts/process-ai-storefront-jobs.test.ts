@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { processAiStorefrontJobs } from './process-ai-storefront-jobs';
 
 const mocks = vi.hoisted(() => ({
@@ -24,6 +24,7 @@ interface RunnerSupabaseMockOptions {
 
 function createRunnerSupabaseMock(options: RunnerSupabaseMockOptions = {}) {
   const updates: unknown[] = [];
+  const limits: number[] = [];
   const selectedEqCalls: unknown[][] = [];
   let updateCount = 0;
   const job = {
@@ -44,6 +45,7 @@ function createRunnerSupabaseMock(options: RunnerSupabaseMockOptions = {}) {
   };
 
   const supabase = {
+    limits,
     updates,
     selectedEqCalls,
     from: vi.fn((table: string) => {
@@ -57,9 +59,12 @@ function createRunnerSupabaseMock(options: RunnerSupabaseMockOptions = {}) {
         }),
         or: vi.fn().mockReturnThis(),
         order: vi.fn().mockReturnThis(),
-        limit: vi.fn().mockResolvedValue({
-          data: options.queryError ? null : [job],
-          error: options.queryError ?? null,
+        limit: vi.fn((limit: number) => {
+          limits.push(limit);
+          return Promise.resolve({
+            data: options.queryError ? null : [job],
+            error: options.queryError ?? null,
+          });
         }),
         update: vi.fn((payload: unknown) => {
           updates.push(payload);
@@ -79,12 +84,19 @@ function createRunnerSupabaseMock(options: RunnerSupabaseMockOptions = {}) {
             : isFailureUpdate
               ? options.failLostLease
               : options.completeLostLease;
+          const returnedJob =
+            isClaimUpdate &&
+            typeof payload === 'object' &&
+            payload !== null &&
+            'attempts' in payload
+              ? { ...job, attempts: (payload as { attempts: number }).attempts }
+              : job;
           return {
             eq: vi.fn().mockReturnThis(),
             or: vi.fn().mockReturnThis(),
             select: vi.fn().mockReturnThis(),
             maybeSingle: vi.fn().mockResolvedValue({
-              data: updateError || lostLease ? null : job,
+              data: updateError || lostLease ? null : returnedJob,
               error: updateError ?? null,
             }),
           };
@@ -105,7 +117,11 @@ describe('processAiStorefrontJobs', () => {
     });
   });
 
-  it('claims only storefront generation jobs with a batch size of one', async () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('claims only storefront generation jobs with the default batch size', async () => {
     const supabase = createRunnerSupabaseMock();
 
     await processAiStorefrontJobs({
@@ -118,9 +134,11 @@ describe('processAiStorefrontJobs', () => {
       'type',
       'storefront_layout_generation',
     ]);
+    expect(supabase.limits).toEqual([1]);
     expect(mocks.processStorefrontLayoutJob).toHaveBeenCalledTimes(1);
     expect(supabase.updates[0]).toEqual(
       expect.objectContaining({
+        attempts: 1,
         status: 'processing',
         locked_by: 'worker-1',
         lease_expires_at: expect.any(String),
@@ -133,6 +151,19 @@ describe('processAiStorefrontJobs', () => {
         lease_expires_at: null,
       })
     );
+  });
+
+  it('allows operators to increase worker batch size', async () => {
+    vi.stubEnv('STOREFRONT_AI_WORKER_BATCH_SIZE', '5');
+    const supabase = createRunnerSupabaseMock();
+
+    await processAiStorefrontJobs({
+      supabase,
+      now: new Date('2026-04-28T10:10:00.000Z'),
+      workerId: 'worker-1',
+    });
+
+    expect(supabase.limits).toEqual([5]);
   });
 
   it('retries failed jobs and records failure metadata', async () => {
@@ -192,25 +223,12 @@ describe('processAiStorefrontJobs', () => {
     ).rejects.toThrow('Failed to load storefront jobs: query failed');
   });
 
-  it('throws when completed-job persistence fails', async () => {
+  it('continues the batch when completed-job persistence fails', async () => {
     const supabase = createRunnerSupabaseMock({
       completeError: new Error('update failed'),
     });
-
-    await expect(
-      processAiStorefrontJobs({
-        supabase,
-        now: new Date('2026-04-28T10:10:00.000Z'),
-        workerId: 'worker-1',
-      })
-    ).rejects.toThrow(
-      'Failed to persist completed storefront job job-1: update failed'
-    );
-  });
-
-  it('throws when completed-job persistence loses the active lease', async () => {
-    const supabase = createRunnerSupabaseMock({
-      completeLostLease: true,
+    vi.spyOn(console, 'error').mockImplementation(() => {
+      // Silence expected persistence logs.
     });
 
     await expect(
@@ -219,36 +237,35 @@ describe('processAiStorefrontJobs', () => {
         now: new Date('2026-04-28T10:10:00.000Z'),
         workerId: 'worker-1',
       })
-    ).rejects.toThrow(
-      'Failed to persist completed storefront job job-1: active lease was lost'
-    );
+    ).resolves.toBe(0);
   });
 
-  it('throws when failed-job persistence fails', async () => {
+  it('continues the batch when completed-job persistence loses the active lease', async () => {
+    const supabase = createRunnerSupabaseMock({
+      completeLostLease: true,
+    });
+    vi.spyOn(console, 'error').mockImplementation(() => {
+      // Silence expected persistence logs.
+    });
+
+    await expect(
+      processAiStorefrontJobs({
+        supabase,
+        now: new Date('2026-04-28T10:10:00.000Z'),
+        workerId: 'worker-1',
+      })
+    ).resolves.toBe(0);
+  });
+
+  it('continues the batch when failed-job persistence fails', async () => {
     mocks.processStorefrontLayoutJob.mockRejectedValueOnce(
       new Error('generation failed')
     );
     const supabase = createRunnerSupabaseMock({
       failError: new Error('failure update failed'),
     });
-
-    await expect(
-      processAiStorefrontJobs({
-        supabase,
-        now: new Date('2026-04-28T10:10:00.000Z'),
-        workerId: 'worker-1',
-      })
-    ).rejects.toThrow(
-      'Failed to persist failed storefront job job-1: failure update failed'
-    );
-  });
-
-  it('throws when failed-job persistence loses the active lease', async () => {
-    mocks.processStorefrontLayoutJob.mockRejectedValueOnce(
-      new Error('generation failed')
-    );
-    const supabase = createRunnerSupabaseMock({
-      failLostLease: true,
+    vi.spyOn(console, 'error').mockImplementation(() => {
+      // Silence expected persistence logs.
     });
 
     await expect(
@@ -257,8 +274,26 @@ describe('processAiStorefrontJobs', () => {
         now: new Date('2026-04-28T10:10:00.000Z'),
         workerId: 'worker-1',
       })
-    ).rejects.toThrow(
-      'Failed to persist failed storefront job job-1: active lease was lost'
+    ).resolves.toBe(0);
+  });
+
+  it('continues the batch when failed-job persistence loses the active lease', async () => {
+    mocks.processStorefrontLayoutJob.mockRejectedValueOnce(
+      new Error('generation failed')
     );
+    const supabase = createRunnerSupabaseMock({
+      failLostLease: true,
+    });
+    vi.spyOn(console, 'error').mockImplementation(() => {
+      // Silence expected persistence logs.
+    });
+
+    await expect(
+      processAiStorefrontJobs({
+        supabase,
+        now: new Date('2026-04-28T10:10:00.000Z'),
+        workerId: 'worker-1',
+      })
+    ).resolves.toBe(0);
   });
 });

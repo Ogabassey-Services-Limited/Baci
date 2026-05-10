@@ -152,9 +152,15 @@ export function normalizeAiStorefrontLayout({
             ...starterTheme,
             colors: {
               ...starterThemeColors,
-              primary: layout.theme.primary,
-              accent: layout.theme.accent,
-              background: layout.theme.background,
+              ...(layout.theme.primary !== undefined
+                ? { primary: layout.theme.primary }
+                : {}),
+              ...(layout.theme.accent !== undefined
+                ? { accent: layout.theme.accent }
+                : {}),
+              ...(layout.theme.background !== undefined
+                ? { background: layout.theme.background }
+                : {}),
             },
           },
         }

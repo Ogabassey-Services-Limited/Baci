@@ -152,24 +152,9 @@ const serverSchema = z
     OLLAMA_BASE_URL: httpsOrLocalhostUrl('OLLAMA_BASE_URL').optional(),
     OLLAMA_CAC_MODEL: z.string().default('gemma4:e4b'),
     OLLAMA_BASIC_AUTH: z.string().optional(),
-    OLLAMA_STOREFRONT_BASE_URL: z
-      .string()
-      .url()
-      .refine(
-        (u) => {
-          const url = new URL(u);
-          const isLocal =
-            url.hostname === 'localhost' ||
-            url.hostname.startsWith('127.') ||
-            url.hostname === '::1';
-          return u.startsWith('https://') || isLocal;
-        },
-        {
-          message:
-            'OLLAMA_STOREFRONT_BASE_URL must use HTTPS except for localhost',
-        }
-      )
-      .optional(),
+    OLLAMA_STOREFRONT_BASE_URL: httpsOrLocalhostUrl(
+      'OLLAMA_STOREFRONT_BASE_URL'
+    ).optional(),
     OLLAMA_STOREFRONT_BASIC_AUTH: z.string().optional(),
     OLLAMA_STOREFRONT_MODEL: z.string().default('gemma4:e4b'),
     OLLAMA_STOREFRONT_TIMEOUT_MS: z.coerce

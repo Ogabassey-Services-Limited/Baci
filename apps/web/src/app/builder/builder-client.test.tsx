@@ -369,7 +369,6 @@ describe('BuilderClient', () => {
 
   it('confirms before force-applying a stale AI draft preview', async () => {
     const aiDraftJobId = '5c0a0676-bd3f-495e-9f98-589f208c0d79';
-    vi.spyOn(globalThis, 'confirm').mockReturnValue(true);
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -414,6 +413,12 @@ describe('BuilderClient', () => {
       name: /apply ai design/i,
     });
     fireEvent.click(applyButton);
+
+    const dialog = await screen.findByRole('alertdialog', {
+      name: /replace your current draft/i,
+    });
+    expect(dialog).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /replace draft/i }));
 
     await waitFor(() => {
       expect(mockFetchWithCsrf).toHaveBeenCalledTimes(2);

@@ -11,28 +11,28 @@ const google = createGoogleGenerativeAI({
 /**
  * Gemini Model Exports (Vercel AI SDK)
  *
- * Model Selection Guide (December 2025):
- * - gemini3Flash: Latest Gemini 3 Flash preview - fast with integrated reasoning
- * - geminiFlash: Alias to Gemini 3 Flash for backwards compatibility
- * - geminiPro: Alias to Gemini 3 Flash
+ * Model Selection Guide:
+ * - gemini20Flash: Standard Gemini 2.0 Flash text model
+ * - geminiFlash: Alias to Gemini 2.0 Flash for backwards compatibility
+ * - geminiPro: Alias to Gemini 2.0 Flash
  * - gemini25Flash: Legacy Gemini 2.5 Flash (deprecated, kept for fallback)
  * - gemini25FlashImage: Multimodal model for text, image understanding, AND image generation
  *   Use with providerOptions: { google: { responseModalities: ['TEXT', 'IMAGE'] } }
  */
 
-// Primary models - Gemini 3 Flash (latest, December 2025)
-export const ACTIVE_TEXT_MODEL_NAME = 'gemini-3-flash-preview';
-const gemini3Flash = google(ACTIVE_TEXT_MODEL_NAME); // Latest Gemini 3 Flash with reasoning
+// Primary text model - Gemini 2.0 Flash
+export const ACTIVE_TEXT_MODEL_NAME = 'gemini-2.0-flash';
+const gemini20Flash = google(ACTIVE_TEXT_MODEL_NAME);
 
 // UNIFIED MODEL EXPORTS - USE THESE FOR NEW FEATURES
 // --------------------------------------------------------------------------
-export const activeTextModel = gemini3Flash; // The single standard text model for the platform
+export const activeTextModel = gemini20Flash; // The single standard text model for the platform
 export const activeImageModel = google('gemini-2.5-flash-image'); // Fast, cost-effective image generation
 // --------------------------------------------------------------------------
 
 // Legacy / Specific Aliases (Prefer activeTextModel where possible)
-export const geminiFlash = gemini3Flash; // Alias for backwards compatibility
-export const geminiPro = gemini3Flash; // Alias for pro-level tasks
+export const geminiFlash = gemini20Flash; // Alias for backwards compatibility
+export const geminiPro = gemini20Flash; // Alias for pro-level tasks
 
 // Legacy models (kept for fallback)
 export const gemini25Flash = google('gemini-2.5-flash'); // Legacy Gemini 2.5 Flash

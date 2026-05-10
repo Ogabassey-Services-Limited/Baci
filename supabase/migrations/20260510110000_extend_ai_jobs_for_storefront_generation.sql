@@ -11,7 +11,7 @@ ALTER TABLE public.ai_jobs
   ADD COLUMN IF NOT EXISTS metadata jsonb NOT NULL DEFAULT '{}'::jsonb;
 
 CREATE INDEX IF NOT EXISTS idx_ai_jobs_storefront_generation_queue
-  ON public.ai_jobs (type, status, next_run_at, lease_expires_at, created_at)
+  ON public.ai_jobs (status, next_run_at, lease_expires_at, created_at)
   WHERE type = 'storefront_layout_generation';
 
 CREATE INDEX IF NOT EXISTS idx_ai_jobs_merchant_type_created_at

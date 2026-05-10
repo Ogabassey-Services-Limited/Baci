@@ -9,7 +9,7 @@ import { processStorefrontLayoutJob } from '@/lib/ai-storefront/process-storefro
 import { storefrontLayoutJobInputSchema } from '@/schemas/ai-jobs';
 
 const DEFAULT_BATCH_SIZE = 1;
-const MAX_BATCH_SIZE = 1;
+const MAX_BATCH_SIZE = 10;
 const WORKER_LEASE_MS = 5 * 60_000;
 
 interface ProcessAiStorefrontJobsOptions {
@@ -53,6 +53,13 @@ function asMetadataRecord(value: unknown): Record<string, unknown> {
 
 function getWorkerId(): string {
   return process.env.AI_STOREFRONT_WORKER_ID ?? `vps-${randomUUID()}`;
+}
+
+function logStorefrontJobPersistenceError(error: unknown, jobId: string) {
+  console.error('Storefront AI job persistence failed; continuing batch:', {
+    jobId,
+    error: error instanceof Error ? error.message : String(error),
+  });
 }
 
 function createWorkerClient(): SupabaseClient {
@@ -101,6 +108,7 @@ export async function processAiStorefrontJobs({
         locked_at: claimTime,
         locked_by: workerId,
         lease_expires_at: leaseExpiresAt,
+        attempts: (job.attempts ?? 0) + 1,
       })
       .eq('id', job.id)
       .or(
@@ -169,10 +177,11 @@ export async function processAiStorefrontJobs({
       processed += 1;
     } catch (error) {
       if (error instanceof StorefrontJobPersistenceError) {
-        throw error;
+        logStorefrontJobPersistenceError(error, claimedJob.id);
+        continue;
       }
 
-      const attempts = (claimedJob.attempts ?? 0) + 1;
+      const attempts = claimedJob.attempts ?? 1;
       const maxAttempts = claimedJob.max_attempts ?? 3;
       const shouldRetry = attempts < maxAttempts;
       const errorMessage =
@@ -206,15 +215,23 @@ export async function processAiStorefrontJobs({
         .maybeSingle();
 
       if (failError) {
-        throw new StorefrontJobPersistenceError(
-          `Failed to persist failed storefront job ${claimedJob.id}: ${failError.message}`
+        logStorefrontJobPersistenceError(
+          new StorefrontJobPersistenceError(
+            `Failed to persist failed storefront job ${claimedJob.id}: ${failError.message}`
+          ),
+          claimedJob.id
         );
+        continue;
       }
 
       if (!failedJob) {
-        throw new StorefrontJobPersistenceError(
-          `Failed to persist failed storefront job ${claimedJob.id}: active lease was lost`
+        logStorefrontJobPersistenceError(
+          new StorefrontJobPersistenceError(
+            `Failed to persist failed storefront job ${claimedJob.id}: active lease was lost`
+          ),
+          claimedJob.id
         );
+        continue;
       }
 
       processed += 1;

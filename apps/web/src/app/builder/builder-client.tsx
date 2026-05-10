@@ -56,6 +56,16 @@ import {
 } from '@/components/builder/store-settings-panel';
 import { ThemeEditor } from '@/components/builder/theme-editor-redesigned';
 import { useCopilotBuilderActions } from '@/components/builder/use-copilot-builder-actions';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
 import { useMerchant } from '@/hooks/use-merchant';
@@ -236,6 +246,7 @@ export default function BuilderClient() {
   const [aiDraftJobId, setAiDraftJobId] = useState<string | null>(null);
   const [canApplyAiDraft, setCanApplyAiDraft] = useState(false);
   const [applyingAiDraft, setApplyingAiDraft] = useState(false);
+  const [showStaleAiDraftDialog, setShowStaleAiDraftDialog] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -544,13 +555,7 @@ export default function BuilderClient() {
         response.status === 409 &&
         payload.code === 'ai_draft_stale'
       ) {
-        const shouldReplace = window.confirm(
-          'Your starter draft changed after this AI design was generated. Replace the current starter draft with the AI design?'
-        );
-
-        if (shouldReplace) {
-          await applyAiDraft(true);
-        }
+        setShowStaleAiDraftDialog(true);
         return;
       }
 
@@ -626,6 +631,31 @@ export default function BuilderClient() {
 
   return (
     <div className="h-screen flex flex-col bg-background">
+      <AlertDialog
+        open={showStaleAiDraftDialog}
+        onOpenChange={setShowStaleAiDraftDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replace your current draft?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your starter draft changed after this AI design was generated.
+              Replace the current starter draft with the AI design?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep current draft</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowStaleAiDraftDialog(false);
+                void applyAiDraft(true);
+              }}
+            >
+              Replace draft
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Puck
         config={builderConfig}
         data={data}

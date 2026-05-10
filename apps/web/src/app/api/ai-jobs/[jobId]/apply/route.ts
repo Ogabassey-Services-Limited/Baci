@@ -116,8 +116,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
   }
   if (job.status !== 'completed') {
     return NextResponse.json(
-      { error: 'AI draft is not ready' },
-      { status: 400 }
+      { error: 'AI draft is not ready', code: 'ai_job_not_completed' },
+      { status: 409 }
     );
   }
 

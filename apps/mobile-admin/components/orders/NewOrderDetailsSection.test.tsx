@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 
@@ -168,7 +168,7 @@ describe('NewOrderDetailsSection', () => {
     vi.restoreAllMocks();
   });
 
-  it('shows the selected customer summary and opens the customer sheet', async () => {
+  it('shows the selected customer summary and opens the customer sheet', () => {
     const controller = makeController({
       customer: {
         address: '12 Allen Avenue',
@@ -185,9 +185,7 @@ describe('NewOrderDetailsSection', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Customer/i }));
 
-    await waitFor(() => {
-      expect(controller.setShowCustomerModal).toHaveBeenCalledWith(true);
-    });
+    expect(controller.setShowCustomerModal).toHaveBeenCalledWith(true);
   });
 
   it('toggles the date picker and delivery recipient mode', () => {

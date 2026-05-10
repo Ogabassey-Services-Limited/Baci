@@ -32,20 +32,29 @@ vi.mock('@/lib/get-merchant-for-api-request', async () => {
 });
 
 function createApplySupabaseMock(options?: {
+  jobStatus?: string;
   pageUpdatedAt?: string;
+  rpcError?: Error;
   rpcCode?: string | null;
+  rpcResponse?: {
+    applied: boolean;
+    code: string | null;
+    page_config_id: string | null;
+    updated_at: string | null;
+  };
 }) {
-  const rpc = vi.fn().mockReturnValue({
+  const rpcResult = options?.rpcResponse ?? {
+    applied: !options?.rpcCode,
+    code: options?.rpcCode ?? null,
+    page_config_id: 'page-1',
+    updated_at: '2026-04-28T10:30:00.000Z',
+  };
+  const rpc = vi.fn().mockImplementation(() => ({
     maybeSingle: vi.fn().mockResolvedValue({
-      data: {
-        applied: !options?.rpcCode,
-        code: options?.rpcCode ?? null,
-        page_config_id: 'page-1',
-        updated_at: '2026-04-28T10:30:00.000Z',
-      },
-      error: null,
+      data: options?.rpcError ? null : rpcResult,
+      error: options?.rpcError ?? null,
     }),
-  });
+  }));
 
   return {
     auth: {
@@ -65,7 +74,7 @@ function createApplySupabaseMock(options?: {
               id: 'job-1',
               merchant_id: 'merchant-1',
               type: 'storefront_layout_generation',
-              status: 'completed',
+              status: options?.jobStatus ?? 'completed',
               output: {
                 generatedConfig: {
                   content: [],
@@ -107,7 +116,7 @@ function createApplyRequest(body?: string): NextRequest {
   return new Request('http://localhost/api/ai-jobs/job-1/apply', {
     method: 'POST',
     body,
-  }) as NextRequest;
+  }) as unknown as NextRequest;
 }
 
 describe('POST /api/ai-jobs/[jobId]/apply', () => {
@@ -162,6 +171,23 @@ describe('POST /api/ai-jobs/[jobId]/apply', () => {
     );
   });
 
+  it('returns the CSRF rejection response before merchant or draft lookups', async () => {
+    const supabase = createApplySupabaseMock();
+    mocks.checkCsrfProtection.mockResolvedValue({
+      valid: false,
+      response: new Response(JSON.stringify({ error: 'Forbidden' }), {
+        status: 403,
+      }),
+    });
+    mocks.createClient.mockResolvedValue(supabase);
+
+    const response = await POST(createApplyRequest(), routeContext());
+
+    expect(response.status).toBe(403);
+    expect(mocks.getMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
   it('returns 429 when the apply action is rate limited', async () => {
     const supabase = createApplySupabaseMock();
     mocks.checkRateLimit.mockResolvedValue(false);
@@ -188,6 +214,20 @@ describe('POST /api/ai-jobs/[jobId]/apply', () => {
 
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: 'Invalid JSON body' });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('returns 409 when the AI job is not completed', async () => {
+    const supabase = createApplySupabaseMock({ jobStatus: 'processing' });
+    mocks.createClient.mockResolvedValue(supabase);
+
+    const response = await POST(createApplyRequest(), routeContext());
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: 'AI draft is not ready',
+      code: 'ai_job_not_completed',
+    });
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
@@ -226,5 +266,42 @@ describe('POST /api/ai-jobs/[jobId]/apply', () => {
         p_force: true,
       })
     );
+  });
+
+  it('surfaces stale responses returned by the atomic RPC', async () => {
+    const supabase = createApplySupabaseMock({
+      rpcResponse: {
+        applied: false,
+        code: 'ai_draft_stale',
+        page_config_id: null,
+        updated_at: null,
+      },
+    });
+    mocks.createClient.mockResolvedValue(supabase);
+
+    const response = await POST(createApplyRequest(), routeContext());
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      error: 'AI draft is stale',
+      code: 'ai_draft_stale',
+    });
+  });
+
+  it('returns 500 when the atomic apply RPC fails', async () => {
+    const supabase = createApplySupabaseMock({
+      rpcError: new Error('rpc exploded'),
+    });
+    mocks.createClient.mockResolvedValue(supabase);
+    vi.spyOn(console, 'error').mockImplementation(() => {
+      // Silence expected error logs for this branch.
+    });
+
+    const response = await POST(createApplyRequest(), routeContext());
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: 'Failed to apply AI draft',
+    });
   });
 });

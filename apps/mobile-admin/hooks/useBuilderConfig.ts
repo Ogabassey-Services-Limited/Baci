@@ -149,7 +149,10 @@ export function useBuilderConfig(pageSlug: string = 'home') {
         };
         setMessages((prev) => [...prev, errorMessage]);
 
-        throw new Error(formattedError.message);
+        throw Object.assign(new Error(formattedError.message), {
+          code: formattedError.code,
+          requestId: formattedError.requestId,
+        });
       }
     },
   });

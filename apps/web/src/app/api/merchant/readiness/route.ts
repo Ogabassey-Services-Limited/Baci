@@ -205,22 +205,32 @@ export async function GET() {
       );
     }
 
-    const { count: publishedProductCount } = await supabase
-      .from('products')
-      // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
-      .select('id', { count: 'exact', head: true })
-      .eq('merchant_id', validMerchant.id)
-      .eq('status', 'active');
-
-    const { data: latestStorefrontJob, error: latestStorefrontJobError } =
-      await supabase
+    const [
+      { count: publishedProductCount },
+      { data: latestStorefrontJob, error: latestStorefrontJobError },
+      { data: homePageConfig, error: homePageConfigError },
+    ] = await Promise.all([
+      supabase
+        .from('products')
+        // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
+        .select('id', { count: 'exact', head: true })
+        .eq('merchant_id', validMerchant.id)
+        .eq('status', 'active'),
+      supabase
         .from('ai_jobs')
         .select('id, status, error, result_applied_at, created_at')
         .eq('merchant_id', validMerchant.id)
         .eq('type', 'storefront_layout_generation')
         .order('created_at', { ascending: false })
         .limit(1)
-        .maybeSingle();
+        .maybeSingle<StorefrontBuildJob>(),
+      supabase
+        .from('page_configs')
+        .select('id')
+        .eq('merchant_id', validMerchant.id)
+        .eq('page_slug', 'home')
+        .maybeSingle(),
+    ]);
 
     if (latestStorefrontJobError) {
       console.error(
@@ -235,13 +245,6 @@ export async function GET() {
         { status: 500 }
       );
     }
-
-    const { data: homePageConfig, error: homePageConfigError } = await supabase
-      .from('page_configs')
-      .select('id')
-      .eq('merchant_id', validMerchant.id)
-      .eq('page_slug', 'home')
-      .maybeSingle();
 
     if (homePageConfigError) {
       console.error(
@@ -259,7 +262,7 @@ export async function GET() {
 
     const storeBuild = buildStoreBuildStatus(
       !!homePageConfig,
-      latestStorefrontJob as StorefrontBuildJob | null,
+      latestStorefrontJob,
       hasPermission(access, 'builder', 'edit')
     );
 

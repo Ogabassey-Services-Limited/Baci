@@ -112,7 +112,7 @@ describe('/api/builder route', () => {
 
   it('authenticates before rejecting malformed AI draft preview job ids', async () => {
     const request = new NextRequest(
-      'http://localhost/api/builder?aiDraftJobId=not-a-uuid'
+      'http://localhost/api/builder?slug=home&aiDraftJobId=not-a-uuid'
     );
 
     const { GET } = await import('./route');

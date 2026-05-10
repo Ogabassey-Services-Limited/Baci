@@ -101,8 +101,14 @@ describe('useBuilderConfig', () => {
     });
 
     expect(thrown).toBeInstanceOf(Error);
-    expect((thrown as Error).message).toContain(
-      'continue onboarding while your AI store build continues'
+    expect((thrown as Error).message).toBe(
+      'AI editor is temporarily unavailable. Your current draft is saved; please try again later.'
+    );
+    expect(thrown).toEqual(
+      expect.objectContaining({
+        code: 'ai_provider_unavailable',
+        requestId: 'req-123',
+      })
     );
     expect(result.current.config).toEqual(baseConfig);
     expect(result.current.messages).toEqual([
@@ -113,7 +119,7 @@ describe('useBuilderConfig', () => {
       expect.objectContaining({
         role: 'system',
         content:
-          'AI editor is temporarily unavailable. Your current draft is safe, and you can continue onboarding while your AI store build continues.',
+          'AI editor is temporarily unavailable. Your current draft is saved; please try again later.',
       }),
     ]);
     expect(mockApiClient).toHaveBeenLastCalledWith('/api/builder/gemini', {

@@ -28,7 +28,7 @@ describe('formatAiCopilotError', () => {
       code: 'ai_provider_unavailable',
       requestId: 'req-123',
       message:
-        'AI editor is temporarily unavailable. Your current draft is safe, and you can continue onboarding while your AI store build continues.',
+        'AI editor is temporarily unavailable. Your current draft is saved; please try again later.',
     });
   });
 
