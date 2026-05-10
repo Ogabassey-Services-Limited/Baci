@@ -9,9 +9,63 @@ vi.mock('@/lib/device-images', () => ({
   getDeviceImage: (device: string) => mockGetDeviceImage(device),
 }));
 
+const mockCheckCsrfProtection = vi.fn(async () => ({
+  valid: true as boolean,
+  response: undefined as unknown as Response | undefined,
+}));
+
+vi.mock('@/lib/csrf', () => ({
+  checkCsrfProtection: (...args: unknown[]) =>
+    mockCheckCsrfProtection(...(args as [])),
+}));
+
+const mockResolveStorefrontMerchantFromRequest = vi.fn(async () => ({
+  success: true as const,
+  identifier: 'ogabassey',
+  merchant: { id: 'merchant-1', slug: 'ogabassey' } as unknown as Record<
+    string,
+    unknown
+  >,
+}));
+
+vi.mock('@/lib/storefront-merchant', () => ({
+  resolveStorefrontMerchantFromRequest: (...args: unknown[]) =>
+    (
+      mockResolveStorefrontMerchantFromRequest as unknown as (
+        ...a: unknown[]
+      ) => Promise<unknown>
+    )(...args),
+}));
+
+const mockCheckRateLimit = vi.fn(async () => ({
+  allowed: true,
+  limit: 10,
+  remaining: 9,
+  resetTime: Date.now() + 60_000,
+}));
+
+vi.mock('@/lib/rate-limit', async () => {
+  const actual =
+    await vi.importActual<typeof import('@/lib/rate-limit')>(
+      '@/lib/rate-limit'
+    );
+  return {
+    ...actual,
+    checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...(args as [])),
+  };
+});
+
+vi.mock('@/env', () => ({
+  getRootDomain: () => 'usebaci.com',
+}));
+
 function createRequest(body: Record<string, unknown>) {
   return {
     json: () => Promise.resolve(body),
+    headers: new Headers({ host: 'ogabassey.usebaci.com' }),
+    url: 'https://ogabassey.usebaci.com/api/storefront/imei-check',
+    nextUrl: new URL('https://ogabassey.usebaci.com/api/storefront/imei-check'),
+    method: 'POST',
   } as unknown as NextRequest;
 }
 
@@ -25,12 +79,89 @@ describe('POST /api/storefront/imei-check', () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
     mockGetDeviceImage.mockClear();
+    mockCheckCsrfProtection.mockReset();
+    mockCheckCsrfProtection.mockResolvedValue({
+      valid: true,
+      response: undefined as unknown as Response | undefined,
+    });
+    mockResolveStorefrontMerchantFromRequest.mockReset();
+    mockResolveStorefrontMerchantFromRequest.mockResolvedValue({
+      success: true,
+      identifier: 'ogabassey',
+      merchant: { id: 'merchant-1', slug: 'ogabassey' } as unknown as Record<
+        string,
+        unknown
+      >,
+    });
+    mockCheckRateLimit.mockReset();
+    mockCheckRateLimit.mockResolvedValue({
+      allowed: true,
+      limit: 10,
+      remaining: 9,
+      resetTime: Date.now() + 60_000,
+    });
     vi.stubGlobal('fetch', vi.fn());
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
+  });
+
+  it('returns 403 when CSRF protection rejects the request', async () => {
+    mockCheckCsrfProtection.mockResolvedValueOnce({
+      valid: false,
+      response: undefined as unknown as Response | undefined,
+    });
+    const { POST } = await importRoute();
+
+    const response = await POST(
+      createRequest({ imei: '354442067957452', tier: 'full' })
+    );
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(403);
+    expect(body.error).toMatch(/csrf/i);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('returns 404 when the request host does not resolve to a storefront merchant', async () => {
+    mockResolveStorefrontMerchantFromRequest.mockResolvedValueOnce({
+      success: false,
+      status: 404,
+      error: 'IMEI check is only available on storefront hosts',
+    } as unknown as ReturnType<
+      typeof mockResolveStorefrontMerchantFromRequest
+    > extends Promise<infer T>
+      ? T
+      : never);
+    const { POST } = await importRoute();
+
+    const response = await POST(
+      createRequest({ imei: '354442067957452', tier: 'full' })
+    );
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(404);
+    expect(body.error).toBe('IMEI check is only available on storefront hosts');
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('returns 429 when the per-IP rate limit is exceeded', async () => {
+    mockCheckRateLimit.mockResolvedValueOnce({
+      allowed: false,
+      limit: 10,
+      remaining: 0,
+      resetTime: Date.now() + 30_000,
+    });
+    const { POST } = await importRoute();
+
+    const response = await POST(
+      createRequest({ imei: '354442067957452', tier: 'full' })
+    );
+
+    expect(response.status).toBe(429);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('rejects unknown service tiers before calling the provider', async () => {

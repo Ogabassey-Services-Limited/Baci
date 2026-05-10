@@ -4,7 +4,11 @@ import {
   isImeiServiceTierKey,
 } from '@baci/shared/imei';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getRootDomain } from '@/env';
+import { checkCsrfProtection } from '@/lib/csrf';
 import { getDeviceImage } from '@/lib/device-images';
+import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
+import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant';
 import { parseSickwResponse } from './sickw-parser';
 import type { ImeiCheckResult } from './sickw-parser.types';
 
@@ -18,8 +22,56 @@ if (!SICKW_API_KEY) {
   );
 }
 
+// TODO(payment-gate): SICKW IMEI checks invoke a paid third-party API at up to
+// $0.70/request. The long-term fix is to gate this endpoint behind either
+// (a) a verified paid order from the buyer, OR
+// (b) a merchant-funded credit pool with quota tracking.
+// Until that flow ships, the CSRF + storefront-origin + rate-limit gates below
+// are the defensive baseline. Tracked in
+// docs/superpowers/plans/2026-05-09-petrock-imei-integration.md.
 export async function POST(request: NextRequest) {
   try {
+    // 1. CSRF (defense-in-depth — proxy.ts only checks Origin when present)
+    const csrfResult = await checkCsrfProtection(request);
+    if (!csrfResult.valid) {
+      return (
+        csrfResult.response ??
+        NextResponse.json(
+          { success: false, error: 'Invalid or missing CSRF token' },
+          { status: 403 }
+        )
+      );
+    }
+
+    // 2. Storefront origin gate — request must come from a recognized
+    // merchant host (subdomain or custom domain). Arbitrary external POSTs
+    // (Postman, curl, scrapers) cannot resolve a merchant and are rejected.
+    const merchantResolution = await resolveStorefrontMerchantFromRequest({
+      request,
+      rootDomain: getRootDomain() || 'usebaci.com',
+      notFoundError: 'IMEI check is only available on storefront hosts',
+      lookupError: 'Failed to validate storefront host',
+    });
+    if (!merchantResolution.success) {
+      return NextResponse.json(
+        { success: false, error: merchantResolution.error },
+        { status: merchantResolution.status }
+      );
+    }
+
+    // 3. Per-IP rate limit using the shared trie config
+    // (`/api/storefront/imei-check` -> 10/60s). Gives us defense-in-depth
+    // independent of the proxy and a tight ceiling because each downstream
+    // call costs real money.
+    const rateLimit = await checkRateLimit(request);
+    if (!rateLimit.allowed) {
+      return createRateLimitResponse(
+        rateLimit.limit,
+        rateLimit.remaining,
+        rateLimit.resetTime
+      );
+    }
+
     const body = await request.json();
     const imeiResult = parseImei(body);
     if (!imeiResult.ok) {
