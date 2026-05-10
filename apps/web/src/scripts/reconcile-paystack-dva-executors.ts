@@ -25,7 +25,10 @@ import type {
 } from '@/lib/payments/apply-paid-order-side-effects';
 import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import type { createServiceClient } from '@/lib/supabase/service';
-import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
+import {
+  type OrderForConversion,
+  triggerPurchaseConversion,
+} from '@/lib/trigger-purchase-conversion';
 import { sendEmail } from '@/lib/zeptomail';
 
 export type MerchantDetails = {
@@ -38,11 +41,59 @@ export type MerchantDetails = {
   cac_rc_number: string | null;
 };
 
+// Concrete shape for the rich order row the post-RPC SELECT in
+// reconcile-paystack-dva.ts builds: the canonical `orders` row joined
+// with `order_items`. Listing the fields explicitly lets the compiler
+// validate field names and types, and lets the adTrackingExecutor pass
+// the value to triggerPurchaseConversion without an `as never` cast.
+//
+// All paidEmailExecutor fields are optional/nullable on the wire (the
+// SELECT may return null/undefined depending on the customer/order
+// state), so consumers still null-coalesce. `OrderForConversion`'s
+// required `id` and `total` are guaranteed by the SELECT.
+export type RichOrderItem = {
+  id?: string;
+  product_id?: string;
+  name?: string;
+  price?: number | string;
+  quantity?: number;
+  variant_name?: string;
+};
+
+export type RichOrder = {
+  id: string;
+  merchant_id: string;
+  payment_status: string;
+  tax_basis: string | null;
+  subtotal: number;
+  shipping_fee: number;
+  gift_wrapping_fee: number;
+  tax_amount: number;
+  discount_amount: number;
+  total: number | string;
+  order_number?: string | null;
+  customer_id?: string | null;
+  customer_name?: string | null;
+  customer_email?: string | null;
+  customer_phone?: string | null;
+  currency?: string | null;
+  shipping_address?: {
+    address?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    zip?: string;
+    postal_code?: string;
+  } | null;
+  order_items?: RichOrderItem[] | null;
+  ad_tracking?: Record<string, unknown> | null;
+};
+
 type ServiceRoleClient = ReturnType<typeof createServiceClient>;
 
 export type BuildScriptExecutorsArgs = {
   supabase: ServiceRoleClient;
-  richOrder: Record<string, unknown>;
+  richOrder: RichOrder;
   order: PaidOrder;
   transaction: PaidTransaction;
   paystackReference: string;
@@ -79,35 +130,29 @@ export function buildScriptExecutors(
 
     const rootDomain = getRootDomain() ?? 'usebaci.com';
     const merchantUrl = `https://${merchantDetails.slug}.${rootDomain}`;
-    const orderItems = Array.isArray(richOrder.order_items)
-      ? (richOrder.order_items as Array<Record<string, unknown>>)
-      : [];
+    const orderItems = richOrder.order_items ?? [];
     const emailItems = orderItems.map((item) => ({
       name:
-        typeof item.variant_name === 'string' &&
-        item.variant_name.trim().length > 0
-          ? `${(item.name as string) || 'Product'} (${item.variant_name})`
-          : (item.name as string) || 'Product',
-      quantity: (item.quantity as number) || 1,
-      price: (item.price as number) || 0,
+        item.variant_name && item.variant_name.trim().length > 0
+          ? `${item.name || 'Product'} (${item.variant_name})`
+          : item.name || 'Product',
+      quantity: item.quantity ?? 1,
+      price: typeof item.price === 'number' ? item.price : Number(item.price) || 0,
     }));
 
-    const shippingAddress =
-      (richOrder.shipping_address as Record<string, unknown> | null) ?? {};
+    const shippingAddress = richOrder.shipping_address ?? {};
     const emailData = {
-      orderNumber:
-        (richOrder.order_number as string) ||
-        order.id.slice(0, 8).toUpperCase(),
-      customerName: richOrder.customer_name as string,
+      orderNumber: richOrder.order_number || order.id.slice(0, 8).toUpperCase(),
+      customerName: richOrder.customer_name ?? '',
       items: emailItems,
       subtotal: order.subtotal,
       shippingFee: order.shipping_fee,
       total: order.total,
       shippingAddress: {
-        address: (shippingAddress.address as string) || '',
-        city: (shippingAddress.city as string) || '',
-        state: (shippingAddress.state as string) || '',
-        phone: (richOrder.customer_phone as string) || '',
+        address: shippingAddress.address ?? '',
+        city: shippingAddress.city ?? '',
+        state: shippingAddress.state ?? '',
+        phone: richOrder.customer_phone ?? '',
       },
       merchantName: merchantDetails.business_name ?? '',
       merchantUrl,
@@ -128,8 +173,8 @@ export function buildScriptExecutors(
         : undefined;
 
     const result = await sendEmail({
-      to: richOrder.customer_email as string,
-      toName: richOrder.customer_name as string | undefined,
+      to: richOrder.customer_email ?? '',
+      toName: richOrder.customer_name ?? undefined,
       subject: `Order Confirmation - #${emailData.orderNumber}`,
       htmlContent,
       textContent,
@@ -143,7 +188,7 @@ export function buildScriptExecutors(
       auditContext: {
         merchantId: order.merchant_id,
         orderId: order.id,
-        customerId: (richOrder.customer_id as string) ?? null,
+        customerId: richOrder.customer_id ?? null,
         metadata: { trigger: actor },
       },
     });
@@ -154,10 +199,15 @@ export function buildScriptExecutors(
   };
 
   const adTrackingExecutor: StepExecutor = async () => {
+    // RichOrder is a structural superset of OrderForConversion: every
+    // required field on OrderForConversion (`id`, `total`) is present,
+    // and the optional fields overlap. The single safe cast at this
+    // boundary surfaces compile-time errors if either shape drifts.
+    const orderForConversion: OrderForConversion = richOrder;
     await triggerPurchaseConversion(
       supabase,
       order.merchant_id,
-      richOrder as never
+      orderForConversion
     );
     return {};
   };

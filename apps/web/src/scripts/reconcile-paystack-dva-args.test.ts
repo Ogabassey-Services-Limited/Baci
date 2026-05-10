@@ -1,19 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseReconcileArgs } from '@/scripts/reconcile-paystack-dva-args';
-
-const efosaArgs = [
-  '--transaction-id',
-  '427ec4ea-b41d-4058-aaf9-3de57ee5fa35',
-  '--paystack-reference',
-  '100026260509110323000058369193',
-  '--canonical-order-id',
-  '211bcf0e-0795-488f-aeeb-52c5b7a8b9ae',
-  '--cancel-orders',
-  '9235a8d5-55fc-4e90-8238-4bb6698679bd,de838a51-d0e9-4438-9f55-135b7677783f,a259300d-aef4-44f2-9506-22b47fab756d',
-  '--operator-user-id',
-  '11111111-1111-1111-1111-111111111111',
-];
+import { efosaArgs } from '@/scripts/reconcile-paystack-dva.test-fixtures';
 
 describe('parseReconcileArgs', () => {
   it('parses the full incident argument set into a typed object', () => {

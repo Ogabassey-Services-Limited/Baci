@@ -17,25 +17,21 @@ import 'dotenv/config';
 import { pathToFileURL } from 'node:url';
 import { logger } from '@/lib/logger';
 import { verifyTransaction } from '@/lib/paystack';
-import {
-  applyPaidOrderSideEffects,
-  type ApplyPaidOrderSideEffectsResult,
-  type PaidOrder,
-  type PaidTransaction,
-  type SideEffectStep,
-} from '@/lib/payments/apply-paid-order-side-effects';
+import { applyPaidOrderSideEffects } from '@/lib/payments/apply-paid-order-side-effects';
 import { createServiceClient } from '@/lib/supabase/service';
 import { parseReconcileArgs } from '@/scripts/reconcile-paystack-dva-args';
 import {
   buildScriptExecutors,
   type MerchantDetails,
+  type RichOrder,
 } from '@/scripts/reconcile-paystack-dva-executors';
+import {
+  computeExitCode,
+  normalizePaidOrder,
+  normalizePaidTransaction,
+} from '@/scripts/reconcile-paystack-dva-internals';
 
 const ACTOR = 'script:reconcile-paystack-dva';
-
-// Δ-31 partial-failure error string (matches helper exactly per Δ-51).
-// A2 treats only these failures as expected, not script-level errors.
-const FINANCIAL_INCONSISTENT_ERROR = 'financial_totals_inconsistent';
 
 export async function runReconcilePaystackDvaCli(
   argv: readonly string[]
@@ -158,7 +154,11 @@ export async function runReconcilePaystackDvaCli(
     return 1;
   }
 
-  const richOrder = orderRow as Record<string, unknown>;
+  // The SELECT above pins the field list to RichOrder's shape; the
+  // unknown→RichOrder cast at this boundary is the single point where
+  // we trust the database driver. Downstream consumers get a typed
+  // value and avoid scattered `as` assertions.
+  const richOrder = orderRow as unknown as RichOrder;
   const order = normalizePaidOrder(richOrder);
   const transaction = normalizePaidTransaction(
     paidTxnRow as Record<string, unknown>
@@ -211,63 +211,6 @@ export async function runReconcilePaystackDvaCli(
   );
 
   return computeExitCode(sideEffectsResult);
-}
-
-// firs_invoice + loyalty_points are wired in B3.5; in Phase A their
-// failures are EXPECTED, not script-level errors. The Δ-31 consistency
-// gate marks them `failed='financial_totals_inconsistent'` for orders
-// like the 2026-05-09 incident order's; consistent orders get `failed='wired_in_b3_5'` from the
-// stub. Either way, replay after B3.5 ships picks them up.
-const PHASE_A_PENDING_STEPS: ReadonlySet<SideEffectStep> = new Set([
-  'firs_invoice',
-  'loyalty_points',
-]);
-
-function computeExitCode(result: ApplyPaidOrderSideEffectsResult): number {
-  const blockingFailures = result.failedSteps.filter(
-    (f) =>
-      !(
-        PHASE_A_PENDING_STEPS.has(f.step) ||
-        f.error === FINANCIAL_INCONSISTENT_ERROR
-      )
-  );
-  return blockingFailures.length > 0 ? 1 : 0;
-}
-
-function normalizePaidOrder(row: Record<string, unknown>): PaidOrder {
-  const taxBasisRaw = row.tax_basis;
-  const taxBasis: 'exclusive' | 'inclusive' | null =
-    taxBasisRaw === 'exclusive' || taxBasisRaw === 'inclusive'
-      ? taxBasisRaw
-      : null;
-  return {
-    id: String(row.id),
-    merchant_id: String(row.merchant_id),
-    payment_status: String(row.payment_status),
-    tax_basis: taxBasis,
-    subtotal: Number(row.subtotal) || 0,
-    shipping_fee: Number(row.shipping_fee) || 0,
-    gift_wrapping_fee: Number(row.gift_wrapping_fee) || 0,
-    tax_amount: Number(row.tax_amount) || 0,
-    discount_amount: Number(row.discount_amount) || 0,
-    total: Number(row.total) || 0,
-  };
-}
-
-function normalizePaidTransaction(
-  row: Record<string, unknown>
-): PaidTransaction {
-  return {
-    id: String(row.id),
-    order_id: String(row.order_id),
-    merchant_id: String(row.merchant_id),
-    gateway_reference:
-      typeof row.gateway_reference === 'string' ? row.gateway_reference : null,
-    amount:
-      typeof row.amount === 'number' || typeof row.amount === 'string'
-        ? row.amount
-        : null,
-  };
 }
 
 const currentFile = process.argv[1]

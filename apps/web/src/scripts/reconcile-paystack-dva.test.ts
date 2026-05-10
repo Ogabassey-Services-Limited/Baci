@@ -251,48 +251,6 @@ describe('runReconcilePaystackDvaCli — RPC failure modes', () => {
   });
 });
 
-describe('runReconcilePaystackDvaCli — outbox failure surfaces in exit code', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('returns non-zero when a non-Δ-31 step fails (paid_email, settlement, ad_tracking)', async () => {
-    const { supabase } = createSupabaseMock({});
-    mocks.createServiceClient.mockReturnValue(supabase);
-    mocks.verifyTransaction.mockResolvedValue(verifySuccess);
-    mocks.applyPaidOrderSideEffects.mockResolvedValue({
-      ranSteps: ['paid_email'],
-      skippedSteps: [],
-      failedSteps: [{ step: 'merchant_settlement', error: 'rpc_timeout' }],
-      concurrentTakeoverSteps: [],
-    });
-
-    const exit = await runReconcilePaystackDvaCli(efosaArgs);
-    expect(exit).toBe(1);
-  });
-
-  it('returns 0 when only Δ-31 firs/loyalty failures remain (expected for incident order)', async () => {
-    const { supabase } = createSupabaseMock({});
-    mocks.createServiceClient.mockReturnValue(supabase);
-    mocks.verifyTransaction.mockResolvedValue(verifySuccess);
-    mocks.applyPaidOrderSideEffects.mockResolvedValue({
-      ranSteps: [
-        'paid_email',
-        'ad_tracking_conversion',
-        'merchant_settlement',
-      ],
-      skippedSteps: [],
-      failedSteps: [
-        { step: 'firs_invoice', error: 'financial_totals_inconsistent' },
-        { step: 'loyalty_points', error: 'financial_totals_inconsistent' },
-      ],
-      concurrentTakeoverSteps: [],
-    });
-
-    const exit = await runReconcilePaystackDvaCli(efosaArgs);
-    expect(exit).toBe(0);
-  });
-});
+// Exit-code surface tests are colocated in
+// `reconcile-paystack-dva-exit-code.test.ts` so this file stays under
+// the 300-line per-file cap.
