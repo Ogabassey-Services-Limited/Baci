@@ -1,3 +1,5 @@
+'use client';
+
 import { preload } from 'react-dom';
 import {
   HERO_DESKTOP_LCP_SRC,
