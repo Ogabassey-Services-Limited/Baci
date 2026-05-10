@@ -4,6 +4,7 @@ import StorefrontLayout, {
   generateMetadata as generateStorefrontLayoutMetadata,
   generateViewport,
 } from '@/app/(storefront)/[slug]/layout';
+import { OgabasseyHeroPreloads } from '@/components/storefront/ogabassey/components/ogabassey-hero-preloads';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
 const OGABASSEY_PARAMS = Promise.resolve({ slug: OGABASSEY_TEMPLATE_ID });
@@ -25,6 +26,9 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function OgabasseyLayout({ children }: { children: ReactNode }) {
   return (
-    <StorefrontLayout params={OGABASSEY_PARAMS}>{children}</StorefrontLayout>
+    <>
+      <OgabasseyHeroPreloads />
+      <StorefrontLayout params={OGABASSEY_PARAMS}>{children}</StorefrontLayout>
+    </>
   );
 }
