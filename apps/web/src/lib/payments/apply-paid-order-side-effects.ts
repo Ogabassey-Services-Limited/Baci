@@ -200,13 +200,44 @@ export async function applyPaidOrderSideEffects(
       continue;
     }
 
+    // Review feedback (PR1563 Jules): split the executor call from the
+    // mark-completed UPDATE so a markCompleted throw doesn't get logged
+    // as "step executor threw". Different operational implications:
+    //   - executor throw → boundary integration failed; nothing happened
+    //     externally; replay re-runs the side effect.
+    //   - markCompleted throw → external side effect already succeeded
+    //     (email sent, settlement RPC committed); we just couldn't
+    //     record it. Replay still safe via per-integration boundary
+    //     idempotency, but the operator should know the difference.
+    let stepResult: Awaited<ReturnType<StepExecutor>>;
     try {
-      const stepResult = await executor({
+      stepResult = await executor({
         order,
         transaction,
         gatewayResponse,
         consistency,
       });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await markFailed(supabase, {
+        orderId: order.id,
+        step,
+        token: myToken,
+        error: message,
+        result: null,
+      });
+      result.failedSteps.push({ step, error: message });
+      logger.error({
+        message: 'payment_side_effects: step executor threw',
+        orderId: order.id,
+        step,
+        actor,
+        error: message,
+      });
+      continue;
+    }
+
+    try {
       const { rows } = await markCompleted(supabase, {
         orderId: order.id,
         step,
@@ -229,18 +260,26 @@ export async function applyPaidOrderSideEffects(
         });
       }
       result.ranSteps.push(step);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
+    } catch (markErr) {
+      // Executor SUCCEEDED but the mark-completed UPDATE threw (transient
+      // DB error, network blip, etc.). The external side effect already
+      // ran. Best-effort markFailed so a replay re-takes the claim; the
+      // boundary idempotency on each integration prevents duplicate
+      // external execution.
+      const message =
+        markErr instanceof Error ? markErr.message : String(markErr);
+      const trackedError = `mark_completed_threw: ${message}`;
       await markFailed(supabase, {
         orderId: order.id,
         step,
         token: myToken,
-        error: message,
-        result: null,
+        error: trackedError,
+        result: stepResult ?? null,
       });
-      result.failedSteps.push({ step, error: message });
+      result.failedSteps.push({ step, error: trackedError });
       logger.error({
-        message: 'payment_side_effects: step executor threw',
+        message:
+          'payment_side_effects: mark-completed UPDATE threw after executor succeeded — side effect ran but row not marked; replay-safe via integration idempotency',
         orderId: order.id,
         step,
         actor,
