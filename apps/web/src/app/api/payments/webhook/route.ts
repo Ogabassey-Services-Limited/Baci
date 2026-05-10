@@ -1542,6 +1542,61 @@ export async function POST(request: NextRequest) {
           orderId: transaction.order_id,
           error: orderError,
         });
+        // Review feedback (#1563 thread #1): the outbox-based settlement
+        // path is gated on a successful order update. Without this
+        // fallback, a transient order-update failure would leave the
+        // merchant uncredited even though the customer paid; webhook
+        // retries short-circuit because the transaction is already
+        // marked completed. Record settlement directly here using
+        // transaction-level data (we don't need the fresh order row).
+        // Idempotency is enforced by the partial UNIQUE index from A0,
+        // so a later replay with a successful order update is a no-op.
+        try {
+          const grossAmount = Number(transaction.amount) || 0;
+          const gatewayFee = extractVerifiedGatewayFeeNgn(
+            gateway,
+            gatewayResponse
+          );
+          const platformFee =
+            Number(transaction.platform_fee) ||
+            calculatePlatformFee(grossAmount * 100).platformFee / 100;
+          const { error: fallbackSettlementError } = await supabase.rpc(
+            'record_merchant_settlement',
+            {
+              p_merchant_id: transaction.merchant_id,
+              p_source_type: 'order',
+              p_source_id: transaction.order_id,
+              p_gateway: gateway,
+              p_gateway_reference: transaction.gateway_reference ?? reference,
+              p_gross_amount: grossAmount,
+              p_gateway_fee: gatewayFee,
+              p_platform_fee: platformFee,
+              p_description: `Order payment via ${gateway} (order update failed)`,
+              p_metadata: {
+                [`${gateway}_reference`]: reference,
+                verified_gateway_fee: gatewayFee,
+                order_update_failed: true,
+              },
+            }
+          );
+          if (fallbackSettlementError) {
+            logger.warn({
+              message:
+                'record_merchant_settlement errored on order-update-fail fallback path',
+              error: fallbackSettlementError,
+              orderId: transaction.order_id,
+              reference,
+            });
+          }
+        } catch (fallbackSettlementThrew) {
+          logger.warn({
+            message:
+              'record_merchant_settlement threw on order-update-fail fallback path',
+            error: fallbackSettlementThrew,
+            orderId: transaction.order_id,
+            reference,
+          });
+        }
       } else {
         logger.info({
           message: 'Order updated successfully',
@@ -1690,16 +1745,30 @@ export async function POST(request: NextRequest) {
           return { messageId: emailResult.messageId };
         };
 
-        const adTrackingExecutor: StepExecutor = async () => {
-          // triggerPurchaseConversion swallows its own errors and logs
-          // them; we treat absence of throw as success.
-          await triggerPurchaseConversion(
-            supabase,
-            transaction.merchant_id,
-            order
-          );
-          return {};
-        };
+        // Review feedback (#1563 thread #2): ad-platform calls
+        // (FB CAPI / TikTok / Snap / GA4) are slow third-party APIs.
+        // Pre-A1 they ran via `after(...)` so the webhook response
+        // wasn't blocked. The outbox helper's await put them back on
+        // the response path, raising webhook timeout/retry risk. Run
+        // them via `after(...)` here, OUTSIDE the outbox helper. The
+        // ad-platform side already deduplicates by deterministic
+        // event_id (see triggerPurchaseConversion), so we don't need
+        // outbox replay tracking specifically for this step.
+        after(async () => {
+          try {
+            await triggerPurchaseConversion(
+              supabase,
+              transaction.merchant_id,
+              order
+            );
+          } catch (adTrackingErr) {
+            logger.warn({
+              message: 'Ad-tracking conversion failed (after-response path)',
+              error: adTrackingErr,
+              orderId: order.id,
+            });
+          }
+        });
 
         const settlementExecutor: StepExecutor = async () => {
           const grossAmount = Number(transaction.amount) || 0;
@@ -1777,7 +1846,9 @@ export async function POST(request: NextRequest) {
           actor: `webhook:${reference}`,
           executors: {
             paid_email: paidEmailExecutor,
-            ad_tracking_conversion: adTrackingExecutor,
+            // ad_tracking_conversion intentionally NOT in the outbox —
+            // see the `after(() => triggerPurchaseConversion(...))`
+            // block above (review feedback #1563 thread #2).
             merchant_settlement: settlementExecutor,
           },
         });
