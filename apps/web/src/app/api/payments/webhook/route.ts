@@ -1653,15 +1653,37 @@ export async function POST(request: NextRequest) {
         // so a stale-claim takeover by a peer worker can't double-mark.
         const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
 
-        const { data: merchantDetails } = await supabase
-          .from('merchants')
-          .select(
-            'business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
-          )
-          .eq('id', transaction.merchant_id)
-          .single();
+        // Review feedback (CodeRabbit P1, Critical): destructure the
+        // error so transient fetch failures don't get silently coerced
+        // into a permanent `skipped` outbox state. Previously only
+        // `data` was destructured: a transient blip (network hiccup,
+        // PgBouncer reconnect, brief DB unavailability) would leave
+        // merchantDetails undefined → executor returned
+        // `{ skipped: ... }` (a SUCCESS value) → outbox marked the step
+        // `completed` → replay never re-attempts → customer permanently
+        // loses confirmation email. Now: distinguish PGRST116 (no rows
+        // — genuinely-missing merchant; not retryable) from any other
+        // error code (transient — throw so the executor catch marks the
+        // step `failed` and replay re-runs).
+        const { data: merchantDetails, error: merchantFetchError } =
+          await supabase
+            .from('merchants')
+            .select(
+              'business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
+            )
+            .eq('id', transaction.merchant_id)
+            .single();
 
         const paidEmailExecutor: StepExecutor = async () => {
+          // Non-PGRST116 errors are transient: throw so replay retries.
+          if (merchantFetchError && merchantFetchError.code !== 'PGRST116') {
+            throw new Error(
+              `merchant_fetch_error: ${merchantFetchError.message}`
+            );
+          }
+          // PGRST116 (merchant row genuinely missing) or missing customer
+          // email (guest checkout) is permanently un-emailable. Skipping
+          // is the correct terminal state.
           if (!(merchantDetails && order.customer_email)) {
             return { skipped: 'missing_merchant_or_customer_email' };
           }

@@ -1756,6 +1756,129 @@ describe('POST /api/payments/webhook', () => {
       );
     });
 
+    it('records settlement via fallback path when orders.update fails (review #1563 P1 regression test)', async () => {
+      // Review feedback (CodeRabbit P1): the fallback I added in
+      // commit fa3cc0eb1e — when `orders.update().single()` errors
+      // (transient DB blip / missing row), settlement must still be
+      // recorded via a direct record_merchant_settlement RPC call so
+      // the merchant isn't left uncredited. Idempotency from the A0
+      // partial unique index ensures a later replay with a successful
+      // order update is a no-op.
+      const body = {
+        reference: 'REF-FB-1',
+        status: 'success',
+        event: 'charge.success',
+        amount: 1000,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 1000,
+          reference: 'REF-FB-1',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      let transactionCallCount = 0;
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          transactionCallCount++;
+          if (transactionCallCount === 1) {
+            return {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'txn-fb-1',
+                  merchant_id: 'merchant-fb-1',
+                  order_id: 'order-fb-1',
+                  amount: '1000',
+                  currency: 'NGN',
+                  gateway_reference: 'BAC-FB-1',
+                  status: 'pending',
+                  metadata: {},
+                },
+                error: null,
+              }),
+            } as never;
+          }
+          // Subsequent calls: transaction update (mark completed)
+          return {
+            update: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            neq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'txn-fb-1' },
+              error: null,
+            }),
+          } as never;
+        }
+
+        if (table === 'orders') {
+          // CRITICAL: simulate transient DB error on the order update.
+          // Before the fa3cc0eb1e fix this would silently leave the
+          // merchant uncredited. After the fix, settlement still runs.
+          return {
+            update: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: null,
+              error: {
+                message: 'connection terminated',
+                code: '57P01',
+              },
+            }),
+          } as never;
+        }
+
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as never;
+      });
+
+      vi.mocked(mockServiceClient.rpc).mockResolvedValue({
+        data: null,
+        error: null,
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+
+      // The whole point of the fix: even though the order update
+      // failed, record_merchant_settlement was called with the BAC-*
+      // canonical key + the order_update_failed metadata flag so ops
+      // can spot fallback-path settlements.
+      expect(mockServiceClient.rpc).toHaveBeenCalledWith(
+        'record_merchant_settlement',
+        expect.objectContaining({
+          p_gateway_reference: 'BAC-FB-1',
+          p_source_type: 'order',
+          p_source_id: 'order-fb-1',
+          p_metadata: expect.objectContaining({
+            korapay_reference: 'REF-FB-1',
+            order_update_failed: true,
+          }),
+        })
+      );
+    });
+
     it('returns retryable status when agentic session reconciliation fails after payment processing', async () => {
       const body = {
         event: 'charge.success',

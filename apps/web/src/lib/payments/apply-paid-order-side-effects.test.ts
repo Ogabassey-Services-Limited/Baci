@@ -28,6 +28,10 @@ type MockOpts = {
   // Per-(step, attempt) responses. Defaults: claim wins, mark returns 1 row.
   claim?: (args: ClaimRpcArgs) => ClaimRpcResponse;
   markCompletedReturns?: (step: SideEffectStep, token: string) => UpdatedRow[];
+  markCompletedError?: (
+    step: SideEffectStep,
+    token: string
+  ) => { message: string } | null;
   markFailedReturns?: (step: SideEffectStep, token: string) => UpdatedRow[];
 };
 
@@ -82,10 +86,15 @@ function createMockSupabase(opts: MockOpts) {
                 const token = eqs.claim_token;
                 if (patch.status === 'completed') {
                   state.markCompletedCalls.push({ step, token, patch });
-                  resolve({
-                    data: markCompletedReturns(step, token),
-                    error: null,
-                  });
+                  const injectedError = opts.markCompletedError?.(step, token);
+                  if (injectedError) {
+                    resolve({ data: null, error: injectedError });
+                  } else {
+                    resolve({
+                      data: markCompletedReturns(step, token),
+                      error: null,
+                    });
+                  }
                 } else {
                   state.markFailedCalls.push({ step, token, patch });
                   resolve({
@@ -350,5 +359,48 @@ describe('applyPaidOrderSideEffects — guard clauses', () => {
         executors: { paid_email: vi.fn() },
       })
     ).rejects.toThrow(/order_transaction_mismatch/);
+  });
+});
+
+describe('applyPaidOrderSideEffects — executor succeeds but markCompleted throws (review feedback)', () => {
+  // Review feedback: the split-try/catch path I added in commit 52e061d2f9
+  // (Δ-78) — executor returns successfully but the markCompleted UPDATE
+  // throws (e.g., transient DB blip). The external side effect ALREADY
+  // ran; we just couldn't record it. Step lands in failedSteps with
+  // error 'mark_completed_threw: <message>' so a replay re-takes the
+  // claim; per-integration boundary idempotency catches the duplicate.
+  it('records mark_completed_threw failure when DB UPDATE errors after executor succeeded', async () => {
+    const emailExec = vi.fn<StepExecutor>(async () => ({ message_id: 'm-1' }));
+
+    const { supabase, state } = createMockSupabase({
+      orderId: txn.order_id,
+      markCompletedError: () => ({ message: 'connection timed out' }),
+    });
+
+    const result = await applyPaidOrderSideEffects({
+      supabase: supabase as never,
+      order: consistentOrder,
+      transaction: txn,
+      gatewayResponse: { fees: 0 },
+      actor: 'webhook:db-blip',
+      executors: { paid_email: emailExec },
+    });
+
+    // Executor DID run (side effect happened externally).
+    expect(emailExec).toHaveBeenCalledTimes(1);
+    // Step recorded as failed with the explicit mark_completed_threw prefix.
+    expect(result.failedSteps).toEqual([
+      {
+        step: 'paid_email',
+        error: expect.stringMatching(/^mark_completed_threw:/),
+      },
+    ]);
+    expect(result.ranSteps).toEqual([]);
+    // Best-effort markFailed was attempted, token-gated.
+    expect(state.markFailedCalls).toHaveLength(1);
+    expect(state.markFailedCalls[0]?.patch).toMatchObject({
+      status: 'failed',
+      error: expect.stringMatching(/^mark_completed_threw:/),
+    });
   });
 });

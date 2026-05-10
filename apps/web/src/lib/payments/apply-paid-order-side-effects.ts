@@ -1,6 +1,4 @@
-// Phase A — A1 outbox helper (Δ-7, Δ-24, Δ-31, Δ-38, Δ-58, Δ-60, Δ-61,
-// Δ-66, Δ-67, Δ-69, Δ-70).
-//
+// Phase A — A1 outbox helper (Δ-7, Δ-24, Δ-31, Δ-38, Δ-58, Δ-60, Δ-61, Δ-66, Δ-67, Δ-69, Δ-70).
 // Replaces the old TOCTTOU "check flag → run → set flag" pattern. Each side
 // effect of a paid order (email, FIRS, loyalty, ad tracking, settlement) is
 // claimed in `payment_side_effects` via the SECURITY DEFINER RPC
@@ -29,6 +27,11 @@
 // marking completed.
 
 import { logger } from '@/lib/logger';
+import {
+  claimStep,
+  markCompleted,
+  markFailed,
+} from '@/lib/payments/apply-paid-order-side-effects-internals';
 import {
   type FinancialConsistencyResult,
   financialConsistency,
@@ -108,6 +111,10 @@ export type ApplyPaidOrderSideEffectsArgs = {
   executors: Partial<Record<SideEffectStep, StepExecutor>>;
 };
 
+// `concurrentTakeoverSteps` is a SUBSET of `ranSteps` — executor ran but
+// the mark-completed UPDATE lost the row-write race. Subtract for
+// uniquely-completed-by-this-worker metrics. Boundary idempotency at
+// each integration prevents double external execution.
 export type ApplyPaidOrderSideEffectsResult = {
   ranSteps: SideEffectStep[];
   skippedSteps: SideEffectStep[];
@@ -289,103 +296,4 @@ export async function applyPaidOrderSideEffects(
   }
 
   return result;
-}
-
-// ---------------------------------------------------------------------------
-// Internals
-// ---------------------------------------------------------------------------
-
-async function claimStep(
-  supabase: ServiceRoleClient,
-  args: {
-    orderId: string;
-    transactionId: string;
-    step: SideEffectStep;
-    token: string;
-    claimedBy: string;
-  }
-): Promise<{ we_won: boolean; current_status: string }> {
-  const { data, error } = await supabase
-    .rpc('claim_payment_side_effect', {
-      p_order_id: args.orderId,
-      p_transaction_id: args.transactionId,
-      p_step: args.step,
-      p_claim_token: args.token,
-      p_claimed_by: args.claimedBy,
-    })
-    .single();
-
-  if (error || !data) {
-    throw new Error(
-      `claim_payment_side_effect failed for step ${args.step}: ${error?.message ?? 'no data'}`
-    );
-  }
-  const row = data as { we_won: boolean; current_status: string };
-  return row;
-}
-
-async function markCompleted(
-  supabase: ServiceRoleClient,
-  args: {
-    orderId: string;
-    step: SideEffectStep;
-    token: string;
-    result: Record<string, unknown> | null;
-  }
-): Promise<{ rows: Array<{ order_id: string }> }> {
-  const { data, error } = await supabase
-    .from('payment_side_effects')
-    .update({
-      status: 'completed',
-      completed_at: new Date().toISOString(),
-      result: args.result,
-      error: null,
-    })
-    .eq('order_id', args.orderId)
-    .eq('step', args.step)
-    .eq('claim_token', args.token)
-    .select('order_id');
-
-  if (error) {
-    throw new Error(
-      `mark_completed failed for step ${args.step}: ${error.message}`
-    );
-  }
-  return { rows: (data ?? []) as Array<{ order_id: string }> };
-}
-
-async function markFailed(
-  supabase: ServiceRoleClient,
-  args: {
-    orderId: string;
-    step: SideEffectStep;
-    token: string;
-    error: string;
-    result: Record<string, unknown> | null;
-  }
-): Promise<void> {
-  const { error } = await supabase
-    .from('payment_side_effects')
-    .update({
-      status: 'failed',
-      completed_at: new Date().toISOString(),
-      error: args.error,
-      result: args.result,
-    })
-    .eq('order_id', args.orderId)
-    .eq('step', args.step)
-    .eq('claim_token', args.token)
-    .select('order_id');
-
-  if (error) {
-    // Don't throw — the step is already failing; the table just couldn't
-    // record it. The next replay will take over the stale claim.
-    logger.error({
-      message: 'payment_side_effects: mark_failed UPDATE errored',
-      orderId: args.orderId,
-      step: args.step,
-      dbError: error.message,
-      stepError: args.error,
-    });
-  }
-}
+} // Internals (claimStep / markCompleted / markFailed) → ./apply-paid-order-side-effects-internals.ts
