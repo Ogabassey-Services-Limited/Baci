@@ -1,27 +1,13 @@
 // Phase A — A2 manual reconcile script (Δ-8, Δ-11, Δ-12, Δ-13, Δ-15,
-// Δ-18, Δ-23, Δ-25, Δ-28, Δ-31, Δ-66, Δ-67).
+// Δ-18, Δ-23, Δ-25, Δ-28, Δ-31, Δ-66, Δ-67, Δ-86, Δ-87).
 //
-// "Paystack DVA confirmed paid but our DB still says pending." Operator
-// runs:
+// "Paystack DVA confirmed paid but our DB still says pending." Args
+// are validated by the Zod-backed parser in `./reconcile-paystack-dva-
+// args.ts`; outbox executors live in `./reconcile-paystack-dva-
+// executors.ts`. This file orchestrates: verify → atomic RPC → reload
+// → outbox.
 //
-//   pnpm tsx apps/web/src/scripts/reconcile-paystack-dva.ts \
-//     --transaction-id <txn> \
-//     --paystack-reference <ref> \
-//     --canonical-order-id <order> \
-//     --cancel-orders <comma,sep,duplicate-order-ids> \
-//     --operator-user-id <auth.users.id>
-//
-// The script:
-//   1. Verifies the payment with Paystack (bails on amount/status mismatch).
-//   2. Calls `claim_paystack_paid_atomic` — atomically flips the canonical
-//      transaction + order to paid AND cancels duplicate orders/txns.
-//   3. Reads the freshly-paid order/transaction + merchant details.
-//   4. Calls `applyPaidOrderSideEffects` from PR2 with executors that
-//      mirror the production webhook: email, ad-tracking, settlement,
-//      plus stubs for firs_invoice + loyalty_points (B3.5 will wire the
-//      real integrations).
-//
-// Δ-31: orders whose totals don't match their `tax_basis` will see
+// Δ-31: orders whose totals don't match their `tax_basis` see
 // `firs_invoice` and `loyalty_points` short-circuit to `failed,
 // error='financial_totals_inconsistent'`. Replay after B3.5 backfill
 // retakes the failed claims and finishes them.
@@ -29,110 +15,27 @@
 import 'dotenv/config';
 
 import { pathToFileURL } from 'node:url';
-import {
-  generateOrderConfirmationEmail,
-  generateOrderConfirmationText,
-} from '@/lib/email-templates';
 import { logger } from '@/lib/logger';
-import { calculatePlatformFee, verifyTransaction } from '@/lib/paystack';
+import { verifyTransaction } from '@/lib/paystack';
 import {
   applyPaidOrderSideEffects,
   type ApplyPaidOrderSideEffectsResult,
   type PaidOrder,
   type PaidTransaction,
   type SideEffectStep,
-  type StepExecutor,
 } from '@/lib/payments/apply-paid-order-side-effects';
-import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import { createServiceClient } from '@/lib/supabase/service';
-import { triggerPurchaseConversion } from '@/lib/trigger-purchase-conversion';
-import { sendEmail } from '@/lib/zeptomail';
+import { parseReconcileArgs } from '@/scripts/reconcile-paystack-dva-args';
+import {
+  buildScriptExecutors,
+  type MerchantDetails,
+} from '@/scripts/reconcile-paystack-dva-executors';
 
 const ACTOR = 'script:reconcile-paystack-dva';
 
 // Δ-31 partial-failure error string (matches helper exactly per Δ-51).
 // A2 treats only these failures as expected, not script-level errors.
 const FINANCIAL_INCONSISTENT_ERROR = 'financial_totals_inconsistent';
-
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-type ParsedArgs = {
-  transactionId: string;
-  paystackReference: string;
-  canonicalOrderId: string;
-  cancelOrders: string[];
-  operatorUserId: string;
-};
-
-type ParseResult =
-  | { ok: true; args: ParsedArgs }
-  | { ok: false; error: string };
-
-export function parseReconcileArgs(argv: readonly string[]): ParseResult {
-  const map = new Map<string, string>();
-  for (let i = 0; i < argv.length; i += 2) {
-    const key = argv[i];
-    const value = argv[i + 1];
-    if (!(key && key.startsWith('--')) || value === undefined) {
-      return { ok: false, error: `malformed flag near "${key ?? '<end>'}"` };
-    }
-    map.set(key, value);
-  }
-
-  const required = [
-    '--transaction-id',
-    '--paystack-reference',
-    '--canonical-order-id',
-    '--cancel-orders',
-    '--operator-user-id',
-  ];
-  for (const flag of required) {
-    if (!map.has(flag)) {
-      return { ok: false, error: `missing required flag: ${flag}` };
-    }
-  }
-
-  const transactionId = map.get('--transaction-id') ?? '';
-  const canonicalOrderId = map.get('--canonical-order-id') ?? '';
-  const operatorUserId = map.get('--operator-user-id') ?? '';
-  const paystackReference = map.get('--paystack-reference') ?? '';
-  const cancelRaw = map.get('--cancel-orders') ?? '';
-
-  if (!UUID_RE.test(transactionId)) {
-    return { ok: false, error: '--transaction-id is not a UUID' };
-  }
-  if (!UUID_RE.test(canonicalOrderId)) {
-    return { ok: false, error: '--canonical-order-id is not a UUID' };
-  }
-  if (!UUID_RE.test(operatorUserId)) {
-    return { ok: false, error: '--operator-user-id is not a UUID' };
-  }
-  if (!paystackReference) {
-    return { ok: false, error: '--paystack-reference is empty' };
-  }
-
-  const cancelOrders = cancelRaw
-    .split(',')
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-  for (const id of cancelOrders) {
-    if (!UUID_RE.test(id)) {
-      return { ok: false, error: `--cancel-orders entry is not a UUID: ${id}` };
-    }
-  }
-
-  return {
-    ok: true,
-    args: {
-      transactionId,
-      paystackReference,
-      canonicalOrderId,
-      cancelOrders,
-      operatorUserId,
-    },
-  };
-}
 
 export async function runReconcilePaystackDvaCli(
   argv: readonly string[]
@@ -287,6 +190,7 @@ export async function runReconcilePaystackDvaCli(
     merchantDetails: merchantDetails as MerchantDetails | null,
     merchantFetchError,
     rawPlatformFee,
+    actor: ACTOR,
   });
 
   const sideEffectsResult = await applyPaidOrderSideEffects({
@@ -328,206 +232,6 @@ function computeExitCode(result: ApplyPaidOrderSideEffectsResult): number {
       )
   );
   return blockingFailures.length > 0 ? 1 : 0;
-}
-
-type MerchantDetails = {
-  business_name: string | null;
-  slug: string | null;
-  support_email: string | null;
-  email_sender_name: string | null;
-  email: string | null;
-  tax_identification_number: string | null;
-  cac_rc_number: string | null;
-};
-
-type ServiceRoleClient = ReturnType<typeof createServiceClient>;
-
-function buildScriptExecutors(args: {
-  supabase: ServiceRoleClient;
-  richOrder: Record<string, unknown>;
-  order: PaidOrder;
-  transaction: PaidTransaction;
-  paystackReference: string;
-  merchantDetails: MerchantDetails | null;
-  merchantFetchError: unknown;
-  rawPlatformFee: unknown;
-}): Partial<Record<SideEffectStep, StepExecutor>> {
-  const {
-    supabase,
-    richOrder,
-    order,
-    transaction,
-    paystackReference,
-    merchantDetails,
-    merchantFetchError,
-    rawPlatformFee,
-  } = args;
-
-  // Mirror the production webhook executors at apps/web/src/app/api/
-  // payments/webhook/route.ts:1677-1834. Future cleanup PR may extract
-  // them into a shared module; for now duplication is contained and the
-  // script is a CLI tool with limited blast radius.
-
-  const paidEmailExecutor: StepExecutor = async () => {
-    if (merchantFetchError) {
-      throw new Error(
-        `merchant_fetch_error: ${(merchantFetchError as { message?: string })?.message ?? 'unknown'}`
-      );
-    }
-    if (!(merchantDetails && richOrder.customer_email)) {
-      return { skipped: 'missing_merchant_or_customer_email' };
-    }
-
-    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-    const merchantUrl = `https://${merchantDetails.slug}.${rootDomain}`;
-    const orderItems = Array.isArray(richOrder.order_items)
-      ? (richOrder.order_items as Array<Record<string, unknown>>)
-      : [];
-    const emailItems = orderItems.map((item) => ({
-      name:
-        typeof item.variant_name === 'string' &&
-        item.variant_name.trim().length > 0
-          ? `${(item.name as string) || 'Product'} (${item.variant_name})`
-          : (item.name as string) || 'Product',
-      quantity: (item.quantity as number) || 1,
-      price: (item.price as number) || 0,
-    }));
-
-    const emailData = {
-      orderNumber:
-        (richOrder.order_number as string) ||
-        order.id.slice(0, 8).toUpperCase(),
-      customerName: richOrder.customer_name as string,
-      items: emailItems,
-      subtotal: order.subtotal,
-      shippingFee: order.shipping_fee,
-      total: order.total,
-      shippingAddress: {
-        address:
-          ((richOrder.shipping_address as Record<string, unknown>)
-            ?.address as string) || '',
-        city:
-          ((richOrder.shipping_address as Record<string, unknown>)
-            ?.city as string) || '',
-        state:
-          ((richOrder.shipping_address as Record<string, unknown>)
-            ?.state as string) || '',
-        phone: (richOrder.customer_phone as string) || '',
-      },
-      merchantName: merchantDetails.business_name ?? '',
-      merchantUrl,
-      merchantTin: merchantDetails.tax_identification_number ?? undefined,
-      merchantRcNumber: merchantDetails.cac_rc_number ?? undefined,
-    };
-
-    const htmlContent = generateOrderConfirmationEmail(emailData);
-    const textContent = generateOrderConfirmationText(emailData);
-    const replyToEmail =
-      merchantDetails.support_email ||
-      merchantDetails.email ||
-      `support@${merchantDetails.slug}.${rootDomain}`;
-    const senderName = merchantDetails.email_sender_name
-      ? `${merchantDetails.email_sender_name} Orders`
-      : merchantDetails.business_name
-        ? `${merchantDetails.business_name} Orders`
-        : undefined;
-
-    const result = await sendEmail({
-      to: richOrder.customer_email as string,
-      toName: richOrder.customer_name as string | undefined,
-      subject: `Order Confirmation - #${emailData.orderNumber}`,
-      htmlContent,
-      textContent,
-      replyTo: replyToEmail,
-      emailType: 'orders',
-      fromName: senderName,
-      // Δ-61: ZeptoMail has no Idempotency-Key. The payment_side_effects
-      // claim row is the dedup record; client_reference gives a
-      // server-side audit trail showing which sends actually went out.
-      clientReference: `order:${order.id}:paid_email`,
-      auditContext: {
-        merchantId: order.merchant_id,
-        orderId: order.id,
-        customerId: (richOrder.customer_id as string) ?? null,
-        metadata: { trigger: ACTOR },
-      },
-    });
-    if (!result.success) {
-      throw new Error(result.error || result.errorCode || 'email_failed');
-    }
-    return { messageId: result.messageId };
-  };
-
-  const adTrackingExecutor: StepExecutor = async () => {
-    // triggerPurchaseConversion swallows individual platform errors and
-    // logs them; absence of throw = success for outbox bookkeeping.
-    await triggerPurchaseConversion(
-      supabase,
-      order.merchant_id,
-      richOrder as never
-    );
-    return {};
-  };
-
-  const settlementExecutor: StepExecutor = async (ctx) => {
-    const grossAmount = Number(transaction.amount) || 0;
-    // Δ-0b: source the gateway fee from the verified Paystack response
-    // (passed via StepContext.gatewayResponse).
-    const gatewayFee = extractVerifiedGatewayFeeNgn(
-      'paystack',
-      ctx.gatewayResponse
-    );
-    const platformFee =
-      Number(rawPlatformFee) ||
-      calculatePlatformFee(grossAmount * 100).platformFee / 100;
-
-    const { error: settlementError } = await supabase.rpc(
-      'record_merchant_settlement',
-      {
-        p_merchant_id: order.merchant_id,
-        p_source_type: 'order',
-        p_source_id: order.id,
-        p_gateway: 'paystack',
-        // Δ-22: settlement key is our BAC-*; Paystack ref → metadata only.
-        p_gateway_reference:
-          transaction.gateway_reference ?? paystackReference,
-        p_gross_amount: grossAmount,
-        p_gateway_fee: gatewayFee,
-        p_platform_fee: platformFee,
-        p_description: 'Order payment via paystack (manual reconcile)',
-        p_metadata: {
-          paystack_reference: paystackReference,
-          verified_gateway_fee: gatewayFee,
-          reconciled_by: ACTOR,
-        },
-      }
-    );
-    if (settlementError) {
-      throw new Error(settlementError.message);
-    }
-    return {
-      gross_amount: grossAmount,
-      gateway_fee: gatewayFee,
-      platform_fee: platformFee,
-    };
-  };
-
-  // Stub for steps that B3.5 wires for real. The Δ-31 consistency gate
-  // short-circuits these BEFORE the executor runs for inconsistent
-  // orders (Efosa); for consistent orders the stub throws and the row
-  // gets `failed='wired_in_b3_5'` — replayable when the integrations
-  // ship in B3.5.
-  const stubExecutor: StepExecutor = () => {
-    throw new Error('wired_in_b3_5');
-  };
-
-  return {
-    paid_email: paidEmailExecutor,
-    firs_invoice: stubExecutor,
-    loyalty_points: stubExecutor,
-    ad_tracking_conversion: adTrackingExecutor,
-    merchant_settlement: settlementExecutor,
-  };
 }
 
 function normalizePaidOrder(row: Record<string, unknown>): PaidOrder {

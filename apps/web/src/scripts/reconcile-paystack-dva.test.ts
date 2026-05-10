@@ -17,176 +17,11 @@ vi.mock('@/lib/payments/apply-paid-order-side-effects', () => ({
 }));
 
 import { runReconcilePaystackDvaCli } from '@/scripts/reconcile-paystack-dva';
-
-// Real values pinned in the handoff brief — Efosa Igbinovia 2026-05-09.
-const efosaArgs = [
-  '--transaction-id',
-  '427ec4ea-b41d-4058-aaf9-3de57ee5fa35',
-  '--paystack-reference',
-  '100026260509110323000058369193',
-  '--canonical-order-id',
-  '211bcf0e-0795-488f-aeeb-52c5b7a8b9ae',
-  '--cancel-orders',
-  '9235a8d5-55fc-4e90-8238-4bb6698679bd,de838a51-d0e9-4438-9f55-135b7677783f,a259300d-aef4-44f2-9506-22b47fab756d',
-  '--operator-user-id',
-  '11111111-1111-1111-1111-111111111111',
-];
-
-const verifySuccess = {
-  success: true as const,
-  data: {
-    id: 1,
-    status: 'success' as const,
-    reference: '100026260509110323000058369193',
-    amount: 83_500_000, // ₦835,000 in kobo
-    currency: 'NGN',
-    channel: 'dedicated_nuban',
-    paid_at: '2026-05-09T11:03:00Z',
-    created_at: '2026-05-09T11:00:00Z',
-    customer: {
-      customer_code: 'CUS_X',
-      email: 'igbinoviaefosa56@gmail.com',
-      first_name: 'Efosa',
-      id: 1,
-      last_name: 'Igbinovia',
-      phone: null,
-    },
-    metadata: null,
-    authorization: null,
-    fees: 300_000,
-    fees_split: null,
-  },
-};
-
-function createSupabaseMock(opts: {
-  rpcResult?: { data: unknown; error: unknown };
-  txn?: Record<string, unknown> | null;
-  order?: Record<string, unknown> | null;
-  merchant?: Record<string, unknown> | null;
-}) {
-  const rpcResult = opts.rpcResult ?? {
-    data: {
-      canonical_order_id: '211bcf0e-0795-488f-aeeb-52c5b7a8b9ae',
-      reconciled_at: '2026-05-10T18:00:00Z',
-      already_completed: false,
-      order_already_paid: false,
-      txn_rows_updated: 1,
-      order_rows_updated: 1,
-      dup_orders_cancelled: 3,
-      dup_txns_cancelled: 3,
-    },
-    error: null,
-  };
-  const txn = opts.txn ?? {
-    id: '427ec4ea-b41d-4058-aaf9-3de57ee5fa35',
-    order_id: '211bcf0e-0795-488f-aeeb-52c5b7a8b9ae',
-    merchant_id: 'merchant-1',
-    gateway_reference: 'BAC-7TUD6N4WJCNM',
-    amount: 835_000,
-    metadata: {},
-  };
-  const order = opts.order ?? {
-    id: '211bcf0e-0795-488f-aeeb-52c5b7a8b9ae',
-    merchant_id: 'merchant-1',
-    payment_status: 'paid',
-    tax_basis: null, // Efosa's actual prod state
-    subtotal: 810_000,
-    shipping_fee: 25_000,
-    gift_wrapping_fee: 0,
-    tax_amount: 60_750,
-    discount_amount: 0,
-    total: 835_000,
-    order_number: 'ORD-260509-00NV-R',
-    customer_id: 'customer-1',
-    customer_name: 'Efosa Igbinovia',
-    customer_email: 'igbinoviaefosa56@gmail.com',
-    customer_phone: '+2348000000000',
-    currency: 'NGN',
-    shipping_address: { address: '1 Lekki', city: 'Lagos', state: 'Lagos' },
-    order_items: [],
-  };
-  const merchant = opts.merchant ?? {
-    business_name: 'Ogabassey',
-    slug: 'ogabassey',
-    support_email: 'support@ogabassey.com',
-    email_sender_name: 'Ogabassey',
-    email: 'support@ogabassey.com',
-    tax_identification_number: null,
-    cac_rc_number: null,
-  };
-
-  const rpc = vi.fn().mockResolvedValue(rpcResult);
-  const from = vi.fn((table: string) => {
-    if (table === 'transactions') {
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({ data: txn, error: null }),
-          }),
-        }),
-      };
-    }
-    if (table === 'orders') {
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({ data: order, error: null }),
-          }),
-        }),
-      };
-    }
-    if (table === 'merchants') {
-      return {
-        select: vi.fn().mockReturnValue({
-          eq: vi.fn().mockReturnValue({
-            single: vi
-              .fn()
-              .mockResolvedValue({ data: merchant, error: null }),
-          }),
-        }),
-      };
-    }
-    throw new Error(`unmocked table: ${table}`);
-  });
-
-  return { supabase: { rpc, from }, rpc, from };
-}
-
-describe('runReconcilePaystackDvaCli — arg validation', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it('exits non-zero when any required flag is missing', async () => {
-    const exit = await runReconcilePaystackDvaCli([
-      '--transaction-id',
-      '427ec4ea-b41d-4058-aaf9-3de57ee5fa35',
-      // missing other required flags
-    ]);
-    expect(exit).toBe(1);
-    expect(mocks.verifyTransaction).not.toHaveBeenCalled();
-  });
-
-  it('rejects malformed UUIDs with exit code 1', async () => {
-    const exit = await runReconcilePaystackDvaCli([
-      '--transaction-id',
-      'not-a-uuid',
-      '--paystack-reference',
-      'ref',
-      '--canonical-order-id',
-      '211bcf0e-0795-488f-aeeb-52c5b7a8b9ae',
-      '--cancel-orders',
-      '',
-      '--operator-user-id',
-      '11111111-1111-1111-1111-111111111111',
-    ]);
-    expect(exit).toBe(1);
-    expect(mocks.verifyTransaction).not.toHaveBeenCalled();
-  });
-});
+import {
+  createSupabaseMock,
+  efosaArgs,
+  verifySuccess,
+} from '@/scripts/reconcile-paystack-dva.test-fixtures';
 
 describe('runReconcilePaystackDvaCli — happy path (Efosa shape)', () => {
   beforeEach(() => {
@@ -235,13 +70,11 @@ describe('runReconcilePaystackDvaCli — happy path (Efosa shape)', () => {
         p_operator_label: 'script:reconcile-paystack-dva',
       })
     );
-    // p_gateway_response must be the verified Paystack JSON.
     const rpcCall = supabase.rpc.mock.calls[0]?.[1] as Record<string, unknown>;
     expect((rpcCall.p_gateway_response as Record<string, unknown>).reference).toBe(
       '100026260509110323000058369193'
     );
 
-    // Helper called with the freshly-paid order/transaction shapes
     expect(mocks.applyPaidOrderSideEffects).toHaveBeenCalledWith(
       expect.objectContaining({
         supabase,
@@ -255,6 +88,50 @@ describe('runReconcilePaystackDvaCli — happy path (Efosa shape)', () => {
         }),
       })
     );
+  });
+
+  // Δ-86: the script forwards the cancel array verbatim. Tenant
+  // scoping happens INSIDE the RPC (migration 20260510170000); this
+  // test pins the script-side contract that the operator-supplied
+  // array reaches the RPC unmodified.
+  it('forwards cancel-orders to the RPC unmodified and surfaces RPC-reported counts', async () => {
+    const { supabase } = createSupabaseMock({
+      rpcResult: {
+        data: {
+          canonical_order_id: '211bcf0e-0795-488f-aeeb-52c5b7a8b9ae',
+          reconciled_at: '2026-05-10T19:00:00Z',
+          already_completed: false,
+          order_already_paid: false,
+          txn_rows_updated: 1,
+          order_rows_updated: 1,
+          // RPC matched only 2 of 3 supplied cancel_order_ids — the
+          // third belonged to another merchant and was filtered out by
+          // the merchant_id predicate. Counts come through the RPC
+          // return value, not through any client logic.
+          dup_orders_cancelled: 2,
+          dup_txns_cancelled: 2,
+        },
+        error: null,
+      },
+    });
+    mocks.createServiceClient.mockReturnValue(supabase);
+    mocks.verifyTransaction.mockResolvedValue(verifySuccess);
+    mocks.applyPaidOrderSideEffects.mockResolvedValue({
+      ranSteps: ['paid_email', 'ad_tracking_conversion', 'merchant_settlement'],
+      skippedSteps: [],
+      failedSteps: [],
+      concurrentTakeoverSteps: [],
+    });
+
+    const exit = await runReconcilePaystackDvaCli(efosaArgs);
+
+    expect(exit).toBe(0);
+    const rpcCall = supabase.rpc.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(rpcCall.p_cancel_order_ids).toEqual([
+      '9235a8d5-55fc-4e90-8238-4bb6698679bd',
+      'de838a51-d0e9-4438-9f55-135b7677783f',
+      'a259300d-aef4-44f2-9506-22b47fab756d',
+    ]);
   });
 });
 
@@ -297,7 +174,6 @@ describe('runReconcilePaystackDvaCli — Paystack guards', () => {
   });
 
   it('exits non-zero when verified amount does not match on-record txn', async () => {
-    // On-record txn = ₦835_000; tweak the verify response amount in kobo.
     const { supabase } = createSupabaseMock({});
     mocks.createServiceClient.mockReturnValue(supabase);
     mocks.verifyTransaction.mockResolvedValue({
