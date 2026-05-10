@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { Suspense } from 'react';
+import * as ReactDOM from 'react-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   HERO_DESKTOP_LCP_SRC,
@@ -107,6 +108,7 @@ const { default: StorefrontPage, generateMetadata } = await import('./page');
 const actualStorefrontPageContentModule = await vi.importActual<
   typeof import('../storefront-page-content')
 >('../storefront-page-content');
+const preloadSpy = vi.spyOn(ReactDOM, 'preload');
 
 describe('Storefront homepage structured data', () => {
   beforeEach(() => {
@@ -117,6 +119,7 @@ describe('Storefront homepage structured data', () => {
       .forEach((link) => {
         link.remove();
       });
+    preloadSpy.mockClear();
     vi.mocked(getRequestScopedMerchant).mockReset();
     mockStorefrontContent.mockReset();
     mockStorefrontPageContent.mockReset();
@@ -290,35 +293,24 @@ describe('Storefront homepage structured data', () => {
     render(
       await StorefrontPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
     );
-    const preloads = Array.from(
-      document.querySelectorAll<HTMLLinkElement>(
-        'link[rel="preload"][as="image"]'
-      )
+
+    expect(preloadSpy).toHaveBeenCalledWith(
+      HERO_DESKTOP_LCP_SRC,
+      expect.objectContaining({
+        as: 'image',
+        fetchPriority: 'high',
+        media: '(min-width: 768px)',
+        type: 'image/avif',
+      })
     );
-
-    const preloadAttributes = preloads.map((preloadLink) => ({
-      fetchPriority: preloadLink.getAttribute('fetchpriority'),
-      href: preloadLink.getAttribute('href'),
-      media: preloadLink.getAttribute('media'),
-      type: preloadLink.getAttribute('type'),
-    }));
-
-    expect(preloadAttributes).toHaveLength(2);
-    expect(preloadAttributes).toEqual(
-      expect.arrayContaining([
-        {
-          fetchPriority: 'high',
-          href: HERO_DESKTOP_LCP_SRC,
-          media: '(min-width: 768px)',
-          type: 'image/avif',
-        },
-        {
-          fetchPriority: 'high',
-          href: HERO_MOBILE_LCP_SRC,
-          media: '(max-width: 767px)',
-          type: 'image/avif',
-        },
-      ])
+    expect(preloadSpy).toHaveBeenCalledWith(
+      HERO_MOBILE_LCP_SRC,
+      expect.objectContaining({
+        as: 'image',
+        fetchPriority: 'high',
+        media: '(max-width: 767px)',
+        type: 'image/avif',
+      })
     );
   });
 
@@ -391,9 +383,7 @@ describe('Storefront homepage structured data', () => {
       })
     );
 
-    expect(
-      document.querySelector('link[rel="preload"][as="image"]')
-    ).not.toBeInTheDocument();
+    expect(preloadSpy).not.toHaveBeenCalled();
     expect(
       document.querySelector('link[rel="preconnect"]')
     ).not.toBeInTheDocument();
