@@ -73,13 +73,13 @@ export async function runReconcilePaystackDvaCli(
     return 1;
   }
 
-  // Step 2 — load the on-record transaction so we can sanity-check the
-  // Paystack-verified amount before mutating anything.
+  // Step 2 — load the on-record transaction's amount so we can sanity-
+  // check the Paystack-verified amount before mutating anything. Only
+  // `amount` is used at this step; the post-RPC fetch below selects the
+  // wider shape the executors need.
   const { data: txnRow, error: txnErr } = await supabase
     .from('transactions')
-    .select(
-      'id, order_id, merchant_id, amount, currency, gateway_reference, platform_fee, status, metadata'
-    )
+    .select('amount')
     .eq('id', args.transactionId)
     .single();
   if (txnErr || !txnRow) {
@@ -216,7 +216,7 @@ export async function runReconcilePaystackDvaCli(
 // firs_invoice + loyalty_points are wired in B3.5; in Phase A their
 // failures are EXPECTED, not script-level errors. The Δ-31 consistency
 // gate marks them `failed='financial_totals_inconsistent'` for orders
-// like Efosa's; consistent orders get `failed='wired_in_b3_5'` from the
+// like the 2026-05-09 incident order's; consistent orders get `failed='wired_in_b3_5'` from the
 // stub. Either way, replay after B3.5 ships picks them up.
 const PHASE_A_PENDING_STEPS: ReadonlySet<SideEffectStep> = new Set([
   'firs_invoice',

@@ -9,12 +9,13 @@
 // settlement RPC. firs_invoice + loyalty_points are stubs until B3.5
 // wires the real integrations; the Δ-31 consistency gate inside the
 // outbox helper short-circuits these for orders with inconsistent
-// totals (Efosa) so the stub never runs in that case.
+// totals (the 2026-05-09 incident shape) so the stub never runs in that case.
 
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
+import { getRootDomain } from '@/env';
 import { calculatePlatformFee } from '@/lib/paystack';
 import type {
   PaidOrder,
@@ -76,7 +77,7 @@ export function buildScriptExecutors(
       return { skipped: 'missing_merchant_or_customer_email' };
     }
 
-    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+    const rootDomain = getRootDomain() ?? 'usebaci.com';
     const merchantUrl = `https://${merchantDetails.slug}.${rootDomain}`;
     const orderItems = Array.isArray(richOrder.order_items)
       ? (richOrder.order_items as Array<Record<string, unknown>>)
@@ -169,9 +170,16 @@ export function buildScriptExecutors(
       'paystack',
       ctx.gatewayResponse
     );
-    const platformFee =
-      Number(rawPlatformFee) ||
-      calculatePlatformFee(grossAmount * 100).platformFee / 100;
+    // Distinguish "missing" from "legitimate zero". `Number(0) || X`
+    // would treat a stored 0 the same as null/NaN and recompute, which
+    // diverges from the webhook path that respects the on-record value.
+    const parsedPlatformFee =
+      rawPlatformFee === null || rawPlatformFee === undefined
+        ? Number.NaN
+        : Number(rawPlatformFee);
+    const platformFee = Number.isFinite(parsedPlatformFee)
+      ? parsedPlatformFee
+      : calculatePlatformFee(grossAmount * 100).platformFee / 100;
 
     const { error: settlementError } = await supabase.rpc(
       'record_merchant_settlement',
@@ -206,7 +214,7 @@ export function buildScriptExecutors(
 
   // Stub for steps that B3.5 wires for real. The Δ-31 consistency gate
   // short-circuits these BEFORE the executor runs for inconsistent
-  // orders (Efosa); for consistent orders the stub throws and the row
+  // orders (the 2026-05-09 incident shape); for consistent orders the stub throws and the row
   // gets `failed='wired_in_b3_5'` — replayable when the integrations
   // ship in B3.5.
   const stubExecutor: StepExecutor = () => {

@@ -7,7 +7,11 @@
 
 import { vi } from 'vitest';
 
-// Real values pinned in the handoff brief — Efosa Igbinovia 2026-05-09.
+// Pinned operational identifiers from the 2026-05-09 recovery (UUIDs +
+// Paystack ref). Customer identifiers below are synthetic — see
+// CLAUDE.md "data-minimization" + git-history hygiene. The actual
+// recovery command lives in the PR description and ops runbook, not
+// in source.
 export const efosaArgs = [
   '--transaction-id',
   '427ec4ea-b41d-4058-aaf9-3de57ee5fa35',
@@ -34,10 +38,10 @@ export const verifySuccess = {
     created_at: '2026-05-09T11:00:00Z',
     customer: {
       customer_code: 'CUS_X',
-      email: 'igbinoviaefosa56@gmail.com',
-      first_name: 'Efosa',
+      email: 'test-customer@example.com',
+      first_name: 'Test',
       id: 1,
-      last_name: 'Igbinovia',
+      last_name: 'Customer',
       phone: null,
     },
     metadata: null,
@@ -74,7 +78,7 @@ const defaultOrder = {
   id: '211bcf0e-0795-488f-aeeb-52c5b7a8b9ae',
   merchant_id: 'merchant-1',
   payment_status: 'paid',
-  tax_basis: null, // Efosa's actual prod state
+  tax_basis: null, // The incident order's actual prod state (Δ-31)
   subtotal: 810_000,
   shipping_fee: 25_000,
   gift_wrapping_fee: 0,
@@ -83,11 +87,11 @@ const defaultOrder = {
   total: 835_000,
   order_number: 'ORD-260509-00NV-R',
   customer_id: 'customer-1',
-  customer_name: 'Efosa Igbinovia',
-  customer_email: 'igbinoviaefosa56@gmail.com',
+  customer_name: 'Test Customer',
+  customer_email: 'test-customer@example.com',
   customer_phone: '+2348000000000',
   currency: 'NGN',
-  shipping_address: { address: '1 Lekki', city: 'Lagos', state: 'Lagos' },
+  shipping_address: { address: '1 Test St', city: 'Lagos', state: 'Lagos' },
   order_items: [],
 };
 

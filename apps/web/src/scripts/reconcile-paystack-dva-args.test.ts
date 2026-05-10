@@ -16,7 +16,7 @@ const efosaArgs = [
 ];
 
 describe('parseReconcileArgs', () => {
-  it('parses the full Efosa argument set into a typed object', () => {
+  it('parses the full incident argument set into a typed object', () => {
     const result = parseReconcileArgs(efosaArgs);
     expect(result.ok).toBe(true);
     if (!result.ok) {

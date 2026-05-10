@@ -23,7 +23,7 @@ import {
   verifySuccess,
 } from '@/scripts/reconcile-paystack-dva.test-fixtures';
 
-describe('runReconcilePaystackDvaCli — happy path (Efosa shape)', () => {
+describe('runReconcilePaystackDvaCli — happy path (incident shape)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -31,7 +31,7 @@ describe('runReconcilePaystackDvaCli — happy path (Efosa shape)', () => {
     vi.restoreAllMocks();
   });
 
-  it('verifies, calls the atomic RPC, and runs the outbox helper with the Efosa cancel list', async () => {
+  it('verifies, calls the atomic RPC, and runs the outbox helper with the incident cancel list', async () => {
     const { supabase } = createSupabaseMock({});
     mocks.createServiceClient.mockReturnValue(supabase);
     mocks.verifyTransaction.mockResolvedValue(verifySuccess);
@@ -274,7 +274,7 @@ describe('runReconcilePaystackDvaCli — outbox failure surfaces in exit code', 
     expect(exit).toBe(1);
   });
 
-  it('returns 0 when only Δ-31 firs/loyalty failures remain (expected for Efosa)', async () => {
+  it('returns 0 when only Δ-31 firs/loyalty failures remain (expected for incident order)', async () => {
     const { supabase } = createSupabaseMock({});
     mocks.createServiceClient.mockReturnValue(supabase);
     mocks.verifyTransaction.mockResolvedValue(verifySuccess);
