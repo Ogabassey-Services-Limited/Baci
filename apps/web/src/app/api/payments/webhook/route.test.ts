@@ -76,7 +76,23 @@ function createMockSupabaseClient() {
       };
       return chain;
     }),
-    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
+    // A1: rpc() must be both awaitable AND have a `.single()` chain method
+    // so the new claim_payment_side_effect call (`supabase.rpc(...).single()`
+    // in apply-paid-order-side-effects.ts) doesn't crash. The default
+    // claim response is `we_won: true` so the helper proceeds to the
+    // executor; existing `record_merchant_settlement` callers still get
+    // `{data: null, error: null}` via either await form.
+    rpc: vi.fn((name: string, _args?: unknown) => {
+      const data =
+        name === 'claim_payment_side_effect'
+          ? { we_won: true, current_status: 'claimed' }
+          : null;
+      const result = { data, error: null };
+      const chain = Object.assign(Promise.resolve(result), {
+        single: () => Promise.resolve(result),
+      });
+      return chain;
+    }),
   };
 }
 
@@ -246,10 +262,18 @@ function setupSuccessfulTransactionMocks(
     };
   });
 
-  // Mock RPC for settlement recording
-  vi.mocked(mockServiceClient.rpc).mockResolvedValue({
-    data: null,
-    error: null,
+  // Mock RPC: chainable shape so the A1 outbox helper's
+  // `.rpc('claim_payment_side_effect', ...).single()` works alongside
+  // the existing `.rpc('record_merchant_settlement', ...)` await form.
+  vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+    const data =
+      name === 'claim_payment_side_effect'
+        ? { we_won: true, current_status: 'claimed' }
+        : null;
+    const result = { data, error: null };
+    return Object.assign(Promise.resolve(result), {
+      single: () => Promise.resolve(result),
+    }) as never;
   });
 }
 
@@ -1063,11 +1087,23 @@ describe('POST /api/payments/webhook', () => {
             }),
           } as any;
         }
-        return {
+        // A1 payment_side_effects + any other unmocked table:
+        // chainable + thenable so the outbox helper's
+        // `.update(...).eq().eq().eq().select('order_id')` resolves to an
+        // empty array (helper records concurrent_takeover but doesn't crash).
+        const chain: any = {
           select: vi.fn().mockReturnThis(),
-          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          insert: vi.fn().mockReturnThis(),
           update: vi.fn().mockReturnThis(),
-        } as any;
+          eq: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          // biome-ignore lint/suspicious/noThenProperty: intentional thenable mock so the A1 outbox helper's `await supabase.from(...).update(...).eq(...).select('order_id')` chain resolves.
+          then: (onFulfilled: any) =>
+            Promise.resolve({ data: [], error: null }).then(onFulfilled),
+        };
+        return chain;
       });
 
       const response = await POST(request);
@@ -1274,9 +1310,15 @@ describe('POST /api/payments/webhook', () => {
         } as any;
       });
 
-      vi.mocked(mockServiceClient.rpc).mockResolvedValue({
-        data: null,
-        error: null,
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'claim_payment_side_effect'
+            ? { we_won: true, current_status: 'claimed' }
+            : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
       });
 
       const response = await POST(request);
@@ -1676,9 +1718,15 @@ describe('POST /api/payments/webhook', () => {
       });
 
       // Mock RPC call for settlement
-      vi.mocked(mockServiceClient.rpc).mockResolvedValue({
-        data: null,
-        error: null,
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'claim_payment_side_effect'
+            ? { we_won: true, current_status: 'claimed' }
+            : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
       });
 
       const response = await POST(request);
@@ -1815,6 +1863,19 @@ describe('POST /api/payments/webhook', () => {
               error: null,
             }),
           } as any;
+        }
+        // A1: payment_side_effects mark-completed/failed UPDATE chain
+        // (chainable + thenable so the helper resolves to data: []).
+        if (table === 'payment_side_effects') {
+          const chain: any = {
+            update: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            // biome-ignore lint/suspicious/noThenProperty: intentional thenable mock so the A1 outbox helper's `await supabase.from(...).update(...).eq(...).select('order_id')` chain resolves.
+            then: (onFulfilled: any) =>
+              Promise.resolve({ data: [], error: null }).then(onFulfilled),
+          };
+          return chain;
         }
         throw new Error(`Unexpected table ${table}`);
       });
