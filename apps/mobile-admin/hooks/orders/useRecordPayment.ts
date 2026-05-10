@@ -23,7 +23,12 @@ export function useRecordPayment() {
     }) => {
       const {
         data: { session },
+        error: sessionError,
       } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        throw new Error(sessionError.message);
+      }
 
       if (!session?.access_token) {
         throw new Error('Not authenticated');
@@ -50,7 +55,6 @@ export function useRecordPayment() {
             signal: controller.signal,
           }
         );
-        clearTimeout(timeoutId);
 
         if (!response.ok) {
           let errorMessage = `Request failed: ${response.status} ${response.statusText}`;
@@ -67,13 +71,14 @@ export function useRecordPayment() {
 
         return response.json();
       } catch (error: unknown) {
-        clearTimeout(timeoutId);
         if (error instanceof Error && error.name === 'AbortError') {
           throw new Error(
             'Request timed out. Please check your connection and try again.'
           );
         }
         throw error;
+      } finally {
+        clearTimeout(timeoutId);
       }
     },
     mutationKey: ['recordPayment'],

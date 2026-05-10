@@ -50,6 +50,25 @@ describe('useUpdateOrderStatus', () => {
     networkMock.getSession.mockResolvedValue({ data: { session: null } });
   });
 
+  it('throws auth session errors before patching order status', async () => {
+    networkMock.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+      error: { message: 'Session lookup failed' },
+    });
+
+    const mutation = useUpdateOrderStatus() as unknown as {
+      mutationFn: (vars: {
+        orderId: string;
+        status: string;
+      }) => Promise<unknown>;
+    };
+
+    await expect(
+      mutation.mutationFn({ orderId: 'order-1', status: 'shipped' })
+    ).rejects.toThrow('Session lookup failed');
+    expect(networkMock.fetch).not.toHaveBeenCalled();
+  });
+
   it('patches order status with the session token and parses the order payload', async () => {
     networkMock.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },
@@ -66,7 +85,10 @@ describe('useUpdateOrderStatus', () => {
     });
 
     const mutation = useUpdateOrderStatus() as unknown as {
-      mutationFn: (vars: { orderId: string; status: string }) => Promise<unknown>;
+      mutationFn: (vars: {
+        orderId: string;
+        status: string;
+      }) => Promise<unknown>;
     };
 
     await expect(
@@ -99,11 +121,15 @@ describe('useUpdateOrderStatus', () => {
       ok: false,
       status: 409,
       statusText: 'Conflict',
-      text: async () => JSON.stringify({ error: 'Cannot ship cancelled order' }),
+      text: async () =>
+        JSON.stringify({ error: 'Cannot ship cancelled order' }),
     });
 
     const mutation = useUpdateOrderStatus() as unknown as {
-      mutationFn: (vars: { orderId: string; status: string }) => Promise<unknown>;
+      mutationFn: (vars: {
+        orderId: string;
+        status: string;
+      }) => Promise<unknown>;
     };
 
     await expect(
@@ -120,7 +146,10 @@ describe('useUpdateOrderStatus', () => {
     networkMock.fetch.mockRejectedValue(abortError);
 
     const mutation = useUpdateOrderStatus() as unknown as {
-      mutationFn: (vars: { orderId: string; status: string }) => Promise<unknown>;
+      mutationFn: (vars: {
+        orderId: string;
+        status: string;
+      }) => Promise<unknown>;
     };
 
     await expect(
@@ -140,10 +169,7 @@ describe('useUpdateOrderStatus', () => {
           previousOrders?: Array<[readonly unknown[], unknown]>;
         }
       ) => void;
-      onMutate: (vars: {
-        orderId: string;
-        status: string;
-      }) => Promise<{
+      onMutate: (vars: { orderId: string; status: string }) => Promise<{
         previousOrderQueries: Array<[readonly unknown[], unknown]>;
         previousOrders: Array<[readonly unknown[], unknown]>;
       }>;

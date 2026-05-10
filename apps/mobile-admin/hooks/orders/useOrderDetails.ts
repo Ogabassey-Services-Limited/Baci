@@ -94,18 +94,23 @@ export async function fetchOrderById(
   } | null = null;
 
   if (order.recorded_by_user_id) {
-    const { data: recUser } = await supabase
+    const { data: recUser, error: recUserError } = await supabase
       .from('profiles')
       .select('display_name, full_name')
       .eq('id', order.recorded_by_user_id)
-      .single();
+      .maybeSingle();
+
+    if (recUserError) {
+      // Auxiliary lookup; log and skip instead of failing the whole fetch.
+      console.error('useOrderDetails profiles lookup error:', recUserError);
+    }
 
     const fullName = recUser?.display_name || recUser?.full_name;
     if (fullName) {
       recordedByName = fullName.split(' ')[0];
     }
 
-    const { data: staffMember } = await supabase
+    const { data: staffMember, error: staffMemberError } = await supabase
       .from('staff_members')
       .select('id')
       .eq('user_id', order.recorded_by_user_id)
@@ -113,13 +118,27 @@ export async function fetchOrderById(
       .eq('status', 'active')
       .maybeSingle();
 
+    if (staffMemberError) {
+      console.error(
+        'useOrderDetails staff_members lookup error:',
+        staffMemberError
+      );
+    }
+
     if (staffMember) {
-      const { data: terminal } = await supabase
+      const { data: terminal, error: terminalError } = await supabase
         .from('virtual_terminals')
         .select('account_number, account_name, bank')
         .eq('staff_id', staffMember.id)
         .eq('active', true)
         .maybeSingle();
+
+      if (terminalError) {
+        console.error(
+          'useOrderDetails virtual_terminals lookup error:',
+          terminalError
+        );
+      }
 
       if (terminal?.account_number) {
         staffTerminal = {

@@ -57,6 +57,22 @@ describe('useSendReminder', () => {
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
 
+  it('throws auth session errors before posting reminders', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+      error: { message: 'Session lookup failed' },
+    });
+
+    const mutation = useSendReminder() as unknown as {
+      mutationFn: (vars: { orderId: string }) => Promise<unknown>;
+    };
+
+    await expect(mutation.mutationFn({ orderId: 'order-1' })).rejects.toThrow(
+      'Session lookup failed'
+    );
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
   it('posts reminder payloads and invalidates the order detail cache', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },

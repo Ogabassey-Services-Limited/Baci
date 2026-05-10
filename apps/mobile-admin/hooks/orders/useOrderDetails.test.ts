@@ -54,9 +54,13 @@ const supabaseMock = vi.hoisted(() => {
     }
 
     chain.single = () =>
-      Promise.resolve(table === 'orders' ? orderDetailResult : getTableResult(table));
-    chain.maybeSingle = () => Promise.resolve(getTableResult(table));
-    chain.then = (resolve) => Promise.resolve(getTableResult(table)).then(resolve);
+      Promise.resolve(
+        table === 'orders' ? orderDetailResult : getTableResult(table)
+      );
+    chain.maybeSingle = () =>
+      Promise.resolve(tableResults.get(table) ?? { data: null, error: null });
+    chain.then = (resolve) =>
+      Promise.resolve(getTableResult(table)).then(resolve);
 
     return chain;
   }

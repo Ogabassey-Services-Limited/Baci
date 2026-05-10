@@ -11,8 +11,7 @@ import type { OrdersPage, OrderWithCount } from './order-types';
 
 const PAGE_SIZE = 20;
 
-export type { Order, OrderItem, ShippingStatus };
-export type { OrdersPage, OrderWithCount };
+export type { Order, OrderItem, OrdersPage, OrderWithCount, ShippingStatus };
 
 export async function fetchOrders(
   merchantId: string,

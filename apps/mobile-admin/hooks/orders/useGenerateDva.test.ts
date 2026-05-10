@@ -53,6 +53,22 @@ describe('useGenerateDva', () => {
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
 
+  it('throws auth session errors before posting DVA generation requests', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+      error: { message: 'Session lookup failed' },
+    });
+
+    const mutation = useGenerateDva() as unknown as {
+      mutationFn: (vars: { orderId: string }) => Promise<unknown>;
+    };
+
+    await expect(mutation.mutationFn({ orderId: 'order-1' })).rejects.toThrow(
+      'Session lookup failed'
+    );
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
   it('posts DVA generation requests and invalidates order detail on success', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },

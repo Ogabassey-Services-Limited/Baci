@@ -9,7 +9,12 @@ export function useGenerateDva() {
     mutationFn: async ({ orderId }: { orderId: string }) => {
       const {
         data: { session },
+        error: sessionError,
       } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        throw new Error(sessionError.message);
+      }
 
       if (!session?.access_token) {
         throw new Error('Not authenticated');
@@ -54,7 +59,6 @@ export function useGenerateDva() {
           };
         }>;
       } catch (error: unknown) {
-        clearTimeout(timeoutId);
         if (error instanceof Error && error.name === 'AbortError') {
           throw new Error(
             'DVA generation timed out. Paystack may be slow — try again.'

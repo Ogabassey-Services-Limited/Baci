@@ -65,6 +65,30 @@ describe('useRecordPayment', () => {
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
 
+  it('throws auth session errors before posting manual payment details', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+      error: { message: 'Session lookup failed' },
+    });
+
+    const mutation = useRecordPayment() as unknown as {
+      mutationFn: (vars: {
+        amount: number;
+        orderId: string;
+        paymentMethod: string;
+      }) => Promise<unknown>;
+    };
+
+    await expect(
+      mutation.mutationFn({
+        orderId: 'order-1',
+        amount: 5000,
+        paymentMethod: 'cash',
+      })
+    ).rejects.toThrow('Session lookup failed');
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
   it('posts manual payment details and invalidates dependent caches', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { access_token: 'token-1' } },

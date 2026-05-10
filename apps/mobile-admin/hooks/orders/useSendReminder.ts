@@ -17,7 +17,12 @@ export function useSendReminder() {
     }) => {
       const {
         data: { session },
+        error: sessionError,
       } = await supabase.auth.getSession();
+
+      if (sessionError) {
+        throw new Error(sessionError.message);
+      }
 
       if (!session?.access_token) {
         throw new Error('Not authenticated');

@@ -9,10 +9,8 @@ import type { OrdersPage } from './order-types';
 const ORDER_STATUS_UPDATE_TIMEOUT_MS = 15000;
 
 interface OrderStatusContext {
-  previousOrderQueries: Array<[readonly unknown[], Order | undefined]>;
-  previousOrders: Array<
-    [readonly unknown[], InfiniteData<OrdersPage> | undefined]
-  >;
+  previousOrderQueries: [readonly unknown[], Order | undefined][];
+  previousOrders: [readonly unknown[], InfiniteData<OrdersPage> | undefined][];
 }
 
 interface OrderStatusVariables {
@@ -41,7 +39,12 @@ async function updateOrderStatus(
 ): Promise<Order> {
   const {
     data: { session },
+    error: sessionError,
   } = await supabase.auth.getSession();
+
+  if (sessionError) {
+    throw new Error(sessionError.message);
+  }
 
   if (!session?.access_token) {
     throw new Error('Unauthorized');

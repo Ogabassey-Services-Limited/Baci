@@ -48,13 +48,32 @@ describe('useShipOnCredit', () => {
 
   it('throws when ship-on-credit runs without a session token', async () => {
     const mutation = useShipOnCredit() as unknown as {
-      mutationFn: (vars: { creditNotes?: string; orderId: string }) => Promise<unknown>;
+      mutationFn: (vars: {
+        creditNotes?: string;
+        orderId: string;
+      }) => Promise<unknown>;
     };
 
     await expect(
       mutation.mutationFn({ orderId: 'order-1', creditNotes: 'Later' })
     ).rejects.toThrow('Not authenticated');
 
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it('throws auth session errors before posting ship-on-credit requests', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+      error: { message: 'Session lookup failed' },
+    });
+
+    const mutation = useShipOnCredit() as unknown as {
+      mutationFn: (vars: { orderId: string }) => Promise<unknown>;
+    };
+
+    await expect(mutation.mutationFn({ orderId: 'order-1' })).rejects.toThrow(
+      'Session lookup failed'
+    );
     expect(mocks.fetch).not.toHaveBeenCalled();
   });
 
@@ -68,7 +87,10 @@ describe('useShipOnCredit', () => {
     });
 
     const mutation = useShipOnCredit() as unknown as {
-      mutationFn: (vars: { creditNotes?: string; orderId: string }) => Promise<unknown>;
+      mutationFn: (vars: {
+        creditNotes?: string;
+        orderId: string;
+      }) => Promise<unknown>;
       onSuccess: (_data: unknown, vars: { orderId: string }) => void;
     };
 
