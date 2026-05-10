@@ -8,6 +8,9 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import type { ReactNode } from 'react';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ExpenseDetails } from '@/components/expenses/ExpenseDetails';
+import { ExpenseStatusShell } from '@/components/expenses/ExpenseStatusShell';
+import { styles } from '@/components/expenses/expense-detail.styles';
 import { useBranchScope } from '@/hooks/useBranchScope';
 import { useBranches } from '@/hooks/useBranches';
 import { useMerchant } from '@/hooks/useMerchant';
@@ -19,9 +22,6 @@ import {
   ExpenseBranchLabelSchema,
   ExpenseDetailSchema,
 } from '@/schemas/expense';
-import { ExpenseDetails } from './ExpenseDetails';
-import { ExpenseStatusShell } from './ExpenseStatusShell';
-import { styles } from './expense-detail.styles';
 
 export default function ExpenseDetailScreen() {
   const { colors, isDark, shadows } = useTheme();

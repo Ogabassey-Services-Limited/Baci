@@ -153,9 +153,13 @@ export async function fetchDashboardStats(
   pendingOrdersQuery = applyOrderBranchScope(pendingOrdersQuery, scope);
 
   // Fetch total items for period
+  const itemsOrderColumns =
+    scope.type === 'branch'
+      ? 'merchant_id, branch_id, created_at'
+      : 'merchant_id, created_at';
   let itemsQuery = supabase
     .from('order_items')
-    .select('quantity, orders!inner(merchant_id, branch_id, created_at)')
+    .select(`quantity, orders!inner(${itemsOrderColumns})`)
     .eq('orders.merchant_id', merchantId);
   itemsQuery = applyOrderBranchScope(itemsQuery, scope, 'orders.branch_id');
 
@@ -478,6 +482,8 @@ export async function fetchTopProducts(
   const endDate = new Date().toISOString();
 
   const fetchFromOrderItems = async () => {
+    const orderColumns =
+      scope.type === 'branch' ? 'merchant_id, branch_id' : 'merchant_id';
     let orderItemsQuery = supabase
       .from('order_items')
       .select(`
@@ -485,7 +491,7 @@ export async function fetchTopProducts(
         price,
         product_id,
         products!inner(id, name, price, images),
-        orders!inner(merchant_id, branch_id)
+        orders!inner(${orderColumns})
       `)
       .eq('orders.merchant_id', merchantId);
 

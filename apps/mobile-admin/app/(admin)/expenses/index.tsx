@@ -11,6 +11,8 @@ import { Stack, useRouter } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ExpenseListItem } from '@/components/expenses/ExpenseListItem';
+import { styles } from '@/components/expenses/expenses-list.styles';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useBranchScope } from '@/hooks/useBranchScope';
 import { useMerchant } from '@/hooks/useMerchant';
@@ -18,9 +20,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { getBranchScopeKey } from '@/lib/branch-scope-query';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/utils';
-import { ExpenseListItem } from './ExpenseListItem';
-import { styles } from './expenses-list.styles';
-import { ExpenseSchema } from './expenses-list.types';
+import { ExpenseSchema } from '@/schemas/expense';
 
 export default function ExpensesScreen() {
   const { colors, shadows, isDark } = useTheme();

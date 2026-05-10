@@ -295,6 +295,29 @@ describe('fetchDashboardStats', () => {
       )
     ).toEqual([]);
   });
+
+  it('does not select order branch_id through order_items for all-location dashboard scope', async () => {
+    supabaseMock.enqueue([
+      ORDERS_OK,
+      PENDING_OK,
+      ITEMS_OK,
+      NEW_CUSTOMERS_OK,
+      TOTAL_CUSTOMERS_OK,
+      REVENUE_OK,
+      PREV_REVENUE_OK,
+      VISITS_OK,
+    ]);
+
+    await fetchDashboardStats('merchant-1', 'week', { type: 'all' });
+
+    const orderItemsSelect = supabaseMock.chains
+      .find((chain) => chain.table === 'order_items')
+      ?.calls.find((call) => call.method === 'select');
+
+    expect(orderItemsSelect?.args[0]).toBe(
+      'quantity, orders!inner(merchant_id, created_at)'
+    );
+  });
 });
 
 describe('fetchTopProducts', () => {
