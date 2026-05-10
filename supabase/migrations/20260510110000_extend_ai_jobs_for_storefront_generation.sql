@@ -87,6 +87,7 @@ DECLARE
   v_actor_id uuid := auth.uid();
   v_authorized boolean := false;
   v_job_id uuid;
+  v_result_applied_at timestamptz;
   v_page_config_id uuid;
   v_current_updated_at timestamptz;
   v_next_updated_at timestamptz;
@@ -110,8 +111,8 @@ BEGIN
     RETURN;
   END IF;
 
-  SELECT id
-    INTO v_job_id
+  SELECT id, result_applied_at
+    INTO v_job_id, v_result_applied_at
     FROM public.ai_jobs
     WHERE id = p_job_id
       AND merchant_id = p_merchant_id
@@ -121,6 +122,11 @@ BEGIN
 
   IF NOT FOUND THEN
     RETURN QUERY SELECT false, 'job_not_found'::text, NULL::uuid, NULL::timestamptz;
+    RETURN;
+  END IF;
+
+  IF v_result_applied_at IS NOT NULL THEN
+    RETURN QUERY SELECT false, 'job_already_applied'::text, NULL::uuid, NULL::timestamptz;
     RETURN;
   END IF;
 
@@ -152,10 +158,6 @@ BEGIN
         metadata = COALESCE(metadata, '{}'::jsonb)
           || jsonb_build_object('lastAppliedPageConfigUpdatedAt', v_next_updated_at)
     WHERE id = p_job_id;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'AI storefront job % was not found while marking applied', p_job_id;
-  END IF;
 
   RETURN QUERY SELECT true, NULL::text, v_page_config_id, v_next_updated_at;
 END;

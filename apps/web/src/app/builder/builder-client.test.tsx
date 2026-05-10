@@ -364,6 +364,12 @@ describe('BuilderClient', () => {
     expect(mockToast).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'AI design applied' })
     );
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /save draft/i })).toBeEnabled();
+      expect(
+        screen.queryByRole('button', { name: /apply ai design/i })
+      ).not.toBeInTheDocument();
+    });
     expect(mockPush).toHaveBeenCalledWith('/builder');
   });
 

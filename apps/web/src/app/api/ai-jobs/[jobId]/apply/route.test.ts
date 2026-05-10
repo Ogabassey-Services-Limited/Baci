@@ -268,11 +268,22 @@ describe('POST /api/ai-jobs/[jobId]/apply', () => {
     );
   });
 
-  it('surfaces stale responses returned by the atomic RPC', async () => {
+  it.each([
+    [
+      'ai_draft_stale',
+      409,
+      { error: 'AI draft is stale', code: 'ai_draft_stale' },
+    ],
+    [
+      'job_already_applied',
+      410,
+      { error: 'AI draft already applied', code: 'job_already_applied' },
+    ],
+  ])('surfaces %s responses returned by the atomic RPC', async (code, status, body) => {
     const supabase = createApplySupabaseMock({
       rpcResponse: {
         applied: false,
-        code: 'ai_draft_stale',
+        code,
         page_config_id: null,
         updated_at: null,
       },
@@ -281,11 +292,8 @@ describe('POST /api/ai-jobs/[jobId]/apply', () => {
 
     const response = await POST(createApplyRequest(), routeContext());
 
-    expect(response.status).toBe(409);
-    expect(await response.json()).toEqual({
-      error: 'AI draft is stale',
-      code: 'ai_draft_stale',
-    });
+    expect(response.status).toBe(status);
+    expect(await response.json()).toEqual(body);
   });
 
   it('returns 500 when the atomic apply RPC fails', async () => {

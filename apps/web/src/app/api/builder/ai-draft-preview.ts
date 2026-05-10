@@ -9,6 +9,7 @@ interface AiStorefrontDraftJobRecord {
   merchant_id: string;
   type: string;
   status: string;
+  error: string | null;
   output: unknown | null;
   result_applied_at: string | null;
 }
@@ -29,7 +30,7 @@ function getAiStorefrontDraftJob(
 ) {
   return supabase
     .from('ai_jobs')
-    .select('id, merchant_id, type, status, output, result_applied_at')
+    .select('id, merchant_id, type, status, error, output, result_applied_at')
     .eq('id', jobId)
     .eq('merchant_id', merchantId)
     .eq('type', 'storefront_layout_generation')
@@ -80,6 +81,19 @@ export async function loadAiStorefrontDraftPreview(
       response: NextResponse.json(
         { error: 'AI storefront draft not found', code: 'job_not_found' },
         { status: 404 }
+      ),
+    };
+  }
+
+  if (aiDraftJob.status === 'failed') {
+    return {
+      response: NextResponse.json(
+        {
+          error: 'AI draft generation failed',
+          code: 'job_failed',
+          message: aiDraftJob.error ?? 'The AI draft could not be generated.',
+        },
+        { status: 422 }
       ),
     };
   }
@@ -143,7 +157,7 @@ export async function loadAiStorefrontDraftPreview(
     console.error('Invalid AI storefront draft preview payload:', {
       merchantId,
       aiDraftJobId,
-      error,
+      error: error instanceof Error ? error.message : String(error),
     });
     return {
       response: NextResponse.json(

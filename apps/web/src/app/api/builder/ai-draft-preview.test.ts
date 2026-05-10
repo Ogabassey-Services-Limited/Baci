@@ -58,6 +58,14 @@ describe('loadAiStorefrontDraftPreview', () => {
     [null, 404, 'job_not_found'],
     [completedJob({ status: 'processing' }), 409, 'job_processing'],
     [
+      completedJob({
+        error: 'Generated page config failed validation',
+        status: 'failed',
+      }),
+      422,
+      'job_failed',
+    ],
+    [
       completedJob({ result_applied_at: '2026-04-28T10:30:00.000Z' }),
       410,
       'job_already_applied',
@@ -82,6 +90,28 @@ describe('loadAiStorefrontDraftPreview', () => {
         completedJob({
           output: {
             generatedConfig: null,
+            generatedAgainstUpdatedAt: '2026-04-28T10:00:00.000Z',
+          },
+        })
+      ) as never,
+      'merchant-1',
+      aiDraftJobId,
+      true
+    );
+
+    expect(result.response?.status).toBe(422);
+  });
+
+  it('rejects object generated configs that fail builder parsing', async () => {
+    const result = await loadAiStorefrontDraftPreview(
+      createSupabaseMock(
+        completedJob({
+          output: {
+            generatedConfig: {
+              content: 'not an array',
+              root: { title: 'AI Home' },
+              zones: {},
+            },
             generatedAgainstUpdatedAt: '2026-04-28T10:00:00.000Z',
           },
         })

@@ -89,14 +89,15 @@ export async function processAiStorefrontJobs({
     )
     .or(`next_run_at.is.null,next_run_at.lte.${nowIso}`)
     .order('created_at', { ascending: true })
-    .limit(getBatchSize());
+    .limit(getBatchSize())
+    .returns<StorefrontJobRow[]>();
 
   if (error) throw new Error(`Failed to load storefront jobs: ${error.message}`);
   if (!jobs?.length) return 0;
 
   let processed = 0;
 
-  for (const job of jobs as StorefrontJobRow[]) {
+  for (const job of jobs) {
     const claimStartedAt = Date.now();
     const claimTime = new Date().toISOString();
     const leaseExpiresAt = new Date(Date.now() + WORKER_LEASE_MS).toISOString();

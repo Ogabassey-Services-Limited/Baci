@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { processAiStorefrontJobs } from './process-ai-storefront-jobs';
-
 const mocks = vi.hoisted(() => ({
   processStorefrontLayoutJob: vi.fn(),
 }));
@@ -12,7 +11,6 @@ vi.mock('@/lib/ai-storefront/process-storefront-layout-job', () => ({
 vi.mock('@/env', () => ({
   getOllamaStorefrontModel: () => 'gemma4:e4b',
 }));
-
 interface RunnerSupabaseMockOptions {
   queryError?: Error;
   claimError?: Error;
@@ -61,10 +59,12 @@ function createRunnerSupabaseMock(options: RunnerSupabaseMockOptions = {}) {
         order: vi.fn().mockReturnThis(),
         limit: vi.fn((limit: number) => {
           limits.push(limit);
-          return Promise.resolve({
-            data: options.queryError ? null : [job],
-            error: options.queryError ?? null,
-          });
+          return {
+            returns: vi.fn().mockResolvedValue({
+              data: options.queryError ? null : [job],
+              error: options.queryError ?? null,
+            }),
+          };
         }),
         update: vi.fn((payload: unknown) => {
           updates.push(payload);
@@ -118,6 +118,7 @@ describe('processAiStorefrontJobs', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllEnvs();
   });
 

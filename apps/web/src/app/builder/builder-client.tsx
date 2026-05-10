@@ -570,6 +570,11 @@ export default function BuilderClient() {
         title: 'AI design applied',
         description: 'The generated storefront is now your editable draft.',
       });
+      setCanEdit(true);
+      setDegradedReason(null);
+      setPreviewMode(null);
+      setAiDraftJobId(null);
+      setCanApplyAiDraft(false);
       router.push('/builder');
     } catch (error) {
       console.error('Failed to apply AI draft:', error);

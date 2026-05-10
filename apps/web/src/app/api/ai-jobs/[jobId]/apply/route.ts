@@ -215,6 +215,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: 'AI draft not found' }, { status: 404 });
   }
 
+  if (!applyResult.applied && applyResult.code === 'job_already_applied') {
+    return NextResponse.json(
+      { error: 'AI draft already applied', code: 'job_already_applied' },
+      { status: 410 }
+    );
+  }
+
   if (!applyResult.applied && applyResult.code === 'page_config_not_found') {
     return NextResponse.json(
       { error: 'Home page config not found' },

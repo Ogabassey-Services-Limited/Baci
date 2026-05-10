@@ -141,4 +141,35 @@ describe('normalizeAiStorefrontLayout', () => {
       })
     );
   });
+
+  it('preserves starter theme when the AI provides no theme', () => {
+    const starterTheme = {
+      typography: { headingFont: 'Fraunces' },
+      colors: {
+        primary: '#0f172a',
+        accent: '#0ea5e9',
+        background: '#ffffff',
+      },
+    };
+
+    const config = normalizeAiStorefrontLayout({
+      businessName: 'Bassey Phones',
+      layout: aiStorefrontLayoutSchema.parse({
+        sections: [
+          { type: 'Header', props: { id: 'header' } },
+          { type: 'Hero', props: { id: 'hero', title: 'Premium phones' } },
+          { type: 'ProductGrid', props: { id: 'products', limit: 8 } },
+          { type: 'Footer', props: { id: 'footer' } },
+        ],
+      }),
+      starterConfig: {
+        content: [],
+        root: { title: 'Home' },
+        zones: {},
+        theme: starterTheme,
+      },
+    });
+
+    expect(config.theme).toEqual(starterTheme);
+  });
 });
