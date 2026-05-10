@@ -59,15 +59,28 @@ interface PuckInternalState {
 export function FloatingControls() {
   const { appState, dispatch } = usePuck();
   // AppState doesn't expose `ui` or `config` directly, but the internal state does.
-  // Type guard to safely narrow the external state
+  // Type guard to safely narrow the external state. Verifies every top-level
+  // property the cast to PuckInternalState promises so downstream accesses
+  // (state.data.content spread, state.config.components lookup) cannot throw.
   function isPuckInternalState(state: unknown): state is PuckInternalState {
-    return typeof state === 'object' && state !== null && 'ui' in state;
+    if (typeof state !== 'object' || state === null) return false;
+    if (!('ui' in state) || !('data' in state) || !('config' in state)) {
+      return false;
+    }
+    // Verify data.content is an array, since safeFieldChange spreads it.
+    const data = (state as { data?: unknown }).data;
+    if (typeof data !== 'object' || data === null) return false;
+    if (
+      !('content' in data) ||
+      !Array.isArray((data as { content?: unknown }).content)
+    ) {
+      return false;
+    }
+    return true;
   }
 
   if (!isPuckInternalState(appState)) return null;
   const state = appState;
-  // Safety check: Ensure state and ui exist before accessing
-  if (!state?.ui) return null;
 
   const { selectedItem } = state.ui;
   const { config } = state;
