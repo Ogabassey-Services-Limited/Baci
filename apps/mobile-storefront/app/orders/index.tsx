@@ -176,7 +176,7 @@ export default function OrdersScreen() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: fetchOrders used in multiple places; React Compiler handles memoization (ADR-004)
   useEffect(() => {
     fetchOrders();
-  }, [customer?.id]);
+  }, [customer?.id, fetchOrders]);
 
   // 2026 Best Practice: Auto-refetch when coming back online
   // biome-ignore lint/correctness/useExhaustiveDependencies: fetchOrders used in multiple places; React Compiler handles memoization (ADR-004)
@@ -184,7 +184,7 @@ export default function OrdersScreen() {
     return onReconnect(() => {
       fetchOrders();
     });
-  }, [onReconnect]);
+  }, [onReconnect, fetchOrders]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);

@@ -13,7 +13,7 @@ import {
 } from '@baci/shared/lib';
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState , useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -245,8 +245,8 @@ export default function ProductDetailScreen() {
       ? resolveVariantSelectionParamResolution(product, routeParams)
       : null;
   const routeSelectionInput = routeSelectionResolution?.selectionInput ?? {};
-  const routeSelectionAttributes = (routeSelectionInput.attributes ??
-    {}) as Record<string, string>;
+  const routeSelectionAttributes = useMemo(() => (routeSelectionInput.attributes ??
+    {}) as Record<string, string>, [routeSelectionInput.attributes]);
   const routeCondition = normalizeRouteCondition(
     routeSelectionInput.condition ??
       (!usesVariantRouteSelection ? routeConditionParam : undefined)
@@ -281,7 +281,7 @@ export default function ProductDetailScreen() {
       : product?.image
         ? [product.image]
         : [PLACEHOLDER_IMAGE_URL];
-  const productImageColorMap = productVariantMetadata.imageColorMap ?? {};
+  const productImageColorMap = useMemo(() => productVariantMetadata.imageColorMap ?? {}, [productVariantMetadata.imageColorMap]);
   const resolvedColorImages =
     productVariantMetadata.colorImages ?? product?.color_images;
   const displayProduct = product
