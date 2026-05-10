@@ -1,6 +1,6 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import { FloatingControls } from './floating-controls';
 import { usePuck } from '@puckeditor/core';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { FloatingControls } from './floating-controls';
 
 // Mock the usePuck hook
 vi.mock('@puckeditor/core', () => ({
@@ -16,7 +16,7 @@ describe('FloatingControls', () => {
   });
 
   it('renders correctly with a valid Puck state shape', () => {
-    (usePuck as vi.Mock).mockReturnValue({
+    (usePuck as ReturnType<typeof vi.fn>).mockReturnValue({
       dispatch: mockDispatch,
       config: {
         components: {
@@ -68,7 +68,7 @@ describe('FloatingControls', () => {
   });
 
   it('calls dispatch to update field data when input changes', () => {
-    (usePuck as vi.Mock).mockReturnValue({
+    (usePuck as ReturnType<typeof vi.fn>).mockReturnValue({
       dispatch: mockDispatch,
       config: {
         components: {
@@ -129,7 +129,7 @@ describe('FloatingControls', () => {
   });
 
   it('calls dispatch to clear selection when close button is clicked', () => {
-    (usePuck as vi.Mock).mockReturnValue({
+    (usePuck as ReturnType<typeof vi.fn>).mockReturnValue({
       dispatch: mockDispatch,
       config: {
         components: {
