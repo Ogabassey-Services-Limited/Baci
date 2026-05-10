@@ -130,7 +130,10 @@ export async function POST(request: NextRequest) {
     const { data: transaction, error: transactionError } = await supabase
       .from('transactions')
       .select(
-        'id, order_id, merchant_id, amount, gateway_fee, platform_fee, status'
+        // Δ-0a: `gateway_fee` is not a column on `transactions`. Juicyway
+        // verify webhooks have no fee field either, so settlement passes 0
+        // (matches existing semantics).
+        'id, order_id, merchant_id, amount, platform_fee, status'
       )
       .eq('gateway_reference', reference)
       .single();
@@ -462,7 +465,8 @@ export async function POST(request: NextRequest) {
     // Record settlement for merchant wallet tracking
     try {
       const grossAmount = Number(transaction.amount) || 0;
-      const gatewayFee = Number(transaction.gateway_fee) || 0;
+      // Δ-0b: Juicyway verify response carries no fee; default to 0 honestly.
+      const gatewayFee = 0;
       const platformFee =
         Number(transaction.platform_fee) || grossAmount * 0.015;
 
@@ -486,6 +490,9 @@ export async function POST(request: NextRequest) {
           p_gateway_fee: gatewayFee,
           p_platform_fee: platformFee,
           p_description: 'Order payment via Juicyway',
+          // Δ-29 / Δ-59: traceability — Juicyway's gateway-side ref lives
+          // in metadata for downstream reconciliation queries.
+          p_metadata: { juicyway_reference: reference },
         }
       );
 
