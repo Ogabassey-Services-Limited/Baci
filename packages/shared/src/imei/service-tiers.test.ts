@@ -64,6 +64,17 @@ describe('IMEI service tiers', () => {
     expect(imeiTierMatchesBrand('samsung', 'apple')).toBe(false);
   });
 
+  it('omits the Apple Serial Info tier until serial-input UX exists', () => {
+    // The storefront input only accepts 15-digit IMEI (`parseImei`), so a Serial
+    // Info tier (Apple serial lookup) would always fail validation. Re-add once
+    // a serial-input mode ships. See PR #1557 (codex P2 review).
+    expect(ALL_IMEI_SERVICE_TIERS).not.toContain(
+      'serialInfo' as unknown as (typeof ALL_IMEI_SERVICE_TIERS)[number]
+    );
+    expect(isImeiServiceTierKey('serialInfo')).toBe(false);
+    expect(IMEI_SERVICE_TIERS).not.toHaveProperty('serialInfo');
+  });
+
   it('switches between primary and expanded tier lists', () => {
     expect(getVisibleImeiServiceTierKeys('all', false)).toEqual([
       ...PRIMARY_IMEI_SERVICE_TIERS,

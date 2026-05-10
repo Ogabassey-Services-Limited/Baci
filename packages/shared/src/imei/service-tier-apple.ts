@@ -56,20 +56,10 @@ export const APPLE_IMEI_SERVICE_TIERS = {
     icon: 'information-circle-outline',
     brandScopes: ['apple'],
   },
-  serialInfo: {
-    providerServiceId: '26',
-    name: 'Serial Info',
-    tagline: 'Apple serial lookup',
-    description: 'Apple serial lookup',
-    detail:
-      'Looks up Apple serial information when the seller provides a serial number.',
-    price: 200,
-    costUsd: 0.01,
-    features: ['Serial Number', 'Apple Device Info', 'Model Details'],
-    checksIncluded: ['device', 'modelNumber', 'serialNumber'],
-    icon: 'barcode-outline',
-    brandScopes: ['apple'],
-  },
+  // TODO(imei): Re-add the Apple `serialInfo` tier (provider id '26') once the
+  // storefront supports a serial-number input mode. The current input/validator
+  // (`parseImei`) only accepts 15-digit IMEIs, so a Serial Info selection would
+  // always fail validation. See PR #1557 (codex P2 review).
   replacementHistory: {
     providerServiceId: '29',
     name: 'Replacement History',

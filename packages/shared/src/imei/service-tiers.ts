@@ -35,7 +35,6 @@ export const ALL_IMEI_SERVICE_TIERS = [
   'carrierFmi',
   'basic',
   'appleBasic',
-  'serialInfo',
   'replacementHistory',
   'demoUnit',
   'mdm',
