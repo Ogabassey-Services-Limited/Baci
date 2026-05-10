@@ -21,7 +21,15 @@ export NODE_ENV=production
 /home/bassey/baci-workers/bin/process-import-jobs.sh
 ```
 
-The import queue and Jumia order sync runners execute web-owned TypeScript entrypoints through `tsx` from a separate Baci repo checkout. `tsx` stays in `devDependencies` to avoid expanding the Next.js production dependency surface, so this full checkout must install development dependencies until those entrypoints are compiled to JavaScript before deployment.
+For async Gemma storefront generation, run the repo-backed storefront worker
+from the worker checkout:
+
+```bash
+export NODE_ENV=production
+/home/bassey/baci-workers/bin/process-ai-storefront-jobs.sh
+```
+
+The import queue, Jumia order sync, and async storefront generation runners execute web-owned TypeScript entrypoints through `tsx` from a separate Baci repo checkout. `tsx` stays in `devDependencies` to avoid expanding the Next.js production dependency surface, so this full checkout must install development dependencies until those entrypoints are compiled to JavaScript before deployment.
 
 That Baci checkout is separate from the `vps-workers` deployment directory installed by `deploy.sh`. `vps-workers/deploy.sh` always installs the worker directory with `pnpm install --frozen-lockfile --prod`.
 
@@ -53,12 +61,30 @@ Some cron work intentionally remains in the web app because it needs web-only ru
 - `/api/cron/vtu-cashback-summaries`, scheduled monthly on the 1st at 08:30.
 - `/api/cron/publish-scheduled-posts`, scheduled every 15 minutes.
 - `/api/inventory/push-alerts`, scheduled every 6 hours.
+- `storefront_layout_generation` storefront worker, scheduled every 2 minutes:
+  `*/2 * * * * flock -n /var/lock/ai-storefront.lock /home/bassey/baci-workers/bin/process-ai-storefront-jobs.sh >> /home/bassey/baci-workers/logs/ai-storefront-jobs.log 2>&1`
+
+`/api/ai-jobs/worker` must remain limited to short web-safe jobs such as price
+list processing. It must not claim `storefront_layout_generation`; those jobs
+run through `/home/bassey/baci-workers/bin/process-ai-storefront-jobs.sh` every
+2 minutes with `flock`.
 
 These entries require `BACI_WEB_BASE_URL` and `CRON_SECRET` in `/home/bassey/baci-workers/.env`. `BACI_WEB_BASE_URL` must be an `https://` TLS-terminated production web origin, for example `https://ogabassey.com`; do not use `http://` for production web cron calls because `CRON_SECRET` is sent on each request. `CRON_SECRET` must exist in both the VPS worker environment and the web deployment environment with the same value; rotate both copies together through the normal secret-management process.
+
+The storefront worker also requires `OLLAMA_STOREFRONT_BASE_URL` in the worker
+`.env` for the private Ollama/Gemma endpoint, and
+`AI_STOREFRONT_GENERATION_ENABLED=true` to process queued storefront jobs. Keep
+the flag `false` to pause generation without changing web onboarding.
 
 ## Troubleshooting
 
 If `process-import-jobs.sh` or `sync-jumia-orders.sh` fails, inspect the matching log in `/home/bassey/baci-workers/logs/` first. Stale locks can be checked with `ls -la /home/bassey/baci-workers/locks`; only remove a lock after confirming no matching worker process is running. Missing environment values should be fixed in `/home/bassey/baci-workers/.env` or the `BACI_WORKER_ENV` file used by cron.
+
+If `process-ai-storefront-jobs.sh` fails, inspect
+`/home/bassey/baci-workers/logs/ai-storefront-jobs.log` and confirm Ollama is
+reachable from the VPS at `OLLAMA_STOREFRONT_BASE_URL`. Keep
+`AI_STOREFRONT_GENERATION_ENABLED=false` until a manual run succeeds and queue
+metadata shows bounded duration, retry count, and validation errors.
 
 If a web cron wrapper fails, inspect the matching log first: `/home/bassey/baci-workers/logs/ai-jobs-worker.log`, `/home/bassey/baci-workers/logs/reconcile-vtu-processing.log`, `/home/bassey/baci-workers/logs/wallet-payouts.log`, `/home/bassey/baci-workers/logs/publish-scheduled-posts.log`, or `/home/bassey/baci-workers/logs/inventory-push-alerts.log`. A 401 almost always means the VPS `CRON_SECRET` does not match the web deployment.
 

@@ -56,6 +56,16 @@ import {
 } from '@/components/builder/store-settings-panel';
 import { ThemeEditor } from '@/components/builder/theme-editor-redesigned';
 import { useCopilotBuilderActions } from '@/components/builder/use-copilot-builder-actions';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
 import { useMerchant } from '@/hooks/use-merchant';
@@ -68,6 +78,8 @@ import type {
   BuilderLoadResponse,
   BuilderMutationResponse,
 } from '@/types/builder';
+
+type BuilderPreviewMode = BuilderLoadResponse['previewMode'];
 
 // Component icon mapping - using component functions for dynamic sizing
 const componentIcons: Record<
@@ -118,12 +130,46 @@ function getBuilderMutationErrorMessage(error: unknown, fallback: string) {
   return error.message || fallback;
 }
 
+function getReadOnlyBuilderDescription(
+  previewMode: BuilderPreviewMode,
+  degradedReason: BuilderDegradedReason | null
+) {
+  if (previewMode === 'ai_draft') {
+    return 'You are previewing an AI-generated storefront draft. Apply it to replace the current starter draft, or return to the dashboard to keep editing manually.';
+  }
+
+  return getDegradedBuilderDescription(degradedReason);
+}
+
+async function readApplyAiDraftResponse(response: Response) {
+  try {
+    return (await response.json()) as {
+      error?: string;
+      code?: string;
+      message?: string;
+      lastUpdated?: string | null;
+    };
+  } catch {
+    return {};
+  }
+}
+
 function getBuilderBootstrapUrl() {
   if (typeof window === 'undefined') {
     return '/api/builder?slug=home';
   }
 
-  return new URL('/api/builder?slug=home', window.location.origin).toString();
+  const url = new URL('/api/builder', window.location.origin);
+  url.searchParams.set('slug', 'home');
+
+  const aiDraftJobId = new URLSearchParams(window.location.search).get(
+    'aiDraftJobId'
+  );
+  if (aiDraftJobId) {
+    url.searchParams.set('aiDraftJobId', aiDraftJobId);
+  }
+
+  return url.toString();
 }
 
 export default function BuilderClient() {
@@ -196,6 +242,11 @@ export default function BuilderClient() {
   const [canEdit, setCanEdit] = useState(true);
   const [degradedReason, setDegradedReason] =
     useState<BuilderDegradedReason | null>(null);
+  const [previewMode, setPreviewMode] = useState<BuilderPreviewMode>(null);
+  const [aiDraftJobId, setAiDraftJobId] = useState<string | null>(null);
+  const [canApplyAiDraft, setCanApplyAiDraft] = useState(false);
+  const [applyingAiDraft, setApplyingAiDraft] = useState(false);
+  const [showStaleAiDraftDialog, setShowStaleAiDraftDialog] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
@@ -237,6 +288,9 @@ export default function BuilderClient() {
           setLastUpdated(json.lastUpdated);
           setCanEdit(json.canEdit);
           setDegradedReason(json.degradedReason);
+          setPreviewMode(json.previewMode);
+          setAiDraftJobId(json.aiDraftJobId);
+          setCanApplyAiDraft(json.canApplyAiDraft);
 
           // Load SEO data if it exists
           if (json.seo) {
@@ -271,6 +325,12 @@ export default function BuilderClient() {
               title: 'Builder opened in read-only mode',
               description: getDegradedBuilderDescription(json.degradedReason),
               variant: 'destructive',
+            });
+          } else if (json.previewMode === 'ai_draft') {
+            toast({
+              title: 'AI draft preview',
+              description:
+                'Review the generated storefront before applying it to your draft.',
             });
           } else if (json.isDefault) {
             toast({
@@ -308,6 +368,9 @@ export default function BuilderClient() {
         setLastUpdated(null);
         setCanEdit(false);
         setDegradedReason('config_load_failed');
+        setPreviewMode(null);
+        setAiDraftJobId(null);
+        setCanApplyAiDraft(false);
       } finally {
         setPageLoading(false);
       }
@@ -320,7 +383,7 @@ export default function BuilderClient() {
     if (!canEdit) {
       toast({
         title: 'Builder is read-only',
-        description: getDegradedBuilderDescription(degradedReason),
+        description: getReadOnlyBuilderDescription(previewMode, degradedReason),
         variant: 'destructive',
       });
       return null;
@@ -360,7 +423,10 @@ export default function BuilderClient() {
       if (!canEdit) {
         toast({
           title: 'Builder is read-only',
-          description: getDegradedBuilderDescription(degradedReason),
+          description: getReadOnlyBuilderDescription(
+            previewMode,
+            degradedReason
+          ),
           variant: 'destructive',
         });
       }
@@ -404,7 +470,7 @@ export default function BuilderClient() {
     if (!canEdit) {
       toast({
         title: 'Builder is read-only',
-        description: getDegradedBuilderDescription(degradedReason),
+        description: getReadOnlyBuilderDescription(previewMode, degradedReason),
         variant: 'destructive',
       });
       return;
@@ -461,6 +527,70 @@ export default function BuilderClient() {
     }
   };
 
+  const applyAiDraft = async (force = false) => {
+    if (!aiDraftJobId || !canApplyAiDraft) {
+      toast({
+        title: 'Cannot apply this draft',
+        description:
+          'You need builder edit access before this AI design can replace the starter draft.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setApplyingAiDraft(true);
+    try {
+      const response = await fetchWithCsrf(
+        `/api/ai-jobs/${aiDraftJobId}/apply`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(force ? { force: true } : {}),
+        }
+      );
+      const payload = await readApplyAiDraftResponse(response);
+
+      if (
+        !force &&
+        response.status === 409 &&
+        payload.code === 'ai_draft_stale'
+      ) {
+        setShowStaleAiDraftDialog(true);
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          payload.error || payload.message || 'Failed to apply AI design'
+        );
+      }
+
+      setLastUpdated(payload.lastUpdated ?? null);
+      toast({
+        title: 'AI design applied',
+        description: 'The generated storefront is now your editable draft.',
+      });
+      setCanEdit(true);
+      setDegradedReason(null);
+      setPreviewMode(null);
+      setAiDraftJobId(null);
+      setCanApplyAiDraft(false);
+      router.push('/builder');
+    } catch (error) {
+      console.error('Failed to apply AI draft:', error);
+      toast({
+        title: 'Failed to apply AI design',
+        description: getBuilderMutationErrorMessage(
+          error,
+          'Please retry from the dashboard.'
+        ),
+        variant: 'destructive',
+      });
+    } finally {
+      setApplyingAiDraft(false);
+    }
+  };
+
   if (authLoading || merchantLoading || pageLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -501,8 +631,36 @@ export default function BuilderClient() {
     setData(newData);
   };
 
+  const isAiDraftPreview = previewMode === 'ai_draft';
+  const shouldBlockBuilder = !canEdit && !isAiDraftPreview;
+
   return (
     <div className="h-screen flex flex-col bg-background">
+      <AlertDialog
+        open={showStaleAiDraftDialog}
+        onOpenChange={setShowStaleAiDraftDialog}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Replace your current draft?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Your starter draft changed after this AI design was generated.
+              Replace the current starter draft with the AI design?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep current draft</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setShowStaleAiDraftDialog(false);
+                void applyAiDraft(true);
+              }}
+            >
+              Replace draft
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Puck
         config={builderConfig}
         data={data}
@@ -719,44 +877,73 @@ export default function BuilderClient() {
 
             <div className="flex items-center gap-2">
               {!canEdit && (
-                <div className="hidden md:flex rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800">
-                  Read-only recovery mode
+                <div
+                  className={`hidden md:flex rounded-full border px-3 py-1 text-xs font-medium ${
+                    isAiDraftPreview
+                      ? 'border-sky-300 bg-sky-50 text-sky-800'
+                      : 'border-amber-300 bg-amber-50 text-amber-800'
+                  }`}
+                >
+                  {isAiDraftPreview
+                    ? 'AI draft preview'
+                    : 'Read-only recovery mode'}
                 </div>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => data && handleSave(data)}
-                disabled={saving || !canEdit}
-                className="h-9"
-              >
-                {saving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-                <span className="ml-2 hidden sm:inline">Save Draft</span>
-              </Button>
-              <Button
-                size="sm"
-                onClick={handlePublish}
-                disabled={publishing || !canEdit}
-                className="h-9"
-              >
-                {publishing ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Globe className="w-4 h-4" />
-                )}
-                <span className="ml-2 hidden sm:inline">Publish</span>
-              </Button>
+              {isAiDraftPreview && canApplyAiDraft && (
+                <Button
+                  size="sm"
+                  onClick={() => applyAiDraft()}
+                  disabled={applyingAiDraft}
+                  className="h-9"
+                >
+                  {applyingAiDraft ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                  <span className="ml-2 hidden sm:inline">Apply AI design</span>
+                </Button>
+              )}
+              {!isAiDraftPreview && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => data && handleSave(data)}
+                    disabled={saving || !canEdit}
+                    className="h-9"
+                  >
+                    {saving ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    <span className="ml-2 hidden sm:inline">Save Draft</span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handlePublish}
+                    disabled={publishing || !canEdit}
+                    className="h-9"
+                  >
+                    {publishing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Globe className="w-4 h-4" />
+                    )}
+                    <span className="ml-2 hidden sm:inline">Publish</span>
+                  </Button>
+                </>
+              )}
             </div>
           </header>
 
           <div className="flex-1 overflow-hidden flex relative">
             <div
               className={`flex flex-1 overflow-hidden ${
-                canEdit ? '' : 'pointer-events-none opacity-60 select-none'
+                shouldBlockBuilder
+                  ? 'pointer-events-none opacity-60 select-none'
+                  : ''
               }`}
             >
               <BuilderSidebar
@@ -926,6 +1113,12 @@ export default function BuilderClient() {
               </BuilderSidebar>
 
               <div className="flex-1 relative bg-accent/5 flex flex-col overflow-hidden">
+                {isAiDraftPreview && (
+                  <div className="border-b border-sky-200 bg-sky-50 px-4 py-2 text-sm text-sky-900">
+                    AI draft preview. Review the design before applying it to
+                    your editable store draft.
+                  </div>
+                )}
                 {/* Viewport Controls - Above Canvas */}
                 <div className="h-12 bg-white border-b flex items-center justify-center gap-2 px-4 shrink-0">
                   <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
@@ -1007,7 +1200,7 @@ export default function BuilderClient() {
               )}
             </div>
 
-            {!canEdit && (
+            {shouldBlockBuilder && (
               <div className="absolute inset-0 flex items-center justify-center bg-background/65 backdrop-blur-sm">
                 <div className="max-w-md rounded-xl border bg-background p-6 text-center shadow-lg">
                   <h2 className="text-lg font-semibold">
