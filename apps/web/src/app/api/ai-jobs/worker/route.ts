@@ -141,6 +141,7 @@ export async function POST(request: NextRequest) {
       .from('ai_jobs')
       .select('id, type, status, input, created_at')
       .eq('status', 'pending')
+      .eq('type', 'price_list_processing')
       .order('created_at', { ascending: true })
       .limit(jobProcessLimit);
 

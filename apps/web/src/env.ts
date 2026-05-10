@@ -101,6 +101,32 @@ const serverSchema = z
       .optional(),
     OLLAMA_CAC_MODEL: z.string().default('gemma4:e4b'),
     OLLAMA_BASIC_AUTH: z.string().optional(),
+    OLLAMA_STOREFRONT_BASE_URL: z
+      .string()
+      .url()
+      .refine(
+        (u) => {
+          const url = new URL(u);
+          const isLocal =
+            url.hostname === 'localhost' ||
+            url.hostname.startsWith('127.') ||
+            url.hostname === '::1';
+          return u.startsWith('https://') || isLocal;
+        },
+        {
+          message:
+            'OLLAMA_STOREFRONT_BASE_URL must use HTTPS except for localhost',
+        }
+      )
+      .optional(),
+    OLLAMA_STOREFRONT_BASIC_AUTH: z.string().optional(),
+    OLLAMA_STOREFRONT_MODEL: z.string().default('gemma4:e4b'),
+    OLLAMA_STOREFRONT_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(90_000),
+    AI_STOREFRONT_GENERATION_ENABLED: booleanStringSchema.default('false'),
 
     // Jumia Marketplace
     JUMIA_ENVIRONMENT: z.enum(['staging', 'production']).default('staging'),
@@ -243,6 +269,12 @@ const getEnv = () => {
         OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL,
         OLLAMA_CAC_MODEL: process.env.OLLAMA_CAC_MODEL,
         OLLAMA_BASIC_AUTH: process.env.OLLAMA_BASIC_AUTH,
+        OLLAMA_STOREFRONT_BASE_URL: process.env.OLLAMA_STOREFRONT_BASE_URL,
+        OLLAMA_STOREFRONT_BASIC_AUTH: process.env.OLLAMA_STOREFRONT_BASIC_AUTH,
+        OLLAMA_STOREFRONT_MODEL: process.env.OLLAMA_STOREFRONT_MODEL,
+        OLLAMA_STOREFRONT_TIMEOUT_MS: process.env.OLLAMA_STOREFRONT_TIMEOUT_MS,
+        AI_STOREFRONT_GENERATION_ENABLED:
+          process.env.AI_STOREFRONT_GENERATION_ENABLED,
       }
     : {};
 
@@ -532,6 +564,42 @@ export const getOllamaBasicAuth = () => {
   if (typeof window !== 'undefined')
     throw new Error('OLLAMA_BASIC_AUTH cannot be accessed on the client');
   return env?.OLLAMA_BASIC_AUTH;
+};
+export const getOllamaStorefrontBaseUrl = () => {
+  if (typeof window !== 'undefined')
+    throw new Error(
+      'OLLAMA_STOREFRONT_BASE_URL cannot be accessed on the client'
+    );
+  return env?.OLLAMA_STOREFRONT_BASE_URL;
+};
+export const getOllamaStorefrontBasicAuth = () => {
+  if (typeof window !== 'undefined')
+    throw new Error(
+      'OLLAMA_STOREFRONT_BASIC_AUTH cannot be accessed on the client'
+    );
+  return env?.OLLAMA_STOREFRONT_BASIC_AUTH;
+};
+export const getOllamaStorefrontModel = () => {
+  if (typeof window !== 'undefined')
+    throw new Error('OLLAMA_STOREFRONT_MODEL cannot be accessed on the client');
+  return validateSanitizedModel(
+    env.OLLAMA_STOREFRONT_MODEL,
+    'OLLAMA_STOREFRONT_MODEL'
+  );
+};
+export const getOllamaStorefrontTimeoutMs = () => {
+  if (typeof window !== 'undefined')
+    throw new Error(
+      'OLLAMA_STOREFRONT_TIMEOUT_MS cannot be accessed on the client'
+    );
+  return env.OLLAMA_STOREFRONT_TIMEOUT_MS;
+};
+export const isAiStorefrontGenerationEnabled = () => {
+  if (typeof window !== 'undefined')
+    throw new Error(
+      'AI_STOREFRONT_GENERATION_ENABLED cannot be accessed on the client'
+    );
+  return env.AI_STOREFRONT_GENERATION_ENABLED;
 };
 
 // Deprecated: No longer needed as we validate on import.

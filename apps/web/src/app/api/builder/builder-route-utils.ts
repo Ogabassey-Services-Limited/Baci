@@ -14,7 +14,10 @@ import type {
   BuilderDegradedReason,
   BuilderPublishInput,
 } from '@/schemas/builder';
-import { builderConfigSchema } from '@/schemas/builder';
+import {
+  builderConfigSchema,
+  parseBuilderConfigForAiDraft,
+} from '@/schemas/builder';
 
 const MINIMAL_BUILDER_CONFIG: BuilderConfigInput = {
   content: [],
@@ -59,6 +62,20 @@ interface BuilderRequestContext {
   canEdit: boolean;
 }
 
+interface AiStorefrontDraftJobRecord {
+  id: string;
+  merchant_id: string;
+  type: string;
+  status: string;
+  output: unknown | null;
+  result_applied_at: string | null;
+}
+
+interface AiStorefrontDraftOutput {
+  generatedConfig: unknown;
+  generatedAgainstUpdatedAt: string | null;
+}
+
 export interface BuilderLoadPayload {
   config: BuilderConfigInput;
   seo: unknown | null;
@@ -71,6 +88,9 @@ export interface BuilderLoadPayload {
   degraded: boolean;
   degradedReason: BuilderDegradedReason | null;
   canEdit: boolean;
+  previewMode: 'ai_draft' | null;
+  aiDraftJobId: string | null;
+  canApplyAiDraft: boolean;
 }
 
 export type BuilderLoadResult =
@@ -191,6 +211,20 @@ function getPublishablePageConfig(
     .maybeSingle<PublishablePageConfigRecord>();
 }
 
+function getAiStorefrontDraftJob(
+  supabase: SupabaseClient,
+  merchantId: string,
+  jobId: string
+) {
+  return supabase
+    .from('ai_jobs')
+    .select('id, merchant_id, type, status, output, result_applied_at')
+    .eq('id', jobId)
+    .eq('merchant_id', merchantId)
+    .eq('type', 'storefront_layout_generation')
+    .maybeSingle<AiStorefrontDraftJobRecord>();
+}
+
 function isConflict(
   expectedLastUpdated: string | null | undefined,
   currentLastUpdated: string | null
@@ -198,6 +232,22 @@ function isConflict(
   return (
     expectedLastUpdated !== undefined &&
     expectedLastUpdated !== currentLastUpdated
+  );
+}
+
+function isAiStorefrontDraftOutput(
+  value: unknown
+): value is AiStorefrontDraftOutput {
+  if (!value || typeof value !== 'object') return false;
+
+  const output = value as Record<string, unknown>;
+  const generatedAgainstUpdatedAt = output.generatedAgainstUpdatedAt;
+
+  return (
+    'generatedConfig' in output &&
+    (generatedAgainstUpdatedAt === null ||
+      (typeof generatedAgainstUpdatedAt === 'string' &&
+        !Number.isNaN(Date.parse(generatedAgainstUpdatedAt))))
   );
 }
 
@@ -243,7 +293,8 @@ export async function loadBuilderPayload(
   supabase: SupabaseClient,
   merchantId: string,
   pageSlug: string,
-  canEdit: boolean
+  canEdit: boolean,
+  aiDraftJobId?: string
 ): Promise<BuilderLoadResult> {
   const { data: merchant, error: merchantError } =
     await getMerchantTemplateData(supabase, merchantId);
@@ -255,6 +306,86 @@ export async function loadBuilderPayload(
         { status: 404 }
       ),
     };
+  }
+
+  if (aiDraftJobId) {
+    const { data: aiDraftJob, error: aiDraftJobError } =
+      await getAiStorefrontDraftJob(supabase, merchantId, aiDraftJobId);
+
+    if (aiDraftJobError) {
+      console.error('Failed to load AI storefront draft preview:', {
+        merchantId,
+        aiDraftJobId,
+        error: aiDraftJobError,
+      });
+      return {
+        response: createInternalServerErrorResponse(),
+      };
+    }
+
+    if (
+      !aiDraftJob ||
+      aiDraftJob.status !== 'completed' ||
+      aiDraftJob.result_applied_at !== null
+    ) {
+      return {
+        response: NextResponse.json(
+          { error: 'AI storefront draft not found' },
+          { status: 404 }
+        ),
+      };
+    }
+
+    const output = aiDraftJob.output;
+    if (!isAiStorefrontDraftOutput(output)) {
+      console.error('Invalid AI storefront draft preview payload:', {
+        merchantId,
+        aiDraftJobId,
+      });
+      return {
+        response: NextResponse.json(
+          { error: 'AI storefront draft is invalid' },
+          { status: 422 }
+        ),
+      };
+    }
+
+    try {
+      const generatedConfig = parseBuilderConfigForAiDraft(
+        output.generatedConfig
+      );
+
+      return {
+        data: {
+          config: generatedConfig,
+          seo: null,
+          storeSettings: null,
+          setupSettings: null,
+          publishedConfig: null,
+          isPublished: false,
+          isDefault: false,
+          lastUpdated: output.generatedAgainstUpdatedAt,
+          degraded: false,
+          degradedReason: null,
+          canEdit: false,
+          previewMode: 'ai_draft',
+          aiDraftJobId,
+          canApplyAiDraft: canEdit,
+        },
+      };
+    } catch (error) {
+      console.error('Invalid AI storefront draft preview payload:', {
+        merchantId,
+        aiDraftJobId,
+        error,
+      });
+      return {
+        response: NextResponse.json(
+          { error: 'AI storefront draft is invalid' },
+          { status: 422 }
+        ),
+      };
+    }
   }
 
   const { data: pageConfig, error: configError } = await getPageConfig(
@@ -301,6 +432,9 @@ export async function loadBuilderPayload(
       degraded: degradedReason !== null,
       degradedReason,
       canEdit: degradedReason === null && canEdit,
+      previewMode: null,
+      aiDraftJobId: null,
+      canApplyAiDraft: canEdit,
     },
   };
 }
