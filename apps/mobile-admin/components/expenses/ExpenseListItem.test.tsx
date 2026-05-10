@@ -2,8 +2,8 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Expense } from '@/schemas/expense';
 import { ExpenseListItem } from './ExpenseListItem';
-import type { Expense } from './expenses-list.types';
 
 const mocks = vi.hoisted(() => ({
   formatCurrency: vi.fn(

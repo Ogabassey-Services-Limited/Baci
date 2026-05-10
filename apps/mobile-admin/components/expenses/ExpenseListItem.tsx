@@ -5,8 +5,8 @@ import { Pressable, Text, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import { getTranslucentColor } from '@/lib/colors/sanitize-css-color';
 import { formatCurrency } from '@/lib/utils';
+import type { Expense } from '@/schemas/expense';
 import { styles } from './expenses-list.styles';
-import type { Expense } from './expenses-list.types';
 
 export interface ExpenseListItemProps {
   item: Expense;
