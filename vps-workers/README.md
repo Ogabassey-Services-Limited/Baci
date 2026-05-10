@@ -4,7 +4,7 @@
 `/home/bassey/baci-workers` and installs the worker package with
 `pnpm install --frozen-lockfile --prod`.
 
-The Jumia order sync and import queue wrappers do not run TypeScript from this
+The Jumia order sync, import queue, and AI storefront generation wrappers do not run TypeScript from this
 production-only worker install. They delegate to a separate full Baci monorepo
 checkout, resolved from `BACI_REPO_DIR` or `/opt/baci/app`, via
 `bin/run-web-script.sh`.
@@ -37,10 +37,11 @@ That full checkout must be installed with:
 pnpm install --frozen-lockfile
 ```
 
-The VPS wrappers run `apps/web/src/scripts/process-import-jobs.ts` and
-`apps/web/src/scripts/sync-jumia-orders.ts` directly through the `tsx`
-runtime dependency in the full checkout, with no prior compilation step. That
-dependency is not part of the standalone `/home/bassey/baci-workers`
+The VPS wrappers run `apps/web/src/scripts/process-import-jobs.ts`,
+`apps/web/src/scripts/sync-jumia-orders.ts`, and
+`apps/web/src/scripts/process-ai-storefront-jobs.ts` directly through the
+`tsx` runtime dependency in the full checkout, with no prior compilation step.
+That dependency is not part of the standalone `/home/bassey/baci-workers`
 production-only install, so keep the separate `apps/web` checkout dependencies
 installed before enabling these cron entries.
 
@@ -76,6 +77,10 @@ EXPO_ACCESS_TOKEN=...
 JUMIA_CLIENT_ID=...
 BACI_WEB_BASE_URL=...
 CRON_SECRET=...
+OLLAMA_STOREFRONT_BASE_URL=http://localhost:11434
+OLLAMA_STOREFRONT_MODEL=gemma4:e4b
+OLLAMA_STOREFRONT_TIMEOUT_MS=90000
+AI_STOREFRONT_GENERATION_ENABLED=false
 ```
 
 Do not commit this file or any `.env*` file to version control. Keep those
@@ -91,6 +96,10 @@ Variable purposes:
 - `JUMIA_CLIENT_ID`: Jumia application/client identifier used when refreshing integration credentials.
 - `BACI_WEB_BASE_URL`: HTTPS base URL for web cron endpoint calls, for example `https://ogabassey.com`.
 - `CRON_SECRET`: Shared secret that must match the web deployment and protect cron endpoints.
+- `OLLAMA_STOREFRONT_BASE_URL`: Local/private Ollama base URL for async storefront generation. Use `http://localhost:11434` when Ollama runs on the same VPS.
+- `OLLAMA_STOREFRONT_MODEL`: Gemma model used for storefront layout generation.
+- `OLLAMA_STOREFRONT_TIMEOUT_MS`: Per-request Ollama timeout for the storefront worker.
+- `AI_STOREFRONT_GENERATION_ENABLED`: Rollout flag for enqueueing new storefront generation jobs during onboarding.
 
 ### Runtime Checks and Rotation
 
@@ -123,3 +132,8 @@ $CRON_SECRET`; `/api/cron/process-settlements` uses `POST` and the others use
 variables or the project's secret manager, keep it aligned between the VPS
 worker and web deployment, and rotate it through the normal secret-management
 process. No API keys, passwords, or tokens should be stored in repo files.
+
+`/api/ai-jobs/worker` is intentionally retained only for short legacy web-safe
+jobs such as price list processing. Long `storefront_layout_generation` jobs
+must run through `bin/process-ai-storefront-jobs.sh`, which talks to local
+Ollama from the VPS checkout and processes one job per invocation.
