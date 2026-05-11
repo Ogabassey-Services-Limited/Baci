@@ -192,7 +192,7 @@ export const ProductDetails: React.FC = () => {
                   )}
                 </div>
 
-                <button
+                <button type="button"
                   onClick={() => toggleSaved(productData.id)}
                   className="absolute top-4 right-4 p-3 bg-white rounded-full shadow-lg hover:bg-gray-50 transition-all active:scale-90 z-10"
                   aria-label={isSaved ? "Remove from saved" : "Save product"}
@@ -210,7 +210,7 @@ export const ProductDetails: React.FC = () => {
               {productData.images && productData.images.length > 1 && (
                 <div className="grid grid-cols-5 gap-3">
                   {productData.images.map((img, idx) => (
-                    <button
+                    <button type="button"
                       key={idx}
                       onClick={() => setSelectedImage(idx)}
                       className={`relative aspect-square rounded-xl border-2 p-2 bg-gray-50 transition-all ${selectedImage === idx ? 'border-red-600 ring-2 ring-red-100' : 'border-transparent hover:border-gray-200'}`}
@@ -307,7 +307,7 @@ export const ProductDetails: React.FC = () => {
                           ].includes(color.value);
 
                           return (
-                            <button
+                            <button type="button"
                               key={idx}
                               onClick={() => {
                                 setSelectedColor(idx);
@@ -361,7 +361,7 @@ export const ProductDetails: React.FC = () => {
                       </div>
                       <div className="flex flex-wrap gap-3">
                         {productData.storage.map((size, idx) => (
-                          <button
+                          <button type="button"
                             key={idx}
                             onClick={() => {
                               setSelectedStorage(idx);
@@ -383,7 +383,7 @@ export const ProductDetails: React.FC = () => {
                 <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-100">
                   {/* Quantity */}
                   <div className="flex items-center bg-gray-100 rounded-xl p-1 w-fit">
-                    <button
+                    <button type="button"
                       onClick={() => handleQuantityChange(-1)}
                       className="w-10 h-10 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:text-red-600 disabled:opacity-50"
                       disabled={quantity <= 1}
@@ -394,7 +394,7 @@ export const ProductDetails: React.FC = () => {
                     <span className="w-12 text-center font-bold text-gray-900">
                       {quantity}
                     </span>
-                    <button
+                    <button type="button"
                       onClick={() => handleQuantityChange(1)}
                       className="w-10 h-10 flex items-center justify-center rounded-lg bg-white text-gray-600 shadow-sm hover:text-red-600"
                       aria-label="Increase quantity"
@@ -405,7 +405,7 @@ export const ProductDetails: React.FC = () => {
 
                   {/* Add to Cart & Negotiate */}
                   <div className="flex-1 flex gap-3">
-                    <button
+                    <button type="button"
                       onClick={() => setIsNegotiationOpen(true)}
                       className="px-4 py-3.5 rounded-xl border-2 border-gray-200 text-gray-700 font-bold hover:border-gray-300 hover:bg-gray-50 transition-all flex flex-col items-center justify-center leading-none gap-1 min-w-[100px]"
                     >
@@ -415,7 +415,7 @@ export const ProductDetails: React.FC = () => {
                       </div>
                     </button>
 
-                    <button
+                    <button type="button"
                       onClick={validateAndAddToCart}
                       className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3.5 px-6 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-600/20 active:scale-[0.98]"
                     >
@@ -485,7 +485,7 @@ export const ProductDetails: React.FC = () => {
                   </>
                 )}
               </h3>
-              <button
+              <button type="button"
                 onClick={() => setIsSelectionModalOpen(false)}
                 className="p-2 hover:bg-gray-100 rounded-full"
                 aria-label="Close modal"
@@ -519,7 +519,7 @@ export const ProductDetails: React.FC = () => {
                         ].includes(color.value);
 
                         return (
-                          <button
+                          <button type="button"
                             key={idx}
                             onClick={() => {
                               setSelectedColor(idx);
@@ -567,7 +567,7 @@ export const ProductDetails: React.FC = () => {
                     </label>
                     <div className="flex flex-wrap gap-3">
                       {productData.storage.map((size, idx) => (
-                        <button
+                        <button type="button"
                           key={idx}
                           onClick={() => {
                             setSelectedStorage(idx);
@@ -586,7 +586,7 @@ export const ProductDetails: React.FC = () => {
             </div>
 
             <div className="p-4 border-t border-gray-100 bg-gray-50 md:rounded-b-2xl">
-              <button
+              <button type="button"
                 onClick={() => {
                   if (missingFields.length === 0) {
                     setIsSelectionModalOpen(false);
