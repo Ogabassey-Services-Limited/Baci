@@ -1,37 +1,41 @@
 import type { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockGetDeviceImage = vi.fn<(device: string) => string>(
-  () => 'https://cdn.example.com/device.png'
-);
-
-vi.mock('@/lib/device-images', () => ({
-  getDeviceImage: (device: string) => mockGetDeviceImage(device),
+// Use vi.hoisted so these mocks are initialized BEFORE vi.mock factories
+// run (vi.mock is hoisted to the top of the file by Vitest). Without this,
+// the factories below would close over variables in their Temporal Dead
+// Zone, causing intermittent ReferenceErrors on cold runs.
+const mocks = vi.hoisted(() => ({
+  mockGetDeviceImage: vi.fn<(device: string) => string>(
+    () => 'https://cdn.example.com/device.png'
+  ),
+  mockResolveStorefrontMerchantFromRequest: vi.fn(async () => ({
+    success: true as const,
+    identifier: 'ogabassey',
+    merchant: { id: 'merchant-1', slug: 'ogabassey' } as unknown as Record<
+      string,
+      unknown
+    >,
+  })),
+  mockCheckRateLimit: vi.fn(async () => ({
+    allowed: true,
+    limit: 10,
+    remaining: 9,
+    resetTime: Date.now() + 60_000,
+  })),
 }));
 
-const mockResolveStorefrontMerchantFromRequest = vi.fn(async () => ({
-  success: true as const,
-  identifier: 'ogabassey',
-  merchant: { id: 'merchant-1', slug: 'ogabassey' } as unknown as Record<
-    string,
-    unknown
-  >,
+vi.mock('@/lib/device-images', () => ({
+  getDeviceImage: (device: string) => mocks.mockGetDeviceImage(device),
 }));
 
 vi.mock('@/lib/storefront-merchant', () => ({
   resolveStorefrontMerchantFromRequest: (...args: unknown[]) =>
     (
-      mockResolveStorefrontMerchantFromRequest as unknown as (
+      mocks.mockResolveStorefrontMerchantFromRequest as unknown as (
         ...a: unknown[]
       ) => Promise<unknown>
     )(...args),
-}));
-
-const mockCheckRateLimit = vi.fn(async () => ({
-  allowed: true,
-  limit: 10,
-  remaining: 9,
-  resetTime: Date.now() + 60_000,
 }));
 
 vi.mock('@/lib/rate-limit', async () => {
@@ -41,7 +45,8 @@ vi.mock('@/lib/rate-limit', async () => {
     );
   return {
     ...actual,
-    checkRateLimit: (...args: unknown[]) => mockCheckRateLimit(...(args as [])),
+    checkRateLimit: (...args: unknown[]) =>
+      mocks.mockCheckRateLimit(...(args as [])),
   };
 });
 
@@ -68,9 +73,9 @@ function importRoute() {
 describe('POST /api/storefront/imei-check', () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
-    mockGetDeviceImage.mockClear();
-    mockResolveStorefrontMerchantFromRequest.mockReset();
-    mockResolveStorefrontMerchantFromRequest.mockResolvedValue({
+    mocks.mockGetDeviceImage.mockClear();
+    mocks.mockResolveStorefrontMerchantFromRequest.mockReset();
+    mocks.mockResolveStorefrontMerchantFromRequest.mockResolvedValue({
       success: true,
       identifier: 'ogabassey',
       merchant: { id: 'merchant-1', slug: 'ogabassey' } as unknown as Record<
@@ -78,8 +83,8 @@ describe('POST /api/storefront/imei-check', () => {
         unknown
       >,
     });
-    mockCheckRateLimit.mockReset();
-    mockCheckRateLimit.mockResolvedValue({
+    mocks.mockCheckRateLimit.mockReset();
+    mocks.mockCheckRateLimit.mockResolvedValue({
       allowed: true,
       limit: 10,
       remaining: 9,
@@ -94,12 +99,12 @@ describe('POST /api/storefront/imei-check', () => {
   });
 
   it('returns 404 when the request host does not resolve to a storefront merchant', async () => {
-    mockResolveStorefrontMerchantFromRequest.mockResolvedValueOnce({
+    mocks.mockResolveStorefrontMerchantFromRequest.mockResolvedValueOnce({
       success: false,
       status: 404,
       error: 'IMEI check is only available on storefront hosts',
     } as unknown as ReturnType<
-      typeof mockResolveStorefrontMerchantFromRequest
+      typeof mocks.mockResolveStorefrontMerchantFromRequest
     > extends Promise<infer T>
       ? T
       : never);
@@ -116,7 +121,7 @@ describe('POST /api/storefront/imei-check', () => {
   });
 
   it('returns 429 when the per-IP rate limit is exceeded', async () => {
-    mockCheckRateLimit.mockResolvedValueOnce({
+    mocks.mockCheckRateLimit.mockResolvedValueOnce({
       allowed: false,
       limit: 10,
       remaining: 0,
@@ -173,7 +178,7 @@ describe('POST /api/storefront/imei-check', () => {
     expect(body.data.device).toBe('iPhone 15');
     expect(body.data.activationStatus).toBe('Activated');
     expect(body.tier.name).toBe('Non-Active Status PRO');
-    expect(mockGetDeviceImage).toHaveBeenCalledWith('iPhone 15');
+    expect(mocks.mockGetDeviceImage).toHaveBeenCalledWith('iPhone 15');
     expect(fetch).toHaveBeenCalledWith(
       expect.stringContaining('&service=88'),
       expect.any(Object)
