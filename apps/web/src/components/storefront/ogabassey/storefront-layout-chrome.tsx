@@ -4,6 +4,7 @@ import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import type { MerchantData } from '@/hooks/merchant/types';
 import { AdUnit } from './components/AdUnit';
+import { DeferredCartSidebar } from './components/deferred-cart-sidebar';
 import { DeferredShellFeature } from './components/deferred-shell-feature';
 import { GoogleAdManager } from './components/GoogleAdManager';
 import { MobileFooter } from './components/MobileFooter';
@@ -14,10 +15,6 @@ import {
   shouldHideOgabasseyNavigation,
 } from './storefront-layout-utils';
 
-const DeferredCartSidebar = dynamic(
-  () => import('./components/CartSidebar').then((mod) => mod.CartSidebar),
-  { ssr: false }
-);
 const DeferredFooter = dynamic(
   () => import('./components/Footer').then((mod) => mod.Footer),
   { ssr: false }
@@ -94,9 +91,7 @@ export function OgabasseyLayoutChrome({
           </div>
         </DeferredShellFeature>
         <MobileFooter storeSlug={basePath} />
-        <DeferredShellFeature timeoutMs={1200}>
-          <DeferredCartSidebar />
-        </DeferredShellFeature>
+        <DeferredCartSidebar />
         <DeferredChatWidget />
       </>
     );
