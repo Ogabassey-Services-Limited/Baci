@@ -33,6 +33,8 @@ vi.mock('react-dom', () => ({
   preload: mockPreload,
 }));
 
+vi.mock('server-only', () => ({}));
+
 vi.mock('@/app/(storefront)/[slug]/layout', () => ({
   default: mockStorefrontLayout,
   generateMetadata: mockGenerateStorefrontLayoutMetadata,
