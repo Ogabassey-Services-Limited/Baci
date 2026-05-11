@@ -1,5 +1,5 @@
 import type React from 'react';
-import type { MerchantData } from '@/hooks/use-merchant';
+import type { MerchantData } from '@/hooks/merchant/types';
 import { GadgetPattern } from './components/GadgetPattern';
 import type { V2ThemeMode } from './providers/v2-theme-context';
 import { OgabasseyLayoutProviders } from './storefront-layout-providers';

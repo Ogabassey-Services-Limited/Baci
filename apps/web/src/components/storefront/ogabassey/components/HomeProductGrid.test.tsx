@@ -11,7 +11,7 @@ vi.mock('@baci/shared', () => ({
   prioritizeSmartphoneProducts: vi.fn((products: unknown[]) => products),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/merchant/use-merchant', () => ({
   useMerchantSafe: () => mockUseMerchantSafe(),
 }));
 

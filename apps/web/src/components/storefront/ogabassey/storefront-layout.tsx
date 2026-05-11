@@ -7,7 +7,7 @@ import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/s
 import { StorefrontChromeRuntime } from '@/components/storefront/ogabassey/storefront-chrome-runtime';
 import { ShellChromeLoading } from '@/components/storefront/ogabassey/storefront-loading-ui';
 import { StorefrontShellLayout } from '@/components/storefront/ogabassey/storefront-shell-layout';
-import type { MerchantData } from '@/hooks/use-merchant';
+import type { MerchantData } from '@/hooks/merchant/types';
 import type React from 'react';
 import * as ReactDOM from 'react-dom';
 import { Suspense } from 'react';

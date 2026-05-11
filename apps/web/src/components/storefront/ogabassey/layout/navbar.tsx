@@ -11,7 +11,7 @@ import { usePathname } from 'next/navigation';
 import type React from 'react';
 import { useState } from 'react';
 import { useCart } from '@/hooks/cart';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/merchant/use-merchant';
 import { Logo } from './logo';
 import { GadgetPattern } from '../components/GadgetPattern';
 import { useOgabasseyScrollVisibility } from '../scroll-visibility-store';
