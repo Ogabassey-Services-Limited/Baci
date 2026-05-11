@@ -24,7 +24,7 @@ interface OnboardingPuckPreviewProps {
   data?: Data | null;
 }
 
-const PREVIEW_MERCHANT_ID = 'preview-merchant-id-preview';
+const PREVIEW_MERCHANT_ID = 'preview-merchant-id';
 
 /**
  * Error Boundary to catch merchant context errors
