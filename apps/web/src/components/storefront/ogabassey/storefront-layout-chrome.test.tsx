@@ -33,6 +33,10 @@ vi.mock('./components/deferred-shell-feature', () => ({
   ),
 }));
 
+vi.mock('./components/deferred-cart-sidebar', () => ({
+  DeferredCartSidebar: () => <div data-testid="deferred-cart-sidebar" />,
+}));
+
 vi.mock('./components/GoogleAdManager', () => ({
   GoogleAdManager: () => <div data-testid="google-ad-manager" />,
 }));
@@ -70,8 +74,9 @@ describe('OgabasseyLayoutChrome', () => {
 
     expect(screen.getByTestId('ad-unit')).toHaveTextContent('FOOTER_BANNER');
     expect(screen.getByTestId('mobile-footer')).toHaveTextContent('/ogabassey');
+    expect(screen.getByTestId('deferred-cart-sidebar')).toBeInTheDocument();
     expect(screen.getByTestId('deferred-chat-widget')).toBeInTheDocument();
-    expect(screen.getAllByTestId('dynamic-slot')).toHaveLength(2);
+    expect(screen.getAllByTestId('dynamic-slot')).toHaveLength(1);
     expect(screen.queryByTestId('navbar')).not.toBeInTheDocument();
     expect(screen.queryByRole('main')).not.toBeInTheDocument();
   });
