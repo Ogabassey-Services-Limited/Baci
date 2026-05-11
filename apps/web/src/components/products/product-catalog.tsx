@@ -47,6 +47,7 @@ export function ProductCatalog({
   const [exportProduct, setExportProduct] = useState<Product | null>(null);
   const localProductsRef = useRef(localProducts);
   const dirtyProductSnapshotsRef = useRef<Map<string, Product>>(new Map());
+  const isSavingRef = useRef(false);
   const {
     jumiaIntegrations,
     jumiaIntegrationId,
@@ -90,17 +91,23 @@ export function ProductCatalog({
     });
   }, [dirtyProducts, products]);
 
-  // Gate on `isSaving` to prevent overlapping save requests. If a save is
-  // already in flight, defer until it finishes — when `isSaving` flips back
-  // to false this effect re-runs and any still-dirty products get retried.
+  // Re-run only when the debounced dirty set changes (i.e., the user makes
+  // new edits). We do NOT list `isSaving` as a dep — that would create an
+  // infinite retry loop on persistent save failures: a failed save leaves
+  // products in the dirty set, `isSaving` flips false at end of the request,
+  // the effect re-fires, save fails again, repeat. Instead, guard against
+  // overlapping saves via `isSavingRef` (read inside the effect but not in
+  // deps). Failed products only get retried when the user edits something
+  // new (which updates the debounced set after the 1s delay).
   //
   // The save is inlined inside the effect rather than extracted via the
   // experimental `useEffectEvent` (dropped from stable React 19) or a manual
   // `useRef` callback. React Compiler stabilizes `updateProduct` / `toast`
   // identities so we can list them as deps without spurious re-runs.
   useEffect(() => {
-    if (debouncedDirtyProducts.size === 0 || isSaving) return;
+    if (debouncedDirtyProducts.size === 0 || isSavingRef.current) return;
 
+    isSavingRef.current = true;
     void (async () => {
       setIsSaving(true);
       try {
@@ -153,10 +160,11 @@ export function ProductCatalog({
           variant: 'destructive',
         });
       } finally {
+        isSavingRef.current = false;
         setIsSaving(false);
       }
     })();
-  }, [debouncedDirtyProducts, isSaving, updateProduct, toast]);
+  }, [debouncedDirtyProducts, updateProduct, toast]);
 
   const toggleProduct = (productId: string) => {
     setExpandedProducts((current) => {

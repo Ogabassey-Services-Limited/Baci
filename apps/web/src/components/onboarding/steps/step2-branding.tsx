@@ -298,7 +298,9 @@ export default function Step2_Branding() {
         await processNewLogo(generatedLogoUri, hasGeneratedBrandColors);
         toast({
           title: 'Logo Generated!',
-          description: "We've also extracted your brand colors.",
+          description: hasGeneratedBrandColors
+            ? "We've also extracted your brand colors."
+            : "We've applied a default color palette for your industry — feel free to fine-tune below.",
         });
       } else {
         throw new Error('No logo was returned.');
