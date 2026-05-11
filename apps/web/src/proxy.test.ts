@@ -336,6 +336,12 @@ describe('Middleware Proxy', () => {
       ['javascript:void(0)', `https://${ROOT_DOMAIN}/dashboard`],
       // Absolute http(s) URL — must be rejected
       ['https://evil.com/path', `https://${ROOT_DOMAIN}/dashboard`],
+      // ASCII tab between leading `/` and `/evil.com` — WHATWG strips the
+      // tab, making the parser see `//evil.com` and switch authority to
+      // evil.com. The defense-in-depth host check catches this.
+      ['/\t/evil.com', `https://${ROOT_DOMAIN}/dashboard`],
+      ['/\n/evil.com', `https://${ROOT_DOMAIN}/dashboard`],
+      ['/\r/evil.com', `https://${ROOT_DOMAIN}/dashboard`],
     ])('sanitizes malicious redirect param %s to safe target %s', async (rawRedirect, expectedLocation) => {
       vi.mocked(updateSession).mockResolvedValueOnce({
         supabaseResponse: NextResponse.next(),
