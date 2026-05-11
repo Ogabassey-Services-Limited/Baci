@@ -13,9 +13,10 @@ import {
   User,
   X,
 } from 'lucide-react';
+import type { Route } from 'next';
 import { usePathname, useRouter } from 'next/navigation';
 import type React from 'react';
-import { type MerchantData, useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/merchant/use-merchant';
 
 import { Logo } from './logo';
 
@@ -44,7 +45,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({
 
   const handleNavigate = (path: string) => {
     const fullPath = `${basePath}${path}`;
-    router.push(fullPath as any);
+    router.push(fullPath as Route);
     onClose();
   };
 
