@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useEffectEvent, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -90,15 +90,23 @@ export function ProductCatalog({
     });
   }, [dirtyProducts, products]);
 
-  const saveDebouncedDirtyProducts = useEffectEvent(
-    async (dirtyProductIds: Set<string>) => {
-      if (dirtyProductIds.size === 0) return;
+  // Gate on `isSaving` to prevent overlapping save requests. If a save is
+  // already in flight, defer until it finishes — when `isSaving` flips back
+  // to false this effect re-runs and any still-dirty products get retried.
+  //
+  // The save is inlined inside the effect rather than extracted via the
+  // experimental `useEffectEvent` (dropped from stable React 19) or a manual
+  // `useRef` callback. React Compiler stabilizes `updateProduct` / `toast`
+  // identities so we can list them as deps without spurious re-runs.
+  useEffect(() => {
+    if (debouncedDirtyProducts.size === 0 || isSaving) return;
 
+    void (async () => {
       setIsSaving(true);
       try {
         const { failedIds, fulfilledIds, skippedIds } = await saveDirtyProducts(
           {
-            dirtyProductIds,
+            dirtyProductIds: debouncedDirtyProducts,
             dirtyProductSnapshots: dirtyProductSnapshotsRef.current,
             localProducts: localProductsRef.current,
             updateProduct,
@@ -147,18 +155,8 @@ export function ProductCatalog({
       } finally {
         setIsSaving(false);
       }
-    }
-  );
-
-  // Gate on `isSaving` to prevent overlapping save requests. If a save is
-  // already in flight, defer until it finishes — when `isSaving` flips back to
-  // false this effect re-runs (it's listed in deps) and any still-dirty
-  // products get retried in the next pass.
-  useEffect(() => {
-    if (debouncedDirtyProducts.size === 0 || isSaving) return;
-
-    void saveDebouncedDirtyProducts(debouncedDirtyProducts);
-  }, [debouncedDirtyProducts, isSaving]);
+    })();
+  }, [debouncedDirtyProducts, isSaving, updateProduct, toast]);
 
   const toggleProduct = (productId: string) => {
     setExpandedProducts((current) => {
