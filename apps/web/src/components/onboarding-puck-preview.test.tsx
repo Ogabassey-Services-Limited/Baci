@@ -549,7 +549,7 @@ describe('OnboardingPuckPreview', () => {
     });
     expect(screen.getByTestId('merchant-provider')).toHaveAttribute(
       'data-merchant-id',
-      'preview-merchant-id-preview'
+      'preview-merchant-id'
     );
   });
 
