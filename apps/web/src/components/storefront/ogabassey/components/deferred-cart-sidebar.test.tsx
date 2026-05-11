@@ -1,11 +1,8 @@
 import { render, screen } from '@testing-library/react';
-import type { ComponentType } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { capturedDynamicOptions, mockUseCartSafe } = vi.hoisted(() => ({
-  capturedDynamicOptions: {} as {
-    current?: { loading?: ComponentType };
-  },
+const { mockCartSidebarModuleLoaded, mockUseCartSafe } = vi.hoisted(() => ({
+  mockCartSidebarModuleLoaded: vi.fn(),
   mockUseCartSafe: vi.fn(),
 }));
 
@@ -13,20 +10,24 @@ vi.mock('@/hooks/cart', () => ({
   useCartSafe: mockUseCartSafe,
 }));
 
-vi.mock('next/dynamic', () => ({
-  default: (_loader: unknown, options?: { loading?: ComponentType }) => {
-    capturedDynamicOptions.current = options;
-    const DynamicCartSidebar: ComponentType = () => (
-      <aside aria-label="Cart" />
-    );
-    return DynamicCartSidebar;
-  },
-}));
+vi.mock('@/components/storefront/ogabassey/components/CartSidebar', async () => {
+  const React = await import('react');
+
+  mockCartSidebarModuleLoaded();
+
+  return {
+    CartSidebar: () =>
+      React.createElement('aside', {
+        'aria-label': 'Cart',
+      }),
+  };
+});
 
 import { DeferredCartSidebar } from './deferred-cart-sidebar';
 
 describe('DeferredCartSidebar', () => {
   beforeEach(() => {
+    mockCartSidebarModuleLoaded.mockClear();
     mockUseCartSafe.mockReset();
   });
 
@@ -38,6 +39,7 @@ describe('DeferredCartSidebar', () => {
     expect(
       screen.queryByRole('complementary', { name: /cart/i })
     ).not.toBeInTheDocument();
+    expect(mockCartSidebarModuleLoaded).not.toHaveBeenCalled();
   });
 
   it('treats an undefined cart open state as closed', () => {
@@ -48,19 +50,58 @@ describe('DeferredCartSidebar', () => {
     expect(
       screen.queryByRole('complementary', { name: /cart/i })
     ).not.toBeInTheDocument();
+    expect(mockCartSidebarModuleLoaded).not.toHaveBeenCalled();
   });
 
-  it('renders the cart drawer loader when the cart opens', () => {
+  it('imports the cart drawer after the cart opens', async () => {
     mockUseCartSafe.mockReturnValue({ isCartOpen: true });
 
     render(<DeferredCartSidebar />);
 
     expect(
-      screen.getByRole('complementary', { name: /cart/i })
+      screen.getByRole('status', { name: /loading cart/i })
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole('complementary', { name: /cart/i })
+    ).toBeInTheDocument();
+    expect(mockCartSidebarModuleLoaded).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the cart drawer loader while the cart chunk is pending', () => {
+    mockUseCartSafe.mockReturnValue({ isCartOpen: true });
+
+    render(<DeferredCartSidebar />);
+
+    expect(
+      screen.getByRole('status', { name: /loading cart/i })
     ).toBeInTheDocument();
   });
 
-  it('keeps the cart drawer mounted after it has opened once', () => {
+  it('hides the cart drawer loader when the cart closes before the chunk loads', () => {
+    let cartState = { isCartOpen: false };
+    mockUseCartSafe.mockImplementation(() => cartState);
+
+    const { rerender } = render(<DeferredCartSidebar />);
+
+    cartState = { isCartOpen: true };
+    rerender(<DeferredCartSidebar />);
+
+    expect(
+      screen.getByRole('status', { name: /loading cart/i })
+    ).toBeInTheDocument();
+
+    cartState = { isCartOpen: false };
+    rerender(<DeferredCartSidebar />);
+
+    expect(
+      screen.queryByRole('status', { name: /loading cart/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('complementary', { name: /cart/i })
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps the cart drawer mounted after it has opened once', async () => {
     let cartState = { isCartOpen: false };
     mockUseCartSafe.mockImplementation(() => cartState);
 
@@ -74,7 +115,7 @@ describe('DeferredCartSidebar', () => {
     rerender(<DeferredCartSidebar />);
 
     expect(
-      screen.getByRole('complementary', { name: /cart/i })
+      await screen.findByRole('complementary', { name: /cart/i })
     ).toBeInTheDocument();
 
     cartState = { isCartOpen: false };
@@ -86,16 +127,15 @@ describe('DeferredCartSidebar', () => {
   });
 
   it('provides an accessible loading placeholder for the cart drawer chunk', () => {
-    const Loading = capturedDynamicOptions.current?.loading;
+    mockUseCartSafe.mockReturnValue({ isCartOpen: true });
 
-    expect(Loading).toBeDefined();
-    render(Loading ? <Loading /> : null);
+    render(<DeferredCartSidebar />);
 
     const loader = screen.getByRole('status', { name: /loading cart/i });
     expect(loader).toBeInTheDocument();
     expect(loader).toHaveAttribute(
       'class',
-      expect.stringContaining('bg-[var(--store-background,#ffffff)]')
+      expect.stringContaining('bg-[var(--store-background)]')
     );
     expect(loader).not.toHaveClass('bg-white');
   });
