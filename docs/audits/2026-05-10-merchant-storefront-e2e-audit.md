@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-Status: implementation and verification in progress.
+Status: implementation and verification complete.
 
 Chrome E2E coverage is complete for every configured generated business type:
 food-beverage, pharmaceuticals, fashion, electronics, home-goods,
@@ -15,11 +15,11 @@ targeted tests.
 
 ## Environment
 
-- Audit date: 2026-05-10
+- Audit date: 2026-05-10 through 2026-05-11
 - Source branch: `codex/merchant-storefront-e2e-audit`
 - Base target: `origin/main`
-- Branch base commit after reconciliation: `b147177796`
-- Current `origin/main`: `b147177796`
+- Branch base commit after reconciliation: `84dd7f793f`
+- Current `origin/main`: `84dd7f793f`
 - Worktree:
   `/Users/mac/.config/superpowers/worktrees/Baci-app/merchant-storefront-e2e-audit`
 - Browser harness: Chrome plugin
@@ -50,7 +50,7 @@ targeted tests.
   generated storefront.
 - The handmade dashboard session verified `/dashboard/orders` contains the
   placed `Ada Craft` / `Woven Basket 1778455637896` order.
-- After reconciling with `origin/main` at `b147177796`, Chrome rechecked all
+- After reconciling with `origin/main` at `84dd7f793f`, Chrome rechecked all
   eight storefront home and product-listing routes. Each route loaded with
   industry hero copy and the expected product.
 - The post-merge handmade checkout placed a pickup / pay-on-delivery order and
@@ -152,17 +152,16 @@ targeted tests.
   - Result: all eight home pages showed expected industry-specific hero copy,
     product sections, and no real error markers.
 - `pnpm --filter @baci/web exec vitest run src/lib/initial-template-generator.test.ts`
-  - Result: 1 file passed, 12 tests passed.
+  - Result: 1 file passed, 13 tests passed.
 - `pnpm turbo lint`
   - Result: web Biome check passed; mobile-storefront replayed existing
     warnings only, with zero errors.
 - `pnpm turbo typecheck`
   - Result: 4 tasks successful.
 - `pnpm turbo test`
-  - Result: 948 test files passed, 1 skipped; 7774 tests passed, 1 todo.
+  - Result: 4 tasks successful; web reported 951 test files passed, 1 skipped;
+    7794 tests passed, 1 todo.
 - `coderabbit review --agent -t uncommitted -c AGENTS.md`
-  - Result: blocked by CodeRabbit usage quota:
-    `rate_limit`, wait time `16 minutes and 19 seconds`.
-  - Retried after the quota window; CodeRabbit returned `rate_limit` again
-    with wait time `15 minutes and 55 seconds`, indicating account usage is
-    still exhausted.
+  - Result: CodeRabbit findings were reviewed and the valid documentation,
+    handmade hero copy, and handmade/art feature consistency suggestions were
+    applied before the final verification run.
