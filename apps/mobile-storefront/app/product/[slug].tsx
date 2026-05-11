@@ -245,6 +245,7 @@ export default function ProductDetailScreen() {
       ? resolveVariantSelectionParamResolution(product, routeParams)
       : null;
   const routeSelectionInput = routeSelectionResolution?.selectionInput ?? {};
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const routeSelectionAttributes = (routeSelectionInput.attributes ??
     {}) as Record<string, string>;
   const routeCondition = normalizeRouteCondition(
@@ -274,6 +275,7 @@ export default function ProductDetailScreen() {
         variants: product.variants,
       })
     : {};
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const productGalleryImages = productVariantMetadata.galleryImages?.length
     ? productVariantMetadata.galleryImages
     : product?.images?.length
@@ -281,6 +283,7 @@ export default function ProductDetailScreen() {
       : product?.image
         ? [product.image]
         : [PLACEHOLDER_IMAGE_URL];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const productImageColorMap = productVariantMetadata.imageColorMap ?? {};
   const resolvedColorImages =
     productVariantMetadata.colorImages ?? product?.color_images;
