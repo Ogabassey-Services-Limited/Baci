@@ -1,6 +1,7 @@
-import iphoneHeroDesktopAsset from './assets/iphone-17-pro-max-desktop.avif';
-import iphoneHeroMobileAsset from './assets/iphone-17-pro-max-mobile.avif';
-import iphoneHeroMobileFallbackAsset from './assets/iphone-17-pro-max-mobile.jpg';
+import iphoneHeroDesktopAsset from '@/components/storefront/ogabassey/components/assets/iphone-17-pro-max-desktop.avif';
+import iphoneHeroMobileAsset from '@/components/storefront/ogabassey/components/assets/iphone-17-pro-max-mobile.avif';
+import iphoneHeroMobileFallbackAsset from '@/components/storefront/ogabassey/components/assets/iphone-17-pro-max-mobile.jpg';
+import macbookProPromoAsset from '@/components/storefront/ogabassey/components/assets/macbook-pro-promo.avif';
 
 export type HeroSlideType = 'image' | 'video' | 'ad';
 
@@ -40,8 +41,9 @@ export const HERO_MOBILE_LCP_FALLBACK_SRC = getImportedImageSrc(
   iphoneHeroMobileFallbackAsset
 );
 
-export const NEW_ARRIVALS_PROMO_IMAGE =
-  'https://cdn.ogabassey.com/core-assets/products/macbook-pro.avif';
+export const NEW_ARRIVALS_PROMO_IMAGE = getImportedImageSrc(
+  macbookProPromoAsset
+);
 export const FLASH_SALE_PROMO_IMAGE =
   'https://cdn.ogabassey.com/core-assets/products/ps5-digital-slim-console-1tb.avif';
 
