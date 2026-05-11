@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/react';
+import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedBlogListing } from '@/lib/cached-data';
 
-const { mockConnection, mockDefaultBlogUi } = vi.hoisted(() => ({
-  mockConnection: vi.fn(),
+const { mockDefaultBlogUi } = vi.hoisted(() => ({
   mockDefaultBlogUi: vi.fn(
     ({ merchant }: { merchant: { business_name: string } }) => (
       <div>{merchant.business_name} blog</div>
@@ -15,10 +15,6 @@ const mockBuildBlogClusterCollections = vi.fn();
 
 vi.mock('@/lib/cached-data', () => ({
   getCachedBlogListing: vi.fn(),
-}));
-
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
 }));
 
 vi.mock('@/lib/routes', () => ({
@@ -137,18 +133,12 @@ function buildListingResult(
   };
 }
 
-const {
-  BlogPageContent,
-  default: BlogPage,
-  generateMetadata,
-} = await import('./page');
+const { BlogPageContent, generateMetadata } = await import('./page');
 
 describe('blog page metadata', () => {
   beforeEach(() => {
     vi.mocked(getCachedBlogListing).mockReset();
     vi.mocked(getCachedBlogListing).mockResolvedValue(buildListingResult());
-    mockConnection.mockReset();
-    mockConnection.mockResolvedValue(undefined);
     mockBuildBlogClusterCollections.mockReset();
     mockBuildBlogClusterCollections.mockReturnValue([]);
     mockDefaultBlogUi.mockReset();
@@ -255,27 +245,26 @@ describe('blog page metadata', () => {
     expect(metadata.openGraph?.url).toBe('https://test-store.usebaci.com/blog');
   });
 
-  it('shows the blog listing fallback while runtime metadata and listing UI are pending', () => {
-    const pending = new Promise(() => {
-      // Keep request-time metadata and listing UI suspended behind their boundaries.
-    });
-    mockConnection.mockReturnValue(pending);
+  it('defers blog first paint to the route loader while the listing UI is pending', async () => {
     mockDefaultBlogUi.mockImplementation(() => {
-      throw pending;
+      throw new Promise(() => {
+        // Keep the blog listing UI suspended behind the route loader.
+      });
     });
 
     render(
-      <BlogPage
-        params={Promise.resolve({ slug: 'test-store' })}
-        searchParams={Promise.resolve({})}
-      />
+      <Suspense fallback={<div>Route loader fallback</div>}>
+        {
+          await BlogPageContent({
+            params: Promise.resolve({ slug: 'test-store' }),
+            searchParams: Promise.resolve({}),
+          })
+        }
+      </Suspense>
     );
 
-    expect(
-      screen.getByRole('status', { name: /loading blog posts/i })
-    ).toBeInTheDocument();
+    expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
     expect(screen.queryByText('Ogabassey blog')).not.toBeInTheDocument();
-    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('renders guide collections above the blog listing', async () => {

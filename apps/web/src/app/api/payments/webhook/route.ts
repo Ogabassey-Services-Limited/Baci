@@ -2,15 +2,10 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
-import { markAgenticPaystackDvaSessionPaid } from '@/lib/agentic/paystack-dva-session-paid';
-import {
-  AGENTIC_PAYSTACK_DVA_TRANSACTION_SELECT,
-  type AgenticPaystackDvaTransaction,
-  normalizeAgenticPaystackDvaTransaction,
-} from '@/lib/agentic/paystack-dva-transaction';
 import {
   confirmAgenticPaystackDvaPayment,
   getPaystackDvaReceiverAccountNumber,
+  markAgenticPaystackDvaSessionPaid,
 } from '@/lib/agentic/paystack-dva-webhook';
 import { upsertPaystackAuthorization } from '@/lib/customer-saved-payment-methods';
 import {
@@ -27,11 +22,6 @@ import { formatVariantAttributesLabel } from '@/lib/format-variant-attributes-la
 import { registerDomain } from '@/lib/go54';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
-import {
-  applyPaidOrderSideEffects,
-  type StepExecutor,
-} from '@/lib/payments/apply-paid-order-side-effects';
-import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import {
   calculatePlatformFee,
   verifyTransaction as verifyPaystackPayment,
@@ -457,7 +447,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let resolvedAgenticTransaction: AgenticPaystackDvaTransaction | null = null;
     if (gateway === 'paystack') {
       const agenticDvaPayment = await confirmAgenticPaystackDvaPayment({
         accountNumber: getPaystackDvaReceiverAccountNumber(body),
@@ -471,7 +460,6 @@ export async function POST(request: NextRequest) {
           status: agenticDvaPayment.status,
         });
       }
-      resolvedAgenticTransaction = agenticDvaPayment.transaction ?? null;
     }
 
     // ============================================
@@ -934,10 +922,6 @@ export async function POST(request: NextRequest) {
             p_gateway_fee: 0,
             p_platform_fee: platformFee,
             p_description: `Chat order payment via ${gateway}`,
-            // Δ-29 / Δ-59: traceability — gateway-side ref lives in metadata
-            // only (chat-order path has no separate BAC-* yet). Review
-            // feedback: key is gateway-prefixed, not hardcoded paystack.
-            p_metadata: { [`${gateway}_reference`]: reference },
           });
         } catch (settlementErr) {
           logger.warn({
@@ -968,21 +952,14 @@ export async function POST(request: NextRequest) {
     // STANDARD ORDER HANDLING
     // ============================================
 
-    let transaction: AgenticPaystackDvaTransaction | null =
-      resolvedAgenticTransaction;
-    let transactionError: unknown = null;
-
-    if (!transaction) {
-      const transactionResult = await supabase
-        .from('transactions')
-        .select(AGENTIC_PAYSTACK_DVA_TRANSACTION_SELECT)
-        .eq('gateway_reference', reference)
-        .single();
-      transaction = transactionResult.data
-        ? normalizeAgenticPaystackDvaTransaction(transactionResult.data)
-        : null;
-      transactionError = transactionResult.error;
-    }
+    // Find transaction record
+    const { data: transaction, error: transactionError } = await supabase
+      .from('transactions')
+      .select(
+        'id,amount,currency,merchant_id,metadata,order_id,gateway_fee,platform_fee'
+      )
+      .eq('gateway_reference', reference)
+      .single();
 
     if (transactionError || !transaction) {
       logger.error({
@@ -1527,12 +1504,7 @@ export async function POST(request: NextRequest) {
         })
         .eq('id', transaction.order_id)
         .select(
-          // A1: include tax_basis, gift_wrapping_fee, tax_amount,
-          // discount_amount so the outbox helper can run a real
-          // financialConsistency() check on the paid order. Without these,
-          // FIRS / loyalty executors (wired in B3.5) would always see the
-          // order as `tax_basis_unclassified` and short-circuit to failed.
-          'id, merchant_id, order_number, customer_id, total, subtotal, shipping_fee, gift_wrapping_fee, tax_amount, discount_amount, tax_basis, customer_name, customer_email, customer_phone, shipping_address, currency, payment_status, shipping_status, updated_at, ad_tracking, order_items(id, product_id, name, price, quantity, subtotal, variant_name)'
+          'id, merchant_id, order_number, customer_id, total, subtotal, shipping_fee, customer_name, customer_email, customer_phone, shipping_address, currency, payment_status, shipping_status, updated_at, ad_tracking, order_items(id, product_id, name, price, quantity, subtotal, variant_name)'
         )
         .single();
 
@@ -1542,61 +1514,6 @@ export async function POST(request: NextRequest) {
           orderId: transaction.order_id,
           error: orderError,
         });
-        // Review feedback (#1563 thread #1): the outbox-based settlement
-        // path is gated on a successful order update. Without this
-        // fallback, a transient order-update failure would leave the
-        // merchant uncredited even though the customer paid; webhook
-        // retries short-circuit because the transaction is already
-        // marked completed. Record settlement directly here using
-        // transaction-level data (we don't need the fresh order row).
-        // Idempotency is enforced by the partial UNIQUE index from A0,
-        // so a later replay with a successful order update is a no-op.
-        try {
-          const grossAmount = Number(transaction.amount) || 0;
-          const gatewayFee = extractVerifiedGatewayFeeNgn(
-            gateway,
-            gatewayResponse
-          );
-          const platformFee =
-            Number(transaction.platform_fee) ||
-            calculatePlatformFee(grossAmount * 100).platformFee / 100;
-          const { error: fallbackSettlementError } = await supabase.rpc(
-            'record_merchant_settlement',
-            {
-              p_merchant_id: transaction.merchant_id,
-              p_source_type: 'order',
-              p_source_id: transaction.order_id,
-              p_gateway: gateway,
-              p_gateway_reference: transaction.gateway_reference ?? reference,
-              p_gross_amount: grossAmount,
-              p_gateway_fee: gatewayFee,
-              p_platform_fee: platformFee,
-              p_description: `Order payment via ${gateway} (order update failed)`,
-              p_metadata: {
-                [`${gateway}_reference`]: reference,
-                verified_gateway_fee: gatewayFee,
-                order_update_failed: true,
-              },
-            }
-          );
-          if (fallbackSettlementError) {
-            logger.warn({
-              message:
-                'record_merchant_settlement errored on order-update-fail fallback path',
-              error: fallbackSettlementError,
-              orderId: transaction.order_id,
-              reference,
-            });
-          }
-        } catch (fallbackSettlementThrew) {
-          logger.warn({
-            message:
-              'record_merchant_settlement threw on order-update-fail fallback path',
-            error: fallbackSettlementThrew,
-            orderId: transaction.order_id,
-            reference,
-          });
-        }
       } else {
         logger.info({
           message: 'Order updated successfully',
@@ -1646,27 +1563,9 @@ export async function POST(request: NextRequest) {
           }
         });
 
-        // Δ-7 / A1: route paid-order side effects through the
-        // `payment_side_effects` outbox so replays (cron, manual reconcile,
-        // duplicate webhook) can't double-execute. Each step claims its own
-        // row by (order_id, step); the mark-completed UPDATE is token-gated
-        // so a stale-claim takeover by a peer worker can't double-mark.
-        const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
-
-        // Review feedback (CodeRabbit P1, Critical): destructure the
-        // error so transient fetch failures don't get silently coerced
-        // into a permanent `skipped` outbox state. Previously only
-        // `data` was destructured: a transient blip (network hiccup,
-        // PgBouncer reconnect, brief DB unavailability) would leave
-        // merchantDetails undefined → executor returned
-        // `{ skipped: ... }` (a SUCCESS value) → outbox marked the step
-        // `completed` → replay never re-attempts → customer permanently
-        // loses confirmation email. Now: distinguish PGRST116 (no rows
-        // — genuinely-missing merchant; not retryable) from any other
-        // error code (transient — throw so the executor catch marks the
-        // step `failed` and replay re-runs).
-        const { data: merchantDetails, error: merchantFetchError } =
-          await supabase
+        // Send order confirmation email
+        try {
+          const { data: merchantDetails } = await supabase
             .from('merchants')
             .select(
               'business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
@@ -1674,108 +1573,103 @@ export async function POST(request: NextRequest) {
             .eq('id', transaction.merchant_id)
             .single();
 
-        const paidEmailExecutor: StepExecutor = async () => {
-          // Non-PGRST116 errors are transient: throw so replay retries.
-          if (merchantFetchError && merchantFetchError.code !== 'PGRST116') {
-            throw new Error(
-              `merchant_fetch_error: ${merchantFetchError.message}`
+          if (merchantDetails && order.customer_email) {
+            const rootDomain =
+              process.env.NEXT_PUBLIC_ROOT_DOMAIN || 'usebaci.com';
+            const merchantUrl = `https://${merchantDetails.slug}.${rootDomain}`;
+
+            const emailItems = (order.order_items || []).map(
+              (item: Record<string, unknown>) => ({
+                name:
+                  typeof item.variant_name === 'string' &&
+                  item.variant_name.trim().length > 0
+                    ? `${(item.name as string) || 'Product'} (${item.variant_name})`
+                    : (item.name as string) || 'Product',
+                quantity: (item.quantity as number) || 1,
+                price: (item.price as number) || 0,
+              })
             );
-          }
-          // PGRST116 (merchant row genuinely missing) or missing customer
-          // email (guest checkout) is permanently un-emailable. Skipping
-          // is the correct terminal state.
-          if (!(merchantDetails && order.customer_email)) {
-            return { skipped: 'missing_merchant_or_customer_email' };
-          }
 
-          const merchantUrl = `https://${merchantDetails.slug}.${rootDomain}`;
-          const emailItems = (order.order_items || []).map(
-            (item: Record<string, unknown>) => ({
-              name:
-                typeof item.variant_name === 'string' &&
-                item.variant_name.trim().length > 0
-                  ? `${(item.name as string) || 'Product'} (${item.variant_name})`
-                  : (item.name as string) || 'Product',
-              quantity: (item.quantity as number) || 1,
-              price: (item.price as number) || 0,
-            })
-          );
-
-          const emailData = {
-            orderNumber:
-              order.order_number || order.id.slice(0, 8).toUpperCase(),
-            customerName: order.customer_name,
-            items: emailItems,
-            subtotal: Number.parseFloat(order.subtotal || '0'),
-            shippingFee: Number.parseFloat(order.shipping_fee || '0'),
-            total: Number.parseFloat(order.total || '0'),
-            shippingAddress: {
-              address: order.shipping_address?.address || '',
-              city: order.shipping_address?.city || '',
-              state: order.shipping_address?.state || '',
-              phone: order.customer_phone || '',
-            },
-            merchantName: merchantDetails.business_name,
-            merchantUrl,
-            merchantTin: merchantDetails.tax_identification_number ?? undefined,
-            merchantRcNumber: merchantDetails.cac_rc_number ?? undefined,
-          };
-
-          const htmlContent = generateOrderConfirmationEmail(emailData);
-          const textContent = generateOrderConfirmationText(emailData);
-
-          const replyToEmail =
-            merchantDetails.support_email ||
-            merchantDetails.email ||
-            `support@${merchantDetails.slug}.${rootDomain}`;
-          const senderName = merchantDetails.email_sender_name
-            ? `${merchantDetails.email_sender_name} Orders`
-            : merchantDetails.business_name
-              ? `${merchantDetails.business_name} Orders`
-              : undefined;
-
-          const emailResult = await sendEmail({
-            to: order.customer_email,
-            toName: order.customer_name,
-            subject: `Order Confirmation - #${emailData.orderNumber}`,
-            htmlContent,
-            textContent,
-            replyTo: replyToEmail,
-            emailType: 'orders',
-            fromName: senderName,
-            // Δ-61: ZeptoMail has no Idempotency-Key. The
-            // payment_side_effects claim row is the dedup record; this
-            // client_reference gives us a server-side audit trail showing
-            // which sends actually went out.
-            clientReference: `order:${order.id}:paid_email`,
-            auditContext: {
-              merchantId: order.merchant_id,
-              orderId: order.id,
-              customerId: order.customer_id,
-              metadata: {
-                trigger: 'paystack_payment_confirmation',
+            const emailData = {
+              orderNumber:
+                order.order_number || order.id.slice(0, 8).toUpperCase(),
+              customerName: order.customer_name,
+              items: emailItems,
+              subtotal: Number.parseFloat(order.subtotal || '0'),
+              shippingFee: Number.parseFloat(order.shipping_fee || '0'),
+              total: Number.parseFloat(order.total || '0'),
+              shippingAddress: {
+                address: order.shipping_address?.address || '',
+                city: order.shipping_address?.city || '',
+                state: order.shipping_address?.state || '',
+                phone: order.customer_phone || '',
               },
-            },
-          });
+              merchantName: merchantDetails.business_name,
+              merchantUrl,
+              merchantTin:
+                merchantDetails.tax_identification_number ?? undefined,
+              merchantRcNumber: merchantDetails.cac_rc_number ?? undefined,
+            };
 
-          if (!emailResult.success) {
-            // Throw → outbox marks failed; replay retakes the claim.
-            throw new Error(
-              emailResult.error || emailResult.errorCode || 'email_failed'
-            );
+            const htmlContent = generateOrderConfirmationEmail(emailData);
+            const textContent = generateOrderConfirmationText(emailData);
+
+            // Use merchant's support_email as reply-to (so customer replies go to merchant)
+            // Use merchant's email_sender_name for branding (e.g., "Ogabassey Orders")
+            const replyToEmail =
+              merchantDetails.support_email ||
+              merchantDetails.email ||
+              `support@${merchantDetails.slug}.${rootDomain}`;
+            const senderName = merchantDetails.email_sender_name
+              ? `${merchantDetails.email_sender_name} Orders`
+              : merchantDetails.business_name
+                ? `${merchantDetails.business_name} Orders`
+                : undefined;
+
+            const emailResult = await sendEmail({
+              to: order.customer_email,
+              toName: order.customer_name,
+              subject: `Order Confirmation - #${emailData.orderNumber}`,
+              htmlContent,
+              textContent,
+              replyTo: replyToEmail,
+              emailType: 'orders',
+              fromName: senderName,
+              auditContext: {
+                merchantId: order.merchant_id,
+                orderId: order.id,
+                customerId: order.customer_id,
+                metadata: {
+                  trigger: 'paystack_payment_confirmation',
+                },
+              },
+            });
+
+            if (!emailResult.success) {
+              logger.error({
+                message: 'Failed to send order confirmation email',
+                orderId: order.id,
+                emailError: emailResult.error,
+                emailErrorCode: emailResult.errorCode,
+                emailErrorDetails: emailResult.errorDetails,
+              });
+            } else {
+              logger.info({
+                message: 'Order confirmation email sent',
+                orderId: order.id,
+                messageId: emailResult.messageId,
+              });
+            }
           }
-          return { messageId: emailResult.messageId };
-        };
+        } catch (emailError) {
+          logger.error({
+            message: 'Failed to send order confirmation email',
+            error: emailError,
+          });
+        }
 
-        // Review feedback (#1563 thread #2): ad-platform calls
-        // (FB CAPI / TikTok / Snap / GA4) are slow third-party APIs.
-        // Pre-A1 they ran via `after(...)` so the webhook response
-        // wasn't blocked. The outbox helper's await put them back on
-        // the response path, raising webhook timeout/retry risk. Run
-        // them via `after(...)` here, OUTSIDE the outbox helper. The
-        // ad-platform side already deduplicates by deterministic
-        // event_id (see triggerPurchaseConversion), so we don't need
-        // outbox replay tracking specifically for this step.
+        // Send offline conversion events to ad platforms (Facebook, TikTok, GA4, Snapchat)
+        // Using Next.js `after()` for proper background task lifecycle management
         after(async () => {
           try {
             await triggerPurchaseConversion(
@@ -1783,166 +1677,67 @@ export async function POST(request: NextRequest) {
               transaction.merchant_id,
               order
             );
-          } catch (adTrackingErr) {
-            logger.warn({
-              message: 'Ad-tracking conversion failed (after-response path)',
-              error: adTrackingErr,
-              orderId: order.id,
-            });
+          } catch {
+            // Errors are already logged inside triggerPurchaseConversion
+            // This catch prevents unhandled rejections in the background task
           }
-        });
-
-        const settlementExecutor: StepExecutor = async () => {
-          const grossAmount = Number(transaction.amount) || 0;
-          // Δ-0b: source the gateway fee from the verified Paystack
-          // response (Korapay verify has no fee field, returns 0).
-          const gatewayFee = extractVerifiedGatewayFeeNgn(
-            gateway,
-            gatewayResponse
-          );
-          const platformFee =
-            Number(transaction.platform_fee) ||
-            calculatePlatformFee(grossAmount * 100).platformFee / 100;
-
-          const { error: settlementError } = await supabase.rpc(
-            'record_merchant_settlement',
-            {
-              p_merchant_id: transaction.merchant_id,
-              p_source_type: 'order',
-              p_source_id: order.id,
-              p_gateway: gateway,
-              // Δ-22: settlement key is our BAC-*; Paystack ref → metadata only.
-              p_gateway_reference: transaction.gateway_reference ?? reference,
-              p_gross_amount: grossAmount,
-              p_gateway_fee: gatewayFee,
-              p_platform_fee: platformFee,
-              p_description: `Order payment via ${gateway}`,
-              p_metadata: {
-                [`${gateway}_reference`]: reference,
-                verified_gateway_fee: gatewayFee,
-              },
-            }
-          );
-          if (settlementError) {
-            throw new Error(settlementError.message);
-          }
-          return {
-            gross_amount: grossAmount,
-            gateway_fee: gatewayFee,
-            platform_fee: platformFee,
-          };
-        };
-
-        const sideEffectsResult = await applyPaidOrderSideEffects({
-          supabase,
-          order: {
-            id: order.id,
-            merchant_id: order.merchant_id,
-            payment_status: 'paid',
-            tax_basis:
-              (order as Record<string, unknown>).tax_basis === 'exclusive' ||
-              (order as Record<string, unknown>).tax_basis === 'inclusive'
-                ? ((order as Record<string, unknown>).tax_basis as
-                    | 'exclusive'
-                    | 'inclusive')
-                : null,
-            subtotal: Number((order as Record<string, unknown>).subtotal) || 0,
-            shipping_fee:
-              Number((order as Record<string, unknown>).shipping_fee) || 0,
-            gift_wrapping_fee:
-              Number((order as Record<string, unknown>).gift_wrapping_fee) || 0,
-            tax_amount:
-              Number((order as Record<string, unknown>).tax_amount) || 0,
-            discount_amount:
-              Number((order as Record<string, unknown>).discount_amount) || 0,
-            total: Number((order as Record<string, unknown>).total) || 0,
-          },
-          transaction: {
-            id: transaction.id,
-            order_id: order.id,
-            merchant_id: transaction.merchant_id,
-            gateway_reference: transaction.gateway_reference ?? null,
-            amount: transaction.amount,
-          },
-          gatewayResponse,
-          actor: `webhook:${reference}`,
-          executors: {
-            paid_email: paidEmailExecutor,
-            // ad_tracking_conversion intentionally NOT in the outbox —
-            // see the `after(() => triggerPurchaseConversion(...))`
-            // block above (review feedback #1563 thread #2).
-            merchant_settlement: settlementExecutor,
-          },
-        });
-
-        logger.info({
-          message: 'payment_side_effects executed',
-          orderId: order.id,
-          reference,
-          ranSteps: sideEffectsResult.ranSteps,
-          skippedSteps: sideEffectsResult.skippedSteps,
-          failedSteps: sideEffectsResult.failedSteps,
-          concurrentTakeoverSteps: sideEffectsResult.concurrentTakeoverSteps,
         });
       }
     }
 
-    // Record settlement for domain purchases (no order_id → outside the
-    // outbox, which is keyed on order_id). Order-bearing transactions
-    // record settlement via the `merchant_settlement` step in the outbox.
-    const isDomainPurchase =
-      (transaction.metadata as Record<string, unknown>)?.transaction_type ===
-      'domain_purchase';
-    if (isDomainPurchase) {
-      try {
-        const grossAmount = Number(transaction.amount) || 0;
-        const gatewayFee = extractVerifiedGatewayFeeNgn(
-          gateway,
-          gatewayResponse
-        );
-        const platformFee =
-          Number(transaction.platform_fee) ||
-          calculatePlatformFee(grossAmount * 100).platformFee / 100;
+    // Record settlement for merchant wallet tracking
+    try {
+      const isDomainPurchase =
+        (transaction.metadata as Record<string, unknown>)?.transaction_type ===
+        'domain_purchase';
+      const sourceType = isDomainPurchase ? 'domain_purchase' : 'order';
+      const sourceId = isDomainPurchase ? transaction.id : transaction.order_id;
 
-        const { error: settlementError } = await supabase.rpc(
-          'record_merchant_settlement',
-          {
-            p_merchant_id: transaction.merchant_id,
-            p_source_type: 'domain_purchase',
-            p_source_id: transaction.id,
-            p_gateway: gateway,
-            p_gateway_reference: transaction.gateway_reference ?? reference,
-            p_gross_amount: grossAmount,
-            p_gateway_fee: gatewayFee,
-            p_platform_fee: platformFee,
-            p_description: `Domain purchase via ${gateway}`,
-            p_metadata: {
-              [`${gateway}_reference`]: reference,
-              verified_gateway_fee: gatewayFee,
-            },
-          }
-        );
+      // Calculate fees using proper platform fee structure (2% capped at ₦2,050)
+      const grossAmount = Number(transaction.amount) || 0;
+      const gatewayFee = Number(transaction.gateway_fee) || 0;
+      // Use stored platform fee if available, otherwise calculate using proper formula
+      const platformFee =
+        Number(transaction.platform_fee) ||
+        calculatePlatformFee(grossAmount * 100).platformFee / 100; // Convert to/from kobo
 
-        if (settlementError) {
-          logger.warn({
-            message: 'Failed to record domain-purchase settlement',
-            error: settlementError,
-            reference,
-          });
-        } else {
-          logger.info({
-            message: 'Domain-purchase settlement recorded',
-            reference,
-            gateway,
-            grossAmount,
-          });
+      const { error: settlementError } = await supabase.rpc(
+        'record_merchant_settlement',
+        {
+          p_merchant_id: transaction.merchant_id,
+          p_source_type: sourceType,
+          p_source_id: sourceId,
+          p_gateway: gateway,
+          p_gateway_reference: reference,
+          p_gross_amount: grossAmount,
+          p_gateway_fee: gatewayFee,
+          p_platform_fee: platformFee,
+          p_description: isDomainPurchase
+            ? `Domain purchase via ${gateway}`
+            : `Order payment via ${gateway}`,
         }
-      } catch (settlementError) {
+      );
+
+      if (settlementError) {
         logger.warn({
-          message: 'Domain-purchase settlement error',
+          message: 'Failed to record merchant settlement',
           error: settlementError,
+          reference,
+        });
+        // Don't fail the webhook - settlement tracking is supplementary
+      } else {
+        logger.info({
+          message: 'Merchant settlement recorded',
+          reference,
+          gateway,
+          grossAmount,
         });
       }
+    } catch (settlementError) {
+      logger.warn({
+        message: 'Settlement recording error',
+        error: settlementError,
+      });
     }
 
     if (gateway === 'paystack') {

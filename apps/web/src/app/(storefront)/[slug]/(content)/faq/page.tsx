@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
-import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import {
   getMerchantByIdentifier,
   getRequestScopedMerchant,
@@ -9,7 +9,7 @@ import {
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import { generateFAQSchema, getIndexableRobotsMetadata } from '@/lib/seo-utils';
-import { buildStoreUrl } from '@/lib/store-url';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { getTemplate } from '@/templates/registry';
 import { type FAQItem, parseLegacyFAQ } from '@/types/faq';
 import { FAQPageClient } from '../pages/faq/faq-page-client';
@@ -49,7 +49,7 @@ export async function generateMetadata({
     notFound();
   }
 
-  const canonicalUrl = `${buildStoreUrl(merchant)}/faq`;
+  const canonicalUrl = `${buildRequestScopedStoreUrl(merchant, await headers())}/faq`;
 
   return {
     title: `FAQ | ${merchant.business_name}`,
@@ -72,9 +72,6 @@ export async function generateMetadata({
 export default function FAQPage({ params }: PageProps) {
   return (
     <>
-      <Suspense fallback={null}>
-        <StorefrontDynamicMetadataMarker />
-      </Suspense>
       <Suspense fallback={null}>
         <FAQJsonLd params={params} />
       </Suspense>

@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { Suspense } from 'react';
 import { RootDynamicBody } from '@/app/root-dynamic-body';
-import { Toaster } from '@/components/ui/toaster';
 import { PLATFORM_CONFIG } from '@/config/platform';
 import './globals.css';
 
@@ -101,6 +100,19 @@ export const viewport: Viewport = {
   colorScheme: 'light dark',
 };
 
+function RootLayoutFallback() {
+  return (
+    <div
+      className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      Loading application...
+    </div>
+  );
+}
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -130,11 +142,9 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        <Toaster />
-        <Suspense fallback={null}>
-          <RootDynamicBody />
+        <Suspense fallback={<RootLayoutFallback />}>
+          <RootDynamicBody>{children}</RootDynamicBody>
         </Suspense>
-        {children}
       </body>
     </html>
   );

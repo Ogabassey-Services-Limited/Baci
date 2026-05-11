@@ -48,7 +48,6 @@ describe('MotionNonceProvider', () => {
         </MotionNonceProvider>
       )
     ).toThrow('useNonce must be used within a NonceProvider');
-
     expect(motionConfigMock).not.toHaveBeenCalled();
 
     consoleErrorSpy.mockRestore();

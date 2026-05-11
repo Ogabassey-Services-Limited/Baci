@@ -11,8 +11,6 @@ import {
   withCompletionAuthorizationMetadata,
 } from '@/lib/agentic/checkout-completion-authorization-response';
 import {
-  type CheckoutPaymentSnapshot,
-  getAgenticPaymentMethod,
   getAgenticPaymentState,
   getStoredCheckoutPaymentSnapshot,
   getStoredDvaAccount,
@@ -63,35 +61,6 @@ export async function resolveCheckoutCompletionSessionState({
     paymentState === 'payment_account_ready' ||
     paymentState === 'order_finalizing'
   ) {
-    const snapshot = getStoredCheckoutPaymentSnapshot(session.metadata);
-    if (
-      paymentState === 'order_finalizing' &&
-      getAgenticPaymentMethod(session.metadata) === 'pay_on_delivery'
-    ) {
-      if (!snapshot || session.order_id) {
-        return {
-          body: buildPaymentAccountConflictResponse({
-            orderId: session.order_id,
-          }),
-          ok: false,
-          status: 409,
-        };
-      }
-
-      // Pay-on-delivery has no DVA account to resume; the stored snapshot is
-      // enough to retry final order creation with the same confirmed totals.
-      return {
-        canResumePaymentAccount: false,
-        metadata: session.metadata ?? { agentic: {} },
-        ok: true,
-        sessionCalc: buildSessionCalcFromSnapshot(
-          snapshot,
-          session.shipping_method
-        ),
-        storedDvaAccount: null,
-      };
-    }
-
     if (session.metadata == null) {
       logger.warn({
         message: 'Payment side-effect session is missing metadata',
@@ -101,6 +70,7 @@ export async function resolveCheckoutCompletionSessionState({
     }
 
     const storedDvaAccount = getStoredDvaAccount(session);
+    const snapshot = getStoredCheckoutPaymentSnapshot(session.metadata);
     if (!storedDvaAccount || !snapshot || session.order_id) {
       return {
         body: buildPaymentAccountConflictResponse({
@@ -115,10 +85,13 @@ export async function resolveCheckoutCompletionSessionState({
       canResumePaymentAccount: true,
       metadata: session.metadata ?? { agentic: {} },
       ok: true,
-      sessionCalc: buildSessionCalcFromSnapshot(
-        snapshot,
-        session.shipping_method
-      ),
+      sessionCalc: {
+        fulfillmentOptions: [],
+        lineItems: snapshot.lineItems,
+        messages: [],
+        selectedOptionId: session.shipping_method ?? undefined,
+        totals: snapshot.totals,
+      },
       storedDvaAccount,
     };
   }
@@ -238,18 +211,5 @@ export async function resolveCheckoutCompletionSessionState({
     ok: true,
     sessionCalc,
     storedDvaAccount: null,
-  };
-}
-
-function buildSessionCalcFromSnapshot(
-  snapshot: CheckoutPaymentSnapshot,
-  shippingMethod: string | null | undefined
-): CheckoutSessionCalculation {
-  return {
-    fulfillmentOptions: [],
-    lineItems: snapshot.lineItems,
-    messages: [],
-    selectedOptionId: shippingMethod ?? undefined,
-    totals: snapshot.totals,
   };
 }

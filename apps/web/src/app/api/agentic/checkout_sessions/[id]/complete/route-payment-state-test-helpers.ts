@@ -27,14 +27,12 @@ function makeReadySession() {
 function buildCompleteRequest({
   confirmationAmount = 500000,
   includeAuthorization = true,
-  paymentData = { provider: 'paystack', token: 'confirmed-by-human' },
 }: {
   confirmationAmount?: number;
   includeAuthorization?: boolean;
-  paymentData?: Record<string, unknown>;
 } = {}) {
   const body: Record<string, unknown> = {
-    payment_data: paymentData,
+    payment_data: { provider: 'paystack', token: 'confirmed-by-human' },
     buyer: {
       email: 'buyer@example.com',
       first_name: 'Ada',
@@ -95,29 +93,12 @@ function mockSession(session: Record<string, unknown>) {
 }
 
 function getPaymentState(payload: unknown) {
-  return getAgenticMetadataField(payload, 'payment_state');
-}
-
-function getPaymentMethod(payload: unknown) {
-  return getAgenticMetadataField(payload, 'payment_method');
-}
-
-function hasFinalizationOrderId(payload: unknown) {
-  return (
-    typeof getAgenticMetadataField(payload, 'finalization_order_id') ===
-    'string'
-  );
-}
-
-function getAgenticMetadataField(payload: unknown, field: string) {
-  if (!payload || typeof payload !== 'object' || !('metadata' in payload)) {
-    return undefined;
-  }
-
-  const metadata = (
-    payload as { metadata?: { agentic?: Record<string, unknown> } }
-  ).metadata;
-  return metadata?.agentic?.[field];
+  const metadata =
+    payload && typeof payload === 'object' && 'metadata' in payload
+      ? (payload as { metadata?: { agentic?: { payment_state?: unknown } } })
+          .metadata
+      : undefined;
+  return metadata?.agentic?.payment_state;
 }
 
 function createClaimUpdateChain() {
@@ -153,38 +134,6 @@ function createFinalUpdateChain() {
   return chain;
 }
 
-function createPayOnDeliveryClaimUpdateChain() {
-  const maybeSingle = vi.fn().mockResolvedValue({
-    data: { session_id: 'agentic_session_1' },
-    error: null,
-  });
-  const chain = {} as Record<
-    'eq' | 'is' | 'not' | 'select',
-    ReturnType<typeof vi.fn>
-  >;
-  chain.eq = vi.fn(() => chain);
-  chain.is = vi.fn(() => chain);
-  chain.not = vi.fn(() => chain);
-  chain.select = vi.fn(() => ({ maybeSingle }));
-  return chain;
-}
-
-function chooseUpdateChain(payload: Record<string, unknown>) {
-  if (getPaymentState(payload) === 'claiming_payment') {
-    return createClaimUpdateChain();
-  }
-
-  if (
-    getPaymentState(payload) === 'order_finalizing' &&
-    getPaymentMethod(payload) === 'pay_on_delivery' &&
-    !hasFinalizationOrderId(payload)
-  ) {
-    return createPayOnDeliveryClaimUpdateChain();
-  }
-
-  return createFinalUpdateChain();
-}
-
 function createSessionReadChain(
   session: Record<string, unknown> = makeReadySession()
 ) {
@@ -201,7 +150,9 @@ function mockSuccessfulPaymentSessionSupabase(
   session: Record<string, unknown> = makeReadySession()
 ) {
   const updateSpy = vi.fn((payload: Record<string, unknown>) =>
-    chooseUpdateChain(payload)
+    getPaymentState(payload) === 'claiming_payment'
+      ? createClaimUpdateChain()
+      : createFinalUpdateChain()
   );
   const readChain = createSessionReadChain(session);
 

@@ -1,15 +1,11 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { buildPaidAgenticDvaMetadata } from '@/lib/agentic/paystack-dva-paid-metadata';
 import { isAgenticDvaSessionMetadata } from '@/lib/agentic/paystack-dva-session-metadata';
-import {
-  AGENTIC_PAYSTACK_DVA_TRANSACTION_SELECT,
-  type AgenticPaystackDvaTransaction,
-  normalizeAgenticPaystackDvaTransaction,
-} from '@/lib/agentic/paystack-dva-transaction';
 
 type VerifiedAmount = { amount: number; currency?: string };
 
 type AgenticDvaPaymentResult =
-  | { handled: false; transaction?: AgenticPaystackDvaTransaction }
+  | { handled: false }
   | { body: Record<string, unknown>; handled: true; status: number };
 
 const PAYSTACK_ACCOUNT_PATTERN = /^\d{6,20}$/;
@@ -66,7 +62,7 @@ export async function confirmAgenticPaystackDvaPayment({
   const { data: existingTransaction, error: existingTransactionError } =
     await supabase
       .from('transactions')
-      .select(AGENTIC_PAYSTACK_DVA_TRANSACTION_SELECT)
+      .select('id')
       .eq('gateway_reference', gatewayReference)
       .maybeSingle();
   if (existingTransactionError) {
@@ -77,10 +73,7 @@ export async function confirmAgenticPaystackDvaPayment({
     };
   }
   if (existingTransaction) {
-    return {
-      handled: false,
-      transaction: normalizeAgenticPaystackDvaTransaction(existingTransaction),
-    };
+    return { handled: false };
   }
 
   const sessionSelect =
@@ -178,7 +171,7 @@ export async function confirmAgenticPaystackDvaPayment({
       status: 409,
     };
   }
-  const { data: insertedTransaction, error: transactionError } = await supabase
+  const { error: transactionError } = await supabase
     .from('transactions')
     .insert({
       amount: expectedAmount.toString(),
@@ -195,46 +188,107 @@ export async function confirmAgenticPaystackDvaPayment({
       order_id: checkoutSession.order_id,
       status: 'pending',
       transaction_type: 'payment',
-    })
-    .select(AGENTIC_PAYSTACK_DVA_TRANSACTION_SELECT)
-    .single();
+    });
 
-  if (transactionError?.code === POSTGRES_UNIQUE_VIOLATION) {
-    const { data: reservedTransaction, error: reservedTransactionError } =
-      await supabase
-        .from('transactions')
-        .select(AGENTIC_PAYSTACK_DVA_TRANSACTION_SELECT)
-        .eq('gateway_reference', gatewayReference)
-        .maybeSingle();
-
-    if (reservedTransactionError || !reservedTransaction) {
-      return {
-        body: { error: 'Agentic payment transaction lookup failed' },
-        handled: true,
-        status: 500,
-      };
-    }
-    return {
-      handled: false,
-      transaction: normalizeAgenticPaystackDvaTransaction(reservedTransaction),
-    };
-  }
-
-  if (transactionError || !insertedTransaction) {
+  if (transactionError && transactionError.code !== POSTGRES_UNIQUE_VIOLATION) {
     return {
       body: { error: 'Agentic payment transaction creation failed' },
       handled: true,
       status: 500,
     };
   }
-  return {
-    handled: false,
-    transaction: normalizeAgenticPaystackDvaTransaction(insertedTransaction),
-  };
+  // Return to the standard Paystack webhook path after reserving the pending
+  // transaction. That path owns gateway verification and atomically claims
+  // `.neq('status', 'completed')` before settlement side effects.
+  return { handled: false };
 }
 
 function toMinorCurrencyUnit(amount: number): number {
   return Math.round(amount * 100);
+}
+
+export async function markAgenticPaystackDvaSessionPaid({
+  gatewayReference,
+  supabase,
+  transaction,
+}: {
+  gatewayReference: string;
+  supabase: SupabaseClient;
+  transaction: {
+    merchant_id: string;
+    metadata: unknown;
+    order_id: string | null;
+  };
+}): Promise<{ error?: unknown; ok: boolean; skipped?: boolean }> {
+  const metadata = toRecord(transaction.metadata);
+  if (metadata.transaction_type !== 'agentic_checkout_payment') {
+    return { ok: true, skipped: true };
+  }
+  const sessionId = metadata.agentic_checkout_session_id;
+  const accountNumber = metadata.agentic_virtual_account_number;
+  if (
+    typeof sessionId !== 'string' ||
+    typeof accountNumber !== 'string' ||
+    !transaction.order_id
+  ) {
+    return { error: 'Invalid agentic payment transaction metadata', ok: false };
+  }
+  const { data: session, error: sessionError } = await supabase
+    .from('checkout_sessions')
+    .select('metadata, status')
+    .eq('session_id', sessionId)
+    .eq('merchant_id', transaction.merchant_id)
+    .eq('order_id', transaction.order_id)
+    .maybeSingle();
+
+  if (sessionError || !session) {
+    return {
+      error: sessionError ?? 'Agentic checkout session not found',
+      ok: false,
+    };
+  }
+  if ((session as { status?: string | null }).status === 'completed') {
+    return { ok: true, skipped: true };
+  }
+  if (
+    !isAgenticDvaSessionMetadata({
+      accountNumber,
+      metadata: (session as { metadata?: unknown }).metadata,
+    })
+  ) {
+    return { ok: true, skipped: true };
+  }
+  const { data, error } = await supabase
+    .from('checkout_sessions')
+    .update({
+      metadata: buildPaidAgenticDvaMetadata({
+        accountNumber,
+        gatewayReference,
+        metadata: (session as { metadata?: unknown }).metadata,
+      }),
+      status: 'completed',
+    })
+    .eq('session_id', sessionId)
+    .eq('merchant_id', transaction.merchant_id)
+    .eq('order_id', transaction.order_id)
+    .select('session_id')
+    .maybeSingle();
+
+  if (error || !data) {
+    return {
+      error: error ?? 'Agentic checkout session was not updated',
+      ok: false,
+    };
+  }
+  return {
+    ok: true,
+  };
+}
+
+function toRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
 }
 
 function normalizeSessionRows(value: unknown): unknown[] {

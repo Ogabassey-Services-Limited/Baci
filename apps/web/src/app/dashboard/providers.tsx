@@ -5,7 +5,7 @@ import AppBody from '@/components/app-body';
 import { CsrfInitializer } from '@/components/csrf-initializer';
 import { AuthProvider } from '@/contexts/auth-context';
 import { MotionNonceProvider } from '@/contexts/MotionNonceProvider';
-import { NonceProvider, useNonce } from '@/contexts/NonceProvider';
+import { useNonce } from '@/contexts/NonceProvider';
 import { ProductProvider } from '@/contexts/product-context';
 import {
   type MerchantData,
@@ -34,34 +34,13 @@ interface DashboardProvidersProps {
   children: React.ReactNode;
   initialMerchant?: MerchantData | null;
   initialStaffAccess?: StaffAccess;
-  nonce?: string;
 }
-
-type DashboardProvidersContentProps = Omit<DashboardProvidersProps, 'nonce'>;
 
 export function DashboardProviders({
   children,
   initialMerchant,
   initialStaffAccess,
-  nonce,
 }: DashboardProvidersProps) {
-  return (
-    <NonceProvider nonce={nonce}>
-      <DashboardProvidersContent
-        initialMerchant={initialMerchant}
-        initialStaffAccess={initialStaffAccess}
-      >
-        {children}
-      </DashboardProvidersContent>
-    </NonceProvider>
-  );
-}
-
-function DashboardProvidersContent({
-  children,
-  initialMerchant,
-  initialStaffAccess,
-}: DashboardProvidersContentProps) {
   const { nonce } = useNonce();
 
   return (

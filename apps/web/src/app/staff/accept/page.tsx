@@ -1,8 +1,6 @@
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Suspense } from 'react';
-import { StaffAcceptFallback } from '@/app/staff/accept/staff-accept-fallback';
 import { Logo } from '@/components/logo';
 import { ThemedButton } from '@/components/themed/themed-button';
 import { ThemedCard } from '@/components/themed/themed-card';
@@ -13,16 +11,7 @@ interface AcceptPageProps {
   searchParams: Promise<{ token?: string }>;
 }
 
-export default function StaffAcceptPage(props: AcceptPageProps) {
-  return (
-    <Suspense fallback={<StaffAcceptFallback />}>
-      <StaffAcceptPageContent {...props} />
-    </Suspense>
-  );
-}
-
-/** Exported so route tests can exercise resolved invitation states. */
-export async function StaffAcceptPageContent({
+export default async function StaffAcceptPage({
   searchParams,
 }: AcceptPageProps) {
   const params = await searchParams;

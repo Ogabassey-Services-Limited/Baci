@@ -2,16 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // --- Mock setup ---
 
-const {
-  mockGetConfiguredAppUrl,
-  mockGetOllamaStorefrontModel,
-  mockGetRootDomain,
-  mockIsAiStorefrontGenerationEnabled,
-} = vi.hoisted(() => ({
+const { mockGetConfiguredAppUrl, mockGetRootDomain } = vi.hoisted(() => ({
   mockGetConfiguredAppUrl: vi.fn(),
-  mockGetOllamaStorefrontModel: vi.fn(),
   mockGetRootDomain: vi.fn(),
-  mockIsAiStorefrontGenerationEnabled: vi.fn(),
 }));
 
 const mockGetUser = vi.fn();
@@ -34,10 +27,6 @@ const mockAdminMaybeSingle = vi.fn();
 const mockAdminSingle = vi.fn();
 const mockAdminEq = vi.fn();
 const mockAdminFrom = vi.fn();
-const mockPageConfigInsert = vi.fn();
-const mockPageConfigSelect = vi.fn();
-const mockPageConfigSingle = vi.fn();
-const mockAiJobsInsert = vi.fn();
 const mockAdminClient = { from: mockAdminFrom };
 
 vi.mock('next/headers', () => ({
@@ -58,9 +47,7 @@ vi.mock('@/lib/supabase/admin', () => ({
 
 vi.mock('@/env', () => ({
   getConfiguredAppUrl: mockGetConfiguredAppUrl,
-  getOllamaStorefrontModel: mockGetOllamaStorefrontModel,
   getRootDomain: mockGetRootDomain,
-  isAiStorefrontGenerationEnabled: mockIsAiStorefrontGenerationEnabled,
 }));
 
 vi.mock('@/lib/email', () => ({
@@ -110,7 +97,6 @@ const validFields = {
 };
 
 const prevState = { success: false, message: '' };
-const MOCK_PAGE_CONFIG_UPDATED_AT = '2026-04-28T10:00:00.000Z';
 
 function setupChainedMock(
   finalData: unknown,
@@ -130,16 +116,7 @@ describe('submitOnboarding', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetConfiguredAppUrl.mockReturnValue('https://usebaci.com');
-    mockGetOllamaStorefrontModel.mockReturnValue('gemma4:e4b');
     mockGetRootDomain.mockReturnValue('usebaci.com');
-    mockIsAiStorefrontGenerationEnabled.mockReturnValue(false);
-    mockPageConfigSingle.mockResolvedValue({
-      data: { updated_at: MOCK_PAGE_CONFIG_UPDATED_AT },
-      error: null,
-    });
-    mockPageConfigSelect.mockReturnValue({ single: mockPageConfigSingle });
-    mockPageConfigInsert.mockReturnValue({ select: mockPageConfigSelect });
-    mockAiJobsInsert.mockResolvedValue({ data: null, error: null });
 
     // Default: no existing auth session
     mockGetUser.mockResolvedValue({ data: { user: null } });
@@ -179,12 +156,7 @@ describe('submitOnboarding', () => {
       }
       if (table === 'page_configs') {
         return {
-          insert: mockPageConfigInsert,
-        };
-      }
-      if (table === 'ai_jobs') {
-        return {
-          insert: mockAiJobsInsert,
+          insert: vi.fn().mockResolvedValue({ error: null }),
         };
       }
       return {
@@ -254,79 +226,5 @@ describe('submitOnboarding', () => {
 
     expect(result.success).toBe(false);
     expect(result.message).toContain('already exists');
-  });
-
-  it('does not enqueue an AI job or report success when starter page insert fails', async () => {
-    mockAdminMaybeSingle
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({ data: null, error: null });
-    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
-    mockPageConfigSingle.mockResolvedValueOnce({
-      data: null,
-      error: { message: 'insert failed' },
-    });
-    mockIsAiStorefrontGenerationEnabled.mockReturnValue(true);
-
-    const result = await submitOnboarding(prevState, makeFormData(validFields));
-
-    expect(result.success).toBe(false);
-    expect(result.message).toContain('Failed to create starter page config');
-    expect(mockAiJobsInsert).not.toHaveBeenCalled();
-  });
-
-  it('enqueues a storefront generation job when the rollout flag is enabled', async () => {
-    mockAdminMaybeSingle
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({ data: null, error: null });
-    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
-    mockIsAiStorefrontGenerationEnabled.mockReturnValue(true);
-
-    const result = await submitOnboarding(prevState, makeFormData(validFields));
-
-    expect(result.success).toBe(true);
-    expect(mockAiJobsInsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        merchant_id: 'merchant-1',
-        type: 'storefront_layout_generation',
-        status: 'pending',
-        idempotency_key: 'storefront-layout:merchant-1:home:onboarding',
-        input: expect.objectContaining({
-          pageSlug: 'home',
-          businessName: 'TestStore',
-          businessType: 'fashion',
-          createdPageConfigUpdatedAt: MOCK_PAGE_CONFIG_UPDATED_AT,
-        }),
-        model: 'gemma4:e4b',
-      })
-    );
-  });
-
-  it('keeps onboarding successful when AI job enqueue fails', async () => {
-    mockAdminMaybeSingle
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({ data: null, error: null });
-    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
-    mockIsAiStorefrontGenerationEnabled.mockReturnValue(true);
-    mockAiJobsInsert.mockResolvedValueOnce({
-      data: null,
-      error: { message: 'queue unavailable', code: 'XX000' },
-    });
-
-    const result = await submitOnboarding(prevState, makeFormData(validFields));
-
-    expect(result.success).toBe(true);
-    expect(mockAiJobsInsert).toHaveBeenCalled();
-  });
-
-  it('does not enqueue a storefront generation job when the rollout flag is disabled', async () => {
-    mockAdminMaybeSingle
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({ data: null, error: null });
-    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
-
-    const result = await submitOnboarding(prevState, makeFormData(validFields));
-
-    expect(result.success).toBe(true);
-    expect(mockAiJobsInsert).not.toHaveBeenCalled();
   });
 });

@@ -1,8 +1,5 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
-import { BlogListingFallback } from '@/app/(storefront)/[slug]/(blog)/blog/BlogListingFallback';
-import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
 import { getCachedBlogListing } from '@/lib/cached-data';
 import {
@@ -18,7 +15,6 @@ import {
 } from '@/lib/storefront-social-images';
 import { isDomainIdentifier } from '@/lib/validation';
 import { type BlogPostData, getTemplate } from '@/templates/registry';
-import { BlogDiscoverySection } from './blog-discovery-section';
 import { DefaultBlogUi } from './default-blog-ui';
 import { TemplateBlogRenderer } from './template-blog-renderer';
 
@@ -178,6 +174,64 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
       url: `${baseUrl}/blog`,
     },
   ]);
+  const blogDiscoverySection = (
+    <section
+      aria-labelledby="blog-discovery-links"
+      className="mx-auto mt-8 max-w-[1400px] px-4 md:px-6"
+    >
+      <div className="rounded-2xl border border-[var(--store-background-text,#111827)]/10 bg-[var(--store-background,#ffffff)] p-5">
+        <h2
+          id="blog-discovery-links"
+          className="text-sm font-semibold uppercase tracking-[0.08em] text-[var(--store-background-text,#111827)]/70"
+        >
+          Continue Exploring
+        </h2>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <a
+            className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
+            href={`${baseUrl}/products`}
+          >
+            All Products
+          </a>
+          <a
+            className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
+            href={`${baseUrl}/`}
+          >
+            Home
+          </a>
+          {categories.slice(0, 12).map((cat) => (
+            <a
+              key={cat}
+              className="rounded-full border border-[var(--store-background-text,#111827)]/15 px-3 py-1.5 text-xs font-medium text-[var(--store-background-text,#111827)]/80 transition-colors hover:border-[var(--store-primary)] hover:text-[var(--store-primary)]"
+              href={`${baseUrl}/blog?category=${encodeURIComponent(cat)}`}
+            >
+              {cat}
+            </a>
+          ))}
+        </div>
+
+        {posts.length > 0 && (
+          <>
+            <h3 className="mt-5 text-xs font-semibold uppercase tracking-[0.08em] text-[var(--store-background-text,#111827)]/55">
+              Latest Article Links
+            </h3>
+            <ul className="mt-2 grid gap-1 md:grid-cols-2 lg:grid-cols-3">
+              {posts.slice(0, 24).map((post) => (
+                <li key={post.id}>
+                  <a
+                    className="text-xs text-[var(--store-primary)] underline-offset-4 hover:underline"
+                    href={`${baseUrl}/blog/${post.slug}`}
+                  >
+                    {post.title}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </section>
+  );
   const templateId = merchant.template_id;
   if (templateId && templateId !== 'default' && templateId !== 'puck') {
     const template = getTemplate(templateId);
@@ -203,11 +257,7 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
           }));
           return (
             <>
-              <BlogDiscoverySection
-                baseUrl={baseUrl}
-                categories={categories}
-                posts={posts}
-              />
+              {blogDiscoverySection}
               <InformationalClusterIndex collections={guideCollections} />
               <TemplateBlogRenderer
                 blogSchema={blogSchema}
@@ -234,11 +284,7 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
   }
   return (
     <>
-      <BlogDiscoverySection
-        baseUrl={baseUrl}
-        categories={categories}
-        posts={posts}
-      />
+      {blogDiscoverySection}
       <InformationalClusterIndex collections={guideCollections} />
       <DefaultBlogUi
         blogSchema={blogSchema}
@@ -257,14 +303,5 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
 }
 
 export default function BlogPage(props: PageProps) {
-  return (
-    <>
-      <Suspense fallback={null}>
-        <StorefrontDynamicMetadataMarker />
-      </Suspense>
-      <Suspense fallback={<BlogListingFallback />}>
-        <BlogPageContent {...props} />
-      </Suspense>
-    </>
-  );
+  return <BlogPageContent {...props} />;
 }

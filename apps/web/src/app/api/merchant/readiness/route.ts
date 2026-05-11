@@ -5,11 +5,6 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
-import {
-  buildStoreBuildStatus,
-  type StoreBuildStatus,
-  type StorefrontBuildJob,
-} from '@/lib/store-build-status';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 
@@ -78,7 +73,6 @@ export interface StoreReadiness {
   totalRecommended: number;
   overallProgress: number;
   items: SetupItem[];
-  storeBuild: StoreBuildStatus;
 }
 
 export async function GET() {
@@ -205,66 +199,12 @@ export async function GET() {
       );
     }
 
-    const [
-      { count: publishedProductCount },
-      { data: latestStorefrontJob, error: latestStorefrontJobError },
-      { data: homePageConfig, error: homePageConfigError },
-    ] = await Promise.all([
-      supabase
-        .from('products')
-        // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
-        .select('id', { count: 'exact', head: true })
-        .eq('merchant_id', validMerchant.id)
-        .eq('status', 'active'),
-      supabase
-        .from('ai_jobs')
-        .select('id, status, error, result_applied_at, created_at')
-        .eq('merchant_id', validMerchant.id)
-        .eq('type', 'storefront_layout_generation')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle<StorefrontBuildJob>(),
-      supabase
-        .from('page_configs')
-        .select('id')
-        .eq('merchant_id', validMerchant.id)
-        .eq('page_slug', 'home')
-        .maybeSingle(),
-    ]);
-
-    if (latestStorefrontJobError) {
-      console.error(
-        '[Readiness API] ai_jobs storefront status read failed:',
-        latestStorefrontJobError
-      );
-      return NextResponse.json(
-        {
-          error: 'Failed to load storefront build status',
-          code: 'STOREFRONT_JOB_LOAD_FAILED',
-        },
-        { status: 500 }
-      );
-    }
-
-    if (homePageConfigError) {
-      console.error(
-        '[Readiness API] page_configs starter status read failed:',
-        homePageConfigError
-      );
-      return NextResponse.json(
-        {
-          error: 'Failed to load starter storefront status',
-          code: 'PAGE_CONFIG_LOAD_FAILED',
-        },
-        { status: 500 }
-      );
-    }
-
-    const storeBuild = buildStoreBuildStatus(
-      !!homePageConfig,
-      latestStorefrontJob,
-      hasPermission(access, 'builder', 'edit')
-    );
+    const { count: publishedProductCount } = await supabase
+      .from('products')
+      // PERFORMANCE: Use .select('id') instead of .select('*') for COUNT queries to prevent overfetching full rows
+      .select('id', { count: 'exact', head: true })
+      .eq('merchant_id', validMerchant.id)
+      .eq('status', 'active');
 
     // KYC readiness must match the publish gate, which checks *verified*
     // flags on merchant_verifications (not mere presence of
@@ -445,7 +385,6 @@ export async function GET() {
       totalRecommended: recommendedItems.length,
       overallProgress: Math.round((totalCompleted / items.length) * 100),
       items,
-      storeBuild,
     };
 
     return NextResponse.json(readiness);

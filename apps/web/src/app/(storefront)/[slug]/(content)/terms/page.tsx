@@ -1,9 +1,6 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
-import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
-import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
@@ -11,7 +8,7 @@ import {
   generateMetaDescription,
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
-import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { getTemplate } from '@/templates/registry';
 import { TermsPageClient } from '../pages/terms/terms-page-client';
 
@@ -29,7 +26,7 @@ export async function generateMetadata({
     return { title: 'Terms of Service' };
   }
 
-  const baseUrl = buildStoreUrl(merchant);
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const canonicalUrl = `${baseUrl}/terms`;
   const description = generateMetaDescription(
     `Terms of Service for ${merchant.business_name}. Read our terms and conditions.`
@@ -52,20 +49,7 @@ export async function generateMetadata({
   };
 }
 
-export default function TermsPage({ params }: PageProps) {
-  return (
-    <>
-      <Suspense fallback={null}>
-        <StorefrontDynamicMetadataMarker />
-      </Suspense>
-      <Suspense fallback={<ContentRouteLoading />}>
-        <TermsPageContent params={params} />
-      </Suspense>
-    </>
-  );
-}
-
-async function TermsPageContent({ params }: PageProps) {
+export default async function TermsPage({ params }: PageProps) {
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 

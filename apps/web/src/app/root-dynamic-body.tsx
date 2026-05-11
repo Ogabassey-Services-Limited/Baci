@@ -1,11 +1,22 @@
+import type { ReactNode } from 'react';
 import { DeferredPlatformInsights } from '@/components/analytics/deferred-platform-insights';
 import { WebVitalsReporter } from '@/components/analytics/web-vitals-reporter';
+import { Toaster } from '@/components/ui/toaster';
+import { NonceProvider } from '@/contexts/NonceProvider';
 
-// Keep this component independent from page children. RootLayout renders the
-// page shell as a sibling so dynamic root enhancements cannot gate LCP content.
-export function RootDynamicBody() {
+export function RootDynamicBody({
+  children,
+  nonce,
+}: {
+  children: ReactNode;
+  nonce?: string;
+}) {
   return (
     <>
+      <NonceProvider nonce={nonce}>
+        {children}
+        <Toaster />
+      </NonceProvider>
       <WebVitalsReporter />
       <DeferredPlatformInsights />
     </>

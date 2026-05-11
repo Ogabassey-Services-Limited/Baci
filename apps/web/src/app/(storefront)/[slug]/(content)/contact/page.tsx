@@ -1,9 +1,6 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { Suspense } from 'react';
-import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
-import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
@@ -12,7 +9,7 @@ import {
   generateOrganizationSchema,
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
-import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { getTemplate } from '@/templates/registry';
 import { ContactPageClient } from '../pages/contact/contact-page-client';
@@ -31,7 +28,7 @@ export async function generateMetadata({
     return { title: 'Contact Us' };
   }
 
-  const baseUrl = buildStoreUrl(merchant);
+  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const canonicalUrl = `${baseUrl}/contact`;
   const description = generateMetaDescription(
     `Get in touch with ${merchant.business_name}. We're here to help.`
@@ -54,21 +51,7 @@ export async function generateMetadata({
   };
 }
 
-export default function ContactPage({ params }: PageProps) {
-  return (
-    <>
-      <Suspense fallback={null}>
-        <StorefrontDynamicMetadataMarker />
-      </Suspense>
-      <Suspense fallback={<ContentRouteLoading />}>
-        <ContactPageContent params={params} />
-      </Suspense>
-    </>
-  );
-}
-
-/** Exported so route tests can exercise resolved content outside Suspense. */
-export async function ContactPageContent({ params }: PageProps) {
+export default async function ContactPage({ params }: PageProps) {
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 

@@ -28,9 +28,6 @@
         "OLLAMA_BASE_URL",
         "OLLAMA_CAC_MODEL",
         "OLLAMA_BASIC_AUTH",
-        "LLM_SERVER_URL",
-        "LLM_SERVER_BEARER",
-        "LLM_CHAT_MODEL",
         "SUPABASE_JWT_SECRET"
       ]
     },

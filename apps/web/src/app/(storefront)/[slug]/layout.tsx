@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type React from 'react';
-import { Suspense } from 'react';
 import { DeferredPageViewTracker } from '@/components/storefront/deferred-page-view-tracker';
 import { OgabasseyStorefrontLayout } from '@/components/storefront/ogabassey/storefront-layout';
 import { StoreNotPublished } from '@/components/storefront/store-not-published';
@@ -13,9 +12,8 @@ import { StorefrontCartProvider } from '@/hooks/cart/storefront-cart-provider';
 import { StorefrontMerchantProvider } from '@/hooks/merchant/storefront-merchant-provider';
 import type { MerchantData } from '@/hooks/use-merchant';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
-import { buildStoreUrl } from '@/lib/store-url';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
-import { isStorefrontHomePath } from './storefront-home-path';
 import {
   getStorefrontShellSnapshot,
   getStorefrontShellSnapshotBase,
@@ -27,12 +25,10 @@ import {
  */
 function StorefrontLayoutRenderer({
   merchant,
-  preloadHeroLcpImages,
   routingMode,
   children,
 }: {
   merchant: MerchantData;
-  preloadHeroLcpImages: boolean;
   routingMode: 'domain' | 'path';
   children: React.ReactNode;
 }) {
@@ -49,11 +45,7 @@ function StorefrontLayoutRenderer({
 
   if (templateId === OGABASSEY_TEMPLATE_ID) {
     return (
-      <OgabasseyStorefrontLayout
-        merchant={merchant}
-        preloadHeroLcpImages={preloadHeroLcpImages}
-        routingMode={routingMode}
-      >
+      <OgabasseyStorefrontLayout merchant={merchant} routingMode={routingMode}>
         {children}
       </OgabasseyStorefrontLayout>
     );
@@ -125,7 +117,8 @@ export async function generateMetadata({
     merchant.site_description ||
     merchant.site_tagline ||
     `Shop ${merchant.business_name} - Buy gadgets, electronics, and more with flexible payment options in Nigeria.`;
-  const baseUrl = buildStoreUrl(merchant);
+  const headersList = await headers();
+  const baseUrl = buildRequestScopedStoreUrl(merchant, headersList);
   let metadataBase: URL | undefined;
 
   try {
@@ -178,11 +171,9 @@ export function generateViewport(): Viewport {
 
 function StorefrontShellFrame({
   children,
-  preloadHeroLcpImages,
   shellSnapshot,
 }: {
   children: React.ReactNode;
-  preloadHeroLcpImages: boolean;
   shellSnapshot: Awaited<ReturnType<typeof getStorefrontShellSnapshot>>;
 }) {
   if (!shellSnapshot) {
@@ -208,11 +199,7 @@ function StorefrontShellFrame({
           - Keeps layout persistent across route changes (seamless navigation)
           - Prevents header flashing/re-rendering
         */}
-        <StorefrontLayoutRenderer
-          merchant={merchant}
-          preloadHeroLcpImages={preloadHeroLcpImages}
-          routingMode={routingMode}
-        >
+        <StorefrontLayoutRenderer merchant={merchant} routingMode={routingMode}>
           {children}
         </StorefrontLayoutRenderer>
       </StorefrontCartProvider>
@@ -224,7 +211,7 @@ function StorefrontThemeFrame({ children }: { children: React.ReactNode }) {
   return <StorefrontThemeProvider>{children}</StorefrontThemeProvider>;
 }
 
-export async function StorefrontLayoutContent(props: {
+export default async function StorefrontLayout(props: {
   children: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
@@ -240,21 +227,14 @@ export async function StorefrontLayoutContent(props: {
     notFound();
   }
 
-  const headersList = await headers();
-  const preloadHeroLcpImages =
-    shellSnapshotBase.merchant.template_id === OGABASSEY_TEMPLATE_ID &&
-    isStorefrontHomePath({
-      merchantSlug: shellSnapshotBase.merchant.slug,
-      pathname: headersList.get('x-pathname'),
-      routeSlug: slug,
-    });
-
   const isDevelopment = process.env.NODE_ENV === 'development';
   if (!shellSnapshotBase.merchant.is_published && !isDevelopment) {
     return (
-      <StoreNotPublished
-        businessName={shellSnapshotBase.merchant.business_name}
-      />
+      <StorefrontThemeFrame>
+        <StoreNotPublished
+          businessName={shellSnapshotBase.merchant.business_name}
+        />
+      </StorefrontThemeFrame>
     );
   }
 
@@ -265,24 +245,10 @@ export async function StorefrontLayoutContent(props: {
   }
 
   return (
-    <StorefrontShellFrame
-      preloadHeroLcpImages={preloadHeroLcpImages}
-      shellSnapshot={shellSnapshot}
-    >
-      {props.children}
-    </StorefrontShellFrame>
-  );
-}
-
-export default function StorefrontLayout(props: {
-  children: React.ReactNode;
-  params: Promise<{ slug: string }>;
-}) {
-  return (
     <StorefrontThemeFrame>
-      <Suspense fallback={null}>
-        <StorefrontLayoutContent {...props} />
-      </Suspense>
+      <StorefrontShellFrame shellSnapshot={shellSnapshot}>
+        {props.children}
+      </StorefrontShellFrame>
     </StorefrontThemeFrame>
   );
 }

@@ -23,7 +23,7 @@ vi.mock('../pages/contact/contact-page-client', () => ({
   ContactPageClient: vi.fn(() => null),
 }));
 
-const { ContactPageContent, generateMetadata } = await import('./page');
+const { default: ContactPage, generateMetadata } = await import('./page');
 
 const merchantFixture = {
   business_name: 'Test Store',
@@ -98,7 +98,7 @@ describe('contact metadata', () => {
       >
     );
 
-    const ui = await ContactPageContent({
+    const ui = await ContactPage({
       params: Promise.resolve({ slug: 'test-store' }),
     });
     render(ui);

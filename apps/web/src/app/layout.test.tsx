@@ -1,12 +1,10 @@
 import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockRootDynamicBody } = vi.hoisted(() => ({
-  mockRootDynamicBody: vi.fn((props?: Record<string, never>) => {
-    void props;
-    return <div data-testid="root-dynamic-body" />;
-  }),
-}));
+const mockRootDynamicBody = vi.fn(({ children }: { children: ReactNode }) => (
+  <>{children}</>
+));
 
 vi.mock('next/font/google', () => ({
   Inter: () => ({
@@ -15,11 +13,8 @@ vi.mock('next/font/google', () => ({
 }));
 
 vi.mock('@/app/root-dynamic-body', () => ({
-  RootDynamicBody: mockRootDynamicBody,
-}));
-
-vi.mock('@/components/ui/toaster', () => ({
-  Toaster: () => <div data-testid="root-toaster" />,
+  RootDynamicBody: (props: { children: ReactNode }) =>
+    mockRootDynamicBody(props),
 }));
 
 import RootLayout from '@/app/layout';
@@ -27,9 +22,12 @@ import RootLayout from '@/app/layout';
 describe('RootLayout', () => {
   beforeEach(() => {
     mockRootDynamicBody.mockReset();
+    mockRootDynamicBody.mockImplementation(
+      ({ children }: { children: ReactNode }) => <>{children}</>
+    );
   });
 
-  it('renders the page shell beside the root dynamic body', () => {
+  it('renders the global app shell through the root dynamic body', () => {
     render(
       <RootLayout>
         <main>Main content</main>
@@ -37,17 +35,16 @@ describe('RootLayout', () => {
     );
 
     expect(screen.getByRole('main')).toHaveTextContent('Main content');
-    expect(screen.getByTestId('root-toaster')).toBeInTheDocument();
-    expect(screen.getByTestId('root-dynamic-body')).toBeInTheDocument();
     expect(mockRootDynamicBody).toHaveBeenCalledTimes(1);
-    expect(mockRootDynamicBody.mock.calls[0]?.[0]).toEqual({});
+    expect(mockRootDynamicBody.mock.calls[0]?.[0]).toEqual({
+      children: expect.anything(),
+    });
   });
 
-  it('keeps the page shell visible when root dynamic providers suspend', () => {
+  it('renders a root fallback while the dynamic body is pending', () => {
     mockRootDynamicBody.mockImplementation(() => {
       throw new Promise(() => {
-        // Intentionally unresolved to verify the root layout does not catch
-        // the page shell behind a global loading screen.
+        // Intentionally unresolved to keep the suspense fallback visible.
       });
     });
 
@@ -57,11 +54,6 @@ describe('RootLayout', () => {
       </RootLayout>
     );
 
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    expect(
-      screen.queryByText('Loading application...')
-    ).not.toBeInTheDocument();
-    expect(screen.getByTestId('root-toaster')).toBeInTheDocument();
-    expect(screen.getByRole('main')).toHaveTextContent('Main content');
+    expect(screen.getByRole('status')).toHaveTextContent('Loading application');
   });
 });

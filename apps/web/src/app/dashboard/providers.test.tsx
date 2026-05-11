@@ -6,53 +6,26 @@ const appBodyMock = vi.fn(({ children }: { children: React.ReactNode }) => (
   <div data-testid="app-body">{children}</div>
 ));
 
-interface NonceProviderState {
-  nonce?: string;
-}
-
-const nonceProviderState: NonceProviderState = {};
-
+// Mock all provider dependencies to avoid deep rendering
 vi.mock('@/contexts/auth-context', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => (
-    <section aria-label="Auth Provider">{children}</section>
+    <div data-testid="auth-provider">{children}</div>
   ),
 }));
 
 vi.mock('next-themes', () => ({
-  ThemeProvider: ({
-    children,
-    nonce,
-  }: {
-    children: React.ReactNode;
-    nonce?: string;
-  }) => (
-    <section aria-label="Theme Provider" data-nonce={nonce}>
-      {children}
-    </section>
+  ThemeProvider: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="theme-provider">{children}</div>
   ),
 }));
 
 vi.mock('@/contexts/NonceProvider', () => ({
-  NonceProvider: ({
-    children,
-    nonce,
-  }: {
-    children: React.ReactNode;
-    nonce?: string;
-  }) => {
-    nonceProviderState.nonce = nonce;
-    return (
-      <section aria-label="Nonce Provider" data-nonce={nonce}>
-        {children}
-      </section>
-    );
-  },
-  useNonce: () => ({ nonce: nonceProviderState.nonce }),
+  useNonce: () => ({ nonce: 'nonce-123' }),
 }));
 
 vi.mock('@/contexts/MotionNonceProvider', () => ({
   MotionNonceProvider: ({ children }: { children: React.ReactNode }) => (
-    <section aria-label="Motion Nonce Provider">{children}</section>
+    <div data-testid="motion-nonce-provider">{children}</div>
   ),
 }));
 
@@ -62,14 +35,14 @@ vi.mock('@/components/csrf-initializer', () => ({
 
 vi.mock('@/hooks/use-merchant', () => ({
   MerchantProvider: ({ children }: { children: React.ReactNode }) => (
-    <section aria-label="Merchant Provider">{children}</section>
+    <div data-testid="merchant-provider">{children}</div>
   ),
   useMerchant: () => ({ merchant: null }),
 }));
 
 vi.mock('@/contexts/product-context', () => ({
   ProductProvider: ({ children }: { children: React.ReactNode }) => (
-    <section aria-label="Product Provider">{children}</section>
+    <div data-testid="product-provider">{children}</div>
   ),
 }));
 
@@ -86,7 +59,6 @@ vi.mock('@/components/app-body', () => ({
 describe('DashboardProviders', () => {
   beforeEach(() => {
     appBodyMock.mockClear();
-    nonceProviderState.nonce = undefined;
   });
 
   it('renders children within provider tree', () => {
@@ -98,35 +70,6 @@ describe('DashboardProviders', () => {
 
     expect(screen.getByTestId('child-content')).toBeInTheDocument();
     expect(screen.getByText('Dashboard Content')).toBeInTheDocument();
-  });
-
-  it('wraps children in NonceProvider', () => {
-    render(
-      <DashboardProviders nonce="nonce-123">
-        <div>Content</div>
-      </DashboardProviders>
-    );
-
-    const nonceProvider = screen.getByRole('region', {
-      name: 'Nonce Provider',
-    });
-    expect(nonceProvider).toHaveAttribute('data-nonce', 'nonce-123');
-    expect(nonceProvider).toContainElement(
-      screen.getByRole('region', { name: 'Auth Provider' })
-    );
-    expect(nonceProvider).toContainElement(screen.getByText('Content'));
-  });
-
-  it('forwards the nonce to ThemeProvider', () => {
-    render(
-      <DashboardProviders nonce="nonce-123">
-        <div>Content</div>
-      </DashboardProviders>
-    );
-
-    expect(
-      screen.getByRole('region', { name: 'Theme Provider' })
-    ).toHaveAttribute('data-nonce', 'nonce-123');
   });
 
   it('mounts CsrfInitializer for CSRF token initialization', () => {
@@ -146,9 +89,7 @@ describe('DashboardProviders', () => {
       </DashboardProviders>
     );
 
-    expect(
-      screen.getByRole('region', { name: 'Auth Provider' })
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('auth-provider')).toBeInTheDocument();
   });
 
   it('wraps children in ThemeProvider', () => {
@@ -158,9 +99,7 @@ describe('DashboardProviders', () => {
       </DashboardProviders>
     );
 
-    expect(
-      screen.getByRole('region', { name: 'Theme Provider' })
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('theme-provider')).toBeInTheDocument();
   });
 
   it('opts the dashboard route into Framer nonce support', () => {
@@ -170,9 +109,7 @@ describe('DashboardProviders', () => {
       </DashboardProviders>
     );
 
-    expect(
-      screen.getByRole('region', { name: 'Motion Nonce Provider' })
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('motion-nonce-provider')).toBeInTheDocument();
   });
 
   it('wraps children in MerchantProvider', () => {
@@ -182,9 +119,7 @@ describe('DashboardProviders', () => {
       </DashboardProviders>
     );
 
-    expect(
-      screen.getByRole('region', { name: 'Merchant Provider' })
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('merchant-provider')).toBeInTheDocument();
   });
 
   it('wraps children in ProductProvider', () => {
@@ -194,9 +129,7 @@ describe('DashboardProviders', () => {
       </DashboardProviders>
     );
 
-    expect(
-      screen.getByRole('region', { name: 'Product Provider' })
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('product-provider')).toBeInTheDocument();
   });
 
   it('disables storefront overlays inside the dashboard shell', () => {

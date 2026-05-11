@@ -2,10 +2,6 @@ import { render, screen, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import CatalogRouteLoading from '@/app/(storefront)/[slug]/(catalog)/loading';
-import {
-  HERO_DESKTOP_LCP_SRC,
-  HERO_MOBILE_LCP_SRC,
-} from '@/components/storefront/ogabassey/components/hero-data';
 
 const mocks = vi.hoisted(() => ({
   getOgabasseyBasePath: vi.fn(),
@@ -13,7 +9,6 @@ const mocks = vi.hoisted(() => ({
   shouldEnableOgabasseyGoogleStoreWidget: vi.fn(),
   prefetchDNS: vi.fn(),
   preconnect: vi.fn(),
-  preload: vi.fn(),
 }));
 
 let shouldSuspendChrome = false;
@@ -24,7 +19,6 @@ const suspendedChromePromise = new Promise<never>(() => {
 vi.mock('react-dom', () => ({
   prefetchDNS: mocks.prefetchDNS,
   preconnect: mocks.preconnect,
-  preload: mocks.preload,
 }));
 
 vi.mock('@/components/analytics/deferred-google-store-widget', () => ({
@@ -123,7 +117,6 @@ describe('OgabasseyStorefrontLayout', () => {
     mocks.shouldEnableOgabasseyGoogleStoreWidget.mockReset();
     mocks.prefetchDNS.mockClear();
     mocks.preconnect.mockClear();
-    mocks.preload.mockClear();
     mocks.getOgabasseyBasePath.mockReturnValue('/ogabassey');
     mocks.getOgabasseyLayoutStyle.mockReturnValue({
       '--store-primary': '#d62027',
@@ -140,7 +133,6 @@ describe('OgabasseyStorefrontLayout', () => {
 
     expect(mocks.prefetchDNS).toHaveBeenCalledWith(OGABASSEY_CDN_ORIGIN);
     expect(mocks.preconnect).toHaveBeenCalledWith(OGABASSEY_CDN_ORIGIN);
-    expect(mocks.preload).not.toHaveBeenCalled();
     expect(mocks.getOgabasseyBasePath).toHaveBeenCalledWith(
       'ogabassey',
       'path'
@@ -162,33 +154,6 @@ describe('OgabasseyStorefrontLayout', () => {
     expect(screen.getByTestId('google-store-widget')).toHaveAttribute(
       'data-domain',
       'ogabassey.com'
-    );
-  });
-
-  it('emits viewport-scoped hero LCP preloads when the home route asks for them', () => {
-    render(
-      <OgabasseyStorefrontLayout merchant={merchant} preloadHeroLcpImages>
-        <div>Storefront body</div>
-      </OgabasseyStorefrontLayout>
-    );
-
-    expect(mocks.preload).toHaveBeenCalledWith(
-      HERO_DESKTOP_LCP_SRC,
-      expect.objectContaining({
-        as: 'image',
-        fetchPriority: 'high',
-        media: '(min-width: 768px)',
-        type: 'image/avif',
-      })
-    );
-    expect(mocks.preload).toHaveBeenCalledWith(
-      HERO_MOBILE_LCP_SRC,
-      expect.objectContaining({
-        as: 'image',
-        fetchPriority: 'high',
-        media: '(max-width: 767px)',
-        type: 'image/avif',
-      })
     );
   });
 

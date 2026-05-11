@@ -39,6 +39,14 @@ export const HERO_MOBILE_LCP_SRC = getImportedImageSrc(iphoneHeroMobileAsset);
 export const HERO_MOBILE_LCP_FALLBACK_SRC = getImportedImageSrc(
   iphoneHeroMobileFallbackAsset
 );
+// Slug shapes the storefront [slug] route observes for OgaBassey:
+//   - 'ogabassey'      — direct path /{ogabassey} on the platform domain or *.usebaci.com subdomain
+//   - 'ogabassey.com'  — custom-domain rewrite via proxy.ts (host → /${domain}${pathname});
+//                        proxy normalizes 'www.ogabassey.com' down to this form.
+export const OGABASSEY_HERO_PRELOAD_IDENTIFIERS = new Set([
+  'ogabassey',
+  'ogabassey.com',
+]);
 
 export const NEW_ARRIVALS_PROMO_IMAGE =
   'https://cdn.ogabassey.com/core-assets/products/macbook-pro.avif';
