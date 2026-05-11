@@ -1,5 +1,5 @@
 import type { User } from '@supabase/supabase-js';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider, useAuth } from './auth-context';
 
@@ -55,5 +55,83 @@ describe('AuthProvider', () => {
 
     expect(screen.getByText('loading:false')).toBeInTheDocument();
     expect(screen.getByText('user:user-1')).toBeInTheDocument();
+  });
+
+  it('upgrades to the refreshed user when getUser resolves with a new identity', async () => {
+    const initialUser = { id: 'user-1' } as User;
+    mocks.getUser.mockResolvedValue({
+      data: { user: { id: 'user-1-refreshed' } as User },
+      error: null,
+    });
+
+    render(
+      <AuthProvider initialUser={initialUser}>
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('user:user-1-refreshed')).toBeInTheDocument();
+    });
+    expect(screen.getByText('loading:false')).toBeInTheDocument();
+  });
+
+  it('retains initialUser when getUser rejects so the UI stays signed in', async () => {
+    const initialUser = { id: 'user-1' } as User;
+    mocks.getUser.mockRejectedValue(new Error('Network error'));
+
+    render(
+      <AuthProvider initialUser={initialUser}>
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    // Microtask flush — give the rejected promise's handler a chance to run.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(screen.getByText('user:user-1')).toBeInTheDocument();
+    expect(screen.getByText('loading:false')).toBeInTheDocument();
+  });
+
+  it('starts in a loading state when no initialUser is provided', () => {
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    expect(screen.getByText('loading:true')).toBeInTheDocument();
+    expect(screen.getByText('user:none')).toBeInTheDocument();
+  });
+
+  it('reflects user changes pushed by onAuthStateChange', async () => {
+    let pushAuthEvent: ((event: string, session: unknown) => void) | null =
+      null;
+    mocks.onAuthStateChange.mockImplementation(
+      (callback: (event: string, session: unknown) => void) => {
+        pushAuthEvent = callback;
+        return { data: { subscription: { unsubscribe: mocks.unsubscribe } } };
+      }
+    );
+
+    render(
+      <AuthProvider>
+        <AuthProbe />
+      </AuthProvider>
+    );
+
+    expect(pushAuthEvent).not.toBeNull();
+    // Two-step cast because TS can't narrow `let` re-assigned inside the
+    // mockImplementation callback above.
+    const push = pushAuthEvent as unknown as (
+      event: string,
+      session: unknown
+    ) => void;
+    push('SIGNED_IN', { user: { id: 'user-2' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('user:user-2')).toBeInTheDocument();
+    });
   });
 });

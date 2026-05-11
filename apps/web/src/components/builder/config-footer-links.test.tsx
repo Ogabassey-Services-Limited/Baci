@@ -81,6 +81,27 @@ describe('builderConfig Footer', () => {
     );
   });
 
+  it('leaves internal links unchanged when merchant context is unavailable', () => {
+    // Hydration-gap scenario: no merchant context, no basePath -> the
+    // `!basePath` branch in getStorefrontScopedHref must keep links bare.
+    mockUseMerchantSafe.mockReturnValue(undefined);
+    renderFooter({
+      quickLinks: [
+        { label: 'About Us', url: '/about' },
+        { label: 'External', url: 'https://example.com' },
+      ],
+    });
+
+    expect(screen.getByRole('link', { name: 'About Us' })).toHaveAttribute(
+      'href',
+      '/about'
+    );
+    expect(screen.getByRole('link', { name: 'External' })).toHaveAttribute(
+      'href',
+      'https://example.com'
+    );
+  });
+
   it('does not override route metadata titles from the root render', () => {
     const previousTitle = document.title;
     document.title = 'Generated Storefront Metadata';

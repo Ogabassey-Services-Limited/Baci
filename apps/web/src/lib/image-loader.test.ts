@@ -56,6 +56,11 @@ describe('imageLoader', () => {
     expect(imageLoader({ src: url, width: 64 })).toBe(url);
   });
 
+  it('returns blob URLs directly without modification', () => {
+    const url = 'blob:https://example.com/550e8400-e29b-41d4-a716-446655440000';
+    expect(imageLoader({ src: url, width: 64 })).toBe(url);
+  });
+
   it('passes width and quality through non-OgaBassey external URLs', () => {
     const url = 'https://cdn.example.com/img.avif';
     expect(imageLoader({ src: url, width: 1200, quality: 90 })).toBe(

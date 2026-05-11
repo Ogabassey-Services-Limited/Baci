@@ -240,6 +240,41 @@ describe('AddProductForm', () => {
     );
   });
 
+  it('stops auto-syncing the slug once the user manually edits it', async () => {
+    const user = userEvent.setup();
+    const onProductAdded = vi.fn();
+
+    render(
+      <AddProductForm onCancel={vi.fn()} onProductAdded={onProductAdded} />
+    );
+
+    await user.type(
+      screen.getByRole('textbox', { name: /name/i }),
+      'Jollof Pack'
+    );
+
+    await user.click(screen.getByRole('tab', { name: /seo/i }));
+    const slugInput = screen.getByRole('textbox', { name: /url slug/i });
+    await user.clear(slugInput);
+    await user.type(slugInput, 'my-custom-slug');
+
+    await user.click(screen.getByRole('tab', { name: /general/i }));
+    const nameInput = screen.getByRole('textbox', { name: /name/i });
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Different Product');
+
+    await user.click(screen.getByRole('button', { name: 'Save Product' }));
+
+    await waitFor(() =>
+      expect(onProductAdded).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Different Product',
+          slug: 'my-custom-slug',
+        })
+      )
+    );
+  });
+
   it('ignores stale variants when the category does not support variants', async () => {
     mockGetCategoryConfigFromBusinessType.mockImplementation(() => ({
       description: 'General products',

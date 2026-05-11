@@ -100,7 +100,7 @@ describe('getStorefrontSeoDescription', () => {
     expect(
       getStorefrontSeoDescription(
         makeMerchant({
-          site_description: null,
+          site_description: undefined,
           site_tagline: 'Curated picks for you.',
         })
       )
@@ -141,7 +141,7 @@ describe('getStorefrontSeoDescription', () => {
         makeMerchant({
           business_name: 'GlobalCo',
           business_type: 'fashion',
-          country: null,
+          country: undefined,
         })
       )
     ).toBe(

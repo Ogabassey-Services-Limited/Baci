@@ -65,6 +65,12 @@ describe('initial template fallback content', () => {
     ['art', 'Unique Handmade'],
     ['food-beverage', 'Fresh Ingredients'],
     ['pharmaceuticals', 'Trusted Products'],
+    // Aliases handled by `normalizeBusinessType` — guard against regressions
+    // when the source alias map changes.
+    ['cosmetics', 'Ingredient Focused'],
+    ['restaurant', 'Fresh Ingredients'],
+    ['fashion_apparel', 'Premium Quality'],
+    ['tech', 'Official Warranty'],
   ])('uses industry-specific features for %s', (businessType, firstTitle) => {
     expect(generateFeatures(businessType)[0]?.title).toBe(firstTitle);
   });

@@ -1162,17 +1162,9 @@ export const CheckoutPage: React.FC = () => {
       return;
     }
 
-    if (deliveryMethod === 'airport' && !airportType) {
-      toast({
-        title: 'Select Airport Option',
-        description: 'Please choose airport pickup or delivery before placing your order.',
-        variant: 'destructive',
-      });
-      setCurrentStep('delivery');
-      setCompletedSteps((prev) => ({ ...prev, delivery: false }));
-      isOrderInFlightRef.current = false;
-      return;
-    }
+    // Note: `airportType` is typed as `'delivery' | 'pickup'` with a
+    // 'delivery' default, so an explicit `!airportType` guard here would be
+    // unreachable. Airport flow validation lives in `isDeliveryValid`.
 
     if (paymentMethod === 'bank_transfer' && !bankTransferCheckoutAvailable) {
       toast({

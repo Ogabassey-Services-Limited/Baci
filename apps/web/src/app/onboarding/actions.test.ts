@@ -236,7 +236,11 @@ describe('submitOnboarding', () => {
     );
   });
 
-  it('derives merchant slug from the full business name', async () => {
+  it('falls back to buildMerchantSlug when the RPC returns no usable data', async () => {
+    // mockAdminRpc default in beforeEach is `{ data: null, error: null }`.
+    // This exercises the local fallback path in `resolveMerchantSlug`, not
+    // the RPC slug. The previous test name ("derives merchant slug from the
+    // full business name") implied the primary path — renamed for clarity.
     mockAdminMaybeSingle
       .mockResolvedValueOnce({ data: null, error: null })
       .mockResolvedValueOnce({ data: null, error: null });
@@ -256,6 +260,57 @@ describe('submitOnboarding', () => {
         business_name: 'Baci Food 123',
         slug: 'baci-food-123',
       })
+    );
+  });
+
+  it('falls back to buildMerchantSlug when the slug RPC returns an error', async () => {
+    mockAdminMaybeSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: null, error: null });
+    mockAdminRpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'RPC failed', code: 'XX000' },
+    });
+    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
+
+    const result = await submitOnboarding(prevState, makeFormData(validFields));
+
+    expect(result.success).toBe(true);
+    expect(mockAdminInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        business_name: 'TestStore',
+        slug: 'teststore',
+      })
+    );
+  });
+
+  it('falls back when the slug RPC returns a non-string payload', async () => {
+    mockAdminMaybeSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: null, error: null });
+    mockAdminRpc.mockResolvedValueOnce({ data: 12345, error: null });
+    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
+
+    const result = await submitOnboarding(prevState, makeFormData(validFields));
+
+    expect(result.success).toBe(true);
+    expect(mockAdminInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ slug: 'teststore' })
+    );
+  });
+
+  it('falls back when the slug RPC returns an empty / whitespace string', async () => {
+    mockAdminMaybeSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({ data: null, error: null });
+    mockAdminRpc.mockResolvedValueOnce({ data: '   ', error: null });
+    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
+
+    const result = await submitOnboarding(prevState, makeFormData(validFields));
+
+    expect(result.success).toBe(true);
+    expect(mockAdminInsert).toHaveBeenCalledWith(
+      expect.objectContaining({ slug: 'teststore' })
     );
   });
 
