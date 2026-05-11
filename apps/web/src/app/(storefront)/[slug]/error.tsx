@@ -3,8 +3,8 @@
 import { AlertTriangle, Home, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect } from 'react';
-import { ThemedButton } from '@/components/themed';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { ThemedButton } from '@/components/themed/themed-button';
+import { useMerchantSafe } from '@/hooks/merchant/use-merchant';
 import { asRoute } from '@/lib/routes';
 
 interface ErrorProps {
