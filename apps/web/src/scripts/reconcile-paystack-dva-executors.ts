@@ -127,6 +127,15 @@ export function buildScriptExecutors(
     if (!(merchantDetails && richOrder.customer_email)) {
       return { skipped: 'missing_merchant_or_customer_email' };
     }
+    // Δ-92: guard the slug separately — its type allows null, and a
+    // null slug would produce malformed URLs like https://null.usebaci.com
+    // (and a support@null.usebaci.com replyTo fallback). Treat as a
+    // distinct skip reason so the operator can tell merchant data is
+    // wired but the slug is missing, vs the merchant row being missing
+    // entirely.
+    if (!merchantDetails.slug) {
+      return { skipped: 'missing_merchant_slug' };
+    }
 
     const rootDomain = getRootDomain() ?? 'usebaci.com';
     const merchantUrl = `https://${merchantDetails.slug}.${rootDomain}`;
@@ -213,7 +222,12 @@ export function buildScriptExecutors(
   };
 
   const settlementExecutor: StepExecutor = async (ctx) => {
-    const grossAmount = Number(transaction.amount) || 0;
+    // Mirror the finite-number guard used for rawPlatformFee below: a
+    // legitimate ₦0 gross is preserved instead of silently coerced to 0.
+    // A paid Paystack transaction never carries amount=0 in practice,
+    // but keeping both guards consistent makes the intent obvious.
+    const parsedGross = Number(transaction.amount);
+    const grossAmount = Number.isFinite(parsedGross) ? parsedGross : 0;
     // Δ-0b: source the gateway fee from the verified Paystack response
     // (passed via StepContext.gatewayResponse).
     const gatewayFee = extractVerifiedGatewayFeeNgn(

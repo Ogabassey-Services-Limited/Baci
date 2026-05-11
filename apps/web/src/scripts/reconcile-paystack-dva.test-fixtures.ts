@@ -140,7 +140,7 @@ export function createSupabaseMock(opts: {
       return {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            single: vi
+            maybeSingle: vi
               .fn()
               .mockResolvedValue({ data: merchant, error: null }),
           }),

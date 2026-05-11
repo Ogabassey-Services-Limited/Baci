@@ -38,7 +38,10 @@ export async function runReconcilePaystackDvaCli(
 ): Promise<number> {
   const parsed = parseReconcileArgs(argv);
   if (!parsed.ok) {
-    console.error(`reconcile-paystack-dva: ${parsed.error}`);
+    logger.error({
+      message: 'reconcile-paystack-dva: invalid arguments',
+      error: parsed.error,
+    });
     return 1;
   }
   const args = parsed.args;
@@ -51,21 +54,27 @@ export async function runReconcilePaystackDvaCli(
   // would happily flip the wrong transaction otherwise.
   const verify = await verifyTransaction(args.paystackReference);
   if (!verify.success) {
-    console.error(
-      `reconcile-paystack-dva: paystack verify failed: ${verify.error}`
-    );
+    logger.error({
+      message: 'reconcile-paystack-dva: paystack verify failed',
+      paystackReference: args.paystackReference,
+      error: verify.error,
+    });
     return 1;
   }
   if (verify.data.status !== 'success') {
-    console.error(
-      `reconcile-paystack-dva: paystack reports status=${verify.data.status} (expected success)`
-    );
+    logger.error({
+      message: 'reconcile-paystack-dva: paystack reports non-success status',
+      paystackReference: args.paystackReference,
+      status: verify.data.status,
+    });
     return 1;
   }
   if (verify.data.currency !== 'NGN') {
-    console.error(
-      `reconcile-paystack-dva: paystack currency=${verify.data.currency} (expected NGN)`
-    );
+    logger.error({
+      message: 'reconcile-paystack-dva: paystack currency is not NGN',
+      paystackReference: args.paystackReference,
+      currency: verify.data.currency,
+    });
     return 1;
   }
 
@@ -79,9 +88,11 @@ export async function runReconcilePaystackDvaCli(
     .eq('id', args.transactionId)
     .single();
   if (txnErr || !txnRow) {
-    console.error(
-      `reconcile-paystack-dva: transaction lookup failed: ${txnErr?.message ?? 'no row'}`
-    );
+    logger.error({
+      message: 'reconcile-paystack-dva: transaction lookup failed',
+      transactionId: args.transactionId,
+      error: txnErr?.message ?? 'no row',
+    });
     return 1;
   }
   const onRecordAmount = Number((txnRow as { amount: unknown }).amount);
@@ -91,9 +102,12 @@ export async function runReconcilePaystackDvaCli(
     !Number.isFinite(onRecordAmount) ||
     Math.abs(verifiedAmountNgn - onRecordAmount) > 0.01
   ) {
-    console.error(
-      `reconcile-paystack-dva: amount mismatch — paystack ₦${verifiedAmountNgn} vs txn ₦${onRecordAmount}`
-    );
+    logger.error({
+      message: 'reconcile-paystack-dva: amount mismatch',
+      transactionId: args.transactionId,
+      verifiedAmountNgn,
+      onRecordAmount,
+    });
     return 1;
   }
 
@@ -110,9 +124,12 @@ export async function runReconcilePaystackDvaCli(
     p_operator_label: ACTOR,
   });
   if (rpcResult.error) {
-    console.error(
-      `reconcile-paystack-dva: claim_paystack_paid_atomic raised: ${rpcResult.error.message}`
-    );
+    logger.error({
+      message: 'reconcile-paystack-dva: claim_paystack_paid_atomic raised',
+      transactionId: args.transactionId,
+      canonicalOrderId: args.canonicalOrderId,
+      error: rpcResult.error.message,
+    });
     return 1;
   }
   const rpcReport = rpcResult.data as Record<string, unknown> | null;
@@ -134,9 +151,11 @@ export async function runReconcilePaystackDvaCli(
     .eq('id', args.transactionId)
     .single();
   if (paidTxnErr || !paidTxnRow) {
-    console.error(
-      `reconcile-paystack-dva: post-RPC txn lookup failed: ${paidTxnErr?.message ?? 'no row'}`
-    );
+    logger.error({
+      message: 'reconcile-paystack-dva: post-RPC txn lookup failed',
+      transactionId: args.transactionId,
+      error: paidTxnErr?.message ?? 'no row',
+    });
     return 1;
   }
 
@@ -148,9 +167,11 @@ export async function runReconcilePaystackDvaCli(
     .eq('id', args.canonicalOrderId)
     .single();
   if (orderErr || !orderRow) {
-    console.error(
-      `reconcile-paystack-dva: post-RPC order lookup failed: ${orderErr?.message ?? 'no row'}`
-    );
+    logger.error({
+      message: 'reconcile-paystack-dva: post-RPC order lookup failed',
+      canonicalOrderId: args.canonicalOrderId,
+      error: orderErr?.message ?? 'no row',
+    });
     return 1;
   }
 
@@ -164,19 +185,20 @@ export async function runReconcilePaystackDvaCli(
     paidTxnRow as Record<string, unknown>
   );
 
+  // .maybeSingle() returns data === null for the no-row case instead of
+  // raising PGRST116. paidEmailExecutor's `!(merchantDetails && ...)`
+  // skip-guard treats null as "no merchant" and continues with the
+  // other side effects. Any other error (network blip, transient DB
+  // outage) still surfaces as merchantErr and gets thrown by the
+  // executor so the claim retries.
   const { data: merchantDetails, error: merchantErr } = await supabase
     .from('merchants')
     .select(
       'business_name, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
     )
     .eq('id', order.merchant_id)
-    .single();
-  // Non-PGRST116 errors are transient; PGRST116 (genuinely missing) is
-  // permanently un-emailable but the other side effects can still run.
-  const merchantFetchError =
-    merchantErr && (merchantErr as { code?: string }).code !== 'PGRST116'
-      ? merchantErr
-      : null;
+    .maybeSingle();
+  const merchantFetchError = merchantErr ?? null;
 
   const rawPlatformFee = (paidTxnRow as { platform_fee: unknown })
     .platform_fee;
