@@ -292,7 +292,12 @@ export function RewardsCatalog({
                   <code className="text-lg font-mono font-bold">
                     {redemptionResult.code}
                   </code>
-                  <Button variant="ghost" size="sm" onClick={copyCode}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={copyCode}
+                    aria-label="Copy redemption code"
+                  >
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
