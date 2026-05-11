@@ -1,4 +1,4 @@
-import type { MerchantData } from '@/hooks/use-merchant';
+import type { MerchantData } from '@/hooks/merchant/types';
 
 /**
  * Strips protocol, pathname, and leading `www.` from a hostname or URL string

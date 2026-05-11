@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/merchant/use-merchant';
 import { HeroMobileCarousel } from './hero-mobile-carousel';
 import { HeroUtilityPanel } from './hero-utility-panel';
 
