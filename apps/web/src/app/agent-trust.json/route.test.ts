@@ -161,6 +161,25 @@ describe('GET /agent-trust.json', () => {
     );
   });
 
+  it('returns 404 when the storefront host has no merchant record', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue(null);
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new Request('https://missing.example.com/agent-trust.json', {
+        headers: { host: 'missing.example.com' },
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body.error).toBe(
+      'Agent trust readiness is only available on storefront hosts'
+    );
+    expect(mockGetCachedOpenAIFeedData).not.toHaveBeenCalled();
+    expect(mockGetCachedGoogleMerchantFeedData).not.toHaveBeenCalled();
+  });
+
   it('returns 404 on platform hosts', async () => {
     const { GET } = await import('./route');
     const response = await GET(

@@ -7,6 +7,7 @@ import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant'
 import { buildAgentCommerceTrustReadiness } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 
+const AGENT_TRUST_SCHEMA_VERSION = '2026-05-11';
 const ROOT_DOMAIN = (getRootDomain() || 'usebaci.com').toLowerCase();
 const AGENT_TRUST_CACHE_CONTROL = 'public, max-age=300';
 
@@ -42,7 +43,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(
       {
-        schema_version: '2026-05-11',
+        schema_version: AGENT_TRUST_SCHEMA_VERSION,
         platform: 'baci',
         store: {
           slug: merchant.slug,
