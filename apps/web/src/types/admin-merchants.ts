@@ -1,5 +1,6 @@
 export interface AdminMerchantHealthRow {
   merchant_id: string;
+  storefront_slug?: string | null;
   business_name: string | null;
   email: string | null;
   joined_at: string;

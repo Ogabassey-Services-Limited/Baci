@@ -6,6 +6,11 @@ export const ADMIN_CURRENCY_CONFIG = {
   symbol: '₦',
 } as const satisfies CurrencyConfig;
 
+/**
+ * Switches whole-naira admin metrics to compact notation from ₦1K upward.
+ */
+export const ADMIN_COMPACT_CURRENCY_THRESHOLD = 1000;
+
 function parseCurrencyValue(value: number | string | null | undefined): number {
   if (value === null || value === undefined) {
     return 0;
@@ -37,4 +42,14 @@ export function formatAdminCompactCurrency(
     notation: 'compact',
     ...options,
   });
+}
+
+export function formatAdminThresholdCurrency(
+  value: number | string | null | undefined
+): string {
+  const numericValue = parseCurrencyValue(value);
+
+  return numericValue >= ADMIN_COMPACT_CURRENCY_THRESHOLD
+    ? formatAdminCompactCurrency(numericValue)
+    : formatAdminCurrency(numericValue);
 }
