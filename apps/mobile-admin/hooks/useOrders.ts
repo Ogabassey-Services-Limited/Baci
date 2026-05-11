@@ -637,11 +637,17 @@ export function useRecordPayment() {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${session.access_token}`,
             },
+            // Δ-36 (A3): omit blank/whitespace optional fields rather
+            // than wiring them as empty strings. The API schema also
+            // normalizes ""/"   "/undefined → undefined (defense in
+            // depth), but trimming client-side keeps the wire clean
+            // and means a present-but-blank field never leaves the
+            // device.
             body: JSON.stringify({
               amount,
               payment_method: paymentMethod,
-              reference,
-              notes,
+              reference: reference?.trim() || undefined,
+              notes: notes?.trim() || undefined,
             }),
             signal: controller.signal,
           }
