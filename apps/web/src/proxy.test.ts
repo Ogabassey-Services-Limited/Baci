@@ -314,10 +314,19 @@ describe('Middleware Proxy', () => {
     it.each([
       // Protocol-relative URL — must NOT exfiltrate to evil.com
       ['//evil.com', `https://${ROOT_DOMAIN}/dashboard`],
-      // Backslash-prefixed authority — must NOT escape the origin
-      ['/\\evil.com', `https://${ROOT_DOMAIN}/`],
-      // Backslashes inside a local path are normalized to forward slashes
-      ['/admin\\users', `https://${ROOT_DOMAIN}/admin/users`],
+      // Backslash-prefixed authority — WHATWG normalizes `\` to `/` under
+      // an HTTPS scheme, so `/\evil.com` parses to host=evil.com. Reject.
+      ['/\\evil.com', `https://${ROOT_DOMAIN}/dashboard`],
+      // Multiple leading backslashes — also an authority-switch attempt
+      ['/\\\\evil.com', `https://${ROOT_DOMAIN}/dashboard`],
+      // Backslash anywhere in the path — reject to be safe; legitimate
+      // local paths never contain backslashes
+      ['/admin\\users', `https://${ROOT_DOMAIN}/dashboard`],
+      ['/admin\\evil.com', `https://${ROOT_DOMAIN}/dashboard`],
+      [
+        '/path\\with\\multiple\\backslashes',
+        `https://${ROOT_DOMAIN}/dashboard`,
+      ],
       // data: URI scheme — must be rejected
       [
         'data:text/html,<script>alert(1)</script>',

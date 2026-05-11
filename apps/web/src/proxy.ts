@@ -174,6 +174,10 @@ function sanitizeProxyRedirectPath(
   if (
     !rawRedirect.startsWith('/') ||
     rawRedirect.startsWith('//') ||
+    // Reject any backslash: the WHATWG URL parser normalizes `\` to `/` in
+    // HTTPS-scheme contexts, so `/\evil.com` parses with host=evil.com. We
+    // reject before the parse to avoid the authority-switch open-redirect.
+    rawRedirect.includes('\\') ||
     PROTOCOL_SCHEME_REGEX.test(rawRedirect)
   ) {
     return defaultPath;
@@ -181,6 +185,11 @@ function sanitizeProxyRedirectPath(
 
   try {
     const parsed = new URL(rawRedirect, 'https://usebaci.local');
+    // Defense in depth: if the parser produced any host other than the
+    // placeholder, the input contained an authority switch we didn't catch.
+    if (parsed.host !== 'usebaci.local') {
+      return defaultPath;
+    }
     return `${parsed.pathname}${parsed.search}${parsed.hash}`;
   } catch {
     return defaultPath;
