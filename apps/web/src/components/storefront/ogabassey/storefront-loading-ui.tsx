@@ -73,9 +73,9 @@ export function BlogListingRouteLoading() {
     <LoadingStatus label="Loading blog posts">
       <div className="min-h-screen bg-background pb-20 pt-4">
         <div className="mx-auto max-w-[1400px] px-4 pt-8 md:px-6 md:pt-12">
-          <div className="mb-12 overflow-hidden rounded-[2rem] border border-border bg-card p-6 shadow-sm md:p-8">
+          <div className="mb-12 overflow-hidden rounded-4xl border border-border bg-card p-6 shadow-sm md:p-8">
             <Skeleton
-              className="h-[320px] w-full rounded-[1.5rem] bg-muted md:h-[420px]"
+              className="h-[320px] w-full rounded-3xl bg-muted md:h-[420px]"
               shimmer
             />
             <div className="mt-8 space-y-4">

@@ -193,7 +193,7 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={Math.round(saturation)}
-        className="w-full h-36 rounded-md cursor-pointer relative focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+        className="w-full h-36 rounded-md cursor-pointer relative focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2"
         style={{ backgroundColor: `hsl(${hue}, 100%, 50%)` }}
         onMouseDown={handleMouseDownSatLight}
         onTouchStart={handleMouseDownSatLight}
@@ -248,7 +248,7 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
           aria-valuemin={0}
           aria-valuemax={360}
           aria-valuenow={Math.round(hue)}
-          className="relative h-4 w-full cursor-pointer rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          className="relative h-4 w-full cursor-pointer rounded-full focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2"
           style={{
             background:
               'linear-gradient(to right, rgb(255, 0, 0) 0%, rgb(255, 255, 0) 17%, rgb(0, 255, 0) 33%, rgb(0, 255, 255) 50%, rgb(0, 0, 255) 67%, rgb(255, 0, 255) 83%, rgb(255, 0, 0) 100%)',

@@ -538,7 +538,7 @@ describe('PaymentStep', () => {
 
       // Assert - button exists but text is replaced with spinner
       const buttons = screen.getAllByRole('button');
-      const placeOrderButton = buttons.find(btn => btn.className.includes('bg-[var(--store-primary)]'));
+      const placeOrderButton = buttons.find(btn => btn.className.includes('bg-(--store-primary)'));
       expect(placeOrderButton).toBeDisabled();
 
       // Verify spinner is shown
@@ -736,8 +736,8 @@ describe('PaymentStep', () => {
 
       // Assert
       const paystackLabel = screen.getByText('Paystack').closest('label');
-      expect(paystackLabel?.className).toContain('border-[var(--store-primary)]');
-      expect(paystackLabel?.className).toContain('bg-[var(--store-primary)]/5');
+      expect(paystackLabel?.className).toContain('border-(--store-primary)');
+      expect(paystackLabel?.className).toContain('bg-(--store-primary)/5');
     });
 
     it('shows radio button as checked when payment method is selected', () => {

@@ -18,7 +18,7 @@ interface CheckoutIdentityModalProps {
  * Ogabassey-styled Checkout Identity Modal
  * 2026 Best Practice: Native modal with brand-consistent design
  * - Body scroll lock when open
- * - z-[100] to overlay bottom nav bar
+ * - z-100 to overlay bottom nav bar
  * Matches the UtilityModal and NegotiationModal styling patterns
  */
 export function CheckoutIdentityModal({
@@ -92,7 +92,7 @@ export function CheckoutIdentityModal({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-100 flex items-end sm:items-center justify-center bg-black/50 backdrop-blur-xs animate-in fade-in duration-200"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300">
@@ -204,7 +204,7 @@ export function CheckoutIdentityModal({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all text-sm"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-hidden transition-all text-sm"
                 />
               </div>
 
@@ -227,7 +227,7 @@ export function CheckoutIdentityModal({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all text-sm"
+                    className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-hidden transition-all text-sm"
                   />
                   <button
                     type="button"

@@ -28,7 +28,7 @@ interface NavbarSearchProps {
 }
 
 const SEARCH_INPUT_CLASS_NAME =
-  '[&_input]:h-11 md:[&_input]:h-12 [&_input]:bg-white [&_input]:rounded-md [&_input]:border-0 [&_input]:text-gray-800 [&_input]:placeholder-gray-500 [&_input]:text-[15px] [&_input]:focus:ring-2 [&_input]:focus:ring-primary/50';
+  '[&_input]:h-11 md:[&_input]:h-12 [&_input]:bg-white [&_input]:rounded-md [&_input]:border-0 [&_input]:text-gray-800 [&_input]:placeholder-gray-500 [&_input]:text-[15px] focus:[&_input]:ring-2 focus:[&_input]:ring-primary/50';
 
 export function NavbarSearch({
   basePath,

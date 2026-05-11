@@ -121,7 +121,7 @@ export const OgabasseyV2AboutUs: React.FC<AboutProps> = ({ merchant }) => {
                 fill sizes="(max-width: 1024px) 100vw, 50vw"
                 className="object-cover transition-transform duration-700 group-hover:scale-105"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-t from-black/60 to-transparent" />
               <div className="absolute bottom-6 left-6 text-white">
                 <p className="font-bold text-lg">Our Headquarters</p>
                 <p className="text-sm opacity-80">{location}</p>

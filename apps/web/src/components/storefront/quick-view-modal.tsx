@@ -162,7 +162,7 @@ export function QuickViewModal({
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-4 top-4 z-10 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          className="absolute right-4 top-4 z-10 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2"
           aria-label="Close"
         >
           <X className="h-5 w-5" />
@@ -193,15 +193,15 @@ export function QuickViewModal({
               <ul className="flex gap-2 mt-4 overflow-x-auto pb-2 list-none m-0 p-0">
                 {allImages.map((img, idx) => (
                   // biome-ignore lint/suspicious/noArrayIndexKey: Order doesn't matter for display
-                  <li key={idx} className="flex-shrink-0">
+                  <li key={idx} className="shrink-0">
                     <button
                       type="button"
                       onClick={() => setSelectedImage(img.url)}
                       className={cn(
                         'relative w-16 h-16 rounded-md overflow-hidden border-2 transition-all',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                        'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                         selectedImage === img.url
-                          ? 'border-[var(--store-primary)]'
+                          ? 'border-(--store-primary)'
                           : 'border-transparent hover:border-muted-foreground/30'
                       )}
                       aria-label={`View image ${idx + 1} of ${allImages.length}`}
@@ -366,9 +366,9 @@ export function QuickViewModal({
                               }}
                               className={cn(
                                 'px-3 py-1.5 rounded-md text-sm font-medium transition-all',
-                                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                                'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                                 isSelected
-                                  ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] ring-2 ring-[var(--store-primary)] ring-offset-2'
+                                  ? 'bg-(--store-primary) text-(--store-primary-text) ring-2 ring-(--store-primary) ring-offset-2'
                                   : isAvailable
                                     ? 'bg-muted hover:bg-muted/80'
                                     : 'bg-muted/50 text-muted-foreground/50 cursor-not-allowed line-through'

@@ -81,9 +81,9 @@ export const PopupSystem: React.FC = () => {
     <>
       {/* --- 1. NEWSLETTER POPUP (Centered Overlay) --- */}
       {showNewsletter && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center px-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-70 flex items-center justify-center px-4 animate-in fade-in duration-300">
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 backdrop-blur-xs"
             onClick={handleCloseNewsletter}
           />
           <div className="bg-[#1a1a1a] rounded-2xl shadow-2xl max-w-md w-full relative overflow-hidden z-10 animate-in zoom-in-95 duration-300 border border-white/10">
@@ -131,7 +131,7 @@ export const PopupSystem: React.FC = () => {
                   name="email"
                   autoComplete="email"
                   placeholder="Enter your email address"
-                  className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-600/20 focus:border-red-600 transition-all text-white placeholder:text-white/40 text-sm"
+                  className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-600/20 focus:border-red-600 transition-all text-white placeholder:text-white/40 text-sm"
                 />
                 <button
                   type="submit"
@@ -154,7 +154,7 @@ export const PopupSystem: React.FC = () => {
 
       {/* --- 2. AD POPUP (Bottom Left Slide-in) --- */}
       {showAdPopup && (
-        <div className="fixed bottom-0 left-0 p-4 md:p-6 z-[60] animate-in slide-in-from-left-10 duration-500 fade-in">
+        <div className="fixed bottom-0 left-0 p-4 md:p-6 z-60 animate-in slide-in-from-left-10 duration-500 fade-in">
           <div className="bg-white rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.2)] border border-gray-100 overflow-hidden max-w-[320px] md:max-w-[350px] relative">
             {/* Close Button */}
             <button

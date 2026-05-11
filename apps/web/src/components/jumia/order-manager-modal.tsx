@@ -203,7 +203,7 @@ export function OrderManagerModal({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 relative flex-shrink-0 border border-gray-100 rounded-md overflow-hidden bg-white">
+            <div className="w-10 h-10 relative shrink-0 border border-gray-100 rounded-md overflow-hidden bg-white">
               <Image
                 src="/jumia-logo.png"
                 alt="Jumia Logo"
@@ -240,7 +240,7 @@ export function OrderManagerModal({
                   key={item.id}
                   className="flex items-center gap-4 p-4 border rounded-lg bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800"
                 >
-                  <div className="h-12 w-12 bg-gray-200 rounded overflow-hidden flex-shrink-0">
+                  <div className="h-12 w-12 bg-gray-200 rounded overflow-hidden shrink-0">
                     {item.product.imageUrl && (
                       // biome-ignore lint/performance/noImgElement: External Jumia image
                       <img

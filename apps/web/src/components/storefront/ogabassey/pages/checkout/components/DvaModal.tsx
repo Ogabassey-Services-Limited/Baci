@@ -17,10 +17,10 @@ export function DvaModal({
   onClose,
 }: DvaModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-[var(--store-primary)] to-[var(--store-primary)]/80 p-6 flex items-center justify-between rounded-t-2xl">
+        <div className="sticky top-0 bg-linear-to-r from-(--store-primary) to-(--store-primary)/80 p-6 flex items-center justify-between rounded-t-2xl">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
               <Building2 size={20} className="text-white" />
@@ -71,7 +71,7 @@ export function DvaModal({
                   className={`absolute right-2 top-2 bottom-2 px-4 bg-white border rounded-lg shadow-sm transition-all flex items-center justify-center group-hover:shadow-md ${
                     copiedText === data.account_number
                       ? 'border-green-300 text-green-600'
-                      : 'border-gray-200 hover:border-[var(--store-primary)]/40 hover:text-[var(--store-primary)]'
+                      : 'border-gray-200 hover:border-(--store-primary)/40 hover:text-(--store-primary)'
                   }`}
                 >
                   {copiedText === data.account_number ? (
@@ -103,7 +103,7 @@ export function DvaModal({
 
           {/* Instruction & Timer */}
           <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex gap-4">
-            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm flex-shrink-0">
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm shrink-0">
               <Clock size={20} className="text-blue-600" />
             </div>
             <div>
@@ -119,11 +119,11 @@ export function DvaModal({
 
           {/* Waiting Status */}
           <div className="flex flex-col items-center justify-center py-4 gap-3">
-            <div className="flex items-center gap-3 text-[var(--store-primary)]">
+            <div className="flex items-center gap-3 text-(--store-primary)">
               <div className="flex gap-1">
-                <div className="w-1.5 h-1.5 bg-[var(--store-primary)] rounded-full animate-bounce [animation-delay:-0.3s]" />
-                <div className="w-1.5 h-1.5 bg-[var(--store-primary)] rounded-full animate-bounce [animation-delay:-0.15s]" />
-                <div className="w-1.5 h-1.5 bg-[var(--store-primary)] rounded-full animate-bounce" />
+                <div className="w-1.5 h-1.5 bg-(--store-primary) rounded-full animate-bounce [animation-delay:-0.3s]" />
+                <div className="w-1.5 h-1.5 bg-(--store-primary) rounded-full animate-bounce [animation-delay:-0.15s]" />
+                <div className="w-1.5 h-1.5 bg-(--store-primary) rounded-full animate-bounce" />
               </div>
               <span className="text-sm font-bold">
                 Waiting for transfer...
@@ -139,7 +139,7 @@ export function DvaModal({
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="w-full py-4 bg-[var(--store-primary)] text-white font-bold rounded-xl hover:bg-[var(--store-primary)]/90 transition-colors shadow-lg shadow-[var(--store-primary)]/20"
+              className="w-full py-4 bg-(--store-primary) text-white font-bold rounded-xl hover:bg-(--store-primary)/90 transition-colors shadow-lg shadow-(--store-primary)/20"
             >
               Confirm Transfer Sent
             </button>

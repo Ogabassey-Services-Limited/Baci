@@ -95,7 +95,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
       />
 
       {/* Image (Left Side) */}
-      <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
+      <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
         {/* Navigation Arrows (Desktop Hover Only) */}
         {product.colors && product.colors.length > 1 && (
           <>
@@ -179,7 +179,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
             e.stopPropagation();
             onToggleWishlist(e);
           }}
-          className="absolute top-2 right-2 z-20 p-1.5 rounded-full bg-white/60 md:hover:bg-white active:bg-white backdrop-blur-sm shadow-sm transition-all duration-200 pointer-events-auto group/heart active:scale-90"
+          className="absolute top-2 right-2 z-20 p-1.5 rounded-full bg-white/60 md:hover:bg-white active:bg-white backdrop-blur-xs shadow-sm transition-all duration-200 pointer-events-auto group/heart active:scale-90"
           aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
         >
           <Heart

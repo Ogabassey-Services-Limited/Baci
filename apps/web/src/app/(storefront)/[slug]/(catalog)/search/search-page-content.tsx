@@ -151,27 +151,27 @@ export async function SearchPageContent({
           __html: safeJsonLdStringify(searchResultsSchema),
         }}
       />
-      <div className="min-h-screen bg-[color:color-mix(in_srgb,var(--store-background,#ffffff)_94%,var(--store-background-text,#111827)_6%)] pb-20 pt-6">
+      <div className="min-h-screen bg-[color-mix(in_srgb,var(--store-background,#ffffff)_94%,var(--store-background-text,#111827)_6%)] pb-20 pt-6">
         <div className="mx-auto max-w-[1400px] px-4 md:px-6">
-          <nav className="flex items-center gap-2 text-sm text-[var(--store-background-text,#111827)]/55">
+          <nav className="flex items-center gap-2 text-sm text-(--store-background-text,#111827)/55">
             <Link
               href={asRoute(pathPrefix || '/')}
               prefetch={false}
-              className="transition-colors hover:text-[var(--store-primary)]"
+              className="transition-colors hover:text-(--store-primary)"
             >
               Home
             </Link>
             <span aria-hidden="true">/</span>
-            <span className="font-medium text-[var(--store-background-text,#111827)]">
+            <span className="font-medium text-(--store-background-text,#111827)">
               Search
             </span>
           </nav>
 
           <div className="mt-6 space-y-2">
-            <h1 className="text-3xl font-bold text-[var(--store-background-text,#111827)] md:text-4xl">
+            <h1 className="text-3xl font-bold text-(--store-background-text,#111827) md:text-4xl">
               Search Results
             </h1>
-            <p className="max-w-2xl text-sm text-[var(--store-background-text,#111827)]/60 md:text-base">
+            <p className="max-w-2xl text-sm text-(--store-background-text,#111827)/60 md:text-base">
               {formatSearchSummary({
                 query,
                 totalCount: searchResult.count,
@@ -181,7 +181,7 @@ export async function SearchPageContent({
           </div>
 
           {searchResult.didYouMean && (
-            <p className="mt-4 text-sm text-[var(--store-background-text,#111827)]/55">
+            <p className="mt-4 text-sm text-(--store-background-text,#111827)/55">
               Did you mean{' '}
               <span className="font-medium">{searchResult.didYouMean}</span>?
             </p>
@@ -200,28 +200,28 @@ export async function SearchPageContent({
                 ))}
               </div>
             ) : (
-              <div className="mt-10 rounded-3xl border border-[var(--store-background-text,#111827)]/10 bg-[var(--store-background,#ffffff)] px-6 py-16 text-center shadow-sm">
-                <h2 className="text-xl font-semibold text-[var(--store-background-text,#111827)]">
+              <div className="mt-10 rounded-3xl border border-(--store-background-text,#111827)/10 bg-(--store-background,#ffffff) px-6 py-16 text-center shadow-sm">
+                <h2 className="text-xl font-semibold text-(--store-background-text,#111827)">
                   No products found
                 </h2>
-                <p className="mt-2 text-sm text-[var(--store-background-text,#111827)]/55">
+                <p className="mt-2 text-sm text-(--store-background-text,#111827)/55">
                   We could not find any products matching “{searchQuery}”.
                 </p>
               </div>
             )
           ) : (
-            <div className="mt-10 rounded-3xl border border-[var(--store-background-text,#111827)]/10 bg-[var(--store-background,#ffffff)] px-6 py-16 text-center shadow-sm">
-              <h2 className="text-xl font-semibold text-[var(--store-background-text,#111827)]">
+            <div className="mt-10 rounded-3xl border border-(--store-background-text,#111827)/10 bg-(--store-background,#ffffff) px-6 py-16 text-center shadow-sm">
+              <h2 className="text-xl font-semibold text-(--store-background-text,#111827)">
                 Start a search
               </h2>
-              <p className="mt-2 text-sm text-[var(--store-background-text,#111827)]/55">
+              <p className="mt-2 text-sm text-(--store-background-text,#111827)/55">
                 Enter a product name or keyword to see matching items.
               </p>
             </div>
           )}
 
           {searchResult.didYouMean && searchResult.products.length === 0 && (
-            <p className="mt-4 text-sm text-[var(--store-background-text,#111827)]/55">
+            <p className="mt-4 text-sm text-(--store-background-text,#111827)/55">
               Try searching for{' '}
               <span className="font-medium">{searchResult.didYouMean}</span>.
             </p>

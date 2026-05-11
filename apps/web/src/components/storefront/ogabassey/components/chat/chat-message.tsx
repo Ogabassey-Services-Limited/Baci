@@ -32,7 +32,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = ({
     >
       {/* Avatar */}
       <div
-        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${message.role === 'user' ? 'bg-gray-200 text-gray-600 hidden' : 'bg-white border border-gray-100 text-red-600'}`}
+        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 shadow-sm ${message.role === 'user' ? 'bg-gray-200 text-gray-600 hidden' : 'bg-white border border-gray-100 text-red-600'}`}
       >
         {message.role === 'user' ? (
           <User size={14} className="text-red-600" />

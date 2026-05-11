@@ -146,7 +146,7 @@ export function CreateConsignmentForm({
     <form onSubmit={handleSubmit(onSubmit, onInvalid)}>
       <CardHeader className="pb-2">
         <div className="flex items-center gap-2">
-          <Package className="h-5 w-5 text-[var(--store-primary)]" />
+          <Package className="h-5 w-5 text-(--store-primary)" />
           <CardTitle className="text-lg">Create Consignment Order</CardTitle>
         </div>
         <CardDescription>
@@ -229,7 +229,7 @@ export function CreateConsignmentForm({
             type="button"
             variant="link"
             onClick={() => append({ sku: '', quantity: '', labelCode: '' })}
-            className="flex items-center gap-1 text-sm text-[var(--store-primary)] hover:underline mt-1 h-auto p-0"
+            className="flex items-center gap-1 text-sm text-(--store-primary) hover:underline mt-1 h-auto p-0"
           >
             <Plus className="h-3.5 w-3.5" />
             Add Product

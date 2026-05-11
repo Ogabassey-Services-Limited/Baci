@@ -110,10 +110,10 @@ export function BillPaymentBillerList({
                 onClick={() => onSelect(biller)}
                 onKeyDown={(event) => handleKeyDown(event, index)}
                 className={cn(
-                  'text-left p-3 rounded-xl border-2 transition-all text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--store-primary,#ef4444)] focus-visible:ring-offset-2',
+                  'text-left p-3 rounded-xl border-2 transition-all text-sm font-medium focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-(--store-primary,#ef4444) focus-visible:ring-offset-2',
                   isSelected
-                    ? 'border-[var(--store-primary,#ef4444)] bg-[var(--store-primary,#ef4444)]/10 text-[var(--store-primary,#ef4444)]'
-                    : 'border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_12%,transparent)] text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_72%,transparent)] hover:border-[color:color-mix(in_srgb,var(--store-primary,#ef4444)_35%,transparent)]'
+                    ? 'border-(--store-primary,#ef4444) bg-(--store-primary,#ef4444)/10 text-(--store-primary,#ef4444)'
+                    : 'border-[color-mix(in_srgb,var(--store-background-text,#111827)_12%,transparent)] text-[color-mix(in_srgb,var(--store-background-text,#111827)_72%,transparent)] hover:border-[color-mix(in_srgb,var(--store-primary,#ef4444)_35%,transparent)]'
                 )}
               >
                 {biller.billerName}

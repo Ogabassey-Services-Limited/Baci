@@ -83,7 +83,7 @@ function renderProductGridAdFallback() {
             minWidth: `${PRODUCT_GRID_MPU_CONFIG.mobileWidth}px`,
           }}
         >
-          <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-4 -z-0 opacity-50 bg-[repeating-linear-gradient(45deg,#e5e7eb_0,#e5e7eb_1px,transparent_1px,transparent_10px)]">
+          <div className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-4 z-0 opacity-50 bg-[repeating-linear-gradient(45deg,#e5e7eb_0,#e5e7eb_1px,transparent_1px,transparent_10px)]">
             <span className="text-xs font-bold text-gray-300 uppercase tracking-widest mb-1">
               Ad Space
             </span>
@@ -193,7 +193,7 @@ export function HomeProductGrid({
       <div className="flex items-center justify-between mb-6 md:mb-8">
         <div>
           {title === 'Featured Products' && (
-            <span className="text-[color:var(--store-primary)] font-bold uppercase tracking-wider text-xs md:text-sm">
+            <span className="text-(--store-primary) font-bold uppercase tracking-wider text-xs md:text-sm">
               Best Sellers
             </span>
           )}

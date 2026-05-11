@@ -256,7 +256,7 @@ export const OgabasseyV2Receipts: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search ID, Product or Status..."
-              className="w-full pl-10 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-200 transition-all text-sm"
+              className="w-full pl-10 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-100 focus:border-red-200 transition-all text-sm"
             />
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"

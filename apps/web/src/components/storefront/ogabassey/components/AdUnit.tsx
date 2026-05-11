@@ -247,7 +247,7 @@ export const AdUnit: React.FC<AdUnitProps> = ({
           {/* Placeholder Pattern (Visible only until ad loads) */}
           {!isAdLoaded && (
             <div
-              className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-4 -z-0 opacity-50"
+              className="absolute inset-0 w-full h-full flex flex-col items-center justify-center p-4 z-0 opacity-50"
               style={{
                 backgroundImage: 'repeating-linear-gradient(45deg, #e5e7eb 0, #e5e7eb 1px, transparent 1px, transparent 10px)'
               }}

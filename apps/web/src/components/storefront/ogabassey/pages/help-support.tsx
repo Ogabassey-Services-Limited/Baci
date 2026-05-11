@@ -116,7 +116,7 @@ export const OgabasseyV2HelpSupport: React.FC<HelpProps> = ({ merchant }) => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={`How can we help you today, ${businessName} customer?`}
-              className="w-full pl-12 pr-4 py-4 bg-white border border-gray-200 rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all text-base"
+              className="w-full pl-12 pr-4 py-4 bg-white border border-gray-200 rounded-2xl shadow-sm focus:outline-hidden focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all text-base"
             />
             <Search
               className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"

@@ -207,7 +207,7 @@ export function PriceRangeProducts({
             ).map((placeholderKey) => (
               <div
                 key={placeholderKey}
-                className="h-[320px] w-[200px] flex-shrink-0 rounded-xl bg-muted/40 sm:w-[260px]"
+                className="h-[320px] w-[200px] shrink-0 rounded-xl bg-muted/40 sm:w-[260px]"
               />
             ))}
           </div>
@@ -227,7 +227,7 @@ export function PriceRangeProducts({
               .map((p) => (
                 <ThemedCard
                   key={p.id}
-                  className="flex-shrink-0 w-[200px] sm:w-[260px] overflow-hidden hover:shadow-lg transition-shadow snap-start"
+                  className="shrink-0 w-[200px] sm:w-[260px] overflow-hidden hover:shadow-lg transition-shadow snap-start"
                   accentPosition="top"
                 >
                   <Link
@@ -251,7 +251,7 @@ export function PriceRangeProducts({
                   </Link>
                   <CardContent className="p-3">
                     <Link href={getFullProductUrl(p) as '/'} prefetch={false}>
-                      <h3 className="font-medium text-sm line-clamp-2 hover:text-[var(--store-primary)] transition-colors">
+                      <h3 className="font-medium text-sm line-clamp-2 hover:text-(--store-primary) transition-colors">
                         {p.name}
                       </h3>
                     </Link>

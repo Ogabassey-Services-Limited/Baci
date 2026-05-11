@@ -74,7 +74,7 @@ export function OrdersFiltersBar({
           type="search"
           placeholder="Search orders..."
           aria-label="Search orders"
-          className="w-full bg-background/50 pl-8 backdrop-blur-sm"
+          className="w-full bg-background/50 pl-8 backdrop-blur-xs"
           value={searchTerm}
           onChange={(event) => onSearchChange(event.target.value)}
         />

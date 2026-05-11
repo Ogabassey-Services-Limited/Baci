@@ -25,7 +25,7 @@ export function FAQItem({
             {question}
           </span>
           <ChevronDown
-            className={`w-5 h-5 text-accent flex-shrink-0 mt-1 transition-transform duration-300 ${
+            className={`w-5 h-5 text-accent shrink-0 mt-1 transition-transform duration-300 ${
               isOpen ? 'rotate-180' : ''
             }`}
           />

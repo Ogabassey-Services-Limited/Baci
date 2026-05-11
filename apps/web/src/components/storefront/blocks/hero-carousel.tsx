@@ -73,7 +73,7 @@ export function HeroCarousel({
                   priority={index === 0}
                   sizes="(max-width: 768px) 100vw, 100vw"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                <div className="absolute inset-0 bg-linear-to-t from-black/90 via-black/40 to-transparent" />
               </motion.div>
 
               {/* Elite Content Overlay */}

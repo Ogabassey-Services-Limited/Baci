@@ -324,7 +324,7 @@ export default function PaymentSettingsPage() {
           >
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+                <div className="w-10 h-10 rounded-lg bg-linear-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
                   CD
                 </div>
                 <div>

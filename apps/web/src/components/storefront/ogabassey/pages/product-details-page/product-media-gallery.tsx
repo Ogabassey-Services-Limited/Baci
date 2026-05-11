@@ -30,8 +30,8 @@ export function ProductMediaGallery({
   ).toLowerCase();
   const badgeClass =
     badgeCondition === 'new'
-      ? 'bg-[var(--store-primary)] text-[var(--store-primary-text,#ffffff)]'
-      : 'bg-[color:color-mix(in_srgb,var(--store-primary)_65%,var(--store-background-text,#111827))] text-[var(--store-primary-text,#ffffff)]';
+      ? 'bg-(--store-primary) text-(--store-primary-text,#ffffff)'
+      : 'bg-[color-mix(in_srgb,var(--store-primary)_65%,var(--store-background-text,#111827))] text-(--store-primary-text,#ffffff)';
   const thumbnailFallback = (
     <div
       aria-hidden="true"
@@ -40,7 +40,7 @@ export function ProductMediaGallery({
       {productData.images.slice(0, 4).map((image, index) => (
         <div
           key={`${image}-${index}`}
-          className="h-24 w-24 flex-shrink-0 rounded-xl bg-gray-100"
+          className="h-24 w-24 shrink-0 rounded-xl bg-gray-100"
         />
       ))}
     </div>
@@ -78,9 +78,9 @@ export function ProductMediaGallery({
               type="button"
               onClick={() => onSelectImage(index)}
               aria-label={`View image ${index + 1}`}
-              className={`relative flex h-24 w-24 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-50 p-0 transition-all active:scale-95 ${
+              className={`relative flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-gray-50 p-0 transition-all active:scale-95 ${
                 selectedImage === index
-                  ? 'border-2 border-[var(--store-primary)] ring-2 ring-[var(--store-primary)]/20'
+                  ? 'border-2 border-(--store-primary) ring-2 ring-(--store-primary)/20'
                   : 'border-2 border-transparent md:hover:border-gray-200'
               }`}
             >

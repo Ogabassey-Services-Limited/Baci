@@ -133,7 +133,7 @@ export function OgabasseyHeader({
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Search or Ask me anything"
-                    className="w-full h-full text-gray-800 placeholder-gray-500 bg-transparent outline-none font-normal text-[15px]"
+                    className="w-full h-full text-gray-800 placeholder-gray-500 bg-transparent outline-hidden font-normal text-[15px]"
                   />
                   <button
                     type="button"

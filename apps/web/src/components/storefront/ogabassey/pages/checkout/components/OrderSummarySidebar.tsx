@@ -82,7 +82,7 @@ export function OrderSummarySidebar({
               key={item.cartItemId ?? item.id ?? `order-item-${index}`}
               className="flex gap-3"
             >
-              <div className="w-12 h-12 bg-gray-50 rounded-lg border border-gray-100 p-1 flex-shrink-0 relative">
+              <div className="w-12 h-12 bg-gray-50 rounded-lg border border-gray-100 p-1 shrink-0 relative">
                 <ThumbnailImage
                   src={item.image || item.image_url || '/placeholder.png'}
                   alt={
@@ -190,7 +190,7 @@ export function OrderSummarySidebar({
                       onClick={() =>
                         setPayWithWallet(!payWithWallet)
                       }
-                      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
                         payWithWallet
                           ? 'bg-green-600'
                           : 'bg-gray-300'
@@ -241,7 +241,7 @@ export function OrderSummarySidebar({
                 onChange={(e) =>
                   setNewsletterOptIn(e.target.checked)
                 }
-                className="peer h-4 w-4 rounded border-gray-300 text-[var(--store-primary)] focus:ring-[var(--store-primary)]"
+                className="peer h-4 w-4 rounded border-gray-300 text-(--store-primary) focus:ring-(--store-primary)"
               />
             </div>
             <span className="text-xs text-gray-600 group-hover:text-gray-900 transition-colors">
@@ -257,7 +257,7 @@ export function OrderSummarySidebar({
             (remainingAmount > 0 && !paymentMethod) ||
             (paymentMethod === 'payforme' && !isPayForMeValid)
           }
-          className="hidden lg:flex w-full bg-[var(--store-primary)] hover:bg-[var(--store-primary)]/90 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl items-center justify-center gap-2 transition-all shadow-lg hover:shadow-[var(--store-primary)]/20 active:scale-[0.98]"
+          className="hidden lg:flex w-full bg-(--store-primary) hover:bg-(--store-primary)/90 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl items-center justify-center gap-2 transition-all shadow-lg hover:shadow-(--store-primary)/20 active:scale-[0.98]"
         >
           {isProcessing ? (
             <Loader2 className="animate-spin" />

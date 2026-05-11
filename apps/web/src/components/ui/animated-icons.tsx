@@ -308,7 +308,7 @@ export function HeartIcon({
   return (
     <motion.button
       className={cn(
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm',
+        'focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm',
         className
       )}
       whileTap={{ scale: 0.85 }}
@@ -405,7 +405,7 @@ export function QuantityButton({
       type="button"
       className={cn(
         'flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-foreground',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+        'focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         'disabled:pointer-events-none disabled:opacity-50',
         className
       )}
@@ -460,7 +460,7 @@ export function MenuToggle({
       type="button"
       className={cn(
         'flex items-center justify-center',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md',
+        'focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md',
         className
       )}
       onClick={onClick}

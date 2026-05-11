@@ -62,13 +62,13 @@ export function GeminiCommandBar({
               onChange={(e) => setCommand(e.target.value)}
               onFocus={() => setShowSuggestions(true)}
               placeholder="Tell Gemini what to change..."
-              className="pl-9 pr-10 bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200 focus:border-purple-400 focus:ring-purple-400"
+              className="pl-9 pr-10 bg-linear-to-r from-purple-50 to-blue-50 border-purple-200 focus:border-purple-400 focus:ring-purple-400"
               disabled={isLoading || disabled}
             />
             <Button
               type="submit"
               size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 bg-linear-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
               disabled={isLoading || disabled || !command.trim()}
               aria-label="Apply Gemini command"
             >
@@ -119,7 +119,7 @@ export function GeminiCommandBar({
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 z-50">
-      <Card className="p-3 shadow-2xl border-purple-200 bg-gradient-to-r from-white via-purple-50/50 to-blue-50/50 backdrop-blur supports-[backdrop-filter]:bg-white/95">
+      <Card className="p-3 shadow-2xl border-purple-200 bg-linear-to-r from-white via-purple-50/50 to-blue-50/50 backdrop-blur-sm supports-backdrop-filter:bg-white/95">
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="flex gap-2">
             <div className="relative flex-1">
@@ -142,7 +142,7 @@ export function GeminiCommandBar({
             <Button
               type="submit"
               disabled={isLoading || disabled || !command.trim()}
-              className="h-12 px-6 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 transition-all"
+              className="h-12 px-6 bg-linear-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 transition-all"
               aria-label="Apply Gemini command"
             >
               {isLoading ? (

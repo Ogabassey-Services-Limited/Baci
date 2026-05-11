@@ -32,11 +32,11 @@ export function ProductBreadcrumbs({
   );
 
   return (
-    <nav aria-label="Breadcrumb" className="mb-8 flex items-center overflow-x-auto whitespace-nowrap pb-2 text-sm text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_70%,transparent)]">
+    <nav aria-label="Breadcrumb" className="mb-8 flex items-center overflow-x-auto whitespace-nowrap pb-2 text-sm text-[color-mix(in_srgb,var(--store-background-text,#111827)_70%,transparent)]">
       <Link
         href={homeHref}
         prefetch={false}
-        className="transition-colors md:hover:text-[var(--store-primary)]"
+        className="transition-colors md:hover:text-(--store-primary)"
       >
         Home
       </Link>
@@ -49,7 +49,7 @@ export function ProductBreadcrumbs({
       <Link
         href={categoryHref}
         prefetch={false}
-        className="transition-colors md:hover:text-[var(--store-primary)]"
+        className="transition-colors md:hover:text-(--store-primary)"
       >
         {categoryLabel}
       </Link>
@@ -61,7 +61,7 @@ export function ProductBreadcrumbs({
       />
       <span
         aria-current="page"
-        className="font-medium text-[var(--store-background-text,#111827)]"
+        className="font-medium text-(--store-background-text,#111827)"
       >
         {productData.name}
       </span>

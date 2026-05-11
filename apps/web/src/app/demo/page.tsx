@@ -49,7 +49,7 @@ const LandingPage = () => {
               <input
                 type="text"
                 placeholder="Search or Ask me anything"
-                className="w-full pl-10 pr-4 py-2.5 rounded text-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500"
+                className="w-full pl-10 pr-4 py-2.5 rounded text-gray-800 focus:outline-hidden focus:ring-2 focus:ring-red-500"
               />
             </div>
           </div>
@@ -91,7 +91,7 @@ const LandingPage = () => {
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 h-auto lg:h-[500px]">
           {/* Card 1: iPhone (Spans 2 columns) */}
-          <div className="lg:col-span-2 bg-gradient-to-br from-red-600 to-red-700 rounded-2xl p-8 relative overflow-hidden text-white flex flex-col justify-center items-center text-center group">
+          <div className="lg:col-span-2 bg-linear-to-br from-red-600 to-red-700 rounded-2xl p-8 relative overflow-hidden text-white flex flex-col justify-center items-center text-center group">
             <div className="relative z-10">
               <h2 className="text-4xl md:text-5xl font-bold mb-2">
                 iPhone 16 Pro Max

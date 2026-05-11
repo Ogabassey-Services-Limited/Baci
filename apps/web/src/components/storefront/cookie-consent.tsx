@@ -127,7 +127,7 @@ export function CookieConsent() {
           // Simple View - Horizontal Floating Bar
           <div className="flex flex-col md:flex-row items-center gap-4 md:gap-6">
             <div className="flex items-center gap-4 flex-1 w-full md:w-auto">
-              <div className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 flex-shrink-0">
+              <div className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 shrink-0">
                 <Cookie className="w-5 h-5 text-primary" />
               </div>
 
@@ -179,7 +179,7 @@ export function CookieConsent() {
           <div className="space-y-6">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 flex-shrink-0">
+                <div className="hidden sm:flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 shrink-0">
                   <Settings2 className="w-5 h-5 text-primary" />
                 </div>
                 <div>
@@ -203,7 +203,7 @@ export function CookieConsent() {
             <div className="grid gap-3 sm:grid-cols-2 max-h-[60vh] overflow-y-auto pr-2">
               {/* Necessary Cookies */}
               <div className="flex items-start gap-3 p-3 rounded-xl bg-muted/50 border border-border/50">
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-green-500/10 flex-shrink-0">
+                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-green-500/10 shrink-0">
                   <Shield className="w-4 h-4 text-green-600" />
                 </div>
                 <div className="flex-1">

@@ -48,7 +48,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={isSanta ? "Tell Santa your wish..." : "Type your message..."}
-          className={`flex-1 px-4 py-2.5 rounded-full border focus:outline-none focus:ring-2 focus:ring-offset-1 transition-all text-sm ${isSanta
+          className={`flex-1 px-4 py-2.5 rounded-full border focus:outline-hidden focus:ring-2 focus:ring-offset-1 transition-all text-sm ${isSanta
             ? 'border-red-200 focus:border-red-400 focus:ring-red-100 bg-white placeholder:text-red-300'
             : 'border-gray-200 focus:border-red-600 focus:ring-red-50'
           }`}

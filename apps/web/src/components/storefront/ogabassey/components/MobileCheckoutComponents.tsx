@@ -74,7 +74,7 @@ export const MobileOrderSummary: React.FC<MobileOrderSummaryProps> = ({
                     <div className="space-y-4 mb-6 pt-2">
                         {cart.map((item) => (
                             <div key={item.cartItemId} className="flex gap-3">
-                                <div className="relative w-16 h-16 bg-white rounded-lg border border-gray-100 p-1 flex-shrink-0">
+                                <div className="relative w-16 h-16 bg-white rounded-lg border border-gray-100 p-1 shrink-0">
                                     <Image
                                         src={item.image || '/placeholder.png'}
                                         alt={item.name}
@@ -177,7 +177,7 @@ export const MobileCheckoutActions: React.FC<MobileCheckoutActionsProps> = ({
         <div className="fixed bottom-20 left-0 right-0 bg-white border-t border-gray-200 p-4 pb-safe-area lg:hidden z-50 shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
             <div className="flex items-center gap-4">
                 {/* Total displayed next to button for context */}
-                <div className="flex-shrink-0">
+                <div className="shrink-0">
                     <p className="text-[10px] text-gray-500 uppercase font-bold tracking-wider">Total</p>
                     <p className="text-lg font-bold text-gray-900 leading-tight">
                         ₦{totalDisplay.toLocaleString()}

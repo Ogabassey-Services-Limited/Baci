@@ -259,7 +259,7 @@ export function BillPaymentForm({
                 setVerification(null);
               }}
               placeholder={IDENTIFIER_PLACEHOLDERS[type]}
-              className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all"
+              className="flex-1 px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-hidden transition-all"
               required
             />
             <button
@@ -299,7 +299,7 @@ export function BillPaymentForm({
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               placeholder="0.00"
-              className="w-full pl-8 pr-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-none transition-all"
+              className="w-full pl-8 pr-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-1 focus:ring-red-600 outline-hidden transition-all"
               readOnly={isFixedAmount}
               required
               min="50"

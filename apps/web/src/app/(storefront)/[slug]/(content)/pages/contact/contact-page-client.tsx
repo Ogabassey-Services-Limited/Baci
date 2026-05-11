@@ -116,7 +116,7 @@ export function ContactPageClient({
 
             <main className="flex-1">
               {/* Hero Section */}
-              <section className="relative py-16 md:py-20 bg-gradient-to-b from-muted/50 to-background">
+              <section className="relative py-16 md:py-20 bg-linear-to-b from-muted/50 to-background">
                 <div className="container px-4 md:px-6 text-center">
                   <div className="flex justify-center mb-6">
                     <div className="p-4 bg-primary/10 rounded-full">

@@ -29,11 +29,11 @@ export function ThemedBadge({
         className={cn(
           // Use CSS custom properties with smart text color
           colorRole === 'primary' &&
-            'bg-[var(--store-primary)] text-[var(--store-primary-text)] hover:bg-[var(--store-primary)]/80 border-transparent',
+            'bg-(--store-primary) text-(--store-primary-text) hover:bg-(--store-primary)/80 border-transparent',
           colorRole === 'secondary' &&
-            'bg-[var(--store-secondary)] text-[var(--store-secondary-text)] hover:bg-[var(--store-secondary)]/80 border-transparent',
+            'bg-(--store-secondary) text-(--store-secondary-text) hover:bg-(--store-secondary)/80 border-transparent',
           colorRole === 'accent' &&
-            'bg-[var(--store-accent)] text-[var(--store-accent-text)] hover:bg-[var(--store-accent)]/80 border-transparent',
+            'bg-(--store-accent) text-(--store-accent-text) hover:bg-(--store-accent)/80 border-transparent',
           className
         )}
       />
@@ -49,11 +49,11 @@ export function ThemedBadge({
         className={cn(
           'bg-transparent',
           colorRole === 'primary' &&
-            'border-[var(--store-primary)] text-[var(--store-primary)]',
+            'border-(--store-primary) text-(--store-primary)',
           colorRole === 'secondary' &&
-            'border-[var(--store-secondary)] text-[var(--store-secondary)]',
+            'border-(--store-secondary) text-(--store-secondary)',
           colorRole === 'accent' &&
-            'border-[var(--store-accent)] text-[var(--store-accent)]',
+            'border-(--store-accent) text-(--store-accent)',
           className
         )}
       />

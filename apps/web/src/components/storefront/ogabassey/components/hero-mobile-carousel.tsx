@@ -86,7 +86,7 @@ export function HeroMobileCarousel({
               <>
                 <div className="relative h-full flex items-center p-6 z-10">
                   <div className={`max-w-[55%] ${slide.textColor}`}>
-                    <h2 className="text-2xl font-extrabold leading-tight mb-2 drop-shadow-sm font-sans">
+                    <h2 className="text-2xl font-extrabold leading-tight mb-2 drop-shadow-xs font-sans">
                       {slide.title}
                     </h2>
                     <p className="text-[11px] font-medium leading-relaxed opacity-90">
@@ -170,7 +170,7 @@ export function HeroMobileCarousel({
                   </video>
                 )}
               </div>
-              <div className="absolute inset-0 bg-black/30 z-[1]" />
+              <div className="absolute inset-0 bg-black/30 z-1" />
               <div className="relative h-full flex flex-col justify-center p-6 z-10 text-white">
                 <span className="bg-primary text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse w-fit mb-2">
                   Live Demo

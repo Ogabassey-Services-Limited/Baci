@@ -132,7 +132,7 @@ export default function CheckoutSuccessPage() {
   // Failed State
   if (status === 'failed') {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-red-50 to-white flex items-center justify-center p-4">
+      <div className="min-h-screen bg-linear-to-b from-red-50 to-white flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -177,7 +177,7 @@ export default function CheckoutSuccessPage() {
   const isConfirmed = status === 'success';
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-50/50 via-white to-gray-50">
+    <div className="min-h-screen bg-linear-to-b from-green-50/50 via-white to-gray-50">
       {/* Hero Section */}
       <div className="pt-12 pb-8 px-4">
         <motion.div
@@ -192,8 +192,8 @@ export default function CheckoutSuccessPage() {
             transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}
             className="relative w-24 h-24 mx-auto mb-6"
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-green-400 to-green-600 rounded-full opacity-20 animate-pulse" />
-            <div className="absolute inset-2 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center shadow-lg">
+            <div className="absolute inset-0 bg-linear-to-br from-green-400 to-green-600 rounded-full opacity-20 animate-pulse" />
+            <div className="absolute inset-2 bg-linear-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center shadow-lg">
               <CheckCircle2 className="w-12 h-12 text-white" />
             </div>
           </motion.div>
@@ -322,7 +322,7 @@ export default function CheckoutSuccessPage() {
             </h2>
             <div className="space-y-4">
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
                   <Mail className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
@@ -337,7 +337,7 @@ export default function CheckoutSuccessPage() {
               </div>
 
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0">
                   <Clock className="w-5 h-5 text-amber-600" />
                 </div>
                 <div>
@@ -352,7 +352,7 @@ export default function CheckoutSuccessPage() {
               </div>
 
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center shrink-0">
                   <Truck className="w-5 h-5 text-purple-600" />
                 </div>
                 <div>
@@ -373,10 +373,10 @@ export default function CheckoutSuccessPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8 }}
-            className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-3xl p-6 text-white"
+            className="bg-linear-to-br from-gray-900 to-gray-800 rounded-3xl p-6 text-white"
           >
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center flex-shrink-0">
+              <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
                 <FileText className="w-6 h-6 text-white" />
               </div>
               <div className="flex-1">

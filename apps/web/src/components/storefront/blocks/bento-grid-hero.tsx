@@ -56,7 +56,7 @@ export function BentoGridHero({
               priority
               sizes="(max-width: 768px) 100vw, 66vw"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent" />
             <div
               className={cn(
                 'absolute bottom-8 left-8 max-w-lg',

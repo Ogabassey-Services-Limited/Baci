@@ -131,7 +131,7 @@ export function TypingAnimation() {
       <span className="sr-only">E-commerce</span>
       <span
         aria-hidden="true"
-        className="inline-block bg-gradient-to-r from-accent to-orange-500 bg-clip-text text-transparent whitespace-nowrap pb-2 transition-all duration-300 ease-out"
+        className="inline-block bg-linear-to-r from-accent to-orange-500 bg-clip-text text-transparent whitespace-nowrap pb-2 transition-all duration-300 ease-out"
         style={{
           opacity: isVisible ? 1 : 0,
           transform: isVisible ? 'translateY(0)' : 'translateY(-20px)',

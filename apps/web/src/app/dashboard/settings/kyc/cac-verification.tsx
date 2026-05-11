@@ -246,7 +246,7 @@ export function CacVerification({
                     setSelectedCompany(c);
                     setCacStep('confirm');
                   }}
-                  className="w-full rounded-lg border p-3 text-left transition-colors hover:border-primary hover:bg-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="w-full rounded-lg border p-3 text-left transition-colors hover:border-primary hover:bg-primary/5 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-primary"
                 >
                   <p className="font-semibold">{c.approvedName}</p>
                   <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">

@@ -1,6 +1,816 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@config '../../tailwind.config.ts';
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
+
+@utility remove-arrow {
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  &::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  -moz-appearance: textfield;
+}
+
+@utility hide-scrollbar {
+  /* Hide scrollbar while maintaining scroll functionality */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+
+  &::-webkit-scrollbar {
+    display: none;
+    /* Chrome, Safari, Opera */
+  }
+}
+
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
+
+  &::-webkit-scrollbar {
+    display: none;
+    /* Chrome, Safari, Opera */
+  }
+}
+
+@utility glass {
+  /*
+   * 2025 Glass Morphism - Performance Optimized
+   * - Uses will-change sparingly (only on hover/focus)
+   * - Reduces backdrop-blur on mobile for battery/performance
+   * - Uses contain: layout for paint optimization
+   */
+
+  /* Standard glass for Baci-owned pages (landing, dashboard, checkout) */
+  @apply bg-white/80 border border-white/20 shadow-lg;
+  contain: layout;
+
+  /* Only apply blur on devices that can handle it (non-touch, larger screens) */
+  @media (hover: hover) and (min-width: 768px) {
+    @apply backdrop-blur-md bg-white/70;
+  }
+
+  .dark &:not(.light *):not(.storefront-light *) {
+    @apply bg-black/80 border-white/10;
+  }
+
+  @media (hover: hover) and (min-width: 768px) {
+    .dark &:not(.light *):not(.storefront-light *) {
+      @apply backdrop-blur-md bg-black/70;
+    }
+  }
+  @media print {
+    background: white;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+}
+
+@utility dark {
+  /* Only apply blur on devices that can handle it (non-touch, larger screens) */
+
+  & .glass:not(.light *):not(.storefront-light *) {
+    @apply bg-black/80 border-white/10;
+  }
+
+  @media (hover: hover) and (min-width: 768px) {
+    & .glass:not(.light *):not(.storefront-light *) {
+      @apply backdrop-blur-md bg-black/70;
+    }
+  }
+
+  /* Only apply blur on capable devices */
+
+  & .glass-themed:not(.light *):not(.storefront-light *) {
+    background: color-mix(
+      in srgb,
+      var(--store-background, black) 80%,
+      transparent
+    );
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  @media (hover: hover) and (min-width: 768px) {
+    & .glass-themed:not(.light *):not(.storefront-light *) {
+      @apply backdrop-blur-md;
+      background: color-mix(
+        in srgb,
+        var(--store-background, black) 70%,
+        transparent
+      );
+    }
+  }
+
+  & .prose-baci:not(.light *):not(.storefront-light *) {
+    @apply text-foreground/90;
+  }
+}
+
+@utility glass-themed {
+  /* Themed glass that respects merchant brand colors for storefronts */
+  @apply border shadow-lg;
+  background: color-mix(
+    in srgb,
+    var(--store-background, white) 80%,
+    transparent
+  );
+  border-color: color-mix(
+    in srgb,
+    var(--store-primary, white) 20%,
+    transparent
+  );
+  contain: layout;
+
+  /* Only apply blur on capable devices */
+  @media (hover: hover) and (min-width: 768px) {
+    @apply backdrop-blur-md;
+    background: color-mix(
+      in srgb,
+      var(--store-background, white) 70%,
+      transparent
+    );
+  }
+
+  .dark &:not(.light *):not(.storefront-light *) {
+    background: color-mix(
+      in srgb,
+      var(--store-background, black) 80%,
+      transparent
+    );
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  @media (hover: hover) and (min-width: 768px) {
+    .dark &:not(.light *):not(.storefront-light *) {
+      @apply backdrop-blur-md;
+      background: color-mix(
+        in srgb,
+        var(--store-background, black) 70%,
+        transparent
+      );
+    }
+  }
+  @media print {
+    background: white;
+    backdrop-filter: none;
+    box-shadow: none;
+  }
+}
+
+@utility dashboard-surface {
+  background-color: hsl(var(--dashboard-surface));
+  border-color: hsl(var(--dashboard-surface-border));
+}
+
+@utility dashboard-surface-elevated {
+  background-color: hsl(var(--dashboard-surface-elevated));
+  border-color: hsl(var(--dashboard-surface-border));
+}
+
+@utility dashboard-surface-subtle {
+  background-color: hsl(var(--dashboard-surface-subtle));
+  border-color: hsl(var(--dashboard-surface-border));
+}
+
+@utility hover-lift {
+  /*
+   * Hover lift effect - Desktop only
+   * Uses GPU-accelerated transform instead of box-shadow animation
+   * Only triggers on devices with hover capability (not touch)
+   */
+  @apply transition-transform duration-200;
+  will-change: auto;
+  /* Don't pre-allocate GPU memory */
+  @media (hover: hover) {
+    &:hover {
+      @apply -translate-y-1;
+      will-change: transform;
+      /* Hint to browser during interaction */
+    }
+
+    &:not(:hover) {
+      will-change: auto;
+      /* Release GPU memory when not hovering */
+    }
+  }
+  @media print {
+    animation: none;
+    transform: none;
+  }
+}
+
+@utility group-hover-scale {
+  /* Only apply hover effects on non-touch devices */
+
+  /* Group hover scale for icons - Desktop only */
+  @apply transition-transform duration-200;
+
+  @media (hover: hover) {
+    .group:hover & {
+      @apply scale-110;
+    }
+  }
+}
+
+@utility group {
+  @media (hover: hover) {
+    &:hover .group-hover-scale {
+      @apply scale-110;
+    }
+  }
+}
+
+@utility stagger-1 {
+  /* Staggered animation delays for lists - use with animate-fade-in-up */
+  --stagger-delay: 0ms;
+}
+
+@utility stagger-2 {
+  --stagger-delay: 50ms;
+}
+
+@utility stagger-3 {
+  --stagger-delay: 100ms;
+}
+
+@utility stagger-4 {
+  --stagger-delay: 150ms;
+}
+
+@utility stagger-5 {
+  --stagger-delay: 200ms;
+}
+
+@utility stagger-6 {
+  --stagger-delay: 250ms;
+}
+
+@utility stagger-7 {
+  --stagger-delay: 300ms;
+}
+
+@utility stagger-8 {
+  --stagger-delay: 350ms;
+}
+
+@utility animate-fade-in-up {
+  /* Fade in up - for list items, cards */
+  animation: fade-in-up var(--duration-normal) var(--ease-out) forwards;
+  animation-delay: var(--stagger-delay, 0ms);
+  opacity: 0;
+  /* Start invisible */
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+  @media print {
+    animation: none;
+    transform: none;
+  }
+}
+
+@utility animate-fade-in-scale {
+  /* Fade in scale - for modals, dialogs */
+  animation: fade-in-scale var(--duration-normal) var(--ease-spring) forwards;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+  @media print {
+    animation: none;
+    transform: none;
+  }
+}
+
+@utility animate-slide-in-right {
+  /* Slide in from right - for drawers, sidebars */
+  animation: slide-in-right var(--duration-normal) var(--ease-out) forwards;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility animate-slide-in-bottom {
+  /* Slide in from bottom - for mobile sheets */
+  animation: slide-in-bottom var(--duration-normal) var(--ease-out) forwards;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility skeleton-shimmer {
+  /* Skeleton shimmer - optimized with GPU layer */
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 0%,
+    hsl(var(--muted) / 0.5) 50%,
+    hsl(var(--muted)) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    background: hsl(var(--muted));
+  }
+}
+
+@utility animate-pulse-subtle {
+  /* Pulse subtle - for notifications, badges */
+  animation: pulse-subtle 2s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility animate-count-up {
+  /* Count up animation helper - use with JS */
+  transition: all var(--duration-slow) var(--ease-out);
+}
+
+@utility press-effect {
+  @media (hover: hover) {
+    @apply transition-transform;
+    transition-duration: var(--duration-fast);
+
+    &:active {
+      transform: scale(0.97);
+    }
+  }
+}
+
+@utility animate-spin-optimized {
+  /* Press effect for buttons - Desktop only */
+
+  /* Spinner optimization - uses GPU layer */
+  animation: spin-optimized 1s linear infinite;
+  will-change: transform;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility animate-checkmark {
+  /* Success checkmark animation */
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: checkmark-draw 0.5s var(--ease-out) forwards;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility animate-highlight {
+  /* Number/text highlight on change */
+  animation: highlight-change 1s var(--ease-out) forwards;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility animate-entry {
+  @supports (transition-behavior: allow-discrete) {
+    opacity: 1;
+    transform: translateY(0);
+    transition:
+      opacity var(--duration-normal) var(--ease-out),
+      transform var(--duration-normal) var(--ease-out);
+
+    @starting-style {
+      opacity: 0;
+      transform: translateY(1rem);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility scroll-reveal {
+  @supports (animation-timeline: view()) {
+    animation: scroll-fade-in linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 100%;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility animate-progress-indeterminate {
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility focus-enhanced {
+  /* 2026 CSS: @starting-style for entry animations without JS */
+
+  /* 2026 CSS: Scroll-driven reveal for product cards */
+
+  /* Reduced motion: Disable all custom animations */
+
+  /* Enhanced focus styles for WCAG 2.2 Focus Appearance */
+  &:focus-visible {
+    @apply outline-hidden ring-2 ring-primary ring-offset-2;
+    outline: 3px solid hsl(var(--primary));
+    outline-offset: 2px;
+  }
+}
+
+@utility focus-within-ring {
+  /* Focus within for card interactions */
+  &:focus-within {
+    @apply ring-2 ring-primary ring-offset-2;
+  }
+}
+
+@utility text-page-title {
+  /*
+   * 2025 Typography System - Semantic & Responsive
+   * Uses fluid typography from Tailwind config
+   * Provides semantic classes for consistent styling
+   */
+
+  /* Page titles - largest, used once per page */
+  @apply text-fluid-4xl font-bold tracking-tight;
+}
+
+@utility text-section-title {
+  /* Section headings */
+  @apply text-fluid-2xl font-semibold tracking-tight;
+}
+
+@utility text-card-title {
+  /* Card titles */
+  @apply text-fluid-lg font-semibold;
+}
+
+@utility text-subtitle {
+  /* Subsection or widget titles */
+  @apply text-fluid-base font-medium;
+}
+
+@utility text-body {
+  /* Body text - default readable size */
+  @apply text-fluid-base leading-relaxed;
+}
+
+@utility text-body-sm {
+  /* Body text small - secondary content */
+  @apply text-fluid-sm leading-relaxed text-muted-foreground;
+}
+
+@utility text-label {
+  /* Labels - form fields, metadata */
+  @apply text-sm font-medium leading-none;
+}
+
+@utility text-caption {
+  /* Captions - smallest readable text */
+  @apply text-fluid-xs text-muted-foreground;
+}
+
+@utility text-price {
+  /* Price display - prominent numbers */
+  @apply text-fluid-xl font-bold tabular-nums;
+}
+
+@utility text-price-sm {
+  /* Price small - in cards */
+  @apply text-fluid-lg font-semibold tabular-nums;
+}
+
+@utility text-stat {
+  /* Stat/metric numbers */
+  @apply text-fluid-3xl font-bold tabular-nums tracking-tight;
+}
+
+@utility text-badge {
+  /* Badge/tag text */
+  @apply text-xs font-medium uppercase tracking-wide;
+}
+
+@utility text-nav {
+  /* Navigation links */
+  @apply text-sm font-medium;
+}
+
+@utility text-button {
+  /* Button text - matches button sizing */
+  @apply text-sm font-medium;
+}
+
+@utility text-hero {
+  /* Hero text - landing pages */
+  @apply text-fluid-5xl font-bold tracking-tight;
+}
+
+@utility text-hero-sub {
+  @apply text-fluid-xl text-muted-foreground;
+}
+
+@utility prose-baci {
+  /* Prose - long-form content optimized for 2025 readability */
+  @apply text-fluid-base leading-relaxed text-foreground/90;
+  max-width: 65ch;
+  margin-inline: auto;
+
+  .dark &:not(.light *):not(.storefront-light *) {
+    @apply text-foreground/90;
+  }
+
+  & h1 {
+    @apply text-page-title font-bold tracking-tight text-primary dark:text-white;
+    margin-block: 2.5rem 1.5rem;
+    line-height: 1.1;
+  }
+
+  & h2 {
+    @apply text-section-title font-semibold tracking-tight text-primary/90 dark:text-white/90;
+    margin-block: 2rem 1rem;
+    line-height: 1.2;
+  }
+
+  & h3 {
+    @apply text-card-title font-semibold text-primary/90 dark:text-white;
+    margin-block: 1.5rem 0.75rem;
+    line-height: 1.3;
+  }
+
+  & p {
+    @apply text-foreground;
+    margin-block-end: 1.25rem;
+  }
+
+  & ul {
+    @apply text-foreground;
+    margin-block-end: 1.5rem;
+    padding-inline-start: 1.5rem;
+  }
+
+  & ol {
+    @apply text-foreground;
+    margin-block-end: 1.5rem;
+    padding-inline-start: 1.5rem;
+  }
+
+  & li {
+    @apply text-foreground list-outside;
+    margin-block-end: 0.5rem;
+  }
+
+  & ul {
+    @apply list-disc;
+  }
+
+  & ol {
+    @apply list-decimal;
+  }
+
+  & strong {
+    @apply font-bold text-foreground;
+  }
+
+  & a {
+    @apply text-primary underline underline-offset-4 decoration-primary/30 transition-colors hover:text-primary/80 hover:decoration-primary;
+  }
+
+  & blockquote {
+    @apply border-l-4 border-accent/50 italic text-muted-foreground bg-accent/5 px-6 py-4 rounded-r-lg;
+    margin-block: 2rem;
+  }
+
+  & img {
+    @apply rounded-2xl shadow-lg;
+    margin-block: 2.5rem;
+  }
+
+  & table {
+    @apply w-full border-collapse my-8 text-sm overflow-hidden rounded-xl border border-border;
+  }
+
+  & th {
+    @apply bg-muted/50 px-4 py-3 text-left font-semibold text-foreground border-b border-border;
+  }
+
+  & td {
+    @apply px-4 py-3 border-b border-border/50 text-muted-foreground transition-colors;
+  }
+
+  & tr:last-child td {
+    @apply border-b-0;
+  }
+
+  & tr:hover td {
+    @apply bg-accent/5 cursor-default;
+  }
+}
+
+@utility line-clamp-1 {
+  /* Truncation utilities */
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@utility line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@utility line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@utility gradient-hero {
+  /*
+   * 2025 Gradient System - Subtle, Modern
+   * Performance optimized with GPU-accelerated gradients
+   */
+
+  /* Subtle background gradient for hero sections */
+  background: linear-gradient(
+    135deg,
+    hsl(var(--background)) 0%,
+    hsl(var(--muted)) 50%,
+    hsl(var(--background)) 100%
+  );
+}
+
+@utility gradient-primary {
+  /* Primary gradient for buttons/CTAs */
+  background: linear-gradient(
+    135deg,
+    hsl(var(--primary)) 0%,
+    hsl(var(--primary) / 0.85) 100%
+  );
+}
+
+@utility gradient-accent {
+  /* Accent gradient for highlights */
+  background: linear-gradient(
+    90deg,
+    hsl(var(--accent)) 0%,
+    hsl(var(--accent) / 0.7) 100%
+  );
+}
+
+@utility gradient-glass {
+  /* Glass gradient overlay */
+  background: linear-gradient(
+    180deg,
+    hsl(var(--background) / 0.8) 0%,
+    hsl(var(--background) / 0.6) 100%
+  );
+}
+
+@utility gradient-shimmer {
+  /* Shimmer effect for loading states - more elegant than skeleton */
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 0%,
+    hsl(var(--muted) / 0.5) 50%,
+    hsl(var(--muted)) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-move 1.5s ease-in-out infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@utility gradient-text {
+  /* Text gradient for special headings */
+  background: linear-gradient(
+    135deg,
+    hsl(var(--primary)) 0%,
+    hsl(var(--accent)) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+@utility loaded {
+  &img[loading='lazy'] {
+    opacity: 1;
+  }
+}
+
+@utility react-grid-layout {
+  /* Print styles */
+
+  /*
+   * React Grid Layout - Responsive Overrides
+   * Forces the grid to respect container boundaries and prevents horizontal overflow
+   */
+  max-width: 100% !important;
+  width: 100% !important;
+  overflow: visible;
+}
+
+@utility react-grid-item {
+  max-width: 100%;
+  overflow: hidden;
+
+  /* Ensure grid items don't cause overflow */
+  & > div {
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  /* Force text in grid items to wrap or truncate */
+  & .text-2xl {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  & .text-xl {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@utility text-2xl {
+  /* Force text in grid items to wrap or truncate */
+  .react-grid-item & {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+@utility text-xl {
+  .react-grid-item & {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
 
 @layer base {
   :root {
@@ -273,140 +1083,6 @@
 
 @layer utilities {
 
-  .remove-arrow::-webkit-inner-spin-button,
-  .remove-arrow::-webkit-outer-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-
-  .remove-arrow {
-    -moz-appearance: textfield;
-  }
-
-  /* Hide scrollbar while maintaining scroll functionality */
-  .hide-scrollbar,
-  .no-scrollbar {
-    -ms-overflow-style: none;
-    /* IE and Edge */
-    scrollbar-width: none;
-    /* Firefox */
-  }
-
-  .hide-scrollbar::-webkit-scrollbar,
-  .no-scrollbar::-webkit-scrollbar {
-    display: none;
-    /* Chrome, Safari, Opera */
-  }
-
-  /*
-   * 2025 Glass Morphism - Performance Optimized
-   * - Uses will-change sparingly (only on hover/focus)
-   * - Reduces backdrop-blur on mobile for battery/performance
-   * - Uses contain: layout for paint optimization
-   */
-
-  /* Standard glass for Baci-owned pages (landing, dashboard, checkout) */
-  .glass {
-    @apply bg-white/80 border border-white/20 shadow-lg;
-    contain: layout;
-  }
-
-  /* Only apply blur on devices that can handle it (non-touch, larger screens) */
-  @media (hover: hover) and (min-width: 768px) {
-    .glass {
-      @apply backdrop-blur-md bg-white/70;
-    }
-  }
-
-  .dark .glass:not(.light *):not(.storefront-light *) {
-    @apply bg-black/80 border-white/10;
-  }
-
-  @media (hover: hover) and (min-width: 768px) {
-    .dark .glass:not(.light *):not(.storefront-light *) {
-      @apply backdrop-blur-md bg-black/70;
-    }
-  }
-
-  /* Themed glass that respects merchant brand colors for storefronts */
-  .glass-themed {
-    @apply border shadow-lg;
-    background: color-mix(in srgb, var(--store-background, white) 80%, transparent);
-    border-color: color-mix(in srgb, var(--store-primary, white) 20%, transparent);
-    contain: layout;
-  }
-
-  /* Only apply blur on capable devices */
-  @media (hover: hover) and (min-width: 768px) {
-    .glass-themed {
-      @apply backdrop-blur-md;
-      background: color-mix(in srgb, var(--store-background, white) 70%, transparent);
-    }
-  }
-
-  .dark .glass-themed:not(.light *):not(.storefront-light *) {
-    background: color-mix(in srgb, var(--store-background, black) 80%, transparent);
-    border-color: rgba(255, 255, 255, 0.1);
-  }
-
-  @media (hover: hover) and (min-width: 768px) {
-    .dark .glass-themed:not(.light *):not(.storefront-light *) {
-      @apply backdrop-blur-md;
-      background: color-mix(in srgb, var(--store-background, black) 70%, transparent);
-    }
-  }
-
-  .dashboard-surface {
-    background-color: hsl(var(--dashboard-surface));
-    border-color: hsl(var(--dashboard-surface-border));
-  }
-
-  .dashboard-surface-elevated {
-    background-color: hsl(var(--dashboard-surface-elevated));
-    border-color: hsl(var(--dashboard-surface-border));
-  }
-
-  .dashboard-surface-subtle {
-    background-color: hsl(var(--dashboard-surface-subtle));
-    border-color: hsl(var(--dashboard-surface-border));
-  }
-
-  /*
-   * Hover lift effect - Desktop only
-   * Uses GPU-accelerated transform instead of box-shadow animation
-   * Only triggers on devices with hover capability (not touch)
-   */
-  .hover-lift {
-    @apply transition-transform duration-200;
-    will-change: auto;
-    /* Don't pre-allocate GPU memory */
-  }
-
-  /* Only apply hover effects on non-touch devices */
-  @media (hover: hover) {
-    .hover-lift:hover {
-      @apply -translate-y-1;
-      will-change: transform;
-      /* Hint to browser during interaction */
-    }
-
-    .hover-lift:not(:hover) {
-      will-change: auto;
-      /* Release GPU memory when not hovering */
-    }
-  }
-
-  /* Group hover scale for icons - Desktop only */
-  .group-hover-scale {
-    @apply transition-transform duration-200;
-  }
-
-  @media (hover: hover) {
-    .group:hover .group-hover-scale {
-      @apply scale-110;
-    }
-  }
-
   /*
    * 2025 Animation System - Performance First
    * All animations respect prefers-reduced-motion via motion-safe:
@@ -427,41 +1103,6 @@
       1.007 55.7%, 1.003 64.2%, 1
     );
   }
-
-  /* Staggered animation delays for lists - use with animate-fade-in-up */
-  .stagger-1 {
-    --stagger-delay: 0ms;
-  }
-
-  .stagger-2 {
-    --stagger-delay: 50ms;
-  }
-
-  .stagger-3 {
-    --stagger-delay: 100ms;
-  }
-
-  .stagger-4 {
-    --stagger-delay: 150ms;
-  }
-
-  .stagger-5 {
-    --stagger-delay: 200ms;
-  }
-
-  .stagger-6 {
-    --stagger-delay: 250ms;
-  }
-
-  .stagger-7 {
-    --stagger-delay: 300ms;
-  }
-
-  .stagger-8 {
-    --stagger-delay: 350ms;
-  }
-
-  /* Fade in up - for list items, cards */
   @keyframes fade-in-up {
     from {
       opacity: 0;
@@ -473,15 +1114,6 @@
       transform: translateY(0);
     }
   }
-
-  .animate-fade-in-up {
-    animation: fade-in-up var(--duration-normal) var(--ease-out) forwards;
-    animation-delay: var(--stagger-delay, 0ms);
-    opacity: 0;
-    /* Start invisible */
-  }
-
-  /* Fade in scale - for modals, dialogs */
   @keyframes fade-in-scale {
     from {
       opacity: 0;
@@ -493,12 +1125,6 @@
       transform: scale(1);
     }
   }
-
-  .animate-fade-in-scale {
-    animation: fade-in-scale var(--duration-normal) var(--ease-spring) forwards;
-  }
-
-  /* Slide in from right - for drawers, sidebars */
   @keyframes slide-in-right {
     from {
       transform: translateX(100%);
@@ -508,12 +1134,6 @@
       transform: translateX(0);
     }
   }
-
-  .animate-slide-in-right {
-    animation: slide-in-right var(--duration-normal) var(--ease-out) forwards;
-  }
-
-  /* Slide in from bottom - for mobile sheets */
   @keyframes slide-in-bottom {
     from {
       transform: translateY(100%);
@@ -523,12 +1143,6 @@
       transform: translateY(0);
     }
   }
-
-  .animate-slide-in-bottom {
-    animation: slide-in-bottom var(--duration-normal) var(--ease-out) forwards;
-  }
-
-  /* Skeleton shimmer - optimized with GPU layer */
   @keyframes skeleton-shimmer {
     0% {
       background-position: -200% 0;
@@ -538,17 +1152,6 @@
       background-position: 200% 0;
     }
   }
-
-  .skeleton-shimmer {
-    background: linear-gradient(90deg,
-        hsl(var(--muted)) 0%,
-        hsl(var(--muted) / 0.5) 50%,
-        hsl(var(--muted)) 100%);
-    background-size: 200% 100%;
-    animation: skeleton-shimmer 1.5s ease-in-out infinite;
-  }
-
-  /* Pulse subtle - for notifications, badges */
   @keyframes pulse-subtle {
 
     0%,
@@ -560,41 +1163,11 @@
       opacity: 0.7;
     }
   }
-
-  .animate-pulse-subtle {
-    animation: pulse-subtle 2s ease-in-out infinite;
-  }
-
-  /* Count up animation helper - use with JS */
-  .animate-count-up {
-    transition: all var(--duration-slow) var(--ease-out);
-  }
-
-  /* Press effect for buttons - Desktop only */
-  @media (hover: hover) {
-    .press-effect {
-      @apply transition-transform;
-      transition-duration: var(--duration-fast);
-    }
-
-    .press-effect:active {
-      transform: scale(0.97);
-    }
-  }
-
-  /* Spinner optimization - uses GPU layer */
   @keyframes spin-optimized {
     to {
       transform: rotate(360deg);
     }
   }
-
-  .animate-spin-optimized {
-    animation: spin-optimized 1s linear infinite;
-    will-change: transform;
-  }
-
-  /* Success checkmark animation */
   @keyframes checkmark-draw {
     0% {
       stroke-dashoffset: 100;
@@ -604,14 +1177,6 @@
       stroke-dashoffset: 0;
     }
   }
-
-  .animate-checkmark {
-    stroke-dasharray: 100;
-    stroke-dashoffset: 100;
-    animation: checkmark-draw 0.5s var(--ease-out) forwards;
-  }
-
-  /* Number/text highlight on change */
   @keyframes highlight-change {
     0% {
       background-color: hsl(var(--primary) / 0.2);
@@ -621,34 +1186,7 @@
       background-color: transparent;
     }
   }
-
-  .animate-highlight {
-    animation: highlight-change 1s var(--ease-out) forwards;
-  }
-
-  /* 2026 CSS: @starting-style for entry animations without JS */
-  @supports (transition-behavior: allow-discrete) {
-    .animate-entry {
-      opacity: 1;
-      transform: translateY(0);
-      transition:
-        opacity var(--duration-normal) var(--ease-out),
-        transform var(--duration-normal) var(--ease-out);
-
-      @starting-style {
-        opacity: 0;
-        transform: translateY(1rem);
-      }
-    }
-  }
-
-  /* 2026 CSS: Scroll-driven reveal for product cards */
   @supports (animation-timeline: view()) {
-    .scroll-reveal {
-      animation: scroll-fade-in linear both;
-      animation-timeline: view();
-      animation-range: entry 0% entry 100%;
-    }
 
     @keyframes scroll-fade-in {
       from {
@@ -662,287 +1200,6 @@
     }
   }
 
-  /* Reduced motion: Disable all custom animations */
-  @media (prefers-reduced-motion: reduce) {
-
-    .animate-fade-in-up,
-    .animate-fade-in-scale,
-    .animate-slide-in-right,
-    .animate-slide-in-bottom,
-    .animate-pulse-subtle,
-    .animate-spin-optimized,
-    .animate-checkmark,
-    .animate-highlight,
-    .animate-progress-indeterminate,
-    .animate-entry,
-    .scroll-reveal {
-      animation: none;
-      transition: none;
-      opacity: 1;
-      transform: none;
-    }
-
-    .skeleton-shimmer {
-      animation: none;
-      background: hsl(var(--muted));
-    }
-  }
-
-  /* Enhanced focus styles for WCAG 2.2 Focus Appearance */
-  .focus-enhanced:focus-visible {
-    @apply outline-none ring-2 ring-primary ring-offset-2;
-    outline: 3px solid hsl(var(--primary));
-    outline-offset: 2px;
-  }
-
-  /* Focus within for card interactions */
-  .focus-within-ring:focus-within {
-    @apply ring-2 ring-primary ring-offset-2;
-  }
-
-  /*
-   * 2025 Typography System - Semantic & Responsive
-   * Uses fluid typography from Tailwind config
-   * Provides semantic classes for consistent styling
-   */
-
-  /* Page titles - largest, used once per page */
-  .text-page-title {
-    @apply text-fluid-4xl font-bold tracking-tight;
-  }
-
-  /* Section headings */
-  .text-section-title {
-    @apply text-fluid-2xl font-semibold tracking-tight;
-  }
-
-  /* Card titles */
-  .text-card-title {
-    @apply text-fluid-lg font-semibold;
-  }
-
-  /* Subsection or widget titles */
-  .text-subtitle {
-    @apply text-fluid-base font-medium;
-  }
-
-  /* Body text - default readable size */
-  .text-body {
-    @apply text-fluid-base leading-relaxed;
-  }
-
-  /* Body text small - secondary content */
-  .text-body-sm {
-    @apply text-fluid-sm leading-relaxed text-muted-foreground;
-  }
-
-  /* Labels - form fields, metadata */
-  .text-label {
-    @apply text-sm font-medium leading-none;
-  }
-
-  /* Captions - smallest readable text */
-  .text-caption {
-    @apply text-fluid-xs text-muted-foreground;
-  }
-
-  /* Price display - prominent numbers */
-  .text-price {
-    @apply text-fluid-xl font-bold tabular-nums;
-  }
-
-  /* Price small - in cards */
-  .text-price-sm {
-    @apply text-fluid-lg font-semibold tabular-nums;
-  }
-
-  /* Stat/metric numbers */
-  .text-stat {
-    @apply text-fluid-3xl font-bold tabular-nums tracking-tight;
-  }
-
-  /* Badge/tag text */
-  .text-badge {
-    @apply text-xs font-medium uppercase tracking-wide;
-  }
-
-  /* Navigation links */
-  .text-nav {
-    @apply text-sm font-medium;
-  }
-
-  /* Button text - matches button sizing */
-  .text-button {
-    @apply text-sm font-medium;
-  }
-
-  /* Hero text - landing pages */
-  .text-hero {
-    @apply text-fluid-5xl font-bold tracking-tight;
-  }
-
-  .text-hero-sub {
-    @apply text-fluid-xl text-muted-foreground;
-  }
-
-  /* Prose - long-form content optimized for 2025 readability */
-  .prose-baci {
-    @apply text-fluid-base leading-relaxed text-foreground/90;
-    max-width: 65ch;
-    margin-inline: auto;
-  }
-
-  .dark .prose-baci:not(.light *):not(.storefront-light *) {
-    @apply text-foreground/90;
-  }
-
-  .prose-baci h1 {
-    @apply text-page-title font-bold tracking-tight text-primary dark:text-white;
-    margin-block: 2.5rem 1.5rem;
-    line-height: 1.1;
-  }
-
-  .prose-baci h2 {
-    @apply text-section-title font-semibold tracking-tight text-primary/90 dark:text-white/90;
-    margin-block: 2rem 1rem;
-    line-height: 1.2;
-  }
-
-  .prose-baci h3 {
-    @apply text-card-title font-semibold text-primary/90 dark:text-white;
-    margin-block: 1.5rem 0.75rem;
-    line-height: 1.3;
-  }
-
-  .prose-baci p {
-    @apply text-foreground;
-    margin-block-end: 1.25rem;
-  }
-
-  .prose-baci ul,
-  .prose-baci ol {
-    @apply text-foreground;
-    margin-block-end: 1.5rem;
-    padding-inline-start: 1.5rem;
-  }
-
-  .prose-baci li {
-    @apply text-foreground list-outside;
-    margin-block-end: 0.5rem;
-  }
-
-  .prose-baci ul {
-    @apply list-disc;
-  }
-
-  .prose-baci ol {
-    @apply list-decimal;
-  }
-
-  .prose-baci strong {
-    @apply font-bold text-foreground;
-  }
-
-  .prose-baci a {
-    @apply text-primary underline underline-offset-4 decoration-primary/30 transition-colors hover:text-primary/80 hover:decoration-primary;
-  }
-
-  .prose-baci blockquote {
-    @apply border-l-4 border-accent/50 italic text-muted-foreground bg-accent/5 px-6 py-4 rounded-r-lg;
-    margin-block: 2rem;
-  }
-
-  .prose-baci img {
-    @apply rounded-2xl shadow-lg;
-    margin-block: 2.5rem;
-  }
-
-  .prose-baci table {
-    @apply w-full border-collapse my-8 text-sm overflow-hidden rounded-xl border border-border;
-  }
-
-  .prose-baci th {
-    @apply bg-muted/50 px-4 py-3 text-left font-semibold text-foreground border-b border-border;
-  }
-
-  .prose-baci td {
-    @apply px-4 py-3 border-b border-border/50 text-muted-foreground transition-colors;
-  }
-
-  .prose-baci tr:last-child td {
-    @apply border-b-0;
-  }
-
-  .prose-baci tr:hover td {
-    @apply bg-accent/5 cursor-default;
-  }
-
-  /* Truncation utilities */
-  .line-clamp-1 {
-    display: -webkit-box;
-    -webkit-line-clamp: 1;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .line-clamp-2 {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  .line-clamp-3 {
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
-
-  /*
-   * 2025 Gradient System - Subtle, Modern
-   * Performance optimized with GPU-accelerated gradients
-   */
-
-  /* Subtle background gradient for hero sections */
-  .gradient-hero {
-    background: linear-gradient(135deg,
-        hsl(var(--background)) 0%,
-        hsl(var(--muted)) 50%,
-        hsl(var(--background)) 100%);
-  }
-
-  /* Primary gradient for buttons/CTAs */
-  .gradient-primary {
-    background: linear-gradient(135deg,
-        hsl(var(--primary)) 0%,
-        hsl(var(--primary) / 0.85) 100%);
-  }
-
-  /* Accent gradient for highlights */
-  .gradient-accent {
-    background: linear-gradient(90deg,
-        hsl(var(--accent)) 0%,
-        hsl(var(--accent) / 0.7) 100%);
-  }
-
-  /* Glass gradient overlay */
-  .gradient-glass {
-    background: linear-gradient(180deg,
-        hsl(var(--background) / 0.8) 0%,
-        hsl(var(--background) / 0.6) 100%);
-  }
-
-  /* Shimmer effect for loading states - more elegant than skeleton */
-  .gradient-shimmer {
-    background: linear-gradient(90deg,
-        hsl(var(--muted)) 0%,
-        hsl(var(--muted) / 0.5) 50%,
-        hsl(var(--muted)) 100%);
-    background-size: 200% 100%;
-    animation: shimmer-move 1.5s ease-in-out infinite;
-  }
-
   @keyframes shimmer-move {
     0% {
       background-position: 200% 0;
@@ -953,16 +1210,6 @@
     }
   }
 
-  /* Text gradient for special headings */
-  .gradient-text {
-    background: linear-gradient(135deg,
-        hsl(var(--primary)) 0%,
-        hsl(var(--accent)) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-  }
-
   /*
    * Final Polish - Micro Details
    */
@@ -971,11 +1218,6 @@
   img[loading="lazy"] {
     opacity: 0;
     transition: opacity 0.3s ease-out;
-  }
-
-  img[loading="lazy"].loaded,
-  img[loading="lazy"]:not([data-src]) {
-    opacity: 1;
   }
 
   /* Selection styling */
@@ -1025,57 +1267,6 @@
     html {
       scroll-behavior: auto;
     }
-
-    .gradient-shimmer {
-      animation: none;
-    }
-  }
-
-  /* Print styles */
-  @media print {
-
-    .glass,
-    .glass-themed {
-      background: white;
-      backdrop-filter: none;
-      box-shadow: none;
-    }
-
-    .animate-fade-in-up,
-    .animate-fade-in-scale,
-    .hover-lift {
-      animation: none;
-      transform: none;
-    }
-  }
-
-  /*
-   * React Grid Layout - Responsive Overrides
-   * Forces the grid to respect container boundaries and prevents horizontal overflow
-   */
-  .react-grid-layout {
-    max-width: 100% !important;
-    width: 100% !important;
-    overflow: visible;
-  }
-
-  .react-grid-item {
-    max-width: 100%;
-    overflow: hidden;
-  }
-
-  /* Ensure grid items don't cause overflow */
-  .react-grid-item>div {
-    max-width: 100%;
-    overflow: hidden;
-  }
-
-  /* Force text in grid items to wrap or truncate */
-  .react-grid-item .text-2xl,
-  .react-grid-item .text-xl {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 }
 

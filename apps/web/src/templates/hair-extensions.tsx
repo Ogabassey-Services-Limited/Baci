@@ -65,7 +65,7 @@ export function HairExtensionsHome(props: TemplatePageProps) {
     return (
         <div className="min-h-screen bg-[#1A1A1A] text-white">
             {/* Hero Section - Glamorous & Dramatic */}
-            <section className="relative bg-gradient-to-br from-[#1A1A1A] via-[#2D2D2D] to-[#1A1A1A] overflow-hidden">
+            <section className="relative bg-linear-to-br from-[#1A1A1A] via-[#2D2D2D] to-[#1A1A1A] overflow-hidden">
                 {/* Sparkle decorations */}
                 <div className="absolute inset-0 overflow-hidden">
                     <div className="absolute top-20 left-20 text-[#B76E79] opacity-30">
@@ -82,7 +82,7 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                 <div className="relative max-w-7xl mx-auto px-6 py-24">
                     <div className="max-w-3xl">
                         <div className="flex items-center gap-3 mb-6">
-                            <div className="w-14 h-14 bg-gradient-to-br from-[#B76E79] to-[#F5D0C5] rounded-full flex items-center justify-center">
+                            <div className="w-14 h-14 bg-linear-to-br from-[#B76E79] to-[#F5D0C5] rounded-full flex items-center justify-center">
                                 <Crown className="w-7 h-7 text-white" />
                             </div>
                             <div className="flex gap-2">
@@ -96,7 +96,7 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                         </div>
 
                         <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
-                            <span className="bg-gradient-to-r from-[#B76E79] to-[#F5D0C5] bg-clip-text text-transparent">
+                            <span className="bg-linear-to-r from-[#B76E79] to-[#F5D0C5] bg-clip-text text-transparent">
                                 Transform
                             </span>{' '}
                             Your Look<br />
@@ -112,7 +112,7 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                                 onClick={() => {
                                     document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
                                 }}
-                                className="px-8 py-4 bg-gradient-to-r from-[#B76E79] to-[#D4919B] text-white rounded-full font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-[#B76E79]/30"
+                                className="px-8 py-4 bg-linear-to-r from-[#B76E79] to-[#D4919B] text-white rounded-full font-semibold hover:opacity-90 transition-opacity shadow-lg shadow-[#B76E79]/30"
                             >
                                 Shop Collection
                             </button>
@@ -133,7 +133,7 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                             const Icon = badge.icon;
                             return (
                                 <div key={index} className="flex items-center gap-3">
-                                    <div className="w-12 h-12 bg-gradient-to-br from-[#B76E79]/20 to-[#B76E79]/10 rounded-full flex items-center justify-center flex-shrink-0 border border-[#B76E79]/30">
+                                    <div className="w-12 h-12 bg-linear-to-br from-[#B76E79]/20 to-[#B76E79]/10 rounded-full flex items-center justify-center shrink-0 border border-[#B76E79]/30">
                                         <Icon className="w-5 h-5 text-[#B76E79]" />
                                     </div>
                                     <div>
@@ -164,7 +164,7 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                                     key={texture.value}
                                     onClick={() => setSelectedTexture(texture.value)}
                                     className={`px-6 py-3 rounded-full font-medium transition-all flex items-center gap-2 ${isActive
-                                            ? 'bg-gradient-to-r from-[#B76E79] to-[#D4919B] text-white shadow-lg shadow-[#B76E79]/30'
+                                            ? 'bg-linear-to-r from-[#B76E79] to-[#D4919B] text-white shadow-lg shadow-[#B76E79]/30'
                                             : 'bg-white/5 text-gray-300 hover:bg-white/10 border border-white/10'
                                         }`}
                                 >
@@ -236,7 +236,7 @@ export function HairExtensionsHome(props: TemplatePageProps) {
             </section>
 
             {/* Installation Tutorial CTA */}
-            <section className="py-16 bg-gradient-to-r from-[#B76E79] to-[#D4919B]">
+            <section className="py-16 bg-linear-to-r from-[#B76E79] to-[#D4919B]">
                 <div className="max-w-7xl mx-auto px-6">
                     <div className="grid md:grid-cols-2 gap-12 items-center">
                         <div>
@@ -265,7 +265,7 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                             </button>
                         </div>
                         <div className="relative">
-                            <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-8 text-center border border-white/20">
+                            <div className="bg-white/10 backdrop-blur-xs rounded-3xl p-8 text-center border border-white/20">
                                 <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
                                     <PlayCircle className="w-10 h-10 text-white" />
                                 </div>
@@ -292,10 +292,10 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                         {transformations.map((t, idx) => (
                             <div key={idx} className="bg-[#222] rounded-2xl overflow-hidden border border-[#333] hover:border-[#B76E79]/50 transition-colors group">
                                 <div className="grid grid-cols-2 h-48">
-                                    <div className="bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-gray-500">
+                                    <div className="bg-linear-to-br from-gray-700 to-gray-800 flex items-center justify-center text-gray-500">
                                         {t.before}
                                     </div>
-                                    <div className="bg-gradient-to-br from-[#B76E79]/20 to-[#F5D0C5]/20 flex items-center justify-center text-[#B76E79]">
+                                    <div className="bg-linear-to-br from-[#B76E79]/20 to-[#F5D0C5]/20 flex items-center justify-center text-[#B76E79]">
                                         {t.after}
                                     </div>
                                 </div>
@@ -331,7 +331,7 @@ export function HairExtensionsHome(props: TemplatePageProps) {
                             { name: 'Queen Bundle', items: '5 bundles + frontal + care kit', price: '$599', save: '30%' },
                         ].map((bundle, idx) => (
                             <div key={idx} className={`p-6 rounded-2xl border transition-all ${idx === 1
-                                    ? 'bg-gradient-to-br from-[#B76E79]/20 to-[#F5D0C5]/10 border-[#B76E79]'
+                                    ? 'bg-linear-to-br from-[#B76E79]/20 to-[#F5D0C5]/10 border-[#B76E79]'
                                     : 'bg-[#1A1A1A] border-[#333] hover:border-[#B76E79]/50'
                                 }`}>
                                 {idx === 1 && (

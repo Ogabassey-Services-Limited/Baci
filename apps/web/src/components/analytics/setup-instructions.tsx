@@ -58,7 +58,7 @@ const CopyButton = ({
       type="button"
       onClick={handleCopy}
       aria-label={ariaLabel || 'Copy to clipboard'}
-      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+      className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
     >
       {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
       {copied ? 'Copied!' : 'Copy'}
@@ -352,7 +352,7 @@ export function SetupInstructions({
           <div className="space-y-3">
             {instructions.steps.map((step, index) => (
               <div key={step.title} className="flex gap-3">
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-medium flex items-center justify-center">
+                <div className="shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-medium flex items-center justify-center">
                   {index + 1}
                 </div>
                 <div className="space-y-1">

@@ -14,7 +14,7 @@ export function OrdersStatsCards({
 }) {
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      <Card className="border-blue-200 bg-blue-50/50 backdrop-blur-sm transition-transform hover:scale-105">
+      <Card className="border-blue-200 bg-blue-50/50 backdrop-blur-xs transition-transform hover:scale-105">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-blue-800">
             Total Orders 🛍️
@@ -32,7 +32,7 @@ export function OrdersStatsCards({
         </CardContent>
       </Card>
 
-      <Card className="border-yellow-200 bg-yellow-50/50 backdrop-blur-sm transition-transform hover:scale-105">
+      <Card className="border-yellow-200 bg-yellow-50/50 backdrop-blur-xs transition-transform hover:scale-105">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-yellow-800">
             Completed Orders ✅
@@ -50,7 +50,7 @@ export function OrdersStatsCards({
         </CardContent>
       </Card>
 
-      <Card className="border-blue-200 bg-blue-50/50 backdrop-blur-sm transition-transform hover:scale-105">
+      <Card className="border-blue-200 bg-blue-50/50 backdrop-blur-xs transition-transform hover:scale-105">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium text-blue-800">
             Unpaid Orders 💸

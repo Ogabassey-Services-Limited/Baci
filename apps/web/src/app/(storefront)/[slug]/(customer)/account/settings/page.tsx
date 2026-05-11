@@ -100,7 +100,7 @@ export default function CustomerSettingsPage() {
 
   if (merchantLoading || authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+      <div className="min-h-screen bg-linear-to-b from-background to-muted/20">
         <div className="container mx-auto px-4 py-8 max-w-2xl">
           <Skeleton className="h-8 w-48 mb-8" />
           <Skeleton className="h-64" />
@@ -114,9 +114,9 @@ export default function CustomerSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+    <div className="min-h-screen bg-linear-to-b from-background to-muted/20">
       {/* Header */}
-      <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="border-b bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center">
           <Link
             href={asRoute('/account')}

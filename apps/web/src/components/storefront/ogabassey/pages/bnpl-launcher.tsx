@@ -239,8 +239,8 @@ export function BnplLauncher() {
             <div className="text-center">
                 <div className="relative w-20 h-20 mx-auto mb-6">
                     <div className="absolute inset-0 border-4 border-gray-100 rounded-full"></div>
-                    <div className="absolute inset-0 border-4 border-[var(--store-primary)] rounded-full border-t-transparent animate-spin"></div>
-                    <ShieldCheck className="absolute inset-0 m-auto text-[var(--store-primary)] w-8 h-8" />
+                    <div className="absolute inset-0 border-4 border-(--store-primary) rounded-full border-t-transparent animate-spin"></div>
+                    <ShieldCheck className="absolute inset-0 m-auto text-(--store-primary) w-8 h-8" />
                 </div>
                 <h1 className="text-2xl font-bold text-gray-900 mb-2">
                     Secure Checkout
