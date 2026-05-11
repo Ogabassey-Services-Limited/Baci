@@ -150,11 +150,15 @@ export function ProductCatalog({
     }
   );
 
+  // Gate on `isSaving` to prevent overlapping save requests. If a save is
+  // already in flight, defer until it finishes — when `isSaving` flips back to
+  // false this effect re-runs (it's listed in deps) and any still-dirty
+  // products get retried in the next pass.
   useEffect(() => {
-    if (debouncedDirtyProducts.size === 0) return;
+    if (debouncedDirtyProducts.size === 0 || isSaving) return;
 
     void saveDebouncedDirtyProducts(debouncedDirtyProducts);
-  }, [debouncedDirtyProducts]);
+  }, [debouncedDirtyProducts, isSaving]);
 
   const toggleProduct = (productId: string) => {
     setExpandedProducts((current) => {
