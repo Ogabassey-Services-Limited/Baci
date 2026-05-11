@@ -126,6 +126,13 @@ function createMockAdminClient() {
           }),
         };
       }
+      // B1 (Δ-10): DVA initialize upserts the assignment so the webhook
+      // can match it later. Mock as a no-op for the existing tests.
+      if (table === 'order_payment_accounts') {
+        return {
+          upsert: () => Promise.resolve({ data: null, error: null }),
+        };
+      }
       return {
         select: () => ({
           eq: () => ({

@@ -31,6 +31,7 @@ import {
   applyPaidOrderSideEffects,
   type StepExecutor,
 } from '@/lib/payments/apply-paid-order-side-effects';
+import { confirmPaystackDvaByOrderAccount } from '@/lib/payments/confirm-paystack-dva-by-order-account';
 import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import {
   calculatePlatformFee,
@@ -459,8 +460,10 @@ export async function POST(request: NextRequest) {
 
     let resolvedAgenticTransaction: AgenticPaystackDvaTransaction | null = null;
     if (gateway === 'paystack') {
+      const receiverAccountNumber = getPaystackDvaReceiverAccountNumber(body);
+
       const agenticDvaPayment = await confirmAgenticPaystackDvaPayment({
-        accountNumber: getPaystackDvaReceiverAccountNumber(body),
+        accountNumber: receiverAccountNumber,
         gatewayReference: reference,
         supabase,
         verifiedAmount,
@@ -472,6 +475,32 @@ export async function POST(request: NextRequest) {
         });
       }
       resolvedAgenticTransaction = agenticDvaPayment.transaction ?? null;
+
+      // B1 (Δ-3, Δ-6, Δ-10, Δ-55, Δ-57): if the agentic checkout-session
+      // path didn't match, try the regular DVA path — match against the
+      // persisted `order_payment_accounts` row(s) using B0's 6-key
+      // tighten. On single match, insert a pending `transactions` row
+      // so the webhook's normal flow flips it to completed and runs
+      // side effects via the A1 outbox. Ambiguous matches file a
+      // `reconciliation_review` row and return 409.
+      if (!resolvedAgenticTransaction) {
+        const orderAccountResult = await confirmPaystackDvaByOrderAccount({
+          supabase,
+          accountNumber: receiverAccountNumber,
+          gatewayReference: reference,
+          verifiedAmount,
+          paystackResponse: gatewayResponse,
+        });
+        if (orderAccountResult.kind === 'review') {
+          return NextResponse.json(orderAccountResult.body, {
+            status: orderAccountResult.status,
+          });
+        }
+        if (orderAccountResult.kind === 'match') {
+          resolvedAgenticTransaction =
+            orderAccountResult.transaction as AgenticPaystackDvaTransaction;
+        }
+      }
     }
 
     // ============================================
