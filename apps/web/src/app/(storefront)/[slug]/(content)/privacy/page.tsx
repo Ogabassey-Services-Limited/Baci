@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
+import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
@@ -8,7 +11,7 @@ import {
   generateMetaDescription,
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
-import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
 import { getTemplate } from '@/templates/registry';
 import { PrivacyPageClient } from '../pages/privacy/privacy-page-client';
 
@@ -26,7 +29,7 @@ export async function generateMetadata({
     return { title: 'Privacy Policy' };
   }
 
-  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const baseUrl = buildStoreUrl(merchant);
   const canonicalUrl = `${baseUrl}/privacy`;
   const description = generateMetaDescription(
     `Privacy Policy for ${merchant.business_name}. Learn how we collect, use, and protect your personal information.`
@@ -49,7 +52,20 @@ export async function generateMetadata({
   };
 }
 
-export default async function PrivacyPage({ params }: PageProps) {
+export default function PrivacyPage({ params }: PageProps) {
+  return (
+    <>
+      <Suspense fallback={null}>
+        <StorefrontDynamicMetadataMarker />
+      </Suspense>
+      <Suspense fallback={<ContentRouteLoading />}>
+        <PrivacyPageContent params={params} />
+      </Suspense>
+    </>
+  );
+}
+
+async function PrivacyPageContent({ params }: PageProps) {
   const { slug } = await params;
   const merchant = await getMerchantByIdentifier(slug);
 

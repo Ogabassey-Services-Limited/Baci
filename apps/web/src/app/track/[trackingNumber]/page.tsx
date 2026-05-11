@@ -1,136 +1,31 @@
 'use client';
 
-import {
-  AlertCircle,
-  ArrowLeft,
-  CheckCircle2,
-  Clock,
-  Loader2,
-  MapPin,
-  Package,
-  Truck,
-  XCircle,
-} from 'lucide-react';
+import { AlertCircle, ArrowLeft, Loader2, MapPin } from 'lucide-react';
 import Link from 'next/link';
-import { use, useEffect, useState } from 'react';
+import { Suspense, use, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-
-// =============================================================================
-// TYPES
-// =============================================================================
-
-interface TrackingEvent {
-  status: string;
-  description: string;
-  location?: string;
-  timestamp: string;
-}
-
-interface TrackingResult {
-  trackingNumber: string;
-  carrier: string;
-  provider: string;
-  status: string;
-  statusLabel: string;
-  estimatedDelivery?: string;
-  actualDelivery?: string;
-  events: TrackingEvent[];
-  shipment?: {
-    id: string;
-    orderId: string;
-    receiverCity?: string;
-    receiverState?: string;
-    estimatedDays?: number;
-  };
-}
-
-// =============================================================================
-// STATUS CONFIG
-// =============================================================================
-
-const STATUS_CONFIG: Record<
-  string,
-  {
-    icon: typeof Package;
-    color: string;
-    bgColor: string;
-    label: string;
-  }
-> = {
-  pending: {
-    icon: Clock,
-    color: 'text-gray-500',
-    bgColor: 'bg-gray-100',
-    label: 'Order Received',
-  },
-  booked: {
-    icon: Package,
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-100',
-    label: 'Shipment Booked',
-  },
-  pickup_scheduled: {
-    icon: Package,
-    color: 'text-blue-500',
-    bgColor: 'bg-blue-100',
-    label: 'Pickup Scheduled',
-  },
-  picked_up: {
-    icon: Truck,
-    color: 'text-indigo-500',
-    bgColor: 'bg-indigo-100',
-    label: 'Picked Up',
-  },
-  in_transit: {
-    icon: Truck,
-    color: 'text-purple-500',
-    bgColor: 'bg-purple-100',
-    label: 'In Transit',
-  },
-  out_for_delivery: {
-    icon: Truck,
-    color: 'text-orange-500',
-    bgColor: 'bg-orange-100',
-    label: 'Out for Delivery',
-  },
-  delivered: {
-    icon: CheckCircle2,
-    color: 'text-green-500',
-    bgColor: 'bg-green-100',
-    label: 'Delivered',
-  },
-  cancelled: {
-    icon: XCircle,
-    color: 'text-red-500',
-    bgColor: 'bg-red-100',
-    label: 'Cancelled',
-  },
-  failed: {
-    icon: AlertCircle,
-    color: 'text-red-500',
-    bgColor: 'bg-red-100',
-    label: 'Delivery Failed',
-  },
-  returned: {
-    icon: Package,
-    color: 'text-amber-500',
-    bgColor: 'bg-amber-100',
-    label: 'Returned',
-  },
-};
+import { TRACKING_STATUS_CONFIG, type TrackingResult } from './tracking-status';
 
 // =============================================================================
 // TRACKING PAGE COMPONENT
 // =============================================================================
 
-export default function TrackingPage({
-  params,
-}: {
+interface TrackingPageProps {
   params: Promise<{ trackingNumber: string }>;
-}) {
+}
+
+export default function TrackingPage(props: TrackingPageProps) {
+  return (
+    <Suspense fallback={<TrackingPageFallback />}>
+      <TrackingPageContent {...props} />
+    </Suspense>
+  );
+}
+
+function TrackingPageContent({ params }: TrackingPageProps) {
   const { trackingNumber } = use(params);
   const [tracking, setTracking] = useState<TrackingResult | null>(null);
   const [loading, setLoading] = useState(true);
@@ -207,7 +102,8 @@ export default function TrackingPage({
     return null;
   }
 
-  const statusConfig = STATUS_CONFIG[tracking.status] || STATUS_CONFIG.pending;
+  const statusConfig =
+    TRACKING_STATUS_CONFIG[tracking.status] || TRACKING_STATUS_CONFIG.pending;
   const StatusIcon = statusConfig.icon;
 
   return (
@@ -352,6 +248,17 @@ export default function TrackingPage({
             </p>
           </CardContent>
         </Card>
+      </div>
+    </div>
+  );
+}
+
+function TrackingPageFallback() {
+  return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-center space-y-4" role="status" aria-live="polite">
+        <Loader2 className="h-12 w-12 animate-spin mx-auto text-muted-foreground" />
+        <p className="text-muted-foreground">Tracking your shipment...</p>
       </div>
     </div>
   );
