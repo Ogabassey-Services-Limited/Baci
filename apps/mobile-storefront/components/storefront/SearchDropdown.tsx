@@ -11,7 +11,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useDeferredValue, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -27,7 +27,7 @@ import {
 import { SafeImage } from '@/components/ui/SafeImage';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
-import { type Category, useCategories, useProducts } from '@/hooks';
+import { type Category, useCategories, useProducts, useDebounce } from '@/hooks';
 import { useSearchStorage } from '@/hooks/use-search-storage';
 import { formatPrice, type Product } from '@/types/product';
 
@@ -64,8 +64,8 @@ export function SearchDropdown({
   // Use external query if provided, otherwise internal
   const activeQuery =
     externalQuery !== undefined ? externalQuery : internalQuery;
-  const deferredQuery = useDeferredValue(activeQuery);
-  const effectiveQuery = deferredQuery.trim();
+  const debouncedQuery = useDebounce(activeQuery, 300);
+  const effectiveQuery = debouncedQuery.trim();
   const setQuery = onExternalQueryChange || setInternalQuery;
 
   const { recentSearches, saveSearch, clearHistory } = useSearchStorage();
