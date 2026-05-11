@@ -6,8 +6,8 @@ import { Loader2, Pencil } from 'lucide-react';
 import { Component, type ReactNode, useEffect, useState } from 'react';
 import { builderConfig } from '@/components/builder/config';
 import { Button } from '@/components/ui/button';
-import type { MerchantData } from '@/hooks/use-merchant';
-import { MerchantProvider } from '@/hooks/use-merchant-client';
+import { CartProvider } from '@/hooks/use-cart';
+import { type MerchantData, MerchantProvider } from '@/hooks/use-merchant';
 import {
   deriveThemeFromColors,
   generateFeatures,
@@ -23,6 +23,8 @@ interface OnboardingPuckPreviewProps {
   onEdit?: (data: Data) => void;
   data?: Data | null;
 }
+
+const PREVIEW_MERCHANT_ID = 'preview-merchant-id-preview';
 
 /**
  * Error Boundary to catch merchant context errors
@@ -382,7 +384,7 @@ export function OnboardingPuckPreview({
               <MerchantProvider
                 initialMerchant={
                   {
-                    id: 'preview-merchant-id',
+                    id: PREVIEW_MERCHANT_ID,
                     user_id: 'preview-user-id',
                     business_name: businessName || 'Your Store',
                     business_type: businessType || 'other',
@@ -391,9 +393,14 @@ export function OnboardingPuckPreview({
                   } as MerchantData
                 }
               >
-                <PreviewErrorBoundary>
-                  <Render config={builderConfig} data={patchedPuckData} />
-                </PreviewErrorBoundary>
+                <CartProvider
+                  merchantSlug="preview-store"
+                  deferValidationUntilIdle
+                >
+                  <PreviewErrorBoundary>
+                    <Render config={builderConfig} data={patchedPuckData} />
+                  </PreviewErrorBoundary>
+                </CartProvider>
               </MerchantProvider>
             </div>
           </div>
@@ -477,7 +484,7 @@ export function OnboardingPuckPreview({
           <MerchantProvider
             initialMerchant={
               {
-                id: 'preview-merchant-id',
+                id: PREVIEW_MERCHANT_ID,
                 user_id: 'preview-user-id',
                 business_name: businessName || 'Your Store',
                 business_type: businessType || 'other',
@@ -486,9 +493,11 @@ export function OnboardingPuckPreview({
               } as MerchantData
             }
           >
-            <PreviewErrorBoundary>
-              <Render config={builderConfig} data={patchedPuckData} />
-            </PreviewErrorBoundary>
+            <CartProvider merchantSlug="preview-store" deferValidationUntilIdle>
+              <PreviewErrorBoundary>
+                <Render config={builderConfig} data={patchedPuckData} />
+              </PreviewErrorBoundary>
+            </CartProvider>
           </MerchantProvider>
         </div>
       </div>

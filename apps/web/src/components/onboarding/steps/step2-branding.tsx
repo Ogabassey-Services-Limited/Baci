@@ -289,7 +289,13 @@ export default function Step2_Branding() {
 
       if (result.logos && result.logos.length > 0) {
         const generatedLogoUri = result.logos[0];
-        await processNewLogo(generatedLogoUri);
+        const hasGeneratedBrandColors = Boolean(result.brandColors);
+        if (result.brandColors) {
+          setValue('brandColors', JSON.stringify(result.brandColors), {
+            shouldValidate: true,
+          });
+        }
+        await processNewLogo(generatedLogoUri, hasGeneratedBrandColors);
         toast({
           title: 'Logo Generated!',
           description: "We've also extracted your brand colors.",

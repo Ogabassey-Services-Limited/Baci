@@ -482,6 +482,7 @@ export function StorefrontProductGrid({
                   onAddToCart={handleAddToCart}
                   onUpdateQuantity={updateQuantity}
                   onQuickView={openQuickView}
+                  merchantSlug={merchant?.slug}
                   priority={index < 4}
                 />
               );

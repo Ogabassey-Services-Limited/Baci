@@ -38,6 +38,29 @@ const aiContentSchema = z.object({
 
 type AIContent = z.infer<typeof aiContentSchema>;
 
+function normalizeBusinessType(businessType: string): string {
+  switch (businessType) {
+    case 'food-beverage':
+    case 'restaurant':
+      return 'food';
+    case 'health-beauty':
+    case 'cosmetics':
+      return 'beauty';
+    case 'hair-extensions':
+      return 'hair';
+    case 'home-goods':
+      return 'home';
+    case 'pharmaceuticals':
+      return 'pharmacy';
+    case 'fashion_apparel':
+      return 'fashion';
+    case 'tech':
+      return 'electronics';
+    default:
+      return businessType;
+  }
+}
+
 async function generateAIContent(
   businessName: string,
   businessType: string
@@ -129,25 +152,34 @@ export async function generateHeroSlides(
     }
 
     // Customize text based on business type
-    switch (businessType) {
+    switch (normalizeBusinessType(businessType)) {
       case 'fashion':
-      case 'fashion_apparel':
         if (i === 0) subtitle = 'Discover the latest trends in fashion.';
         if (i === 1) subtitle = 'Fresh looks for the season.';
         break;
       case 'electronics':
-      case 'tech':
         if (i === 0) subtitle = 'Cutting-edge technology at your fingertips.';
         if (i === 1) subtitle = 'Upgrade your gear today.';
         break;
       case 'food':
-      case 'restaurant':
-        if (i === 0) subtitle = 'Delicious food delivered to your door.';
+        if (i === 0) subtitle = 'Fresh flavors and quality ingredients.';
         if (i === 1) subtitle = 'Fresh ingredients, authentic recipes.';
         break;
       case 'beauty':
-      case 'cosmetics':
         if (i === 0) subtitle = 'Beauty products that bring out your best.';
+        if (i === 1) subtitle = 'Clean essentials for your daily glow.';
+        break;
+      case 'hair':
+        if (i === 0) subtitle = 'Premium hair extensions for every style.';
+        if (i === 1) subtitle = 'Fresh textures, lengths, and finishes.';
+        break;
+      case 'home':
+        if (i === 0) subtitle = 'Curated pieces for a more beautiful home.';
+        if (i === 1) subtitle = 'Fresh finds for every room.';
+        break;
+      case 'pharmacy':
+        if (i === 0) subtitle = 'Trusted healthcare essentials and supplies.';
+        if (i === 1) subtitle = 'Restock wellness products with confidence.';
         break;
       case 'art':
       case 'handmade':
@@ -435,9 +467,8 @@ export function generateFeatures(
     },
   ];
 
-  switch (businessType) {
+  switch (normalizeBusinessType(businessType)) {
     case 'fashion':
-    case 'fashion_apparel':
       return [
         {
           title: 'Premium Quality',
@@ -456,7 +487,6 @@ export function generateFeatures(
         },
       ];
     case 'electronics':
-    case 'tech':
       return [
         {
           title: 'Official Warranty',
@@ -475,7 +505,6 @@ export function generateFeatures(
         },
       ];
     case 'food':
-    case 'restaurant':
       return [
         {
           title: 'Fresh Ingredients',
@@ -491,6 +520,96 @@ export function generateFeatures(
           title: 'Best Taste',
           description: 'Award-winning recipes and flavors.',
           icon: 'heart',
+        },
+      ];
+    case 'beauty':
+      return [
+        {
+          title: 'Ingredient Focused',
+          description: 'Carefully selected products for your routine.',
+          icon: 'sparkles',
+        },
+        {
+          title: 'Personal Care Support',
+          description: 'Guidance for beauty and wellness essentials.',
+          icon: 'heart',
+        },
+        {
+          title: 'Secure Checkout',
+          description: 'Safe payment processing for every order.',
+          icon: 'shield',
+        },
+      ];
+    case 'hair':
+      return [
+        {
+          title: 'Premium Textures',
+          description: 'Quality hair selected for softness and longevity.',
+          icon: 'sparkles',
+        },
+        {
+          title: 'Style Guidance',
+          description: 'Find the right length, texture, and finish.',
+          icon: 'scissors',
+        },
+        {
+          title: 'Fast Delivery',
+          description: 'Get your hair essentials delivered quickly.',
+          icon: 'truck',
+        },
+      ];
+    case 'home':
+      return [
+        {
+          title: 'Curated Style',
+          description: 'Thoughtful pieces for beautiful everyday spaces.',
+          icon: 'home',
+        },
+        {
+          title: 'Quality Materials',
+          description: 'Durable finishes selected for real homes.',
+          icon: 'star',
+        },
+        {
+          title: 'Secure Delivery',
+          description: 'Careful packaging for home and decor orders.',
+          icon: 'truck',
+        },
+      ];
+    case 'pharmacy':
+      return [
+        {
+          title: 'Trusted Products',
+          description: 'Healthcare essentials sourced with care.',
+          icon: 'shield-check',
+        },
+        {
+          title: 'Clear Guidance',
+          description: 'Helpful product details for safer decisions.',
+          icon: 'clipboard-check',
+        },
+        {
+          title: 'Reliable Fulfilment',
+          description: 'Secure handling for medical and wellness orders.',
+          icon: 'truck',
+        },
+      ];
+    case 'handmade':
+      return [
+        {
+          title: 'Unique Handmade',
+          description: 'One-of-a-kind products crafted with care.',
+          icon: 'palette',
+        },
+        {
+          title: 'Maker Story',
+          description: 'Every piece carries a personal creative touch.',
+          icon: 'heart',
+        },
+        {
+          title: 'Careful Packaging',
+          description: 'Handmade orders packed safely for delivery.',
+          icon: 'package-check',
         },
       ];
     default:

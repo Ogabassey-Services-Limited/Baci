@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/card';
 import { useProductContext } from '@/contexts/product-context';
 import { useDebounce } from '@/hooks/use-debounce';
-import { useMerchant } from '@/hooks/use-merchant-client';
+import { useMerchant } from '@/hooks/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { getCountryByCode } from '@/lib/countries';
 import type { Product } from '@/lib/products';
@@ -90,32 +90,20 @@ export function ProductCatalog({
     });
   }, [dirtyProducts, products]);
 
-  useEffect(() => {
-    if (debouncedDirtyProducts.size === 0) {
-      setIsSaving(false);
-      return;
-    }
+  const saveDebouncedDirtyProducts = useEffectEvent(
+    async (dirtyProductIds: Set<string>) => {
+      if (dirtyProductIds.size === 0) return;
 
-    const controller = new AbortController();
-    setIsSaving(true);
-    const saveChanges = async () => {
+      setIsSaving(true);
       try {
         const { failedIds, fulfilledIds, skippedIds } = await saveDirtyProducts(
           {
-            dirtyProductIds: debouncedDirtyProducts,
+            dirtyProductIds,
             dirtyProductSnapshots: dirtyProductSnapshotsRef.current,
             localProducts: localProductsRef.current,
-            signal: controller.signal,
             updateProduct,
           }
         );
-
-        // The component unmounted (or the debounced batch changed) while the
-        // save was in flight. Skip state updates and toasts to avoid touching
-        // a stale tree.
-        if (controller.signal.aborted) {
-          return;
-        }
 
         if (failedIds.length > 0) {
           console.error('Failed to save products', failedIds);
@@ -156,36 +144,17 @@ export function ProductCatalog({
           description: 'Could not save changes. Please try again.',
           variant: 'destructive',
         });
-      } catch (error) {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        console.error('Unexpected product save failure', error);
-        toast({
-          title: 'Save Failed',
-          description: 'Could not save changes. Please try again.',
-          variant: 'destructive',
-        });
       } finally {
-        // Only clear the saving indicator if THIS effect is still the active
-        // one. If `debouncedDirtyProducts` changed mid-save, the cleanup
-        // function aborted us and a fresh effect already called
-        // `setIsSaving(true)` for the new batch — clearing it here would flash
-        // the indicator off even though the new save is in flight, leading
-        // users to believe their data is saved and navigate away prematurely.
-        if (!controller.signal.aborted) {
-          setIsSaving(false);
-        }
+        setIsSaving(false);
       }
-    };
+    }
+  );
 
-    void saveChanges();
+  useEffect(() => {
+    if (debouncedDirtyProducts.size === 0) return;
 
-    return () => {
-      controller.abort();
-    };
-  }, [debouncedDirtyProducts, updateProduct, toast]);
+    void saveDebouncedDirtyProducts(debouncedDirtyProducts);
+  }, [debouncedDirtyProducts]);
 
   const toggleProduct = (productId: string) => {
     setExpandedProducts((current) => {

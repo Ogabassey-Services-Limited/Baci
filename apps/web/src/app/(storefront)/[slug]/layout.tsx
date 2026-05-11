@@ -10,9 +10,12 @@ import { MOBILE_APPS } from '@/config/platform';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { StorefrontCartProvider } from '@/hooks/cart/storefront-cart-provider';
 import { StorefrontMerchantProvider } from '@/hooks/merchant/storefront-merchant-provider';
-import type { MerchantData } from '@/hooks/merchant/types';
-import { getRequestScopedMerchant } from '@/lib/cached-data';
-import { buildStoreUrl } from '@/lib/store-url';
+import type { MerchantData } from '@/hooks/use-merchant';
+import {
+  type CachedMerchant,
+  getRequestScopedMerchant,
+} from '@/lib/cached-data';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import { StorefrontHeroPreloadDecision } from './storefront-hero-preload-decision';
 import {
@@ -60,6 +63,78 @@ function StorefrontLayoutRenderer({
 
   // Default / other templates: No global layout wrapper (layout handled per page)
   return <>{children}</>;
+}
+
+function normalizeStorefrontBusinessType(businessType?: string | null) {
+  switch (businessType) {
+    case 'food-beverage':
+      return 'food';
+    case 'pharmaceuticals':
+      return 'pharmacy';
+    case 'health-beauty':
+      return 'beauty';
+    case 'hair-extensions':
+      return 'hair';
+    case 'home-goods':
+      return 'home';
+    default:
+      return businessType || 'general';
+  }
+}
+
+function getStorefrontSeoTagline(businessType?: string | null) {
+  switch (normalizeStorefrontBusinessType(businessType)) {
+    case 'food':
+      return 'Order Fresh Food Online';
+    case 'pharmacy':
+      return 'Shop Pharmacy Essentials Online';
+    case 'beauty':
+      return 'Shop Beauty and Wellness Essentials';
+    case 'hair':
+      return 'Shop Premium Hair Extensions';
+    case 'home':
+      return 'Shop Home Essentials Online';
+    case 'fashion':
+      return 'Shop Fashion and Style Online';
+    case 'handmade':
+      return 'Shop Handmade Goods Online';
+    case 'electronics':
+      return 'Buy Gadgets Pay Later';
+    default:
+      return 'Shop Online';
+  }
+}
+
+type StorefrontSeoMerchant = Pick<
+  CachedMerchant,
+  | 'business_name'
+  | 'business_type'
+  | 'site_description'
+  | 'site_tagline'
+  | 'site_title'
+>;
+
+function getStorefrontSeoDescription(merchant: StorefrontSeoMerchant) {
+  if (merchant.site_description || merchant.site_tagline) {
+    return merchant.site_description || merchant.site_tagline || '';
+  }
+
+  const tagline = getStorefrontSeoTagline(merchant.business_type).toLowerCase();
+  return `Shop ${merchant.business_name} - ${tagline} with secure checkout in Nigeria.`;
+}
+
+function getStorefrontSeoTitle(merchant: StorefrontSeoMerchant) {
+  const hasMismatchedGadgetTitle =
+    normalizeStorefrontBusinessType(merchant.business_type) !== 'electronics' &&
+    /buy gadgets pay later/i.test(merchant.site_title || '');
+
+  if (merchant.site_title && !hasMismatchedGadgetTitle) {
+    return merchant.site_title;
+  }
+
+  return `${merchant.business_name} | ${getStorefrontSeoTagline(
+    merchant.business_type
+  )}`;
 }
 
 export async function generateMetadata({
@@ -120,11 +195,9 @@ export async function generateMetadata({
         : undefined;
 
   // Build SEO-friendly description with proper fallbacks
-  const description =
-    merchant.site_description ||
-    merchant.site_tagline ||
-    `Shop ${merchant.business_name} - Buy gadgets, electronics, and more with flexible payment options in Nigeria.`;
-  const baseUrl = buildStoreUrl(merchant);
+  const description = getStorefrontSeoDescription(merchant);
+  const headersList = await headers();
+  const baseUrl = buildRequestScopedStoreUrl(merchant, headersList);
   let metadataBase: URL | undefined;
 
   try {
@@ -135,9 +208,7 @@ export async function generateMetadata({
 
   return {
     metadataBase,
-    title:
-      merchant.site_title ||
-      `${merchant.business_name} | Buy Gadgets Pay Later`,
+    title: getStorefrontSeoTitle(merchant),
     description,
     icons,
     verification: verificationCode

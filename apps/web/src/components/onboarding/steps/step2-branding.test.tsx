@@ -123,6 +123,7 @@ vi.mock('@/components/color-picker', () => ({
 vi.mock('@/components/logo-generator-modal', () => ({
   LogoGeneratorModal: ({
     isOpen,
+    onOpenChange,
     onGenerate,
     children,
   }: {
@@ -140,7 +141,12 @@ vi.mock('@/components/logo-generator-modal', () => ({
         {children}
       </div>
     ) : (
-      children
+      <div>
+        <button type="button" onClick={() => onOpenChange(true)}>
+          Open Logo Generator
+        </button>
+        {children}
+      </div>
     ),
 }));
 
@@ -172,10 +178,12 @@ vi.mock('next/dynamic', () => ({
     if (moduleName.includes('logo-generator-modal')) {
       return ({
         isOpen,
+        onOpenChange,
         onGenerate,
         children,
       }: {
         isOpen: boolean;
+        onOpenChange: (open: boolean) => void;
         onGenerate: (color: string) => void;
         children?: React.ReactNode;
       }) =>
@@ -187,7 +195,12 @@ vi.mock('next/dynamic', () => ({
             {children}
           </div>
         ) : (
-          children
+          <div>
+            <button type="button" onClick={() => onOpenChange(true)}>
+              Open Logo Generator
+            </button>
+            {children}
+          </div>
         );
     }
     return () => null;
@@ -205,6 +218,7 @@ vi.mock('@/lib/extract-brand-colors', () => ({
   extractBrandColorsFromImage: vi.fn(),
 }));
 
+import { guideBusinessOnboarding } from '@/ai/flows/guide-business-onboarding';
 import { extractBrandColorsFromImage } from '@/lib/extract-brand-colors';
 import { uploadImage } from '@/lib/storage';
 // --- Import after all mocks ---
@@ -212,6 +226,7 @@ import Step2_Branding from './step2-branding';
 
 const mockUploadImage = vi.mocked(uploadImage);
 const mockExtractBrandColorsFromImage = vi.mocked(extractBrandColorsFromImage);
+const mockGuideBusinessOnboarding = vi.mocked(guideBusinessOnboarding);
 
 // Test wrapper component
 function TestWrapper({ children }: { children: React.ReactNode }) {
@@ -232,6 +247,9 @@ describe('Step2_Branding', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUploadImage.mockResolvedValue('https://example.com/logo.png');
+    mockGuideBusinessOnboarding.mockResolvedValue({
+      logos: ['data:image/svg+xml;charset=utf-8;base64,test'],
+    });
     mockExtractBrandColorsFromImage.mockResolvedValue({
       primary: '#FF0000',
       background: '#FFFFFF',
@@ -462,5 +480,56 @@ describe('Step2_Branding', () => {
         expect(input).toBeDisabled();
       });
     });
+  });
+
+  it('uses brand colors returned with a generated fallback logo', async () => {
+    const user = userEvent.setup();
+    const fallbackColors = {
+      primary: '#15803D',
+      background: '#FFF7ED',
+      accent: '#F97316',
+    };
+
+    mockGuideBusinessOnboarding.mockResolvedValueOnce({
+      logos: ['data:image/svg+xml;charset=utf-8;base64,test'],
+      brandColors: fallbackColors,
+    });
+
+    const TestForm = () => {
+      const methods = useForm<OnboardingFormValues>({
+        defaultValues: {
+          businessName: 'Test Store',
+          businessType: 'food-beverage',
+          logoUrl: '',
+          brandColors: '',
+          brandPreferences: '',
+        },
+      });
+
+      return (
+        <FormProvider {...methods}>
+          <Step2_Branding />
+          <div data-testid="brand-colors">{methods.watch('brandColors')}</div>
+        </FormProvider>
+      );
+    };
+
+    render(<TestForm />);
+
+    await user.click(
+      screen.getByRole('button', { name: /open logo generator/i })
+    );
+    await user.click(screen.getByRole('button', { name: /^generate logo$/i }));
+
+    await waitFor(() => {
+      expect(mockUploadImage).toHaveBeenCalledWith(
+        'data:image/svg+xml;charset=utf-8;base64,test'
+      );
+    });
+
+    expect(
+      JSON.parse(screen.getByTestId('brand-colors').textContent || '{}')
+    ).toEqual(fallbackColors);
+    expect(mockExtractBrandColorsFromImage).not.toHaveBeenCalled();
   });
 });

@@ -5,7 +5,13 @@ import { StorefrontProductCard } from './product-card';
 
 // Mock dependencies
 vi.mock('next/link', () => ({
-  default: ({ children }: { children: React.ReactNode }) => children,
+  default: ({
+    children,
+    href,
+  }: {
+    children: React.ReactNode;
+    href: string;
+  }) => <a href={href}>{children}</a>,
 }));
 
 vi.mock('@/components/optimized-image', () => ({
@@ -101,6 +107,53 @@ describe('StorefrontProductCard', () => {
 
     expect(screen.getByText('Test Product')).toBeInTheDocument();
     expect(screen.getByText('$100')).toBeInTheDocument();
+  });
+
+  it('prefixes product links with the storefront merchant slug', () => {
+    render(
+      <StorefrontProductCard
+        product={mockProduct}
+        staggerClass=""
+        merchantSlug="test-store"
+        onAddToCart={mockAddToCart}
+        onUpdateQuantity={mockUpdateQuantity}
+        onQuickView={mockQuickView}
+      />
+    );
+
+    expect(screen.getByRole('link')).toHaveAttribute(
+      'href',
+      '/test-store/product/test'
+    );
+  });
+
+  it('generates product links when merchantSlug is not provided', () => {
+    render(
+      <StorefrontProductCard
+        product={mockProduct}
+        staggerClass=""
+        onAddToCart={mockAddToCart}
+        onUpdateQuantity={mockUpdateQuantity}
+        onQuickView={mockQuickView}
+      />
+    );
+
+    expect(screen.getByRole('link')).toHaveAttribute('href', '/product/test');
+  });
+
+  it('handles empty merchantSlug gracefully', () => {
+    render(
+      <StorefrontProductCard
+        product={mockProduct}
+        staggerClass=""
+        merchantSlug=""
+        onAddToCart={mockAddToCart}
+        onUpdateQuantity={mockUpdateQuantity}
+        onQuickView={mockQuickView}
+      />
+    );
+
+    expect(screen.getByRole('link')).toHaveAttribute('href', '/product/test');
   });
 
   it('renders discount badge and original price when on sale', () => {

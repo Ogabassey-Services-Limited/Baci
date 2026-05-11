@@ -58,7 +58,7 @@ export function OgabasseyHero({
           <div className="relative w-full h-full">
             {slides.map((slide, index) => (
               <div
-                key={slide.image}
+                key={[slide.image, slide.title, slide.link].join('|')}
                 className={cn(
                   'absolute inset-0 w-full h-full transition-opacity duration-500 ease-in-out',
                   index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
@@ -112,7 +112,7 @@ export function OgabasseyHero({
                 {slides.map((slide, i) => (
                   <button
                     type="button"
-                    key={`dot-${slide.image}`}
+                    key={`dot-${[slide.image, slide.title, slide.link].join('|')}`}
                     onClick={(e) => {
                       e.preventDefault();
                       setCurrentIndex(i);

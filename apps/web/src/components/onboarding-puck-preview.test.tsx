@@ -77,10 +77,28 @@ vi.mock('@/components/ui/button', () => ({
   ),
 }));
 
-vi.mock('@/hooks/use-merchant-client', () => ({
-  MerchantProvider: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="merchant-provider">{children}</div>
+vi.mock('@/hooks/use-merchant', () => ({
+  MerchantProvider: ({
+    children,
+    initialMerchant,
+  }: {
+    children: React.ReactNode;
+    initialMerchant?: { id?: string };
+  }) => (
+    <div data-testid="merchant-provider" data-merchant-id={initialMerchant?.id}>
+      {children}
+    </div>
   ),
+}));
+
+vi.mock('@/hooks/use-cart', () => ({
+  CartProvider: ({
+    children,
+    merchantSlug,
+  }: {
+    children: React.ReactNode;
+    merchantSlug?: string | null;
+  }) => <div data-testid={`cart-provider:${merchantSlug}`}>{children}</div>,
 }));
 
 import {
@@ -508,6 +526,31 @@ describe('OnboardingPuckPreview', () => {
     expect(
       screen.queryByRole('button', { name: /edit template/i })
     ).not.toBeInTheDocument();
+  });
+
+  it('wraps rendered storefront preview blocks in cart context', async () => {
+    render(
+      <OnboardingPuckPreview
+        businessName="Test Store"
+        businessType="fashion"
+        logoDataUri="data:image/png;base64,test"
+        brandColors={{
+          primary: '#000000',
+          background: '#FFFFFF',
+          accent: '#FF0000',
+        }}
+      />
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('cart-provider:preview-store')
+      ).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('merchant-provider')).toHaveAttribute(
+      'data-merchant-id',
+      'preview-merchant-id-preview'
+    );
   });
 
   it('error boundary catches merchant context errors', () => {
