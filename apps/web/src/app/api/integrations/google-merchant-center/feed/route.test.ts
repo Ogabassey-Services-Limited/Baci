@@ -238,4 +238,121 @@ describe('GET /api/integrations/google-merchant-center/feed', () => {
     expect(body.error).toBe('Merchant not found');
     expect(mockResolveFeedMerchant).not.toHaveBeenCalled();
   });
+
+  describe('open-redirect hardening (CodeScanning #1397)', () => {
+    it('rejects attacker-controlled Host headers not present in the domains table', async () => {
+      mockDomainLookup({ data: null, error: null });
+      const { GET } = await import('./route');
+
+      const response = await GET(
+        makeRequest(
+          'https://evil.com/api/integrations/google-merchant-center/feed',
+          { host: 'evil.com' }
+        )
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(body.error).toBe('Merchant not found');
+      // The attacker host must never appear in a Location header.
+      expect(response.headers.get('location')).toBeNull();
+    });
+
+    it('rejects a confusable subdomain that pretends to be a managed Baci domain', async () => {
+      mockDomainLookup({ data: null, error: null });
+      const { GET } = await import('./route');
+
+      const response = await GET(
+        makeRequest(
+          'https://evil.usebaci.com.attacker.tld/api/integrations/google-merchant-center/feed',
+          { host: 'evil.usebaci.com.attacker.tld' }
+        )
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(body.error).toBe('Merchant not found');
+      expect(mockResolveFeedMerchant).not.toHaveBeenCalled();
+    });
+
+    it('normalizes Host header case and still redirects to the canonical lower-case host', async () => {
+      process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
+      const { GET } = await import('./route');
+
+      const response = await GET(
+        makeRequest(
+          'https://OGABASSEY.usebaci.com/api/integrations/google-merchant-center/feed',
+          { host: 'OGABASSEY.usebaci.com' }
+        )
+      );
+
+      expect(response.status).toBe(308);
+      expect(response.headers.get('location')).toBe(
+        'https://ogabassey.usebaci.com/api/feed/google-merchant?merchant_slug=ogabassey'
+      );
+    });
+
+    it('rejects hosts with leading whitespace that would be unsafe to redirect to', async () => {
+      mockDomainLookup({ data: null, error: null });
+      const { GET } = await import('./route');
+
+      const response = await GET(
+        makeRequest(
+          'https://example.test/api/integrations/google-merchant-center/feed',
+          { host: '  evil.com' }
+        )
+      );
+      const body = await response.json();
+
+      // normalizeHost trims, but the DB lookup for `evil.com` returns null.
+      expect(response.status).toBe(404);
+      expect(body.error).toBe('Merchant not found');
+    });
+
+    it('rejects DB rows whose domain column embeds a path (unsafe hostname)', async () => {
+      // Defence-in-depth: a malformed/poisoned row must never produce a
+      // redirect. `isSafeHostname` filters out anything with a path,
+      // scheme, or non-hostname character. (We already test the
+      // `evil.com/path` case in the original suite — this test pins the
+      // failure mode behind the new allow-list as well.)
+      mockDomainLookup({
+        data: { merchant_id: 'merchant-1', domain: 'evil.com//api/feed' },
+        error: null,
+      });
+      const { GET } = await import('./route');
+
+      const response = await GET(
+        makeRequest(
+          'https://ogabassey.com/api/integrations/google-merchant-center/feed',
+          { host: 'ogabassey.com' }
+        )
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(404);
+      expect(body.error).toBe('Merchant not found');
+      expect(response.headers.get('location')).toBeNull();
+    });
+
+    it('rejects a verified-host domain with a trailing dot (FQDN variant)', async () => {
+      mockDomainLookup({
+        data: { merchant_id: 'merchant-1', domain: 'ogabassey.com.' },
+        error: null,
+      });
+      const { GET } = await import('./route');
+
+      const response = await GET(
+        makeRequest(
+          'https://ogabassey.com/api/integrations/google-merchant-center/feed',
+          { host: 'ogabassey.com' }
+        )
+      );
+      const body = await response.json();
+
+      // Trailing dot is not a safe hostname per HOSTNAME_PATTERN.
+      expect(response.status).toBe(404);
+      expect(body.error).toBe('Merchant not found');
+      expect(mockResolveFeedMerchant).not.toHaveBeenCalled();
+    });
+  });
 });
