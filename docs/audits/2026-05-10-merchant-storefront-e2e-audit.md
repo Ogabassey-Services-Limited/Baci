@@ -63,6 +63,19 @@ targeted tests.
   expected product plus tenant-scoped product links. The dashboard orders page
   stayed authenticated and showed `Ada Craft` / `ORD-260511-00AQ-T` after client
   hydration.
+- After a later Chrome reconnection test, the sign-in flow was exercised through
+  the local UI with the provided credentials and redirected to
+  `/dashboard/orders`. The visible dashboard tab was claimed through Chrome and
+  verified to contain live Ogabassey order rows.
+- A final all-industry Chrome home-page smoke loaded all eight storefront home
+  pages and confirmed industry-specific hero copy, product sections, and no real
+  404/500/application-error markers. The audit food and handmade rows in
+  `page_configs` were generated before the current
+  `generateInitialTemplate` / `generateHeroSlides` fallback copy landed, so
+  their stored Puck `draft_config` and `published_config` still contained stale
+  generic carousel text. Those two audit rows were refreshed directly in
+  Supabase to match the current deterministic generator output before rerunning
+  the Chrome presentation smoke.
 - Earlier `innerText` checks under-counted content because client-rendered Puck
   sections were present in the accessible DOM but not reflected in the quick
   text probe.
@@ -79,6 +92,8 @@ targeted tests.
 - Fixed dashboard add-product slug auto-sync after product-name edits.
 - Centralized merchant publish requests for setup checklist and dashboard use.
 - Added industry-specific initial template copy for generated business types.
+- Added handmade-specific second and third hero-slide fallback copy so handmade
+  starter stores no longer inherit generic fashion/catalog wording.
 - Added industry-aware storefront metadata.
 - Guarded checkout payment/delivery selections before order creation.
 - Fixed scoped storefront product links and footer links for generated slugs.
@@ -130,6 +145,14 @@ targeted tests.
     product-link checks.
 - Chrome dashboard orders check:
   - Result: `/dashboard/orders` showed the handmade E2E order.
+- Chrome sign-in check:
+  - Result: local sign-in with the provided credentials redirected to
+    `/dashboard/orders`, and the claimed Chrome tab showed live order rows.
+- Chrome all-industry home-page presentation smoke:
+  - Result: all eight home pages showed expected industry-specific hero copy,
+    product sections, and no real error markers.
+- `pnpm --filter @baci/web exec vitest run src/lib/initial-template-generator.test.ts`
+  - Result: 1 file passed, 12 tests passed.
 - `pnpm turbo lint`
   - Result: web Biome check passed; mobile-storefront replayed existing
     warnings only, with zero errors.

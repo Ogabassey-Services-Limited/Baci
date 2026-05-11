@@ -47,11 +47,22 @@ describe('initial template fallback content', () => {
     expect(slides[0]?.title).toContain('Welcome');
   });
 
+  it('uses handmade-specific hero copy beyond the first slide', async () => {
+    const slides = await generateHeroSlides('Craft', 'handmade');
+
+    expect(slides.length).toBeGreaterThanOrEqual(3);
+    expect(slides[1].subtitle).toBe('Fresh artisan pieces from the maker.');
+    expect(slides[2].subtitle).toBe(
+      'Customer favorites with a personal touch.'
+    );
+  });
+
   it.each([
     ['health-beauty', 'Ingredient Focused'],
     ['hair-extensions', 'Premium Textures'],
     ['home-goods', 'Curated Style'],
     ['handmade', 'Unique Handmade'],
+    ['art', 'Unique Handmade'],
     ['food-beverage', 'Fresh Ingredients'],
     ['pharmaceuticals', 'Trusted Products'],
   ])('uses industry-specific features for %s', (businessType, firstTitle) => {

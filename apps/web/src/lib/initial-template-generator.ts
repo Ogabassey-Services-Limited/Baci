@@ -184,6 +184,8 @@ export async function generateHeroSlides(
       case 'art':
       case 'handmade':
         if (i === 0) subtitle = 'Unique handcrafted pieces made with love.';
+        if (i === 1) subtitle = 'Fresh artisan pieces from the maker.';
+        if (i === 2) subtitle = 'Customer favorites with a personal touch.';
         break;
     }
 
@@ -594,6 +596,7 @@ export function generateFeatures(
           icon: 'truck',
         },
       ];
+    case 'art':
     case 'handmade':
       return [
         {
