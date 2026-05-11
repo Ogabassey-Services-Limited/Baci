@@ -43,6 +43,8 @@ function createPlatformRedirect(
 ): NextResponse {
   const platform = request.cookies.get('jumia_oauth_platform')?.value;
   if (platform === 'mobile') {
+    // SAFE: scheme + path are hard-coded constants in `@baci/shared`. Query
+    // values are URL-encoded by `URLSearchParams` — see helper for details.
     return NextResponse.redirect(createJumiaMobileReturnUrl(query));
   }
 
@@ -102,6 +104,12 @@ export async function GET(request: NextRequest) {
         );
       }
 
+      // SAFE: `createJumiaMobileReturnUrl` builds the URL from hard-coded
+      // constants — scheme `baciadmin:` and path `/sales-channels` — declared
+      // in `@baci/shared/contracts/jumia-oauth`. `code` and `ticketId` are
+      // attached as query parameters and URL-encoded via `URLSearchParams`,
+      // so user input cannot influence the URL authority. The shared helper
+      // additionally enforces a runtime scheme allow-list as defence-in-depth.
       const response = NextResponse.redirect(
         createJumiaMobileReturnUrl({ code, ticketId })
       );
