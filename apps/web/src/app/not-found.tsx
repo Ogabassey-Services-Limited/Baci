@@ -1,6 +1,5 @@
 'use client';
 
-import { motion } from 'framer-motion';
 import { ArrowRight, Home } from 'lucide-react';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
@@ -21,12 +20,7 @@ export default function NotFound() {
       </div>
 
       <div className="container relative z-10 px-4 md:px-6 flex flex-col items-center text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="space-y-8 max-w-2xl mx-auto"
-        >
+        <div className="space-y-8 max-w-2xl mx-auto animate-in fade-in slide-in-from-bottom-5 duration-500">
           <div className="relative inline-block">
             <h1 className="text-[10rem] md:text-[12rem] font-bold leading-none text-slate-100 dark:text-slate-900/50 select-none">
               404
@@ -77,7 +71,7 @@ export default function NotFound() {
             </Link>{' '}
             to start over.
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );
