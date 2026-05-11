@@ -1,4 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Logger spy — lets the 23505-demotion test prove the right level is
+// used. The production code paths use info/error from this module.
+const loggerMock = vi.hoisted(() => ({
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+}));
+vi.mock('@/lib/logger', () => ({ logger: loggerMock }));
+
 import { confirmPaystackDvaByOrderAccount } from '@/lib/payments/confirm-paystack-dva-by-order-account';
 
 // Helper test: looks up `order_payment_accounts` by `(provider='paystack',
@@ -286,6 +296,57 @@ describe('confirmPaystackDvaByOrderAccount — DB failure paths', () => {
     // tried to record), and it did NOT silently swallow + match.
     expect(state.reviewUpserts).toHaveLength(1);
     expect(state.insertCalls).toHaveLength(0);
+    // Non-23505 error → stays at logger.error (real failure to alert on).
+    expect(loggerMock.error).toHaveBeenCalledTimes(1);
+    expect(loggerMock.info).not.toHaveBeenCalled();
+  });
+
+  it('logs 23505 review insert as info, not error (Paystack webhook retry hits the partial unique index)', async () => {
+    // Same ambiguous shape as above, but the review insert raises
+    // 23505 — the canonical "we returned 409, Paystack retried,
+    // partial unique index `(issue_type, paystack_ref)` rejected the
+    // duplicate insert" outcome. This is expected, benign traffic;
+    // logging it at error spams the alerting pipeline. Contract:
+    // helper logs at info and the response shape is unchanged.
+    const orderA = {
+      ...baseAccountRow,
+      order_id: 'order-a',
+      orders: { ...baseAccountRow.orders, id: 'order-a' },
+    };
+    const orderB = {
+      ...baseAccountRow,
+      order_id: 'order-b',
+      orders: { ...baseAccountRow.orders, id: 'order-b' },
+    };
+    const { supabase, state } = createSupabaseMock({
+      accountRows: [orderA, orderB],
+      reviewError: {
+        message:
+          'duplicate key value violates unique constraint "reconciliation_review_open_by_paystack_ref_idx"',
+        code: '23505',
+      },
+    });
+
+    const result = await confirmPaystackDvaByOrderAccount({
+      supabase: supabase as never,
+      ...ctxBase,
+    });
+
+    expect(result.kind).toBe('review');
+    if (result.kind === 'review') {
+      expect(result.status).toBe(409);
+      expect(result.body).toMatchObject({ code: 'AMBIGUOUS_DVA_MATCH' });
+    }
+    expect(state.reviewUpserts).toHaveLength(1);
+    // The whole point: error log stays clean on retry traffic.
+    expect(loggerMock.error).not.toHaveBeenCalled();
+    expect(loggerMock.info).toHaveBeenCalledTimes(1);
+    expect(loggerMock.info).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: expect.stringContaining('already filed'),
+        paystackReference: ctxBase.gatewayReference,
+      })
+    );
   });
 
   it('falls through (kind:none) when a non-23505 transaction insert error occurs', async () => {
