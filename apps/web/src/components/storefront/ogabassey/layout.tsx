@@ -1,7 +1,8 @@
+// Required because OgabasseyLayoutProviders and chrome children use client context/hooks.
 'use client';
 
 import { DeferredGoogleStoreWidget } from '@/components/analytics/deferred-google-store-widget';
-import type { MerchantData } from '@/hooks/use-merchant';
+import type { MerchantData } from '@/hooks/merchant/types';
 import type React from 'react';
 import { GadgetPattern } from './components/GadgetPattern';
 import { type V2ThemeMode } from './providers/v2-theme-context';

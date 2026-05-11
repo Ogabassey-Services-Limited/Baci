@@ -59,7 +59,7 @@ vi.mock('@/hooks/cart', () => ({
   })),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/merchant/use-merchant', () => ({
   useMerchantSafe: vi.fn(() => mocks.merchantContext),
 }));
 

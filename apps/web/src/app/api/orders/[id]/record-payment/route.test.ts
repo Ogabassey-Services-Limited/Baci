@@ -79,6 +79,11 @@ vi.mock('@/lib/trigger-purchase-conversion', () => ({
   triggerPurchaseConversion: vi.fn(),
 }));
 
+// Δ-36 (A3): the route now does a SINGLE `transactions` SELECT covering
+// completed + pending + processing rows, then filters in TS. The chain
+// shape is `.eq().in()` (was `.eq().eq()` pre-A3). Existing mocks were
+// updated to match; rows with completed semantics carry an explicit
+// `status: 'completed'` field so the TS-side filter keeps them.
 describe('POST /api/orders/[id]/record-payment', () => {
   const mockOrderId = 'order-123';
   const mockMerchantId = 'merchant-456';
@@ -499,7 +504,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
         return {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({ data: [], error: null }),
+            in: vi.fn().mockResolvedValue({ data: [], error: null }),
           }),
         };
       }
@@ -627,6 +632,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockReturnThis(),
         };
         Object.assign(chain, Promise.resolve({ data: [], error: null }));
         return chain;
@@ -750,6 +756,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockReturnThis(),
         };
         Object.assign(chain, Promise.resolve({ data: [], error: null }));
         return chain;
@@ -874,8 +881,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
         return {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({
-              data: [{ amount: 4000 }],
+            in: vi.fn().mockResolvedValue({
+              data: [{ amount: 4000, gateway: 'manual', status: 'completed' }],
               error: null,
             }),
           }),
@@ -1000,6 +1007,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockReturnThis(),
         };
         Object.assign(chain, Promise.resolve({ data: [], error: null }));
         return chain;
@@ -1122,6 +1130,7 @@ describe('POST /api/orders/[id]/record-payment', () => {
         const chain = {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockReturnThis(),
         };
         Object.assign(chain, Promise.resolve({ data: [], error: null }));
         return chain;
@@ -1172,7 +1181,74 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
   });
 
-  it('returns 400 when recording a payment without a stable reference', async () => {
+  // Δ-36 (A3): whitespace-only reference is normalized to undefined and
+  // the request proceeds normally. Pre-A3 the schema rejected it as
+  // 'Invalid request body', which broke staff manual record-payment
+  // when the optional reference field was blank. The duplicate-guard
+  // simply skips when reference is undefined.
+  it('accepts a whitespace-only reference by normalizing it to undefined', async () => {
+    const mockMerchant = {
+      id: mockMerchantId,
+      business_name: 'Test Store',
+      slug: 'test-store',
+      support_email: 'support@test.com',
+      email_sender_name: 'Test',
+      email: 'merchant@test.com',
+    };
+    const mockOrder = {
+      id: mockOrderId,
+      merchant_id: mockMerchantId,
+      order_number: 'ORD-001',
+      customer_name: 'Ada',
+      customer_email: 'ada@example.com',
+      customer_phone: '+234',
+      total: 10000,
+      subtotal: 9000,
+      shipping_fee: 1000,
+      currency: 'NGN',
+      payment_status: 'pending',
+      shipping_status: 'pending',
+      wallet_amount_used: 0,
+      order_items: [],
+      shipping_address: {},
+    };
+    let callCount = 0;
+    mockSupabaseClient.from = vi.fn(() => {
+      callCount++;
+      if (callCount === 1) {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi
+            .fn()
+            .mockResolvedValue({ data: mockMerchant, error: null }),
+        };
+      }
+      if (callCount === 2) {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: mockOrder, error: null }),
+        };
+      }
+      if (callCount === 3) {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({ data: [], error: null }),
+          }),
+        };
+      }
+      // Insert + update
+      const chain = {
+        insert: vi.fn().mockReturnThis(),
+        update: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+      };
+      Object.assign(chain, Promise.resolve({ data: null, error: null }));
+      return chain;
+    });
+
     const request = createRequest({
       amount: 5000,
       payment_method: 'cash',
@@ -1182,10 +1258,8 @@ describe('POST /api/orders/[id]/record-payment', () => {
 
     const { POST } = await import('./route');
     const response = await POST(request, params);
-    const data = await response.json();
 
-    expect(response.status).toBe(400);
-    expect(data).toEqual({ error: 'Invalid request body' });
+    expect(response.status).toBe(200);
   });
 
   it('returns 409 when a duplicate payment reference is submitted', async () => {
@@ -1246,8 +1320,15 @@ describe('POST /api/orders/[id]/record-payment', () => {
         return {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({
-              data: [{ amount: 5000, gateway_reference: 'REF-DUPE-409' }],
+            in: vi.fn().mockResolvedValue({
+              data: [
+                {
+                  amount: 5000,
+                  gateway_reference: 'REF-DUPE-409',
+                  gateway: 'manual',
+                  status: 'completed',
+                },
+              ],
               error: null,
             }),
           }),
@@ -1335,8 +1416,15 @@ describe('POST /api/orders/[id]/record-payment', () => {
         return {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({
-              data: [{ amount: 8000, gateway_reference: 'REF-PREV' }],
+            in: vi.fn().mockResolvedValue({
+              data: [
+                {
+                  amount: 8000,
+                  gateway_reference: 'REF-PREV',
+                  gateway: 'manual',
+                  status: 'completed',
+                },
+              ],
               error: null,
             }),
           }),
@@ -1361,6 +1449,176 @@ describe('POST /api/orders/[id]/record-payment', () => {
     // Assert
     expect(response.status).toBe(409);
     expect(data).toEqual({ error: 'Amount exceeds remaining balance' });
+  });
+
+  // Δ-36 (A3): A3 guard — don't let staff record a manual payment while
+  // a non-manual processor transaction is still pending. Force them to
+  // use reconciliation instead (the A2 path) so we don't end up with a
+  // parallel manual transaction shadowing a real Paystack DVA payment.
+  it('returns 409 PENDING_GATEWAY_PAYMENT when a non-manual gateway transaction is pending', async () => {
+    const mockMerchant = {
+      id: mockMerchantId,
+      business_name: 'Test Store',
+      slug: 'test-store',
+      support_email: 'support@test.com',
+      email_sender_name: 'Test',
+      email: 'merchant@test.com',
+    };
+
+    const mockOrder = {
+      id: mockOrderId,
+      merchant_id: mockMerchantId,
+      order_number: 'ORD-001',
+      total: 10000,
+      currency: 'NGN',
+      wallet_amount_used: 0,
+      shipping_status: 'pending',
+      payment_status: 'pending',
+      order_items: [],
+    };
+
+    mockSupabaseClient.from = vi.fn((table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi
+            .fn()
+            .mockResolvedValue({ data: mockMerchant, error: null }),
+        };
+      }
+      if (table === 'orders') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: mockOrder, error: null }),
+        };
+      }
+      if (table === 'transactions') {
+        // Single combined SELECT (status IN completed|pending|processing)
+        // returns a pending Paystack row → guard fires.
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnValue({
+            in: vi.fn().mockResolvedValue({
+              data: [
+                {
+                  amount: 0,
+                  gateway: 'paystack',
+                  gateway_reference: 'paystack-pending-ref',
+                  status: 'pending',
+                },
+              ],
+              error: null,
+            }),
+          }),
+        };
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const request = createRequest({
+      amount: 10000,
+      payment_method: 'cash',
+    });
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data).toEqual({
+      error:
+        'This order has a pending processor payment. Use payment reconciliation instead.',
+      code: 'PENDING_GATEWAY_PAYMENT',
+    });
+  });
+
+  it('accepts manual payments when the only existing gateway transactions are failed/cancelled', async () => {
+    // Negative case: failed processor attempt should NOT block a manual
+    // payment. The guard only triggers on pending|processing rows.
+    const mockMerchant = {
+      id: mockMerchantId,
+      business_name: 'Test Store',
+      slug: 'test-store',
+      support_email: 'support@test.com',
+      email_sender_name: 'Test',
+      email: 'merchant@test.com',
+    };
+    const mockOrder = {
+      id: mockOrderId,
+      merchant_id: mockMerchantId,
+      order_number: 'ORD-001',
+      customer_name: 'Ada',
+      customer_email: 'ada@example.com',
+      customer_phone: '+234',
+      total: 10000,
+      subtotal: 9000,
+      shipping_fee: 1000,
+      currency: 'NGN',
+      payment_status: 'pending',
+      shipping_status: 'pending',
+      wallet_amount_used: 0,
+      order_items: [],
+      shipping_address: {},
+    };
+
+    let txnQueryCount = 0;
+    mockSupabaseClient.from = vi.fn((table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi
+            .fn()
+            .mockResolvedValue({ data: mockMerchant, error: null }),
+        };
+      }
+      if (table === 'orders') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: mockOrder, error: null }),
+          update: vi.fn().mockReturnThis(),
+        };
+      }
+      if (table === 'transactions') {
+        txnQueryCount++;
+        // 1st: pending-gateway-guard → no rows (only failed attempts exist
+        // but they're not pending/processing, so the guard filter returns
+        // empty). 2nd: completed-only paid-amount calc → no rows.
+        const chain = {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockReturnThis(),
+          limit: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+        };
+        if (txnQueryCount === 1 || txnQueryCount === 2) {
+          Object.assign(chain, Promise.resolve({ data: [], error: null }));
+        } else {
+          // 3rd call = insert
+          Object.assign(
+            chain,
+            Promise.resolve({ data: { id: 'txn-new' }, error: null })
+          );
+        }
+        return chain;
+      }
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const request = createRequest({
+      amount: 10000,
+      payment_method: 'cash',
+      notes: '', // blank notes — Δ-36 normalization in action
+      reference: '   ', // whitespace ref — normalize to undefined too
+    });
+    const params = { params: Promise.resolve({ id: mockOrderId }) };
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+
+    expect(response.status).toBe(200);
   });
 
   it('returns 409 when order is already fully paid', async () => {
@@ -1421,8 +1679,15 @@ describe('POST /api/orders/[id]/record-payment', () => {
         return {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnValue({
-            eq: vi.fn().mockResolvedValue({
-              data: [{ amount: 10000, gateway_reference: 'REF-FULL' }],
+            in: vi.fn().mockResolvedValue({
+              data: [
+                {
+                  amount: 10000,
+                  gateway_reference: 'REF-FULL',
+                  gateway: 'manual',
+                  status: 'completed',
+                },
+              ],
               error: null,
             }),
           }),
@@ -1512,8 +1777,15 @@ describe('POST /api/orders/[id]/record-payment', () => {
     });
 
     const transactionsQuery = {
-      eq: vi.fn().mockResolvedValue({
-        data: [{ amount: 5000, gateway_reference: 'REF-DUPE-1' }],
+      in: vi.fn().mockResolvedValue({
+        data: [
+          {
+            amount: 5000,
+            gateway_reference: 'REF-DUPE-1',
+            gateway: 'manual',
+            status: 'completed',
+          },
+        ],
         error: null,
       }),
     };
