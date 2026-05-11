@@ -33,6 +33,7 @@ import {
   initializePayment as initializeKorapayPayment,
   SUPPORTED_CURRENCIES,
 } from '@/lib/korapay';
+import { logger } from '@/lib/logger';
 import {
   calculatePlatformFee as calculatePaystackFee,
   initializeTransaction as initializePaystackPayment,
@@ -980,6 +981,45 @@ export async function POST(request: NextRequest) {
             );
 
             const fees = calculatePaystackFee(Math.round(data.amount * 100));
+
+            // B1 (Δ-10): persist the DVA assignment so the webhook can
+            // look up the order by `account_number` when Paystack sends
+            // `charge.success` for this DVA. Paystack DVAs don't carry
+            // an explicit expires_at — we default to created_at + 90min
+            // (1h customer-facing countdown + 30min inter-bank
+            // settlement grace). The matcher in `paystack-dva-multi-
+            // key-match.ts` further clamps at LEAST(expires_at,
+            // created_at + 90min) so this default is also the ceiling.
+            // Upsert keyed on (order_id, provider) via the existing
+            // `unique_order_account` constraint (baseline.sql:11659).
+            const dvaExpiresAt = new Date(
+              Date.now() + 90 * 60 * 1000
+            ).toISOString();
+            const { error: dvaPersistError } = await supabase
+              .from('order_payment_accounts')
+              .upsert(
+                {
+                  order_id: data.order_id,
+                  account_number: dvaResult.account_number,
+                  bank_name: dvaResult.bank_name,
+                  account_name: dvaResult.account_name,
+                  provider: 'paystack',
+                  expires_at: dvaExpiresAt,
+                },
+                { onConflict: 'order_id,provider' }
+              );
+            if (dvaPersistError) {
+              // Don't fail the request — the customer can still pay; the
+              // webhook will just fall back to the agentic checkout-
+              // session path (if applicable) or 404 like it does today.
+              // B4 cron + reconciliation_review will surface the gap.
+              logger.warn({
+                message: 'Failed to persist Paystack DVA assignment',
+                orderId: data.order_id,
+                error: dvaPersistError,
+              });
+            }
+
             paymentResult = {
               authorization_url: '',
               dva: {
