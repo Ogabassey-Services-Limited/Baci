@@ -270,11 +270,16 @@ describe('/api/admin/merchants/[merchantId]/users', () => {
     expect(infoSpy).toHaveBeenCalledWith(
       'Admin merchant users directory read:',
       expect.objectContaining({
-        adminUserId: 'admin-user',
-        merchantId: '11111111-1111-4111-8111-111111111111',
+        generatedAt: '2026-03-20T10:00:00.000Z',
         totalUsers: 1,
       })
     );
+    // PII identifiers must not appear in the info log payload — they are
+    // stable per-merchant/per-admin keys and add unnecessary privacy risk
+    // to successful-read telemetry.
+    const [, payload] = infoSpy.mock.calls[0] ?? [];
+    expect(payload).not.toHaveProperty('adminUserId');
+    expect(payload).not.toHaveProperty('merchantId');
 
     infoSpy.mockRestore();
   });

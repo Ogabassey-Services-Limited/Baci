@@ -304,6 +304,74 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('location')).toBe(`https://${ROOT_DOMAIN}/admin`);
   });
 
+  describe('login redirect path sanitization', () => {
+    // Each case proves the proxy's `redirect` param sanitizer prevents an
+    // open-redirect or header-injection vector for an authenticated user
+    // landing on `/login`. The expected behavior is either a clean
+    // local-only path on the same origin, or a fallback to /dashboard —
+    // never a redirect to a foreign origin and never a header-injection
+    // payload reflected into the Location header.
+    it.each([
+      // Protocol-relative URL — must NOT exfiltrate to evil.com
+      ['//evil.com', `https://${ROOT_DOMAIN}/dashboard`],
+      // Backslash-prefixed authority — must NOT escape the origin
+      ['/\\evil.com', `https://${ROOT_DOMAIN}/`],
+      // Backslashes inside a local path are normalized to forward slashes
+      ['/admin\\users', `https://${ROOT_DOMAIN}/admin/users`],
+      // data: URI scheme — must be rejected
+      [
+        'data:text/html,<script>alert(1)</script>',
+        `https://${ROOT_DOMAIN}/dashboard`,
+      ],
+      // javascript: URI scheme — must be rejected
+      ['javascript:void(0)', `https://${ROOT_DOMAIN}/dashboard`],
+      // Absolute http(s) URL — must be rejected
+      ['https://evil.com/path', `https://${ROOT_DOMAIN}/dashboard`],
+    ])('sanitizes malicious redirect param %s to safe target %s', async (rawRedirect, expectedLocation) => {
+      vi.mocked(updateSession).mockResolvedValueOnce({
+        supabaseResponse: NextResponse.next(),
+        user: AUTHENTICATED_USER,
+      });
+
+      const req = new NextRequest(
+        `https://${ROOT_DOMAIN}/login?redirect=${encodeURIComponent(rawRedirect)}`
+      );
+      req.headers.set('host', ROOT_DOMAIN);
+
+      const res = await proxy(req);
+      const location = res.headers.get('location');
+
+      expect(res.status).toBe(307);
+      expect(location).toBe(expectedLocation);
+    });
+
+    it('never reflects CRLF header-injection payloads into the Location header', async () => {
+      vi.mocked(updateSession).mockResolvedValueOnce({
+        supabaseResponse: NextResponse.next(),
+        user: AUTHENTICATED_USER,
+      });
+
+      // A raw CRLF + bogus header in the redirect param. The redirect target
+      // must (a) stay on the same origin and (b) emit a Location value with
+      // no embedded CR/LF characters, since reflecting either into the
+      // response would smuggle a forged response header.
+      const req = new NextRequest(
+        `https://${ROOT_DOMAIN}/login?redirect=${encodeURIComponent('/admin\r\nx-test:1')}`
+      );
+      req.headers.set('host', ROOT_DOMAIN);
+
+      const res = await proxy(req);
+      const location = res.headers.get('location');
+
+      expect(res.status).toBe(307);
+      expect(location).toBeTruthy();
+      const parsed = new URL(location ?? '');
+      expect(parsed.origin).toBe(`https://${ROOT_DOMAIN}`);
+      expect(location ?? '').not.toContain('\r');
+      expect(location ?? '').not.toContain('\n');
+    });
+  });
+
   it('should not rewrite API routes on subdomains (pass-through)', async () => {
     const req = new NextRequest(
       `https://ogabassey.${ROOT_DOMAIN}/api/storefront/products`

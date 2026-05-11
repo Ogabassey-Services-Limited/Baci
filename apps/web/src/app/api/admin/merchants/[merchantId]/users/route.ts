@@ -88,9 +88,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     }
 
     console.info('Admin merchant users directory read:', {
-      adminUserId: user.id,
       generatedAt: data.generatedAt,
-      merchantId: parseResult.data.merchantId,
       totalUsers:
         data.users.staff.length +
         data.users.customers.length +
