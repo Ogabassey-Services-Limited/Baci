@@ -158,7 +158,8 @@ export async function confirmPaystackDvaByOrderAccount({
       .from('reconciliation_review')
       .insert(reviewRow);
     if (reviewErr) {
-      const isDuplicate = (reviewErr as { code?: string }).code === '23505';
+      const isDuplicate =
+        (reviewErr as { code?: string }).code === POSTGRES_UNIQUE_VIOLATION;
       if (isDuplicate) {
         logger.info({
           message:
