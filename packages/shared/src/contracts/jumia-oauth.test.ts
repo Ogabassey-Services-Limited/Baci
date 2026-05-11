@@ -84,13 +84,11 @@ describe('Jumia OAuth contracts', () => {
       expect(url.pathname).toBe('');
     });
 
-    it('refuses to build URLs whose parsed scheme falls outside the allow-list', () => {
-      // Pre-load the module so we have a handle to mutate it for negative path
-      // testing. We cannot pass a different scheme to `createBaciAdminUrl`
-      // because that path is statically fixed — but we can demonstrate the
-      // guard fires by feeding it a path that the URL parser would reinterpret.
-      // Empty + whitespace-only paths must NOT degrade to an empty-authority
-      // URL with an unexpected protocol.
+    it('keeps the canonical baciadmin prefix for allowed deep-link paths', () => {
+      // The scheme is a hard-coded constant inside createBaciAdminUrl, so the
+      // negative path of the allow-list guard isn't reachable from the public
+      // API without module mocking. This test pins the positive contract:
+      // a well-formed call must produce a baciadmin:// URL.
       const result = buildBaciAdminUrl('/sales-channels');
       expect(result.startsWith('baciadmin://sales-channels')).toBe(true);
     });
