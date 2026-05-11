@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type React from 'react';
 import { Suspense } from 'react';
@@ -10,14 +11,15 @@ import { MOBILE_APPS } from '@/config/platform';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import { StorefrontCartProvider } from '@/hooks/cart/storefront-cart-provider';
 import { StorefrontMerchantProvider } from '@/hooks/merchant/storefront-merchant-provider';
-import type { MerchantData } from '@/hooks/use-merchant';
-import {
-  type CachedMerchant,
-  getRequestScopedMerchant,
-} from '@/lib/cached-data';
+import type { MerchantData } from '@/hooks/merchant/types';
+import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
-import { StorefrontHeroPreloadDecision } from './storefront-hero-preload-decision';
+import {
+  getStorefrontSeoDescription,
+  getStorefrontSeoTitle,
+} from './seo-helpers';
+import { isStorefrontHomePath } from './storefront-home-path';
 import {
   getStorefrontShellSnapshot,
   getStorefrontShellSnapshotBase,
@@ -63,78 +65,6 @@ function StorefrontLayoutRenderer({
 
   // Default / other templates: No global layout wrapper (layout handled per page)
   return <>{children}</>;
-}
-
-function normalizeStorefrontBusinessType(businessType?: string | null) {
-  switch (businessType) {
-    case 'food-beverage':
-      return 'food';
-    case 'pharmaceuticals':
-      return 'pharmacy';
-    case 'health-beauty':
-      return 'beauty';
-    case 'hair-extensions':
-      return 'hair';
-    case 'home-goods':
-      return 'home';
-    default:
-      return businessType || 'general';
-  }
-}
-
-function getStorefrontSeoTagline(businessType?: string | null) {
-  switch (normalizeStorefrontBusinessType(businessType)) {
-    case 'food':
-      return 'Order Fresh Food Online';
-    case 'pharmacy':
-      return 'Shop Pharmacy Essentials Online';
-    case 'beauty':
-      return 'Shop Beauty and Wellness Essentials';
-    case 'hair':
-      return 'Shop Premium Hair Extensions';
-    case 'home':
-      return 'Shop Home Essentials Online';
-    case 'fashion':
-      return 'Shop Fashion and Style Online';
-    case 'handmade':
-      return 'Shop Handmade Goods Online';
-    case 'electronics':
-      return 'Buy Gadgets Pay Later';
-    default:
-      return 'Shop Online';
-  }
-}
-
-type StorefrontSeoMerchant = Pick<
-  CachedMerchant,
-  | 'business_name'
-  | 'business_type'
-  | 'site_description'
-  | 'site_tagline'
-  | 'site_title'
->;
-
-function getStorefrontSeoDescription(merchant: StorefrontSeoMerchant) {
-  if (merchant.site_description || merchant.site_tagline) {
-    return merchant.site_description || merchant.site_tagline || '';
-  }
-
-  const tagline = getStorefrontSeoTagline(merchant.business_type).toLowerCase();
-  return `Shop ${merchant.business_name} - ${tagline} with secure checkout in Nigeria.`;
-}
-
-function getStorefrontSeoTitle(merchant: StorefrontSeoMerchant) {
-  const hasMismatchedGadgetTitle =
-    normalizeStorefrontBusinessType(merchant.business_type) !== 'electronics' &&
-    /buy gadgets pay later/i.test(merchant.site_title || '');
-
-  if (merchant.site_title && !hasMismatchedGadgetTitle) {
-    return merchant.site_title;
-  }
-
-  return `${merchant.business_name} | ${getStorefrontSeoTagline(
-    merchant.business_type
-  )}`;
 }
 
 export async function generateMetadata({
@@ -296,7 +226,6 @@ function StorefrontThemeFrame({ children }: { children: React.ReactNode }) {
 
 export async function StorefrontLayoutContent(props: {
   children: React.ReactNode;
-  enableDynamicHeroPreloadDecision?: boolean;
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await props.params;
@@ -311,11 +240,14 @@ export async function StorefrontLayoutContent(props: {
     notFound();
   }
 
-  const enableDynamicHeroPreloadDecision =
-    props.enableDynamicHeroPreloadDecision ?? true;
-  const shouldResolveHeroPreloadDecision =
-    enableDynamicHeroPreloadDecision &&
-    shellSnapshotBase.merchant.template_id === OGABASSEY_TEMPLATE_ID;
+  const headersList = await headers();
+  const preloadHeroLcpImages =
+    shellSnapshotBase.merchant.template_id === OGABASSEY_TEMPLATE_ID &&
+    isStorefrontHomePath({
+      merchantSlug: shellSnapshotBase.merchant.slug,
+      pathname: headersList.get('x-pathname'),
+      routeSlug: slug,
+    });
 
   const isDevelopment = process.env.NODE_ENV === 'development';
   if (!shellSnapshotBase.merchant.is_published && !isDevelopment) {
@@ -333,36 +265,23 @@ export async function StorefrontLayoutContent(props: {
   }
 
   return (
-    <>
-      {shouldResolveHeroPreloadDecision ? (
-        <StorefrontHeroPreloadDecision
-          merchantSlug={shellSnapshotBase.merchant.slug}
-          routeSlug={slug}
-          templateId={shellSnapshotBase.merchant.template_id}
-        />
-      ) : null}
-      <StorefrontShellFrame
-        preloadHeroLcpImages={false}
-        shellSnapshot={shellSnapshot}
-      >
-        {props.children}
-      </StorefrontShellFrame>
-    </>
+    <StorefrontShellFrame
+      preloadHeroLcpImages={preloadHeroLcpImages}
+      shellSnapshot={shellSnapshot}
+    >
+      {props.children}
+    </StorefrontShellFrame>
   );
 }
 
 export default function StorefrontLayout(props: {
   children: React.ReactNode;
-  enableDynamicHeroPreloadDecision?: boolean;
-  loadingFallback?: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
-  const { loadingFallback = null, ...contentProps } = props;
-
   return (
     <StorefrontThemeFrame>
-      <Suspense fallback={loadingFallback}>
-        <StorefrontLayoutContent {...contentProps} />
+      <Suspense fallback={null}>
+        <StorefrontLayoutContent {...props} />
       </Suspense>
     </StorefrontThemeFrame>
   );
