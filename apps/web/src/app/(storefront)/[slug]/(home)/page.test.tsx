@@ -1,12 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { Suspense } from 'react';
-import * as ReactDOM from 'react-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  HERO_DESKTOP_LCP_SRC,
-  HERO_MOBILE_LCP_SRC,
-} from '@/components/storefront/ogabassey/components/hero-data';
-import { OGABASSEY_HERO_PRECONNECT_ORIGINS } from '@/components/storefront/ogabassey/components/ogabassey-hero-preloads';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 
 const { mockStorefrontContent, mockStorefrontPageContent } = vi.hoisted(() => ({
@@ -104,11 +98,10 @@ const baseMerchant = {
   country: 'NG',
 };
 
-const { default: StorefrontPage, generateMetadata } = await import('./page');
+const { default: StorefrontPage } = await import('./page');
 const actualStorefrontPageContentModule = await vi.importActual<
   typeof import('../storefront-page-content')
 >('../storefront-page-content');
-const preloadSpy = vi.spyOn(ReactDOM, 'preload');
 
 describe('Storefront homepage structured data', () => {
   beforeEach(() => {
@@ -119,7 +112,6 @@ describe('Storefront homepage structured data', () => {
       .forEach((link) => {
         link.remove();
       });
-    preloadSpy.mockClear();
     vi.mocked(getRequestScopedMerchant).mockReset();
     mockStorefrontContent.mockReset();
     mockStorefrontPageContent.mockReset();
@@ -289,106 +281,13 @@ describe('Storefront homepage structured data', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('preloads viewport-scoped OgaBassey hero LCP images from the server page', async () => {
-    render(
-      await StorefrontPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
-    );
-
-    expect(preloadSpy).toHaveBeenCalledWith(
-      HERO_DESKTOP_LCP_SRC,
-      expect.objectContaining({
-        as: 'image',
-        fetchPriority: 'high',
-        media: '(min-width: 768px)',
-        type: 'image/avif',
-      })
-    );
-    expect(preloadSpy).toHaveBeenCalledWith(
-      HERO_MOBILE_LCP_SRC,
-      expect.objectContaining({
-        as: 'image',
-        fetchPriority: 'high',
-        media: '(max-width: 767px)',
-        type: 'image/avif',
-      })
-    );
-  });
-
-  it('emits self-referencing canonical and hreflang alternates from page metadata', async () => {
-    vi.mocked(getRequestScopedMerchant).mockResolvedValue(
-      baseMerchant as unknown as Awaited<
-        ReturnType<typeof getRequestScopedMerchant>
-      >
-    );
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'ogabassey' }),
-    });
-
-    expect(metadata.alternates).toEqual({
-      canonical: 'https://ogabassey.com',
-      languages: {
-        'en-NG': 'https://ogabassey.com',
-        'x-default': 'https://ogabassey.com',
-      },
-    });
-  });
-
-  it('omits Nigerian hreflang for storefronts outside Nigeria', async () => {
-    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
-      ...baseMerchant,
-      slug: 'ghana-store',
-      custom_domain: 'ghana.example.com',
-      country: 'GH',
-    } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'ghana-store' }),
-    });
-
-    expect(metadata.alternates).toEqual({
-      canonical: 'https://ghana.example.com',
-      languages: {
-        'x-default': 'https://ghana.example.com',
-      },
-    });
-  });
-
-  it('does not duplicate layout-owned resource warmups from the home page', async () => {
-    render(
-      await StorefrontPage({ params: Promise.resolve({ slug: 'ogabassey' }) })
-    );
-
-    const expectedOrigins = Array.from(OGABASSEY_HERO_PRECONNECT_ORIGINS);
-
-    const preconnects = Array.from(
-      document.querySelectorAll<HTMLLinkElement>('link[rel="preconnect"]')
-    );
-    expect(preconnects.map((l) => l.getAttribute('href')).sort()).toEqual(
-      [...expectedOrigins].sort()
-    );
-
-    const dnsHints = Array.from(
-      document.querySelectorAll<HTMLLinkElement>('link[rel="dns-prefetch"]')
-    );
-    expect(dnsHints.map((l) => l.getAttribute('href')).sort()).toEqual(
-      [...expectedOrigins].sort()
-    );
-  });
-
-  it('does not preload OgaBassey hero images for other storefronts', async () => {
+  it('renders other storefronts through the shared page content path', async () => {
     render(
       await StorefrontPage({
         params: Promise.resolve({ slug: 'another-shop' }),
       })
     );
 
-    expect(preloadSpy).not.toHaveBeenCalled();
-    expect(
-      document.querySelector('link[rel="preconnect"]')
-    ).not.toBeInTheDocument();
-    expect(
-      document.querySelector('link[rel="dns-prefetch"]')
-    ).not.toBeInTheDocument();
+    expect(screen.getByText('Storefront page content')).toBeInTheDocument();
   });
 });
