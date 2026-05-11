@@ -54,6 +54,7 @@ const merchant: AdminMerchantHealthRow = {
   joined_at: '2026-03-20T10:00:00.000Z',
   last_order_date: '2026-03-24T10:00:00.000Z',
   merchant_id: '11111111-1111-4111-8111-111111111111',
+  storefront_slug: 'baci-store',
   total_gmv: 1200,
   total_orders: 4,
 };
@@ -86,7 +87,7 @@ describe('MerchantTable', () => {
     expect(screen.getByText('No merchants found')).toBeVisible();
   });
 
-  it('uses mailto links and opens the canonical storefront identifier', () => {
+  it('uses mailto links and opens the canonical storefront slug', () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
     render(
@@ -101,7 +102,26 @@ describe('MerchantTable', () => {
     fireEvent.click(screen.getByRole('button', { name: /view store/i }));
 
     expect(openSpy).toHaveBeenCalledWith(
-      '/11111111-1111-4111-8111-111111111111',
+      '/baci-store',
+      '_blank',
+      'noopener,noreferrer'
+    );
+  });
+
+  it('falls back to the generated business slug when the canonical slug is unavailable', () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    render(
+      <MerchantTable
+        merchants={[{ ...merchant, storefront_slug: null }]}
+        onInvalidStorefrontUrl={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /view store/i }));
+
+    expect(openSpy).toHaveBeenCalledWith(
+      '/baci-store',
       '_blank',
       'noopener,noreferrer'
     );
@@ -114,6 +134,7 @@ describe('MerchantTable', () => {
       business_name: null,
       email: null,
       merchant_id: '',
+      storefront_slug: null,
     };
 
     render(
@@ -149,7 +170,7 @@ describe('MerchantTable', () => {
 
     expect(onInvalidStorefrontUrl).not.toHaveBeenCalled();
     expect(openSpy).toHaveBeenCalledWith(
-      '/11111111-1111-4111-8111-111111111111',
+      '/baci-store',
       '_blank',
       'noopener,noreferrer'
     );
@@ -165,6 +186,7 @@ describe('MerchantTable', () => {
             ...merchant,
             business_name: null,
             merchant_id: null as unknown as string,
+            storefront_slug: null,
           },
         ]}
         onInvalidStorefrontUrl={onInvalidStorefrontUrl}

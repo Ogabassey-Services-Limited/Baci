@@ -45,6 +45,7 @@ let rpcResult: QueryResult<
     last_order_date: string | null;
     active_days: number;
     health_status: 'healthy' | 'at_risk' | 'churned' | 'new';
+    storefront_slug: string | null;
   }>
 > = {
   data: [
@@ -58,6 +59,7 @@ let rpcResult: QueryResult<
       last_order_date: '2026-03-19',
       active_days: 2,
       health_status: 'healthy',
+      storefront_slug: 'baci-store',
     },
     {
       merchant_id: 'merchant-2',
@@ -69,6 +71,7 @@ let rpcResult: QueryResult<
       last_order_date: '2026-03-18',
       active_days: 1,
       health_status: 'at_risk',
+      storefront_slug: 'another-store',
     },
   ],
   error: null,
@@ -137,6 +140,7 @@ describe('/api/admin/merchants', () => {
           last_order_date: '2026-03-19',
           active_days: 2,
           health_status: 'healthy',
+          storefront_slug: 'baci-store',
         },
         {
           merchant_id: 'merchant-2',
@@ -148,6 +152,7 @@ describe('/api/admin/merchants', () => {
           last_order_date: '2026-03-18',
           active_days: 1,
           health_status: 'at_risk',
+          storefront_slug: 'another-store',
         },
       ],
       error: null,
@@ -221,10 +226,12 @@ describe('/api/admin/merchants', () => {
     expect(body.data).toHaveLength(2);
     expect(body.data[0]).toMatchObject({
       merchant_id: 'merchant-2',
+      storefront_slug: 'another-store',
       total_orders: 5,
     });
     expect(body.data[1]).toMatchObject({
       merchant_id: 'merchant-1',
+      storefront_slug: 'baci-store',
       total_orders: 2,
     });
     expect(body.generatedAt).toBeTypeOf('string');

@@ -28,13 +28,18 @@ import type { AdminMerchantHealthRow } from '@/types/admin-merchants';
 import { MerchantHealthBadge } from './merchant-health-badge';
 
 function getStorefrontHref(merchant: AdminMerchantHealthRow): string | null {
-  const explicitIdentifier = (merchant.merchant_id ?? '').trim();
-  if (explicitIdentifier) {
-    return `/${explicitIdentifier}`;
+  const storefrontSlug = (merchant.storefront_slug ?? '').trim();
+  if (storefrontSlug) {
+    return `/${storefrontSlug}`;
   }
 
   const generatedSlug = generateSlug(merchant.business_name || '');
-  return generatedSlug ? `/${generatedSlug}` : null;
+  if (generatedSlug) {
+    return `/${generatedSlug}`;
+  }
+
+  const explicitIdentifier = (merchant.merchant_id ?? '').trim();
+  return explicitIdentifier ? `/${explicitIdentifier}` : null;
 }
 
 export function MerchantTable({
