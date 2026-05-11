@@ -4,6 +4,7 @@ import StorefrontLayout, {
   generateMetadata as generateStorefrontLayoutMetadata,
   generateViewport,
 } from '@/app/(storefront)/[slug]/layout';
+import { OgabasseyStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-static-resource-hints';
 import { OGABASSEY_URL } from '@/config/ogabassey';
 
 const OGABASSEY_DOMAIN_PARAMS = Promise.resolve({
@@ -31,8 +32,11 @@ export default function OgabasseyDomainLayout({
   children: ReactNode;
 }) {
   return (
-    <StorefrontLayout params={OGABASSEY_DOMAIN_PARAMS}>
-      {children}
-    </StorefrontLayout>
+    <>
+      <OgabasseyStaticResourceHints />
+      <StorefrontLayout params={OGABASSEY_DOMAIN_PARAMS}>
+        {children}
+      </StorefrontLayout>
+    </>
   );
 }
