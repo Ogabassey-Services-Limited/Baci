@@ -82,6 +82,7 @@ const IMAGE_FILES_REGEX =
   /\.(jpg|jpeg|png|gif|svg|ico|webp|avif|woff|woff2|ttf|eot)$/;
 const BOT_USER_AGENT_REGEX =
   /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator/i;
+const PROTOCOL_SCHEME_REGEX = /^[a-z][a-z0-9+.-]*:/i;
 const PRODUCT_PAGE_REGEX = /^\/[^/]+\/products\/[^/]+$/;
 const NESTED_PRODUCT_REGEX = /^\/[^/]+\/[^/]+\/[^/]+$/;
 const CATEGORY_PAGE_REGEX = /^\/[^/]+\/[^/]+\/?$/;
@@ -161,6 +162,39 @@ const RESERVED_STOREFRONT_SEGMENTS = new Set([
   'wallet',
   'wishlist',
 ]);
+
+function sanitizeProxyRedirectPath(
+  rawRedirect: string | null | undefined,
+  defaultPath = '/dashboard'
+): string {
+  if (!rawRedirect) {
+    return defaultPath;
+  }
+
+  if (
+    !rawRedirect.startsWith('/') ||
+    rawRedirect.startsWith('//') ||
+    // Reject any backslash: the WHATWG URL parser normalizes `\` to `/` in
+    // HTTPS-scheme contexts, so `/\evil.com` parses with host=evil.com. We
+    // reject before the parse to avoid the authority-switch open-redirect.
+    rawRedirect.includes('\\') ||
+    PROTOCOL_SCHEME_REGEX.test(rawRedirect)
+  ) {
+    return defaultPath;
+  }
+
+  try {
+    const parsed = new URL(rawRedirect, 'https://usebaci.local');
+    // Defense in depth: if the parser produced any host other than the
+    // placeholder, the input contained an authority switch we didn't catch.
+    if (parsed.host !== 'usebaci.local') {
+      return defaultPath;
+    }
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return defaultPath;
+  }
+}
 
 /**
  * If pathname starts with `prefix` (case-insensitive), return the corrected
@@ -388,6 +422,7 @@ function getRouteType(
   pathname: string
 ): 'admin' | 'auth' | 'storefront' | 'api' {
   if (
+    pathname.startsWith('/admin') ||
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/builder') ||
     pathname.startsWith('/onboarding')
@@ -514,6 +549,23 @@ function generateCSP(
   return Object.entries(directives)
     .map(([key, value]) => (value ? `${key} ${value}` : key).trim())
     .join('; ');
+}
+
+function generateCspNonce(): string {
+  try {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return encodeCspNonce(String.fromCharCode(...bytes));
+  } catch {
+    return encodeCspNonce(crypto.randomUUID());
+  }
+}
+
+function encodeCspNonce(value: string): string {
+  return btoa(value)
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replaceAll('=', '');
 }
 
 /**
@@ -896,15 +948,17 @@ export async function proxy(request: NextRequest) {
 
   // Only run auth check for protected or auth routes (skip for public routes)
   if (isProtectedRoute || isAuthRoute) {
-    // Generate Nonce EARLY for CSP (Request Header Injection)
-    // 2026 Best Practice: Next.js reads 'x-nonce' from request headers to authorize internal scripts
+    // Generate nonce and CSP before the app render. Next reads the forwarded
+    // request CSP to nonce its framework and Flight scripts.
     const routeType = getRouteType(pathname);
     const isLocal = isLocalhost(hostname);
-    const nonce = crypto.randomUUID();
+    const nonce = generateCspNonce();
+    const csp = generateCSP(routeType, isLocal, nonce);
 
     // Prepare request headers with nonce
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-nonce', nonce);
+    requestHeaders.set('Content-Security-Policy', csp);
 
     // Create a modified request instance to pass down
     const modifiedRequest = new NextRequest(request, {
@@ -935,7 +989,11 @@ export async function proxy(request: NextRequest) {
       */
       const url = request.nextUrl.clone();
       url.pathname = '/login';
-      url.searchParams.set('redirectTo', pathname);
+      url.search = '';
+      url.searchParams.set(
+        'redirect',
+        `${pathname}${request.nextUrl.search}${request.nextUrl.hash}`
+      );
       return applySecurityHeaders(
         NextResponse.redirect(url),
         pathname,
@@ -951,10 +1009,15 @@ export async function proxy(request: NextRequest) {
     // Auth routes: redirect to dashboard if already logged in
     if (isAuthRoute && user) {
       // console.log('Middleware: User found on auth route, redirecting to dashboard');
-      const redirectTo = request.nextUrl.searchParams.get('redirectTo');
+      const redirectTo = sanitizeProxyRedirectPath(
+        request.nextUrl.searchParams.get('redirect') ??
+          request.nextUrl.searchParams.get('redirectTo')
+      );
       const url = request.nextUrl.clone();
-      url.pathname = redirectTo || '/dashboard';
-      url.search = '';
+      const redirectUrl = new URL(redirectTo, request.nextUrl.origin);
+      url.pathname = redirectUrl.pathname;
+      url.search = redirectUrl.search;
+      url.hash = redirectUrl.hash;
       return applySecurityHeaders(
         NextResponse.redirect(url),
         pathname,

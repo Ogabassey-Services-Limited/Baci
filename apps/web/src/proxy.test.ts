@@ -51,6 +51,34 @@ vi.mock('@/lib/rate-limit', () => ({
     .mockReturnValue(new NextResponse('Too Many Requests', { status: 429 })),
 }));
 
+function assertNonceHeadersForwarded(
+  forwardedRequest: NextRequest | undefined,
+  response: NextResponse
+) {
+  if (!forwardedRequest) {
+    throw new Error('expected updateSession to receive a forwarded request');
+  }
+
+  const nonce = forwardedRequest.headers.get('x-nonce');
+  const forwardedCsp = forwardedRequest.headers.get('Content-Security-Policy');
+  const responseCsp = response.headers.get('Content-Security-Policy');
+
+  if (!nonce) {
+    throw new Error('missing x-nonce header');
+  }
+  if (!forwardedCsp) {
+    throw new Error('missing forwarded Content-Security-Policy header');
+  }
+  if (!responseCsp) {
+    throw new Error('missing response Content-Security-Policy header');
+  }
+
+  expect(nonce).toMatch(/^[A-Za-z0-9_-]+$/);
+  expect(forwardedCsp).toContain(`'nonce-${nonce}'`);
+  expect(responseCsp).toContain(`'nonce-${nonce}'`);
+  expect(responseCsp).toBe(forwardedCsp);
+}
+
 describe('Middleware Proxy', () => {
   const ROOT_DOMAIN = 'usebaci.com';
 
@@ -133,6 +161,230 @@ describe('Middleware Proxy', () => {
     const csp = res.headers.get('Content-Security-Policy') || '';
 
     expect(csp).not.toContain("'unsafe-eval'");
+  });
+
+  it('forwards auth route CSP and nonce headers for Next script nonces', async () => {
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/login`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+    expect(updateSession).toHaveBeenCalledTimes(1);
+    const [forwardedRequest] = vi.mocked(updateSession).mock.calls[0] ?? [];
+
+    assertNonceHeadersForwarded(forwardedRequest, res);
+  });
+
+  it('forwards admin route CSP and nonce headers before auth rendering', async () => {
+    vi.mocked(updateSession).mockResolvedValueOnce({
+      supabaseResponse: NextResponse.next(),
+      user: AUTHENTICATED_USER,
+    });
+
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/admin/merchants`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+    expect(updateSession).toHaveBeenCalledTimes(1);
+    const [forwardedRequest] = vi.mocked(updateSession).mock.calls[0] ?? [];
+
+    assertNonceHeadersForwarded(forwardedRequest, res);
+  });
+
+  it('generates unique CSP nonces for repeated auth renders', async () => {
+    const nonces: string[] = [];
+
+    for (let index = 0; index < 3; index += 1) {
+      const req = new NextRequest(`https://${ROOT_DOMAIN}/login`);
+      req.headers.set('host', ROOT_DOMAIN);
+
+      await proxy(req);
+      const forwardedRequest = vi.mocked(updateSession).mock.calls[index]?.[0];
+      const nonce = forwardedRequest?.headers.get('x-nonce');
+
+      expect(nonce).toMatch(/^[A-Za-z0-9_-]+$/);
+      if (nonce) {
+        nonces.push(nonce);
+      }
+    }
+
+    expect(new Set(nonces).size).toBe(nonces.length);
+  });
+
+  it('falls back to a safe nonce when random byte generation fails', async () => {
+    const getRandomValuesSpy = vi
+      .spyOn(crypto, 'getRandomValues')
+      .mockImplementationOnce(() => {
+        throw new Error('entropy unavailable');
+      });
+
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/login`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    try {
+      const res = await proxy(req);
+      expect(updateSession).toHaveBeenCalledTimes(1);
+      const [forwardedRequest] = vi.mocked(updateSession).mock.calls[0] ?? [];
+
+      assertNonceHeadersForwarded(forwardedRequest, res);
+    } finally {
+      getRandomValuesSpy.mockRestore();
+    }
+  });
+
+  it('redirects unauthenticated admin requests to login with the canonical redirect key', async () => {
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/admin`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+    const location = res.headers.get('location');
+
+    expect(res.status).toBe(307);
+    if (!location) {
+      throw new Error('expected location header');
+    }
+
+    const redirected = new URL(location);
+    expect(redirected.pathname).toBe('/login');
+    expect(redirected.searchParams.get('redirect')).toBe('/admin');
+    expect(redirected.searchParams.has('redirectTo')).toBe(false);
+  });
+
+  it('preserves admin subpaths in canonical login redirects', async () => {
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}/admin/merchants?health=at_risk`
+    );
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+    const location = res.headers.get('location');
+
+    expect(res.status).toBe(307);
+    if (!location) {
+      throw new Error('expected location header');
+    }
+
+    const redirected = new URL(location);
+    expect(redirected.pathname).toBe('/login');
+    expect(redirected.searchParams.get('redirect')).toBe(
+      '/admin/merchants?health=at_risk'
+    );
+  });
+
+  it('redirects authenticated login requests using canonical redirect before legacy redirectTo', async () => {
+    vi.mocked(updateSession).mockResolvedValueOnce({
+      supabaseResponse: NextResponse.next(),
+      user: AUTHENTICATED_USER,
+    });
+
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}/login?redirect=%2Fadmin&redirectTo=%2Fdashboard`
+    );
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get('location')).toBe(`https://${ROOT_DOMAIN}/admin`);
+  });
+
+  it('keeps legacy redirectTo login compatibility for authenticated users', async () => {
+    vi.mocked(updateSession).mockResolvedValueOnce({
+      supabaseResponse: NextResponse.next(),
+      user: AUTHENTICATED_USER,
+    });
+
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}/login?redirectTo=%2Fadmin`
+    );
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get('location')).toBe(`https://${ROOT_DOMAIN}/admin`);
+  });
+
+  describe('login redirect path sanitization', () => {
+    // Each case proves the proxy's `redirect` param sanitizer prevents an
+    // open-redirect or header-injection vector for an authenticated user
+    // landing on `/login`. The expected behavior is either a clean
+    // local-only path on the same origin, or a fallback to /dashboard —
+    // never a redirect to a foreign origin and never a header-injection
+    // payload reflected into the Location header.
+    it.each([
+      // Protocol-relative URL — must NOT exfiltrate to evil.com
+      ['//evil.com', `https://${ROOT_DOMAIN}/dashboard`],
+      // Backslash-prefixed authority — WHATWG normalizes `\` to `/` under
+      // an HTTPS scheme, so `/\evil.com` parses to host=evil.com. Reject.
+      ['/\\evil.com', `https://${ROOT_DOMAIN}/dashboard`],
+      // Multiple leading backslashes — also an authority-switch attempt
+      ['/\\\\evil.com', `https://${ROOT_DOMAIN}/dashboard`],
+      // Backslash anywhere in the path — reject to be safe; legitimate
+      // local paths never contain backslashes
+      ['/admin\\users', `https://${ROOT_DOMAIN}/dashboard`],
+      ['/admin\\evil.com', `https://${ROOT_DOMAIN}/dashboard`],
+      [
+        '/path\\with\\multiple\\backslashes',
+        `https://${ROOT_DOMAIN}/dashboard`,
+      ],
+      // data: URI scheme — must be rejected
+      [
+        'data:text/html,<script>alert(1)</script>',
+        `https://${ROOT_DOMAIN}/dashboard`,
+      ],
+      // javascript: URI scheme — must be rejected
+      ['javascript:void(0)', `https://${ROOT_DOMAIN}/dashboard`],
+      // Absolute http(s) URL — must be rejected
+      ['https://evil.com/path', `https://${ROOT_DOMAIN}/dashboard`],
+      // ASCII tab between leading `/` and `/evil.com` — WHATWG strips the
+      // tab, making the parser see `//evil.com` and switch authority to
+      // evil.com. The defense-in-depth host check catches this.
+      ['/\t/evil.com', `https://${ROOT_DOMAIN}/dashboard`],
+      ['/\n/evil.com', `https://${ROOT_DOMAIN}/dashboard`],
+      ['/\r/evil.com', `https://${ROOT_DOMAIN}/dashboard`],
+    ])('sanitizes malicious redirect param %s to safe target %s', async (rawRedirect, expectedLocation) => {
+      vi.mocked(updateSession).mockResolvedValueOnce({
+        supabaseResponse: NextResponse.next(),
+        user: AUTHENTICATED_USER,
+      });
+
+      const req = new NextRequest(
+        `https://${ROOT_DOMAIN}/login?redirect=${encodeURIComponent(rawRedirect)}`
+      );
+      req.headers.set('host', ROOT_DOMAIN);
+
+      const res = await proxy(req);
+      const location = res.headers.get('location');
+
+      expect(res.status).toBe(307);
+      expect(location).toBe(expectedLocation);
+    });
+
+    it('never reflects CRLF header-injection payloads into the Location header', async () => {
+      vi.mocked(updateSession).mockResolvedValueOnce({
+        supabaseResponse: NextResponse.next(),
+        user: AUTHENTICATED_USER,
+      });
+
+      // A raw CRLF + bogus header in the redirect param. The redirect target
+      // must (a) stay on the same origin and (b) emit a Location value with
+      // no embedded CR/LF characters, since reflecting either into the
+      // response would smuggle a forged response header.
+      const req = new NextRequest(
+        `https://${ROOT_DOMAIN}/login?redirect=${encodeURIComponent('/admin\r\nx-test:1')}`
+      );
+      req.headers.set('host', ROOT_DOMAIN);
+
+      const res = await proxy(req);
+      const location = res.headers.get('location');
+
+      expect(res.status).toBe(307);
+      expect(location).toBeTruthy();
+      const parsed = new URL(location ?? '');
+      expect(parsed.origin).toBe(`https://${ROOT_DOMAIN}`);
+      expect(location ?? '').not.toContain('\r');
+      expect(location ?? '').not.toContain('\n');
+    });
   });
 
   it('should not rewrite API routes on subdomains (pass-through)', async () => {

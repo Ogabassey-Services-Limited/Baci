@@ -1,13 +1,8 @@
 import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockCookies = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
 const mockCreateClient = vi.fn();
-
-vi.mock('next/headers', () => ({
-  cookies: vi.fn(async () => mockCookies()),
-}));
 
 vi.mock('@/lib/get-merchant-for-api-request', () => ({
   getMerchantForApiRequest: (...args: unknown[]) =>
@@ -50,6 +45,7 @@ let rpcResult: QueryResult<
     last_order_date: string | null;
     active_days: number;
     health_status: 'healthy' | 'at_risk' | 'churned' | 'new';
+    storefront_slug: string | null;
   }>
 > = {
   data: [
@@ -63,6 +59,7 @@ let rpcResult: QueryResult<
       last_order_date: '2026-03-19',
       active_days: 2,
       health_status: 'healthy',
+      storefront_slug: 'baci-store',
     },
     {
       merchant_id: 'merchant-2',
@@ -74,6 +71,7 @@ let rpcResult: QueryResult<
       last_order_date: '2026-03-18',
       active_days: 1,
       health_status: 'at_risk',
+      storefront_slug: 'another-store',
     },
   ],
   error: null,
@@ -142,6 +140,7 @@ describe('/api/admin/merchants', () => {
           last_order_date: '2026-03-19',
           active_days: 2,
           health_status: 'healthy',
+          storefront_slug: 'baci-store',
         },
         {
           merchant_id: 'merchant-2',
@@ -153,18 +152,18 @@ describe('/api/admin/merchants', () => {
           last_order_date: '2026-03-18',
           active_days: 1,
           health_status: 'at_risk',
+          storefront_slug: 'another-store',
         },
       ],
       error: null,
     };
-    mockCookies.mockReturnValue(new Map());
     mockGetMerchantForApiRequest.mockResolvedValue(merchantContext);
-    mockCreateClient.mockReturnValue(createMockSupabase());
+    mockCreateClient.mockResolvedValue(createMockSupabase());
   });
 
   it('returns 401 when the user is not authenticated', async () => {
     authUser = null;
-    mockCreateClient.mockReturnValue(createMockSupabase());
+    mockCreateClient.mockResolvedValue(createMockSupabase());
 
     const response = await GET(
       createRequest('http://localhost/api/admin/merchants')
@@ -190,7 +189,7 @@ describe('/api/admin/merchants', () => {
       data: { is_platform_admin: false },
       error: null,
     };
-    mockCreateClient.mockReturnValue(createMockSupabase());
+    mockCreateClient.mockResolvedValue(createMockSupabase());
 
     const response = await GET(
       createRequest('http://localhost/api/admin/merchants')
@@ -206,7 +205,7 @@ describe('/api/admin/merchants', () => {
       data: null,
       error: { message: 'rpc failed' },
     };
-    mockCreateClient.mockReturnValue(createMockSupabase());
+    mockCreateClient.mockResolvedValue(createMockSupabase());
 
     const response = await GET(
       createRequest('http://localhost/api/admin/merchants')
@@ -227,10 +226,12 @@ describe('/api/admin/merchants', () => {
     expect(body.data).toHaveLength(2);
     expect(body.data[0]).toMatchObject({
       merchant_id: 'merchant-2',
+      storefront_slug: 'another-store',
       total_orders: 5,
     });
     expect(body.data[1]).toMatchObject({
       merchant_id: 'merchant-1',
+      storefront_slug: 'baci-store',
       total_orders: 2,
     });
     expect(body.generatedAt).toBeTypeOf('string');
