@@ -6,7 +6,7 @@ import Link from 'next/link';
 import type React from 'react';
 import { Fragment, useEffect, useState } from 'react';
 import { prioritizeSmartphoneProducts } from '@baci/shared';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/merchant/use-merchant';
 import { AD_CONFIG } from '../config/ads';
 import { products as mockProducts } from '../data/products';
 import { useDeferredActivation } from './deferred-shell-feature';

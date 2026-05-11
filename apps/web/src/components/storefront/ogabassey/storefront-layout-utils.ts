@@ -3,7 +3,7 @@ import {
   normalizeHostname,
   resolveGoogleStoreWidgetPreference,
 } from '@/components/analytics/google-store-widget-utils';
-import type { MerchantData } from '@/hooks/use-merchant';
+import type { MerchantData } from '@/hooks/merchant/types';
 import {
   getContrastingTextColor,
   hexToHslComponents,

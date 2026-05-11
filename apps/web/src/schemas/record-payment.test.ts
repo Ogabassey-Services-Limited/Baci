@@ -44,6 +44,61 @@ describe('recordPaymentBodySchema', () => {
     expect(result.success).toBe(true);
   });
 
+  // Δ-36 (A3): mobile-admin sends `notes: ""` when the optional Notes
+  // input is blank. Pre-A3 the schema's `.min(1)` rejected this as
+  // 'Invalid request body'. Normalize blank/whitespace to undefined so
+  // staff can record cash/POS payments without typing a note.
+  it('normalizes blank notes to undefined', () => {
+    const result = recordPaymentBodySchema.safeParse({
+      amount: 5000,
+      payment_method: 'cash',
+      notes: '',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.notes).toBeUndefined();
+  });
+
+  it('normalizes whitespace-only notes to undefined', () => {
+    const result = recordPaymentBodySchema.safeParse({
+      amount: 5000,
+      payment_method: 'cash',
+      notes: '   ',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.notes).toBeUndefined();
+  });
+
+  it('normalizes blank reference to undefined', () => {
+    const result = recordPaymentBodySchema.safeParse({
+      amount: 5000,
+      payment_method: 'cash',
+      reference: '',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.reference).toBeUndefined();
+  });
+
+  it('normalizes whitespace-only reference to undefined', () => {
+    const result = recordPaymentBodySchema.safeParse({
+      amount: 5000,
+      payment_method: 'cash',
+      reference: '   ',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.reference).toBeUndefined();
+  });
+
+  it('preserves non-blank notes after trimming', () => {
+    const result = recordPaymentBodySchema.safeParse({
+      amount: 5000,
+      payment_method: 'cash',
+      notes: '  Partial payment from staff till  ',
+    });
+    expect(result.success).toBe(true);
+    if (result.success)
+      expect(result.data.notes).toBe('Partial payment from staff till');
+  });
+
   // Shared base so amount-focused tests only vary the amount field
   const basePayload = { payment_method: 'cash' };
 

@@ -146,11 +146,16 @@ export async function POST(
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    const { data: transactions, error: txError } = await supabase
+    // Δ-36 (A3): widen the existing completed-only fetch to also cover
+    // pending/processing rows so we can guard against shadowing a real
+    // non-manual gateway payment (Paystack DVA, Korapay, Kuda, Credit
+    // Direct, Juicyway) with a parallel manual transaction. One DB
+    // round-trip serves both purposes — filter in TS below.
+    const { data: relevantTxns, error: txError } = await supabase
       .from('transactions')
-      .select('amount, gateway_reference')
+      .select('amount, gateway, gateway_reference, status')
       .eq('order_id', id)
-      .eq('status', 'completed');
+      .in('status', ['completed', 'pending', 'processing']);
 
     if (txError) {
       logger.error({
@@ -163,6 +168,49 @@ export async function POST(
         { status: 500 }
       );
     }
+
+    // Δ-36 (A3): pending-gateway guard. Block manual record-payment
+    // while a non-manual processor transaction (Paystack DVA, Korapay,
+    // Kuda, Credit Direct, Juicyway) is still pending or processing —
+    // recording a parallel manual transaction would shadow the real
+    // gateway payment (the failure mode that nearly bit us with Efosa).
+    // Failed / cancelled gateway attempts do NOT block (they're not in
+    // the SELECT's `IN ('completed','pending','processing')` window).
+    const PENDING_PROCESSOR_GATEWAYS = new Set([
+      'paystack',
+      'korapay',
+      'kuda',
+      'credit_direct',
+      'juicyway',
+    ]);
+    const pendingProcessorTxn = relevantTxns?.find(
+      (t) =>
+        PENDING_PROCESSOR_GATEWAYS.has(t.gateway) &&
+        (t.status === 'pending' || t.status === 'processing')
+    );
+    if (pendingProcessorTxn) {
+      // Log the gateway name internally; client message stays generic
+      // (no extra processor data leakage per the plan).
+      logger.warn({
+        message: 'RecordPayment rejected: pending processor transaction',
+        orderId: id,
+        merchantId: merchant.id,
+        pendingGateway: pendingProcessorTxn.gateway,
+        pendingStatus: pendingProcessorTxn.status,
+      });
+      return NextResponse.json(
+        {
+          error:
+            'This order has a pending processor payment. Use payment reconciliation instead.',
+          code: 'PENDING_GATEWAY_PAYMENT',
+        },
+        { status: 409 }
+      );
+    }
+
+    // Filter to completed-only for the duplicate-reference and paid-amount
+    // calculations below (pre-A3 semantics).
+    const transactions = relevantTxns?.filter((t) => t.status === 'completed');
 
     // Application-level duplicate guard (pre-insert). Only applies when the
     // caller provides a reference — reference-less payments skip this check.

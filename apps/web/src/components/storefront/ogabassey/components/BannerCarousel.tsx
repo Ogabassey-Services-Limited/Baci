@@ -12,7 +12,7 @@ import {
   NEW_ARRIVALS_PROMO_IMAGE,
 } from '@/components/storefront/ogabassey/components/hero-data';
 import { AdUnit } from '@/components/storefront/ogabassey/components/AdUnit';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/merchant/use-merchant';
 import { asRoute } from '@/lib/routes';
 
 interface BaseBannerSlide {
