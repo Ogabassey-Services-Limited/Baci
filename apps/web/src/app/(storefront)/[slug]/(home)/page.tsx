@@ -1,6 +1,4 @@
 import type { Metadata } from 'next';
-import { OGABASSEY_HERO_PRELOAD_IDENTIFIERS } from '@/components/storefront/ogabassey/components/hero-data';
-import { OgabasseyHeroPreloads } from '@/components/storefront/ogabassey/components/ogabassey-hero-preloads';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { generateMetaDescription } from '@/lib/seo-utils';
 import { buildStoreUrl } from '@/lib/store-url';
@@ -119,22 +117,10 @@ export async function generateMetadata({
   };
 }
 
-export default async function StorefrontPage({
+export default function StorefrontPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const resolvedParams = await params;
-  if (
-    OGABASSEY_HERO_PRELOAD_IDENTIFIERS.has(resolvedParams.slug.toLowerCase())
-  ) {
-    return (
-      <>
-        <OgabasseyHeroPreloads />
-        <StorefrontPageContent params={params} />
-      </>
-    );
-  }
-
   return <StorefrontPageContent params={params} />;
 }

@@ -36,13 +36,6 @@ vi.mock('@/app/(storefront)/[slug]/layout', () => ({
   }),
 }));
 
-vi.mock(
-  '@/components/storefront/ogabassey/components/ogabassey-hero-preloads',
-  () => ({
-    OgabasseyHeroPreloads: () => <div data-testid="hero-preloads" />,
-  })
-);
-
 import OgabasseyLayout, {
   generateMetadata,
   generateViewport,
@@ -61,9 +54,8 @@ describe('OgabasseyLayout', () => {
     const { container } = render(result);
 
     expect(mockConnection).not.toHaveBeenCalled();
-    expect(screen.getByTestId('hero-preloads')).toBeInTheDocument();
     expect(container.firstElementChild).toBe(
-      screen.getByTestId('hero-preloads')
+      screen.getByTestId('storefront-layout')
     );
     expect(screen.getByTestId('storefront-layout')).toHaveTextContent(
       'Home content'
