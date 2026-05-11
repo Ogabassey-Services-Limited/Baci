@@ -71,6 +71,9 @@ const EXPECTED_REACT_TEST_WARNINGS = [
   'A suspended resource finished loading inside a test',
 ];
 
+const baseConsoleError = console.error.bind(console);
+const baseConsoleWarn = console.warn.bind(console);
+
 function isExpectedReactTestWarning(message: string) {
   return EXPECTED_REACT_TEST_WARNINGS.some((pattern) =>
     message.includes(pattern)
@@ -98,8 +101,6 @@ async function flushReactTestWork() {
 async function withExpectedReactWarningsSuppressed<T>(
   callback: () => Promise<T>
 ) {
-  const originalConsoleError = console.error.bind(console);
-  const originalConsoleWarn = console.warn.bind(console);
   const consoleErrorSpy = vi
     .spyOn(console, 'error')
     .mockImplementation((...args: unknown[]) => {
@@ -109,7 +110,7 @@ async function withExpectedReactWarningsSuppressed<T>(
         return;
       }
 
-      originalConsoleError(...args);
+      baseConsoleError(...args);
     });
   const consoleWarnSpy = vi
     .spyOn(console, 'warn')
@@ -120,7 +121,7 @@ async function withExpectedReactWarningsSuppressed<T>(
         return;
       }
 
-      originalConsoleWarn(...args);
+      baseConsoleWarn(...args);
     });
 
   try {
