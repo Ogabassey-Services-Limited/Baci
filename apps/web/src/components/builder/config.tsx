@@ -53,6 +53,9 @@ import { AnimatedWrapper, type AnimationType } from './animated-wrapper';
 import { ColorPickerField } from './fields/color-picker-field';
 import { ImagePickerField } from './fields/image-picker-field';
 import { getIconOptions, renderIcon } from './icon-registry';
+import { ScopedStorefrontLink } from './scoped-storefront-link';
+import { getStorefrontScopedHref } from './storefront-scoping';
+import { useStorefrontScopedRoute } from './use-storefront-scoped-route';
 
 // Helper to map config animation values to AnimationType
 const mapAnimationType = (type: string | undefined): AnimationType => {
@@ -393,57 +396,10 @@ type RootProps = {
 };
 
 // ==================== HELPER COMPONENTS ====================
-
-function getStorefrontScopedHref(url: string, basePath?: string | null) {
-  const trimmedUrl = url.trim();
-
-  if (
-    !trimmedUrl ||
-    trimmedUrl.startsWith('#') ||
-    /^[a-z][a-z\d+.-]*:/i.test(trimmedUrl) ||
-    trimmedUrl.startsWith('//') ||
-    !trimmedUrl.startsWith('/') ||
-    !basePath
-  ) {
-    return trimmedUrl;
-  }
-
-  const normalizedBasePath = basePath === '/' ? '' : basePath;
-  if (
-    !normalizedBasePath ||
-    trimmedUrl === normalizedBasePath ||
-    trimmedUrl.startsWith(`${normalizedBasePath}/`)
-  ) {
-    return trimmedUrl;
-  }
-
-  return `${normalizedBasePath}${trimmedUrl === '/' ? '' : trimmedUrl}`;
-}
-
-function useStorefrontScopedRoute() {
-  const merchantContext = useMerchantSafe();
-  const basePath = merchantContext?.basePath;
-
-  return (url: string) => asRoute(getStorefrontScopedHref(url, basePath));
-}
-
-function ScopedStorefrontLink({
-  children,
-  className,
-  href,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  href: string;
-}) {
-  const toScopedRoute = useStorefrontScopedRoute();
-
-  return (
-    <Link className={className} href={toScopedRoute(href)}>
-      {children}
-    </Link>
-  );
-}
+// Storefront-scoping helpers (utility + hook + link wrapper) live in
+// dedicated modules to keep this config file focused.
+// See: storefront-scoping.ts, use-storefront-scoped-route.ts,
+//      scoped-storefront-link.tsx
 
 function HeroCarouselComponent({
   slides,
@@ -460,13 +416,14 @@ function HeroCarouselComponent({
         <CarouselContent>
           {safeSlides.map((slide, index) => (
             <CarouselItem
-              key={[
+              // biome-ignore lint/suspicious/noArrayIndexKey: index is combined with a content fingerprint to disambiguate duplicate / placeholder slides whose content alone would collide.
+              key={`slide-${index}-${[
                 slide.image,
-                slide.title,
-                slide.subtitle,
-                slide.ctaText,
-                slide.ctaLink,
-              ].join('|')}
+                slide.title ?? '',
+                slide.subtitle ?? '',
+                slide.ctaText ?? '',
+                slide.ctaLink ?? '',
+              ].join('|')}`}
             >
               <div className="w-full h-[60vh] md:h-[70vh] relative">
                 <Image
