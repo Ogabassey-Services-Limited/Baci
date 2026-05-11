@@ -99,4 +99,62 @@ describe('saveDirtyProducts', () => {
       skippedIds: [],
     });
   });
+
+  it('returns an empty result when the signal is already aborted', async () => {
+    const updateProduct = vi.fn().mockResolvedValue(undefined);
+    const controller = new AbortController();
+    controller.abort();
+
+    const result = await saveDirtyProducts({
+      dirtyProductIds: ['product-1'],
+      localProducts: [baseProduct],
+      signal: controller.signal,
+      updateProduct,
+    });
+
+    expect(updateProduct).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      failedIds: [],
+      fulfilledIds: [],
+      skippedIds: [],
+    });
+  });
+
+  it('stops mid-batch when the signal aborts during execution', async () => {
+    const controller = new AbortController();
+    const updateProduct = vi.fn().mockImplementation(() => {
+      // Simulate the signal being aborted after the first save kicks off.
+      controller.abort();
+      return Promise.resolve();
+    });
+
+    const secondProduct = {
+      ...baseProduct,
+      id: 'product-2',
+      name: 'Second Product',
+    };
+    const thirdProduct = {
+      ...baseProduct,
+      id: 'product-3',
+      name: 'Third Product',
+    };
+
+    const result = await saveDirtyProducts({
+      dirtyProductIds: ['product-1', 'product-2', 'product-3'],
+      localProducts: [baseProduct, secondProduct, thirdProduct],
+      signal: controller.signal,
+      updateProduct,
+    });
+
+    // Promise.allSettled schedules entries sequentially on the microtask
+    // queue, so the abort fired inside the first updateProduct call should
+    // prevent subsequent dispatches.
+    expect(updateProduct).toHaveBeenCalledTimes(1);
+    expect(updateProduct).toHaveBeenCalledWith(baseProduct);
+    expect(result).toEqual({
+      failedIds: [],
+      fulfilledIds: [],
+      skippedIds: [],
+    });
+  });
 });

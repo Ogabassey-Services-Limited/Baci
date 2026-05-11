@@ -93,6 +93,7 @@ export function ProductCatalog({
   useEffect(() => {
     if (debouncedDirtyProducts.size === 0) return;
 
+    const controller = new AbortController();
     setIsSaving(true);
     const saveChanges = async () => {
       try {
@@ -101,9 +102,17 @@ export function ProductCatalog({
             dirtyProductIds: debouncedDirtyProducts,
             dirtyProductSnapshots: dirtyProductSnapshotsRef.current,
             localProducts: localProductsRef.current,
+            signal: controller.signal,
             updateProduct,
           }
         );
+
+        // The component unmounted (or the debounced batch changed) while the
+        // save was in flight. Skip state updates and toasts to avoid touching
+        // a stale tree.
+        if (controller.signal.aborted) {
+          return;
+        }
 
         if (failedIds.length > 0) {
           console.error('Failed to save products', failedIds);
@@ -150,6 +159,10 @@ export function ProductCatalog({
     };
 
     void saveChanges();
+
+    return () => {
+      controller.abort();
+    };
   }, [debouncedDirtyProducts, updateProduct, toast]);
 
   const toggleProduct = (productId: string) => {
