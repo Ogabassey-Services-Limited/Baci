@@ -11,7 +11,7 @@ import { applyAiDraftSchema } from '@/schemas/ai-jobs';
 import { builderConfigSchema } from '@/schemas/builder';
 
 interface RouteContext {
-  params: Promise<{ jobId: string }>;
+  params: Promise<{ id: string }>;
 }
 
 interface AiDraftOutput {
@@ -100,11 +100,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const { jobId } = await context.params;
+  const { id } = await context.params;
   const { data: job, error: jobError } = await supabase
     .from('ai_jobs')
     .select('id, merchant_id, type, status, output')
-    .eq('id', jobId)
+    .eq('id', id)
     .eq('merchant_id', merchantContext.merchantId)
     .maybeSingle();
 

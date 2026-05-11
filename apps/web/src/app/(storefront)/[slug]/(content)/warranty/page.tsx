@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
+import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import { TrustPolicyPageClient } from '@/components/storefront/trust/trust-policy-page-client';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
@@ -8,7 +11,7 @@ import {
   generateMetaDescription,
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
-import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
 import {
   buildMerchantTrustProfile,
   hasPublishableWarrantyPolicy,
@@ -18,14 +21,19 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-async function getTrustRouteContext(slug: string) {
+async function getTrustRouteContext(
+  slug: string,
+  options: { requestScopedUrl?: boolean } = {}
+) {
   const merchant = await getRequestScopedMerchant(slug);
 
   if (!merchant) {
     return null;
   }
 
-  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const baseUrl = options.requestScopedUrl
+    ? buildRequestScopedStoreUrl(merchant, await headers())
+    : buildStoreUrl(merchant);
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
 
   return { merchant, baseUrl, trustProfile };
@@ -88,9 +96,22 @@ export async function generateMetadata({
   };
 }
 
-export default async function WarrantyPage({ params }: PageProps) {
+export default function WarrantyPage({ params }: PageProps) {
+  return (
+    <>
+      <Suspense fallback={null}>
+        <StorefrontDynamicMetadataMarker />
+      </Suspense>
+      <Suspense fallback={<ContentRouteLoading />}>
+        <WarrantyPageContent params={params} />
+      </Suspense>
+    </>
+  );
+}
+
+export async function WarrantyPageContent({ params }: PageProps) {
   const { slug } = await params;
-  const context = await getTrustRouteContext(slug);
+  const context = await getTrustRouteContext(slug, { requestScopedUrl: true });
 
   if (!context) {
     notFound();

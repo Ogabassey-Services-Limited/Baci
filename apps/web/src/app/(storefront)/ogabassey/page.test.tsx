@@ -15,13 +15,6 @@ const mockOgabasseyHomePageContent = vi.hoisted(() =>
   ))
 );
 
-vi.mock(
-  '@/components/storefront/ogabassey/components/ogabassey-hero-preloads',
-  () => ({
-    OgabasseyHeroPreloads: () => <div data-testid="hero-preloads" />,
-  })
-);
-
 vi.mock('@/components/storefront/ogabassey/components/Hero', () => ({
   Hero: () => <section aria-label="OgaBassey hero">Hero shell</section>,
 }));
@@ -37,7 +30,7 @@ describe('OgabasseyStaticHomePage', () => {
   it('renders the OgaBassey-specific home route shell', () => {
     render(<OgabasseyStaticHomePage />);
 
-    expect(screen.getByTestId('hero-preloads')).toBeInTheDocument();
+    expect(screen.queryByTestId('hero-preloads')).not.toBeInTheDocument();
     expect(
       screen.getByRole('region', { name: 'OgaBassey hero' })
     ).toBeInTheDocument();

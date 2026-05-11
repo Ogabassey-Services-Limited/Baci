@@ -51,6 +51,7 @@ vi.mock(
 vi.mock('@/lib/store-url', () => ({
   buildRequestScopedStoreUrl: (merchant: unknown, requestHeaders: Headers) =>
     mockBuildRequestScopedStoreUrl(merchant, requestHeaders),
+  buildStoreUrl: () => 'https://ogabassey.com',
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
@@ -105,10 +106,10 @@ describe('returns page', () => {
 
   it('renders when the return summary exists', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(trustMerchant);
-    const { default: ReturnsPage } = await import('./page');
+    const { ReturnsPageContent } = await import('./page');
 
     render(
-      await ReturnsPage({
+      await ReturnsPageContent({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
     );
@@ -127,10 +128,10 @@ describe('returns page', () => {
       ...trustMerchant,
       pages: { contact: 'Contact' },
     } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
-    const { default: ReturnsPage } = await import('./page');
+    const { ReturnsPageContent } = await import('./page');
 
     render(
-      await ReturnsPage({
+      await ReturnsPageContent({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
     );
@@ -158,10 +159,10 @@ describe('returns page', () => {
       socialLinks: {},
       derivedLinks: { contact: 'https://ogabassey.com/contact' },
     });
-    const { default: ReturnsPage } = await import('./page');
+    const { ReturnsPageContent } = await import('./page');
 
     render(
-      await ReturnsPage({
+      await ReturnsPageContent({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
     );
@@ -203,10 +204,10 @@ describe('returns page', () => {
       socialLinks: {},
       derivedLinks: {},
     });
-    const { default: ReturnsPage } = await import('./page');
+    const { ReturnsPageContent } = await import('./page');
 
     render(
-      await ReturnsPage({
+      await ReturnsPageContent({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
     );
@@ -237,10 +238,10 @@ describe('returns page', () => {
       socialLinks: {},
       derivedLinks: { contact: 'https://ogabassey.com/contact' },
     });
-    const { default: ReturnsPage } = await import('./page');
+    const { ReturnsPageContent } = await import('./page');
 
     render(
-      await ReturnsPage({
+      await ReturnsPageContent({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
     );
@@ -273,10 +274,10 @@ describe('returns page', () => {
       socialLinks: {},
       derivedLinks: {},
     });
-    const { default: ReturnsPage } = await import('./page');
+    const { ReturnsPageContent } = await import('./page');
 
     render(
-      await ReturnsPage({
+      await ReturnsPageContent({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
     );
