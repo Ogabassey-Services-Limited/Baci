@@ -17,7 +17,7 @@ function mockMatchMedia(matches: boolean) {
   });
 }
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/merchant/use-merchant', () => ({
   useMerchantSafe: () => ({ basePath: '/ogabassey' }),
 }));
 
