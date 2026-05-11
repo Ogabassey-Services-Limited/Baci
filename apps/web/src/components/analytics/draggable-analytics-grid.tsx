@@ -30,7 +30,7 @@ import {
 import { formatMetricChange } from '@/components/analytics/format-metric-change';
 import { BentoCard } from '@/components/ui/bento-card';
 import { Button } from '@/components/ui/button';
-import type { MerchantData } from '@/hooks/use-merchant';
+import type { MerchantData } from '@/hooks/merchant/types';
 import { getCountryByCode } from '@/lib/countries';
 import { cn } from '@/lib/utils';
 

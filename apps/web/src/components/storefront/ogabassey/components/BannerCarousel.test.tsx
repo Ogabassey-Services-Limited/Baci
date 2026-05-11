@@ -19,7 +19,7 @@ vi.mock('next/link', () => ({
     <a {...props}>{children}</a>
   ),
 }));
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/merchant/use-merchant', () => ({
   useMerchantSafe: vi.fn(() => ({ merchant: { id: 'm-1', slug: 'test' } })),
 }));
 vi.mock('@/lib/routes', () => ({
