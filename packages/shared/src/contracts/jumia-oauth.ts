@@ -2,19 +2,6 @@ export const BACI_ADMIN_SCHEME = 'baciadmin';
 export const JUMIA_MOBILE_RETURN_PATH = '/sales-channels';
 export const JUMIA_MOBILE_RETURN_ROUTE = 'sales-channels';
 
-/**
- * Closed allow-list of mobile deep-link schemes that the web tier is permitted
- * to issue redirects to. New schemes must be added here intentionally and code
- * reviewed — never derive from request input or environment.
- *
- * Security: this is the trust anchor for {@link createBaciAdminUrl}. Without
- * it, an attacker who could influence `path` could embed `//host/` segments
- * that change the URL authority. The runtime assert below is defence-in-depth.
- */
-const ALLOWED_DEEP_LINK_SCHEMES: ReadonlySet<string> = new Set([
-  BACI_ADMIN_SCHEME,
-]);
-
 type QueryValue = boolean | number | string | null | undefined;
 
 function normalizeRouteSegments(path: string): string[] {
@@ -55,11 +42,11 @@ export function createBaciAdminUrl(
   // scheme. `URL` lowercases and validates the scheme; if anything ever
   // smuggles in `//other-host` style segments the protocol would change.
   // Throwing here closes the open-redirect vector at the construction site.
+  //
+  // If a second deep-link scheme is added in the future, replace this strict
+  // equality check with an allow-list set (e.g. `new Set([baciadmin, foo])`).
   const expectedProtocol = `${BACI_ADMIN_SCHEME}:`;
-  if (
-    url.protocol !== expectedProtocol ||
-    !ALLOWED_DEEP_LINK_SCHEMES.has(url.protocol.replace(/:$/, ''))
-  ) {
+  if (url.protocol !== expectedProtocol) {
     throw new Error(
       `Refusing to build deep-link URL with non-allow-listed scheme: ${url.protocol}`
     );
