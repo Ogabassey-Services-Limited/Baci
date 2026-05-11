@@ -94,7 +94,12 @@ describe('OgabasseyLayout', () => {
     const storefrontLayoutCallOrder =
       mockStorefrontLayout.mock.invocationCallOrder[0] ??
       Number.POSITIVE_INFINITY;
-    expect(Math.max(...mockPreload.mock.invocationCallOrder)).toBeLessThan(
+    const staticHintCallOrders = [
+      ...mockPrefetchDNS.mock.invocationCallOrder,
+      ...mockPreconnect.mock.invocationCallOrder,
+      ...mockPreload.mock.invocationCallOrder,
+    ];
+    expect(Math.max(...staticHintCallOrders)).toBeLessThan(
       storefrontLayoutCallOrder
     );
     expect(container.firstElementChild).toBe(
