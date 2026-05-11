@@ -1,5 +1,4 @@
-'use client';
-
+import 'server-only';
 import * as ReactDOM from 'react-dom';
 import {
   HERO_DESKTOP_LCP_SRC,
@@ -8,8 +7,8 @@ import {
 import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 
 export function OgabasseyStaticResourceHints() {
-  // Next.js documents these as render-time client component calls; moving them
-  // to useEffect would delay LCP discovery until after hydration.
+  // Keep these calls in a Server Component so React can emit the resource
+  // hints in the initial document head before the hero markup is parsed.
   ReactDOM.prefetchDNS(OGABASSEY_CDN_ORIGIN);
   ReactDOM.preconnect(OGABASSEY_CDN_ORIGIN);
   ReactDOM.preload(HERO_DESKTOP_LCP_SRC, {
