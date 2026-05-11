@@ -5,7 +5,6 @@ import {
 } from '@baci/shared/imei';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getRootDomain } from '@/env';
-import { checkCsrfProtection } from '@/lib/csrf';
 import { getDeviceImage } from '@/lib/device-images';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant';
@@ -26,24 +25,18 @@ if (!SICKW_API_KEY) {
 // $0.70/request. The long-term fix is to gate this endpoint behind either
 // (a) a verified paid order from the buyer, OR
 // (b) a merchant-funded credit pool with quota tracking.
-// Until that flow ships, the CSRF + storefront-origin + rate-limit gates below
-// are the defensive baseline. Tracked in
+// Until that flow ships, the storefront-origin + rate-limit gates below are
+// the defensive baseline. Tracked in
 // docs/superpowers/plans/2026-05-09-petrock-imei-integration.md.
+//
+// Native (mobile) clients post here without a CSRF cookie pair; rather than
+// 403 every legitimate native call, we lean on the storefront-host origin
+// gate + rate limit below. The wallet follow-up will add Bearer auth which
+// renders CSRF moot for the same-origin browser flow (Bearer tokens aren't
+// auto-attached cross-origin, so CSRF doesn't apply).
 export async function POST(request: NextRequest) {
   try {
-    // 1. CSRF (defense-in-depth — proxy.ts only checks Origin when present)
-    const csrfResult = await checkCsrfProtection(request);
-    if (!csrfResult.valid) {
-      return (
-        csrfResult.response ??
-        NextResponse.json(
-          { success: false, error: 'Invalid or missing CSRF token' },
-          { status: 403 }
-        )
-      );
-    }
-
-    // 2. Storefront origin gate — request must come from a recognized
+    // 1. Storefront origin gate — request must come from a recognized
     // merchant host (subdomain or custom domain). Arbitrary external POSTs
     // (Postman, curl, scrapers) cannot resolve a merchant and are rejected.
     const merchantResolution = await resolveStorefrontMerchantFromRequest({
@@ -59,7 +52,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Per-IP rate limit using the shared trie config
+    // 2. Per-IP rate limit using the shared trie config
     // (`/api/storefront/imei-check` -> 10/60s). Gives us defense-in-depth
     // independent of the proxy and a tight ceiling because each downstream
     // call costs real money.

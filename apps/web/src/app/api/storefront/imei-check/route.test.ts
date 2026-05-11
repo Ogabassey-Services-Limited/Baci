@@ -9,16 +9,6 @@ vi.mock('@/lib/device-images', () => ({
   getDeviceImage: (device: string) => mockGetDeviceImage(device),
 }));
 
-const mockCheckCsrfProtection = vi.fn(async () => ({
-  valid: true as boolean,
-  response: undefined as unknown as Response | undefined,
-}));
-
-vi.mock('@/lib/csrf', () => ({
-  checkCsrfProtection: (...args: unknown[]) =>
-    mockCheckCsrfProtection(...(args as [])),
-}));
-
 const mockResolveStorefrontMerchantFromRequest = vi.fn(async () => ({
   success: true as const,
   identifier: 'ogabassey',
@@ -79,11 +69,6 @@ describe('POST /api/storefront/imei-check', () => {
   beforeEach(() => {
     vi.unstubAllEnvs();
     mockGetDeviceImage.mockClear();
-    mockCheckCsrfProtection.mockReset();
-    mockCheckCsrfProtection.mockResolvedValue({
-      valid: true,
-      response: undefined as unknown as Response | undefined,
-    });
     mockResolveStorefrontMerchantFromRequest.mockReset();
     mockResolveStorefrontMerchantFromRequest.mockResolvedValue({
       success: true,
@@ -106,23 +91,6 @@ describe('POST /api/storefront/imei-check', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
-  });
-
-  it('returns 403 when CSRF protection rejects the request', async () => {
-    mockCheckCsrfProtection.mockResolvedValueOnce({
-      valid: false,
-      response: undefined as unknown as Response | undefined,
-    });
-    const { POST } = await importRoute();
-
-    const response = await POST(
-      createRequest({ imei: '354442067957452', tier: 'full' })
-    );
-    const body = (await response.json()) as { error: string };
-
-    expect(response.status).toBe(403);
-    expect(body.error).toMatch(/csrf/i);
-    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('returns 404 when the request host does not resolve to a storefront merchant', async () => {
