@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { getMerchantByIdentifier } from '@/lib/cached-data';
 import { toTemplateMerchantData } from '@/lib/merchant-template-data';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
@@ -9,7 +9,7 @@ import {
   generateMetaDescription,
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
-import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { buildStoreUrl } from '@/lib/store-url';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { getTemplate } from '@/templates/registry';
 import {
@@ -41,7 +41,7 @@ export async function generateMetadata({
     aboutPage.mission ||
     legacyAboutContent ||
     `Learn more about ${merchant.business_name}`;
-  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const baseUrl = buildStoreUrl(merchant);
   const canonicalUrl = `${baseUrl}/about`;
   const seoDescription = generateMetaDescription(description);
 
@@ -67,6 +67,9 @@ export default function AboutPage({ params }: PageProps) {
   return (
     <>
       <Suspense fallback={null}>
+        <StorefrontDynamicMetadataMarker />
+      </Suspense>
+      <Suspense fallback={null}>
         <AboutJsonLd params={params} />
       </Suspense>
       <AboutContent params={params} />
@@ -86,7 +89,7 @@ export async function AboutJsonLd({ params }: PageProps) {
     return null;
   }
 
-  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const baseUrl = buildStoreUrl(merchant);
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
   const jsonLd = generateAboutPageJsonLd(
     merchant,

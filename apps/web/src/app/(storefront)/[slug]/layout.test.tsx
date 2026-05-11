@@ -9,6 +9,24 @@ import {
 
 const providerSnapshots: unknown[] = [];
 let themeProviderRenders = 0;
+const mockOgabasseyStorefrontLayout = vi.hoisted(() =>
+  vi.fn(
+    ({
+      children,
+      preloadHeroLcpImages,
+    }: {
+      children: ReactNode;
+      preloadHeroLcpImages?: boolean;
+    }) => (
+      <div
+        data-preload-hero-lcp={String(Boolean(preloadHeroLcpImages))}
+        data-testid="ogabassey-layout"
+      >
+        {children}
+      </div>
+    )
+  )
+);
 
 vi.mock('./storefront-shell-snapshot', () => ({
   getStorefrontShellSnapshotBase: vi.fn(),
@@ -16,9 +34,7 @@ vi.mock('./storefront-shell-snapshot', () => ({
 }));
 
 vi.mock('@/components/storefront/ogabassey/storefront-layout', () => ({
-  OgabasseyStorefrontLayout: ({ children }: { children: ReactNode }) => (
-    <div data-testid="ogabassey-layout">{children}</div>
-  ),
+  OgabasseyStorefrontLayout: mockOgabasseyStorefrontLayout,
 }));
 
 vi.mock('@/components/storefront/deferred-page-view-tracker', () => ({
@@ -73,10 +89,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('@/lib/store-url', () => ({
-  buildRequestScopedStoreUrl: (
-    merchant: { slug: string; custom_domain?: string },
-    _headers: Headers
-  ) =>
+  buildStoreUrl: (merchant: { slug: string; custom_domain?: string | null }) =>
     merchant.custom_domain
       ? `https://${merchant.custom_domain}`
       : `https://${merchant.slug}.usebaci.com`,
@@ -146,11 +159,8 @@ const baseShellSnapshotWithoutCategories = {
   basePath: baseShellSnapshot.basePath,
 };
 
-const {
-  default: StorefrontLayout,
-  generateMetadata,
-  generateViewport,
-} = await import('./layout');
+const { generateMetadata, generateViewport, StorefrontLayoutContent } =
+  await import('./layout');
 
 describe('storefront layout', () => {
   beforeEach(() => {
@@ -159,6 +169,7 @@ describe('storefront layout', () => {
     vi.mocked(getStorefrontShellSnapshot).mockReset();
     mockHeaders.mockReset();
     notFound.mockClear();
+    mockOgabasseyStorefrontLayout.mockClear();
     providerSnapshots.length = 0;
     themeProviderRenders = 0;
     mockHeaders.mockResolvedValue(new Headers());
@@ -174,7 +185,7 @@ describe('storefront layout', () => {
       deferredSnapshot.promise
     );
 
-    const layoutPromise = StorefrontLayout({
+    const layoutPromise = StorefrontLayoutContent({
       params: Promise.resolve({ slug: 'ogabassey' }),
       children: <main>Storefront content</main>,
     });
@@ -198,15 +209,41 @@ describe('storefront layout', () => {
     render(await layoutPromise);
 
     expect(providerSnapshots).toEqual([baseShellSnapshot]);
-    expect(themeProviderRenders).toBe(1);
+    expect(screen.getByTestId('ogabassey-layout')).toHaveAttribute(
+      'data-preload-hero-lcp',
+      'true'
+    );
+    expect(themeProviderRenders).toBe(0);
     expect(screen.getByText('Storefront content')).toBeInTheDocument();
+  });
+
+  it('does not request OgaBassey hero preloads for non-home route paths', async () => {
+    vi.mocked(getStorefrontShellSnapshotBase).mockResolvedValue(
+      baseShellSnapshotWithoutCategories
+    );
+    vi.mocked(getStorefrontShellSnapshot).mockResolvedValue(baseShellSnapshot);
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-pathname', '/ogabassey/products/iphone-17-pro-max']])
+    );
+
+    render(
+      await StorefrontLayoutContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        children: <main>Storefront content</main>,
+      })
+    );
+
+    expect(screen.getByTestId('ogabassey-layout')).toHaveAttribute(
+      'data-preload-hero-lcp',
+      'false'
+    );
   });
 
   it('calls notFound before route content renders when the shell snapshot is missing', async () => {
     vi.mocked(getStorefrontShellSnapshotBase).mockResolvedValue(null);
 
     await expect(
-      StorefrontLayout({
+      StorefrontLayoutContent({
         params: Promise.resolve({ slug: 'missing-store' }),
         children: <main>Storefront content</main>,
       })
@@ -233,7 +270,7 @@ describe('storefront layout', () => {
     );
 
     render(
-      await StorefrontLayout({
+      await StorefrontLayoutContent({
         params: Promise.resolve({ slug: 'draft-store' }),
         children: <main>Storefront content</main>,
       })
@@ -241,7 +278,7 @@ describe('storefront layout', () => {
 
     expect(screen.getByText('Draft Store unpublished')).toBeInTheDocument();
     expect(screen.queryByText('Storefront content')).not.toBeInTheDocument();
-    expect(themeProviderRenders).toBe(1);
+    expect(themeProviderRenders).toBe(0);
     expect(getStorefrontShellSnapshot).not.toHaveBeenCalled();
     expect(providerSnapshots).toEqual([]);
   });

@@ -5,7 +5,6 @@ import {
   HERO_MOBILE_LCP_FALLBACK_SRC,
   HERO_MOBILE_LCP_SRC,
   MOBILE_SLIDES,
-  OGABASSEY_HERO_PRELOAD_IDENTIFIERS,
 } from '@/components/storefront/ogabassey/components/hero-data';
 
 const APPLE_IMAGE_ORIGIN = 'https://store.storeimages.cdn-apple.com/';
@@ -61,16 +60,5 @@ describe('hero-data exports', () => {
     expect(HERO_MOBILE_LCP_FALLBACK_SRC).toMatch(/\.jpg(?:$|\?)/);
     expect(desktopLcpSlide?.image).toBe(HERO_DESKTOP_LCP_SRC);
     expect(mobileLcpSlide?.src).toBe(HERO_MOBILE_LCP_SRC);
-  });
-
-  it('exports the storefront identifiers that should receive hero resource hints', () => {
-    expect(OGABASSEY_HERO_PRELOAD_IDENTIFIERS.has('ogabassey')).toBe(true);
-    expect(OGABASSEY_HERO_PRELOAD_IDENTIFIERS.has('ogabassey.com')).toBe(true);
-    expect(OGABASSEY_HERO_PRELOAD_IDENTIFIERS.has('another-shop')).toBe(false);
-    // proxy.ts normalises 'www.ogabassey.com' down to 'ogabassey.com' before
-    // the storefront [slug] route runs, so the www form should not be in the Set.
-    expect(OGABASSEY_HERO_PRELOAD_IDENTIFIERS.has('www.ogabassey.com')).toBe(
-      false
-    );
   });
 });

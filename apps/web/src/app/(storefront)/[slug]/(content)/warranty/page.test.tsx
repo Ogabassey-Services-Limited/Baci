@@ -50,6 +50,7 @@ vi.mock(
 vi.mock('@/lib/store-url', () => ({
   buildRequestScopedStoreUrl: (...args: unknown[]) =>
     mockBuildRequestScopedStoreUrl(...args),
+  buildStoreUrl: () => 'https://ogabassey.com',
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
@@ -98,10 +99,10 @@ describe('warranty page', () => {
 
   it('renders when the warranty summary exists', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(trustMerchant);
-    const { default: WarrantyPage } = await import('./page');
+    const { WarrantyPageContent } = await import('./page');
 
     render(
-      await WarrantyPage({
+      await WarrantyPageContent({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
     );
@@ -126,10 +127,10 @@ describe('warranty page', () => {
       socialLinks: {},
       derivedLinks: {},
     });
-    const { default: WarrantyPage } = await import('./page');
+    const { WarrantyPageContent } = await import('./page');
 
     await expect(
-      WarrantyPage({
+      WarrantyPageContent({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
     ).rejects.toThrow('NEXT_NOT_FOUND');

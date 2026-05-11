@@ -50,6 +50,7 @@ vi.mock(
 vi.mock('@/lib/store-url', () => ({
   buildRequestScopedStoreUrl: (merchant: unknown, requestHeaders: Headers) =>
     mockBuildRequestScopedStoreUrl(merchant, requestHeaders),
+  buildStoreUrl: () => 'https://ogabassey.com',
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
@@ -110,10 +111,10 @@ describe('shipping page', () => {
 
   it('renders when the shipping summary exists', async () => {
     vi.mocked(getRequestScopedMerchant).mockResolvedValue(trustMerchant);
-    const { default: ShippingPage } = await import('./page');
+    const { ShippingPageContent } = await import('./page');
 
     render(
-      await ShippingPage({
+      await ShippingPageContent({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
     );
@@ -144,10 +145,10 @@ describe('shipping page', () => {
       socialLinks: {},
       derivedLinks: { contact: 'https://ogabassey.com/contact' },
     });
-    const { default: ShippingPage } = await import('./page');
+    const { ShippingPageContent } = await import('./page');
 
     render(
-      await ShippingPage({
+      await ShippingPageContent({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
     );
@@ -189,10 +190,10 @@ describe('shipping page', () => {
       socialLinks: {},
       derivedLinks: {},
     });
-    const { default: ShippingPage } = await import('./page');
+    const { ShippingPageContent } = await import('./page');
 
     render(
-      await ShippingPage({
+      await ShippingPageContent({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
     );
@@ -225,10 +226,10 @@ describe('shipping page', () => {
       socialLinks: {},
       derivedLinks: { contact: 'https://ogabassey.com/contact' },
     });
-    const { default: ShippingPage } = await import('./page');
+    const { ShippingPageContent } = await import('./page');
 
     render(
-      await ShippingPage({
+      await ShippingPageContent({
         params: Promise.resolve({ slug: 'ogabassey' }),
       })
     );

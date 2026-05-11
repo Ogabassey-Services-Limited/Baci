@@ -109,7 +109,7 @@ function createApplySupabaseMock(options?: {
 }
 
 function routeContext() {
-  return { params: Promise.resolve({ jobId: 'job-1' }) };
+  return { params: Promise.resolve({ id: 'job-1' }) };
 }
 
 function createApplyRequest(body?: string): NextRequest {
@@ -119,7 +119,7 @@ function createApplyRequest(body?: string): NextRequest {
   }) as unknown as NextRequest;
 }
 
-describe('POST /api/ai-jobs/[jobId]/apply', () => {
+describe('POST /api/ai-jobs/[id]/apply', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.checkCsrfProtection.mockResolvedValue({ valid: true });
