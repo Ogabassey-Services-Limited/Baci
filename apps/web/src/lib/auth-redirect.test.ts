@@ -38,6 +38,15 @@ describe('sanitizeRelativeRedirectPath', () => {
     expect(sanitizeRelativeRedirectPath('javascript:alert(1)')).toBe(
       '/dashboard'
     );
+    expect(
+      sanitizeRelativeRedirectPath('data:text/html,<script>x</script>')
+    ).toBe('/dashboard');
+    expect(sanitizeRelativeRedirectPath('/\\evil.example/dashboard')).toBe(
+      '/dashboard'
+    );
+    expect(sanitizeRelativeRedirectPath('/admin\n//evil.example')).toBe(
+      '/dashboard'
+    );
     expect(sanitizeRelativeRedirectPath('   ')).toBe('/dashboard');
   });
 });
