@@ -1,13 +1,25 @@
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { DashboardProviders } from './providers';
+
+const TRUSTED_NONCE_PATTERN = /^[\w-]{16,128}$/;
+
+function getTrustedRequestNonce(headersList: Headers): string | undefined {
+  // proxy.ts overwrites x-nonce for protected routes before this Server
+  // Component runs. Validate the value before passing it to CSP consumers.
+  const nonce = headersList.get('x-nonce');
+  return nonce && TRUSTED_NONCE_PATTERN.test(nonce) ? nonce : undefined;
+}
 
 export async function DashboardAuthGuard({
   children,
 }: {
   children: ReactNode;
 }) {
+  const nonce = getTrustedRequestNonce(await headers());
+
   // Fetch merchant data server-side
   const { merchant, merchantLookupStatus, staffAccess, user } =
     await getMerchantForUser();
@@ -49,6 +61,7 @@ export async function DashboardAuthGuard({
     <DashboardProviders
       initialMerchant={merchant}
       initialStaffAccess={staffAccess}
+      nonce={nonce}
     >
       {children}
     </DashboardProviders>
