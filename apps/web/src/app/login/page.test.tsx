@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { isValidElement, type ReactNode, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockLoginClient = vi.hoisted(() =>
@@ -18,7 +19,8 @@ vi.mock('@/app/login/login-client', () => ({
   default: mockLoginClient,
 }));
 
-import LoginPage, { metadata } from '@/app/login/page';
+import LoginLoadingFallback from '@/app/login/login-loading-fallback';
+import LoginPage, { LoginPageContent, metadata } from '@/app/login/page';
 
 describe('LoginPage', () => {
   beforeEach(() => {
@@ -27,7 +29,7 @@ describe('LoginPage', () => {
 
   it('passes canonical redirect and email search params to the login client', async () => {
     render(
-      await LoginPage({
+      await LoginPageContent({
         searchParams: Promise.resolve({
           email: 'admin@example.com',
           redirect: '/admin',
@@ -45,7 +47,7 @@ describe('LoginPage', () => {
 
   it('prefers canonical redirect over legacy redirectTo', async () => {
     render(
-      await LoginPage({
+      await LoginPageContent({
         searchParams: Promise.resolve({
           redirect: '/merchant',
           redirectTo: '/admin',
@@ -60,7 +62,7 @@ describe('LoginPage', () => {
 
   it('keeps legacy redirectTo compatibility when canonical redirect is absent', async () => {
     render(
-      await LoginPage({
+      await LoginPageContent({
         searchParams: Promise.resolve({
           redirectTo: '/admin',
         }),
@@ -74,7 +76,7 @@ describe('LoginPage', () => {
 
   it('falls back to dashboard and an empty email when optional params are absent', async () => {
     render(
-      await LoginPage({
+      await LoginPageContent({
         searchParams: Promise.resolve({}),
       })
     );
@@ -89,7 +91,7 @@ describe('LoginPage', () => {
 
   it('handles redirects without an email param', async () => {
     render(
-      await LoginPage({
+      await LoginPageContent({
         searchParams: Promise.resolve({ redirect: '/dashboard' }),
       })
     );
@@ -110,7 +112,7 @@ describe('LoginPage', () => {
     ['very long redirect', { redirect: `/${'a'.repeat(5000)}` }],
   ])('handles malformed %s search params without crashing', async (_label, params) => {
     render(
-      await LoginPage({
+      await LoginPageContent({
         searchParams: Promise.resolve(
           params as Record<string, string | string[] | undefined>
         ),
@@ -127,7 +129,7 @@ describe('LoginPage', () => {
 
   it('uses the first redirect and email value when search params are arrays', async () => {
     render(
-      await LoginPage({
+      await LoginPageContent({
         searchParams: Promise.resolve({
           email: ['first@example.com', 'second@example.com'],
           redirect: ['/admin', '/dashboard'],
@@ -145,7 +147,7 @@ describe('LoginPage', () => {
 
   it('sanitizes unsafe redirect search params on the server', async () => {
     render(
-      await LoginPage({
+      await LoginPageContent({
         searchParams: Promise.resolve({
           redirect: 'https://evil.example/admin',
         }),
@@ -159,10 +161,22 @@ describe('LoginPage', () => {
 
   it('surfaces rejected search params instead of masking the failure', async () => {
     await expect(
-      LoginPage({
+      LoginPageContent({
         searchParams: Promise.reject(new Error('search params failed')),
       })
     ).rejects.toThrow('search params failed');
+  });
+
+  it('wraps request search params in the login loading boundary', () => {
+    const element = LoginPage({ searchParams: Promise.resolve({}) });
+
+    expect(isValidElement<{ fallback: ReactNode }>(element)).toBe(true);
+    if (!isValidElement<{ fallback: ReactNode }>(element)) {
+      throw new Error('Expected login page to return a React element');
+    }
+
+    expect(element.type).toBe(Suspense);
+    expect(element.props.fallback).toEqual(<LoginLoadingFallback />);
   });
 
   it('marks the route as noindex to keep auth pages out of Search Console', () => {

@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import LoginClient from '@/app/login/login-client';
+import LoginLoadingFallback from '@/app/login/login-loading-fallback';
 import {
   DEFAULT_AUTH_REDIRECT_PATH,
   sanitizeRelativeRedirectPath,
@@ -17,7 +19,15 @@ type LoginPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function LoginPage({ searchParams }: LoginPageProps) {
+export default function LoginPage(props: LoginPageProps) {
+  return (
+    <Suspense fallback={<LoginLoadingFallback />}>
+      <LoginPageContent {...props} />
+    </Suspense>
+  );
+}
+
+export async function LoginPageContent({ searchParams }: LoginPageProps) {
   const params = await searchParams;
   const defaultEmail = getFirstSearchParam(params.email) ?? '';
   const redirectTo = sanitizeRelativeRedirectPath(
