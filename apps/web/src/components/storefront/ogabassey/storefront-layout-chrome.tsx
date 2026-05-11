@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
-import type { MerchantData } from '@/hooks/use-merchant';
+import type { MerchantData } from '@/hooks/merchant/types';
 import { AdUnit } from './components/AdUnit';
 import { DeferredShellFeature } from './components/deferred-shell-feature';
 import { GoogleAdManager } from './components/GoogleAdManager';

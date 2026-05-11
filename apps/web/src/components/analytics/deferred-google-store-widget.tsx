@@ -2,7 +2,7 @@
 
 import type { ComponentType } from 'react';
 import { useEffect, useState } from 'react';
-import type { MerchantData } from '@/hooks/use-merchant';
+import type { MerchantData } from '@/hooks/merchant/types';
 
 interface DeferredGoogleStoreWidgetProps {
   merchant?: Pick<MerchantData, 'custom_domain'>;

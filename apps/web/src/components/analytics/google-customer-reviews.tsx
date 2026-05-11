@@ -1,7 +1,5 @@
-'use client';
-
 import Script from 'next/script';
-import type { MerchantData } from '@/hooks/use-merchant';
+import type { MerchantData } from '@/hooks/merchant/types';
 
 interface GoogleCustomerReviewsProps {
   merchant: MerchantData;
