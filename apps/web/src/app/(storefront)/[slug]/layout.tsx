@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type React from 'react';
 import { Suspense } from 'react';
@@ -14,6 +15,7 @@ import type { MerchantData } from '@/hooks/use-merchant';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { buildStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
+import { isStorefrontHomePath } from './storefront-home-path';
 import {
   getStorefrontShellSnapshot,
   getStorefrontShellSnapshotBase,
@@ -25,10 +27,12 @@ import {
  */
 function StorefrontLayoutRenderer({
   merchant,
+  preloadHeroLcpImages,
   routingMode,
   children,
 }: {
   merchant: MerchantData;
+  preloadHeroLcpImages: boolean;
   routingMode: 'domain' | 'path';
   children: React.ReactNode;
 }) {
@@ -45,7 +49,11 @@ function StorefrontLayoutRenderer({
 
   if (templateId === OGABASSEY_TEMPLATE_ID) {
     return (
-      <OgabasseyStorefrontLayout merchant={merchant} routingMode={routingMode}>
+      <OgabasseyStorefrontLayout
+        merchant={merchant}
+        preloadHeroLcpImages={preloadHeroLcpImages}
+        routingMode={routingMode}
+      >
         {children}
       </OgabasseyStorefrontLayout>
     );
@@ -170,9 +178,11 @@ export function generateViewport(): Viewport {
 
 function StorefrontShellFrame({
   children,
+  preloadHeroLcpImages,
   shellSnapshot,
 }: {
   children: React.ReactNode;
+  preloadHeroLcpImages: boolean;
   shellSnapshot: Awaited<ReturnType<typeof getStorefrontShellSnapshot>>;
 }) {
   if (!shellSnapshot) {
@@ -198,7 +208,11 @@ function StorefrontShellFrame({
           - Keeps layout persistent across route changes (seamless navigation)
           - Prevents header flashing/re-rendering
         */}
-        <StorefrontLayoutRenderer merchant={merchant} routingMode={routingMode}>
+        <StorefrontLayoutRenderer
+          merchant={merchant}
+          preloadHeroLcpImages={preloadHeroLcpImages}
+          routingMode={routingMode}
+        >
           {children}
         </StorefrontLayoutRenderer>
       </StorefrontCartProvider>
@@ -226,6 +240,15 @@ export async function StorefrontLayoutContent(props: {
     notFound();
   }
 
+  const headersList = await headers();
+  const preloadHeroLcpImages =
+    shellSnapshotBase.merchant.template_id === OGABASSEY_TEMPLATE_ID &&
+    isStorefrontHomePath({
+      merchantSlug: shellSnapshotBase.merchant.slug,
+      pathname: headersList.get('x-pathname'),
+      routeSlug: slug,
+    });
+
   const isDevelopment = process.env.NODE_ENV === 'development';
   if (!shellSnapshotBase.merchant.is_published && !isDevelopment) {
     return (
@@ -242,7 +265,10 @@ export async function StorefrontLayoutContent(props: {
   }
 
   return (
-    <StorefrontShellFrame shellSnapshot={shellSnapshot}>
+    <StorefrontShellFrame
+      preloadHeroLcpImages={preloadHeroLcpImages}
+      shellSnapshot={shellSnapshot}
+    >
       {props.children}
     </StorefrontShellFrame>
   );

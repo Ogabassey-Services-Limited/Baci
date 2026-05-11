@@ -9,6 +9,24 @@ import {
 
 const providerSnapshots: unknown[] = [];
 let themeProviderRenders = 0;
+const mockOgabasseyStorefrontLayout = vi.hoisted(() =>
+  vi.fn(
+    ({
+      children,
+      preloadHeroLcpImages,
+    }: {
+      children: ReactNode;
+      preloadHeroLcpImages?: boolean;
+    }) => (
+      <div
+        data-preload-hero-lcp={String(Boolean(preloadHeroLcpImages))}
+        data-testid="ogabassey-layout"
+      >
+        {children}
+      </div>
+    )
+  )
+);
 
 vi.mock('./storefront-shell-snapshot', () => ({
   getStorefrontShellSnapshotBase: vi.fn(),
@@ -16,9 +34,7 @@ vi.mock('./storefront-shell-snapshot', () => ({
 }));
 
 vi.mock('@/components/storefront/ogabassey/storefront-layout', () => ({
-  OgabasseyStorefrontLayout: ({ children }: { children: ReactNode }) => (
-    <div data-testid="ogabassey-layout">{children}</div>
-  ),
+  OgabasseyStorefrontLayout: mockOgabasseyStorefrontLayout,
 }));
 
 vi.mock('@/components/storefront/deferred-page-view-tracker', () => ({
@@ -153,6 +169,7 @@ describe('storefront layout', () => {
     vi.mocked(getStorefrontShellSnapshot).mockReset();
     mockHeaders.mockReset();
     notFound.mockClear();
+    mockOgabasseyStorefrontLayout.mockClear();
     providerSnapshots.length = 0;
     themeProviderRenders = 0;
     mockHeaders.mockResolvedValue(new Headers());
@@ -192,8 +209,34 @@ describe('storefront layout', () => {
     render(await layoutPromise);
 
     expect(providerSnapshots).toEqual([baseShellSnapshot]);
+    expect(screen.getByTestId('ogabassey-layout')).toHaveAttribute(
+      'data-preload-hero-lcp',
+      'true'
+    );
     expect(themeProviderRenders).toBe(0);
     expect(screen.getByText('Storefront content')).toBeInTheDocument();
+  });
+
+  it('does not request OgaBassey hero preloads for non-home route paths', async () => {
+    vi.mocked(getStorefrontShellSnapshotBase).mockResolvedValue(
+      baseShellSnapshotWithoutCategories
+    );
+    vi.mocked(getStorefrontShellSnapshot).mockResolvedValue(baseShellSnapshot);
+    mockHeaders.mockResolvedValue(
+      new Headers([['x-pathname', '/ogabassey/products/iphone-17-pro-max']])
+    );
+
+    render(
+      await StorefrontLayoutContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        children: <main>Storefront content</main>,
+      })
+    );
+
+    expect(screen.getByTestId('ogabassey-layout')).toHaveAttribute(
+      'data-preload-hero-lcp',
+      'false'
+    );
   });
 
   it('calls notFound before route content renders when the shell snapshot is missing', async () => {
