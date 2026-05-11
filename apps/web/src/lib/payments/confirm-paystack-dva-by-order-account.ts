@@ -127,9 +127,16 @@ export async function confirmPaystackDvaByOrderAccount({
   }
 
   if (match.kind === 'ambiguous') {
-    // Δ-55: upsert by the partial-unique index keyed on (issue_type,
-    // paystack_ref) so retries (concurrent webhooks, cron replays)
-    // don't unique-violate.
+    // The partial unique index `(issue_type, paystack_ref) WHERE
+    // resolved_at IS NULL AND paystack_ref IS NOT NULL` (per Δ-55)
+    // means a retry of this code path raises Postgres `23505`. This
+    // is the expected, benign no-op: the operator already has the
+    // first-fired review row, the duplicate insert just confirms it.
+    //
+    // We log 23505 at `info` (it's normal Paystack webhook retry
+    // traffic — Paystack re-fires on every non-2xx, and we return
+    // 409 here on purpose). Anything else is a real failure to file
+    // the review row and stays at `error`.
     const reviewRow = {
       issue_type: 'payment_match_ambiguous',
       paystack_ref: gatewayReference,
@@ -151,13 +158,24 @@ export async function confirmPaystackDvaByOrderAccount({
       .from('reconciliation_review')
       .insert(reviewRow);
     if (reviewErr) {
-      logger.error({
-        message:
-          'B1 ambiguous DVA match — failed to file reconciliation_review',
-        accountNumber,
-        paystackReference: gatewayReference,
-        error: reviewErr,
-      });
+      const isDuplicate =
+        (reviewErr as { code?: string }).code === POSTGRES_UNIQUE_VIOLATION;
+      if (isDuplicate) {
+        logger.info({
+          message:
+            'B1 ambiguous DVA match — reconciliation_review already filed (expected webhook retry no-op)',
+          accountNumber,
+          paystackReference: gatewayReference,
+        });
+      } else {
+        logger.error({
+          message:
+            'B1 ambiguous DVA match — failed to file reconciliation_review',
+          accountNumber,
+          paystackReference: gatewayReference,
+          error: reviewErr,
+        });
+      }
     }
     return {
       kind: 'review',
