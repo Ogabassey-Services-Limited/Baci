@@ -10,7 +10,6 @@ import {
   Sparkles,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
 import { useActionState, useEffect, useState } from 'react';
 import {
   type AuthActionState,
@@ -67,7 +66,16 @@ const AppleIcon = () => (
 
 const initialState: AuthActionState = { error: null, success: false };
 
-export default function LoginForm() {
+type LoginFormProps = {
+  defaultEmail: string;
+  redirectTo: string;
+};
+
+export default function LoginForm({
+  defaultEmail,
+  redirectTo,
+}: LoginFormProps) {
+  const safeRedirectTo = sanitizeRelativeRedirectPath(redirectTo, '/dashboard');
   const [mode, setMode] = useState<'login' | 'forgot-password'>('login');
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isAppleLoading, setIsAppleLoading] = useState(false);
@@ -75,14 +83,6 @@ export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
   const supabase = createClient();
-  const searchParams = useSearchParams();
-
-  // Get email and redirect from URL
-  const defaultEmail = searchParams.get('email') || '';
-  const redirectTo = sanitizeRelativeRedirectPath(
-    searchParams.get('redirectTo') ?? searchParams.get('redirect'),
-    '/dashboard'
-  );
 
   // React 19 useActionState for login form
   const [loginState, loginFormAction] = useActionState(
@@ -142,7 +142,7 @@ export default function LoginForm() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirectTo)}`,
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeRedirectTo)}`,
         },
       });
 
@@ -222,7 +222,11 @@ export default function LoginForm() {
             {mode === 'login' ? (
               <div className="animate-in fade-in duration-300">
                 <form action={loginFormAction} className="space-y-4">
-                  <input type="hidden" name="redirectTo" value={redirectTo} />
+                  <input
+                    type="hidden"
+                    name="redirectTo"
+                    value={safeRedirectTo}
+                  />
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <div className="relative group">

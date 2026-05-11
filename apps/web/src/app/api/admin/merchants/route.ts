@@ -1,38 +1,19 @@
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
-import { getAdminMerchantHealthRows } from '@/lib/admin-merchant-health';
+import {
+  getAdminMerchantHealthRows,
+  sortAdminMerchantHealthRows,
+} from '@/lib/admin-merchant-health';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
-import type { AdminMerchantsSortBy } from '@/schemas/admin-merchants-query';
 import { adminMerchantsQuerySchema } from '@/schemas/admin-merchants-query';
 import type {
   AdminMerchantHealthRow,
   AdminMerchantsResponse,
 } from '@/types/admin-merchants';
 
-function sortRows(
-  rows: AdminMerchantHealthRow[],
-  sortBy: AdminMerchantsSortBy
-): AdminMerchantHealthRow[] {
-  return [...rows].sort((left, right) => {
-    if (sortBy === 'joined') {
-      return (
-        new Date(right.joined_at).getTime() - new Date(left.joined_at).getTime()
-      );
-    }
-
-    if (sortBy === 'orders') {
-      return right.total_orders - left.total_orders;
-    }
-
-    return Number(right.total_gmv) - Number(left.total_gmv);
-  });
-}
-
 export async function GET(request: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -101,7 +82,7 @@ export async function GET(request: NextRequest) {
     }
 
     const response: AdminMerchantsResponse = {
-      data: sortRows(
+      data: sortAdminMerchantHealthRows(
         (data as AdminMerchantHealthRow[] | null) ?? [],
         parseResult.data.sortBy
       ),

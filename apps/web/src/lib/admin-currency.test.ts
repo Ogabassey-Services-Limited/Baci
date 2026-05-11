@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatAdminCompactCurrency,
   formatAdminCurrency,
+  formatAdminThresholdCurrency,
 } from '@/lib/admin-currency';
 
 describe('admin-currency', () => {
@@ -26,5 +27,18 @@ describe('admin-currency', () => {
     expect(formatAdminCurrency('not-a-number')).toBe('₦0.00');
     expect(formatAdminCompactCurrency(null)).toBe('₦0');
     expect(formatAdminCompactCurrency('not-a-number')).toBe('₦0');
+  });
+
+  it('uses compact formatting only when values cross the admin threshold', () => {
+    expect(formatAdminThresholdCurrency(0)).toBe('₦0.00');
+    expect(formatAdminThresholdCurrency(999)).toBe('₦999.00');
+    expect(formatAdminThresholdCurrency(1000)).toBe('₦1K');
+    expect(formatAdminThresholdCurrency('1200')).toBe('₦1.2K');
+    expect(formatAdminThresholdCurrency(1_000_000_000)).toBe('₦1B');
+    expect(formatAdminThresholdCurrency('1200000000')).toBe('₦1.2B');
+    expect(formatAdminThresholdCurrency('not-a-number')).toBe('₦0.00');
+    expect(formatAdminThresholdCurrency(null)).toBe('₦0.00');
+    expect(formatAdminThresholdCurrency(undefined)).toBe('₦0.00');
+    expect(formatAdminThresholdCurrency(-1)).toBe('-₦1.00');
   });
 });
