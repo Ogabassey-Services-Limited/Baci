@@ -23,7 +23,26 @@ vi.mock('@/app/api/feed/openai/feed-data', () => ({
     mockGetCachedOpenAIFeedData(...args),
 }));
 
-function merchant() {
+type TestMerchant = {
+  business_name: string;
+  business_type: string;
+  custom_domain: string;
+  id: string;
+  slug: string;
+  support_email: string;
+  trust_profile: {
+    return_policy: {
+      summary: string;
+      window_days: number;
+    };
+    shipping_policy: {
+      regions: string[];
+      summary: string;
+    };
+  };
+};
+
+function merchant(): TestMerchant {
   return {
     id: 'merchant-1',
     business_name: 'Ogabassey',
