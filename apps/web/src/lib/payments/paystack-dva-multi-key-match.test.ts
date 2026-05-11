@@ -16,7 +16,7 @@ import {
 
 const ctx = (overrides: Partial<DvaMatchContext> = {}): DvaMatchContext => ({
   verifiedAmountKobo: 83_500_000, // ₦835,000
-  customerEmail: 'igbinoviaefosa56@gmail.com',
+  customerEmail: 'customer@example.com',
   paidAt: new Date('2026-05-09T11:03:00Z'),
   ...overrides,
 });
@@ -26,7 +26,7 @@ const candidate = (
 ): DvaMatchCandidate => ({
   order_id: '211bcf0e-0795-488f-aeeb-52c5b7a8b9ae',
   merchant_id: 'merchant-1',
-  customer_email: 'igbinoviaefosa56@gmail.com',
+  customer_email: 'customer@example.com',
   total_kobo: 83_500_000,
   // initialize/route.ts stores +90min (1h countdown + 30min grace).
   account_created_at: new Date('2026-05-09T10:00:00Z'),
@@ -93,7 +93,7 @@ describe('matchPaystackDvaCandidates — customer_email', () => {
 
   it('matches with case-insensitive customer_email + trimmed whitespace', () => {
     const result = matchPaystackDvaCandidates(
-      [candidate({ customer_email: '  Igbinoviaefosa56@GMAIL.COM  ' })],
+      [candidate({ customer_email: '  Customer@EXAMPLE.COM  ' })],
       ctx()
     );
     expect(result.kind).toBe('single');

@@ -21,7 +21,7 @@ const baseAccountRow = {
   orders: {
     id: '211bcf0e-0795-488f-aeeb-52c5b7a8b9ae',
     merchant_id: 'merchant-1',
-    customer_email: 'igbinoviaefosa56@gmail.com',
+    customer_email: 'customer@example.com',
     total: '835000',
     currency: 'NGN',
   },
@@ -32,7 +32,7 @@ const ctxBase = {
   gatewayReference: '100026260509110323000058369193',
   verifiedAmount: { amount: 835_000, currency: 'NGN' },
   paystackResponse: {
-    customer: { email: 'igbinoviaefosa56@gmail.com' },
+    customer: { email: 'customer@example.com' },
     paid_at: '2026-05-09T10:30:00Z',
   } as Record<string, unknown>,
 };
@@ -247,6 +247,71 @@ describe('confirmPaystackDvaByOrderAccount — ambiguous match', () => {
       paystack_ref: '100026260509110323000058369193',
     });
     expect(state.insertCalls).toHaveLength(0);
+  });
+});
+
+describe('confirmPaystackDvaByOrderAccount — DB failure paths', () => {
+  it('still returns 409 review when the reconciliation_review insert fails (logged-and-continue)', async () => {
+    // Two candidates match → ambiguous → helper attempts to file a
+    // reconciliation_review row. The DB rejects the insert (e.g.,
+    // transient RLS hiccup). Contract: helper still returns the 409
+    // review payload so the webhook can short-circuit; the failure is
+    // logged but does NOT throw or change the response shape.
+    const orderA = {
+      ...baseAccountRow,
+      order_id: 'order-a',
+      orders: { ...baseAccountRow.orders, id: 'order-a' },
+    };
+    const orderB = {
+      ...baseAccountRow,
+      order_id: 'order-b',
+      orders: { ...baseAccountRow.orders, id: 'order-b' },
+    };
+    const { supabase, state } = createSupabaseMock({
+      accountRows: [orderA, orderB],
+      reviewError: { message: 'review insert failed', code: '23502' },
+    });
+
+    const result = await confirmPaystackDvaByOrderAccount({
+      supabase: supabase as never,
+      ...ctxBase,
+    });
+
+    expect(result.kind).toBe('review');
+    if (result.kind === 'review') {
+      expect(result.status).toBe(409);
+      expect(result.body).toMatchObject({ code: 'AMBIGUOUS_DVA_MATCH' });
+    }
+    // Helper still attempted the write (so the cron can see what it
+    // tried to record), and it did NOT silently swallow + match.
+    expect(state.reviewUpserts).toHaveLength(1);
+    expect(state.insertCalls).toHaveLength(0);
+  });
+
+  it('falls through (kind:none) when a non-23505 transaction insert error occurs', async () => {
+    // Single match → helper tries to insert the pending transaction.
+    // The DB rejects with a non-conflict error code (e.g., 23502
+    // not-null violation). The helper must NOT treat this like a
+    // benign unique violation and must NOT consult the reuse-lookup;
+    // it falls through so the caller can use its existing
+    // gateway_reference path.
+    const { supabase, state } = createSupabaseMock({
+      insertResult: {
+        data: null,
+        error: { code: '23502', message: 'not-null violation' },
+      },
+    });
+
+    const result = await confirmPaystackDvaByOrderAccount({
+      supabase: supabase as never,
+      ...ctxBase,
+    });
+
+    expect(result).toEqual({ kind: 'none' });
+    expect(state.insertCalls).toHaveLength(1);
+    // Critical: the reuse-lookup path (used for 23505 retries) must
+    // NOT fire for a non-conflict error.
+    expect(state.reuseLookups).toBe(0);
   });
 });
 
