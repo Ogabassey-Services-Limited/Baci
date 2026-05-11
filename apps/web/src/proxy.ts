@@ -413,6 +413,7 @@ function getRouteType(
   pathname: string
 ): 'admin' | 'auth' | 'storefront' | 'api' {
   if (
+    pathname.startsWith('/admin') ||
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/builder') ||
     pathname.startsWith('/onboarding')
@@ -539,6 +540,23 @@ function generateCSP(
   return Object.entries(directives)
     .map(([key, value]) => (value ? `${key} ${value}` : key).trim())
     .join('; ');
+}
+
+function generateCspNonce(): string {
+  try {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return encodeCspNonce(String.fromCharCode(...bytes));
+  } catch {
+    return encodeCspNonce(crypto.randomUUID());
+  }
+}
+
+function encodeCspNonce(value: string): string {
+  return btoa(value)
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replaceAll('=', '');
 }
 
 /**
@@ -921,15 +939,17 @@ export async function proxy(request: NextRequest) {
 
   // Only run auth check for protected or auth routes (skip for public routes)
   if (isProtectedRoute || isAuthRoute) {
-    // Generate Nonce EARLY for CSP (Request Header Injection)
-    // 2026 Best Practice: Next.js reads 'x-nonce' from request headers to authorize internal scripts
+    // Generate nonce and CSP before the app render. Next reads the forwarded
+    // request CSP to nonce its framework and Flight scripts.
     const routeType = getRouteType(pathname);
     const isLocal = isLocalhost(hostname);
-    const nonce = crypto.randomUUID();
+    const nonce = generateCspNonce();
+    const csp = generateCSP(routeType, isLocal, nonce);
 
     // Prepare request headers with nonce
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-nonce', nonce);
+    requestHeaders.set('Content-Security-Policy', csp);
 
     // Create a modified request instance to pass down
     const modifiedRequest = new NextRequest(request, {

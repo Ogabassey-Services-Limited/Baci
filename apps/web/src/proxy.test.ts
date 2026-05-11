@@ -51,6 +51,34 @@ vi.mock('@/lib/rate-limit', () => ({
     .mockReturnValue(new NextResponse('Too Many Requests', { status: 429 })),
 }));
 
+function assertNonceHeadersForwarded(
+  forwardedRequest: NextRequest | undefined,
+  response: NextResponse
+) {
+  if (!forwardedRequest) {
+    throw new Error('expected updateSession to receive a forwarded request');
+  }
+
+  const nonce = forwardedRequest.headers.get('x-nonce');
+  const forwardedCsp = forwardedRequest.headers.get('Content-Security-Policy');
+  const responseCsp = response.headers.get('Content-Security-Policy');
+
+  if (!nonce) {
+    throw new Error('missing x-nonce header');
+  }
+  if (!forwardedCsp) {
+    throw new Error('missing forwarded Content-Security-Policy header');
+  }
+  if (!responseCsp) {
+    throw new Error('missing response Content-Security-Policy header');
+  }
+
+  expect(nonce).toMatch(/^[A-Za-z0-9_-]+$/);
+  expect(forwardedCsp).toContain(`'nonce-${nonce}'`);
+  expect(responseCsp).toContain(`'nonce-${nonce}'`);
+  expect(responseCsp).toBe(forwardedCsp);
+}
+
 describe('Middleware Proxy', () => {
   const ROOT_DOMAIN = 'usebaci.com';
 
@@ -133,6 +161,74 @@ describe('Middleware Proxy', () => {
     const csp = res.headers.get('Content-Security-Policy') || '';
 
     expect(csp).not.toContain("'unsafe-eval'");
+  });
+
+  it('forwards auth route CSP and nonce headers for Next script nonces', async () => {
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/login`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+    expect(updateSession).toHaveBeenCalledTimes(1);
+    const [forwardedRequest] = vi.mocked(updateSession).mock.calls[0] ?? [];
+
+    assertNonceHeadersForwarded(forwardedRequest, res);
+  });
+
+  it('forwards admin route CSP and nonce headers before auth rendering', async () => {
+    vi.mocked(updateSession).mockResolvedValueOnce({
+      supabaseResponse: NextResponse.next(),
+      user: AUTHENTICATED_USER,
+    });
+
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/admin/merchants`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+    expect(updateSession).toHaveBeenCalledTimes(1);
+    const [forwardedRequest] = vi.mocked(updateSession).mock.calls[0] ?? [];
+
+    assertNonceHeadersForwarded(forwardedRequest, res);
+  });
+
+  it('generates unique CSP nonces for repeated auth renders', async () => {
+    const nonces: string[] = [];
+
+    for (let index = 0; index < 3; index += 1) {
+      const req = new NextRequest(`https://${ROOT_DOMAIN}/login`);
+      req.headers.set('host', ROOT_DOMAIN);
+
+      await proxy(req);
+      const forwardedRequest = vi.mocked(updateSession).mock.calls[index]?.[0];
+      const nonce = forwardedRequest?.headers.get('x-nonce');
+
+      expect(nonce).toMatch(/^[A-Za-z0-9_-]+$/);
+      if (nonce) {
+        nonces.push(nonce);
+      }
+    }
+
+    expect(new Set(nonces).size).toBe(nonces.length);
+  });
+
+  it('falls back to a safe nonce when random byte generation fails', async () => {
+    const getRandomValuesSpy = vi
+      .spyOn(crypto, 'getRandomValues')
+      .mockImplementationOnce(() => {
+        throw new Error('entropy unavailable');
+      });
+
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/login`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    try {
+      const res = await proxy(req);
+      expect(updateSession).toHaveBeenCalledTimes(1);
+      const [forwardedRequest] = vi.mocked(updateSession).mock.calls[0] ?? [];
+
+      assertNonceHeadersForwarded(forwardedRequest, res);
+    } finally {
+      getRandomValuesSpy.mockRestore();
+    }
   });
 
   it('redirects unauthenticated admin requests to login with the canonical redirect key', async () => {
