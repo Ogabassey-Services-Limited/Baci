@@ -109,7 +109,7 @@ export function InlineContextMenu({
                 aria-label="Edit Properties"
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 hover:bg-opacity-10 transition-all"
+                className="h-8 w-8 p-0 transition-all"
                 style={{ color: '#2a2c6e' }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#2a2c6e10';
