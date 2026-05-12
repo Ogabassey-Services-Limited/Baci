@@ -46,18 +46,21 @@ function makeRequest() {
   );
 }
 
-function createQueryResult(data: unknown, error: unknown = null) {
-  const chain = {
-    eq: vi.fn(() => chain),
-    limit: vi.fn(() => Promise.resolve({ data, error })),
-    not: vi.fn(() => chain),
-    order: vi.fn(() => chain),
+function createSupabaseMock({
+  rpcData = buildRpcData(),
+  rpcError = null,
+}: {
+  rpcData?: unknown;
+  rpcError?: unknown;
+} = {}) {
+  const rpc = vi.fn(() => Promise.resolve({ data: rpcData, error: rpcError }));
+
+  return {
+    rpc,
   };
-  const select = vi.fn(() => chain);
-  return { chain, select };
 }
 
-function createSupabaseMock({
+function buildRpcData({
   checkoutSessions = [
     {
       metadata: { agentic: { payment_state: 'payment_pending' } },
@@ -72,7 +75,7 @@ function createSupabaseMock({
       updated_at: '2026-05-12T10:04:00.000Z',
     },
   ],
-  idempotency = [
+  idempotencyRecords = [
     {
       created_at: '2026-05-12T10:00:00.000Z',
       expires_at: '2026-05-12T10:15:00.000Z',
@@ -90,8 +93,7 @@ function createSupabaseMock({
       updated_at: '2026-05-12T10:03:00.000Z',
     },
   ],
-  idempotencyError = null,
-  requests = [
+  requestRecords = [
     {
       api_version: '2026-04-30',
       created_at: '2026-05-12T10:00:00.000Z',
@@ -102,31 +104,13 @@ function createSupabaseMock({
   ],
 }: {
   checkoutSessions?: unknown[];
-  idempotency?: unknown[];
-  idempotencyError?: unknown;
-  requests?: unknown[];
+  idempotencyRecords?: unknown[];
+  requestRecords?: unknown[];
 } = {}) {
-  const idempotencyQuery = createQueryResult(idempotency, idempotencyError);
-  const requestQuery = createQueryResult(requests);
-  const sessionQuery = createQueryResult(checkoutSessions);
-  const from = vi.fn((table: string) => {
-    if (table === 'agentic_idempotency_records') {
-      return { select: idempotencyQuery.select };
-    }
-    if (table === 'agentic_request_records') {
-      return { select: requestQuery.select };
-    }
-    if (table === 'checkout_sessions') {
-      return { select: sessionQuery.select };
-    }
-    throw new Error(`Unexpected table ${table}`);
-  });
-
   return {
-    from,
-    idempotencyQuery,
-    requestQuery,
-    sessionQuery,
+    checkout_sessions: checkoutSessions,
+    idempotency_records: idempotencyRecords,
+    request_records: requestRecords,
   };
 }
 
@@ -176,34 +160,12 @@ describe('GET /api/merchant/agentic/action-health', () => {
       requests: { recent_count: 1 },
     });
     expect(JSON.stringify(payload)).not.toContain('must-not-leak');
-    expect(supabase.from).toHaveBeenCalledWith('agentic_idempotency_records');
-    expect(supabase.from).toHaveBeenCalledWith('agentic_request_records');
-    expect(supabase.from).toHaveBeenCalledWith('checkout_sessions');
-    expect(supabase.idempotencyQuery.chain.eq).toHaveBeenCalledWith(
-      'merchant_id',
-      'merchant-1'
-    );
-    expect(supabase.requestQuery.chain.eq).toHaveBeenCalledWith(
-      'merchant_id',
-      'merchant-1'
-    );
-    expect(supabase.sessionQuery.chain.eq).toHaveBeenCalledWith(
-      'merchant_id',
-      'merchant-1'
-    );
-    expect(supabase.idempotencyQuery.select).toHaveBeenCalledWith(
-      'route, status_code, created_at, updated_at, expires_at'
-    );
-    expect(supabase.requestQuery.select).toHaveBeenCalledWith(
-      'api_version, created_at, expires_at'
-    );
-    expect(supabase.sessionQuery.select).toHaveBeenCalledWith(
-      'session_id, status, metadata, updated_at'
-    );
-    expect(supabase.sessionQuery.chain.not).toHaveBeenCalledWith(
-      'metadata->agentic',
-      'is',
-      null
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'get_agentic_action_health_records',
+      {
+        p_merchant_id: 'merchant-1',
+        p_record_limit: 25,
+      }
     );
   });
 
@@ -211,9 +173,11 @@ describe('GET /api/merchant/agentic/action-health', () => {
     mockAuthenticateApiRequest.mockResolvedValue({
       error: null,
       supabase: createSupabaseMock({
-        checkoutSessions: [],
-        idempotency: [{ status_code: 200 }],
-        requests: [],
+        rpcData: buildRpcData({
+          checkoutSessions: [],
+          idempotencyRecords: [{ status_code: 200 }],
+          requestRecords: [],
+        }),
       }),
       user: { id: 'user-1' },
     });
@@ -278,7 +242,7 @@ describe('GET /api/merchant/agentic/action-health', () => {
     mockAuthenticateApiRequest.mockResolvedValue({
       error: null,
       supabase: createSupabaseMock({
-        idempotencyError: { message: 'db unavailable' },
+        rpcError: { message: 'db unavailable' },
       }),
       user: { id: 'user-1' },
     });

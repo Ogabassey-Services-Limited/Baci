@@ -1,6 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import {
+  getAgenticPaymentState,
+  parseAgenticActionHealthRpcPayload,
+} from '@/lib/agentic/action-health-rpc-payload';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import {
   getMerchantForApiRequest,
@@ -11,52 +15,13 @@ import { sanitizeForLog } from '@/lib/sanitize-core';
 
 const RECENT_RECORD_LIMIT = 25;
 
-const IDEMPOTENCY_SELECT =
-  'route, status_code, created_at, updated_at, expires_at';
-const REQUEST_SELECT = 'api_version, created_at, expires_at';
-const SESSION_SELECT = 'session_id, status, metadata, updated_at';
-
 type HealthSeverity = 'attention' | 'monitor' | 'ok';
-
-interface IdempotencyRow {
-  route: string | null;
-  status_code: number | null;
-  created_at: string;
-  updated_at: string;
-  expires_at: string;
-}
-
-interface RequestRow {
-  api_version: string | null;
-  created_at: string;
-  expires_at: string;
-}
-
-interface CheckoutSessionRow {
-  session_id: string;
-  status: string | null;
-  metadata: unknown;
-  updated_at: string;
-}
 
 interface AgenticHealthAction {
   code: string;
   count: number;
   message: string;
   severity: HealthSeverity;
-}
-
-function getAgenticMetadata(metadata: unknown): Record<string, unknown> {
-  if (!metadata || typeof metadata !== 'object') return {};
-  const agentic = (metadata as { agentic?: unknown }).agentic;
-  return agentic && typeof agentic === 'object'
-    ? (agentic as Record<string, unknown>)
-    : {};
-}
-
-function getPaymentState(metadata: unknown): string | null {
-  const state = getAgenticMetadata(metadata).payment_state;
-  return typeof state === 'string' && state.trim() ? state.trim() : null;
 }
 
 function getIdempotencyState(statusCode: number | null) {
@@ -131,39 +96,20 @@ async function loadAgenticActionHealth(
   supabase: SupabaseClient,
   merchantId: string
 ) {
-  const [idempotencyResult, requestResult, sessionResult] = await Promise.all([
-    supabase
-      .from('agentic_idempotency_records')
-      .select(IDEMPOTENCY_SELECT)
-      .eq('merchant_id', merchantId)
-      .order('updated_at', { ascending: false })
-      .limit(RECENT_RECORD_LIMIT),
-    supabase
-      .from('agentic_request_records')
-      .select(REQUEST_SELECT)
-      .eq('merchant_id', merchantId)
-      .order('created_at', { ascending: false })
-      .limit(RECENT_RECORD_LIMIT),
-    supabase
-      .from('checkout_sessions')
-      .select(SESSION_SELECT)
-      .eq('merchant_id', merchantId)
-      .not('metadata->agentic', 'is', null)
-      .order('updated_at', { ascending: false })
-      .limit(RECENT_RECORD_LIMIT),
-  ]);
+  const healthResult = await supabase.rpc('get_agentic_action_health_records', {
+    p_merchant_id: merchantId,
+    p_record_limit: RECENT_RECORD_LIMIT,
+  });
 
-  if (idempotencyResult.error || requestResult.error || sessionResult.error) {
+  if (healthResult.error) {
     return {
-      error:
-        idempotencyResult.error || requestResult.error || sessionResult.error,
+      error: healthResult.error,
       ok: false as const,
     };
   }
 
-  const idempotencyRows = (idempotencyResult.data ?? []) as IdempotencyRow[];
-  const requestRows = (requestResult.data ?? []) as RequestRow[];
-  const sessionRows = (sessionResult.data ?? []) as CheckoutSessionRow[];
+  const { idempotencyRows, requestRows, sessionRows } =
+    parseAgenticActionHealthRpcPayload(healthResult.data);
   let inProgressCount = 0;
   let terminalErrorCount = 0;
   for (const row of idempotencyRows) {
@@ -176,7 +122,7 @@ async function loadAgenticActionHealth(
   let paymentPendingCount = 0;
   let orderFinalizingCount = 0;
   for (const row of sessionRows) {
-    const paymentState = getPaymentState(row.metadata);
+    const paymentState = getAgenticPaymentState(row.metadata);
     if (paymentState === 'payment_pending') {
       paymentPendingCount += 1;
     } else if (paymentState === 'order_finalizing') {
@@ -197,7 +143,7 @@ async function loadAgenticActionHealth(
         payment_pending_count: paymentPendingCount,
         recent_count: sessionRows.length,
         records: sessionRows.map((row) => ({
-          payment_state: getPaymentState(row.metadata),
+          payment_state: getAgenticPaymentState(row.metadata),
           session_id: row.session_id,
           status: row.status,
           updated_at: row.updated_at,
