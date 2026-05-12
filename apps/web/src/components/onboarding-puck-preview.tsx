@@ -44,12 +44,12 @@ class PreviewErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error) {
-    // Only catch merchant context errors, re-throw others
-    if (
-      !error.message.includes(
-        'useMerchant must be used within a MerchantProvider'
-      )
-    ) {
+    const isPreviewContextError = [
+      'useMerchant must be used within a MerchantProvider',
+      'useCart must be used within a CartProvider',
+    ].some((message) => error.message.includes(message));
+
+    if (!isPreviewContextError) {
       throw error;
     }
   }
@@ -367,11 +367,19 @@ export function OnboardingPuckPreview({
   // Full Screen Modal for Expanded View
   if (isExpanded) {
     return (
-      <div className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300">
+      <div
+        aria-labelledby="expanded-store-preview-title"
+        aria-modal="true"
+        className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300"
+        role="dialog"
+      >
         <div className="relative w-full h-full max-w-[1600px] bg-background rounded-xl border shadow-2xl overflow-hidden flex flex-col">
           {/* Header */}
           <div className="h-14 border-b flex items-center justify-between px-6 bg-muted/10">
-            <h3 className="font-semibold text-lg flex items-center gap-2">
+            <h3
+              className="font-semibold text-lg flex items-center gap-2"
+              id="expanded-store-preview-title"
+            >
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
@@ -407,27 +415,27 @@ export function OnboardingPuckPreview({
           {/* Scrollable Content Area */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <div className="min-h-full" style={themeStyles}>
-              <MerchantProvider
-                initialMerchant={
-                  {
-                    id: PREVIEW_MERCHANT_ID,
-                    user_id: 'preview-user-id',
-                    business_name: businessName || 'Your Store',
-                    business_type: businessType || 'other',
-                    slug: 'preview-store',
-                    brand_colors: brandColors,
-                  } as MerchantData
-                }
-              >
-                <CartProvider
-                  merchantSlug="preview-store"
-                  deferValidationUntilIdle
+              <PreviewErrorBoundary>
+                <MerchantProvider
+                  initialMerchant={
+                    {
+                      id: PREVIEW_MERCHANT_ID,
+                      user_id: 'preview-user-id',
+                      business_name: businessName || 'Your Store',
+                      business_type: businessType || 'other',
+                      slug: 'preview-store',
+                      brand_colors: brandColors,
+                    } as MerchantData
+                  }
                 >
-                  <PreviewErrorBoundary>
+                  <CartProvider
+                    merchantSlug="preview-store"
+                    deferValidationUntilIdle
+                  >
                     <Render config={builderConfig} data={patchedPuckData} />
-                  </PreviewErrorBoundary>
-                </CartProvider>
-              </MerchantProvider>
+                  </CartProvider>
+                </MerchantProvider>
+              </PreviewErrorBoundary>
             </div>
           </div>
         </div>
@@ -507,24 +515,27 @@ export function OnboardingPuckPreview({
             ...themeStyles,
           }}
         >
-          <MerchantProvider
-            initialMerchant={
-              {
-                id: PREVIEW_MERCHANT_ID,
-                user_id: 'preview-user-id',
-                business_name: businessName || 'Your Store',
-                business_type: businessType || 'other',
-                slug: 'preview-store',
-                brand_colors: brandColors,
-              } as MerchantData
-            }
-          >
-            <CartProvider merchantSlug="preview-store" deferValidationUntilIdle>
-              <PreviewErrorBoundary>
+          <PreviewErrorBoundary>
+            <MerchantProvider
+              initialMerchant={
+                {
+                  id: PREVIEW_MERCHANT_ID,
+                  user_id: 'preview-user-id',
+                  business_name: businessName || 'Your Store',
+                  business_type: businessType || 'other',
+                  slug: 'preview-store',
+                  brand_colors: brandColors,
+                } as MerchantData
+              }
+            >
+              <CartProvider
+                merchantSlug="preview-store"
+                deferValidationUntilIdle
+              >
                 <Render config={builderConfig} data={patchedPuckData} />
-              </PreviewErrorBoundary>
-            </CartProvider>
-          </MerchantProvider>
+              </CartProvider>
+            </MerchantProvider>
+          </PreviewErrorBoundary>
         </div>
       </div>
     </div>

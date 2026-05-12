@@ -282,7 +282,11 @@ export const CheckoutPage: React.FC = () => {
     searchParams.get('slug') ||
     merchant?.slug ||
     null;
-  const preferredGateway = searchParams.get('gateway') as 'credpal' | 'credit_direct' | null;
+  const gatewayParam = searchParams.get('gateway')?.toLowerCase();
+  const preferredGateway =
+    gatewayParam === 'credpal' || gatewayParam === 'credit_direct'
+      ? gatewayParam
+      : null;
   const [resumedOrder, setResumedOrder] = useState<{
     id: string;
     short_id: string;
@@ -1207,6 +1211,7 @@ export const CheckoutPage: React.FC = () => {
             variant: 'destructive',
           });
           setIsProcessing(false);
+          setCompletedSteps((prev) => ({ ...prev, delivery: false }));
           isOrderInFlightRef.current = false;
           setCurrentStep('delivery');
           return;

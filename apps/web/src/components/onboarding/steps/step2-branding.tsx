@@ -300,7 +300,7 @@ export default function Step2_Branding() {
           title: 'Logo Generated!',
           description: hasGeneratedBrandColors
             ? "We've also extracted your brand colors."
-            : "We've applied a default color palette for your industry — feel free to fine-tune below.",
+            : 'We extracted colors from your logo where possible. You can fine-tune them below.',
         });
       } else {
         throw new Error('No logo was returned.');

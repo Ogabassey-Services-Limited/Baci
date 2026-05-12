@@ -86,12 +86,10 @@ describe('AuthProvider', () => {
       </AuthProvider>
     );
 
-    // Microtask flush — give the rejected promise's handler a chance to run.
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(screen.getByText('user:user-1')).toBeInTheDocument();
-    expect(screen.getByText('loading:false')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('user:user-1')).toBeInTheDocument();
+      expect(screen.getByText('loading:false')).toBeInTheDocument();
+    });
   });
 
   it('starts in a loading state when no initialUser is provided', () => {

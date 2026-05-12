@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -529,6 +529,8 @@ describe('OnboardingPuckPreview', () => {
   });
 
   it('wraps rendered storefront preview blocks in cart context', async () => {
+    const user = userEvent.setup();
+
     render(
       <OnboardingPuckPreview
         businessName="Test Store"
@@ -551,6 +553,18 @@ describe('OnboardingPuckPreview', () => {
       'data-merchant-id',
       'preview-merchant-id'
     );
+
+    await user.click(screen.getByRole('button', { name: /expand/i }));
+
+    const expandedPreview = await screen.findByRole('dialog', {
+      name: /live store preview/i,
+    });
+    expect(
+      within(expandedPreview).getByTestId('cart-provider:preview-store')
+    ).toBeInTheDocument();
+    expect(
+      within(expandedPreview).getByTestId('merchant-provider')
+    ).toHaveAttribute('data-merchant-id', 'preview-merchant-id');
   });
 
   it('error boundary catches merchant context errors', () => {

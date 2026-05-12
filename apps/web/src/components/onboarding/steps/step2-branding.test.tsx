@@ -6,8 +6,10 @@ import type { OnboardingFormValues } from '@/schemas/onboarding';
 
 // --- Module Mocks (hoisted before all imports) ---
 
+const mockToast = vi.hoisted(() => vi.fn());
+
 vi.mock('@/hooks/use-toast', () => ({
-  useToast: () => ({ toast: vi.fn() }),
+  useToast: () => ({ toast: mockToast }),
 }));
 
 vi.mock('@/lib/storage', () => ({
@@ -531,5 +533,34 @@ describe('Step2_Branding', () => {
       JSON.parse(screen.getByTestId('brand-colors').textContent || '{}')
     ).toEqual(fallbackColors);
     expect(mockExtractBrandColorsFromImage).not.toHaveBeenCalled();
+  });
+
+  it('describes color extraction when a generated logo has no brand colors', async () => {
+    const user = userEvent.setup();
+
+    mockGuideBusinessOnboarding.mockResolvedValueOnce({
+      logos: ['data:image/svg+xml;charset=utf-8;base64,test'],
+    });
+
+    render(
+      <TestWrapper>
+        <Step2_Branding />
+      </TestWrapper>
+    );
+
+    await user.click(
+      screen.getByRole('button', { name: /open logo generator/i })
+    );
+    await user.click(screen.getByRole('button', { name: /^generate logo$/i }));
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Logo Generated!',
+          description:
+            'We extracted colors from your logo where possible. You can fine-tune them below.',
+        })
+      );
+    });
   });
 });

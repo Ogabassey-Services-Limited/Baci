@@ -71,7 +71,7 @@ describe('imageLoader', () => {
   it('adds loader params to OgaBassey CDN URLs with query strings', () => {
     const url = 'https://cdn.ogabassey.com/img.avif?v=1';
     expect(imageLoader({ src: url, width: 1200, quality: 90 })).toBe(
-      `${url}&w=1200&q=90`
+      'https://cdn.ogabassey.com/image/width=1200,quality=90,format=webp/img.avif?v=1'
     );
   });
 

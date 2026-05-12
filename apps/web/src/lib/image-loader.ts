@@ -93,7 +93,6 @@ function buildOgabasseyCdnTransformUrl({
 
   if (
     url.hostname !== OGABASSEY_CDN_HOSTNAME ||
-    url.search ||
     url.pathname.startsWith('/image/') ||
     !TRANSFORMABLE_IMAGE_EXTENSION_PATTERN.test(url.pathname)
   ) {
@@ -103,7 +102,7 @@ function buildOgabasseyCdnTransformUrl({
   const transformWidth = clampDimension(width);
   const transformQuality = clampQuality(quality);
 
-  return `${url.origin}/image/width=${transformWidth},quality=${transformQuality},format=webp${url.pathname}${url.hash}`;
+  return `${url.origin}/image/width=${transformWidth},quality=${transformQuality},format=webp${url.pathname}${url.search}${url.hash}`;
 }
 
 function clampDimension(width: number): number {

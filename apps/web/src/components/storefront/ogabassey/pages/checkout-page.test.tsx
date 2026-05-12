@@ -139,6 +139,8 @@ import { useSearchParams } from 'next/navigation';
 import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant';
 import { toast } from '@/hooks/use-toast';
+import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
+import { openCredPalCheckout } from '@/lib/credpal';
 import {
   usePersistedForm,
   usePersistedState,
@@ -146,6 +148,7 @@ import {
 
 describe('CheckoutPage', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(useCart).mockReturnValue({
       cart: [],
       cartTotal: 0,
@@ -169,7 +172,6 @@ describe('CheckoutPage', () => {
     vi.mocked(usePersistedState).mockReturnValue(
       [null, vi.fn(), vi.fn()] as unknown as ReturnType<typeof usePersistedState>
     );
-    vi.mocked(toast).mockClear();
   });
 
   it('renders without crashing', () => {
@@ -353,6 +355,58 @@ describe('CheckoutPage', () => {
           url.startsWith('/api/storefront/orders/ord-1')
       )
     ).toBe(false);
+
+    fetchMock.mockRestore();
+  });
+
+  it('does not auto-trigger direct checkout for unsupported resume gateways', async () => {
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams({
+        orderId: 'ord-1',
+        gateway: 'paystack',
+        trackingToken: 'tok-123',
+      }) as unknown as ReturnType<typeof useSearchParams>
+    );
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/storefront/orders/ord-1')) {
+          return {
+            ok: true,
+            json: async () => ({
+              id: 'ord-1',
+              short_id: 'ORD-1',
+              subtotal: 1000,
+              shipping_cost: 0,
+              total: 1000,
+              customer_name: 'Ada Buyer',
+              customer_email: 'ada@example.com',
+              customer_phone: '+2348123456789',
+              tracking_token: 'tok-123',
+              shipping_address: { address: '', city: '', state: '' },
+              items: [],
+            }),
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ states: [], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/storefront/orders/ord-1?merchant_slug=test-store&token=tok-123'
+      );
+    });
+    expect(openCredPalCheckout).not.toHaveBeenCalled();
+    expect(openCreditDirectCheckout).not.toHaveBeenCalled();
 
     fetchMock.mockRestore();
   });

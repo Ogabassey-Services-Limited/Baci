@@ -95,11 +95,19 @@ export function getStorefrontSeoTagline(businessType?: string | null): string {
   }
 }
 
+function cleanSeoField(value?: string | null): string | null {
+  const normalized = value?.trim();
+  return normalized || null;
+}
+
 export function getStorefrontSeoDescription(
   merchant: StorefrontSeoMerchant
 ): string {
-  if (merchant.site_description || merchant.site_tagline) {
-    return merchant.site_description || merchant.site_tagline || '';
+  const customDescription = cleanSeoField(merchant.site_description);
+  const customTagline = cleanSeoField(merchant.site_tagline);
+
+  if (customDescription || customTagline) {
+    return customDescription || customTagline || '';
   }
 
   const tagline = getStorefrontSeoTagline(merchant.business_type).toLowerCase();
@@ -109,12 +117,13 @@ export function getStorefrontSeoDescription(
 }
 
 export function getStorefrontSeoTitle(merchant: StorefrontSeoMerchant): string {
+  const customTitle = cleanSeoField(merchant.site_title);
   const hasMismatchedGadgetTitle =
     normalizeStorefrontBusinessType(merchant.business_type) !== 'electronics' &&
-    /buy gadgets pay later/i.test(merchant.site_title || '');
+    /buy gadgets pay later/i.test(customTitle || '');
 
-  if (merchant.site_title && !hasMismatchedGadgetTitle) {
-    return merchant.site_title;
+  if (customTitle && !hasMismatchedGadgetTitle) {
+    return customTitle;
   }
 
   return `${merchant.business_name} | ${getStorefrontSeoTagline(

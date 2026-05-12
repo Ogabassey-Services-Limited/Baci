@@ -107,6 +107,19 @@ describe('getStorefrontSeoDescription', () => {
     ).toBe('Curated picks for you.');
   });
 
+  it('treats whitespace-only custom description fields as missing', () => {
+    expect(
+      getStorefrontSeoDescription(
+        makeMerchant({
+          business_name: 'Foodflow',
+          business_type: 'food-beverage',
+          site_description: '   ',
+          site_tagline: '   ',
+        })
+      )
+    ).toBe('Shop Foodflow - order fresh food online with secure checkout.');
+  });
+
   it('composes an industry-aware description including the merchant country', () => {
     expect(
       getStorefrontSeoDescription(
@@ -205,6 +218,18 @@ describe('getStorefrontSeoTitle', () => {
         makeMerchant({
           business_name: 'Foodflow',
           business_type: 'food-beverage',
+        })
+      )
+    ).toBe('Foodflow | Order Fresh Food Online');
+  });
+
+  it('treats whitespace-only custom titles as missing', () => {
+    expect(
+      getStorefrontSeoTitle(
+        makeMerchant({
+          business_name: 'Foodflow',
+          business_type: 'food-beverage',
+          site_title: '   ',
         })
       )
     ).toBe('Foodflow | Order Fresh Food Online');
