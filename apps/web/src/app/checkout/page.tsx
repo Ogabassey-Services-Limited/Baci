@@ -1183,6 +1183,27 @@ function CheckoutPageContent() {
         );
       }
 
+      // B3 review fix (PR #1611): block order submission when no
+      // shipping quote is selected. Pre-fix this sent
+      // `shipping_provider: null + selected_quote_id: null`, which
+      // slips past the RPC's `provider != null AND quote_id IS NULL`
+      // guard (both null → guard doesn't fire) and persists a silent
+      // zero-shipping order. The `handleNext` guard at step 1 catches
+      // most cases, but a stale quote between step transitions (rates
+      // refresh, the previously-selected quote gets invalidated) can
+      // leave us here with `selectedShippingQuote = null`. Fail closed
+      // at the submit-time boundary too.
+      if (!selectedShippingQuote) {
+        toast({
+          variant: 'destructive',
+          title: 'Shipping Required',
+          description: 'Please select a shipping option to continue.',
+        });
+        setFormIsLoading(false);
+        setStep(1);
+        return;
+      }
+
       // Prepare order items
       const orderItems = buildCheckoutOrderItems(cart);
 

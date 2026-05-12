@@ -141,6 +141,82 @@ describe('handlePlaceOrder', () => {
         expect.objectContaining({ title: 'Incomplete Address' }),
       );
     });
+
+    // B3 review fix #2 (PR #1611): door delivery without ANY quote
+    // must NOT submit. Pre-fix the handler sent `shipping_provider:
+    // null + selected_quote_id: null`, which slipped past the RPC's
+    // `provider != null AND quote_id IS NULL` guard (both null →
+    // guard doesn't fire) and silently persisted a zero-shipping
+    // order. The RPC predicate alone can't tell legitimate pickup
+    // (no provider, no quote) from broken door-no-quote — the client
+    // is the right place to enforce.
+    it('shows error toast when door delivery has no selected quote at all', async () => {
+      const { toast } = await import('@/hooks/use-toast');
+      const opts = buildOpts({
+        deliveryMethod: 'door',
+        selectedQuoteId: '', // pristine: user never picked a quote
+        shippingQuotes: [
+          {
+            id: 'q-fresh',
+            provider: 'gigl',
+            serviceTier: 'standard',
+            carrierName: 'GIG Logistics',
+            displayName: 'Standard',
+            price: 2000,
+            estimatedDays: 3,
+            currency: 'NGN',
+          },
+        ],
+      });
+      await handlePlaceOrder(opts);
+
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Delivery option required' }),
+      );
+      // Critical: the order never reaches /api/orders. Pre-fix it would
+      // have POSTed `shipping_provider: null + selected_quote_id: null`
+      // and got back a silent 200 with zero shipping fee attached.
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(opts.isOrderInFlightRef.current).toBe(false);
+      expect(opts.setIsProcessing).toHaveBeenCalledWith(false);
+    });
+
+    // B3 review fix #1 (PR #1611): door delivery with a selectedQuoteId
+    // that no longer exists in `shippingQuotes` (rates refreshed or
+    // expired) must NOT fabricate a 'Standard' provider — the order
+    // would persist with a phony provider and dangling quote id,
+    // sneaking past the new RPC guard. The handler bails with a
+    // validation toast so the customer re-picks from fresh rates.
+    it('shows error toast when door delivery references a quote id that no longer resolves', async () => {
+      const { toast } = await import('@/hooks/use-toast');
+      const opts = buildOpts({
+        deliveryMethod: 'door',
+        selectedQuoteId: 'q-expired-and-refreshed',
+        // Quote list has a different id (e.g. user reopened the
+        // tab and rates were re-fetched, but the stored
+        // selectedQuoteId in their session is stale).
+        shippingQuotes: [
+          {
+            id: 'q-fresh',
+            provider: 'gigl',
+            serviceTier: 'standard',
+            carrierName: 'GIG Logistics',
+            displayName: 'Standard',
+            price: 2000,
+            estimatedDays: 3,
+            currency: 'NGN',
+          },
+        ],
+      });
+      await handlePlaceOrder(opts);
+
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Shipping rate expired' }),
+      );
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(opts.isOrderInFlightRef.current).toBe(false);
+      expect(opts.setIsProcessing).toHaveBeenCalledWith(false);
+    });
   });
 
   describe('Resumed Order Flow', () => {
