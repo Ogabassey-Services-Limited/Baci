@@ -1320,6 +1320,24 @@ export const CheckoutPage: React.FC = () => {
             items: orderItems,
             subtotal: cartTotal,
             shipping_fee: deliveryCost,
+            // B3.5 (Δ-31, Δ-34, Δ-39): pass the calculate-commerce
+            // VAT figure AND the gift-wrapping fee AND the client's
+            // expected total straight through to the API. No hidden
+            // fallback math — pre-B3.5 this body omitted `tax_amount`
+            // entirely so the RPC defaulted it to 0, the trigger
+            // later overwrote `orders.tax_amount` from order_items
+            // VAT, and `orders.total` was left stale: customer saw
+            // ₦X (with VAT) but the row recorded ₦X-without-VAT.
+            // The RPC enforces VAT itself (Δ-42) so any drift here
+            // surfaces as `tax_amount_mismatch` 4xx, not silent.
+            tax_amount: orderTotals?.taxAmount ?? 0,
+            tax_basis: 'exclusive',
+            gift_wrapping_fee: giftWrappingCost,
+            // Client-side total snapshot for the API's parity check
+            // (Δ-39). On ORDER_TOTAL_MISMATCH the caller re-renders
+            // the order summary so the user re-confirms.
+            expected_total: total,
+            client_total: total,
             payment_method: normalizedPaymentMethod,
             payment_status: 'unpaid',
             shipping_status: 'pending',

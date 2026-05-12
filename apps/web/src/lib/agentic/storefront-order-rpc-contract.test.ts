@@ -299,3 +299,195 @@ describe('agentic storefront order RPC contract — B3 shipping_quote_required',
     expect(merchantLookupIndex).toBeGreaterThan(shippingGuardIndex);
   });
 });
+
+// B3.5 (Δ-42, Δ-47, Δ-50): the RPC is the VAT enforcement boundary
+// because the storefront calls `create_storefront_order` via PostgREST
+// anon. The plan explicitly says we cannot revoke anon access without
+// breaking checkout, so the RPC must police itself. These contract
+// tests guard against future regressions that would let a VAT-aware
+// caller bypass the boundary.
+describe('agentic storefront order RPC contract — B3.5 VAT enforcement', () => {
+  it('adds p_tax_basis and p_gift_wrapping_fee params with safe defaults', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    // Defaults preserve back-compat for callers that haven't been
+    // updated yet (legacy /checkout) while VAT-aware callers
+    // (ogabassey) pass both explicitly.
+    expect(sql).toMatch(/p_tax_basis\s+TEXT\s+DEFAULT\s+'exclusive'/i);
+    expect(sql).toMatch(/p_gift_wrapping_fee\s+NUMERIC\s+DEFAULT\s+0/i);
+  });
+
+  it('validates tax_basis enum membership and raises invalid_tax_basis', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    // The default falls in the allowed set, but a typo'd caller
+    // (e.g., 'EXCLUSIVE' before lowercase) must surface a stable
+    // error code instead of a CHECK-constraint trap later.
+    expect(sql).toMatch(
+      /v_tax_basis\s+NOT\s+IN\s*\(\s*'exclusive'\s*,\s*'inclusive'\s*\)/i
+    );
+    expect(sql).toMatch(/RAISE EXCEPTION 'invalid_tax_basis'/i);
+  });
+
+  it('reads merchant VAT config once and uses the lookup result for tax enforcement', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    // Single SELECT into both vat_status + vat_rate keeps the
+    // enforcement decision atomic with the merchant's current
+    // config. Pre-B3.5 the trigger looked up vat_status separately
+    // and there was no atomicity between the RPC and trigger paths.
+    expect(sql).toMatch(
+      /SELECT[\s\S]*?m\.vat_registration_status[\s\S]*?m\.vat_rate[\s\S]*?INTO\s+v_merchant_vat_status,\s*v_merchant_vat_rate/i
+    );
+  });
+
+  it('enforces tax_amount_mismatch for VAT-registered + exclusive merchants', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    // The expected_tax formula MUST match the trigger's downstream
+    // VAT calculation. Both round to 2dp on (subtotal * vat_rate /
+    // 100). The ±1 NGN tolerance absorbs rounding drift between the
+    // client's calculate-commerce action layer and the RPC.
+    expect(sql).toMatch(
+      /v_expected_tax\s*:=\s*round\(\s*v_subtotal\s*\*\s*v_merchant_vat_rate\s*\/\s*100\s*,\s*2\s*\)/i
+    );
+    expect(sql).toMatch(
+      /ABS\(\s*v_tax_amount\s*-\s*v_expected_tax\s*\)\s*>\s*1/i
+    );
+    expect(sql).toMatch(/RAISE EXCEPTION 'tax_amount_mismatch'/i);
+  });
+
+  it('rejects nonzero tax for non-VAT merchants regardless of basis', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    // Non-registered merchants must charge no VAT — anything > 1
+    // NGN (rounding) is fail-closed so a bug in
+    // calculateCommerce can't accidentally collect non-existent
+    // tax that nobody is required (or allowed) to remit.
+    expect(sql).toMatch(
+      /RAISE EXCEPTION 'tax_amount_must_be_zero_for_non_vat_merchant'/i
+    );
+  });
+
+  it('recomputes total server-side per the matched basis (Δ-47)', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    // Exclusive: subtotal + shipping + gift + tax - discount.
+    // Inclusive: subtotal + shipping + gift - discount (tax already
+    // inside subtotal). NO p_total / p_subtotal params accepted —
+    // total is always derived from p_items.
+    expect(sql).not.toMatch(/p_subtotal\s+NUMERIC/i);
+    expect(sql).not.toMatch(/p_total\s+NUMERIC/i);
+
+    // Both basis branches must be present in the body.
+    expect(sql).toMatch(/v_tax_basis\s*=\s*'exclusive'/);
+    const exclusiveBranchIndex = sql.search(/v_tax_basis\s*=\s*'exclusive'/);
+    const inclusiveBlockMatch = sql
+      .slice(exclusiveBranchIndex)
+      .search(
+        /v_subtotal[\s\S]*?v_shipping_fee[\s\S]*?v_gift_wrapping_fee[\s\S]*?-\s*v_discount_amount/
+      );
+    expect(inclusiveBlockMatch).toBeGreaterThan(-1);
+  });
+
+  it('persists tax_basis and gift_wrapping_fee atomically with the order row', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    // Both new columns MUST land in the same INSERT INTO orders as
+    // tax_amount / total. A two-statement insert+update would
+    // re-open a partial-write window where trigger fires before
+    // tax_basis is populated → trigger reads NULL → falls back to
+    // pre-B3.5 behavior → total stays stale.
+    const insertBlockMatch = sql.match(
+      /INSERT\s+INTO\s+orders\s*\(([\s\S]*?)\)\s*VALUES\s*\(([\s\S]*?)\)/i
+    );
+    expect(insertBlockMatch).not.toBeNull();
+    if (insertBlockMatch) {
+      const columns = insertBlockMatch[1];
+      expect(columns).toMatch(/tax_basis/);
+      expect(columns).toMatch(/gift_wrapping_fee/);
+      expect(columns).toMatch(/tax_amount/);
+      expect(columns).toMatch(/\btotal\b/);
+    }
+  });
+
+  it('drops the old 19-arg signature and re-grants on the 21-arg one', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    // Adding 2 new params changes the function identity in
+    // PostgreSQL — `CREATE OR REPLACE` would leave a stale 19-arg
+    // overload alive that PostgREST callers could route to,
+    // bypassing the new VAT enforcement. The migration MUST DROP
+    // the old signature explicitly.
+    expect(sql).toMatch(
+      /DROP\s+FUNCTION\s+IF\s+EXISTS\s+public\.create_storefront_order/i
+    );
+
+    // The new signature must be re-granted to anon / authenticated
+    // / service_role since DROP wipes function grants.
+    expect(sql).toMatch(
+      /GRANT\s+ALL\s+ON\s+FUNCTION\s+public\.create_storefront_order[\s\S]*?\)\s*TO\s+anon/i
+    );
+    expect(sql).toMatch(
+      /GRANT\s+ALL\s+ON\s+FUNCTION\s+public\.create_storefront_order[\s\S]*?\)\s*TO\s+service_role/i
+    );
+  });
+});
+
+// B3.5 trigger contract: `update_order_tax_totals` MUST recompute
+// `orders.total` for `tax_basis = 'exclusive'` orders so a line-item
+// VAT update doesn't leave `tax_amount` and `total` inconsistent (the
+// Δ-31 root-cause behavior). For `tax_basis = 'inclusive'` orders the
+// trigger must leave `total` alone (tax is already inside subtotal).
+describe('update_order_tax_totals trigger contract — B3.5', () => {
+  function readLatestUpdateOrderTaxTotalsMigrationSql() {
+    return readLatestStorefrontOrderRpcMigrationSql();
+  }
+
+  it('reads order tax_basis + total components alongside merchant VAT status', () => {
+    const sql = readLatestUpdateOrderTaxTotalsMigrationSql();
+
+    // Single SELECT joins merchants and orders so the trigger has
+    // everything it needs to recompute total atomically — no
+    // second round-trip that could see a different snapshot.
+    expect(sql).toMatch(
+      /SELECT[\s\S]*?m\.vat_registration_status[\s\S]*?o\.tax_basis[\s\S]*?o\.subtotal[\s\S]*?o\.shipping_fee[\s\S]*?o\.gift_wrapping_fee[\s\S]*?o\.discount_amount[\s\S]*?INTO/i
+    );
+  });
+
+  it('recomputes total in the exclusive UPDATE alongside tax_amount + breakdown', () => {
+    const sql = readLatestUpdateOrderTaxTotalsMigrationSql();
+
+    // Locate the trigger's exclusive branch.
+    const exclusiveIndex = sql.indexOf("IF order_tax_basis = 'exclusive' THEN");
+    expect(exclusiveIndex).toBeGreaterThan(-1);
+
+    const elseIndex = sql.indexOf('ELSE', exclusiveIndex);
+    const exclusiveBlock = sql.slice(exclusiveIndex, elseIndex);
+
+    expect(exclusiveBlock).toMatch(/UPDATE orders/i);
+    expect(exclusiveBlock).toMatch(/tax_amount\s*=\s*new_tax_amount/i);
+    // Total recomputation MUST be inside the exclusive UPDATE
+    // statement, not a follow-up that could race.
+    expect(exclusiveBlock).toMatch(
+      /total\s*=\s*order_subtotal\s*\+\s*order_shipping_fee\s*\+\s*order_gift_wrapping_fee\s*\+\s*new_tax_amount\s*-\s*order_discount_amount/i
+    );
+  });
+
+  it('leaves total invariant for inclusive (and NULL) tax_basis orders', () => {
+    const sql = readLatestUpdateOrderTaxTotalsMigrationSql();
+
+    // The ELSE branch (which catches both 'inclusive' AND NULL
+    // tax_basis pre-backfill) must ONLY update breakdown columns —
+    // changing total here would silently rewrite historical
+    // inclusive orders the A0 backfill is still classifying.
+    const exclusiveIndex = sql.indexOf("IF order_tax_basis = 'exclusive' THEN");
+    const elseIndex = sql.indexOf('ELSE', exclusiveIndex);
+    const endIfIndex = sql.indexOf('END IF;', elseIndex);
+    const elseBlock = sql.slice(elseIndex, endIfIndex);
+
+    expect(elseBlock).toMatch(/UPDATE orders/i);
+    expect(elseBlock).toMatch(/tax_amount\s*=\s*new_tax_amount/i);
+    expect(elseBlock).not.toMatch(/\btotal\s*=/i);
+  });
+});

@@ -296,3 +296,158 @@ describe('POST /api/orders — wallet response shape', () => {
     expect(finalizeSpy).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('POST /api/orders — B3.5 client/server total parity', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: 'Not authenticated',
+      supabase: null,
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => buildMockSupabase() as unknown as never
+    );
+  });
+
+  it('accepts request when expected_total is within ₦1 of server-recomputed total', async () => {
+    // RPC mock returns total=1000; client passes expected_total=1000.
+    // Parity check must pass (no diff > ₦1).
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        expected_total: 1000,
+        client_total: 1000,
+      }),
+    });
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+  });
+
+  it('returns 409 ORDER_TOTAL_MISMATCH when expected_total drifts from server total', async () => {
+    // Default RPC mock returns total=1000; client claims 1500. This is
+    // the integration regression we want fail-loud: the customer was
+    // shown one figure but the server persisted another.
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        expected_total: 1500,
+        client_total: 1500,
+      }),
+    });
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe('ORDER_TOTAL_MISMATCH');
+    expect(body.details).toEqual({
+      client_expected: 1500,
+      server_computed: 1000,
+    });
+  });
+
+  it('skips parity check when expected_total is absent (legacy callers)', async () => {
+    // Pre-B3.5 callers don't send expected_total. They keep working —
+    // the RPC's VAT enforcement is the load-bearing boundary, not
+    // this client-side double-entry check.
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify(baseOrderPayload),
+    });
+    const response = await POST(request);
+    expect(response.status).toBe(201);
+  });
+});
+
+describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: 'Not authenticated',
+      supabase: null,
+    });
+  });
+
+  it('maps tax_amount_mismatch to 400 with structured details', async () => {
+    // Surface the RPC's RAISE EXCEPTION 'tax_amount_mismatch' to a
+    // 4xx so the storefront can re-render the order summary rather
+    // than treating it as a server fault.
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          create_storefront_order: {
+            data: null,
+            error: { code: 'P0001', message: 'tax_amount_mismatch' },
+          },
+        }) as unknown as never
+    );
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        tax_amount: 0,
+      }),
+    });
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Failed to create order');
+    expect(body.details).toContain('tax_amount_mismatch');
+  });
+
+  it('maps tax_amount_must_be_zero_for_non_vat_merchant to 400', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          create_storefront_order: {
+            data: null,
+            error: {
+              code: 'P0001',
+              message: 'tax_amount_must_be_zero_for_non_vat_merchant',
+            },
+          },
+        }) as unknown as never
+    );
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        tax_amount: 75,
+      }),
+    });
+    const response = await POST(request);
+    expect(response.status).toBe(400);
+  });
+
+  it('maps invalid_tax_basis to 400', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          create_storefront_order: {
+            data: null,
+            error: { code: 'P0001', message: 'invalid_tax_basis' },
+          },
+        }) as unknown as never
+    );
+
+    // Zod would normally catch this before the RPC call — this test
+    // pins the route-level mapping in case a future schema change
+    // widens the enum and the RPC becomes the only line of defense.
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify(baseOrderPayload),
+    });
+    const response = await POST(request);
+    expect(response.status).toBe(400);
+  });
+});

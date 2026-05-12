@@ -55,6 +55,8 @@ describe('handlePlaceOrder', () => {
     cartTotal: 10000,
     deliveryCost: 2000,
     total: 12000,
+    taxAmount: 0,
+    giftWrappingCost: 0,
     selectedQuoteId: 'q1',
     shippingQuotes: [
       {

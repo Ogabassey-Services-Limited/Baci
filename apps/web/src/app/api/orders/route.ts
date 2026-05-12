@@ -237,11 +237,19 @@ export async function POST(request: NextRequest) {
       (body.discount_amount || 0).toString()
     );
     const taxAmountValue = Number.parseFloat((body.tax_amount || 0).toString());
+    // B3.5 (Δ-39): gift_wrapping_fee + tax_basis are now first-class
+    // RPC params. Zod defaults gift_wrapping_fee to 0 and tax_basis to
+    // 'exclusive', so legacy callers continue to work; VAT-aware
+    // storefront callers pass both explicitly.
+    const giftWrappingFeeValue = Number.parseFloat(
+      (body.gift_wrapping_fee || 0).toString()
+    );
 
     if (
       Number.isNaN(shippingFeeValue) ||
       Number.isNaN(discountAmountValue) ||
-      Number.isNaN(taxAmountValue)
+      Number.isNaN(taxAmountValue) ||
+      Number.isNaN(giftWrappingFeeValue)
     ) {
       return NextResponse.json(
         { error: 'Invalid pricing values' },
@@ -315,6 +323,11 @@ export async function POST(request: NextRequest) {
         p_shipping_provider: resolvedShippingProvider,
         p_tracking_number: resolvedTrackingNumber || null,
         p_user_id: resolvedUserId,
+        // B3.5 (Δ-42, Δ-47): tax_basis + gift_wrapping_fee. The RPC
+        // enforces VAT itself for VAT-registered merchants; the API
+        // does an additional parity check on `expected_total` below.
+        p_tax_basis: body.tax_basis,
+        p_gift_wrapping_fee: giftWrappingFeeValue,
       }
     );
 
@@ -345,6 +358,15 @@ export async function POST(request: NextRequest) {
         // without a quote id. Map to 4xx so the client gets the right
         // re-quote signal instead of a generic 500.
         'shipping_quote_required',
+        // B3.5 (Δ-42, Δ-47): RPC raises when the client-supplied
+        // VAT/total/gift-wrap inputs violate merchant VAT config.
+        // All client-side input errors → 400 so the storefront can
+        // re-quote / re-render the order summary cleanly instead of
+        // bouncing the user with a generic 500.
+        'invalid_tax_basis',
+        'tax_amount_mismatch',
+        'tax_amount_must_be_zero_for_non_vat_merchant',
+        'gift_wrapping_fee_negative',
         '22P02', // PostgreSQL: Invalid text representation (e.g. invalid UUID format)
       ];
       // create_storefront_order should return { message, code } for client errors.
@@ -362,6 +384,41 @@ export async function POST(request: NextRequest) {
     const orderShippingFee = Number(order.shipping_fee ?? shippingFeeValue);
     const customer_id = order.customer_id || null;
     const orderNum = order.order_number || order.id.slice(0, 8).toUpperCase();
+
+    // B3.5 (Δ-39): client-vs-server total parity guard. The RPC is the
+    // source of truth, but if the client locally computed an
+    // `expected_total` that disagrees with what the server persisted
+    // by more than ₦1, surface a structured 4xx so the storefront can
+    // re-render the order summary instead of silently charging a
+    // different amount than was displayed. This catches integration
+    // bugs in the calculate-commerce action layer, stale carts under
+    // discount/voucher changes, and any future RPC math drift. We
+    // run this AFTER the row is persisted because the order is
+    // already correct server-side — the parity check is purely a
+    // signal back to the UI; the caller MUST re-confirm.
+    const expectedTotal =
+      typeof body.expected_total === 'number' ? body.expected_total : null;
+    if (expectedTotal !== null && Math.abs(orderTotal - expectedTotal) > 1) {
+      logger.warn({
+        message: 'Order total mismatch between client and server',
+        clientExpectedTotal: expectedTotal,
+        clientReportedTotal: body.client_total,
+        merchantId: merchant_id,
+        orderId: order.id,
+        serverComputedTotal: orderTotal,
+      });
+      return NextResponse.json(
+        {
+          code: 'ORDER_TOTAL_MISMATCH',
+          details: {
+            client_expected: expectedTotal,
+            server_computed: orderTotal,
+          },
+          error: 'Order total mismatch',
+        },
+        { status: 409 }
+      );
+    }
 
     // === WALLET REDEMPTION (2025 Best Practice: Auto-apply at checkout) ===
     // Process wallet credit redemption atomically after order creation
