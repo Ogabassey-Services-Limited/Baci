@@ -137,6 +137,17 @@ describe('getStorefrontSeoDescription', () => {
     ).toBe('Custom store description.');
   });
 
+  it('removes dangerous HTML from custom descriptions before returning metadata', () => {
+    expect(
+      getStorefrontSeoDescription(
+        makeMerchant({
+          site_description:
+            '<script src="https://example.com/xss.js"></script>Store description',
+        })
+      )
+    ).toBe('Store description');
+  });
+
   it('sanitizes merchant names when composing default descriptions', () => {
     expect(
       getStorefrontSeoDescription(
@@ -146,6 +157,20 @@ describe('getStorefrontSeoDescription', () => {
         })
       )
     ).toBe('Shop Foodflow - order fresh food online with secure checkout.');
+  });
+
+  it('removes dangerous HTML attributes from merchant names in default descriptions', () => {
+    const description = getStorefrontSeoDescription(
+      makeMerchant({
+        business_name: '<img src=x onerror="alert(1)">Store',
+        business_type: 'food-beverage',
+      })
+    );
+
+    expect(description).toBe(
+      'Shop Store - order fresh food online with secure checkout.'
+    );
+    expect(description).not.toContain('onerror');
   });
 
   it('composes an industry-aware description including the merchant country', () => {

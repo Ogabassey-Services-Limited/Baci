@@ -302,10 +302,14 @@ function createPreviewResetKey(params: {
   brandColors: BrandColors;
   dataSignature: string;
 }): string {
+  const logoSignature = params.logoDataUri
+    ? `${params.logoDataUri.length}:${params.logoDataUri.slice(0, 20)}:${params.logoDataUri.slice(-20)}`
+    : '';
+
   return JSON.stringify({
     businessName: params.businessName,
     businessType: params.businessType,
-    logoDataUri: params.logoDataUri ?? '',
+    logoSignature,
     brandColors: params.brandColors,
     dataSignature: params.dataSignature,
   });

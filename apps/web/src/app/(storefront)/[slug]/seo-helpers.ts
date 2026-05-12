@@ -1,6 +1,8 @@
 import type { CachedMerchant } from '@/lib/cached-data';
 import { sanitizeText } from '@/lib/sanitize-core';
 
+const DEFAULT_STORE_NAME = 'Store';
+
 /**
  * Pure SEO helpers for the storefront `[slug]` layout.
  *
@@ -110,7 +112,8 @@ export function getStorefrontSeoDescription(
 ): string {
   const customDescription = cleanSeoField(merchant.site_description);
   const customTagline = cleanSeoField(merchant.site_tagline);
-  const businessName = cleanSeoField(merchant.business_name) || 'Store';
+  const businessName =
+    cleanSeoField(merchant.business_name) || DEFAULT_STORE_NAME;
 
   if (customDescription || customTagline) {
     return customDescription || customTagline || '';
@@ -132,7 +135,8 @@ export function getStorefrontSeoTitle(merchant: StorefrontSeoMerchant): string {
     return customTitle;
   }
 
-  const businessName = cleanSeoField(merchant.business_name) || 'Store';
+  const businessName =
+    cleanSeoField(merchant.business_name) || DEFAULT_STORE_NAME;
 
   return `${businessName} | ${getStorefrontSeoTagline(merchant.business_type)}`;
 }

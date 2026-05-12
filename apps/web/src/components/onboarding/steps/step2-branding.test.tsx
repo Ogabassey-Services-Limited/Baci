@@ -568,10 +568,9 @@ describe('Step2_Branding', () => {
         })
       );
     });
-    expect(mockToast).not.toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: 'Brand colors extracted!',
-      })
-    );
+    expect(mockToast.mock.calls.map(([toastCall]) => toastCall.title)).toEqual([
+      'Designing your logo...',
+      'Logo Generated!',
+    ]);
   });
 });
