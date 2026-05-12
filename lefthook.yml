@@ -17,12 +17,17 @@ pre-push:
     test:
       run: pnpm turbo test
     behind-base:
-      # Block the push when the branch's base has commits not in HEAD.
-      # Catches the BEHIND-branch silent-revert failure mode where a
-      # squash-merge of a stale branch silently reverts overlapping
-      # changes from peer PRs merged in the meantime.
+      # Block the push when ANY pushed branch is behind its base. Reads
+      # git's pre-push stdin protocol (`<local_ref> <local_sha> <remote_ref>
+      # <remote_sha>` per line) so we check the actual refs being pushed,
+      # NOT the currently checked-out HEAD. This matters because
+      # `git push origin feature-x` while sitting on `main` would
+      # otherwise short-circuit on the main check and bypass the guard
+      # entirely. Catches the BEHIND-branch silent-revert failure mode
+      # where a squash-merge of a stale branch silently reverts
+      # overlapping changes from peer PRs merged in the meantime.
       #
-      # Base-resolution order:
+      # Base-resolution order (per pushed branch):
       #   1) per-branch override:  git config branch.<name>.base origin/<ref>
       #      (use for stacked PRs or branches off a non-default base)
       #   2) origin/HEAD symbolic ref (the actual repo default — works
@@ -33,33 +38,56 @@ pre-push:
       #   - Set `branch.<name>.base` once and the hook tracks it forever.
       #   - Genuine emergency: `git push --no-verify`.
       run: |
-        current=$(git rev-parse --abbrev-ref HEAD)
-        case "$current" in main|master) exit 0;; esac
+        # Skip when no real push is happening (e.g., `lefthook run
+        # pre-push` from a terminal). Git always pipes ref data on
+        # stdin for an actual push, so a terminal-attached stdin
+        # means we're in a smoke-test invocation.
+        if [ -t 0 ]; then exit 0; fi
 
-        base=$(git config "branch.$current.base" 2>/dev/null || true)
-        if [ -z "$base" ]; then
-          default=$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')
-          base="origin/${default:-main}"
-        fi
+        ZERO=0000000000000000000000000000000000000000
+        fail=0
+        while IFS=' ' read -r local_ref local_sha _remote_ref _remote_sha; do
+          # Skip ref deletions
+          [ "$local_sha" = "$ZERO" ] && continue
 
-        base_ref=${base#origin/}
-        git fetch -q origin "$base_ref" || {
-          echo "⚠️  Couldn't fetch $base — skipping behind-base check (offline?)."
-          exit 0
-        }
+          # Only check branch refs (refs/heads/*) — skip tags, notes, etc.
+          case "$local_ref" in
+            refs/heads/*) branch="${local_ref#refs/heads/}";;
+            *) continue;;
+          esac
 
-        behind=$(git rev-list --count "HEAD..$base")
-        if [ "$behind" -gt 0 ]; then
-          echo ""
-          echo "❌ Branch '$current' is $behind commit(s) behind $base."
-          echo "   Run one of:"
-          echo "     git merge $base"
-          echo "     git rebase $base"
-          echo "   then push again."
-          echo ""
-          echo "   Branched off a non-default base? Set it once:"
-          echo "     git config branch.$current.base origin/<your-base>"
-          echo ""
-          echo "   To override (emergency): git push --no-verify"
-          exit 1
-        fi
+          # The default branch is its own base.
+          case "$branch" in main|master) continue;; esac
+
+          base=$(git config "branch.$branch.base" 2>/dev/null || true)
+          if [ -z "$base" ]; then
+            default=$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')
+            base="origin/${default:-main}"
+          fi
+
+          base_ref=${base#origin/}
+          if ! git fetch -q origin "$base_ref" 2>/dev/null; then
+            echo "⚠️  Couldn't fetch $base for '$branch' — skipping behind-base check (offline?)."
+            continue
+          fi
+
+          # Count commits in $base not reachable from the SHA being
+          # pushed — NOT from HEAD, so cross-branch pushes work.
+          behind=$(git rev-list --count "$local_sha..$base")
+          if [ "$behind" -gt 0 ]; then
+            echo ""
+            echo "❌ Branch '$branch' is $behind commit(s) behind $base."
+            echo "   Run one of:"
+            echo "     git merge $base"
+            echo "     git rebase $base"
+            echo "   then push again."
+            echo ""
+            echo "   Branched off a non-default base? Set it once:"
+            echo "     git config branch.$branch.base origin/<your-base>"
+            echo ""
+            echo "   To override (emergency): git push --no-verify"
+            fail=1
+          fi
+        done
+
+        exit $fail
