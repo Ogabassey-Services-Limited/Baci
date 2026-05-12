@@ -1,4 +1,5 @@
 import type { CachedMerchant } from '@/lib/cached-data';
+import { sanitizeText } from '@/lib/sanitize-core';
 
 /**
  * Pure SEO helpers for the storefront `[slug]` layout.
@@ -56,7 +57,9 @@ export function getStorefrontCountryDisplayName(
 export function normalizeStorefrontBusinessType(
   businessType?: string | null
 ): string {
-  switch (businessType) {
+  const normalized = businessType?.trim().toLowerCase();
+
+  switch (normalized) {
     case 'food-beverage':
       return 'food';
     case 'pharmaceuticals':
@@ -68,7 +71,7 @@ export function normalizeStorefrontBusinessType(
     case 'home-goods':
       return 'home';
     default:
-      return businessType || 'general';
+      return normalized || 'general';
   }
 }
 
@@ -97,7 +100,9 @@ export function getStorefrontSeoTagline(businessType?: string | null): string {
 
 function cleanSeoField(value?: string | null): string | null {
   const normalized = value?.trim();
-  return normalized || null;
+  if (!normalized) return null;
+
+  return sanitizeText(normalized) || null;
 }
 
 export function getStorefrontSeoDescription(
@@ -105,6 +110,7 @@ export function getStorefrontSeoDescription(
 ): string {
   const customDescription = cleanSeoField(merchant.site_description);
   const customTagline = cleanSeoField(merchant.site_tagline);
+  const businessName = cleanSeoField(merchant.business_name) || 'Store';
 
   if (customDescription || customTagline) {
     return customDescription || customTagline || '';
@@ -113,7 +119,7 @@ export function getStorefrontSeoDescription(
   const tagline = getStorefrontSeoTagline(merchant.business_type).toLowerCase();
   const countryName = getStorefrontCountryDisplayName(merchant.country);
   const suffix = countryName ? ` in ${countryName}` : '';
-  return `Shop ${merchant.business_name} - ${tagline} with secure checkout${suffix}.`;
+  return `Shop ${businessName} - ${tagline} with secure checkout${suffix}.`;
 }
 
 export function getStorefrontSeoTitle(merchant: StorefrontSeoMerchant): string {
@@ -126,7 +132,7 @@ export function getStorefrontSeoTitle(merchant: StorefrontSeoMerchant): string {
     return customTitle;
   }
 
-  return `${merchant.business_name} | ${getStorefrontSeoTagline(
-    merchant.business_type
-  )}`;
+  const businessName = cleanSeoField(merchant.business_name) || 'Store';
+
+  return `${businessName} | ${getStorefrontSeoTagline(merchant.business_type)}`;
 }

@@ -533,6 +533,12 @@ describe('Step2_Branding', () => {
       JSON.parse(screen.getByTestId('brand-colors').textContent || '{}')
     ).toEqual(fallbackColors);
     expect(mockExtractBrandColorsFromImage).not.toHaveBeenCalled();
+    expect(mockToast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Logo Generated!',
+        description: "We've applied AI-generated brand colors.",
+      })
+    );
   });
 
   it('describes color extraction when a generated logo has no brand colors', async () => {

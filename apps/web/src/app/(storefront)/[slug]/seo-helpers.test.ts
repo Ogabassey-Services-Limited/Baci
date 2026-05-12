@@ -34,6 +34,13 @@ describe('normalizeStorefrontBusinessType', () => {
     expect(normalizeStorefrontBusinessType(input)).toBe(expected);
   });
 
+  it('normalizes whitespace and casing before mapping business types', () => {
+    expect(normalizeStorefrontBusinessType(' Electronics ')).toBe(
+      'electronics'
+    );
+    expect(normalizeStorefrontBusinessType('PHARMACEUTICALS')).toBe('pharmacy');
+  });
+
   it('returns the input verbatim for unknown business types', () => {
     expect(normalizeStorefrontBusinessType('handmade')).toBe('handmade');
     expect(normalizeStorefrontBusinessType('fashion')).toBe('fashion');
@@ -115,6 +122,27 @@ describe('getStorefrontSeoDescription', () => {
           business_type: 'food-beverage',
           site_description: '   ',
           site_tagline: '   ',
+        })
+      )
+    ).toBe('Shop Foodflow - order fresh food online with secure checkout.');
+  });
+
+  it('sanitizes custom description fields before returning metadata', () => {
+    expect(
+      getStorefrontSeoDescription(
+        makeMerchant({
+          site_description: '  <strong>Custom</strong> store description.  ',
+        })
+      )
+    ).toBe('Custom store description.');
+  });
+
+  it('sanitizes merchant names when composing default descriptions', () => {
+    expect(
+      getStorefrontSeoDescription(
+        makeMerchant({
+          business_name: ' <strong>Foodflow</strong> ',
+          business_type: 'food-beverage',
         })
       )
     ).toBe('Shop Foodflow - order fresh food online with secure checkout.');
@@ -233,6 +261,16 @@ describe('getStorefrontSeoTitle', () => {
         })
       )
     ).toBe('Foodflow | Order Fresh Food Online');
+  });
+
+  it('sanitizes custom titles before returning metadata', () => {
+    expect(
+      getStorefrontSeoTitle(
+        makeMerchant({
+          site_title: '<strong>Foodflow Deals</strong>',
+        })
+      )
+    ).toBe('Foodflow Deals');
   });
 });
 

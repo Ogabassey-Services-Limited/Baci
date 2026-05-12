@@ -299,7 +299,7 @@ export default function Step2_Branding() {
         toast({
           title: 'Logo Generated!',
           description: hasGeneratedBrandColors
-            ? "We've also extracted your brand colors."
+            ? "We've applied AI-generated brand colors."
             : 'We extracted colors from your logo where possible. You can fine-tune them below.',
         });
       } else {

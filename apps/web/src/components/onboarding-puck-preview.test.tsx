@@ -4,6 +4,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // --- Module Mocks (hoisted before all imports) ---
 
+const mockPuckRenderState = vi.hoisted(() => ({
+  errorMessage: null as string | null,
+}));
+
 vi.mock('@/lib/initial-template-generator', () => ({
   deriveThemeFromColors: vi.fn(() => ({
     colors: {
@@ -52,9 +56,13 @@ vi.mock('@/lib/initial-template-generator', () => ({
 }));
 
 vi.mock('@puckeditor/core', () => ({
-  Render: ({ data }: { data: unknown }) => (
-    <div data-testid="puck-render">{JSON.stringify(data)}</div>
-  ),
+  Render: ({ data }: { data: unknown }) => {
+    if (mockPuckRenderState.errorMessage) {
+      throw new Error(mockPuckRenderState.errorMessage);
+    }
+
+    return <div data-testid="puck-render">{JSON.stringify(data)}</div>;
+  },
 }));
 
 vi.mock('@/components/builder/config', () => ({
@@ -114,6 +122,7 @@ const mockGenerateFeatures = vi.mocked(generateFeatures);
 describe('OnboardingPuckPreview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPuckRenderState.errorMessage = null;
 
     // Setup default mock implementations
     mockGenerateHeroSlides.mockResolvedValue([
@@ -567,9 +576,13 @@ describe('OnboardingPuckPreview', () => {
     ).toHaveAttribute('data-merchant-id', 'preview-merchant-id');
   });
 
-  it('error boundary catches merchant context errors', () => {
-    // This tests the PreviewErrorBoundary component
-    // Since it only catches specific errors, we'll just ensure it renders children normally
+  it('shows preview fallback when cart context errors during render', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockPuckRenderState.errorMessage =
+      'useCart must be used within a CartProvider';
+
     render(
       <OnboardingPuckPreview
         businessName="Test Store"
@@ -583,9 +596,71 @@ describe('OnboardingPuckPreview', () => {
       />
     );
 
-    // Should render without throwing
     expect(
-      screen.getByText(/your store preview will appear here/i)
+      await screen.findByText(/preview temporarily unavailable/i)
     ).toBeInTheDocument();
+    expect(screen.queryByTestId('puck-render')).not.toBeInTheDocument();
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('resets the preview error boundary when preview inputs change', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const externalData = {
+      content: [
+        {
+          type: 'Header',
+          props: { id: 'external-header', storeName: 'External Store' },
+        },
+      ],
+      root: { props: { title: 'External' } },
+      zones: {},
+    };
+
+    mockPuckRenderState.errorMessage =
+      'useCart must be used within a CartProvider';
+    const { rerender } = render(
+      <OnboardingPuckPreview
+        businessName="Broken Store"
+        businessType="fashion"
+        logoDataUri="data:image/png;base64,test"
+        brandColors={{
+          primary: '#000000',
+          background: '#FFFFFF',
+          accent: '#FF0000',
+        }}
+        data={externalData}
+      />
+    );
+
+    expect(
+      await screen.findByText(/preview temporarily unavailable/i)
+    ).toBeInTheDocument();
+
+    mockPuckRenderState.errorMessage = null;
+    rerender(
+      <OnboardingPuckPreview
+        businessName="Recovered Store"
+        businessType="fashion"
+        logoDataUri="data:image/png;base64,test"
+        brandColors={{
+          primary: '#000000',
+          background: '#FFFFFF',
+          accent: '#FF0000',
+        }}
+        data={externalData}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('puck-render')).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByText(/preview temporarily unavailable/i)
+    ).not.toBeInTheDocument();
+
+    consoleErrorSpy.mockRestore();
   });
 });

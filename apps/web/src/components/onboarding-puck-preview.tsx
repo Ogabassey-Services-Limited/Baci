@@ -31,10 +31,10 @@ const PREVIEW_MERCHANT_ID = 'preview-merchant-id';
  * Error Boundary to catch merchant context errors
  */
 class PreviewErrorBoundary extends Component<
-  { children: ReactNode },
+  { children: ReactNode; resetKey: string },
   { hasError: boolean }
 > {
-  constructor(props: { children: ReactNode }) {
+  constructor(props: { children: ReactNode; resetKey: string }) {
     super(props);
     this.state = { hasError: false };
   }
@@ -51,6 +51,12 @@ class PreviewErrorBoundary extends Component<
 
     if (!isPreviewContextError) {
       throw error;
+    }
+  }
+
+  componentDidUpdate(prevProps: { resetKey: string }) {
+    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false });
     }
   }
 
@@ -284,6 +290,22 @@ async function generatePreviewTemplate(params: {
   return config;
 }
 
+function createPreviewResetKey(params: {
+  businessName: string;
+  businessType: string;
+  logoDataUri?: string;
+  brandColors: BrandColors;
+  data: Data;
+}): string {
+  return JSON.stringify({
+    businessName: params.businessName,
+    businessType: params.businessType,
+    logoDataUri: params.logoDataUri ?? '',
+    brandColors: params.brandColors,
+    data: params.data,
+  });
+}
+
 export function OnboardingPuckPreview({
   businessName,
   businessType,
@@ -364,6 +386,14 @@ export function OnboardingPuckPreview({
     );
   }
 
+  const previewResetKey = createPreviewResetKey({
+    businessName,
+    businessType,
+    logoDataUri,
+    brandColors,
+    data: patchedPuckData,
+  });
+
   // Full Screen Modal for Expanded View
   if (isExpanded) {
     return (
@@ -415,7 +445,7 @@ export function OnboardingPuckPreview({
           {/* Scrollable Content Area */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <div className="min-h-full" style={themeStyles}>
-              <PreviewErrorBoundary>
+              <PreviewErrorBoundary resetKey={previewResetKey}>
                 <MerchantProvider
                   initialMerchant={
                     {
@@ -515,7 +545,7 @@ export function OnboardingPuckPreview({
             ...themeStyles,
           }}
         >
-          <PreviewErrorBoundary>
+          <PreviewErrorBoundary resetKey={previewResetKey}>
             <MerchantProvider
               initialMerchant={
                 {
