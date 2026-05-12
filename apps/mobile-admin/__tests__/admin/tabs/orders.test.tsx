@@ -187,7 +187,9 @@ vi.mock('@/utils/date-utils', () => ({
 }));
 
 vi.mock('@/utils/export-orders', () => ({
-  exportOrdersRPC: vi.fn(),
+  orderExportTools: {
+    exportOrdersRPC: vi.fn(),
+  },
 }));
 
 import OrdersScreen from '../../../app/(admin)/(tabs)/orders';
