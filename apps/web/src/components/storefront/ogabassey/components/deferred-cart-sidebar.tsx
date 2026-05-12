@@ -2,6 +2,7 @@
 
 import type { ComponentType } from 'react';
 import { useEffect, useState } from 'react';
+import { loadCartSidebar } from '@/components/storefront/ogabassey/components/load-cart-sidebar';
 import { useCartSafe } from '@/hooks/cart';
 
 type CartSidebarComponent = ComponentType;
@@ -16,13 +17,29 @@ function CartSidebarLoading() {
   );
 }
 
-function CartSidebarError({ onRetry }: { onRetry: () => void }) {
+function CartSidebarError({
+  onDismiss,
+  onRetry,
+}: {
+  onDismiss: () => void;
+  onRetry: () => void;
+}) {
+  // `role="alert"` already implies `aria-live="assertive"`. Setting an
+  // explicit `aria-live="polite"` would conflict with the role's implicit
+  // semantics, so we omit it.
   return (
     <div
-      aria-live="polite"
       className="fixed inset-y-0 right-0 z-[60] flex w-screen max-w-md flex-col justify-center gap-4 bg-[var(--store-background)] p-6 shadow-2xl"
       role="alert"
     >
+      <button
+        aria-label="Close cart"
+        className="absolute right-4 top-4 min-h-10 rounded-full border border-[var(--store-border)] px-4 py-2 text-sm font-semibold text-[var(--store-background-text)]"
+        onClick={onDismiss}
+        type="button"
+      >
+        Close
+      </button>
       <p className="text-sm font-medium text-[var(--store-background-text)]">
         Unable to load cart.
       </p>
@@ -62,10 +79,10 @@ export function DeferredCartSidebar() {
 
     let cancelled = false;
 
-    void import('@/components/storefront/ogabassey/components/CartSidebar')
-      .then((mod) => {
+    void loadCartSidebar()
+      .then((LoadedCartSidebar) => {
         if (!cancelled) {
-          setCartSidebar(() => mod.CartSidebar);
+          setCartSidebar(() => LoadedCartSidebar);
           setLoadError(false);
         }
       })
@@ -88,7 +105,15 @@ export function DeferredCartSidebar() {
   if (loadError) {
     return (
       <CartSidebarError
+        onDismiss={() => {
+          setLoadError(false);
+          cart?.setIsCartOpen(false);
+        }}
         onRetry={() => {
+          // Clear the error synchronously so the loading shell renders on the
+          // next paint instead of letting the error UI flash for an extra
+          // render cycle while waiting for the effect to clear it.
+          setLoadError(false);
           setLoadAttempt((attempt) => attempt + 1);
         }}
       />
