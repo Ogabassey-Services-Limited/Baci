@@ -16,7 +16,7 @@ vi.mock('@/hooks/cart', () => ({
   })),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: vi.fn(() => ({
     merchant: {
       id: 'merchant-1',
@@ -134,7 +134,7 @@ vi.mock('../components/MobileCheckoutComponents', () => ({
 import { CheckoutPage } from './checkout-page';
 import { useSearchParams } from 'next/navigation';
 import { useCart } from '@/hooks/cart';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { usePersistedState } from '@/hooks/use-persisted-state';
 
 describe('CheckoutPage', () => {

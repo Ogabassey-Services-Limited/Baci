@@ -15,7 +15,7 @@ import { useCart } from '@/hooks/use-cart';
 import { useStorefrontSafe } from '@/contexts/storefront-context';
 import { cn } from '@/lib/utils';
 import { asRoute } from '@/lib/routes';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { Logo } from '@/components/logo';
 import { MobileMenu } from './mobile-menu';
 import { SourceRequestModal } from './source-request-modal';

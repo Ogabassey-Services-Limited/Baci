@@ -21,7 +21,7 @@ import {
   type SavedAddress,
   useCustomerAuth,
 } from '@/contexts/customer-auth-context';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
 import { normalizeSavedAddresses } from '@/lib/saved-addresses';

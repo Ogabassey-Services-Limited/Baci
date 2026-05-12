@@ -18,7 +18,7 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: () => ({
     updateMerchant: mockUpdateMerchant,
   }),

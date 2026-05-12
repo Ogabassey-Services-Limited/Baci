@@ -7,7 +7,7 @@ import {
   useEffect,
   useState,
 } from 'react';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { createClient } from '@/lib/supabase/client';
 import {
   AD_PLACEMENTS,

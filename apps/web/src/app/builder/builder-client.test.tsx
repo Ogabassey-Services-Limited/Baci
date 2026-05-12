@@ -115,7 +115,7 @@ vi.mock('@/contexts/auth-context', () => ({
   }),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: () => ({
     merchant: { id: 'merchant-1', slug: 'test-store' },
     loading: false,

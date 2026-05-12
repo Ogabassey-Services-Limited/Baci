@@ -65,7 +65,7 @@ vi.mock('@/lib/logger', () => ({
 
 // Mock useMerchant
 const mockUpdateMerchant = vi.fn();
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: () => ({ updateMerchant: mockUpdateMerchant }),
 }));
 

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { ThemedButton } from '@/components/themed';
 import { Button } from '@/components/ui/button';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { updateConsentMode } from '@/lib/consent-mode';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';

@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { formatDisplayCurrency } from '@/lib/format-display-currency';
 import { asRoute } from '@/lib/routes';
 import { normalizeShippingStatus } from '@/lib/storefront-account-document-data';

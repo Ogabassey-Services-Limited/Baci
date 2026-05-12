@@ -25,7 +25,7 @@ vi.mock('next/dynamic', async () => {
   };
 });
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: () => ({ basePath: '/ogabassey' }),
 }));
 

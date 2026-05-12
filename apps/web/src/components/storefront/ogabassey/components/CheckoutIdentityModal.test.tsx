@@ -16,7 +16,7 @@ vi.mock('@/lib/supabase/client', () => ({
     },
   })),
 }));
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: vi.fn(() => ({
     merchant: { id: 'm-1', slug: 'test-store' },
   })),

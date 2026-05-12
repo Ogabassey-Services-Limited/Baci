@@ -7,7 +7,7 @@ import { AnalyticsProvider } from '@/components/analytics/analytics-provider';
 import type { V2ThemeMode } from '@/components/storefront/ogabassey/providers/v2-theme-context';
 import { Button } from '@/components/ui/button';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import type { Product } from '@/lib/products';
 import {
   getTemplate,
