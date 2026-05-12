@@ -137,20 +137,24 @@ function buildShippingAddress(opts: PlaceOrderOptions) {
   };
 }
 
+// B3 (plan §5 B3): only return a non-null third-party shipping provider
+// when delivery is via a quoted carrier (door). Pickup and airport are
+// delivery-method labels, not third-party shipping providers — sending
+// 'Pickup'/'Airport' as `shipping_provider` would trip the RPC's new
+// `shipping_quote_required` guard. Returning null lets the RPC bypass
+// the guard for these flows.
 function getShippingProvider(
   deliveryMethod: string,
   selectedQuoteId: string,
   shippingQuotes: ShippingQuote[],
-): string {
+): string | null {
   if (deliveryMethod === 'door' && selectedQuoteId) {
     const quote = shippingQuotes.find(
       (q) => String(q.id) === String(selectedQuoteId),
     );
     return quote?.provider || 'Standard';
   }
-  if (deliveryMethod === 'pickup') return 'Pickup';
-  if (deliveryMethod === 'airport') return 'Airport';
-  return 'Standard';
+  return null;
 }
 
 export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {

@@ -416,7 +416,32 @@ describe('handlePlaceOrder', () => {
 
       const fetchBody = JSON.parse(mockFetch.mock.calls[0][1].body);
       expect(fetchBody.shipping_address.address).toBe('Pickup at Store');
-      expect(fetchBody.shipping_provider).toBe('Pickup');
+      // B3 (plan §5 B3): pickup is a delivery-method label, not a
+      // third-party shipping provider. Sending 'Pickup' would trip the
+      // RPC's `shipping_quote_required` guard. The handler now sends
+      // `shipping_provider: null` for pickup; the delivery method is
+      // carried by `shipping_address.address: 'Pickup at Store'`.
+      expect(fetchBody.shipping_provider).toBeNull();
+    });
+
+    it('omits shipping_provider for airport delivery (B3 — delivery-method labels are not providers)', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          order: { id: 'order-ap' },
+          wallet: null,
+          amountDueToGateway: 5000,
+        }),
+      });
+
+      const opts = buildOpts({
+        paymentMethod: 'invoice',
+        deliveryMethod: 'airport',
+      });
+      await handlePlaceOrder(opts);
+
+      const fetchBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(fetchBody.shipping_provider).toBeNull();
     });
   });
 

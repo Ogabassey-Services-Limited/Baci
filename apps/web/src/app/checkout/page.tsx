@@ -1213,9 +1213,16 @@ function CheckoutPageContent() {
           state: data.state,
         },
         source: 'online_store',
-        // Use selected shipping provider or fallback to GIGL
-        shipping_provider: selectedShippingQuote?.provider || 'GIGL',
-        selected_quote_id: selectedShippingQuote?.id,
+        // B3 (plan §5 B3): no silent fallback to 'GIGL' — if there's
+        // no selected quote, send shipping_provider: null so the RPC's
+        // `shipping_quote_required` guard treats it as "no shipping
+        // selected" rather than "shipping selected but no rate to bill
+        // against". This was the exact bug the plan calls out: legacy
+        // callers defaulted to GIGL even when no quote was chosen,
+        // persisting orders with shipping_provider populated but no
+        // carrier rate linkage.
+        shipping_provider: selectedShippingQuote?.provider ?? null,
+        selected_quote_id: selectedShippingQuote?.id ?? null,
         shipping_session_id: shippingSessionId,
         shipping_carrier: selectedShippingQuote?.carrierName,
         shipping_service_tier: selectedShippingQuote?.serviceTier,

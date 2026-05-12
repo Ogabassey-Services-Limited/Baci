@@ -1196,8 +1196,16 @@ export const CheckoutPage: React.FC = () => {
       phone: customerPhone || selectedAddress?.phone || '',
     };
 
-    // Identify selected shipping provider
-    let shippingProvider = 'Standard';
+    // Identify selected shipping provider.
+    //
+    // B3 (plan §5 B3): only door delivery has a third-party shipping
+    // provider with an associated quote. Pickup and airport are
+    // delivery-method labels, not shipping providers — sending them
+    // would trip the RPC's `shipping_quote_required` guard (which
+    // exists to catch the legacy `|| 'GIGL'` silent-default bug).
+    // The `delivery_method` field carries the customer-visible label
+    // separately; admin order views can still show "Pickup"/"Airport".
+    let shippingProvider: string | null = null;
     let trackingNumber = undefined;
 
     // Prepare order items for API
@@ -1207,11 +1215,12 @@ export const CheckoutPage: React.FC = () => {
       const quote = shippingQuotes.find(q => String(q.id) === String(selectedQuoteId));
       if (quote) {
         shippingProvider = quote.provider; // e.g. 'GIGL', 'Topship'
+      } else {
+        // Quote referenced but not found in the local list — fail closed
+        // by leaving shippingProvider null; the RPC will reject if a
+        // quote id is somehow attached without a resolvable provider.
+        shippingProvider = 'Standard';
       }
-    } else if (deliveryMethod === 'pickup') {
-      shippingProvider = 'Pickup';
-    } else if (deliveryMethod === 'airport') {
-      shippingProvider = 'Airport';
     }
 
     const normalizedPaymentMethod = normalizeOrderPaymentMethod(paymentMethod);

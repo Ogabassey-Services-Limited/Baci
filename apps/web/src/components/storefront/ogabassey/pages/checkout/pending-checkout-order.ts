@@ -22,7 +22,10 @@ export interface PendingCheckoutFingerprintInput {
   customerPhone: string;
   deliveryMethod: string;
   shippingFee: number;
-  shippingProvider: string;
+  // B3: pickup/airport flows pass null here (no third-party provider);
+  // door delivery passes the carrier name from the selected quote.
+  // Fingerprint hashing normalizes null/undefined uniformly.
+  shippingProvider: string | null;
   selectedQuoteId?: string;
   shippingAddress: {
     address: string;
@@ -59,7 +62,10 @@ export interface ResolvePendingCheckoutOrderOptions {
   customerEmail: string;
   checkoutFingerprint: string;
   paymentMethod: string;
-  shippingProvider: string;
+  // B3: pickup/airport flows pass null here (no third-party provider);
+  // door delivery passes the carrier name from the selected quote.
+  // Fingerprint hashing normalizes null/undefined uniformly.
+  shippingProvider: string | null;
   selectedQuoteId?: string;
   fetchImpl?: typeof fetch;
 }
@@ -81,7 +87,7 @@ const NON_REUSABLE_SHIPPING_STATUSES = new Set([
   'cancelled',
 ]);
 
-function normalizeText(value: string | undefined): string {
+function normalizeText(value: string | null | undefined): string {
   return (value || '').trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
