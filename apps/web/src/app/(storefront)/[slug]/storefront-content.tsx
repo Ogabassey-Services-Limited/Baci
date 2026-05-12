@@ -300,13 +300,13 @@ export async function StorefrontContent({
       aria-label="Storefront discovery links"
       className="mx-auto mt-8 max-w-[1400px] px-4 md:px-6"
     >
-      <div className="rounded-2xl border border-(--store-background-text,#111827)/10 bg-(--store-background,#ffffff) p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-(--store-background-text,#111827)/70">
+      <div className="rounded-2xl border border-store-background-text/10 bg-store-background p-5">
+        <h2 className="text-sm font-semibold uppercase tracking-[0.08em] text-store-background-text/70">
           Browse Popular Sections
         </h2>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link
-            className="rounded-full border border-(--store-background-text,#111827)/15 px-3 py-1.5 text-xs font-medium text-(--store-background-text,#111827)/80 transition-colors hover:border-(--store-primary) hover:text-(--store-primary)"
+            className="rounded-full border border-store-background-text/15 px-3 py-1.5 text-xs font-medium text-store-background-text/80 transition-colors hover:border-store-primary hover:text-store-primary"
             href={asRoute(`${pathPrefix}/products`)}
             prefetch={false}
           >
@@ -314,7 +314,7 @@ export async function StorefrontContent({
           </Link>
           {merchant.feature_settings?.blog_enabled ? (
             <Link
-              className="rounded-full border border-(--store-background-text,#111827)/15 px-3 py-1.5 text-xs font-medium text-(--store-background-text,#111827)/80 transition-colors hover:border-(--store-primary) hover:text-(--store-primary)"
+              className="rounded-full border border-store-background-text/15 px-3 py-1.5 text-xs font-medium text-store-background-text/80 transition-colors hover:border-store-primary hover:text-store-primary"
               href={asRoute(`${pathPrefix}/blog`)}
               prefetch={false}
             >
@@ -324,7 +324,7 @@ export async function StorefrontContent({
           {categoryDiscoveryLinks.map((category) => (
             <Link
               key={category.slug}
-              className="rounded-full border border-(--store-background-text,#111827)/15 px-3 py-1.5 text-xs font-medium text-(--store-background-text,#111827)/80 transition-colors hover:border-(--store-primary) hover:text-(--store-primary)"
+              className="rounded-full border border-store-background-text/15 px-3 py-1.5 text-xs font-medium text-store-background-text/80 transition-colors hover:border-store-primary hover:text-store-primary"
               href={asRoute(`${pathPrefix}/${category.slug}`)}
               prefetch={false}
             >
@@ -335,14 +335,14 @@ export async function StorefrontContent({
 
         {productDiscoveryLinks.length > 0 && (
           <>
-            <h3 className="mt-5 text-xs font-semibold uppercase tracking-[0.08em] text-(--store-background-text,#111827)/55">
+            <h3 className="mt-5 text-xs font-semibold uppercase tracking-[0.08em] text-store-background-text/55">
               Featured Product Links
             </h3>
             <ul className="mt-2 grid gap-1 md:grid-cols-2 lg:grid-cols-3">
               {productDiscoveryLinks.map((link) => (
                 <li key={link.id}>
                   <Link
-                    className="text-xs text-(--store-primary) underline-offset-4 hover:underline"
+                    className="text-xs text-store-primary underline-offset-4 hover:underline"
                     href={asRoute(`${pathPrefix}${link.href}`)}
                     prefetch={false}
                   >

@@ -25,11 +25,11 @@ export const ThemedInput = React.forwardRef<HTMLInputElement, ThemedInputProps>(
           // Add branded focus border
           'focus-visible:ring-1',
           focusColor === 'primary' &&
-            'focus-visible:border-(--store-primary) focus-visible:ring-(--store-primary)',
+            'focus-visible:border-store-primary focus-visible:ring-store-primary',
           focusColor === 'secondary' &&
-            'focus-visible:border-(--store-secondary) focus-visible:ring-(--store-secondary)',
+            'focus-visible:border-store-secondary focus-visible:ring-store-secondary',
           focusColor === 'accent' &&
-            'focus-visible:border-(--store-accent) focus-visible:ring-(--store-accent)',
+            'focus-visible:border-store-accent focus-visible:ring-store-accent',
           className
         )}
       />

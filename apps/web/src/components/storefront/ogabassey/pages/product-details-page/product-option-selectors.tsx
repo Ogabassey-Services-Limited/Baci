@@ -81,7 +81,7 @@ export function ProductOptionSelectors({
               current === 'Lagos' ? 'Outside Lagos' : 'Lagos'
             )
           }
-          className="mt-1 text-xs font-bold text-(--store-primary) transition-transform active:scale-95 hover:underline"
+          className="mt-1 text-xs font-bold text-store-primary transition-transform active:scale-95 hover:underline"
           aria-label="Change delivery location"
         >
           Change
@@ -97,7 +97,7 @@ export function ProductOptionSelectors({
                 <div className="flex max-w-fit items-center gap-2 rounded-lg bg-gray-900 px-3 py-2 text-xs text-white shadow-lg">
                   <Info
                     size={14}
-                    className="shrink-0 text-(--store-primary)"
+                    className="shrink-0 text-store-primary"
                   />
                   <span>
                     Optional: Select a backup color in case your first choice is
@@ -111,7 +111,7 @@ export function ProductOptionSelectors({
           <label className="mb-3 flex flex-wrap items-center justify-between gap-2 text-sm font-bold text-gray-900">
             <span className="flex items-center gap-2">
               Color:
-              <span className="text-(--store-primary)">
+              <span className="text-store-primary">
                 {selectedColor !== null
                   ? productData.colors[selectedColor]?.name
                   : 'Select a color'}
@@ -123,7 +123,7 @@ export function ProductOptionSelectors({
               )}
             </span>
             {selectedColor === null && (
-              <span className="animate-pulse text-xs font-normal text-(--store-primary)">
+              <span className="animate-pulse text-xs font-normal text-store-primary">
                 * Required
               </span>
             )}
@@ -141,9 +141,9 @@ export function ProductOptionSelectors({
                     onClick={() => onSelectColor(index)}
                     className={`group relative flex h-14 w-14 items-center justify-center rounded-full transition-all duration-300 outline-hidden active:scale-95 ${
                       isPrimary
-                        ? 'scale-110 border-[3px] border-(--store-primary) shadow-lg'
+                        ? 'scale-110 border-[3px] border-store-primary shadow-lg'
                         : isSecondary
-                          ? 'scale-105 border-[3px] border-(--store-option-secondary) shadow-md'
+                          ? 'scale-105 border-[3px] border-store-option-secondary shadow-md'
                           : 'border border-gray-200 shadow-sm md:hover:scale-105 md:hover:border-gray-400'
                     }`}
                     style={
@@ -162,13 +162,13 @@ export function ProductOptionSelectors({
                       style={{ backgroundColor: color.value }}
                     />
                     {isPrimary && (
-                      <div className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-(--store-primary) text-[10px] font-bold text-(--store-primary-text,#ffffff) shadow-sm">
+                      <div className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-store-primary text-[10px] font-bold text-store-primary-text shadow-sm">
                         1
                       </div>
                     )}
                     {isSecondary && (
                       <div
-                        className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-(--store-option-secondary) text-[10px] font-bold text-(--store-primary-text,#ffffff) shadow-sm"
+                        className="absolute -right-1 -top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-store-option-secondary text-[10px] font-bold text-store-primary-text shadow-sm"
                         style={
                           {
                             '--store-option-secondary': secondaryAccent,
@@ -185,7 +185,7 @@ export function ProductOptionSelectors({
                       onClick={() => onSelectSecondaryColor(index)}
                       className={`rounded-full px-2.5 py-1 text-[10px] font-semibold transition-colors ${
                         isSecondary
-                          ? 'bg-(--store-option-secondary)/10 text-(--store-option-secondary)'
+                          ? 'bg-store-option-secondary/10 text-store-option-secondary'
                           : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                       }`}
                       style={
@@ -227,13 +227,13 @@ export function ProductOptionSelectors({
                 <label className="flex items-center justify-between text-sm font-bold text-gray-900">
                   <span>
                     {label}:{' '}
-                    <span className="text-(--store-primary)">
+                    <span className="text-store-primary">
                       {selectedAttributes[axis] ||
                         `Select ${label.toLowerCase()}`}
                     </span>
                   </span>
                   {!selectedAttributes[axis] && (
-                    <span className="animate-pulse text-xs font-normal text-(--store-primary)">
+                    <span className="animate-pulse text-xs font-normal text-store-primary">
                       * Required
                     </span>
                   )}
@@ -268,7 +268,7 @@ export function ProductOptionSelectors({
                             !isAvailable
                               ? 'cursor-not-allowed border-gray-100 text-gray-300 line-through'
                               : isSelected
-                                ? 'border-(--store-primary) bg-(--store-primary)/5 text-(--store-primary) ring-2 ring-(--store-primary)/20 active:scale-95'
+                                ? 'border-store-primary bg-store-primary/5 text-store-primary ring-2 ring-store-primary/20 active:scale-95'
                                 : 'border-gray-200 text-gray-700 active:scale-95 md:hover:border-gray-400 md:hover:bg-gray-50'
                           }`}
                           aria-label={`Select ${value} ${label.toLowerCase()}${!isAvailable ? ' (unavailable)' : ''}`}

@@ -129,10 +129,10 @@ export function CartPageWrapper({ merchantId, vatEnabled = false, vatRate = 7.5 
   // Show loading state while adding items
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-(--store-background)">
+      <div className="flex min-h-screen items-center justify-center bg-store-background">
         <div className="text-center">
-          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[color-mix(in_srgb,var(--store-background-text)_18%,transparent)] border-t-(--store-primary)" />
-          <p className="text-[color-mix(in_srgb,var(--store-background-text)_65%,transparent)]">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-store-background-text/18 border-t-(--store-primary)" />
+          <p className="text-store-background-text/65">
             Adding items to cart...
           </p>
         </div>

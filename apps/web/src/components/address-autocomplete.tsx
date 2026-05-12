@@ -208,7 +208,7 @@ export function AddressAutocomplete({
   return (
     <div className="relative group" style={{ overflow: 'visible' }}>
       {showIcon && (
-        <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-(--store-primary) transition-colors duration-200 z-10" />
+        <Home className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-store-primary transition-colors duration-200 z-10" />
       )}
       <InputComponent
         {...props}
@@ -239,7 +239,7 @@ export function AddressAutocomplete({
           </button>
         )}
         {isLoading && (
-          <Loader2 className="h-4 w-4 animate-spin text-(--store-primary)" />
+          <Loader2 className="h-4 w-4 animate-spin text-store-primary" />
         )}
       </div>
 
@@ -263,7 +263,7 @@ export function AddressAutocomplete({
                   className={cn(
                     'w-full px-3 py-2.5 text-left text-sm rounded-lg transition-colors flex items-start gap-3 group/item text-gray-700',
                     highlightedIndex === index
-                      ? 'bg-(--store-primary)/5 text-gray-900'
+                      ? 'bg-store-primary/5 text-gray-900'
                       : 'hover:bg-gray-50 hover:text-gray-900'
                   )}
                   onClick={() => handlePredictionSelect(prediction)}
@@ -272,8 +272,8 @@ export function AddressAutocomplete({
                     className={cn(
                       'mt-0.5 p-1.5 rounded-full transition-colors',
                       highlightedIndex === index
-                        ? 'bg-(--store-primary)/10 text-(--store-primary)'
-                        : 'bg-gray-100 text-gray-500 group-hover/item:bg-(--store-primary)/10 group-hover/item:text-(--store-primary)'
+                        ? 'bg-store-primary/10 text-store-primary'
+                        : 'bg-gray-100 text-gray-500 group-hover/item:bg-store-primary/10 group-hover/item:text-store-primary'
                     )}
                   >
                     <MapPin className="h-3.5 w-3.5" />
@@ -283,7 +283,7 @@ export function AddressAutocomplete({
                       className={cn(
                         'font-medium truncate transition-colors',
                         highlightedIndex === index
-                          ? 'text-(--store-primary)'
+                          ? 'text-store-primary'
                           : 'text-gray-900'
                       )}
                     >

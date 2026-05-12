@@ -31,11 +31,11 @@ export function ThemedButton({
         className={cn(
           // Use CSS custom properties with smart text color
           colorRole === 'primary' &&
-            'bg-(--store-primary) text-(--store-primary-text) hover:bg-(--store-primary)/90',
+            'bg-store-primary text-store-primary-text hover:bg-store-primary/90',
           colorRole === 'background' &&
-            'bg-(--store-background) text-(--store-background-text) hover:bg-(--store-background)/90',
+            'bg-store-background text-store-background-text hover:bg-store-background/90',
           colorRole === 'accent' &&
-            'bg-(--store-accent) text-(--store-accent-text) hover:bg-(--store-accent)/90',
+            'bg-store-accent text-store-accent-text hover:bg-store-accent/90',
           className
         )}
         style={style}
@@ -52,11 +52,11 @@ export function ThemedButton({
         className={cn(
           'bg-transparent',
           colorRole === 'primary' &&
-            'border-(--store-primary) text-(--store-primary) hover:bg-(--store-primary)/10',
+            'border-store-primary text-store-primary hover:bg-store-primary/10',
           colorRole === 'background' &&
-            'border-(--store-background) text-(--store-background) hover:bg-(--store-background)/10',
+            'border-store-background text-store-background hover:bg-store-background/10',
           colorRole === 'accent' &&
-            'border-(--store-accent) text-(--store-accent) hover:bg-(--store-accent)/10',
+            'border-store-accent text-store-accent hover:bg-store-accent/10',
           className
         )}
         style={style}

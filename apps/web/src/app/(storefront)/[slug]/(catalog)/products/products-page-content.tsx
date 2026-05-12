@@ -167,39 +167,39 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
 
       <div className="min-h-screen bg-[color-mix(in_srgb,var(--store-background,#ffffff)_94%,var(--store-background-text,#111827)_6%)] pb-20 pt-6">
         <div className="mx-auto max-w-[1400px] px-4 md:px-6">
-          <nav className="flex items-center gap-2 text-sm text-(--store-background-text,#111827)/55">
+          <nav className="flex items-center gap-2 text-sm text-store-background-text/55">
             <Link
               href={asRoute(pathPrefix || '/')}
               prefetch={false}
-              className="transition-colors hover:text-(--store-primary)"
+              className="transition-colors hover:text-store-primary"
             >
               Home
             </Link>
             <span aria-hidden="true">/</span>
-            <span className="font-medium text-(--store-background-text,#111827)">
+            <span className="font-medium text-store-background-text">
               Products
             </span>
           </nav>
 
           <div className="mt-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div className="space-y-2">
-              <h1 className="text-3xl font-bold text-(--store-background-text,#111827) md:text-4xl">
+              <h1 className="text-3xl font-bold text-store-background-text md:text-4xl">
                 Products
               </h1>
-              <p className="max-w-2xl text-sm text-(--store-background-text,#111827)/60 md:text-base">
+              <p className="max-w-2xl text-sm text-store-background-text/60 md:text-base">
                 {description}
               </p>
             </div>
 
-            <p className="text-sm text-(--store-background-text,#111827)/50">
+            <p className="text-sm text-store-background-text/50">
               Showing {rangeStart}-{rangeEnd} of{' '}
               {currentProductIndex.totalCount} products
             </p>
           </div>
 
           {displayCategories.length > 0 && (
-            <section className="mt-8 rounded-3xl border border-(--store-background-text,#111827)/10 bg-(--store-background,#ffffff) p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-(--store-background-text,#111827)">
+            <section className="mt-8 rounded-3xl border border-store-background-text/10 bg-store-background p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-store-background-text">
                 Browse Categories
               </h2>
               <div className="mt-4 flex flex-wrap gap-3">
@@ -208,7 +208,7 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
                     key={category.id}
                     href={asRoute(`${pathPrefix}/${category.slug}`)}
                     prefetch={false}
-                    className="rounded-full border border-(--store-background-text,#111827)/10 bg-(--store-background,#ffffff) px-4 py-2 text-sm font-medium text-(--store-background-text,#111827) transition-colors hover:border-(--store-primary) hover:text-(--store-primary)"
+                    className="rounded-full border border-store-background-text/10 bg-store-background px-4 py-2 text-sm font-medium text-store-background-text transition-colors hover:border-store-primary hover:text-store-primary"
                   >
                     {category.name}
                   </Link>
@@ -218,19 +218,19 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
           )}
 
           {currentProductIndex.products.length === 0 ? (
-            <div className="mt-10 rounded-3xl border border-(--store-background-text,#111827)/10 bg-(--store-background,#ffffff) px-6 py-16 text-center shadow-sm">
-              <h2 className="text-xl font-semibold text-(--store-background-text,#111827)">
+            <div className="mt-10 rounded-3xl border border-store-background-text/10 bg-store-background px-6 py-16 text-center shadow-sm">
+              <h2 className="text-xl font-semibold text-store-background-text">
                 No products available
               </h2>
-              <p className="mt-2 text-sm text-(--store-background-text,#111827)/55">
+              <p className="mt-2 text-sm text-store-background-text/55">
                 This storefront does not have any published products yet.
               </p>
             </div>
           ) : (
             <>
               {deepLinkProducts.length > 0 && (
-                <section className="mt-8 rounded-3xl border border-(--store-background-text,#111827)/10 bg-(--store-background,#ffffff) p-5 shadow-sm">
-                  <h2 className="text-lg font-semibold text-(--store-background-text,#111827)">
+                <section className="mt-8 rounded-3xl border border-store-background-text/10 bg-store-background p-5 shadow-sm">
+                  <h2 className="text-lg font-semibold text-store-background-text">
                     Popular Product Links
                   </h2>
                   <ul className="mt-4 grid gap-2 md:grid-cols-2 lg:grid-cols-3">
@@ -248,7 +248,7 @@ export async function ProductsPageContent({ params, searchParams }: PageProps) {
                           <Link
                             href={asRoute(href)}
                             prefetch={false}
-                            className="text-sm font-medium text-(--store-primary,#dc2626) underline-offset-4 hover:underline"
+                            className="text-sm font-medium text-store-primary underline-offset-4 hover:underline"
                           >
                             {product.name}
                           </Link>

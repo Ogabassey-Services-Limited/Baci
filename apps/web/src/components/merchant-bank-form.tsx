@@ -490,7 +490,7 @@ export function MerchantBankForm({
                       <FormControl>
                         <input
                           type="checkbox"
-                          className="h-5 w-5 rounded border-gray-300 text-(--store-primary) focus:ring-(--store-primary)"
+                          className="h-5 w-5 rounded border-gray-300 text-store-primary focus:ring-store-primary"
                           checked={field.value ?? false}
                           onChange={field.onChange}
                         />

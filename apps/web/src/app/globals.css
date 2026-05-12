@@ -3,6 +3,37 @@
 @config '../../tailwind.config.ts';
 
 /*
+  Storefront theme tokens.
+
+  `--store-*` CSS variables are set at runtime per-merchant (see
+  `app-body.tsx`, `checkout-theme-provider.tsx`, etc.). Registering them
+  under the `--color-*` namespace via `@theme inline` makes them available
+  as standard Tailwind utilities (e.g. `bg-store-primary`, `text-store-background-text/55`)
+  with full slash-opacity modifier support, while preserving the runtime
+  variable resolution.
+
+  Use `@theme inline` (not `@theme`) so the generated utilities resolve the
+  underlying `var(--store-*)` at use-site rather than baking the variable
+  name into the theme variable itself, which avoids scope issues when the
+  storefront variables are scoped to a wrapper element.
+*/
+@theme inline {
+  --color-store-primary: var(--store-primary, #2a2c6e);
+  --color-store-primary-text: var(--store-primary-text, #ffffff);
+  --color-store-on-primary: var(--store-on-primary, #ffffff);
+  --color-store-secondary: var(--store-secondary, #f3f4f6);
+  --color-store-secondary-text: var(--store-secondary-text, #111827);
+  --color-store-accent: var(--store-accent, #2a2c6e);
+  --color-store-accent-text: var(--store-accent-text, #ffffff);
+  --color-store-background: var(--store-background, #ffffff);
+  --color-store-background-text: var(--store-background-text, #111827);
+  --color-store-foreground: var(--store-foreground, #111827);
+  --color-store-border: var(--store-border, #e5e7eb);
+  --color-store-rating: var(--store-rating, #facc15);
+  --color-store-option-secondary: var(--store-option-secondary, #f3f4f6);
+}
+
+/*
   The default border color has changed to `currentcolor` in Tailwind CSS v4,
   so we've added these compatibility styles to make sure everything still
   looks the same as it did with Tailwind CSS v3.

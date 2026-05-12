@@ -39,7 +39,7 @@ export function CryptoPaymentModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="sticky top-0 bg-linear-to-r from-(--store-primary) to-(--store-primary)/80 p-4 flex items-center justify-between rounded-t-2xl">
+        <div className="sticky top-0 bg-linear-to-r from-store-primary to-store-primary/80 p-4 flex items-center justify-between rounded-t-2xl">
           <div className="flex items-center gap-2">
             {onBack && !isVerifying ? (
               <button
@@ -88,7 +88,7 @@ export function CryptoPaymentModal({
                 </p>
                 <p className="text-2xl font-black text-gray-900 leading-tight">
                   {data.amount.toLocaleString()}{' '}
-                  <span className="text-(--store-primary)">
+                  <span className="text-store-primary">
                     {data.currency}
                   </span>
                 </p>
@@ -118,7 +118,7 @@ export function CryptoPaymentModal({
                 className={`absolute right-1 top-1 bottom-1 px-3 bg-white border rounded-lg shadow-sm transition-all flex items-center justify-center group-hover:shadow-md ${
                   copiedText === data.address
                     ? 'border-green-300 text-green-600'
-                    : 'border-gray-200 hover:border-(--store-primary)/40 hover:text-(--store-primary)'
+                    : 'border-gray-200 hover:border-store-primary/40 hover:text-store-primary'
                 }`}
                 title={
                   copiedText === data.address ? 'Copied!' : 'Copy Address'
@@ -147,9 +147,9 @@ export function CryptoPaymentModal({
           </div>
 
           {/* Confirmation Time */}
-          <div className="flex items-center gap-3 bg-(--store-primary)/5 rounded-xl p-4 border border-(--store-primary)/20">
-            <div className="w-10 h-10 bg-(--store-primary)/10 rounded-full flex items-center justify-center shrink-0">
-              <Clock size={20} className="text-(--store-primary)" />
+          <div className="flex items-center gap-3 bg-store-primary/5 rounded-xl p-4 border border-store-primary/20">
+            <div className="w-10 h-10 bg-store-primary/10 rounded-full flex items-center justify-center shrink-0">
+              <Clock size={20} className="text-store-primary" />
             </div>
             <div>
               <p className="text-sm font-medium text-gray-900">
@@ -196,7 +196,7 @@ export function CryptoPaymentModal({
           )}
 
           {verificationStatus === 'failed' && (
-            <div className="bg-(--store-primary)/5 border border-(--store-primary)/30 rounded-xl p-4 text-center">
+            <div className="bg-store-primary/5 border border-store-primary/30 rounded-xl p-4 text-center">
               <p className="text-sm font-medium text-red-800">
                 Payment verification failed. Please contact support.
               </p>
@@ -211,7 +211,7 @@ export function CryptoPaymentModal({
             className={`w-full py-3.5 font-bold rounded-xl transition-colors shadow-lg ${
               isVerifying
                 ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                : 'bg-(--store-primary) text-white hover:bg-(--store-primary)/90 shadow-(--store-primary)/20'
+                : 'bg-store-primary text-white hover:bg-store-primary/90 shadow-store-primary/20'
             }`}
           >
             {isVerifying ? (

@@ -193,7 +193,7 @@ export function RecentlyViewedProducts({
                 </Link>
                 <CardContent className="p-3">
                   <Link href={getProductUrl(product)}>
-                    <h3 className="font-medium text-sm line-clamp-2 hover:text-(--store-primary) transition-colors">
+                    <h3 className="font-medium text-sm line-clamp-2 hover:text-store-primary transition-colors">
                       {product.name}
                     </h3>
                   </Link>

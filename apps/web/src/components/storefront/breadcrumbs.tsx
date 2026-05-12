@@ -56,7 +56,7 @@ export function Breadcrumbs({
                 <Link
                   href={asRoute(item.href)}
                   className={cn(
-                    'text-foreground hover:text-(--store-primary) transition-colors',
+                    'text-foreground hover:text-store-primary transition-colors',
                     isHome && 'flex items-center gap-1'
                   )}
                 >

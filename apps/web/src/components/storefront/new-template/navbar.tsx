@@ -174,7 +174,7 @@ export const Navbar: React.FC = () => {
                 <input
                   type="text"
                   placeholder="Search for phones, laptops, accessories..."
-                  className="w-full h-12 pl-12 pr-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-hidden focus:border-(--store-primary) focus:ring-2 focus:ring-(--store-primary)/20 transition-all text-sm font-medium"
+                  className="w-full h-12 pl-12 pr-4 bg-gray-50 border border-gray-200 rounded-xl focus:outline-hidden focus:border-store-primary focus:ring-2 focus:ring-store-primary/20 transition-all text-sm font-medium"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   onFocus={() => query.trim() && setShowDropdown(true)}
@@ -199,7 +199,7 @@ export const Navbar: React.FC = () => {
                   <Bell size={22} />
                   {/* TODO: notification badge when implemented
                   {unreadCount > 0 && (
-                    <span className="absolute top-2 right-2.5 w-2 h-2 bg-(--store-primary) rounded-full border-2 border-[#0F0F0F]" />
+                    <span className="absolute top-2 right-2.5 w-2 h-2 bg-store-primary rounded-full border-2 border-[#0F0F0F]" />
                   )}
                   */}
                 </button>
@@ -214,7 +214,7 @@ export const Navbar: React.FC = () => {
                         <button
                           type="button"
                           onClick={markAllAsRead}
-                          className="text-xs font-bold text-(--store-primary) hover:opacity-80"
+                          className="text-xs font-bold text-store-primary hover:opacity-80"
                         >
                           Mark all read
                         </button>
@@ -226,11 +226,11 @@ export const Navbar: React.FC = () => {
                         notifications.map((notif: any) => (
                           <div
                             key={notif.id}
-                            className={`p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer ${!notif.read ? 'bg-(--store-primary)/5' : ''}`}
+                            className={`p-4 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer ${!notif.read ? 'bg-store-primary/5' : ''}`}
                           >
                             <div className="flex gap-3">
                               <div
-                                className={`w-2 h-2 mt-2 rounded-full shrink-0 ${!notif.read ? 'bg-(--store-primary)' : 'bg-gray-300'}`}
+                                className={`w-2 h-2 mt-2 rounded-full shrink-0 ${!notif.read ? 'bg-store-primary' : 'bg-gray-300'}`}
                               />
                               <div>
                                 <p className="text-sm text-gray-800 leading-relaxed">
@@ -259,7 +259,7 @@ export const Navbar: React.FC = () => {
                 href={asRoute(getHref('/profile'))}
                 className="hidden sm:flex items-center gap-2 p-1.5 pr-3 rounded-full hover:bg-white/10 border border-white/20 hover:border-white/40 transition-all group"
               >
-                <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-white group-hover:bg-white group-hover:text-(--store-primary) transition-colors">
+                <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-white group-hover:bg-white group-hover:text-store-primary transition-colors">
                   <User size={18} />
                 </div>
                 <span className="text-sm font-bold text-white">Account</span>
@@ -267,11 +267,11 @@ export const Navbar: React.FC = () => {
 
               {/* Cart */}
               <Link href={asRoute(getHref('/cart'))} className="relative group">
-                <div className="p-2.5 rounded-full bg-white text-gray-900 group-hover:bg-(--store-primary) group-hover:text-(--store-on-primary,white) transition-colors shadow-lg shadow-black/20">
+                <div className="p-2.5 rounded-full bg-white text-gray-900 group-hover:bg-store-primary group-hover:text-(--store-on-primary,white) transition-colors shadow-lg shadow-black/20">
                   <ShoppingCart size={20} />
                 </div>
                 {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-(--store-primary) text-(--store-on-primary,white) text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-store-primary text-(--store-on-primary,white) text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
                     {cartCount}
                   </span>
                 )}

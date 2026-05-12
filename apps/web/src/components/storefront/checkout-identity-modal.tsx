@@ -114,7 +114,7 @@ export function CheckoutIdentityModal({
               className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300"
             >
               <div className="space-y-4">
-                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 group hover:border-(--store-primary)/30 transition-all">
+                <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 group hover:border-store-primary/30 transition-all">
                   <h3 className="font-bold text-gray-900 mb-1 flex items-center gap-2">
                     <Zap size={16} className="text-amber-500 fill-amber-500" />
                     Guest Checkout
@@ -142,9 +142,9 @@ export function CheckoutIdentityModal({
                   </div>
                 </div>
 
-                <div className="p-4 bg-(--store-primary)/5 rounded-2xl border border-(--store-primary)/10 text-center">
+                <div className="p-4 bg-store-primary/5 rounded-2xl border border-store-primary/10 text-center">
                   <h3 className="font-bold text-gray-900 mb-1 flex items-center justify-center gap-2">
-                    <UserPlus size={16} className="text-(--store-primary)" />
+                    <UserPlus size={16} className="text-store-primary" />
                     Create Account
                   </h3>
                   <p className="text-xs text-gray-600 mb-4">
@@ -153,7 +153,7 @@ export function CheckoutIdentityModal({
                   <Button
                     variant="outline"
                     onClick={() => router.push(signupUrl)}
-                    className="w-full border-(--store-primary) text-(--store-primary) hover:bg-(--store-primary)/10 font-bold py-6 rounded-xl transition-all"
+                    className="w-full border-store-primary text-store-primary hover:bg-store-primary/10 font-bold py-6 rounded-xl transition-all"
                   >
                     Register Now
                   </Button>
@@ -192,7 +192,7 @@ export function CheckoutIdentityModal({
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
-                    className="py-6 rounded-xl border-gray-200 focus:border-(--store-primary) focus:ring-(--store-primary)/10"
+                    className="py-6 rounded-xl border-gray-200 focus:border-store-primary focus:ring-store-primary/10"
                   />
                 </div>
 
@@ -207,7 +207,7 @@ export function CheckoutIdentityModal({
                     <button
                       type="button"
                       onClick={() => router.push('/forgot-password')}
-                      className="text-[10px] font-bold text-(--store-primary) hover:underline uppercase"
+                      className="text-[10px] font-bold text-store-primary hover:underline uppercase"
                     >
                       Forgot?
                     </button>
@@ -217,13 +217,13 @@ export function CheckoutIdentityModal({
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
-                    className="py-6 rounded-xl border-gray-200 focus:border-(--store-primary) focus:ring-(--store-primary)/10"
+                    className="py-6 rounded-xl border-gray-200 focus:border-store-primary focus:ring-store-primary/10"
                   />
                 </div>
 
                 <Button
                   type="submit"
-                  className="w-full bg-(--store-primary) hover:bg-(--store-primary)/90 text-white font-bold py-6 rounded-xl text-base shadow-lg transition-all active:scale-[0.98]"
+                  className="w-full bg-store-primary hover:bg-store-primary/90 text-white font-bold py-6 rounded-xl text-base shadow-lg transition-all active:scale-[0.98]"
                   disabled={isLoading}
                 >
                   {isLoading ? (

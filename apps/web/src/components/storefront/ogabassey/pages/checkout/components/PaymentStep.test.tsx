@@ -68,8 +68,10 @@ describe('PaymentStep', () => {
       const { container } = render(<PaymentStep {...defaultProps} />);
 
       // Assert
-      // Tailwind v4 syntax: `border-(--store-primary)` replaces `border-[var(--store-primary)]`
-      const stepContainer = container.querySelector('.border-\\(--store-primary\\)');
+      // Now uses the @theme-registered Tailwind utility (`border-store-primary`)
+      // instead of the raw arbitrary-value form (`border-(--store-primary)` /
+      // `border-[var(--store-primary)]`).
+      const stepContainer = container.querySelector('.border-store-primary');
       expect(stepContainer).toBeInTheDocument();
     });
 
@@ -539,7 +541,7 @@ describe('PaymentStep', () => {
 
       // Assert - button exists but text is replaced with spinner
       const buttons = screen.getAllByRole('button');
-      const placeOrderButton = buttons.find(btn => btn.className.includes('bg-(--store-primary)'));
+      const placeOrderButton = buttons.find(btn => btn.className.includes('bg-store-primary'));
       expect(placeOrderButton).toBeDisabled();
 
       // Verify spinner is shown
@@ -737,8 +739,8 @@ describe('PaymentStep', () => {
 
       // Assert
       const paystackLabel = screen.getByText('Paystack').closest('label');
-      expect(paystackLabel?.className).toContain('border-(--store-primary)');
-      expect(paystackLabel?.className).toContain('bg-(--store-primary)/5');
+      expect(paystackLabel?.className).toContain('border-store-primary');
+      expect(paystackLabel?.className).toContain('bg-store-primary/5');
     });
 
     it('shows radio button as checked when payment method is selected', () => {

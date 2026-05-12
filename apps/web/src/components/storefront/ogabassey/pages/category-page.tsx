@@ -351,43 +351,43 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
 
       {/* Breadcrumb & Header */}
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 mb-6">
-        <nav className="flex items-center overflow-x-auto whitespace-nowrap pb-2 text-sm text-[color-mix(in_srgb,var(--store-background-text,#111827)_65%,transparent)]">
+        <nav className="flex items-center overflow-x-auto whitespace-nowrap pb-2 text-sm text-store-background-text/65">
           <Link
             href={asRoute(basePath || '')}
-            className="transition-colors hover:text-(--store-primary)"
+            className="transition-colors hover:text-store-primary"
           >
             Home
           </Link>
           <ChevronRight size={16} className="mx-2" />
-          <span className="font-medium text-(--store-background-text,#111827)">
+          <span className="font-medium text-store-background-text">
             {displayTitle}
           </span>
         </nav>
 
         <div className="mt-4 flex items-end justify-between">
           <div>
-            <h1 className="text-3xl md:text-4xl font-bold text-(--store-background-text,#111827)">
+            <h1 className="text-3xl md:text-4xl font-bold text-store-background-text">
               {displayTitle}
             </h1>
-            <p className="text-(--store-background-text,#111827)/50 text-sm mt-1">
+            <p className="text-store-background-text/50 text-sm mt-1">
               {filteredProducts.length} results found
             </p>
           </div>
 
           {/* View Mode & Mobile Filter Toggle */}
           <div className="flex items-center gap-2">
-            <div className="hidden md:flex items-center bg-(--store-background,#ffffff) rounded-lg p-1 border border-(--store-background-text,#111827)/15">
+            <div className="hidden md:flex items-center bg-store-background rounded-lg p-1 border border-store-background-text/15">
               <button
                 type="button"
                 onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-(--store-background-text,#111827)/10 text-(--store-background-text,#111827) shadow-sm' : 'text-(--store-background-text,#111827)/40 hover:text-(--store-background-text,#111827)/70'}`}
+                className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-store-background-text/10 text-store-background-text shadow-sm' : 'text-store-background-text/40 hover:text-store-background-text/70'}`}
               >
                 <LayoutGrid size={18} />
               </button>
               <button
                 type="button"
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-(--store-background-text,#111827)/10 text-(--store-background-text,#111827) shadow-sm' : 'text-(--store-background-text,#111827)/40 hover:text-(--store-background-text,#111827)/70'}`}
+                className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-store-background-text/10 text-store-background-text shadow-sm' : 'text-store-background-text/40 hover:text-store-background-text/70'}`}
               >
                 <List size={18} />
               </button>
@@ -396,7 +396,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
             <button
               type="button"
               onClick={() => setIsMobileFilterOpen(true)}
-              className="flex items-center gap-2 rounded-xl bg-(--store-primary) px-4 py-2.5 text-sm font-bold text-(--store-primary-text,#ffffff) shadow-md active:scale-95 md:hidden"
+              className="flex items-center gap-2 rounded-xl bg-store-primary px-4 py-2.5 text-sm font-bold text-store-primary-text shadow-md active:scale-95 md:hidden"
             >
               <Filter size={16} /> Filters
             </button>
@@ -424,23 +424,23 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
           {/* Product Grid */}
           <div className="lg:col-span-3">
             {filteredProducts.length === 0 ? (
-              <div className="text-center py-20 bg-(--store-background,#ffffff) rounded-2xl border border-(--store-background-text,#111827)/10 shadow-sm">
-                <div className="w-16 h-16 bg-(--store-background-text,#111827)/5 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="text-center py-20 bg-store-background rounded-2xl border border-store-background-text/10 shadow-sm">
+                <div className="w-16 h-16 bg-store-background-text/5 rounded-full flex items-center justify-center mx-auto mb-4">
                   <Filter
-                    className="text-(--store-background-text,#111827)/40"
+                    className="text-store-background-text/40"
                     size={32}
                   />
                 </div>
-                <h3 className="text-lg font-bold text-(--store-background-text,#111827) mb-1">
+                <h3 className="text-lg font-bold text-store-background-text mb-1">
                   No products found
                 </h3>
-                <p className="text-(--store-background-text,#111827)/50 text-sm mb-6">
+                <p className="text-store-background-text/50 text-sm mb-6">
                   Try adjusting your filters to find what you're looking for.
                 </p>
                 <button
                   type="button"
                   onClick={() => setFilters(INITIAL_FILTER_STATE)}
-                  className="font-bold text-(--store-primary) hover:underline"
+                  className="font-bold text-store-primary hover:underline"
                 >
                   Clear all filters
                 </button>
@@ -483,7 +483,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
             {filteredProducts.length > 0 && (
               <div className="mt-8 space-y-3">
                 {!hasActiveFilters && (
-                  <p className="text-center text-sm text-(--store-background-text,#111827)/50">
+                  <p className="text-center text-sm text-store-background-text/50">
                     Showing {pageStartIndex + 1}-
                     {Math.min(pageEndIndex, filteredProducts.length)} of{' '}
                     {filteredProducts.length} products
@@ -491,7 +491,7 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                 )}
 
                 {hasActiveFilters ? (
-                  <p className="text-center text-sm text-(--store-background-text,#111827)/50">
+                  <p className="text-center text-sm text-store-background-text/50">
                     Filtered results show all {filteredProducts.length} matching
                     products on one page.
                   </p>
@@ -521,27 +521,27 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
             onClick={() => setIsMobileFilterOpen(false)}
           />
           <div
-            className="relative w-full max-w-xs bg-(--store-background,#ffffff) h-full shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300"
+            className="relative w-full max-w-xs bg-store-background h-full shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300"
             role="dialog"
             aria-modal="true"
             aria-labelledby="mobile-filter-heading"
           >
-            <div className="sticky top-0 bg-(--store-background,#ffffff) z-10 px-5 py-4 border-b border-(--store-background-text,#111827)/10 flex items-center justify-between">
+            <div className="sticky top-0 bg-store-background z-10 px-5 py-4 border-b border-store-background-text/10 flex items-center justify-between">
               <h3
                 id="mobile-filter-heading"
-                className="font-bold text-lg text-(--store-background-text,#111827)"
+                className="font-bold text-lg text-store-background-text"
               >
                 Filters
               </h3>
               <button
                 type="button"
                 onClick={() => setIsMobileFilterOpen(false)}
-                className="p-1 hover:bg-(--store-background-text,#111827)/10 rounded-full"
+                className="p-1 hover:bg-store-background-text/10 rounded-full"
                 aria-label="Close filters"
               >
                 <X
                   size={24}
-                  className="text-(--store-background-text,#111827)/50"
+                  className="text-store-background-text/50"
                 />
               </button>
             </div>
@@ -554,11 +554,11 @@ export const CategoryPage: React.FC<CategorySEOProps> = ({
                 className="border-none shadow-none p-0"
               />
             </div>
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-(--store-background,#ffffff) border-t border-(--store-background-text,#111827)/10">
+            <div className="absolute bottom-0 left-0 right-0 p-4 bg-store-background border-t border-store-background-text/10">
               <button
                 type="button"
                 onClick={() => setIsMobileFilterOpen(false)}
-                className="w-full rounded-xl bg-(--store-primary) py-3 font-bold text-(--store-primary-text,#ffffff) shadow-lg active:scale-95"
+                className="w-full rounded-xl bg-store-primary py-3 font-bold text-store-primary-text shadow-lg active:scale-95"
               >
                 Show {filteredProducts.length} Results
               </button>

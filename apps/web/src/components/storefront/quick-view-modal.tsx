@@ -201,7 +201,7 @@ export function QuickViewModal({
                         'relative w-16 h-16 rounded-md overflow-hidden border-2 transition-all',
                         'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                         selectedImage === img.url
-                          ? 'border-(--store-primary)'
+                          ? 'border-store-primary'
                           : 'border-transparent hover:border-muted-foreground/30'
                       )}
                       aria-label={`View image ${idx + 1} of ${allImages.length}`}
@@ -368,7 +368,7 @@ export function QuickViewModal({
                                 'px-3 py-1.5 rounded-md text-sm font-medium transition-all',
                                 'focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                                 isSelected
-                                  ? 'bg-(--store-primary) text-(--store-primary-text) ring-2 ring-(--store-primary) ring-offset-2'
+                                  ? 'bg-store-primary text-store-primary-text ring-2 ring-store-primary ring-offset-2'
                                   : isAvailable
                                     ? 'bg-muted hover:bg-muted/80'
                                     : 'bg-muted/50 text-muted-foreground/50 cursor-not-allowed line-through'

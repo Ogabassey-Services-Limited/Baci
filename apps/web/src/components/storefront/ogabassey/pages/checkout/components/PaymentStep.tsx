@@ -134,7 +134,7 @@ export function PaymentStep({
   ]);
 
   return (
-    <div className={`bg-white rounded-2xl shadow-sm border ${currentStep === 'payment' ? 'border-(--store-primary) ring-1 ring-(--store-primary)/20' : 'border-gray-100'} overflow-hidden transition-all duration-300`}>
+    <div className={`bg-white rounded-2xl shadow-sm border ${currentStep === 'payment' ? 'border-store-primary ring-1 ring-store-primary/20' : 'border-gray-100'} overflow-hidden transition-all duration-300`}>
       <button
         type="button"
         onClick={() => completedSteps.delivery && setCurrentStep('payment')}
@@ -142,7 +142,7 @@ export function PaymentStep({
         className="w-full px-6 py-4 flex items-center justify-between text-left disabled:opacity-50 disabled:cursor-not-allowed hidden-disabled"
       >
         <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors ${hasAvailableSelectedPaymentMethod ? 'bg-green-100 text-green-600' : currentStep === 'payment' ? 'bg-(--store-primary)/10 text-(--store-primary)' : 'bg-gray-100 text-gray-500'
+          <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors ${hasAvailableSelectedPaymentMethod ? 'bg-green-100 text-green-600' : currentStep === 'payment' ? 'bg-store-primary/10 text-store-primary' : 'bg-gray-100 text-gray-500'
             }`}>
             {hasAvailableSelectedPaymentMethod ? <Check size={14} /> : '3'}
           </div>
@@ -186,7 +186,7 @@ export function PaymentStep({
                   {paystackCheckoutAvailable && (
                     <label
                       className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'paystack'
-                        ? 'border-(--store-primary) bg-(--store-primary)/5'
+                        ? 'border-store-primary bg-store-primary/5'
                         : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                         }`}
                     >
@@ -198,8 +198,8 @@ export function PaymentStep({
                         onChange={() => setPaymentMethod('paystack')}
                         className="sr-only"
                       />
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'paystack' ? 'border-(--store-primary)' : 'border-gray-400'}`}>
-                        {paymentMethod === 'paystack' && <div className="w-2.5 h-2.5 rounded-full bg-(--store-primary)" />}
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'paystack' ? 'border-store-primary' : 'border-gray-400'}`}>
+                        {paymentMethod === 'paystack' && <div className="w-2.5 h-2.5 rounded-full bg-store-primary" />}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
@@ -216,7 +216,7 @@ export function PaymentStep({
                   {bankTransferCheckoutAvailable && (
                     <label
                       className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'bank_transfer'
-                        ? 'border-(--store-primary) bg-(--store-primary)/5'
+                        ? 'border-store-primary bg-store-primary/5'
                         : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                         }`}
                     >
@@ -228,8 +228,8 @@ export function PaymentStep({
                         onChange={() => setPaymentMethod('bank_transfer')}
                         className="sr-only"
                       />
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'bank_transfer' ? 'border-(--store-primary)' : 'border-gray-400'}`}>
-                        {paymentMethod === 'bank_transfer' && <div className="w-2.5 h-2.5 rounded-full bg-(--store-primary)" />}
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'bank_transfer' ? 'border-store-primary' : 'border-gray-400'}`}>
+                        {paymentMethod === 'bank_transfer' && <div className="w-2.5 h-2.5 rounded-full bg-store-primary" />}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
@@ -246,7 +246,7 @@ export function PaymentStep({
                   {/* TODO: Re-enable when KORAPAY_SECRET_KEY and KORAPAY_PUBLIC_KEY are added to .env.local
                   <label
                     className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'korapay'
-                      ? 'border-(--store-primary) bg-(--store-primary)/5'
+                      ? 'border-store-primary bg-store-primary/5'
                       : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                       }`}
                   >
@@ -258,8 +258,8 @@ export function PaymentStep({
                       onChange={() => setPaymentMethod('korapay')}
                       className="sr-only"
                     />
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'korapay' ? 'border-(--store-primary)' : 'border-gray-400'}`}>
-                      {paymentMethod === 'korapay' && <div className="w-2.5 h-2.5 rounded-full bg-(--store-primary)" />}
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'korapay' ? 'border-store-primary' : 'border-gray-400'}`}>
+                      {paymentMethod === 'korapay' && <div className="w-2.5 h-2.5 rounded-full bg-store-primary" />}
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
@@ -275,7 +275,7 @@ export function PaymentStep({
                   {merchant?.feature_settings?.juicyway_enabled === true && (
                     <label
                       className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'juicyway'
-                        ? 'border-(--store-primary) bg-(--store-primary)/5'
+                        ? 'border-store-primary bg-store-primary/5'
                         : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                         }`}
                     >
@@ -287,8 +287,8 @@ export function PaymentStep({
                         onChange={() => setPaymentMethod('juicyway')}
                         className="sr-only"
                       />
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'juicyway' ? 'border-(--store-primary)' : 'border-gray-400'}`}>
-                        {paymentMethod === 'juicyway' && <div className="w-2.5 h-2.5 rounded-full bg-(--store-primary)" />}
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'juicyway' ? 'border-store-primary' : 'border-gray-400'}`}>
+                        {paymentMethod === 'juicyway' && <div className="w-2.5 h-2.5 rounded-full bg-store-primary" />}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
@@ -305,7 +305,7 @@ export function PaymentStep({
                   {merchant?.feature_settings?.pay_on_delivery_enabled === true && (
                     <label
                       className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'pod'
-                        ? 'border-(--store-primary) bg-(--store-primary)/5'
+                        ? 'border-store-primary bg-store-primary/5'
                         : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                         }`}
                     >
@@ -317,8 +317,8 @@ export function PaymentStep({
                         onChange={() => setPaymentMethod('pod')}
                         className="sr-only"
                       />
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'pod' ? 'border-(--store-primary)' : 'border-gray-400'}`}>
-                        {paymentMethod === 'pod' && <div className="w-2.5 h-2.5 rounded-full bg-(--store-primary)" />}
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'pod' ? 'border-store-primary' : 'border-gray-400'}`}>
+                        {paymentMethod === 'pod' && <div className="w-2.5 h-2.5 rounded-full bg-store-primary" />}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
@@ -344,7 +344,7 @@ export function PaymentStep({
                   {merchant?.feature_settings?.credpal_enabled === true && (
                     <label
                       className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'credpal'
-                        ? 'border-(--store-primary) bg-(--store-primary)/5'
+                        ? 'border-store-primary bg-store-primary/5'
                         : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                         }`}
                     >
@@ -356,8 +356,8 @@ export function PaymentStep({
                         onChange={() => setPaymentMethod('credpal')}
                         className="sr-only"
                       />
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'credpal' ? 'border-(--store-primary)' : 'border-gray-400'}`}>
-                        {paymentMethod === 'credpal' && <div className="w-2.5 h-2.5 rounded-full bg-(--store-primary)" />}
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'credpal' ? 'border-store-primary' : 'border-gray-400'}`}>
+                        {paymentMethod === 'credpal' && <div className="w-2.5 h-2.5 rounded-full bg-store-primary" />}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
@@ -374,7 +374,7 @@ export function PaymentStep({
                   {merchant?.feature_settings?.credit_direct_enabled === true && (
                     <label
                       className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'credit_direct'
-                        ? 'border-(--store-primary) bg-(--store-primary)/5'
+                        ? 'border-store-primary bg-store-primary/5'
                         : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                         }`}
                     >
@@ -386,8 +386,8 @@ export function PaymentStep({
                         onChange={() => setPaymentMethod('credit_direct')}
                         className="sr-only"
                       />
-                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'credit_direct' ? 'border-(--store-primary)' : 'border-gray-400'}`}>
-                        {paymentMethod === 'credit_direct' && <div className="w-2.5 h-2.5 rounded-full bg-(--store-primary)" />}
+                      <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'credit_direct' ? 'border-store-primary' : 'border-gray-400'}`}>
+                        {paymentMethod === 'credit_direct' && <div className="w-2.5 h-2.5 rounded-full bg-store-primary" />}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
@@ -462,7 +462,7 @@ export function PaymentStep({
                     type="checkbox"
                     checked={newsletterOptIn}
                     onChange={(e) => setNewsletterOptIn(e.target.checked)}
-                    className="peer h-4 w-4 rounded border-gray-300 text-(--store-primary) focus:ring-(--store-primary)"
+                    className="peer h-4 w-4 rounded border-gray-300 text-store-primary focus:ring-store-primary"
                   />
                 </div>
                 <span className="text-xs text-gray-600 group-hover:text-gray-900 transition-colors">
@@ -477,7 +477,7 @@ export function PaymentStep({
                 (remainingAmount > 0 && !hasAvailableSelectedPaymentMethod) ||
                 (paymentMethod === 'payforme' && !isPayForMeValid)
               }
-              className="w-full bg-(--store-primary) hover:bg-(--store-primary)/90 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-(--store-primary)/20 active:scale-[0.98]"
+              className="w-full bg-store-primary hover:bg-store-primary/90 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-store-primary/20 active:scale-[0.98]"
             >
               {isProcessing ? (
                 <Loader2 className="animate-spin" size={20} />

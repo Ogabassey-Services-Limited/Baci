@@ -257,7 +257,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
               <span
                 className={`block h-1.5 rounded-full transition-all duration-300 shadow-sm ${isCurrentSlide
                   ? 'w-6'
-                  : 'w-1.5 group-hover:bg-[color-mix(in_srgb,var(--store-on-primary,#ffffff)_70%,transparent)]'
+                  : 'w-1.5 group-hover:bg-store-on-primary/70'
                   } ${slide.type === 'ad' && !isCurrentSlide ? 'opacity-30' : 'opacity-100'}`}
                 style={{
                   backgroundColor: isCurrentSlide

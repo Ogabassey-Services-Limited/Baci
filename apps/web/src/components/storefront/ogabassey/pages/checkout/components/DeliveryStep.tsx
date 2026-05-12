@@ -103,7 +103,7 @@ export function DeliveryStep({
   return (
     <>
       {/* Step 2: Delivery Method */}
-      <div className={`bg-white rounded-2xl shadow-sm border ${currentStep === 'delivery' ? 'border-(--store-primary) ring-1 ring-(--store-primary)/20' : 'border-gray-100'} transition-all duration-300`}>
+      <div className={`bg-white rounded-2xl shadow-sm border ${currentStep === 'delivery' ? 'border-store-primary ring-1 ring-store-primary/20' : 'border-gray-100'} transition-all duration-300`}>
         <button
           type="button"
           onClick={() => completedSteps.contact && setCurrentStep('delivery')}
@@ -111,14 +111,14 @@ export function DeliveryStep({
           className="w-full px-6 py-4 flex items-center justify-between text-left disabled:opacity-50 disabled:cursor-not-allowed hidden-disabled"
         >
           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors ${completedSteps.delivery ? 'bg-green-100 text-green-600' : currentStep === 'delivery' ? 'bg-(--store-primary)/10 text-(--store-primary)' : 'bg-gray-100 text-gray-500'
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors ${completedSteps.delivery ? 'bg-green-100 text-green-600' : currentStep === 'delivery' ? 'bg-store-primary/10 text-store-primary' : 'bg-gray-100 text-gray-500'
               }`}>
               {completedSteps.delivery ? <Check size={14} /> : '2'}
             </div>
             Delivery Method
           </h2>
           {completedSteps.delivery && currentStep !== 'delivery' && (
-            <span className="text-sm font-medium text-(--store-primary) hover:text-(--store-primary)">Edit</span>
+            <span className="text-sm font-medium text-store-primary hover:text-store-primary">Edit</span>
           )}
         </button>
 
@@ -136,7 +136,7 @@ export function DeliveryStep({
                       </label>
                       <button
                         onClick={() => setIsNewAddressMode(!isNewAddressMode)}
-                        className="text-xs font-bold text-(--store-primary) hover:underline"
+                        className="text-xs font-bold text-store-primary hover:underline"
                       >
                         {isNewAddressMode ? 'Select Saved Address' : '+ New Address'}
                       </button>
@@ -145,7 +145,7 @@ export function DeliveryStep({
                       <label
                         key={addr.id}
                         className={`flex items-start p-4 rounded-xl border cursor-pointer transition-all ${selectedAddressId === addr.id
-                          ? 'border-(--store-primary) bg-(--store-primary)/5'
+                          ? 'border-store-primary bg-store-primary/5'
                           : 'border-gray-200 hover:border-gray-300'
                           }`}
                       >
@@ -163,7 +163,7 @@ export function DeliveryStep({
                               setNewAddressCity(parts[parts.length - 2] || '');
                             }
                           }}
-                          className="mt-1 w-4 h-4 text-(--store-primary) focus:ring-(--store-primary) border-gray-300"
+                          className="mt-1 w-4 h-4 text-store-primary focus:ring-store-primary border-gray-300"
                         />
                         <div className="ml-3">
                           <p className="font-bold text-gray-900 text-sm">
@@ -281,11 +281,11 @@ export function DeliveryStep({
                             key={method}
                             onClick={() => setDeliveryMethod(method)}
                             className={`flex-1 flex flex-col items-center justify-center p-3 sm:p-4 rounded-xl border-2 transition-all gap-1 min-w-[100px] ${deliveryMethod === method
-                              ? 'border-(--store-primary) bg-(--store-primary)/5 text-(--store-primary)'
+                              ? 'border-store-primary bg-store-primary/5 text-store-primary'
                               : 'border-gray-100 bg-white text-gray-500 hover:border-gray-200 hover:bg-gray-50'
                               }`}
                           >
-                            <Icon className={`w-6 h-6 ${deliveryMethod === method ? 'text-(--store-primary)' : 'text-gray-400'}`} />
+                            <Icon className={`w-6 h-6 ${deliveryMethod === method ? 'text-store-primary' : 'text-gray-400'}`} />
                             <span className="text-xs sm:text-sm font-bold">{label}</span>
                             <span className="text-[10px] text-gray-400">{subtitle}</span>
                           </button>
@@ -325,7 +325,7 @@ export function DeliveryStep({
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <label
                           className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${airportType === 'delivery'
-                            ? 'border-(--store-primary) bg-(--store-primary)/5'
+                            ? 'border-store-primary bg-store-primary/5'
                             : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                             }`}
                         >
@@ -337,10 +337,10 @@ export function DeliveryStep({
                             onChange={() => setAirportType('delivery')}
                             className="sr-only"
                           />
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${airportType === 'delivery' ? 'border-(--store-primary)' : 'border-gray-400'
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${airportType === 'delivery' ? 'border-store-primary' : 'border-gray-400'
                             }`}>
                             {airportType === 'delivery' && (
-                              <div className="w-2.5 h-2.5 rounded-full bg-(--store-primary)" />
+                              <div className="w-2.5 h-2.5 rounded-full bg-store-primary" />
                             )}
                           </div>
                           <div className="flex-1">
@@ -351,7 +351,7 @@ export function DeliveryStep({
                         </label>
                         <label
                           className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${airportType === 'pickup'
-                            ? 'border-(--store-primary) bg-(--store-primary)/5'
+                            ? 'border-store-primary bg-store-primary/5'
                             : 'border-gray-200 bg-gray-50 hover:border-gray-300'
                             }`}
                         >
@@ -363,10 +363,10 @@ export function DeliveryStep({
                             onChange={() => setAirportType('pickup')}
                             className="sr-only"
                           />
-                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${airportType === 'pickup' ? 'border-(--store-primary)' : 'border-gray-400'
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${airportType === 'pickup' ? 'border-store-primary' : 'border-gray-400'
                             }`}>
                             {airportType === 'pickup' && (
-                              <div className="w-2.5 h-2.5 rounded-full bg-(--store-primary)" />
+                              <div className="w-2.5 h-2.5 rounded-full bg-store-primary" />
                             )}
                           </div>
                           <div className="flex-1">
@@ -393,8 +393,8 @@ export function DeliveryStep({
                           {shippingQuotes.map((quote) => (
                             <label
                               key={quote.id}
-                              className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer hover:border-(--store-primary)/60 transition-all ${selectedQuoteId === quote.id
-                                ? 'border-red-500 bg-(--store-primary)/5 ring-1 ring-(--store-primary)'
+                              className={`flex items-center justify-between p-4 rounded-xl border cursor-pointer hover:border-store-primary/60 transition-all ${selectedQuoteId === quote.id
+                                ? 'border-red-500 bg-store-primary/5 ring-1 ring-store-primary'
                                 : 'border-gray-100 bg-white'
                                 }`}
                             >
@@ -404,7 +404,7 @@ export function DeliveryStep({
                                   name="shipping_quote"
                                   checked={selectedQuoteId === quote.id}
                                   onChange={() => setSelectedQuoteId(quote.id)}
-                                  className="w-4 h-4 text-(--store-primary) focus:ring-(--store-primary) border-gray-300"
+                                  className="w-4 h-4 text-store-primary focus:ring-store-primary border-gray-300"
                                 />
                                 <div>
                                   <div className="flex items-center gap-2">
@@ -467,7 +467,7 @@ export function DeliveryStep({
                     setCompletedSteps(prev => ({ ...prev, delivery: true }));
                     setCurrentStep('payment');
                   }}
-                  className="w-full md:w-auto px-6 py-3 bg-(--store-primary) text-white font-bold rounded-xl hover:bg-(--store-primary)/90 transition-colors flex items-center justify-center gap-2 shadow-lg hover:shadow-(--store-primary)/20 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:shadow-none"
+                  className="w-full md:w-auto px-6 py-3 bg-store-primary text-white font-bold rounded-xl hover:bg-store-primary/90 transition-colors flex items-center justify-center gap-2 shadow-lg hover:shadow-store-primary/20 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:shadow-none"
                   disabled={!isDeliveryValid}
                 >
                   Continue to Payment

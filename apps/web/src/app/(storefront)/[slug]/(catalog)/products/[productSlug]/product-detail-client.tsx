@@ -712,7 +712,7 @@ export default function ProductDetailClient({
                         className={cn(
                           'rounded-lg border-2 px-4 py-2 text-sm font-bold transition-all',
                           selectedCondition === condition
-                            ? 'border-(--store-primary) text-(--store-primary) bg-(--store-primary)/5'
+                            ? 'border-store-primary text-store-primary bg-store-primary/5'
                             : 'border-gray-200 text-gray-500 hover:border-gray-300'
                         )}
                       >
@@ -747,7 +747,7 @@ export default function ProductDetailClient({
                       className={cn(
                         'rounded-lg border-2 px-4 py-2 text-sm font-bold transition-all',
                         selectedCondition === (product.condition || 'new')
-                          ? 'border-(--store-primary) text-(--store-primary) bg-(--store-primary)/5'
+                          ? 'border-store-primary text-store-primary bg-store-primary/5'
                           : 'border-gray-200 text-gray-500 hover:border-gray-300'
                       )}
                     >
@@ -766,7 +766,7 @@ export default function ProductDetailClient({
                           className={cn(
                             'rounded-lg border-2 px-4 py-2 text-sm font-bold transition-all',
                             selectedCondition === offer.condition
-                              ? 'border-(--store-primary) text-(--store-primary) bg-(--store-primary)/5'
+                              ? 'border-store-primary text-store-primary bg-store-primary/5'
                               : 'border-gray-200 text-gray-500 hover:border-gray-300'
                           )}
                         >
@@ -835,7 +835,7 @@ export default function ProductDetailClient({
                               className={cn(
                                 'px-4 py-2 rounded-md text-sm font-medium transition-all',
                                 isSelected
-                                  ? 'bg-(--store-primary) text-(--store-primary-text) ring-2 ring-(--store-primary) ring-offset-2'
+                                  ? 'bg-store-primary text-store-primary-text ring-2 ring-store-primary ring-offset-2'
                                   : isAvailable
                                     ? 'bg-muted hover:bg-muted/80'
                                     : 'bg-muted/50 text-muted-foreground/50 cursor-not-allowed line-through'

@@ -108,7 +108,7 @@ export function SelectionRequiredModal({
               </>
             ) : (
               <>
-                <AlertCircle className="text-(--store-primary)" size={20} />
+                <AlertCircle className="text-store-primary" size={20} />
                 Select Options
               </>
             )}
@@ -147,10 +147,10 @@ export function SelectionRequiredModal({
                       key={color.name}
                       type="button"
                       onClick={() => onSelectColor(index)}
-                      className={`group relative flex h-14 w-14 items-center justify-center rounded-full transition-all duration-300 outline-hidden focus:ring-4 focus:ring-(--store-primary)/20 active:scale-95 ${
+                      className={`group relative flex h-14 w-14 items-center justify-center rounded-full transition-all duration-300 outline-hidden focus:ring-4 focus:ring-store-primary/20 active:scale-95 ${
                         isSelected
-                          ? 'scale-110 border-[3px] border-(--store-primary) shadow-lg'
-                          : 'border border-[color-mix(in_srgb,var(--store-background-text,#111827)_15%,transparent)] shadow-sm md:hover:scale-105 md:hover:border-[color-mix(in_srgb,var(--store-background-text,#111827)_30%,transparent)]'
+                          ? 'scale-110 border-[3px] border-store-primary shadow-lg'
+                          : 'border border-store-background-text/15 shadow-sm md:hover:scale-105 md:hover:border-store-background-text/30'
                       }`}
                     >
                       <div
@@ -163,8 +163,8 @@ export function SelectionRequiredModal({
                             size={20}
                             className={
                               isLight
-                                ? 'text-(--store-background-text,#111827)'
-                                : 'text-(--store-primary-text,#ffffff)'
+                                ? 'text-store-background-text'
+                                : 'text-store-primary-text'
                             }
                             strokeWidth={3}
                           />
@@ -202,8 +202,8 @@ export function SelectionRequiredModal({
                         onClick={() => onSelectAttribute(axis, value)}
                         className={`rounded-xl border px-4 py-3 text-sm font-bold transition-all active:scale-95 ${
                           selectedAttributes[axis] === value
-                            ? 'border-(--store-primary) bg-(--store-primary)/5 text-(--store-primary) ring-2 ring-(--store-primary)/20'
-                            : 'border-[color-mix(in_srgb,var(--store-background-text,#111827)_15%,transparent)] bg-gray-50 text-gray-700'
+                            ? 'border-store-primary bg-store-primary/5 text-store-primary ring-2 ring-store-primary/20'
+                            : 'border-store-background-text/15 bg-gray-50 text-gray-700'
                         }`}
                       >
                         {value}
@@ -220,7 +220,7 @@ export function SelectionRequiredModal({
             type="button"
             onClick={onConfirm}
             disabled={missingFields.length > 0}
-            className="w-full rounded-xl bg-(--store-primary) py-3.5 font-bold text-(--store-primary-text,#ffffff) shadow-lg transition-all active:scale-[0.98] disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none hover:bg-(--store-primary)/90"
+            className="w-full rounded-xl bg-store-primary py-3.5 font-bold text-store-primary-text shadow-lg transition-all active:scale-[0.98] disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none hover:bg-store-primary/90"
           >
             {missingFields.length > 0
               ? `Select ${missingFields.length} more option${

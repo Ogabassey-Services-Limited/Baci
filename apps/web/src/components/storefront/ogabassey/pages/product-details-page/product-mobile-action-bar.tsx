@@ -25,11 +25,11 @@ export function ProductMobileActionBar({
     <div className="fixed bottom-20 left-0 right-0 z-40 border-t border-gray-200 bg-white p-3 shadow-[0_-5px_20px_rgba(0,0,0,0.1)] md:hidden">
       {quantityInCart > 0 ? (
         <div className="flex gap-3">
-          <div className="flex h-14 flex-1 items-center justify-between rounded-xl border-2 border-(--store-primary) bg-white">
+          <div className="flex h-14 flex-1 items-center justify-between rounded-xl border-2 border-store-primary bg-white">
             <button
               type="button"
               onClick={onDecrement}
-              className="flex h-full w-14 items-center justify-center rounded-l-xl border-r border-(--store-primary)/15 text-(--store-primary) active:bg-(--store-primary)/5"
+              className="flex h-full w-14 items-center justify-center rounded-l-xl border-r border-store-primary/15 text-store-primary active:bg-store-primary/5"
               aria-label={
                 quantityInCart === 1 ? 'Remove item' : 'Decrease quantity'
               }
@@ -53,7 +53,7 @@ export function ProductMobileActionBar({
               onClick={canPurchase ? onIncrement : undefined}
               disabled={!canPurchase}
               aria-disabled={!canPurchase}
-              className="flex h-full w-14 items-center justify-center rounded-r-xl border-l border-(--store-primary)/15 text-(--store-primary) active:bg-(--store-primary)/5"
+              className="flex h-full w-14 items-center justify-center rounded-r-xl border-l border-store-primary/15 text-store-primary active:bg-store-primary/5"
               aria-label="Increase quantity"
             >
               <Plus size={20} />
@@ -61,7 +61,7 @@ export function ProductMobileActionBar({
           </div>
           <Link
             href={cartHref}
-            className="flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-(--store-primary) font-bold text-(--store-primary-text,#ffffff) shadow-lg transition-all active:scale-[0.98] active:bg-(--store-primary)/90 active:shadow-none"
+            className="flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-store-primary font-bold text-store-primary-text shadow-lg transition-all active:scale-[0.98] active:bg-store-primary/90 active:shadow-none"
           >
             <ShoppingCart size={20} />
             View Cart
@@ -77,8 +77,8 @@ export function ProductMobileActionBar({
           aria-label={canPurchase ? 'Add this product to cart' : 'Product out of stock'}
           className={`flex h-14 w-full items-center justify-center gap-2 rounded-xl font-bold shadow-lg transition-all ${
             canPurchase
-              ? 'bg-(--store-primary) text-(--store-primary-text,#ffffff) active:scale-[0.98] active:bg-(--store-primary)/90 active:shadow-none'
-              : 'cursor-not-allowed bg-(--store-background-text,#111827)/10 text-(--store-background-text,#111827)/45 shadow-none'
+              ? 'bg-store-primary text-store-primary-text active:scale-[0.98] active:bg-store-primary/90 active:shadow-none'
+              : 'cursor-not-allowed bg-store-background-text/10 text-store-background-text/45 shadow-none'
           }`}
         >
           <ShoppingCart size={20} />

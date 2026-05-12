@@ -31,9 +31,9 @@ export function ThemedCard({
       className={cn(
         'relative', // Add relative positioning for the accent bar
         // Border colors
-        borderColor === 'primary' && 'border-(--store-primary)',
-        borderColor === 'secondary' && 'border-(--store-secondary)',
-        borderColor === 'accent' && 'border-(--store-accent)',
+        borderColor === 'primary' && 'border-store-primary',
+        borderColor === 'secondary' && 'border-store-secondary',
+        borderColor === 'accent' && 'border-store-accent',
 
         // Accent bars
         accentPosition === 'top' && 'pt-1.5',
@@ -47,9 +47,9 @@ export function ThemedCard({
           className={cn('absolute', {
             'top-0 left-0 right-0 h-1.5': accentPosition === 'top',
             'top-0 bottom-0 left-0 w-1.5': accentPosition === 'left',
-            'bg-(--store-primary)': accentColor === 'primary',
-            'bg-(--store-secondary)': accentColor === 'secondary',
-            'bg-(--store-accent)': accentColor === 'accent',
+            'bg-store-primary': accentColor === 'primary',
+            'bg-store-secondary': accentColor === 'secondary',
+            'bg-store-accent': accentColor === 'accent',
           })}
         />
       )}

@@ -247,7 +247,7 @@ export function BrandProducts({
                   </Link>
                   <CardContent className="p-3">
                     <Link href={getFullProductUrl(p) as '/'} prefetch={false}>
-                      <h3 className="font-medium text-sm line-clamp-2 hover:text-(--store-primary) transition-colors">
+                      <h3 className="font-medium text-sm line-clamp-2 hover:text-store-primary transition-colors">
                         {p.name}
                       </h3>
                     </Link>

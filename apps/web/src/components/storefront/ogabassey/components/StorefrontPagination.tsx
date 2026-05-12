@@ -74,7 +74,7 @@ export function StorefrontPagination({
         <Link
           href={asRoute(buildStorefrontPageHref(basePath, safeCurrentPage - 1))}
           prefetch={false}
-          className="inline-flex items-center gap-2 rounded-xl border border-(--store-background-text)/10 bg-(--store-background) px-4 py-2 text-sm font-medium text-(--store-background-text) transition-colors hover:border-(--store-primary) hover:text-(--store-primary)"
+          className="inline-flex items-center gap-2 rounded-xl border border-store-background-text/10 bg-store-background px-4 py-2 text-sm font-medium text-store-background-text transition-colors hover:border-store-primary hover:text-store-primary"
         >
           <ChevronLeft size={16} />
           Previous
@@ -92,7 +92,7 @@ export function StorefrontPagination({
               {shouldShowGap && (
                 <span
                   aria-hidden="true"
-                  className="inline-flex h-10 w-10 items-center justify-center text-(--store-background-text)/40"
+                  className="inline-flex h-10 w-10 items-center justify-center text-store-background-text/40"
                 >
                   <MoreHorizontal size={16} />
                 </span>
@@ -104,8 +104,8 @@ export function StorefrontPagination({
                 prefetch={false}
                 className={`inline-flex h-10 min-w-10 items-center justify-center rounded-xl px-3 text-sm font-semibold transition-colors ${
                   page === safeCurrentPage
-                    ? 'bg-(--store-primary) text-(--store-primary-text)'
-                    : 'border border-(--store-background-text)/10 bg-(--store-background) text-(--store-background-text) hover:border-(--store-primary) hover:text-(--store-primary)'
+                    ? 'bg-store-primary text-store-primary-text'
+                    : 'border border-store-background-text/10 bg-store-background text-store-background-text hover:border-store-primary hover:text-store-primary'
                 }`}
               >
                 {page}
@@ -119,7 +119,7 @@ export function StorefrontPagination({
         <Link
           href={asRoute(buildStorefrontPageHref(basePath, safeCurrentPage + 1))}
           prefetch={false}
-          className="inline-flex items-center gap-2 rounded-xl border border-(--store-background-text)/10 bg-(--store-background) px-4 py-2 text-sm font-medium text-(--store-background-text) transition-colors hover:border-(--store-primary) hover:text-(--store-primary)"
+          className="inline-flex items-center gap-2 rounded-xl border border-store-background-text/10 bg-store-background px-4 py-2 text-sm font-medium text-store-background-text transition-colors hover:border-store-primary hover:text-store-primary"
         >
           Next
           <ChevronRight size={16} />

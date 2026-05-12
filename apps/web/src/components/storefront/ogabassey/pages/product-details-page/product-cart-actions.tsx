@@ -44,11 +44,11 @@ export function ProductCartActions({
       <div className="mb-8 hidden md:block">
         {quantityInCart > 0 ? (
           <div className="flex gap-3">
-            <div className="flex h-14 flex-1 animate-in items-center justify-between overflow-hidden rounded-xl border-2 border-(--store-primary) bg-white fade-in duration-200">
+            <div className="flex h-14 flex-1 animate-in items-center justify-between overflow-hidden rounded-xl border-2 border-store-primary bg-white fade-in duration-200">
               <button
                 type="button"
                 onClick={onDecrement}
-                className="flex h-full w-14 items-center justify-center border-r border-(--store-primary)/15 text-(--store-primary) transition-colors hover:bg-(--store-primary)/5"
+                className="flex h-full w-14 items-center justify-center border-r border-store-primary/15 text-store-primary transition-colors hover:bg-store-primary/5"
                 aria-label={quantityInCart === 1 ? 'Remove item' : 'Decrease quantity'}
               >
                 {quantityInCart === 1 ? (
@@ -78,7 +78,7 @@ export function ProductCartActions({
                 type="button"
                 onClick={onIncrement}
                 disabled={!canPurchase}
-                className="flex h-full w-14 items-center justify-center border-l border-(--store-primary)/15 text-(--store-primary) transition-colors hover:bg-(--store-primary)/5"
+                className="flex h-full w-14 items-center justify-center border-l border-store-primary/15 text-store-primary transition-colors hover:bg-store-primary/5"
                 aria-label="Increase quantity"
               >
                 <Plus size={20} />
@@ -86,7 +86,7 @@ export function ProductCartActions({
             </div>
             <Link
               href={cartHref}
-              className="flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-(--store-primary) font-bold text-(--store-primary-text,#ffffff) shadow-lg transition-all hover:bg-(--store-primary)/90 hover:shadow-(--store-primary)/20"
+              className="flex h-14 flex-1 items-center justify-center gap-2 rounded-xl bg-store-primary font-bold text-store-primary-text shadow-lg transition-all hover:bg-store-primary/90 hover:shadow-store-primary/20"
             >
               <ShoppingCart size={20} />
               View Cart
@@ -100,8 +100,8 @@ export function ProductCartActions({
             className={cn(
               'flex h-14 w-full items-center justify-center gap-2 rounded-xl font-bold shadow-lg transition-all',
               canPurchase
-                ? 'bg-(--store-primary) text-(--store-primary-text,#ffffff) hover:bg-(--store-primary)/90 hover:shadow-(--store-primary)/20'
-                : 'cursor-not-allowed bg-(--store-background-text,#111827)/10 text-(--store-background-text,#111827)/45 shadow-none'
+                ? 'bg-store-primary text-store-primary-text hover:bg-store-primary/90 hover:shadow-store-primary/20'
+                : 'cursor-not-allowed bg-store-background-text/10 text-store-background-text/45 shadow-none'
             )}
           >
             {canPurchase ? 'Add to Cart' : 'Unavailable'}
@@ -111,7 +111,7 @@ export function ProductCartActions({
 
       <div className="grid grid-cols-2 gap-2">
         <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 p-3">
-          <Truck size={16} className="shrink-0 text-(--store-primary)" />
+          <Truck size={16} className="shrink-0 text-store-primary" />
           <div className="text-xs">
             <span className="block font-bold text-gray-900">
               Nationwide Delivery
@@ -122,7 +122,7 @@ export function ProductCartActions({
         <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 p-3">
           <RotateCcw
             size={16}
-            className="shrink-0 text-(--store-primary)"
+            className="shrink-0 text-store-primary"
           />
           <div className="text-xs">
             <span className="block font-bold text-gray-900">14 Day Returns</span>
@@ -132,7 +132,7 @@ export function ProductCartActions({
         <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 p-3">
           <ShieldCheck
             size={16}
-            className="shrink-0 text-(--store-primary)"
+            className="shrink-0 text-store-primary"
           />
           <div className="text-xs">
             <span className="block font-bold text-gray-900">1 Year Warranty</span>
@@ -142,7 +142,7 @@ export function ProductCartActions({
         <div className="flex items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 p-3">
           <ShieldPlus
             size={16}
-            className="shrink-0 text-(--store-primary)"
+            className="shrink-0 text-store-primary"
           />
           <div className="text-xs">
             <span className="block font-bold text-gray-900">
