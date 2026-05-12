@@ -35,19 +35,17 @@ export async function saveDirtyProducts({
   const productsById = new Map(
     localProducts.map((product) => [product.id, product])
   );
+  // Parallel dispatch via `.map()` schedules every async callback synchronously
+  // up to the first `await`, so a per-iteration `signal?.aborted` check inside
+  // the map cannot intercept anything in real async scenarios. We only honor
+  // the signal at the boundary: before the batch (above) and after it
+  // (below) — the latter prevents the caller from acting on stale results
+  // when `controller.abort()` fires during in-flight dispatches.
   const settled = await Promise.allSettled(
     dirtyIds.map(async (id) => {
       const product = productsById.get(id) ?? dirtyProductSnapshots?.get(id);
 
       if (!product) {
-        return { id, outcome: 'skipped' as const };
-      }
-
-      // Best-effort cancellation: skip dispatching the network call if the
-      // signal has aborted by the time this entry runs. Individual
-      // updateProduct calls already in flight cannot be cancelled from here
-      // without changing the updateProduct signature.
-      if (signal?.aborted) {
         return { id, outcome: 'skipped' as const };
       }
 

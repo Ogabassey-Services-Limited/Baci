@@ -120,10 +120,14 @@ describe('saveDirtyProducts', () => {
     });
   });
 
-  it('stops mid-batch when the signal aborts during execution', async () => {
+  it('returns an empty result when the signal aborts during in-flight dispatches', async () => {
+    // Honest semantics: `Promise.allSettled` over `.map()` fires every async
+    // callback synchronously up to the first await, so by the time the signal
+    // aborts, all `updateProduct` calls have already been issued. We don't
+    // claim to cancel them — we only swallow the results so the caller doesn't
+    // mutate stale state. This test pins that contract.
     const controller = new AbortController();
     const updateProduct = vi.fn().mockImplementation(() => {
-      // Simulate the signal being aborted after the first save kicks off.
       controller.abort();
       return Promise.resolve();
     });
@@ -146,11 +150,10 @@ describe('saveDirtyProducts', () => {
       updateProduct,
     });
 
-    // Promise.allSettled schedules entries sequentially on the microtask
-    // queue, so the abort fired inside the first updateProduct call should
-    // prevent subsequent dispatches.
-    expect(updateProduct).toHaveBeenCalledTimes(1);
-    expect(updateProduct).toHaveBeenCalledWith(baseProduct);
+    // All three dispatches fire (parallel) — we cannot cancel in-flight calls.
+    expect(updateProduct).toHaveBeenCalledTimes(3);
+    // But the post-batch abort check returns an empty result, so the caller
+    // sees no successes/failures and skips state updates.
     expect(result).toEqual({
       failedIds: [],
       fulfilledIds: [],

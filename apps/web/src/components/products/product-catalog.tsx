@@ -154,7 +154,15 @@ export function ProductCatalog({
           variant: 'destructive',
         });
       } finally {
-        setIsSaving(false);
+        // Only clear the saving indicator if THIS effect is still the active
+        // one. If `debouncedDirtyProducts` changed mid-save, the cleanup
+        // function aborted us and a fresh effect already called
+        // `setIsSaving(true)` for the new batch — clearing it here would flash
+        // the indicator off even though the new save is in flight, leading
+        // users to believe their data is saved and navigate away prematurely.
+        if (!controller.signal.aborted) {
+          setIsSaving(false);
+        }
       }
     };
 
