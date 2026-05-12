@@ -16,3 +16,174 @@ pre-push:
       run: pnpm turbo typecheck
     test:
       run: pnpm turbo test
+    behind-base:
+      # Block the push when ANY pushed branch is behind its base. Reads
+      # git's pre-push stdin protocol (`<local_ref> <local_sha> <remote_ref>
+      # <remote_sha>` per line) so we check the actual refs being pushed,
+      # NOT the currently checked-out HEAD. This matters because
+      # `git push origin feature-x` while sitting on `main` would
+      # otherwise short-circuit on the main check and bypass the guard
+      # entirely. Catches the BEHIND-branch silent-revert failure mode
+      # where a squash-merge of a stale branch silently reverts
+      # overlapping changes from peer PRs merged in the meantime.
+      #
+      # Base-resolution order (per pushed branch):
+      #   1) per-branch override:  git config branch.<name>.base origin/<ref>
+      #      (use for stacked PRs or branches off a non-default base)
+      #   2) origin/HEAD symbolic ref (the actual repo default — works
+      #      whether the default is `main`, `master`, `develop`, …)
+      #   3) hard fallback to origin/main
+      #
+      # Escape hatches:
+      #   - Set `branch.<name>.base` once and the hook tracks it forever.
+      #   - Genuine emergency: `git push --no-verify`.
+      #
+      # use_stdin: true is REQUIRED — Lefthook's docs explicitly call out
+      # pre-push `while read` scripts as needing this option. Without it
+      # Lefthook closes stdin and our `read` loop sees nothing.
+      use_stdin: true
+      run: |
+        # Skip when no real push is happening (e.g., `lefthook run
+        # pre-push` from a terminal). Git always pipes ref data on
+        # stdin for an actual push, so a terminal-attached stdin
+        # means we're in a smoke-test invocation.
+        if [ -t 0 ]; then exit 0; fi
+
+        # Destination remote. Lefthook commands.run does NOT expose hook
+        # args as shell positional parameters — they're injected via
+        # template placeholders that Lefthook substitutes BEFORE the
+        # script runs. So `$1` is always empty here, regardless of
+        # use_stdin. {1} is the documented placeholder for the first
+        # positional arg, which for pre-push is the destination remote
+        # name git passes to the hook.
+        #
+        # Fall back to `origin` when the placeholder substitutes to an
+        # empty string (e.g. `lefthook run pre-push` from a terminal
+        # with no args). If the hook is somehow invoked WITHOUT Lefthook
+        # doing template substitution, the literal `{1}` would remain
+        # and the fetch below would soft-fail with the "offline?"
+        # message — under-block, the right failure mode.
+        remote="{1}"
+        remote="${remote:-origin}"
+
+        # Resolve the default branch once — used for BOTH the self-skip
+        # check below AND the base fallback. Hardcoding `main|master`
+        # misses repos whose default is `develop`, `trunk`, etc.
+        #
+        # Resolution order (each strategy tried only if the previous gave
+        # an empty result):
+        #
+        #   1) Local symbolic-ref `refs/remotes/<remote>/HEAD` — fast,
+        #      but can be legitimately MISSING (`git remote set-head
+        #      --delete` was run, fresh clone, partial fetch). Falling
+        #      straight to `main` here is wrong: in a repo whose true
+        #      default is master/develop, every base would resolve to
+        #      `<remote>/main`, the fetch would 404, and EVERY push
+        #      would soft-skip — silently disabling the guard repo-wide.
+        #
+        #   2) Authoritative remote query via `git ls-remote --symref
+        #      <remote> HEAD` — asks the server what its default branch
+        #      is. Requires network but is the only reliable source
+        #      when (1) is missing.
+        #
+        #   3) Loud skip — if both lookups fail (no network AND no local
+        #      origin/HEAD), explicitly skip with an actionable message
+        #      rather than silently defaulting to a guessed branch name.
+        #      Under-block is the right failure mode for "we don't know
+        #      what to gate against," but it MUST be visible.
+        default_branch=$(git symbolic-ref -q --short "refs/remotes/${remote}/HEAD" 2>/dev/null | sed "s|^${remote}/||")
+        if [ -z "$default_branch" ]; then
+          default_branch=$(git ls-remote --symref "$remote" HEAD 2>/dev/null \
+            | awk 'NR==1 && /^ref:/ { sub("^refs/heads/", "", $2); print $2; exit }')
+        fi
+        if [ -z "$default_branch" ]; then
+          echo "⚠️  Could not determine default branch for remote '$remote'."
+          echo "    refs/remotes/${remote}/HEAD is unset (try \`git remote set-head $remote --auto\`)"
+          echo "    AND \`git ls-remote --symref $remote HEAD\` failed (offline?)."
+          echo "    Skipping behind-base check. Override per-branch with:"
+          echo "      git config branch.<name>.base $remote/<your-base>"
+          exit 0
+        fi
+
+        fail=0
+        while IFS=' ' read -r local_ref local_sha _remote_ref _remote_sha; do
+          # Skip ref deletions. The "zero hash" varies by git's object-format
+          # (40 chars for SHA-1, 64 for SHA-256), so match any all-zero
+          # string of any length rather than hardcoding a fixed-width constant.
+          case "$local_sha" in *[!0]*) ;; *) continue ;; esac
+
+          # Resolve to a branch name from the REMOTE ref — the destination
+          # of the push. Git pre-push <local-ref> is "what's being pushed
+          # FROM" (any expression: refs/heads/<x>, HEAD, HEAD~, raw SHA,
+          # branch@{u}, …) and <remote-ref> is "what branch will exist on
+          # the remote after this push". The remote ref is the only thing
+          # that authoritatively identifies the branch we want to gate.
+          #
+          # Using local_ref is wrong because git allows source and
+          # destination to differ in a refspec:
+          #   - `git push origin main:feature-x`       → local=main, remote=feature-x
+          #   - `git push origin HEAD:feature-x`       → local=HEAD,  remote=feature-x
+          #   - `git push origin abc1234:feature-x`    → local=SHA,   remote=feature-x
+          #   - `git push origin feature-x`            → local=feature-x, remote=feature-x
+          #
+          # In the cross-name refspec cases, deriving from local_ref would
+          # treat the push as `main` and hit the default-branch self-skip
+          # below, bypassing the guard for the actual destination
+          # (feature-x). We always read from remote_ref instead.
+          #
+          # Non-branch remote refs (tag pushes, notes refs, etc.) are
+          # skipped — this guard only gates branch pushes.
+          case "$_remote_ref" in
+            refs/heads/*)
+              branch="${_remote_ref#refs/heads/}"
+              ;;
+            *)
+              continue
+              ;;
+          esac
+
+          # The default branch is its own base — skip dynamically so
+          # repos whose default is `develop` (or any non-main name)
+          # don't get checked against themselves.
+          [ "$branch" = "$default_branch" ] && continue
+
+          base=$(git config "branch.$branch.base" 2>/dev/null || true)
+          if [ -z "$base" ]; then
+            base="${remote}/${default_branch}"
+          fi
+
+          base_ref=${base#${remote}/}
+          if ! git fetch -q "$remote" "$base_ref" 2>/dev/null; then
+            echo "⚠️  Couldn't fetch $base for '$branch' — skipping behind-base check (offline?)."
+            continue
+          fi
+
+          # Count commits in $base not reachable from the SHA being
+          # pushed — NOT from HEAD, so cross-branch pushes work.
+          #
+          # Use FETCH_HEAD (the exact tip we just fetched) rather than
+          # the local tracking branch ($base). Single-branch clones and
+          # certain git configs don't maintain refs/remotes/origin/*,
+          # so $base may be stale or missing entirely, causing
+          # `git rev-list` to fail silently and leave $behind empty.
+          # `|| echo 0` ensures the numeric comparison below always
+          # operates on a real integer instead of throwing
+          # `integer expression expected` and bypassing the guard.
+          behind=$(git rev-list --count "$local_sha..FETCH_HEAD" 2>/dev/null || echo 0)
+          if [ "${behind:-0}" -gt 0 ]; then
+            echo ""
+            echo "❌ Branch '$branch' is $behind commit(s) behind $base."
+            echo "   Run one of:"
+            echo "     git merge $base"
+            echo "     git rebase $base"
+            echo "   then push again."
+            echo ""
+            echo "   Branched off a non-default base? Set it once:"
+            echo "     git config branch.$branch.base origin/<your-base>"
+            echo ""
+            echo "   To override (emergency): git push --no-verify"
+            fail=1
+          fi
+        done
+
+        exit $fail
