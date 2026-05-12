@@ -18,6 +18,14 @@ const CLIENT_ORDER_ERROR_CODES = new Set([
   'user_id_mismatch',
   'invalid_payment_status',
   'discount_amount_not_supported',
+  // B3 review fix (PR #1611): the RPC now raises
+  // `shipping_quote_required` when `p_shipping_provider IS NOT NULL
+  // AND p_selected_quote_id IS NULL`. Without this entry, agentic
+  // checkout callers that submit invalid shipping metadata get a
+  // generic 500 instead of an actionable 400 — they can't tell
+  // "re-quote / fix input" from "transient server issue, retry".
+  // Matches the `clientErrorCodes` array in /api/orders route.ts.
+  'shipping_quote_required',
   '22P02',
 ]);
 

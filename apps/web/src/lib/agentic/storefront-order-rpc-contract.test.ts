@@ -260,3 +260,42 @@ describe('agentic storefront order RPC contract — B2 customer upsert hardening
     );
   });
 });
+
+// B3 (plan §5 B3): fail-closed for missing shipping quote. The RPC must
+// raise `shipping_quote_required` when a shipping provider is supplied
+// without an accompanying quote id — closes the legacy `|| 'GIGL'`
+// silent-default bug at apps/web/src/app/checkout/page.tsx:1217.
+describe('agentic storefront order RPC contract — B3 shipping_quote_required', () => {
+  it('raises shipping_quote_required when shipping_provider is set without a quote id', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    // Predicate must be exactly the plan's contract: provider non-null
+    // AND quote id null. Refusing a stricter predicate (e.g. checking
+    // shipping_fee > 0) keeps the rule simple and aligns with the
+    // client's invariant that pickup/airport send `shipping_provider:
+    // null`.
+    expect(sql).toMatch(
+      /IF p_shipping_provider IS NOT NULL AND p_selected_quote_id IS NULL THEN\s+RAISE EXCEPTION 'shipping_quote_required';/
+    );
+  });
+
+  it('runs the shipping_quote_required check after param validation but before merchant lookup', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    // Param validation (payment_status check) → shipping guard →
+    // merchant existence check. Fail fast without touching merchants.
+    const paymentStatusIndex = sql.indexOf(
+      "RAISE EXCEPTION 'invalid_payment_status';"
+    );
+    const shippingGuardIndex = sql.indexOf(
+      "RAISE EXCEPTION 'shipping_quote_required';"
+    );
+    const merchantLookupIndex = sql.indexOf(
+      'PERFORM 1 FROM merchants m WHERE m.id = p_merchant_id'
+    );
+
+    expect(paymentStatusIndex).toBeGreaterThan(-1);
+    expect(shippingGuardIndex).toBeGreaterThan(paymentStatusIndex);
+    expect(merchantLookupIndex).toBeGreaterThan(shippingGuardIndex);
+  });
+});
