@@ -15,11 +15,11 @@ targeted tests.
 
 ## Environment
 
-- Audit date: 2026-05-10 through 2026-05-11
+- Audit date: 2026-05-10 through 2026-05-12
 - Source branch: `codex/merchant-storefront-e2e-audit`
 - Base target: `origin/main`
-- Branch base commit after reconciliation: `84dd7f793f`
-- Current `origin/main`: `84dd7f793f`
+- Branch commit after latest main reconciliation: `8e5cb881468`
+- Current `origin/main`: `35cabe857736`
 - Worktree:
   `/Users/mac/.config/superpowers/worktrees/Baci-app/merchant-storefront-e2e-audit`
 - Browser harness: Chrome plugin
@@ -40,6 +40,8 @@ targeted tests.
 | Hair extensions | `hair-extensions` | `strand-1778454931672` | `Brazilian Bundle 1778454931672` | `b96de5d2-64ca-420b-8958-30f41f64ec81` | Passed |
 | Handmade | `handmade` | `craft-1778455637896` | `Woven Basket 1778455637896` | `cfd0e0c5-eee3-4438-b404-d2586a1918fe` | Passed |
 | Handmade post-merge smoke | `handmade` | `craft-1778455637896` | `Woven Basket 1778455637896` | `7323b580-c9ff-4b2b-b09b-1abb234feabb` / `ORD-260511-00AQ-T` | Passed |
+| Food continuation smoke | `food-beverage` | `baci-food-audit-1778482544331` | `Jollof Rice Bowl` | `c93e0eec-3733-4f82-8839-97b443dea41e` / `ORD-260511-00C8-Q` | Passed |
+| Pharmacy continuation smoke | `pharmaceuticals` | `baci-pharmacy-audit-1778489000001` | `Paracetamol Tablets` | `08a945bb-3d81-4fe8-bbe5-63a8346500fc` / `ORD-260512-00BW-D` | Passed |
 
 ## Chrome Evidence
 
@@ -79,6 +81,53 @@ targeted tests.
 - Earlier `innerText` checks under-counted content because client-rendered Puck
   sections were present in the accessible DOM but not reflected in the quick
   text probe.
+- On 2026-05-12 the Chrome extension was reconnected after plugin reinstall and
+  used against the latest local branch. New food and pharmacy merchant signups
+  showed the current industry profile output: food used `Menu`, `Fresh meals,
+  simple ordering`, and `Fresh, Fast, Local`; pharmacy used `Health Store`,
+  `Wellness essentials you can trust`, and `Safe Healthcare Shopping`.
+- The food and pharmacy continuation flows created products from the dashboard,
+  published storefront product lists, placed pickup / pay-on-delivery orders,
+  reached order-success pages, and showed the orders back in the dashboard.
+  Linked Supabase checks confirmed `order_items` rows and `stock_quantity`
+  decrements for both products.
+- After merging current `origin/main` into the audit branch, Chrome rechecked
+  the all-industry storefront fixture set. All eight storefronts loaded without
+  application errors and showed tenant-specific hero copy plus the expected
+  product. Older fixture stores still render their stored Puck configs, so they
+  remain industry-specific but do not automatically adopt newer starter-profile
+  copy unless regenerated.
+
+## Storefront Design and AI Generation Notes
+
+- Generated merchants use `template_id: 'puck'`, so their home pages render from
+  Puck page configs rather than the hardcoded Ogabassey home template.
+- The checkout implementation is still shared from the
+  `components/storefront/ogabassey/pages/checkout` module. Current verification
+  found tenant scoping, merchant slug propagation, payment availability guards,
+  and order creation working for generated merchants. This is acceptable as a
+  shared checkout engine, but it should be treated as a generic storefront
+  checkout module and eventually renamed/extracted so the folder name does not
+  imply Ogabassey-only branding.
+- Industry differentiation now happens in the starter Puck profile: food,
+  pharmaceuticals, fashion, electronics, home goods, health/beauty, hair, and
+  handmade receive industry-specific copy, navigation labels, section order,
+  story blocks, product grid titles, grid density, and newsletter framing. This
+  keeps first render deterministic while avoiding the previous one-size-fits-all
+  starter page.
+- Preview-mode product grids now use sample products for the merchant business
+  type instead of always showing fashion products. This keeps onboarding preview
+  output aligned with the selected industry before any real products exist.
+- PR #1565 is merged into `main` and its async AI storefront pipeline is present:
+  onboarding can enqueue `storefront_layout_generation` jobs when enabled, the
+  worker validates/normalizes generated layouts, the dashboard exposes build
+  status, and completed AI drafts apply through the atomic
+  `apply_ai_storefront_draft` RPC.
+- Product recommendation: keep deterministic industry starter templates as the
+  first-render path so signup always produces a working storefront immediately.
+  Use AI generation as an asynchronous upgrade/edit layer that can replace or
+  refine the starter after validation, because this preserves reliability while
+  still enabling stronger industry-specific designs.
 
 ## Fixes Applied
 
@@ -92,6 +141,13 @@ targeted tests.
 - Fixed dashboard add-product slug auto-sync after product-name edits.
 - Centralized merchant publish requests for setup checklist and dashboard use.
 - Added industry-specific initial template copy for generated business types.
+- Added centralized starter profiles for food, pharmacy, fashion, electronics,
+  home goods, health/beauty, hair extensions, handmade/art, and default stores.
+- Added pharmacy and hair-extension sample products, and made preview product
+  grids business-type aware.
+- Fixed storefront product-list freshness after dashboard product creation by
+  revalidating the same storefront cache tags used by the products API and by
+  fetching the client product list with `cache: 'no-store'`.
 - Added handmade-specific second and third hero-slide fallback copy so handmade
   starter stores no longer inherit generic fashion/catalog wording.
 - Added industry-aware storefront metadata.
@@ -108,30 +164,43 @@ targeted tests.
 
 ## Migration Reconciliation
 
-- `supabase migration list --linked` shows remote migrations are applied through
+- Supabase MCP `list_migrations` shows remote migrations are applied through
+  `20260510233731`.
+- The branch was reconciled with current `origin/main`, including the previously
+  remote-only migrations `20260510160000`, `20260510170000`, and
   `20260510180000`.
-- This worktree is missing remote-applied migrations `20260510160000`,
-  `20260510170000`, and `20260510180000`; they are also absent from current
-  `origin/main` after fetch.
-- This branch adds one new local-only migration:
+- This branch added and applied one migration:
   `20260510233731_fix_order_number_uuid_offset.sql`.
-- The new migration has not been applied to the Supabase project.
-- SQL verification used a rolled-back transaction with a temporary function.
+- No migration repair was needed. `supabase db push --linked --dry-run`
+  identified exactly this one pending migration before application, and
+  Supabase MCP `list_migrations` plus CLI `supabase migration list --linked`
+  confirmed it in remote history after application.
+- SQL verification used a rolled-back transaction against the linked database.
   Verified examples:
   - Existing signed offset path: `8f0ed783...` encoded to `0000`.
   - Corrected unsigned offset path: `8f0ed783...` encoded to `00HM`.
   - Corrected unsigned offset path: `d95a5a32...` encoded to `006B`.
+- On 2026-05-12, after merging current `origin/main`, Supabase MCP
+  `list_migrations` and CLI `supabase migration list --linked` both showed
+  local and remote history aligned through `20260511120000`. A fresh
+  `supabase db push --linked --dry-run` attempt did not reach diff evaluation
+  because the Supabase CLI temp-role connection failed with `password
+  authentication failed` and then the pooler circuit breaker after retries.
 
 ## Remaining Risks
 
-- Remote migration drift must be reconciled before applying new migrations to
-  the linked Supabase project. Applying this branch without accounting for the
-  three remote-only migrations will keep migration history out of sync.
+- Supabase CLI temp-role auth fails unless `SUPABASE_DB_PASSWORD` is provided
+  from the local database password. Once set, CLI migration listing and push
+  work as expected.
 - Local Docker is not running, so Supabase local migration execution could not
   be used for full database replay.
 - Stock values for some E2E products were corrected through Supabase after
   Chrome automation could not reliably set numeric stock fields. Product API
   tests cover persistence, and this was not reproduced as a browser app defect.
+- Existing merchants keep their stored Puck page configs. New starter-profile
+  changes affect newly generated storefronts immediately, but older storefronts
+  need a regenerate/apply step if they should adopt updated copy or section
+  ordering.
 - Dev-server performance observations are local only. Chrome showed good FCP on
   generated storefronts, with one local TTFB sample in the needs-improvement
   range during dev-server compilation/caching.
@@ -151,8 +220,20 @@ targeted tests.
 - Chrome all-industry home-page presentation smoke:
   - Result: all eight home pages showed expected industry-specific hero copy,
     product sections, and no real error markers.
-- `pnpm --filter @baci/web exec vitest run src/lib/initial-template-generator.test.ts`
-  - Result: 1 file passed, 13 tests passed.
+- `supabase db push --linked --dry-run`
+  - Result: exactly one pending migration,
+    `20260510233731_fix_order_number_uuid_offset.sql`; no repair needed.
+- `supabase db push --linked --yes`
+  - Result: applied `20260510233731_fix_order_number_uuid_offset.sql`.
+- `supabase db query --linked -f supabase/migrations/tests/order_number_uuid_offset.sql -o table`
+  - Result: exited successfully; transaction rolled back after validating
+    high-bit UUID prefixes no longer generate `0000` order-number segments.
+- Supabase MCP `list_migrations` and CLI `supabase migration list --linked`
+  - Result: remote history includes `20260510233731`.
+- `pnpm --filter @baci/web exec vitest run src/lib/initial-template-profiles.test.ts src/lib/initial-template-generator.test.ts src/components/onboarding-puck-preview.test.tsx src/app/onboarding/actions.test.ts`
+  - Result: 4 files passed, 48 tests passed.
+- `pnpm --filter @baci/web exec vitest run src/schemas/ai-jobs.test.ts src/schemas/ai-storefront-layout.test.ts src/lib/ai-storefront/normalize-ai-storefront-layout.test.ts src/lib/ai-storefront/process-storefront-layout-job.test.ts src/scripts/process-ai-storefront-jobs.test.ts src/app/api/ai-jobs/route.test.ts 'src/app/api/ai-jobs/[id]/apply/route.test.ts' src/app/api/ai-jobs/worker/route.test.ts src/components/dashboard/store-build-status-card.test.tsx src/lib/store-build-status.test.ts`
+  - Result: 10 files passed, 66 tests passed.
 - `pnpm turbo lint`
   - Result: web Biome check passed; mobile-storefront replayed existing
     warnings only, with zero errors.
@@ -165,3 +246,53 @@ targeted tests.
   - Result: CodeRabbit findings were reviewed and the valid documentation,
     handmade hero copy, and handmade/art feature consistency suggestions were
     applied before the final verification run.
+- Chrome 2026-05-12 continuation smoke:
+  - Result: food and pharmacy completed signup -> dashboard product creation ->
+    storefront product list -> checkout -> order-success -> dashboard order
+    visibility. The all-industry storefront fixture smoke passed for food,
+    pharmacy, fashion, electronics, home goods, health/beauty, hair extensions,
+    and handmade after current `origin/main` was merged into the branch.
+- Supabase linked stock/order verification:
+  - Result: `Jollof Rice Bowl` stock stayed `20`, `stock_quantity` became `19`,
+    and ordered quantity was `1`; the pharmacy product stock stayed `50`,
+    `stock_quantity` became `49`, and ordered quantity was `1`.
+- `pnpm --filter @baci/web exec vitest run src/lib/api-client.test.ts src/lib/cache-revalidation.test.ts src/components/storefront/product-grid.test.tsx src/lib/products.test.ts src/lib/initial-template-profiles.test.ts src/lib/initial-template-generator.test.ts src/components/onboarding-puck-preview.test.tsx`
+  - Result: 7 files passed, 91 tests passed.
+- `pnpm turbo lint --filter=@baci/web`
+  - Result: Biome checked 2355 files; no fixes applied.
+- `pnpm turbo typecheck --filter=@baci/web`
+  - Result: 1 task successful.
+- `pnpm turbo test --filter=@baci/web`
+  - Result after CodeRabbit fixes: 979 files passed, 1 skipped; 8100 tests
+    passed, 1 todo.
+- `coderabbit review --agent -t uncommitted -c AGENTS.md`
+  - Result: initial run was blocked by CodeRabbit `rate_limit`; after the
+    reported wait window, rerun against `origin/main` completed with 20 issues.
+    The valid critical/major items were addressed: `apiGet` now forces `GET`,
+    storefront product cache tags are merchant-scoped, template profile
+    normalization/tests were expanded, sample-product aliases were hardened, and
+    non-string logo URLs are ignored. A post-fix rerun hit `rate_limit` again
+    with a wait of 7 minutes and 41 seconds before retry.
+- `coderabbit review --agent -t uncommitted --base origin/main -c AGENTS.md`
+  - Result: rerun completed with 12 issues. The valid critical/major items were
+    addressed: the default template now includes its story section in
+    `contentOrder`, storefront product cache keys/tags normalize merchant IDs
+    consistently, invalid product revalidation IDs are skipped before tag
+    creation, and sample product aliases were moved into a dedicated constant.
+- Final CodeRabbit rerun attempt after those fixes:
+  - Result: blocked by CodeRabbit account usage limits in both `--agent` and
+    `--prompt-only` modes before a review could start.
+- `pnpm --filter @baci/web exec vitest run src/lib/api-client.test.ts src/lib/cache-revalidation.test.ts src/lib/storefront-products-cache-key.test.ts src/lib/products.test.ts src/lib/initial-template-profiles.test.ts src/lib/initial-template-generator.test.ts src/components/storefront/product-grid.test.tsx`
+  - Result after the latest CodeRabbit follow-up: 7 files passed, 123 tests
+    passed.
+- `pnpm turbo lint --filter=@baci/web`
+  - Result after the latest CodeRabbit follow-up: Biome checked 2357 files; no
+    fixes applied.
+- `pnpm turbo typecheck --filter=@baci/web`
+  - Result after the latest CodeRabbit follow-up: 1 task successful.
+- `pnpm turbo test --filter=@baci/web`
+  - Result after the latest CodeRabbit follow-up: 979 files passed, 1 skipped;
+    8107 tests passed, 1 todo.
+- `pnpm turbo test --filter=@baci/web`
+  - Result after remote branch and latest `origin/main` reconciliation: 981
+    files passed, 1 skipped; 8117 tests passed, 1 todo.

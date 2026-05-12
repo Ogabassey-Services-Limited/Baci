@@ -1,7 +1,55 @@
 import { describe, expect, it } from 'vitest';
-import { buildStorefrontProductsCacheKeyParts } from './storefront-products-cache-key';
+import {
+  buildStorefrontProductsCacheKeyParts,
+  buildStorefrontProductsCacheTags,
+} from '@/lib/storefront-products-cache-key';
+
+describe('buildStorefrontProductsCacheTags', () => {
+  it('scopes storefront product cache tags by merchant ID', () => {
+    expect(buildStorefrontProductsCacheTags('merchant-1')).toEqual([
+      'storefront-products-merchant-1',
+      'merchant-id-merchant-1',
+    ]);
+  });
+
+  it('trims merchant IDs before building tags', () => {
+    expect(buildStorefrontProductsCacheTags('  merchant-1  ')).toEqual([
+      'storefront-products-merchant-1',
+      'merchant-id-merchant-1',
+    ]);
+  });
+
+  it('preserves hyphenated merchant IDs and long IDs', () => {
+    const merchantId = `merchant-${'a'.repeat(80)}-with-hyphens`;
+
+    expect(buildStorefrontProductsCacheTags(merchantId)).toEqual([
+      `storefront-products-${merchantId}`,
+      `merchant-id-${merchantId}`,
+    ]);
+  });
+
+  it('rejects blank merchant IDs to avoid global cache tags', () => {
+    expect(() => buildStorefrontProductsCacheTags('')).toThrow(
+      'merchantId cannot be empty'
+    );
+    expect(() => buildStorefrontProductsCacheTags('   ')).toThrow(
+      'merchantId cannot be empty'
+    );
+    expect(() =>
+      buildStorefrontProductsCacheTags(undefined as unknown as string)
+    ).toThrow('merchantId must be a string');
+  });
+});
 
 describe('buildStorefrontProductsCacheKeyParts', () => {
+  it('normalizes merchant IDs consistently with cache tags', () => {
+    expect(
+      buildStorefrontProductsCacheKeyParts('  merchant-1  ', {
+        sort: 'newest',
+      })
+    ).toEqual(['storefront-products', 'merchant-1', 'sort-newest']);
+  });
+
   it('treats false like an unset has_images filter while keeping true distinct', () => {
     const unset = buildStorefrontProductsCacheKeyParts('merchant-1', {
       sort: 'newest',

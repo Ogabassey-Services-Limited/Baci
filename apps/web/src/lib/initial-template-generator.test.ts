@@ -1,10 +1,54 @@
-import { describe, expect, it } from 'vitest';
+import { generateObject } from 'ai';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   generateFeatures,
   generateHeroSlides,
+  generateInitialTemplate,
 } from '@/lib/initial-template-generator';
 
+vi.mock('ai', () => ({
+  generateObject: vi.fn(),
+}));
+
+vi.mock('@/ai/provider', () => ({
+  activeTextModel: 'test-model',
+}));
+
+const generatedAiContent = {
+  object: {
+    hero: [
+      { title: 'AI hero 1', subtitle: 'AI subtitle 1' },
+      { title: 'AI hero 2', subtitle: 'AI subtitle 2' },
+      { title: 'AI hero 3', subtitle: 'AI subtitle 3' },
+    ],
+    features: [
+      {
+        title: 'AI feature 1',
+        description: 'AI description 1',
+        icon: 'star',
+      },
+      {
+        title: 'AI feature 2',
+        description: 'AI description 2',
+        icon: 'truck',
+      },
+      {
+        title: 'AI feature 3',
+        description: 'AI description 3',
+        icon: 'shield-check',
+      },
+    ],
+  },
+};
+
 describe('initial template fallback content', () => {
+  beforeEach(() => {
+    vi.mocked(generateObject).mockReset();
+    vi.mocked(generateObject).mockResolvedValue(
+      generatedAiContent as Awaited<ReturnType<typeof generateObject>>
+    );
+  });
+
   it('uses food-specific hero copy for food-beverage merchants', async () => {
     const slides = await generateHeroSlides('Foodflow', 'food-beverage');
 
@@ -89,5 +133,111 @@ describe('initial template fallback content', () => {
         })
       );
     }
+  });
+
+  it('builds Puck content using the selected industry profile', async () => {
+    const config = await generateInitialTemplate({
+      businessName: 'Foodflow',
+      businessType: 'food-beverage',
+      brandColors: {
+        primary: '#14532d',
+        background: '#fff7ed',
+        accent: '#f97316',
+      },
+      merchant: {
+        logo_url: 'https://example.com/logo.png',
+      },
+    });
+
+    const header = config.content.find((block) => block.type === 'Header');
+    const text = config.content.find((block) => block.type === 'Text');
+    const productGridIndex = config.content.findIndex(
+      (block) => block.type === 'ProductGrid'
+    );
+    const featuresIndex = config.content.findIndex(
+      (block) => block.type === 'Features'
+    );
+    const productGrid = config.content[productGridIndex];
+    const newsletter = config.content.find(
+      (block) => block.type === 'Newsletter'
+    );
+
+    expect(header?.props?.navigationLinks).toContainEqual({
+      label: 'Menu',
+      url: '/products',
+    });
+    expect(text?.props?.title).toBe('Fresh meals, simple ordering');
+    // Food storefronts are menu-first, so products should appear before trust
+    // features to match ordering-focused browsing.
+    expect(productGridIndex).toBeLessThan(featuresIndex);
+    expect(productGrid?.props?.title).toBe('Popular Dishes');
+    expect(productGrid?.props?.columns).toBe(3);
+    expect(newsletter?.props?.title).toBe("Get today's specials");
+  });
+
+  it('returns default profile content for unknown initial template business types', async () => {
+    const config = await generateInitialTemplate({
+      businessName: 'Fallback Store',
+      businessType: 'unknown-type',
+      brandColors: {
+        primary: '#111111',
+        background: '#ffffff',
+        accent: '#f97316',
+      },
+      merchant: {},
+    });
+
+    const header = config.content.find((block) => block.type === 'Header');
+    const productGrid = config.content.find(
+      (block) => block.type === 'ProductGrid'
+    );
+
+    expect(header?.props?.navigationLinks).toContainEqual({
+      label: 'Shop',
+      url: '/products',
+    });
+    expect(productGrid?.props?.title).toBe('Our Products');
+  });
+
+  it('falls back to static content when AI content generation fails', async () => {
+    vi.mocked(generateObject).mockRejectedValueOnce(new Error('ai down'));
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {
+      // Expected in this regression test.
+    });
+
+    const config = await generateInitialTemplate({
+      businessName: 'CarePoint',
+      businessType: 'pharmaceuticals',
+      brandColors: {
+        primary: '#0f766e',
+        background: '#ffffff',
+        accent: '#22c55e',
+      },
+      merchant: {
+        // Runtime merchant data is not guaranteed to be clean; non-string logos
+        // must be ignored rather than passed through to the storefront header.
+        logo_url: 42,
+      },
+    });
+
+    const hero = config.content.find((block) => block.type === 'HeroCarousel');
+    const header = config.content.find((block) => block.type === 'Header');
+    const features = config.content.find((block) => block.type === 'Features');
+    const productGrid = config.content.find(
+      (block) => block.type === 'ProductGrid'
+    );
+    const firstSlide = hero?.props?.slides?.[0];
+
+    expect(firstSlide?.subtitle).toBe(
+      'Trusted healthcare essentials and supplies.'
+    );
+    expect(features?.props?.title).toBe('Safe Healthcare Shopping');
+    expect(productGrid?.props?.title).toBe('Health Essentials');
+    expect(header?.props?.logoUrl).toBeUndefined();
+    expect(errorSpy).toHaveBeenCalledWith(
+      'AI Content Generation Failed:',
+      expect.any(Error)
+    );
+    errorSpy.mockRestore();
   });
 });

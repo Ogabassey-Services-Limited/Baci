@@ -11,6 +11,7 @@
  * Usage: Call the appropriate function after a successful DB mutation in API routes.
  */
 import { revalidatePath, revalidateTag } from 'next/cache';
+import { buildStorefrontProductsCacheTags } from '@/lib/storefront-products-cache-key';
 
 interface BlogRevalidationOptions {
   identifiers?: Array<string | null | undefined>;
@@ -26,17 +27,38 @@ function isSafeCanonicalMerchantSlug(slug: string): boolean {
   return CANONICAL_MERCHANT_SLUG_PATTERN.test(slug);
 }
 
+function normalizeMerchantIdForRevalidation(merchantId: string) {
+  if (typeof merchantId !== 'string') {
+    return null;
+  }
+
+  const normalizedMerchantId = merchantId.trim();
+  return normalizedMerchantId || null;
+}
+
 /**
  * Revalidate all cached data related to a merchant's products.
  * Call after product create/update/delete.
  */
 export function revalidateProducts(merchantId: string, productSlug?: string) {
+  const normalizedMerchantId = normalizeMerchantIdForRevalidation(merchantId);
+
+  if (!normalizedMerchantId) {
+    console.warn('Skipped product cache revalidation for invalid merchant ID', {
+      merchantId,
+    });
+    return;
+  }
+
   // Invalidate the product list for this merchant
-  revalidateTag(`products-${merchantId}`, 'products');
+  revalidateTag(`products-${normalizedMerchantId}`, 'products');
+  for (const tag of buildStorefrontProductsCacheTags(normalizedMerchantId)) {
+    revalidateTag(tag, 'products');
+  }
 
   // Invalidate specific product cache if slug provided
   if (productSlug) {
-    revalidateTag(`product-${merchantId}-${productSlug}`, 'products');
+    revalidateTag(`product-${normalizedMerchantId}-${productSlug}`, 'products');
   }
 
   // Invalidate product details and category page data (includes products)
@@ -44,16 +66,16 @@ export function revalidateProducts(merchantId: string, productSlug?: string) {
   revalidateTag('category-page-data', 'storefront-page');
 
   // Invalidate storefront product index (paginated listing)
-  revalidateTag(`product-index-${merchantId}`, 'products');
+  revalidateTag(`product-index-${normalizedMerchantId}`, 'products');
 
   // Invalidate legacy product redirect cache
   revalidateTag('product-legacy-redirect', 'products');
 
   // Invalidate merchant feed (OpenAI, Google Merchant)
-  revalidateMerchantFeed(merchantId);
+  revalidateMerchantFeed(normalizedMerchantId);
 
   // Dashboard stats may change (revenue, inventory counts)
-  revalidateTag(`dashboard-${merchantId}`, 'merchant');
+  revalidateTag(`dashboard-${normalizedMerchantId}`, 'merchant');
 }
 
 /**

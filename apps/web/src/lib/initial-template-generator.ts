@@ -2,6 +2,11 @@ import type { Data } from '@puckeditor/core';
 import { generateObject } from 'ai';
 import z from 'zod';
 import { activeTextModel } from '@/ai/provider';
+import {
+  getInitialTemplateProfile,
+  normalizeBusinessType,
+  type TemplateSection,
+} from '@/lib/initial-template-profiles';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import type { ThemeConfiguration } from '@/lib/theme-config';
 
@@ -37,29 +42,7 @@ const aiContentSchema = z.object({
 });
 
 type AIContent = z.infer<typeof aiContentSchema>;
-
-function normalizeBusinessType(businessType: string): string {
-  switch (businessType) {
-    case 'food-beverage':
-    case 'restaurant':
-      return 'food';
-    case 'health-beauty':
-    case 'cosmetics':
-      return 'beauty';
-    case 'hair-extensions':
-      return 'hair';
-    case 'home-goods':
-      return 'home';
-    case 'pharmaceuticals':
-      return 'pharmacy';
-    case 'fashion_apparel':
-      return 'fashion';
-    case 'tech':
-      return 'electronics';
-    default:
-      return businessType;
-  }
-}
+type PuckBlock = Data['content'][number];
 
 async function generateAIContent(
   businessName: string,
@@ -627,6 +610,7 @@ export async function generateInitialTemplate(
   params: TemplateParams
 ): Promise<Data> {
   const { businessName, businessType, brandColors, merchant } = params;
+  const profile = getInitialTemplateProfile(businessType);
 
   // Generate theme from brand colors
   const theme = deriveThemeFromColors(brandColors);
@@ -652,102 +636,123 @@ export async function generateInitialTemplate(
   // Generate unique IDs for components
   const headerId = `Header-${Date.now()}`;
   const heroCarouselId = `HeroCarousel-${Date.now()}-1`;
-  const featuresId = `Features-${Date.now()}-2`;
-  const productGridId = `ProductGrid-${Date.now()}-3`;
-  const newsletterId = `Newsletter-${Date.now()}-4`;
-  const footerId = `Footer-${Date.now()}-5`;
+  const storyId = `Text-${Date.now()}-2`;
+  const featuresId = `Features-${Date.now()}-3`;
+  const productGridId = `ProductGrid-${Date.now()}-4`;
+  const newsletterId = `Newsletter-${Date.now()}-5`;
+  const footerId = `Footer-${Date.now()}-6`;
+
+  const headerBlock: PuckBlock = {
+    type: 'Header',
+    props: {
+      id: headerId,
+      showLogo: true,
+      showSearch: true,
+      showCart: true,
+      showMenu: true,
+      sticky: true,
+      navigationLinks: [
+        { label: 'Home', url: '/' },
+        { label: profile.shopNavLabel, url: '/products' },
+        { label: 'About', url: '/about' },
+      ],
+      ctaButton: {
+        show: false,
+        text: 'Get Started',
+        url: '/signup',
+      },
+      storeName: businessName,
+      // Add logo URL if merchant has one
+      ...(typeof params.merchant?.logo_url === 'string'
+        ? {
+            logoUrl: params.merchant.logo_url,
+          }
+        : {}),
+    },
+  };
+
+  const heroBlock: PuckBlock = {
+    type: 'HeroCarousel',
+    props: {
+      id: heroCarouselId,
+      slides: slides,
+      autoplayDelay: 5000,
+    },
+  };
+
+  const storyBlock: PuckBlock = {
+    type: 'Text',
+    props: {
+      id: storyId,
+      title: profile.storyTitle,
+      content: profile.storyContent,
+      align: profile.storyAlign,
+    },
+  };
+
+  const featuresBlock: PuckBlock = {
+    type: 'Features',
+    props: {
+      id: featuresId,
+      title: profile.featuresTitle,
+      features: features,
+      columns: 3,
+    },
+  };
+
+  const productGridBlock: PuckBlock = {
+    type: 'ProductGrid',
+    props: {
+      id: productGridId,
+      title: profile.productGridTitle,
+      columns: profile.productGridColumns,
+      limit: profile.productGridLimit,
+      sortBy: 'newest',
+      showFilters: true,
+    },
+  };
+
+  const newsletterBlock: PuckBlock = {
+    type: 'Newsletter',
+    props: {
+      id: newsletterId,
+      title: profile.newsletterTitle,
+      description: profile.newsletterDescription,
+      buttonText: 'Subscribe',
+      placeholder: 'Enter your email',
+    },
+  };
+
+  const footerBlock: PuckBlock = {
+    type: 'Footer',
+    props: {
+      id: footerId,
+      showQuickLinks: true,
+      quickLinks: [
+        { label: 'About Us', url: '/about' },
+        { label: 'Contact', url: '/contact' },
+        { label: 'Privacy Policy', url: '/privacy' },
+        { label: 'Terms', url: '/terms' },
+      ],
+      socialLinks: {},
+      showNewsletter: false,
+    },
+  };
+
+  const sectionBlocks: Record<TemplateSection, PuckBlock> = {
+    hero: heroBlock,
+    story: storyBlock,
+    features: featuresBlock,
+    products: productGridBlock,
+    newsletter: newsletterBlock,
+  };
 
   // Create Puck data structure
   const config: Data = {
     content: [
-      // Header
-      {
-        type: 'Header',
-        props: {
-          id: headerId,
-          showLogo: true,
-          showSearch: true,
-          showCart: true,
-          showMenu: true,
-          sticky: true,
-          navigationLinks: [
-            { label: 'Home', url: '/' },
-            { label: 'Shop', url: '/products' },
-            { label: 'About', url: '/about' },
-          ],
-          ctaButton: {
-            show: false,
-            text: 'Get Started',
-            url: '/signup',
-          },
-          storeName: businessName,
-          // Add logo URL if merchant has one
-          ...(params.merchant?.logo_url
-            ? {
-                logoUrl: params.merchant.logo_url,
-              }
-            : {}),
-        },
-      },
-      // Hero Carousel
-      {
-        type: 'HeroCarousel',
-        props: {
-          id: heroCarouselId,
-          slides: slides,
-          autoplayDelay: 5000,
-        },
-      },
-      // Features Section
-      {
-        type: 'Features',
-        props: {
-          id: featuresId,
-          title: 'Why Choose Us',
-          features: features,
-          columns: 3,
-        },
-      },
-      // Product Grid
-      {
-        type: 'ProductGrid',
-        props: {
-          id: productGridId,
-          title: 'Our Products',
-          columns: 4,
-          limit: 12,
-          sortBy: 'newest',
-          showFilters: true,
-        },
-      },
-      // Newsletter Section
-      {
-        type: 'Newsletter',
-        props: {
-          id: newsletterId,
-          title: 'Stay Updated',
-          description:
-            'Subscribe to our newsletter for the latest updates and exclusive offers.',
-          buttonText: 'Subscribe',
-          placeholder: 'Enter your email',
-        },
-      },
-      // Footer
-      {
-        type: 'Footer',
-        props: {
-          id: footerId,
-          showQuickLinks: true,
-          quickLinks: [
-            { label: 'About Us', url: '/about' },
-            { label: 'Contact', url: '/contact' },
-            { label: 'Privacy Policy', url: '/privacy' },
-            { label: 'Terms', url: '/terms' },
-          ],
-          socialLinks: {},
-          showNewsletter: false,
-        },
-      },
+      headerBlock,
+      ...profile.contentOrder.map((section) => sectionBlocks[section]),
+      footerBlock,
     ],
     root: {
       props: {
