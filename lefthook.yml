@@ -16,3 +16,50 @@ pre-push:
       run: pnpm turbo typecheck
     test:
       run: pnpm turbo test
+    behind-base:
+      # Block the push when the branch's base has commits not in HEAD.
+      # Catches the BEHIND-branch silent-revert failure mode where a
+      # squash-merge of a stale branch silently reverts overlapping
+      # changes from peer PRs merged in the meantime.
+      #
+      # Base-resolution order:
+      #   1) per-branch override:  git config branch.<name>.base origin/<ref>
+      #      (use for stacked PRs or branches off a non-default base)
+      #   2) origin/HEAD symbolic ref (the actual repo default — works
+      #      whether the default is `main`, `master`, `develop`, …)
+      #   3) hard fallback to origin/main
+      #
+      # Escape hatches:
+      #   - Set `branch.<name>.base` once and the hook tracks it forever.
+      #   - Genuine emergency: `git push --no-verify`.
+      run: |
+        current=$(git rev-parse --abbrev-ref HEAD)
+        case "$current" in main|master) exit 0;; esac
+
+        base=$(git config "branch.$current.base" 2>/dev/null || true)
+        if [ -z "$base" ]; then
+          default=$(git symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||')
+          base="origin/${default:-main}"
+        fi
+
+        base_ref=${base#origin/}
+        git fetch -q origin "$base_ref" || {
+          echo "⚠️  Couldn't fetch $base — skipping behind-base check (offline?)."
+          exit 0
+        }
+
+        behind=$(git rev-list --count "HEAD..$base")
+        if [ "$behind" -gt 0 ]; then
+          echo ""
+          echo "❌ Branch '$current' is $behind commit(s) behind $base."
+          echo "   Run one of:"
+          echo "     git merge $base"
+          echo "     git rebase $base"
+          echo "   then push again."
+          echo ""
+          echo "   Branched off a non-default base? Set it once:"
+          echo "     git config branch.$current.base origin/<your-base>"
+          echo ""
+          echo "   To override (emergency): git push --no-verify"
+          exit 1
+        fi
