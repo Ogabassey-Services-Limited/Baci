@@ -185,17 +185,26 @@ export function AgenticActionCenterCard() {
       action.severity === 'attention' ? total + action.count : total,
     0
   );
+  const monitorCount = actions.reduce(
+    (total, action) =>
+      action.severity === 'monitor' ? total + action.count : total,
+    0
+  );
   const generatedAt = formatGeneratedAt(payload?.generated_at);
   const statusDescription = failed
     ? 'Agentic checkout health could not be loaded.'
     : attentionCount > 0
       ? 'Agentic checkout issues need review before buyers retry.'
-      : 'Agentic checkout activity is stable right now.';
+      : monitorCount > 0
+        ? 'Agentic checkout activity is active and should be monitored.'
+        : 'Agentic checkout activity is stable right now.';
   const badgeLabel = failed
     ? 'Unavailable'
     : attentionCount > 0
       ? `${attentionCount} open`
-      : 'Clear';
+      : monitorCount > 0
+        ? `${monitorCount} monitor`
+        : 'Clear';
 
   return (
     <Card className="border-border/70">
@@ -214,7 +223,9 @@ export function AgenticActionCenterCard() {
                 ? 'outline'
                 : attentionCount > 0
                   ? 'destructive'
-                  : 'secondary'
+                  : monitorCount > 0
+                    ? 'outline'
+                    : 'secondary'
             }
           >
             {badgeLabel}

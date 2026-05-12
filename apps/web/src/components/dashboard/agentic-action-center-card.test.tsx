@@ -90,6 +90,37 @@ describe('AgenticActionCenterCard', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('renders a monitor state when actions need watching but not attention', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        actions: [
+          {
+            code: 'AGENTIC_PAYMENT_PENDING',
+            count: 3,
+            message: 'Agentic checkouts are waiting for payment confirmation.',
+            severity: 'monitor',
+          },
+        ],
+      }),
+    } as Response);
+
+    render(<AgenticActionCenterCard />);
+
+    expect(await screen.findByText('3 monitor')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Agentic checkout activity is active and should be monitored.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Clear')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /review/i })).toHaveAttribute(
+      'href',
+      '/dashboard/orders?source=agentic'
+    );
+  });
+
   it.each([
     401, 403,
   ])('renders nothing when the action health route returns %i', async (status) => {
