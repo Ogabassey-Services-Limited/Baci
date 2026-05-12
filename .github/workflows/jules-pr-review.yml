@@ -860,12 +860,27 @@ jobs:
             exit 0
           fi
 
-          # Skip-marker review bodies (deep-mode ignored comments, mode mismatch)
-          # are not gating signals.
-          if grep -qE 'command:ignored|workflow did not produce a review body' "${body_file}"; then
-            echo "Jules emitted a workflow-skip body. Treating as advisory pass."
-            exit 0
-          fi
+          # NOTE: no explicit placeholder-body short-circuit here. Earlier
+          # iterations tried two approaches, both wrong:
+          #
+          #   v1 (commit 05a92a23f2):
+          #     `grep -qE 'command:ignored|workflow did not produce a review body'`
+          #     anywhere in the body. Bypass-prone — a real HIGH finding
+          #     quoting either phrase in its description flipped the gate
+          #     to skip. Caught by codex P1 on #1616.
+          #
+          #   v2 (commit 824a4c2be5):
+          #     `grep -qE '^## Findings'`. Brittle against Jules LLM
+          #     format drift — `## findings`, `### Findings`, leading
+          #     whitespace etc. would all cause a real review with HIGH
+          #     bullets to be passed through as "placeholder". Caught
+          #     by codex P1 on #1617.
+          #
+          # Correct approach: the severity regex below IS the truth.
+          # Placeholder bodies never contain `- high:` or `**High:**`
+          # markers, so they naturally pass the severity check without
+          # any explicit skip logic. We stop pattern-matching what Jules
+          # CALLS a section and start matching what it ACTUALLY emits.
 
           # Severity-marker patterns cover the four styles Jules emits across
           # fast + deep modes. The flat-bullet form is what this workflow's own
