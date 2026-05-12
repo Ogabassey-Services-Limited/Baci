@@ -1135,9 +1135,18 @@ describe('Middleware Proxy', () => {
   });
 
   describe('config.matcher', () => {
+    it('includes machine-readable agent JSON routes in middleware matching', () => {
+      expect(config.matcher).toEqual(
+        expect.arrayContaining(['/agent-commerce.json', '/agent-trust.json'])
+      );
+    });
+
     it('excludes .avif files from middleware matching', () => {
       // The matcher regex should not match .avif files (they bypass middleware)
-      const matcherPattern = config.matcher[0];
+      const matcherPattern = config.matcher.find((matcher) =>
+        matcher?.includes('_next/image')
+      );
+      if (!matcherPattern) throw new Error('Static asset matcher is missing');
       const regex = new RegExp(matcherPattern);
 
       // .avif should NOT match (excluded from middleware)
