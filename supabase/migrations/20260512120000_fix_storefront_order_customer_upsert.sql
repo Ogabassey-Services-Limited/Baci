@@ -97,7 +97,13 @@ DECLARE
   v_invalid_quantity_count INTEGER;
   v_invalid_variant_count INTEGER;
   -- B2 (Δ-9): retry counter for the unique_violation loop below.
-  v_retry_attempt INT;
+  -- Δ-98 (Jules High): initialize to 0 in the DECLARE block so that
+  -- ANY accidental path into the LOOP (today the inline assignment
+  -- at line ~420 is the only entry, but defensive against future
+  -- refactors) cannot hit `NULL + 1 = NULL` PL/pgSQL math, which
+  -- would silently disable the > 3 exit condition and spin
+  -- indefinitely.
+  v_retry_attempt INT := 0;
   stock_rec RECORD;
 BEGIN
   IF p_merchant_id IS NULL THEN
@@ -308,7 +314,24 @@ BEGIN
     FOR UPDATE;
   END IF;
 
-  IF v_customer_id IS NULL AND v_normalized_customer_phone IS NOT NULL THEN
+  -- Δ-97 / Codex P1: phone-only fallback is restricted to GUEST
+  -- checkouts (`p_user_id IS NULL`). Phone numbers are recycled by
+  -- telcos (~90 days, NIST SP 800-63B AAL1) and SIM-swappable, so
+  -- matching an authenticated user to an existing customer row by
+  -- phone alone — and then claiming that row by setting `user_id`
+  -- in the UPDATE branch below — would let one auth user inherit
+  -- a stranger's order history. Industry standard (Stripe Customer
+  -- linking, Shopify Customer Accounts, OWASP ASVS L1 §6.5.4):
+  -- email-verified match → auto-claim OK (signup proved inbox
+  -- control); phone match alone → never auto-claim. Authenticated
+  -- checkouts here fall through to the email lookup; mismatches
+  -- create a fresh customer row (the phone-conflict-skip preflight
+  -- below NULLs out the phone on insert if it's taken by another
+  -- customer in this merchant, preserving the unique index).
+  IF v_customer_id IS NULL
+    AND v_normalized_customer_phone IS NOT NULL
+    AND p_user_id IS NULL
+  THEN
     SELECT c.id
       INTO v_customer_id
     FROM customers c

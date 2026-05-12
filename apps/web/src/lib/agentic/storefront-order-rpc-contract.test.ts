@@ -111,14 +111,13 @@ describe('agentic storefront order RPC contract', () => {
     expect(customerInsertIndex).toBeGreaterThan(-1);
     expect(userLookupIndex).toBeLessThan(phoneLookupIndex);
     expect(phoneLookupIndex).toBeLessThan(customerInsertIndex);
-    // B2 refined the guard from `p_user_id IS NULL AND phone IS NOT
-    // NULL` to `v_customer_id IS NULL AND phone IS NOT NULL` — phone
-    // lookup runs whenever the user_id lookup didn't already find a
-    // row, even if p_user_id was supplied (defensive for the case
-    // where an authed customer's row was created by a prior guest
-    // checkout on the same phone).
+    // Δ-97 / Codex P1: phone-only fallback is restricted to GUEST
+    // checkouts (p_user_id IS NULL). Phone numbers are recycled by
+    // telcos (NIST SP 800-63B AAL1); auto-claiming an existing
+    // customer row from an authed checkout based on phone alone
+    // would let one auth user inherit a stranger's order history.
     expect(sql).toContain(
-      'IF v_customer_id IS NULL AND v_normalized_customer_phone IS NOT NULL THEN'
+      'IF v_customer_id IS NULL\n    AND v_normalized_customer_phone IS NOT NULL\n    AND p_user_id IS NULL'
     );
     expect(sql).toContain('AND c.user_id IS NULL');
     expect(sql).toContain(
@@ -131,6 +130,42 @@ describe('agentic storefront order RPC contract', () => {
     expect(sql).toContain(
       'AND existing_phone.phone = v_normalized_customer_phone'
     );
+  });
+
+  // Δ-97 / Codex P1 regression: prevents the phone-recycling
+  // identity-merge from creeping back in. Phone numbers are recycled
+  // by telcos every ~90 days (NIST SP 800-63B AAL1, OWASP ASVS L1
+  // §6.5.4 "do not link accounts based on unverified attributes").
+  it('does not auto-claim a customer row via phone fallback for an authenticated checkout (Δ-97)', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    // Phone fallback IF must include `AND p_user_id IS NULL`.
+    expect(sql).toContain(
+      'AND v_normalized_customer_phone IS NOT NULL\n    AND p_user_id IS NULL'
+    );
+
+    // Pin the comment so a future cleanup doesn't quietly strip the
+    // guard along with its justification.
+    expect(sql).toContain('Codex P1');
+    expect(sql).toContain('Phone numbers are recycled by');
+
+    // The UPDATE branch still auto-claims a user_id when the matched
+    // row has c.user_id IS NULL — that's correct for email-matched
+    // and user-id-matched rows. The Δ-97 guard ensures phone never
+    // feeds rows into that branch for authed users.
+    expect(sql).toContain('WHEN c.user_id IS NULL THEN p_user_id');
+  });
+
+  // Δ-98 / Jules High regression: PL/pgSQL `NULL + 1 = NULL` and
+  // `NULL > 3 = NULL` (falsy), so an uninitialized retry counter
+  // would silently disable the > 3 exit condition and spin forever.
+  // The inline `v_retry_attempt := 0;` before the LOOP is the
+  // primary safety; the DECLARE-level `INT := 0` is belt-and-braces
+  // against a future refactor accidentally bypassing the inline
+  // assignment.
+  it('initializes the retry counter to 0 in DECLARE to rule out NULL-math infinite loops (Δ-98)', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+    expect(sql).toContain('v_retry_attempt INT := 0;');
   });
 
   it('does not write a conflicting phone to a new customer record', () => {
