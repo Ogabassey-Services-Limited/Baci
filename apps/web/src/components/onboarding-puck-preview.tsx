@@ -27,14 +27,19 @@ interface OnboardingPuckPreviewProps {
 
 const PREVIEW_MERCHANT_ID = 'preview-merchant-id';
 
+interface PreviewErrorBoundaryProps {
+  children: ReactNode;
+  resetKey: string;
+}
+
 /**
  * Error Boundary to catch merchant context errors
  */
 class PreviewErrorBoundary extends Component<
-  { children: ReactNode; resetKey: string },
+  PreviewErrorBoundaryProps,
   { hasError: boolean }
 > {
-  constructor(props: { children: ReactNode; resetKey: string }) {
+  constructor(props: PreviewErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
   }
@@ -54,7 +59,7 @@ class PreviewErrorBoundary extends Component<
     }
   }
 
-  componentDidUpdate(prevProps: { resetKey: string }) {
+  componentDidUpdate(prevProps: PreviewErrorBoundaryProps) {
     if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
       this.setState({ hasError: false });
     }
@@ -295,15 +300,34 @@ function createPreviewResetKey(params: {
   businessType: string;
   logoDataUri?: string;
   brandColors: BrandColors;
-  data: Data;
+  dataSignature: string;
 }): string {
   return JSON.stringify({
     businessName: params.businessName,
     businessType: params.businessType,
     logoDataUri: params.logoDataUri ?? '',
     brandColors: params.brandColors,
-    data: params.data,
+    dataSignature: params.dataSignature,
   });
+}
+
+function createPreviewDataSignature(data: Data): string {
+  const contentSignature = data.content
+    .map((block) => {
+      const blockId = block.props?.id;
+      return `${block.type}:${typeof blockId === 'string' ? blockId : ''}`;
+    })
+    .join(',');
+  const zoneSignature = Object.keys(data.zones ?? {})
+    .sort()
+    .join(',');
+  const rootTitle = data.root.props?.title;
+
+  return [
+    contentSignature,
+    zoneSignature,
+    typeof rootTitle === 'string' ? rootTitle : '',
+  ].join('|');
 }
 
 export function OnboardingPuckPreview({
@@ -391,7 +415,7 @@ export function OnboardingPuckPreview({
     businessType,
     logoDataUri,
     brandColors,
-    data: patchedPuckData,
+    dataSignature: createPreviewDataSignature(patchedPuckData),
   });
 
   // Full Screen Modal for Expanded View

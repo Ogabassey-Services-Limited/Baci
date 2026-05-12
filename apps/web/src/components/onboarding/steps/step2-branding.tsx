@@ -121,7 +121,8 @@ export default function Step2_Branding() {
   // Unified handler for processing a logo (whether uploaded or generated)
   const processNewLogo = async (
     dataUri: string,
-    preserveColors: boolean = false
+    preserveColors: boolean = false,
+    suppressExtractionToast: boolean = false
   ) => {
     setCurrentLogoDataUri(dataUri);
     setStoreLogoDataUri(dataUri);
@@ -161,7 +162,9 @@ export default function Step2_Branding() {
         setValue('brandColors', JSON.stringify(colors), {
           shouldValidate: true,
         });
-        toast({ title: 'Brand colors extracted!' });
+        if (!suppressExtractionToast) {
+          toast({ title: 'Brand colors extracted!' });
+        }
       } catch (e) {
         logger.error({
           error: e as Error,
@@ -295,7 +298,7 @@ export default function Step2_Branding() {
             shouldValidate: true,
           });
         }
-        await processNewLogo(generatedLogoUri, hasGeneratedBrandColors);
+        await processNewLogo(generatedLogoUri, hasGeneratedBrandColors, true);
         toast({
           title: 'Logo Generated!',
           description: hasGeneratedBrandColors

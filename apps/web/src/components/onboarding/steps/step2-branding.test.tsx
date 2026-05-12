@@ -568,5 +568,10 @@ describe('Step2_Branding', () => {
         })
       );
     });
+    expect(mockToast).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Brand colors extracted!',
+      })
+    );
   });
 });
