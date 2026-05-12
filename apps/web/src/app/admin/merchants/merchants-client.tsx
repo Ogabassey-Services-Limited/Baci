@@ -21,30 +21,16 @@ import type {
   AdminMerchantHealthRow,
   AdminMerchantsResponse,
 } from '@/types/admin-merchants';
-import {
-  type HealthFilter,
-  type MerchantStats,
-  MerchantStatsGrid,
-} from './merchant-stats-grid';
+import { type HealthFilter, isHealthFilter } from './merchant-health-filter';
+import { type MerchantStats, MerchantStatsGrid } from './merchant-stats-grid';
 import { MerchantTable } from './merchant-table';
 
-export type { HealthFilter } from './merchant-stats-grid';
+export type { HealthFilter } from './merchant-health-filter';
 
 type SortBy = 'gmv' | 'orders' | 'joined';
 
-const HEALTH_FILTERS = new Set<HealthFilter>([
-  'all',
-  'healthy',
-  'at_risk',
-  'churned',
-  'new',
-]);
 const SORT_OPTIONS = new Set<SortBy>(['gmv', 'orders', 'joined']);
 const SKELETON_ROW_COUNT = 3;
-
-function isHealthFilter(value: string): value is HealthFilter {
-  return HEALTH_FILTERS.has(value as HealthFilter);
-}
 
 function isSortBy(value: string): value is SortBy {
   return SORT_OPTIONS.has(value as SortBy);
@@ -256,7 +242,10 @@ export function MerchantsClient({
             </div>
           ) : filteredMerchants.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground">
-              <Building2 className="mx-auto mb-4 h-12 w-12 opacity-50" />
+              <Building2
+                className="mx-auto mb-4 h-12 w-12 opacity-50"
+                aria-hidden="true"
+              />
               <p className="font-medium">No merchants found</p>
               <p className="text-sm">
                 {searchQuery || healthFilter !== 'all'
