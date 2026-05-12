@@ -26,7 +26,7 @@ vi.mock('./utility/BillPaymentForm', () => ({
   ),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: () => ({ merchant: { slug: 'ogabassey' } }),
 }));
 

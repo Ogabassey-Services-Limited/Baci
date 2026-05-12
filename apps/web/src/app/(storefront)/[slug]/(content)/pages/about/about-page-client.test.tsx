@@ -20,7 +20,7 @@ vi.mock('@/components/ui/safe-html', () => ({
 }));
 
 // Heavy infrastructure — stub to avoid deep provider setup
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   MerchantProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),

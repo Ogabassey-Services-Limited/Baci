@@ -28,7 +28,7 @@ vi.mock('@/contexts/auth-context', () => ({
   }),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: vi.fn().mockReturnValue({
     merchant: {
       id: 'merchant-1',
@@ -66,7 +66,7 @@ vi.mock('@/components/notifications/notification-center', () => ({
   NotificationCenter: () => null,
 }));
 
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import DashboardClientLayout from './client-layout';
 
 describe('DashboardClientLayout', () => {

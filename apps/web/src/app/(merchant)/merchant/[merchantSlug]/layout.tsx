@@ -1,7 +1,7 @@
 'use client';
 
 import { use } from 'react';
-import { MerchantProvider } from '@/hooks/use-merchant';
+import { MerchantProvider } from '@/hooks/use-merchant-client';
 
 interface MerchantLayoutProps {
   children: React.ReactNode;

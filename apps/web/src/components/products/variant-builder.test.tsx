@@ -34,7 +34,7 @@ vi.mock('next/image', () => ({
   ),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: vi.fn(() => ({
     merchant: { country: 'NG' },
   })),

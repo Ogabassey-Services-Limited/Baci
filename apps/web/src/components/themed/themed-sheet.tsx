@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { SheetContent } from '@/components/ui/sheet';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { getContrastingTextColor } from '@/lib/color-utils';
 
 /**

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 import { useCart } from '@/hooks/cart';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import type { CategoryHubModel } from '@/lib/storefront-category/category-hub-types';
 import { STOREFRONT_PRODUCTS_PER_PAGE } from '@/lib/storefront-pagination';

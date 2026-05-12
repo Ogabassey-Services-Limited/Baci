@@ -2,7 +2,7 @@
 
 import { type ReactNode, useEffect, useState } from 'react';
 import { StorefrontPageSkeleton } from '@/components/ui/skeletons';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import type { Product } from '@/lib/products';
 import { getTemplate, type TemplateComponents } from '@/templates/registry';
 

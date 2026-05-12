@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from 'react';
 import type { Product } from '@/lib/products';
-import { useMerchantSafe } from './use-merchant';
+import { useMerchantSafe } from './use-merchant-client';
 
 // Re-export Product type for consumers of this hook
 export type { Product };

@@ -4,7 +4,7 @@ import { CheckCircle, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { type MouseEvent, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 
 interface ApplyTemplateButtonProps {

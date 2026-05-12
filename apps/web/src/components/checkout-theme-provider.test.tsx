@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({
   useMerchant: vi.fn(),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: (...args: unknown[]) => mocks.useMerchant(...args),
 }));
 

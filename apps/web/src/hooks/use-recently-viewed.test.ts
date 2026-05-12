@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('./use-merchant', () => ({
+vi.mock('./use-merchant-client', () => ({
   useMerchantSafe: vi.fn(() => ({ merchant: { id: 'merchant-1' } })),
 }));
 

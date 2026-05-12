@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { BannerCarousel } from './banner-carousel';
 import { Hero } from './hero';
 import { EngineProductGrid } from './engine-product-grid';

@@ -833,3 +833,81 @@ jobs:
           )"
 
           github_api_post_json "${GITHUB_API_URL}/repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews" "${review_payload}" >/dev/null
+
+      # Gate merge on HIGH / CRITICAL findings.
+      # The Run step above has `continue-on-error: true` so flaky Jules-API
+      # runs don't block merges. This step (no continue-on-error) reads the
+      # review body Jules wrote and FAILS the job if HIGH/CRITICAL findings
+      # were emitted. That turns the `Jules review` status check into a real
+      # gating signal once it's added to required status checks.
+      #
+      # Policy:
+      #   - HIGH / CRITICAL / Major  → exit 1 (block merge)
+      #   - Medium                   → warn, don't block
+      #   - Low / Minor              → pass (advisory)
+      #   - Empty body / workflow noise → pass (matches prior behaviour;
+      #     Jules's fast mode emits empty bodies on infra hiccups)
+      - name: Gate on Jules findings
+        if: github.event_name == 'pull_request'
+        env:
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: |
+          set -euo pipefail
+          body_file="${RUNNER_TEMP}/jules-review.md"
+
+          if [[ ! -f "${body_file}" ]]; then
+            echo "No review body produced by Jules. Treating as advisory pass."
+            exit 0
+          fi
+
+          # NOTE: no explicit placeholder-body short-circuit here. Earlier
+          # iterations tried two approaches, both wrong:
+          #
+          #   v1 (commit 05a92a23f2):
+          #     `grep -qE 'command:ignored|workflow did not produce a review body'`
+          #     anywhere in the body. Bypass-prone — a real HIGH finding
+          #     quoting either phrase in its description flipped the gate
+          #     to skip. Caught by codex P1 on #1616.
+          #
+          #   v2 (commit 824a4c2be5):
+          #     `grep -qE '^## Findings'`. Brittle against Jules LLM
+          #     format drift — `## findings`, `### Findings`, leading
+          #     whitespace etc. would all cause a real review with HIGH
+          #     bullets to be passed through as "placeholder". Caught
+          #     by codex P1 on #1617.
+          #
+          # Correct approach: the severity regex below IS the truth.
+          # Placeholder bodies never contain `- high:` or `**High:**`
+          # markers, so they naturally pass the severity check without
+          # any explicit skip logic. We stop pattern-matching what Jules
+          # CALLS a section and start matching what it ACTUALLY emits.
+
+          # Severity-marker patterns cover the four styles Jules emits across
+          # fast + deep modes. The flat-bullet form is what this workflow's own
+          # prompt instructs Jules to use ("use flat bullets ... include
+          # severity (high, medium, or low)"); the bold variants appear in
+          # practice too, so we cover both.
+          #   1. - **High:** ...                  (bold colon)
+          #   2. - **High severity** (...)        (bold + word)
+          #   3. - **Severity: High** ...         (bold severity prefix)
+          #   4. - high: ...                      (flat bullet, prompt-conformant)
+          high_re_bold='\*\*(Severity[: ]*)?(High|Critical|Major)(\*\*|[: ]|\s+severity)'
+          high_re_flat='(^|\n)[[:space:]]*[-*][[:space:]]+(high|critical|major)\b[[:space:]]*:'
+
+          if grep -qiE "${high_re_bold}" "${body_file}" || \
+             grep -qiE "${high_re_flat}" "${body_file}"; then
+            echo "::error::Jules flagged HIGH/CRITICAL findings on this PR. Address before merge."
+            echo "------- Review body (relevant excerpt) -------"
+            grep -iE -B1 -A4 "${high_re_bold}|${high_re_flat}" "${body_file}" | head -80 || true
+            echo "------- Full body at: ${body_file} -------"
+            exit 1
+          fi
+
+          medium_re_bold='\*\*(Severity[: ]*)?Medium(\*\*|[: ]|\s+severity)'
+          medium_re_flat='(^|\n)[[:space:]]*[-*][[:space:]]+medium\b[[:space:]]*:'
+          if grep -qiE "${medium_re_bold}" "${body_file}" || \
+             grep -qiE "${medium_re_flat}" "${body_file}"; then
+            echo "::warning::Jules flagged Medium findings. Not blocking merge — address before shipping."
+          fi
+
+          echo "Jules review passed: no HIGH/CRITICAL findings emitted."

@@ -8,7 +8,7 @@ vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   MerchantProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 

@@ -15,7 +15,7 @@ vi.mock('next/link', () => ({
 const mockUseMerchant = vi.fn();
 const mockAsRoute = vi.fn((value: string) => value);
 const mockBuildMerchantTrustProfile = vi.fn();
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: () => mockUseMerchant(),
 }));
 vi.mock('@/lib/routes', () => ({

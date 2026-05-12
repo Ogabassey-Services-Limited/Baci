@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import { Logo as OgabasseyLogo } from './Logo';
 

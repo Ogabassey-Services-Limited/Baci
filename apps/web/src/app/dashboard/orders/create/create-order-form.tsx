@@ -55,7 +55,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useProductContext } from '@/contexts/product-context';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { getCountryByCode } from '@/lib/countries';
 import { type Customer, customers } from '@/lib/customers';

@@ -11,7 +11,7 @@ import {
   Youtube,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import {
   buildMerchantTrustProfile,

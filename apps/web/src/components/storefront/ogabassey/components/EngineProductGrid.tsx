@@ -13,7 +13,7 @@ import React, { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useCart } from '@/hooks/cart';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import type { Product as StorefrontProduct } from '@/lib/products';
 import { storefrontProductFilters } from '@/lib/storefront-product-filters';
 import { products as mockProducts } from '../data/products';

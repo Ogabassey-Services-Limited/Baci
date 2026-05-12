@@ -6,7 +6,7 @@ const mockUseMerchantSafe = vi.fn<() => { basePath: string } | null>(() => ({
   basePath: '',
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: () => mockUseMerchantSafe(),
 }));
 

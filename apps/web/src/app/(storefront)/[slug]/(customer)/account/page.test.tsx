@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import AccountPage from '@/app/(storefront)/[slug]/(customer)/account/page';
 import type { Customer, CustomerUser } from '@/contexts/customer-auth-context';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 
 const push = vi.fn();
 const defaultCustomer: Customer = {
@@ -61,7 +61,7 @@ vi.mock('@/contexts/customer-auth-context', () => ({
   useCustomerAuth: vi.fn(() => createCustomerAuthValue()),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: vi.fn(() => ({
     merchant: { business_name: 'Ogabassey' },
     loading: false,
