@@ -27,6 +27,7 @@ import { createNewOrderCustomerActions } from './createNewOrderCustomerActions';
 import { createNewOrderProductActions } from './createNewOrderProductActions';
 import { submitNewOrder } from './submitNewOrder';
 import { useNewOrderLookupData } from './useNewOrderLookupData';
+import { useOrderBranchSelection } from './useOrderBranchSelection';
 import { useNewOrderUiState } from './useNewOrderUiState';
 
 export function useNewOrderController() {
@@ -97,12 +98,11 @@ export function useNewOrderController() {
     useState<CountryCode>(DEFAULT_COUNTRY_CODE);
   const [duplicateCustomer, setDuplicateCustomer] =
     useState<SelectableCustomer | null>(null);
-  const defaultBranchId =
-    scope.type === 'branch'
-      ? scope.branchId
-      : (branches.find((branch) => branch.is_default)?.id ??
-        branches[0]?.id ??
-        null);
+  const { defaultBranchId } = useOrderBranchSelection({
+    branches,
+    scope,
+    setSelectedBranchId,
+  });
 
   // Delivery Details
   const [sameAsCustomer, setSameAsCustomer] = useState(true);
@@ -116,24 +116,6 @@ export function useNewOrderController() {
       setIsVatApplied(true);
     }
   }, [merchant?.vat_registration_status]);
-
-  useEffect(() => {
-    setSelectedBranchId((currentBranchId) => {
-      if (scope.type === 'branch') {
-        return currentBranchId === scope.branchId
-          ? currentBranchId
-          : scope.branchId;
-      }
-
-      if (!currentBranchId) {
-        return defaultBranchId;
-      }
-
-      return branches.some((branch) => branch.id === currentBranchId)
-        ? currentBranchId
-        : defaultBranchId;
-    });
-  }, [branches, defaultBranchId, scope]);
 
   const [partialAmount, setPartialAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('transfer');
@@ -153,14 +135,7 @@ export function useNewOrderController() {
     ? (selectedParentProductVariantsData ?? [])
     : filteredProducts;
 
-  const {
-    closeProductModal,
-    handleAddCustomItem,
-    handleAddProduct,
-    handleQuantityChange,
-    handleSelectProduct,
-    resetProductPickerState,
-  } = createNewOrderProductActions({
+  const productActions = createNewOrderProductActions({
     customItem,
     orderItems,
     selectedParentProduct,
@@ -172,12 +147,7 @@ export function useNewOrderController() {
     setShowProductModal: uiState.setShowProductModal,
   });
 
-  const {
-    handleCloseCustomerModal,
-    handleCreateCustomer,
-    handleSelectCustomer,
-    resetNewCustomerForm,
-  } = createNewOrderCustomerActions({
+  const customerActions = createNewOrderCustomerActions({
     createCustomer: createCustomerMutation.mutateAsync,
     merchantId: merchant?.id,
     newCustomer,
@@ -311,17 +281,9 @@ export function useNewOrderController() {
     vatRate,
     calculatedVat,
     formatPrice,
-    handleAddCustomItem,
-    handleAddProduct,
-    handleCloseCustomerModal,
-    handleCreateCustomer,
-    handleQuantityChange,
-    handleSelectCustomer,
-    handleSelectProduct,
     handleSubmit,
     resetOrderDraft,
-    closeProductModal,
-    resetNewCustomerForm,
-    resetProductPickerState,
+    ...customerActions,
+    ...productActions,
   };
 }

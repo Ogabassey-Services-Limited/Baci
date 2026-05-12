@@ -274,6 +274,15 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return auth.response;
     }
 
+    const { valid: csrfValid, response: csrfResponse } =
+      await checkCsrfProtection(request);
+    if (!csrfValid) {
+      return (
+        csrfResponse ??
+        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+      );
+    }
+
     const parsedParams = branchIdParamSchema.safeParse(await params);
     if (!parsedParams.success) {
       return NextResponse.json({ error: 'Invalid branch id' }, { status: 400 });
@@ -285,15 +294,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
     if (!authContext.supabase || !authContext.merchantContext) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { valid: csrfValid, response: csrfResponse } =
-      await checkCsrfProtection(request);
-    if (!csrfValid) {
-      return (
-        csrfResponse ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
     }
 
     const access = toUserAccess(authContext.merchantContext);

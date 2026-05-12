@@ -126,8 +126,8 @@ vi.mock('expo-router', () => ({
 
 vi.mock('react-native-country-picker-modal', () => ({}));
 
-import { submitNewOrder } from '@/hooks/submitNewOrder';
-import { useNewOrderController } from '@/hooks/useNewOrderController';
+import { submitNewOrder } from './submitNewOrder';
+import { useNewOrderController } from './useNewOrderController';
 
 describe('useNewOrderController', () => {
   beforeEach(() => {

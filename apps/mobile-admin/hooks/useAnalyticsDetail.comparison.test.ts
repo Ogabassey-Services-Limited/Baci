@@ -126,7 +126,10 @@ describe('fetchAnalyticsDetailComparison', () => {
 
   it('throws comparison order errors with the expected prefix', async () => {
     const promise = fetchAnalyticsDetailComparison(args('sales'));
-    mocks.chains[0].result.error = { message: 'orders failed' };
+    const ordersChain = mocks.chains.find((chain) => chain.table === 'orders');
+    expect(ordersChain).toBeDefined();
+    if (!ordersChain) return;
+    ordersChain.result.error = { message: 'orders failed' };
 
     await expect(promise).rejects.toThrow(
       'Failed to fetch comparison orders: orders failed'
@@ -135,7 +138,12 @@ describe('fetchAnalyticsDetailComparison', () => {
 
   it('throws comparison order-item errors with the expected prefix', async () => {
     const promise = fetchAnalyticsDetailComparison(args('profits'));
-    mocks.chains[1].result.error = { message: 'items failed' };
+    const orderItemsChain = mocks.chains.find(
+      (chain) => chain.table === 'order_items'
+    );
+    expect(orderItemsChain).toBeDefined();
+    if (!orderItemsChain) return;
+    orderItemsChain.result.error = { message: 'items failed' };
 
     await expect(promise).rejects.toThrow(
       'Failed to fetch comparison order items: items failed'

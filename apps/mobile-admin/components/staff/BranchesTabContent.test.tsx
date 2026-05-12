@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LIGHT_COLORS, SHADOWS } from '@/constants/theme';
 import { BranchesTabContent } from './BranchesTabContent';
 import type { Branch } from './types';
@@ -42,6 +42,10 @@ const branch = {
 } satisfies Branch;
 
 describe('BranchesTabContent', () => {
+  beforeEach(() => {
+    mocks.branchCard.mockClear();
+  });
+
   it('renders the empty branches state', () => {
     render(
       <BranchesTabContent

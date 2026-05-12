@@ -57,8 +57,8 @@ describe('aggregateAnalyticsDetail', () => {
 
     expect(result.total).toBe(0);
     expect(result.data).toHaveLength(12);
-    expect(result.bestPeriod?.value).toBe(0);
-    expect(result.worstPeriod?.value).toBe(0);
+    expect(result.bestPeriod).toBeNull();
+    expect(result.worstPeriod).toBeNull();
   });
 
   it('aggregates sales, revenue, and VAT into monthly buckets', () => {
@@ -119,5 +119,14 @@ describe('aggregateAnalyticsDetail', () => {
 
     expect(result.bestPeriod).toMatchObject({ label: 'Feb', value: 10 });
     expect(result.worstPeriod).toMatchObject({ label: 'Mar', value: -5 });
+  });
+
+  it('ignores empty buckets when selecting best and worst periods', () => {
+    const result = aggregate('revenue', [
+      order('order-1', '2026-03-10T00:00:00.000Z', 25),
+    ]);
+
+    expect(result.bestPeriod).toMatchObject({ label: 'Mar', value: 25 });
+    expect(result.worstPeriod).toMatchObject({ label: 'Mar', value: 25 });
   });
 });

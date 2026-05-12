@@ -103,7 +103,13 @@ export function aggregateAnalyticsDetail({
         })()
       : data.reduce((sum, d) => sum + d.value, 0);
 
-  const safeFiniteData = data.filter((d) => Number.isFinite(d.value));
+  const safeFiniteData = data.filter(
+    (d) =>
+      Number.isFinite(d.value) &&
+      ((d.count ?? 0) > 0 ||
+        d.value !== 0 ||
+        (d.secondaryValue ?? 0) !== 0)
+  );
   const bestPeriod =
     safeFiniteData.length > 0
       ? safeFiniteData.reduce((best, d) => (d.value > best.value ? d : best))

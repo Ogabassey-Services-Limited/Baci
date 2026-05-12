@@ -429,11 +429,14 @@ export async function fetchOrderById(
 
   if (order.recorded_by_user_id) {
     // Get staff profile name
-    const { data: recUser } = await supabase
+    const { data: recUser, error: recUserError } = await supabase
       .from('profiles')
       .select('display_name, full_name')
       .eq('id', order.recorded_by_user_id)
       .single();
+    if (recUserError) {
+      throw new Error(recUserError.message);
+    }
 
     const fullName = recUser?.display_name || recUser?.full_name;
     if (fullName) {
@@ -441,21 +444,27 @@ export async function fetchOrderById(
     }
 
     // Look up staff member → their virtual terminal bank account
-    const { data: staffMember } = await supabase
+    const { data: staffMember, error: staffMemberError } = await supabase
       .from('staff_members')
       .select('id')
       .eq('user_id', order.recorded_by_user_id)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .maybeSingle();
+    if (staffMemberError) {
+      throw new Error(staffMemberError.message);
+    }
 
     if (staffMember) {
-      const { data: terminal } = await supabase
+      const { data: terminal, error: terminalError } = await supabase
         .from('virtual_terminals')
         .select('account_number, account_name, bank')
         .eq('staff_id', staffMember.id)
         .eq('active', true)
         .maybeSingle();
+      if (terminalError) {
+        throw new Error(terminalError.message);
+      }
 
       if (terminal?.account_number) {
         staffTerminal = {
