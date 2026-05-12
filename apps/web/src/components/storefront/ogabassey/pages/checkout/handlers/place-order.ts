@@ -327,13 +327,14 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
         shipping_address: shippingAddressData,
         source: 'online_store',
         shipping_provider: shippingProvider,
-        // B3 review fix: use explicit null (not undefined) so the
-        // wire shape matches `apps/web/src/app/checkout/page.tsx`,
-        // which sends `selectedShippingQuote?.id ?? null`. Schemas
-        // accept both (`.nullable().optional()`), but consistent null
-        // keeps server-side log/audit shapes uniform.
+        // B3 review fix (PR #1611): explicit null on the wire AND
+        // coerce empty string → null. `selectedQuoteId` is typed
+        // string (`useState<string>('')`); `selectedQuoteId || null`
+        // covers both empty string AND undefined defensively in case
+        // the pre-submit door-no-quote guard above is bypassed by a
+        // future refactor. Schemas are `.nullable().optional()`.
         selected_quote_id:
-          deliveryMethod === 'door' ? (selectedQuoteId ?? null) : null,
+          deliveryMethod === 'door' ? (selectedQuoteId || null) : null,
         use_wallet_credit: payWithWallet && walletAmountUsed > 0,
         wallet_amount: walletAmountUsed,
         user_id: user?.id,

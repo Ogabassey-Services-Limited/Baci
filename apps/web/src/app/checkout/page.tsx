@@ -1234,14 +1234,13 @@ function CheckoutPageContent() {
           state: data.state,
         },
         source: 'online_store',
-        // B3 (plan §5 B3): no silent fallback to 'GIGL' — if there's
-        // no selected quote, send shipping_provider: null so the RPC's
-        // `shipping_quote_required` guard treats it as "no shipping
-        // selected" rather than "shipping selected but no rate to bill
-        // against". This was the exact bug the plan calls out: legacy
-        // callers defaulted to GIGL even when no quote was chosen,
-        // persisting orders with shipping_provider populated but no
-        // carrier rate linkage.
+        // B3 (plan §5 B3): the pre-submit `!selectedShippingQuote`
+        // guard above bounces to step 1 with a toast, so by the time
+        // we reach this payload construction the quote is guaranteed
+        // non-null. Optional-chaining stays as defensive coding —
+        // React state isn't narrowed across statements by TS, and
+        // the cost of `?.` here is zero. The original `|| 'GIGL'`
+        // silent fallback (the B3 root-cause bug) is gone for good.
         shipping_provider: selectedShippingQuote?.provider ?? null,
         selected_quote_id: selectedShippingQuote?.id ?? null,
         shipping_session_id: shippingSessionId,

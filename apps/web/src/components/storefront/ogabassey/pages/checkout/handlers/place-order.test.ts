@@ -498,6 +498,11 @@ describe('handlePlaceOrder', () => {
       // `shipping_provider: null` for pickup; the delivery method is
       // carried by `shipping_address.address: 'Pickup at Store'`.
       expect(fetchBody.shipping_provider).toBeNull();
+      // B3 review fix (PR #1611): the paired B3 field MUST also be
+      // null on the wire — partial-payload regressions (e.g., only
+      // one field flipped to null) would re-open the RPC-guard
+      // bypass vector. Pin both fields in lockstep.
+      expect(fetchBody.selected_quote_id).toBeNull();
     });
 
     it('omits shipping_provider for airport delivery (B3 — delivery-method labels are not providers)', async () => {
@@ -518,6 +523,8 @@ describe('handlePlaceOrder', () => {
 
       const fetchBody = JSON.parse(mockFetch.mock.calls[0][1].body);
       expect(fetchBody.shipping_provider).toBeNull();
+      // B3 review fix (PR #1611): paired-field lockstep, same as pickup.
+      expect(fetchBody.selected_quote_id).toBeNull();
     });
   });
 
