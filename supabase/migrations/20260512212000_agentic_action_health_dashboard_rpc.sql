@@ -15,7 +15,14 @@ AS $$
 DECLARE
   v_limit integer := LEAST(GREATEST(COALESCE(p_record_limit, 25), 1), 100);
 BEGIN
-  IF NOT public.has_merchant_access(p_merchant_id) THEN
+  IF NOT public.has_merchant_access(p_merchant_id)
+    OR NOT public.check_staff_permission(
+      auth.uid(),
+      p_merchant_id,
+      'dashboard',
+      'view'
+    )
+  THEN
     RAISE EXCEPTION 'not authorized' USING ERRCODE = '42501';
   END IF;
 

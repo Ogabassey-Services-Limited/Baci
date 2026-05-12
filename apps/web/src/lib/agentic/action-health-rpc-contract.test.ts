@@ -35,6 +35,9 @@ describe('agentic action health RPC migration', () => {
     expect(sql).toMatch(/SECURITY\s+DEFINER/i);
     expect(sql).toMatch(/public\.has_merchant_access\(p_merchant_id\)/i);
     expect(sql).toMatch(
+      /public\.check_staff_permission\(\s*auth\.uid\(\),\s*p_merchant_id,\s*'dashboard',\s*'view'\s*\)/i
+    );
+    expect(sql).toMatch(
       /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.get_agentic_action_health_records\(uuid,\s*integer\)[\s\S]*?TO\s+authenticated/i
     );
     expect(sql).not.toMatch(
