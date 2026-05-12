@@ -48,7 +48,7 @@ export function createBaciAdminUrl(
   const expectedProtocol = `${BACI_ADMIN_SCHEME}:`;
   if (url.protocol !== expectedProtocol) {
     throw new Error(
-      `Refusing to build deep-link URL with non-allow-listed scheme: ${url.protocol}`
+      `Refusing to build deep-link URL with unexpected scheme: ${url.protocol} (expected ${expectedProtocol})`
     );
   }
 
