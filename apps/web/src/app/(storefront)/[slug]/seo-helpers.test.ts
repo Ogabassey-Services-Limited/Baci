@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import type { CachedMerchant } from '@/lib/cached-data';
 import {
   getStorefrontCountryDisplayName,
   getStorefrontSeoDescription,
@@ -7,7 +6,8 @@ import {
   getStorefrontSeoTitle,
   normalizeStorefrontBusinessType,
   type StorefrontSeoMerchant,
-} from './seo-helpers';
+} from '@/app/(storefront)/[slug]/seo-helpers';
+import type { CachedMerchant } from '@/lib/cached-data';
 
 function makeMerchant(
   overrides: Partial<StorefrontSeoMerchant> = {}
