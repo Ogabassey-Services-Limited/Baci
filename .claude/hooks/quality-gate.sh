@@ -19,23 +19,45 @@ fi
 # routinely spawn isolated worktrees for PR work, and auditing the session
 # root surfaces accumulated WIP from other tasks every time the hook fires.
 #
-# Pick the worktree whose .git/index was most recently modified. Every
-# `git add` updates the index, so the active worktree's index is newest
-# while idle worktrees stay frozen at their last-touched mtime.
+# Resolution order:
+#   1. `cwd` reported by Claude in the Stop hook input — precise signal of
+#      where the session actually is at stop time. Pinned to this session,
+#      so a concurrent agent's `git add` in another worktree can't redirect us.
+#   2. Most-recently-touched worktree, constrained to a recency window
+#      (default 1h, override via QUALITY_GATE_RECENCY_WINDOW). Bounds the
+#      multi-agent race to recently-active worktrees only.
+#   3. $CLAUDE_PROJECT_DIR — original session root.
 #
-# Falls back to $CLAUDE_PROJECT_DIR if `git worktree list` fails or no
-# index files are found.
+# Worktree-list and gitdir parsers strip the fixed prefix instead of
+# field-splitting on whitespace, so worktree paths containing spaces are
+# preserved intact.
 ACTIVE_DIR="$CLAUDE_PROJECT_DIR"
-if command -v git >/dev/null 2>&1; then
+
+# (1) Prefer Claude-reported session cwd when present and inside a git tree.
+SESSION_CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)
+if [ -n "$SESSION_CWD" ] && [ -d "$SESSION_CWD" ]; then
+  WT_TOP=$(git -C "$SESSION_CWD" rev-parse --show-toplevel 2>/dev/null)
+  [ -n "$WT_TOP" ] && ACTIVE_DIR="$WT_TOP"
+elif command -v git >/dev/null 2>&1; then
+  # (2) Mtime-scan fallback with recency window.
   newest_mtime=0
   newest_path=""
-  while IFS= read -r wt; do
+  now=$(date +%s)
+  recency=${QUALITY_GATE_RECENCY_WINDOW:-3600}
+  while IFS= read -r line; do
+    # Parse `worktree <path>` records. Strip the fixed prefix so paths
+    # containing spaces survive intact.
+    case "$line" in
+      "worktree "*) wt="${line#worktree }" ;;
+      *) continue ;;
+    esac
     [ -z "$wt" ] && continue
     # Linked worktrees have .git as a FILE pointing to the real gitdir
     # under <main>/.git/worktrees/<name>. The main worktree has .git as a
     # directory. The index lives at <gitdir>/index in both cases.
     if [ -f "$wt/.git" ]; then
-      gitdir=$(awk '/^gitdir:/{print $2; exit}' "$wt/.git")
+      gitdir_line=$(grep '^gitdir:' "$wt/.git" 2>/dev/null | head -1)
+      gitdir="${gitdir_line#gitdir: }"
     else
       gitdir="$wt/.git"
     fi
@@ -44,11 +66,15 @@ if command -v git >/dev/null 2>&1; then
     # macOS uses `stat -f %m`, GNU/Linux uses `stat -c %Y`. Try both.
     mtime=$(stat -f %m "$idx" 2>/dev/null || stat -c %Y "$idx" 2>/dev/null)
     [ -z "$mtime" ] && continue
+    # Skip worktrees outside the recency window — idle worktrees can't
+    # be the active session even if their index has a recent mtime by
+    # coincidence.
+    [ $((now - mtime)) -gt "$recency" ] && continue
     if [ "$mtime" -gt "$newest_mtime" ]; then
       newest_mtime=$mtime
       newest_path="$wt"
     fi
-  done < <(git -C "$CLAUDE_PROJECT_DIR" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
+  done < <(git -C "$CLAUDE_PROJECT_DIR" worktree list --porcelain 2>/dev/null)
   [ -n "$newest_path" ] && ACTIVE_DIR="$newest_path"
 fi
 
