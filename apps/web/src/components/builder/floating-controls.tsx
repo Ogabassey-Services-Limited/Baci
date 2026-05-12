@@ -1,5 +1,6 @@
 'use client';
 
+import type { ComponentData } from '@puckeditor/core';
 import { usePuck } from '@puckeditor/core';
 import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,8 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
-// Types for Puck field configuration (not exported by Puck)
+// Types for Puck field configuration (Puck does not export a public Field union
+// in a form that's convenient to consume directly here).
 interface FieldOption {
   label: string;
   value: string;
@@ -34,55 +36,102 @@ interface PuckFieldConfig {
   }) => React.ReactNode;
 }
 
+/**
+ * Narrowed shape of `appState` returned by Puck's `usePuck()`.
+ *
+ * Puck's `makeStatePublic` returns `{ data, ui }` only — `config` is a sibling
+ * field on the `usePuck()` return value, NOT nested inside `appState`. This
+ * type intentionally mirrors `AppState<Data>` from `@puckeditor/core` (see
+ * `node_modules/@puckeditor/core/dist/actions-*.d.ts`) so the type guard below
+ * actually matches reality.
+ */
+interface PuckAppStateLike {
+  ui: {
+    // `UiState` from Puck core has `itemSelector` (NOT `selectedItem`).
+    // The `selectedItem` lives at the top level of `usePuck()`'s return.
+    itemSelector: { index: number; zone?: string } | null;
+    [key: string]: unknown;
+  };
+  data: {
+    content: ComponentData[];
+    root: Record<string, unknown>;
+    zones?: Record<string, ComponentData[]>;
+  };
+}
+
+function isPuckAppStateLike(value: unknown): value is PuckAppStateLike {
+  if (typeof value !== 'object' || value === null) return false;
+  if (!('ui' in value) || !('data' in value)) return false;
+  const data = (value as { data?: unknown }).data;
+  if (typeof data !== 'object' || data === null) return false;
+  if (!('content' in data)) return false;
+  if (!Array.isArray((data as { content?: unknown }).content)) return false;
+  return true;
+}
+
 export function FloatingControls() {
-  const { appState, dispatch } = usePuck();
-  // biome-ignore lint/suspicious/noExplicitAny: Puck's internal state structure is not exported
-  const state = appState as any;
-  // Safety check: Ensure state and ui exist before accessing
-  if (!state?.ui) return null;
+  // `config` and `selectedItem` are SIBLINGS of `appState` on the usePuck()
+  // return value — not nested inside appState. See UsePuckData in
+  // node_modules/@puckeditor/core/dist/index.d.ts.
+  const { appState, dispatch, config, selectedItem } = usePuck();
 
-  const { selectedItem } = state.ui;
-  const { config } = state;
-
+  if (!isPuckAppStateLike(appState)) return null;
   if (!selectedItem?.props) return null;
-
-  // Safety check: Ensure config and components exist
   if (!config?.components) return null;
 
   const componentConfig = config.components[selectedItem.type];
-
-  // Safety check: Ensure componentConfig exists
   if (!componentConfig) return null;
 
-  const fields = componentConfig?.fields;
-
+  const fields = componentConfig.fields;
   if (!fields) return null;
 
-  // We'll use the setData approach as it's universally safe in Puck
-  // biome-ignore lint/suspicious/noExplicitAny: Puck field values can be any type
-  const safeFieldChange = (fieldName: string, value: any) => {
-    const newContent = [...state.data.content];
-    // Note: selectedItem.props.id might not be the item ID.
-    // Puck items have an 'id' property at the root, not just in props.
-    // selectedItem is the item itself.
-    const itemIndex = newContent.findIndex(
-      // biome-ignore lint/suspicious/noExplicitAny: Puck content items are untyped
-      (item: any) => item.props.id === selectedItem.props.id
+  const safeFieldChange = (fieldName: string, value: unknown) => {
+    const selectedId = selectedItem.props.id;
+    const updateItem = (item: ComponentData): ComponentData => ({
+      ...item,
+      props: { ...item.props, [fieldName]: value },
+    });
+
+    // 1. Look in root content first.
+    const rootIndex = appState.data.content.findIndex(
+      (item) => item.props.id === selectedId
     );
-
-    if (itemIndex !== -1) {
-      newContent[itemIndex] = {
-        ...newContent[itemIndex],
-        props: {
-          ...newContent[itemIndex].props,
-          [fieldName]: value,
-        },
-      };
-
+    if (rootIndex !== -1) {
+      const newContent = [...appState.data.content];
+      newContent[rootIndex] = updateItem(newContent[rootIndex]);
+      // Spread the existing data so we don't accidentally drop `root` or
+      // `zones` — Puck's `setData` action replaces the data tree wholesale.
       dispatch({
         type: 'setData',
-        data: { ...state.data, content: newContent },
+        data: { ...appState.data, content: newContent },
       });
+      return;
+    }
+
+    // 2. Fall back to dropzone-nested items. Puck stores nested zones in
+    // `data.zones`, a Record keyed by `${parentId}:${zoneName}` -> Content[].
+    // See https://puckeditor.com/docs/api-reference/data-model/data and
+    // https://puckeditor.com/docs/api-reference/data-model/item-selector
+    // (`zone` is omitted/`root:default-zone` for root items).
+    const zones = appState.data.zones;
+    if (!zones) return;
+
+    for (const [zoneKey, zoneContent] of Object.entries(zones)) {
+      const zoneIndex = zoneContent.findIndex(
+        (item) => item.props.id === selectedId
+      );
+      if (zoneIndex === -1) continue;
+
+      const newZoneContent = [...zoneContent];
+      newZoneContent[zoneIndex] = updateItem(newZoneContent[zoneIndex]);
+      dispatch({
+        type: 'setData',
+        data: {
+          ...appState.data,
+          zones: { ...zones, [zoneKey]: newZoneContent },
+        },
+      });
+      return;
     }
   };
 
@@ -97,8 +146,10 @@ export function FloatingControls() {
           size="icon"
           className="h-6 w-6"
           onClick={() =>
-            // biome-ignore lint/suspicious/noExplicitAny: Puck dispatch types are internal
-            dispatch({ type: 'setUi', ui: { selectedItem: null } } as any)
+            // Puck derives `selectedItem` from `ui.itemSelector` in its reducer
+            // (see makeStatePublic). Setting `itemSelector: null` is the
+            // correct way to clear the selection.
+            dispatch({ type: 'setUi', ui: { itemSelector: null } })
           }
           aria-label="Close controls"
         >
@@ -112,23 +163,20 @@ export function FloatingControls() {
             const value = selectedItem.props[fieldName];
             const label = fieldConfig.label || fieldName;
 
-            // Skip if it's a custom field we don't support yet, unless it's ImagePicker
-            // Actually we support most basic types.
-
             return (
               <div key={fieldName} className="space-y-2">
                 {fieldConfig.type !== 'custom' && <Label>{label}</Label>}
 
                 {fieldConfig.type === 'text' && (
                   <Input
-                    value={value || ''}
+                    value={(value as string) || ''}
                     onChange={(e) => safeFieldChange(fieldName, e.target.value)}
                   />
                 )}
 
                 {fieldConfig.type === 'textarea' && (
                   <Textarea
-                    value={value || ''}
+                    value={(value as string) || ''}
                     onChange={(e) => safeFieldChange(fieldName, e.target.value)}
                     className="min-h-[80px]"
                   />
@@ -137,7 +185,7 @@ export function FloatingControls() {
                 {fieldConfig.type === 'number' && (
                   <Input
                     type="number"
-                    value={value || ''}
+                    value={(value as number) || ''}
                     onChange={(e) =>
                       safeFieldChange(fieldName, Number(e.target.value))
                     }
@@ -146,7 +194,7 @@ export function FloatingControls() {
 
                 {fieldConfig.type === 'select' && fieldConfig.options && (
                   <Select
-                    value={value || ''}
+                    value={(value as string) || ''}
                     onValueChange={(v) => safeFieldChange(fieldName, v)}
                   >
                     <SelectTrigger>
@@ -164,7 +212,7 @@ export function FloatingControls() {
 
                 {fieldConfig.type === 'radio' && fieldConfig.options && (
                   <RadioGroup
-                    value={value || ''}
+                    value={(value as string) || ''}
                     onValueChange={(v) => safeFieldChange(fieldName, v)}
                     className="flex flex-col gap-2"
                   >
@@ -186,25 +234,12 @@ export function FloatingControls() {
                 )}
 
                 {fieldConfig.type === 'custom' && fieldConfig.render && (
-                  // If it's the ImagePickerField, we can try to render it if we can identify it
-                  // Or we can just check the field name or properties.
-                  // In config.tsx, ImagePickerField is used with type: 'custom' and a render function.
-                  // We can't easily serialize the render function to check equality.
-                  // But we can check if the field name implies an image, or if we imported ImagePickerField.
-                  // Actually, we can just use our ImagePickerField component if the field looks like an image field.
-                  // Or better, we can check if the config uses ImagePickerField.
-                  // For now, let's assume if it's 'custom' and has 'image' in the name, or if we can just render the custom component?
-                  // Puck's custom render function expects { field, name, value, onChange }.
-                  // We can try to invoke it!
-                  // fieldConfig.render({ field: fieldConfig, name: fieldName, value, onChange: (v) => safeFieldChange(fieldName, v) })
-                  // This is the best way!
                   <div className="custom-field-wrapper">
                     {fieldConfig.render({
                       field: fieldConfig,
                       name: fieldName,
                       value,
                       onChange: (v: unknown) => safeFieldChange(fieldName, v),
-                      // Puck might pass more props like 'readOnly', etc.
                       readOnly: false,
                     })}
                   </div>
