@@ -867,26 +867,31 @@ jobs:
             exit 0
           fi
 
-          # Severity-marker patterns cover Jules's three known emission styles:
-          #   - **High:** ...
-          #   - **High severity** (...)
-          #   - **Severity: High** - ...
-          high_re='(^|\n)\s*[-*]\s*\*\*(High|Critical|Major)([: ]|\s+severity)'
-          high_re_alt='\*\*Severity[: ]*(High|Critical|Major)'
+          # Severity-marker patterns cover the four styles Jules emits across
+          # fast + deep modes. The flat-bullet form is what this workflow's own
+          # prompt instructs Jules to use ("use flat bullets ... include
+          # severity (high, medium, or low)"); the bold variants appear in
+          # practice too, so we cover both.
+          #   1. - **High:** ...                  (bold colon)
+          #   2. - **High severity** (...)        (bold + word)
+          #   3. - **Severity: High** ...         (bold severity prefix)
+          #   4. - high: ...                      (flat bullet, prompt-conformant)
+          high_re_bold='\*\*(Severity[: ]*)?(High|Critical|Major)(\*\*|[: ]|\s+severity)'
+          high_re_flat='(^|\n)[[:space:]]*[-*][[:space:]]+(high|critical|major)\b[[:space:]]*:'
 
-          if grep -qiE "${high_re}" "${body_file}" || \
-             grep -qiE "${high_re_alt}" "${body_file}"; then
+          if grep -qiE "${high_re_bold}" "${body_file}" || \
+             grep -qiE "${high_re_flat}" "${body_file}"; then
             echo "::error::Jules flagged HIGH/CRITICAL findings on this PR. Address before merge."
             echo "------- Review body (relevant excerpt) -------"
-            grep -iE -B1 -A4 "${high_re}|${high_re_alt}" "${body_file}" | head -80 || true
+            grep -iE -B1 -A4 "${high_re_bold}|${high_re_flat}" "${body_file}" | head -80 || true
             echo "------- Full body at: ${body_file} -------"
             exit 1
           fi
 
-          medium_re='(^|\n)\s*[-*]\s*\*\*Medium([: ]|\s+severity)'
-          medium_re_alt='\*\*Severity[: ]*Medium'
-          if grep -qiE "${medium_re}" "${body_file}" || \
-             grep -qiE "${medium_re_alt}" "${body_file}"; then
+          medium_re_bold='\*\*(Severity[: ]*)?Medium(\*\*|[: ]|\s+severity)'
+          medium_re_flat='(^|\n)[[:space:]]*[-*][[:space:]]+medium\b[[:space:]]*:'
+          if grep -qiE "${medium_re_bold}" "${body_file}" || \
+             grep -qiE "${medium_re_flat}" "${body_file}"; then
             echo "::warning::Jules flagged Medium findings. Not blocking merge — address before shipping."
           fi
 
