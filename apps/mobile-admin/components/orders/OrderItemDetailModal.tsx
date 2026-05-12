@@ -64,7 +64,7 @@ export function OrderItemDetailModal({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Close item details"
-            hitSlop={8}
+            hitSlop={12}
             onPress={onClose}
             style={[
               styles.closeButton,
