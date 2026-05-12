@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 const mockUsePuck = vi.fn();
@@ -218,10 +219,7 @@ describe('FloatingControls', () => {
       },
       selectedItem,
     });
-    const { default: userEventModule } = await import(
-      '@testing-library/user-event'
-    );
-    const user = userEventModule.setup();
+    const user = userEvent.setup();
     render(<FloatingControls />);
     await user.click(screen.getByRole('button', { name: /close controls/i }));
     expect(dispatch).toHaveBeenCalledWith({
