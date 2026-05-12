@@ -177,7 +177,10 @@ function sanitizeProxyRedirectPath(
     // Reject any backslash: the WHATWG URL parser normalizes `\` to `/` in
     // HTTPS-scheme contexts, so `/\evil.com` parses with host=evil.com. We
     // reject before the parse to avoid the authority-switch open-redirect.
+    // Control characters are also rejected before URL parsing because the
+    // parser strips them silently.
     rawRedirect.includes('\\') ||
+    hasControlCharacter(rawRedirect) ||
     PROTOCOL_SCHEME_REGEX.test(rawRedirect)
   ) {
     return defaultPath;
@@ -194,6 +197,13 @@ function sanitizeProxyRedirectPath(
   } catch {
     return defaultPath;
   }
+}
+
+function hasControlCharacter(value: string): boolean {
+  return Array.from(value).some((character) => {
+    const code = character.charCodeAt(0);
+    return code <= 31 || code === 127;
+  });
 }
 
 /**

@@ -45,7 +45,7 @@ vi.mock('@/lib/supabase/server', () => ({
 }));
 
 import { MerchantsClient } from './merchants-client';
-import MerchantsPage, { isHealthFilter } from './page';
+import MerchantsPage from './page';
 
 const merchantsResponse = {
   data: [
@@ -192,15 +192,5 @@ describe('Admin merchants page', () => {
     expect(screen.getByText('No merchants found')).toBeInTheDocument();
 
     errorSpy.mockRestore();
-  });
-
-  it('validates health filter helpers', () => {
-    expect(isHealthFilter('healthy')).toBe(true);
-    expect(isHealthFilter('inactive')).toBe(false);
-    expect(isHealthFilter('')).toBe(false);
-    expect(isHealthFilter('foo')).toBe(false);
-    expect(isHealthFilter(null as unknown as string)).toBe(false);
-    expect(isHealthFilter(undefined as unknown as string)).toBe(false);
-    expect(isHealthFilter(123 as unknown as string)).toBe(false);
   });
 });
