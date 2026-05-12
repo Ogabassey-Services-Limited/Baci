@@ -49,30 +49,44 @@ pre-push:
         # means we're in a smoke-test invocation.
         if [ -t 0 ]; then exit 0; fi
 
-        ZERO=0000000000000000000000000000000000000000
+        # Note: `origin` is hardcoded as the remote name. If a contributor's
+        # primary remote is named differently (e.g. `upstream`), the fetch
+        # below will fail and the guard soft-skips with an "offline?"
+        # message rather than incorrectly blocking. That's the right
+        # failure mode — better to under-block than over-block.
         fail=0
         while IFS=' ' read -r local_ref local_sha _remote_ref _remote_sha; do
-          # Skip ref deletions
-          [ "$local_sha" = "$ZERO" ] && continue
+          # Skip ref deletions. The "zero hash" varies by git's object-format
+          # (40 chars for SHA-1, 64 for SHA-256), so match any all-zero
+          # string of any length rather than hardcoding a fixed-width constant.
+          case "$local_sha" in *[!0]*) ;; *) continue ;; esac
 
           # Resolve local_ref to a branch name. Git's pre-push input can
           # supply the ref exactly as typed — most commonly:
           #   - refs/heads/<branch>  (e.g. `git push origin feature-x`)
           #   - HEAD                  (e.g. `git push origin HEAD:feature-x`)
-          # We treat HEAD by resolving it to the symbolic branch (or
-          # falling back to the SHA being pushed), and skip non-branch
-          # refs like tags/notes.
+          # We treat HEAD by deriving the branch from the REMOTE ref
+          # (the ref being pushed TO), not from the currently checked-out
+          # branch. Otherwise `git push origin HEAD:feature-x` run while
+          # sitting on `main` would resolve to `main` and hit the
+          # default-branch short-circuit below — bypassing the guard for
+          # the actual ref being pushed. Only fall back to `symbolic-ref`
+          # when remote_ref is missing (rare; some refspec-less forms).
+          # Skip non-branch refs like tags/notes.
           case "$local_ref" in
             refs/heads/*)
               branch="${local_ref#refs/heads/}"
               ;;
             HEAD)
-              branch=$(git symbolic-ref -q --short HEAD 2>/dev/null || echo "")
-              if [ -z "$branch" ]; then
-                # Detached-HEAD push to a remote branch — fall back to
-                # the remote_ref name so the comparison still happens.
-                branch="${_remote_ref#refs/heads/}"
-              fi
+              case "$_remote_ref" in
+                refs/heads/*)
+                  branch="${_remote_ref#refs/heads/}"
+                  ;;
+                *)
+                  branch=$(git symbolic-ref -q --short HEAD 2>/dev/null || echo "")
+                  ;;
+              esac
+              [ -z "$branch" ] && continue
               ;;
             *) continue;;
           esac
