@@ -91,7 +91,10 @@ export function ProductCatalog({
   }, [dirtyProducts, products]);
 
   useEffect(() => {
-    if (debouncedDirtyProducts.size === 0) return;
+    if (debouncedDirtyProducts.size === 0) {
+      setIsSaving(false);
+      return;
+    }
 
     const controller = new AbortController();
     setIsSaving(true);
@@ -148,6 +151,17 @@ export function ProductCatalog({
           return;
         }
 
+        toast({
+          title: 'Save Failed',
+          description: 'Could not save changes. Please try again.',
+          variant: 'destructive',
+        });
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        console.error('Unexpected product save failure', error);
         toast({
           title: 'Save Failed',
           description: 'Could not save changes. Please try again.',
