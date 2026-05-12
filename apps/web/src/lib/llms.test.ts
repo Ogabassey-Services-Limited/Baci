@@ -70,6 +70,8 @@ describe('buildLlmsText()', () => {
     expect(result).toContain('## Machine-Readable Commerce');
     expect(result).toContain('https://ogabassey.com/agent-commerce.json');
     expect(result).toContain('Agent Commerce Manifest');
+    expect(result).toContain('https://ogabassey.com/agent-trust.json');
+    expect(result).toContain('Agent Trust Readiness');
     expect(result).toContain('https://ogabassey.com/feeds/openai.jsonl');
     expect(result).toContain('OpenAI Product Feed');
     expect(result).toContain(
