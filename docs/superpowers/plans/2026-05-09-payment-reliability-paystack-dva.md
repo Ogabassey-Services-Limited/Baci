@@ -919,9 +919,14 @@ The conflict target column list MUST match the partial-unique index relevant to 
 
 ### B3 — Shipping persistence + fail-closed
 
-- [ ] Migration `<ts>_storefront_order_require_quote_id.sql`: `create_storefront_order` raises `shipping_quote_required` when `p_shipping_provider IS NOT NULL AND p_selected_quote_id IS NULL`.
-- [ ] Client: read selected quote from server-side `checkout_sessions`. On retry, hydrate. Force re-quote if expired.
-- [ ] Tests: `shipping_provider='gigl'` with no quote → 400. Hydrate from session → 200.
+- [x] Migration `<ts>_storefront_order_require_quote_id.sql`: `create_storefront_order` raises `shipping_quote_required` when `p_shipping_provider IS NOT NULL AND p_selected_quote_id IS NULL`. **Shipped in PR #1611** (migration `20260512180000`).
+- [x] Storefront callers stop fabricating providers for non-quoted flows. **Shipped in PR #1611**: legacy `apps/web/src/app/checkout/page.tsx:1217` drops the `|| 'GIGL'` silent default; ogabassey `place-order.ts` and `checkout-page.tsx` return `shipping_provider: null` for pickup/airport (they're delivery-method labels, not third-party providers). `/api/orders` route maps the new RPC error to a structured 4xx via `clientErrorCodes`. Zod schemas widened to accept `null` so the pickup/airport JSON shape validates.
+- [x] Tests: `shipping_provider` with no quote → RPC raises (contract test); pickup → `shipping_provider: null` (place-order test); airport → `shipping_provider: null` (place-order test). **Shipped in PR #1611**.
+- [ ] **B3 follow-up (deferred to its own PR)** — *Client: read selected quote from server-side `checkout_sessions`. On retry, hydrate. Force re-quote if expired.* This is the hydration-on-retry feature that lets a customer who closed the tab mid-checkout resume without re-picking the quote, AND ensures stale (expired) quotes trigger re-pricing instead of being reused. Touches:
+  - **Server**: extend `checkout_sessions` (or add a parallel `checkout_shipping_quotes` table) so the storefront can `POST /api/storefront/checkout-sessions/quote` to persist `{ session_id, merchant_id, customer_email, selected_quote_id, provider, expires_at }`; `GET` returns the current selection if not expired.
+  - **Client**: on the storefront checkout page mount, hydrate `selectedQuoteId`/`shippingProvider`/`shippingQuotes` from the session record when present. Treat expiry as "needs re-quote" — clear local state, force the rate panel re-render, do not submit to `/api/orders`.
+  - **Test plan**: a fresh session writes the quote when the customer picks one; on next mount the same quote is hydrated and the order POSTs 200; if `expires_at < now` the hydration is dropped and the customer sees the rate picker again (covers the regression: customer picked GIGL yesterday, returns today, expects fresh rates).
+  - **Why deferred**: the fail-closed enforcement is the prerequisite — without the RPC RAISE in place, a hydration retry could still silently default to GIGL. Now that fail-closed has shipped, the follow-up is independent and safe to scope on its own.
 
 ### B3.5 — Checkout VAT / total parity (web bug confirmed)
 
