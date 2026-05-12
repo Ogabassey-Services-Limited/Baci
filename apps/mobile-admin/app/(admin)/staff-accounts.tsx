@@ -150,12 +150,12 @@ export default function StaffAccountsScreen() {
             <Ionicons
               name="person-outline"
               size={18}
-              color={activeTab === 'accounts' ? '#FFF' : colors.textMuted}
+              color={activeTab === 'accounts' ? colors.textOnPrimary : colors.textMuted}
             />
             <Text
               style={[
                 styles.tabText,
-                { color: activeTab === 'accounts' ? '#FFF' : colors.textMuted },
+                { color: activeTab === 'accounts' ? colors.textOnPrimary : colors.textMuted },
               ]}
             >
               Staff Accounts
@@ -175,12 +175,12 @@ export default function StaffAccountsScreen() {
             <Ionicons
               name="business-outline"
               size={18}
-              color={activeTab === 'branches' ? '#FFF' : colors.textMuted}
+              color={activeTab === 'branches' ? colors.textOnPrimary : colors.textMuted}
             />
             <Text
               style={[
                 styles.tabText,
-                { color: activeTab === 'branches' ? '#FFF' : colors.textMuted },
+                { color: activeTab === 'branches' ? colors.textOnPrimary : colors.textMuted },
               ]}
             >
               Branches
@@ -204,7 +204,7 @@ export default function StaffAccountsScreen() {
                 <View
                   style={[
                     styles.emptyIcon,
-                    { backgroundColor: colors.primaryLight || '#E8F0FE' },
+                    { backgroundColor: colors.primaryLight },
                   ]}
                 >
                   <Ionicons
@@ -247,7 +247,7 @@ export default function StaffAccountsScreen() {
               <View
                 style={[
                   styles.emptyIcon,
-                  { backgroundColor: colors.primaryLight || '#E8F0FE' },
+                  { backgroundColor: colors.primaryLight },
                 ]}
               >
                 <Ionicons
@@ -282,16 +282,16 @@ export default function StaffAccountsScreen() {
           <View
             style={[
               styles.notice,
-              { backgroundColor: colors.infoLight || '#EFF6FF' },
+              { backgroundColor: colors.infoLight },
             ]}
           >
             <Ionicons
               name="information-circle"
               size={20}
-              color={colors.info || '#3B82F6'}
+              color={colors.info}
             />
             <Text
-              style={[styles.noticeText, { color: colors.info || '#3B82F6' }]}
+              style={[styles.noticeText, { color: colors.info }]}
             >
               All payments reconcile to your main wallet automatically.
             </Text>
@@ -312,7 +312,7 @@ export default function StaffAccountsScreen() {
               : 'Create new branch'
           }
         >
-          <Ionicons name="add" size={28} color="#FFF" />
+          <Ionicons name="add" size={28} color={colors.textOnPrimary} />
         </Pressable>
 
         <StaffAccountModal
