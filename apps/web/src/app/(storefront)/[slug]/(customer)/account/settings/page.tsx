@@ -116,7 +116,7 @@ export default function CustomerSettingsPage() {
   return (
     <div className="min-h-screen bg-linear-to-b from-background to-muted/20">
       {/* Header */}
-      <header className="border-b bg-background/95 backdrop-blur-sm supports-backdrop-filter:bg-background/60">
+      <header className="border-b bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 h-16 flex items-center">
           <Link
             href={asRoute('/account')}

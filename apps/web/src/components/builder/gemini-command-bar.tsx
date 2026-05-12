@@ -119,7 +119,7 @@ export function GeminiCommandBar({
 
   return (
     <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-full max-w-3xl px-4 z-50">
-      <Card className="p-3 shadow-2xl border-purple-200 bg-linear-to-r from-white via-purple-50/50 to-blue-50/50 backdrop-blur-sm supports-backdrop-filter:bg-white/95">
+      <Card className="p-3 shadow-2xl border-purple-200 bg-linear-to-r from-white via-purple-50/50 to-blue-50/50 backdrop-blur-sm supports-[backdrop-filter]:bg-white/95">
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="flex gap-2">
             <div className="relative flex-1">

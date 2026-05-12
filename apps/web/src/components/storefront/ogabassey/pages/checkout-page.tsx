@@ -1981,7 +1981,7 @@ export const CheckoutPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50/50 pb-20 flex flex-col">
       {/* Checkout Navbar */}
-      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-200/50 shadow-sm supports-backdrop-filter:bg-white/60">
+      <div className="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-gray-200/50 shadow-sm supports-[backdrop-filter]:bg-white/60">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <button
             onClick={() => router.push(asRoute(getHref('/cart')))}
