@@ -49,12 +49,22 @@ pre-push:
         # means we're in a smoke-test invocation.
         if [ -t 0 ]; then exit 0; fi
 
-        # Destination remote: git pre-push passes the remote name as $1 to
-        # the hook. With Lefthook's use_stdin: true the script's positional
-        # args are forwarded, so $1 is the push destination. Fall back to
-        # `origin` when args aren't available (e.g. `lefthook run pre-push`
-        # smoke-tests) so we never block on an unknown remote.
-        remote="${1:-origin}"
+        # Destination remote. Lefthook commands.run does NOT expose hook
+        # args as shell positional parameters — they're injected via
+        # template placeholders that Lefthook substitutes BEFORE the
+        # script runs. So `$1` is always empty here, regardless of
+        # use_stdin. {1} is the documented placeholder for the first
+        # positional arg, which for pre-push is the destination remote
+        # name git passes to the hook.
+        #
+        # Fall back to `origin` when the placeholder substitutes to an
+        # empty string (e.g. `lefthook run pre-push` from a terminal
+        # with no args). If the hook is somehow invoked WITHOUT Lefthook
+        # doing template substitution, the literal `{1}` would remain
+        # and the fetch below would soft-fail with the "offline?"
+        # message — under-block, the right failure mode.
+        remote="{1}"
+        remote="${remote:-origin}"
 
         # Resolve the default branch once — used for BOTH the self-skip
         # check below AND the base fallback. Hardcoding `main|master`
