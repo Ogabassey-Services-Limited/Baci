@@ -38,8 +38,7 @@ function getStorefrontHref(merchant: AdminMerchantHealthRow): string | null {
     return `/${generatedSlug}`;
   }
 
-  const explicitIdentifier = (merchant.merchant_id ?? '').trim();
-  return explicitIdentifier ? `/${explicitIdentifier}` : null;
+  return null;
 }
 
 export function MerchantTable({
