@@ -68,12 +68,42 @@ pre-push:
 
         # Resolve the default branch once — used for BOTH the self-skip
         # check below AND the base fallback. Hardcoding `main|master`
-        # misses repos whose default is `develop`, `trunk`, etc., and
-        # would run the behind-base check against the default branch
-        # itself when pushing to it. Fall back to `main` only when
-        # origin/HEAD isn't set locally (fresh clone, partial fetch).
+        # misses repos whose default is `develop`, `trunk`, etc.
+        #
+        # Resolution order (each strategy tried only if the previous gave
+        # an empty result):
+        #
+        #   1) Local symbolic-ref `refs/remotes/<remote>/HEAD` — fast,
+        #      but can be legitimately MISSING (`git remote set-head
+        #      --delete` was run, fresh clone, partial fetch). Falling
+        #      straight to `main` here is wrong: in a repo whose true
+        #      default is master/develop, every base would resolve to
+        #      `<remote>/main`, the fetch would 404, and EVERY push
+        #      would soft-skip — silently disabling the guard repo-wide.
+        #
+        #   2) Authoritative remote query via `git ls-remote --symref
+        #      <remote> HEAD` — asks the server what its default branch
+        #      is. Requires network but is the only reliable source
+        #      when (1) is missing.
+        #
+        #   3) Loud skip — if both lookups fail (no network AND no local
+        #      origin/HEAD), explicitly skip with an actionable message
+        #      rather than silently defaulting to a guessed branch name.
+        #      Under-block is the right failure mode for "we don't know
+        #      what to gate against," but it MUST be visible.
         default_branch=$(git symbolic-ref -q --short "refs/remotes/${remote}/HEAD" 2>/dev/null | sed "s|^${remote}/||")
-        default_branch="${default_branch:-main}"
+        if [ -z "$default_branch" ]; then
+          default_branch=$(git ls-remote --symref "$remote" HEAD 2>/dev/null \
+            | awk 'NR==1 && /^ref:/ { sub("^refs/heads/", "", $2); print $2; exit }')
+        fi
+        if [ -z "$default_branch" ]; then
+          echo "⚠️  Could not determine default branch for remote '$remote'."
+          echo "    refs/remotes/${remote}/HEAD is unset (try \`git remote set-head $remote --auto\`)"
+          echo "    AND \`git ls-remote --symref $remote HEAD\` failed (offline?)."
+          echo "    Skipping behind-base check. Override per-branch with:"
+          echo "      git config branch.<name>.base $remote/<your-base>"
+          exit 0
+        fi
 
         fail=0
         while IFS=' ' read -r local_ref local_sha _remote_ref _remote_sha; do
