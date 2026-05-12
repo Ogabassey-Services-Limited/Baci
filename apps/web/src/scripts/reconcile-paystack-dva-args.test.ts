@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { parseReconcileArgs } from '@/scripts/reconcile-paystack-dva-args';
-import { efosaArgs } from '@/scripts/reconcile-paystack-dva.test-fixtures';
+import { efosaArgs } from '@/scripts/reconcile-paystack-dva-fixtures';
 
 describe('parseReconcileArgs', () => {
   it('parses the full incident argument set into a typed object', () => {

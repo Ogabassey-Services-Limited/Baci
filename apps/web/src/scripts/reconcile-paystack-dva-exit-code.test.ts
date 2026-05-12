@@ -21,7 +21,7 @@ import {
   createSupabaseMock,
   efosaArgs,
   verifySuccess,
-} from '@/scripts/reconcile-paystack-dva.test-fixtures';
+} from '@/scripts/reconcile-paystack-dva-fixtures';
 
 describe('runReconcilePaystackDvaCli — outbox failure surfaces in exit code', () => {
   beforeEach(() => {
