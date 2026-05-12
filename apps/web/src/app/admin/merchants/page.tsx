@@ -4,24 +4,12 @@ import {
 } from '@/lib/admin-merchant-health';
 import { getFirstSearchParam } from '@/lib/search-params';
 import { createClient } from '@/lib/supabase/server';
-import type { HealthFilter } from './merchants-client';
+import { isHealthFilter } from './merchant-health-filter';
 import { MerchantsClient } from './merchants-client';
 
 type MerchantsPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
-
-const VALID_HEALTH_FILTERS = new Set<HealthFilter>([
-  'all',
-  'healthy',
-  'at_risk',
-  'churned',
-  'new',
-]);
-
-export function isHealthFilter(value: string): value is HealthFilter {
-  return VALID_HEALTH_FILTERS.has(value as HealthFilter);
-}
 
 export default async function MerchantsPage({
   searchParams,

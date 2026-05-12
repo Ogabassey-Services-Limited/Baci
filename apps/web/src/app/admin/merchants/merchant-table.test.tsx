@@ -152,6 +152,29 @@ describe('MerchantTable', () => {
     expect(onInvalidStorefrontUrl).toHaveBeenCalledTimes(1);
   });
 
+  it('reports invalid storefront links instead of falling back to merchant UUIDs', () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const onInvalidStorefrontUrl = vi.fn();
+
+    render(
+      <MerchantTable
+        merchants={[
+          {
+            ...merchant,
+            business_name: null,
+            storefront_slug: null,
+          },
+        ]}
+        onInvalidStorefrontUrl={onInvalidStorefrontUrl}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /view store/i }));
+
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(onInvalidStorefrontUrl).toHaveBeenCalledTimes(1);
+  });
+
   it('disables email while preserving storefront links when only email is missing', () => {
     const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
     const onInvalidStorefrontUrl = vi.fn();

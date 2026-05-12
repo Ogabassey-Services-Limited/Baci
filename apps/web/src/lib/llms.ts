@@ -7,6 +7,7 @@ import {
   STOREFRONT_OPTIONAL_LINKS,
   STOREFRONT_PRIMARY_LINKS,
 } from '@/config/llms-links';
+import { STOREFRONT_AGENT_ROUTES } from '@/config/storefront-agent-routes';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 
 export type LlmsSurface = 'platform-admin' | 'merchant-storefront';
@@ -129,7 +130,8 @@ function buildStorefrontLlms(baseUrl: string, full: boolean): string {
     `- ${baseUrl}/products/{productSlug}: Legacy or fallback product route on some storefronts`,
     '',
     '## Machine-Readable Commerce',
-    `- [Agent Commerce Manifest](${baseUrl}/agent-commerce.json): Capabilities, API version, policy links, checkout base URL, and feed URLs`,
+    `- [Agent Commerce Manifest](${baseUrl}${STOREFRONT_AGENT_ROUTES.manifest}): Capabilities, API version, policy links, checkout base URL, and feed URLs`,
+    `- [Agent Trust Readiness](${baseUrl}${STOREFRONT_AGENT_ROUTES.trust}): Catalog parity, policy, support, and verified-image checks for recommendation safety`,
     `- [OpenAI Product Feed](${baseUrl}${STOREFRONT_FEED_ROUTES.openaiProductFeed}): Public JSONL catalog feed for crawler-friendly product discovery`,
     `- [Current Agent Product Feed](${baseUrl}${STOREFRONT_FEED_ROUTES.agentProducts}): Current JSONL product feed with structured variant availability`,
     `- [Google Merchant XML Feed](${baseUrl}${STOREFRONT_FEED_ROUTES.googleMerchantXml}): Public product feed for merchant catalog discovery`,
