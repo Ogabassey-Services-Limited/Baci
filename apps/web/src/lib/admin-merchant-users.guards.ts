@@ -22,7 +22,15 @@ export function isAdminMerchantRow(value: unknown): value is AdminMerchantRow {
     isRecord(value) &&
     typeof value.id === 'string' &&
     isNullableString(value.user_id) &&
-    isNullableString(value.business_name)
+    isNullableString(value.business_name) &&
+    isNullableString(value.email) &&
+    isNullableString(value.phone) &&
+    isNullableString(value.slug) &&
+    isNullableString(value.signup_source) &&
+    isNullableString(value.plan_tier) &&
+    isNullableBoolean(value.is_published) &&
+    isNullableString(value.created_at) &&
+    isNullableString(value.updated_at)
   );
 }
 
@@ -34,6 +42,10 @@ export function isAdminMerchantStaffRow(
     typeof value.id === 'string' &&
     isNullableString(value.user_id) &&
     isNullableString(value.email) &&
+    isNullableString(value.name) &&
+    isNullableString(value.role) &&
+    isNullableString(value.status) &&
+    isNullableString(value.last_login_at) &&
     isNullableString(value.created_at)
   );
 }
@@ -46,6 +58,12 @@ export function isAdminMerchantCustomerRow(
     typeof value.id === 'string' &&
     isNullableString(value.user_id) &&
     isNullableString(value.email) &&
+    isNullableString(value.first_name) &&
+    isNullableString(value.last_name) &&
+    isNullableString(value.full_name) &&
+    isNullableString(value.auth_provider) &&
+    isNullableString(value.deleted_at) &&
+    isNullableString(value.last_login_at) &&
     isNullableString(value.created_at)
   );
 }
@@ -59,7 +77,10 @@ export function isAdminMerchantPushTokenRow(
     isNullableString(value.user_id) &&
     isNullableString(value.platform) &&
     isNullableBoolean(value.is_active) &&
-    isNullableString(value.app_type)
+    isNullableString(value.app_type) &&
+    isNullableString(value.created_at) &&
+    isNullableString(value.updated_at) &&
+    isNullableString(value.last_used_at)
   );
 }
 

@@ -4,6 +4,7 @@ import {
   AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER,
   type AgenticPaymentMethod,
 } from '@/config/agentic-payment-methods';
+import { STOREFRONT_AGENT_ROUTES } from '@/config/storefront-agent-routes';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import { getPaystackSecretKey, getRootDomain } from '@/env';
 import {
@@ -111,6 +112,7 @@ export async function GET(request: Request) {
       links: {
         llms: buildUrl(baseUrl, '/llms.txt'),
         llms_full: buildUrl(baseUrl, '/llms-full.txt'),
+        trust: buildUrl(baseUrl, STOREFRONT_AGENT_ROUTES.trust),
         product_feed: buildUrl(
           baseUrl,
           STOREFRONT_FEED_ROUTES.openaiProductFeed
