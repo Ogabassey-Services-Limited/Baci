@@ -15,6 +15,7 @@
 
 import { trace } from '@opentelemetry/api';
 import { NextRequest, NextResponse } from 'next/server';
+import { STOREFRONT_AGENT_ROUTES } from '@/config/storefront-agent-routes';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import {
   CLICK_ID_PARAMS,
@@ -52,8 +53,11 @@ const VALID_SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 // remain free to publish their own `/<key>.txt` file on custom domains without
 // the proxy intercepting and bypassing their storefront rewrite.
 const INDEXNOW_KEY_PATH = '/0751d5c882ab3d7c013ecbfe9e624d71.txt';
-const PUBLIC_MACHINE_FEED_PATHS = new Set<string>(
-  Object.values(STOREFRONT_FEED_ROUTES)
+const PUBLIC_MACHINE_READABLE_PATHS = new Set<string>(
+  Object.values({
+    ...STOREFRONT_AGENT_ROUTES,
+    ...STOREFRONT_FEED_ROUTES,
+  })
 );
 const MERCHANT_CONTEXT_HEADERS = [
   'x-custom-domain',
@@ -71,8 +75,8 @@ function cloneRequestHeadersWithoutMerchantContext(
   return headers;
 }
 
-function isPublicMachineFeedPath(pathname: string): boolean {
-  return PUBLIC_MACHINE_FEED_PATHS.has(pathname);
+function isPublicMachineReadablePath(pathname: string): boolean {
+  return PUBLIC_MACHINE_READABLE_PATHS.has(pathname);
 }
 
 // Pre-compiled regex patterns for performance (avoids recompilation on every request)
@@ -486,8 +490,8 @@ function buildMerchantFeedPassThroughResponse({
     },
   });
 
-  // Public XML feeds use the storefront security profile: relaxed CSP is
-  // appropriate for machine-readable storefront content.
+  // Public machine-readable storefront contracts use the storefront security
+  // profile: relaxed CSP is appropriate for storefront-scoped JSON/XML content.
   const routeType = getRouteType(pathname);
   const isLocal = isLocalhost(hostname);
   return applySecurityHeaders(
@@ -1107,10 +1111,10 @@ export async function proxy(request: NextRequest) {
       const domainPathSegments = pathname.split('/').filter(Boolean);
       const domainMerchantSlug = await getSlugForCustomDomain(domain);
 
-      // Public machine feeds are App Router routes, not storefront pages.
+      // Public machine-readable contracts are App Router routes, not storefront pages.
       // Run before slug-prefix canonicalization so a merchant slug named
       // "feeds" cannot shadow the canonical XML feed endpoint.
-      if (isPublicMachineFeedPath(pathname)) {
+      if (isPublicMachineReadablePath(pathname)) {
         return buildMerchantFeedPassThroughResponse({
           request,
           pathname,
@@ -1419,8 +1423,8 @@ export async function proxy(request: NextRequest) {
       );
     }
 
-    // Public machine feeds are App Router routes, not storefront pages.
-    if (isPublicMachineFeedPath(pathname)) {
+    // Public machine-readable contracts are App Router routes, not storefront pages.
+    if (isPublicMachineReadablePath(pathname)) {
       return buildMerchantFeedPassThroughResponse({
         request,
         pathname,
