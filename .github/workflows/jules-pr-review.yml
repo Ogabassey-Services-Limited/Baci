@@ -860,10 +860,21 @@ jobs:
             exit 0
           fi
 
-          # Skip-marker review bodies (deep-mode ignored comments, mode mismatch)
-          # are not gating signals.
-          if grep -qE 'command:ignored|workflow did not produce a review body' "${body_file}"; then
-            echo "Jules emitted a workflow-skip body. Treating as advisory pass."
+          # Skip when the body is a placeholder (workflow infra hiccup,
+          # ignored deep-mode comment, or skip-mode). The previous version
+          # of this check grepped for the substring "workflow did not
+          # produce a review body" / "command:ignored" anywhere in the
+          # body, which is bypass-prone: a real HIGH finding whose prose
+          # quotes either phrase would silently flip the gate to skip.
+          # (See codex P1 on PR #1616 / commit 05a92a23f2.)
+          #
+          # Fix: use a positive marker instead — every real Jules review
+          # contains a `## Findings` heading (approvals and findings-bearing
+          # alike, across both fast + deep modes), and placeholder bodies
+          # never do. If the body lacks `## Findings`, it's by definition
+          # a placeholder and we treat it as advisory.
+          if ! grep -qE '^## Findings' "${body_file}"; then
+            echo "Jules body has no '## Findings' section — treating as placeholder / advisory pass."
             exit 0
           fi
 
