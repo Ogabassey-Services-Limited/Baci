@@ -5,7 +5,7 @@ import type React from 'react';
 
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useLoyalty } from '@/hooks/use-loyalty';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { Loader2 } from 'lucide-react';
 
 const TIERS = [

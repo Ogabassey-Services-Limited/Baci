@@ -23,7 +23,7 @@ vi.mock('@/lib/supabase/client', () => ({
   createClient: () => mockSupabaseClient,
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: () => mockMerchant,
 }));
 

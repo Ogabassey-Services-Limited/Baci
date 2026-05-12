@@ -9,7 +9,7 @@ import { useStorefrontSafe } from '@/contexts/storefront-context';
 import { useCart } from '@/hooks/use-cart';
 import { useCurrency } from '@/hooks/use-currency';
 import { useDebounce } from '@/hooks/use-debounce';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet } from '@/lib/api-client';
 import { sortCategories } from '@/lib/category-sorting';

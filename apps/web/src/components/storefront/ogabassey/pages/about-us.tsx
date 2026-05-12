@@ -15,7 +15,7 @@ import Link from 'next/link';
 import type React from 'react';
 import { useEffect } from 'react';
 import { SafeHtml } from '@/components/ui/safe-html';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 
 const stats = [

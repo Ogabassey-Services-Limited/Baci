@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { getContrastingTextColor, hexToRgba } from '@/lib/color-utils';
 
 const STORE_BORDER_ALPHA = 0.24;

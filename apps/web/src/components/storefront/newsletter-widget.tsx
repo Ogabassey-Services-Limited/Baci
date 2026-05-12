@@ -4,7 +4,7 @@ import { Gift, Loader2, Mail, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { ThemedButton } from '@/components/themed';
 import { Input } from '@/components/ui/input';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 

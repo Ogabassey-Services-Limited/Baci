@@ -21,7 +21,7 @@ vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: vi.fn() })),
   useSearchParams: vi.fn(() => new URLSearchParams()),
 }));
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: vi.fn(() => ({
     merchant: { id: 'm-1', slug: 'test', currency: 'NGN' },
     loading: false,

@@ -4,7 +4,7 @@ import { Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { useLoyalty } from '@/hooks/use-loyalty';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 

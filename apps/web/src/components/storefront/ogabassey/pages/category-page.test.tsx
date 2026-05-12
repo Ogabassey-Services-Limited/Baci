@@ -43,7 +43,7 @@ vi.mock('@/hooks/cart', () => ({
     totalItems: 0,
   })),
 }));
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: vi.fn(() => ({
     merchant: { id: 'm-1', slug: 'test', business_name: 'Test Store' },
     basePath: '/test-store',

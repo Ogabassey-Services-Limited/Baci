@@ -19,7 +19,7 @@ vi.mock('next/image', () => ({
 }));
 
 // Mock hooks
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: () => ({ basePath: '/test-store' }),
 }));
 

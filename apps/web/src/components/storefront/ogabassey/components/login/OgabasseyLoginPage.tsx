@@ -13,7 +13,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import { Logo as OgabasseyLogo } from '../Logo';
 import {

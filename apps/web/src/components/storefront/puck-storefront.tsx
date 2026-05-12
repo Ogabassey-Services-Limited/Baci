@@ -4,7 +4,7 @@ import { type Data, Render } from '@puckeditor/core';
 import { Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { builderConfig } from '@/components/builder/config';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { createClient } from '@/lib/supabase/client';
 import { defaultTheme, type ThemeConfiguration } from '@/lib/theme-config';
 

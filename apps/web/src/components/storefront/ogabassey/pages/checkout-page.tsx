@@ -26,7 +26,7 @@ import type React from 'react';
 import { useEffect, useState, useRef } from 'react';
 import { useCart } from '@/hooks/cart';
 import type { CartItem } from '@/hooks/cart';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import type { ResumedOrder } from './checkout/types';
 import {
   usePersistedForm,

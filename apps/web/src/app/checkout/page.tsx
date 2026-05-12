@@ -48,7 +48,7 @@ import {
 import { PhoneInput } from '@/components/ui/phone-input';
 import { useCart } from '@/hooks/use-cart';
 import { useCurrency } from '@/hooks/use-currency';
-import { MerchantProvider, useMerchant } from '@/hooks/use-merchant';
+import { MerchantProvider, useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { apiPost } from '@/lib/api-client';
 import { buildCheckoutOrderItems } from '@/lib/checkout/build-order-items';
