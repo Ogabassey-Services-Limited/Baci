@@ -37,6 +37,11 @@ pre-push:
       # Escape hatches:
       #   - Set `branch.<name>.base` once and the hook tracks it forever.
       #   - Genuine emergency: `git push --no-verify`.
+      #
+      # use_stdin: true is REQUIRED — Lefthook's docs explicitly call out
+      # pre-push `while read` scripts as needing this option. Without it
+      # Lefthook closes stdin and our `read` loop sees nothing.
+      use_stdin: true
       run: |
         # Skip when no real push is happening (e.g., `lefthook run
         # pre-push` from a terminal). Git always pipes ref data on
@@ -50,9 +55,25 @@ pre-push:
           # Skip ref deletions
           [ "$local_sha" = "$ZERO" ] && continue
 
-          # Only check branch refs (refs/heads/*) — skip tags, notes, etc.
+          # Resolve local_ref to a branch name. Git's pre-push input can
+          # supply the ref exactly as typed — most commonly:
+          #   - refs/heads/<branch>  (e.g. `git push origin feature-x`)
+          #   - HEAD                  (e.g. `git push origin HEAD:feature-x`)
+          # We treat HEAD by resolving it to the symbolic branch (or
+          # falling back to the SHA being pushed), and skip non-branch
+          # refs like tags/notes.
           case "$local_ref" in
-            refs/heads/*) branch="${local_ref#refs/heads/}";;
+            refs/heads/*)
+              branch="${local_ref#refs/heads/}"
+              ;;
+            HEAD)
+              branch=$(git symbolic-ref -q --short HEAD 2>/dev/null || echo "")
+              if [ -z "$branch" ]; then
+                # Detached-HEAD push to a remote branch — fall back to
+                # the remote_ref name so the comparison still happens.
+                branch="${_remote_ref#refs/heads/}"
+              fi
+              ;;
             *) continue;;
           esac
 
@@ -73,8 +94,17 @@ pre-push:
 
           # Count commits in $base not reachable from the SHA being
           # pushed — NOT from HEAD, so cross-branch pushes work.
-          behind=$(git rev-list --count "$local_sha..$base")
-          if [ "$behind" -gt 0 ]; then
+          #
+          # Use FETCH_HEAD (the exact tip we just fetched) rather than
+          # the local tracking branch ($base). Single-branch clones and
+          # certain git configs don't maintain refs/remotes/origin/*,
+          # so $base may be stale or missing entirely, causing
+          # `git rev-list` to fail silently and leave $behind empty.
+          # `|| echo 0` ensures the numeric comparison below always
+          # operates on a real integer instead of throwing
+          # `integer expression expected` and bypassing the guard.
+          behind=$(git rev-list --count "$local_sha..FETCH_HEAD" 2>/dev/null || echo 0)
+          if [ "${behind:-0}" -gt 0 ]; then
             echo ""
             echo "❌ Branch '$branch' is $behind commit(s) behind $base."
             echo "   Run one of:"
