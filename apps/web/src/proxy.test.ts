@@ -434,10 +434,12 @@ describe('Middleware Proxy', () => {
   });
 
   it.each([
+    '/agent-commerce.json',
+    '/agent-trust.json',
     '/feeds/google-merchant.xml',
     '/feeds/openai.jsonl',
     '/feeds/agent-products.jsonl',
-  ])('passes custom-domain public machine feed %s to the app route', async (path) => {
+  ])('passes custom-domain machine-readable path %s to the app route', async (path) => {
     const req = new NextRequest(`https://ogabassey.com${path}`);
     req.headers.set('host', 'ogabassey.com');
 
@@ -454,11 +456,9 @@ describe('Middleware Proxy', () => {
     );
   });
 
-  it('strips spoofed merchant slug headers from unresolved custom-domain XML feed requests', async () => {
+  it('strips spoofed merchant slug headers from unresolved custom-domain machine-readable requests', async () => {
     vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce(null);
-    const req = new NextRequest(
-      'https://unknown.example/feeds/google-merchant.xml'
-    );
+    const req = new NextRequest('https://unknown.example/agent-trust.json');
     req.headers.set('host', 'unknown.example');
     req.headers.set('x-merchant-slug', 'target-store');
 
@@ -476,10 +476,12 @@ describe('Middleware Proxy', () => {
   });
 
   it.each([
+    '/agent-commerce.json',
+    '/agent-trust.json',
     '/feeds/google-merchant.xml',
     '/feeds/openai.jsonl',
     '/feeds/agent-products.jsonl',
-  ])('does not canonicalize custom-domain machine feed %s when the merchant slug is feeds', async (path) => {
+  ])('does not canonicalize custom-domain machine-readable path %s when the merchant slug is feeds', async (path) => {
     vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce('feeds');
     const req = new NextRequest(`https://shop.example${path}`);
     req.headers.set('host', 'shop.example');
@@ -495,9 +497,9 @@ describe('Middleware Proxy', () => {
     );
   });
 
-  it('strips spoofed custom-domain headers from subdomain XML feed requests', async () => {
+  it('strips spoofed custom-domain headers from subdomain machine-readable requests', async () => {
     const req = new NextRequest(
-      `https://ogabassey.${ROOT_DOMAIN}/feeds/google-merchant.xml`
+      `https://ogabassey.${ROOT_DOMAIN}/agent-trust.json`
     );
     req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
     req.headers.set('x-custom-domain', 'target-store.example');
@@ -516,10 +518,12 @@ describe('Middleware Proxy', () => {
   });
 
   it.each([
+    '/agent-commerce.json',
+    '/agent-trust.json',
     '/feeds/google-merchant.xml',
     '/feeds/openai.jsonl',
     '/feeds/agent-products.jsonl',
-  ])('passes subdomain public machine feed %s to the app route', async (path) => {
+  ])('passes subdomain machine-readable path %s to the app route', async (path) => {
     const req = new NextRequest(`https://ogabassey.${ROOT_DOMAIN}${path}`);
     req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
 
@@ -1131,9 +1135,18 @@ describe('Middleware Proxy', () => {
   });
 
   describe('config.matcher', () => {
+    it('includes machine-readable agent JSON routes in middleware matching', () => {
+      expect(config.matcher).toEqual(
+        expect.arrayContaining(['/agent-commerce.json', '/agent-trust.json'])
+      );
+    });
+
     it('excludes .avif files from middleware matching', () => {
       // The matcher regex should not match .avif files (they bypass middleware)
-      const matcherPattern = config.matcher[0];
+      const matcherPattern = config.matcher.find((matcher) =>
+        matcher?.includes('_next/image')
+      );
+      if (!matcherPattern) throw new Error('Static asset matcher is missing');
       const regex = new RegExp(matcherPattern);
 
       // .avif should NOT match (excluded from middleware)
