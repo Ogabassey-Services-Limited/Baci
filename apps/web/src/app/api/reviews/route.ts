@@ -236,7 +236,10 @@ export async function POST(request: NextRequest) {
         status: 'pending',
         verified_purchase: verifiedPurchase,
       })
-      .select()
+      // PERFORMANCE: Use explicit column selection instead of .select() to prevent overfetching full review rows on insertion
+      .select(
+        'id, product_id, merchant_id, order_id, customer_email, customer_name, rating, title, body, status, verified_purchase, created_at'
+      )
       .single();
 
     if (insertError) {
