@@ -81,7 +81,7 @@ export function CountryPickerModal({
                 accessibilityLabel="Clear search"
                 accessibilityHint="Clears the country search input"
                 style={({ pressed }) => [pressed && { opacity: 0.7 }]}
-                hitSlop={8}
+                hitSlop={12}
               >
                 <Ionicons
                   name="close-circle"
