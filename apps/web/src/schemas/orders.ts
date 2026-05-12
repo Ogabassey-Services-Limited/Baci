@@ -180,7 +180,16 @@ const orderCreateSchemaBase = z.object({
   // accept both undefined and null; the route normalizes `?? null`
   // before passing to the RPC.
   selected_quote_id: z.string().uuid().nullable().optional(),
-  shipping_provider: z.string().nullable().optional(),
+  // B3 review fix: mirror reuseCheckoutOrderSchema.shipping_provider —
+  // sanitize at the validation boundary so both order-create AND
+  // order-reuse paths persist the same normalized provider string.
+  // Pre-fix, orderCreateSchemaBase accepted raw client input; the
+  // legacy `shipping_provider_legacy` field already had the transform.
+  shipping_provider: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => (val ? sanitizeText(val) : val)),
   tracking_number: z.string().optional(),
   // Legacy/Optional fields
   shipping_provider_legacy: z

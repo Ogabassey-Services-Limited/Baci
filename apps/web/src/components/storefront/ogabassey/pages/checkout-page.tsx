@@ -1216,10 +1216,19 @@ export const CheckoutPage: React.FC = () => {
       if (quote) {
         shippingProvider = quote.provider; // e.g. 'GIGL', 'Topship'
       } else {
-        // Quote referenced but not found in the local list — fail closed
-        // by leaving shippingProvider null; the RPC will reject if a
-        // quote id is somehow attached without a resolvable provider.
-        shippingProvider = 'Standard';
+        // B3 review fix: do NOT fabricate a 'Standard' provider here —
+        // selectedQuoteId is dangling (stored id with no matching quote
+        // in the current rate list, usually because rates expired or
+        // were refreshed under us). Surface a validation error and
+        // bail; never submit a quote id with no resolvable provider.
+        toast({
+          title: 'Shipping rate expired',
+          description: 'Please select a delivery option again.',
+          variant: 'destructive',
+        });
+        isOrderInFlightRef.current = false;
+        setIsProcessing(false);
+        return;
       }
     }
 
@@ -1297,8 +1306,11 @@ export const CheckoutPage: React.FC = () => {
             shipping_address: shippingAddressData,
             source: 'online_store',
             shipping_provider: shippingProvider,
+            // B3 review fix: explicit null (not undefined) matches
+            // `apps/web/src/app/checkout/page.tsx`'s wire shape; see
+            // the matching comment in place-order.ts.
             selected_quote_id:
-              deliveryMethod === 'door' ? selectedQuoteId || undefined : undefined,
+              deliveryMethod === 'door' ? (selectedQuoteId ?? null) : null,
             // Wallet redemption (2025: auto-apply at checkout)
             use_wallet_credit: payWithWallet && walletAmountUsed > 0,
             wallet_amount: walletAmountUsed,
