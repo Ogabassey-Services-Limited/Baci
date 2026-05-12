@@ -131,6 +131,16 @@ if [ -n "$MISSING_TESTS" ]; then
   exit 0
 fi
 
+# Throwaway worktrees (created for a single PR's git ops) typically don't
+# run `pnpm install`, so node_modules / turbo are missing. Test-pairing
+# above is filesystem-only and runs fine, but lint/typecheck/test all
+# require turbo. Skip the heavy checks in that case — CI runs them on
+# every PR anyway, and failing the hook with "turbo not found" prevents
+# the session from ending without telling the user anything useful.
+if [ ! -d node_modules ] || [ ! -x node_modules/.bin/turbo ]; then
+  exit 0
+fi
+
 # Run Biome lint check (~2-5s)
 LINT_RESULT=$(pnpm turbo lint 2>&1)
 LINT_EXIT=$?
