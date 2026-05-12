@@ -18,8 +18,13 @@ cd "$CLAUDE_PROJECT_DIR" || exit 0
 
 # Check that new/modified source files have colocated test files
 # Exempt: types, config, index barrels, test files, route files, CSS, non-code files
+#
+# Scope: staged + untracked only (NOT unstaged). The session-end hook should
+# audit files actually about to ship, not accumulated WIP. Auditing the full
+# working tree against HEAD fires every session against any uncommitted work,
+# even when the current task touches none of it.
 MISSING_TESTS=""
-for FILE in $(git diff --name-only --diff-filter=ACM HEAD 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null); do
+for FILE in $(git diff --name-only --cached --diff-filter=ACM 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null); do
   # Strip trailing whitespace/CR from git output
   FILE=$(echo "$FILE" | tr -d '\r' | xargs)
   [ -z "$FILE" ] && continue
