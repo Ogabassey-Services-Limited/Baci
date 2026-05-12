@@ -258,5 +258,12 @@ describe('StorefrontProductGrid', () => {
       await screen.findByText('Artisanal Sourdough Loaf')
     ).toBeInTheDocument();
     expect(screen.queryByText('Linen Summer Dress')).not.toBeInTheDocument();
+    expect(
+      vi
+        .mocked(apiGet)
+        .mock.calls.some(([url]) =>
+          String(url).includes('/api/storefront/products')
+        )
+    ).toBe(false);
   });
 });
