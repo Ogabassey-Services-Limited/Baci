@@ -1694,8 +1694,8 @@ function applySecurityHeaders(
 
 export const config = {
   matcher: [
-    STOREFRONT_AGENT_ROUTES.manifest,
-    STOREFRONT_AGENT_ROUTES.trust,
+    '/agent-commerce.json',
+    '/agent-trust.json',
     /*
      * Match all request paths except for the ones starting with:
      * - _next/static (static files)
