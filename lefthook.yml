@@ -82,37 +82,33 @@ pre-push:
           # string of any length rather than hardcoding a fixed-width constant.
           case "$local_sha" in *[!0]*) ;; *) continue ;; esac
 
-          # Resolve to a branch name. Git's pre-push <local-ref> field can
-          # be ANY expression the user typed, not just refs/heads/<branch>
-          # or HEAD:
-          #   - `git push origin feature-x`           → local_ref=refs/heads/feature-x
-          #   - `git push origin HEAD:feature-x`      → local_ref=HEAD
-          #   - `git push origin HEAD~:feature-x`     → local_ref=HEAD~
-          #   - `git push origin abc1234:feature-x`   → local_ref=abc1234 (raw SHA)
+          # Resolve to a branch name from the REMOTE ref — the destination
+          # of the push. Git pre-push <local-ref> is "what's being pushed
+          # FROM" (any expression: refs/heads/<x>, HEAD, HEAD~, raw SHA,
+          # branch@{u}, …) and <remote-ref> is "what branch will exist on
+          # the remote after this push". The remote ref is the only thing
+          # that authoritatively identifies the branch we want to gate.
           #
-          # Only refs/heads/* gives us a branch name directly. For
-          # EVERYTHING ELSE (HEAD, HEAD~, raw SHAs, other expressions),
-          # the ref being pushed TO — _remote_ref — is the authoritative
-          # source for which branch we want to gate. Trying to resolve
-          # from HEAD (symbolic-ref) is wrong: a push from main to
-          # feature-x would resolve to main and hit the default-branch
-          # short-circuit, bypassing the guard for feature-x.
-          case "$local_ref" in
+          # Using local_ref is wrong because git allows source and
+          # destination to differ in a refspec:
+          #   - `git push origin main:feature-x`       → local=main, remote=feature-x
+          #   - `git push origin HEAD:feature-x`       → local=HEAD,  remote=feature-x
+          #   - `git push origin abc1234:feature-x`    → local=SHA,   remote=feature-x
+          #   - `git push origin feature-x`            → local=feature-x, remote=feature-x
+          #
+          # In the cross-name refspec cases, deriving from local_ref would
+          # treat the push as `main` and hit the default-branch self-skip
+          # below, bypassing the guard for the actual destination
+          # (feature-x). We always read from remote_ref instead.
+          #
+          # Non-branch remote refs (tag pushes, notes refs, etc.) are
+          # skipped — this guard only gates branch pushes.
+          case "$_remote_ref" in
             refs/heads/*)
-              branch="${local_ref#refs/heads/}"
+              branch="${_remote_ref#refs/heads/}"
               ;;
             *)
-              # All other local_ref forms route through _remote_ref. If
-              # the remote ref isn't refs/heads/* (e.g. pushing to a tag
-              # or notes ref), skip — we only gate branch pushes.
-              case "$_remote_ref" in
-                refs/heads/*)
-                  branch="${_remote_ref#refs/heads/}"
-                  ;;
-                *)
-                  continue
-                  ;;
-              esac
+              continue
               ;;
           esac
 
