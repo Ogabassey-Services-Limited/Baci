@@ -1,4 +1,4 @@
-// Required for interactive stat cards with click and keyboard handlers.
+// Required for interactive stat filter buttons.
 'use client';
 
 import {
@@ -8,11 +8,10 @@ import {
   Clock,
   XCircle,
 } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import type { AdminMerchantHealthRow } from '@/types/admin-merchants';
+import type { HealthFilter } from './merchant-health-filter';
 
-export type HealthFilter = 'all' | AdminMerchantHealthRow['health_status'];
+export type { HealthFilter } from './merchant-health-filter';
 
 export type MerchantStats = {
   total: number;
@@ -91,27 +90,20 @@ export function MerchantStatsGrid({
       {STAT_ITEMS.map((item) => {
         const Icon = item.icon;
         return (
-          <Card
+          <button
             key={item.filter}
+            type="button"
             className={cn(
-              'cursor-pointer transition-colors hover:bg-muted/50',
+              'rounded-lg border bg-card text-left text-card-foreground shadow-sm transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
               item.borderClass,
               activeFilter === item.filter && 'ring-2',
               activeFilter === item.filter && item.ringClass
             )}
             onClick={() => onFilterChange(item.filter)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                onFilterChange(item.filter);
-              }
-            }}
-            role="button"
-            tabIndex={0}
             aria-label={`Filter merchants by ${item.label}`}
             aria-pressed={activeFilter === item.filter}
           >
-            <CardContent className="p-4">
+            <div className="p-4">
               <div className="flex items-center gap-3">
                 <Icon
                   className={cn('h-8 w-8', item.iconClass)}
@@ -122,8 +114,8 @@ export function MerchantStatsGrid({
                   <p className="text-xs text-muted-foreground">{item.label}</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </button>
         );
       })}
     </div>
