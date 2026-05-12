@@ -55,6 +55,16 @@ pre-push:
         # `origin` when args aren't available (e.g. `lefthook run pre-push`
         # smoke-tests) so we never block on an unknown remote.
         remote="${1:-origin}"
+
+        # Resolve the default branch once — used for BOTH the self-skip
+        # check below AND the base fallback. Hardcoding `main|master`
+        # misses repos whose default is `develop`, `trunk`, etc., and
+        # would run the behind-base check against the default branch
+        # itself when pushing to it. Fall back to `main` only when
+        # origin/HEAD isn't set locally (fresh clone, partial fetch).
+        default_branch=$(git symbolic-ref -q --short "refs/remotes/${remote}/HEAD" 2>/dev/null | sed "s|^${remote}/||")
+        default_branch="${default_branch:-main}"
+
         fail=0
         while IFS=' ' read -r local_ref local_sha _remote_ref _remote_sha; do
           # Skip ref deletions. The "zero hash" varies by git's object-format
@@ -96,13 +106,14 @@ pre-push:
               ;;
           esac
 
-          # The default branch is its own base.
-          case "$branch" in main|master) continue;; esac
+          # The default branch is its own base — skip dynamically so
+          # repos whose default is `develop` (or any non-main name)
+          # don't get checked against themselves.
+          [ "$branch" = "$default_branch" ] && continue
 
           base=$(git config "branch.$branch.base" 2>/dev/null || true)
           if [ -z "$base" ]; then
-            default=$(git symbolic-ref -q --short "refs/remotes/${remote}/HEAD" 2>/dev/null | sed "s|^${remote}/||")
-            base="${remote}/${default:-main}"
+            base="${remote}/${default_branch}"
           fi
 
           base_ref=${base#${remote}/}
