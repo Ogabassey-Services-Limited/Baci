@@ -860,23 +860,27 @@ jobs:
             exit 0
           fi
 
-          # Skip when the body is a placeholder (workflow infra hiccup,
-          # ignored deep-mode comment, or skip-mode). The previous version
-          # of this check grepped for the substring "workflow did not
-          # produce a review body" / "command:ignored" anywhere in the
-          # body, which is bypass-prone: a real HIGH finding whose prose
-          # quotes either phrase would silently flip the gate to skip.
-          # (See codex P1 on PR #1616 / commit 05a92a23f2.)
+          # NOTE: no explicit placeholder-body short-circuit here. Earlier
+          # iterations tried two approaches, both wrong:
           #
-          # Fix: use a positive marker instead — every real Jules review
-          # contains a `## Findings` heading (approvals and findings-bearing
-          # alike, across both fast + deep modes), and placeholder bodies
-          # never do. If the body lacks `## Findings`, it's by definition
-          # a placeholder and we treat it as advisory.
-          if ! grep -qE '^## Findings' "${body_file}"; then
-            echo "Jules body has no '## Findings' section — treating as placeholder / advisory pass."
-            exit 0
-          fi
+          #   v1 (commit 05a92a23f2):
+          #     `grep -qE 'command:ignored|workflow did not produce a review body'`
+          #     anywhere in the body. Bypass-prone — a real HIGH finding
+          #     quoting either phrase in its description flipped the gate
+          #     to skip. Caught by codex P1 on #1616.
+          #
+          #   v2 (commit 824a4c2be5):
+          #     `grep -qE '^## Findings'`. Brittle against Jules LLM
+          #     format drift — `## findings`, `### Findings`, leading
+          #     whitespace etc. would all cause a real review with HIGH
+          #     bullets to be passed through as "placeholder". Caught
+          #     by codex P1 on #1617.
+          #
+          # Correct approach: the severity regex below IS the truth.
+          # Placeholder bodies never contain `- high:` or `**High:**`
+          # markers, so they naturally pass the severity check without
+          # any explicit skip logic. We stop pattern-matching what Jules
+          # CALLS a section and start matching what it ACTUALLY emits.
 
           # Severity-marker patterns cover the four styles Jules emits across
           # fast + deep modes. The flat-bullet form is what this workflow's own
