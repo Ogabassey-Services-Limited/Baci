@@ -244,3 +244,6 @@ type _StorefrontSeoMerchantIsSubset =
   >
     ? true
     : never;
+
+const _assertStorefrontSeoMerchantIsSubset: _StorefrontSeoMerchantIsSubset = true;
+void _assertStorefrontSeoMerchantIsSubset;
