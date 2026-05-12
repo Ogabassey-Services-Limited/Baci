@@ -53,12 +53,10 @@ const VALID_SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 // remain free to publish their own `/<key>.txt` file on custom domains without
 // the proxy intercepting and bypassing their storefront rewrite.
 const INDEXNOW_KEY_PATH = '/0751d5c882ab3d7c013ecbfe9e624d71.txt';
-const PUBLIC_MACHINE_READABLE_PATHS = new Set<string>(
-  Object.values({
-    ...STOREFRONT_AGENT_ROUTES,
-    ...STOREFRONT_FEED_ROUTES,
-  })
-);
+const PUBLIC_MACHINE_READABLE_PATHS = new Set<string>([
+  ...Object.values(STOREFRONT_AGENT_ROUTES),
+  ...Object.values(STOREFRONT_FEED_ROUTES),
+]);
 const MERCHANT_CONTEXT_HEADERS = [
   'x-custom-domain',
   'x-merchant-domain',
