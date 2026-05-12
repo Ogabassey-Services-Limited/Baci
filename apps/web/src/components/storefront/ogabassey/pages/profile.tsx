@@ -135,6 +135,7 @@ export const OgabasseyV2Profile: React.FC = () => {
                 <button
                   type="button"
                   className="absolute bottom-0 right-0 bg-red-600 text-white p-1.5 rounded-full border-2 border-white hover:bg-red-700 transition-colors"
+                  aria-label="Edit profile settings"
                 >
                   <Settings size={14} />
                 </button>
