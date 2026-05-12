@@ -75,14 +75,23 @@ describe('agentic storefront order RPC contract', () => {
     );
   });
 
-  it('uses a named customer conflict constraint in the latest RPC to avoid output-column ambiguity', () => {
+  // B2 (Δ-9): the named `ON CONFLICT ON CONSTRAINT` approach was
+  // replaced with a retry-on-unique_violation loop that catches ALL
+  // four customer unique indexes (email, lower(email), user_id,
+  // phone). The output-column-ambiguity concern that motivated the
+  // named constraint is moot because B2 no longer uses an ON CONFLICT
+  // clause at all — INSERT raises, the EXCEPTION block re-SELECTs,
+  // and UPDATE writes to the winner's row.
+  it('replaces the named ON CONFLICT with a retry-on-unique_violation loop and avoids output-column ambiguity', () => {
     const sql = readLatestStorefrontOrderRpcMigrationSql();
 
     expect(sql).toMatch(storefrontOrderRpcDefinitionPattern);
-    expect(sql).toContain(
+    expect(sql).not.toContain(
       'ON CONFLICT ON CONSTRAINT customers_merchant_id_email_key'
     );
     expect(sql).not.toMatch(ambiguousCustomerConflictTargetPattern);
+    expect(sql).toContain('EXCEPTION WHEN unique_violation THEN');
+    expect(sql).toContain("RAISE EXCEPTION 'customer_upsert_failed'");
   });
 
   it('resolves authenticated customers by user before unbound guest phone fallback', () => {
@@ -92,6 +101,9 @@ describe('agentic storefront order RPC contract', () => {
     const phoneLookupIndex = sql.indexOf(
       'AND c.phone = v_normalized_customer_phone'
     );
+    // B2 wraps the INSERT in a retry loop, so the literal "INSERT
+    // INTO customers" first appears inside that loop. Still must
+    // come after the user_id + phone SELECTs.
     const customerInsertIndex = sql.indexOf('INSERT INTO customers');
 
     expect(userLookupIndex).toBeGreaterThan(-1);
@@ -99,16 +111,25 @@ describe('agentic storefront order RPC contract', () => {
     expect(customerInsertIndex).toBeGreaterThan(-1);
     expect(userLookupIndex).toBeLessThan(phoneLookupIndex);
     expect(phoneLookupIndex).toBeLessThan(customerInsertIndex);
+    // B2 refined the guard from `p_user_id IS NULL AND phone IS NOT
+    // NULL` to `v_customer_id IS NULL AND phone IS NOT NULL` — phone
+    // lookup runs whenever the user_id lookup didn't already find a
+    // row, even if p_user_id was supplied (defensive for the case
+    // where an authed customer's row was created by a prior guest
+    // checkout on the same phone).
     expect(sql).toContain(
-      'IF p_user_id IS NULL AND v_normalized_customer_phone IS NOT NULL THEN'
+      'IF v_customer_id IS NULL AND v_normalized_customer_phone IS NOT NULL THEN'
     );
     expect(sql).toContain('AND c.user_id IS NULL');
     expect(sql).toContain(
       "v_normalized_customer_phone TEXT := NULLIF(trim(COALESCE(p_customer_phone, '')), '')"
     );
     expect(sql).toContain('v_customer_record_phone,');
+    // B2 dropped the ON CONFLICT EXCLUDED path; the phone-conflict
+    // skip preflight (NULL out phone if another customer owns it)
+    // is what now keeps the retry loop from spinning on phone races.
     expect(sql).toContain(
-      'WHEN customers.phone = EXCLUDED.phone THEN customers.phone'
+      'AND existing_phone.phone = v_normalized_customer_phone'
     );
   });
 
@@ -134,5 +155,73 @@ describe('agentic storefront order RPC contract', () => {
     expect(sql).toContain('hashtext(p_merchant_id::text)');
     expect(sql).toContain('hashtext(v_normalized_customer_phone)');
     expect(sql).toContain('ORDER BY t.product_id, t.variant_id');
+  });
+});
+
+// B2 (Δ-9): defense-in-depth checks on the new retry-on-unique_violation
+// path. These guard against accidentally reverting the customer upsert
+// hardening that closed the Efosa-style `idx_customers_merchant_user`
+// race. Each assertion targets a specific layer:
+//   - advisory locks on (merchant, user_id) and (merchant, email)
+//     serialize same-identity concurrent inserts
+//   - the retry loop has a bounded counter so a runaway race can't
+//     spin forever
+//   - the EXCEPTION block re-SELECTs by user_id OR email and UPDATEs
+//     defensively, never re-throws on unique_violation until the
+//     counter exhausts
+describe('agentic storefront order RPC contract — B2 customer upsert hardening', () => {
+  it('acquires advisory locks on (merchant, user_id) and (merchant, email) before the customer upsert', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    // The user_id lock is conditional (only when p_user_id IS NOT NULL).
+    expect(sql).toMatch(
+      /IF p_user_id IS NOT NULL THEN\s+PERFORM pg_advisory_xact_lock\(\s+hashtextextended\(p_merchant_id::text \|\| ':' \|\| p_user_id::text, 0\)/
+    );
+    // The email lock is unconditional.
+    expect(sql).toContain(
+      "p_merchant_id::text || ':' || v_normalized_customer_email, 1"
+    );
+  });
+
+  it('runs the INSERT inside a bounded retry loop with a re-SELECT fallback', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    // Retry counter declared and incremented; cap at 3.
+    expect(sql).toContain('v_retry_attempt INT');
+    expect(sql).toContain('v_retry_attempt := v_retry_attempt + 1;');
+    expect(sql).toContain('IF v_retry_attempt > 3 THEN');
+
+    // EXCEPTION block sets v_customer_id := NULL then re-SELECTs.
+    expect(sql).toContain('EXCEPTION WHEN unique_violation THEN');
+    // Re-SELECT must check BOTH user_id and email so any of the four
+    // unique indexes that tripped can be recovered.
+    expect(sql).toMatch(
+      /\(p_user_id IS NOT NULL AND c\.user_id = p_user_id\)\s+OR lower\(c\.email\) = v_normalized_customer_email/
+    );
+  });
+
+  it('exits the loop after a defensive UPDATE on the winner row, not by re-throwing', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    // The retry path UPDATEs the visible-winner row with COALESCE'd
+    // identity fields (phone, user_id, first/last name, email) so a
+    // peer's partial row gets backfilled by our request's data.
+    expect(sql).toMatch(
+      /UPDATE customers c\s+SET\s+phone = COALESCE\(c\.phone, v_customer_record_phone\),\s+user_id = COALESCE\(c\.user_id, p_user_id\)/
+    );
+    // EXIT after a successful winner-row UPDATE so we don't spin.
+    expect(sql).toMatch(
+      /UPDATE customers c[\s\S]*?WHERE c\.id = v_customer_id;\s+EXIT;\s+END IF;/
+    );
+  });
+
+  it('preserves the phone-conflict-skip preflight so the retry loop never spins on phone races', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    // Before the retry loop, the insert-path NULLs out the phone if
+    // another customer in the same merchant already owns it.
+    expect(sql).toMatch(
+      /v_customer_record_phone := v_normalized_customer_phone;[\s\S]*?IF v_normalized_customer_phone IS NOT NULL[\s\S]*?v_customer_record_phone := NULL;/
+    );
   });
 });
