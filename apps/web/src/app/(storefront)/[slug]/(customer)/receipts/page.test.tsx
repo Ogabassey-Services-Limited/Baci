@@ -25,7 +25,7 @@ vi.mock('@/contexts/customer-auth-context', () => ({
   })),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: vi.fn(() => ({
     merchant: { slug: 'ogabassey' },
     loading: false,

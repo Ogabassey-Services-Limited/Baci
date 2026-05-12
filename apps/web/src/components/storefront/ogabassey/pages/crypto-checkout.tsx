@@ -11,7 +11,7 @@ import {
   Loader2,
   AlertTriangle,
 } from 'lucide-react';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 
 const CHAIN_LABELS: Record<string, string> = {
   TRX: 'Tron (TRC-20)',

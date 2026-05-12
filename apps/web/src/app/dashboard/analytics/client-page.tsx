@@ -13,7 +13,7 @@ import {
   DraggableAnalyticsGrid,
 } from '@/components/analytics/draggable-analytics-grid';
 import { BagLoader } from '@/components/ui/bag-loader';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import {
   exportAnalyticsAsCSV,

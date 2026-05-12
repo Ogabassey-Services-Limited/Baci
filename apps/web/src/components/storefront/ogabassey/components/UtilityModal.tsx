@@ -2,7 +2,7 @@
 
 import { Check, Smartphone, Tv, Wallet, Wifi, Zap } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { AirtimeDataForm } from './utility/AirtimeDataForm';

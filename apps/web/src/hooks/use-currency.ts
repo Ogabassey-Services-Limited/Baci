@@ -15,7 +15,7 @@ import {
   getCurrencyConfig,
   getCurrencySymbol as getCurrencySymbolUtil,
 } from '@/lib/currency';
-import { useMerchantSafe } from './use-merchant';
+import { useMerchantSafe } from './use-merchant-client';
 
 export interface UseCurrencyReturn {
   /** Format amount as currency (e.g., "₦1,000.00") */

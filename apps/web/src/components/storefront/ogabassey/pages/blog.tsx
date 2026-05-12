@@ -4,7 +4,7 @@ import { ArrowRight, Battery, Calendar, User, Search } from 'lucide-react';
 import Link from 'next/link';
 import type React from 'react';
 import { useState } from 'react';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { HeroImage, ProductCardImage } from '@/components/optimized-image';
 import { asRoute } from '@/lib/routes';
 import type { TemplateBlogPageProps, BlogPostData } from '@/templates/registry';

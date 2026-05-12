@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { CreditCard, History, Plus, Wallet, Loader2 } from 'lucide-react';
 import { EmptyState } from '../components/empty-state';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 
 export function OgabasseyV2Wallet() {
   const { isAuthenticated } = useCustomerAuth();

@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetTrigger } from '@/components/ui/sheet';
 import { useStorefront } from '@/contexts/storefront-context';
 import { useCart } from '@/hooks/use-cart';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { asRoute, routes } from '@/lib/routes';
 
 import { SearchAutocomplete } from './search-autocomplete';

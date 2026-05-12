@@ -7,7 +7,7 @@ import { CustomerOrderDetailsContent } from '@/app/(storefront)/[slug]/(customer
 import { OrderStateCard } from '@/app/(storefront)/[slug]/(customer)/account/orders/[orderId]/order-state-card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import type { StorefrontOrder } from '@/types/storefront-order';
 

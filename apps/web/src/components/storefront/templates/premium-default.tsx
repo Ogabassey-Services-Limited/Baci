@@ -5,7 +5,7 @@ import { Header } from '@/components/storefront/blocks/header';
 import { HeroCarousel } from '@/components/storefront/blocks/hero-carousel';
 import { NewsletterSection } from '@/components/storefront/blocks/newsletter-section';
 import { StorefrontProductGrid } from '@/components/storefront/product-grid';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import type { TemplatePageProps } from '@/templates/registry';
 

@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import type { MerchantTrustProfileDraft } from '../../../../../../../packages/shared/src/contracts/merchant-trust-profile';
 import { MerchantTrustProfileDraftSchema } from '../../../../../../../packages/shared/src/schemas/merchant-trust-profile';

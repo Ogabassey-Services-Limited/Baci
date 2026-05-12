@@ -18,7 +18,7 @@ vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(() => mockSupabase),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: vi.fn(() => ({
     merchant: { id: 'merchant-123' },
     loading: false,
@@ -27,7 +27,7 @@ vi.mock('@/hooks/use-merchant', () => ({
   })),
 }));
 
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 // Import after mocks are set up
 import { createClient } from '@/lib/supabase/client';
 import { useNotifications, useNotificationsSafe } from './use-notifications';

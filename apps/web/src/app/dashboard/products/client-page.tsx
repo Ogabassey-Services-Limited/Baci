@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { ProductProvider, useProductContext } from '@/contexts/product-context';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { getCountryByCode } from '@/lib/countries';
 import type { Product } from '@/lib/products';

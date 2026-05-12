@@ -36,7 +36,7 @@ import type React from 'react';
 import { useEffect, useState } from 'react';
 import { type CartItem, useCart } from '@/hooks/cart';
 import { useAuthSafe } from '@/contexts/auth-context';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { getStorefrontProductHref } from '@/lib/storefront-product-href';
 import { AdUnit } from '../components/AdUnit';
 import { EmptyState } from '../components/empty-state';

@@ -6,7 +6,7 @@ import { CategoryIcons } from '@/components/storefront/blocks/category-icons';
 import { Footer } from '@/components/storefront/blocks/footer';
 import { StorefrontHeader } from '@/components/storefront/header';
 import { StorefrontProductGrid } from '@/components/storefront/product-grid';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 
 export function GadgetUniverseTemplate() {
   const { merchant, basePath } = useMerchant();
