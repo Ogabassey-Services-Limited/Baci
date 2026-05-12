@@ -64,6 +64,7 @@ describe('GET /agent-commerce.json', () => {
       expect(body.links.product_feed).toBe(
         'https://ogabassey.com/feeds/openai.jsonl'
       );
+      expect(body.links.trust).toBe('https://ogabassey.com/agent-trust.json');
       expect(body.links.feeds).toMatchObject({
         agent_products: 'https://ogabassey.com/feeds/agent-products.jsonl',
         google_merchant_xml: 'https://ogabassey.com/feeds/google-merchant.xml',
