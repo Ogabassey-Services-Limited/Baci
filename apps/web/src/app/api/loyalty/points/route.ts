@@ -179,7 +179,8 @@ export async function POST(request: NextRequest) {
             .slice(0, 20)
             .toUpperCase(),
         })
-        .select()
+        // PERFORMANCE: Use explicit column selection instead of .select() to prevent overfetching full rows
+        .select('id, points_balance, lifetime_points')
         .single();
 
       if (createError) {
