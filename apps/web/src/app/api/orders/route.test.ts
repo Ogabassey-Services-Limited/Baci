@@ -298,6 +298,10 @@ describe('POST /api/orders — wallet response shape', () => {
 });
 
 describe('POST /api/orders — B3.5 client/server total parity', () => {
+  // Codex P1 (PR #1622): the parity check moved INTO the RPC so a
+  // mismatch rolls back the transaction atomically BEFORE the order
+  // is inserted or stock is decremented. The route's job is just to
+  // forward `p_expected_total` and map the RAISE to a 400.
   beforeEach(async () => {
     vi.clearAllMocks();
     vi.mocked(authenticateApiRequest).mockResolvedValue({
@@ -311,9 +315,32 @@ describe('POST /api/orders — B3.5 client/server total parity', () => {
     );
   });
 
-  it('accepts request when expected_total is within ₦1 of server-recomputed total', async () => {
-    // RPC mock returns total=1000; client passes expected_total=1000.
-    // Parity check must pass (no diff > ₦1).
+  it('forwards expected_total as p_expected_total to the RPC', async () => {
+    const rpcSpy = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'order-id',
+          order_number: 'ORD-123',
+          total: 1000,
+          subtotal: 1000,
+          shipping_fee: 0,
+          customer_id: CUSTOMER_ID,
+        },
+      ],
+      error: null,
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      sb.rpc = ((name: string, args: Record<string, unknown>) => {
+        if (name === 'create_storefront_order') {
+          return rpcSpy(args);
+        }
+        return Promise.resolve({ data: null, error: null });
+      }) as typeof sb.rpc;
+      return sb;
+    }) as unknown as never);
+
     const request = new NextRequest('http://localhost/api/orders', {
       method: 'POST',
       body: JSON.stringify({
@@ -322,43 +349,80 @@ describe('POST /api/orders — B3.5 client/server total parity', () => {
         client_total: 1000,
       }),
     });
-    const response = await POST(request);
-    expect(response.status).toBe(201);
+    await POST(request);
+
+    expect(rpcSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ p_expected_total: 1000 })
+    );
   });
 
-  it('returns 409 ORDER_TOTAL_MISMATCH when expected_total drifts from server total', async () => {
-    // Default RPC mock returns total=1000; client claims 1500. This is
-    // the integration regression we want fail-loud: the customer was
-    // shown one figure but the server persisted another.
+  it('passes null p_expected_total when the client omits it (legacy callers)', async () => {
+    const rpcSpy = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'order-id',
+          order_number: 'ORD-123',
+          total: 1000,
+          subtotal: 1000,
+          shipping_fee: 0,
+          customer_id: CUSTOMER_ID,
+        },
+      ],
+      error: null,
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      sb.rpc = ((name: string, args: Record<string, unknown>) => {
+        if (name === 'create_storefront_order') {
+          return rpcSpy(args);
+        }
+        return Promise.resolve({ data: null, error: null });
+      }) as typeof sb.rpc;
+      return sb;
+    }) as unknown as never);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify(baseOrderPayload),
+    });
+    await POST(request);
+
+    expect(rpcSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ p_expected_total: null })
+    );
+  });
+
+  it('maps RPC order_total_mismatch to 400 (no orphan order, no stock leak)', async () => {
+    // When the RPC RAISES `order_total_mismatch` it does so BEFORE
+    // the orders INSERT and stock UPDATEs, so the whole transaction
+    // rolls back. Mapping to 400 (instead of the pre-Codex 409
+    // returned post-side-effect) lets the storefront treat this as
+    // a clean validation failure: re-render the order summary,
+    // re-submit. No risk of duplicate orders.
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          create_storefront_order: {
+            data: null,
+            error: { code: 'P0001', message: 'order_total_mismatch' },
+          },
+        }) as unknown as never
+    );
+
     const request = new NextRequest('http://localhost/api/orders', {
       method: 'POST',
       body: JSON.stringify({
         ...baseOrderPayload,
         expected_total: 1500,
-        client_total: 1500,
       }),
     });
     const response = await POST(request);
     const body = await readJson(response);
 
-    expect(response.status).toBe(409);
-    expect(body.code).toBe('ORDER_TOTAL_MISMATCH');
-    expect(body.details).toEqual({
-      client_expected: 1500,
-      server_computed: 1000,
-    });
-  });
-
-  it('skips parity check when expected_total is absent (legacy callers)', async () => {
-    // Pre-B3.5 callers don't send expected_total. They keep working —
-    // the RPC's VAT enforcement is the load-bearing boundary, not
-    // this client-side double-entry check.
-    const request = new NextRequest('http://localhost/api/orders', {
-      method: 'POST',
-      body: JSON.stringify(baseOrderPayload),
-    });
-    const response = await POST(request);
-    expect(response.status).toBe(201);
+    expect(response.status).toBe(400);
+    expect(body.details).toContain('order_total_mismatch');
   });
 });
 

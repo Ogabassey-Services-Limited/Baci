@@ -324,10 +324,14 @@ export async function POST(request: NextRequest) {
         p_tracking_number: resolvedTrackingNumber || null,
         p_user_id: resolvedUserId,
         // B3.5 (Δ-42, Δ-47): tax_basis + gift_wrapping_fee. The RPC
-        // enforces VAT itself for VAT-registered merchants; the API
-        // does an additional parity check on `expected_total` below.
+        // enforces VAT itself for VAT-registered merchants and also
+        // runs a client/server total parity check (Codex P1) against
+        // p_expected_total BEFORE any side effects, so a mismatch
+        // rolls back atomically — no orphan order, no stock leak.
         p_tax_basis: body.tax_basis,
         p_gift_wrapping_fee: giftWrappingFeeValue,
+        p_expected_total:
+          typeof body.expected_total === 'number' ? body.expected_total : null,
       }
     );
 
@@ -367,6 +371,12 @@ export async function POST(request: NextRequest) {
         'tax_amount_mismatch',
         'tax_amount_must_be_zero_for_non_vat_merchant',
         'gift_wrapping_fee_negative',
+        // B3.5 (Codex P1 — PR #1622): RPC RAISES this when the
+        // client-supplied `p_expected_total` differs from the
+        // server-computed total by > ₦1. The RAISE happens BEFORE
+        // any side effects so the transaction rolls back cleanly
+        // — safe for client to fix and retry.
+        'order_total_mismatch',
         '22P02', // PostgreSQL: Invalid text representation (e.g. invalid UUID format)
       ];
       // create_storefront_order should return { message, code } for client errors.
@@ -384,41 +394,6 @@ export async function POST(request: NextRequest) {
     const orderShippingFee = Number(order.shipping_fee ?? shippingFeeValue);
     const customer_id = order.customer_id || null;
     const orderNum = order.order_number || order.id.slice(0, 8).toUpperCase();
-
-    // B3.5 (Δ-39): client-vs-server total parity guard. The RPC is the
-    // source of truth, but if the client locally computed an
-    // `expected_total` that disagrees with what the server persisted
-    // by more than ₦1, surface a structured 4xx so the storefront can
-    // re-render the order summary instead of silently charging a
-    // different amount than was displayed. This catches integration
-    // bugs in the calculate-commerce action layer, stale carts under
-    // discount/voucher changes, and any future RPC math drift. We
-    // run this AFTER the row is persisted because the order is
-    // already correct server-side — the parity check is purely a
-    // signal back to the UI; the caller MUST re-confirm.
-    const expectedTotal =
-      typeof body.expected_total === 'number' ? body.expected_total : null;
-    if (expectedTotal !== null && Math.abs(orderTotal - expectedTotal) > 1) {
-      logger.warn({
-        message: 'Order total mismatch between client and server',
-        clientExpectedTotal: expectedTotal,
-        clientReportedTotal: body.client_total,
-        merchantId: merchant_id,
-        orderId: order.id,
-        serverComputedTotal: orderTotal,
-      });
-      return NextResponse.json(
-        {
-          code: 'ORDER_TOTAL_MISMATCH',
-          details: {
-            client_expected: expectedTotal,
-            server_computed: orderTotal,
-          },
-          error: 'Order total mismatch',
-        },
-        { status: 409 }
-      );
-    }
 
     // === WALLET REDEMPTION (2025 Best Practice: Auto-apply at checkout) ===
     // Process wallet credit redemption atomically after order creation

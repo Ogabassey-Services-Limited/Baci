@@ -62,9 +62,20 @@
 -- service_role (Δ-71 pattern from Phase A's `record_merchant_settlement`
 -- DROP+CREATE+GRANT — `CREATE OR REPLACE` preserves grants only when
 -- the signature is identical).
+-- DROP both the prior 19-arg (B3) AND the intermediate 21-arg
+-- (initial B3.5 push) signatures. The first push of this PR
+-- introduced a 21-arg overload; reviewer feedback (Codex P1)
+-- required moving the parity check into the RPC, which adds another
+-- param (`p_expected_total`). Without dropping the 21-arg version
+-- here, callers that route via positional args could hit the stale
+-- overload that lacks the parity check.
 DROP FUNCTION IF EXISTS public.create_storefront_order(
   UUID, TEXT, TEXT, JSONB, TEXT, NUMERIC, NUMERIC, NUMERIC, TEXT, TEXT,
   TEXT, JSONB, TEXT, TEXT, JSONB, UUID, TEXT, TEXT, UUID
+);
+DROP FUNCTION IF EXISTS public.create_storefront_order(
+  UUID, TEXT, TEXT, JSONB, TEXT, NUMERIC, NUMERIC, NUMERIC, TEXT, TEXT,
+  TEXT, JSONB, TEXT, TEXT, JSONB, UUID, TEXT, TEXT, UUID, TEXT, NUMERIC
 );
 
 CREATE OR REPLACE FUNCTION public.create_storefront_order(
@@ -88,7 +99,8 @@ CREATE OR REPLACE FUNCTION public.create_storefront_order(
   p_tracking_number TEXT DEFAULT NULL,
   p_user_id UUID DEFAULT NULL,
   p_tax_basis TEXT DEFAULT 'exclusive',
-  p_gift_wrapping_fee NUMERIC DEFAULT 0
+  p_gift_wrapping_fee NUMERIC DEFAULT 0,
+  p_expected_total NUMERIC DEFAULT NULL
 )
 RETURNS TABLE (
   id UUID,
@@ -388,6 +400,27 @@ BEGIN
 
   IF v_total < 0 THEN
     v_total := 0;
+  END IF;
+
+  -- B3.5 (Δ-39 + Codex P1): client/server total parity guard. Run
+  -- BEFORE any side effects — customer upsert, order insert, and
+  -- stock decrement all happen below this point, so RAISING after
+  -- those would leave orphan rows and reserved inventory with no
+  -- rollback path (the original API-level 409 had exactly this bug
+  -- — Codex P1 on PR #1622). Inside the RPC the RAISE rolls back
+  -- the whole transaction atomically: no order, no stock, safe to
+  -- retry. NULL `p_expected_total` short-circuits the check so
+  -- legacy callers (mobile-admin order creation, agentic) keep
+  -- working unchanged.
+  IF p_expected_total IS NOT NULL
+    AND ABS(v_total - p_expected_total) > 1
+  THEN
+    RAISE EXCEPTION 'order_total_mismatch'
+      USING DETAIL = format(
+        'expected=%s computed=%s subtotal=%s shipping=%s gift=%s tax=%s discount=%s basis=%s',
+        p_expected_total, v_total, v_subtotal, v_shipping_fee,
+        v_gift_wrapping_fee, v_tax_amount, v_discount_amount, v_tax_basis
+      );
   END IF;
 
   -- ====================================================================
@@ -700,6 +733,23 @@ BEGIN
     t.assurance_fee
   FROM tmp_storefront_order_items t;
 
+  -- B3.5 (Codex P1): re-read the canonical `total` and `tax_amount`
+  -- after the order_items INSERT fires `update_order_tax_totals`.
+  -- For `tax_basis = 'exclusive'` the trigger recomputes `total`
+  -- from line-item VAT, which can differ from the RPC's
+  -- pre-trigger `v_total` even within the ±1 NGN VAT tolerance
+  -- (per-line `ROUND` accumulates differently than aggregate
+  -- `ROUND`, and items with category 'O'/'Z' contribute 0 to
+  -- `SUM(vat_amount)` regardless of merchant rate). Returning
+  -- `v_total` here would mean the API computes the gateway charge
+  -- from a value that's already drifted from the persisted
+  -- `orders.total` — payment ≠ row. Re-SELECT keeps the returned
+  -- shape consistent with the row.
+  SELECT total, tax_amount
+    INTO v_total, v_tax_amount
+  FROM orders
+  WHERE id = v_order_id;
+
   RETURN QUERY
   SELECT
     v_order_id,
@@ -730,19 +780,19 @@ $$;
 -- and would 403 without it.
 REVOKE ALL ON FUNCTION public.create_storefront_order(
   UUID, TEXT, TEXT, JSONB, TEXT, NUMERIC, NUMERIC, NUMERIC, TEXT, TEXT,
-  TEXT, JSONB, TEXT, TEXT, JSONB, UUID, TEXT, TEXT, UUID, TEXT, NUMERIC
+  TEXT, JSONB, TEXT, TEXT, JSONB, UUID, TEXT, TEXT, UUID, TEXT, NUMERIC, NUMERIC
 ) FROM PUBLIC;
 GRANT ALL ON FUNCTION public.create_storefront_order(
   UUID, TEXT, TEXT, JSONB, TEXT, NUMERIC, NUMERIC, NUMERIC, TEXT, TEXT,
-  TEXT, JSONB, TEXT, TEXT, JSONB, UUID, TEXT, TEXT, UUID, TEXT, NUMERIC
+  TEXT, JSONB, TEXT, TEXT, JSONB, UUID, TEXT, TEXT, UUID, TEXT, NUMERIC, NUMERIC
 ) TO anon;
 GRANT ALL ON FUNCTION public.create_storefront_order(
   UUID, TEXT, TEXT, JSONB, TEXT, NUMERIC, NUMERIC, NUMERIC, TEXT, TEXT,
-  TEXT, JSONB, TEXT, TEXT, JSONB, UUID, TEXT, TEXT, UUID, TEXT, NUMERIC
+  TEXT, JSONB, TEXT, TEXT, JSONB, UUID, TEXT, TEXT, UUID, TEXT, NUMERIC, NUMERIC
 ) TO authenticated;
 GRANT ALL ON FUNCTION public.create_storefront_order(
   UUID, TEXT, TEXT, JSONB, TEXT, NUMERIC, NUMERIC, NUMERIC, TEXT, TEXT,
-  TEXT, JSONB, TEXT, TEXT, JSONB, UUID, TEXT, TEXT, UUID, TEXT, NUMERIC
+  TEXT, JSONB, TEXT, TEXT, JSONB, UUID, TEXT, TEXT, UUID, TEXT, NUMERIC, NUMERIC
 ) TO service_role;
 
 COMMENT ON FUNCTION public.create_storefront_order(
@@ -766,9 +816,10 @@ COMMENT ON FUNCTION public.create_storefront_order(
   TEXT,
   UUID,
   TEXT,
+  NUMERIC,
   NUMERIC
 ) IS
-  'Creates storefront orders. B3.5 (Δ-42, Δ-47, Δ-50): RPC is the VAT enforcement boundary because storefront calls it via PostgREST anon. New params `p_tax_basis` (''exclusive''|''inclusive'', default ''exclusive'') and `p_gift_wrapping_fee` (default 0). For VAT-registered merchants on exclusive basis, the RPC RAISES `tax_amount_mismatch` if `|p_tax_amount - round(subtotal * vat_rate / 100, 2)| > 1`. For non-registered merchants, RAISES `tax_amount_must_be_zero_for_non_vat_merchant` if `p_tax_amount > 1`. Total is server-derived per the matched basis (Δ-47: no `p_subtotal` / `p_total` params).';
+  'Creates storefront orders. B3.5 (Δ-42, Δ-47, Δ-50): RPC is the VAT enforcement boundary because storefront calls it via PostgREST anon. New params `p_tax_basis` (''exclusive''|''inclusive'', default ''exclusive''), `p_gift_wrapping_fee` (default 0), and `p_expected_total` (Codex P1 — checked BEFORE side effects so a mismatch rolls back the whole transaction; NULL skips the check). For VAT-registered merchants on exclusive basis, the RPC RAISES `tax_amount_mismatch` if `|p_tax_amount - round(subtotal * vat_rate / 100, 2)| > 1`. For non-registered merchants, RAISES `tax_amount_must_be_zero_for_non_vat_merchant` if `p_tax_amount > 1`. Total is server-derived per the matched basis (Δ-47: no `p_subtotal` / `p_total` params). The returned `tax_amount` and `total` are re-read post-trigger so the API never returns a value that drifts from the persisted row.';
 
 
 -- B3.5 trigger update (Δ-50): keep `orders.total` consistent with

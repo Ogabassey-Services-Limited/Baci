@@ -411,17 +411,77 @@ describe('agentic storefront order RPC contract — B3.5 VAT enforcement', () =>
     }
   });
 
-  it('drops the old 19-arg signature and re-grants on the 21-arg one', () => {
+  // Codex P1 (PR #1622): the parity check MUST live inside the RPC,
+  // BEFORE any side effects, so a mismatch rolls back the transaction
+  // atomically. The pre-Codex API-level 409 fired AFTER the orders
+  // INSERT and stock UPDATEs, leaving orphan unpaid orders and
+  // reserved inventory on retry.
+  it('runs the order_total_mismatch parity check BEFORE customer upsert and order insert (Codex P1)', () => {
     const sql = readLatestStorefrontOrderRpcMigrationSql();
 
-    // Adding 2 new params changes the function identity in
-    // PostgreSQL — `CREATE OR REPLACE` would leave a stale 19-arg
-    // overload alive that PostgREST callers could route to,
-    // bypassing the new VAT enforcement. The migration MUST DROP
-    // the old signature explicitly.
-    expect(sql).toMatch(
-      /DROP\s+FUNCTION\s+IF\s+EXISTS\s+public\.create_storefront_order/i
+    expect(sql).toMatch(/p_expected_total\s+NUMERIC\s+DEFAULT\s+NULL/i);
+    expect(sql).toMatch(/RAISE EXCEPTION 'order_total_mismatch'/);
+
+    // The parity guard must come BEFORE the customer upsert advisory
+    // locks AND the INSERT INTO orders. If those run first, RAISE
+    // here would still rollback within the transaction, but only
+    // because PostgreSQL's implicit transaction wraps the function
+    // body — adding any client-side `BEGIN`/`COMMIT` framing around
+    // the RPC would expose the gap. Placing the check above all
+    // side effects keeps the guard local and obviously correct.
+    const parityIndex = sql.indexOf("RAISE EXCEPTION 'order_total_mismatch'");
+    const customerLockIndex = sql.indexOf('pg_advisory_xact_lock');
+    const orderInsertIndex = sql.indexOf('INSERT INTO orders');
+    const stockUpdateIndex = sql.indexOf('UPDATE product_variants');
+
+    expect(parityIndex).toBeGreaterThan(-1);
+    expect(parityIndex).toBeLessThan(customerLockIndex);
+    expect(parityIndex).toBeLessThan(orderInsertIndex);
+    expect(parityIndex).toBeLessThan(stockUpdateIndex);
+  });
+
+  // Codex P1 (PR #1622): the trigger now mutates `orders.total` for
+  // exclusive orders. If the RPC returns the pre-trigger `v_total`,
+  // the API uses a value that's already drifted from the persisted
+  // row — payment ≠ row. Re-SELECT after the order_items insert
+  // (which fires the trigger) keeps the returned tax_amount + total
+  // consistent with the row.
+  it('re-reads canonical total and tax_amount from the row before RETURN QUERY (Codex P1)', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    // The re-SELECT must land AFTER the order_items INSERT (which
+    // fires `update_order_tax_totals`) and BEFORE the RETURN QUERY.
+    const itemsInsertIndex = sql.search(/INSERT\s+INTO\s+order_items/i);
+    const reSelectMatch = sql.match(
+      /SELECT\s+total,\s*tax_amount[\s\S]*?INTO\s+v_total,\s*v_tax_amount[\s\S]*?FROM\s+orders[\s\S]*?WHERE\s+id\s*=\s*v_order_id/i
     );
+    const returnQueryIndex = sql.search(/RETURN\s+QUERY/i);
+
+    expect(itemsInsertIndex).toBeGreaterThan(-1);
+    expect(reSelectMatch).not.toBeNull();
+    expect(returnQueryIndex).toBeGreaterThan(-1);
+
+    if (reSelectMatch?.index !== undefined) {
+      expect(reSelectMatch.index).toBeGreaterThan(itemsInsertIndex);
+      expect(reSelectMatch.index).toBeLessThan(returnQueryIndex);
+    }
+  });
+
+  it('drops both prior signatures (19-arg B3 and 21-arg initial B3.5)', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    // Adding params changes the function identity in PostgreSQL —
+    // `CREATE OR REPLACE` would leave the stale overloads alive,
+    // and PostgREST positional callers could route to one that
+    // skips the new enforcement. The migration MUST DROP every
+    // prior signature explicitly: the 19-arg B3 form AND the
+    // intermediate 21-arg form from the initial B3.5 push (Codex
+    // P1 required a 22nd param `p_expected_total`).
+    const dropMatches = sql.match(
+      /DROP\s+FUNCTION\s+IF\s+EXISTS\s+public\.create_storefront_order/gi
+    );
+    expect(dropMatches).not.toBeNull();
+    expect(dropMatches?.length).toBeGreaterThanOrEqual(2);
 
     // The new signature must be re-granted to anon / authenticated
     // / service_role since DROP wipes function grants.
