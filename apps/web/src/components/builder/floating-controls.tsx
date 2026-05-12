@@ -86,24 +86,52 @@ export function FloatingControls() {
   if (!fields) return null;
 
   const safeFieldChange = (fieldName: string, value: unknown) => {
-    const newContent = [...appState.data.content];
-    const itemIndex = newContent.findIndex(
-      (item) => item.props.id === selectedItem.props.id
+    const selectedId = selectedItem.props.id;
+    const updateItem = (item: ComponentData): ComponentData => ({
+      ...item,
+      props: { ...item.props, [fieldName]: value },
+    });
+
+    // 1. Look in root content first.
+    const rootIndex = appState.data.content.findIndex(
+      (item) => item.props.id === selectedId
     );
-
-    if (itemIndex !== -1) {
-      newContent[itemIndex] = {
-        ...newContent[itemIndex],
-        props: {
-          ...newContent[itemIndex].props,
-          [fieldName]: value,
-        },
-      };
-
+    if (rootIndex !== -1) {
+      const newContent = [...appState.data.content];
+      newContent[rootIndex] = updateItem(newContent[rootIndex]);
+      // Spread the existing data so we don't accidentally drop `root` or
+      // `zones` — Puck's `setData` action replaces the data tree wholesale.
       dispatch({
         type: 'setData',
         data: { ...appState.data, content: newContent },
       });
+      return;
+    }
+
+    // 2. Fall back to dropzone-nested items. Puck stores nested zones in
+    // `data.zones`, a Record keyed by `${parentId}:${zoneName}` -> Content[].
+    // See https://puckeditor.com/docs/api-reference/data-model/data and
+    // https://puckeditor.com/docs/api-reference/data-model/item-selector
+    // (`zone` is omitted/`root:default-zone` for root items).
+    const zones = appState.data.zones;
+    if (!zones) return;
+
+    for (const [zoneKey, zoneContent] of Object.entries(zones)) {
+      const zoneIndex = zoneContent.findIndex(
+        (item) => item.props.id === selectedId
+      );
+      if (zoneIndex === -1) continue;
+
+      const newZoneContent = [...zoneContent];
+      newZoneContent[zoneIndex] = updateItem(newZoneContent[zoneIndex]);
+      dispatch({
+        type: 'setData',
+        data: {
+          ...appState.data,
+          zones: { ...zones, [zoneKey]: newZoneContent },
+        },
+      });
+      return;
     }
   };
 
