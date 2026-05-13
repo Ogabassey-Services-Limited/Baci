@@ -34,9 +34,18 @@ let productsResult: ProductsResult;
 let manifestResult: ManifestResult;
 let variantRpcResult: VariantRpcResult;
 let offersResult: OffersResult;
+let nullCreatedAtProductsResult: ProductsResult;
 const mockManifestStatusEq = vi.fn();
+const mockOffersIn = vi.fn();
 const mockRpc = vi.fn();
 const mockOffersStatusEq = vi.fn();
+const mockProductsGt = vi.fn();
+const mockProductsIs = vi.fn();
+const mockProductsOr = vi.fn();
+const mockProductsNot = vi.fn();
+const mockProductsOrder = vi.fn();
+const mockProductsLimit = vi.fn();
+let productQueryMode: 'non_null' | 'null' = 'non_null';
 
 function createMockSupabase() {
   return {
@@ -58,17 +67,43 @@ function createMockSupabase() {
 
       if (table === 'products') {
         return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                order: () => ({
-                  limit: () => ({
-                    overrideTypes: () => Promise.resolve(productsResult),
-                  }),
-                }),
-              }),
-            }),
-          }),
+          select: () => {
+            const query = {
+              eq: () => query,
+              not: (column: string, operator: string, value: unknown) => {
+                productQueryMode = 'non_null';
+                mockProductsNot(column, operator, value);
+                return query;
+              },
+              is: (column: string, value: unknown) => {
+                if (column === 'created_at' && value === null) {
+                  productQueryMode = 'null';
+                }
+                mockProductsIs(column, value);
+                return query;
+              },
+              gt: (column: string, value: string) => {
+                mockProductsGt(column, value);
+                return query;
+              },
+              or: (filter: string) => {
+                mockProductsOr(filter);
+                return query;
+              },
+              order: (
+                column: string,
+                options?: {
+                  ascending: boolean;
+                }
+              ) => {
+                mockProductsOrder(column, options);
+                return query;
+              },
+              limit: (value: number) => mockProductsLimit(value),
+            };
+
+            return query;
+          },
         };
       }
 
@@ -85,9 +120,12 @@ function createMockSupabase() {
       if (table === 'product_offers') {
         return {
           select: () => ({
-            in: () => ({
-              eq: mockOffersStatusEq,
-            }),
+            in: (column: string, ids: string[]) => {
+              mockOffersIn(column, ids);
+              return {
+                eq: (status: string) => mockOffersStatusEq(status, ids),
+              };
+            },
           }),
         };
       }
@@ -99,15 +137,31 @@ function createMockSupabase() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  productQueryMode = 'non_null';
+  mockProductsLimit.mockImplementation(() => ({
+    overrideTypes: () =>
+      Promise.resolve(
+        productQueryMode === 'null'
+          ? nullCreatedAtProductsResult
+          : productsResult
+      ),
+  }));
 
   domainResult = {
     data: { domain: 'ogabassey.com' },
     error: null,
   };
   productsResult = {
-    data: [{ id: 'product-1', name: 'Phone' }],
+    data: [
+      {
+        id: 'product-1',
+        name: 'Phone',
+        created_at: '2026-01-01T00:00:00.000Z',
+      },
+    ],
     error: null,
   };
+  nullCreatedAtProductsResult = { data: [], error: null };
   manifestResult = {
     data: [
       {
@@ -138,7 +192,7 @@ beforeEach(() => {
     error: null,
   };
   mockManifestStatusEq.mockResolvedValue(manifestResult);
-  mockOffersStatusEq.mockResolvedValue(offersResult);
+  mockOffersStatusEq.mockImplementation(() => Promise.resolve(offersResult));
   mockRpc.mockResolvedValue(variantRpcResult);
   mockCreateAnonClient.mockReturnValue(createMockSupabase());
 });
@@ -196,6 +250,157 @@ describe('getCachedGoogleMerchantFeedData', () => {
       },
       variants: [],
     });
+  });
+
+  it('preserves canonical_url for Google and agent feed URL parity', async () => {
+    productsResult = {
+      data: [
+        {
+          id: 'product-1',
+          name: 'Phone',
+          canonical_url: '/gift-cards/phone',
+          category: 'Phones',
+          slug: 'phone',
+        },
+      ],
+      error: null,
+    };
+
+    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const result = await getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(result.products[0]).toMatchObject({
+      canonical_url: '/gift-cards/phone',
+    });
+  });
+
+  it('paginates active products with a stable cursor beyond the first Supabase page', async () => {
+    const fullPage = Array.from({ length: 1000 }, (_, index) => ({
+      id: `product-${index}`,
+      name: `Phone ${index}`,
+      created_at: '2026-01-01T00:00:00.000Z',
+    }));
+    productsResult = {
+      data: fullPage,
+      error: null,
+    };
+    mockProductsLimit
+      .mockImplementationOnce(() => ({
+        overrideTypes: () =>
+          Promise.resolve({
+            data: fullPage,
+            error: null,
+          } satisfies ProductsResult),
+      }))
+      .mockImplementationOnce(() => ({
+        overrideTypes: () =>
+          Promise.resolve({
+            data: [{ id: 'product-1000', name: 'Phone 1000' }],
+            error: null,
+          } satisfies ProductsResult),
+      }));
+
+    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const result = await getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(mockProductsLimit).toHaveBeenCalledTimes(3);
+    expect(mockProductsLimit).toHaveBeenNthCalledWith(1, 1000);
+    expect(mockProductsLimit).toHaveBeenNthCalledWith(2, 1000);
+    expect(mockProductsOr).toHaveBeenCalledWith(
+      'created_at.lt.2026-01-01T00:00:00.000Z,and(created_at.eq.2026-01-01T00:00:00.000Z,id.gt.product-999)'
+    );
+    expect(mockProductsIs).toHaveBeenCalledWith('created_at', null);
+    expect(mockProductsOrder).toHaveBeenCalledWith('created_at', {
+      ascending: false,
+    });
+    expect(mockProductsOrder).toHaveBeenCalledWith('id', { ascending: true });
+    expect(result.products).toHaveLength(1001);
+  });
+
+  it('continues pagination across null created_at pages', async () => {
+    productsResult = { data: [], error: null };
+    const nullFullPage = Array.from({ length: 1000 }, (_, index) => ({
+      id: `product-${index}`,
+      name: `Phone ${index}`,
+      created_at: null,
+    }));
+    mockProductsLimit
+      .mockImplementationOnce(() => ({
+        overrideTypes: () => Promise.resolve({ data: [], error: null }),
+      }))
+      .mockImplementationOnce(() => ({
+        overrideTypes: () =>
+          Promise.resolve({
+            data: nullFullPage,
+            error: null,
+          } satisfies ProductsResult),
+      }))
+      .mockImplementationOnce(() => ({
+        overrideTypes: () =>
+          Promise.resolve({
+            data: [
+              { id: 'product-1000', name: 'Phone 1000', created_at: null },
+            ],
+            error: null,
+          } satisfies ProductsResult),
+      }));
+
+    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const result = await getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(mockProductsLimit).toHaveBeenCalledTimes(3);
+    expect(mockProductsIs).toHaveBeenCalledWith('created_at', null);
+    expect(mockProductsGt).toHaveBeenCalledWith('id', 'product-999');
+    expect(result.products).toHaveLength(1001);
+  });
+
+  it('caps product pagination at the variant RPC product-id limit', async () => {
+    const fullPage = Array.from({ length: 1000 }, (_, index) => ({
+      id: `product-${index}`,
+      name: `Phone ${index}`,
+      created_at: '2026-01-01T00:00:00.000Z',
+    }));
+    productsResult = {
+      data: fullPage,
+      error: null,
+    };
+    mockProductsLimit.mockImplementation(() => ({
+      overrideTypes: () =>
+        Promise.resolve({
+          data: fullPage.map((product, index) => ({
+            ...product,
+            id: `product-${
+              (mockProductsLimit.mock.calls.length - 1) * 1000 + index
+            }`,
+          })),
+          error: null,
+        } satisfies ProductsResult),
+    }));
+
+    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const result = await getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(mockProductsLimit).toHaveBeenCalledTimes(10);
+    expect(mockProductsLimit).toHaveBeenLastCalledWith(1000);
+    expect(mockRpc).toHaveBeenCalledWith('get_feed_product_variants', {
+      p_merchant_id: 'merchant-1',
+      p_product_ids: expect.any(Array),
+    });
+    const [, rpcArgs] = mockRpc.mock.calls[0] ?? [];
+    expect(rpcArgs?.p_product_ids).toHaveLength(10_000);
+    expect(result.products).toHaveLength(10_000);
   });
 
   it('hydrates feed variants from the feed RPC', async () => {
@@ -381,6 +586,60 @@ describe('getCachedGoogleMerchantFeedData', () => {
     expect(result.products[0]?.offers).toEqual([
       {
         id: 'offer-1',
+        condition: 'used',
+        price: 420000,
+        stock_quantity: 3,
+      },
+    ]);
+  });
+
+  it('batches product_offers queries to avoid oversized in filters', async () => {
+    productsResult = {
+      data: Array.from({ length: 251 }, (_, index) => ({
+        id: `product-${index}`,
+        name: `Phone ${index}`,
+        variant_model: 'legacy',
+        has_condition_offers: true,
+      })),
+      error: null,
+    };
+    mockOffersStatusEq.mockImplementation((_status: string, ids: string[]) =>
+      Promise.resolve({
+        data: ids.slice(0, 1).map((id) => ({
+          id: `offer-${id}`,
+          product_id: id,
+          condition: 'used',
+          price: 420000,
+          stock_quantity: 3,
+        })),
+        error: null,
+      } satisfies OffersResult)
+    );
+
+    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const result = await getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(mockOffersIn).toHaveBeenCalledTimes(2);
+    expect(mockOffersIn.mock.calls[0]?.[1]).toHaveLength(250);
+    expect(mockOffersIn.mock.calls[1]?.[1]).toHaveLength(1);
+    expect(
+      result.products.find((product) => product.id === 'product-0')?.offers
+    ).toEqual([
+      {
+        id: 'offer-product-0',
+        condition: 'used',
+        price: 420000,
+        stock_quantity: 3,
+      },
+    ]);
+    expect(
+      result.products.find((product) => product.id === 'product-250')?.offers
+    ).toEqual([
+      {
+        id: 'offer-product-250',
         condition: 'used',
         price: 420000,
         stock_quantity: 3,

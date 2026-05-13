@@ -22,6 +22,7 @@ interface ProductFixture {
   manage_stock: boolean;
   canonical_url?: string | null;
   categories?: { name?: string | null; slug?: string | null } | null;
+  created_at?: string | null;
   variants: Array<{
     id: string;
     attributes: Record<string, string>;
@@ -32,22 +33,60 @@ interface ProductFixture {
 }
 
 let productsResult: { data: ProductFixture[] | null; error: unknown };
+let nullCreatedAtProductsResult: {
+  data: ProductFixture[] | null;
+  error: unknown;
+};
 const mockProductSelect = vi.fn();
+const mockProductsGt = vi.fn();
+const mockProductsIs = vi.fn();
+const mockProductsOr = vi.fn();
+const mockProductsNot = vi.fn();
+const mockProductsOrder = vi.fn();
+const mockProductsLimit = vi.fn();
+let productQueryMode: 'non_null' | 'null' = 'non_null';
 
 function createMockSupabase() {
   return {
     from: (table: string) => {
       if (table === 'products') {
         return {
-          select: mockProductSelect.mockImplementation(() => ({
-            eq: () => ({
-              eq: () => ({
-                order: () => ({
-                  limit: () => Promise.resolve(productsResult),
-                }),
-              }),
-            }),
-          })),
+          select: mockProductSelect.mockImplementation(() => {
+            const query = {
+              eq: () => query,
+              not: (column: string, operator: string, value: unknown) => {
+                productQueryMode = 'non_null';
+                mockProductsNot(column, operator, value);
+                return query;
+              },
+              is: (column: string, value: unknown) => {
+                if (column === 'created_at' && value === null) {
+                  productQueryMode = 'null';
+                }
+                mockProductsIs(column, value);
+                return query;
+              },
+              gt: (column: string, value: string) => {
+                mockProductsGt(column, value);
+                return query;
+              },
+              or: (filter: string) => {
+                mockProductsOr(filter);
+                return query;
+              },
+              order: (
+                column: string,
+                options?: {
+                  ascending: boolean;
+                }
+              ) => {
+                mockProductsOrder(column, options);
+                return query;
+              },
+              limit: (value: number) => mockProductsLimit(value),
+            };
+            return query;
+          }),
         };
       }
       throw new Error(`Unexpected table: ${table}`);
@@ -58,12 +97,25 @@ function createMockSupabase() {
 beforeEach(() => {
   vi.clearAllMocks();
   mockProductSelect.mockReset();
+  mockProductsOr.mockReset();
+  mockProductsNot.mockReset();
+  mockProductsIs.mockReset();
+  mockProductsGt.mockReset();
+  mockProductsOrder.mockReset();
+  mockProductsLimit.mockReset();
+  productQueryMode = 'non_null';
+  mockProductsLimit.mockImplementation(() =>
+    Promise.resolve(
+      productQueryMode === 'null' ? nullCreatedAtProductsResult : productsResult
+    )
+  );
 
   productsResult = {
     data: [
       {
         id: 'prod-1',
         name: 'Test Phone',
+        created_at: '2026-01-01T00:00:00.000Z',
         description: 'A phone',
         slug: 'test-phone',
         price: 50000,
@@ -83,6 +135,7 @@ beforeEach(() => {
     ],
     error: null,
   };
+  nullCreatedAtProductsResult = { data: [], error: null };
   mockCreateAnonClient.mockReturnValue(createMockSupabase());
 });
 
@@ -139,6 +192,100 @@ describe('getCachedOpenAIFeedData', () => {
     expect(result.products).toEqual([]);
   });
 
+  it('paginates products with a stable cursor beyond the first Supabase page', async () => {
+    const fullPage = Array.from({ length: 1000 }, (_, index) => ({
+      id: `prod-${index}`,
+      name: `Phone ${index}`,
+      created_at: '2026-01-01T00:00:00.000Z',
+      description: 'A phone',
+      slug: `phone-${index}`,
+      price: 50000,
+      stock: 5,
+      stock_quantity: 5,
+      manage_stock: true,
+      variants: [],
+    }));
+    mockProductsLimit
+      .mockResolvedValueOnce({ data: fullPage, error: null })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'prod-1000',
+            name: 'Phone 1000',
+            created_at: '2026-01-01T00:00:00.000Z',
+            description: 'A phone',
+            slug: 'phone-1000',
+            price: 50000,
+            stock: 5,
+            stock_quantity: 5,
+            manage_stock: true,
+            variants: [],
+          },
+        ],
+        error: null,
+      });
+
+    const { getCachedOpenAIFeedData } = await import('./feed-data');
+    const result = await getCachedOpenAIFeedData('merchant-1');
+
+    expect(mockProductsLimit).toHaveBeenCalledTimes(3);
+    expect(mockProductsLimit).toHaveBeenNthCalledWith(1, 1000);
+    expect(mockProductsLimit).toHaveBeenNthCalledWith(2, 1000);
+    expect(mockProductsOr).toHaveBeenCalledWith(
+      'created_at.lt.2026-01-01T00:00:00.000Z,and(created_at.eq.2026-01-01T00:00:00.000Z,id.gt.prod-999)'
+    );
+    expect(mockProductsIs).toHaveBeenCalledWith('created_at', null);
+    expect(mockProductsOrder).toHaveBeenCalledWith('created_at', {
+      ascending: false,
+    });
+    expect(mockProductsOrder).toHaveBeenCalledWith('id', { ascending: true });
+    expect(result.products).toHaveLength(1001);
+  });
+
+  it('continues pagination across null created_at pages', async () => {
+    productsResult = { data: [], error: null };
+    const nullFullPage = Array.from({ length: 1000 }, (_, index) => ({
+      id: `prod-${index}`,
+      name: `Phone ${index}`,
+      created_at: null,
+      description: 'A phone',
+      slug: `phone-${index}`,
+      price: 50000,
+      stock: 5,
+      stock_quantity: 5,
+      manage_stock: true,
+      variants: [],
+    }));
+    mockProductsLimit
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValueOnce({ data: nullFullPage, error: null })
+      .mockResolvedValueOnce({
+        data: [
+          {
+            id: 'prod-1000',
+            name: 'Phone 1000',
+            created_at: null,
+            description: 'A phone',
+            slug: 'phone-1000',
+            price: 50000,
+            stock: 5,
+            stock_quantity: 5,
+            manage_stock: true,
+            variants: [],
+          },
+        ],
+        error: null,
+      });
+
+    const { getCachedOpenAIFeedData } = await import('./feed-data');
+    const result = await getCachedOpenAIFeedData('merchant-1');
+
+    expect(mockProductsLimit).toHaveBeenCalledTimes(3);
+    expect(mockProductsIs).toHaveBeenCalledWith('created_at', null);
+    expect(mockProductsGt).toHaveBeenCalledWith('id', 'prod-999');
+    expect(result.products).toHaveLength(1001);
+  });
+
   it('throws and logs when products query fails', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(
       // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console.error noise in tests
@@ -155,7 +302,11 @@ describe('getCachedOpenAIFeedData', () => {
     );
     expect(consoleSpy).toHaveBeenCalledWith(
       'DB_PRODUCTS_ERROR:',
-      expect.objectContaining({ message: 'connection error' })
+      expect.objectContaining({
+        error: expect.objectContaining({ message: 'connection error' }),
+        merchantId: 'merchant-1',
+        cursor: null,
+      })
     );
     consoleSpy.mockRestore();
   });
