@@ -190,13 +190,30 @@ if [ -n "$MISSING_TESTS" ]; then
   exit 0
 fi
 
-# Throwaway worktrees (created for a single PR's git ops) typically don't
-# run `pnpm install`, so node_modules / turbo are missing. Test-pairing
-# above is filesystem-only and runs fine, but lint/typecheck/test all
-# require turbo. Skip the heavy checks in that case — CI runs them on
-# every PR anyway, and failing the hook with "turbo not found" prevents
-# the session from ending without telling the user anything useful.
+# When node_modules / turbo are missing, distinguish two cases:
+#
+#   - LINKED worktree (`.git` is a FILE pointing to <parent>/.git/worktrees/<name>):
+#     expected workflow — main has deps, throwaway worktrees skip the deep
+#     checks. Test-pairing above is filesystem-only and already ran. CI on
+#     the PR will run lint/typecheck/test against the actual code.
+#
+#   - MAIN worktree (`.git` is a DIRECTORY): missing deps means the repo
+#     is broken or unconfigured. Silently passing here would let real
+#     compile/test failures slip past the hook entirely (codex P1). Block
+#     with an actionable message instead.
+#
+# `QUALITY_GATE_SKIP_DEPS=1` provides an explicit escape hatch in either case.
 if [ ! -d node_modules ] || [ ! -x node_modules/.bin/turbo ]; then
+  if [ "${QUALITY_GATE_SKIP_DEPS:-0}" = "1" ]; then
+    exit 0
+  fi
+  if [ -f .git ]; then
+    # Linked worktree without deps — expected, exit clean.
+    exit 0
+  fi
+  # Main worktree without deps — block with remediation.
+  jq -n --arg reason "node_modules / turbo not installed in $(pwd). Run \`pnpm install\` before completing, or set QUALITY_GATE_SKIP_DEPS=1 to bypass." \
+    '{"decision": "block", "reason": $reason}'
   exit 0
 fi
 
