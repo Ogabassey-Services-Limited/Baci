@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import type { ReactNode } from 'react';
 import ProductDetailClient from '@/app/(storefront)/[slug]/(catalog)/products/[productSlug]/product-detail-client';
+import { OgabasseyPdpStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
 import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
 import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
@@ -14,6 +15,7 @@ import {
   mergeVariantAxisOptions,
   normalizeVariantAttributes,
 } from '@/components/storefront/ogabassey/variant-attributes';
+import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import {
   type CachedLegacyProductRedirectTarget,
   type CachedMerchant,
@@ -248,13 +250,16 @@ function TemplateProductPage({
   semanticSections: ReactNode;
 }) {
   // Ogabassey template
-  if (templateId === 'ogabassey') {
+  if (templateId === OGABASSEY_TEMPLATE_ID) {
     const ogabasseyProduct = toOgabasseyProduct(product);
     return (
-      <OgabasseyProductPage
-        product={ogabasseyProduct}
-        semanticSections={semanticSections}
-      />
+      <>
+        <OgabasseyPdpStaticResourceHints />
+        <OgabasseyProductPage
+          product={ogabasseyProduct}
+          semanticSections={semanticSections}
+        />
+      </>
     );
   }
 
