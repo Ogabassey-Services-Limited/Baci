@@ -53,22 +53,23 @@ function buildSupabaseMock(handlers: {
         }),
       };
     }
-    if (table === 'product_variants') {
-      // B3.5 Codex P2 round 6: variant lookup goes back to direct
-      // SELECT (callers pass a service-role client to bypass RLS).
-      return {
-        select: () => ({
-          in: () => ({
-            returns: () =>
-              Promise.resolve({ data: handlers.variants ?? [], error: null }),
-          }),
-        }),
-      };
-    }
     throw new Error(`Unexpected table: ${table}`);
   };
 
-  return { from } as unknown as SupabaseClient;
+  // B3.5 round 7 (CodeRabbit High): variant lookup now routes
+  // through the `get_order_variant_overrides` SECURITY DEFINER
+  // RPC so the Next.js layer never escalates to service-role.
+  const rpc = (name: string) => {
+    if (name === 'get_order_variant_overrides') {
+      return Promise.resolve({
+        data: handlers.variants ?? [],
+        error: null,
+      });
+    }
+    throw new Error(`Unexpected rpc: ${name}`);
+  };
+
+  return { from, rpc } as unknown as SupabaseClient;
 }
 
 describe('computeAgenticOrderTax', () => {
@@ -533,7 +534,7 @@ describe('computeAgenticOrderTax', () => {
     ).rejects.toThrow(/Failed to load products for VAT computation/);
   });
 
-  it('throws when the product_variants SELECT returns an error (Codex P2)', async () => {
+  it('throws when get_order_variant_overrides returns an error (Codex P2)', async () => {
     const supabase = {
       from: (table: string) => {
         if (table === 'merchants') {
@@ -571,20 +572,16 @@ describe('computeAgenticOrderTax', () => {
             }),
           };
         }
-        if (table === 'product_variants') {
-          return {
-            select: () => ({
-              in: () => ({
-                returns: () =>
-                  Promise.resolve({
-                    data: null,
-                    error: { message: 'variants select failed' },
-                  }),
-              }),
-            }),
-          };
-        }
         throw new Error('unexpected');
+      },
+      rpc: (name: string) => {
+        if (name === 'get_order_variant_overrides') {
+          return Promise.resolve({
+            data: null,
+            error: { message: 'variants rpc failed' },
+          });
+        }
+        throw new Error('unexpected rpc');
       },
     } as unknown as SupabaseClient;
 
@@ -595,6 +592,36 @@ describe('computeAgenticOrderTax', () => {
         supabase,
       })
     ).rejects.toThrow(/Failed to load product variants for VAT computation/);
+  });
+
+  it('throws TaxComputeError with product context when vat_rate is invalid (CodeRabbit round 7)', async () => {
+    // Round 7: previously the helper silently skipped lines with
+    // non-finite/negative rates, producing a smaller expected_tax
+    // than the trigger and a confusing `tax_amount_mismatch` 400
+    // with no breadcrumb. Now it throws with the product id so
+    // ops can find the bad row immediately.
+    const supabase = buildSupabaseMock({
+      merchant: { vat_registration_status: 'registered' },
+      products: [
+        {
+          id: 'prod-bad-rate',
+          price: 1000,
+          vat_category_code: 'S',
+          vat_rate: Number.NaN,
+        },
+      ],
+    });
+
+    await expect(
+      computeAgenticOrderTax({
+        items: [{ product_id: 'prod-bad-rate', quantity: 1 }],
+        merchantId: 'm-1',
+        supabase,
+      })
+    ).rejects.toMatchObject({
+      name: 'TaxComputeError',
+      message: expect.stringContaining('prod-bad-rate'),
+    });
   });
 
   it('does not query products when the merchant lookup returns nothing', async () => {

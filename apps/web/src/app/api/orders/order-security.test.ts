@@ -46,6 +46,15 @@ const sharedChainableMock: any = {
     },
     error: null,
   }),
+  // B3.5 round 7: `computeAgenticOrderTax` queries
+  // `merchants.maybeSingle()` for VAT status and
+  // `products.eq(...).in(...).returns()` for product VAT data.
+  // Default returns shape the helper to "merchant not registered"
+  // and "no products" → helper short-circuits to 0, existing
+  // assertions unchanged.
+  maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+  in: vi.fn().mockReturnThis(),
+  returns: vi.fn().mockResolvedValue({ data: [], error: null }),
   insert: vi.fn().mockResolvedValue({ error: null }),
   update: vi.fn().mockReturnThis(),
   // biome-ignore lint/suspicious/noThenProperty: needed for thenable mock
@@ -57,19 +66,33 @@ const mockSupabase = {
     getUser: vi.fn(),
   },
   from: vi.fn(() => sharedChainableMock),
-  rpc: vi.fn().mockResolvedValue({
-    data: [
-      {
-        id: 'order-id',
-        order_number: 'ORD-123',
-        total: 1000,
-        subtotal: 1000,
-        shipping_fee: 0,
-        customer_id: 'customer-id',
-      },
-    ],
-    error: null,
-  }),
+  // biome-ignore lint/suspicious/noExplicitAny: variant return types per rpc name
+  rpc: vi.fn(
+    (
+      name: string,
+      _args?: unknown
+      // biome-ignore lint/suspicious/noExplicitAny: variant return types per rpc name
+    ): Promise<{ data: any; error: any }> => {
+      // B3.5 round 7: helper's variant lookup routes through this
+      // SDF on the same scoped client.
+      if (name === 'get_order_variant_overrides') {
+        return Promise.resolve({ data: [], error: null });
+      }
+      return Promise.resolve({
+        data: [
+          {
+            id: 'order-id',
+            order_number: 'ORD-123',
+            total: 1000,
+            subtotal: 1000,
+            shipping_fee: 0,
+            customer_id: 'customer-id',
+          },
+        ],
+        error: null,
+      });
+    }
+  ),
 };
 
 function mockAuthUser(id: string) {
@@ -86,30 +109,13 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => mockSupabase),
 }));
 
-// B3.5 round 6 (PR #1622): the route now calls `createAdminClient()`
-// for server-side tax recomputation. Default to a non-VAT-registered
-// merchant so the helper short-circuits to 0 and the existing
-// assertions stay unchanged.
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => ({
-    from: (table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: () =>
-                Promise.resolve({
-                  data: { vat_registration_status: 'not_registered' },
-                  error: null,
-                }),
-            }),
-          }),
-        };
-      }
-      throw new Error(`Unexpected service-client table: ${table}`);
-    },
-  })),
-}));
+// B3.5 round 7 (PR #1622): the route's server-side tax recompute
+// reads through the caller's scoped supabase client (the same
+// `mockSupabase` defined above) — no admin/service-role client in
+// the Next.js layer. The helper's `merchants.maybeSingle()` and
+// `products.in().returns()` reads default to no-data via the
+// shared mock chainables; helper short-circuits to 0 and the
+// existing assertions stay unchanged.
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({
@@ -612,7 +618,19 @@ describe('Order API Security', () => {
       const response = await POST(request);
       expect(response.status).toBeLessThan(300);
 
-      const rpcArgs = mockSupabase.rpc.mock.calls[0][1];
+      // B3.5 round 7: rpc is now called for both
+      // `get_order_variant_overrides` (helper) and
+      // `create_storefront_order` (order create). Pick the order
+      // create explicitly so a future helper change can't shift
+      // the index out from under these assertions.
+      const orderCreateCall = mockSupabase.rpc.mock.calls.find(
+        (c) => c[0] === 'create_storefront_order'
+      );
+      if (!orderCreateCall) {
+        throw new Error('create_storefront_order rpc was not called');
+      }
+      // biome-ignore lint/suspicious/noExplicitAny: test helper relaxes the RPC arg type
+      const rpcArgs = orderCreateCall[1] as any;
       const items = Array.isArray(rpcArgs.p_items)
         ? rpcArgs.p_items
         : JSON.parse(rpcArgs.p_items);
@@ -646,7 +664,19 @@ describe('Order API Security', () => {
       const response = await POST(request);
       expect(response.status).toBeLessThan(300);
 
-      const rpcArgs = mockSupabase.rpc.mock.calls[0][1];
+      // B3.5 round 7: rpc is now called for both
+      // `get_order_variant_overrides` (helper) and
+      // `create_storefront_order` (order create). Pick the order
+      // create explicitly so a future helper change can't shift
+      // the index out from under these assertions.
+      const orderCreateCall = mockSupabase.rpc.mock.calls.find(
+        (c) => c[0] === 'create_storefront_order'
+      );
+      if (!orderCreateCall) {
+        throw new Error('create_storefront_order rpc was not called');
+      }
+      // biome-ignore lint/suspicious/noExplicitAny: test helper relaxes the RPC arg type
+      const rpcArgs = orderCreateCall[1] as any;
       const items = Array.isArray(rpcArgs.p_items)
         ? rpcArgs.p_items
         : JSON.parse(rpcArgs.p_items);
@@ -664,7 +694,19 @@ describe('Order API Security', () => {
 
       await POST(request);
 
-      const rpcArgs = mockSupabase.rpc.mock.calls[0][1];
+      // B3.5 round 7: rpc is now called for both
+      // `get_order_variant_overrides` (helper) and
+      // `create_storefront_order` (order create). Pick the order
+      // create explicitly so a future helper change can't shift
+      // the index out from under these assertions.
+      const orderCreateCall = mockSupabase.rpc.mock.calls.find(
+        (c) => c[0] === 'create_storefront_order'
+      );
+      if (!orderCreateCall) {
+        throw new Error('create_storefront_order rpc was not called');
+      }
+      // biome-ignore lint/suspicious/noExplicitAny: test helper relaxes the RPC arg type
+      const rpcArgs = orderCreateCall[1] as any;
       const items = Array.isArray(rpcArgs.p_items)
         ? rpcArgs.p_items
         : JSON.parse(rpcArgs.p_items);
@@ -689,9 +731,16 @@ describe('Order API Security', () => {
       const response = await POST(request);
       expect(response.status).toBeLessThan(300);
 
-      const latestCall = mockSupabase.rpc.mock.calls.at(-1);
-      expect(latestCall).toBeDefined();
-      const rpcArgs = latestCall?.[1];
+      // B3.5 round 7: filter to the create_storefront_order call
+      // since rpc is also invoked for `get_order_variant_overrides`.
+      const orderCreateCall = mockSupabase.rpc.mock.calls.find(
+        (c) => c[0] === 'create_storefront_order'
+      );
+      if (!orderCreateCall) {
+        throw new Error('create_storefront_order rpc was not called');
+      }
+      // biome-ignore lint/suspicious/noExplicitAny: test helper relaxes the RPC arg type
+      const rpcArgs = orderCreateCall[1] as any;
       const items = Array.isArray(rpcArgs.p_items)
         ? rpcArgs.p_items
         : JSON.parse(rpcArgs.p_items);
@@ -749,7 +798,19 @@ describe('Order API Security', () => {
 
       await POST(request);
 
-      const rpcArgs = mockSupabase.rpc.mock.calls[0][1];
+      // B3.5 round 7: rpc is now called for both
+      // `get_order_variant_overrides` (helper) and
+      // `create_storefront_order` (order create). Pick the order
+      // create explicitly so a future helper change can't shift
+      // the index out from under these assertions.
+      const orderCreateCall = mockSupabase.rpc.mock.calls.find(
+        (c) => c[0] === 'create_storefront_order'
+      );
+      if (!orderCreateCall) {
+        throw new Error('create_storefront_order rpc was not called');
+      }
+      // biome-ignore lint/suspicious/noExplicitAny: test helper relaxes the RPC arg type
+      const rpcArgs = orderCreateCall[1] as any;
       const items = Array.isArray(rpcArgs.p_items)
         ? rpcArgs.p_items
         : JSON.parse(rpcArgs.p_items);

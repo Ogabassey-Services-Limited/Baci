@@ -32,13 +32,23 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // For VAT-not-registered merchants the helper returns 0 because the
 // RPC enforces `p_tax_amount ≤ 1` in that case.
 //
-// IMPORTANT: the `supabase` argument MUST be a service-role client
-// (e.g., `createAdminClient()` from `@/lib/supabase/admin`). The
-// variant lookup needs to bypass `product_variants` RLS to read
-// `price_override` rows for unpublished merchants and for agentic
-// JWTs whose `sub = merchant_id` doesn't match any
-// `merchants.user_id`. The helper is server-only and only performs
-// query-shaped reads; RLS bypass is bounded to those reads.
+// The `supabase` argument is the caller's standard scoped client
+// (anon, authed, or agentic-scoped — whatever the calling context
+// already uses). All RLS-respecting reads (merchants, products)
+// use that client. The single RLS-bypassing path — reading
+// `product_variants.price_override` for the items being ordered —
+// goes through the `get_order_variant_overrides` SECURITY DEFINER
+// RPC. That RPC is GRANTed to anon/authenticated/service_role and
+// returns ONLY `(id, product_id, price_override)`, so the trust
+// boundary is bounded to exactly the three columns needed for tax
+// math — no PII, no cross-tenant inventory.
+//
+// (Earlier iterations of this helper used a service-role client in
+// the Next.js layer for the variant query. That violated the
+// project's zero-trust rule — CLAUDE.md: "NEVER use the
+// admin/service-role Supabase client for user-facing operations" —
+// and CodeRabbit's High finding on PR #1622 round 7 flagged it.
+// The RPC encapsulates the bypass at the database layer instead.)
 
 interface AgenticTaxItem {
   // Optional to accept the dispatch's pre-validation payload shape
@@ -184,50 +194,40 @@ export async function computeAgenticOrderTax({
     );
   }
 
-  // Codex P2 (PR #1622 round 6): an earlier iteration of this
-  // helper routed variant reads through
-  // `get_storefront_product_variants`, but that SDF filters
-  // `WHERE m.is_published = TRUE` (baseline:3758). Agentic
-  // checkout merchant resolution is NOT publication-gated, and
-  // the storefront API route also handles draft merchants via
-  // authed merchant access — so an unpublished VAT-registered
-  // merchant with variant overrides would get an empty variants
-  // set here, the helper would fall back to product base price,
-  // the RPC's per-line trigger would compute against the TRUE
-  // variant `price_override`, and the parity guard would RAISE
-  // `tax_amount_mismatch` despite a perfectly valid order. Codex
-  // surfaced this as a P2 because the user-facing failure mode
-  // (a 400 on a real cart) is severe even if the population is
-  // small.
+  // CodeRabbit High (PR #1622 round 7): route through the
+  // `get_order_variant_overrides` SECURITY DEFINER RPC instead of
+  // a direct `product_variants` SELECT. Every RLS policy on that
+  // table keys on `merchants.user_id = auth.uid()`, so anon /
+  // agentic-scoped / non-owner-authed JWTs all see zero rows. The
+  // earlier service-role-client workaround violated the project's
+  // zero-trust rule; the RPC moves the bounded bypass to the
+  // database layer where it belongs. The function returns ONLY
+  // `(id, product_id, price_override)` for the supplied ids — no
+  // PII, no cross-tenant inventory.
   //
-  // Direct SELECT on `product_variants` requires service-role —
-  // every RLS policy on this table keys on
-  // `merchants.user_id = auth.uid()` (baseline:13970-14302).
-  // Callers of `computeAgenticOrderTax` MUST pass a service-role
-  // client (e.g., `createAdminClient()`). The merchant_id has
-  // already been validated upstream and the helper's only writes
-  // are query-shaped reads, so RLS bypass here is bounded.
+  // Distinct from `get_storefront_product_variants`, which filters
+  // to `m.is_published = TRUE` and broke the agentic /
+  // setup-mode-admin paths (the P2 finding the service-role
+  // attempt was trying to fix). This RPC has no publication
+  // filter.
   const { data: variantsData, error: variantsError } = variantIds.length
-    ? await supabase
-        .from('product_variants')
-        .select('id, product_id, price_override')
-        .in('id', variantIds)
-        .returns<VariantPriceRow[]>()
-    : { data: [], error: null };
-  const variantsQuery: {
-    data: VariantPriceRow[] | null;
-    error: { message: string; code?: string } | null;
-  } = { data: variantsData, error: variantsError };
+    ? ((await supabase.rpc('get_order_variant_overrides', {
+        p_variant_ids: variantIds,
+      })) as unknown as {
+        data: VariantPriceRow[] | null;
+        error: { message: string; code?: string } | null;
+      })
+    : { data: [] as VariantPriceRow[], error: null };
 
-  if (variantsQuery.error) {
+  if (variantsError) {
     throw new TaxComputeError(
-      `Failed to load product variants for VAT computation: ${variantsQuery.error.message}`,
-      variantsQuery.error.code
+      `Failed to load product variants for VAT computation: ${variantsError.message}`,
+      variantsError.code
     );
   }
 
   const productMap = new Map((products ?? []).map((p) => [p.id, p]));
-  const variantMap = new Map((variantsQuery.data ?? []).map((v) => [v.id, v]));
+  const variantMap = new Map((variantsData ?? []).map((v) => [v.id, v]));
 
   let total = 0;
   for (const item of items) {
@@ -261,7 +261,20 @@ export async function computeAgenticOrderTax({
     if (!Number.isFinite(quantity) || quantity <= 0) continue;
 
     const rate = Number(product.vat_rate ?? 7.5);
-    if (!Number.isFinite(rate) || rate < 0) continue;
+    if (!Number.isFinite(rate) || rate < 0) {
+      // CodeRabbit (PR #1622 round 7): silently skipping a line
+      // with a corrupt vat_rate would produce a smaller
+      // expected_tax than the trigger's per-line sum, then the
+      // RPC would RAISE `tax_amount_mismatch` with no breadcrumb
+      // pointing at the bad product. Throw with the product
+      // context so ops can find the row immediately. The dispatch
+      // / route catch maps `TaxComputeError` (non-22P02) to a
+      // 500 with a sanitized log entry — this is genuine bad
+      // data, not a client-correctable input.
+      throw new TaxComputeError(
+        `Invalid vat_rate on product ${product.id}: got ${String(product.vat_rate)}`
+      );
+    }
 
     const lineExtension = roundToCents(quantity * price);
     const lineTax = roundToCents((lineExtension * rate) / 100);

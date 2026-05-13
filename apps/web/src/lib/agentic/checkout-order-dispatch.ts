@@ -7,7 +7,6 @@ import {
 import { sendAgenticWebhook } from '@/lib/agentic/webhooks';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { orderCreateSchema } from '@/schemas/orders';
 
 const CLIENT_ORDER_ERROR_CODES = new Set([
@@ -120,17 +119,15 @@ export async function createAgenticCheckoutOrder(
   // the RPC itself produces.
   let computedTaxAmount: number;
   try {
-    // Codex P2 (PR #1622 round 6): the tax helper now MUST be
-    // called with a service-role client — the variant override
-    // lookup needs to bypass `product_variants` RLS so unpublished
-    // merchants and agentic JWTs (sub = merchant_id) can read
-    // variant prices. We spin up a service client just for the
-    // tax compute; the rest of the flow continues on the
-    // caller-supplied scoped client.
+    // CodeRabbit High (PR #1622 round 7): use the caller-supplied
+    // scoped client; the helper's only RLS-bypassing read goes
+    // through the `get_order_variant_overrides` SECURITY DEFINER
+    // RPC at the database layer. The Next.js layer never
+    // escalates to service-role.
     computedTaxAmount = await computeAgenticOrderTax({
       items: orderItemsPayload,
       merchantId: body.merchant_id,
-      supabase: createAdminClient(),
+      supabase,
     });
   } catch (taxError) {
     // Codex P2 (PR #1622 round 7): a malformed product_id /

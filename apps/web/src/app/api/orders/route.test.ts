@@ -85,6 +85,23 @@ function buildMockSupabase(overrides: RpcOverrides = {}) {
   const sharedChainable: any = {
     select: vi.fn().mockReturnThis(),
     eq: vi.fn().mockReturnThis(),
+    // B3.5 round 7: helper's `merchants.select(...).eq(...).maybeSingle()`
+    // call. Default returns the existing merchant fixture; the
+    // helper reads `vat_registration_status` which is absent →
+    // helper treats merchant as non-registered → returns 0. Existing
+    // assertions in this file see no behavior change.
+    maybeSingle: vi.fn().mockResolvedValue({
+      data: {
+        id: MERCHANT_ID,
+        business_name: 'Test Merchant',
+        country: 'NG',
+        slug: 'test-merchant',
+        support_email: 'support@example.com',
+        email_sender_name: 'Test Store',
+        email: 'merchant@example.com',
+      },
+      error: null,
+    }),
     single: vi.fn().mockResolvedValue({
       data: {
         id: MERCHANT_ID,
@@ -97,6 +114,12 @@ function buildMockSupabase(overrides: RpcOverrides = {}) {
       },
       error: null,
     }),
+    // B3.5 round 7: helper's
+    // `products.select(...).eq('merchant_id', ...).in('id', ...).returns()`
+    // chain. Default returns [] so helper iterates no items and
+    // returns 0.
+    in: vi.fn().mockReturnThis(),
+    returns: vi.fn().mockResolvedValue({ data: [], error: null }),
     insert: vi.fn().mockResolvedValue({ error: null }),
     update: vi.fn().mockReturnThis(),
     // biome-ignore lint/suspicious/noThenProperty: thenable mock
@@ -120,6 +143,9 @@ function buildMockSupabase(overrides: RpcOverrides = {}) {
       },
       redeem_wallet_for_order: { data: null, error: null },
       finalize_wallet_order_payment: { data: null, error: null },
+      // B3.5 round 7 (CodeRabbit High): the helper's variant lookup
+      // now routes through this SECURITY DEFINER RPC.
+      get_order_variant_overrides: { data: [], error: null },
     };
 
   return {
@@ -137,31 +163,11 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(),
 }));
 
-// B3.5 round 6: the route now calls `createAdminClient()` for the
-// tax recompute. Default to a non-VAT-registered merchant so the
-// helper short-circuits to `serverComputedTaxAmount = 0` and the
-// existing test assertions stay unchanged. The dedicated
-// "server-computes VAT" test overrides this mock per case.
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => ({
-    from: (table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: () =>
-                Promise.resolve({
-                  data: { vat_registration_status: 'not_registered' },
-                  error: null,
-                }),
-            }),
-          }),
-        };
-      }
-      throw new Error(`Unexpected service-client table: ${table}`);
-    },
-  })),
-}));
+// B3.5 round 7: the route now passes its own scoped supabase
+// client into the tax helper (CodeRabbit High — no service-role
+// in the Next.js layer). The helper's variant lookup routes
+// through `get_order_variant_overrides` (SECURITY DEFINER RPC),
+// which is mocked in `buildMockSupabase`'s `defaultRpcOutcomes`.
 
 const baseOrderPayload = {
   merchant_id: MERCHANT_ID,
@@ -570,19 +576,46 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
     // Legacy `app/checkout/page.tsx` sends no tax_amount → Zod
     // default 0 → pre-fix the RPC's parity guard would RAISE
     // `tax_amount_mismatch` for VAT-registered merchants and break
-    // checkout in production. After round 6 the route recomputes
-    // tax server-side using the service client (RLS-bypassing,
-    // works for unpublished merchants too).
-    const supabaseSvc = await import('@/lib/supabase/admin');
-    vi.mocked(supabaseSvc.createAdminClient).mockReturnValueOnce({
-      from: (table: string) => {
+    // checkout in production. The route recomputes tax server-side
+    // via `computeAgenticOrderTax` (round 7: using the standard
+    // scoped client + the `get_order_variant_overrides` SDF for
+    // RLS bypass — no admin client in the Next.js layer).
+    const rpcSpy = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'order-id',
+          order_number: 'ORD-123',
+          total: 1075,
+          subtotal: 1000,
+          shipping_fee: 0,
+          customer_id: CUSTOMER_ID,
+        },
+      ],
+      error: null,
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      // Per-table override for this test: the helper needs to see
+      // a VAT-registered merchant + one taxable product. The route
+      // also reads `merchants` separately for the order-create
+      // merchant-existence check (uses `.single()`), which we keep
+      // returning the default merchant fixture.
+      sb.from = ((table: string) => {
         if (table === 'merchants') {
           return {
             select: () => ({
               eq: () => ({
+                // Helper's read.
                 maybeSingle: () =>
                   Promise.resolve({
                     data: { vat_registration_status: 'registered' },
+                    error: null,
+                  }),
+                // Route's existence check.
+                single: () =>
+                  Promise.resolve({
+                    data: { id: MERCHANT_ID, business_name: 'Test' },
                     error: null,
                   }),
               }),
@@ -611,29 +644,23 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
             }),
           };
         }
-        throw new Error(`unexpected: ${table}`);
-      },
-    } as never);
-
-    const rpcSpy = vi.fn().mockResolvedValue({
-      data: [
-        {
-          id: 'order-id',
-          order_number: 'ORD-123',
-          total: 1075,
-          subtotal: 1000,
-          shipping_fee: 0,
-          customer_id: CUSTOMER_ID,
-        },
-      ],
-      error: null,
-    });
-    const supabaseMod = await import('@/lib/supabase/server');
-    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
-      const sb = buildMockSupabase();
+        // Fall through for any other tables the route may touch.
+        return {
+          select: () => ({
+            eq: () => ({
+              single: () => Promise.resolve({ data: null, error: null }),
+              maybeSingle: () => Promise.resolve({ data: null, error: null }),
+            }),
+          }),
+          insert: () => Promise.resolve({ error: null }),
+        };
+      }) as typeof sb.from;
       sb.rpc = ((name: string, args: Record<string, unknown>) => {
         if (name === 'create_storefront_order') {
           return rpcSpy(args);
+        }
+        if (name === 'get_order_variant_overrides') {
+          return Promise.resolve({ data: [], error: null });
         }
         return Promise.resolve({ data: null, error: null });
       }) as typeof sb.rpc;
@@ -663,9 +690,10 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
     // The previous RPC path mapped 22P02 as a client error via
     // `clientErrorCodes`; the new server-side tax recompute must
     // preserve that 4xx semantic instead of returning 500.
-    const supabaseSvc = await import('@/lib/supabase/admin');
-    vi.mocked(supabaseSvc.createAdminClient).mockReturnValueOnce({
-      from: (table: string) => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      sb.from = ((table: string) => {
         if (table === 'merchants') {
           return {
             select: () => ({
@@ -673,6 +701,11 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
                 maybeSingle: () =>
                   Promise.resolve({
                     data: { vat_registration_status: 'registered' },
+                    error: null,
+                  }),
+                single: () =>
+                  Promise.resolve({
+                    data: { id: MERCHANT_ID, business_name: 'Test' },
                     error: null,
                   }),
               }),
@@ -698,9 +731,18 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
             }),
           };
         }
-        throw new Error(`unexpected: ${table}`);
-      },
-    } as never);
+        return {
+          select: () => ({
+            eq: () => ({
+              single: () => Promise.resolve({ data: null, error: null }),
+              maybeSingle: () => Promise.resolve({ data: null, error: null }),
+            }),
+          }),
+          insert: () => Promise.resolve({ error: null }),
+        };
+      }) as typeof sb.from;
+      return sb;
+    }) as unknown as never);
 
     const request = new NextRequest('http://localhost/api/orders', {
       method: 'POST',
@@ -720,7 +762,12 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
     const body = await readJson(response);
 
     expect(response.status).toBe(400);
-    expect(body.code).toBe('INVALID_ITEM_ID');
+    // Round-7 follow-up: error shape unified with the RPC mapping
+    // (`{ error: 'Failed to create order', details: 'invalid_items' }`).
+    expect(body).toMatchObject({
+      error: 'Failed to create order',
+      details: 'invalid_items',
+    });
   });
 
   it('forces p_tax_basis to "exclusive" regardless of client input (Codex P1 round 6)', async () => {

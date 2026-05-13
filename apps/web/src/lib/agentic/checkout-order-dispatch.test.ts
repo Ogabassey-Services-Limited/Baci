@@ -15,38 +15,21 @@ vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn(), warn: vi.fn() },
 }));
 
-// B3.5 round 6: the dispatch now calls `createAdminClient()` for
-// the tax recompute. Default to a non-VAT-registered merchant so the
-// helper short-circuits to 0 and existing assertions are unchanged.
-vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: vi.fn(() => ({
-    from: (table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: () =>
-                Promise.resolve({
-                  data: { vat_registration_status: 'not_registered' },
-                  error: null,
-                }),
-            }),
-          }),
-        };
-      }
-      throw new Error(`Unexpected service-client table: ${table}`);
-    },
-  })),
-}));
-
 const merchantId = '11111111-1111-4111-8111-111111111111';
 
-// B3.5 round 5: `createAgenticCheckoutOrder` now calls
-// `computeAgenticOrderTax`, which queries `merchants` (for VAT status)
-// and `products`/`product_variants` (for per-line VAT). Provide a
-// minimal `from()` stub that resolves merchant as not-registered by
-// default — keeps the helper returning 0 and existing assertions
-// unchanged. Tests that need VAT-registered behavior can override.
+// B3.5 round 7 (CodeRabbit High): the dispatch passes the
+// caller-supplied scoped client straight through to the tax
+// helper — no service-role escalation in the Next.js layer. The
+// supabase mock needs to handle:
+//   * `merchants.select(...).eq(...).maybeSingle()` (helper)
+//   * `products.select(...).eq(...).in(...).returns()` (helper)
+//   * `rpc('get_order_variant_overrides', ...)` (helper)
+//   * `rpc('create_storefront_order', ...)` (dispatch's order create)
+//
+// `makeFromStub` returns a per-table `from` that defaults to
+// "merchant not registered" and "no products", so the helper
+// short-circuits to tax 0 and existing dispatch assertions are
+// unchanged.
 function makeFromStub(opts?: { vatStatus?: 'registered' | 'not_registered' }) {
   const vatStatus = opts?.vatStatus ?? 'not_registered';
   return (table: string) => {
@@ -66,8 +49,10 @@ function makeFromStub(opts?: { vatStatus?: 'registered' | 'not_registered' }) {
     if (table === 'products') {
       return {
         select: () => ({
-          in: () => ({
-            returns: () => Promise.resolve({ data: [], error: null }),
+          eq: () => ({
+            in: () => ({
+              returns: () => Promise.resolve({ data: [], error: null }),
+            }),
           }),
         }),
       };
@@ -142,13 +127,10 @@ describe('agentic checkout order dispatch', () => {
     // The agentic `calculateCheckoutSession` always emits `tax: 0`,
     // so `body.tax_amount` arrives at the RPC as 0. Without this
     // recompute, a VAT-registered merchant gets `tax_amount_mismatch`
-    // → 400 → broken checkout. Pin that the dispatch overrides
-    // `p_tax_amount` with the per-line VAT sum.
-    const rpc = vi.fn().mockResolvedValue({
-      data: [{ id: 'order-vat-1', total: 537_500 }],
-      error: null,
-    });
-
+    // → 400 → broken checkout. Round 7: the helper now reads
+    // through the caller's scoped client (no admin client), so the
+    // VAT fixture is wired on the `supabase` passed to
+    // `createAgenticCheckoutOrder`.
     const from = (table: string) => {
       if (table === 'merchants') {
         return {
@@ -164,9 +146,6 @@ describe('agentic checkout order dispatch', () => {
         };
       }
       if (table === 'products') {
-        // Helper now scopes products query to merchant_id
-        // (`.eq('merchant_id', merchantId).in('id', productIds)`),
-        // per the cross-tenant high finding on PR #1622.
         return {
           select: () => ({
             eq: () => ({
@@ -191,52 +170,18 @@ describe('agentic checkout order dispatch', () => {
       throw new Error('unexpected');
     };
 
-    // Per round-6 fix: the helper is now called with a
-    // service-role client created via createAdminClient(),
-    // separate from the caller-supplied scoped supabase. Mock the
-    // service-client module to provide the VAT-registered merchant
-    // + product fixture.
-    const supabaseSvcMod = await import('@/lib/supabase/admin');
-    vi.mocked(supabaseSvcMod.createAdminClient).mockReturnValueOnce({
-      from: (table: string) => {
-        if (table === 'merchants') {
-          return {
-            select: () => ({
-              eq: () => ({
-                maybeSingle: () =>
-                  Promise.resolve({
-                    data: { vat_registration_status: 'registered' },
-                    error: null,
-                  }),
-              }),
-            }),
-          };
-        }
-        if (table === 'products') {
-          return {
-            select: () => ({
-              eq: () => ({
-                in: () => ({
-                  returns: () =>
-                    Promise.resolve({
-                      data: [
-                        {
-                          id: 'product-1',
-                          price: 500_000,
-                          vat_category_code: 'S',
-                          vat_rate: 7.5,
-                        },
-                      ],
-                      error: null,
-                    }),
-                }),
-              }),
-            }),
-          };
-        }
-        throw new Error(`unexpected: ${table}`);
-      },
-    } as never);
+    const rpc = vi.fn((name: string, _args?: unknown) => {
+      if (name === 'get_order_variant_overrides') {
+        return Promise.resolve({ data: [], error: null });
+      }
+      if (name === 'create_storefront_order') {
+        return Promise.resolve({
+          data: [{ id: 'order-vat-1', total: 537_500 }],
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
 
     const result = await createAgenticCheckoutOrder(orderPayload(), {
       from,
@@ -256,32 +201,29 @@ describe('agentic checkout order dispatch', () => {
   it('returns 500 when the VAT recompute throws (Codex P2 round 5)', async () => {
     // Distinct from the RPC-level 400 path: an infra failure in
     // the per-line VAT lookup (DB/RLS error) must surface as 500
-    // so the GPT-agent caller retries. Round 6: the helper now
-    // runs against the service-role client, so we trigger the
-    // failure there.
-    const supabaseSvcMod = await import('@/lib/supabase/admin');
-    vi.mocked(supabaseSvcMod.createAdminClient).mockReturnValueOnce({
-      from: (table: string) => {
-        if (table === 'merchants') {
-          return {
-            select: () => ({
-              eq: () => ({
-                maybeSingle: () =>
-                  Promise.resolve({
-                    data: null,
-                    error: { message: 'connection reset' },
-                  }),
-              }),
+    // so the GPT-agent caller retries. Round 7: the helper reads
+    // through the caller's scoped client, so we trigger the
+    // failure on the `merchants` lookup of THAT client.
+    const from = (table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: null,
+                  error: { message: 'connection reset' },
+                }),
             }),
-          };
-        }
-        throw new Error('unexpected');
-      },
-    } as never);
+          }),
+        };
+      }
+      throw new Error('unexpected');
+    };
 
     const rpc = vi.fn();
     const result = await createAgenticCheckoutOrder(orderPayload(), {
-      from: makeFromStub(),
+      from,
       rpc,
     } as unknown as SupabaseClient);
 
@@ -329,50 +271,47 @@ describe('agentic checkout order dispatch', () => {
   it('maps a 22P02 UUID parse error from the tax helper to 400 invalid_items (Codex P2 round 7)', async () => {
     // Pre-round-7 a malformed item id surfaced as a 500
     // (Unable to compute order tax) because we caught ALL helper
-    // errors and reported infra failure. That hid a client bug
-    // behind an outage signal. Restore the 4xx mapping that the
-    // RPC's own 22P02 path already had.
-    const supabaseSvcMod = await import('@/lib/supabase/admin');
-    vi.mocked(supabaseSvcMod.createAdminClient).mockReturnValueOnce({
-      from: (table: string) => {
-        if (table === 'merchants') {
-          return {
-            select: () => ({
-              eq: () => ({
-                maybeSingle: () =>
+    // errors and reported infra failure. Round 7: helper reads
+    // through the caller's scoped client; trigger 22P02 on the
+    // products query of THAT client.
+    const from = (table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: { vat_registration_status: 'registered' },
+                  error: null,
+                }),
+            }),
+          }),
+        };
+      }
+      if (table === 'products') {
+        return {
+          select: () => ({
+            eq: () => ({
+              in: () => ({
+                returns: () =>
                   Promise.resolve({
-                    data: { vat_registration_status: 'registered' },
-                    error: null,
+                    data: null,
+                    error: {
+                      code: '22P02',
+                      message: 'invalid input syntax for type uuid: "bogus"',
+                    },
                   }),
               }),
             }),
-          };
-        }
-        if (table === 'products') {
-          return {
-            select: () => ({
-              eq: () => ({
-                in: () => ({
-                  returns: () =>
-                    Promise.resolve({
-                      data: null,
-                      error: {
-                        code: '22P02',
-                        message: 'invalid input syntax for type uuid: "bogus"',
-                      },
-                    }),
-                }),
-              }),
-            }),
-          };
-        }
-        throw new Error('unexpected');
-      },
-    } as never);
+          }),
+        };
+      }
+      throw new Error('unexpected');
+    };
 
     const rpc = vi.fn();
     const result = await createAgenticCheckoutOrder(orderPayload(), {
-      from: makeFromStub(),
+      from,
       rpc,
     } as unknown as SupabaseClient);
 

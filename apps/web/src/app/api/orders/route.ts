@@ -20,7 +20,6 @@ import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { getClientIdentifier } from '@/lib/rate-limit';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
 import { orderCreateSchema } from '@/schemas/orders';
@@ -276,9 +275,12 @@ export async function POST(request: NextRequest) {
     // it just gets to fire on a correctly-tax'd order rather than
     // being preceded by a confusing `tax_amount_mismatch` 400.
     //
-    // The helper requires a service-role client (Codex P2 round 6
-    // — variant override lookup must bypass RLS for unpublished
-    // merchants and authed-merchant edits).
+    // The helper uses the caller's standard scoped client. The
+    // single RLS-bypassing path (variant override lookup) goes
+    // through the `get_order_variant_overrides` SECURITY DEFINER
+    // RPC, granted to anon/authenticated/service_role — the trust
+    // boundary lives in the database, not the Next.js layer
+    // (CodeRabbit High on PR #1622 round 7).
     let serverComputedTaxAmount: number;
     try {
       serverComputedTaxAmount = await computeAgenticOrderTax({
@@ -288,7 +290,7 @@ export async function POST(request: NextRequest) {
           variant_id: item.variantId || item.variant_id,
         })),
         merchantId: merchant_id,
-        supabase: createAdminClient(),
+        supabase,
       });
     } catch (taxError) {
       // Codex P2 (PR #1622 round 7): malformed item ids (Zod only
@@ -303,10 +305,14 @@ export async function POST(request: NextRequest) {
           merchantId: merchant_id,
           message: 'Storefront order received malformed item identifier',
         });
+        // Match the RPC error mapping below (`{ error: 'Failed to
+        // create order', details: <stable code> }`) AND share the
+        // `invalid_items` identifier with the agentic dispatch's
+        // 22P02 path — review findings on PR #1622 round 7.
         return NextResponse.json(
           {
-            code: 'INVALID_ITEM_ID',
-            error: 'Invalid item identifier in order payload',
+            error: 'Failed to create order',
+            details: 'invalid_items',
           },
           { status: 400 }
         );

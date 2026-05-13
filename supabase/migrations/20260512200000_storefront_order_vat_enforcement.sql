@@ -1046,3 +1046,61 @@ BEGIN
   RETURN NEW;
 END;
 $$;
+
+
+-- CodeRabbit High (PR #1622 round 7): the storefront/agentic
+-- pre-RPC tax recompute needs to read `product_variants.price_override`
+-- for the items being ordered, but the table's RLS policies all key
+-- on `merchants.user_id = auth.uid()` — anon, agentic-scoped, and
+-- authed-but-not-the-owner JWTs all see zero rows. The previous fix
+-- used `createAdminClient()` in the Next.js layer, but that
+-- violates the project's zero-trust rule (CLAUDE.md: "NEVER use the
+-- admin/service-role Supabase client for user-facing operations").
+--
+-- Move the RLS bypass into a tightly-scoped SECURITY DEFINER
+-- function instead. The function returns ONLY the three columns
+-- needed for tax math — id, product_id, price_override — for the
+-- caller-supplied variant_ids. No PII, no cross-tenant inventory,
+-- no other variant attributes. Variant UUIDs are 128-bit random and
+-- not enumerable from outside; the leaked information (a price
+-- override for a known variant_id) is already discoverable through
+-- a public storefront for published merchants and bounded for
+-- unpublished merchants whose variant_ids aren't enumerable
+-- externally.
+--
+-- Distinct from `get_storefront_product_variants` (which filters
+-- `WHERE m.is_published = TRUE`) — that filter is the round-6 P2
+-- bug because agentic merchant resolution is not publication-gated
+-- and the admin order-create form runs against unpublished
+-- merchants in setup mode. This new function intentionally has no
+-- publication filter.
+DROP FUNCTION IF EXISTS public.get_order_variant_overrides(UUID[]);
+
+CREATE OR REPLACE FUNCTION public.get_order_variant_overrides(
+  p_variant_ids UUID[]
+) RETURNS TABLE (
+  id UUID,
+  product_id UUID,
+  price_override NUMERIC
+)
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path TO ''
+AS $$
+  SELECT
+    pv.id,
+    pv.product_id,
+    pv.price_override
+  FROM public.product_variants AS pv
+  WHERE COALESCE(array_length(p_variant_ids, 1), 0) <= 10000
+    AND pv.id = ANY(COALESCE(p_variant_ids, ARRAY[]::UUID[]));
+$$;
+
+REVOKE ALL ON FUNCTION public.get_order_variant_overrides(UUID[]) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.get_order_variant_overrides(UUID[]) TO anon;
+GRANT ALL ON FUNCTION public.get_order_variant_overrides(UUID[]) TO authenticated;
+GRANT ALL ON FUNCTION public.get_order_variant_overrides(UUID[]) TO service_role;
+
+COMMENT ON FUNCTION public.get_order_variant_overrides(UUID[]) IS
+  'Returns (id, product_id, price_override) for variants matched by ID. SECURITY DEFINER — used by the B3.5 storefront/agentic pre-RPC tax recompute to mirror the order_items trigger''s per-line VAT math (which runs SECURITY DEFINER itself and bypasses RLS). Returns only the columns needed for tax computation; no publication filter so unpublished merchants in setup mode can still check out.';
