@@ -3,7 +3,9 @@ import { cacheLife, cacheTag } from 'next/cache';
 import { createAnonClient } from '@/lib/supabase/anon';
 
 const OPENAI_FEED_PRODUCTS_PAGE_SIZE = 1000;
-const MAX_OPENAI_FEED_PRODUCTS = 50_000;
+// Keep parity with Google feed product coverage until variant hydration supports
+// catalogs above 10k products across both machine-readable surfaces.
+const MAX_OPENAI_FEED_PRODUCTS = 10_000;
 const OPENAI_FEED_PRODUCTS_SELECT = `id, name, description, slug, canonical_url, price, compare_at_price, images,
        brand, gtin, mpn, sku, stock, stock_quantity, manage_stock, condition, google_product_category, category,
        weight_value, weight_unit, created_at, updated_at,
