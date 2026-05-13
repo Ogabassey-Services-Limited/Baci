@@ -7,7 +7,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { router, Stack } from 'expo-router';
-import { useDeferredValue, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -74,8 +74,7 @@ export default function SearchScreen() {
   const { isOnline } = useNetworkState();
 
   const [query, setQuery] = useState('');
-  const deferredQuery = useDeferredValue(query);
-  const activeQuery = deferredQuery.trim();
+  const activeQuery = query.trim();
   const [debouncedQuery, setDebouncedQuery] = useState(activeQuery);
   const hasSearchQuery = debouncedQuery.length >= 2;
 
