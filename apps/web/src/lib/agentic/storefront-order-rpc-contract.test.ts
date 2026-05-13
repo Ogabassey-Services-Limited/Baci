@@ -329,6 +329,42 @@ describe('agentic storefront order RPC contract — B3.5 VAT enforcement', () =>
     expect(sql).toMatch(/RAISE EXCEPTION 'invalid_tax_basis'/i);
   });
 
+  it('overrides v_tax_basis to "exclusive" after enum validation (Codex P1 round 6 ii)', () => {
+    const sql = readLatestStorefrontOrderRpcMigrationSql();
+
+    // The RPC is `GRANT ALL ... TO anon`, so PostgREST callers can
+    // bypass /api/orders and route `p_tax_basis: 'inclusive'`
+    // directly into the function. Without this override the
+    // inclusive branch would compute `total = subtotal + shipping
+    // + gift - discount` (no VAT) for VAT-registered merchants —
+    // undercharge.
+    //
+    // Pin the override (a) exists, and (b) lands AFTER the enum
+    // validation (so an obviously-bad caller still gets a clean
+    // `invalid_tax_basis` instead of being silently normalized).
+    expect(sql).toMatch(/v_tax_basis\s*:=\s*'exclusive'\s*;/);
+
+    const enumValidationIndex = sql.indexOf(
+      "RAISE EXCEPTION 'invalid_tax_basis'"
+    );
+    const overrideIndex = sql.search(/v_tax_basis\s*:=\s*'exclusive'\s*;/);
+    expect(enumValidationIndex).toBeGreaterThan(-1);
+    expect(overrideIndex).toBeGreaterThan(enumValidationIndex);
+
+    // And the override MUST land BEFORE any branch that reads
+    // `v_tax_basis` — both the VAT enforcement IF and the total
+    // computation IF. Otherwise a caller could still slip through
+    // before the override fires.
+    const vatEnforcementIndex = sql.indexOf(
+      "IF v_merchant_vat_status = 'registered' THEN"
+    );
+    const totalComputeIndex = sql.search(
+      /IF\s+v_tax_basis\s*=\s*'exclusive'\s+THEN\s+v_total\s*:=/
+    );
+    expect(overrideIndex).toBeLessThan(vatEnforcementIndex);
+    expect(overrideIndex).toBeLessThan(totalComputeIndex);
+  });
+
   it('reads merchant VAT config once and uses the lookup result for tax enforcement', () => {
     const sql = readLatestStorefrontOrderRpcMigrationSql();
 

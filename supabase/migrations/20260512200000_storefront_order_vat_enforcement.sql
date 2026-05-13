@@ -213,6 +213,26 @@ BEGIN
     RAISE EXCEPTION 'invalid_tax_basis';
   END IF;
 
+  -- Codex P1 (PR #1622 round 6 ii): the RPC itself MUST be the
+  -- trust boundary for tax_basis, not the API route. This function
+  -- is `GRANT ALL ... TO anon` via PostgREST, so a buyer who knows
+  -- the merchant_id can do
+  --   supabase.rpc('create_storefront_order',
+  --     { p_tax_basis: 'inclusive', p_tax_amount: 0, ... })
+  -- directly from the browser, bypass /api/orders entirely, and
+  -- route through the inclusive branch — which computes
+  -- `total = subtotal + shipping + gift - discount` (no VAT). For
+  -- a VAT-registered merchant whose catalog prices are exclusive,
+  -- the gateway charge undercounts by the VAT amount while the
+  -- merchant still owes FIRS the unrecovered VAT.
+  --
+  -- Until per-merchant pricing config exists (a `merchants
+  -- .tax_basis_default` column or similar), force every order
+  -- through the exclusive branch. The inclusive math below is
+  -- preserved for the future config flag; today it's
+  -- documentation-only.
+  v_tax_basis := 'exclusive';
+
   -- B3.5 (Δ-34): gift_wrapping_fee must be non-negative. Defensive
   -- alongside the column's CHECK constraint so we surface a friendly
   -- error code instead of a generic 23514 constraint violation.

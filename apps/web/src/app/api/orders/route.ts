@@ -376,19 +376,15 @@ export async function POST(request: NextRequest) {
         // rolls back atomically — no orphan order, no stock leak.
         //
         // Codex P1 round 6 (PR #1622): `tax_basis` is SERVER-controlled
-        // policy, NOT caller input. Forwarding `body.tax_basis`
-        // verbatim let a buyer submit `tax_basis: 'inclusive'` on a
-        // VAT-registered merchant with exclusive-priced catalog and
-        // bypass the `tax_amount_mismatch` guard — the inclusive
-        // branch computes `total = subtotal + shipping + gift -
-        // discount` (no VAT added) and the gateway charge under-bills
-        // by the VAT amount while the merchant still owes FIRS. Until
-        // per-merchant pricing config exists, hardcode 'exclusive'
-        // here (the catalog-pricing default for every Nigerian
-        // merchant in production today). Zod still accepts the field
-        // so /api/orders/route.ts stays forward-compatible; we just
-        // refuse to honor it as input. The schema-level enum check
-        // still guards against unknown values.
+        // policy, NOT caller input. The RPC itself overrides
+        // `v_tax_basis := 'exclusive'` after enum validation
+        // (`create_storefront_order` is GRANT'd to anon via PostgREST,
+        // so the trust boundary has to live IN the function — see
+        // the `Codex P1 round 6 ii` comment in
+        // `20260512200000_storefront_order_vat_enforcement.sql`).
+        // This API-level hardcode is defense-in-depth — any caller
+        // routing through /api/orders also gets the right value
+        // without relying on PostgREST RLS / RPC behavior.
         p_tax_basis: 'exclusive',
         p_gift_wrapping_fee: giftWrappingFeeValue,
         p_expected_total:
