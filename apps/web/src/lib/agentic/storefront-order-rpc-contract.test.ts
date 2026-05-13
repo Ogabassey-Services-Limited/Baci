@@ -344,27 +344,35 @@ describe('agentic storefront order RPC contract — B3.5 VAT enforcement', () =>
   it('enforces tax_amount_mismatch for VAT-registered + exclusive merchants', () => {
     const sql = readLatestStorefrontOrderRpcMigrationSql();
 
-    // Codex P1 (PR #1622 round 3): the expected_tax formula MUST
-    // match the post-insert `update_order_tax_totals` trigger
-    // byte-for-byte. The trigger sums `order_items.vat_amount`
-    // which is `ROUND(line_extension * vat_rate / 100, 2)` for
-    // category 'S' items and 0 otherwise. The prior uniform
-    // `round(subtotal * vat_rate / 100, 2)` formula treated every
-    // item as 'S' and over-counted for mixed-category orders.
-    // Pin the per-line SUM(CASE ... 'S' ... ELSE 0) shape so a
-    // future "simplification" can't silently revert this.
+    // Codex P1 round 3 + round 4 (PR #1622): expected_tax must
+    // match the post-insert `populate_order_item_tax` +
+    // `update_order_tax_totals` trigger pipeline byte-for-byte:
+    //   * Per-line SUM with ROUND on each line (round 3 — uniform
+    //     `subtotal * rate / 100` over-counted for mixed-category
+    //     orders).
+    //   * NULL fallbacks: vat_category_code → 'S', vat_rate → 7.5
+    //     (round 4 — `populate_order_item_tax` only overrides NEW
+    //     columns when the product fields are NOT NULL; otherwise
+    //     the order_items COLUMN DEFAULTS take over).
     expect(sql).toMatch(
-      /SELECT\s+COALESCE\(\s*SUM\([\s\S]*?CASE[\s\S]*?WHEN\s+p\.vat_category_code\s*=\s*'S'[\s\S]*?ROUND\([\s\S]*?ELSE\s+0[\s\S]*?\)\s*,\s*0\s*\)[\s\S]*?INTO\s+v_expected_tax[\s\S]*?FROM\s+tmp_storefront_order_items\s+t\s+JOIN\s+products\s+p/i
+      /SELECT\s+COALESCE\(\s*SUM\([\s\S]*?CASE[\s\S]*?WHEN\s+COALESCE\(\s*p\.vat_category_code\s*,\s*'S'\s*\)\s*=\s*'S'[\s\S]*?ROUND\([\s\S]*?COALESCE\(\s*p\.vat_rate\s*,\s*7\.5\s*\)[\s\S]*?ELSE\s+0[\s\S]*?\)\s*,\s*0\s*\)[\s\S]*?INTO\s+v_expected_tax[\s\S]*?FROM\s+tmp_storefront_order_items\s+t\s+JOIN\s+products\s+p/i
     );
     expect(sql).toMatch(
       /ABS\(\s*v_tax_amount\s*-\s*v_expected_tax\s*\)\s*>\s*1/i
     );
     expect(sql).toMatch(/RAISE EXCEPTION 'tax_amount_mismatch'/i);
 
-    // The old uniform formula must NOT come back — it's the exact
-    // bug Codex P1 round 3 was filed against.
+    // The old uniform formula must NOT come back — round-3 bug.
     expect(sql).not.toMatch(
       /v_expected_tax\s*:=\s*round\(\s*v_subtotal\s*\*\s*v_merchant_vat_rate\s*\/\s*100\s*,\s*2\s*\)/i
+    );
+
+    // The round-3 fallback to `v_merchant_vat_rate` must not come
+    // back either — round-4 bug. The trigger inherits the
+    // order_items column default 7.5, NOT the merchant's
+    // configured vat_rate, so we must mirror that exactly.
+    expect(sql).not.toMatch(
+      /COALESCE\(\s*p\.vat_rate\s*,\s*v_merchant_vat_rate\s*\)/i
     );
   });
 

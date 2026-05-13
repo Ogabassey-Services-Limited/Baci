@@ -370,22 +370,41 @@ BEGIN
       -- reduced figure, and the customer paid less than they
       -- were quoted. That defeated the entire parity guard.
       --
-      -- Match the trigger byte-for-byte:
-      --   line_extension := ROUND(quantity * price, 2)
-      --   vat_amount     := ROUND(line_extension * rate / 100, 2)
-      -- where `price = COALESCE(price_override, base_price)` (the
-      -- exact value persisted to `order_items.price`) and
-      -- `rate = COALESCE(product.vat_rate, merchant.vat_rate)`
-      -- (the trigger's NEW.vat_rate fallback).
+      -- Match the trigger byte-for-byte. The trigger
+      -- `populate_order_item_tax` (baseline:4487-4503) reads
+      --   p.vat_category_code, p.vat_rate INTO local vars,
+      -- then ONLY overrides NEW.vat_category_code / NEW.vat_rate
+      -- when those product fields are NOT NULL. When product
+      -- fields are NULL, NEW falls back to the `order_items`
+      -- COLUMN DEFAULTS: 'S' and 7.5 (baseline:8416-8417).
+      --
+      -- Codex P1 (PR #1622 round 4): the round-3 fix matched on
+      -- `p.vat_category_code` directly and fell back to the
+      -- merchant's vat_rate when the product rate was NULL. That
+      -- treated products with NULL category as non-standard
+      -- (expected_tax = 0), but the trigger ACTUALLY treats them
+      -- as 'S' (column default) and charges VAT. Net effect:
+      -- legitimate orders containing products with NULL VAT
+      -- metadata RAISE `tax_amount_mismatch` even when the
+      -- persisted total matches what the client computed — exactly
+      -- the divergence round 3 was filed against, just shifted.
+      --
+      -- Defaults below mirror the trigger's effective behavior:
+      --   COALESCE(p.vat_category_code, 'S')
+      --   COALESCE(p.vat_rate, 7.5)
+      -- The `7.5` here is NOT `v_merchant_vat_rate` — it's the
+      -- order_items column default that the BEFORE-INSERT trigger
+      -- inherits. Using merchant_vat_rate would diverge from the
+      -- trigger for any merchant whose configured rate ≠ 7.5.
       SELECT COALESCE(SUM(
         CASE
-          WHEN p.vat_category_code = 'S' THEN
+          WHEN COALESCE(p.vat_category_code, 'S') = 'S' THEN
             ROUND(
               ROUND(
                 t.quantity * COALESCE(t.price_override, t.base_price),
                 2
               )
-              * COALESCE(p.vat_rate, v_merchant_vat_rate) / 100,
+              * COALESCE(p.vat_rate, 7.5) / 100,
               2
             )
           ELSE 0
