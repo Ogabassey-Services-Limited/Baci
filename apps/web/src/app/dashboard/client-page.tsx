@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
+import { AgenticActionCenterCard } from '@/components/dashboard/agentic-action-center-card';
 import { SetupChecklist } from '@/components/dashboard/setup-checklist';
 import { StoreBuildStatusCard } from '@/components/dashboard/store-build-status-card';
 import { BentoCard } from '@/components/ui/bento-card';
@@ -324,6 +325,15 @@ export default function DashboardClientPage({
         <StoreBuildStatusCard />
         <SetupChecklist dismissible />
       </div>
+
+      {merchant?.is_published && (
+        <div
+          className="animate-in fade-in slide-in-from-bottom-4 duration-500"
+          style={{ animationFillMode: 'both', animationDelay: '0.05s' }}
+        >
+          <AgenticActionCenterCard />
+        </div>
+      )}
 
       {/* AI Insight Hero - Desktop only */}
       {merchant?.is_published && (
