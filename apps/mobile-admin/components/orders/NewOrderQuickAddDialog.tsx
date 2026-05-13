@@ -71,12 +71,18 @@ export function NewOrderQuickAddDialog({
         />
         <View style={styles.dialogActions}>
           <Pressable
+            accessibilityHint="Close this dialog without adding a custom item"
+            accessibilityLabel="Cancel"
+            accessibilityRole="button"
             onPress={() => setShowCustomItemModal(false)}
             style={styles.dialogBtn}
           >
             <Text style={{ color: colors.textSecondary }}>Cancel</Text>
           </Pressable>
           <Pressable
+            accessibilityHint="Add this custom item to the order"
+            accessibilityLabel="Add to Cart"
+            accessibilityRole="button"
             onPress={handleAddCustomItem}
             style={[
               styles.dialogBtn,
