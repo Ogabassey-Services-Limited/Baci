@@ -27,6 +27,7 @@ const mockOgabasseyStorefrontLayout = vi.hoisted(() =>
     )
   )
 );
+const mockStorefrontHeroPreloadDecision = vi.hoisted(() => vi.fn(() => null));
 
 vi.mock('./storefront-shell-snapshot', () => ({
   getStorefrontShellSnapshotBase: vi.fn(),
@@ -35,6 +36,10 @@ vi.mock('./storefront-shell-snapshot', () => ({
 
 vi.mock('@/components/storefront/ogabassey/storefront-layout', () => ({
   OgabasseyStorefrontLayout: mockOgabasseyStorefrontLayout,
+}));
+
+vi.mock('./storefront-hero-preload-decision', () => ({
+  StorefrontHeroPreloadDecision: mockStorefrontHeroPreloadDecision,
 }));
 
 vi.mock('@/components/storefront/deferred-page-view-tracker', () => ({
@@ -75,14 +80,9 @@ vi.mock('@/lib/cached-data', () => ({
   getRequestScopedMerchant: vi.fn(),
 }));
 
-const mockHeaders = vi.fn();
 const notFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
 });
-
-vi.mock('next/headers', () => ({
-  headers: () => mockHeaders(),
-}));
 
 vi.mock('next/navigation', () => ({
   notFound: () => notFound(),
@@ -167,12 +167,11 @@ describe('storefront layout', () => {
     vi.mocked(getRequestScopedMerchant).mockReset();
     vi.mocked(getStorefrontShellSnapshotBase).mockReset();
     vi.mocked(getStorefrontShellSnapshot).mockReset();
-    mockHeaders.mockReset();
     notFound.mockClear();
     mockOgabasseyStorefrontLayout.mockClear();
+    mockStorefrontHeroPreloadDecision.mockClear();
     providerSnapshots.length = 0;
     themeProviderRenders = 0;
-    mockHeaders.mockResolvedValue(new Headers());
   });
 
   it('waits for the shell snapshot and keeps the first-render merchant shell contract observable', async () => {
@@ -211,23 +210,29 @@ describe('storefront layout', () => {
     expect(providerSnapshots).toEqual([baseShellSnapshot]);
     expect(screen.getByTestId('ogabassey-layout')).toHaveAttribute(
       'data-preload-hero-lcp',
-      'true'
+      'false'
+    );
+    expect(mockStorefrontHeroPreloadDecision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantSlug: 'ogabassey',
+        routeSlug: 'ogabassey',
+        templateId: 'ogabassey',
+      }),
+      undefined
     );
     expect(themeProviderRenders).toBe(0);
     expect(screen.getByText('Storefront content')).toBeInTheDocument();
   });
 
-  it('does not request OgaBassey hero preloads for non-home route paths', async () => {
+  it('can disable the dynamic hero preload decision for routes with static hints', async () => {
     vi.mocked(getStorefrontShellSnapshotBase).mockResolvedValue(
       baseShellSnapshotWithoutCategories
     );
     vi.mocked(getStorefrontShellSnapshot).mockResolvedValue(baseShellSnapshot);
-    mockHeaders.mockResolvedValue(
-      new Headers([['x-pathname', '/ogabassey/products/iphone-17-pro-max']])
-    );
 
     render(
       await StorefrontLayoutContent({
+        enableDynamicHeroPreloadDecision: false,
         params: Promise.resolve({ slug: 'ogabassey' }),
         children: <main>Storefront content</main>,
       })
@@ -237,6 +242,7 @@ describe('storefront layout', () => {
       'data-preload-hero-lcp',
       'false'
     );
+    expect(mockStorefrontHeroPreloadDecision).not.toHaveBeenCalled();
   });
 
   it('calls notFound before route content renders when the shell snapshot is missing', async () => {
@@ -287,8 +293,6 @@ describe('storefront layout', () => {
 describe('storefront layout metadata', () => {
   beforeEach(() => {
     vi.mocked(getRequestScopedMerchant).mockReset();
-    mockHeaders.mockReset();
-    mockHeaders.mockResolvedValue(new Headers());
   });
 
   it('uses the merchant domain as metadataBase for custom domains', async () => {

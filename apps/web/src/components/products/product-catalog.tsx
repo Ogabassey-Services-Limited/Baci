@@ -91,8 +91,12 @@ export function ProductCatalog({
   }, [dirtyProducts, products]);
 
   useEffect(() => {
-    if (debouncedDirtyProducts.size === 0) return;
+    if (debouncedDirtyProducts.size === 0) {
+      setIsSaving(false);
+      return;
+    }
 
+    const controller = new AbortController();
     setIsSaving(true);
     const saveChanges = async () => {
       try {
@@ -101,9 +105,17 @@ export function ProductCatalog({
             dirtyProductIds: debouncedDirtyProducts,
             dirtyProductSnapshots: dirtyProductSnapshotsRef.current,
             localProducts: localProductsRef.current,
+            signal: controller.signal,
             updateProduct,
           }
         );
+
+        // The component unmounted (or the debounced batch changed) while the
+        // save was in flight. Skip state updates and toasts to avoid touching
+        // a stale tree.
+        if (controller.signal.aborted) {
+          return;
+        }
 
         if (failedIds.length > 0) {
           console.error('Failed to save products', failedIds);
@@ -144,12 +156,35 @@ export function ProductCatalog({
           description: 'Could not save changes. Please try again.',
           variant: 'destructive',
         });
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        console.error('Unexpected product save failure', error);
+        toast({
+          title: 'Save Failed',
+          description: 'Could not save changes. Please try again.',
+          variant: 'destructive',
+        });
       } finally {
-        setIsSaving(false);
+        // Only clear the saving indicator if THIS effect is still the active
+        // one. If `debouncedDirtyProducts` changed mid-save, the cleanup
+        // function aborted us and a fresh effect already called
+        // `setIsSaving(true)` for the new batch — clearing it here would flash
+        // the indicator off even though the new save is in flight, leading
+        // users to believe their data is saved and navigate away prematurely.
+        if (!controller.signal.aborted) {
+          setIsSaving(false);
+        }
       }
     };
 
     void saveChanges();
+
+    return () => {
+      controller.abort();
+    };
   }, [debouncedDirtyProducts, updateProduct, toast]);
 
   const toggleProduct = (productId: string) => {

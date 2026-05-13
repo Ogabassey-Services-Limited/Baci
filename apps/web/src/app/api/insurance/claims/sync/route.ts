@@ -1,4 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { getCronSecret } from '@/env';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { syncClaimsStatus } from '@/services/insurance';
 
@@ -14,7 +16,18 @@ export async function POST(_request: NextRequest) {
       );
     }
 
-    // In a real scenario, verify admin auth or cron secret
+    // Verify cron secret
+    const cronSecret = _request.headers.get('x-cron-secret');
+    const expectedSecret = getCronSecret();
+
+    if (
+      !cronSecret ||
+      !expectedSecret ||
+      !constantTimeEqual(cronSecret, expectedSecret)
+    ) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     // merchantId is available via searchParams if needed in the future
     const result = await syncClaimsStatus();
 

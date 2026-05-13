@@ -4,11 +4,12 @@ import StorefrontLayout, {
   generateMetadata as generateStorefrontLayoutMetadata,
   generateViewport,
 } from '@/app/(storefront)/[slug]/layout';
-import { OgabasseyStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-static-resource-hints';
+import { StorefrontLayoutLoadingFallback } from '@/app/(storefront)/[slug]/storefront-layout-loading-fallback';
 import { OGABASSEY_URL } from '@/config/ogabassey';
 
+const OGABASSEY_DOMAIN_IDENTIFIER = new URL(OGABASSEY_URL).hostname;
 const OGABASSEY_DOMAIN_PARAMS = Promise.resolve({
-  slug: new URL(OGABASSEY_URL).hostname,
+  slug: OGABASSEY_DOMAIN_IDENTIFIER,
 });
 
 export { generateViewport };
@@ -32,11 +33,12 @@ export default function OgabasseyDomainLayout({
   children: ReactNode;
 }) {
   return (
-    <>
-      <OgabasseyStaticResourceHints />
-      <StorefrontLayout params={OGABASSEY_DOMAIN_PARAMS}>
-        {children}
-      </StorefrontLayout>
-    </>
+    <StorefrontLayout
+      enableDynamicHeroPreloadDecision={false}
+      loadingFallback={<StorefrontLayoutLoadingFallback />}
+      params={OGABASSEY_DOMAIN_PARAMS}
+    >
+      {children}
+    </StorefrontLayout>
   );
 }

@@ -99,4 +99,65 @@ describe('saveDirtyProducts', () => {
       skippedIds: [],
     });
   });
+
+  it('returns an empty result when the signal is already aborted', async () => {
+    const updateProduct = vi.fn().mockResolvedValue(undefined);
+    const controller = new AbortController();
+    controller.abort();
+
+    const result = await saveDirtyProducts({
+      dirtyProductIds: ['product-1'],
+      localProducts: [baseProduct],
+      signal: controller.signal,
+      updateProduct,
+    });
+
+    expect(updateProduct).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      failedIds: [],
+      fulfilledIds: [],
+      skippedIds: [],
+    });
+  });
+
+  it('returns an empty result when the signal aborts during in-flight dispatches', async () => {
+    // Honest semantics: `Promise.allSettled` over `.map()` fires every async
+    // callback synchronously up to the first await, so by the time the signal
+    // aborts, all `updateProduct` calls have already been issued. We don't
+    // claim to cancel them — we only swallow the results so the caller doesn't
+    // mutate stale state. This test pins that contract.
+    const controller = new AbortController();
+    const updateProduct = vi.fn().mockImplementation(() => {
+      controller.abort();
+      return Promise.resolve();
+    });
+
+    const secondProduct = {
+      ...baseProduct,
+      id: 'product-2',
+      name: 'Second Product',
+    };
+    const thirdProduct = {
+      ...baseProduct,
+      id: 'product-3',
+      name: 'Third Product',
+    };
+
+    const result = await saveDirtyProducts({
+      dirtyProductIds: ['product-1', 'product-2', 'product-3'],
+      localProducts: [baseProduct, secondProduct, thirdProduct],
+      signal: controller.signal,
+      updateProduct,
+    });
+
+    // All three dispatches fire (parallel) — we cannot cancel in-flight calls.
+    expect(updateProduct).toHaveBeenCalledTimes(3);
+    // But the post-batch abort check returns an empty result, so the caller
+    // sees no successes/failures and skips state updates.
+    expect(result).toEqual({
+      failedIds: [],
+      fulfilledIds: [],
+      skippedIds: [],
+    });
+  });
 });

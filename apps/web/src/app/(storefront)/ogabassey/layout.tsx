@@ -4,7 +4,7 @@ import StorefrontLayout, {
   generateMetadata as generateStorefrontLayoutMetadata,
   generateViewport,
 } from '@/app/(storefront)/[slug]/layout';
-import { OgabasseyStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-static-resource-hints';
+import { StorefrontLayoutLoadingFallback } from '@/app/(storefront)/[slug]/storefront-layout-loading-fallback';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
 const OGABASSEY_PARAMS = Promise.resolve({ slug: OGABASSEY_TEMPLATE_ID });
@@ -26,9 +26,12 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default function OgabasseyLayout({ children }: { children: ReactNode }) {
   return (
-    <>
-      <OgabasseyStaticResourceHints />
-      <StorefrontLayout params={OGABASSEY_PARAMS}>{children}</StorefrontLayout>
-    </>
+    <StorefrontLayout
+      enableDynamicHeroPreloadDecision={false}
+      loadingFallback={<StorefrontLayoutLoadingFallback />}
+      params={OGABASSEY_PARAMS}
+    >
+      {children}
+    </StorefrontLayout>
   );
 }
