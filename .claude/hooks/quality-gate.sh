@@ -9,8 +9,11 @@
 
 INPUT=$(cat)
 
-# CRITICAL: Prevent infinite loops — if Claude is already fixing from a prior block, let it stop
-if echo "$INPUT" | jq -e '.stop_hook_active == true' >/dev/null 2>&1; then
+# CRITICAL: Prevent infinite loops — if Claude is already fixing from a prior block, let it stop.
+# Use `printf '%s\n'` rather than `echo` to feed jq — some echo implementations
+# (notably macOS /bin/sh) interpret backslash escapes by default, which would
+# corrupt JSON containing escaped quotes/backslashes.
+if printf '%s\n' "$INPUT" | jq -e '.stop_hook_active == true' >/dev/null 2>&1; then
   exit 0
 fi
 
@@ -34,24 +37,35 @@ fi
 ACTIVE_DIR="$CLAUDE_PROJECT_DIR"
 
 # (1) Prefer Claude-reported session cwd, but ONLY when it differs from the
-# session root. In current Claude Code, `INPUT.cwd` is the session root —
-# the same as $CLAUDE_PROJECT_DIR — even when Bash commands have cd'd into
-# a worktree. Trusting cwd in that case defeats worktree resolution:
-# the hook resolves back to the session root and audits its stale WIP.
+# session root AND resolves to a git worktree top. In current Claude Code,
+# `INPUT.cwd` is the session root — the same as $CLAUDE_PROJECT_DIR — even
+# when Bash commands have cd'd into a worktree. Trusting cwd in that case
+# defeats worktree resolution.
 #
 # Only trust cwd when it's a different directory (e.g. future Claude Code
 # versions that report the agent's actual worktree, or agent SDKs that
 # explicitly set it). Otherwise fall through to the mtime scan.
-SESSION_CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)
+SESSION_CWD=$(printf '%s\n' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)
 if [ -n "$SESSION_CWD" ] && [ "$SESSION_CWD" != "$CLAUDE_PROJECT_DIR" ] && [ -d "$SESSION_CWD" ]; then
   WT_TOP=$(git -C "$SESSION_CWD" rev-parse --show-toplevel 2>/dev/null)
   [ -n "$WT_TOP" ] && ACTIVE_DIR="$WT_TOP"
-elif command -v git >/dev/null 2>&1; then
-  # (2) Mtime-scan fallback with recency window.
+fi
+
+# (2) Mtime-scan fallback. Runs whenever cwd resolution above didn't yield
+# a worktree top — either cwd wasn't set, equaled the session root, wasn't a
+# directory, or pointed somewhere outside any git tree (e.g. /tmp). In all of
+# those cases ACTIVE_DIR is still $CLAUDE_PROJECT_DIR, and we let the scan
+# pick a more specific recently-active worktree if one exists.
+if [ "$ACTIVE_DIR" = "$CLAUDE_PROJECT_DIR" ] && command -v git >/dev/null 2>&1; then
   newest_mtime=0
   newest_path=""
   now=$(date +%s)
+  # Validate QUALITY_GATE_RECENCY_WINDOW is numeric — a non-numeric override
+  # would otherwise crash the arithmetic comparison below and fail the hook.
   recency=${QUALITY_GATE_RECENCY_WINDOW:-3600}
+  case "$recency" in
+    ''|*[!0-9]*) recency=3600 ;;
+  esac
   while IFS= read -r line; do
     # Parse `worktree <path>` records. Strip the fixed prefix so paths
     # containing spaces survive intact.
