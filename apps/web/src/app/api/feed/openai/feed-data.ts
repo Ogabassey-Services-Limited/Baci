@@ -77,6 +77,8 @@ async function fetchActiveOpenAIFeedProducts(
 ): Promise<OpenAIFeedProduct[]> {
   const products: OpenAIFeedProduct[] = [];
   let cursor: OpenAIFeedProductCursor | null = null;
+  let readNullCreatedAtRows = false;
+  let nullCreatedAtCursorId: string | null = null;
 
   while (true) {
     let query = supabase
@@ -85,19 +87,38 @@ async function fetchActiveOpenAIFeedProducts(
       .eq('merchant_id', merchantId)
       .eq('status', 'active');
 
-    if (cursor) {
+    if (readNullCreatedAtRows) {
+      query = query.is('created_at', null);
+
+      if (nullCreatedAtCursorId) {
+        query = query.gt('id', nullCreatedAtCursorId);
+      }
+    } else {
+      query = query.not('created_at', 'is', null);
+    }
+
+    if (!readNullCreatedAtRows && cursor) {
       query = query.or(
         `created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.gt.${cursor.id})`
       );
     }
 
-    const { data, error } = await query
-      .order('created_at', { ascending: false })
-      .order('id', { ascending: true })
-      .limit(OPENAI_FEED_PRODUCTS_PAGE_SIZE);
+    const { data, error } = await (readNullCreatedAtRows
+      ? query
+          .order('id', { ascending: true })
+          .limit(OPENAI_FEED_PRODUCTS_PAGE_SIZE)
+      : query
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: true })
+          .limit(OPENAI_FEED_PRODUCTS_PAGE_SIZE));
 
     if (error) {
-      console.error('DB_PRODUCTS_ERROR:', { cursor, error, merchantId });
+      console.error('DB_PRODUCTS_ERROR:', {
+        cursor,
+        error,
+        merchantId,
+        readNullCreatedAtRows,
+      });
       throw new Error('Failed to fetch products');
     }
 
@@ -105,11 +126,27 @@ async function fetchActiveOpenAIFeedProducts(
     const remaining = MAX_OPENAI_FEED_PRODUCTS - products.length;
     products.push(...page.slice(0, remaining));
 
-    if (
-      page.length < OPENAI_FEED_PRODUCTS_PAGE_SIZE ||
-      products.length >= MAX_OPENAI_FEED_PRODUCTS
-    ) {
+    if (products.length >= MAX_OPENAI_FEED_PRODUCTS) {
       break;
+    }
+
+    if (page.length < OPENAI_FEED_PRODUCTS_PAGE_SIZE) {
+      if (!readNullCreatedAtRows) {
+        readNullCreatedAtRows = true;
+        nullCreatedAtCursorId = null;
+        continue;
+      }
+      break;
+    }
+
+    if (readNullCreatedAtRows) {
+      const lastNullCreatedAtProduct = page.at(-1);
+      if (!lastNullCreatedAtProduct?.id) {
+        break;
+      }
+
+      nullCreatedAtCursorId = lastNullCreatedAtProduct.id;
+      continue;
     }
 
     const nextCursor = getOpenAIFeedCursor(page);

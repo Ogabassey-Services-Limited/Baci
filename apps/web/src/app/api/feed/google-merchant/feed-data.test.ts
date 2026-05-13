@@ -34,13 +34,18 @@ let productsResult: ProductsResult;
 let manifestResult: ManifestResult;
 let variantRpcResult: VariantRpcResult;
 let offersResult: OffersResult;
+let nullCreatedAtProductsResult: ProductsResult;
 const mockManifestStatusEq = vi.fn();
 const mockOffersIn = vi.fn();
 const mockRpc = vi.fn();
 const mockOffersStatusEq = vi.fn();
+const mockProductsGt = vi.fn();
+const mockProductsIs = vi.fn();
 const mockProductsOr = vi.fn();
+const mockProductsNot = vi.fn();
 const mockProductsOrder = vi.fn();
 const mockProductsLimit = vi.fn();
+let productQueryMode: 'non_null' | 'null' = 'non_null';
 
 function createMockSupabase() {
   return {
@@ -62,15 +67,43 @@ function createMockSupabase() {
 
       if (table === 'products') {
         return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                or: mockProductsOr,
-                order: mockProductsOrder,
-                limit: mockProductsLimit,
-              }),
-            }),
-          }),
+          select: () => {
+            const query = {
+              eq: () => query,
+              not: (column: string, operator: string, value: unknown) => {
+                productQueryMode = 'non_null';
+                mockProductsNot(column, operator, value);
+                return query;
+              },
+              is: (column: string, value: unknown) => {
+                if (column === 'created_at' && value === null) {
+                  productQueryMode = 'null';
+                }
+                mockProductsIs(column, value);
+                return query;
+              },
+              gt: (column: string, value: string) => {
+                mockProductsGt(column, value);
+                return query;
+              },
+              or: (filter: string) => {
+                mockProductsOr(filter);
+                return query;
+              },
+              order: (
+                column: string,
+                options?: {
+                  ascending: boolean;
+                }
+              ) => {
+                mockProductsOrder(column, options);
+                return query;
+              },
+              limit: (value: number) => mockProductsLimit(value),
+            };
+
+            return query;
+          },
         };
       }
 
@@ -104,16 +137,14 @@ function createMockSupabase() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mockProductsOr.mockImplementation(() => ({
-    order: mockProductsOrder,
-    limit: mockProductsLimit,
-  }));
-  mockProductsOrder.mockImplementation(() => ({
-    order: mockProductsOrder,
-    limit: mockProductsLimit,
-  }));
+  productQueryMode = 'non_null';
   mockProductsLimit.mockImplementation(() => ({
-    overrideTypes: () => Promise.resolve(productsResult),
+    overrideTypes: () =>
+      Promise.resolve(
+        productQueryMode === 'null'
+          ? nullCreatedAtProductsResult
+          : productsResult
+      ),
   }));
 
   domainResult = {
@@ -130,6 +161,7 @@ beforeEach(() => {
     ],
     error: null,
   };
+  nullCreatedAtProductsResult = { data: [], error: null };
   manifestResult = {
     data: [
       {
@@ -277,11 +309,13 @@ describe('getCachedGoogleMerchantFeedData', () => {
       'ogabassey'
     );
 
+    expect(mockProductsLimit).toHaveBeenCalledTimes(3);
     expect(mockProductsLimit).toHaveBeenNthCalledWith(1, 1000);
     expect(mockProductsLimit).toHaveBeenNthCalledWith(2, 1000);
     expect(mockProductsOr).toHaveBeenCalledWith(
       'created_at.lt.2026-01-01T00:00:00.000Z,and(created_at.eq.2026-01-01T00:00:00.000Z,id.gt.product-999)'
     );
+    expect(mockProductsIs).toHaveBeenCalledWith('created_at', null);
     expect(mockProductsOrder).toHaveBeenCalledWith('created_at', {
       ascending: false,
     });
@@ -289,15 +323,33 @@ describe('getCachedGoogleMerchantFeedData', () => {
     expect(result.products).toHaveLength(1001);
   });
 
-  it('does not throw when a full page ends without a usable created_at cursor', async () => {
-    productsResult = {
-      data: Array.from({ length: 1000 }, (_, index) => ({
-        id: `product-${index}`,
-        name: `Phone ${index}`,
-        created_at: null,
-      })),
-      error: null,
-    };
+  it('continues pagination across null created_at pages', async () => {
+    productsResult = { data: [], error: null };
+    const nullFullPage = Array.from({ length: 1000 }, (_, index) => ({
+      id: `product-${index}`,
+      name: `Phone ${index}`,
+      created_at: null,
+    }));
+    mockProductsLimit
+      .mockImplementationOnce(() => ({
+        overrideTypes: () => Promise.resolve({ data: [], error: null }),
+      }))
+      .mockImplementationOnce(() => ({
+        overrideTypes: () =>
+          Promise.resolve({
+            data: nullFullPage,
+            error: null,
+          } satisfies ProductsResult),
+      }))
+      .mockImplementationOnce(() => ({
+        overrideTypes: () =>
+          Promise.resolve({
+            data: [
+              { id: 'product-1000', name: 'Phone 1000', created_at: null },
+            ],
+            error: null,
+          } satisfies ProductsResult),
+      }));
 
     const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
     const result = await getCachedGoogleMerchantFeedData(
@@ -305,8 +357,10 @@ describe('getCachedGoogleMerchantFeedData', () => {
       'ogabassey'
     );
 
-    expect(mockProductsLimit).toHaveBeenCalledTimes(1);
-    expect(result.products).toHaveLength(1000);
+    expect(mockProductsLimit).toHaveBeenCalledTimes(3);
+    expect(mockProductsIs).toHaveBeenCalledWith('created_at', null);
+    expect(mockProductsGt).toHaveBeenCalledWith('id', 'product-999');
+    expect(result.products).toHaveLength(1001);
   });
 
   it('caps product pagination at the variant RPC product-id limit', async () => {
