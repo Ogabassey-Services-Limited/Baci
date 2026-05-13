@@ -289,6 +289,26 @@ describe('getCachedGoogleMerchantFeedData', () => {
     expect(result.products).toHaveLength(1001);
   });
 
+  it('does not throw when a full page ends without a usable created_at cursor', async () => {
+    productsResult = {
+      data: Array.from({ length: 1000 }, (_, index) => ({
+        id: `product-${index}`,
+        name: `Phone ${index}`,
+        created_at: null,
+      })),
+      error: null,
+    };
+
+    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const result = await getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(mockProductsLimit).toHaveBeenCalledTimes(1);
+    expect(result.products).toHaveLength(1000);
+  });
+
   it('caps product pagination at the variant RPC product-id limit', async () => {
     const fullPage = Array.from({ length: 1000 }, (_, index) => ({
       id: `product-${index}`,

@@ -38,6 +38,22 @@ interface FeedProductCursor {
   id: string;
 }
 
+function getFeedProductCursor(
+  page: RawFeedProductRow[]
+): FeedProductCursor | null {
+  for (let index = page.length - 1; index >= 0; index -= 1) {
+    const row = page[index];
+    if (row?.created_at) {
+      return {
+        createdAt: row.created_at,
+        id: row.id,
+      };
+    }
+  }
+
+  return null;
+}
+
 function getJoinedCategory(
   product: RawFeedProductRow
 ): { name?: string; slug?: string } | null {
@@ -109,16 +125,13 @@ async function fetchActiveFeedProducts(
       break;
     }
 
-    const lastProduct = page.at(-1);
-    if (!lastProduct?.created_at) {
-      console.error('DB_PRODUCTS_CURSOR_ERROR:', { merchantId });
-      throw new Error('Failed to fetch products');
+    const nextCursor = getFeedProductCursor(page);
+    if (!nextCursor) {
+      console.warn('DB_PRODUCTS_CURSOR_WARNING:', { merchantId });
+      break;
     }
 
-    cursor = {
-      createdAt: lastProduct.created_at,
-      id: lastProduct.id,
-    };
+    cursor = nextCursor;
   }
 
   return products;

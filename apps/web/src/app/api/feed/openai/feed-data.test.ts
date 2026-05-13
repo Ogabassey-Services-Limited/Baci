@@ -204,6 +204,30 @@ describe('getCachedOpenAIFeedData', () => {
     expect(result.products).toHaveLength(1001);
   });
 
+  it('does not throw when a full page ends without a usable created_at cursor', async () => {
+    productsResult = {
+      data: Array.from({ length: 1000 }, (_, index) => ({
+        id: `prod-${index}`,
+        name: `Phone ${index}`,
+        created_at: null,
+        description: 'A phone',
+        slug: `phone-${index}`,
+        price: 50000,
+        stock: 5,
+        stock_quantity: 5,
+        manage_stock: true,
+        variants: [],
+      })),
+      error: null,
+    };
+
+    const { getCachedOpenAIFeedData } = await import('./feed-data');
+    const result = await getCachedOpenAIFeedData('merchant-1');
+
+    expect(mockProductsLimit).toHaveBeenCalledTimes(1);
+    expect(result.products).toHaveLength(1000);
+  });
+
   it('throws and logs when products query fails', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(
       // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console.error noise in tests

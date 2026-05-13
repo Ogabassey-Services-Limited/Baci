@@ -55,6 +55,22 @@ interface OpenAIFeedProductCursor {
   id: string;
 }
 
+function getOpenAIFeedCursor(
+  page: OpenAIFeedProduct[]
+): OpenAIFeedProductCursor | null {
+  for (let index = page.length - 1; index >= 0; index -= 1) {
+    const row = page[index];
+    if (row?.created_at) {
+      return {
+        createdAt: row.created_at,
+        id: row.id,
+      };
+    }
+  }
+
+  return null;
+}
+
 async function fetchActiveOpenAIFeedProducts(
   supabase: SupabaseClient,
   merchantId: string
@@ -96,16 +112,13 @@ async function fetchActiveOpenAIFeedProducts(
       break;
     }
 
-    const lastProduct = page.at(-1);
-    if (!lastProduct?.created_at) {
-      console.error('DB_PRODUCTS_CURSOR_ERROR:', { merchantId });
-      throw new Error('Failed to fetch products');
+    const nextCursor = getOpenAIFeedCursor(page);
+    if (!nextCursor) {
+      console.warn('DB_PRODUCTS_CURSOR_WARNING:', { merchantId });
+      break;
     }
 
-    cursor = {
-      createdAt: lastProduct.created_at,
-      id: lastProduct.id,
-    };
+    cursor = nextCursor;
   }
 
   return products;
