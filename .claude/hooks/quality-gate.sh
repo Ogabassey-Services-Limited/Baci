@@ -33,9 +33,17 @@ fi
 # preserved intact.
 ACTIVE_DIR="$CLAUDE_PROJECT_DIR"
 
-# (1) Prefer Claude-reported session cwd when present and inside a git tree.
+# (1) Prefer Claude-reported session cwd, but ONLY when it differs from the
+# session root. In current Claude Code, `INPUT.cwd` is the session root —
+# the same as $CLAUDE_PROJECT_DIR — even when Bash commands have cd'd into
+# a worktree. Trusting cwd in that case defeats worktree resolution:
+# the hook resolves back to the session root and audits its stale WIP.
+#
+# Only trust cwd when it's a different directory (e.g. future Claude Code
+# versions that report the agent's actual worktree, or agent SDKs that
+# explicitly set it). Otherwise fall through to the mtime scan.
 SESSION_CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)
-if [ -n "$SESSION_CWD" ] && [ -d "$SESSION_CWD" ]; then
+if [ -n "$SESSION_CWD" ] && [ "$SESSION_CWD" != "$CLAUDE_PROJECT_DIR" ] && [ -d "$SESSION_CWD" ]; then
   WT_TOP=$(git -C "$SESSION_CWD" rev-parse --show-toplevel 2>/dev/null)
   [ -n "$WT_TOP" ] && ACTIVE_DIR="$WT_TOP"
 elif command -v git >/dev/null 2>&1; then
