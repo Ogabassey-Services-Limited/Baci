@@ -2,44 +2,38 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  mockConnection,
-  mockPreconnect,
-  mockPrefetchDNS,
-  mockPreload,
-  mockGenerateStorefrontLayoutMetadata,
-  mockStorefrontLayout,
-} = vi.hoisted(() => ({
-  mockConnection: vi.fn(() => Promise.resolve()),
+const { mockGenerateStorefrontLayoutMetadata, mockStorefrontLayout } =
+  vi.hoisted(() => ({
+    mockGenerateStorefrontLayoutMetadata: vi.fn(
+      (_props: { params: Promise<{ slug: string }> }) =>
+        Promise.resolve({ manifest: null })
+    ),
+    mockStorefrontLayout: vi.fn(
+      ({
+        children,
+        enableDynamicHeroPreloadDecision: _enableDynamicHeroPreloadDecision,
+        loadingFallback: _loadingFallback,
+        params: _params,
+      }: {
+        children: ReactNode;
+        enableDynamicHeroPreloadDecision?: boolean;
+        loadingFallback?: ReactNode;
+        params: Promise<{ slug: string }>;
+      }) => <section aria-label="generic storefront layout">{children}</section>
+    ),
+  }));
+const { mockPreconnect, mockPrefetchDNS, mockPreload } = vi.hoisted(() => ({
   mockPreconnect: vi.fn(),
   mockPrefetchDNS: vi.fn(),
   mockPreload: vi.fn(),
-  mockGenerateStorefrontLayoutMetadata: vi.fn(
-    (_props: { params: Promise<{ slug: string }> }) =>
-      Promise.resolve({ manifest: null })
-  ),
-  mockStorefrontLayout: vi.fn(
-    ({
-      children,
-      params: _params,
-    }: {
-      children: ReactNode;
-      params: Promise<{ slug: string }>;
-    }) => <div data-testid="storefront-layout">{children}</div>
-  ),
 }));
 
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
-}));
-
+vi.mock('server-only', () => ({}));
 vi.mock('react-dom', () => ({
   preconnect: mockPreconnect,
   prefetchDNS: mockPrefetchDNS,
   preload: mockPreload,
 }));
-
-vi.mock('server-only', () => ({}));
 
 vi.mock('@/app/(storefront)/[slug]/layout', () => ({
   default: mockStorefrontLayout,
@@ -54,65 +48,33 @@ import OgabasseyLayout, {
   generateMetadata,
   generateViewport,
 } from '@/app/(storefront)/ogabassey/layout';
-import {
-  HERO_DESKTOP_LCP_SRC,
-  HERO_MOBILE_LCP_SRC,
-} from '@/components/storefront/ogabassey/components/hero-data';
-import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 
 describe('OgabasseyLayout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('delegates to the generic storefront layout without forcing a dynamic connection', async () => {
+  it('renders the storefront layout with static preload decision disabled', async () => {
     const result = OgabasseyLayout({
       children: <p>Home content</p>,
     });
 
     const { container } = render(result);
 
-    expect(mockConnection).not.toHaveBeenCalled();
-    expect(mockPrefetchDNS).toHaveBeenCalledWith(OGABASSEY_CDN_ORIGIN);
-    expect(mockPreconnect).toHaveBeenCalledWith(OGABASSEY_CDN_ORIGIN);
-    expect(mockPreload).toHaveBeenCalledWith(
-      HERO_DESKTOP_LCP_SRC,
-      expect.objectContaining({
-        as: 'image',
-        fetchPriority: 'high',
-        media: '(min-width: 768px)',
-        type: 'image/avif',
-      })
-    );
-    expect(mockPreload).toHaveBeenCalledWith(
-      HERO_MOBILE_LCP_SRC,
-      expect.objectContaining({
-        as: 'image',
-        fetchPriority: 'high',
-        media: '(max-width: 767px)',
-        type: 'image/avif',
-      })
-    );
-    const storefrontLayoutCallOrder =
-      mockStorefrontLayout.mock.invocationCallOrder[0] ??
-      Number.POSITIVE_INFINITY;
-    const staticHintCallOrders = [
-      ...mockPrefetchDNS.mock.invocationCallOrder,
-      ...mockPreconnect.mock.invocationCallOrder,
-      ...mockPreload.mock.invocationCallOrder,
-    ];
-    expect(Math.max(...staticHintCallOrders)).toBeLessThan(
-      storefrontLayoutCallOrder
-    );
-    expect(container.firstElementChild).toBe(
-      screen.getByTestId('storefront-layout')
-    );
-    expect(screen.getByTestId('storefront-layout')).toHaveTextContent(
-      'Home content'
-    );
+    expect(mockStorefrontLayout).toHaveBeenCalledOnce();
+    const storefrontLayout = screen.getByRole('region', {
+      name: /generic storefront layout/i,
+    });
+    expect(container.firstElementChild).toBe(storefrontLayout);
+    expect(storefrontLayout).toHaveTextContent('Home content');
 
     const props = mockStorefrontLayout.mock.calls[0]?.[0];
+    expect(props?.enableDynamicHeroPreloadDecision).toBe(false);
+    expect(props?.loadingFallback).toBeDefined();
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey' });
+    expect(mockPrefetchDNS).not.toHaveBeenCalled();
+    expect(mockPreconnect).not.toHaveBeenCalled();
+    expect(mockPreload).not.toHaveBeenCalled();
   });
 
   it('keeps the storefront viewport settings', () => {

@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type React from 'react';
 import { Suspense } from 'react';
@@ -15,7 +14,7 @@ import type { MerchantData } from '@/hooks/merchant/types';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { buildStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
-import { isStorefrontHomePath } from './storefront-home-path';
+import { StorefrontHeroPreloadDecision } from './storefront-hero-preload-decision';
 import {
   getStorefrontShellSnapshot,
   getStorefrontShellSnapshotBase,
@@ -226,6 +225,7 @@ function StorefrontThemeFrame({ children }: { children: React.ReactNode }) {
 
 export async function StorefrontLayoutContent(props: {
   children: React.ReactNode;
+  enableDynamicHeroPreloadDecision?: boolean;
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await props.params;
@@ -240,14 +240,11 @@ export async function StorefrontLayoutContent(props: {
     notFound();
   }
 
-  const headersList = await headers();
-  const preloadHeroLcpImages =
-    shellSnapshotBase.merchant.template_id === OGABASSEY_TEMPLATE_ID &&
-    isStorefrontHomePath({
-      merchantSlug: shellSnapshotBase.merchant.slug,
-      pathname: headersList.get('x-pathname'),
-      routeSlug: slug,
-    });
+  const enableDynamicHeroPreloadDecision =
+    props.enableDynamicHeroPreloadDecision ?? true;
+  const shouldResolveHeroPreloadDecision =
+    enableDynamicHeroPreloadDecision &&
+    shellSnapshotBase.merchant.template_id === OGABASSEY_TEMPLATE_ID;
 
   const isDevelopment = process.env.NODE_ENV === 'development';
   if (!shellSnapshotBase.merchant.is_published && !isDevelopment) {
@@ -265,23 +262,36 @@ export async function StorefrontLayoutContent(props: {
   }
 
   return (
-    <StorefrontShellFrame
-      preloadHeroLcpImages={preloadHeroLcpImages}
-      shellSnapshot={shellSnapshot}
-    >
-      {props.children}
-    </StorefrontShellFrame>
+    <>
+      {shouldResolveHeroPreloadDecision ? (
+        <StorefrontHeroPreloadDecision
+          merchantSlug={shellSnapshotBase.merchant.slug}
+          routeSlug={slug}
+          templateId={shellSnapshotBase.merchant.template_id}
+        />
+      ) : null}
+      <StorefrontShellFrame
+        preloadHeroLcpImages={false}
+        shellSnapshot={shellSnapshot}
+      >
+        {props.children}
+      </StorefrontShellFrame>
+    </>
   );
 }
 
 export default function StorefrontLayout(props: {
   children: React.ReactNode;
+  enableDynamicHeroPreloadDecision?: boolean;
+  loadingFallback?: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
+  const { loadingFallback = null, ...contentProps } = props;
+
   return (
     <StorefrontThemeFrame>
-      <Suspense fallback={null}>
-        <StorefrontLayoutContent {...props} />
+      <Suspense fallback={loadingFallback}>
+        <StorefrontLayoutContent {...contentProps} />
       </Suspense>
     </StorefrontThemeFrame>
   );
