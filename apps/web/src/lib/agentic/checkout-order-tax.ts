@@ -130,16 +130,37 @@ export async function computeAgenticOrderTax({
     );
   }
 
-  const variantsQuery: {
+  // Codex P1 (PR #1622 round 5, second iteration): the agentic
+  // scoped supabase client's JWT uses `sub = merchant_id`. The
+  // `product_variants` RLS policies (baseline:13970-14302) all key
+  // on `merchants.user_id = auth.uid()`, so a direct SELECT here
+  // returns ZERO rows in agentic context — the helper would fall
+  // back to base product price, the RPC's per-line trigger would
+  // compute against the true variant `price_override`, and the
+  // parity guard would RAISE `tax_amount_mismatch` for every
+  // variant-priced cart.
+  //
+  // Route through `get_storefront_product_variants` (baseline:3731):
+  // SECURITY DEFINER, granted to anon/authenticated/service_role,
+  // filters to active products + published merchants — exactly the
+  // shape an agentic checkout is bound to. The function returns
+  // more fields than we need; we only consume `id` and
+  // `price_override`, so the runtime row shape is compatible with
+  // `VariantPriceRow`.
+  // The generated Supabase types for `get_storefront_product_variants`
+  // mis-describe the RPC return as a single row (`RETURNS TABLE(...)`
+  // generators sometimes do this for SETOF functions). The runtime
+  // shape is a row array; we cast through `unknown` to a narrow type
+  // exposing only the fields we read.
+  const variantsRpcResult = variantIds.length
+    ? await supabase.rpc('get_storefront_product_variants', {
+        p_product_ids: productIds,
+      })
+    : { data: [], error: null };
+  const variantsQuery = variantsRpcResult as unknown as {
     data: VariantPriceRow[] | null;
     error: { message: string } | null;
-  } = variantIds.length
-    ? await supabase
-        .from('product_variants')
-        .select('id, price_override')
-        .in('id', variantIds)
-        .returns<VariantPriceRow[]>()
-    : { data: [], error: null };
+  };
 
   if (variantsQuery.error) {
     throw new Error(

@@ -41,20 +41,24 @@ function buildSupabaseMock(handlers: {
         }),
       };
     }
-    if (table === 'product_variants') {
-      return {
-        select: () => ({
-          in: () => ({
-            returns: () =>
-              Promise.resolve({ data: handlers.variants ?? [], error: null }),
-          }),
-        }),
-      };
-    }
     throw new Error(`Unexpected table: ${table}`);
   };
 
-  return { from } as unknown as SupabaseClient;
+  // B3.5 Codex P1 round 5 (second iteration): variant lookup now
+  // routes through `get_storefront_product_variants` (SECURITY
+  // DEFINER) because the agentic JWT can't read product_variants
+  // via direct SELECT. Mock the RPC accordingly.
+  const rpc = (name: string) => {
+    if (name === 'get_storefront_product_variants') {
+      return Promise.resolve({
+        data: handlers.variants ?? [],
+        error: null,
+      });
+    }
+    throw new Error(`Unexpected rpc: ${name}`);
+  };
+
+  return { from, rpc } as unknown as SupabaseClient;
 }
 
 describe('computeAgenticOrderTax', () => {
@@ -353,7 +357,7 @@ describe('computeAgenticOrderTax', () => {
     ).rejects.toThrow(/Failed to load products for VAT computation/);
   });
 
-  it('throws when the product_variants lookup returns an error (Codex P2)', async () => {
+  it('throws when the get_storefront_product_variants RPC returns an error (Codex P2)', async () => {
     const supabase = {
       from: (table: string) => {
         if (table === 'merchants') {
@@ -389,20 +393,16 @@ describe('computeAgenticOrderTax', () => {
             }),
           };
         }
-        if (table === 'product_variants') {
-          return {
-            select: () => ({
-              in: () => ({
-                returns: () =>
-                  Promise.resolve({
-                    data: null,
-                    error: { message: 'variants query failed' },
-                  }),
-              }),
-            }),
-          };
-        }
         throw new Error('unexpected');
+      },
+      rpc: (name: string) => {
+        if (name === 'get_storefront_product_variants') {
+          return Promise.resolve({
+            data: null,
+            error: { message: 'variants rpc failed' },
+          });
+        }
+        throw new Error('unexpected rpc');
       },
     } as unknown as SupabaseClient;
 

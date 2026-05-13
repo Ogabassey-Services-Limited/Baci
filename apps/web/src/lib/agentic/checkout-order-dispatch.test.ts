@@ -39,7 +39,7 @@ function makeFromStub(opts?: { vatStatus?: 'registered' | 'not_registered' }) {
         }),
       };
     }
-    if (table === 'products' || table === 'product_variants') {
+    if (table === 'products') {
       return {
         select: () => ({
           in: () => ({
@@ -159,26 +159,29 @@ describe('agentic checkout order dispatch', () => {
           }),
         };
       }
-      if (table === 'product_variants') {
-        return {
-          select: () => ({
-            in: () => ({
-              returns: () => Promise.resolve({ data: [], error: null }),
-            }),
-          }),
-        };
-      }
       throw new Error('unexpected');
     };
 
+    // Per round-5 RLS fix: variant lookup goes through
+    // `get_storefront_product_variants` RPC, not from().select().
+    // The order RPC still routes through `rpc()` so we share one
+    // spy with name-based dispatch.
+    const originalRpc = rpc;
+    const rpcWithVariants = vi.fn((name: string, args?: unknown) => {
+      if (name === 'get_storefront_product_variants') {
+        return Promise.resolve({ data: [], error: null });
+      }
+      return originalRpc(name, args);
+    }) as unknown as typeof rpc;
+
     const result = await createAgenticCheckoutOrder(orderPayload(), {
       from,
-      rpc,
+      rpc: rpcWithVariants,
     } as unknown as SupabaseClient);
 
     expect(result.ok).toBe(true);
     // ROUND(ROUND(1 * 500000, 2) * 7.5 / 100, 2) = 37500
-    expect(rpc).toHaveBeenCalledWith(
+    expect(rpcWithVariants).toHaveBeenCalledWith(
       'create_storefront_order',
       expect.objectContaining({
         p_tax_amount: 37_500,
