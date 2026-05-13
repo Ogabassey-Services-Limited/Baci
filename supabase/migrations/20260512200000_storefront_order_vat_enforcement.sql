@@ -353,7 +353,48 @@ BEGIN
 
   IF v_merchant_vat_status = 'registered' THEN
     IF v_tax_basis = 'exclusive' THEN
-      v_expected_tax := round(v_subtotal * v_merchant_vat_rate / 100, 2);
+      -- Codex P1 (PR #1622): compute expected tax PER-LINE,
+      -- matching the post-insert `update_order_tax_totals`
+      -- trigger formula exactly. The trigger sums
+      -- `order_items.vat_amount`, which the per-row defaults
+      -- trigger sets to
+      --   ROUND(line_extension * vat_rate / 100, 2)
+      -- ONLY for category 'S' items (standard-rated);
+      -- category 'O'/'Z' (zero-rated / exempt) and uncategorized
+      -- items contribute 0. The prior uniform
+      --   round(v_subtotal * v_merchant_vat_rate / 100, 2)
+      -- formula treated every item as 'S' — so a mixed-category
+      -- order would PASS the parity check at insert time, then
+      -- the post-insert trigger persisted a smaller tax_amount +
+      -- total, the RPC re-read those, the gateway charged the
+      -- reduced figure, and the customer paid less than they
+      -- were quoted. That defeated the entire parity guard.
+      --
+      -- Match the trigger byte-for-byte:
+      --   line_extension := ROUND(quantity * price, 2)
+      --   vat_amount     := ROUND(line_extension * rate / 100, 2)
+      -- where `price = COALESCE(price_override, base_price)` (the
+      -- exact value persisted to `order_items.price`) and
+      -- `rate = COALESCE(product.vat_rate, merchant.vat_rate)`
+      -- (the trigger's NEW.vat_rate fallback).
+      SELECT COALESCE(SUM(
+        CASE
+          WHEN p.vat_category_code = 'S' THEN
+            ROUND(
+              ROUND(
+                t.quantity * COALESCE(t.price_override, t.base_price),
+                2
+              )
+              * COALESCE(p.vat_rate, v_merchant_vat_rate) / 100,
+              2
+            )
+          ELSE 0
+        END
+      ), 0)
+        INTO v_expected_tax
+      FROM tmp_storefront_order_items t
+      JOIN products p ON p.id = t.product_id;
+
       IF ABS(v_tax_amount - v_expected_tax) > 1 THEN
         -- Use USING DETAIL so the message itself is the stable error
         -- code (matches the `clientErrorCodes.includes(message)` check

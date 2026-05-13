@@ -344,17 +344,28 @@ describe('agentic storefront order RPC contract — B3.5 VAT enforcement', () =>
   it('enforces tax_amount_mismatch for VAT-registered + exclusive merchants', () => {
     const sql = readLatestStorefrontOrderRpcMigrationSql();
 
-    // The expected_tax formula MUST match the trigger's downstream
-    // VAT calculation. Both round to 2dp on (subtotal * vat_rate /
-    // 100). The ±1 NGN tolerance absorbs rounding drift between the
-    // client's calculate-commerce action layer and the RPC.
+    // Codex P1 (PR #1622 round 3): the expected_tax formula MUST
+    // match the post-insert `update_order_tax_totals` trigger
+    // byte-for-byte. The trigger sums `order_items.vat_amount`
+    // which is `ROUND(line_extension * vat_rate / 100, 2)` for
+    // category 'S' items and 0 otherwise. The prior uniform
+    // `round(subtotal * vat_rate / 100, 2)` formula treated every
+    // item as 'S' and over-counted for mixed-category orders.
+    // Pin the per-line SUM(CASE ... 'S' ... ELSE 0) shape so a
+    // future "simplification" can't silently revert this.
     expect(sql).toMatch(
-      /v_expected_tax\s*:=\s*round\(\s*v_subtotal\s*\*\s*v_merchant_vat_rate\s*\/\s*100\s*,\s*2\s*\)/i
+      /SELECT\s+COALESCE\(\s*SUM\([\s\S]*?CASE[\s\S]*?WHEN\s+p\.vat_category_code\s*=\s*'S'[\s\S]*?ROUND\([\s\S]*?ELSE\s+0[\s\S]*?\)\s*,\s*0\s*\)[\s\S]*?INTO\s+v_expected_tax[\s\S]*?FROM\s+tmp_storefront_order_items\s+t\s+JOIN\s+products\s+p/i
     );
     expect(sql).toMatch(
       /ABS\(\s*v_tax_amount\s*-\s*v_expected_tax\s*\)\s*>\s*1/i
     );
     expect(sql).toMatch(/RAISE EXCEPTION 'tax_amount_mismatch'/i);
+
+    // The old uniform formula must NOT come back — it's the exact
+    // bug Codex P1 round 3 was filed against.
+    expect(sql).not.toMatch(
+      /v_expected_tax\s*:=\s*round\(\s*v_subtotal\s*\*\s*v_merchant_vat_rate\s*\/\s*100\s*,\s*2\s*\)/i
+    );
   });
 
   it('rejects nonzero tax for non-VAT merchants regardless of basis', () => {
