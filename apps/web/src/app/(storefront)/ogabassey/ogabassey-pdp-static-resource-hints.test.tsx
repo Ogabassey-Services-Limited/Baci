@@ -105,4 +105,30 @@ describe('OgabasseyPdpStaticResourceHints', () => {
       )
     ).toHaveLength(0);
   });
+
+  it('still emits preload hints when preload type cannot be inferred', () => {
+    mockGetImageProps.mockImplementationOnce(() => ({
+      props: {
+        sizes: '(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1400px',
+        src: '/image/banner-without-format',
+        srcSet:
+          '/image/banner-without-format,width=640 640w, /image/banner-without-format,width=1080 1080w',
+      },
+    }));
+
+    const html = renderToString(<OgabasseyPdpStaticResourceHints />);
+    const template = document.createElement('template');
+    template.innerHTML = html;
+    const preloads = Array.from(
+      template.content.querySelectorAll('link[rel="preload"]')
+    );
+
+    expect(preloads.length).toBeGreaterThan(0);
+    const bannerPreload = preloads[0];
+    expect(bannerPreload?.getAttribute('as')).toBe('image');
+    expect(bannerPreload?.getAttribute('imagesrcset')).toContain(
+      'banner-without-format'
+    );
+    expect(bannerPreload?.getAttribute('type')).toBeNull();
+  });
 });

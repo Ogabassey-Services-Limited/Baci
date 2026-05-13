@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { type ReactNode, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
 const {
   mockNormalizeStorefrontProductVariants,
@@ -501,7 +502,7 @@ describe('[category]/[productSlug] page render', () => {
     mockNormalizeStorefrontProductVariants.mockReturnValue([]);
     mockGetRequestScopedMerchant.mockResolvedValue({
       ...baseMerchant,
-      template_id: 'ogabassey',
+      template_id: OGABASSEY_TEMPLATE_ID,
     });
     mockGetCachedProductWithDetails.mockResolvedValue(
       categorizedDetailedProduct
@@ -563,7 +564,7 @@ describe('[category]/[productSlug] page render', () => {
   it('does not mount OgaBassey PDP preload hints for generic template product pages', async () => {
     mockGetRequestScopedMerchant.mockResolvedValue({
       ...baseMerchant,
-      template_id: 'default',
+      template_id: `${OGABASSEY_TEMPLATE_ID}_other`,
     });
 
     render(
