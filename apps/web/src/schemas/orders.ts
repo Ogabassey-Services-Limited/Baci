@@ -128,6 +128,24 @@ const orderCreateSchemaBase = z.object({
   shipping_fee: z.coerce.number().nonnegative().default(0),
   discount_amount: z.coerce.number().nonnegative().default(0),
   tax_amount: z.coerce.number().nonnegative().default(0),
+  // B3.5 (Δ-39): tax_basis and gift_wrapping_fee are RPC params with
+  // sensible defaults (exclusive / 0). The Zod schema mirrors the
+  // RPC defaults so legacy callers that omit them keep working;
+  // VAT-aware callers (calculateCommerce-driven storefront) send
+  // both explicitly. `expected_total` and `client_total` carry the
+  // client's locally-computed total — the API checks parity against
+  // the server-recomputed `orders.total` and rejects mismatches.
+  tax_basis: z.enum(['exclusive', 'inclusive']).default('exclusive'),
+  gift_wrapping_fee: z.coerce.number().nonnegative().default(0),
+  // Use a non-coercing schema for parity-check fields. `z.coerce` runs
+  // `Number(value)`, and `Number(null)` is `0` — so a client sending
+  // `expected_total: null` would silently become `0`, and the RPC's
+  // parity check would compare server total to 0 → guaranteed
+  // `order_total_mismatch` 400 even though the client just meant
+  // "no expected total". `.nullable()` keeps null distinct from
+  // missing, and the API treats both as "skip the parity check".
+  expected_total: z.number().nonnegative().nullable().optional(),
+  client_total: z.number().nonnegative().nullable().optional(),
   payment_method: z
     .string()
     .min(1)

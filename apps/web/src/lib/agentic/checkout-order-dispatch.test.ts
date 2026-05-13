@@ -12,10 +12,54 @@ vi.mock('@/lib/agentic/webhooks', () => ({
 }));
 
 vi.mock('@/lib/logger', () => ({
-  logger: { error: vi.fn() },
+  logger: { error: vi.fn(), warn: vi.fn() },
 }));
 
 const merchantId = '11111111-1111-4111-8111-111111111111';
+
+// B3.5 round 7 (CodeRabbit High): the dispatch passes the
+// caller-supplied scoped client straight through to the tax
+// helper — no service-role escalation in the Next.js layer. The
+// supabase mock needs to handle:
+//   * `merchants.select(...).eq(...).maybeSingle()` (helper)
+//   * `products.select(...).eq(...).in(...).returns()` (helper)
+//   * `rpc('get_order_variant_overrides', ...)` (helper)
+//   * `rpc('create_storefront_order', ...)` (dispatch's order create)
+//
+// `makeFromStub` returns a per-table `from` that defaults to
+// "merchant not registered" and "no products", so the helper
+// short-circuits to tax 0 and existing dispatch assertions are
+// unchanged.
+function makeFromStub(opts?: { vatStatus?: 'registered' | 'not_registered' }) {
+  const vatStatus = opts?.vatStatus ?? 'not_registered';
+  return (table: string) => {
+    if (table === 'merchants') {
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () =>
+              Promise.resolve({
+                data: { vat_registration_status: vatStatus },
+                error: null,
+              }),
+          }),
+        }),
+      };
+    }
+    if (table === 'products') {
+      return {
+        select: () => ({
+          eq: () => ({
+            in: () => ({
+              returns: () => Promise.resolve({ data: [], error: null }),
+            }),
+          }),
+        }),
+      };
+    }
+    throw new Error(`Unexpected table in dispatch test: ${table}`);
+  };
+}
 
 function orderPayload() {
   return {
@@ -54,6 +98,7 @@ describe('agentic checkout order dispatch', () => {
 
     const result = await createAgenticCheckoutOrder(orderPayload(), {
       rpc,
+      from: makeFromStub(),
     } as unknown as SupabaseClient);
 
     expect(result).toMatchObject({
@@ -78,6 +123,239 @@ describe('agentic checkout order dispatch', () => {
     );
   });
 
+  it('forwards computed VAT as p_tax_amount for VAT-registered merchants (Codex P1 round 5)', async () => {
+    // The agentic `calculateCheckoutSession` always emits `tax: 0`,
+    // so `body.tax_amount` arrives at the RPC as 0. Without this
+    // recompute, a VAT-registered merchant gets `tax_amount_mismatch`
+    // → 400 → broken checkout. Round 7: the helper now reads
+    // through the caller's scoped client (no admin client), so the
+    // VAT fixture is wired on the `supabase` passed to
+    // `createAgenticCheckoutOrder`.
+    const from = (table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: { vat_registration_status: 'registered' },
+                  error: null,
+                }),
+            }),
+          }),
+        };
+      }
+      if (table === 'products') {
+        return {
+          select: () => ({
+            eq: () => ({
+              in: () => ({
+                returns: () =>
+                  Promise.resolve({
+                    data: [
+                      {
+                        id: 'product-1',
+                        price: 500_000,
+                        vat_category_code: 'S',
+                        vat_rate: 7.5,
+                      },
+                    ],
+                    error: null,
+                  }),
+              }),
+            }),
+          }),
+        };
+      }
+      throw new Error('unexpected');
+    };
+
+    const rpc = vi.fn((name: string, _args?: unknown) => {
+      if (name === 'get_order_variant_overrides') {
+        return Promise.resolve({ data: [], error: null });
+      }
+      if (name === 'create_storefront_order') {
+        return Promise.resolve({
+          data: [{ id: 'order-vat-1', total: 537_500 }],
+          error: null,
+        });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
+
+    const result = await createAgenticCheckoutOrder(orderPayload(), {
+      from,
+      rpc,
+    } as unknown as SupabaseClient);
+
+    expect(result.ok).toBe(true);
+    // ROUND(ROUND(1 * 500000, 2) * 7.5 / 100, 2) = 37500
+    expect(rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({
+        p_tax_amount: 37_500,
+      })
+    );
+  });
+
+  it('returns 500 when the VAT recompute throws (Codex P2 round 5)', async () => {
+    // Distinct from the RPC-level 400 path: an infra failure in
+    // the per-line VAT lookup (DB/RLS error) must surface as 500
+    // so the GPT-agent caller retries. Round 7: the helper reads
+    // through the caller's scoped client, so we trigger the
+    // failure on the `merchants` lookup of THAT client.
+    const from = (table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: null,
+                  error: { message: 'connection reset' },
+                }),
+            }),
+          }),
+        };
+      }
+      throw new Error('unexpected');
+    };
+
+    const rpc = vi.fn();
+    const result = await createAgenticCheckoutOrder(orderPayload(), {
+      from,
+      rpc,
+    } as unknown as SupabaseClient);
+
+    expect(result).toMatchObject({
+      error: 'Unable to compute order tax',
+      ok: false,
+      orderId: undefined,
+      status: 500,
+    });
+    expect(rpc).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Agentic checkout VAT recompute failed',
+      })
+    );
+  });
+
+  it('forwards body.expected_total to p_expected_total when set (Codex P1 round 8)', async () => {
+    // When the agentic caller supplies an expected_total (future
+    // VAT-aware session calc), it must reach the RPC so the
+    // `order_total_mismatch` parity guard fires. When absent, we
+    // pass null (parity check skipped). Pin both branches.
+    const rpc = vi.fn().mockResolvedValue({
+      data: [{ id: 'order-et-1', total: 500_000 }],
+      error: null,
+    });
+
+    const supabase = {
+      from: makeFromStub(),
+      rpc,
+    } as unknown as SupabaseClient;
+
+    await createAgenticCheckoutOrder(
+      { ...orderPayload(), expected_total: 500_000 },
+      supabase
+    );
+    expect(rpc).toHaveBeenLastCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({ p_expected_total: 500_000 })
+    );
+
+    rpc.mockClear();
+    await createAgenticCheckoutOrder(orderPayload(), supabase);
+    expect(rpc).toHaveBeenLastCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({ p_expected_total: null })
+    );
+  });
+
+  it('forwards body.gift_wrapping_fee through to p_gift_wrapping_fee (Codex P1 round 7)', async () => {
+    // Pre-fix the dispatch silently dropped `p_gift_wrapping_fee`
+    // — the RPC used its default 0 and any agentic caller that
+    // started passing the field would have under-quoted. Defense-
+    // in-depth contract: the dispatch must forward whatever Zod
+    // produced (defaulted to 0, but a non-zero value must reach
+    // the RPC unchanged).
+    const rpc = vi.fn().mockResolvedValue({
+      data: [{ id: 'order-gw-1', total: 501_000 }],
+      error: null,
+    });
+
+    const result = await createAgenticCheckoutOrder(
+      { ...orderPayload(), gift_wrapping_fee: 1_000 },
+      {
+        from: makeFromStub(),
+        rpc,
+      } as unknown as SupabaseClient
+    );
+
+    expect(result.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({ p_gift_wrapping_fee: 1_000 })
+    );
+  });
+
+  it('maps a 22P02 UUID parse error from the tax helper to 400 invalid_items (Codex P2 round 7)', async () => {
+    // Pre-round-7 a malformed item id surfaced as a 500
+    // (Unable to compute order tax) because we caught ALL helper
+    // errors and reported infra failure. Round 7: helper reads
+    // through the caller's scoped client; trigger 22P02 on the
+    // products query of THAT client.
+    const from = (table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: { vat_registration_status: 'registered' },
+                  error: null,
+                }),
+            }),
+          }),
+        };
+      }
+      if (table === 'products') {
+        return {
+          select: () => ({
+            eq: () => ({
+              in: () => ({
+                returns: () =>
+                  Promise.resolve({
+                    data: null,
+                    error: {
+                      code: '22P02',
+                      message: 'invalid input syntax for type uuid: "bogus"',
+                    },
+                  }),
+              }),
+            }),
+          }),
+        };
+      }
+      throw new Error('unexpected');
+    };
+
+    const rpc = vi.fn();
+    const result = await createAgenticCheckoutOrder(orderPayload(), {
+      from,
+      rpc,
+    } as unknown as SupabaseClient);
+
+    expect(result).toMatchObject({
+      error: 'invalid_items',
+      ok: false,
+      orderId: undefined,
+      status: 400,
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it('returns the order RPC error without creating a false success', async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: null,
@@ -86,6 +364,7 @@ describe('agentic checkout order dispatch', () => {
 
     const result = await createAgenticCheckoutOrder(orderPayload(), {
       rpc,
+      from: makeFromStub(),
     } as unknown as SupabaseClient);
 
     expect(result).toMatchObject({
@@ -110,6 +389,7 @@ describe('agentic checkout order dispatch', () => {
 
     const result = await createAgenticCheckoutOrder(orderPayload(), {
       rpc,
+      from: makeFromStub(),
     } as unknown as SupabaseClient);
 
     expect(result).toMatchObject({
@@ -137,6 +417,7 @@ describe('agentic checkout order dispatch', () => {
 
     const result = await createAgenticCheckoutOrder(orderPayload(), {
       rpc,
+      from: makeFromStub(),
     } as unknown as SupabaseClient);
 
     expect(result).toMatchObject({
@@ -175,7 +456,7 @@ describe('agentic checkout order dispatch', () => {
           },
         ],
       },
-      { rpc } as unknown as SupabaseClient
+      { from: makeFromStub(), rpc } as unknown as SupabaseClient
     );
 
     expect(rpc).toHaveBeenCalledWith(

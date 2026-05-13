@@ -55,6 +55,8 @@ describe('handlePlaceOrder', () => {
     cartTotal: 10000,
     deliveryCost: 2000,
     total: 12000,
+    taxAmount: 0,
+    giftWrappingCost: 0,
     selectedQuoteId: 'q1',
     shippingQuotes: [
       {
@@ -264,6 +266,46 @@ describe('handlePlaceOrder', () => {
       expect(mockFetch).toHaveBeenCalledWith(
         '/api/orders',
         expect.objectContaining({ method: 'POST' }),
+      );
+    });
+
+    it('includes B3.5 VAT + gift wrapping + parity fields in the POST body', async () => {
+      // Codex P1 (PR #1622): the handler must propagate the
+      // calculate-commerce VAT figure, the gift wrap, and the
+      // client's expected_total/client_total so the RPC's parity
+      // check (Δ-42 + Δ-39) has a non-NULL value to compare
+      // against. Without this assertion a future refactor that
+      // drops one of these fields would silently revert B3.5's
+      // fail-closed semantics — the RPC would default tax_amount
+      // to 0 and the parity check would never run.
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          order: { id: 'new-order-b35' },
+          wallet: null,
+          amountDueToGateway: 12500,
+        }),
+      });
+
+      const opts = buildOpts({
+        taxAmount: 500,
+        giftWrappingCost: 300,
+        cartTotal: 10000,
+        deliveryCost: 2000,
+        total: 12800,
+      });
+      await handlePlaceOrder(opts);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const fetchBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(fetchBody).toEqual(
+        expect.objectContaining({
+          tax_amount: 500,
+          tax_basis: 'exclusive',
+          gift_wrapping_fee: 300,
+          expected_total: 12800,
+          client_total: 12800,
+        }),
       );
     });
 

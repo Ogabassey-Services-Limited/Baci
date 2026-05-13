@@ -181,4 +181,116 @@ describe('orderCreateSchema', () => {
       expect(result.data.items[0].condition).toBe('open_box');
     }
   });
+
+  describe('B3.5 — VAT / total parity fields', () => {
+    it("defaults tax_basis to 'exclusive' when omitted", () => {
+      const result = orderCreateSchema.safeParse(validOrder);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.tax_basis).toBe('exclusive');
+      }
+    });
+
+    it("accepts tax_basis: 'inclusive'", () => {
+      const result = orderCreateSchema.safeParse({
+        ...validOrder,
+        tax_basis: 'inclusive',
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.tax_basis).toBe('inclusive');
+      }
+    });
+
+    it("rejects tax_basis outside the 'exclusive'/'inclusive' enum", () => {
+      const result = orderCreateSchema.safeParse({
+        ...validOrder,
+        tax_basis: 'mixed',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('defaults gift_wrapping_fee to 0 when omitted', () => {
+      const result = orderCreateSchema.safeParse(validOrder);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.gift_wrapping_fee).toBe(0);
+      }
+    });
+
+    it('rejects negative gift_wrapping_fee', () => {
+      const result = orderCreateSchema.safeParse({
+        ...validOrder,
+        gift_wrapping_fee: -1,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('coerces gift_wrapping_fee from numeric string', () => {
+      const result = orderCreateSchema.safeParse({
+        ...validOrder,
+        gift_wrapping_fee: '500',
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.gift_wrapping_fee).toBe(500);
+      }
+    });
+
+    it('accepts expected_total and client_total as optional numerics', () => {
+      const result = orderCreateSchema.safeParse({
+        ...validOrder,
+        expected_total: 1100,
+        client_total: 1100,
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.expected_total).toBe(1100);
+        expect(result.data.client_total).toBe(1100);
+      }
+    });
+
+    it('rejects negative expected_total', () => {
+      const result = orderCreateSchema.safeParse({
+        ...validOrder,
+        expected_total: -50,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects negative client_total', () => {
+      const result = orderCreateSchema.safeParse({
+        ...validOrder,
+        client_total: -50,
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('treats expected_total / client_total as undefined when absent', () => {
+      const result = orderCreateSchema.safeParse(validOrder);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.expected_total).toBeUndefined();
+        expect(result.data.client_total).toBeUndefined();
+      }
+    });
+
+    it('preserves null on expected_total / client_total instead of coercing to 0', () => {
+      // Codex P1 (PR #1622): pre-fix the schema used `z.coerce.number()`
+      // which calls `Number(null) === 0`. A client sending
+      // `expected_total: null` would silently become `0` and the RPC's
+      // parity check (subtotal + shipping + gift + tax - discount vs
+      // 0) would always RAISE `order_total_mismatch` 400.
+      const result = orderCreateSchema.safeParse({
+        ...validOrder,
+        expected_total: null,
+        client_total: null,
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.expected_total).toBeNull();
+        expect(result.data.client_total).toBeNull();
+      }
+    });
+  });
 });
