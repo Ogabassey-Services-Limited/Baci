@@ -8,6 +8,7 @@ describe('FEED_PRODUCTS_SELECT', () => {
 
   it('includes category joins and spec fields required for enriched feed descriptions', () => {
     expect(FEED_PRODUCTS_SELECT).toMatch(/(^|[\s,])category([\s,]|$)/);
+    expect(FEED_PRODUCTS_SELECT).toContain('canonical_url');
     expect(FEED_PRODUCTS_SELECT).toContain('color');
     expect(FEED_PRODUCTS_SELECT).toContain(
       'product_categories(categories(name, slug))'
