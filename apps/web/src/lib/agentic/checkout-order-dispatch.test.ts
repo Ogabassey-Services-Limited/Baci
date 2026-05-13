@@ -186,6 +186,49 @@ describe('agentic checkout order dispatch', () => {
     );
   });
 
+  it('returns 500 when the VAT recompute throws (Codex P2 round 5)', async () => {
+    // Distinct from the RPC-level 400 path: an infra failure in
+    // the per-line VAT lookup (DB/RLS error) must surface as 500
+    // so the GPT-agent caller retries. Pre-fix the helper
+    // swallowed the error and the RPC's tax_amount_mismatch
+    // guard reported a misleading 400.
+    const rpc = vi.fn();
+    const from = (table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: null,
+                  error: { message: 'connection reset' },
+                }),
+            }),
+          }),
+        };
+      }
+      throw new Error('unexpected');
+    };
+
+    const result = await createAgenticCheckoutOrder(orderPayload(), {
+      from,
+      rpc,
+    } as unknown as SupabaseClient);
+
+    expect(result).toMatchObject({
+      error: 'Unable to compute order tax',
+      ok: false,
+      orderId: undefined,
+      status: 500,
+    });
+    expect(rpc).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Agentic checkout VAT recompute failed',
+      })
+    );
+  });
+
   it('returns the order RPC error without creating a false success', async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: null,

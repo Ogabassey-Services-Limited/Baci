@@ -71,11 +71,30 @@ export async function computeAgenticOrderTax({
     return 0;
   }
 
-  const { data: merchant } = await supabase
+  // Codex P2 (PR #1622 round 5): destructuring `{ data: merchant }`
+  // alone drops the `error` field, so a transient DB/RLS failure
+  // looks identical to "merchant not registered" — helper returned
+  // 0, dispatch sent `p_tax_amount: 0`, RPC RAISEd
+  // `tax_amount_mismatch`, dispatch reported 400. That made
+  // server-side infra failures look like client validation errors
+  // and the caller (GPT agent) would not retry. Throw on real
+  // errors so the dispatch's catch maps to 500 and the caller
+  // retries the call as an infrastructure issue. NULL `data` with
+  // no error is still treated as "not registered" — the merchant
+  // may have been deleted mid-flow; `create_storefront_order` will
+  // RAISE `merchant_not_found` shortly after and the dispatch will
+  // map that to 400, which is correct.
+  const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
     .select('vat_registration_status')
     .eq('id', merchantId)
     .maybeSingle();
+
+  if (merchantError) {
+    throw new Error(
+      `Failed to load merchant VAT status: ${merchantError.message}`
+    );
+  }
 
   if (merchant?.vat_registration_status !== 'registered') {
     return 0;
@@ -94,19 +113,39 @@ export async function computeAgenticOrderTax({
 
   if (productIds.length === 0) return 0;
 
-  const { data: products } = await supabase
+  // Same Codex P2 reasoning as the merchant lookup: a query error
+  // here must not silently degrade to "0 tax" because that pretends
+  // to be a successful compute and trips the RPC parity guard with
+  // a misleading 4xx. Propagate as a throwable so the dispatch's
+  // try/catch returns 500 and the caller retries.
+  const { data: products, error: productsError } = await supabase
     .from('products')
     .select('id, price, vat_category_code, vat_rate')
     .in('id', productIds)
     .returns<ProductVatRow[]>();
 
-  const variantsQuery = variantIds.length
+  if (productsError) {
+    throw new Error(
+      `Failed to load products for VAT computation: ${productsError.message}`
+    );
+  }
+
+  const variantsQuery: {
+    data: VariantPriceRow[] | null;
+    error: { message: string } | null;
+  } = variantIds.length
     ? await supabase
         .from('product_variants')
         .select('id, price_override')
         .in('id', variantIds)
         .returns<VariantPriceRow[]>()
-    : { data: [] as VariantPriceRow[] };
+    : { data: [], error: null };
+
+  if (variantsQuery.error) {
+    throw new Error(
+      `Failed to load product variants for VAT computation: ${variantsQuery.error.message}`
+    );
+  }
 
   const productMap = new Map((products ?? []).map((p) => [p.id, p]));
   const variantMap = new Map((variantsQuery.data ?? []).map((v) => [v.id, v]));

@@ -278,6 +278,143 @@ describe('computeAgenticOrderTax', () => {
     expect(result).toBe(75);
   });
 
+  it('throws when the merchants lookup returns an error (Codex P2)', async () => {
+    // A transient DB/RLS failure used to be swallowed as "not
+    // registered" → tax 0 → RPC tax_amount_mismatch → 400. That
+    // hid infra errors and broke retry semantics. Now we throw
+    // so the dispatch surfaces a 500.
+    const supabase = {
+      from: (table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: null,
+                    error: { message: 'connection timeout' },
+                  }),
+              }),
+            }),
+          };
+        }
+        throw new Error('should not query products on merchant error');
+      },
+    } as unknown as SupabaseClient;
+
+    await expect(
+      computeAgenticOrderTax({
+        items: [{ product_id: 'prod-1', quantity: 1 }],
+        merchantId: 'm-1',
+        supabase,
+      })
+    ).rejects.toThrow(/Failed to load merchant VAT status/);
+  });
+
+  it('throws when the products lookup returns an error (Codex P2)', async () => {
+    const supabase = {
+      from: (table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: { vat_registration_status: 'registered' },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'products') {
+          return {
+            select: () => ({
+              in: () => ({
+                returns: () =>
+                  Promise.resolve({
+                    data: null,
+                    error: { message: 'rls deny' },
+                  }),
+              }),
+            }),
+          };
+        }
+        throw new Error('unexpected');
+      },
+    } as unknown as SupabaseClient;
+
+    await expect(
+      computeAgenticOrderTax({
+        items: [{ product_id: 'prod-1', quantity: 1 }],
+        merchantId: 'm-1',
+        supabase,
+      })
+    ).rejects.toThrow(/Failed to load products for VAT computation/);
+  });
+
+  it('throws when the product_variants lookup returns an error (Codex P2)', async () => {
+    const supabase = {
+      from: (table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: { vat_registration_status: 'registered' },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'products') {
+          return {
+            select: () => ({
+              in: () => ({
+                returns: () =>
+                  Promise.resolve({
+                    data: [
+                      {
+                        id: 'prod-1',
+                        price: 1000,
+                        vat_category_code: 'S',
+                        vat_rate: 7.5,
+                      },
+                    ],
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'product_variants') {
+          return {
+            select: () => ({
+              in: () => ({
+                returns: () =>
+                  Promise.resolve({
+                    data: null,
+                    error: { message: 'variants query failed' },
+                  }),
+              }),
+            }),
+          };
+        }
+        throw new Error('unexpected');
+      },
+    } as unknown as SupabaseClient;
+
+    await expect(
+      computeAgenticOrderTax({
+        items: [{ product_id: 'prod-1', variant_id: 'var-1', quantity: 1 }],
+        merchantId: 'm-1',
+        supabase,
+      })
+    ).rejects.toThrow(/Failed to load product variants for VAT computation/);
+  });
+
   it('does not query products when the merchant lookup returns nothing', async () => {
     // Defensive: a deleted merchant id (race) returns null. We
     // treat that as not-registered and return 0 without further

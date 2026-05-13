@@ -108,11 +108,33 @@ export async function createAgenticCheckoutOrder(
   // changes the GPTLineItem/GPTTotal shape every agentic consumer
   // depends on); the dispatch-side compute keeps the order-creation
   // path correct in the meantime.
-  const computedTaxAmount = await computeAgenticOrderTax({
-    items: orderItemsPayload,
-    merchantId: body.merchant_id,
-    supabase,
-  });
+  // Codex P2 (PR #1622 round 5): `computeAgenticOrderTax` now
+  // throws on transient DB/RLS lookup failures instead of silently
+  // returning 0 (which made infra errors look like client 400s).
+  // Wrap the call so a failure surfaces as a 500 the GPT-agent
+  // caller can retry — distinct from the validation-shaped 400s
+  // the RPC itself produces.
+  let computedTaxAmount: number;
+  try {
+    computedTaxAmount = await computeAgenticOrderTax({
+      items: orderItemsPayload,
+      merchantId: body.merchant_id,
+      supabase,
+    });
+  } catch (taxError) {
+    logger.error({
+      error: sanitizeForLog(taxError),
+      message: 'Agentic checkout VAT recompute failed',
+    });
+    return {
+      data: { error: 'Unable to compute order tax' },
+      error: 'Unable to compute order tax',
+      ok: false,
+      orderId: undefined,
+      status: 500,
+      statusText: 'Internal Server Error',
+    };
+  }
 
   const { data: orderRows, error: orderError } = await supabase.rpc(
     'create_storefront_order',
