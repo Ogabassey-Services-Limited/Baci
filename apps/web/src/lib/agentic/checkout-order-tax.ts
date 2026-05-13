@@ -33,7 +33,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // RPC enforces `p_tax_amount ≤ 1` in that case.
 //
 // IMPORTANT: the `supabase` argument MUST be a service-role client
-// (e.g., `createServiceClient()` from `@/lib/supabase/service`). The
+// (e.g., `createAdminClient()` from `@/lib/supabase/admin`). The
 // variant lookup needs to bypass `product_variants` RLS to read
 // `price_override` rows for unpublished merchants and for agentic
 // JWTs whose `sub = merchant_id` doesn't match any
@@ -204,7 +204,7 @@ export async function computeAgenticOrderTax({
   // every RLS policy on this table keys on
   // `merchants.user_id = auth.uid()` (baseline:13970-14302).
   // Callers of `computeAgenticOrderTax` MUST pass a service-role
-  // client (e.g., `createServiceClient()`). The merchant_id has
+  // client (e.g., `createAdminClient()`). The merchant_id has
   // already been validated upstream and the helper's only writes
   // are query-shaped reads, so RLS bypass here is bounded.
   const { data: variantsData, error: variantsError } = variantIds.length

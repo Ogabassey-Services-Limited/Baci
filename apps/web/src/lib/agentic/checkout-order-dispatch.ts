@@ -7,7 +7,7 @@ import {
 import { sendAgenticWebhook } from '@/lib/agentic/webhooks';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { orderCreateSchema } from '@/schemas/orders';
 
 const CLIENT_ORDER_ERROR_CODES = new Set([
@@ -130,7 +130,7 @@ export async function createAgenticCheckoutOrder(
     computedTaxAmount = await computeAgenticOrderTax({
       items: orderItemsPayload,
       merchantId: body.merchant_id,
-      supabase: createServiceClient(),
+      supabase: createAdminClient(),
     });
   } catch (taxError) {
     // Codex P2 (PR #1622 round 7): a malformed product_id /
@@ -188,6 +188,17 @@ export async function createAgenticCheckoutOrder(
       p_shipping_status: body.shipping_status,
       p_source: body.source,
       p_tax_amount: computedTaxAmount,
+      // Codex P1 (PR #1622 round 7): forward `p_gift_wrapping_fee`
+      // through to the RPC. The agentic
+      // `calculateCheckoutSession` doesn't quote gift wrapping
+      // today, so `body.gift_wrapping_fee` is currently the Zod
+      // default 0 — but the schema accepts the field, and
+      // omitting it from the RPC call left a silent
+      // under-quote path waiting for the first agentic flow that
+      // does pass it. The RPC's `gift_wrapping_fee_negative`
+      // guard + the column's CHECK `>= 0` jointly clamp invalid
+      // input.
+      p_gift_wrapping_fee: body.gift_wrapping_fee,
       p_tracking_number: body.tracking_number ?? null,
       // Agentic checkout is API-key scoped, not tied to a customer auth session.
       p_user_id: null,

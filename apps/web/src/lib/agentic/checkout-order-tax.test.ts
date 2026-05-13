@@ -4,7 +4,7 @@ import {
   computeAgenticOrderTax,
   isTaxComputeUuidError,
   TaxComputeError,
-} from './checkout-order-tax';
+} from '@/lib/agentic/checkout-order-tax';
 
 type FromHandler = (table: string) => unknown;
 

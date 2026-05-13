@@ -1017,6 +1017,19 @@ BEGIN
     WHERE id = order_uuid;
   END IF;
 
+  -- CodeRabbit (PR #1622 round 7): clear stale
+  -- `order_tax_subtotals` rows before rebuilding. The prior
+  -- upsert-only path left orphan (order_id, vat_category_code,
+  -- vat_rate) tuples when (a) an order_item is deleted, (b) an
+  -- item's VAT category changes, or (c) the merchant flips from
+  -- registered to not-registered. Stale rows poison downstream
+  -- tax reporting (the aggregate diverges from the canonical
+  -- `order_items` set). The DELETE+INSERT pattern keeps the
+  -- aggregate consistent atomically within this trigger
+  -- transaction.
+  DELETE FROM order_tax_subtotals
+  WHERE order_id = order_uuid;
+
   IF merchant_vat_status = 'registered' THEN
     INSERT INTO order_tax_subtotals (order_id, vat_category_code, vat_rate, taxable_amount, tax_amount)
     SELECT
@@ -1027,10 +1040,7 @@ BEGIN
       SUM(vat_amount)
     FROM order_items
     WHERE order_id = order_uuid
-    GROUP BY vat_category_code, vat_rate
-    ON CONFLICT (order_id, vat_category_code, vat_rate) DO UPDATE
-      SET taxable_amount = EXCLUDED.taxable_amount,
-          tax_amount = EXCLUDED.tax_amount;
+    GROUP BY vat_category_code, vat_rate;
   END IF;
 
   RETURN NEW;

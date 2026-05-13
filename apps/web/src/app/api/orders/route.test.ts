@@ -137,13 +137,13 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(),
 }));
 
-// B3.5 round 6: the route now calls `createServiceClient()` for the
+// B3.5 round 6: the route now calls `createAdminClient()` for the
 // tax recompute. Default to a non-VAT-registered merchant so the
 // helper short-circuits to `serverComputedTaxAmount = 0` and the
 // existing test assertions stay unchanged. The dedicated
 // "server-computes VAT" test overrides this mock per case.
-vi.mock('@/lib/supabase/service', () => ({
-  createServiceClient: vi.fn(() => ({
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({
     from: (table: string) => {
       if (table === 'merchants') {
         return {
@@ -573,8 +573,8 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
     // checkout in production. After round 6 the route recomputes
     // tax server-side using the service client (RLS-bypassing,
     // works for unpublished merchants too).
-    const supabaseSvc = await import('@/lib/supabase/service');
-    vi.mocked(supabaseSvc.createServiceClient).mockReturnValueOnce({
+    const supabaseSvc = await import('@/lib/supabase/admin');
+    vi.mocked(supabaseSvc.createAdminClient).mockReturnValueOnce({
       from: (table: string) => {
         if (table === 'merchants') {
           return {
@@ -663,8 +663,8 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
     // The previous RPC path mapped 22P02 as a client error via
     // `clientErrorCodes`; the new server-side tax recompute must
     // preserve that 4xx semantic instead of returning 500.
-    const supabaseSvc = await import('@/lib/supabase/service');
-    vi.mocked(supabaseSvc.createServiceClient).mockReturnValueOnce({
+    const supabaseSvc = await import('@/lib/supabase/admin');
+    vi.mocked(supabaseSvc.createAdminClient).mockReturnValueOnce({
       from: (table: string) => {
         if (table === 'merchants') {
           return {

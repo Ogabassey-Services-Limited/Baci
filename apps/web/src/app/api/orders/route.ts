@@ -20,8 +20,8 @@ import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { getClientIdentifier } from '@/lib/rate-limit';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { createServiceClient } from '@/lib/supabase/service';
 import { sendEmail } from '@/lib/zeptomail';
 import { orderCreateSchema } from '@/schemas/orders';
 
@@ -288,7 +288,7 @@ export async function POST(request: NextRequest) {
           variant_id: item.variantId || item.variant_id,
         })),
         merchantId: merchant_id,
-        supabase: createServiceClient(),
+        supabase: createAdminClient(),
       });
     } catch (taxError) {
       // Codex P2 (PR #1622 round 7): malformed item ids (Zod only

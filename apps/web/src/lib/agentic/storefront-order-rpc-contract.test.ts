@@ -633,4 +633,39 @@ describe('update_order_tax_totals trigger contract — B3.5', () => {
     expect(elseBlock).toMatch(/tax_amount\s*=\s*new_tax_amount/i);
     expect(elseBlock).not.toMatch(/\btotal\s*=/i);
   });
+
+  it('clears stale order_tax_subtotals before rebuilding (CodeRabbit round 7)', () => {
+    const sql = readLatestUpdateOrderTaxTotalsMigrationSql();
+
+    // Pre-fix the trigger only upserted (order_id, vat_category,
+    // vat_rate) rows that still existed — orphans from deleted
+    // order_items / category changes / unregistration drifted out
+    // of sync with the canonical `order_items` view. The fix
+    // clears the slice for this order before rebuilding, atomic
+    // within the trigger transaction.
+    const deleteMatch = sql.match(
+      /DELETE\s+FROM\s+order_tax_subtotals\s+WHERE\s+order_id\s*=\s*order_uuid\s*;/i
+    );
+    expect(deleteMatch).not.toBeNull();
+
+    // The DELETE must precede the INSERT into the same table so
+    // the rebuild lands on a clean slice (otherwise the DELETE
+    // would wipe what we just inserted).
+    const deleteIndex =
+      deleteMatch && deleteMatch.index !== undefined ? deleteMatch.index : -1;
+    const insertIndex = sql.search(/INSERT\s+INTO\s+order_tax_subtotals/i);
+    expect(deleteIndex).toBeGreaterThan(-1);
+    expect(insertIndex).toBeGreaterThan(-1);
+    expect(deleteIndex).toBeLessThan(insertIndex);
+
+    // The DELETE must also live OUTSIDE the
+    // `IF merchant_vat_status = 'registered' THEN` block so a
+    // merchant flipping from registered to not-registered clears
+    // their prior subtotals too.
+    const registeredBlockIndex = sql.indexOf(
+      "IF merchant_vat_status = 'registered' THEN"
+    );
+    expect(registeredBlockIndex).toBeGreaterThan(-1);
+    expect(deleteIndex).toBeLessThan(registeredBlockIndex);
+  });
 });

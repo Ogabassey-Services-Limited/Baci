@@ -15,11 +15,11 @@ vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn(), warn: vi.fn() },
 }));
 
-// B3.5 round 6: the dispatch now calls `createServiceClient()` for
+// B3.5 round 6: the dispatch now calls `createAdminClient()` for
 // the tax recompute. Default to a non-VAT-registered merchant so the
 // helper short-circuits to 0 and existing assertions are unchanged.
-vi.mock('@/lib/supabase/service', () => ({
-  createServiceClient: vi.fn(() => ({
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: vi.fn(() => ({
     from: (table: string) => {
       if (table === 'merchants') {
         return {
@@ -192,12 +192,12 @@ describe('agentic checkout order dispatch', () => {
     };
 
     // Per round-6 fix: the helper is now called with a
-    // service-role client created via createServiceClient(),
+    // service-role client created via createAdminClient(),
     // separate from the caller-supplied scoped supabase. Mock the
     // service-client module to provide the VAT-registered merchant
     // + product fixture.
-    const supabaseSvcMod = await import('@/lib/supabase/service');
-    vi.mocked(supabaseSvcMod.createServiceClient).mockReturnValueOnce({
+    const supabaseSvcMod = await import('@/lib/supabase/admin');
+    vi.mocked(supabaseSvcMod.createAdminClient).mockReturnValueOnce({
       from: (table: string) => {
         if (table === 'merchants') {
           return {
@@ -259,8 +259,8 @@ describe('agentic checkout order dispatch', () => {
     // so the GPT-agent caller retries. Round 6: the helper now
     // runs against the service-role client, so we trigger the
     // failure there.
-    const supabaseSvcMod = await import('@/lib/supabase/service');
-    vi.mocked(supabaseSvcMod.createServiceClient).mockReturnValueOnce({
+    const supabaseSvcMod = await import('@/lib/supabase/admin');
+    vi.mocked(supabaseSvcMod.createAdminClient).mockReturnValueOnce({
       from: (table: string) => {
         if (table === 'merchants') {
           return {
@@ -299,14 +299,41 @@ describe('agentic checkout order dispatch', () => {
     );
   });
 
+  it('forwards body.gift_wrapping_fee through to p_gift_wrapping_fee (Codex P1 round 7)', async () => {
+    // Pre-fix the dispatch silently dropped `p_gift_wrapping_fee`
+    // — the RPC used its default 0 and any agentic caller that
+    // started passing the field would have under-quoted. Defense-
+    // in-depth contract: the dispatch must forward whatever Zod
+    // produced (defaulted to 0, but a non-zero value must reach
+    // the RPC unchanged).
+    const rpc = vi.fn().mockResolvedValue({
+      data: [{ id: 'order-gw-1', total: 501_000 }],
+      error: null,
+    });
+
+    const result = await createAgenticCheckoutOrder(
+      { ...orderPayload(), gift_wrapping_fee: 1_000 },
+      {
+        from: makeFromStub(),
+        rpc,
+      } as unknown as SupabaseClient
+    );
+
+    expect(result.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({ p_gift_wrapping_fee: 1_000 })
+    );
+  });
+
   it('maps a 22P02 UUID parse error from the tax helper to 400 invalid_items (Codex P2 round 7)', async () => {
     // Pre-round-7 a malformed item id surfaced as a 500
     // (Unable to compute order tax) because we caught ALL helper
     // errors and reported infra failure. That hid a client bug
     // behind an outage signal. Restore the 4xx mapping that the
     // RPC's own 22P02 path already had.
-    const supabaseSvcMod = await import('@/lib/supabase/service');
-    vi.mocked(supabaseSvcMod.createServiceClient).mockReturnValueOnce({
+    const supabaseSvcMod = await import('@/lib/supabase/admin');
+    vi.mocked(supabaseSvcMod.createAdminClient).mockReturnValueOnce({
       from: (table: string) => {
         if (table === 'merchants') {
           return {
