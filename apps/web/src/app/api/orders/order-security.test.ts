@@ -86,6 +86,31 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(() => mockSupabase),
 }));
 
+// B3.5 round 6 (PR #1622): the route now calls `createServiceClient()`
+// for server-side tax recomputation. Default to a non-VAT-registered
+// merchant so the helper short-circuits to 0 and the existing
+// assertions stay unchanged.
+vi.mock('@/lib/supabase/service', () => ({
+  createServiceClient: vi.fn(() => ({
+    from: (table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: { vat_registration_status: 'not_registered' },
+                  error: null,
+                }),
+            }),
+          }),
+        };
+      }
+      throw new Error(`Unexpected service-client table: ${table}`);
+    },
+  })),
+}));
+
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({
     get: vi.fn(),

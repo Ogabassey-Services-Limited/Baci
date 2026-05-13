@@ -31,6 +31,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 //
 // For VAT-not-registered merchants the helper returns 0 because the
 // RPC enforces `p_tax_amount ≤ 1` in that case.
+//
+// IMPORTANT: the `supabase` argument MUST be a service-role client
+// (e.g., `createServiceClient()` from `@/lib/supabase/service`). The
+// variant lookup needs to bypass `product_variants` RLS to read
+// `price_override` rows for unpublished merchants and for agentic
+// JWTs whose `sub = merchant_id` doesn't match any
+// `merchants.user_id`. The helper is server-only and only performs
+// query-shaped reads; RLS bypass is bounded to those reads.
 
 interface AgenticTaxItem {
   // Optional to accept the dispatch's pre-validation payload shape
@@ -149,37 +157,40 @@ export async function computeAgenticOrderTax({
     );
   }
 
-  // Codex P1 (PR #1622 round 5, second iteration): the agentic
-  // scoped supabase client's JWT uses `sub = merchant_id`. The
-  // `product_variants` RLS policies (baseline:13970-14302) all key
-  // on `merchants.user_id = auth.uid()`, so a direct SELECT here
-  // returns ZERO rows in agentic context — the helper would fall
-  // back to base product price, the RPC's per-line trigger would
-  // compute against the true variant `price_override`, and the
-  // parity guard would RAISE `tax_amount_mismatch` for every
-  // variant-priced cart.
+  // Codex P2 (PR #1622 round 6): an earlier iteration of this
+  // helper routed variant reads through
+  // `get_storefront_product_variants`, but that SDF filters
+  // `WHERE m.is_published = TRUE` (baseline:3758). Agentic
+  // checkout merchant resolution is NOT publication-gated, and
+  // the storefront API route also handles draft merchants via
+  // authed merchant access — so an unpublished VAT-registered
+  // merchant with variant overrides would get an empty variants
+  // set here, the helper would fall back to product base price,
+  // the RPC's per-line trigger would compute against the TRUE
+  // variant `price_override`, and the parity guard would RAISE
+  // `tax_amount_mismatch` despite a perfectly valid order. Codex
+  // surfaced this as a P2 because the user-facing failure mode
+  // (a 400 on a real cart) is severe even if the population is
+  // small.
   //
-  // Route through `get_storefront_product_variants` (baseline:3731):
-  // SECURITY DEFINER, granted to anon/authenticated/service_role,
-  // filters to active products + published merchants — exactly the
-  // shape an agentic checkout is bound to. The function returns
-  // more fields than we need; we only consume `id` and
-  // `price_override`, so the runtime row shape is compatible with
-  // `VariantPriceRow`.
-  // The generated Supabase types for `get_storefront_product_variants`
-  // mis-describe the RPC return as a single row (`RETURNS TABLE(...)`
-  // generators sometimes do this for SETOF functions). The runtime
-  // shape is a row array; we cast through `unknown` to a narrow type
-  // exposing only the fields we read.
-  const variantsRpcResult = variantIds.length
-    ? await supabase.rpc('get_storefront_product_variants', {
-        p_product_ids: productIds,
-      })
+  // Direct SELECT on `product_variants` requires service-role —
+  // every RLS policy on this table keys on
+  // `merchants.user_id = auth.uid()` (baseline:13970-14302).
+  // Callers of `computeAgenticOrderTax` MUST pass a service-role
+  // client (e.g., `createServiceClient()`). The merchant_id has
+  // already been validated upstream and the helper's only writes
+  // are query-shaped reads, so RLS bypass here is bounded.
+  const { data: variantsData, error: variantsError } = variantIds.length
+    ? await supabase
+        .from('product_variants')
+        .select('id, product_id, price_override')
+        .in('id', variantIds)
+        .returns<VariantPriceRow[]>()
     : { data: [], error: null };
-  const variantsQuery = variantsRpcResult as unknown as {
+  const variantsQuery: {
     data: VariantPriceRow[] | null;
     error: { message: string } | null;
-  };
+  } = { data: variantsData, error: variantsError };
 
   if (variantsQuery.error) {
     throw new Error(

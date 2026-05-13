@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
+import { computeAgenticOrderTax } from '@/lib/agentic/checkout-order-tax';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import {
   generateOrderConfirmationEmail,
@@ -17,6 +18,7 @@ import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
 import { getClientIdentifier } from '@/lib/rate-limit';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { sendEmail } from '@/lib/zeptomail';
 import { orderCreateSchema } from '@/schemas/orders';
 
@@ -257,6 +259,46 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Codex P1 (PR #1622 round 6): the legacy storefront checkout
+    // (`apps/web/src/app/checkout/page.tsx`) doesn't send
+    // `tax_amount` — Zod defaults to 0 — and that 0 tripped the
+    // RPC's `tax_amount_mismatch` guard on every VAT-registered
+    // merchant. Same root cause as the agentic dispatch.
+    //
+    // Recompute the canonical per-line tax server-side here so
+    // every caller (legacy checkout, ogabassey checkout,
+    // mobile-admin order-create, agentic) lands on a payload that
+    // the RPC will accept. The `expected_total` parity guard
+    // (Δ-39, Codex round 2) still catches client display drift —
+    // it just gets to fire on a correctly-tax'd order rather than
+    // being preceded by a confusing `tax_amount_mismatch` 400.
+    //
+    // The helper requires a service-role client (Codex P2 round 6
+    // — variant override lookup must bypass RLS for unpublished
+    // merchants and authed-merchant edits).
+    let serverComputedTaxAmount: number;
+    try {
+      serverComputedTaxAmount = await computeAgenticOrderTax({
+        items: items.map((item) => ({
+          product_id: item.product_id || item.productId || item.id,
+          quantity: item.quantity,
+          variant_id: item.variantId || item.variant_id,
+        })),
+        merchantId: merchant_id,
+        supabase: createServiceClient(),
+      });
+    } catch (taxError) {
+      logger.error({
+        error: taxError,
+        merchantId: merchant_id,
+        message: 'Storefront order VAT recompute failed',
+      });
+      return NextResponse.json(
+        { code: 'TAX_COMPUTE_FAILED', error: 'Unable to compute order tax' },
+        { status: 500 }
+      );
+    }
+
     const adTrackingPayload = ad_tracking
       ? {
           ...ad_tracking,
@@ -311,7 +353,7 @@ export async function POST(request: NextRequest) {
         p_items: orderItemsPayload,
         p_shipping_fee: shippingFeeValue,
         p_discount_amount: discountAmountValue,
-        p_tax_amount: taxAmountValue,
+        p_tax_amount: serverComputedTaxAmount,
         p_payment_method: payment_method,
         p_payment_status: effectivePaymentStatus,
         p_shipping_status: shipping_status,
@@ -323,6 +365,10 @@ export async function POST(request: NextRequest) {
         p_shipping_provider: resolvedShippingProvider,
         p_tracking_number: resolvedTrackingNumber || null,
         p_user_id: resolvedUserId,
+        // Server-computed tax — replaces the client-supplied value
+        // so legacy callers without `tax_amount` succeed and
+        // storefront callers can't fake a wrong-but-matching value
+        // (Codex P1 round 6).
         // B3.5 (Δ-42, Δ-47): tax_basis + gift_wrapping_fee. The RPC
         // enforces VAT itself for VAT-registered merchants and also
         // runs a client/server total parity check (Codex P1) against

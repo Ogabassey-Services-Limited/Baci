@@ -15,6 +15,30 @@ vi.mock('@/lib/logger', () => ({
   logger: { error: vi.fn() },
 }));
 
+// B3.5 round 6: the dispatch now calls `createServiceClient()` for
+// the tax recompute. Default to a non-VAT-registered merchant so the
+// helper short-circuits to 0 and existing assertions are unchanged.
+vi.mock('@/lib/supabase/service', () => ({
+  createServiceClient: vi.fn(() => ({
+    from: (table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: { vat_registration_status: 'not_registered' },
+                  error: null,
+                }),
+            }),
+          }),
+        };
+      }
+      throw new Error(`Unexpected service-client table: ${table}`);
+    },
+  })),
+}));
+
 const merchantId = '11111111-1111-4111-8111-111111111111';
 
 // B3.5 round 5: `createAgenticCheckoutOrder` now calls
@@ -167,26 +191,61 @@ describe('agentic checkout order dispatch', () => {
       throw new Error('unexpected');
     };
 
-    // Per round-5 RLS fix: variant lookup goes through
-    // `get_storefront_product_variants` RPC, not from().select().
-    // The order RPC still routes through `rpc()` so we share one
-    // spy with name-based dispatch.
-    const originalRpc = rpc;
-    const rpcWithVariants = vi.fn((name: string, args?: unknown) => {
-      if (name === 'get_storefront_product_variants') {
-        return Promise.resolve({ data: [], error: null });
-      }
-      return originalRpc(name, args);
-    }) as unknown as typeof rpc;
+    // Per round-6 fix: the helper is now called with a
+    // service-role client created via createServiceClient(),
+    // separate from the caller-supplied scoped supabase. Mock the
+    // service-client module to provide the VAT-registered merchant
+    // + product fixture.
+    const supabaseSvcMod = await import('@/lib/supabase/service');
+    vi.mocked(supabaseSvcMod.createServiceClient).mockReturnValueOnce({
+      from: (table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: { vat_registration_status: 'registered' },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'products') {
+          return {
+            select: () => ({
+              eq: () => ({
+                in: () => ({
+                  returns: () =>
+                    Promise.resolve({
+                      data: [
+                        {
+                          id: 'product-1',
+                          price: 500_000,
+                          vat_category_code: 'S',
+                          vat_rate: 7.5,
+                        },
+                      ],
+                      error: null,
+                    }),
+                }),
+              }),
+            }),
+          };
+        }
+        throw new Error(`unexpected: ${table}`);
+      },
+    } as never);
 
     const result = await createAgenticCheckoutOrder(orderPayload(), {
       from,
-      rpc: rpcWithVariants,
+      rpc,
     } as unknown as SupabaseClient);
 
     expect(result.ok).toBe(true);
     // ROUND(ROUND(1 * 500000, 2) * 7.5 / 100, 2) = 37500
-    expect(rpcWithVariants).toHaveBeenCalledWith(
+    expect(rpc).toHaveBeenCalledWith(
       'create_storefront_order',
       expect.objectContaining({
         p_tax_amount: 37_500,
@@ -197,29 +256,32 @@ describe('agentic checkout order dispatch', () => {
   it('returns 500 when the VAT recompute throws (Codex P2 round 5)', async () => {
     // Distinct from the RPC-level 400 path: an infra failure in
     // the per-line VAT lookup (DB/RLS error) must surface as 500
-    // so the GPT-agent caller retries. Pre-fix the helper
-    // swallowed the error and the RPC's tax_amount_mismatch
-    // guard reported a misleading 400.
-    const rpc = vi.fn();
-    const from = (table: string) => {
-      if (table === 'merchants') {
-        return {
-          select: () => ({
-            eq: () => ({
-              maybeSingle: () =>
-                Promise.resolve({
-                  data: null,
-                  error: { message: 'connection reset' },
-                }),
+    // so the GPT-agent caller retries. Round 6: the helper now
+    // runs against the service-role client, so we trigger the
+    // failure there.
+    const supabaseSvcMod = await import('@/lib/supabase/service');
+    vi.mocked(supabaseSvcMod.createServiceClient).mockReturnValueOnce({
+      from: (table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: null,
+                    error: { message: 'connection reset' },
+                  }),
+              }),
             }),
-          }),
-        };
-      }
-      throw new Error('unexpected');
-    };
+          };
+        }
+        throw new Error('unexpected');
+      },
+    } as never);
 
+    const rpc = vi.fn();
     const result = await createAgenticCheckoutOrder(orderPayload(), {
-      from,
+      from: makeFromStub(),
       rpc,
     } as unknown as SupabaseClient);
 

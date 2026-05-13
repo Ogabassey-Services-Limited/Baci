@@ -137,6 +137,32 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: vi.fn(),
 }));
 
+// B3.5 round 6: the route now calls `createServiceClient()` for the
+// tax recompute. Default to a non-VAT-registered merchant so the
+// helper short-circuits to `serverComputedTaxAmount = 0` and the
+// existing test assertions stay unchanged. The dedicated
+// "server-computes VAT" test overrides this mock per case.
+vi.mock('@/lib/supabase/service', () => ({
+  createServiceClient: vi.fn(() => ({
+    from: (table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: { vat_registration_status: 'not_registered' },
+                  error: null,
+                }),
+            }),
+          }),
+        };
+      }
+      throw new Error(`Unexpected service-client table: ${table}`);
+    },
+  })),
+}));
+
 const baseOrderPayload = {
   merchant_id: MERCHANT_ID,
   customer_email: 'customer@example.com',
@@ -537,6 +563,96 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
       expect.objectContaining({
         p_gift_wrapping_fee: 500,
       })
+    );
+  });
+
+  it('server-computes tax_amount and overrides the client value (Codex P1 round 6)', async () => {
+    // Legacy `app/checkout/page.tsx` sends no tax_amount → Zod
+    // default 0 → pre-fix the RPC's parity guard would RAISE
+    // `tax_amount_mismatch` for VAT-registered merchants and break
+    // checkout in production. After round 6 the route recomputes
+    // tax server-side using the service client (RLS-bypassing,
+    // works for unpublished merchants too).
+    const supabaseSvc = await import('@/lib/supabase/service');
+    vi.mocked(supabaseSvc.createServiceClient).mockReturnValueOnce({
+      from: (table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: { vat_registration_status: 'registered' },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'products') {
+          return {
+            select: () => ({
+              eq: () => ({
+                in: () => ({
+                  returns: () =>
+                    Promise.resolve({
+                      data: [
+                        {
+                          id: 'p-1',
+                          price: 1000,
+                          vat_category_code: 'S',
+                          vat_rate: 7.5,
+                        },
+                      ],
+                      error: null,
+                    }),
+                }),
+              }),
+            }),
+          };
+        }
+        throw new Error(`unexpected: ${table}`);
+      },
+    } as never);
+
+    const rpcSpy = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'order-id',
+          order_number: 'ORD-123',
+          total: 1075,
+          subtotal: 1000,
+          shipping_fee: 0,
+          customer_id: CUSTOMER_ID,
+        },
+      ],
+      error: null,
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      sb.rpc = ((name: string, args: Record<string, unknown>) => {
+        if (name === 'create_storefront_order') {
+          return rpcSpy(args);
+        }
+        return Promise.resolve({ data: null, error: null });
+      }) as typeof sb.rpc;
+      return sb;
+    }) as unknown as never);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      // Mimic legacy checkout: no tax_amount in body.
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        tax_amount: undefined,
+      }),
+    });
+    await POST(request);
+
+    // ROUND(ROUND(1 * 1000, 2) * 7.5 / 100, 2) = 75
+    expect(rpcSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ p_tax_amount: 75 })
     );
   });
 
