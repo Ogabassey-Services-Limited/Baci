@@ -47,8 +47,27 @@ ACTIVE_DIR="$CLAUDE_PROJECT_DIR"
 # explicitly set it). Otherwise fall through to the mtime scan.
 SESSION_CWD=$(printf '%s\n' "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)
 if [ -n "$SESSION_CWD" ] && [ "$SESSION_CWD" != "$CLAUDE_PROJECT_DIR" ] && [ -d "$SESSION_CWD" ]; then
+  # Restrict cwd-derived worktree resolution to THIS repository. The agent may
+  # have cd'd to an entirely different repo (e.g. cloned a separate project).
+  # In that case `git rev-parse --show-toplevel` from cwd succeeds but resolves
+  # to an unrelated tree — running the quality gate against another project's
+  # state, which could bypass it for Baci changes (if the other repo is clean)
+  # or wrongly block on the other project's lint/typecheck/test failures.
+  #
+  # Resolve WT_TOP from cwd, then verify it appears in $CLAUDE_PROJECT_DIR's
+  # `git worktree list`. Same prefix-strip parser used in the mtime scan below
+  # — preserves paths with spaces and uses output git already guarantees.
   WT_TOP=$(git -C "$SESSION_CWD" rev-parse --show-toplevel 2>/dev/null)
-  [ -n "$WT_TOP" ] && ACTIVE_DIR="$WT_TOP"
+  if [ -n "$WT_TOP" ]; then
+    while IFS= read -r line; do
+      case "$line" in
+        "worktree $WT_TOP")
+          ACTIVE_DIR="$WT_TOP"
+          break
+          ;;
+      esac
+    done < <(git -C "$CLAUDE_PROJECT_DIR" worktree list --porcelain 2>/dev/null)
+  fi
 fi
 
 # (2) Mtime-scan fallback. Runs whenever cwd resolution above didn't yield
