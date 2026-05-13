@@ -2,7 +2,7 @@
 export const FEED_PRODUCTS_SELECT = `id, name, description, slug, price, compare_at_price,
   brand, gtin, mpn, sku, stock, stock_quantity, manage_stock, condition,
   has_condition_offers, variant_model, available_conditions,
-  google_product_category, category, color,
+  google_product_category, category, canonical_url, color,
   product_key_specs(screen_size_inches, ram_gb, storage_gb, main_camera_mp, weight_g, available_colors, display_resolution, front_camera_mp),
-  weight_value, weight_unit,
+  weight_value, weight_unit, created_at,
   product_categories(categories(name, slug)), updated_at`;
