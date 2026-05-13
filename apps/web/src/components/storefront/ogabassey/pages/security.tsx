@@ -246,6 +246,7 @@ export const OgabasseyV2Security: React.FC = () => {
                       <button
                         type="button"
                         className="text-gray-400 hover:text-red-600 transition-colors p-2 hover:bg-red-50 rounded-lg"
+                        aria-label="Sign out session"
                       >
                         <LogOut size={16} />
                       </button>
@@ -354,6 +355,7 @@ export const OgabasseyV2Security: React.FC = () => {
                       type="button"
                       onClick={() => toggleShow('current')}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      aria-label={showPassword.current ? "Hide password" : "Show password"}
                     >
                       {showPassword.current ? (
                         <EyeOff size={18} />
@@ -382,6 +384,7 @@ export const OgabasseyV2Security: React.FC = () => {
                       type="button"
                       onClick={() => toggleShow('new')}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      aria-label={showPassword.new ? "Hide password" : "Show password"}
                     >
                       {showPassword.new ? (
                         <EyeOff size={18} />
@@ -410,6 +413,7 @@ export const OgabasseyV2Security: React.FC = () => {
                       type="button"
                       onClick={() => toggleShow('confirm')}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      aria-label={showPassword.confirm ? "Hide password" : "Show password"}
                     >
                       {showPassword.confirm ? (
                         <EyeOff size={18} />
