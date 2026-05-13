@@ -137,4 +137,40 @@ describe('V2ComparisonProvider', () => {
       )
     ).toEqual([expect.objectContaining({ id: baseProduct.id })]);
   });
+
+  it('does not write previous merchant items into a new namespace before hydration', () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+
+    const { rerender } = render(
+      <V2ComparisonProvider storageNamespace="merchant-a">
+        <ComparisonConsumer />
+      </V2ComparisonProvider>
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add to compare' }));
+
+    expect(
+      JSON.parse(
+        localStorage.getItem('ogabassey_v2_compare:merchant-a') ?? '[]'
+      )
+    ).toEqual([expect.objectContaining({ id: baseProduct.id })]);
+
+    setItemSpy.mockClear();
+
+    rerender(
+      <V2ComparisonProvider storageNamespace="merchant-b">
+        <ComparisonConsumer />
+      </V2ComparisonProvider>
+    );
+
+    expect(localStorage.getItem('ogabassey_v2_compare:merchant-b')).toBeNull();
+    expect(setItemSpy).not.toHaveBeenCalledWith(
+      'ogabassey_v2_compare:merchant-b',
+      expect.any(String)
+    );
+  });
 });
