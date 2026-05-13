@@ -17,6 +17,41 @@ vi.mock('@/lib/logger', () => ({
 
 const merchantId = '11111111-1111-4111-8111-111111111111';
 
+// B3.5 round 5: `createAgenticCheckoutOrder` now calls
+// `computeAgenticOrderTax`, which queries `merchants` (for VAT status)
+// and `products`/`product_variants` (for per-line VAT). Provide a
+// minimal `from()` stub that resolves merchant as not-registered by
+// default — keeps the helper returning 0 and existing assertions
+// unchanged. Tests that need VAT-registered behavior can override.
+function makeFromStub(opts?: { vatStatus?: 'registered' | 'not_registered' }) {
+  const vatStatus = opts?.vatStatus ?? 'not_registered';
+  return (table: string) => {
+    if (table === 'merchants') {
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () =>
+              Promise.resolve({
+                data: { vat_registration_status: vatStatus },
+                error: null,
+              }),
+          }),
+        }),
+      };
+    }
+    if (table === 'products' || table === 'product_variants') {
+      return {
+        select: () => ({
+          in: () => ({
+            returns: () => Promise.resolve({ data: [], error: null }),
+          }),
+        }),
+      };
+    }
+    throw new Error(`Unexpected table in dispatch test: ${table}`);
+  };
+}
+
 function orderPayload() {
   return {
     customer_email: 'buyer@example.com',
@@ -54,6 +89,7 @@ describe('agentic checkout order dispatch', () => {
 
     const result = await createAgenticCheckoutOrder(orderPayload(), {
       rpc,
+      from: makeFromStub(),
     } as unknown as SupabaseClient);
 
     expect(result).toMatchObject({
@@ -78,6 +114,78 @@ describe('agentic checkout order dispatch', () => {
     );
   });
 
+  it('forwards computed VAT as p_tax_amount for VAT-registered merchants (Codex P1 round 5)', async () => {
+    // The agentic `calculateCheckoutSession` always emits `tax: 0`,
+    // so `body.tax_amount` arrives at the RPC as 0. Without this
+    // recompute, a VAT-registered merchant gets `tax_amount_mismatch`
+    // → 400 → broken checkout. Pin that the dispatch overrides
+    // `p_tax_amount` with the per-line VAT sum.
+    const rpc = vi.fn().mockResolvedValue({
+      data: [{ id: 'order-vat-1', total: 537_500 }],
+      error: null,
+    });
+
+    const from = (table: string) => {
+      if (table === 'merchants') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({
+                  data: { vat_registration_status: 'registered' },
+                  error: null,
+                }),
+            }),
+          }),
+        };
+      }
+      if (table === 'products') {
+        return {
+          select: () => ({
+            in: () => ({
+              returns: () =>
+                Promise.resolve({
+                  data: [
+                    {
+                      id: 'product-1',
+                      price: 500_000,
+                      vat_category_code: 'S',
+                      vat_rate: 7.5,
+                    },
+                  ],
+                  error: null,
+                }),
+            }),
+          }),
+        };
+      }
+      if (table === 'product_variants') {
+        return {
+          select: () => ({
+            in: () => ({
+              returns: () => Promise.resolve({ data: [], error: null }),
+            }),
+          }),
+        };
+      }
+      throw new Error('unexpected');
+    };
+
+    const result = await createAgenticCheckoutOrder(orderPayload(), {
+      from,
+      rpc,
+    } as unknown as SupabaseClient);
+
+    expect(result.ok).toBe(true);
+    // ROUND(ROUND(1 * 500000, 2) * 7.5 / 100, 2) = 37500
+    expect(rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({
+        p_tax_amount: 37_500,
+      })
+    );
+  });
+
   it('returns the order RPC error without creating a false success', async () => {
     const rpc = vi.fn().mockResolvedValue({
       data: null,
@@ -86,6 +194,7 @@ describe('agentic checkout order dispatch', () => {
 
     const result = await createAgenticCheckoutOrder(orderPayload(), {
       rpc,
+      from: makeFromStub(),
     } as unknown as SupabaseClient);
 
     expect(result).toMatchObject({
@@ -110,6 +219,7 @@ describe('agentic checkout order dispatch', () => {
 
     const result = await createAgenticCheckoutOrder(orderPayload(), {
       rpc,
+      from: makeFromStub(),
     } as unknown as SupabaseClient);
 
     expect(result).toMatchObject({
@@ -137,6 +247,7 @@ describe('agentic checkout order dispatch', () => {
 
     const result = await createAgenticCheckoutOrder(orderPayload(), {
       rpc,
+      from: makeFromStub(),
     } as unknown as SupabaseClient);
 
     expect(result).toMatchObject({
@@ -175,7 +286,7 @@ describe('agentic checkout order dispatch', () => {
           },
         ],
       },
-      { rpc } as unknown as SupabaseClient
+      { from: makeFromStub(), rpc } as unknown as SupabaseClient
     );
 
     expect(rpc).toHaveBeenCalledWith(

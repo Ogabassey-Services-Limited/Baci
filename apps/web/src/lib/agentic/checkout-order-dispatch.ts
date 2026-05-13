@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AgenticCheckoutBuyer } from '@/lib/agentic/checkout-completion-response';
+import { computeAgenticOrderTax } from '@/lib/agentic/checkout-order-tax';
 import { sendAgenticWebhook } from '@/lib/agentic/webhooks';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
@@ -26,6 +27,18 @@ const CLIENT_ORDER_ERROR_CODES = new Set([
   // "re-quote / fix input" from "transient server issue, retry".
   // Matches the `clientErrorCodes` array in /api/orders route.ts.
   'shipping_quote_required',
+  // B3.5 (PR #1622): RPC RAISES these for VAT/total/gift-wrap
+  // input violations. Mirrors `clientErrorCodes` in
+  // /api/orders/route.ts so agentic callers get an actionable 4xx
+  // instead of a generic 500. `tax_amount_mismatch` in particular
+  // should be rare now that the dispatch recomputes tax via
+  // `computeAgenticOrderTax`, but is included defensively in
+  // case product VAT metadata drifts mid-checkout.
+  'invalid_tax_basis',
+  'tax_amount_mismatch',
+  'tax_amount_must_be_zero_for_non_vat_merchant',
+  'gift_wrapping_fee_negative',
+  'order_total_mismatch',
   '22P02',
 ]);
 
@@ -83,6 +96,24 @@ export async function createAgenticCheckoutOrder(
     };
   }
 
+  // B3.5 round 5 (Codex P1, PR #1622): agentic
+  // `calculateCheckoutSession` produces `tax: 0` for every line item,
+  // so `body.tax_amount` is always 0 here. The RPC's
+  // `tax_amount_mismatch` guard would RAISE for any VAT-registered
+  // merchant. Recompute the expected per-line VAT in the dispatch
+  // (matching the RPC's formula byte-for-byte) and override
+  // `p_tax_amount` so the parity guard passes. The agentic GPT
+  // surface will start to under-quote the buyer until
+  // `calculateCheckoutSession` itself learns VAT (deferred — that
+  // changes the GPTLineItem/GPTTotal shape every agentic consumer
+  // depends on); the dispatch-side compute keeps the order-creation
+  // path correct in the meantime.
+  const computedTaxAmount = await computeAgenticOrderTax({
+    items: orderItemsPayload,
+    merchantId: body.merchant_id,
+    supabase,
+  });
+
   const { data: orderRows, error: orderError } = await supabase.rpc(
     'create_storefront_order',
     {
@@ -102,7 +133,7 @@ export async function createAgenticCheckoutOrder(
       p_shipping_provider: body.shipping_provider ?? null,
       p_shipping_status: body.shipping_status,
       p_source: body.source,
-      p_tax_amount: body.tax_amount,
+      p_tax_amount: computedTaxAmount,
       p_tracking_number: body.tracking_number ?? null,
       // Agentic checkout is API-key scoped, not tied to a customer auth session.
       p_user_id: null,
