@@ -44,6 +44,7 @@ jest.mock('@/hooks/use-search-storage', () => ({
 jest.mock('@/hooks', () => ({
   useProducts: () => ({ products: [], isLoading: false }),
   useCategories: () => ({ data: [] }),
+  useDebounce: (v: unknown) => v,
 }));
 
 const mockOnClose = jest.fn();
