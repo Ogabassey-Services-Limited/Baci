@@ -131,4 +131,22 @@ describe('OgabasseyPdpStaticResourceHints', () => {
     );
     expect(bannerPreload?.getAttribute('type')).toBeNull();
   });
+
+  it('infers preload type from query-string loader format parameters', () => {
+    mockGetImageProps.mockImplementationOnce(() => ({
+      props: {
+        sizes: '(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1400px',
+        src: '/image/banner?width=3840&format=png&quality=75',
+        srcSet:
+          '/image/banner?width=640&format=png&quality=75 640w, /image/banner?width=1080&format=png&quality=75 1080w',
+      },
+    }));
+
+    const html = renderToString(<OgabasseyPdpStaticResourceHints />);
+    const template = document.createElement('template');
+    template.innerHTML = html;
+    const bannerPreload = template.content.querySelector('link[rel="preload"]');
+
+    expect(bannerPreload?.getAttribute('type')).toBe('image/png');
+  });
 });

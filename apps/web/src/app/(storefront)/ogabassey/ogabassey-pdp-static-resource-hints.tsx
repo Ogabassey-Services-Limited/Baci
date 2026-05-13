@@ -51,7 +51,7 @@ export function OgabasseyPdpStaticResourceHints(): null {
 
 function getImagePreloadType(src: string) {
   const transformedFormat = src.match(
-    /(?:^|,)format=(avif|jpe?g|png|webp)(?:[,/]|$)/i
+    /(?:^|[?&/,])format=(avif|jpe?g|png|webp)(?:[&/,]|$)/i
   )?.[1];
   const extension =
     transformedFormat ?? src.match(/\.(avif|jpe?g|png|webp)(?:[?#].*)?$/i)?.[1];
