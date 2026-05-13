@@ -25,9 +25,15 @@ interface RawFeedProductRow extends Omit<FeedProduct, 'categories'> {
     | { name?: string; slug?: string }
     | Array<{ name?: string; slug?: string }>
     | null;
+  created_at?: string | null;
   product_categories?: Array<{
     categories?: { name?: string; slug?: string } | null;
   }>;
+}
+
+interface FeedProductCursor {
+  createdAt: string;
+  id: string;
 }
 
 function getJoinedCategory(
@@ -64,21 +70,29 @@ async function fetchActiveFeedProducts(
   merchantId: string
 ): Promise<RawFeedProductRow[]> {
   const products: RawFeedProductRow[] = [];
-  let offset = 0;
+  let cursor: FeedProductCursor | null = null;
 
   while (true) {
-    const { data, error } = await supabase
+    let query = supabase
       .from('products')
       .select(FEED_PRODUCTS_SELECT)
       .eq('merchant_id', merchantId)
-      .eq('status', 'active')
+      .eq('status', 'active');
+
+    if (cursor) {
+      query = query.or(
+        `created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.gt.${cursor.id})`
+      );
+    }
+
+    const { data, error } = await query
       .order('created_at', { ascending: false })
       .order('id', { ascending: true })
-      .range(offset, offset + FEED_PRODUCTS_PAGE_SIZE - 1)
+      .limit(FEED_PRODUCTS_PAGE_SIZE)
       .overrideTypes<RawFeedProductRow[], { merge: false }>();
 
     if (error) {
-      console.error('DB_PRODUCTS_ERROR:', { error, merchantId, offset });
+      console.error('DB_PRODUCTS_ERROR:', { cursor, error, merchantId });
       throw new Error('Failed to fetch products');
     }
 
@@ -93,7 +107,16 @@ async function fetchActiveFeedProducts(
       break;
     }
 
-    offset += FEED_PRODUCTS_PAGE_SIZE;
+    const lastProduct = page.at(-1);
+    if (!lastProduct?.created_at) {
+      console.error('DB_PRODUCTS_CURSOR_ERROR:', { merchantId });
+      throw new Error('Failed to fetch products');
+    }
+
+    cursor = {
+      createdAt: lastProduct.created_at,
+      id: lastProduct.id,
+    };
   }
 
   return products;

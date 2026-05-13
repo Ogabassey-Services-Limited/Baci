@@ -37,8 +37,9 @@ let offersResult: OffersResult;
 const mockManifestStatusEq = vi.fn();
 const mockRpc = vi.fn();
 const mockOffersStatusEq = vi.fn();
+const mockProductsOr = vi.fn();
 const mockProductsOrder = vi.fn();
-const mockProductsRange = vi.fn();
+const mockProductsLimit = vi.fn();
 
 function createMockSupabase() {
   return {
@@ -63,7 +64,9 @@ function createMockSupabase() {
           select: () => ({
             eq: () => ({
               eq: () => ({
+                or: mockProductsOr,
                 order: mockProductsOrder,
+                limit: mockProductsLimit,
               }),
             }),
           }),
@@ -97,11 +100,15 @@ function createMockSupabase() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockProductsOr.mockImplementation(() => ({
+    order: mockProductsOrder,
+    limit: mockProductsLimit,
+  }));
   mockProductsOrder.mockImplementation(() => ({
     order: mockProductsOrder,
-    range: mockProductsRange,
+    limit: mockProductsLimit,
   }));
-  mockProductsRange.mockImplementation(() => ({
+  mockProductsLimit.mockImplementation(() => ({
     overrideTypes: () => Promise.resolve(productsResult),
   }));
 
@@ -110,7 +117,13 @@ beforeEach(() => {
     error: null,
   };
   productsResult = {
-    data: [{ id: 'product-1', name: 'Phone' }],
+    data: [
+      {
+        id: 'product-1',
+        name: 'Phone',
+        created_at: '2026-01-01T00:00:00.000Z',
+      },
+    ],
     error: null,
   };
   manifestResult = {
@@ -228,16 +241,17 @@ describe('getCachedGoogleMerchantFeedData', () => {
     });
   });
 
-  it('paginates active products beyond the first Supabase page', async () => {
+  it('paginates active products with a stable cursor beyond the first Supabase page', async () => {
     const fullPage = Array.from({ length: 1000 }, (_, index) => ({
       id: `product-${index}`,
       name: `Phone ${index}`,
+      created_at: '2026-01-01T00:00:00.000Z',
     }));
     productsResult = {
       data: fullPage,
       error: null,
     };
-    mockProductsRange
+    mockProductsLimit
       .mockImplementationOnce(() => ({
         overrideTypes: () =>
           Promise.resolve({
@@ -259,8 +273,11 @@ describe('getCachedGoogleMerchantFeedData', () => {
       'ogabassey'
     );
 
-    expect(mockProductsRange).toHaveBeenNthCalledWith(1, 0, 999);
-    expect(mockProductsRange).toHaveBeenNthCalledWith(2, 1000, 1999);
+    expect(mockProductsLimit).toHaveBeenNthCalledWith(1, 1000);
+    expect(mockProductsLimit).toHaveBeenNthCalledWith(2, 1000);
+    expect(mockProductsOr).toHaveBeenCalledWith(
+      'created_at.lt.2026-01-01T00:00:00.000Z,and(created_at.eq.2026-01-01T00:00:00.000Z,id.gt.product-999)'
+    );
     expect(mockProductsOrder).toHaveBeenCalledWith('created_at', {
       ascending: false,
     });
@@ -272,17 +289,20 @@ describe('getCachedGoogleMerchantFeedData', () => {
     const fullPage = Array.from({ length: 1000 }, (_, index) => ({
       id: `product-${index}`,
       name: `Phone ${index}`,
+      created_at: '2026-01-01T00:00:00.000Z',
     }));
     productsResult = {
       data: fullPage,
       error: null,
     };
-    mockProductsRange.mockImplementation((from: number) => ({
+    mockProductsLimit.mockImplementation(() => ({
       overrideTypes: () =>
         Promise.resolve({
           data: fullPage.map((product, index) => ({
             ...product,
-            id: `product-${from + index}`,
+            id: `product-${
+              (mockProductsLimit.mock.calls.length - 1) * 1000 + index
+            }`,
           })),
           error: null,
         } satisfies ProductsResult),
@@ -294,8 +314,8 @@ describe('getCachedGoogleMerchantFeedData', () => {
       'ogabassey'
     );
 
-    expect(mockProductsRange).toHaveBeenCalledTimes(10);
-    expect(mockProductsRange).toHaveBeenLastCalledWith(9000, 9999);
+    expect(mockProductsLimit).toHaveBeenCalledTimes(10);
+    expect(mockProductsLimit).toHaveBeenLastCalledWith(1000);
     expect(mockRpc).toHaveBeenCalledWith('get_feed_product_variants', {
       p_merchant_id: 'merchant-1',
       p_product_ids: expect.any(Array),

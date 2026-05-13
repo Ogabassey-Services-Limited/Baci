@@ -22,6 +22,7 @@ interface ProductFixture {
   manage_stock: boolean;
   canonical_url?: string | null;
   categories?: { name?: string | null; slug?: string | null } | null;
+  created_at?: string | null;
   variants: Array<{
     id: string;
     attributes: Record<string, string>;
@@ -33,8 +34,9 @@ interface ProductFixture {
 
 let productsResult: { data: ProductFixture[] | null; error: unknown };
 const mockProductSelect = vi.fn();
+const mockProductsOr = vi.fn();
 const mockProductsOrder = vi.fn();
-const mockProductsRange = vi.fn();
+const mockProductsLimit = vi.fn();
 
 function createMockSupabase() {
   return {
@@ -44,7 +46,9 @@ function createMockSupabase() {
           select: mockProductSelect.mockImplementation(() => ({
             eq: () => ({
               eq: () => ({
+                or: mockProductsOr,
                 order: mockProductsOrder,
+                limit: mockProductsLimit,
               }),
             }),
           })),
@@ -58,19 +62,25 @@ function createMockSupabase() {
 beforeEach(() => {
   vi.clearAllMocks();
   mockProductSelect.mockReset();
+  mockProductsOr.mockReset();
   mockProductsOrder.mockReset();
-  mockProductsRange.mockReset();
+  mockProductsLimit.mockReset();
+  mockProductsOr.mockImplementation(() => ({
+    order: mockProductsOrder,
+    limit: mockProductsLimit,
+  }));
   mockProductsOrder.mockImplementation(() => ({
     order: mockProductsOrder,
-    range: mockProductsRange,
+    limit: mockProductsLimit,
   }));
-  mockProductsRange.mockImplementation(() => Promise.resolve(productsResult));
+  mockProductsLimit.mockImplementation(() => Promise.resolve(productsResult));
 
   productsResult = {
     data: [
       {
         id: 'prod-1',
         name: 'Test Phone',
+        created_at: '2026-01-01T00:00:00.000Z',
         description: 'A phone',
         slug: 'test-phone',
         price: 50000,
@@ -146,10 +156,11 @@ describe('getCachedOpenAIFeedData', () => {
     expect(result.products).toEqual([]);
   });
 
-  it('paginates products beyond the first Supabase page', async () => {
+  it('paginates products with a stable cursor beyond the first Supabase page', async () => {
     const fullPage = Array.from({ length: 1000 }, (_, index) => ({
       id: `prod-${index}`,
       name: `Phone ${index}`,
+      created_at: '2026-01-01T00:00:00.000Z',
       description: 'A phone',
       slug: `phone-${index}`,
       price: 50000,
@@ -158,13 +169,14 @@ describe('getCachedOpenAIFeedData', () => {
       manage_stock: true,
       variants: [],
     }));
-    mockProductsRange
+    mockProductsLimit
       .mockResolvedValueOnce({ data: fullPage, error: null })
       .mockResolvedValueOnce({
         data: [
           {
             id: 'prod-1000',
             name: 'Phone 1000',
+            created_at: '2026-01-01T00:00:00.000Z',
             description: 'A phone',
             slug: 'phone-1000',
             price: 50000,
@@ -180,8 +192,11 @@ describe('getCachedOpenAIFeedData', () => {
     const { getCachedOpenAIFeedData } = await import('./feed-data');
     const result = await getCachedOpenAIFeedData('merchant-1');
 
-    expect(mockProductsRange).toHaveBeenNthCalledWith(1, 0, 999);
-    expect(mockProductsRange).toHaveBeenNthCalledWith(2, 1000, 1999);
+    expect(mockProductsLimit).toHaveBeenNthCalledWith(1, 1000);
+    expect(mockProductsLimit).toHaveBeenNthCalledWith(2, 1000);
+    expect(mockProductsOr).toHaveBeenCalledWith(
+      'created_at.lt.2026-01-01T00:00:00.000Z,and(created_at.eq.2026-01-01T00:00:00.000Z,id.gt.prod-999)'
+    );
     expect(mockProductsOrder).toHaveBeenCalledWith('created_at', {
       ascending: false,
     });
@@ -208,7 +223,7 @@ describe('getCachedOpenAIFeedData', () => {
       expect.objectContaining({
         error: expect.objectContaining({ message: 'connection error' }),
         merchantId: 'merchant-1',
-        offset: 0,
+        cursor: null,
       })
     );
     consoleSpy.mockRestore();

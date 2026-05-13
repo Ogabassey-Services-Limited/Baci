@@ -6,7 +6,7 @@ const OPENAI_FEED_PRODUCTS_PAGE_SIZE = 1000;
 const MAX_OPENAI_FEED_PRODUCTS = 50_000;
 const OPENAI_FEED_PRODUCTS_SELECT = `id, name, description, slug, canonical_url, price, compare_at_price, images,
        brand, gtin, mpn, sku, stock, stock_quantity, manage_stock, condition, google_product_category, category,
-       weight_value, weight_unit, updated_at,
+       weight_value, weight_unit, created_at, updated_at,
        categories:category_id(name, slug),
        variants:product_variants!product_variants_product_id_fkey(id, attributes, price_override, stock_quantity, sku, primary_image)`;
 
@@ -41,6 +41,7 @@ export interface OpenAIFeedProduct {
   categories?: { name?: string | null; slug?: string | null } | null;
   weight_value?: number;
   weight_unit?: 'kg' | 'lb' | 'g' | 'oz';
+  created_at?: string | null;
   updated_at?: string;
   variants?: OpenAIFeedVariant[];
 }
@@ -49,25 +50,38 @@ export interface OpenAIFeedData {
   products: OpenAIFeedProduct[];
 }
 
+interface OpenAIFeedProductCursor {
+  createdAt: string;
+  id: string;
+}
+
 async function fetchActiveOpenAIFeedProducts(
   supabase: SupabaseClient,
   merchantId: string
 ): Promise<OpenAIFeedProduct[]> {
   const products: OpenAIFeedProduct[] = [];
-  let offset = 0;
+  let cursor: OpenAIFeedProductCursor | null = null;
 
   while (true) {
-    const { data, error } = await supabase
+    let query = supabase
       .from('products')
       .select(OPENAI_FEED_PRODUCTS_SELECT)
       .eq('merchant_id', merchantId)
-      .eq('status', 'active')
+      .eq('status', 'active');
+
+    if (cursor) {
+      query = query.or(
+        `created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.gt.${cursor.id})`
+      );
+    }
+
+    const { data, error } = await query
       .order('created_at', { ascending: false })
       .order('id', { ascending: true })
-      .range(offset, offset + OPENAI_FEED_PRODUCTS_PAGE_SIZE - 1);
+      .limit(OPENAI_FEED_PRODUCTS_PAGE_SIZE);
 
     if (error) {
-      console.error('DB_PRODUCTS_ERROR:', { error, merchantId, offset });
+      console.error('DB_PRODUCTS_ERROR:', { cursor, error, merchantId });
       throw new Error('Failed to fetch products');
     }
 
@@ -82,7 +96,16 @@ async function fetchActiveOpenAIFeedProducts(
       break;
     }
 
-    offset += OPENAI_FEED_PRODUCTS_PAGE_SIZE;
+    const lastProduct = page.at(-1);
+    if (!lastProduct?.created_at) {
+      console.error('DB_PRODUCTS_CURSOR_ERROR:', { merchantId });
+      throw new Error('Failed to fetch products');
+    }
+
+    cursor = {
+      createdAt: lastProduct.created_at,
+      id: lastProduct.id,
+    };
   }
 
   return products;
