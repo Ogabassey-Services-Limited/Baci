@@ -14,12 +14,55 @@ if echo "$INPUT" | jq -e '.stop_hook_active == true' >/dev/null 2>&1; then
   exit 0
 fi
 
-cd "$CLAUDE_PROJECT_DIR" || exit 0
+# Resolve the active worktree. `$CLAUDE_PROJECT_DIR` is just where the
+# session started — not necessarily where the current task lives. Sessions
+# routinely spawn isolated worktrees for PR work, and auditing the session
+# root surfaces accumulated WIP from other tasks every time the hook fires.
+#
+# Pick the worktree whose .git/index was most recently modified. Every
+# `git add` updates the index, so the active worktree's index is newest
+# while idle worktrees stay frozen at their last-touched mtime.
+#
+# Falls back to $CLAUDE_PROJECT_DIR if `git worktree list` fails or no
+# index files are found.
+ACTIVE_DIR="$CLAUDE_PROJECT_DIR"
+if command -v git >/dev/null 2>&1; then
+  newest_mtime=0
+  newest_path=""
+  while IFS= read -r wt; do
+    [ -z "$wt" ] && continue
+    # Linked worktrees have .git as a FILE pointing to the real gitdir
+    # under <main>/.git/worktrees/<name>. The main worktree has .git as a
+    # directory. The index lives at <gitdir>/index in both cases.
+    if [ -f "$wt/.git" ]; then
+      gitdir=$(awk '/^gitdir:/{print $2; exit}' "$wt/.git")
+    else
+      gitdir="$wt/.git"
+    fi
+    idx="$gitdir/index"
+    [ -f "$idx" ] || continue
+    # macOS uses `stat -f %m`, GNU/Linux uses `stat -c %Y`. Try both.
+    mtime=$(stat -f %m "$idx" 2>/dev/null || stat -c %Y "$idx" 2>/dev/null)
+    [ -z "$mtime" ] && continue
+    if [ "$mtime" -gt "$newest_mtime" ]; then
+      newest_mtime=$mtime
+      newest_path="$wt"
+    fi
+  done < <(git -C "$CLAUDE_PROJECT_DIR" worktree list --porcelain 2>/dev/null | awk '/^worktree /{print $2}')
+  [ -n "$newest_path" ] && ACTIVE_DIR="$newest_path"
+fi
+
+cd "$ACTIVE_DIR" || exit 0
 
 # Check that new/modified source files have colocated test files
 # Exempt: types, config, index barrels, test files, route files, CSS, non-code files
+#
+# Scope: staged + untracked only (NOT unstaged). The session-end hook should
+# audit files actually about to ship, not accumulated WIP. Auditing the full
+# working tree against HEAD fires every session against any uncommitted work,
+# even when the current task touches none of it.
 MISSING_TESTS=""
-for FILE in $(git diff --name-only --diff-filter=ACM HEAD 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null); do
+for FILE in $(git diff --name-only --cached --diff-filter=ACM 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null); do
   # Strip trailing whitespace/CR from git output
   FILE=$(echo "$FILE" | tr -d '\r' | xargs)
   [ -z "$FILE" ] && continue
