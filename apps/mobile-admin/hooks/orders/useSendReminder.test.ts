@@ -79,7 +79,7 @@ describe('useSendReminder', () => {
     });
     mocks.fetch.mockResolvedValue({
       ok: true,
-      json: async () => ({ sent: true }),
+      text: async () => JSON.stringify({ sent: true }),
     });
 
     const mutation = useSendReminder() as unknown as {
@@ -123,7 +123,7 @@ describe('useSendReminder', () => {
       ok: false,
       status: 503,
       statusText: 'Service Unavailable',
-      json: async () => ({ error: 'provider down' }),
+      text: async () => JSON.stringify({ error: 'provider down' }),
     });
 
     const mutation = useSendReminder() as unknown as {
@@ -143,9 +143,7 @@ describe('useSendReminder', () => {
       ok: false,
       status: 503,
       statusText: 'Service Unavailable',
-      json: async () => {
-        throw new Error('not-json');
-      },
+      text: async () => '',
     });
 
     const mutation = useSendReminder() as unknown as {
@@ -154,6 +152,42 @@ describe('useSendReminder', () => {
 
     await expect(mutation.mutationFn({ orderId: 'order-1' })).rejects.toThrow(
       'Request failed: 503 Service Unavailable'
+    );
+  });
+
+  it('surfaces a timeout error when reminder delivery hangs', async () => {
+    const abortError = new Error('aborted');
+    abortError.name = 'AbortError';
+
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    mocks.fetch.mockRejectedValue(abortError);
+
+    const mutation = useSendReminder() as unknown as {
+      mutationFn: (vars: { orderId: string }) => Promise<unknown>;
+    };
+
+    await expect(mutation.mutationFn({ orderId: 'order-1' })).rejects.toThrow(
+      'Request timed out. Please check your connection and try again.'
+    );
+  });
+
+  it('uses the raw response text when reminder success JSON is malformed', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    mocks.fetch.mockResolvedValue({
+      ok: true,
+      text: async () => 'sent',
+    });
+
+    const mutation = useSendReminder() as unknown as {
+      mutationFn: (vars: { orderId: string }) => Promise<unknown>;
+    };
+
+    await expect(mutation.mutationFn({ orderId: 'order-1' })).resolves.toBe(
+      'sent'
     );
   });
 });

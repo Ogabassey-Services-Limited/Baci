@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   fetch: vi.fn(),
   getSession: vi.fn(),
   invalidateQueries: vi.fn(),
+  merchantId: 'merchant-1',
 }));
 
 vi.stubGlobal('fetch', mocks.fetch);
@@ -21,7 +22,9 @@ vi.mock('@/lib/supabase', () => ({
 }));
 
 vi.mock('../useMerchant', () => ({
-  useMerchant: () => ({ merchant: { id: 'merchant-1' } }),
+  useMerchant: () => ({
+    merchant: mocks.merchantId ? { id: mocks.merchantId } : null,
+  }),
 }));
 
 vi.mock('@tanstack/react-query', async () => {
@@ -43,6 +46,7 @@ import { useShipOnCredit } from './useShipOnCredit';
 describe('useShipOnCredit', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.merchantId = 'merchant-1';
     mocks.getSession.mockResolvedValue({ data: { session: null } });
   });
 
@@ -83,7 +87,7 @@ describe('useShipOnCredit', () => {
     });
     mocks.fetch.mockResolvedValue({
       ok: true,
-      json: async () => ({ success: true }),
+      text: async () => JSON.stringify({ success: true }),
     });
 
     const mutation = useShipOnCredit() as unknown as {
@@ -116,6 +120,44 @@ describe('useShipOnCredit', () => {
       queryKey: ['orders', 'merchant-1'],
     });
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['order-counts', 'merchant-1'],
+    });
+  });
+
+  it('surfaces a timeout error when ship-on-credit hangs', async () => {
+    const abortError = new Error('aborted');
+    abortError.name = 'AbortError';
+
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    mocks.fetch.mockRejectedValue(abortError);
+
+    const mutation = useShipOnCredit() as unknown as {
+      mutationFn: (vars: { orderId: string }) => Promise<unknown>;
+    };
+
+    await expect(mutation.mutationFn({ orderId: 'order-1' })).rejects.toThrow(
+      'Request timed out. Please check your connection and try again.'
+    );
+  });
+
+  it('skips merchant-scoped invalidations when the merchant is unavailable', () => {
+    mocks.merchantId = '';
+
+    const mutation = useShipOnCredit() as unknown as {
+      onSuccess: (_data: unknown, vars: { orderId: string }) => void;
+    };
+
+    mutation.onSuccess(null, { orderId: 'order-1' });
+
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['order', 'order-1'],
+    });
+    expect(mocks.invalidateQueries).not.toHaveBeenCalledWith({
+      queryKey: ['orders', 'merchant-1'],
+    });
+    expect(mocks.invalidateQueries).not.toHaveBeenCalledWith({
       queryKey: ['order-counts', 'merchant-1'],
     });
   });
