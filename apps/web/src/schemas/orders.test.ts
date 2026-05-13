@@ -258,12 +258,38 @@ describe('orderCreateSchema', () => {
       expect(result.success).toBe(false);
     });
 
+    it('rejects negative client_total', () => {
+      const result = orderCreateSchema.safeParse({
+        ...validOrder,
+        client_total: -50,
+      });
+      expect(result.success).toBe(false);
+    });
+
     it('treats expected_total / client_total as undefined when absent', () => {
       const result = orderCreateSchema.safeParse(validOrder);
       expect(result.success).toBe(true);
       if (result.success) {
         expect(result.data.expected_total).toBeUndefined();
         expect(result.data.client_total).toBeUndefined();
+      }
+    });
+
+    it('preserves null on expected_total / client_total instead of coercing to 0', () => {
+      // Codex P1 (PR #1622): pre-fix the schema used `z.coerce.number()`
+      // which calls `Number(null) === 0`. A client sending
+      // `expected_total: null` would silently become `0` and the RPC's
+      // parity check (subtotal + shipping + gift + tax - discount vs
+      // 0) would always RAISE `order_total_mismatch` 400.
+      const result = orderCreateSchema.safeParse({
+        ...validOrder,
+        expected_total: null,
+        client_total: null,
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.expected_total).toBeNull();
+        expect(result.data.client_total).toBeNull();
       }
     });
   });

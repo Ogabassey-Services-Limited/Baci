@@ -1334,10 +1334,29 @@ export const CheckoutPage: React.FC = () => {
             tax_basis: 'exclusive',
             gift_wrapping_fee: giftWrappingCost,
             // Client-side total snapshot for the API's parity check
-            // (Δ-39). On ORDER_TOTAL_MISMATCH the caller re-renders
-            // the order summary so the user re-confirms.
-            expected_total: total,
-            client_total: total,
+            // (Δ-39). Must match the RPC formula:
+            //   subtotal + shipping + gift + tax - discount.
+            // The local `total` variable (line ~953) is
+            // `orderTotals?.total || (cartTotal + deliveryCost +
+            // giftWrappingCost)` — `orderTotals.total` from
+            // `calculate_order` is `subtotal + shipping + tax` and
+            // OMITS gift wrapping (the action's input is just
+            // {subtotal, shippingFee, taxRate}, no gift param).
+            // Sending `total` directly when orderTotals is present
+            // would always trip ORDER_TOTAL_MISMATCH whenever
+            // `giftWrappingCost > 1`. Compose the snapshot from the
+            // explicit components instead so it always matches the
+            // server side (Codex P1 on PR #1622).
+            expected_total:
+              cartTotal +
+              deliveryCost +
+              giftWrappingCost +
+              (orderTotals?.taxAmount ?? 0),
+            client_total:
+              cartTotal +
+              deliveryCost +
+              giftWrappingCost +
+              (orderTotals?.taxAmount ?? 0),
             payment_method: normalizedPaymentMethod,
             payment_status: 'unpaid',
             shipping_status: 'pending',

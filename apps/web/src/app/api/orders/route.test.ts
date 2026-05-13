@@ -492,6 +492,85 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
     expect(response.status).toBe(400);
   });
 
+  it('forwards p_tax_basis and p_gift_wrapping_fee to the RPC', async () => {
+    // Defense-in-depth contract test: the body fields must reach the
+    // SECURITY DEFINER RPC unchanged so the VAT enforcement boundary
+    // (Δ-42) sees what the client actually asked for. A regression
+    // where the route silently drops these (e.g., a future refactor
+    // that renames fields) would let exclusive-basis orders skip
+    // VAT checks without any visible test failure.
+    const rpcSpy = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'order-id',
+          order_number: 'ORD-123',
+          total: 1500,
+          subtotal: 1000,
+          shipping_fee: 0,
+          customer_id: CUSTOMER_ID,
+        },
+      ],
+      error: null,
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      sb.rpc = ((name: string, args: Record<string, unknown>) => {
+        if (name === 'create_storefront_order') {
+          return rpcSpy(args);
+        }
+        return Promise.resolve({ data: null, error: null });
+      }) as typeof sb.rpc;
+      return sb;
+    }) as unknown as never);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        tax_basis: 'inclusive',
+        gift_wrapping_fee: 500,
+      }),
+    });
+    await POST(request);
+
+    expect(rpcSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_tax_basis: 'inclusive',
+        p_gift_wrapping_fee: 500,
+      })
+    );
+  });
+
+  it('maps gift_wrapping_fee_negative to 400', async () => {
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () =>
+        buildMockSupabase({
+          create_storefront_order: {
+            data: null,
+            error: {
+              code: 'P0001',
+              message: 'gift_wrapping_fee_negative',
+            },
+          },
+        }) as unknown as never
+    );
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        gift_wrapping_fee: 0,
+      }),
+    });
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body.details).toContain('gift_wrapping_fee_negative');
+  });
+
   it('maps invalid_tax_basis to 400', async () => {
     const supabaseMod = await import('@/lib/supabase/server');
     vi.mocked(supabaseMod.createClient).mockImplementation(

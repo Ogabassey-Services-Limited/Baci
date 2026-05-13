@@ -141,7 +141,13 @@ DECLARE
   v_shipping_fee NUMERIC := COALESCE(p_shipping_fee, 0);
   v_discount_amount NUMERIC := GREATEST(COALESCE(p_discount_amount, 0), 0);
   v_tax_amount NUMERIC := COALESCE(p_tax_amount, 0);
-  v_gift_wrapping_fee NUMERIC := GREATEST(COALESCE(p_gift_wrapping_fee, 0), 0);
+  -- Defer the non-negative clamp to the validation block below.
+  -- Pre-fix this DECLARE used GREATEST(.., 0), which silently
+  -- normalized `-5` to `0` and made the `gift_wrapping_fee_negative`
+  -- check unreachable. Keep the COALESCE so NULL still becomes 0 (a
+  -- legitimate "no gift wrap" signal), but let actual negatives
+  -- flow through to the validation RAISE.
+  v_gift_wrapping_fee NUMERIC := COALESCE(p_gift_wrapping_fee, 0);
   v_tax_basis TEXT := lower(trim(COALESCE(p_tax_basis, 'exclusive')));
   v_merchant_vat_status TEXT;
   v_merchant_vat_rate NUMERIC;
@@ -900,12 +906,23 @@ BEGIN
       tax_exclusive_amount = new_tax_exclusive,
       tax_amount = new_tax_amount,
       tax_inclusive_amount = new_tax_exclusive + new_tax_amount,
-      total =
+      -- Codex P1 (PR #1622): mirror the RPC's
+      -- `IF v_total < 0 THEN v_total := 0` clamp. Without
+      -- `GREATEST(0, ...)` here, a discount larger than
+      -- subtotal+shipping+gift+tax (possible via guest-checkout
+      -- payloads or coupon edge cases) writes a NEGATIVE total back
+      -- to the row, the RPC's post-trigger re-SELECT then returns
+      -- that negative, and the API hands the gateway a nonsense
+      -- amount. The clamp keeps the row financially sane even when
+      -- inputs are pathological.
+      total = GREATEST(
+        0,
         order_subtotal
         + order_shipping_fee
         + order_gift_wrapping_fee
         + new_tax_amount
-        - order_discount_amount,
+        - order_discount_amount
+      ),
       invoice_issue_date = COALESCE(invoice_issue_date, CURRENT_DATE),
       tax_point_date = COALESCE(tax_point_date, CURRENT_DATE)
     WHERE id = order_uuid;

@@ -379,15 +379,34 @@ describe('agentic storefront order RPC contract — B3.5 VAT enforcement', () =>
     expect(sql).not.toMatch(/p_subtotal\s+NUMERIC/i);
     expect(sql).not.toMatch(/p_total\s+NUMERIC/i);
 
-    // Both basis branches must be present in the body.
-    expect(sql).toMatch(/v_tax_basis\s*=\s*'exclusive'/);
-    const exclusiveBranchIndex = sql.search(/v_tax_basis\s*=\s*'exclusive'/);
-    const inclusiveBlockMatch = sql
-      .slice(exclusiveBranchIndex)
-      .search(
-        /v_subtotal[\s\S]*?v_shipping_fee[\s\S]*?v_gift_wrapping_fee[\s\S]*?-\s*v_discount_amount/
-      );
-    expect(inclusiveBlockMatch).toBeGreaterThan(-1);
+    // Both basis branches must be present in the body. The RPC has
+    // TWO `IF v_tax_basis = 'exclusive' THEN` occurrences — the
+    // first inside the VAT-enforcement guard (validation-only, no
+    // v_total math) and the second inside the total-computation
+    // block. Anchor on the second one by requiring `v_total :=` to
+    // immediately follow, then walk to its ELSE branch (the
+    // inclusive case).
+    const totalComputeIndex = sql.search(
+      /IF\s+v_tax_basis\s*=\s*'exclusive'\s+THEN\s+v_total\s*:=/
+    );
+    expect(totalComputeIndex).toBeGreaterThan(-1);
+    const elseRelativeIndex = sql.slice(totalComputeIndex).search(/\bELSE\b/);
+    expect(elseRelativeIndex).toBeGreaterThan(-1);
+    const inclusiveStart = totalComputeIndex + elseRelativeIndex;
+    const endIfRelativeIndex = sql.slice(inclusiveStart).search(/END IF;/);
+    expect(endIfRelativeIndex).toBeGreaterThan(-1);
+    const inclusiveBody = sql.slice(
+      inclusiveStart,
+      inclusiveStart + endIfRelativeIndex
+    );
+
+    // Inclusive body MUST sum subtotal + shipping + gift - discount,
+    // and MUST NOT add v_tax_amount (tax is already inside subtotal
+    // for inclusive merchants).
+    expect(inclusiveBody).toMatch(
+      /v_subtotal[\s\S]*?\+\s*v_shipping_fee[\s\S]*?\+\s*v_gift_wrapping_fee[\s\S]*?-\s*v_discount_amount/
+    );
+    expect(inclusiveBody).not.toMatch(/\+\s*v_tax_amount/);
   });
 
   it('persists tax_basis and gift_wrapping_fee atomically with the order row', () => {
@@ -484,9 +503,16 @@ describe('agentic storefront order RPC contract — B3.5 VAT enforcement', () =>
     expect(dropMatches?.length).toBeGreaterThanOrEqual(2);
 
     // The new signature must be re-granted to anon / authenticated
-    // / service_role since DROP wipes function grants.
+    // / service_role since DROP wipes function grants. The
+    // `authenticated` grant matters as much as `anon` — mobile-admin
+    // staff users on the dashboard order-create form go through
+    // PostgREST with the authenticated role; missing this grant
+    // would 403 their checkout.
     expect(sql).toMatch(
       /GRANT\s+ALL\s+ON\s+FUNCTION\s+public\.create_storefront_order[\s\S]*?\)\s*TO\s+anon/i
+    );
+    expect(sql).toMatch(
+      /GRANT\s+ALL\s+ON\s+FUNCTION\s+public\.create_storefront_order[\s\S]*?\)\s*TO\s+authenticated/i
     );
     expect(sql).toMatch(
       /GRANT\s+ALL\s+ON\s+FUNCTION\s+public\.create_storefront_order[\s\S]*?\)\s*TO\s+service_role/i
@@ -528,9 +554,11 @@ describe('update_order_tax_totals trigger contract — B3.5', () => {
     expect(exclusiveBlock).toMatch(/UPDATE orders/i);
     expect(exclusiveBlock).toMatch(/tax_amount\s*=\s*new_tax_amount/i);
     // Total recomputation MUST be inside the exclusive UPDATE
-    // statement, not a follow-up that could race.
+    // statement, not a follow-up that could race. Allow the
+    // `GREATEST(0, …)` clamp (Codex P1 PR #1622) so a discount
+    // larger than the order doesn't write a negative total.
     expect(exclusiveBlock).toMatch(
-      /total\s*=\s*order_subtotal\s*\+\s*order_shipping_fee\s*\+\s*order_gift_wrapping_fee\s*\+\s*new_tax_amount\s*-\s*order_discount_amount/i
+      /total\s*=\s*GREATEST\(\s*0\s*,\s*order_subtotal\s*\+\s*order_shipping_fee\s*\+\s*order_gift_wrapping_fee\s*\+\s*new_tax_amount\s*-\s*order_discount_amount\s*\)/i
     );
   });
 

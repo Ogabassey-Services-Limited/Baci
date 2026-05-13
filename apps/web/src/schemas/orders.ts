@@ -137,8 +137,15 @@ const orderCreateSchemaBase = z.object({
   // the server-recomputed `orders.total` and rejects mismatches.
   tax_basis: z.enum(['exclusive', 'inclusive']).default('exclusive'),
   gift_wrapping_fee: z.coerce.number().nonnegative().default(0),
-  expected_total: z.coerce.number().nonnegative().optional(),
-  client_total: z.coerce.number().nonnegative().optional(),
+  // Use a non-coercing schema for parity-check fields. `z.coerce` runs
+  // `Number(value)`, and `Number(null)` is `0` — so a client sending
+  // `expected_total: null` would silently become `0`, and the RPC's
+  // parity check would compare server total to 0 → guaranteed
+  // `order_total_mismatch` 400 even though the client just meant
+  // "no expected total". `.nullable()` keeps null distinct from
+  // missing, and the API treats both as "skip the parity check".
+  expected_total: z.number().nonnegative().nullable().optional(),
+  client_total: z.number().nonnegative().nullable().optional(),
   payment_method: z
     .string()
     .min(1)
