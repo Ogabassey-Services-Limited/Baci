@@ -138,7 +138,7 @@ describe('V2ComparisonProvider', () => {
     ).toEqual([expect.objectContaining({ id: baseProduct.id })]);
   });
 
-  it('does not write previous merchant items into a new namespace before hydration', () => {
+  it('keeps namespace-switch writes isolated on rerender', () => {
     const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
 
     const { rerender } = render(
@@ -169,6 +169,21 @@ describe('V2ComparisonProvider', () => {
 
     expect(localStorage.getItem('ogabassey_v2_compare:merchant-b')).toBeNull();
     expect(setItemSpy).not.toHaveBeenCalledWith(
+      'ogabassey_v2_compare:merchant-b',
+      expect.any(String)
+    );
+
+    setItemSpy.mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add to compare' }));
+
+    expect(screen.getByTestId('compare-count')).toHaveTextContent('1');
+    expect(
+      JSON.parse(
+        localStorage.getItem('ogabassey_v2_compare:merchant-b') ?? '[]'
+      )
+    ).toEqual([expect.objectContaining({ id: baseProduct.id })]);
+    expect(setItemSpy).toHaveBeenCalledWith(
       'ogabassey_v2_compare:merchant-b',
       expect.any(String)
     );

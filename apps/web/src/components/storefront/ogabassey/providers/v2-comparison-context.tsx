@@ -46,7 +46,14 @@ export const V2ComparisonProvider: React.FC<{
   const hydratedStorageKeyRef = useRef<string | null>(null);
 
   const hydrateComparisonItems = () => {
-    if (typeof window === 'undefined' || hasHydratedStorageRef.current) {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    if (
+      hasHydratedStorageRef.current &&
+      hydratedStorageKeyRef.current === storageKey
+    ) {
       return null;
     }
 
@@ -68,14 +75,14 @@ export const V2ComparisonProvider: React.FC<{
   };
 
   useEffect(() => {
-    hasHydratedStorageRef.current = false;
-    hydratedStorageKeyRef.current = null;
-    setHasHydratedStorage(false);
-    setCompareItems([]);
-  }, [storageKey]);
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
 
-  useEffect(() => {
-    if (typeof window === 'undefined' || hasHydratedStorageRef.current) {
+    if (
+      hasHydratedStorageRef.current &&
+      hydratedStorageKeyRef.current === storageKey
+    ) {
       return undefined;
     }
 

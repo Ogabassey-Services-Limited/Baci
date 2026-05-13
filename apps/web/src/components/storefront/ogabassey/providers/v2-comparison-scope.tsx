@@ -12,8 +12,13 @@ export function V2ComparisonScope({
   children,
   storageNamespace,
 }: V2ComparisonScopeProps) {
+  const providerKey = storageNamespace ?? 'default';
+
   return (
-    <V2ComparisonProvider storageNamespace={storageNamespace}>
+    <V2ComparisonProvider
+      key={providerKey}
+      storageNamespace={storageNamespace}
+    >
       {children}
     </V2ComparisonProvider>
   );
