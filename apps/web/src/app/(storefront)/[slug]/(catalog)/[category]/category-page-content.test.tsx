@@ -1,3 +1,5 @@
+import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -39,12 +41,21 @@ vi.mock('next/navigation', () => ({
 }));
 
 vi.mock('@/components/storefront/ogabassey/pages/category-page', () => ({
-  CategoryPage: () => null,
+  CategoryPage: () => <div data-testid="category-page">Category page</div>,
 }));
 
 vi.mock('@/components/ui/skeletons', () => ({
   ProductGridSkeleton: () => null,
 }));
+
+vi.mock(
+  '@/components/storefront/ogabassey/providers/v2-comparison-scope',
+  () => ({
+    V2ComparisonScope: ({ children }: { children: ReactNode }) => (
+      <div data-testid="comparison-scope">{children}</div>
+    ),
+  })
+);
 
 vi.mock('@/lib/cached-data', () => ({
   getCachedCategoryPageData: (...args: unknown[]) =>
@@ -176,5 +187,26 @@ describe('CategoryPageContent', () => {
     // Downstream schema generation should never run for a 404 response.
     expect(mockGenerateCollectionPageSchema).not.toHaveBeenCalled();
     expect(mockGetCachedCategoryPageData).not.toHaveBeenCalled();
+  });
+
+  it('wraps category products in the comparison scope required by product cards', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      business_name: 'Demo Store',
+      slug: 'demo-store',
+      country: null,
+      payout_currency: null,
+    });
+
+    const ui = await CategoryPageContent({
+      params: Promise.resolve({ slug: 'demo-store', category: 'phones' }),
+      searchParams: Promise.resolve({ page: '1' }),
+    });
+
+    render(ui);
+
+    expect(screen.getByTestId('comparison-scope')).toContainElement(
+      screen.getByTestId('category-page')
+    );
   });
 });

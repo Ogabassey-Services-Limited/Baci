@@ -1,6 +1,7 @@
 import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { CategoryPage as OgabasseyCategoryPage } from '@/components/storefront/ogabassey/pages/category-page';
+import { V2ComparisonScope } from '@/components/storefront/ogabassey/providers/v2-comparison-scope';
 import {
   getCachedCategoryPageData,
   getMerchantByIdentifier,
@@ -188,19 +189,21 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
         />
       )}
 
-      <OgabasseyCategoryPage
-        seoHeading={hubContent.intro.heading}
-        seoDescription={hubContent.intro.description}
-        seoFeatures={hubContent.trustFeatures}
-        seoFaqs={hubContent.faqItems}
-        hubContent={hubContent}
-        currentPage={currentPage}
-        categoryImage={
-          !data.isCollection ? data.category?.image_url : undefined
-        }
-        itemsPerPage={STOREFRONT_PRODUCTS_PER_PAGE}
-        products={normalizedProducts}
-      />
+      <V2ComparisonScope>
+        <OgabasseyCategoryPage
+          seoHeading={hubContent.intro.heading}
+          seoDescription={hubContent.intro.description}
+          seoFeatures={hubContent.trustFeatures}
+          seoFaqs={hubContent.faqItems}
+          hubContent={hubContent}
+          currentPage={currentPage}
+          categoryImage={
+            !data.isCollection ? data.category?.image_url : undefined
+          }
+          itemsPerPage={STOREFRONT_PRODUCTS_PER_PAGE}
+          products={normalizedProducts}
+        />
+      </V2ComparisonScope>
     </>
   );
 }
