@@ -196,6 +196,23 @@ export async function createAgenticCheckoutOrder(
       // guard + the column's CHECK `>= 0` jointly clamp invalid
       // input.
       p_gift_wrapping_fee: body.gift_wrapping_fee,
+      // Codex P1 (PR #1622 round 8): forward
+      // `body.expected_total` to enable the RPC's
+      // `order_total_mismatch` parity guard for agentic flows.
+      // Today `calculateCheckoutSession` doesn't quote VAT, so
+      // the agentic completion payload never includes
+      // `expected_total` and this is `null` (parity check
+      // skipped — matches existing behavior; fabricating a
+      // value from the VAT-exclusive quote would break every
+      // VAT-registered agentic checkout with a mismatch the
+      // agent can't recover from until session calc learns
+      // VAT). When `calculateCheckoutSession` is upgraded to
+      // emit a VAT-inclusive total (deferred follow-up tracked
+      // separately), `buildOrderRpcPayload` will start setting
+      // `expected_total` and this wiring activates the parity
+      // guard automatically — no second round trip here.
+      p_expected_total:
+        typeof body.expected_total === 'number' ? body.expected_total : null,
       p_tracking_number: body.tracking_number ?? null,
       // Agentic checkout is API-key scoped, not tied to a customer auth session.
       p_user_id: null,

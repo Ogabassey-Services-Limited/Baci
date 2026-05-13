@@ -241,6 +241,38 @@ describe('agentic checkout order dispatch', () => {
     );
   });
 
+  it('forwards body.expected_total to p_expected_total when set (Codex P1 round 8)', async () => {
+    // When the agentic caller supplies an expected_total (future
+    // VAT-aware session calc), it must reach the RPC so the
+    // `order_total_mismatch` parity guard fires. When absent, we
+    // pass null (parity check skipped). Pin both branches.
+    const rpc = vi.fn().mockResolvedValue({
+      data: [{ id: 'order-et-1', total: 500_000 }],
+      error: null,
+    });
+
+    const supabase = {
+      from: makeFromStub(),
+      rpc,
+    } as unknown as SupabaseClient;
+
+    await createAgenticCheckoutOrder(
+      { ...orderPayload(), expected_total: 500_000 },
+      supabase
+    );
+    expect(rpc).toHaveBeenLastCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({ p_expected_total: 500_000 })
+    );
+
+    rpc.mockClear();
+    await createAgenticCheckoutOrder(orderPayload(), supabase);
+    expect(rpc).toHaveBeenLastCalledWith(
+      'create_storefront_order',
+      expect.objectContaining({ p_expected_total: null })
+    );
+  });
+
   it('forwards body.gift_wrapping_fee through to p_gift_wrapping_fee (Codex P1 round 7)', async () => {
     // Pre-fix the dispatch silently dropped `p_gift_wrapping_fee`
     // — the RPC used its default 0 and any agentic caller that
