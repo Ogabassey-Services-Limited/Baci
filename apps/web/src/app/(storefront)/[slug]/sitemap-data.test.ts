@@ -14,6 +14,7 @@ const mockQueryResults = new Map<
   { data: unknown; error: Error | null }
 >();
 const mockSelectCalls: string[] = [];
+const mockNotCalls: unknown[][] = [];
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: (...args: unknown[]) =>
@@ -61,7 +62,6 @@ function createEq(table: string) {
     const response = mockQueryResults.get(table);
     const isTerminalQuery =
       (table === 'products' && key === 'status' && value === 'active') ||
-      (table === 'blog_posts' && key === 'status' && value === 'published') ||
       (table === 'categories' &&
         key === 'merchant_id' &&
         value === 'merchant-1');
@@ -91,6 +91,18 @@ function createEq(table: string) {
       return {
         data: response?.data ?? [],
         error: response?.error ?? null,
+      };
+    }
+
+    if (table === 'blog_posts' && key === 'status' && value === 'published') {
+      return {
+        not: (...notArgs: unknown[]) => {
+          mockNotCalls.push(notArgs);
+          return {
+            data: response?.data ?? [],
+            error: response?.error ?? null,
+          };
+        },
       };
     }
 
@@ -136,6 +148,7 @@ describe('sitemap-data', () => {
     mockHeaders = new Map();
     mockQueryResults.clear();
     mockSelectCalls.length = 0;
+    mockNotCalls.length = 0;
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
       slug: 'ogabassey',
@@ -420,6 +433,7 @@ describe('sitemap-data', () => {
           entry.url === 'https://ogabassey.com/blog/best-phones-in-nigeria'
       )
     ).toBe(true);
+    expect(mockNotCalls).toContainEqual(['published_at', 'is', null]);
     expect(categoryEntries[0].url).toBe('https://ogabassey.com/smartphones');
   });
 

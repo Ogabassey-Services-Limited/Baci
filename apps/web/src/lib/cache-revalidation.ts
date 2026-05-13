@@ -14,9 +14,16 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 
 interface BlogRevalidationOptions {
   identifiers?: Array<string | null | undefined>;
+  canonicalMerchantSlug?: string | null | undefined;
   listingCategories?: Array<string | null | undefined>;
   listingPages?: Array<number | null | undefined>;
   postSlugs?: Array<string | null | undefined>;
+}
+
+const CANONICAL_MERCHANT_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function isSafeCanonicalMerchantSlug(slug: string): boolean {
+  return CANONICAL_MERCHANT_SLUG_PATTERN.test(slug);
 }
 
 /**
@@ -106,6 +113,10 @@ export function revalidateBlogPosts(
     typeof identifierOrOptions === 'string'
       ? []
       : (identifierOrOptions.listingPages ?? []);
+  const canonicalMerchantSlug =
+    typeof identifierOrOptions === 'string'
+      ? null
+      : (identifierOrOptions.canonicalMerchantSlug ?? null);
 
   const normalizedIdentifiers = Array.from(
     new Set(
@@ -139,6 +150,33 @@ export function revalidateBlogPosts(
   );
   const effectiveListingPages =
     normalizedListingPages.length > 0 ? normalizedListingPages : [1];
+  const rawCanonicalMerchantSlug =
+    canonicalMerchantSlug?.trim().toLowerCase() || '';
+  const normalizedCanonicalMerchantSlug = isSafeCanonicalMerchantSlug(
+    rawCanonicalMerchantSlug
+  )
+    ? rawCanonicalMerchantSlug
+    : '';
+
+  if (normalizedIdentifiers.length > 0 || rawCanonicalMerchantSlug.length > 0) {
+    // RSS cache entries use coarse shared tags by design. The merchant-scoped
+    // feed path below narrows the route cache refresh for the canonical slug.
+    revalidateTag('blog-rss-feed', 'merchant');
+    revalidateTag('blog-posts', 'merchant');
+  }
+
+  if (
+    rawCanonicalMerchantSlug.length > 0 &&
+    normalizedCanonicalMerchantSlug.length === 0
+  ) {
+    console.warn('Skipped blog feed path revalidation for invalid slug', {
+      canonicalMerchantSlug: rawCanonicalMerchantSlug,
+    });
+  }
+
+  if (normalizedCanonicalMerchantSlug.length > 0) {
+    revalidatePath(`/api/blog/feed/${normalizedCanonicalMerchantSlug}`);
+  }
 
   for (const identifier of normalizedIdentifiers) {
     revalidatePath(`/${identifier}/blog`);

@@ -34,6 +34,10 @@ import { useBlogAutoSave } from '@/hooks/use-blog-auto-save';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
+import {
+  BLOG_FEATURED_VARIANT_KEYS,
+  type BlogFeaturedVariantKey,
+} from '@/lib/blog-managed-storage-paths';
 import { asRoute } from '@/lib/routes';
 import { getPreviewUrl } from '../actions';
 
@@ -54,6 +58,9 @@ interface PostFormData {
   excerpt: string;
   featured_image_url: string;
   featured_image_alt: string;
+  featured_image_width: number | null;
+  featured_image_height: number | null;
+  featured_image_variants: FeaturedImageVariants;
   category: string;
   tags: string;
   author_name: string;
@@ -61,6 +68,123 @@ interface PostFormData {
   author_bio: string;
   seo_title: string;
   seo_description: string;
+}
+
+type FeaturedImageVariants = Partial<Record<BlogFeaturedVariantKey, string>>;
+type FeaturedImageVariantPaths = Partial<
+  Record<BlogFeaturedVariantKey, string>
+>;
+
+interface FeaturedImageUploadResponse {
+  url: string;
+  path: string;
+  width: number;
+  height: number;
+  variants?: FeaturedImageVariants;
+  variantPaths?: FeaturedImageVariantPaths;
+}
+
+interface UploadedFeaturedImage {
+  path: string;
+  variantPaths: FeaturedImageVariantPaths;
+}
+
+function parseFeaturedImageUploadResponse(
+  value: unknown
+): FeaturedImageUploadResponse {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Invalid upload response payload');
+  }
+
+  const payload = value as Record<string, unknown>;
+  const url = payload.url;
+  const path = payload.path;
+  const width = payload.width;
+  const height = payload.height;
+
+  if (
+    typeof url !== 'string' ||
+    !url.trim() ||
+    typeof path !== 'string' ||
+    !path.trim()
+  ) {
+    throw new Error('Upload response is missing required image paths');
+  }
+
+  if (
+    typeof width !== 'number' ||
+    !Number.isFinite(width) ||
+    width <= 0 ||
+    typeof height !== 'number' ||
+    !Number.isFinite(height) ||
+    height <= 0
+  ) {
+    throw new Error('Upload response is missing valid image dimensions');
+  }
+
+  return {
+    url,
+    path,
+    width,
+    height,
+    variants: normalizeFeaturedImageVariantMap(payload.variants),
+    variantPaths: normalizeFeaturedImageVariantPaths(payload.variantPaths),
+  };
+}
+
+function normalizeFeaturedImageVariantMap(
+  value: unknown
+): FeaturedImageVariants {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  const input = value as Partial<Record<BlogFeaturedVariantKey, unknown>>;
+  const normalized: FeaturedImageVariants = {};
+
+  for (const key of BLOG_FEATURED_VARIANT_KEYS) {
+    const variantUrl = input[key];
+    if (typeof variantUrl === 'string' && variantUrl.trim()) {
+      normalized[key] = variantUrl;
+    }
+  }
+
+  return normalized;
+}
+
+function normalizeFeaturedImageVariantPaths(
+  value: unknown
+): FeaturedImageVariantPaths {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  const input = value as Partial<Record<BlogFeaturedVariantKey, unknown>>;
+  const normalized: FeaturedImageVariantPaths = {};
+
+  for (const key of BLOG_FEATURED_VARIANT_KEYS) {
+    const variantPath = input[key];
+    if (typeof variantPath === 'string' && variantPath.trim()) {
+      normalized[key] = variantPath;
+    }
+  }
+
+  return normalized;
+}
+
+function withFeaturedImageDefaults(data: PostFormData): PostFormData {
+  return {
+    ...data,
+    featured_image_width: data.featured_image_width ?? null,
+    featured_image_height: data.featured_image_height ?? null,
+    featured_image_variants: normalizeFeaturedImageVariantMap(
+      data.featured_image_variants
+    ),
+  };
+}
+
+function getFeaturedImagePreviewUrl(data: PostFormData): string {
+  return data.featured_image_variants.landscape_16x9 || data.featured_image_url;
 }
 
 export default function NewBlogPostPage() {
@@ -75,6 +199,9 @@ export default function NewBlogPostPage() {
     excerpt: '',
     featured_image_url: '',
     featured_image_alt: '',
+    featured_image_width: null,
+    featured_image_height: null,
+    featured_image_variants: {},
     category: '',
     tags: '',
     author_name: merchant?.business_name || '',
@@ -100,6 +227,8 @@ export default function NewBlogPostPage() {
   const [activeTab, setActiveTab] = useState('content');
   const [showRecoveryDialog, setShowRecoveryDialog] = useState(false);
   const [hasAutoRecovered, setHasAutoRecovered] = useState(false); // Track if we've already auto-recovered
+  const [uploadedFeaturedImage, setUploadedFeaturedImage] =
+    useState<UploadedFeaturedImage | null>(null);
 
   // Auto-save to localStorage (protects against Chrome Memory Saver)
   const { clearSavedData, hasSavedData, getSavedData } = useBlogAutoSave({
@@ -112,7 +241,7 @@ export default function NewBlogPostPage() {
     if (!hasAutoRecovered && hasSavedData()) {
       const saved = getSavedData();
       if (saved) {
-        setFormData(saved.data);
+        setFormData(withFeaturedImageDefaults(saved.data));
         setHasAutoRecovered(true);
         toast({
           title: 'Draft Recovered',
@@ -128,6 +257,9 @@ export default function NewBlogPostPage() {
                   excerpt: '',
                   featured_image_url: '',
                   featured_image_alt: '',
+                  featured_image_width: null,
+                  featured_image_height: null,
+                  featured_image_variants: {},
                   category: '',
                   tags: '',
                   author_name: merchant?.business_name || '',
@@ -163,7 +295,7 @@ export default function NewBlogPostPage() {
   const recoverDraft = () => {
     const saved = getSavedData();
     if (saved) {
-      setFormData(saved.data);
+      setFormData(withFeaturedImageDefaults(saved.data));
       toast({
         title: 'Draft Recovered',
         description: 'Your previous work has been restored.',
@@ -197,6 +329,26 @@ export default function NewBlogPostPage() {
 
   const [isUploading, setIsUploading] = useState(false);
 
+  const deleteUploadedFeaturedImage = async (
+    imageToDelete: UploadedFeaturedImage
+  ) => {
+    const response = await fetchWithCsrf('/api/merchant/blog/upload', {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      method: 'DELETE',
+      body: JSON.stringify({
+        path: imageToDelete.path,
+        variantPaths: imageToDelete.variantPaths,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to delete image');
+    }
+  };
+
   // Handle featured image selection and upload
   const handleFeaturedImageUpload = async (files: File[]) => {
     if (files.length === 0) return;
@@ -205,6 +357,7 @@ export default function NewBlogPostPage() {
     const file = files[0];
     const formDataUpload = new FormData();
     formDataUpload.append('file', file);
+    formDataUpload.append('purpose', 'featured');
 
     try {
       const response = await fetchWithCsrf('/api/merchant/blog/upload', {
@@ -217,8 +370,36 @@ export default function NewBlogPostPage() {
         throw new Error(error.error || 'Failed to upload image');
       }
 
-      const data = await response.json();
-      handleChange('featured_image_url', data.url);
+      const data = parseFeaturedImageUploadResponse(await response.json());
+      const featuredImageVariants = normalizeFeaturedImageVariantMap(
+        data.variants
+      );
+      const variantPaths = normalizeFeaturedImageVariantPaths(
+        data.variantPaths
+      );
+
+      if (uploadedFeaturedImage) {
+        try {
+          await deleteUploadedFeaturedImage(uploadedFeaturedImage);
+        } catch (deleteError) {
+          console.error(
+            'Error deleting previously uploaded featured image:',
+            deleteError
+          );
+        }
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        featured_image_url: data.url,
+        featured_image_width: data.width,
+        featured_image_height: data.height,
+        featured_image_variants: featuredImageVariants,
+      }));
+      setUploadedFeaturedImage({
+        path: data.path,
+        variantPaths,
+      });
       toast({
         title: 'Success',
         description: 'Featured image uploaded successfully.',
@@ -240,6 +421,7 @@ export default function NewBlogPostPage() {
   const handleImageUpload = async (file: File): Promise<string> => {
     const formDataUpload = new FormData();
     formDataUpload.append('file', file);
+    formDataUpload.append('purpose', 'inline');
 
     const response = await fetchWithCsrf('/api/merchant/blog/upload', {
       method: 'POST',
@@ -253,6 +435,39 @@ export default function NewBlogPostPage() {
 
     const data = await response.json();
     return data.url;
+  };
+
+  const clearFeaturedImageFields = () => {
+    setFormData((prev) => ({
+      ...prev,
+      featured_image_url: '',
+      featured_image_width: null,
+      featured_image_height: null,
+      featured_image_variants: {},
+    }));
+  };
+
+  const handleRemoveFeaturedImage = async () => {
+    if (!uploadedFeaturedImage) {
+      clearFeaturedImageFields();
+      setUploadedFeaturedImage(null);
+      return;
+    }
+
+    try {
+      await deleteUploadedFeaturedImage(uploadedFeaturedImage);
+
+      clearFeaturedImageFields();
+      setUploadedFeaturedImage(null);
+    } catch (error) {
+      console.error('Error deleting uploaded image:', error);
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error ? error.message : 'Failed to delete image',
+        variant: 'destructive',
+      });
+    }
   };
 
   const validateForm = (): string | null => {
@@ -288,6 +503,15 @@ export default function NewBlogPostPage() {
         excerpt: formData.excerpt || undefined,
         featured_image_url: formData.featured_image_url || null,
         featured_image_alt: formData.featured_image_alt || undefined,
+        featured_image_width: formData.featured_image_url
+          ? formData.featured_image_width
+          : null,
+        featured_image_height: formData.featured_image_url
+          ? formData.featured_image_height
+          : null,
+        featured_image_variants: formData.featured_image_url
+          ? formData.featured_image_variants
+          : {},
         category: formData.category || undefined,
         tags: formData.tags
           ? formData.tags
@@ -582,7 +806,7 @@ export default function NewBlogPostPage() {
                 {formData.featured_image_url ? (
                   <div className="relative aspect-video max-w-md rounded-lg overflow-hidden border bg-muted">
                     <Image
-                      src={formData.featured_image_url}
+                      src={getFeaturedImagePreviewUrl(formData)}
                       alt="Featured image preview"
                       fill
                       sizes="(max-width: 768px) 100vw, 448px"
@@ -593,7 +817,7 @@ export default function NewBlogPostPage() {
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => handleChange('featured_image_url', '')}
+                        onClick={handleRemoveFeaturedImage}
                       >
                         <X className="w-4 h-4 mr-2" />
                         Remove Image

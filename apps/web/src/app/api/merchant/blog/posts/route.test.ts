@@ -45,7 +45,7 @@ vi.mock('@/lib/cache-revalidation', () => ({
 }));
 
 vi.mock('@/lib/get-merchant-blog-cache-identifiers', () => ({
-  getMerchantBlogCacheIdentifiers: (...args: unknown[]) =>
+  getMerchantBlogRevalidationContext: (...args: unknown[]) =>
     mockGetMerchantBlogCacheIdentifiers(...args),
 }));
 
@@ -113,6 +113,8 @@ import { GET, POST } from './route';
 
 const MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
 const USER_ID = 'user-123';
+const managedFeaturedImageUrl = `https://cdn.example.com/storage/v1/object/public/media/${MERCHANT_ID}/blog/cover.png`;
+const managedLandscapeVariantUrl = `https://cdn.example.com/storage/v1/object/public/media/${MERCHANT_ID}/blog/upload-1/landscape_16x9.webp`;
 
 // ---- Helpers ----
 
@@ -235,6 +237,29 @@ describe('GET /api/merchant/blog/posts', () => {
       expect(json.posts).toEqual(mockPosts);
       expect(json.total).toBe(2);
       expect(json.counts).toBeDefined();
+    });
+
+    it('selects featured image metadata for dashboard list readiness state', async () => {
+      mockSupabase.range.mockResolvedValue({
+        data: [],
+        error: null,
+        count: 0,
+      });
+
+      await GET(makeRequest('/api/merchant/blog/posts'));
+
+      expect(mockSupabase.select).toHaveBeenCalledWith(
+        expect.stringContaining('featured_image_width'),
+        { count: 'exact' }
+      );
+      expect(mockSupabase.select).toHaveBeenCalledWith(
+        expect.stringContaining('featured_image_height'),
+        { count: 'exact' }
+      );
+      expect(mockSupabase.select).toHaveBeenCalledWith(
+        expect.stringContaining('featured_image_variants'),
+        { count: 'exact' }
+      );
     });
 
     it('filters posts by status', async () => {
@@ -400,10 +425,10 @@ describe('POST /api/merchant/blog/posts', () => {
     mockHasPermission.mockReturnValue(true);
     mockCheckCsrfProtection.mockResolvedValue({ valid: true });
     mockGetBlogEmbeddingText.mockReturnValue('embedding text');
-    mockGetMerchantBlogCacheIdentifiers.mockResolvedValue([
-      'test-store',
-      'ogabassey.com',
-    ]);
+    mockGetMerchantBlogCacheIdentifiers.mockResolvedValue({
+      identifiers: ['test-store', 'ogabassey.com'],
+      canonicalMerchantSlug: 'test-store',
+    });
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
     });
@@ -416,9 +441,15 @@ describe('POST /api/merchant/blog/posts', () => {
           data: { business_name: 'Test Store', slug: 'test-store' },
           error: null,
         });
-      } else if (fields === 'blog_enabled') {
+      } else if (
+        fields === 'blog_enabled' ||
+        fields === 'blog_enabled, blog_discover_image_validation_enabled'
+      ) {
         mockSupabase.single.mockResolvedValueOnce({
-          data: { blog_enabled: true },
+          data: {
+            blog_enabled: true,
+            blog_discover_image_validation_enabled: false,
+          },
           error: null,
         });
       } else {
@@ -504,11 +535,17 @@ describe('POST /api/merchant/blog/posts', () => {
   describe('feature flags', () => {
     it('returns 403 when blog feature is not enabled', async () => {
       vi.spyOn(mockSupabase, 'select').mockImplementation((fields: string) => {
-        if (fields === 'blog_enabled') {
+        if (
+          fields === 'blog_enabled' ||
+          fields === 'blog_enabled, blog_discover_image_validation_enabled'
+        ) {
           return {
             eq: vi.fn().mockReturnThis(),
             single: vi.fn().mockResolvedValue({
-              data: { blog_enabled: false },
+              data: {
+                blog_enabled: false,
+                blog_discover_image_validation_enabled: false,
+              },
               error: null,
             }),
           } as never;
@@ -625,6 +662,82 @@ describe('POST /api/merchant/blog/posts', () => {
         })
       );
     });
+
+    it('blocks publishing without Discover-ready metadata when validation is enabled', async () => {
+      mockSupabase.select.mockImplementation((fields: string) => {
+        if (fields === 'business_name, slug') {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: { business_name: 'Test Store', slug: 'test-store' },
+            error: null,
+          });
+        } else if (
+          fields === 'blog_enabled, blog_discover_image_validation_enabled'
+        ) {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: {
+              blog_enabled: true,
+              blog_discover_image_validation_enabled: true,
+            },
+            error: null,
+          });
+        } else {
+          mockSupabase.single.mockResolvedValueOnce({
+            data: { id: '1', slug: 'new-blog-post' },
+            error: null,
+          });
+        }
+        return mockSupabase;
+      });
+
+      const res = await POST(
+        makeRequest('/api/merchant/blog/posts', {
+          body: { ...validPostData, status: 'published' },
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('BLOG_FEATURED_IMAGE_NOT_DISCOVER_READY');
+      expect(mockSupabase.insert).not.toHaveBeenCalled();
+    });
+
+    it('allows invalid image readiness with a warning when validation is disabled', async () => {
+      mockSupabase.maybeSingle.mockResolvedValue({
+        data: null,
+        error: null,
+      });
+
+      const res = await POST(
+        makeRequest('/api/merchant/blog/posts', {
+          body: { ...validPostData, status: 'published' },
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(201);
+      expect(json.discoverImageReadiness).toMatchObject({
+        ready: false,
+        code: 'BLOG_FEATURED_IMAGE_NOT_DISCOVER_READY',
+      });
+    });
+
+    it('rejects external variant URLs even when validation is disabled', async () => {
+      const res = await POST(
+        makeRequest('/api/merchant/blog/posts', {
+          body: {
+            ...validPostData,
+            featured_image_variants: {
+              landscape_16x9: 'https://example.com/variant.webp',
+            },
+          },
+        })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('BLOG_FEATURED_IMAGE_VARIANT_NOT_MANAGED');
+      expect(mockSupabase.insert).not.toHaveBeenCalled();
+    });
   });
 
   describe('duplicate slug detection', () => {
@@ -681,6 +794,39 @@ describe('POST /api/merchant/blog/posts', () => {
       expect(mockSupabase.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           published_at: expect.any(String),
+        })
+      );
+    });
+
+    it('persists Discover image metadata for valid published posts', async () => {
+      mockSupabase.maybeSingle.mockResolvedValue({
+        data: null,
+        error: null,
+      });
+
+      await POST(
+        makeRequest('/api/merchant/blog/posts', {
+          body: {
+            ...validPostData,
+            status: 'published',
+            featured_image_url: managedFeaturedImageUrl,
+            featured_image_width: 1200,
+            featured_image_height: 675,
+            featured_image_variants: {
+              landscape_16x9: managedLandscapeVariantUrl,
+            },
+          },
+        })
+      );
+
+      expect(mockSupabase.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          featured_image_url: managedFeaturedImageUrl,
+          featured_image_width: 1200,
+          featured_image_height: 675,
+          featured_image_variants: {
+            landscape_16x9: managedLandscapeVariantUrl,
+          },
         })
       );
     });
@@ -744,6 +890,7 @@ describe('POST /api/merchant/blog/posts', () => {
 
       expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
         identifiers: ['test-store', 'ogabassey.com'],
+        canonicalMerchantSlug: 'test-store',
         listingCategories: [],
         postSlugs: ['new-blog-post'],
       });
@@ -761,9 +908,15 @@ describe('POST /api/merchant/blog/posts', () => {
             data: { business_name: 'Test Store', slug: 'test-store' },
             error: null,
           });
-        } else if (fields === 'blog_enabled') {
+        } else if (
+          fields === 'blog_enabled' ||
+          fields === 'blog_enabled, blog_discover_image_validation_enabled'
+        ) {
           mockSupabase.single.mockResolvedValueOnce({
-            data: { blog_enabled: true },
+            data: {
+              blog_enabled: true,
+              blog_discover_image_validation_enabled: false,
+            },
             error: null,
           });
         } else {
@@ -787,6 +940,7 @@ describe('POST /api/merchant/blog/posts', () => {
 
       expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
         identifiers: ['test-store', 'ogabassey.com'],
+        canonicalMerchantSlug: 'test-store',
         listingCategories: ['the-category-slug'],
         postSlugs: ['new-blog-post'],
       });
@@ -803,9 +957,15 @@ describe('POST /api/merchant/blog/posts', () => {
             data: { business_name: 'Test Store', slug: null },
             error: null,
           });
-        } else if (fields === 'blog_enabled') {
+        } else if (
+          fields === 'blog_enabled' ||
+          fields === 'blog_enabled, blog_discover_image_validation_enabled'
+        ) {
           mockSupabase.single.mockResolvedValueOnce({
-            data: { blog_enabled: true },
+            data: {
+              blog_enabled: true,
+              blog_discover_image_validation_enabled: false,
+            },
             error: null,
           });
         } else {
@@ -834,6 +994,7 @@ describe('POST /api/merchant/blog/posts', () => {
       );
       expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
         identifiers: ['test-store', 'ogabassey.com'],
+        canonicalMerchantSlug: 'test-store',
         listingCategories: [],
         postSlugs: ['new-blog-post'],
       });

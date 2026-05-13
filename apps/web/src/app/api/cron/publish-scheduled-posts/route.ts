@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
+import { validateBlogDiscoverImageReadiness } from '@/lib/blog-discover-readiness';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { revalidateBlogPosts } from '@/lib/cache-revalidation';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
-import { getMerchantBlogCacheIdentifiers } from '@/lib/get-merchant-blog-cache-identifiers';
+import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cache-identifiers';
 import { createServiceClient } from '@/lib/supabase/service';
 
 /**
@@ -32,11 +33,13 @@ export async function POST(request: Request) {
 
     console.log(`🚀 Cron: Checking for scheduled posts to publish at ${now}`);
 
-    // 2. Identify eligible posts
+    // 2. Identify scheduled posts
     // Posts where status is 'scheduled' and published_at is in the past
     const { data: scheduledPosts, error: fetchError } = await supabase
       .from('blog_posts')
-      .select('id, slug, merchant_id, category')
+      .select(
+        'id, slug, merchant_id, category, featured_image_url, featured_image_width, featured_image_height, featured_image_variants'
+      )
       .eq('status', 'scheduled')
       .lte('published_at', now);
 
@@ -57,9 +60,89 @@ export async function POST(request: Request) {
 
     console.log(`📦 Cron: Found ${scheduledPosts.length} posts to publish`);
 
-    const postIds = scheduledPosts.map((post) => post.id);
-    const merchantIds = Array.from(
+    const scheduledMerchantIds = Array.from(
       new Set(scheduledPosts.map((post) => post.merchant_id))
+    );
+    const { data: featureSettings, error: featureSettingsError } =
+      await supabase
+        .from('merchant_feature_settings')
+        .select('merchant_id, blog_discover_image_validation_enabled')
+        .in('merchant_id', scheduledMerchantIds);
+
+    if (featureSettingsError) {
+      console.warn(
+        'Cron Warning: Failed to load blog Discover validation flags; publishing with warnings only',
+        featureSettingsError
+      );
+    }
+
+    const validationEnabledByMerchant = new Map(
+      (featureSettings ?? []).map(
+        (settings: {
+          merchant_id: string;
+          blog_discover_image_validation_enabled?: boolean | null;
+        }) => [
+          settings.merchant_id,
+          settings.blog_discover_image_validation_enabled === true,
+        ]
+      )
+    );
+    const eligiblePosts: typeof scheduledPosts = [];
+    const skipped: Array<{
+      id: string;
+      slug: string | null;
+      code: string;
+      details: Record<string, unknown>;
+    }> = [];
+    const warnings: Array<{
+      id: string;
+      slug: string | null;
+      code: string;
+      details: Record<string, unknown>;
+    }> = [];
+
+    for (const post of scheduledPosts) {
+      const readiness = validateBlogDiscoverImageReadiness(
+        post,
+        post.merchant_id
+      );
+
+      if (!readiness.ready) {
+        const warning = {
+          id: post.id,
+          slug: post.slug,
+          code: readiness.code,
+          details: readiness.details,
+        };
+
+        if (validationEnabledByMerchant.get(post.merchant_id) === true) {
+          skipped.push(warning);
+          continue;
+        }
+
+        warnings.push(warning);
+        console.warn(
+          'Cron Warning: Scheduled blog post is not Discover image ready',
+          warning
+        );
+      }
+
+      eligiblePosts.push(post);
+    }
+
+    if (eligiblePosts.length === 0) {
+      return NextResponse.json({
+        success: true,
+        processed: scheduledPosts.length,
+        published: [],
+        skipped,
+        warnings,
+      });
+    }
+
+    const postIds = eligiblePosts.map((post) => post.id);
+    const merchantIds = Array.from(
+      new Set(eligiblePosts.map((post) => post.merchant_id))
     );
 
     // 3. Group scheduled posts by merchant and compute listing sizes before mutating
@@ -72,7 +155,7 @@ export async function POST(request: Request) {
       }
     >();
 
-    for (const post of scheduledPosts) {
+    for (const post of eligiblePosts) {
       const merchantPosts = postsByMerchant.get(post.merchant_id) ?? {
         categories: new Set<string>(),
         listingPages: [1],
@@ -149,12 +232,13 @@ export async function POST(request: Request) {
 
     for (const [merchantId, merchantPosts] of postsByMerchant) {
       try {
-        const identifiers = await getMerchantBlogCacheIdentifiers(
+        const blogRevalidation = await getMerchantBlogRevalidationContext(
           supabase,
           merchantId
         );
         revalidateBlogPosts({
-          identifiers,
+          identifiers: blogRevalidation.identifiers,
+          canonicalMerchantSlug: blogRevalidation.canonicalMerchantSlug,
           listingCategories: Array.from(merchantPosts.categories),
           listingPages: merchantPosts.listingPages,
           postSlugs: merchantPosts.postSlugs,
@@ -188,6 +272,8 @@ export async function POST(request: Request) {
       success: true,
       processed: scheduledPosts.length,
       published: postIds,
+      skipped,
+      warnings,
     });
   } catch (error) {
     console.error('Cron Job Failed:', error);

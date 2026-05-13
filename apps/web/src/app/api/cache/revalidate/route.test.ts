@@ -33,7 +33,7 @@ vi.mock('@/lib/csrf', () => ({
 }));
 
 vi.mock('@/lib/get-merchant-blog-cache-identifiers', () => ({
-  getMerchantBlogCacheIdentifiers: (...args: unknown[]) =>
+  getMerchantBlogRevalidationContext: (...args: unknown[]) =>
     mockGetMerchantBlogCacheIdentifiers(...args),
 }));
 
@@ -103,10 +103,10 @@ describe('POST /api/cache/revalidate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     setupCsrf(true);
-    mockGetMerchantBlogCacheIdentifiers.mockResolvedValue([
-      'test-store',
-      'ogabassey.com',
-    ]);
+    mockGetMerchantBlogCacheIdentifiers.mockResolvedValue({
+      identifiers: ['test-store', 'ogabassey.com'],
+      canonicalMerchantSlug: 'test-store',
+    });
     mockGetMerchantBlogPostCategories.mockResolvedValue(['reviews', 'laptops']);
     mockGetMerchantBlogPostSlugs.mockResolvedValue([
       'apple-studio-display-review',

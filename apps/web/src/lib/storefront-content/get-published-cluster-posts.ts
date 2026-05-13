@@ -30,6 +30,7 @@ export async function getPublishedClusterPosts(
     )
     .eq('merchant_id', merchantId)
     .eq('status', 'published')
+    .not('published_at', 'is', null)
     .order('published_at', { ascending: false });
 
   if (error) {

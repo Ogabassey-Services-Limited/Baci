@@ -147,6 +147,7 @@ describe('getCachedFeatureSettings', () => {
   it('returns feature settings from database on success', async () => {
     const settings = {
       blog_enabled: true,
+      blog_discover_image_validation_enabled: true,
       shipping_insurance_enabled: true,
       shipping_insurance_min_order_value: 10000,
       shipping_insurance_opt_in_default: true,
@@ -161,6 +162,9 @@ describe('getCachedFeatureSettings', () => {
     const result = await getCachedFeatureSettings('merchant-1');
 
     expect(result).toEqual(settings);
+    expect(harness.mockSelect).toHaveBeenCalledWith(
+      'blog_enabled, blog_discover_image_validation_enabled, shipping_insurance_enabled, shipping_insurance_min_order_value, shipping_insurance_opt_in_default'
+    );
   });
 
   it('throws on Supabase error instead of returning defaults', async () => {

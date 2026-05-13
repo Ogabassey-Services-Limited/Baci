@@ -142,6 +142,7 @@ export interface HeroSlide {
 
 export interface MerchantFeatureSettings {
   blog_enabled?: boolean;
+  blog_discover_image_validation_enabled?: boolean;
   shipping_insurance_enabled?: boolean;
   shipping_insurance_min_order_value?: number;
   shipping_insurance_opt_in_default?: boolean;
@@ -1638,7 +1639,7 @@ export async function getCachedFeatureSettings(merchantId: string) {
     const { data, error } = await supabase
       .from('merchant_feature_settings')
       .select(
-        'blog_enabled, shipping_insurance_enabled, shipping_insurance_min_order_value, shipping_insurance_opt_in_default'
+        'blog_enabled, blog_discover_image_validation_enabled, shipping_insurance_enabled, shipping_insurance_min_order_value, shipping_insurance_opt_in_default'
       )
       .eq('merchant_id', merchantId)
       .maybeSingle();
@@ -1698,7 +1699,7 @@ export async function getCachedBlogPost(
     .eq('slug', postSlug.toLowerCase());
 
   if (!includeDrafts) {
-    query = query.eq('status', 'published');
+    query = query.eq('status', 'published').not('published_at', 'is', null);
   }
 
   const { data: post, error: postError } = await query.single();
@@ -1718,6 +1719,7 @@ export async function getCachedBlogPost(
     )
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
+    .not('published_at', 'is', null)
     .neq('id', post.id)
     .limit(3);
 
@@ -1802,6 +1804,7 @@ export async function getCachedBlogListing(
     )
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
+    .not('published_at', 'is', null)
     .order('published_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -1834,6 +1837,7 @@ export async function getCachedBlogListing(
     .select('category')
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
+    .not('published_at', 'is', null)
     .not('category', 'is', null);
   if (categoriesError) {
     console.warn('Failed to load blog categories', {

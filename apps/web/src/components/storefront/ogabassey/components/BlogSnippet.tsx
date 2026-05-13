@@ -86,6 +86,7 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({
             .select('id, title, slug, excerpt, featured_image_url, category, reading_time_minutes')
             .eq('merchant_id', merchantId)
             .eq('status', 'published')
+            .not('published_at', 'is', null)
             .ilike('title', `%${searchTerm}%`)
             .order('published_at', { ascending: false })
             .limit(1);
@@ -103,6 +104,7 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({
           .select('id, title, slug, excerpt, featured_image_url, category, reading_time_minutes')
           .eq('merchant_id', merchantId)
           .eq('status', 'published')
+          .not('published_at', 'is', null)
           .order('published_at', { ascending: false })
           .limit(1);
 

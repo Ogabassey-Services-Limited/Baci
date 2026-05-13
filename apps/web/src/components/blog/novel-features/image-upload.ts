@@ -2,9 +2,10 @@ import { createImageUpload } from 'novel';
 import { toast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
 
-const onUpload = (file: File) => {
+export const onUpload = (file: File) => {
   const formData = new FormData();
   formData.append('file', file);
+  formData.append('purpose', 'inline');
 
   const promise = fetchWithCsrf('/api/merchant/blog/upload', {
     method: 'POST',
@@ -22,17 +23,9 @@ const onUpload = (file: File) => {
       .then(async (res) => {
         if (res.status === 200) {
           const { url } = (await res.json()) as { url: string };
-          // preload the image
-          const image = new Image();
-          image.src = url;
-          image.onload = () => {
-            resolve(url);
-          };
-          image.onerror = () => {
-            resolve(url);
-          };
+          resolve(url);
         } else if (res.status === 401) {
-          resolve(file);
+          throw new Error('Image upload unauthorized');
         } else {
           const data = await res.json().catch(() => ({}));
           throw new Error(
@@ -51,24 +44,28 @@ const onUpload = (file: File) => {
   });
 };
 
+export const validateFn = (file: File) => {
+  if (!file.type.startsWith('image/')) {
+    toast({
+      title: 'Error',
+      description: 'File type not supported.',
+      variant: 'destructive',
+    });
+    return false;
+  }
+  if (file.size / 1024 / 1024 > 20) {
+    toast({
+      title: 'Error',
+      description: 'File size too big (max 20MB).',
+      variant: 'destructive',
+    });
+    return false;
+  }
+
+  return true;
+};
+
 export const uploadFn = createImageUpload({
   onUpload,
-  validateFn: (file) => {
-    if (!file.type.includes('image/')) {
-      toast({
-        title: 'Error',
-        description: 'File type not supported.',
-        variant: 'destructive',
-      });
-      return false;
-    } else if (file.size / 1024 / 1024 > 20) {
-      toast({
-        title: 'Error',
-        description: 'File size too big (max 20MB).',
-        variant: 'destructive',
-      });
-      return false;
-    }
-    return true;
-  },
+  validateFn,
 });

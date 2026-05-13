@@ -55,6 +55,11 @@ import { useBlogAutoSave } from '@/hooks/use-blog-auto-save';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
+import {
+  BLOG_FEATURED_VARIANT_KEYS,
+  type BlogFeaturedVariantKey,
+  extractManagedBlogStoragePath,
+} from '@/lib/blog-managed-storage-paths';
 import { asRoute } from '@/lib/routes';
 import { isSafeSlug } from '@/lib/validate-slug';
 import { blogPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
@@ -77,6 +82,9 @@ interface PostFormData {
   excerpt: string;
   featured_image_url: string;
   featured_image_alt: string;
+  featured_image_width: number | null;
+  featured_image_height: number | null;
+  featured_image_variants: FeaturedImageVariants;
   category: string;
   tags: string;
   keywords: string;
@@ -90,6 +98,25 @@ interface PostFormData {
   published_at?: string | null;
 }
 
+type FeaturedImageVariants = Partial<Record<BlogFeaturedVariantKey, string>>;
+type FeaturedImageVariantPaths = Partial<
+  Record<BlogFeaturedVariantKey, string>
+>;
+
+interface FeaturedImageUploadResponse {
+  url: string;
+  path: string;
+  width: number;
+  height: number;
+  variants?: FeaturedImageVariants;
+  variantPaths?: FeaturedImageVariantPaths;
+}
+
+interface UploadedFeaturedImage {
+  path: string;
+  variantPaths: FeaturedImageVariantPaths;
+}
+
 interface BlogPost extends PostFormData {
   id: string;
   created_at: string;
@@ -98,6 +125,61 @@ interface BlogPost extends PostFormData {
   view_count: number;
   word_count: number;
   reading_time_minutes: number;
+}
+
+function normalizeFeaturedImageVariantMap(
+  value: unknown
+): FeaturedImageVariants {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  const input = value as Partial<Record<BlogFeaturedVariantKey, unknown>>;
+  const normalized: FeaturedImageVariants = {};
+
+  for (const key of BLOG_FEATURED_VARIANT_KEYS) {
+    const variantUrl = input[key];
+    if (typeof variantUrl === 'string' && variantUrl.trim()) {
+      normalized[key] = variantUrl;
+    }
+  }
+
+  return normalized;
+}
+
+function normalizeFeaturedImageVariantPaths(
+  value: unknown
+): FeaturedImageVariantPaths {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  const input = value as Partial<Record<BlogFeaturedVariantKey, unknown>>;
+  const normalized: FeaturedImageVariantPaths = {};
+
+  for (const key of BLOG_FEATURED_VARIANT_KEYS) {
+    const variantPath = input[key];
+    if (typeof variantPath === 'string' && variantPath.trim()) {
+      normalized[key] = variantPath;
+    }
+  }
+
+  return normalized;
+}
+
+function withFeaturedImageDefaults(data: PostFormData): PostFormData {
+  return {
+    ...data,
+    featured_image_width: data.featured_image_width ?? null,
+    featured_image_height: data.featured_image_height ?? null,
+    featured_image_variants: normalizeFeaturedImageVariantMap(
+      data.featured_image_variants
+    ),
+  };
+}
+
+function getFeaturedImagePreviewUrl(data: PostFormData): string {
+  return data.featured_image_variants.landscape_16x9 || data.featured_image_url;
 }
 
 export default function EditBlogPostPage() {
@@ -119,6 +201,9 @@ export default function EditBlogPostPage() {
     excerpt: '',
     featured_image_url: '',
     featured_image_alt: '',
+    featured_image_width: null,
+    featured_image_height: null,
+    featured_image_variants: {},
     category: '',
     tags: '',
     keywords: '',
@@ -139,6 +224,8 @@ export default function EditBlogPostPage() {
   const [preRecoveryData, setPreRecoveryData] = useState<PostFormData | null>(
     null
   ); // For undo functionality
+  const [uploadedFeaturedImage, setUploadedFeaturedImage] =
+    useState<UploadedFeaturedImage | null>(null);
   const hasCheckedForRecovery = useRef(false);
 
   // Auto-save to localStorage (protects against Chrome Memory Saver)
@@ -151,7 +238,7 @@ export default function EditBlogPostPage() {
   const recoverDraft = () => {
     const saved = getSavedData();
     if (saved) {
-      setFormData(saved.data);
+      setFormData(withFeaturedImageDefaults(saved.data));
       toast({
         title: 'Draft Recovered',
         description: 'Your unsaved changes have been restored.',
@@ -200,6 +287,11 @@ export default function EditBlogPostPage() {
           excerpt: post.excerpt || '',
           featured_image_url: post.featured_image_url || '',
           featured_image_alt: post.featured_image_alt || '',
+          featured_image_width: post.featured_image_width ?? null,
+          featured_image_height: post.featured_image_height ?? null,
+          featured_image_variants: normalizeFeaturedImageVariantMap(
+            post.featured_image_variants
+          ),
           category: post.category || '',
           tags: Array.isArray(post.tags) ? post.tags.join(', ') : '',
           keywords: Array.isArray(post.keywords)
@@ -258,7 +350,7 @@ export default function EditBlogPostPage() {
         // Store current data for undo functionality
         setPreRecoveryData({ ...formData });
         // Silently restore the draft
-        setFormData(saved.data);
+        setFormData(withFeaturedImageDefaults(saved.data));
         // Show non-blocking toast with undo option
         toast({
           title: 'Draft Recovered',
@@ -306,6 +398,7 @@ export default function EditBlogPostPage() {
     const file = files[0];
     const formDataUpload = new FormData();
     formDataUpload.append('file', file);
+    formDataUpload.append('purpose', 'featured');
 
     try {
       const response = await fetchWithCsrf('/api/merchant/blog/upload', {
@@ -318,8 +411,25 @@ export default function EditBlogPostPage() {
         throw new Error(error.error || 'Failed to upload image');
       }
 
-      const data = await response.json();
-      handleChange('featured_image_url', data.url);
+      const data = (await response.json()) as FeaturedImageUploadResponse;
+      const featuredImageVariants = normalizeFeaturedImageVariantMap(
+        data.variants
+      );
+      const variantPaths = normalizeFeaturedImageVariantPaths(
+        data.variantPaths
+      );
+
+      setFormData((prev) => ({
+        ...prev,
+        featured_image_url: data.url,
+        featured_image_width: data.width,
+        featured_image_height: data.height,
+        featured_image_variants: featuredImageVariants,
+      }));
+      setUploadedFeaturedImage({
+        path: data.path,
+        variantPaths,
+      });
       toast({
         title: 'Success',
         description: 'Featured image uploaded successfully.',
@@ -341,6 +451,7 @@ export default function EditBlogPostPage() {
   const handleImageUpload = async (file: File): Promise<string> => {
     const formDataUpload = new FormData();
     formDataUpload.append('file', file);
+    formDataUpload.append('purpose', 'inline');
 
     const response = await fetchWithCsrf('/api/merchant/blog/upload', {
       method: 'POST',
@@ -354,6 +465,92 @@ export default function EditBlogPostPage() {
 
     const data = await response.json();
     return data.url;
+  };
+
+  const clearFeaturedImageFields = () => {
+    setFormData((prev) => ({
+      ...prev,
+      featured_image_url: '',
+      featured_image_width: null,
+      featured_image_height: null,
+      featured_image_variants: {},
+    }));
+  };
+
+  const buildFeaturedImageDeletePayload = () => {
+    if (uploadedFeaturedImage) {
+      return uploadedFeaturedImage;
+    }
+
+    if (!merchant?.id || !formData.featured_image_url) {
+      return null;
+    }
+
+    const path = extractManagedBlogStoragePath(
+      formData.featured_image_url,
+      merchant.id
+    );
+
+    if (!path) {
+      return null;
+    }
+
+    const variantPaths: FeaturedImageVariantPaths = {};
+    for (const key of BLOG_FEATURED_VARIANT_KEYS) {
+      const variantUrl = formData.featured_image_variants[key];
+      if (!variantUrl) {
+        continue;
+      }
+
+      const variantPath = extractManagedBlogStoragePath(
+        variantUrl,
+        merchant.id
+      );
+      if (variantPath) {
+        variantPaths[key] = variantPath;
+      }
+    }
+
+    return { path, variantPaths };
+  };
+
+  const handleRemoveFeaturedImage = async () => {
+    const imageToDelete = buildFeaturedImageDeletePayload();
+
+    if (!imageToDelete) {
+      clearFeaturedImageFields();
+      setUploadedFeaturedImage(null);
+      return;
+    }
+
+    try {
+      const response = await fetchWithCsrf('/api/merchant/blog/upload', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        method: 'DELETE',
+        body: JSON.stringify({
+          path: imageToDelete.path,
+          variantPaths: imageToDelete.variantPaths,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete image');
+      }
+
+      clearFeaturedImageFields();
+      setUploadedFeaturedImage(null);
+    } catch (error) {
+      console.error('Error deleting uploaded image:', error);
+      toast({
+        title: 'Error',
+        description:
+          error instanceof Error ? error.message : 'Failed to delete image',
+        variant: 'destructive',
+      });
+    }
   };
 
   const normalizePublishedAt = (
@@ -372,10 +569,11 @@ export default function EditBlogPostPage() {
     return parsedPublishedAt.toISOString();
   };
 
-  const normalizeFormData = (data: PostFormData): PostFormData => ({
-    ...data,
-    published_at: normalizePublishedAt(data.published_at),
-  });
+  const normalizeFormData = (data: PostFormData): PostFormData =>
+    withFeaturedImageDefaults({
+      ...data,
+      published_at: normalizePublishedAt(data.published_at),
+    });
 
   const validateForm = (data: PostFormData): string | null => {
     // Sanitize data first
@@ -422,6 +620,15 @@ export default function EditBlogPostPage() {
         excerpt: normalizedFormData.excerpt,
         featured_image_url: normalizedFormData.featured_image_url,
         featured_image_alt: normalizedFormData.featured_image_alt,
+        featured_image_width: normalizedFormData.featured_image_url
+          ? normalizedFormData.featured_image_width
+          : null,
+        featured_image_height: normalizedFormData.featured_image_url
+          ? normalizedFormData.featured_image_height
+          : null,
+        featured_image_variants: normalizedFormData.featured_image_url
+          ? normalizedFormData.featured_image_variants
+          : {},
         category: normalizedFormData.category,
         tags: normalizedFormData.tags ? normalizedFormData.tags.split(',') : [],
         keywords: normalizedFormData.keywords
@@ -877,7 +1084,7 @@ export default function EditBlogPostPage() {
                 {formData.featured_image_url ? (
                   <div className="relative aspect-video max-w-md rounded-lg overflow-hidden border bg-muted">
                     <Image
-                      src={formData.featured_image_url}
+                      src={getFeaturedImagePreviewUrl(formData)}
                       alt="Featured image preview"
                       fill
                       sizes="(max-width: 768px) 100vw, 448px"
@@ -888,7 +1095,7 @@ export default function EditBlogPostPage() {
                       <Button
                         variant="destructive"
                         size="sm"
-                        onClick={() => handleChange('featured_image_url', '')}
+                        onClick={handleRemoveFeaturedImage}
                       >
                         <X className="w-4 h-4 mr-2" />
                         Remove Image

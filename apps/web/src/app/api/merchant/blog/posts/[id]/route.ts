@@ -5,12 +5,16 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import {
+  validateBlogDiscoverImageReadiness,
+  validateBlogImageVariantIntegrity,
+} from '@/lib/blog-discover-readiness';
 import { calculateReadingTime, calculateWordCount } from '@/lib/blog-utils';
 import { revalidateBlogPosts } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
-import { getMerchantBlogCacheIdentifiers } from '@/lib/get-merchant-blog-cache-identifiers';
-import { blogPostSchema } from '@/lib/validations/blog';
+import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cache-identifiers';
+import { blogPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -45,7 +49,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const { data: post, error } = await supabase
       .from('blog_posts')
       .select(
-        'id, title, slug, content, excerpt, featured_image_url, featured_image_alt, category, tags, keywords, author_name, author_title, author_image_url, author_bio, status, seo_title, seo_description, focus_keyword, word_count, reading_time_minutes, view_count, created_at, updated_at, published_at'
+        'id, title, slug, content, excerpt, featured_image_url, featured_image_alt, featured_image_width, featured_image_height, featured_image_variants, category, tags, keywords, author_name, author_title, author_image_url, author_bio, status, seo_title, seo_description, focus_keyword, word_count, reading_time_minutes, view_count, created_at, updated_at, published_at'
       )
       .eq('id', id)
       .eq('merchant_id', access.merchantId)
@@ -110,7 +114,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Get existing post
     const { data: existingPost, error: fetchError } = await supabase
       .from('blog_posts')
-      .select('id, slug, status, content, title, excerpt, category')
+      .select(
+        'id, slug, status, content, title, excerpt, category, published_at, featured_image_url, featured_image_width, featured_image_height, featured_image_variants'
+      )
       .eq('id', id)
       .eq('merchant_id', access.merchantId)
       .single();
@@ -120,7 +126,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     // Parse and validate body
-    const body = await request.json();
+    const body = sanitizeBlogPostData(await request.json());
     const validated = blogPostSchema.safeParse(body);
 
     if (!validated.success) {
@@ -131,6 +137,87 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const updateData: Record<string, unknown> = { ...validated.data };
+    const featureSettings = await supabase
+      .from('merchant_feature_settings')
+      .select('blog_enabled, blog_discover_image_validation_enabled')
+      .eq('merchant_id', access.merchantId)
+      .maybeSingle();
+    if (featureSettings.error) {
+      console.warn(
+        'Failed to load blog feature settings for discover enforcement',
+        {
+          merchantId: access.merchantId,
+          error: featureSettings.error.message,
+        }
+      );
+    }
+    const shouldEnforceDiscoverImage =
+      featureSettings.data?.blog_discover_image_validation_enabled === true;
+    const variantIntegrity = validateBlogImageVariantIntegrity(
+      updateData,
+      access.merchantId
+    );
+    if (!variantIntegrity.ready) {
+      return NextResponse.json(
+        {
+          error: 'Invalid featured image variants',
+          code: variantIntegrity.code,
+          details: variantIntegrity.details,
+        },
+        { status: 400 }
+      );
+    }
+    const targetStatus =
+      typeof updateData.status === 'string'
+        ? updateData.status
+        : existingPost.status;
+    const imageMetadataTouched =
+      Object.hasOwn(updateData, 'featured_image_url') ||
+      Object.hasOwn(updateData, 'featured_image_width') ||
+      Object.hasOwn(updateData, 'featured_image_height') ||
+      Object.hasOwn(updateData, 'featured_image_variants');
+    const featuredImageChanged =
+      Object.hasOwn(updateData, 'featured_image_url') &&
+      updateData.featured_image_url !== existingPost.featured_image_url;
+    const publishingNow =
+      targetStatus === 'published' && existingPost.status !== 'published';
+    const effectiveImage = {
+      featured_image_url:
+        (updateData.featured_image_url as string | null | undefined) ??
+        existingPost.featured_image_url,
+      featured_image_width:
+        (updateData.featured_image_width as number | null | undefined) ??
+        existingPost.featured_image_width,
+      featured_image_height:
+        (updateData.featured_image_height as number | null | undefined) ??
+        existingPost.featured_image_height,
+      featured_image_variants:
+        (updateData.featured_image_variants as
+          | Record<string, unknown>
+          | null
+          | undefined) ??
+        existingPost.featured_image_variants ??
+        {},
+    };
+    const discoverImageReadiness =
+      targetStatus === 'published'
+        ? validateBlogDiscoverImageReadiness(effectiveImage, access.merchantId)
+        : { ready: true as const };
+
+    if (
+      !discoverImageReadiness.ready &&
+      shouldEnforceDiscoverImage &&
+      (publishingNow || featuredImageChanged || imageMetadataTouched)
+    ) {
+      return NextResponse.json(
+        {
+          error: 'Featured image is not Discover-ready',
+          code: discoverImageReadiness.code,
+          details: discoverImageReadiness.details,
+        },
+        { status: 400 }
+      );
+    }
 
     // Check if slug is being changed and already exists
     if (updateData.slug && updateData.slug !== existingPost.slug) {
@@ -167,7 +254,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updateData.published_at = new Date().toISOString();
     }
 
-    const cacheIdentifiers = await getMerchantBlogCacheIdentifiers(
+    const blogRevalidation = await getMerchantBlogRevalidationContext(
       supabase,
       access.merchantId
     );
@@ -224,14 +311,19 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     // Invalidate blog caches so storefront reflects changes immediately
     revalidateBlogPosts({
-      identifiers: cacheIdentifiers,
+      identifiers: blogRevalidation.identifiers,
+      canonicalMerchantSlug: blogRevalidation.canonicalMerchantSlug,
       listingCategories: [existingPost.category, updatedPost.category].filter(
         (category): category is string => Boolean(category)
       ),
       postSlugs: [existingPost.slug, updatedPost.slug],
     });
 
-    return NextResponse.json(updatedPost);
+    return NextResponse.json(
+      discoverImageReadiness.ready
+        ? updatedPost
+        : { ...updatedPost, discoverImageReadiness }
+    );
   } catch (error) {
     console.error('Blog post PATCH error:', error);
     return NextResponse.json(
@@ -294,7 +386,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const cacheIdentifiers = await getMerchantBlogCacheIdentifiers(
+    const blogRevalidation = await getMerchantBlogRevalidationContext(
       supabase,
       access.merchantId
     );
@@ -316,7 +408,8 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
 
     // Invalidate blog caches after deletion
     revalidateBlogPosts({
-      identifiers: cacheIdentifiers,
+      identifiers: blogRevalidation.identifiers,
+      canonicalMerchantSlug: blogRevalidation.canonicalMerchantSlug,
       listingCategories: existingPost?.category ? [existingPost.category] : [],
       postSlugs: existingPost?.slug ? [existingPost.slug] : [],
     });
