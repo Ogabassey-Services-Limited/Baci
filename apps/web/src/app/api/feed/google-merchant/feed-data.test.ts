@@ -37,6 +37,7 @@ let offersResult: OffersResult;
 const mockManifestStatusEq = vi.fn();
 const mockRpc = vi.fn();
 const mockOffersStatusEq = vi.fn();
+const mockProductsRange = vi.fn();
 
 function createMockSupabase() {
   return {
@@ -62,9 +63,9 @@ function createMockSupabase() {
             eq: () => ({
               eq: () => ({
                 order: () => ({
-                  limit: () => ({
+                  range: mockProductsRange.mockImplementation(() => ({
                     overrideTypes: () => Promise.resolve(productsResult),
-                  }),
+                  })),
                 }),
               }),
             }),
@@ -196,6 +197,67 @@ describe('getCachedGoogleMerchantFeedData', () => {
       },
       variants: [],
     });
+  });
+
+  it('preserves canonical_url for Google and agent feed URL parity', async () => {
+    productsResult = {
+      data: [
+        {
+          id: 'product-1',
+          name: 'Phone',
+          canonical_url: '/gift-cards/phone',
+          category: 'Phones',
+          slug: 'phone',
+        },
+      ],
+      error: null,
+    };
+
+    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const result = await getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(result.products[0]).toMatchObject({
+      canonical_url: '/gift-cards/phone',
+    });
+  });
+
+  it('paginates active products beyond the first Supabase page', async () => {
+    const fullPage = Array.from({ length: 1000 }, (_, index) => ({
+      id: `product-${index}`,
+      name: `Phone ${index}`,
+    }));
+    productsResult = {
+      data: fullPage,
+      error: null,
+    };
+    mockProductsRange
+      .mockImplementationOnce(() => ({
+        overrideTypes: () =>
+          Promise.resolve({
+            data: fullPage,
+            error: null,
+          } satisfies ProductsResult),
+      }))
+      .mockImplementationOnce(() => ({
+        overrideTypes: () =>
+          Promise.resolve({
+            data: [{ id: 'product-1000', name: 'Phone 1000' }],
+            error: null,
+          } satisfies ProductsResult),
+      }));
+
+    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const result = await getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(mockProductsRange).toHaveBeenNthCalledWith(1, 0, 999);
+    expect(mockProductsRange).toHaveBeenNthCalledWith(2, 1000, 1999);
+    expect(result.products).toHaveLength(1001);
   });
 
   it('hydrates feed variants from the feed RPC', async () => {

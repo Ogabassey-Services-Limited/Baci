@@ -1,5 +1,14 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { cacheLife, cacheTag } from 'next/cache';
 import { createAnonClient } from '@/lib/supabase/anon';
+
+const OPENAI_FEED_PRODUCTS_PAGE_SIZE = 1000;
+const MAX_OPENAI_FEED_PRODUCTS = 50_000;
+const OPENAI_FEED_PRODUCTS_SELECT = `id, name, description, slug, canonical_url, price, compare_at_price, images,
+       brand, gtin, mpn, sku, stock, stock_quantity, manage_stock, condition, google_product_category, category,
+       weight_value, weight_unit, updated_at,
+       categories:category_id(name, slug),
+       variants:product_variants!product_variants_product_id_fkey(id, attributes, price_override, stock_quantity, sku, primary_image)`;
 
 export interface OpenAIFeedVariant {
   id: string;
@@ -40,6 +49,44 @@ export interface OpenAIFeedData {
   products: OpenAIFeedProduct[];
 }
 
+async function fetchActiveOpenAIFeedProducts(
+  supabase: SupabaseClient,
+  merchantId: string
+): Promise<OpenAIFeedProduct[]> {
+  const products: OpenAIFeedProduct[] = [];
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('products')
+      .select(OPENAI_FEED_PRODUCTS_SELECT)
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + OPENAI_FEED_PRODUCTS_PAGE_SIZE - 1);
+
+    if (error) {
+      console.error('DB_PRODUCTS_ERROR:', { error, merchantId, offset });
+      throw new Error('Failed to fetch products');
+    }
+
+    const page = (data || []) as OpenAIFeedProduct[];
+    const remaining = MAX_OPENAI_FEED_PRODUCTS - products.length;
+    products.push(...page.slice(0, remaining));
+
+    if (
+      page.length < OPENAI_FEED_PRODUCTS_PAGE_SIZE ||
+      products.length >= MAX_OPENAI_FEED_PRODUCTS
+    ) {
+      break;
+    }
+
+    offset += OPENAI_FEED_PRODUCTS_PAGE_SIZE;
+  }
+
+  return products;
+}
+
 /**
  * Cached data fetcher for OpenAI product feed.
  * Uses `'use cache'` with the `products` cache profile.
@@ -56,24 +103,7 @@ export async function getCachedOpenAIFeedData(
 
   const supabase = createAnonClient();
 
-  const { data: products, error: productsError } = await supabase
-    .from('products')
-    .select(
-      `id, name, description, slug, canonical_url, price, compare_at_price, images,
-       brand, gtin, mpn, sku, stock, stock_quantity, manage_stock, condition, google_product_category, category,
-       weight_value, weight_unit, updated_at,
-       categories:category_id(name, slug),
-       variants:product_variants!product_variants_product_id_fkey(id, attributes, price_override, stock_quantity, sku, primary_image)`
-    )
-    .eq('merchant_id', merchantId)
-    .eq('status', 'active')
-    .order('created_at', { ascending: false })
-    .limit(10000);
-
-  if (productsError) {
-    console.error('DB_PRODUCTS_ERROR:', productsError);
-    throw new Error('Failed to fetch products');
-  }
-
-  return { products: (products || []) as OpenAIFeedProduct[] };
+  return {
+    products: await fetchActiveOpenAIFeedProducts(supabase, merchantId),
+  };
 }

@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { cacheLife, cacheTag } from 'next/cache';
 import { createAnonClient } from '@/lib/supabase/anon';
 import type {
@@ -7,6 +8,9 @@ import type {
   ImageManifestMap,
 } from './feed-builder';
 import { FEED_PRODUCTS_SELECT } from './feed-query';
+
+const FEED_PRODUCTS_PAGE_SIZE = 1000;
+const MAX_FEED_PRODUCTS = 50_000;
 
 export interface GoogleMerchantFeedData {
   custom_domain: string | null;
@@ -52,6 +56,45 @@ function normalizeFeedProducts(products: RawFeedProductRow[]): FeedProduct[] {
       category: rest.category ?? joinedCategory?.name ?? null,
     };
   });
+}
+
+async function fetchActiveFeedProducts(
+  supabase: SupabaseClient,
+  merchantId: string
+): Promise<RawFeedProductRow[]> {
+  const products: RawFeedProductRow[] = [];
+  let offset = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('products')
+      .select(FEED_PRODUCTS_SELECT)
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + FEED_PRODUCTS_PAGE_SIZE - 1)
+      .overrideTypes<RawFeedProductRow[], { merge: false }>();
+
+    if (error) {
+      console.error('DB_PRODUCTS_ERROR:', { error, merchantId, offset });
+      throw new Error('Failed to fetch products');
+    }
+
+    const page = data || [];
+    const remaining = MAX_FEED_PRODUCTS - products.length;
+    products.push(...page.slice(0, remaining));
+
+    if (
+      page.length < FEED_PRODUCTS_PAGE_SIZE ||
+      products.length >= MAX_FEED_PRODUCTS
+    ) {
+      break;
+    }
+
+    offset += FEED_PRODUCTS_PAGE_SIZE;
+  }
+
+  return products;
 }
 
 interface FeedVariantRow {
@@ -109,24 +152,12 @@ export async function getCachedGoogleMerchantFeedData(
     throw new Error('Failed to fetch merchant domain');
   }
 
-  const { data: products, error: productsError } = await supabase
-    .from('products')
-    .select(FEED_PRODUCTS_SELECT)
-    .eq('merchant_id', merchantId)
-    .eq('status', 'active')
-    .order('created_at', { ascending: false })
-    .limit(10000)
-    .overrideTypes<RawFeedProductRow[], { merge: false }>();
-
-  if (productsError) {
-    console.error('DB_PRODUCTS_ERROR:', productsError);
-    throw new Error('Failed to fetch products');
-  }
+  const products = await fetchActiveFeedProducts(supabase, merchantId);
 
   // Fetch prevalidated image manifest once per merchant and keep only active
   // product entries in memory. This avoids oversized PostgREST `in(...)`
   // filters for larger catalogs while preserving active-product scoping.
-  const feedProducts: FeedProduct[] = normalizeFeedProducts(products || []).map(
+  const feedProducts: FeedProduct[] = normalizeFeedProducts(products).map(
     (product) => ({
       ...product,
       variants: [] as FeedVariant[],

@@ -42,6 +42,7 @@ export interface FeedProduct {
   google_product_category?: string;
   category?: string | null;
   category_slug?: string | null;
+  canonical_url?: string | null;
   color?: string;
   categories?: {
     name?: string;
