@@ -119,15 +119,22 @@ if [ "$ACTIVE_DIR" = "$CLAUDE_PROJECT_DIR" ] && command -v git >/dev/null 2>&1; 
     fi
     idx="$gitdir/index"
     [ -f "$idx" ] || continue
-    # macOS uses `stat -f %m`, GNU/Linux uses `stat -c %Y`. Try both.
+    # GNU/Linux uses `stat -c %Y`, macOS uses `stat -f %m`. Order matters:
     #
-    # WARNING: on GNU coreutils, `stat -f` queries FILESYSTEM info, not file
-    # info — `%m` isn't a valid filesystem token there, so the command can
-    # exit successfully with non-numeric output (e.g. literal "%m"). The
-    # `||` chain would then never reach `stat -c %Y`, and the captured
-    # `$mtime` would crash the arithmetic on line 131. Validate that mtime
-    # is purely numeric before using it; non-numeric or empty → skip.
-    mtime=$(stat -f %m "$idx" 2>/dev/null || stat -c %Y "$idx" 2>/dev/null)
+    # - GNU first: `stat -c %Y` returns mtime cleanly on Linux. On macOS,
+    #   `-c` isn't a valid flag — stat errors with usage to stderr (we
+    #   silence it), writes nothing usable to stdout, exits non-zero. The
+    #   `||` falls through to BSD `stat -f %m` which works there.
+    #
+    # - The REVERSE order (BSD first) is broken on Linux: GNU `stat -f`
+    #   queries FILESYSTEM info, not file info, AND exits 0 with garbage
+    #   when given `%m`. The `||` never falls through, every worktree's
+    #   mtime is non-numeric, and the recency feature silently degrades to
+    #   "all worktrees skipped → fall back to $CLAUDE_PROJECT_DIR" — which
+    #   is the exact bug this PR exists to fix.
+    #
+    # Keep the numeric guard either way as defense in depth.
+    mtime=$(stat -c %Y "$idx" 2>/dev/null || stat -f %m "$idx" 2>/dev/null)
     case "$mtime" in
       ''|*[!0-9]*) continue ;;
     esac
