@@ -120,8 +120,17 @@ if [ "$ACTIVE_DIR" = "$CLAUDE_PROJECT_DIR" ] && command -v git >/dev/null 2>&1; 
     idx="$gitdir/index"
     [ -f "$idx" ] || continue
     # macOS uses `stat -f %m`, GNU/Linux uses `stat -c %Y`. Try both.
+    #
+    # WARNING: on GNU coreutils, `stat -f` queries FILESYSTEM info, not file
+    # info — `%m` isn't a valid filesystem token there, so the command can
+    # exit successfully with non-numeric output (e.g. literal "%m"). The
+    # `||` chain would then never reach `stat -c %Y`, and the captured
+    # `$mtime` would crash the arithmetic on line 131. Validate that mtime
+    # is purely numeric before using it; non-numeric or empty → skip.
     mtime=$(stat -f %m "$idx" 2>/dev/null || stat -c %Y "$idx" 2>/dev/null)
-    [ -z "$mtime" ] && continue
+    case "$mtime" in
+      ''|*[!0-9]*) continue ;;
+    esac
     # Track newest overall (used as fallback) AND newest within window
     # (preferred). Both walked in a single pass.
     if [ "$mtime" -gt "$overall_mtime" ]; then
