@@ -6,7 +6,7 @@ import { loadOrderExportNativeModules } from './loadOrderExportNativeModules';
 export async function exportOrdersCsv(orders: Order[]): Promise<void> {
   const { FileSystem, Sharing } = await loadOrderExportNativeModules();
 
-  if (!FileSystem) {
+  if (!FileSystem || !Sharing) {
     throw new Error('Export modules not available');
   }
 

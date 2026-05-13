@@ -87,6 +87,7 @@ describe('exportOrderReportPdf', () => {
       expect(mockShareAsync).toHaveBeenCalledWith(
         'file:///report.pdf',
         expect.objectContaining({
+          UTI: 'public.pdf',
           mimeType: 'application/pdf',
         })
       );
@@ -110,4 +111,17 @@ describe('exportOrderReportPdf', () => {
     },
     15000
   );
+
+  it('throws when the sharing module is unavailable', async () => {
+    mockLoadOrderExportNativeModules.mockResolvedValue({
+      FileSystem: null,
+      Print: { printToFileAsync: mockPrintToFileAsync },
+      Sharing: null,
+    });
+    const { exportOrderReportPdf } = await import('./exportOrderReportPdf');
+
+    await expect(
+      exportOrderReportPdf([makeOrder()], 'Today', 'Baci HQ')
+    ).rejects.toThrow('Export modules not available');
+  });
 });

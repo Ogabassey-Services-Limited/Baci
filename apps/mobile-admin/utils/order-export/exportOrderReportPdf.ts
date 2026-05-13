@@ -36,7 +36,7 @@ export async function exportOrderReportPdf(
 ): Promise<void> {
   const { Print, Sharing } = await loadOrderExportNativeModules();
 
-  if (!Print) {
+  if (!Print || !Sharing) {
     throw new Error('Export modules not available');
   }
 
@@ -54,7 +54,7 @@ export async function exportOrderReportPdf(
   const { uri } = await Print.printToFileAsync({ html });
 
   await Sharing.shareAsync(uri, {
-    UTI: '.pdf',
+    UTI: 'public.pdf',
     mimeType: 'application/pdf',
   });
 }

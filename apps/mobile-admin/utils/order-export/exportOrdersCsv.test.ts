@@ -82,4 +82,26 @@ describe('exportOrdersCsv', () => {
       'Sharing is not available on this device'
     );
   });
+
+  it('throws when the sharing module is unavailable', async () => {
+    mockLoadOrderExportNativeModules.mockResolvedValue({
+      FileSystem: {
+        File: class MockFile {
+          public uri = 'file:///documents/orders_report.csv';
+
+          public write(content: string) {
+            mockFileWrite(content);
+          }
+        },
+        Paths: { document: '/documents' },
+      },
+      Print: null,
+      Sharing: null,
+    });
+    const { exportOrdersCsv } = await import('./exportOrdersCsv');
+
+    await expect(exportOrdersCsv([makeOrder()])).rejects.toThrow(
+      'Export modules not available'
+    );
+  });
 });
