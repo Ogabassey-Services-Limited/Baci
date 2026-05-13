@@ -1,6 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { describe, expect, it, vi } from 'vitest';
-import { computeAgenticOrderTax } from './checkout-order-tax';
+import {
+  computeAgenticOrderTax,
+  isTaxComputeUuidError,
+  TaxComputeError,
+} from './checkout-order-tax';
 
 type FromHandler = (table: string) => unknown;
 
@@ -382,6 +386,74 @@ describe('computeAgenticOrderTax', () => {
     });
 
     expect(eqSpy).toHaveBeenCalledWith('merchant_id', 'merchant-A');
+  });
+
+  it('throws a TaxComputeError tagged with pg code 22P02 for malformed item ids (Codex P2)', async () => {
+    // Postgres returns code 22P02 when a non-UUID string is passed
+    // into a `uuid[]` parameter (the `.in('id', productIds)` path).
+    // Callers (route + dispatch) must be able to detect this and
+    // map to 400 instead of treating it as a server outage.
+    const supabase = {
+      from: (table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: { vat_registration_status: 'registered' },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'products') {
+          return {
+            select: () => ({
+              eq: () => ({
+                in: () => ({
+                  returns: () =>
+                    Promise.resolve({
+                      data: null,
+                      error: {
+                        code: '22P02',
+                        message:
+                          'invalid input syntax for type uuid: "not-a-uuid"',
+                      },
+                    }),
+                }),
+              }),
+            }),
+          };
+        }
+        throw new Error('unexpected');
+      },
+    } as unknown as SupabaseClient;
+
+    await expect(
+      computeAgenticOrderTax({
+        items: [{ product_id: 'not-a-uuid', quantity: 1 }],
+        merchantId: 'm-1',
+        supabase,
+      })
+    ).rejects.toMatchObject({
+      name: 'TaxComputeError',
+      pgCode: '22P02',
+    });
+  });
+
+  it('isTaxComputeUuidError returns true ONLY for TaxComputeError with pgCode 22P02', () => {
+    expect(isTaxComputeUuidError(new TaxComputeError('boom', '22P02'))).toBe(
+      true
+    );
+    expect(isTaxComputeUuidError(new TaxComputeError('boom', '23505'))).toBe(
+      false
+    );
+    expect(isTaxComputeUuidError(new TaxComputeError('boom'))).toBe(false);
+    expect(isTaxComputeUuidError(new Error('boom'))).toBe(false);
+    expect(isTaxComputeUuidError(null)).toBe(false);
+    expect(isTaxComputeUuidError(undefined)).toBe(false);
   });
 
   it('throws when the merchants lookup returns an error (Codex P2)', async () => {

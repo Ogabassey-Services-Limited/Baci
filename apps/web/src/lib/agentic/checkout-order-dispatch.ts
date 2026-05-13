@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AgenticCheckoutBuyer } from '@/lib/agentic/checkout-completion-response';
-import { computeAgenticOrderTax } from '@/lib/agentic/checkout-order-tax';
+import {
+  computeAgenticOrderTax,
+  isTaxComputeUuidError,
+} from '@/lib/agentic/checkout-order-tax';
 import { sendAgenticWebhook } from '@/lib/agentic/webhooks';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
@@ -130,6 +133,27 @@ export async function createAgenticCheckoutOrder(
       supabase: createServiceClient(),
     });
   } catch (taxError) {
+    // Codex P2 (PR #1622 round 7): a malformed product_id /
+    // variant_id from the agentic caller cascades into Postgres
+    // 22P02 inside the helper. Mirror the storefront route — map
+    // UUID parse errors to a 400 with `invalid_items` (already
+    // in `CLIENT_ORDER_ERROR_CODES` and the agentic spec) so the
+    // GPT agent fixes its payload instead of treating this as
+    // an outage.
+    if (isTaxComputeUuidError(taxError)) {
+      logger.warn({
+        error: sanitizeForLog(taxError),
+        message: 'Agentic checkout received malformed item identifier',
+      });
+      return {
+        data: { error: 'invalid_items' },
+        error: 'invalid_items',
+        ok: false,
+        orderId: undefined,
+        status: 400,
+        statusText: 'Bad Request',
+      };
+    }
     logger.error({
       error: sanitizeForLog(taxError),
       message: 'Agentic checkout VAT recompute failed',

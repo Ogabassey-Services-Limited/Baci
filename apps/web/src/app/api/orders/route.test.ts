@@ -656,6 +656,73 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
     );
   });
 
+  it('maps a 22P02 UUID parse error from the tax helper to 400 INVALID_ITEM_ID (Codex P2 round 7)', async () => {
+    // Item ids are only `z.string()` at the schema layer, so a
+    // malformed product_id (e.g. a slug) reaches the helper and
+    // surfaces as a Postgres 22P02 from `.in('id', productIds)`.
+    // The previous RPC path mapped 22P02 as a client error via
+    // `clientErrorCodes`; the new server-side tax recompute must
+    // preserve that 4xx semantic instead of returning 500.
+    const supabaseSvc = await import('@/lib/supabase/service');
+    vi.mocked(supabaseSvc.createServiceClient).mockReturnValueOnce({
+      from: (table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: { vat_registration_status: 'registered' },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'products') {
+          return {
+            select: () => ({
+              eq: () => ({
+                in: () => ({
+                  returns: () =>
+                    Promise.resolve({
+                      data: null,
+                      error: {
+                        code: '22P02',
+                        message:
+                          'invalid input syntax for type uuid: "not-a-uuid"',
+                      },
+                    }),
+                }),
+              }),
+            }),
+          };
+        }
+        throw new Error(`unexpected: ${table}`);
+      },
+    } as never);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            product_id: 'not-a-uuid',
+            name: 'Widget',
+            quantity: 1,
+            price: 1000,
+          },
+        ],
+      }),
+    });
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body.code).toBe('INVALID_ITEM_ID');
+  });
+
   it('forces p_tax_basis to "exclusive" regardless of client input (Codex P1 round 6)', async () => {
     // tax_basis is SERVER policy, not caller input. A buyer who
     // submits `tax_basis: 'inclusive'` on a VAT-registered merchant

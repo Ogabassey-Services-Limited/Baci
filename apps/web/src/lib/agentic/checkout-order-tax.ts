@@ -57,6 +57,31 @@ interface ProductVatRow {
   vat_rate: number | string | null;
 }
 
+// Codex P2 (PR #1622 round 7): the helper's `.in('id', productIds)` /
+// `.in('id', variantIds)` queries hit Postgres's UUID parser with the
+// raw client strings. Zod only validates these as `string`, so a
+// malformed item id (e.g. a slug, a stale autoincrement int) makes the
+// DB return error code `22P02` ("invalid input syntax for type
+// uuid"). The previous behavior at /api/orders mapped 22P02 as a
+// CLIENT error (see `clientErrorCodes` in the route — '22P02' is in
+// the list). The new pre-RPC tax compute was reporting those as
+// `TAX_COMPUTE_FAILED` 500, regressing that mapping. Carry the pg
+// code on the thrown error so callers can map 22P02 → 4xx and
+// everything else → 5xx.
+export class TaxComputeError extends Error {
+  readonly pgCode: string | undefined;
+  constructor(message: string, pgCode?: string | null | undefined) {
+    super(message);
+    this.name = 'TaxComputeError';
+    this.pgCode = typeof pgCode === 'string' ? pgCode : undefined;
+  }
+}
+
+/** True if the helper failed due to a Postgres UUID parse error. */
+export function isTaxComputeUuidError(err: unknown): boolean {
+  return err instanceof TaxComputeError && err.pgCode === '22P02';
+}
+
 interface VariantPriceRow {
   id: string;
   // High finding (PR #1622 review): variants must be validated to
@@ -107,8 +132,9 @@ export async function computeAgenticOrderTax({
     .maybeSingle();
 
   if (merchantError) {
-    throw new Error(
-      `Failed to load merchant VAT status: ${merchantError.message}`
+    throw new TaxComputeError(
+      `Failed to load merchant VAT status: ${merchantError.message}`,
+      (merchantError as { code?: string }).code
     );
   }
 
@@ -152,8 +178,9 @@ export async function computeAgenticOrderTax({
     .returns<ProductVatRow[]>();
 
   if (productsError) {
-    throw new Error(
-      `Failed to load products for VAT computation: ${productsError.message}`
+    throw new TaxComputeError(
+      `Failed to load products for VAT computation: ${productsError.message}`,
+      (productsError as { code?: string }).code
     );
   }
 
@@ -189,12 +216,13 @@ export async function computeAgenticOrderTax({
     : { data: [], error: null };
   const variantsQuery: {
     data: VariantPriceRow[] | null;
-    error: { message: string } | null;
+    error: { message: string; code?: string } | null;
   } = { data: variantsData, error: variantsError };
 
   if (variantsQuery.error) {
-    throw new Error(
-      `Failed to load product variants for VAT computation: ${variantsQuery.error.message}`
+    throw new TaxComputeError(
+      `Failed to load product variants for VAT computation: ${variantsQuery.error.message}`,
+      variantsQuery.error.code
     );
   }
 

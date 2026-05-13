@@ -1,6 +1,9 @@
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
-import { computeAgenticOrderTax } from '@/lib/agentic/checkout-order-tax';
+import {
+  computeAgenticOrderTax,
+  isTaxComputeUuidError,
+} from '@/lib/agentic/checkout-order-tax';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import {
   generateOrderConfirmationEmail,
@@ -288,6 +291,26 @@ export async function POST(request: NextRequest) {
         supabase: createServiceClient(),
       });
     } catch (taxError) {
+      // Codex P2 (PR #1622 round 7): malformed item ids (Zod only
+      // validates as `string`) cascade into Postgres's UUID parser
+      // as code 22P02. Pre-route-side-recompute, the RPC's own
+      // 22P02 path got mapped via `clientErrorCodes` to a 400. We
+      // must preserve that semantic so bad client payloads don't
+      // look like server outages.
+      if (isTaxComputeUuidError(taxError)) {
+        logger.warn({
+          error: taxError,
+          merchantId: merchant_id,
+          message: 'Storefront order received malformed item identifier',
+        });
+        return NextResponse.json(
+          {
+            code: 'INVALID_ITEM_ID',
+            error: 'Invalid item identifier in order payload',
+          },
+          { status: 400 }
+        );
+      }
       logger.error({
         error: taxError,
         merchantId: merchant_id,

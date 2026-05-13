@@ -12,7 +12,7 @@ vi.mock('@/lib/agentic/webhooks', () => ({
 }));
 
 vi.mock('@/lib/logger', () => ({
-  logger: { error: vi.fn() },
+  logger: { error: vi.fn(), warn: vi.fn() },
 }));
 
 // B3.5 round 6: the dispatch now calls `createServiceClient()` for
@@ -297,6 +297,65 @@ describe('agentic checkout order dispatch', () => {
         message: 'Agentic checkout VAT recompute failed',
       })
     );
+  });
+
+  it('maps a 22P02 UUID parse error from the tax helper to 400 invalid_items (Codex P2 round 7)', async () => {
+    // Pre-round-7 a malformed item id surfaced as a 500
+    // (Unable to compute order tax) because we caught ALL helper
+    // errors and reported infra failure. That hid a client bug
+    // behind an outage signal. Restore the 4xx mapping that the
+    // RPC's own 22P02 path already had.
+    const supabaseSvcMod = await import('@/lib/supabase/service');
+    vi.mocked(supabaseSvcMod.createServiceClient).mockReturnValueOnce({
+      from: (table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: { vat_registration_status: 'registered' },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'products') {
+          return {
+            select: () => ({
+              eq: () => ({
+                in: () => ({
+                  returns: () =>
+                    Promise.resolve({
+                      data: null,
+                      error: {
+                        code: '22P02',
+                        message: 'invalid input syntax for type uuid: "bogus"',
+                      },
+                    }),
+                }),
+              }),
+            }),
+          };
+        }
+        throw new Error('unexpected');
+      },
+    } as never);
+
+    const rpc = vi.fn();
+    const result = await createAgenticCheckoutOrder(orderPayload(), {
+      from: makeFromStub(),
+      rpc,
+    } as unknown as SupabaseClient);
+
+    expect(result).toMatchObject({
+      error: 'invalid_items',
+      ok: false,
+      orderId: undefined,
+      status: 400,
+    });
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it('returns the order RPC error without creating a false success', async () => {
