@@ -76,8 +76,23 @@ fi
 # those cases ACTIVE_DIR is still $CLAUDE_PROJECT_DIR, and we let the scan
 # pick a more specific recently-active worktree if one exists.
 if [ "$ACTIVE_DIR" = "$CLAUDE_PROJECT_DIR" ] && command -v git >/dev/null 2>&1; then
-  newest_mtime=0
-  newest_path=""
+  # Two-tier selection:
+  #
+  # PREFERRED — newest worktree within the recency window. The window bounds
+  # the multi-agent race: a concurrent agent's recent `git add` in another
+  # worktree won't redirect us if our worktree is fresher than its.
+  #
+  # FALLBACK — newest worktree overall, ignoring the window. Applies when no
+  # worktree qualifies as "recent" — typically a long-running session that
+  # has been editing files for hours without running `git add` (the index
+  # only updates on staging, not on unstaged edits). Without this fallback,
+  # the active worktree would be silently dropped and ACTIVE_DIR would fall
+  # back to $CLAUDE_PROJECT_DIR — auditing the wrong tree, which is the
+  # exact failure the cwd/mtime resolver is meant to prevent.
+  in_window_mtime=0
+  in_window_path=""
+  overall_mtime=0
+  overall_path=""
   now=$(date +%s)
   # Validate QUALITY_GATE_RECENCY_WINDOW is numeric — a non-numeric override
   # would otherwise crash the arithmetic comparison below and fail the hook.
@@ -107,15 +122,18 @@ if [ "$ACTIVE_DIR" = "$CLAUDE_PROJECT_DIR" ] && command -v git >/dev/null 2>&1; 
     # macOS uses `stat -f %m`, GNU/Linux uses `stat -c %Y`. Try both.
     mtime=$(stat -f %m "$idx" 2>/dev/null || stat -c %Y "$idx" 2>/dev/null)
     [ -z "$mtime" ] && continue
-    # Skip worktrees outside the recency window — idle worktrees can't
-    # be the active session even if their index has a recent mtime by
-    # coincidence.
-    [ $((now - mtime)) -gt "$recency" ] && continue
-    if [ "$mtime" -gt "$newest_mtime" ]; then
-      newest_mtime=$mtime
-      newest_path="$wt"
+    # Track newest overall (used as fallback) AND newest within window
+    # (preferred). Both walked in a single pass.
+    if [ "$mtime" -gt "$overall_mtime" ]; then
+      overall_mtime=$mtime
+      overall_path="$wt"
+    fi
+    if [ $((now - mtime)) -le "$recency" ] && [ "$mtime" -gt "$in_window_mtime" ]; then
+      in_window_mtime=$mtime
+      in_window_path="$wt"
     fi
   done < <(git -C "$CLAUDE_PROJECT_DIR" worktree list --porcelain 2>/dev/null)
+  newest_path="${in_window_path:-$overall_path}"
   [ -n "$newest_path" ] && ACTIVE_DIR="$newest_path"
 fi
 
