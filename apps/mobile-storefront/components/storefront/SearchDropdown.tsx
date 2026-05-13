@@ -11,7 +11,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useDeferredValue, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -28,6 +28,7 @@ import { SafeImage } from '@/components/ui/SafeImage';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SHADOWS, SPACING } from '@/constants/Colors';
 import { type Category, useCategories, useProducts } from '@/hooks';
+import { useDebounce } from '@/hooks/use-debounce';
 import { useSearchStorage } from '@/hooks/use-search-storage';
 import { formatPrice, type Product } from '@/types/product';
 
@@ -64,8 +65,13 @@ export function SearchDropdown({
   // Use external query if provided, otherwise internal
   const activeQuery =
     externalQuery !== undefined ? externalQuery : internalQuery;
-  const deferredQuery = useDeferredValue(activeQuery);
-  const effectiveQuery = deferredQuery.trim();
+
+  // ⚡ Bolt: Replace useDeferredValue with useDebounce (250ms)
+  // useDeferredValue only defers UI updates and still triggers the network hook
+  // on every keystroke, causing API overfetching.
+  const debouncedQuery = useDebounce(activeQuery, 250);
+
+  const effectiveQuery = debouncedQuery.trim();
   const setQuery = onExternalQueryChange || setInternalQuery;
 
   const { recentSearches, saveSearch, clearHistory } = useSearchStorage();

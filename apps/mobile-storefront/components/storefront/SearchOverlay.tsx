@@ -16,7 +16,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { useRouter } from 'expo-router';
-import { useDeferredValue, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Keyboard,
@@ -37,6 +37,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
 import { type Category, useCategories, useProducts } from '@/hooks';
+import { useDebounce } from '@/hooks/use-debounce';
 import { useSearchStorage } from '@/hooks/use-search-storage';
 import type { Product } from '@/types/product';
 
@@ -58,8 +59,13 @@ export function SearchOverlay({
   const inputRef = useRef<TextInput>(null);
 
   const [query, setQuery] = useState(initialQuery);
-  const deferredQuery = useDeferredValue(query);
-  const activeSearchQuery = deferredQuery.trim();
+
+  // ⚡ Bolt: Replace useDeferredValue with useDebounce (250ms)
+  // useDeferredValue only defers UI updates and still triggers the network hook
+  // on every keystroke, causing API overfetching.
+  const debouncedQuery = useDebounce(query, 250);
+
+  const activeSearchQuery = debouncedQuery.trim();
   const hasSearchQuery = activeSearchQuery.length >= 2;
 
   // Custom hook usage
