@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
+import { OgabasseyStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-static-resource-hints';
 import { Hero } from '@/components/storefront/ogabassey/components/Hero';
 import {
   OGABASSEY_APPLE_TOUCH_ICON_URL,
@@ -66,6 +67,7 @@ export const metadata: Metadata = {
 export default function OgabasseyStaticHomePage() {
   return (
     <>
+      <OgabasseyStaticResourceHints />
       {/* The storefront layout blocks unpublished merchants before rendering children; keep Hero in this page shell so mobile LCP is not delayed by dynamic home data. */}
       <Hero />
       <Suspense fallback={null}>
