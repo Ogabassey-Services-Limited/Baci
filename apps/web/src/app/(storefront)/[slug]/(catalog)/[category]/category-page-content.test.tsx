@@ -51,8 +51,19 @@ vi.mock('@/components/ui/skeletons', () => ({
 vi.mock(
   '@/components/storefront/ogabassey/providers/v2-comparison-scope',
   () => ({
-    V2ComparisonScope: ({ children }: { children: ReactNode }) => (
-      <div data-testid="comparison-scope">{children}</div>
+    V2ComparisonScope: ({
+      children,
+      storageNamespace,
+    }: {
+      children: ReactNode;
+      storageNamespace?: string | null;
+    }) => (
+      <div
+        data-storage-namespace={storageNamespace ?? ''}
+        data-testid="comparison-scope"
+      >
+        {children}
+      </div>
     ),
   })
 );
@@ -207,6 +218,10 @@ describe('CategoryPageContent', () => {
 
     expect(screen.getByTestId('comparison-scope')).toContainElement(
       screen.getByTestId('category-page')
+    );
+    expect(screen.getByTestId('comparison-scope')).toHaveAttribute(
+      'data-storage-namespace',
+      'merchant-1'
     );
   });
 });

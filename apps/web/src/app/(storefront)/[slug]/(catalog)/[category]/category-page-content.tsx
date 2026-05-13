@@ -189,7 +189,7 @@ export async function CategoryPageContent({ params, searchParams }: PageProps) {
         />
       )}
 
-      <V2ComparisonScope>
+      <V2ComparisonScope storageNamespace={merchant.id}>
         <OgabasseyCategoryPage
           seoHeading={hubContent.intro.heading}
           seoDescription={hubContent.intro.description}

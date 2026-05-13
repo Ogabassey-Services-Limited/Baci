@@ -107,4 +107,34 @@ describe('V2ComparisonProvider', () => {
 
     expect(screen.getByTestId('compare-count')).toHaveTextContent('2');
   });
+
+  it('keeps persisted comparison items isolated by merchant namespace', () => {
+    localStorage.setItem(
+      'ogabassey_v2_compare',
+      JSON.stringify([baseProduct])
+    );
+
+    render(
+      <V2ComparisonProvider storageNamespace="merchant-a">
+        <ComparisonConsumer />
+      </V2ComparisonProvider>
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    expect(screen.getByTestId('compare-count')).toHaveTextContent('0');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add to compare' }));
+
+    expect(
+      JSON.parse(localStorage.getItem('ogabassey_v2_compare') ?? '[]')
+    ).toHaveLength(1);
+    expect(
+      JSON.parse(
+        localStorage.getItem('ogabassey_v2_compare:merchant-a') ?? '[]'
+      )
+    ).toEqual([expect.objectContaining({ id: baseProduct.id })]);
+  });
 });

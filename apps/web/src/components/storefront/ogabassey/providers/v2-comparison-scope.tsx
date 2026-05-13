@@ -5,8 +5,16 @@ import { V2ComparisonProvider } from './v2-comparison-context';
 
 interface V2ComparisonScopeProps {
   children: React.ReactNode;
+  storageNamespace?: string | null;
 }
 
-export function V2ComparisonScope({ children }: V2ComparisonScopeProps) {
-  return <V2ComparisonProvider>{children}</V2ComparisonProvider>;
+export function V2ComparisonScope({
+  children,
+  storageNamespace,
+}: V2ComparisonScopeProps) {
+  return (
+    <V2ComparisonProvider storageNamespace={storageNamespace}>
+      {children}
+    </V2ComparisonProvider>
+  );
 }
