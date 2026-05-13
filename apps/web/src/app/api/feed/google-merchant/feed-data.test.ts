@@ -35,6 +35,7 @@ let manifestResult: ManifestResult;
 let variantRpcResult: VariantRpcResult;
 let offersResult: OffersResult;
 const mockManifestStatusEq = vi.fn();
+const mockOffersIn = vi.fn();
 const mockRpc = vi.fn();
 const mockOffersStatusEq = vi.fn();
 const mockProductsOr = vi.fn();
@@ -86,9 +87,12 @@ function createMockSupabase() {
       if (table === 'product_offers') {
         return {
           select: () => ({
-            in: () => ({
-              eq: mockOffersStatusEq,
-            }),
+            in: (column: string, ids: string[]) => {
+              mockOffersIn(column, ids);
+              return {
+                eq: (status: string) => mockOffersStatusEq(status, ids),
+              };
+            },
           }),
         };
       }
@@ -156,7 +160,7 @@ beforeEach(() => {
     error: null,
   };
   mockManifestStatusEq.mockResolvedValue(manifestResult);
-  mockOffersStatusEq.mockResolvedValue(offersResult);
+  mockOffersStatusEq.mockImplementation(() => Promise.resolve(offersResult));
   mockRpc.mockResolvedValue(variantRpcResult);
   mockCreateAnonClient.mockReturnValue(createMockSupabase());
 });
@@ -508,6 +512,60 @@ describe('getCachedGoogleMerchantFeedData', () => {
     expect(result.products[0]?.offers).toEqual([
       {
         id: 'offer-1',
+        condition: 'used',
+        price: 420000,
+        stock_quantity: 3,
+      },
+    ]);
+  });
+
+  it('batches product_offers queries to avoid oversized in filters', async () => {
+    productsResult = {
+      data: Array.from({ length: 251 }, (_, index) => ({
+        id: `product-${index}`,
+        name: `Phone ${index}`,
+        variant_model: 'legacy',
+        has_condition_offers: true,
+      })),
+      error: null,
+    };
+    mockOffersStatusEq.mockImplementation((_status: string, ids: string[]) =>
+      Promise.resolve({
+        data: ids.slice(0, 1).map((id) => ({
+          id: `offer-${id}`,
+          product_id: id,
+          condition: 'used',
+          price: 420000,
+          stock_quantity: 3,
+        })),
+        error: null,
+      } satisfies OffersResult)
+    );
+
+    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const result = await getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(mockOffersIn).toHaveBeenCalledTimes(2);
+    expect(mockOffersIn.mock.calls[0]?.[1]).toHaveLength(250);
+    expect(mockOffersIn.mock.calls[1]?.[1]).toHaveLength(1);
+    expect(
+      result.products.find((product) => product.id === 'product-0')?.offers
+    ).toEqual([
+      {
+        id: 'offer-product-0',
+        condition: 'used',
+        price: 420000,
+        stock_quantity: 3,
+      },
+    ]);
+    expect(
+      result.products.find((product) => product.id === 'product-250')?.offers
+    ).toEqual([
+      {
+        id: 'offer-product-250',
         condition: 'used',
         price: 420000,
         stock_quantity: 3,

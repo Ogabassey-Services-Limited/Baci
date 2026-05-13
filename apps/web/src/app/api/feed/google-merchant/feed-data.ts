@@ -12,6 +12,8 @@ import { FEED_PRODUCTS_SELECT } from './feed-query';
 const FEED_PRODUCTS_PAGE_SIZE = 1000;
 // get_feed_product_variants accepts at most 10k product IDs.
 const MAX_FEED_PRODUCTS = 10_000;
+// Keep PostgREST `in(...)` URL filters under common proxy limits.
+const FEED_PRODUCT_OFFERS_BATCH_SIZE = 250;
 
 export interface GoogleMerchantFeedData {
   custom_domain: string | null;
@@ -132,6 +134,14 @@ interface FeedVariantRow {
   stock_quantity?: number | null;
 }
 
+interface FeedOfferRow {
+  condition: FeedOffer['condition'];
+  id: string;
+  price: number | string;
+  product_id: string;
+  stock_quantity: number | null;
+}
+
 function normalizeFeedVariantPrice(
   value: number | string | null | undefined
 ): number | null {
@@ -145,6 +155,41 @@ function normalizeFeedVariantPrice(
   }
 
   return null;
+}
+
+async function fetchActiveFeedOffers(
+  supabase: SupabaseClient,
+  productIds: string[]
+): Promise<FeedOfferRow[]> {
+  const offerRows: FeedOfferRow[] = [];
+
+  for (
+    let batchStart = 0;
+    batchStart < productIds.length;
+    batchStart += FEED_PRODUCT_OFFERS_BATCH_SIZE
+  ) {
+    const batchProductIds = productIds.slice(
+      batchStart,
+      batchStart + FEED_PRODUCT_OFFERS_BATCH_SIZE
+    );
+
+    const { data, error } = await supabase
+      .from('product_offers')
+      .select('id, product_id, condition, price, stock_quantity')
+      .in('product_id', batchProductIds)
+      .eq('status', 'active');
+
+    if (error) {
+      console.error('DB_OFFERS_ERROR:', { batchStart, error });
+      throw new Error('Failed to fetch product offers');
+    }
+
+    if (data && data.length > 0) {
+      offerRows.push(...(data as FeedOfferRow[]));
+    }
+  }
+
+  return offerRows;
 }
 
 /**
@@ -282,20 +327,11 @@ export async function getCachedGoogleMerchantFeedData(
 
   if (productsWithOffers.length > 0) {
     const offerProductIds = productsWithOffers.map((p) => p.id);
-    const { data: offerRows, error: offersError } = await supabase
-      .from('product_offers')
-      .select('id, product_id, condition, price, stock_quantity')
-      .in('product_id', offerProductIds)
-      .eq('status', 'active');
+    const offerRows = await fetchActiveFeedOffers(supabase, offerProductIds);
 
-    if (offersError) {
-      console.error('DB_OFFERS_ERROR:', offersError);
-      throw new Error('Failed to fetch product offers');
-    }
-
-    if (offerRows && offerRows.length > 0) {
+    if (offerRows.length > 0) {
       const offersByProduct = new Map<string, FeedOffer[]>();
-      for (const row of offerRows) {
+      for (const row of offerRows as FeedOfferRow[]) {
         const pid = row.product_id as string;
         if (!offersByProduct.has(pid)) {
           offersByProduct.set(pid, []);
