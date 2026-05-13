@@ -534,6 +534,7 @@ export default function AnalyticsConfigScreen() {
                 }
               >
                 <View
+                  testID="offline-conversions-toggle-knob"
                   style={[
                     styles.toggleKnob,
                     {
