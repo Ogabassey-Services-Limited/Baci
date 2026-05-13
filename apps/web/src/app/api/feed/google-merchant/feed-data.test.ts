@@ -37,6 +37,7 @@ let offersResult: OffersResult;
 const mockManifestStatusEq = vi.fn();
 const mockRpc = vi.fn();
 const mockOffersStatusEq = vi.fn();
+const mockProductsOrder = vi.fn();
 const mockProductsRange = vi.fn();
 
 function createMockSupabase() {
@@ -62,11 +63,7 @@ function createMockSupabase() {
           select: () => ({
             eq: () => ({
               eq: () => ({
-                order: () => ({
-                  range: mockProductsRange.mockImplementation(() => ({
-                    overrideTypes: () => Promise.resolve(productsResult),
-                  })),
-                }),
+                order: mockProductsOrder,
               }),
             }),
           }),
@@ -100,6 +97,13 @@ function createMockSupabase() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockProductsOrder.mockImplementation(() => ({
+    order: mockProductsOrder,
+    range: mockProductsRange,
+  }));
+  mockProductsRange.mockImplementation(() => ({
+    overrideTypes: () => Promise.resolve(productsResult),
+  }));
 
   domainResult = {
     data: { domain: 'ogabassey.com' },
@@ -257,6 +261,10 @@ describe('getCachedGoogleMerchantFeedData', () => {
 
     expect(mockProductsRange).toHaveBeenNthCalledWith(1, 0, 999);
     expect(mockProductsRange).toHaveBeenNthCalledWith(2, 1000, 1999);
+    expect(mockProductsOrder).toHaveBeenCalledWith('created_at', {
+      ascending: false,
+    });
+    expect(mockProductsOrder).toHaveBeenCalledWith('id', { ascending: true });
     expect(result.products).toHaveLength(1001);
   });
 

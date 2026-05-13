@@ -73,6 +73,7 @@ async function fetchActiveFeedProducts(
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
       .range(offset, offset + FEED_PRODUCTS_PAGE_SIZE - 1)
       .overrideTypes<RawFeedProductRow[], { merge: false }>();
 
