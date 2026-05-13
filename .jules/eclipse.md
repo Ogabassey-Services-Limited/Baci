@@ -21,6 +21,3 @@
 ## 2026-05-08 - Hardcoded Status/Contact Colors in Mobile Admin
 **Learning:** Hardcoded hex values like `#DCFCE7` (success light) or `#16A34A` (success dark) look fine in light mode but fail to adapt to dark mode backgrounds, making UI elements unreadable or visually inconsistent.
 **Action:** Replace all such hardcoded hex values with their semantic `useTheme()` equivalents like `colors.successLight` or `colors.info` to ensure cross-theme consistency.
-## 2026-05-12 - Replace hardcoded colors with theme tokens in Staff Accounts
-**Learning:** Hardcoded hex colors and conditional fallbacks like `#FFF` or `|| '#E8F0FE'` break the design system and do not automatically adapt to dark mode.
-**Action:** Use semantic theme tokens (e.g. `colors.textOnPrimary` and `colors.primaryLight`) directly from `useTheme()` instead of hardcoded hex values or unnecessary fallbacks.
