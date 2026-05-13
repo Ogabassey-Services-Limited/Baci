@@ -14,6 +14,7 @@ function buildSupabaseMock(handlers: {
   }>;
   variants?: Array<{
     id: string;
+    product_id: string;
     price_override: number | string | null;
   }>;
 }): SupabaseClient {
@@ -32,11 +33,18 @@ function buildSupabaseMock(handlers: {
       };
     }
     if (table === 'products') {
+      // Mock matches the helper's chained `.eq('merchant_id', ...).in('id', ...)`
+      // — `.eq` returns a builder that supports `.in` then `.returns`.
       return {
         select: () => ({
-          in: () => ({
-            returns: () =>
-              Promise.resolve({ data: handlers.products ?? [], error: null }),
+          eq: () => ({
+            in: () => ({
+              returns: () =>
+                Promise.resolve({
+                  data: handlers.products ?? [],
+                  error: null,
+                }),
+            }),
           }),
         }),
       };
@@ -197,9 +205,54 @@ describe('computeAgenticOrderTax', () => {
     expect(result).toBe(75);
   });
 
-  it('uses variant.price_override when variant_id is provided', async () => {
+  it('falls back to product base price when the variant belongs to a DIFFERENT product (high finding)', async () => {
+    // High finding (PR #1622 review): the RPC's LEFT JOIN enforces
+    // `v.product_id = p.id` and falls back to base price when the
+    // variant_id is from a different product. The helper must mirror
+    // this — otherwise a spoofed cross-product variant_id would
+    // apply the wrong override, helper and RPC would compute
+    // different tax, and the parity guard would 400 a legitimate
+    // call.
+    const supabase = buildSupabaseMock({
+      merchant: { vat_registration_status: 'registered' },
+      products: [
+        {
+          id: 'prod-1',
+          price: 1000,
+          vat_category_code: 'S',
+          vat_rate: 7.5,
+        },
+        {
+          id: 'prod-2',
+          price: 9000,
+          vat_category_code: 'S',
+          vat_rate: 7.5,
+        },
+      ],
+      variants: [
+        // var-X belongs to prod-2, NOT prod-1.
+        { id: 'var-X', product_id: 'prod-2', price_override: 5000 },
+      ],
+    });
+
+    const result = await computeAgenticOrderTax({
+      // Caller claims prod-1 + var-X (a variant of prod-2).
+      items: [{ product_id: 'prod-1', variant_id: 'var-X', quantity: 1 }],
+      merchantId: 'm-1',
+      supabase,
+    });
+
+    // Expected: prod-1.base_price wins (cross-product variant
+    // ignored), tax = ROUND(1000 * 7.5 / 100, 2) = 75. Without the
+    // mirror, the helper would have used var-X.price_override (5000)
+    // → 375 → mismatch with RPC's base-price calc.
+    expect(result).toBe(75);
+  });
+
+  it('uses variant.price_override when variant matches the same product', async () => {
     // Mirrors RPC: COALESCE(t.price_override, t.base_price). The
-    // variant override (5000) wins over the product price (1000).
+    // variant override (5000) wins over the product price (1000)
+    // when variant.product_id matches the order line's product_id.
     const supabase = buildSupabaseMock({
       merchant: { vat_registration_status: 'registered' },
       products: [
@@ -210,7 +263,7 @@ describe('computeAgenticOrderTax', () => {
           vat_rate: 7.5,
         },
       ],
-      variants: [{ id: 'var-1', price_override: 5000 }],
+      variants: [{ id: 'var-1', product_id: 'prod-1', price_override: 5000 }],
     });
 
     const result = await computeAgenticOrderTax({
@@ -282,6 +335,57 @@ describe('computeAgenticOrderTax', () => {
     expect(result).toBe(75);
   });
 
+  it('scopes the products query to merchant_id (high finding)', async () => {
+    // High finding (PR #1622 review): products has a public-read
+    // policy (`status = 'active' OR has_merchant_access`), so a
+    // caller passing a cross-tenant product_id could leak prices /
+    // VAT from a different merchant if the SELECT isn't scoped. Pin
+    // that the helper's products query chains `.eq('merchant_id',
+    // <merchantId>)` before `.in('id', ...)`.
+    const eqSpy = vi.fn();
+    const supabase = {
+      from: (table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: { vat_registration_status: 'registered' },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'products') {
+          return {
+            select: () => ({
+              eq: (column: string, value: string) => {
+                eqSpy(column, value);
+                return {
+                  in: () => ({
+                    returns: () => Promise.resolve({ data: [], error: null }),
+                  }),
+                };
+              },
+            }),
+          };
+        }
+        throw new Error('unexpected');
+      },
+      rpc: () => Promise.resolve({ data: [], error: null }),
+    } as unknown as SupabaseClient;
+
+    await computeAgenticOrderTax({
+      items: [{ product_id: 'prod-1', quantity: 1 }],
+      merchantId: 'merchant-A',
+      supabase,
+    });
+
+    expect(eqSpy).toHaveBeenCalledWith('merchant_id', 'merchant-A');
+  });
+
   it('throws when the merchants lookup returns an error (Codex P2)', async () => {
     // A transient DB/RLS failure used to be swallowed as "not
     // registered" → tax 0 → RPC tax_amount_mismatch → 400. That
@@ -334,12 +438,14 @@ describe('computeAgenticOrderTax', () => {
         if (table === 'products') {
           return {
             select: () => ({
-              in: () => ({
-                returns: () =>
-                  Promise.resolve({
-                    data: null,
-                    error: { message: 'rls deny' },
-                  }),
+              eq: () => ({
+                in: () => ({
+                  returns: () =>
+                    Promise.resolve({
+                      data: null,
+                      error: { message: 'rls deny' },
+                    }),
+                }),
               }),
             }),
           };
@@ -376,19 +482,21 @@ describe('computeAgenticOrderTax', () => {
         if (table === 'products') {
           return {
             select: () => ({
-              in: () => ({
-                returns: () =>
-                  Promise.resolve({
-                    data: [
-                      {
-                        id: 'prod-1',
-                        price: 1000,
-                        vat_category_code: 'S',
-                        vat_rate: 7.5,
-                      },
-                    ],
-                    error: null,
-                  }),
+              eq: () => ({
+                in: () => ({
+                  returns: () =>
+                    Promise.resolve({
+                      data: [
+                        {
+                          id: 'prod-1',
+                          price: 1000,
+                          vat_category_code: 'S',
+                          vat_rate: 7.5,
+                        },
+                      ],
+                      error: null,
+                    }),
+                }),
               }),
             }),
           };
@@ -436,8 +544,10 @@ describe('computeAgenticOrderTax', () => {
           productsSelect();
           return {
             select: () => ({
-              in: () => ({
-                returns: () => Promise.resolve({ data: [], error: null }),
+              eq: () => ({
+                in: () => ({
+                  returns: () => Promise.resolve({ data: [], error: null }),
+                }),
               }),
             }),
           };

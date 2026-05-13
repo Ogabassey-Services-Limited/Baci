@@ -328,7 +328,22 @@ export async function POST(request: NextRequest) {
         // runs a client/server total parity check (Codex P1) against
         // p_expected_total BEFORE any side effects, so a mismatch
         // rolls back atomically — no orphan order, no stock leak.
-        p_tax_basis: body.tax_basis,
+        //
+        // Codex P1 round 6 (PR #1622): `tax_basis` is SERVER-controlled
+        // policy, NOT caller input. Forwarding `body.tax_basis`
+        // verbatim let a buyer submit `tax_basis: 'inclusive'` on a
+        // VAT-registered merchant with exclusive-priced catalog and
+        // bypass the `tax_amount_mismatch` guard — the inclusive
+        // branch computes `total = subtotal + shipping + gift -
+        // discount` (no VAT added) and the gateway charge under-bills
+        // by the VAT amount while the merchant still owes FIRS. Until
+        // per-merchant pricing config exists, hardcode 'exclusive'
+        // here (the catalog-pricing default for every Nigerian
+        // merchant in production today). Zod still accepts the field
+        // so /api/orders/route.ts stays forward-compatible; we just
+        // refuse to honor it as input. The schema-level enum check
+        // still guards against unknown values.
+        p_tax_basis: 'exclusive',
         p_gift_wrapping_fee: giftWrappingFeeValue,
         p_expected_total:
           typeof body.expected_total === 'number' ? body.expected_total : null,

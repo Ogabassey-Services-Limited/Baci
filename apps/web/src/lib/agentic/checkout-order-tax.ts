@@ -51,6 +51,14 @@ interface ProductVatRow {
 
 interface VariantPriceRow {
   id: string;
+  // High finding (PR #1622 review): variants must be validated to
+  // belong to the same product the order line claims. The RPC's
+  // LEFT JOIN enforces `v.product_id = p.id` (so a mismatched
+  // variant_id falls through to NULL and price_override defaults to
+  // base price). The helper must mirror that or it can apply the
+  // wrong override and trip the parity guard for orders containing
+  // a spoofed cross-product variant_id.
+  product_id: string;
   price_override: number | string | null;
 }
 
@@ -118,9 +126,20 @@ export async function computeAgenticOrderTax({
   // to be a successful compute and trips the RPC parity guard with
   // a misleading 4xx. Propagate as a throwable so the dispatch's
   // try/catch returns 500 and the caller retries.
+  //
+  // High finding (PR #1622 review): the products SELECT MUST be
+  // scoped to `merchant_id`. `products_select_policy` (baseline:15317)
+  // allows `status = 'active'` reads from any client, including
+  // anonymous and agentic-scoped JWTs. Without `.eq('merchant_id',
+  // merchantId)`, a caller could pass cross-tenant product IDs and
+  // the helper would compute tax against another merchant's prices
+  // / VAT categories — the RPC itself scopes
+  // `products p ON p.id = r.product_id AND p.merchant_id = p_merchant_id`,
+  // so the helper must match.
   const { data: products, error: productsError } = await supabase
     .from('products')
     .select('id, price, vat_category_code, vat_rate')
+    .eq('merchant_id', merchantId)
     .in('id', productIds)
     .returns<ProductVatRow[]>();
 
@@ -180,7 +199,21 @@ export async function computeAgenticOrderTax({
     const category = product.vat_category_code ?? 'S';
     if (category !== 'S') continue;
 
-    const variant = item.variant_id ? variantMap.get(item.variant_id) : null;
+    // High finding (PR #1622 review): variant must belong to the
+    // SAME product the order line claims. The RPC's LEFT JOIN
+    // (`v.product_id = p.id`) enforces this and falls back to base
+    // price for mismatched variant_ids; the helper must mirror it
+    // or a caller can spoof a variant_id from a different product
+    // and trip the parity guard. SDF returns variants for ALL
+    // products in `productIds`, so cross-line ambiguity exists when
+    // multiple products are in the cart.
+    const candidateVariant = item.variant_id
+      ? variantMap.get(item.variant_id)
+      : null;
+    const variant =
+      candidateVariant && candidateVariant.product_id === item.product_id
+        ? candidateVariant
+        : null;
     const priceRaw = variant?.price_override ?? product.price ?? 0;
     const price = Number(priceRaw);
     if (!Number.isFinite(price) || price <= 0) continue;

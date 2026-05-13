@@ -492,13 +492,13 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
     expect(response.status).toBe(400);
   });
 
-  it('forwards p_tax_basis and p_gift_wrapping_fee to the RPC', async () => {
-    // Defense-in-depth contract test: the body fields must reach the
-    // SECURITY DEFINER RPC unchanged so the VAT enforcement boundary
-    // (Δ-42) sees what the client actually asked for. A regression
-    // where the route silently drops these (e.g., a future refactor
-    // that renames fields) would let exclusive-basis orders skip
-    // VAT checks without any visible test failure.
+  it('forwards p_gift_wrapping_fee to the RPC', async () => {
+    // Defense-in-depth contract test: the body's gift_wrapping_fee
+    // must reach the SECURITY DEFINER RPC unchanged so the VAT
+    // enforcement boundary (Δ-42) sees what the client actually
+    // asked for. (Note: `tax_basis` is NOT in scope for forwarding
+    // — Codex P1 round 6 made it server-controlled; see the
+    // dedicated `forces p_tax_basis to "exclusive"` test below.)
     const rpcSpy = vi.fn().mockResolvedValue({
       data: [
         {
@@ -528,7 +528,6 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
       method: 'POST',
       body: JSON.stringify({
         ...baseOrderPayload,
-        tax_basis: 'inclusive',
         gift_wrapping_fee: 500,
       }),
     });
@@ -536,9 +535,55 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
 
     expect(rpcSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        p_tax_basis: 'inclusive',
         p_gift_wrapping_fee: 500,
       })
+    );
+  });
+
+  it('forces p_tax_basis to "exclusive" regardless of client input (Codex P1 round 6)', async () => {
+    // tax_basis is SERVER policy, not caller input. A buyer who
+    // submits `tax_basis: 'inclusive'` on a VAT-registered merchant
+    // would otherwise route through the RPC's inclusive branch,
+    // which computes total = subtotal + shipping + gift - discount
+    // (no VAT), undercharging by the VAT amount while the merchant
+    // is still on the hook for FIRS. The API hardcodes 'exclusive'
+    // until per-merchant pricing config exists.
+    const rpcSpy = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'order-id',
+          order_number: 'ORD-123',
+          total: 1000,
+          subtotal: 1000,
+          shipping_fee: 0,
+          customer_id: CUSTOMER_ID,
+        },
+      ],
+      error: null,
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      sb.rpc = ((name: string, args: Record<string, unknown>) => {
+        if (name === 'create_storefront_order') {
+          return rpcSpy(args);
+        }
+        return Promise.resolve({ data: null, error: null });
+      }) as typeof sb.rpc;
+      return sb;
+    }) as unknown as never);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        tax_basis: 'inclusive',
+      }),
+    });
+    await POST(request);
+
+    expect(rpcSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ p_tax_basis: 'exclusive' })
     );
   });
 

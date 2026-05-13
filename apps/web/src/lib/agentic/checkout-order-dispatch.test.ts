@@ -140,21 +140,26 @@ describe('agentic checkout order dispatch', () => {
         };
       }
       if (table === 'products') {
+        // Helper now scopes products query to merchant_id
+        // (`.eq('merchant_id', merchantId).in('id', productIds)`),
+        // per the cross-tenant high finding on PR #1622.
         return {
           select: () => ({
-            in: () => ({
-              returns: () =>
-                Promise.resolve({
-                  data: [
-                    {
-                      id: 'product-1',
-                      price: 500_000,
-                      vat_category_code: 'S',
-                      vat_rate: 7.5,
-                    },
-                  ],
-                  error: null,
-                }),
+            eq: () => ({
+              in: () => ({
+                returns: () =>
+                  Promise.resolve({
+                    data: [
+                      {
+                        id: 'product-1',
+                        price: 500_000,
+                        vat_category_code: 'S',
+                        vat_rate: 7.5,
+                      },
+                    ],
+                    error: null,
+                  }),
+              }),
             }),
           }),
         };
