@@ -283,7 +283,7 @@ describe('ExpensesScreen', () => {
           amount: 12_500,
           branch_id: 'branch-1',
           category: 'Inventory',
-          date: new Date().toISOString(),
+          date: '2026-05-05T00:00:00.000Z',
           description: 'Office internet',
           id: 'expense-1',
           receipt_url: null,

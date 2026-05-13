@@ -22,3 +22,7 @@
 **Vulnerability:** The cart validation endpoint `POST /api/cart/validate` was trusting client input via `body as { ... }` instead of properly validating the shape and types of the request body. While there was a regex check for UUIDs later in the code, the lack of top-level schema validation exposes the system to potential unexpected runtime errors or injection of malformed data structures.
 **Learning:** Type assertions (using `as Type`) only instruct TypeScript to assume a type during compilation; they provide zero runtime protection.
 **Prevention:** Always use Zod schemas (e.g., `cartValidateSchema.safeParse(body)`) to validate incoming request bodies on API routes before processing them. Return a `400 Bad Request` explicitly if validation fails.
+## 2026-05-13 - Missing Authentication on Claims Sync Endpoint
+**Vulnerability:** The API endpoint `apps/web/src/app/api/insurance/claims/sync/route.ts` was unauthenticated. While it checked for a CSRF token, it lacked actual authorization to execute its background/cron logic.
+**Learning:** The endpoint contained a comment (`// In a real scenario, verify admin auth or cron secret`) but didn't implement the check, leaving it exposed to anyone who could pass the CSRF check (or send a request where CSRF wasn't enforced properly).
+**Prevention:** Always implement authentication/authorization checks for administrative and cron endpoints using standard helpers like `getCronSecret()` and `constantTimeEqual()`, and never rely on CSRF protection alone or leave security implementations as TODO comments.

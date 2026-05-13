@@ -11,7 +11,7 @@
  *   }
  */
 
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import {
   FEATURE_METADATA,
   type FeatureKey,

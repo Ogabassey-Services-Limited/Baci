@@ -13,7 +13,7 @@ vi.mock('next/navigation', () => ({
   useSearchParams: vi.fn(() => mockSearchParams()),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: vi.fn(() => ({
     merchant: { slug: 'test-store' },
     loading: false,

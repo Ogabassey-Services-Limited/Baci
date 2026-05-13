@@ -1,10 +1,10 @@
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { useCurrency } from './use-currency';
-import { useMerchantSafe } from './use-merchant';
+import { useMerchantSafe } from './use-merchant-client';
 
 // Mock useMerchantSafe
-vi.mock('./use-merchant', () => ({
+vi.mock('./use-merchant-client', () => ({
   useMerchantSafe: vi.fn(),
 }));
 

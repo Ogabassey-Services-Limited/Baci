@@ -14,7 +14,7 @@ import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 
 interface BlogSnippetProps {
   category: string;

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CookieConsent, useCookieConsent } from './cookie-consent';
 
 // Mock dependencies required by module imports for export tests
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: () => ({ basePath: '' }),
 }));
 

@@ -45,6 +45,12 @@ export interface PlaceOrderOptions {
   cartTotal: number;
   deliveryCost: number;
   total: number;
+  // B3.5 (Δ-31, Δ-34, Δ-39): VAT + gift-wrapping carried through to
+  // the API so the RPC's VAT enforcement boundary (Δ-42) has the
+  // figures the user was shown, and the API's parity check (Δ-39)
+  // can compare client expected_total vs server-recomputed total.
+  taxAmount: number;
+  giftWrappingCost: number;
   selectedQuoteId: string;
   shippingQuotes: ShippingQuote[];
   paymentMethod: PaymentMethod;
@@ -137,20 +143,40 @@ function buildShippingAddress(opts: PlaceOrderOptions) {
   };
 }
 
+// B3 (plan §5 B3): only return a non-null third-party shipping provider
+// when delivery is via a quoted carrier (door). Pickup and airport are
+// delivery-method labels, not third-party shipping providers — sending
+// 'Pickup'/'Airport' as `shipping_provider` would trip the RPC's new
+// `shipping_quote_required` guard. Returning null lets the RPC bypass
+// the guard for these flows.
+//
+// B3 review fix (PR #1611): when door + selectedQuoteId is set but the
+// id doesn't resolve in the current `shippingQuotes` list (e.g. rates
+// expired or got refreshed under us), we MUST NOT fabricate a
+// 'Standard' provider — that lets the order submit with a dangling
+// quote id and a phony provider, which is the exact data-integrity
+// gap B3 closes. Return a discriminated result so the caller can
+// surface a validation toast and bail. The inline checkout-page.tsx
+// uses the same fail-closed pattern.
+type ShippingProviderResolution =
+  | { ok: true; provider: string | null }
+  | { ok: false; reason: 'dangling_quote' };
+
 function getShippingProvider(
   deliveryMethod: string,
   selectedQuoteId: string,
   shippingQuotes: ShippingQuote[],
-): string {
+): ShippingProviderResolution {
   if (deliveryMethod === 'door' && selectedQuoteId) {
     const quote = shippingQuotes.find(
       (q) => String(q.id) === String(selectedQuoteId),
     );
-    return quote?.provider || 'Standard';
+    if (!quote) {
+      return { ok: false, reason: 'dangling_quote' };
+    }
+    return { ok: true, provider: quote.provider || null };
   }
-  if (deliveryMethod === 'pickup') return 'Pickup';
-  if (deliveryMethod === 'airport') return 'Airport';
-  return 'Standard';
+  return { ok: true, provider: null };
 }
 
 export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
@@ -169,6 +195,8 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
     cartTotal,
     deliveryCost,
     total,
+    taxAmount,
+    giftWrappingCost,
     selectedQuoteId,
     shippingQuotes,
     paymentMethod,
@@ -243,11 +271,48 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
   }
 
   const shippingAddressData = buildShippingAddress(opts);
-  const shippingProvider = getShippingProvider(
+
+  // B3 review fix #2 (PR #1611): block door delivery without ANY
+  // selected quote BEFORE constructing the JSON body. Pre-fix, this
+  // path sent `shipping_provider: null + selected_quote_id: null`,
+  // which slipped past the RPC's `provider != null AND quote_id IS
+  // NULL` guard (both null → guard doesn't fire) and persisted a
+  // silent zero-shipping order. The RPC predicate alone cannot tell
+  // legitimate "no shipping" (pickup/airport) from broken "door
+  // without quote" — the client knows the deliveryMethod and is the
+  // right place to enforce.
+  if (deliveryMethod === 'door' && !selectedQuoteId) {
+    toast({
+      title: 'Delivery option required',
+      description: 'Please select a delivery option to continue.',
+      variant: 'destructive',
+    });
+    setIsProcessing(false);
+    isOrderInFlightRef.current = false;
+    return;
+  }
+
+  const shippingProviderResolution = getShippingProvider(
     deliveryMethod,
     selectedQuoteId,
     shippingQuotes,
   );
+  if (!shippingProviderResolution.ok) {
+    // B3 review fix #1: dangling selectedQuoteId (door delivery,
+    // quote ref but no matching rate in the current list — usually
+    // expired or refreshed under us). Surface a validation error and
+    // bail instead of fabricating a 'Standard' provider; the customer
+    // re-picks a quote from the freshly loaded rates.
+    toast({
+      title: 'Shipping rate expired',
+      description: 'Please select a delivery option again.',
+      variant: 'destructive',
+    });
+    setIsProcessing(false);
+    isOrderInFlightRef.current = false;
+    return;
+  }
+  const shippingProvider = shippingProviderResolution.provider;
 
   const orderItems = buildCheckoutOrderItems(cart);
 
@@ -264,14 +329,30 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
         items: orderItems,
         subtotal: cartTotal,
         shipping_fee: deliveryCost,
+        // B3.5 (Δ-31, Δ-34, Δ-39): pass through what
+        // calculate-commerce produced. No hidden fallback math here:
+        // the RPC enforces VAT itself (Δ-42), and the API parity
+        // check on `expected_total` (Δ-39) catches any drift between
+        // what the customer was shown and what the server persists.
+        tax_amount: taxAmount,
+        tax_basis: 'exclusive',
+        gift_wrapping_fee: giftWrappingCost,
+        expected_total: total,
+        client_total: total,
         payment_method: normalizeOrderPaymentMethod(paymentMethod),
         payment_status: 'unpaid',
         shipping_status: 'pending',
         shipping_address: shippingAddressData,
         source: 'online_store',
         shipping_provider: shippingProvider,
+        // B3 review fix (PR #1611): explicit null on the wire AND
+        // coerce empty string → null. `selectedQuoteId` is typed
+        // string (`useState<string>('')`); `selectedQuoteId || null`
+        // covers both empty string AND undefined defensively in case
+        // the pre-submit door-no-quote guard above is bypassed by a
+        // future refactor. Schemas are `.nullable().optional()`.
         selected_quote_id:
-          deliveryMethod === 'door' ? selectedQuoteId || undefined : undefined,
+          deliveryMethod === 'door' ? (selectedQuoteId || null) : null,
         use_wallet_credit: payWithWallet && walletAmountUsed > 0,
         wallet_amount: walletAmountUsed,
         user_id: user?.id,

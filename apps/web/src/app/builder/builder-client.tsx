@@ -68,7 +68,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { apiPost, apiPut, fetchWithCsrf } from '@/lib/api-client';
 import { defaultTheme, type ThemeConfiguration } from '@/lib/theme-config';

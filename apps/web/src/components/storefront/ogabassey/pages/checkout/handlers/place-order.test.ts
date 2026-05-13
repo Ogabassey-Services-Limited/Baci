@@ -55,6 +55,8 @@ describe('handlePlaceOrder', () => {
     cartTotal: 10000,
     deliveryCost: 2000,
     total: 12000,
+    taxAmount: 0,
+    giftWrappingCost: 0,
     selectedQuoteId: 'q1',
     shippingQuotes: [
       {
@@ -141,6 +143,82 @@ describe('handlePlaceOrder', () => {
         expect.objectContaining({ title: 'Incomplete Address' }),
       );
     });
+
+    // B3 review fix #2 (PR #1611): door delivery without ANY quote
+    // must NOT submit. Pre-fix the handler sent `shipping_provider:
+    // null + selected_quote_id: null`, which slipped past the RPC's
+    // `provider != null AND quote_id IS NULL` guard (both null →
+    // guard doesn't fire) and silently persisted a zero-shipping
+    // order. The RPC predicate alone can't tell legitimate pickup
+    // (no provider, no quote) from broken door-no-quote — the client
+    // is the right place to enforce.
+    it('shows error toast when door delivery has no selected quote at all', async () => {
+      const { toast } = await import('@/hooks/use-toast');
+      const opts = buildOpts({
+        deliveryMethod: 'door',
+        selectedQuoteId: '', // pristine: user never picked a quote
+        shippingQuotes: [
+          {
+            id: 'q-fresh',
+            provider: 'gigl',
+            serviceTier: 'standard',
+            carrierName: 'GIG Logistics',
+            displayName: 'Standard',
+            price: 2000,
+            estimatedDays: 3,
+            currency: 'NGN',
+          },
+        ],
+      });
+      await handlePlaceOrder(opts);
+
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Delivery option required' }),
+      );
+      // Critical: the order never reaches /api/orders. Pre-fix it would
+      // have POSTed `shipping_provider: null + selected_quote_id: null`
+      // and got back a silent 200 with zero shipping fee attached.
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(opts.isOrderInFlightRef.current).toBe(false);
+      expect(opts.setIsProcessing).toHaveBeenCalledWith(false);
+    });
+
+    // B3 review fix #1 (PR #1611): door delivery with a selectedQuoteId
+    // that no longer exists in `shippingQuotes` (rates refreshed or
+    // expired) must NOT fabricate a 'Standard' provider — the order
+    // would persist with a phony provider and dangling quote id,
+    // sneaking past the new RPC guard. The handler bails with a
+    // validation toast so the customer re-picks from fresh rates.
+    it('shows error toast when door delivery references a quote id that no longer resolves', async () => {
+      const { toast } = await import('@/hooks/use-toast');
+      const opts = buildOpts({
+        deliveryMethod: 'door',
+        selectedQuoteId: 'q-expired-and-refreshed',
+        // Quote list has a different id (e.g. user reopened the
+        // tab and rates were re-fetched, but the stored
+        // selectedQuoteId in their session is stale).
+        shippingQuotes: [
+          {
+            id: 'q-fresh',
+            provider: 'gigl',
+            serviceTier: 'standard',
+            carrierName: 'GIG Logistics',
+            displayName: 'Standard',
+            price: 2000,
+            estimatedDays: 3,
+            currency: 'NGN',
+          },
+        ],
+      });
+      await handlePlaceOrder(opts);
+
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Shipping rate expired' }),
+      );
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(opts.isOrderInFlightRef.current).toBe(false);
+      expect(opts.setIsProcessing).toHaveBeenCalledWith(false);
+    });
   });
 
   describe('Resumed Order Flow', () => {
@@ -188,6 +266,46 @@ describe('handlePlaceOrder', () => {
       expect(mockFetch).toHaveBeenCalledWith(
         '/api/orders',
         expect.objectContaining({ method: 'POST' }),
+      );
+    });
+
+    it('includes B3.5 VAT + gift wrapping + parity fields in the POST body', async () => {
+      // Codex P1 (PR #1622): the handler must propagate the
+      // calculate-commerce VAT figure, the gift wrap, and the
+      // client's expected_total/client_total so the RPC's parity
+      // check (Δ-42 + Δ-39) has a non-NULL value to compare
+      // against. Without this assertion a future refactor that
+      // drops one of these fields would silently revert B3.5's
+      // fail-closed semantics — the RPC would default tax_amount
+      // to 0 and the parity check would never run.
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          order: { id: 'new-order-b35' },
+          wallet: null,
+          amountDueToGateway: 12500,
+        }),
+      });
+
+      const opts = buildOpts({
+        taxAmount: 500,
+        giftWrappingCost: 300,
+        cartTotal: 10000,
+        deliveryCost: 2000,
+        total: 12800,
+      });
+      await handlePlaceOrder(opts);
+
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+      const fetchBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(fetchBody).toEqual(
+        expect.objectContaining({
+          tax_amount: 500,
+          tax_basis: 'exclusive',
+          gift_wrapping_fee: 300,
+          expected_total: 12800,
+          client_total: 12800,
+        }),
       );
     });
 
@@ -416,7 +534,39 @@ describe('handlePlaceOrder', () => {
 
       const fetchBody = JSON.parse(mockFetch.mock.calls[0][1].body);
       expect(fetchBody.shipping_address.address).toBe('Pickup at Store');
-      expect(fetchBody.shipping_provider).toBe('Pickup');
+      // B3 (plan §5 B3): pickup is a delivery-method label, not a
+      // third-party shipping provider. Sending 'Pickup' would trip the
+      // RPC's `shipping_quote_required` guard. The handler now sends
+      // `shipping_provider: null` for pickup; the delivery method is
+      // carried by `shipping_address.address: 'Pickup at Store'`.
+      expect(fetchBody.shipping_provider).toBeNull();
+      // B3 review fix (PR #1611): the paired B3 field MUST also be
+      // null on the wire — partial-payload regressions (e.g., only
+      // one field flipped to null) would re-open the RPC-guard
+      // bypass vector. Pin both fields in lockstep.
+      expect(fetchBody.selected_quote_id).toBeNull();
+    });
+
+    it('omits shipping_provider for airport delivery (B3 — delivery-method labels are not providers)', async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          order: { id: 'order-ap' },
+          wallet: null,
+          amountDueToGateway: 5000,
+        }),
+      });
+
+      const opts = buildOpts({
+        paymentMethod: 'invoice',
+        deliveryMethod: 'airport',
+      });
+      await handlePlaceOrder(opts);
+
+      const fetchBody = JSON.parse(mockFetch.mock.calls[0][1].body);
+      expect(fetchBody.shipping_provider).toBeNull();
+      // B3 review fix (PR #1611): paired-field lockstep, same as pickup.
+      expect(fetchBody.selected_quote_id).toBeNull();
     });
   });
 

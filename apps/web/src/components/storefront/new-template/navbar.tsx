@@ -15,7 +15,7 @@ import { useCart } from '@/hooks/use-cart';
 import { useStorefrontSafe } from '@/contexts/storefront-context';
 import { cn } from '@/lib/utils';
 import { asRoute } from '@/lib/routes';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { Logo } from '@/components/logo';
 import { MobileMenu } from './mobile-menu';
 import { SourceRequestModal } from './source-request-modal';
@@ -152,7 +152,7 @@ export const Navbar: React.FC = () => {
           <div className="max-w-[1400px] mx-auto px-4 md:px-6 h-20 flex items-center justify-between gap-8 relative z-10">
             {/* Logo */}
             <div className="flex items-center gap-4 shrink-0">
-              <button
+              <button type="button"
                 className="md:hidden p-2 -ml-2 text-white"
                 onClick={() => setIsMenuOpen(true)}
                 aria-label="Open mobile menu"
@@ -189,7 +189,7 @@ export const Navbar: React.FC = () => {
             <div className="flex items-center gap-2 sm:gap-4 shrink-0">
               {/* Notifications */}
               <div className="relative" ref={notificationRef}>
-                <button
+                <button type="button"
                   className="p-2.5 rounded-full hover:bg-white/10 text-white transition-colors relative"
                   onClick={() => setShowNotifications(!showNotifications)}
                   aria-label="Toggle notifications"
@@ -209,7 +209,7 @@ export const Navbar: React.FC = () => {
                       <h3 className="font-bold text-gray-900">Notifications</h3>
                       {/* TODO: mark all read when implemented
                       {unreadCount > 0 && (
-                        <button
+                        <button type="button"
                           onClick={markAllAsRead}
                           className="text-xs font-bold text-red-600 hover:text-red-700"
                         >

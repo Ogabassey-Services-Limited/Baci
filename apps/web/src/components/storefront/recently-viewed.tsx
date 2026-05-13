@@ -8,7 +8,7 @@ import { ThemedButton, ThemedCard } from '@/components/themed';
 import { CardContent } from '@/components/ui/card';
 import { useCart } from '@/hooks/use-cart';
 import { useCurrency } from '@/hooks/use-currency';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { useRecentlyViewed } from '@/hooks/use-recently-viewed';
 import { useToast } from '@/hooks/use-toast';
 import { apiGet } from '@/lib/api-client';

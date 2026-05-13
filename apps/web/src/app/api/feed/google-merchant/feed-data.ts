@@ -1,3 +1,4 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { cacheLife, cacheTag } from 'next/cache';
 import { createAnonClient } from '@/lib/supabase/anon';
 import type {
@@ -7,6 +8,12 @@ import type {
   ImageManifestMap,
 } from './feed-builder';
 import { FEED_PRODUCTS_SELECT } from './feed-query';
+
+const FEED_PRODUCTS_PAGE_SIZE = 1000;
+// get_feed_product_variants accepts at most 10k product IDs.
+const MAX_FEED_PRODUCTS = 10_000;
+// Keep PostgREST `in(...)` URL filters under common proxy limits.
+const FEED_PRODUCT_OFFERS_BATCH_SIZE = 250;
 
 export interface GoogleMerchantFeedData {
   custom_domain: string | null;
@@ -20,9 +27,31 @@ interface RawFeedProductRow extends Omit<FeedProduct, 'categories'> {
     | { name?: string; slug?: string }
     | Array<{ name?: string; slug?: string }>
     | null;
+  created_at?: string | null;
   product_categories?: Array<{
     categories?: { name?: string; slug?: string } | null;
   }>;
+}
+
+interface FeedProductCursor {
+  createdAt: string;
+  id: string;
+}
+
+function getFeedProductCursor(
+  page: RawFeedProductRow[]
+): FeedProductCursor | null {
+  for (let index = page.length - 1; index >= 0; index -= 1) {
+    const row = page[index];
+    if (row?.created_at) {
+      return {
+        createdAt: row.created_at,
+        id: row.id,
+      };
+    }
+  }
+
+  return null;
 }
 
 function getJoinedCategory(
@@ -54,6 +83,98 @@ function normalizeFeedProducts(products: RawFeedProductRow[]): FeedProduct[] {
   });
 }
 
+async function fetchActiveFeedProducts(
+  supabase: SupabaseClient,
+  merchantId: string
+): Promise<RawFeedProductRow[]> {
+  const products: RawFeedProductRow[] = [];
+  let cursor: FeedProductCursor | null = null;
+  let readNullCreatedAtRows = false;
+  let nullCreatedAtCursorId: string | null = null;
+
+  while (true) {
+    let query = supabase
+      .from('products')
+      .select(FEED_PRODUCTS_SELECT)
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active');
+
+    if (readNullCreatedAtRows) {
+      query = query.is('created_at', null);
+
+      if (nullCreatedAtCursorId) {
+        query = query.gt('id', nullCreatedAtCursorId);
+      }
+    } else {
+      query = query.not('created_at', 'is', null);
+    }
+
+    if (!readNullCreatedAtRows && cursor) {
+      query = query.or(
+        `created_at.lt.${cursor.createdAt},and(created_at.eq.${cursor.createdAt},id.gt.${cursor.id})`
+      );
+    }
+
+    const { data, error } = await (readNullCreatedAtRows
+      ? query
+          .order('id', { ascending: true })
+          .limit(FEED_PRODUCTS_PAGE_SIZE)
+          .overrideTypes<RawFeedProductRow[], { merge: false }>()
+      : query
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: true })
+          .limit(FEED_PRODUCTS_PAGE_SIZE)
+          .overrideTypes<RawFeedProductRow[], { merge: false }>());
+
+    if (error) {
+      console.error('DB_PRODUCTS_ERROR:', {
+        cursor,
+        error,
+        merchantId,
+        readNullCreatedAtRows,
+      });
+      throw new Error('Failed to fetch products');
+    }
+
+    const page = data || [];
+    const remaining = MAX_FEED_PRODUCTS - products.length;
+    products.push(...page.slice(0, remaining));
+
+    if (products.length >= MAX_FEED_PRODUCTS) {
+      break;
+    }
+
+    if (page.length < FEED_PRODUCTS_PAGE_SIZE) {
+      if (!readNullCreatedAtRows) {
+        readNullCreatedAtRows = true;
+        nullCreatedAtCursorId = null;
+        continue;
+      }
+      break;
+    }
+
+    if (readNullCreatedAtRows) {
+      const lastNullCreatedAtProduct = page.at(-1);
+      if (!lastNullCreatedAtProduct?.id) {
+        break;
+      }
+
+      nullCreatedAtCursorId = lastNullCreatedAtProduct.id;
+      continue;
+    }
+
+    const nextCursor = getFeedProductCursor(page);
+    if (!nextCursor) {
+      console.warn('DB_PRODUCTS_CURSOR_WARNING:', { merchantId });
+      break;
+    }
+
+    cursor = nextCursor;
+  }
+
+  return products;
+}
+
 interface FeedVariantRow {
   attributes: Record<string, string> | null;
   condition?: FeedVariant['condition'];
@@ -62,6 +183,14 @@ interface FeedVariantRow {
   product_id: string;
   sku?: string | null;
   stock_quantity?: number | null;
+}
+
+interface FeedOfferRow {
+  condition: FeedOffer['condition'];
+  id: string;
+  price: number | string;
+  product_id: string;
+  stock_quantity: number | null;
 }
 
 function normalizeFeedVariantPrice(
@@ -77,6 +206,41 @@ function normalizeFeedVariantPrice(
   }
 
   return null;
+}
+
+async function fetchActiveFeedOffers(
+  supabase: SupabaseClient,
+  productIds: string[]
+): Promise<FeedOfferRow[]> {
+  const offerRows: FeedOfferRow[] = [];
+
+  for (
+    let batchStart = 0;
+    batchStart < productIds.length;
+    batchStart += FEED_PRODUCT_OFFERS_BATCH_SIZE
+  ) {
+    const batchProductIds = productIds.slice(
+      batchStart,
+      batchStart + FEED_PRODUCT_OFFERS_BATCH_SIZE
+    );
+
+    const { data, error } = await supabase
+      .from('product_offers')
+      .select('id, product_id, condition, price, stock_quantity')
+      .in('product_id', batchProductIds)
+      .eq('status', 'active');
+
+    if (error) {
+      console.error('DB_OFFERS_ERROR:', { batchStart, error });
+      throw new Error('Failed to fetch product offers');
+    }
+
+    if (data && data.length > 0) {
+      offerRows.push(...(data as FeedOfferRow[]));
+    }
+  }
+
+  return offerRows;
 }
 
 /**
@@ -109,24 +273,12 @@ export async function getCachedGoogleMerchantFeedData(
     throw new Error('Failed to fetch merchant domain');
   }
 
-  const { data: products, error: productsError } = await supabase
-    .from('products')
-    .select(FEED_PRODUCTS_SELECT)
-    .eq('merchant_id', merchantId)
-    .eq('status', 'active')
-    .order('created_at', { ascending: false })
-    .limit(10000)
-    .overrideTypes<RawFeedProductRow[], { merge: false }>();
-
-  if (productsError) {
-    console.error('DB_PRODUCTS_ERROR:', productsError);
-    throw new Error('Failed to fetch products');
-  }
+  const products = await fetchActiveFeedProducts(supabase, merchantId);
 
   // Fetch prevalidated image manifest once per merchant and keep only active
   // product entries in memory. This avoids oversized PostgREST `in(...)`
   // filters for larger catalogs while preserving active-product scoping.
-  const feedProducts: FeedProduct[] = normalizeFeedProducts(products || []).map(
+  const feedProducts: FeedProduct[] = normalizeFeedProducts(products).map(
     (product) => ({
       ...product,
       variants: [] as FeedVariant[],
@@ -226,20 +378,11 @@ export async function getCachedGoogleMerchantFeedData(
 
   if (productsWithOffers.length > 0) {
     const offerProductIds = productsWithOffers.map((p) => p.id);
-    const { data: offerRows, error: offersError } = await supabase
-      .from('product_offers')
-      .select('id, product_id, condition, price, stock_quantity')
-      .in('product_id', offerProductIds)
-      .eq('status', 'active');
+    const offerRows = await fetchActiveFeedOffers(supabase, offerProductIds);
 
-    if (offersError) {
-      console.error('DB_OFFERS_ERROR:', offersError);
-      throw new Error('Failed to fetch product offers');
-    }
-
-    if (offerRows && offerRows.length > 0) {
+    if (offerRows.length > 0) {
       const offersByProduct = new Map<string, FeedOffer[]>();
-      for (const row of offerRows) {
+      for (const row of offerRows as FeedOfferRow[]) {
         const pid = row.product_id as string;
         if (!offersByProduct.has(pid)) {
           offersByProduct.set(pid, []);

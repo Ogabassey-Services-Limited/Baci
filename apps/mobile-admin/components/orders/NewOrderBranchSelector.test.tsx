@@ -53,6 +53,9 @@ vi.mock('react-native', async () => {
         { role: accessibilityRole === 'radiogroup' ? 'radiogroup' : undefined },
         children
       ),
+    StyleSheet: {
+      create: <T,>(styles: T) => styles,
+    },
   };
 });
 

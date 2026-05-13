@@ -48,7 +48,7 @@ import {
 import { PhoneInput } from '@/components/ui/phone-input';
 import { useCart } from '@/hooks/use-cart';
 import { useCurrency } from '@/hooks/use-currency';
-import { MerchantProvider, useMerchant } from '@/hooks/use-merchant';
+import { MerchantProvider, useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { apiPost } from '@/lib/api-client';
 import { buildCheckoutOrderItems } from '@/lib/checkout/build-order-items';
@@ -1183,6 +1183,27 @@ function CheckoutPageContent() {
         );
       }
 
+      // B3 review fix (PR #1611): block order submission when no
+      // shipping quote is selected. Pre-fix this sent
+      // `shipping_provider: null + selected_quote_id: null`, which
+      // slips past the RPC's `provider != null AND quote_id IS NULL`
+      // guard (both null → guard doesn't fire) and persists a silent
+      // zero-shipping order. The `handleNext` guard at step 1 catches
+      // most cases, but a stale quote between step transitions (rates
+      // refresh, the previously-selected quote gets invalidated) can
+      // leave us here with `selectedShippingQuote = null`. Fail closed
+      // at the submit-time boundary too.
+      if (!selectedShippingQuote) {
+        toast({
+          variant: 'destructive',
+          title: 'Shipping Required',
+          description: 'Please select a shipping option to continue.',
+        });
+        setFormIsLoading(false);
+        setStep(1);
+        return;
+      }
+
       // Prepare order items
       const orderItems = buildCheckoutOrderItems(cart);
 
@@ -1213,9 +1234,15 @@ function CheckoutPageContent() {
           state: data.state,
         },
         source: 'online_store',
-        // Use selected shipping provider or fallback to GIGL
-        shipping_provider: selectedShippingQuote?.provider || 'GIGL',
-        selected_quote_id: selectedShippingQuote?.id,
+        // B3 (plan §5 B3): the pre-submit `!selectedShippingQuote`
+        // guard above bounces to step 1 with a toast, so by the time
+        // we reach this payload construction the quote is guaranteed
+        // non-null. Optional-chaining stays as defensive coding —
+        // React state isn't narrowed across statements by TS, and
+        // the cost of `?.` here is zero. The original `|| 'GIGL'`
+        // silent fallback (the B3 root-cause bug) is gone for good.
+        shipping_provider: selectedShippingQuote?.provider ?? null,
+        selected_quote_id: selectedShippingQuote?.id ?? null,
         shipping_session_id: shippingSessionId,
         shipping_carrier: selectedShippingQuote?.carrierName,
         shipping_service_tier: selectedShippingQuote?.serviceTier,

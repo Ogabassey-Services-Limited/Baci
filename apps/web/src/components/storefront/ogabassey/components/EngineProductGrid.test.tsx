@@ -79,7 +79,7 @@ vi.mock('@/hooks/cart', () => ({
   })),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: vi.fn(() => ({ merchant: { id: 'm-1', slug: 'test' } })),
 }));
 
@@ -109,7 +109,7 @@ vi.mock('./ProductGridItem', () => ({
 
 import { prioritizeSmartphoneProducts } from '@baci/shared';
 import { useSearchParams } from 'next/navigation';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { EngineProductGrid } from './EngineProductGrid';
 
 afterEach(() => {

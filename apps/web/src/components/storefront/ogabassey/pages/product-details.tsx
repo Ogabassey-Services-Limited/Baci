@@ -556,6 +556,7 @@ export const OgabasseyV2ProductDetails: React.FC<
               </h2>
               <div className="flex gap-3">
                 <button
+                  type="button"
                   aria-label="Share product"
                   title="Share product"
                   className="text-gray-400 md:hover:text-red-600 transition-colors active:text-red-600"
@@ -563,6 +564,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                   <Share2 size={20} />
                 </button>
                 <button
+                  type="button"
                   onClick={handleToggleSaved}
                   aria-label={isLiked ? 'Remove from wishlist' : 'Add to wishlist'}
                   title={isLiked ? 'Remove from Wishlist' : 'Add to Wishlist'}
@@ -769,6 +771,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                   <button
                     onClick={handleDecrement}
                     className="h-full w-16 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors border-r border-red-100"
+                    aria-label={quantityInCart === 1 ? "Remove item" : "Decrease quantity"}
                   >
                     {quantityInCart === 1 ? (
                       <Trash2 size={20} />
@@ -797,6 +800,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                   <button
                     onClick={handleIncrement}
                     className="h-full w-16 flex items-center justify-center text-red-600 hover:bg-red-50 transition-colors border-l border-red-100"
+                    aria-label="Increase quantity"
                   >
                     <Plus size={20} />
                   </button>
@@ -1165,6 +1169,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                               onClick={() => handleAddToCompare(comp)}
                               className="bg-white text-blue-500 p-1 rounded-full shadow-sm border border-gray-200 hover:bg-blue-50"
                               title="Add to comparison list"
+                              aria-label="Add to comparison list"
                             >
                               <Plus size={14} />
                             </button>

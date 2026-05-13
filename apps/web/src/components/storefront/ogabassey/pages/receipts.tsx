@@ -17,7 +17,7 @@ import { useEffect, useState } from 'react';
 import { EmptyState } from '../components/empty-state';
 import { ReceiptModal } from '../components/ReceiptModal';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 
 /** List item for display in the receipts grid */
 interface ReceiptListItem {

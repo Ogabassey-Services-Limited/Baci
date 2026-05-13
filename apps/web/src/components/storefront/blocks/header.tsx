@@ -31,7 +31,7 @@ import { Input } from '@/components/ui/input';
 import { Sheet, SheetTrigger } from '@/components/ui/sheet';
 import { useAuthSafe } from '@/contexts/auth-context';
 import { useCart } from '@/hooks/use-cart';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 

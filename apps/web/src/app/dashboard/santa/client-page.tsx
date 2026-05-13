@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { BagLoader } from '@/components/ui/bag-loader';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import {
   getRecentInteractions,
   getSantaStats,

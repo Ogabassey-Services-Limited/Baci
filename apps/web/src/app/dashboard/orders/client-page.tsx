@@ -7,7 +7,7 @@ import { OrderManagerModal } from '@/components/jumia/order-manager-modal';
 import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { apiPatch } from '@/lib/api-client';
 import { getCountryByCode } from '@/lib/countries';

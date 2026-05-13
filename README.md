@@ -1,8 +1,8 @@
-# Baci - AI E-commerce Builder
+# Baci - Agent-Native Commerce Infrastructure
 
 **"Your business, live in 3 minutes"**
 
-Baci is an AI-native platform that allows merchants to create complete e-commerce stores in under 3 minutes. It leverages Google Gemini for logo analysis, color extraction, and product description generation.
+Baci helps African merchants create complete ecommerce storefronts in under 3 minutes and makes those storefronts ready for AI agents to discover, trust, purchase from, and monitor. It combines AI-assisted store creation with agent-readable trust contracts, safe checkout actions, and merchant-facing operational recovery.
 
 ## 📚 Documentation
 
@@ -23,6 +23,7 @@ Baci is an AI-native platform that allows merchants to create complete e-commerc
 - **[AI Context](docs/ai/AI_CONTEXT.md)**: Deep dive into the AI flows.
 - **[Google AI Setup](docs/ai/GOOGLE_AI_SETUP.md)**: Configuring Gemini.
 - **[Background Jobs](docs/ai/BACKGROUND_AI_JOBS.md)**: Worker architecture.
+- **[Agent-Native Commerce Positioning](docs/superpowers/specs/2026-05-13-agent-native-commerce-positioning.md)**: YC-facing platform thesis and roadmap focus.
 
 ### Reports & Audits
 - **[Security Audit 2025](docs/reports/SECURITY_AUDIT_2025.md)**

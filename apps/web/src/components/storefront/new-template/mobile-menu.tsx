@@ -13,7 +13,7 @@ export const MobileMenu: React.FC<MobileMenuProps> = ({ isOpen, onClose }) => {
     <div className="fixed inset-0 z-[60] bg-white">
       <div className="p-4 flex justify-between items-center border-b">
         <span className="font-bold text-lg">Menu</span>
-        <button onClick={onClose}>
+        <button type="button" onClick={onClose} aria-label="Close menu">
           <X size={24} />
         </button>
       </div>

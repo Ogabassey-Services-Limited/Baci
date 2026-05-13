@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 
 export function AnnouncementBar() {
   const merchantContext = useMerchantSafe();

@@ -18,6 +18,13 @@ const V2ComparisonContext = createContext<V2ComparisonContextType | undefined>(
 const COMPARISON_STORAGE_KEY = 'ogabassey_v2_compare';
 const STORAGE_HYDRATION_TIMEOUT_MS = 1200;
 
+function getComparisonStorageKey(storageNamespace?: string | null) {
+  const normalizedNamespace = storageNamespace?.trim();
+  return normalizedNamespace
+    ? `${COMPARISON_STORAGE_KEY}:${encodeURIComponent(normalizedNamespace)}`
+    : COMPARISON_STORAGE_KEY;
+}
+
 export const useV2Comparison = () => {
   const context = useContext(V2ComparisonContext);
   if (!context) {
@@ -30,18 +37,28 @@ export const useV2Comparison = () => {
 
 export const V2ComparisonProvider: React.FC<{
   children: React.ReactNode;
-}> = ({ children }) => {
+  storageNamespace?: string | null;
+}> = ({ children, storageNamespace }) => {
+  const storageKey = getComparisonStorageKey(storageNamespace);
   const [compareItems, setCompareItems] = useState<Product[]>([]);
   const [hasHydratedStorage, setHasHydratedStorage] = useState(false);
   const hasHydratedStorageRef = useRef(false);
+  const hydratedStorageKeyRef = useRef<string | null>(null);
 
   const hydrateComparisonItems = () => {
-    if (typeof window === 'undefined' || hasHydratedStorageRef.current) {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+
+    if (
+      hasHydratedStorageRef.current &&
+      hydratedStorageKeyRef.current === storageKey
+    ) {
       return null;
     }
 
     let nextComparisonItems: Product[] = [];
-    const stored = localStorage.getItem(COMPARISON_STORAGE_KEY);
+    const stored = localStorage.getItem(storageKey);
     if (stored) {
       try {
         nextComparisonItems = JSON.parse(stored);
@@ -51,13 +68,21 @@ export const V2ComparisonProvider: React.FC<{
     }
 
     hasHydratedStorageRef.current = true;
+    hydratedStorageKeyRef.current = storageKey;
     setHasHydratedStorage(true);
     setCompareItems(nextComparisonItems);
     return nextComparisonItems;
   };
 
   useEffect(() => {
-    if (typeof window === 'undefined' || hasHydratedStorageRef.current) {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    if (
+      hasHydratedStorageRef.current &&
+      hydratedStorageKeyRef.current === storageKey
+    ) {
       return undefined;
     }
 
@@ -97,16 +122,17 @@ export const V2ComparisonProvider: React.FC<{
         window.cancelIdleCallback?.(idleCallbackId);
       }
     };
-  }, []);
+  }, [storageKey]);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && hasHydratedStorage) {
-      localStorage.setItem(
-        COMPARISON_STORAGE_KEY,
-        JSON.stringify(compareItems)
-      );
+    if (
+      typeof window !== 'undefined' &&
+      hasHydratedStorage &&
+      hydratedStorageKeyRef.current === storageKey
+    ) {
+      localStorage.setItem(storageKey, JSON.stringify(compareItems));
     }
-  }, [compareItems, hasHydratedStorage]);
+  }, [compareItems, hasHydratedStorage, storageKey]);
 
   const addToCompare = (product: Product) => {
     const hydratedComparisonItems = hydrateComparisonItems();

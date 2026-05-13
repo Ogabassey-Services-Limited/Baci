@@ -14,7 +14,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 import { useState, useEffect } from 'react';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import { getStorefrontOrderItemHref } from '@/lib/storefront-order-item-href';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';

@@ -77,4 +77,38 @@ describe('generateGoogleMerchantFeed canonical URLs', () => {
     );
     expect(xml).not.toContain('<g:link>https://ogabassey.com//');
   });
+
+  it('prefers stored canonical URLs over category-derived paths', () => {
+    const xml = generateGoogleMerchantFeed(
+      [
+        {
+          id: 'prod-3',
+          name: 'Nintendo eShop Card',
+          description: 'Gift card',
+          slug: 'nintendo-e-shop-card',
+          category: 'Nintendo Switch',
+          canonical_url: '/gift-cards/nintendo-e-shop-card',
+          price: 50,
+          stock: 5,
+        },
+      ],
+      {
+        id: 'merchant-1',
+        business_name: 'Ogabassey',
+        slug: 'ogabassey',
+        payout_currency: 'NGN',
+      },
+      BASE_URL,
+      {
+        'prod-3': [manifestEntry()],
+      }
+    );
+
+    expect(xml).toContain(
+      '<g:link>https://ogabassey.com/gift-cards/nintendo-e-shop-card</g:link>'
+    );
+    expect(xml).not.toContain(
+      '<g:link>https://ogabassey.com/nintendo-switch/nintendo-e-shop-card</g:link>'
+    );
+  });
 });

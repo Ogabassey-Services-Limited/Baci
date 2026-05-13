@@ -13,7 +13,7 @@ vi.mock('@/env', () => ({
 
 let mockMerchant: { id: string; slug: string } | null = { id: 'merchant-xyz', slug: 'test-store' };
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: () => ({
     merchant: mockMerchant,
     basePath: mockMerchant ? `/${mockMerchant.slug}` : '/test-store',

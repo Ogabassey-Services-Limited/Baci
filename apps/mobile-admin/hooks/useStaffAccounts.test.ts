@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { createElement, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStaffAccounts } from './useStaffAccounts';
@@ -163,7 +163,9 @@ describe('useStaffAccounts', () => {
     ).rejects.toThrow('API down');
 
     expect(onBranchCreated).not.toHaveBeenCalled();
-    expect(mocks.alert).toHaveBeenCalledWith('Error', 'API down');
+    await waitFor(() => {
+      expect(mocks.alert).toHaveBeenCalledWith('Error', 'API down');
+    });
     expect(mocks.directInsert).not.toHaveBeenCalled();
   });
 });

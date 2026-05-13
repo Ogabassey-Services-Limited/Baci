@@ -7,7 +7,7 @@ import type {
   MerchantNotificationWithDetails,
   NotificationBroadcastPayload,
 } from '@/types/notifications';
-import { useMerchant } from './use-merchant';
+import { useMerchant } from './use-merchant-client';
 
 interface UseNotificationsReturn {
   // Data

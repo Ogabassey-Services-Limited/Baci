@@ -107,4 +107,85 @@ describe('V2ComparisonProvider', () => {
 
     expect(screen.getByTestId('compare-count')).toHaveTextContent('2');
   });
+
+  it('keeps persisted comparison items isolated by merchant namespace', () => {
+    localStorage.setItem(
+      'ogabassey_v2_compare',
+      JSON.stringify([baseProduct])
+    );
+
+    render(
+      <V2ComparisonProvider storageNamespace="merchant-a">
+        <ComparisonConsumer />
+      </V2ComparisonProvider>
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    expect(screen.getByTestId('compare-count')).toHaveTextContent('0');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add to compare' }));
+
+    expect(
+      JSON.parse(localStorage.getItem('ogabassey_v2_compare') ?? '[]')
+    ).toHaveLength(1);
+    expect(
+      JSON.parse(
+        localStorage.getItem('ogabassey_v2_compare:merchant-a') ?? '[]'
+      )
+    ).toEqual([expect.objectContaining({ id: baseProduct.id })]);
+  });
+
+  it('keeps namespace-switch writes isolated on rerender', () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+
+    const { rerender } = render(
+      <V2ComparisonProvider storageNamespace="merchant-a">
+        <ComparisonConsumer />
+      </V2ComparisonProvider>
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(1200);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add to compare' }));
+
+    expect(
+      JSON.parse(
+        localStorage.getItem('ogabassey_v2_compare:merchant-a') ?? '[]'
+      )
+    ).toEqual([expect.objectContaining({ id: baseProduct.id })]);
+
+    setItemSpy.mockClear();
+
+    rerender(
+      <V2ComparisonProvider storageNamespace="merchant-b">
+        <ComparisonConsumer />
+      </V2ComparisonProvider>
+    );
+
+    expect(localStorage.getItem('ogabassey_v2_compare:merchant-b')).toBeNull();
+    expect(setItemSpy).not.toHaveBeenCalledWith(
+      'ogabassey_v2_compare:merchant-b',
+      expect.any(String)
+    );
+
+    setItemSpy.mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add to compare' }));
+
+    expect(screen.getByTestId('compare-count')).toHaveTextContent('1');
+    expect(
+      JSON.parse(
+        localStorage.getItem('ogabassey_v2_compare:merchant-b') ?? '[]'
+      )
+    ).toEqual([expect.objectContaining({ id: baseProduct.id })]);
+    expect(setItemSpy).toHaveBeenCalledWith(
+      'ogabassey_v2_compare:merchant-b',
+      expect.any(String)
+    );
+  });
 });

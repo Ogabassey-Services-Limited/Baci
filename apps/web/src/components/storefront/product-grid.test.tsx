@@ -76,7 +76,7 @@ vi.mock('@/hooks/use-cart', () => ({
   }),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: () => ({
     merchant: {
       id: 'm1',

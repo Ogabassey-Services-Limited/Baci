@@ -15,7 +15,7 @@ import {
   X,
 } from 'lucide-react';
 import { useState, useRef } from 'react';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 
 interface AIAnalysisResult {
   model: string;

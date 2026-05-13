@@ -1,6 +1,6 @@
 import { StyleSheet } from 'react-native';
+import { modalSharedStyles } from '@/components/branches/modal-shared.styles';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
-import { modalSharedStyles } from './modal-shared.styles';
 
 export const styles = StyleSheet.create({
   ...modalSharedStyles,

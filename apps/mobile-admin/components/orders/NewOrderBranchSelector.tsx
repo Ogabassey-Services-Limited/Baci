@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
   Pressable,
+  StyleSheet,
   Text,
   View,
   type StyleProp,
@@ -59,12 +60,9 @@ export function NewOrderBranchSelector({
       >
         <Ionicons color={colors.primary} name="business" size={20} />
       </View>
-      <View style={{ flex: 1, gap: 8 }}>
+      <View style={localStyles.branchContainer}>
         <Text style={[styles.listLabel, { color: colors.text }]}>Branch</Text>
-        <View
-          accessibilityRole="radiogroup"
-          style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}
-        >
+        <View accessibilityRole="radiogroup" style={localStyles.radioGroup}>
           {branches.map((branch) => {
             const isSelected = branch.id === selectedBranchId;
             return (
@@ -105,3 +103,15 @@ export function NewOrderBranchSelector({
     </View>
   );
 }
+
+const localStyles = StyleSheet.create({
+  branchContainer: {
+    flex: 1,
+    gap: 8,
+  },
+  radioGroup: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+});

@@ -1,8 +1,18 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CountryPickerModal } from '@/components/ui/CountryPickerModal';
+
+// Captured Pressable props per test. Declared with `vi.hoisted` because
+// `vi.mock` factories run before plain top-level `const` declarations and
+// would otherwise hit a TDZ ReferenceError.
+const { pressablePropCalls } = vi.hoisted(() => ({
+  pressablePropCalls: [] as Array<{
+    accessibilityLabel?: string;
+    hitSlop?: unknown;
+  }>,
+}));
 
 vi.mock('@/constants/countries', () => ({
   COUNTRIES: [
@@ -79,16 +89,21 @@ vi.mock('react-native', () => ({
   Pressable: ({
     accessibilityLabel,
     children,
+    hitSlop,
     onPress,
   }: {
     accessibilityLabel?: string;
     children?: ReactNode;
+    hitSlop?: unknown;
     onPress?: () => void;
-  }) => (
-    <button aria-label={accessibilityLabel} onClick={onPress} type="button">
-      {children}
-    </button>
-  ),
+  }) => {
+    pressablePropCalls.push({ accessibilityLabel, hitSlop });
+    return (
+      <button aria-label={accessibilityLabel} onClick={onPress} type="button">
+        {children}
+      </button>
+    );
+  },
   ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   StyleSheet: {
     create: (styles: Record<string, unknown>) => styles,
@@ -113,6 +128,10 @@ vi.mock('react-native', () => ({
 }));
 
 describe('CountryPickerModal', () => {
+  beforeEach(() => {
+    pressablePropCalls.length = 0;
+  });
+
   it('renders through the shared page-sheet shell and routes close/select actions', () => {
     const onClose = vi.fn();
     const onSelect = vi.fn();
@@ -171,6 +190,32 @@ describe('CountryPickerModal', () => {
 
     expect(screen.getByRole('button', { name: 'Nigeria' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Kenya' })).toBeInTheDocument();
+  });
+
+  it('gives the clear-search button a 13pt hitSlop so the effective tap area meets 44pt', () => {
+    render(
+      <CountryPickerModal
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+        selectedCountry=""
+        visible={true}
+      />
+    );
+
+    // The clear button is rendered conditionally once the search input has
+    // text, so type something to make it visible.
+    fireEvent.change(screen.getByLabelText('Search countries'), {
+      target: { value: 'gha' },
+    });
+
+    const clearCall = pressablePropCalls.find(
+      (call) => call.accessibilityLabel === 'Clear search'
+    );
+    expect(clearCall).toBeDefined();
+    // Pinned: the icon is 18pt and the WCAG/HIG minimum target is 44pt, so
+    // hitSlop must be at least 13 on each side (18 + 13 + 13 = 44). Lower
+    // values would re-introduce the touch-target regression this PR fixes.
+    expect(clearCall?.hitSlop).toBe(13);
   });
 
   it('does not render when hidden', () => {

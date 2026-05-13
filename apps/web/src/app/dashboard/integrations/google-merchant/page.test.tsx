@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import type { PropsWithChildren } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: vi.fn(),
 }));
 
@@ -37,7 +37,7 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import GoogleMerchantPage from './page';
 
 describe('Google Merchant dashboard page', () => {
