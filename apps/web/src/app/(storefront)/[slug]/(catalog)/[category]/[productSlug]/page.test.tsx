@@ -4,12 +4,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   mockNormalizeStorefrontProductVariants,
+  mockOgabasseyPdpStaticResourceHints,
   mockOgabasseyProductDetailsPage,
   mockProductDetailClient,
 } = vi.hoisted(() => ({
   mockNormalizeStorefrontProductVariants: vi.fn<
     (...args: unknown[]) => Record<string, unknown>[]
   >(() => []),
+  mockOgabasseyPdpStaticResourceHints: vi.fn<() => void>(),
   mockOgabasseyProductDetailsPage: vi.fn<(props: unknown) => void>(),
   mockProductDetailClient: vi.fn<(props: unknown) => null>(() => null),
 }));
@@ -67,6 +69,16 @@ vi.mock('@/components/storefront/ogabassey/pages/product-details-page', () => ({
     );
   },
 }));
+
+vi.mock(
+  '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints',
+  () => ({
+    OgabasseyPdpStaticResourceHints: () => {
+      mockOgabasseyPdpStaticResourceHints();
+      return null;
+    },
+  })
+);
 
 vi.mock('@/lib/cached-data', () => ({
   getRequestScopedMerchant: (...args: unknown[]) =>
@@ -500,6 +512,7 @@ describe('[category]/[productSlug] page render', () => {
     mockGetPublishedClusterPosts.mockReset();
     mockGetPublishedClusterPosts.mockResolvedValue([]);
     mockBuildProductSemanticModel.mockReset();
+    mockOgabasseyPdpStaticResourceHints.mockReset();
     mockOgabasseyProductDetailsPage.mockReset();
     mockBuildProductSemanticModel.mockReturnValue({
       trustBullets: [],
@@ -530,6 +543,41 @@ describe('[category]/[productSlug] page render', () => {
       })
     ).toBeInTheDocument();
     expect(container.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('mounts the OgaBassey PDP preload hints for the OgaBassey template branch', async () => {
+    render(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(mockOgabasseyPdpStaticResourceHints).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not mount OgaBassey PDP preload hints for generic template product pages', async () => {
+    mockGetRequestScopedMerchant.mockResolvedValue({
+      ...baseMerchant,
+      template_id: 'default',
+    });
+
+    render(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(mockOgabasseyPdpStaticResourceHints).not.toHaveBeenCalled();
   });
 
   it('preserves unmanaged stock and variant stock quantities for the Ogabassey PDP', async () => {
