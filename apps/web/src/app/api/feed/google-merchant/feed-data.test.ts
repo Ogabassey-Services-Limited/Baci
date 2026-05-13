@@ -260,6 +260,43 @@ describe('getCachedGoogleMerchantFeedData', () => {
     expect(result.products).toHaveLength(1001);
   });
 
+  it('caps product pagination at the variant RPC product-id limit', async () => {
+    const fullPage = Array.from({ length: 1000 }, (_, index) => ({
+      id: `product-${index}`,
+      name: `Phone ${index}`,
+    }));
+    productsResult = {
+      data: fullPage,
+      error: null,
+    };
+    mockProductsRange.mockImplementation((from: number) => ({
+      overrideTypes: () =>
+        Promise.resolve({
+          data: fullPage.map((product, index) => ({
+            ...product,
+            id: `product-${from + index}`,
+          })),
+          error: null,
+        } satisfies ProductsResult),
+    }));
+
+    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const result = await getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(mockProductsRange).toHaveBeenCalledTimes(10);
+    expect(mockProductsRange).toHaveBeenLastCalledWith(9000, 9999);
+    expect(mockRpc).toHaveBeenCalledWith('get_feed_product_variants', {
+      p_merchant_id: 'merchant-1',
+      p_product_ids: expect.any(Array),
+    });
+    const [, rpcArgs] = mockRpc.mock.calls[0] ?? [];
+    expect(rpcArgs?.p_product_ids).toHaveLength(10_000);
+    expect(result.products).toHaveLength(10_000);
+  });
+
   it('hydrates feed variants from the feed RPC', async () => {
     variantRpcResult = {
       data: [

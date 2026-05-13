@@ -10,7 +10,8 @@ import type {
 import { FEED_PRODUCTS_SELECT } from './feed-query';
 
 const FEED_PRODUCTS_PAGE_SIZE = 1000;
-const MAX_FEED_PRODUCTS = 50_000;
+// get_feed_product_variants accepts at most 10k product IDs.
+const MAX_FEED_PRODUCTS = 10_000;
 
 export interface GoogleMerchantFeedData {
   custom_domain: string | null;
