@@ -1,6 +1,6 @@
 import 'server-only';
 import { getImageProps } from 'next/image';
-import * as ReactDOM from 'react-dom';
+import type { ReactElement } from 'react';
 import { FLASH_SALE_PROMO_IMAGE } from '@/components/storefront/ogabassey/components/hero-data';
 import imageLoader from '@/lib/image-loader';
 
@@ -23,7 +23,7 @@ const IMAGE_PRELOAD_TYPES = {
  * The Flash Sale banner is client-only on PDP, so this server hint makes the
  * custom-loader-transformed LCP image discoverable during HTML parsing.
  */
-export function OgabasseyPdpStaticResourceHints(): null {
+export function OgabasseyPdpStaticResourceHints(): ReactElement {
   const {
     props: { src, srcSet, sizes },
   } = getImageProps({
@@ -37,16 +37,18 @@ export function OgabasseyPdpStaticResourceHints(): null {
   });
   const preloadType = getImagePreloadType(src);
 
-  ReactDOM.preload(src, {
-    as: 'image',
-    fetchPriority: 'high',
-    imageSizes: sizes,
-    imageSrcSet: srcSet,
-    media: PDP_BANNER_PRELOAD_MEDIA,
-    type: preloadType,
-  });
-
-  return null;
+  return (
+    <link
+      rel="preload"
+      as="image"
+      href={src}
+      fetchPriority="high"
+      imageSizes={sizes}
+      imageSrcSet={srcSet}
+      media={PDP_BANNER_PRELOAD_MEDIA}
+      type={preloadType}
+    />
+  );
 }
 
 function getImagePreloadType(src: string) {

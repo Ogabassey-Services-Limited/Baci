@@ -81,9 +81,9 @@ describe('OgabasseyPdpStaticResourceHints', () => {
       })
     );
     expect(bannerPreload?.getAttribute('fetchpriority')).toBe('high');
-    // React 19 responsive image preloads omit href when imageSrcSet is
-    // supplied; the selectable transformed URLs live in imagesrcset.
-    expect(bannerPreload?.getAttribute('href')).toBeNull();
+    expect(bannerPreload?.getAttribute('href')).toBe(
+      imageLoader({ src: FLASH_SALE_PROMO_IMAGE, width: 3840 })
+    );
     expect(bannerPreload?.getAttribute('imagesrcset')).toContain(
       imageLoader({ src: FLASH_SALE_PROMO_IMAGE, width: 640 })
     );
@@ -129,6 +129,9 @@ describe('OgabasseyPdpStaticResourceHints', () => {
     expect(bannerPreload?.getAttribute('imagesrcset')).toContain(
       'banner-without-format'
     );
+    expect(bannerPreload?.getAttribute('href')).toBe(
+      '/image/banner-without-format'
+    );
     expect(bannerPreload?.getAttribute('type')).toBeNull();
   });
 
@@ -147,6 +150,9 @@ describe('OgabasseyPdpStaticResourceHints', () => {
     template.innerHTML = html;
     const bannerPreload = template.content.querySelector('link[rel="preload"]');
 
+    expect(bannerPreload?.getAttribute('href')).toBe(
+      '/image/banner?width=3840&format=png&quality=75'
+    );
     expect(bannerPreload?.getAttribute('type')).toBe('image/png');
   });
 });
