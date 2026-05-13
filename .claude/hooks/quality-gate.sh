@@ -190,29 +190,24 @@ if [ -n "$MISSING_TESTS" ]; then
   exit 0
 fi
 
-# When node_modules / turbo are missing, distinguish two cases:
+# If node_modules / turbo are missing, lint/typecheck/test can't run. The
+# hook's contract is "block stop until quality checks pass" — silently
+# exiting here would let real compile/test failures slip past locally
+# (codex P1), regardless of whether we're in the main or a linked worktree.
 #
-#   - LINKED worktree (`.git` is a FILE pointing to <parent>/.git/worktrees/<name>):
-#     expected workflow — main has deps, throwaway worktrees skip the deep
-#     checks. Test-pairing above is filesystem-only and already ran. CI on
-#     the PR will run lint/typecheck/test against the actual code.
-#
-#   - MAIN worktree (`.git` is a DIRECTORY): missing deps means the repo
-#     is broken or unconfigured. Silently passing here would let real
-#     compile/test failures slip past the hook entirely (codex P1). Block
-#     with an actionable message instead.
-#
-# `QUALITY_GATE_SKIP_DEPS=1` provides an explicit escape hatch in either case.
+# Block by default with an actionable remediation. `QUALITY_GATE_SKIP_DEPS=1`
+# is the explicit escape hatch for workflows that intentionally use
+# dep-less worktrees (e.g. throwaway worktrees for git ops) and rely on
+# the PR's CI to enforce the contract. Setting that env var globally in
+# your shell or `~/.claude/settings.json` makes the bypass deliberate
+# rather than silent.
 if [ ! -d node_modules ] || [ ! -x node_modules/.bin/turbo ]; then
   if [ "${QUALITY_GATE_SKIP_DEPS:-0}" = "1" ]; then
     exit 0
   fi
-  if [ -f .git ]; then
-    # Linked worktree without deps — expected, exit clean.
-    exit 0
-  fi
-  # Main worktree without deps — block with remediation.
-  jq -n --arg reason "node_modules / turbo not installed in $(pwd). Run \`pnpm install\` before completing, or set QUALITY_GATE_SKIP_DEPS=1 to bypass." \
+  jq -n --arg reason "node_modules / turbo not installed in $(pwd). Either:
+  • Run \`pnpm install\` in this worktree, OR
+  • Set QUALITY_GATE_SKIP_DEPS=1 (export it globally if you routinely work in dep-less worktrees and rely on PR CI to enforce the contract)" \
     '{"decision": "block", "reason": $reason}'
   exit 0
 fi
