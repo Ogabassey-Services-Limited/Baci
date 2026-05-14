@@ -3,10 +3,6 @@ import { draftMode } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { buildStoreUrl } from '@/lib/store-url';
 import {
-  getStorefrontOpenGraphImages,
-  getStorefrontTwitterImages,
-} from '@/lib/storefront-social-images';
-import {
   buildCanonicalBlogPostUrl,
   getBlogPostTextPreview,
 } from './blog-post-content';
@@ -37,7 +33,11 @@ export async function generateMetadata({
 
   const url = buildCanonicalBlogPostUrl(merchant, post.slug);
   const baseUrl = buildStoreUrl(merchant);
-  const socialImageCandidates = [post.featured_image_url, merchant.logo_url];
+  const ogImageUrl = new URL(
+    `/blog/${post.slug}/opengraph-image`,
+    baseUrl
+  ).toString();
+  const ogImageAlt = post.featured_image_alt || title;
 
   return {
     title: `${title} | ${merchant.business_name}`,
@@ -53,17 +53,20 @@ export async function generateMetadata({
       modifiedTime: post.updated_at,
       authors: [post.author_name],
       tags: post.tags,
-      images: getStorefrontOpenGraphImages(
-        baseUrl,
-        post.featured_image_alt || post.title,
-        ...socialImageCandidates
-      ),
+      images: [
+        {
+          url: ogImageUrl,
+          alt: ogImageAlt,
+          width: 1200,
+          height: 630,
+        },
+      ],
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
-      images: getStorefrontTwitterImages(baseUrl, ...socialImageCandidates),
+      images: [ogImageUrl],
     },
     alternates: {
       canonical: url,

@@ -297,4 +297,75 @@ describe('storefront blog post page', () => {
       'https://ogabassey.com/blog/apple-studio-display-review'
     );
   });
+
+  it('uses the explicit post OG image route on the merchant custom domain', async () => {
+    mockDraftMode.mockResolvedValue({ isEnabled: false });
+    mockGetCachedBlogPost.mockResolvedValue({
+      ...liveBlogPost,
+      merchant: {
+        ...liveBlogPost.merchant,
+        custom_domain: 'ogabassey.com',
+      },
+      post: {
+        ...liveBlogPost.post,
+        featured_image_url:
+          'https://cdn.ogabassey.com/media/merchant-1/blog/raw.jpg',
+        featured_image_alt: 'Studio display on a desk',
+      },
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey.com',
+        postSlug: 'apple-studio-display-review',
+      }),
+    });
+
+    expect(metadata.openGraph?.images).toEqual([
+      {
+        url: 'https://ogabassey.com/blog/apple-studio-display-review/opengraph-image',
+        alt: 'Studio display on a desk',
+        width: 1200,
+        height: 630,
+      },
+    ]);
+    expect(metadata.twitter?.images).toEqual([
+      'https://ogabassey.com/blog/apple-studio-display-review/opengraph-image',
+    ]);
+  });
+
+  it('uses the explicit post OG image route on the merchant subdomain', async () => {
+    mockDraftMode.mockResolvedValue({ isEnabled: false });
+    mockGetCachedBlogPost.mockResolvedValue({
+      ...liveBlogPost,
+      merchant: {
+        ...liveBlogPost.merchant,
+        custom_domain: null,
+        slug: 'ogabassey',
+      },
+      post: {
+        ...liveBlogPost.post,
+        featured_image_alt: null,
+      },
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey',
+        postSlug: 'apple-studio-display-review',
+      }),
+    });
+
+    expect(metadata.openGraph?.images).toEqual([
+      {
+        url: 'https://ogabassey.usebaci.com/blog/apple-studio-display-review/opengraph-image',
+        alt: 'The Great 5K Stall',
+        width: 1200,
+        height: 630,
+      },
+    ]);
+    expect(metadata.twitter?.images).toEqual([
+      'https://ogabassey.usebaci.com/blog/apple-studio-display-review/opengraph-image',
+    ]);
+  });
 });

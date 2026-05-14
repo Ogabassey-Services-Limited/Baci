@@ -215,6 +215,7 @@ export function revalidateBlogPosts(
     for (const slug of normalizedPostSlugs) {
       revalidateTag(`blog-${identifier}-${slug}`, 'merchant');
       revalidatePath(`/${identifier}/blog/${slug}`);
+      revalidatePath(`/${identifier}/blog/${slug}/opengraph-image`);
     }
   }
 }

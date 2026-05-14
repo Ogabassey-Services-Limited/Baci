@@ -286,9 +286,15 @@ describe('cache-revalidation utilities', () => {
       expect(mockRevalidatePath).toHaveBeenCalledWith(
         '/test-merchant/blog/test-post'
       );
+      expect(mockRevalidatePath).toHaveBeenCalledWith(
+        '/test-merchant/blog/test-post/opengraph-image'
+      );
       expect(mockRevalidatePath).toHaveBeenCalledWith('/ogabassey.com/blog');
       expect(mockRevalidatePath).toHaveBeenCalledWith(
         '/ogabassey.com/blog/test-post'
+      );
+      expect(mockRevalidatePath).toHaveBeenCalledWith(
+        '/ogabassey.com/blog/test-post/opengraph-image'
       );
       expect(mockRevalidatePath).toHaveBeenCalledWith(
         '/api/blog/feed/test-merchant'
@@ -314,6 +320,9 @@ describe('cache-revalidation utilities', () => {
       expect(mockRevalidatePath).toHaveBeenCalledWith('/test-merchant/blog');
       expect(mockRevalidatePath).toHaveBeenCalledWith(
         '/test-merchant/blog/test-post'
+      );
+      expect(mockRevalidatePath).toHaveBeenCalledWith(
+        '/test-merchant/blog/test-post/opengraph-image'
       );
       expect(mockRevalidatePath).not.toHaveBeenCalledWith(
         '/api/blog/feed/test-merchant'
