@@ -24,6 +24,3 @@
 ## 2026-05-12 - Replace hardcoded colors with theme tokens in Staff Accounts
 **Learning:** Hardcoded hex colors and conditional fallbacks like `#FFF` or `|| '#E8F0FE'` break the design system and do not automatically adapt to dark mode.
 **Action:** Use semantic theme tokens (e.g. `colors.textOnPrimary` and `colors.primaryLight`) directly from `useTheme()` instead of hardcoded hex values or unnecessary fallbacks.
-## 2026-05-13 - Replace hardcoded brand colors with theme tokens in Analytics Config
-**Learning:** Hardcoding brand colors like `#000000` for TikTok can make the icon completely invisible in dark mode when placed on dark card backgrounds (e.g., `#1A1A2E`). Furthermore, `#fff` for active toggle knob states should use semantic tokens.
-**Action:** Always replace hardcoded static brand hex values like `#000000` with adaptive tokens from `useTheme()` like `colors.text` so they maintain contrast across both light and dark themes. Use `colors.textOnPrimary` for white toggle knobs so they correctly adapt to the active semantic tokens.

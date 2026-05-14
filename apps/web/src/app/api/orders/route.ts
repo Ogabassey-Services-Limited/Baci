@@ -1,9 +1,5 @@
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
-import {
-  computeAgenticOrderTax,
-  isTaxComputeUuidError,
-} from '@/lib/agentic/checkout-order-tax';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import {
   generateOrderConfirmationEmail,
@@ -241,90 +237,15 @@ export async function POST(request: NextRequest) {
       (body.discount_amount || 0).toString()
     );
     const taxAmountValue = Number.parseFloat((body.tax_amount || 0).toString());
-    // B3.5 (Δ-39): gift_wrapping_fee + tax_basis are now first-class
-    // RPC params. Zod defaults gift_wrapping_fee to 0 and tax_basis to
-    // 'exclusive', so legacy callers continue to work; VAT-aware
-    // storefront callers pass both explicitly.
-    const giftWrappingFeeValue = Number.parseFloat(
-      (body.gift_wrapping_fee || 0).toString()
-    );
 
     if (
       Number.isNaN(shippingFeeValue) ||
       Number.isNaN(discountAmountValue) ||
-      Number.isNaN(taxAmountValue) ||
-      Number.isNaN(giftWrappingFeeValue)
+      Number.isNaN(taxAmountValue)
     ) {
       return NextResponse.json(
         { error: 'Invalid pricing values' },
         { status: 400 }
-      );
-    }
-
-    // Codex P1 (PR #1622 round 6): the legacy storefront checkout
-    // (`apps/web/src/app/checkout/page.tsx`) doesn't send
-    // `tax_amount` — Zod defaults to 0 — and that 0 tripped the
-    // RPC's `tax_amount_mismatch` guard on every VAT-registered
-    // merchant. Same root cause as the agentic dispatch.
-    //
-    // Recompute the canonical per-line tax server-side here so
-    // every caller (legacy checkout, ogabassey checkout,
-    // mobile-admin order-create, agentic) lands on a payload that
-    // the RPC will accept. The `expected_total` parity guard
-    // (Δ-39, Codex round 2) still catches client display drift —
-    // it just gets to fire on a correctly-tax'd order rather than
-    // being preceded by a confusing `tax_amount_mismatch` 400.
-    //
-    // The helper uses the caller's standard scoped client. The
-    // single RLS-bypassing path (variant override lookup) goes
-    // through the `get_order_variant_overrides` SECURITY DEFINER
-    // RPC, granted to anon/authenticated/service_role — the trust
-    // boundary lives in the database, not the Next.js layer
-    // (CodeRabbit High on PR #1622 round 7).
-    let serverComputedTaxAmount: number;
-    try {
-      serverComputedTaxAmount = await computeAgenticOrderTax({
-        items: items.map((item) => ({
-          product_id: item.product_id || item.productId || item.id,
-          quantity: item.quantity,
-          variant_id: item.variantId || item.variant_id,
-        })),
-        merchantId: merchant_id,
-        supabase,
-      });
-    } catch (taxError) {
-      // Codex P2 (PR #1622 round 7): malformed item ids (Zod only
-      // validates as `string`) cascade into Postgres's UUID parser
-      // as code 22P02. Pre-route-side-recompute, the RPC's own
-      // 22P02 path got mapped via `clientErrorCodes` to a 400. We
-      // must preserve that semantic so bad client payloads don't
-      // look like server outages.
-      if (isTaxComputeUuidError(taxError)) {
-        logger.warn({
-          error: taxError,
-          merchantId: merchant_id,
-          message: 'Storefront order received malformed item identifier',
-        });
-        // Match the RPC error mapping below (`{ error: 'Failed to
-        // create order', details: <stable code> }`) AND share the
-        // `invalid_items` identifier with the agentic dispatch's
-        // 22P02 path — review findings on PR #1622 round 7.
-        return NextResponse.json(
-          {
-            error: 'Failed to create order',
-            details: 'invalid_items',
-          },
-          { status: 400 }
-        );
-      }
-      logger.error({
-        error: taxError,
-        merchantId: merchant_id,
-        message: 'Storefront order VAT recompute failed',
-      });
-      return NextResponse.json(
-        { code: 'TAX_COMPUTE_FAILED', error: 'Unable to compute order tax' },
-        { status: 500 }
       );
     }
 
@@ -382,7 +303,7 @@ export async function POST(request: NextRequest) {
         p_items: orderItemsPayload,
         p_shipping_fee: shippingFeeValue,
         p_discount_amount: discountAmountValue,
-        p_tax_amount: serverComputedTaxAmount,
+        p_tax_amount: taxAmountValue,
         p_payment_method: payment_method,
         p_payment_status: effectivePaymentStatus,
         p_shipping_status: shipping_status,
@@ -394,30 +315,6 @@ export async function POST(request: NextRequest) {
         p_shipping_provider: resolvedShippingProvider,
         p_tracking_number: resolvedTrackingNumber || null,
         p_user_id: resolvedUserId,
-        // Server-computed tax — replaces the client-supplied value
-        // so legacy callers without `tax_amount` succeed and
-        // storefront callers can't fake a wrong-but-matching value
-        // (Codex P1 round 6).
-        // B3.5 (Δ-42, Δ-47): tax_basis + gift_wrapping_fee. The RPC
-        // enforces VAT itself for VAT-registered merchants and also
-        // runs a client/server total parity check (Codex P1) against
-        // p_expected_total BEFORE any side effects, so a mismatch
-        // rolls back atomically — no orphan order, no stock leak.
-        //
-        // Codex P1 round 6 (PR #1622): `tax_basis` is SERVER-controlled
-        // policy, NOT caller input. The RPC itself overrides
-        // `v_tax_basis := 'exclusive'` after enum validation
-        // (`create_storefront_order` is GRANT'd to anon via PostgREST,
-        // so the trust boundary has to live IN the function — see
-        // the `Codex P1 round 6 ii` comment in
-        // `20260512200000_storefront_order_vat_enforcement.sql`).
-        // This API-level hardcode is defense-in-depth — any caller
-        // routing through /api/orders also gets the right value
-        // without relying on PostgREST RLS / RPC behavior.
-        p_tax_basis: 'exclusive',
-        p_gift_wrapping_fee: giftWrappingFeeValue,
-        p_expected_total:
-          typeof body.expected_total === 'number' ? body.expected_total : null,
       }
     );
 
@@ -448,21 +345,6 @@ export async function POST(request: NextRequest) {
         // without a quote id. Map to 4xx so the client gets the right
         // re-quote signal instead of a generic 500.
         'shipping_quote_required',
-        // B3.5 (Δ-42, Δ-47): RPC raises when the client-supplied
-        // VAT/total/gift-wrap inputs violate merchant VAT config.
-        // All client-side input errors → 400 so the storefront can
-        // re-quote / re-render the order summary cleanly instead of
-        // bouncing the user with a generic 500.
-        'invalid_tax_basis',
-        'tax_amount_mismatch',
-        'tax_amount_must_be_zero_for_non_vat_merchant',
-        'gift_wrapping_fee_negative',
-        // B3.5 (Codex P1 — PR #1622): RPC RAISES this when the
-        // client-supplied `p_expected_total` differs from the
-        // server-computed total by > ₦1. The RAISE happens BEFORE
-        // any side effects so the transaction rolls back cleanly
-        // — safe for client to fix and retry.
-        'order_total_mismatch',
         '22P02', // PostgreSQL: Invalid text representation (e.g. invalid UUID format)
       ];
       // create_storefront_order should return { message, code } for client errors.

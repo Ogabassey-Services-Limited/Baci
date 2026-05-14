@@ -1,9 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AgenticCheckoutBuyer } from '@/lib/agentic/checkout-completion-response';
-import {
-  computeAgenticOrderTax,
-  isTaxComputeUuidError,
-} from '@/lib/agentic/checkout-order-tax';
 import { sendAgenticWebhook } from '@/lib/agentic/webhooks';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
@@ -30,18 +26,6 @@ const CLIENT_ORDER_ERROR_CODES = new Set([
   // "re-quote / fix input" from "transient server issue, retry".
   // Matches the `clientErrorCodes` array in /api/orders route.ts.
   'shipping_quote_required',
-  // B3.5 (PR #1622): RPC RAISES these for VAT/total/gift-wrap
-  // input violations. Mirrors `clientErrorCodes` in
-  // /api/orders/route.ts so agentic callers get an actionable 4xx
-  // instead of a generic 500. `tax_amount_mismatch` in particular
-  // should be rare now that the dispatch recomputes tax via
-  // `computeAgenticOrderTax`, but is included defensively in
-  // case product VAT metadata drifts mid-checkout.
-  'invalid_tax_basis',
-  'tax_amount_mismatch',
-  'tax_amount_must_be_zero_for_non_vat_merchant',
-  'gift_wrapping_fee_negative',
-  'order_total_mismatch',
   '22P02',
 ]);
 
@@ -99,72 +83,6 @@ export async function createAgenticCheckoutOrder(
     };
   }
 
-  // B3.5 round 5 (Codex P1, PR #1622): agentic
-  // `calculateCheckoutSession` produces `tax: 0` for every line item,
-  // so `body.tax_amount` is always 0 here. The RPC's
-  // `tax_amount_mismatch` guard would RAISE for any VAT-registered
-  // merchant. Recompute the expected per-line VAT in the dispatch
-  // (matching the RPC's formula byte-for-byte) and override
-  // `p_tax_amount` so the parity guard passes. The agentic GPT
-  // surface will start to under-quote the buyer until
-  // `calculateCheckoutSession` itself learns VAT (deferred — that
-  // changes the GPTLineItem/GPTTotal shape every agentic consumer
-  // depends on); the dispatch-side compute keeps the order-creation
-  // path correct in the meantime.
-  // Codex P2 (PR #1622 round 5): `computeAgenticOrderTax` now
-  // throws on transient DB/RLS lookup failures instead of silently
-  // returning 0 (which made infra errors look like client 400s).
-  // Wrap the call so a failure surfaces as a 500 the GPT-agent
-  // caller can retry — distinct from the validation-shaped 400s
-  // the RPC itself produces.
-  let computedTaxAmount: number;
-  try {
-    // CodeRabbit High (PR #1622 round 7): use the caller-supplied
-    // scoped client; the helper's only RLS-bypassing read goes
-    // through the `get_order_variant_overrides` SECURITY DEFINER
-    // RPC at the database layer. The Next.js layer never
-    // escalates to service-role.
-    computedTaxAmount = await computeAgenticOrderTax({
-      items: orderItemsPayload,
-      merchantId: body.merchant_id,
-      supabase,
-    });
-  } catch (taxError) {
-    // Codex P2 (PR #1622 round 7): a malformed product_id /
-    // variant_id from the agentic caller cascades into Postgres
-    // 22P02 inside the helper. Mirror the storefront route — map
-    // UUID parse errors to a 400 with `invalid_items` (already
-    // in `CLIENT_ORDER_ERROR_CODES` and the agentic spec) so the
-    // GPT agent fixes its payload instead of treating this as
-    // an outage.
-    if (isTaxComputeUuidError(taxError)) {
-      logger.warn({
-        error: sanitizeForLog(taxError),
-        message: 'Agentic checkout received malformed item identifier',
-      });
-      return {
-        data: { error: 'invalid_items' },
-        error: 'invalid_items',
-        ok: false,
-        orderId: undefined,
-        status: 400,
-        statusText: 'Bad Request',
-      };
-    }
-    logger.error({
-      error: sanitizeForLog(taxError),
-      message: 'Agentic checkout VAT recompute failed',
-    });
-    return {
-      data: { error: 'Unable to compute order tax' },
-      error: 'Unable to compute order tax',
-      ok: false,
-      orderId: undefined,
-      status: 500,
-      statusText: 'Internal Server Error',
-    };
-  }
-
   const { data: orderRows, error: orderError } = await supabase.rpc(
     'create_storefront_order',
     {
@@ -184,35 +102,7 @@ export async function createAgenticCheckoutOrder(
       p_shipping_provider: body.shipping_provider ?? null,
       p_shipping_status: body.shipping_status,
       p_source: body.source,
-      p_tax_amount: computedTaxAmount,
-      // Codex P1 (PR #1622 round 7): forward `p_gift_wrapping_fee`
-      // through to the RPC. The agentic
-      // `calculateCheckoutSession` doesn't quote gift wrapping
-      // today, so `body.gift_wrapping_fee` is currently the Zod
-      // default 0 — but the schema accepts the field, and
-      // omitting it from the RPC call left a silent
-      // under-quote path waiting for the first agentic flow that
-      // does pass it. The RPC's `gift_wrapping_fee_negative`
-      // guard + the column's CHECK `>= 0` jointly clamp invalid
-      // input.
-      p_gift_wrapping_fee: body.gift_wrapping_fee,
-      // Codex P1 (PR #1622 round 8): forward
-      // `body.expected_total` to enable the RPC's
-      // `order_total_mismatch` parity guard for agentic flows.
-      // Today `calculateCheckoutSession` doesn't quote VAT, so
-      // the agentic completion payload never includes
-      // `expected_total` and this is `null` (parity check
-      // skipped — matches existing behavior; fabricating a
-      // value from the VAT-exclusive quote would break every
-      // VAT-registered agentic checkout with a mismatch the
-      // agent can't recover from until session calc learns
-      // VAT). When `calculateCheckoutSession` is upgraded to
-      // emit a VAT-inclusive total (deferred follow-up tracked
-      // separately), `buildOrderRpcPayload` will start setting
-      // `expected_total` and this wiring activates the parity
-      // guard automatically — no second round trip here.
-      p_expected_total:
-        typeof body.expected_total === 'number' ? body.expected_total : null,
+      p_tax_amount: body.tax_amount,
       p_tracking_number: body.tracking_number ?? null,
       // Agentic checkout is API-key scoped, not tied to a customer auth session.
       p_user_id: null,

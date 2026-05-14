@@ -405,7 +405,7 @@ export default function AnalyticsConfigScreen() {
           <PlatformCard
             title="TikTok"
             icon="logo-tiktok"
-            iconColor={colors.text}
+            iconColor="#000000"
             isExpanded={expandedSection === 'tiktok'}
             onToggle={() => toggleSection('tiktok')}
             helpKey="tiktok"
@@ -534,11 +534,10 @@ export default function AnalyticsConfigScreen() {
                 }
               >
                 <View
-                  testID="offline-conversions-toggle-knob"
                   style={[
                     styles.toggleKnob,
                     {
-                      backgroundColor: colors.textOnPrimary,
+                      backgroundColor: '#fff',
                       transform: [
                         {
                           translateX: analytics.offline_conversions_enabled

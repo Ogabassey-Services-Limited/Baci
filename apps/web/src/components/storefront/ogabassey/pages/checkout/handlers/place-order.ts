@@ -45,12 +45,6 @@ export interface PlaceOrderOptions {
   cartTotal: number;
   deliveryCost: number;
   total: number;
-  // B3.5 (Δ-31, Δ-34, Δ-39): VAT + gift-wrapping carried through to
-  // the API so the RPC's VAT enforcement boundary (Δ-42) has the
-  // figures the user was shown, and the API's parity check (Δ-39)
-  // can compare client expected_total vs server-recomputed total.
-  taxAmount: number;
-  giftWrappingCost: number;
   selectedQuoteId: string;
   shippingQuotes: ShippingQuote[];
   paymentMethod: PaymentMethod;
@@ -195,8 +189,6 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
     cartTotal,
     deliveryCost,
     total,
-    taxAmount,
-    giftWrappingCost,
     selectedQuoteId,
     shippingQuotes,
     paymentMethod,
@@ -329,16 +321,6 @@ export async function handlePlaceOrder(opts: PlaceOrderOptions): Promise<void> {
         items: orderItems,
         subtotal: cartTotal,
         shipping_fee: deliveryCost,
-        // B3.5 (Δ-31, Δ-34, Δ-39): pass through what
-        // calculate-commerce produced. No hidden fallback math here:
-        // the RPC enforces VAT itself (Δ-42), and the API parity
-        // check on `expected_total` (Δ-39) catches any drift between
-        // what the customer was shown and what the server persists.
-        tax_amount: taxAmount,
-        tax_basis: 'exclusive',
-        gift_wrapping_fee: giftWrappingCost,
-        expected_total: total,
-        client_total: total,
         payment_method: normalizeOrderPaymentMethod(paymentMethod),
         payment_status: 'unpaid',
         shipping_status: 'pending',
