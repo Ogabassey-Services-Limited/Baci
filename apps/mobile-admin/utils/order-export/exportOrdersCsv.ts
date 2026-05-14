@@ -15,7 +15,7 @@ export async function exportOrdersCsv(orders: Order[]): Promise<void> {
   const documentDirectory = FileSystem.documentDirectory;
 
   if (!documentDirectory) {
-    throw new Error('Export modules not available');
+    throw new Error('Document directory not available');
   }
 
   const fileUri = `${

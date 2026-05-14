@@ -1,6 +1,4 @@
 export const orderReportStyles = `
-  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
   :root {
     --primary: #4A90D9;
     --primary-dark: #357ABD;
@@ -22,7 +20,7 @@ export const orderReportStyles = `
   body {
     background: #fff;
     color: var(--text-main);
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
     line-height: 1.6;
     margin: 0;
     padding: 40px;

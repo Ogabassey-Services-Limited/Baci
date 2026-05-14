@@ -31,6 +31,8 @@ async function loadOrderItemData(
   }
 
   const itemData: OrderItemQueryData[] = [];
+  const batchErrors: string[] = [];
+  let successfulBatchesCount = 0;
 
   for (const orderIdBatch of chunkOrderIds(orderIds)) {
     const { data, error } = await supabase
@@ -40,11 +42,20 @@ async function loadOrderItemData(
       .returns<OrderItemQueryData[]>();
 
     if (error) {
-      console.warn('Failed to fetch order items:', error.message);
+      const message = error.message || 'Unknown order item query failure';
+      batchErrors.push(message);
+      console.warn('Failed to fetch order items:', message);
       continue;
     }
 
+    successfulBatchesCount += 1;
     itemData.push(...(data || []));
+  }
+
+  if (batchErrors.length > 0 && successfulBatchesCount === 0) {
+    throw new Error(
+      `Failed to fetch order items for every report batch: ${batchErrors.join('; ')}`
+    );
   }
 
   return itemData;

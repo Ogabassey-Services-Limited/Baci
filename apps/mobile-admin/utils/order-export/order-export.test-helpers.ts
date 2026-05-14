@@ -1,14 +1,8 @@
 import type { Order } from '@baci/shared';
+import type { OrderItemQueryData } from './orderReportTypes';
 
 interface MakeOrderOverrides extends Partial<Order> {
   shipping_address?: Order['shipping_address'];
-}
-
-export interface OrderItemQueryData {
-  price: number;
-  product_id: string;
-  products: { name: string } | null;
-  quantity: number;
 }
 
 export function makeOrder(overrides: MakeOrderOverrides = {}): Order {

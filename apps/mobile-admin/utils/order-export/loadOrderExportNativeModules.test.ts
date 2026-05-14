@@ -44,7 +44,7 @@ describe('loadOrderExportNativeModules', () => {
 
     expect(modules.FileSystem).not.toBeNull();
     expect(modules.Print).not.toBeNull();
-    expect(modules.Sharing).toBeDefined();
+    expect(modules.Sharing).not.toBeNull();
   });
 
   it('returns a null sharing module when expo-sharing cannot be imported', async () => {

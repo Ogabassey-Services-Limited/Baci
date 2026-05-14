@@ -7,6 +7,7 @@ export interface OrderExportNativeModules {
 }
 
 export async function loadOrderExportNativeModules(): Promise<OrderExportNativeModules> {
+  // Expo export modules are native-only; reject web before loading them.
   if (Platform.OS === 'web') {
     throw new Error('Export modules not available');
   }
