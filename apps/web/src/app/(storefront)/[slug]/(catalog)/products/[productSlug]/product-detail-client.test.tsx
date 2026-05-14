@@ -53,8 +53,8 @@ vi.mock('@/components/storefront/breadcrumbs', () => ({
   Breadcrumbs: () => null,
 }));
 
-vi.mock('@/components/storefront/sticky-add-to-cart', () => ({
-  StickyAddToCart: (props: unknown) => {
+vi.mock('@/components/storefront/deferred-sticky-add-to-cart', () => ({
+  DeferredStickyAddToCart: (props: unknown) => {
     mockStickyAddToCart(props);
     return null;
   },
@@ -162,6 +162,23 @@ describe('ProductDetailClient', () => {
       cart: [],
       setMerchantSlug: mockSetMerchantSlug,
       updateQuantity: mockUpdateQuantity,
+    });
+  });
+
+  it('passes sticky cart props through the deferred client wrapper', async () => {
+    const product = makeBaseProduct();
+
+    render(<ProductDetailClient product={product} />);
+
+    await waitFor(() => {
+      expect(mockStickyAddToCart).toHaveBeenCalledWith(
+        expect.objectContaining({
+          product: expect.objectContaining({ id: product.id }),
+          selectedCondition: undefined,
+          selectedPrice: product.price,
+          selectedStock: product.stock,
+        })
+      );
     });
   });
 

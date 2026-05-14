@@ -1984,6 +1984,7 @@ interface BlogPostSchemaData {
   description: string;
   url: string;
   image?: string;
+  imageUrls?: string[];
   datePublished: string;
   dateModified?: string;
   author: {
@@ -2044,7 +2045,13 @@ export function generateBlogPostSchema(
     },
   };
 
-  if (data.image) {
+  const imageUrls = Array.isArray(data.imageUrls)
+    ? data.imageUrls.map((url) => url.trim()).filter((url) => url.length > 0)
+    : [];
+
+  if (imageUrls.length > 0) {
+    schema.image = imageUrls.map((url) => escapeHtml(url));
+  } else if (data.image) {
     schema.image = {
       '@type': 'ImageObject',
       url: escapeHtml(data.image),
