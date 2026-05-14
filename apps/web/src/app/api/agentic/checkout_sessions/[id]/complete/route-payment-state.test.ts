@@ -23,6 +23,10 @@ vi.mock('@/lib/agentic/auth', () => ({
   verifyAgenticApiKey: mockVerifyAgenticApiKey,
 }));
 vi.mock('@/lib/agentic/merchant-context', () => ({
+  AGENTIC_CHECKOUT_DISABLED_ERROR: 'Agentic checkout disabled',
+  isAgenticMerchantCheckoutEnabled: (merchant: {
+    agentic_checkout_enabled?: boolean;
+  }) => merchant.agentic_checkout_enabled !== false,
   resolveAgenticMerchantContext: mockResolveAgenticMerchantContext,
 }));
 vi.mock('@/lib/agentic/checkout', () => ({

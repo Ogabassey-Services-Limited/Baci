@@ -1,14 +1,23 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { calculateCheckoutSession } from '@/lib/agentic/checkout';
-import { reserveAgenticIdempotencyKey } from '@/lib/agentic/idempotency';
+import {
+  reserveAgenticIdempotencyKey,
+  storeAgenticIdempotencyResponse,
+} from '@/lib/agentic/idempotency';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { createAdminClient } from '@/lib/supabase/admin';
 
-const mockResolveAgenticMerchantContext = vi.fn(() =>
-  Promise.resolve({ id: 'merchant-1', slug: 'ogabassey' })
-);
+type MockAgenticMerchantContext = {
+  agentic_checkout_enabled?: boolean;
+  id: string;
+  slug: string;
+};
+
+const mockResolveAgenticMerchantContext = vi.fn<
+  () => Promise<MockAgenticMerchantContext | null>
+>(() => Promise.resolve({ id: 'merchant-1', slug: 'ogabassey' }));
 
 vi.mock('@/lib/agentic/auth', () => ({
   verifyAgenticApiKey: vi.fn(() => true),
@@ -20,9 +29,14 @@ vi.mock('@/lib/agentic/checkout', () => ({
 
 vi.mock('@/lib/agentic/idempotency', () => ({
   reserveAgenticIdempotencyKey: vi.fn(),
+  storeAgenticIdempotencyResponse: vi.fn(),
 }));
 
 vi.mock('@/lib/agentic/merchant-context', () => ({
+  AGENTIC_CHECKOUT_DISABLED_ERROR: 'Agentic checkout disabled',
+  isAgenticMerchantCheckoutEnabled: (merchant: {
+    agentic_checkout_enabled?: boolean;
+  }) => merchant.agentic_checkout_enabled !== false,
   resolveAgenticMerchantContext: mockResolveAgenticMerchantContext,
 }));
 
@@ -62,9 +76,61 @@ describe('POST /api/agentic/checkout_sessions idempotency replay ordering', () =
     });
     vi.mocked(createAdminClient).mockReturnValue({} as never);
     vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue({} as never);
+    vi.mocked(reserveAgenticIdempotencyKey).mockResolvedValue({
+      ok: true,
+      state: 'reserved',
+    });
+    vi.mocked(storeAgenticIdempotencyResponse).mockResolvedValue({
+      error: null,
+      ok: true,
+    });
+  });
+
+  it('stores a disabled checkout response after claiming idempotency', async () => {
+    mockResolveAgenticMerchantContext.mockResolvedValueOnce({
+      agentic_checkout_enabled: false,
+      id: 'merchant-1',
+      slug: 'ogabassey',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      new NextRequest('http://localhost/api/agentic/checkout_sessions', {
+        body: JSON.stringify({
+          currency: 'ngn',
+          items: [{ id: 'product-1', quantity: 1 }],
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'idem-1',
+        },
+        method: 'POST',
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({ error: 'Agentic checkout disabled' });
+    expect(reserveAgenticIdempotencyKey).toHaveBeenCalled();
+    expect(storeAgenticIdempotencyResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'idem-1',
+        merchantId: 'merchant-1',
+        response: { error: 'Agentic checkout disabled' },
+        route: 'checkout_sessions.create',
+        status: 403,
+      })
+    );
+    expect(reserveAgenticRequestId).not.toHaveBeenCalled();
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 
   it('replays a stored idempotency result before checking request replay', async () => {
+    mockResolveAgenticMerchantContext.mockResolvedValueOnce({
+      agentic_checkout_enabled: false,
+      id: 'merchant-1',
+      slug: 'ogabassey',
+    });
     vi.mocked(reserveAgenticIdempotencyKey).mockResolvedValue({
       ok: true,
       response: { id: 'agentic_session_1', status: 'ready_for_payment' },

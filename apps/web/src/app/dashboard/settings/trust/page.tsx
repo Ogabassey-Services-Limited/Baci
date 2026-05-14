@@ -2,6 +2,7 @@ import { ChevronLeft, ShieldCheck } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { AgentCommerceControlsCard } from '@/components/dashboard/integrations/agent-commerce-controls-card';
 import { AgentCommerceTrustReadinessCard } from '@/components/dashboard/integrations/agent-commerce-trust-readiness-card';
 import { Button } from '@/components/ui/button';
 import { getMerchantForUser } from '@/lib/merchant-server';
@@ -48,6 +49,8 @@ export default async function TrustSettingsPage() {
       </div>
 
       <AgentCommerceTrustReadinessCard />
+
+      <AgentCommerceControlsCard />
 
       <TrustSettingsClient
         initialTrustProfile={merchant.trust_profile ?? null}

@@ -155,6 +155,7 @@ describe('GET /api/merchant/features', () => {
     const response = await GET(makeRequest('GET'));
 
     expect(response.status).toBe(200);
+    expect(selectColumns).toContain('agentic_checkout_enabled');
     expect(selectColumns).toContain('vtu_electricity_enabled');
     expect(selectColumns).toContain('vtu_tv_enabled');
     expect(selectColumns).toContain('vtu_betting_enabled');
@@ -171,6 +172,7 @@ describe('GET /api/merchant/features', () => {
 
     expect(response.status).toBe(200);
     expect(insertPayload).toMatchObject({
+      agentic_checkout_enabled: true,
       vtu_customer_cashback_enabled: false,
       vtu_customer_cashback_rate: 50,
     });

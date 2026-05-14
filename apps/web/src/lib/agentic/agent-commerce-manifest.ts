@@ -107,6 +107,7 @@ export function buildAgentCommerceManifest(
   const checkoutEnabled =
     isAgenticCheckoutRuntimeConfigured() &&
     merchant.slug === getConfiguredAgenticMerchantSlug() &&
+    merchant.feature_settings?.agentic_checkout_enabled !== false &&
     paymentMethods.length > 0;
   const checkoutLinks = checkoutEnabled ? buildCheckoutLinks(baseUrl) : {};
 

@@ -137,6 +137,30 @@ describe('agent commerce manifest builder', () => {
     expect(manifest.auth).toBeNull();
   });
 
+  it('keeps catalog-only discovery when merchant disables agentic checkout', async () => {
+    const { buildAgentCommerceManifest } = await import(
+      '@/lib/agentic/agent-commerce-manifest'
+    );
+
+    const manifest = buildAgentCommerceManifest(
+      {
+        business_name: 'Ogabassey',
+        feature_settings: {
+          agentic_checkout_enabled: false,
+          pay_on_delivery_enabled: true,
+        },
+        paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+        slug: 'ogabassey',
+      },
+      'https://ogabassey.com'
+    );
+
+    expect(manifest.capabilities).toEqual(['catalog.read']);
+    expect(manifest.payment_methods).toEqual([]);
+    expect(manifest.auth).toBeNull();
+    expect(manifest.links.checkout_sessions).toBeUndefined();
+  });
+
   it('throws when the base URL cannot be used to build concrete links', async () => {
     const { buildAgentCommerceManifest } = await import(
       '@/lib/agentic/agent-commerce-manifest'

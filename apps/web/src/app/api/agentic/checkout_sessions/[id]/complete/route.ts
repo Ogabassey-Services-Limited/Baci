@@ -13,7 +13,11 @@ import { getAgenticCheckoutSession } from '@/lib/agentic/checkout-session-record
 import { reserveAgenticIdempotencyKey } from '@/lib/agentic/idempotency';
 import { getAgenticIdempotencyErrorStatus } from '@/lib/agentic/idempotency-response';
 import { buildStoredAgenticIdempotencyResponse } from '@/lib/agentic/idempotency-response-storage';
-import { resolveAgenticMerchantContext } from '@/lib/agentic/merchant-context';
+import {
+  AGENTIC_CHECKOUT_DISABLED_ERROR,
+  isAgenticMerchantCheckoutEnabled,
+  resolveAgenticMerchantContext,
+} from '@/lib/agentic/merchant-context';
 import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { getAgenticReplayErrorStatus } from '@/lib/agentic/request-replay-response';
@@ -116,6 +120,18 @@ export async function POST(
         status,
         supabase,
       });
+    if (!isAgenticMerchantCheckoutEnabled(merchant)) {
+      logger.warn({
+        message: AGENTIC_CHECKOUT_DISABLED_ERROR,
+        merchantId: merchant.id,
+        route: COMPLETE_IDEMPOTENCY_ROUTE,
+        sessionId,
+      });
+      return await respondWithIdempotency(
+        { error: AGENTIC_CHECKOUT_DISABLED_ERROR },
+        403
+      );
+    }
     const replayReservation = await reserveAgenticRequestId({
       apiVersion: mutation.apiVersion,
       idempotencyKey: mutation.idempotencyKey,
