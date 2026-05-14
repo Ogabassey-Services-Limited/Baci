@@ -15,6 +15,7 @@ import { paymentStateTestHelpers } from './route-payment-state-test-helpers';
 const mockVerifyAgenticApiKey = vi.fn(() => true);
 const mockResolveAgenticMerchantContext = vi.fn(() =>
   Promise.resolve<{
+    agentic_checkout_enabled?: boolean;
     id: string;
     paystack_subaccount_code: string | null;
     pay_on_delivery_enabled: boolean;
@@ -30,6 +31,10 @@ vi.mock('@/lib/agentic/auth', () => ({
   verifyAgenticApiKey: mockVerifyAgenticApiKey,
 }));
 vi.mock('@/lib/agentic/merchant-context', () => ({
+  AGENTIC_CHECKOUT_DISABLED_ERROR: 'Agentic checkout disabled',
+  isAgenticMerchantCheckoutEnabled: (merchant: {
+    agentic_checkout_enabled?: boolean;
+  }) => merchant.agentic_checkout_enabled !== false,
   resolveAgenticMerchantContext: mockResolveAgenticMerchantContext,
 }));
 vi.mock('@/lib/agentic/checkout', () => ({
@@ -70,7 +75,7 @@ vi.mock('@/lib/agentic/checkout-order-dispatch', () => ({
   markAgenticCheckoutOrderCanceled: vi.fn(),
   sendAgenticOrderCreatedWebhook: vi.fn(),
 }));
-vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn() } }));
+vi.mock('@/lib/logger', () => ({ logger: { error: vi.fn(), warn: vi.fn() } }));
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: vi.fn() }));
 
 const {
@@ -129,6 +134,37 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete', () => {
       error: 'Merchant Paystack subaccount is not configured',
     });
     expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when the merchant disables agentic checkout', async () => {
+    mockResolveAgenticMerchantContext.mockResolvedValue({
+      agentic_checkout_enabled: false,
+      id: 'merchant-1',
+      pay_on_delivery_enabled: true,
+      paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+      slug: 'ogabassey',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(buildCompleteRequest(), {
+      params: Promise.resolve({ id: 'agentic_session_1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({ error: 'Agentic checkout disabled' });
+    expect(reserveAgenticIdempotencyKey).toHaveBeenCalled();
+    expect(storeAgenticIdempotencyResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'idem-1',
+        merchantId: 'merchant-1',
+        response: { error: 'Agentic checkout disabled' },
+        route: 'checkout_sessions.complete',
+        status: 403,
+      })
+    );
+    expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
+    expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
   });
 
   it('stores DVA payment state without writing agent-only checkout statuses', async () => {

@@ -117,7 +117,7 @@ describe('agent commerce manifest builder', () => {
     expect(manifest.links.checkout_sessions).toBeUndefined();
   });
 
-  it('keeps catalog-only discovery when payment methods are unavailable', async () => {
+  it('hides checkout mutations when payment methods are unavailable', async () => {
     const { buildAgentCommerceManifest } = await import(
       '@/lib/agentic/agent-commerce-manifest'
     );
@@ -132,9 +132,40 @@ describe('agent commerce manifest builder', () => {
       'https://ogabassey.com'
     );
 
-    expect(manifest.capabilities).toEqual(['catalog.read']);
+    expect(manifest.capabilities).toEqual(['catalog.read', 'order.read']);
     expect(manifest.payment_methods).toEqual([]);
-    expect(manifest.auth).toBeNull();
+    expect(manifest.auth?.type).toBe('bearer_hmac');
+    expect(manifest.links.order).toBe(
+      'https://ogabassey.com/api/agentic/orders/{order_id}'
+    );
+    expect(manifest.links.checkout_sessions).toBeUndefined();
+  });
+
+  it('preserves order reads when merchant disables new agentic checkout', async () => {
+    const { buildAgentCommerceManifest } = await import(
+      '@/lib/agentic/agent-commerce-manifest'
+    );
+
+    const manifest = buildAgentCommerceManifest(
+      {
+        business_name: 'Ogabassey',
+        feature_settings: {
+          agentic_checkout_enabled: false,
+          pay_on_delivery_enabled: true,
+        },
+        paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+        slug: 'ogabassey',
+      },
+      'https://ogabassey.com'
+    );
+
+    expect(manifest.capabilities).toEqual(['catalog.read', 'order.read']);
+    expect(manifest.payment_methods).toEqual([]);
+    expect(manifest.auth?.type).toBe('bearer_hmac');
+    expect(manifest.links.order).toBe(
+      'https://ogabassey.com/api/agentic/orders/{order_id}'
+    );
+    expect(manifest.links.checkout_sessions).toBeUndefined();
   });
 
   it('throws when the base URL cannot be used to build concrete links', async () => {

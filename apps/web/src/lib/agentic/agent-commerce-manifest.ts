@@ -24,15 +24,14 @@ import {
 export const AGENT_COMMERCE_SCHEMA_VERSION = '2026-04-30';
 export const AGENT_COMMERCE_CACHE_CONTROL = 'public, max-age=300';
 
-const AGENT_COMMERCE_CAPABILITIES = [
-  'catalog.read',
+const AGENT_COMMERCE_CHECKOUT_CAPABILITIES = [
   'checkout.session.create',
   'checkout.session.read',
   'checkout.session.update',
   'checkout.session.complete',
   'checkout.session.cancel',
-  'order.read',
 ] as const;
+const AGENT_COMMERCE_ORDER_READ_CAPABILITY = 'order.read';
 const AGENTIC_REQUIRED_HEADERS = [
   'api-version',
   'authorization',
@@ -104,11 +103,15 @@ export function buildAgentCommerceManifest(
   baseUrl: string
 ): AgentCommerceManifest {
   const paymentMethods = buildAgenticPaymentMethods(merchant);
-  const checkoutEnabled =
+  const signedAgentReadsEnabled =
     isAgenticCheckoutRuntimeConfigured() &&
-    merchant.slug === getConfiguredAgenticMerchantSlug() &&
+    merchant.slug === getConfiguredAgenticMerchantSlug();
+  const checkoutEnabled =
+    signedAgentReadsEnabled &&
+    merchant.feature_settings?.agentic_checkout_enabled !== false &&
     paymentMethods.length > 0;
   const checkoutLinks = checkoutEnabled ? buildCheckoutLinks(baseUrl) : {};
+  const orderLinks = signedAgentReadsEnabled ? buildOrderLinks(baseUrl) : {};
 
   return {
     schema_version: AGENT_COMMERCE_SCHEMA_VERSION,
@@ -118,11 +121,15 @@ export function buildAgentCommerceManifest(
       name: merchant.business_name,
       canonical_origin: baseUrl,
     },
-    capabilities: checkoutEnabled
-      ? [...AGENT_COMMERCE_CAPABILITIES]
-      : ['catalog.read'],
+    capabilities: [
+      'catalog.read',
+      ...(signedAgentReadsEnabled
+        ? [AGENT_COMMERCE_ORDER_READ_CAPABILITY]
+        : []),
+      ...(checkoutEnabled ? [...AGENT_COMMERCE_CHECKOUT_CAPABILITIES] : []),
+    ],
     payment_methods: checkoutEnabled ? paymentMethods : [],
-    auth: checkoutEnabled ? buildAgenticCheckoutAuth() : null,
+    auth: signedAgentReadsEnabled ? buildAgenticCheckoutAuth() : null,
     links: {
       llms: buildUrl(baseUrl, '/llms.txt'),
       llms_full: buildUrl(baseUrl, '/llms-full.txt'),
@@ -139,6 +146,7 @@ export function buildAgentCommerceManifest(
         baseUrl,
         `/api/storefront/${encodeURIComponent(merchant.slug)}/products`
       ),
+      ...orderLinks,
       ...checkoutLinks,
       ...buildAgentPolicyUrls(baseUrl),
     },
@@ -196,6 +204,14 @@ function buildCheckoutLinks(baseUrl: string) {
       baseUrl,
       `${agenticApiBase}/checkout_sessions/{session_id}/cancel`
     ),
-    order: buildTemplateUrl(baseUrl, `${agenticApiBase}/orders/{order_id}`),
+  };
+}
+
+function buildOrderLinks(baseUrl: string) {
+  return {
+    order: buildTemplateUrl(
+      baseUrl,
+      `${STOREFRONT_AGENT_ROUTES.agenticApiBase}/orders/{order_id}`
+    ),
   };
 }

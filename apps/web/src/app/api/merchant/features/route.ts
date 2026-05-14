@@ -4,7 +4,10 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
-import { revalidateFeatures } from '@/lib/cache-revalidation';
+import {
+  revalidateFeatures,
+  revalidateMerchant,
+} from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { merchantFeatureSettingsSchema } from '@/schemas/merchant-features';
 
@@ -27,6 +30,7 @@ export interface MerchantFeatureSettings {
   order_tracking_enabled: boolean;
   discount_codes_enabled: boolean;
   guest_checkout_enabled: boolean;
+  agentic_checkout_enabled: boolean;
 
   // Payment gateways
   paystack_enabled: boolean;
@@ -123,6 +127,7 @@ const MERCHANT_FEATURE_SELECT_FIELDS: readonly (keyof MerchantFeatureSettings)[]
     'order_tracking_enabled',
     'discount_codes_enabled',
     'guest_checkout_enabled',
+    'agentic_checkout_enabled',
     'paystack_enabled',
     'korapay_enabled',
     'pay_on_delivery_enabled',
@@ -211,6 +216,7 @@ const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
   order_tracking_enabled: true,
   discount_codes_enabled: true,
   guest_checkout_enabled: true,
+  agentic_checkout_enabled: true,
   // Payment gateways - both enabled by default
   paystack_enabled: true,
   korapay_enabled: true,
@@ -426,6 +432,7 @@ export async function PATCH(request: NextRequest) {
 
     // Invalidate cache
     revalidateFeatures(access.merchantId);
+    revalidateMerchant(access.merchantId);
 
     return NextResponse.json(settings);
   } catch (error) {
@@ -517,6 +524,7 @@ export async function PUT(request: NextRequest) {
 
     // Invalidate cache
     revalidateFeatures(access.merchantId);
+    revalidateMerchant(access.merchantId);
 
     return NextResponse.json(settings);
   } catch (error) {

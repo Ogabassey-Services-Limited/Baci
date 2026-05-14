@@ -10,15 +10,25 @@ import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase
 import { createAdminClient } from '@/lib/supabase/admin';
 
 const mockVerifyAgenticApiKey = vi.fn(() => true);
-const mockResolveAgenticMerchantContext = vi.fn(() =>
-  Promise.resolve({ id: 'merchant-1', slug: 'ogabassey' })
-);
+type MockAgenticMerchantContext = {
+  agentic_checkout_enabled?: boolean;
+  id: string;
+  slug: string;
+};
+
+const mockResolveAgenticMerchantContext = vi.fn<
+  () => Promise<MockAgenticMerchantContext | null>
+>(() => Promise.resolve({ id: 'merchant-1', slug: 'ogabassey' }));
 
 vi.mock('@/lib/agentic/auth', () => ({
   verifyAgenticApiKey: mockVerifyAgenticApiKey,
 }));
 
 vi.mock('@/lib/agentic/merchant-context', () => ({
+  AGENTIC_CHECKOUT_DISABLED_ERROR: 'Agentic checkout disabled',
+  isAgenticMerchantCheckoutEnabled: (merchant: {
+    agentic_checkout_enabled?: boolean;
+  }) => merchant.agentic_checkout_enabled !== false,
   resolveAgenticMerchantContext: mockResolveAgenticMerchantContext,
 }));
 
@@ -232,6 +242,43 @@ describe('POST /api/agentic/checkout_sessions/[id]/cancel', () => {
     expect(response.status).toBe(400);
     expect(body).toMatchObject({ error: 'Invalid route params' });
     expect(createAdminClient).not.toHaveBeenCalled();
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when the merchant disables agentic checkout', async () => {
+    mockResolveAgenticMerchantContext.mockResolvedValueOnce({
+      agentic_checkout_enabled: false,
+      id: 'merchant-1',
+      slug: 'ogabassey',
+    });
+    vi.mocked(createAdminClient).mockReturnValue({} as never);
+
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout_sessions/agentic_session_1/cancel',
+      { method: 'POST', headers: { 'idempotency-key': 'idem-1' } }
+    );
+    const params = { params: Promise.resolve({ id: 'agentic_session_1' }) };
+
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({ error: 'Agentic checkout disabled' });
+    expect(createAgenticScopedSupabaseClient).toHaveBeenCalledWith({
+      merchantId: 'merchant-1',
+      merchantSlug: 'ogabassey',
+    });
+    expect(reserveAgenticIdempotencyKey).toHaveBeenCalled();
+    expect(storeAgenticIdempotencyResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'idem-1',
+        merchantId: 'merchant-1',
+        response: { error: 'Agentic checkout disabled' },
+        route: 'checkout_sessions.cancel',
+        status: 403,
+      })
+    );
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 

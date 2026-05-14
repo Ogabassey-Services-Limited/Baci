@@ -11,8 +11,24 @@ import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 const mockGetIdempotencyKey = vi.fn(() => 'idem-1');
-const mockResolveAgenticMerchantContext = vi.fn(() =>
-  Promise.resolve({ id: 'merchant-1', slug: 'ogabassey' })
+type MockAgenticMerchantContext = {
+  agentic_checkout_enabled: boolean;
+  id: string;
+  pay_on_delivery_enabled: boolean;
+  paystack_subaccount_code: string | null;
+  slug: string;
+};
+
+const mockResolveAgenticMerchantContext = vi.fn<
+  () => Promise<MockAgenticMerchantContext | null>
+>(() =>
+  Promise.resolve({
+    agentic_checkout_enabled: true,
+    id: 'merchant-1',
+    pay_on_delivery_enabled: false,
+    paystack_subaccount_code: null,
+    slug: 'ogabassey',
+  })
 );
 const mockVerifyAgenticApiKey = vi.fn(() => true);
 
@@ -31,6 +47,10 @@ vi.mock('@/lib/agentic/idempotency', () => ({
 }));
 
 vi.mock('@/lib/agentic/merchant-context', () => ({
+  AGENTIC_CHECKOUT_DISABLED_ERROR: 'Agentic checkout disabled',
+  isAgenticMerchantCheckoutEnabled: (merchant: {
+    agentic_checkout_enabled?: boolean;
+  }) => merchant.agentic_checkout_enabled !== false,
   resolveAgenticMerchantContext: mockResolveAgenticMerchantContext,
 }));
 
@@ -68,7 +88,10 @@ describe('POST /api/agentic/checkout_sessions', () => {
     vi.clearAllMocks();
     mockGetIdempotencyKey.mockReturnValue('idem-1');
     mockResolveAgenticMerchantContext.mockResolvedValue({
+      agentic_checkout_enabled: true,
       id: 'merchant-1',
+      pay_on_delivery_enabled: false,
+      paystack_subaccount_code: null,
       slug: 'ogabassey',
     });
     mockVerifyAgenticApiKey.mockReturnValue(true);
@@ -123,6 +146,53 @@ describe('POST /api/agentic/checkout_sessions', () => {
     expect(response.status).toBe(401);
     expect(body).toEqual({ error: 'Unauthorized' });
     expect(createAdminClient).not.toHaveBeenCalled();
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when the merchant disables agentic checkout', async () => {
+    const mockSupabase = { from: vi.fn() };
+    mockResolveAgenticMerchantContext.mockResolvedValue({
+      agentic_checkout_enabled: false,
+      id: 'merchant-1',
+      pay_on_delivery_enabled: false,
+      paystack_subaccount_code: null,
+      slug: 'ogabassey',
+    });
+    vi.mocked(createAdminClient).mockReturnValue(mockSupabase as never);
+
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout_sessions',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'idem-1',
+        },
+        body: JSON.stringify({ items: [{ id: 'product-1', quantity: 1 }] }),
+      }
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({ error: 'Agentic checkout disabled' });
+    expect(createAgenticScopedSupabaseClient).toHaveBeenCalledWith({
+      merchantId: 'merchant-1',
+      merchantSlug: 'ogabassey',
+    });
+    expect(reserveAgenticIdempotencyKey).toHaveBeenCalled();
+    expect(storeAgenticIdempotencyResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'idem-1',
+        merchantId: 'merchant-1',
+        response: { error: 'Agentic checkout disabled' },
+        route: 'checkout_sessions.create',
+        status: 403,
+      })
+    );
+    expect(reserveAgenticRequestId).not.toHaveBeenCalled();
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 
