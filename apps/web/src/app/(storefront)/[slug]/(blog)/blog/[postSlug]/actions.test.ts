@@ -34,7 +34,30 @@ describe('incrementViewCount', () => {
     });
   });
 
-  it('swallows rpc errors without throwing', async () => {
+  it('logs returned rpc errors without throwing', async () => {
+    const error = new Error('rpc failed');
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
+      .mockImplementation(() => {});
+
+    mockRpc.mockResolvedValue({ data: null, error });
+    mockCreateClient.mockReturnValue({
+      rpc: mockRpc,
+    });
+
+    try {
+      await expect(incrementViewCount('post-123')).resolves.toBeUndefined();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to increment view count:',
+        error
+      );
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
+  it('swallows thrown rpc errors without throwing', async () => {
     const error = new Error('rpc failed');
     const consoleSpy = vi
       .spyOn(console, 'error')
@@ -46,13 +69,15 @@ describe('incrementViewCount', () => {
       rpc: mockRpc,
     });
 
-    await expect(incrementViewCount('post-123')).resolves.toBeUndefined();
-    expect(consoleSpy).toHaveBeenCalledWith(
-      'Failed to increment view count:',
-      error
-    );
-
-    consoleSpy.mockRestore();
+    try {
+      await expect(incrementViewCount('post-123')).resolves.toBeUndefined();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to increment view count:',
+        error
+      );
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 
   it('does not call supabase when the post id is invalid', async () => {
