@@ -540,9 +540,12 @@ describe('BlogContentRenderer', () => {
       expect(container.querySelector('figcaption')).toHaveTextContent(
         'Front camera sample'
       );
-      expect(
-        container.querySelector('figure > div.relative.aspect-video')
-      ).toBeInTheDocument();
+      expect(container.querySelector('figure')).toHaveClass('my-10');
+      const imageWrapper = container.querySelector(
+        'figure > div.relative.aspect-video'
+      );
+      expect(imageWrapper).toBeInTheDocument();
+      expect(imageWrapper).not.toHaveClass('my-10');
     });
 
     it('does not render empty figcaption wrappers for captionless images', () => {
@@ -555,9 +558,9 @@ describe('BlogContentRenderer', () => {
 
       expect(container.querySelector('figcaption')).not.toBeInTheDocument();
       expect(container.querySelector('figure')).not.toBeInTheDocument();
-      expect(
-        container.querySelector('div.relative.aspect-video')
-      ).toBeInTheDocument();
+      const imageWrapper = container.querySelector('div.relative.aspect-video');
+      expect(imageWrapper).toBeInTheDocument();
+      expect(imageWrapper).toHaveClass('my-10');
     });
 
     it('does not render an image when src is null', () => {

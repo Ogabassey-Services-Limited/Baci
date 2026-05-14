@@ -209,12 +209,23 @@ describe('transformImageTitlesToFigureCaptions', () => {
 
   it('converts titled image-only paragraphs with attributes', () => {
     const html =
-      '<p class="image-block"><img src="https://cdn.example.com/photo.jpg" title="Camera sample" /></p>';
+      '<p id="hero-image" class="image-block"><img src="https://cdn.example.com/photo.jpg" title="Camera sample" /></p>';
 
     const result = transformImageTitlesToFigureCaptions(html);
 
     expect(result).toBe(
-      '<figure><img src="https://cdn.example.com/photo.jpg" /><figcaption>Camera sample</figcaption></figure>'
+      '<figure id="hero-image" class="image-block"><img src="https://cdn.example.com/photo.jpg" /><figcaption>Camera sample</figcaption></figure>'
+    );
+  });
+
+  it('converts titled image-only figure wrappers without nesting figures', () => {
+    const html =
+      '<figure class="legacy-figure"><img src="https://cdn.example.com/photo.jpg" title="Camera sample" /></figure>';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toBe(
+      '<figure class="legacy-figure"><img src="https://cdn.example.com/photo.jpg" /><figcaption>Camera sample</figcaption></figure>'
     );
   });
 
@@ -269,6 +280,19 @@ describe('transformImageTitlesToFigureCaptions', () => {
     expect(result).not.toContain('<figcaption><script>');
   });
 
+  it('decodes common typographic caption entities before escaping text', () => {
+    const html =
+      '<p><img src="https://cdn.example.com/photo.jpg" title="&copy; Baci &mdash; 2026" /></p>';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toContain(
+      `<figcaption>${'\u00a9'} Baci ${'\u2014'} 2026</figcaption>`
+    );
+    expect(result).not.toContain('&amp;copy;');
+    expect(result).not.toContain('&amp;mdash;');
+  });
+
   it('leaves empty or whitespace-only titles unchanged', () => {
     const html =
       '<p><img src="https://cdn.example.com/photo.jpg" title="   " /></p>';
@@ -310,7 +334,15 @@ describe('unescapeHtmlText', () => {
   });
 
   it('preserves unknown entities and surrounding text', () => {
-    expect(unescapeHtmlText('Price &copy; 2026')).toBe('Price &copy; 2026');
+    expect(unescapeHtmlText('Price &notareal; 2026')).toBe(
+      'Price &notareal; 2026'
+    );
+  });
+
+  it('unescapes common typographic html entities', () => {
+    expect(unescapeHtmlText('&copy; &mdash; &ndash;')).toBe(
+      '\u00a9 \u2014 \u2013'
+    );
   });
 
   it('handles nested and incomplete entities without throwing', () => {

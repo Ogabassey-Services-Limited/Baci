@@ -253,7 +253,12 @@ const NodeRenderer = ({
       }
 
       const imageContainer = (
-        <div className="relative aspect-video rounded-2xl overflow-hidden my-10 shadow-xl border border-border/50">
+        <div
+          className={cn(
+            'relative aspect-video rounded-2xl overflow-hidden shadow-xl border border-border/50',
+            !imageCaption && 'my-10'
+          )}
+        >
           <Image
             src={imageSrc}
             alt={node.attrs?.alt || 'Blog image'}

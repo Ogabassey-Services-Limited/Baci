@@ -450,6 +450,7 @@ export const EditorToolbar = ({
                     }}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
+                        e.preventDefault();
                         _insertImageFromUrl();
                       }
                     }}
@@ -471,6 +472,7 @@ export const EditorToolbar = ({
                   if (e.key !== 'Enter') {
                     return;
                   }
+                  e.preventDefault();
                   if (imagePopoverMode === 'insert') {
                     _insertImageFromUrl();
                     return;

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type {
   ButtonHTMLAttributes,
@@ -252,6 +252,23 @@ describe('EditorToolbar', () => {
     });
   });
 
+  it('prevents default Enter behavior when inserting an image URL', async () => {
+    const user = userEvent.setup();
+    render(<EditorToolbar />);
+
+    await user.click(screen.getByLabelText('Insert image from URL'));
+    const imageUrlInput = screen.getByLabelText('Image URL');
+    await user.type(imageUrlInput, 'https://cdn.example.com/camera.jpg');
+
+    expect(
+      fireEvent.keyDown(imageUrlInput, { key: 'Enter', code: 'Enter' })
+    ).toBe(false);
+    expect(mockSetImage).toHaveBeenCalledWith({
+      src: 'https://cdn.example.com/camera.jpg',
+      title: null,
+    });
+  });
+
   it('updates selected image caption through updateAttributes', async () => {
     const user = userEvent.setup();
     mockIsActive.mockImplementation((name: unknown) => name === 'image');
@@ -268,6 +285,29 @@ describe('EditorToolbar', () => {
     await user.type(captionInput, 'Updated caption');
     await user.click(screen.getByRole('button', { name: 'Update Caption' }));
 
+    expect(mockUpdateAttributes).toHaveBeenCalledWith('image', {
+      title: 'Updated caption',
+    });
+  });
+
+  it('prevents default Enter behavior when updating selected image captions', async () => {
+    const user = userEvent.setup();
+    mockIsActive.mockImplementation((name: unknown) => name === 'image');
+    mockGetAttributes.mockReturnValue({
+      src: 'https://cdn.example.com/camera.jpg',
+      title: 'Old caption',
+    });
+
+    render(<EditorToolbar />);
+
+    await user.click(screen.getByLabelText('Edit selected image caption'));
+    const captionInput = screen.getByLabelText('Caption');
+    await user.clear(captionInput);
+    await user.type(captionInput, 'Updated caption');
+
+    expect(
+      fireEvent.keyDown(captionInput, { key: 'Enter', code: 'Enter' })
+    ).toBe(false);
     expect(mockUpdateAttributes).toHaveBeenCalledWith('image', {
       title: 'Updated caption',
     });

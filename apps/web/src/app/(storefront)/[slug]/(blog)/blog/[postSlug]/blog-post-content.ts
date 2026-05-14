@@ -10,7 +10,7 @@ import type { NormalizeStorefrontContentHrefOptions } from '@/lib/storefront-lin
 const DEFAULT_BLOG_IMAGE_ALT = 'Blog image';
 
 const STANDALONE_IMAGE_BOUNDARY_TAGS = new Set(
-  'article aside blockquote body dd details div dt footer h1 h2 h3 h4 h5 h6 header img li main nav ol p section ul'.split(
+  'article aside blockquote body dd details div dt figure footer h1 h2 h3 h4 h5 h6 header img li main nav ol p section ul'.split(
     ' '
   )
 );
@@ -24,21 +24,17 @@ const HTML_ATTR_ESCAPE_MAP: Record<string, string> = {
   '"': '&quot;',
   "'": '&#39;',
 };
-const HTML_TEXT_UNESCAPE_REGEX = /&(?:amp|lt|gt|quot|#39);/g;
-const HTML_TEXT_UNESCAPE_MAP: Record<string, string> = {
-  '&amp;': '&',
-  '&lt;': '<',
-  '&gt;': '>',
-  '&quot;': '"',
-  '&#39;': "'",
-};
+const HTML_TEXT_UNESCAPE_REGEX =
+  /&(?:amp|lt|gt|quot|apos|#39|nbsp|copy|reg|trade|mdash|ndash|hellip|lsquo|rsquo|ldquo|rdquo|#\d+|#x[\da-f]+);/gi;
+const HTML_TEXT_UNESCAPE_ENTITIES =
+  "&amp;=&|&lt;=<|&gt;=>|&quot;=\"|&apos;='|&#39;='|&nbsp;=\u00a0|&copy;=\u00a9|&reg;=\u00ae|&trade;=\u2122|&mdash;=\u2014|&ndash;=\u2013|&hellip;=\u2026|&lsquo;=\u2018|&rsquo;=\u2019|&ldquo;=\u201c|&rdquo;=\u201d";
+const HTML_TEXT_UNESCAPE_MAP: Record<string, string> = Object.fromEntries(
+  HTML_TEXT_UNESCAPE_ENTITIES.split('|').map((entry) => {
+    const separatorIndex = entry.indexOf('=');
+    return [entry.slice(0, separatorIndex), entry.slice(separatorIndex + 1)];
+  })
+);
 
-/**
- * Escape characters that are unsafe inside a double-quoted HTML attribute value.
- * Unlike `escapeHtml` in `sanitize-core`, this emits HTML entities (not
- * JSON-style `\uXXXX`), so the resulting text renders correctly as attribute
- * content for accessibility and SEO consumers.
- */
 function escapeHtmlAttr(value: string): string {
   if (!value) return '';
   return value.replace(
@@ -49,24 +45,37 @@ function escapeHtmlAttr(value: string): string {
 
 export function unescapeHtmlText(value: string): string {
   if (!value) return '';
-  return value.replace(
-    HTML_TEXT_UNESCAPE_REGEX,
-    (match) => HTML_TEXT_UNESCAPE_MAP[match] ?? match
-  );
+  return value.replace(HTML_TEXT_UNESCAPE_REGEX, (match) => {
+    const normalizedMatch = match.toLowerCase();
+    const mapped = HTML_TEXT_UNESCAPE_MAP[normalizedMatch];
+    if (mapped !== undefined) {
+      return mapped;
+    }
+
+    if (normalizedMatch.startsWith('&#x')) {
+      const codePoint = Number.parseInt(normalizedMatch.slice(3, -1), 16);
+      return Number.isInteger(codePoint) && codePoint <= 0x10ffff
+        ? String.fromCodePoint(codePoint)
+        : match;
+    }
+
+    if (normalizedMatch.startsWith('&#')) {
+      const codePoint = Number.parseInt(normalizedMatch.slice(2, -1), 10);
+      return Number.isInteger(codePoint) && codePoint <= 0x10ffff
+        ? String.fromCodePoint(codePoint)
+        : match;
+    }
+
+    return match;
+  });
 }
 
 function normalizeBasePath(basePath: string): string {
-  if (!basePath || basePath === '/') {
-    return '';
-  }
-
-  return basePath.replace(/\/+$/, '');
+  return !basePath || basePath === '/' ? '' : basePath.replace(/\/+$/, '');
 }
 
 function tryParseJson(content: unknown): unknown | null {
-  if (typeof content !== 'string') {
-    return content ?? null;
-  }
+  if (typeof content !== 'string') return content ?? null;
 
   try {
     return JSON.parse(content.trim());
@@ -76,50 +85,39 @@ function tryParseJson(content: unknown): unknown | null {
 }
 
 function deriveAltFromImageSrc(src: string): string {
-  if (!src) {
-    return '';
-  }
-
   const source = src.trim();
   if (!source) {
     return '';
   }
 
-  const parsedPath = (() => {
-    try {
-      return decodeURIComponent(new URL(source).pathname);
-    } catch {
-      return source;
-    }
-  })();
+  let parsedPath = source;
+  try {
+    parsedPath = decodeURIComponent(new URL(source).pathname);
+  } catch {
+    parsedPath = source;
+  }
 
   const fileName = parsedPath
     .split('/')
     .map((segment) => segment.trim())
     .filter(Boolean)
     .pop();
-  if (!fileName) {
-    return '';
-  }
-
-  const cleaned = fileName
-    .replace(/\.[a-z0-9]{2,8}$/i, '')
-    .replace(/[-_](\d{2,5}x\d{2,5})$/i, '')
-    .replace(/[-_]+/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  return cleaned;
+  return fileName
+    ? fileName
+        .replace(/\.[a-z0-9]{2,8}$/i, '')
+        .replace(/[-_](\d{2,5}x\d{2,5})$/i, '')
+        .replace(/[-_]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+    : '';
 }
 
 function ensureBlogImageAltText(
   html: string,
   fallbackAltText: string | null | undefined
 ): string {
-  const fallback = (fallbackAltText?.trim() || DEFAULT_BLOG_IMAGE_ALT).slice(
-    0,
-    200
-  );
+  const fallbackText = fallbackAltText?.trim() || DEFAULT_BLOG_IMAGE_ALT;
+  const fallback = fallbackText.slice(0, 200);
 
   return html.replace(/<img\b[^>]*>/gi, (imgTag) => {
     const srcMatch = imgTag.match(/\bsrc\s*=\s*(['"])(.*?)\1/i);
@@ -130,10 +128,6 @@ function ensureBlogImageAltText(
     const currentAltMatch = imgTag.match(altAttrRegex);
     const currentAlt = currentAltMatch?.[2];
 
-    // If an alt attribute is present — even if it is the empty string (which
-    // authors use deliberately for decorative images, per WCAG) — respect the
-    // author's signal and leave the tag untouched. Only synthesize a fallback
-    // alt when the attribute is completely absent.
     if (currentAlt !== undefined) {
       return imgTag;
     }
@@ -146,13 +140,19 @@ function ensureBlogImageAltText(
   });
 }
 
-function buildFigureFromTitledImage(imgTag: string): string | null {
+function formatFigureAttributes(attributes: string | undefined): string {
+  const trimmedAttributes = attributes?.trim();
+  return trimmedAttributes ? ` ${trimmedAttributes}` : '';
+}
+
+function buildFigureFromTitledImage(
+  imgTag: string,
+  figureAttributes?: string
+): string | null {
   const titleMatch = imgTag.match(/\btitle\s*=\s*(['"])(.*?)\1/i);
   const rawTitle = titleMatch?.[2] ?? '';
   const trimmedTitle = rawTitle.trim();
-  if (!trimmedTitle) {
-    return null;
-  }
+  if (!trimmedTitle) return null;
 
   // `trimmedTitle` contains sanitized HTML entities; decode with
   // `unescapeHtmlText(trimmedTitle)` to recover plain text, then encode again
@@ -160,14 +160,11 @@ function buildFigureFromTitledImage(imgTag: string): string | null {
   const captionText = escapeHtmlText(unescapeHtmlText(trimmedTitle));
   const imageWithoutTitle = imgTag.replace(/\s*title\s*=\s*(['"]).*?\1/i, '');
 
-  return `<figure>${imageWithoutTitle}<figcaption>${captionText}</figcaption></figure>`;
+  return `<figure${formatFigureAttributes(figureAttributes)}>${imageWithoutTitle}<figcaption>${captionText}</figcaption></figure>`;
 }
 
 function isStandaloneImageBoundaryTag(tagName: string | undefined): boolean {
-  return (
-    tagName !== undefined &&
-    STANDALONE_IMAGE_BOUNDARY_TAGS.has(tagName.toLowerCase())
-  );
+  return !!tagName && STANDALONE_IMAGE_BOUNDARY_TAGS.has(tagName.toLowerCase());
 }
 
 function hasStandaloneImageBoundaryBefore(
@@ -205,10 +202,19 @@ function isStandaloneImageBlock(
 }
 
 export function transformImageTitlesToFigureCaptions(html: string): string {
-  const withStandaloneImageParagraphs = html.replace(
-    /<p\b[^>]*>\s*(<img\b[^<>]*>)\s*<\/p>/gi,
-    (paragraph, imgTag) => {
-      return buildFigureFromTitledImage(imgTag) ?? paragraph;
+  const withStandaloneFigures = html.replace(
+    /<figure\b([^>]*)>\s*(<img\b[^<>]*>)\s*<\/figure>/gi,
+    (figure, figureAttributes, imgTag) => {
+      return buildFigureFromTitledImage(imgTag, figureAttributes) ?? figure;
+    }
+  );
+
+  const withStandaloneImageParagraphs = withStandaloneFigures.replace(
+    /<p\b([^>]*)>\s*(<img\b[^<>]*>)\s*<\/p>/gi,
+    (paragraph, paragraphAttributes, imgTag) => {
+      return (
+        buildFigureFromTitledImage(imgTag, paragraphAttributes) ?? paragraph
+      );
     }
   );
 

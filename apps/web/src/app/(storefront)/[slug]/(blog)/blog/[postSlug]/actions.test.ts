@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { mockCookies, mockCreateClient, mockRpc } = vi.hoisted(() => ({
   mockCookies: vi.fn(async () => ({})),
@@ -17,6 +17,10 @@ vi.mock('@/lib/supabase/server', () => ({
 import { incrementViewCount } from './actions';
 
 describe('incrementViewCount', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('calls the increment_blog_post_views rpc with the post id', async () => {
     mockRpc.mockResolvedValue({ data: null, error: null });
     mockCreateClient.mockReturnValue({
@@ -49,5 +53,13 @@ describe('incrementViewCount', () => {
     );
 
     consoleSpy.mockRestore();
+  });
+
+  it('does not call supabase when the post id is invalid', async () => {
+    await incrementViewCount('   ');
+
+    expect(mockCookies).not.toHaveBeenCalled();
+    expect(mockCreateClient).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
   });
 });
