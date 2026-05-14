@@ -25,6 +25,10 @@ export function buildUcpDiscoveryProfile(manifest: AgentCommerceManifest) {
     manifest.store.canonical_origin,
     STOREFRONT_AGENT_ROUTES.manifest
   );
+  const agenticApiBaseUrl = buildUrl(
+    manifest.store.canonical_origin,
+    STOREFRONT_AGENT_ROUTES.agenticApiBase
+  );
   const checkoutEnabled = manifest.capabilities.includes(
     'checkout.session.create'
   );
@@ -40,8 +44,9 @@ export function buildUcpDiscoveryProfile(manifest: AgentCommerceManifest) {
             spec: UCP_SPEC_OVERVIEW_URL,
             schema: UCP_REST_SCHEMA_URL,
             transport: 'rest',
-            endpoint: agentCommerceManifestUrl,
+            endpoint: agenticApiBaseUrl,
             config: {
+              baci_api_base: agenticApiBaseUrl,
               baci_manifest: agentCommerceManifestUrl,
               native_ucp_operations: false,
             },

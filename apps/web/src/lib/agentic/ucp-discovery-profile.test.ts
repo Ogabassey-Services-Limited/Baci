@@ -66,6 +66,15 @@ describe('buildUcpDiscoveryProfile', () => {
     const profile = buildUcpDiscoveryProfile(baseManifest);
 
     expect(profile.ucp.version).toBe('2026-04-08');
+    expect(profile.ucp.services['dev.ucp.shopping']).toEqual([
+      expect.objectContaining({
+        endpoint: 'https://ogabassey.com/api/agentic',
+        config: expect.objectContaining({
+          baci_manifest: 'https://ogabassey.com/agent-commerce.json',
+          native_ucp_operations: false,
+        }),
+      }),
+    ]);
     expect(profile.ucp.capabilities).toMatchObject({
       'com.usebaci.catalog.read': [
         expect.objectContaining({ version: '2026-04-30' }),

@@ -78,7 +78,7 @@ describe('GET /.well-known/ucp', () => {
     expect(body.ucp.version).toBe('2026-04-08');
     expect(body.ucp.services['dev.ucp.shopping']).toEqual([
       expect.objectContaining({
-        endpoint: 'https://ogabassey.com/agent-commerce.json',
+        endpoint: 'https://ogabassey.com/api/agentic',
         transport: 'rest',
         version: '2026-04-08',
       }),
