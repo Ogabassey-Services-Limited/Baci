@@ -27,3 +27,6 @@
 ## 2026-05-13 - Replace hardcoded brand colors with theme tokens in Analytics Config
 **Learning:** Hardcoding brand colors like `#000000` for TikTok can make the icon completely invisible in dark mode when placed on dark card backgrounds (e.g., `#1A1A2E`). Furthermore, `#fff` for active toggle knob states should use semantic tokens.
 **Action:** Always replace hardcoded static brand hex values like `#000000` with adaptive tokens from `useTheme()` like `colors.text` so they maintain contrast across both light and dark themes. Use `colors.textOnPrimary` for white toggle knobs so they correctly adapt to the active semantic tokens.
+## 2026-05-14 - Fix hardcoded colors in mobile admin Products screen
+**Learning:** Hardcoded \`rgba(0,0,0,0.5)\` for backdrops and \`#FFF\` for text broke dark/light mode consistency. A generic #FFF inside a button with \`colors.primary\` works in light mode but limits adaptability.
+**Action:** Use \`colors.backdrop\` for overlays, \`colors.errorLight\`/\`colors.error\` for error states, and \`colors.textOnPrimary\` for content inside primary-colored buttons.
