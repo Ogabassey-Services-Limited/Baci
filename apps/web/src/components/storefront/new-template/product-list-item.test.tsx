@@ -74,4 +74,28 @@ describe('ProductListItem', () => {
       expect.stringContaining('var(--store-primary)')
     );
   });
+
+  it('renders every interactive icon button with type="button" so the card never accidentally submits a parent form', () => {
+    const productWithColors = {
+      ...baseProduct,
+      colors: [
+        { name: 'Black', hex: '#000000' },
+        { name: 'Silver', hex: '#cccccc' },
+      ],
+    };
+
+    render(
+      <ProductListItem
+        product={productWithColors}
+        onAddToCart={vi.fn()}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    for (const button of screen.getAllByRole('button')) {
+      expect(button).toHaveAttribute('type', 'button');
+    }
+  });
 });
