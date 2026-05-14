@@ -1,73 +1,48 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BASE_URL } from '@/lib/api-client';
-import { supabase } from '@/lib/supabase';
+import { createAuthenticatedFetch } from './authenticated-fetch';
+import { parseResponsePayload } from './response-utils';
+
+const GENERATE_DVA_TIMEOUT_MS = 20_000;
 
 export function useGenerateDva() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ orderId }: { orderId: string }) => {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
+      const response = await createAuthenticatedFetch(
+        `${BASE_URL}/api/orders/${orderId}/generate-dva`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        },
+        GENERATE_DVA_TIMEOUT_MS
+      );
 
-      if (sessionError) {
-        throw new Error(sessionError.message);
+      if (!response.ok) {
+        const responseText = await response.text();
+        const payload = parseResponsePayload(responseText);
+        const errorMessage =
+          payload &&
+          typeof payload === 'object' &&
+          typeof payload.error === 'string'
+            ? payload.error
+            : responseText ||
+              `Request failed: ${response.status} ${response.statusText}`;
+        throw new Error(errorMessage);
       }
 
-      if (!session?.access_token) {
-        throw new Error('Not authenticated');
-      }
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 20_000);
-
-      try {
-        const response = await fetch(
-          `${BASE_URL}/api/orders/${orderId}/generate-dva`,
-          {
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            method: 'POST',
-            signal: controller.signal,
-          }
-        );
-
-        if (!response.ok) {
-          let errorMessage = `Request failed: ${response.status} ${response.statusText}`;
-          try {
-            const errorBody = await response.json();
-            if (errorBody.error) {
-              errorMessage = errorBody.error;
-            }
-          } catch {
-            // noop
-          }
-          throw new Error(errorMessage);
-        }
-
-        return response.json() as Promise<{
-          existing: boolean;
-          success: boolean;
-          virtualAccount: {
-            account_name: string;
-            account_number: string;
-            bank_name: string;
-          };
-        }>;
-      } catch (error: unknown) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          throw new Error(
-            'DVA generation timed out. Paystack may be slow — try again.'
-          );
-        }
-        throw error;
-      } finally {
-        clearTimeout(timeoutId);
-      }
+      return response.json() as Promise<{
+        existing: boolean;
+        success: boolean;
+        virtualAccount: {
+          account_name: string;
+          account_number: string;
+          bank_name: string;
+        };
+      }>;
     },
     mutationKey: ['generateDva'],
     onSuccess: (_data, { orderId }) => {

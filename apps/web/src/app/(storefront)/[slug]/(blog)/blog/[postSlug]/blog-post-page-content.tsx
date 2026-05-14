@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { InformationalClusterPanel } from '@/components/storefront/ogabassey/seo/informational-cluster-panel';
 import { Button } from '@/components/ui/button';
+import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
 import { asRoute } from '@/lib/routes';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
@@ -75,6 +76,7 @@ async function renderBlogPostContent({
   const blogIndexUrl = `${baseUrl}/blog`;
   const postUrl = buildCanonicalBlogPostUrl(merchant, post.slug);
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
+  const blogImageUrls = getBlogStructuredDataImageUrls(post);
 
   const blogSchema = generateBlogPostSchema({
     title: post.seo_title || post.title,
@@ -83,7 +85,7 @@ async function renderBlogPostContent({
       post.excerpt ||
       getBlogPostTextPreview(post.content),
     url: postUrl,
-    image: post.featured_image_url || `${baseUrl}/opengraph-image`,
+    ...(blogImageUrls.length > 0 ? { imageUrls: blogImageUrls } : {}),
     datePublished: post.published_at,
     dateModified: post.updated_at,
     author: {

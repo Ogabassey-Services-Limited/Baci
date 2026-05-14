@@ -87,7 +87,18 @@ describe('useShipOnCredit', () => {
     });
     mocks.fetch.mockResolvedValue({
       ok: true,
-      text: async () => JSON.stringify({ success: true }),
+      text: async () =>
+        JSON.stringify({
+          success: true,
+          message: 'Order confirmed for credit shipping',
+          order: {
+            id: 'order-1',
+            order_number: 'ORD-1',
+            shipping_status: 'processing',
+            is_credit_order: true,
+          },
+          virtualAccount: null,
+        }),
     });
 
     const mutation = useShipOnCredit() as unknown as {
@@ -100,7 +111,17 @@ describe('useShipOnCredit', () => {
 
     await expect(
       mutation.mutationFn({ orderId: 'order-1', creditNotes: 'Later' })
-    ).resolves.toEqual({ success: true });
+    ).resolves.toEqual({
+      success: true,
+      message: 'Order confirmed for credit shipping',
+      order: {
+        id: 'order-1',
+        order_number: 'ORD-1',
+        shipping_status: 'processing',
+        is_credit_order: true,
+      },
+      virtualAccount: null,
+    });
     mutation.onSuccess(null, { orderId: 'order-1' });
 
     expect(mocks.fetch).toHaveBeenCalledWith(
@@ -140,6 +161,36 @@ describe('useShipOnCredit', () => {
     await expect(mutation.mutationFn({ orderId: 'order-1' })).rejects.toThrow(
       'Request timed out. Please check your connection and try again.'
     );
+  });
+
+  it('rejects malformed successful ship-on-credit responses', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    mocks.fetch.mockResolvedValue({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          success: true,
+          message: 'Order confirmed for credit shipping',
+          order: {
+            id: 'order-1',
+            shipping_status: 'processing',
+            is_credit_order: 'yes',
+          },
+          virtualAccount: null,
+        }),
+    });
+
+    const mutation = useShipOnCredit() as unknown as {
+      mutationFn: (vars: { orderId: string }) => Promise<unknown>;
+    };
+
+    await expect(mutation.mutationFn({ orderId: 'order-1' })).rejects.toThrow(
+      'Failed to ship on credit'
+    );
+    expect(mocks.fetch).toHaveBeenCalled();
+    expect(mocks.invalidateQueries).not.toHaveBeenCalled();
   });
 
   it('skips merchant-scoped invalidations when the merchant is unavailable', () => {

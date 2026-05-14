@@ -389,6 +389,10 @@ describe('runReportBlogDiscoverImageReadinessCli', () => {
     expect(exitCode).toBe(0);
     expect(uploadedPaths.length).toBeGreaterThan(0);
     expect(updatedRows).toHaveLength(1);
+    expect(updatedRows[0]?.featured_image_variants).toEqual({
+      landscape_16x9:
+        'https://cdn.ogabassey.com/media/merchant-1/blog/original/landscape_16x9.webp',
+    });
   });
 
   it('logs partial upload state when a managed row variant upload fails', async () => {

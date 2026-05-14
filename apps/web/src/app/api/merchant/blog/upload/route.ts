@@ -11,6 +11,7 @@ import {
   generateFeaturedImageVariants,
   isManagedBlogStoragePath,
 } from '@/lib/blog-featured-image-variants';
+import { buildBlogMediaCdnUrl } from '@/lib/blog-managed-storage-paths';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { checkRateLimit } from '@/lib/rate-limiter';
 
@@ -116,6 +117,24 @@ function toFeaturedUploadErrorResponse(error: BlogFeaturedImageError) {
   );
 }
 
+function getCanonicalBlogMediaUrl(path: string, merchantId: string): string {
+  const url = buildBlogMediaCdnUrl(path, merchantId);
+  if (!url) {
+    console.error(
+      'buildBlogMediaCdnUrl could not construct a blog media CDN URL',
+      {
+        path,
+        merchantId,
+      }
+    );
+    throw new Error(
+      `Failed to build blog media CDN URL for merchantId="${merchantId}" path="${path}"`
+    );
+  }
+
+  return url;
+}
+
 export async function POST(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
   if (auth.error || !auth.user || !auth.supabase) {
@@ -217,12 +236,8 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const { data: publicUrlData } = auth.supabase.storage
-        .from('media')
-        .getPublicUrl(filePath);
-
       return NextResponse.json({
-        url: publicUrlData.publicUrl,
+        url: getCanonicalBlogMediaUrl(filePath, access.merchantId),
         path: filePath,
         filename,
         size: file.size,
@@ -266,10 +281,6 @@ export async function POST(request: NextRequest) {
 
     uploadedPaths.push(filePath);
 
-    const { data: originalUrlData } = auth.supabase.storage
-      .from('media')
-      .getPublicUrl(filePath);
-
     const featuredImageVariants: Record<
       string,
       {
@@ -299,12 +310,9 @@ export async function POST(request: NextRequest) {
         }
 
         uploadedPaths.push(variantPath);
-        const { data: variantUrlData } = auth.supabase.storage
-          .from('media')
-          .getPublicUrl(variantPath);
 
         featuredImageVariants[variant.key] = {
-          url: variantUrlData.publicUrl,
+          url: getCanonicalBlogMediaUrl(variantPath, access.merchantId),
           path: variantPath,
           width: variant.width,
           height: variant.height,
@@ -350,7 +358,7 @@ export async function POST(request: NextRequest) {
     );
 
     return NextResponse.json({
-      url: originalUrlData.publicUrl,
+      url: getCanonicalBlogMediaUrl(filePath, access.merchantId),
       path: filePath,
       filename,
       size: file.size,

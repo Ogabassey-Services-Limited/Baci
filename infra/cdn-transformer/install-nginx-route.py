@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+from urllib.parse import urlparse
 
 paths = [
     Path('/etc/nginx/sites-enabled/cdn.ogabassey.com'),
@@ -14,6 +15,9 @@ marker_text = '# Images - auto-serve WebP if supported'
 nginx_test_timeout_seconds = 10
 default_transformer_host = '127.0.0.1'
 default_transformer_port = '8095'
+default_media_storage_origin = (
+    'https://aivqthbxdshhltbwipbr.supabase.co/storage/v1/object/public/media'
+)
 hostname_pattern = re.compile(
     r'^(?:localhost|[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?'
     r'(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*)$'
@@ -65,6 +69,49 @@ def get_transformer_upstream():
     return f'{host}:{port}'
 
 
+def get_media_storage_origin():
+    raw_origin = os.environ.get(
+        'CDN_MEDIA_STORAGE_ORIGIN',
+        default_media_storage_origin,
+    ).strip()
+
+    if any(character in raw_origin for character in ';\r\n\t {}'):
+        raise SystemExit(f'Invalid CDN_MEDIA_STORAGE_ORIGIN "{raw_origin}"')
+
+    parsed = urlparse(raw_origin.rstrip('/'))
+    if (
+        parsed.scheme != 'https'
+        or not parsed.netloc
+        or parsed.params
+        or parsed.query
+        or parsed.fragment
+        or parsed.username
+        or parsed.password
+    ):
+        raise SystemExit(f'Invalid CDN_MEDIA_STORAGE_ORIGIN "{raw_origin}"')
+
+    if parsed.hostname is None:
+        raise SystemExit(f'Invalid CDN_MEDIA_STORAGE_ORIGIN "{raw_origin}"')
+
+    media_path = '/storage/v1/object/public/media'
+    if parsed.path != media_path and not parsed.path.startswith(f'{media_path}/'):
+        raise SystemExit(f'Invalid CDN_MEDIA_STORAGE_ORIGIN "{raw_origin}"')
+
+    host = normalize_transformer_host(parsed.hostname)
+    sni_host = host[1:-1] if host.startswith('[') and host.endswith(']') else host
+    try:
+        raw_port = parsed.port
+    except ValueError as error:
+        raise SystemExit(f'Invalid CDN_MEDIA_STORAGE_ORIGIN "{raw_origin}"') from error
+
+    port = f':{raw_port}' if raw_port else ''
+    return {
+        'host': f'{host}{port}',
+        'sni_host': sni_host,
+        'url': f'https://{host}{port}{parsed.path or ""}',
+    }
+
+
 def build_transformer_block(upstream=None):
     if upstream is None:
         upstream = get_transformer_upstream()
@@ -84,6 +131,35 @@ def build_transformer_block(upstream=None):
         proxy_buffering on;
         proxy_buffer_size 16k;
         proxy_buffers 8 32k;
+    }}
+
+"""
+
+
+def build_media_storage_block(origin=None):
+    if origin is None:
+        origin = get_media_storage_origin()
+
+    return f"""
+    # Public media bucket origin for merchant-uploaded blog assets.
+    # The app persists /media/<bucket path> CDN URLs; nginx maps them to Supabase.
+    location ^~ /media/ {{
+        limit_req zone=cdn_limit burst=100 nodelay;
+        proxy_pass {origin['url']}/;
+        proxy_http_version 1.1;
+        proxy_ssl_server_name on;
+        proxy_ssl_name {origin['sni_host']};
+        proxy_set_header Host {origin['host']};
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_hide_header Access-Control-Allow-Origin;
+        proxy_hide_header Set-Cookie;
+        proxy_buffering on;
+        proxy_buffer_size 16k;
+        proxy_buffers 8 32k;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        add_header Access-Control-Allow-Origin "*" always;
     }}
 
 """
@@ -111,6 +187,17 @@ def find_marker_index(text):
             return offset
         offset += len(line)
     return -1
+
+
+def build_missing_route_blocks(text):
+    blocks = []
+    has_image_route = re.search(r'(?m)^\s*location\s+\^~\s+/image/', text)
+    has_media_route = re.search(r'(?m)^\s*location\s+\^~\s+/media/', text)
+    if not has_image_route:
+        blocks.append(build_transformer_block())
+    if not has_media_route:
+        blocks.append(build_media_storage_block())
+    return ''.join(blocks)
 
 
 def atomic_write(path, text, file_stat):
@@ -183,7 +270,8 @@ def configure_paths(config_paths=None, config_backup_dir=None):
             continue
 
         text = read_config(target_path)
-        if 'location ^~ /image/' in text:
+        route_blocks = build_missing_route_blocks(text)
+        if not route_blocks:
             print(f'{path}: already configured target={target_path}')
             processed_targets.add(target_path)
             continue
@@ -195,7 +283,7 @@ def configure_paths(config_paths=None, config_backup_dir=None):
         file_stat = target_path.stat()
         backup = config_backup_dir / f'{path.parent.name}-{path.name}.bak-{stamp}'
         backup.write_text(text, encoding='utf-8')
-        updated_text = f'{text[:marker_index]}{build_transformer_block()}{text[marker_index:]}'
+        updated_text = f'{text[:marker_index]}{route_blocks}{text[marker_index:]}'
         atomic_write(target_path, updated_text, file_stat)
         validate_nginx_or_restore(target_path, text, file_stat)
         processed_targets.add(target_path)

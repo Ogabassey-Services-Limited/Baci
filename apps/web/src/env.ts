@@ -228,6 +228,13 @@ const clientSchema = z.object({
   // App
   NEXT_PUBLIC_ROOT_DOMAIN: z.string().default('usebaci.com'),
   NEXT_PUBLIC_APP_URL: z.string().default('http://localhost:3000'),
+  NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN: z
+    .string()
+    .url()
+    .refine((value) => new URL(value).protocol === 'https:', {
+      message: 'CDN origin must use HTTPS',
+    })
+    .optional(),
 
   // Payments (Public keys)
   NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY: z.string().optional(),
@@ -277,6 +284,8 @@ const getEnv = () => {
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     NEXT_PUBLIC_ROOT_DOMAIN: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
     NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL,
+    NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN:
+      process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN,
     NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY:
       process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
     KORAPAY_PUBLIC_KEY: process.env.KORAPAY_PUBLIC_KEY,

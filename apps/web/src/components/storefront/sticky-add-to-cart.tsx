@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Product, ProductVariant } from '@/lib/products';
 import { cn } from '@/lib/utils';
 
-interface StickyAddToCartProps {
+export interface StickyAddToCartProps {
   /** Product to add to cart */
   product: Product;
   /** Selected variant (for products with variants) */

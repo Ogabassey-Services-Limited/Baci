@@ -6,7 +6,10 @@ import {
   validateBlogDiscoverImageReadiness,
   type BlogDiscoverImageReadinessCode,
 } from '@/lib/blog-discover-readiness';
-import { extractManagedBlogStoragePath } from '@/lib/blog-managed-storage-paths';
+import {
+  buildBlogMediaCdnUrl,
+  extractManagedBlogStoragePath,
+} from '@/lib/blog-managed-storage-paths';
 import { createServiceClient } from '@/lib/supabase/service';
 
 export type ReportFormat = 'json' | 'csv';
@@ -356,6 +359,25 @@ async function reprocessManagedRows(
       let uploadFailed = false;
       for (const variant of Object.values(generated.variants)) {
         const variantPath = `${post.merchant_id}/blog/${token}/${variant.key}.webp`;
+        const variantUrl = buildBlogMediaCdnUrl(
+          variantPath,
+          post.merchant_id
+        );
+        if (!variantUrl) {
+          uploadFailed = true;
+          console.error(
+            'reprocessManagedRows buildBlogMediaCdnUrl could not construct a safe CDN URL',
+            {
+              postId: post.id,
+              variantKey: variant.key,
+              variantPath,
+              cdnUrl: variantUrl,
+              uploadedVariants: Object.keys(variants),
+            }
+          );
+          break;
+        }
+
         const uploaded = await supabase.storage.from('media').upload(
           variantPath,
           variant.buffer,
@@ -375,9 +397,8 @@ async function reprocessManagedRows(
           });
           break;
         }
-        variants[variant.key] = supabase.storage
-          .from('media')
-          .getPublicUrl(variantPath).data.publicUrl;
+
+        variants[variant.key] = variantUrl;
       }
       if (uploadFailed) continue;
 

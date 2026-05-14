@@ -2,9 +2,10 @@ import type { Order, ShippingStatus } from '@baci/shared';
 import type { InfiniteData } from '@tanstack/react-query';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BASE_URL } from '@/lib/api-client';
-import { supabase } from '@/lib/supabase';
 import { useMerchant } from '../useMerchant';
+import { createAuthenticatedFetch } from './authenticated-fetch';
 import type { OrdersPage } from './order-types';
+import { parseResponsePayload } from './response-utils';
 
 const ORDER_STATUS_UPDATE_TIMEOUT_MS = 15000;
 
@@ -18,92 +19,49 @@ interface OrderStatusVariables {
   status: ShippingStatus;
 }
 
-function parseResponsePayload(
-  text: string
-): Record<string, unknown> | string | null {
-  if (!text) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(text) as Record<string, unknown>;
-  } catch {
-    return text;
-  }
-}
-
 async function updateOrderStatus(
   orderId: string,
   status: ShippingStatus,
   merchantId: string
 ): Promise<Order> {
-  const {
-    data: { session },
-    error: sessionError,
-  } = await supabase.auth.getSession();
-
-  if (sessionError) {
-    throw new Error(sessionError.message);
-  }
-
-  if (!session?.access_token) {
-    throw new Error('Unauthorized');
-  }
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(
-    () => controller.abort(),
-    ORDER_STATUS_UPDATE_TIMEOUT_MS
-  );
-
-  try {
-    const response = await fetch(`${BASE_URL}/api/orders/${orderId}`, {
+  const response = await createAuthenticatedFetch(
+    `${BASE_URL}/api/orders/${orderId}`,
+    {
       body: JSON.stringify({
         merchant_id: merchantId,
         shipping_status: status,
       }),
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
       },
       method: 'PATCH',
-      signal: controller.signal,
-    });
-    const responseText = await response.text();
-    const payload = parseResponsePayload(responseText);
+    },
+    ORDER_STATUS_UPDATE_TIMEOUT_MS
+  );
+  const responseText = await response.text();
+  const payload = parseResponsePayload(responseText);
 
-    if (!response.ok) {
-      const errorMessage =
-        payload &&
-        typeof payload === 'object' &&
-        typeof payload.error === 'string'
-          ? payload.error
-          : responseText ||
-            `Request failed: ${response.status} ${response.statusText}`;
-      throw new Error(errorMessage);
-    }
-
-    if (
-      !payload ||
-      typeof payload !== 'object' ||
-      !('order' in payload) ||
-      !payload.order
-    ) {
-      throw new Error('Failed to update order status');
-    }
-
-    return payload.order as Order;
-  } catch (error: unknown) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(
-        'Request timed out. Please check your connection and try again.'
-      );
-    }
-
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
+  if (!response.ok) {
+    const errorMessage =
+      payload &&
+      typeof payload === 'object' &&
+      typeof payload.error === 'string'
+        ? payload.error
+        : responseText ||
+          `Request failed: ${response.status} ${response.statusText}`;
+    throw new Error(errorMessage);
   }
+
+  if (
+    !payload ||
+    typeof payload !== 'object' ||
+    !('order' in payload) ||
+    !payload.order
+  ) {
+    throw new Error('Failed to update order status');
+  }
+
+  return payload.order as Order;
 }
 
 export function useUpdateOrderStatus() {
