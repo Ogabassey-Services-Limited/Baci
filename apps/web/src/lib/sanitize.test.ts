@@ -25,6 +25,26 @@ describe('sanitize', () => {
     expect(output).toContain('rel="noopener noreferrer"');
   });
 
+  it('preserves semantic figure and figcaption markup', () => {
+    const output = sanitizeHtml(
+      '<figure><img src="https://example.com/photo.jpg" alt="Camera"><figcaption>Camera sample</figcaption></figure>'
+    );
+
+    expect(output).toContain('<figure>');
+    expect(output).toContain('<figcaption>Camera sample</figcaption>');
+  });
+
+  it('sanitizes unsafe caption markup while keeping figcaption', () => {
+    const output = sanitizeHtml(
+      '<figure><img src="https://example.com/photo.jpg"><figcaption><img src=x onerror=alert(1)>Caption<script>alert(1)</script></figcaption></figure>'
+    );
+
+    expect(output).toContain('<figcaption>');
+    expect(output).toContain('Caption');
+    expect(output).not.toContain('onerror=');
+    expect(output).not.toContain('<script');
+  });
+
   it('coerces heading offsets to safe finite integers', () => {
     expect(
       sanitizeHtml('<h1>Title</h1>', { headingLevelOffset: 1.9 })
