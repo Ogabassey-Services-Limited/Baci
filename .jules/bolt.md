@@ -1,3 +1,6 @@
 ## 2025-05-11 - Do not use useDeferredValue for debouncing network requests
 **Learning:** In the Baci monorepo, `useDeferredValue` is not an effective way to debounce network requests triggered by search inputs. While it helps keep the UI responsive by deferring the render of slow components, it does not prevent the underlying `useProducts` or `useQuery` hooks from firing a request on every single keystroke.
 **Action:** Always use a proper `useDebounce` hook (e.g., `const debouncedQuery = useDebounce(query, 300)`) to delay the actual state update that is passed to the data fetching hook.
+## 2025-05-12 - Do not return cleanup functions directly from onChange handlers
+**Learning:** In React, returning a cleanup function (like `() => clearTimeout(timeout)`) directly from an `onChange` event handler does nothing, as React ignores the return value of event handlers. This leads to broken debounce logic where the timeout is never cleared, causing API requests to fire repeatedly after every keystroke.
+**Action:** Always use the standard `useDebounce` hook to debounce state values, and perform side effects (like API calls) inside a `useEffect` that depends on the debounced value, allowing React to correctly manage the cleanup cycle.
