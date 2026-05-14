@@ -2,10 +2,16 @@ import { render, screen } from '@testing-library/react';
 import { type ReactNode, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockBlogPostPageContent } = vi.hoisted(() => ({
+const { mockBlogPostPageContent, mockBuildStoreUrl } = vi.hoisted(() => ({
   mockBlogPostPageContent: vi.fn((_props: unknown) => (
     <div>Blog post page content</div>
   )),
+  mockBuildStoreUrl: vi.fn(
+    (merchant: { slug: string; custom_domain?: string | null }) =>
+      merchant.custom_domain
+        ? `https://${merchant.custom_domain}`
+        : `https://${merchant.slug}.usebaci.com`
+  ),
 }));
 
 const mockDraftMode = vi.fn();
@@ -67,10 +73,8 @@ vi.mock('@/lib/seo-utils', () => ({
 }));
 
 vi.mock('@/lib/store-url', () => ({
-  buildStoreUrl: (merchant: { slug: string; custom_domain?: string }) =>
-    merchant.custom_domain
-      ? `https://${merchant.custom_domain}`
-      : `https://${merchant.slug}.usebaci.com`,
+  buildStoreUrl: (merchant: { slug: string; custom_domain?: string | null }) =>
+    mockBuildStoreUrl(merchant),
 }));
 
 vi.mock('./BlogPostBody', () => ({
@@ -147,6 +151,12 @@ describe('storefront blog post page', () => {
     mockBlogPostPageContent.mockImplementation(() => (
       <div>Blog post page content</div>
     ));
+    mockBuildStoreUrl.mockImplementation(
+      (merchant: { slug: string; custom_domain?: string | null }) =>
+        merchant.custom_domain
+          ? `https://${merchant.custom_domain}`
+          : `https://${merchant.slug}.usebaci.com`
+    );
   });
 
   it('only exports the route surface from the page module', async () => {
@@ -324,7 +334,7 @@ describe('storefront blog post page', () => {
     expect(metadata.openGraph?.images).toEqual([
       {
         url: 'https://ogabassey.com/blog/apple-studio-display-review/opengraph-image',
-        alt: 'Studio display on a desk',
+        alt: 'The Great 5K Stall — Ogabassey',
         width: 1200,
         height: 630,
       },
@@ -359,13 +369,45 @@ describe('storefront blog post page', () => {
     expect(metadata.openGraph?.images).toEqual([
       {
         url: 'https://ogabassey.usebaci.com/blog/apple-studio-display-review/opengraph-image',
-        alt: 'The Great 5K Stall',
+        alt: 'The Great 5K Stall — Ogabassey',
         width: 1200,
         height: 630,
       },
     ]);
     expect(metadata.twitter?.images).toEqual([
       'https://ogabassey.usebaci.com/blog/apple-studio-display-review/opengraph-image',
+    ]);
+  });
+
+  it('preserves path-mode storefront slug when building the post OG image URL', async () => {
+    mockDraftMode.mockResolvedValue({ isEnabled: false });
+    mockBuildStoreUrl.mockReturnValue('http://localhost:3000/ogabassey');
+    mockGetCachedBlogPost.mockResolvedValue({
+      ...liveBlogPost,
+      merchant: {
+        ...liveBlogPost.merchant,
+        custom_domain: null,
+        slug: 'ogabassey',
+      },
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'ogabassey',
+        postSlug: 'apple-studio-display-review',
+      }),
+    });
+
+    expect(metadata.openGraph?.images).toEqual([
+      {
+        url: 'http://localhost:3000/ogabassey/blog/apple-studio-display-review/opengraph-image',
+        alt: 'The Great 5K Stall — Ogabassey',
+        width: 1200,
+        height: 630,
+      },
+    ]);
+    expect(metadata.twitter?.images).toEqual([
+      'http://localhost:3000/ogabassey/blog/apple-studio-display-review/opengraph-image',
     ]);
   });
 });

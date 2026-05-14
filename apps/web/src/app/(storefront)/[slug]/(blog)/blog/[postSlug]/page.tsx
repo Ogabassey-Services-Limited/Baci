@@ -33,11 +33,12 @@ export async function generateMetadata({
 
   const url = buildCanonicalBlogPostUrl(merchant, post.slug);
   const baseUrl = buildStoreUrl(merchant);
+  const storefrontBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
   const ogImageUrl = new URL(
-    `/blog/${post.slug}/opengraph-image`,
-    baseUrl
+    `blog/${post.slug}/opengraph-image`,
+    storefrontBaseUrl
   ).toString();
-  const ogImageAlt = post.featured_image_alt || title;
+  const ogImageAlt = `${title} — ${merchant.business_name}`;
 
   return {
     title: `${title} | ${merchant.business_name}`,

@@ -2,6 +2,8 @@ import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 import { env } from '@/env';
 import { extractManagedBlogStoragePath } from '@/lib/blog-managed-storage-paths';
 
+export { getBlogCacheTag } from '@/lib/blog-cache-tags';
+
 const trustedOriginCandidates = [
   env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN || DEFAULT_BLOG_MEDIA_CDN_ORIGIN,
   env.NEXT_PUBLIC_SUPABASE_URL,
@@ -36,15 +38,6 @@ export async function withTimeout<T>(
   } finally {
     if (timer) clearTimeout(timer);
   }
-}
-
-export function getBlogCacheTag(
-  routeIdentifier: string,
-  postSlug: string
-): string {
-  return `blog-${routeIdentifier.trim().toLowerCase()}-${postSlug
-    .trim()
-    .toLowerCase()}`;
 }
 
 export function isAllowedBlogOgImageUrl(

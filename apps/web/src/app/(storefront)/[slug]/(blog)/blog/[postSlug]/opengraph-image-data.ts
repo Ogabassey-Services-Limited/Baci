@@ -1,4 +1,5 @@
 import { cache } from 'react';
+import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import {
   getCachedFeatureSettings,
   getCachedMerchant,
@@ -11,20 +12,18 @@ import {
   loadLogoImage,
   type RemoteImageLoadStatus,
 } from './opengraph-image-loader';
-import { getBlogCacheTag, withTimeout } from './opengraph-image-security';
+import { withTimeout } from './opengraph-image-security';
 
 const MERCHANT_LOOKUP_TIMEOUT_MS = 4000;
 const FEATURE_SETTINGS_TIMEOUT_MS = 4000;
 
+export { getBlogCacheTag } from '@/lib/blog-cache-tags';
 export type {
   RemoteImageLoadResult,
   RemoteImageLoadStatus,
 } from './opengraph-image-loader';
 export { loadRemoteImageDataUri } from './opengraph-image-loader';
-export {
-  getBlogCacheTag,
-  isAllowedBlogOgImageUrl,
-} from './opengraph-image-security';
+export { isAllowedBlogOgImageUrl } from './opengraph-image-security';
 
 type MerchantBrandColors = {
   background: string | null;
