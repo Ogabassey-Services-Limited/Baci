@@ -130,6 +130,7 @@ export const SPACING = {
   xl: 20,
   '2xl': 24,
   '3xl': 32,
+  touchTarget: 48,
 };
 
 export const RADIUS = {
@@ -139,6 +140,10 @@ export const RADIUS = {
   xl: 20,
   '2xl': 24,
   full: 9999,
+};
+
+export const SIZE = {
+  display: 64,
 };
 
 export const TYPOGRAPHY = {

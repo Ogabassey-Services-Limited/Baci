@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { NewOrderAddressInput } from './NewOrderAddressInput';
+import { NewOrderBranchSelector } from './NewOrderBranchSelector';
 import { styles } from './new-order.styles';
 
 interface NewOrderDetailsSectionProps {
@@ -23,12 +24,15 @@ export function NewOrderDetailsSection({
 }: NewOrderDetailsSectionProps) {
   const {
     colors,
+    branches,
     customer,
     date,
     deliveryInfo,
     sameAsCustomer,
+    selectedBranchId,
     setDate,
     setDeliveryInfo,
+    setSelectedBranchId,
     setSameAsCustomer,
     setShowCustomerModal,
     setShowDatePicker,
@@ -167,6 +171,14 @@ export function NewOrderDetailsSection({
             />
           </View>
         </Pressable>
+
+        <NewOrderBranchSelector
+          branches={branches}
+          selectedBranchId={selectedBranchId}
+          setSelectedBranchId={setSelectedBranchId}
+          colors={colors}
+          styles={styles}
+        />
       </View>
 
       <View

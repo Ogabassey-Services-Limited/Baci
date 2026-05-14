@@ -53,7 +53,13 @@ function makeProduct(): Product {
 
 describe('DeferredStickyAddToCart', () => {
   it('loads the sticky cart outside the first server-rendered client graph', () => {
-    // next/dynamic is configured during module initialization, before render.
+    const product = makeProduct();
+
+    render(<DeferredStickyAddToCart product={product} />);
+
+    expect(
+      screen.getByRole('region', { name: 'Deferred sticky add to cart' })
+    ).toHaveTextContent('iPad 11th Gen');
     expect(mockDynamic).toHaveBeenCalledWith(
       expect.any(Function),
       expect.objectContaining({
@@ -61,18 +67,13 @@ describe('DeferredStickyAddToCart', () => {
         ssr: false,
       })
     );
-
-    render(<DeferredStickyAddToCart product={makeProduct()} />);
-
-    expect(
-      screen.getByRole('region', { name: 'Deferred sticky add to cart' })
-    ).toHaveTextContent('iPad 11th Gen');
   });
 
   it('uses a non-layout-shifting fallback while the sticky cart chunk loads', () => {
     const options = mockDynamic.mock.calls[0]?.[1];
+    expect(options?.loading).toBeDefined();
 
-    render(options?.loading?.() ?? null);
+    render(options?.loading?.());
 
     expect(screen.getByTestId('sticky-cart-loading-fallback')).toHaveClass(
       'fixed',

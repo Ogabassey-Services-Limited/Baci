@@ -6,45 +6,54 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { useQuery } from '@tanstack/react-query';
-import { format, isSameMonth, parseISO } from 'date-fns';
+import { isSameMonth, isValid, parseISO } from 'date-fns';
 import { Stack, useRouter } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ExpenseListItem } from '@/components/expenses/ExpenseListItem';
+import { styles } from '@/components/expenses/expenses-list.styles';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useBranchScope } from '@/hooks/useBranchScope';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
+import { getBranchScopeKey } from '@/lib/branch-scope-query';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency } from '@/lib/utils';
-
-interface Expense {
-  id: string;
-  amount: number;
-  category: string;
-  description: string | null;
-  date: string;
-  receipt_url: string | null;
-}
+import { ExpenseSchema } from '@/schemas/expense';
 
 export default function ExpensesScreen() {
   const { colors, shadows, isDark } = useTheme();
   const router = useRouter();
   const { merchant } = useMerchant();
+  const { scope } = useBranchScope();
+  const branchScopeKey = getBranchScopeKey(scope);
 
-  const { data: expenses, isLoading } = useQuery({
-    queryKey: ['expenses', merchant?.id],
+  const {
+    data: expenses,
+    isError: hasExpensesError,
+    isLoading,
+  } = useQuery({
+    queryKey: ['expenses', merchant?.id, branchScopeKey],
     queryFn: async () => {
       if (!merchant?.id) return [];
-      const { data, error } = await supabase
+      let query = supabase
         .from('expenses')
-        .select('id, amount, category, description, date, receipt_url')
+        .select(
+          'id, amount, category, description, date, receipt_url, branch_id'
+        )
         .eq('merchant_id', merchant.id)
         .order('date', { ascending: false })
         .order('created_at', { ascending: false });
 
+      if (scope.type === 'branch') {
+        query = query.eq('branch_id', scope.branchId);
+      }
+
+      const { data, error } = await query;
+
       if (error) throw error;
-      return data as Expense[];
+      return ExpenseSchema.array().parse(data ?? []);
     },
     enabled: !!merchant?.id,
   });
@@ -53,63 +62,12 @@ export default function ExpensesScreen() {
     if (!expenses) return 0;
     const now = new Date();
     return expenses
-      .filter((e) => isSameMonth(parseISO(e.date), now))
+      .filter((e) => {
+        const expenseDate = parseISO(e.date);
+        return isValid(expenseDate) && isSameMonth(expenseDate, now);
+      })
       .reduce((sum, e) => sum + Number(e.amount), 0);
   })();
-
-  const renderExpenseItem = ({ item }: { item: Expense }) => (
-    <Pressable
-      style={[
-        styles.expenseItem,
-        { backgroundColor: colors.card, borderColor: colors.border },
-      ]}
-      onPress={() => router.push(`/expenses/${item.id}`)}
-    >
-      <View
-        style={[
-          styles.categoryIcon,
-          { backgroundColor: `${colors.primary}15` },
-        ]}
-      >
-        <Ionicons name="pricetag-outline" size={20} color={colors.primary} />
-      </View>
-
-      <View style={styles.expenseDetails}>
-        <Text style={[styles.expenseCategory, { color: colors.text }]}>
-          {item.category}
-        </Text>
-        {item.description ? (
-          <Text
-            style={[styles.expenseDescription, { color: colors.textSecondary }]}
-            numberOfLines={1}
-          >
-            {item.description}
-          </Text>
-        ) : null}
-        <Text style={[styles.expenseDate, { color: colors.textMuted }]}>
-          {format(parseISO(item.date), 'MMM d, yyyy')}
-        </Text>
-      </View>
-
-      <View style={styles.expenseAmount}>
-        <Text style={[styles.amountText, { color: colors.text }]}>
-          {formatCurrency(
-            item.amount,
-            undefined,
-            merchant?.payout_currency || 'NGN'
-          )}
-        </Text>
-        {item.receipt_url ? (
-          <Ionicons
-            name="document-attach-outline"
-            size={14}
-            color={colors.textSecondary}
-            style={{ marginTop: 4 }}
-          />
-        ) : null}
-      </View>
-    </Pressable>
-  );
 
   return (
     <>
@@ -167,10 +125,26 @@ export default function ExpensesScreen() {
         {/* Expenses List */}
         {isLoading ? (
           <ScreenSkeleton variant="list" cards={4} />
+        ) : hasExpensesError ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons
+              name="warning-outline"
+              size={64}
+              color={colors.textMuted}
+            />
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              Could not load expenses
+            </Text>
+            <Text style={[styles.emptySubtext, { color: colors.textMuted }]}>
+              Please try again later.
+            </Text>
+          </View>
         ) : (
           <FlashList
-            data={expenses}
-            renderItem={renderExpenseItem}
+            data={expenses ?? []}
+            renderItem={({ item }) => (
+              <ExpenseListItem item={item} merchant={merchant} />
+            )}
             keyExtractor={(item) => item.id}
             contentContainerStyle={styles.listContent}
             ListEmptyComponent={
@@ -217,103 +191,3 @@ export default function ExpensesScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1 },
-  headerButton: { padding: SPACING.sm },
-  summaryContainer: { padding: SPACING.lg, paddingBottom: SPACING.sm },
-  summaryCard: {
-    padding: SPACING.xl,
-    borderRadius: RADIUS.xl,
-  },
-  summaryLabel: {
-    color: '#ffffffcc',
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    marginBottom: SPACING.xs,
-  },
-  summaryAmount: {
-    color: '#FFFFFF',
-    fontSize: TYPOGRAPHY.size['3xl'],
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    marginBottom: SPACING.md,
-  },
-  summaryTrend: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  summaryTrendText: {
-    color: '#ffffffcc',
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-  },
-
-  listContent: { padding: SPACING.lg, paddingBottom: 100 },
-  expenseItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-    borderRadius: RADIUS.lg,
-    borderWidth: 1,
-  },
-  categoryIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: RADIUS.full,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: SPACING.md,
-  },
-  expenseDetails: { flex: 1 },
-  expenseCategory: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    marginBottom: 2,
-  },
-  expenseDescription: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.regular,
-    marginBottom: 2,
-  },
-  expenseDate: {
-    fontSize: TYPOGRAPHY.size.xs,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-  },
-  expenseAmount: { alignItems: 'flex-end' },
-  amountText: {
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-  },
-
-  fab: {
-    position: 'absolute',
-    bottom: SPACING.xl,
-    right: SPACING.xl,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: SPACING['3xl'],
-    marginTop: SPACING.xl,
-  },
-  emptyText: {
-    marginTop: SPACING.md,
-    fontSize: TYPOGRAPHY.size.md,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    textAlign: 'center',
-  },
-  emptyButton: {
-    marginTop: SPACING.lg,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.lg,
-    borderRadius: RADIUS.full,
-    borderWidth: 1,
-  },
-  emptyButtonText: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-  },
-});

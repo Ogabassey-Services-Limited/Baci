@@ -8,6 +8,13 @@ import {
 } from './orders';
 
 describe('order column constants', () => {
+  const webColumns = WEB_ORDER_COLUMNS.split(',').map((column) =>
+    column.trim()
+  );
+  const mobileAdminColumns = MOBILE_ADMIN_ORDER_COLUMNS.split(',').map(
+    (column) => column.trim()
+  );
+
   it('WEB_ORDER_COLUMNS is a non-empty string', () => {
     expect(typeof WEB_ORDER_COLUMNS).toBe('string');
     expect(WEB_ORDER_COLUMNS.length).toBeGreaterThan(0);
@@ -40,11 +47,24 @@ describe('order column constants', () => {
   });
 
   it('WEB_ORDER_COLUMNS does not include unsupported production columns', () => {
-    expect(WEB_ORDER_COLUMNS).not.toContain('payment_reference');
+    expect(webColumns).not.toContain('payment_reference');
   });
 
   it('WEB_ORDER_COLUMNS includes amount_paid for payment tracking', () => {
-    expect(WEB_ORDER_COLUMNS).toContain('amount_paid');
+    expect(webColumns).toContain('amount_paid');
+  });
+
+  it('includes branch_id in web and mobile admin order contracts', () => {
+    expect(webColumns).toContain('branch_id');
+    expect(mobileAdminColumns).toContain('branch_id');
+  });
+
+  it('includes mobile admin order detail fields required by the app', () => {
+    expect(mobileAdminColumns).toContain('amount_paid');
+    expect(mobileAdminColumns).toContain('fulfillment_type');
+    expect(mobileAdminColumns).toContain('fulfillment_details');
+    expect(mobileAdminColumns).toContain('self_fulfillment_data');
+    expect(mobileAdminColumns).toContain('recorded_by_user_id');
   });
 });
 

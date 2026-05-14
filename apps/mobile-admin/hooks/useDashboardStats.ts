@@ -4,7 +4,13 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
+import {
+  applyOrderBranchScope,
+  getBranchScopeKey,
+} from '@/lib/branch-scope-query';
 import { supabase } from '@/lib/supabase';
+import { ALL_BRANCH_SCOPE, type BranchScope } from '@/schemas/branch';
+import { useBranchScope } from './useBranchScope';
 import { useMerchant } from './useMerchant';
 
 export type TimePeriod = 'today' | 'week' | 'month' | 'all';
@@ -113,7 +119,8 @@ function getPreviousPeriodDateRange(
 // Exported for testing the throw-on-error behavior in isolation.
 export async function fetchDashboardStats(
   merchantId: string,
-  period: TimePeriod
+  period: TimePeriod,
+  scope: BranchScope = ALL_BRANCH_SCOPE
 ): Promise<DashboardStats> {
   if (__DEV__) {
     console.log(
@@ -131,29 +138,36 @@ export async function fetchDashboardStats(
     .from('orders')
     .select('id', { count: 'exact', head: true })
     .eq('merchant_id', merchantId);
+  ordersQuery = applyOrderBranchScope(ordersQuery, scope);
 
   if (start) {
     ordersQuery = ordersQuery.gte('created_at', start);
   }
 
   // Fetch pending orders (always total, not filtered by period)
-  const pendingOrdersQuery = supabase
+  let pendingOrdersQuery = supabase
     .from('orders')
     .select('id', { count: 'exact', head: true })
     .eq('merchant_id', merchantId)
     .eq('shipping_status', 'pending');
+  pendingOrdersQuery = applyOrderBranchScope(pendingOrdersQuery, scope);
 
   // Fetch total items for period
+  const itemsOrderColumns =
+    scope.type === 'branch'
+      ? 'merchant_id, branch_id, created_at'
+      : 'merchant_id, created_at';
   let itemsQuery = supabase
     .from('order_items')
-    .select('quantity, orders!inner(merchant_id, created_at)')
+    .select(`quantity, orders!inner(${itemsOrderColumns})`)
     .eq('orders.merchant_id', merchantId);
+  itemsQuery = applyOrderBranchScope(itemsQuery, scope, 'orders.branch_id');
 
   if (start) {
     itemsQuery = itemsQuery.gte('orders.created_at', start);
   }
 
-  // Fetch customers for period
+  // Customer counts intentionally stay cross-branch; (tabs)/index.tsx labels them as all stores.
   let customersQuery = supabase
     .from('customers')
     .select('id', { count: 'exact', head: true })
@@ -163,7 +177,7 @@ export async function fetchDashboardStats(
     customersQuery = customersQuery.gte('created_at', start);
   }
 
-  // Total customers (always all-time)
+  // Total customers intentionally stay cross-branch; (tabs)/index.tsx labels them as all stores.
   const totalCustomersQuery = supabase
     .from('customers')
     .select('id', { count: 'exact', head: true })
@@ -174,6 +188,7 @@ export async function fetchDashboardStats(
     .from('orders')
     .select('total')
     .eq('merchant_id', merchantId);
+  revenueQuery = applyOrderBranchScope(revenueQuery, scope);
 
   if (start) {
     revenueQuery = revenueQuery.gte('created_at', start);
@@ -189,9 +204,13 @@ export async function fetchDashboardStats(
       .eq('merchant_id', merchantId)
       .gte('created_at', prevPeriod.start!)
       .lt('created_at', prevPeriod.end);
+    previousPeriodRevenueQuery = applyOrderBranchScope(
+      previousPeriodRevenueQuery,
+      scope
+    );
   }
 
-  // Fetch visits for period
+  // Visits intentionally stay cross-branch; (tabs)/index.tsx labels them as all stores.
   let visitsQuery = supabase
     .from('analytics_events')
     .select('id', { count: 'exact', head: true })
@@ -275,7 +294,8 @@ export async function fetchDashboardStats(
 
 async function fetchRevenueChart(
   merchantId: string,
-  period: TimePeriod
+  period: TimePeriod,
+  scope: BranchScope = ALL_BRANCH_SCOPE
 ): Promise<RevenueDataPoint[]> {
   const now = new Date();
 
@@ -306,12 +326,19 @@ async function fetchRevenueChart(
   }
 
   // Single query for the entire period
-  const { data: orders } = await supabase
+  let ordersQuery = supabase
     .from('orders')
     .select('total, created_at')
     .eq('merchant_id', merchantId)
     .gte('created_at', rangeStart.toISOString())
     .lte('created_at', rangeEnd.toISOString());
+  ordersQuery = applyOrderBranchScope(ordersQuery, scope);
+
+  const { data: orders, error } = await ordersQuery;
+
+  if (error) {
+    throw new Error(`fetchRevenueChart orders query failed: ${error.message}`);
+  }
 
   // Bucket orders client-side
   if (period === 'today') {
@@ -446,37 +473,42 @@ async function fetchRevenueChart(
   return monthBuckets.map(({ label, value }) => ({ label, value }));
 }
 
-async function fetchTopProducts(
+export async function fetchTopProducts(
   merchantId: string,
-  limit: number = 5
+  limit: number = 5,
+  scope: BranchScope = ALL_BRANCH_SCOPE
 ): Promise<TopProduct[]> {
   const startDate = new Date(0).toISOString();
   const endDate = new Date().toISOString();
 
-  // Get top selling products by quantity sold
-  const { data, error } = await supabase.rpc('get_top_products', {
-    p_merchant_id: merchantId,
-    p_start_date: startDate,
-    p_end_date: endDate,
-    p_limit: limit,
-  });
-
-  if (error) {
-    // Fallback: manual query if RPC doesn't exist
-    if (__DEV__) {
-      console.log('[DashboardStats] RPC not available, using fallback query');
-    }
-
-    const { data: orderItems } = await supabase
+  const fetchFromOrderItems = async () => {
+    const orderColumns =
+      scope.type === 'branch' ? 'merchant_id, branch_id' : 'merchant_id';
+    let orderItemsQuery = supabase
       .from('order_items')
       .select(`
         quantity,
         price,
         product_id,
         products!inner(id, name, price, images),
-        orders!inner(merchant_id)
+        orders!inner(${orderColumns})
       `)
       .eq('orders.merchant_id', merchantId);
+
+    orderItemsQuery = applyOrderBranchScope(
+      orderItemsQuery,
+      scope,
+      'orders.branch_id'
+    );
+
+    const { data: orderItems, error: orderItemsError } =
+      await orderItemsQuery;
+
+    if (orderItemsError) {
+      throw new Error(
+        `fetchTopProducts order_items query failed: ${orderItemsError.message}`
+      );
+    }
 
     if (!orderItems) return [];
 
@@ -532,6 +564,27 @@ async function fetchTopProducts(
       totalSold: p.totalSold,
       totalRevenue: p.totalRevenue,
     }));
+  };
+
+  if (scope.type === 'branch') {
+    return fetchFromOrderItems();
+  }
+
+  // Get top selling products by quantity sold
+  const { data, error } = await supabase.rpc('get_top_products', {
+    p_merchant_id: merchantId,
+    p_start_date: startDate,
+    p_end_date: endDate,
+    p_limit: limit,
+  });
+
+  if (error) {
+    // Fallback: manual query if RPC doesn't exist
+    if (__DEV__) {
+      console.log('[DashboardStats] RPC not available, using fallback query');
+    }
+
+    return fetchFromOrderItems();
   }
 
   return (data || []).map(
@@ -555,25 +608,27 @@ async function fetchTopProducts(
 
 export function useDashboardStats(period: TimePeriod = 'week') {
   const { merchant } = useMerchant();
+  const scope = useBranchScope().scope;
   const merchantId = merchant?.id;
+  const branchScopeKey = getBranchScopeKey(scope);
 
   const statsQuery = useQuery({
-    queryKey: ['dashboard-stats', merchantId, period],
-    queryFn: () => fetchDashboardStats(merchantId!, period),
+    queryKey: ['dashboard-stats', merchantId, period, branchScopeKey],
+    queryFn: () => fetchDashboardStats(merchantId!, period, scope),
     enabled: !!merchantId,
     staleTime: 1000 * 60 * 2, // 2 minutes
   });
 
   const chartQuery = useQuery({
-    queryKey: ['revenue-chart', merchantId, period],
-    queryFn: () => fetchRevenueChart(merchantId!, period),
+    queryKey: ['revenue-chart', merchantId, period, branchScopeKey],
+    queryFn: () => fetchRevenueChart(merchantId!, period, scope),
     enabled: !!merchantId,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   const topProductsQuery = useQuery({
-    queryKey: ['top-products', merchantId],
-    queryFn: () => fetchTopProducts(merchantId!, 5),
+    queryKey: ['top-products', merchantId, branchScopeKey],
+    queryFn: () => fetchTopProducts(merchantId!, 5, scope),
     enabled: !!merchantId,
     staleTime: 1000 * 60 * 10, // 10 minutes
   });

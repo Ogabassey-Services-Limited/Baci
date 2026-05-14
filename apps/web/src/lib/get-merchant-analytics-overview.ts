@@ -25,7 +25,8 @@ export async function getMerchantAnalyticsOverview(
   supabase: SupabaseClient,
   merchantId: string,
   startDate: Date,
-  endDate: Date
+  endDate: Date,
+  branchId?: string
 ): Promise<MerchantAnalyticsResponse> {
   const { previousEnd, previousStart } = getComparisonAnalyticsRange(
     startDate,
@@ -46,7 +47,8 @@ export async function getMerchantAnalyticsOverview(
     startDate,
     endDate,
     previousStart,
-    previousEnd
+    previousEnd,
+    branchId
   );
 
   const firstError =

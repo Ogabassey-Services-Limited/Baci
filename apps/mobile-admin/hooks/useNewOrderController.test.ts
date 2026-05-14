@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const merchantState = vi.hoisted(() => ({
   current: null as null | {
@@ -10,12 +10,30 @@ const merchantState = vi.hoisted(() => ({
   },
 }));
 
+const branchState = vi.hoisted(() => ({
+  branches: [
+    { id: 'branch-1', name: 'Lagos main', is_default: true },
+    { id: 'branch-2', name: 'Abuja branch', is_default: false },
+  ],
+  scope: { type: 'branch', branchId: 'branch-2' } as
+    | { type: 'all' }
+    | { type: 'branch'; branchId: string },
+}));
+
 vi.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({ user: { id: 'u1' } }),
 }));
 
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({ merchant: merchantState.current }),
+}));
+
+vi.mock('@/hooks/useBranches', () => ({
+  useBranches: () => ({ data: branchState.branches }),
+}));
+
+vi.mock('@/hooks/useBranchScope', () => ({
+  useBranchScope: () => ({ scope: branchState.scope }),
 }));
 
 vi.mock('@/hooks/useTheme', () => ({
@@ -108,9 +126,20 @@ vi.mock('expo-router', () => ({
 
 vi.mock('react-native-country-picker-modal', () => ({}));
 
+import { submitNewOrder } from './submitNewOrder';
 import { useNewOrderController } from './useNewOrderController';
 
 describe('useNewOrderController', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    merchantState.current = null;
+    branchState.branches = [
+      { id: 'branch-1', name: 'Lagos main', is_default: true },
+      { id: 'branch-2', name: 'Abuja branch', is_default: false },
+    ];
+    branchState.scope = { type: 'branch', branchId: 'branch-2' };
+  });
+
   it('returns initial default state', () => {
     merchantState.current = null;
     const { result } = renderHook(() => useNewOrderController());
@@ -118,6 +147,34 @@ describe('useNewOrderController', () => {
     expect(result.current.selectedChannel).toBe('physical');
     expect(result.current.orderItems).toEqual([]);
     expect(result.current.paymentStatus).toBe('unpaid');
+  });
+
+  it('defaults the manual order branch to the concrete branch scope', () => {
+    merchantState.current = { id: 'merchant-1', payout_currency: 'NGN' };
+
+    const { result } = renderHook(() => useNewOrderController());
+
+    expect(result.current.selectedBranchId).toBe('branch-2');
+  });
+
+  it('defaults all-location manual orders to the merchant default branch', () => {
+    merchantState.current = { id: 'merchant-1', payout_currency: 'NGN' };
+    branchState.scope = { type: 'all' };
+
+    const { result } = renderHook(() => useNewOrderController());
+
+    expect(result.current.selectedBranchId).toBe('branch-1');
+  });
+
+  it('passes the selected branch id into manual order submission', async () => {
+    merchantState.current = { id: 'merchant-1', payout_currency: 'NGN' };
+    const { result } = renderHook(() => useNewOrderController());
+
+    await result.current.handleSubmit();
+
+    expect(submitNewOrder).toHaveBeenCalledWith(
+      expect.objectContaining({ selectedBranchId: 'branch-2' })
+    );
   });
 
   it('enables VAT when merchant has vat_registration_status registered', async () => {

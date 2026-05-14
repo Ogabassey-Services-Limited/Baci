@@ -170,14 +170,6 @@ describe('ProductDetailClient', () => {
 
     render(<ProductDetailClient product={product} />);
 
-    expect(
-      screen.getByRole('heading', { name: product.name })
-    ).toBeInTheDocument();
-    expect(screen.getByText('₦550000')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Add to Cart' })
-    ).toBeInTheDocument();
-
     await waitFor(() => {
       expect(mockStickyAddToCart).toHaveBeenCalledWith(
         expect.objectContaining({

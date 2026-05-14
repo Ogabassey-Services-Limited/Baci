@@ -5,34 +5,20 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { z } from 'zod';
 import { useMerchant } from '@/hooks/useMerchant';
+import {
+  createBranch as createBranchViaApi,
+  deactivateBranch as deactivateBranchViaApi,
+  updateBranch as updateBranchViaApi,
+} from '@/lib/branch-api';
 import { storage } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
-
-// Zod schema for branch validation
-export const BranchSchema = z.object({
-  id: z.string().uuid(),
-  merchant_id: z.string().uuid(),
-  name: z.string().min(1, 'Branch name is required'),
-  address: z.string().nullable(),
-  phone: z.string().nullable(),
-  manager_id: z.string().uuid().nullable(),
-  is_default: z.boolean(),
-  active: z.boolean(),
-  created_at: z.string(),
-});
-
-export type Branch = z.infer<typeof BranchSchema>;
-
-export const CreateBranchSchema = z.object({
-  name: z.string().min(1, 'Branch name is required').max(100),
-  address: z.string().max(500).optional(),
-  phone: z.string().max(20).optional(),
-  is_default: z.boolean().optional(),
-});
-
-export type CreateBranchInput = z.infer<typeof CreateBranchSchema>;
+import {
+  BranchSchema,
+  type Branch,
+  type CreateBranchInput,
+  type UpdateBranchInput,
+} from '@/schemas/branch';
 
 const ACTIVE_BRANCH_KEY = 'active-branch-id';
 
@@ -58,7 +44,7 @@ function persistBranchId(branchId: string | null): void {
  * Fetch all branches for the current merchant
  */
 const BRANCH_COLUMNS =
-  'id, merchant_id, name, address, phone, manager_id, is_default, active, created_at' as const;
+  'id, merchant_id, name, address, city, state, phone, manager_id, is_default, active, created_at, updated_at' as const;
 
 async function fetchBranches(merchantId: string): Promise<Branch[]> {
   const { data, error } = await supabase
@@ -75,37 +61,7 @@ async function fetchBranches(merchantId: string): Promise<Branch[]> {
   }
 
   // Validate with Zod - THROW if invalid to catch schema drift early
-  return z.array(BranchSchema).parse(data);
-}
-
-/**
- * Create a new branch
- */
-async function createBranch(
-  merchantId: string,
-  input: CreateBranchInput
-): Promise<Branch> {
-  // Validate input
-  const validated = CreateBranchSchema.parse(input);
-
-  const { data, error } = await supabase
-    .from('branches')
-    .insert({
-      merchant_id: merchantId,
-      name: validated.name,
-      address: validated.address ?? null,
-      phone: validated.phone ?? null,
-      is_default: validated.is_default ?? false,
-    })
-    .select(BRANCH_COLUMNS)
-    .single();
-
-  if (error) {
-    console.error('[Branches] Create error:', error);
-    throw new Error(error.message);
-  }
-
-  return BranchSchema.parse(data);
+  return BranchSchema.array().parse(data);
 }
 
 /**
@@ -173,11 +129,54 @@ export function useCreateBranch() {
   return useMutation({
     mutationFn: (input: CreateBranchInput) => {
       if (!merchant?.id) throw new Error('No merchant');
-      return createBranch(merchant.id, input);
+      return createBranchViaApi(input);
     },
     onSuccess: () => {
       // Invalidate branches query to refetch
       queryClient.invalidateQueries({ queryKey: ['branches'] });
+      queryClient.invalidateQueries({ queryKey: ['branch-scope'] });
+    },
+  });
+}
+
+export function useUpdateBranch() {
+  const { merchant } = useMerchant();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      branchId,
+      input,
+    }: {
+      branchId: string;
+      input: UpdateBranchInput;
+    }) => {
+      if (!merchant?.id) throw new Error('No merchant');
+      return updateBranchViaApi(branchId, input);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['branches'] });
+      queryClient.invalidateQueries({ queryKey: ['branch-scope'] });
+    },
+  });
+}
+
+export function useDeactivateBranch() {
+  const { merchant } = useMerchant();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (branchId: string) => {
+      if (!merchant?.id) throw new Error('No merchant');
+      return deactivateBranchViaApi(branchId);
+    },
+    onSuccess: (_data, branchId) => {
+      if (getPersistedBranchId() === branchId) {
+        persistBranchId(null);
+        queryClient.invalidateQueries({ queryKey: [ACTIVE_BRANCH_KEY] });
+      }
+      queryClient.invalidateQueries({ queryKey: ['branches'] });
+      queryClient.invalidateQueries({ queryKey: ['branch-scope'] });
     },
   });
 }

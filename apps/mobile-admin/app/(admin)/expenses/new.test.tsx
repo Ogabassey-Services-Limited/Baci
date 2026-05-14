@@ -3,6 +3,8 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+type TestBranchScope = { type: 'all' } | { type: 'branch'; branchId: string };
+
 const mocks = vi.hoisted(() => ({
   alert: vi.fn(),
   expenseFieldsProps: {
@@ -17,6 +19,14 @@ const mocks = vi.hoisted(() => ({
   imagePicker: vi.fn(),
   insert: vi.fn(),
   invalidateQueries: vi.fn(),
+  branches: [] as Array<{
+    id: string;
+    name: string;
+    is_default: boolean;
+    active?: boolean;
+  }>,
+  branchesLoading: false,
+  branchScope: { type: 'branch', branchId: 'branch-1' } as TestBranchScope,
   merchant: { id: 'merchant-1' },
   router: { back: vi.fn() },
   upload: vi.fn(),
@@ -79,6 +89,17 @@ vi.mock('@/hooks/useTheme', () => ({
       text: '#f8fafc',
       textOnPrimary: '#ffffff',
     },
+  }),
+}));
+
+vi.mock('@/hooks/useBranchScope', () => ({
+  useBranchScope: () => ({ scope: mocks.branchScope }),
+}));
+
+vi.mock('@/hooks/useBranches', () => ({
+  useBranches: () => ({
+    data: mocks.branches,
+    isLoading: mocks.branchesLoading,
   }),
 }));
 
@@ -205,11 +226,15 @@ vi.mock('react-native', () => ({
   Alert: { alert: mocks.alert },
   Pressable: ({
     accessibilityLabel,
+    accessibilityRole,
+    accessibilityState,
     children,
     disabled,
     onPress,
   }: {
     accessibilityLabel?: string;
+    accessibilityRole?: string;
+    accessibilityState?: { checked?: boolean; disabled?: boolean };
     children?: ReactNode;
     disabled?: boolean;
     onPress?: () => void;
@@ -218,6 +243,12 @@ vi.mock('react-native', () => ({
       aria-label={accessibilityLabel}
       disabled={disabled}
       onClick={() => onPress?.()}
+      {...(accessibilityRole === 'radio'
+        ? {
+            'aria-checked': accessibilityState?.checked ?? false,
+            role: 'radio',
+          }
+        : { role: accessibilityRole })}
       type="button"
     >
       {children}
@@ -230,7 +261,7 @@ vi.mock('react-native', () => ({
   View: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
-import AddExpenseScreen from '@/app/(admin)/expenses/new';
+import AddExpenseScreen from './new';
 
 describe('AddExpenseScreen', () => {
   beforeEach(() => {
@@ -238,6 +269,11 @@ describe('AddExpenseScreen', () => {
     mocks.expenseFieldsProps.amount = '';
     mocks.expenseFieldsProps.description = '';
     mocks.expenseFieldsProps.receiptUri = null;
+    mocks.branches = [
+      { id: 'branch-1', name: 'Lagos main', is_default: true, active: true },
+    ];
+    mocks.branchesLoading = false;
+    mocks.branchScope = { type: 'branch', branchId: 'branch-1' };
     mocks.insert.mockResolvedValue({ error: null });
     mocks.imagePicker.mockResolvedValue({ assets: [], canceled: true });
     mocks.upload.mockResolvedValue({ error: null });
@@ -260,7 +296,7 @@ describe('AddExpenseScreen', () => {
     expect(screen.getByText('Category sheet')).toBeInTheDocument();
   });
 
-  it('rejects invalid amount input and keeps save disabled for invalid numeric values', () => {
+  it('rejects invalid amount input and shows the amount validation alert', () => {
     render(<AddExpenseScreen />);
 
     const amountInput = screen.getByLabelText('Expense amount');
@@ -271,9 +307,49 @@ describe('AddExpenseScreen', () => {
     expect((amountInput as HTMLInputElement).value).toBe('');
 
     fireEvent.change(amountInput, { target: { value: '.' } });
+    fireEvent.click(saveButton);
 
-    expect(saveButton).toBeDisabled();
+    expect(saveButton).not.toBeDisabled();
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Invalid Amount',
+      'Enter a valid amount greater than zero.'
+    );
     expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it('allows selecting a branch explicitly when all locations is selected', async () => {
+    mocks.branchScope = { type: 'all' };
+    mocks.branches = [
+      { id: 'branch-1', name: 'Lagos main', is_default: true, active: true },
+      { id: 'branch-2', name: 'Lekki branch', is_default: false, active: true },
+    ];
+
+    render(<AddExpenseScreen />);
+
+    expect(screen.getByText('Branch')).toBeInTheDocument();
+    expect(
+      screen.getByRole('radio', { name: 'Assign expense to Lagos main' })
+    ).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(
+      screen.getByRole('radio', { name: 'Assign expense to Lekki branch' })
+    );
+    expect(
+      screen.getByRole('radio', { name: 'Assign expense to Lagos main' })
+    ).toHaveAttribute('aria-checked', 'false');
+    expect(
+      screen.getByRole('radio', { name: 'Assign expense to Lekki branch' })
+    ).toHaveAttribute('aria-checked', 'true');
+    fireEvent.change(screen.getByLabelText('Expense amount'), {
+      target: { value: '12500' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save expense' }));
+
+    await waitFor(() => {
+      expect(mocks.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ branch_id: 'branch-2' })
+      );
+    });
   });
 
   it('selects a receipt and saves a complete expense payload through the shared form shell', async () => {
@@ -301,17 +377,17 @@ describe('AddExpenseScreen', () => {
       expect(mocks.upload).toHaveBeenCalled();
       expect(mocks.insert).toHaveBeenCalledWith({
         amount: 12500,
+        branch_id: 'branch-1',
         category: 'Inventory',
         description: 'Office internet',
-        date: expect.any(String),
         merchant_id: 'merchant-1',
         receipt_url: 'https://example.com/file',
       });
+      expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+        queryKey: ['expenses'],
+      });
     });
 
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: ['expenses'],
-    });
     await invokeAlertButton('Success');
     expect(mocks.router.back).toHaveBeenCalledTimes(1);
   });
@@ -341,5 +417,74 @@ describe('AddExpenseScreen', () => {
     expect(mocks.router.back).not.toHaveBeenCalled();
 
     consoleErrorSpy.mockRestore();
+  });
+
+  it('prevents saving when no branch can be selected', () => {
+    mocks.branchScope = { type: 'all' };
+    mocks.branches = [];
+
+    render(<AddExpenseScreen />);
+
+    fireEvent.change(screen.getByLabelText('Expense amount'), {
+      target: { value: '12500' },
+    });
+    const saveButton = screen.getByRole('button', { name: 'Save expense' });
+
+    fireEvent.click(saveButton);
+
+    expect(saveButton).not.toBeDisabled();
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'No branch available',
+      'Create an active branch before saving expenses.'
+    );
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it('shows a loading alert when branches are still loading', () => {
+    mocks.branchScope = { type: 'all' };
+    mocks.branches = [];
+    mocks.branchesLoading = true;
+
+    render(<AddExpenseScreen />);
+
+    fireEvent.change(screen.getByLabelText('Expense amount'), {
+      target: { value: '12500' },
+    });
+    const saveButton = screen.getByRole('button', { name: 'Save expense' });
+
+    fireEvent.click(saveButton);
+
+    expect(saveButton).not.toBeDisabled();
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Branches loading',
+      'Please wait for branches to finish loading.'
+    );
+    expect(mocks.insert).not.toHaveBeenCalled();
+  });
+
+  it('does not fall back to inactive branches when all locations is selected', () => {
+    mocks.branchScope = { type: 'all' };
+    mocks.branches = [
+      {
+        id: 'branch-inactive',
+        name: 'Archived branch',
+        is_default: true,
+        active: false,
+      },
+    ];
+
+    render(<AddExpenseScreen />);
+
+    fireEvent.change(screen.getByLabelText('Expense amount'), {
+      target: { value: '12500' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save expense' }));
+
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'No branch available',
+      'Create an active branch before saving expenses.'
+    );
+    expect(mocks.insert).not.toHaveBeenCalled();
   });
 });
