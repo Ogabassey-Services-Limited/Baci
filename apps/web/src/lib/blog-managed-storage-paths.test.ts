@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 import {
+  buildBlogMediaCdnUrl,
+  canonicalizeBlogMediaUrl,
   extractManagedBlogStoragePath,
   isManagedBlogStoragePath,
 } from '@/lib/blog-managed-storage-paths';
@@ -57,6 +60,52 @@ describe('blog managed storage paths', () => {
     ).toBeNull();
     expect(
       extractManagedBlogStoragePath(
+        'https://example.com/assets/cover.png',
+        'merchant-1'
+      )
+    ).toBeNull();
+  });
+
+  it('builds canonical owned-domain CDN URLs for managed blog media paths', () => {
+    expect(
+      buildBlogMediaCdnUrl('merchant-1/blog/cover_image.png', 'merchant-1')
+    ).toBe(
+      `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/media/merchant-1/blog/cover_image.png`
+    );
+
+    expect(
+      buildBlogMediaCdnUrl(
+        'merchant-1/blog/upload-1/landscape_16x9.webp',
+        'merchant-1',
+        'https://cdn.example.com/'
+      )
+    ).toBe(
+      'https://cdn.example.com/media/merchant-1/blog/upload-1/landscape_16x9.webp'
+    );
+  });
+
+  it('does not build CDN URLs for cross-merchant or unsafe paths', () => {
+    expect(
+      buildBlogMediaCdnUrl('merchant-2/blog/cover.png', 'merchant-1')
+    ).toBeNull();
+
+    expect(
+      buildBlogMediaCdnUrl('merchant-1/blog/../cover.png', 'merchant-1')
+    ).toBeNull();
+  });
+
+  it('canonicalizes Supabase public URLs to the owned CDN media origin', () => {
+    expect(
+      canonicalizeBlogMediaUrl(
+        'https://mock.supabase.co/storage/v1/object/public/media/merchant-1/blog/upload-1/landscape_16x9.webp',
+        'merchant-1'
+      )
+    ).toBe(
+      `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/media/merchant-1/blog/upload-1/landscape_16x9.webp`
+    );
+
+    expect(
+      canonicalizeBlogMediaUrl(
         'https://example.com/assets/cover.png',
         'merchant-1'
       )

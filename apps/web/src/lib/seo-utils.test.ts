@@ -5,6 +5,7 @@ import type { Product } from './products';
 import { safeJsonLdStringify } from './sanitize-json-ld';
 import {
   buildProductUrl,
+  generateBlogPostSchema,
   generateBreadcrumbSchema,
   generateCollectionPageSchema,
   generateMetaDescription,
@@ -894,6 +895,91 @@ describe('getProductUrl', () => {
         })
       )
     ).toBe('/phones/iphone-15');
+  });
+});
+
+describe('generateBlogPostSchema', () => {
+  const baseBlogSchemaInput = {
+    title: 'M4 MacBook Air Review',
+    description: 'A practical buyer guide for Nigerian shoppers.',
+    url: 'https://ogabassey.com/blog/m4-macbook-air-review',
+    datePublished: '2026-05-01T10:00:00.000Z',
+    author: {
+      name: 'Ogabassey Editorial',
+      url: 'https://ogabassey.com',
+    },
+    publisher: {
+      name: 'Ogabassey',
+      logo: 'https://ogabassey.com/logo.png',
+      url: 'https://ogabassey.com',
+    },
+  };
+
+  it('emits a Google Discover image array when persisted image URLs are supplied', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      image: 'https://ogabassey.com/opengraph-image',
+      imageUrls: [
+        'https://cdn.ogabassey.com/media/merchant-1/blog/post/landscape_16x9.webp',
+        'https://cdn.ogabassey.com/media/merchant-1/blog/post/standard_4x3.webp',
+        'https://cdn.ogabassey.com/media/merchant-1/blog/post/square_1x1.webp',
+      ],
+    });
+
+    expect(schema.image).toEqual([
+      'https://cdn.ogabassey.com/media/merchant-1/blog/post/landscape_16x9.webp',
+      'https://cdn.ogabassey.com/media/merchant-1/blog/post/standard_4x3.webp',
+      'https://cdn.ogabassey.com/media/merchant-1/blog/post/square_1x1.webp',
+    ]);
+  });
+
+  it('keeps the legacy single image object when only image is supplied', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      image: 'https://cdn.ogabassey.com/media/merchant-1/blog/original.png',
+    });
+
+    expect(schema.image).toEqual({
+      '@type': 'ImageObject',
+      url: 'https://cdn.ogabassey.com/media/merchant-1/blog/original.png',
+    });
+  });
+
+  it('omits image markup when imageUrls are empty or blank', () => {
+    expect(
+      generateBlogPostSchema({
+        ...baseBlogSchemaInput,
+        imageUrls: [],
+      })
+    ).not.toHaveProperty('image');
+
+    expect(
+      generateBlogPostSchema({
+        ...baseBlogSchemaInput,
+        imageUrls: [' ', ''],
+      })
+    ).not.toHaveProperty('image');
+  });
+
+  it('filters blank imageUrls but keeps valid entries', () => {
+    const schema = generateBlogPostSchema({
+      ...baseBlogSchemaInput,
+      imageUrls: [
+        'https://cdn.ogabassey.com/media/merchant-1/blog/post/landscape_16x9.webp',
+        '',
+        ' ',
+      ],
+    });
+
+    expect(schema.image).toEqual([
+      'https://cdn.ogabassey.com/media/merchant-1/blog/post/landscape_16x9.webp',
+    ]);
+  });
+
+  it('omits image markup when no representative image is supplied', () => {
+    const schema = generateBlogPostSchema(baseBlogSchemaInput);
+
+    expect(schema).not.toHaveProperty('image');
   });
 });
 
