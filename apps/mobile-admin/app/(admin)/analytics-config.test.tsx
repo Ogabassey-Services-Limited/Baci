@@ -21,9 +21,29 @@ vi.mock('react-native', async () => {
     [key: string]: unknown;
   };
 
+  const toDomStyle = (style: unknown): React.CSSProperties | undefined => {
+    if (!style) {
+      return undefined;
+    }
+
+    if (Array.isArray(style)) {
+      return Object.assign({}, ...style.map(toDomStyle));
+    }
+
+    if (typeof style !== 'object') {
+      return undefined;
+    }
+
+    const domStyle = { ...(style as React.CSSProperties) };
+    if (Array.isArray(domStyle.transform)) {
+      delete domStyle.transform;
+    }
+    return domStyle;
+  };
+
   const forwardTestID = (props: ViewLike) => ({
     'data-testid': props.testID,
-    style: props.style as React.CSSProperties | undefined,
+    style: toDomStyle(props.style),
   });
 
   return {
@@ -107,20 +127,22 @@ vi.mock('@/components/ui/ScreenSkeleton', () => ({
   ScreenSkeleton: () => null,
 }));
 
+const merchantAnalytics = {
+  facebook_capi_token: '',
+  facebook_pixel_id: '',
+  ga4_api_secret: '',
+  google_analytics_id: '',
+  offline_conversions_enabled: true,
+  snapchat_capi_token: '',
+  snapchat_pixel_id: '',
+  tiktok_access_token: '',
+  tiktok_pixel_id: '',
+};
+
 vi.mock('@tanstack/react-query', () => ({
   useMutation: () => ({ isPending: false, mutate: vi.fn() }),
   useQuery: () => ({
-    data: {
-      facebook_capi_token: '',
-      facebook_pixel_id: '',
-      ga4_api_secret: '',
-      google_analytics_id: '',
-      offline_conversions_enabled: true,
-      snapchat_capi_token: '',
-      snapchat_pixel_id: '',
-      tiktok_access_token: '',
-      tiktok_pixel_id: '',
-    },
+    data: merchantAnalytics,
     isLoading: false,
   }),
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
@@ -142,9 +164,8 @@ describe('AnalyticsConfigScreen — theme token regression (#1636)', () => {
     render(<AnalyticsConfigScreen />);
 
     const knob = screen.getByTestId('offline-conversions-toggle-knob');
-    const styleAttr = knob.getAttribute('style') ?? '';
-    expect(styleAttr).toContain(`background-color: ${THEME_TEXT_ON_PRIMARY}`);
-    expect(styleAttr).not.toContain('#fff');
-    expect(styleAttr).not.toContain('#ffffff');
+    expect(knob).toHaveStyle({ backgroundColor: THEME_TEXT_ON_PRIMARY });
+    expect(knob).not.toHaveStyle({ backgroundColor: '#fff' });
+    expect(knob).not.toHaveStyle({ backgroundColor: '#ffffff' });
   });
 });
