@@ -9,7 +9,7 @@ export async function incrementViewCount(postId: string) {
     const supabase = createClient(cookieStore);
 
     // Fire and forget update
-    await supabase.rpc('increment_blog_view_count', { p_post_id: postId });
+    await supabase.rpc('increment_blog_post_views', { p_post_id: postId });
   } catch (error) {
     console.error('Failed to increment view count:', error);
   }

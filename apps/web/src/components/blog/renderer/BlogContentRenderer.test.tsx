@@ -524,6 +524,42 @@ describe('BlogContentRenderer', () => {
       expect(image).toHaveAttribute('src', 'https://cdn.example.com/photo.jpg');
     });
 
+    it('renders semantic caption markup for image title captions', () => {
+      const json = doc({
+        type: 'image',
+        attrs: {
+          src: 'https://cdn.example.com/photo.jpg',
+          alt: 'A photo',
+          title: 'Front camera sample',
+        },
+      });
+
+      const { container } = render(<BlogContentRenderer json={json} />);
+
+      expect(screen.getByText('Front camera sample')).toBeInTheDocument();
+      expect(container.querySelector('figcaption')).toHaveTextContent(
+        'Front camera sample'
+      );
+      expect(
+        container.querySelector('figure > div.relative.aspect-video')
+      ).toBeInTheDocument();
+    });
+
+    it('does not render empty figcaption wrappers for captionless images', () => {
+      const json = doc({
+        type: 'image',
+        attrs: { src: 'https://cdn.example.com/photo.jpg', alt: 'A photo' },
+      });
+
+      const { container } = render(<BlogContentRenderer json={json} />);
+
+      expect(container.querySelector('figcaption')).not.toBeInTheDocument();
+      expect(container.querySelector('figure')).not.toBeInTheDocument();
+      expect(
+        container.querySelector('div.relative.aspect-video')
+      ).toBeInTheDocument();
+    });
+
     it('does not render an image when src is null', () => {
       const consoleSpy = vi
         .spyOn(console, 'warn')

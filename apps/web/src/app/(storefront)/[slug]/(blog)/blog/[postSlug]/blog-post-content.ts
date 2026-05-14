@@ -2,7 +2,7 @@ import { marked } from 'marked';
 
 export { getBlogPostTextPreview } from '@/lib/blog-utils';
 
-import { sanitizeHtml } from '@/lib/sanitize';
+import { escapeHtmlText, sanitizeHtml } from '@/lib/sanitize';
 import { buildStoreUrl } from '@/lib/store-url';
 import { rewriteHtmlStorefrontHrefs } from '@/lib/storefront-html-link-rewriting';
 import type { NormalizeStorefrontContentHrefOptions } from '@/lib/storefront-link-normalization';
@@ -17,6 +17,14 @@ const HTML_ATTR_ESCAPE_MAP: Record<string, string> = {
   '"': '&quot;',
   "'": '&#39;',
 };
+const HTML_TEXT_UNESCAPE_REGEX = /&(?:amp|lt|gt|quot|#39);/g;
+const HTML_TEXT_UNESCAPE_MAP: Record<string, string> = {
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&#39;': "'",
+};
 
 /**
  * Escape characters that are unsafe inside a double-quoted HTML attribute value.
@@ -29,6 +37,14 @@ function escapeHtmlAttr(value: string): string {
   return value.replace(
     HTML_ATTR_ESCAPE_REGEX,
     (match) => HTML_ATTR_ESCAPE_MAP[match] ?? match
+  );
+}
+
+export function unescapeHtmlText(value: string): string {
+  if (!value) return '';
+  return value.replace(
+    HTML_TEXT_UNESCAPE_REGEX,
+    (match) => HTML_TEXT_UNESCAPE_MAP[match] ?? match
   );
 }
 
@@ -123,6 +139,25 @@ function ensureBlogImageAltText(
   });
 }
 
+export function transformImageTitlesToFigureCaptions(html: string): string {
+  return html.replace(/<img\b[^<>]*>/gi, (imgTag) => {
+    const titleMatch = imgTag.match(/\btitle\s*=\s*(['"])(.*?)\1/i);
+    const rawTitle = titleMatch?.[2] ?? '';
+    const trimmedTitle = rawTitle.trim();
+    if (!trimmedTitle) {
+      return imgTag;
+    }
+
+    // `trimmedTitle` contains sanitized HTML entities; decode with
+    // `unescapeHtmlText(trimmedTitle)` to recover plain text, then encode again
+    // with `escapeHtmlText(...)` so `captionText` is safe for figcaption text.
+    const captionText = escapeHtmlText(unescapeHtmlText(trimmedTitle));
+    const imageWithoutTitle = imgTag.replace(/\s*title\s*=\s*(['"]).*?\1/i, '');
+
+    return `<figure>${imageWithoutTitle}<figcaption>${captionText}</figcaption></figure>`;
+  });
+}
+
 type ResolveBlogPostContentOptions = NormalizeStorefrontContentHrefOptions & {
   fallbackImageAlt?: string | null;
 };
@@ -152,8 +187,9 @@ export async function resolveBlogPostContent(
     const rawHtml = isHtml ? contentStr : await marked(contentStr || '');
     const rewrittenHtml = rewriteHtmlStorefrontHrefs(rawHtml, options);
     const sanitizedHtml = sanitizeHtml(rewrittenHtml);
+    const captionedHtml = transformImageTitlesToFigureCaptions(sanitizedHtml);
     legacyHtml = ensureBlogImageAltText(
-      sanitizedHtml,
+      captionedHtml,
       options.fallbackImageAlt
     );
   }
