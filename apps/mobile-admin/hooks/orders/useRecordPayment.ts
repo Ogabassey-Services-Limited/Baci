@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BASE_URL } from '@/lib/api-client';
 import { useMerchant } from '../useMerchant';
 import { createAuthenticatedFetch } from './authenticated-fetch';
+import { parseResponsePayload } from './response-utils';
 
 const RECORD_PAYMENT_TIMEOUT_MS = 15_000;
 
@@ -41,20 +42,15 @@ export function useRecordPayment() {
       );
 
       if (!response.ok) {
-        let errorMessage = `Request failed: ${response.status} ${response.statusText}`;
-        try {
-          const errorBody: unknown = await response.json();
-          if (
-            typeof errorBody === 'object' &&
-            errorBody !== null &&
-            'error' in errorBody &&
-            typeof errorBody.error === 'string'
-          ) {
-            errorMessage = errorBody.error;
-          }
-        } catch {
-          // noop
-        }
+        const responseText = await response.text();
+        const payload = parseResponsePayload(responseText);
+        const errorMessage =
+          payload &&
+          typeof payload === 'object' &&
+          typeof payload.error === 'string'
+            ? payload.error
+            : responseText ||
+              `Request failed: ${response.status} ${response.statusText}`;
         throw new Error(errorMessage);
       }
 

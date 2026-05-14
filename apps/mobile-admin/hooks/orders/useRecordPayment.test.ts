@@ -176,4 +176,32 @@ describe('useRecordPayment', () => {
       'Request timed out. Please check your connection and try again.'
     );
   });
+
+  it('uses structured API error messages when manual payment fails', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    mocks.fetch.mockResolvedValue({
+      ok: false,
+      status: 422,
+      statusText: 'Unprocessable Entity',
+      text: async () => JSON.stringify({ error: 'Amount is invalid' }),
+    });
+
+    const mutation = useRecordPayment() as unknown as {
+      mutationFn: (vars: {
+        amount: number;
+        orderId: string;
+        paymentMethod: string;
+      }) => Promise<unknown>;
+    };
+
+    await expect(
+      mutation.mutationFn({
+        orderId: 'order-1',
+        amount: 0,
+        paymentMethod: 'cash',
+      })
+    ).rejects.toThrow('Amount is invalid');
+  });
 });

@@ -124,7 +124,8 @@ describe('useGenerateDva', () => {
       ok: false,
       status: 409,
       statusText: 'Conflict',
-      json: async () => ({ error: 'Already has a virtual account' }),
+      text: async () =>
+        JSON.stringify({ error: 'Already has a virtual account' }),
     });
 
     const mutation = useGenerateDva() as unknown as {
