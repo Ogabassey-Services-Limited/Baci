@@ -20,6 +20,9 @@ export default async function TrustSettingsPage() {
     redirect('/login');
   }
 
+  const agenticCheckoutEnabled =
+    merchant.feature_settings?.agentic_checkout_enabled !== false;
+
   return (
     <div className="grid gap-6">
       <div className="flex items-center gap-4">
@@ -50,7 +53,7 @@ export default async function TrustSettingsPage() {
 
       <AgentCommerceTrustReadinessCard />
 
-      <AgentCommerceControlsCard />
+      <AgentCommerceControlsCard initialEnabled={agenticCheckoutEnabled} />
 
       <TrustSettingsClient
         initialTrustProfile={merchant.trust_profile ?? null}

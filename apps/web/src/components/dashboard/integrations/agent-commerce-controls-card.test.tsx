@@ -1,11 +1,10 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { apiGet, apiPatch } from '@/lib/api-client';
+import { apiPatch } from '@/lib/api-client';
 import { AgentCommerceControlsCard } from './agent-commerce-controls-card';
 
 vi.mock('@/lib/api-client', () => ({
-  apiGet: vi.fn(),
   apiPatch: vi.fn(),
 }));
 
@@ -14,30 +13,21 @@ describe('AgentCommerceControlsCard', () => {
     vi.clearAllMocks();
   });
 
-  it('loads and displays the current agent checkout setting', async () => {
-    vi.mocked(apiGet).mockResolvedValue({
-      agentic_checkout_enabled: true,
-    });
+  it('displays the current agent checkout setting from server data', () => {
+    render(<AgentCommerceControlsCard initialEnabled={true} />);
 
-    render(<AgentCommerceControlsCard />);
-
-    const toggle = await screen.findByRole('switch', {
+    const toggle = screen.getByRole('switch', {
       name: /agent checkout/i,
     });
 
     expect(toggle).toBeChecked();
     expect(screen.getByText('Accepting agent checkouts')).toBeInTheDocument();
-    expect(apiGet).toHaveBeenCalledWith('/api/merchant/features');
   });
 
-  it('shows the paused state when agent checkout is disabled', async () => {
-    vi.mocked(apiGet).mockResolvedValue({
-      agentic_checkout_enabled: false,
-    });
+  it('shows the paused state when agent checkout is disabled', () => {
+    render(<AgentCommerceControlsCard initialEnabled={false} />);
 
-    render(<AgentCommerceControlsCard />);
-
-    const toggle = await screen.findByRole('switch', {
+    const toggle = screen.getByRole('switch', {
       name: /agent checkout/i,
     });
 
@@ -45,30 +35,15 @@ describe('AgentCommerceControlsCard', () => {
     expect(screen.getByText('Agent checkout paused')).toBeInTheDocument();
   });
 
-  it('shows an error state when controls cannot be loaded', async () => {
-    vi.mocked(apiGet).mockRejectedValue(
-      new Error('Unable to load agent checkout controls')
-    );
-
-    render(<AgentCommerceControlsCard />);
-
-    expect(
-      await screen.findByText('Unable to load agent checkout controls')
-    ).toBeInTheDocument();
-  });
-
   it('persists disabled state through the merchant features API', async () => {
     const user = userEvent.setup();
-    vi.mocked(apiGet).mockResolvedValue({
-      agentic_checkout_enabled: true,
-    });
     vi.mocked(apiPatch).mockResolvedValue({
       agentic_checkout_enabled: false,
     });
 
-    render(<AgentCommerceControlsCard />);
+    render(<AgentCommerceControlsCard initialEnabled={true} />);
 
-    const toggle = await screen.findByRole('switch', {
+    const toggle = screen.getByRole('switch', {
       name: /agent checkout/i,
     });
     await user.click(toggle);
@@ -84,16 +59,13 @@ describe('AgentCommerceControlsCard', () => {
 
   it('persists enabled state through the merchant features API', async () => {
     const user = userEvent.setup();
-    vi.mocked(apiGet).mockResolvedValue({
-      agentic_checkout_enabled: false,
-    });
     vi.mocked(apiPatch).mockResolvedValue({
       agentic_checkout_enabled: true,
     });
 
-    render(<AgentCommerceControlsCard />);
+    render(<AgentCommerceControlsCard initialEnabled={false} />);
 
-    const toggle = await screen.findByRole('switch', {
+    const toggle = screen.getByRole('switch', {
       name: /agent checkout/i,
     });
     await user.click(toggle);
@@ -109,14 +81,11 @@ describe('AgentCommerceControlsCard', () => {
 
   it('rolls back the toggle and shows an error when saving fails', async () => {
     const user = userEvent.setup();
-    vi.mocked(apiGet).mockResolvedValue({
-      agentic_checkout_enabled: true,
-    });
     vi.mocked(apiPatch).mockRejectedValue(new Error('Unable to save setting'));
 
-    render(<AgentCommerceControlsCard />);
+    render(<AgentCommerceControlsCard initialEnabled={true} />);
 
-    const toggle = await screen.findByRole('switch', {
+    const toggle = screen.getByRole('switch', {
       name: /agent checkout/i,
     });
     await user.click(toggle);

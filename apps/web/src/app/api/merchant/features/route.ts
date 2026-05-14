@@ -4,7 +4,10 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
-import { revalidateFeatures } from '@/lib/cache-revalidation';
+import {
+  revalidateFeatures,
+  revalidateMerchant,
+} from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { merchantFeatureSettingsSchema } from '@/schemas/merchant-features';
 
@@ -429,6 +432,7 @@ export async function PATCH(request: NextRequest) {
 
     // Invalidate cache
     revalidateFeatures(access.merchantId);
+    revalidateMerchant(access.merchantId);
 
     return NextResponse.json(settings);
   } catch (error) {
@@ -520,6 +524,7 @@ export async function PUT(request: NextRequest) {
 
     // Invalidate cache
     revalidateFeatures(access.merchantId);
+    revalidateMerchant(access.merchantId);
 
     return NextResponse.json(settings);
   } catch (error) {

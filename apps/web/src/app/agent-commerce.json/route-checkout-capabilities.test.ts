@@ -211,7 +211,7 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
     expect(body.links.checkout_sessions).toBeUndefined();
   });
 
-  it('does not advertise checkout when the merchant subaccount is missing', async () => {
+  it('hides Paystack checkout but preserves order reads when the merchant subaccount is missing', async () => {
     stubAgenticCheckoutEnv();
     mockGetMerchantByIdentifier.mockResolvedValue({
       business_name: 'Another Store',
@@ -230,13 +230,17 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.capabilities).toEqual(['catalog.read']);
-    expect(body.auth).toBeNull();
+    expect(body.capabilities).toEqual(['catalog.read', 'order.read']);
+    expect(body.payment_methods).toEqual([]);
+    expect(body.auth?.type).toBe('bearer_hmac');
+    expect(body.links.order).toBe(
+      'https://another.example/api/agentic/orders/{order_id}'
+    );
     expect(body.links.checkout_sessions).toBeUndefined();
     expect(body.links.checkout_session_complete).toBeUndefined();
   });
 
-  it('does not advertise Paystack checkout when Paystack secret is missing', async () => {
+  it('hides Paystack checkout but preserves order reads when Paystack secret is missing', async () => {
     stubAgenticCheckoutEnvWithoutPaystack();
     mockGetMerchantByIdentifier.mockResolvedValue({
       business_name: 'Another Store',
@@ -255,9 +259,12 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.capabilities).toEqual(['catalog.read']);
+    expect(body.capabilities).toEqual(['catalog.read', 'order.read']);
     expect(body.payment_methods).toEqual([]);
-    expect(body.auth).toBeNull();
+    expect(body.auth?.type).toBe('bearer_hmac');
+    expect(body.links.order).toBe(
+      'https://another.example/api/agentic/orders/{order_id}'
+    );
     expect(body.links.checkout_sessions).toBeUndefined();
     expect(body.links.checkout_session_complete).toBeUndefined();
   });
