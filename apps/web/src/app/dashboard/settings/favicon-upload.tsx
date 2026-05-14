@@ -4,7 +4,7 @@ import { Loader2, Upload } from 'lucide-react';
 import Image from 'next/image';
 import { useState } from 'react';
 import { uploadFavicon } from '@/app/dashboard/settings/actions';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 // import { createClient } from '@/lib/supabase/client'; // Not needed anymore
 

@@ -556,6 +556,7 @@ export const OgabasseyV2ProductDetails: React.FC<
               </h2>
               <div className="flex gap-3">
                 <button
+                  type="button"
                   aria-label="Share product"
                   title="Share product"
                   className="text-gray-400 md:hover:text-red-600 transition-colors active:text-red-600"
@@ -563,6 +564,7 @@ export const OgabasseyV2ProductDetails: React.FC<
                   <Share2 size={20} />
                 </button>
                 <button
+                  type="button"
                   onClick={handleToggleSaved}
                   aria-label={isLiked ? 'Remove from wishlist' : 'Add to wishlist'}
                   title={isLiked ? 'Remove from Wishlist' : 'Add to Wishlist'}

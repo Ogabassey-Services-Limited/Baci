@@ -422,6 +422,15 @@ describe('env LLM server validation', () => {
     expect(getLlmServerBearer()).toBe('a'.repeat(64));
   });
 
+  it('treats blank orphan LLM_SERVER_BEARER values as unset', async () => {
+    delete process.env.LLM_SERVER_URL;
+    vi.stubEnv('LLM_SERVER_BEARER', '   ');
+
+    const { getLlmServerUrl, getLlmServerBearer } = await loadEnvModule();
+    expect(getLlmServerUrl()).toBeUndefined();
+    expect(getLlmServerBearer()).toBeUndefined();
+  });
+
   it('allows LLM_SERVER_BEARER to be unset when LLM_SERVER_URL is unset', async () => {
     delete process.env.LLM_SERVER_URL;
     delete process.env.LLM_SERVER_BEARER;

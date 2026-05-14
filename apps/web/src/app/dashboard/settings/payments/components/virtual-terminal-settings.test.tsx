@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: vi.fn(() => ({
     merchant: { id: 'm-1', slug: 'test', currency: 'NGN' },
     loading: false,

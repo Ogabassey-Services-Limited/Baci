@@ -1,5 +1,5 @@
 // Namespace import as a value (not type-only) because we use `crypto.createPrivateKey`
-// at runtime and `crypto.KeyObject` / `crypto.webcrypto.JsonWebKey` as types.
+// at runtime and `crypto.KeyObject` / `crypto.JsonWebKey` as types.
 import * as crypto from 'node:crypto';
 import 'server-only';
 import { getSupabaseAgenticJwtPrivateJwk, getSupabaseJwtSecret } from '@/env';
@@ -15,7 +15,7 @@ export type AgenticJwtSigningMaterial =
       type: 'private-jwk';
     };
 
-export type SupabaseAgenticPrivateJwk = crypto.webcrypto.JsonWebKey & {
+export type SupabaseAgenticPrivateJwk = JsonWebKey & {
   alg?: string;
   kid?: string;
 };

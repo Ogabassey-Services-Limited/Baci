@@ -18,7 +18,7 @@ vi.mock('next/navigation', () => ({
 
 // Mock use-merchant hook
 const mockUseMerchant = vi.fn();
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: () => mockUseMerchant(),
 }));
 

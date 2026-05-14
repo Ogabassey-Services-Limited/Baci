@@ -15,6 +15,7 @@
 
 import { trace } from '@opentelemetry/api';
 import { NextRequest, NextResponse } from 'next/server';
+import { STOREFRONT_AGENT_ROUTES } from '@/config/storefront-agent-routes';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import {
   CLICK_ID_PARAMS,
@@ -52,9 +53,10 @@ const VALID_SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 // remain free to publish their own `/<key>.txt` file on custom domains without
 // the proxy intercepting and bypassing their storefront rewrite.
 const INDEXNOW_KEY_PATH = '/0751d5c882ab3d7c013ecbfe9e624d71.txt';
-const PUBLIC_MACHINE_FEED_PATHS = new Set<string>(
-  Object.values(STOREFRONT_FEED_ROUTES)
-);
+const PUBLIC_MACHINE_READABLE_PATHS = new Set<string>([
+  ...Object.values(STOREFRONT_AGENT_ROUTES),
+  ...Object.values(STOREFRONT_FEED_ROUTES),
+]);
 const MERCHANT_CONTEXT_HEADERS = [
   'x-custom-domain',
   'x-merchant-domain',
@@ -71,8 +73,8 @@ function cloneRequestHeadersWithoutMerchantContext(
   return headers;
 }
 
-function isPublicMachineFeedPath(pathname: string): boolean {
-  return PUBLIC_MACHINE_FEED_PATHS.has(pathname);
+function isPublicMachineReadablePath(pathname: string): boolean {
+  return PUBLIC_MACHINE_READABLE_PATHS.has(pathname);
 }
 
 // Pre-compiled regex patterns for performance (avoids recompilation on every request)
@@ -82,6 +84,7 @@ const IMAGE_FILES_REGEX =
   /\.(jpg|jpeg|png|gif|svg|ico|webp|avif|woff|woff2|ttf|eot)$/;
 const BOT_USER_AGENT_REGEX =
   /bot|crawler|spider|crawling|googlebot|bingbot|slurp|duckduckbot|baiduspider|yandexbot|facebookexternalhit|twitterbot|rogerbot|linkedinbot|embedly|quora link preview|showyoubot|outbrain|pinterest|slackbot|vkShare|W3C_Validator/i;
+const PROTOCOL_SCHEME_REGEX = /^[a-z][a-z0-9+.-]*:/i;
 const PRODUCT_PAGE_REGEX = /^\/[^/]+\/products\/[^/]+$/;
 const NESTED_PRODUCT_REGEX = /^\/[^/]+\/[^/]+\/[^/]+$/;
 const CATEGORY_PAGE_REGEX = /^\/[^/]+\/[^/]+\/?$/;
@@ -161,6 +164,49 @@ const RESERVED_STOREFRONT_SEGMENTS = new Set([
   'wallet',
   'wishlist',
 ]);
+
+function sanitizeProxyRedirectPath(
+  rawRedirect: string | null | undefined,
+  defaultPath = '/dashboard'
+): string {
+  if (!rawRedirect) {
+    return defaultPath;
+  }
+
+  if (
+    !rawRedirect.startsWith('/') ||
+    rawRedirect.startsWith('//') ||
+    // Reject any backslash: the WHATWG URL parser normalizes `\` to `/` in
+    // HTTPS-scheme contexts, so `/\evil.com` parses with host=evil.com. We
+    // reject before the parse to avoid the authority-switch open-redirect.
+    // Control characters are also rejected before URL parsing because the
+    // parser strips them silently.
+    rawRedirect.includes('\\') ||
+    hasControlCharacter(rawRedirect) ||
+    PROTOCOL_SCHEME_REGEX.test(rawRedirect)
+  ) {
+    return defaultPath;
+  }
+
+  try {
+    const parsed = new URL(rawRedirect, 'https://usebaci.local');
+    // Defense in depth: if the parser produced any host other than the
+    // placeholder, the input contained an authority switch we didn't catch.
+    if (parsed.host !== 'usebaci.local') {
+      return defaultPath;
+    }
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return defaultPath;
+  }
+}
+
+function hasControlCharacter(value: string): boolean {
+  return Array.from(value).some((character) => {
+    const code = character.charCodeAt(0);
+    return code <= 31 || code === 127;
+  });
+}
 
 /**
  * If pathname starts with `prefix` (case-insensitive), return the corrected
@@ -388,6 +434,7 @@ function getRouteType(
   pathname: string
 ): 'admin' | 'auth' | 'storefront' | 'api' {
   if (
+    pathname.startsWith('/admin') ||
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/builder') ||
     pathname.startsWith('/onboarding')
@@ -441,8 +488,8 @@ function buildMerchantFeedPassThroughResponse({
     },
   });
 
-  // Public XML feeds use the storefront security profile: relaxed CSP is
-  // appropriate for machine-readable storefront content.
+  // Public machine-readable storefront contracts use the storefront security
+  // profile: relaxed CSP is appropriate for storefront-scoped JSON/XML content.
   const routeType = getRouteType(pathname);
   const isLocal = isLocalhost(hostname);
   return applySecurityHeaders(
@@ -514,6 +561,23 @@ function generateCSP(
   return Object.entries(directives)
     .map(([key, value]) => (value ? `${key} ${value}` : key).trim())
     .join('; ');
+}
+
+function generateCspNonce(): string {
+  try {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return encodeCspNonce(String.fromCharCode(...bytes));
+  } catch {
+    return encodeCspNonce(crypto.randomUUID());
+  }
+}
+
+function encodeCspNonce(value: string): string {
+  return btoa(value)
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replaceAll('=', '');
 }
 
 /**
@@ -896,15 +960,17 @@ export async function proxy(request: NextRequest) {
 
   // Only run auth check for protected or auth routes (skip for public routes)
   if (isProtectedRoute || isAuthRoute) {
-    // Generate Nonce EARLY for CSP (Request Header Injection)
-    // 2026 Best Practice: Next.js reads 'x-nonce' from request headers to authorize internal scripts
+    // Generate nonce and CSP before the app render. Next reads the forwarded
+    // request CSP to nonce its framework and Flight scripts.
     const routeType = getRouteType(pathname);
     const isLocal = isLocalhost(hostname);
-    const nonce = crypto.randomUUID();
+    const nonce = generateCspNonce();
+    const csp = generateCSP(routeType, isLocal, nonce);
 
     // Prepare request headers with nonce
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-nonce', nonce);
+    requestHeaders.set('Content-Security-Policy', csp);
 
     // Create a modified request instance to pass down
     const modifiedRequest = new NextRequest(request, {
@@ -935,7 +1001,11 @@ export async function proxy(request: NextRequest) {
       */
       const url = request.nextUrl.clone();
       url.pathname = '/login';
-      url.searchParams.set('redirectTo', pathname);
+      url.search = '';
+      url.searchParams.set(
+        'redirect',
+        `${pathname}${request.nextUrl.search}${request.nextUrl.hash}`
+      );
       return applySecurityHeaders(
         NextResponse.redirect(url),
         pathname,
@@ -951,10 +1021,15 @@ export async function proxy(request: NextRequest) {
     // Auth routes: redirect to dashboard if already logged in
     if (isAuthRoute && user) {
       // console.log('Middleware: User found on auth route, redirecting to dashboard');
-      const redirectTo = request.nextUrl.searchParams.get('redirectTo');
+      const redirectTo = sanitizeProxyRedirectPath(
+        request.nextUrl.searchParams.get('redirect') ??
+          request.nextUrl.searchParams.get('redirectTo')
+      );
       const url = request.nextUrl.clone();
-      url.pathname = redirectTo || '/dashboard';
-      url.search = '';
+      const redirectUrl = new URL(redirectTo, request.nextUrl.origin);
+      url.pathname = redirectUrl.pathname;
+      url.search = redirectUrl.search;
+      url.hash = redirectUrl.hash;
       return applySecurityHeaders(
         NextResponse.redirect(url),
         pathname,
@@ -1034,10 +1109,10 @@ export async function proxy(request: NextRequest) {
       const domainPathSegments = pathname.split('/').filter(Boolean);
       const domainMerchantSlug = await getSlugForCustomDomain(domain);
 
-      // Public machine feeds are App Router routes, not storefront pages.
+      // Public machine-readable contracts are App Router routes, not storefront pages.
       // Run before slug-prefix canonicalization so a merchant slug named
       // "feeds" cannot shadow the canonical XML feed endpoint.
-      if (isPublicMachineFeedPath(pathname)) {
+      if (isPublicMachineReadablePath(pathname)) {
         return buildMerchantFeedPassThroughResponse({
           request,
           pathname,
@@ -1346,8 +1421,8 @@ export async function proxy(request: NextRequest) {
       );
     }
 
-    // Public machine feeds are App Router routes, not storefront pages.
-    if (isPublicMachineFeedPath(pathname)) {
+    // Public machine-readable contracts are App Router routes, not storefront pages.
+    if (isPublicMachineReadablePath(pathname)) {
       return buildMerchantFeedPassThroughResponse({
         request,
         pathname,
@@ -1619,6 +1694,8 @@ function applySecurityHeaders(
 
 export const config = {
   matcher: [
+    '/agent-commerce.json',
+    '/agent-trust.json',
     /*
      * Match all request paths except for the ones starting with:
      * - _next/static (static files)

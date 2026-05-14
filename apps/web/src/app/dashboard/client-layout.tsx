@@ -62,7 +62,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useAuth } from '@/contexts/auth-context';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { COUNTRIES, getCountryByCode } from '@/lib/countries';
 import { asRoute } from '@/lib/routes';

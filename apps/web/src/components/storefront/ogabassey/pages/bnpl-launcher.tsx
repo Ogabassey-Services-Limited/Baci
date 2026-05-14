@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ShieldCheck, AlertCircle } from 'lucide-react';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { openCredPalCheckout } from '@/lib/credpal';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { CHECKOUT_PENDING_ORDER_STORAGE_KEY } from './checkout/pending-checkout-order';
 
 function readPendingOrderSnapshot(orderId: string | null) {

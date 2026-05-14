@@ -26,7 +26,7 @@ import type React from 'react';
 import { useEffect, useState, useRef } from 'react';
 import { useCart } from '@/hooks/cart';
 import type { CartItem } from '@/hooks/cart';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import type { ResumedOrder } from './checkout/types';
 import {
   usePersistedForm,
@@ -1196,22 +1196,60 @@ export const CheckoutPage: React.FC = () => {
       phone: customerPhone || selectedAddress?.phone || '',
     };
 
-    // Identify selected shipping provider
-    let shippingProvider = 'Standard';
+    // Identify selected shipping provider.
+    //
+    // B3 (plan §5 B3): only door delivery has a third-party shipping
+    // provider with an associated quote. Pickup and airport are
+    // delivery-method labels, not shipping providers — sending them
+    // would trip the RPC's `shipping_quote_required` guard (which
+    // exists to catch the legacy `|| 'GIGL'` silent-default bug).
+    // The `delivery_method` field carries the customer-visible label
+    // separately; admin order views can still show "Pickup"/"Airport".
+    let shippingProvider: string | null = null;
     let trackingNumber = undefined;
 
     // Prepare order items for API
     const orderItems = buildCheckoutOrderItems(cart);
 
+    // B3 review fix #2 (PR #1611): door delivery without ANY quote
+    // must bail BEFORE the JSON body is built. Pre-fix this submitted
+    // `shipping_provider: null + selected_quote_id: null` (or empty
+    // string), which slips past the RPC's `provider != null AND
+    // quote_id IS NULL` guard (both null → guard doesn't fire) and
+    // persists a silent zero-shipping order. Mirrors the pre-submit
+    // block in `place-order.ts`. Treat empty string as no quote too —
+    // the state hook initializes selectedQuoteId to `''` (line ~573).
+    if (deliveryMethod === 'door' && !selectedQuoteId) {
+      toast({
+        title: 'Delivery option required',
+        description: 'Please select a delivery option to continue.',
+        variant: 'destructive',
+      });
+      isOrderInFlightRef.current = false;
+      setIsProcessing(false);
+      return;
+    }
+
     if (deliveryMethod === 'door' && selectedQuoteId) {
       const quote = shippingQuotes.find(q => String(q.id) === String(selectedQuoteId));
       if (quote) {
         shippingProvider = quote.provider; // e.g. 'GIGL', 'Topship'
+      } else {
+        // B3 review fix #1: do NOT fabricate a 'Standard' provider —
+        // selectedQuoteId is dangling (stored id with no matching
+        // quote in the current rate list, usually because rates
+        // expired or were refreshed under us). Surface a validation
+        // error and bail; never submit a quote id with no resolvable
+        // provider.
+        toast({
+          title: 'Shipping rate expired',
+          description: 'Please select a delivery option again.',
+          variant: 'destructive',
+        });
+        isOrderInFlightRef.current = false;
+        setIsProcessing(false);
+        return;
       }
-    } else if (deliveryMethod === 'pickup') {
-      shippingProvider = 'Pickup';
-    } else if (deliveryMethod === 'airport') {
-      shippingProvider = 'Airport';
     }
 
     const normalizedPaymentMethod = normalizeOrderPaymentMethod(paymentMethod);
@@ -1288,8 +1326,15 @@ export const CheckoutPage: React.FC = () => {
             shipping_address: shippingAddressData,
             source: 'online_store',
             shipping_provider: shippingProvider,
+            // B3 review fix (PR #1611): explicit null on the wire,
+            // and coerce empty string → null too. `selectedQuoteId`
+            // is `useState<string>('')` so it can be `''` if the
+            // pre-submit guard above is somehow bypassed (future
+            // refactor, race). `selectedQuoteId || null` covers both
+            // empty string AND undefined defensively. The RPC schema
+            // is `.nullable().optional()` so null is canonical.
             selected_quote_id:
-              deliveryMethod === 'door' ? selectedQuoteId || undefined : undefined,
+              deliveryMethod === 'door' ? (selectedQuoteId || null) : null,
             // Wallet redemption (2025: auto-apply at checkout)
             use_wallet_credit: payWithWallet && walletAmountUsed > 0,
             wallet_amount: walletAmountUsed,

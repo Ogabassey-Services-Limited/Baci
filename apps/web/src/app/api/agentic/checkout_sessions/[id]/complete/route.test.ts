@@ -17,10 +17,12 @@ const mockResolveAgenticMerchantContext = vi.fn(() =>
   Promise.resolve<{
     id: string;
     paystack_subaccount_code: string | null;
+    pay_on_delivery_enabled: boolean;
     slug: string;
   }>({
     id: 'merchant-1',
     paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+    pay_on_delivery_enabled: true,
     slug: 'ogabassey',
   })
 );
@@ -86,6 +88,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete', () => {
     mockResolveAgenticMerchantContext.mockResolvedValue({
       id: 'merchant-1',
       paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+      pay_on_delivery_enabled: true,
       slug: 'ogabassey',
     });
     vi.mocked(isValidPaystackSubaccountCode).mockReturnValue(true);
@@ -108,6 +111,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete', () => {
     mockResolveAgenticMerchantContext.mockResolvedValue({
       id: 'merchant-1',
       paystack_subaccount_code: null,
+      pay_on_delivery_enabled: true,
       slug: 'ogabassey',
     });
     vi.mocked(isValidPaystackSubaccountCode).mockReturnValue(false);
@@ -209,5 +213,91 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete', () => {
       },
       order_id: 'order-1',
     });
+  });
+
+  it('creates a pay-on-delivery order without generating a Paystack account', async () => {
+    const { updateSpy } = mockSuccessfulPaymentSessionSupabase();
+    mockCalculatedSession();
+    vi.mocked(createAgenticCheckoutOrder).mockResolvedValue({
+      data: {
+        order: { id: 'order-pod-1' },
+        wallet: null,
+        amountDueToGateway: 0,
+      },
+      error: undefined,
+      ok: true,
+      orderId: 'order-pod-1',
+      status: 201,
+      statusText: 'Created',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      buildCompleteRequest({
+        paymentData: { provider: 'pay_on_delivery' },
+      }),
+      { params: Promise.resolve({ id: 'agentic_session_1' }) }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
+    expect(createAgenticCheckoutOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payment_method: 'pay_on_delivery',
+        payment_status: 'pending',
+      }),
+      expect.any(Object)
+    );
+    const completedPayload = updateSpy.mock.calls.find(
+      ([payload]) => payload.status === 'completed'
+    )?.[0];
+    expect(completedPayload).toMatchObject({
+      order_id: 'order-pod-1',
+      payment_method: 'pay_on_delivery',
+      payment_provider: null,
+      status: 'completed',
+      virtual_account_bank: null,
+      virtual_account_name: null,
+      virtual_account_number: null,
+    });
+    expect(body).toMatchObject({
+      id: 'agentic_session_1',
+      order: {
+        id: 'order-pod-1',
+        status: 'payment_pending',
+      },
+      payment_details: {
+        type: 'pay_on_delivery',
+      },
+      status: 'completed',
+    });
+  });
+
+  it('rejects pay on delivery when the merchant has not enabled it', async () => {
+    mockResolveAgenticMerchantContext.mockResolvedValue({
+      id: 'merchant-1',
+      pay_on_delivery_enabled: false,
+      paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+      slug: 'ogabassey',
+    });
+    mockSuccessfulPaymentSessionSupabase();
+    mockCalculatedSession();
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      buildCompleteRequest({
+        paymentData: { provider: 'pay_on_delivery' },
+      }),
+      { params: Promise.resolve({ id: 'agentic_session_1' }) }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({
+      error: 'Pay on delivery is not enabled for this merchant',
+    });
+    expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
+    expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
   });
 });

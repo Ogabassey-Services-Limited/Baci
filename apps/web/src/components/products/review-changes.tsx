@@ -26,7 +26,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useProductContext } from '@/contexts/product-context';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency, getCurrencySymbol } from '@/lib/currency';
 import { cn } from '@/lib/utils';

@@ -1,107 +1,82 @@
 import { describe, expect, it, vi } from 'vitest';
-import { markAgenticPaystackDvaSessionPaid } from '@/lib/agentic/paystack-dva-webhook';
+import { confirmAgenticPaystackDvaPayment } from '@/lib/agentic/paystack-dva-webhook';
 
-describe('markAgenticPaystackDvaSessionPaid', () => {
-  it('marks the agentic checkout session paid after the standard webhook path settles', async () => {
-    const readChain = {
-      eq: vi.fn(),
-      maybeSingle: vi.fn().mockResolvedValue({
-        data: {
-          metadata: {
-            agentic: {
-              dva_account: { account_number: '9930000902' },
-              payment_state: 'payment_pending',
-            },
-          },
-          status: 'processing',
-        },
-        error: null,
-      }),
+const makeSupabase = (overrides?: {
+  transactionData?: Record<string, unknown> | null;
+  transactionError?: { message: string } | null;
+  upsertError?: { message: string } | null;
+}) => {
+  const {
+    transactionData = null,
+    transactionError = null,
+    upsertError = null,
+  } = overrides ?? {};
+  const maybeSingle = vi
+    .fn()
+    .mockResolvedValue({ data: transactionData, error: transactionError });
+  const upsertChain = {
+    select: vi.fn().mockReturnThis(),
+    eq: vi.fn().mockReturnThis(),
+    maybeSingle: vi.fn().mockResolvedValue({ data: null, error: upsertError }),
+  };
+  const from = vi.fn((table: string) => {
+    if (table === 'transactions') {
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle,
+      };
+    }
+    return {
+      upsert: vi.fn(() => upsertChain),
+      select: vi.fn().mockReturnThis(),
+      eq: vi.fn().mockReturnThis(),
+      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
     };
-    readChain.eq.mockReturnValue(readChain);
-    const updateChain = {
-      eq: vi.fn(),
-      maybeSingle: vi.fn().mockResolvedValue({
-        data: { session_id: 'agentic_session_1' },
-        error: null,
-      }),
-      select: vi.fn(),
-    };
-    updateChain.eq.mockReturnValue(updateChain);
-    updateChain.select.mockReturnValue(updateChain);
-    const update = vi.fn(() => updateChain);
-    const from = vi.fn(() => ({ select: vi.fn(() => readChain), update }));
+  });
+  return { from };
+};
 
-    const result = await markAgenticPaystackDvaSessionPaid({
-      gatewayReference: 'paystack-ref-1',
-      supabase: { from } as never,
-      transaction: {
-        merchant_id: 'merchant-1',
-        metadata: {
-          agentic_checkout_session_id: 'agentic_session_1',
-          agentic_virtual_account_number: '9930000902',
-          transaction_type: 'agentic_checkout_payment',
-        },
-        order_id: 'order-1',
-      },
+describe('confirmAgenticPaystackDvaPayment', () => {
+  it('returns handled:false when accountNumber is null', async () => {
+    const result = await confirmAgenticPaystackDvaPayment({
+      accountNumber: null,
+      gatewayReference: 'ref-1',
+      supabase: makeSupabase() as never,
+      verifiedAmount: { amount: 1000 },
     });
-
-    expect(result).toEqual({ ok: true });
-    expect(update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        metadata: expect.objectContaining({
-          agentic: expect.objectContaining({ payment_state: 'paid' }),
-        }),
-        status: 'completed',
-      })
-    );
+    expect(result).toEqual({ handled: false });
   });
 
-  it('returns non-ok when the paid session update fails', async () => {
-    const readChain = {
-      eq: vi.fn(),
-      maybeSingle: vi.fn().mockResolvedValue({
-        data: {
-          metadata: {
-            agentic: {
-              dva_account: { account_number: '9930000902' },
-              payment_state: 'payment_pending',
-            },
-          },
-          status: 'processing',
-        },
-        error: null,
-      }),
-    };
-    readChain.eq.mockReturnValue(readChain);
-    const updateError = { message: 'update failed' };
-    const updateChain = {
-      eq: vi.fn(),
-      maybeSingle: vi.fn().mockResolvedValue({
-        data: null,
-        error: updateError,
-      }),
-      select: vi.fn(),
-    };
-    updateChain.eq.mockReturnValue(updateChain);
-    updateChain.select.mockReturnValue(updateChain);
-    const update = vi.fn(() => updateChain);
-    const from = vi.fn(() => ({ select: vi.fn(() => readChain), update }));
-
-    const result = await markAgenticPaystackDvaSessionPaid({
-      gatewayReference: 'paystack-ref-1',
-      supabase: { from } as never,
-      transaction: {
-        merchant_id: 'merchant-1',
-        metadata: {
-          agentic_checkout_session_id: 'agentic_session_1',
-          agentic_virtual_account_number: '9930000902',
-          transaction_type: 'agentic_checkout_payment',
-        },
-        order_id: 'order-1',
-      },
+  it('returns handled:false when accountNumber does not match pattern', async () => {
+    const result = await confirmAgenticPaystackDvaPayment({
+      accountNumber: 'ABC',
+      gatewayReference: 'ref-1',
+      supabase: makeSupabase() as never,
+      verifiedAmount: { amount: 1000 },
     });
+    expect(result).toEqual({ handled: false });
+  });
 
-    expect(result).toEqual({ error: updateError, ok: false });
+  it('returns 500 when transaction lookup errors', async () => {
+    const result = await confirmAgenticPaystackDvaPayment({
+      accountNumber: '1234567890',
+      gatewayReference: 'ref-1',
+      supabase: makeSupabase({
+        transactionError: { message: 'db error' },
+      }) as never,
+      verifiedAmount: { amount: 1000 },
+    });
+    expect(result).toMatchObject({ handled: true, status: 500 });
+  });
+
+  it('returns handled:false when no transaction matches the account', async () => {
+    const result = await confirmAgenticPaystackDvaPayment({
+      accountNumber: '1234567890',
+      gatewayReference: 'ref-1',
+      supabase: makeSupabase({ transactionData: null }) as never,
+      verifiedAmount: { amount: 1000 },
+    });
+    expect(result).toEqual({ handled: false });
   });
 });

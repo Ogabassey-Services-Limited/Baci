@@ -1,4 +1,8 @@
 import { buildLlmBearerAuthHeader } from '@/lib/llm-auth';
+import {
+  createLlmTextStream,
+  sanitizeLlmUpstreamErrorText,
+} from '@/lib/llm-chat-stream';
 
 interface LlmChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -16,31 +20,10 @@ interface CreateLlmChatResponseOptions {
   temperature?: number;
 }
 
-interface OpenAiChatChunk {
-  choices?: Array<{
-    delta?: {
-      content?: string;
-    };
-  }>;
-  error?: { message?: string } | string;
-}
-
 const LLM_CHAT_TIMEOUT_MS = 90_000;
 const DEFAULT_MAX_TOKENS = 500;
 const DEFAULT_TEMPERATURE = 0.4;
-const ERROR_TEXT_MAX_CHARS = 200;
 const MODEL_NAME_LINE_BREAK_PATTERN = /\\n|\r?\n|\r/g;
-const SSE_DONE_SENTINEL = '[DONE]';
-
-function sanitizeUpstreamErrorText(raw: string): string {
-  // Strip newlines and truncate before surfacing upstream error bodies in our thrown Error —
-  // a misconfigured llama-server can return verbose HTML/stack traces; we only need a hint.
-  const flat = raw.replace(/\s+/g, ' ').trim();
-  if (flat.length <= ERROR_TEXT_MAX_CHARS) {
-    return flat;
-  }
-  return `${flat.slice(0, ERROR_TEXT_MAX_CHARS)}…`;
-}
 
 function buildChatCompletionsUrl(baseUrl: string): string {
   // Parse-then-rewrite the pathname (rather than raw string concat) so query
@@ -61,23 +44,6 @@ function buildChatCompletionsUrl(baseUrl: string): string {
 
 function cleanModelName(model: string): string {
   return model.replace(MODEL_NAME_LINE_BREAK_PATTERN, '').trim();
-}
-
-function parseSseChunk(line: string): OpenAiChatChunk {
-  try {
-    return JSON.parse(line) as OpenAiChatChunk;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown error';
-    throw new Error(
-      `Invalid LLM chat chunk JSON: ${message}; payloadLength=${line.length}`
-    );
-  }
-}
-
-function extractChunkError(chunk: OpenAiChatChunk): string | null {
-  if (!chunk.error) return null;
-  if (typeof chunk.error === 'string') return chunk.error;
-  return chunk.error.message ?? 'LLM chat error';
 }
 
 // Distinct DOMException name so the catch handler can tell timeout aborts
@@ -128,84 +94,13 @@ function isLlmTimeoutAbort(signal: AbortSignal): boolean {
   );
 }
 
-function processSseLine(
-  line: string,
-  controller: ReadableStreamDefaultController<Uint8Array>,
-  encoder: TextEncoder
-): boolean {
-  // Returns true when a [DONE] sentinel was observed and the stream should end.
-  const trimmed = line.trim();
-  if (!trimmed.startsWith('data:')) return false;
-
-  const payload = trimmed.slice('data:'.length).trim();
-  if (!payload) return false;
-  if (payload === SSE_DONE_SENTINEL) return true;
-
-  const chunk = parseSseChunk(payload);
-  const errorMessage = extractChunkError(chunk);
-  if (errorMessage) {
-    throw new Error(errorMessage);
-  }
-  const text = chunk.choices?.[0]?.delta?.content ?? '';
-  if (text) {
-    controller.enqueue(encoder.encode(text));
-  }
-  return false;
-}
-
-function createTextStream(
-  body: ReadableStream<Uint8Array>,
-  cleanup: () => void
-): ReadableStream<Uint8Array> {
-  const decoder = new TextDecoder();
-  const encoder = new TextEncoder();
-
-  return new ReadableStream<Uint8Array>({
-    async start(controller) {
-      const reader = body.getReader();
-      let buffer = '';
-      let done = false;
-
-      try {
-        while (!done) {
-          const { value, done: readerDone } = await reader.read();
-          if (readerDone) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          let newlineIndex = buffer.indexOf('\n');
-
-          while (newlineIndex !== -1) {
-            const line = buffer.slice(0, newlineIndex);
-            buffer = buffer.slice(newlineIndex + 1);
-
-            if (processSseLine(line, controller, encoder)) {
-              done = true;
-              break;
-            }
-
-            newlineIndex = buffer.indexOf('\n');
-          }
-        }
-
-        if (!done && buffer.trim()) {
-          // Capture the [DONE] return for parity with the main loop, even
-          // though we're already at end-of-stream — keeps semantics
-          // consistent if a server emits "data: [DONE]\n" without a
-          // trailing newline.
-          done = processSseLine(buffer, controller, encoder);
-        }
-
-        controller.close();
-      } catch (error) {
-        controller.error(error);
-      } finally {
-        cleanup();
-        reader.releaseLock();
-      }
-    },
-  });
-}
-
+/**
+ * Streams an OpenAI-compatible chat completion response.
+ *
+ * Defaults are tuned for customer-support chat: 90s timeout, 500 max tokens,
+ * and temperature 0.4. Callers with different latency or creativity needs
+ * should pass `timeoutMs`, `maxTokens`, or `temperature` explicitly.
+ */
 export async function createLlmChatResponse({
   baseUrl,
   bearer,
@@ -264,7 +159,7 @@ export async function createLlmChatResponse({
       // error. cleanup() in the finally block ensures the abort timer is
       // cleared either way.
       const rawErrorText = await response.text().catch(() => '');
-      const errorText = sanitizeUpstreamErrorText(rawErrorText);
+      const errorText = sanitizeLlmUpstreamErrorText(rawErrorText);
       throw new Error(
         `LLM chat returned ${response.status}${errorText ? `: ${errorText}` : ''}`
       );
@@ -278,7 +173,7 @@ export async function createLlmChatResponse({
     throw new Error('LLM chat returned an empty response body');
   }
 
-  return new Response(createTextStream(response.body, cleanup), {
+  return new Response(createLlmTextStream(response.body, cleanup), {
     headers: { 'Content-Type': 'text/plain; charset=utf-8' },
   });
 }

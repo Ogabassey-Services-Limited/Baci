@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { ThemedButton } from '@/components/themed';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { MerchantProvider, useMerchant } from '@/hooks/use-merchant';
+import { MerchantProvider, useMerchant } from '@/hooks/use-merchant-client';
 import { getCountryByCode } from '@/lib/countries';
 import { BACI_GOOGLE_REVIEW_URL } from '@/lib/post-purchase-actions';
 

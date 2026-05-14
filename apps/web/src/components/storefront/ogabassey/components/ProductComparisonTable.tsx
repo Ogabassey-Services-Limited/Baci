@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Search, Plus, X, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import { buildOgabasseyProductSpecData } from '../product-spec-data';
 import {

@@ -4,11 +4,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   mockConnection,
+  mockPreconnect,
+  mockPrefetchDNS,
+  mockPreload,
   mockGenerateStorefrontLayoutMetadata,
-  mockHeaders,
   mockStorefrontLayout,
 } = vi.hoisted(() => ({
   mockConnection: vi.fn(() => Promise.resolve()),
+  mockPreconnect: vi.fn(),
+  mockPrefetchDNS: vi.fn(),
+  mockPreload: vi.fn(),
   mockGenerateStorefrontLayoutMetadata: vi.fn(
     (_props: { params: Promise<{ slug: string }> }) =>
       Promise.resolve({ manifest: null })
@@ -22,16 +27,19 @@ const {
       params: Promise<{ slug: string }>;
     }) => <div data-testid="storefront-layout">{children}</div>
   ),
-  mockHeaders: vi.fn(() => Promise.resolve(new Headers())),
-}));
-
-vi.mock('next/headers', () => ({
-  headers: () => mockHeaders(),
 }));
 
 vi.mock('next/server', () => ({
   connection: () => mockConnection(),
 }));
+
+vi.mock('react-dom', () => ({
+  preconnect: mockPreconnect,
+  prefetchDNS: mockPrefetchDNS,
+  preload: mockPreload,
+}));
+
+vi.mock('server-only', () => ({}));
 
 vi.mock('@/app/(storefront)/[slug]/layout', () => ({
   default: mockStorefrontLayout,
@@ -46,54 +54,62 @@ import OgabasseyLayout, {
   generateMetadata,
   generateViewport,
 } from '@/app/(storefront)/ogabassey/layout';
+import {
+  HERO_DESKTOP_LCP_SRC,
+  HERO_MOBILE_LCP_SRC,
+} from '@/components/storefront/ogabassey/components/hero-data';
+import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 
 describe('OgabasseyLayout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockHeaders.mockResolvedValue(new Headers());
   });
 
-  it('delegates to the generic storefront layout with the OgaBassey slug', async () => {
-    const result = await OgabasseyLayout({
+  it('delegates to the generic storefront layout without forcing a dynamic connection', async () => {
+    const result = OgabasseyLayout({
       children: <p>Home content</p>,
     });
 
-    render(result);
+    const { container } = render(result);
 
-    expect(mockConnection).toHaveBeenCalledOnce();
+    expect(mockConnection).not.toHaveBeenCalled();
+    expect(mockPrefetchDNS).toHaveBeenCalledWith(OGABASSEY_CDN_ORIGIN);
+    expect(mockPreconnect).toHaveBeenCalledWith(OGABASSEY_CDN_ORIGIN);
+    expect(mockPreload).toHaveBeenCalledWith(
+      HERO_DESKTOP_LCP_SRC,
+      expect.objectContaining({
+        as: 'image',
+        fetchPriority: 'high',
+        media: '(min-width: 768px)',
+        type: 'image/avif',
+      })
+    );
+    expect(mockPreload).toHaveBeenCalledWith(
+      HERO_MOBILE_LCP_SRC,
+      expect.objectContaining({
+        as: 'image',
+        fetchPriority: 'high',
+        media: '(max-width: 767px)',
+        type: 'image/avif',
+      })
+    );
+    const storefrontLayoutCallOrder =
+      mockStorefrontLayout.mock.invocationCallOrder[0] ??
+      Number.POSITIVE_INFINITY;
+    const staticHintCallOrders = [
+      ...mockPrefetchDNS.mock.invocationCallOrder,
+      ...mockPreconnect.mock.invocationCallOrder,
+      ...mockPreload.mock.invocationCallOrder,
+    ];
+    expect(Math.max(...staticHintCallOrders)).toBeLessThan(
+      storefrontLayoutCallOrder
+    );
+    expect(container.firstElementChild).toBe(
+      screen.getByTestId('storefront-layout')
+    );
     expect(screen.getByTestId('storefront-layout')).toHaveTextContent(
       'Home content'
     );
-
-    const props = mockStorefrontLayout.mock.calls[0]?.[0];
-    await expect(props?.params).resolves.toEqual({ slug: 'ogabassey' });
-  });
-
-  it('delegates custom-domain traffic with the request-derived identifier', async () => {
-    mockHeaders.mockResolvedValueOnce(
-      new Headers([['x-custom-domain', 'ogabassey.com']])
-    );
-
-    const result = await OgabasseyLayout({
-      children: <p>Home content</p>,
-    });
-
-    render(result);
-
-    const props = mockStorefrontLayout.mock.calls[0]?.[0];
-    await expect(props?.params).resolves.toEqual({ slug: 'ogabassey.com' });
-  });
-
-  it('ignores deployment hosts without merchant context headers', async () => {
-    mockHeaders.mockResolvedValueOnce(
-      new Headers([['host', 'baci-preview.vercel.app']])
-    );
-
-    const result = await OgabasseyLayout({
-      children: <p>Home content</p>,
-    });
-
-    render(result);
 
     const props = mockStorefrontLayout.mock.calls[0]?.[0];
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey' });
@@ -113,29 +129,6 @@ describe('OgabasseyLayout', () => {
     expect(mockGenerateStorefrontLayoutMetadata).toHaveBeenCalledWith({
       params: expect.any(Promise),
     });
-    const props = mockGenerateStorefrontLayoutMetadata.mock.calls[0]?.[0];
-    await expect(props?.params).resolves.toEqual({ slug: 'ogabassey' });
-  });
-
-  it('delegates merchant-level metadata with the request-derived custom-domain identifier', async () => {
-    mockHeaders.mockResolvedValueOnce(
-      new Headers([['x-custom-domain', 'ogabassey.com']])
-    );
-
-    const metadata = await generateMetadata();
-
-    expect(metadata.manifest).toBeNull();
-    const props = mockGenerateStorefrontLayoutMetadata.mock.calls[0]?.[0];
-    await expect(props?.params).resolves.toEqual({ slug: 'ogabassey.com' });
-  });
-
-  it('uses OgaBassey metadata for deployment hosts without merchant context headers', async () => {
-    mockHeaders.mockResolvedValueOnce(
-      new Headers([['host', 'baci-preview.vercel.app']])
-    );
-
-    await generateMetadata();
-
     const props = mockGenerateStorefrontLayoutMetadata.mock.calls[0]?.[0];
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey' });
   });

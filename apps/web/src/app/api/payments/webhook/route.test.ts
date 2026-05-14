@@ -19,6 +19,9 @@ vi.mock('@/env', () => ({
 vi.mock('@/lib/agentic/paystack-dva-webhook', () => ({
   confirmAgenticPaystackDvaPayment: mockConfirmAgenticPaystackDvaPayment,
   getPaystackDvaReceiverAccountNumber: mockGetPaystackDvaReceiverAccountNumber,
+}));
+
+vi.mock('@/lib/agentic/paystack-dva-session-paid', () => ({
   markAgenticPaystackDvaSessionPaid: mockMarkAgenticPaystackDvaSessionPaid,
 }));
 
@@ -73,7 +76,23 @@ function createMockSupabaseClient() {
       };
       return chain;
     }),
-    rpc: vi.fn().mockResolvedValue({ data: null, error: null }),
+    // A1: rpc() must be both awaitable AND have a `.single()` chain method
+    // so the new claim_payment_side_effect call (`supabase.rpc(...).single()`
+    // in apply-paid-order-side-effects.ts) doesn't crash. The default
+    // claim response is `we_won: true` so the helper proceeds to the
+    // executor; existing `record_merchant_settlement` callers still get
+    // `{data: null, error: null}` via either await form.
+    rpc: vi.fn((name: string, _args?: unknown) => {
+      const data =
+        name === 'claim_payment_side_effect'
+          ? { we_won: true, current_status: 'claimed' }
+          : null;
+      const result = { data, error: null };
+      const chain = Object.assign(Promise.resolve(result), {
+        single: () => Promise.resolve(result),
+      });
+      return chain;
+    }),
   };
 }
 
@@ -243,10 +262,18 @@ function setupSuccessfulTransactionMocks(
     };
   });
 
-  // Mock RPC for settlement recording
-  vi.mocked(mockServiceClient.rpc).mockResolvedValue({
-    data: null,
-    error: null,
+  // Mock RPC: chainable shape so the A1 outbox helper's
+  // `.rpc('claim_payment_side_effect', ...).single()` works alongside
+  // the existing `.rpc('record_merchant_settlement', ...)` await form.
+  vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+    const data =
+      name === 'claim_payment_side_effect'
+        ? { we_won: true, current_status: 'claimed' }
+        : null;
+    const result = { data, error: null };
+    return Object.assign(Promise.resolve(result), {
+      single: () => Promise.resolve(result),
+    }) as never;
   });
 }
 
@@ -924,6 +951,191 @@ describe('POST /api/payments/webhook', () => {
         })
       );
     });
+
+    it('processes an agentic DVA transaction resolved during preflight when the generic lookup misses', async () => {
+      const body = {
+        event: 'charge.success',
+        data: {
+          authorization: {
+            receiver_bank_account_number: '9812858131',
+          },
+          reference: 'REF123',
+        },
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-paystack-secret');
+      const request = createMockRequest(body, {
+        'x-paystack-signature': signature,
+      });
+
+      const { verifyTransaction } = await import('@/lib/paystack');
+      vi.mocked(verifyTransaction).mockResolvedValue({
+        success: true,
+        data: {
+          id: 1,
+          status: 'success',
+          amount: 10000,
+          reference: 'REF123',
+          currency: 'NGN',
+          channel: 'dedicated_nuban',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: {
+            customer_code: 'CUS_test',
+            email: 'test@example.com',
+            first_name: 'Test',
+            id: 1,
+            last_name: null,
+            phone: null,
+          },
+          metadata: null,
+          fees: 0,
+          fees_split: null,
+        },
+      });
+      mockGetPaystackDvaReceiverAccountNumber.mockReturnValue('9812858131');
+      mockConfirmAgenticPaystackDvaPayment.mockResolvedValueOnce({
+        handled: false,
+        transaction: {
+          amount: 100,
+          currency: 'NGN',
+          gateway_reference: 'BAC-TEST123',
+          id: 'txn-123',
+          merchant_id: 'merchant-123',
+          metadata: {
+            agentic_checkout_session_id: 'agentic_session_1',
+            agentic_virtual_account_number: '9812858131',
+            transaction_type: 'agentic_checkout_payment',
+          },
+          order_id: 'order-123',
+          platform_fee: 2,
+        },
+      });
+      mockMarkAgenticPaystackDvaSessionPaid.mockResolvedValueOnce({
+        ok: true,
+      });
+
+      const transactionSelect = vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({
+          data: null,
+          error: { code: 'PGRST116', message: 'Not found' },
+        }),
+      });
+      const transactionUpdate = vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: { id: 'txn-123' },
+          error: null,
+        }),
+        neq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+      });
+      const orderUpdate = vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnThis(),
+        select: vi.fn().mockReturnThis(),
+        single: vi.fn().mockResolvedValue({
+          data: {
+            ad_tracking: {},
+            currency: 'NGN',
+            customer_email: 'buyer@example.com',
+            customer_id: 'customer-123',
+            customer_name: 'Smoke Buyer',
+            customer_phone: '08000000000',
+            id: 'order-123',
+            merchant_id: 'merchant-123',
+            order_items: [],
+            order_number: 'ORD-123',
+            payment_status: 'paid',
+            shipping_address: {},
+            shipping_fee: '0',
+            shipping_status: 'processing',
+            subtotal: '100',
+            total: '100',
+            updated_at: '2026-01-01T00:00:00Z',
+          },
+          error: null,
+        }),
+      });
+
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          return {
+            select: transactionSelect,
+            update: transactionUpdate,
+          } as any;
+        }
+        if (table === 'orders') {
+          return { update: orderUpdate } as any;
+        }
+        if (table === 'merchants') {
+          return {
+            select: vi.fn().mockReturnValue({
+              eq: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  business_name: 'Baci Smoke',
+                  cac_rc_number: null,
+                  email: 'merchant@example.com',
+                  email_sender_name: 'Baci Smoke',
+                  slug: 'ogabassey',
+                  support_email: 'support@example.com',
+                  tax_identification_number: null,
+                },
+                error: null,
+              }),
+            }),
+          } as any;
+        }
+        // A1 payment_side_effects + any other unmocked table:
+        // chainable + thenable so the outbox helper's
+        // `.update(...).eq().eq().eq().select('order_id')` resolves to an
+        // empty array (helper records concurrent_takeover but doesn't crash).
+        const chain: any = {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          neq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          // biome-ignore lint/suspicious/noThenProperty: intentional thenable mock so the A1 outbox helper's `await supabase.from(...).update(...).eq(...).select('order_id')` chain resolves.
+          then: (onFulfilled: any) =>
+            Promise.resolve({ data: [], error: null }).then(onFulfilled),
+        };
+        return chain;
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        message: 'Payment processed successfully',
+        success: true,
+      });
+      expect(mockGetPaystackDvaReceiverAccountNumber).toHaveBeenCalledWith(
+        body
+      );
+      expect(mockConfirmAgenticPaystackDvaPayment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          accountNumber: '9812858131',
+          gatewayReference: 'REF123',
+          verifiedAmount: { amount: 100, currency: 'NGN' },
+        })
+      );
+      expect(transactionSelect).not.toHaveBeenCalled();
+      expect(transactionUpdate).toHaveBeenCalled();
+      expect(orderUpdate).toHaveBeenCalled();
+      expect(mockMarkAgenticPaystackDvaSessionPaid).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gatewayReference: 'REF123',
+          transaction: expect.objectContaining({
+            order_id: 'order-123',
+          }),
+        })
+      );
+    });
   });
 
   describe('Success Path', () => {
@@ -1098,9 +1310,15 @@ describe('POST /api/payments/webhook', () => {
         } as any;
       });
 
-      vi.mocked(mockServiceClient.rpc).mockResolvedValue({
-        data: null,
-        error: null,
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'claim_payment_side_effect'
+            ? { we_won: true, current_status: 'claimed' }
+            : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
       });
 
       const response = await POST(request);
@@ -1500,9 +1718,15 @@ describe('POST /api/payments/webhook', () => {
       });
 
       // Mock RPC call for settlement
-      vi.mocked(mockServiceClient.rpc).mockResolvedValue({
-        data: null,
-        error: null,
+      vi.mocked(mockServiceClient.rpc).mockImplementation((name: string) => {
+        const data =
+          name === 'claim_payment_side_effect'
+            ? { we_won: true, current_status: 'claimed' }
+            : null;
+        const result = { data, error: null };
+        return Object.assign(Promise.resolve(result), {
+          single: () => Promise.resolve(result),
+        }) as never;
       });
 
       const response = await POST(request);
@@ -1513,6 +1737,146 @@ describe('POST /api/payments/webhook', () => {
         success: true,
         message: 'Payment processed successfully',
       });
+
+      // Review feedback: assert the settlement RPC was called with the
+      // BAC-* canonical key (Δ-22) and gateway-prefixed metadata (review:
+      // not hardcoded paystack_reference). gateway_reference here is
+      // 'REF123' from the mocked transaction; gateway is 'korapay' from
+      // the x-korapay-signature header.
+      expect(mockServiceClient.rpc).toHaveBeenCalledWith(
+        'record_merchant_settlement',
+        expect.objectContaining({
+          p_gateway_reference: 'REF123',
+          p_gateway: 'korapay',
+          p_metadata: expect.objectContaining({
+            korapay_reference: 'REF123',
+            verified_gateway_fee: 0, // korapay verify response has no fees field
+          }),
+        })
+      );
+    });
+
+    it('records settlement via fallback path when orders.update fails (review #1563 P1 regression test)', async () => {
+      // Review feedback (CodeRabbit P1): the fallback I added in
+      // commit fa3cc0eb1e — when `orders.update().single()` errors
+      // (transient DB blip / missing row), settlement must still be
+      // recorded via a direct record_merchant_settlement RPC call so
+      // the merchant isn't left uncredited. Idempotency from the A0
+      // partial unique index ensures a later replay with a successful
+      // order update is a no-op.
+      const body = {
+        reference: 'REF-FB-1',
+        status: 'success',
+        event: 'charge.success',
+        amount: 1000,
+      };
+      const bodyString = JSON.stringify(body);
+      const signature = createSignature(bodyString, 'test-korapay-secret');
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 1000,
+          reference: 'REF-FB-1',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      let transactionCallCount = 0;
+      vi.mocked(mockServiceClient.from).mockImplementation((table: string) => {
+        if (table === 'transactions') {
+          transactionCallCount++;
+          if (transactionCallCount === 1) {
+            return {
+              select: vi.fn().mockReturnThis(),
+              eq: vi.fn().mockReturnThis(),
+              single: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'txn-fb-1',
+                  merchant_id: 'merchant-fb-1',
+                  order_id: 'order-fb-1',
+                  amount: '1000',
+                  currency: 'NGN',
+                  gateway_reference: 'BAC-FB-1',
+                  status: 'pending',
+                  metadata: {},
+                },
+                error: null,
+              }),
+            } as never;
+          }
+          // Subsequent calls: transaction update (mark completed)
+          return {
+            update: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            neq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: { id: 'txn-fb-1' },
+              error: null,
+            }),
+          } as never;
+        }
+
+        if (table === 'orders') {
+          // CRITICAL: simulate transient DB error on the order update.
+          // Before the fa3cc0eb1e fix this would silently leave the
+          // merchant uncredited. After the fix, settlement still runs.
+          return {
+            update: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: null,
+              error: {
+                message: 'connection terminated',
+                code: '57P01',
+              },
+            }),
+          } as never;
+        }
+
+        return {
+          select: vi.fn().mockReturnThis(),
+          insert: vi.fn().mockReturnThis(),
+          update: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as never;
+      });
+
+      vi.mocked(mockServiceClient.rpc).mockResolvedValue({
+        data: null,
+        error: null,
+      });
+
+      const response = await POST(request);
+      expect(response.status).toBe(200);
+
+      // The whole point of the fix: even though the order update
+      // failed, record_merchant_settlement was called with the BAC-*
+      // canonical key + the order_update_failed metadata flag so ops
+      // can spot fallback-path settlements.
+      expect(mockServiceClient.rpc).toHaveBeenCalledWith(
+        'record_merchant_settlement',
+        expect.objectContaining({
+          p_gateway_reference: 'BAC-FB-1',
+          p_source_type: 'order',
+          p_source_id: 'order-fb-1',
+          p_metadata: expect.objectContaining({
+            korapay_reference: 'REF-FB-1',
+            order_update_failed: true,
+          }),
+        })
+      );
     });
 
     it('returns retryable status when agentic session reconciliation fails after payment processing', async () => {
@@ -1622,6 +1986,19 @@ describe('POST /api/payments/webhook', () => {
               error: null,
             }),
           } as any;
+        }
+        // A1: payment_side_effects mark-completed/failed UPDATE chain
+        // (chainable + thenable so the helper resolves to data: []).
+        if (table === 'payment_side_effects') {
+          const chain: any = {
+            update: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            // biome-ignore lint/suspicious/noThenProperty: intentional thenable mock so the A1 outbox helper's `await supabase.from(...).update(...).eq(...).select('order_id')` chain resolves.
+            then: (onFulfilled: any) =>
+              Promise.resolve({ data: [], error: null }).then(onFulfilled),
+          };
+          return chain;
         }
         throw new Error(`Unexpected table ${table}`);
       });

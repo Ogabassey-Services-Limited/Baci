@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
+import {
+  AGENTIC_PAYMENT_METHOD_PAY_ON_DELIVERY,
+  AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER,
+  type AgenticPaymentMethod,
+} from '@/config/agentic-payment-methods';
+import { STOREFRONT_AGENT_ROUTES } from '@/config/storefront-agent-routes';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
-import { getRootDomain } from '@/env';
+import { getPaystackSecretKey, getRootDomain } from '@/env';
 import {
   getConfiguredAgenticMerchantSlug,
   isAgenticCheckoutRuntimeConfigured,
@@ -40,6 +46,11 @@ const AGENTIC_MUTATION_REQUIRED_HEADERS = [
 ] as const;
 const ROOT_DOMAIN = (getRootDomain() || 'usebaci.com').toLowerCase();
 
+type MerchantPaymentConfig = {
+  feature_settings?: Record<string, unknown> | null;
+  paystack_subaccount_code?: string | null;
+};
+
 function buildUrl(baseUrl: string, path: string): string {
   return new URL(path, baseUrl).toString();
 }
@@ -77,10 +88,11 @@ export async function GET(request: Request) {
   const { merchant } = merchantResolution;
   const baseUrl = buildRequestBaseUrl(request);
   const slug = merchant.slug;
+  const paymentMethods = buildAgenticPaymentMethods(merchant);
   const checkoutEnabled =
     isAgenticCheckoutRuntimeConfigured() &&
     slug === getConfiguredAgenticMerchantSlug() &&
-    isValidPaystackSubaccountCode(merchant.paystack_subaccount_code);
+    paymentMethods.length > 0;
   const checkoutLinks = checkoutEnabled ? buildCheckoutLinks(baseUrl) : {};
 
   return NextResponse.json(
@@ -95,10 +107,12 @@ export async function GET(request: Request) {
       capabilities: checkoutEnabled
         ? [...AGENT_COMMERCE_CAPABILITIES]
         : ['catalog.read'],
+      payment_methods: checkoutEnabled ? paymentMethods : [],
       auth: checkoutEnabled ? buildAgenticCheckoutAuth() : null,
       links: {
         llms: buildUrl(baseUrl, '/llms.txt'),
         llms_full: buildUrl(baseUrl, '/llms-full.txt'),
+        trust: buildUrl(baseUrl, STOREFRONT_AGENT_ROUTES.trust),
         product_feed: buildUrl(
           baseUrl,
           STOREFRONT_FEED_ROUTES.openaiProductFeed
@@ -127,6 +141,22 @@ export async function GET(request: Request) {
       },
     }
   );
+}
+
+function buildAgenticPaymentMethods(merchant: MerchantPaymentConfig) {
+  const methods: AgenticPaymentMethod[] = [];
+  if (
+    getPaystackSecretKey() &&
+    isValidPaystackSubaccountCode(merchant.paystack_subaccount_code)
+  ) {
+    methods.push(AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER);
+  }
+  const payOnDeliveryEnabled =
+    merchant.feature_settings?.pay_on_delivery_enabled;
+  if (payOnDeliveryEnabled === true) {
+    methods.push(AGENTIC_PAYMENT_METHOD_PAY_ON_DELIVERY);
+  }
+  return methods;
 }
 
 function buildAgenticCheckoutAuth() {

@@ -341,6 +341,10 @@ export async function POST(request: NextRequest) {
         'user_id_mismatch',
         'invalid_payment_status',
         'discount_amount_not_supported',
+        // B3 (plan §5 B3): RPC raises when shipping_provider is set
+        // without a quote id. Map to 4xx so the client gets the right
+        // re-quote signal instead of a generic 500.
+        'shipping_quote_required',
         '22P02', // PostgreSQL: Invalid text representation (e.g. invalid UUID format)
       ];
       // create_storefront_order should return { message, code } for client errors.

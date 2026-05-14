@@ -1,28 +1,20 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
-import { connection } from 'next/server';
 import type { ReactNode } from 'react';
 import StorefrontLayout, {
   generateMetadata as generateStorefrontLayoutMetadata,
   generateViewport,
 } from '@/app/(storefront)/[slug]/layout';
+import { OgabasseyStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-static-resource-hints';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
-import { resolveMerchantContextIdentifier } from '@/lib/storefront-route-identifier';
 
-async function resolveOgabasseyLayoutParams() {
-  const headersList = await headers();
-  return {
-    slug:
-      resolveMerchantContextIdentifier(headersList) || OGABASSEY_TEMPLATE_ID,
-  };
-}
+const OGABASSEY_PARAMS = Promise.resolve({ slug: OGABASSEY_TEMPLATE_ID });
 
 export { generateViewport };
 
 export async function generateMetadata(): Promise<Metadata> {
   try {
     return await generateStorefrontLayoutMetadata({
-      params: resolveOgabasseyLayoutParams(),
+      params: OGABASSEY_PARAMS,
     });
   } catch (error) {
     console.error('Failed to load OgaBassey layout metadata', error);
@@ -32,16 +24,11 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-export default async function OgabasseyLayout({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  await connection();
-
+export default function OgabasseyLayout({ children }: { children: ReactNode }) {
   return (
-    <StorefrontLayout params={resolveOgabasseyLayoutParams()}>
-      {children}
-    </StorefrontLayout>
+    <>
+      <OgabasseyStaticResourceHints />
+      <StorefrontLayout params={OGABASSEY_PARAMS}>{children}</StorefrontLayout>
+    </>
   );
 }

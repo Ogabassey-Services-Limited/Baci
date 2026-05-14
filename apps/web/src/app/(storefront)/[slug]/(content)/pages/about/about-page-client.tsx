@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { SafeHtml } from '@/components/ui/safe-html';
 import { StorefrontProvider } from '@/contexts/storefront-context';
-import { MerchantProvider } from '@/hooks/use-merchant';
+import { MerchantProvider } from '@/hooks/use-merchant-client';
 import { getVideoEmbedUrl } from '@/lib/video-embed';
 import {
   hasAnyRenderedAboutField,

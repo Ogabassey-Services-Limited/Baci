@@ -18,6 +18,11 @@ import { COUNTRIES } from '@/constants/countries';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 
+// Touch-target hitSlop for the clear-search icon. The visible icon is small
+// (18pt), so a 13pt slop on each side brings the effective tap area to 44pt
+// (18 + 13 + 13) and satisfies the WCAG/HIG 44pt minimum target size.
+const CLEAR_SEARCH_HIT_SLOP = 13;
+
 interface CountryPickerModalProps {
   visible: boolean;
   selectedCountry: string;
@@ -81,7 +86,7 @@ export function CountryPickerModal({
                 accessibilityLabel="Clear search"
                 accessibilityHint="Clears the country search input"
                 style={({ pressed }) => [pressed && { opacity: 0.7 }]}
-                hitSlop={8}
+                hitSlop={CLEAR_SEARCH_HIT_SLOP}
               >
                 <Ionicons
                   name="close-circle"

@@ -49,7 +49,7 @@ vi.mock('@/contexts/storefront-context', () => ({
   ),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   MerchantProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),

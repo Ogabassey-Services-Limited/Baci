@@ -172,9 +172,24 @@ const orderCreateSchemaBase = z.object({
   use_wallet_credit: z.boolean().default(false),
   wallet_amount: z.number().default(0),
   user_id: z.string().uuid().optional(),
-  // Shipping metadata
-  selected_quote_id: z.string().uuid().optional(),
-  shipping_provider: z.string().optional(),
+  // Shipping metadata.
+  //
+  // B3 (plan §5 B3): pickup/airport flows send `shipping_provider:
+  // null` instead of fabricating a label like 'Pickup'/'Airport' that
+  // would trip the RPC's `shipping_quote_required` guard. The schemas
+  // accept both undefined and null; the route normalizes `?? null`
+  // before passing to the RPC.
+  selected_quote_id: z.string().uuid().nullable().optional(),
+  // B3 review fix: mirror reuseCheckoutOrderSchema.shipping_provider —
+  // sanitize at the validation boundary so both order-create AND
+  // order-reuse paths persist the same normalized provider string.
+  // Pre-fix, orderCreateSchemaBase accepted raw client input; the
+  // legacy `shipping_provider_legacy` field already had the transform.
+  shipping_provider: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((val) => (val ? sanitizeText(val) : val)),
   tracking_number: z.string().optional(),
   // Legacy/Optional fields
   shipping_provider_legacy: z
@@ -213,9 +228,12 @@ export const reuseCheckoutOrderSchema = z.object({
     (value) => (typeof value === 'string' ? sanitizeText(value) : value),
     z.string().min(1)
   ),
-  selected_quote_id: z.string().uuid().optional(),
+  // B3 (plan §5 B3): accept null so pickup/airport reuse flows can
+  // signal "no third-party shipping provider" cleanly.
+  selected_quote_id: z.string().uuid().nullable().optional(),
   shipping_provider: z
     .string()
+    .nullable()
     .optional()
     .transform((val) => (val ? sanitizeText(val) : val)),
 });

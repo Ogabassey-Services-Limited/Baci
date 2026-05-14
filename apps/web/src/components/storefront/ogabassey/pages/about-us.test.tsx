@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Must be hoisted before the component import
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: vi.fn(() => ({ basePath: '/test-store' })),
 }));
 

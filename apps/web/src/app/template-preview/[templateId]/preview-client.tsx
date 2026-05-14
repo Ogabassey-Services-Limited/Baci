@@ -29,7 +29,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { CartProvider } from '@/hooks/use-cart';
-import { MerchantProvider } from '@/hooks/use-merchant';
+import { MerchantProvider } from '@/hooks/use-merchant-client';
 import {
   TEMPLATE_REGISTRY,
   type TemplateComponents,

@@ -105,7 +105,7 @@ vi.mock('@/hooks/use-currency', () => ({
   }),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: () => ({
     basePath: '',
     merchant: { id: 'merchant-1', slug: 'teststore' },

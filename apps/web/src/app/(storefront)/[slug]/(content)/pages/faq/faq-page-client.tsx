@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { SafeHtml } from '@/components/ui/safe-html';
 import { StorefrontProvider } from '@/contexts/storefront-context';
-import { MerchantProvider } from '@/hooks/use-merchant';
+import { MerchantProvider } from '@/hooks/use-merchant-client';
 import { type FAQItem, groupFAQsByCategory } from '@/types/faq';
 import { ContactCTA } from './contact-cta';
 

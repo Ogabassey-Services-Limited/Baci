@@ -20,7 +20,7 @@ vi.mock('next/image', () => ({
   ),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: () => ({
     basePath: '/ogabassey',
   }),

@@ -235,12 +235,13 @@ export async function POST(req: Request) {
     } else {
       const ollamaBaseUrl = getOllamaBaseUrl();
       if (ollamaBaseUrl) {
+        const chatModel = getAiChatModel();
+        const basicAuth = getOllamaBasicAuth();
         try {
-          const chatModel = getAiChatModel();
           const ollamaResponse = await createOllamaChatResponse({
             baseUrl: ollamaBaseUrl,
             model: chatModel,
-            basicAuth: getOllamaBasicAuth(),
+            basicAuth,
             messages: buildChatMessages(sanitizedMessages, chatModel),
             signal: req.signal,
             timeoutMs: CUSTOMER_CHAT_TIMEOUT_MS,

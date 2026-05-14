@@ -17,11 +17,12 @@ import {
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import { SetupChecklist } from '@/components/dashboard/setup-checklist';
+import { StoreBuildStatusCard } from '@/components/dashboard/store-build-status-card';
 import { BentoCard } from '@/components/ui/bento-card';
 import { Button } from '@/components/ui/button';
 import type { ChartConfig } from '@/components/ui/chart';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { formatPrice } from '@/lib/currency-utils';
 import { cn } from '@/lib/utils';
@@ -320,6 +321,7 @@ export default function DashboardClientPage({
         className="animate-in fade-in slide-in-from-bottom-4 duration-500"
         style={{ animationFillMode: 'both' }}
       >
+        <StoreBuildStatusCard />
         <SetupChecklist dismissible />
       </div>
 

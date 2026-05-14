@@ -4,7 +4,7 @@ import { AlertCircle, Loader2, User, UserPlus, X, Zap } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { buildCheckoutIdentityRoutes } from '@/components/storefront/checkout-route';
-import { useMerchantSafe } from '@/hooks/use-merchant';
+import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { createClient } from '@/lib/supabase/client';
 import { cn } from '@/lib/utils';
 

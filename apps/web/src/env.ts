@@ -152,25 +152,30 @@ const serverSchema = z
     OLLAMA_BASE_URL: httpsOrLocalhostUrl('OLLAMA_BASE_URL').optional(),
     OLLAMA_CAC_MODEL: z.string().default('gemma4:e4b'),
     OLLAMA_BASIC_AUTH: z.string().optional(),
+    OLLAMA_STOREFRONT_BASE_URL: httpsOrLocalhostUrl(
+      'OLLAMA_STOREFRONT_BASE_URL'
+    ).optional(),
+    OLLAMA_STOREFRONT_BASIC_AUTH: z.string().optional(),
+    OLLAMA_STOREFRONT_MODEL: z.string().default('gemma4:e4b'),
+    OLLAMA_STOREFRONT_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(90_000),
+    AI_STOREFRONT_GENERATION_ENABLED: booleanStringSchema.default(false),
 
     // LLM server (llama.cpp / OpenAI-compatible — Gemma 4 + MTP drafter on VPS)
     LLM_SERVER_URL: httpsOrLocalhostUrl('LLM_SERVER_URL').optional(),
-    // .trim() before .min(1) so a whitespace-only value (e.g. "   ") fails at
-    // boot via the superRefine below rather than silently producing an empty
-    // bearer at runtime that always falls back to Gemini. The buildLlmBearer
-    // refine reuses the request-time validation (length cap, control-char
-    // rejection, "BearerXyz" detection) so invalid tokens fail boot rather
-    // than passing here and getting rejected per-request inside the chat
-    // route — which would silently downgrade the deployment to Gemini.
-    LLM_SERVER_BEARER: z
-      .string()
-      .trim()
-      .min(1)
-      .refine((value) => buildLlmBearerAuthHeader(value) !== null, {
+    // Blank placeholders are treated as unset; the superRefine below requires
+    // a real bearer only when LLM_SERVER_URL is configured.
+    LLM_SERVER_BEARER: optionalTrimmedStringSchema.refine(
+      (value) =>
+        value === undefined || buildLlmBearerAuthHeader(value) !== null,
+      {
         message:
           'LLM_SERVER_BEARER must be a valid bearer token (no control chars, ≤2048 chars, not "BearerXyz")',
-      })
-      .optional(),
+      }
+    ),
     LLM_CHAT_MODEL: z.string().default('gemma-4-e4b'),
 
     // Jumia Marketplace
@@ -323,6 +328,12 @@ const getEnv = () => {
         OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL,
         OLLAMA_CAC_MODEL: process.env.OLLAMA_CAC_MODEL,
         OLLAMA_BASIC_AUTH: process.env.OLLAMA_BASIC_AUTH,
+        OLLAMA_STOREFRONT_BASE_URL: process.env.OLLAMA_STOREFRONT_BASE_URL,
+        OLLAMA_STOREFRONT_BASIC_AUTH: process.env.OLLAMA_STOREFRONT_BASIC_AUTH,
+        OLLAMA_STOREFRONT_MODEL: process.env.OLLAMA_STOREFRONT_MODEL,
+        OLLAMA_STOREFRONT_TIMEOUT_MS: process.env.OLLAMA_STOREFRONT_TIMEOUT_MS,
+        AI_STOREFRONT_GENERATION_ENABLED:
+          process.env.AI_STOREFRONT_GENERATION_ENABLED,
         LLM_SERVER_URL: process.env.LLM_SERVER_URL,
         LLM_SERVER_BEARER: process.env.LLM_SERVER_BEARER,
         LLM_CHAT_MODEL: process.env.LLM_CHAT_MODEL,
@@ -615,6 +626,42 @@ export const getOllamaBasicAuth = () => {
   if (typeof window !== 'undefined')
     throw new Error('OLLAMA_BASIC_AUTH cannot be accessed on the client');
   return env?.OLLAMA_BASIC_AUTH;
+};
+export const getOllamaStorefrontBaseUrl = () => {
+  if (isBrowserRuntime())
+    throw new Error(
+      'OLLAMA_STOREFRONT_BASE_URL cannot be accessed on the client'
+    );
+  return env?.OLLAMA_STOREFRONT_BASE_URL;
+};
+export const getOllamaStorefrontBasicAuth = () => {
+  if (isBrowserRuntime())
+    throw new Error(
+      'OLLAMA_STOREFRONT_BASIC_AUTH cannot be accessed on the client'
+    );
+  return env?.OLLAMA_STOREFRONT_BASIC_AUTH;
+};
+export const getOllamaStorefrontModel = () => {
+  if (isBrowserRuntime())
+    throw new Error('OLLAMA_STOREFRONT_MODEL cannot be accessed on the client');
+  return validateSanitizedModel(
+    env.OLLAMA_STOREFRONT_MODEL,
+    'OLLAMA_STOREFRONT_MODEL'
+  );
+};
+export const getOllamaStorefrontTimeoutMs = () => {
+  if (isBrowserRuntime())
+    throw new Error(
+      'OLLAMA_STOREFRONT_TIMEOUT_MS cannot be accessed on the client'
+    );
+  return env.OLLAMA_STOREFRONT_TIMEOUT_MS;
+};
+export const isAiStorefrontGenerationEnabled = () => {
+  if (isBrowserRuntime())
+    throw new Error(
+      'AI_STOREFRONT_GENERATION_ENABLED cannot be accessed on the client'
+    );
+  return env.AI_STOREFRONT_GENERATION_ENABLED;
 };
 export const getLlmServerUrl = () => {
   if (isBrowserRuntime())

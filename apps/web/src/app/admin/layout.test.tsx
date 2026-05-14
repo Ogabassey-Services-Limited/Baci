@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformAdminAuth } from '@/lib/platform-admin-auth';
 
@@ -34,7 +34,7 @@ vi.mock('./admin-shell', () => ({
   ),
 }));
 
-import AdminLayout from './layout';
+import AdminLayout, { AdminLayoutContent } from './layout';
 
 describe('AdminLayout', () => {
   beforeEach(() => {
@@ -46,7 +46,7 @@ describe('AdminLayout', () => {
   });
 
   it('renders the admin shell only after server-side admin authorization passes', async () => {
-    const layout = await AdminLayout({
+    const layout = await AdminLayoutContent({
       children: <div>Admin content</div>,
     });
 
@@ -62,11 +62,32 @@ describe('AdminLayout', () => {
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 
+  it('renders a local fallback while server-side admin authorization is pending', () => {
+    mockGetPlatformAdminAuth.mockReturnValueOnce(
+      new Promise(() => {
+        // Intentionally unresolved to keep the Suspense fallback visible.
+      })
+    );
+
+    const layout = AdminLayout({
+      children: <div>Admin content</div>,
+    });
+
+    expect(layout).not.toBeInstanceOf(Promise);
+
+    render(layout as ReactElement);
+
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Loading admin workspace'
+    );
+    expect(screen.queryByText('Admin content')).not.toBeInTheDocument();
+  });
+
   it('redirects unauthenticated users back to login with the admin return path', async () => {
     mockGetPlatformAdminAuth.mockResolvedValue({ status: 'unauthenticated' });
 
     await expect(
-      AdminLayout({
+      AdminLayoutContent({
         children: <div>Admin content</div>,
       })
     ).rejects.toThrow('NEXT_REDIRECT:/login?redirect=%2Fadmin');
@@ -78,7 +99,7 @@ describe('AdminLayout', () => {
     mockGetPlatformAdminAuth.mockResolvedValue({ status: 'forbidden' });
 
     await expect(
-      AdminLayout({
+      AdminLayoutContent({
         children: <div>Admin content</div>,
       })
     ).rejects.toThrow('NEXT_REDIRECT:/dashboard');

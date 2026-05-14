@@ -78,7 +78,7 @@ vi.mock('@/hooks/use-currency', () => ({
   useCurrency: () => ({ formatCurrency: (value: number) => `₦${value}` }),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: () => ({
     merchant: merchantState.value,
     basePath: '/ogabassey',

@@ -25,7 +25,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCart } from '@/hooks/cart';
 import { useCurrency } from '@/hooks/use-currency';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { useRecentlyViewed } from '@/hooks/use-recently-viewed';
 import { useToast } from '@/hooks/use-toast';
 import { trackEvent } from '@/lib/event-tracking';

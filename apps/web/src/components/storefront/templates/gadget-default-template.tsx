@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useIndustryTheme } from '@/hooks/use-industry-theme';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
