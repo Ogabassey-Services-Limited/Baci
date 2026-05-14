@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
-import { exportOrderReportPDF } from '@/utils/export-orders';
+import { orderExportTools } from '@/utils/export-orders';
 import { formatCurrency } from '@/utils/format';
 
 const PRESETS = [
@@ -83,7 +83,12 @@ export default function OrderReportModal({
   const handleExportPDF = async () => {
     setIsExportingPDF(true);
     try {
-      await exportOrderReportPDF(orders, dateRangeLabel, businessName, logoUrl);
+      await orderExportTools.exportOrderReportPDF(
+        orders,
+        dateRangeLabel,
+        businessName,
+        logoUrl
+      );
       onClose();
     } catch (error) {
       console.error(error);

@@ -95,6 +95,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
+    // Keep the Expo/jsdom suite from exhausting fork startup capacity when
+    // Turborepo runs package tests concurrently.
+    maxWorkers: 4,
     server: {
       deps: {
         // Prevent vitest from parsing native packages (Flow/JSX in .js files)
