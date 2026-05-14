@@ -55,6 +55,7 @@ export function buildUcpDiscoveryProfile(manifest: AgentCommerceManifest) {
         orderReadEnabled,
       }),
       payment_handlers: buildUcpPaymentHandlers(
+        agentCommerceManifestUrl,
         manifest.payment_methods,
         manifest.schema_version
       ),
@@ -141,6 +142,7 @@ function buildUcpCapabilities({
 }
 
 function buildUcpPaymentHandlers(
+  agentCommerceManifestUrl: string,
   paymentMethods: AgenticPaymentMethod[],
   manifestVersion: string
 ) {
@@ -162,7 +164,7 @@ function buildUcpPaymentHandlers(
       {
         id: AGENTIC_PAYMENT_METHOD_PAY_ON_DELIVERY,
         version: manifestVersion,
-        spec: 'https://usebaci.com/agent-commerce.json',
+        spec: agentCommerceManifestUrl,
         available_instruments: [{ type: 'pay_on_delivery' }],
       },
     ];

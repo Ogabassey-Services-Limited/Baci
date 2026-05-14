@@ -125,7 +125,10 @@ describe('buildUcpDiscoveryProfile', () => {
     ).toBeUndefined();
     expect(profile.ucp.payment_handlers).toMatchObject({
       'com.usebaci.pay_on_delivery': [
-        expect.objectContaining({ id: 'pay_on_delivery' }),
+        expect.objectContaining({
+          id: 'pay_on_delivery',
+          spec: 'https://ogabassey.com/agent-commerce.json',
+        }),
       ],
     });
     expect(profile.extensions.baci.capabilities).toEqual([]);
