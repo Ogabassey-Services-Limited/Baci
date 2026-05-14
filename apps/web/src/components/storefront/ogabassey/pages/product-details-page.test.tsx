@@ -106,7 +106,7 @@ vi.mock('@/hooks/cart', () => ({
     applyNegotiatedPrice: vi.fn(),
   })),
 }));
-vi.mock('@/hooks/use-merchant-client', () => ({
+vi.mock('@/hooks/merchant/use-merchant', () => ({
   useMerchantSafe: vi.fn(() => ({
     merchant: { id: 'm-1', slug: 'test', business_name: 'Test' },
     basePath: '',
