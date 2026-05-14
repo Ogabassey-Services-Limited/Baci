@@ -11,10 +11,6 @@ export const UCP_PROFILE_VERSION = '2026-04-08';
 
 const UCP_SPEC_OVERVIEW_URL = `https://ucp.dev/${UCP_PROFILE_VERSION}/specification/overview/`;
 const UCP_REST_SCHEMA_URL = `https://ucp.dev/${UCP_PROFILE_VERSION}/services/shopping/rest.openapi.json`;
-const UCP_CHECKOUT_SPEC_URL = `https://ucp.dev/${UCP_PROFILE_VERSION}/specification/checkout`;
-const UCP_CHECKOUT_SCHEMA_URL = `https://ucp.dev/${UCP_PROFILE_VERSION}/schemas/shopping/checkout.json`;
-const UCP_ORDER_SPEC_URL = `https://ucp.dev/${UCP_PROFILE_VERSION}/specification/order`;
-const UCP_ORDER_SCHEMA_URL = `https://ucp.dev/${UCP_PROFILE_VERSION}/schemas/shopping/order.json`;
 
 function buildUrl(baseUrl: string, path: string): string {
   return new URL(path, baseUrl).toString();
@@ -29,11 +25,6 @@ export function buildUcpDiscoveryProfile(manifest: AgentCommerceManifest) {
     manifest.store.canonical_origin,
     STOREFRONT_AGENT_ROUTES.agenticApiBase
   );
-  const checkoutEnabled = manifest.capabilities.includes(
-    'checkout.session.create'
-  );
-  const orderReadEnabled = manifest.capabilities.includes('order.read');
-
   return {
     ucp: {
       version: UCP_PROFILE_VERSION,
@@ -55,9 +46,7 @@ export function buildUcpDiscoveryProfile(manifest: AgentCommerceManifest) {
       },
       capabilities: buildUcpCapabilities({
         agentCommerceManifestUrl,
-        checkoutEnabled,
         manifest,
-        orderReadEnabled,
       }),
       payment_handlers: buildUcpPaymentHandlers(
         agentCommerceManifestUrl,
@@ -90,54 +79,21 @@ export function buildUcpDiscoveryProfile(manifest: AgentCommerceManifest) {
 
 function buildUcpCapabilities({
   agentCommerceManifestUrl,
-  checkoutEnabled,
   manifest,
-  orderReadEnabled,
 }: {
   agentCommerceManifestUrl: string;
-  checkoutEnabled: boolean;
   manifest: AgentCommerceManifest;
-  orderReadEnabled: boolean;
 }) {
-  const capabilities: Record<string, unknown[]> = {
-    'com.usebaci.catalog.read': [
+  const capabilities: Record<string, unknown[]> = {};
+
+  if (manifest.capabilities.includes('catalog.read')) {
+    capabilities['com.usebaci.catalog.read'] = [
       {
         version: manifest.schema_version,
         spec: agentCommerceManifestUrl,
-        schema: manifest.links.product_feed,
         config: {
           feed: manifest.links.product_feed,
           product_api: manifest.links.product_api,
-        },
-      },
-    ],
-  };
-
-  if (checkoutEnabled) {
-    capabilities['dev.ucp.shopping.checkout'] = [
-      {
-        version: UCP_PROFILE_VERSION,
-        spec: UCP_CHECKOUT_SPEC_URL,
-        schema: UCP_CHECKOUT_SCHEMA_URL,
-        config: {
-          baci_manifest: agentCommerceManifestUrl,
-          baci_operations: manifest.capabilities.filter((capability) =>
-            capability.startsWith('checkout.session.')
-          ),
-        },
-      },
-    ];
-  }
-
-  if (orderReadEnabled) {
-    capabilities['dev.ucp.shopping.order'] = [
-      {
-        version: UCP_PROFILE_VERSION,
-        spec: UCP_ORDER_SPEC_URL,
-        schema: UCP_ORDER_SCHEMA_URL,
-        config: {
-          baci_manifest: agentCommerceManifestUrl,
-          baci_operations: ['order.read'],
         },
       },
     ];

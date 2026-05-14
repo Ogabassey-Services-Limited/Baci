@@ -100,7 +100,7 @@ describe('GET /.well-known/ucp', () => {
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
   });
 
-  it('advertises checkout and order capabilities when Baci agentic checkout is configured', async () => {
+  it('exposes Baci checkout extensions when agentic checkout is configured', async () => {
     stubAgenticCheckoutEnv();
 
     const { GET } = await import('./route');
@@ -112,14 +112,8 @@ describe('GET /.well-known/ucp', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.ucp.capabilities).toMatchObject({
-      'dev.ucp.shopping.checkout': [
-        expect.objectContaining({ version: '2026-04-08' }),
-      ],
-      'dev.ucp.shopping.order': [
-        expect.objectContaining({ version: '2026-04-08' }),
-      ],
-    });
+    expect(body.ucp.capabilities['dev.ucp.shopping.checkout']).toBeUndefined();
+    expect(body.ucp.capabilities['dev.ucp.shopping.order']).toBeUndefined();
     expect(body.ucp.payment_handlers).toMatchObject({
       'com.paystack.bank_transfer': [
         expect.objectContaining({

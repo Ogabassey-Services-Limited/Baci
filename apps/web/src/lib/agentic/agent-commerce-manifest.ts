@@ -180,20 +180,22 @@ function buildAgenticCheckoutAuth() {
 }
 
 function buildCheckoutLinks(baseUrl: string) {
+  const agenticApiBase = STOREFRONT_AGENT_ROUTES.agenticApiBase;
+
   return {
-    checkout_sessions: buildUrl(baseUrl, '/api/agentic/checkout_sessions'),
+    checkout_sessions: buildUrl(baseUrl, `${agenticApiBase}/checkout_sessions`),
     checkout_session: buildTemplateUrl(
       baseUrl,
-      '/api/agentic/checkout_sessions/{session_id}'
+      `${agenticApiBase}/checkout_sessions/{session_id}`
     ),
     checkout_session_complete: buildTemplateUrl(
       baseUrl,
-      '/api/agentic/checkout_sessions/{session_id}/complete'
+      `${agenticApiBase}/checkout_sessions/{session_id}/complete`
     ),
     checkout_session_cancel: buildTemplateUrl(
       baseUrl,
-      '/api/agentic/checkout_sessions/{session_id}/cancel'
+      `${agenticApiBase}/checkout_sessions/{session_id}/cancel`
     ),
-    order: buildTemplateUrl(baseUrl, '/api/agentic/orders/{order_id}'),
+    order: buildTemplateUrl(baseUrl, `${agenticApiBase}/orders/{order_id}`),
   };
 }

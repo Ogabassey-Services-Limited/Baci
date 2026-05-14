@@ -80,6 +80,9 @@ describe('buildUcpDiscoveryProfile', () => {
         expect.objectContaining({ version: '2026-04-30' }),
       ],
     });
+    expect(profile.ucp.capabilities['com.usebaci.catalog.read']).toEqual([
+      expect.not.objectContaining({ schema: expect.anything() }),
+    ]);
     expect(
       profile.ucp.capabilities['dev.ucp.shopping.checkout']
     ).toBeUndefined();
@@ -87,7 +90,7 @@ describe('buildUcpDiscoveryProfile', () => {
     expect(profile.extensions.baci.capabilities).toEqual(['catalog.read']);
   });
 
-  it('maps configured checkout methods into UCP capability and handler declarations', () => {
+  it('keeps Baci checkout operations in extensions until native UCP paths exist', () => {
     const manifest: AgentCommerceManifest = {
       ...baseManifest,
       auth: checkoutAuth,
@@ -102,19 +105,18 @@ describe('buildUcpDiscoveryProfile', () => {
 
     const profile = buildUcpDiscoveryProfile(manifest);
 
-    expect(profile.ucp.capabilities).toMatchObject({
-      'dev.ucp.shopping.checkout': [
-        expect.objectContaining({ version: '2026-04-08' }),
-      ],
-      'dev.ucp.shopping.order': [
-        expect.objectContaining({ version: '2026-04-08' }),
-      ],
-    });
+    expect(
+      profile.ucp.capabilities['dev.ucp.shopping.checkout']
+    ).toBeUndefined();
+    expect(profile.ucp.capabilities['dev.ucp.shopping.order']).toBeUndefined();
     expect(profile.ucp.payment_handlers).toMatchObject({
       'com.paystack.bank_transfer': [
         expect.objectContaining({ id: 'paystack_bank_transfer' }),
       ],
     });
+    expect(profile.extensions.baci.capabilities).toContain(
+      'checkout.session.complete'
+    );
     expect(profile.extensions.baci.auth).toMatchObject({
       type: 'bearer_hmac',
     });
@@ -131,6 +133,9 @@ describe('buildUcpDiscoveryProfile', () => {
 
     expect(
       profile.ucp.capabilities['dev.ucp.shopping.checkout']
+    ).toBeUndefined();
+    expect(
+      profile.ucp.capabilities['com.usebaci.catalog.read']
     ).toBeUndefined();
     expect(profile.ucp.payment_handlers).toMatchObject({
       'com.usebaci.pay_on_delivery': [

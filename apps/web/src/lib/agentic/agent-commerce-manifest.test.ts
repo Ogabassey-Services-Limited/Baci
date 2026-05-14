@@ -29,7 +29,7 @@ describe('agent commerce manifest builder', () => {
 
   it('builds concrete and templated URLs without slash drift', async () => {
     const { buildTemplateUrl, buildUrl } = await import(
-      './agent-commerce-manifest'
+      '@/lib/agentic/agent-commerce-manifest'
     );
 
     expect(buildUrl('https://ogabassey.com', '/feeds/openai.jsonl')).toBe(
@@ -48,7 +48,7 @@ describe('agent commerce manifest builder', () => {
 
   it('builds checkout links and payment methods from merchant runtime config', async () => {
     const { buildAgentCommerceManifest } = await import(
-      './agent-commerce-manifest'
+      '@/lib/agentic/agent-commerce-manifest'
     );
 
     const manifest = buildAgentCommerceManifest(
@@ -79,7 +79,7 @@ describe('agent commerce manifest builder', () => {
     vi.stubEnv('PAYSTACK_SECRET_KEY', '');
 
     const { buildAgentCommerceManifest } = await import(
-      './agent-commerce-manifest'
+      '@/lib/agentic/agent-commerce-manifest'
     );
 
     const manifest = buildAgentCommerceManifest(
@@ -98,7 +98,7 @@ describe('agent commerce manifest builder', () => {
 
   it('keeps catalog-only discovery when the merchant slug is not configured', async () => {
     const { buildAgentCommerceManifest } = await import(
-      './agent-commerce-manifest'
+      '@/lib/agentic/agent-commerce-manifest'
     );
 
     const manifest = buildAgentCommerceManifest(
@@ -119,7 +119,7 @@ describe('agent commerce manifest builder', () => {
 
   it('keeps catalog-only discovery when payment methods are unavailable', async () => {
     const { buildAgentCommerceManifest } = await import(
-      './agent-commerce-manifest'
+      '@/lib/agentic/agent-commerce-manifest'
     );
 
     const manifest = buildAgentCommerceManifest(
@@ -139,7 +139,7 @@ describe('agent commerce manifest builder', () => {
 
   it('throws when the base URL cannot be used to build concrete links', async () => {
     const { buildAgentCommerceManifest } = await import(
-      './agent-commerce-manifest'
+      '@/lib/agentic/agent-commerce-manifest'
     );
 
     expect(() =>
