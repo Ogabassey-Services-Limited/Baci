@@ -861,7 +861,10 @@ export async function proxy(request: NextRequest) {
   // ==== RFC 8615: WELL-KNOWN PASSTHROUGH ====
   // Let .well-known requests reach App Router route handlers unmodified.
   // Apple/Android app link verifiers reject redirects and rewrites.
-  if (pathname.startsWith('/.well-known/')) {
+  if (
+    pathname.startsWith('/.well-known/') &&
+    !isPublicMachineReadablePath(pathname)
+  ) {
     return NextResponse.next();
   }
 
