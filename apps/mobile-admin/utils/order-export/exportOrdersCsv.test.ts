@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { exportOrdersCsv } from './exportOrdersCsv';
 import { makeOrder } from './order-export.test-helpers';
 
 const {
@@ -23,6 +24,8 @@ describe('exportOrdersCsv', () => {
     mockIsAvailableAsync.mockReset();
     mockShareAsync.mockReset();
     mockWriteAsStringAsync.mockReset();
+    mockShareAsync.mockResolvedValue(undefined);
+    mockWriteAsStringAsync.mockResolvedValue(undefined);
     mockLoadOrderExportNativeModules.mockResolvedValue({
       FileSystem: {
         documentDirectory: 'file:///documents/',
@@ -42,7 +45,6 @@ describe('exportOrdersCsv', () => {
 
   it('writes the CSV to a file and shares it when sharing is available', async () => {
     mockIsAvailableAsync.mockResolvedValue(true);
-    const { exportOrdersCsv } = await import('./exportOrdersCsv');
 
     await exportOrdersCsv([makeOrder({ order_number: 'BAC-900' })]);
 
@@ -65,7 +67,6 @@ describe('exportOrdersCsv', () => {
 
   it('throws when sharing is not available', async () => {
     mockIsAvailableAsync.mockResolvedValue(false);
-    const { exportOrdersCsv } = await import('./exportOrdersCsv');
 
     await expect(exportOrdersCsv([makeOrder()])).rejects.toThrow(
       'Sharing is not available on this device'
@@ -81,7 +82,6 @@ describe('exportOrdersCsv', () => {
       Print: null,
       Sharing: null,
     });
-    const { exportOrdersCsv } = await import('./exportOrdersCsv');
 
     await expect(exportOrdersCsv([makeOrder()])).rejects.toThrow(
       'Export modules not available'
@@ -100,7 +100,6 @@ describe('exportOrdersCsv', () => {
         shareAsync: mockShareAsync,
       },
     });
-    const { exportOrdersCsv } = await import('./exportOrdersCsv');
 
     await expect(exportOrdersCsv([makeOrder()])).rejects.toThrow(
       'Document directory not available'
