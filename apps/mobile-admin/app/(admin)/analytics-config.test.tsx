@@ -27,7 +27,13 @@ vi.mock('react-native', async () => {
     }
 
     if (Array.isArray(style)) {
-      return Object.assign({}, ...style.map(toDomStyle));
+      return Object.assign(
+        {},
+        ...style
+          .flat(Infinity)
+          .map(toDomStyle)
+          .filter((s): s is React.CSSProperties => Boolean(s))
+      );
     }
 
     if (typeof style !== 'object') {

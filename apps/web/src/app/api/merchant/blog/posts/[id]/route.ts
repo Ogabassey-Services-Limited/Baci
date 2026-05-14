@@ -20,6 +20,37 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+function getFeaturedImageVariants(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function normalizeJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(normalizeJsonValue);
+  }
+
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, nestedValue]) => [key, normalizeJsonValue(nestedValue)])
+  );
+}
+
+function featuredImageVariantsEqual(left: unknown, right: unknown): boolean {
+  return (
+    JSON.stringify(normalizeJsonValue(getFeaturedImageVariants(left))) ===
+    JSON.stringify(normalizeJsonValue(getFeaturedImageVariants(right)))
+  );
+}
+
 export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
@@ -137,6 +168,22 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const updateData: Record<string, unknown> = { ...validated.data };
+    const featuredImageUrlChanged =
+      Object.hasOwn(updateData, 'featured_image_url') &&
+      updateData.featured_image_url !== existingPost.featured_image_url;
+    if (featuredImageUrlChanged) {
+      // A new primary image invalidates dimensions and variants unless the
+      // client submits replacement metadata in this PATCH.
+      if (!Object.hasOwn(updateData, 'featured_image_width')) {
+        updateData.featured_image_width = null;
+      }
+      if (!Object.hasOwn(updateData, 'featured_image_height')) {
+        updateData.featured_image_height = null;
+      }
+      if (!Object.hasOwn(updateData, 'featured_image_variants')) {
+        updateData.featured_image_variants = {};
+      }
+    }
     const featureSettings = await supabase
       .from('merchant_feature_settings')
       .select('blog_enabled, blog_discover_image_validation_enabled')
@@ -171,14 +218,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       typeof updateData.status === 'string'
         ? updateData.status
         : existingPost.status;
-    const imageMetadataTouched =
-      Object.hasOwn(updateData, 'featured_image_url') ||
-      Object.hasOwn(updateData, 'featured_image_width') ||
-      Object.hasOwn(updateData, 'featured_image_height') ||
-      Object.hasOwn(updateData, 'featured_image_variants');
+    const featuredImageMetadataChanged =
+      (Object.hasOwn(updateData, 'featured_image_width') &&
+        updateData.featured_image_width !==
+          existingPost.featured_image_width) ||
+      (Object.hasOwn(updateData, 'featured_image_height') &&
+        updateData.featured_image_height !==
+          existingPost.featured_image_height) ||
+      (Object.hasOwn(updateData, 'featured_image_variants') &&
+        !featuredImageVariantsEqual(
+          updateData.featured_image_variants,
+          existingPost.featured_image_variants
+        ));
     const featuredImageChanged =
-      Object.hasOwn(updateData, 'featured_image_url') &&
-      updateData.featured_image_url !== existingPost.featured_image_url;
+      featuredImageUrlChanged || featuredImageMetadataChanged;
     const publishingNow =
       targetStatus === 'published' && existingPost.status !== 'published';
     const effectiveImage = {
@@ -210,7 +263,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (
       !discoverImageReadiness.ready &&
       shouldEnforceDiscoverImage &&
-      (publishingNow || featuredImageChanged || imageMetadataTouched)
+      (publishingNow || featuredImageChanged)
     ) {
       return NextResponse.json(
         {
