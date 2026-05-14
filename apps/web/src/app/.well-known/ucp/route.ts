@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getRootDomain } from '@/env';
+import { buildAgentCommerceManifest } from '@/lib/agentic/agent-commerce-manifest';
 import {
-  AGENT_COMMERCE_CACHE_CONTROL,
-  buildAgentCommerceManifest,
-} from '@/lib/agentic/agent-commerce-manifest';
+  buildUcpDiscoveryProfile,
+  UCP_PROFILE_CACHE_CONTROL,
+} from '@/lib/agentic/ucp-discovery-profile';
 import { buildRequestBaseUrl } from '@/lib/storefront-host';
 import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant';
 
@@ -13,14 +14,13 @@ export async function GET(request: Request) {
   const merchantResolution = await resolveStorefrontMerchantFromRequest({
     request,
     rootDomain: ROOT_DOMAIN,
-    notFoundError:
-      'Agent commerce manifest is only available on storefront hosts',
-    lookupError: 'Failed to build agent commerce manifest',
+    notFoundError: 'UCP profile is only available on storefront hosts',
+    lookupError: 'Failed to build UCP profile',
   });
 
   if (!merchantResolution.success) {
     if (merchantResolution.status === 500) {
-      console.error('AGENT_COMMERCE_MANIFEST_ERROR:', merchantResolution.cause);
+      console.error('UCP_PROFILE_ERROR:', merchantResolution.cause);
     }
 
     return NextResponse.json(
@@ -29,12 +29,15 @@ export async function GET(request: Request) {
     );
   }
 
-  const { merchant } = merchantResolution;
-  const baseUrl = buildRequestBaseUrl(request);
+  const manifest = buildAgentCommerceManifest(
+    merchantResolution.merchant,
+    buildRequestBaseUrl(request)
+  );
 
-  return NextResponse.json(buildAgentCommerceManifest(merchant, baseUrl), {
+  return NextResponse.json(buildUcpDiscoveryProfile(manifest), {
     headers: {
-      'Cache-Control': AGENT_COMMERCE_CACHE_CONTROL,
+      'Cache-Control': UCP_PROFILE_CACHE_CONTROL,
+      'Vercel-CDN-Cache-Control': 'no-store',
     },
   });
 }
