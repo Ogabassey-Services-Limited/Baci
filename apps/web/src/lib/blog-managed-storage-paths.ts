@@ -1,3 +1,6 @@
+import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
+import { env } from '@/env';
+
 export const BLOG_FEATURED_VARIANT_KEYS = [
   'landscape_16x9',
   'standard_4x3',
@@ -10,6 +13,19 @@ export type BlogFeaturedVariantKey =
 const BLOG_FEATURED_VARIANT_FILENAME = new RegExp(
   `^(${BLOG_FEATURED_VARIANT_KEYS.map((key) => key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\.webp$`
 );
+
+function getConfiguredBlogMediaCdnOrigin(origin?: string): string {
+  const configured =
+    origin ||
+    env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN ||
+    DEFAULT_BLOG_MEDIA_CDN_ORIGIN;
+
+  try {
+    return new URL(configured).origin;
+  } catch {
+    return DEFAULT_BLOG_MEDIA_CDN_ORIGIN;
+  }
+}
 
 export function isManagedBlogStoragePath(
   path: string,
@@ -73,4 +89,33 @@ export function extractManagedBlogStoragePath(
   } catch {
     return null;
   }
+}
+
+export function buildBlogMediaCdnUrl(
+  storagePath: string,
+  merchantId: string,
+  origin?: string
+): string | null {
+  const normalized = storagePath.trim().replace(/^\/+/, '');
+  if (!isManagedBlogStoragePath(normalized, merchantId)) {
+    return null;
+  }
+
+  const encodedPath = normalized.split('/').map(encodeURIComponent).join('/');
+  return `${getConfiguredBlogMediaCdnOrigin(origin)}/media/${encodedPath}`;
+}
+
+export function canonicalizeBlogMediaUrl(
+  publicUrlOrPath: string,
+  merchantId: string,
+  origin?: string
+): string | null {
+  const input = publicUrlOrPath.trim();
+  const storagePath = isManagedBlogStoragePath(input, merchantId)
+    ? input
+    : extractManagedBlogStoragePath(input, merchantId);
+
+  return storagePath
+    ? buildBlogMediaCdnUrl(storagePath, merchantId, origin)
+    : null;
 }

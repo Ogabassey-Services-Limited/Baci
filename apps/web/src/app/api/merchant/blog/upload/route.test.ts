@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 
 const mockCheckCsrfProtection = vi.fn();
 const mockAuthenticateApiRequest = vi.fn();
@@ -8,6 +9,8 @@ const mockHasPermission = vi.fn();
 const mockCheckRateLimit = vi.fn();
 const mockGenerateFeaturedImageVariants = vi.fn();
 const mockIsManagedBlogStoragePath = vi.fn();
+
+const BLOG_MEDIA_CDN_BASE = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/media`;
 
 class MockBlogFeaturedImageError extends Error {
   code: string;
@@ -190,7 +193,10 @@ describe('POST /api/merchant/blog/upload', () => {
     expect(upload).toHaveBeenCalledTimes(1);
     expect(mockGenerateFeaturedImageVariants).not.toHaveBeenCalled();
     expect(body.path).toContain(`${ownerAccess.merchantId}/blog/`);
-    expect(body.url).toContain('/media/');
+    expect(body.url).toContain(
+      `${BLOG_MEDIA_CDN_BASE}/${ownerAccess.merchantId}/blog/`
+    );
+    expect(body.url).not.toContain('/storage/v1/object/public/');
   });
 
   it('returns 429 and skips upload work when rate limited', async () => {
@@ -278,11 +284,22 @@ describe('POST /api/merchant/blog/upload', () => {
       expect(upload).toHaveBeenCalledTimes(3);
       expect(body.width).toBe(1200);
       expect(body.height).toBe(675);
+      expect(body.url).toContain(
+        `${BLOG_MEDIA_CDN_BASE}/${ownerAccess.merchantId}/blog/`
+      );
+      expect(body.url).not.toContain('/storage/v1/object/public/');
+      expect(body.variants.landscape_16x9).toContain(
+        `${BLOG_MEDIA_CDN_BASE}/${ownerAccess.merchantId}/blog/`
+      );
       expect(body.variants.landscape_16x9).toContain('/landscape_16x9.webp');
+      expect(body.variants.landscape_16x9).not.toContain(
+        '/storage/v1/object/public/'
+      );
       expect(body.variantPaths.landscape_16x9).toContain(
         '/landscape_16x9.webp'
       );
       expect(body.featuredImageVariants.landscape_16x9).toMatchObject({
+        url: body.variants.landscape_16x9,
         width: 1200,
         height: 675,
         contentType: 'image/webp',
