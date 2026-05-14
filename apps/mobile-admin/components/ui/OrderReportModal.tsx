@@ -6,22 +6,14 @@ import {
   Dimensions,
   Modal,
   Pressable,
-  StyleSheet,
   Text,
   View,
 } from 'react-native';
-import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
+import { OrderReportDateMenu } from '@/components/ui/order-report-modal/OrderReportDateMenu';
+import { OrderReportStatsPanel } from '@/components/ui/order-report-modal/OrderReportStatsPanel';
+import styles from '@/components/ui/order-report-modal/orderReportModalStyles';
 import { orderExportTools } from '@/utils/export-orders';
-import { formatCurrency } from '@/utils/format';
-
-const PRESETS = [
-  'Today',
-  'Yesterday',
-  'Last 7 Days',
-  'Last 30 Days',
-  'This Month',
-];
 
 interface OrderReportModalProps {
   visible: boolean;
@@ -124,13 +116,7 @@ export default function OrderReportModal({
         >
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: colors.border }]}>
-            <View
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: SPACING.sm,
-              }}
-            >
+            <View style={styles.headerTitleRow}>
               <View
                 style={[
                   styles.iconBadge,
@@ -160,206 +146,26 @@ export default function OrderReportModal({
 
           {/* Content */}
           <View style={[styles.content, { zIndex: 1 }]}>
-            <View
-              style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: SPACING.md,
-                zIndex: 2,
-              }}
-            >
-              <Text
-                style={[
-                  styles.subtitle,
-                  { color: colors.textSecondary, marginBottom: 0 },
-                ]}
-              >
-                Summary for:{' '}
-                <Text
-                  style={{
-                    color: colors.text,
-                    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-                  }}
-                >
-                  {dateRangeLabel}
-                </Text>
-              </Text>
+            <OrderReportDateMenu
+              dateRangeLabel={dateRangeLabel}
+              showDropdown={Boolean(onDateSelect && showDropdown)}
+              {...(onDateSelect
+                ? {
+                    onCustomRangeSelect: () => {
+                      setShowDropdown(false);
+                      onDateSelect();
+                    },
+                    onPresetSelect: (preset: string) => {
+                      setShowDropdown(false);
+                      onPresetSelect?.(preset);
+                    },
+                    onToggleDropdown: () =>
+                      setShowDropdown((current) => !current),
+                  }
+                : {})}
+            />
 
-              <View style={{ zIndex: 3 }}>
-                {onDateSelect && (
-                  <Pressable
-                    onPress={(e) => {
-                      e.stopPropagation();
-                      setShowDropdown(!showDropdown);
-                    }}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 4,
-                      padding: 4,
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel="Change date range"
-                    accessibilityHint="Opens date range preset menu"
-                  >
-                    <Text
-                      style={{
-                        color: colors.primary,
-                        fontSize: TYPOGRAPHY.size.sm,
-                        fontFamily: TYPOGRAPHY.fontFamily.medium,
-                      }}
-                    >
-                      Change
-                    </Text>
-                    <Ionicons
-                      name="create-outline"
-                      size={16}
-                      color={colors.primary}
-                    />
-                  </Pressable>
-                )}
-
-                {/* Dropdown Menu */}
-                {showDropdown && (
-                  <View
-                    style={[
-                      styles.dropdown,
-                      {
-                        backgroundColor: colors.card,
-                        borderColor: colors.border,
-                      },
-                      shadows.md,
-                    ]}
-                  >
-                    {PRESETS.map((preset) => (
-                      <Pressable
-                        key={preset}
-                        style={[
-                          styles.dropdownItem,
-                          { borderBottomColor: `${colors.border}40` },
-                        ]}
-                        onPress={() => {
-                          setShowDropdown(false);
-                          onPresetSelect?.(preset);
-                        }}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Select ${preset}`}
-                      >
-                        <Text
-                          style={[styles.dropdownText, { color: colors.text }]}
-                        >
-                          {preset}
-                        </Text>
-                      </Pressable>
-                    ))}
-                    <Pressable
-                      style={[styles.dropdownItem, { borderBottomWidth: 0 }]}
-                      onPress={() => {
-                        setShowDropdown(false);
-                        onDateSelect?.();
-                      }}
-                      accessibilityRole="button"
-                      accessibilityLabel="Select custom date range"
-                    >
-                      <Text
-                        style={[
-                          styles.dropdownText,
-                          {
-                            color: colors.primary,
-                            fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-                          },
-                        ]}
-                      >
-                        Custom Range...
-                      </Text>
-                      <Ionicons
-                        name="calendar-outline"
-                        size={14}
-                        color={colors.primary}
-                      />
-                    </Pressable>
-                  </View>
-                )}
-              </View>
-            </View>
-
-            <View style={styles.statsGrid}>
-              {/* ... rest of grid ... */}
-              <View
-                style={[
-                  styles.statCard,
-                  { backgroundColor: colors.background },
-                ]}
-              >
-                <Text
-                  style={[styles.statLabel, { color: colors.textSecondary }]}
-                >
-                  Total Revenue
-                </Text>
-                <Text style={[styles.statValue, { color: colors.text }]}>
-                  {formatCurrency(stats.totalRevenue)}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.statCard,
-                  { backgroundColor: colors.background },
-                ]}
-              >
-                <Text
-                  style={[styles.statLabel, { color: colors.textSecondary }]}
-                >
-                  Total Orders
-                </Text>
-                <Text style={[styles.statValue, { color: colors.text }]}>
-                  {stats.totalOrders}
-                </Text>
-              </View>
-            </View>
-
-            {/* ... rest of content ... */}
-            <View style={[styles.statsRow, { borderColor: colors.border }]}>
-              <View
-                style={[
-                  styles.miniStat,
-                  { borderColor: colors.border, borderRightWidth: 1 },
-                ]}
-              >
-                <Text style={[styles.miniValue, { color: colors.warning }]}>
-                  {stats.pendingCount}
-                </Text>
-                <Text
-                  style={[styles.miniLabel, { color: colors.textSecondary }]}
-                >
-                  Pending
-                </Text>
-              </View>
-              <View style={[styles.miniStat]}>
-                <Text style={[styles.miniValue, { color: colors.success }]}>
-                  {stats.completedCount}
-                </Text>
-                <Text
-                  style={[styles.miniLabel, { color: colors.textSecondary }]}
-                >
-                  Delivered
-                </Text>
-              </View>
-            </View>
-
-            <View
-              style={[styles.infoBox, { backgroundColor: colors.infoLight }]}
-            >
-              <Ionicons
-                name="information-circle"
-                size={20}
-                color={colors.info}
-              />
-              <Text style={[styles.infoText, { color: colors.info }]}>
-                Exporting will capture all {stats.totalOrders} currently loaded
-                orders.
-              </Text>
-            </View>
+            <OrderReportStatsPanel stats={stats} />
           </View>
 
           {/* Footer */}
@@ -429,141 +235,3 @@ export default function OrderReportModal({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    padding: SPACING.md,
-  },
-  container: {
-    borderRadius: RADIUS.lg,
-    width: '100%',
-    maxWidth: 400,
-    alignSelf: 'center',
-    overflow: 'hidden',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: SPACING.lg,
-    borderBottomWidth: 1,
-  },
-  iconBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    fontSize: TYPOGRAPHY.size.lg,
-  },
-  content: {
-    padding: SPACING.lg,
-  },
-  subtitle: {
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: TYPOGRAPHY.size.sm,
-    marginBottom: SPACING.md,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  statCard: {
-    flex: 1,
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-  },
-  statLabel: {
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: 11,
-    marginBottom: 4,
-  },
-  statValue: {
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    fontSize: TYPOGRAPHY.size.lg,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    marginBottom: SPACING.lg,
-    borderWidth: 1,
-    borderRadius: RADIUS.md,
-    overflow: 'hidden',
-  },
-  miniStat: {
-    flex: 1,
-    padding: SPACING.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  miniValue: {
-    fontFamily: TYPOGRAPHY.fontFamily.bold,
-    fontSize: TYPOGRAPHY.size.md,
-  },
-  miniLabel: {
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: 11,
-  },
-  infoBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-    gap: SPACING.sm,
-  },
-  infoText: {
-    flex: 1,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: TYPOGRAPHY.size.sm,
-  },
-  footer: {
-    flexDirection: 'row',
-    padding: SPACING.lg,
-    borderTopWidth: 1,
-    gap: SPACING.md,
-  },
-  button: {
-    flex: 1,
-    flexDirection: 'row',
-    height: 48,
-    borderRadius: RADIUS.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cancelButton: {
-    borderWidth: 1,
-  },
-  exportButton: {},
-  buttonText: {
-    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
-    fontSize: TYPOGRAPHY.size.md,
-  },
-  dropdown: {
-    position: 'absolute',
-    top: 25,
-    right: 0,
-    minWidth: 160,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    padding: 4,
-    zIndex: 100,
-  },
-  dropdownItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-  },
-  dropdownText: {
-    fontSize: TYPOGRAPHY.size.sm,
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-  },
-});
