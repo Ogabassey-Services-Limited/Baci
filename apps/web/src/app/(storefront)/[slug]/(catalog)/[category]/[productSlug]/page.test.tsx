@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { render, screen } from '@testing-library/react';
 import { type ReactNode, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -238,6 +240,13 @@ vi.mock('@/lib/validation', () => ({
         /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/.test(value)) &&
       !reservedNames.has(value.toLowerCase())
     );
+  },
+}));
+
+vi.mock('./default-product-detail-client', () => ({
+  DefaultProductDetailClient: (props: unknown) => {
+    mockProductDetailClient(props);
+    return null;
   },
 }));
 
@@ -579,6 +588,20 @@ describe('[category]/[productSlug] page render', () => {
     );
 
     expect(mockOgabasseyPdpStaticResourceHints).not.toHaveBeenCalled();
+  });
+
+  it('keeps the generic product client behind the default branch loader', () => {
+    const routeSource = readFileSync(
+      join(
+        process.cwd(),
+        'src/app/(storefront)/[slug]/(catalog)/[category]/[productSlug]/page.tsx'
+      ),
+      { encoding: 'utf8' }
+    );
+
+    expect(routeSource).not.toContain(
+      "import ProductDetailClient from '@/app/(storefront)/[slug]/(catalog)/products/[productSlug]/product-detail-client'"
+    );
   });
 
   it('preserves unmanaged stock and variant stock quantities for the Ogabassey PDP', async () => {
