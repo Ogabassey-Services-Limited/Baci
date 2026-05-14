@@ -21,6 +21,7 @@ export async function fetchMorePosts(
     )
     .eq('merchant_id', merchantId)
     .eq('status', 'published')
+    .not('published_at', 'is', null)
     .order('published_at', { ascending: false })
     .range(offset, offset + limit - 1);
 

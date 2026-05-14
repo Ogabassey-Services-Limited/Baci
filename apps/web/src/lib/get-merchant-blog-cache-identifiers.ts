@@ -4,10 +4,35 @@ function normalizeBlogIdentifier(value: string | null | undefined) {
   return value?.trim().toLowerCase() ?? '';
 }
 
+export interface MerchantBlogRevalidationContext {
+  identifiers: string[];
+  canonicalMerchantSlug: string | null;
+}
+
+/**
+ * Returns all merchant identifier forms used by legacy blog cache/tag/path
+ * invalidation. The returned array is not a canonical ordering contract.
+ */
 export async function getMerchantBlogCacheIdentifiers(
   supabase: SupabaseClient,
   merchantId: string
 ): Promise<string[]> {
+  const context = await getMerchantBlogRevalidationContext(
+    supabase,
+    merchantId
+  );
+  return context.identifiers;
+}
+
+/**
+ * Returns merchant identifier forms plus the canonical merchant slug needed by
+ * mutation routes to invalidate `/api/blog/feed/<slug>` without guessing from
+ * identifier ordering.
+ */
+export async function getMerchantBlogRevalidationContext(
+  supabase: SupabaseClient,
+  merchantId: string
+): Promise<MerchantBlogRevalidationContext> {
   const { data: merchant, error: merchantError } = await supabase
     .from('merchants')
     .select('slug')
@@ -52,5 +77,9 @@ export async function getMerchantBlogCacheIdentifiers(
     }
   }
 
-  return Array.from(identifiers);
+  return {
+    identifiers: Array.from(identifiers),
+    canonicalMerchantSlug:
+      normalizedMerchantSlug.length > 0 ? normalizedMerchantSlug : null,
+  };
 }

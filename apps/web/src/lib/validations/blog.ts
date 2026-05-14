@@ -1,6 +1,21 @@
 import z from 'zod';
 import { sanitizeHtml } from '@/lib/sanitize';
 
+const featuredImageVariantsSchema = z
+  .object({
+    square_1x1: z.string().url().optional(),
+    standard_4x3: z.string().url().optional(),
+    landscape_16x9: z.string().url().optional(),
+  })
+  .strict();
+
+const featuredImageDimensionSchema = z
+  .number()
+  .int()
+  .positive()
+  .nullable()
+  .optional();
+
 export const blogPostSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title is too long'),
   slug: z
@@ -15,6 +30,9 @@ export const blogPostSchema = z.object({
   content: z.string().min(1, 'Content cannot be empty').optional(),
   excerpt: z.string().max(300, 'Excerpt is too long').optional().nullable(),
   featured_image_url: z.string().url().optional().nullable().or(z.literal('')),
+  featured_image_width: featuredImageDimensionSchema,
+  featured_image_height: featuredImageDimensionSchema,
+  featured_image_variants: featuredImageVariantsSchema.optional(),
   featured_image_alt: z.string().max(200).optional().nullable(),
   category: z.string().max(100).optional().nullable(),
   tags: z.array(z.string()).optional(),
@@ -62,6 +80,9 @@ export const createPostSchema = z.object({
   content: z.string().min(1, 'Content is required'),
   excerpt: z.string().max(300).optional(),
   featured_image_url: z.string().url().optional().nullable(),
+  featured_image_width: featuredImageDimensionSchema,
+  featured_image_height: featuredImageDimensionSchema,
+  featured_image_variants: featuredImageVariantsSchema.optional(),
   featured_image_alt: z.string().max(200).optional(),
   category: z.string().max(100).optional(),
   tags: z.array(z.string()).optional(),
@@ -86,8 +107,30 @@ export function sanitizeBlogPostData(
   data: Record<string, unknown>
 ): Record<string, unknown> {
   const sanitized: Record<string, unknown> = {};
+  const shouldClearFeaturedImageMetadata =
+    Object.hasOwn(data, 'featured_image_url') &&
+    (data.featured_image_url === null ||
+      (typeof data.featured_image_url === 'string' &&
+        data.featured_image_url.trim() === ''));
 
   for (const [key, value] of Object.entries(data)) {
+    if (
+      shouldClearFeaturedImageMetadata &&
+      (key === 'featured_image_width' || key === 'featured_image_height')
+    ) {
+      sanitized[key] = null;
+      continue;
+    }
+
+    if (key === 'featured_image_variants') {
+      sanitized[key] = shouldClearFeaturedImageMetadata
+        ? {}
+        : value && typeof value === 'object' && !Array.isArray(value)
+          ? value
+          : {};
+      continue;
+    }
+
     // 1. Handle special cases for tags/keywords array conversion (must come before generic string handler)
     if ((key === 'tags' || key === 'keywords') && typeof value === 'string') {
       sanitized[key] = value
@@ -131,6 +174,12 @@ export function sanitizeBlogPostData(
     else {
       sanitized[key] = value;
     }
+  }
+
+  if (shouldClearFeaturedImageMetadata) {
+    sanitized.featured_image_width = null;
+    sanitized.featured_image_height = null;
+    sanitized.featured_image_variants = {};
   }
 
   return sanitized;

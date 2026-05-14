@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Feed } from 'feed';
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
-import { getAppUrl } from '@/env';
+import { getAppUrl, getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { stripHtml } from '@/lib/blog-utils';
 import { sanitizeForFeed } from '@/lib/sanitize';
 
@@ -32,8 +32,8 @@ interface BlogPost {
   featured_image_url: string | null;
   category: string | null;
   author_name: string;
-  published_at: string;
-  updated_at: string;
+  published_at: string | null;
+  updated_at: string | null;
 }
 
 interface Merchant {
@@ -45,32 +45,79 @@ interface Merchant {
   custom_domain?: string | null;
 }
 
-// Create anonymous Supabase client for public access
-function getPublicClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+interface MerchantRow extends Merchant {
+  domains: Array<{
+    domain: string;
+    is_primary: boolean;
+    status: string;
+  }> | null;
+}
 
-  if (!supabaseUrl || !supabaseAnonKey) {
+interface DomainRow {
+  merchant_id: string;
+}
+
+interface QueryResult<T> {
+  data: T;
+  error: { message: string } | null;
+}
+
+interface PublicFeedQueryBuilder {
+  select(columns: string): PublicFeedQueryBuilder;
+  eq(column: string, value: string): PublicFeedQueryBuilder;
+  in(column: string, values: string[]): PublicFeedQueryBuilder;
+  not(column: string, operator: string, value: null): PublicFeedQueryBuilder;
+  order(
+    column: string,
+    options: { ascending: boolean }
+  ): PublicFeedQueryBuilder;
+  maybeSingle(): Promise<QueryResult<unknown>>;
+  limit(count: number): Promise<QueryResult<unknown>>;
+}
+
+interface PublicFeedClient {
+  from(table: string): PublicFeedQueryBuilder;
+}
+
+// Create anonymous Supabase client for public access
+function getPublicClient(): PublicFeedClient | null {
+  try {
+    const supabaseUrl = getSupabaseUrl();
+    const supabaseAnonKey = getSupabaseAnonKey();
+
+    return createClient(supabaseUrl, supabaseAnonKey, {
+      auth: { persistSession: false },
+    }) as unknown as PublicFeedClient;
+  } catch {
+    return null;
+  }
+}
+
+function normalizeMerchantIdentifier(identifier: string): string {
+  try {
+    return decodeURIComponent(identifier).trim().toLowerCase();
+  } catch {
+    return identifier.trim().toLowerCase();
+  }
+}
+
+function parseValidDate(value: string | null | undefined): Date | null {
+  if (!value) {
     return null;
   }
 
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: { persistSession: false },
-  });
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
-// Cache RSS feed for 1 hour
-const getCachedFeed = unstable_cache(
-  async (merchantSlug: string) => {
-    const supabase = getPublicClient();
-    if (!supabase) {
-      throw new Error('Supabase not configured');
-    }
-
-    // Get merchant with custom domain in a single query
-    const { data: merchantData, error: merchantError } = await supabase
-      .from('merchants')
-      .select(`
+async function getMerchantByColumn(
+  supabase: PublicFeedClient,
+  column: 'id' | 'slug',
+  value: string
+): Promise<Merchant | null> {
+  const { data, error: merchantError } = await supabase
+    .from('merchants')
+    .select(`
         id,
         slug,
         business_name,
@@ -78,31 +125,87 @@ const getCachedFeed = unstable_cache(
         logo_url,
         domains!left(domain, is_primary, status)
       `)
-      .eq('slug', merchantSlug)
-      .single();
+    .eq(column, value)
+    .maybeSingle();
 
-    if (merchantError || !merchantData) {
-      return null;
+  if (merchantError) {
+    console.error('Error resolving merchant for blog feed:', merchantError);
+    throw merchantError;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const merchantData = data as MerchantRow;
+  const domains = merchantData.domains;
+  const primaryDomain = domains?.find(
+    (domain) => domain.is_primary && domain.status === 'active'
+  );
+
+  return {
+    id: merchantData.id,
+    slug: merchantData.slug,
+    business_name: merchantData.business_name,
+    site_description: merchantData.site_description,
+    logo_url: merchantData.logo_url,
+    custom_domain: primaryDomain?.domain || null,
+  };
+}
+
+async function resolveMerchantByIdentifier(
+  supabase: PublicFeedClient,
+  identifier: string
+): Promise<Merchant | null> {
+  const normalizedIdentifier = normalizeMerchantIdentifier(identifier);
+  if (!normalizedIdentifier) {
+    return null;
+  }
+
+  const merchantBySlug = await getMerchantByColumn(
+    supabase,
+    'slug',
+    normalizedIdentifier
+  );
+
+  if (merchantBySlug) {
+    return merchantBySlug;
+  }
+
+  const { data, error: domainError } = await supabase
+    .from('domains')
+    .select('merchant_id')
+    .eq('domain', normalizedIdentifier)
+    .eq('status', 'active')
+    .in('domain_type', ['custom', 'purchased'])
+    .maybeSingle();
+
+  if (domainError) {
+    console.error('Error resolving blog feed custom domain:', domainError);
+    throw domainError;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  const domainData = data as DomainRow;
+  return getMerchantByColumn(supabase, 'id', domainData.merchant_id);
+}
+
+// Cache RSS feed for 1 hour by canonical merchant id.
+const getCachedFeedByMerchantId = unstable_cache(
+  async (merchantId: string) => {
+    const supabase = getPublicClient();
+    if (!supabase) {
+      throw new Error('Supabase not configured');
     }
 
-    // Extract primary active domain from joined data
-    const domains = merchantData.domains as Array<{
-      domain: string;
-      is_primary: boolean;
-      status: string;
-    }> | null;
-    const primaryDomain = domains?.find(
-      (d) => d.is_primary && d.status === 'active'
-    );
+    const merchant = await getMerchantByColumn(supabase, 'id', merchantId);
 
-    const merchant: Merchant = {
-      id: merchantData.id,
-      slug: merchantData.slug,
-      business_name: merchantData.business_name,
-      site_description: merchantData.site_description,
-      logo_url: merchantData.logo_url,
-      custom_domain: primaryDomain?.domain || null,
-    };
+    if (!merchant) {
+      return null;
+    }
 
     // Get published blog posts
     const { data: posts, error: postsError } = await supabase
@@ -112,6 +215,7 @@ const getCachedFeed = unstable_cache(
       )
       .eq('merchant_id', merchant.id)
       .eq('status', 'published')
+      .not('published_at', 'is', null)
       .order('published_at', { ascending: false })
       .limit(50);
 
@@ -122,13 +226,13 @@ const getCachedFeed = unstable_cache(
 
     return {
       merchant,
-      posts: (posts || []) as BlogPost[],
+      posts: (Array.isArray(posts) ? posts : []) as BlogPost[],
     };
   },
   ['blog-rss-feed'],
   {
     revalidate: 3600, // 1 hour
-    tags: ['blog-posts'],
+    tags: ['blog-posts', 'blog-rss-feed'],
   }
 );
 
@@ -136,7 +240,21 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   try {
     const { merchantSlug } = await params;
 
-    const data = await getCachedFeed(merchantSlug);
+    const supabase = getPublicClient();
+    if (!supabase) {
+      throw new Error('Supabase not configured');
+    }
+
+    const resolvedMerchant = await resolveMerchantByIdentifier(
+      supabase,
+      merchantSlug
+    );
+
+    if (!resolvedMerchant) {
+      return new NextResponse('Blog feed not found', { status: 404 });
+    }
+
+    const data = await getCachedFeedByMerchantId(resolvedMerchant.id);
 
     if (!data) {
       return new NextResponse('Blog feed not found', { status: 404 });
@@ -150,11 +268,21 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const storeUrl = merchant.custom_domain
       ? `https://${merchant.custom_domain}`
       : `${baseUrl}/${merchant.slug}`;
-    const feedUrl = `${baseUrl}/api/blog/feed/${merchant.slug}`;
+    const feedUrl = new URL(
+      `/api/blog/feed/${merchant.slug}`,
+      storeUrl
+    ).toString();
+
+    const postsWithValidDates = posts.flatMap((post) => {
+      const publishedDate = parseValidDate(post.published_at);
+      return publishedDate ? [{ post, publishedDate }] : [];
+    });
 
     // Build date for the channel
     const lastBuildDate =
-      posts.length > 0 ? new Date(posts[0].published_at) : new Date();
+      postsWithValidDates.length === 0
+        ? null
+        : (postsWithValidDates[0]?.publishedDate ?? new Date());
 
     const feed = new Feed({
       title: `${merchant.business_name} Blog`,
@@ -167,7 +295,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       image: merchant.logo_url || undefined,
       favicon: `${baseUrl}/favicon.ico`,
       copyright: `All rights reserved ${new Date().getFullYear()}, ${merchant.business_name}`,
-      updated: lastBuildDate,
+      ...(lastBuildDate ? { updated: lastBuildDate } : {}),
       generator: 'Baci E-commerce Platform',
       feedLinks: {
         rss2: feedUrl,
@@ -178,7 +306,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       },
     });
 
-    for (const post of posts) {
+    for (const { post, publishedDate } of postsWithValidDates) {
       const postUrl = `${storeUrl}/blog/${post.slug}`;
       const excerpt = post.excerpt || stripHtml(post.content).substring(0, 300);
 
@@ -196,7 +324,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
             link: storeUrl,
           },
         ],
-        date: new Date(post.published_at),
+        date: publishedDate,
         image: post.featured_image_url || undefined,
         category: post.category ? [{ name: post.category }] : undefined,
       });

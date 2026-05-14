@@ -97,6 +97,9 @@ describe('BlogClientPage', () => {
       slug: 'first-blog-post',
       excerpt: 'This is the first post',
       featured_image_url: 'https://example.com/image1.jpg',
+      featured_image_width: null,
+      featured_image_height: null,
+      featured_image_variants: {},
       category: 'Technology',
       status: 'published',
       author_name: 'John Doe',
@@ -112,6 +115,9 @@ describe('BlogClientPage', () => {
       slug: 'draft-post',
       excerpt: 'This is a draft',
       featured_image_url: null,
+      featured_image_width: null,
+      featured_image_height: null,
+      featured_image_variants: {},
       category: null,
       status: 'draft',
       author_name: 'Jane Smith',
@@ -181,7 +187,7 @@ describe('BlogClientPage', () => {
       );
 
       expect(
-        screen.getByRole('heading', { name: /blog/i })
+        screen.getByRole('heading', { level: 1, name: /^Blog$/i })
       ).toBeInTheDocument();
       expect(
         screen.getByText(/create and manage blog posts/i)
@@ -190,7 +196,7 @@ describe('BlogClientPage', () => {
       // Stats cards
       expect(screen.getByText('Total Posts')).toBeInTheDocument();
       expect(screen.getByText('10')).toBeInTheDocument(); // total count
-      expect(screen.getByText('Published')).toBeInTheDocument();
+      expect(screen.getAllByText('Published').length).toBeGreaterThan(0);
       expect(screen.getByText('5')).toBeInTheDocument(); // published count
       expect(screen.getByText('Drafts')).toBeInTheDocument();
       expect(screen.getByText('3')).toBeInTheDocument(); // draft count
@@ -314,6 +320,24 @@ describe('BlogClientPage', () => {
       expect(rssLink).toBeInTheDocument();
       expect(rssLink).toHaveAttribute('href', '/api/blog/feed/test-merchant');
       expect(rssLink).toHaveAttribute('target', '_blank');
+    });
+
+    it('shows Discover image remediation banner and row status for published posts only', () => {
+      render(
+        <BlogClientPage
+          merchant={mockMerchant}
+          initialPosts={mockPosts}
+          initialCounts={mockCounts}
+        />
+      );
+
+      expect(
+        screen.getByText('1 published post needs Discover image updates.')
+      ).toBeInTheDocument();
+      expect(screen.getByText('Update image metadata')).toBeInTheDocument();
+      expect(
+        screen.queryByText('2 published posts need')
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -1243,7 +1267,7 @@ describe('BlogClientPage', () => {
 
       // Verify counts are displayed (using screen.getAllByText since numbers may appear multiple times)
       expect(screen.getByText('Total Posts')).toBeInTheDocument();
-      expect(screen.getByText('Published')).toBeInTheDocument();
+      expect(screen.getAllByText('Published').length).toBeGreaterThan(0);
       expect(screen.getByText('Drafts')).toBeInTheDocument();
 
       // Verify specific counts exist on the page

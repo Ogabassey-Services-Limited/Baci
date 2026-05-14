@@ -60,6 +60,10 @@ import { useDebounce } from '@/hooks/use-debounce';
 import { useMerchantFeatures } from '@/hooks/use-merchant-features';
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
+import {
+  type BlogDiscoverImageReadinessState,
+  classifyBlogDiscoverImageReadiness,
+} from '@/lib/blog-discover-readiness';
 import { asRoute } from '@/lib/routes';
 import { isSafeSlug } from '@/lib/validate-slug';
 import { getPreviewUrl } from './actions';
@@ -70,6 +74,9 @@ export interface BlogPost {
   slug: string;
   excerpt: string | null;
   featured_image_url: string | null;
+  featured_image_width: number | null;
+  featured_image_height: number | null;
+  featured_image_variants: Record<string, unknown> | null;
   category: string | null;
   status: 'draft' | 'published' | 'archived';
   author_name: string;
@@ -93,6 +100,21 @@ export interface BlogClientPageProps {
     draft: number;
     archived: number;
   };
+}
+
+function getDiscoverReadinessLabel(state: BlogDiscoverImageReadinessState) {
+  switch (state) {
+    case 'missing_featured_image':
+      return 'Needs featured image';
+    case 'unmanaged_featured_image':
+      return 'Needs managed image';
+    case 'missing_landscape_variant':
+      return 'Missing 16:9 variant';
+    case 'legacy_missing_metadata':
+      return 'Missing image metadata';
+    default:
+      return 'Discover ready';
+  }
 }
 
 export function BlogClientPage({
@@ -315,6 +337,23 @@ export function BlogClientPage({
     totalViews: totalViewsCount,
   };
 
+  const discoverReadinessByPostId = new Map<
+    string,
+    BlogDiscoverImageReadinessState
+  >();
+  let discoverRemediationCount = 0;
+  for (const post of posts) {
+    if (post.status !== 'published') {
+      continue;
+    }
+
+    const readiness = classifyBlogDiscoverImageReadiness(post, merchant.id);
+    discoverReadinessByPostId.set(post.id, readiness);
+    if (readiness !== 'ready') {
+      discoverRemediationCount += 1;
+    }
+  }
+
   // Show loading state while checking features
   // Show loading state while checking features.
   // actually, since server already gated us, we might not strictly need this,
@@ -425,6 +464,29 @@ export function BlogClientPage({
         </Card>
       </div>
 
+      {discoverRemediationCount > 0 && (
+        <Card className="border-amber-300 bg-amber-50/50">
+          <CardContent className="py-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-amber-900">
+              {discoverRemediationCount === 1
+                ? '1 published post needs Discover image updates.'
+                : `${discoverRemediationCount} published posts need Discover image updates.`}
+            </p>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setStatusFilter('published');
+                setSearchQuery('');
+                setPage(1);
+              }}
+            >
+              Update image metadata
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
@@ -459,7 +521,7 @@ export function BlogClientPage({
       </div>
 
       {/* Posts List */}
-      {isLoading ? (
+      {isLoading && posts.length === 0 ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 animate-spin" />
         </div>
@@ -507,6 +569,18 @@ export function BlogClientPage({
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       {getStatusBadge(post.status)}
+                      {post.status === 'published' &&
+                        discoverReadinessByPostId.get(post.id) !== 'ready' && (
+                          <Badge
+                            variant="secondary"
+                            className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+                          >
+                            {getDiscoverReadinessLabel(
+                              discoverReadinessByPostId.get(post.id) ??
+                                'legacy_missing_metadata'
+                            )}
+                          </Badge>
+                        )}
                       {post.category && (
                         <Badge variant="outline">{post.category}</Badge>
                       )}

@@ -228,6 +228,7 @@ describe('cache-revalidation utilities', () => {
     it('revalidates blog posts cache', () => {
       revalidateBlogPosts({
         identifiers: ['test-merchant', 'OGABASSEY.COM', 'test-merchant'],
+        canonicalMerchantSlug: 'test-merchant',
         listingCategories: ['Reviews'],
         listingPages: [1, 2, 2],
         postSlugs: ['test-post', 'Test-Post'],
@@ -265,6 +266,14 @@ describe('cache-revalidation utilities', () => {
       expect(mockRevalidatePath).toHaveBeenCalledWith(
         '/ogabassey.com/blog/test-post'
       );
+      expect(mockRevalidatePath).toHaveBeenCalledWith(
+        '/api/blog/feed/test-merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'blog-rss-feed',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith('blog-posts', 'merchant');
     });
 
     it('supports the legacy identifier + slug signature', () => {
@@ -282,6 +291,9 @@ describe('cache-revalidation utilities', () => {
       expect(mockRevalidatePath).toHaveBeenCalledWith(
         '/test-merchant/blog/test-post'
       );
+      expect(mockRevalidatePath).not.toHaveBeenCalledWith(
+        '/api/blog/feed/test-merchant'
+      );
     });
 
     it('handles empty identifiers and slugs gracefully', () => {
@@ -292,6 +304,43 @@ describe('cache-revalidation utilities', () => {
 
       expect(mockRevalidatePath).not.toHaveBeenCalled();
       expect(mockRevalidateTag).not.toHaveBeenCalled();
+    });
+
+    it('uses explicit canonicalMerchantSlug for feed invalidation instead of identifier order', () => {
+      revalidateBlogPosts({
+        identifiers: ['shop.example.com', 'ogabassey'],
+        canonicalMerchantSlug: 'ogabassey',
+      });
+
+      expect(mockRevalidatePath).toHaveBeenCalledWith(
+        '/api/blog/feed/ogabassey'
+      );
+      expect(mockRevalidatePath).not.toHaveBeenCalledWith(
+        '/api/blog/feed/shop.example.com'
+      );
+    });
+
+    it('skips unsafe canonicalMerchantSlug values for feed path revalidation', () => {
+      const warnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+
+      revalidateBlogPosts({
+        identifiers: ['test-merchant'],
+        canonicalMerchantSlug: '../evil/path',
+      });
+
+      expect(mockRevalidatePath).not.toHaveBeenCalledWith(
+        '/api/blog/feed/../evil/path'
+      );
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Skipped blog feed path revalidation for invalid slug',
+        {
+          canonicalMerchantSlug: '../evil/path',
+        }
+      );
+
+      warnSpy.mockRestore();
     });
 
     it('works with a merchant identifier as a single path target', () => {

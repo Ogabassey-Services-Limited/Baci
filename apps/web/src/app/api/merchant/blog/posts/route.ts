@@ -6,6 +6,10 @@ import {
   hasPermission,
 } from '@/lib/api-auth';
 import {
+  validateBlogDiscoverImageReadiness,
+  validateBlogImageVariantIntegrity,
+} from '@/lib/blog-discover-readiness';
+import {
   calculateReadingTime,
   calculateWordCount,
   extractKeywords,
@@ -16,8 +20,8 @@ import {
 import { revalidateBlogPosts } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getBlogEmbeddingText } from '@/lib/embeddings';
-import { getMerchantBlogCacheIdentifiers } from '@/lib/get-merchant-blog-cache-identifiers';
-import { createPostSchema } from '@/lib/validations/blog';
+import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cache-identifiers';
+import { createPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
 
 export async function GET(request: NextRequest) {
   try {
@@ -54,7 +58,7 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get('sortOrder') === 'asc';
 
     const blogPostColumns =
-      'id, title, slug, excerpt, featured_image_url, category, status, author_name, view_count, reading_time_minutes, created_at, updated_at, published_at';
+      'id, title, slug, excerpt, featured_image_url, featured_image_width, featured_image_height, featured_image_variants, category, status, author_name, view_count, reading_time_minutes, created_at, updated_at, published_at';
 
     // Build query
     let query = supabase
@@ -215,7 +219,7 @@ export async function POST(request: NextRequest) {
     // Check if blog feature is enabled
     const { data: features } = await supabase
       .from('merchant_feature_settings')
-      .select('blog_enabled')
+      .select('blog_enabled, blog_discover_image_validation_enabled')
       .eq('merchant_id', merchant.id)
       .single();
 
@@ -230,11 +234,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse and validate body
-    const body = await request.json();
+    const body = sanitizeBlogPostData(await request.json());
 
     // Auto-generate slug if not provided
     if (!body.slug && body.title) {
-      body.slug = generateSlug(body.title);
+      body.slug = generateSlug(String(body.title));
     }
 
     // Set default author name if not provided
@@ -251,6 +255,39 @@ export async function POST(request: NextRequest) {
     }
 
     const postData = validated.data;
+    const variantIntegrity = validateBlogImageVariantIntegrity(
+      postData,
+      merchant.id
+    );
+    if (!variantIntegrity.ready) {
+      return NextResponse.json(
+        {
+          error: 'Invalid featured image variants',
+          code: variantIntegrity.code,
+          details: variantIntegrity.details,
+        },
+        { status: 400 }
+      );
+    }
+
+    const discoverImageReadiness =
+      postData.status === 'published'
+        ? validateBlogDiscoverImageReadiness(postData, merchant.id)
+        : { ready: true as const };
+
+    if (
+      !discoverImageReadiness.ready &&
+      features?.blog_discover_image_validation_enabled
+    ) {
+      return NextResponse.json(
+        {
+          error: 'Featured image is not Discover-ready',
+          code: discoverImageReadiness.code,
+          details: discoverImageReadiness.details,
+        },
+        { status: 400 }
+      );
+    }
 
     // Check if slug already exists for this merchant
     const { data: existingPost } = await supabase
@@ -291,6 +328,9 @@ export async function POST(request: NextRequest) {
       content: postData.content,
       excerpt: autoExcerpt,
       featured_image_url: postData.featured_image_url,
+      featured_image_width: postData.featured_image_width,
+      featured_image_height: postData.featured_image_height,
+      featured_image_variants: postData.featured_image_variants ?? {},
       featured_image_alt: postData.featured_image_alt,
       category: postData.category,
       tags: postData.tags || [],
@@ -352,12 +392,13 @@ export async function POST(request: NextRequest) {
 
     // Invalidate blog caches so storefront shows the new post immediately
     try {
-      const cacheIdentifiers = await getMerchantBlogCacheIdentifiers(
+      const blogRevalidation = await getMerchantBlogRevalidationContext(
         supabase,
         access.merchantId
       );
       revalidateBlogPosts({
-        identifiers: cacheIdentifiers,
+        identifiers: blogRevalidation.identifiers,
+        canonicalMerchantSlug: blogRevalidation.canonicalMerchantSlug,
         listingCategories: newPost?.category ? [newPost.category] : [],
         postSlugs: [newPost?.slug || postData.slug],
       });
@@ -369,7 +410,12 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    return NextResponse.json(newPost, { status: 201 });
+    return NextResponse.json(
+      discoverImageReadiness.ready
+        ? newPost
+        : { ...newPost, discoverImageReadiness },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Blog posts POST error:', error);
     return NextResponse.json(

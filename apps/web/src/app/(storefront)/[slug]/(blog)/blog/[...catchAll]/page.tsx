@@ -93,6 +93,7 @@ export default async function BlogCatchAllPage({
     .eq('merchant_id', merchantId)
     .eq('slug', cleanPostSlug)
     .eq('status', 'published')
+    .not('published_at', 'is', null)
     .maybeSingle();
 
   if (post) {
@@ -113,6 +114,7 @@ export default async function BlogCatchAllPage({
     .select('slug')
     .eq('merchant_id', merchantId)
     .eq('status', 'published')
+    .not('published_at', 'is', null)
     .limit(100);
 
   const matchingPost = fuzzyPost?.find(

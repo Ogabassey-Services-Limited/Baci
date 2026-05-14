@@ -12,6 +12,9 @@ import {
   type BlogPost,
 } from './blog-client-page';
 
+const DASHBOARD_BLOG_POST_SELECT =
+  'id, title, slug, excerpt, featured_image_url, featured_image_width, featured_image_height, featured_image_variants, category, status, author_name, view_count, reading_time_minutes, created_at, updated_at, published_at';
+
 export default async function BlogPage() {
   const { merchant } = await getMerchantForUser();
 
@@ -74,9 +77,7 @@ export default async function BlogPage() {
     // We fetch from the database directly since we are on the server
     const { data: posts, error: postsError } = await supabase
       .from('blog_posts')
-      .select(
-        'id, title, slug, excerpt, featured_image_url, category, status, author_name, view_count, reading_time_minutes, created_at, updated_at, published_at'
-      )
+      .select(DASHBOARD_BLOG_POST_SELECT)
       .eq('merchant_id', merchant.id)
       .order('created_at', { ascending: false })
       .range(0, 19);

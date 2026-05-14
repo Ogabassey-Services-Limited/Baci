@@ -28,7 +28,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .from('blog_posts')
     .select('slug, published_at, updated_at, featured_image_url')
     .eq('merchant_id', merchant.id)
-    .eq('status', 'published');
+    .eq('status', 'published')
+    .not('published_at', 'is', null);
 
   if (error) {
     throw new Error('Failed to fetch blog posts for sitemap', { cause: error });
@@ -44,11 +45,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   for (const post of posts || []) {
+    const lastModified = post.updated_at || post.published_at;
+    if (!lastModified) {
+      continue;
+    }
+
     entries.push({
       url: `${storeUrl}/blog/${post.slug}`,
-      lastModified: post.updated_at
-        ? new Date(post.updated_at)
-        : new Date(post.published_at || Date.now()),
+      lastModified: new Date(lastModified),
       changeFrequency: 'monthly',
       priority: 0.8,
       ...(post.featured_image_url?.startsWith('http') && {

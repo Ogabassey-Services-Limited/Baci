@@ -12,6 +12,7 @@ interface MockQueryBuilder {
   limit: ReturnType<typeof vi.fn>;
   maybeSingle: ReturnType<typeof vi.fn>;
   neq: ReturnType<typeof vi.fn>;
+  not: ReturnType<typeof vi.fn>;
   or: ReturnType<typeof vi.fn>;
   order: ReturnType<typeof vi.fn>;
   range: ReturnType<typeof vi.fn>;
@@ -26,6 +27,7 @@ export interface CachedDataTestHarness {
   mockListResult: MockListResult;
   mockMaybeSingle: ReturnType<typeof vi.fn>;
   mockNeq: ReturnType<typeof vi.fn>;
+  mockNot: ReturnType<typeof vi.fn>;
   mockOr: ReturnType<typeof vi.fn>;
   mockOrder: ReturnType<typeof vi.fn>;
   mockQueryExecution: ReturnType<typeof vi.fn>;
@@ -80,6 +82,7 @@ export function buildCachedDataTestHarness(): CachedDataTestHarness {
   const mockOr = vi.fn();
   const mockOrder = vi.fn();
   const mockNeq = vi.fn();
+  const mockNot = vi.fn();
   const mockQueryExecution = vi.fn(() => mockListResult);
   const mockRange = vi.fn();
   const mockRpc = vi.fn().mockResolvedValue({ data: [], error: null });
@@ -107,6 +110,7 @@ export function buildCachedDataTestHarness(): CachedDataTestHarness {
   mockIn.mockImplementation(() => mockQueryBuilder);
   mockOrder.mockImplementation(() => mockQueryBuilder);
   mockNeq.mockImplementation(() => mockQueryBuilder);
+  mockNot.mockImplementation(() => mockQueryBuilder);
   mockLimit.mockImplementation(() => mockQueryBuilder);
   mockRange.mockImplementation(() => mockQueryBuilder);
 
@@ -118,6 +122,7 @@ export function buildCachedDataTestHarness(): CachedDataTestHarness {
     or: mockOr,
     order: mockOrder,
     neq: mockNeq,
+    not: mockNot,
     limit: mockLimit,
     range: mockRange,
   });
@@ -139,6 +144,7 @@ export function buildCachedDataTestHarness(): CachedDataTestHarness {
     mockListResult,
     mockMaybeSingle,
     mockNeq,
+    mockNot,
     mockOr,
     mockOrder,
     mockQueryExecution,

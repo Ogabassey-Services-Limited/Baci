@@ -38,7 +38,7 @@ vi.mock('@/lib/cache-revalidation', () => ({
 }));
 
 vi.mock('@/lib/get-merchant-blog-cache-identifiers', () => ({
-  getMerchantBlogCacheIdentifiers: (...args: unknown[]) =>
+  getMerchantBlogRevalidationContext: (...args: unknown[]) =>
     mockGetMerchantBlogCacheIdentifiers(...args),
 }));
 
@@ -111,6 +111,9 @@ import { DELETE, GET, PATCH } from './route';
 const MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
 const USER_ID = 'user-123';
 const POST_ID = 'post-abc-123';
+const managedFeaturedImageUrl = `https://cdn.example.com/storage/v1/object/public/media/${MERCHANT_ID}/blog/cover.png`;
+const replacementManagedFeaturedImageUrl = `https://cdn.example.com/storage/v1/object/public/media/${MERCHANT_ID}/blog/replacement.png`;
+const managedLandscapeVariantUrl = `https://cdn.example.com/storage/v1/object/public/media/${MERCHANT_ID}/blog/upload-1/landscape_16x9.webp`;
 
 // ---- Helpers ----
 
@@ -245,6 +248,32 @@ describe('GET /api/merchant/blog/posts/[id]', () => {
       expect(mockSupabase.eq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
     });
 
+    it('selects featured image metadata for edit form hydration', async () => {
+      mockSupabase.single.mockResolvedValue({
+        data: {
+          id: POST_ID,
+          title: 'Test Post',
+          slug: 'test-post',
+        },
+        error: null,
+      });
+
+      await GET(
+        makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'GET'),
+        makeParams(POST_ID)
+      );
+
+      expect(mockSupabase.select).toHaveBeenCalledWith(
+        expect.stringContaining('featured_image_width')
+      );
+      expect(mockSupabase.select).toHaveBeenCalledWith(
+        expect.stringContaining('featured_image_height')
+      );
+      expect(mockSupabase.select).toHaveBeenCalledWith(
+        expect.stringContaining('featured_image_variants')
+      );
+    });
+
     it('returns 404 when post not found (PGRST116 error)', async () => {
       mockSupabase.single.mockResolvedValue({
         data: null,
@@ -302,6 +331,10 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
     content: 'Original content',
     status: 'draft',
     merchant_id: MERCHANT_ID,
+    featured_image_url: null,
+    featured_image_width: null,
+    featured_image_height: null,
+    featured_image_variants: {},
   };
 
   const validUpdateData = {
@@ -318,10 +351,10 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
 
     setupAuth(true, true);
     mockHasPermission.mockReturnValue(true);
-    mockGetMerchantBlogCacheIdentifiers.mockResolvedValue([
-      'test-store',
-      'ogabassey.com',
-    ]);
+    mockGetMerchantBlogCacheIdentifiers.mockResolvedValue({
+      identifiers: ['test-store', 'ogabassey.com'],
+      canonicalMerchantSlug: 'test-store',
+    });
     mockGetBlogEmbeddingText.mockReturnValue('embedding text');
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
@@ -460,6 +493,99 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
 
       expect(res.status).toBe(400);
       expect(json.error).toBe('Validation error');
+    });
+
+    it('blocks draft-to-published updates without Discover-ready metadata when validation is enabled', async () => {
+      mockSupabase.single.mockResolvedValueOnce({
+        data: existingPost,
+        error: null,
+      });
+      mockSupabase.maybeSingle.mockResolvedValueOnce({
+        data: {
+          blog_enabled: true,
+          blog_discover_image_validation_enabled: true,
+        },
+        error: null,
+      });
+
+      const res = await PATCH(
+        makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'PATCH', {
+          status: 'published',
+          title: 'Updated Title',
+        }),
+        makeParams(POST_ID)
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('BLOG_FEATURED_IMAGE_NOT_DISCOVER_READY');
+      expect(mockSupabase.update).not.toHaveBeenCalled();
+    });
+
+    it('fails open when Discover feature settings cannot be loaded', async () => {
+      const warnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+
+      mockSupabase.single
+        .mockResolvedValueOnce({
+          data: existingPost,
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: { ...existingPost, status: 'published' },
+          error: null,
+        });
+      mockSupabase.maybeSingle.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'settings unavailable' },
+      });
+
+      try {
+        const res = await PATCH(
+          makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'PATCH', {
+            status: 'published',
+            title: 'Updated Title',
+          }),
+          makeParams(POST_ID)
+        );
+
+        expect(res.status).toBe(200);
+        expect(mockSupabase.update).toHaveBeenCalledWith(
+          expect.objectContaining({ status: 'published' })
+        );
+        expect(warnSpy).toHaveBeenCalledWith(
+          'Failed to load blog feature settings for discover enforcement',
+          expect.objectContaining({
+            merchantId: MERCHANT_ID,
+            error: 'settings unavailable',
+          })
+        );
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it('rejects external variant URLs regardless of rollout flag', async () => {
+      mockSupabase.single.mockResolvedValueOnce({
+        data: existingPost,
+        error: null,
+      });
+
+      const res = await PATCH(
+        makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'PATCH', {
+          title: 'Updated Title',
+          featured_image_variants: {
+            landscape_16x9: 'https://example.com/variant.webp',
+          },
+        }),
+        makeParams(POST_ID)
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('BLOG_FEATURED_IMAGE_VARIANT_NOT_MANAGED');
+      expect(mockSupabase.update).not.toHaveBeenCalled();
     });
   });
 
@@ -655,6 +781,215 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
       expect(typeof updateCall.published_at).toBe('string');
     });
 
+    it('preserves explicit published_at when publishing a draft', async () => {
+      const providedPublishedAt = '2026-01-01T00:00:00Z';
+
+      mockSupabase.single
+        .mockResolvedValueOnce({
+          data: existingPost,
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            ...existingPost,
+            status: 'published',
+            published_at: providedPublishedAt,
+          },
+          error: null,
+        });
+
+      const res = await PATCH(
+        makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'PATCH', {
+          status: 'published',
+          title: 'Updated Title',
+          published_at: providedPublishedAt,
+        }),
+        makeParams(POST_ID)
+      );
+
+      expect(res.status).toBe(200);
+      const updateCall = mockSupabase.update.mock.calls[0][0] as Record<
+        string,
+        unknown
+      >;
+      expect(updateCall.published_at).toBe(providedPublishedAt);
+    });
+
+    it('allows unrelated edits to legacy published posts with unchanged image metadata', async () => {
+      const legacyPublishedPost = {
+        ...existingPost,
+        status: 'published',
+        published_at: '2026-01-01T00:00:00Z',
+        featured_image_url: managedFeaturedImageUrl,
+        featured_image_width: null,
+        featured_image_height: null,
+        featured_image_variants: {},
+      };
+
+      mockSupabase.single
+        .mockResolvedValueOnce({
+          data: legacyPublishedPost,
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: { ...legacyPublishedPost, title: 'Updated Title' },
+          error: null,
+        });
+      mockSupabase.maybeSingle.mockResolvedValueOnce({
+        data: {
+          blog_enabled: true,
+          blog_discover_image_validation_enabled: true,
+        },
+        error: null,
+      });
+
+      const res = await PATCH(
+        makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'PATCH', {
+          title: 'Updated Title',
+          featured_image_url: managedFeaturedImageUrl,
+          featured_image_width: null,
+          featured_image_height: null,
+          featured_image_variants: {},
+        }),
+        makeParams(POST_ID)
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockSupabase.update).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Updated Title' })
+      );
+    });
+
+    it('clears stale image metadata when the featured image URL changes without replacement metadata', async () => {
+      const postWithDiscoverImage = {
+        ...existingPost,
+        featured_image_url: managedFeaturedImageUrl,
+        featured_image_width: 1200,
+        featured_image_height: 675,
+        featured_image_variants: {
+          landscape_16x9: managedLandscapeVariantUrl,
+        },
+      };
+
+      mockSupabase.single
+        .mockResolvedValueOnce({
+          data: postWithDiscoverImage,
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: {
+            ...postWithDiscoverImage,
+            featured_image_url: replacementManagedFeaturedImageUrl,
+            featured_image_width: null,
+            featured_image_height: null,
+            featured_image_variants: {},
+          },
+          error: null,
+        });
+
+      const res = await PATCH(
+        makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'PATCH', {
+          title: 'Updated Title',
+          featured_image_url: replacementManagedFeaturedImageUrl,
+        }),
+        makeParams(POST_ID)
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockSupabase.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          featured_image_url: replacementManagedFeaturedImageUrl,
+          featured_image_width: null,
+          featured_image_height: null,
+          featured_image_variants: {},
+        })
+      );
+    });
+
+    it('treats explicit null image metadata as cleared during Discover readiness checks', async () => {
+      const publishedPost = {
+        ...existingPost,
+        status: 'published',
+        published_at: '2026-01-01T00:00:00Z',
+        featured_image_url: managedFeaturedImageUrl,
+        featured_image_width: 1200,
+        featured_image_height: 675,
+        featured_image_variants: {
+          landscape_16x9: managedLandscapeVariantUrl,
+        },
+      };
+
+      mockSupabase.single.mockResolvedValueOnce({
+        data: publishedPost,
+        error: null,
+      });
+      mockSupabase.maybeSingle.mockResolvedValueOnce({
+        data: {
+          blog_enabled: true,
+          blog_discover_image_validation_enabled: true,
+        },
+        error: null,
+      });
+
+      const res = await PATCH(
+        makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'PATCH', {
+          title: 'Updated Title',
+          featured_image_width: null,
+        }),
+        makeParams(POST_ID)
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('BLOG_FEATURED_IMAGE_NOT_DISCOVER_READY');
+      expect(mockSupabase.update).not.toHaveBeenCalled();
+    });
+
+    it('persists valid Discover metadata when publishing', async () => {
+      mockSupabase.single
+        .mockResolvedValueOnce({
+          data: existingPost,
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: { ...existingPost, status: 'published' },
+          error: null,
+        });
+      mockSupabase.maybeSingle.mockResolvedValueOnce({
+        data: {
+          blog_enabled: true,
+          blog_discover_image_validation_enabled: true,
+        },
+        error: null,
+      });
+
+      const res = await PATCH(
+        makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'PATCH', {
+          title: 'Updated Title',
+          status: 'published',
+          featured_image_url: managedFeaturedImageUrl,
+          featured_image_width: 1200,
+          featured_image_height: 675,
+          featured_image_variants: {
+            landscape_16x9: managedLandscapeVariantUrl,
+          },
+        }),
+        makeParams(POST_ID)
+      );
+
+      expect(res.status).toBe(200);
+      expect(mockSupabase.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          featured_image_url: managedFeaturedImageUrl,
+          featured_image_width: 1200,
+          featured_image_height: 675,
+          featured_image_variants: {
+            landscape_16x9: managedLandscapeVariantUrl,
+          },
+        })
+      );
+    });
+
     it('does not override published_at when already published', async () => {
       const publishedPost = {
         ...existingPost,
@@ -737,6 +1072,7 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
 
       expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
         identifiers: ['test-store', 'ogabassey.com'],
+        canonicalMerchantSlug: 'test-store',
         listingCategories: [],
         postSlugs: ['original-slug', 'updated-slug'],
       });
@@ -854,10 +1190,10 @@ describe('DELETE /api/merchant/blog/posts/[id]', () => {
 
     setupAuth(true, true);
     mockHasPermission.mockReturnValue(true);
-    mockGetMerchantBlogCacheIdentifiers.mockResolvedValue([
-      'test-store',
-      'ogabassey.com',
-    ]);
+    mockGetMerchantBlogCacheIdentifiers.mockResolvedValue({
+      identifiers: ['test-store', 'ogabassey.com'],
+      canonicalMerchantSlug: 'test-store',
+    });
     mockSupabase.maybeSingle.mockResolvedValue({
       data: { slug: 'deleted-post', category: 'tech' },
       error: null,
@@ -949,6 +1285,7 @@ describe('DELETE /api/merchant/blog/posts/[id]', () => {
 
       expect(mockRevalidateBlogPosts).toHaveBeenCalledWith({
         identifiers: ['test-store', 'ogabassey.com'],
+        canonicalMerchantSlug: 'test-store',
         listingCategories: ['tech'],
         postSlugs: ['deleted-post'],
       });
