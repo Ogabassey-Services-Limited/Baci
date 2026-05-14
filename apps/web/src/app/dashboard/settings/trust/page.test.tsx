@@ -30,6 +30,13 @@ vi.mock('./trust-settings-client', () => ({
   }) => <div>trust:{initialTrustProfile?.founded_year ?? 'none'}</div>,
 }));
 
+vi.mock(
+  '@/components/dashboard/integrations/agent-commerce-trust-readiness-card',
+  () => ({
+    AgentCommerceTrustReadinessCard: () => <div>agent-trust-health</div>,
+  })
+);
+
 import { getMerchantForUser } from '@/lib/merchant-server';
 import TrustSettingsPage from './page';
 
@@ -51,6 +58,7 @@ describe('dashboard trust settings page', () => {
     render(await TrustSettingsPage());
 
     expect(screen.getByText('trust:2018')).toBeInTheDocument();
+    expect(screen.getByText('agent-trust-health')).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: /back to settings/i })
     ).toHaveAttribute('href', '/dashboard/settings');
