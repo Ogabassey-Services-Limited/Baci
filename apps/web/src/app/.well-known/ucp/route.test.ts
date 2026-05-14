@@ -76,13 +76,7 @@ describe('GET /.well-known/ucp', () => {
       canonical_origin: 'https://ogabassey.com',
     });
     expect(body.ucp.version).toBe('2026-04-08');
-    expect(body.ucp.services['dev.ucp.shopping']).toEqual([
-      expect.objectContaining({
-        endpoint: 'https://ogabassey.com/api/agentic',
-        transport: 'rest',
-        version: '2026-04-08',
-      }),
-    ]);
+    expect(body.ucp.services).toEqual({});
     expect(body.ucp.capabilities).toMatchObject({
       'com.usebaci.catalog.read': [
         expect.objectContaining({ version: '2026-04-30' }),
@@ -93,6 +87,7 @@ describe('GET /.well-known/ucp', () => {
     expect(body.signing_keys).toEqual([]);
     expect(body.links).toMatchObject({
       agent_commerce_manifest: 'https://ogabassey.com/agent-commerce.json',
+      agentic_api_base: 'https://ogabassey.com/api/agentic',
       trust: 'https://ogabassey.com/agent-trust.json',
       product_feed: 'https://ogabassey.com/feeds/openai.jsonl',
     });

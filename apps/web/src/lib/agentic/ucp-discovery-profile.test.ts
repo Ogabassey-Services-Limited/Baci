@@ -62,19 +62,14 @@ const baseManifest: AgentCommerceManifest = {
 };
 
 describe('buildUcpDiscoveryProfile', () => {
-  it('keeps catalog discovery in Baci extensions without advertising checkout', () => {
+  it('keeps catalog discovery without advertising native UCP services', () => {
     const profile = buildUcpDiscoveryProfile(baseManifest);
 
     expect(profile.ucp.version).toBe('2026-04-08');
-    expect(profile.ucp.services['dev.ucp.shopping']).toEqual([
-      expect.objectContaining({
-        endpoint: 'https://ogabassey.com/api/agentic',
-        config: expect.objectContaining({
-          baci_manifest: 'https://ogabassey.com/agent-commerce.json',
-          native_ucp_operations: false,
-        }),
-      }),
-    ]);
+    expect(profile.ucp.services).toEqual({});
+    expect(profile.links.agentic_api_base).toBe(
+      'https://ogabassey.com/api/agentic'
+    );
     expect(profile.ucp.capabilities).toMatchObject({
       'com.usebaci.catalog.read': [
         expect.objectContaining({ version: '2026-04-30' }),

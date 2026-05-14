@@ -9,9 +9,6 @@ import type { AgentCommerceManifest } from '@/lib/agentic/agent-commerce-manifes
 export const UCP_PROFILE_CACHE_CONTROL = 'public, max-age=300, s-maxage=300';
 export const UCP_PROFILE_VERSION = '2026-04-08';
 
-const UCP_SPEC_OVERVIEW_URL = `https://ucp.dev/${UCP_PROFILE_VERSION}/specification/overview/`;
-const UCP_REST_SCHEMA_URL = `https://ucp.dev/${UCP_PROFILE_VERSION}/services/shopping/rest.openapi.json`;
-
 function buildUrl(baseUrl: string, path: string): string {
   return new URL(path, baseUrl).toString();
 }
@@ -28,22 +25,7 @@ export function buildUcpDiscoveryProfile(manifest: AgentCommerceManifest) {
   return {
     ucp: {
       version: UCP_PROFILE_VERSION,
-      services: {
-        'dev.ucp.shopping': [
-          {
-            version: UCP_PROFILE_VERSION,
-            spec: UCP_SPEC_OVERVIEW_URL,
-            schema: UCP_REST_SCHEMA_URL,
-            transport: 'rest',
-            endpoint: agenticApiBaseUrl,
-            config: {
-              baci_api_base: agenticApiBaseUrl,
-              baci_manifest: agentCommerceManifestUrl,
-              native_ucp_operations: false,
-            },
-          },
-        ],
-      },
+      services: {},
       capabilities: buildUcpCapabilities({
         agentCommerceManifestUrl,
         manifest,
@@ -58,6 +40,7 @@ export function buildUcpDiscoveryProfile(manifest: AgentCommerceManifest) {
     store: manifest.store,
     links: {
       agent_commerce_manifest: agentCommerceManifestUrl,
+      agentic_api_base: agenticApiBaseUrl,
       llms: manifest.links.llms,
       llms_full: manifest.links.llms_full,
       trust: manifest.links.trust,
