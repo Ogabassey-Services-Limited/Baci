@@ -46,13 +46,26 @@ This document remains the source of truth. Future agents should read this snapsh
 
 ### Focus Queue
 
-1. Merge and deploy PR #1549, then rerun production smoke tests for agentic checkout.
+1. Confirm post-#1549 production checkout smoke remains healthy before expanding the action surface.
 2. Run a controlled Paystack end-to-end payment test with a low-value or sandbox flow, then verify webhook reconciliation updates the agentic checkout session, transaction, and order state.
 3. Add production monitoring for feed failures, checkout mutation failures, idempotency/replay rejections, DVA setup failures, webhook reconciliation failures, and `agent-commerce.json` capability drift.
 4. Build Phase 4 trust checks: product page HTML vs Product/Offer JSON-LD vs OpenAI feed vs Google Merchant feed vs storefront product API parity.
 5. Add crawler and AI-agent observability: log OpenAI, Google, Anthropic, Perplexity, and generic agent user agents by host, route, status, latency, and cache outcome.
 6. Define merchant dashboard controls for agentic commerce: readiness status, capability toggle, API key rotation, agent allowlist/denylist, failed checkout review, and feed health.
 7. Promote Baci's YC narrative from "AI ecommerce builder" to "agent-native commerce infrastructure for African merchants."
+
+### Agentic Commerce Iteration Loop
+
+Added 2026-05-14 after the live Ogabassey machine-readable route smoke tests and external agentic-commerce research.
+
+Each iteration should ship as its own PR from a fresh `origin/main` worktree, validate with focused local tests, wait for GitHub review/checks, merge only when green, and smoke test production after deployment. Do not consume Vercel build minutes locally.
+
+1. **Trust Health v1:** Make trust readiness merchant-facing. Cover catalog parity, canonical URL parity, JSON-LD/feed/API alignment, image validity, policy coverage, feed freshness, endpoint discovery, and crawler visibility. First target: clear or surface the current Ogabassey `agent-trust.json` blockers for canonical URL parity, policy coverage, and image coverage.
+2. **Protocol Compatibility:** Add a UCP-compatible discovery adapter, starting with `/.well-known/ucp`, mapped onto the existing Baci agent manifest and checkout/session/order primitives. Keep ACP-style endpoints intact; treat UCP as an adapter, not a rewrite.
+3. **Agent Identity And Controls:** Add merchant controls for agent allowlists/denylists, signed-agent identity, request provenance, API key rotation, capability toggles, and per-agent limits.
+4. **Action Observability:** Add dashboards and alerts for agent checkout failures, idempotency/replay outcomes, DVA/payment setup failures, webhook reconciliation failures, stale pending-payment sessions, cancellation/refund boundaries, and order-read health.
+5. **Adaptive Dashboard:** Turn the merchant dashboard into an agentic operations surface: "what changed?", "what needs attention?", and "fix this listing/feed/order issue" workflows, backed by explicit merchant approval for risky changes.
+6. **YC Positioning And Demo Proof:** Package Baci as agent-native commerce infrastructure for African merchants. The demo proof should show a real merchant becoming discoverable, trusted, purchasable, paid, reconciled, and manageable across human storefront and agent channels.
 
 ### YC Positioning Lens
 

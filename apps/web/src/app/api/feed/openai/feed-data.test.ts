@@ -21,7 +21,12 @@ interface ProductFixture {
   stock_quantity: number;
   manage_stock: boolean;
   canonical_url?: string | null;
+  category?: string | null;
+  category_slug?: string | null;
   categories?: { name?: string | null; slug?: string | null } | null;
+  product_categories?: Array<{
+    categories?: { name?: string | null; slug?: string | null } | null;
+  }> | null;
   created_at?: string | null;
   variants: Array<{
     id: string;
@@ -169,7 +174,7 @@ describe('getCachedOpenAIFeedData', () => {
     );
   });
 
-  it('selects canonical URL fields without reading a missing category_slug column', async () => {
+  it('selects canonical URL and joined category fields without reading a missing category_slug column', async () => {
     const { getCachedOpenAIFeedData } = await import('./feed-data');
 
     await getCachedOpenAIFeedData('merchant-1');
@@ -181,7 +186,46 @@ describe('getCachedOpenAIFeedData', () => {
     }
     expect(selectFragment).toContain('canonical_url');
     expect(selectFragment).toContain('categories:category_id(name, slug)');
+    expect(selectFragment).toContain(
+      'product_categories(categories(name, slug))'
+    );
     expect(selectFragment).not.toContain('category_slug');
+  });
+
+  it('normalizes joined product categories into category_slug for feed URL parity', async () => {
+    productsResult = {
+      data: [
+        {
+          id: 'prod-1',
+          name: 'Test Phone',
+          created_at: '2026-01-01T00:00:00.000Z',
+          description: 'A phone',
+          slug: 'test-phone',
+          price: 50000,
+          stock: 5,
+          stock_quantity: 5,
+          manage_stock: true,
+          category: null,
+          categories: { name: 'Legacy Phones', slug: 'legacy-phones' },
+          product_categories: [
+            {
+              categories: { name: 'Phones', slug: 'phones' },
+            },
+          ],
+          variants: [],
+        },
+      ],
+      error: null,
+    };
+    const { getCachedOpenAIFeedData } = await import('./feed-data');
+    const result = await getCachedOpenAIFeedData('merchant-1');
+
+    expect(result.products[0]).toMatchObject({
+      category: 'Phones',
+      category_slug: 'phones',
+      categories: { name: 'Phones', slug: 'phones' },
+    });
+    expect(result.products[0]).not.toHaveProperty('product_categories');
   });
 
   it('returns empty products array when no products exist', async () => {
