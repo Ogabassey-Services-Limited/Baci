@@ -220,7 +220,8 @@ export async function getBlogSitemapEntries({
     .from('blog_posts')
     .select('slug, published_at, updated_at, featured_image_url')
     .eq('merchant_id', merchant.id)
-    .eq('status', 'published')) as {
+    .eq('status', 'published')
+    .not('published_at', 'is', null)) as {
     data: BlogPostSitemapRow[] | null;
     error: PostgrestError | null;
   };
@@ -239,11 +240,14 @@ export async function getBlogSitemapEntries({
   ];
 
   for (const post of posts || []) {
+    const lastModified = post.updated_at || post.published_at;
+    if (!lastModified) {
+      continue;
+    }
+
     entries.push({
       url: `${storeUrl}/blog/${post.slug}`,
-      lastModified: post.updated_at
-        ? new Date(post.updated_at)
-        : new Date(post.published_at || Date.now()),
+      lastModified: new Date(lastModified),
       changeFrequency: 'monthly',
       priority: 0.8,
       ...(post.featured_image_url?.startsWith('http') && {

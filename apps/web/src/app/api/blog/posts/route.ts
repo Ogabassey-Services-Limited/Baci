@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
         )
         .eq('is_platform_post', true)
         .eq('status', 'published')
+        .not('published_at', 'is', null)
         .eq('slug', slug)
         .single();
 
@@ -91,7 +92,8 @@ export async function GET(request: NextRequest) {
         { count: 'exact' }
       )
       .eq('is_platform_post', true)
-      .eq('status', 'published');
+      .eq('status', 'published')
+      .not('published_at', 'is', null);
 
     // Apply filters
     if (category) {

@@ -16,7 +16,7 @@ import {
   revalidateReviews,
 } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { getMerchantBlogCacheIdentifiers } from '@/lib/get-merchant-blog-cache-identifiers';
+import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cache-identifiers';
 import { getMerchantBlogPostCategories } from '@/lib/get-merchant-blog-post-categories';
 import { getMerchantBlogPostSlugs } from '@/lib/get-merchant-blog-post-slugs';
 
@@ -102,11 +102,12 @@ export async function POST(request: NextRequest) {
 
   if (shouldRevalidate('blog')) {
     try {
-      const [identifiers, postSlugs, listingCategories] = await Promise.all([
-        getMerchantBlogCacheIdentifiers(auth.supabase, merchantId),
-        getMerchantBlogPostSlugs(auth.supabase, merchantId),
-        getMerchantBlogPostCategories(auth.supabase, merchantId),
-      ]);
+      const [blogRevalidation, postSlugs, listingCategories] =
+        await Promise.all([
+          getMerchantBlogRevalidationContext(auth.supabase, merchantId),
+          getMerchantBlogPostSlugs(auth.supabase, merchantId),
+          getMerchantBlogPostCategories(auth.supabase, merchantId),
+        ]);
       const listingPages = Array.from(
         {
           length: Math.max(
@@ -118,7 +119,8 @@ export async function POST(request: NextRequest) {
       );
 
       revalidateBlogPosts({
-        identifiers,
+        identifiers: blogRevalidation.identifiers,
+        canonicalMerchantSlug: blogRevalidation.canonicalMerchantSlug,
         listingCategories,
         listingPages,
         postSlugs,

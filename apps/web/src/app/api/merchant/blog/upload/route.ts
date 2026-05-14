@@ -1,5 +1,4 @@
 import { nanoid } from 'nanoid';
-import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
@@ -7,18 +6,44 @@ import {
   getUserAccess,
   hasPermission,
 } from '@/lib/api-auth';
+import {
+  BlogFeaturedImageError,
+  generateFeaturedImageVariants,
+  isManagedBlogStoragePath,
+} from '@/lib/blog-featured-image-variants';
 import { checkCsrfProtection } from '@/lib/csrf';
-import { createClient } from '@/lib/supabase/server';
+import { checkRateLimit } from '@/lib/rate-limiter';
 
-const deleteBodySchema = z.object({
-  path: z.string().min(1, 'No path provided'),
+const uploadPurposeSchema = z.enum(['featured', 'inline']);
+
+const variantPathObjectSchema = z.object({
+  square_1x1: z.string().min(1).optional(),
+  standard_4x3: z.string().min(1).optional(),
+  landscape_16x9: z.string().min(1).optional(),
 });
+
+const deleteBodySchema = z
+  .object({
+    path: z.string().min(1).optional(),
+    variantPaths: z
+      .union([z.array(z.string().min(1)), variantPathObjectSchema])
+      .optional(),
+  })
+  .refine(
+    (value) =>
+      value.path ||
+      (Array.isArray(value.variantPaths)
+        ? value.variantPaths.length > 0
+        : Object.values(value.variantPaths ?? {}).length > 0),
+    {
+      message: 'No path provided',
+    }
+  );
 
 // Maximum file size: 5MB
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-// Allowed image types
-const ALLOWED_TYPES = [
+const INLINE_ALLOWED_TYPES = [
   'image/jpeg',
   'image/png',
   'image/gif',
@@ -26,91 +51,134 @@ const ALLOWED_TYPES = [
   'image/avif',
 ];
 
+const FEATURED_ALLOWED_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/avif',
+];
+
+const mimeToExt: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/gif': 'gif',
+  'image/webp': 'webp',
+  'image/avif': 'avif',
+};
+
+type UploadPurpose = z.infer<typeof uploadPurposeSchema>;
+
+function resolveUploadPurpose(value: FormDataEntryValue | null): UploadPurpose {
+  if (typeof value !== 'string') {
+    return 'inline';
+  }
+
+  const parsed = uploadPurposeSchema.safeParse(value.toLowerCase().trim());
+  if (!parsed.success) {
+    return 'inline';
+  }
+
+  return parsed.data;
+}
+
+function getAllowedTypesForPurpose(purpose: UploadPurpose): string[] {
+  return purpose === 'featured' ? FEATURED_ALLOWED_TYPES : INLINE_ALLOWED_TYPES;
+}
+
+async function cleanupUploadedPaths(
+  supabase: NonNullable<
+    Awaited<ReturnType<typeof authenticateApiRequest>>['supabase']
+  >,
+  uploadedPaths: string[]
+) {
+  if (uploadedPaths.length === 0) {
+    return;
+  }
+
+  const { error } = await supabase.storage.from('media').remove(uploadedPaths);
+  if (error) {
+    console.error('Failed to clean up partially uploaded blog media paths', {
+      error,
+      uploadedPaths,
+    });
+  }
+}
+
+function toFeaturedUploadErrorResponse(error: BlogFeaturedImageError) {
+  const status = error.code === 'FEATURED_IMAGE_PROCESSING_FAILED' ? 500 : 400;
+
+  return NextResponse.json(
+    {
+      error: error.message,
+      code: error.code,
+    },
+    { status }
+  );
+}
+
 export async function POST(request: NextRequest) {
+  const auth = await authenticateApiRequest(request);
+  if (auth.error || !auth.user || !auth.supabase) {
+    return NextResponse.json(
+      { error: auth.error || 'Unauthorized' },
+      { status: 401 }
+    );
+  }
+
+  const access = await getUserAccess(auth.supabase);
+  if (!access) {
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+
+  if (!hasPermission(access, 'marketing', 'edit')) {
+    return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  }
+
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid) {
+    return (
+      response ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
   try {
-    const { valid, response } = await checkCsrfProtection(request);
-    if (!valid) {
-      return (
-        response ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
-    }
-
-    const cookieStore = await cookies();
-    // Default user client
-    const userSupabase = createClient(cookieStore);
-
-    let supabaseClient = userSupabase;
-    let merchant: { id: string; slug: string } | null = null;
-
-    // Check authentication
-    const auth = await authenticateApiRequest(request);
-    const user = auth.user;
-
-    if (!user || !auth.supabase) {
+    const isAllowed = await checkRateLimit(
+      auth.supabase,
+      auth.user.id,
+      'merchant_blog_upload',
+      5,
+      1
+    );
+    if (!isAllowed) {
       return NextResponse.json(
-        { error: auth.error || 'Unauthorized' },
-        { status: 401 }
+        { error: 'Rate limit exceeded', code: 'rate_limited' },
+        { status: 429 }
       );
     }
 
-    // Authenticated User Flow (supports both owners and staff members)
-    const authedSupabase = auth.supabase;
-    const access = await getUserAccess(authedSupabase);
-    if (access) {
-      supabaseClient = authedSupabase;
-      if (!hasPermission(access, 'marketing', 'edit')) {
-        return NextResponse.json(
-          { error: 'Permission denied' },
-          { status: 403 }
-        );
-      }
-
-      // Fetch merchant slug if needed
-      const { data: merchantData, error: merchantError } = await supabaseClient
-        .from('merchants')
-        .select('slug')
-        .eq('id', access.merchantId)
-        .single();
-
-      if (merchantError || !merchantData) {
-        console.error('Merchant query error:', merchantError);
-        return NextResponse.json(
-          { error: 'Failed to fetch merchant data' },
-          { status: 500 }
-        );
-      }
-
-      merchant = {
-        id: access.merchantId,
-        slug: merchantData.slug || '',
-      };
-    }
-
-    if (!merchant) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
-    }
-
-    // Parse form data
     const formData = await request.formData();
     const entry = formData.get('file');
     if (!entry || !(entry instanceof File)) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
-    const file = entry;
 
-    // Validate file type
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    const file = entry;
+    const purpose = resolveUploadPurpose(formData.get('purpose'));
+    const allowedTypes = getAllowedTypesForPurpose(purpose);
+
+    if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
-        { error: 'Invalid file type. Allowed: JPEG, PNG, GIF, WebP, AVIF' },
+        {
+          error:
+            purpose === 'featured'
+              ? 'Invalid file type. Featured images must be JPEG, PNG, WebP, or AVIF.'
+              : 'Invalid file type. Allowed: JPEG, PNG, GIF, WebP, AVIF',
+        },
         { status: 400 }
       );
     }
 
-    // Validate file size
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         { error: 'File too large. Maximum size is 5MB' },
@@ -118,52 +186,180 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Map validated MIME type to extension (don't trust filename)
-    const mimeToExt: Record<string, string> = {
-      'image/jpeg': 'jpg',
-      'image/png': 'png',
-      'image/gif': 'gif',
-      'image/webp': 'webp',
-      'image/avif': 'avif',
-    };
     const extension = mimeToExt[file.type] || 'jpg';
-    const filename = `${nanoid(12)}.${extension}`;
-
-    // Path: merchant_id/blog/filename (merchant ID first for storage policy)
-    const filePath = `${merchant.id}/blog/${filename}`;
-
-    // Convert file to buffer
+    const fileToken = nanoid(12);
+    const filename = `${fileToken}.${extension}`;
+    const filePath = `${access.merchantId}/blog/${filename}`;
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const sourceBuffer = Buffer.from(arrayBuffer);
+    const uploadedPaths: string[] = [];
 
-    // Upload to Supabase Storage (using appropriate client)
-    const { error: uploadError } = await supabaseClient.storage
+    if (purpose === 'inline') {
+      const { error: uploadError } = await auth.supabase.storage
+        .from('media')
+        .upload(filePath, sourceBuffer, {
+          contentType: file.type,
+          cacheControl: '31536000',
+          upsert: false,
+        });
+
+      if (uploadError) {
+        console.error('Inline blog media upload failed', {
+          merchantId: access.merchantId,
+          error: uploadError,
+          purpose,
+          type: file.type,
+          size: file.size,
+        });
+        return NextResponse.json(
+          { error: 'Failed to upload file', code: 'UPLOAD_FAILED' },
+          { status: 500 }
+        );
+      }
+
+      const { data: publicUrlData } = auth.supabase.storage
+        .from('media')
+        .getPublicUrl(filePath);
+
+      return NextResponse.json({
+        url: publicUrlData.publicUrl,
+        path: filePath,
+        filename,
+        size: file.size,
+        type: file.type,
+      });
+    }
+
+    let generated: Awaited<ReturnType<typeof generateFeaturedImageVariants>>;
+    try {
+      generated = await generateFeaturedImageVariants(sourceBuffer, {
+        mimeType: file.type,
+      });
+    } catch (error) {
+      if (error instanceof BlogFeaturedImageError) {
+        return toFeaturedUploadErrorResponse(error);
+      }
+      throw error;
+    }
+
+    const { error: originalUploadError } = await auth.supabase.storage
       .from('media')
-      .upload(filePath, buffer, {
+      .upload(filePath, sourceBuffer, {
         contentType: file.type,
-        cacheControl: '31536000', // 1 year cache
+        cacheControl: '31536000',
         upsert: false,
       });
 
-    if (uploadError) {
-      console.error('Upload error:', uploadError);
+    if (originalUploadError) {
+      console.error('Featured original upload failed', {
+        merchantId: access.merchantId,
+        error: originalUploadError,
+        purpose,
+        type: file.type,
+        size: file.size,
+      });
       return NextResponse.json(
         { error: 'Failed to upload file', code: 'UPLOAD_FAILED' },
         { status: 500 }
       );
     }
 
-    // Get public URL (getPublicUrl is a static URL builder that works with any client)
-    const { data: publicUrlData } = supabaseClient.storage
+    uploadedPaths.push(filePath);
+
+    const { data: originalUrlData } = auth.supabase.storage
       .from('media')
       .getPublicUrl(filePath);
 
+    const featuredImageVariants: Record<
+      string,
+      {
+        url: string;
+        path: string;
+        width: number;
+        height: number;
+        contentType: string;
+      }
+    > = {};
+
+    try {
+      const variantEntries = Object.values(generated.variants);
+      for (const variant of variantEntries) {
+        const variantPath = `${access.merchantId}/blog/${fileToken}/${variant.key}.webp`;
+
+        const { error: variantUploadError } = await auth.supabase.storage
+          .from('media')
+          .upload(variantPath, variant.buffer, {
+            contentType: variant.contentType,
+            cacheControl: '31536000',
+            upsert: false,
+          });
+
+        if (variantUploadError) {
+          throw variantUploadError;
+        }
+
+        uploadedPaths.push(variantPath);
+        const { data: variantUrlData } = auth.supabase.storage
+          .from('media')
+          .getPublicUrl(variantPath);
+
+        featuredImageVariants[variant.key] = {
+          url: variantUrlData.publicUrl,
+          path: variantPath,
+          width: variant.width,
+          height: variant.height,
+          contentType: variant.contentType,
+        };
+      }
+    } catch (error) {
+      await cleanupUploadedPaths(auth.supabase, uploadedPaths);
+
+      console.error('Featured variant upload failed; cleaned partial uploads', {
+        merchantId: access.merchantId,
+        error,
+        uploadedPaths,
+      });
+      return NextResponse.json(
+        { error: 'Failed to upload file', code: 'UPLOAD_FAILED' },
+        { status: 500 }
+      );
+    }
+
+    console.info('Processed featured blog media upload', {
+      merchantId: access.merchantId,
+      purpose,
+      sourceWidth: generated.source.width,
+      sourceHeight: generated.source.height,
+      sourceTotalPixels: generated.source.totalPixels,
+      variantKeys: Object.keys(featuredImageVariants),
+      size: file.size,
+      type: file.type,
+    });
+
+    const variants = Object.fromEntries(
+      Object.entries(featuredImageVariants).map(([key, value]) => [
+        key,
+        value.url,
+      ])
+    );
+    const variantPaths = Object.fromEntries(
+      Object.entries(featuredImageVariants).map(([key, value]) => [
+        key,
+        value.path,
+      ])
+    );
+
     return NextResponse.json({
-      url: publicUrlData.publicUrl,
+      url: originalUrlData.publicUrl,
       path: filePath,
       filename,
       size: file.size,
       type: file.type,
+      width: generated.source.width,
+      height: generated.source.height,
+      variants,
+      variantPaths,
+      featuredImageVariants,
     });
   } catch (error) {
     console.error('Error uploading blog image:', error);
@@ -174,67 +370,89 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Delete image
 export async function DELETE(request: NextRequest) {
+  const auth = await authenticateApiRequest(request);
+  if (auth.error || !auth.user || !auth.supabase) {
+    return NextResponse.json(
+      { error: auth.error || 'Unauthorized' },
+      { status: 401 }
+    );
+  }
+
+  const access = await getUserAccess(auth.supabase);
+  if (!access) {
+    return NextResponse.json({ error: 'Merchant not found' }, { status: 404 });
+  }
+
+  if (!hasPermission(access, 'marketing', 'edit')) {
+    return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
+  }
+
+  const { valid, response } = await checkCsrfProtection(request);
+  if (!valid) {
+    return (
+      response ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
   try {
-    const { valid, response } = await checkCsrfProtection(request);
-    if (!valid) {
-      return (
-        response ??
-        NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
-      );
-    }
-
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
-
-    // Check authentication
-    const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user || !auth.supabase) {
+    const isAllowed = await checkRateLimit(
+      auth.supabase,
+      auth.user.id,
+      'merchant_blog_upload',
+      5,
+      1
+    );
+    if (!isAllowed) {
       return NextResponse.json(
-        { error: auth.error || 'Unauthorized' },
-        { status: 401 }
+        { error: 'Rate limit exceeded', code: 'rate_limited' },
+        { status: 429 }
       );
     }
 
-    // Get access (supports both owners and staff members)
-    const access = await getUserAccess(auth.supabase);
-    if (!access) {
-      return NextResponse.json(
-        { error: 'Merchant not found' },
-        { status: 404 }
-      );
+    let requestBody: unknown;
+    try {
+      requestBody = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Malformed JSON' }, { status: 400 });
     }
 
-    if (!hasPermission(access, 'marketing', 'edit')) {
-      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
-    }
-
-    const merchant = { id: access.merchantId };
-
-    const parsed = deleteBodySchema.safeParse(await request.json());
+    const parsed = deleteBodySchema.safeParse(requestBody);
     if (!parsed.success) {
       return NextResponse.json({ error: 'No path provided' }, { status: 400 });
     }
-    const { path } = parsed.data;
 
-    // Ensure the path belongs to this merchant and prevent path traversal
-    const expectedPrefix = `${merchant.id}/blog/`;
-    // Reject paths with traversal sequences or that don't match expected format
-    if (
-      typeof path !== 'string' ||
-      path.includes('..') ||
-      path.includes('//') ||
-      !path.startsWith(expectedPrefix) ||
-      path.split('/').length !== 3
-    ) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    const variantPaths = Array.isArray(parsed.data.variantPaths)
+      ? parsed.data.variantPaths
+      : Object.values(parsed.data.variantPaths ?? {});
+
+    const inputPaths = [parsed.data.path, ...variantPaths]
+      .filter((path): path is string => typeof path === 'string')
+      .map((path) => path.trim())
+      .filter(Boolean);
+
+    const dedupedPaths: string[] = [];
+    const pathSet = new Set<string>();
+
+    for (const path of inputPaths) {
+      if (!isManagedBlogStoragePath(path, access.merchantId)) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      }
+
+      if (!pathSet.has(path)) {
+        pathSet.add(path);
+        dedupedPaths.push(path);
+      }
     }
 
-    // Delete from Supabase Storage
-    const { error: deleteError } = await supabase.storage
+    if (dedupedPaths.length === 0) {
+      return NextResponse.json({ error: 'No path provided' }, { status: 400 });
+    }
+
+    const { error: deleteError } = await auth.supabase.storage
       .from('media')
-      .remove([path]);
+      .remove(dedupedPaths);
 
     if (deleteError) {
       console.error('Delete error:', deleteError);

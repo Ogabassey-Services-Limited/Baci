@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import type React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Sentinel hex values so the test catches accidental reintroduction of the
 // hardcoded #000000 / #fff this PR fixes. If the source goes back to
@@ -9,6 +9,9 @@ import { describe, expect, it, vi } from 'vitest';
 // assertions fail.
 const THEME_TEXT = '#abcdef';
 const THEME_TEXT_ON_PRIMARY = '#fedcba';
+const queryMocks = vi.hoisted(() => ({
+  useQuery: vi.fn(),
+}));
 
 vi.mock('react-native', async () => {
   const React = await import('react');
@@ -21,28 +24,35 @@ vi.mock('react-native', async () => {
     [key: string]: unknown;
   };
 
-  // RN style props can be a single object, an array, or nested arrays of
-  // (object | undefined | false). React DOM expects a flat object on the
-  // `style` attribute — passing an array would let React DOM hit a frozen
-  // proxy on its synthetic style accessor with `'set' on proxy: trap
-  // returned falsish for property '0'`. Flatten + filter falsy entries
-  // before forwarding so the assertions below see a real CSSProperties.
-  const flattenStyle = (style: unknown): React.CSSProperties | undefined => {
-    if (!style) return undefined;
+  const toDomStyle = (style: unknown): React.CSSProperties | undefined => {
+    if (!style) {
+      return undefined;
+    }
+
     if (Array.isArray(style)) {
       return Object.assign(
         {},
         ...style
-          .flat(Number.POSITIVE_INFINITY)
-          .filter((entry): entry is Record<string, unknown> => Boolean(entry))
-      ) as React.CSSProperties;
+          .flat(Infinity)
+          .map(toDomStyle)
+          .filter((s): s is React.CSSProperties => Boolean(s))
+      );
     }
-    return style as React.CSSProperties;
+
+    if (typeof style !== 'object') {
+      return undefined;
+    }
+
+    const domStyle = { ...(style as React.CSSProperties) };
+    if (Array.isArray(domStyle.transform)) {
+      delete domStyle.transform;
+    }
+    return domStyle;
   };
 
   const forwardTestID = (props: ViewLike) => ({
     'data-testid': props.testID,
-    style: flattenStyle(props.style),
+    style: toDomStyle(props.style),
   });
 
   return {
@@ -126,28 +136,35 @@ vi.mock('@/components/ui/ScreenSkeleton', () => ({
   ScreenSkeleton: () => null,
 }));
 
+const merchantAnalytics = {
+  facebook_capi_token: '',
+  facebook_pixel_id: '',
+  ga4_api_secret: '',
+  google_analytics_id: '',
+  offline_conversions_enabled: true,
+  snapchat_capi_token: '',
+  snapchat_pixel_id: '',
+  tiktok_access_token: '',
+  tiktok_pixel_id: '',
+};
+
 vi.mock('@tanstack/react-query', () => ({
   useMutation: () => ({ isPending: false, mutate: vi.fn() }),
-  useQuery: () => ({
-    data: {
-      facebook_capi_token: '',
-      facebook_pixel_id: '',
-      ga4_api_secret: '',
-      google_analytics_id: '',
-      offline_conversions_enabled: true,
-      snapchat_capi_token: '',
-      snapchat_pixel_id: '',
-      tiktok_access_token: '',
-      tiktok_pixel_id: '',
-    },
-    isLoading: false,
-  }),
+  useQuery: queryMocks.useQuery,
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }));
 
 import AnalyticsConfigScreen from './analytics-config';
 
 describe('AnalyticsConfigScreen — theme token regression (#1636)', () => {
+  beforeEach(() => {
+    queryMocks.useQuery.mockReturnValue({
+      data: { ...merchantAnalytics },
+      isError: false,
+      isLoading: false,
+    });
+  });
+
   it('passes the theme text token to the TikTok PlatformCard icon, not hardcoded black', () => {
     render(<AnalyticsConfigScreen />);
 
@@ -161,9 +178,38 @@ describe('AnalyticsConfigScreen — theme token regression (#1636)', () => {
     render(<AnalyticsConfigScreen />);
 
     const knob = screen.getByTestId('offline-conversions-toggle-knob');
-    const styleAttr = knob.getAttribute('style') ?? '';
-    expect(styleAttr).toContain(`background-color: ${THEME_TEXT_ON_PRIMARY}`);
-    expect(styleAttr).not.toContain('#fff');
-    expect(styleAttr).not.toContain('#ffffff');
+    expect(knob).toHaveStyle({ backgroundColor: THEME_TEXT_ON_PRIMARY });
+    expect(knob).not.toHaveStyle({ backgroundColor: '#fff' });
+    expect(knob).not.toHaveStyle({ backgroundColor: '#ffffff' });
+  });
+
+  it('does not expose the shared merchant analytics fixture to component renders', () => {
+    render(<AnalyticsConfigScreen />);
+    const firstResult = queryMocks.useQuery.mock.results[0]?.value as {
+      data: typeof merchantAnalytics;
+    };
+    firstResult.data.tiktok_pixel_id = 'mutated-in-test';
+
+    expect(firstResult.data).not.toBe(merchantAnalytics);
+    expect(merchantAnalytics.tiktok_pixel_id).toBe('');
+  });
+
+  it('falls back to default unconfigured state when analytics data is missing after a query error', () => {
+    queryMocks.useQuery.mockReturnValueOnce({
+      data: null,
+      isError: true,
+      isLoading: false,
+    });
+
+    render(<AnalyticsConfigScreen />);
+
+    expect(screen.getByTestId('icon-logo-tiktok')).toHaveAttribute(
+      'data-color',
+      THEME_TEXT
+    );
+    expect(screen.getByTestId('offline-conversions-toggle-knob')).toHaveStyle({
+      backgroundColor: THEME_TEXT_ON_PRIMARY,
+    });
+    expect(screen.getAllByText('Not configured')).toHaveLength(4);
   });
 });

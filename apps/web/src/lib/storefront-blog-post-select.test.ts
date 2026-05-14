@@ -10,6 +10,9 @@ describe('STOREFRONT_BLOG_POST_SELECT', () => {
     expect(fields).toContain('author_image_url');
     expect(fields).toContain('seo_title');
     expect(fields).toContain('seo_description');
+    expect(fields).toContain('featured_image_width');
+    expect(fields).toContain('featured_image_height');
+    expect(fields).toContain('featured_image_variants');
     expect(fields).not.toContain('author_avatar');
     expect(fields).not.toContain('meta_title');
     expect(fields).not.toContain('meta_description');

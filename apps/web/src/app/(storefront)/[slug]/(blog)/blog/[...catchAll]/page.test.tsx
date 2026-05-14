@@ -15,6 +15,7 @@ const mockGetCachedMerchantByDomain = vi.fn();
 const mockMaybeSingle = vi.fn();
 const mockLimit = vi.fn();
 const mockEq = vi.fn();
+const mockNot = vi.fn();
 const mockSelect = vi.fn();
 const mockFrom = vi.fn();
 const mockCreateClient = vi.fn();
@@ -74,6 +75,13 @@ describe('storefront blog catch-all route', () => {
     mockSelect.mockReturnValue({ eq: mockEq });
     mockEq.mockImplementation((_column: string, _value: string) => ({
       eq: mockEq,
+      not: mockNot,
+      maybeSingle: mockMaybeSingle,
+      limit: mockLimit,
+    }));
+    mockNot.mockImplementation(() => ({
+      eq: mockEq,
+      not: mockNot,
       maybeSingle: mockMaybeSingle,
       limit: mockLimit,
     }));
@@ -154,6 +162,7 @@ describe('storefront blog catch-all route', () => {
 
     expect(mockGetCachedBlogPost).not.toHaveBeenCalled();
     expect(mockGetCachedMerchantByDomain).toHaveBeenCalledWith('ogabassey.com');
+    expect(mockNot).toHaveBeenCalledWith('published_at', 'is', null);
   });
 
   it('redirects fuzzy slug matches with a temporary (307) redirect to allow re-mapping', async () => {
@@ -181,6 +190,7 @@ describe('storefront blog catch-all route', () => {
     // 308 would be cached indefinitely by browsers, blocking future slugs.
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
     expect(mockRedirect).toHaveBeenCalledTimes(1);
+    expect(mockNot).toHaveBeenCalledWith('published_at', 'is', null);
   });
 
   it('falls through to notFound when neither exact nor fuzzy lookup resolves', async () => {

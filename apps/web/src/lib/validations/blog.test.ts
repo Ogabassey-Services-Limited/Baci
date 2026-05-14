@@ -134,6 +134,35 @@ describe('blogPostSchema', () => {
       expect(result.data?.published_at).toBeUndefined();
     });
   });
+
+  describe('featured image metadata', () => {
+    it('accepts known featured image variants and dimensions', () => {
+      const result = blogPostSchema.safeParse({
+        title: 'Test',
+        featured_image_url:
+          'https://cdn.example.com/storage/v1/object/public/media/merchant-1/blog/cover.png',
+        featured_image_width: 1200,
+        featured_image_height: 675,
+        featured_image_variants: {
+          landscape_16x9:
+            'https://cdn.example.com/storage/v1/object/public/media/merchant-1/blog/upload-1/landscape_16x9.webp',
+        },
+      });
+
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects unknown featured image variant keys', () => {
+      const result = blogPostSchema.safeParse({
+        title: 'Test',
+        featured_image_variants: {
+          unknown_ratio: 'https://cdn.example.com/variant.webp',
+        },
+      });
+
+      expect(result.success).toBe(false);
+    });
+  });
 });
 
 describe('sanitizeBlogPostData', () => {
@@ -203,5 +232,39 @@ describe('sanitizeBlogPostData', () => {
     expect(result.count).toBe(42);
     expect(result.active).toBe(true);
     expect(result.published_at).toBeNull();
+  });
+
+  it('preserves image dimensions and variant maps', () => {
+    const variants = {
+      landscape_16x9:
+        'https://cdn.example.com/storage/v1/object/public/media/merchant-1/blog/upload-1/landscape_16x9.webp',
+    };
+
+    const result = sanitizeBlogPostData({
+      featured_image_width: 1200,
+      featured_image_height: 675,
+      featured_image_variants: variants,
+    });
+
+    expect(result.featured_image_width).toBe(1200);
+    expect(result.featured_image_height).toBe(675);
+    expect(result.featured_image_variants).toEqual(variants);
+  });
+
+  it('clears image metadata when the featured image URL is emptied', () => {
+    const result = sanitizeBlogPostData({
+      featured_image_url: ' ',
+      featured_image_width: 1200,
+      featured_image_height: 675,
+      featured_image_variants: {
+        landscape_16x9:
+          'https://cdn.example.com/storage/v1/object/public/media/merchant-1/blog/upload-1/landscape_16x9.webp',
+      },
+    });
+
+    expect(result.featured_image_url).toBeNull();
+    expect(result.featured_image_width).toBeNull();
+    expect(result.featured_image_height).toBeNull();
+    expect(result.featured_image_variants).toEqual({});
   });
 });

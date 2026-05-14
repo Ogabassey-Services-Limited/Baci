@@ -55,22 +55,36 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({
         // Try semantic matching first if productId is provided
         if (productId) {
           // Get product embedding
-          const { data: product } = await supabase
+          const { data: product, error: productError } = await supabase
             .from('products')
             .select('content_embedding')
             .eq('id', productId)
-            .single();
+            .maybeSingle();
 
-          if (product?.content_embedding) {
+          if (productError) {
+            console.error(
+              'Error fetching product embedding for blog snippet:',
+              productError
+            );
+          }
+
+          if (!productError && product?.content_embedding) {
             // Use semantic matching RPC
-            const { data: matches } = await supabase.rpc('match_blog_to_product', {
-              product_embedding: product.content_embedding,
-              merchant_id_filter: merchantId,
-              match_threshold: 0.5,
-              match_count: 1,
-            });
+            const { data: matches, error: matchError } = await supabase.rpc(
+              'match_blog_to_product',
+              {
+                product_embedding: product.content_embedding,
+                merchant_id_filter: merchantId,
+                match_threshold: 0.5,
+                match_count: 1,
+              }
+            );
 
-            if (matches && matches.length > 0) {
+            if (matchError) {
+              console.error('Error matching blog post to product:', matchError);
+            }
+
+            if (!matchError && matches && matches.length > 0) {
               setPost(matches[0]);
               setLoading(false);
               return;
@@ -81,14 +95,25 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({
         // Fallback: Search by category keyword in title
         if (category) {
           const searchTerm = category.split(' ')[0]; // Get first word
-          const { data: categoryPosts } = await supabase
-            .from('blog_posts')
-            .select('id, title, slug, excerpt, featured_image_url, category, reading_time_minutes')
-            .eq('merchant_id', merchantId)
-            .eq('status', 'published')
-            .ilike('title', `%${searchTerm}%`)
-            .order('published_at', { ascending: false })
-            .limit(1);
+          const { data: categoryPosts, error: categoryPostsError } =
+            await supabase
+              .from('blog_posts')
+              .select(
+                'id, title, slug, excerpt, featured_image_url, category, reading_time_minutes'
+              )
+              .eq('merchant_id', merchantId)
+              .eq('status', 'published')
+              .not('published_at', 'is', null)
+              .ilike('title', `%${searchTerm}%`)
+              .order('published_at', { ascending: false })
+              .limit(1);
+
+          if (categoryPostsError) {
+            console.error(
+              'Error fetching category blog snippet:',
+              categoryPostsError
+            );
+          }
 
           if (categoryPosts && categoryPosts.length > 0) {
             setPost(categoryPosts[0]);
@@ -98,13 +123,20 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({
         }
 
         // Final fallback: Get most recent post
-        const { data: recentPosts } = await supabase
+        const { data: recentPosts, error: recentPostsError } = await supabase
           .from('blog_posts')
-          .select('id, title, slug, excerpt, featured_image_url, category, reading_time_minutes')
+          .select(
+            'id, title, slug, excerpt, featured_image_url, category, reading_time_minutes'
+          )
           .eq('merchant_id', merchantId)
           .eq('status', 'published')
+          .not('published_at', 'is', null)
           .order('published_at', { ascending: false })
           .limit(1);
+
+        if (recentPostsError) {
+          console.error('Error fetching recent blog snippet:', recentPostsError);
+        }
 
         if (recentPosts && recentPosts.length > 0) {
           setPost(recentPosts[0]);

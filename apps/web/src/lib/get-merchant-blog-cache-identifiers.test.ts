@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getMerchantBlogCacheIdentifiers } from '@/lib/get-merchant-blog-cache-identifiers';
+import {
+  getMerchantBlogCacheIdentifiers,
+  getMerchantBlogRevalidationContext,
+} from '@/lib/get-merchant-blog-cache-identifiers';
 
 function createSupabaseMock(options: {
   domains?: Array<{ domain: string | null }> | null;
@@ -50,7 +53,11 @@ function createSupabaseMock(options: {
     client: { from } as unknown as SupabaseClient,
     domainsEq,
     domainsIn,
+    domainsSelect,
     from,
+    merchantEq,
+    merchantMaybeSingle,
+    merchantSelect,
   };
 }
 
@@ -139,6 +146,110 @@ describe('getMerchantBlogCacheIdentifiers', () => {
 
     await expect(
       getMerchantBlogCacheIdentifiers(supabase.client, 'merchant-5')
+    ).rejects.toEqual({ message: 'domain query failed' });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to fetch merchant blog domain identifiers:',
+      expect.objectContaining({
+        merchantId: 'merchant-5',
+        error: { message: 'domain query failed' },
+      })
+    );
+  });
+});
+
+describe('getMerchantBlogRevalidationContext', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns identifiers plus the canonical merchant slug for mutation revalidation', async () => {
+    const supabase = createSupabaseMock({
+      merchant: { slug: 'Test-Store' },
+      domains: [{ domain: 'shop.example.com' }],
+    });
+
+    await expect(
+      getMerchantBlogRevalidationContext(supabase.client, 'merchant-1')
+    ).resolves.toEqual({
+      identifiers: ['test-store', 'shop.example.com'],
+      canonicalMerchantSlug: 'test-store',
+    });
+    expect(supabase.from).toHaveBeenCalledWith('merchants');
+    expect(supabase.merchantSelect).toHaveBeenCalledWith('slug');
+    expect(supabase.merchantEq).toHaveBeenCalledWith('id', 'merchant-1');
+    expect(supabase.merchantMaybeSingle).toHaveBeenCalled();
+    expect(supabase.from).toHaveBeenCalledWith('domains');
+    expect(supabase.domainsSelect).toHaveBeenCalledWith('domain');
+    expect(supabase.domainsEq).toHaveBeenCalledWith(
+      'merchant_id',
+      'merchant-1'
+    );
+    expect(supabase.domainsEq).toHaveBeenCalledWith('status', 'active');
+    expect(supabase.domainsIn).toHaveBeenCalledWith('domain_type', [
+      'custom',
+      'purchased',
+    ]);
+  });
+
+  it('returns null canonicalMerchantSlug when the merchant has no usable slug', async () => {
+    const supabase = createSupabaseMock({
+      merchant: { slug: ' ' },
+      domains: [{ domain: 'shop.example.com' }],
+    });
+
+    await expect(
+      getMerchantBlogRevalidationContext(supabase.client, 'merchant-2')
+    ).resolves.toEqual({
+      identifiers: ['shop.example.com'],
+      canonicalMerchantSlug: null,
+    });
+  });
+
+  it('returns null canonicalMerchantSlug when no merchant record is found', async () => {
+    const supabase = createSupabaseMock({
+      merchant: null,
+      domains: [],
+    });
+
+    await expect(
+      getMerchantBlogRevalidationContext(supabase.client, 'merchant-3')
+    ).resolves.toEqual({
+      identifiers: [],
+      canonicalMerchantSlug: null,
+    });
+  });
+
+  it('throws when merchant lookup errors', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const supabase = createSupabaseMock({
+      merchantError: { message: 'merchant query failed' },
+    });
+
+    await expect(
+      getMerchantBlogRevalidationContext(supabase.client, 'merchant-4')
+    ).rejects.toEqual({ message: 'merchant query failed' });
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to fetch merchant blog cache identifiers:',
+      expect.objectContaining({
+        merchantId: 'merchant-4',
+        error: { message: 'merchant query failed' },
+      })
+    );
+  });
+
+  it('throws when domain lookup errors', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const supabase = createSupabaseMock({
+      merchant: { slug: 'test-store' },
+      domainsError: { message: 'domain query failed' },
+    });
+
+    await expect(
+      getMerchantBlogRevalidationContext(supabase.client, 'merchant-5')
     ).rejects.toEqual({ message: 'domain query failed' });
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       'Failed to fetch merchant blog domain identifiers:',

@@ -29,6 +29,7 @@ function createQueryBuilder({
     limit: vi.fn(() => builder),
     maybeSingle: vi.fn().mockResolvedValue(singleResult),
     neq: vi.fn(() => builder),
+    not: vi.fn(() => builder),
     order: vi.fn(() => builder),
     range: vi.fn(() => builder),
     single: vi.fn().mockResolvedValue(singleResult),
@@ -171,7 +172,7 @@ function setupBlogPostFetch({
     }
   );
 
-  return { relatedProductsBuilder };
+  return { postLookupBuilder, relatedPostsBuilder, relatedProductsBuilder };
 }
 
 describe('getCachedBlogPost', () => {
@@ -202,6 +203,29 @@ describe('getCachedBlogPost', () => {
       })
     );
     expect(cacheTag).toHaveBeenCalledWith('products', 'products-merchant-1');
+  });
+
+  it('excludes published posts without a published_at timestamp from detail and related queries', async () => {
+    const { postLookupBuilder, relatedPostsBuilder } = setupBlogPostFetch({
+      merchantRow: buildMerchantRow(),
+      publishedPost: buildBlogPostRow(),
+    });
+
+    await getCachedBlogPost(
+      'ogabassey.com',
+      'factory-unlocked-iphones-explained'
+    );
+
+    expect(postLookupBuilder.not).toHaveBeenCalledWith(
+      'published_at',
+      'is',
+      null
+    );
+    expect(relatedPostsBuilder.not).toHaveBeenCalledWith(
+      'published_at',
+      'is',
+      null
+    );
   });
 
   it('slugifies free-text blog categories before filtering related products', async () => {

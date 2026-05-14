@@ -4,6 +4,7 @@ import { getPublishedClusterPosts } from './get-published-cluster-posts';
 const mockGetCachedFeatureSettings = vi.fn();
 const mockSelect = vi.fn();
 const mockEq = vi.fn();
+const mockNot = vi.fn();
 const mockOrder = vi.fn();
 const mockFrom = vi.fn();
 const mockGetPublicSupabaseClient = vi.fn();
@@ -34,7 +35,12 @@ describe('getPublishedClusterPosts', () => {
       ],
       error: null,
     });
-    mockEq.mockImplementation(() => ({ eq: mockEq, order: mockOrder }));
+    mockEq.mockImplementation(() => ({
+      eq: mockEq,
+      not: mockNot,
+      order: mockOrder,
+    }));
+    mockNot.mockImplementation(() => ({ order: mockOrder }));
     mockSelect.mockImplementation(() => ({ eq: mockEq }));
     mockFrom.mockImplementation(() => ({ select: mockSelect }));
     mockGetPublicSupabaseClient.mockReturnValue({ from: mockFrom });
@@ -47,6 +53,7 @@ describe('getPublishedClusterPosts', () => {
     expect(mockSelect).toHaveBeenCalledWith(
       'slug, title, excerpt, category, tags, keywords, featured_image_url, published_at, reading_time_minutes'
     );
+    expect(mockNot).toHaveBeenCalledWith('published_at', 'is', null);
     expect(result).toEqual([
       expect.objectContaining({
         slug: 'best-phones-in-nigeria',

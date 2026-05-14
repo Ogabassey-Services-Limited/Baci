@@ -38,16 +38,24 @@ interface BlogPostsResponse {
 
 interface EqChain {
   eq: (key: string, value: string) => EqChain | BlogPostsResponse;
+  not: (
+    key: string,
+    operator: string,
+    value: null
+  ) => EqChain | BlogPostsResponse;
 }
 
 const mockEq =
   vi.fn<(key: string, value: string) => EqChain | BlogPostsResponse>();
+const mockNot =
+  vi.fn<(key: string, operator: string, value: null) => BlogPostsResponse>();
 mockEq.mockImplementation(
   (): EqChain => ({
     eq: mockEq,
+    not: mockNot,
   })
 );
-const mockSelect = vi.fn((): EqChain => ({ eq: mockEq }));
+const mockSelect = vi.fn((): EqChain => ({ eq: mockEq, not: mockNot }));
 const mockFrom = vi.fn(() => ({ select: mockSelect }));
 
 vi.mock('@/lib/supabase/anon', () => ({
@@ -68,6 +76,7 @@ describe('blog sitemap', () => {
     mockGetCachedFeatureSettings.mockImplementation(async () => ({
       blog_enabled: true,
     }));
+    mockNot.mockReset();
   });
 
   it('uses the merchant custom domain for blog sitemap entries', async () => {
@@ -80,6 +89,14 @@ describe('blog sitemap', () => {
     mockEq.mockImplementation((...args: unknown[]) => {
       const [key, value] = args as [string, string];
       if (key === 'status' && value === 'published') {
+        return { eq: mockEq, not: mockNot };
+      }
+
+      return { eq: mockEq, not: mockNot };
+    });
+    mockNot.mockImplementation((...args: unknown[]) => {
+      const [key, operator, value] = args as [string, string, null];
+      if (key === 'published_at' && operator === 'is' && value === null) {
         return {
           data: [
             {
@@ -93,7 +110,7 @@ describe('blog sitemap', () => {
         };
       }
 
-      return { eq: mockEq };
+      return { data: [], error: null };
     });
 
     const { default: sitemap } = await import('./sitemap');
@@ -105,6 +122,7 @@ describe('blog sitemap', () => {
     expect(result[1].url).toBe(
       'https://ogabassey.com/blog/factory-unlocked-iphones-explained'
     );
+    expect(mockNot).toHaveBeenCalledWith('published_at', 'is', null);
   });
 
   it('falls back to the host header for custom domains when proxy headers are absent', async () => {
@@ -117,11 +135,12 @@ describe('blog sitemap', () => {
     mockEq.mockImplementation((...args: unknown[]) => {
       const [key, value] = args as [string, string];
       if (key === 'status' && value === 'published') {
-        return { data: [], error: null };
+        return { eq: mockEq, not: mockNot };
       }
 
-      return { eq: mockEq };
+      return { eq: mockEq, not: mockNot };
     });
+    mockNot.mockReturnValue({ data: [], error: null });
 
     const { default: sitemap } = await import('./sitemap');
 
@@ -166,11 +185,12 @@ describe('blog sitemap', () => {
     mockEq.mockImplementation((...args: unknown[]) => {
       const [key, value] = args as [string, string];
       if (key === 'status' && value === 'published') {
-        return { data: null, error: new Error('db') };
+        return { eq: mockEq, not: mockNot };
       }
 
-      return { eq: mockEq };
+      return { eq: mockEq, not: mockNot };
     });
+    mockNot.mockReturnValue({ data: null, error: new Error('db') });
 
     const { default: sitemap } = await import('./sitemap');
 

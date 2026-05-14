@@ -38,7 +38,7 @@ export async function getLiveBlogPost(
     .eq('slug', normalizedPostSlug);
 
   if (!includeDrafts) {
-    query = query.eq('status', 'published');
+    query = query.eq('status', 'published').not('published_at', 'is', null);
   }
 
   const { data: post, error: postError } = await query.single();
@@ -57,6 +57,7 @@ export async function getLiveBlogPost(
     )
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
+    .not('published_at', 'is', null)
     .neq('id', post.id)
     .order('published_at', { ascending: false })
     .limit(3);
