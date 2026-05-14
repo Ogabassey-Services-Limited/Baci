@@ -4,6 +4,7 @@ import {
   isImeiServiceTierKey,
 } from '@baci/shared/imei';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { getRootDomain } from '@/env';
 import { getDeviceImage } from '@/lib/device-images';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
@@ -65,13 +66,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
-    const imeiResult = parseImei(body);
+    const rawBody = await request.json();
+    const bodyParse = z
+      .object({ imei: z.string(), tier: z.string().optional() })
+      .safeParse(rawBody);
+    if (!bodyParse.success) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid request body' },
+        { status: 400 }
+      );
+    }
+
+    const imeiResult = parseImei(bodyParse.data);
     if (!imeiResult.ok) {
       return imeiResult.response;
     }
 
-    const tierResult = parseTier(body);
+    const tierResult = parseTier(bodyParse.data);
     if (!tierResult.ok) {
       return tierResult.response;
     }
