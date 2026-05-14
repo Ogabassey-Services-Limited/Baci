@@ -17,7 +17,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Breadcrumbs } from '@/components/storefront/breadcrumbs';
-import { StickyAddToCart } from '@/components/storefront/sticky-add-to-cart';
+import { DeferredStickyAddToCart } from '@/components/storefront/deferred-sticky-add-to-cart';
 import { ThemedBadge, ThemedButton } from '@/components/themed';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
@@ -1064,7 +1064,7 @@ export default function ProductDetailClient({
       </div>
 
       {/* Sticky Add-to-Cart (Mobile) */}
-      <StickyAddToCart
+      <DeferredStickyAddToCart
         product={product}
         selectedAttributes={effectiveVariantAttributes}
         selectedCondition={
