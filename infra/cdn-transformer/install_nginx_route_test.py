@@ -57,6 +57,7 @@ class InstallNginxRouteTest(unittest.TestCase):
             self.assertTrue(backup.exists())
             updated_text = target.read_text(encoding='utf-8')
             self.assertIn('location ^~ /image/', updated_text)
+            self.assertIn('location ^~ /media/', updated_text)
             self.assertIn('# Images - auto-serve WebP if supported', updated_text)
             self.assertEqual(len(list(backup.iterdir())), 1)
 
@@ -85,6 +86,100 @@ class InstallNginxRouteTest(unittest.TestCase):
 
             updated_text = config.read_text(encoding='utf-8')
             self.assertIn('proxy_pass http://127.0.0.2:9090;', updated_text)
+
+    def test_configure_paths_uses_media_storage_origin_environment(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            backup = root / 'backup'
+            config = root / 'cdn.ogabassey.com'
+            config.write_text(
+                'server {\n'
+                '    listen 443 ssl;\n'
+                '    # Images - auto-serve WebP if supported\n'
+                '}\n',
+                encoding='utf-8',
+            )
+
+            with patch.dict(
+                self.module.os.environ,
+                {
+                    'CDN_MEDIA_STORAGE_ORIGIN': (
+                        'https://storage.example.com/storage/v1/object/public/media'
+                    ),
+                },
+            ):
+                with patch.object(self.module, 'validate_nginx_or_restore'):
+                    self.module.configure_paths([config], backup)
+
+            updated_text = config.read_text(encoding='utf-8')
+            self.assertIn('location ^~ /media/', updated_text)
+            self.assertIn(
+                'proxy_pass https://storage.example.com/storage/v1/object/public/media/;',
+                updated_text,
+            )
+            self.assertIn('proxy_set_header Host storage.example.com;', updated_text)
+            self.assertIn('proxy_hide_header Access-Control-Allow-Origin;', updated_text)
+
+    def test_media_storage_origin_accepts_default_valid_and_ipv6_origins(self):
+        origins = [
+            {},
+            {'CDN_MEDIA_STORAGE_ORIGIN':
+                'https://storage.example.com/storage/v1/object/public/media'},
+            {'CDN_MEDIA_STORAGE_ORIGIN':
+                'https://[::1]:8443/storage/v1/object/public/media'},
+        ]
+
+        for env in origins:
+            with self.subTest(env=env):
+                with patch.dict(self.module.os.environ, env, clear=(True if not env else False)):
+                    origin = self.module.get_media_storage_origin()
+
+                self.assertTrue(origin['url'].endswith('/storage/v1/object/public/media'))
+                self.assertNotIn('[', origin['sni_host'])
+
+    def test_configure_paths_adds_media_route_when_image_route_already_exists(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            backup = root / 'backup'
+            config = root / 'cdn.ogabassey.com'
+            config.write_text(
+                'server {\n'
+                '    location ^~ /image/ {}\n'
+                '    # location ^~ /media/ {}\n'
+                '    # Images - auto-serve WebP if supported\n'
+                '}\n',
+                encoding='utf-8',
+            )
+
+            with patch.object(self.module, 'validate_nginx_or_restore'):
+                self.module.configure_paths([config], backup)
+
+            updated_text = config.read_text(encoding='utf-8')
+            self.assertIn('location ^~ /image/', updated_text)
+            self.assertIn('location ^~ /media/', updated_text)
+            self.assertIn('proxy_pass https://', updated_text)
+            self.assertEqual(updated_text.count('location ^~ /image/'), 1)
+
+    def test_media_storage_origin_rejects_unsafe_values(self):
+        unsafe_origins = [
+            'http://storage.example.com/storage/v1/object/public/media',
+            'https://storage.example.com/storage/v1/object/public/media?bad=1',
+            'https://storage.example.com/storage/v1/object/public/media#fragment',
+            'https://storage.example.com/not-media',
+            'https://storage.example.com:bad/storage/v1/object/public/media',
+            'https://storage.example.com/storage/v1/object/public/media\nproxy_pass http://evil;',
+        ]
+
+        for origin in unsafe_origins:
+            with self.subTest(origin=origin):
+                with patch.dict(
+                    self.module.os.environ,
+                    {'CDN_MEDIA_STORAGE_ORIGIN': origin},
+                ):
+                    with self.assertRaises(SystemExit) as raised:
+                        self.module.get_media_storage_origin()
+
+                self.assertIn('Invalid CDN_MEDIA_STORAGE_ORIGIN', str(raised.exception))
 
     def test_transformer_upstream_rejects_unsafe_host_values(self):
         unsafe_hosts = [

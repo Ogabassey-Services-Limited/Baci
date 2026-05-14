@@ -14,6 +14,7 @@ const {
   mockGetCachedBlogPost,
   mockGetLiveBlogPost,
   mockBuildInformationalClusterModel,
+  mockGenerateBlogPostSchema,
   mockBlogPostHeader,
   mockBlogPostBody,
 } = vi.hoisted(() => ({
@@ -26,6 +27,9 @@ const {
   mockGetCachedBlogPost: vi.fn(),
   mockGetLiveBlogPost: vi.fn(),
   mockBuildInformationalClusterModel: vi.fn(),
+  mockGenerateBlogPostSchema: vi.fn<(data: unknown) => Record<string, unknown>>(
+    () => ({})
+  ),
   mockBlogPostHeader: vi.fn(({ title }: { title: string; locale?: string }) => (
     <h1>{title}</h1>
   )),
@@ -103,7 +107,7 @@ vi.mock('@/lib/sanitize-json-ld', () => ({
 }));
 
 vi.mock('@/lib/seo-utils', () => ({
-  generateBlogPostSchema: () => ({}),
+  generateBlogPostSchema: (data: unknown) => mockGenerateBlogPostSchema(data),
   generateBreadcrumbSchema: () => ({}),
 }));
 
@@ -177,6 +181,7 @@ const smartphoneGuideBlogPost = {
     excerpt: 'Affordable Android and iPhone picks for buyers in Nigeria.',
     featured_image_url: null,
     featured_image_alt: null,
+    featured_image_variants: {},
     category: 'Smartphones',
     tags: ['budget', 'iphone', 'samsung'],
     author_name: 'Bolakale',
@@ -199,8 +204,10 @@ describe('BlogPostPageContent', () => {
     vi.clearAllMocks();
     mockBlogPostBody.mockReset();
     mockBlogPostBodyFallback.mockReset();
+    mockGenerateBlogPostSchema.mockReset();
     mockBlogPostBody.mockImplementation(() => null);
     mockBlogPostBodyFallback.mockImplementation(() => null);
+    mockGenerateBlogPostSchema.mockReturnValue({});
     mockDraftMode.mockResolvedValue({ isEnabled: false });
     mockHeaders.mockResolvedValue(
       new Headers({
@@ -319,5 +326,65 @@ describe('BlogPostPageContent', () => {
     expect(
       screen.getByRole('link', { name: /shop more smartphones/i })
     ).toBeInTheDocument();
+  });
+
+  it('passes persisted Discover image variants to structured data', async () => {
+    mockGetCachedBlogPost.mockResolvedValue({
+      ...smartphoneGuideBlogPost,
+      post: {
+        ...smartphoneGuideBlogPost.post,
+        featured_image_url:
+          'https://cdn.ogabassey.com/media/merchant-1/blog/original.png',
+        featured_image_variants: {
+          square_1x1:
+            'https://cdn.ogabassey.com/media/merchant-1/blog/post/square_1x1.webp',
+          landscape_16x9:
+            'https://cdn.ogabassey.com/media/merchant-1/blog/post/landscape_16x9.webp',
+          standard_4x3:
+            'https://cdn.ogabassey.com/media/merchant-1/blog/post/standard_4x3.webp',
+        },
+      },
+    });
+
+    render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          postSlug: 'best-phones-in-nigeria',
+        }),
+      })
+    );
+
+    expect(mockGenerateBlogPostSchema).toHaveBeenCalledWith(
+      expect.objectContaining({
+        imageUrls: [
+          'https://cdn.ogabassey.com/media/merchant-1/blog/post/landscape_16x9.webp',
+          'https://cdn.ogabassey.com/media/merchant-1/blog/post/standard_4x3.webp',
+          'https://cdn.ogabassey.com/media/merchant-1/blog/post/square_1x1.webp',
+        ],
+      })
+    );
+  });
+
+  it('does not emit generic fallback image markup for imageless posts', async () => {
+    render(
+      await BlogPostPageContent({
+        params: Promise.resolve({
+          slug: 'ogabassey',
+          postSlug: 'best-phones-in-nigeria',
+        }),
+      })
+    );
+
+    expect(mockGenerateBlogPostSchema).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        image: expect.stringContaining('opengraph-image'),
+      })
+    );
+    expect(mockGenerateBlogPostSchema).toHaveBeenCalledWith(
+      expect.not.objectContaining({
+        imageUrls: expect.any(Array),
+      })
+    );
   });
 });
