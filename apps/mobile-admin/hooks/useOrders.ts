@@ -20,10 +20,13 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { BASE_URL } from '@/lib/api-client';
+import { getBranchScopeKey } from '@/lib/branch-scope-query';
 import { ORDER_COLUMNS } from '@/lib/orders';
 import { sanitizeSearchQuery } from '@/lib/sanitize';
 import { supabase } from '@/lib/supabase';
 import { getJoinedRecord } from '@/lib/supabase-utils';
+import { ALL_BRANCH_SCOPE, type BranchScope } from '@/schemas/branch';
+import { useBranchScope } from './useBranchScope';
 import { useMerchant } from './useMerchant';
 
 // Re-export for backward compatibility
@@ -80,14 +83,15 @@ function parseResponsePayload(
     return text;
   }
 }
-async function fetchOrders(
+export async function fetchOrders(
   merchantId: string,
   cursor: number = 0,
   filters?: {
     status?: ShippingStatus;
     search?: string;
     dateFilter?: string | { start: Date; end: Date } | null;
-  }
+  },
+  scope: BranchScope = ALL_BRANCH_SCOPE
 ): Promise<OrdersPage> {
   let query = supabase
     .from('orders')
@@ -95,6 +99,10 @@ async function fetchOrders(
     .eq('merchant_id', merchantId)
     .order('created_at', { ascending: false })
     .range(cursor, cursor + PAGE_SIZE - 1);
+
+  if (scope.type === 'branch') {
+    query = query.eq('branch_id', scope.branchId);
+  }
 
   if (filters?.status) {
     query = query.eq('shipping_status', filters.status);
@@ -240,7 +248,9 @@ export function useOrders(
   dateFilter: string | { start: Date; end: Date } | null = null
 ) {
   const { merchant } = useMerchant();
+  const { scope } = useBranchScope();
   const merchantId = merchant?.id;
+  const branchScopeKey = getBranchScopeKey(scope);
 
   // Construct filters object from new parameters
   const filters = {
@@ -250,13 +260,13 @@ export function useOrders(
   };
 
   return useInfiniteQuery({
-    queryKey: ['orders', merchantId, filters],
+    queryKey: ['orders', merchantId, filters, branchScopeKey],
     queryFn: ({ pageParam = 0 }) => {
       if (!merchantId) {
         throw new Error('Merchant ID is required');
       }
 
-      return fetchOrders(merchantId, pageParam, filters);
+      return fetchOrders(merchantId, pageParam, filters, scope);
     },
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     initialPageParam: 0,
@@ -283,9 +293,10 @@ export function useUpdateOrderStatus() {
     },
     onMutate: async ({ orderId, status }) => {
       if (!merchant?.id)
-        return { previousOrders: [], previousOrder: undefined };
+        return { previousOrders: [], previousOrderQueries: [] };
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['orders', merchant.id] });
+      await queryClient.cancelQueries({ queryKey: ['order', orderId] });
 
       // Snapshot previous value
       const previousOrders = queryClient.getQueriesData<OrdersPage>({
@@ -312,14 +323,18 @@ export function useUpdateOrderStatus() {
         }
       );
 
-      // KEY FIX: Optimistically update the single order detail view
-      const previousOrder = queryClient.getQueryData(['order', orderId]);
-      queryClient.setQueryData(['order', orderId], (old: Order | undefined) => {
-        if (!old) return old;
-        return { ...old, shipping_status: status };
+      const previousOrderQueries = queryClient.getQueriesData<Order>({
+        queryKey: ['order', orderId],
       });
+      queryClient.setQueriesData<Order>(
+        { queryKey: ['order', orderId] },
+        (old) => {
+          if (!old) return old;
+          return { ...old, shipping_status: status };
+        }
+      );
 
-      return { previousOrders, previousOrder };
+      return { previousOrders, previousOrderQueries };
     },
     onError: (_err, vars, context) => {
       // Rollback on error
@@ -329,16 +344,16 @@ export function useUpdateOrderStatus() {
         });
         // Note: onSettled already invalidates orders query, no need to do it here
       }
-      if (context?.previousOrder) {
-        queryClient.setQueryData(
-          ['order', vars.orderId],
-          context.previousOrder
-        );
+      if (context?.previousOrderQueries) {
+        context.previousOrderQueries.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
       }
     },
-    onSettled: () => {
+    onSettled: (_data, _error, vars) => {
       // Refetch after mutation
       queryClient.invalidateQueries({ queryKey: ['orders', merchant?.id] });
+      queryClient.invalidateQueries({ queryKey: ['order', vars.orderId] });
       queryClient.invalidateQueries({
         queryKey: ['dashboard-stats', merchant?.id],
       });
@@ -349,141 +364,169 @@ export function useUpdateOrderStatus() {
   });
 }
 
-export function useOrder(orderId: string) {
-  const { merchant } = useMerchant();
+export async function fetchOrderById(
+  orderId: string,
+  merchantId: string,
+  scope: BranchScope = ALL_BRANCH_SCOPE
+) {
+  let orderQuery = supabase
+    .from('orders')
+    .select(ORDER_COLUMNS)
+    .eq('id', orderId)
+    .eq('merchant_id', merchantId);
 
-  return useQuery({
-    queryKey: ['order', orderId],
-    queryFn: async () => {
-      const { data: order, error } = await supabase
-        .from('orders')
-        .select(ORDER_COLUMNS)
-        .eq('id', orderId)
-        .eq('merchant_id', merchant?.id)
-        .single();
+  if (scope.type === 'branch') {
+    orderQuery = orderQuery.eq('branch_id', scope.branchId);
+  }
 
-      if (error) throw new Error(error.message);
+  const { data: order, error } = await orderQuery.single();
 
-      // Fetch order items, transactions, and virtual account in parallel
-      const [
-        { data: items, error: itemsError },
-        { data: transactions, error: transactionsError },
-        { data: virtualAccount, error: virtualAccountError },
-      ] = await Promise.all([
-        supabase
-          .from('order_items')
-          .select(
-            'id, product_id, has_assurance, variant_name, name, quantity, price, products(name, images, condition)'
-          )
-          .eq('order_id', orderId),
-        supabase
-          .from('transactions')
-          .select('amount')
-          .eq('order_id', orderId)
-          .in('status', ['success', 'completed']),
-        supabase
-          .from('order_payment_accounts')
-          .select('account_number, bank_name, account_name')
-          .eq('order_id', orderId)
-          .maybeSingle(),
-      ]);
+  if (error) throw new Error(error.message);
 
-      if (itemsError) {
-        throw new Error(itemsError.message);
+  // Fetch order items, transactions, and virtual account in parallel
+  const [
+    { data: items, error: itemsError },
+    { data: transactions, error: transactionsError },
+    { data: virtualAccount, error: virtualAccountError },
+  ] = await Promise.all([
+    supabase
+      .from('order_items')
+      .select(
+        'id, product_id, has_assurance, variant_name, name, quantity, price, products(name, images, condition)'
+      )
+      .eq('order_id', orderId),
+    supabase
+      .from('transactions')
+      .select('amount')
+      .eq('order_id', orderId)
+      .in('status', ['success', 'completed']),
+    supabase
+      .from('order_payment_accounts')
+      .select('account_number, bank_name, account_name')
+      .eq('order_id', orderId)
+      .maybeSingle(),
+  ]);
+
+  if (itemsError) {
+    throw new Error(itemsError.message);
+  }
+
+  if (transactionsError) {
+    throw new Error(transactionsError.message);
+  }
+
+  if (virtualAccountError) {
+    throw new Error(virtualAccountError.message);
+  }
+
+  // Fetch recorded_by user info + staff virtual terminal if staff-created
+  let recordedByName: string | null = null;
+  let staffTerminal: {
+    account_number: string;
+    bank_name: string;
+    account_name: string;
+  } | null = null;
+
+  if (order.recorded_by_user_id) {
+    // Get staff profile name
+    const { data: recUser, error: recUserError } = await supabase
+      .from('profiles')
+      .select('display_name, full_name')
+      .eq('id', order.recorded_by_user_id)
+      .single();
+    if (recUserError) {
+      throw new Error(recUserError.message);
+    }
+
+    const fullName = recUser?.display_name || recUser?.full_name;
+    if (fullName) {
+      recordedByName = fullName.split(' ')[0];
+    }
+
+    // Look up staff member → their virtual terminal bank account
+    const { data: staffMember, error: staffMemberError } = await supabase
+      .from('staff_members')
+      .select('id')
+      .eq('user_id', order.recorded_by_user_id)
+      .eq('merchant_id', merchantId)
+      .eq('status', 'active')
+      .maybeSingle();
+    if (staffMemberError) {
+      throw new Error(staffMemberError.message);
+    }
+
+    if (staffMember) {
+      const { data: terminal, error: terminalError } = await supabase
+        .from('virtual_terminals')
+        .select('account_number, account_name, bank')
+        .eq('staff_id', staffMember.id)
+        .eq('active', true)
+        .maybeSingle();
+      if (terminalError) {
+        throw new Error(terminalError.message);
       }
 
-      if (transactionsError) {
-        throw new Error(transactionsError.message);
+      if (terminal?.account_number) {
+        staffTerminal = {
+          account_number: terminal.account_number,
+          bank_name: terminal.bank,
+          account_name: terminal.account_name,
+        };
       }
+    }
+  }
 
-      if (virtualAccountError) {
-        throw new Error(virtualAccountError.message);
-      }
+  const transTotal =
+    transactions?.reduce((sum, t) => sum + (Number(t.amount) || 0), 0) || 0;
+  const amountPaid = transTotal + (Number(order.wallet_amount_used) || 0);
+  const balance = Math.max(0, (Number(order.total) || 0) - amountPaid);
 
-      // Fetch recorded_by user info + staff virtual terminal if staff-created
-      let recordedByName: string | null = null;
-      let staffTerminal: {
-        account_number: string;
-        bank_name: string;
-        account_name: string;
-      } | null = null;
+  const orderWithMeta = order as typeof order & {
+    fulfillment_details?: OrderFulfillmentDetails | null;
+  };
 
-      if (order.recorded_by_user_id) {
-        // Get staff profile name
-        const { data: recUser } = await supabase
-          .from('profiles')
-          .select('display_name, full_name')
-          .eq('id', order.recorded_by_user_id)
-          .single();
-
-        const fullName = recUser?.display_name || recUser?.full_name;
-        if (fullName) {
-          recordedByName = fullName.split(' ')[0];
-        }
-
-        // Look up staff member → their virtual terminal bank account
-        const { data: staffMember } = await supabase
-          .from('staff_members')
-          .select('id')
-          .eq('user_id', order.recorded_by_user_id)
-          .eq('merchant_id', merchant?.id)
-          .eq('status', 'active')
-          .maybeSingle();
-
-        if (staffMember) {
-          const { data: terminal } = await supabase
-            .from('virtual_terminals')
-            .select('account_number, account_name, bank')
-            .eq('staff_id', staffMember.id)
-            .eq('active', true)
-            .maybeSingle();
-
-          if (terminal?.account_number) {
-            staffTerminal = {
-              account_number: terminal.account_number,
-              bank_name: terminal.bank,
-              account_name: terminal.account_name,
-            };
-          }
-        }
-      }
-
-      const transTotal =
-        transactions?.reduce((sum, t) => sum + (Number(t.amount) || 0), 0) || 0;
-      const amountPaid = transTotal + (Number(order.wallet_amount_used) || 0);
-      const balance = Math.max(0, (Number(order.total) || 0) - amountPaid);
-
-      const orderWithMeta = order as typeof order & {
-        fulfillment_details?: OrderFulfillmentDetails | null;
-      };
+  return {
+    ...order,
+    amount_paid: amountPaid,
+    balance,
+    virtual_account: virtualAccount || null,
+    staff_terminal: staffTerminal,
+    recorded_by_name: recordedByName,
+    fulfillment_details: orderWithMeta.fulfillment_details ?? null,
+    items: (items as OrderItemRow[] | null)?.map((item) => {
+      const product = getJoinedRecord(item.products);
+      const itemName = item.name ?? product?.name ?? 'Unnamed item';
+      const imageUrl = product?.images?.[0];
 
       return {
-        ...order,
-        amount_paid: amountPaid,
-        balance: balance,
-        virtual_account: virtualAccount || null,
-        staff_terminal: staffTerminal,
-        recorded_by_name: recordedByName,
-        fulfillment_details: orderWithMeta.fulfillment_details ?? null,
-        items: (items as OrderItemRow[] | null)?.map((item) => {
-          const product = getJoinedRecord(item.products);
-          const itemName = item.name ?? product?.name ?? 'Unnamed item';
-          const imageUrl = product?.images?.[0];
-
-          return {
-            id: item.id,
-            product_id: item.product_id ?? `custom-${item.id}`,
-            has_assurance: item.has_assurance ?? undefined,
-            name: itemName,
-            product_name: itemName,
-            condition: product?.condition ?? undefined,
-            variant_name: item.variant_name ?? undefined,
-            quantity: item.quantity,
-            price: item.price,
-            image_url: imageUrl,
-          };
-        }),
+        id: item.id,
+        product_id: item.product_id ?? `custom-${item.id}`,
+        has_assurance: item.has_assurance ?? undefined,
+        name: itemName,
+        product_name: itemName,
+        condition: product?.condition ?? undefined,
+        variant_name: item.variant_name ?? undefined,
+        quantity: item.quantity,
+        price: item.price,
+        image_url: imageUrl,
       };
+    }),
+  };
+}
+
+export function useOrder(orderId: string) {
+  const { merchant } = useMerchant();
+  const { scope } = useBranchScope();
+  const branchScopeKey = getBranchScopeKey(scope);
+
+  return useQuery({
+    queryKey: ['order', orderId, merchant?.id, branchScopeKey],
+    queryFn: async () => {
+      if (!merchant?.id) {
+        throw new Error('Merchant ID is required');
+      }
+
+      return fetchOrderById(orderId, merchant.id, scope);
     },
     enabled: !!orderId && !!merchant?.id,
   });

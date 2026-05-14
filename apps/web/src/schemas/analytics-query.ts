@@ -6,6 +6,7 @@ export const analyticsQuerySchema = z
   .object({
     endDate: isoDateTime.optional(),
     startDate: isoDateTime.optional(),
+    branchId: z.string().uuid('Invalid branch id').optional(),
   })
   .superRefine((value, ctx) => {
     if (!value.startDate && !value.endDate) {

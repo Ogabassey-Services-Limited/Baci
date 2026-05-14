@@ -165,4 +165,17 @@ describe('BranchModal', () => {
 
     expect(props.onSubmit).toHaveBeenCalledTimes(1);
   });
+
+  it('supports edit labels for an existing branch', () => {
+    const props = createProps({ mode: 'edit' });
+
+    render(<BranchModal {...props} />);
+
+    expect(screen.getByRole('dialog', { name: 'Edit branch' })).toBeTruthy();
+    expect(screen.getByText('Edit Branch')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save branch' }));
+
+    expect(props.onSubmit).toHaveBeenCalledTimes(1);
+  });
 });

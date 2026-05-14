@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   createManualOrderWithItems: vi.fn(),
   alert: vi.fn(),
   invalidateQueries: vi.fn(),
+  supabaseFrom: vi.fn(),
 }));
 
 vi.mock('react-native', () => ({
@@ -22,11 +23,29 @@ vi.mock('expo-crypto', () => ({
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from: vi.fn(),
+    from: mocks.supabaseFrom,
   },
 }));
 
 import { submitNewOrder } from './submitNewOrder';
+
+type SubmitNewOrderParams = Parameters<typeof submitNewOrder>[0];
+
+type BranchLookupResponse = {
+  data: { id: string } | null;
+  error: { message: string } | null;
+};
+
+function createBranchQuery(response: BranchLookupResponse) {
+  const query = {
+    eq: vi.fn(),
+    maybeSingle: vi.fn().mockResolvedValue(response),
+    select: vi.fn(),
+  };
+  query.select.mockReturnValue(query);
+  query.eq.mockReturnValue(query);
+  return query;
+}
 
 function createOrderItem(overrides: Partial<OrderItem>): OrderItem {
   return {
@@ -41,38 +60,63 @@ function createOrderItem(overrides: Partial<OrderItem>): OrderItem {
   };
 }
 
+function createSubmitParams(
+  overrides: Partial<SubmitNewOrderParams> = {}
+): SubmitNewOrderParams {
+  return {
+    customer: {
+      address: '1 Baci Street',
+      email: 'customer@example.com',
+      id: 'customer-1',
+      name: 'Ada Merchant',
+      phone: '08030000000',
+    },
+    deliveryInfo: { address: '', city: '', name: '', phone: '', state: '' },
+    discount: 0,
+    merchantCurrency: 'NGN',
+    merchantId: 'merchant-1',
+    notes: 'Handle with care',
+    orderItems: [createOrderItem({ price: 12000 })],
+    partialAmount: '',
+    paymentMethod: 'cash',
+    paymentStatus: 'paid',
+    queryClient: {
+      invalidateQueries: mocks.invalidateQueries,
+    } as unknown as QueryClient,
+    sameAsCustomer: true,
+    selectedBranchId: 'branch-1',
+    selectedChannel: 'website',
+    setIsSubmitting: vi.fn(),
+    setLastOrderId: vi.fn(),
+    setShowSuccessModal: vi.fn(),
+    shippingFee: 0,
+    subtotal: 12000,
+    submittingRef: { current: false },
+    taxesToUse: 0,
+    total: 12000,
+    userId: 'user-1',
+    ...overrides,
+  };
+}
+
 describe('submitNewOrder', () => {
+  let branchQuery: ReturnType<typeof createBranchQuery>;
+
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.createManualOrderWithItems.mockResolvedValue({ id: 'order-1' });
+    branchQuery = createBranchQuery({
+      data: { id: 'branch-1' },
+      error: null,
+    });
+    mocks.supabaseFrom.mockReturnValue(branchQuery);
   });
 
   it('blocks submission when the customer is missing', async () => {
-    await submitNewOrder({
+    await submitNewOrder(createSubmitParams({
       customer: { address: '', email: '', id: null, name: '', phone: '' },
-      deliveryInfo: { address: '', city: '', name: '', phone: '', state: '' },
-      discount: 0,
-      merchantId: 'merchant-1',
-      notes: '',
       orderItems: [],
-      partialAmount: '',
-      paymentMethod: '',
-      paymentStatus: 'pending',
-      queryClient: {
-        invalidateQueries: mocks.invalidateQueries,
-      } as unknown as QueryClient,
-      sameAsCustomer: true,
-      selectedChannel: 'website',
-      setIsSubmitting: vi.fn(),
-      setLastOrderId: vi.fn(),
-      setShowSuccessModal: vi.fn(),
-      shippingFee: 0,
-      subtotal: 0,
-      taxesToUse: 0,
-      total: 0,
-      submittingRef: { current: false },
-      userId: 'user-1',
-    });
+    }));
 
     expect(mocks.alert).toHaveBeenCalledWith(
       'Required',
@@ -86,39 +130,17 @@ describe('submitNewOrder', () => {
     const setLastOrderId = vi.fn();
     const setShowSuccessModal = vi.fn();
 
-    await submitNewOrder({
-      customer: {
-        address: '1 Baci Street',
-        email: 'customer@example.com',
-        id: 'customer-1',
-        name: 'Ada Merchant',
-        phone: '08030000000',
-      },
-      deliveryInfo: { address: '', city: '', name: '', phone: '', state: '' },
-      discount: 0,
-      merchantCurrency: 'NGN',
-      merchantId: 'merchant-1',
-      notes: 'Handle with care',
-      orderItems: [createOrderItem({ price: 12000 })],
-      partialAmount: '',
-      paymentMethod: 'cash',
-      paymentStatus: 'paid',
-      queryClient: {
-        invalidateQueries: mocks.invalidateQueries,
-      } as unknown as QueryClient,
-      sameAsCustomer: true,
-      selectedChannel: 'website',
+    await submitNewOrder(createSubmitParams({
       setIsSubmitting,
       setLastOrderId,
       setShowSuccessModal,
-      shippingFee: 0,
-      subtotal: 12000,
-      taxesToUse: 0,
-      total: 12000,
-      submittingRef: { current: false },
-      userId: 'user-1',
-    });
+    }));
 
+    expect(mocks.supabaseFrom).toHaveBeenCalledWith('branches');
+    expect(branchQuery.select).toHaveBeenCalledWith('id');
+    expect(branchQuery.eq).toHaveBeenCalledWith('id', 'branch-1');
+    expect(branchQuery.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
+    expect(branchQuery.eq).toHaveBeenCalledWith('active', true);
     expect(mocks.createManualOrderWithItems).toHaveBeenCalledWith(
       expect.objectContaining({
         deleteOrder: expect.any(Function),
@@ -129,6 +151,7 @@ describe('submitNewOrder', () => {
         buildItems: expect.any(Function),
         order: expect.objectContaining({
           amount_paid: 12000,
+          branch_id: 'branch-1',
           currency: 'NGN',
           customer_email: 'customer@example.com',
           customer_id: 'customer-1',
@@ -184,42 +207,40 @@ describe('submitNewOrder', () => {
       new Error('Create failed')
     );
 
-    await submitNewOrder({
-      customer: {
-        address: '1 Baci Street',
-        email: 'customer@example.com',
-        id: 'customer-1',
-        name: 'Ada Merchant',
-        phone: '08030000000',
-      },
-      deliveryInfo: { address: '', city: '', name: '', phone: '', state: '' },
-      discount: 0,
-      merchantCurrency: 'NGN',
-      merchantId: 'merchant-1',
-      notes: 'Handle with care',
-      orderItems: [createOrderItem({ price: 12000 })],
-      partialAmount: '',
-      paymentMethod: 'cash',
-      paymentStatus: 'paid',
-      queryClient: {
-        invalidateQueries: mocks.invalidateQueries,
-      } as unknown as QueryClient,
-      sameAsCustomer: true,
-      selectedChannel: 'website',
+    await submitNewOrder(createSubmitParams({
       setIsSubmitting,
       setLastOrderId,
       setShowSuccessModal,
-      shippingFee: 0,
-      subtotal: 12000,
-      taxesToUse: 0,
-      total: 12000,
-      submittingRef: { current: false },
-      userId: 'user-1',
-    });
+    }));
 
     expect(mocks.alert).toHaveBeenCalledWith('Error', 'Create failed');
     expect(setIsSubmitting).toHaveBeenLastCalledWith(false);
     expect(setShowSuccessModal).not.toHaveBeenCalled();
     expect(setLastOrderId).not.toHaveBeenCalled();
+  });
+
+  it('rejects a selected branch that is not active for the merchant', async () => {
+    const setIsSubmitting = vi.fn();
+    branchQuery = createBranchQuery({ data: null, error: null });
+    mocks.supabaseFrom.mockReturnValue(branchQuery);
+
+    await submitNewOrder(createSubmitParams({
+      selectedBranchId: 'branch-from-another-merchant',
+      setIsSubmitting,
+    }));
+
+    expect(mocks.supabaseFrom).toHaveBeenCalledWith('branches');
+    expect(branchQuery.eq).toHaveBeenCalledWith(
+      'id',
+      'branch-from-another-merchant'
+    );
+    expect(branchQuery.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
+    expect(branchQuery.eq).toHaveBeenCalledWith('active', true);
+    expect(mocks.createManualOrderWithItems).not.toHaveBeenCalled();
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Error',
+      'Selected branch is not available for this merchant'
+    );
+    expect(setIsSubmitting).toHaveBeenLastCalledWith(false);
   });
 });

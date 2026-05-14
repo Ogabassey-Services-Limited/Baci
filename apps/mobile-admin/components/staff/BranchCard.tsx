@@ -4,15 +4,25 @@
  */
 
 import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import type { Branch, StaffColors } from './types';
 
 interface BranchCardProps extends StaffColors {
   branch: Branch;
+  canDeactivate: boolean;
+  onDeactivate: (branchId: string) => void;
+  onEdit: (branchId: string) => void;
 }
 
-export function BranchCard({ branch, colors, shadows }: BranchCardProps) {
+export function BranchCard({
+  branch,
+  canDeactivate,
+  colors,
+  shadows,
+  onDeactivate,
+  onEdit,
+}: BranchCardProps) {
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
       <View style={styles.cardHeader}>
@@ -55,6 +65,55 @@ export function BranchCard({ branch, colors, shadows }: BranchCardProps) {
             {branch.active ? 'ACTIVE' : 'INACTIVE'}
           </Text>
         </View>
+      </View>
+      <View style={styles.cardActions}>
+        <Pressable
+          style={[styles.actionButton, { backgroundColor: colors.cardHover }]}
+          onPress={() => onEdit(branch.id)}
+          accessibilityRole="button"
+          accessibilityLabel={`Edit ${branch.name}`}
+          accessibilityHint={`Opens edit dialog for ${branch.name}`}
+        >
+          <Ionicons name="create-outline" size={17} color={colors.primary} />
+          <Text style={[styles.actionText, { color: colors.text }]}>Edit</Text>
+        </Pressable>
+        {branch.active ? (
+          <Pressable
+            style={[
+              styles.actionButton,
+              { backgroundColor: colors.cardHover },
+              !canDeactivate && styles.actionButtonDisabled,
+            ]}
+            onPress={() => onDeactivate(branch.id)}
+            disabled={!canDeactivate}
+            accessibilityRole="button"
+            accessibilityLabel={`Deactivate ${branch.name}`}
+            accessibilityHint={
+              canDeactivate
+                ? 'Double tap to deactivate this branch'
+                : 'Cannot deactivate the last active branch'
+            }
+            accessibilityState={{ disabled: !canDeactivate }}
+          >
+            <Ionicons
+              name="ban-outline"
+              size={17}
+              color={canDeactivate ? colors.notification : colors.textMuted}
+            />
+            <Text
+              style={[
+                styles.actionText,
+                {
+                  color: canDeactivate
+                    ? colors.notification
+                    : colors.textMuted,
+                },
+              ]}
+            >
+              Deactivate
+            </Text>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -99,6 +158,27 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: TYPOGRAPHY.size.xs,
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+  },
+  cardActions: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginTop: SPACING.md,
+  },
+  actionButton: {
+    minHeight: 40,
+    borderRadius: RADIUS.md,
+    paddingHorizontal: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: SPACING.xs,
+  },
+  actionButtonDisabled: {
+    opacity: 0.55,
+  },
+  actionText: {
+    fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
 });

@@ -4,6 +4,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Stack, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
+import { ExpenseBranchSelector } from '@/components/expenses/ExpenseBranchSelector';
 import { ExpenseCategorySheet } from '@/components/expenses/ExpenseCategorySheet';
 import { ExpenseFormFields } from '@/components/expenses/ExpenseFormFields';
 import {
@@ -13,6 +14,8 @@ import {
 import { expenseFormStyles } from '@/components/expenses/expense-form.styles';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
 import { SPACING } from '@/constants/theme';
+import { useBranches } from '@/hooks/useBranches';
+import { useBranchScope } from '@/hooks/useBranchScope';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
@@ -21,6 +24,8 @@ import { createUploadFile, type RNFormData } from '@/types/upload';
 export default function AddExpenseScreen() {
   const { colors } = useTheme();
   const { merchant } = useMerchant();
+  const { data: branches = [], isLoading: branchesLoading } = useBranches();
+  const { scope } = useBranchScope();
   const router = useRouter();
   const queryClient = useQueryClient();
 
@@ -30,14 +35,34 @@ export default function AddExpenseScreen() {
     EXPENSE_CATEGORIES[0]
   );
   const [receiptUri, setReceiptUri] = useState<string | null>(null);
+  const [manualBranchId, setManualBranchId] = useState<string | null>(null);
   const [isCategorySheetVisible, setCategorySheetVisible] = useState(false);
   const parsedAmount = Number.parseFloat(amount);
   const hasValidAmount = Number.isFinite(parsedAmount) && parsedAmount > 0;
+  const activeBranches = branches.filter((branch) => branch.active);
+  const defaultBranchId =
+    activeBranches.find((branch) => branch.is_default)?.id ??
+    activeBranches[0]?.id ??
+    null;
+  const explicitBranchId =
+    manualBranchId &&
+    activeBranches.some((branch) => branch.id === manualBranchId)
+      ? manualBranchId
+      : null;
+  const selectedBranchId =
+    scope.type === 'branch'
+      ? activeBranches.some((branch) => branch.id === scope.branchId)
+        ? scope.branchId
+        : null
+      : (explicitBranchId ?? defaultBranchId);
+  const canSaveExpense =
+    hasValidAmount && !branchesLoading && selectedBranchId !== null;
 
   const createExpenseMutation = useMutation({
     mutationFn: async () => {
       if (!merchant?.id) throw new Error('Merchant ID missing');
       if (!hasValidAmount) throw new Error('Invalid expense amount');
+      if (!selectedBranchId) throw new Error('No active branch is available');
 
       let uploadedReceiptUrl: string | null = null;
 
@@ -79,10 +104,10 @@ export default function AddExpenseScreen() {
 
       const { error } = await supabase.from('expenses').insert({
         merchant_id: merchant.id,
+        branch_id: selectedBranchId,
         amount: parsedAmount,
         category: selectedCategory,
         description: description || null,
-        date: new Date().toISOString(),
         receipt_url: uploadedReceiptUrl,
       });
 
@@ -132,6 +157,22 @@ export default function AddExpenseScreen() {
       return;
     }
 
+    if (branchesLoading) {
+      Alert.alert(
+        'Branches loading',
+        'Please wait for branches to finish loading.'
+      );
+      return;
+    }
+
+    if (!selectedBranchId) {
+      Alert.alert(
+        'No branch available',
+        'Create an active branch before saving expenses.'
+      );
+      return;
+    }
+
     createExpenseMutation.mutate();
   };
 
@@ -169,14 +210,14 @@ export default function AddExpenseScreen() {
             <Pressable
               accessibilityLabel="Save expense"
               accessibilityRole="button"
-              disabled={!hasValidAmount || createExpenseMutation.isPending}
+              disabled={createExpenseMutation.isPending}
               onPress={handleSaveExpense}
               style={[
                 expenseFormStyles.saveButton,
                 {
                   backgroundColor: colors.primary,
                   opacity:
-                    !hasValidAmount || createExpenseMutation.isPending
+                    !canSaveExpense || createExpenseMutation.isPending
                       ? 0.7
                       : 1,
                 },
@@ -199,6 +240,13 @@ export default function AddExpenseScreen() {
         }
         style={{ backgroundColor: colors.background }}
       >
+        {scope.type === 'all' && !branchesLoading ? (
+          <ExpenseBranchSelector
+            branches={activeBranches}
+            onSelect={setManualBranchId}
+            selectedBranchId={selectedBranchId}
+          />
+        ) : null}
         <ExpenseFormFields
           amount={amount}
           description={description}

@@ -86,7 +86,7 @@ export function ExpenseFormFields({
         >
           <Text
             style={[
-              expenseFormStyles.selectorText,
+              expenseFormStyles.optionText,
               {
                 color: hasSelectedCategory ? colors.text : colors.textSecondary,
               },

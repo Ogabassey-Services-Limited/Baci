@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { parseRequestedMerchantId } from '@/app/api/branches/branch-route-utils';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import { getMerchantAnalyticsOverview } from '@/lib/get-merchant-analytics-overview';
 import {
@@ -11,14 +12,12 @@ export async function GET(request: NextRequest) {
   try {
     const auth = await authenticateApiRequest(request);
     if (!auth.user || !auth.supabase) {
-      return NextResponse.json(
-        { error: auth.error ?? 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const searchParams = request.nextUrl.searchParams;
     const parsedQuery = analyticsQuerySchema.safeParse({
+      branchId: searchParams.get('branchId') ?? undefined,
       endDate: searchParams.get('endDate') ?? undefined,
       startDate: searchParams.get('startDate') ?? undefined,
     });
@@ -52,9 +51,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const requestedMerchant = parseRequestedMerchantId(request);
+    if (requestedMerchant.response) {
+      return requestedMerchant.response;
+    }
+
     const merchantContext = await getMerchantForApiRequest(
       auth.supabase,
-      auth.user.id
+      auth.user.id,
+      { requestedMerchantId: requestedMerchant.merchantId }
     );
     if (!merchantContext) {
       return NextResponse.json(
@@ -68,11 +73,41 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
+    const branchId = parsedQuery.data.branchId;
+    if (branchId) {
+      const { data: branch, error: branchError } = await auth.supabase
+        .from('branches')
+        .select('id')
+        .eq('id', branchId)
+        .eq('merchant_id', merchantContext.merchantId)
+        .eq('active', true)
+        .maybeSingle();
+
+      if (branchError) {
+        console.error('Analytics branch validation failed:', branchError);
+        return NextResponse.json(
+          {
+            code: 'BRANCH_VALIDATION_FAILED',
+            error: 'Failed to validate branch',
+          },
+          { status: 500 }
+        );
+      }
+
+      if (!branch) {
+        return NextResponse.json(
+          { code: 'BRANCH_NOT_FOUND', error: 'Branch not found' },
+          { status: 404 }
+        );
+      }
+    }
+
     const analytics = await getMerchantAnalyticsOverview(
       auth.supabase,
       merchantContext.merchantId,
       startDate,
-      endDate
+      endDate,
+      branchId
     );
 
     return NextResponse.json(analytics);

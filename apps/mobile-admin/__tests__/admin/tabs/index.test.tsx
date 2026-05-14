@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import type React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
+  branchScope: { isAllLocations: true },
   safeAreaEdges: null as null | readonly string[],
 }));
 
@@ -83,6 +84,10 @@ vi.mock('@/hooks/useDashboardStats', () => ({
       visits: 5700,
     },
   }),
+}));
+
+vi.mock('@/hooks/useBranchScope', () => ({
+  useBranchScope: () => mocks.branchScope,
 }));
 
 vi.mock('@/hooks/useMerchant', () => ({
@@ -179,10 +184,28 @@ vi.mock('@/types/upload', () => ({
 import HomeScreen from '@/app/(admin)/(tabs)/index';
 
 describe('HomeScreen', () => {
+  beforeEach(() => {
+    mocks.branchScope = { isAllLocations: true };
+    mocks.safeAreaEdges = null;
+  });
+
   it('reserves the top safe area on the dashboard tab', () => {
     render(<HomeScreen />);
 
     screen.getByText('welcome-header');
+    screen.getByText('Visits (all stores)');
+    screen.getByText('New (all stores)');
     expect(mocks.safeAreaEdges).toEqual(['top']);
+  });
+
+  it('shows all-stores suffix and hides bare labels when scoped to a single branch', () => {
+    mocks.branchScope = { isAllLocations: false };
+
+    render(<HomeScreen />);
+
+    screen.getByText('Visits (all stores)');
+    screen.getByText('New (all stores)');
+    expect(screen.queryAllByText(/^Visits$/)).toHaveLength(0);
+    expect(screen.queryAllByText(/^New$/)).toHaveLength(0);
   });
 });

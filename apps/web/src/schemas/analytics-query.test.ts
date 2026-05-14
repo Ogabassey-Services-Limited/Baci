@@ -17,6 +17,26 @@ describe('analyticsQuerySchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts an optional branch id', () => {
+    const result = analyticsQuerySchema.safeParse({
+      branchId: '123e4567-e89b-42d3-a456-426614174001',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects malformed branch ids', () => {
+    const result = analyticsQuerySchema.safeParse({
+      branchId: 'branch-1',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.path).toEqual(['branchId']);
+      expect(result.error.issues[0]?.message).toBe('Invalid branch id');
+    }
+  });
+
   it('rejects when only one date is provided', () => {
     const result = analyticsQuerySchema.safeParse({
       startDate: '2026-04-01T00:00:00.000Z',

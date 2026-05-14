@@ -17,6 +17,8 @@ import type {
   SelectedParentProduct,
 } from '@/components/orders/new-order.types';
 import { useAuth } from '@/hooks/useAuth';
+import { useBranches } from '@/hooks/useBranches';
+import { useBranchScope } from '@/hooks/useBranchScope';
 import { useCreateCustomer } from '@/hooks/useCustomers';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
@@ -25,12 +27,15 @@ import { createNewOrderCustomerActions } from './createNewOrderCustomerActions';
 import { createNewOrderProductActions } from './createNewOrderProductActions';
 import { submitNewOrder } from './submitNewOrder';
 import { useNewOrderLookupData } from './useNewOrderLookupData';
+import { useOrderBranchSelection } from './useOrderBranchSelection';
 import { useNewOrderUiState } from './useNewOrderUiState';
 
 export function useNewOrderController() {
   const { colors, shadows } = useTheme();
   const { merchant } = useMerchant();
   const { user } = useAuth();
+  const { data: branches = [] } = useBranches();
+  const { scope } = useBranchScope();
   const queryClient = useQueryClient();
   const createCustomerMutation = useCreateCustomer();
 
@@ -38,6 +43,7 @@ export function useNewOrderController() {
   const [date, setDate] = useState(new Date());
   const [selectedChannel, setSelectedChannel] =
     useState<OrderSource>('physical');
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>('unpaid');
   const [customer, setCustomer] = useState<CustomerInfo>(
     createEmptyCustomerInfo
@@ -92,6 +98,11 @@ export function useNewOrderController() {
     useState<CountryCode>(DEFAULT_COUNTRY_CODE);
   const [duplicateCustomer, setDuplicateCustomer] =
     useState<SelectableCustomer | null>(null);
+  const { defaultBranchId } = useOrderBranchSelection({
+    branches,
+    scope,
+    setSelectedBranchId,
+  });
 
   // Delivery Details
   const [sameAsCustomer, setSameAsCustomer] = useState(true);
@@ -124,14 +135,7 @@ export function useNewOrderController() {
     ? (selectedParentProductVariantsData ?? [])
     : filteredProducts;
 
-  const {
-    closeProductModal,
-    handleAddCustomItem,
-    handleAddProduct,
-    handleQuantityChange,
-    handleSelectProduct,
-    resetProductPickerState,
-  } = createNewOrderProductActions({
+  const productActions = createNewOrderProductActions({
     customItem,
     orderItems,
     selectedParentProduct,
@@ -143,12 +147,7 @@ export function useNewOrderController() {
     setShowProductModal: uiState.setShowProductModal,
   });
 
-  const {
-    handleCloseCustomerModal,
-    handleCreateCustomer,
-    handleSelectCustomer,
-    resetNewCustomerForm,
-  } = createNewOrderCustomerActions({
+  const customerActions = createNewOrderCustomerActions({
     createCustomer: createCustomerMutation.mutateAsync,
     merchantId: merchant?.id,
     newCustomer,
@@ -176,6 +175,7 @@ export function useNewOrderController() {
       queryClient,
       sameAsCustomer,
       selectedChannel,
+      selectedBranchId,
       setIsSubmitting,
       setLastOrderId: uiState.setLastOrderId,
       setShowSuccessModal: uiState.setShowSuccessModal,
@@ -191,6 +191,7 @@ export function useNewOrderController() {
   const resetOrderDraft = () => {
     setDate(new Date());
     setSelectedChannel('physical');
+    setSelectedBranchId(defaultBranchId);
     setPaymentStatus('unpaid');
     setCustomer(createEmptyCustomerInfo());
     setOrderItems([]);
@@ -241,7 +242,9 @@ export function useNewOrderController() {
     refetchSelectedParentProduct,
     sameAsCustomer,
     selectableProductRows,
+    branches,
     selectedChannel,
+    selectedBranchId,
     selectedCountryCode,
     selectedParentProduct,
     selectedParentProductError,
@@ -264,6 +267,7 @@ export function useNewOrderController() {
     setProductSearch,
     setSameAsCustomer,
     setSelectedChannel,
+    setSelectedBranchId,
     setSelectedCountryCode,
     setSelectedParentProduct,
     setShippingFee,
@@ -277,17 +281,9 @@ export function useNewOrderController() {
     vatRate,
     calculatedVat,
     formatPrice,
-    handleAddCustomItem,
-    handleAddProduct,
-    handleCloseCustomerModal,
-    handleCreateCustomer,
-    handleQuantityChange,
-    handleSelectCustomer,
-    handleSelectProduct,
     handleSubmit,
     resetOrderDraft,
-    closeProductModal,
-    resetNewCustomerForm,
-    resetProductPickerState,
+    ...customerActions,
+    ...productActions,
   };
 }
