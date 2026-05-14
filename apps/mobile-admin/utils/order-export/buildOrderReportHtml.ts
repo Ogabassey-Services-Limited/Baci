@@ -1,11 +1,8 @@
 import { escapeHtml } from '@baci/shared';
 import { format } from 'date-fns';
+import { formatCurrency } from '@/utils/format';
 import { orderReportStyles } from './orderReportStyles';
 import type { OrderReportHtmlInput } from './orderReportTypes';
-
-function formatCurrency(amount: number): string {
-  return `₦${amount.toLocaleString()}`;
-}
 
 function renderBreakdown(
   entries: OrderReportHtmlInput['summary']['salesByOrigin']

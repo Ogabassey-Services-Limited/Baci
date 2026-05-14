@@ -1,7 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { makeOrder } from './order-export.test-helpers';
 import { buildOrderReportHtml } from './buildOrderReportHtml';
 import { buildOrderReportSummary } from './buildOrderReportSummary';
+
+vi.mock('@/utils/format', () => ({
+  formatCurrency: (amount: number) => `NGN ${amount}`,
+}));
 
 describe('buildOrderReportHtml', () => {
   it('renders the report shell, store branding, and summary values', () => {
@@ -27,8 +31,8 @@ describe('buildOrderReportHtml', () => {
     expect(html).toContain('Baci HQ');
     expect(html).toContain('May 1 - May 10, 2026');
     expect(html).toContain('https://cdn.example.com/logo.png');
-    expect(html).toContain('₦22,000');
-    expect(html).not.toContain('₦NaN');
+    expect(html).toContain('NGN 22000');
+    expect(html).not.toContain('NGN NaN');
     expect(html).toContain('Grace Hopper');
     expect(html).toContain('#ORDER_AB');
   });
