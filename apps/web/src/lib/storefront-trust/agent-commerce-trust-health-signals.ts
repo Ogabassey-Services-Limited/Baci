@@ -1,0 +1,141 @@
+import type { FeedProduct } from '@/app/api/feed/google-merchant/feed-builder';
+import type { OpenAIFeedProduct } from '@/app/api/feed/openai/feed-data';
+import type { AgentCommerceTrustCheck } from './build-agent-commerce-trust-readiness';
+import { getTrustCoverageSeverity } from './get-trust-coverage-severity';
+import { isPresentString } from './is-present-string';
+import { isValidHttpUrl } from './is-valid-http-url';
+
+const FEED_FRESHNESS_WARN_DAYS = 30;
+
+interface AgentCommerceCrawlerSurfaces {
+  robots: string;
+  sitemap: string;
+}
+
+interface BuildAgentCommerceTrustHealthSignalsInput {
+  now?: Date;
+  openAiProducts: OpenAIFeedProduct[];
+  surfaces: AgentCommerceCrawlerSurfaces;
+}
+
+interface AgentCommerceTrustHealthSignals {
+  checks: AgentCommerceTrustCheck[];
+  totals: {
+    latestProductUpdatedAt: string | null;
+    productsWithStructuredData: number;
+    staleProducts: number;
+  };
+}
+
+function hasStructuredDataFields(product: OpenAIFeedProduct): boolean {
+  const price = Number(product.price);
+  const hasIdentifier = [
+    product.brand,
+    product.gtin,
+    product.mpn,
+    product.sku,
+    product.category,
+  ].some(isPresentString);
+
+  return (
+    isPresentString(product.name) &&
+    isPresentString(product.description) &&
+    Number.isFinite(price) &&
+    price >= 0 &&
+    hasIdentifier
+  );
+}
+
+function getProductUpdatedAt(
+  product: Pick<FeedProduct, 'updated_at'>
+): Date | null {
+  if (!product.updated_at) return null;
+
+  const parsed = new Date(product.updated_at);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getLatestProductUpdatedAt(
+  products: OpenAIFeedProduct[]
+): string | null {
+  const latest = products
+    .map(getProductUpdatedAt)
+    .filter((value): value is Date => Boolean(value))
+    .sort((a, b) => b.getTime() - a.getTime())[0];
+
+  return latest?.toISOString() ?? null;
+}
+
+function countStaleProducts(products: OpenAIFeedProduct[], now: Date): number {
+  const cutoff = now.getTime() - FEED_FRESHNESS_WARN_DAYS * 24 * 60 * 60 * 1000;
+
+  return products.filter((product) => {
+    const updatedAt = getProductUpdatedAt(product);
+    return !updatedAt || updatedAt.getTime() < cutoff;
+  }).length;
+}
+
+export function buildAgentCommerceTrustHealthSignals({
+  now = new Date(),
+  openAiProducts,
+  surfaces,
+}: BuildAgentCommerceTrustHealthSignalsInput): AgentCommerceTrustHealthSignals {
+  const productsWithStructuredData = openAiProducts.filter(
+    hasStructuredDataFields
+  ).length;
+  const latestProductUpdatedAt = getLatestProductUpdatedAt(openAiProducts);
+  const staleProducts = countStaleProducts(openAiProducts, now);
+  const crawlerUrls = [surfaces.robots, surfaces.sitemap];
+  const validCrawlerUrls = crawlerUrls.filter(isValidHttpUrl).length;
+
+  return {
+    checks: [
+      {
+        id: 'structured-data-readiness',
+        label: 'Structured data readiness',
+        severity: getTrustCoverageSeverity(
+          productsWithStructuredData,
+          openAiProducts.length
+        ),
+        message:
+          openAiProducts.length === 0
+            ? 'No active products are available for JSON-LD field auditing.'
+            : `${productsWithStructuredData} of ${openAiProducts.length} agent-visible products have core JSON-LD product fields.`,
+      },
+      {
+        id: 'feed-freshness',
+        label: 'Feed freshness',
+        severity:
+          openAiProducts.length === 0
+            ? 'warn'
+            : latestProductUpdatedAt
+              ? staleProducts === 0
+                ? 'pass'
+                : 'warn'
+              : 'fail',
+        message:
+          openAiProducts.length === 0
+            ? 'No active products are available for feed freshness checks.'
+            : latestProductUpdatedAt
+              ? staleProducts === 0
+                ? `Latest product feed timestamp is ${latestProductUpdatedAt}.`
+                : `${staleProducts} products have stale or missing feed timestamps.`
+              : 'No valid product update timestamps were found for feed freshness checks.',
+      },
+      {
+        id: 'crawler-visibility',
+        label: 'Crawler visibility',
+        severity: validCrawlerUrls === crawlerUrls.length ? 'pass' : 'fail',
+        message:
+          validCrawlerUrls === crawlerUrls.length
+            ? 'Robots and sitemap entry points are published for agent and search crawlers.'
+            : 'Robots or sitemap entry point URLs are malformed.',
+      },
+    ],
+    totals: {
+      latestProductUpdatedAt,
+      productsWithStructuredData,
+      staleProducts,
+    },
+  };
+}
