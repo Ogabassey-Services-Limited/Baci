@@ -163,6 +163,36 @@ describe('useShipOnCredit', () => {
     );
   });
 
+  it('rejects malformed successful ship-on-credit responses', async () => {
+    mocks.getSession.mockResolvedValue({
+      data: { session: { access_token: 'token-1' } },
+    });
+    mocks.fetch.mockResolvedValue({
+      ok: true,
+      text: async () =>
+        JSON.stringify({
+          success: true,
+          message: 'Order confirmed for credit shipping',
+          order: {
+            id: 'order-1',
+            shipping_status: 'processing',
+            is_credit_order: 'yes',
+          },
+          virtualAccount: null,
+        }),
+    });
+
+    const mutation = useShipOnCredit() as unknown as {
+      mutationFn: (vars: { orderId: string }) => Promise<unknown>;
+    };
+
+    await expect(mutation.mutationFn({ orderId: 'order-1' })).rejects.toThrow(
+      'Failed to ship on credit'
+    );
+    expect(mocks.fetch).toHaveBeenCalled();
+    expect(mocks.invalidateQueries).not.toHaveBeenCalled();
+  });
+
   it('skips merchant-scoped invalidations when the merchant is unavailable', () => {
     mocks.merchantId = '';
 

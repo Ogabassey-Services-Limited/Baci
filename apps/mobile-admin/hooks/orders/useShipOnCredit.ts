@@ -1,58 +1,25 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { z } from 'zod';
 import { BASE_URL } from '@/lib/api-client';
+import { shipOnCreditResponseSchema } from '@/schemas/ship-on-credit-response';
 import { useMerchant } from '../useMerchant';
 import { createAuthenticatedFetch } from './authenticated-fetch';
 import { parseResponsePayload } from './response-utils';
 
 const SHIP_ON_CREDIT_TIMEOUT_MS = 15000;
 
-interface ShipOnCreditResponse {
-  message: string;
-  order: {
-    id: string;
-    is_credit_order: boolean;
-    order_number: string | null;
-    shipping_status: string;
-  };
-  success: boolean;
-  virtualAccount: {
-    account_name: string;
-    account_number: string;
-    bank_name: string;
-  } | null;
-}
+type ShipOnCreditResponse = z.infer<typeof shipOnCreditResponseSchema>;
 
-function isShipOnCreditResponse(
-  payload: unknown
-): payload is ShipOnCreditResponse {
-  if (typeof payload !== 'object' || payload === null) {
-    return false;
+function formatShipOnCreditValidationError(error: z.ZodError): string {
+  const invalidFields = error.issues
+    .map((issue) => issue.path.join('.') || issue.code)
+    .join(', ');
+
+  if (!invalidFields) {
+    return 'Failed to ship on credit: invalid response payload';
   }
 
-  const record = payload as Record<string, unknown>;
-  const order =
-    typeof record.order === 'object' && record.order !== null
-      ? (record.order as Record<string, unknown>)
-      : null;
-  const virtualAccount =
-    typeof record.virtualAccount === 'object' && record.virtualAccount !== null
-      ? (record.virtualAccount as Record<string, unknown>)
-      : null;
-
-  return (
-    record.success === true &&
-    typeof record.message === 'string' &&
-    order !== null &&
-    typeof order.id === 'string' &&
-    (typeof order.order_number === 'string' || order.order_number === null) &&
-    typeof order.shipping_status === 'string' &&
-    typeof order.is_credit_order === 'boolean' &&
-    (record.virtualAccount === null ||
-      (virtualAccount !== null &&
-        typeof virtualAccount.account_name === 'string' &&
-        typeof virtualAccount.account_number === 'string' &&
-        typeof virtualAccount.bank_name === 'string'))
-  );
+  return `Failed to ship on credit: invalid response fields (${invalidFields})`;
 }
 
 export function useShipOnCredit() {
@@ -92,11 +59,12 @@ export function useShipOnCredit() {
         throw new Error(errorMessage);
       }
 
-      if (!isShipOnCreditResponse(payload)) {
-        throw new Error('Failed to ship on credit');
+      const parsedPayload = shipOnCreditResponseSchema.safeParse(payload);
+      if (!parsedPayload.success) {
+        throw new Error(formatShipOnCreditValidationError(parsedPayload.error));
       }
 
-      return payload;
+      return parsedPayload.data;
     },
     mutationKey: ['shipOnCredit'],
     onSuccess: (_data, { orderId }) => {
