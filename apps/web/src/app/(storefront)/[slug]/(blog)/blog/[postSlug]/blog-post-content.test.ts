@@ -207,6 +207,17 @@ describe('transformImageTitlesToFigureCaptions', () => {
     expect(result).toBe(html);
   });
 
+  it('converts titled image-only paragraphs with attributes', () => {
+    const html =
+      '<p class="image-block"><img src="https://cdn.example.com/photo.jpg" title="Camera sample" /></p>';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toBe(
+      '<figure><img src="https://cdn.example.com/photo.jpg" /><figcaption>Camera sample</figcaption></figure>'
+    );
+  });
+
   it('converts standalone titled image tags without paragraph wrappers', () => {
     const html =
       '<img src="https://cdn.example.com/photo.jpg" title="Camera sample" />';

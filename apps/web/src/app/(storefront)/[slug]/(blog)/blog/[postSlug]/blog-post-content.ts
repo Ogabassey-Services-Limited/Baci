@@ -206,7 +206,7 @@ function isStandaloneImageBlock(
 
 export function transformImageTitlesToFigureCaptions(html: string): string {
   const withStandaloneImageParagraphs = html.replace(
-    /<p>\s*(<img\b[^<>]*>)\s*<\/p>/gi,
+    /<p\b[^>]*>\s*(<img\b[^<>]*>)\s*<\/p>/gi,
     (paragraph, imgTag) => {
       return buildFigureFromTitledImage(imgTag) ?? paragraph;
     }
