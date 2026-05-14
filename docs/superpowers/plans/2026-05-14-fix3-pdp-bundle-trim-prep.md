@@ -16,7 +16,7 @@ See also: [docs/audits/2026-05-13-storefront-lcp-baseline.md#mobile-pdp-diagnost
 
 ### Stage 1-4 investigation result (2026-05-14)
 
-Current-code investigation used `/Users/mac/Baci-app/.worktrees/fix3-bundle-analyze` at `origin/main` (`0d329a52`) with its existing `apps/web/.next/` production build, plus a live fetch of the canonical PDP URL.
+Current-code investigation used the local `.worktrees/fix3-bundle-analyze` worktree at `origin/main` (`0d329a52`) with its existing `apps/web/.next/` production build, plus a live fetch of the canonical PDP URL.
 
 Important corrections to the earlier library-presence table:
 
@@ -110,7 +110,7 @@ Two-stage investigation: **map library → source file**, then **classify entry 
 For each library in the table above flagged ❌:
 
 ```bash
-cd /Users/mac/Baci-app
+# From your local Baci repository root:
 grep -rln "from ['\"]moment['\"]\|from ['\"]moment/" apps/web/src 2>/dev/null
 grep -rln "from ['\"]lodash['\"]\|from ['\"]lodash/" apps/web/src 2>/dev/null
 grep -rln "from ['\"]three['\"]\|from ['\"]three/" apps/web/src 2>/dev/null
@@ -178,10 +178,10 @@ After the bundle trim PR lands:
 
 ## Cleanup notes (for the agent that picks this up)
 
-A worktree was left at `/Users/mac/Baci-app/.worktrees/fix3-bundle-analyze/` with a built `.next/` containing the production chunks I inspected. Either reuse for further investigation OR remove with:
+A worktree was left at `.worktrees/fix3-bundle-analyze/` with a built `.next/` containing the production chunks I inspected. Either reuse for further investigation OR remove with:
 
 ```bash
-cd /Users/mac/Baci-app
+# From your local Baci repository root:
 git worktree remove --force .worktrees/fix3-bundle-analyze
 git branch -D chore/fix3-bundle-analyze
 ```

@@ -46,7 +46,7 @@ So Fix 4 isn't a config flip — it needs its own diagnostic to identify a strea
 **Validation.**
 1. Follow the focused TDD, lint, typecheck, CodeRabbit, and PR steps in [2026-05-13-pdp-banner-lcp-priority.md](2026-05-13-pdp-banner-lcp-priority.md).
 2. Visual: load the live deploy on a PDP, confirm the Flash Sale image still renders correctly after hydration.
-3. After merge: verify production HTML contains a transformed `href`, `imagesrcset`, and `imagesizes` preload with `media="(min-width: 768px)"`, then re-run PSI on `https://ogabassey.com/lenovo/lenovo-legion-pro-9-16irx9-rtx-4090` (desktop).
+3. After merge: verify production HTML contains a transformed `href`, `imagesrcset`, and `imagesizes` preload with `media="(min-width: 768px)"`, then re-run PSI on the canonical PDP URL `https://ogabassey.com/laptops/lenovo-legion-pro-9-16irx9-rtx-4090` (desktop).
 
 **Risk.** Low-medium. The code change is small, but preload mistakes can create duplicate critical-path downloads if the emitted candidates do not match the custom image loader.
 

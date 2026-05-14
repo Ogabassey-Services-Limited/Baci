@@ -72,7 +72,7 @@ Files NOT touched:
 - [ ] **Step 1: Create the implementation worktree from current main**
 
 ```bash
-cd /Users/mac/Baci-app
+# From your local Baci repository root:
 git fetch origin main
 git worktree add -b codex/fix3-ogabassey-pdp-client-graph-split .worktrees/fix3-ogabassey-pdp-client-graph-split origin/main
 cd .worktrees/fix3-ogabassey-pdp-client-graph-split

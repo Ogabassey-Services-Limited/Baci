@@ -20,7 +20,7 @@ These are passed via the `PAGESPEED_EXTRA_URLS` environment variable when invoki
 
 ```bash
 export PAGESPEED_INSIGHTS_API_KEY="..."
-export PAGESPEED_EXTRA_URLS="https://ogabassey.com/,https://ogabassey.com/products/<slug>,https://<subdomain>.baci.shop/"
+export PAGESPEED_EXTRA_URLS="https://ogabassey.com/,https://ogabassey.com/laptops/lenovo-legion-pro-9-16irx9-rtx-4090"
 export PAGESPEED_STRATEGIES="mobile,desktop"
 cd apps/web && pnpm exec tsx tools/seo/run-pagespeed.cli.ts
 ```
@@ -33,4 +33,4 @@ Don't capture the baseline before **PR #1607** ("Improve OgaBassey shell LCP str
 
 ## Reference
 
-See [/Users/mac/.claude/plans/plan-ready-at-docs-superpowers-plans-202-async-cascade.md](../../.claude/plans/plan-ready-at-docs-superpowers-plans-202-async-cascade.md) — the planning doc that scoped this measurement work.
+This URL list supports the storefront LCP follow-up plans in [docs/superpowers/plans](../superpowers/plans).
