@@ -511,6 +511,7 @@ describe('BlogContentRenderer', () => {
       const image = screen.getByAltText('A photo');
       expect(image).toBeInTheDocument();
       expect(image).toHaveAttribute('src', 'https://cdn.example.com/photo.jpg');
+      expect(image).toHaveAttribute('sizes', '(max-width: 768px) 100vw, 800px');
     });
 
     it('uses "Blog image" as default alt when alt is absent', () => {
