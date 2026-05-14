@@ -189,6 +189,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .select('blog_enabled, blog_discover_image_validation_enabled')
       .eq('merchant_id', access.merchantId)
       .maybeSingle();
+    // Fail open intentionally during the staged rollout: transient feature
+    // settings read errors must not enable Discover-image enforcement.
     if (featureSettings.error) {
       console.warn(
         'Failed to load blog feature settings for discover enforcement',

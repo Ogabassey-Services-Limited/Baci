@@ -31,18 +31,29 @@ import {
 function createSupabaseMock({
   posts = [],
   merchants = [],
+  merchantByIdError = null,
+  merchantBySlugError = null,
+  merchantInError = null,
+  uploadErrorForKey = null,
+  updateError = null,
 }: {
   posts?: BlogDiscoverReadinessScanRow[];
   merchants?: Array<{ id: string; slug: string }>;
+  merchantByIdError?: Error | null;
+  merchantBySlugError?: Error | null;
+  merchantInError?: Error | null;
+  uploadErrorForKey?: string | null;
+  updateError?: Error | null;
 }) {
   const uploadedPaths: string[] = [];
   const updatedRows: Array<Record<string, unknown>> = [];
   const merchantIn = vi.fn().mockResolvedValue({
     data: merchants,
-    error: null,
+    error: merchantInError,
   });
   const merchantEq = vi.fn((column: string, value: string) => {
     let row: { id: string; slug: string } | undefined;
+    const error = column === 'id' ? merchantByIdError : merchantBySlugError;
 
     if (column === 'id') {
       row = merchants.find((merchant) => merchant.id === value);
@@ -55,7 +66,7 @@ function createSupabaseMock({
     return {
       maybeSingle: vi.fn().mockResolvedValue({
         data: row ?? null,
-        error: null,
+        error,
       }),
     };
   });
@@ -71,7 +82,7 @@ function createSupabaseMock({
     data: posts,
     error: null,
   });
-  const postUpdateEq = vi.fn().mockResolvedValue({ error: null });
+  const postUpdateEq = vi.fn().mockResolvedValue({ error: updateError });
   const postUpdate = vi.fn((payload: Record<string, unknown>) => {
     updatedRows.push(payload);
     return { eq: postUpdateEq };
@@ -109,7 +120,12 @@ function createSupabaseMock({
         }),
         upload: vi.fn((path: string) => {
           uploadedPaths.push(path);
-          return Promise.resolve({ error: null });
+          return Promise.resolve({
+            error:
+              uploadErrorForKey && path.includes(`/${uploadErrorForKey}.webp`)
+                ? new Error('upload failed')
+                : null,
+          });
         }),
         getPublicUrl: vi.fn((path: string) => ({
           data: {
@@ -298,6 +314,59 @@ describe('runReportBlogDiscoverImageReadinessCli', () => {
     expect(postEq).toHaveBeenCalledWith('merchant_id', merchantId);
   });
 
+  it('logs merchant resolution failures before returning not found', async () => {
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const { supabase } = createSupabaseMock({
+      merchantByIdError: new Error('merchant lookup failed'),
+    });
+    mocks.createServiceClient.mockReturnValue(supabase);
+
+    try {
+      const exitCode = await runReportBlogDiscoverImageReadinessCli([
+        '--merchant=merchant-1',
+      ]);
+
+      expect(exitCode).toBe(1);
+      expect(errorSpy).toHaveBeenCalledWith(
+        'maybeResolveMerchantId failed resolving by id',
+        expect.objectContaining({
+          merchantFilter: 'merchant-1',
+          error: 'merchant lookup failed',
+        })
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('logs merchant lookup failures for report row enrichment', async () => {
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const { supabase } = createSupabaseMock({
+      posts: [managedLegacyRow],
+      merchantInError: new Error('merchant list failed'),
+    });
+    mocks.createServiceClient.mockReturnValue(supabase);
+
+    try {
+      const exitCode = await runReportBlogDiscoverImageReadinessCli([]);
+
+      expect(exitCode).toBe(0);
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Failed to load merchants for report rows',
+        expect.objectContaining({
+          merchantIds: [merchantId],
+          error: 'merchant list failed',
+        })
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
   it('reprocesses only managed rows and does not upload for unmanaged rows', async () => {
     const { supabase, uploadedPaths, updatedRows } = createSupabaseMock({
       posts: [
@@ -320,5 +389,56 @@ describe('runReportBlogDiscoverImageReadinessCli', () => {
     expect(exitCode).toBe(0);
     expect(uploadedPaths.length).toBeGreaterThan(0);
     expect(updatedRows).toHaveLength(1);
+  });
+
+  it('logs partial upload state when a managed row variant upload fails', async () => {
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mocks.generateFeaturedImageVariants.mockResolvedValueOnce({
+      source: { width: 1400, height: 900, totalPixels: 1_260_000 },
+      variants: {
+        landscape_16x9: {
+          key: 'landscape_16x9',
+          width: 1200,
+          height: 675,
+          contentType: 'image/webp',
+          buffer: Buffer.from('variant-16x9'),
+        },
+        square_1x1: {
+          key: 'square_1x1',
+          width: 1200,
+          height: 1200,
+          contentType: 'image/webp',
+          buffer: Buffer.from('variant-1x1'),
+        },
+      },
+    });
+    const { supabase, updatedRows } = createSupabaseMock({
+      posts: [managedLegacyRow],
+      merchants: [{ id: merchantId, slug: 'store-a' }],
+      uploadErrorForKey: 'square_1x1',
+    });
+    mocks.createServiceClient.mockReturnValue(supabase);
+
+    try {
+      const exitCode = await runReportBlogDiscoverImageReadinessCli([
+        '--reprocess-managed',
+      ]);
+
+      expect(exitCode).toBe(0);
+      expect(updatedRows).toHaveLength(0);
+      expect(errorSpy).toHaveBeenCalledWith(
+        'reprocessManagedRows variant upload failed',
+        expect.objectContaining({
+          postId: 'post-1',
+          variantKey: 'square_1x1',
+          uploadedVariants: ['landscape_16x9'],
+          error: 'upload failed',
+        })
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });

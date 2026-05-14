@@ -522,6 +522,50 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
       expect(mockSupabase.update).not.toHaveBeenCalled();
     });
 
+    it('fails open when Discover feature settings cannot be loaded', async () => {
+      const warnSpy = vi
+        .spyOn(console, 'warn')
+        .mockImplementation(() => undefined);
+
+      mockSupabase.single
+        .mockResolvedValueOnce({
+          data: existingPost,
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: { ...existingPost, status: 'published' },
+          error: null,
+        });
+      mockSupabase.maybeSingle.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'settings unavailable' },
+      });
+
+      try {
+        const res = await PATCH(
+          makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'PATCH', {
+            status: 'published',
+            title: 'Updated Title',
+          }),
+          makeParams(POST_ID)
+        );
+
+        expect(res.status).toBe(200);
+        expect(mockSupabase.update).toHaveBeenCalledWith(
+          expect.objectContaining({ status: 'published' })
+        );
+        expect(warnSpy).toHaveBeenCalledWith(
+          'Failed to load blog feature settings for discover enforcement',
+          expect.objectContaining({
+            merchantId: MERCHANT_ID,
+            error: 'settings unavailable',
+          })
+        );
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
     it('rejects external variant URLs regardless of rollout flag', async () => {
       mockSupabase.single.mockResolvedValueOnce({
         data: existingPost,

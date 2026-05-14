@@ -3,14 +3,25 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockFetch, mockFetchWithCsrf, mockPush, mockToast, mockWindowOpen } =
-  vi.hoisted(() => ({
-    mockFetch: vi.fn(),
-    mockFetchWithCsrf: vi.fn(),
-    mockPush: vi.fn(),
-    mockToast: vi.fn(),
-    mockWindowOpen: vi.fn(),
-  }));
+const {
+  mockFetch,
+  mockFetchWithCsrf,
+  mockPush,
+  mockToast,
+  mockWindowOpen,
+  mockFeaturedImageUploader,
+} = vi.hoisted(() => ({
+  mockFetch: vi.fn(),
+  mockFetchWithCsrf: vi.fn(),
+  mockPush: vi.fn(),
+  mockToast: vi.fn(),
+  mockWindowOpen: vi.fn(),
+  mockFeaturedImageUploader: {
+    onFilesSelected: undefined as
+      | ((files: File[]) => void | Promise<void>)
+      | undefined,
+  },
+}));
 
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: 'post-1' }),
@@ -69,18 +80,24 @@ vi.mock('@/components/ui/file-uploader', () => ({
     onFilesSelected,
   }: {
     onFilesSelected: (files: File[]) => void;
-  }) => (
-    <button
-      type="button"
-      onClick={() =>
-        onFilesSelected([
-          new File(['featured-bytes'], 'featured.png', { type: 'image/png' }),
-        ])
-      }
-    >
-      Upload featured image
-    </button>
-  ),
+  }) => {
+    mockFeaturedImageUploader.onFilesSelected = onFilesSelected;
+
+    return (
+      <button
+        type="button"
+        onClick={() =>
+          onFilesSelected([
+            new File(['featured-bytes'], 'featured.png', {
+              type: 'image/png',
+            }),
+          ])
+        }
+      >
+        Upload featured image
+      </button>
+    );
+  },
 }));
 
 vi.mock('@/env', () => ({
@@ -183,6 +200,7 @@ const existingPost = {
 describe('EditBlogPostPage Discover image upload metadata', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFeaturedImageUploader.onFilesSelected = undefined;
     window.open = mockWindowOpen;
     global.fetch = mockFetch;
     mockFetch.mockResolvedValue(jsonResponse(existingPost));
@@ -236,5 +254,102 @@ describe('EditBlogPostPage Discover image upload metadata', () => {
       body: FormData;
     };
     expect(uploadOptions.body.get('purpose')).toBe('inline');
+  });
+
+  it('reports non-JSON featured image delete failures with status context', async () => {
+    const user = userEvent.setup();
+    mockFetchWithCsrf.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      text: async () => '<html>bad gateway</html>',
+    });
+
+    render(<EditBlogPostPage />);
+
+    await screen.findByRole('heading', { name: /edit post/i });
+    await user.click(screen.getByRole('button', { name: /remove image/i }));
+
+    await waitFor(() =>
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Error',
+          description: 'Failed to delete image (500): <html>bad gateway</html>',
+          variant: 'destructive',
+        })
+      )
+    );
+  });
+
+  it('deletes the previous session upload before tracking a replacement featured image', async () => {
+    const imagelessPost = {
+      ...existingPost,
+      featured_image_url: '',
+      featured_image_width: null,
+      featured_image_height: null,
+      featured_image_variants: {},
+    };
+    mockFetch.mockReset();
+    mockFetch.mockResolvedValue(jsonResponse(imagelessPost));
+    mockFetchWithCsrf
+      .mockResolvedValueOnce(
+        jsonResponse({
+          url: 'https://cdn.example.com/first.png',
+          path: 'merchant-1/blog/first/original.png',
+          width: 1200,
+          height: 675,
+          variants: {
+            landscape_16x9: 'https://cdn.example.com/first-16x9.webp',
+          },
+          variantPaths: {
+            landscape_16x9: 'merchant-1/blog/first/landscape_16x9.webp',
+          },
+        })
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          url: 'https://cdn.example.com/second.png',
+          path: 'merchant-1/blog/second/original.png',
+          width: 1200,
+          height: 675,
+          variants: {
+            landscape_16x9: 'https://cdn.example.com/second-16x9.webp',
+          },
+          variantPaths: {
+            landscape_16x9: 'merchant-1/blog/second/landscape_16x9.webp',
+          },
+        })
+      )
+      .mockResolvedValueOnce(jsonResponse({ deleted: true }));
+
+    render(<EditBlogPostPage />);
+
+    await screen.findByRole('button', { name: /upload featured image/i });
+    const uploadFeaturedImage = mockFeaturedImageUploader.onFilesSelected;
+    expect(uploadFeaturedImage).toBeDefined();
+
+    await uploadFeaturedImage?.([
+      new File(['first'], 'first.png', { type: 'image/png' }),
+    ]);
+    await waitFor(() => expect(mockFetchWithCsrf).toHaveBeenCalledTimes(1));
+
+    await uploadFeaturedImage?.([
+      new File(['second'], 'second.png', { type: 'image/png' }),
+    ]);
+
+    await waitFor(() => expect(mockFetchWithCsrf).toHaveBeenCalledTimes(3));
+    const deleteCall = mockFetchWithCsrf.mock.calls.find(
+      ([url, options]) =>
+        url === '/api/merchant/blog/upload' &&
+        (options as { method?: string })?.method === 'DELETE'
+    );
+    expect(deleteCall).toBeDefined();
+
+    const deleteOptions = deleteCall?.[1] as { body: string };
+    expect(JSON.parse(deleteOptions.body)).toEqual({
+      path: 'merchant-1/blog/first/original.png',
+      variantPaths: {
+        landscape_16x9: 'merchant-1/blog/first/landscape_16x9.webp',
+      },
+    });
   });
 });

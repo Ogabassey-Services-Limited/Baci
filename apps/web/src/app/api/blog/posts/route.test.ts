@@ -37,10 +37,29 @@ vi.mock('@supabase/supabase-js', () => ({
 import { GET } from './route';
 
 describe('GET /api/blog/posts', () => {
+  const publishedPosts = [
+    {
+      id: 'post-1',
+      slug: 'discover-ready-post',
+      title: 'Discover Ready Post',
+      published_at: '2026-01-01T00:00:00Z',
+    },
+    {
+      id: 'post-2',
+      slug: 'discover-ready-follow-up',
+      title: 'Discover Ready Follow Up',
+      published_at: '2026-01-02T00:00:00Z',
+    },
+  ];
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockNot.mockReturnValue(mockQuery);
-    mockRange.mockResolvedValue({ data: [], error: null, count: 0 });
+    mockRange.mockResolvedValue({
+      data: publishedPosts,
+      error: null,
+      count: publishedPosts.length,
+    });
     mockSingle.mockResolvedValue({
       data: {
         id: 'post-1',
@@ -57,6 +76,19 @@ describe('GET /api/blog/posts', () => {
     );
 
     expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body).toEqual(
+      expect.objectContaining({
+        posts: publishedPosts,
+        total: publishedPosts.length,
+      })
+    );
+    expect(body.posts).toHaveLength(2);
+    expect(
+      body.posts.every(
+        (post: { published_at: string | null }) => post.published_at !== null
+      )
+    ).toBe(true);
     expect(mockQuery.eq).toHaveBeenCalledWith('status', 'published');
     expect(mockNot).toHaveBeenCalledWith('published_at', 'is', null);
   });

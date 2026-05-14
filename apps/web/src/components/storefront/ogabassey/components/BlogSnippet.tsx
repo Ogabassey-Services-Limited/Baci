@@ -59,7 +59,7 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({
             .from('products')
             .select('content_embedding')
             .eq('id', productId)
-            .single();
+            .maybeSingle();
 
           if (productError) {
             console.error(

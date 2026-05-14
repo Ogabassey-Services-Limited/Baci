@@ -182,6 +182,42 @@ function getFeaturedImagePreviewUrl(data: PostFormData): string {
   return data.featured_image_variants.landscape_16x9 || data.featured_image_url;
 }
 
+async function readResponseErrorMessage(
+  response: Response,
+  fallback: string
+): Promise<string> {
+  let body = '';
+
+  try {
+    body = await response.text();
+  } catch {
+    return fallback;
+  }
+
+  if (!body) {
+    return fallback;
+  }
+
+  try {
+    const parsed = JSON.parse(body) as unknown;
+    if (parsed && typeof parsed === 'object') {
+      const error = (parsed as Record<string, unknown>).error;
+      if (typeof error === 'string' && error.trim()) {
+        return error;
+      }
+
+      const message = (parsed as Record<string, unknown>).message;
+      if (typeof message === 'string' && message.trim()) {
+        return message;
+      }
+    }
+  } catch {
+    return body;
+  }
+
+  return body;
+}
+
 export default function EditBlogPostPage() {
   const router = useRouter();
   const params = useParams();
@@ -226,6 +262,7 @@ export default function EditBlogPostPage() {
   ); // For undo functionality
   const [uploadedFeaturedImage, setUploadedFeaturedImage] =
     useState<UploadedFeaturedImage | null>(null);
+  const uploadedFeaturedImageRef = useRef<UploadedFeaturedImage | null>(null);
   const hasCheckedForRecovery = useRef(false);
 
   // Auto-save to localStorage (protects against Chrome Memory Saver)
@@ -390,6 +427,38 @@ export default function EditBlogPostPage() {
 
   const [isUploading, setIsUploading] = useState(false);
 
+  const setTrackedUploadedFeaturedImage = (
+    image: UploadedFeaturedImage | null
+  ) => {
+    uploadedFeaturedImageRef.current = image;
+    setUploadedFeaturedImage(image);
+  };
+
+  const deleteUploadedFeaturedImage = async (
+    imageToDelete: UploadedFeaturedImage
+  ) => {
+    const response = await fetchWithCsrf('/api/merchant/blog/upload', {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      method: 'DELETE',
+      body: JSON.stringify({
+        path: imageToDelete.path,
+        variantPaths: imageToDelete.variantPaths,
+      }),
+    });
+
+    if (!response.ok) {
+      const fallback = 'Failed to delete image';
+      const message = await readResponseErrorMessage(response, fallback);
+      throw new Error(
+        message === fallback
+          ? `${fallback} (${response.status})`
+          : `${fallback} (${response.status}): ${message}`
+      );
+    }
+  };
+
   // Handle featured image selection and upload
   const handleFeaturedImageUpload = async (files: File[]) => {
     if (files.length === 0) return;
@@ -419,6 +488,17 @@ export default function EditBlogPostPage() {
         data.variantPaths
       );
 
+      if (uploadedFeaturedImageRef.current) {
+        try {
+          await deleteUploadedFeaturedImage(uploadedFeaturedImageRef.current);
+        } catch (deleteError) {
+          console.error(
+            'Error deleting previously uploaded featured image:',
+            deleteError
+          );
+        }
+      }
+
       setFormData((prev) => ({
         ...prev,
         featured_image_url: data.url,
@@ -426,7 +506,7 @@ export default function EditBlogPostPage() {
         featured_image_height: data.height,
         featured_image_variants: featuredImageVariants,
       }));
-      setUploadedFeaturedImage({
+      setTrackedUploadedFeaturedImage({
         path: data.path,
         variantPaths,
       });
@@ -519,29 +599,14 @@ export default function EditBlogPostPage() {
 
     if (!imageToDelete) {
       clearFeaturedImageFields();
-      setUploadedFeaturedImage(null);
+      setTrackedUploadedFeaturedImage(null);
       return;
     }
 
     try {
-      const response = await fetchWithCsrf('/api/merchant/blog/upload', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'DELETE',
-        body: JSON.stringify({
-          path: imageToDelete.path,
-          variantPaths: imageToDelete.variantPaths,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete image');
-      }
-
+      await deleteUploadedFeaturedImage(imageToDelete);
       clearFeaturedImageFields();
-      setUploadedFeaturedImage(null);
+      setTrackedUploadedFeaturedImage(null);
     } catch (error) {
       console.error('Error deleting uploaded image:', error);
       toast({

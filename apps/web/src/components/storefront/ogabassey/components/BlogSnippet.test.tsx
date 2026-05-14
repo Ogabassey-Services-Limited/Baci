@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockNot = vi.fn();
 const mockLimit = vi.fn();
+const mockProductMaybeSingle = vi.fn();
+const mockRpc = vi.fn();
 const EXPECTED_FALLBACK_FILTER_CALLS = 2;
 const blogQuery = {
   eq: vi.fn(() => blogQuery),
@@ -12,6 +14,11 @@ const blogQuery = {
   not: mockNot,
   order: vi.fn(() => blogQuery),
   select: vi.fn(() => blogQuery),
+};
+const productQuery = {
+  eq: vi.fn(() => productQuery),
+  maybeSingle: mockProductMaybeSingle,
+  select: vi.fn(() => productQuery),
 };
 
 mockNot.mockReturnValue(blogQuery);
@@ -23,11 +30,15 @@ vi.mock('@/hooks/use-merchant-client', () => ({
 
 vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(() => ({
+    rpc: mockRpc,
     from: (table: string) => {
-      if (table !== 'blog_posts') {
-        throw new Error(`Unexpected table ${table}`);
+      if (table === 'blog_posts') {
+        return blogQuery;
       }
-      return blogQuery;
+      if (table === 'products') {
+        return productQuery;
+      }
+      throw new Error(`Unexpected table ${table}`);
     },
   })),
 }));
@@ -53,6 +64,8 @@ describe('BlogSnippet', () => {
     vi.clearAllMocks();
     mockNot.mockReturnValue(blogQuery);
     mockLimit.mockResolvedValue({ data: [], error: null });
+    mockProductMaybeSingle.mockResolvedValue({ data: null, error: null });
+    mockRpc.mockResolvedValue({ data: [], error: null });
   });
 
   it('excludes fallback blog posts without a published_at timestamp and renders no snippet when none exists', async () => {
@@ -98,6 +111,42 @@ describe('BlogSnippet', () => {
         'Error fetching category blog snippet:',
         expect.any(Error)
       );
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('falls back without logging an error when the product embedding row is missing', async () => {
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockProductMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
+
+    try {
+      render(
+        <BlogSnippet
+          category="Smartphones"
+          merchantId="merchant-1"
+          productId="missing-product"
+        />
+      );
+
+      await waitFor(() =>
+        expect(mockLimit).toHaveBeenCalledTimes(EXPECTED_FALLBACK_FILTER_CALLS)
+      );
+
+      expect(mockProductMaybeSingle).toHaveBeenCalled();
+      expect(mockRpc).not.toHaveBeenCalled();
+      expect(errorSpy).not.toHaveBeenCalledWith(
+        'Error fetching product embedding for blog snippet:',
+        expect.anything()
+      );
+      expect(
+        screen.queryByRole('heading', { name: /from the blog/i })
+      ).not.toBeInTheDocument();
     } finally {
       errorSpy.mockRestore();
     }

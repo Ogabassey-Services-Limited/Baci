@@ -99,6 +99,23 @@ function inferMimeTypeFromPath(path: string): string {
   return 'image/jpeg';
 }
 
+function hasMessage(value: unknown): value is { message?: unknown } {
+  return Boolean(value) && typeof value === 'object' && 'message' in value;
+}
+
+function formatError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (hasMessage(error)) {
+    const message = error.message;
+    return typeof message === 'string' ? message : JSON.stringify(error);
+  }
+
+  return String(error);
+}
+
 function escapeCsv(value: string): string {
   if (value.includes(',') || value.includes('"') || value.includes('\n')) {
     return `"${value.replaceAll('"', '""')}"`;
@@ -228,25 +245,50 @@ async function maybeResolveMerchantId(
     return null;
   }
 
-  const supabase = createServiceClient();
-  const byId = await supabase
-    .from('merchants')
-    .select('id, slug')
-    .eq('id', merchantFilter)
-    .maybeSingle();
+  try {
+    const supabase = createServiceClient();
+    const byId = await supabase
+      .from('merchants')
+      .select('id, slug')
+      .eq('id', merchantFilter)
+      .maybeSingle();
 
-  const idRow = byId.data;
-  if (idRow?.id) {
-    return idRow.id;
+    if (byId.error) {
+      console.error('maybeResolveMerchantId failed resolving by id', {
+        merchantFilter,
+        error: formatError(byId.error),
+      });
+      return null;
+    }
+
+    const idRow = byId.data;
+    if (idRow?.id) {
+      return idRow.id;
+    }
+
+    const bySlug = await supabase
+      .from('merchants')
+      .select('id, slug')
+      .eq('slug', merchantFilter)
+      .maybeSingle();
+
+    if (bySlug.error) {
+      console.error('maybeResolveMerchantId failed resolving by slug', {
+        merchantFilter,
+        error: formatError(bySlug.error),
+      });
+      return null;
+    }
+
+    const slugRow = bySlug.data;
+    return slugRow?.id ?? null;
+  } catch (error) {
+    console.error('maybeResolveMerchantId threw while resolving merchant', {
+      merchantFilter,
+      error: formatError(error),
+    });
+    return null;
   }
-
-  const bySlug = await supabase
-    .from('merchants')
-    .select('id, slug')
-    .eq('slug', merchantFilter)
-    .maybeSingle();
-  const slugRow = bySlug.data;
-  return slugRow?.id ?? null;
 }
 
 async function reprocessManagedRows(
@@ -257,76 +299,113 @@ async function reprocessManagedRows(
   const supabase = createServiceClient();
 
   for (const row of rows) {
-    if (!row.managedPathRecoverable) continue;
-    if (
-      ![
-        'legacy_missing_metadata',
-        'missing_landscape_variant',
-        'dimensions_too_small',
-      ].includes(row.statusReason)
-    ) {
-      continue;
-    }
-
-    const post = postsById.get(row.postId);
-    if (!post?.featured_image_url) continue;
-
-    const sourcePath = extractManagedBlogStoragePath(
-      post.featured_image_url,
-      post.merchant_id
-    );
-    if (!sourcePath) continue;
-
-    const sourceFile = await supabase.storage.from('media').download(sourcePath);
-    if (sourceFile.error || !sourceFile.data) continue;
-
-    const sourceBuffer = Buffer.from(await sourceFile.data.arrayBuffer());
-    let generated: Awaited<ReturnType<typeof generateFeaturedImageVariants>>;
     try {
-      generated = await generateFeaturedImageVariants(sourceBuffer, {
-        mimeType: sourceFile.data.type || inferMimeTypeFromPath(sourcePath),
-      });
-    } catch {
-      continue;
-    }
-
-    const originalName = sourcePath.split('/')[2] ?? '';
-    const token = originalName.replace(/\.[a-zA-Z0-9]+$/, '');
-    if (!token) continue;
-
-    const variants: Record<string, string> = {};
-    let uploadFailed = false;
-    for (const variant of Object.values(generated.variants)) {
-      const variantPath = `${post.merchant_id}/blog/${token}/${variant.key}.webp`;
-      const uploaded = await supabase.storage.from('media').upload(
-        variantPath,
-        variant.buffer,
-        {
-          contentType: variant.contentType,
-          upsert: true,
-        }
-      );
-      if (uploaded.error) {
-        uploadFailed = true;
-        break;
+      if (!row.managedPathRecoverable) continue;
+      if (
+        ![
+          'legacy_missing_metadata',
+          'missing_landscape_variant',
+          'dimensions_too_small',
+        ].includes(row.statusReason)
+      ) {
+        continue;
       }
-      variants[variant.key] = supabase.storage
-        .from('media')
-        .getPublicUrl(variantPath).data.publicUrl;
-    }
-    if (uploadFailed) continue;
 
-    const updateResult = await supabase
-      .from('blog_posts')
-      .update({
+      const post = postsById.get(row.postId);
+      if (!post?.featured_image_url) continue;
+
+      const sourcePath = extractManagedBlogStoragePath(
+        post.featured_image_url,
+        post.merchant_id
+      );
+      if (!sourcePath) continue;
+
+      const sourceFile = await supabase.storage
+        .from('media')
+        .download(sourcePath);
+      if (sourceFile.error || !sourceFile.data) {
+        console.error('reprocessManagedRows storage download failed', {
+          rowPostId: row.postId,
+          postId: post.id,
+          sourcePath,
+          error: sourceFile.error ? formatError(sourceFile.error) : 'No data',
+        });
+        continue;
+      }
+
+      const sourceBuffer = Buffer.from(await sourceFile.data.arrayBuffer());
+      let generated: Awaited<ReturnType<typeof generateFeaturedImageVariants>>;
+      try {
+        generated = await generateFeaturedImageVariants(sourceBuffer, {
+          mimeType: sourceFile.data.type || inferMimeTypeFromPath(sourcePath),
+        });
+      } catch (error) {
+        console.error('generateFeaturedImageVariants failed in reprocessManagedRows', {
+          postId: post.id,
+          sourcePath,
+          error: formatError(error),
+        });
+        continue;
+      }
+
+      const originalName = sourcePath.split('/')[2] ?? '';
+      const token = originalName.replace(/\.[a-zA-Z0-9]+$/, '');
+      if (!token) continue;
+
+      const variants: Record<string, string> = {};
+      let uploadFailed = false;
+      for (const variant of Object.values(generated.variants)) {
+        const variantPath = `${post.merchant_id}/blog/${token}/${variant.key}.webp`;
+        const uploaded = await supabase.storage.from('media').upload(
+          variantPath,
+          variant.buffer,
+          {
+            contentType: variant.contentType,
+            upsert: true,
+          }
+        );
+        if (uploaded.error) {
+          uploadFailed = true;
+          console.error('reprocessManagedRows variant upload failed', {
+            postId: post.id,
+            variantKey: variant.key,
+            variantPath,
+            uploadedVariants: Object.keys(variants),
+            error: formatError(uploaded.error),
+          });
+          break;
+        }
+        variants[variant.key] = supabase.storage
+          .from('media')
+          .getPublicUrl(variantPath).data.publicUrl;
+      }
+      if (uploadFailed) continue;
+
+      const updatePayload = {
         featured_image_width: generated.source.width,
         featured_image_height: generated.source.height,
         featured_image_variants: variants,
-      })
-      .eq('id', post.id);
+      };
+      const updateResult = await supabase
+        .from('blog_posts')
+        .update(updatePayload)
+        .eq('id', post.id);
 
-    if (!updateResult.error) {
+      if (updateResult.error) {
+        console.error('reprocessManagedRows post update failed', {
+          postId: post.id,
+          attemptedVariants: variants,
+          error: formatError(updateResult.error),
+        });
+        continue;
+      }
+
       updated += 1;
+    } catch (error) {
+      console.error('reprocessManagedRows caught unexpected error', {
+        rowPostId: row.postId,
+        error: formatError(error),
+      });
     }
   }
 
@@ -376,10 +455,16 @@ export async function runReportBlogDiscoverImageReadinessCli(
   const merchantSlugById = new Map<string, string>();
 
   if (merchantIds.length > 0) {
-    const { data: merchants } = await supabase
+    const { data: merchants, error: merchantsError } = await supabase
       .from('merchants')
       .select('id, slug')
       .in('id', merchantIds);
+    if (merchantsError) {
+      console.error('Failed to load merchants for report rows', {
+        merchantIds,
+        error: formatError(merchantsError),
+      });
+    }
     for (const merchant of merchants ?? []) {
       if (merchant.id && merchant.slug) {
         merchantSlugById.set(merchant.id, merchant.slug);

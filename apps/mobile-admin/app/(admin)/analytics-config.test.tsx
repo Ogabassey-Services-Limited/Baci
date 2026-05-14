@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import type React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Sentinel hex values so the test catches accidental reintroduction of the
 // hardcoded #000000 / #fff this PR fixes. If the source goes back to
@@ -9,6 +9,9 @@ import { describe, expect, it, vi } from 'vitest';
 // assertions fail.
 const THEME_TEXT = '#abcdef';
 const THEME_TEXT_ON_PRIMARY = '#fedcba';
+const queryMocks = vi.hoisted(() => ({
+  useQuery: vi.fn(),
+}));
 
 vi.mock('react-native', async () => {
   const React = await import('react');
@@ -147,16 +150,21 @@ const merchantAnalytics = {
 
 vi.mock('@tanstack/react-query', () => ({
   useMutation: () => ({ isPending: false, mutate: vi.fn() }),
-  useQuery: () => ({
-    data: merchantAnalytics,
-    isLoading: false,
-  }),
+  useQuery: queryMocks.useQuery,
   useQueryClient: () => ({ invalidateQueries: vi.fn() }),
 }));
 
 import AnalyticsConfigScreen from './analytics-config';
 
 describe('AnalyticsConfigScreen — theme token regression (#1636)', () => {
+  beforeEach(() => {
+    queryMocks.useQuery.mockReturnValue({
+      data: { ...merchantAnalytics },
+      isError: false,
+      isLoading: false,
+    });
+  });
+
   it('passes the theme text token to the TikTok PlatformCard icon, not hardcoded black', () => {
     render(<AnalyticsConfigScreen />);
 
@@ -173,5 +181,35 @@ describe('AnalyticsConfigScreen — theme token regression (#1636)', () => {
     expect(knob).toHaveStyle({ backgroundColor: THEME_TEXT_ON_PRIMARY });
     expect(knob).not.toHaveStyle({ backgroundColor: '#fff' });
     expect(knob).not.toHaveStyle({ backgroundColor: '#ffffff' });
+  });
+
+  it('does not expose the shared merchant analytics fixture to component renders', () => {
+    render(<AnalyticsConfigScreen />);
+    const firstResult = queryMocks.useQuery.mock.results[0]?.value as {
+      data: typeof merchantAnalytics;
+    };
+    firstResult.data.tiktok_pixel_id = 'mutated-in-test';
+
+    expect(firstResult.data).not.toBe(merchantAnalytics);
+    expect(merchantAnalytics.tiktok_pixel_id).toBe('');
+  });
+
+  it('falls back to default unconfigured state when analytics data is missing after a query error', () => {
+    queryMocks.useQuery.mockReturnValueOnce({
+      data: null,
+      isError: true,
+      isLoading: false,
+    });
+
+    render(<AnalyticsConfigScreen />);
+
+    expect(screen.getByTestId('icon-logo-tiktok')).toHaveAttribute(
+      'data-color',
+      THEME_TEXT
+    );
+    expect(screen.getByTestId('offline-conversions-toggle-knob')).toHaveStyle({
+      backgroundColor: THEME_TEXT_ON_PRIMARY,
+    });
+    expect(screen.getAllByText('Not configured')).toHaveLength(4);
   });
 });
