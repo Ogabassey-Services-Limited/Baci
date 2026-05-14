@@ -193,9 +193,18 @@ describe('transformImageTitlesToFigureCaptions', () => {
 
     const result = transformImageTitlesToFigureCaptions(html);
 
-    expect(result).toContain('<figure>');
-    expect(result).toContain('<figcaption>Camera sample</figcaption>');
-    expect(result).not.toContain('title="Camera sample"');
+    expect(result).toBe(
+      '<figure><img src="https://cdn.example.com/photo.jpg" /><figcaption>Camera sample</figcaption></figure>'
+    );
+  });
+
+  it('does not wrap inline images inside text paragraphs', () => {
+    const html =
+      '<p>Intro <img src="https://cdn.example.com/photo.jpg" title="Inline caption" /> outro</p>';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toBe(html);
   });
 
   it('keeps image tags without title unchanged', () => {
@@ -229,7 +238,7 @@ describe('transformImageTitlesToFigureCaptions', () => {
 
   it('handles multiple images in one string', () => {
     const html =
-      '<p><img src="https://cdn.example.com/a.jpg" title="A" /> and <img src="https://cdn.example.com/b.jpg" title="B" /></p>';
+      '<p><img src="https://cdn.example.com/a.jpg" title="A" /></p><p><img src="https://cdn.example.com/b.jpg" title="B" /></p>';
 
     const result = transformImageTitlesToFigureCaptions(html);
 

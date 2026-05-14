@@ -139,23 +139,30 @@ function ensureBlogImageAltText(
   });
 }
 
+function buildFigureFromTitledImage(imgTag: string): string | null {
+  const titleMatch = imgTag.match(/\btitle\s*=\s*(['"])(.*?)\1/i);
+  const rawTitle = titleMatch?.[2] ?? '';
+  const trimmedTitle = rawTitle.trim();
+  if (!trimmedTitle) {
+    return null;
+  }
+
+  // `trimmedTitle` contains sanitized HTML entities; decode with
+  // `unescapeHtmlText(trimmedTitle)` to recover plain text, then encode again
+  // with `escapeHtmlText(...)` so `captionText` is safe for figcaption text.
+  const captionText = escapeHtmlText(unescapeHtmlText(trimmedTitle));
+  const imageWithoutTitle = imgTag.replace(/\s*title\s*=\s*(['"]).*?\1/i, '');
+
+  return `<figure>${imageWithoutTitle}<figcaption>${captionText}</figcaption></figure>`;
+}
+
 export function transformImageTitlesToFigureCaptions(html: string): string {
-  return html.replace(/<img\b[^<>]*>/gi, (imgTag) => {
-    const titleMatch = imgTag.match(/\btitle\s*=\s*(['"])(.*?)\1/i);
-    const rawTitle = titleMatch?.[2] ?? '';
-    const trimmedTitle = rawTitle.trim();
-    if (!trimmedTitle) {
-      return imgTag;
+  return html.replace(
+    /<p>\s*(<img\b[^<>]*>)\s*<\/p>/gi,
+    (paragraph, imgTag) => {
+      return buildFigureFromTitledImage(imgTag) ?? paragraph;
     }
-
-    // `trimmedTitle` contains sanitized HTML entities; decode with
-    // `unescapeHtmlText(trimmedTitle)` to recover plain text, then encode again
-    // with `escapeHtmlText(...)` so `captionText` is safe for figcaption text.
-    const captionText = escapeHtmlText(unescapeHtmlText(trimmedTitle));
-    const imageWithoutTitle = imgTag.replace(/\s*title\s*=\s*(['"]).*?\1/i, '');
-
-    return `<figure>${imageWithoutTitle}<figcaption>${captionText}</figcaption></figure>`;
-  });
+  );
 }
 
 type ResolveBlogPostContentOptions = NormalizeStorefrontContentHrefOptions & {
