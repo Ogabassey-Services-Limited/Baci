@@ -34,14 +34,14 @@ describe('incrementViewCount', () => {
     });
   });
 
-  it('swallows rpc errors without throwing', async () => {
+  it('logs returned rpc errors without throwing', async () => {
     const error = new Error('rpc failed');
     const consoleSpy = vi
       .spyOn(console, 'error')
       // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress expected test logging
       .mockImplementation(() => {});
 
-    mockRpc.mockRejectedValue(error);
+    mockRpc.mockResolvedValue({ data: null, error });
     mockCreateClient.mockReturnValue({
       rpc: mockRpc,
     });
