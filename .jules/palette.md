@@ -7,5 +7,6 @@
 **Action:** Always use `hitSlop` on `TouchableOpacity` elements when their visual constraints prevent them from meeting the minimum 44x44 target dimensions.
 
 ## 2026-05-13 - Explicit type="button" for icon buttons
+
 **Learning:** Interactive icon-only buttons without explicit `type="button"` can accidentally trigger form submissions.
 **Action:** Always ensure `<button>` tags that don't submit forms have `type="button"` explicitly defined.
