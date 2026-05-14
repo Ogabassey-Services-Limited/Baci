@@ -99,14 +99,14 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
         {/* Navigation Arrows (Desktop Hover Only) */}
         {product.colors && product.colors.length > 1 && (
           <>
-            <button
+            <button type="button"
               onClick={handlePrevColor}
               className="absolute left-1 top-1/2 -translate-y-1/2 z-30 p-1 bg-white/40 backdrop-blur-md border border-white/50 rounded-full shadow-sm text-gray-700 opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 hover:bg-white/60 hover:text-gray-900 pointer-events-auto"
               aria-label="Previous color"
             >
               <ChevronLeft size={14} />
             </button>
-            <button
+            <button type="button"
               onClick={handleNextColor}
               className="absolute right-1 top-1/2 -translate-y-1/2 z-30 p-1 bg-white/40 backdrop-blur-md border border-white/50 rounded-full shadow-sm text-gray-700 opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 hover:bg-white/60 hover:text-gray-900 pointer-events-auto"
               aria-label="Next color"
@@ -155,7 +155,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
                 : '#cccccc';
               const isSelected = idx === activeColorIndex;
               return (
-                <button
+                <button type="button"
                   key={idx}
                   onClick={(e) => handleColorSelect(e, idx)}
                   className={`rounded-full border border-white shadow-sm transition-all duration-300 ease-out ${
@@ -173,7 +173,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
         )}
 
         {/* Wishlist Button - Top Right of Image */}
-        <button
+        <button type="button"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -226,7 +226,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
             {product.price}
           </span>
 
-          <button
+          <button type="button"
             onClick={(e) => onAddToCart(e, product)}
             className={`z-20 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 ${
               isAdded
