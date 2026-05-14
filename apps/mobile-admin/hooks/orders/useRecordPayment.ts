@@ -1,7 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BASE_URL } from '@/lib/api-client';
-import { supabase } from '@/lib/supabase';
 import { useMerchant } from '../useMerchant';
+import { createAuthenticatedFetch } from './authenticated-fetch';
+
+const RECORD_PAYMENT_TIMEOUT_MS = 15_000;
 
 export function useRecordPayment() {
   const queryClient = useQueryClient();
@@ -21,65 +23,42 @@ export function useRecordPayment() {
       paymentMethod: string;
       reference?: string;
     }) => {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
+      const response = await createAuthenticatedFetch(
+        `${BASE_URL}/api/orders/${orderId}/record-payment`,
+        {
+          body: JSON.stringify({
+            amount,
+            notes: notes?.trim() || undefined,
+            payment_method: paymentMethod,
+            reference: reference?.trim() || undefined,
+          }),
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          method: 'POST',
+        },
+        RECORD_PAYMENT_TIMEOUT_MS
+      );
 
-      if (sessionError) {
-        throw new Error(sessionError.message);
-      }
-
-      if (!session?.access_token) {
-        throw new Error('Not authenticated');
-      }
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15_000);
-
-      try {
-        const response = await fetch(
-          `${BASE_URL}/api/orders/${orderId}/record-payment`,
-          {
-            body: JSON.stringify({
-              amount,
-              notes: notes?.trim() || undefined,
-              payment_method: paymentMethod,
-              reference: reference?.trim() || undefined,
-            }),
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.access_token}`,
-            },
-            method: 'POST',
-            signal: controller.signal,
+      if (!response.ok) {
+        let errorMessage = `Request failed: ${response.status} ${response.statusText}`;
+        try {
+          const errorBody: unknown = await response.json();
+          if (
+            typeof errorBody === 'object' &&
+            errorBody !== null &&
+            'error' in errorBody &&
+            typeof errorBody.error === 'string'
+          ) {
+            errorMessage = errorBody.error;
           }
-        );
-
-        if (!response.ok) {
-          let errorMessage = `Request failed: ${response.status} ${response.statusText}`;
-          try {
-            const errorBody = await response.json();
-            if (errorBody.error) {
-              errorMessage = errorBody.error;
-            }
-          } catch {
-            // noop
-          }
-          throw new Error(errorMessage);
+        } catch {
+          // noop
         }
-
-        return response.json();
-      } catch (error: unknown) {
-        if (error instanceof Error && error.name === 'AbortError') {
-          throw new Error(
-            'Request timed out. Please check your connection and try again.'
-          );
-        }
-        throw error;
-      } finally {
-        clearTimeout(timeoutId);
+        throw new Error(errorMessage);
       }
+
+      return response.json();
     },
     mutationKey: ['recordPayment'],
     onSuccess: (_data, { orderId }) => {
