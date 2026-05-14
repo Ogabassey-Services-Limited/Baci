@@ -79,8 +79,8 @@ describe('ProductListItem', () => {
     const productWithColors = {
       ...baseProduct,
       colors: [
-        { name: 'Black', hex: '#000000' },
-        { name: 'Silver', hex: '#cccccc' },
+        { name: 'Black', value: '#000000' },
+        { name: 'Silver', value: '#cccccc' },
       ],
     };
 
