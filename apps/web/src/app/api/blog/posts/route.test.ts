@@ -61,6 +61,25 @@ describe('GET /api/blog/posts', () => {
     expect(mockNot).toHaveBeenCalledWith('published_at', 'is', null);
   });
 
+  it('returns 500 when the platform listing query fails', async () => {
+    mockRange.mockResolvedValueOnce({
+      data: null,
+      error: new Error('listing query failed'),
+      count: 0,
+    });
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/blog/posts')
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Failed to fetch blog posts',
+    });
+    expect(mockQuery.eq).toHaveBeenCalledWith('status', 'published');
+    expect(mockNot).toHaveBeenCalledWith('published_at', 'is', null);
+  });
+
   it('excludes platform slug lookups without a published_at timestamp', async () => {
     const response = await GET(
       new NextRequest(
@@ -69,6 +88,26 @@ describe('GET /api/blog/posts', () => {
     );
 
     expect(response.status).toBe(200);
+    expect(mockQuery.eq).toHaveBeenCalledWith('status', 'published');
+    expect(mockNot).toHaveBeenCalledWith('published_at', 'is', null);
+  });
+
+  it('returns 500 when the platform slug lookup query fails', async () => {
+    mockSingle.mockResolvedValueOnce({
+      data: null,
+      error: new Error('slug query failed'),
+    });
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/blog/posts?slug=discover-ready-post'
+      )
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Failed to fetch blog post',
+    });
     expect(mockQuery.eq).toHaveBeenCalledWith('status', 'published');
     expect(mockNot).toHaveBeenCalledWith('published_at', 'is', null);
   });

@@ -14,8 +14,6 @@ import {
 import { checkCsrfProtection } from '@/lib/csrf';
 import { checkRateLimit } from '@/lib/rate-limiter';
 
-export const runtime = 'nodejs';
-
 const uploadPurposeSchema = z.enum(['featured', 'inline']);
 
 const variantPathObjectSchema = z.object({

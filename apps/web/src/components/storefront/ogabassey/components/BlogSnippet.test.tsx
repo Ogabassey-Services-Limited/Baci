@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockNot = vi.fn();
@@ -40,7 +41,7 @@ vi.mock('next/link', () => ({
     children,
     href,
   }: {
-    children: React.ReactNode;
+    children: ReactNode;
     href: string;
   }) => <a href={href}>{children}</a>,
 }));
@@ -71,6 +72,35 @@ describe('BlogSnippet', () => {
     expect(
       screen.queryByRole('heading', { name: /from the blog/i })
     ).not.toBeInTheDocument();
+  });
+
+  it('renders no snippet when the category blog query fails', async () => {
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockLimit
+      .mockResolvedValueOnce({ data: [], error: new Error('query failed') })
+      .mockResolvedValueOnce({ data: [], error: null });
+
+    try {
+      render(<BlogSnippet category="Smartphones" merchantId="merchant-1" />);
+
+      await waitFor(() =>
+        expect(mockLimit).toHaveBeenCalledTimes(EXPECTED_FALLBACK_FILTER_CALLS)
+      );
+
+      expect(mockNot).toHaveBeenCalledWith('published_at', 'is', null);
+      expect(mockNot).toHaveBeenCalledTimes(EXPECTED_FALLBACK_FILTER_CALLS);
+      expect(
+        screen.queryByRole('heading', { name: /from the blog/i })
+      ).not.toBeInTheDocument();
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Error fetching category blog snippet:',
+        expect.any(Error)
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it('renders the related blog snippet when a published post is found', async () => {

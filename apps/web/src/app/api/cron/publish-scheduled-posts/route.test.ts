@@ -255,6 +255,51 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
     expect(mockRevalidateBlogPosts).not.toHaveBeenCalled();
   });
 
+  it('returns 500 before publishing when blog feature settings cannot be loaded', async () => {
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    mockSupabase.lte.mockResolvedValue({
+      data: [
+        {
+          id: 'post-1',
+          slug: 'apple-studio-display-review',
+          merchant_id: 'merchant-1',
+          category: 'reviews',
+        },
+      ],
+      error: null,
+    });
+    mockSupabase.in.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'feature settings failed' },
+    });
+
+    try {
+      const response = await POST(
+        new Request('http://localhost/api/cron/publish-scheduled-posts', {
+          method: 'POST',
+          headers: {
+            'x-cron-secret': 'test-secret',
+          },
+        })
+      );
+      const json = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(json.error).toBe('Failed to load blog feature settings');
+      expect(mockSupabase.update).not.toHaveBeenCalled();
+      expect(mockRevalidateBlogPosts).not.toHaveBeenCalled();
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Cron Error: Failed to load blog Discover validation flags:',
+        { message: 'feature settings failed' }
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
   it('skips invalid scheduled rows when validation is enabled and revalidates eligible rows only', async () => {
     mockSupabase.lte.mockResolvedValue({
       data: [

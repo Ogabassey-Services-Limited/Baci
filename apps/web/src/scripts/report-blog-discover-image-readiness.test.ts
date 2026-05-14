@@ -37,22 +37,31 @@ function createSupabaseMock({
 }) {
   const uploadedPaths: string[] = [];
   const updatedRows: Array<Record<string, unknown>> = [];
-  const merchantEq = vi.fn().mockResolvedValue({
-    data: merchants[0] ?? null,
-    error: null,
-  });
   const merchantIn = vi.fn().mockResolvedValue({
     data: merchants,
     error: null,
   });
-  const merchantMaybeSingle = vi.fn().mockResolvedValue({
-    data: merchants[0] ?? null,
-    error: null,
+  const merchantEq = vi.fn((column: string, value: string) => {
+    let row: { id: string; slug: string } | undefined;
+
+    if (column === 'id') {
+      row = merchants.find((merchant) => merchant.id === value);
+    } else if (column === 'slug') {
+      row = merchants.find((merchant) => merchant.slug === value);
+    } else {
+      throw new Error(`Unexpected merchants.eq column: ${column}`);
+    }
+
+    return {
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: row ?? null,
+        error: null,
+      }),
+    };
   });
   const merchantSelect = vi.fn(() => ({
     eq: merchantEq,
     in: merchantIn,
-    maybeSingle: merchantMaybeSingle,
   }));
   const postEq = vi.fn(() => postBuilder);
   const postNot = vi.fn(() => postBuilder);

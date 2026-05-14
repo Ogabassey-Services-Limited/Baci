@@ -232,9 +232,10 @@ async function maybeResolveMerchantId(
   const byId = await supabase
     .from('merchants')
     .select('id, slug')
-    .eq('id', merchantFilter);
+    .eq('id', merchantFilter)
+    .maybeSingle();
 
-  const idRow = Array.isArray(byId.data) ? byId.data[0] : byId.data;
+  const idRow = byId.data;
   if (idRow?.id) {
     return idRow.id;
   }
@@ -242,8 +243,9 @@ async function maybeResolveMerchantId(
   const bySlug = await supabase
     .from('merchants')
     .select('id, slug')
-    .eq('slug', merchantFilter);
-  const slugRow = Array.isArray(bySlug.data) ? bySlug.data[0] : bySlug.data;
+    .eq('slug', merchantFilter)
+    .maybeSingle();
+  const slugRow = bySlug.data;
   return slugRow?.id ?? null;
 }
 

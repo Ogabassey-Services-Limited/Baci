@@ -70,9 +70,13 @@ export async function POST(request: Request) {
         .in('merchant_id', scheduledMerchantIds);
 
     if (featureSettingsError) {
-      console.warn(
-        'Cron Warning: Failed to load blog Discover validation flags; publishing with warnings only',
+      console.error(
+        'Cron Error: Failed to load blog Discover validation flags:',
         featureSettingsError
+      );
+      return NextResponse.json(
+        { error: 'Failed to load blog feature settings' },
+        { status: 500 }
       );
     }
 

@@ -183,21 +183,24 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       targetStatus === 'published' && existingPost.status !== 'published';
     const effectiveImage = {
       featured_image_url:
-        (updateData.featured_image_url as string | null | undefined) ??
-        existingPost.featured_image_url,
+        updateData.featured_image_url === undefined
+          ? existingPost.featured_image_url
+          : (updateData.featured_image_url as string | null),
       featured_image_width:
-        (updateData.featured_image_width as number | null | undefined) ??
-        existingPost.featured_image_width,
+        updateData.featured_image_width === undefined
+          ? existingPost.featured_image_width
+          : (updateData.featured_image_width as number | null),
       featured_image_height:
-        (updateData.featured_image_height as number | null | undefined) ??
-        existingPost.featured_image_height,
+        updateData.featured_image_height === undefined
+          ? existingPost.featured_image_height
+          : (updateData.featured_image_height as number | null),
       featured_image_variants:
-        (updateData.featured_image_variants as
-          | Record<string, unknown>
-          | null
-          | undefined) ??
-        existingPost.featured_image_variants ??
-        {},
+        updateData.featured_image_variants === undefined
+          ? (existingPost.featured_image_variants ?? {})
+          : ((updateData.featured_image_variants as Record<
+              string,
+              unknown
+            > | null) ?? {}),
     };
     const discoverImageReadiness =
       targetStatus === 'published'

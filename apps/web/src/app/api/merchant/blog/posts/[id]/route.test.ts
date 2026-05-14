@@ -777,6 +777,45 @@ describe('PATCH /api/merchant/blog/posts/[id]', () => {
       );
     });
 
+    it('treats explicit null image metadata as cleared during Discover readiness checks', async () => {
+      const publishedPost = {
+        ...existingPost,
+        status: 'published',
+        published_at: '2026-01-01T00:00:00Z',
+        featured_image_url: managedFeaturedImageUrl,
+        featured_image_width: 1200,
+        featured_image_height: 675,
+        featured_image_variants: {
+          landscape_16x9: managedLandscapeVariantUrl,
+        },
+      };
+
+      mockSupabase.single.mockResolvedValueOnce({
+        data: publishedPost,
+        error: null,
+      });
+      mockSupabase.maybeSingle.mockResolvedValueOnce({
+        data: {
+          blog_enabled: true,
+          blog_discover_image_validation_enabled: true,
+        },
+        error: null,
+      });
+
+      const res = await PATCH(
+        makeRequest(`/api/merchant/blog/posts/${POST_ID}`, 'PATCH', {
+          title: 'Updated Title',
+          featured_image_width: null,
+        }),
+        makeParams(POST_ID)
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('BLOG_FEATURED_IMAGE_NOT_DISCOVER_READY');
+      expect(mockSupabase.update).not.toHaveBeenCalled();
+    });
+
     it('persists valid Discover metadata when publishing', async () => {
       mockSupabase.single
         .mockResolvedValueOnce({

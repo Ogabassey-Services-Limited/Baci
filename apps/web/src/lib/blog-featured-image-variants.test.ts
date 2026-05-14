@@ -20,6 +20,24 @@ function createPng(width: number, height: number): Promise<Buffer> {
     .toBuffer();
 }
 
+function createOrientationTaggedJpeg(
+  width: number,
+  height: number,
+  orientation: number
+): Promise<Buffer> {
+  return sharp({
+    create: {
+      width,
+      height,
+      channels: 3,
+      background: { r: 24, g: 64, b: 120 },
+    },
+  })
+    .jpeg()
+    .withMetadata({ orientation })
+    .toBuffer();
+}
+
 describe('generateFeaturedImageVariants', () => {
   it('rejects GIF uploads for featured images', async () => {
     const source = await createPng(1200, 675);
@@ -79,6 +97,21 @@ describe('generateFeaturedImageVariants', () => {
     expect(square11).toBeDefined();
     expect(standard43?.buffer.byteLength).toBeGreaterThan(0);
     expect(square11?.buffer.byteLength).toBeGreaterThan(0);
+  });
+
+  it('validates minimum dimensions after applying EXIF orientation', async () => {
+    const source = await createOrientationTaggedJpeg(675, 1200, 6);
+
+    const result = await generateFeaturedImageVariants(source, {
+      mimeType: 'image/jpeg',
+    });
+
+    expect(result.source.width).toBe(1200);
+    expect(result.source.height).toBe(675);
+    expect(result.variants.landscape_16x9).toMatchObject({
+      width: 1200,
+      height: 675,
+    });
   });
 
   it('omits optional variants when they do not meet minimum optional pixel area', async () => {

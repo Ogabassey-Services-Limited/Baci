@@ -42,7 +42,8 @@ vi.mock('@/lib/blog-featured-image-variants', () => ({
     mockIsManagedBlogStoragePath(...args),
 }));
 
-const { POST, DELETE } = await import('./route');
+const routeModule = await import('./route');
+const { POST, DELETE } = routeModule;
 
 const ownerAccess = {
   merchantId: '6b5cb8a4-5575-456c-b936-8cdfae30db74',
@@ -116,6 +117,13 @@ function mockAuthenticatedRequest(supabase: unknown) {
     supabase,
   });
 }
+
+describe('blog upload route segment config', () => {
+  // Cache Components rejects segment-level runtime config, so route modules must not export runtime.
+  it('does not export runtime because Cache Components rejects segment runtime config', () => {
+    expect(routeModule).not.toHaveProperty('runtime');
+  });
+});
 
 describe('POST /api/merchant/blog/upload', () => {
   beforeEach(() => {

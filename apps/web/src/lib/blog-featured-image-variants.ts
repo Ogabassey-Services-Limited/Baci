@@ -107,6 +107,16 @@ function getLargestNoUpscaleCrop(
   return { width: sourceWidth, height };
 }
 
+function getOrientationAwareDimensions(
+  width: number,
+  height: number,
+  orientation: number | undefined
+): { width: number; height: number } {
+  return orientation && orientation >= 5 && orientation <= 8
+    ? { width: height, height: width }
+    : { width, height };
+}
+
 function normalizeImageProcessingError(error: unknown): never {
   if (error instanceof BlogFeaturedImageError) {
     throw error;
@@ -170,8 +180,12 @@ export async function generateFeaturedImageVariants(
       );
     }
 
-    const sourceWidth = metadata.width;
-    const sourceHeight = metadata.height;
+    const { width: sourceWidth, height: sourceHeight } =
+      getOrientationAwareDimensions(
+        metadata.width,
+        metadata.height,
+        metadata.orientation
+      );
     const totalPixels = sourceWidth * sourceHeight;
 
     if (totalPixels > maxDecodedPixelArea) {

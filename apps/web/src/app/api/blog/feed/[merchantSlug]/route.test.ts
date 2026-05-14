@@ -12,7 +12,7 @@ const { mockFeedAddItem, mockFeedConstructor, mockFrom, mockUnstableCache } =
     mockUnstableCache: vi.fn(),
   }));
 
-type QueryResult<T> = { data: T; error: { message: string } | null };
+type QueryResult<T> = { data: T | null; error: { message: string } | null };
 type MerchantRow = {
   id: string;
   slug: string;
@@ -247,6 +247,38 @@ describe('GET /api/blog/feed/[merchantSlug]', () => {
         },
       })
     );
+  });
+
+  it('returns 404 when neither slug nor custom domain resolves to a merchant', async () => {
+    enqueueTable('merchants', createMerchantQuery({ data: null, error: null }));
+    enqueueTable('domains', createDomainQuery({ data: null, error: null }));
+
+    const response = await GET(new NextRequest('https://usebaci.com/feed'), {
+      params: Promise.resolve({ merchantSlug: 'missing-store' }),
+    });
+
+    expect(response.status).toBe(404);
+  });
+
+  it('returns 500 when loading published feed posts fails', async () => {
+    enqueueTable(
+      'merchants',
+      createMerchantQuery({ data: merchant, error: null })
+    );
+    enqueueTable(
+      'merchants',
+      createMerchantQuery({ data: merchant, error: null })
+    );
+    enqueueTable(
+      'blog_posts',
+      createPostQuery({ data: null, error: { message: 'boom' } })
+    );
+
+    const response = await GET(new NextRequest('https://usebaci.com/feed'), {
+      params: Promise.resolve({ merchantSlug: 'ogabassey' }),
+    });
+
+    expect(response.status).toBe(500);
   });
 
   it('omits feed updated metadata when there are no valid published post dates', async () => {
