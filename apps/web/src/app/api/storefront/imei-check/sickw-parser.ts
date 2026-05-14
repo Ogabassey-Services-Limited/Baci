@@ -1,5 +1,10 @@
 import { stripHtmlTags } from '@/lib/sanitize-core';
 import type { ImeiCheckResult } from './sickw-parser.types';
+import {
+  getXiaomiStatuses,
+  hasXiaomiLockIssue,
+  hasXiaomiLostIssue,
+} from './sickw-xiaomi-status';
 
 type ProviderInput = string | Record<string, unknown>;
 
@@ -12,6 +17,10 @@ const VERDICT_MESSAGES = {
     "CAUTION - Find My iPhone is ON. You cannot reset this device without the owner's Apple ID. Ensure seller disables it before purchase.",
   incomplete:
     'INCOMPLETE DATA - Could not verify all device information. Proceed with caution.',
+  miAccountLocked:
+    'CAUTION - Xiaomi account lock appears active. Ask the seller to remove the Mi account before payment.',
+  miLost:
+    'DO NOT BUY - Xiaomi lost status indicates this device may be reported lost. Do not proceed without official proof.',
   simLocked:
     'CAUTION - Device is carrier-locked. Check if it works with your network before buying.',
 } as const;
@@ -89,6 +98,7 @@ export function parseSickwResponse(
   const warranty = data['warranty status'] || '';
   const refurbished = data['refurbished device'] || '';
   const demoUnit = data['demo unit'] || '';
+  const { miLockStatus, miLostStatus } = getXiaomiStatuses(data);
 
   const deviceType = inferDeviceType(device);
   const isBlacklisted = hasBlacklistIssue(blacklist);
@@ -99,10 +109,14 @@ export function parseSickwResponse(
     icloudStatus.toLowerCase().includes('lost') ||
     icloudStatus.toLowerCase().includes('locked');
   const isSimLocked = simLock.toLowerCase().includes('locked');
+  const hasMiLockIssue = hasXiaomiLockIssue(miLockStatus);
+  const hasMiLostIssue = hasXiaomiLostIssue(miLostStatus);
 
   let score = 100;
   if (isBlacklisted) score -= 50;
+  if (hasMiLostIssue) score -= 50;
   if (hasIcloudLockOn) score -= 30;
+  if (hasMiLockIssue) score -= 30;
   if (hasIcloudStatusIssue) score -= 20;
   if (isSimLocked) score -= 10;
   if (!device) score -= 10;
@@ -110,12 +124,14 @@ export function parseSickwResponse(
   let status: 'Clean' | 'Blacklisted' | 'Unknown' = 'Clean';
   if (!device && !blacklist && !icloudStatus && !icloudLock) {
     status = 'Unknown';
-  } else if (isBlacklisted || hasIcloudStatusIssue) {
+  } else if (isBlacklisted || hasIcloudStatusIssue || hasMiLostIssue) {
     status = 'Blacklisted';
   }
 
   const verdict = buildVerdict({
     hasIcloudLockOn,
+    hasMiLockIssue,
+    hasMiLostIssue,
     isBlacklisted,
     isSimLocked,
     status,
@@ -137,6 +153,8 @@ export function parseSickwResponse(
     ...(warranty && { warranty }),
     ...(refurbished && { refurbished }),
     ...(demoUnit && { demoUnit }),
+    ...(miLockStatus && { miLockStatus }),
+    ...(miLostStatus && { miLostStatus }),
     deviceType,
     score: Math.max(0, score),
     verdict: verdict.text,
@@ -180,18 +198,24 @@ function hasBlacklistIssue(value: string): boolean {
 
 function buildVerdict({
   hasIcloudLockOn,
+  hasMiLockIssue,
+  hasMiLostIssue,
   isBlacklisted,
   isSimLocked,
   status,
 }: {
   hasIcloudLockOn: boolean;
+  hasMiLockIssue: boolean;
+  hasMiLostIssue: boolean;
   isBlacklisted: boolean;
   isSimLocked: boolean;
   status: ImeiCheckResult['status'];
 }): { text: string; type: ImeiCheckResult['verdictType'] } {
-  if (isBlacklisted) {
+  if (isBlacklisted || hasMiLostIssue) {
     return {
-      text: VERDICT_MESSAGES.blacklisted,
+      text: hasMiLostIssue
+        ? VERDICT_MESSAGES.miLost
+        : VERDICT_MESSAGES.blacklisted,
       type: 'danger',
     };
   }
@@ -199,6 +223,13 @@ function buildVerdict({
   if (hasIcloudLockOn) {
     return {
       text: VERDICT_MESSAGES.icloudLocked,
+      type: 'caution',
+    };
+  }
+
+  if (hasMiLockIssue) {
+    return {
+      text: VERDICT_MESSAGES.miAccountLocked,
       type: 'caution',
     };
   }

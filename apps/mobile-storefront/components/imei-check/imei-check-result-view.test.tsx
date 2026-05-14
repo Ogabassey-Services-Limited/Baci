@@ -35,6 +35,14 @@ const cleanResult: ImeiResult = {
   deviceImage: 'https://cdn.example.com/iphone13pro.jpg',
   score: 94,
   activationStatus: 'Activated',
+  serialNumber: 'F2LDN12345',
+  purchaseDate: '2025-09-22',
+  purchaseCountry: 'Nigeria',
+  warranty: 'Limited Warranty',
+  refurbished: 'No',
+  demoUnit: 'No',
+  miLockStatus: 'Unlocked',
+  miLostStatus: 'Clean',
   deviceType: 'apple',
   verdict: 'Safe to buy',
   verdictType: 'safe',
@@ -65,6 +73,42 @@ describe('ImeiCheckResultView', () => {
     expect(screen.getByText('Not Blacklisted')).toBeTruthy();
     expect(screen.getByText('Find My iPhone')).toBeTruthy();
     expect(screen.getByText('Safe to buy')).toBeTruthy();
+  });
+
+  it('renders extended provider fields returned by paid reports', () => {
+    render(<ImeiCheckResultView {...baseProps} />);
+
+    expect(screen.getByText('Activation Status')).toBeTruthy();
+    expect(screen.getByText('Serial Number')).toBeTruthy();
+    expect(screen.getByText('F2LDN12345')).toBeTruthy();
+    expect(screen.getByText('Purchase Date')).toBeTruthy();
+    expect(screen.getByText('2025-09-22')).toBeTruthy();
+    expect(screen.getByText('Purchase Country')).toBeTruthy();
+    expect(screen.getByText('Nigeria')).toBeTruthy();
+    expect(screen.getByText('Warranty')).toBeTruthy();
+    expect(screen.getByText('Limited Warranty')).toBeTruthy();
+    expect(screen.getByText('Refurbished')).toBeTruthy();
+    expect(screen.getByText('Demo Unit')).toBeTruthy();
+  });
+
+  it('renders Xiaomi lock and lost status fields when present', () => {
+    render(
+      <ImeiCheckResultView
+        {...baseProps}
+        result={{
+          ...cleanResult,
+          device: 'Xiaomi 14',
+          deviceType: 'android',
+          miLockStatus: 'Locked',
+          miLostStatus: 'Clean',
+        }}
+      />
+    );
+
+    expect(screen.getByText('Mi Lock Status')).toBeTruthy();
+    expect(screen.getByText('Locked')).toBeTruthy();
+    expect(screen.getByText('Mi Lost Status')).toBeTruthy();
+    expect(screen.getByText('Clean')).toBeTruthy();
   });
 
   it('invokes onReset when the user taps "Check Another Device"', () => {

@@ -92,4 +92,29 @@ describe('parseSickwResponse', () => {
     expect(result.verdictType).toBe('safe');
     expect(result.deviceType).toBe('android');
   });
+
+  it('surfaces Xiaomi lock status as a caution verdict', () => {
+    const result = parseSickwResponse(
+      'Model Name: Xiaomi 14<br>MI Lock Status: Locked<br>MI Lost Status: Clean'
+    );
+
+    expect(result.miLockStatus).toBe('Locked');
+    expect(result.miLostStatus).toBe('Clean');
+    expect(result.status).toBe('Clean');
+    expect(result.verdictType).toBe('caution');
+    expect(result.verdict).toContain('Xiaomi account lock');
+  });
+
+  it('surfaces Xiaomi lost status as a danger verdict', () => {
+    const result = parseSickwResponse({
+      'Model Name': 'Redmi Note 13',
+      'Mi Account Status': 'Unlocked',
+      'Lost Mode': 'Lost',
+    });
+
+    expect(result.miLockStatus).toBe('Unlocked');
+    expect(result.miLostStatus).toBe('Lost');
+    expect(result.status).toBe('Blacklisted');
+    expect(result.verdictType).toBe('danger');
+  });
 });

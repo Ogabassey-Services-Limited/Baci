@@ -64,6 +64,13 @@ describe('IMEI service tiers', () => {
     expect(imeiTierMatchesBrand('samsung', 'apple')).toBe(false);
   });
 
+  it('declares Xiaomi lock and lost verdict fields for paid Mi tiers', () => {
+    expect(IMEI_SERVICE_TIERS.miLock.checksIncluded).toContain('miLockStatus');
+    expect(IMEI_SERVICE_TIERS.miLostPro.checksIncluded).toEqual(
+      expect.arrayContaining(['miLockStatus', 'miLostStatus'])
+    );
+  });
+
   it('omits the Apple Serial Info tier until serial-input UX exists', () => {
     // The storefront input only accepts 15-digit IMEI (`parseImei`), so a Serial
     // Info tier (Apple serial lookup) would always fail validation. Re-add once

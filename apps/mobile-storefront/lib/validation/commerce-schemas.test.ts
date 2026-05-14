@@ -170,8 +170,14 @@ describe('ImeiResultSchema', () => {
     deviceImage: 'https://cdn.example.com/iphone13pro.jpg',
     score: 94,
     activationStatus: 'Activated',
+    serialNumber: 'F2LDN12345',
     purchaseDate: '2025-09-22',
+    purchaseCountry: 'United States',
     warranty: 'AppleCare+',
+    refurbished: 'No',
+    demoUnit: 'No',
+    miLockStatus: 'Unlocked',
+    miLostStatus: 'Clean',
     deviceType: 'apple' as const,
     verdict: 'Safe to buy',
     verdictType: 'safe' as const,
@@ -184,8 +190,14 @@ describe('ImeiResultSchema', () => {
   it('accepts payloads when extended API fields are omitted', () => {
     const {
       activationStatus: _activationStatus,
+      serialNumber: _serialNumber,
       purchaseDate: _purchaseDate,
+      purchaseCountry: _purchaseCountry,
       warranty: _warranty,
+      refurbished: _refurbished,
+      demoUnit: _demoUnit,
+      miLockStatus: _miLockStatus,
+      miLostStatus: _miLostStatus,
       ...minimalImeiResult
     } = validImeiResult;
 

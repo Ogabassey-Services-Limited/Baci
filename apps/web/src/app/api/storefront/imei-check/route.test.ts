@@ -185,6 +185,38 @@ describe('POST /api/storefront/imei-check', () => {
     );
   });
 
+  it('returns Xiaomi lock fields for paid Mi tiers', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      text: () =>
+        Promise.resolve(
+          JSON.stringify({
+            result:
+              'Model Name: Xiaomi 14<br>MI Lock Status: Locked<br>MI Lost Status: Clean',
+            status: 'success',
+          })
+        ),
+    } as Response);
+    const { POST } = await importRoute();
+
+    const response = await POST(
+      createRequest({ imei: '354442067957452', tier: 'miLock' })
+    );
+    const body = (await response.json()) as {
+      data: { miLockStatus?: string; miLostStatus?: string };
+      tier: { checksIncluded: string[] };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.data.miLockStatus).toBe('Locked');
+    expect(body.data.miLostStatus).toBe('Clean');
+    expect(body.tier.checksIncluded).toContain('miLockStatus');
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('service=206'),
+      expect.any(Object)
+    );
+  });
+
   it('rejects missing and malformed imei values before calling the provider', async () => {
     const { POST } = await importRoute();
 

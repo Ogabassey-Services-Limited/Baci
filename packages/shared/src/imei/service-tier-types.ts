@@ -15,6 +15,8 @@ export type ImeiCheckField =
   | 'demoUnit'
   | 'device'
   | 'icloud'
+  | 'miLockStatus'
+  | 'miLostStatus'
   | 'modelNumber'
   | 'purchaseCountry'
   | 'purchaseDate'

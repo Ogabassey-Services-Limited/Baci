@@ -9,6 +9,7 @@ import type { ImeiResult } from '@/lib/validation';
 import { getVerdictColors } from './get-verdict-colors';
 import { styles } from './imei-check.styles';
 import type { ImeiCheckerColors } from './imei-check.types';
+import { getImeiResultStatusCards } from './imei-check-result-status-cards';
 import { isStatusClean } from './is-status-clean';
 
 interface ImeiCheckResultViewProps {
@@ -25,6 +26,7 @@ export function ImeiCheckResultView({
   onReset,
 }: ImeiCheckResultViewProps) {
   const verdictColors = getVerdictColors(result.verdictType);
+  const statusCards = getImeiResultStatusCards(result, colors);
 
   return (
     <SafeAreaView
@@ -74,43 +76,9 @@ export function ImeiCheckResultView({
         </View>
 
         <View style={styles.statusGrid}>
-          <StatusCard
-            colors={colors}
-            icon="shield-checkmark"
-            label="Blacklist Status"
-            value={result.blacklistStatus}
-            cleanAware
-          />
-          {result.activationStatus && (
-            <StatusCard
-              colors={colors}
-              icon="sparkles"
-              label="Activation Status"
-              value={result.activationStatus}
-              tint={BRAND.primary}
-            />
-          )}
-          <StatusCard
-            colors={colors}
-            icon="lock-closed"
-            label="Find My iPhone"
-            value={result.icloudLock}
-            cleanAware
-          />
-          <StatusCard
-            colors={colors}
-            icon="globe"
-            label="SIM Lock"
-            value={result.simLock}
-            tint="#2563EB"
-          />
-          <StatusCard
-            colors={colors}
-            icon="cellular"
-            label="Carrier"
-            value={result.carrier}
-            tint="#7C3AED"
-          />
+          {statusCards.map((card) => (
+            <StatusCard key={card.label} colors={colors} {...card} />
+          ))}
         </View>
 
         <View

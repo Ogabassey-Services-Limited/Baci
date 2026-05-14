@@ -9,18 +9,9 @@ import { getRootDomain } from '@/env';
 import { getDeviceImage } from '@/lib/device-images';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant';
+import { sickwClient } from './sickw-client';
 import { parseSickwResponse } from './sickw-parser';
 import type { ImeiCheckResult } from './sickw-parser.types';
-
-const SICKW_API_URL = 'https://sickw.com/api.php';
-const SICKW_API_KEY = process.env.SICKW_API_KEY;
-const SICKW_REQUEST_TIMEOUT_MS = 15_000;
-
-if (!SICKW_API_KEY) {
-  console.warn(
-    'WARNING: SICKW_API_KEY is missing. IMEI check service will be unavailable.'
-  );
-}
 
 // TODO(payment-gate): SICKW IMEI checks invoke a paid third-party API at up to
 // $0.70/request. The long-term fix is to gate this endpoint behind either
@@ -87,7 +78,8 @@ export async function POST(request: NextRequest) {
       return tierResult.response;
     }
 
-    if (!SICKW_API_KEY) {
+    const sickwApiKey = sickwClient.getApiKey();
+    if (!sickwApiKey) {
       console.error(
         '[IMEI Check] SICKW_API_KEY is not configured. Cannot process request.'
       );
@@ -98,7 +90,8 @@ export async function POST(request: NextRequest) {
     }
 
     const serviceTier = IMEI_SERVICE_TIERS[tierResult.tier];
-    const apiResponse = await requestSickwCheck({
+    const apiResponse = await sickwClient.requestCheck({
+      apiKey: sickwApiKey,
       imei: imeiResult.imei,
       serviceId: serviceTier.providerServiceId,
     });
@@ -107,7 +100,7 @@ export async function POST(request: NextRequest) {
       return apiResponse.response;
     }
 
-    const resultText = normalizeProviderResult(
+    const resultText = sickwClient.normalizeResult(
       apiResponse.payload.result ??
         apiResponse.payload.data ??
         apiResponse.payload
@@ -133,6 +126,8 @@ export async function POST(request: NextRequest) {
       warranty: parsed.warranty,
       refurbished: parsed.refurbished,
       demoUnit: parsed.demoUnit,
+      miLockStatus: parsed.miLockStatus,
+      miLostStatus: parsed.miLostStatus,
       deviceType: parsed.deviceType || 'other',
       verdict: parsed.verdict || 'Unable to determine device status.',
       verdictType: parsed.verdictType || 'caution',
@@ -237,133 +232,4 @@ function isValidImeiChecksum(imei: string): boolean {
     sum += digit;
   }
   return sum % 10 === 0;
-}
-
-async function requestSickwCheck({
-  imei,
-  serviceId,
-}: {
-  imei: string;
-  serviceId: string;
-}): Promise<
-  | { ok: true; payload: Record<string, unknown> }
-  | { ok: false; response: NextResponse }
-> {
-  const apiUrl = `${SICKW_API_URL}?format=json&key=${SICKW_API_KEY}&imei=${imei}&service=${serviceId}`;
-  let response: Response;
-  try {
-    response = await fetch(apiUrl, {
-      method: 'GET',
-      headers: { 'User-Agent': 'Baci-IMEI-Checker/1.0' },
-      signal: AbortSignal.timeout(SICKW_REQUEST_TIMEOUT_MS),
-    });
-  } catch (err) {
-    const isAbort =
-      err instanceof Error &&
-      (err.name === 'AbortError' || err.name === 'TimeoutError');
-    console.error(
-      '[IMEI Check] SICKW request failed:',
-      isAbort ? 'timeout' : err
-    );
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { success: false, error: 'IMEI check service unavailable' },
-        { status: 503 }
-      ),
-    };
-  }
-
-  if (!response.ok) {
-    console.error(
-      '[IMEI Check] SICKW API error:',
-      response.status,
-      response.statusText
-    );
-    return {
-      ok: false,
-      response: NextResponse.json(
-        { success: false, error: 'IMEI check service unavailable' },
-        { status: 503 }
-      ),
-    };
-  }
-
-  const rawText = await response.text();
-  const payload = parseProviderPayload(rawText);
-  const providerError = getProviderError(payload);
-  if (providerError) {
-    return {
-      ok: false,
-      response: providerErrorToResponse(providerError),
-    };
-  }
-
-  return { ok: true, payload };
-}
-
-function parseProviderPayload(rawText: string): Record<string, unknown> {
-  try {
-    const parsed = JSON.parse(rawText) as unknown;
-    if (parsed && typeof parsed === 'object') {
-      return parsed as Record<string, unknown>;
-    }
-  } catch {
-    console.warn('[IMEI Check] Response is not JSON, treating as text');
-  }
-
-  return { result: rawText };
-}
-
-function normalizeProviderResult(
-  result: unknown
-): string | Record<string, unknown> {
-  if (typeof result === 'string') {
-    return result;
-  }
-
-  if (result && typeof result === 'object') {
-    return result as Record<string, unknown>;
-  }
-
-  return '';
-}
-
-function getProviderError(payload: Record<string, unknown>): string | null {
-  const result = payload.result;
-  const isErrorObject = payload.status === 'error' || Boolean(payload.error);
-  const isErrorString =
-    typeof result === 'string' && result.toLowerCase().startsWith('error');
-
-  if (!isErrorObject && !isErrorString) {
-    return null;
-  }
-
-  const errorValue = payload.message ?? payload.error ?? result;
-  return typeof errorValue === 'string' ? errorValue : 'Check failed';
-}
-
-function providerErrorToResponse(errorMessage: string): NextResponse {
-  const normalized = errorMessage.toLowerCase();
-  if (normalized.includes('balance')) {
-    return NextResponse.json(
-      { success: false, error: 'Service temporarily unavailable' },
-      { status: 503 }
-    );
-  }
-
-  if (normalized.includes('invalid')) {
-    return NextResponse.json(
-      { success: false, error: 'Invalid IMEI number' },
-      { status: 400 }
-    );
-  }
-
-  return NextResponse.json(
-    {
-      success: false,
-      error: `Unable to verify: ${errorMessage.replace(/^error:\s*/i, '')}`,
-    },
-    { status: 400 }
-  );
 }

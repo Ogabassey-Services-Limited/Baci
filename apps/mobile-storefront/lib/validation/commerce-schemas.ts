@@ -210,6 +210,8 @@ export const ImeiResultSchema = z.object({
   warranty: z.string().optional(),
   refurbished: z.string().optional(),
   demoUnit: z.string().optional(),
+  miLockStatus: z.string().optional(),
+  miLostStatus: z.string().optional(),
   deviceType: z.enum(['apple', 'android', 'other']),
   verdict: z.string().min(1),
   verdictType: z.enum(['safe', 'caution', 'danger']),
