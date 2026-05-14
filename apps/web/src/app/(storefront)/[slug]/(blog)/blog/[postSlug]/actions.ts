@@ -1,10 +1,8 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-
-const incrementViewCountPostIdSchema = z.string().trim().min(1);
+import { incrementViewCountPostIdSchema } from '@/schemas/blog-post-view-count';
 
 export async function incrementViewCount(postId: unknown) {
   const parsedPostId = incrementViewCountPostIdSchema.safeParse(postId);
