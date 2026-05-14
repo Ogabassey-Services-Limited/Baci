@@ -21,9 +21,28 @@ vi.mock('react-native', async () => {
     [key: string]: unknown;
   };
 
+  // RN style props can be a single object, an array, or nested arrays of
+  // (object | undefined | false). React DOM expects a flat object on the
+  // `style` attribute — passing an array would let React DOM hit a frozen
+  // proxy on its synthetic style accessor with `'set' on proxy: trap
+  // returned falsish for property '0'`. Flatten + filter falsy entries
+  // before forwarding so the assertions below see a real CSSProperties.
+  const flattenStyle = (style: unknown): React.CSSProperties | undefined => {
+    if (!style) return undefined;
+    if (Array.isArray(style)) {
+      return Object.assign(
+        {},
+        ...style
+          .flat(Number.POSITIVE_INFINITY)
+          .filter((entry): entry is Record<string, unknown> => Boolean(entry))
+      ) as React.CSSProperties;
+    }
+    return style as React.CSSProperties;
+  };
+
   const forwardTestID = (props: ViewLike) => ({
     'data-testid': props.testID,
-    style: props.style as React.CSSProperties | undefined,
+    style: flattenStyle(props.style),
   });
 
   return {
