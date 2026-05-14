@@ -70,6 +70,14 @@ describe('ProductMediaGallery', () => {
     );
 
     expect(screen.getByAltText('Test Product')).toBeInTheDocument();
+    expect(screen.getByAltText('Test Product')).toHaveAttribute(
+      'sizes',
+      '(max-width: 767px) calc(100vw - 32px), (max-width: 1023px) calc(100vw - 48px), (max-width: 1439px) 40vw, 560px',
+    );
+    expect(screen.getByAltText('Test Product')).toHaveAttribute(
+      'loading',
+      'eager',
+    );
     expect(
       screen.queryByRole('button', { name: 'View image 2' }),
     ).not.toBeInTheDocument();
