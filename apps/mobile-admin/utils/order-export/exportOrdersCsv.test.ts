@@ -2,15 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeOrder } from './order-export.test-helpers';
 
 const {
-  mockFileWrite,
   mockLoadOrderExportNativeModules,
   mockIsAvailableAsync,
   mockShareAsync,
+  mockWriteAsStringAsync,
 } = vi.hoisted(() => ({
-  mockFileWrite: vi.fn(),
   mockLoadOrderExportNativeModules: vi.fn(),
   mockIsAvailableAsync: vi.fn(),
   mockShareAsync: vi.fn(),
+  mockWriteAsStringAsync: vi.fn(),
 }));
 
 vi.mock('./loadOrderExportNativeModules', () => ({
@@ -19,24 +19,14 @@ vi.mock('./loadOrderExportNativeModules', () => ({
 
 describe('exportOrdersCsv', () => {
   beforeEach(() => {
-    mockFileWrite.mockReset();
     mockLoadOrderExportNativeModules.mockReset();
     mockIsAvailableAsync.mockReset();
     mockShareAsync.mockReset();
+    mockWriteAsStringAsync.mockReset();
     mockLoadOrderExportNativeModules.mockResolvedValue({
       FileSystem: {
-        File: class MockFile {
-          public uri: string;
-
-          public constructor(_root: string, filename: string) {
-            this.uri = `file:///documents/${filename}`;
-          }
-
-          public write(content: string) {
-            mockFileWrite(content);
-          }
-        },
-        Paths: { document: '/documents' },
+        documentDirectory: 'file:///documents/',
+        writeAsStringAsync: mockWriteAsStringAsync,
       },
       Print: null,
       Sharing: {
@@ -58,8 +48,11 @@ describe('exportOrdersCsv', () => {
 
       await exportOrdersCsv([makeOrder({ order_number: 'BAC-900' })]);
 
-      expect(mockFileWrite).toHaveBeenCalledTimes(1);
-      expect(mockFileWrite.mock.calls[0][0]).toContain('BAC-900');
+      expect(mockWriteAsStringAsync).toHaveBeenCalledTimes(1);
+      expect(mockWriteAsStringAsync.mock.calls[0][0]).toMatch(
+        /^file:\/\/\/documents\/orders_report_\d{8}_\d{6}\.csv$/
+      );
+      expect(mockWriteAsStringAsync.mock.calls[0][1]).toContain('BAC-900');
       expect(mockShareAsync).toHaveBeenCalledTimes(1);
       expect(mockShareAsync.mock.calls[0][0]).toMatch(
         /^file:\/\/\/documents\/orders_report_\d{8}_\d{6}\.csv$/
@@ -86,14 +79,8 @@ describe('exportOrdersCsv', () => {
   it('throws when the sharing module is unavailable', async () => {
     mockLoadOrderExportNativeModules.mockResolvedValue({
       FileSystem: {
-        File: class MockFile {
-          public uri = 'file:///documents/orders_report.csv';
-
-          public write(content: string) {
-            mockFileWrite(content);
-          }
-        },
-        Paths: { document: '/documents' },
+        documentDirectory: 'file:///documents/',
+        writeAsStringAsync: mockWriteAsStringAsync,
       },
       Print: null,
       Sharing: null,

@@ -12,15 +12,22 @@ export async function exportOrdersCsv(orders: Order[]): Promise<void> {
 
   const csvData = buildOrdersCsv(orders);
   const filename = `orders_report_${format(new Date(), 'yyyyMMdd_HHmmss')}.csv`;
-  const csvFile = new FileSystem.File(FileSystem.Paths.document, filename);
+  const documentDirectory = FileSystem.documentDirectory;
 
-  csvFile.write(csvData);
+  if (!documentDirectory) {
+    throw new Error('Export modules not available');
+  }
+
+  const fileUri = `${
+    documentDirectory.endsWith('/') ? documentDirectory : `${documentDirectory}/`
+  }${filename}`;
+  await FileSystem.writeAsStringAsync(fileUri, csvData);
 
   if (!(await Sharing.isAvailableAsync())) {
     throw new Error('Sharing is not available on this device');
   }
 
-  await Sharing.shareAsync(csvFile.uri, {
+  await Sharing.shareAsync(fileUri, {
     UTI: 'public.comma-separated-values-text',
     dialogTitle: 'Export Orders Report',
     mimeType: 'text/csv',

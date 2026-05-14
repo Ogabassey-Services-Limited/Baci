@@ -112,6 +112,47 @@ describe('exportOrderReportPdf', () => {
     15000
   );
 
+  it(
+    'loads order items in chunks so large reports do not build oversized query URLs',
+    async () => {
+      mockReturns
+        .mockResolvedValueOnce({
+          data: [makeOrderItemQueryData({ product_id: 'product-1' })],
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: [makeOrderItemQueryData({ product_id: 'product-51' })],
+          error: null,
+        })
+        .mockResolvedValueOnce({
+          data: [
+            makeOrderItemQueryData({
+              price: 5000,
+              product_id: 'product-101',
+              products: { name: 'Product 101' },
+              quantity: 99,
+            }),
+          ],
+          error: null,
+        });
+      const orders = Array.from({ length: 101 }, (_, index) =>
+        makeOrder({ id: `order-${index + 1}` })
+      );
+      const { exportOrderReportPdf } = await import('./exportOrderReportPdf');
+
+      await exportOrderReportPdf(orders, 'May 2026', 'Baci HQ');
+
+      expect(mockIn).toHaveBeenCalledTimes(3);
+      expect(mockIn.mock.calls[0][1]).toHaveLength(50);
+      expect(mockIn.mock.calls[1][1]).toHaveLength(50);
+      expect(mockIn.mock.calls[2][1]).toEqual(['order-101']);
+      expect(mockPrintToFileAsync.mock.calls[0][0].html).toContain(
+        'Product 101'
+      );
+    },
+    15000
+  );
+
   it('throws when the sharing module is unavailable', async () => {
     mockLoadOrderExportNativeModules.mockResolvedValue({
       FileSystem: null,

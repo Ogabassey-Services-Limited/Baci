@@ -5,6 +5,22 @@ import { buildOrderReportSummary } from './buildOrderReportSummary';
 import { loadOrderExportNativeModules } from './loadOrderExportNativeModules';
 import type { OrderItemQueryData } from './orderReportTypes';
 
+const ORDER_ITEM_QUERY_BATCH_SIZE = 50;
+
+function chunkOrderIds(orderIds: string[]): string[][] {
+  const chunks: string[][] = [];
+
+  for (
+    let index = 0;
+    index < orderIds.length;
+    index += ORDER_ITEM_QUERY_BATCH_SIZE
+  ) {
+    chunks.push(orderIds.slice(index, index + ORDER_ITEM_QUERY_BATCH_SIZE));
+  }
+
+  return chunks;
+}
+
 async function loadOrderItemData(
   orders: Order[]
 ): Promise<OrderItemQueryData[]> {
@@ -14,18 +30,24 @@ async function loadOrderItemData(
     return [];
   }
 
-  const { data, error } = await supabase
-    .from('order_items')
-    .select('product_id, quantity, price, products(name)')
-    .in('order_id', orderIds)
-    .returns<OrderItemQueryData[]>();
+  const itemData: OrderItemQueryData[] = [];
 
-  if (error) {
-    console.warn('Failed to fetch order items:', error.message);
-    return [];
+  for (const orderIdBatch of chunkOrderIds(orderIds)) {
+    const { data, error } = await supabase
+      .from('order_items')
+      .select('product_id, quantity, price, products(name)')
+      .in('order_id', orderIdBatch)
+      .returns<OrderItemQueryData[]>();
+
+    if (error) {
+      console.warn('Failed to fetch order items:', error.message);
+      continue;
+    }
+
+    itemData.push(...(data || []));
   }
 
-  return data || [];
+  return itemData;
 }
 
 export async function exportOrderReportPdf(
