@@ -1,6 +1,6 @@
 # Fix 3 — PDP JS Bundle Trim (Prep Handoff)
 
-> **Status: prep doc, not a skill-compliant plan.** Captures the diagnostic data, library-presence findings, and a step-by-step methodology so a future agent can do the per-file mapping and write the actual TDD-task plan. Picking this up cleanly should take 1-2 hours of focused investigation before any code changes.
+> **Status: investigation completed for the first intervention.** This doc started as a prep handoff. Stage 1-4 investigation on 2026-05-14 found that the first high-confidence PDP bundle target is not `moment` / `three`; it is the generic product-detail client graph leaking Framer Motion into the OgaBassey PDP first-load bundle. The implementation plan is [2026-05-14-fix3-ogabassey-pdp-client-graph-split.md](2026-05-14-fix3-ogabassey-pdp-client-graph-split.md).
 
 ## Context
 
@@ -13,6 +13,49 @@ See also: [docs/audits/2026-05-13-storefront-lcp-baseline.md#mobile-pdp-diagnost
 ---
 
 ## Diagnostic findings
+
+### Stage 1-4 investigation result (2026-05-14)
+
+Current-code investigation used `/Users/mac/Baci-app/.worktrees/fix3-bundle-analyze` at `origin/main` (`0d329a52`) with its existing `apps/web/.next/` production build, plus a live fetch of the canonical PDP URL.
+
+Important corrections to the earlier library-presence table:
+
+| Candidate | Import-site result | PDP route result | Decision |
+|---|---:|---|---|
+| `moment` | 0 direct app imports; `pnpm --filter @baci/web why moment` returns no owner | Local chunk hits were ordinary words like `momentary` inside syntax/highlight dictionaries, not Moment.js | Skip for Fix 3 PR 1 |
+| `three` | 0 direct app imports; `pnpm --filter @baci/web why three` returns no owner | Local chunk hits were ordinary words like `three` inside syntax/highlight dictionaries, not Three.js | Skip for Fix 3 PR 1 |
+| `lodash` | 0 direct app imports; package appears in lockfile via non-PDP tooling/mobile deps | PDP first-load route stats and live PDP chunks did not show lodash signatures | Skip for Fix 3 PR 1 |
+| `recharts` | 5 direct import sites: dashboard/admin analytics and `components/ui/chart.tsx` | Not present in PDP first-load route stats | Skip for Fix 3 PR 1 |
+| Puck | Runtime imports in builder/onboarding and `components/storefront/puck-storefront.tsx`; type-only imports elsewhere | Not present in PDP first-load route stats | Skip for Fix 3 PR 1 |
+| Tiptap / ProseMirror | Blog/editor/dashboard product import sites | Not present in PDP first-load route stats | Skip for Fix 3 PR 1 |
+| Framer Motion | Direct imports include `components/ui/animated-icons.tsx`, storefront blocks, analytics, and dashboard | Present in PDP first-load route stats and live PDP chunk `06lahl58v69w8.js` via `createMotionProxy` / `MotionConfigContext` | **First intervention** |
+
+Leak path:
+
+```text
+apps/web/src/app/(storefront)/[slug]/(catalog)/[category]/[productSlug]/page.tsx
+  static import ProductDetailClient
+apps/web/src/app/(storefront)/[slug]/(catalog)/products/[productSlug]/product-detail-client.tsx
+  import StickyAddToCart
+apps/web/src/components/storefront/sticky-add-to-cart.tsx
+  import QuantityButton
+apps/web/src/components/ui/animated-icons.tsx
+  import framer-motion
+```
+
+The OgaBassey branch does not render `ProductDetailClient`, `StickyAddToCart`, or `animated-icons`, but the shared product route imports `ProductDetailClient` at module scope before it knows `template_id`. Next.js therefore includes the generic client graph in the first-load route bundle.
+
+Evidence:
+
+```text
+route-bundle-stats: /[slug]/[category]/[productSlug]
+firstLoadUncompressedJsBytes: 1,679,122
+framer chunks: 0uwk4x99eg-k..js (50,599 bytes), 0osky5~p0fo6g.js (159,955 bytes)
+generic-client markers: QuantityButton, AnimatedIcon, useRecentlyViewed
+live PDP top unused chunk: 06lahl58v69w8.js contains Framer Motion signatures
+```
+
+The first PR should split the default/generic product client graph behind the non-OgaBassey branch so OgaBassey PDP first-load chunks no longer contain Framer Motion or generic product-client markers.
 
 ### PSI unused-code waste (mobile PDP, post-#1634, 2026-05-13)
 
@@ -28,7 +71,7 @@ See also: [docs/audits/2026-05-13-storefront-lcp-baseline.md#mobile-pdp-diagnost
 
 ### Heavy library presence (local production build, 2026-05-14)
 
-Counted by `grep -l <library>` against `.next/static/chunks/*.js` on a `pnpm --filter @baci/web analyze` build off `origin/main` at `0d329a52`:
+Original broad count by `grep -l <library>` against `.next/static/chunks/*.js` on a `pnpm --filter @baci/web analyze` build off `origin/main` at `0d329a52`. Treat this as **global build signal only**, not PDP attribution. The Stage 1-4 investigation above supersedes it for first-PR target selection.
 
 | Library | Chunks | Likely source | PDP need? |
 |---|---:|---|---|
@@ -96,11 +139,10 @@ If a builder/dashboard file's heavy library is reaching the PDP, trace HOW. Comm
 ### Stage 4 — Pick interventions
 
 Order targets by `(savings × confidence) / engineering-cost`. Likely order based on current evidence:
-1. **`moment` → `date-fns` migration**: well-known industry pattern, ~70 KiB savings. Mechanical search-and-replace mostly.
-2. **`puck` / `tiptap` / `prosemirror` dynamic-import**: the builder's editor stack — should be loaded only when builder mounts. ~100+ KiB savings combined.
-3. **`three` audit**: 18 chunks is suspicious; either it's incorrectly aliased (some other package depends on `three` transitively) or builder/3D code is being imported eagerly. Big potential savings (~600 KiB unminified).
-4. **`recharts` dynamic-import on dashboard pages**: probably already done; verify and dynamic-import any remaining direct imports.
-5. **`lodash` named imports**: convert `import _ from 'lodash'` → `import { specificFn } from 'lodash-es'` (or even better, native ES equivalents).
+1. **OgaBassey PDP client graph split**: move the generic `ProductDetailClient` behind the default-template branch so `StickyAddToCart` / `animated-icons` / Framer Motion are not first-load code for OgaBassey PDP. This is the selected first intervention.
+2. **Dashboard/editor stack verification**: Puck/Tiptap/ProseMirror/Recharts are not currently PDP first-load code, so do not spend the first PR here. Revisit only if later PSI runs identify them in PDP network activity.
+3. **CSS unused-rules pass**: `0r9209x4w9n3v.css` is still 94% unused in PSI. Handle as a separate CSS diagnostic after the JS graph split, because the intervention is likely Tailwind/CSS scoping rather than library import cleanup.
+4. **`lodash` package-owner audit**: current PDP evidence does not justify a first PR, but a broader dashboard/admin bundle pass can still inspect lodash consumers later.
 
 ---
 
