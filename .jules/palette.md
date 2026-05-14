@@ -1,3 +1,6 @@
 ## 2026-05-12 - Missing ARIA Labels on Interactive Icon Buttons
 **Learning:** Icon-only buttons (like Plus/Minus for quantity, heart for favorites, X for close) in interactive product components often miss `aria-label` attributes, making them inaccessible to screen readers.
 **Action:** Always ensure `lucide-react` icons used as primary interaction points are wrapped in `<button>` tags with explicit, descriptive `aria-label` attributes.
+## 2024-05-18 - Avoid redundant ARIA labels on buttons
+**Learning:** Adding \`aria-label\` attributes that merely duplicate the visible text of a button (e.g., \`aria-label="Explore Collection"\` on a button whose text is exactly "Explore Collection") is an accessibility anti-pattern. Screen readers already read the text inside a \`<button>\`, so redundant \`aria-label\`s are unnecessary and can be removed. Also, having an \`aria-label\` that doesn't match the visible text violates the WCAG "Label in Name" criterion.
+**Action:** When adding \`aria-label\` to buttons, only use it when the button is icon-only or lacks clear descriptive visible text. Do not duplicate the visible text. Ensure the visible text is always part of the \`aria-label\` if one is needed.
