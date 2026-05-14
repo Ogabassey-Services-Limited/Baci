@@ -42,18 +42,18 @@ Current Next.js docs guidance checked via Context7 (`/vercel/next.js`, lazy-load
 
 Files created:
 
-- `apps/web/src/app/(storefront)/[slug]/(catalog)/[category]/[productSlug]/default-product-page-renderer.tsx`  
+- `apps/web/src/app/(storefront)/[slug]/(catalog)/[category]/[productSlug]/default-product-page-renderer.tsx`
   Server Component renderer for the non-OgaBassey fallback product page. It owns the static `ProductDetailClient` import so the generic client graph is not referenced by the shared route module.
 
-- `apps/web/src/app/(storefront)/[slug]/(catalog)/[category]/[productSlug]/default-product-page-renderer.test.tsx`  
+- `apps/web/src/app/(storefront)/[slug]/(catalog)/[category]/[productSlug]/default-product-page-renderer.test.tsx`
   Colocated regression test proving the default renderer still passes the product and semantic sections into `ProductDetailClient`.
 
 Files modified:
 
-- `apps/web/src/app/(storefront)/[slug]/(catalog)/[category]/[productSlug]/page.tsx`  
+- `apps/web/src/app/(storefront)/[slug]/(catalog)/[category]/[productSlug]/page.tsx`
   Remove the module-scope `ProductDetailClient` import. Load `default-product-page-renderer` only in the non-OgaBassey branch.
 
-- `apps/web/src/app/(storefront)/[slug]/(catalog)/[category]/[productSlug]/page.test.tsx`  
+- `apps/web/src/app/(storefront)/[slug]/(catalog)/[category]/[productSlug]/page.test.tsx`
   Add a source-level bundle-boundary regression test and keep existing branch behavior tests green.
 
 Files NOT touched:
