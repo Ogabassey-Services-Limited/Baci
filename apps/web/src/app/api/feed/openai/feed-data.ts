@@ -10,6 +10,7 @@ const OPENAI_FEED_PRODUCTS_SELECT = `id, name, description, slug, canonical_url,
        brand, gtin, mpn, sku, stock, stock_quantity, manage_stock, condition, google_product_category, category,
        weight_value, weight_unit, created_at, updated_at,
        categories:category_id(name, slug),
+       product_categories(categories(name, slug)),
        variants:product_variants!product_variants_product_id_fkey(id, attributes, price_override, stock_quantity, sku, primary_image)`;
 
 export interface OpenAIFeedVariant {
@@ -40,12 +41,19 @@ export interface OpenAIFeedProduct {
   condition?: 'new' | 'used' | 'refurbished';
   google_product_category?: string;
   category?: string;
+  category_slug?: string | null;
   categories?: { name?: string | null; slug?: string | null } | null;
   weight_value?: number;
   weight_unit?: 'kg' | 'lb' | 'g' | 'oz';
   created_at?: string | null;
   updated_at?: string;
   variants?: OpenAIFeedVariant[];
+}
+
+interface RawOpenAIFeedProductRow extends OpenAIFeedProduct {
+  product_categories?: Array<{
+    categories?: { name?: string | null; slug?: string | null } | null;
+  }> | null;
 }
 
 export interface OpenAIFeedData {
@@ -71,6 +79,30 @@ function getOpenAIFeedCursor(
   }
 
   return null;
+}
+
+function getJoinedCategory(
+  product: RawOpenAIFeedProductRow
+): { name?: string | null; slug?: string | null } | null {
+  return (
+    product.product_categories?.[0]?.categories ?? product.categories ?? null
+  );
+}
+
+function normalizeOpenAIFeedProducts(
+  products: RawOpenAIFeedProductRow[]
+): OpenAIFeedProduct[] {
+  return products.map((product) => {
+    const { product_categories: _productCategories, ...rest } = product;
+    const joinedCategory = getJoinedCategory(product);
+
+    return {
+      ...rest,
+      categories: joinedCategory ?? null,
+      category_slug: joinedCategory?.slug ?? null,
+      category: rest.category ?? joinedCategory?.name ?? undefined,
+    };
+  });
 }
 
 async function fetchActiveOpenAIFeedProducts(
@@ -124,7 +156,9 @@ async function fetchActiveOpenAIFeedProducts(
       throw new Error('Failed to fetch products');
     }
 
-    const page = (data || []) as OpenAIFeedProduct[];
+    const page = normalizeOpenAIFeedProducts(
+      (data || []) as RawOpenAIFeedProductRow[]
+    );
     const remaining = MAX_OPENAI_FEED_PRODUCTS - products.length;
     products.push(...page.slice(0, remaining));
 
