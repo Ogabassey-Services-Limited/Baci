@@ -213,9 +213,9 @@ export const OgabasseyV2Security: React.FC = () => {
                 </button>
               </div>
 
-              <div className="space-y-4">
+              <ul aria-label="Login activity" className="space-y-4">
                 {loginActivity.map((session) => (
-                  <div
+                  <li
                     key={session.id}
                     className="flex items-center justify-between py-2"
                   >
@@ -250,9 +250,9 @@ export const OgabasseyV2Security: React.FC = () => {
                         <LogOut size={16} />
                       </button>
                     )}
-                  </div>
+                  </li>
                 ))}
-              </div>
+              </ul>
             </div>
           </div>
 

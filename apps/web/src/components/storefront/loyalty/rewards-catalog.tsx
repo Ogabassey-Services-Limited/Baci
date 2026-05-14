@@ -146,7 +146,7 @@ export function RewardsCatalog({
 
   if (loading) {
     return (
-      <div className="space-y-4">
+      <div role="status" aria-label="Loading rewards" className="space-y-4">
         <Skeleton className="h-6 w-32" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
