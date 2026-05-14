@@ -9,6 +9,13 @@ import type { NormalizeStorefrontContentHrefOptions } from '@/lib/storefront-lin
 
 const DEFAULT_BLOG_IMAGE_ALT = 'Blog image';
 
+const STANDALONE_IMAGE_BOUNDARY_TAGS = new Set(
+  'article aside blockquote body dd details div dt footer h1 h2 h3 h4 h5 h6 header img li main nav ol p section ul'.split(
+    ' '
+  )
+);
+const HTML_TAG_AT_END_REGEX = /<\s*\/?\s*([a-z][a-z0-9-]*)\b[^>]*>\s*$/i;
+const HTML_TAG_AT_START_REGEX = /^\s*<\s*\/?\s*([a-z][a-z0-9-]*)\b[^>]*>/i;
 const HTML_ATTR_ESCAPE_REGEX = /[&<>"']/g;
 const HTML_ATTR_ESCAPE_MAP: Record<string, string> = {
   '&': '&amp;',
@@ -156,11 +163,71 @@ function buildFigureFromTitledImage(imgTag: string): string | null {
   return `<figure>${imageWithoutTitle}<figcaption>${captionText}</figcaption></figure>`;
 }
 
+function isStandaloneImageBoundaryTag(tagName: string | undefined): boolean {
+  return (
+    tagName !== undefined &&
+    STANDALONE_IMAGE_BOUNDARY_TAGS.has(tagName.toLowerCase())
+  );
+}
+
+function hasStandaloneImageBoundaryBefore(
+  html: string,
+  index: number
+): boolean {
+  const before = html.slice(0, index).trimEnd();
+  if (!before) {
+    return true;
+  }
+
+  return isStandaloneImageBoundaryTag(before.match(HTML_TAG_AT_END_REGEX)?.[1]);
+}
+
+function hasStandaloneImageBoundaryAfter(html: string, index: number): boolean {
+  const after = html.slice(index).trimStart();
+  if (!after) {
+    return true;
+  }
+
+  return isStandaloneImageBoundaryTag(
+    after.match(HTML_TAG_AT_START_REGEX)?.[1]
+  );
+}
+
+function isStandaloneImageBlock(
+  html: string,
+  imageStart: number,
+  imageLength: number
+): boolean {
+  return (
+    hasStandaloneImageBoundaryBefore(html, imageStart) &&
+    hasStandaloneImageBoundaryAfter(html, imageStart + imageLength)
+  );
+}
+
 export function transformImageTitlesToFigureCaptions(html: string): string {
-  return html.replace(
+  const withStandaloneImageParagraphs = html.replace(
     /<p>\s*(<img\b[^<>]*>)\s*<\/p>/gi,
     (paragraph, imgTag) => {
       return buildFigureFromTitledImage(imgTag) ?? paragraph;
+    }
+  );
+
+  return withStandaloneImageParagraphs.replace(
+    /(<p\b[^>]*>[\s\S]*?<\/p>)|(<img\b[^<>]*>)/gi,
+    (match, paragraph, imgTag, offset, fullHtml) => {
+      if (paragraph) {
+        return paragraph;
+      }
+
+      if (!imgTag) {
+        return match;
+      }
+
+      if (!isStandaloneImageBlock(fullHtml, offset, imgTag.length)) {
+        return match;
+      }
+
+      return buildFigureFromTitledImage(imgTag) ?? match;
     }
   );
 }

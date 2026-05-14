@@ -207,6 +207,37 @@ describe('transformImageTitlesToFigureCaptions', () => {
     expect(result).toBe(html);
   });
 
+  it('converts standalone titled image tags without paragraph wrappers', () => {
+    const html =
+      '<img src="https://cdn.example.com/photo.jpg" title="Camera sample" />';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toBe(
+      '<figure><img src="https://cdn.example.com/photo.jpg" /><figcaption>Camera sample</figcaption></figure>'
+    );
+  });
+
+  it('converts standalone titled images inside non-paragraph wrappers', () => {
+    const html =
+      '<div><img src="https://cdn.example.com/photo.jpg" title="Camera sample" /></div>';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toBe(
+      '<div><figure><img src="https://cdn.example.com/photo.jpg" /><figcaption>Camera sample</figcaption></figure></div>'
+    );
+  });
+
+  it('does not wrap images inside inline-only wrappers', () => {
+    const html =
+      '<span><img src="https://cdn.example.com/photo.jpg" title="Inline caption" /></span>';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toBe(html);
+  });
+
   it('keeps image tags without title unchanged', () => {
     const html = '<p><img src="https://cdn.example.com/photo.jpg" /></p>';
 
