@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -288,6 +289,16 @@ describe('ProductDetailsPage', () => {
     });
     expect(banner).toBeInTheDocument();
     expect(await screen.findByRole('tab', { name: 'Description' })).toBeInTheDocument();
+  });
+
+  it('keeps negotiation modal behind a dynamic client boundary', () => {
+    const source = readFileSync(
+      'src/components/storefront/ogabassey/pages/product-details-page.tsx',
+      'utf8'
+    );
+
+    expect(source).not.toMatch(/import\s*{\s*NegotiationModal\s*}\s*from/);
+    expect(source).toMatch(/import\([^)]*NegotiationModal[^)]*\)/);
   });
 
   it('uses the real review count and exposes the reviews tab panel semantics', async () => {
