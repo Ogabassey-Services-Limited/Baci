@@ -44,6 +44,18 @@ describe('agent request controls', () => {
     });
   });
 
+  it('rejects blank user-agent when denylist controls are configured', () => {
+    const result = verifyAgenticRequestAccess({
+      controls: { allowlist: [], denylist: ['blocked-agent'] },
+      headers: new Headers(),
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: AGENTIC_AGENT_NOT_ALLOWLISTED_ERROR,
+    });
+  });
+
   it('rejects requests not on allowlist when allowlist is configured', () => {
     const result = verifyAgenticRequestAccess({
       controls: { allowlist: ['trusted-agent'], denylist: [] },
@@ -67,5 +79,19 @@ describe('agent request controls', () => {
     });
 
     expect(result).toEqual({ ok: true });
+  });
+
+  it('rejects blank user-agent when allowlist controls are configured', () => {
+    const result = verifyAgenticRequestAccess({
+      controls: { allowlist: ['openai'], denylist: [] },
+      headers: new Headers({
+        'user-agent': '  ',
+      }),
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: AGENTIC_AGENT_NOT_ALLOWLISTED_ERROR,
+    });
   });
 });

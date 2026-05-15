@@ -67,6 +67,12 @@ export function verifyAgenticRequestAccess({
 }): { ok: true } | { error: string; ok: false } {
   const normalizedUserAgent =
     normalizePattern(headers.get('user-agent') ?? '') ?? '';
+  const hasConfiguredControls =
+    controls.allowlist.length > 0 || controls.denylist.length > 0;
+
+  if (hasConfiguredControls && normalizedUserAgent.length === 0) {
+    return { ok: false, error: AGENTIC_AGENT_NOT_ALLOWLISTED_ERROR };
+  }
 
   if (
     normalizedUserAgent &&
