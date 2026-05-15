@@ -1,6 +1,7 @@
 import path from 'node:path';
 import bundleAnalyzer from '@next/bundle-analyzer';
 import type { NextConfig } from 'next';
+import { OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER } from './src/config/ogabassey-hero-assets';
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
@@ -412,6 +413,25 @@ const nextConfig: NextConfig = {
   // Security headers
   headers() {
     return [
+      {
+        source: '/',
+        has: [{ type: 'host', value: 'ogabassey.com' }],
+        headers: [
+          {
+            key: 'Link',
+            value: OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER,
+          },
+        ],
+      },
+      {
+        source: '/ogabassey/hero/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
       {
         source: '/(.*)',
         headers: [

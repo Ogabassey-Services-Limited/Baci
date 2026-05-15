@@ -58,6 +58,8 @@ So Fix 4 isn't a config flip — it needs its own diagnostic to identify a strea
 
 **Problem.** Mobile home LCP is 3226 ms, of which 1806 ms is resource load delay. The hero image is correctly preloaded (`fetchpriority="high"`, `loading="eager"`, viewport-scoped `<link rel="preload">`, request discoverable). All standard 2026 best practices satisfied. Yet the request starts ~1.8 s after navigation.
 
+**2026-05-15 update after PR #1671.** Live PSI now reports mobile home LCP at 3376 ms with about 2080 ms resource load delay. The live HTML shows the hero image hints are emitted as React/Next RSC `:HL[...]` stream records after the initial head/scripts/fallback shell, not as native `<link rel="preload" as="image">` tags in the initial `<head>` or HTTP `Link` response header. Per Next.js 16 docs, the Metadata API does not directly support arbitrary resource hints; ReactDOM resource hints are supported, but the current placement is still too late for this streaming route. The active fix is to put the OgaBassey home LCP assets on stable public URLs and emit a route-scoped native HTTP `Link` header for `ogabassey.com/`.
+
 **Diagnostic step (no code change first).**
 
 1. Open Chrome DevTools → Network panel

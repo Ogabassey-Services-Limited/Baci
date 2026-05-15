@@ -1,7 +1,9 @@
-import iphoneHeroDesktopAsset from '@/components/storefront/ogabassey/components/assets/iphone-17-pro-max-desktop.avif';
-import iphoneHeroMobileAsset from '@/components/storefront/ogabassey/components/assets/iphone-17-pro-max-mobile.avif';
-import iphoneHeroMobileFallbackAsset from '@/components/storefront/ogabassey/components/assets/iphone-17-pro-max-mobile.jpg';
 import macbookProPromoAsset from '@/components/storefront/ogabassey/components/assets/macbook-pro-promo.avif';
+import {
+  OGABASSEY_HERO_DESKTOP_LCP_SRC,
+  OGABASSEY_HERO_MOBILE_LCP_FALLBACK_SRC,
+  OGABASSEY_HERO_MOBILE_LCP_SRC,
+} from '@/config/ogabassey-hero-assets';
 
 export type HeroSlideType = 'image' | 'video' | 'ad';
 
@@ -33,13 +35,10 @@ type ImportedImageAsset = { src: string } | string;
 const getImportedImageSrc = (asset: ImportedImageAsset) =>
   typeof asset === 'string' ? asset : asset.src;
 
-export const HERO_DESKTOP_LCP_SRC = getImportedImageSrc(
-  iphoneHeroDesktopAsset
-);
-export const HERO_MOBILE_LCP_SRC = getImportedImageSrc(iphoneHeroMobileAsset);
-export const HERO_MOBILE_LCP_FALLBACK_SRC = getImportedImageSrc(
-  iphoneHeroMobileFallbackAsset
-);
+export const HERO_DESKTOP_LCP_SRC = OGABASSEY_HERO_DESKTOP_LCP_SRC;
+export const HERO_MOBILE_LCP_SRC = OGABASSEY_HERO_MOBILE_LCP_SRC;
+export const HERO_MOBILE_LCP_FALLBACK_SRC =
+  OGABASSEY_HERO_MOBILE_LCP_FALLBACK_SRC;
 
 export const NEW_ARRIVALS_PROMO_IMAGE = getImportedImageSrc(
   macbookProPromoAsset
