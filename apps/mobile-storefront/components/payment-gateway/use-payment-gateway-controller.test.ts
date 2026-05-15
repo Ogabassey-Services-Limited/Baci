@@ -347,6 +347,26 @@ describe('usePaymentGatewayController', () => {
     expect(mockClearCart).not.toHaveBeenCalled();
   });
 
+  it('returns to a validated returnTo path after wallet top-up success', async () => {
+    jest.useFakeTimers({ advanceTimers: true });
+    mockSearchParams = { ...walletParams, returnTo: '/imei-check' };
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleNavigationChange(
+        navigation('https://usebaci.com/checkout/success?reference=WAL-123')
+      );
+    });
+
+    await waitFor(() => expect(result.current.status).toBe('success'));
+
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(router.replace).toHaveBeenCalledWith('/imei-check');
+  });
+
   it('keeps wallet top-ups retryable when confirmation is still processing', async () => {
     jest.useFakeTimers({ advanceTimers: true });
     mockSearchParams = { ...walletParams };

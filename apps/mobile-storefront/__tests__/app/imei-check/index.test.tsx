@@ -1,19 +1,39 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react-native';
+import { router } from 'expo-router';
 import { Alert } from 'react-native';
 
 const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+const mockWalletRefetch = jest.fn();
+let mockWalletBalance = 5000;
+let mockWalletIsError = false;
+let mockWalletIsLoading = false;
 
 beforeEach(() => {
+  jest.clearAllMocks();
   alertSpy.mockClear();
+  mockWalletBalance = 5000;
+  mockWalletIsError = false;
+  mockWalletIsLoading = false;
+  mockWalletRefetch.mockClear();
+  global.fetch = jest.fn() as typeof fetch;
 });
 
 jest.mock('@expo/vector-icons', () => ({
   Ionicons: () => null,
 }));
 
+jest.mock('expo-crypto', () => ({
+  randomUUID: jest.fn(() => '11111111-1111-4111-8111-111111111111'),
+}));
+
 jest.mock('expo-router', () => ({
-  router: { back: jest.fn() },
+  router: { back: jest.fn(), push: jest.fn() },
   Stack: {
     Screen: () => null,
   },
@@ -38,6 +58,20 @@ jest.mock('@/components/useColorScheme', () => ({
 
 jest.mock('@/lib/logger', () => ({
   createLogger: () => ({ error: jest.fn() }),
+}));
+
+jest.mock('@/hooks/use-wallet', () => ({
+  useWallet: () => ({
+    data: { wallet: { balance: mockWalletBalance } },
+    isError: mockWalletIsError,
+    isLoading: mockWalletIsLoading,
+    refetch: mockWalletRefetch,
+  }),
+}));
+
+jest.mock('@/stores/auth-store', () => ({
+  useAuthStore: (selector: (state: unknown) => unknown) =>
+    selector({ session: { access_token: 'token-123' } }),
 }));
 
 import ImeiCheckerScreen from '@/app/imei-check';
@@ -82,5 +116,102 @@ describe('ImeiCheckerScreen', () => {
       'Invalid IMEI',
       expect.stringContaining('valid 15-digit IMEI')
     );
+  });
+
+  it('waits for wallet balance before enabling verification', () => {
+    mockWalletIsLoading = true;
+    render(<ImeiCheckerScreen />);
+
+    expect(screen.getByText('Loading wallet balance...')).toBeTruthy();
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Enter 15-digit IMEI'),
+      '490154203237518'
+    );
+    fireEvent.press(screen.getByText('Loading wallet...'));
+
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('routes unauthenticated customers to login on 401', async () => {
+    jest.mocked(fetch).mockResolvedValueOnce({
+      json: () =>
+        Promise.resolve({
+          code: 'AUTH_REQUIRED',
+          error: 'Unauthorized',
+          success: false,
+        }),
+      ok: false,
+      status: 401,
+    } as Response);
+    render(<ImeiCheckerScreen />);
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Enter 15-digit IMEI'),
+      '490154203237518'
+    );
+    fireEvent.press(screen.getByText('Verify Now - ₦1,500'));
+
+    await waitFor(() => {
+      expect(router.push).toHaveBeenCalledWith(
+        '/auth/login?returnTo=/imei-check'
+      );
+    });
+  });
+
+  it('routes to wallet top-up with the required delta on 402', async () => {
+    jest.mocked(fetch).mockResolvedValueOnce({
+      json: () =>
+        Promise.resolve({
+          balance: 500,
+          code: 'WALLET_INSUFFICIENT',
+          error: 'Insufficient wallet balance',
+          required: 1500,
+          success: false,
+        }),
+      ok: false,
+      status: 402,
+    } as Response);
+    render(<ImeiCheckerScreen />);
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Enter 15-digit IMEI'),
+      '490154203237518'
+    );
+    fireEvent.press(screen.getByText('Verify Now - ₦1,500'));
+
+    await waitFor(() => {
+      expect(router.push).toHaveBeenCalledWith(
+        '/wallet?action=fund&requiredAmount=1000&returnTo=/imei-check'
+      );
+    });
+  });
+
+  it('shows delayed refund copy and refreshes wallet on REFUND_PENDING', async () => {
+    jest.mocked(fetch).mockResolvedValueOnce({
+      json: () =>
+        Promise.resolve({
+          code: 'REFUND_PENDING',
+          error: 'Refund pending',
+          success: false,
+        }),
+      ok: false,
+      status: 502,
+    } as Response);
+    render(<ImeiCheckerScreen />);
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Enter 15-digit IMEI'),
+      '490154203237518'
+    );
+    fireEvent.press(screen.getByText('Verify Now - ₦1,500'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(
+          'Lookup failed; your refund is pending. We will credit you within 24h.'
+        )
+      ).toBeTruthy();
+    });
+    expect(mockWalletRefetch).toHaveBeenCalled();
   });
 });

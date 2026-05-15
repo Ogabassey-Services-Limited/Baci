@@ -35,8 +35,14 @@ export default function WalletScreen({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { getScrollContentStyle } = useStorefrontInsets();
-  const { action } = useLocalSearchParams<{ action?: string }>();
+  const { action, requiredAmount, returnTo } = useLocalSearchParams<{
+    action?: string;
+    requiredAmount?: string;
+    returnTo?: string;
+  }>();
   const initialAction = Array.isArray(action) ? action[0] : action;
+  const initialRequiredAmount = normalizeFundAmountParam(requiredAmount);
+  const walletReturnTo = sanitizeWalletReturnTo(returnTo);
 
   const { isLoading: authLoading, redirectTo } = useRequireAuth();
   const { customer, merchantId, user } = useAuthStore(
@@ -53,7 +59,7 @@ export default function WalletScreen({
   const [showRedeemPanel, setShowRedeemPanel] = useState(
     initialAction === 'redeem'
   );
-  const [fundAmount, setFundAmount] = useState('');
+  const [fundAmount, setFundAmount] = useState(initialRequiredAmount);
   const [showFundPanel, setShowFundPanel] = useState(initialAction === 'fund');
   const [isFundPending, setIsFundPending] = useState(false);
   const activeMerchantId = merchantId || CONFIG.MERCHANT_ID;
@@ -111,6 +117,7 @@ export default function WalletScreen({
           gateway: result.gateway,
           paymentKind: 'wallet',
           reference: result.reference,
+          ...(walletReturnTo ? { returnTo: walletReturnTo } : {}),
         },
       });
     } catch (error) {
@@ -294,4 +301,22 @@ export default function WalletScreen({
       </StorefrontScreenShell>
     </>
   );
+}
+
+function normalizeFundAmountParam(value: string | string[] | undefined) {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  const amount = Number(rawValue);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return '';
+  }
+  // Wallet top-ups use whole naira amounts, so fractional required amounts round up.
+  return String(Math.ceil(amount));
+}
+
+function sanitizeWalletReturnTo(value: string | string[] | undefined) {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  if (!rawValue?.startsWith('/') || rawValue.startsWith('//')) {
+    return undefined;
+  }
+  return rawValue;
 }

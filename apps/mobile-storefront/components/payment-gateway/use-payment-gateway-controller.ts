@@ -114,6 +114,7 @@ export function usePaymentGatewayController() {
     orderNumber,
     paymentKind,
     reference,
+    returnTo,
     utilityType,
   } = validatedParams.data || {};
   const gatewayName =
@@ -187,7 +188,7 @@ export function usePaymentGatewayController() {
         }
         setStatus('success');
         scheduleDelayedNavigation(() => {
-          router.replace('/wallet');
+          router.replace(returnTo || '/wallet');
         });
       } catch (error) {
         if (!isMountedRef.current) {

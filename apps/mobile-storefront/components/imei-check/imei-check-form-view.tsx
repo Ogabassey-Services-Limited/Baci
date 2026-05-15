@@ -17,11 +17,12 @@ import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
 import { BRAND } from '@/constants/Colors';
 import { isValidIMEI } from '@/lib/validation/commerce-schemas';
 import { formatServicePrice } from './format-service-price';
-import HeroCard from './imei-check-hero-card';
 import { styles } from './imei-check.styles';
 import type { ImeiCheckerColors } from './imei-check.types';
+import HeroCard from './imei-check-hero-card';
 import { ImeiCheckInputSection } from './imei-check-input-section';
 import { ImeiCheckServiceSelector } from './imei-check-service-selector';
+import { ImeiInsufficientBalanceCta } from './imei-insufficient-balance-cta';
 
 interface ImeiCheckFormViewProps {
   colors: ImeiCheckerColors;
@@ -30,15 +31,19 @@ interface ImeiCheckFormViewProps {
   error: string | null;
   imei: string;
   isLoading: boolean;
+  isWalletError: boolean;
+  isWalletLoading: boolean;
   selectedBrand: ImeiBrandFilter;
   selectedTier: ImeiServiceTierKey;
   canToggleServices: boolean;
   showAllServices: boolean;
+  walletBalance: number;
   onBrandSelect: (brand: ImeiBrandFilter) => void;
   onChangeImei: (value: string) => void;
   onCheck: () => void;
   onClearImei: () => void;
   onTierSelect: (tier: ImeiServiceTierKey) => void;
+  onTopUpWallet: (amount: number) => void;
   onToggleServices: () => void;
 }
 
@@ -49,18 +54,29 @@ export function ImeiCheckFormView({
   error,
   imei,
   isLoading,
+  isWalletError,
+  isWalletLoading,
   selectedBrand,
   selectedTier,
   canToggleServices,
   showAllServices,
+  walletBalance,
   onBrandSelect,
   onChangeImei,
   onCheck,
   onClearImei,
   onTierSelect,
+  onTopUpWallet,
   onToggleServices,
 }: ImeiCheckFormViewProps) {
-  const canVerify = isValidIMEI(imei);
+  const isWalletReady = !(isWalletLoading || isWalletError);
+  const hasEnoughBalance = isWalletReady && walletBalance >= currentTier.price;
+  const canVerify = isValidIMEI(imei) && hasEnoughBalance;
+  const walletStatusText = isWalletLoading
+    ? 'Loading wallet balance...'
+    : isWalletError
+      ? 'Wallet balance unavailable. Refresh your wallet and try again.'
+      : null;
 
   return (
     <SafeAreaView
@@ -112,6 +128,33 @@ export function ImeiCheckFormView({
             onCheck={onCheck}
             onClearImei={onClearImei}
           />
+          {walletStatusText ? (
+            <View
+              style={[
+                styles.errorContainer,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Ionicons
+                name="wallet-outline"
+                size={18}
+                color={colors.textSecondary}
+              />
+              <Text style={[styles.errorText, { color: colors.textSecondary }]}>
+                {walletStatusText}
+              </Text>
+            </View>
+          ) : !hasEnoughBalance ? (
+            <ImeiInsufficientBalanceCta
+              balance={walletBalance}
+              colors={colors}
+              requiredAmount={currentTier.price}
+              onTopUp={onTopUpWallet}
+            />
+          ) : null}
         </ScrollView>
 
         <View
@@ -129,18 +172,29 @@ export function ImeiCheckFormView({
             onPress={onCheck}
             disabled={isLoading || !canVerify}
           >
+            <View
+              style={[styles.walletBalancePill, { borderColor: colors.border }]}
+            >
+              <Text
+                style={[styles.walletBalanceText, { color: BRAND.onPrimary }]}
+              >
+                Balance {formatServicePrice(walletBalance)}
+              </Text>
+            </View>
             {isLoading ? (
               <ActivityIndicator color={BRAND.onPrimary} />
             ) : (
               <>
                 <Text style={styles.verifyButtonText}>
-                  Verify Now - {formatServicePrice(currentTier.price)}
+                  {isWalletLoading
+                    ? 'Loading wallet...'
+                    : isWalletError
+                      ? 'Wallet unavailable'
+                      : hasEnoughBalance
+                        ? `Verify Now - ${formatServicePrice(currentTier.price)}`
+                        : 'Top up to unlock'}
                 </Text>
-                <Ionicons
-                  name="sparkles"
-                  size={18}
-                  color={BRAND.onPrimary}
-                />
+                <Ionicons name="sparkles" size={18} color={BRAND.onPrimary} />
               </>
             )}
           </Pressable>

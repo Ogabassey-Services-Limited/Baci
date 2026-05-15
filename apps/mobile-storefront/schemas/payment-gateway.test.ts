@@ -152,6 +152,59 @@ describe('PaymentGatewayParamsSchema', () => {
     }
   });
 
+  it('preserves valid returnTo paths for wallet top-up payments', () => {
+    const result = PaymentGatewayParamsSchema.safeParse({
+      amount: '2500',
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      paymentKind: 'wallet',
+      reference: 'WAL-123',
+      returnTo: '/imei-check',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.returnTo).toBe('/imei-check');
+    }
+  });
+
+  it.each([
+    'https://evil.example',
+    '//evil.example',
+    '',
+    '   ',
+  ])('normalizes invalid wallet returnTo %s', (returnTo) => {
+    const result = PaymentGatewayParamsSchema.safeParse({
+      amount: '2500',
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      paymentKind: 'wallet',
+      reference: 'WAL-123',
+      returnTo,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.returnTo).toBeUndefined();
+    }
+  });
+
+  it('drops returnTo for non-wallet payments', () => {
+    const result = PaymentGatewayParamsSchema.safeParse({
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      orderNumber: 'ORD-123',
+      paymentKind: 'order',
+      reference: 'ref-123',
+      returnTo: '/imei-check',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.returnTo).toBeUndefined();
+    }
+  });
+
   it('requires a positive amount for wallet top-up payments', () => {
     const result = PaymentGatewayParamsSchema.safeParse({
       authorizationUrl: 'https://checkout.paystack.com/test',

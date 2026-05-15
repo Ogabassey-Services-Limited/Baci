@@ -8,6 +8,15 @@ const trimmedOptionalString = (message: string) =>
 
 const optionalOrderIdentifier = z.string().trim().optional();
 
+const sanitizedReturnTo = z.preprocess((value) => {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (!trimmed?.startsWith('/') || trimmed.startsWith('//')) {
+    return undefined;
+  }
+  return trimmed;
+}, z.string().optional());
+
 const optionalPositiveAmount = z.preprocess(
   (value) =>
     typeof value === 'string' && value.trim() === '' ? undefined : value,
@@ -18,26 +27,26 @@ const optionalPositiveAmount = z.preprocess(
     .optional()
 );
 
-export const PaymentGatewayParamsSchema = z
-  .object({
-    orderId: optionalOrderIdentifier,
-    orderNumber: optionalOrderIdentifier,
-    gateway: z.enum(['paystack', 'korapay', 'juicyway'], {
-      message: 'Invalid payment gateway',
-    }),
-    authorizationUrl: trimmedRequiredString(
-      'Authorization URL is required'
-    ).url('Invalid authorization URL'),
-    reference: trimmedRequiredString('Reference is required'),
-    amount: optionalPositiveAmount,
-    paymentKind: z.enum(['order', 'vtu', 'wallet']).default('order'),
-    utilityType: z
-      .enum(['airtime', 'data', 'tv', 'power', 'gaming'])
-      .optional(),
-    customerIdentifier: trimmedOptionalString(
-      'Customer identifier cannot be empty'
-    ),
-  })
+const paymentGatewayParamsObject = z.object({
+  orderId: optionalOrderIdentifier,
+  orderNumber: optionalOrderIdentifier,
+  gateway: z.enum(['paystack', 'korapay', 'juicyway'], {
+    message: 'Invalid payment gateway',
+  }),
+  authorizationUrl: trimmedRequiredString('Authorization URL is required').url(
+    'Invalid authorization URL'
+  ),
+  reference: trimmedRequiredString('Reference is required'),
+  amount: optionalPositiveAmount,
+  paymentKind: z.enum(['order', 'vtu', 'wallet']).default('order'),
+  returnTo: sanitizedReturnTo,
+  utilityType: z.enum(['airtime', 'data', 'tv', 'power', 'gaming']).optional(),
+  customerIdentifier: trimmedOptionalString(
+    'Customer identifier cannot be empty'
+  ),
+});
+
+export const PaymentGatewayParamsSchema = paymentGatewayParamsObject
   .superRefine((data, ctx) => {
     if (data.paymentKind === 'vtu') {
       if (!data.utilityType) {
@@ -92,6 +101,9 @@ export const PaymentGatewayParamsSchema = z
         path: ['orderId'],
       });
     }
-  });
+  })
+  .transform((data) =>
+    data.paymentKind === 'wallet' ? data : { ...data, returnTo: undefined }
+  );
 
 export type PaymentGatewayParams = z.infer<typeof PaymentGatewayParamsSchema>;
