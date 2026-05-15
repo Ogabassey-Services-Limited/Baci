@@ -18,6 +18,7 @@ import {
 import Image from 'next/image';
 import type React from 'react';
 import { useEffect, useState } from 'react';
+import { fetchWithCsrf } from '@/lib/api-client';
 
 // Service tiers matching the API
 const SERVICE_TIERS = {
@@ -222,7 +223,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
         });
       }
 
-      const response = await fetch('/api/storefront/imei-check', {
+      const response = await fetchWithCsrf('/api/storefront/imei-check', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

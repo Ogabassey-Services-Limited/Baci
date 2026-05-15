@@ -14,8 +14,17 @@ vi.mock('next/image', () => ({
 
 describe('OgabasseyImeiChecker', () => {
   beforeEach(() => {
+    document.cookie = 'csrf-token=test-csrf-token; path=/';
     fetchMock.mockReset();
   });
+
+  const getFetchHeaders = (callIndex: number) => {
+    const init = fetchMock.mock.calls[callIndex]?.[1] as
+      | { headers?: HeadersInit }
+      | undefined;
+
+    return new Headers(init?.headers);
+  };
 
   const enterValidImei = () => {
     fireEvent.change(screen.getByPlaceholderText(/enter 15-digit imei/i), {
@@ -85,17 +94,19 @@ describe('OgabasseyImeiChecker', () => {
 
     const [url, init] = fetchMock.mock.calls[0] as [
       string,
-      { body: string; headers: Record<string, string>; method: string },
+      { body: string; method: string },
     ];
+    const headers = getFetchHeaders(0);
 
     expect(url).toBe('/api/storefront/imei-check');
     expect(init.method).toBe('POST');
-    expect(init.headers).toMatchObject({
-      'Content-Type': 'application/json',
-      'Idempotency-Key': expect.stringMatching(
+    expect(headers.get('content-type')).toBe('application/json');
+    expect(headers.get('x-csrf-token')).toBe('test-csrf-token');
+    expect(headers.get('idempotency-key')).toEqual(
+      expect.stringMatching(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-      ),
-    });
+      )
+    );
     expect(JSON.parse(init.body)).toMatchObject({
       imei: '354442067957452',
       tier: 'full',
@@ -128,7 +139,7 @@ describe('OgabasseyImeiChecker', () => {
 
     const [, init] = fetchMock.mock.calls[0] as [
       string,
-      { body: string; headers: Record<string, string>; method: string },
+      { body: string; method: string },
     ];
 
     expect(JSON.parse(init.body)).toMatchObject({
@@ -160,15 +171,11 @@ describe('OgabasseyImeiChecker', () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
-    const firstHeaders = (
-      fetchMock.mock.calls[0][1] as { headers: Record<string, string> }
-    ).headers;
-    const secondHeaders = (
-      fetchMock.mock.calls[1][1] as { headers: Record<string, string> }
-    ).headers;
+    const firstHeaders = getFetchHeaders(0);
+    const secondHeaders = getFetchHeaders(1);
 
-    expect(secondHeaders['Idempotency-Key']).toBe(
-      firstHeaders['Idempotency-Key']
+    expect(secondHeaders.get('idempotency-key')).toBe(
+      firstHeaders.get('idempotency-key')
     );
     expect(await screen.findByText('iPhone 15 Pro')).toBeInTheDocument();
   });
@@ -201,15 +208,11 @@ describe('OgabasseyImeiChecker', () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
-    const firstHeaders = (
-      fetchMock.mock.calls[0][1] as { headers: Record<string, string> }
-    ).headers;
-    const secondHeaders = (
-      fetchMock.mock.calls[1][1] as { headers: Record<string, string> }
-    ).headers;
+    const firstHeaders = getFetchHeaders(0);
+    const secondHeaders = getFetchHeaders(1);
 
-    expect(secondHeaders['Idempotency-Key']).not.toBe(
-      firstHeaders['Idempotency-Key']
+    expect(secondHeaders.get('idempotency-key')).not.toBe(
+      firstHeaders.get('idempotency-key')
     );
     expect(await screen.findByText('iPhone 15 Pro')).toBeInTheDocument();
   });
@@ -242,15 +245,11 @@ describe('OgabasseyImeiChecker', () => {
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
-    const firstHeaders = (
-      fetchMock.mock.calls[0][1] as { headers: Record<string, string> }
-    ).headers;
-    const secondHeaders = (
-      fetchMock.mock.calls[1][1] as { headers: Record<string, string> }
-    ).headers;
+    const firstHeaders = getFetchHeaders(0);
+    const secondHeaders = getFetchHeaders(1);
 
-    expect(secondHeaders['Idempotency-Key']).toBe(
-      firstHeaders['Idempotency-Key']
+    expect(secondHeaders.get('idempotency-key')).toBe(
+      firstHeaders.get('idempotency-key')
     );
     expect(await screen.findByText('iPhone 15 Pro')).toBeInTheDocument();
   });
