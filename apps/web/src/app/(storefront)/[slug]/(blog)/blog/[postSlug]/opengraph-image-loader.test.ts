@@ -156,6 +156,30 @@ describe('merchant blog OG image loader', () => {
     );
   });
 
+  it('loads the fallback featured image candidate when the primary source is missing', async () => {
+    mockFetch.mockResolvedValue(imageResponse('image/jpeg', 'fallback'));
+
+    await expect(
+      loadFeaturedImageWithFallback(
+        [
+          undefined,
+          'https://cdn.ogabassey.com/media/merchant-1/blog/original.jpg',
+        ],
+        'merchant-1'
+      )
+    ).resolves.toEqual({
+      dataUri: `data:image/jpeg;base64,${Buffer.from('fallback').toString(
+        'base64'
+      )}`,
+      status: 'loaded',
+    });
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://cdn.ogabassey.com/media/merchant-1/blog/original.jpg',
+      expect.any(Object)
+    );
+  });
+
   it('fails closed when the upstream image omits or lies about content type', async () => {
     mockFetch.mockResolvedValueOnce(imageResponse('', 'bytes'));
     await expect(
@@ -203,6 +227,27 @@ describe('merchant blog OG image loader', () => {
         (url) => isAllowedBlogOgImageUrl(url, 'merchant-1')
       )
     ).resolves.toEqual({ dataUri: null, status: 'payload_too_large' });
+  });
+
+  it('rejects bodyless images without a bounded content length before buffering', async () => {
+    const arrayBuffer = vi
+      .fn()
+      .mockResolvedValue(new TextEncoder().encode('bytes').buffer);
+    mockFetch.mockResolvedValue({
+      arrayBuffer,
+      body: null,
+      headers: new Headers({ 'content-type': 'image/png' }),
+      ok: true,
+    } as unknown as Response);
+
+    await expect(
+      loadRemoteImageDataUri(
+        'https://cdn.ogabassey.com/media/merchant-1/blog/raw.png',
+        4000,
+        (url) => isAllowedBlogOgImageUrl(url, 'merchant-1')
+      )
+    ).resolves.toEqual({ dataUri: null, status: 'payload_too_large' });
+    expect(arrayBuffer).not.toHaveBeenCalled();
   });
 
   it('stops reading streamed image bodies that exceed the payload cap', async () => {

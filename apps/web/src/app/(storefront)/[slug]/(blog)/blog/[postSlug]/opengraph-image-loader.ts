@@ -34,6 +34,7 @@ export type RemoteImageLoadResult = {
 
 const RETRYABLE_FEATURED_IMAGE_FALLBACK_STATUSES =
   new Set<RemoteImageLoadStatus>([
+    'source_missing',
     'source_disallowed',
     'fetch_failed',
     'timed_out',
@@ -58,6 +59,10 @@ async function readBoundedResponseBody(
   }
 
   if (!response.body) {
+    if (contentLength === null) {
+      throw new RemoteImagePayloadTooLargeError();
+    }
+
     const bytes = new Uint8Array(await response.arrayBuffer());
     if (bytes.byteLength > MAX_REMOTE_IMAGE_BYTES) {
       throw new RemoteImagePayloadTooLargeError();
@@ -164,7 +169,7 @@ export function loadFeaturedImage(
 }
 
 export async function loadFeaturedImageWithFallback(
-  urls: string[],
+  urls: Array<string | null | undefined>,
   merchantId: string
 ): Promise<RemoteImageLoadResult> {
   const [primaryUrl, fallbackUrl] = urls;
