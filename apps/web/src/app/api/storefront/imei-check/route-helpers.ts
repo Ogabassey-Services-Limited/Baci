@@ -273,15 +273,6 @@ export async function refundAndCacheFailure({
       merchantId,
       supabaseAdmin,
     });
-    await cacheLookupResponse({
-      body,
-      lookupId,
-      sickwStatus,
-      status,
-      supabase,
-      terminalStatus: refundSuccessStatus,
-    });
-    return json(body, status);
   } catch (error) {
     console.error('[IMEI Check] Wallet refund failed:', {
       amount,
@@ -295,16 +286,41 @@ export async function refundAndCacheFailure({
       error:
         'Lookup failed; your refund is pending. We will credit you within 24h.',
     });
-    await cacheLookupResponse({
-      body: refundPendingBody,
-      lookupId,
-      sickwStatus,
-      status: 502,
-      supabase,
-      terminalStatus: refundFailureStatus,
-    });
+    try {
+      await cacheLookupResponse({
+        body: refundPendingBody,
+        lookupId,
+        sickwStatus,
+        status: 502,
+        supabase,
+        terminalStatus: refundFailureStatus,
+      });
+    } catch (cacheError) {
+      console.error('[IMEI Check] Failed to cache refund pending state:', {
+        cacheError,
+        lookupId,
+      });
+    }
     return json(refundPendingBody, 502);
   }
+
+  try {
+    await cacheLookupResponse({
+      body,
+      lookupId,
+      sickwStatus,
+      status,
+      supabase,
+      terminalStatus: refundSuccessStatus,
+    });
+  } catch (cacheError) {
+    console.error('[IMEI Check] Failed to cache refunded lookup state:', {
+      cacheError,
+      lookupId,
+    });
+  }
+
+  return json(body, status);
 }
 
 export async function cacheInsufficientBalanceResponse({

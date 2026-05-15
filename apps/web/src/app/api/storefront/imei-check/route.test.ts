@@ -113,7 +113,10 @@ function createRequest(
 }
 
 function createSupabaseMock(rows: ImeiLookupRow[] = []) {
-  const updates: Record<string, unknown>[] = [];
+  const updates: Array<{
+    filters: Record<string, unknown>;
+    payload: Record<string, unknown>;
+  }> = [];
   let insertedPayload: Record<string, unknown> | null = null;
   let insertError: { code?: string; message: string } | null = null;
 
@@ -128,9 +131,16 @@ function createSupabaseMock(rows: ImeiLookupRow[] = []) {
         throw new Error(`Unexpected table: ${table}`);
       }
       const filters: Record<string, unknown> = {};
+      let activeUpdate: {
+        filters: Record<string, unknown>;
+        payload: Record<string, unknown>;
+      } | null = null;
       const builder = {
         eq: vi.fn((column: string, value: unknown) => {
           filters[column] = value;
+          if (activeUpdate) {
+            activeUpdate.filters[column] = value;
+          }
           return builder;
         }),
         insert: vi.fn((payload: Record<string, unknown>) => {
@@ -168,7 +178,8 @@ function createSupabaseMock(rows: ImeiLookupRow[] = []) {
           return { data: { id }, error: null };
         }),
         update: vi.fn((payload: Record<string, unknown>) => {
-          updates.push(payload);
+          activeUpdate = { filters: { ...filters }, payload };
+          updates.push(activeUpdate);
           return builder;
         }),
       };
@@ -476,8 +487,11 @@ describe('POST /api/storefront/imei-check', () => {
     });
     expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
     expect(supabase.__updates.at(-1)).toMatchObject({
-      cached_status: 402,
-      status: 'wallet_rejected',
+      filters: { id: 'lookup-1' },
+      payload: {
+        cached_status: 402,
+        status: 'wallet_rejected',
+      },
     });
   });
 
@@ -496,10 +510,13 @@ describe('POST /api/storefront/imei-check', () => {
     expect(body.code).toBe('INTERNAL_ERROR');
     expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
     expect(supabase.__updates.at(-1)).toMatchObject({
-      cached_response: body,
-      cached_status: 500,
-      sickw_status: 'wallet_debit_error',
-      status: 'failed_error',
+      filters: { id: 'lookup-1' },
+      payload: {
+        cached_response: body,
+        cached_status: 500,
+        sickw_status: 'wallet_debit_error',
+        status: 'failed_error',
+      },
     });
   });
 
@@ -532,10 +549,13 @@ describe('POST /api/storefront/imei-check', () => {
     expect(callOrder).toEqual(['debit', 'sickw']);
     expect(mocks.mockCreateAdminClient).toHaveBeenCalledOnce();
     expect(supabase.__updates.at(-1)).toMatchObject({
-      response_hash: createHash('sha256')
-        .update('raw-provider-payload')
-        .digest('hex'),
-      status: 'completed',
+      filters: { id: 'lookup-1' },
+      payload: {
+        response_hash: createHash('sha256')
+          .update('raw-provider-payload')
+          .digest('hex'),
+        status: 'completed',
+      },
     });
   });
 
@@ -564,8 +584,11 @@ describe('POST /api/storefront/imei-check', () => {
       expect.objectContaining({ lookupId: 'lookup-1' })
     );
     expect(supabase.__updates.at(-1)).toMatchObject({
-      cached_status: 502,
-      status: 'refunded_error',
+      filters: { id: 'lookup-1' },
+      payload: {
+        cached_status: 502,
+        status: 'refunded_error',
+      },
     });
   });
 
@@ -594,8 +617,11 @@ describe('POST /api/storefront/imei-check', () => {
     expect(response.status).toBe(502);
     expect(body.code).toBe('REFUND_PENDING');
     expect(supabase.__updates.at(-1)).toMatchObject({
-      cached_status: 502,
-      status: 'refund_pending',
+      filters: { id: 'lookup-1' },
+      payload: {
+        cached_status: 502,
+        status: 'refund_pending',
+      },
     });
   });
 

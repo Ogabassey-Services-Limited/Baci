@@ -118,8 +118,8 @@ describe('ImeiCheckFormView', () => {
 
     expect(screen.getByText('Top up to unlock')).toBeTruthy();
     fireEvent.press(screen.getByText('Top up'));
-    fireEvent.press(screen.getByText('Top up to unlock'));
 
+    expect(onTopUpWallet).toHaveBeenCalledTimes(1);
     expect(onTopUpWallet).toHaveBeenCalledWith(1000);
     expect(onCheck).not.toHaveBeenCalled();
   });

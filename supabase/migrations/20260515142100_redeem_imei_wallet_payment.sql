@@ -41,6 +41,17 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.imei_lookups l
+    WHERE l.id = p_lookup_id
+      AND l.customer_id = p_customer_id
+      AND l.merchant_id = p_merchant_id
+  ) THEN
+    RAISE EXCEPTION 'imei_lookup_not_found_for_customer'
+      USING ERRCODE = 'P0001';
+  END IF;
+
   PERFORM pg_advisory_xact_lock(
     ('x' || substr(md5(p_lookup_id::text), 1, 16))::bit(64)::bigint
   );

@@ -55,6 +55,7 @@ REVOKE ALL ON public.imei_lookups FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.imei_lookups TO authenticated;
 GRANT ALL ON public.imei_lookups TO service_role;
 
+DROP POLICY IF EXISTS "customer_reads_own_imei_lookups" ON public.imei_lookups;
 CREATE POLICY "customer_reads_own_imei_lookups" ON public.imei_lookups
   FOR SELECT TO authenticated
   USING (

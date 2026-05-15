@@ -41,6 +41,23 @@ BEGIN
     )
   );
 
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.imei_lookups l
+    JOIN public.customer_wallet_transactions cwt
+      ON cwt.source_id = l.id
+     AND cwt.source_type = 'imei_wallet_payment'
+     AND cwt.customer_id = l.customer_id
+     AND cwt.merchant_id = l.merchant_id
+     AND cwt.type = 'redemption'
+    WHERE l.id = p_lookup_id
+      AND l.customer_id = p_customer_id
+      AND l.merchant_id = p_merchant_id
+  ) THEN
+    RAISE EXCEPTION 'no_imei_wallet_payment_to_refund'
+      USING ERRCODE = 'P0001';
+  END IF;
+
   SELECT
     cwt.wallet_id,
     cwt.balance_after,
