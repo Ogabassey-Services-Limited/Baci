@@ -9,6 +9,7 @@
     "./types": "./src/types/index.ts",
     "./constants": "./src/constants/index.ts",
     "./contracts": "./src/contracts/index.ts",
+    "./imei": "./src/imei/index.ts",
     "./lib": "./src/lib/index.ts",
     "./schemas": "./src/schemas/index.ts",
     "./schemas/merchant-settings": "./src/schemas/merchant-settings.ts",

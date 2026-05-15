@@ -2,6 +2,7 @@
 
 export * from './constants';
 export * from './contracts';
+export * from './imei';
 export * from './lib';
 export * from './receipt';
 export * from './schemas';
