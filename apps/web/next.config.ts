@@ -414,7 +414,7 @@ const nextConfig: NextConfig = {
   headers() {
     return [
       {
-        source: '/ogabassey/hero/:path*',
+        source: '/ogabassey-hero/:path*',
         headers: [
           {
             key: 'Cache-Control',
