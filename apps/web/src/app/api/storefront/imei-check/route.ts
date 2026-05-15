@@ -2,6 +2,7 @@ import {
   IMEI_SERVICE_TIERS,
   PRIMARY_IMEI_SERVICE_TIERS,
 } from '@baci/shared/imei';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
 import { getImeiHashSalt, getRootDomain, getSickwApiKey } from '@/env';
 import { authenticateApiRequest } from '@/lib/api-auth';
@@ -45,6 +46,7 @@ export async function POST(request: NextRequest) {
     merchantId: string;
   } | null = null;
   let debitSucceeded = false;
+  let supabase: SupabaseClient | null = null;
 
   try {
     const rateLimit = await checkRateLimit(request);
@@ -57,12 +59,13 @@ export async function POST(request: NextRequest) {
     }
 
     const auth = await authenticateApiRequest(request);
-    if (auth.error || !auth.user) {
+    if (auth.error || !auth.user || !auth.supabase) {
       return json(
         errorBody({ code: 'AUTH_REQUIRED', error: 'Unauthorized' }),
         401
       );
     }
+    supabase = auth.supabase;
 
     const { valid: csrfValid, response: csrfResponse } =
       await checkCsrfProtection(request);
@@ -143,7 +146,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = createAdminClient();
     const customer = await resolveImeiCustomer({
       merchantId,
       supabase,
@@ -260,7 +262,7 @@ export async function POST(request: NextRequest) {
         customerId: customer.id,
         lookupId: activeLookup.id,
         merchantId,
-        supabaseAdmin: supabase,
+        supabaseAdmin: createAdminClient(),
       });
       debitSucceeded = true;
     } catch (error) {
@@ -317,17 +319,17 @@ export async function POST(request: NextRequest) {
       sickwStatus: providerResult.sickwStatus,
       status: providerResult.status,
       supabase,
+      supabaseAdmin: createAdminClient(),
     });
   } catch (error) {
     console.error('IMEI check error:', error);
-    if (!debitSucceeded && activeLookup) {
+    if (!debitSucceeded && activeLookup && supabase) {
       const body = errorBody({
         code: 'INTERNAL_ERROR',
         error: 'Internal server error',
       });
 
       try {
-        const supabase = createAdminClient();
         await cacheLookupResponse({
           body,
           lookupId: activeLookup.id,
@@ -347,8 +349,7 @@ export async function POST(request: NextRequest) {
       return json(body, 500);
     }
 
-    if (debitSucceeded && activeLookup) {
-      const supabase = createAdminClient();
+    if (debitSucceeded && activeLookup && supabase) {
       return await refundAndCacheFailure({
         amount: activeLookup.amount,
         body: errorBody({
@@ -362,6 +363,7 @@ export async function POST(request: NextRequest) {
         sickwStatus: 'unexpected_error',
         status: 502,
         supabase,
+        supabaseAdmin: createAdminClient(),
       });
     }
 

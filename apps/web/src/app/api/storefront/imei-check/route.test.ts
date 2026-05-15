@@ -179,6 +179,15 @@ function createSupabaseMock(rows: ImeiLookupRow[] = []) {
   return supabase;
 }
 
+function mockAuthenticatedUser(supabase = createSupabaseMock()) {
+  mocks.mockAuthenticateApiRequest.mockResolvedValue({
+    error: null,
+    supabase,
+    user: { email: 'buyer@example.com', id: 'user-1' },
+  });
+  return supabase;
+}
+
 function importRoute() {
   vi.resetModules();
   return import('./route');
@@ -191,11 +200,7 @@ describe('POST /api/storefront/imei-check', () => {
     vi.stubEnv('SICKW_API_KEY', 'test-sickw-key');
 
     mocks.mockAuthenticateApiRequest.mockReset();
-    mocks.mockAuthenticateApiRequest.mockResolvedValue({
-      error: null,
-      supabase: {},
-      user: { email: 'buyer@example.com', id: 'user-1' },
-    });
+    mockAuthenticatedUser();
     mocks.mockCheckCsrfProtection.mockReset();
     mocks.mockCheckCsrfProtection.mockResolvedValue({ valid: true });
     mocks.mockCheckRateLimit.mockReset();
@@ -343,7 +348,7 @@ describe('POST /api/storefront/imei-check', () => {
   it('returns 503 before new persistence when IMEI_HASH_SALT is missing', async () => {
     vi.stubEnv('IMEI_HASH_SALT', '');
     const supabase = createSupabaseMock();
-    mocks.mockCreateAdminClient.mockReturnValueOnce(supabase);
+    mockAuthenticatedUser(supabase);
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -363,7 +368,7 @@ describe('POST /api/storefront/imei-check', () => {
       success: true,
       tier: { checksIncluded: ['device'], name: 'Full Check' },
     };
-    mocks.mockCreateAdminClient.mockReturnValueOnce(
+    mockAuthenticatedUser(
       createSupabaseMock([
         {
           amount_ngn: 1500,
@@ -398,7 +403,7 @@ describe('POST /api/storefront/imei-check', () => {
       required: 1500,
       success: false,
     };
-    mocks.mockCreateAdminClient.mockReturnValueOnce(
+    mockAuthenticatedUser(
       createSupabaseMock([
         {
           amount_ngn: 1500,
@@ -428,7 +433,7 @@ describe('POST /api/storefront/imei-check', () => {
   it('returns 503 before new persistence when SICKW_API_KEY is missing', async () => {
     vi.stubEnv('SICKW_API_KEY', '');
     const supabase = createSupabaseMock();
-    mocks.mockCreateAdminClient.mockReturnValueOnce(supabase);
+    mockAuthenticatedUser(supabase);
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -437,6 +442,7 @@ describe('POST /api/storefront/imei-check', () => {
     expect(response.status).toBe(503);
     expect(body.code).toBe('SICKW_API_KEY_MISSING');
     expect(supabase.from).toHaveBeenCalledOnce();
+    expect(mocks.mockCreateAdminClient).not.toHaveBeenCalled();
     expect(mocks.mockRedeemImeiWalletPayment).not.toHaveBeenCalled();
   });
 
@@ -452,7 +458,7 @@ describe('POST /api/storefront/imei-check', () => {
       .mockResolvedValueOnce(500);
     mocks.mockRedeemImeiWalletPayment.mockRejectedValueOnce(insufficient);
     const supabase = createSupabaseMock();
-    mocks.mockCreateAdminClient.mockReturnValueOnce(supabase);
+    mockAuthenticatedUser(supabase);
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -480,7 +486,7 @@ describe('POST /api/storefront/imei-check', () => {
       new Error('wallet rpc unavailable')
     );
     const supabase = createSupabaseMock();
-    mocks.mockCreateAdminClient.mockReturnValue(supabase);
+    mockAuthenticatedUser(supabase);
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -517,13 +523,14 @@ describe('POST /api/storefront/imei-check', () => {
       };
     });
     const supabase = createSupabaseMock();
-    mocks.mockCreateAdminClient.mockReturnValueOnce(supabase);
+    mockAuthenticatedUser(supabase);
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
 
     expect(response.status).toBe(200);
     expect(callOrder).toEqual(['debit', 'sickw']);
+    expect(mocks.mockCreateAdminClient).toHaveBeenCalledOnce();
     expect(supabase.__updates.at(-1)).toMatchObject({
       response_hash: createHash('sha256')
         .update('raw-provider-payload')
@@ -545,7 +552,7 @@ describe('POST /api/storefront/imei-check', () => {
       status: 502,
     });
     const supabase = createSupabaseMock();
-    mocks.mockCreateAdminClient.mockReturnValueOnce(supabase);
+    mockAuthenticatedUser(supabase);
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -578,7 +585,7 @@ describe('POST /api/storefront/imei-check', () => {
       new Error('refund rpc down')
     );
     const supabase = createSupabaseMock();
-    mocks.mockCreateAdminClient.mockReturnValueOnce(supabase);
+    mockAuthenticatedUser(supabase);
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -593,7 +600,7 @@ describe('POST /api/storefront/imei-check', () => {
   });
 
   it('returns 409 on Idempotency-Key reuse with a different fingerprint', async () => {
-    mocks.mockCreateAdminClient.mockReturnValueOnce(
+    mockAuthenticatedUser(
       createSupabaseMock([
         {
           amount_ngn: 1500,
@@ -638,7 +645,7 @@ describe('POST /api/storefront/imei-check', () => {
       },
     ]);
     supabase.__setInsertError({ code: '23505', message: 'duplicate key' });
-    mocks.mockCreateAdminClient.mockReturnValueOnce(supabase);
+    mockAuthenticatedUser(supabase);
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());

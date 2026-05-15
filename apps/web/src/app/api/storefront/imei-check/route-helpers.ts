@@ -1,5 +1,6 @@
 import { createHmac } from 'node:crypto';
 import type { ImeiServiceTierKey } from '@baci/shared/imei';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
 import {
   hashProviderResponse,
@@ -9,6 +10,8 @@ import {
   type SickwLookupResult,
 } from '@/lib/imei-lookup-fulfillment';
 import type { createAdminClient } from '@/lib/supabase/admin';
+
+type AdminSupabaseClient = ReturnType<typeof createAdminClient>;
 
 export const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -186,7 +189,7 @@ export function mapExistingTerminalLookupWithoutImeiHash(
 }
 
 export async function findLookupByIdempotencyKey(
-  supabase: ReturnType<typeof createAdminClient>,
+  supabase: SupabaseClient,
   idempotencyKey: string
 ) {
   const { data, error } = await supabase
@@ -218,7 +221,7 @@ export async function cacheLookupResponse({
   responseHash?: string;
   sickwStatus?: string;
   status: number;
-  supabase: ReturnType<typeof createAdminClient>;
+  supabase: SupabaseClient;
   terminalStatus: ImeiLookupStatus;
 }) {
   const { error } = await supabase
@@ -248,6 +251,7 @@ export async function refundAndCacheFailure({
   sickwStatus,
   status,
   supabase,
+  supabaseAdmin,
 }: {
   amount: number;
   body: ImeiLookupResponseBody;
@@ -258,7 +262,8 @@ export async function refundAndCacheFailure({
   refundSuccessStatus: ImeiLookupStatus;
   sickwStatus?: string;
   status: number;
-  supabase: ReturnType<typeof createAdminClient>;
+  supabase: SupabaseClient;
+  supabaseAdmin: AdminSupabaseClient;
 }) {
   try {
     await refundImeiWalletPayment({
@@ -266,7 +271,7 @@ export async function refundAndCacheFailure({
       customerId,
       lookupId,
       merchantId,
-      supabaseAdmin: supabase,
+      supabaseAdmin,
     });
     await cacheLookupResponse({
       body,
@@ -315,7 +320,7 @@ export async function cacheInsufficientBalanceResponse({
   lookupId: string;
   merchantId: string;
   preflightBalance: number;
-  supabase: ReturnType<typeof createAdminClient>;
+  supabase: SupabaseClient;
 }) {
   let currentBalance = preflightBalance;
   try {
@@ -360,7 +365,7 @@ export async function cacheSuccessfulLookup({
   lookupId: string;
   merchantId: string;
   providerResult: Extract<SickwLookupResult, { ok: true }>;
-  supabase: ReturnType<typeof createAdminClient>;
+  supabase: SupabaseClient;
   tier: ImeiServiceTierKey;
 }) {
   await cacheLookupResponse({
