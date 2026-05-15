@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type React from 'react';
 import { Suspense } from 'react';
@@ -12,8 +13,12 @@ import { StorefrontCartProvider } from '@/hooks/cart/storefront-cart-provider';
 import { StorefrontMerchantProvider } from '@/hooks/merchant/storefront-merchant-provider';
 import type { MerchantData } from '@/hooks/merchant/types';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
-import { buildStoreUrl } from '@/lib/store-url';
+import { buildRequestScopedStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
+import {
+  getStorefrontSeoDescription,
+  getStorefrontSeoTitle,
+} from './seo-helpers';
 import {
   getStorefrontShellSnapshot,
   getStorefrontShellSnapshotBase,
@@ -119,11 +124,9 @@ export async function generateMetadata({
         : undefined;
 
   // Build SEO-friendly description with proper fallbacks
-  const description =
-    merchant.site_description ||
-    merchant.site_tagline ||
-    `Shop ${merchant.business_name} - Buy gadgets, electronics, and more with flexible payment options in Nigeria.`;
-  const baseUrl = buildStoreUrl(merchant);
+  const description = getStorefrontSeoDescription(merchant);
+  const headersList = await headers();
+  const baseUrl = buildRequestScopedStoreUrl(merchant, headersList);
   let metadataBase: URL | undefined;
 
   try {
@@ -134,9 +137,7 @@ export async function generateMetadata({
 
   return {
     metadataBase,
-    title:
-      merchant.site_title ||
-      `${merchant.business_name} | Buy Gadgets Pay Later`,
+    title: getStorefrontSeoTitle(merchant),
     description,
     icons,
     verification: verificationCode

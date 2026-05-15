@@ -553,7 +553,9 @@ export async function POST(request: NextRequest) {
         name: body.name,
         description: description,
         price: body.price,
-        stock_quantity: body.stock,
+        stock: body.stock ?? 0,
+        stock_quantity: body.stock ?? 0,
+        manage_stock: body.manage_stock ?? true,
 
         // New fields
         sku: sku,

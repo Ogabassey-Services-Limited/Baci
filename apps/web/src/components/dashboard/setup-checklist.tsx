@@ -39,6 +39,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
+import { requestMerchantPublish } from '@/lib/merchant-publish-client';
 import { cn } from '@/lib/utils';
 
 const categoryIcons = {
@@ -206,9 +207,7 @@ export function SetupChecklist({
 
     setPublishing(true);
     try {
-      const response = await fetch('/api/merchant/publish', {
-        method: 'POST',
-      });
+      const response = await requestMerchantPublish(false);
 
       if (response.ok) {
         toast({

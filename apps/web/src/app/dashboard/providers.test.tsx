@@ -5,6 +5,13 @@ import { DashboardProviders } from './providers';
 const appBodyMock = vi.fn(({ children }: { children: React.ReactNode }) => (
   <div data-testid="app-body">{children}</div>
 ));
+const authProviderMock = vi.fn(
+  ({ children }: { children: React.ReactNode; initialUser?: unknown }) => (
+    <section aria-label="Auth Provider" data-testid="auth-provider">
+      {children}
+    </section>
+  )
+);
 
 interface NonceProviderState {
   nonce?: string;
@@ -13,9 +20,8 @@ interface NonceProviderState {
 const nonceProviderState: NonceProviderState = {};
 
 vi.mock('@/contexts/auth-context', () => ({
-  AuthProvider: ({ children }: { children: React.ReactNode }) => (
-    <section aria-label="Auth Provider">{children}</section>
-  ),
+  AuthProvider: (props: { children: React.ReactNode; initialUser?: unknown }) =>
+    authProviderMock(props),
 }));
 
 vi.mock('next-themes', () => ({
@@ -87,6 +93,7 @@ describe('DashboardProviders', () => {
   beforeEach(() => {
     appBodyMock.mockClear();
     nonceProviderState.nonce = undefined;
+    authProviderMock.mockClear();
   });
 
   it('renders children within provider tree', () => {
@@ -149,6 +156,32 @@ describe('DashboardProviders', () => {
     expect(
       screen.getByRole('region', { name: 'Auth Provider' })
     ).toBeInTheDocument();
+  });
+
+  it('passes the server-authenticated user into AuthProvider', () => {
+    const initialUser = { id: 'user-1' };
+
+    render(
+      <DashboardProviders initialUser={initialUser as never}>
+        <div>Content</div>
+      </DashboardProviders>
+    );
+
+    expect(authProviderMock).toHaveBeenCalledWith(
+      expect.objectContaining({ initialUser })
+    );
+  });
+
+  it('handles missing initialUser gracefully', () => {
+    render(
+      <DashboardProviders>
+        <div>Content</div>
+      </DashboardProviders>
+    );
+
+    expect(authProviderMock).toHaveBeenCalledWith(
+      expect.objectContaining({ initialUser: undefined })
+    );
   });
 
   it('wraps children in ThemeProvider', () => {
