@@ -430,17 +430,13 @@ export default function HomeScreen() {
             primaryProductGridFound = true;
           }
           const isUtilityBlock = block.type === 'CategoryRail';
-          const renderedBlock: Block = isPrimaryProductGrid
-            ? { ...block, props: { ...block.props, title: '' } }
-            : block;
-
           return (
             <View
               key={block.props?.id || `block-${index}`}
               style={styles.blockWrapper}
             >
               <BlockRenderer
-                blocks={[renderedBlock]}
+                blocks={[block]}
                 productGridLoadMoreSignal={
                   isPrimaryProductGrid ? productGridLoadMoreSignal : 0
                 }
