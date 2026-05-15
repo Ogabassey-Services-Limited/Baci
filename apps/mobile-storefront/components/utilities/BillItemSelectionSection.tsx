@@ -10,6 +10,7 @@ import { BRAND } from '@/constants/Colors';
 import type { BillItem } from '@/hooks/use-vtu-billers';
 import type { useVTUVerify } from '@/hooks/use-vtu-verify';
 import type { UtilityBeneficiary } from '@/lib/utility-beneficiaries';
+import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
 import { BeneficiaryList } from './BeneficiaryList';
 import {
   IDENTIFIER_LABELS,
@@ -19,6 +20,7 @@ import { getBillItemLevelLabel } from './bill-form.helpers';
 import type { BillFormProps } from './bill-form.types';
 import { billFormStyles as styles } from './bill-form-styles';
 import type { BillItemSelectionState } from './bill-item-selection';
+import { RecentUtilityRecipients } from './RecentUtilityRecipients';
 import { VerificationCard } from './VerificationCard';
 
 type VerifyState = ReturnType<typeof useVTUVerify>;
@@ -51,6 +53,20 @@ function getVerifyErrorMessage(error: unknown): string | undefined {
   return String(error);
 }
 
+function getBillRecipientKey(
+  billItemIdentifier: string | undefined,
+  customerId: string | undefined
+): string | null {
+  const trimmedBillItemIdentifier = billItemIdentifier?.trim();
+  const trimmedCustomerId = customerId?.trim();
+
+  if (!trimmedBillItemIdentifier || !trimmedCustomerId) {
+    return null;
+  }
+
+  return `${trimmedBillItemIdentifier}:${trimmedCustomerId}`;
+}
+
 interface BillItemSelectionSectionProps {
   beneficiaries: UtilityBeneficiary[];
   billItemSelection: BillItemSelectionState;
@@ -61,6 +77,8 @@ interface BillItemSelectionSectionProps {
   handleVerify: () => void;
   isBillItemSelectionComplete: boolean;
   isRepeatPaymentActive: boolean;
+  recentRecipients?: UtilityRepeatRecipient[];
+  onSelectRecentRecipient?: (recipient: UtilityRepeatRecipient) => void;
   verifiedCustomerName?: string | null;
   selectedBillItemIdentifier: string | null;
   selectedBillerId: string;
@@ -80,6 +98,8 @@ export function BillItemSelectionSection({
   handleVerify,
   isBillItemSelectionComplete,
   isRepeatPaymentActive,
+  recentRecipients = [],
+  onSelectRecentRecipient,
   verifiedCustomerName,
   selectedBillItemIdentifier,
   selectedBillerId,
@@ -92,6 +112,24 @@ export function BillItemSelectionSection({
   const isVerified = isRepeatPaymentActive || (verify.data?.verified ?? false);
   const isVerifyDisabled =
     !trimmedCustomerId || !selectedBillItemIdentifier || verify.isPending;
+  const recentRecipientKeys = new Set(
+    recentRecipients
+      .map((recipient) =>
+        getBillRecipientKey(
+          recipient.defaults.billItemIdentifier,
+          recipient.defaults.customerIdentifier ?? recipient.identifier
+        )
+      )
+      .filter((key): key is string => key !== null)
+  );
+  const visibleBeneficiaries = beneficiaries.filter((beneficiary) => {
+    const beneficiaryKey = getBillRecipientKey(
+      beneficiary.billItemIdentifier,
+      beneficiary.customerId
+    );
+
+    return !beneficiaryKey || !recentRecipientKeys.has(beneficiaryKey);
+  });
 
   return (
     <>
@@ -244,8 +282,16 @@ export function BillItemSelectionSection({
             )}
           </View>
 
+          {recentRecipients.length > 0 && onSelectRecentRecipient ? (
+            <RecentUtilityRecipients
+              colors={colors}
+              recipients={recentRecipients}
+              onSelect={onSelectRecentRecipient}
+            />
+          ) : null}
+
           <BeneficiaryList
-            beneficiaries={beneficiaries}
+            beneficiaries={visibleBeneficiaries}
             colors={colors}
             onSelect={handleSelectBeneficiary}
           />

@@ -18,12 +18,6 @@ const UTILITY_PURCHASE_STYLE_TOKENS = {
   headerPaddingHorizontal: 24,
   headerSideWidth: 68,
   marginBottomSm: 8,
-  quickRepeatBorderRadius: 16,
-  quickRepeatGap: 10,
-  quickRepeatHorizontalInset: 16,
-  quickRepeatMarginTop: 2,
-  quickRepeatPaddingHorizontal: 14,
-  quickRepeatPaddingVertical: 12,
 } as const;
 
 export const utilityPurchaseStyles = StyleSheet.create({
@@ -96,38 +90,6 @@ export const utilityPurchaseStyles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: UTILITY_PURCHASE_STYLE_TOKENS.fontSizeMd,
-    fontWeight: UTILITY_PURCHASE_STYLE_TOKENS.fontWeightSemibold,
-  },
-  quickRepeatBase: {
-    alignItems: 'center',
-    borderRadius: UTILITY_PURCHASE_STYLE_TOKENS.quickRepeatBorderRadius,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: UTILITY_PURCHASE_STYLE_TOKENS.quickRepeatGap,
-    left: UTILITY_PURCHASE_STYLE_TOKENS.quickRepeatHorizontalInset,
-    paddingHorizontal:
-      UTILITY_PURCHASE_STYLE_TOKENS.quickRepeatPaddingHorizontal,
-    paddingVertical: UTILITY_PURCHASE_STYLE_TOKENS.quickRepeatPaddingVertical,
-    position: 'absolute',
-    right: UTILITY_PURCHASE_STYLE_TOKENS.quickRepeatHorizontalInset,
-  },
-  quickRepeatButton: {
-    ...SHADOWS.lg,
-  },
-  quickRepeatCopy: {
-    flex: 1,
-  },
-  quickRepeatDetail: {
-    fontSize: UTILITY_PURCHASE_STYLE_TOKENS.fontSizeSm,
-    marginTop: UTILITY_PURCHASE_STYLE_TOKENS.quickRepeatMarginTop,
-  },
-  quickRepeatLabel: {
-    fontSize: UTILITY_PURCHASE_STYLE_TOKENS.fontSizeMd,
-    fontWeight: UTILITY_PURCHASE_STYLE_TOKENS.fontWeightBold,
-  },
-  quickRepeatNoticeText: {
-    flex: 1,
-    fontSize: UTILITY_PURCHASE_STYLE_TOKENS.fontSizeSm,
     fontWeight: UTILITY_PURCHASE_STYLE_TOKENS.fontWeightSemibold,
   },
 });

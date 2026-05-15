@@ -12,12 +12,14 @@ import Colors, { BRAND, SPACING } from '@/constants/Colors';
 import { airtimeFormStyles as styles } from './airtime-form.styles';
 import type { AirtimeFormProps } from './airtime-form.types';
 import { ProviderGrid } from './ProviderGrid';
+import { RecentUtilityRecipients } from './RecentUtilityRecipients';
 import { UtilityPaymentOptions } from './UtilityPaymentOptions';
 import { useAirtimeFormController } from './use-airtime-form-controller';
 
 const QUICK_AMOUNTS = [100, 200, 500, 1000, 2000, 5000];
 
 export function AirtimeForm(props: AirtimeFormProps) {
+  const { onSelectRecentRecipient, recentRecipients = [] } = props;
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const form = useAirtimeFormController(props);
@@ -58,6 +60,14 @@ export function AirtimeForm(props: AirtimeFormProps) {
             onChangeText={form.handlePhoneChange}
           />
         </View>
+
+        {recentRecipients.length > 0 && onSelectRecentRecipient ? (
+          <RecentUtilityRecipients
+            colors={colors}
+            recipients={recentRecipients}
+            onSelect={onSelectRecentRecipient}
+          />
+        ) : null}
 
         {shouldShowSelectedNetwork ? (
           <View

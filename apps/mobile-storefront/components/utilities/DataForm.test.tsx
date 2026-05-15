@@ -3,10 +3,12 @@ import {
   fireEvent,
   render,
   screen,
+  userEvent,
   waitFor,
 } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import type { ExtractState } from 'zustand/vanilla';
+import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
 import { VtuPaymentStillProcessingError } from '@/lib/vtu-checkout';
 import type { useAuthStore as useAuthStoreType } from '@/stores/auth-store';
 import { DataForm } from './DataForm';
@@ -54,6 +56,21 @@ const mockAuthStoreState = {
   session: null,
   user: null,
 } satisfies AuthStorePartial;
+
+const recentRecipient: UtilityRepeatRecipient = {
+  id: 'data-1',
+  title: 'MTN',
+  identifierLabel: 'Phone Number',
+  identifier: '08012345678',
+  meta: '₦1,000',
+  defaults: {
+    amount: '1000',
+    dataPlanCode: 'mtn-1gb',
+    isVerified: true,
+    networkProvider: 'mtn',
+    phoneNumber: '08012345678',
+  },
+};
 
 jest.mock('expo-router', () => ({
   router: {
@@ -192,6 +209,28 @@ describe('DataForm', () => {
     expect(screen.getByText('MTN 1GB Data')).toBeOnTheScreen();
     expect(screen.queryByText('Airtel 1GB Data')).toBeNull();
     expect(screen.getByLabelText('Change selected provider')).toBeOnTheScreen();
+  });
+
+  it('renders recent recipients under the phone number field', async () => {
+    const user = userEvent.setup();
+    const onSelectRecentRecipient = jest.fn();
+
+    render(
+      <DataForm
+        onSuccess={jest.fn()}
+        recentRecipients={[recentRecipient]}
+        onSelectRecentRecipient={onSelectRecentRecipient}
+      />
+    );
+
+    expect(screen.getByText('Select Beneficiary')).toBeOnTheScreen();
+    expect(screen.getByText('Phone Number: 08012345678')).toBeOnTheScreen();
+
+    await user.press(
+      screen.getByLabelText('Select MTN, Phone Number 08012345678')
+    );
+
+    expect(onSelectRecentRecipient).toHaveBeenCalledWith(recentRecipient);
   });
 
   it('shows validation feedback when required data purchase fields are missing', () => {
