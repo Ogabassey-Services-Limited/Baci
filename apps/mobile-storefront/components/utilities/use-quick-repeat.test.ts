@@ -1,8 +1,9 @@
 import { jest } from '@jest/globals';
-import { renderHook } from '@testing-library/react-native';
+import { act, renderHook } from '@testing-library/react-native';
 import { useQuickRepeat } from '@/components/utilities/use-quick-repeat';
 import type { VTUHistoryTransaction } from '@/hooks/use-vtu-history';
 import { useVTUHistory } from '@/hooks/use-vtu-history';
+import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
 
 jest.mock('@/hooks/use-vtu-history', () => ({
   useVTUHistory: jest.fn(),
@@ -44,7 +45,7 @@ describe('useQuickRepeat', () => {
     mockVTUHistoryReturn();
   });
 
-  it('selects the most recent successful matching transaction from recent history', () => {
+  it('maps successful matching transactions into recent recipients', () => {
     const failedLatest = createTransaction({
       id: 'tx-failed',
       status: 'failed',
@@ -63,37 +64,19 @@ describe('useQuickRepeat', () => {
       useQuickRepeat({
         currentType: 'airtime',
         historyFilter: 'airtime',
-        isKeyboardVisible: false,
         routeType: null,
-        title: 'airtime',
       })
     );
 
     expect(mockUseVTUHistory).toHaveBeenCalledWith('airtime', 5);
-    expect(result.current.lastTransaction?.id).toBe('tx-success');
-    expect(result.current.showQuickRepeat).toBe(true);
-  });
-
-  it('suppresses quick repeat while the keyboard is visible', () => {
-    mockVTUHistoryReturn({
-      data: [createTransaction({ id: 'tx-success' })],
-      error: null,
-      isLoading: false,
-    });
-
-    const { result } = renderHook(() =>
-      useQuickRepeat({
-        currentType: 'airtime',
-        historyFilter: 'airtime',
-        isKeyboardVisible: true,
-        routeType: null,
-        title: 'airtime',
+    expect(result.current.recentRecipients).toHaveLength(1);
+    expect(result.current.recentRecipients[0]).toEqual(
+      expect.objectContaining({
+        id: 'tx-success',
+        identifier: '08012345678',
+        identifierLabel: 'Phone Number',
       })
     );
-
-    expect(result.current.lastTransaction?.id).toBe('tx-success');
-    expect(result.current.quickRepeatNotice).toBeNull();
-    expect(result.current.showQuickRepeat).toBe(false);
   });
 
   it('uses route repeat defaults when a non-null route type matches the current type', () => {
@@ -101,14 +84,12 @@ describe('useQuickRepeat', () => {
       useQuickRepeat({
         currentType: 'data',
         historyFilter: 'data',
-        isKeyboardVisible: false,
         repeatAmount: 1500,
         repeatDataPlanCode: 'daily-1gb',
         repeatNetworkProvider: 'mtn',
         repeatPhoneNumber: '08012345678',
         repeatVerified: true,
         routeType: 'data',
-        title: 'data',
       })
     );
 
@@ -127,7 +108,6 @@ describe('useQuickRepeat', () => {
       useQuickRepeat({
         currentType: 'power',
         historyFilter: 'power',
-        isKeyboardVisible: false,
         repeatAmount: 2000,
         repeatBillerName: 'EKEDC NG',
         repeatBillItemIdentifier: 'KUD-ELE-EKED-001',
@@ -135,7 +115,6 @@ describe('useQuickRepeat', () => {
         repeatCustomerName: 'JANE CUSTOMER',
         repeatVerified: true,
         routeType: 'power',
-        title: 'Electricity',
       })
     );
 
@@ -145,72 +124,21 @@ describe('useQuickRepeat', () => {
     });
   });
 
-  it('returns a loading notice while recent transactions are loading', () => {
-    mockVTUHistoryReturn({
-      data: undefined,
-      error: null,
-      isLoading: true,
-    });
-
-    const { result } = renderHook(() =>
-      useQuickRepeat({
-        currentType: 'data',
-        historyFilter: 'data',
-        isKeyboardVisible: false,
-        routeType: null,
-        title: 'data',
-      })
-    );
-
-    expect(result.current.quickRepeatNotice).toBe(
-      'Checking recent data transactions...'
-    );
-    expect(result.current.showQuickRepeat).toBe(false);
-  });
-
-  it('returns an error notice when recent transactions fail to load', () => {
-    mockVTUHistoryReturn({
-      data: [createTransaction()],
-      error: new Error('history failed'),
-      isLoading: false,
-    });
-
-    const { result } = renderHook(() =>
-      useQuickRepeat({
-        currentType: 'airtime',
-        historyFilter: 'airtime',
-        isKeyboardVisible: false,
-        routeType: null,
-        title: 'airtime',
-      })
-    );
-
-    expect(result.current.quickRepeatNotice).toBe(
-      'Recent airtime transactions unavailable.'
-    );
-    expect(result.current.lastTransaction?.id).toBe('tx-1');
-    expect(result.current.showQuickRepeat).toBe(false);
-  });
-
-  it('does not show quick repeat when recent history is empty', () => {
+  it('returns no recent recipients when recent history is empty', () => {
     mockVTUHistoryReturn({ data: [] });
 
     const { result } = renderHook(() =>
       useQuickRepeat({
         currentType: 'airtime',
         historyFilter: 'airtime',
-        isKeyboardVisible: false,
         routeType: null,
-        title: 'airtime',
       })
     );
 
-    expect(result.current.lastTransaction).toBeNull();
-    expect(result.current.quickRepeatNotice).toBeNull();
-    expect(result.current.showQuickRepeat).toBe(false);
+    expect(result.current.recentRecipients).toEqual([]);
   });
 
-  it('does not show quick repeat when every recent transaction failed', () => {
+  it('returns no recent recipients when every recent transaction failed', () => {
     mockVTUHistoryReturn({
       data: [
         createTransaction({ id: 'tx-failed-1', status: 'failed' }),
@@ -222,14 +150,54 @@ describe('useQuickRepeat', () => {
       useQuickRepeat({
         currentType: 'airtime',
         historyFilter: 'airtime',
-        isKeyboardVisible: false,
         routeType: null,
-        title: 'airtime',
       })
     );
 
-    expect(result.current.lastTransaction).toBeNull();
-    expect(result.current.quickRepeatNotice).toBeNull();
-    expect(result.current.showQuickRepeat).toBe(false);
+    expect(result.current.recentRecipients).toEqual([]);
+  });
+
+  it('populates repeat defaults and bumps repeat revision when a recipient is selected', () => {
+    const recipient: UtilityRepeatRecipient = {
+      id: 'txn-1',
+      title: 'OLUROTIMI ADEBANJO',
+      identifierLabel: 'Meter Number',
+      identifier: '43901766923',
+      meta: '₦2,500',
+      defaults: {
+        amount: '2500',
+        billerName: 'EKEDC NG',
+        billItemIdentifier: 'KUD-ELE-EKED-002',
+        customerIdentifier: '43901766923',
+        customerName: 'OLUROTIMI ADEBANJO',
+        isVerified: true,
+      },
+    };
+
+    const { result, rerender } = renderHook(() =>
+      useQuickRepeat({
+        currentType: 'power',
+        historyFilter: 'power',
+        routeType: null,
+      })
+    );
+
+    expect(result.current.repeatDefaults.isVerified).toBeFalsy();
+    const initialRevision = result.current.repeatRevision;
+
+    act(() => {
+      result.current.handleRecipientSelect(recipient);
+    });
+
+    expect(result.current.repeatDefaults).toMatchObject({
+      amount: '2500',
+      customerIdentifier: '43901766923',
+      isVerified: true,
+    });
+    expect(result.current.repeatRevision).toBe(initialRevision + 1);
+
+    rerender();
+
+    expect(result.current.repeatDefaults.isVerified).toBe(true);
   });
 });

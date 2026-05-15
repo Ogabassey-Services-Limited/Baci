@@ -1,3 +1,5 @@
+import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
+
 export type BillFormStatus =
   | 'processing'
   | 'successful'
@@ -45,6 +47,8 @@ export interface BillFormProps {
    */
   initialCustomerName?: string;
   isRepeatPaymentReady?: boolean;
+  recentRecipients?: UtilityRepeatRecipient[];
+  onSelectRecentRecipient?: (recipient: UtilityRepeatRecipient) => void;
   /** Extra bottom padding to clear floating overlays (e.g. the QuickRepeatPrompt). */
   extraScrollPadding?: number;
 }

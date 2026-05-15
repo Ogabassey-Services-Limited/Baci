@@ -1,4 +1,5 @@
 import type { NetworkProviderId } from '@/constants/network-providers';
+import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
 
 /** Whole-naira amount parsed from the formatted form input before submission. */
 export type AirtimeAmount = number;
@@ -49,4 +50,6 @@ export interface AirtimeFormProps {
   initialPhoneNumber?: string;
   initialProvider?: NetworkProviderId;
   isRepeatPaymentReady?: boolean;
+  recentRecipients?: UtilityRepeatRecipient[];
+  onSelectRecentRecipient?: (recipient: UtilityRepeatRecipient) => void;
 }
