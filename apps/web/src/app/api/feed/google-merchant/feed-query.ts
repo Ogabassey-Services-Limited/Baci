@@ -5,4 +5,5 @@ export const FEED_PRODUCTS_SELECT = `id, name, description, slug, price, compare
   google_product_category, category, canonical_url, color,
   product_key_specs(screen_size_inches, ram_gb, storage_gb, main_camera_mp, weight_g, available_colors, display_resolution, front_camera_mp),
   weight_value, weight_unit, created_at,
+  categories:category_id(name, slug),
   product_categories(categories(name, slug)), updated_at`;
