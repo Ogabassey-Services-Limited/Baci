@@ -297,10 +297,8 @@ describe('ProductDetailsPage', () => {
       'utf8'
     );
 
-    expect(source).not.toContain(
-      "import { NegotiationModal } from '../components/NegotiationModal';"
-    );
-    expect(source).toContain("import('../components/NegotiationModal')");
+    expect(source).not.toMatch(/import\s*{\s*NegotiationModal\s*}\s*from/);
+    expect(source).toMatch(/import\([^)]*NegotiationModal[^)]*\)/);
   });
 
   it('uses the real review count and exposes the reviews tab panel semantics', async () => {

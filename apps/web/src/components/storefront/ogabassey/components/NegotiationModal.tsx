@@ -3,7 +3,7 @@
 // Migrated from temp-source/components/NegotiationModal.tsx
 import { CheckCircle2, HandCoins, Loader2, Upload, X } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 interface NegotiationModalProps {
@@ -51,12 +51,21 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   // Upload Evidence State
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadLink, setUploadLink] = useState('');
+  const submitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const supabase = createClient();
+
+  const clearSubmitTimeout = () => {
+    if (submitTimeoutRef.current) {
+      clearTimeout(submitTimeoutRef.current);
+      submitTimeoutRef.current = null;
+    }
+  };
 
   // Reset state when opened
   useEffect(() => {
     if (isOpen) {
+      clearSubmitTimeout();
       setOffer('');
       setStatus('input');
       setMessage('');
@@ -64,8 +73,17 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       setCounterOffer(null);
       setUploadFile(null);
       setUploadLink('');
+      return;
     }
+
+    clearSubmitTimeout();
   }, [isOpen]);
+
+  useEffect(() => {
+    return () => {
+      clearSubmitTimeout();
+    };
+  }, []);
 
   if (!isOpen) return null;
 
@@ -77,7 +95,9 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
     const offerAmount = Number.parseFloat(offer);
 
     // Simulate AI thinking delay
-    setTimeout(() => {
+    clearSubmitTimeout();
+    submitTimeoutRef.current = setTimeout(() => {
+      submitTimeoutRef.current = null;
       const discountPercentage = 1 - offerAmount / currentPrice;
 
       // 5% Hard Floor
