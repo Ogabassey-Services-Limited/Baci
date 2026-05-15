@@ -59,6 +59,7 @@ type AgentCommerceCheckoutLinks = {
 
 type AgentCommerceLinks = AgentPolicyUrls &
   Partial<AgentCommerceCheckoutLinks> & {
+    agent_native_commerce: string;
     feeds: {
       agent_products: string;
       google_merchant_xml: string;
@@ -131,6 +132,10 @@ export function buildAgentCommerceManifest(
     payment_methods: checkoutEnabled ? paymentMethods : [],
     auth: signedAgentReadsEnabled ? buildAgenticCheckoutAuth() : null,
     links: {
+      agent_native_commerce: buildUrl(
+        baseUrl,
+        STOREFRONT_AGENT_ROUTES.agentNativeCommerce
+      ),
       llms: buildUrl(baseUrl, '/llms.txt'),
       llms_full: buildUrl(baseUrl, '/llms-full.txt'),
       trust: buildUrl(baseUrl, STOREFRONT_AGENT_ROUTES.trust),
