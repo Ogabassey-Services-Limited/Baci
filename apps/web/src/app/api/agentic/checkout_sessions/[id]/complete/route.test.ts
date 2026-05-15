@@ -16,6 +16,8 @@ const mockVerifyAgenticApiKey = vi.fn(() => true);
 const mockResolveAgenticMerchantContext = vi.fn(() =>
   Promise.resolve<{
     agentic_checkout_enabled?: boolean;
+    agent_user_agent_allowlist?: string[];
+    agent_user_agent_denylist?: string[];
     id: string;
     paystack_subaccount_code: string | null;
     pay_on_delivery_enabled: boolean;
@@ -163,6 +165,29 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete', () => {
         status: 403,
       })
     );
+    expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
+    expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when the caller user-agent is not allowlisted', async () => {
+    mockResolveAgenticMerchantContext.mockResolvedValue({
+      agent_user_agent_allowlist: ['trusted-agent'],
+      id: 'merchant-1',
+      pay_on_delivery_enabled: true,
+      paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+      slug: 'ogabassey',
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(buildCompleteRequest(), {
+      params: Promise.resolve({ id: 'agentic_session_1' }),
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({ error: 'Agent client not allowlisted' });
+    expect(reserveAgenticIdempotencyKey).not.toHaveBeenCalled();
+    expect(storeAgenticIdempotencyResponse).not.toHaveBeenCalled();
     expect(createDedicatedVirtualAccount).not.toHaveBeenCalled();
     expect(createAgenticCheckoutOrder).not.toHaveBeenCalled();
   });

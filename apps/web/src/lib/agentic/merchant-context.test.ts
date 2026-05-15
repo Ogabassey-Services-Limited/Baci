@@ -153,6 +153,10 @@ describe('resolveAgenticMerchantContext', () => {
     const mock = createMerchantWithFeatureSettingsLookupMock({
       featureSettings: {
         agentic_checkout_enabled: false,
+        custom_settings: {
+          agentic_agent_allowlist: ['openai-agent'],
+          agentic_agent_denylist: ['blocked-agent'],
+        },
         pay_on_delivery_enabled: true,
       },
       merchant: {
@@ -166,6 +170,8 @@ describe('resolveAgenticMerchantContext', () => {
     const context = await resolveAgenticMerchantContext(mock.supabase as never);
 
     expect(context?.agentic_checkout_enabled).toBe(false);
+    expect(context?.agent_user_agent_allowlist).toEqual(['openai-agent']);
+    expect(context?.agent_user_agent_denylist).toEqual(['blocked-agent']);
     expect(context?.pay_on_delivery_enabled).toBe(true);
     expect(mock.settingsEq).toHaveBeenCalledWith('merchant_id', 'merchant-2');
   });

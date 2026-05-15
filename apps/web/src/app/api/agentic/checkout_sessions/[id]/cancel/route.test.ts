@@ -12,6 +12,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 const mockVerifyAgenticApiKey = vi.fn(() => true);
 type MockAgenticMerchantContext = {
   agentic_checkout_enabled?: boolean;
+  agent_user_agent_allowlist?: string[];
+  agent_user_agent_denylist?: string[];
   id: string;
   slug: string;
 };
@@ -279,6 +281,32 @@ describe('POST /api/agentic/checkout_sessions/[id]/cancel', () => {
         status: 403,
       })
     );
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when the caller user-agent is not allowlisted', async () => {
+    mockResolveAgenticMerchantContext.mockResolvedValueOnce({
+      agent_user_agent_allowlist: ['trusted-agent'],
+      id: 'merchant-1',
+      slug: 'ogabassey',
+    });
+    vi.mocked(createAdminClient).mockReturnValue({} as never);
+
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout_sessions/agentic_session_1/cancel',
+      { method: 'POST', headers: { 'idempotency-key': 'idem-1' } }
+    );
+    const params = { params: Promise.resolve({ id: 'agentic_session_1' }) };
+
+    const { POST } = await import('./route');
+    const response = await POST(request, params);
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({ error: 'Agent client not allowlisted' });
+    expect(createAgenticScopedSupabaseClient).not.toHaveBeenCalled();
+    expect(reserveAgenticIdempotencyKey).not.toHaveBeenCalled();
+    expect(storeAgenticIdempotencyResponse).not.toHaveBeenCalled();
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 
