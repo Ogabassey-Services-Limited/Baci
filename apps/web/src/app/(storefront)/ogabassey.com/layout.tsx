@@ -34,7 +34,6 @@ export default function OgabasseyDomainLayout({
 }) {
   return (
     <StorefrontLayout
-      enableDynamicHeroPreloadDecision={false}
       loadingFallback={<StorefrontLayoutLoadingFallback />}
       params={OGABASSEY_DOMAIN_PARAMS}
     >
