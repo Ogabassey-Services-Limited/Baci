@@ -31,6 +31,14 @@ export type RemoteImageLoadResult = {
   status: RemoteImageLoadStatus;
 };
 
+const RETRYABLE_FEATURED_IMAGE_FALLBACK_STATUSES =
+  new Set<RemoteImageLoadStatus>([
+    'source_disallowed',
+    'fetch_failed',
+    'invalid_content_type',
+    'payload_too_large',
+  ]);
+
 function getContentLength(headers: Headers): number | null {
   const rawContentLength = headers.get('content-length');
   if (!rawContentLength || !/^\d+$/.test(rawContentLength)) return null;
@@ -156,6 +164,29 @@ export function loadFeaturedImage(
     FEATURED_IMAGE_TIMEOUT_MS,
     (raw) => isAllowedBlogOgImageUrl(raw, merchantId)
   );
+}
+
+export async function loadFeaturedImageWithFallback(
+  urls: string[],
+  merchantId: string,
+  cacheTag: string
+): Promise<RemoteImageLoadResult> {
+  const [primaryUrl, fallbackUrl] = urls;
+  const primaryResult = await loadFeaturedImage(
+    primaryUrl ?? null,
+    merchantId,
+    cacheTag
+  );
+
+  if (
+    !fallbackUrl ||
+    primaryResult.status === 'loaded' ||
+    !RETRYABLE_FEATURED_IMAGE_FALLBACK_STATUSES.has(primaryResult.status)
+  ) {
+    return primaryResult;
+  }
+
+  return loadFeaturedImage(fallbackUrl, merchantId, cacheTag);
 }
 
 export async function loadLogoImage(

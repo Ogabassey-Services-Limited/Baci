@@ -15,6 +15,7 @@ vi.mock('@supabase/supabase-js', () => ({
 }));
 
 import { cacheTag } from 'next/cache';
+import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { getCachedBlogPost } from '@/lib/cached-data';
 
 function createQueryBuilder({
@@ -201,6 +202,10 @@ describe('getCachedBlogPost', () => {
         custom_domain: 'ogabassey.com',
         slug: 'ogabassey',
       })
+    );
+    expect(cacheTag).toHaveBeenCalledWith(
+      'blog-posts',
+      getBlogCacheTag('ogabassey.com', 'factory-unlocked-iphones-explained')
     );
     expect(cacheTag).toHaveBeenCalledWith('products', 'products-merchant-1');
   });

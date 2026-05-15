@@ -230,6 +230,46 @@ describe('merchant blog OG image data', () => {
     );
   });
 
+  it('retries the original featured image when the selected variant cannot be fetched', async () => {
+    const jpegVariantPost = {
+      ...postRow,
+      featured_image_variants: {
+        landscape_16x9:
+          'https://cdn.ogabassey.com/media/merchant-1/blog/landscape_16x9.jpg',
+      },
+    };
+    installPostQuery(jpegVariantPost);
+    mockFetch.mockImplementation((url: string) => {
+      if (url === jpegVariantPost.featured_image_variants.landscape_16x9) {
+        return Promise.resolve(new Response('missing', { status: 404 }));
+      }
+      if (url === jpegVariantPost.featured_image_url) {
+        return Promise.resolve(imageResponse('image/jpeg', 'original-image'));
+      }
+      if (url === merchant.logo_url) {
+        return Promise.resolve(imageResponse('image/png', 'logo'));
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`);
+    });
+
+    const result = await getMerchantBlogOgImageData('ogabassey', 'best-deals');
+
+    expect(result).toMatchObject({
+      featuredDataUri: `data:image/jpeg;base64,${Buffer.from(
+        'original-image'
+      ).toString('base64')}`,
+      featuredImageStatus: 'loaded',
+    });
+    expect(mockFetch).toHaveBeenCalledWith(
+      jpegVariantPost.featured_image_variants.landscape_16x9,
+      expect.any(Object)
+    );
+    expect(mockFetch).toHaveBeenCalledWith(
+      jpegVariantPost.featured_image_url,
+      expect.any(Object)
+    );
+  });
+
   it('skips generated WebP variants because next/og cannot render them', async () => {
     mockFetch.mockResolvedValue(imageResponse('image/jpeg', 'image'));
 

@@ -12,6 +12,7 @@ vi.mock('@/env', () => ({
 }));
 
 import {
+  loadFeaturedImageWithFallback,
   loadRemoteImageDataUri,
   MAX_REMOTE_IMAGE_BYTES,
 } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-loader';
@@ -89,6 +90,35 @@ describe('merchant blog OG image loader', () => {
         (url) => isAllowedBlogOgImageUrl(url, 'merchant-1')
       )
     ).resolves.toEqual({ dataUri: null, status: 'fetch_failed' });
+  });
+
+  it('retries the fallback featured image candidate after a retryable primary failure', async () => {
+    mockFetch.mockImplementation((url: string) => {
+      if (url.endsWith('/variant.jpg')) {
+        return Promise.resolve(new Response('not found', { status: 404 }));
+      }
+      return Promise.resolve(imageResponse('image/jpeg', 'fallback'));
+    });
+
+    await expect(
+      loadFeaturedImageWithFallback(
+        [
+          'https://cdn.ogabassey.com/media/merchant-1/blog/variant.jpg',
+          'https://cdn.ogabassey.com/media/merchant-1/blog/original.jpg',
+        ],
+        'merchant-1',
+        'blog-ogabassey-post'
+      )
+    ).resolves.toEqual({
+      dataUri: `data:image/jpeg;base64,${Buffer.from('fallback').toString(
+        'base64'
+      )}`,
+      status: 'loaded',
+    });
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://cdn.ogabassey.com/media/merchant-1/blog/original.jpg',
+      expect.any(Object)
+    );
   });
 
   it('fails closed when the upstream image omits or lies about content type', async () => {

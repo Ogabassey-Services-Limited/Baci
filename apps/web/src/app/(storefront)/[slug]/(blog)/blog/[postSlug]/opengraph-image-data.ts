@@ -1,6 +1,6 @@
 import { cache } from 'react';
 import {
-  loadFeaturedImage,
+  loadFeaturedImageWithFallback,
   loadLogoImage,
   type RemoteImageLoadStatus,
 } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-loader';
@@ -150,12 +150,18 @@ function isLikelySatoriSupportedRasterUrl(url: string | null | undefined) {
   }
 }
 
-function getFeaturedImageSourceUrl(post: MerchantBlogOgPost): string | null {
+function getFeaturedImageSourceUrls(post: MerchantBlogOgPost): string[] {
+  const urls: string[] = [];
   const landscapeVariant = post.featured_image_variants?.landscape_16x9;
-  if (isLikelySatoriSupportedRasterUrl(landscapeVariant)) {
-    return landscapeVariant ?? null;
+  if (landscapeVariant && isLikelySatoriSupportedRasterUrl(landscapeVariant)) {
+    urls.push(landscapeVariant);
   }
-  return post.featured_image_url;
+
+  if (post.featured_image_url && !urls.includes(post.featured_image_url)) {
+    urls.push(post.featured_image_url);
+  }
+
+  return urls;
 }
 
 async function getPostForImage(
@@ -254,9 +260,12 @@ async function getMerchantBlogOgImageDataInternal(
     };
   }
 
-  const featuredSourceUrl = getFeaturedImageSourceUrl(post);
   const [featuredImage, logoDataUri] = await Promise.all([
-    loadFeaturedImage(featuredSourceUrl, resolved.merchant.id, blogCacheTag),
+    loadFeaturedImageWithFallback(
+      getFeaturedImageSourceUrls(post),
+      resolved.merchant.id,
+      blogCacheTag
+    ),
     loadLogoImage(resolved.merchant.logo_url, blogCacheTag),
   ]);
 
