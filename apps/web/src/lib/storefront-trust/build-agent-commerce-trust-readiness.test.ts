@@ -239,7 +239,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
     });
   });
 
-  it('warns for partial verified image coverage and fails missing policy or support basics', () => {
+  it('warns for partial verified image coverage and fails missing support basics', () => {
     const result = buildAgentCommerceTrustReadiness({
       baseUrl: 'https://ogabassey.com',
       googleFeedData: googleFeedData({
@@ -284,9 +284,59 @@ describe('buildAgentCommerceTrustReadiness', () => {
     ).toMatchObject({ severity: 'warn' });
     expect(
       result.checks.find((check) => check.id === 'policy-coverage')
-    ).toMatchObject({ severity: 'fail' });
+    ).toMatchObject({ severity: 'warn' });
     expect(
       result.checks.find((check) => check.id === 'support-contact')
     ).toMatchObject({ severity: 'fail' });
+  });
+
+  it('warns but does not fail when only policy details are missing', () => {
+    const result = buildAgentCommerceTrustReadiness({
+      baseUrl: 'https://ogabassey.com',
+      googleFeedData: googleFeedData(),
+      merchant: {
+        business_name: 'Ogabassey',
+        slug: 'ogabassey',
+      },
+      now: NOW,
+      openAiFeedData: {
+        products: [product()],
+      },
+      trustProfile: trustProfile({
+        returnPolicy: undefined,
+        shippingPolicy: undefined,
+      }),
+    });
+
+    expect(result.status).toBe('warn');
+    expect(
+      result.checks.find((check) => check.id === 'policy-coverage')
+    ).toMatchObject({ severity: 'warn' });
+    expect(
+      result.checks.find((check) => check.id === 'support-contact')
+    ).toMatchObject({ severity: 'pass' });
+  });
+
+  it('warns when only one policy is configured', () => {
+    const result = buildAgentCommerceTrustReadiness({
+      baseUrl: 'https://ogabassey.com',
+      googleFeedData: googleFeedData(),
+      merchant: {
+        business_name: 'Ogabassey',
+        slug: 'ogabassey',
+      },
+      now: NOW,
+      openAiFeedData: {
+        products: [product()],
+      },
+      trustProfile: trustProfile({
+        shippingPolicy: undefined,
+      }),
+    });
+
+    expect(result.status).toBe('warn');
+    expect(
+      result.checks.find((check) => check.id === 'policy-coverage')
+    ).toMatchObject({ severity: 'warn' });
   });
 });
