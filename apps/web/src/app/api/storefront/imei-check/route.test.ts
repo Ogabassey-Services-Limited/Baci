@@ -340,7 +340,7 @@ describe('POST /api/storefront/imei-check', () => {
     expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
   });
 
-  it('returns 503 before replay or persistence when IMEI_HASH_SALT is missing', async () => {
+  it('returns 503 before new persistence when IMEI_HASH_SALT is missing', async () => {
     vi.stubEnv('IMEI_HASH_SALT', '');
     const supabase = createSupabaseMock();
     mocks.mockCreateAdminClient.mockReturnValueOnce(supabase);
@@ -351,7 +351,42 @@ describe('POST /api/storefront/imei-check', () => {
 
     expect(response.status).toBe(503);
     expect(body.code).toBe('IMEI_HASH_SALT_MISSING');
-    expect(supabase.from).not.toHaveBeenCalled();
+    expect(supabase.from).toHaveBeenCalledOnce();
+    expect(mocks.mockRedeemImeiWalletPayment).not.toHaveBeenCalled();
+    expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
+  });
+
+  it('replays a cached terminal response even when IMEI_HASH_SALT is missing', async () => {
+    vi.stubEnv('IMEI_HASH_SALT', '');
+    const cachedBody = {
+      data: { device: 'iPhone 15', imei: VALID_IMEI },
+      success: true,
+      tier: { checksIncluded: ['device'], name: 'Full Check' },
+    };
+    mocks.mockCreateAdminClient.mockReturnValueOnce(
+      createSupabaseMock([
+        {
+          amount_ngn: 1500,
+          cached_response: cachedBody,
+          cached_status: 200,
+          customer_id: 'customer-1',
+          id: 'lookup-1',
+          idempotency_key: IDEMPOTENCY_KEY,
+          imei_hash: 'persisted-hash',
+          merchant_id: 'merchant-1',
+          status: 'completed',
+          tier: 'full',
+        },
+      ])
+    );
+    const { POST } = await importRoute();
+
+    const response = await POST(createRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual(cachedBody);
+    expect(mocks.mockRedeemImeiWalletPayment).not.toHaveBeenCalled();
     expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
   });
 

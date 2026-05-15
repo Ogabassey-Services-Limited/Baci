@@ -134,6 +134,56 @@ export function mapExistingLookup(row: ImeiLookupRow, context: LookupContext) {
   );
 }
 
+export function mapExistingTerminalLookupWithoutImeiHash(
+  row: ImeiLookupRow,
+  context: Omit<LookupContext, 'imeiHash'>
+) {
+  if (
+    row.customer_id !== context.customerId ||
+    row.merchant_id !== context.merchantId
+  ) {
+    return json(
+      errorBody({
+        code: 'IDEMPOTENCY_CONFLICT',
+        error: 'Idempotency-Key already belongs to another request.',
+      }),
+      409
+    );
+  }
+
+  if (row.tier !== context.tier) {
+    return json(
+      errorBody({
+        code: 'IDEMPOTENCY_CONFLICT',
+        error: 'Idempotency-Key already used with a different request.',
+      }),
+      409
+    );
+  }
+
+  if (row.status === 'pending') {
+    return json(
+      errorBody({
+        code: 'IDEMPOTENT_REQUEST_IN_FLIGHT',
+        error: 'This IMEI lookup is still processing.',
+      }),
+      409
+    );
+  }
+
+  if (row.cached_response && row.cached_status) {
+    return json(row.cached_response, row.cached_status);
+  }
+
+  return json(
+    errorBody({
+      code: 'IDEMPOTENCY_CONFLICT',
+      error: 'Idempotency-Key has no replayable terminal response.',
+    }),
+    409
+  );
+}
+
 export async function findLookupByIdempotencyKey(
   supabase: ReturnType<typeof createAdminClient>,
   idempotencyKey: string

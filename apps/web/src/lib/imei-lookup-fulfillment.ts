@@ -269,7 +269,7 @@ function providerErrorToResult(
   rawResponseText: string
 ): SickwLookupResult {
   const normalized = errorMessage.toLowerCase();
-  if (normalized.includes('invalid') || normalized.includes('not found')) {
+  if (isProviderNotFoundError(normalized)) {
     return {
       body: {
         success: false,
@@ -285,6 +285,16 @@ function providerErrorToResult(
   }
 
   return providerUnavailable(rawResponseText, 'provider_error');
+}
+
+function isProviderNotFoundError(normalizedMessage: string): boolean {
+  return (
+    normalizedMessage.includes('not found') ||
+    normalizedMessage.includes('invalid imei') ||
+    normalizedMessage.includes('imei invalid') ||
+    normalizedMessage.includes('invalid serial') ||
+    normalizedMessage.includes('serial invalid')
+  );
 }
 
 function parseProviderPayload(rawText: string): Record<string, unknown> {

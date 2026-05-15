@@ -27,6 +27,7 @@ import {
   isValidImeiChecksum,
   json,
   mapExistingLookup,
+  mapExistingTerminalLookupWithoutImeiHash,
   refundAndCacheFailure,
   UUID_PATTERN,
 } from './route-helpers';
@@ -159,6 +160,18 @@ export async function POST(request: NextRequest) {
 
     const hashSalt = getImeiHashSalt();
     if (!hashSalt) {
+      const existingLookup = await findLookupByIdempotencyKey(
+        supabase,
+        idempotencyKey
+      );
+      if (existingLookup) {
+        return mapExistingTerminalLookupWithoutImeiHash(existingLookup, {
+          customerId: customer.id,
+          merchantId,
+          tier: requestedTier,
+        });
+      }
+
       console.error('[IMEI Check] IMEI_HASH_SALT is not configured');
       return json(
         errorBody({
