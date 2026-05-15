@@ -8,6 +8,7 @@ export const merchantFeatureSettingsSchema = z.object({
   discount_codes_enabled: z.boolean(),
   guest_checkout_enabled: z.boolean(),
   // Payment gateways
+  agentic_checkout_enabled: z.boolean(),
   paystack_enabled: z.boolean(),
   korapay_enabled: z.boolean(),
   pay_on_delivery_enabled: z.boolean(),

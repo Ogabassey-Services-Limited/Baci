@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/card';
 import { useProductContext } from '@/contexts/product-context';
 import { useDebounce } from '@/hooks/use-debounce';
-import { useMerchant } from '@/hooks/use-merchant';
+import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { getCountryByCode } from '@/lib/countries';
 import type { Product } from '@/lib/products';

@@ -12,7 +12,7 @@ import {
   resolveVariantSelectionParamResolution,
 } from '@baci/shared/lib';
 import { useCart } from '@/hooks/cart';
-import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import { useMerchantSafe } from '@/hooks/merchant/use-merchant';
 import { useToast } from '@/hooks/use-toast';
 import { asRoute } from '@/lib/routes';
 import { useV2Saved } from '../../providers/v2-saved-context';

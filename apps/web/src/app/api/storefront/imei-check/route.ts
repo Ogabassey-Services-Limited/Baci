@@ -1,378 +1,93 @@
+import {
+  IMEI_SERVICE_TIERS,
+  type ImeiServiceTierKey,
+  isImeiServiceTierKey,
+  PRIMARY_IMEI_SERVICE_TIERS,
+} from '@baci/shared/imei';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getRootDomain } from '@/env';
 import { getDeviceImage } from '@/lib/device-images';
+import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
+import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant';
+import { imeiCheckSchema } from '@/schemas/imei-check';
+import { sickwClient } from './sickw-client';
+import { parseSickwResponse } from './sickw-parser';
+import type { ImeiCheckResult } from './sickw-parser.types';
 
-const SICKW_API_URL = 'https://sickw.com/api.php';
-const SICKW_API_KEY = process.env.SICKW_API_KEY;
-
-// Only warn if the key is NOT in the environment variables
-if (!SICKW_API_KEY) {
-  console.warn(
-    '⚠️ WARNING: SICKW_API_KEY is missing. IMEI check service will be unavailable.'
-  );
-}
-
-// Service tiers with pricing (cost to us, we can markup for profit)
-const IMEI_SERVICE_TIERS = {
-  basic: {
-    id: '1',
-    name: 'Basic Check',
-    description: 'Device model identification',
-    price: 100, // ₦100 to customer
-    cost: 0.02, // $0.02 API cost
-    features: ['Device Model', 'Model Number'],
-    checksIncluded: ['device', 'modelNumber'],
-  },
-  blacklist: {
-    id: '2',
-    name: 'Blacklist Check',
-    description: 'Is this phone reported stolen?',
-    price: 300, // ₦300 to customer
-    cost: 0.04, // $0.04 API cost
-    features: ['Device Model', 'Blacklist Status', 'GSMA Database'],
-    checksIncluded: ['device', 'modelNumber', 'blacklistStatus'],
-  },
-  carrier: {
-    id: '25',
-    name: 'Carrier Check',
-    description: 'Network lock & carrier info',
-    price: 500, // ₦500 to customer
-    cost: 0.05, // $0.05 API cost
-    features: ['Device Model', 'Original Carrier', 'SIM Lock Status'],
-    checksIncluded: ['device', 'modelNumber', 'carrier', 'simLock'],
-  },
-  icloud: {
-    id: '4',
-    name: 'iCloud Check',
-    description: 'Find My iPhone status',
-    price: 800, // ₦800 to customer
-    cost: 0.08, // $0.08 API cost
-    features: ['Device Model', 'iCloud Lock', 'Find My iPhone'],
-    checksIncluded: ['device', 'modelNumber', 'icloud'],
-  },
-  full: {
-    id: '61',
-    name: 'Full Verification',
-    description: 'Complete device health report',
-    price: 1500, // ₦1,500 to customer
-    cost: 0.1, // $0.10 API cost
-    features: [
-      'Device Model',
-      'iCloud Status',
-      'Blacklist Check',
-      'Carrier Info',
-      'SIM Lock',
-      'Trust Score',
-    ],
-    checksIncluded: [
-      'device',
-      'modelNumber',
-      'icloud',
-      'blacklistStatus',
-      'carrier',
-      'simLock',
-    ],
-    recommended: true,
-  },
-} as const;
-
-export type ServiceTier = keyof typeof IMEI_SERVICE_TIERS;
-
-interface ImeiCheckResult {
-  imei: string;
-  device: string;
-  modelNumber: string;
-  status: 'Clean' | 'Blacklisted' | 'Unknown';
-  icloud: string;
-  icloudLock: string;
-  simLock: string;
-  blacklistStatus: string;
-  carrier: string;
-  deviceImage: string;
-  score: number;
-  // New fields
-  serialNumber?: string;
-  purchaseDate?: string;
-  purchaseCountry?: string;
-  warranty?: string;
-  refurbished?: string;
-  demoUnit?: string;
-  deviceType: 'apple' | 'android' | 'other';
-  verdict: string;
-  verdictType: 'safe' | 'caution' | 'danger';
-  rawResponse?: string;
-}
-
-/**
- * Strip HTML tags from a string using a safe character-by-character approach.
- * This handles recursive attacks like <scr<script>ipt> by removing ALL < and > chars
- * and any content between them, iteratively until stable.
- */
-function stripHtml(html: string): string {
-  if (!html) return '';
-
-  // First, decode common HTML entities that could hide tags
-  const decoded = html
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&#60;/g, '<')
-    .replace(/&#62;/g, '>')
-    .replace(/&#x3c;/gi, '<')
-    .replace(/&#x3e;/gi, '>');
-
-  let current = decoded;
-  let previous = '';
-  let loops = 0;
-  const maxLoops = 10; // Prevent infinite loops
-
-  // Iteratively remove anything between < and > until stable
-  while (current !== previous && loops < maxLoops) {
-    previous = current;
-    // Remove complete tags
-    current = current.replace(/<[^<>]*>/g, '');
-    // Also remove any orphan < or > to prevent partial tag injection
-    loops++;
-  }
-
-  // Final cleanup: remove any remaining < or > characters entirely
-  // This ensures no partial tags like "<script" can remain
-  current = current.replace(/[<>]/g, '');
-
-  return current.trim();
-}
-
-/**
- * Parse SICKW API response into structured data
- * Handles both plain text (legacy) and object/JSON responses
- */
-function parseSickwResponse(
-  input: string | Record<string, unknown>
-): Partial<ImeiCheckResult> {
-  const data: Record<string, string> = {};
-
-  if (typeof input === 'object' && input !== null) {
-    // If it's already an object, normalize keys to lowercase and strip HTML
-    Object.keys(input).forEach((key) => {
-      data[key.toLowerCase()] = stripHtml(String(input[key]));
-    });
-  } else if (typeof input === 'string') {
-    // Parse text response format
-    // Replace <br> tags with newlines if present (HTML response)
-    const normalizedText = input.replace(/<br\s*\/?>/gi, '\n');
-
-    const lines = normalizedText
-      .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean);
-
-    for (const line of lines) {
-      const colonIndex = line.indexOf(':');
-      if (colonIndex > 0) {
-        const key = line.substring(0, colonIndex).trim().toLowerCase();
-        // Strip HTML from values (e.g., <font color="red">ON</font> -> ON)
-        const value = stripHtml(line.substring(colonIndex + 1).trim());
-        data[key] = value;
-      }
-    }
-  }
-
-  // Extract relevant fields - keys vary based on API response format
-  const modelNumber =
-    data['model number'] || data['model no'] || data.mpn || '';
-
-  const device =
-    data['model description'] ||
-    data.model ||
-    data.device ||
-    data['model name'] ||
-    data['device name'] ||
-    '';
-
-  const icloudStatus = data['icloud status'] || data.icloud || '';
-
-  const icloudLock =
-    data['icloud lock'] || data['find my iphone'] || data.fmi || '';
-
-  const blacklist =
-    data['blacklist status'] || data.blacklist || data['gsma blacklist'] || '';
-
-  const carrier =
-    data['locked carrier'] ||
-    data.carrier ||
-    data.network ||
-    data['sim carrier'] ||
-    '';
-
-  const simLock =
-    data['sim-lock status'] ||
-    data['sim lock'] ||
-    data.simlock ||
-    data['sim lock status'] ||
-    '';
-
-  // New fields
-  const serialNumber = data['serial number'] || '';
-  const purchaseDate = data['estimated purchase date'] || '';
-  const purchaseCountry = data['purchase country'] || '';
-  const warranty = data['warranty status'] || '';
-  const refurbished = data['refurbished device'] || '';
-  const demoUnit = data['demo unit'] || '';
-
-  // Detect device type based on device name
-  const deviceLower = device.toLowerCase();
-  let deviceType: 'apple' | 'android' | 'other' = 'other';
-  if (
-    deviceLower.includes('iphone') ||
-    deviceLower.includes('ipad') ||
-    deviceLower.includes('apple') ||
-    deviceLower.includes('mac')
-  ) {
-    deviceType = 'apple';
-  } else if (
-    deviceLower.includes('samsung') ||
-    deviceLower.includes('pixel') ||
-    deviceLower.includes('xiaomi') ||
-    deviceLower.includes('oppo') ||
-    deviceLower.includes('android')
-  ) {
-    deviceType = 'android';
-  }
-
-  // Determine status based on various factors
-  const isBlacklisted =
-    blacklist.toLowerCase().includes('blacklisted') ||
-    blacklist.toLowerCase().includes('reported') ||
-    blacklist.toLowerCase().includes('stolen') ||
-    blacklist.toLowerCase().includes('lost');
-
-  const hasIcloudLockOn =
-    icloudLock.toLowerCase() === 'on' ||
-    icloudLock.toLowerCase().includes('locked');
-
-  const hasIcloudStatusIssue =
-    icloudStatus.toLowerCase().includes('lost') ||
-    icloudStatus.toLowerCase().includes('locked');
-
-  const isSimLocked = simLock.toLowerCase().includes('locked');
-
-  // Calculate trust score
-  let score = 100;
-  if (isBlacklisted) score -= 50;
-  if (hasIcloudLockOn) score -= 30;
-  if (hasIcloudStatusIssue) score -= 20;
-  if (isSimLocked) score -= 10;
-  if (!device) score -= 10;
-
-  // Determine overall status
-  let status: 'Clean' | 'Blacklisted' | 'Unknown' = 'Clean';
-  if (!device && !blacklist && !icloudStatus && !icloudLock) {
-    status = 'Unknown';
-  } else if (isBlacklisted || hasIcloudStatusIssue) {
-    status = 'Blacklisted';
-  }
-
-  // Generate verdict
-  let verdict: string;
-  let verdictType: 'safe' | 'caution' | 'danger';
-
-  if (isBlacklisted) {
-    verdict =
-      '🚫 DO NOT BUY - This device is reported stolen/lost and may be blacklisted. You could lose your money and face legal issues.';
-    verdictType = 'danger';
-  } else if (hasIcloudLockOn) {
-    verdict =
-      "⚠️ CAUTION - Find My iPhone is ON. You cannot reset this device without the owner's Apple ID. Ensure seller disables it before purchase.";
-    verdictType = 'caution';
-  } else if (isSimLocked) {
-    verdict =
-      '⚠️ CAUTION - Device is carrier-locked. Check if it works with your network before buying.';
-    verdictType = 'caution';
-  } else if (status === 'Clean') {
-    verdict =
-      '✅ SAFE TO BUY - Device appears clean with no major issues. Always verify physically before payment.';
-    verdictType = 'safe';
-  } else {
-    verdict =
-      '❓ INCOMPLETE DATA - Could not verify all device information. Proceed with caution.';
-    verdictType = 'caution';
-  }
-
-  return {
-    device,
-    modelNumber,
-    status,
-    icloud: icloudStatus || 'Unknown',
-    icloudLock: icloudLock || 'Unknown',
-    blacklistStatus: blacklist || 'Unknown',
-    carrier: carrier || 'Unknown',
-    simLock: simLock || 'Unknown',
-    serialNumber: serialNumber || undefined,
-    purchaseDate: purchaseDate || undefined,
-    purchaseCountry: purchaseCountry || undefined,
-    warranty: warranty || undefined,
-    refurbished: refurbished || undefined,
-    demoUnit: demoUnit || undefined,
-    deviceType,
-    score: Math.max(0, score),
-    verdict,
-    verdictType,
-  };
-}
-
+// TODO(payment-gate): SICKW IMEI checks invoke a paid third-party API at up to
+// $0.70/request. The long-term fix is to gate this endpoint behind either
+// (a) a verified paid order from the buyer, OR
+// (b) a merchant-funded credit pool with quota tracking.
+// Until that flow ships, the storefront-origin + rate-limit gates below are
+// the defensive baseline. Tracked in
+// docs/superpowers/plans/2026-05-09-petrock-imei-integration.md.
+//
+// Native (mobile) clients post here without a CSRF cookie pair; rather than
+// 403 every legitimate native call, we lean on the storefront-host origin
+// gate + rate limit below. The wallet follow-up will add Bearer auth which
+// renders CSRF moot for the same-origin browser flow (Bearer tokens aren't
+// auto-attached cross-origin, so CSRF doesn't apply).
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { imei, tier = 'full' } = body;
+    // 1. Per-IP rate limit using the shared trie config
+    // (`/api/storefront/imei-check` -> 10/60s). This runs before merchant
+    // lookup so unknown storefront hosts cannot generate unthrottled
+    // resolver/cache/database traffic.
+    const rateLimit = await checkRateLimit(request);
+    if (!rateLimit.allowed) {
+      return createRateLimitResponse(
+        rateLimit.limit,
+        rateLimit.remaining,
+        rateLimit.resetTime
+      );
+    }
 
-    // Validate IMEI
-    if (!imei || typeof imei !== 'string') {
+    // 2. Storefront origin gate — request must come from a recognized
+    // merchant host (subdomain or custom domain). Arbitrary external POSTs
+    // (Postman, curl, scrapers) cannot resolve a merchant and are rejected.
+    const merchantResolution = await resolveStorefrontMerchantFromRequest({
+      request,
+      rootDomain: getRootDomain() || 'usebaci.com',
+      notFoundError: 'IMEI check is only available on storefront hosts',
+      lookupError: 'Failed to validate storefront host',
+    });
+    if (!merchantResolution.success) {
       return NextResponse.json(
-        { success: false, error: 'IMEI is required' },
+        { success: false, error: merchantResolution.error },
+        { status: merchantResolution.status }
+      );
+    }
+
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'Invalid JSON' },
         { status: 400 }
       );
     }
 
-    const cleanImei = imei.replace(/\D/g, '');
-    if (cleanImei.length !== 15) {
+    const bodyParse = imeiCheckSchema.safeParse(rawBody);
+    if (!bodyParse.success) {
       return NextResponse.json(
-        { success: false, error: 'IMEI must be 15 digits' },
+        { success: false, error: 'Invalid request body' },
         { status: 400 }
       );
     }
 
-    // Luhn checksum validation for IMEI
-    const luhnCheck = (imeiStr: string): boolean => {
-      let sum = 0;
-      for (let i = 0; i < imeiStr.length; i++) {
-        let digit = Number.parseInt(imeiStr[i], 10);
-        // Double every second digit (from right, so odd indices from left for 15 digits)
-        if (i % 2 === 1) {
-          digit *= 2;
-          if (digit > 9) {
-            digit = Math.floor(digit / 10) + (digit % 10);
-          }
-        }
-        sum += digit;
-      }
-      return sum % 10 === 0;
-    };
-
-    if (!luhnCheck(cleanImei)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid IMEI checksum' },
-        { status: 400 }
-      );
+    const imeiResult = parseImei(bodyParse.data);
+    if (!imeiResult.ok) {
+      return imeiResult.response;
     }
 
-    // Validate service tier
-    const serviceTier = IMEI_SERVICE_TIERS[tier as ServiceTier];
-    if (!serviceTier) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid service tier' },
-        { status: 400 }
-      );
+    const tierResult = parseTier(bodyParse.data);
+    if (!tierResult.ok) {
+      return tierResult.response;
     }
 
-    if (!SICKW_API_KEY) {
+    const sickwApiKey = sickwClient.getApiKey();
+    if (!sickwApiKey) {
       console.error(
         '[IMEI Check] SICKW_API_KEY is not configured. Cannot process request.'
       );
@@ -382,104 +97,26 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build SICKW API URL with selected service
-    const apiUrl = `${SICKW_API_URL}?format=json&key=${SICKW_API_KEY}&imei=${cleanImei}&service=${serviceTier.id}`;
+    const serviceTier = IMEI_SERVICE_TIERS[tierResult.tier];
+    const apiResponse = await sickwClient.requestCheck({
+      apiKey: sickwApiKey,
+      imei: imeiResult.imei,
+      serviceId: serviceTier.providerServiceId,
+    });
 
-    console.log(
-      `[IMEI Stick] Requesting SICKW API for tier: ${serviceTier.name} (${serviceTier.id})`
+    if (!apiResponse.ok) {
+      return apiResponse.response;
+    }
+
+    const resultText = sickwClient.normalizeResult(
+      apiResponse.payload.result ??
+        apiResponse.payload.data ??
+        apiResponse.payload
     );
-
-    // Call SICKW API
-    const response = await fetch(apiUrl, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Baci-IMEI-Checker/1.0',
-      },
-    });
-
-    if (!response.ok) {
-      console.error(
-        '[IMEI Check] SICKW API error:',
-        response.status,
-        response.statusText
-      );
-      return NextResponse.json(
-        { success: false, error: 'IMEI check service unavailable' },
-        { status: 503 }
-      );
-    }
-
-    const rawText = await response.text();
-    console.log('[IMEI Check] Raw SICKW Response:', rawText);
-
-    // biome-ignore lint/suspicious/noExplicitAny: API structure is variable
-    let apiResponse: any;
-    try {
-      apiResponse = JSON.parse(rawText);
-    } catch {
-      // Not JSON, likely plain text or HTML
-      console.warn(
-        '[IMEI Check] Response is not JSON, treating as text',
-        rawText
-      );
-      apiResponse = { result: rawText };
-    }
-
-    // Check for API errors
-    // SICKW uses "status": "error" OR sometimes just returns "Error: ..." string in result
-    const isErrorObject =
-      apiResponse.status === 'error' || Boolean(apiResponse.error);
-    const isErrorString =
-      typeof apiResponse.result === 'string' &&
-      apiResponse.result.toLowerCase().startsWith('error');
-
-    if (isErrorObject || isErrorString) {
-      const errorMsg =
-        apiResponse.message ||
-        apiResponse.error ||
-        apiResponse.result ||
-        'Check failed';
-      console.error('[IMEI Check] SICKW API returned error:', errorMsg);
-
-      // Handle specific errors
-      if (errorMsg.toLowerCase().includes('balance')) {
-        return NextResponse.json(
-          { success: false, error: 'Service temporarily unavailable' },
-          { status: 503 }
-        );
-      }
-      if (errorMsg.toLowerCase().includes('invalid')) {
-        return NextResponse.json(
-          { success: false, error: 'Invalid IMEI number' },
-          { status: 400 }
-        );
-      }
-
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Unable to verify: ${errorMsg.replace(/^error:\s*/i, '')}`,
-        },
-        { status: 400 }
-      );
-    }
-
-    // Parse the response
-    const resultText = apiResponse.result || apiResponse.data || apiResponse;
     const parsed = parseSickwResponse(resultText);
-
-    // Get device image
     const device = parsed.device || '';
-    const deviceImage = getDeviceImage(device);
-
-    console.log('[IMEI Check] Parsed Data:', {
-      device,
-      status: parsed.status,
-      score: parsed.score,
-    });
-
     const result: ImeiCheckResult = {
-      imei: cleanImei,
+      imei: imeiResult.imei,
       device: device || 'Unknown Device',
       modelNumber: parsed.modelNumber || '',
       status: parsed.status || 'Unknown',
@@ -488,20 +125,24 @@ export async function POST(request: NextRequest) {
       simLock: parsed.simLock || 'Unknown',
       blacklistStatus: parsed.blacklistStatus || 'Unknown',
       carrier: parsed.carrier || 'Unknown',
-      deviceImage,
+      deviceImage: getDeviceImage(device),
       score: parsed.score || 50,
+      activationStatus: parsed.activationStatus,
       serialNumber: parsed.serialNumber,
       purchaseDate: parsed.purchaseDate,
       purchaseCountry: parsed.purchaseCountry,
       warranty: parsed.warranty,
       refurbished: parsed.refurbished,
       demoUnit: parsed.demoUnit,
+      mdmStatus: parsed.mdmStatus,
+      miLockStatus: parsed.miLockStatus,
+      miLostStatus: parsed.miLostStatus,
       deviceType: parsed.deviceType || 'other',
       verdict: parsed.verdict || 'Unable to determine device status.',
       verdictType: parsed.verdictType || 'caution',
       rawResponse:
         process.env.NODE_ENV === 'development'
-          ? JSON.stringify(apiResponse)
+          ? JSON.stringify(apiResponse.payload)
           : undefined,
     };
 
@@ -520,4 +161,105 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+const PUBLIC_IMEI_SERVICE_TIER_KEYS = new Set<ImeiServiceTierKey>(
+  PRIMARY_IMEI_SERVICE_TIERS
+);
+
+function parseImei(
+  body: unknown
+): { ok: true; imei: string } | { ok: false; response: NextResponse } {
+  const imei = getBodyValue(body, 'imei');
+  if (typeof imei !== 'string') {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { success: false, error: 'IMEI is required' },
+        { status: 400 }
+      ),
+    };
+  }
+
+  const cleanImei = imei.replace(/\D/g, '');
+  if (cleanImei.length !== 15) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { success: false, error: 'IMEI must be 15 digits' },
+        { status: 400 }
+      ),
+    };
+  }
+
+  if (!isValidImeiChecksum(cleanImei)) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { success: false, error: 'Invalid IMEI checksum' },
+        { status: 400 }
+      ),
+    };
+  }
+
+  return { ok: true, imei: cleanImei };
+}
+
+function parseTier(
+  body: unknown
+):
+  | { ok: true; tier: ImeiServiceTierKey }
+  | { ok: false; response: NextResponse } {
+  const rawTier = getBodyValue(body, 'tier') ?? 'full';
+  if (isImeiServiceTierKey(rawTier)) {
+    if (
+      process.env.NODE_ENV === 'production' &&
+      !PUBLIC_IMEI_SERVICE_TIER_KEYS.has(rawTier)
+    ) {
+      return {
+        ok: false,
+        response: NextResponse.json(
+          {
+            success: false,
+            error:
+              'Selected report requires merchant-paid credits and is temporarily unavailable.',
+          },
+          { status: 403 }
+        ),
+      };
+    }
+
+    return { ok: true, tier: rawTier };
+  }
+
+  return {
+    ok: false,
+    response: NextResponse.json(
+      { success: false, error: 'Invalid service tier' },
+      { status: 400 }
+    ),
+  };
+}
+
+function getBodyValue(body: unknown, key: string): unknown {
+  if (!body || typeof body !== 'object') {
+    return undefined;
+  }
+
+  return (body as Record<string, unknown>)[key];
+}
+
+function isValidImeiChecksum(imei: string): boolean {
+  let sum = 0;
+  for (let i = 0; i < imei.length; i++) {
+    let digit = Number.parseInt(imei[i], 10);
+    if (i % 2 === 1) {
+      digit *= 2;
+      if (digit > 9) {
+        digit = Math.floor(digit / 10) + (digit % 10);
+      }
+    }
+    sum += digit;
+  }
+  return sum % 10 === 0;
 }

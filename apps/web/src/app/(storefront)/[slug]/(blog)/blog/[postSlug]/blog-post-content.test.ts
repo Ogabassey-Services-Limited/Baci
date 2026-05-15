@@ -4,6 +4,8 @@ import {
   buildCanonicalBlogPostUrl,
   getBlogPostTextPreview,
   resolveBlogPostContent,
+  transformImageTitlesToFigureCaptions,
+  unescapeHtmlText,
 } from './blog-post-content';
 
 describe('resolveBlogPostContent', () => {
@@ -48,6 +50,54 @@ describe('resolveBlogPostContent', () => {
 
     expect(result.isJson).toBe(false);
     expect(result.legacyHtml).toContain('Legacy content');
+  });
+
+  it('transforms image title attributes into semantic figure captions', async () => {
+    // Arrange
+    const html =
+      '<p><img src="https://cdn.example.com/photo.jpg" title="Camera sample" /></p>';
+
+    // Act
+    const result = await resolveBlogPostContent(html);
+
+    // Assert
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).toContain('<figure>');
+    expect(result.legacyHtml).toContain(
+      '<figcaption>Camera sample</figcaption>'
+    );
+    expect(result.legacyHtml).not.toContain('title=');
+  });
+
+  it('sanitizes caption text so image titles cannot inject markup', async () => {
+    // Arrange
+    const html =
+      '<p><img src="https://cdn.example.com/photo.jpg" title="&lt;img src=x onerror=alert(1)&gt; caption" /></p>';
+
+    // Act
+    const result = await resolveBlogPostContent(html);
+
+    // Assert
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).toContain('<figcaption>');
+    expect(result.legacyHtml).toContain('caption</figcaption>');
+    expect(result.legacyHtml).not.toContain('<figcaption><img');
+    expect(result.legacyHtml).not.toContain('onerror=');
+    expect(result.legacyHtml).not.toContain('<script');
+  });
+
+  it('keeps existing rendering for images without title captions', async () => {
+    // Arrange
+    const html =
+      '<p><img src="https://cdn.example.com/photo.jpg" alt="Original alt" /></p>';
+
+    // Act
+    const result = await resolveBlogPostContent(html);
+
+    // Assert
+    expect(result.isJson).toBe(false);
+    expect(result.legacyHtml).toContain('alt="Original alt"');
+    expect(result.legacyHtml).not.toContain('<figcaption>');
   });
 
   it('normalizes legacy internal storefront links inside html content', async () => {
@@ -133,6 +183,175 @@ describe('resolveBlogPostContent', () => {
     expect(emptyResult.legacyHtml).toBe('');
     expect(nullResult.isJson).toBe(false);
     expect(nullResult.legacyHtml).toBe('');
+  });
+});
+
+describe('transformImageTitlesToFigureCaptions', () => {
+  it('converts image titles into figure/figcaption markup', () => {
+    const html =
+      '<p><img src="https://cdn.example.com/photo.jpg" title="Camera sample" /></p>';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toBe(
+      '<figure><img src="https://cdn.example.com/photo.jpg" /><figcaption>Camera sample</figcaption></figure>'
+    );
+  });
+
+  it('does not wrap inline images inside text paragraphs', () => {
+    const html =
+      '<p>Intro <img src="https://cdn.example.com/photo.jpg" title="Inline caption" /> outro</p>';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toBe(html);
+  });
+
+  it('converts titled image-only paragraphs with attributes', () => {
+    const html =
+      '<p id="hero-image" class="image-block"><img src="https://cdn.example.com/photo.jpg" title="Camera sample" /></p>';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toBe(
+      '<figure id="hero-image" class="image-block"><img src="https://cdn.example.com/photo.jpg" /><figcaption>Camera sample</figcaption></figure>'
+    );
+  });
+
+  it('converts titled image-only figure wrappers without nesting figures', () => {
+    const html =
+      '<figure class="legacy-figure"><img src="https://cdn.example.com/photo.jpg" title="Camera sample" /></figure>';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toBe(
+      '<figure class="legacy-figure"><img src="https://cdn.example.com/photo.jpg" /><figcaption>Camera sample</figcaption></figure>'
+    );
+  });
+
+  it('converts standalone titled image tags without paragraph wrappers', () => {
+    const html =
+      '<img src="https://cdn.example.com/photo.jpg" title="Camera sample" />';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toBe(
+      '<figure><img src="https://cdn.example.com/photo.jpg" /><figcaption>Camera sample</figcaption></figure>'
+    );
+  });
+
+  it('converts standalone titled images inside non-paragraph wrappers', () => {
+    const html =
+      '<div><img src="https://cdn.example.com/photo.jpg" title="Camera sample" /></div>';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toBe(
+      '<div><figure><img src="https://cdn.example.com/photo.jpg" /><figcaption>Camera sample</figcaption></figure></div>'
+    );
+  });
+
+  it('does not wrap images inside inline-only wrappers', () => {
+    const html =
+      '<span><img src="https://cdn.example.com/photo.jpg" title="Inline caption" /></span>';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toBe(html);
+  });
+
+  it('keeps image tags without title unchanged', () => {
+    const html = '<p><img src="https://cdn.example.com/photo.jpg" /></p>';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toBe(html);
+  });
+
+  it('escapes untrusted caption text', () => {
+    const html =
+      '<p><img src="https://cdn.example.com/photo.jpg" title="&lt;script&gt;alert(1)&lt;/script&gt; &amp; promo" /></p>';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toContain(
+      '<figcaption>&lt;script&gt;alert(1)&lt;/script&gt; &amp; promo</figcaption>'
+    );
+    expect(result).not.toContain('<figcaption><script>');
+  });
+
+  it('decodes common typographic caption entities before escaping text', () => {
+    const html =
+      '<p><img src="https://cdn.example.com/photo.jpg" title="&copy; Baci &mdash; 2026" /></p>';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toContain(
+      `<figcaption>${'\u00a9'} Baci ${'\u2014'} 2026</figcaption>`
+    );
+    expect(result).not.toContain('&amp;copy;');
+    expect(result).not.toContain('&amp;mdash;');
+  });
+
+  it('leaves empty or whitespace-only titles unchanged', () => {
+    const html =
+      '<p><img src="https://cdn.example.com/photo.jpg" title="   " /></p>';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toBe(html);
+  });
+
+  it('handles multiple images in one string', () => {
+    const html =
+      '<p><img src="https://cdn.example.com/a.jpg" title="A" /></p><p><img src="https://cdn.example.com/b.jpg" title="B" /></p>';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toContain('<figcaption>A</figcaption>');
+    expect(result).toContain('<figcaption>B</figcaption>');
+  });
+
+  it('does not modify malformed img tags that do not close', () => {
+    const html =
+      '<p><img src="https://cdn.example.com/photo.jpg" title="Broken"</p>';
+
+    const result = transformImageTitlesToFigureCaptions(html);
+
+    expect(result).toBe(html);
+  });
+});
+
+describe('unescapeHtmlText', () => {
+  it('unescapes known html entities', () => {
+    expect(unescapeHtmlText('&amp;amp;')).toBe('&amp;');
+    expect(unescapeHtmlText('&amp;lt;')).toBe('&lt;');
+    expect(unescapeHtmlText('&amp;gt;')).toBe('&gt;');
+  });
+
+  it('returns empty string for empty input', () => {
+    expect(unescapeHtmlText('')).toBe('');
+  });
+
+  it('preserves unknown entities and surrounding text', () => {
+    expect(unescapeHtmlText('Price &notareal; 2026')).toBe(
+      'Price &notareal; 2026'
+    );
+  });
+
+  it('unescapes common typographic html entities', () => {
+    expect(unescapeHtmlText('&copy; &mdash; &ndash;')).toBe(
+      '\u00a9 \u2014 \u2013'
+    );
+  });
+
+  it('handles nested and incomplete entities without throwing', () => {
+    expect(unescapeHtmlText('&amp;amp;lt;')).toBe('&amp;lt;');
+    expect(unescapeHtmlText('&amp;amp')).toBe('&amp');
+  });
+
+  it('is a no-op for plain text without entities', () => {
+    expect(unescapeHtmlText('No entities here')).toBe('No entities here');
   });
 });
 

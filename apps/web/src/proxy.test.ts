@@ -436,6 +436,8 @@ describe('Middleware Proxy', () => {
   it.each([
     '/agent-commerce.json',
     '/agent-trust.json',
+    '/.well-known/agent-native-commerce',
+    '/.well-known/ucp',
     '/feeds/google-merchant.xml',
     '/feeds/openai.jsonl',
     '/feeds/agent-products.jsonl',
@@ -478,6 +480,8 @@ describe('Middleware Proxy', () => {
   it.each([
     '/agent-commerce.json',
     '/agent-trust.json',
+    '/.well-known/agent-native-commerce',
+    '/.well-known/ucp',
     '/feeds/google-merchant.xml',
     '/feeds/openai.jsonl',
     '/feeds/agent-products.jsonl',
@@ -520,6 +524,8 @@ describe('Middleware Proxy', () => {
   it.each([
     '/agent-commerce.json',
     '/agent-trust.json',
+    '/.well-known/agent-native-commerce',
+    '/.well-known/ucp',
     '/feeds/google-merchant.xml',
     '/feeds/openai.jsonl',
     '/feeds/agent-products.jsonl',

@@ -4,12 +4,15 @@ import type { OpenAIFeedData } from '@/app/api/feed/openai/feed-data';
 import { STOREFRONT_AGENT_ROUTES } from '@/config/storefront-agent-routes';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import { resolveGmcPrimaryImage } from '@/lib/gmc-feed-images';
-import { getProductUrl } from '@/lib/seo-utils';
 import {
   buildAgentPolicyUrls,
   buildAgentProductUrl,
   trimTrailingSlash,
 } from '@/lib/storefront-agent-urls';
+import { buildAgentCommerceTrustHealthSignals } from './agent-commerce-trust-health-signals';
+import { getTrustCoverageSeverity } from './get-trust-coverage-severity';
+import { isPresentString } from './is-present-string';
+import { isValidHttpUrl } from './is-valid-http-url';
 import type { MerchantTrustProfile } from './merchant-trust-profile-types';
 
 export type AgentCommerceTrustSeverity = 'pass' | 'warn' | 'fail';
@@ -22,6 +25,9 @@ export interface AgentCommerceTrustCheck {
     | 'verified-image-coverage'
     | 'policy-coverage'
     | 'support-contact'
+    | 'structured-data-readiness'
+    | 'feed-freshness'
+    | 'crawler-visibility'
     | 'machine-endpoint-discovery';
   label: string;
   severity: AgentCommerceTrustSeverity;
@@ -40,6 +46,8 @@ export interface AgentCommerceTrustReadiness {
     openAiProductFeed: string;
     productApi: string;
     policies: ReturnType<typeof buildAgentPolicyUrls>;
+    robots: string;
+    sitemap: string;
   };
   totals: {
     googleProducts: number;
@@ -48,6 +56,9 @@ export interface AgentCommerceTrustReadiness {
     urlMismatches: number;
     priceMismatches: number;
     productsWithVerifiedImages: number;
+    latestProductUpdatedAt: string | null;
+    productsWithStructuredData: number;
+    staleProducts: number;
   };
 }
 
@@ -58,21 +69,9 @@ interface BuildAgentCommerceTrustReadinessInput {
     business_name: string;
     slug: string;
   };
+  now?: Date;
   openAiFeedData: OpenAIFeedData;
   trustProfile: MerchantTrustProfile;
-}
-
-function isPresent(value: string | null | undefined): boolean {
-  return Boolean(value && value.trim().length > 0);
-}
-
-function isValidHttpUrl(value: string): boolean {
-  try {
-    const url = new URL(value);
-    return url.protocol === 'https:' || url.protocol === 'http:';
-  } catch {
-    return false;
-  }
 }
 
 function buildSurfaceUrls(baseUrl: string, slug: string) {
@@ -86,24 +85,13 @@ function buildSurfaceUrls(baseUrl: string, slug: string) {
     openAiProductFeed: `${root}${STOREFRONT_FEED_ROUTES.openaiProductFeed}`,
     productApi: `${root}/api/storefront/${encodeURIComponent(slug)}/products`,
     policies: buildAgentPolicyUrls(root),
+    robots: `${root}/robots.txt`,
+    sitemap: `${root}/sitemap.xml`,
   };
-}
-
-function getGoogleProductUrl(baseUrl: string, product: FeedProduct): string {
-  return `${trimTrailingSlash(baseUrl)}${getProductUrl(product)}`;
 }
 
 function indexById<T extends { id: string }>(items: T[]): Map<string, T> {
   return new Map(items.map((item) => [item.id, item]));
-}
-
-function getSeverityFromCoverage(
-  covered: number,
-  total: number
-): AgentCommerceTrustSeverity {
-  if (total === 0) return 'warn';
-  if (covered === 0) return 'fail';
-  return covered === total ? 'pass' : 'warn';
 }
 
 function getStatus(
@@ -138,6 +126,7 @@ export function buildAgentCommerceTrustReadiness({
   baseUrl,
   googleFeedData,
   merchant,
+  now,
   openAiFeedData,
   trustProfile,
 }: BuildAgentCommerceTrustReadinessInput): AgentCommerceTrustReadiness {
@@ -159,7 +148,7 @@ export function buildAgentCommerceTrustReadiness({
 
     return (
       buildAgentProductUrl({ baseUrl, product: openAiProduct }) !==
-      getGoogleProductUrl(baseUrl, googleProduct)
+      buildAgentProductUrl({ baseUrl, product: googleProduct })
     );
   });
 
@@ -181,6 +170,11 @@ export function buildAgentCommerceTrustReadiness({
   ).length;
 
   const surfaces = buildSurfaceUrls(baseUrl, merchant.slug);
+  const healthSignals = buildAgentCommerceTrustHealthSignals({
+    now,
+    openAiProducts: openAiFeedData.products,
+    surfaces,
+  });
   const surfaceUrls = [
     surfaces.agentCommerceManifest,
     surfaces.agentTrust,
@@ -189,6 +183,8 @@ export function buildAgentCommerceTrustReadiness({
     surfaces.openAiProductFeed,
     surfaces.productApi,
     ...Object.values(surfaces.policies),
+    surfaces.robots,
+    surfaces.sitemap,
   ];
   const validSurfaceUrls = surfaceUrls.filter(isValidHttpUrl).length;
   const policyCount = [
@@ -199,7 +195,7 @@ export function buildAgentCommerceTrustReadiness({
     trustProfile.supportEmail,
     trustProfile.supportPhone,
     trustProfile.whatsappNumber,
-  ].some(isPresent);
+  ].some(isPresentString);
 
   const checks: AgentCommerceTrustCheck[] = [
     {
@@ -236,7 +232,7 @@ export function buildAgentCommerceTrustReadiness({
     {
       id: 'verified-image-coverage',
       label: 'Verified image coverage',
-      severity: getSeverityFromCoverage(
+      severity: getTrustCoverageSeverity(
         productsWithVerifiedImages,
         openAiFeedData.products.length
       ),
@@ -248,8 +244,7 @@ export function buildAgentCommerceTrustReadiness({
     {
       id: 'policy-coverage',
       label: 'Policy coverage',
-      severity:
-        policyCount === 2 ? 'pass' : policyCount === 0 ? 'fail' : 'warn',
+      severity: policyCount === 2 ? 'pass' : 'warn',
       message:
         policyCount === 2
           ? 'Return and shipping policies are available for agent recommendation checks.'
@@ -263,6 +258,7 @@ export function buildAgentCommerceTrustReadiness({
         ? 'A support contact is available for post-purchase questions.'
         : 'Add support email, phone, or WhatsApp details.',
     },
+    ...healthSignals.checks,
     {
       id: 'machine-endpoint-discovery',
       label: 'Machine endpoint discovery',
@@ -285,6 +281,7 @@ export function buildAgentCommerceTrustReadiness({
       urlMismatches: urlMismatches.length,
       priceMismatches: priceMismatches.length,
       productsWithVerifiedImages,
+      ...healthSignals.totals,
     },
   };
 }

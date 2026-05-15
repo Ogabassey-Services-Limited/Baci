@@ -511,6 +511,7 @@ describe('BlogContentRenderer', () => {
       const image = screen.getByAltText('A photo');
       expect(image).toBeInTheDocument();
       expect(image).toHaveAttribute('src', 'https://cdn.example.com/photo.jpg');
+      expect(image).toHaveAttribute('sizes', '(max-width: 768px) 100vw, 800px');
     });
 
     it('uses "Blog image" as default alt when alt is absent', () => {
@@ -522,6 +523,45 @@ describe('BlogContentRenderer', () => {
       const image = screen.getByAltText('Blog image');
       expect(image).toBeInTheDocument();
       expect(image).toHaveAttribute('src', 'https://cdn.example.com/photo.jpg');
+    });
+
+    it('renders semantic caption markup for image title captions', () => {
+      const json = doc({
+        type: 'image',
+        attrs: {
+          src: 'https://cdn.example.com/photo.jpg',
+          alt: 'A photo',
+          title: 'Front camera sample',
+        },
+      });
+
+      const { container } = render(<BlogContentRenderer json={json} />);
+
+      expect(screen.getByText('Front camera sample')).toBeInTheDocument();
+      expect(container.querySelector('figcaption')).toHaveTextContent(
+        'Front camera sample'
+      );
+      expect(container.querySelector('figure')).toHaveClass('my-10');
+      const imageWrapper = container.querySelector(
+        'figure > div.relative.aspect-video'
+      );
+      expect(imageWrapper).toBeInTheDocument();
+      expect(imageWrapper).not.toHaveClass('my-10');
+    });
+
+    it('does not render empty figcaption wrappers for captionless images', () => {
+      const json = doc({
+        type: 'image',
+        attrs: { src: 'https://cdn.example.com/photo.jpg', alt: 'A photo' },
+      });
+
+      const { container } = render(<BlogContentRenderer json={json} />);
+
+      expect(container.querySelector('figcaption')).not.toBeInTheDocument();
+      expect(container.querySelector('figure')).not.toBeInTheDocument();
+      const imageWrapper = container.querySelector('div.relative.aspect-video');
+      expect(imageWrapper).toBeInTheDocument();
+      expect(imageWrapper).toHaveClass('my-10');
     });
 
     it('does not render an image when src is null', () => {

@@ -9,6 +9,7 @@
  * - Optimistic updates for instant feel
  */
 
+import { dedupeById } from '@baci/shared/lib';
 import {
   keepPreviousData,
   useInfiniteQuery,
@@ -39,7 +40,9 @@ export function useProducts(options: UseProductsOptions = {}) {
     enabled: !!merchantId && options.enabled !== false,
   });
 
-  const products = query.data?.pages.flatMap((page) => page.products) || [];
+  const products = dedupeById(
+    query.data?.pages.flatMap((page) => page.products) || []
+  );
   const total = query.data?.pages[0]?.total || 0;
 
   return {

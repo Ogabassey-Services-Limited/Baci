@@ -11,8 +11,10 @@ vi.mock('@/env', () => ({
 }));
 
 const mockRevalidateFeatures = vi.fn();
+const mockRevalidateMerchant = vi.fn();
 vi.mock('@/lib/cache-revalidation', () => ({
   revalidateFeatures: (...args: unknown[]) => mockRevalidateFeatures(...args),
+  revalidateMerchant: (...args: unknown[]) => mockRevalidateMerchant(...args),
 }));
 
 let csrfValid = true;
@@ -155,6 +157,7 @@ describe('GET /api/merchant/features', () => {
     const response = await GET(makeRequest('GET'));
 
     expect(response.status).toBe(200);
+    expect(selectColumns).toContain('agentic_checkout_enabled');
     expect(selectColumns).toContain('vtu_electricity_enabled');
     expect(selectColumns).toContain('vtu_tv_enabled');
     expect(selectColumns).toContain('vtu_betting_enabled');
@@ -171,6 +174,7 @@ describe('GET /api/merchant/features', () => {
 
     expect(response.status).toBe(200);
     expect(insertPayload).toMatchObject({
+      agentic_checkout_enabled: true,
       vtu_customer_cashback_enabled: false,
       vtu_customer_cashback_rate: 50,
     });
@@ -290,13 +294,16 @@ describe('PATCH /api/merchant/features', () => {
     expect(json.error).toBe('Permission denied');
   });
 
-  it('updates settings and calls revalidateFeatures', async () => {
+  it('updates settings and invalidates feature and merchant caches', async () => {
     const { PATCH } = await import('./route');
 
-    const res = await PATCH(makeRequest('PATCH', { loyalty_enabled: true }));
+    const res = await PATCH(
+      makeRequest('PATCH', { agentic_checkout_enabled: false })
+    );
 
     expect(res.status).toBe(200);
     expect(mockRevalidateFeatures).toHaveBeenCalledWith(MERCHANT_ID);
+    expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
   });
 
   it('returns 500 when upsert fails', async () => {
@@ -343,13 +350,16 @@ describe('PUT /api/merchant/features', () => {
     expect(res.status).toBe(403);
   });
 
-  it('replaces settings and calls revalidateFeatures', async () => {
+  it('replaces settings and invalidates feature and merchant caches', async () => {
     const { PUT } = await import('./route');
 
-    const res = await PUT(makeRequest('PUT', { reviews_enabled: true }));
+    const res = await PUT(
+      makeRequest('PUT', { agentic_checkout_enabled: false })
+    );
 
     expect(res.status).toBe(200);
     expect(mockRevalidateFeatures).toHaveBeenCalledWith(MERCHANT_ID);
+    expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
   });
 
   it('returns 500 when upsert fails', async () => {

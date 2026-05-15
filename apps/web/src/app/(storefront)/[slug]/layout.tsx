@@ -19,7 +19,6 @@ import {
   getStorefrontSeoDescription,
   getStorefrontSeoTitle,
 } from './seo-helpers';
-import { isStorefrontHomePath } from './storefront-home-path';
 import {
   getStorefrontShellSnapshot,
   getStorefrontShellSnapshotBase,
@@ -240,15 +239,6 @@ export async function StorefrontLayoutContent(props: {
     notFound();
   }
 
-  const headersList = await headers();
-  const preloadHeroLcpImages =
-    shellSnapshotBase.merchant.template_id === OGABASSEY_TEMPLATE_ID &&
-    isStorefrontHomePath({
-      merchantSlug: shellSnapshotBase.merchant.slug,
-      pathname: headersList.get('x-pathname'),
-      routeSlug: slug,
-    });
-
   const isDevelopment = process.env.NODE_ENV === 'development';
   if (!shellSnapshotBase.merchant.is_published && !isDevelopment) {
     return (
@@ -266,7 +256,9 @@ export async function StorefrontLayoutContent(props: {
 
   return (
     <StorefrontShellFrame
-      preloadHeroLcpImages={preloadHeroLcpImages}
+      // Page-level resource hints own LCP preloads. Keeping the shared
+      // layout disabled prevents home hero hints from leaking onto nested routes.
+      preloadHeroLcpImages={false}
       shellSnapshot={shellSnapshot}
     >
       {props.children}
@@ -276,12 +268,15 @@ export async function StorefrontLayoutContent(props: {
 
 export default function StorefrontLayout(props: {
   children: React.ReactNode;
+  loadingFallback?: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
+  const { loadingFallback = null, ...contentProps } = props;
+
   return (
     <StorefrontThemeFrame>
-      <Suspense fallback={null}>
-        <StorefrontLayoutContent {...props} />
+      <Suspense fallback={loadingFallback}>
+        <StorefrontLayoutContent {...contentProps} />
       </Suspense>
     </StorefrontThemeFrame>
   );

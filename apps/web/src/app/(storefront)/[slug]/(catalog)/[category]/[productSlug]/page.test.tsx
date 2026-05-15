@@ -1,10 +1,14 @@
-import { render, screen } from '@testing-library/react';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { render, screen, waitFor } from '@testing-library/react';
 import { type ReactNode, Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
 const {
   mockNormalizeStorefrontProductVariants,
+  mockPreloadOgabasseyPdpProductImage,
+  mockOgabasseyPdpSemanticSections,
   mockOgabasseyPdpStaticResourceHints,
   mockOgabasseyProductDetailsPage,
   mockProductDetailClient,
@@ -12,6 +16,8 @@ const {
   mockNormalizeStorefrontProductVariants: vi.fn<
     (...args: unknown[]) => Record<string, unknown>[]
   >(() => []),
+  mockPreloadOgabasseyPdpProductImage: vi.fn<(src: string) => void>(),
+  mockOgabasseyPdpSemanticSections: vi.fn<(props: unknown) => void>(),
   mockOgabasseyPdpStaticResourceHints: vi.fn<() => void>(),
   mockOgabasseyProductDetailsPage: vi.fn<(props: unknown) => void>(),
   mockProductDetailClient: vi.fn<(props: unknown) => null>(() => null),
@@ -80,6 +86,21 @@ vi.mock(
     },
   })
 );
+
+vi.mock(
+  '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints',
+  () => ({
+    preloadOgabasseyPdpProductImage: (src: string) =>
+      mockPreloadOgabasseyPdpProductImage(src),
+  })
+);
+
+vi.mock('./ogabassey-pdp-semantic-sections', () => ({
+  OgabasseyPdpSemanticSections: (props: unknown) => {
+    mockOgabasseyPdpSemanticSections(props);
+    return <section data-testid="ogabassey-pdp-semantic-sections" />;
+  },
+}));
 
 vi.mock('@/lib/cached-data', () => ({
   getRequestScopedMerchant: (...args: unknown[]) =>
@@ -238,6 +259,13 @@ vi.mock('@/lib/validation', () => ({
         /^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$/.test(value)) &&
       !reservedNames.has(value.toLowerCase())
     );
+  },
+}));
+
+vi.mock('./default-product-detail-client', () => ({
+  DefaultProductDetailClient: (props: unknown) => {
+    mockProductDetailClient(props);
+    return null;
   },
 }));
 
@@ -513,6 +541,8 @@ describe('[category]/[productSlug] page render', () => {
     mockGetPublishedClusterPosts.mockReset();
     mockGetPublishedClusterPosts.mockResolvedValue([]);
     mockBuildProductSemanticModel.mockReset();
+    mockPreloadOgabasseyPdpProductImage.mockReset();
+    mockOgabasseyPdpSemanticSections.mockReset();
     mockOgabasseyPdpStaticResourceHints.mockReset();
     mockOgabasseyProductDetailsPage.mockReset();
     mockBuildProductSemanticModel.mockReturnValue({
@@ -561,6 +591,59 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpStaticResourceHints).toHaveBeenCalledTimes(1);
   });
 
+  it('renders the OgaBassey product shell before supplemental PDP data resolves', async () => {
+    let resolveCategoryPageData:
+      | ((
+          value: Awaited<ReturnType<typeof mockGetCachedCategoryPageData>>
+        ) => void)
+      | undefined;
+    mockGetCachedCategoryPageData.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveCategoryPageData = resolve;
+      })
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      images: [
+        'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif',
+      ],
+    });
+
+    const pagePromise = CategoryProductPage({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+    let pageUi: Awaited<ReturnType<typeof CategoryProductPage>> | undefined;
+    pagePromise.then((result) => {
+      pageUi = result;
+    });
+
+    await waitFor(() => {
+      expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith(
+        'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif'
+      );
+    });
+    await waitFor(() => {
+      expect(pageUi).toBeDefined();
+    });
+
+    render(pageUi as ReactNode);
+    expect(mockOgabasseyProductDetailsPage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        product: expect.objectContaining({
+          image:
+            'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif',
+        }),
+      })
+    );
+
+    resolveCategoryPageData?.(null);
+  });
+
   it('does not mount OgaBassey PDP preload hints for generic template product pages', async () => {
     mockGetRequestScopedMerchant.mockResolvedValue({
       ...baseMerchant,
@@ -579,6 +662,20 @@ describe('[category]/[productSlug] page render', () => {
     );
 
     expect(mockOgabasseyPdpStaticResourceHints).not.toHaveBeenCalled();
+  });
+
+  it('keeps the generic product client behind the default branch loader', () => {
+    const routeSource = readFileSync(
+      join(
+        process.cwd(),
+        'src/app/(storefront)/[slug]/(catalog)/[category]/[productSlug]/page.tsx'
+      ),
+      { encoding: 'utf8' }
+    );
+
+    expect(routeSource).not.toContain(
+      "import ProductDetailClient from '@/app/(storefront)/[slug]/(catalog)/products/[productSlug]/product-detail-client'"
+    );
   });
 
   it('preserves unmanaged stock and variant stock quantities for the Ogabassey PDP', async () => {
@@ -860,36 +957,19 @@ describe('[category]/[productSlug] page render', () => {
       })
     );
 
-    expect(
-      screen.getByRole('link', {
-        name: /Shop more Smartphones/i,
-      })
-    ).toHaveAttribute('href', 'https://teststore.usebaci.com/smartphones');
-    expect(
-      screen.getByRole('link', {
-        name: 'Best Phones in Nigeria',
-      })
-    ).toHaveAttribute(
-      'href',
-      'https://teststore.usebaci.com/blog/best-phones-in-nigeria'
-    );
-    expect(screen.getByText('Free returns within 7 days')).toBeInTheDocument();
-    expect(screen.getByText('Ships across Nigeria')).toBeInTheDocument();
-    expect(screen.getByText('WhatsApp support available')).toBeInTheDocument();
-    expect(mockBuildProductSemanticModel).toHaveBeenCalledWith(
+    expect(mockOgabasseyPdpSemanticSections).toHaveBeenCalledWith(
       expect.objectContaining({
+        categoryName: 'Smartphones',
         storeUrl: 'https://teststore.usebaci.com',
         categorySlug: 'smartphones',
-        currentProduct: expect.objectContaining({
+        product: expect.objectContaining({
           slug: 'samsung-galaxy-z-trifold',
         }),
-        inventory: expect.arrayContaining([
-          expect.objectContaining({
-            slug: 'iphone-17-pro-max',
-            category_slug: 'smartphones',
-          }),
+        trustBullets: expect.arrayContaining([
+          'Free returns within 7 days',
+          'Ships across Nigeria',
+          'WhatsApp support available',
         ]),
-        guidePosts: [],
       })
     );
     expect(mockGenerateProductSchema).toHaveBeenCalledWith(

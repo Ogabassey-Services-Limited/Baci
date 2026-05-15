@@ -19,7 +19,7 @@ import {
 } from '@/lib/gmc-feed-images';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { ProductKeySpecs } from '@/lib/products';
-import { getProductUrl } from '@/lib/seo-utils';
+import { buildAgentProductUrl } from '@/lib/storefront-agent-urls';
 import { buildFeedDescription } from './build-feed-description';
 
 export interface FeedProduct {
@@ -387,7 +387,10 @@ export function generateGoogleMerchantFeed(
 
   const items = validProducts
     .map((product) => {
-      const productUrl = `${normalizedBaseUrl}${getProductUrl(product)}`;
+      const productUrl = buildAgentProductUrl({
+        baseUrl: normalizedBaseUrl,
+        product,
+      });
       if (!isValidGmcUrl(productUrl)) return null;
 
       // Resolve images from prevalidated manifest only

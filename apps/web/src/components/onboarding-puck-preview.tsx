@@ -7,7 +7,8 @@ import { Component, type ReactNode, useEffect, useState } from 'react';
 import { builderConfig } from '@/components/builder/config';
 import { Button } from '@/components/ui/button';
 import { CartProvider } from '@/hooks/use-cart';
-import { type MerchantData, MerchantProvider } from '@/hooks/use-merchant';
+import type { MerchantData } from '@/hooks/use-merchant';
+import { MerchantProvider } from '@/hooks/use-merchant-client';
 import {
   deriveThemeFromColors,
   generateFeatures,

@@ -27,7 +27,6 @@ const mockOgabasseyStorefrontLayout = vi.hoisted(() =>
     )
   )
 );
-const mockStorefrontHeroPreloadDecision = vi.hoisted(() => vi.fn(() => null));
 
 vi.mock('./storefront-shell-snapshot', () => ({
   getStorefrontShellSnapshotBase: vi.fn(),
@@ -36,10 +35,6 @@ vi.mock('./storefront-shell-snapshot', () => ({
 
 vi.mock('@/components/storefront/ogabassey/storefront-layout', () => ({
   OgabasseyStorefrontLayout: mockOgabasseyStorefrontLayout,
-}));
-
-vi.mock('./storefront-hero-preload-decision', () => ({
-  StorefrontHeroPreloadDecision: mockStorefrontHeroPreloadDecision,
 }));
 
 vi.mock('@/components/storefront/deferred-page-view-tracker', () => ({
@@ -86,6 +81,10 @@ const notFound = vi.fn(() => {
 
 vi.mock('next/navigation', () => ({
   notFound: () => notFound(),
+}));
+
+vi.mock('next/headers', () => ({
+  headers: vi.fn(() => Promise.resolve(new Headers())),
 }));
 
 vi.mock('@/lib/store-url', () => ({
@@ -172,7 +171,6 @@ describe('storefront layout', () => {
     vi.mocked(getStorefrontShellSnapshot).mockReset();
     notFound.mockClear();
     mockOgabasseyStorefrontLayout.mockClear();
-    mockStorefrontHeroPreloadDecision.mockClear();
     providerSnapshots.length = 0;
     themeProviderRenders = 0;
   });
@@ -215,19 +213,11 @@ describe('storefront layout', () => {
       'data-preload-hero-lcp',
       'false'
     );
-    expect(mockStorefrontHeroPreloadDecision).toHaveBeenCalledWith(
-      expect.objectContaining({
-        merchantSlug: 'ogabassey',
-        routeSlug: 'ogabassey',
-        templateId: 'ogabassey',
-      }),
-      undefined
-    );
     expect(themeProviderRenders).toBe(0);
     expect(screen.getByText('Storefront content')).toBeInTheDocument();
   });
 
-  it('can disable the dynamic hero preload decision for routes with static hints', async () => {
+  it('keeps generic storefront layouts from owning OgaBassey home hero preloads', async () => {
     vi.mocked(getStorefrontShellSnapshotBase).mockResolvedValue(
       baseShellSnapshotWithoutCategories
     );
@@ -235,7 +225,6 @@ describe('storefront layout', () => {
 
     render(
       await StorefrontLayoutContent({
-        enableDynamicHeroPreloadDecision: false,
         params: Promise.resolve({ slug: 'ogabassey' }),
         children: <main>Storefront content</main>,
       })
@@ -245,7 +234,12 @@ describe('storefront layout', () => {
       'data-preload-hero-lcp',
       'false'
     );
-    expect(mockStorefrontHeroPreloadDecision).not.toHaveBeenCalled();
+    expect(mockOgabasseyStorefrontLayout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        preloadHeroLcpImages: false,
+      }),
+      undefined
+    );
   });
 
   it('calls notFound before route content renders when the shell snapshot is missing', async () => {

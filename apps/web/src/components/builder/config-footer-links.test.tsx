@@ -15,7 +15,7 @@ vi.mock('next/image', () => ({
     createElement('img', { alt, src }),
 }));
 
-vi.mock('@/hooks/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: () => mockUseMerchantSafe(),
   useMerchantSafe: () => mockUseMerchantSafe(),
 }));
