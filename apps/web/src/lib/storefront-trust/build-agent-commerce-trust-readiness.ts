@@ -244,8 +244,7 @@ export function buildAgentCommerceTrustReadiness({
     {
       id: 'policy-coverage',
       label: 'Policy coverage',
-      severity:
-        policyCount === 2 ? 'pass' : policyCount === 0 ? 'fail' : 'warn',
+      severity: policyCount === 2 ? 'pass' : 'warn',
       message:
         policyCount === 2
           ? 'Return and shipping policies are available for agent recommendation checks.'
