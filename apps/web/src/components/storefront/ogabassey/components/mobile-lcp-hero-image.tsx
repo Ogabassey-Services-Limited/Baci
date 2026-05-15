@@ -17,6 +17,12 @@ interface MobileLcpHeroImageProps {
   src: string;
 }
 
+const WIDTH_DESCRIPTOR_PATTERN = /\s\d+w(?:,|$)/;
+
+function getResponsiveSizes(srcSetValue: string, sizesValue?: string) {
+  return WIDTH_DESCRIPTOR_PATTERN.test(srcSetValue) ? sizesValue : undefined;
+}
+
 export function MobileLcpHeroImage({
   alt,
   imageFit,
@@ -56,9 +62,15 @@ export function MobileLcpHeroImage({
     width: MOBILE_HERO_IMAGE_WIDTH,
   });
   const avifSrcSet = srcSet ?? src;
-  const avifSizes = sizes ?? MOBILE_HERO_IMAGE_SIZES;
+  const avifSizes = getResponsiveSizes(
+    avifSrcSet,
+    sizes ?? MOBILE_HERO_IMAGE_SIZES
+  );
   const resolvedFallbackSrcSet = fallbackSrcSet ?? fallbackSrc;
-  const resolvedFallbackSizes = fallbackSizes ?? MOBILE_HERO_IMAGE_SIZES;
+  const resolvedFallbackSizes = getResponsiveSizes(
+    resolvedFallbackSrcSet,
+    fallbackSizes ?? MOBILE_HERO_IMAGE_SIZES
+  );
 
   return (
     <picture className="block h-full w-full">

@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import {
+  OGABASSEY_HERO_ASSET_CACHE_CONTROL,
+  OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER,
+} from '@/config/ogabassey-hero-assets';
 import nextConfig from './next.config';
-import { OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER } from './src/config/ogabassey-hero-assets';
 
 describe('next.config OgaBassey resource headers', () => {
   it('adds native hero preload Link headers only to OgaBassey custom-domain home routes', async () => {
@@ -24,6 +27,18 @@ describe('next.config OgaBassey resource headers', () => {
     expect(wwwHomeHeaders?.headers).toContainEqual({
       key: 'Link',
       value: OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER,
+    });
+  });
+
+  it('sets immutable browser caching for versioned OgaBassey public hero assets', async () => {
+    const headers = await nextConfig.headers?.();
+    const heroAssetHeaders = headers?.find(
+      (entry) => entry.source === '/ogabassey/hero/:path*'
+    );
+
+    expect(heroAssetHeaders?.headers).toContainEqual({
+      key: 'Cache-Control',
+      value: OGABASSEY_HERO_ASSET_CACHE_CONTROL,
     });
   });
 });

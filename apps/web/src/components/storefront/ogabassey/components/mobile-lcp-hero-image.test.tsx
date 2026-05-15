@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   HERO_MOBILE_LCP_FALLBACK_SRC,
   HERO_MOBILE_LCP_SRC,
@@ -7,19 +7,21 @@ import {
 import { MobileLcpHeroImage } from './mobile-lcp-hero-image';
 
 const mockGetImageProps = vi.hoisted(() =>
-  vi.fn((props: Record<string, unknown>) => ({
-    props: {
-      alt: props.alt,
-      decoding: props.decoding,
-      fetchPriority: props.fetchPriority,
-      height: props.height,
-      loading: props.loading,
-      sizes: props.sizes,
-      src: props.src,
-      srcSet: `${String(props.src)} 640w, ${String(props.src)} 960w`,
-      width: props.width,
-    },
-  }))
+  vi.fn(
+    (props: Record<string, unknown>): { props: Record<string, unknown> } => ({
+      props: {
+        alt: props.alt,
+        decoding: props.decoding,
+        fetchPriority: props.fetchPriority,
+        height: props.height,
+        loading: props.loading,
+        sizes: props.sizes,
+        src: props.src,
+        srcSet: `${String(props.src)} 640w, ${String(props.src)} 960w`,
+        width: props.width,
+      },
+    })
+  )
 );
 
 vi.mock('next/image', () => ({
@@ -27,6 +29,10 @@ vi.mock('next/image', () => ({
 }));
 
 describe('MobileLcpHeroImage', () => {
+  beforeEach(() => {
+    mockGetImageProps.mockClear();
+  });
+
   it('renders viewport-scoped AVIF and JPEG sources without adding a head preload', () => {
     document.head.replaceChildren();
 
@@ -91,6 +97,53 @@ describe('MobileLcpHeroImage', () => {
       'srcset',
       expect.stringContaining(HERO_MOBILE_LCP_FALLBACK_SRC)
     );
+  });
+
+  it('omits sizes when unoptimized image props return a single srcSet candidate', () => {
+    mockGetImageProps
+      .mockImplementationOnce((props: Record<string, unknown>) => ({
+        props: {
+          alt: props.alt,
+          decoding: props.decoding,
+          fetchPriority: props.fetchPriority,
+          height: props.height,
+          loading: props.loading,
+          sizes: props.sizes,
+          src: props.src,
+          width: props.width,
+        },
+      }))
+      .mockImplementationOnce((props: Record<string, unknown>) => ({
+        props: {
+          alt: props.alt,
+          decoding: props.decoding,
+          height: props.height,
+          loading: props.loading,
+          sizes: props.sizes,
+          src: props.src,
+          width: props.width,
+        },
+      }));
+
+    const { container } = render(
+      <MobileLcpHeroImage
+        alt="iPhone 17 Pro Max"
+        imageFit="contain"
+        isResolvedMobileViewport={true}
+        shouldPrioritizeImage={true}
+        src={HERO_MOBILE_LCP_SRC}
+      />
+    );
+
+    expect(
+      container.querySelector('source[type="image/avif"]')
+    ).not.toHaveAttribute('sizes');
+    expect(
+      container.querySelector('source[type="image/jpeg"]')
+    ).not.toHaveAttribute('sizes');
+    expect(
+      screen.getByRole('img', { name: 'iPhone 17 Pro Max' })
+    ).not.toHaveAttribute('sizes');
   });
 
   it('keeps the fallback image transparent after resolving a desktop viewport', () => {

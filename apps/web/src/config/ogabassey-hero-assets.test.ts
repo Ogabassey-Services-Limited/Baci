@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  OGABASSEY_HERO_ASSET_CACHE_CONTROL,
   OGABASSEY_HERO_DESKTOP_LCP_SRC,
   OGABASSEY_HERO_MOBILE_LCP_FALLBACK_SRC,
   OGABASSEY_HERO_MOBILE_LCP_SRC,
@@ -34,6 +35,12 @@ describe('ogabassey hero asset config', () => {
     );
     expect(OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER).toContain(
       'fetchpriority=high'
+    );
+  });
+
+  it('keeps versioned public hero assets cacheable for returning visitors', () => {
+    expect(OGABASSEY_HERO_ASSET_CACHE_CONTROL).toBe(
+      'public, max-age=31536000, immutable'
     );
   });
 });
