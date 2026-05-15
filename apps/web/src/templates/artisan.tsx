@@ -111,14 +111,15 @@ export function HandmadeHome(props: TemplatePageProps) {
 
             <div className="flex flex-wrap gap-4">
               <button
+                type="button"
                 onClick={() => {
                   document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
                 }}
-                className="px-8 py-4 bg-[#C4785E] text-white rounded-full font-semibold hover:bg-[#B06A4F] transition-colors shadow-md"
+                className="px-8 py-4 bg-[#C4785E] text-white rounded-full font-semibold hover:bg-[#B06A4F] transition-colors shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4785E] focus-visible:ring-offset-2"
               >
                 Explore Collection
               </button>
-              <button className="px-8 py-4 bg-white text-[#3D2F2F] rounded-full font-semibold hover:bg-gray-50 transition-colors shadow-md border border-[#E5DDD3] flex items-center gap-2">
+              <button type="button" className="px-8 py-4 bg-white text-[#3D2F2F] rounded-full font-semibold hover:bg-gray-50 transition-colors shadow-md border border-[#E5DDD3] flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4785E] focus-visible:ring-offset-2">
                 <MessageCircle className="w-5 h-5" />
                 Custom Orders
               </button>
@@ -201,9 +202,11 @@ export function HandmadeHome(props: TemplatePageProps) {
               const isActive = selectedCategory === category.value;
               return (
                 <button
+                  type="button"
+                  aria-label={`Filter by ${category.name}`}
                   key={category.value}
                   onClick={() => setSelectedCategory(category.value)}
-                  className={`px-6 py-3 rounded-full font-medium transition-all flex items-center gap-2 ${isActive
+                  className={`px-6 py-3 rounded-full font-medium transition-all flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#C4785E] focus-visible:ring-offset-2 ${isActive
                     ? 'bg-[#C4785E] text-white shadow-md'
                     : 'bg-[#FAF6F1] text-[#5D4E4E] hover:bg-[#F5EDE3] border border-[#E5DDD3]'
                     }`}
@@ -293,7 +296,7 @@ export function HandmadeHome(props: TemplatePageProps) {
                   </li>
                 ))}
               </ul>
-              <button className="px-8 py-4 bg-white text-[#C4785E] rounded-full font-semibold hover:bg-white/90 transition-colors shadow-lg flex items-center gap-2">
+              <button type="button" className="px-8 py-4 bg-white text-[#C4785E] rounded-full font-semibold hover:bg-white/90 transition-colors shadow-lg flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#C4785E]">
                 <MessageCircle className="w-5 h-5" />
                 Start a Custom Order
               </button>

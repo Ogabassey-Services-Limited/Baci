@@ -277,6 +277,7 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
                 onClick={() => onViewModeChange('grid')}
                 className={`p-1.5 rounded-md transition-all active:scale-95 ${viewMode === 'grid' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-400 md:hover:text-gray-600'}`}
                 title="Grid View"
+                aria-label="Grid View"
               >
                 <LayoutGrid size={18} />
               </button>
@@ -284,6 +285,7 @@ export const AdvancedProductFilters: React.FC<AdvancedProductFiltersProps> = ({
                 onClick={() => onViewModeChange('list')}
                 className={`p-1.5 rounded-md transition-all active:scale-95 ${viewMode === 'list' ? 'bg-white text-red-600 shadow-sm' : 'text-gray-400 md:hover:text-gray-600'}`}
                 title="List View"
+                aria-label="List View"
               >
                 <List size={18} />
               </button>
