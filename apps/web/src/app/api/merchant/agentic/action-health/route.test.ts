@@ -377,6 +377,61 @@ describe('GET /api/merchant/agentic/action-health', () => {
       stale_in_progress_count: 1,
     });
   });
+
+  it('surfaces payment setup failures and active payment claims', async () => {
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase: createSupabaseMock({
+        rpcData: buildRpcData({
+          checkoutSessions: [
+            {
+              metadata: { agentic: { payment_state: 'payment_setup_failed' } },
+              session_id: 'agentic-session-setup-failed',
+              status: 'processing',
+              updated_at: '2026-05-12T10:06:00.000Z',
+            },
+            {
+              metadata: { agentic: { payment_state: 'claiming_payment' } },
+              session_id: 'agentic-session-claiming',
+              status: 'processing',
+              updated_at: '2026-05-12T10:05:00.000Z',
+            },
+          ],
+          idempotencyRecords: [{ status_code: 200 }],
+          requestRecords: [],
+        }),
+      }),
+      user: { id: 'user-1' },
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(makeRequest());
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.actions).toEqual(
+      expect.arrayContaining([
+        {
+          code: 'AGENTIC_PAYMENT_SETUP_FAILED',
+          count: 1,
+          message:
+            'Agentic checkouts failed while setting up payment collection.',
+          severity: 'attention',
+        },
+        {
+          code: 'AGENTIC_PAYMENT_CLAIMING',
+          count: 1,
+          message: 'Agentic checkouts are claiming payment setup.',
+          severity: 'monitor',
+        },
+      ])
+    );
+    expect(payload.checkout_sessions).toMatchObject({
+      claiming_payment_count: 1,
+      payment_setup_failed_count: 1,
+    });
+  });
+
   it('returns 401 before merchant lookup when authentication fails', async () => {
     mockAuthenticateApiRequest.mockResolvedValue({
       error: 'Unauthorized',

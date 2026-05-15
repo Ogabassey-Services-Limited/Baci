@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { buildAgenticHealthActions } from '@/lib/agentic/action-health-actions';
 import { getActionHealthRequestControlSummary } from '@/lib/agentic/action-health-request-controls';
 import {
   getAgenticPaymentState,
@@ -15,14 +16,6 @@ import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 
 const RECENT_RECORD_LIMIT = 25;
-type HealthSeverity = 'attention' | 'monitor' | 'ok';
-
-interface AgenticHealthAction {
-  code: string;
-  count: number;
-  message: string;
-  severity: HealthSeverity;
-}
 
 function getIdempotencyState(statusCode: number | null) {
   if (statusCode == null) return 'in_progress';
@@ -44,92 +37,6 @@ function isExpiredInProgressReservation({
 
   const expiresAtMs = Date.parse(expiresAt);
   return Number.isFinite(expiresAtMs) && expiresAtMs <= nowMs;
-}
-
-function buildHealthActions({
-  activeInProgressCount,
-  allowlistCount,
-  isAgenticCheckoutEnabled,
-  orderFinalizingCount,
-  paymentPendingCount,
-  staleInProgressCount,
-  terminalErrorCount,
-}: {
-  activeInProgressCount: number;
-  allowlistCount: number;
-  isAgenticCheckoutEnabled: boolean;
-  orderFinalizingCount: number;
-  paymentPendingCount: number;
-  staleInProgressCount: number;
-  terminalErrorCount: number;
-}): AgenticHealthAction[] {
-  const actions: AgenticHealthAction[] = [];
-
-  if (terminalErrorCount > 0) {
-    actions.push({
-      code: 'AGENTIC_IDEMPOTENCY_ERRORS',
-      count: terminalErrorCount,
-      message: 'Recent agentic retries ended with server errors.',
-      severity: 'attention',
-    });
-  }
-
-  if (staleInProgressCount > 0) {
-    actions.push({
-      code: 'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS',
-      count: staleInProgressCount,
-      message: 'Agentic retry reservations expired before storing a response.',
-      severity: 'attention',
-    });
-  }
-
-  if (orderFinalizingCount > 0) {
-    actions.push({
-      code: 'AGENTIC_ORDER_FINALIZING',
-      count: orderFinalizingCount,
-      message: 'Agentic checkouts are waiting on order finalization recovery.',
-      severity: 'attention',
-    });
-  }
-
-  if (activeInProgressCount > 0) {
-    actions.push({
-      code: 'AGENTIC_REQUESTS_IN_PROGRESS',
-      count: activeInProgressCount,
-      message: 'Agentic idempotency reservations are still in progress.',
-      severity: 'monitor',
-    });
-  }
-
-  if (paymentPendingCount > 0) {
-    actions.push({
-      code: 'AGENTIC_PAYMENT_PENDING',
-      count: paymentPendingCount,
-      message: 'Agentic checkouts are waiting for payment confirmation.',
-      severity: 'monitor',
-    });
-  }
-
-  if (isAgenticCheckoutEnabled && allowlistCount === 0) {
-    actions.push({
-      code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
-      count: 1,
-      message:
-        'No agent allowlist is configured. Contact support to configure trusted agent user-agents for this merchant.',
-      severity: 'monitor',
-    });
-  }
-
-  if (actions.length === 0) {
-    actions.push({
-      code: 'AGENTIC_ACTIONS_HEALTHY',
-      count: 0,
-      message: 'No recent agentic action issues need attention.',
-      severity: 'ok',
-    });
-  }
-
-  return actions;
 }
 
 async function loadAgenticActionHealth(
@@ -179,32 +86,47 @@ async function loadAgenticActionHealth(
       terminalErrorCount += 1;
     }
   }
-  let paymentPendingCount = 0;
   let orderFinalizingCount = 0;
+  let paymentClaimingCount = 0;
+  let paymentPendingCount = 0;
+  let paymentSetupFailedCount = 0;
   for (const row of sessionRows) {
     const paymentState = getAgenticPaymentState(row.metadata);
-    if (paymentState === 'payment_pending') {
-      paymentPendingCount += 1;
-    } else if (paymentState === 'order_finalizing') {
-      orderFinalizingCount += 1;
+    switch (paymentState) {
+      case 'claiming_payment':
+        paymentClaimingCount += 1;
+        break;
+      case 'order_finalizing':
+        orderFinalizingCount += 1;
+        break;
+      case 'payment_pending':
+        paymentPendingCount += 1;
+        break;
+      case 'payment_setup_failed':
+        paymentSetupFailedCount += 1;
+        break;
     }
   }
 
   return {
     data: {
-      actions: buildHealthActions({
+      actions: buildAgenticHealthActions({
         activeInProgressCount: inProgressCount - staleInProgressCount,
         allowlistCount: requestControlSummary.allowlistCount,
         isAgenticCheckoutEnabled:
           requestControlSummary.isAgenticCheckoutEnabled,
         orderFinalizingCount,
+        paymentClaimingCount,
         paymentPendingCount,
+        paymentSetupFailedCount,
         staleInProgressCount,
         terminalErrorCount,
       }),
       checkout_sessions: {
+        claiming_payment_count: paymentClaimingCount,
         order_finalizing_count: orderFinalizingCount,
         payment_pending_count: paymentPendingCount,
+        payment_setup_failed_count: paymentSetupFailedCount,
         recent_count: sessionRows.length,
         records: sessionRows.map((row) => ({
           payment_state: getAgenticPaymentState(row.metadata),
