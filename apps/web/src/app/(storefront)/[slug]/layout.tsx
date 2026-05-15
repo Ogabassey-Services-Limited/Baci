@@ -14,7 +14,6 @@ import type { MerchantData } from '@/hooks/merchant/types';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
 import { buildStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
-import { StorefrontHeroPreloadDecision } from './storefront-hero-preload-decision';
 import {
   getStorefrontShellSnapshot,
   getStorefrontShellSnapshotBase,
@@ -225,7 +224,6 @@ function StorefrontThemeFrame({ children }: { children: React.ReactNode }) {
 
 export async function StorefrontLayoutContent(props: {
   children: React.ReactNode;
-  enableDynamicHeroPreloadDecision?: boolean;
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await props.params;
@@ -239,12 +237,6 @@ export async function StorefrontLayoutContent(props: {
   if (!shellSnapshotBase) {
     notFound();
   }
-
-  const enableDynamicHeroPreloadDecision =
-    props.enableDynamicHeroPreloadDecision ?? true;
-  const shouldResolveHeroPreloadDecision =
-    enableDynamicHeroPreloadDecision &&
-    shellSnapshotBase.merchant.template_id === OGABASSEY_TEMPLATE_ID;
 
   const isDevelopment = process.env.NODE_ENV === 'development';
   if (!shellSnapshotBase.merchant.is_published && !isDevelopment) {
@@ -262,27 +254,19 @@ export async function StorefrontLayoutContent(props: {
   }
 
   return (
-    <>
-      {shouldResolveHeroPreloadDecision ? (
-        <StorefrontHeroPreloadDecision
-          merchantSlug={shellSnapshotBase.merchant.slug}
-          routeSlug={slug}
-          templateId={shellSnapshotBase.merchant.template_id}
-        />
-      ) : null}
-      <StorefrontShellFrame
-        preloadHeroLcpImages={false}
-        shellSnapshot={shellSnapshot}
-      >
-        {props.children}
-      </StorefrontShellFrame>
-    </>
+    <StorefrontShellFrame
+      // Page-level resource hints own LCP preloads. Keeping the shared
+      // layout disabled prevents home hero hints from leaking onto nested routes.
+      preloadHeroLcpImages={false}
+      shellSnapshot={shellSnapshot}
+    >
+      {props.children}
+    </StorefrontShellFrame>
   );
 }
 
 export default function StorefrontLayout(props: {
   children: React.ReactNode;
-  enableDynamicHeroPreloadDecision?: boolean;
   loadingFallback?: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {
