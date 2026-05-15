@@ -316,6 +316,7 @@ export default function HomeScreen() {
     insets.bottom,
     isChatWidgetEnabled
   );
+  let primaryProductGridFound = false;
 
   if (isConfigLoading && !refreshing) {
     return (
@@ -419,9 +420,15 @@ export default function HomeScreen() {
       >
         <Animated.View style={headerSpacerAnimatedStyle} />
         {blocks.map((block: Block, index: number) => {
+          const hasBlockId = Boolean(block.props?.id);
           const isPrimaryProductGrid =
             block.type === 'ProductGrid' &&
-            block.props?.id === primaryProductGridId;
+            (hasBlockId
+              ? block.props?.id === primaryProductGridId
+              : !primaryProductGridFound);
+          if (isPrimaryProductGrid) {
+            primaryProductGridFound = true;
+          }
           const isUtilityBlock = block.type === 'CategoryRail';
           const renderedBlock: Block = isPrimaryProductGrid
             ? { ...block, props: { ...block.props, title: '' } }

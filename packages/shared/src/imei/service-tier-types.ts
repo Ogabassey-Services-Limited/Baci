@@ -17,6 +17,7 @@ export type ImeiCheckField =
   | 'icloud'
   | 'miLockStatus'
   | 'miLostStatus'
+  | 'mdmStatus'
   | 'modelNumber'
   | 'purchaseCountry'
   | 'purchaseDate'

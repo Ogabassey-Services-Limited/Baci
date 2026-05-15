@@ -1,9 +1,16 @@
 export function isStatusClean(status: string): boolean {
-  const normalized = status.toLowerCase();
+  const normalized = status.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  if (normalized.includes('not clean')) {
+    return false;
+  }
+
+  const directMatches = new Set(['clean', 'not found', 'off']);
   return (
-    normalized === 'clean' ||
-    normalized === 'not found' ||
-    normalized.includes('clean') ||
-    normalized === 'off'
+    directMatches.has(normalized) ||
+    /^partially\s+clean\b/.test(normalized) ||
+    /\bclean\b/.test(normalized)
   );
 }

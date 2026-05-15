@@ -54,9 +54,8 @@ describe('ImeiCheckFormView', () => {
     render(<ImeiCheckFormView {...baseProps} imei="12345" onCheck={onCheck} />);
 
     const button = screen.getByText('Verify Now - ₦1,500').parent;
-    if (button) {
-      fireEvent.press(button);
-    }
+    expect(button).toBeTruthy();
+    fireEvent.press(button as NonNullable<typeof button>);
 
     expect(onCheck).not.toHaveBeenCalled();
   });

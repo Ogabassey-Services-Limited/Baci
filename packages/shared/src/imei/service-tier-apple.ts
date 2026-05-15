@@ -97,7 +97,7 @@ export const APPLE_IMEI_SERVICE_TIERS = {
     price: 5000,
     costUsd: 0.3,
     features: ['MDM Status', 'Management Lock Risk', 'Apple Device Info'],
-    checksIncluded: ['device', 'modelNumber'],
+    checksIncluded: ['device', 'modelNumber', 'mdmStatus'],
     icon: 'briefcase-outline',
     brandScopes: ['apple'],
   },

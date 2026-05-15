@@ -126,6 +126,7 @@ export async function POST(request: NextRequest) {
       warranty: parsed.warranty,
       refurbished: parsed.refurbished,
       demoUnit: parsed.demoUnit,
+      mdmStatus: parsed.mdmStatus,
       miLockStatus: parsed.miLockStatus,
       miLostStatus: parsed.miLostStatus,
       deviceType: parsed.deviceType || 'other',

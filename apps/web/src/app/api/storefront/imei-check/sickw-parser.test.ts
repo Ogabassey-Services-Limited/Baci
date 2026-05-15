@@ -117,4 +117,13 @@ describe('parseSickwResponse', () => {
     expect(result.status).toBe('Blacklisted');
     expect(result.verdictType).toBe('danger');
   });
+
+  it('extracts mdm status when provider returns management-lock fields', () => {
+    const result = parseSickwResponse(
+      'Model Name: iPhone 14 Pro<br>MDM Status: ON'
+    );
+
+    expect(result.device).toBe('iPhone 14 Pro');
+    expect(result.mdmStatus).toBe('ON');
+  });
 });

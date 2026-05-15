@@ -25,7 +25,7 @@ export function ImeiCheckResultView({
   result,
   onReset,
 }: ImeiCheckResultViewProps) {
-  const verdictColors = getVerdictColors(result.verdictType);
+  const verdictColors = getVerdictColors(result.verdictType, colors);
   const statusCards = getImeiResultStatusCards(result, colors);
 
   return (
@@ -37,7 +37,12 @@ export function ImeiCheckResultView({
         options={{
           title: 'IMEI Results',
           headerLeft: () => (
-            <Pressable onPress={() => router.back()}>
+            <Pressable
+              accessibilityHint="Returns to the previous screen"
+              accessibilityLabel="Back"
+              accessibilityRole="button"
+              onPress={() => router.back()}
+            >
               <Ionicons name="arrow-back" size={24} color={colors.text} />
             </Pressable>
           ),
@@ -149,17 +154,13 @@ function TrustScore({
   result: ImeiResult;
 }) {
   const isClean = result.status === 'Clean';
+  const cleanPalette = getVerdictColors('safe', colors);
+  const dangerPalette = getVerdictColors('danger', colors);
+  const palette = isClean ? cleanPalette : dangerPalette;
 
   return (
-    <View
-      style={[
-        styles.scoreContainer,
-        { backgroundColor: isClean ? '#DEF7EC' : '#FEE2E2' },
-      ]}
-    >
-      <Text
-        style={[styles.scoreValue, { color: isClean ? '#059669' : '#DC2626' }]}
-      >
+    <View style={[styles.scoreContainer, { backgroundColor: palette.bg }]}>
+      <Text style={[styles.scoreValue, { color: palette.text }]}>
         {result.score}%
       </Text>
       <Text style={[styles.scoreLabel, { color: colors.textSecondary }]}>
@@ -185,15 +186,17 @@ function StatusCard({
   value: string;
 }) {
   const clean = isStatusClean(value);
+  const cleanPalette = getVerdictColors('safe', colors);
+  const dangerPalette = getVerdictColors('danger', colors);
   const color = cleanAware
     ? clean
-      ? '#059669'
-      : '#DC2626'
+      ? cleanPalette.text
+      : dangerPalette.text
     : tint || colors.text;
   const backgroundColor = cleanAware
     ? clean
-      ? '#DEF7EC'
-      : '#FEE2E2'
+      ? cleanPalette.bg
+      : dangerPalette.bg
     : withAlpha(color, 0.12);
 
   return (

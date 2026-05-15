@@ -73,6 +73,10 @@ describe('IMEI service tiers', () => {
     );
   });
 
+  it('declares MDM status output for the Apple MDM tier', () => {
+    expect(IMEI_SERVICE_TIERS.mdm.checksIncluded).toContain('mdmStatus');
+  });
+
   it('omits the Apple Serial Info tier until serial-input UX exists', () => {
     // The storefront input only accepts 15-digit IMEI (`parseImei`), so a Serial
     // Info tier (Apple serial lookup) would always fail validation. Re-add once

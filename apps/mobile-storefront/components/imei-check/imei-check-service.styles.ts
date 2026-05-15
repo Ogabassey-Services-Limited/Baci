@@ -74,7 +74,7 @@ export const serviceStyles = StyleSheet.create({
     borderRadius: 10,
   },
   recommendedText: {
-    color: '#FFF',
+    color: BRAND.onPrimary,
     fontSize: 8,
     fontWeight: '700',
   },

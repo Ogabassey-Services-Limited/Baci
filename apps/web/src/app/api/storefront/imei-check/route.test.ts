@@ -221,6 +221,36 @@ describe('POST /api/storefront/imei-check', () => {
     );
   });
 
+  it('returns MDM status fields for the Apple MDM tier', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      text: () =>
+        Promise.resolve(
+          JSON.stringify({
+            result: 'Model Name: iPhone 14 Pro<br>MDM Status: ON',
+            status: 'success',
+          })
+        ),
+    } as Response);
+    const { POST } = await importRoute();
+
+    const response = await POST(
+      createRequest({ imei: '354442067957452', tier: 'mdm' })
+    );
+    const body = (await response.json()) as {
+      data: { mdmStatus?: string };
+      tier: { checksIncluded: string[] };
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.data.mdmStatus).toBe('ON');
+    expect(body.tier.checksIncluded).toContain('mdmStatus');
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringContaining('service=81'),
+      expect.any(Object)
+    );
+  });
+
   it('rejects missing and malformed imei values before calling the provider', async () => {
     const { POST } = await importRoute();
 

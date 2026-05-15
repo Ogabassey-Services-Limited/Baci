@@ -17,6 +17,7 @@ export interface ImeiCheckResult {
   warranty?: string;
   refurbished?: string;
   demoUnit?: string;
+  mdmStatus?: string;
   miLockStatus?: string;
   miLostStatus?: string;
   deviceType: 'apple' | 'android' | 'other';

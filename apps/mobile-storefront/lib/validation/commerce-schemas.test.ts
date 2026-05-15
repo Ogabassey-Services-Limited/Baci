@@ -176,6 +176,7 @@ describe('ImeiResultSchema', () => {
     warranty: 'AppleCare+',
     refurbished: 'No',
     demoUnit: 'No',
+    mdmStatus: 'OFF',
     miLockStatus: 'Unlocked',
     miLostStatus: 'Clean',
     deviceType: 'apple' as const,
@@ -196,6 +197,7 @@ describe('ImeiResultSchema', () => {
       warranty: _warranty,
       refurbished: _refurbished,
       demoUnit: _demoUnit,
+      mdmStatus: _mdmStatus,
       miLockStatus: _miLockStatus,
       miLostStatus: _miLostStatus,
       ...minimalImeiResult

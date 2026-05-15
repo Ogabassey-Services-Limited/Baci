@@ -12,6 +12,9 @@ describe('isStatusClean', () => {
 
   it.each([
     'locked',
+    'unclean',
+    'cleaning',
+    'not clean',
     'reported stolen',
     'unknown',
   ])('does not treat %s as clean', (status) => {

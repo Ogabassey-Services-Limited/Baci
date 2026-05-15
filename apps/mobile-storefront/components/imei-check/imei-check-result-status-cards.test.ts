@@ -43,6 +43,7 @@ describe('getImeiResultStatusCards', () => {
         warranty: 'Limited Warranty',
         refurbished: 'No',
         demoUnit: 'No',
+        mdmStatus: 'OFF',
         miLockStatus: 'Locked',
         miLostStatus: 'Clean',
       },
@@ -58,6 +59,7 @@ describe('getImeiResultStatusCards', () => {
         'Warranty',
         'Refurbished',
         'Demo Unit',
+        'MDM Status',
         'Mi Lock Status',
         'Mi Lost Status',
       ])

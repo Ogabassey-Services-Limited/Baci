@@ -65,7 +65,12 @@ export function ImeiCheckFormView({
         options={{
           title: 'IMEI Checker',
           headerLeft: () => (
-            <Pressable onPress={() => router.back()}>
+            <Pressable
+              accessibilityHint="Returns to the previous screen"
+              accessibilityLabel="Back"
+              accessibilityRole="button"
+              onPress={() => router.back()}
+            >
               <Ionicons name="arrow-back" size={24} color={colors.text} />
             </Pressable>
           ),
@@ -118,13 +123,17 @@ export function ImeiCheckFormView({
             disabled={isLoading || imei.length < 15}
           >
             {isLoading ? (
-              <ActivityIndicator color="#FFF" />
+              <ActivityIndicator color={BRAND.onPrimary} />
             ) : (
               <>
                 <Text style={styles.verifyButtonText}>
                   Verify Now - {formatServicePrice(currentTier.price)}
                 </Text>
-                <Ionicons name="sparkles" size={18} color="#FFF" />
+                <Ionicons
+                  name="sparkles"
+                  size={18}
+                  color={BRAND.onPrimary}
+                />
               </>
             )}
           </Pressable>

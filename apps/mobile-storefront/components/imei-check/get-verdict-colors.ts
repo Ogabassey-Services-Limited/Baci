@@ -1,12 +1,37 @@
+import type { ImeiCheckerColors } from './imei-check.types';
+import {
+  createImeiVerdictPalette,
+  IMEI_LIGHT_VERDICT_PALETTES,
+} from './imei-check-theme';
+
 export type ImeiVerdictType = 'safe' | 'caution' | 'danger';
 
-export function getVerdictColors(type: ImeiVerdictType) {
+export function getVerdictColors(
+  type: ImeiVerdictType | string | null | undefined,
+  colors: ImeiCheckerColors
+) {
+  const themePalettes = {
+    caution: createImeiVerdictPalette(colors.warning),
+    danger: createImeiVerdictPalette(colors.error),
+    safe: createImeiVerdictPalette(colors.success),
+  } as const;
+
+  if (colors.background === colors.white) {
+    const lightPalette =
+      type === 'safe' || type === 'danger' || type === 'caution'
+        ? type
+        : 'caution';
+    return IMEI_LIGHT_VERDICT_PALETTES[lightPalette];
+  }
+
   switch (type) {
     case 'safe':
-      return { bg: '#DEF7EC', text: '#059669', border: '#A7F3D0' };
+      return themePalettes.safe;
+    case 'caution':
+      return themePalettes.caution;
     case 'danger':
-      return { bg: '#FEE2E2', text: '#DC2626', border: '#FECACA' };
+      return themePalettes.danger;
     default:
-      return { bg: '#FEF3C7', text: '#D97706', border: '#FDE68A' };
+      return themePalettes.caution;
   }
 }

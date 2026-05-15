@@ -98,6 +98,12 @@ export function parseSickwResponse(
   const warranty = data['warranty status'] || '';
   const refurbished = data['refurbished device'] || '';
   const demoUnit = data['demo unit'] || '';
+  const mdmStatus =
+    data['mdm status'] ||
+    data['mobile device management'] ||
+    data['mdm lock status'] ||
+    data['management lock'] ||
+    '';
   const { miLockStatus, miLostStatus } = getXiaomiStatuses(data);
 
   const deviceType = inferDeviceType(device);
@@ -153,6 +159,7 @@ export function parseSickwResponse(
     ...(warranty && { warranty }),
     ...(refurbished && { refurbished }),
     ...(demoUnit && { demoUnit }),
+    ...(mdmStatus && { mdmStatus }),
     ...(miLockStatus && { miLockStatus }),
     ...(miLostStatus && { miLostStatus }),
     deviceType,

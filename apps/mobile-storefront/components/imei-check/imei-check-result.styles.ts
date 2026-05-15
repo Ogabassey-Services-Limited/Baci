@@ -1,5 +1,6 @@
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { RADIUS, SPACING } from '@/constants/Colors';
+import { IMEI_MONOSPACE_FONT } from './imei-check-theme';
 
 export const resultStyles = StyleSheet.create({
   resultHeader: {
@@ -39,7 +40,7 @@ export const resultStyles = StyleSheet.create({
   },
   imeiText: {
     fontSize: 11,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontFamily: IMEI_MONOSPACE_FONT,
     marginTop: 2,
   },
   modelText: {

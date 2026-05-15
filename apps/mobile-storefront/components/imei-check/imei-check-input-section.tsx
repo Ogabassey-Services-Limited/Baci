@@ -70,7 +70,13 @@ export function ImeiCheckInputSection({
             autoComplete="off"
           />
           {imei.length > 0 && (
-            <Pressable onPress={onClearImei}>
+            <Pressable
+              accessible={true}
+              accessibilityHint="Clears the IMEI input"
+              accessibilityLabel="Clear IMEI"
+              accessibilityRole="button"
+              onPress={onClearImei}
+            >
               <Ionicons
                 name="close-circle"
                 size={20}
@@ -98,9 +104,17 @@ export function ImeiCheckInputSection({
       </View>
 
       {error && (
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={18} color="#DC2626" />
-          <Text style={styles.errorText}>{error}</Text>
+        <View
+          style={[
+            styles.errorContainer,
+            {
+              backgroundColor: withAlpha(colors.error, 0.12),
+              borderColor: withAlpha(colors.error, 0.3),
+            },
+          ]}
+        >
+          <Ionicons name="alert-circle" size={18} color={colors.error} />
+          <Text style={[styles.errorText, { color: colors.error }]}>{error}</Text>
         </View>
       )}
 

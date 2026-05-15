@@ -61,4 +61,19 @@ describe('ImeiCheckInputSection', () => {
     expect(screen.getByText('Copy 15 digits')).toBeTruthy();
     expect(screen.getByText('Paste above')).toBeTruthy();
   });
+
+  it('exposes an accessible clear action when an IMEI is present', () => {
+    const onClearImei = jest.fn();
+    render(
+      <ImeiCheckInputSection
+        {...baseProps}
+        imei="358240051111110"
+        onClearImei={onClearImei}
+      />
+    );
+
+    fireEvent.press(screen.getByLabelText('Clear IMEI'));
+
+    expect(onClearImei).toHaveBeenCalledTimes(1);
+  });
 });

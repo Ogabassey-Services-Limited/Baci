@@ -1,5 +1,6 @@
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import { IMEI_MONOSPACE_FONT } from './imei-check-theme';
 
 export const formStyles = StyleSheet.create({
   heroCard: {
@@ -89,7 +90,7 @@ export const formStyles = StyleSheet.create({
   imeiInput: {
     flex: 1,
     fontSize: 17,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    fontFamily: IMEI_MONOSPACE_FONT,
     letterSpacing: 2,
   },
   imeiCount: {
@@ -110,8 +111,6 @@ export const formStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: SPACING.sm,
-    backgroundColor: '#FEE2E2',
-    borderColor: '#FECACA',
     borderWidth: 1,
     padding: SPACING.md,
     borderRadius: RADIUS.md,
@@ -120,7 +119,6 @@ export const formStyles = StyleSheet.create({
   errorText: {
     flex: 1,
     fontSize: 13,
-    color: '#DC2626',
   },
   helpCard: {
     borderWidth: 1,
@@ -189,7 +187,7 @@ export const formStyles = StyleSheet.create({
     opacity: 0.6,
   },
   verifyButtonText: {
-    color: '#FFF',
+    color: BRAND.onPrimary,
     fontSize: 16,
     fontWeight: '700',
   },

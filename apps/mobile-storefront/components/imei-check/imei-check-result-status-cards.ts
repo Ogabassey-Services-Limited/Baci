@@ -84,6 +84,11 @@ export function getImeiResultStatusCards(
       icon: 'phone-portrait-outline',
       label: 'Demo Unit',
     }),
+    optionalStatusCard(result.mdmStatus, {
+      cleanAware: true,
+      icon: 'briefcase-outline',
+      label: 'MDM Status',
+    }),
   ].filter((card): card is ImeiResultStatusCard => Boolean(card));
 }
 

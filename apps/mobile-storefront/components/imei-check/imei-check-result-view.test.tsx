@@ -41,6 +41,7 @@ const cleanResult: ImeiResult = {
   warranty: 'Limited Warranty',
   refurbished: 'No',
   demoUnit: 'No',
+  mdmStatus: 'OFF',
   miLockStatus: 'Unlocked',
   miLostStatus: 'Clean',
   deviceType: 'apple',
@@ -89,6 +90,7 @@ describe('ImeiCheckResultView', () => {
     expect(screen.getByText('Limited Warranty')).toBeTruthy();
     expect(screen.getByText('Refurbished')).toBeTruthy();
     expect(screen.getByText('Demo Unit')).toBeTruthy();
+    expect(screen.getByText('MDM Status')).toBeTruthy();
   });
 
   it('renders Xiaomi lock and lost status fields when present', () => {
