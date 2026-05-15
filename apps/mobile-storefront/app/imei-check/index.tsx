@@ -158,7 +158,10 @@ export default function ImeiCheckerScreen() {
 
       const rawData = await response.json();
       if (!response.ok || rawData?.error) {
-        if ([200, 402, 404, 502].includes(response.status)) {
+        const shouldClearIdempotencyKey =
+          [200, 402, 404].includes(response.status) ||
+          (response.status === 502 && rawData?.code !== 'REFUND_PENDING');
+        if (shouldClearIdempotencyKey) {
           clearIdempotencyKey();
         }
 

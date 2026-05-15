@@ -5,6 +5,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react-native';
+import * as Crypto from 'expo-crypto';
 import { router } from 'expo-router';
 import { Alert } from 'react-native';
 
@@ -187,7 +188,7 @@ describe('ImeiCheckerScreen', () => {
   });
 
   it('shows delayed refund copy and refreshes wallet on REFUND_PENDING', async () => {
-    jest.mocked(fetch).mockResolvedValueOnce({
+    jest.mocked(fetch).mockResolvedValue({
       json: () =>
         Promise.resolve({
           code: 'REFUND_PENDING',
@@ -213,5 +214,21 @@ describe('ImeiCheckerScreen', () => {
       ).toBeTruthy();
     });
     expect(mockWalletRefetch).toHaveBeenCalled();
+
+    fireEvent.press(screen.getByText('Verify Now - ₦1,500'));
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    const firstHeaders = (jest.mocked(fetch).mock.calls[0][1] as RequestInit)
+      .headers as Record<string, string>;
+    const secondHeaders = (jest.mocked(fetch).mock.calls[1][1] as RequestInit)
+      .headers as Record<string, string>;
+
+    expect(secondHeaders['Idempotency-Key']).toBe(
+      firstHeaders['Idempotency-Key']
+    );
+    expect(Crypto.randomUUID).toHaveBeenCalledTimes(1);
   });
 });
