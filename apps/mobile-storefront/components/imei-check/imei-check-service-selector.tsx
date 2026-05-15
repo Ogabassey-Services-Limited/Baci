@@ -18,6 +18,7 @@ interface ImeiCheckServiceSelectorProps {
   displayedTierKeys: readonly ImeiServiceTierKey[];
   selectedBrand: ImeiBrandFilter;
   selectedTier: ImeiServiceTierKey;
+  canToggleServices: boolean;
   showAllServices: boolean;
   onBrandSelect: (brand: ImeiBrandFilter) => void;
   onTierSelect: (tier: ImeiServiceTierKey) => void;
@@ -30,6 +31,7 @@ export function ImeiCheckServiceSelector({
   displayedTierKeys,
   selectedBrand,
   selectedTier,
+  canToggleServices,
   showAllServices,
   onBrandSelect,
   onTierSelect,
@@ -70,22 +72,24 @@ export function ImeiCheckServiceSelector({
         ))}
       </View>
 
-      <Pressable
-        style={[
-          styles.expandServicesButton,
-          { backgroundColor: colors.card, borderColor: colors.border },
-        ]}
-        onPress={onToggleServices}
-      >
-        <Text style={[styles.expandServicesText, { color: colors.text }]}>
-          {showAllServices ? 'Show key checks' : 'Show all services'}
-        </Text>
-        <Ionicons
-          name={showAllServices ? 'chevron-up' : 'chevron-down'}
-          size={16}
-          color={colors.textSecondary}
-        />
-      </Pressable>
+      {canToggleServices && (
+        <Pressable
+          style={[
+            styles.expandServicesButton,
+            { backgroundColor: colors.card, borderColor: colors.border },
+          ]}
+          onPress={onToggleServices}
+        >
+          <Text style={[styles.expandServicesText, { color: colors.text }]}>
+            {showAllServices ? 'Show key checks' : 'Show all services'}
+          </Text>
+          <Ionicons
+            name={showAllServices ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={colors.textSecondary}
+          />
+        </Pressable>
+      )}
 
       <View
         style={[

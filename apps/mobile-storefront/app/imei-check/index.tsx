@@ -35,11 +35,15 @@ export default function ImeiCheckerScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<ImeiResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const canToggleServices = hasAdditionalPublicImeiServiceTierKeys(
+    selectedBrand
+  );
+  const expandedViewEnabled = canToggleServices && showAllServices;
 
   const currentTier = IMEI_SERVICE_TIERS[selectedTier];
   const visibleTierKeys = getPublicVisibleImeiServiceTierKeys(
     selectedBrand,
-    showAllServices
+    expandedViewEnabled
   );
   const displayedTierKeys =
     visibleTierKeys.length > 0 ? visibleTierKeys : PRIMARY_IMEI_SERVICE_TIERS;
@@ -50,9 +54,14 @@ export default function ImeiCheckerScreen() {
 
   const handleBrandSelect = (brand: ImeiBrandFilter) => {
     setSelectedBrand(brand);
+    const nextCanToggle = hasAdditionalPublicImeiServiceTierKeys(brand);
+    const nextExpanded = nextCanToggle && showAllServices;
+    if (!nextCanToggle && showAllServices) {
+      setShowAllServices(false);
+    }
     const nextVisibleTiers = getPublicVisibleImeiServiceTierKeys(
       brand,
-      showAllServices
+      nextExpanded
     );
     if (!nextVisibleTiers.includes(selectedTier)) {
       setSelectedTier('full');
@@ -60,6 +69,7 @@ export default function ImeiCheckerScreen() {
   };
 
   const handleToggleServices = () => {
+    if (!canToggleServices) return;
     const nextExpanded = !showAllServices;
     setShowAllServices(nextExpanded);
     const nextVisibleTiers = getPublicVisibleImeiServiceTierKeys(
@@ -158,7 +168,8 @@ export default function ImeiCheckerScreen() {
       isLoading={isLoading}
       selectedBrand={selectedBrand}
       selectedTier={selectedTier}
-      showAllServices={showAllServices}
+      canToggleServices={canToggleServices}
+      showAllServices={expandedViewEnabled}
       onBrandSelect={handleBrandSelect}
       onChangeImei={handleImeiChange}
       onCheck={handleCheck}
@@ -176,4 +187,12 @@ function getPublicVisibleImeiServiceTierKeys(
   return getVisibleImeiServiceTierKeys(brand, expanded).filter((tierKey) =>
     PUBLIC_IMEI_SERVICE_TIER_KEYS.has(tierKey)
   );
+}
+
+function hasAdditionalPublicImeiServiceTierKeys(
+  brand: ImeiBrandFilter
+): boolean {
+  const collapsedKeys = getPublicVisibleImeiServiceTierKeys(brand, false);
+  const expandedKeys = getPublicVisibleImeiServiceTierKeys(brand, true);
+  return expandedKeys.some((tierKey) => !collapsedKeys.includes(tierKey));
 }

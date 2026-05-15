@@ -61,10 +61,10 @@ describe('ImeiCheckerScreen', () => {
     expect(screen.getByText('Verify Now - ₦700')).toBeTruthy();
   });
 
-  it('keeps backend-blocked expanded services hidden until payment auth ships', () => {
+  it('hides the services toggle when no additional public tiers are available', () => {
     render(<ImeiCheckerScreen />);
 
-    fireEvent.press(screen.getByText('Show all services'));
+    expect(screen.queryByText('Show all services')).toBeNull();
     fireEvent.press(screen.getByText('Samsung'));
 
     expect(screen.queryByText('Samsung Info PRO')).toBeNull();

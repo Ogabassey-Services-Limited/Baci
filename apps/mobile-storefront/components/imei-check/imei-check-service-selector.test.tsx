@@ -14,6 +14,7 @@ const baseProps = {
   displayedTierKeys: ['full', 'blacklist', 'carrier'] as const,
   selectedBrand: 'all' as const,
   selectedTier: 'full' as const,
+  canToggleServices: true,
   showAllServices: false,
   onBrandSelect: jest.fn(),
   onTierSelect: jest.fn(),
@@ -84,5 +85,14 @@ describe('ImeiCheckServiceSelector', () => {
       />
     );
     expect(screen.getByText('Show key checks')).toBeTruthy();
+  });
+
+  it('hides the expand control when there are no additional tiers', () => {
+    render(
+      <ImeiCheckServiceSelector {...baseProps} canToggleServices={false} />
+    );
+
+    expect(screen.queryByText('Show all services')).toBeNull();
+    expect(screen.queryByText('Show key checks')).toBeNull();
   });
 });

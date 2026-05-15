@@ -32,6 +32,7 @@ interface ImeiCheckFormViewProps {
   isLoading: boolean;
   selectedBrand: ImeiBrandFilter;
   selectedTier: ImeiServiceTierKey;
+  canToggleServices: boolean;
   showAllServices: boolean;
   onBrandSelect: (brand: ImeiBrandFilter) => void;
   onChangeImei: (value: string) => void;
@@ -50,6 +51,7 @@ export function ImeiCheckFormView({
   isLoading,
   selectedBrand,
   selectedTier,
+  canToggleServices,
   showAllServices,
   onBrandSelect,
   onChangeImei,
@@ -96,6 +98,7 @@ export function ImeiCheckFormView({
             displayedTierKeys={displayedTierKeys}
             selectedBrand={selectedBrand}
             selectedTier={selectedTier}
+            canToggleServices={canToggleServices}
             showAllServices={showAllServices}
             onBrandSelect={onBrandSelect}
             onTierSelect={onTierSelect}

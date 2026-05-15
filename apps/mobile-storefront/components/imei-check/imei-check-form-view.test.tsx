@@ -31,6 +31,7 @@ const baseProps = {
   isLoading: false,
   selectedBrand: 'all' as const,
   selectedTier: 'full' as const,
+  canToggleServices: true,
   showAllServices: false,
   onBrandSelect: jest.fn(),
   onChangeImei: jest.fn(),
