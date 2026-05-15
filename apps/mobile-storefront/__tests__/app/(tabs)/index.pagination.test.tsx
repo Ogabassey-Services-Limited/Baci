@@ -266,4 +266,44 @@ describe('HomeScreen pagination', () => {
       productGridLoadMoreSignal: 0,
     });
   });
+
+  it('treats the first ProductGrid without an id as the primary grid', () => {
+    mockUsePageConfig.mockReturnValue({
+      data: {
+        content: [
+          { type: 'HeroCarousel', props: { id: 'hero-1', slides: [] } },
+          { type: 'ProductGrid', props: { limit: 12 } },
+          { type: 'ProductGrid', props: { id: 'products-2', limit: 12 } },
+        ],
+      },
+      isLoading: false,
+      isError: false,
+      refetch: jest.fn(),
+    });
+
+    render(<HomeScreen />);
+
+    fireEvent.scroll(screen.getByTestId('home-scroll-view'), {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 1100 },
+        contentSize: { width: 375, height: 1600 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    const productGridCalls = getProductGridCalls();
+    const unnamedGridCalls = productGridCalls.filter(
+      ([props]) => props.blocks[0]?.props?.id == null
+    );
+    const secondaryGridCalls = productGridCalls.filter(
+      ([props]) => props.blocks[0]?.props?.id === 'products-2'
+    );
+
+    expect(unnamedGridCalls.at(-1)?.[0]).toMatchObject({
+      productGridLoadMoreSignal: 1,
+    });
+    expect(secondaryGridCalls.at(-1)?.[0]).toMatchObject({
+      productGridLoadMoreSignal: 0,
+    });
+  });
 });
