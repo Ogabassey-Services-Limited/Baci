@@ -233,7 +233,10 @@ export const OgabasseyImeiChecker: React.FC = () => {
       });
 
       const data = await response.json();
-      if (data?.code !== 'REFUND_PENDING') {
+      const shouldKeepRequestIdentity =
+        data?.code === 'REFUND_PENDING' ||
+        data?.code === 'IDEMPOTENT_REQUEST_IN_FLIGHT';
+      if (!shouldKeepRequestIdentity) {
         setRequestIdentity(null);
       }
 

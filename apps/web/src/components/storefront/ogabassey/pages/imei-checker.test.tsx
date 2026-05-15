@@ -254,6 +254,43 @@ describe('OgabasseyImeiChecker', () => {
     expect(await screen.findByText('iPhone 15 Pro')).toBeInTheDocument();
   });
 
+  it('preserves the idempotency key while the original request is in flight', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: false,
+        json: vi.fn().mockResolvedValue({
+          success: false,
+          code: 'IDEMPOTENT_REQUEST_IN_FLIGHT',
+          error: 'This IMEI lookup is still processing.',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue(successfulImeiResponse),
+      });
+
+    render(<OgabasseyImeiChecker />);
+
+    enterValidImei();
+    fireEvent.click(screen.getByRole('button', { name: /verify now/i }));
+
+    expect(
+      await screen.findByText('This IMEI lookup is still processing.')
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /verify now/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    const firstHeaders = getFetchHeaders(0);
+    const secondHeaders = getFetchHeaders(1);
+
+    expect(secondHeaders.get('idempotency-key')).toBe(
+      firstHeaders.get('idempotency-key')
+    );
+    expect(await screen.findByText('iPhone 15 Pro')).toBeInTheDocument();
+  });
+
   it('shows the API error message when an IMEI check fails', async () => {
     fetchMock.mockResolvedValue({
       ok: false,
