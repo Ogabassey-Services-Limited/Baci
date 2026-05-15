@@ -50,7 +50,10 @@ export const ALL_IMEI_SERVICE_TIERS = [
 export function isImeiServiceTierKey(
   value: unknown
 ): value is ImeiServiceTierKey {
-  return typeof value === 'string' && value in IMEI_SERVICE_TIERS;
+  return (
+    typeof value === 'string' &&
+    Object.prototype.hasOwnProperty.call(IMEI_SERVICE_TIERS, value)
+  );
 }
 
 export function imeiTierMatchesBrand(

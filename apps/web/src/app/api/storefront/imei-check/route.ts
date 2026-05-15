@@ -28,7 +28,20 @@ import type { ImeiCheckResult } from './sickw-parser.types';
 // auto-attached cross-origin, so CSRF doesn't apply).
 export async function POST(request: NextRequest) {
   try {
-    // 1. Storefront origin gate — request must come from a recognized
+    // 1. Per-IP rate limit using the shared trie config
+    // (`/api/storefront/imei-check` -> 10/60s). This runs before merchant
+    // lookup so unknown storefront hosts cannot generate unthrottled
+    // resolver/cache/database traffic.
+    const rateLimit = await checkRateLimit(request);
+    if (!rateLimit.allowed) {
+      return createRateLimitResponse(
+        rateLimit.limit,
+        rateLimit.remaining,
+        rateLimit.resetTime
+      );
+    }
+
+    // 2. Storefront origin gate — request must come from a recognized
     // merchant host (subdomain or custom domain). Arbitrary external POSTs
     // (Postman, curl, scrapers) cannot resolve a merchant and are rejected.
     const merchantResolution = await resolveStorefrontMerchantFromRequest({
@@ -41,19 +54,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: merchantResolution.error },
         { status: merchantResolution.status }
-      );
-    }
-
-    // 2. Per-IP rate limit using the shared trie config
-    // (`/api/storefront/imei-check` -> 10/60s). Gives us defense-in-depth
-    // independent of the proxy and a tight ceiling because each downstream
-    // call costs real money.
-    const rateLimit = await checkRateLimit(request);
-    if (!rateLimit.allowed) {
-      return createRateLimitResponse(
-        rateLimit.limit,
-        rateLimit.remaining,
-        rateLimit.resetTime
       );
     }
 

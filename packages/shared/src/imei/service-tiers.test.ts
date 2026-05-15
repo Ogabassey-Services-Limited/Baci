@@ -53,6 +53,8 @@ describe('IMEI service tiers', () => {
     }
 
     expect(isImeiServiceTierKey('invalid-key')).toBe(false);
+    expect(isImeiServiceTierKey('__proto__')).toBe(false);
+    expect(isImeiServiceTierKey('toString')).toBe(false);
     expect(isImeiServiceTierKey('')).toBe(false);
     expect(isImeiServiceTierKey(null)).toBe(false);
   });

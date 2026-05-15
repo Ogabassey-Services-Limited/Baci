@@ -117,6 +117,7 @@ describe('POST /api/storefront/imei-check', () => {
 
     expect(response.status).toBe(404);
     expect(body.error).toBe('IMEI check is only available on storefront hosts');
+    expect(mocks.mockCheckRateLimit).toHaveBeenCalledOnce();
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -134,6 +135,9 @@ describe('POST /api/storefront/imei-check', () => {
     );
 
     expect(response.status).toBe(429);
+    expect(
+      mocks.mockResolveStorefrontMerchantFromRequest
+    ).not.toHaveBeenCalled();
     expect(fetch).not.toHaveBeenCalled();
   });
 
