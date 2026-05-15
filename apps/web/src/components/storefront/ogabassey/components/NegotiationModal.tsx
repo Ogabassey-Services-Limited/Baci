@@ -52,8 +52,10 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadLink, setUploadLink] = useState('');
   const submitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isMountedRef = useRef(false);
+  const isOpenRef = useRef(isOpen);
 
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
 
   const clearSubmitTimeout = () => {
     if (submitTimeoutRef.current) {
@@ -62,8 +64,12 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
     }
   };
 
+  const canApplyAsyncResult = () => isMountedRef.current && isOpenRef.current;
+
   // Reset state when opened
   useEffect(() => {
+    isOpenRef.current = isOpen;
+
     if (isOpen) {
       clearSubmitTimeout();
       setOffer('');
@@ -80,7 +86,10 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   }, [isOpen]);
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
+      isMountedRef.current = false;
       clearSubmitTimeout();
     };
   }, []);
@@ -175,10 +184,18 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
       if (error) throw error;
 
+      if (!canApplyAsyncResult()) {
+        return;
+      }
+
       setStatus('submitted');
       setMessage("Request submitted! We'll notify you as soon as the merchant reviews your offer.");
     } catch (error) {
       console.error('Failed to submit request:', error);
+      if (!canApplyAsyncResult()) {
+        return;
+      }
+
       alert('Failed to submit request. Please try again.');
       setStatus('upload');
     }

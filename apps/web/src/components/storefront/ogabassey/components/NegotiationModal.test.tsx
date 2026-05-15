@@ -220,6 +220,49 @@ describe('NegotiationModal', () => {
     alertSpy.mockRestore();
   });
 
+  it('skips async submit state updates after unmount', async () => {
+    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
+    let resolveInsert:
+      | ((value: { error: { message: string } | null }) => void)
+      | undefined;
+    const insertPromise = new Promise<{ error: { message: string } | null }>(
+      (resolve) => {
+        resolveInsert = resolve;
+      }
+    );
+
+    mockInsert.mockReturnValueOnce(insertPromise);
+
+    const { unmount } = render(<NegotiationModal {...defaultProps} />);
+
+    submitLowOffer('500');
+    fireEvent.click(screen.getByText('Negotiate Again'));
+    submitLowOffer('500');
+    fireEvent.click(screen.getByText('Negotiate Again'));
+    submitLowOffer('500');
+
+    vi.useRealTimers();
+
+    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
+    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    const form = fileInput.closest('form') as HTMLFormElement;
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+
+    unmount();
+
+    await act(async () => {
+      resolveInsert?.({ error: { message: 'DB insert failed' } });
+      await Promise.resolve();
+    });
+
+    expect(alertSpy).not.toHaveBeenCalled();
+    alertSpy.mockRestore();
+  });
+
   it('calls onClose when backdrop is clicked', () => {
     render(<NegotiationModal {...defaultProps} />);
     const backdrop = screen.getByTestId('modal-backdrop');
