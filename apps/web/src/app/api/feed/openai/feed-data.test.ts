@@ -192,7 +192,7 @@ describe('getCachedOpenAIFeedData', () => {
     expect(selectFragment).not.toContain('category_slug');
   });
 
-  it('normalizes joined product categories into category_slug for feed URL parity', async () => {
+  it('prefers direct category_id relation over product_categories for canonical URL parity', async () => {
     productsResult = {
       data: [
         {
@@ -205,7 +205,7 @@ describe('getCachedOpenAIFeedData', () => {
           stock: 5,
           stock_quantity: 5,
           manage_stock: true,
-          category: null,
+          category: 'Legacy Phones',
           categories: { name: 'Legacy Phones', slug: 'legacy-phones' },
           product_categories: [
             {
@@ -221,9 +221,9 @@ describe('getCachedOpenAIFeedData', () => {
     const result = await getCachedOpenAIFeedData('merchant-1');
 
     expect(result.products[0]).toMatchObject({
-      category: 'Phones',
-      category_slug: 'phones',
-      categories: { name: 'Phones', slug: 'phones' },
+      category: 'Legacy Phones',
+      category_slug: 'legacy-phones',
+      categories: { name: 'Legacy Phones', slug: 'legacy-phones' },
     });
     expect(result.products[0]).not.toHaveProperty('product_categories');
   });
