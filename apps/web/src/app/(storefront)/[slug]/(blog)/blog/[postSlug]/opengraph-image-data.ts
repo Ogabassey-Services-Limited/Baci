@@ -39,7 +39,7 @@ type MerchantBlogOgPost = {
   featured_image_width: number | null;
   featured_image_height: number | null;
   featured_image_variants: Partial<
-    Record<'landscape_16x9' | 'standard_4x3' | 'square_1x1', string>
+    Record<'landscape_16x9' | 'standard_4x3' | 'square_1x1', unknown>
   >;
 };
 
@@ -140,8 +140,8 @@ function getPublicBlogClient() {
   });
 }
 
-function isLikelySatoriSupportedRasterUrl(url: string | null | undefined) {
-  if (!url) return false;
+function isLikelySatoriSupportedRasterUrl(url: unknown): url is string {
+  if (typeof url !== 'string' || !url) return false;
   try {
     return !new URL(url).pathname.toLowerCase().endsWith('.webp');
   } catch {

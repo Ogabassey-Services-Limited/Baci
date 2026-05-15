@@ -48,7 +48,7 @@ type PostRow = {
   author_name: string | null;
   featured_image_width: number | null;
   featured_image_height: number | null;
-  featured_image_variants: Record<string, string>;
+  featured_image_variants: Record<string, unknown>;
 };
 
 const merchant = {
@@ -295,6 +295,26 @@ describe('merchant blog OG image data', () => {
     });
 
     await getMerchantBlogOgImageData('ogabassey-original', 'best-deals');
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      postRow.featured_image_url,
+      expect.any(Object)
+    );
+  });
+
+  it('ignores malformed non-string landscape variants and falls back to the original featured image', async () => {
+    mockFetch.mockResolvedValue(imageResponse('image/jpeg', 'image'));
+    installPostQuery({
+      ...postRow,
+      featured_image_variants: {
+        landscape_16x9: 42,
+      },
+    });
+
+    await getMerchantBlogOgImageData(
+      'ogabassey-malformed-variant',
+      'best-deals-malformed-variant'
+    );
 
     expect(mockFetch).toHaveBeenCalledWith(
       postRow.featured_image_url,
