@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProductEmbedPicker } from './product-embed';
 
 function mockFetch() {
-  const fetchMock = vi.fn(async () => ({
+  const fetchMock = vi.fn(async (_url: string) => ({
     ok: true,
     json: async () => ({ products: [] }),
   }));
