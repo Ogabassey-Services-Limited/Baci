@@ -212,6 +212,25 @@ describe('GET /api/agentic/orders/[id]', () => {
     });
   });
 
+  it('returns 403 when the caller user-agent is not allowlisted', async () => {
+    mockResolveAgenticMerchantContext.mockResolvedValueOnce({
+      agent_user_agent_allowlist: ['trusted-agent'],
+      custom_domain: 'ogabassey.com',
+      id: 'merchant-1',
+      slug: 'ogabassey',
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(request(), routeParams());
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      error: 'Agent client not allowlisted',
+    });
+    expect(readAgenticQueryRequest).toHaveBeenCalled();
+    expect(createAgenticScopedSupabaseClient).not.toHaveBeenCalled();
+  });
+
   it('returns 404 when the scoped agentic order is not found', async () => {
     mockOrderRead({ data: null });
 

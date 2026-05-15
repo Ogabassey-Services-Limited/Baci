@@ -31,6 +31,18 @@ describe('agent request controls', () => {
     });
   });
 
+  it('retains valid controls when one control field is malformed', () => {
+    const controls = readAgenticRequestControls({
+      agentic_agent_allowlist: null,
+      agentic_agent_denylist: ['Blocked-Bot', null, ''],
+    });
+
+    expect(controls).toEqual({
+      allowlist: [],
+      denylist: ['blocked-bot'],
+    });
+  });
+
   it('allows requests when no allowlist is configured', () => {
     const result = verifyAgenticRequestAccess({
       controls: { allowlist: [], denylist: [] },

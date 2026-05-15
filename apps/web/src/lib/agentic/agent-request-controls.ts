@@ -13,14 +13,7 @@ export interface AgenticRequestControls {
   denylist: string[];
 }
 
-const agenticRequestControlsSettingsSchema = z.object({
-  [AGENTIC_AGENT_ALLOWLIST_KEY]: z
-    .union([z.array(z.string()), z.string()])
-    .optional(),
-  [AGENTIC_AGENT_DENYLIST_KEY]: z
-    .union([z.array(z.string()), z.string()])
-    .optional(),
-});
+const agenticRequestControlsSettingsSchema = z.object({}).catchall(z.unknown());
 
 function normalizePattern(value: string): string | null {
   const normalized = value.trim().toLowerCase();
