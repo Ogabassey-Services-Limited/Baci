@@ -200,6 +200,45 @@ describe('buildAgentCommerceTrustReadiness', () => {
     });
   });
 
+  it('does not flag canonical drift for products that need path encoding', () => {
+    const result = buildAgentCommerceTrustReadiness({
+      baseUrl: 'https://ogabassey.com/',
+      googleFeedData: googleFeedData({
+        products: [
+          googleProduct({
+            id: 'product-encoded',
+            name: 'Watch Pro GPS',
+            slug: 'watch pro + gps',
+            category: 'Smart Watches',
+          }),
+        ],
+      }),
+      merchant: {
+        business_name: 'Ogabassey',
+        slug: 'ogabassey',
+      },
+      now: NOW,
+      openAiFeedData: {
+        products: [
+          product({
+            id: 'product-encoded',
+            name: 'Watch Pro GPS',
+            slug: 'watch pro + gps',
+            category: 'Smart Watches',
+          }),
+        ],
+      },
+      trustProfile: trustProfile(),
+    });
+
+    expect(result.totals.urlMismatches).toBe(0);
+    expect(
+      result.checks.find((check) => check.id === 'canonical-url-parity')
+    ).toMatchObject({
+      severity: 'pass',
+    });
+  });
+
   it('warns for partial verified image coverage and fails missing policy or support basics', () => {
     const result = buildAgentCommerceTrustReadiness({
       baseUrl: 'https://ogabassey.com',
