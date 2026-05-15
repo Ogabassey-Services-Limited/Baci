@@ -12,6 +12,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 const mockGetIdempotencyKey = vi.fn(() => 'idem-1');
 type MockAgenticMerchantContext = {
+  agent_user_agent_allowlist?: string[];
+  agent_user_agent_denylist?: string[];
   agentic_checkout_enabled: boolean;
   id: string;
   pay_on_delivery_enabled: boolean;
@@ -192,6 +194,40 @@ describe('POST /api/agentic/checkout_sessions', () => {
         status: 403,
       })
     );
+    expect(reserveAgenticRequestId).not.toHaveBeenCalled();
+    expect(calculateCheckoutSession).not.toHaveBeenCalled();
+  });
+
+  it('returns 403 when user-agent is not allowlisted for agentic requests', async () => {
+    mockResolveAgenticMerchantContext.mockResolvedValue({
+      agent_user_agent_allowlist: ['trusted-agent'],
+      agentic_checkout_enabled: true,
+      id: 'merchant-1',
+      pay_on_delivery_enabled: false,
+      paystack_subaccount_code: null,
+      slug: 'ogabassey',
+    });
+
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout_sessions',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'idem-1',
+          'User-Agent': 'some-other-agent',
+        },
+        body: JSON.stringify({ items: [{ id: 'product-1', quantity: 1 }] }),
+      }
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({ error: 'Agent client not allowlisted' });
+    expect(reserveAgenticIdempotencyKey).not.toHaveBeenCalled();
     expect(reserveAgenticRequestId).not.toHaveBeenCalled();
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });

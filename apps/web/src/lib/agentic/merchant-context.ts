@@ -5,11 +5,14 @@ import {
   getAgenticMerchantSlug,
   getAgenticSigningKeys,
 } from '@/env';
+import { readAgenticRequestControls } from '@/lib/agentic/agent-request-controls';
 import { hasUsableAgenticJwtSigningMaterial } from '@/lib/agentic/jwt-signing-material';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 
 export interface AgenticMerchantContext {
+  agent_user_agent_allowlist: string[];
+  agent_user_agent_denylist: string[];
   agentic_checkout_enabled: boolean;
   business_name: string | null;
   id: string;
@@ -67,7 +70,9 @@ export async function resolveAgenticMerchantContext(
 
   const { data: featureSettings, error: featureSettingsError } = await supabase
     .from('merchant_feature_settings')
-    .select('agentic_checkout_enabled, pay_on_delivery_enabled')
+    .select(
+      'agentic_checkout_enabled, pay_on_delivery_enabled, custom_settings'
+    )
     .eq('merchant_id', data.id)
     .maybeSingle();
 
@@ -79,7 +84,13 @@ export async function resolveAgenticMerchantContext(
     });
   }
 
+  const requestControls = readAgenticRequestControls(
+    featureSettings?.custom_settings
+  );
+
   return {
+    agent_user_agent_allowlist: requestControls.allowlist,
+    agent_user_agent_denylist: requestControls.denylist,
     agentic_checkout_enabled: featureSettingsError
       ? false
       : featureSettings?.agentic_checkout_enabled !== false,
