@@ -60,7 +60,12 @@ const KUDA_TO_MOBILE_PROVIDER: Record<string, string> = {
   MTN: 'mtn',
 };
 
-const NORMALIZED_MOBILE_PROVIDER_SLUGS = new Set(['airtel', 'glo', 'mtn', 't2']);
+const NORMALIZED_MOBILE_PROVIDER_SLUGS = new Set([
+  'airtel',
+  'glo',
+  'mtn',
+  't2',
+]);
 
 const MAX_RECENT_RECIPIENTS = 10;
 
@@ -81,7 +86,9 @@ function toProviderSlug(networkProvider: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
-function getRepeatProvider(networkProvider?: string | null): string | undefined {
+function getRepeatProvider(
+  networkProvider?: string | null
+): string | undefined {
   if (!networkProvider) {
     return undefined;
   }
@@ -111,9 +118,7 @@ function getRepeatProvider(networkProvider?: string | null): string | undefined 
   return fallbackProvider;
 }
 
-function getRouteType(
-  type: VTUHistoryTransaction['type']
-): UtilityRouteType {
+function getRouteType(type: VTUHistoryTransaction['type']): UtilityRouteType {
   const routeType = HISTORY_TYPE_TO_UTILITY_ROUTE[type];
   if (!routeType) {
     throw new Error(`Unsupported utility history transaction type: ${type}`);

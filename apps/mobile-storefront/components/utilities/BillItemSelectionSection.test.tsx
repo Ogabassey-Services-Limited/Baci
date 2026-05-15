@@ -1,16 +1,16 @@
 import { jest } from '@jest/globals';
-import type { ComponentProps } from 'react';
 import {
   fireEvent,
   render,
   screen,
   userEvent,
 } from '@testing-library/react-native';
+import type { ComponentProps } from 'react';
 import Colors from '@/constants/Colors';
 import type { BillItem } from '@/hooks/use-vtu-billers';
 import type { useVTUVerify } from '@/hooks/use-vtu-verify';
-import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
 import type { UtilityBeneficiary } from '@/lib/utility-beneficiaries';
+import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
 import { BillItemSelectionSection } from './BillItemSelectionSection';
 import type { BillItemSelectionState } from './bill-item-selection';
 
@@ -43,8 +43,7 @@ const defaultProps = {
   colors: Colors.light,
   customerId: '',
   handleBillItemSelect: jest.fn<(depth: number, billItem: BillItem) => void>(),
-  handleSelectBeneficiary:
-    jest.fn<(beneficiary: UtilityBeneficiary) => void>(),
+  handleSelectBeneficiary: jest.fn<(beneficiary: UtilityBeneficiary) => void>(),
   handleVerify: jest.fn(),
   isBillItemSelectionComplete: true,
   isRepeatPaymentActive: false,
@@ -85,7 +84,9 @@ describe('BillItemSelectionSection', () => {
         handleBillItemSelect={jest.fn<
           (depth: number, billItem: BillItem) => void
         >()}
-        handleSelectBeneficiary={jest.fn<(beneficiary: UtilityBeneficiary) => void>()}
+        handleSelectBeneficiary={jest.fn<
+          (beneficiary: UtilityBeneficiary) => void
+        >()}
         handleVerify={jest.fn()}
         isBillItemSelectionComplete={true}
         isRepeatPaymentActive={false}
@@ -118,7 +119,9 @@ describe('BillItemSelectionSection', () => {
         >()}
         handleVerify={jest.fn()}
         beneficiaries={[]}
-        handleSelectBeneficiary={jest.fn<(beneficiary: UtilityBeneficiary) => void>()}
+        handleSelectBeneficiary={jest.fn<
+          (beneficiary: UtilityBeneficiary) => void
+        >()}
         isBillItemSelectionComplete={true}
         isRepeatPaymentActive={true}
         verifiedCustomerName="JANE CUSTOMER"
@@ -149,7 +152,9 @@ describe('BillItemSelectionSection', () => {
         >()}
         handleVerify={jest.fn()}
         beneficiaries={[]}
-        handleSelectBeneficiary={jest.fn<(beneficiary: UtilityBeneficiary) => void>()}
+        handleSelectBeneficiary={jest.fn<
+          (beneficiary: UtilityBeneficiary) => void
+        >()}
         isBillItemSelectionComplete={true}
         isRepeatPaymentActive={true}
         selectedBillItemIdentifier="prepaid"
@@ -168,7 +173,8 @@ describe('BillItemSelectionSection', () => {
   });
 
   it('calls handleSelectBeneficiary when a beneficiary is selected during repeat payment', () => {
-    const handleSelectBeneficiary = jest.fn<(beneficiary: UtilityBeneficiary) => void>();
+    const handleSelectBeneficiary =
+      jest.fn<(beneficiary: UtilityBeneficiary) => void>();
     const beneficiary: UtilityBeneficiary = {
       id: 'EKEDC_NG:EKEDC_PREPAID:43901766923',
       customerId: '43901766923',
@@ -185,7 +191,9 @@ describe('BillItemSelectionSection', () => {
         billItemSelection={billItemSelection}
         colors={Colors.light}
         customerId="43901766923"
-        handleBillItemSelect={jest.fn<(depth: number, billItem: BillItem) => void>()}
+        handleBillItemSelect={jest.fn<
+          (depth: number, billItem: BillItem) => void
+        >()}
         handleSelectBeneficiary={handleSelectBeneficiary}
         handleVerify={jest.fn()}
         isBillItemSelectionComplete={true}

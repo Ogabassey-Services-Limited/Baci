@@ -9,8 +9,8 @@ import type Colors from '@/constants/Colors';
 import { BRAND } from '@/constants/Colors';
 import type { BillItem } from '@/hooks/use-vtu-billers';
 import type { useVTUVerify } from '@/hooks/use-vtu-verify';
-import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
 import type { UtilityBeneficiary } from '@/lib/utility-beneficiaries';
+import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
 import { BeneficiaryList } from './BeneficiaryList';
 import {
   IDENTIFIER_LABELS,

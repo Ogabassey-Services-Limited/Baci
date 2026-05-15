@@ -196,7 +196,7 @@ describe('useQuickRepeat', () => {
     });
     expect(result.current.repeatRevision).toBe(initialRevision + 1);
 
-    rerender();
+    rerender(undefined);
 
     expect(result.current.repeatDefaults.isVerified).toBe(true);
   });

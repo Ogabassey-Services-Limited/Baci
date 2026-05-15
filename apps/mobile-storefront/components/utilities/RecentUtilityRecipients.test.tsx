@@ -78,11 +78,11 @@ describe('RecentUtilityRecipients', () => {
     expect(screen.getByText('OLADIMEJI OLUROTIMI ADEBANJO')).toBeOnTheScreen();
     expect(screen.queryByText('Backup meter')).toBeNull();
     expect(screen.getByText('See all')).toBeOnTheScreen();
-    expect(screen.getByLabelText('See all beneficiaries')).toHaveAccessibilityState(
-      {
-        expanded: false,
-      }
-    );
+    expect(
+      screen.getByLabelText('See all beneficiaries')
+    ).toHaveAccessibilityState({
+      expanded: false,
+    });
   });
 
   it('expands to show all recipients', async () => {
