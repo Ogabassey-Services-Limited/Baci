@@ -115,7 +115,7 @@ function buildHealthActions({
       code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
       count: 1,
       message:
-        'No agent allowlist is configured. Add trusted agent user-agents in Trust settings.',
+        'No agent allowlist is configured. Contact support to configure trusted agent user-agents for this merchant.',
       severity: 'monitor',
     });
   }
@@ -136,10 +136,13 @@ async function loadAgenticActionHealth(
   supabase: SupabaseClient,
   merchantId: string
 ) {
-  const requestControlSummary = await getActionHealthRequestControlSummary(
-    supabase,
-    merchantId
-  );
+  const [requestControlSummary, healthResult] = await Promise.all([
+    getActionHealthRequestControlSummary(supabase, merchantId),
+    supabase.rpc('get_agentic_action_health_records', {
+      p_merchant_id: merchantId,
+      p_record_limit: RECENT_RECORD_LIMIT,
+    }),
+  ]);
   if (requestControlSummary.error) {
     logger.warn({
       error: sanitizeForLog(requestControlSummary.error),
@@ -147,10 +150,6 @@ async function loadAgenticActionHealth(
       message: 'Failed to load agentic request controls for action health',
     });
   }
-  const healthResult = await supabase.rpc('get_agentic_action_health_records', {
-    p_merchant_id: merchantId,
-    p_record_limit: RECENT_RECORD_LIMIT,
-  });
 
   if (healthResult.error) {
     return {

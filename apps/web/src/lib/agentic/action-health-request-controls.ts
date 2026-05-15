@@ -68,6 +68,6 @@ export async function getActionHealthRequestControlSummary(
     denylistCount: parsePatternList(customSettings[AGENTIC_AGENT_DENYLIST_KEY])
       .length,
     error: null,
-    isAgenticCheckoutEnabled: data.agentic_checkout_enabled !== false,
+    isAgenticCheckoutEnabled: data.agentic_checkout_enabled === true,
   };
 }

@@ -233,7 +233,7 @@ describe('GET /api/merchant/agentic/action-health', () => {
         code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
         count: 1,
         message:
-          'No agent allowlist is configured. Add trusted agent user-agents in Trust settings.',
+          'No agent allowlist is configured. Contact support to configure trusted agent user-agents for this merchant.',
         severity: 'monitor',
       },
     ]);

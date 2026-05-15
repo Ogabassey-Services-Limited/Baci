@@ -112,4 +112,27 @@ describe('getActionHealthRequestControlSummary', () => {
       isAgenticCheckoutEnabled: true,
     });
   });
+
+  it('defaults checkout-enabled to false when the feature flag is unset', async () => {
+    const supabase = createSupabaseMock({
+      data: {
+        agentic_checkout_enabled: null,
+        custom_settings: {
+          agentic_agent_allowlist: ['chatgpt'],
+        },
+      },
+    });
+
+    const summary = await getActionHealthRequestControlSummary(
+      supabase as never,
+      'merchant-1'
+    );
+
+    expect(summary).toEqual({
+      allowlistCount: 1,
+      denylistCount: 0,
+      error: null,
+      isAgenticCheckoutEnabled: false,
+    });
+  });
 });

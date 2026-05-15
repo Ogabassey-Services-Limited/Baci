@@ -34,7 +34,7 @@ describe('getActionHref', () => {
       agenticActionCenterCardHelpers.getActionHref(
         'AGENTIC_AGENT_ALLOWLIST_UNSET'
       )
-    ).toBe('/dashboard/settings/trust');
+    ).toBeNull();
     expect(agenticActionCenterCardHelpers.getActionHref('UNKNOWN')).toBeNull();
   });
 });
