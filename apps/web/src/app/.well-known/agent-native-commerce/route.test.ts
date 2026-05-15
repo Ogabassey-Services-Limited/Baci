@@ -201,6 +201,40 @@ describe('GET /.well-known/agent-native-commerce', () => {
     );
   });
 
+  it('uses the host header when the request URL is an internal deployment host', async () => {
+    const { GET } = await import('./route');
+    const response = await GET(
+      new Request(
+        'https://vercel-deploy-1234.app/.well-known/agent-native-commerce',
+        {
+          headers: { host: 'ogabassey.com' },
+        }
+      )
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      store: {
+        canonical_origin: 'https://ogabassey.com',
+        name: 'Ogabassey',
+        slug: 'ogabassey',
+      },
+      proof: {
+        surfaces: {
+          agent_native_commerce:
+            'https://ogabassey.com/.well-known/agent-native-commerce',
+          human_storefront: 'https://ogabassey.com',
+        },
+      },
+    });
+    expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith('merchant-1');
+    expect(mockGetCachedGoogleMerchantFeedData).toHaveBeenCalledWith(
+      'merchant-1',
+      'ogabassey'
+    );
+  });
+
   it('returns 404 on the platform host', async () => {
     const { GET } = await import('./route');
     const response = await GET(
