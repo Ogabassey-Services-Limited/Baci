@@ -35,6 +35,7 @@ const RETRYABLE_FEATURED_IMAGE_FALLBACK_STATUSES =
   new Set<RemoteImageLoadStatus>([
     'source_disallowed',
     'fetch_failed',
+    'timed_out',
     'invalid_content_type',
     'payload_too_large',
   ]);

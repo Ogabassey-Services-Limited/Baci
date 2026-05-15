@@ -121,6 +121,44 @@ describe('merchant blog OG image loader', () => {
     );
   });
 
+  it('retries the fallback featured image candidate after a primary timeout', async () => {
+    vi.useFakeTimers();
+    mockFetch.mockImplementation(
+      (url: string, init?: { signal?: AbortSignal }) => {
+        if (url.endsWith('/variant.jpg')) {
+          return new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener('abort', () => {
+              reject(new DOMException('Aborted', 'AbortError'));
+            });
+          });
+        }
+        return Promise.resolve(imageResponse('image/jpeg', 'fallback'));
+      }
+    );
+
+    const resultPromise = loadFeaturedImageWithFallback(
+      [
+        'https://cdn.ogabassey.com/media/merchant-1/blog/variant.jpg',
+        'https://cdn.ogabassey.com/media/merchant-1/blog/original.jpg',
+      ],
+      'merchant-1',
+      'blog-ogabassey-post'
+    );
+
+    await vi.advanceTimersByTimeAsync(4000);
+
+    await expect(resultPromise).resolves.toEqual({
+      dataUri: `data:image/jpeg;base64,${Buffer.from('fallback').toString(
+        'base64'
+      )}`,
+      status: 'loaded',
+    });
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://cdn.ogabassey.com/media/merchant-1/blog/original.jpg',
+      expect.any(Object)
+    );
+  });
+
   it('fails closed when the upstream image omits or lies about content type', async () => {
     mockFetch.mockResolvedValueOnce(imageResponse('', 'bytes'));
     await expect(
