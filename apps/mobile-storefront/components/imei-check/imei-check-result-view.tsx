@@ -63,7 +63,7 @@ export function ImeiCheckResultView({
           <DeviceImage result={result} colors={colors} />
           <View style={styles.deviceInfo}>
             <Text style={[styles.tierBadge, { color: colors.textSecondary }]}>
-              {currentTier.name} Report
+              {currentTier.name}
             </Text>
             <Text style={[styles.deviceName, { color: colors.text }]}>
               {result.device}

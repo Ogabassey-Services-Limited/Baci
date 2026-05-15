@@ -64,7 +64,7 @@ describe('ImeiCheckResultView', () => {
     expect(screen.getByText('IMEI: 490154203237518')).toBeTruthy();
     expect(screen.getByText('Model: A2638')).toBeTruthy();
     expect(screen.getByText('94%')).toBeTruthy();
-    expect(screen.getByText('Full Report Report')).toBeTruthy();
+    expect(screen.getByText('Full Report')).toBeTruthy();
   });
 
   it('shows status cards and the verdict copy', () => {

@@ -60,7 +60,7 @@ describe('ImeiCheckFormView', () => {
     expect(onCheck).not.toHaveBeenCalled();
   });
 
-  it('invokes onCheck when verify is pressed with a valid-length IMEI', () => {
+  it('keeps the verify button disabled when the IMEI checksum is invalid', () => {
     const onCheck = jest.fn();
     render(
       <ImeiCheckFormView
@@ -72,13 +72,26 @@ describe('ImeiCheckFormView', () => {
 
     fireEvent.press(screen.getByText('Verify Now - ₦1,500'));
 
+    expect(onCheck).not.toHaveBeenCalled();
+  });
+
+  it('invokes onCheck when verify is pressed with a valid IMEI', () => {
+    const onCheck = jest.fn();
+    render(
+      <ImeiCheckFormView
+        {...baseProps}
+        imei="490154203237518"
+        onCheck={onCheck}
+      />
+    );
+
+    fireEvent.press(screen.getByText('Verify Now - ₦1,500'));
+
     expect(onCheck).toHaveBeenCalledTimes(1);
   });
 
   it('replaces the verify CTA with a loading indicator while a check is in flight', () => {
-    render(
-      <ImeiCheckFormView {...baseProps} imei="123456789012345" isLoading />
-    );
+    render(<ImeiCheckFormView {...baseProps} imei="490154203237518" isLoading />);
 
     expect(screen.queryByText('Verify Now - ₦1,500')).toBeNull();
   });

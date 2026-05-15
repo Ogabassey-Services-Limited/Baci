@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { RADIUS, SPACING } from '@/constants/Colors';
+import { palette, RADIUS, SPACING } from '@/constants/Colors';
 import { IMEI_MONOSPACE_FONT } from './imei-check-theme';
 
 export const resultStyles = StyleSheet.create({
@@ -15,7 +15,8 @@ export const resultStyles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: RADIUS.md,
-    backgroundColor: '#FFF',
+    // Intentionally always white to match device image expectations.
+    backgroundColor: palette.white,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: SPACING.md,

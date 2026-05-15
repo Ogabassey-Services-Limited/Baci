@@ -5,11 +5,11 @@ import {
   PRIMARY_IMEI_SERVICE_TIERS,
 } from '@baci/shared/imei';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import { getRootDomain } from '@/env';
 import { getDeviceImage } from '@/lib/device-images';
 import { checkRateLimit, createRateLimitResponse } from '@/lib/rate-limit';
 import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant';
+import { imeiCheckSchema } from '@/schemas/imei-check';
 import { sickwClient } from './sickw-client';
 import { parseSickwResponse } from './sickw-parser';
 import type { ImeiCheckResult } from './sickw-parser.types';
@@ -58,10 +58,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const rawBody = await request.json();
-    const bodyParse = z
-      .object({ imei: z.string(), tier: z.string().optional() })
-      .safeParse(rawBody);
+    let rawBody: unknown;
+    try {
+      rawBody = await request.json();
+    } catch {
+      return NextResponse.json(
+        { success: false, error: 'Invalid JSON' },
+        { status: 400 }
+      );
+    }
+
+    const bodyParse = imeiCheckSchema.safeParse(rawBody);
     if (!bodyParse.success) {
       return NextResponse.json(
         { success: false, error: 'Invalid request body' },

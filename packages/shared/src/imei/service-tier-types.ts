@@ -47,7 +47,9 @@ export interface ImeiServiceTierDefinition {
   tagline: string;
   description: string;
   detail: string;
+  /** Customer-facing price in Nigerian naira. */
   price: number;
+  /** Provider cost in USD dollars. */
   costUsd: number;
   features: readonly string[];
   checksIncluded: readonly ImeiCheckField[];

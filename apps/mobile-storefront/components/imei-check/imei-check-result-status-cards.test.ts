@@ -66,6 +66,42 @@ describe('getImeiResultStatusCards', () => {
     );
   });
 
+  it('omits optional status cards when provider fields are absent', () => {
+    const cards = getImeiResultStatusCards(baseResult, Colors.light);
+    const labels = cards.map((card) => card.label);
+
+    expect(labels).not.toEqual(
+      expect.arrayContaining([
+        'Activation Status',
+        'Serial Number',
+        'MDM Status',
+        'Mi Lock Status',
+        'Mi Lost Status',
+      ])
+    );
+  });
+
+  it('omits optional status cards when provider fields are empty strings', () => {
+    const cards = getImeiResultStatusCards(
+      {
+        ...baseResult,
+        activationStatus: '',
+        mdmStatus: '',
+        serialNumber: '',
+      },
+      Colors.light
+    );
+    const labels = cards.map((card) => card.label);
+
+    expect(labels).not.toEqual(
+      expect.arrayContaining([
+        'Activation Status',
+        'Serial Number',
+        'MDM Status',
+      ])
+    );
+  });
+
   it('uses active theme colors for non-clean-aware status tints', () => {
     const cards = getImeiResultStatusCards(
       {

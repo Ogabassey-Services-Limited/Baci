@@ -14,8 +14,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
-import { BRAND, withAlpha } from '@/constants/Colors';
+import { BRAND } from '@/constants/Colors';
+import { isValidIMEI } from '@/lib/validation/commerce-schemas';
 import { formatServicePrice } from './format-service-price';
+import HeroCard from './imei-check-hero-card';
 import { styles } from './imei-check.styles';
 import type { ImeiCheckerColors } from './imei-check.types';
 import { ImeiCheckInputSection } from './imei-check-input-section';
@@ -56,6 +58,8 @@ export function ImeiCheckFormView({
   onTierSelect,
   onToggleServices,
 }: ImeiCheckFormViewProps) {
+  const canVerify = isValidIMEI(imei);
+
   return (
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -117,10 +121,10 @@ export function ImeiCheckFormView({
             style={[
               styles.verifyButton,
               { backgroundColor: BRAND.primary },
-              (isLoading || imei.length < 15) && styles.verifyButtonDisabled,
+              (isLoading || !canVerify) && styles.verifyButtonDisabled,
             ]}
             onPress={onCheck}
-            disabled={isLoading || imei.length < 15}
+            disabled={isLoading || !canVerify}
           >
             {isLoading ? (
               <ActivityIndicator color={BRAND.onPrimary} />
@@ -140,57 +144,5 @@ export function ImeiCheckFormView({
         </View>
       </AppKeyboardContainer>
     </SafeAreaView>
-  );
-}
-
-function HeroCard({ colors }: { colors: ImeiCheckerColors }) {
-  return (
-    <View
-      style={[
-        styles.heroCard,
-        { backgroundColor: colors.card, borderColor: colors.border },
-      ]}
-    >
-      <View style={styles.heroHeader}>
-        <View
-          style={[
-            styles.heroIcon,
-            { backgroundColor: withAlpha(BRAND.primary, 0.1) },
-          ]}
-        >
-          <Ionicons name="barcode-outline" size={24} color={BRAND.primary} />
-        </View>
-        <View style={styles.heroCopy}>
-          <Text
-            style={[styles.heroEyebrow, { color: BRAND.primary }]}
-            numberOfLines={1}
-          >
-            Device verification
-          </Text>
-          <Text style={[styles.heroTitle, { color: colors.text }]}>
-            IMEI Checker
-          </Text>
-        </View>
-      </View>
-      <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
-        Check blacklist, iCloud and SIM lock status before you pay.
-      </Text>
-      <View style={styles.trustIndicators}>
-        {['15-digit check', 'Official status', 'Instant report'].map((item) => (
-          <View
-            key={item}
-            style={[
-              styles.trustPill,
-              { backgroundColor: withAlpha(BRAND.primary, 0.06) },
-            ]}
-          >
-            <Ionicons name="checkmark" size={12} color="#059669" />
-            <Text style={[styles.trustText, { color: colors.textSecondary }]}>
-              {item}
-            </Text>
-          </View>
-        ))}
-      </View>
-    </View>
   );
 }

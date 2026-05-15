@@ -64,6 +64,16 @@ function createRequest(body: Record<string, unknown>) {
   } as unknown as NextRequest;
 }
 
+function createMalformedJsonRequest() {
+  return {
+    json: () => Promise.reject(new SyntaxError('Unexpected end of JSON input')),
+    headers: new Headers({ host: 'ogabassey.usebaci.com' }),
+    url: 'https://ogabassey.usebaci.com/api/storefront/imei-check',
+    nextUrl: new URL('https://ogabassey.usebaci.com/api/storefront/imei-check'),
+    method: 'POST',
+  } as unknown as NextRequest;
+}
+
 function importRoute() {
   vi.resetModules();
   vi.stubEnv('SICKW_API_KEY', 'test-sickw-key');
@@ -151,6 +161,17 @@ describe('POST /api/storefront/imei-check', () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe('Invalid service tier');
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 for malformed JSON before calling the provider', async () => {
+    const { POST } = await importRoute();
+
+    const response = await POST(createMalformedJsonRequest());
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Invalid JSON');
     expect(fetch).not.toHaveBeenCalled();
   });
 

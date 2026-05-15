@@ -8,9 +8,5 @@ export function isStatusClean(status: string): boolean {
   }
 
   const directMatches = new Set(['clean', 'not found', 'off']);
-  return (
-    directMatches.has(normalized) ||
-    /^partially\s+clean\b/.test(normalized) ||
-    /\bclean\b/.test(normalized)
-  );
+  return directMatches.has(normalized) || /\bclean\b/.test(normalized);
 }

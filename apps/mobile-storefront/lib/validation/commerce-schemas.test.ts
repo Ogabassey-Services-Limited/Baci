@@ -214,6 +214,22 @@ describe('ImeiResultSchema', () => {
       }).success
     ).toBe(false);
   });
+
+  it('rejects non-ISO purchase dates', () => {
+    expect(
+      ImeiResultSchema.safeParse({
+        ...validImeiResult,
+        purchaseDate: '22/09/2025',
+      }).success
+    ).toBe(false);
+
+    expect(
+      ImeiResultSchema.safeParse({
+        ...validImeiResult,
+        purchaseDate: '2025-02-30',
+      }).success
+    ).toBe(false);
+  });
 });
 
 describe('ReviewSchema', () => {

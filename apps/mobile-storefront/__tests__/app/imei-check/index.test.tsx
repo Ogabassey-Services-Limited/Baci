@@ -61,13 +61,13 @@ describe('ImeiCheckerScreen', () => {
     expect(screen.getByText('Verify Now - ₦700')).toBeTruthy();
   });
 
-  it('reveals expanded brand-scoped services', () => {
+  it('keeps backend-blocked expanded services hidden until payment auth ships', () => {
     render(<ImeiCheckerScreen />);
 
     fireEvent.press(screen.getByText('Show all services'));
     fireEvent.press(screen.getByText('Samsung'));
 
-    expect(screen.getByText('Samsung Info PRO')).toBeTruthy();
+    expect(screen.queryByText('Samsung Info PRO')).toBeNull();
   });
 
   it('alerts the user and skips the request when an invalid IMEI is submitted', () => {

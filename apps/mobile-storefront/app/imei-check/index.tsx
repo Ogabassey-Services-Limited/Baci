@@ -21,6 +21,9 @@ import {
 
 const log = createLogger('ImeiChecker');
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ogabassey.com';
+const PUBLIC_IMEI_SERVICE_TIER_KEYS = new Set<ImeiServiceTierKey>(
+  PRIMARY_IMEI_SERVICE_TIERS
+);
 
 export default function ImeiCheckerScreen() {
   const colorScheme = useColorScheme();
@@ -34,7 +37,7 @@ export default function ImeiCheckerScreen() {
   const [error, setError] = useState<string | null>(null);
 
   const currentTier = IMEI_SERVICE_TIERS[selectedTier];
-  const visibleTierKeys = getVisibleImeiServiceTierKeys(
+  const visibleTierKeys = getPublicVisibleImeiServiceTierKeys(
     selectedBrand,
     showAllServices
   );
@@ -47,7 +50,7 @@ export default function ImeiCheckerScreen() {
 
   const handleBrandSelect = (brand: ImeiBrandFilter) => {
     setSelectedBrand(brand);
-    const nextVisibleTiers = getVisibleImeiServiceTierKeys(
+    const nextVisibleTiers = getPublicVisibleImeiServiceTierKeys(
       brand,
       showAllServices
     );
@@ -59,7 +62,7 @@ export default function ImeiCheckerScreen() {
   const handleToggleServices = () => {
     const nextExpanded = !showAllServices;
     setShowAllServices(nextExpanded);
-    const nextVisibleTiers = getVisibleImeiServiceTierKeys(
+    const nextVisibleTiers = getPublicVisibleImeiServiceTierKeys(
       selectedBrand,
       nextExpanded
     );
@@ -163,5 +166,14 @@ export default function ImeiCheckerScreen() {
       onTierSelect={setSelectedTier}
       onToggleServices={handleToggleServices}
     />
+  );
+}
+
+function getPublicVisibleImeiServiceTierKeys(
+  brand: ImeiBrandFilter,
+  expanded: boolean
+): ImeiServiceTierKey[] {
+  return getVisibleImeiServiceTierKeys(brand, expanded).filter((tierKey) =>
+    PUBLIC_IMEI_SERVICE_TIER_KEYS.has(tierKey)
   );
 }

@@ -25,6 +25,16 @@ const VERDICT_MESSAGES = {
     'CAUTION - Device is carrier-locked. Check if it works with your network before buying.',
 } as const;
 
+const SCORE_PENALTIES = {
+  BLACKLIST: 50,
+  ICLOUD_LOCK: 30,
+  ICLOUD_STATUS: 20,
+  MI_LOCK: 30,
+  MI_LOST: 50,
+  MISSING_DEVICE: 10,
+  SIM_LOCK: 10,
+} as const;
+
 function sanitizeProviderValue(value: unknown): string {
   if (value == null) return '';
 
@@ -108,24 +118,20 @@ export function parseSickwResponse(
 
   const deviceType = inferDeviceType(device);
   const isBlacklisted = hasBlacklistIssue(blacklist);
-  const hasIcloudLockOn =
-    icloudLock.toLowerCase() === 'on' ||
-    icloudLock.toLowerCase().includes('locked');
-  const hasIcloudStatusIssue =
-    icloudStatus.toLowerCase().includes('lost') ||
-    icloudStatus.toLowerCase().includes('locked');
-  const isSimLocked = simLock.toLowerCase().includes('locked');
+  const hasIcloudLockOn = hasRiskToken(icloudLock, ['on', 'locked', 'lost']);
+  const hasIcloudStatusIssue = hasRiskToken(icloudStatus, ['lost', 'locked']);
+  const isSimLocked = hasRiskToken(simLock, ['locked']);
   const hasMiLockIssue = hasXiaomiLockIssue(miLockStatus);
   const hasMiLostIssue = hasXiaomiLostIssue(miLostStatus);
 
   let score = 100;
-  if (isBlacklisted) score -= 50;
-  if (hasMiLostIssue) score -= 50;
-  if (hasIcloudLockOn) score -= 30;
-  if (hasMiLockIssue) score -= 30;
-  if (hasIcloudStatusIssue) score -= 20;
-  if (isSimLocked) score -= 10;
-  if (!device) score -= 10;
+  if (isBlacklisted) score -= SCORE_PENALTIES.BLACKLIST;
+  if (hasMiLostIssue) score -= SCORE_PENALTIES.MI_LOST;
+  if (hasIcloudLockOn) score -= SCORE_PENALTIES.ICLOUD_LOCK;
+  if (hasMiLockIssue) score -= SCORE_PENALTIES.MI_LOCK;
+  if (hasIcloudStatusIssue) score -= SCORE_PENALTIES.ICLOUD_STATUS;
+  if (isSimLocked) score -= SCORE_PENALTIES.SIM_LOCK;
+  if (!device) score -= SCORE_PENALTIES.MISSING_DEVICE;
 
   let status: 'Clean' | 'Blacklisted' | 'Unknown' = 'Clean';
   if (!device && !blacklist && !icloudStatus && !icloudLock) {
@@ -194,13 +200,28 @@ function inferDeviceType(device: string): ImeiCheckResult['deviceType'] {
 }
 
 function hasBlacklistIssue(value: string): boolean {
-  const normalized = value.toLowerCase();
-  return (
-    normalized.includes('blacklisted') ||
-    normalized.includes('reported') ||
-    normalized.includes('stolen') ||
-    normalized.includes('lost')
-  );
+  return hasRiskToken(value, ['blacklisted', 'reported', 'stolen', 'lost']);
+}
+
+function hasRiskToken(value: string, tokens: readonly string[]): boolean {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  return tokens.some((token) => {
+    const escapedToken = escapeRegExp(token);
+    const negatedToken = new RegExp(`\\b(?:not|no)\\s+${escapedToken}\\b`);
+    if (negatedToken.test(normalized)) {
+      return false;
+    }
+
+    return new RegExp(`\\b${escapedToken}\\b`).test(normalized);
+  });
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function buildVerdict({

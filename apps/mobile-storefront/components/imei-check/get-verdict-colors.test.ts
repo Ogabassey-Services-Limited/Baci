@@ -6,7 +6,7 @@ describe('getVerdictColors', () => {
 
   it('returns safe colors', () => {
     expect(getVerdictColors('safe', colors)).toEqual({
-      bg: '#DEF7EC',
+      bg: '#D1FAE5',
       border: '#A7F3D0',
       text: '#059669',
     });
@@ -55,7 +55,7 @@ describe('getVerdictColors', () => {
           "text": "#DC2626",
         },
         "safe": {
-          "bg": "#DEF7EC",
+          "bg": "#D1FAE5",
           "border": "#A7F3D0",
           "text": "#059669",
         },

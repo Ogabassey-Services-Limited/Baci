@@ -93,6 +93,22 @@ describe('parseSickwResponse', () => {
     expect(result.deviceType).toBe('android');
   });
 
+  it('does not treat unlocked or not-blacklisted values as risk tokens', () => {
+    const result = parseSickwResponse(
+      [
+        'Model Name: iPhone 15',
+        'Blacklist Status: Not Blacklisted',
+        'Find My iPhone: Unlocked',
+        'iCloud Status: Not Lost',
+        'SIM Lock: Unlocked',
+      ].join('<br>')
+    );
+
+    expect(result.status).toBe('Clean');
+    expect(result.verdictType).toBe('safe');
+    expect(result.score).toBe(100);
+  });
+
   it('surfaces Xiaomi lock status as a caution verdict', () => {
     const result = parseSickwResponse(
       'Model Name: Xiaomi 14<br>MI Lock Status: Locked<br>MI Lost Status: Clean'

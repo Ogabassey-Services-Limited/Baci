@@ -30,7 +30,7 @@ export const IMEI_LIGHT_VERDICT_PALETTES = {
     text: palette.red[600],
   },
   safe: {
-    bg: '#DEF7EC',
+    bg: palette.emerald[100],
     border: palette.emerald[200],
     text: palette.emerald[600],
   },
