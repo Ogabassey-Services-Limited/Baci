@@ -146,6 +146,36 @@ describe('AgenticActionCenterCard', () => {
     );
   });
 
+  it('renders allowlist control warnings without a dead-end review link', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        actions: [
+          {
+            code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
+            count: 1,
+            message:
+              'No agent allowlist is configured. Contact support to configure trusted agent user-agents for this merchant.',
+            severity: 'monitor',
+          },
+        ],
+      }),
+    } as Response);
+
+    render(<AgenticActionCenterCard />);
+
+    expect(await screen.findByText('1 monitor')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'No agent allowlist is configured. Contact support to configure trusted agent user-agents for this merchant.'
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /review/i })
+    ).not.toBeInTheDocument();
+  });
+
   it('treats negative action counts as a malformed payload', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
       ok: true,

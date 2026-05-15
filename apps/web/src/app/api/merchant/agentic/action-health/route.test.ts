@@ -5,6 +5,7 @@ const mockAuthenticateApiRequest = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
 const mockHasPermission = vi.fn();
 const mockLoggerError = vi.fn();
+const mockLoggerWarn = vi.fn();
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
     mockAuthenticateApiRequest(...args),
@@ -22,7 +23,10 @@ vi.mock('@/lib/get-merchant-for-api-request', async () => {
 });
 
 vi.mock('@/lib/logger', () => ({
-  logger: { error: (...args: unknown[]) => mockLoggerError(...args) },
+  logger: {
+    error: (...args: unknown[]) => mockLoggerError(...args),
+    warn: (...args: unknown[]) => mockLoggerWarn(...args),
+  },
 }));
 const merchantContext = {
   merchantId: 'merchant-1',
@@ -42,15 +46,28 @@ function makeRequest() {
 }
 
 function createSupabaseMock({
+  featureSettingsData = {
+    agentic_checkout_enabled: true,
+    custom_settings: { agentic_agent_allowlist: ['chatgpt'] },
+  },
+  featureSettingsError = null,
   rpcData = buildRpcData(),
   rpcError = null,
 }: {
+  featureSettingsData?: unknown;
+  featureSettingsError?: unknown;
   rpcData?: unknown;
   rpcError?: unknown;
 } = {}) {
+  const maybeSingle = vi.fn(() =>
+    Promise.resolve({ data: featureSettingsData, error: featureSettingsError })
+  );
+  const eq = vi.fn(() => ({ maybeSingle }));
+  const select = vi.fn(() => ({ eq }));
+  const from = vi.fn(() => ({ select }));
   const rpc = vi.fn(() => Promise.resolve({ data: rpcData, error: rpcError }));
 
-  return { rpc };
+  return { from, rpc };
 }
 
 function buildRpcData({
@@ -146,6 +163,12 @@ describe('GET /api/merchant/agentic/action-health', () => {
         terminal_error_count: 1,
       },
       merchant_id: 'merchant-1',
+      request_controls: {
+        allowlist_count: 1,
+        denylist_count: 0,
+        fetch_error: false,
+        is_agentic_checkout_enabled: true,
+      },
       requests: { recent_count: 1 },
     });
     expect(JSON.stringify(payload)).not.toContain('must-not-leak');
@@ -181,6 +204,124 @@ describe('GET /api/merchant/agentic/action-health', () => {
         severity: 'ok',
       },
     ]);
+  });
+
+  it('adds a monitor action when agent checkout is enabled without an allowlist', async () => {
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase: createSupabaseMock({
+        featureSettingsData: {
+          agentic_checkout_enabled: true,
+          custom_settings: {},
+        },
+        rpcData: buildRpcData({
+          checkoutSessions: [],
+          idempotencyRecords: [{ status_code: 200 }],
+          requestRecords: [],
+        }),
+      }),
+      user: { id: 'user-1' },
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(makeRequest());
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.actions).toEqual([
+      {
+        code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
+        count: 1,
+        message:
+          'No agent allowlist is configured. Contact support to configure trusted agent user-agents for this merchant.',
+        severity: 'monitor',
+      },
+    ]);
+    expect(payload.request_controls).toEqual({
+      allowlist_count: 0,
+      denylist_count: 0,
+      fetch_error: false,
+      is_agentic_checkout_enabled: true,
+    });
+  });
+
+  it('treats missing feature-settings rows as default-enabled and surfaces allowlist monitor action', async () => {
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase: createSupabaseMock({
+        featureSettingsData: null,
+        featureSettingsError: null,
+        rpcData: buildRpcData({
+          checkoutSessions: [],
+          idempotencyRecords: [{ status_code: 200 }],
+          requestRecords: [],
+        }),
+      }),
+      user: { id: 'user-1' },
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(makeRequest());
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.actions).toEqual([
+      {
+        code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
+        count: 1,
+        message:
+          'No agent allowlist is configured. Contact support to configure trusted agent user-agents for this merchant.',
+        severity: 'monitor',
+      },
+    ]);
+    expect(payload.request_controls).toEqual({
+      allowlist_count: 0,
+      denylist_count: 0,
+      fetch_error: false,
+      is_agentic_checkout_enabled: true,
+    });
+  });
+
+  it('logs a warning and skips allowlist monitor actions when control lookup fails', async () => {
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase: createSupabaseMock({
+        featureSettingsData: null,
+        featureSettingsError: { message: 'feature settings unavailable' },
+        rpcData: buildRpcData({
+          checkoutSessions: [],
+          idempotencyRecords: [{ status_code: 200 }],
+          requestRecords: [],
+        }),
+      }),
+      user: { id: 'user-1' },
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(makeRequest());
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.actions).toEqual([
+      {
+        code: 'AGENTIC_ACTIONS_HEALTHY',
+        count: 0,
+        message: 'No recent agentic action issues need attention.',
+        severity: 'ok',
+      },
+    ]);
+    expect(payload.request_controls).toEqual({
+      allowlist_count: 0,
+      denylist_count: 0,
+      fetch_error: true,
+      is_agentic_checkout_enabled: false,
+    });
+    expect(mockLoggerWarn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        message: 'Failed to load agentic request controls for action health',
+      })
+    );
   });
   it('separates expired and active in-progress idempotency reservations', async () => {
     mockAuthenticateApiRequest.mockResolvedValue({

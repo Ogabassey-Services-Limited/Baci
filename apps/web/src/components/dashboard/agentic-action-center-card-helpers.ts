@@ -32,9 +32,13 @@ const BRIEFING_MESSAGES = {
 function getActionHref(code: string): Route | null {
   switch (code) {
     case 'AGENTIC_IDEMPOTENCY_ERRORS':
+    case 'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS':
     case 'AGENTIC_ORDER_FINALIZING':
     case 'AGENTIC_PAYMENT_PENDING':
+    case 'AGENTIC_REQUESTS_IN_PROGRESS':
       return AGENTIC_ORDERS_HREF;
+    case 'AGENTIC_AGENT_ALLOWLIST_UNSET':
+      return null;
     default:
       return null;
   }
