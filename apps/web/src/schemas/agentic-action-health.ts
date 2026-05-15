@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+const nonnegativeCountSchema = z.number().int().nonnegative();
+
 export const agenticActionSeveritySchema = z.enum([
   'attention',
   'monitor',
@@ -8,14 +10,25 @@ export const agenticActionSeveritySchema = z.enum([
 
 export const agenticActionSchema = z.object({
   code: z.string(),
-  count: z.number().int().nonnegative(),
+  count: nonnegativeCountSchema,
   message: z.string(),
   severity: agenticActionSeveritySchema,
 });
 
+export const agenticActionCheckoutSessionsSchema = z
+  .object({
+    claiming_payment_count: nonnegativeCountSchema.optional(),
+    order_finalizing_count: nonnegativeCountSchema.optional(),
+    payment_pending_count: nonnegativeCountSchema.optional(),
+    payment_setup_failed_count: nonnegativeCountSchema.optional(),
+    recent_count: nonnegativeCountSchema.optional(),
+  })
+  .passthrough();
+
 export const agenticActionHealthPayloadSchema = z
   .object({
     actions: z.array(agenticActionSchema),
+    checkout_sessions: agenticActionCheckoutSessionsSchema.optional(),
     generated_at: z.string().datetime().optional(),
   })
   .passthrough();

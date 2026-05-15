@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  agenticActionCheckoutSessionsSchema,
   agenticActionHealthPayloadSchema,
   agenticActionSchema,
 } from '@/schemas/agentic-action-health';
@@ -49,7 +50,7 @@ describe('agenticActionSchema', () => {
 });
 
 describe('agenticActionHealthPayloadSchema', () => {
-  it('accepts valid action payloads with optional generated_at', () => {
+  it('accepts valid action payloads with optional generated_at and session counts', () => {
     expect(
       agenticActionHealthPayloadSchema.safeParse({ actions: [validAction] })
         .success
@@ -58,6 +59,19 @@ describe('agenticActionHealthPayloadSchema', () => {
       agenticActionHealthPayloadSchema.safeParse({
         actions: [validAction],
         generated_at: '2026-05-15T03:00:00.000Z',
+      }).success
+    ).toBe(true);
+    expect(
+      agenticActionHealthPayloadSchema.safeParse({
+        actions: [validAction],
+        checkout_sessions: {
+          claiming_payment_count: 1,
+          order_finalizing_count: 2,
+          payment_pending_count: 3,
+          payment_setup_failed_count: 4,
+          recent_count: 5,
+          records: [],
+        },
       }).success
     ).toBe(true);
   });
@@ -86,6 +100,31 @@ describe('agenticActionHealthPayloadSchema', () => {
       agenticActionHealthPayloadSchema.safeParse({
         actions: [validAction],
         generated_at: 'not-a-valid-date',
+      }).success
+    ).toBe(false);
+  });
+});
+
+describe('agenticActionCheckoutSessionsSchema', () => {
+  it('rejects invalid checkout session count fields', () => {
+    expect(
+      agenticActionCheckoutSessionsSchema.safeParse({
+        claiming_payment_count: -1,
+      }).success
+    ).toBe(false);
+    expect(
+      agenticActionCheckoutSessionsSchema.safeParse({
+        payment_setup_failed_count: 1.5,
+      }).success
+    ).toBe(false);
+    expect(
+      agenticActionCheckoutSessionsSchema.safeParse({
+        payment_pending_count: Number.POSITIVE_INFINITY,
+      }).success
+    ).toBe(false);
+    expect(
+      agenticActionCheckoutSessionsSchema.safeParse({
+        order_finalizing_count: '1',
       }).success
     ).toBe(false);
   });

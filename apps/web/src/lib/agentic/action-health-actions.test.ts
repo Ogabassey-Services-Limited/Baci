@@ -14,6 +14,63 @@ const healthyInput = {
 };
 
 describe('buildAgenticHealthActions', () => {
+  it('surfaces all recovery and monitor branches in priority order', () => {
+    expect(
+      buildAgenticHealthActions({
+        ...healthyInput,
+        activeInProgressCount: 5,
+        allowlistCount: 0,
+        orderFinalizingCount: 3,
+        paymentClaimingCount: 6,
+        paymentPendingCount: 7,
+        paymentSetupFailedCount: 4,
+        staleInProgressCount: 1,
+        terminalErrorCount: 2,
+      }).map(({ code, count, severity }) => ({ code, count, severity }))
+    ).toEqual([
+      {
+        code: 'AGENTIC_IDEMPOTENCY_ERRORS',
+        count: 2,
+        severity: 'attention',
+      },
+      {
+        code: 'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS',
+        count: 1,
+        severity: 'attention',
+      },
+      {
+        code: 'AGENTIC_ORDER_FINALIZING',
+        count: 3,
+        severity: 'attention',
+      },
+      {
+        code: 'AGENTIC_PAYMENT_SETUP_FAILED',
+        count: 4,
+        severity: 'attention',
+      },
+      {
+        code: 'AGENTIC_REQUESTS_IN_PROGRESS',
+        count: 5,
+        severity: 'monitor',
+      },
+      {
+        code: 'AGENTIC_PAYMENT_CLAIMING',
+        count: 6,
+        severity: 'monitor',
+      },
+      {
+        code: 'AGENTIC_PAYMENT_PENDING',
+        count: 7,
+        severity: 'monitor',
+      },
+      {
+        code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
+        count: 1,
+        severity: 'monitor',
+      },
+    ]);
+  });
+
   it('surfaces payment setup recovery states before passive monitors', () => {
     expect(
       buildAgenticHealthActions({
@@ -41,6 +98,23 @@ describe('buildAgenticHealthActions', () => {
         count: 1,
         message: 'Agentic checkouts are claiming payment setup.',
         severity: 'monitor',
+      },
+    ]);
+  });
+
+  it('does not warn about an empty allowlist when checkout is disabled', () => {
+    expect(
+      buildAgenticHealthActions({
+        ...healthyInput,
+        allowlistCount: 0,
+        isAgenticCheckoutEnabled: false,
+      })
+    ).toEqual([
+      {
+        code: 'AGENTIC_ACTIONS_HEALTHY',
+        count: 0,
+        message: 'No recent agentic action issues need attention.',
+        severity: 'ok',
       },
     ]);
   });
