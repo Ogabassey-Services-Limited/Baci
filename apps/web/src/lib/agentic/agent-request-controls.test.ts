@@ -19,6 +19,18 @@ describe('agent request controls', () => {
     });
   });
 
+  it('returns empty controls for invalid custom settings shapes', () => {
+    const controls = readAgenticRequestControls([
+      'agentic_agent_allowlist',
+      'openai-agent',
+    ]);
+
+    expect(controls).toEqual({
+      allowlist: [],
+      denylist: [],
+    });
+  });
+
   it('allows requests when no allowlist is configured', () => {
     const result = verifyAgenticRequestAccess({
       controls: { allowlist: [], denylist: [] },

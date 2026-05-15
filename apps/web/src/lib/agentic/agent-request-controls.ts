@@ -1,14 +1,26 @@
-export const AGENTIC_AGENT_BLOCKED_ERROR = 'Agent client blocked';
-export const AGENTIC_AGENT_NOT_ALLOWLISTED_ERROR =
-  'Agent client not allowlisted';
+import { z } from 'zod';
+import {
+  AGENTIC_AGENT_ALLOWLIST_KEY,
+  AGENTIC_AGENT_BLOCKED_ERROR,
+  AGENTIC_AGENT_DENYLIST_KEY,
+  AGENTIC_AGENT_NOT_ALLOWLISTED_ERROR,
+} from '@/lib/agentic/agent-request-controls.constants';
 
-const AGENTIC_AGENT_ALLOWLIST_KEY = 'agentic_agent_allowlist';
-const AGENTIC_AGENT_DENYLIST_KEY = 'agentic_agent_denylist';
+export { AGENTIC_AGENT_BLOCKED_ERROR, AGENTIC_AGENT_NOT_ALLOWLISTED_ERROR };
 
 export interface AgenticRequestControls {
   allowlist: string[];
   denylist: string[];
 }
+
+const agenticRequestControlsSettingsSchema = z.object({
+  [AGENTIC_AGENT_ALLOWLIST_KEY]: z
+    .union([z.array(z.string()), z.string()])
+    .optional(),
+  [AGENTIC_AGENT_DENYLIST_KEY]: z
+    .union([z.array(z.string()), z.string()])
+    .optional(),
+});
 
 function normalizePattern(value: string): string | null {
   const normalized = value.trim().toLowerCase();
@@ -43,11 +55,12 @@ function parsePatternList(value: unknown): string[] {
 export function readAgenticRequestControls(
   customSettings: unknown
 ): AgenticRequestControls {
-  if (!customSettings || typeof customSettings !== 'object') {
+  const parsed = agenticRequestControlsSettingsSchema.safeParse(customSettings);
+  if (!parsed.success) {
     return { allowlist: [], denylist: [] };
   }
 
-  const settings = customSettings as Record<string, unknown>;
+  const settings = parsed.data;
   return {
     allowlist: parsePatternList(settings[AGENTIC_AGENT_ALLOWLIST_KEY]),
     denylist: parsePatternList(settings[AGENTIC_AGENT_DENYLIST_KEY]),
