@@ -611,6 +611,40 @@ describe('POST /api/storefront/imei-check', () => {
     });
   });
 
+  it('fails when refunded terminal state cannot be persisted', async () => {
+    mocks.mockRequestSickwCheck.mockResolvedValueOnce({
+      body: {
+        code: 'SICKW_UNAVAILABLE',
+        error: 'Lookup failed; your wallet was refunded.',
+        success: false,
+      },
+      ok: false,
+      refundReason: 'error',
+      sickwStatus: 'unavailable',
+      status: 502,
+    });
+    const supabase = createSupabaseMock();
+    supabase.__setUpdateError({ message: 'database unavailable' });
+    mockAuthenticatedUser(supabase);
+    const { POST } = await importRoute();
+
+    const response = await POST(createRequest());
+    const body = (await response.json()) as { code: string };
+
+    expect(response.status).toBe(500);
+    expect(body.code).toBe('REFUNDED_STATE_SAVE_FAILED');
+    expect(mocks.mockRefundImeiWalletPayment).toHaveBeenCalledWith(
+      expect.objectContaining({ lookupId: 'lookup-1' })
+    );
+    expect(supabase.__updates.at(-1)).toMatchObject({
+      filters: { id: 'lookup-1' },
+      payload: {
+        cached_status: 502,
+        status: 'refunded_error',
+      },
+    });
+  });
+
   it('marks refund_pending when refund RPC fails', async () => {
     mocks.mockRequestSickwCheck.mockResolvedValueOnce({
       body: {

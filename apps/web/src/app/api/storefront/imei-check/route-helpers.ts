@@ -326,6 +326,14 @@ export async function refundAndCacheFailure({
       cacheError,
       lookupId,
     });
+    return json(
+      errorBody({
+        code: 'REFUNDED_STATE_SAVE_FAILED',
+        error:
+          'Lookup failed and refund result could not be saved. Contact support if your wallet is not credited.',
+      }),
+      500
+    );
   }
 
   return json(body, status);
