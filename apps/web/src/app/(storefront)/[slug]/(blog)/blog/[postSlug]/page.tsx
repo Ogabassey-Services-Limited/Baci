@@ -1,7 +1,6 @@
 import type { Metadata } from 'next';
 import { draftMode } from 'next/headers';
 import { notFound } from 'next/navigation';
-import { buildStoreUrl } from '@/lib/store-url';
 import {
   buildCanonicalBlogPostUrl,
   getBlogPostTextPreview,
@@ -32,13 +31,6 @@ export async function generateMetadata({
     getBlogPostTextPreview(post.content);
 
   const url = buildCanonicalBlogPostUrl(merchant, post.slug);
-  const baseUrl = buildStoreUrl(merchant);
-  const storefrontBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-  const ogImageUrl = new URL(
-    `blog/${post.slug}/opengraph-image`,
-    storefrontBaseUrl
-  ).toString();
-  const ogImageAlt = `${title} — ${merchant.business_name}`;
 
   return {
     title: `${title} | ${merchant.business_name}`,
@@ -54,20 +46,11 @@ export async function generateMetadata({
       modifiedTime: post.updated_at,
       authors: [post.author_name],
       tags: post.tags,
-      images: [
-        {
-          url: ogImageUrl,
-          alt: ogImageAlt,
-          width: 1200,
-          height: 630,
-        },
-      ],
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
-      images: [ogImageUrl],
     },
     alternates: {
       canonical: url,

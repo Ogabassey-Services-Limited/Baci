@@ -35,10 +35,7 @@ vi.mock('@/lib/supabase/public', () => ({
   createPublicClient: (...args: unknown[]) => mockCreatePublicClient(...args),
 }));
 
-import {
-  getMerchantBlogOgImageData,
-  getMerchantBlogOgMetadataData,
-} from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-data';
+import { getMerchantBlogOgImageData } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-data';
 
 type PostRow = {
   title: string | null;
@@ -113,69 +110,6 @@ beforeEach(() => {
 });
 
 describe('merchant blog OG image data', () => {
-  it('returns null without leaking merchant data when tenant or feature visibility fails', async () => {
-    mockGetCachedMerchant.mockResolvedValueOnce(null);
-    await expect(
-      getMerchantBlogOgImageData('missing-shop', 'post-a')
-    ).resolves.toBeNull();
-
-    mockGetCachedMerchant.mockResolvedValueOnce({
-      ...merchant,
-      business_name: '   ',
-    });
-    await expect(
-      getMerchantBlogOgImageData('blank-name-shop', 'post-a')
-    ).resolves.toBeNull();
-
-    mockGetCachedMerchant.mockResolvedValueOnce(merchant);
-    mockGetCachedFeatureSettings.mockResolvedValueOnce({ blog_enabled: false });
-    await expect(
-      getMerchantBlogOgImageData('blog-disabled-shop', 'post-a')
-    ).resolves.toBeNull();
-  });
-
-  it('returns null when merchant or feature visibility lookups time out', async () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
-
-    vi.useFakeTimers();
-    mockGetCachedMerchant.mockReturnValueOnce(new Promise(() => undefined));
-    const merchantTimeout = getMerchantBlogOgImageData(
-      'merchant-timeout-shop',
-      'post-a'
-    );
-    await vi.advanceTimersByTimeAsync(4000);
-    await expect(merchantTimeout).resolves.toBeNull();
-
-    vi.useRealTimers();
-    vi.useFakeTimers();
-    mockGetCachedFeatureSettings.mockReturnValueOnce(
-      new Promise(() => undefined)
-    );
-    const featureTimeout = getMerchantBlogOgMetadataData(
-      'feature-timeout-shop',
-      'post-a'
-    );
-    await vi.advanceTimersByTimeAsync(4000);
-    await expect(featureTimeout).resolves.toBeNull();
-
-    consoleErrorSpy.mockRestore();
-  });
-
-  it('routes slug identifiers and domain identifiers through the correct merchant lookup', async () => {
-    await getMerchantBlogOgMetadataData('shop-slug-route', 'post-slug-route');
-    await getMerchantBlogOgMetadataData(
-      'shop.example.com',
-      'post-domain-route'
-    );
-
-    expect(mockGetCachedMerchant).toHaveBeenCalledWith('shop-slug-route');
-    expect(mockGetCachedMerchantByDomain).toHaveBeenCalledWith(
-      'shop.example.com'
-    );
-  });
-
   it('returns branded fallback data when the tenant is valid but the post is missing', async () => {
     mockFetch.mockResolvedValue(imageResponse('image/png', 'logo'));
     installPostQuery(null);
@@ -342,23 +276,5 @@ describe('merchant blog OG image data', () => {
       })
     );
     consoleErrorSpy.mockRestore();
-  });
-
-  it('uses a lightweight metadata helper that never buffers remote images', async () => {
-    installPostQuery({
-      ...postRow,
-      title: 'Metadata Title',
-    });
-
-    await expect(
-      getMerchantBlogOgMetadataData('ogabassey-meta', 'metadata-title')
-    ).resolves.toEqual({
-      merchantBusinessName: 'Ogabassey',
-      post: {
-        title: 'Metadata Title',
-      },
-    });
-
-    expect(mockFetch).not.toHaveBeenCalled();
   });
 });

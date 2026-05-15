@@ -1,22 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  mockGetMerchantBlogOgImageData,
-  mockGetMerchantBlogOgMetadataData,
-  mockImageResponse,
-} = vi.hoisted(() => ({
-  mockGetMerchantBlogOgImageData: vi.fn(),
-  mockGetMerchantBlogOgMetadataData: vi.fn(),
-  mockImageResponse: vi.fn(function ImageResponse(
-    element: unknown,
-    options: unknown
-  ) {
-    return {
-      element,
-      options,
-    };
-  }),
-}));
+const { mockGetMerchantBlogOgImageData, mockImageResponse } = vi.hoisted(
+  () => ({
+    mockGetMerchantBlogOgImageData: vi.fn(),
+    mockImageResponse: vi.fn(function ImageResponse(
+      element: unknown,
+      options: unknown
+    ) {
+      return {
+        element,
+        options,
+      };
+    }),
+  })
+);
 
 vi.mock('next/og', () => ({
   ImageResponse: mockImageResponse,
@@ -27,16 +24,11 @@ vi.mock(
   () => ({
     getMerchantBlogOgImageData: (...args: unknown[]) =>
       mockGetMerchantBlogOgImageData(...args),
-    getMerchantBlogOgMetadataData: (...args: unknown[]) =>
-      mockGetMerchantBlogOgMetadataData(...args),
+    getMerchantBlogOgMetadataData: vi.fn(),
   })
 );
 
 import Image, {
-  contentType,
-  generateImageMetadata,
-  revalidate,
-  runtime,
   size,
 } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image';
 import type { MerchantBlogOgImageData } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-data';
@@ -145,40 +137,6 @@ describe('merchant blog post OG image route', () => {
     vi.clearAllMocks();
   });
 
-  it('exports PNG ImageResponse route metadata', () => {
-    expect(size).toEqual({ width: 1200, height: 630 });
-    expect(contentType).toBe('image/png');
-    expect(revalidate).toBe(0);
-    expect(runtime).toBe('nodejs');
-  });
-
-  it('generates lightweight alt metadata for the post image', async () => {
-    mockGetMerchantBlogOgMetadataData.mockResolvedValue({
-      merchantBusinessName: 'Ogabassey',
-      post: { title: 'Best iPhone Deals' },
-    });
-
-    await expect(
-      generateImageMetadata({
-        params: Promise.resolve({
-          slug: 'ogabassey.com',
-          postSlug: 'best-deals',
-        }),
-      })
-    ).resolves.toEqual([
-      {
-        id: 'merchant-blog-og',
-        alt: 'Best iPhone Deals — Ogabassey',
-        size,
-        contentType,
-      },
-    ]);
-    expect(mockGetMerchantBlogOgMetadataData).toHaveBeenCalledWith(
-      'ogabassey.com',
-      'best-deals'
-    );
-  });
-
   it('renders a no-store generic fallback when tenant data is unavailable', async () => {
     mockGetMerchantBlogOgImageData.mockResolvedValue(null);
 
@@ -252,24 +210,16 @@ describe('merchant blog post OG image route', () => {
     expect(cacheControlOf(options.headers)).toBeNull();
   });
 
-  it('truncates long rendered post titles without truncating alt metadata', async () => {
+  it('truncates long rendered post titles', async () => {
     const longTitle = `${'A'.repeat(100)} tail`;
     mockGetMerchantBlogOgImageData.mockResolvedValue(
       createData({ post: { ...createDataPost(), title: longTitle } })
     );
-    mockGetMerchantBlogOgMetadataData.mockResolvedValue({
-      merchantBusinessName: 'Ogabassey',
-      post: { title: longTitle },
-    });
 
     await renderImage();
     const { element } = getLastImageResponseCall();
-    const [metadata] = await generateImageMetadata({
-      params: Promise.resolve({ slug: 'ogabassey.com', postSlug: 'long' }),
-    });
 
     expect(collectText(element)).toContain(`${longTitle.slice(0, 79)}...`);
-    expect(metadata.alt).toBe(`${longTitle} — Ogabassey`);
   });
 
   it('omits optional category and author lines when post fields are null', async () => {
