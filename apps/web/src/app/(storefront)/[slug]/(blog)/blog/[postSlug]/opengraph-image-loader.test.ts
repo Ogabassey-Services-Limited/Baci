@@ -38,7 +38,6 @@ describe('merchant blog OG image loader', () => {
 
     const result = await loadRemoteImageDataUri(
       'https://cdn.ogabassey.com/media/merchant-1/blog/raw.jpg',
-      'blog-ogabassey-post',
       4000,
       (url) => isAllowedBlogOgImageUrl(url, 'merchant-1')
     );
@@ -55,23 +54,20 @@ describe('merchant blog OG image loader', () => {
         credentials: 'omit',
         redirect: 'error',
         signal: expect.any(AbortSignal),
-        next: {
-          revalidate: 3600,
-          tags: ['blog-ogabassey-post'],
-        },
+        cache: 'no-store',
       })
     );
+    expect(mockFetch.mock.calls[0]?.[1]).not.toHaveProperty('next');
   });
 
   it('fails closed when the source is missing or disallowed', async () => {
     await expect(
-      loadRemoteImageDataUri(null, 'blog-ogabassey-post', 4000, () => true)
+      loadRemoteImageDataUri(null, 4000, () => true)
     ).resolves.toEqual({ dataUri: null, status: 'source_missing' });
 
     await expect(
       loadRemoteImageDataUri(
         'https://evil.example.com/media/merchant-1/blog/raw.webp',
-        'blog-ogabassey-post',
         4000,
         (url) => isAllowedBlogOgImageUrl(url, 'merchant-1')
       )
@@ -85,11 +81,14 @@ describe('merchant blog OG image loader', () => {
     await expect(
       loadRemoteImageDataUri(
         'https://cdn.ogabassey.com/media/merchant-1/blog/raw.webp',
-        'blog-ogabassey-post',
         4000,
         (url) => isAllowedBlogOgImageUrl(url, 'merchant-1')
       )
     ).resolves.toEqual({ dataUri: null, status: 'fetch_failed' });
+    expect(mockFetch.mock.calls[0]?.[1]).toMatchObject({
+      cache: 'no-store',
+    });
+    expect(mockFetch.mock.calls[0]?.[1]).not.toHaveProperty('next');
   });
 
   it('retries the fallback featured image candidate after a retryable primary failure', async () => {
@@ -106,8 +105,7 @@ describe('merchant blog OG image loader', () => {
           'https://cdn.ogabassey.com/media/merchant-1/blog/variant.jpg',
           'https://cdn.ogabassey.com/media/merchant-1/blog/original.jpg',
         ],
-        'merchant-1',
-        'blog-ogabassey-post'
+        'merchant-1'
       )
     ).resolves.toEqual({
       dataUri: `data:image/jpeg;base64,${Buffer.from('fallback').toString(
@@ -141,8 +139,7 @@ describe('merchant blog OG image loader', () => {
         'https://cdn.ogabassey.com/media/merchant-1/blog/variant.jpg',
         'https://cdn.ogabassey.com/media/merchant-1/blog/original.jpg',
       ],
-      'merchant-1',
-      'blog-ogabassey-post'
+      'merchant-1'
     );
 
     await vi.advanceTimersByTimeAsync(4000);
@@ -164,7 +161,6 @@ describe('merchant blog OG image loader', () => {
     await expect(
       loadRemoteImageDataUri(
         'https://cdn.ogabassey.com/media/merchant-1/blog/raw.webp',
-        'blog-ogabassey-post',
         4000,
         (url) => isAllowedBlogOgImageUrl(url, 'merchant-1')
       )
@@ -174,7 +170,6 @@ describe('merchant blog OG image loader', () => {
     await expect(
       loadRemoteImageDataUri(
         'https://cdn.ogabassey.com/media/merchant-1/blog/raw.svg',
-        'blog-ogabassey-post',
         4000,
         (url) => isAllowedBlogOgImageUrl(url, 'merchant-1')
       )
@@ -184,7 +179,6 @@ describe('merchant blog OG image loader', () => {
     await expect(
       loadRemoteImageDataUri(
         'https://cdn.ogabassey.com/media/merchant-1/blog/raw.webp',
-        'blog-ogabassey-post',
         4000,
         (url) => isAllowedBlogOgImageUrl(url, 'merchant-1')
       )
@@ -205,7 +199,6 @@ describe('merchant blog OG image loader', () => {
     await expect(
       loadRemoteImageDataUri(
         'https://cdn.ogabassey.com/media/merchant-1/blog/raw.png',
-        'blog-ogabassey-post',
         4000,
         (url) => isAllowedBlogOgImageUrl(url, 'merchant-1')
       )
@@ -230,7 +223,6 @@ describe('merchant blog OG image loader', () => {
     await expect(
       loadRemoteImageDataUri(
         'https://cdn.ogabassey.com/media/merchant-1/blog/raw.png',
-        'blog-ogabassey-post',
         4000,
         (url) => isAllowedBlogOgImageUrl(url, 'merchant-1')
       )
@@ -250,7 +242,6 @@ describe('merchant blog OG image loader', () => {
 
     const resultPromise = loadRemoteImageDataUri(
       'https://cdn.ogabassey.com/media/merchant-1/blog/raw.webp',
-      'blog-ogabassey-post',
       4000,
       (url) => isAllowedBlogOgImageUrl(url, 'merchant-1')
     );

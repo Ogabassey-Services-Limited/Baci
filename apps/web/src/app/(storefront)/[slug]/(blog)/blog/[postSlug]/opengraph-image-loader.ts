@@ -3,7 +3,6 @@ import {
   isAllowedLogoUrl,
 } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-security';
 
-const OG_IMAGE_REVALIDATE_SECONDS = 3600;
 const FEATURED_IMAGE_TIMEOUT_MS = 4000;
 const LOGO_IMAGE_TIMEOUT_MS = 1200;
 export const MAX_REMOTE_IMAGE_BYTES = 4 * 1024 * 1024;
@@ -96,7 +95,6 @@ async function readBoundedResponseBody(
 
 export async function loadRemoteImageDataUri(
   url: string | null,
-  cacheTag: string,
   timeoutMs: number,
   isAllowed: (url: string) => boolean
 ): Promise<RemoteImageLoadResult> {
@@ -111,7 +109,7 @@ export async function loadRemoteImageDataUri(
       signal: controller.signal,
       credentials: 'omit',
       redirect: 'error',
-      next: { revalidate: OG_IMAGE_REVALIDATE_SECONDS, tags: [cacheTag] },
+      cache: 'no-store',
     });
 
     if (!response.ok) {
@@ -156,28 +154,19 @@ export async function loadRemoteImageDataUri(
 
 export function loadFeaturedImage(
   url: string | null,
-  merchantId: string,
-  cacheTag: string
+  merchantId: string
 ): Promise<RemoteImageLoadResult> {
-  return loadRemoteImageDataUri(
-    url,
-    cacheTag,
-    FEATURED_IMAGE_TIMEOUT_MS,
-    (raw) => isAllowedBlogOgImageUrl(raw, merchantId)
+  return loadRemoteImageDataUri(url, FEATURED_IMAGE_TIMEOUT_MS, (raw) =>
+    isAllowedBlogOgImageUrl(raw, merchantId)
   );
 }
 
 export async function loadFeaturedImageWithFallback(
   urls: string[],
-  merchantId: string,
-  cacheTag: string
+  merchantId: string
 ): Promise<RemoteImageLoadResult> {
   const [primaryUrl, fallbackUrl] = urls;
-  const primaryResult = await loadFeaturedImage(
-    primaryUrl ?? null,
-    merchantId,
-    cacheTag
-  );
+  const primaryResult = await loadFeaturedImage(primaryUrl ?? null, merchantId);
 
   if (
     !fallbackUrl ||
@@ -187,16 +176,14 @@ export async function loadFeaturedImageWithFallback(
     return primaryResult;
   }
 
-  return loadFeaturedImage(fallbackUrl, merchantId, cacheTag);
+  return loadFeaturedImage(fallbackUrl, merchantId);
 }
 
 export async function loadLogoImage(
-  url: string | null,
-  cacheTag: string
+  url: string | null
 ): Promise<string | null> {
   const result = await loadRemoteImageDataUri(
     url,
-    cacheTag,
     LOGO_IMAGE_TIMEOUT_MS,
     isAllowedLogoUrl
   );

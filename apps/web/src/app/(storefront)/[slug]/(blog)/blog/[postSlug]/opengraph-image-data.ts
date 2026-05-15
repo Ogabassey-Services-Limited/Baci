@@ -5,7 +5,6 @@ import {
   type RemoteImageLoadStatus,
 } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-loader';
 import { withTimeout } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-security';
-import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import {
   getCachedFeatureSettings,
   getCachedMerchant,
@@ -241,15 +240,11 @@ async function getMerchantBlogOgImageDataInternal(
   const resolved = await resolveMerchantForBlogOg(slug, postSlug);
   if (!resolved) return null;
 
-  const blogCacheTag = getBlogCacheTag(slug, postSlug);
   const post = await getPostForImage(resolved.merchant.id, postSlug);
   if (post === 'error') return null;
 
   if (!post) {
-    const logoDataUri = await loadLogoImage(
-      resolved.merchant.logo_url,
-      blogCacheTag
-    );
+    const logoDataUri = await loadLogoImage(resolved.merchant.logo_url);
     return {
       merchantBusinessName: resolved.merchantBusinessName,
       merchantBrandColors: resolved.merchantBrandColors,
@@ -263,10 +258,9 @@ async function getMerchantBlogOgImageDataInternal(
   const [featuredImage, logoDataUri] = await Promise.all([
     loadFeaturedImageWithFallback(
       getFeaturedImageSourceUrls(post),
-      resolved.merchant.id,
-      blogCacheTag
+      resolved.merchant.id
     ),
-    loadLogoImage(resolved.merchant.logo_url, blogCacheTag),
+    loadLogoImage(resolved.merchant.logo_url),
   ]);
 
   return {
