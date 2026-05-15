@@ -120,6 +120,7 @@ export default function ImeiCheckerScreen() {
       `/wallet?action=fund&requiredAmount=${requiredAmount}&returnTo=/imei-check`
     );
   };
+  const walletBalance = walletQuery.data?.wallet.balance ?? 0;
 
   const handleCheck = async () => {
     Keyboard.dismiss();
@@ -127,6 +128,21 @@ export default function ImeiCheckerScreen() {
 
     if (!isValidIMEI(imei)) {
       Alert.alert('Invalid IMEI', 'Please enter a valid 15-digit IMEI number.');
+      return;
+    }
+
+    if (walletQuery.isLoading) {
+      setError('Loading wallet balance. Please wait a moment and try again.');
+      return;
+    }
+
+    if (walletQuery.isError) {
+      setError('Wallet balance unavailable. Refresh your wallet and try again.');
+      return;
+    }
+
+    if (walletBalance < currentTier.price) {
+      handleTopUpWallet(currentTier.price - walletBalance);
       return;
     }
 
@@ -249,8 +265,6 @@ export default function ImeiCheckerScreen() {
     setError(null);
     setImei('');
   };
-
-  const walletBalance = walletQuery.data?.wallet.balance ?? 0;
 
   if (result) {
     return (

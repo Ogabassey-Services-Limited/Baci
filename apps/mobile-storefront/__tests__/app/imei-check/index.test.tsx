@@ -123,14 +123,30 @@ describe('ImeiCheckerScreen', () => {
     mockWalletIsLoading = true;
     render(<ImeiCheckerScreen />);
 
+    const input = screen.getByPlaceholderText('Enter 15-digit IMEI');
     expect(screen.getByText('Loading wallet balance...')).toBeTruthy();
     fireEvent.changeText(
-      screen.getByPlaceholderText('Enter 15-digit IMEI'),
+      input,
       '490154203237518'
     );
     fireEvent.press(screen.getByText('Loading wallet...'));
+    fireEvent(input, 'submitEditing');
 
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('routes to wallet top-up instead of requesting when keyboard submit has insufficient balance', () => {
+    mockWalletBalance = 500;
+    render(<ImeiCheckerScreen />);
+
+    const input = screen.getByPlaceholderText('Enter 15-digit IMEI');
+    fireEvent.changeText(input, '490154203237518');
+    fireEvent(input, 'submitEditing');
+
+    expect(fetch).not.toHaveBeenCalled();
+    expect(router.push).toHaveBeenCalledWith(
+      '/wallet?action=fund&requiredAmount=1000&returnTo=/imei-check'
+    );
   });
 
   it('routes unauthenticated customers to login on 401', async () => {
