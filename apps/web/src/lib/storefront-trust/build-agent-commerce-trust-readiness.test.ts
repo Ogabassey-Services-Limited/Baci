@@ -6,6 +6,9 @@ import type { FeedImageManifestEntry } from '@/lib/gmc-feed-images';
 import { buildAgentCommerceTrustReadiness } from './build-agent-commerce-trust-readiness';
 import type { MerchantTrustProfile } from './merchant-trust-profile-types';
 
+const NOW = new Date('2026-05-15T00:00:00.000Z');
+const PRODUCT_UPDATED_AT = '2026-05-10T00:00:00.000Z';
+
 function product(
   overrides: Partial<OpenAIFeedProduct> = {}
 ): OpenAIFeedProduct {
@@ -19,6 +22,7 @@ function product(
     stock_quantity: 5,
     manage_stock: true,
     category: 'phones',
+    updated_at: PRODUCT_UPDATED_AT,
     ...overrides,
   };
 }
@@ -92,6 +96,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
         business_name: 'Ogabassey',
         slug: 'ogabassey',
       },
+      now: NOW,
       openAiFeedData: {
         products: [product()],
       },
@@ -106,10 +111,24 @@ describe('buildAgentCommerceTrustReadiness', () => {
       sharedProducts: 1,
       urlMismatches: 0,
       productsWithVerifiedImages: 1,
+      latestProductUpdatedAt: PRODUCT_UPDATED_AT,
+      productsWithStructuredData: 1,
+      staleProducts: 0,
     });
     expect(result.surfaces.agentTrust).toBe(
       'https://ogabassey.com/agent-trust.json'
     );
+    expect(result.surfaces.robots).toBe('https://ogabassey.com/robots.txt');
+    expect(result.surfaces.sitemap).toBe('https://ogabassey.com/sitemap.xml');
+    expect(
+      result.checks.find((check) => check.id === 'structured-data-readiness')
+    ).toMatchObject({ severity: 'pass' });
+    expect(
+      result.checks.find((check) => check.id === 'feed-freshness')
+    ).toMatchObject({ severity: 'pass' });
+    expect(
+      result.checks.find((check) => check.id === 'crawler-visibility')
+    ).toMatchObject({ severity: 'pass' });
     expect(
       result.checks.find((check) => check.id === 'machine-endpoint-discovery')
     ).toMatchObject({ severity: 'pass' });
@@ -125,6 +144,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
         business_name: 'Ogabassey',
         slug: 'ogabassey',
       },
+      now: NOW,
       openAiFeedData: {
         products: [product()],
       },
@@ -150,6 +170,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
         business_name: 'Ogabassey',
         slug: 'ogabassey',
       },
+      now: NOW,
       openAiFeedData: {
         products: [
           product({
@@ -199,6 +220,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
         business_name: 'Ogabassey',
         slug: 'ogabassey',
       },
+      now: NOW,
       openAiFeedData: {
         products: [
           product(),

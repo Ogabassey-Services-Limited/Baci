@@ -28,6 +28,24 @@ describe('AgentCommerceTrustReadinessCard', () => {
             message: 'Add complete return and shipping policies.',
             affectedProductIds: ['product-1', 'product-2'],
           },
+          {
+            id: 'structured-data-readiness',
+            label: 'Structured data readiness',
+            severity: 'pass',
+            message: '2 products have core JSON-LD product fields.',
+          },
+          {
+            id: 'feed-freshness',
+            label: 'Feed freshness',
+            severity: 'pass',
+            message: 'Latest product feed timestamp is recent.',
+          },
+          {
+            id: 'crawler-visibility',
+            label: 'Crawler visibility',
+            severity: 'pass',
+            message: 'Robots and sitemap entry points are published.',
+          },
         ],
         status: 'fail',
         surfaces: {},
@@ -38,6 +56,9 @@ describe('AgentCommerceTrustReadinessCard', () => {
           urlMismatches: 0,
           priceMismatches: 0,
           productsWithVerifiedImages: 1,
+          latestProductUpdatedAt: '2026-05-10T00:00:00.000Z',
+          productsWithStructuredData: 2,
+          staleProducts: 0,
         },
       }),
     } as Response);
@@ -49,6 +70,9 @@ describe('AgentCommerceTrustReadinessCard', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Catalog surface parity')).toBeInTheDocument();
     expect(screen.getByText('Policy coverage')).toBeInTheDocument();
+    expect(screen.getByText('Structured data readiness')).toBeInTheDocument();
+    expect(screen.getByText('Feed freshness')).toBeInTheDocument();
+    expect(screen.getByText('Crawler visibility')).toBeInTheDocument();
     expect(screen.getByText('2 affected products')).toBeInTheDocument();
     expect(mockFetch).toHaveBeenCalledWith(
       '/api/integrations/agent-commerce/readiness'

@@ -73,6 +73,9 @@ describe('GET /api/integrations/agent-commerce/readiness', () => {
         urlMismatches: 0,
         priceMismatches: 0,
         productsWithVerifiedImages: 0,
+        latestProductUpdatedAt: null,
+        productsWithStructuredData: 0,
+        staleProducts: 0,
       },
     });
   });
