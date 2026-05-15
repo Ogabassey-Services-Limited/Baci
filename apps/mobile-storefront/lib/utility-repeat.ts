@@ -28,6 +28,15 @@ export interface UtilityRepeatDefaults {
   phoneNumber?: string;
 }
 
+export interface UtilityRepeatRecipient {
+  id: string;
+  title: string;
+  identifierLabel: string;
+  identifier: string;
+  meta: string;
+  defaults: UtilityRepeatDefaults;
+}
+
 const HISTORY_TYPE_TO_UTILITY_ROUTE = {
   airtime: 'airtime',
   data: 'data',
@@ -35,6 +44,14 @@ const HISTORY_TYPE_TO_UTILITY_ROUTE = {
   cable_tv: 'tv',
   betting: 'gaming',
 } as const satisfies Record<VTUHistoryTransaction['type'], UtilityRouteType>;
+
+const IDENTIFIER_LABEL_BY_ROUTE_TYPE = {
+  airtime: 'Phone Number',
+  data: 'Phone Number',
+  power: 'Meter Number',
+  tv: 'Smartcard Number',
+  gaming: 'Account ID',
+} as const satisfies Record<UtilityRouteType, string>;
 
 const KUDA_TO_MOBILE_PROVIDER: Record<string, string> = {
   '9MOBILE': 't2',
@@ -44,6 +61,15 @@ const KUDA_TO_MOBILE_PROVIDER: Record<string, string> = {
 };
 
 const NORMALIZED_MOBILE_PROVIDER_SLUGS = new Set(['airtel', 'glo', 'mtn', 't2']);
+
+const MAX_RECENT_RECIPIENTS = 10;
+
+// NG-only by design. Revisit when the mobile storefront ships in additional markets.
+const REPEAT_AMOUNT_FORMATTER = new Intl.NumberFormat('en-NG', {
+  currency: 'NGN',
+  maximumFractionDigits: 0,
+  style: 'currency',
+});
 
 const log = createLogger('UtilityRepeat');
 
@@ -156,8 +182,120 @@ function getRouteParams(
   };
 }
 
+function getRecipientTitle(
+  transaction: VTUHistoryTransaction,
+  defaults: UtilityRepeatDefaults
+): string {
+  return (
+    defaults.customerName ||
+    defaults.billerName ||
+    transaction.network_provider ||
+    defaults.phoneNumber ||
+    defaults.customerIdentifier ||
+    'Recent recipient'
+  );
+}
+
+function getRecipientIdentifier(
+  defaults: UtilityRepeatDefaults
+): string | null {
+  return defaults.phoneNumber ?? defaults.customerIdentifier ?? null;
+}
+
+function getRecipientKey(
+  routeType: UtilityRouteType,
+  defaults: UtilityRepeatDefaults,
+  identifier: string
+): string {
+  return [
+    routeType,
+    defaults.networkProvider ?? '',
+    defaults.billerName ?? '',
+    defaults.billItemIdentifier ?? '',
+    defaults.dataPlanCode ?? '',
+    identifier,
+  ].join(':');
+}
+
+function getRecipientMeta(transaction: VTUHistoryTransaction): string {
+  return REPEAT_AMOUNT_FORMATTER.format(transaction.amount);
+}
+
+function getRecipient(
+  transaction: VTUHistoryTransaction,
+  requestedType: UtilityRouteType
+): UtilityRepeatRecipient | null {
+  if (transaction.status !== 'successful') {
+    return null;
+  }
+
+  let routeType: UtilityRouteType;
+  try {
+    routeType = getRouteType(transaction.type);
+  } catch {
+    return null;
+  }
+
+  if (routeType !== requestedType) {
+    return null;
+  }
+
+  const defaults = getDefaults(transaction);
+  const identifier = getRecipientIdentifier(defaults);
+  if (!identifier) {
+    return null;
+  }
+
+  return {
+    id: transaction.id,
+    title: getRecipientTitle(transaction, defaults),
+    identifierLabel: IDENTIFIER_LABEL_BY_ROUTE_TYPE[routeType],
+    identifier,
+    meta: getRecipientMeta(transaction),
+    defaults,
+  };
+}
+
+function getRecentRecipients(
+  transactions: VTUHistoryTransaction[] | undefined,
+  requestedType: UtilityRouteType
+): UtilityRepeatRecipient[] {
+  if (!transactions?.length) {
+    return [];
+  }
+
+  const seen = new Set<string>();
+  const recipients: UtilityRepeatRecipient[] = [];
+
+  for (const transaction of transactions) {
+    if (recipients.length >= MAX_RECENT_RECIPIENTS) {
+      break;
+    }
+
+    const recipient = getRecipient(transaction, requestedType);
+    if (!recipient) {
+      continue;
+    }
+
+    const key = getRecipientKey(
+      requestedType,
+      recipient.defaults,
+      recipient.identifier
+    );
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    recipients.push(recipient);
+  }
+
+  return recipients;
+}
+
 export const utilityRepeatHelpers = {
   getDefaults,
+  getRecentRecipients,
   getRouteParams,
   getRouteType,
 } as const;
