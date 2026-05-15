@@ -19,12 +19,42 @@ describe('next.config OgaBassey resource headers', () => {
 
     const apexHomeHeaders = findHomeHeadersForHost('ogabassey.com');
     const wwwHomeHeaders = findHomeHeadersForHost('www.ogabassey.com');
+    const unrelatedHomeHeaders = findHomeHeadersForHost('example.com');
 
     expect(apexHomeHeaders?.headers).toContainEqual({
       key: 'Link',
       value: OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER,
     });
     expect(wwwHomeHeaders?.headers).toContainEqual({
+      key: 'Link',
+      value: OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER,
+    });
+    expect(unrelatedHomeHeaders).toBeUndefined();
+
+    const homeLinkRules =
+      headers?.filter(
+        (entry) =>
+          entry.source === '/' &&
+          entry.headers.some(
+            (header) =>
+              header.key === 'Link' &&
+              header.value === OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER
+          )
+      ) ?? [];
+    const linkHosts = homeLinkRules
+      .map(
+        (entry) =>
+          entry.has?.find((condition) => condition.type === 'host')?.value
+      )
+      .sort();
+
+    expect(linkHosts).toEqual(['ogabassey.com', 'www.ogabassey.com']);
+    const nonHomeRouteHeaders =
+      headers
+        ?.filter((entry) => entry.source !== '/')
+        .flatMap((entry) => entry.headers) ?? [];
+
+    expect(nonHomeRouteHeaders).not.toContainEqual({
       key: 'Link',
       value: OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER,
     });

@@ -21,21 +21,12 @@ describe('ogabassey hero asset config', () => {
   });
 
   it('builds a viewport-scoped HTTP Link header for native hero preloading', () => {
-    expect(OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER).toContain(
-      `<${OGABASSEY_HERO_DESKTOP_LCP_SRC}>; rel=preload; as=image`
-    );
-    expect(OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER).toContain(
-      'media="(min-width: 768px)"'
-    );
-    expect(OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER).toContain(
-      `<${OGABASSEY_HERO_MOBILE_LCP_SRC}>; rel=preload; as=image`
-    );
-    expect(OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER).toContain(
-      'media="(max-width: 767px)"'
-    );
-    expect(OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER).toContain(
-      'fetchpriority=high'
-    );
+    const expectedLinkHeader = [
+      `<${OGABASSEY_HERO_DESKTOP_LCP_SRC}>; rel=preload; as=image; type="image/avif"; fetchpriority=high; media="(min-width: 768px)"`,
+      `<${OGABASSEY_HERO_MOBILE_LCP_SRC}>; rel=preload; as=image; type="image/avif"; fetchpriority=high; media="(max-width: 767px)"`,
+    ].join(', ');
+
+    expect(OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER).toBe(expectedLinkHeader);
   });
 
   it('keeps versioned public hero assets cacheable for returning visitors', () => {
