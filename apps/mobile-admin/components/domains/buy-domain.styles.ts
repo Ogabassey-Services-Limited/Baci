@@ -89,6 +89,7 @@ export const styles = StyleSheet.create({
     minWidth: 70,
     paddingHorizontal: 16,
     paddingVertical: SPACING.sm,
+    minHeight: 44,
   },
   buyButtonPressed: {
     transform: [{ scale: 0.98 }],
