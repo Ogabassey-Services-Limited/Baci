@@ -2,12 +2,15 @@
 
 import {
   AlertCircle,
+  ArrowRight,
   CheckCircle2,
   Loader2,
   TriangleAlert,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
@@ -20,6 +23,7 @@ import type {
   AgentCommerceTrustReadiness,
 } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 import { cn } from '@/lib/utils';
+import { agentCommerceTrustReadinessCardHelpers } from './agent-commerce-trust-readiness-card-helpers';
 
 const READINESS_ENDPOINT = '/api/integrations/agent-commerce/readiness';
 
@@ -46,6 +50,9 @@ export function AgentCommerceTrustReadinessCard() {
     useState<AgentCommerceTrustReadiness | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const actionItems = readiness
+    ? agentCommerceTrustReadinessCardHelpers.buildTrustActionItems(readiness)
+    : [];
 
   useEffect(() => {
     let isMounted = true;
@@ -113,6 +120,49 @@ export function AgentCommerceTrustReadinessCard() {
               {readiness.totals.sharedProducts} products are shared across agent
               and Google feed sources.
             </p>
+
+            {actionItems.length > 0 ? (
+              <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+                <div>
+                  <p className="text-sm font-medium">Priority fixes</p>
+                  <p className="text-xs text-muted-foreground">
+                    Start with these dashboard actions to move trust health
+                    toward ready.
+                  </p>
+                </div>
+                <ul className="space-y-3">
+                  {actionItems.map((action) => (
+                    <li
+                      className="flex flex-col gap-3 rounded-md border bg-background p-3 sm:flex-row sm:items-center sm:justify-between"
+                      key={action.id}
+                    >
+                      <div className="min-w-0 space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-medium">{action.label}</p>
+                          {action.count !== null && action.count > 0 ? (
+                            <span className="text-xs text-muted-foreground">
+                              {action.count} affected
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {action.message}
+                        </p>
+                      </div>
+                      <Button asChild size="sm" variant="outline">
+                        <Link
+                          aria-label={`Review ${action.label}`}
+                          href={action.href}
+                        >
+                          Review
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
             <ul className="space-y-3">
               {readiness.checks.map((check) => (
