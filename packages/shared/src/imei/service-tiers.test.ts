@@ -88,6 +88,14 @@ describe('IMEI service tiers', () => {
     expect(IMEI_SERVICE_TIERS).not.toHaveProperty('serialInfo');
   });
 
+  it('omits the Apple Replacement History tier until output parsing exists', () => {
+    expect(ALL_IMEI_SERVICE_TIERS).not.toContain(
+      'replacementHistory' as unknown as (typeof ALL_IMEI_SERVICE_TIERS)[number]
+    );
+    expect(isImeiServiceTierKey('replacementHistory')).toBe(false);
+    expect(IMEI_SERVICE_TIERS).not.toHaveProperty('replacementHistory');
+  });
+
   it('switches between primary and expanded tier lists', () => {
     expect(getVisibleImeiServiceTierKeys('all', false)).toEqual([
       ...PRIMARY_IMEI_SERVICE_TIERS,

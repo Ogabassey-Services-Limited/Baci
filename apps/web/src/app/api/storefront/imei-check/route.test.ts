@@ -154,6 +154,21 @@ describe('POST /api/storefront/imei-check', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it('blocks non-primary tiers in production until payment auth is enabled', async () => {
+    vi.unstubAllEnvs();
+    vi.stubEnv('NODE_ENV', 'production');
+    const { POST } = await importRoute();
+
+    const response = await POST(
+      createRequest({ imei: '354442067957452', tier: 'mdm' })
+    );
+    const body = (await response.json()) as { error: string };
+
+    expect(response.status).toBe(403);
+    expect(body.error).toContain('temporarily unavailable');
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it('uses the shared provider service id for the selected tier', async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,

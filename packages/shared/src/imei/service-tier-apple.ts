@@ -60,20 +60,6 @@ export const APPLE_IMEI_SERVICE_TIERS = {
   // storefront supports a serial-number input mode. The current input/validator
   // (`parseImei`) only accepts 15-digit IMEIs, so a Serial Info selection would
   // always fail validation. See PR #1557 (codex P2 review).
-  replacementHistory: {
-    providerServiceId: '29',
-    name: 'Replacement History',
-    tagline: 'Has Apple replaced it?',
-    description: 'Apple replacement and repair history',
-    detail:
-      'Checks whether Apple replacement or repair history exists for the device.',
-    price: 11_500,
-    costUsd: 0.7,
-    features: ['Replacement History', 'Repair History', 'Apple Records'],
-    checksIncluded: ['device', 'modelNumber'],
-    icon: 'refresh-outline',
-    brandScopes: ['apple'],
-  },
   demoUnit: {
     providerServiceId: '85',
     name: 'Demo Unit Check',

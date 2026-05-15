@@ -1,5 +1,6 @@
 import {
   IMEI_SERVICE_TIERS,
+  PRIMARY_IMEI_SERVICE_TIERS,
   type ImeiServiceTierKey,
   isImeiServiceTierKey,
 } from '@baci/shared/imei';
@@ -155,6 +156,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
+const PUBLIC_IMEI_SERVICE_TIER_KEYS = new Set<ImeiServiceTierKey>(
+  PRIMARY_IMEI_SERVICE_TIERS
+);
+
 function parseImei(
   body: unknown
 ): { ok: true; imei: string } | { ok: false; response: NextResponse } {
@@ -200,6 +205,23 @@ function parseTier(
   | { ok: false; response: NextResponse } {
   const rawTier = getBodyValue(body, 'tier') ?? 'full';
   if (isImeiServiceTierKey(rawTier)) {
+    if (
+      process.env.NODE_ENV === 'production' &&
+      !PUBLIC_IMEI_SERVICE_TIER_KEYS.has(rawTier)
+    ) {
+      return {
+        ok: false,
+        response: NextResponse.json(
+          {
+            success: false,
+            error:
+              'Selected report requires merchant-paid credits and is temporarily unavailable.',
+          },
+          { status: 403 }
+        ),
+      };
+    }
+
     return { ok: true, tier: rawTier };
   }
 
