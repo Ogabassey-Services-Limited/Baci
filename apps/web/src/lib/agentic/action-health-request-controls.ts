@@ -52,7 +52,7 @@ export async function getActionHealthRequestControlSummary(
       allowlistCount: 0,
       denylistCount: 0,
       error: null,
-      isAgenticCheckoutEnabled: false,
+      isAgenticCheckoutEnabled: true,
     };
   }
 
@@ -68,6 +68,6 @@ export async function getActionHealthRequestControlSummary(
     denylistCount: parsePatternList(customSettings[AGENTIC_AGENT_DENYLIST_KEY])
       .length,
     error: null,
-    isAgenticCheckoutEnabled: data.agentic_checkout_enabled === true,
+    isAgenticCheckoutEnabled: data.agentic_checkout_enabled !== false,
   };
 }

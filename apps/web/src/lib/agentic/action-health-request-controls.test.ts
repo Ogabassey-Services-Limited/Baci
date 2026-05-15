@@ -73,7 +73,7 @@ describe('getActionHealthRequestControlSummary', () => {
     });
   });
 
-  it('returns defaults when no feature-settings row exists', async () => {
+  it('treats missing feature-settings rows as checkout-enabled by default', async () => {
     const supabase = createSupabaseMock({
       data: null,
       error: null,
@@ -88,7 +88,7 @@ describe('getActionHealthRequestControlSummary', () => {
       allowlistCount: 0,
       denylistCount: 0,
       error: null,
-      isAgenticCheckoutEnabled: false,
+      isAgenticCheckoutEnabled: true,
     });
   });
 
@@ -113,7 +113,7 @@ describe('getActionHealthRequestControlSummary', () => {
     });
   });
 
-  it('defaults checkout-enabled to false when the feature flag is unset', async () => {
+  it('treats an unset checkout-enabled flag as enabled by default', async () => {
     const supabase = createSupabaseMock({
       data: {
         agentic_checkout_enabled: null,
@@ -132,7 +132,7 @@ describe('getActionHealthRequestControlSummary', () => {
       allowlistCount: 1,
       denylistCount: 0,
       error: null,
-      isAgenticCheckoutEnabled: false,
+      isAgenticCheckoutEnabled: true,
     });
   });
 });
