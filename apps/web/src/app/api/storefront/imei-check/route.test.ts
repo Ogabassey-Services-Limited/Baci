@@ -475,6 +475,28 @@ describe('POST /api/storefront/imei-check', () => {
     });
   });
 
+  it('caches a terminal 500 when wallet debit fails unexpectedly', async () => {
+    mocks.mockRedeemImeiWalletPayment.mockRejectedValueOnce(
+      new Error('wallet rpc unavailable')
+    );
+    const supabase = createSupabaseMock();
+    mocks.mockCreateAdminClient.mockReturnValue(supabase);
+    const { POST } = await importRoute();
+
+    const response = await POST(createRequest());
+    const body = (await response.json()) as { code: string };
+
+    expect(response.status).toBe(500);
+    expect(body.code).toBe('INTERNAL_ERROR');
+    expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
+    expect(supabase.__updates.at(-1)).toMatchObject({
+      cached_response: body,
+      cached_status: 500,
+      sickw_status: 'wallet_debit_error',
+      status: 'failed_error',
+    });
+  });
+
   it('debits the wallet before calling SICKW', async () => {
     const callOrder: string[] = [];
     mocks.mockRedeemImeiWalletPayment.mockImplementationOnce(() => {

@@ -19,6 +19,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { imeiCheckSchema } from '@/schemas/imei-check';
 import {
   cacheInsufficientBalanceResponse,
+  cacheLookupResponse,
   cacheSuccessfulLookup,
   errorBody,
   findLookupByIdempotencyKey,
@@ -319,6 +320,33 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('IMEI check error:', error);
+    if (!debitSucceeded && activeLookup) {
+      const body = errorBody({
+        code: 'INTERNAL_ERROR',
+        error: 'Internal server error',
+      });
+
+      try {
+        const supabase = createAdminClient();
+        await cacheLookupResponse({
+          body,
+          lookupId: activeLookup.id,
+          sickwStatus: 'wallet_debit_error',
+          status: 500,
+          supabase,
+          terminalStatus: 'failed_error',
+        });
+      } catch (cacheError) {
+        console.error('[IMEI Check] Failed to cache debit failure:', {
+          error: cacheError,
+          lookupId: activeLookup.id,
+          merchantId: activeLookup.merchantId,
+        });
+      }
+
+      return json(body, 500);
+    }
+
     if (debitSucceeded && activeLookup) {
       const supabase = createAdminClient();
       return await refundAndCacheFailure({

@@ -15,6 +15,7 @@ export const UUID_PATTERN =
 
 export type ImeiLookupStatus =
   | 'completed'
+  | 'failed_error'
   | 'pending'
   | 'refunded_error'
   | 'refunded_not_found'
