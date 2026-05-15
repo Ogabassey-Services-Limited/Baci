@@ -68,7 +68,7 @@ describe('useQuickRepeat', () => {
       })
     );
 
-    expect(mockUseVTUHistory).toHaveBeenCalledWith('airtime', 5);
+    expect(mockUseVTUHistory).toHaveBeenCalledWith('airtime', 20);
     expect(result.current.recentRecipients).toHaveLength(1);
     expect(result.current.recentRecipients[0]).toEqual(
       expect.objectContaining({

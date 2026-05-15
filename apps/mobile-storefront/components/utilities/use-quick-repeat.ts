@@ -13,6 +13,8 @@ import type {
   ValidUtilityType,
 } from './utility-purchase.types';
 
+const RECENT_RECIPIENT_HISTORY_LIMIT = 20;
+
 interface UseQuickRepeatInput extends RouteRepeatParams {
   currentType: ValidUtilityType | null;
   historyFilter: ValidUtilityType;
@@ -57,7 +59,10 @@ export function useQuickRepeat({
   );
   const [repeatRevision, setRepeatRevision] = useState(0);
   const didInitializeRef = useRef(false);
-  const { data: recentTransactions } = useVTUHistory(historyFilter, 5);
+  const { data: recentTransactions } = useVTUHistory(
+    historyFilter,
+    RECENT_RECIPIENT_HISTORY_LIMIT
+  );
 
   useEffect(() => {
     if (!didInitializeRef.current) {
