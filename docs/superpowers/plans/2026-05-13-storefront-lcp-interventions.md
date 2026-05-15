@@ -58,6 +58,10 @@ So Fix 4 isn't a config flip — it needs its own diagnostic to identify a strea
 
 **Problem.** Mobile home LCP is 3226 ms, of which 1806 ms is resource load delay. The hero image is correctly preloaded (`fetchpriority="high"`, `loading="eager"`, viewport-scoped `<link rel="preload">`, request discoverable). All standard 2026 best practices satisfied. Yet the request starts ~1.8 s after navigation.
 
+**2026-05-15 update after PR #1671.** Live PSI now reports mobile home LCP at 3376 ms with about 2080 ms resource load delay. The live HTML shows the hero image hints are emitted as React/Next RSC `:HL[...]` stream records after the initial head/scripts/fallback shell, not as native `<link rel="preload" as="image">` tags in the initial `<head>` or HTTP `Link` response header. Per Next.js 16 docs, the Metadata API does not directly support arbitrary resource hints; ReactDOM resource hints are supported, but the current placement is still too late for this streaming route.
+
+**2026-05-15 PR #1674 correction.** Do not select home hero preload variants from `User-Agent` in `next.config.ts`. The OgaBassey hero branch is viewport-driven in the client, so UA-selected HTTP `Link` headers can preload the wrong asset on tablets and phone-landscape viewports. The corrected Fix 2 slice keeps the LCP assets on stable public URLs, renders the first mobile and desktop hero images with `unoptimized` so the existing ReactDOM resource hints match the eventual image request URL, and leaves variant selection to viewport-scoped in-document preloads (`media="(max-width: 767px)"` / `media="(min-width: 768px)"`). Any future attempt at response-header image preloading must either use a proven viewport signal or emit a single route-safe asset that cannot compete with the actual LCP candidate.
+
 **Diagnostic step (no code change first).**
 
 1. Open Chrome DevTools → Network panel

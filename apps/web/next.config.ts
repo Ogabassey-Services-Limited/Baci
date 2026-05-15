@@ -1,6 +1,7 @@
 import path from 'node:path';
 import bundleAnalyzer from '@next/bundle-analyzer';
 import type { NextConfig } from 'next';
+import { OGABASSEY_HERO_ASSET_CACHE_CONTROL } from '@/config/ogabassey-hero-assets';
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
@@ -412,6 +413,15 @@ const nextConfig: NextConfig = {
   // Security headers
   headers() {
     return [
+      {
+        source: '/ogabassey/hero/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: OGABASSEY_HERO_ASSET_CACHE_CONTROL,
+          },
+        ],
+      },
       {
         source: '/(.*)',
         headers: [

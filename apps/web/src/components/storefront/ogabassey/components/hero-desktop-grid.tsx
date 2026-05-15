@@ -75,16 +75,19 @@ export function HeroDesktopGrid({ getHref }: HeroDesktopGridProps) {
             </div>
 
             <div className="absolute inset-0 w-full h-full z-0">
-              <Image
-                src={slide.image}
-                alt={`${slide.title} ${slide.subtitle}`}
-                fill
-                sizes="(max-width: 1024px) 100vw, 75vw"
-                className="object-cover object-center transition-transform [transition-duration:3000ms] ease-out scale-100 group-hover:scale-105"
-                loading={idx === 0 ? 'eager' : 'lazy'}
-                fetchPriority={idx === 0 ? 'high' : undefined}
-                quality={70}
-              />
+              <picture className="absolute inset-0 block h-full w-full">
+                <source type="image/avif" srcSet={slide.image} />
+                <Image
+                  src={slide.fallbackImage}
+                  alt={`${slide.title} ${slide.subtitle}`}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 75vw"
+                  className="object-cover object-center transition-transform [transition-duration:3000ms] ease-out scale-100 group-hover:scale-105"
+                  loading={idx === 0 ? 'eager' : 'lazy'}
+                  fetchPriority={idx === 0 ? 'high' : undefined}
+                  unoptimized
+                />
+              </picture>
             </div>
           </div>
         ))}

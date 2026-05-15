@@ -1,7 +1,10 @@
-import iphoneHeroDesktopAsset from '@/components/storefront/ogabassey/components/assets/iphone-17-pro-max-desktop.avif';
-import iphoneHeroMobileAsset from '@/components/storefront/ogabassey/components/assets/iphone-17-pro-max-mobile.avif';
-import iphoneHeroMobileFallbackAsset from '@/components/storefront/ogabassey/components/assets/iphone-17-pro-max-mobile.jpg';
 import macbookProPromoAsset from '@/components/storefront/ogabassey/components/assets/macbook-pro-promo.avif';
+import {
+  OGABASSEY_HERO_DESKTOP_LCP_FALLBACK_SRC,
+  OGABASSEY_HERO_DESKTOP_LCP_SRC,
+  OGABASSEY_HERO_MOBILE_LCP_FALLBACK_SRC,
+  OGABASSEY_HERO_MOBILE_LCP_SRC,
+} from '@/config/ogabassey-hero-assets';
 
 export type HeroSlideType = 'image' | 'video' | 'ad';
 
@@ -25,6 +28,7 @@ export interface HeroDesktopSlideData {
   headline: string;
   headlineSuffix: string;
   image: string;
+  fallbackImage: string;
   theme: 'light' | 'dark';
 }
 
@@ -33,13 +37,12 @@ type ImportedImageAsset = { src: string } | string;
 const getImportedImageSrc = (asset: ImportedImageAsset) =>
   typeof asset === 'string' ? asset : asset.src;
 
-export const HERO_DESKTOP_LCP_SRC = getImportedImageSrc(
-  iphoneHeroDesktopAsset
-);
-export const HERO_MOBILE_LCP_SRC = getImportedImageSrc(iphoneHeroMobileAsset);
-export const HERO_MOBILE_LCP_FALLBACK_SRC = getImportedImageSrc(
-  iphoneHeroMobileFallbackAsset
-);
+export const HERO_DESKTOP_LCP_SRC = OGABASSEY_HERO_DESKTOP_LCP_SRC;
+export const HERO_DESKTOP_LCP_FALLBACK_SRC =
+  OGABASSEY_HERO_DESKTOP_LCP_FALLBACK_SRC;
+export const HERO_MOBILE_LCP_SRC = OGABASSEY_HERO_MOBILE_LCP_SRC;
+export const HERO_MOBILE_LCP_FALLBACK_SRC =
+  OGABASSEY_HERO_MOBILE_LCP_FALLBACK_SRC;
 
 export const NEW_ARRIVALS_PROMO_IMAGE = getImportedImageSrc(
   macbookProPromoAsset
@@ -84,6 +87,7 @@ export const DESKTOP_IPHONE_SLIDES: HeroDesktopSlideData[] = [
     headline: 'Beyond',
     headlineSuffix: 'IMAGINATION',
     image: HERO_DESKTOP_LCP_SRC,
+    fallbackImage: HERO_DESKTOP_LCP_FALLBACK_SRC,
     theme: 'light',
   },
   {
@@ -93,6 +97,7 @@ export const DESKTOP_IPHONE_SLIDES: HeroDesktopSlideData[] = [
     headline: 'Forged in',
     headlineSuffix: 'TITANIUM',
     image: HERO_DESKTOP_LCP_SRC,
+    fallbackImage: HERO_DESKTOP_LCP_FALLBACK_SRC,
     theme: 'light',
   },
   {
@@ -102,6 +107,7 @@ export const DESKTOP_IPHONE_SLIDES: HeroDesktopSlideData[] = [
     headline: 'Monster',
     headlineSuffix: 'PERFORMANCE',
     image: HERO_DESKTOP_LCP_SRC,
+    fallbackImage: HERO_DESKTOP_LCP_FALLBACK_SRC,
     theme: 'light',
   },
 ];

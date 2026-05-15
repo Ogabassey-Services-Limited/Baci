@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   DESKTOP_IPHONE_SLIDES,
   FLASH_SALE_PROMO_IMAGE,
+  HERO_DESKTOP_LCP_FALLBACK_SRC,
   HERO_DESKTOP_LCP_SRC,
   HERO_MOBILE_LCP_FALLBACK_SRC,
   HERO_MOBILE_LCP_SRC,
@@ -31,6 +32,7 @@ describe('hero-data exports', () => {
     expect(appleSlides).toHaveLength(0);
     for (const slide of DESKTOP_IPHONE_SLIDES) {
       expect(slide.image).toBe(HERO_DESKTOP_LCP_SRC);
+      expect(slide.fallbackImage).toBe(HERO_DESKTOP_LCP_FALLBACK_SRC);
     }
   });
 
@@ -58,9 +60,17 @@ describe('hero-data exports', () => {
     expect(desktopLcpSlide).toBeDefined();
     expect(mobileLcpSlide).toBeDefined();
     expect(HERO_DESKTOP_LCP_SRC).toMatch(/\.avif(?:$|\?)/);
+    expect(HERO_DESKTOP_LCP_FALLBACK_SRC).toMatch(/\.jpg(?:$|\?)/);
     expect(HERO_MOBILE_LCP_SRC).toMatch(/\.avif(?:$|\?)/);
     expect(HERO_MOBILE_LCP_FALLBACK_SRC).toMatch(/\.jpg(?:$|\?)/);
+    expect(HERO_DESKTOP_LCP_SRC).toMatch(/^\/ogabassey\/hero\//);
+    expect(HERO_DESKTOP_LCP_FALLBACK_SRC).toMatch(/^\/ogabassey\/hero\//);
+    expect(HERO_MOBILE_LCP_SRC).toMatch(/^\/ogabassey\/hero\//);
+    expect(HERO_MOBILE_LCP_FALLBACK_SRC).toMatch(/^\/ogabassey\/hero\//);
     expect(desktopLcpSlide?.image).toBe(HERO_DESKTOP_LCP_SRC);
+    expect(desktopLcpSlide?.fallbackImage).toBe(
+      HERO_DESKTOP_LCP_FALLBACK_SRC
+    );
     expect(mobileLcpSlide?.src).toBe(HERO_MOBILE_LCP_SRC);
   });
 

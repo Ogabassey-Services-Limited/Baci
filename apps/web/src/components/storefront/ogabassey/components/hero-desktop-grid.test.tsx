@@ -24,17 +24,20 @@ vi.mock('next/image', () => ({
     <img
       {...Object.fromEntries(
         Object.entries(props).filter(
-          ([key]) => key !== 'fill' && key !== 'priority'
+          ([key]) => key !== 'fill' && key !== 'priority' && key !== 'unoptimized'
         )
       )}
       alt={String(props.alt ?? '')}
       data-priority={String(Boolean(props.priority))}
+      data-unoptimized={String(Boolean(props.unoptimized))}
     />
   ),
 }));
 
 import {
+  HERO_DESKTOP_LCP_SRC,
   FLASH_SALE_PROMO_IMAGE,
+  HERO_DESKTOP_LCP_FALLBACK_SRC,
   NEW_ARRIVALS_PROMO_IMAGE,
 } from './hero-data';
 import { HeroDesktopGrid } from './hero-desktop-grid';
@@ -54,6 +57,28 @@ describe('HeroDesktopGrid', () => {
     fireEvent.click(screen.getByRole('button', { name: /go to slide 2/i }));
 
     expect(screen.getByRole('button', { name: /go to slide 2/i })).toBeInTheDocument();
+  });
+
+  it('serves the first desktop LCP image from the preloaded AVIF URL with a JPEG fallback', () => {
+    const { container } = render(
+      <HeroDesktopGrid getHref={(path) => `/ogabassey${path}`} />
+    );
+
+    const firstHeroImage = screen.getByRole('img', {
+      name: /iphone 17 pro max/i,
+    });
+    const firstHeroSource = container.querySelector(
+      'picture source[type="image/avif"]'
+    );
+
+    expect(firstHeroSource).toHaveAttribute('srcset', HERO_DESKTOP_LCP_SRC);
+    expect(firstHeroImage).toHaveAttribute(
+      'src',
+      HERO_DESKTOP_LCP_FALLBACK_SRC
+    );
+    expect(firstHeroImage).toHaveAttribute('loading', 'eager');
+    expect(firstHeroImage).toHaveAttribute('fetchpriority', 'high');
+    expect(firstHeroImage).toHaveAttribute('data-unoptimized', 'true');
   });
 
   it('uses valid CDN product assets for the secondary promo panels', () => {
