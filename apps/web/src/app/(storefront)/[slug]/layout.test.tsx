@@ -83,8 +83,15 @@ vi.mock('next/navigation', () => ({
   notFound: () => notFound(),
 }));
 
+vi.mock('next/headers', () => ({
+  headers: vi.fn(() => Promise.resolve(new Headers())),
+}));
+
 vi.mock('@/lib/store-url', () => ({
-  buildStoreUrl: (merchant: { slug: string; custom_domain?: string | null }) =>
+  buildRequestScopedStoreUrl: (merchant: {
+    slug: string;
+    custom_domain?: string | null;
+  }) =>
     merchant.custom_domain
       ? `https://${merchant.custom_domain}`
       : `https://${merchant.slug}.usebaci.com`,
@@ -329,6 +336,45 @@ describe('storefront layout metadata', () => {
     });
 
     expect(metadata.alternates).toBeUndefined();
+  });
+
+  it('uses industry-aware fallback metadata for food stores', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      ...baseMerchant,
+      business_name: 'Foodflow',
+      business_type: 'food-beverage',
+      custom_domain: null,
+      site_title: null,
+      site_description: null,
+      site_tagline: null,
+    } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'foodflow' }),
+    });
+
+    expect(metadata.title).toBe('Foodflow | Order Fresh Food Online');
+    expect(metadata.description).toBe(
+      'Shop Foodflow - order fresh food online with secure checkout in Nigeria.'
+    );
+  });
+
+  it('replaces mismatched gadget fallback titles for non-electronics stores', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
+      ...baseMerchant,
+      business_name: 'Medplus',
+      business_type: 'pharmaceuticals',
+      custom_domain: null,
+      site_title: 'Medplus | Buy Gadgets Pay Later',
+      site_description: null,
+      site_tagline: null,
+    } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'medplus' }),
+    });
+
+    expect(metadata.title).toBe('Medplus | Shop Pharmacy Essentials Online');
   });
 
   it('reads google verification from published_config when feature settings omit it', async () => {

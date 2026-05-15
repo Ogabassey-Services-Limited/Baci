@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock all heavy dependencies before importing the component
@@ -89,11 +89,14 @@ vi.mock('@/components/storefront/checkout-auth-modal', () => ({
 }));
 
 vi.mock('@/components/address-autocomplete', () => ({
-  AddressAutocomplete: vi.fn(({ value, onChangeText, ...props }) => (
+  AddressAutocomplete: vi.fn(({ value, onChange, onChangeText, ...props }) => (
     <input
       data-testid="address-input"
       value={value || ''}
-      onChange={(e) => onChangeText?.(e.target.value)}
+      onChange={(e) => {
+        onChange?.(e);
+        onChangeText?.(e.target.value);
+      }}
       {...props}
     />
   )),
@@ -135,10 +138,17 @@ import { CheckoutPage } from './checkout-page';
 import { useSearchParams } from 'next/navigation';
 import { useCart } from '@/hooks/cart';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
-import { usePersistedState } from '@/hooks/use-persisted-state';
+import { toast } from '@/hooks/use-toast';
+import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
+import { openCredPalCheckout } from '@/lib/credpal';
+import {
+  usePersistedForm,
+  usePersistedState,
+} from '@/hooks/use-persisted-state';
 
 describe('CheckoutPage', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(useCart).mockReturnValue({
       cart: [],
       cartTotal: 0,
@@ -344,6 +354,149 @@ describe('CheckoutPage', () => {
           typeof url === 'string' &&
           url.startsWith('/api/storefront/orders/ord-1')
       )
+    ).toBe(false);
+
+    fetchMock.mockRestore();
+  });
+
+  it('does not auto-trigger direct checkout for unsupported resume gateways', async () => {
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams({
+        orderId: 'ord-1',
+        gateway: 'paystack',
+        trackingToken: 'tok-123',
+      }) as unknown as ReturnType<typeof useSearchParams>
+    );
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/storefront/orders/ord-1')) {
+          return {
+            ok: true,
+            json: async () => ({
+              id: 'ord-1',
+              short_id: 'ORD-1',
+              subtotal: 1000,
+              shipping_cost: 0,
+              total: 1000,
+              customer_name: 'Ada Buyer',
+              customer_email: 'ada@example.com',
+              customer_phone: '+2348123456789',
+              tracking_token: 'tok-123',
+              shipping_address: { address: '', city: '', state: '' },
+              items: [],
+            }),
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ states: [], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    render(<CheckoutPage />);
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/storefront/orders/ord-1?merchant_slug=test-store&token=tok-123'
+      );
+    });
+    expect(openCredPalCheckout).not.toHaveBeenCalled();
+    expect(openCreditDirectCheckout).not.toHaveBeenCalled();
+
+    fetchMock.mockRestore();
+  });
+
+  it('blocks order creation when door delivery has no selected quote', async () => {
+    vi.mocked(useCart).mockReturnValue({
+      cart: [
+        {
+          id: 'item-1',
+          name: 'Test Product',
+          price: 5000,
+          quantity: 1,
+          image: '',
+          slug: 'test-product',
+        },
+      ],
+      cartTotal: 5000,
+      clearCart: vi.fn(),
+      isHydrated: true,
+    } as unknown as ReturnType<typeof useCart>);
+    vi.mocked(useMerchantSafe).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        business_name: 'Test Store',
+        vat_registration_status: 'registered',
+        vat_rate: 7.5,
+        country: 'NG',
+        paystack_subaccount_code: 'ACCT_test',
+        feature_settings: {
+          pay_on_delivery_enabled: true,
+          paystack_enabled: true,
+        },
+      },
+      basePath: '/test-store',
+    } as unknown as ReturnType<typeof useMerchantSafe>);
+    vi.mocked(usePersistedForm).mockReturnValue({
+      values: {
+        firstName: 'Ada',
+        lastName: 'Buyer',
+        customerEmail: 'ada@example.com',
+        customerPhone: '+2348123456789',
+        newAddressStreet: 'Obafemi Awolowo Way',
+        newAddressState: 'Lagos',
+        newAddressCity: 'Lagos',
+        currentStep: 'payment',
+        completedSteps: { contact: true, delivery: true },
+      },
+      setValue: vi.fn(),
+      setValues: vi.fn(),
+      clear: vi.fn(),
+    } as unknown as ReturnType<typeof usePersistedForm>);
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.startsWith('/api/shipping/quotes')) {
+          return {
+            ok: true,
+            json: async () => ({ quotes: { all: [] } }),
+            text: async () => '',
+          } as Response;
+        }
+
+        return {
+          ok: true,
+          json: async () => ({ states: ['Lagos'], locations: [] }),
+          text: async () => '',
+        } as Response;
+      });
+
+    render(<CheckoutPage />);
+
+    fireEvent.click(screen.getByText(/pay on delivery/i));
+    const placeOrderButton = screen
+      .getAllByRole('button', { name: /place order/i })
+      .find((button) => !button.hasAttribute('disabled'));
+    expect(placeOrderButton).toBeDefined();
+    fireEvent.click(placeOrderButton as HTMLButtonElement);
+
+    await waitFor(() => {
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Select Delivery Option',
+        })
+      );
+    });
+    expect(
+      fetchMock.mock.calls.some(([url]) => String(url) === '/api/orders')
     ).toBe(false);
 
     fetchMock.mockRestore();
