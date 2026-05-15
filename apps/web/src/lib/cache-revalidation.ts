@@ -11,6 +11,7 @@
  * Usage: Call the appropriate function after a successful DB mutation in API routes.
  */
 import { revalidatePath, revalidateTag } from 'next/cache';
+import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { buildStorefrontProductsCacheTags } from '@/lib/storefront-products-cache-key';
 
 interface BlogRevalidationOptions {
@@ -213,8 +214,9 @@ export function revalidateBlogPosts(
     }
 
     for (const slug of normalizedPostSlugs) {
-      revalidateTag(`blog-${identifier}-${slug}`, 'merchant');
+      revalidateTag(getBlogCacheTag(identifier, slug), 'merchant');
       revalidatePath(`/${identifier}/blog/${slug}`);
+      revalidatePath(`/${identifier}/blog/${slug}/opengraph-image`);
     }
   }
 }
