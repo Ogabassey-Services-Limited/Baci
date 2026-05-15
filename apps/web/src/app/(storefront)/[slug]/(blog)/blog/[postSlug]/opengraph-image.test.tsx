@@ -22,13 +22,17 @@ vi.mock('next/og', () => ({
   ImageResponse: mockImageResponse,
 }));
 
-vi.mock('./opengraph-image-data', () => ({
-  getMerchantBlogOgImageData: (...args: unknown[]) =>
-    mockGetMerchantBlogOgImageData(...args),
-  getMerchantBlogOgMetadataData: (...args: unknown[]) =>
-    mockGetMerchantBlogOgMetadataData(...args),
-}));
+vi.mock(
+  '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-data',
+  () => ({
+    getMerchantBlogOgImageData: (...args: unknown[]) =>
+      mockGetMerchantBlogOgImageData(...args),
+    getMerchantBlogOgMetadataData: (...args: unknown[]) =>
+      mockGetMerchantBlogOgMetadataData(...args),
+  })
+);
 
+import type { MerchantBlogOgImageData } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-data';
 import Image, {
   contentType,
   generateImageMetadata,
@@ -36,7 +40,6 @@ import Image, {
   runtime,
   size,
 } from './opengraph-image';
-import type { MerchantBlogOgImageData } from './opengraph-image-data';
 
 function createData(
   overrides: Partial<MerchantBlogOgImageData> = {}
@@ -62,7 +65,7 @@ function createData(
           'https://cdn.ogabassey.com/media/merchant-1/blog/token/landscape_16x9.webp',
       },
     },
-    featuredDataUri: 'data:image/webp;base64,ZmVhdHVyZWQ=',
+    featuredDataUri: 'data:image/jpeg;base64,ZmVhdHVyZWQ=',
     featuredImageStatus: 'loaded',
     logoDataUri: 'data:image/png;base64,bG9nbw==',
     ...overrides,
@@ -85,6 +88,7 @@ function getLastImageResponseCall() {
   if (!call) throw new Error('ImageResponse was not called');
   return {
     element: call[0] as React.ReactElement<{
+      children?: unknown;
       style?: Record<string, unknown>;
     }>,
     options: call[1] as {
@@ -214,7 +218,7 @@ describe('merchant blog post OG image route', () => {
     expect(text).toContain('Smartphones');
     expect(text).toContain('Ogabassey');
     expect(collectImageSources(element)).toContain(
-      'data:image/webp;base64,ZmVhdHVyZWQ='
+      'data:image/jpeg;base64,ZmVhdHVyZWQ='
     );
     expect(cacheControlOf(options.headers)).toBeNull();
   });
@@ -295,5 +299,41 @@ describe('merchant blog post OG image route', () => {
 
     expect(element.props.style?.backgroundColor).toBe('#1a1a2e');
     expect(cacheControlOf(options.headers)).toBeNull();
+  });
+
+  it('normalizes short hex brand colors before using transparent gradient stops', async () => {
+    mockGetMerchantBlogOgImageData.mockResolvedValue(
+      createData({
+        merchantBrandColors: {
+          background: '#fff',
+          primary: '#0af',
+          accent: '#fc0',
+        },
+        post: null,
+      })
+    );
+
+    await renderImage();
+    const { element } = getLastImageResponseCall();
+    const children = Array.isArray(element.props.children)
+      ? element.props.children
+      : [element.props.children];
+    const overlay = children.filter(Boolean).find((child) => {
+      const elementChild = child as React.ReactElement<{
+        style?: Record<string, unknown>;
+      }>;
+      return elementChild.props?.style?.position === 'absolute';
+    }) as
+      | React.ReactElement<{
+          style?: Record<string, unknown>;
+        }>
+      | undefined;
+
+    expect(overlay?.props.style?.background).toContain(
+      'rgba(0, 170, 255, 0.2)'
+    );
+    expect(overlay?.props.style?.background).toContain(
+      'rgba(255, 204, 0, 0.15)'
+    );
   });
 });

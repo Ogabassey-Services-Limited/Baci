@@ -11,10 +11,13 @@ vi.mock('@/env', () => ({
   },
 }));
 
-import { loadRemoteImageDataUri } from './opengraph-image-loader';
-import { isAllowedBlogOgImageUrl } from './opengraph-image-security';
+import {
+  loadRemoteImageDataUri,
+  MAX_REMOTE_IMAGE_BYTES,
+} from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-loader';
+import { isAllowedBlogOgImageUrl } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-security';
 
-function imageResponse(contentType = 'image/webp', body = 'image-bytes') {
+function imageResponse(contentType = 'image/jpeg', body = 'image-bytes') {
   return new Response(body, {
     headers: contentType ? { 'content-type': contentType } : undefined,
     status: 200,
@@ -30,23 +33,23 @@ beforeEach(() => {
 
 describe('merchant blog OG image loader', () => {
   it('fetches an allowed raster image as a data URI with bounded request options', async () => {
-    mockFetch.mockResolvedValue(imageResponse('image/webp', 'featured'));
+    mockFetch.mockResolvedValue(imageResponse('image/jpeg', 'featured'));
 
     const result = await loadRemoteImageDataUri(
-      'https://cdn.ogabassey.com/media/merchant-1/blog/raw.webp',
+      'https://cdn.ogabassey.com/media/merchant-1/blog/raw.jpg',
       'blog-ogabassey-post',
       4000,
       (url) => isAllowedBlogOgImageUrl(url, 'merchant-1')
     );
 
     expect(result).toEqual({
-      dataUri: `data:image/webp;base64,${Buffer.from('featured').toString(
+      dataUri: `data:image/jpeg;base64,${Buffer.from('featured').toString(
         'base64'
       )}`,
       status: 'loaded',
     });
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://cdn.ogabassey.com/media/merchant-1/blog/raw.webp',
+      'https://cdn.ogabassey.com/media/merchant-1/blog/raw.jpg',
       expect.objectContaining({
         credentials: 'omit',
         redirect: 'error',
@@ -108,6 +111,62 @@ describe('merchant blog OG image loader', () => {
         (url) => isAllowedBlogOgImageUrl(url, 'merchant-1')
       )
     ).resolves.toEqual({ dataUri: null, status: 'invalid_content_type' });
+
+    mockFetch.mockResolvedValueOnce(imageResponse('image/webp', 'webp-bytes'));
+    await expect(
+      loadRemoteImageDataUri(
+        'https://cdn.ogabassey.com/media/merchant-1/blog/raw.webp',
+        'blog-ogabassey-post',
+        4000,
+        (url) => isAllowedBlogOgImageUrl(url, 'merchant-1')
+      )
+    ).resolves.toEqual({ dataUri: null, status: 'invalid_content_type' });
+  });
+
+  it('rejects oversized images before buffering the response body', async () => {
+    mockFetch.mockResolvedValue(
+      new Response('small', {
+        headers: {
+          'content-length': String(MAX_REMOTE_IMAGE_BYTES + 1),
+          'content-type': 'image/png',
+        },
+        status: 200,
+      })
+    );
+
+    await expect(
+      loadRemoteImageDataUri(
+        'https://cdn.ogabassey.com/media/merchant-1/blog/raw.png',
+        'blog-ogabassey-post',
+        4000,
+        (url) => isAllowedBlogOgImageUrl(url, 'merchant-1')
+      )
+    ).resolves.toEqual({ dataUri: null, status: 'payload_too_large' });
+  });
+
+  it('stops reading streamed image bodies that exceed the payload cap', async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(MAX_REMOTE_IMAGE_BYTES));
+        controller.enqueue(new Uint8Array(1));
+        controller.close();
+      },
+    });
+    mockFetch.mockResolvedValue(
+      new Response(stream, {
+        headers: { 'content-type': 'image/png' },
+        status: 200,
+      })
+    );
+
+    await expect(
+      loadRemoteImageDataUri(
+        'https://cdn.ogabassey.com/media/merchant-1/blog/raw.png',
+        'blog-ogabassey-post',
+        4000,
+        (url) => isAllowedBlogOgImageUrl(url, 'merchant-1')
+      )
+    ).resolves.toEqual({ dataUri: null, status: 'payload_too_large' });
   });
 
   it('returns timed_out when image fetch is aborted by the timeout', async () => {

@@ -38,7 +38,7 @@ vi.mock('@/lib/supabase/public', () => ({
 import {
   getMerchantBlogOgImageData,
   getMerchantBlogOgMetadataData,
-} from './opengraph-image-data';
+} from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-data';
 
 type PostRow = {
   title: string | null;
@@ -94,7 +94,7 @@ function installPostQuery(data: PostRow | null, error: unknown = null) {
   return { query, supabase };
 }
 
-function imageResponse(contentType = 'image/webp', body = 'image-bytes') {
+function imageResponse(contentType = 'image/jpeg', body = 'image-bytes') {
   return new Response(body, {
     headers: contentType ? { 'content-type': contentType } : undefined,
     status: 200,
@@ -198,8 +198,16 @@ describe('merchant blog OG image data', () => {
     });
   });
 
-  it('prefers the Discover landscape variant and carries all render fields', async () => {
-    mockFetch.mockResolvedValue(imageResponse('image/webp', 'image'));
+  it('prefers a Satori-compatible landscape variant and carries all render fields', async () => {
+    const jpegVariantPost = {
+      ...postRow,
+      featured_image_variants: {
+        landscape_16x9:
+          'https://cdn.ogabassey.com/media/merchant-1/blog/landscape_16x9.jpg',
+      },
+    };
+    installPostQuery(jpegVariantPost);
+    mockFetch.mockResolvedValue(imageResponse('image/jpeg', 'image'));
 
     const result = await getMerchantBlogOgImageData('ogabassey', 'best-deals');
 
@@ -210,14 +218,25 @@ describe('merchant blog OG image data', () => {
         primary: '#2f6fed',
         accent: '#f5a623',
       },
-      post: postRow,
-      featuredDataUri: `data:image/webp;base64,${Buffer.from('image').toString(
+      post: jpegVariantPost,
+      featuredDataUri: `data:image/jpeg;base64,${Buffer.from('image').toString(
         'base64'
       )}`,
       featuredImageStatus: 'loaded',
     });
     expect(mockFetch).toHaveBeenCalledWith(
-      postRow.featured_image_variants.landscape_16x9,
+      jpegVariantPost.featured_image_variants.landscape_16x9,
+      expect.any(Object)
+    );
+  });
+
+  it('skips generated WebP variants because next/og cannot render them', async () => {
+    mockFetch.mockResolvedValue(imageResponse('image/jpeg', 'image'));
+
+    await getMerchantBlogOgImageData('ogabassey-webp-skip', 'best-deals');
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      postRow.featured_image_url,
       expect.any(Object)
     );
   });

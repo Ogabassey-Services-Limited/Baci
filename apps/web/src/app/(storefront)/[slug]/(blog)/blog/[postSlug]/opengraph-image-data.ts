@@ -1,4 +1,10 @@
 import { cache } from 'react';
+import {
+  loadFeaturedImage,
+  loadLogoImage,
+  type RemoteImageLoadStatus,
+} from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-loader';
+import { withTimeout } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-security';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import {
   getCachedFeatureSettings,
@@ -7,23 +13,17 @@ import {
 } from '@/lib/cached-data';
 import { createPublicClient } from '@/lib/supabase/public';
 import { isDomainIdentifier } from '@/lib/validation';
-import {
-  loadFeaturedImage,
-  loadLogoImage,
-  type RemoteImageLoadStatus,
-} from './opengraph-image-loader';
-import { withTimeout } from './opengraph-image-security';
 
 const MERCHANT_LOOKUP_TIMEOUT_MS = 4000;
 const FEATURE_SETTINGS_TIMEOUT_MS = 4000;
 
-export { getBlogCacheTag } from '@/lib/blog-cache-tags';
 export type {
   RemoteImageLoadResult,
   RemoteImageLoadStatus,
-} from './opengraph-image-loader';
-export { loadRemoteImageDataUri } from './opengraph-image-loader';
-export { isAllowedBlogOgImageUrl } from './opengraph-image-security';
+} from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-loader';
+export { loadRemoteImageDataUri } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-loader';
+export { isAllowedBlogOgImageUrl } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-security';
+export { getBlogCacheTag } from '@/lib/blog-cache-tags';
 
 type MerchantBrandColors = {
   background: string | null;
@@ -141,6 +141,23 @@ function getPublicBlogClient() {
   });
 }
 
+function isLikelySatoriSupportedRasterUrl(url: string | null | undefined) {
+  if (!url) return false;
+  try {
+    return !new URL(url).pathname.toLowerCase().endsWith('.webp');
+  } catch {
+    return !url.toLowerCase().split(/[?#]/)[0]?.endsWith('.webp');
+  }
+}
+
+function getFeaturedImageSourceUrl(post: MerchantBlogOgPost): string | null {
+  const landscapeVariant = post.featured_image_variants?.landscape_16x9;
+  if (isLikelySatoriSupportedRasterUrl(landscapeVariant)) {
+    return landscapeVariant ?? null;
+  }
+  return post.featured_image_url;
+}
+
 async function getPostForImage(
   merchantId: string,
   postSlug: string
@@ -237,8 +254,7 @@ async function getMerchantBlogOgImageDataInternal(
     };
   }
 
-  const featuredSourceUrl =
-    post.featured_image_variants?.landscape_16x9 ?? post.featured_image_url;
+  const featuredSourceUrl = getFeaturedImageSourceUrl(post);
   const [featuredImage, logoDataUri] = await Promise.all([
     loadFeaturedImage(featuredSourceUrl, resolved.merchant.id, blogCacheTag),
     loadLogoImage(resolved.merchant.logo_url, blogCacheTag),

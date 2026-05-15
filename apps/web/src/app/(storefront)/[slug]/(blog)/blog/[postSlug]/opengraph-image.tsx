@@ -1,11 +1,15 @@
 import { ImageResponse } from 'next/og';
 import type { ReactElement } from 'react';
 import {
+  getBlogOgBrandColors,
+  getTransparentBlogOgBrandColors,
+} from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-colors';
+import {
   getMerchantBlogOgImageData,
   getMerchantBlogOgMetadataData,
   type MerchantBlogOgImageData,
   type RemoteImageLoadStatus,
-} from './opengraph-image-data';
+} from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-data';
 
 export const size = {
   width: 1200,
@@ -28,14 +32,6 @@ function truncate(value: string | null | undefined, maxLength: number): string {
   return value.length > maxLength
     ? `${value.slice(0, maxLength - 3)}...`
     : value;
-}
-
-function getBrandColors(data: MerchantBlogOgImageData) {
-  return {
-    background: data.merchantBrandColors.background || '#1a1a2e',
-    primary: data.merchantBrandColors.primary || '#3B82F6',
-    accent: data.merchantBrandColors.accent || '#F59E0B',
-  };
 }
 
 function isTransientImageStatus(status: RemoteImageLoadStatus): boolean {
@@ -63,13 +59,14 @@ function renderGenericFallback(title: string) {
         color: 'white',
       }}
     >
-      <div style={{ fontSize: 60, fontWeight: 'bold' }}>{title}</div>
+      <div style={{ fontSize: 60, fontWeight: 400 }}>{title}</div>
     </div>
   );
 }
 
 function renderMerchantFallback(data: MerchantBlogOgImageData, title: string) {
-  const colors = getBrandColors(data);
+  const colors = getBlogOgBrandColors(data);
+  const transparentColors = getTransparentBlogOgBrandColors(colors);
 
   return (
     <div
@@ -90,7 +87,7 @@ function renderMerchantFallback(data: MerchantBlogOgImageData, title: string) {
         style={{
           position: 'absolute',
           inset: 0,
-          background: `linear-gradient(135deg, ${colors.background} 0%, ${colors.primary}33 55%, ${colors.accent}26 100%)`,
+          background: `linear-gradient(135deg, ${colors.background} 0%, ${transparentColors.primary20} 55%, ${transparentColors.accent15} 100%)`,
         }}
       />
       <div
@@ -112,7 +109,7 @@ function renderMerchantFallback(data: MerchantBlogOgImageData, title: string) {
             style={{ borderRadius: 14, objectFit: 'contain' }}
           />
         ) : null}
-        <div style={{ fontSize: 30, fontWeight: 700 }}>
+        <div style={{ fontSize: 30, fontWeight: 400 }}>
           {data.merchantBusinessName}
         </div>
       </div>
@@ -130,7 +127,7 @@ function renderMerchantFallback(data: MerchantBlogOgImageData, title: string) {
           style={{
             color: `${colors.accent}`,
             fontSize: 24,
-            fontWeight: 700,
+            fontWeight: 400,
             textTransform: 'uppercase',
           }}
         >
@@ -139,7 +136,7 @@ function renderMerchantFallback(data: MerchantBlogOgImageData, title: string) {
         <div
           style={{
             fontSize: 72,
-            fontWeight: 800,
+            fontWeight: 400,
             lineHeight: 1.05,
           }}
         >
@@ -151,7 +148,8 @@ function renderMerchantFallback(data: MerchantBlogOgImageData, title: string) {
 }
 
 function renderPrimaryCard(data: MerchantBlogOgImageData) {
-  const colors = getBrandColors(data);
+  const colors = getBlogOgBrandColors(data);
+  const transparentColors = getTransparentBlogOgBrandColors(colors);
   const post = data.post;
   const title = post?.title || 'Blog post';
 
@@ -171,7 +169,7 @@ function renderPrimaryCard(data: MerchantBlogOgImageData) {
           width: 650,
           height: '100%',
           display: 'flex',
-          backgroundColor: `${colors.primary}22`,
+          backgroundColor: transparentColors.primary13,
         }}
       >
         {data.featuredDataUri ? (
@@ -193,7 +191,7 @@ function renderPrimaryCard(data: MerchantBlogOgImageData) {
           flexDirection: 'column',
           justifyContent: 'space-between',
           padding: '56px',
-          background: `linear-gradient(135deg, ${colors.background} 0%, ${colors.primary}26 100%)`,
+          background: `linear-gradient(135deg, ${colors.background} 0%, ${transparentColors.primary15} 100%)`,
         }}
       >
         <div
@@ -213,7 +211,7 @@ function renderPrimaryCard(data: MerchantBlogOgImageData) {
               style={{ borderRadius: 12, objectFit: 'contain' }}
             />
           ) : null}
-          <div style={{ fontSize: 26, fontWeight: 700 }}>
+          <div style={{ fontSize: 26, fontWeight: 400 }}>
             {data.merchantBusinessName}
           </div>
         </div>
@@ -230,7 +228,7 @@ function renderPrimaryCard(data: MerchantBlogOgImageData) {
               style={{
                 color: colors.accent,
                 fontSize: 22,
-                fontWeight: 800,
+                fontWeight: 400,
                 textTransform: 'uppercase',
               }}
             >
@@ -240,7 +238,7 @@ function renderPrimaryCard(data: MerchantBlogOgImageData) {
           <div
             style={{
               fontSize: 56,
-              fontWeight: 800,
+              fontWeight: 400,
               lineHeight: 1.08,
             }}
           >

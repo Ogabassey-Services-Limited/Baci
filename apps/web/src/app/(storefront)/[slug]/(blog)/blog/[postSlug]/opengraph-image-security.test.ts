@@ -11,12 +11,12 @@ import {
   getBlogCacheTag,
   isAllowedBlogOgImageUrl,
   isAllowedLogoUrl,
-} from './opengraph-image-security';
+} from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-security';
 
 describe('merchant blog OG image security helpers', () => {
   it('builds the existing per-identifier blog cache tag', () => {
-    expect(getBlogCacheTag(' OGABASSEY.COM ', ' Best-Deals ')).toBe(
-      'blog-ogabassey.com-best-deals'
+    expect(getBlogCacheTag(' OGABASSEY.COM ', ' Best-Deals ')).toMatch(
+      /^blog-ogabassey\.com-best-deals-[a-f0-9]{32}$/
     );
   });
 

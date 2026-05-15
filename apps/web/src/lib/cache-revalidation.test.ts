@@ -10,6 +10,7 @@ vi.mock('next/cache', () => ({
   revalidateTag: (...args: unknown[]) => mockRevalidateTag(...args),
 }));
 
+import { getBlogCacheTag } from './blog-cache-tags';
 // ---- Import functions AFTER mocks ----
 import {
   revalidateBlogPosts,
@@ -271,7 +272,7 @@ describe('cache-revalidation utilities', () => {
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'blog-test-merchant-test-post',
+        getBlogCacheTag('test-merchant', 'test-post'),
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
@@ -279,7 +280,7 @@ describe('cache-revalidation utilities', () => {
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'blog-ogabassey.com-test-post',
+        getBlogCacheTag('OGABASSEY.COM', 'test-post'),
         'merchant'
       );
       expect(mockRevalidatePath).toHaveBeenCalledWith('/test-merchant/blog');
@@ -314,7 +315,7 @@ describe('cache-revalidation utilities', () => {
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        'blog-test-merchant-test-post',
+        getBlogCacheTag('test-merchant', 'test-post'),
         'merchant'
       );
       expect(mockRevalidatePath).toHaveBeenCalledWith('/test-merchant/blog');
@@ -384,7 +385,7 @@ describe('cache-revalidation utilities', () => {
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        `blog-${MERCHANT_ID}-my-blog-post`,
+        getBlogCacheTag(MERCHANT_ID, 'my-blog-post'),
         'merchant'
       );
       expect(mockRevalidatePath).toHaveBeenCalledWith(`/${MERCHANT_ID}/blog`);

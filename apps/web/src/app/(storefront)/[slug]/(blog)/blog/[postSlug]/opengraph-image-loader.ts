@@ -1,17 +1,21 @@
 import {
   isAllowedBlogOgImageUrl,
   isAllowedLogoUrl,
-} from './opengraph-image-security';
+} from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-security';
 
 const OG_IMAGE_REVALIDATE_SECONDS = 3600;
 const FEATURED_IMAGE_TIMEOUT_MS = 4000;
 const LOGO_IMAGE_TIMEOUT_MS = 1200;
+export const MAX_REMOTE_IMAGE_BYTES = 4 * 1024 * 1024;
 
-const SUPPORTED_RASTER_CONTENT_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-]);
+const SUPPORTED_RASTER_CONTENT_TYPES = new Set(['image/jpeg', 'image/png']);
+
+class RemoteImagePayloadTooLargeError extends Error {
+  constructor() {
+    super('Remote image payload exceeds the maximum allowed size');
+    this.name = 'RemoteImagePayloadTooLargeError';
+  }
+}
 
 export type RemoteImageLoadStatus =
   | 'loaded'
@@ -19,12 +23,67 @@ export type RemoteImageLoadStatus =
   | 'source_disallowed'
   | 'fetch_failed'
   | 'timed_out'
-  | 'invalid_content_type';
+  | 'invalid_content_type'
+  | 'payload_too_large';
 
 export type RemoteImageLoadResult = {
   dataUri: string | null;
   status: RemoteImageLoadStatus;
 };
+
+function getContentLength(headers: Headers): number | null {
+  const rawContentLength = headers.get('content-length');
+  if (!rawContentLength || !/^\d+$/.test(rawContentLength)) return null;
+
+  const contentLength = Number(rawContentLength);
+  return Number.isSafeInteger(contentLength) ? contentLength : null;
+}
+
+async function readBoundedResponseBody(
+  response: Response
+): Promise<Uint8Array> {
+  const contentLength = getContentLength(response.headers);
+  if (contentLength !== null && contentLength > MAX_REMOTE_IMAGE_BYTES) {
+    throw new RemoteImagePayloadTooLargeError();
+  }
+
+  if (!response.body) {
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength > MAX_REMOTE_IMAGE_BYTES) {
+      throw new RemoteImagePayloadTooLargeError();
+    }
+    return bytes;
+  }
+
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_REMOTE_IMAGE_BYTES) {
+        await reader.cancel().catch(() => undefined);
+        throw new RemoteImagePayloadTooLargeError();
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const bytes = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
+}
 
 export async function loadRemoteImageDataUri(
   url: string | null,
@@ -60,7 +119,9 @@ export async function loadRemoteImageDataUri(
       return { dataUri: null, status: 'invalid_content_type' };
     }
 
-    const buffer = Buffer.from(await response.arrayBuffer()).toString('base64');
+    const buffer = Buffer.from(
+      await readBoundedResponseBody(response)
+    ).toString('base64');
     return {
       dataUri: `data:${contentType};base64,${buffer}`,
       status: 'loaded',
@@ -72,7 +133,12 @@ export async function loadRemoteImageDataUri(
         : '';
     return {
       dataUri: null,
-      status: errorName === 'AbortError' ? 'timed_out' : 'fetch_failed',
+      status:
+        errorName === 'AbortError'
+          ? 'timed_out'
+          : errorName === 'RemoteImagePayloadTooLargeError'
+            ? 'payload_too_large'
+            : 'fetch_failed',
     };
   } finally {
     clearTimeout(timer);
