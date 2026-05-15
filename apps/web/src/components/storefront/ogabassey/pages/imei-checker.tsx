@@ -17,50 +17,10 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import type React from 'react';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 // Service tiers matching the API
 const SERVICE_TIERS = {
-  basic: {
-    id: 'basic',
-    name: 'Quick ID',
-    tagline: 'What phone is this?',
-    price: 100,
-    priceDisplay: '₦100',
-    features: ['Device Model', 'Model Number'],
-    icon: Smartphone,
-    color: 'gray',
-  },
-  blacklist: {
-    id: 'blacklist',
-    name: 'Stolen Check',
-    tagline: 'Is it reported stolen?',
-    price: 300,
-    priceDisplay: '₦300',
-    features: ['Device Model', 'Blacklist Status', 'GSMA Database'],
-    icon: ShieldAlert,
-    color: 'orange',
-  },
-  carrier: {
-    id: 'carrier',
-    name: 'Network Check',
-    tagline: 'Will my SIM work?',
-    price: 500,
-    priceDisplay: '₦500',
-    features: ['Device Model', 'Original Carrier', 'SIM Lock Status'],
-    icon: Globe,
-    color: 'blue',
-  },
-  icloud: {
-    id: 'icloud',
-    name: 'iCloud Check',
-    tagline: 'Is Find My on?',
-    price: 800,
-    priceDisplay: '₦800',
-    features: ['Device Model', 'iCloud Lock', 'Activation Status'],
-    icon: Lock,
-    color: 'purple',
-  },
   full: {
     id: 'full',
     name: 'Full Report',
@@ -79,9 +39,76 @@ const SERVICE_TIERS = {
     color: 'green',
     recommended: true,
   },
+  activation: {
+    id: 'activation',
+    name: 'Activation Check',
+    tagline: 'Is it actually brand new?',
+    price: 700,
+    priceDisplay: '₦700',
+    features: [
+      'Activation Status',
+      'Purchase Date',
+      'Warranty Status',
+      'Model / Serial',
+    ],
+    icon: Sparkles,
+    color: 'purple',
+  },
+  blacklist: {
+    id: 'blacklist',
+    name: 'Stolen Check',
+    tagline: 'Is it reported stolen?',
+    price: 700,
+    priceDisplay: '₦700',
+    features: ['Device Model', 'Blacklist Status', 'GSMA Database'],
+    icon: ShieldAlert,
+    color: 'orange',
+  },
+  carrier: {
+    id: 'carrier',
+    name: 'Network Check',
+    tagline: 'Will my SIM work?',
+    price: 1000,
+    priceDisplay: '₦1,000',
+    features: ['Device Model', 'Original Carrier', 'Network Info'],
+    icon: Globe,
+    color: 'blue',
+  },
 } as const;
 
 type ServiceTier = keyof typeof SERVICE_TIERS;
+
+interface ImeiRequestIdentity {
+  imei: string;
+  tier: ServiceTier;
+  key: string;
+}
+
+const createFallbackUuid = () => {
+  const bytes = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(bytes);
+
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+  const hex = Array.from(bytes, (byte) =>
+    byte.toString(16).padStart(2, '0')
+  ).join('');
+
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+};
+
+const createIdempotencyKey = () => {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+
+  if (!globalThis.crypto?.getRandomValues) {
+    throw new Error('Secure crypto unavailable');
+  }
+
+  return createFallbackUuid();
+};
 
 interface ImeiResult {
   imei: string;
@@ -120,6 +147,8 @@ export const OgabasseyImeiChecker: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ImeiResult | null>(null);
   const [showTierPicker, setShowTierPicker] = useState(false);
+  const [requestIdentity, setRequestIdentity] =
+    useState<ImeiRequestIdentity | null>(null);
 
   // Device search autocomplete state
   const [deviceQuery, setDeviceQuery] = useState('');
@@ -177,10 +206,29 @@ export const OgabasseyImeiChecker: React.FC = () => {
     setError(null);
 
     try {
+      const normalizedImei = imei.trim();
+      const existingIdentityMatches =
+        requestIdentity?.imei === normalizedImei &&
+        requestIdentity.tier === selectedTier;
+      const idempotencyKey = existingIdentityMatches
+        ? requestIdentity.key
+        : createIdempotencyKey();
+
+      if (idempotencyKey !== requestIdentity?.key) {
+        setRequestIdentity({
+          imei: normalizedImei,
+          tier: selectedTier,
+          key: idempotencyKey,
+        });
+      }
+
       const response = await fetch('/api/storefront/imei-check', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imei: imei.trim(), tier: selectedTier }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
+        },
+        body: JSON.stringify({ imei: normalizedImei, tier: selectedTier }),
       });
 
       const data = await response.json();
@@ -327,7 +375,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
                 Step 2: Choose what you want to verify:
               </p>
 
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {(Object.keys(SERVICE_TIERS) as ServiceTier[]).map((tierKey) => {
                   const tier = SERVICE_TIERS[tierKey];
                   const isSelected = selectedTier === tierKey;
@@ -337,6 +385,8 @@ export const OgabasseyImeiChecker: React.FC = () => {
                     <button
                       key={tierKey}
                       type="button"
+                      aria-label={`${tier.name}, ${tier.tagline}, ${tier.priceDisplay}`}
+                      aria-pressed={isSelected}
                       onClick={() => setSelectedTier(tierKey)}
                       className={`relative p-4 rounded-2xl border-2 transition-all text-left ${isSelected
                         ? 'border-red-500 bg-red-50 shadow-lg shadow-red-100'
