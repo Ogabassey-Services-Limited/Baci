@@ -540,7 +540,9 @@ describe('POST /api/storefront/imei-check', () => {
       };
     });
     const supabase = createSupabaseMock();
+    const adminSupabase = createSupabaseMock();
     mockAuthenticatedUser(supabase);
+    mocks.mockCreateAdminClient.mockReturnValueOnce(adminSupabase);
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -548,6 +550,16 @@ describe('POST /api/storefront/imei-check', () => {
     expect(response.status).toBe(200);
     expect(callOrder).toEqual(['debit', 'sickw']);
     expect(mocks.mockCreateAdminClient).toHaveBeenCalledOnce();
+    expect(mocks.mockResolveImeiCustomer).toHaveBeenCalledWith(
+      expect.objectContaining({ supabase })
+    );
+    expect(mocks.mockReadCustomerWalletBalance).toHaveBeenCalledWith(
+      expect.objectContaining({ supabase })
+    );
+    expect(mocks.mockRedeemImeiWalletPayment).toHaveBeenCalledWith(
+      expect.objectContaining({ supabaseAdmin: adminSupabase })
+    );
+    expect(adminSupabase.from).not.toHaveBeenCalled();
     expect(supabase.__updates.at(-1)).toMatchObject({
       filters: { id: 'lookup-1' },
       payload: {

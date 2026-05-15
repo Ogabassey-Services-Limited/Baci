@@ -53,6 +53,22 @@ ALTER TABLE public.imei_lookups ENABLE ROW LEVEL SECURITY;
 
 REVOKE ALL ON public.imei_lookups FROM PUBLIC, anon, authenticated;
 GRANT SELECT ON public.imei_lookups TO authenticated;
+GRANT INSERT (
+  amount_ngn,
+  customer_id,
+  idempotency_key,
+  imei_hash,
+  merchant_id,
+  status,
+  tier
+) ON public.imei_lookups TO authenticated;
+GRANT UPDATE (
+  cached_response,
+  cached_status,
+  response_hash,
+  sickw_status,
+  status
+) ON public.imei_lookups TO authenticated;
 GRANT ALL ON public.imei_lookups TO service_role;
 
 DROP POLICY IF EXISTS "customer_reads_own_imei_lookups" ON public.imei_lookups;
@@ -63,6 +79,41 @@ CREATE POLICY "customer_reads_own_imei_lookups" ON public.imei_lookups
       SELECT 1
       FROM public.customers c
       WHERE c.id = imei_lookups.customer_id
+        AND c.user_id = (SELECT auth.uid())
+    )
+  );
+
+DROP POLICY IF EXISTS "customer_inserts_own_imei_lookups" ON public.imei_lookups;
+CREATE POLICY "customer_inserts_own_imei_lookups" ON public.imei_lookups
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.customers c
+      WHERE c.id = imei_lookups.customer_id
+        AND c.merchant_id = imei_lookups.merchant_id
+        AND c.user_id = (SELECT auth.uid())
+    )
+  );
+
+DROP POLICY IF EXISTS "customer_updates_own_imei_lookups" ON public.imei_lookups;
+CREATE POLICY "customer_updates_own_imei_lookups" ON public.imei_lookups
+  FOR UPDATE TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.customers c
+      WHERE c.id = imei_lookups.customer_id
+        AND c.merchant_id = imei_lookups.merchant_id
+        AND c.user_id = (SELECT auth.uid())
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.customers c
+      WHERE c.id = imei_lookups.customer_id
+        AND c.merchant_id = imei_lookups.merchant_id
         AND c.user_id = (SELECT auth.uid())
     )
   );

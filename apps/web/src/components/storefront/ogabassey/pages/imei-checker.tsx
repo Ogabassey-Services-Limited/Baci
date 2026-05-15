@@ -232,6 +232,9 @@ export const OgabasseyImeiChecker: React.FC = () => {
       });
 
       const data = await response.json();
+      if (data?.code !== 'REFUND_PENDING') {
+        setRequestIdentity(null);
+      }
 
       if (!response.ok || !data.success) {
         setError(data.error || 'Unable to check IMEI. Please try again.');

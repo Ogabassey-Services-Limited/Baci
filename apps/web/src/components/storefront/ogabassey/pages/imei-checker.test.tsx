@@ -173,6 +173,88 @@ describe('OgabasseyImeiChecker', () => {
     expect(await screen.findByText('iPhone 15 Pro')).toBeInTheDocument();
   });
 
+  it('creates a fresh idempotency key after a terminal API response', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: false,
+        json: vi.fn().mockResolvedValue({
+          success: false,
+          code: 'WALLET_INSUFFICIENT',
+          error: 'Wallet balance is too low.',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue(successfulImeiResponse),
+      });
+
+    render(<OgabasseyImeiChecker />);
+
+    enterValidImei();
+    fireEvent.click(screen.getByRole('button', { name: /verify now/i }));
+
+    expect(
+      await screen.findByText('Wallet balance is too low.')
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /verify now/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    const firstHeaders = (
+      fetchMock.mock.calls[0][1] as { headers: Record<string, string> }
+    ).headers;
+    const secondHeaders = (
+      fetchMock.mock.calls[1][1] as { headers: Record<string, string> }
+    ).headers;
+
+    expect(secondHeaders['Idempotency-Key']).not.toBe(
+      firstHeaders['Idempotency-Key']
+    );
+    expect(await screen.findByText('iPhone 15 Pro')).toBeInTheDocument();
+  });
+
+  it('preserves the idempotency key while a refund is pending', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        ok: false,
+        json: vi.fn().mockResolvedValue({
+          success: false,
+          code: 'REFUND_PENDING',
+          error: 'Refund is being processed.',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue(successfulImeiResponse),
+      });
+
+    render(<OgabasseyImeiChecker />);
+
+    enterValidImei();
+    fireEvent.click(screen.getByRole('button', { name: /verify now/i }));
+
+    expect(
+      await screen.findByText('Refund is being processed.')
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /verify now/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    const firstHeaders = (
+      fetchMock.mock.calls[0][1] as { headers: Record<string, string> }
+    ).headers;
+    const secondHeaders = (
+      fetchMock.mock.calls[1][1] as { headers: Record<string, string> }
+    ).headers;
+
+    expect(secondHeaders['Idempotency-Key']).toBe(
+      firstHeaders['Idempotency-Key']
+    );
+    expect(await screen.findByText('iPhone 15 Pro')).toBeInTheDocument();
+  });
+
   it('shows the API error message when an IMEI check fails', async () => {
     fetchMock.mockResolvedValue({
       ok: false,
