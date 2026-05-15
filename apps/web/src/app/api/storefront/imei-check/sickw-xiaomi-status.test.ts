@@ -8,10 +8,13 @@ import {
 describe('Xiaomi IMEI status helpers', () => {
   it('extracts lock and lost statuses from provider field aliases', () => {
     expect(
-      getXiaomiStatuses({
-        'mi account status': 'Locked',
-        'lost mode': 'Clean',
-      })
+      getXiaomiStatuses(
+        {
+          'mi account status': 'Locked',
+          'lost mode': 'Clean',
+        },
+        'Redmi Note 13'
+      )
     ).toEqual({
       miLockStatus: 'Locked',
       miLostStatus: 'Clean',
@@ -55,6 +58,20 @@ describe('Xiaomi IMEI status helpers', () => {
     ).toEqual({
       miLockStatus: 'Lock first',
       miLostStatus: 'Lost first',
+    });
+  });
+
+  it('ignores generic lost aliases outside Xiaomi context', () => {
+    expect(
+      getXiaomiStatuses(
+        {
+          'lost status': 'Lost',
+        },
+        'iPhone 15'
+      )
+    ).toEqual({
+      miLockStatus: '',
+      miLostStatus: '',
     });
   });
 });

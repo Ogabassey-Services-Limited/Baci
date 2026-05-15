@@ -134,6 +134,19 @@ describe('parseSickwResponse', () => {
     expect(result.verdictType).toBe('danger');
   });
 
+  it('does not treat generic lost fields as Xiaomi lost status for Apple devices', () => {
+    const result = parseSickwResponse({
+      'Model Name': 'iPhone 15',
+      'Lost Mode': 'Lost',
+      'Blacklist Status': 'Clean',
+    });
+
+    expect(result.miLostStatus).toBeUndefined();
+    expect(result.status).toBe('Clean');
+    expect(result.verdictType).toBe('safe');
+    expect(result.verdict).not.toContain('Xiaomi lost status');
+  });
+
   it('treats active mdm status as a caution verdict', () => {
     const result = parseSickwResponse(
       'Model Name: iPhone 14 Pro<br>MDM Status: ON'

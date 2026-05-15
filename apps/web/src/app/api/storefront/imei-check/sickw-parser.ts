@@ -117,7 +117,7 @@ export function parseSickwResponse(
     data['mdm lock status'] ||
     data['management lock'] ||
     '';
-  const { miLockStatus, miLostStatus } = getXiaomiStatuses(data);
+  const { miLockStatus, miLostStatus } = getXiaomiStatuses(data, device);
 
   const deviceType = inferDeviceType(device);
   const isBlacklisted = hasBlacklistIssue(blacklist);

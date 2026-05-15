@@ -14,6 +14,9 @@ const MI_LOST_KEYS = [
   'mi lost mode',
   'xiaomi lost',
   'xiaomi lost status',
+] as const;
+
+const GENERIC_LOST_KEYS = [
   'clean/lost',
   'clean lost',
   'clean lost status',
@@ -21,13 +24,26 @@ const MI_LOST_KEYS = [
   'lost status',
 ] as const;
 
-export function getXiaomiStatuses(data: Record<string, string>): {
+export function getXiaomiStatuses(
+  data: Record<string, string>,
+  device = ''
+): {
   miLockStatus: string;
   miLostStatus: string;
 } {
+  const miLockStatus = getProviderField(data, MI_LOCK_KEYS);
+  const miLostStatus = getProviderField(data, MI_LOST_KEYS);
+  if (miLostStatus) {
+    return { miLockStatus, miLostStatus };
+  }
+
+  const genericLostStatus = isXiaomiContext(data, device)
+    ? getProviderField(data, GENERIC_LOST_KEYS)
+    : '';
+
   return {
-    miLockStatus: getProviderField(data, MI_LOCK_KEYS),
-    miLostStatus: getProviderField(data, MI_LOST_KEYS),
+    miLockStatus,
+    miLostStatus: genericLostStatus,
   };
 }
 
@@ -60,6 +76,20 @@ function getProviderField(
   }
 
   return '';
+}
+
+function isXiaomiContext(
+  data: Record<string, string>,
+  device: string
+): boolean {
+  const normalizedDevice = device.toLowerCase();
+  return (
+    ['xiaomi', 'redmi', 'poco'].some((brand) =>
+      normalizedDevice.includes(brand)
+    ) ||
+    getProviderField(data, MI_LOCK_KEYS) !== '' ||
+    getProviderField(data, MI_LOST_KEYS) !== ''
+  );
 }
 
 function hasAny(value: string, tokens: readonly string[]): boolean {

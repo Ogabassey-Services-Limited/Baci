@@ -281,6 +281,20 @@ export default function HomeScreen() {
   });
   const primaryProductGridId =
     blocks.find((block) => block.type === 'ProductGrid')?.props.id ?? null;
+  const primaryProductGridIndex = (() => {
+    if (primaryProductGridId) {
+      const matchingGridIndex = blocks.findIndex(
+        (block) =>
+          block.type === 'ProductGrid' &&
+          block.props.id === primaryProductGridId
+      );
+      if (matchingGridIndex !== -1) {
+        return matchingGridIndex;
+      }
+    }
+
+    return blocks.findIndex((block) => block.type === 'ProductGrid');
+  })();
 
   useEffect(() => {
     void productGridDatasetKey;
@@ -316,8 +330,6 @@ export default function HomeScreen() {
     insets.bottom,
     isChatWidgetEnabled
   );
-  let primaryProductGridFound = false;
-
   if (isConfigLoading && !refreshing) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -420,15 +432,8 @@ export default function HomeScreen() {
       >
         <Animated.View style={headerSpacerAnimatedStyle} />
         {blocks.map((block: Block, index: number) => {
-          const hasBlockId = Boolean(block.props?.id);
           const isPrimaryProductGrid =
-            block.type === 'ProductGrid' &&
-            (hasBlockId
-              ? block.props?.id === primaryProductGridId
-              : !primaryProductGridFound);
-          if (isPrimaryProductGrid) {
-            primaryProductGridFound = true;
-          }
+            block.type === 'ProductGrid' && index === primaryProductGridIndex;
           const isUtilityBlock = block.type === 'CategoryRail';
           return (
             <View
