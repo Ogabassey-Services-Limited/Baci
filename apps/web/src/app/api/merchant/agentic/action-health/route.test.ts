@@ -5,13 +5,11 @@ const mockAuthenticateApiRequest = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
 const mockHasPermission = vi.fn();
 const mockLoggerError = vi.fn();
-
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
     mockAuthenticateApiRequest(...args),
   hasPermission: (...args: unknown[]) => mockHasPermission(...args),
 }));
-
 vi.mock('@/lib/get-merchant-for-api-request', async () => {
   const actual = await vi.importActual<
     typeof import('@/lib/get-merchant-for-api-request')
@@ -24,11 +22,8 @@ vi.mock('@/lib/get-merchant-for-api-request', async () => {
 });
 
 vi.mock('@/lib/logger', () => ({
-  logger: {
-    error: (...args: unknown[]) => mockLoggerError(...args),
-  },
+  logger: { error: (...args: unknown[]) => mockLoggerError(...args) },
 }));
-
 const merchantContext = {
   merchantId: 'merchant-1',
   merchantSlug: 'ogabassey',
@@ -55,9 +50,7 @@ function createSupabaseMock({
 } = {}) {
   const rpc = vi.fn(() => Promise.resolve({ data: rpcData, error: rpcError }));
 
-  return {
-    rpc,
-  };
+  return { rpc };
 }
 
 function buildRpcData({
@@ -78,7 +71,7 @@ function buildRpcData({
   idempotencyRecords = [
     {
       created_at: '2026-05-12T10:00:00.000Z',
-      expires_at: '2026-05-12T10:15:00.000Z',
+      expires_at: '2099-05-12T10:15:00.000Z',
       idempotency_key: 'must-not-leak',
       request_hash: 'must-not-leak',
       route: 'checkout.complete',
@@ -113,7 +106,6 @@ function buildRpcData({
     request_records: requestRecords,
   };
 }
-
 describe('GET /api/merchant/agentic/action-health', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -125,7 +117,6 @@ describe('GET /api/merchant/agentic/action-health', () => {
       user: { id: 'user-1' },
     });
   });
-
   it('returns merchant-scoped agentic action health without raw retry secrets', async () => {
     const supabase = createSupabaseMock();
     mockAuthenticateApiRequest.mockResolvedValue({
@@ -133,11 +124,9 @@ describe('GET /api/merchant/agentic/action-health', () => {
       supabase,
       user: { id: 'user-1' },
     });
-
     const { GET } = await import('./route');
     const response = await GET(makeRequest());
     const payload = await response.json();
-
     expect(response.status).toBe(200);
     expect(payload).toMatchObject({
       actions: [
@@ -168,7 +157,6 @@ describe('GET /api/merchant/agentic/action-health', () => {
       }
     );
   });
-
   it('returns a healthy action when no recent issues are present', async () => {
     mockAuthenticateApiRequest.mockResolvedValue({
       error: null,
@@ -181,11 +169,9 @@ describe('GET /api/merchant/agentic/action-health', () => {
       }),
       user: { id: 'user-1' },
     });
-
     const { GET } = await import('./route');
     const response = await GET(makeRequest());
     const payload = await response.json();
-
     expect(response.status).toBe(200);
     expect(payload.actions).toEqual([
       {
@@ -196,17 +182,68 @@ describe('GET /api/merchant/agentic/action-health', () => {
       },
     ]);
   });
-
+  it('separates expired and active in-progress idempotency reservations', async () => {
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase: createSupabaseMock({
+        rpcData: buildRpcData({
+          checkoutSessions: [],
+          idempotencyRecords: [
+            {
+              created_at: '2026-05-12T10:00:00.000Z',
+              expires_at: '2020-01-01T00:00:00.000Z',
+              route: 'checkout.complete',
+              status_code: null,
+              updated_at: '2026-05-12T10:16:00.000Z',
+            },
+            {
+              created_at: '2026-05-12T10:20:00.000Z',
+              expires_at: '2099-01-01T00:00:00.000Z',
+              route: 'checkout.update',
+              status_code: null,
+              updated_at: '2026-05-12T10:21:00.000Z',
+            },
+          ],
+          requestRecords: [],
+        }),
+      }),
+      user: { id: 'user-1' },
+    });
+    const { GET } = await import('./route');
+    const response = await GET(makeRequest());
+    const payload = await response.json();
+    expect(response.status).toBe(200);
+    expect(payload.actions).toEqual(
+      expect.arrayContaining([
+        {
+          code: 'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS',
+          count: 1,
+          message:
+            'Agentic retry reservations expired before storing a response.',
+          severity: 'attention',
+        },
+        {
+          code: 'AGENTIC_REQUESTS_IN_PROGRESS',
+          count: 1,
+          message: 'Agentic idempotency reservations are still in progress.',
+          severity: 'monitor',
+        },
+      ])
+    );
+    expect(payload.idempotency).toMatchObject({
+      active_in_progress_count: 1,
+      in_progress_count: 2,
+      stale_in_progress_count: 1,
+    });
+  });
   it('returns 401 before merchant lookup when authentication fails', async () => {
     mockAuthenticateApiRequest.mockResolvedValue({
       error: 'Unauthorized',
       supabase: null,
       user: null,
     });
-
     const { GET } = await import('./route');
     const response = await GET(makeRequest());
-
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: 'Unauthorized' });
     expect(mockAuthenticateApiRequest).toHaveBeenCalledOnce();
@@ -215,20 +252,16 @@ describe('GET /api/merchant/agentic/action-health', () => {
 
   it('returns 404 when no merchant context exists', async () => {
     mockGetMerchantForApiRequest.mockResolvedValue(null);
-
     const { GET } = await import('./route');
     const response = await GET(makeRequest());
-
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ error: 'Merchant not found' });
   });
 
   it('returns 403 when the user cannot view the dashboard', async () => {
     mockHasPermission.mockReturnValue(false);
-
     const { GET } = await import('./route');
     const response = await GET(makeRequest());
-
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: 'Forbidden' });
     expect(mockHasPermission).toHaveBeenCalledWith(
@@ -246,10 +279,8 @@ describe('GET /api/merchant/agentic/action-health', () => {
       }),
       user: { id: 'user-1' },
     });
-
     const { GET } = await import('./route');
     const response = await GET(makeRequest());
-
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({
       error: 'Failed to load agentic action health',
