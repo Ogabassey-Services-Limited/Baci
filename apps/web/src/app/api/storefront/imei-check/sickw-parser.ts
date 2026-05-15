@@ -17,6 +17,8 @@ const VERDICT_MESSAGES = {
     "CAUTION - Find My iPhone is ON. You cannot reset this device without the owner's Apple ID. Ensure seller disables it before purchase.",
   incomplete:
     'INCOMPLETE DATA - Could not verify all device information. Proceed with caution.',
+  mdmLocked:
+    'CAUTION - Mobile Device Management appears active. Ask the seller to remove management before payment.',
   miAccountLocked:
     'CAUTION - Xiaomi account lock appears active. Ask the seller to remove the Mi account before payment.',
   miLost:
@@ -29,6 +31,7 @@ const SCORE_PENALTIES = {
   BLACKLIST: 50,
   ICLOUD_LOCK: 30,
   ICLOUD_STATUS: 20,
+  MDM_LOCK: 30,
   MI_LOCK: 30,
   MI_LOST: 50,
   MISSING_DEVICE: 10,
@@ -121,6 +124,12 @@ export function parseSickwResponse(
   const hasIcloudLockOn = hasRiskToken(icloudLock, ['on', 'locked', 'lost']);
   const hasIcloudStatusIssue = hasRiskToken(icloudStatus, ['lost', 'locked']);
   const isSimLocked = hasRiskToken(simLock, ['locked']);
+  const hasMdmIssue = hasRiskToken(mdmStatus, [
+    'active',
+    'enabled',
+    'locked',
+    'on',
+  ]);
   const hasMiLockIssue = hasXiaomiLockIssue(miLockStatus);
   const hasMiLostIssue = hasXiaomiLostIssue(miLostStatus);
 
@@ -128,6 +137,7 @@ export function parseSickwResponse(
   if (isBlacklisted) score -= SCORE_PENALTIES.BLACKLIST;
   if (hasMiLostIssue) score -= SCORE_PENALTIES.MI_LOST;
   if (hasIcloudLockOn) score -= SCORE_PENALTIES.ICLOUD_LOCK;
+  if (hasMdmIssue) score -= SCORE_PENALTIES.MDM_LOCK;
   if (hasMiLockIssue) score -= SCORE_PENALTIES.MI_LOCK;
   if (hasIcloudStatusIssue) score -= SCORE_PENALTIES.ICLOUD_STATUS;
   if (isSimLocked) score -= SCORE_PENALTIES.SIM_LOCK;
@@ -142,6 +152,7 @@ export function parseSickwResponse(
 
   const verdict = buildVerdict({
     hasIcloudLockOn,
+    hasMdmIssue,
     hasMiLockIssue,
     hasMiLostIssue,
     isBlacklisted,
@@ -204,28 +215,28 @@ function hasBlacklistIssue(value: string): boolean {
 }
 
 function hasRiskToken(value: string, tokens: readonly string[]): boolean {
-  const normalized = value.trim().toLowerCase();
-  if (!normalized) {
+  const words = value
+    .trim()
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+  if (words.length === 0) {
     return false;
   }
 
-  return tokens.some((token) => {
-    const escapedToken = escapeRegExp(token);
-    const negatedToken = new RegExp(`\\b(?:not|no)\\s+${escapedToken}\\b`);
-    if (negatedToken.test(normalized)) {
+  return words.some((word, index) => {
+    if (!tokens.includes(word)) {
       return false;
     }
 
-    return new RegExp(`\\b${escapedToken}\\b`).test(normalized);
+    const previousWord = words[index - 1];
+    return previousWord !== 'not' && previousWord !== 'no';
   });
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function buildVerdict({
   hasIcloudLockOn,
+  hasMdmIssue,
   hasMiLockIssue,
   hasMiLostIssue,
   isBlacklisted,
@@ -233,6 +244,7 @@ function buildVerdict({
   status,
 }: {
   hasIcloudLockOn: boolean;
+  hasMdmIssue: boolean;
   hasMiLockIssue: boolean;
   hasMiLostIssue: boolean;
   isBlacklisted: boolean;
@@ -251,6 +263,13 @@ function buildVerdict({
   if (hasIcloudLockOn) {
     return {
       text: VERDICT_MESSAGES.icloudLocked,
+      type: 'caution',
+    };
+  }
+
+  if (hasMdmIssue) {
+    return {
+      text: VERDICT_MESSAGES.mdmLocked,
       type: 'caution',
     };
   }

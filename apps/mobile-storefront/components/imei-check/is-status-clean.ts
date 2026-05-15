@@ -7,6 +7,6 @@ export function isStatusClean(status: string): boolean {
     return false;
   }
 
-  const directMatches = new Set(['clean', 'not found', 'off']);
+  const directMatches = new Set(['clean', 'not found', 'off', 'unlocked']);
   return directMatches.has(normalized) || /\bclean\b/.test(normalized);
 }

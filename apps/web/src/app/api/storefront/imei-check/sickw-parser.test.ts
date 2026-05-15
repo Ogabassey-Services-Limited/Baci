@@ -134,12 +134,25 @@ describe('parseSickwResponse', () => {
     expect(result.verdictType).toBe('danger');
   });
 
-  it('extracts mdm status when provider returns management-lock fields', () => {
+  it('treats active mdm status as a caution verdict', () => {
     const result = parseSickwResponse(
       'Model Name: iPhone 14 Pro<br>MDM Status: ON'
     );
 
     expect(result.device).toBe('iPhone 14 Pro');
     expect(result.mdmStatus).toBe('ON');
+    expect(result.verdictType).toBe('caution');
+    expect(result.verdict).toContain('Mobile Device Management');
+    expect(result.score).toBe(70);
+  });
+
+  it('does not treat inactive mdm status as a risk token', () => {
+    const result = parseSickwResponse(
+      'Model Name: iPhone 14 Pro<br>MDM Status: Not locked'
+    );
+
+    expect(result.mdmStatus).toBe('Not locked');
+    expect(result.verdictType).toBe('safe');
+    expect(result.score).toBe(100);
   });
 });

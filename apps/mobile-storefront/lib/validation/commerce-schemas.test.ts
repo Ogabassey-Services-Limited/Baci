@@ -215,20 +215,20 @@ describe('ImeiResultSchema', () => {
     ).toBe(false);
   });
 
-  it('rejects non-ISO purchase dates', () => {
+  it('accepts provider-formatted purchase dates', () => {
     expect(
       ImeiResultSchema.safeParse({
         ...validImeiResult,
         purchaseDate: '22/09/2025',
       }).success
-    ).toBe(false);
+    ).toBe(true);
 
     expect(
       ImeiResultSchema.safeParse({
         ...validImeiResult,
-        purchaseDate: '2025-02-30',
+        purchaseDate: 'September 22, 2025',
       }).success
-    ).toBe(false);
+    ).toBe(true);
   });
 });
 

@@ -191,10 +191,6 @@ export type MarkReviewHelpfulResponse = z.infer<
   typeof MarkReviewHelpfulResponseSchema
 >;
 
-const IsoDateSchema = z.string().refine(isValidIsoDate, {
-  message: 'Invalid ISO date',
-});
-
 export const ImeiResultSchema = z.object({
   imei: z.string().min(1),
   device: z.string().min(1),
@@ -209,7 +205,7 @@ export const ImeiResultSchema = z.object({
   score: z.number(),
   activationStatus: z.string().optional(),
   serialNumber: z.string().optional(),
-  purchaseDate: IsoDateSchema.optional(),
+  purchaseDate: z.string().min(1).optional(),
   purchaseCountry: z.string().optional(),
   warranty: z.string().optional(),
   refurbished: z.string().optional(),
@@ -250,25 +246,6 @@ export type AIAnalysisResult = z.infer<typeof AIAnalysisResultSchema>;
 export type AIGradeDeviceApiResponse = z.infer<
   typeof AIGradeDeviceApiResponseSchema
 >;
-
-function isValidIsoDate(value: string): boolean {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
-  if (!match) {
-    return false;
-  }
-
-  const [, yearValue, monthValue, dayValue] = match;
-  const year = Number(yearValue);
-  const month = Number(monthValue);
-  const day = Number(dayValue);
-  const date = new Date(Date.UTC(year, month - 1, day));
-
-  return (
-    date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day
-  );
-}
 
 export const NegotiationResultSchema = z.object({
   status: z.enum(['accepted', 'counter', 'rejected', 'final']),

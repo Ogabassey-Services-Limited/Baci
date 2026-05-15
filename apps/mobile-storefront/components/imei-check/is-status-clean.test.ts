@@ -6,6 +6,7 @@ describe('isStatusClean', () => {
     'not found',
     'off',
     'partially clean',
+    'unlocked',
   ])('treats %s as clean', (status) => {
     expect(isStatusClean(status)).toBe(true);
   });
