@@ -10,6 +10,7 @@ interface AgenticDashboardBriefing {
 }
 
 const AGENTIC_ORDERS_HREF = '/dashboard/orders?source=agentic' as Route;
+const AGENTIC_TRUST_SETTINGS_HREF = '/dashboard/settings/trust' as Route;
 
 const BRIEFING_MESSAGES = {
   attentionFallback: 'Agentic checkout issues need review.',
@@ -32,9 +33,13 @@ const BRIEFING_MESSAGES = {
 function getActionHref(code: string): Route | null {
   switch (code) {
     case 'AGENTIC_IDEMPOTENCY_ERRORS':
+    case 'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS':
     case 'AGENTIC_ORDER_FINALIZING':
     case 'AGENTIC_PAYMENT_PENDING':
+    case 'AGENTIC_REQUESTS_IN_PROGRESS':
       return AGENTIC_ORDERS_HREF;
+    case 'AGENTIC_AGENT_ALLOWLIST_UNSET':
+      return AGENTIC_TRUST_SETTINGS_HREF;
     default:
       return null;
   }

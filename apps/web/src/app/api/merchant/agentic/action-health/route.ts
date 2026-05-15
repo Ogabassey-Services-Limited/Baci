@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { getActionHealthRequestControlSummary } from '@/lib/agentic/action-health-request-controls';
 import {
   getAgenticPaymentState,
   parseAgenticActionHealthRpcPayload,
@@ -14,7 +15,6 @@ import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 
 const RECENT_RECORD_LIMIT = 25;
-
 type HealthSeverity = 'attention' | 'monitor' | 'ok';
 
 interface AgenticHealthAction {
@@ -48,12 +48,16 @@ function isExpiredInProgressReservation({
 
 function buildHealthActions({
   activeInProgressCount,
+  allowlistCount,
+  isAgenticCheckoutEnabled,
   orderFinalizingCount,
   paymentPendingCount,
   staleInProgressCount,
   terminalErrorCount,
 }: {
   activeInProgressCount: number;
+  allowlistCount: number;
+  isAgenticCheckoutEnabled: boolean;
   orderFinalizingCount: number;
   paymentPendingCount: number;
   staleInProgressCount: number;
@@ -106,6 +110,16 @@ function buildHealthActions({
     });
   }
 
+  if (isAgenticCheckoutEnabled && allowlistCount === 0) {
+    actions.push({
+      code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
+      count: 1,
+      message:
+        'No agent allowlist is configured. Add trusted agent user-agents in Trust settings.',
+      severity: 'monitor',
+    });
+  }
+
   if (actions.length === 0) {
     actions.push({
       code: 'AGENTIC_ACTIONS_HEALTHY',
@@ -122,6 +136,17 @@ async function loadAgenticActionHealth(
   supabase: SupabaseClient,
   merchantId: string
 ) {
+  const requestControlSummary = await getActionHealthRequestControlSummary(
+    supabase,
+    merchantId
+  );
+  if (requestControlSummary.error) {
+    logger.warn({
+      error: sanitizeForLog(requestControlSummary.error),
+      merchantId,
+      message: 'Failed to load agentic request controls for action health',
+    });
+  }
   const healthResult = await supabase.rpc('get_agentic_action_health_records', {
     p_merchant_id: merchantId,
     p_record_limit: RECENT_RECORD_LIMIT,
@@ -170,6 +195,9 @@ async function loadAgenticActionHealth(
     data: {
       actions: buildHealthActions({
         activeInProgressCount: inProgressCount - staleInProgressCount,
+        allowlistCount: requestControlSummary.allowlistCount,
+        isAgenticCheckoutEnabled:
+          requestControlSummary.isAgenticCheckoutEnabled,
         orderFinalizingCount,
         paymentPendingCount,
         staleInProgressCount,
@@ -203,6 +231,13 @@ async function loadAgenticActionHealth(
         terminal_error_count: terminalErrorCount,
       },
       merchant_id: merchantId,
+      request_controls: {
+        allowlist_count: requestControlSummary.allowlistCount,
+        denylist_count: requestControlSummary.denylistCount,
+        fetch_error: requestControlSummary.error !== null,
+        is_agentic_checkout_enabled:
+          requestControlSummary.isAgenticCheckoutEnabled,
+      },
       requests: {
         recent_count: requestRows.length,
         records: requestRows.map((row) => ({

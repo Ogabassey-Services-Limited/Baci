@@ -146,6 +146,37 @@ describe('AgenticActionCenterCard', () => {
     );
   });
 
+  it('links allowlist control warnings to trust settings', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        actions: [
+          {
+            code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
+            count: 1,
+            message:
+              'No agent allowlist is configured. Add trusted agent user-agents in Trust settings.',
+            severity: 'monitor',
+          },
+        ],
+      }),
+    } as Response);
+
+    render(<AgenticActionCenterCard />);
+
+    expect(await screen.findByText('1 monitor')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'No agent allowlist is configured. Add trusted agent user-agents in Trust settings.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /review/i })).toHaveAttribute(
+      'href',
+      '/dashboard/settings/trust'
+    );
+  });
+
   it('treats negative action counts as a malformed payload', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
       ok: true,

@@ -15,11 +15,26 @@ describe('getActionHref', () => {
       agenticActionCenterCardHelpers.getActionHref('AGENTIC_IDEMPOTENCY_ERRORS')
     ).toBe('/dashboard/orders?source=agentic');
     expect(
+      agenticActionCenterCardHelpers.getActionHref(
+        'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS'
+      )
+    ).toBe('/dashboard/orders?source=agentic');
+    expect(
       agenticActionCenterCardHelpers.getActionHref('AGENTIC_ORDER_FINALIZING')
     ).toBe('/dashboard/orders?source=agentic');
     expect(
       agenticActionCenterCardHelpers.getActionHref('AGENTIC_PAYMENT_PENDING')
     ).toBe('/dashboard/orders?source=agentic');
+    expect(
+      agenticActionCenterCardHelpers.getActionHref(
+        'AGENTIC_REQUESTS_IN_PROGRESS'
+      )
+    ).toBe('/dashboard/orders?source=agentic');
+    expect(
+      agenticActionCenterCardHelpers.getActionHref(
+        'AGENTIC_AGENT_ALLOWLIST_UNSET'
+      )
+    ).toBe('/dashboard/settings/trust');
     expect(agenticActionCenterCardHelpers.getActionHref('UNKNOWN')).toBeNull();
   });
 });
