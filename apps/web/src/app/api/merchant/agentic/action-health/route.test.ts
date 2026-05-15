@@ -245,6 +245,43 @@ describe('GET /api/merchant/agentic/action-health', () => {
     });
   });
 
+  it('treats missing feature-settings rows as default-enabled and surfaces allowlist monitor action', async () => {
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase: createSupabaseMock({
+        featureSettingsData: null,
+        featureSettingsError: null,
+        rpcData: buildRpcData({
+          checkoutSessions: [],
+          idempotencyRecords: [{ status_code: 200 }],
+          requestRecords: [],
+        }),
+      }),
+      user: { id: 'user-1' },
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(makeRequest());
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.actions).toEqual([
+      {
+        code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
+        count: 1,
+        message:
+          'No agent allowlist is configured. Contact support to configure trusted agent user-agents for this merchant.',
+        severity: 'monitor',
+      },
+    ]);
+    expect(payload.request_controls).toEqual({
+      allowlist_count: 0,
+      denylist_count: 0,
+      fetch_error: false,
+      is_agentic_checkout_enabled: true,
+    });
+  });
+
   it('logs a warning and skips allowlist monitor actions when control lookup fails', async () => {
     mockAuthenticateApiRequest.mockResolvedValue({
       error: null,
