@@ -2,10 +2,16 @@ import { render, screen } from '@testing-library/react';
 import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockBlogPostPageContent } = vi.hoisted(() => ({
+const { mockBlogPostPageContent, mockBuildStoreUrl } = vi.hoisted(() => ({
   mockBlogPostPageContent: vi.fn((_props: unknown) => (
     <div>Blog post page content</div>
   )),
+  mockBuildStoreUrl: vi.fn(
+    (merchant: { slug: string; custom_domain?: string | null }) =>
+      merchant.custom_domain
+        ? `https://${merchant.custom_domain}`
+        : `https://${merchant.slug}.usebaci.com`
+  ),
 }));
 
 const mockDraftMode = vi.fn();
@@ -31,6 +37,11 @@ vi.mock('@/lib/cached-data', () => ({
 
 vi.mock('@/lib/live-blog-post', () => ({
   getLiveBlogPost: (...args: unknown[]) => mockGetLiveBlogPost(...args),
+}));
+
+vi.mock('@/lib/store-url', () => ({
+  buildStoreUrl: (merchant: { slug: string; custom_domain?: string | null }) =>
+    mockBuildStoreUrl(merchant),
 }));
 
 vi.mock('./blog-post-content', () => ({
@@ -95,6 +106,12 @@ describe('storefront blog post page', () => {
     mockBlogPostPageContent.mockImplementation(() => (
       <div>Blog post page content</div>
     ));
+    mockBuildStoreUrl.mockImplementation(
+      (merchant: { slug: string; custom_domain?: string | null }) =>
+        merchant.custom_domain
+          ? `https://${merchant.custom_domain}`
+          : `https://${merchant.slug}.usebaci.com`
+    );
   });
 
   it('only exports the route surface from the page module', async () => {
@@ -246,13 +263,15 @@ describe('storefront blog post page', () => {
     );
   });
 
-  it('defers image metadata to the opengraph-image route convention', async () => {
+  it('defers OpenGraph images to the route convention while keeping explicit Twitter images', async () => {
     mockDraftMode.mockResolvedValue({ isEnabled: false });
+    mockBuildStoreUrl.mockReturnValue('http://localhost:3000/ogabassey');
     mockGetCachedBlogPost.mockResolvedValue({
       ...liveBlogPost,
       merchant: {
         ...liveBlogPost.merchant,
-        custom_domain: 'ogabassey.com',
+        custom_domain: null,
+        slug: 'ogabassey',
       },
     });
 
@@ -264,6 +283,8 @@ describe('storefront blog post page', () => {
     });
 
     expect(metadata.openGraph?.images).toBeUndefined();
-    expect(metadata.twitter?.images).toBeUndefined();
+    expect(metadata.twitter?.images).toEqual([
+      'http://localhost:3000/ogabassey/blog/apple-studio-display-review/opengraph-image',
+    ]);
   });
 });

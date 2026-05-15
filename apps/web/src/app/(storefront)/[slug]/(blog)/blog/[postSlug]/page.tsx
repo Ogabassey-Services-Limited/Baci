@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { draftMode } from 'next/headers';
 import { notFound } from 'next/navigation';
+import { buildStoreUrl } from '@/lib/store-url';
 import {
   buildCanonicalBlogPostUrl,
   getBlogPostTextPreview,
@@ -31,6 +32,12 @@ export async function generateMetadata({
     getBlogPostTextPreview(post.content);
 
   const url = buildCanonicalBlogPostUrl(merchant, post.slug);
+  const baseUrl = buildStoreUrl(merchant);
+  const storefrontBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
+  const twitterImageUrl = new URL(
+    `blog/${post.slug}/opengraph-image`,
+    storefrontBaseUrl
+  ).toString();
 
   return {
     title: `${title} | ${merchant.business_name}`,
@@ -51,6 +58,7 @@ export async function generateMetadata({
       card: 'summary_large_image',
       title,
       description,
+      images: [twitterImageUrl],
     },
     alternates: {
       canonical: url,
