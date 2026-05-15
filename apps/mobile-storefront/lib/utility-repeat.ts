@@ -202,9 +202,14 @@ function getRecipientTitle(
 }
 
 function getRecipientIdentifier(
+  routeType: UtilityRouteType,
   defaults: UtilityRepeatDefaults
 ): string | null {
-  return defaults.phoneNumber ?? defaults.customerIdentifier ?? null;
+  if (routeType === 'airtime' || routeType === 'data') {
+    return defaults.phoneNumber ?? defaults.customerIdentifier ?? null;
+  }
+
+  return defaults.customerIdentifier ?? defaults.phoneNumber ?? null;
 }
 
 function getRecipientKey(
@@ -246,7 +251,7 @@ function getRecipient(
   }
 
   const defaults = getDefaults(transaction);
-  const identifier = getRecipientIdentifier(defaults);
+  const identifier = getRecipientIdentifier(routeType, defaults);
   if (!identifier) {
     return null;
   }

@@ -53,6 +53,20 @@ function getVerifyErrorMessage(error: unknown): string | undefined {
   return String(error);
 }
 
+function getBillRecipientKey(
+  billItemIdentifier: string | undefined,
+  customerId: string | undefined
+): string | null {
+  const trimmedBillItemIdentifier = billItemIdentifier?.trim();
+  const trimmedCustomerId = customerId?.trim();
+
+  if (!trimmedBillItemIdentifier || !trimmedCustomerId) {
+    return null;
+  }
+
+  return `${trimmedBillItemIdentifier}:${trimmedCustomerId}`;
+}
+
 interface BillItemSelectionSectionProps {
   beneficiaries: UtilityBeneficiary[];
   billItemSelection: BillItemSelectionState;
@@ -98,12 +112,24 @@ export function BillItemSelectionSection({
   const isVerified = isRepeatPaymentActive || (verify.data?.verified ?? false);
   const isVerifyDisabled =
     !trimmedCustomerId || !selectedBillItemIdentifier || verify.isPending;
-  const recentRecipientIdentifiers = new Set(
-    recentRecipients.map((recipient) => recipient.identifier)
+  const recentRecipientKeys = new Set(
+    recentRecipients
+      .map((recipient) =>
+        getBillRecipientKey(
+          recipient.defaults.billItemIdentifier,
+          recipient.defaults.customerIdentifier ?? recipient.identifier
+        )
+      )
+      .filter((key): key is string => key !== null)
   );
-  const visibleBeneficiaries = beneficiaries.filter(
-    (beneficiary) => !recentRecipientIdentifiers.has(beneficiary.customerId)
-  );
+  const visibleBeneficiaries = beneficiaries.filter((beneficiary) => {
+    const beneficiaryKey = getBillRecipientKey(
+      beneficiary.billItemIdentifier,
+      beneficiary.customerId
+    );
+
+    return !beneficiaryKey || !recentRecipientKeys.has(beneficiaryKey);
+  });
 
   return (
     <>

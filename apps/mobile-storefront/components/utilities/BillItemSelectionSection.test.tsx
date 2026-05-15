@@ -279,4 +279,42 @@ describe('BillItemSelectionSection', () => {
     expect(screen.getAllByText(new RegExp(sharedId))).toHaveLength(1);
     expect(screen.getByText(`Meter Number: ${uniqueId}`)).toBeOnTheScreen();
   });
+
+  it('keeps a saved beneficiary with the same identifier for a different bill item visible', () => {
+    const sharedId = '43901766923';
+    const beneficiaries: UtilityBeneficiary[] = [
+      {
+        id: `EKEDC_NG:EKEDC_PREPAID:${sharedId}`,
+        customerId: sharedId,
+        customerName: 'JANE CUSTOMER',
+        billerId: 'EKEDC_NG',
+        billerName: 'EKEDC NG',
+        billItemIdentifier: 'EKEDC_PREPAID',
+        lastUsed: 1000,
+      },
+      {
+        id: `EKEDC_NG:EKEDC_POSTPAID:${sharedId}`,
+        customerId: sharedId,
+        customerName: 'POSTPAID CUSTOMER',
+        billerId: 'EKEDC_NG',
+        billerName: 'EKEDC NG',
+        billItemIdentifier: 'EKEDC_POSTPAID',
+        lastUsed: 900,
+      },
+    ];
+
+    render(
+      <BillItemSelectionSection
+        {...defaultProps}
+        beneficiaries={beneficiaries}
+        recentRecipients={[recentRecipient]}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', {
+        name: `Select POSTPAID CUSTOMER, Meter Number ${sharedId}`,
+      })
+    ).toBeOnTheScreen();
+  });
 });

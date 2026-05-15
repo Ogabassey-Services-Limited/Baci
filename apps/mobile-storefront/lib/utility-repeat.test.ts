@@ -221,6 +221,36 @@ describe('utilityRepeatHelpers', () => {
       ]);
     });
 
+    it('uses the bill customer identifier instead of the buyer phone for bill recipients', () => {
+      const recipients = utilityRepeatHelpers.getRecentRecipients(
+        [
+          {
+            ...baseTransaction,
+            type: 'electricity' as const,
+            biller_name: 'EKEDC NG',
+            biller_item_code: 'KUD-ELE-EKED-002',
+            customer_identifier: '43901766923',
+            customer_name: 'OLUROTIMI OLADIMEJI ADEBANJO',
+            network_provider: null,
+            phone_number: '08146978921',
+            repeat_data_plan_code: null,
+          },
+        ],
+        'power'
+      );
+
+      expect(recipients[0]).toEqual(
+        expect.objectContaining({
+          identifier: '43901766923',
+          identifierLabel: 'Meter Number',
+          defaults: expect.objectContaining({
+            customerIdentifier: '43901766923',
+            phoneNumber: '08146978921',
+          }),
+        })
+      );
+    });
+
     it('ignores failed transactions and mismatched utility types', () => {
       const recipients = utilityRepeatHelpers.getRecentRecipients(
         [
@@ -351,6 +381,44 @@ describe('utilityRepeatHelpers', () => {
 
       expect(recipients).toHaveLength(2);
       expect(recipients[0]?.identifierLabel).toBe('Phone Number');
+    });
+
+    it('keeps separate bill recipients that share a buyer phone', () => {
+      const recipients = utilityRepeatHelpers.getRecentRecipients(
+        [
+          {
+            ...baseTransaction,
+            id: 'meter-1',
+            type: 'electricity' as const,
+            biller_name: 'EKEDC NG',
+            biller_item_code: 'KUD-ELE-EKED-002',
+            customer_identifier: '43901766923',
+            customer_name: 'FIRST METER',
+            network_provider: null,
+            phone_number: '08146978921',
+            repeat_data_plan_code: null,
+          },
+          {
+            ...baseTransaction,
+            id: 'meter-2',
+            type: 'electricity' as const,
+            biller_name: 'EKEDC NG',
+            biller_item_code: 'KUD-ELE-EKED-002',
+            customer_identifier: '43901766924',
+            customer_name: 'SECOND METER',
+            network_provider: null,
+            phone_number: '08146978921',
+            repeat_data_plan_code: null,
+          },
+        ],
+        'power'
+      );
+
+      expect(recipients).toHaveLength(2);
+      expect(recipients.map((recipient) => recipient.identifier)).toEqual([
+        '43901766923',
+        '43901766924',
+      ]);
     });
 
     it('maps cable tv transactions into smartcard recipients', () => {
