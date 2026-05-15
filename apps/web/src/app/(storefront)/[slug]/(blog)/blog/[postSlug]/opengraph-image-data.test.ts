@@ -209,7 +209,10 @@ describe('merchant blog OG image data', () => {
     installPostQuery(jpegVariantPost);
     mockFetch.mockResolvedValue(imageResponse('image/jpeg', 'image'));
 
-    const result = await getMerchantBlogOgImageData('ogabassey', 'best-deals');
+    const result = await getMerchantBlogOgImageData(
+      'ogabassey-variant',
+      'best-deals-variant'
+    );
 
     expect(result).toMatchObject({
       merchantBusinessName: 'Ogabassey',
@@ -252,7 +255,10 @@ describe('merchant blog OG image data', () => {
       throw new Error(`Unexpected fetch URL: ${url}`);
     });
 
-    const result = await getMerchantBlogOgImageData('ogabassey', 'best-deals');
+    const result = await getMerchantBlogOgImageData(
+      'ogabassey-fallback',
+      'best-deals-fallback'
+    );
 
     expect(result).toMatchObject({
       featuredDataUri: `data:image/jpeg;base64,${Buffer.from(

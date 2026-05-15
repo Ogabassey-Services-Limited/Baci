@@ -10,7 +10,7 @@ vi.mock('next/cache', () => ({
   revalidateTag: (...args: unknown[]) => mockRevalidateTag(...args),
 }));
 
-import { getBlogCacheTag } from './blog-cache-tags';
+import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 // ---- Import functions AFTER mocks ----
 import {
   revalidateBlogPosts,

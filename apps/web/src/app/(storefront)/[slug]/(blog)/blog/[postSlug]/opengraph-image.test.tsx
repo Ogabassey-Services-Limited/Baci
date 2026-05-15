@@ -32,14 +32,14 @@ vi.mock(
   })
 );
 
-import type { MerchantBlogOgImageData } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-data';
 import Image, {
   contentType,
   generateImageMetadata,
   revalidate,
   runtime,
   size,
-} from './opengraph-image';
+} from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image';
+import type { MerchantBlogOgImageData } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-data';
 
 function createData(
   overrides: Partial<MerchantBlogOgImageData> = {}
