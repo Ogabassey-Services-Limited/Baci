@@ -15,6 +15,8 @@ const VERDICT_MESSAGES = {
     'SAFE TO BUY - Device appears clean with no major issues. Always verify physically before payment.',
   icloudLocked:
     "CAUTION - Find My iPhone is ON. You cannot reset this device without the owner's Apple ID. Ensure seller disables it before purchase.",
+  icloudStatusIssue:
+    'DO NOT BUY - iCloud status indicates this device may be marked lost or locked. Do not proceed without official proof.',
   incomplete:
     'INCOMPLETE DATA - Could not verify all device information. Proceed with caution.',
   mdmLocked:
@@ -37,6 +39,19 @@ const SCORE_PENALTIES = {
   MISSING_DEVICE: 10,
   SIM_LOCK: 10,
 } as const;
+
+const ICLOUD_STATUS_KEYS = [
+  'icloud status',
+  'icloud',
+  'icloud clean/lost',
+  'icloud clean/lost status',
+  'icloud clean lost',
+  'icloud clean lost status',
+  'clean/lost',
+  'clean/lost status',
+  'clean lost',
+  'clean lost status',
+] as const;
 
 function sanitizeProviderValue(value: unknown): string {
   if (value == null) return '';
@@ -87,7 +102,7 @@ export function parseSickwResponse(
     data['model name'] ||
     data['device name'] ||
     '';
-  const icloudStatus = data['icloud status'] || data.icloud || '';
+  const icloudStatus = getProviderField(data, ICLOUD_STATUS_KEYS);
   const icloudLock =
     data['icloud lock'] || data['find my iphone'] || data.fmi || '';
   const blacklist =
@@ -152,6 +167,7 @@ export function parseSickwResponse(
 
   const verdict = buildVerdict({
     hasIcloudLockOn,
+    hasIcloudStatusIssue,
     hasMdmIssue,
     hasMiLockIssue,
     hasMiLostIssue,
@@ -214,6 +230,19 @@ function hasBlacklistIssue(value: string): boolean {
   return hasRiskToken(value, ['blacklisted', 'reported', 'stolen', 'lost']);
 }
 
+function getProviderField(
+  data: Record<string, string>,
+  keys: readonly string[]
+): string {
+  for (const key of keys) {
+    if (data[key]) {
+      return data[key];
+    }
+  }
+
+  return '';
+}
+
 function hasRiskToken(value: string, tokens: readonly string[]): boolean {
   const words = value
     .trim()
@@ -236,6 +265,7 @@ function hasRiskToken(value: string, tokens: readonly string[]): boolean {
 
 function buildVerdict({
   hasIcloudLockOn,
+  hasIcloudStatusIssue,
   hasMdmIssue,
   hasMiLockIssue,
   hasMiLostIssue,
@@ -244,6 +274,7 @@ function buildVerdict({
   status,
 }: {
   hasIcloudLockOn: boolean;
+  hasIcloudStatusIssue: boolean;
   hasMdmIssue: boolean;
   hasMiLockIssue: boolean;
   hasMiLostIssue: boolean;
@@ -251,11 +282,13 @@ function buildVerdict({
   isSimLocked: boolean;
   status: ImeiCheckResult['status'];
 }): { text: string; type: ImeiCheckResult['verdictType'] } {
-  if (isBlacklisted || hasMiLostIssue) {
+  if (isBlacklisted || hasMiLostIssue || hasIcloudStatusIssue) {
     return {
       text: hasMiLostIssue
         ? VERDICT_MESSAGES.miLost
-        : VERDICT_MESSAGES.blacklisted,
+        : hasIcloudStatusIssue
+          ? VERDICT_MESSAGES.icloudStatusIssue
+          : VERDICT_MESSAGES.blacklisted,
       type: 'danger',
     };
   }

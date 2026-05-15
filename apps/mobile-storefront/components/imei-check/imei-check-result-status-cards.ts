@@ -38,6 +38,12 @@ export function getImeiResultStatusCards(
     }),
     {
       cleanAware: true,
+      icon: 'cloud-outline',
+      label: 'iCloud Status',
+      value: result.icloud,
+    },
+    {
+      cleanAware: true,
       icon: 'lock-closed',
       label: 'Find My iPhone',
       value: result.icloudLock,

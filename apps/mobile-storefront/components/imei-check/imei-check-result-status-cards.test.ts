@@ -26,10 +26,33 @@ describe('getImeiResultStatusCards', () => {
 
     expect(cards.map((card) => card.label)).toEqual([
       'Blacklist Status',
+      'iCloud Status',
       'Find My iPhone',
       'SIM Lock',
       'Carrier',
     ]);
+  });
+
+  it('shows iCloud status separately from Find My lock status', () => {
+    const cards = getImeiResultStatusCards(
+      {
+        ...baseResult,
+        icloud: 'Lost',
+        icloudLock: 'Unknown',
+      },
+      Colors.light
+    );
+
+    expect(cards.find((card) => card.label === 'iCloud Status')).toMatchObject({
+      cleanAware: true,
+      value: 'Lost',
+    });
+    expect(cards.find((card) => card.label === 'Find My iPhone')).toMatchObject(
+      {
+        cleanAware: true,
+        value: 'Unknown',
+      }
+    );
   });
 
   it('includes extended and Xiaomi fields when present', () => {

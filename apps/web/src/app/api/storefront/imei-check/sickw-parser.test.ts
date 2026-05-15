@@ -109,6 +109,22 @@ describe('parseSickwResponse', () => {
     expect(result.score).toBe(100);
   });
 
+  it('parses clean-lost iCloud status aliases as paid iCloud risk signals', () => {
+    const result = parseSickwResponse(
+      [
+        'Model Name: iPhone 15 Pro',
+        'Clean/Lost: Lost',
+        'Find My iPhone: OFF',
+      ].join('<br>')
+    );
+
+    expect(result.icloud).toBe('Lost');
+    expect(result.icloudLock).toBe('OFF');
+    expect(result.status).toBe('Blacklisted');
+    expect(result.verdictType).toBe('danger');
+    expect(result.score).toBe(80);
+  });
+
   it('surfaces Xiaomi lock status as a caution verdict', () => {
     const result = parseSickwResponse(
       'Model Name: Xiaomi 14<br>MI Lock Status: Locked<br>MI Lost Status: Clean'
