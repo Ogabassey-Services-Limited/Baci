@@ -85,9 +85,14 @@ interface ImeiLookupRow {
 
 const VALID_IMEI = '354442067957452';
 const IDEMPOTENCY_KEY = '11111111-1111-4111-8111-111111111111';
-const IMEI_HASH = createHmac('sha256', 'test-imei-salt')
-  .update(VALID_IMEI)
-  .digest('hex');
+
+function hashImeiForTest(imei: string) {
+  const salt = process.env.IMEI_HASH_SALT;
+  if (!salt) {
+    throw new Error('IMEI_HASH_SALT must be stubbed for hash assertions');
+  }
+  return createHmac('sha256', salt).update(imei).digest('hex');
+}
 
 function createRequest(
   body: Record<string, unknown> = { imei: VALID_IMEI, tier: 'full' },
@@ -334,7 +339,7 @@ describe('POST /api/storefront/imei-check', () => {
           customer_id: 'customer-1',
           id: 'lookup-1',
           idempotency_key: IDEMPOTENCY_KEY,
-          imei_hash: IMEI_HASH,
+          imei_hash: hashImeiForTest(VALID_IMEI),
           merchant_id: 'merchant-1',
           status: 'wallet_rejected',
           tier: 'full',
@@ -536,7 +541,7 @@ describe('POST /api/storefront/imei-check', () => {
         customer_id: 'customer-1',
         id: 'lookup-winner',
         idempotency_key: IDEMPOTENCY_KEY,
-        imei_hash: IMEI_HASH,
+        imei_hash: hashImeiForTest(VALID_IMEI),
         merchant_id: 'merchant-1',
         status: 'completed',
         tier: 'full',
