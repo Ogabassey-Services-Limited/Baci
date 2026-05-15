@@ -71,6 +71,10 @@ BEGIN
   ON CONFLICT (customer_id) DO UPDATE SET
     available_balance =
       public.customer_wallets.available_balance + EXCLUDED.available_balance,
+    total_redeemed = GREATEST(
+      public.customer_wallets.total_redeemed - EXCLUDED.available_balance,
+      0
+    ),
     updated_at = now()
   RETURNING id, available_balance INTO v_wallet_id, v_new_balance;
 

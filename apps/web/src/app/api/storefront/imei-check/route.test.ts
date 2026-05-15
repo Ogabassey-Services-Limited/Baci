@@ -262,6 +262,24 @@ describe('POST /api/storefront/imei-check', () => {
     expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
   });
 
+  it('returns 429 before auth or storefront resolution when rate limited', async () => {
+    mocks.mockCheckRateLimit.mockResolvedValueOnce({
+      allowed: false,
+      limit: 10,
+      remaining: 0,
+      resetTime: Date.now() + 60_000,
+    });
+    const { POST } = await importRoute();
+
+    const response = await POST(createRequest());
+
+    expect(response.status).toBe(429);
+    expect(mocks.mockAuthenticateApiRequest).not.toHaveBeenCalled();
+    expect(
+      mocks.mockResolveStorefrontMerchantFromRequest
+    ).not.toHaveBeenCalled();
+  });
+
   it('returns 403 when CSRF token validation fails', async () => {
     mocks.mockCheckCsrfProtection.mockResolvedValueOnce({
       response: Response.json({ error: 'Invalid CSRF token' }, { status: 403 }),

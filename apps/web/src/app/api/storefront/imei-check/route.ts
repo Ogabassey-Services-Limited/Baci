@@ -38,6 +38,15 @@ export async function POST(request: NextRequest) {
   let debitSucceeded = false;
 
   try {
+    const rateLimit = await checkRateLimit(request);
+    if (!rateLimit.allowed) {
+      return createRateLimitResponse(
+        rateLimit.limit,
+        rateLimit.remaining,
+        rateLimit.resetTime
+      );
+    }
+
     const auth = await authenticateApiRequest(request);
     if (auth.error || !auth.user) {
       return json(
@@ -74,15 +83,6 @@ export async function POST(request: NextRequest) {
       );
     }
     const merchantId = String(merchantResolution.merchant.id);
-
-    const rateLimit = await checkRateLimit(request);
-    if (!rateLimit.allowed) {
-      return createRateLimitResponse(
-        rateLimit.limit,
-        rateLimit.remaining,
-        rateLimit.resetTime
-      );
-    }
 
     const rawIdempotencyKey = request.headers.get('Idempotency-Key') ?? '';
     if (!rawIdempotencyKey || !UUID_PATTERN.test(rawIdempotencyKey)) {
