@@ -291,6 +291,53 @@ describe('OgabasseyImeiChecker', () => {
     expect(await screen.findByText('iPhone 15 Pro')).toBeInTheDocument();
   });
 
+  it.each([
+    [
+      'REFUND_STATE_SAVE_FAILED',
+      'Lookup failed and refund status could not be saved.',
+    ],
+    [
+      'REFUNDED_STATE_SAVE_FAILED',
+      'Lookup failed and refund result could not be saved.',
+    ],
+  ])(
+    'preserves the idempotency key after unresolved recovery failure %s',
+    async (code, message) => {
+      fetchMock
+        .mockResolvedValueOnce({
+          ok: false,
+          json: vi.fn().mockResolvedValue({
+            success: false,
+            code,
+            error: message,
+          }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          json: vi.fn().mockResolvedValue(successfulImeiResponse),
+        });
+
+      render(<OgabasseyImeiChecker />);
+
+      enterValidImei();
+      fireEvent.click(screen.getByRole('button', { name: /verify now/i }));
+
+      expect(await screen.findByText(message)).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /verify now/i }));
+
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+      const firstHeaders = getFetchHeaders(0);
+      const secondHeaders = getFetchHeaders(1);
+
+      expect(secondHeaders.get('idempotency-key')).toBe(
+        firstHeaders.get('idempotency-key')
+      );
+      expect(await screen.findByText('iPhone 15 Pro')).toBeInTheDocument();
+    }
+  );
+
   it('shows the API error message when an IMEI check fails', async () => {
     fetchMock.mockResolvedValue({
       ok: false,

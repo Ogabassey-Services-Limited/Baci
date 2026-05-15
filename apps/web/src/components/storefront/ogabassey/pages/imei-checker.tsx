@@ -85,6 +85,13 @@ interface ImeiRequestIdentity {
   key: string;
 }
 
+const UNRESOLVED_IMEI_RESPONSE_CODES = new Set([
+  'IDEMPOTENT_REQUEST_IN_FLIGHT',
+  'REFUND_PENDING',
+  'REFUND_STATE_SAVE_FAILED',
+  'REFUNDED_STATE_SAVE_FAILED',
+]);
+
 const createFallbackUuid = () => {
   const bytes = new Uint8Array(16);
   globalThis.crypto.getRandomValues(bytes);
@@ -234,8 +241,8 @@ export const OgabasseyImeiChecker: React.FC = () => {
 
       const data = await response.json();
       const shouldKeepRequestIdentity =
-        data?.code === 'REFUND_PENDING' ||
-        data?.code === 'IDEMPOTENT_REQUEST_IN_FLIGHT';
+        typeof data?.code === 'string' &&
+        UNRESOLVED_IMEI_RESPONSE_CODES.has(data.code);
       if (!shouldKeepRequestIdentity) {
         setRequestIdentity(null);
       }
