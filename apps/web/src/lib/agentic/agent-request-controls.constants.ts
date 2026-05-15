@@ -1,4 +1,6 @@
 export const AGENTIC_AGENT_BLOCKED_ERROR = 'Agent client blocked';
+export const AGENTIC_AGENT_IDENTITY_REQUIRED_ERROR =
+  'Agent client identity missing';
 export const AGENTIC_AGENT_NOT_ALLOWLISTED_ERROR =
   'Agent client not allowlisted';
 

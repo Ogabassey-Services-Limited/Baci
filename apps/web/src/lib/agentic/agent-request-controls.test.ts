@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AGENTIC_AGENT_BLOCKED_ERROR,
+  AGENTIC_AGENT_IDENTITY_REQUIRED_ERROR,
   AGENTIC_AGENT_NOT_ALLOWLISTED_ERROR,
   readAgenticRequestControls,
   verifyAgenticRequestAccess,
@@ -76,7 +77,7 @@ describe('agent request controls', () => {
 
     expect(result).toEqual({
       ok: false,
-      error: AGENTIC_AGENT_NOT_ALLOWLISTED_ERROR,
+      error: AGENTIC_AGENT_IDENTITY_REQUIRED_ERROR,
     });
   });
 

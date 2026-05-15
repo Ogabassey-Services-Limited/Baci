@@ -1,19 +1,22 @@
-import { z } from 'zod';
 import {
   AGENTIC_AGENT_ALLOWLIST_KEY,
   AGENTIC_AGENT_BLOCKED_ERROR,
   AGENTIC_AGENT_DENYLIST_KEY,
+  AGENTIC_AGENT_IDENTITY_REQUIRED_ERROR,
   AGENTIC_AGENT_NOT_ALLOWLISTED_ERROR,
 } from '@/lib/agentic/agent-request-controls.constants';
+import { agenticRequestControlsSettingsSchema } from '@/schemas/agentic-request-controls-settings';
 
-export { AGENTIC_AGENT_BLOCKED_ERROR, AGENTIC_AGENT_NOT_ALLOWLISTED_ERROR };
+export {
+  AGENTIC_AGENT_BLOCKED_ERROR,
+  AGENTIC_AGENT_IDENTITY_REQUIRED_ERROR,
+  AGENTIC_AGENT_NOT_ALLOWLISTED_ERROR,
+};
 
 export interface AgenticRequestControls {
   allowlist: string[];
   denylist: string[];
 }
-
-const agenticRequestControlsSettingsSchema = z.object({}).catchall(z.unknown());
 
 function normalizePattern(value: string): string | null {
   const normalized = value.trim().toLowerCase();
@@ -31,20 +34,6 @@ function normalizePatterns(values: string[]): string[] {
   return [...unique];
 }
 
-function parsePatternList(value: unknown): string[] {
-  if (Array.isArray(value)) {
-    return normalizePatterns(
-      value.filter((entry): entry is string => typeof entry === 'string')
-    );
-  }
-
-  if (typeof value === 'string') {
-    return normalizePatterns(value.split(','));
-  }
-
-  return [];
-}
-
 export function readAgenticRequestControls(
   customSettings: unknown
 ): AgenticRequestControls {
@@ -55,8 +44,8 @@ export function readAgenticRequestControls(
 
   const settings = parsed.data;
   return {
-    allowlist: parsePatternList(settings[AGENTIC_AGENT_ALLOWLIST_KEY]),
-    denylist: parsePatternList(settings[AGENTIC_AGENT_DENYLIST_KEY]),
+    allowlist: normalizePatterns(settings[AGENTIC_AGENT_ALLOWLIST_KEY]),
+    denylist: normalizePatterns(settings[AGENTIC_AGENT_DENYLIST_KEY]),
   };
 }
 
@@ -73,11 +62,17 @@ export function verifyAgenticRequestAccess({
 }): { ok: true } | { error: string; ok: false } {
   const normalizedUserAgent =
     normalizePattern(headers.get('user-agent') ?? '') ?? '';
+  const hasAllowlistControls = controls.allowlist.length > 0;
   const hasConfiguredControls =
-    controls.allowlist.length > 0 || controls.denylist.length > 0;
+    hasAllowlistControls || controls.denylist.length > 0;
 
   if (hasConfiguredControls && normalizedUserAgent.length === 0) {
-    return { ok: false, error: AGENTIC_AGENT_NOT_ALLOWLISTED_ERROR };
+    return {
+      ok: false,
+      error: hasAllowlistControls
+        ? AGENTIC_AGENT_NOT_ALLOWLISTED_ERROR
+        : AGENTIC_AGENT_IDENTITY_REQUIRED_ERROR,
+    };
   }
 
   if (
