@@ -29,6 +29,7 @@ import {
 } from './data-form.styles';
 import type { DataFormProps } from './data-form.types';
 import { getUtilityFooterOffset } from './get-utility-footer-offset';
+import { RecentUtilityRecipients } from './RecentUtilityRecipients';
 import { UtilityPaymentOptions } from './UtilityPaymentOptions';
 import { useDataBillerInitialization } from './use-data-biller-initialization';
 import { formatUtilityAmountInput } from './utility-amount-format';
@@ -39,6 +40,8 @@ export function DataForm({
   initialPlan,
   initialProvider,
   isRepeatPaymentReady = false,
+  recentRecipients = [],
+  onSelectRecentRecipient,
   onSuccess,
 }: DataFormProps) {
   const colorScheme = useColorScheme();
@@ -186,6 +189,14 @@ export function DataForm({
           value={phoneNumber}
           onChangeText={handlePhoneChange}
         />
+
+        {recentRecipients.length > 0 && onSelectRecentRecipient ? (
+          <RecentUtilityRecipients
+            colors={colors}
+            recipients={recentRecipients}
+            onSelect={onSelectRecentRecipient}
+          />
+        ) : null}
 
         <Text
           style={[

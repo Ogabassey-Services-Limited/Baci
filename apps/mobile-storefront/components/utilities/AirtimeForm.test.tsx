@@ -3,11 +3,13 @@ import {
   fireEvent,
   render,
   screen,
+  userEvent,
   waitFor,
 } from '@testing-library/react-native';
 import { Alert } from 'react-native';
 import type { ExtractState } from 'zustand/vanilla';
 import { BRAND } from '@/constants/Colors';
+import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
 import { VtuPaymentStillProcessingError } from '@/lib/vtu-checkout';
 import type { useAuthStore as useAuthStoreType } from '@/stores/auth-store';
 import { AirtimeForm } from './AirtimeForm';
@@ -53,6 +55,20 @@ const mockAuthStoreState = {
   session: null,
   user: null,
 } satisfies AuthStorePartial;
+
+const recentRecipient: UtilityRepeatRecipient = {
+  id: 'airtime-1',
+  title: 'MTN',
+  identifierLabel: 'Phone Number',
+  identifier: '08012345678',
+  meta: '₦1,000',
+  defaults: {
+    amount: '1000',
+    isVerified: true,
+    networkProvider: 'mtn',
+    phoneNumber: '08012345678',
+  },
+};
 
 function spyOnConsoleError() {
   return jest.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -175,6 +191,28 @@ describe('AirtimeForm', () => {
     expect(screen.getByText('Choose manually')).toBeOnTheScreen();
     expect(screen.queryByText('MTN')).toBeNull();
     expect(screen.queryByText('Airtel')).toBeNull();
+  });
+
+  it('renders recent recipients under the phone number field', async () => {
+    const user = userEvent.setup();
+    const onSelectRecentRecipient = jest.fn();
+
+    render(
+      <AirtimeForm
+        onSuccess={jest.fn()}
+        recentRecipients={[recentRecipient]}
+        onSelectRecentRecipient={onSelectRecentRecipient}
+      />
+    );
+
+    expect(screen.getByText('Select Beneficiary')).toBeOnTheScreen();
+    expect(screen.getByText('Phone Number: 08012345678')).toBeOnTheScreen();
+
+    await user.press(
+      screen.getByLabelText('Select MTN, Phone Number 08012345678')
+    );
+
+    expect(onSelectRecentRecipient).toHaveBeenCalledWith(recentRecipient);
   });
 
   it('collapses to the detected network after phone entry', async () => {
