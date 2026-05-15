@@ -49,6 +49,4 @@ export interface BillFormProps {
   isRepeatPaymentReady?: boolean;
   recentRecipients?: UtilityRepeatRecipient[];
   onSelectRecentRecipient?: (recipient: UtilityRepeatRecipient) => void;
-  /** Extra bottom padding to clear floating overlays (e.g. the QuickRepeatPrompt). */
-  extraScrollPadding?: number;
 }
