@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { verifyAgenticRequestAccess } from '@/lib/agentic/agent-request-controls';
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { resolveAgenticMerchantContext } from '@/lib/agentic/merchant-context';
 import { readAgenticQueryRequest } from '@/lib/agentic/mutation-request';
@@ -46,6 +47,16 @@ export async function GET(
       { error: 'Agentic merchant not found' },
       { status: 500 }
     );
+  }
+  const agentAccess = verifyAgenticRequestAccess({
+    controls: {
+      allowlist: merchant.agent_user_agent_allowlist ?? [],
+      denylist: merchant.agent_user_agent_denylist ?? [],
+    },
+    headers: request.headers,
+  });
+  if (!agentAccess.ok) {
+    return NextResponse.json({ error: agentAccess.error }, { status: 403 });
   }
 
   const supabase = createAgenticScopedSupabaseClient({

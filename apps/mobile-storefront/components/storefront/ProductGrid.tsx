@@ -1,4 +1,5 @@
 import { prioritizeSmartphoneProducts } from '@baci/shared';
+import { dedupeById } from '@baci/shared/lib';
 import { useIsFocused } from '@react-navigation/native';
 import { useEffect, useRef } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
@@ -228,10 +229,10 @@ export default function ProductGrid({
     orderedProducts,
     paginationResetKey,
   });
-
+  const uniqueVisibleProducts = dedupeById(visibleProducts);
   const currentVariant = viewMode === 'list' ? 'list' : variant;
   const hasRenderableProducts =
-    visibleProducts.length > 0 || products.length > 0;
+    uniqueVisibleProducts.length > 0 || products.length > 0;
   const shouldShowFatalError =
     isError && isFetchedAfterMount && !isLoading && !hasRenderableProducts;
   const shouldShowInitialLoading =
@@ -317,14 +318,14 @@ export default function ProductGrid({
       {headerControls}
 
       <View style={currentVariant === 'list' ? styles.list : styles.grid}>
-        {visibleProducts.length === 0 && !isFetching ? (
+        {uniqueVisibleProducts.length === 0 && !isFetching ? (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyText, { color: palette.gray[400] }]}>
               No products match your criteria.
             </Text>
           </View>
         ) : (
-          visibleProducts.map((product) => (
+          uniqueVisibleProducts.map((product) => (
             <View
               key={product.id}
               style={

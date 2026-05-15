@@ -5,7 +5,6 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { Product } from '../types';
 import { DeferredShellFeature } from '../components/deferred-shell-feature';
 import { FlyToCartAnimation } from '../components/FlyToCartAnimation';
-import { NegotiationModal } from '../components/NegotiationModal';
 import { ProductBreadcrumbs } from './product-details-page/product-breadcrumbs';
 import { ProductMediaGallery } from './product-details-page/product-media-gallery';
 import { ProductMobileActionBar } from './product-details-page/product-mobile-action-bar';
@@ -47,6 +46,11 @@ const ProductDetailsTabs = dynamic(
 const ProductVideo = dynamic(
   () => import('../components/ProductVideo').then((mod) => mod.ProductVideo),
   { loading: () => null }
+);
+const NegotiationModal = dynamic(
+  () =>
+    import('../components/NegotiationModal').then((mod) => mod.NegotiationModal),
+  { loading: () => null, ssr: false }
 );
 
 interface ProductDetailsPageProps {
@@ -321,16 +325,18 @@ export function ProductDetailsPage({
         selectedColor={selectedColor}
       />
 
-      <NegotiationModal
-        isOpen={isNegotiationOpen}
-        onClose={() => setIsNegotiationOpen(false)}
-        productName={productData.name}
-        currentPrice={currentOffer.rawPrice}
-        onSuccess={handleNegotiationSuccess}
-        type="single"
-        itemId={String(productData.id)}
-        merchantId={merchantId || ''}
-      />
+      {isNegotiationOpen ? (
+        <NegotiationModal
+          isOpen
+          onClose={() => setIsNegotiationOpen(false)}
+          productName={productData.name}
+          currentPrice={currentOffer.rawPrice}
+          onSuccess={handleNegotiationSuccess}
+          type="single"
+          itemId={String(productData.id)}
+          merchantId={merchantId || ''}
+        />
+      ) : null}
     </div>
   );
 }
