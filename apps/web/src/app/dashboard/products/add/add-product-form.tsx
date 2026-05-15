@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 // @imgly/background-removal is dynamically imported at point of use to avoid bundling 2MB ONNX runtime
 import { Image as ImageIcon, Loader2, Sparkles, Wand2 } from 'lucide-react';
 import Image from 'next/image';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import z from 'zod';
 import { autofillProductDetails } from '@/ai/flows/autofill-product-details';
@@ -156,6 +156,7 @@ export default function AddProductForm({
     Record<string, boolean>
   >({});
   const [activeTab, setActiveTab] = useState('general');
+  const lastAutoSlugRef = useRef<string | null>(initialData?.slug ? null : '');
 
   // Zod 4 + react-hook-form: specify input, context, and output types
   const form = useForm<AddProductFormInput, unknown, AddProductFormValues>({
@@ -215,10 +216,18 @@ export default function AddProductForm({
   const watchName = form.watch('name');
   const watchCondition = form.watch('condition');
 
-  // Auto-generate slug from name if slug is empty
+  // Keep generated slugs in sync until the merchant edits the slug manually.
   useEffect(() => {
-    if (watchName && !form.getValues('slug')) {
-      form.setValue('slug', generateSlug(watchName));
+    if (!watchName || lastAutoSlugRef.current === null) {
+      return;
+    }
+
+    const nextSlug = generateSlug(watchName);
+    const currentSlug = form.getValues('slug') || '';
+
+    if (!currentSlug || currentSlug === lastAutoSlugRef.current) {
+      form.setValue('slug', nextSlug);
+      lastAutoSlugRef.current = nextSlug;
     }
   }, [watchName, form]);
 

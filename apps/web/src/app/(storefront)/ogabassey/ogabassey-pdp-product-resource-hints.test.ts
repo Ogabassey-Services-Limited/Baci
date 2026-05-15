@@ -88,7 +88,7 @@ describe('preloadOgabasseyPdpProductImage', () => {
     preloadOgabasseyPdpProductImage(productImage);
 
     expect(mockPreload).toHaveBeenCalledWith(
-      productImage,
+      imageLoader({ src: productImage, width: 640, quality: 70 }),
       expect.objectContaining({
         type: 'image/png',
       })

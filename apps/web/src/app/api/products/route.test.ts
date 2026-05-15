@@ -655,6 +655,35 @@ describe('POST /api/products', () => {
       expect(json.product.id).toBe(PRODUCT_ID);
     });
 
+    it('persists unlimited-stock products as unmanaged inventory', async () => {
+      insertResult = {
+        id: PRODUCT_ID,
+        merchant_id: MERCHANT_ID,
+        name: 'Unlimited Product',
+        price: '5000',
+        stock_quantity: 0,
+        slug: 'unlimited-product',
+      };
+
+      const res = await POST(
+        makePostRequest({
+          ...validCreateBody,
+          name: 'Unlimited Product',
+          stock: 0,
+          manage_stock: false,
+        })
+      );
+
+      expect(res.status).toBe(201);
+      expect(lastProductsQueryChain?.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          manage_stock: false,
+          stock: 0,
+          stock_quantity: 0,
+        })
+      );
+    });
+
     it('creates product with variants', async () => {
       const bodyWithVariants = {
         ...validCreateBody,

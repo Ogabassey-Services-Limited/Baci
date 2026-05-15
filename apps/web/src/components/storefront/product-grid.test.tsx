@@ -1,8 +1,26 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { apiGet } from '@/lib/api-client';
 import type { Product } from '@/lib/products';
 import { StorefrontProductGrid } from './product-grid';
+
+const mockMerchantState = vi.hoisted<{
+  merchant: {
+    id: string;
+    slug: string;
+    business_type?: string;
+    brand_colors: { primary: string; background: string; accent: string };
+    navigationCategories: { name: string }[];
+  };
+}>(() => ({
+  merchant: {
+    id: 'm1',
+    slug: 'test-merchant',
+    brand_colors: { primary: '#000', background: '#fff', accent: '#ccc' },
+    navigationCategories: [{ name: 'Fashion' }, { name: 'Other' }],
+  },
+}));
 
 // Mock dependencies
 vi.mock('next/link', () => ({
@@ -78,12 +96,7 @@ vi.mock('@/hooks/use-cart', () => ({
 
 vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: () => ({
-    merchant: {
-      id: 'm1',
-      slug: 'test-merchant',
-      brand_colors: { primary: '#000', background: '#fff', accent: '#ccc' },
-      navigationCategories: [{ name: 'Fashion' }, { name: 'Other' }],
-    },
+    merchant: mockMerchantState.merchant,
   }),
 }));
 
@@ -171,6 +184,12 @@ const mockProduct: Product = {
 describe('StorefrontProductGrid', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockMerchantState.merchant = {
+      id: 'm1',
+      slug: 'test-merchant',
+      brand_colors: { primary: '#000', background: '#fff', accent: '#ccc' },
+      navigationCategories: [{ name: 'Fashion' }, { name: 'Other' }],
+    };
   });
 
   it('renders without crashing', async () => {
@@ -178,6 +197,12 @@ describe('StorefrontProductGrid', () => {
     await waitFor(() => {
       expect(screen.getByText('Test Product')).toBeInTheDocument();
     });
+    // This guards the stale-list regression found in Chrome after creating a
+    // dashboard product and reopening the generated storefront.
+    expect(apiGet).toHaveBeenCalledWith(
+      '/api/storefront/products?merchant_id=m1',
+      { cache: 'no-store' }
+    );
   });
 
   it('renders category buttons with correct aria-pressed state', async () => {
@@ -216,5 +241,29 @@ describe('StorefrontProductGrid', () => {
         .closest('[aria-live="polite"]');
       expect(liveRegion).toBeInTheDocument();
     });
+  });
+
+  it('uses industry-specific sample products in preview mode', async () => {
+    mockMerchantState.merchant = {
+      id: 'preview-merchant-id-preview',
+      slug: 'preview-store',
+      business_type: 'food-beverage',
+      brand_colors: { primary: '#000', background: '#fff', accent: '#ccc' },
+      navigationCategories: [{ name: 'Food & Beverage' }],
+    };
+
+    render(<StorefrontProductGrid />);
+
+    expect(
+      await screen.findByText('Artisanal Sourdough Loaf')
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Linen Summer Dress')).not.toBeInTheDocument();
+    expect(
+      vi
+        .mocked(apiGet)
+        .mock.calls.some(([url]) =>
+          String(url).includes('/api/storefront/products')
+        )
+    ).toBe(false);
   });
 });

@@ -1,10 +1,44 @@
 import type { StorefrontProductsQuery } from '@/schemas/storefront-products-query.types';
 
+const STOREFRONT_PRODUCTS_CACHE_TAG_PREFIX = 'storefront-products';
+const MERCHANT_ID_CACHE_TAG_PREFIX = 'merchant-id';
+
+function normalizeMerchantIdForCacheTag(merchantId: string) {
+  if (typeof merchantId !== 'string') {
+    throw new TypeError(
+      'merchantId must be a string for storefront product cache tags'
+    );
+  }
+
+  const normalizedMerchantId = merchantId.trim();
+
+  if (!normalizedMerchantId) {
+    throw new TypeError(
+      'merchantId cannot be empty for storefront product cache tags'
+    );
+  }
+
+  return normalizedMerchantId;
+}
+
+export function buildStorefrontProductsCacheTags(merchantId: string) {
+  const normalizedMerchantId = normalizeMerchantIdForCacheTag(merchantId);
+
+  return [
+    `${STOREFRONT_PRODUCTS_CACHE_TAG_PREFIX}-${normalizedMerchantId}`,
+    `${MERCHANT_ID_CACHE_TAG_PREFIX}-${normalizedMerchantId}`,
+  ];
+}
+
 export function buildStorefrontProductsCacheKeyParts(
   merchantId: string,
   filters: StorefrontProductsQuery
 ) {
-  const cacheKeyParts = ['storefront-products', merchantId];
+  const normalizedMerchantId = normalizeMerchantIdForCacheTag(merchantId);
+  const cacheKeyParts = [
+    STOREFRONT_PRODUCTS_CACHE_TAG_PREFIX,
+    normalizedMerchantId,
+  ];
 
   if (filters.category) cacheKeyParts.push(`cat-${filters.category}`);
   if (filters.brand) {

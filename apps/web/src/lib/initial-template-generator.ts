@@ -2,6 +2,11 @@ import type { Data } from '@puckeditor/core';
 import { generateObject } from 'ai';
 import z from 'zod';
 import { activeTextModel } from '@/ai/provider';
+import {
+  getInitialTemplateProfile,
+  normalizeBusinessType,
+  type TemplateSection,
+} from '@/lib/initial-template-profiles';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 import type { ThemeConfiguration } from '@/lib/theme-config';
 
@@ -37,6 +42,7 @@ const aiContentSchema = z.object({
 });
 
 type AIContent = z.infer<typeof aiContentSchema>;
+type PuckBlock = Data['content'][number];
 
 async function generateAIContent(
   businessName: string,
@@ -129,29 +135,40 @@ export async function generateHeroSlides(
     }
 
     // Customize text based on business type
-    switch (businessType) {
+    switch (normalizeBusinessType(businessType)) {
       case 'fashion':
-      case 'fashion_apparel':
         if (i === 0) subtitle = 'Discover the latest trends in fashion.';
         if (i === 1) subtitle = 'Fresh looks for the season.';
         break;
       case 'electronics':
-      case 'tech':
         if (i === 0) subtitle = 'Cutting-edge technology at your fingertips.';
         if (i === 1) subtitle = 'Upgrade your gear today.';
         break;
       case 'food':
-      case 'restaurant':
-        if (i === 0) subtitle = 'Delicious food delivered to your door.';
+        if (i === 0) subtitle = 'Fresh flavors and quality ingredients.';
         if (i === 1) subtitle = 'Fresh ingredients, authentic recipes.';
         break;
       case 'beauty':
-      case 'cosmetics':
         if (i === 0) subtitle = 'Beauty products that bring out your best.';
+        if (i === 1) subtitle = 'Clean essentials for your daily glow.';
+        break;
+      case 'hair':
+        if (i === 0) subtitle = 'Premium hair extensions for every style.';
+        if (i === 1) subtitle = 'Fresh textures, lengths, and finishes.';
+        break;
+      case 'home':
+        if (i === 0) subtitle = 'Curated pieces for a more beautiful home.';
+        if (i === 1) subtitle = 'Fresh finds for every room.';
+        break;
+      case 'pharmacy':
+        if (i === 0) subtitle = 'Trusted healthcare essentials and supplies.';
+        if (i === 1) subtitle = 'Restock wellness products with confidence.';
         break;
       case 'art':
       case 'handmade':
         if (i === 0) subtitle = 'Unique handcrafted pieces made with love.';
+        if (i === 1) subtitle = 'Fresh artisan pieces from the maker.';
+        if (i === 2) subtitle = 'Customer favorites with a personal touch.';
         break;
     }
 
@@ -435,9 +452,8 @@ export function generateFeatures(
     },
   ];
 
-  switch (businessType) {
+  switch (normalizeBusinessType(businessType)) {
     case 'fashion':
-    case 'fashion_apparel':
       return [
         {
           title: 'Premium Quality',
@@ -456,7 +472,6 @@ export function generateFeatures(
         },
       ];
     case 'electronics':
-    case 'tech':
       return [
         {
           title: 'Official Warranty',
@@ -475,7 +490,6 @@ export function generateFeatures(
         },
       ];
     case 'food':
-    case 'restaurant':
       return [
         {
           title: 'Fresh Ingredients',
@@ -493,6 +507,97 @@ export function generateFeatures(
           icon: 'heart',
         },
       ];
+    case 'beauty':
+      return [
+        {
+          title: 'Ingredient Focused',
+          description: 'Carefully selected products for your routine.',
+          icon: 'sparkles',
+        },
+        {
+          title: 'Personal Care Support',
+          description: 'Guidance for beauty and wellness essentials.',
+          icon: 'heart',
+        },
+        {
+          title: 'Secure Checkout',
+          description: 'Safe payment processing for every order.',
+          icon: 'shield',
+        },
+      ];
+    case 'hair':
+      return [
+        {
+          title: 'Premium Textures',
+          description: 'Quality hair selected for softness and longevity.',
+          icon: 'sparkles',
+        },
+        {
+          title: 'Style Guidance',
+          description: 'Find the right length, texture, and finish.',
+          icon: 'scissors',
+        },
+        {
+          title: 'Fast Delivery',
+          description: 'Get your hair essentials delivered quickly.',
+          icon: 'truck',
+        },
+      ];
+    case 'home':
+      return [
+        {
+          title: 'Curated Style',
+          description: 'Thoughtful pieces for beautiful everyday spaces.',
+          icon: 'home',
+        },
+        {
+          title: 'Quality Materials',
+          description: 'Durable finishes selected for real homes.',
+          icon: 'star',
+        },
+        {
+          title: 'Secure Delivery',
+          description: 'Careful packaging for home and decor orders.',
+          icon: 'truck',
+        },
+      ];
+    case 'pharmacy':
+      return [
+        {
+          title: 'Trusted Products',
+          description: 'Healthcare essentials sourced with care.',
+          icon: 'shield-check',
+        },
+        {
+          title: 'Clear Guidance',
+          description: 'Helpful product details for safer decisions.',
+          icon: 'clipboard-check',
+        },
+        {
+          title: 'Reliable Fulfilment',
+          description: 'Secure handling for medical and wellness orders.',
+          icon: 'truck',
+        },
+      ];
+    case 'art':
+    case 'handmade':
+      return [
+        {
+          title: 'Unique Handmade',
+          description: 'One-of-a-kind products crafted with care.',
+          icon: 'palette',
+        },
+        {
+          title: 'Maker Story',
+          description: 'Every piece carries a personal creative touch.',
+          icon: 'heart',
+        },
+        {
+          title: 'Careful Packaging',
+          description: 'Handmade orders packed safely for delivery.',
+          icon: 'package-check',
+        },
+      ];
     default:
       return defaultFeatures;
   }
@@ -505,6 +610,7 @@ export async function generateInitialTemplate(
   params: TemplateParams
 ): Promise<Data> {
   const { businessName, businessType, brandColors, merchant } = params;
+  const profile = getInitialTemplateProfile(businessType);
 
   // Generate theme from brand colors
   const theme = deriveThemeFromColors(brandColors);
@@ -530,102 +636,123 @@ export async function generateInitialTemplate(
   // Generate unique IDs for components
   const headerId = `Header-${Date.now()}`;
   const heroCarouselId = `HeroCarousel-${Date.now()}-1`;
-  const featuresId = `Features-${Date.now()}-2`;
-  const productGridId = `ProductGrid-${Date.now()}-3`;
-  const newsletterId = `Newsletter-${Date.now()}-4`;
-  const footerId = `Footer-${Date.now()}-5`;
+  const storyId = `Text-${Date.now()}-2`;
+  const featuresId = `Features-${Date.now()}-3`;
+  const productGridId = `ProductGrid-${Date.now()}-4`;
+  const newsletterId = `Newsletter-${Date.now()}-5`;
+  const footerId = `Footer-${Date.now()}-6`;
+
+  const headerBlock: PuckBlock = {
+    type: 'Header',
+    props: {
+      id: headerId,
+      showLogo: true,
+      showSearch: true,
+      showCart: true,
+      showMenu: true,
+      sticky: true,
+      navigationLinks: [
+        { label: 'Home', url: '/' },
+        { label: profile.shopNavLabel, url: '/products' },
+        { label: 'About', url: '/about' },
+      ],
+      ctaButton: {
+        show: false,
+        text: 'Get Started',
+        url: '/signup',
+      },
+      storeName: businessName,
+      // Add logo URL if merchant has one
+      ...(typeof params.merchant?.logo_url === 'string'
+        ? {
+            logoUrl: params.merchant.logo_url,
+          }
+        : {}),
+    },
+  };
+
+  const heroBlock: PuckBlock = {
+    type: 'HeroCarousel',
+    props: {
+      id: heroCarouselId,
+      slides: slides,
+      autoplayDelay: 5000,
+    },
+  };
+
+  const storyBlock: PuckBlock = {
+    type: 'Text',
+    props: {
+      id: storyId,
+      title: profile.storyTitle,
+      content: profile.storyContent,
+      align: profile.storyAlign,
+    },
+  };
+
+  const featuresBlock: PuckBlock = {
+    type: 'Features',
+    props: {
+      id: featuresId,
+      title: profile.featuresTitle,
+      features: features,
+      columns: 3,
+    },
+  };
+
+  const productGridBlock: PuckBlock = {
+    type: 'ProductGrid',
+    props: {
+      id: productGridId,
+      title: profile.productGridTitle,
+      columns: profile.productGridColumns,
+      limit: profile.productGridLimit,
+      sortBy: 'newest',
+      showFilters: true,
+    },
+  };
+
+  const newsletterBlock: PuckBlock = {
+    type: 'Newsletter',
+    props: {
+      id: newsletterId,
+      title: profile.newsletterTitle,
+      description: profile.newsletterDescription,
+      buttonText: 'Subscribe',
+      placeholder: 'Enter your email',
+    },
+  };
+
+  const footerBlock: PuckBlock = {
+    type: 'Footer',
+    props: {
+      id: footerId,
+      showQuickLinks: true,
+      quickLinks: [
+        { label: 'About Us', url: '/about' },
+        { label: 'Contact', url: '/contact' },
+        { label: 'Privacy Policy', url: '/privacy' },
+        { label: 'Terms', url: '/terms' },
+      ],
+      socialLinks: {},
+      showNewsletter: false,
+    },
+  };
+
+  const sectionBlocks: Record<TemplateSection, PuckBlock> = {
+    hero: heroBlock,
+    story: storyBlock,
+    features: featuresBlock,
+    products: productGridBlock,
+    newsletter: newsletterBlock,
+  };
 
   // Create Puck data structure
   const config: Data = {
     content: [
-      // Header
-      {
-        type: 'Header',
-        props: {
-          id: headerId,
-          showLogo: true,
-          showSearch: true,
-          showCart: true,
-          showMenu: true,
-          sticky: true,
-          navigationLinks: [
-            { label: 'Home', url: '/' },
-            { label: 'Shop', url: '/products' },
-            { label: 'About', url: '/about' },
-          ],
-          ctaButton: {
-            show: false,
-            text: 'Get Started',
-            url: '/signup',
-          },
-          storeName: businessName,
-          // Add logo URL if merchant has one
-          ...(params.merchant?.logo_url
-            ? {
-                logoUrl: params.merchant.logo_url,
-              }
-            : {}),
-        },
-      },
-      // Hero Carousel
-      {
-        type: 'HeroCarousel',
-        props: {
-          id: heroCarouselId,
-          slides: slides,
-          autoplayDelay: 5000,
-        },
-      },
-      // Features Section
-      {
-        type: 'Features',
-        props: {
-          id: featuresId,
-          title: 'Why Choose Us',
-          features: features,
-          columns: 3,
-        },
-      },
-      // Product Grid
-      {
-        type: 'ProductGrid',
-        props: {
-          id: productGridId,
-          title: 'Our Products',
-          columns: 4,
-          limit: 12,
-          sortBy: 'newest',
-          showFilters: true,
-        },
-      },
-      // Newsletter Section
-      {
-        type: 'Newsletter',
-        props: {
-          id: newsletterId,
-          title: 'Stay Updated',
-          description:
-            'Subscribe to our newsletter for the latest updates and exclusive offers.',
-          buttonText: 'Subscribe',
-          placeholder: 'Enter your email',
-        },
-      },
-      // Footer
-      {
-        type: 'Footer',
-        props: {
-          id: footerId,
-          showQuickLinks: true,
-          quickLinks: [
-            { label: 'About Us', url: '/about' },
-            { label: 'Contact', url: '/contact' },
-            { label: 'Privacy Policy', url: '/privacy' },
-            { label: 'Terms', url: '/terms' },
-          ],
-          socialLinks: {},
-          showNewsletter: false,
-        },
-      },
+      headerBlock,
+      ...profile.contentOrder.map((section) => sectionBlocks[section]),
+      footerBlock,
     ],
     root: {
       props: {
