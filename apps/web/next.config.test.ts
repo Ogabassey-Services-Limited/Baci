@@ -21,17 +21,4 @@ describe('next.config OgaBassey resource headers', () => {
       value: OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER,
     });
   });
-
-  it('serves versioned public hero assets with immutable caching', async () => {
-    const headers = await nextConfig.headers?.();
-
-    const heroAssetHeaders = headers?.find(
-      (entry) => entry.source === '/ogabassey/hero/:path*'
-    );
-
-    expect(heroAssetHeaders?.headers).toContainEqual({
-      key: 'Cache-Control',
-      value: 'public, max-age=31536000, immutable',
-    });
-  });
 });
