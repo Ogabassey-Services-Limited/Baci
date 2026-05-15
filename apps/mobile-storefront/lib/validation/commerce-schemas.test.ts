@@ -169,6 +169,16 @@ describe('ImeiResultSchema', () => {
     carrier: 'Unlocked',
     deviceImage: 'https://cdn.example.com/iphone13pro.jpg',
     score: 94,
+    activationStatus: 'Activated',
+    serialNumber: 'F2LDN12345',
+    purchaseDate: '2025-09-22',
+    purchaseCountry: 'United States',
+    warranty: 'AppleCare+',
+    refurbished: 'No',
+    demoUnit: 'No',
+    mdmStatus: 'OFF',
+    miLockStatus: 'Unlocked',
+    miLostStatus: 'Clean',
     deviceType: 'apple' as const,
     verdict: 'Safe to buy',
     verdictType: 'safe' as const,
@@ -178,6 +188,24 @@ describe('ImeiResultSchema', () => {
     expect(ImeiResultSchema.safeParse(validImeiResult).success).toBe(true);
   });
 
+  it('accepts payloads when extended API fields are omitted', () => {
+    const {
+      activationStatus: _activationStatus,
+      serialNumber: _serialNumber,
+      purchaseDate: _purchaseDate,
+      purchaseCountry: _purchaseCountry,
+      warranty: _warranty,
+      refurbished: _refurbished,
+      demoUnit: _demoUnit,
+      mdmStatus: _mdmStatus,
+      miLockStatus: _miLockStatus,
+      miLostStatus: _miLostStatus,
+      ...minimalImeiResult
+    } = validImeiResult;
+
+    expect(ImeiResultSchema.safeParse(minimalImeiResult).success).toBe(true);
+  });
+
   it('rejects invalid payloads', () => {
     expect(
       ImeiResultSchema.safeParse({
@@ -185,6 +213,22 @@ describe('ImeiResultSchema', () => {
         status: 'UnknownStatus',
       }).success
     ).toBe(false);
+  });
+
+  it('accepts provider-formatted purchase dates', () => {
+    expect(
+      ImeiResultSchema.safeParse({
+        ...validImeiResult,
+        purchaseDate: '22/09/2025',
+      }).success
+    ).toBe(true);
+
+    expect(
+      ImeiResultSchema.safeParse({
+        ...validImeiResult,
+        purchaseDate: 'September 22, 2025',
+      }).success
+    ).toBe(true);
   });
 });
 
