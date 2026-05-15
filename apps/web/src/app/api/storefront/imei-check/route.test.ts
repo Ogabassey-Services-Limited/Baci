@@ -119,12 +119,16 @@ function createSupabaseMock(rows: ImeiLookupRow[] = []) {
   }> = [];
   let insertedPayload: Record<string, unknown> | null = null;
   let insertError: { code?: string; message: string } | null = null;
+  let updateError: { code?: string; message: string } | null = null;
 
   const supabase = {
     __rows: rows,
     __updates: updates,
     __setInsertError: (error: { code?: string; message: string } | null) => {
       insertError = error;
+    },
+    __setUpdateError: (error: { code?: string; message: string } | null) => {
+      updateError = error;
     },
     from: vi.fn((table: string) => {
       if (table !== 'imei_lookups') {
@@ -140,6 +144,9 @@ function createSupabaseMock(rows: ImeiLookupRow[] = []) {
           filters[column] = value;
           if (activeUpdate) {
             activeUpdate.filters[column] = value;
+            if (updateError) {
+              return { error: updateError };
+            }
           }
           return builder;
         }),
@@ -628,6 +635,40 @@ describe('POST /api/storefront/imei-check', () => {
 
     expect(response.status).toBe(502);
     expect(body.code).toBe('REFUND_PENDING');
+    expect(supabase.__updates.at(-1)).toMatchObject({
+      filters: { id: 'lookup-1' },
+      payload: {
+        cached_status: 502,
+        status: 'refund_pending',
+      },
+    });
+  });
+
+  it('fails when refund_pending state cannot be persisted', async () => {
+    mocks.mockRequestSickwCheck.mockResolvedValueOnce({
+      body: {
+        code: 'SICKW_UNAVAILABLE',
+        error: 'Lookup failed; your wallet was refunded.',
+        success: false,
+      },
+      ok: false,
+      refundReason: 'error',
+      sickwStatus: 'unavailable',
+      status: 502,
+    });
+    mocks.mockRefundImeiWalletPayment.mockRejectedValueOnce(
+      new Error('refund rpc down')
+    );
+    const supabase = createSupabaseMock();
+    supabase.__setUpdateError({ message: 'database unavailable' });
+    mockAuthenticatedUser(supabase);
+    const { POST } = await importRoute();
+
+    const response = await POST(createRequest());
+    const body = (await response.json()) as { code: string };
+
+    expect(response.status).toBe(500);
+    expect(body.code).toBe('REFUND_STATE_SAVE_FAILED');
     expect(supabase.__updates.at(-1)).toMatchObject({
       filters: { id: 'lookup-1' },
       payload: {
