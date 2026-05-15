@@ -41,10 +41,17 @@ vi.mock(
   '@/components/dashboard/integrations/agent-commerce-controls-card',
   () => ({
     AgentCommerceControlsCard: ({
+      initialCustomSettings,
       initialEnabled,
     }: {
+      initialCustomSettings?: Record<string, unknown>;
       initialEnabled: boolean;
-    }) => <div>agent-commerce-controls:{String(initialEnabled)}</div>,
+    }) => (
+      <div>
+        agent-commerce-controls:{String(initialEnabled)}:
+        {JSON.stringify(initialCustomSettings ?? {})}
+      </div>
+    ),
   })
 );
 
@@ -65,6 +72,10 @@ describe('dashboard trust settings page', () => {
         },
         feature_settings: {
           agentic_checkout_enabled: true,
+          custom_settings: {
+            agentic_agent_allowlist: ['openai-agent'],
+            agentic_agent_denylist: ['badbot'],
+          },
         },
       },
     } as never);
@@ -73,7 +84,9 @@ describe('dashboard trust settings page', () => {
 
     expect(screen.getByText('trust:2018')).toBeInTheDocument();
     expect(
-      screen.getByText('agent-commerce-controls:true')
+      screen.getByText(
+        'agent-commerce-controls:true:{"agentic_agent_allowlist":["openai-agent"],"agentic_agent_denylist":["badbot"]}'
+      )
     ).toBeInTheDocument();
     expect(screen.getByText('agent-trust-health')).toBeInTheDocument();
     expect(
@@ -95,7 +108,9 @@ describe('dashboard trust settings page', () => {
     render(await TrustSettingsPage());
 
     expect(
-      screen.getByText('agent-commerce-controls:false')
+      screen.getByText((content) =>
+        content.includes('agent-commerce-controls:false:')
+      )
     ).toBeInTheDocument();
   });
 });

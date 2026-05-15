@@ -22,6 +22,13 @@ export default async function TrustSettingsPage() {
 
   const agenticCheckoutEnabled =
     merchant.feature_settings?.agentic_checkout_enabled !== false;
+  const customSettings = merchant.feature_settings?.custom_settings;
+  const agenticCustomSettings =
+    customSettings &&
+    typeof customSettings === 'object' &&
+    !Array.isArray(customSettings)
+      ? (customSettings as Record<string, unknown>)
+      : {};
 
   return (
     <div className="grid gap-6">
@@ -53,7 +60,10 @@ export default async function TrustSettingsPage() {
 
       <AgentCommerceTrustReadinessCard />
 
-      <AgentCommerceControlsCard initialEnabled={agenticCheckoutEnabled} />
+      <AgentCommerceControlsCard
+        initialCustomSettings={agenticCustomSettings}
+        initialEnabled={agenticCheckoutEnabled}
+      />
 
       <TrustSettingsClient
         initialTrustProfile={merchant.trust_profile ?? null}
