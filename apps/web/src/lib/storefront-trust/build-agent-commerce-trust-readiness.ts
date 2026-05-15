@@ -4,7 +4,6 @@ import type { OpenAIFeedData } from '@/app/api/feed/openai/feed-data';
 import { STOREFRONT_AGENT_ROUTES } from '@/config/storefront-agent-routes';
 import { STOREFRONT_FEED_ROUTES } from '@/config/storefront-feed-routes';
 import { resolveGmcPrimaryImage } from '@/lib/gmc-feed-images';
-import { getProductUrl } from '@/lib/seo-utils';
 import {
   buildAgentPolicyUrls,
   buildAgentProductUrl,
@@ -91,10 +90,6 @@ function buildSurfaceUrls(baseUrl: string, slug: string) {
   };
 }
 
-function getGoogleProductUrl(baseUrl: string, product: FeedProduct): string {
-  return `${trimTrailingSlash(baseUrl)}${getProductUrl(product)}`;
-}
-
 function indexById<T extends { id: string }>(items: T[]): Map<string, T> {
   return new Map(items.map((item) => [item.id, item]));
 }
@@ -153,7 +148,7 @@ export function buildAgentCommerceTrustReadiness({
 
     return (
       buildAgentProductUrl({ baseUrl, product: openAiProduct }) !==
-      getGoogleProductUrl(baseUrl, googleProduct)
+      buildAgentProductUrl({ baseUrl, product: googleProduct })
     );
   });
 
