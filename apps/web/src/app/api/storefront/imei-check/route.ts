@@ -1,4 +1,7 @@
-import { IMEI_SERVICE_TIERS } from '@baci/shared/imei';
+import {
+  IMEI_SERVICE_TIERS,
+  PRIMARY_IMEI_SERVICE_TIERS,
+} from '@baci/shared/imei';
 import type { NextRequest } from 'next/server';
 import { getImeiHashSalt, getRootDomain, getSickwApiKey } from '@/env';
 import { authenticateApiRequest } from '@/lib/api-auth';
@@ -27,6 +30,10 @@ import {
   refundAndCacheFailure,
   UUID_PATTERN,
 } from './route-helpers';
+
+const PUBLIC_IMEI_SERVICE_TIER_KEYS = new Set<string>(
+  PRIMARY_IMEI_SERVICE_TIERS
+);
 
 export async function POST(request: NextRequest) {
   let activeLookup: {
@@ -116,6 +123,16 @@ export async function POST(request: NextRequest) {
         400
       );
     }
+    const requestedTier = bodyParse.data.tier;
+    if (!PUBLIC_IMEI_SERVICE_TIER_KEYS.has(requestedTier)) {
+      return json(
+        errorBody({
+          code: 'IMEI_TIER_NOT_AVAILABLE',
+          error: 'Selected IMEI service tier is not available.',
+        }),
+        400
+      );
+    }
 
     if (!isValidImeiChecksum(bodyParse.data.imei)) {
       return json(
@@ -157,7 +174,7 @@ export async function POST(request: NextRequest) {
       customerId: customer.id,
       imeiHash,
       merchantId,
-      tier: bodyParse.data.tier,
+      tier: requestedTier,
     };
     const existingLookup = await findLookupByIdempotencyKey(
       supabase,
@@ -179,7 +196,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const serviceTier = IMEI_SERVICE_TIERS[bodyParse.data.tier];
+    const serviceTier = IMEI_SERVICE_TIERS[requestedTier];
     const amount = serviceTier.price;
     const { data: insertedLookup, error: insertError } = await supabase
       .from('imei_lookups')
@@ -190,7 +207,7 @@ export async function POST(request: NextRequest) {
         imei_hash: imeiHash,
         merchant_id: merchantId,
         status: 'pending',
-        tier: bodyParse.data.tier,
+        tier: requestedTier,
       })
       .select('id')
       .single();
@@ -269,7 +286,7 @@ export async function POST(request: NextRequest) {
         merchantId,
         providerResult,
         supabase,
-        tier: bodyParse.data.tier,
+        tier: requestedTier,
       });
     }
 

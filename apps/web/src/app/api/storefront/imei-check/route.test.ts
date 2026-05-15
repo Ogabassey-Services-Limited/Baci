@@ -312,6 +312,21 @@ describe('POST /api/storefront/imei-check', () => {
     expect(mocks.mockResolveImeiCustomer).not.toHaveBeenCalled();
   });
 
+  it('rejects hidden service tiers before customer resolution or persistence', async () => {
+    const { POST } = await importRoute();
+
+    const response = await POST(
+      createRequest({ imei: VALID_IMEI, tier: 'blacklistPro' })
+    );
+    const body = (await response.json()) as { code: string };
+
+    expect(response.status).toBe(400);
+    expect(body.code).toBe('IMEI_TIER_NOT_AVAILABLE');
+    expect(mocks.mockResolveImeiCustomer).not.toHaveBeenCalled();
+    expect(mocks.mockCreateAdminClient).not.toHaveBeenCalled();
+    expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
+  });
+
   it('returns 404 when the authenticated user has no customer for the storefront', async () => {
     mocks.mockResolveImeiCustomer.mockResolvedValueOnce(null);
     const { POST } = await importRoute();
