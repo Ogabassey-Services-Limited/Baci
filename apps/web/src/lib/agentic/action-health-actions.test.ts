@@ -1,0 +1,58 @@
+import { describe, expect, it } from 'vitest';
+import { buildAgenticHealthActions } from './action-health-actions';
+
+const healthyInput = {
+  activeInProgressCount: 0,
+  allowlistCount: 1,
+  isAgenticCheckoutEnabled: true,
+  orderFinalizingCount: 0,
+  paymentClaimingCount: 0,
+  paymentPendingCount: 0,
+  paymentSetupFailedCount: 0,
+  staleInProgressCount: 0,
+  terminalErrorCount: 0,
+};
+
+describe('buildAgenticHealthActions', () => {
+  it('surfaces payment setup recovery states before passive monitors', () => {
+    expect(
+      buildAgenticHealthActions({
+        ...healthyInput,
+        activeInProgressCount: 1,
+        paymentClaimingCount: 1,
+        paymentSetupFailedCount: 1,
+      })
+    ).toEqual([
+      {
+        code: 'AGENTIC_PAYMENT_SETUP_FAILED',
+        count: 1,
+        message:
+          'Agentic checkouts failed while setting up payment collection.',
+        severity: 'attention',
+      },
+      {
+        code: 'AGENTIC_REQUESTS_IN_PROGRESS',
+        count: 1,
+        message: 'Agentic idempotency reservations are still in progress.',
+        severity: 'monitor',
+      },
+      {
+        code: 'AGENTIC_PAYMENT_CLAIMING',
+        count: 1,
+        message: 'Agentic checkouts are claiming payment setup.',
+        severity: 'monitor',
+      },
+    ]);
+  });
+
+  it('returns a single healthy action when no issue counts are present', () => {
+    expect(buildAgenticHealthActions(healthyInput)).toEqual([
+      {
+        code: 'AGENTIC_ACTIONS_HEALTHY',
+        count: 0,
+        message: 'No recent agentic action issues need attention.',
+        severity: 'ok',
+      },
+    ]);
+  });
+});

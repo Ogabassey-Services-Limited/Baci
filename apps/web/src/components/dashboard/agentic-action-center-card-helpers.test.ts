@@ -27,6 +27,14 @@ describe('getActionHref', () => {
     ).toBe('/dashboard/orders?source=agentic');
     expect(
       agenticActionCenterCardHelpers.getActionHref(
+        'AGENTIC_PAYMENT_SETUP_FAILED'
+      )
+    ).toBe('/dashboard/orders?source=agentic');
+    expect(
+      agenticActionCenterCardHelpers.getActionHref('AGENTIC_PAYMENT_CLAIMING')
+    ).toBe('/dashboard/orders?source=agentic');
+    expect(
+      agenticActionCenterCardHelpers.getActionHref(
         'AGENTIC_REQUESTS_IN_PROGRESS'
       )
     ).toBe('/dashboard/orders?source=agentic');
