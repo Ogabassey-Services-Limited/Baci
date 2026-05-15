@@ -424,6 +424,16 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        source: '/',
+        has: [{ type: 'host', value: 'www.ogabassey.com' }],
+        headers: [
+          {
+            key: 'Link',
+            value: OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER,
+          },
+        ],
+      },
+      {
         source: '/(.*)',
         headers: [
           {

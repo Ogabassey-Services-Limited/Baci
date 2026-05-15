@@ -45,12 +45,14 @@ describe('MobileLcpHeroImage', () => {
         fetchPriority: 'high',
         loading: 'eager',
         src: HERO_MOBILE_LCP_SRC,
+        unoptimized: true,
       })
     );
     expect(mockGetImageProps).toHaveBeenCalledWith(
       expect.objectContaining({
         loading: 'lazy',
         src: HERO_MOBILE_LCP_FALLBACK_SRC,
+        unoptimized: true,
       })
     );
     expect(

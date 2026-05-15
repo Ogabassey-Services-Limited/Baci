@@ -84,6 +84,7 @@ export function HeroDesktopGrid({ getHref }: HeroDesktopGridProps) {
                 loading={idx === 0 ? 'eager' : 'lazy'}
                 fetchPriority={idx === 0 ? 'high' : undefined}
                 quality={70}
+                unoptimized
               />
             </div>
           </div>

@@ -35,6 +35,7 @@ export function MobileLcpHeroImage({
     quality: MOBILE_HERO_IMAGE_QUALITY,
     sizes: MOBILE_HERO_IMAGE_SIZES,
     src,
+    unoptimized: true,
     width: MOBILE_HERO_IMAGE_WIDTH,
   });
   const {
@@ -51,29 +52,34 @@ export function MobileLcpHeroImage({
     quality: MOBILE_HERO_IMAGE_QUALITY,
     sizes: MOBILE_HERO_IMAGE_SIZES,
     src: HERO_MOBILE_LCP_FALLBACK_SRC,
+    unoptimized: true,
     width: MOBILE_HERO_IMAGE_WIDTH,
   });
+  const avifSrcSet = srcSet ?? src;
+  const avifSizes = sizes ?? MOBILE_HERO_IMAGE_SIZES;
+  const resolvedFallbackSrcSet = fallbackSrcSet ?? fallbackSrc;
+  const resolvedFallbackSizes = fallbackSizes ?? MOBILE_HERO_IMAGE_SIZES;
 
   return (
     <picture className="block h-full w-full">
       <source
         type="image/avif"
         media={MOBILE_HERO_SOURCE_MEDIA}
-        sizes={sizes}
-        srcSet={srcSet}
+        sizes={avifSizes}
+        srcSet={avifSrcSet}
       />
       <source
         type="image/jpeg"
         media={MOBILE_HERO_SOURCE_MEDIA}
-        sizes={fallbackSizes}
-        srcSet={fallbackSrcSet}
+        sizes={resolvedFallbackSizes}
+        srcSet={resolvedFallbackSrcSet}
       />
       <img
         {...imgProps}
         fetchPriority={shouldPrioritizeImage ? 'high' : undefined}
-        sizes={isResolvedMobileViewport ? fallbackSizes : undefined}
+        sizes={isResolvedMobileViewport ? resolvedFallbackSizes : undefined}
         src={isResolvedMobileViewport ? fallbackSrc : TRANSPARENT_PIXEL_SRC}
-        srcSet={isResolvedMobileViewport ? fallbackSrcSet : undefined}
+        srcSet={isResolvedMobileViewport ? resolvedFallbackSrcSet : undefined}
         className={`h-full w-full ${
           imageFit === 'contain' ? 'object-contain object-right' : 'object-cover'
         }`}

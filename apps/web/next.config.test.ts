@@ -3,20 +3,25 @@ import nextConfig from './next.config';
 import { OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER } from './src/config/ogabassey-hero-assets';
 
 describe('next.config OgaBassey resource headers', () => {
-  it('adds native hero preload Link headers only to the OgaBassey custom-domain home route', async () => {
+  it('adds native hero preload Link headers only to OgaBassey custom-domain home routes', async () => {
     const headers = await nextConfig.headers?.();
+    const findHomeHeadersForHost = (host: string) =>
+      headers?.find(
+        (entry) =>
+          entry.source === '/' &&
+          entry.has?.some(
+            (condition) => condition.type === 'host' && condition.value === host
+          )
+      );
 
-    const ogabasseyHomeHeaders = headers?.find(
-      (entry) =>
-        entry.source === '/' &&
-        entry.has?.some(
-          (condition) =>
-            condition.type === 'host' && condition.value === 'ogabassey.com'
-        )
-    );
+    const apexHomeHeaders = findHomeHeadersForHost('ogabassey.com');
+    const wwwHomeHeaders = findHomeHeadersForHost('www.ogabassey.com');
 
-    expect(ogabasseyHomeHeaders).toBeDefined();
-    expect(ogabasseyHomeHeaders?.headers).toContainEqual({
+    expect(apexHomeHeaders?.headers).toContainEqual({
+      key: 'Link',
+      value: OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER,
+    });
+    expect(wwwHomeHeaders?.headers).toContainEqual({
       key: 'Link',
       value: OGABASSEY_HOME_HERO_PRELOAD_LINK_HEADER,
     });
