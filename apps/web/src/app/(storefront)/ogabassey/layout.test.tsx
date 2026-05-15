@@ -11,12 +11,10 @@ const { mockGenerateStorefrontLayoutMetadata, mockStorefrontLayout } =
     mockStorefrontLayout: vi.fn(
       ({
         children,
-        enableDynamicHeroPreloadDecision: _enableDynamicHeroPreloadDecision,
         loadingFallback: _loadingFallback,
         params: _params,
       }: {
         children: ReactNode;
-        enableDynamicHeroPreloadDecision?: boolean;
         loadingFallback?: ReactNode;
         params: Promise<{ slug: string }>;
       }) => <section aria-label="generic storefront layout">{children}</section>
@@ -54,7 +52,7 @@ describe('OgabasseyLayout', () => {
     vi.clearAllMocks();
   });
 
-  it('renders the storefront layout with static preload decision disabled', async () => {
+  it('renders the storefront layout with the static OgaBassey identifier', async () => {
     const result = OgabasseyLayout({
       children: <p>Home content</p>,
     });
@@ -69,7 +67,6 @@ describe('OgabasseyLayout', () => {
     expect(storefrontLayout).toHaveTextContent('Home content');
 
     const props = mockStorefrontLayout.mock.calls[0]?.[0];
-    expect(props?.enableDynamicHeroPreloadDecision).toBe(false);
     expect(props?.loadingFallback).toBeDefined();
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey' });
     expect(mockPrefetchDNS).not.toHaveBeenCalled();
