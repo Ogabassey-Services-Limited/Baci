@@ -16,7 +16,8 @@ export const size = {
   height: 630,
 };
 export const contentType = 'image/png';
-export const revalidate = 3600;
+// Keep the route response dynamic so transient image-load fallbacks can retry on the next crawler request.
+export const revalidate = 0;
 export const runtime = 'nodejs';
 
 const NO_STORE_HEADERS = { 'Cache-Control': 'no-store, max-age=0' };

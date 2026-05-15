@@ -148,7 +148,7 @@ describe('merchant blog post OG image route', () => {
   it('exports PNG ImageResponse route metadata', () => {
     expect(size).toEqual({ width: 1200, height: 630 });
     expect(contentType).toBe('image/png');
-    expect(revalidate).toBe(3600);
+    expect(revalidate).toBe(0);
     expect(runtime).toBe('nodejs');
   });
 
