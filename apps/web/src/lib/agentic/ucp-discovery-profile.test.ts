@@ -37,6 +37,8 @@ const baseManifest: AgentCommerceManifest = {
   auth: null,
   capabilities: ['catalog.read'],
   links: {
+    agent_native_commerce:
+      'https://ogabassey.com/.well-known/agent-native-commerce',
     feeds: {
       agent_products: 'https://ogabassey.com/feeds/agent-products.jsonl',
       google_merchant_xml: 'https://ogabassey.com/feeds/google-merchant.xml',

@@ -46,12 +46,21 @@ describe('AgenticActionCenterCard', () => {
     render(<AgenticActionCenterCard />);
 
     expect(await screen.findByText('Agent action center')).toBeInTheDocument();
-    expect(screen.getByText('2 open')).toBeInTheDocument();
+    expect(screen.getByText('What changed')).toBeInTheDocument();
+    expect(screen.getAllByText('Needs attention')).toHaveLength(2);
+    expect(screen.getByText('Next move')).toBeInTheDocument();
     expect(
-      screen.getByText(
+      screen.getByText('2 agentic checkout issues need attention.')
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
         'Agentic checkouts are waiting on order finalization recovery.'
       )
+    ).toHaveLength(2);
+    expect(
+      screen.getByText('Review affected checkout activity before agents retry.')
     ).toBeInTheDocument();
+    expect(screen.getByText('2 open')).toBeInTheDocument();
     expect(screen.getByText('2 affected')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /review/i })[0]).toHaveAttribute(
       'href',
@@ -83,6 +92,13 @@ describe('AgenticActionCenterCard', () => {
 
     expect(await screen.findByText('Clear')).toBeInTheDocument();
     expect(
+      screen.getByText('No new agentic recovery issues since the last refresh.')
+    ).toBeInTheDocument();
+    expect(screen.getByText('No action needed right now.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Keep catalog, trust, and payment settings current.')
+    ).toBeInTheDocument();
+    expect(
       screen.getByText('No recent agentic action issues need attention.')
     ).toBeInTheDocument();
     expect(
@@ -110,6 +126,15 @@ describe('AgenticActionCenterCard', () => {
 
     expect(await screen.findByText('3 monitor')).toBeInTheDocument();
     expect(
+      screen.getByText('3 agentic checkout items are active.')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('No blockers, but payment or order status is moving.')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Review pending activity if the count does not fall.')
+    ).toBeInTheDocument();
+    expect(
       screen.getByText(
         'Agentic checkout activity is active and should be monitored.'
       )
@@ -119,6 +144,41 @@ describe('AgenticActionCenterCard', () => {
       'href',
       '/dashboard/orders?source=agentic'
     );
+  });
+
+  it('treats negative action counts as a malformed payload', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        actions: [
+          {
+            code: 'AGENTIC_IDEMPOTENCY_ERRORS',
+            count: -2,
+            message: 'Recent agentic retries ended with server errors.',
+            severity: 'attention',
+          },
+          {
+            code: 'AGENTIC_ORDER_FINALIZING',
+            count: 1,
+            message:
+              'Agentic checkouts are waiting on order finalization recovery.',
+            severity: 'attention',
+          },
+        ],
+      }),
+    } as Response);
+
+    render(<AgenticActionCenterCard />);
+
+    expect(
+      await screen.findByText(
+        'Agentic action health is temporarily unavailable.'
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('1 agentic checkout issue needs attention.')
+    ).not.toBeInTheDocument();
   });
 
   it.each([

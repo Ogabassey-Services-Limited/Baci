@@ -31,15 +31,32 @@ function getIdempotencyState(statusCode: number | null) {
   return 'completed';
 }
 
+function isExpiredInProgressReservation({
+  expiresAt,
+  nowMs,
+  statusCode = null,
+}: {
+  expiresAt: string;
+  nowMs: number;
+  statusCode?: number | null;
+}) {
+  if (statusCode !== null) return false;
+
+  const expiresAtMs = Date.parse(expiresAt);
+  return Number.isFinite(expiresAtMs) && expiresAtMs <= nowMs;
+}
+
 function buildHealthActions({
-  inProgressCount,
+  activeInProgressCount,
   orderFinalizingCount,
   paymentPendingCount,
+  staleInProgressCount,
   terminalErrorCount,
 }: {
-  inProgressCount: number;
+  activeInProgressCount: number;
   orderFinalizingCount: number;
   paymentPendingCount: number;
+  staleInProgressCount: number;
   terminalErrorCount: number;
 }): AgenticHealthAction[] {
   const actions: AgenticHealthAction[] = [];
@@ -53,6 +70,15 @@ function buildHealthActions({
     });
   }
 
+  if (staleInProgressCount > 0) {
+    actions.push({
+      code: 'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS',
+      count: staleInProgressCount,
+      message: 'Agentic retry reservations expired before storing a response.',
+      severity: 'attention',
+    });
+  }
+
   if (orderFinalizingCount > 0) {
     actions.push({
       code: 'AGENTIC_ORDER_FINALIZING',
@@ -62,10 +88,10 @@ function buildHealthActions({
     });
   }
 
-  if (inProgressCount > 0) {
+  if (activeInProgressCount > 0) {
     actions.push({
       code: 'AGENTIC_REQUESTS_IN_PROGRESS',
-      count: inProgressCount,
+      count: activeInProgressCount,
       message: 'Agentic idempotency reservations are still in progress.',
       severity: 'monitor',
     });
@@ -111,10 +137,20 @@ async function loadAgenticActionHealth(
   const { idempotencyRows, requestRows, sessionRows } =
     parseAgenticActionHealthRpcPayload(healthResult.data);
   let inProgressCount = 0;
+  let staleInProgressCount = 0;
   let terminalErrorCount = 0;
+  const nowMs = Date.now();
   for (const row of idempotencyRows) {
     if (row.status_code == null) {
       inProgressCount += 1;
+      if (
+        isExpiredInProgressReservation({
+          expiresAt: row.expires_at,
+          nowMs,
+        })
+      ) {
+        staleInProgressCount += 1;
+      }
     } else if (row.status_code >= 500) {
       terminalErrorCount += 1;
     }
@@ -133,9 +169,10 @@ async function loadAgenticActionHealth(
   return {
     data: {
       actions: buildHealthActions({
-        inProgressCount,
+        activeInProgressCount: inProgressCount - staleInProgressCount,
         orderFinalizingCount,
         paymentPendingCount,
+        staleInProgressCount,
         terminalErrorCount,
       }),
       checkout_sessions: {
@@ -151,6 +188,7 @@ async function loadAgenticActionHealth(
       },
       generated_at: new Date().toISOString(),
       idempotency: {
+        active_in_progress_count: inProgressCount - staleInProgressCount,
         in_progress_count: inProgressCount,
         recent_count: idempotencyRows.length,
         records: idempotencyRows.map((row) => ({
@@ -161,6 +199,7 @@ async function loadAgenticActionHealth(
           status_code: row.status_code,
           updated_at: row.updated_at,
         })),
+        stale_in_progress_count: staleInProgressCount,
         terminal_error_count: terminalErrorCount,
       },
       merchant_id: merchantId,
