@@ -1,5 +1,6 @@
 import macbookProPromoAsset from '@/components/storefront/ogabassey/components/assets/macbook-pro-promo.avif';
 import {
+  OGABASSEY_HERO_DESKTOP_LCP_FALLBACK_SRC,
   OGABASSEY_HERO_DESKTOP_LCP_SRC,
   OGABASSEY_HERO_MOBILE_LCP_FALLBACK_SRC,
   OGABASSEY_HERO_MOBILE_LCP_SRC,
@@ -27,6 +28,7 @@ export interface HeroDesktopSlideData {
   headline: string;
   headlineSuffix: string;
   image: string;
+  fallbackImage: string;
   theme: 'light' | 'dark';
 }
 
@@ -36,6 +38,8 @@ const getImportedImageSrc = (asset: ImportedImageAsset) =>
   typeof asset === 'string' ? asset : asset.src;
 
 export const HERO_DESKTOP_LCP_SRC = OGABASSEY_HERO_DESKTOP_LCP_SRC;
+export const HERO_DESKTOP_LCP_FALLBACK_SRC =
+  OGABASSEY_HERO_DESKTOP_LCP_FALLBACK_SRC;
 export const HERO_MOBILE_LCP_SRC = OGABASSEY_HERO_MOBILE_LCP_SRC;
 export const HERO_MOBILE_LCP_FALLBACK_SRC =
   OGABASSEY_HERO_MOBILE_LCP_FALLBACK_SRC;
@@ -83,6 +87,7 @@ export const DESKTOP_IPHONE_SLIDES: HeroDesktopSlideData[] = [
     headline: 'Beyond',
     headlineSuffix: 'IMAGINATION',
     image: HERO_DESKTOP_LCP_SRC,
+    fallbackImage: HERO_DESKTOP_LCP_FALLBACK_SRC,
     theme: 'light',
   },
   {
@@ -92,6 +97,7 @@ export const DESKTOP_IPHONE_SLIDES: HeroDesktopSlideData[] = [
     headline: 'Forged in',
     headlineSuffix: 'TITANIUM',
     image: HERO_DESKTOP_LCP_SRC,
+    fallbackImage: HERO_DESKTOP_LCP_FALLBACK_SRC,
     theme: 'light',
   },
   {
@@ -101,6 +107,7 @@ export const DESKTOP_IPHONE_SLIDES: HeroDesktopSlideData[] = [
     headline: 'Monster',
     headlineSuffix: 'PERFORMANCE',
     image: HERO_DESKTOP_LCP_SRC,
+    fallbackImage: HERO_DESKTOP_LCP_FALLBACK_SRC,
     theme: 'light',
   },
 ];

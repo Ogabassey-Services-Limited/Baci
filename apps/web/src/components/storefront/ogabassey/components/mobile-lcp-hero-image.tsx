@@ -2,7 +2,6 @@ import { getImageProps } from 'next/image';
 import { HERO_MOBILE_LCP_FALLBACK_SRC } from './hero-data';
 import {
   MOBILE_HERO_IMAGE_HEIGHT,
-  MOBILE_HERO_IMAGE_QUALITY,
   MOBILE_HERO_IMAGE_SIZES,
   MOBILE_HERO_IMAGE_WIDTH,
   MOBILE_HERO_SOURCE_MEDIA,
@@ -38,7 +37,6 @@ export function MobileLcpHeroImage({
     fetchPriority: 'high',
     height: MOBILE_HERO_IMAGE_HEIGHT,
     loading: 'eager',
-    quality: MOBILE_HERO_IMAGE_QUALITY,
     sizes: MOBILE_HERO_IMAGE_SIZES,
     src,
     unoptimized: true,
@@ -55,7 +53,6 @@ export function MobileLcpHeroImage({
     decoding: 'async',
     height: MOBILE_HERO_IMAGE_HEIGHT,
     loading: 'lazy',
-    quality: MOBILE_HERO_IMAGE_QUALITY,
     sizes: MOBILE_HERO_IMAGE_SIZES,
     src: HERO_MOBILE_LCP_FALLBACK_SRC,
     unoptimized: true,
