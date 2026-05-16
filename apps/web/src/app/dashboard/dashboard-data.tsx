@@ -1,3 +1,5 @@
+import { cookies } from 'next/headers';
+import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { buildStoreUrl } from '@/lib/store-url';
 import {
@@ -7,6 +9,7 @@ import {
 } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import type { MerchantTrustProfileSource } from '@/lib/storefront-trust/merchant-trust-profile-types';
+import { createClient } from '@/lib/supabase/server';
 import { getCachedGoogleMerchantFeedData } from '../api/feed/google-merchant/feed-data';
 import { getCachedOpenAIFeedData } from '../api/feed/openai/feed-data';
 import {
@@ -73,10 +76,17 @@ async function loadAgenticTrustReadiness(
 }
 
 export async function DashboardData() {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
   const { merchant } = await getMerchantForUser();
 
   if (!merchant) {
-    return <DashboardClientPage initialTrustCenterState="unauthorized" />;
+    return (
+      <DashboardClientPage
+        initialActionCenterState="unauthorized"
+        initialTrustCenterState="unauthorized"
+      />
+    );
   }
 
   // Trust readiness only renders on the dashboard when the store is
@@ -89,11 +99,15 @@ export async function DashboardData() {
     metricsResult,
     recentSalesResult,
     chartDataResult,
+    actionHealthResult,
     trustReadinessResult,
   ] = await Promise.allSettled([
     getDashboardMetrics(merchant.id),
     getRecentSales(merchant.id, RECENT_SALES_LIMIT),
     getMonthlyChartData(merchant.id),
+    isPublished
+      ? loadAgenticActionHealth(supabase, merchant.id)
+      : Promise.resolve(null),
     isPublished
       ? loadAgenticTrustReadiness(merchant)
       : Promise.resolve<AgentCommerceTrustReadinessSummary | null>(null),
@@ -105,6 +119,8 @@ export async function DashboardData() {
     recentSalesResult.status === 'fulfilled' ? recentSalesResult.value : [];
   const monthlyChartData =
     chartDataResult.status === 'fulfilled' ? chartDataResult.value : [];
+  const actionHealth =
+    actionHealthResult.status === 'fulfilled' ? actionHealthResult.value : null;
   const trustReadiness =
     trustReadinessResult.status === 'fulfilled'
       ? trustReadinessResult.value
@@ -129,6 +145,12 @@ export async function DashboardData() {
       sanitizeError(chartDataResult.reason)
     );
   }
+  if (actionHealthResult.status === 'rejected') {
+    console.error(
+      'Failed to fetch action health:',
+      sanitizeError(actionHealthResult.reason)
+    );
+  }
   if (trustReadinessResult.status === 'rejected') {
     console.error(
       'Failed to fetch trust readiness:',
@@ -138,6 +160,10 @@ export async function DashboardData() {
 
   return (
     <DashboardClientPage
+      initialActionCenterState={
+        !isPublished || actionHealth ? 'ready' : 'error'
+      }
+      initialActionHealth={actionHealth}
       initialMetrics={metrics ?? undefined}
       initialRecentSales={recentSales}
       initialChartData={monthlyChartData}
