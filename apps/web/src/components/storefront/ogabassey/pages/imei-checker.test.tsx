@@ -298,6 +298,10 @@ describe('OgabasseyImeiChecker', () => {
 
   it.each([
     [
+      'LOOKUP_RESULT_SAVE_FAILED',
+      'IMEI lookup completed but the result could not be saved.',
+    ],
+    [
       'REFUND_STATE_SAVE_FAILED',
       'Lookup failed and refund status could not be saved.',
     ],

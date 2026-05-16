@@ -30,6 +30,7 @@ const PUBLIC_IMEI_SERVICE_TIER_KEYS = new Set<ImeiServiceTierKey>(
 );
 const UNRESOLVED_IMEI_RESPONSE_CODES = new Set([
   'IDEMPOTENT_REQUEST_IN_FLIGHT',
+  'LOOKUP_RESULT_SAVE_FAILED',
   'REFUND_PENDING',
   'REFUND_STATE_SAVE_FAILED',
   'REFUNDED_STATE_SAVE_FAILED',
@@ -143,7 +144,9 @@ export default function ImeiCheckerScreen() {
     }
 
     if (walletQuery.isError) {
-      setError('Wallet balance unavailable. Refresh your wallet and try again.');
+      setError(
+        'Wallet balance unavailable. Refresh your wallet and try again.'
+      );
       return;
     }
 

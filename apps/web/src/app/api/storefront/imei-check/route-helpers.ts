@@ -400,14 +400,9 @@ export async function cacheSuccessfulLookup({
   supabaseAdmin: AdminSupabaseClient;
   tier: ImeiServiceTierKey;
 }) {
-  // The paid provider lookup already SUCCEEDED here. If persisting the
-  // result (our own DB write) fails, we must NOT rethrow: the route's outer
-  // catch would see debitSucceeded and route into refundAndCacheFailure,
-  // wrongly refunding the customer and discarding a result the merchant
-  // already paid SICKW for. Return the result regardless; log loudly so the
-  // unpersisted lookup can be reconciled (idempotency replay will re-hit
-  // SICKW until it is persisted).
-  let persisted = true;
+  // The paid provider lookup already SUCCEEDED here. If persisting our own
+  // DB result fails, return an explicit non-terminal error instead of routing
+  // through the outer refund path or pretending the result is replayable.
   try {
     await cacheLookupResponse({
       body: providerResult.body,
@@ -419,9 +414,8 @@ export async function cacheSuccessfulLookup({
       terminalStatus: 'completed',
     });
   } catch (persistError) {
-    persisted = false;
     console.error(
-      '[IMEI Check] CRITICAL: paid lookup succeeded but result persistence failed; returning result without refund (needs reconciliation)',
+      '[IMEI Check] CRITICAL: paid lookup succeeded but result persistence failed; returning unresolved error without refund',
       {
         customer_id: customerId,
         error: persistError,
@@ -429,6 +423,22 @@ export async function cacheSuccessfulLookup({
         merchant_id: merchantId,
       }
     );
+    const body = errorBody({
+      code: 'LOOKUP_RESULT_SAVE_FAILED',
+      error:
+        'IMEI lookup completed but the result could not be saved. Contact support before retrying.',
+    });
+    console.info({
+      amount,
+      customer_id: customerId,
+      latency_ms: latencyMs,
+      lookup_id: lookupId,
+      merchant_id: merchantId,
+      outcome: 'completed_persistence_failed',
+      sickw_status: providerResult.sickwStatus,
+      tier,
+    });
+    return json(body, 500);
   }
   console.info({
     amount,
@@ -436,7 +446,7 @@ export async function cacheSuccessfulLookup({
     latency_ms: latencyMs,
     lookup_id: lookupId,
     merchant_id: merchantId,
-    outcome: persisted ? 'completed' : 'completed_unpersisted',
+    outcome: 'completed',
     sickw_status: providerResult.sickwStatus,
     tier,
   });

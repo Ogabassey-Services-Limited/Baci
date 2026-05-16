@@ -587,6 +587,27 @@ describe('POST /api/storefront/imei-check', () => {
     });
   });
 
+  it('returns an unresolved error when successful lookup persistence fails', async () => {
+    const adminSupabase = createSupabaseMock();
+    adminSupabase.__setUpdateError({ message: 'database unavailable' });
+    mockAuthenticatedUser({ adminSupabase });
+    const { POST } = await importRoute();
+
+    const response = await POST(createRequest());
+    const body = (await response.json()) as { code: string };
+
+    expect(response.status).toBe(500);
+    expect(body.code).toBe('LOOKUP_RESULT_SAVE_FAILED');
+    expect(mocks.mockRefundImeiWalletPayment).not.toHaveBeenCalled();
+    expect(adminSupabase.__updates.at(-1)).toMatchObject({
+      filters: { id: 'lookup-1' },
+      payload: {
+        cached_status: 200,
+        status: 'completed',
+      },
+    });
+  });
+
   it('refunds and caches a 502 when SICKW fails', async () => {
     mocks.mockRequestSickwCheck.mockResolvedValueOnce({
       body: {
