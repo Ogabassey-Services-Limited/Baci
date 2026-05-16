@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import type { PropsWithChildren } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import type { AgentCommerceTrustReadiness } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
+import type { AgentCommerceTrustReadinessSummary } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 import { AgenticTrustCenterCard } from './agentic-trust-center-card';
 
 vi.mock('next/link', () => ({
@@ -16,7 +16,7 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-const baseReadiness: AgentCommerceTrustReadiness = {
+const baseReadiness: AgentCommerceTrustReadinessSummary = {
   checks: [
     {
       id: 'catalog-surface-parity',
@@ -26,25 +26,6 @@ const baseReadiness: AgentCommerceTrustReadiness = {
     },
   ],
   status: 'pass',
-  surfaces: {
-    agentCommerceManifest: 'https://example.com/agent-commerce.json',
-    agentNativeCommerce:
-      'https://example.com/.well-known/agent-native-commerce',
-    agentTrust: 'https://example.com/agent-trust.json',
-    currentProductFeed: 'https://example.com/feeds/agent-products.jsonl',
-    googleMerchantXml: 'https://example.com/feeds/google-merchant.xml',
-    openAiProductFeed: 'https://example.com/feeds/openai.jsonl',
-    productApi: 'https://example.com/api/storefront/demo/products',
-    policies: {
-      privacy_policy_url: 'https://example.com/privacy',
-      return_policy_url: 'https://example.com/returns',
-      shipping_policy_url: 'https://example.com/shipping',
-      terms_of_service_url: 'https://example.com/terms',
-    },
-    robots: 'https://example.com/robots.txt',
-    sitemap: 'https://example.com/sitemap.xml',
-    ucpProfile: 'https://example.com/.well-known/ucp',
-  },
   totals: {
     googleProducts: 4,
     latestProductUpdatedAt: '2026-05-15T00:00:00.000Z',
@@ -92,7 +73,7 @@ describe('AgenticTrustCenterCard', () => {
         staleProducts: 2,
         urlMismatches: 3,
       },
-    } satisfies AgentCommerceTrustReadiness;
+    } satisfies AgentCommerceTrustReadinessSummary;
 
     render(
       <AgenticTrustCenterCard readiness={readinessWithBlockers} state="ready" />
@@ -104,6 +85,32 @@ describe('AgenticTrustCenterCard', () => {
     const reviewLinks = screen.getAllByRole('link', { name: /review/i });
     expect(reviewLinks).toHaveLength(2);
     expect(reviewLinks[0]).toHaveAttribute('href', '/dashboard/seo');
+  });
+
+  it('renders action fixes from the slim summary affectedProductCount', () => {
+    // Regression: the slim client payload carries `affectedProductCount`
+    // instead of the heavy `affectedProductIds` array. The card must still
+    // surface the fix without the array being serialized to the client.
+    const readinessWithCounts: AgentCommerceTrustReadinessSummary = {
+      ...baseReadiness,
+      checks: [
+        {
+          affectedProductCount: 7,
+          id: 'catalog-surface-parity',
+          label: 'Catalog surface parity',
+          message: 'Products missing from a feed.',
+          severity: 'fail',
+        },
+      ],
+      status: 'fail',
+    };
+
+    render(
+      <AgenticTrustCenterCard readiness={readinessWithCounts} state="ready" />
+    );
+
+    expect(screen.getByText('Needs fixes')).toBeInTheDocument();
+    expect(screen.getByText('Review catalog surfaces')).toBeInTheDocument();
   });
 
   it('returns null for unauthorized state', () => {

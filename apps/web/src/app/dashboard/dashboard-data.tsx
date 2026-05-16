@@ -1,6 +1,10 @@
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { buildStoreUrl } from '@/lib/store-url';
-import { buildAgentCommerceTrustReadiness } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
+import {
+  type AgentCommerceTrustReadinessSummary,
+  buildAgentCommerceTrustReadiness,
+  summarizeAgentCommerceTrustReadiness,
+} from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import type { MerchantTrustProfileSource } from '@/lib/storefront-trust/merchant-trust-profile-types';
 import { getCachedGoogleMerchantFeedData } from '../api/feed/google-merchant/feed-data';
@@ -50,16 +54,22 @@ async function loadAgenticTrustReadiness(
     getCachedGoogleMerchantFeedData(merchant.id, slug),
   ]);
 
-  return buildAgentCommerceTrustReadiness({
-    baseUrl,
-    googleFeedData,
-    merchant: {
-      business_name: merchant.business_name,
-      slug,
-    },
-    openAiFeedData,
-    trustProfile,
-  });
+  // Project to the aggregate-only summary before it crosses the
+  // server/client boundary. The full readiness payload includes per-check
+  // `affectedProductIds` arrays that can hold thousands of IDs for large
+  // catalogs; the dashboard card only renders counts/status/severity.
+  return summarizeAgentCommerceTrustReadiness(
+    buildAgentCommerceTrustReadiness({
+      baseUrl,
+      googleFeedData,
+      merchant: {
+        business_name: merchant.business_name,
+        slug,
+      },
+      openAiFeedData,
+      trustProfile,
+    })
+  );
 }
 
 export async function DashboardData() {
@@ -68,6 +78,11 @@ export async function DashboardData() {
   if (!merchant) {
     return <DashboardClientPage initialTrustCenterState="unauthorized" />;
   }
+
+  // Trust readiness only renders on the dashboard when the store is
+  // published (see the `merchant?.is_published` gates in client-page.tsx),
+  // so skip the expensive feed/profile work entirely for unpublished stores.
+  const isPublished = Boolean(merchant.is_published);
 
   // Use Promise.allSettled to handle partial failures gracefully
   const [
@@ -79,7 +94,9 @@ export async function DashboardData() {
     getDashboardMetrics(merchant.id),
     getRecentSales(merchant.id, RECENT_SALES_LIMIT),
     getMonthlyChartData(merchant.id),
-    loadAgenticTrustReadiness(merchant),
+    isPublished
+      ? loadAgenticTrustReadiness(merchant)
+      : Promise.resolve<AgentCommerceTrustReadinessSummary | null>(null),
   ]);
 
   const metrics =
@@ -124,7 +141,9 @@ export async function DashboardData() {
       initialMetrics={metrics ?? undefined}
       initialRecentSales={recentSales}
       initialChartData={monthlyChartData}
-      initialTrustCenterState={trustReadiness ? 'ready' : 'error'}
+      initialTrustCenterState={
+        !isPublished || trustReadiness ? 'ready' : 'error'
+      }
       initialTrustReadiness={trustReadiness}
     />
   );

@@ -28,7 +28,7 @@ import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { formatPrice } from '@/lib/currency-utils';
 import { requestMerchantPublish } from '@/lib/merchant-publish-client';
-import type { AgentCommerceTrustReadiness } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
+import type { AgentCommerceTrustReadinessSummary } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 import { cn } from '@/lib/utils';
 import {
   type DashboardMetrics,
@@ -82,7 +82,7 @@ interface DashboardClientPageProps {
   initialRecentSales?: RecentSale[];
   initialChartData?: MonthlyChartData[];
   initialTrustCenterState?: 'ready' | 'error' | 'unauthorized';
-  initialTrustReadiness?: AgentCommerceTrustReadiness | null;
+  initialTrustReadiness?: AgentCommerceTrustReadinessSummary | null;
 }
 
 export default function DashboardClientPage({

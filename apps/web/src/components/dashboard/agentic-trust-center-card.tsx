@@ -12,24 +12,26 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import type { AgentCommerceTrustReadiness } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
+import type { AgentCommerceTrustReadinessSummary } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 
 const MAX_ACTION_ITEMS = 3;
 
 export type TrustCenterState = 'ready' | 'error' | 'unauthorized';
 
 interface AgenticTrustCenterCardProps {
-  readiness: AgentCommerceTrustReadiness | null;
+  readiness: AgentCommerceTrustReadinessSummary | null;
   state: TrustCenterState;
 }
 
-function getStatusLabel(status: AgentCommerceTrustReadiness['status']) {
+function getStatusLabel(status: AgentCommerceTrustReadinessSummary['status']) {
   if (status === 'pass') return 'Healthy';
   if (status === 'warn') return 'Needs review';
   return 'Needs fixes';
 }
 
-function getStatusDescription(status: AgentCommerceTrustReadiness['status']) {
+function getStatusDescription(
+  status: AgentCommerceTrustReadinessSummary['status']
+) {
   if (status === 'pass') {
     return 'Trust checks are healthy for agent discovery and conversion.';
   }
@@ -41,7 +43,7 @@ function getStatusDescription(status: AgentCommerceTrustReadiness['status']) {
   return 'Trust blockers are reducing agent conversion reliability.';
 }
 
-function buildStatusSummary(readiness: AgentCommerceTrustReadiness) {
+function buildStatusSummary(readiness: AgentCommerceTrustReadinessSummary) {
   const failingChecks = readiness.checks.filter(
     (check) => check.severity === 'fail'
   ).length;
