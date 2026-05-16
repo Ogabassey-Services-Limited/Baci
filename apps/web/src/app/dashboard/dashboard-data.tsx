@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers';
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { buildStoreUrl } from '@/lib/store-url';
@@ -90,8 +89,7 @@ async function loadAgenticTrustReadiness(
 }
 
 export async function DashboardData() {
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = await createClient();
   const { merchant } = await getMerchantForUser();
 
   if (!merchant) {
