@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { cookies, headers } from 'next/headers';
+import { getPlatformBlogSitemapPosts } from '@/lib/platform-blog';
 import { createClient } from '@/lib/supabase/server';
 
 // Fetch active merchants for dynamic storefront URLs
@@ -22,23 +23,6 @@ async function fetchActiveMerchants() {
     console.error('Failed to fetch merchants:', error);
     return [];
   }
-}
-
-// Fetch blog posts from database (or CMS in future)
-function fetchBlogPosts() {
-  // TODO: Replace with actual blog posts table when implemented
-  // For now, return static posts
-  return [
-    {
-      slug: 'ai-revolutionizing-ecommerce',
-      lastModified: new Date('2025-10-24'),
-    },
-    {
-      slug: 'writing-product-descriptions',
-      lastModified: new Date('2025-10-18'),
-    },
-    { slug: 'introducing-baci-pro', lastModified: new Date('2025-10-10') },
-  ];
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -72,16 +56,35 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: page.priority,
   }));
 
-  // Add dynamic blog posts
-  const blogPosts = await fetchBlogPosts();
-  blogPosts.forEach((post) => {
-    sitemapEntries.push({
-      url: `${siteUrl}/blog/${post.slug}`,
-      lastModified: post.lastModified,
-      changeFrequency: 'weekly',
-      priority: 0.7,
+  // Add dynamic platform blog posts
+  try {
+    const blogPosts = await getPlatformBlogSitemapPosts();
+    blogPosts.forEach((post) => {
+      if (!post.slug) {
+        return;
+      }
+
+      const publishedAt = post.published_at
+        ? new Date(post.published_at)
+        : null;
+      const updatedAt = post.updated_at ? new Date(post.updated_at) : null;
+      const lastModified =
+        updatedAt && !Number.isNaN(updatedAt.getTime())
+          ? updatedAt
+          : publishedAt && !Number.isNaN(publishedAt.getTime())
+            ? publishedAt
+            : new Date();
+
+      sitemapEntries.push({
+        url: `${siteUrl}/blog/${post.slug}`,
+        lastModified,
+        changeFrequency: 'weekly',
+        priority: 0.7,
+      });
     });
-  });
+  } catch (error) {
+    console.error('Failed to fetch platform blog sitemap posts:', error);
+  }
 
   // Add merchant storefronts (for SEO discovery)
   // Note: Individual merchant sitemaps are served at /[slug]/sitemap.xml

@@ -10,9 +10,39 @@ export const BLOG_FEATURED_VARIANT_KEYS = [
 export type BlogFeaturedVariantKey =
   (typeof BLOG_FEATURED_VARIANT_KEYS)[number];
 
+export const PLATFORM_BLOG_MEDIA_PREFIX = 'platform/blog';
+
+export type BlogStorageScope =
+  | { kind: 'merchant'; merchantId: string }
+  | { kind: 'platform' };
+
 const BLOG_FEATURED_VARIANT_FILENAME = new RegExp(
   `^(${BLOG_FEATURED_VARIANT_KEYS.map((key) => key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\.webp$`
 );
+
+function resolveBlogStorageScope(
+  scopeOrMerchantId: string | BlogStorageScope
+): BlogStorageScope | null {
+  if (typeof scopeOrMerchantId === 'string') {
+    const merchantId = scopeOrMerchantId.trim();
+    return merchantId ? { kind: 'merchant', merchantId } : null;
+  }
+
+  if (scopeOrMerchantId.kind === 'platform') {
+    return scopeOrMerchantId;
+  }
+
+  const merchantId = scopeOrMerchantId.merchantId.trim();
+  return merchantId ? { kind: 'merchant', merchantId } : null;
+}
+
+function getExpectedPrefix(scope: BlogStorageScope): [string, string] {
+  if (scope.kind === 'platform') {
+    return ['platform', 'blog'];
+  }
+
+  return [scope.merchantId, 'blog'];
+}
 
 function getConfiguredBlogMediaCdnOrigin(origin?: string): string {
   const configured =
@@ -29,8 +59,13 @@ function getConfiguredBlogMediaCdnOrigin(origin?: string): string {
 
 export function isManagedBlogStoragePath(
   path: string,
-  merchantId: string
+  scopeOrMerchantId: string | BlogStorageScope
 ): boolean {
+  const scope = resolveBlogStorageScope(scopeOrMerchantId);
+  if (!scope) {
+    return false;
+  }
+
   if (
     !path ||
     path.includes('..') ||
@@ -45,7 +80,8 @@ export function isManagedBlogStoragePath(
     return false;
   }
 
-  if (segments[0] !== merchantId || segments[1] !== 'blog') {
+  const [expectedSegment0, expectedSegment1] = getExpectedPrefix(scope);
+  if (segments[0] !== expectedSegment0 || segments[1] !== expectedSegment1) {
     return false;
   }
 
@@ -66,7 +102,7 @@ export function isManagedBlogStoragePath(
 
 export function extractManagedBlogStoragePath(
   publicUrl: string,
-  merchantId: string
+  scopeOrMerchantId: string | BlogStorageScope
 ): string | null {
   try {
     const parsed = new URL(publicUrl);
@@ -81,7 +117,7 @@ export function extractManagedBlogStoragePath(
         : '';
 
     const normalized = managedPath.replace(/^\/+/, '');
-    if (!isManagedBlogStoragePath(normalized, merchantId)) {
+    if (!isManagedBlogStoragePath(normalized, scopeOrMerchantId)) {
       return null;
     }
 
@@ -93,11 +129,11 @@ export function extractManagedBlogStoragePath(
 
 export function buildBlogMediaCdnUrl(
   storagePath: string,
-  merchantId: string,
+  scopeOrMerchantId: string | BlogStorageScope,
   origin?: string
 ): string | null {
   const normalized = storagePath.trim().replace(/^\/+/, '');
-  if (!isManagedBlogStoragePath(normalized, merchantId)) {
+  if (!isManagedBlogStoragePath(normalized, scopeOrMerchantId)) {
     return null;
   }
 
@@ -107,15 +143,15 @@ export function buildBlogMediaCdnUrl(
 
 export function canonicalizeBlogMediaUrl(
   publicUrlOrPath: string,
-  merchantId: string,
+  scopeOrMerchantId: string | BlogStorageScope,
   origin?: string
 ): string | null {
   const input = publicUrlOrPath.trim();
-  const storagePath = isManagedBlogStoragePath(input, merchantId)
+  const storagePath = isManagedBlogStoragePath(input, scopeOrMerchantId)
     ? input
-    : extractManagedBlogStoragePath(input, merchantId);
+    : extractManagedBlogStoragePath(input, scopeOrMerchantId);
 
   return storagePath
-    ? buildBlogMediaCdnUrl(storagePath, merchantId, origin)
+    ? buildBlogMediaCdnUrl(storagePath, scopeOrMerchantId, origin)
     : null;
 }

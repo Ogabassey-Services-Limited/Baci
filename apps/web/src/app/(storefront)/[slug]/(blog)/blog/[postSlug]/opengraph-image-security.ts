@@ -1,6 +1,9 @@
 import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 import { env } from '@/env';
-import { extractManagedBlogStoragePath } from '@/lib/blog-managed-storage-paths';
+import {
+  type BlogStorageScope,
+  extractManagedBlogStoragePath,
+} from '@/lib/blog-managed-storage-paths';
 
 export { getBlogCacheTag } from '@/lib/blog-cache-tags';
 
@@ -42,13 +45,13 @@ export async function withTimeout<T>(
 
 export function isAllowedBlogOgImageUrl(
   raw: string,
-  merchantId: string
+  storageScope: string | BlogStorageScope
 ): boolean {
   try {
     const url = new URL(raw);
     if (url.protocol !== 'https:') return false;
     if (!TRUSTED_OG_IMAGE_ORIGINS.has(url.origin)) return false;
-    return extractManagedBlogStoragePath(raw, merchantId) !== null;
+    return extractManagedBlogStoragePath(raw, storageScope) !== null;
   } catch {
     return false;
   }

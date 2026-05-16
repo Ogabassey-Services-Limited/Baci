@@ -11,6 +11,7 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
+  PenSquare,
   Settings,
   Shield,
   User,
@@ -49,6 +50,7 @@ const navItems: {
   { href: '/admin/merchants' as Route, icon: Building2, label: 'Merchants' },
   { href: '/admin/analytics' as Route, icon: BarChart3, label: 'Analytics' },
   { href: '/admin/system' as Route, icon: Database, label: 'System Health' },
+  { href: '/admin/blog' as Route, icon: PenSquare, label: 'Blog' },
   { href: '/admin/notifications' as Route, icon: Bell, label: 'Notifications' },
   {
     href: '/admin/templates' as Route,

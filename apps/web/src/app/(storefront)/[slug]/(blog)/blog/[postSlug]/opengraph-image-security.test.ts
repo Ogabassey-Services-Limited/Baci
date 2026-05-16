@@ -56,6 +56,16 @@ describe('merchant blog OG image security helpers', () => {
     );
   });
 
+  it('allows trusted platform-blog paths only when the platform scope is provided', () => {
+    const platformUrl =
+      'https://cdn.ogabassey.com/media/platform/blog/launch-faster.png';
+
+    expect(isAllowedBlogOgImageUrl(platformUrl, { kind: 'platform' })).toBe(
+      true
+    );
+    expect(isAllowedBlogOgImageUrl(platformUrl, 'merchant-1')).toBe(false);
+  });
+
   it('allows logos only from trusted HTTPS origins', () => {
     expect(
       isAllowedLogoUrl('https://cdn.ogabassey.com/media/merchant-2/logo.png')

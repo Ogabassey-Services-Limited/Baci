@@ -1,0 +1,200 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
+
+const mockCacheLife = vi.fn();
+const mockCacheTag = vi.fn();
+const mockCreatePublicClient = vi.fn();
+const mockMaybeSingle = vi.fn();
+const mockRange = vi.fn();
+const mockLimit = vi.fn();
+const mockFrom = vi.fn();
+
+const mockQuery = {
+  eq: vi.fn(() => mockQuery),
+  is: vi.fn(() => mockQuery),
+  limit: (...args: unknown[]) => mockLimit(...args),
+  maybeSingle: (...args: unknown[]) => mockMaybeSingle(...args),
+  not: vi.fn(() => mockQuery),
+  order: vi.fn(() => mockQuery),
+  range: (...args: unknown[]) => mockRange(...args),
+  select: vi.fn(() => mockQuery),
+};
+
+vi.mock('next/cache', () => ({
+  cacheLife: (...args: unknown[]) => mockCacheLife(...args),
+  cacheTag: (...args: unknown[]) => mockCacheTag(...args),
+}));
+
+vi.mock('@/lib/supabase/public', () => ({
+  createPublicClient: (...args: unknown[]) => mockCreatePublicClient(...args),
+}));
+
+import {
+  getPlatformBlogFeedPosts,
+  getPlatformBlogListCacheTag,
+  getPlatformBlogListing,
+  getPlatformBlogPost,
+  getPlatformBlogPostCacheTag,
+  getPlatformBlogSitemapPosts,
+  PLATFORM_BLOG_CACHE_TAG,
+  PLATFORM_BLOG_FEED_CACHE_TAG,
+  PLATFORM_BLOG_LIST_CACHE_TAG,
+  PLATFORM_BLOG_SELECT,
+  PLATFORM_BLOG_SITEMAP_CACHE_TAG,
+} from './platform-blog';
+
+describe('platform-blog query helpers', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockFrom.mockReturnValue(mockQuery);
+    mockCreatePublicClient.mockReturnValue({
+      from: mockFrom,
+    });
+    mockMaybeSingle.mockResolvedValue({ data: null, error: null });
+    mockRange.mockResolvedValue({ data: [], error: null, count: 0 });
+    mockLimit.mockResolvedValue({ data: [], error: null });
+  });
+
+  it('reads a published platform post with persistent post cache tags', async () => {
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: {
+        id: 'post-1',
+        slug: 'platform-launch',
+        title: 'Platform Launch',
+      },
+      error: null,
+    });
+
+    const result = await getPlatformBlogPost('platform-launch');
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        slug: 'platform-launch',
+        title: 'Platform Launch',
+      })
+    );
+    expect(mockCreatePublicClient).toHaveBeenCalledWith({
+      clientInfo: 'baci-web-platform-blog',
+      timeoutMs: 4000,
+    });
+    expect(mockFrom).toHaveBeenCalledWith('blog_posts');
+    expect(mockQuery.select).toHaveBeenCalledWith(PLATFORM_BLOG_SELECT);
+    expect(mockQuery.eq).toHaveBeenCalledWith('is_platform_post', true);
+    expect(mockQuery.is).toHaveBeenCalledWith('merchant_id', null);
+    expect(mockQuery.eq).toHaveBeenCalledWith('status', 'published');
+    expect(mockQuery.not).toHaveBeenCalledWith('published_at', 'is', null);
+    expect(mockQuery.eq).toHaveBeenCalledWith('slug', 'platform-launch');
+    expect(mockCacheLife).toHaveBeenCalledWith('merchant');
+    expect(mockCacheTag).toHaveBeenCalledWith(
+      PLATFORM_BLOG_CACHE_TAG,
+      getPlatformBlogPostCacheTag('platform-launch')
+    );
+  });
+
+  it('returns null when platform post lookup errors', async () => {
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'query failed' },
+    });
+
+    const result = await getPlatformBlogPost('missing-post');
+
+    expect(result).toBeNull();
+  });
+
+  it('lists platform posts with pagination and list cache tags', async () => {
+    mockRange.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'post-1',
+          slug: 'platform-launch',
+          title: 'Platform Launch',
+        },
+      ],
+      error: null,
+      count: 1,
+    });
+
+    const result = await getPlatformBlogListing();
+
+    expect(result).toEqual({
+      hasMore: false,
+      limit: BLOG_LISTING_PAGE_SIZE,
+      page: 1,
+      posts: [
+        {
+          id: 'post-1',
+          slug: 'platform-launch',
+          title: 'Platform Launch',
+        },
+      ],
+      total: 1,
+      totalPages: 1,
+    });
+    expect(mockQuery.eq).toHaveBeenCalledWith('is_platform_post', true);
+    expect(mockQuery.is).toHaveBeenCalledWith('merchant_id', null);
+    expect(mockQuery.eq).toHaveBeenCalledWith('status', 'published');
+    expect(mockQuery.not).toHaveBeenCalledWith('published_at', 'is', null);
+    expect(mockRange).toHaveBeenCalledWith(0, BLOG_LISTING_PAGE_SIZE - 1);
+    expect(mockCacheLife).toHaveBeenCalledWith('merchant');
+    expect(mockCacheTag).toHaveBeenCalledWith(
+      PLATFORM_BLOG_CACHE_TAG,
+      PLATFORM_BLOG_LIST_CACHE_TAG,
+      getPlatformBlogListCacheTag(1)
+    );
+  });
+
+  it('caps feed reads at 50 published platform posts', async () => {
+    mockLimit.mockResolvedValueOnce({
+      data: [{ slug: 'platform-launch' }],
+      error: null,
+    });
+
+    const result = await getPlatformBlogFeedPosts();
+
+    expect(result).toEqual([{ slug: 'platform-launch' }]);
+    expect(mockQuery.eq).toHaveBeenCalledWith('is_platform_post', true);
+    expect(mockQuery.is).toHaveBeenCalledWith('merchant_id', null);
+    expect(mockQuery.eq).toHaveBeenCalledWith('status', 'published');
+    expect(mockQuery.not).toHaveBeenCalledWith('published_at', 'is', null);
+    expect(mockLimit).toHaveBeenCalledWith(50);
+    expect(mockCacheTag).toHaveBeenCalledWith(
+      PLATFORM_BLOG_CACHE_TAG,
+      PLATFORM_BLOG_FEED_CACHE_TAG
+    );
+  });
+
+  it('fetches lean sitemap fields with sitemap cache tags', async () => {
+    mockLimit.mockResolvedValueOnce({
+      data: [
+        {
+          slug: 'platform-launch',
+          published_at: '2026-05-16T00:00:00.000Z',
+          updated_at: null,
+        },
+      ],
+      error: null,
+    });
+
+    const result = await getPlatformBlogSitemapPosts();
+
+    expect(result).toEqual([
+      {
+        slug: 'platform-launch',
+        published_at: '2026-05-16T00:00:00.000Z',
+        updated_at: null,
+      },
+    ]);
+    expect(mockQuery.select).toHaveBeenCalledWith(
+      'slug, published_at, updated_at'
+    );
+    expect(mockQuery.eq).toHaveBeenCalledWith('is_platform_post', true);
+    expect(mockQuery.is).toHaveBeenCalledWith('merchant_id', null);
+    expect(mockQuery.eq).toHaveBeenCalledWith('status', 'published');
+    expect(mockQuery.not).toHaveBeenCalledWith('published_at', 'is', null);
+    expect(mockCacheTag).toHaveBeenCalledWith(
+      PLATFORM_BLOG_CACHE_TAG,
+      PLATFORM_BLOG_SITEMAP_CACHE_TAG
+    );
+  });
+});

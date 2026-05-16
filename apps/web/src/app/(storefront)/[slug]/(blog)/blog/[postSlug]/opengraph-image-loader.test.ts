@@ -297,4 +297,21 @@ describe('merchant blog OG image loader', () => {
       status: 'timed_out',
     });
   });
+
+  it('supports platform blog storage scope for allowed featured-image URLs', async () => {
+    mockFetch.mockResolvedValue(imageResponse('image/jpeg', 'featured'));
+
+    const result = await loadRemoteImageDataUri(
+      'https://cdn.ogabassey.com/media/platform/blog/raw.jpg',
+      4000,
+      (url) => isAllowedBlogOgImageUrl(url, { kind: 'platform' })
+    );
+
+    expect(result).toEqual({
+      dataUri: `data:image/jpeg;base64,${Buffer.from('featured').toString(
+        'base64'
+      )}`,
+      status: 'loaded',
+    });
+  });
 });

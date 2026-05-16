@@ -1,5 +1,6 @@
 import {
   BLOG_FEATURED_VARIANT_KEYS,
+  type BlogStorageScope,
   extractManagedBlogStoragePath,
 } from '@/lib/blog-managed-storage-paths';
 
@@ -68,7 +69,7 @@ function isManagedVariantBlogPath(path: string | null): path is string {
 
 export function validateBlogImageVariantIntegrity(
   image: Pick<BlogDiscoverImageFields, 'featured_image_variants'>,
-  merchantId: string
+  storageScope: string | BlogStorageScope
 ): BlogDiscoverImageReadinessResult {
   const variants = getVariantMap(image.featured_image_variants);
   const allowedKeys = new Set<string>(BLOG_FEATURED_VARIANT_KEYS);
@@ -84,7 +85,7 @@ export function validateBlogImageVariantIntegrity(
       continue;
     }
 
-    const path = extractManagedBlogStoragePath(value, merchantId);
+    const path = extractManagedBlogStoragePath(value, storageScope);
     if (!isManagedVariantBlogPath(path)) {
       return notReady('BLOG_FEATURED_IMAGE_VARIANT_NOT_MANAGED', {
         variantKey: key,
@@ -97,9 +98,12 @@ export function validateBlogImageVariantIntegrity(
 
 export function validateBlogDiscoverImageReadiness(
   image: BlogDiscoverImageFields,
-  merchantId: string
+  storageScope: string | BlogStorageScope
 ): BlogDiscoverImageReadinessResult {
-  const variantIntegrity = validateBlogImageVariantIntegrity(image, merchantId);
+  const variantIntegrity = validateBlogImageVariantIntegrity(
+    image,
+    storageScope
+  );
   if (!variantIntegrity.ready) {
     return variantIntegrity;
   }
@@ -112,7 +116,7 @@ export function validateBlogDiscoverImageReadiness(
 
   const originalPath = extractManagedBlogStoragePath(
     image.featured_image_url,
-    merchantId
+    storageScope
   );
   if (!isManagedOriginalBlogPath(originalPath)) {
     return notReady('BLOG_FEATURED_IMAGE_NOT_MANAGED', {
@@ -145,7 +149,10 @@ export function validateBlogDiscoverImageReadiness(
     });
   }
 
-  const landscapePath = extractManagedBlogStoragePath(landscapeUrl, merchantId);
+  const landscapePath = extractManagedBlogStoragePath(
+    landscapeUrl,
+    storageScope
+  );
   if (!isManagedVariantBlogPath(landscapePath)) {
     return notReady('BLOG_FEATURED_IMAGE_VARIANT_NOT_MANAGED', {
       variantKey: 'landscape_16x9',
@@ -157,13 +164,13 @@ export function validateBlogDiscoverImageReadiness(
 
 export function classifyBlogDiscoverImageReadiness(
   post: BlogDiscoverImageFields,
-  merchantId: string
+  storageScope: string | BlogStorageScope
 ): BlogDiscoverImageReadinessState {
   if (post.status !== 'published') {
     return 'ready';
   }
 
-  const result = validateBlogDiscoverImageReadiness(post, merchantId);
+  const result = validateBlogDiscoverImageReadiness(post, storageScope);
   if (result.ready) {
     return 'ready';
   }

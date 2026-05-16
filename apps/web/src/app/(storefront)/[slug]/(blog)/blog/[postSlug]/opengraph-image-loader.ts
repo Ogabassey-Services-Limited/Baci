@@ -4,6 +4,7 @@ import {
   isAllowedBlogOgImageUrl,
   isAllowedLogoUrl,
 } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-security';
+import type { BlogStorageScope } from '@/lib/blog-managed-storage-paths';
 
 const FEATURED_IMAGE_TIMEOUT_MS = 4000;
 const LOGO_IMAGE_TIMEOUT_MS = 1200;
@@ -161,19 +162,22 @@ export async function loadRemoteImageDataUri(
 
 export function loadFeaturedImage(
   url: string | null,
-  merchantId: string
+  storageScope: string | BlogStorageScope
 ): Promise<RemoteImageLoadResult> {
   return loadRemoteImageDataUri(url, FEATURED_IMAGE_TIMEOUT_MS, (raw) =>
-    isAllowedBlogOgImageUrl(raw, merchantId)
+    isAllowedBlogOgImageUrl(raw, storageScope)
   );
 }
 
 export async function loadFeaturedImageWithFallback(
   urls: Array<string | null | undefined>,
-  merchantId: string
+  storageScope: string | BlogStorageScope
 ): Promise<RemoteImageLoadResult> {
   const [primaryUrl, fallbackUrl] = urls;
-  const primaryResult = await loadFeaturedImage(primaryUrl ?? null, merchantId);
+  const primaryResult = await loadFeaturedImage(
+    primaryUrl ?? null,
+    storageScope
+  );
 
   if (
     !fallbackUrl ||
@@ -183,7 +187,7 @@ export async function loadFeaturedImageWithFallback(
     return primaryResult;
   }
 
-  return loadFeaturedImage(fallbackUrl, merchantId);
+  return loadFeaturedImage(fallbackUrl, storageScope);
 }
 
 export async function loadLogoImage(
