@@ -29,6 +29,10 @@ type TestMerchant = {
   business_type: string;
   custom_domain: string;
   id: string;
+  pages: {
+    privacy: string;
+    terms: string;
+  };
   slug: string;
   support_email: string;
   trust_profile: {
@@ -51,6 +55,10 @@ function merchant(): TestMerchant {
     custom_domain: 'ogabassey.com',
     slug: 'ogabassey',
     support_email: 'support@ogabassey.com',
+    pages: {
+      privacy: 'Privacy policy content',
+      terms: 'Terms of service content',
+    },
     trust_profile: {
       return_policy: {
         summary: '7-day returns.',
