@@ -1,4 +1,14 @@
 import { getMerchantForUser } from '@/lib/merchant-server';
+import { buildStoreUrl } from '@/lib/store-url';
+import {
+  type AgentCommerceTrustReadinessSummary,
+  buildAgentCommerceTrustReadiness,
+  summarizeAgentCommerceTrustReadiness,
+} from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
+import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
+import type { MerchantTrustProfileSource } from '@/lib/storefront-trust/merchant-trust-profile-types';
+import { getCachedGoogleMerchantFeedData } from '../api/feed/google-merchant/feed-data';
+import { getCachedOpenAIFeedData } from '../api/feed/openai/feed-data';
 import {
   getDashboardMetrics,
   getMonthlyChartData,
@@ -25,20 +35,69 @@ function sanitizeError(reason: unknown): string {
   return 'Unknown error';
 }
 
+async function loadAgenticTrustReadiness(
+  merchant: {
+    business_name: string;
+    custom_domain?: string | null;
+    id: string;
+    slug?: string | null;
+  } & MerchantTrustProfileSource
+) {
+  const slug = merchant.slug ?? merchant.id;
+  const baseUrl = buildStoreUrl({
+    slug,
+    custom_domain: merchant.custom_domain ?? undefined,
+  });
+  const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
+  const [openAiFeedData, googleFeedData] = await Promise.all([
+    getCachedOpenAIFeedData(merchant.id),
+    getCachedGoogleMerchantFeedData(merchant.id, slug),
+  ]);
+
+  // Project to the aggregate-only summary before it crosses the
+  // server/client boundary. The full readiness payload includes per-check
+  // `affectedProductIds` arrays that can hold thousands of IDs for large
+  // catalogs; the dashboard card only renders counts/status/severity.
+  return summarizeAgentCommerceTrustReadiness(
+    buildAgentCommerceTrustReadiness({
+      baseUrl,
+      googleFeedData,
+      merchant: {
+        business_name: merchant.business_name,
+        slug,
+      },
+      openAiFeedData,
+      trustProfile,
+    })
+  );
+}
+
 export async function DashboardData() {
   const { merchant } = await getMerchantForUser();
 
   if (!merchant) {
-    return <DashboardClientPage />;
+    return <DashboardClientPage initialTrustCenterState="unauthorized" />;
   }
 
+  // Trust readiness only renders on the dashboard when the store is
+  // published (see the `merchant?.is_published` gates in client-page.tsx),
+  // so skip the expensive feed/profile work entirely for unpublished stores.
+  const isPublished = Boolean(merchant.is_published);
+
   // Use Promise.allSettled to handle partial failures gracefully
-  const [metricsResult, recentSalesResult, chartDataResult] =
-    await Promise.allSettled([
-      getDashboardMetrics(merchant.id),
-      getRecentSales(merchant.id, RECENT_SALES_LIMIT),
-      getMonthlyChartData(merchant.id),
-    ]);
+  const [
+    metricsResult,
+    recentSalesResult,
+    chartDataResult,
+    trustReadinessResult,
+  ] = await Promise.allSettled([
+    getDashboardMetrics(merchant.id),
+    getRecentSales(merchant.id, RECENT_SALES_LIMIT),
+    getMonthlyChartData(merchant.id),
+    isPublished
+      ? loadAgenticTrustReadiness(merchant)
+      : Promise.resolve<AgentCommerceTrustReadinessSummary | null>(null),
+  ]);
 
   const metrics =
     metricsResult.status === 'fulfilled' ? metricsResult.value : null;
@@ -46,6 +105,10 @@ export async function DashboardData() {
     recentSalesResult.status === 'fulfilled' ? recentSalesResult.value : [];
   const monthlyChartData =
     chartDataResult.status === 'fulfilled' ? chartDataResult.value : [];
+  const trustReadiness =
+    trustReadinessResult.status === 'fulfilled'
+      ? trustReadinessResult.value
+      : null;
 
   // Log any errors for debugging with sanitized output
   if (metricsResult.status === 'rejected') {
@@ -66,12 +129,22 @@ export async function DashboardData() {
       sanitizeError(chartDataResult.reason)
     );
   }
+  if (trustReadinessResult.status === 'rejected') {
+    console.error(
+      'Failed to fetch trust readiness:',
+      sanitizeError(trustReadinessResult.reason)
+    );
+  }
 
   return (
     <DashboardClientPage
       initialMetrics={metrics ?? undefined}
       initialRecentSales={recentSales}
       initialChartData={monthlyChartData}
+      initialTrustCenterState={
+        !isPublished || trustReadiness ? 'ready' : 'error'
+      }
+      initialTrustReadiness={trustReadiness}
     />
   );
 }
