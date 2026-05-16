@@ -33,8 +33,9 @@ export function StatePickerModal({
         style={[styles.modalContainer, { backgroundColor: colors.background }]}
       >
         <FlatList
-          // ⚡ Bolt Performance Optimization: Explicit getItemLayout avoids asynchronous measurement cycles on the UI thread
-          getItemLayout={(data, index) => ({ length: 64, offset: 64 * index, index })}
+          // getItemLayout stride = stateItem height (64) + marginBottom (SPACING.xs=4).
+          // Margin is excluded from RN height, so length must include it or scroll offset drifts.
+          getItemLayout={(data, index) => ({ length: 68, offset: 68 * index, index })}
           data={NIGERIAN_STATES}
           keyExtractor={(item) => item.code}
           contentContainerStyle={{ padding: SPACING.md }}
