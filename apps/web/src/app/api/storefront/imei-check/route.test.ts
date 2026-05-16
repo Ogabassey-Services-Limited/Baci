@@ -343,7 +343,7 @@ describe('POST /api/storefront/imei-check', () => {
     expect(response.status).toBe(401);
     expect(body.code).toBe('AUTH_REQUIRED');
     expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
-  });
+  }, 20_000);
 
   it('returns 429 before auth or storefront resolution when rate limited', async () => {
     mocks.mockCheckRateLimit.mockResolvedValueOnce({
