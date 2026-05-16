@@ -115,11 +115,17 @@ describe('buildAgentCommerceTrustReadiness', () => {
       productsWithStructuredData: 1,
       staleProducts: 0,
     });
+    expect(result.surfaces.agentNativeCommerce).toBe(
+      'https://ogabassey.com/.well-known/agent-native-commerce'
+    );
     expect(result.surfaces.agentTrust).toBe(
       'https://ogabassey.com/agent-trust.json'
     );
     expect(result.surfaces.robots).toBe('https://ogabassey.com/robots.txt');
     expect(result.surfaces.sitemap).toBe('https://ogabassey.com/sitemap.xml');
+    expect(result.surfaces.ucpProfile).toBe(
+      'https://ogabassey.com/.well-known/ucp'
+    );
     expect(
       result.checks.find((check) => check.id === 'structured-data-readiness')
     ).toMatchObject({ severity: 'pass' });

@@ -13,6 +13,17 @@ export interface AgentCommerceTrustActionItem {
   severity: AgentCommerceTrustCheck['severity'];
 }
 
+export interface AgentCommerceMachineContractLink {
+  description: string;
+  href: string;
+  id:
+    | 'agent-native-commerce'
+    | 'agent-commerce-manifest'
+    | 'agent-trust'
+    | 'ucp-profile';
+  label: string;
+}
+
 const CHECK_ACTIONS: Record<
   AgentCommerceTrustCheck['id'],
   { href: Route; label: string; message: string }
@@ -130,6 +141,47 @@ function buildTrustActionItems(
     .sort((a, b) => getSeverityRank(a.severity) - getSeverityRank(b.severity));
 }
 
+function hasUsableHref(
+  link: AgentCommerceMachineContractLink
+): link is AgentCommerceMachineContractLink {
+  return link.href.trim().length > 0;
+}
+
+function buildMachineContractLinks(
+  readiness: AgentCommerceTrustReadiness
+): AgentCommerceMachineContractLink[] {
+  const surfaces = readiness.surfaces;
+  const links: AgentCommerceMachineContractLink[] = [
+    {
+      description: 'Live proof agents and evaluators can inspect.',
+      href: surfaces.agentNativeCommerce ?? '',
+      id: 'agent-native-commerce',
+      label: 'Agent proof',
+    },
+    {
+      description: 'Capabilities, feeds, payments, and checkout links.',
+      href: surfaces.agentCommerceManifest ?? '',
+      id: 'agent-commerce-manifest',
+      label: 'Commerce manifest',
+    },
+    {
+      description: 'Catalog, policy, image, and crawler readiness.',
+      href: surfaces.agentTrust ?? '',
+      id: 'agent-trust',
+      label: 'Trust signals',
+    },
+    {
+      description: 'Emerging UCP discovery profile for agent clients.',
+      href: surfaces.ucpProfile ?? '',
+      id: 'ucp-profile',
+      label: 'UCP profile',
+    },
+  ];
+
+  return links.filter(hasUsableHref);
+}
+
 export const agentCommerceTrustReadinessCardHelpers = {
+  buildMachineContractLinks,
   buildTrustActionItems,
 };
