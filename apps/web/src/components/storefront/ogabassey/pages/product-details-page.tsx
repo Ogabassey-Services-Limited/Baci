@@ -13,6 +13,15 @@ import { SelectionRequiredModal } from './product-details-page/selection-require
 import { getAvailableOptionsForAxis } from '../variant-attributes';
 import { useProductDetailsState } from './product-details-page/use-product-details-state';
 
+function DeferredDetailsLoadingPlaceholder() {
+  return (
+    <div
+      aria-hidden="true"
+      className="mt-12 min-h-[1200px] [content-visibility:auto] [contain-intrinsic-size:1400px_2200px]"
+    />
+  );
+}
+
 const AdUnit = dynamic(
   () => import('../components/AdUnit').then((mod) => mod.AdUnit),
   { loading: () => null, ssr: false }
@@ -27,7 +36,7 @@ const DeferredProductDetailsSections = dynamic(
     import(
       './product-details-page/deferred-product-details-sections'
     ).then((mod) => mod.DeferredProductDetailsSections),
-  { loading: () => null }
+  { loading: DeferredDetailsLoadingPlaceholder }
 );
 const NegotiationModal = dynamic(
   () =>
@@ -153,12 +162,7 @@ export function ProductDetailsPage({
     setSelectedAttributes((prev) => ({ ...prev, [axis]: value }));
     setMissingFields((prev) => prev.filter((field) => field !== label));
   };
-  const deferredDetailsFallback = (
-    <div
-      aria-hidden="true"
-      className="mt-12 min-h-[1200px] [content-visibility:auto] [contain-intrinsic-size:1400px_2200px]"
-    />
-  );
+  const deferredDetailsFallback = <DeferredDetailsLoadingPlaceholder />;
 
   return (
     <div className="relative bg-[var(--store-background,#ffffff)] pb-32 pt-4">
