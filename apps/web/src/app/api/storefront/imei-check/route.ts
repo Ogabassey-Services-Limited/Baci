@@ -214,19 +214,24 @@ export async function POST(request: NextRequest) {
 
     const serviceTier = IMEI_SERVICE_TIERS[requestedTier];
     const amount = serviceTier.price;
-    const { data: insertedLookup, error: insertError } = await supabase
-      .from('imei_lookups')
-      .insert({
-        amount_ngn: amount,
-        customer_id: customer.id,
-        idempotency_key: idempotencyKey,
-        imei_hash: imeiHash,
-        merchant_id: merchantId,
-        status: 'pending',
-        tier: requestedTier,
-      })
-      .select('id')
-      .single();
+    // H4: imei_lookups is a money/result table. Writes go through the
+    // service-role client only; the route is the sole legitimate writer.
+    // authenticated INSERT/UPDATE grants are revoked (see migration
+    // 20260516120100) so a client cannot forge status/cached_response rows.
+    const { data: insertedLookup, error: insertError } =
+      await createAdminClient()
+        .from('imei_lookups')
+        .insert({
+          amount_ngn: amount,
+          customer_id: customer.id,
+          idempotency_key: idempotencyKey,
+          imei_hash: imeiHash,
+          merchant_id: merchantId,
+          status: 'pending',
+          tier: requestedTier,
+        })
+        .select('id')
+        .single();
 
     if (insertError) {
       if (isUniqueViolation(insertError)) {
@@ -279,7 +284,7 @@ export async function POST(request: NextRequest) {
         lookupId: activeLookup.id,
         merchantId,
         preflightBalance,
-        supabase,
+        supabase: createAdminClient(),
       });
     }
 
@@ -301,7 +306,7 @@ export async function POST(request: NextRequest) {
         lookupId: activeLookup.id,
         merchantId,
         providerResult,
-        supabase,
+        supabase: createAdminClient(),
         tier: requestedTier,
       });
     }
@@ -318,7 +323,7 @@ export async function POST(request: NextRequest) {
           : 'refunded_error',
       sickwStatus: providerResult.sickwStatus,
       status: providerResult.status,
-      supabase,
+      supabase: createAdminClient(),
       supabaseAdmin: createAdminClient(),
     });
   } catch (error) {
@@ -335,7 +340,7 @@ export async function POST(request: NextRequest) {
           lookupId: activeLookup.id,
           sickwStatus: 'wallet_debit_error',
           status: 500,
-          supabase,
+          supabase: createAdminClient(),
           terminalStatus: 'failed_error',
         });
       } catch (cacheError) {
@@ -362,7 +367,7 @@ export async function POST(request: NextRequest) {
         refundSuccessStatus: 'refunded_error',
         sickwStatus: 'unexpected_error',
         status: 502,
-        supabase,
+        supabase: createAdminClient(),
         supabaseAdmin: createAdminClient(),
       });
     }

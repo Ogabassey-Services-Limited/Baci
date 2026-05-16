@@ -400,22 +400,43 @@ export async function cacheSuccessfulLookup({
   supabase: SupabaseClient;
   tier: ImeiServiceTierKey;
 }) {
-  await cacheLookupResponse({
-    body: providerResult.body,
-    lookupId,
-    responseHash: hashProviderResponse(providerResult.rawResponseText),
-    sickwStatus: providerResult.sickwStatus,
-    status: providerResult.status,
-    supabase,
-    terminalStatus: 'completed',
-  });
+  // The paid provider lookup already SUCCEEDED here. If persisting the
+  // result (our own DB write) fails, we must NOT rethrow: the route's outer
+  // catch would see debitSucceeded and route into refundAndCacheFailure,
+  // wrongly refunding the customer and discarding a result the merchant
+  // already paid SICKW for. Return the result regardless; log loudly so the
+  // unpersisted lookup can be reconciled (idempotency replay will re-hit
+  // SICKW until it is persisted).
+  let persisted = true;
+  try {
+    await cacheLookupResponse({
+      body: providerResult.body,
+      lookupId,
+      responseHash: hashProviderResponse(providerResult.rawResponseText),
+      sickwStatus: providerResult.sickwStatus,
+      status: providerResult.status,
+      supabase,
+      terminalStatus: 'completed',
+    });
+  } catch (persistError) {
+    persisted = false;
+    console.error(
+      '[IMEI Check] CRITICAL: paid lookup succeeded but result persistence failed; returning result without refund (needs reconciliation)',
+      {
+        customer_id: customerId,
+        error: persistError,
+        lookup_id: lookupId,
+        merchant_id: merchantId,
+      }
+    );
+  }
   console.info({
     amount,
     customer_id: customerId,
     latency_ms: latencyMs,
     lookup_id: lookupId,
     merchant_id: merchantId,
-    outcome: 'completed',
+    outcome: persisted ? 'completed' : 'completed_unpersisted',
     sickw_status: providerResult.sickwStatus,
     tier,
   });

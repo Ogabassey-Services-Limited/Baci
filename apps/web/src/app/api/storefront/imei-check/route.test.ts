@@ -203,6 +203,11 @@ function mockAuthenticatedUser(supabase = createSupabaseMock()) {
     supabase,
     user: { email: 'buyer@example.com', id: 'user-1' },
   });
+  // H4: imei_lookups INSERT/UPDATE now go through the service-role client.
+  // Point the admin mock at the same backing mock so write assertions
+  // (__updates / __setInsertError / __setUpdateError) observe them.
+  mocks.mockCreateAdminClient.mockReset();
+  mocks.mockCreateAdminClient.mockReturnValue(supabase);
   return supabase;
 }
 
@@ -261,8 +266,6 @@ describe('POST /api/storefront/imei-check', () => {
       sickwStatus: 'success',
       status: 200,
     });
-    mocks.mockCreateAdminClient.mockReset();
-    mocks.mockCreateAdminClient.mockReturnValue(createSupabaseMock());
   });
 
   afterEach(() => {
@@ -547,16 +550,17 @@ describe('POST /api/storefront/imei-check', () => {
       };
     });
     const supabase = createSupabaseMock();
-    const adminSupabase = createSupabaseMock();
     mockAuthenticatedUser(supabase);
-    mocks.mockCreateAdminClient.mockReturnValueOnce(adminSupabase);
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
 
     expect(response.status).toBe(200);
     expect(callOrder).toEqual(['debit', 'sickw']);
-    expect(mocks.mockCreateAdminClient).toHaveBeenCalledOnce();
+    // H4: imei_lookups writes + wallet RPCs go through the service-role
+    // client (createAdminClient), which the shared mock backs. Reads
+    // (resolveImeiCustomer / wallet balance) stay on the user client.
+    expect(mocks.mockCreateAdminClient).toHaveBeenCalled();
     expect(mocks.mockResolveImeiCustomer).toHaveBeenCalledWith(
       expect.objectContaining({ supabase })
     );
@@ -564,9 +568,8 @@ describe('POST /api/storefront/imei-check', () => {
       expect.objectContaining({ supabase })
     );
     expect(mocks.mockRedeemImeiWalletPayment).toHaveBeenCalledWith(
-      expect.objectContaining({ supabaseAdmin: adminSupabase })
+      expect.objectContaining({ supabaseAdmin: supabase })
     );
-    expect(adminSupabase.from).not.toHaveBeenCalled();
     expect(supabase.__updates.at(-1)).toMatchObject({
       filters: { id: 'lookup-1' },
       payload: {
