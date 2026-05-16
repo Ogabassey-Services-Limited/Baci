@@ -36,7 +36,6 @@ export interface TransactionReviewItem {
   imeiValues: string[];
   name: string;
   productId: string | null;
-  productMetadata: Record<string, unknown> | null;
   profit: number | null;
   quantity: number;
   revenue: number;

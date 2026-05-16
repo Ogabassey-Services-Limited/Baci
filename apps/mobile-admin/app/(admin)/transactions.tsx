@@ -121,10 +121,7 @@ export default function TransactionsScreen() {
       return;
     }
 
-    const nextTransactionDateIso = buildTransactionDateIso(
-      dateInput,
-      selectedOrder.createdAt
-    );
+    const nextTransactionDateIso = buildTransactionDateIso(dateInput);
     if (!nextTransactionDateIso) {
       setSaveError('Enter a valid transaction date in YYYY-MM-DD format.');
       return;
@@ -136,7 +133,6 @@ export default function TransactionsScreen() {
         costPrice: nextCostPrice,
         orderId: selectedOrder.id,
         productId: selectedItem.productId,
-        productMetadata: selectedItem.productMetadata,
         supplierName: supplierInput,
         transactionDateIso: nextTransactionDateIso,
       });

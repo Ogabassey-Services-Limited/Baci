@@ -111,25 +111,6 @@ export function getSupplierNameFromMetadata(
   return '';
 }
 
-export function mergeSupplierMetadata(
-  metadata: Record<string, unknown> | null | undefined,
-  supplierName: string
-) {
-  const nextMetadata = { ...(metadata ?? {}) };
-  const normalizedSupplierName = supplierName.trim();
-
-  for (const key of SUPPLIER_METADATA_KEYS) {
-    delete nextMetadata[key];
-  }
-
-  if (normalizedSupplierName) {
-    nextMetadata.supplier_name = normalizedSupplierName;
-    nextMetadata.vendor_name = normalizedSupplierName;
-  }
-
-  return nextMetadata;
-}
-
 export function formatTransactionDateInput(createdAt: string) {
   const date = new Date(createdAt);
 
@@ -140,10 +121,21 @@ export function formatTransactionDateInput(createdAt: string) {
   return date.toISOString().slice(0, 10);
 }
 
-export function buildTransactionDateIso(
-  dateInput: string,
-  currentCreatedAt: string
+export function buildTransactionReviewRangeFilters(
+  startDateIso: string | undefined,
+  endDateIso: string | undefined
 ) {
+  return {
+    endDateFilter: endDateIso
+      ? `transaction_date.lte.${endDateIso},and(transaction_date.is.null,created_at.lte.${endDateIso})`
+      : undefined,
+    startDateFilter: startDateIso
+      ? `transaction_date.gte.${startDateIso},and(transaction_date.is.null,created_at.gte.${startDateIso})`
+      : undefined,
+  };
+}
+
+export function buildTransactionDateIso(dateInput: string) {
   if (!TRANSACTION_REVIEW_DATE_PATTERN.test(dateInput)) {
     return null;
   }
@@ -162,23 +154,7 @@ export function buildTransactionDateIso(
     return null;
   }
 
-  const currentDate = new Date(currentCreatedAt);
-
-  if (Number.isNaN(currentDate.getTime())) {
-    return parsed.toISOString();
-  }
-
-  return new Date(
-    Date.UTC(
-      year,
-      month - 1,
-      day,
-      currentDate.getUTCHours(),
-      currentDate.getUTCMinutes(),
-      currentDate.getUTCSeconds(),
-      currentDate.getUTCMilliseconds()
-    )
-  ).toISOString();
+  return parsed.toISOString();
 }
 
 export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
@@ -214,7 +190,6 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
           imeiValues,
           name: item.name ?? 'Product',
           productId: item.product_id,
-          productMetadata: product?.metadata ?? null,
           profit: costPrice == null ? null : revenue - costPrice * quantity,
           quantity,
           revenue,

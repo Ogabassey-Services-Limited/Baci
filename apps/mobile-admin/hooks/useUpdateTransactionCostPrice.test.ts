@@ -5,58 +5,26 @@ const queryClientMock = vi.hoisted(() => ({
 }));
 
 const supabaseMock = vi.hoisted(() => {
-  type QueryResult = {
-    data: unknown[] | null;
+  type RpcResult = {
     error: { message: string } | null;
   };
 
-  const calls: Array<{ args: unknown[]; method: string; table: string }> = [];
-  const tableResults = new Map<string, QueryResult>();
-
-  function resultFor(table: string): QueryResult {
-    return (
-      tableResults.get(table) ?? { data: [{ id: `${table}-1` }], error: null }
-    );
-  }
-
-  function makeChain(table: string) {
-    const chain: Record<string, (...args: unknown[]) => unknown> = {};
-
-    const passthrough =
-      (method: string) =>
-      (...args: unknown[]) => {
-        calls.push({ args, method, table });
-        return chain;
-      };
-
-    for (const method of ['update', 'eq']) {
-      chain[method] = passthrough(method);
-    }
-
-    chain.select = (...args: unknown[]) => {
-      calls.push({ args, method: 'select', table });
-      return Promise.resolve(resultFor(table));
-    };
-
-    return chain;
-  }
+  let rpcResult: RpcResult = { error: null };
 
   return {
-    calls,
-    from: vi.fn((table: string) => makeChain(table)),
     reset: () => {
-      calls.length = 0;
-      tableResults.clear();
+      rpcResult = { error: null };
     },
-    setTableResult: (table: string, result: QueryResult) => {
-      tableResults.set(table, result);
+    rpc: vi.fn(() => Promise.resolve(rpcResult)),
+    setRpcResult: (result: RpcResult) => {
+      rpcResult = result;
     },
   };
 });
 
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    from: supabaseMock.from,
+    rpc: supabaseMock.rpc,
   },
 }));
 
@@ -78,65 +46,59 @@ vi.mock('@tanstack/react-query', async () => {
 
 import { useUpdateTransactionCostPrice } from './useUpdateTransactionCostPrice';
 
+type UpdateTransactionReviewDetailsInput = {
+  costPrice: number;
+  orderId: string;
+  productId: string;
+  supplierName: string;
+  transactionDateIso: string;
+};
+
+type TransactionReviewMutation = {
+  mutationFn: (input: UpdateTransactionReviewDetailsInput) => Promise<void>;
+  onSuccess: () => void;
+};
+
+function getMutation() {
+  return useUpdateTransactionCostPrice() as unknown as TransactionReviewMutation;
+}
+
+function makeInput(
+  overrides: Partial<UpdateTransactionReviewDetailsInput> = {}
+) {
+  return {
+    costPrice: 125_000,
+    orderId: 'order-1',
+    productId: 'product-1',
+    supplierName: 'Main Supplier',
+    transactionDateIso: '2026-05-12T12:30:15.250Z',
+    ...overrides,
+  };
+}
+
 describe('useUpdateTransactionCostPrice', () => {
   beforeEach(() => {
+    vi.useRealTimers();
     vi.clearAllMocks();
     supabaseMock.reset();
   });
 
-  it('updates cost price, supplier metadata, and transaction date for the merchant', async () => {
-    const mutation = useUpdateTransactionCostPrice() as unknown as {
-      mutationFn: (input: {
-        costPrice: number;
-        orderId: string;
-        productId: string;
-        productMetadata: Record<string, unknown> | null;
-        supplierName: string;
-        transactionDateIso: string;
-      }) => Promise<void>;
-      onSuccess: () => void;
-    };
+  it('saves cost price, supplier, and transaction date through one atomic RPC', async () => {
+    const mutation = getMutation();
 
-    await mutation.mutationFn({
-      costPrice: 125_000,
-      orderId: 'order-1',
-      productId: 'product-1',
-      productMetadata: { color: 'black', vendor: 'Old Vendor' },
-      supplierName: 'Main Supplier',
-      transactionDateIso: '2026-05-12T12:30:15.250Z',
-    });
+    await mutation.mutationFn(makeInput());
 
-    expect(supabaseMock.calls).toEqual(
-      expect.arrayContaining([
-        {
-          args: [
-            {
-              cost_price: 125_000,
-              metadata: {
-                color: 'black',
-                supplier_name: 'Main Supplier',
-                vendor_name: 'Main Supplier',
-              },
-              updated_at: expect.any(String),
-            },
-          ],
-          method: 'update',
-          table: 'products',
-        },
-        { args: ['id', 'product-1'], method: 'eq', table: 'products' },
-        {
-          args: ['merchant_id', 'merchant-1'],
-          method: 'eq',
-          table: 'products',
-        },
-        {
-          args: [{ transaction_date: '2026-05-12T12:30:15.250Z' }],
-          method: 'update',
-          table: 'orders',
-        },
-        { args: ['id', 'order-1'], method: 'eq', table: 'orders' },
-        { args: ['merchant_id', 'merchant-1'], method: 'eq', table: 'orders' },
-      ])
+    expect(supabaseMock.rpc).toHaveBeenCalledTimes(1);
+    expect(supabaseMock.rpc).toHaveBeenCalledWith(
+      'update_transaction_review_details',
+      {
+        p_cost_price: 125_000,
+        p_merchant_id: 'merchant-1',
+        p_order_id: 'order-1',
+        p_product_id: 'product-1',
+        p_supplier_name: 'Main Supplier',
+        p_transaction_date: '2026-05-12T12:30:15.250Z',
+      }
     );
 
     mutation.onSuccess();
@@ -149,131 +111,72 @@ describe('useUpdateTransactionCostPrice', () => {
     });
   });
 
-  it('rejects invalid cost prices before updating either table', async () => {
-    const mutation = useUpdateTransactionCostPrice() as unknown as {
-      mutationFn: (input: {
-        costPrice: number;
-        orderId: string;
-        productId: string;
-        productMetadata: Record<string, unknown> | null;
-        supplierName: string;
-        transactionDateIso: string;
-      }) => Promise<void>;
-    };
+  it('allows today by calendar day even when the timestamp is later than now', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-12T10:00:00.000Z'));
+    const mutation = getMutation();
 
     await expect(
-      mutation.mutationFn({
-        costPrice: -1,
-        orderId: 'order-1',
-        productId: 'product-1',
-        productMetadata: null,
-        supplierName: '',
-        transactionDateIso: '2026-05-12T12:30:15.250Z',
-      })
+      mutation.mutationFn(
+        makeInput({ transactionDateIso: '2026-05-12T18:30:00.000Z' })
+      )
+    ).resolves.toBeUndefined();
+
+    expect(supabaseMock.rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects future transaction calendar days before saving', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-12T10:00:00.000Z'));
+    const mutation = getMutation();
+
+    await expect(
+      mutation.mutationFn(
+        makeInput({ transactionDateIso: '2026-05-13T00:00:00.000Z' })
+      )
+    ).rejects.toThrow('Transaction date cannot be in the future.');
+
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid cost prices before saving', async () => {
+    const mutation = getMutation();
+
+    await expect(
+      mutation.mutationFn(makeInput({ costPrice: -1 }))
     ).rejects.toThrow('Cost price must be a non-negative number');
 
-    expect(supabaseMock.from).not.toHaveBeenCalled();
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
   });
 
-  it('surfaces zero-row order updates as a transaction permission error', async () => {
-    supabaseMock.setTableResult('orders', { data: [], error: null });
-    const mutation = useUpdateTransactionCostPrice() as unknown as {
-      mutationFn: (input: {
-        costPrice: number;
-        orderId: string;
-        productId: string;
-        productMetadata: Record<string, unknown> | null;
-        supplierName: string;
-        transactionDateIso: string;
-      }) => Promise<void>;
-    };
+  it('rejects invalid transaction dates before saving', async () => {
+    const mutation = getMutation();
 
     await expect(
-      mutation.mutationFn({
-        costPrice: 10,
-        orderId: 'order-1',
-        productId: 'product-1',
-        productMetadata: null,
-        supplierName: '',
-        transactionDateIso: '2026-05-12T12:30:15.250Z',
-      })
-    ).rejects.toThrow('Transaction not found for this merchant');
-  });
-
-  it('rejects invalid transaction dates before updating either table', async () => {
-    const mutation = useUpdateTransactionCostPrice() as unknown as {
-      mutationFn: (input: {
-        costPrice: number;
-        orderId: string;
-        productId: string;
-        productMetadata: Record<string, unknown> | null;
-        supplierName: string;
-        transactionDateIso: string;
-      }) => Promise<void>;
-    };
-
-    await expect(
-      mutation.mutationFn({
-        costPrice: 10,
-        orderId: 'order-1',
-        productId: 'product-1',
-        productMetadata: null,
-        supplierName: '',
-        transactionDateIso: 'not-a-date',
-      })
+      mutation.mutationFn(makeInput({ transactionDateIso: 'not-a-date' }))
     ).rejects.toThrow('Enter a valid transaction date.');
 
-    expect(supabaseMock.from).not.toHaveBeenCalled();
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
   });
 
-  it('rejects missing transaction or product identifiers before updating either table', async () => {
-    const mutation = useUpdateTransactionCostPrice() as unknown as {
-      mutationFn: (input: {
-        costPrice: number;
-        orderId: string;
-        productId: string;
-        productMetadata: Record<string, unknown> | null;
-        supplierName: string;
-        transactionDateIso: string;
-      }) => Promise<void>;
-    };
+  it('rejects missing transaction or product identifiers before saving', async () => {
+    const mutation = getMutation();
 
     await expect(
-      mutation.mutationFn({
-        costPrice: 10,
-        orderId: '   ',
-        productId: '',
-        productMetadata: null,
-        supplierName: '',
-        transactionDateIso: '2026-05-12T12:30:15.250Z',
-      })
+      mutation.mutationFn(makeInput({ orderId: '   ', productId: '' }))
     ).rejects.toThrow('Transaction and product are required');
 
-    expect(supabaseMock.from).not.toHaveBeenCalled();
+    expect(supabaseMock.rpc).not.toHaveBeenCalled();
   });
 
-  it('surfaces zero-row product updates as a product permission error', async () => {
-    supabaseMock.setTableResult('products', { data: [], error: null });
-    const mutation = useUpdateTransactionCostPrice() as unknown as {
-      mutationFn: (input: {
-        costPrice: number;
-        orderId: string;
-        productId: string;
-        productMetadata: Record<string, unknown> | null;
-        supplierName: string;
-        transactionDateIso: string;
-      }) => Promise<void>;
-    };
+  it('surfaces RPC save errors', async () => {
+    supabaseMock.setRpcResult({
+      error: { message: 'Transaction not found for this merchant' },
+    });
+    const mutation = getMutation();
 
-    await expect(
-      mutation.mutationFn({
-        costPrice: 10,
-        orderId: 'order-1',
-        productId: 'product-1',
-        productMetadata: null,
-        supplierName: '',
-        transactionDateIso: '2026-05-12T12:30:15.250Z',
-      })
-    ).rejects.toThrow('Product not found for this merchant');
+    await expect(mutation.mutationFn(makeInput())).rejects.toThrow(
+      'Transaction not found for this merchant'
+    );
   });
 });

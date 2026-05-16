@@ -170,7 +170,6 @@ vi.mock('@/components/transactions/TransactionOrderCard', () => ({
         id: string;
         name: string;
         productId: string | null;
-        productMetadata: Record<string, unknown> | null;
         supplierName: string;
       }
     ) => void;
@@ -182,7 +181,6 @@ vi.mock('@/components/transactions/TransactionOrderCard', () => ({
         id: string;
         name: string;
         productId: string | null;
-        productMetadata: Record<string, unknown> | null;
         supplierName: string;
       }>;
       orderNumber: string;
@@ -263,7 +261,6 @@ const sampleOrders = [
         id: 'item-1',
         name: 'Samsung Galaxy S26',
         productId: 'product-1',
-        productMetadata: { supplier_name: 'Old Supplier' },
         profit: null,
         quantity: 1,
         revenue: 5000,
@@ -295,7 +292,6 @@ const sampleOrders = [
         id: 'item-2',
         name: 'Itel Buds Neo 3',
         productId: 'product-2',
-        productMetadata: null,
         profit: 1000,
         quantity: 1,
         revenue: 3000,
@@ -412,9 +408,8 @@ describe('TransactionsScreen', () => {
         costPrice: 1200,
         orderId: 'order-1',
         productId: 'product-1',
-        productMetadata: { supplier_name: 'Old Supplier' },
         supplierName: 'New Supplier',
-        transactionDateIso: '2026-04-12T10:00:00.000Z',
+        transactionDateIso: '2026-04-12T00:00:00.000Z',
       })
     );
   });
@@ -502,9 +497,8 @@ describe('TransactionsScreen', () => {
         costPrice: 1200,
         orderId: 'order-1',
         productId: 'product-1',
-        productMetadata: { supplier_name: 'Old Supplier' },
         supplierName: 'Old Supplier',
-        transactionDateIso: '2026-04-10T10:00:00.000Z',
+        transactionDateIso: '2026-04-10T00:00:00.000Z',
       })
     );
 

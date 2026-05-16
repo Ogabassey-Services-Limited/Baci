@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useMerchant } from '@/hooks/useMerchant';
 import { supabase } from '@/lib/supabase';
 import {
+  buildTransactionReviewRangeFilters,
   mapTransactionOrderRows,
   type TransactionReviewItem,
   type TransactionReviewOrder,
@@ -43,6 +44,10 @@ export function useTransactionReview(range?: TransactionReviewRange) {
         )
       ).toISOString()
     : undefined;
+  const { endDateFilter, startDateFilter } = buildTransactionReviewRangeFilters(
+    startDateIso,
+    endDateIso
+  );
 
   return useQuery<TransactionReviewOrder[]>({
     queryKey: ['transaction-review', merchant?.id, startDateIso, endDateIso],
@@ -61,12 +66,12 @@ export function useTransactionReview(range?: TransactionReviewRange) {
         .order('transaction_date', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false });
 
-      if (startDateIso) {
-        query = query.gte('transaction_date', startDateIso);
+      if (startDateFilter) {
+        query = query.or(startDateFilter);
       }
 
-      if (endDateIso) {
-        query = query.lte('transaction_date', endDateIso);
+      if (endDateFilter) {
+        query = query.or(endDateFilter);
       }
 
       const { data, error } = await query.limit(40);

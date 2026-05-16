@@ -1,15 +1,21 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMerchant } from '@/hooks/useMerchant';
 import { supabase } from '@/lib/supabase';
-import { mergeSupplierMetadata } from '@/lib/transaction-review';
 
 interface UpdateTransactionReviewDetailsInput {
   costPrice: number;
   orderId: string;
   productId: string;
-  productMetadata: Record<string, unknown> | null;
   supplierName: string;
   transactionDateIso: string;
+}
+
+function getUtcDateKey(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function isFutureCalendarDay(date: Date) {
+  return getUtcDateKey(date) > getUtcDateKey(new Date());
 }
 
 export function useUpdateTransactionCostPrice() {
@@ -21,7 +27,6 @@ export function useUpdateTransactionCostPrice() {
       costPrice,
       orderId,
       productId,
-      productMetadata,
       supplierName,
       transactionDateIso,
     }: UpdateTransactionReviewDetailsInput) => {
@@ -46,51 +51,21 @@ export function useUpdateTransactionCostPrice() {
       if (Number.isNaN(parsedTransactionDate.getTime())) {
         throw new Error('Enter a valid transaction date.');
       }
-      if (parsedTransactionDate.getTime() > Date.now()) {
+      if (isFutureCalendarDay(parsedTransactionDate)) {
         throw new Error('Transaction date cannot be in the future.');
       }
 
-      // Select the updated row so we can detect the silent-success case
-      // where the update matched zero rows (wrong merchant, stale product id,
-      // or RLS mismatch) and surface it as a clear error to the caller.
-      const { data, error } = await supabase
-        .from('products')
-        .update({
-          cost_price: costPrice,
-          metadata: mergeSupplierMetadata(productMetadata, supplierName),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', productId)
-        .eq('merchant_id', merchant.id)
-        .select('id');
+      const { error } = await supabase.rpc('update_transaction_review_details', {
+        p_cost_price: costPrice,
+        p_merchant_id: merchant.id,
+        p_order_id: orderId.trim(),
+        p_product_id: productId.trim(),
+        p_supplier_name: supplierName,
+        p_transaction_date: parsedTransactionDate.toISOString(),
+      });
 
       if (error) {
         throw new Error(error.message);
-      }
-
-      if (!data || data.length === 0) {
-        throw new Error(
-          'Product not found for this merchant, or you no longer have permission to update it'
-        );
-      }
-
-      const { data: orderData, error: orderError } = await supabase
-        .from('orders')
-        .update({
-          transaction_date: parsedTransactionDate.toISOString(),
-        })
-        .eq('id', orderId)
-        .eq('merchant_id', merchant.id)
-        .select('id');
-
-      if (orderError) {
-        throw new Error(orderError.message);
-      }
-
-      if (!orderData || orderData.length === 0) {
-        throw new Error(
-          'Transaction not found for this merchant, or you no longer have permission to update it'
-        );
       }
     },
     onSuccess: () => {

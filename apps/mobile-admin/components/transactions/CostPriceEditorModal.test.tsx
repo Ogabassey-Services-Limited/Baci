@@ -87,7 +87,6 @@ const selectedItem = {
   imeiValues: [],
   name: 'Samsung Galaxy S26',
   productId: 'product-1',
-  productMetadata: null,
   profit: 500,
   quantity: 1,
   revenue: 1500,

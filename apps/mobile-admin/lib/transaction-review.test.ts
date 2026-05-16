@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildTransactionReviewRangeFilters,
   buildTransactionDateIso,
   filterTransactionOrders,
   formatTransactionDateInput,
   getSupplierNameFromMetadata,
   mapTransactionOrderRows,
-  mergeSupplierMetadata,
 } from './transaction-review';
 
 describe('transaction review helpers', () => {
@@ -117,6 +117,38 @@ describe('transaction review helpers', () => {
     expect(filterTransactionOrders(orders, 'missing text')).toEqual([]);
   });
 
+  it('builds range filters that fall back to created_at for historical rows', () => {
+    expect(buildTransactionReviewRangeFilters(undefined, undefined)).toEqual({
+      endDateFilter: undefined,
+      startDateFilter: undefined,
+    });
+    expect(
+      buildTransactionReviewRangeFilters('2026-05-01T00:00:00.000Z', undefined)
+    ).toEqual({
+      endDateFilter: undefined,
+      startDateFilter:
+        'transaction_date.gte.2026-05-01T00:00:00.000Z,and(transaction_date.is.null,created_at.gte.2026-05-01T00:00:00.000Z)',
+    });
+    expect(
+      buildTransactionReviewRangeFilters(undefined, '2026-05-31T23:59:59.999Z')
+    ).toEqual({
+      endDateFilter:
+        'transaction_date.lte.2026-05-31T23:59:59.999Z,and(transaction_date.is.null,created_at.lte.2026-05-31T23:59:59.999Z)',
+      startDateFilter: undefined,
+    });
+    expect(
+      buildTransactionReviewRangeFilters(
+        '2026-05-01T00:00:00.000Z',
+        '2026-05-31T23:59:59.999Z'
+      )
+    ).toEqual({
+      endDateFilter:
+        'transaction_date.lte.2026-05-31T23:59:59.999Z,and(transaction_date.is.null,created_at.lte.2026-05-31T23:59:59.999Z)',
+      startDateFilter:
+        'transaction_date.gte.2026-05-01T00:00:00.000Z,and(transaction_date.is.null,created_at.gte.2026-05-01T00:00:00.000Z)',
+    });
+  });
+
   it('normalizes supplier and date edits', () => {
     expect(
       getSupplierNameFromMetadata({ supplier: ' Tech Distributors ' })
@@ -124,29 +156,15 @@ describe('transaction review helpers', () => {
     expect(getSupplierNameFromMetadata(null)).toBe('');
     expect(getSupplierNameFromMetadata(undefined)).toBe('');
     expect(getSupplierNameFromMetadata({ color: 'black' })).toBe('');
-    expect(
-      mergeSupplierMetadata({ old: true, vendor: 'Legacy' }, ' NewCo ')
-    ).toEqual({
-      old: true,
-      supplier_name: 'NewCo',
-      vendor_name: 'NewCo',
-    });
     expect(formatTransactionDateInput('2026-05-11T12:30:00.000Z')).toBe(
       '2026-05-11'
     );
     expect(formatTransactionDateInput('not-a-date')).toBe('');
-    expect(
-      buildTransactionDateIso('2026-05-12', '2026-05-11T12:30:15.250Z')
-    ).toBe('2026-05-12T12:30:15.250Z');
-    expect(buildTransactionDateIso('2026-05-12', 'not-a-current-date')).toBe(
+    expect(buildTransactionDateIso('2026-05-12')).toBe(
       '2026-05-12T00:00:00.000Z'
     );
-    expect(
-      buildTransactionDateIso('05-12-2026', '2026-05-11T00:00:00.000Z')
-    ).toBeNull();
-    expect(
-      buildTransactionDateIso('2026-02-31', '2026-05-11T00:00:00.000Z')
-    ).toBeNull();
+    expect(buildTransactionDateIso('05-12-2026')).toBeNull();
+    expect(buildTransactionDateIso('2026-02-31')).toBeNull();
   });
 
   it('maps edge cases for nullable items, product arrays, and fallback labels', () => {
