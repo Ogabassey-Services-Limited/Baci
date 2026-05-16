@@ -1,3 +1,4 @@
+// Client chunk: receives interactive tab-change callback and renders client-only tabs/video sections.
 'use client';
 
 import type { Product as RelatedProduct } from '@/lib/products';
