@@ -31,6 +31,7 @@ import { formatPrice } from '@/lib/currency-utils';
 import { requestMerchantPublish } from '@/lib/merchant-publish-client';
 import type { AgentCommerceTrustReadinessSummary } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 import { cn } from '@/lib/utils';
+import type { AgenticActionHealthPayload } from '@/schemas/agentic-action-health';
 import {
   type DashboardMetrics,
   getDashboardMetrics,
@@ -79,6 +80,8 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 interface DashboardClientPageProps {
+  initialActionCenterState?: 'ready' | 'error' | 'unauthorized';
+  initialActionHealth?: AgenticActionHealthPayload | null;
   initialMetrics?: DashboardMetrics;
   initialRecentSales?: RecentSale[];
   initialChartData?: MonthlyChartData[];
@@ -87,6 +90,8 @@ interface DashboardClientPageProps {
 }
 
 export default function DashboardClientPage({
+  initialActionCenterState = 'error',
+  initialActionHealth = null,
   initialMetrics,
   initialRecentSales,
   initialChartData,
@@ -340,7 +345,10 @@ export default function DashboardClientPage({
           className="animate-in fade-in slide-in-from-bottom-4 duration-500"
           style={{ animationFillMode: 'both', animationDelay: '0.05s' }}
         >
-          <AgenticActionCenterCard />
+          <AgenticActionCenterCard
+            payload={initialActionHealth}
+            state={initialActionCenterState}
+          />
         </div>
       )}
 
