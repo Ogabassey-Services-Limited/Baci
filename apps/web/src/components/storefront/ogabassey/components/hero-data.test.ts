@@ -54,6 +54,8 @@ describe('hero-data exports', () => {
   it('exports server-safe LCP image sources that match the first rendered slides', () => {
     expect(DESKTOP_IPHONE_SLIDES.length).toBeGreaterThan(0);
     expect(MOBILE_SLIDES.length).toBeGreaterThan(0);
+    const staticImportPathPattern =
+      /^\/(?:_next\/static\/media\/|src\/components\/storefront\/ogabassey\/components\/assets\/)/;
     const desktopLcpSlide = DESKTOP_IPHONE_SLIDES[0];
     const mobileLcpSlide = MOBILE_SLIDES[0];
 
@@ -63,10 +65,10 @@ describe('hero-data exports', () => {
     expect(HERO_DESKTOP_LCP_FALLBACK_SRC).toMatch(/\.jpg(?:$|\?)/);
     expect(HERO_MOBILE_LCP_SRC).toMatch(/\.avif(?:$|\?)/);
     expect(HERO_MOBILE_LCP_FALLBACK_SRC).toMatch(/\.jpg(?:$|\?)/);
-    expect(HERO_DESKTOP_LCP_SRC).toMatch(/^\/ogabassey-hero\//);
-    expect(HERO_DESKTOP_LCP_FALLBACK_SRC).toMatch(/^\/ogabassey-hero\//);
-    expect(HERO_MOBILE_LCP_SRC).toMatch(/^\/ogabassey-hero\//);
-    expect(HERO_MOBILE_LCP_FALLBACK_SRC).toMatch(/^\/ogabassey-hero\//);
+    expect(HERO_DESKTOP_LCP_SRC).toMatch(staticImportPathPattern);
+    expect(HERO_DESKTOP_LCP_FALLBACK_SRC).toMatch(staticImportPathPattern);
+    expect(HERO_MOBILE_LCP_SRC).toMatch(staticImportPathPattern);
+    expect(HERO_MOBILE_LCP_FALLBACK_SRC).toMatch(staticImportPathPattern);
     expect(desktopLcpSlide?.image).toBe(HERO_DESKTOP_LCP_SRC);
     expect(desktopLcpSlide?.fallbackImage).toBe(
       HERO_DESKTOP_LCP_FALLBACK_SRC

@@ -1,13 +1,18 @@
-// Hero assets live under /ogabassey-hero/ (NOT /ogabassey/): the /ogabassey/*
-// URL namespace is owned by the OgaBassey storefront route, so static public
-// files placed there return the storefront HTML shell instead of the image.
+import heroDesktopAvif from '@/components/storefront/ogabassey/components/assets/iphone-17-pro-max-desktop.011z-1gfy2svu.avif';
+import heroDesktopJpeg from '@/components/storefront/ogabassey/components/assets/iphone-17-pro-max-desktop.011z-1gfy2svu.jpg';
+import heroMobileJpeg from '@/components/storefront/ogabassey/components/assets/iphone-17-pro-max-mobile.0l7mj_a~pxwb9.jpg';
+import heroMobileAvif from '@/components/storefront/ogabassey/components/assets/iphone-17-pro-max-mobile.02p9~ertxbycj.avif';
+
+type ImportedImageAsset = { src: string } | string;
+
+const getImportedImageSrc = (asset: ImportedImageAsset) =>
+  typeof asset === 'string' ? asset : asset.src;
+
 export const OGABASSEY_HERO_DESKTOP_LCP_SRC =
-  '/ogabassey-hero/iphone-17-pro-max-desktop.011z-1gfy2svu.avif';
+  getImportedImageSrc(heroDesktopAvif);
 export const OGABASSEY_HERO_DESKTOP_LCP_FALLBACK_SRC =
-  '/ogabassey-hero/iphone-17-pro-max-desktop.011z-1gfy2svu.jpg';
+  getImportedImageSrc(heroDesktopJpeg);
 export const OGABASSEY_HERO_MOBILE_LCP_SRC =
-  '/ogabassey-hero/iphone-17-pro-max-mobile.02p9~ertxbycj.avif';
+  getImportedImageSrc(heroMobileAvif);
 export const OGABASSEY_HERO_MOBILE_LCP_FALLBACK_SRC =
-  '/ogabassey-hero/iphone-17-pro-max-mobile.0l7mj_a~pxwb9.jpg';
-export const OGABASSEY_HERO_ASSET_CACHE_CONTROL =
-  'public, max-age=31536000, immutable';
+  getImportedImageSrc(heroMobileJpeg);
