@@ -40,7 +40,7 @@ export async function generateMetadata({
   const url = buildCanonicalBlogPostUrl(merchant, post.slug);
   const baseUrl = buildStoreUrl(merchant);
   const storefrontBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-  const twitterImageUrl = new URL(
+  const socialImageUrl = new URL(
     `blog/${post.slug}/opengraph-image`,
     storefrontBaseUrl
   ).toString();
@@ -64,7 +64,7 @@ export async function generateMetadata({
       tags: post.tags,
       images: [
         {
-          url: twitterImageUrl,
+          url: socialImageUrl,
           alt: socialImageAlt,
           ...SOCIAL_IMAGE_METADATA,
         },
@@ -74,7 +74,7 @@ export async function generateMetadata({
       card: 'summary_large_image',
       title,
       description,
-      images: [twitterImageUrl],
+      images: [socialImageUrl],
     },
     alternates: {
       canonical: url,

@@ -6,11 +6,9 @@ const { mockImage } = vi.hoisted(() => ({
 
 vi.mock('../opengraph-image-renderer', () => ({
   default: (props: unknown) => mockImage(props),
-  revalidate: 0,
-  runtime: 'nodejs',
 }));
 
-import { GET, revalidate, runtime } from './route';
+import { GET } from './route';
 
 describe('explicit merchant blog social image route', () => {
   it('delegates to the merchant blog OG image renderer with route params', async () => {
@@ -32,8 +30,6 @@ describe('explicit merchant blog social image route', () => {
       )
     ).resolves.toBe(response);
 
-    expect(runtime).toBe('nodejs');
-    expect(revalidate).toBe(0);
     expect(mockImage).toHaveBeenCalledWith({ params });
   });
 
