@@ -17,13 +17,7 @@ import { POST } from './route';
 
 describe('POST /api/vtu/loyalty/redeem', () => {
   it('returns 410 without touching legacy redemption dependencies', async () => {
-    const response = await POST(
-      new Request('http://localhost/api/vtu/loyalty/redeem', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-    );
+    const response = await POST();
     const body = await response.json();
 
     expect(response.status).toBe(410);

@@ -1,9 +1,16 @@
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { VTU_MIN_REDEEMABLE_POINTS } from '@baci/shared/lib';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import * as Crypto from 'expo-crypto';
 import { useEffect, useRef } from 'react';
 import { z } from 'zod';
 import { useShallow } from 'zustand/react/shallow';
 import { CONFIG } from '@/lib/config';
+import {
+  clearPendingLoyaltyRedemptionId,
+  getOrCreatePendingLoyaltyRedemptionId,
+  getPendingLoyaltyRedemptionStorageKey,
+} from '@/lib/loyalty-redemption-idempotency';
 import { calculateCommerce, supabase } from '@/lib/supabase';
 import { CustomerRowSchema, TransactionRowSchema } from '@/lib/validation';
 import { useAuthStore } from '@/stores/auth-store';
@@ -376,6 +383,22 @@ export function useWallet() {
 /**
  * Redeem loyalty points mutation with optimistic update
  */
+function getRedeemPointValidationError(points: number) {
+  if (!Number.isSafeInteger(points) || points <= 0) {
+    return 'Invalid redemption amount';
+  }
+
+  if (points < VTU_MIN_REDEEMABLE_POINTS) {
+    return 'Minimum redemption is 100 points';
+  }
+
+  if (points % VTU_MIN_REDEEMABLE_POINTS !== 0) {
+    return 'Redeem points in 100-point blocks';
+  }
+
+  return null;
+}
+
 export function useRedeemPoints() {
   const queryClient = useQueryClient();
   const { customer, merchantId, user } = useAuthStore(
@@ -393,6 +416,11 @@ export function useRedeemPoints() {
         throw new Error('Authentication required. Please sign in again.');
       }
 
+      const validationError = getRedeemPointValidationError(points);
+      if (validationError) {
+        throw new Error(validationError);
+      }
+
       // Capture in local variables to prevent stale closure if auth changes mid-request
       const customerId = customer.id;
       const currentMerchantId = activeMerchantId;
@@ -406,6 +434,10 @@ export function useRedeemPoints() {
       );
       const currentPoints = cachedData?.wallet?.loyalty_points ?? 0;
 
+      if (points > currentPoints) {
+        throw new Error('Insufficient loyalty points');
+      }
+
       // First, validate with Commerce Brain
       const result = await calculateCommerce('redeem_loyalty', {
         points,
@@ -417,6 +449,13 @@ export function useRedeemPoints() {
         throw new Error(result.error || 'Redemption failed');
       }
 
+      const { redemptionId } = await getOrCreatePendingLoyaltyRedemptionId({
+        createId: Crypto.randomUUID,
+        customerId,
+        merchantId: currentMerchantId,
+        points,
+      });
+
       // Then execute the RPC
       const { data: rpcData, error } = await supabase.rpc(
         'redeem_loyalty_points',
@@ -424,6 +463,7 @@ export function useRedeemPoints() {
           p_customer_id: customerId,
           p_merchant_id: currentMerchantId,
           p_points: points,
+          p_redemption_id: redemptionId,
           p_wallet_credit: result.walletCredit,
         }
       );
@@ -453,8 +493,28 @@ export function useRedeemPoints() {
     onMutate: async (points) => {
       const walletOwnerId = customer?.id ?? user?.id ?? '';
       if (!walletOwnerId || !activeMerchantId) {
-        return { previousData: undefined, queryKey: undefined };
+        return {
+          previousData: undefined,
+          queryKey: undefined,
+          redemptionKey: undefined,
+        };
       }
+
+      if (getRedeemPointValidationError(points)) {
+        return {
+          previousData: undefined,
+          queryKey: undefined,
+          redemptionKey: undefined,
+        };
+      }
+
+      const redemptionKey = customer?.id
+        ? getPendingLoyaltyRedemptionStorageKey({
+            customerId: customer.id,
+            merchantId: activeMerchantId,
+            points,
+          })
+        : undefined;
 
       const queryKey: WalletQueryKey = walletKeys.data({
         merchantId: activeMerchantId,
@@ -469,14 +529,15 @@ export function useRedeemPoints() {
       // Snapshot previous value
       const previousData = queryClient.getQueryData<WalletQueryData>(queryKey);
 
+      if (previousData && previousData.wallet.loyalty_points < points) {
+        return { previousData, queryKey, redemptionKey };
+      }
+
       // Optimistically update points only; balance is not updated optimistically
       // because the actual conversion rate is determined server-side by calculateCommerce.
       // The real balance will be synced on query invalidation after mutation settles.
       if (previousData) {
-        const nextLoyaltyPoints = Math.max(
-          0,
-          previousData.wallet.loyalty_points - points
-        );
+        const nextLoyaltyPoints = previousData.wallet.loyalty_points - points;
 
         queryClient.setQueryData<WalletQueryData>(queryKey, {
           ...previousData,
@@ -487,7 +548,13 @@ export function useRedeemPoints() {
         });
       }
 
-      return { previousData, queryKey };
+      return { previousData, queryKey, redemptionKey };
+    },
+
+    onSuccess: async (_data, _points, context) => {
+      if (context?.redemptionKey) {
+        await clearPendingLoyaltyRedemptionId(context.redemptionKey);
+      }
     },
 
     // Rollback on error

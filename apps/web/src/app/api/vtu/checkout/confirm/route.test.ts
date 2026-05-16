@@ -157,6 +157,11 @@ describe('POST /api/vtu/checkout/confirm', () => {
     mockFulfillPendingVtuTransaction.mockResolvedValue({
       status: 'successful',
       amount: 1000,
+      loyaltyPoints: {
+        credited: true,
+        earned: 5,
+        newBalance: 205,
+      },
       reference: 'VTU-123',
     });
     mockResolveVtuCustomer.mockResolvedValue({ id: 'customer-1' });
@@ -193,6 +198,11 @@ describe('POST /api/vtu/checkout/confirm', () => {
       status: 'successful',
       reference: 'VTU-123',
       amount: 1000,
+      loyaltyPoints: {
+        credited: true,
+        earned: 5,
+        newBalance: 205,
+      },
     });
     expect(mockUpsertPaystackAuthorization).toHaveBeenCalled();
     expect(mockFulfillPendingVtuTransaction).toHaveBeenCalledWith({

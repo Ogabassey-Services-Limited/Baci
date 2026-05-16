@@ -231,6 +231,18 @@ describe('WalletScreen', () => {
           accessibilityRole="button"
           onPress={() => props.onChangeRedeemPoints('150')}
         >
+          Set Block Invalid Redeem Points
+        </Text>
+        <Text
+          accessibilityRole="button"
+          onPress={() => props.onChangeRedeemPoints('2100')}
+        >
+          Set Over Balance Redeem Points
+        </Text>
+        <Text
+          accessibilityRole="button"
+          onPress={() => props.onChangeRedeemPoints('200')}
+        >
           Set Valid Redeem Points
         </Text>
         <Text accessibilityRole="button" onPress={props.onConfirmRedeem}>
@@ -650,6 +662,42 @@ describe('WalletScreen', () => {
     expect(mockMutateAsync).not.toHaveBeenCalled();
   });
 
+  it('blocks non-100-point redemption amounts before hitting the mutation', () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+
+    render(<WalletScreen />);
+
+    fireEvent.press(screen.getByText('Open Redeem Panel'));
+    fireEvent.press(screen.getByText('Set Block Invalid Redeem Points'));
+    fireEvent.press(screen.getByText('Confirm Redeem'));
+
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Invalid Points',
+      'Redeem points in 100-point blocks'
+    );
+  });
+
+  it('blocks redemption above the available point balance before hitting the mutation', () => {
+    const alertSpy = jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation(() => undefined);
+
+    render(<WalletScreen />);
+
+    fireEvent.press(screen.getByText('Open Redeem Panel'));
+    fireEvent.press(screen.getByText('Set Over Balance Redeem Points'));
+    fireEvent.press(screen.getByText('Confirm Redeem'));
+
+    expect(mockMutateAsync).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Invalid Points',
+      'Insufficient loyalty points'
+    );
+  });
+
   it('tracks and announces successful point redemptions', async () => {
     const alertSpy = jest
       .spyOn(Alert, 'alert')
@@ -657,8 +705,8 @@ describe('WalletScreen', () => {
 
     mockMutateAsync.mockResolvedValue({
       conversionRate: 1,
-      remainingPoints: 1850,
-      walletCredit: 150,
+      remainingPoints: 1800,
+      walletCredit: 200,
     });
 
     render(<WalletScreen />);
@@ -668,26 +716,26 @@ describe('WalletScreen', () => {
     fireEvent.press(screen.getByText('Confirm Redeem'));
 
     await waitFor(() => {
-      expect(mockMutateAsync).toHaveBeenCalledWith(150);
+      expect(mockMutateAsync).toHaveBeenCalledWith(200);
     });
 
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'loyalty_redeemed',
       expect.objectContaining({
         customer_id: 'customer-1',
-        points_redeemed: 150,
-        wallet_credit: 150,
+        points_redeemed: 200,
+        wallet_credit: 200,
       })
     );
     expect(mockScheduleLocalNotification).toHaveBeenCalledWith(
       'Points Redeemed! 🎁',
-      '150 points converted to ₦150 wallet credit.',
-      { type: 'loyalty_redemption', points: 150 },
+      '200 points converted to ₦200 wallet credit.',
+      { type: 'loyalty_redemption', points: 200 },
       1
     );
     expect(alertSpy).toHaveBeenCalledWith(
       'Points Redeemed!',
-      '150 points converted to ₦150 wallet credit.',
+      '200 points converted to ₦200 wallet credit.',
       expect.any(Array)
     );
 
@@ -725,7 +773,7 @@ describe('WalletScreen', () => {
         'Redeem failed',
         expect.objectContaining({
           customer_id: 'customer-1',
-          points_attempted: 150,
+          points_attempted: 200,
         })
       );
     });
