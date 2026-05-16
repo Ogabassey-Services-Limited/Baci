@@ -120,13 +120,13 @@ describe('loyalty redemption idempotency', () => {
     );
   });
 
-  it('replaces a stale redemption id when the point balance already moved', async () => {
+  it('reuses a live-attempt redemption id even when the point balance already moved', async () => {
     mockGetItem.mockResolvedValueOnce(
       JSON.stringify({
         attemptId: 'attempt-1',
         createdAt: 1_000,
         pointsBeforeRedeem: 1000,
-        redemptionId: 'stale-redemption-id',
+        redemptionId: 'pending-redemption-id',
         version: 2,
       })
     );
@@ -141,20 +141,9 @@ describe('loyalty redemption idempotency', () => {
       points: 200,
     });
 
-    expect(result.redemptionId).toBe('new-redemption-id');
-    expect(mockRemoveItem).toHaveBeenCalledWith(
-      'loyalty-redemption:customer-1:merchant-1:200'
-    );
-    expect(mockSetItem).toHaveBeenCalledWith(
-      'loyalty-redemption:customer-1:merchant-1:200',
-      JSON.stringify({
-        attemptId: 'attempt-1',
-        createdAt: 2_000,
-        pointsBeforeRedeem: 800,
-        redemptionId: 'new-redemption-id',
-        version: 2,
-      })
-    );
+    expect(result.redemptionId).toBe('pending-redemption-id');
+    expect(mockRemoveItem).not.toHaveBeenCalled();
+    expect(mockSetItem).not.toHaveBeenCalled();
   });
 
   it('replaces expired pending redemption ids even when the balance matches', async () => {

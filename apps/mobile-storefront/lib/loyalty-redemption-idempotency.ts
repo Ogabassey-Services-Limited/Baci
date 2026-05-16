@@ -68,13 +68,11 @@ function parsePendingLoyaltyRedemptionRecord(
 
 function canReusePendingLoyaltyRedemptionRecord({
   attemptId,
-  currentPoints,
   now,
   record,
   ttlMs,
 }: {
   attemptId: string;
-  currentPoints: number;
   now: number;
   record: PendingLoyaltyRedemptionRecord;
   ttlMs: number;
@@ -83,8 +81,7 @@ function canReusePendingLoyaltyRedemptionRecord({
   return (
     ageMs >= 0 &&
     ageMs <= ttlMs &&
-    record.attemptId === attemptId &&
-    record.pointsBeforeRedeem === currentPoints
+    record.attemptId === attemptId
   );
 }
 
@@ -118,7 +115,6 @@ export async function getOrCreatePendingLoyaltyRedemptionId({
     existingRecord &&
     canReusePendingLoyaltyRedemptionRecord({
       attemptId,
-      currentPoints,
       now: nowMs,
       record: existingRecord,
       ttlMs,

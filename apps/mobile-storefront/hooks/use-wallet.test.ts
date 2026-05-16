@@ -820,11 +820,19 @@ describe('useRedeemPoints', () => {
       });
 
     const { result, unmount, queryClient } = setupHook();
+    const queryKey = walletKeys.data({
+      merchantId: 'merchant-1',
+      ownerId: 'customer-1',
+    });
 
     await act(async () => {
       await expect(result.current.mutateAsync(200)).rejects.toThrow(
         'Network request failed'
       );
+    });
+    queryClient.setQueryData<WalletQueryData>(queryKey, {
+      wallet: { balance: 200, loyalty_points: 800 },
+      transactions: [],
     });
 
     await act(async () => {
@@ -868,10 +876,11 @@ describe('useRedeemPoints', () => {
     await AsyncStorage.setItem(
       'loyalty-redemption:customer-1:merchant-1:200',
       JSON.stringify({
+        attemptId: 'previous-attempt-id',
         createdAt: Date.now(),
         pointsBeforeRedeem: 1000,
         redemptionId: 'stale-redemption-id',
-        version: 1,
+        version: 2,
       })
     );
 
