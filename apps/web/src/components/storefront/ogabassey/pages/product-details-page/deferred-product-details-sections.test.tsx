@@ -7,13 +7,15 @@ import type { ProductDetailsActiveTab } from './use-product-details-state';
 
 vi.mock('../../components/AdUnit', () => ({
   AdUnit: ({ placementKey }: { placementKey: string }) => (
-    <div data-testid={`adunit-${placementKey}`} />
+    <div role="region" aria-label={`Ad Unit ${placementKey}`} />
   ),
 }));
 
 vi.mock('../../components/ProductVideo', () => ({
   ProductVideo: ({ title }: { title: string }) => (
-    <div data-testid="product-video">{title}</div>
+    <div role="region" aria-label="Product video">
+      {title}
+    </div>
   ),
 }));
 
@@ -24,15 +26,21 @@ vi.mock('./product-details-tabs', () => ({
   }: {
     storeSlug: string;
     productData: { name: string };
-  }) => <div data-testid="product-details-tabs">{`${storeSlug}:${productData.name}`}</div>,
+  }) => (
+    <div role="region" aria-label="Product details tabs">
+      {`${storeSlug}:${productData.name}`}
+    </div>
+  ),
 }));
 
 vi.mock('@/components/storefront/brand-products', () => ({
-  BrandProducts: () => <div data-testid="brand-products" />,
+  BrandProducts: () => <div role="region" aria-label="Brand products" />,
 }));
 
 vi.mock('@/components/storefront/price-range-products', () => ({
-  PriceRangeProducts: () => <div data-testid="price-range-products" />,
+  PriceRangeProducts: () => (
+    <div role="region" aria-label="Price range products" />
+  ),
 }));
 
 function renderDeferredSections(productData: NormalizedProductDetails) {
@@ -58,15 +66,23 @@ describe('DeferredProductDetailsSections', () => {
       videoUrl: 'video-id-123',
     } as unknown as NormalizedProductDetails);
 
-    expect(screen.getByTestId('adunit-CONTENT_BREAK')).toBeInTheDocument();
-    expect(screen.getByTestId('product-details-tabs')).toHaveTextContent(
+    expect(
+      screen.getByRole('region', { name: 'Ad Unit CONTENT_BREAK' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'Product details tabs' })
+    ).toHaveTextContent(
       'ogabassey:Lenovo Legion Pro 9'
     );
-    expect(screen.getByTestId('product-video')).toHaveTextContent(
+    expect(screen.getByRole('region', { name: 'Product video' })).toHaveTextContent(
       'Lenovo Legion Pro 9'
     );
-    expect(screen.getByTestId('brand-products')).toBeInTheDocument();
-    expect(screen.getByTestId('price-range-products')).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'Brand products' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'Price range products' })
+    ).toBeInTheDocument();
   });
 
   it('skips product video when no video id exists', () => {
@@ -75,6 +91,6 @@ describe('DeferredProductDetailsSections', () => {
       videoUrl: null,
     } as unknown as NormalizedProductDetails);
 
-    expect(screen.queryByTestId('product-video')).toBeNull();
+    expect(screen.queryByRole('region', { name: 'Product video' })).toBeNull();
   });
 });

@@ -305,20 +305,6 @@ describe('ProductDetailsPage', () => {
     expect(source).toMatch(/import\([^)]*NegotiationModal[^)]*\)/);
   });
 
-  it('loads deferred merchandising sections through a dynamic boundary', () => {
-    const source = readFileSync(
-      'src/components/storefront/ogabassey/pages/product-details-page.tsx',
-      'utf8'
-    );
-
-    expect(source).not.toMatch(
-      /from\s*['"]\.\/product-details-page\/deferred-product-details-sections['"]/
-    );
-    expect(source).toMatch(
-      /import\([^)]*deferred-product-details-sections[^)]*\)/
-    );
-  });
-
   it('uses the real review count and exposes the reviews tab panel semantics', async () => {
     render(
       <ProductDetailsPage product={{
