@@ -10,6 +10,7 @@ interface AppFormScreenProps {
   footer?: ReactNode;
   footerStyle?: StyleProp<ViewStyle>;
   header?: ReactNode;
+  keyboardOffsetPreset?: 'default' | 'compactHeader';
   keyboardVerticalOffset?: number;
   scrollEnabled?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -22,7 +23,8 @@ export function AppFormScreen({
   footer,
   footerStyle,
   header,
-  keyboardVerticalOffset = 24,
+  keyboardOffsetPreset = 'default',
+  keyboardVerticalOffset,
   scrollEnabled = true,
   style,
 }: AppFormScreenProps) {
@@ -32,6 +34,7 @@ export function AppFormScreen({
       <AppKeyboardContainer
         align="start"
         contentContainerStyle={contentContainerStyle}
+        offsetPreset={keyboardOffsetPreset}
         keyboardVerticalOffset={keyboardVerticalOffset}
         scrollEnabled={scrollEnabled}
         style={styles.keyboardContainer}

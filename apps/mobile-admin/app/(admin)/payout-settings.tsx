@@ -11,7 +11,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -22,6 +21,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { usePayoutAccountVerification } from '@/hooks/usePayoutAccountVerification';
@@ -326,9 +326,9 @@ export default function PayoutSettingsScreen() {
           animationType="slide"
           presentationStyle="pageSheet"
         >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={24}
+          <AppKeyboardContainer
+            align="start"
+            scrollEnabled={false}
             style={styles.modalContainer}
           >
             <View
@@ -382,9 +382,7 @@ export default function PayoutSettingsScreen() {
                 <FlatList
                   data={filteredBanks}
                   keyExtractor={(item) => item.code}
-                  keyboardDismissMode={
-                    Platform.OS === 'ios' ? 'interactive' : 'on-drag'
-                  }
+                  keyboardDismissMode="on-drag"
                   keyboardShouldPersistTaps="handled"
                   // ⚡ Bolt Performance Optimization
                   // Applying standard windowing props to optimize Modal render cycles and prevent UI thread blocking
@@ -423,7 +421,7 @@ export default function PayoutSettingsScreen() {
                 />
               )}
             </View>
-          </KeyboardAvoidingView>
+          </AppKeyboardContainer>
         </Modal>
       </SafeAreaView>
     </>

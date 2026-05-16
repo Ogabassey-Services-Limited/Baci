@@ -7,6 +7,7 @@ import { AppFormScreen } from '@/components/ui/AppFormScreen';
 const keyboardProps = vi.hoisted(() => ({
   align: 'end' as 'start' | 'center' | 'end',
   contentContainerStyle: undefined as unknown,
+  offsetPreset: 'default' as 'default' | 'compactHeader',
   keyboardVerticalOffset: 0,
   scrollEnabled: true,
 }));
@@ -16,17 +17,20 @@ vi.mock('@/components/ui/AppKeyboardContainer', () => ({
     align,
     children,
     contentContainerStyle,
+    offsetPreset,
     keyboardVerticalOffset,
     scrollEnabled,
   }: {
     align?: 'start' | 'center' | 'end';
     children?: ReactNode;
     contentContainerStyle?: unknown;
+    offsetPreset?: 'default' | 'compactHeader';
     keyboardVerticalOffset?: number;
     scrollEnabled?: boolean;
   }) => {
     keyboardProps.align = align ?? 'end';
     keyboardProps.contentContainerStyle = contentContainerStyle;
+    keyboardProps.offsetPreset = offsetPreset ?? 'default';
     keyboardProps.keyboardVerticalOffset = keyboardVerticalOffset ?? 0;
     keyboardProps.scrollEnabled = scrollEnabled ?? true;
     return <section aria-label="form-keyboard-container">{children}</section>;
@@ -50,6 +54,7 @@ describe('AppFormScreen', () => {
   beforeEach(() => {
     keyboardProps.align = 'end';
     keyboardProps.contentContainerStyle = undefined;
+    keyboardProps.offsetPreset = 'default';
     keyboardProps.keyboardVerticalOffset = 0;
     keyboardProps.scrollEnabled = true;
   });
@@ -77,6 +82,7 @@ describe('AppFormScreen', () => {
     render(
       <AppFormScreen
         contentContainerStyle={{ padding: 24 }}
+        keyboardOffsetPreset="compactHeader"
         keyboardVerticalOffset={64}
         scrollEnabled={false}
       >
@@ -85,6 +91,7 @@ describe('AppFormScreen', () => {
     );
 
     expect(keyboardProps.align).toBe('start');
+    expect(keyboardProps.offsetPreset).toBe('compactHeader');
     expect(keyboardProps.keyboardVerticalOffset).toBe(64);
     expect(keyboardProps.scrollEnabled).toBe(false);
     expect(keyboardProps.contentContainerStyle).toEqual({ padding: 24 });

@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -14,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import SafeImage from '@/components/ui/SafeImage';
+import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
@@ -141,9 +141,9 @@ export function DiscountItemSelector({
       presentationStyle="pageSheet"
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={24}
+      <AppKeyboardContainer
+        align="start"
+        scrollEnabled={false}
         style={styles.container}
       >
         <SafeAreaView
@@ -221,9 +221,7 @@ export function DiscountItemSelector({
             <FlatList
               data={items}
               keyExtractor={(item) => item.id}
-              keyboardDismissMode={
-                Platform.OS === 'ios' ? 'interactive' : 'on-drag'
-              }
+              keyboardDismissMode="on-drag"
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={styles.list}
               // ⚡ Bolt Performance Optimization
@@ -290,7 +288,7 @@ export function DiscountItemSelector({
             />
           )}
         </SafeAreaView>
-      </KeyboardAvoidingView>
+      </AppKeyboardContainer>
     </Modal>
   );
 }

@@ -15,6 +15,7 @@ interface AppKeyboardContainerProps {
   align?: 'start' | 'center' | 'end';
   children: ReactNode;
   contentContainerStyle?: StyleProp<ViewStyle>;
+  offsetPreset?: 'default' | 'compactHeader';
   keyboardVerticalOffset?: number;
   scrollEnabled?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -24,11 +25,15 @@ export function AppKeyboardContainer({
   align = 'end',
   children,
   contentContainerStyle,
-  keyboardVerticalOffset = 24,
+  keyboardVerticalOffset,
+  offsetPreset = 'default',
   scrollEnabled = true,
   style,
 }: AppKeyboardContainerProps) {
   const insets = useSafeAreaInsets();
+  const resolvedKeyboardVerticalOffset =
+    keyboardVerticalOffset ??
+    (offsetPreset === 'compactHeader' && Platform.OS !== 'ios' ? 16 : 24);
   const justifyContent =
     align === 'start'
       ? 'flex-start'
@@ -49,7 +54,7 @@ export function AppKeyboardContainer({
       // iOS needs padding to keep the active field above the software keyboard,
       // while Android behaves more reliably when the container resizes by height.
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={keyboardVerticalOffset}
+      keyboardVerticalOffset={resolvedKeyboardVerticalOffset}
       style={[styles.container, style]}
     >
       {scrollEnabled ? (

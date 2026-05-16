@@ -145,6 +145,22 @@ describe('AppKeyboardContainer', () => {
     expect(scrollView.getAttribute('data-keyboard-taps')).toBe('handled');
   });
 
+  it('applies compact header offset preset for Android', () => {
+    mockPlatform.OS = 'android';
+
+    render(
+      <AppKeyboardContainer offsetPreset="compactHeader">
+        <div>Compact header</div>
+      </AppKeyboardContainer>
+    );
+
+    const wrapper = screen.getByRole('region', {
+      name: 'Keyboard avoiding view',
+    });
+
+    expect(wrapper.getAttribute('data-keyboard-offset')).toBe('16');
+  });
+
   it('includes safe-area bottom padding in the scroll content style', () => {
     render(
       <AppKeyboardContainer>
