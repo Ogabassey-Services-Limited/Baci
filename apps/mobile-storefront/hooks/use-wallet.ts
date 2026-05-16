@@ -105,6 +105,18 @@ export const walletKeys = {
 
 type WalletQueryKey = ReturnType<typeof walletKeys.data>;
 
+function redemptionBalanceSnapshotKey({
+  customerId,
+  merchantId,
+  points,
+}: {
+  customerId: string;
+  merchantId: string;
+  points: number;
+}) {
+  return `${customerId}:${merchantId}:${points}`;
+}
+
 // ============================================
 // FETCHERS
 // ============================================
@@ -401,6 +413,7 @@ function getRedeemPointValidationError(points: number) {
 
 export function useRedeemPoints() {
   const queryClient = useQueryClient();
+  const redemptionBalanceSnapshotsRef = useRef(new Map<string, number>());
   const { customer, merchantId, user } = useAuthStore(
     useShallow((state) => ({
       customer: state.customer,
@@ -424,6 +437,11 @@ export function useRedeemPoints() {
       // Capture in local variables to prevent stale closure if auth changes mid-request
       const customerId = customer.id;
       const currentMerchantId = activeMerchantId;
+      const balanceSnapshotKey = redemptionBalanceSnapshotKey({
+        customerId,
+        merchantId: currentMerchantId,
+        points,
+      });
 
       // Look up current points balance from cached wallet data
       const cachedData = queryClient.getQueryData<WalletQueryData>(
@@ -432,7 +450,10 @@ export function useRedeemPoints() {
           ownerId: customerId,
         })
       );
-      const currentPoints = cachedData?.wallet?.loyalty_points ?? 0;
+      const currentPoints =
+        redemptionBalanceSnapshotsRef.current.get(balanceSnapshotKey) ??
+        cachedData?.wallet?.loyalty_points ??
+        0;
 
       if (points > currentPoints) {
         throw new Error('Insufficient loyalty points');
@@ -452,6 +473,7 @@ export function useRedeemPoints() {
       const { redemptionId } = await getOrCreatePendingLoyaltyRedemptionId({
         createId: Crypto.randomUUID,
         customerId,
+        currentPoints,
         merchantId: currentMerchantId,
         points,
       });
@@ -497,6 +519,7 @@ export function useRedeemPoints() {
           previousData: undefined,
           queryKey: undefined,
           redemptionKey: undefined,
+          snapshotKey: undefined,
         };
       }
 
@@ -505,9 +528,17 @@ export function useRedeemPoints() {
           previousData: undefined,
           queryKey: undefined,
           redemptionKey: undefined,
+          snapshotKey: undefined,
         };
       }
 
+      const snapshotKey = customer?.id
+        ? redemptionBalanceSnapshotKey({
+            customerId: customer.id,
+            merchantId: activeMerchantId,
+            points,
+          })
+        : undefined;
       const redemptionKey = customer?.id
         ? getPendingLoyaltyRedemptionStorageKey({
             customerId: customer.id,
@@ -530,7 +561,14 @@ export function useRedeemPoints() {
       const previousData = queryClient.getQueryData<WalletQueryData>(queryKey);
 
       if (previousData && previousData.wallet.loyalty_points < points) {
-        return { previousData, queryKey, redemptionKey };
+        return { previousData, queryKey, redemptionKey, snapshotKey };
+      }
+
+      if (previousData && snapshotKey) {
+        redemptionBalanceSnapshotsRef.current.set(
+          snapshotKey,
+          previousData.wallet.loyalty_points
+        );
       }
 
       // Optimistically update points only; balance is not updated optimistically
@@ -548,7 +586,7 @@ export function useRedeemPoints() {
         });
       }
 
-      return { previousData, queryKey, redemptionKey };
+      return { previousData, queryKey, redemptionKey, snapshotKey };
     },
 
     onSuccess: async (_data, _points, context) => {
@@ -566,6 +604,10 @@ export function useRedeemPoints() {
 
     // Refetch after success or error
     onSettled: (_data, _error, _points, context) => {
+      if (context?.snapshotKey) {
+        redemptionBalanceSnapshotsRef.current.delete(context.snapshotKey);
+      }
+
       if (context?.queryKey) {
         queryClient.invalidateQueries({
           queryKey: context.queryKey,

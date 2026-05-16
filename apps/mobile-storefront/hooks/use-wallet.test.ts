@@ -847,6 +847,58 @@ describe('useRedeemPoints', () => {
     queryClient.clear();
   });
 
+  it('does not reuse a stale same-amount redemption id after the point balance changes', async () => {
+    jest.mocked(Crypto.randomUUID).mockReturnValueOnce('new-redemption-id');
+    mockCalculateCommerce.mockResolvedValue({
+      success: true,
+      walletCredit: 200,
+      pointsRedeemed: 200,
+      remainingPoints: 600,
+    });
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        success: true,
+        wallet_credited: 200,
+        points_deducted: 200,
+        new_points_balance: 600,
+        new_wallet_balance: 12500,
+      },
+      error: null,
+    });
+    await AsyncStorage.setItem(
+      'loyalty-redemption:customer-1:merchant-1:200',
+      JSON.stringify({
+        createdAt: Date.now(),
+        pointsBeforeRedeem: 1000,
+        redemptionId: 'stale-redemption-id',
+        version: 1,
+      })
+    );
+
+    const { result, unmount, queryClient } = setupHook();
+    queryClient.setQueryData<WalletQueryData>(
+      walletKeys.data({ merchantId: 'merchant-1', ownerId: 'customer-1' }),
+      {
+        wallet: { balance: 0, loyalty_points: 800 },
+        transactions: [],
+      }
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync(200);
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'redeem_loyalty_points',
+      expect.objectContaining({
+        p_redemption_id: 'new-redemption-id',
+      })
+    );
+
+    unmount();
+    queryClient.clear();
+  });
+
   it('reuses a persisted redemption id after remounting before retry', async () => {
     mockCalculateCommerce.mockResolvedValue({
       success: true,
