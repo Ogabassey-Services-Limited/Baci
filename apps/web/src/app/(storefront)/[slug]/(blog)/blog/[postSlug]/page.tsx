@@ -38,6 +38,9 @@ export async function generateMetadata({
     `blog/${post.slug}/opengraph-image`,
     storefrontBaseUrl
   ).toString();
+  const socialImageAlt = post.title
+    ? `${post.title} — ${merchant.business_name}`
+    : title;
 
   return {
     title: `${title} | ${merchant.business_name}`,
@@ -53,6 +56,7 @@ export async function generateMetadata({
       modifiedTime: post.updated_at,
       authors: [post.author_name],
       tags: post.tags,
+      images: [{ url: twitterImageUrl, alt: socialImageAlt }],
     },
     twitter: {
       card: 'summary_large_image',

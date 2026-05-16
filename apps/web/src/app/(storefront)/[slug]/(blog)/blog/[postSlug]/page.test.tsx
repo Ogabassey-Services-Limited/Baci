@@ -263,7 +263,7 @@ describe('storefront blog post page', () => {
     );
   });
 
-  it('defers OpenGraph images to the route convention while keeping explicit Twitter images', async () => {
+  it('uses the explicit social image route for OpenGraph and Twitter metadata', async () => {
     mockDraftMode.mockResolvedValue({ isEnabled: false });
     mockBuildStoreUrl.mockReturnValue('http://localhost:3000/ogabassey');
     mockGetCachedBlogPost.mockResolvedValue({
@@ -282,7 +282,12 @@ describe('storefront blog post page', () => {
       }),
     });
 
-    expect(metadata.openGraph?.images).toBeUndefined();
+    expect(metadata.openGraph?.images).toEqual([
+      {
+        alt: 'The Great 5K Stall — Ogabassey',
+        url: 'http://localhost:3000/ogabassey/blog/apple-studio-display-review/opengraph-image',
+      },
+    ]);
     expect(metadata.twitter?.images).toEqual([
       'http://localhost:3000/ogabassey/blog/apple-studio-display-review/opengraph-image',
     ]);
