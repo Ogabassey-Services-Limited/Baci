@@ -99,7 +99,9 @@ function mockSupabaseTables({
       return {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            maybeSingle: vi.fn().mockResolvedValue({ data: merchant, error: null }),
+            maybeSingle: vi
+              .fn()
+              .mockResolvedValue({ data: merchant, error: null }),
           }),
         }),
       };
