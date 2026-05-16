@@ -16,6 +16,7 @@ import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 
 const RECENT_RECORD_LIMIT = 25;
+const STALE_PAYMENT_PENDING_MS = 24 * 60 * 60 * 1000;
 
 function getIdempotencyState(statusCode: number | null) {
   if (statusCode == null) return 'in_progress';
@@ -37,6 +38,20 @@ function isExpiredInProgressReservation({
 
   const expiresAtMs = Date.parse(expiresAt);
   return Number.isFinite(expiresAtMs) && expiresAtMs <= nowMs;
+}
+
+function isStalePaymentPendingSession({
+  nowMs,
+  updatedAt,
+}: {
+  nowMs: number;
+  updatedAt: string;
+}) {
+  const updatedAtMs = Date.parse(updatedAt);
+  return (
+    Number.isFinite(updatedAtMs) &&
+    nowMs - updatedAtMs >= STALE_PAYMENT_PENDING_MS
+  );
 }
 
 async function loadAgenticActionHealth(
@@ -90,6 +105,7 @@ async function loadAgenticActionHealth(
   let paymentClaimingCount = 0;
   let paymentPendingCount = 0;
   let paymentSetupFailedCount = 0;
+  let stalePaymentPendingCount = 0;
   for (const row of sessionRows) {
     const paymentState = getAgenticPaymentState(row.metadata);
     switch (paymentState) {
@@ -101,6 +117,14 @@ async function loadAgenticActionHealth(
         break;
       case 'payment_pending':
         paymentPendingCount += 1;
+        if (
+          isStalePaymentPendingSession({
+            nowMs,
+            updatedAt: row.updated_at,
+          })
+        ) {
+          stalePaymentPendingCount += 1;
+        }
         break;
       case 'payment_setup_failed':
         paymentSetupFailedCount += 1;
@@ -117,9 +141,10 @@ async function loadAgenticActionHealth(
           requestControlSummary.isAgenticCheckoutEnabled,
         orderFinalizingCount,
         paymentClaimingCount,
-        paymentPendingCount,
+        paymentPendingCount: paymentPendingCount - stalePaymentPendingCount,
         paymentSetupFailedCount,
         staleInProgressCount,
+        stalePaymentPendingCount,
         terminalErrorCount,
       }),
       checkout_sessions: {
@@ -128,6 +153,7 @@ async function loadAgenticActionHealth(
         payment_pending_count: paymentPendingCount,
         payment_setup_failed_count: paymentSetupFailedCount,
         recent_count: sessionRows.length,
+        stale_payment_pending_count: stalePaymentPendingCount,
         records: sessionRows.map((row) => ({
           payment_state: getAgenticPaymentState(row.metadata),
           session_id: row.session_id,

@@ -71,6 +71,7 @@ describe('agenticActionHealthPayloadSchema', () => {
           payment_setup_failed_count: 4,
           recent_count: 5,
           records: [],
+          stale_payment_pending_count: 1,
         },
       }).success
     ).toBe(true);
@@ -125,6 +126,11 @@ describe('agenticActionCheckoutSessionsSchema', () => {
     expect(
       agenticActionCheckoutSessionsSchema.safeParse({
         order_finalizing_count: '1',
+      }).success
+    ).toBe(false);
+    expect(
+      agenticActionCheckoutSessionsSchema.safeParse({
+        stale_payment_pending_count: -1,
       }).success
     ).toBe(false);
   });

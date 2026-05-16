@@ -76,7 +76,7 @@ function buildRpcData({
       metadata: { agentic: { payment_state: 'payment_pending' } },
       session_id: 'agentic-session-1',
       status: 'processing',
-      updated_at: '2026-05-12T10:05:00.000Z',
+      updated_at: '2099-05-12T10:05:00.000Z',
     },
     {
       metadata: { agentic: { payment_state: 'order_finalizing' } },
@@ -429,6 +429,60 @@ describe('GET /api/merchant/agentic/action-health', () => {
     expect(payload.checkout_sessions).toMatchObject({
       claiming_payment_count: 1,
       payment_setup_failed_count: 1,
+    });
+  });
+
+  it('escalates stale payment-pending sessions separately from active pending payments', async () => {
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase: createSupabaseMock({
+        rpcData: buildRpcData({
+          checkoutSessions: [
+            {
+              metadata: { agentic: { payment_state: 'payment_pending' } },
+              session_id: 'agentic-session-stale-payment',
+              status: 'processing',
+              updated_at: '2020-01-01T00:00:00.000Z',
+            },
+            {
+              metadata: { agentic: { payment_state: 'payment_pending' } },
+              session_id: 'agentic-session-active-payment',
+              status: 'processing',
+              updated_at: '2099-01-01T00:00:00.000Z',
+            },
+          ],
+          idempotencyRecords: [{ status_code: 200 }],
+          requestRecords: [],
+        }),
+      }),
+      user: { id: 'user-1' },
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(makeRequest());
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.actions).toEqual(
+      expect.arrayContaining([
+        {
+          code: 'AGENTIC_PAYMENT_PENDING_STALE',
+          count: 1,
+          message:
+            'Agentic checkouts have been waiting for payment confirmation too long.',
+          severity: 'attention',
+        },
+        {
+          code: 'AGENTIC_PAYMENT_PENDING',
+          count: 1,
+          message: 'Agentic checkouts are waiting for payment confirmation.',
+          severity: 'monitor',
+        },
+      ])
+    );
+    expect(payload.checkout_sessions).toMatchObject({
+      payment_pending_count: 2,
+      stale_payment_pending_count: 1,
     });
   });
 
