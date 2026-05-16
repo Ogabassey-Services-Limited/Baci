@@ -388,6 +388,7 @@ describe('WalletScreen', () => {
         amount: 2500,
         customerName: 'Ada Lovelace',
         customerPhone: '08012345678',
+        merchantId: 'merchant-1',
       });
     });
     expect(mockRouterPush).toHaveBeenCalledWith({
@@ -396,6 +397,7 @@ describe('WalletScreen', () => {
         amount: '2500',
         authorizationUrl: 'https://checkout.paystack.com/wallet',
         gateway: 'paystack',
+        merchantId: 'merchant-1',
         paymentKind: 'wallet',
         reference: 'WAL-123',
       },

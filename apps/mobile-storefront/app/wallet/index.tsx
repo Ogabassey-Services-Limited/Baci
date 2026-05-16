@@ -93,6 +93,7 @@ export default function WalletScreen({
         amount,
         customerName,
         customerPhone: customer?.phone,
+        merchantId: activeMerchantId,
       });
 
       trackEvent('wallet_top_up_started', {
@@ -109,6 +110,7 @@ export default function WalletScreen({
           amount: String(amount),
           authorizationUrl: result.authorization_url,
           gateway: result.gateway,
+          merchantId: activeMerchantId,
           paymentKind: 'wallet',
           reference: result.reference,
         },

@@ -271,6 +271,30 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
     });
   });
 
+  it('confirms with merchantId when the storefront slug is unavailable or stale', async () => {
+    const response = await POST(
+      makeRequest({
+        gateway: 'paystack',
+        merchantId: 'merchant-1',
+        reference: 'WAL-123',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({
+      reference: 'WAL-123',
+      status: 'successful',
+      success: true,
+    });
+    expect(mockCreditWalletTopUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        reference: 'WAL-123',
+      })
+    );
+  });
+
   it('uses the stored transaction gateway when the request gateway mismatches', async () => {
     const response = await POST(
       makeRequest({

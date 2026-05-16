@@ -120,6 +120,35 @@ describe('initializeWalletTopUp', () => {
     });
   });
 
+  it('includes the resolved merchant id so top-up does not depend only on a build-time slug', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({
+        authorization_url: 'https://checkout.example.com/pay',
+        gateway: 'paystack',
+        reference: 'WALLET-123',
+        success: true,
+      }),
+    });
+
+    await initializeWalletTopUp({
+      amount: 2500,
+      customerName: 'Test Customer',
+      customerPhone: '08012345678',
+      gateway: 'paystack',
+      merchantId: 'merchant-1',
+    });
+
+    const requestBody = getLastInitializeRequestBody();
+    expect(requestBody).toMatchObject({
+      amount: 2500,
+      merchantId: 'merchant-1',
+      merchantSlug: 'demo-store',
+    });
+  });
+
   it('throws before initializing when the authenticated user is missing', async () => {
     mockGetUser.mockResolvedValue({
       data: { user: null },

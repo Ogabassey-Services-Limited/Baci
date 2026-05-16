@@ -4,6 +4,19 @@ import { mockFetchWithTimeout } from '@/lib/wallet-top-up.test-utils';
 const { confirmWalletTopUp } =
   require('@/lib/wallet-top-up') as typeof import('@/lib/wallet-top-up');
 
+function getLastConfirmRequestBody() {
+  const [, requestOptions] = mockFetchWithTimeout.mock.calls[0];
+  if (
+    typeof requestOptions !== 'object' ||
+    requestOptions === null ||
+    !('body' in requestOptions)
+  ) {
+    throw new Error('Expected wallet top-up confirm request body');
+  }
+
+  return JSON.parse(String(requestOptions.body)) as Record<string, unknown>;
+}
+
 describe('confirmWalletTopUp', () => {
   it('throws a clear error when confirm returns invalid JSON', async () => {
     mockFetchWithTimeout.mockResolvedValue({
@@ -40,6 +53,7 @@ describe('confirmWalletTopUp', () => {
     await expect(
       confirmWalletTopUp({
         gateway: 'paystack',
+        merchantId: 'merchant-1',
         reference: 'WALLET-123',
       })
     ).resolves.toEqual({
@@ -48,6 +62,13 @@ describe('confirmWalletTopUp', () => {
       status: 'successful',
       success: true,
       wallet: { balance: 5000 },
+    });
+
+    expect(getLastConfirmRequestBody()).toMatchObject({
+      gateway: 'paystack',
+      merchantId: 'merchant-1',
+      merchantSlug: 'demo-store',
+      reference: 'WALLET-123',
     });
   });
 

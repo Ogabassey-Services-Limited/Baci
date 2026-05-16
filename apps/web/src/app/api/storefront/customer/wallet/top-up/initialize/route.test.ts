@@ -241,6 +241,24 @@ describe('POST /api/storefront/customer/wallet/top-up/initialize', () => {
     expect(mockInitializeKorapayPayment).not.toHaveBeenCalled();
   });
 
+  it('initializes with merchantId when the storefront slug is unavailable or stale', async () => {
+    const response = await POST(
+      makeRequest({
+        amount: 2500,
+        gateway: 'paystack',
+        merchantId: 'merchant-1',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({
+      gateway: 'paystack',
+      success: true,
+    });
+    expect(mockInitializePaystackTransaction).toHaveBeenCalledTimes(1);
+  });
+
   it('uses the database default when korapay setting is null', async () => {
     mockSupabaseTables({
       settings: {

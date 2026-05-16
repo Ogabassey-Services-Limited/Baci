@@ -23,6 +23,37 @@ describe('wallet top-up schemas', () => {
     });
   });
 
+  it('accepts merchant id when the native storefront slug is unavailable or stale', () => {
+    const parsed = walletTopUpInitializeSchema.parse({
+      amount: 2500,
+      merchantId: 'merchant-1',
+    });
+
+    expect(parsed).toEqual({
+      amount: 2500,
+      merchantId: 'merchant-1',
+    });
+  });
+
+  it('rejects initialize payloads missing merchant slug and id', () => {
+    const result = walletTopUpInitializeSchema.safeParse({
+      amount: 2500,
+      gateway: 'paystack',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'Merchant slug or id is required',
+            path: ['merchantSlug'],
+          }),
+        ])
+      );
+    }
+  });
+
   it('rejects out-of-range top-up amounts', () => {
     expect(
       walletTopUpInitializeSchema.safeParse({
@@ -101,6 +132,42 @@ describe('wallet top-up schemas', () => {
         merchantSlug: 'ogabassey',
       }).success
     ).toBe(false);
+  });
+
+  it('accepts merchant id for confirmation when the native storefront slug is unavailable or stale', () => {
+    const result = walletTopUpConfirmSchema.safeParse({
+      gateway: 'paystack',
+      merchantId: 'merchant-1',
+      reference: 'WAL-123',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toEqual({
+        gateway: 'paystack',
+        merchantId: 'merchant-1',
+        reference: 'WAL-123',
+      });
+    }
+  });
+
+  it('rejects confirm payloads missing merchant slug and id', () => {
+    const result = walletTopUpConfirmSchema.safeParse({
+      gateway: 'paystack',
+      reference: 'WAL-123',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'Merchant slug or id is required',
+            path: ['merchantSlug'],
+          }),
+        ])
+      );
+    }
   });
 
   it.each([

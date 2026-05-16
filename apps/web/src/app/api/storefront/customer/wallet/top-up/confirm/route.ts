@@ -32,6 +32,17 @@ function isWalletTopUpGateway(value: unknown): value is 'paystack' | 'korapay' {
   return value === 'paystack' || value === 'korapay';
 }
 
+function getMerchantLookup(parsed: {
+  merchantId?: string;
+  merchantSlug?: string;
+}) {
+  if (parsed.merchantId) {
+    return { column: 'id', value: parsed.merchantId };
+  }
+
+  return { column: 'slug', value: parsed.merchantSlug ?? '' };
+}
+
 const TERMINAL_PAYMENT_STATUSES = new Set([
   'abandoned',
   'cancelled',
@@ -87,10 +98,11 @@ export async function POST(request: NextRequest) {
     // writes: customer identity is authenticated above, while transaction
     // claiming and wallet credit RPCs are not exposed through customer RLS.
     const supabase = createAdminClient();
+    const merchantLookup = getMerchantLookup(parsed.data);
     const { data: merchant, error: merchantError } = await supabase
       .from('merchants')
       .select('id')
-      .eq('slug', parsed.data.merchantSlug)
+      .eq(merchantLookup.column, merchantLookup.value)
       .single();
 
     if (merchantError || !merchant) {
