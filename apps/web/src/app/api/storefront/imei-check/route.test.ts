@@ -117,12 +117,16 @@ function createSupabaseMock(rows: ImeiLookupRow[] = []) {
     filters: Record<string, unknown>;
     payload: Record<string, unknown>;
   }> = [];
+  const deletes: Array<{
+    filters: Record<string, unknown>;
+  }> = [];
   let insertedPayload: Record<string, unknown> | null = null;
   let insertError: { code?: string; message: string } | null = null;
   let updateError: { code?: string; message: string } | null = null;
 
   const supabase = {
     __rows: rows,
+    __deletes: deletes,
     __updates: updates,
     __setInsertError: (error: { code?: string; message: string } | null) => {
       insertError = error;
@@ -139,12 +143,23 @@ function createSupabaseMock(rows: ImeiLookupRow[] = []) {
         filters: Record<string, unknown>;
         payload: Record<string, unknown>;
       } | null = null;
+      let activeDelete: {
+        filters: Record<string, unknown>;
+      } | null = null;
       const builder = {
         eq: vi.fn((column: string, value: unknown) => {
           filters[column] = value;
           if (activeUpdate) {
             activeUpdate.filters[column] = value;
           }
+          if (activeDelete) {
+            activeDelete.filters[column] = value;
+          }
+          return builder;
+        }),
+        delete: vi.fn(() => {
+          activeDelete = { filters: { ...filters } };
+          deletes.push(activeDelete);
           return builder;
         }),
         insert: vi.fn((payload: Record<string, unknown>) => {
@@ -184,6 +199,26 @@ function createSupabaseMock(rows: ImeiLookupRow[] = []) {
               };
             }
             return { data: { id: matchingRow.id }, error: null };
+          }
+          if (activeDelete) {
+            const deleteRequest = activeDelete;
+            const matchingIndex = rows.findIndex((candidate) =>
+              Object.entries(deleteRequest.filters).every(
+                ([column, value]) =>
+                  candidate[column as keyof ImeiLookupRow] === value
+              )
+            );
+            if (matchingIndex === -1) {
+              return {
+                data: null,
+                error: {
+                  message:
+                    'JSON object requested, multiple (or no) rows returned',
+                },
+              };
+            }
+            const [deletedRow] = rows.splice(matchingIndex, 1);
+            return { data: { id: deletedRow.id }, error: null };
           }
           if (insertError) {
             return { data: null, error: insertError };
@@ -551,6 +586,26 @@ describe('POST /api/storefront/imei-check', () => {
         status: 'failed_error',
       },
     });
+  });
+
+  it('removes the uncharged pending lookup when debit failure caching fails', async () => {
+    mocks.mockRedeemImeiWalletPayment.mockRejectedValueOnce(
+      new Error('wallet rpc unavailable')
+    );
+    const adminSupabase = createSupabaseMock();
+    adminSupabase.__setUpdateError({ message: 'database unavailable' });
+    mockAuthenticatedUser({ adminSupabase });
+    const { POST } = await importRoute();
+
+    const response = await POST(createRequest());
+    const body = (await response.json()) as { code: string };
+
+    expect(response.status).toBe(500);
+    expect(body.code).toBe('INTERNAL_ERROR');
+    expect(adminSupabase.__deletes.at(-1)).toMatchObject({
+      filters: { id: 'lookup-1' },
+    });
+    expect(adminSupabase.__rows).toHaveLength(0);
   });
 
   it('debits the wallet before calling SICKW', async () => {

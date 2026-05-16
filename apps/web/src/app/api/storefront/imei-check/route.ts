@@ -350,6 +350,33 @@ export async function POST(request: NextRequest) {
           lookupId: activeLookup.id,
           merchantId: activeLookup.merchantId,
         });
+        const { error: deleteError } = await (
+          supabaseAdmin ?? createAdminClient()
+        )
+          .from('imei_lookups')
+          .delete()
+          .eq('id', activeLookup.id)
+          .select('id')
+          .single();
+
+        if (deleteError) {
+          console.error(
+            '[IMEI Check] Failed to remove uncharged pending lookup after debit failure:',
+            {
+              error: deleteError,
+              lookupId: activeLookup.id,
+              merchantId: activeLookup.merchantId,
+            }
+          );
+          return json(
+            errorBody({
+              code: 'DEBIT_FAILURE_STATE_SAVE_FAILED',
+              error:
+                'Wallet debit failed and lookup state could not be finalized. Contact support before retrying.',
+            }),
+            500
+          );
+        }
       }
 
       return json(body, 500);
