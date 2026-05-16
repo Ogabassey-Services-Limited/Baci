@@ -33,6 +33,9 @@ export function StatePickerModal({
         style={[styles.modalContainer, { backgroundColor: colors.background }]}
       >
         <FlatList
+          // ⚡ Bolt Performance Optimization: Explicit getItemLayout avoids asynchronous measurement cycles on the UI thread
+          // Stride derivation: 64px item height + 4px (SPACING.xs) marginBottom = 68px
+          getItemLayout={(_, index) => ({ length: 68, offset: 68 * index, index })}
           data={NIGERIAN_STATES}
           keyExtractor={(item) => item.code}
           contentContainerStyle={{ padding: SPACING.md }}
@@ -56,6 +59,7 @@ export function StatePickerModal({
                       ? colors.primaryLight
                       : colors.card,
                   borderColor: colors.border,
+                  minHeight: 64,
                 },
               ]}
               onPress={() => onSelect(item.code)}
@@ -66,6 +70,7 @@ export function StatePickerModal({
               }}
             >
               <Text
+                numberOfLines={1}
                 style={[
                   styles.stateItemText,
                   {

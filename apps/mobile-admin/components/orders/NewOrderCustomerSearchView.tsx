@@ -70,6 +70,8 @@ export function NewOrderCustomerSearchView({
       </Pressable>
 
       <FlatList
+        // ⚡ Bolt Performance Optimization: Explicit getItemLayout avoids asynchronous measurement cycles on the UI thread
+        getItemLayout={(_, index) => ({ length: 72, offset: 72 * index, index })}
         {...MODAL_FLATLIST_PROPS}
         contentContainerStyle={{ paddingBottom: 40 }}
         data={customerRows}
@@ -128,6 +130,7 @@ export function NewOrderCustomerSearchView({
                 borderBottomColor: colors.border,
                 borderBottomWidth: 1,
                 paddingVertical: 12,
+                minHeight: 72,
               },
             ]}
           >
@@ -145,10 +148,10 @@ export function NewOrderCustomerSearchView({
               </Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.itemTitle, { color: colors.text }]}>
+              <Text numberOfLines={1} style={[styles.itemTitle, { color: colors.text }]}>
                 {getCustomerDisplayName(item)}
               </Text>
-              <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+              <Text numberOfLines={1} style={{ color: colors.textSecondary, fontSize: 13 }}>
                 {getCustomerDisplayContact(item)}
               </Text>
             </View>

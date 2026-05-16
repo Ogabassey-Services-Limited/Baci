@@ -138,6 +138,8 @@ export function NewOrderProductSheet({
         ) : null}
 
         <FlatList
+          // ⚡ Bolt Performance Optimization: Explicit getItemLayout avoids asynchronous measurement cycles on the UI thread
+          getItemLayout={(_, index) => ({ length: 72, offset: 72 * index, index })}
           {...MODAL_FLATLIST_PROPS}
           data={selectableProductRows}
           keyExtractor={(item) => item.id}
@@ -193,14 +195,14 @@ export function NewOrderProductSheet({
                 }
                 style={[
                   styles.productItem,
-                  { borderBottomColor: colors.border },
+                  { borderBottomColor: colors.border, minHeight: 72 },
                 ]}
               >
                 <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={{ color: colors.text, fontSize: 16 }}>
+                  <Text numberOfLines={1} style={{ color: colors.text, fontSize: 16 }}>
                     {pickerTitle}
                   </Text>
-                  <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                  <Text numberOfLines={1} style={{ color: colors.textSecondary, fontSize: 12 }}>
                     {pickerSubtitle}
                   </Text>
                 </View>

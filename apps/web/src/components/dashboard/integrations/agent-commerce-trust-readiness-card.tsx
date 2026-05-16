@@ -4,6 +4,7 @@ import {
   AlertCircle,
   ArrowRight,
   CheckCircle2,
+  ExternalLink,
   Loader2,
   TriangleAlert,
 } from 'lucide-react';
@@ -52,6 +53,11 @@ export function AgentCommerceTrustReadinessCard() {
   const [error, setError] = useState<string | null>(null);
   const actionItems = readiness
     ? agentCommerceTrustReadinessCardHelpers.buildTrustActionItems(readiness)
+    : [];
+  const contractLinks = readiness
+    ? agentCommerceTrustReadinessCardHelpers.buildMachineContractLinks(
+        readiness
+      )
     : [];
 
   useEffect(() => {
@@ -120,6 +126,43 @@ export function AgentCommerceTrustReadinessCard() {
               {readiness.totals.sharedProducts} products are shared across agent
               and Google feed sources.
             </p>
+
+            {contractLinks.length > 0 ? (
+              <div className="space-y-3 rounded-md border bg-muted/20 p-3">
+                <div>
+                  <p className="text-sm font-medium">Machine contracts</p>
+                  <p className="text-xs text-muted-foreground">
+                    Public proof links for shopping agents, validators, and
+                    partner reviews.
+                  </p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {contractLinks.map((link) => (
+                    <div
+                      className="flex min-w-0 items-center justify-between gap-3 rounded-md border bg-background p-3"
+                      key={link.id}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium">{link.label}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {link.description}
+                        </p>
+                      </div>
+                      <Button asChild size="icon" variant="outline">
+                        <a
+                          aria-label={`Open ${link.label}`}
+                          href={link.href}
+                          rel="noreferrer"
+                          target="_blank"
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             {actionItems.length > 0 ? (
               <div className="space-y-3 rounded-md border bg-muted/30 p-3">

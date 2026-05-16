@@ -40,6 +40,7 @@ export interface AgentCommerceTrustReadiness {
   status: AgentCommerceTrustSeverity;
   surfaces: {
     agentCommerceManifest: string;
+    agentNativeCommerce: string;
     agentTrust: string;
     currentProductFeed: string;
     googleMerchantXml: string;
@@ -48,6 +49,7 @@ export interface AgentCommerceTrustReadiness {
     policies: ReturnType<typeof buildAgentPolicyUrls>;
     robots: string;
     sitemap: string;
+    ucpProfile: string;
   };
   totals: {
     googleProducts: number;
@@ -79,6 +81,7 @@ function buildSurfaceUrls(baseUrl: string, slug: string) {
 
   return {
     agentCommerceManifest: `${root}${STOREFRONT_AGENT_ROUTES.manifest}`,
+    agentNativeCommerce: `${root}${STOREFRONT_AGENT_ROUTES.agentNativeCommerce}`,
     agentTrust: `${root}${STOREFRONT_AGENT_ROUTES.trust}`,
     currentProductFeed: `${root}${STOREFRONT_FEED_ROUTES.agentProducts}`,
     googleMerchantXml: `${root}${STOREFRONT_FEED_ROUTES.googleMerchantXml}`,
@@ -87,6 +90,7 @@ function buildSurfaceUrls(baseUrl: string, slug: string) {
     policies: buildAgentPolicyUrls(root),
     robots: `${root}/robots.txt`,
     sitemap: `${root}/sitemap.xml`,
+    ucpProfile: `${root}${STOREFRONT_AGENT_ROUTES.ucpProfile}`,
   };
 }
 
@@ -177,6 +181,7 @@ export function buildAgentCommerceTrustReadiness({
   });
   const surfaceUrls = [
     surfaces.agentCommerceManifest,
+    surfaces.agentNativeCommerce,
     surfaces.agentTrust,
     surfaces.currentProductFeed,
     surfaces.googleMerchantXml,
@@ -185,6 +190,7 @@ export function buildAgentCommerceTrustReadiness({
     ...Object.values(surfaces.policies),
     surfaces.robots,
     surfaces.sitemap,
+    surfaces.ucpProfile,
   ];
   const validSurfaceUrls = surfaceUrls.filter(isValidHttpUrl).length;
   const policyCount = [

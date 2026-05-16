@@ -146,6 +146,37 @@ describe('AgenticActionCenterCard', () => {
     );
   });
 
+  it('renders stale payment-pending sessions as attention items', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        actions: [
+          {
+            code: 'AGENTIC_PAYMENT_PENDING_STALE',
+            count: 1,
+            message:
+              'Agentic checkouts have been waiting for payment confirmation too long.',
+            severity: 'attention',
+          },
+        ],
+      }),
+    } as Response);
+
+    render(<AgenticActionCenterCard />);
+
+    expect(await screen.findByText('1 open')).toBeInTheDocument();
+    expect(
+      screen.getAllByText(
+        'Agentic checkouts have been waiting for payment confirmation too long.'
+      )
+    ).toHaveLength(2);
+    expect(screen.getByRole('link', { name: /review/i })).toHaveAttribute(
+      'href',
+      '/dashboard/orders?source=agentic'
+    );
+  });
+
   it('renders allowlist control warnings without a dead-end review link', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
       ok: true,

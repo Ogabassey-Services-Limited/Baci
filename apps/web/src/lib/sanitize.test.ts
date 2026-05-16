@@ -18,6 +18,17 @@ describe('sanitize', () => {
     expect(output).not.toContain('javascript:');
   });
 
+  it('does not rehydrate markup wrapped in disallowed xmp raw text', () => {
+    const output = sanitizeHtml(
+      '<xmp><img src=x onerror=alert(1)><script>alert(1)</script></xmp>'
+    );
+
+    expect(output).toBe('');
+    expect(output).not.toContain('<img');
+    expect(output).not.toContain('onerror=');
+    expect(output).not.toContain('<script');
+  });
+
   it('keeps safe links and adds rel protection', () => {
     const output = sanitizeHtml('<a href="https://example.com">Safe</a>');
 
