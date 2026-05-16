@@ -1,14 +1,19 @@
 // Client chunk: receives interactive tab-change callback and renders client-only tabs/video sections.
 'use client';
 
+import dynamic from 'next/dynamic';
 import type { Product as RelatedProduct } from '@/lib/products';
 import { BrandProducts } from '@/components/storefront/brand-products';
 import { PriceRangeProducts } from '@/components/storefront/price-range-products';
-import { AdUnit } from '../../components/AdUnit';
 import { ProductVideo } from '../../components/ProductVideo';
 import type { NormalizedProductDetails } from './product-details-helpers';
 import { ProductDetailsTabs } from './product-details-tabs';
 import type { ProductDetailsActiveTab } from './use-product-details-state';
+
+const AdUnit = dynamic(
+  () => import('../../components/AdUnit').then((mod) => mod.AdUnit),
+  { loading: () => null, ssr: false }
+);
 
 interface DeferredProductDetailsSectionsProps {
   activeTab: ProductDetailsActiveTab;

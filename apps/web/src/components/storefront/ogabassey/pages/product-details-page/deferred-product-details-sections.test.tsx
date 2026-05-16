@@ -10,10 +10,11 @@ const { brandProductsSpy, priceRangeProductsSpy } = vi.hoisted(() => ({
   priceRangeProductsSpy: vi.fn(),
 }));
 
-vi.mock('../../components/AdUnit', () => ({
-  AdUnit: ({ placementKey }: { placementKey: string }) => (
-    <div role="region" aria-label={`Ad Unit ${placementKey}`} />
-  ),
+vi.mock('next/dynamic', () => ({
+  default: () =>
+    function DynamicAdUnit(props: { placementKey: string }) {
+      return <div role="region" aria-label={`Ad Unit ${props.placementKey}`} />;
+    },
 }));
 
 vi.mock('../../components/ProductVideo', () => ({
