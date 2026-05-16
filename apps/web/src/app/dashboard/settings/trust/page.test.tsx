@@ -31,9 +31,9 @@ vi.mock('./trust-settings-client', () => ({
 }));
 
 vi.mock(
-  '@/components/dashboard/integrations/agent-commerce-trust-readiness-card',
+  '@/components/dashboard/integrations/agent-commerce-trust-readiness-card-server',
   () => ({
-    AgentCommerceTrustReadinessCard: () => <div>agent-trust-health</div>,
+    AgentCommerceTrustReadinessCardServer: () => <div>agent-trust-health</div>,
   })
 );
 
