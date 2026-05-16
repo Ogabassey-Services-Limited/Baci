@@ -14,6 +14,28 @@ const healthyInput = {
   terminalErrorCount: 0,
 };
 
+const expectedNextStepsByCode = {
+  AGENTIC_ACTIONS_HEALTHY: 'No action required right now.',
+  AGENTIC_AGENT_ALLOWLIST_UNSET:
+    'Configure trusted agent user-agents before broadly advertising checkout.',
+  AGENTIC_IDEMPOTENCY_ERRORS:
+    'Review failed agentic orders and retry only after the server error is resolved.',
+  AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS:
+    'Open agentic orders and confirm whether the buyer should retry the request.',
+  AGENTIC_ORDER_FINALIZING:
+    'Check whether an order was created before allowing another completion retry.',
+  AGENTIC_PAYMENT_CLAIMING:
+    'Monitor payment-account creation and investigate if this count does not fall.',
+  AGENTIC_PAYMENT_PENDING:
+    'Confirm payment provider webhook status if pending payments do not settle.',
+  AGENTIC_PAYMENT_PENDING_STALE:
+    'Confirm payment manually or cancel stale sessions before agents keep polling.',
+  AGENTIC_PAYMENT_SETUP_FAILED:
+    'Fix payment setup, then ask the buyer or agent to retry checkout completion.',
+  AGENTIC_REQUESTS_IN_PROGRESS:
+    'Wait for the reservation window to close before manually retrying.',
+};
+
 describe('buildAgenticHealthActions', () => {
   it('surfaces all recovery and monitor branches in priority order', () => {
     expect(
@@ -93,6 +115,8 @@ describe('buildAgenticHealthActions', () => {
         count: 1,
         message:
           'Agentic checkouts failed while setting up payment collection.',
+        next_step:
+          'Fix payment setup, then ask the buyer or agent to retry checkout completion.',
         severity: 'attention',
       },
       {
@@ -100,18 +124,24 @@ describe('buildAgenticHealthActions', () => {
         count: 1,
         message:
           'Agentic checkouts have been waiting for payment confirmation too long.',
+        next_step:
+          'Confirm payment manually or cancel stale sessions before agents keep polling.',
         severity: 'attention',
       },
       {
         code: 'AGENTIC_REQUESTS_IN_PROGRESS',
         count: 1,
         message: 'Agentic idempotency reservations are still in progress.',
+        next_step:
+          'Wait for the reservation window to close before manually retrying.',
         severity: 'monitor',
       },
       {
         code: 'AGENTIC_PAYMENT_CLAIMING',
         count: 1,
         message: 'Agentic checkouts are claiming payment setup.',
+        next_step:
+          'Monitor payment-account creation and investigate if this count does not fall.',
         severity: 'monitor',
       },
     ]);
@@ -129,6 +159,7 @@ describe('buildAgenticHealthActions', () => {
         code: 'AGENTIC_ACTIONS_HEALTHY',
         count: 0,
         message: 'No recent agentic action issues need attention.',
+        next_step: 'No action required right now.',
         severity: 'ok',
       },
     ]);
@@ -140,8 +171,33 @@ describe('buildAgenticHealthActions', () => {
         code: 'AGENTIC_ACTIONS_HEALTHY',
         count: 0,
         message: 'No recent agentic action issues need attention.',
+        next_step: 'No action required right now.',
         severity: 'ok',
       },
     ]);
+  });
+
+  it('adds merchant-facing next steps to generated actions', () => {
+    const issueActions = buildAgenticHealthActions({
+      ...healthyInput,
+      activeInProgressCount: 5,
+      allowlistCount: 0,
+      orderFinalizingCount: 3,
+      paymentClaimingCount: 6,
+      paymentPendingCount: 7,
+      paymentSetupFailedCount: 4,
+      staleInProgressCount: 1,
+      stalePaymentPendingCount: 8,
+      terminalErrorCount: 2,
+    });
+    const healthyActions = buildAgenticHealthActions(healthyInput);
+    const nextStepsByCode = Object.fromEntries(
+      [...issueActions, ...healthyActions].map(({ code, next_step }) => [
+        code,
+        next_step,
+      ])
+    );
+
+    expect(nextStepsByCode).toEqual(expectedNextStepsByCode);
   });
 });

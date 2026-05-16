@@ -147,10 +147,30 @@ describe('GET /api/merchant/agentic/action-health', () => {
     expect(response.status).toBe(200);
     expect(payload).toMatchObject({
       actions: [
-        { code: 'AGENTIC_IDEMPOTENCY_ERRORS', count: 1, severity: 'attention' },
-        { code: 'AGENTIC_ORDER_FINALIZING', count: 1, severity: 'attention' },
-        { code: 'AGENTIC_REQUESTS_IN_PROGRESS', count: 1, severity: 'monitor' },
-        { code: 'AGENTIC_PAYMENT_PENDING', count: 1, severity: 'monitor' },
+        {
+          code: 'AGENTIC_IDEMPOTENCY_ERRORS',
+          count: 1,
+          next_step: expect.any(String),
+          severity: 'attention',
+        },
+        {
+          code: 'AGENTIC_ORDER_FINALIZING',
+          count: 1,
+          next_step: expect.any(String),
+          severity: 'attention',
+        },
+        {
+          code: 'AGENTIC_REQUESTS_IN_PROGRESS',
+          count: 1,
+          next_step: expect.any(String),
+          severity: 'monitor',
+        },
+        {
+          code: 'AGENTIC_PAYMENT_PENDING',
+          count: 1,
+          next_step: expect.any(String),
+          severity: 'monitor',
+        },
       ],
       checkout_sessions: {
         order_finalizing_count: 1,
@@ -201,6 +221,7 @@ describe('GET /api/merchant/agentic/action-health', () => {
         code: 'AGENTIC_ACTIONS_HEALTHY',
         count: 0,
         message: 'No recent agentic action issues need attention.',
+        next_step: 'No action required right now.',
         severity: 'ok',
       },
     ]);
@@ -234,6 +255,8 @@ describe('GET /api/merchant/agentic/action-health', () => {
         count: 1,
         message:
           'No agent allowlist is configured. Contact support to configure trusted agent user-agents for this merchant.',
+        next_step:
+          'Configure trusted agent user-agents before broadly advertising checkout.',
         severity: 'monitor',
       },
     ]);
@@ -271,6 +294,8 @@ describe('GET /api/merchant/agentic/action-health', () => {
         count: 1,
         message:
           'No agent allowlist is configured. Contact support to configure trusted agent user-agents for this merchant.',
+        next_step:
+          'Configure trusted agent user-agents before broadly advertising checkout.',
         severity: 'monitor',
       },
     ]);
@@ -307,6 +332,7 @@ describe('GET /api/merchant/agentic/action-health', () => {
         code: 'AGENTIC_ACTIONS_HEALTHY',
         count: 0,
         message: 'No recent agentic action issues need attention.',
+        next_step: 'No action required right now.',
         severity: 'ok',
       },
     ]);
@@ -356,19 +382,21 @@ describe('GET /api/merchant/agentic/action-health', () => {
     expect(response.status).toBe(200);
     expect(payload.actions).toEqual(
       expect.arrayContaining([
-        {
+        expect.objectContaining({
           code: 'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS',
           count: 1,
           message:
             'Agentic retry reservations expired before storing a response.',
+          next_step: expect.any(String),
           severity: 'attention',
-        },
-        {
+        }),
+        expect.objectContaining({
           code: 'AGENTIC_REQUESTS_IN_PROGRESS',
           count: 1,
           message: 'Agentic idempotency reservations are still in progress.',
+          next_step: expect.any(String),
           severity: 'monitor',
-        },
+        }),
       ])
     );
     expect(payload.idempotency).toMatchObject({
@@ -411,19 +439,21 @@ describe('GET /api/merchant/agentic/action-health', () => {
     expect(response.status).toBe(200);
     expect(payload.actions).toEqual(
       expect.arrayContaining([
-        {
+        expect.objectContaining({
           code: 'AGENTIC_PAYMENT_SETUP_FAILED',
           count: 1,
           message:
             'Agentic checkouts failed while setting up payment collection.',
+          next_step: expect.any(String),
           severity: 'attention',
-        },
-        {
+        }),
+        expect.objectContaining({
           code: 'AGENTIC_PAYMENT_CLAIMING',
           count: 1,
           message: 'Agentic checkouts are claiming payment setup.',
+          next_step: expect.any(String),
           severity: 'monitor',
-        },
+        }),
       ])
     );
     expect(payload.checkout_sessions).toMatchObject({
@@ -465,19 +495,22 @@ describe('GET /api/merchant/agentic/action-health', () => {
     expect(response.status).toBe(200);
     expect(payload.actions).toEqual(
       expect.arrayContaining([
-        {
+        expect.objectContaining({
           code: 'AGENTIC_PAYMENT_PENDING_STALE',
           count: 1,
           message:
             'Agentic checkouts have been waiting for payment confirmation too long.',
+          next_step:
+            'Confirm payment manually or cancel stale sessions before agents keep polling.',
           severity: 'attention',
-        },
-        {
+        }),
+        expect.objectContaining({
           code: 'AGENTIC_PAYMENT_PENDING',
           count: 1,
           message: 'Agentic checkouts are waiting for payment confirmation.',
+          next_step: expect.any(String),
           severity: 'monitor',
-        },
+        }),
       ])
     );
     expect(payload.checkout_sessions).toMatchObject({

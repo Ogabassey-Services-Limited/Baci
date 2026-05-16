@@ -12,6 +12,7 @@ export const agenticActionSchema = z.object({
   code: z.string(),
   count: nonnegativeCountSchema,
   message: z.string(),
+  next_step: z.string().trim().min(1).optional(),
   severity: agenticActionSeveritySchema,
 });
 
