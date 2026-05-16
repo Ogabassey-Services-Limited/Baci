@@ -454,6 +454,26 @@ describe('WalletScreen', () => {
     });
   });
 
+  it('syncs wallet top-up state when route params change after mount', async () => {
+    const { rerender } = render(<WalletScreen />);
+
+    expect(screen.getByText('show-fund-panel:false')).toBeOnTheScreen();
+    expect(screen.getByText('fund-amount:')).toBeOnTheScreen();
+
+    mockSearchParams = {
+      action: 'fund',
+      requiredAmount: '1750',
+      returnTo: '/imei-check',
+    };
+
+    rerender(<WalletScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('show-fund-panel:true')).toBeOnTheScreen();
+    });
+    expect(screen.getByText('fund-amount:1750')).toBeOnTheScreen();
+  });
+
   it('ignores external returnTo values when starting a top-up', async () => {
     mockSearchParams = {
       action: 'fund',

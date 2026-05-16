@@ -29,4 +29,23 @@ describe('ImeiInsufficientBalanceCta', () => {
 
     expect(onTopUp).toHaveBeenCalledWith(1000);
   });
+
+  it('clamps non-positive top-up deltas to zero', () => {
+    const onTopUp = jest.fn();
+
+    render(
+      <ImeiInsufficientBalanceCta
+        balance={1500}
+        colors={Colors.light}
+        requiredAmount={1500}
+        onTopUp={onTopUp}
+      />
+    );
+
+    expect(screen.getByText('Top up ₦0 to run this IMEI lookup.')).toBeTruthy();
+
+    fireEvent.press(screen.getByLabelText('Top up wallet'));
+
+    expect(onTopUp).toHaveBeenCalledWith(0);
+  });
 });

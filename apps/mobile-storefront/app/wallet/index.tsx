@@ -1,5 +1,5 @@
 import { Redirect, router, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
@@ -40,8 +40,8 @@ export default function WalletScreen({
     requiredAmount?: string;
     returnTo?: string;
   }>();
-  const initialAction = Array.isArray(action) ? action[0] : action;
-  const initialRequiredAmount = normalizeFundAmountParam(requiredAmount);
+  const routeAction = Array.isArray(action) ? action[0] : action;
+  const routeRequiredAmount = normalizeFundAmountParam(requiredAmount);
   const walletReturnTo = sanitizeWalletReturnTo(returnTo);
 
   const { isLoading: authLoading, redirectTo } = useRequireAuth();
@@ -57,12 +57,26 @@ export default function WalletScreen({
 
   const [redeemPoints, setRedeemPoints] = useState('');
   const [showRedeemPanel, setShowRedeemPanel] = useState(
-    initialAction === 'redeem'
+    routeAction === 'redeem'
   );
-  const [fundAmount, setFundAmount] = useState(initialRequiredAmount);
-  const [showFundPanel, setShowFundPanel] = useState(initialAction === 'fund');
+  const [fundAmount, setFundAmount] = useState(routeRequiredAmount);
+  const [showFundPanel, setShowFundPanel] = useState(routeAction === 'fund');
   const [isFundPending, setIsFundPending] = useState(false);
   const activeMerchantId = merchantId || CONFIG.MERCHANT_ID;
+
+  useEffect(() => {
+    if (routeAction === 'fund') {
+      setShowFundPanel(true);
+      setShowRedeemPanel(false);
+      setFundAmount(routeRequiredAmount);
+      return;
+    }
+
+    if (routeAction === 'redeem') {
+      setShowFundPanel(false);
+      setShowRedeemPanel(true);
+    }
+  }, [routeAction, routeRequiredAmount]);
 
   const handleFundAmountChange = (value: string) => {
     setFundAmount(value.replace(/\D/g, ''));

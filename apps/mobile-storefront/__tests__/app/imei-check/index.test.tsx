@@ -200,6 +200,34 @@ describe('ImeiCheckerScreen', () => {
     });
   });
 
+  it('falls back to finite values when 402 balance payload is malformed', async () => {
+    jest.mocked(fetch).mockResolvedValueOnce({
+      json: () =>
+        Promise.resolve({
+          balance: 'not-a-number',
+          code: 'WALLET_INSUFFICIENT',
+          error: 'Insufficient wallet balance',
+          required: 'not-a-number',
+          success: false,
+        }),
+      ok: false,
+      status: 402,
+    } as Response);
+    render(<ImeiCheckerScreen />);
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('Enter 15-digit IMEI'),
+      '490154203237518'
+    );
+    fireEvent.press(screen.getByText('Verify Now - ₦1,500'));
+
+    await waitFor(() => {
+      expect(router.push).toHaveBeenCalledWith(
+        '/wallet?action=fund&requiredAmount=0&returnTo=/imei-check'
+      );
+    });
+  });
+
   it('shows delayed refund copy and refreshes wallet on REFUND_PENDING', async () => {
     jest.mocked(fetch).mockResolvedValue({
       json: () =>

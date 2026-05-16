@@ -201,9 +201,16 @@ export default function ImeiCheckerScreen() {
         }
 
         if (response.status === 402) {
-          const required = Number(rawData?.required ?? currentTier.price);
-          const balance = Number(rawData?.balance ?? walletBalance);
-          handleTopUpWallet(Math.max(0, required - balance));
+          const parsedRequired = Number(rawData?.required);
+          const parsedBalance = Number(rawData?.balance);
+          const required = Number.isFinite(parsedRequired)
+            ? parsedRequired
+            : currentTier.price;
+          const balance = Number.isFinite(parsedBalance)
+            ? parsedBalance
+            : walletBalance;
+          const topUpDelta = Math.max(0, required - balance);
+          handleTopUpWallet(Number.isFinite(topUpDelta) ? topUpDelta : 0);
           return;
         }
 

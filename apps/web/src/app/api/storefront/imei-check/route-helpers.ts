@@ -73,6 +73,10 @@ export function hashImei(imei: string, salt: string) {
 }
 
 export function isValidImeiChecksum(imei: string): boolean {
+  if (!/^\d{15}$/.test(imei)) {
+    return false;
+  }
+
   let sum = 0;
   for (let i = 0; i < imei.length; i++) {
     let digit = Number.parseInt(imei[i], 10);
