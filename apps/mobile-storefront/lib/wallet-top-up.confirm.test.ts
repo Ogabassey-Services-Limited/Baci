@@ -67,9 +67,9 @@ describe('confirmWalletTopUp', () => {
     expect(getLastConfirmRequestBody()).toMatchObject({
       gateway: 'paystack',
       merchantId: 'merchant-1',
+      merchantSlug: 'demo-store',
       reference: 'WALLET-123',
     });
-    expect(getLastConfirmRequestBody()).not.toHaveProperty('merchantSlug');
   });
 
   it('preserves an explicit merchant slug when merchant id is also supplied', async () => {

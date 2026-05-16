@@ -120,7 +120,7 @@ describe('initializeWalletTopUp', () => {
     });
   });
 
-  it('includes the resolved merchant id without adding a build-time slug fallback', async () => {
+  it('includes the resolved merchant id and build-time slug fallback', async () => {
     mockFetchWithTimeout.mockResolvedValue({
       ok: true,
       status: 200,
@@ -145,8 +145,8 @@ describe('initializeWalletTopUp', () => {
     expect(requestBody).toMatchObject({
       amount: 2500,
       merchantId: 'merchant-1',
+      merchantSlug: 'demo-store',
     });
-    expect(requestBody).not.toHaveProperty('merchantSlug');
   });
 
   it('preserves an explicit merchant slug when merchant id is also supplied', async () => {

@@ -1,13 +1,24 @@
 import { describe, expect, it, vi } from 'vitest';
-import { resolveWalletTopUpMerchant } from './resolve-wallet-top-up-merchant';
+import { resolveWalletTopUpMerchant } from '@/lib/resolve-wallet-top-up-merchant';
 
 type Row = { id: string; slug: string };
+type QueryError = { message: string };
 type SupabaseTestDouble = Parameters<typeof resolveWalletTopUpMerchant>[0] & {
   calls: Array<{ column: string; value: string }>;
   selects: string[];
 };
 
-function makeSupabase(byId: Row | null, bySlug: Row | null) {
+function makeSupabase({
+  byId,
+  bySlug,
+  idError = null,
+  slugError = null,
+}: {
+  byId: Row | null;
+  bySlug: Row | null;
+  idError?: QueryError | null;
+  slugError?: QueryError | null;
+}) {
   const calls: Array<{ column: string; value: string }> = [];
   const selects: string[] = [];
   const supabase = {
@@ -22,7 +33,7 @@ function makeSupabase(byId: Row | null, bySlug: Row | null) {
             return {
               maybeSingle: vi.fn(async () => ({
                 data: column === 'id' ? byId : bySlug,
-                error: null,
+                error: column === 'id' ? idError : slugError,
               })),
             };
           }),
@@ -35,7 +46,10 @@ function makeSupabase(byId: Row | null, bySlug: Row | null) {
 
 describe('resolveWalletTopUpMerchant', () => {
   it('returns the id match without attempting the slug lookup when both identifiers agree', async () => {
-    const supabase = makeSupabase({ id: 'm1', slug: 's1' }, null);
+    const supabase = makeSupabase({
+      byId: { id: 'm1', slug: 's1' },
+      bySlug: null,
+    });
 
     const result = await resolveWalletTopUpMerchant<Row>(
       supabase,
@@ -48,7 +62,10 @@ describe('resolveWalletTopUpMerchant', () => {
   });
 
   it('selects slug for id lookups so mixed identifiers can be checked for consistency', async () => {
-    const supabase = makeSupabase({ id: 'm1', slug: 's1' }, null);
+    const supabase = makeSupabase({
+      byId: { id: 'm1', slug: 's1' },
+      bySlug: null,
+    });
 
     await resolveWalletTopUpMerchant<{ id: string }>(
       supabase,
@@ -60,10 +77,10 @@ describe('resolveWalletTopUpMerchant', () => {
   });
 
   it('falls back to the slug merchant when merchantId resolves to a different slug', async () => {
-    const supabase = makeSupabase(
-      { id: 'stale-id', slug: 'other-store' },
-      { id: 'm2', slug: 's2' }
-    );
+    const supabase = makeSupabase({
+      byId: { id: 'stale-id', slug: 'other-store' },
+      bySlug: { id: 'm2', slug: 's2' },
+    });
 
     const result = await resolveWalletTopUpMerchant<Row>(
       supabase,
@@ -78,27 +95,30 @@ describe('resolveWalletTopUpMerchant', () => {
     ]);
   });
 
-  it('returns null when merchantId resolves to a different slug and merchantSlug also misses', async () => {
-    const supabase = makeSupabase(
-      { id: 'stale-id', slug: 'other-store' },
-      null
-    );
+  it('keeps the id match when merchantSlug is stale and does not resolve', async () => {
+    const supabase = makeSupabase({
+      byId: { id: 'm1', slug: 'current-store' },
+      bySlug: null,
+    });
 
     const result = await resolveWalletTopUpMerchant<Row>(
       supabase,
-      { merchantId: 'stale-id', merchantSlug: 'missing-store' },
+      { merchantId: 'm1', merchantSlug: 'stale-store' },
       'id, slug'
     );
 
-    expect(result).toBeNull();
+    expect(result).toEqual({ id: 'm1', slug: 'current-store' });
     expect(supabase.calls).toEqual([
-      { column: 'id', value: 'stale-id' },
-      { column: 'slug', value: 'missing-store' },
+      { column: 'id', value: 'm1' },
+      { column: 'slug', value: 'stale-store' },
     ]);
   });
 
   it('falls back to slug when a stale merchantId misses', async () => {
-    const supabase = makeSupabase(null, { id: 'm2', slug: 's2' });
+    const supabase = makeSupabase({
+      byId: null,
+      bySlug: { id: 'm2', slug: 's2' },
+    });
 
     const result = await resolveWalletTopUpMerchant<Row>(
       supabase,
@@ -114,7 +134,10 @@ describe('resolveWalletTopUpMerchant', () => {
   });
 
   it('resolves by slug when no merchantId is supplied', async () => {
-    const supabase = makeSupabase(null, { id: 'm3', slug: 's3' });
+    const supabase = makeSupabase({
+      byId: null,
+      bySlug: { id: 'm3', slug: 's3' },
+    });
 
     const result = await resolveWalletTopUpMerchant<Row>(
       supabase,
@@ -127,7 +150,7 @@ describe('resolveWalletTopUpMerchant', () => {
   });
 
   it('returns null when neither id nor slug resolves', async () => {
-    const supabase = makeSupabase(null, null);
+    const supabase = makeSupabase({ byId: null, bySlug: null });
 
     const result = await resolveWalletTopUpMerchant<Row>(
       supabase,
@@ -136,5 +159,37 @@ describe('resolveWalletTopUpMerchant', () => {
     );
 
     expect(result).toBeNull();
+  });
+
+  it('throws when the merchantId lookup fails', async () => {
+    const supabase = makeSupabase({
+      byId: null,
+      bySlug: { id: 'm2', slug: 's2' },
+      idError: { message: 'id lookup failed' },
+    });
+
+    await expect(
+      resolveWalletTopUpMerchant<Row>(
+        supabase,
+        { merchantId: 'm1', merchantSlug: 's2' },
+        'id, slug'
+      )
+    ).rejects.toThrow('id lookup failed');
+  });
+
+  it('throws when the merchantSlug fallback lookup fails', async () => {
+    const supabase = makeSupabase({
+      byId: null,
+      bySlug: null,
+      slugError: { message: 'slug lookup failed' },
+    });
+
+    await expect(
+      resolveWalletTopUpMerchant<Row>(
+        supabase,
+        { merchantId: 'stale', merchantSlug: 's2' },
+        'id, slug'
+      )
+    ).rejects.toThrow('slug lookup failed');
   });
 });

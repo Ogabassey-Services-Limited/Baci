@@ -79,15 +79,8 @@ function getOptionalString(value: string | null | undefined) {
   return trimmedValue ? trimmedValue : undefined;
 }
 
-function getMerchantSlug(value?: string | null, merchantId?: string | null) {
-  const explicitSlug = getOptionalString(value);
-  if (explicitSlug) {
-    return explicitSlug;
-  }
-
-  return getOptionalString(merchantId)
-    ? undefined
-    : getOptionalString(CONFIG.MERCHANT_SLUG);
+function getMerchantSlug(value?: string | null) {
+  return getOptionalString(value) ?? getOptionalString(CONFIG.MERCHANT_SLUG);
 }
 
 async function parseJsonResponse(response: Response) {
@@ -131,7 +124,7 @@ export async function initializeWalletTopUp({
     customerPhone: getOptionalString(customerPhone),
     gateway,
     merchantId: getOptionalString(merchantId),
-    merchantSlug: getMerchantSlug(merchantSlug, merchantId),
+    merchantSlug: getMerchantSlug(merchantSlug),
   };
   const response = await fetchWithTimeout(
     `${API_URL}/api/storefront/customer/wallet/top-up/initialize`,
@@ -168,7 +161,7 @@ export async function confirmWalletTopUp({
       body: JSON.stringify({
         gateway,
         merchantId: getOptionalString(merchantId),
-        merchantSlug: getMerchantSlug(merchantSlug, merchantId),
+        merchantSlug: getMerchantSlug(merchantSlug),
         reference,
       }),
       headers: {
