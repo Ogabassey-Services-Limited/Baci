@@ -28,6 +28,7 @@ import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { formatPrice } from '@/lib/currency-utils';
 import { requestMerchantPublish } from '@/lib/merchant-publish-client';
+import type { AgentCommerceTrustReadiness } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 import { cn } from '@/lib/utils';
 import {
   type DashboardMetrics,
@@ -80,12 +81,16 @@ interface DashboardClientPageProps {
   initialMetrics?: DashboardMetrics;
   initialRecentSales?: RecentSale[];
   initialChartData?: MonthlyChartData[];
+  initialTrustCenterState?: 'ready' | 'error' | 'unauthorized';
+  initialTrustReadiness?: AgentCommerceTrustReadiness | null;
 }
 
 export default function DashboardClientPage({
   initialMetrics,
   initialRecentSales,
   initialChartData,
+  initialTrustCenterState = 'error',
+  initialTrustReadiness = null,
 }: DashboardClientPageProps) {
   const { merchant, reloadMerchant } = useMerchant();
   const { toast } = useToast();
@@ -341,7 +346,10 @@ export default function DashboardClientPage({
           className="animate-in fade-in slide-in-from-bottom-4 duration-500"
           style={{ animationFillMode: 'both', animationDelay: '0.075s' }}
         >
-          <AgenticTrustCenterCard />
+          <AgenticTrustCenterCard
+            readiness={initialTrustReadiness}
+            state={initialTrustCenterState}
+          />
         </div>
       )}
 

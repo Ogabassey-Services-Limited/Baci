@@ -1,13 +1,7 @@
 'use client';
 
-import {
-  AlertTriangle,
-  ExternalLink,
-  Loader2,
-  ShieldCheck,
-} from 'lucide-react';
+import { AlertTriangle, ExternalLink, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
 import { agentCommerceTrustReadinessCardHelpers } from '@/components/dashboard/integrations/agent-commerce-trust-readiness-card-helpers';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,10 +14,14 @@ import {
 } from '@/components/ui/card';
 import type { AgentCommerceTrustReadiness } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 
-const TRUST_READINESS_ENDPOINT = '/api/integrations/agent-commerce/readiness';
 const MAX_ACTION_ITEMS = 3;
 
-type TrustCenterState = 'loading' | 'ready' | 'error' | 'unauthorized';
+export type TrustCenterState = 'ready' | 'error' | 'unauthorized';
+
+interface AgenticTrustCenterCardProps {
+  readiness: AgentCommerceTrustReadiness | null;
+  state: TrustCenterState;
+}
 
 function getStatusLabel(status: AgentCommerceTrustReadiness['status']) {
   if (status === 'pass') return 'Healthy';
@@ -55,72 +53,17 @@ function buildStatusSummary(readiness: AgentCommerceTrustReadiness) {
   return `${failingChecks} failing checks, ${warningChecks} warning checks, ${sharedProducts} shared products.`;
 }
 
-export function AgenticTrustCenterCard() {
-  const [state, setState] = useState<TrustCenterState>('loading');
-  const [readiness, setReadiness] =
-    useState<AgentCommerceTrustReadiness | null>(null);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadTrustReadiness() {
-      try {
-        const response = await fetch(TRUST_READINESS_ENDPOINT, {
-          credentials: 'include',
-        });
-
-        if (response.status === 401 || response.status === 403) {
-          if (active) {
-            setState('unauthorized');
-          }
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error('Failed to load trust readiness');
-        }
-
-        const payload = (await response.json()) as AgentCommerceTrustReadiness;
-        if (active) {
-          setReadiness(payload);
-          setState('ready');
-        }
-      } catch {
-        if (active) {
-          setState('error');
-        }
-      }
-    }
-
-    void loadTrustReadiness();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const actions = useMemo(
-    () =>
-      readiness
-        ? agentCommerceTrustReadinessCardHelpers
-            .buildTrustActionItems(readiness)
-            .slice(0, MAX_ACTION_ITEMS)
-        : [],
-    [readiness]
-  );
+export function AgenticTrustCenterCard({
+  readiness,
+  state,
+}: AgenticTrustCenterCardProps) {
+  const actions = readiness
+    ? agentCommerceTrustReadinessCardHelpers
+        .buildTrustActionItems(readiness)
+        .slice(0, MAX_ACTION_ITEMS)
+    : [];
 
   if (state === 'unauthorized') return null;
-
-  if (state === 'loading') {
-    return (
-      <Card className="border-border/70">
-        <CardContent className="flex items-center gap-3 py-5 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Checking agent trust health...
-        </CardContent>
-      </Card>
-    );
-  }
 
   if (state === 'error' || !readiness) {
     return (
