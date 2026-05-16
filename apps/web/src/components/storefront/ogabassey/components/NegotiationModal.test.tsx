@@ -45,6 +45,15 @@ function submitLowOffer(value: string) {
   });
 }
 
+function reachUploadForm() {
+  submitLowOffer('1000');
+  fireEvent.click(screen.getByText('Negotiate Again'));
+  submitLowOffer('1000');
+  fireEvent.click(screen.getByText('Negotiate Again'));
+  submitLowOffer('1000');
+  fireEvent.click(screen.getByRole('button', { name: /i saw it cheaper/i }));
+}
+
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 describe('NegotiationModal', () => {
@@ -83,7 +92,25 @@ describe('NegotiationModal', () => {
     ).toBeInTheDocument();
   });
 
-  it('accepts an offer within the 5% threshold', () => {
+  it('accepts an offer within the 3% threshold and marks it as AI-reviewed', () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    const input = screen.getByPlaceholderText('Enter amount...');
+    fireEvent.change(input, { target: { value: '9700' } }); // 3% off
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Offer' }));
+
+    act(() => {
+      vi.advanceTimersByTime(1600);
+    });
+
+    expect(defaultProps.onSuccess).toHaveBeenCalledWith(9700);
+    expect(
+      screen.getByText(/accepted by our AI/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/human review/i)).toBeInTheDocument();
+  });
+
+  it('counters a first offer beyond 3% at 1% off', () => {
     render(<NegotiationModal {...defaultProps} />);
 
     const input = screen.getByPlaceholderText('Enter amount...');
@@ -94,7 +121,9 @@ describe('NegotiationModal', () => {
       vi.advanceTimersByTime(1600);
     });
 
-    expect(defaultProps.onSuccess).toHaveBeenCalledWith(9600);
+    expect(defaultProps.onSuccess).not.toHaveBeenCalled();
+    expect(screen.getByText('Counter Offer')).toBeInTheDocument();
+    expect(screen.getByText('₦9,900')).toBeInTheDocument();
   });
 
   it('cancels pending submit timers when unmounted', () => {
@@ -122,17 +151,31 @@ describe('NegotiationModal', () => {
 
     expect(screen.getByText('Counter Offer')).toBeInTheDocument();
     expect(screen.getByText("That's a bit low. But I can do:")).toBeInTheDocument();
+    expect(screen.getByText('₦9,900')).toBeInTheDocument();
+  });
+
+  it('steps counter offers through 1%, 2%, and 3%', () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    submitLowOffer('1000');
+    expect(screen.getByText('₦9,900')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Negotiate Again'));
+    submitLowOffer('1000');
+    expect(screen.getByText('₦9,800')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Negotiate Again'));
+    submitLowOffer('1000');
+    expect(screen.getByText('₦9,700')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /i saw it cheaper/i })
+    ).toBeInTheDocument();
   });
 
   it('includes customer_id and unique session_id in the insert payload', async () => {
     render(<NegotiationModal {...defaultProps} />);
 
-    // Three low offers to reach upload state
-    submitLowOffer('1000');
-    fireEvent.click(screen.getByText('Negotiate Again'));
-    submitLowOffer('1000');
-    fireEvent.click(screen.getByText('Negotiate Again'));
-    submitLowOffer('1000');
+    reachUploadForm();
 
     // Now in upload state — provide file and submit form directly
     const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
@@ -167,11 +210,7 @@ describe('NegotiationModal', () => {
 
     render(<NegotiationModal {...defaultProps} />);
 
-    submitLowOffer('500');
-    fireEvent.click(screen.getByText('Negotiate Again'));
-    submitLowOffer('500');
-    fireEvent.click(screen.getByText('Negotiate Again'));
-    submitLowOffer('500');
+    reachUploadForm();
 
     // Switch to real timers before async form submission
     vi.useRealTimers();
@@ -197,11 +236,7 @@ describe('NegotiationModal', () => {
 
     render(<NegotiationModal {...defaultProps} />);
 
-    submitLowOffer('500');
-    fireEvent.click(screen.getByText('Negotiate Again'));
-    submitLowOffer('500');
-    fireEvent.click(screen.getByText('Negotiate Again'));
-    submitLowOffer('500');
+    reachUploadForm();
 
     vi.useRealTimers();
 
@@ -235,11 +270,7 @@ describe('NegotiationModal', () => {
 
     const { unmount } = render(<NegotiationModal {...defaultProps} />);
 
-    submitLowOffer('500');
-    fireEvent.click(screen.getByText('Negotiate Again'));
-    submitLowOffer('500');
-    fireEvent.click(screen.getByText('Negotiate Again'));
-    submitLowOffer('500');
+    reachUploadForm();
 
     vi.useRealTimers();
 

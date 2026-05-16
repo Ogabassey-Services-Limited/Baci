@@ -20,6 +20,10 @@ interface NegotiationModalProps {
 type NegotiationStatus = 'input' | 'processing' | 'success' | 'failed' | 'upload' | 'submitted';
 
 const SESSION_KEY = 'ogabassey_guest_session';
+const AUTO_ACCEPT_DISCOUNT_THRESHOLD = 0.03;
+const COUNTER_DISCOUNT_STEPS = [0.01, 0.02, 0.03] as const;
+const AI_REVIEW_MESSAGE =
+  'Your offer was accepted by our AI and is subject to human review.';
 
 function getOrCreateSessionId(): string {
   if (typeof window === 'undefined') return `web-${Date.now()}`;
@@ -107,45 +111,40 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
     clearSubmitTimeout();
     submitTimeoutRef.current = setTimeout(() => {
       submitTimeoutRef.current = null;
-      const discountPercentage = 1 - offerAmount / currentPrice;
+      const discountAmount = currentPrice - offerAmount;
+      const maxAutoAcceptedDiscountAmount =
+        currentPrice * AUTO_ACCEPT_DISCOUNT_THRESHOLD;
 
-      // 5% Hard Floor
-      if (discountPercentage <= 0.05) {
+      // Auto-accept offers within the current threshold.
+      if (discountAmount <= maxAutoAcceptedDiscountAmount + Number.EPSILON) {
+        setMessage(AI_REVIEW_MESSAGE);
         setStatus('success');
         onSuccess(offerAmount);
         return;
       }
 
       // Rejection Logic - Determine Counter Offer
-      let counterDiscount = 0;
-      let replyMessage = "";
+      const counterStepIndex = Math.min(
+        attemptCount,
+        COUNTER_DISCOUNT_STEPS.length - 1
+      );
+      const counterDiscount = COUNTER_DISCOUNT_STEPS[counterStepIndex];
 
-      if (attemptCount === 0) {
-        // First Try: Counter with 2% off
-        counterDiscount = 0.02;
-        replyMessage = "That's a bit low. But I can do:";
-      } else if (attemptCount === 1) {
-        // Second Try: Counter with 4% off
-        counterDiscount = 0.04;
+      let replyMessage = "That's a bit low. But I can do:";
+      if (counterStepIndex === 1) {
         replyMessage = "We're getting closer. The best I can do is:";
-      } else {
-        // Third+ Try: Counter with Floor (5% off)
-        counterDiscount = 0.05;
-        replyMessage = "This is my absolute final offer:";
+      }
+      if (counterStepIndex === 2) {
+        replyMessage = 'This is my absolute final offer:';
       }
 
       const proposedCounter = Math.floor(currentPrice * (1 - counterDiscount));
 
-      if (attemptCount >= 2) {
-        setStatus('upload');
-        setMessage("You're looking for a serious discount! Upload evidence of a lower price elsewhere and a merchant will review your request.");
-      } else {
-        // Update State
-        setStatus('failed'); // 'failed' triggers the rejection UI, which we repurpose for counter-offer
-        setCounterOffer(proposedCounter);
-        setMessage(replyMessage);
-        setAttemptCount(prev => prev + 1);
-      }
+      // Update State
+      setStatus('failed'); // 'failed' triggers the rejection UI, which we repurpose for counter-offer
+      setCounterOffer(proposedCounter);
+      setMessage(replyMessage);
+      setAttemptCount((prev) => prev + 1);
     }, 1500);
   };
 
@@ -203,6 +202,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
   const handleAcceptCounter = () => {
     if (counterOffer) {
+      setMessage(AI_REVIEW_MESSAGE);
       setStatus('success');
       onSuccess(counterOffer);
     }
@@ -292,20 +292,16 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
               <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
                 <CheckCircle2 size={28} className="text-green-600" />
               </div>
-              <h4 className="text-xl font-bold text-gray-900 mb-1">
-                {message || 'Offer Accepted!'}
-              </h4>
+              <h4 className="text-xl font-bold text-gray-900 mb-1">Offer Accepted!</h4>
               <p className="text-sm text-gray-500 mb-4">
-                {message ? '' : 'Price has been updated in your cart.'}
+                {message || 'Price has been updated in your cart.'}
               </p>
-              {!message && (
-                <button
-                  onClick={onClose}
-                  className="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold text-sm hover:bg-black transition-colors"
-                >
-                  Done
-                </button>
-              )}
+              <button
+                onClick={onClose}
+                className="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold text-sm hover:bg-black transition-colors"
+              >
+                Done
+              </button>
             </div>
           )}
 
@@ -342,8 +338,8 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                   Negotiate Again
                 </button>
 
-                {/* I Saw It Cheaper - Only show on final counter offer (attempt >= 2) */}
-                {attemptCount >= 2 && (
+                {/* I Saw It Cheaper - only after the final (3%) counter offer. */}
+                {attemptCount >= COUNTER_DISCOUNT_STEPS.length && (
                   <button
                     onClick={() => setStatus('upload')}
                     className="w-full bg-blue-50 text-blue-700 font-bold py-3 rounded-xl hover:bg-blue-100 transition-colors border border-blue-200 flex items-center justify-center gap-2"

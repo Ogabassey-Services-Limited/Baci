@@ -12,6 +12,7 @@ import {
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
+import { FEATURES, type PlanTier, planHasFeature } from '@/lib/feature-flags';
 import { formatVariantAttributesLabel } from '@/lib/format-variant-attributes-label';
 import { detectPrivacyRegion } from '@/lib/geo-privacy';
 import {
@@ -32,6 +33,30 @@ function isPayOnDelivery(paymentMethod: string): boolean {
 
 /** Server-authoritative assurance rate — never trust the client value. */
 const SERVER_ASSURANCE_RATE = 0.05;
+
+function toPlanTier(value: string | null | undefined): PlanTier | null {
+  switch (value) {
+    case 'free':
+    case 'starter':
+    case 'pro':
+    case 'business':
+    case 'enterprise':
+      return value;
+    default:
+      return null;
+  }
+}
+
+function hasPriceNegotiationEntitlement(
+  planTier: string | null | undefined
+): boolean {
+  const normalizedPlanTier = toPlanTier(planTier);
+  if (!normalizedPlanTier) {
+    return false;
+  }
+
+  return planHasFeature(normalizedPlanTier, FEATURES.PRICE_NEGOTIATION);
+}
 
 type EmailOrderItem = {
   name?: string;
@@ -196,7 +221,7 @@ export async function POST(request: NextRequest) {
     const { data: merchant, error: merchantFetchError } = await supabase
       .from('merchants')
       .select(
-        'id, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
+        'id, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number, plan_tier'
       )
       .eq('id', merchant_id)
       .single();
@@ -340,8 +365,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const merchantCanAutoNegotiate = hasPriceNegotiationEntitlement(
+      merchant.plan_tier
+    );
+
     let serverDerivedDiscountAmount = 0;
-    if (typeof body.expected_total === 'number') {
+    if (merchantCanAutoNegotiate && typeof body.expected_total === 'number') {
       const canonicalSubtotal = await computeCanonicalOrderSubtotal({
         items: orderItemsPayload,
         merchantId: merchant_id,
