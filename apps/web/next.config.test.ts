@@ -19,7 +19,7 @@ describe('next.config OgaBassey resource headers', () => {
   it('sets immutable browser caching for versioned OgaBassey public hero assets', async () => {
     const headers = await nextConfig.headers?.();
     const heroAssetHeaders = headers?.find(
-      (entry) => entry.source === '/ogabassey/hero/:path*'
+      (entry) => entry.source === '/ogabassey-hero/:path*'
     );
 
     expect(heroAssetHeaders?.headers).toContainEqual({
