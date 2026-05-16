@@ -526,7 +526,7 @@ export default function ProductsScreen() {
       return (
         <View style={styles.summaryWrapper}>
           <View
-            style={[styles.summaryBar, { backgroundColor: colors.backdrop }]}
+            style={[styles.summaryBar, { backgroundColor: colors.card }]}
           >
             <Text style={{ color: colors.text }}>Loading stats...</Text>
           </View>
