@@ -65,8 +65,10 @@ export function AddressCard({
         </View>
         <TouchableOpacity
           style={styles.menuButton}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           accessibilityRole="button"
           accessibilityLabel={`Address options for ${address.label || ADDRESS_FALLBACK_LABEL}`}
+          accessibilityHint="Opens a menu with options to edit, set as default, or delete this address"
           onPress={() => {
             const buttons: AlertButton[] = [
               {
