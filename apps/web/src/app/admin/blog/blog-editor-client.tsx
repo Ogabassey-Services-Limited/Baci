@@ -23,6 +23,13 @@ type BlogEditorClientProps = {
   postId?: string;
 };
 
+type BlogMediaUploadResult = {
+  height?: number | null;
+  url: string;
+  variants?: Record<string, string>;
+  width?: number | null;
+};
+
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -35,7 +42,7 @@ function slugify(value: string): string {
 async function uploadBlogMedia(
   file: File,
   purpose: 'featured' | 'inline'
-): Promise<string> {
+): Promise<BlogMediaUploadResult> {
   const formData = new FormData();
   formData.append('file', file);
   formData.append('purpose', purpose);
@@ -52,12 +59,17 @@ async function uploadBlogMedia(
     throw new Error(payload?.error || 'Failed to upload image');
   }
 
-  const payload = (await response.json()) as { url?: string };
+  const payload = (await response.json()) as Partial<BlogMediaUploadResult>;
   if (!payload.url) {
     throw new Error('Upload response did not include a URL');
   }
 
-  return payload.url;
+  return {
+    height: payload.height ?? null,
+    url: payload.url,
+    variants: payload.variants ?? {},
+    width: payload.width ?? null,
+  };
 }
 
 export function BlogEditorClient({ mode, postId }: BlogEditorClientProps) {
@@ -87,7 +99,10 @@ export function BlogEditorClient({ mode, postId }: BlogEditorClientProps) {
           content: post.content || '',
           excerpt: post.excerpt || '',
           featured_image_alt: post.featured_image_alt || '',
+          featured_image_height: post.featured_image_height ?? null,
           featured_image_url: post.featured_image_url || '',
+          featured_image_variants: post.featured_image_variants ?? {},
+          featured_image_width: post.featured_image_width ?? null,
           seo_description: post.seo_description || '',
           seo_title: post.seo_title || '',
           slug: post.slug,
@@ -130,8 +145,14 @@ export function BlogEditorClient({ mode, postId }: BlogEditorClientProps) {
 
       setUploadingFeatured(true);
       uploadBlogMedia(file, 'featured')
-        .then((url) => {
-          setForm((current) => ({ ...current, featured_image_url: url }));
+        .then((upload) => {
+          setForm((current) => ({
+            ...current,
+            featured_image_height: upload.height ?? null,
+            featured_image_url: upload.url,
+            featured_image_variants: upload.variants ?? {},
+            featured_image_width: upload.width ?? null,
+          }));
           toast({ title: 'Featured image uploaded' });
         })
         .catch((error) => {
@@ -213,7 +234,9 @@ export function BlogEditorClient({ mode, postId }: BlogEditorClientProps) {
             typeof updater === 'function' ? updater(current) : updater
           );
         }}
-        onInlineImageUpload={(file) => uploadBlogMedia(file, 'inline')}
+        onInlineImageUpload={(file) =>
+          uploadBlogMedia(file, 'inline').then((upload) => upload.url)
+        }
         onSubmit={handleSubmit}
         onUploadFeatured={handleUploadFeatured}
         saving={saving}

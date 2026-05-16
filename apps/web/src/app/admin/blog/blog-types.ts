@@ -15,7 +15,10 @@ export type PlatformAdminBlogPostDetail = PlatformAdminBlogPostSummary & {
   content: string | null;
   excerpt: string | null;
   featured_image_alt: string | null;
+  featured_image_height: number | null;
   featured_image_url: string | null;
+  featured_image_variants: Record<string, unknown> | null;
+  featured_image_width: number | null;
   seo_description: string | null;
   seo_title: string | null;
   tags?: string[] | null;
@@ -27,7 +30,10 @@ export type PlatformAdminBlogFormState = {
   content: string;
   excerpt: string;
   featured_image_alt: string;
+  featured_image_height: number | null;
   featured_image_url: string;
+  featured_image_variants: Record<string, unknown>;
+  featured_image_width: number | null;
   seo_description: string;
   seo_title: string;
   slug: string;
@@ -42,7 +48,10 @@ export const DEFAULT_PLATFORM_BLOG_FORM_STATE: PlatformAdminBlogFormState = {
   content: '',
   excerpt: '',
   featured_image_alt: '',
+  featured_image_height: null,
   featured_image_url: '',
+  featured_image_variants: {},
+  featured_image_width: null,
   seo_description: '',
   seo_title: '',
   slug: '',
