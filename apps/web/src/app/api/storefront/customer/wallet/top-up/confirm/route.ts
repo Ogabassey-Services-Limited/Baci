@@ -8,6 +8,7 @@ import {
 } from '@/lib/customer-wallet-top-up';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { verifyTransaction as verifyPaystackTransaction } from '@/lib/paystack';
+import { resolveWalletTopUpMerchant } from '@/lib/resolve-wallet-top-up-merchant';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveVtuCustomer } from '@/lib/vtu-pending-transaction';
 import { walletTopUpConfirmSchema } from '@/schemas/wallet-top-up';
@@ -32,16 +33,9 @@ function isWalletTopUpGateway(value: unknown): value is 'paystack' | 'korapay' {
   return value === 'paystack' || value === 'korapay';
 }
 
-function getMerchantLookup(parsed: {
-  merchantId?: string;
-  merchantSlug?: string;
-}) {
-  if (parsed.merchantId) {
-    return { column: 'id', value: parsed.merchantId };
-  }
-
-  return { column: 'slug', value: parsed.merchantSlug ?? '' };
-}
+// Merchant resolution uses id-first, slug-fallback via
+// resolveWalletTopUpMerchant so a stale merchantId does not 404 when a
+// valid merchantSlug is also supplied.
 
 const TERMINAL_PAYMENT_STATUSES = new Set([
   'abandoned',
@@ -98,14 +92,13 @@ export async function POST(request: NextRequest) {
     // writes: customer identity is authenticated above, while transaction
     // claiming and wallet credit RPCs are not exposed through customer RLS.
     const supabase = createAdminClient();
-    const merchantLookup = getMerchantLookup(parsed.data);
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id')
-      .eq(merchantLookup.column, merchantLookup.value)
-      .single();
+    const merchant = await resolveWalletTopUpMerchant<{ id: string }>(
+      supabase,
+      parsed.data,
+      'id'
+    );
 
-    if (merchantError || !merchant) {
+    if (!merchant) {
       return NextResponse.json(
         { error: 'Merchant not found' },
         { status: 404 }
