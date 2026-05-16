@@ -55,6 +55,7 @@ import {
   resolvePendingCheckoutOrder,
   type PendingCheckoutOrderSnapshot,
 } from './checkout/pending-checkout-order';
+import { inferAddressLocationFromInput } from './checkout/utils';
 
 /**
  * Discriminated union for checkout item rendering. The `kind` tag is set at
@@ -2747,6 +2748,18 @@ export const CheckoutPage: React.FC = () => {
                                 setShippingQuotes([]);
                                 setSelectedQuoteId('');
                                 setDeliveryMethod('door'); // Reset to default
+                                return;
+                              }
+
+                              // Fallback inference for manual address entry when autocomplete
+                              // does not emit a structured onSelect payload.
+                              const inferred = inferAddressLocationFromInput(
+                                newVal,
+                                shippingStates,
+                              );
+                              if (inferred) {
+                                setNewAddressState(inferred.state);
+                                setNewAddressCity(inferred.city);
                               }
                             }}
                             onSelect={(place: any) => {

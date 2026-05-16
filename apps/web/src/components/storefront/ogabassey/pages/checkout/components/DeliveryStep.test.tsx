@@ -84,6 +84,18 @@ describe('DeliveryStep', () => {
       render(<DeliveryStep {...defaultProps} />);
       expect(screen.getByText('Delivery Address')).toBeInTheDocument();
     });
+
+    it('infers city/state from manually typed address input', () => {
+      render(<DeliveryStep {...defaultProps} />);
+      fireEvent.change(screen.getByTestId('address-autocomplete'), {
+        target: { value: 'Lekki Phase 1, Lagos' },
+      });
+
+      expect(defaultProps.setNewAddressState).toHaveBeenCalledWith('Lagos');
+      expect(defaultProps.setNewAddressCity).toHaveBeenCalledWith(
+        'Lekki Phase 1',
+      );
+    });
   });
 
   describe('Delivery Method Selection', () => {
