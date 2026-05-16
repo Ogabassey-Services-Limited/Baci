@@ -8,6 +8,7 @@ interface BuildAgenticHealthActionsInput {
   paymentClaimingCount: number;
   paymentPendingCount: number;
   paymentSetupFailedCount: number;
+  stalePaymentPendingCount: number;
   staleInProgressCount: number;
   terminalErrorCount: number;
 }
@@ -20,6 +21,7 @@ export function buildAgenticHealthActions({
   paymentClaimingCount,
   paymentPendingCount,
   paymentSetupFailedCount,
+  stalePaymentPendingCount,
   staleInProgressCount,
   terminalErrorCount,
 }: BuildAgenticHealthActionsInput): AgenticAction[] {
@@ -57,6 +59,16 @@ export function buildAgenticHealthActions({
       code: 'AGENTIC_PAYMENT_SETUP_FAILED',
       count: paymentSetupFailedCount,
       message: 'Agentic checkouts failed while setting up payment collection.',
+      severity: 'attention',
+    });
+  }
+
+  if (stalePaymentPendingCount > 0) {
+    actions.push({
+      code: 'AGENTIC_PAYMENT_PENDING_STALE',
+      count: stalePaymentPendingCount,
+      message:
+        'Agentic checkouts have been waiting for payment confirmation too long.',
       severity: 'attention',
     });
   }
