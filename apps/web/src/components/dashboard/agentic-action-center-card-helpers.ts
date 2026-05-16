@@ -10,6 +10,7 @@ interface AgenticDashboardBriefing {
 }
 
 const AGENTIC_ORDERS_HREF = '/dashboard/orders?source=agentic' as Route;
+const TRUST_SETTINGS_HREF = '/dashboard/settings/trust' as Route;
 
 const BRIEFING_MESSAGES = {
   attentionFallback: 'Agentic checkout issues need review.',
@@ -41,7 +42,7 @@ function getActionHref(code: string): Route | null {
     case 'AGENTIC_REQUESTS_IN_PROGRESS':
       return AGENTIC_ORDERS_HREF;
     case 'AGENTIC_AGENT_ALLOWLIST_UNSET':
-      return null;
+      return TRUST_SETTINGS_HREF;
     default:
       return null;
   }

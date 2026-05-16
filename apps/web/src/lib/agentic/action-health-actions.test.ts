@@ -17,7 +17,7 @@ const healthyInput = {
 const expectedNextStepsByCode = {
   AGENTIC_ACTIONS_HEALTHY: 'No action required right now.',
   AGENTIC_AGENT_ALLOWLIST_UNSET:
-    'Configure trusted agent user-agents before broadly advertising checkout.',
+    'Open Trust settings and configure trusted agent user-agents before broadly advertising checkout.',
   AGENTIC_IDEMPOTENCY_ERRORS:
     'Review failed agentic orders and retry only after the server error is resolved.',
   AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS:

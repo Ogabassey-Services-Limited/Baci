@@ -253,10 +253,9 @@ describe('GET /api/merchant/agentic/action-health', () => {
       {
         code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
         count: 1,
-        message:
-          'No agent allowlist is configured. Contact support to configure trusted agent user-agents for this merchant.',
+        message: 'No agent allowlist is configured in Trust settings.',
         next_step:
-          'Configure trusted agent user-agents before broadly advertising checkout.',
+          'Open Trust settings and configure trusted agent user-agents before broadly advertising checkout.',
         severity: 'monitor',
       },
     ]);
@@ -292,10 +291,9 @@ describe('GET /api/merchant/agentic/action-health', () => {
       {
         code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
         count: 1,
-        message:
-          'No agent allowlist is configured. Contact support to configure trusted agent user-agents for this merchant.',
+        message: 'No agent allowlist is configured in Trust settings.',
         next_step:
-          'Configure trusted agent user-agents before broadly advertising checkout.',
+          'Open Trust settings and configure trusted agent user-agents before broadly advertising checkout.',
         severity: 'monitor',
       },
     ]);
