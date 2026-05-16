@@ -38,6 +38,20 @@ function sanitizeError(reason: unknown): string {
   return 'Unknown error';
 }
 
+function isPermissionDeniedError(reason: unknown): boolean {
+  if (!reason || typeof reason !== 'object') return false;
+
+  const errorRecord = reason as Record<string, unknown>;
+  const code = errorRecord.code;
+  if (code === '42501') return true;
+
+  const message = errorRecord.message;
+  return (
+    typeof message === 'string' &&
+    message.toLowerCase().includes('permission denied')
+  );
+}
+
 async function loadAgenticTrustReadiness(
   merchant: {
     business_name: string;
@@ -146,10 +160,12 @@ export async function DashboardData() {
     );
   }
   if (actionHealthResult.status === 'rejected') {
-    console.error(
-      'Failed to fetch action health:',
-      sanitizeError(actionHealthResult.reason)
-    );
+    if (!isPermissionDeniedError(actionHealthResult.reason)) {
+      console.error(
+        'Failed to fetch action health:',
+        sanitizeError(actionHealthResult.reason)
+      );
+    }
   }
   if (trustReadinessResult.status === 'rejected') {
     console.error(
@@ -158,11 +174,18 @@ export async function DashboardData() {
     );
   }
 
+  const actionCenterState: 'ready' | 'error' | 'unauthorized' = !isPublished
+    ? 'ready'
+    : actionHealth
+      ? 'ready'
+      : actionHealthResult.status === 'rejected' &&
+          isPermissionDeniedError(actionHealthResult.reason)
+        ? 'unauthorized'
+        : 'error';
+
   return (
     <DashboardClientPage
-      initialActionCenterState={
-        !isPublished || actionHealth ? 'ready' : 'error'
-      }
+      initialActionCenterState={actionCenterState}
       initialActionHealth={actionHealth}
       initialMetrics={metrics ?? undefined}
       initialRecentSales={recentSales}

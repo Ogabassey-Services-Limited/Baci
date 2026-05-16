@@ -223,4 +223,20 @@ describe('DashboardData trust readiness gating', () => {
     expect(props.initialActionHealth).toBeNull();
     expect(props.initialActionCenterState).toBe('error');
   });
+
+  it('marks action center state as unauthorized when action health is permission denied', async () => {
+    getMerchantForUser.mockResolvedValue({
+      merchant: { ...merchantBase, is_published: true },
+    });
+    loadAgenticActionHealth.mockRejectedValueOnce({
+      code: '42501',
+      message: 'permission denied for relation merchant_feature_settings',
+    });
+
+    await renderDashboardData();
+
+    const props = clientProps.mock.calls[0][0];
+    expect(props.initialActionHealth).toBeNull();
+    expect(props.initialActionCenterState).toBe('unauthorized');
+  });
 });
