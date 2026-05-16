@@ -38,6 +38,7 @@ const orderId = '11111111-1111-4111-8111-111111111111';
 const orderRow = {
   created_at: '2026-04-28T12:00:00.000Z',
   id: orderId,
+  order_number: 'BACI-2026-0001',
   payment_status: 'pending',
   shipping_status: 'pending',
   tracking_number: null,
@@ -124,7 +125,7 @@ describe('GET /api/agentic/orders/[id]', () => {
     expect(orderChain.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(orderChain.eq).toHaveBeenCalledWith('source', 'agentic_ai');
     expect(select).toHaveBeenCalledWith(
-      'id, payment_status, shipping_status, tracking_number, created_at, updated_at'
+      'id, order_number, payment_status, shipping_status, tracking_number, created_at, updated_at'
     );
     const projection = vi.mocked(select).mock.calls[0]?.[0] ?? '';
     expect(projection).not.toMatch(/(^|,\s*)status(\s*,|$)/);
