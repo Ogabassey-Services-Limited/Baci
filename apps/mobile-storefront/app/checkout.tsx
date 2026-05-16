@@ -1913,6 +1913,9 @@ export default function CheckoutScreen() {
             customerName,
             customerPhone,
             merchantSlug: MERCHANT_SLUG,
+            ...(orderResponse.order.tracking_token && {
+              trackingToken: orderResponse.order.tracking_token,
+            }),
           },
         });
         return;
