@@ -184,7 +184,7 @@ describe('AgenticActionCenterCard', () => {
     );
   });
 
-  it('renders allowlist control warnings without a dead-end review link', async () => {
+  it('renders allowlist control warnings with a trust-settings review link', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
       ok: true,
       status: 200,
@@ -193,8 +193,7 @@ describe('AgenticActionCenterCard', () => {
           {
             code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
             count: 1,
-            message:
-              'No agent allowlist is configured. Contact support to configure trusted agent user-agents for this merchant.',
+            message: 'No agent allowlist is configured in Trust settings.',
             severity: 'monitor',
           },
         ],
@@ -205,13 +204,12 @@ describe('AgenticActionCenterCard', () => {
 
     expect(await screen.findByText('1 monitor')).toBeInTheDocument();
     expect(
-      screen.getByText(
-        'No agent allowlist is configured. Contact support to configure trusted agent user-agents for this merchant.'
-      )
+      screen.getByText('No agent allowlist is configured in Trust settings.')
     ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('link', { name: /review/i })
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /review/i })).toHaveAttribute(
+      'href',
+      '/dashboard/settings/trust'
+    );
   });
 
   it('treats negative action counts as a malformed payload', async () => {
