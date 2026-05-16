@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { OGABASSEY_HERO_ASSET_CACHE_CONTROL } from '@/config/ogabassey-hero-assets';
 import nextConfig from './next.config';
 
 describe('next.config OgaBassey resource headers', () => {
   it('does not guess viewport-specific hero preloads from request headers', async () => {
-    const headers = await nextConfig.headers?.();
+    expect(typeof nextConfig.headers).toBe('function');
+    const headers = await nextConfig.headers();
+    expect(headers).toBeDefined();
 
     const homeLinkRules =
       headers?.filter(
@@ -16,15 +17,14 @@ describe('next.config OgaBassey resource headers', () => {
     expect(homeLinkRules).toHaveLength(0);
   });
 
-  it('sets immutable browser caching for versioned OgaBassey public hero assets', async () => {
-    const headers = await nextConfig.headers?.();
-    const heroAssetHeaders = headers?.find(
-      (entry) => entry.source === '/ogabassey-hero/:path*'
+  it('does not route OgaBassey hero assets through next.config headers matchers', async () => {
+    expect(typeof nextConfig.headers).toBe('function');
+    const headers = await nextConfig.headers();
+    expect(headers).toBeDefined();
+    const heroAssetHeaders = headers.find((entry) =>
+      entry.source.includes('ogabassey-hero')
     );
 
-    expect(heroAssetHeaders?.headers).toContainEqual({
-      key: 'Cache-Control',
-      value: OGABASSEY_HERO_ASSET_CACHE_CONTROL,
-    });
+    expect(heroAssetHeaders).toBeUndefined();
   });
 });
