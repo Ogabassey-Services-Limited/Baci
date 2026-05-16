@@ -13,6 +13,12 @@ interface PageProps {
   params: Promise<{ slug: string; postSlug: string }>;
 }
 
+const SOCIAL_IMAGE_METADATA = {
+  width: 1200,
+  height: 630,
+  type: 'image/png',
+} as const;
+
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
@@ -56,7 +62,13 @@ export async function generateMetadata({
       modifiedTime: post.updated_at,
       authors: [post.author_name],
       tags: post.tags,
-      images: [{ url: twitterImageUrl, alt: socialImageAlt }],
+      images: [
+        {
+          url: twitterImageUrl,
+          alt: socialImageAlt,
+          ...SOCIAL_IMAGE_METADATA,
+        },
+      ],
     },
     twitter: {
       card: 'summary_large_image',

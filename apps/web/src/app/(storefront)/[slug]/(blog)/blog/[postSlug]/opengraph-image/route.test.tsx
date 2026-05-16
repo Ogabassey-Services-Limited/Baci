@@ -6,10 +6,11 @@ const { mockImage } = vi.hoisted(() => ({
 
 vi.mock('../opengraph-image-renderer', () => ({
   default: (props: unknown) => mockImage(props),
+  revalidate: 0,
   runtime: 'nodejs',
 }));
 
-import { GET, runtime } from './route';
+import { GET, revalidate, runtime } from './route';
 
 describe('explicit merchant blog social image route', () => {
   it('delegates to the merchant blog OG image renderer with route params', async () => {
@@ -32,6 +33,26 @@ describe('explicit merchant blog social image route', () => {
     ).resolves.toBe(response);
 
     expect(runtime).toBe('nodejs');
+    expect(revalidate).toBe(0);
+    expect(mockImage).toHaveBeenCalledWith({ params });
+  });
+
+  it('lets renderer failures surface as route failures', async () => {
+    const params = Promise.resolve({
+      slug: 'ogabassey.com',
+      postSlug: 'airpods-max',
+    });
+    mockImage.mockRejectedValue(new Error('render failed'));
+
+    await expect(
+      GET(
+        new Request('https://ogabassey.com/blog/airpods-max/opengraph-image'),
+        {
+          params,
+        }
+      )
+    ).rejects.toThrow('render failed');
+
     expect(mockImage).toHaveBeenCalledWith({ params });
   });
 });

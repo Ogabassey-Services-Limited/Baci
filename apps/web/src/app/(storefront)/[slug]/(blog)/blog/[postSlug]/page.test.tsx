@@ -285,7 +285,10 @@ describe('storefront blog post page', () => {
     expect(metadata.openGraph?.images).toEqual([
       {
         alt: 'The Great 5K Stall — Ogabassey',
+        height: 630,
+        type: 'image/png',
         url: 'http://localhost:3000/ogabassey/blog/apple-studio-display-review/opengraph-image',
+        width: 1200,
       },
     ]);
     expect(metadata.twitter?.images).toEqual([
