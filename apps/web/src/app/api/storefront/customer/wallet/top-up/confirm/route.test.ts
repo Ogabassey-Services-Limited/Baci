@@ -44,6 +44,8 @@ vi.mock('@/lib/supabase/admin', () => ({
 
 import { POST } from './route';
 
+const VALID_MERCHANT_ID = '00000000-0000-4000-8000-000000000001';
+
 function makeRequest(body: Record<string, unknown>) {
   return new NextRequest(
     'http://localhost:3000/api/storefront/customer/wallet/top-up/confirm',
@@ -170,6 +172,26 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
     expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
   });
 
+  it('returns 400 for malformed merchant ids before merchant lookup', async () => {
+    const response = await POST(
+      makeRequest({
+        gateway: 'paystack',
+        merchantId: 'not-a-uuid',
+        reference: 'WAL-123',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toMatchObject({ error: 'Invalid input' });
+    expect(data).toHaveProperty('details.fieldErrors.merchantId');
+    expect(data.details.fieldErrors.merchantId).toEqual(
+      expect.arrayContaining(['Merchant id must be a valid UUID'])
+    );
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+  });
+
   it('returns 500 when gateway verification throws unexpectedly', async () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
@@ -275,7 +297,7 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
     const response = await POST(
       makeRequest({
         gateway: 'paystack',
-        merchantId: 'merchant-1',
+        merchantId: VALID_MERCHANT_ID,
         reference: 'WAL-123',
       })
     );

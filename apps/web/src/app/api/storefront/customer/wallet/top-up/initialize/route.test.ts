@@ -48,6 +48,8 @@ vi.mock('@/lib/supabase/admin', () => ({
 
 import { POST } from './route';
 
+const VALID_MERCHANT_ID = '00000000-0000-4000-8000-000000000001';
+
 function makeRequest(body: Record<string, unknown>) {
   return new NextRequest(
     'http://localhost:3000/api/storefront/customer/wallet/top-up/initialize',
@@ -195,6 +197,23 @@ describe('POST /api/storefront/customer/wallet/top-up/initialize', () => {
     expect(mockFrom).not.toHaveBeenCalled();
   });
 
+  it('returns 400 for malformed merchant ids before merchant lookup', async () => {
+    const response = await POST(
+      makeRequest({ amount: 2500, merchantId: 'not-a-uuid' })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toMatchObject({
+      error: 'Invalid input',
+    });
+    expect(data).toHaveProperty('details.fieldErrors.merchantId');
+    expect(data.details.fieldErrors.merchantId).toEqual(
+      expect.arrayContaining(['Merchant id must be a valid UUID'])
+    );
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
   it('returns 400 for deliberate gateway-selection failures', async () => {
     mockSupabaseTables({
       merchant: { ...defaultMerchant, paystack_subaccount_code: null },
@@ -248,7 +267,7 @@ describe('POST /api/storefront/customer/wallet/top-up/initialize', () => {
       makeRequest({
         amount: 2500,
         gateway: 'paystack',
-        merchantId: 'merchant-1',
+        merchantId: VALID_MERCHANT_ID,
       })
     );
     const data = await response.json();

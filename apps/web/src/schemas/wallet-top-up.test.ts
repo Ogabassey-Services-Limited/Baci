@@ -8,6 +8,8 @@ import {
   walletTopUpInitializeSchema,
 } from '@/schemas/wallet-top-up';
 
+const VALID_MERCHANT_ID = '00000000-0000-4000-8000-000000000001';
+
 describe('wallet top-up schemas', () => {
   it('parses a valid initialize payload', () => {
     const parsed = walletTopUpInitializeSchema.parse({
@@ -26,13 +28,32 @@ describe('wallet top-up schemas', () => {
   it('accepts merchant id when the native storefront slug is unavailable or stale', () => {
     const parsed = walletTopUpInitializeSchema.parse({
       amount: 2500,
-      merchantId: 'merchant-1',
+      merchantId: VALID_MERCHANT_ID,
     });
 
     expect(parsed).toEqual({
       amount: 2500,
-      merchantId: 'merchant-1',
+      merchantId: VALID_MERCHANT_ID,
     });
+  });
+
+  it('rejects malformed initialize merchant ids before database lookup', () => {
+    const result = walletTopUpInitializeSchema.safeParse({
+      amount: 2500,
+      merchantId: 'not-a-uuid',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'Merchant id must be a valid UUID',
+            path: ['merchantId'],
+          }),
+        ])
+      );
+    }
   });
 
   it('rejects initialize payloads missing merchant slug and id', () => {
@@ -137,7 +158,7 @@ describe('wallet top-up schemas', () => {
   it('accepts merchant id for confirmation when the native storefront slug is unavailable or stale', () => {
     const result = walletTopUpConfirmSchema.safeParse({
       gateway: 'paystack',
-      merchantId: 'merchant-1',
+      merchantId: VALID_MERCHANT_ID,
       reference: 'WAL-123',
     });
 
@@ -145,9 +166,29 @@ describe('wallet top-up schemas', () => {
     if (result.success) {
       expect(result.data).toEqual({
         gateway: 'paystack',
-        merchantId: 'merchant-1',
+        merchantId: VALID_MERCHANT_ID,
         reference: 'WAL-123',
       });
+    }
+  });
+
+  it('rejects malformed confirm merchant ids before database lookup', () => {
+    const result = walletTopUpConfirmSchema.safeParse({
+      gateway: 'paystack',
+      merchantId: 'not-a-uuid',
+      reference: 'WAL-123',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            message: 'Merchant id must be a valid UUID',
+            path: ['merchantId'],
+          }),
+        ])
+      );
     }
   });
 

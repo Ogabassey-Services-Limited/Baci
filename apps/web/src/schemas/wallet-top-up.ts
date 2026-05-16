@@ -16,6 +16,7 @@ const walletTopUpMerchantIdSchema = z
   .string()
   .trim()
   .min(1, 'Merchant id cannot be empty')
+  .uuid('Merchant id must be a valid UUID')
   .optional();
 
 const walletTopUpAmountSchema = z.coerce
