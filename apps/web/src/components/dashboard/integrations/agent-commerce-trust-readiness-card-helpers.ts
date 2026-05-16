@@ -1,8 +1,19 @@
 import type { Route } from 'next';
 import type {
   AgentCommerceTrustCheck,
+  AgentCommerceTrustCheckSummary,
   AgentCommerceTrustReadiness,
+  AgentCommerceTrustReadinessSummary,
 } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
+
+/**
+ * Structural readiness shape consumed by the trust action items: either the
+ * full {@link AgentCommerceTrustReadiness} (API-fed card) or the slim
+ * {@link AgentCommerceTrustReadinessSummary} (SSR dashboard card).
+ */
+type TrustActionReadiness =
+  | AgentCommerceTrustReadiness
+  | AgentCommerceTrustReadinessSummary;
 
 export interface AgentCommerceTrustActionItem {
   count: number | null;
@@ -91,10 +102,13 @@ function getSeverityRank(severity: string): number {
 }
 
 function getActionCount(
-  check: AgentCommerceTrustCheck,
-  readiness: AgentCommerceTrustReadiness
+  check: AgentCommerceTrustCheck | AgentCommerceTrustCheckSummary,
+  readiness: TrustActionReadiness
 ): number | null {
-  if (check.affectedProductIds?.length) {
+  if ('affectedProductCount' in check && check.affectedProductCount) {
+    return check.affectedProductCount;
+  }
+  if ('affectedProductIds' in check && check.affectedProductIds?.length) {
     return check.affectedProductIds.length;
   }
 
@@ -117,7 +131,7 @@ function getActionCount(
 }
 
 function buildTrustActionItems(
-  readiness: AgentCommerceTrustReadiness
+  readiness: TrustActionReadiness
 ): AgentCommerceTrustActionItem[] {
   return readiness.checks
     .filter((check) => check.severity !== 'pass')
