@@ -120,7 +120,7 @@ describe('initializeWalletTopUp', () => {
     });
   });
 
-  it('includes the resolved merchant id so top-up does not depend only on a build-time slug', async () => {
+  it('includes the resolved merchant id without adding a build-time slug fallback', async () => {
     mockFetchWithTimeout.mockResolvedValue({
       ok: true,
       status: 200,
@@ -145,7 +145,35 @@ describe('initializeWalletTopUp', () => {
     expect(requestBody).toMatchObject({
       amount: 2500,
       merchantId: 'merchant-1',
-      merchantSlug: 'demo-store',
+    });
+    expect(requestBody).not.toHaveProperty('merchantSlug');
+  });
+
+  it('preserves an explicit merchant slug when merchant id is also supplied', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({
+        authorization_url: 'https://checkout.example.com/pay',
+        gateway: 'paystack',
+        reference: 'WALLET-123',
+        success: true,
+      }),
+    });
+
+    await initializeWalletTopUp({
+      amount: 2500,
+      gateway: 'paystack',
+      merchantId: 'merchant-1',
+      merchantSlug: 'explicit-store',
+    });
+
+    const requestBody = getLastInitializeRequestBody();
+    expect(requestBody).toMatchObject({
+      amount: 2500,
+      merchantId: 'merchant-1',
+      merchantSlug: 'explicit-store',
     });
   });
 

@@ -67,7 +67,36 @@ describe('confirmWalletTopUp', () => {
     expect(getLastConfirmRequestBody()).toMatchObject({
       gateway: 'paystack',
       merchantId: 'merchant-1',
-      merchantSlug: 'demo-store',
+      reference: 'WALLET-123',
+    });
+    expect(getLastConfirmRequestBody()).not.toHaveProperty('merchantSlug');
+  });
+
+  it('preserves an explicit merchant slug when merchant id is also supplied', async () => {
+    mockFetchWithTimeout.mockResolvedValue({
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      json: async () => ({
+        amount: 2500,
+        reference: 'WALLET-123',
+        status: 'successful',
+        success: true,
+        wallet: { balance: 5000 },
+      }),
+    });
+
+    await confirmWalletTopUp({
+      gateway: 'paystack',
+      merchantId: 'merchant-1',
+      merchantSlug: 'explicit-store',
+      reference: 'WALLET-123',
+    });
+
+    expect(getLastConfirmRequestBody()).toMatchObject({
+      gateway: 'paystack',
+      merchantId: 'merchant-1',
+      merchantSlug: 'explicit-store',
       reference: 'WALLET-123',
     });
   });
