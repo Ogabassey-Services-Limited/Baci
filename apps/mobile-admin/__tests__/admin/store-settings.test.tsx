@@ -207,6 +207,7 @@ vi.mock('@/lib/supabase', () => ({
 
 vi.mock('@/utils/SubscriptionManagement', () => ({
   SubscriptionManagement: {
+    getManagementLabel: () => 'Manage in App Store',
     getPlanLabel: (isPro: boolean) => (isPro ? 'Pro' : 'Free'),
     openNativeManagement: vi.fn(),
   },
