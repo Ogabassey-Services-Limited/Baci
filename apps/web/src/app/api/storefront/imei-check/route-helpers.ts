@@ -213,7 +213,7 @@ export async function cacheLookupResponse({
   responseHash,
   sickwStatus,
   status,
-  supabase,
+  supabaseAdmin,
   terminalStatus,
 }: {
   body: ImeiLookupResponseBody;
@@ -221,10 +221,10 @@ export async function cacheLookupResponse({
   responseHash?: string;
   sickwStatus?: string;
   status: number;
-  supabase: SupabaseClient;
+  supabaseAdmin: AdminSupabaseClient;
   terminalStatus: ImeiLookupStatus;
 }) {
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from('imei_lookups')
     .update({
       cached_response: body,
@@ -250,7 +250,6 @@ export async function refundAndCacheFailure({
   refundSuccessStatus,
   sickwStatus,
   status,
-  supabase,
   supabaseAdmin,
 }: {
   amount: number;
@@ -262,7 +261,6 @@ export async function refundAndCacheFailure({
   refundSuccessStatus: ImeiLookupStatus;
   sickwStatus?: string;
   status: number;
-  supabase: SupabaseClient;
   supabaseAdmin: AdminSupabaseClient;
 }) {
   try {
@@ -292,7 +290,7 @@ export async function refundAndCacheFailure({
         lookupId,
         sickwStatus,
         status: 502,
-        supabase,
+        supabaseAdmin,
         terminalStatus: refundFailureStatus,
       });
     } catch (cacheError) {
@@ -318,7 +316,7 @@ export async function refundAndCacheFailure({
       lookupId,
       sickwStatus,
       status,
-      supabase,
+      supabaseAdmin,
       terminalStatus: refundSuccessStatus,
     });
   } catch (cacheError) {
@@ -346,6 +344,7 @@ export async function cacheInsufficientBalanceResponse({
   merchantId,
   preflightBalance,
   supabase,
+  supabaseAdmin,
 }: {
   amount: number;
   customerId: string;
@@ -353,6 +352,7 @@ export async function cacheInsufficientBalanceResponse({
   merchantId: string;
   preflightBalance: number;
   supabase: SupabaseClient;
+  supabaseAdmin: AdminSupabaseClient;
 }) {
   let currentBalance = preflightBalance;
   try {
@@ -375,7 +375,7 @@ export async function cacheInsufficientBalanceResponse({
     body,
     lookupId,
     status: 402,
-    supabase,
+    supabaseAdmin,
     terminalStatus: 'wallet_rejected',
   });
   return json(body, 402);
@@ -388,7 +388,7 @@ export async function cacheSuccessfulLookup({
   lookupId,
   merchantId,
   providerResult,
-  supabase,
+  supabaseAdmin,
   tier,
 }: {
   amount: number;
@@ -397,7 +397,7 @@ export async function cacheSuccessfulLookup({
   lookupId: string;
   merchantId: string;
   providerResult: Extract<SickwLookupResult, { ok: true }>;
-  supabase: SupabaseClient;
+  supabaseAdmin: AdminSupabaseClient;
   tier: ImeiServiceTierKey;
 }) {
   // The paid provider lookup already SUCCEEDED here. If persisting the
@@ -415,7 +415,7 @@ export async function cacheSuccessfulLookup({
       responseHash: hashProviderResponse(providerResult.rawResponseText),
       sickwStatus: providerResult.sickwStatus,
       status: providerResult.status,
-      supabase,
+      supabaseAdmin,
       terminalStatus: 'completed',
     });
   } catch (persistError) {

@@ -55,10 +55,15 @@ describe('OgabasseyImeiChecker', () => {
   it('renders the public IMEI tiers accepted by the API', () => {
     render(<OgabasseyImeiChecker />);
 
+    const selectedTierButton = screen.getByRole('button', {
+      name: /full report, know everything, ₦1,500/i,
+    });
+    expect(selectedTierButton).toHaveClass('border-[var(--store-primary)]');
+    expect(selectedTierButton.className).not.toContain('border-red-500');
+    expect(selectedTierButton.className).not.toContain('bg-red-50');
+
     expect(
-      screen.getByRole('button', {
-        name: /full report, know everything, ₦1,500/i,
-      })
+      selectedTierButton
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', {

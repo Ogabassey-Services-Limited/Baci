@@ -197,18 +197,21 @@ function createSupabaseMock(rows: ImeiLookupRow[] = []) {
   return supabase;
 }
 
-function mockAuthenticatedUser(supabase = createSupabaseMock()) {
+function mockAuthenticatedUser({
+  adminSupabase = createSupabaseMock(),
+  userSupabase = createSupabaseMock(),
+}: {
+  adminSupabase?: ReturnType<typeof createSupabaseMock>;
+  userSupabase?: ReturnType<typeof createSupabaseMock>;
+} = {}) {
   mocks.mockAuthenticateApiRequest.mockResolvedValue({
     error: null,
-    supabase,
+    supabase: userSupabase,
     user: { email: 'buyer@example.com', id: 'user-1' },
   });
-  // H4: imei_lookups INSERT/UPDATE now go through the service-role client.
-  // Point the admin mock at the same backing mock so write assertions
-  // (__updates / __setInsertError / __setUpdateError) observe them.
   mocks.mockCreateAdminClient.mockReset();
-  mocks.mockCreateAdminClient.mockReturnValue(supabase);
-  return supabase;
+  mocks.mockCreateAdminClient.mockReturnValue(adminSupabase);
+  return { adminSupabase, userSupabase };
 }
 
 function importRoute() {
@@ -369,7 +372,7 @@ describe('POST /api/storefront/imei-check', () => {
   it('returns 503 before new persistence when IMEI_HASH_SALT is missing', async () => {
     vi.stubEnv('IMEI_HASH_SALT', '');
     const supabase = createSupabaseMock();
-    mockAuthenticatedUser(supabase);
+    mockAuthenticatedUser({ userSupabase: supabase });
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -389,8 +392,8 @@ describe('POST /api/storefront/imei-check', () => {
       success: true,
       tier: { checksIncluded: ['device'], name: 'Full Check' },
     };
-    mockAuthenticatedUser(
-      createSupabaseMock([
+    mockAuthenticatedUser({
+      userSupabase: createSupabaseMock([
         {
           amount_ngn: 1500,
           cached_response: cachedBody,
@@ -403,8 +406,8 @@ describe('POST /api/storefront/imei-check', () => {
           status: 'completed',
           tier: 'full',
         },
-      ])
-    );
+      ]),
+    });
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -424,8 +427,8 @@ describe('POST /api/storefront/imei-check', () => {
       required: 1500,
       success: false,
     };
-    mockAuthenticatedUser(
-      createSupabaseMock([
+    mockAuthenticatedUser({
+      userSupabase: createSupabaseMock([
         {
           amount_ngn: 1500,
           cached_response: cachedBody,
@@ -438,8 +441,8 @@ describe('POST /api/storefront/imei-check', () => {
           status: 'wallet_rejected',
           tier: 'full',
         },
-      ])
-    );
+      ]),
+    });
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -454,7 +457,7 @@ describe('POST /api/storefront/imei-check', () => {
   it('returns 503 before new persistence when SICKW_API_KEY is missing', async () => {
     vi.stubEnv('SICKW_API_KEY', '');
     const supabase = createSupabaseMock();
-    mockAuthenticatedUser(supabase);
+    mockAuthenticatedUser({ userSupabase: supabase });
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -478,8 +481,9 @@ describe('POST /api/storefront/imei-check', () => {
       .mockResolvedValueOnce(800)
       .mockResolvedValueOnce(500);
     mocks.mockRedeemImeiWalletPayment.mockRejectedValueOnce(insufficient);
-    const supabase = createSupabaseMock();
-    mockAuthenticatedUser(supabase);
+    const adminSupabase = createSupabaseMock();
+    const userSupabase = createSupabaseMock();
+    mockAuthenticatedUser({ adminSupabase, userSupabase });
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -496,7 +500,7 @@ describe('POST /api/storefront/imei-check', () => {
       required: 1500,
     });
     expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
-    expect(supabase.__updates.at(-1)).toMatchObject({
+    expect(adminSupabase.__updates.at(-1)).toMatchObject({
       filters: { id: 'lookup-1' },
       payload: {
         cached_status: 402,
@@ -509,8 +513,8 @@ describe('POST /api/storefront/imei-check', () => {
     mocks.mockRedeemImeiWalletPayment.mockRejectedValueOnce(
       new Error('wallet rpc unavailable')
     );
-    const supabase = createSupabaseMock();
-    mockAuthenticatedUser(supabase);
+    const adminSupabase = createSupabaseMock();
+    mockAuthenticatedUser({ adminSupabase });
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -519,7 +523,7 @@ describe('POST /api/storefront/imei-check', () => {
     expect(response.status).toBe(500);
     expect(body.code).toBe('INTERNAL_ERROR');
     expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
-    expect(supabase.__updates.at(-1)).toMatchObject({
+    expect(adminSupabase.__updates.at(-1)).toMatchObject({
       filters: { id: 'lookup-1' },
       payload: {
         cached_response: body,
@@ -549,8 +553,9 @@ describe('POST /api/storefront/imei-check', () => {
         status: 200,
       };
     });
-    const supabase = createSupabaseMock();
-    mockAuthenticatedUser(supabase);
+    const adminSupabase = createSupabaseMock();
+    const userSupabase = createSupabaseMock();
+    mockAuthenticatedUser({ adminSupabase, userSupabase });
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -558,19 +563,20 @@ describe('POST /api/storefront/imei-check', () => {
     expect(response.status).toBe(200);
     expect(callOrder).toEqual(['debit', 'sickw']);
     // H4: imei_lookups writes + wallet RPCs go through the service-role
-    // client (createAdminClient), which the shared mock backs. Reads
-    // (resolveImeiCustomer / wallet balance) stay on the user client.
+    // client. Reads (resolveImeiCustomer / wallet balance) stay on the
+    // authenticated user client.
     expect(mocks.mockCreateAdminClient).toHaveBeenCalled();
     expect(mocks.mockResolveImeiCustomer).toHaveBeenCalledWith(
-      expect.objectContaining({ supabase })
+      expect.objectContaining({ supabase: userSupabase })
     );
     expect(mocks.mockReadCustomerWalletBalance).toHaveBeenCalledWith(
-      expect.objectContaining({ supabase })
+      expect.objectContaining({ supabase: userSupabase })
     );
     expect(mocks.mockRedeemImeiWalletPayment).toHaveBeenCalledWith(
-      expect.objectContaining({ supabaseAdmin: supabase })
+      expect.objectContaining({ supabaseAdmin: adminSupabase })
     );
-    expect(supabase.__updates.at(-1)).toMatchObject({
+    expect(userSupabase.__updates).toHaveLength(0);
+    expect(adminSupabase.__updates.at(-1)).toMatchObject({
       filters: { id: 'lookup-1' },
       payload: {
         response_hash: createHash('sha256')
@@ -593,8 +599,8 @@ describe('POST /api/storefront/imei-check', () => {
       sickwStatus: 'unavailable',
       status: 502,
     });
-    const supabase = createSupabaseMock();
-    mockAuthenticatedUser(supabase);
+    const adminSupabase = createSupabaseMock();
+    mockAuthenticatedUser({ adminSupabase });
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -605,7 +611,7 @@ describe('POST /api/storefront/imei-check', () => {
     expect(mocks.mockRefundImeiWalletPayment).toHaveBeenCalledWith(
       expect.objectContaining({ lookupId: 'lookup-1' })
     );
-    expect(supabase.__updates.at(-1)).toMatchObject({
+    expect(adminSupabase.__updates.at(-1)).toMatchObject({
       filters: { id: 'lookup-1' },
       payload: {
         cached_status: 502,
@@ -626,9 +632,9 @@ describe('POST /api/storefront/imei-check', () => {
       sickwStatus: 'unavailable',
       status: 502,
     });
-    const supabase = createSupabaseMock();
-    supabase.__setUpdateError({ message: 'database unavailable' });
-    mockAuthenticatedUser(supabase);
+    const adminSupabase = createSupabaseMock();
+    adminSupabase.__setUpdateError({ message: 'database unavailable' });
+    mockAuthenticatedUser({ adminSupabase });
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -639,7 +645,7 @@ describe('POST /api/storefront/imei-check', () => {
     expect(mocks.mockRefundImeiWalletPayment).toHaveBeenCalledWith(
       expect.objectContaining({ lookupId: 'lookup-1' })
     );
-    expect(supabase.__updates.at(-1)).toMatchObject({
+    expect(adminSupabase.__updates.at(-1)).toMatchObject({
       filters: { id: 'lookup-1' },
       payload: {
         cached_status: 502,
@@ -663,8 +669,8 @@ describe('POST /api/storefront/imei-check', () => {
     mocks.mockRefundImeiWalletPayment.mockRejectedValueOnce(
       new Error('refund rpc down')
     );
-    const supabase = createSupabaseMock();
-    mockAuthenticatedUser(supabase);
+    const adminSupabase = createSupabaseMock();
+    mockAuthenticatedUser({ adminSupabase });
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -672,7 +678,7 @@ describe('POST /api/storefront/imei-check', () => {
 
     expect(response.status).toBe(502);
     expect(body.code).toBe('REFUND_PENDING');
-    expect(supabase.__updates.at(-1)).toMatchObject({
+    expect(adminSupabase.__updates.at(-1)).toMatchObject({
       filters: { id: 'lookup-1' },
       payload: {
         cached_status: 502,
@@ -696,9 +702,9 @@ describe('POST /api/storefront/imei-check', () => {
     mocks.mockRefundImeiWalletPayment.mockRejectedValueOnce(
       new Error('refund rpc down')
     );
-    const supabase = createSupabaseMock();
-    supabase.__setUpdateError({ message: 'database unavailable' });
-    mockAuthenticatedUser(supabase);
+    const adminSupabase = createSupabaseMock();
+    adminSupabase.__setUpdateError({ message: 'database unavailable' });
+    mockAuthenticatedUser({ adminSupabase });
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -706,7 +712,7 @@ describe('POST /api/storefront/imei-check', () => {
 
     expect(response.status).toBe(500);
     expect(body.code).toBe('REFUND_STATE_SAVE_FAILED');
-    expect(supabase.__updates.at(-1)).toMatchObject({
+    expect(adminSupabase.__updates.at(-1)).toMatchObject({
       filters: { id: 'lookup-1' },
       payload: {
         cached_status: 502,
@@ -716,8 +722,8 @@ describe('POST /api/storefront/imei-check', () => {
   });
 
   it('returns 409 on Idempotency-Key reuse with a different fingerprint', async () => {
-    mockAuthenticatedUser(
-      createSupabaseMock([
+    mockAuthenticatedUser({
+      userSupabase: createSupabaseMock([
         {
           amount_ngn: 1500,
           cached_response: null,
@@ -730,8 +736,8 @@ describe('POST /api/storefront/imei-check', () => {
           status: 'completed',
           tier: 'full',
         },
-      ])
-    );
+      ]),
+    });
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
@@ -743,7 +749,7 @@ describe('POST /api/storefront/imei-check', () => {
   });
 
   it('handles a concurrent insert race for the same Idempotency-Key', async () => {
-    const supabase = createSupabaseMock([
+    const userSupabase = createSupabaseMock([
       {
         amount_ngn: 1500,
         cached_response: {
@@ -760,8 +766,12 @@ describe('POST /api/storefront/imei-check', () => {
         tier: 'full',
       },
     ]);
-    supabase.__setInsertError({ code: '23505', message: 'duplicate key' });
-    mockAuthenticatedUser(supabase);
+    const adminSupabase = createSupabaseMock();
+    adminSupabase.__setInsertError({
+      code: '23505',
+      message: 'duplicate key',
+    });
+    mockAuthenticatedUser({ adminSupabase, userSupabase });
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());

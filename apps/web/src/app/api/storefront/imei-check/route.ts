@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
   } | null = null;
   let debitSucceeded = false;
   let supabase: SupabaseClient | null = null;
+  let supabaseAdmin: ReturnType<typeof createAdminClient> | null = null;
 
   try {
     const rateLimit = await checkRateLimit(request);
@@ -218,20 +219,20 @@ export async function POST(request: NextRequest) {
     // service-role client only; the route is the sole legitimate writer.
     // authenticated INSERT/UPDATE grants are revoked (see migration
     // 20260516120100) so a client cannot forge status/cached_response rows.
-    const { data: insertedLookup, error: insertError } =
-      await createAdminClient()
-        .from('imei_lookups')
-        .insert({
-          amount_ngn: amount,
-          customer_id: customer.id,
-          idempotency_key: idempotencyKey,
-          imei_hash: imeiHash,
-          merchant_id: merchantId,
-          status: 'pending',
-          tier: requestedTier,
-        })
-        .select('id')
-        .single();
+    supabaseAdmin = createAdminClient();
+    const { data: insertedLookup, error: insertError } = await supabaseAdmin
+      .from('imei_lookups')
+      .insert({
+        amount_ngn: amount,
+        customer_id: customer.id,
+        idempotency_key: idempotencyKey,
+        imei_hash: imeiHash,
+        merchant_id: merchantId,
+        status: 'pending',
+        tier: requestedTier,
+      })
+      .select('id')
+      .single();
 
     if (insertError) {
       if (isUniqueViolation(insertError)) {
@@ -267,7 +268,7 @@ export async function POST(request: NextRequest) {
         customerId: customer.id,
         lookupId: activeLookup.id,
         merchantId,
-        supabaseAdmin: createAdminClient(),
+        supabaseAdmin,
       });
       debitSucceeded = true;
     } catch (error) {
@@ -284,7 +285,8 @@ export async function POST(request: NextRequest) {
         lookupId: activeLookup.id,
         merchantId,
         preflightBalance,
-        supabase: createAdminClient(),
+        supabase,
+        supabaseAdmin,
       });
     }
 
@@ -306,7 +308,7 @@ export async function POST(request: NextRequest) {
         lookupId: activeLookup.id,
         merchantId,
         providerResult,
-        supabase: createAdminClient(),
+        supabaseAdmin,
         tier: requestedTier,
       });
     }
@@ -323,8 +325,7 @@ export async function POST(request: NextRequest) {
           : 'refunded_error',
       sickwStatus: providerResult.sickwStatus,
       status: providerResult.status,
-      supabase: createAdminClient(),
-      supabaseAdmin: createAdminClient(),
+      supabaseAdmin,
     });
   } catch (error) {
     console.error('IMEI check error:', error);
@@ -340,7 +341,7 @@ export async function POST(request: NextRequest) {
           lookupId: activeLookup.id,
           sickwStatus: 'wallet_debit_error',
           status: 500,
-          supabase: createAdminClient(),
+          supabaseAdmin: supabaseAdmin ?? createAdminClient(),
           terminalStatus: 'failed_error',
         });
       } catch (cacheError) {
@@ -367,8 +368,7 @@ export async function POST(request: NextRequest) {
         refundSuccessStatus: 'refunded_error',
         sickwStatus: 'unexpected_error',
         status: 502,
-        supabase: createAdminClient(),
-        supabaseAdmin: createAdminClient(),
+        supabaseAdmin: supabaseAdmin ?? createAdminClient(),
       });
     }
 

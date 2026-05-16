@@ -403,7 +403,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
                       aria-pressed={isSelected}
                       onClick={() => setSelectedTier(tierKey)}
                       className={`relative p-4 rounded-2xl border-2 transition-all text-left ${isSelected
-                        ? 'border-red-500 bg-red-50 shadow-lg shadow-red-100'
+                        ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5 shadow-lg shadow-[var(--store-primary)]/20'
                         : 'border-gray-100 bg-white hover:border-gray-200 hover:shadow-md'
                         }`}
                     >
@@ -415,7 +415,11 @@ export const OgabasseyImeiChecker: React.FC = () => {
                       )}
                       <Icon
                         size={24}
-                        className={isSelected ? 'text-red-600' : 'text-gray-400'}
+                        className={
+                          isSelected
+                            ? 'text-[var(--store-primary)]'
+                            : 'text-gray-400'
+                        }
                       />
                       <p
                         className={`font-bold text-sm mt-2 ${isSelected ? 'text-gray-900' : 'text-gray-700'}`}
@@ -426,7 +430,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
                         {tier.tagline}
                       </p>
                       <p
-                        className={`text-sm font-bold mt-2 ${isSelected ? 'text-red-600' : 'text-gray-900'}`}
+                        className={`text-sm font-bold mt-2 ${isSelected ? 'text-[var(--store-primary)]' : 'text-gray-900'}`}
                       >
                         {tier.priceDisplay}
                       </p>
