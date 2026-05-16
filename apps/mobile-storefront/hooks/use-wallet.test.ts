@@ -899,7 +899,11 @@ describe('useRedeemPoints', () => {
     queryClient.clear();
   });
 
-  it('reuses a persisted redemption id after remounting before retry', async () => {
+  it('does not reuse a persisted redemption id after remounting before retry', async () => {
+    jest
+      .mocked(Crypto.randomUUID)
+      .mockReturnValueOnce('first-attempt-id')
+      .mockReturnValueOnce('second-attempt-id');
     mockCalculateCommerce.mockResolvedValue({
       success: true,
       walletCredit: 200,
@@ -938,14 +942,14 @@ describe('useRedeemPoints', () => {
     expect(mockRpc).toHaveBeenNthCalledWith(
       1,
       'redeem_loyalty_points',
-      expect.objectContaining({ p_redemption_id: 'test-redemption-id' })
+      expect.objectContaining({ p_redemption_id: 'first-attempt-id' })
     );
     expect(mockRpc).toHaveBeenNthCalledWith(
       2,
       'redeem_loyalty_points',
-      expect.objectContaining({ p_redemption_id: 'test-redemption-id' })
+      expect.objectContaining({ p_redemption_id: 'second-attempt-id' })
     );
-    expect(Crypto.randomUUID).toHaveBeenCalledTimes(1);
+    expect(Crypto.randomUUID).toHaveBeenCalledTimes(2);
 
     second.unmount();
     second.queryClient.clear();

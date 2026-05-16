@@ -413,6 +413,7 @@ function getRedeemPointValidationError(points: number) {
 
 export function useRedeemPoints() {
   const queryClient = useQueryClient();
+  const redemptionAttemptIdsRef = useRef(new Map<string, string>());
   const redemptionBalanceSnapshotsRef = useRef(new Map<string, number>());
   const { customer, merchantId, user } = useAuthStore(
     useShallow((state) => ({
@@ -442,6 +443,10 @@ export function useRedeemPoints() {
         merchantId: currentMerchantId,
         points,
       });
+      const attemptId =
+        redemptionAttemptIdsRef.current.get(balanceSnapshotKey) ??
+        Crypto.randomUUID();
+      redemptionAttemptIdsRef.current.set(balanceSnapshotKey, attemptId);
 
       // Look up current points balance from cached wallet data
       const cachedData = queryClient.getQueryData<WalletQueryData>(
@@ -471,7 +476,8 @@ export function useRedeemPoints() {
       }
 
       const { redemptionId } = await getOrCreatePendingLoyaltyRedemptionId({
-        createId: Crypto.randomUUID,
+        attemptId,
+        createId: () => attemptId,
         customerId,
         currentPoints,
         merchantId: currentMerchantId,
@@ -592,6 +598,10 @@ export function useRedeemPoints() {
     onSuccess: async (_data, _points, context) => {
       if (context?.redemptionKey) {
         await clearPendingLoyaltyRedemptionId(context.redemptionKey);
+      }
+
+      if (context?.snapshotKey) {
+        redemptionAttemptIdsRef.current.delete(context.snapshotKey);
       }
     },
 

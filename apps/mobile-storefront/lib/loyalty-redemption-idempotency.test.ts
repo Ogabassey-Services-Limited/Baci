@@ -33,6 +33,7 @@ describe('loyalty redemption idempotency', () => {
 
   it('creates and persists a redemption id for a scoped redemption', async () => {
     const result = await getOrCreatePendingLoyaltyRedemptionId({
+      attemptId: 'attempt-1',
       createId: () => 'redemption-id-1',
       customerId: 'customer-1',
       currentPoints: 1000,
@@ -48,10 +49,11 @@ describe('loyalty redemption idempotency', () => {
     expect(mockSetItem).toHaveBeenCalledWith(
       'loyalty-redemption:customer-1:merchant-1:200',
       JSON.stringify({
+        attemptId: 'attempt-1',
         createdAt: 1_000,
         pointsBeforeRedeem: 1000,
         redemptionId: 'redemption-id-1',
-        version: 1,
+        version: 2,
       })
     );
   });
@@ -59,14 +61,16 @@ describe('loyalty redemption idempotency', () => {
   it('reuses a persisted redemption id for the same balance snapshot', async () => {
     mockGetItem.mockResolvedValueOnce(
       JSON.stringify({
+        attemptId: 'attempt-1',
         createdAt: 1_000,
         pointsBeforeRedeem: 1000,
         redemptionId: 'persisted-redemption-id',
-        version: 1,
+        version: 2,
       })
     );
 
     const result = await getOrCreatePendingLoyaltyRedemptionId({
+      attemptId: 'attempt-1',
       createId: () => 'new-redemption-id',
       customerId: 'customer-1',
       currentPoints: 1000,
@@ -79,17 +83,56 @@ describe('loyalty redemption idempotency', () => {
     expect(mockSetItem).not.toHaveBeenCalled();
   });
 
-  it('replaces a stale redemption id when the point balance already moved', async () => {
+  it('replaces a persisted redemption id from a different attempt', async () => {
     mockGetItem.mockResolvedValueOnce(
       JSON.stringify({
+        attemptId: 'previous-attempt',
         createdAt: 1_000,
         pointsBeforeRedeem: 1000,
-        redemptionId: 'stale-redemption-id',
-        version: 1,
+        redemptionId: 'persisted-redemption-id',
+        version: 2,
       })
     );
 
     const result = await getOrCreatePendingLoyaltyRedemptionId({
+      attemptId: 'current-attempt',
+      createId: () => 'new-redemption-id',
+      customerId: 'customer-1',
+      currentPoints: 1000,
+      merchantId: 'merchant-1',
+      now: () => 1_500,
+      points: 200,
+    });
+
+    expect(result.redemptionId).toBe('new-redemption-id');
+    expect(mockRemoveItem).toHaveBeenCalledWith(
+      'loyalty-redemption:customer-1:merchant-1:200'
+    );
+    expect(mockSetItem).toHaveBeenCalledWith(
+      'loyalty-redemption:customer-1:merchant-1:200',
+      JSON.stringify({
+        attemptId: 'current-attempt',
+        createdAt: 1_500,
+        pointsBeforeRedeem: 1000,
+        redemptionId: 'new-redemption-id',
+        version: 2,
+      })
+    );
+  });
+
+  it('replaces a stale redemption id when the point balance already moved', async () => {
+    mockGetItem.mockResolvedValueOnce(
+      JSON.stringify({
+        attemptId: 'attempt-1',
+        createdAt: 1_000,
+        pointsBeforeRedeem: 1000,
+        redemptionId: 'stale-redemption-id',
+        version: 2,
+      })
+    );
+
+    const result = await getOrCreatePendingLoyaltyRedemptionId({
+      attemptId: 'attempt-1',
       createId: () => 'new-redemption-id',
       customerId: 'customer-1',
       currentPoints: 800,
@@ -105,10 +148,11 @@ describe('loyalty redemption idempotency', () => {
     expect(mockSetItem).toHaveBeenCalledWith(
       'loyalty-redemption:customer-1:merchant-1:200',
       JSON.stringify({
+        attemptId: 'attempt-1',
         createdAt: 2_000,
         pointsBeforeRedeem: 800,
         redemptionId: 'new-redemption-id',
-        version: 1,
+        version: 2,
       })
     );
   });
@@ -116,14 +160,16 @@ describe('loyalty redemption idempotency', () => {
   it('replaces expired pending redemption ids even when the balance matches', async () => {
     mockGetItem.mockResolvedValueOnce(
       JSON.stringify({
+        attemptId: 'attempt-1',
         createdAt: 1_000,
         pointsBeforeRedeem: 1000,
         redemptionId: 'expired-redemption-id',
-        version: 1,
+        version: 2,
       })
     );
 
     const result = await getOrCreatePendingLoyaltyRedemptionId({
+      attemptId: 'attempt-1',
       createId: () => 'new-redemption-id',
       customerId: 'customer-1',
       currentPoints: 1000,
