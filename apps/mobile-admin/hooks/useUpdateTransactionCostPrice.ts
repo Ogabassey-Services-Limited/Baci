@@ -1,6 +1,16 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMerchant } from '@/hooks/useMerchant';
 import { supabase } from '@/lib/supabase';
+import { mergeSupplierMetadata } from '@/lib/transaction-review';
+
+interface UpdateTransactionReviewDetailsInput {
+  costPrice: number;
+  orderId: string;
+  productId: string;
+  productMetadata: Record<string, unknown> | null;
+  supplierName: string;
+  transactionDateIso: string;
+}
 
 export function useUpdateTransactionCostPrice() {
   const queryClient = useQueryClient();
@@ -9,11 +19,12 @@ export function useUpdateTransactionCostPrice() {
   return useMutation({
     mutationFn: async ({
       costPrice,
+      orderId,
       productId,
-    }: {
-      costPrice: number;
-      productId: string;
-    }) => {
+      productMetadata,
+      supplierName,
+      transactionDateIso,
+    }: UpdateTransactionReviewDetailsInput) => {
       if (
         typeof costPrice !== 'number' ||
         !Number.isFinite(costPrice) ||
@@ -24,6 +35,20 @@ export function useUpdateTransactionCostPrice() {
       if (!merchant?.id) {
         throw new Error('Merchant context is not ready');
       }
+      if (!orderId.trim() || !productId.trim()) {
+        throw new Error('Transaction and product are required');
+      }
+      if (!transactionDateIso.trim()) {
+        throw new Error('Enter a valid transaction date.');
+      }
+
+      const parsedTransactionDate = new Date(transactionDateIso);
+      if (Number.isNaN(parsedTransactionDate.getTime())) {
+        throw new Error('Enter a valid transaction date.');
+      }
+      if (parsedTransactionDate.getTime() > Date.now()) {
+        throw new Error('Transaction date cannot be in the future.');
+      }
 
       // Select the updated row so we can detect the silent-success case
       // where the update matched zero rows (wrong merchant, stale product id,
@@ -32,6 +57,7 @@ export function useUpdateTransactionCostPrice() {
         .from('products')
         .update({
           cost_price: costPrice,
+          metadata: mergeSupplierMetadata(productMetadata, supplierName),
           updated_at: new Date().toISOString(),
         })
         .eq('id', productId)
@@ -45,6 +71,25 @@ export function useUpdateTransactionCostPrice() {
       if (!data || data.length === 0) {
         throw new Error(
           'Product not found for this merchant, or you no longer have permission to update it'
+        );
+      }
+
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .update({
+          transaction_date: parsedTransactionDate.toISOString(),
+        })
+        .eq('id', orderId)
+        .eq('merchant_id', merchant.id)
+        .select('id');
+
+      if (orderError) {
+        throw new Error(orderError.message);
+      }
+
+      if (!orderData || orderData.length === 0) {
+        throw new Error(
+          'Transaction not found for this merchant, or you no longer have permission to update it'
         );
       }
     },

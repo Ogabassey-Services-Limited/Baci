@@ -59,44 +59,60 @@ vi.mock('@/components/transactions/transactions.styles', () => ({
 
 const editableItem = {
   costPrice: 1200,
+  imeiValues: ['353232106161443'],
   id: 'item-1',
   name: 'Samsung Galaxy S26',
   productId: 'product-1',
+  productMetadata: { supplier_name: 'Slot Wholesale' },
   profit: 3400,
   quantity: 1,
   revenue: 4600,
+  searchText: 'samsung galaxy s26 slot wholesale',
+  serialValues: ['SN-ABC-1'],
+  sku: 'SG-S26',
+  supplierName: 'Slot Wholesale',
 };
 
 const nonEditableItem = {
   costPrice: null,
+  imeiValues: [],
   id: 'item-2',
   name: 'Manual adjustment',
   productId: null,
+  productMetadata: null,
   profit: null,
   quantity: 1,
   revenue: 500,
+  searchText: 'manual adjustment',
+  serialValues: [],
+  sku: null,
+  supplierName: '',
 };
 
 describe('TransactionOrderCard', () => {
   it('opens the editor for editable product-linked rows', () => {
     const onOpenEditor = vi.fn();
+    const order = {
+      createdAt: '2026-04-11T09:00:00.000Z',
+      customerEmail: null,
+      customerName: 'Bassey',
+      customerPhone: null,
+      estimatedProfit: 3400,
+      id: 'order-1',
+      items: [editableItem],
+      missingCostCount: 0,
+      orderNumber: 'ORD-1',
+      paymentMethod: 'card',
+      searchText: 'ord-1 bassey samsung galaxy s26',
+      total: 4600,
+    };
 
     render(
       <TransactionOrderCard
         colors={LIGHT_COLORS}
         formatCurrency={(amount) => `NGN ${amount}`}
         onOpenEditor={onOpenEditor}
-        order={{
-          createdAt: '2026-04-11T09:00:00.000Z',
-          customerName: 'Bassey',
-          estimatedProfit: 3400,
-          id: 'order-1',
-          items: [editableItem],
-          missingCostCount: 0,
-          orderNumber: 'ORD-1',
-          paymentMethod: 'card',
-          total: 4600,
-        }}
+        order={order}
       />
     );
 
@@ -105,9 +121,12 @@ describe('TransactionOrderCard', () => {
     });
 
     expect(screen.getByText('create-outline')).toBeInTheDocument();
+    expect(screen.getByText('Supplier Slot Wholesale')).toBeInTheDocument();
+    expect(screen.getByText('IMEI 353232106161443')).toBeInTheDocument();
+    expect(screen.getByText('S/N SN-ABC-1')).toBeInTheDocument();
 
     fireEvent.click(row);
-    expect(onOpenEditor).toHaveBeenCalledWith(editableItem);
+    expect(onOpenEditor).toHaveBeenCalledWith(order, editableItem);
   });
 
   it('renders non-product rows as disabled and without the edit icon', () => {
@@ -120,13 +139,16 @@ describe('TransactionOrderCard', () => {
         onOpenEditor={onOpenEditor}
         order={{
           createdAt: '2026-04-11T09:00:00.000Z',
+          customerEmail: null,
           customerName: 'Bassey',
+          customerPhone: null,
           estimatedProfit: 0,
           id: 'order-1',
           items: [nonEditableItem],
           missingCostCount: 1,
           orderNumber: 'ORD-1',
           paymentMethod: 'card',
+          searchText: 'ord-1 bassey manual adjustment',
           total: 500,
         }}
       />
