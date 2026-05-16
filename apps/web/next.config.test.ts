@@ -3,7 +3,9 @@ import nextConfig from './next.config';
 
 describe('next.config OgaBassey resource headers', () => {
   it('does not guess viewport-specific hero preloads from request headers', async () => {
-    const headers = await nextConfig.headers?.();
+    expect(typeof nextConfig.headers).toBe('function');
+    const headers = await nextConfig.headers();
+    expect(headers).toBeDefined();
 
     const homeLinkRules =
       headers?.filter(
@@ -16,8 +18,10 @@ describe('next.config OgaBassey resource headers', () => {
   });
 
   it('does not route OgaBassey hero assets through next.config headers matchers', async () => {
-    const headers = await nextConfig.headers?.();
-    const heroAssetHeaders = headers?.find((entry) =>
+    expect(typeof nextConfig.headers).toBe('function');
+    const headers = await nextConfig.headers();
+    expect(headers).toBeDefined();
+    const heroAssetHeaders = headers.find((entry) =>
       entry.source.includes('ogabassey-hero')
     );
 
