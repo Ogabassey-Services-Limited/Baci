@@ -36,6 +36,7 @@ function getActionHref(code: string): Route | null {
     case 'AGENTIC_ORDER_FINALIZING':
     case 'AGENTIC_PAYMENT_CLAIMING':
     case 'AGENTIC_PAYMENT_PENDING':
+    case 'AGENTIC_PAYMENT_PENDING_STALE':
     case 'AGENTIC_PAYMENT_SETUP_FAILED':
     case 'AGENTIC_REQUESTS_IN_PROGRESS':
       return AGENTIC_ORDERS_HREF;

@@ -10,6 +10,7 @@ const healthyInput = {
   paymentPendingCount: 0,
   paymentSetupFailedCount: 0,
   staleInProgressCount: 0,
+  stalePaymentPendingCount: 0,
   terminalErrorCount: 0,
 };
 
@@ -25,6 +26,7 @@ describe('buildAgenticHealthActions', () => {
         paymentPendingCount: 7,
         paymentSetupFailedCount: 4,
         staleInProgressCount: 1,
+        stalePaymentPendingCount: 8,
         terminalErrorCount: 2,
       }).map(({ code, count, severity }) => ({ code, count, severity }))
     ).toEqual([
@@ -46,6 +48,11 @@ describe('buildAgenticHealthActions', () => {
       {
         code: 'AGENTIC_PAYMENT_SETUP_FAILED',
         count: 4,
+        severity: 'attention',
+      },
+      {
+        code: 'AGENTIC_PAYMENT_PENDING_STALE',
+        count: 8,
         severity: 'attention',
       },
       {
@@ -78,6 +85,7 @@ describe('buildAgenticHealthActions', () => {
         activeInProgressCount: 1,
         paymentClaimingCount: 1,
         paymentSetupFailedCount: 1,
+        stalePaymentPendingCount: 1,
       })
     ).toEqual([
       {
@@ -85,6 +93,13 @@ describe('buildAgenticHealthActions', () => {
         count: 1,
         message:
           'Agentic checkouts failed while setting up payment collection.',
+        severity: 'attention',
+      },
+      {
+        code: 'AGENTIC_PAYMENT_PENDING_STALE',
+        count: 1,
+        message:
+          'Agentic checkouts have been waiting for payment confirmation too long.',
         severity: 'attention',
       },
       {

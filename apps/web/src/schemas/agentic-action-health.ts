@@ -22,6 +22,7 @@ export const agenticActionCheckoutSessionsSchema = z
     payment_pending_count: nonnegativeCountSchema.optional(),
     payment_setup_failed_count: nonnegativeCountSchema.optional(),
     recent_count: nonnegativeCountSchema.optional(),
+    stale_payment_pending_count: nonnegativeCountSchema.optional(),
   })
   .passthrough();
 
