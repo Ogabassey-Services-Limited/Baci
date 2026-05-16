@@ -14,6 +14,8 @@ const baseReadiness: AgentCommerceTrustReadiness = {
   status: 'pass',
   surfaces: {
     agentCommerceManifest: 'https://example.com/agent-commerce.json',
+    agentNativeCommerce:
+      'https://example.com/.well-known/agent-native-commerce',
     agentTrust: 'https://example.com/agent-trust.json',
     currentProductFeed: 'https://example.com/feeds/agent-products.jsonl',
     googleMerchantXml: 'https://example.com/feeds/google-merchant.xml',
@@ -27,6 +29,7 @@ const baseReadiness: AgentCommerceTrustReadiness = {
     },
     robots: 'https://example.com/robots.txt',
     sitemap: 'https://example.com/sitemap.xml',
+    ucpProfile: 'https://example.com/.well-known/ucp',
   },
   totals: {
     googleProducts: 4,
@@ -42,6 +45,59 @@ const baseReadiness: AgentCommerceTrustReadiness = {
 };
 
 describe('agentCommerceTrustReadinessCardHelpers', () => {
+  it('builds public machine contract links for the merchant trust card', () => {
+    const links =
+      agentCommerceTrustReadinessCardHelpers.buildMachineContractLinks(
+        baseReadiness
+      );
+
+    expect(
+      links.map(({ href, id, label }) => ({
+        href,
+        id,
+        label,
+      }))
+    ).toEqual([
+      {
+        href: 'https://example.com/.well-known/agent-native-commerce',
+        id: 'agent-native-commerce',
+        label: 'Agent proof',
+      },
+      {
+        href: 'https://example.com/agent-commerce.json',
+        id: 'agent-commerce-manifest',
+        label: 'Commerce manifest',
+      },
+      {
+        href: 'https://example.com/agent-trust.json',
+        id: 'agent-trust',
+        label: 'Trust signals',
+      },
+      {
+        href: 'https://example.com/.well-known/ucp',
+        id: 'ucp-profile',
+        label: 'UCP profile',
+      },
+    ]);
+  });
+
+  it('skips unavailable machine contract links', () => {
+    const links =
+      agentCommerceTrustReadinessCardHelpers.buildMachineContractLinks({
+        ...baseReadiness,
+        surfaces: {
+          ...baseReadiness.surfaces,
+          ucpProfile: '',
+        },
+      });
+
+    expect(links.map((link) => link.id)).toEqual([
+      'agent-native-commerce',
+      'agent-commerce-manifest',
+      'agent-trust',
+    ]);
+  });
+
   it('builds prioritized dashboard actions for failing and warning checks', () => {
     const actionItems =
       agentCommerceTrustReadinessCardHelpers.buildTrustActionItems({

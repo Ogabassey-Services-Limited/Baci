@@ -70,7 +70,25 @@ describe('AgentCommerceTrustReadinessCard', () => {
           },
         ],
         status: 'fail',
-        surfaces: {},
+        surfaces: {
+          agentCommerceManifest: 'https://example.com/agent-commerce.json',
+          agentNativeCommerce:
+            'https://example.com/.well-known/agent-native-commerce',
+          agentTrust: 'https://example.com/agent-trust.json',
+          currentProductFeed: 'https://example.com/feeds/agent-products.jsonl',
+          googleMerchantXml: 'https://example.com/feeds/google-merchant.xml',
+          openAiProductFeed: 'https://example.com/feeds/openai.jsonl',
+          productApi: 'https://example.com/api/storefront/demo/products',
+          policies: {
+            privacy_policy_url: 'https://example.com/privacy',
+            return_policy_url: 'https://example.com/returns',
+            shipping_policy_url: 'https://example.com/shipping',
+            terms_of_service_url: 'https://example.com/terms',
+          },
+          robots: 'https://example.com/robots.txt',
+          sitemap: 'https://example.com/sitemap.xml',
+          ucpProfile: 'https://example.com/.well-known/ucp',
+        },
         totals: {
           googleProducts: 2,
           openAiProducts: 2,
@@ -96,6 +114,22 @@ describe('AgentCommerceTrustReadinessCard', () => {
     expect(screen.getByText('Structured data readiness')).toBeInTheDocument();
     expect(screen.getByText('Feed freshness')).toBeInTheDocument();
     expect(screen.getByText('Crawler visibility')).toBeInTheDocument();
+    expect(screen.getByText('Machine contracts')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Open Agent proof' })
+    ).toHaveAttribute(
+      'href',
+      'https://example.com/.well-known/agent-native-commerce'
+    );
+    expect(
+      screen.getByRole('link', { name: 'Open Commerce manifest' })
+    ).toHaveAttribute('href', 'https://example.com/agent-commerce.json');
+    expect(
+      screen.getByRole('link', { name: 'Open Trust signals' })
+    ).toHaveAttribute('href', 'https://example.com/agent-trust.json');
+    expect(
+      screen.getByRole('link', { name: 'Open UCP profile' })
+    ).toHaveAttribute('href', 'https://example.com/.well-known/ucp');
     expect(screen.getByText('Priority fixes')).toBeInTheDocument();
     expect(screen.getByText('Fix product URLs')).toBeInTheDocument();
     expect(screen.getByText('Update policies')).toBeInTheDocument();

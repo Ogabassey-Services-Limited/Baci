@@ -81,6 +81,8 @@ function trustReadiness(
     status: 'pass',
     surfaces: {
       agentCommerceManifest: 'https://ogabassey.com/agent-commerce.json',
+      agentNativeCommerce:
+        'https://ogabassey.com/.well-known/agent-native-commerce',
       agentTrust: 'https://ogabassey.com/agent-trust.json',
       currentProductFeed: 'https://ogabassey.com/feeds/agent-products.jsonl',
       googleMerchantXml: 'https://ogabassey.com/feeds/google-merchant.xml',
@@ -94,6 +96,7 @@ function trustReadiness(
       productApi: 'https://ogabassey.com/api/storefront/ogabassey/products',
       robots: 'https://ogabassey.com/robots.txt',
       sitemap: 'https://ogabassey.com/sitemap.xml',
+      ucpProfile: 'https://ogabassey.com/.well-known/ucp',
     },
     totals: {
       googleProducts: 1,
