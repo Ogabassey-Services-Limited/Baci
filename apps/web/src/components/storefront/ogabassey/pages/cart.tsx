@@ -221,6 +221,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                       <button
                         onClick={() => removeFromCart(item.cartItemId)}
                         className="absolute top-4 right-4 text-red-600 md:hover:text-red-700 p-1.5 md:hover:bg-red-50 rounded-full transition-colors active:bg-red-50"
+                        aria-label="Remove item"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -239,6 +240,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                           }
                           className="px-3 h-full hover:bg-white text-gray-500 rounded-l-lg transition-colors border-r border-gray-200 active:bg-gray-200"
                           disabled={item.quantity <= 1}
+                          aria-label="Decrease quantity"
                         >
                           <Minus size={14} />
                         </button>
@@ -250,6 +252,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
                             updateQuantity(item.cartItemId, item.quantity + 1)
                           }
                           className="px-3 h-full hover:bg-white text-gray-500 rounded-r-lg transition-colors border-l border-gray-200 active:bg-gray-200"
+                          aria-label="Increase quantity"
                         >
                           <Plus size={14} />
                         </button>
