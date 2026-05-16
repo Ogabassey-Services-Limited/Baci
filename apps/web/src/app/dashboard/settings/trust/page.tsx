@@ -2,6 +2,7 @@ import { ChevronLeft, ShieldCheck } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { AgentCommerceControlsCard } from '@/components/dashboard/integrations/agent-commerce-controls-card';
 import { AgentCommerceTrustReadinessCardServer } from '@/components/dashboard/integrations/agent-commerce-trust-readiness-card-server';
 import { Button } from '@/components/ui/button';
@@ -58,7 +59,15 @@ export default async function TrustSettingsPage() {
         </div>
       </div>
 
-      <AgentCommerceTrustReadinessCardServer merchant={merchant} />
+      <Suspense
+        fallback={
+          <div className="rounded-md border border-border/70 p-4 text-sm text-muted-foreground">
+            Loading agent trust health…
+          </div>
+        }
+      >
+        <AgentCommerceTrustReadinessCardServer merchant={merchant} />
+      </Suspense>
 
       <AgentCommerceControlsCard
         initialCustomSettings={agenticCustomSettings}
