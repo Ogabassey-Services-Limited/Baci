@@ -36,6 +36,10 @@ export function AddressCard({
   onEdit,
   onSetDefault,
 }: AddressCardProps) {
+  const menuAccessibilityHint = address.is_default
+    ? 'Opens a menu with options to edit or delete this address'
+    : 'Opens a menu with options to edit, set as default, or delete this address';
+
   return (
     <View style={[styles.addressCard, { backgroundColor: colors.card }]}>
       <View style={styles.addressHeader}>
@@ -68,7 +72,7 @@ export function AddressCard({
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           accessibilityRole="button"
           accessibilityLabel={`Address options for ${address.label || ADDRESS_FALLBACK_LABEL}`}
-          accessibilityHint="Opens a menu with options to edit, set as default, or delete this address"
+          accessibilityHint={menuAccessibilityHint}
           onPress={() => {
             const buttons: AlertButton[] = [
               {
