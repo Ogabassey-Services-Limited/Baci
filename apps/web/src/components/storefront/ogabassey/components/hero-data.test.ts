@@ -63,10 +63,10 @@ describe('hero-data exports', () => {
     expect(HERO_DESKTOP_LCP_FALLBACK_SRC).toMatch(/\.jpg(?:$|\?)/);
     expect(HERO_MOBILE_LCP_SRC).toMatch(/\.avif(?:$|\?)/);
     expect(HERO_MOBILE_LCP_FALLBACK_SRC).toMatch(/\.jpg(?:$|\?)/);
-    expect(HERO_DESKTOP_LCP_SRC).toMatch(/^\/ogabassey\/hero\//);
-    expect(HERO_DESKTOP_LCP_FALLBACK_SRC).toMatch(/^\/ogabassey\/hero\//);
-    expect(HERO_MOBILE_LCP_SRC).toMatch(/^\/ogabassey\/hero\//);
-    expect(HERO_MOBILE_LCP_FALLBACK_SRC).toMatch(/^\/ogabassey\/hero\//);
+    expect(HERO_DESKTOP_LCP_SRC).toMatch(/^\/ogabassey-hero\//);
+    expect(HERO_DESKTOP_LCP_FALLBACK_SRC).toMatch(/^\/ogabassey-hero\//);
+    expect(HERO_MOBILE_LCP_SRC).toMatch(/^\/ogabassey-hero\//);
+    expect(HERO_MOBILE_LCP_FALLBACK_SRC).toMatch(/^\/ogabassey-hero\//);
     expect(desktopLcpSlide?.image).toBe(HERO_DESKTOP_LCP_SRC);
     expect(desktopLcpSlide?.fallbackImage).toBe(
       HERO_DESKTOP_LCP_FALLBACK_SRC
