@@ -1,4 +1,4 @@
-import type { Route } from 'next';
+import { getAgenticActionNextStepUrl } from '@/lib/agentic/action-health-action-links';
 import type { AgenticAction } from '@/schemas/agentic-action-health';
 
 interface AgenticDashboardBriefing {
@@ -8,9 +8,6 @@ interface AgenticDashboardBriefing {
   nextMove: string;
   whatChanged: string;
 }
-
-const AGENTIC_ORDERS_HREF = '/dashboard/orders?source=agentic' as Route;
-const TRUST_SETTINGS_HREF = '/dashboard/settings/trust' as Route;
 
 const BRIEFING_MESSAGES = {
   attentionFallback: 'Agentic checkout issues need review.',
@@ -30,22 +27,10 @@ const BRIEFING_MESSAGES = {
     } active.`,
 };
 
-function getActionHref(code: string): Route | null {
-  switch (code) {
-    case 'AGENTIC_IDEMPOTENCY_ERRORS':
-    case 'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS':
-    case 'AGENTIC_ORDER_FINALIZING':
-    case 'AGENTIC_PAYMENT_CLAIMING':
-    case 'AGENTIC_PAYMENT_PENDING':
-    case 'AGENTIC_PAYMENT_PENDING_STALE':
-    case 'AGENTIC_PAYMENT_SETUP_FAILED':
-    case 'AGENTIC_REQUESTS_IN_PROGRESS':
-      return AGENTIC_ORDERS_HREF;
-    case 'AGENTIC_AGENT_ALLOWLIST_UNSET':
-      return TRUST_SETTINGS_HREF;
-    default:
-      return null;
-  }
+function getActionHref(action: AgenticAction): string | null {
+  const explicitUrl = action.next_step_url?.trim();
+  if (explicitUrl) return explicitUrl;
+  return getAgenticActionNextStepUrl(action.code) ?? null;
 }
 
 function formatGeneratedAt(value?: string): string | null {

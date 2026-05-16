@@ -150,9 +150,7 @@ export function AgenticActionCenterCard({
             {actions.map((action) => {
               const tone = getActionTone(action.severity);
               const Icon = tone.icon;
-              const href = agenticActionCenterCardHelpers.getActionHref(
-                action.code
-              );
+              const href = agenticActionCenterCardHelpers.getActionHref(action);
 
               return (
                 <div
