@@ -28,6 +28,12 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ogabassey.com';
 const PUBLIC_IMEI_SERVICE_TIER_KEYS = new Set<ImeiServiceTierKey>(
   PRIMARY_IMEI_SERVICE_TIERS
 );
+const UNRESOLVED_IMEI_RESPONSE_CODES = new Set([
+  'IDEMPOTENT_REQUEST_IN_FLIGHT',
+  'REFUND_PENDING',
+  'REFUND_STATE_SAVE_FAILED',
+  'REFUNDED_STATE_SAVE_FAILED',
+]);
 
 export default function ImeiCheckerScreen() {
   const colorScheme = useColorScheme();
@@ -174,9 +180,13 @@ export default function ImeiCheckerScreen() {
 
       const rawData = await response.json();
       if (!response.ok || rawData?.error) {
+        const shouldPreserveIdempotencyKey =
+          typeof rawData?.code === 'string' &&
+          UNRESOLVED_IMEI_RESPONSE_CODES.has(rawData.code);
         const shouldClearIdempotencyKey =
-          [200, 402, 404].includes(response.status) ||
-          (response.status === 502 && rawData?.code !== 'REFUND_PENDING');
+          !shouldPreserveIdempotencyKey &&
+          ([200, 402, 404].includes(response.status) ||
+            (response.status === 502 && rawData?.code !== 'REFUND_PENDING'));
         if (shouldClearIdempotencyKey) {
           clearIdempotencyKey();
         }
@@ -219,14 +229,16 @@ export default function ImeiCheckerScreen() {
         }
 
         if (response.status === 409) {
-          if (rawData?.code !== 'IDEMPOTENT_REQUEST_IN_FLIGHT') {
+          if (!shouldPreserveIdempotencyKey) {
             clearIdempotencyKey();
           }
           setError(rawData?.error || 'Unable to check IMEI. Please try again.');
           return;
         }
 
-        clearIdempotencyKey();
+        if (!shouldPreserveIdempotencyKey) {
+          clearIdempotencyKey();
+        }
         setError(rawData?.error || 'Unable to check IMEI. Please try again.');
         return;
       }

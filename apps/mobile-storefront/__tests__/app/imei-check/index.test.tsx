@@ -247,4 +247,84 @@ describe('ImeiCheckerScreen', () => {
     );
     expect(Crypto.randomUUID).toHaveBeenCalledTimes(1);
   });
+
+  it.each([
+    [
+      'REFUND_STATE_SAVE_FAILED',
+      'Lookup failed and refund status could not be saved.',
+    ],
+    [
+      'REFUNDED_STATE_SAVE_FAILED',
+      'Lookup failed and refund result could not be saved.',
+    ],
+  ])(
+    'preserves the idempotency key after unresolved %s responses',
+    async (code, error) => {
+      jest
+        .mocked(Crypto.randomUUID)
+        .mockReturnValueOnce('11111111-1111-4111-8111-111111111111')
+        .mockReturnValueOnce('22222222-2222-4222-8222-222222222222');
+      jest
+        .mocked(fetch)
+        .mockResolvedValueOnce({
+          json: () =>
+            Promise.resolve({
+              code,
+              error,
+              success: false,
+            }),
+          ok: false,
+          status: 500,
+        } as Response)
+        .mockResolvedValueOnce({
+          json: () =>
+            Promise.resolve({
+              data: {
+                blacklistStatus: 'Clean',
+                carrier: 'Unlocked',
+                device: 'iPhone 13 Pro',
+                deviceImage: '',
+                deviceType: 'apple',
+                icloud: 'Off',
+                icloudLock: 'Off',
+                imei: '490154203237518',
+                modelNumber: 'A2638',
+                score: 98,
+                simLock: 'Unlocked',
+                status: 'Clean',
+                verdict: 'Safe to buy',
+                verdictType: 'safe',
+              },
+              success: true,
+            }),
+          ok: true,
+          status: 200,
+        } as Response);
+      render(<ImeiCheckerScreen />);
+
+      fireEvent.changeText(
+        screen.getByPlaceholderText('Enter 15-digit IMEI'),
+        '490154203237518'
+      );
+      fireEvent.press(screen.getByText('Verify Now - ₦1,500'));
+
+      await waitFor(() => {
+        expect(screen.getByText(error)).toBeTruthy();
+      });
+
+      fireEvent.press(screen.getByText('Verify Now - ₦1,500'));
+
+      await screen.findByText('iPhone 13 Pro');
+
+      const firstHeaders = (jest.mocked(fetch).mock.calls[0][1] as RequestInit)
+        .headers as Record<string, string>;
+      const secondHeaders = (jest.mocked(fetch).mock.calls[1][1] as RequestInit)
+        .headers as Record<string, string>;
+
+      expect(secondHeaders['Idempotency-Key']).toBe(
+        firstHeaders['Idempotency-Key']
+      );
+      expect(Crypto.randomUUID).toHaveBeenCalledTimes(1);
+    }
+  );
 });
