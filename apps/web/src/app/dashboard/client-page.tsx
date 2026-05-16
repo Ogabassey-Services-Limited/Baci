@@ -15,6 +15,7 @@ import {
   Users,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AgenticActionCenterCard } from '@/components/dashboard/agentic-action-center-card';
 import { AgenticTrustCenterCard } from '@/components/dashboard/agentic-trust-center-card';
@@ -93,6 +94,7 @@ export default function DashboardClientPage({
   initialTrustReadiness = null,
 }: DashboardClientPageProps) {
   const { merchant, reloadMerchant } = useMerchant();
+  const router = useRouter();
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -166,6 +168,7 @@ export default function DashboardClientPage({
           : 'Your store is now live and accessible to customers.',
       });
       reloadMerchant();
+      router.refresh();
     } catch (_error) {
       toast({
         title: 'Error',
