@@ -33,7 +33,9 @@ const BNPLParamsSchema = z.object({
   amount: z.string().regex(/^\d+$/, 'Amount must be a number').optional(),
   customerEmail: z.string().email().optional(),
   customerName: z.string().optional(),
+  customerPhone: z.string().optional(),
   merchantSlug: z.string().optional(),
+  trackingToken: z.string().optional(),
 });
 
 const API_BASE_URL = resolveApiBaseUrl(process.env.EXPO_PUBLIC_API_URL);
@@ -65,7 +67,8 @@ export default function BNPLCheckoutScreen() {
     return { isValid: true, error: null, data: result.data };
   })();
 
-  const { orderId, gateway, amount } = validatedParams.data || {};
+  const { orderId, gateway, amount, customerEmail, trackingToken } =
+    validatedParams.data || {};
 
   // Construct the BNPL launcher URL
   // 2026 Critical Fix: Include merchant slug in path for correct multi-tenant routing
@@ -81,10 +84,23 @@ export default function BNPLCheckoutScreen() {
       ? API_BASE_URL.slice(0, -1)
       : API_BASE_URL;
 
+    const query = new URLSearchParams({
+      gateway: gateway || '',
+      merchant_slug: slug,
+      orderId,
+    });
+
+    if (customerEmail?.trim()) {
+      query.set('email', customerEmail.trim());
+    }
+    if (trackingToken?.trim()) {
+      query.set('token', trackingToken.trim());
+    }
+
     // Pattern: [baseUrl]/[slug]/checkout/bnpl?orderId=[id]&gateway=[gateway]&merchant_slug=[slug]
     // If baseUrl already includes the merchant (custom domain), the path /slug /checkout still works
     // because Next.js handles the rewrite.
-    return `${baseUrl}/${slug}/checkout/bnpl?orderId=${orderId}&gateway=${gateway}&merchant_slug=${slug}`;
+    return `${baseUrl}/${slug}/checkout/bnpl?${query.toString()}`;
   })();
 
   // 2026 Critical Fix: Show error state for invalid params
@@ -133,6 +149,7 @@ export default function BNPLCheckoutScreen() {
             orderId,
             reference: reference || undefined,
             paymentMethod: gateway,
+            ...(trackingToken && { trackingToken }),
           },
         });
       }, 1000);
@@ -159,7 +176,9 @@ export default function BNPLCheckoutScreen() {
     try {
       const data = JSON.parse(event.nativeEvent.data);
 
-      if (data.type === 'bnpl_success') {
+      if (data.type === 'navigation' && typeof data.url === 'string') {
+        handleNavigationChange({ url: data.url } as WebViewNavigation);
+      } else if (data.type === 'bnpl_success') {
         setStatus('success');
         clearCart();
         setTimeout(() => {
@@ -169,6 +188,7 @@ export default function BNPLCheckoutScreen() {
               orderId,
               reference: data.reference,
               paymentMethod: gateway,
+              ...(trackingToken && { trackingToken }),
             },
           });
         }, 1000);
@@ -372,11 +392,15 @@ export default function BNPLCheckoutScreen() {
         onMessage={handleWebViewMessage}
         injectedJavaScript={injectedJavaScript}
         javaScriptEnabled={true}
+        javaScriptCanOpenWindowsAutomatically={true}
         domStorageEnabled={true}
+        sharedCookiesEnabled={true}
+        thirdPartyCookiesEnabled={true}
         startInLoadingState={true}
         scalesPageToFit={true}
         mixedContentMode="compatibility"
         allowsInlineMediaPlayback={true}
+        setSupportMultipleWindows={false}
         onError={(syntheticEvent) => {
           const { nativeEvent } = syntheticEvent;
           setStatus('error');
