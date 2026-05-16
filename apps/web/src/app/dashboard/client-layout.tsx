@@ -418,13 +418,13 @@ export default function DashboardClientLayout({
   const { hasPermission, staffAccess } = useMerchant();
 
   const filteredNavItems = navItems.filter((item) => {
-    // Owners always see everything
-    if (staffAccess.isOwner) return true;
-
     // Santa Campaign is special (only for ogabassey)
     if (item.label === 'Santa Campaign' && merchant?.slug !== 'ogabassey') {
       return false;
     }
+
+    // Owners always see everything
+    if (staffAccess.isOwner) return true;
 
     if (item.label === 'Migrations') {
       return (
