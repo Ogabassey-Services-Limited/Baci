@@ -4,7 +4,6 @@ import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -169,9 +168,7 @@ export default function StoreSettingsScreen() {
     COUNTRIES.find((c) => c.code === country || c.name === country)?.name ||
     country;
   const planLabel = SubscriptionManagement.getPlanLabel(isPro);
-  // Native subscription management opens a different store on each platform.
-  const manageSubscriptionLabel =
-    Platform.OS === 'ios' ? 'Manage in App Store' : 'Manage in Google Play';
+  const manageSubscriptionLabel = SubscriptionManagement.getManagementLabel();
 
   return (
     <>

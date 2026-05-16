@@ -4,6 +4,12 @@ import { Alert, Linking, Platform } from 'react-native';
  * Utility to help manage subscriptions natively
  */
 export const SubscriptionManagement = {
+  getManagementLabel: (platformOs: string = Platform.OS) => {
+    return platformOs === 'ios'
+      ? 'Manage in App Store'
+      : 'Manage in Google Play';
+  },
+
   /**
    * Opens the native subscription management page for the current platform
    * @returns true if successful, false if failed
@@ -44,7 +50,7 @@ export const SubscriptionManagement = {
       // Show user feedback if all attempts failed
       Alert.alert(
         'Unable to Open',
-        'Could not open subscription management. Please manage your subscription directly in the App Store or Google Play Store.',
+        `Could not open subscription management. Please ${SubscriptionManagement.getManagementLabel().toLowerCase()} directly.`,
         [{ text: 'OK' }]
       );
       return false;

@@ -1,9 +1,7 @@
 [
   "app/(admin)/domains/connect.tsx",
   "app/(admin)/payout-settings.tsx",
-  "app/(admin)/profile.tsx",
   "app/(admin)/send-feedback.tsx",
-  "app/(admin)/store-settings.tsx",
   "app/(auth)/login.tsx",
   "app/(auth)/onboarding.tsx",
   "components/analytics/ReportsGenerator.ts",

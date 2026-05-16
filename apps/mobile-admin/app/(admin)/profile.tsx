@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -176,6 +175,7 @@ export default function ProfileScreen() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const manageSubscriptionLabel = SubscriptionManagement.getManagementLabel();
 
   if (isLoading) {
     return (
@@ -386,9 +386,7 @@ export default function ProfileScreen() {
                 <Text
                   style={[styles.manageButtonText, { color: colors.primary }]}
                 >
-                  {Platform.OS === 'ios'
-                    ? 'Manage in App Store'
-                    : 'Manage in Google Play'}
+                  {manageSubscriptionLabel}
                 </Text>
                 <Ionicons
                   name="open-outline"
