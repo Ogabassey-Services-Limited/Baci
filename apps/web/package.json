@@ -109,6 +109,7 @@
     "input-otp": "^1.4.2",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
+    "langsmith": "^0.5.20",
     "lowlight": "^3.3.0",
     "lucide-react": "^0.561.0",
     "marked": "^17.0.1",
