@@ -1,9 +1,14 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product as RelatedProduct } from '@/lib/products';
 import type { NormalizedProductDetails } from './product-details-helpers';
 import { DeferredProductDetailsSections } from './deferred-product-details-sections';
 import type { ProductDetailsActiveTab } from './use-product-details-state';
+
+const { brandProductsSpy, priceRangeProductsSpy } = vi.hoisted(() => ({
+  brandProductsSpy: vi.fn(),
+  priceRangeProductsSpy: vi.fn(),
+}));
 
 vi.mock('../../components/AdUnit', () => ({
   AdUnit: ({ placementKey }: { placementKey: string }) => (
@@ -34,13 +39,24 @@ vi.mock('./product-details-tabs', () => ({
 }));
 
 vi.mock('@/components/storefront/brand-products', () => ({
-  BrandProducts: () => <div role="region" aria-label="Brand products" />,
+  BrandProducts: (props: { product?: { id?: string }; maxProducts: number }) => {
+    brandProductsSpy(props);
+    return (
+      <div role="region" aria-label="Brand products">{`${props.product?.id ?? 'none'}:${props.maxProducts}`}</div>
+    );
+  },
 }));
 
 vi.mock('@/components/storefront/price-range-products', () => ({
-  PriceRangeProducts: () => (
-    <div role="region" aria-label="Price range products" />
-  ),
+  PriceRangeProducts: (props: {
+    product?: { id?: string };
+    maxProducts: number;
+  }) => {
+    priceRangeProductsSpy(props);
+    return (
+      <div role="region" aria-label="Price range products">{`${props.product?.id ?? 'none'}:${props.maxProducts}`}</div>
+    );
+  },
 }));
 
 function renderDeferredSections(productData: NormalizedProductDetails) {
@@ -60,6 +76,11 @@ function renderDeferredSections(productData: NormalizedProductDetails) {
 }
 
 describe('DeferredProductDetailsSections', () => {
+  beforeEach(() => {
+    brandProductsSpy.mockClear();
+    priceRangeProductsSpy.mockClear();
+  });
+
   it('renders deferred merchandising sections and video when present', () => {
     renderDeferredSections({
       name: 'Lenovo Legion Pro 9',
@@ -79,10 +100,22 @@ describe('DeferredProductDetailsSections', () => {
     );
     expect(
       screen.getByRole('region', { name: 'Brand products' })
-    ).toBeInTheDocument();
+    ).toHaveTextContent('related-1:4');
     expect(
       screen.getByRole('region', { name: 'Price range products' })
-    ).toBeInTheDocument();
+    ).toHaveTextContent('related-1:4');
+    expect(brandProductsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        maxProducts: 4,
+        product: expect.objectContaining({ id: 'related-1' }),
+      })
+    );
+    expect(priceRangeProductsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        maxProducts: 4,
+        product: expect.objectContaining({ id: 'related-1' }),
+      })
+    );
   });
 
   it('skips product video when no video id exists', () => {
