@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { AgentCommerceControlsCard } from '@/components/dashboard/integrations/agent-commerce-controls-card';
-import { AgentCommerceTrustReadinessCard } from '@/components/dashboard/integrations/agent-commerce-trust-readiness-card';
+import { AgentCommerceTrustReadinessCardServer } from '@/components/dashboard/integrations/agent-commerce-trust-readiness-card-server';
 import { Button } from '@/components/ui/button';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { TrustSettingsClient } from './trust-settings-client';
@@ -58,7 +58,7 @@ export default async function TrustSettingsPage() {
         </div>
       </div>
 
-      <AgentCommerceTrustReadinessCard />
+      <AgentCommerceTrustReadinessCardServer merchant={merchant} />
 
       <AgentCommerceControlsCard
         initialCustomSettings={agenticCustomSettings}
