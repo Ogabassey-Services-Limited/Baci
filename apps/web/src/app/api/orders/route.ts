@@ -5,6 +5,8 @@ import {
   isTaxComputeUuidError,
 } from '@/lib/agentic/checkout-order-tax';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
+import { computeCanonicalOrderSubtotal } from '@/lib/checkout/canonical-order-subtotal';
+import { computeExpectedTotalDiscount } from '@/lib/checkout/expected-total-discount';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
@@ -261,6 +263,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (discountAmountValue > 0) {
+      return NextResponse.json(
+        {
+          error: 'Failed to create order',
+          details: 'discount_amount_not_supported',
+        },
+        { status: 400 }
+      );
+    }
+
     // Codex P1 (PR #1622 round 6): the legacy storefront checkout
     // (`apps/web/src/app/checkout/page.tsx`) doesn't send
     // `tax_amount` — Zod defaults to 0 — and that 0 tripped the
@@ -328,6 +340,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    let serverDerivedDiscountAmount = 0;
+    if (typeof body.expected_total === 'number') {
+      const canonicalSubtotal = await computeCanonicalOrderSubtotal({
+        items: orderItemsPayload,
+        merchantId: merchant_id,
+        supabase,
+      });
+
+      if (canonicalSubtotal !== null) {
+        serverDerivedDiscountAmount = computeExpectedTotalDiscount({
+          canonicalSubtotal,
+          canonicalTaxAmount: serverComputedTaxAmount,
+          shippingFee: shippingFeeValue,
+          giftWrappingFee: giftWrappingFeeValue,
+          expectedTotal: body.expected_total,
+        });
+      }
+    }
+
     const adTrackingPayload = ad_tracking
       ? {
           ...ad_tracking,
@@ -381,7 +412,7 @@ export async function POST(request: NextRequest) {
         p_customer_phone: customer_phone || null,
         p_items: orderItemsPayload,
         p_shipping_fee: shippingFeeValue,
-        p_discount_amount: discountAmountValue,
+        p_discount_amount: serverDerivedDiscountAmount,
         p_tax_amount: serverComputedTaxAmount,
         p_payment_method: payment_method,
         p_payment_status: effectivePaymentStatus,

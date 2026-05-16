@@ -683,6 +683,115 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
     );
   });
 
+  it('turns a bounded negotiated expected_total drift into a server-derived discount', async () => {
+    const rpcSpy = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'order-id',
+          order_number: 'ORD-123',
+          total: 1021.25,
+          subtotal: 1000,
+          shipping_fee: 0,
+          customer_id: CUSTOMER_ID,
+        },
+      ],
+      error: null,
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      sb.from = ((table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: { vat_registration_status: 'registered' },
+                    error: null,
+                  }),
+                single: () =>
+                  Promise.resolve({
+                    data: { id: MERCHANT_ID, business_name: 'Test' },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'products') {
+          return {
+            select: () => ({
+              eq: () => ({
+                in: () => ({
+                  returns: () =>
+                    Promise.resolve({
+                      data: [
+                        {
+                          id: 'p-1',
+                          price: 1000,
+                          vat_category_code: 'S',
+                          vat_rate: 7.5,
+                        },
+                      ],
+                      error: null,
+                    }),
+                }),
+              }),
+            }),
+          };
+        }
+        return {
+          select: () => ({
+            eq: () => ({
+              single: () => Promise.resolve({ data: null, error: null }),
+              maybeSingle: () => Promise.resolve({ data: null, error: null }),
+            }),
+          }),
+          insert: () => Promise.resolve({ error: null }),
+        };
+      }) as typeof sb.from;
+      sb.rpc = ((name: string, args: Record<string, unknown>) => {
+        if (name === 'create_storefront_order') {
+          return rpcSpy(args);
+        }
+        if (name === 'get_order_variant_overrides') {
+          return Promise.resolve({ data: [], error: null });
+        }
+        return Promise.resolve({ data: null, error: null });
+      }) as typeof sb.rpc;
+      return sb;
+    }) as unknown as never);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            product_id: 'p-1',
+            quantity: 1,
+            price: 950,
+            name: 'Widget',
+          },
+        ],
+        subtotal: 950,
+        tax_amount: 71.25,
+        expected_total: 1021.25,
+        client_total: 1021.25,
+      }),
+    });
+    await POST(request);
+
+    expect(rpcSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_discount_amount: 53.75,
+        p_expected_total: 1021.25,
+        p_tax_amount: 75,
+      })
+    );
+  });
+
   it('maps a 22P02 UUID parse error from the tax helper to 400 INVALID_ITEM_ID (Codex P2 round 7)', async () => {
     // Item ids are only `z.string()` at the schema layer, so a
     // malformed product_id (e.g. a slug) reaches the helper and
