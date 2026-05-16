@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DiscountItemSelector } from './DiscountItemSelector';
 
 const mocks = vi.hoisted(() => ({
@@ -10,6 +10,13 @@ const mocks = vi.hoisted(() => ({
     align: undefined as 'start' | 'center' | 'end' | undefined,
     scrollEnabled: undefined as boolean | undefined,
   },
+  listProps: {
+    initialNumToRender: 0,
+    maxToRenderPerBatch: 0,
+    removeClippedSubviews: false,
+    windowSize: 0,
+  },
+  platform: { OS: 'ios' as 'ios' | 'android' },
 }));
 
 vi.mock('@/hooks/useMerchant', () => ({
@@ -70,11 +77,25 @@ vi.mock('react-native', () => ({
   ActivityIndicator: () => <span>loading</span>,
   FlatList: ({
     data,
+    initialNumToRender,
+    maxToRenderPerBatch,
+    removeClippedSubviews,
     renderItem,
+    windowSize,
   }: {
     data: Array<{ id: string; name: string }>;
+    initialNumToRender?: number;
+    maxToRenderPerBatch?: number;
+    removeClippedSubviews?: boolean;
     renderItem: (props: { item: { id: string; name: string } }) => ReactNode;
-  }) => <div>{data.map((item) => renderItem({ item }))}</div>,
+    windowSize?: number;
+  }) => {
+    mocks.listProps.initialNumToRender = initialNumToRender ?? 0;
+    mocks.listProps.maxToRenderPerBatch = maxToRenderPerBatch ?? 0;
+    mocks.listProps.removeClippedSubviews = removeClippedSubviews ?? false;
+    mocks.listProps.windowSize = windowSize ?? 0;
+    return <div>{data.map((item) => renderItem({ item }))}</div>;
+  },
   Modal: ({
     children,
     visible,
@@ -82,7 +103,7 @@ vi.mock('react-native', () => ({
     children?: ReactNode;
     visible?: boolean;
   }) => (visible ? <div>{children}</div> : null),
-  Platform: { OS: 'ios' },
+  Platform: mocks.platform,
   Pressable: ({
     accessibilityLabel,
     children,
@@ -131,6 +152,14 @@ describe('DiscountItemSelector', () => {
     ]);
     mocks.keyboardContainerProps.align = undefined;
     mocks.keyboardContainerProps.scrollEnabled = undefined;
+    mocks.listProps.initialNumToRender = 0;
+    mocks.listProps.maxToRenderPerBatch = 0;
+    mocks.listProps.removeClippedSubviews = false;
+    mocks.listProps.windowSize = 0;
+  });
+
+  afterEach(() => {
+    mocks.platform.OS = 'ios';
   });
 
   it('renders search and done controls', async () => {
@@ -168,5 +197,25 @@ describe('DiscountItemSelector', () => {
     ).toBeInTheDocument();
     expect(mocks.keyboardContainerProps.align).toBe('start');
     expect(mocks.keyboardContainerProps.scrollEnabled).toBe(false);
+    expect(mocks.listProps.initialNumToRender).toBe(15);
+    expect(mocks.listProps.maxToRenderPerBatch).toBe(10);
+    expect(mocks.listProps.windowSize).toBe(5);
+    expect(mocks.listProps.removeClippedSubviews).toBe(false);
+  });
+
+  it('enables clipped subviews for Android via shared list props', () => {
+    mocks.platform.OS = 'android';
+
+    render(
+      <DiscountItemSelector
+        initialIds={[]}
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+        type="product"
+        visible={true}
+      />
+    );
+
+    expect(mocks.listProps.removeClippedSubviews).toBe(true);
   });
 });

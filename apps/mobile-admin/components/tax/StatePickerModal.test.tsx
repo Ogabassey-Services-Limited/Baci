@@ -1,9 +1,19 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LIGHT_COLORS } from '@/constants/theme';
 import { StatePickerModal } from './StatePickerModal';
+
+const mocks = vi.hoisted(() => ({
+  listProps: {
+    initialNumToRender: 0,
+    maxToRenderPerBatch: 0,
+    removeClippedSubviews: false,
+    windowSize: 0,
+  },
+  platform: { OS: 'ios' as 'ios' | 'android' },
+}));
 
 vi.mock('@baci/shared', () => ({
   NIGERIAN_STATES: [
@@ -45,17 +55,29 @@ vi.mock('@expo/vector-icons', () => ({
   Ionicons: ({ name }: { name: string }) => <span>{name}</span>,
 }));
 
-vi.mock('react-native', async () => ({
+vi.mock('react-native', () => ({
   FlatList: ({
     data,
+    initialNumToRender,
+    maxToRenderPerBatch,
+    removeClippedSubviews,
     renderItem,
+    windowSize,
   }: {
     data: Array<{ code: string; name: string }>;
+    initialNumToRender?: number;
+    maxToRenderPerBatch?: number;
+    removeClippedSubviews?: boolean;
     renderItem: (item: { item: { code: string; name: string } }) => ReactNode;
-  }) => <div>{data.map((item) => renderItem({ item }))}</div>,
-  Platform: {
-    OS: 'ios',
+    windowSize?: number;
+  }) => {
+    mocks.listProps.initialNumToRender = initialNumToRender ?? 0;
+    mocks.listProps.maxToRenderPerBatch = maxToRenderPerBatch ?? 0;
+    mocks.listProps.removeClippedSubviews = removeClippedSubviews ?? false;
+    mocks.listProps.windowSize = windowSize ?? 0;
+    return <div>{data.map((item) => renderItem({ item }))}</div>;
   },
+  Platform: mocks.platform,
   Pressable: ({
     accessibilityLabel,
     children,
@@ -79,6 +101,10 @@ vi.mock('react-native', async () => ({
 const colors = LIGHT_COLORS;
 
 describe('StatePickerModal', () => {
+  afterEach(() => {
+    mocks.platform.OS = 'ios';
+  });
+
   it('renders through the shared page-sheet shell', () => {
     render(
       <StatePickerModal
@@ -135,5 +161,41 @@ describe('StatePickerModal', () => {
     expect(
       screen.queryByRole('button', { name: 'Abia' })
     ).not.toBeInTheDocument();
+  });
+
+  it('applies shared list virtualization defaults', () => {
+    render(
+      <StatePickerModal
+        colors={colors}
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+        selectedStateCode="NG-LA"
+        visible={true}
+      />
+    );
+
+    expect(mocks.listProps.initialNumToRender).toBe(15);
+    expect(mocks.listProps.maxToRenderPerBatch).toBe(10);
+    expect(mocks.listProps.windowSize).toBe(5);
+    expect(mocks.listProps.removeClippedSubviews).toBe(false);
+  });
+
+  it('applies Android clipping optimization through shared list props', () => {
+    mocks.platform.OS = 'android';
+
+    render(
+      <StatePickerModal
+        colors={colors}
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+        selectedStateCode="NG-LA"
+        visible={true}
+      />
+    );
+
+    expect(mocks.listProps.initialNumToRender).toBe(15);
+    expect(mocks.listProps.maxToRenderPerBatch).toBe(10);
+    expect(mocks.listProps.windowSize).toBe(5);
+    expect(mocks.listProps.removeClippedSubviews).toBe(true);
   });
 });
