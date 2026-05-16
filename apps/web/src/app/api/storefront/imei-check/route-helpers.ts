@@ -237,7 +237,9 @@ export async function cacheLookupResponse({
       ...(sickwStatus ? { sickw_status: sickwStatus } : {}),
       status: terminalStatus,
     })
-    .eq('id', lookupId);
+    .eq('id', lookupId)
+    .select('id')
+    .single();
 
   if (error) {
     throw new Error(`Failed to cache IMEI lookup response: ${error.message}`);
@@ -302,14 +304,25 @@ export async function refundAndCacheFailure({
         cacheError,
         lookupId,
       });
-      return json(
-        errorBody({
-          code: 'REFUND_STATE_SAVE_FAILED',
-          error:
-            'Lookup failed and refund status could not be saved. Contact support if your wallet is not credited.',
-        }),
-        500
-      );
+      try {
+        await cacheLookupResponse({
+          body: refundPendingBody,
+          lookupId,
+          sickwStatus,
+          status: 502,
+          supabaseAdmin,
+          terminalStatus: refundFailureStatus,
+        });
+      } catch (retryError) {
+        console.error(
+          '[IMEI Check] Retry cache of refund pending state failed:',
+          {
+            lookupId,
+            retryError,
+          }
+        );
+      }
+      return json(refundPendingBody, 502);
     }
     return json(refundPendingBody, 502);
   }
@@ -328,14 +341,25 @@ export async function refundAndCacheFailure({
       cacheError,
       lookupId,
     });
-    return json(
-      errorBody({
-        code: 'REFUNDED_STATE_SAVE_FAILED',
-        error:
-          'Lookup failed and refund result could not be saved. Contact support if your wallet is not credited.',
-      }),
-      500
-    );
+    try {
+      await cacheLookupResponse({
+        body,
+        lookupId,
+        sickwStatus,
+        status,
+        supabaseAdmin,
+        terminalStatus: refundSuccessStatus,
+      });
+    } catch (retryError) {
+      console.error(
+        '[IMEI Check] Retry cache of refunded lookup state failed:',
+        {
+          lookupId,
+          retryError,
+        }
+      );
+    }
+    return json(body, status);
   }
 
   return json(body, status);
@@ -404,9 +428,6 @@ export async function cacheSuccessfulLookup({
   supabaseAdmin: AdminSupabaseClient;
   tier: ImeiServiceTierKey;
 }) {
-  // The paid provider lookup already SUCCEEDED here. If persisting our own
-  // DB result fails, return an explicit non-terminal error instead of routing
-  // through the outer refund path or pretending the result is replayable.
   try {
     await cacheLookupResponse({
       body: providerResult.body,
@@ -419,7 +440,7 @@ export async function cacheSuccessfulLookup({
     });
   } catch (persistError) {
     console.error(
-      '[IMEI Check] CRITICAL: paid lookup succeeded but result persistence failed; returning unresolved error without refund',
+      '[IMEI Check] CRITICAL: paid lookup succeeded but result persistence failed; returning provider result without refund',
       {
         customer_id: customerId,
         error: persistError,
@@ -427,22 +448,17 @@ export async function cacheSuccessfulLookup({
         merchant_id: merchantId,
       }
     );
-    const body = errorBody({
-      code: 'LOOKUP_RESULT_SAVE_FAILED',
-      error:
-        'IMEI lookup completed but the result could not be saved. Contact support before retrying.',
-    });
     console.info({
       amount,
       customer_id: customerId,
       latency_ms: latencyMs,
       lookup_id: lookupId,
       merchant_id: merchantId,
-      outcome: 'completed_persistence_failed',
+      outcome: 'completed_unpersisted',
       sickw_status: providerResult.sickwStatus,
       tier,
     });
-    return json(body, 500);
+    return json(providerResult.body, providerResult.status);
   }
   console.info({
     amount,

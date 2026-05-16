@@ -30,7 +30,7 @@ describe('ImeiInsufficientBalanceCta', () => {
     expect(onTopUp).toHaveBeenCalledWith(1000);
   });
 
-  it('clamps non-positive top-up deltas to zero', () => {
+  it('does not call onTopUp when the computed top-up delta is non-positive', () => {
     const onTopUp = jest.fn();
 
     render(
@@ -46,6 +46,6 @@ describe('ImeiInsufficientBalanceCta', () => {
 
     fireEvent.press(screen.getByLabelText('Top up wallet'));
 
-    expect(onTopUp).toHaveBeenCalledWith(0);
+    expect(onTopUp).not.toHaveBeenCalled();
   });
 });

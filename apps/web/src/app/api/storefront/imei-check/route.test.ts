@@ -144,9 +144,6 @@ function createSupabaseMock(rows: ImeiLookupRow[] = []) {
           filters[column] = value;
           if (activeUpdate) {
             activeUpdate.filters[column] = value;
-            if (updateError) {
-              return { error: updateError };
-            }
           }
           return builder;
         }),
@@ -166,6 +163,28 @@ function createSupabaseMock(rows: ImeiLookupRow[] = []) {
         }),
         select: vi.fn(() => builder),
         single: vi.fn(() => {
+          if (activeUpdate) {
+            const update = activeUpdate;
+            if (updateError) {
+              return { data: null, error: updateError };
+            }
+            const matchingRow = rows.find((candidate) =>
+              Object.entries(update.filters).every(
+                ([column, value]) =>
+                  candidate[column as keyof ImeiLookupRow] === value
+              )
+            );
+            if (!matchingRow) {
+              return {
+                data: null,
+                error: {
+                  message:
+                    'JSON object requested, multiple (or no) rows returned',
+                },
+              };
+            }
+            return { data: { id: matchingRow.id }, error: null };
+          }
           if (insertError) {
             return { data: null, error: insertError };
           }
@@ -587,17 +606,17 @@ describe('POST /api/storefront/imei-check', () => {
     });
   });
 
-  it('returns an unresolved error when successful lookup persistence fails', async () => {
+  it('returns the paid lookup result when successful lookup persistence fails', async () => {
     const adminSupabase = createSupabaseMock();
     adminSupabase.__setUpdateError({ message: 'database unavailable' });
     mockAuthenticatedUser({ adminSupabase });
     const { POST } = await importRoute();
 
     const response = await POST(createRequest());
-    const body = (await response.json()) as { code: string };
+    const body = (await response.json()) as { data: { device: string } };
 
-    expect(response.status).toBe(500);
-    expect(body.code).toBe('LOOKUP_RESULT_SAVE_FAILED');
+    expect(response.status).toBe(200);
+    expect(body.data.device).toBe('iPhone 15');
     expect(mocks.mockRefundImeiWalletPayment).not.toHaveBeenCalled();
     expect(adminSupabase.__updates.at(-1)).toMatchObject({
       filters: { id: 'lookup-1' },
@@ -641,7 +660,7 @@ describe('POST /api/storefront/imei-check', () => {
     });
   });
 
-  it('fails when refunded terminal state cannot be persisted', async () => {
+  it('returns the refunded terminal response when refunded state cannot be persisted', async () => {
     mocks.mockRequestSickwCheck.mockResolvedValueOnce({
       body: {
         code: 'SICKW_UNAVAILABLE',
@@ -661,11 +680,12 @@ describe('POST /api/storefront/imei-check', () => {
     const response = await POST(createRequest());
     const body = (await response.json()) as { code: string };
 
-    expect(response.status).toBe(500);
-    expect(body.code).toBe('REFUNDED_STATE_SAVE_FAILED');
+    expect(response.status).toBe(502);
+    expect(body.code).toBe('SICKW_UNAVAILABLE');
     expect(mocks.mockRefundImeiWalletPayment).toHaveBeenCalledWith(
       expect.objectContaining({ lookupId: 'lookup-1' })
     );
+    expect(adminSupabase.__updates).toHaveLength(2);
     expect(adminSupabase.__updates.at(-1)).toMatchObject({
       filters: { id: 'lookup-1' },
       payload: {
@@ -708,7 +728,7 @@ describe('POST /api/storefront/imei-check', () => {
     });
   });
 
-  it('fails when refund_pending state cannot be persisted', async () => {
+  it('returns refund_pending when refund_pending state cannot be persisted', async () => {
     mocks.mockRequestSickwCheck.mockResolvedValueOnce({
       body: {
         code: 'SICKW_UNAVAILABLE',
@@ -731,8 +751,9 @@ describe('POST /api/storefront/imei-check', () => {
     const response = await POST(createRequest());
     const body = (await response.json()) as { code: string };
 
-    expect(response.status).toBe(500);
-    expect(body.code).toBe('REFUND_STATE_SAVE_FAILED');
+    expect(response.status).toBe(502);
+    expect(body.code).toBe('REFUND_PENDING');
+    expect(adminSupabase.__updates).toHaveLength(2);
     expect(adminSupabase.__updates.at(-1)).toMatchObject({
       filters: { id: 'lookup-1' },
       payload: {

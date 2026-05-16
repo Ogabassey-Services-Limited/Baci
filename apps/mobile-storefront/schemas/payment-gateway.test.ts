@@ -171,6 +171,11 @@ describe('PaymentGatewayParamsSchema', () => {
   it.each([
     'https://evil.example',
     '//evil.example',
+    '/\\evil',
+    '/safe/../evil',
+    '/safe/./evil',
+    '/safe%2fevil',
+    '/safe%5cevil',
     '',
     '   ',
   ])('normalizes invalid wallet returnTo %s', (returnTo) => {

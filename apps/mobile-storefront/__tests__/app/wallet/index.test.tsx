@@ -474,11 +474,19 @@ describe('WalletScreen', () => {
     expect(screen.getByText('fund-amount:1750')).toBeOnTheScreen();
   });
 
-  it('ignores external returnTo values when starting a top-up', async () => {
+  it.each([
+    'https://evil.example',
+    '//evil.example',
+    '/\\evil',
+    '/safe/../evil',
+    '/safe/./evil',
+    '/safe%2fevil',
+    '/safe%5cevil',
+  ])('ignores invalid returnTo value %s when starting a top-up', async (returnTo) => {
     mockSearchParams = {
       action: 'fund',
       requiredAmount: '1000',
-      returnTo: 'https://evil.example',
+      returnTo,
     };
 
     render(<WalletScreen />);

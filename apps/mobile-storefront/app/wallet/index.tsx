@@ -14,6 +14,7 @@ import { useRedeemPoints, useWallet } from '@/hooks/use-wallet';
 import { CONFIG } from '@/lib/config';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { createLogger } from '@/lib/logger';
+import { sanitizeWalletReturnTo } from '@/lib/sanitize-wallet-return-to';
 import { initializeWalletTopUp } from '@/lib/wallet-top-up';
 import {
   WALLET_TOP_UP_MAX_AMOUNT,
@@ -325,12 +326,4 @@ function normalizeFundAmountParam(value: string | string[] | undefined) {
   }
   // Wallet top-ups use whole naira amounts, so fractional required amounts round up.
   return String(Math.ceil(amount));
-}
-
-function sanitizeWalletReturnTo(value: string | string[] | undefined) {
-  const rawValue = Array.isArray(value) ? value[0] : value;
-  if (!rawValue?.startsWith('/') || rawValue.startsWith('//')) {
-    return undefined;
-  }
-  return rawValue;
 }

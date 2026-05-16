@@ -19,6 +19,14 @@ export function ImeiInsufficientBalanceCta({
   onTopUp,
 }: ImeiInsufficientBalanceCtaProps) {
   const topUpAmount = Math.max(0, requiredAmount - balance);
+  const canTopUp = topUpAmount > 0;
+  const handleTopUp = () => {
+    if (!canTopUp) {
+      return;
+    }
+
+    onTopUp(topUpAmount);
+  };
 
   return (
     <View
@@ -38,8 +46,10 @@ export function ImeiInsufficientBalanceCta({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Top up wallet"
-        onPress={() => onTopUp(topUpAmount)}
-        style={styles.walletCtaButton}
+        accessibilityState={{ disabled: !canTopUp }}
+        disabled={!canTopUp}
+        onPress={handleTopUp}
+        style={[styles.walletCtaButton, !canTopUp ? { opacity: 0.5 } : null]}
       >
         <Text style={styles.walletCtaButtonText}>Top up</Text>
         <Ionicons name="wallet-outline" size={16} color={BRAND.onPrimary} />
