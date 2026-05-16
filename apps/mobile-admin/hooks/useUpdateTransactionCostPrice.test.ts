@@ -125,6 +125,30 @@ describe('useUpdateTransactionCostPrice', () => {
     expect(supabaseMock.rpc).toHaveBeenCalledTimes(1);
   });
 
+  it('uses the local calendar day instead of the UTC date key', async () => {
+    const previousTimeZone = process.env.TZ;
+    process.env.TZ = 'Africa/Lagos';
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-12T23:30:00.000Z'));
+    const mutation = getMutation();
+
+    try {
+      await expect(
+        mutation.mutationFn(
+          makeInput({ transactionDateIso: '2026-05-13T00:00:00.000Z' })
+        )
+      ).resolves.toBeUndefined();
+    } finally {
+      if (previousTimeZone === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = previousTimeZone;
+      }
+    }
+
+    expect(supabaseMock.rpc).toHaveBeenCalledTimes(1);
+  });
+
   it('rejects future transaction calendar days before saving', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-12T10:00:00.000Z'));

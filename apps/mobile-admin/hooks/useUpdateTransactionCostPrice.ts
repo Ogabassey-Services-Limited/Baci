@@ -10,12 +10,16 @@ interface UpdateTransactionReviewDetailsInput {
   transactionDateIso: string;
 }
 
-function getUtcDateKey(date: Date) {
-  return date.toISOString().slice(0, 10);
+function getLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
 }
 
 function isFutureCalendarDay(date: Date) {
-  return getUtcDateKey(date) > getUtcDateKey(new Date());
+  return getLocalDateKey(date) > getLocalDateKey(new Date());
 }
 
 export function useUpdateTransactionCostPrice() {
@@ -55,14 +59,17 @@ export function useUpdateTransactionCostPrice() {
         throw new Error('Transaction date cannot be in the future.');
       }
 
-      const { error } = await supabase.rpc('update_transaction_review_details', {
-        p_cost_price: costPrice,
-        p_merchant_id: merchant.id,
-        p_order_id: orderId.trim(),
-        p_product_id: productId.trim(),
-        p_supplier_name: supplierName,
-        p_transaction_date: parsedTransactionDate.toISOString(),
-      });
+      const { error } = await supabase.rpc(
+        'update_transaction_review_details',
+        {
+          p_cost_price: costPrice,
+          p_merchant_id: merchant.id,
+          p_order_id: orderId.trim(),
+          p_product_id: productId.trim(),
+          p_supplier_name: supplierName,
+          p_transaction_date: parsedTransactionDate.toISOString(),
+        }
+      );
 
       if (error) {
         throw new Error(error.message);
