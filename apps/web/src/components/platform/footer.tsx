@@ -118,30 +118,30 @@ export function PlatformFooter() {
         <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
           <p className="text-sm">&copy; {year} Baci. All rights reserved.</p>
           <div className="flex gap-6">
-            <Link
+            <a
               href={PLATFORM_CONFIG.socialMedia.twitter}
               className="hover:text-accent transition-colors"
               target="_blank"
               rel="noopener noreferrer"
             >
               Twitter
-            </Link>
-            <Link
+            </a>
+            <a
               href={PLATFORM_CONFIG.socialMedia.linkedin}
               className="hover:text-accent transition-colors"
               target="_blank"
               rel="noopener noreferrer"
             >
               LinkedIn
-            </Link>
-            <Link
+            </a>
+            <a
               href={PLATFORM_CONFIG.socialMedia.instagram}
               className="hover:text-accent transition-colors"
               target="_blank"
               rel="noopener noreferrer"
             >
               Instagram
-            </Link>
+            </a>
           </div>
         </div>
       </div>
