@@ -35,7 +35,11 @@ export function StatePickerModal({
         <FlatList
           // getItemLayout stride = stateItem height (64) + marginBottom (SPACING.xs=4).
           // Margin is excluded from RN height, so length must include it or scroll offset drifts.
-          getItemLayout={(data, index) => ({ length: 68, offset: 68 * index, index })}
+          getItemLayout={(data, index) => ({
+            length: 68,
+            offset: 68 * index,
+            index,
+          })}
           data={NIGERIAN_STATES}
           keyExtractor={(item) => item.code}
           contentContainerStyle={{ padding: SPACING.md }}
@@ -70,6 +74,7 @@ export function StatePickerModal({
               }}
             >
               <Text
+                numberOfLines={1}
                 style={[
                   styles.stateItemText,
                   {
