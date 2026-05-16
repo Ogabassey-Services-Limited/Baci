@@ -28,16 +28,8 @@ export default function imageLoader({
   width,
   quality,
 }: ImageLoaderParams): string {
-  if (!src || src.startsWith('data:') || src.startsWith('blob:')) {
-    return src;
-  }
-
   // External URLs — serve directly from their CDN
   if (src.startsWith('https://') || src.startsWith('http://')) {
-    if (isAlreadyTransformedOgabasseyCdnUrl(src)) {
-      return src;
-    }
-
     const cdnTransformUrl = buildOgabasseyCdnTransformUrl({
       quality,
       src,
@@ -47,36 +39,13 @@ export default function imageLoader({
       return cdnTransformUrl;
     }
 
-    return appendLoaderParams(src, width, quality);
+    return src;
   }
 
   // Local public assets and other app-local paths must resolve directly when a
   // custom loader is configured. Returning /_next/image here would send them to
   // a route owned by the default loader, which this app intentionally bypasses.
-  return appendLoaderParams(src, width, quality);
-}
-
-function appendLoaderParams(src: string, width: number, quality?: number) {
-  const hashIndex = src.indexOf('#');
-  const base = hashIndex >= 0 ? src.slice(0, hashIndex) : src;
-  const hash = hashIndex >= 0 ? src.slice(hashIndex) : '';
-  const separator = base.includes('?') ? '&' : '?';
-  const transformWidth = clampDimension(width);
-  const transformQuality = clampQuality(quality);
-
-  return `${base}${separator}w=${transformWidth}&q=${transformQuality}${hash}`;
-}
-
-function isAlreadyTransformedOgabasseyCdnUrl(src: string) {
-  try {
-    const url = new URL(src);
-    return (
-      url.hostname === OGABASSEY_CDN_HOSTNAME &&
-      url.pathname.startsWith('/image/')
-    );
-  } catch {
-    return false;
-  }
+  return src;
 }
 
 function buildOgabasseyCdnTransformUrl({
@@ -93,6 +62,7 @@ function buildOgabasseyCdnTransformUrl({
 
   if (
     url.hostname !== OGABASSEY_CDN_HOSTNAME ||
+    url.search ||
     url.pathname.startsWith('/image/') ||
     !TRANSFORMABLE_IMAGE_EXTENSION_PATTERN.test(url.pathname)
   ) {
@@ -102,7 +72,7 @@ function buildOgabasseyCdnTransformUrl({
   const transformWidth = clampDimension(width);
   const transformQuality = clampQuality(quality);
 
-  return `${url.origin}/image/width=${transformWidth},quality=${transformQuality},format=webp${url.pathname}${url.search}${url.hash}`;
+  return `${url.origin}/image/width=${transformWidth},quality=${transformQuality},format=webp${url.pathname}`;
 }
 
 function clampDimension(width: number): number {

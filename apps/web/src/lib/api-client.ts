@@ -199,13 +199,8 @@ export async function apiDelete<T = unknown>(url: string): Promise<T> {
 /**
  * GET request (no CSRF needed but uses same error handling)
  */
-export async function apiGet<T = unknown>(
-  url: string,
-  options: Omit<RequestInit, 'credentials' | 'method'> = {}
-): Promise<T> {
+export async function apiGet<T = unknown>(url: string): Promise<T> {
   const response = await fetch(url, {
-    ...options,
-    method: 'GET',
     credentials: 'include', // Include cookies for authentication
   });
 

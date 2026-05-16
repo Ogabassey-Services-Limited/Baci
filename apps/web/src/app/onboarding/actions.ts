@@ -3,16 +3,13 @@
 import type { User } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import {
-  getAppUrl,
   getConfiguredAppUrl,
   getOllamaStorefrontModel,
   getRootDomain,
   isAiStorefrontGenerationEnabled,
-  isProduction,
 } from '@/env';
 import { sendWelcomeEmail } from '@/lib/email';
 import { logger } from '@/lib/logger';
-import type { createAdminClient as createAdminClientFactory } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { onboardingSchema } from '@/schemas/onboarding';
 import type { BrandColors } from '@/types';
@@ -28,7 +25,7 @@ export type ServerActionState = {
 };
 
 function buildOnboardingRedirectUrl(search: string = ''): string {
-  const appUrl = getConfiguredAppUrl() ?? (isProduction() ? null : getAppUrl());
+  const appUrl = getConfiguredAppUrl();
 
   if (!appUrl) {
     throw new Error('NEXT_PUBLIC_APP_URL must be configured');
@@ -37,41 +34,6 @@ function buildOnboardingRedirectUrl(search: string = ''): string {
   const url = new URL('/onboarding', appUrl);
   url.search = search;
   return url.toString();
-}
-
-function buildMerchantSlug(businessName: string): string {
-  return (
-    businessName
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '') || 'store'
-  );
-}
-
-type SlugResolverClient = Pick<
-  ReturnType<typeof createAdminClientFactory>,
-  'rpc'
->;
-
-async function resolveMerchantSlug(
-  adminSupabase: SlugResolverClient,
-  businessName: string
-): Promise<string> {
-  const fallbackSlug = buildMerchantSlug(businessName);
-  const { data, error } = await adminSupabase.rpc('generate_slug', {
-    text_input: businessName,
-  });
-
-  if (error) {
-    logger.warn({
-      message: 'Failed to generate unique merchant slug',
-      businessName,
-      error,
-    });
-    return fallbackSlug;
-  }
-
-  return typeof data === 'string' && data.trim() ? data : fallbackSlug;
 }
 
 export async function submitOnboarding(
@@ -230,7 +192,12 @@ export async function submitOnboarding(
       businessType === 'other'
         ? otherBusinessType || businessType
         : businessType;
-    const slug = await resolveMerchantSlug(adminSupabase, businessName);
+    const slug =
+      businessName
+        .split(' ')[0]
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '') || 'store';
 
     // Check for existing merchant record
     const { data: existing } = await adminSupabase

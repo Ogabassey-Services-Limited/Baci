@@ -90,8 +90,6 @@ export function DomainSearchResultCard({
           <Pressable
             accessibilityLabel={`Buy ${domain.domain}`}
             accessibilityRole="button"
-            accessibilityHint={`Purchases the domain ${domain.domain} for ${formattedPrice}`}
-            accessibilityState={{ disabled: isPurchasing }}
             disabled={isPurchasing}
             onPress={onBuy}
             style={({ pressed }) => [

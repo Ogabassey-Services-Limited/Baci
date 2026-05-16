@@ -9,6 +9,7 @@ import { AirtimeForm } from '@/components/utilities/AirtimeForm';
 import { BillForm } from '@/components/utilities/BillForm';
 import { DataForm } from '@/components/utilities/DataForm';
 import { InvalidUtilityServiceView } from '@/components/utilities/InvalidUtilityServiceView';
+import { QuickRepeatPrompt } from '@/components/utilities/QuickRepeatPrompt';
 import { UtilityHeader } from '@/components/utilities/UtilityHeader';
 import { UtilityPurchaseSuccessView } from '@/components/utilities/UtilityPurchaseSuccessView';
 import { UtilityTypeTabs } from '@/components/utilities/UtilityTypeTabs';
@@ -29,6 +30,7 @@ import {
   NETWORK_PROVIDERS,
   type NetworkProviderId,
 } from '@/constants/network-providers';
+import { useKeyboard } from '@/hooks/use-keyboard';
 import { walletKeys } from '@/hooks/use-wallet';
 import { CONFIG } from '@/lib/config';
 import { RouteRepeatParamsSchema } from '@/schemas/utility-purchase';
@@ -70,6 +72,9 @@ const UTILITY_ROUTE_PARAM_KEYS = [
   'type',
   'voucherPin',
 ] as const satisfies readonly UtilityRouteParamKey[];
+
+const QUICK_REPEAT_BOTTOM_OFFSET = 92; // Keeps the prompt above fixed payment controls.
+const QUICK_REPEAT_PROMPT_HEIGHT = 68; // Approximate rendered height of the QuickRepeatPrompt banner.
 
 function getNetworkProviderId(
   value: string | undefined
@@ -144,7 +149,10 @@ export default function UtilityPurchaseScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
+  const { isKeyboardVisible } = useKeyboard();
   const headerOffset = Math.max(insets.top, 42);
+  const quickRepeatScrollCompensation =
+    Math.max(insets.bottom, 12) + QUICK_REPEAT_BOTTOM_OFFSET;
   const isAuthenticated = useAuthStore((state) => !!state.session);
   const customerId = useAuthStore((state) => state.customer?.id);
   const merchantId = useAuthStore((state) => state.merchantId);
@@ -163,8 +171,10 @@ export default function UtilityPurchaseScreen() {
   const quickRepeat = useQuickRepeat({
     currentType,
     historyFilter,
+    isKeyboardVisible,
     ...repeatParams,
     routeType,
+    title,
   });
   const resolvedSuccessData = successData ?? getParamSuccessData(params);
   const successCashbackAmount = resolvedSuccessData?.cashback?.amount ?? 0;
@@ -269,8 +279,6 @@ export default function UtilityPurchaseScreen() {
               quickRepeat.repeatDefaults.networkProvider
             )}
             isRepeatPaymentReady={quickRepeat.isRepeatPaymentReady}
-            recentRecipients={quickRepeat.recentRecipients}
-            onSelectRecentRecipient={quickRepeat.handleRecipientSelect}
             onSuccess={setSuccessData}
           />
         ) : null}
@@ -282,8 +290,6 @@ export default function UtilityPurchaseScreen() {
             initialPlan={quickRepeat.repeatDefaults.dataPlanCode}
             initialProvider={quickRepeat.repeatDefaults.networkProvider}
             isRepeatPaymentReady={quickRepeat.isRepeatPaymentReady}
-            recentRecipients={quickRepeat.recentRecipients}
-            onSelectRecentRecipient={quickRepeat.handleRecipientSelect}
             onSuccess={setSuccessData}
           />
         ) : null}
@@ -300,13 +306,26 @@ export default function UtilityPurchaseScreen() {
             }
             initialCustomerName={quickRepeat.repeatDefaults.customerName}
             isRepeatPaymentReady={quickRepeat.isRepeatPaymentReady}
-            recentRecipients={quickRepeat.recentRecipients}
-            onSelectRecentRecipient={quickRepeat.handleRecipientSelect}
             type={currentType}
             onSuccess={setSuccessData}
+            extraScrollPadding={
+              quickRepeat.showQuickRepeat
+                ? quickRepeatScrollCompensation + QUICK_REPEAT_PROMPT_HEIGHT
+                : 0
+            }
           />
         ) : null}
       </AppKeyboardContainer>
+      <QuickRepeatPrompt
+        bottom={quickRepeatScrollCompensation}
+        colors={colors}
+        isLoading={quickRepeat.isRecentTransactionsLoading}
+        lastTransaction={quickRepeat.lastTransaction}
+        notice={quickRepeat.quickRepeatNotice}
+        onQuickRepeat={quickRepeat.handleQuickRepeat}
+        showQuickRepeat={quickRepeat.showQuickRepeat}
+        title={title}
+      />
     </View>
   );
 }

@@ -39,7 +39,6 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
-import { requestMerchantPublish } from '@/lib/merchant-publish-client';
 import { cn } from '@/lib/utils';
 
 const categoryIcons = {
@@ -90,7 +89,7 @@ function SetupChecklistMobileWidget({
           ? 'Ready to Launch, tap to publish your store'
           : `Finish Setup, ${readiness.completedRequired} of ${readiness.totalRequired} required steps done`
       }
-      className="md:hidden w-full bg-gradient-to-br from-primary/10 to-transparent border border-primary/10 rounded-2xl p-4 flex items-center justify-between active:scale-[0.98] transition-all touch-manipulation cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      className="md:hidden w-full bg-gradient-to-br from-primary/10 to-transparent border border-primary/10 rounded-2xl p-4 flex items-center justify-between active:scale-[0.98] transition-all touch-manipulation cursor-pointer select-none"
     >
       <div className="flex items-center gap-4">
         {/* Progress Ring */}
@@ -207,7 +206,9 @@ export function SetupChecklist({
 
     setPublishing(true);
     try {
-      const response = await requestMerchantPublish(false);
+      const response = await fetch('/api/merchant/publish', {
+        method: 'POST',
+      });
 
       if (response.ok) {
         toast({
@@ -294,12 +295,7 @@ export function SetupChecklist({
         <button
           type="button"
           onClick={() => setShowAll(!showAll)}
-          className="mt-4 text-sm text-primary hover:underline flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
-          aria-label={
-            showAll
-              ? 'Show fewer setup items'
-              : `Show ${incompleteItems.length - 3} more setup items`
-          }
+          className="mt-4 text-sm text-primary hover:underline flex items-center gap-1"
         >
           {showAll
             ? 'Show less'
@@ -421,7 +417,7 @@ export function SetupChecklist({
           <button
             type="button"
             onClick={() => setDismissed(true)}
-            className="absolute top-4 right-4 p-1 rounded-full hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="absolute top-4 right-4 p-1 rounded-full hover:bg-muted transition-colors"
             aria-label="Dismiss setup checklist"
           >
             <X className="h-4 w-4 text-muted-foreground" />

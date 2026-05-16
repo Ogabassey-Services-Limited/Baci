@@ -4,10 +4,7 @@ import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import { storefrontProductFilters } from '@/lib/storefront-product-filters';
-import {
-  buildStorefrontProductsCacheKeyParts,
-  buildStorefrontProductsCacheTags,
-} from '@/lib/storefront-products-cache-key';
+import { buildStorefrontProductsCacheKeyParts } from '@/lib/storefront-products-cache-key';
 import { createClient } from '@/lib/supabase/server';
 import { storefrontProductsQuerySchema } from '@/schemas/storefront-products-query';
 import type { StorefrontProductsQuery } from '@/schemas/storefront-products-query.types';
@@ -155,7 +152,7 @@ function createCachedProductsFetcher(
     cacheKeyParts,
     {
       revalidate: 300,
-      tags: buildStorefrontProductsCacheTags(merchantId),
+      tags: ['storefront-products', `merchant-${merchantId}`],
     }
   );
 }

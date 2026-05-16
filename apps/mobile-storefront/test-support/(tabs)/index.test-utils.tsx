@@ -1,5 +1,4 @@
 import { afterEach, beforeEach, jest } from '@jest/globals';
-import type { Href } from 'expo-router';
 import { Text, View } from 'react-native';
 import type { MobileTemplateConfig } from '@/lib/templates';
 
@@ -23,7 +22,6 @@ export const mockRequestPermission = jest.fn(async () => 'granted');
 export const mockGetTemplateConfig = jest.fn(
   (_businessType?: string, _manualTemplateId?: string) => createTemplateConfig()
 );
-export const mockRouterPush = jest.fn<(href: Href) => void>();
 const MockText = Text;
 const MockView = View;
 
@@ -48,11 +46,8 @@ jest.mock('expo-image', () => ({
 
 jest.mock('expo-router', () => ({
   router: {
-    push: mockRouterPush,
+    push: jest.fn(),
   },
-  useRouter: () => ({
-    push: mockRouterPush,
-  }),
   Stack: {
     Screen: () => null,
   },

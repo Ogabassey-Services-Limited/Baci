@@ -49,7 +49,7 @@ import {
   groupOrdersByRelativeDate,
   type OrderSection,
 } from '@/utils/date-utils';
-import { orderExportTools } from '@/utils/export-orders';
+import { exportOrdersRPC } from '@/utils/export-orders';
 
 // Helper functions moved outside component
 const formatPrice = (amount: number, currency: string = 'NGN') => {
@@ -338,7 +338,7 @@ export default function OrdersScreen() {
 
   const handleExport = async () => {
     if (allOrders.length === 0) return;
-    await orderExportTools.exportOrdersRPC(allOrders);
+    await exportOrdersRPC(allOrders);
   };
 
   // Map color key from shared config to actual theme color

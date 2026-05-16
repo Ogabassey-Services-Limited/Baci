@@ -6,7 +6,6 @@ import { Loader2, Pencil } from 'lucide-react';
 import { Component, type ReactNode, useEffect, useState } from 'react';
 import { builderConfig } from '@/components/builder/config';
 import { Button } from '@/components/ui/button';
-import { CartProvider } from '@/hooks/use-cart';
 import type { MerchantData } from '@/hooks/use-merchant';
 import { MerchantProvider } from '@/hooks/use-merchant-client';
 import {
@@ -14,7 +13,6 @@ import {
   generateFeatures,
   generateHeroSlides,
 } from '@/lib/initial-template-generator';
-import { getInitialTemplateProfile } from '@/lib/initial-template-profiles';
 import type { BrandColors } from '@/types';
 
 interface OnboardingPuckPreviewProps {
@@ -26,21 +24,14 @@ interface OnboardingPuckPreviewProps {
   data?: Data | null;
 }
 
-const PREVIEW_MERCHANT_ID = 'preview-merchant-id';
-
-interface PreviewErrorBoundaryProps {
-  children: ReactNode;
-  resetKey: string;
-}
-
 /**
  * Error Boundary to catch merchant context errors
  */
 class PreviewErrorBoundary extends Component<
-  PreviewErrorBoundaryProps,
+  { children: ReactNode },
   { hasError: boolean }
 > {
-  constructor(props: PreviewErrorBoundaryProps) {
+  constructor(props: { children: ReactNode }) {
     super(props);
     this.state = { hasError: false };
   }
@@ -50,19 +41,13 @@ class PreviewErrorBoundary extends Component<
   }
 
   componentDidCatch(error: Error) {
-    const isPreviewContextError = [
-      'useMerchant must be used within a MerchantProvider',
-      'useCart must be used within a CartProvider',
-    ].some((message) => error.message.includes(message));
-
-    if (!isPreviewContextError) {
+    // Only catch merchant context errors, re-throw others
+    if (
+      !error.message.includes(
+        'useMerchant must be used within a MerchantProvider'
+      )
+    ) {
       throw error;
-    }
-  }
-
-  componentDidUpdate(prevProps: PreviewErrorBoundaryProps) {
-    if (this.state.hasError && prevProps.resetKey !== this.props.resetKey) {
-      this.setState({ hasError: false });
     }
   }
 
@@ -155,7 +140,6 @@ async function generatePreviewTemplate(params: {
   logoDataUri: string | null;
 }): Promise<Data> {
   const { businessName, businessType, logoDataUri } = params;
-  const profile = getInitialTemplateProfile(businessType);
 
   // Generate hero slides (await the async function)
   const slides = await generateHeroSlides(businessName, businessType);
@@ -167,123 +151,99 @@ async function generatePreviewTemplate(params: {
   const timestamp = Date.now();
   const headerId = `Header-preview-${timestamp}`;
   const heroCarouselId = `HeroCarousel-preview-${timestamp}`;
-  const storyId = `Text-preview-${timestamp}`;
   const featuresId = `Features-preview-${timestamp}`;
   const productGridId = `ProductGrid-preview-${timestamp}`;
   const newsletterId = `Newsletter-preview-${timestamp}`;
   const footerId = `Footer-preview-${timestamp}`;
 
-  const headerBlock: Data['content'][number] = {
-    type: 'Header',
-    props: {
-      id: headerId,
-      showLogo: true,
-      showSearch: true,
-      showCart: true,
-      showMenu: true,
-      sticky: true,
-      navigationLinks: [
-        { label: 'Home', url: '/' },
-        { label: profile.shopNavLabel, url: '/products' },
-        { label: 'About', url: '/about' },
-      ],
-      ctaButton: {
-        show: false,
-        text: 'Get Started',
-        url: '/signup',
-      },
-      storeName: businessName,
-      ...(logoDataUri && {
-        logoUrl: logoDataUri,
-      }),
-    },
-  };
-
-  const heroBlock: Data['content'][number] = {
-    type: 'HeroCarousel',
-    props: {
-      id: heroCarouselId,
-      slides: slides,
-      autoplayDelay: 5000,
-    },
-  };
-
-  const storyBlock: Data['content'][number] = {
-    type: 'Text',
-    props: {
-      id: storyId,
-      title: profile.storyTitle,
-      content: profile.storyContent,
-      align: profile.storyAlign,
-    },
-  };
-
-  const featuresBlock: Data['content'][number] = {
-    type: 'Features',
-    props: {
-      id: featuresId,
-      title: profile.featuresTitle,
-      features: features,
-      columns: 3,
-    },
-  };
-
-  const productGridBlock: Data['content'][number] = {
-    type: 'ProductGrid',
-    props: {
-      id: productGridId,
-      title: profile.productGridTitle,
-      columns: profile.productGridColumns,
-      limit: profile.productGridLimit,
-      sortBy: 'newest',
-      showFilters: true,
-    },
-  };
-
-  const newsletterBlock: Data['content'][number] = {
-    type: 'Newsletter',
-    props: {
-      id: newsletterId,
-      title: profile.newsletterTitle,
-      description: profile.newsletterDescription,
-      buttonText: 'Subscribe',
-      placeholder: 'Enter your email',
-    },
-  };
-
-  const footerBlock: Data['content'][number] = {
-    type: 'Footer',
-    props: {
-      id: footerId,
-      showQuickLinks: true,
-      quickLinks: [
-        { label: 'About Us', url: '/about' },
-        { label: 'Contact', url: '/contact' },
-        { label: 'Privacy Policy', url: '/privacy' },
-        { label: 'Terms', url: '/terms' },
-      ],
-      socialLinks: {},
-      showNewsletter: false,
-    },
-  };
-
-  const sectionBlocks: Record<
-    (typeof profile.contentOrder)[number],
-    Data['content'][number]
-  > = {
-    hero: heroBlock,
-    story: storyBlock,
-    features: featuresBlock,
-    products: productGridBlock,
-    newsletter: newsletterBlock,
-  };
-
   // Create Puck data structure
   const config: Data = {
     content: [
-      headerBlock,
-      ...profile.contentOrder.map((section) => sectionBlocks[section]),
-      footerBlock,
+      // Header
+      {
+        type: 'Header',
+        props: {
+          id: headerId,
+          showLogo: true,
+          showSearch: true,
+          showCart: true,
+          showMenu: true,
+          sticky: true,
+          navigationLinks: [
+            { label: 'Home', url: '/' },
+            { label: 'Shop', url: '/products' },
+            { label: 'About', url: '/about' },
+          ],
+          ctaButton: {
+            show: false,
+            text: 'Get Started',
+            url: '/signup',
+          },
+          storeName: businessName,
+          ...(logoDataUri && {
+            logoUrl: logoDataUri,
+          }),
+        },
+      },
+      // Hero Carousel
+      {
+        type: 'HeroCarousel',
+        props: {
+          id: heroCarouselId,
+          slides: slides,
+          autoplayDelay: 5000,
+        },
+      },
+      // Features Section
+      {
+        type: 'Features',
+        props: {
+          id: featuresId,
+          title: 'Why Choose Us',
+          features: features,
+          columns: 3,
+        },
+      },
+      // Product Grid
+      {
+        type: 'ProductGrid',
+        props: {
+          id: productGridId,
+          title: 'Our Products',
+          columns: 4,
+          limit: 12,
+          sortBy: 'newest',
+          showFilters: true,
+        },
+      },
+      // Newsletter Section
+      {
+        type: 'Newsletter',
+        props: {
+          id: newsletterId,
+          title: 'Stay Updated',
+          description:
+            'Subscribe to our newsletter for the latest updates and exclusive offers.',
+          buttonText: 'Subscribe',
+          placeholder: 'Enter your email',
+        },
+      },
+      // Footer
+      {
+        type: 'Footer',
+        props: {
+          id: footerId,
+          showQuickLinks: true,
+          quickLinks: [
+            { label: 'About Us', url: '/about' },
+            { label: 'Contact', url: '/contact' },
+            { label: 'Privacy Policy', url: '/privacy' },
+            { label: 'Terms', url: '/terms' },
+          ],
+          socialLinks: {},
+          showNewsletter: false,
+        },
+      },
     ],
     root: {
       props: {
@@ -294,45 +254,6 @@ async function generatePreviewTemplate(params: {
   };
 
   return config;
-}
-
-function createPreviewResetKey(params: {
-  businessName: string;
-  businessType: string;
-  logoDataUri?: string;
-  brandColors: BrandColors;
-  dataSignature: string;
-}): string {
-  const logoSignature = params.logoDataUri
-    ? `${params.logoDataUri.length}:${params.logoDataUri.slice(0, 20)}:${params.logoDataUri.slice(-20)}`
-    : '';
-
-  return JSON.stringify({
-    businessName: params.businessName,
-    businessType: params.businessType,
-    logoSignature,
-    brandColors: params.brandColors,
-    dataSignature: params.dataSignature,
-  });
-}
-
-function createPreviewDataSignature(data: Data): string {
-  const contentSignature = data.content
-    .map((block) => {
-      const blockId = block.props?.id;
-      return `${block.type}:${typeof blockId === 'string' ? blockId : ''}`;
-    })
-    .join(',');
-  const zoneSignature = Object.keys(data.zones ?? {})
-    .sort()
-    .join(',');
-  const rootTitle = data.root.props?.title;
-
-  return [
-    contentSignature,
-    zoneSignature,
-    typeof rootTitle === 'string' ? rootTitle : '',
-  ].join('|');
 }
 
 export function OnboardingPuckPreview({
@@ -415,30 +336,14 @@ export function OnboardingPuckPreview({
     );
   }
 
-  const previewResetKey = createPreviewResetKey({
-    businessName,
-    businessType,
-    logoDataUri,
-    brandColors,
-    dataSignature: createPreviewDataSignature(patchedPuckData),
-  });
-
   // Full Screen Modal for Expanded View
   if (isExpanded) {
     return (
-      <div
-        aria-labelledby="expanded-store-preview-title"
-        aria-modal="true"
-        className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300"
-        role="dialog"
-      >
+      <div className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300">
         <div className="relative w-full h-full max-w-[1600px] bg-background rounded-xl border shadow-2xl overflow-hidden flex flex-col">
           {/* Header */}
           <div className="h-14 border-b flex items-center justify-between px-6 bg-muted/10">
-            <h3
-              className="font-semibold text-lg flex items-center gap-2"
-              id="expanded-store-preview-title"
-            >
+            <h3 className="font-semibold text-lg flex items-center gap-2">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
@@ -474,27 +379,22 @@ export function OnboardingPuckPreview({
           {/* Scrollable Content Area */}
           <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <div className="min-h-full" style={themeStyles}>
-              <PreviewErrorBoundary resetKey={previewResetKey}>
-                <MerchantProvider
-                  initialMerchant={
-                    {
-                      id: PREVIEW_MERCHANT_ID,
-                      user_id: 'preview-user-id',
-                      business_name: businessName || 'Your Store',
-                      business_type: businessType || 'other',
-                      slug: 'preview-store',
-                      brand_colors: brandColors,
-                    } as MerchantData
-                  }
-                >
-                  <CartProvider
-                    merchantSlug="preview-store"
-                    deferValidationUntilIdle
-                  >
-                    <Render config={builderConfig} data={patchedPuckData} />
-                  </CartProvider>
-                </MerchantProvider>
-              </PreviewErrorBoundary>
+              <MerchantProvider
+                initialMerchant={
+                  {
+                    id: 'preview-merchant-id',
+                    user_id: 'preview-user-id',
+                    business_name: businessName || 'Your Store',
+                    business_type: businessType || 'other',
+                    slug: 'preview-store',
+                    brand_colors: brandColors,
+                  } as MerchantData
+                }
+              >
+                <PreviewErrorBoundary>
+                  <Render config={builderConfig} data={patchedPuckData} />
+                </PreviewErrorBoundary>
+              </MerchantProvider>
             </div>
           </div>
         </div>
@@ -574,27 +474,22 @@ export function OnboardingPuckPreview({
             ...themeStyles,
           }}
         >
-          <PreviewErrorBoundary resetKey={previewResetKey}>
-            <MerchantProvider
-              initialMerchant={
-                {
-                  id: PREVIEW_MERCHANT_ID,
-                  user_id: 'preview-user-id',
-                  business_name: businessName || 'Your Store',
-                  business_type: businessType || 'other',
-                  slug: 'preview-store',
-                  brand_colors: brandColors,
-                } as MerchantData
-              }
-            >
-              <CartProvider
-                merchantSlug="preview-store"
-                deferValidationUntilIdle
-              >
-                <Render config={builderConfig} data={patchedPuckData} />
-              </CartProvider>
-            </MerchantProvider>
-          </PreviewErrorBoundary>
+          <MerchantProvider
+            initialMerchant={
+              {
+                id: 'preview-merchant-id',
+                user_id: 'preview-user-id',
+                business_name: businessName || 'Your Store',
+                business_type: businessType || 'other',
+                slug: 'preview-store',
+                brand_colors: brandColors,
+              } as MerchantData
+            }
+          >
+            <PreviewErrorBoundary>
+              <Render config={builderConfig} data={patchedPuckData} />
+            </PreviewErrorBoundary>
+          </MerchantProvider>
         </div>
       </div>
     </div>

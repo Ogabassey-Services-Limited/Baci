@@ -76,20 +76,18 @@ export function BeautyHome(props: TemplatePageProps) {
 
                         <div className="flex flex-wrap justify-center gap-4">
                             <button
-                                type="button"
                                 onClick={() => {
                                     document.getElementById('quiz')?.scrollIntoView({ behavior: 'smooth' });
                                 }}
-                                className="px-8 py-4 bg-rose-600 text-white rounded-full font-medium hover:bg-rose-700 transition-colors shadow-lg hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                                className="px-8 py-4 bg-rose-600 text-white rounded-full font-medium hover:bg-rose-700 transition-colors shadow-lg hover:shadow-xl"
                             >
                                 Take Skin Quiz
                             </button>
                             <button
-                                type="button"
                                 onClick={() => {
                                     document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
                                 }}
-                                className="px-8 py-4 bg-white text-rose-600 rounded-full font-medium hover:bg-gray-50 transition-colors shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2"
+                                className="px-8 py-4 bg-white text-rose-600 rounded-full font-medium hover:bg-gray-50 transition-colors shadow-lg"
                             >
                                 Shop Products
                             </button>
@@ -125,7 +123,7 @@ export function BeautyHome(props: TemplatePageProps) {
                                         </li>
                                     ))}
                                 </ul>
-                                <button type="button" className="px-8 py-4 bg-rose-600 text-white rounded-full font-medium hover:bg-rose-700 transition-colors shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:ring-offset-2">
+                                <button className="px-8 py-4 bg-rose-600 text-white rounded-full font-medium hover:bg-rose-700 transition-colors shadow-lg">
                                     Start Quiz (2 min)
                                 </button>
                             </div>

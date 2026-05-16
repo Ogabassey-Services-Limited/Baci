@@ -6,9 +6,6 @@ import type { FeedImageManifestEntry } from '@/lib/gmc-feed-images';
 import { buildAgentCommerceTrustReadiness } from './build-agent-commerce-trust-readiness';
 import type { MerchantTrustProfile } from './merchant-trust-profile-types';
 
-const NOW = new Date('2026-05-15T00:00:00.000Z');
-const PRODUCT_UPDATED_AT = '2026-05-10T00:00:00.000Z';
-
 function product(
   overrides: Partial<OpenAIFeedProduct> = {}
 ): OpenAIFeedProduct {
@@ -22,7 +19,6 @@ function product(
     stock_quantity: 5,
     manage_stock: true,
     category: 'phones',
-    updated_at: PRODUCT_UPDATED_AT,
     ...overrides,
   };
 }
@@ -96,7 +92,6 @@ describe('buildAgentCommerceTrustReadiness', () => {
         business_name: 'Ogabassey',
         slug: 'ogabassey',
       },
-      now: NOW,
       openAiFeedData: {
         products: [product()],
       },
@@ -111,24 +106,10 @@ describe('buildAgentCommerceTrustReadiness', () => {
       sharedProducts: 1,
       urlMismatches: 0,
       productsWithVerifiedImages: 1,
-      latestProductUpdatedAt: PRODUCT_UPDATED_AT,
-      productsWithStructuredData: 1,
-      staleProducts: 0,
     });
     expect(result.surfaces.agentTrust).toBe(
       'https://ogabassey.com/agent-trust.json'
     );
-    expect(result.surfaces.robots).toBe('https://ogabassey.com/robots.txt');
-    expect(result.surfaces.sitemap).toBe('https://ogabassey.com/sitemap.xml');
-    expect(
-      result.checks.find((check) => check.id === 'structured-data-readiness')
-    ).toMatchObject({ severity: 'pass' });
-    expect(
-      result.checks.find((check) => check.id === 'feed-freshness')
-    ).toMatchObject({ severity: 'pass' });
-    expect(
-      result.checks.find((check) => check.id === 'crawler-visibility')
-    ).toMatchObject({ severity: 'pass' });
     expect(
       result.checks.find((check) => check.id === 'machine-endpoint-discovery')
     ).toMatchObject({ severity: 'pass' });
@@ -144,7 +125,6 @@ describe('buildAgentCommerceTrustReadiness', () => {
         business_name: 'Ogabassey',
         slug: 'ogabassey',
       },
-      now: NOW,
       openAiFeedData: {
         products: [product()],
       },
@@ -170,7 +150,6 @@ describe('buildAgentCommerceTrustReadiness', () => {
         business_name: 'Ogabassey',
         slug: 'ogabassey',
       },
-      now: NOW,
       openAiFeedData: {
         products: [
           product({
@@ -200,46 +179,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
     });
   });
 
-  it('does not flag canonical drift for products that need path encoding', () => {
-    const result = buildAgentCommerceTrustReadiness({
-      baseUrl: 'https://ogabassey.com/',
-      googleFeedData: googleFeedData({
-        products: [
-          googleProduct({
-            id: 'product-encoded',
-            name: 'Watch Pro GPS',
-            slug: 'watch pro + gps',
-            category: 'Smart Watches',
-          }),
-        ],
-      }),
-      merchant: {
-        business_name: 'Ogabassey',
-        slug: 'ogabassey',
-      },
-      now: NOW,
-      openAiFeedData: {
-        products: [
-          product({
-            id: 'product-encoded',
-            name: 'Watch Pro GPS',
-            slug: 'watch pro + gps',
-            category: 'Smart Watches',
-          }),
-        ],
-      },
-      trustProfile: trustProfile(),
-    });
-
-    expect(result.totals.urlMismatches).toBe(0);
-    expect(
-      result.checks.find((check) => check.id === 'canonical-url-parity')
-    ).toMatchObject({
-      severity: 'pass',
-    });
-  });
-
-  it('warns for partial verified image coverage and fails missing support basics', () => {
+  it('warns for partial verified image coverage and fails missing policy or support basics', () => {
     const result = buildAgentCommerceTrustReadiness({
       baseUrl: 'https://ogabassey.com',
       googleFeedData: googleFeedData({
@@ -259,7 +199,6 @@ describe('buildAgentCommerceTrustReadiness', () => {
         business_name: 'Ogabassey',
         slug: 'ogabassey',
       },
-      now: NOW,
       openAiFeedData: {
         products: [
           product(),
@@ -284,59 +223,9 @@ describe('buildAgentCommerceTrustReadiness', () => {
     ).toMatchObject({ severity: 'warn' });
     expect(
       result.checks.find((check) => check.id === 'policy-coverage')
-    ).toMatchObject({ severity: 'warn' });
+    ).toMatchObject({ severity: 'fail' });
     expect(
       result.checks.find((check) => check.id === 'support-contact')
     ).toMatchObject({ severity: 'fail' });
-  });
-
-  it('warns but does not fail when only policy details are missing', () => {
-    const result = buildAgentCommerceTrustReadiness({
-      baseUrl: 'https://ogabassey.com',
-      googleFeedData: googleFeedData(),
-      merchant: {
-        business_name: 'Ogabassey',
-        slug: 'ogabassey',
-      },
-      now: NOW,
-      openAiFeedData: {
-        products: [product()],
-      },
-      trustProfile: trustProfile({
-        returnPolicy: undefined,
-        shippingPolicy: undefined,
-      }),
-    });
-
-    expect(result.status).toBe('warn');
-    expect(
-      result.checks.find((check) => check.id === 'policy-coverage')
-    ).toMatchObject({ severity: 'warn' });
-    expect(
-      result.checks.find((check) => check.id === 'support-contact')
-    ).toMatchObject({ severity: 'pass' });
-  });
-
-  it('warns when only one policy is configured', () => {
-    const result = buildAgentCommerceTrustReadiness({
-      baseUrl: 'https://ogabassey.com',
-      googleFeedData: googleFeedData(),
-      merchant: {
-        business_name: 'Ogabassey',
-        slug: 'ogabassey',
-      },
-      now: NOW,
-      openAiFeedData: {
-        products: [product()],
-      },
-      trustProfile: trustProfile({
-        shippingPolicy: undefined,
-      }),
-    });
-
-    expect(result.status).toBe('warn');
-    expect(
-      result.checks.find((check) => check.id === 'policy-coverage')
-    ).toMatchObject({ severity: 'warn' });
   });
 });

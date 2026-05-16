@@ -41,19 +41,12 @@ export function ProductCatalog({
   const [dirtyProducts, setDirtyProducts] = useState<Set<string>>(new Set());
   const debouncedDirtyProducts = useDebounce(dirtyProducts, 1000);
   const [isSaving, setIsSaving] = useState(false);
-  const [saveFlushCounter, setSaveFlushCounter] = useState(0);
   const [expandedProducts, setExpandedProducts] = useState<Set<string>>(
     new Set()
   );
   const [exportProduct, setExportProduct] = useState<Product | null>(null);
   const localProductsRef = useRef(localProducts);
-  const dirtyProductsRef = useRef(dirtyProducts);
   const dirtyProductSnapshotsRef = useRef<Map<string, Product>>(new Map());
-  const dirtyProductRevisionsRef = useRef<Map<string, number>>(new Map());
-  const nextDirtyProductRevisionRef = useRef(0);
-  const isMountedRef = useRef(false);
-  const isSavingRef = useRef(false);
-  const hasQueuedSaveRef = useRef(false);
   const {
     jumiaIntegrations,
     jumiaIntegrationId,
@@ -62,19 +55,8 @@ export function ProductCatalog({
   } = useJumiaIntegrations(merchant?.id, toast);
 
   useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
     localProductsRef.current = localProducts;
   }, [localProducts]);
-
-  useEffect(() => {
-    dirtyProductsRef.current = dirtyProducts;
-  }, [dirtyProducts]);
 
   useEffect(() => {
     const nextSnapshots = new Map(dirtyProductSnapshotsRef.current);
@@ -92,7 +74,6 @@ export function ProductCatalog({
     for (const productId of Array.from(nextSnapshots.keys())) {
       if (!dirtyProducts.has(productId)) {
         nextSnapshots.delete(productId);
-        dirtyProductRevisionsRef.current.delete(productId);
       }
     }
 
@@ -109,102 +90,51 @@ export function ProductCatalog({
     });
   }, [dirtyProducts, products]);
 
-  // Re-run only when the debounced dirty set changes (i.e., the user makes
-  // new edits) or when an edit was queued during an in-flight save. We do NOT
-  // list `isSaving` as a dep — that would create an infinite retry loop on
-  // persistent save failures: a failed save leaves products in the dirty set,
-  // `isSaving` flips false at end of the request, the effect re-fires, save
-  // fails again, repeat. Instead, guard against overlapping saves via
-  // `isSavingRef` and flush at most one queued follow-up save after the
-  // current request settles.
-  //
-  // The save is inlined inside the effect rather than extracted via the
-  // experimental `useEffectEvent` (dropped from stable React 19) or a manual
-  // `useRef` callback. React Compiler stabilizes `updateProduct` / `toast`
-  // identities so we can list them as deps without spurious re-runs.
   useEffect(() => {
-    const isQueuedFlush = saveFlushCounter > 0;
-    const dirtyProductIdsForSave = new Set(
-      Array.from(debouncedDirtyProducts).filter((id) =>
-        dirtyProductsRef.current.has(id)
-      )
-    );
-
-    if (dirtyProductIdsForSave.size === 0) {
-      if (isQueuedFlush) {
-        hasQueuedSaveRef.current = false;
-      }
+    if (debouncedDirtyProducts.size === 0) {
+      setIsSaving(false);
       return;
     }
 
-    if (isSavingRef.current) {
-      hasQueuedSaveRef.current = true;
-      return;
-    }
-
-    isSavingRef.current = true;
-    void (async () => {
-      const dirtyProductSnapshotsForSave = new Map(
-        dirtyProductSnapshotsRef.current
-      );
-      const dirtyProductRevisionsForSave = new Map(
-        dirtyProductRevisionsRef.current
-      );
-
-      if (isMountedRef.current) {
-        setIsSaving(true);
-      }
+    const controller = new AbortController();
+    setIsSaving(true);
+    const saveChanges = async () => {
       try {
         const { failedIds, fulfilledIds, skippedIds } = await saveDirtyProducts(
           {
-            dirtyProductIds: dirtyProductIdsForSave,
-            dirtyProductSnapshots: dirtyProductSnapshotsForSave,
+            dirtyProductIds: debouncedDirtyProducts,
+            dirtyProductSnapshots: dirtyProductSnapshotsRef.current,
             localProducts: localProductsRef.current,
+            signal: controller.signal,
             updateProduct,
           }
         );
+
+        // The component unmounted (or the debounced batch changed) while the
+        // save was in flight. Skip state updates and toasts to avoid touching
+        // a stale tree.
+        if (controller.signal.aborted) {
+          return;
+        }
 
         if (failedIds.length > 0) {
           console.error('Failed to save products', failedIds);
         }
 
-        if (!isMountedRef.current) {
-          return;
-        }
-
-        const hasQueuedFollowUp = hasQueuedSaveRef.current;
-        const fulfilledCurrentIds = fulfilledIds.filter((id) => {
-          return (
-            dirtyProductRevisionsRef.current.get(id) ===
-            dirtyProductRevisionsForSave.get(id)
-          );
-        });
-        const staleFulfilledCount =
-          fulfilledIds.length - fulfilledCurrentIds.length;
-
-        if (staleFulfilledCount > 0) {
-          hasQueuedSaveRef.current = true;
-        }
-
-        if (fulfilledCurrentIds.length > 0) {
-          for (const id of fulfilledCurrentIds) {
+        if (fulfilledIds.length > 0) {
+          for (const id of fulfilledIds) {
             dirtyProductSnapshotsRef.current.delete(id);
-            dirtyProductRevisionsRef.current.delete(id);
           }
           setDirtyProducts((current) => {
             const next = new Set(current);
-            for (const id of fulfilledCurrentIds) {
+            for (const id of fulfilledIds) {
               next.delete(id);
             }
             return next;
           });
         }
 
-        if (
-          failedIds.length === 0 &&
-          skippedIds.length === 0 &&
-          staleFulfilledCount === 0
-        ) {
+        if (failedIds.length === 0 && skippedIds.length === 0) {
           toast({
             title: 'Changes Saved',
             description: `Updated ${fulfilledIds.length} product(s).`,
@@ -212,24 +142,12 @@ export function ProductCatalog({
           return;
         }
 
-        if (fulfilledCurrentIds.length > 0) {
+        if (fulfilledIds.length > 0) {
           toast({
             title: 'Partial Save',
-            description: `Saved ${fulfilledCurrentIds.length} product(s). ${failedIds.length + skippedIds.length + staleFulfilledCount} change(s) are still pending.`,
+            description: `Saved ${fulfilledIds.length} product(s). ${failedIds.length + skippedIds.length} change(s) are still pending.`,
             variant: 'destructive',
           });
-          return;
-        }
-
-        if (
-          staleFulfilledCount > 0 &&
-          failedIds.length === 0 &&
-          skippedIds.length === 0
-        ) {
-          return;
-        }
-
-        if (hasQueuedFollowUp) {
           return;
         }
 
@@ -238,28 +156,36 @@ export function ProductCatalog({
           description: 'Could not save changes. Please try again.',
           variant: 'destructive',
         });
+      } catch (error) {
+        if (controller.signal.aborted) {
+          return;
+        }
+
+        console.error('Unexpected product save failure', error);
+        toast({
+          title: 'Save Failed',
+          description: 'Could not save changes. Please try again.',
+          variant: 'destructive',
+        });
       } finally {
-        const shouldFlushQueuedSave = hasQueuedSaveRef.current;
-        hasQueuedSaveRef.current = false;
-        isSavingRef.current = false;
-        if (isMountedRef.current) {
+        // Only clear the saving indicator if THIS effect is still the active
+        // one. If `debouncedDirtyProducts` changed mid-save, the cleanup
+        // function aborted us and a fresh effect already called
+        // `setIsSaving(true)` for the new batch — clearing it here would flash
+        // the indicator off even though the new save is in flight, leading
+        // users to believe their data is saved and navigate away prematurely.
+        if (!controller.signal.aborted) {
           setIsSaving(false);
-          if (shouldFlushQueuedSave) {
-            setSaveFlushCounter((current) => current + 1);
-          }
         }
       }
-    })();
-  }, [debouncedDirtyProducts, saveFlushCounter, updateProduct, toast]);
+    };
 
-  const markProductDirty = (productId: string) => {
-    nextDirtyProductRevisionRef.current += 1;
-    dirtyProductRevisionsRef.current.set(
-      productId,
-      nextDirtyProductRevisionRef.current
-    );
-    setDirtyProducts((current) => new Set(current).add(productId));
-  };
+    void saveChanges();
+
+    return () => {
+      controller.abort();
+    };
+  }, [debouncedDirtyProducts, updateProduct, toast]);
 
   const toggleProduct = (productId: string) => {
     setExpandedProducts((current) => {
@@ -283,7 +209,7 @@ export function ProductCatalog({
         product.id === productId ? { ...product, price: priceValue } : product
       )
     );
-    markProductDirty(productId);
+    setDirtyProducts((current) => new Set(current).add(productId));
   };
 
   const handleStockChange = (
@@ -311,7 +237,7 @@ export function ProductCatalog({
         return { ...product, stock: newStock };
       })
     );
-    markProductDirty(productId);
+    setDirtyProducts((current) => new Set(current).add(productId));
   };
 
   const formatCurrency = (amount: number) => {

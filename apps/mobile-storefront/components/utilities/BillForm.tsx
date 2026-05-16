@@ -21,7 +21,7 @@ export function BillForm(props: BillFormProps) {
         style={styles.scrollView}
         contentContainerStyle={[
           styles.content,
-          { paddingBottom: form.footerSpacerHeight },
+          { paddingBottom: form.footerSpacerHeight + (props.extraScrollPadding ?? 0) },
         ]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
@@ -63,8 +63,6 @@ export function BillForm(props: BillFormProps) {
               handleVerify={form.handleVerify}
               isBillItemSelectionComplete={form.isBillItemSelectionComplete}
               isRepeatPaymentActive={form.isRepeatPaymentActive}
-              recentRecipients={props.recentRecipients}
-              onSelectRecentRecipient={props.onSelectRecentRecipient}
               verifiedCustomerName={form.verifiedCustomerName}
               selectedBillItemIdentifier={form.selectedBillItemIdentifier}
               selectedBillerId={form.selectedBiller.billerId}

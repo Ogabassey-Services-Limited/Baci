@@ -58,8 +58,7 @@ export function OgabasseyHero({
           <div className="relative w-full h-full">
             {slides.map((slide, index) => (
               <div
-                // biome-ignore lint/suspicious/noArrayIndexKey: index is combined with a content fingerprint to disambiguate duplicate / placeholder slides whose content alone would collide.
-                key={`slide-${index}-${[slide.image, slide.title ?? '', slide.link ?? ''].join('|')}`}
+                key={slide.image}
                 className={cn(
                   'absolute inset-0 w-full h-full transition-opacity duration-500 ease-in-out',
                   index === currentIndex ? 'opacity-100 z-10' : 'opacity-0 z-0'
@@ -113,8 +112,7 @@ export function OgabasseyHero({
                 {slides.map((slide, i) => (
                   <button
                     type="button"
-                    // biome-ignore lint/suspicious/noArrayIndexKey: index is combined with a content fingerprint to disambiguate duplicate / placeholder slides whose content alone would collide.
-                    key={`dot-${i}-${[slide.image, slide.title ?? '', slide.link ?? ''].join('|')}`}
+                    key={`dot-${slide.image}`}
                     onClick={(e) => {
                       e.preventDefault();
                       setCurrentIndex(i);

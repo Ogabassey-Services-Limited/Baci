@@ -1,5 +1,3 @@
-import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
-
 export interface DataFormProps {
   onSuccess: (data: {
     reference: string;
@@ -14,6 +12,4 @@ export interface DataFormProps {
   initialPlan?: string;
   initialProvider?: string;
   isRepeatPaymentReady?: boolean;
-  recentRecipients?: UtilityRepeatRecipient[];
-  onSelectRecentRecipient?: (recipient: UtilityRepeatRecipient) => void;
 }

@@ -277,18 +277,6 @@ describe('getCachedGoogleMerchantFeedData', () => {
     });
   });
 
-  it('selects the direct category relation for canonical feed URLs', async () => {
-    const { FEED_PRODUCTS_SELECT } = await import('./feed-query');
-
-    expect(FEED_PRODUCTS_SELECT).toContain(
-      'categories:category_id(name, slug)'
-    );
-    expect(FEED_PRODUCTS_SELECT).toContain(
-      'product_categories(categories(name, slug))'
-    );
-    expect(FEED_PRODUCTS_SELECT).not.toContain('category_slug');
-  });
-
   it('paginates active products with a stable cursor beyond the first Supabase page', async () => {
     const fullPage = Array.from({ length: 1000 }, (_, index) => ({
       id: `product-${index}`,
@@ -510,47 +498,6 @@ describe('getCachedGoogleMerchantFeedData', () => {
       },
       category_slug: 'phones',
       category: 'Phones',
-    });
-  });
-
-  it('prefers direct category_id relation over product_categories for canonical URLs', async () => {
-    productsResult = {
-      data: [
-        {
-          id: 'product-1',
-          name: 'Nintendo eShop Card',
-          category: 'Nintendo Switch',
-          categories: {
-            name: 'Gift Cards',
-            slug: 'gift-cards',
-          },
-          product_categories: [
-            {
-              categories: {
-                name: 'Gaming',
-                slug: 'gaming',
-              },
-            },
-          ],
-          slug: 'nintendo-eshop-card',
-        },
-      ],
-      error: null,
-    };
-
-    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
-    const result = await getCachedGoogleMerchantFeedData(
-      'merchant-1',
-      'ogabassey'
-    );
-
-    expect(result.products[0]).toMatchObject({
-      category: 'Nintendo Switch',
-      category_slug: 'gift-cards',
-      categories: {
-        name: 'Gift Cards',
-        slug: 'gift-cards',
-      },
     });
   });
 

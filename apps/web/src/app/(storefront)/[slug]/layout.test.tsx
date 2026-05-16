@@ -27,6 +27,7 @@ const mockOgabasseyStorefrontLayout = vi.hoisted(() =>
     )
   )
 );
+const mockStorefrontHeroPreloadDecision = vi.hoisted(() => vi.fn(() => null));
 
 vi.mock('./storefront-shell-snapshot', () => ({
   getStorefrontShellSnapshotBase: vi.fn(),
@@ -35,6 +36,10 @@ vi.mock('./storefront-shell-snapshot', () => ({
 
 vi.mock('@/components/storefront/ogabassey/storefront-layout', () => ({
   OgabasseyStorefrontLayout: mockOgabasseyStorefrontLayout,
+}));
+
+vi.mock('./storefront-hero-preload-decision', () => ({
+  StorefrontHeroPreloadDecision: mockStorefrontHeroPreloadDecision,
 }));
 
 vi.mock('@/components/storefront/deferred-page-view-tracker', () => ({
@@ -83,15 +88,8 @@ vi.mock('next/navigation', () => ({
   notFound: () => notFound(),
 }));
 
-vi.mock('next/headers', () => ({
-  headers: vi.fn(() => Promise.resolve(new Headers())),
-}));
-
 vi.mock('@/lib/store-url', () => ({
-  buildRequestScopedStoreUrl: (merchant: {
-    slug: string;
-    custom_domain?: string | null;
-  }) =>
+  buildStoreUrl: (merchant: { slug: string; custom_domain?: string | null }) =>
     merchant.custom_domain
       ? `https://${merchant.custom_domain}`
       : `https://${merchant.slug}.usebaci.com`,
@@ -171,6 +169,7 @@ describe('storefront layout', () => {
     vi.mocked(getStorefrontShellSnapshot).mockReset();
     notFound.mockClear();
     mockOgabasseyStorefrontLayout.mockClear();
+    mockStorefrontHeroPreloadDecision.mockClear();
     providerSnapshots.length = 0;
     themeProviderRenders = 0;
   });
@@ -213,11 +212,19 @@ describe('storefront layout', () => {
       'data-preload-hero-lcp',
       'false'
     );
+    expect(mockStorefrontHeroPreloadDecision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantSlug: 'ogabassey',
+        routeSlug: 'ogabassey',
+        templateId: 'ogabassey',
+      }),
+      undefined
+    );
     expect(themeProviderRenders).toBe(0);
     expect(screen.getByText('Storefront content')).toBeInTheDocument();
   });
 
-  it('keeps generic storefront layouts from owning OgaBassey home hero preloads', async () => {
+  it('can disable the dynamic hero preload decision for routes with static hints', async () => {
     vi.mocked(getStorefrontShellSnapshotBase).mockResolvedValue(
       baseShellSnapshotWithoutCategories
     );
@@ -225,6 +232,7 @@ describe('storefront layout', () => {
 
     render(
       await StorefrontLayoutContent({
+        enableDynamicHeroPreloadDecision: false,
         params: Promise.resolve({ slug: 'ogabassey' }),
         children: <main>Storefront content</main>,
       })
@@ -234,12 +242,7 @@ describe('storefront layout', () => {
       'data-preload-hero-lcp',
       'false'
     );
-    expect(mockOgabasseyStorefrontLayout).toHaveBeenCalledWith(
-      expect.objectContaining({
-        preloadHeroLcpImages: false,
-      }),
-      undefined
-    );
+    expect(mockStorefrontHeroPreloadDecision).not.toHaveBeenCalled();
   });
 
   it('calls notFound before route content renders when the shell snapshot is missing', async () => {
@@ -336,45 +339,6 @@ describe('storefront layout metadata', () => {
     });
 
     expect(metadata.alternates).toBeUndefined();
-  });
-
-  it('uses industry-aware fallback metadata for food stores', async () => {
-    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
-      ...baseMerchant,
-      business_name: 'Foodflow',
-      business_type: 'food-beverage',
-      custom_domain: null,
-      site_title: null,
-      site_description: null,
-      site_tagline: null,
-    } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'foodflow' }),
-    });
-
-    expect(metadata.title).toBe('Foodflow | Order Fresh Food Online');
-    expect(metadata.description).toBe(
-      'Shop Foodflow - order fresh food online with secure checkout in Nigeria.'
-    );
-  });
-
-  it('replaces mismatched gadget fallback titles for non-electronics stores', async () => {
-    vi.mocked(getRequestScopedMerchant).mockResolvedValue({
-      ...baseMerchant,
-      business_name: 'Medplus',
-      business_type: 'pharmaceuticals',
-      custom_domain: null,
-      site_title: 'Medplus | Buy Gadgets Pay Later',
-      site_description: null,
-      site_tagline: null,
-    } as unknown as Awaited<ReturnType<typeof getRequestScopedMerchant>>);
-
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: 'medplus' }),
-    });
-
-    expect(metadata.title).toBe('Medplus | Shop Pharmacy Essentials Online');
   });
 
   it('reads google verification from published_config when feature settings omit it', async () => {

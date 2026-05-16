@@ -27,7 +27,7 @@ vi.mock('@/hooks/cart', () => ({
   })),
 }));
 
-vi.mock('@/hooks/merchant/use-merchant', () => ({
+vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: vi.fn(() => ({
     basePath: '',
     merchant: {

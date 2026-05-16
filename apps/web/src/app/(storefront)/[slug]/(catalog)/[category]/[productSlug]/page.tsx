@@ -2,11 +2,12 @@ import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { type ReactNode, Suspense } from 'react';
-import { preloadOgabasseyPdpProductImage } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
+import type { ReactNode } from 'react';
+import ProductDetailClient from '@/app/(storefront)/[slug]/(catalog)/products/[productSlug]/product-detail-client';
 import { OgabasseyPdpStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
 import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
+import { ProductSemanticSections } from '@/components/storefront/ogabassey/seo/product-semantic-sections';
 import type { Product as OgabasseyProduct } from '@/components/storefront/ogabassey/types';
 import type { VariantAttributeSource } from '@/components/storefront/ogabassey/variant-attributes';
 import {
@@ -18,6 +19,7 @@ import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 import {
   type CachedLegacyProductRedirectTarget,
   type CachedMerchant,
+  getCachedCategoryPageData,
   getCachedLegacyProductRedirectTarget,
   getCachedProductWithDetails,
   getRequestScopedMerchant,
@@ -38,6 +40,8 @@ import {
   getValidatedProductUrl,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
+import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
 import {
@@ -46,7 +50,6 @@ import {
 } from '@/lib/storefront-seo-defaults';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import { isValidMerchantIdentifier } from '@/lib/validation';
-import { OgabasseyPdpSemanticSections } from './ogabassey-pdp-semantic-sections';
 
 /**
  * Converts server-side Product to Ogabassey template format
@@ -237,7 +240,7 @@ function buildTrustBulletsFromProfile(
  * Template-aware product page component
  * Renders the correct template's product page based on merchant's template_id
  */
-async function renderTemplateProductPage({
+function TemplateProductPage({
   product,
   templateId,
   semanticSections,
@@ -260,15 +263,12 @@ async function renderTemplateProductPage({
     );
   }
 
-  const { DefaultProductPageRenderer } = await import(
-    './default-product-page-renderer'
-  );
-
+  // Default: use the generic product detail client
   return (
-    <DefaultProductPageRenderer
-      product={product}
-      semanticSections={semanticSections}
-    />
+    <>
+      <ProductDetailClient product={product} />
+      {semanticSections}
+    </>
   );
 }
 
@@ -615,28 +615,70 @@ export default async function CategoryProductPage({
   }
 
   redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
-  if (merchant?.template_id === OGABASSEY_TEMPLATE_ID) {
-    preloadOgabasseyPdpProductImage(product.imageLarge || product.image);
-  }
-
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const resolvedCategorySlug =
     product.category_slug ||
     (product.category ? generateSlug(product.category) : 'products');
+  const categoryPageData = await getCachedCategoryPageData(
+    merchant.id,
+    resolvedCategorySlug,
+    slug
+  );
+  const guidePosts = await getPublishedClusterPosts(merchant.id);
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
-  const trustBullets = buildTrustBulletsFromProfile(trustProfile);
+  const inventoryCandidates = (
+    categoryPageData?.isCollection ? [] : (categoryPageData?.products ?? [])
+  ).map((candidate) => {
+    const productCandidate = candidate as {
+      slug: string;
+      name: string;
+      brand?: string | null;
+      condition?: string | null;
+      price: number;
+      stock?: number | null;
+      category_slug?: string | null;
+      product_key_specs?: Record<string, unknown> | null;
+    };
+
+    return {
+      slug: productCandidate.slug,
+      name: productCandidate.name,
+      brand: productCandidate.brand,
+      condition: productCandidate.condition,
+      price: productCandidate.price,
+      stock: productCandidate.stock,
+      category_slug: productCandidate.category_slug,
+      product_key_specs: productCandidate.product_key_specs,
+    };
+  });
+  const semanticModel = buildProductSemanticModel({
+    storeUrl: baseUrl,
+    merchantBusinessName: merchant?.business_name || 'Baci Store',
+    categorySlug: resolvedCategorySlug,
+    categoryName: product.category || 'All Products',
+    currentProduct: {
+      slug: product.slug || String(product.id),
+      name: product.name,
+      brand: product.brand,
+      condition: product.condition,
+      price: product.price,
+      stock: product.stock,
+      category_slug: product.category_slug ?? resolvedCategorySlug,
+      product_key_specs: product.product_key_specs,
+    },
+    inventory: inventoryCandidates,
+    guidePosts,
+  });
   const semanticSections = (
-    <Suspense fallback={null}>
-      <OgabasseyPdpSemanticSections
-        categoryName={product.category || 'All Products'}
-        categorySlug={resolvedCategorySlug}
-        merchant={merchant}
-        product={product}
-        storeSlug={slug}
-        storeUrl={baseUrl}
-        trustBullets={trustBullets}
-      />
-    </Suspense>
+    <ProductSemanticSections
+      model={{
+        ...semanticModel,
+        trustBullets: [
+          ...buildTrustBulletsFromProfile(trustProfile),
+          ...semanticModel.trustBullets,
+        ],
+      }}
+    />
   );
   const derivedSpecData = buildOgabasseyProductSpecData(product);
   const schemaProduct =
@@ -678,11 +720,6 @@ export default async function CategoryProductPage({
   ];
 
   const breadcrumbSchema = generateBreadcrumbSchema(breadcrumbItems);
-  const productPage = await renderTemplateProductPage({
-    product,
-    semanticSections,
-    templateId: merchant?.template_id,
-  });
 
   return (
     <>
@@ -718,7 +755,11 @@ export default async function CategoryProductPage({
           <dd>₦{product.price?.toLocaleString() || 'Contact for price'}</dd>
         </dl>
       </article>
-      {productPage}
+      <TemplateProductPage
+        product={product}
+        semanticSections={semanticSections}
+        templateId={merchant?.template_id}
+      />
     </>
   );
 }

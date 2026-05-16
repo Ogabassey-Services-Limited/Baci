@@ -11,8 +11,6 @@
  * Usage: Call the appropriate function after a successful DB mutation in API routes.
  */
 import { revalidatePath, revalidateTag } from 'next/cache';
-import { getBlogCacheTag } from '@/lib/blog-cache-tags';
-import { buildStorefrontProductsCacheTags } from '@/lib/storefront-products-cache-key';
 
 interface BlogRevalidationOptions {
   identifiers?: Array<string | null | undefined>;
@@ -28,38 +26,17 @@ function isSafeCanonicalMerchantSlug(slug: string): boolean {
   return CANONICAL_MERCHANT_SLUG_PATTERN.test(slug);
 }
 
-function normalizeMerchantIdForRevalidation(merchantId: string) {
-  if (typeof merchantId !== 'string') {
-    return null;
-  }
-
-  const normalizedMerchantId = merchantId.trim();
-  return normalizedMerchantId || null;
-}
-
 /**
  * Revalidate all cached data related to a merchant's products.
  * Call after product create/update/delete.
  */
 export function revalidateProducts(merchantId: string, productSlug?: string) {
-  const normalizedMerchantId = normalizeMerchantIdForRevalidation(merchantId);
-
-  if (!normalizedMerchantId) {
-    console.warn('Skipped product cache revalidation for invalid merchant ID', {
-      merchantId,
-    });
-    return;
-  }
-
   // Invalidate the product list for this merchant
-  revalidateTag(`products-${normalizedMerchantId}`, 'products');
-  for (const tag of buildStorefrontProductsCacheTags(normalizedMerchantId)) {
-    revalidateTag(tag, 'products');
-  }
+  revalidateTag(`products-${merchantId}`, 'products');
 
   // Invalidate specific product cache if slug provided
   if (productSlug) {
-    revalidateTag(`product-${normalizedMerchantId}-${productSlug}`, 'products');
+    revalidateTag(`product-${merchantId}-${productSlug}`, 'products');
   }
 
   // Invalidate product details and category page data (includes products)
@@ -67,16 +44,16 @@ export function revalidateProducts(merchantId: string, productSlug?: string) {
   revalidateTag('category-page-data', 'storefront-page');
 
   // Invalidate storefront product index (paginated listing)
-  revalidateTag(`product-index-${normalizedMerchantId}`, 'products');
+  revalidateTag(`product-index-${merchantId}`, 'products');
 
   // Invalidate legacy product redirect cache
   revalidateTag('product-legacy-redirect', 'products');
 
   // Invalidate merchant feed (OpenAI, Google Merchant)
-  revalidateMerchantFeed(normalizedMerchantId);
+  revalidateMerchantFeed(merchantId);
 
   // Dashboard stats may change (revenue, inventory counts)
-  revalidateTag(`dashboard-${normalizedMerchantId}`, 'merchant');
+  revalidateTag(`dashboard-${merchantId}`, 'merchant');
 }
 
 /**
@@ -214,9 +191,8 @@ export function revalidateBlogPosts(
     }
 
     for (const slug of normalizedPostSlugs) {
-      revalidateTag(getBlogCacheTag(identifier, slug), 'merchant');
+      revalidateTag(`blog-${identifier}-${slug}`, 'merchant');
       revalidatePath(`/${identifier}/blog/${slug}`);
-      revalidatePath(`/${identifier}/blog/${slug}/opengraph-image`);
     }
   }
 }

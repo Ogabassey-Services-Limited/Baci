@@ -10,7 +10,6 @@ vi.mock('next/cache', () => ({
   revalidateTag: (...args: unknown[]) => mockRevalidateTag(...args),
 }));
 
-import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 // ---- Import functions AFTER mocks ----
 import {
   revalidateBlogPosts,
@@ -44,14 +43,6 @@ describe('cache-revalidation utilities', () => {
         'products'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        `storefront-products-${MERCHANT_ID}`,
-        'products'
-      );
-      expect(mockRevalidateTag).toHaveBeenCalledWith(
-        `merchant-id-${MERCHANT_ID}`,
-        'products'
-      );
-      expect(mockRevalidateTag).toHaveBeenCalledWith(
         'product-details',
         'products'
       );
@@ -75,7 +66,7 @@ describe('cache-revalidation utilities', () => {
         `dashboard-${MERCHANT_ID}`,
         'merchant'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(9);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(7);
     });
 
     it('revalidates specific product when slug provided', () => {
@@ -85,14 +76,6 @@ describe('cache-revalidation utilities', () => {
 
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         `products-${MERCHANT_ID}`,
-        'products'
-      );
-      expect(mockRevalidateTag).toHaveBeenCalledWith(
-        `storefront-products-${MERCHANT_ID}`,
-        'products'
-      );
-      expect(mockRevalidateTag).toHaveBeenCalledWith(
-        `merchant-id-${MERCHANT_ID}`,
         'products'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
@@ -123,7 +106,7 @@ describe('cache-revalidation utilities', () => {
         `dashboard-${MERCHANT_ID}`,
         'merchant'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(10);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(8);
     });
 
     it('handles empty slug gracefully', () => {
@@ -134,15 +117,7 @@ describe('cache-revalidation utilities', () => {
         `products-${MERCHANT_ID}`,
         'products'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledWith(
-        `storefront-products-${MERCHANT_ID}`,
-        'products'
-      );
-      expect(mockRevalidateTag).toHaveBeenCalledWith(
-        `merchant-id-${MERCHANT_ID}`,
-        'products'
-      );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(9);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(7);
     });
   });
 
@@ -272,7 +247,7 @@ describe('cache-revalidation utilities', () => {
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        getBlogCacheTag('test-merchant', 'test-post'),
+        'blog-test-merchant-test-post',
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
@@ -280,22 +255,16 @@ describe('cache-revalidation utilities', () => {
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        getBlogCacheTag('OGABASSEY.COM', 'test-post'),
+        'blog-ogabassey.com-test-post',
         'merchant'
       );
       expect(mockRevalidatePath).toHaveBeenCalledWith('/test-merchant/blog');
       expect(mockRevalidatePath).toHaveBeenCalledWith(
         '/test-merchant/blog/test-post'
       );
-      expect(mockRevalidatePath).toHaveBeenCalledWith(
-        '/test-merchant/blog/test-post/opengraph-image'
-      );
       expect(mockRevalidatePath).toHaveBeenCalledWith('/ogabassey.com/blog');
       expect(mockRevalidatePath).toHaveBeenCalledWith(
         '/ogabassey.com/blog/test-post'
-      );
-      expect(mockRevalidatePath).toHaveBeenCalledWith(
-        '/ogabassey.com/blog/test-post/opengraph-image'
       );
       expect(mockRevalidatePath).toHaveBeenCalledWith(
         '/api/blog/feed/test-merchant'
@@ -315,15 +284,12 @@ describe('cache-revalidation utilities', () => {
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        getBlogCacheTag('test-merchant', 'test-post'),
+        'blog-test-merchant-test-post',
         'merchant'
       );
       expect(mockRevalidatePath).toHaveBeenCalledWith('/test-merchant/blog');
       expect(mockRevalidatePath).toHaveBeenCalledWith(
         '/test-merchant/blog/test-post'
-      );
-      expect(mockRevalidatePath).toHaveBeenCalledWith(
-        '/test-merchant/blog/test-post/opengraph-image'
       );
       expect(mockRevalidatePath).not.toHaveBeenCalledWith(
         '/api/blog/feed/test-merchant'
@@ -385,7 +351,7 @@ describe('cache-revalidation utilities', () => {
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        getBlogCacheTag(MERCHANT_ID, 'my-blog-post'),
+        `blog-${MERCHANT_ID}-my-blog-post`,
         'merchant'
       );
       expect(mockRevalidatePath).toHaveBeenCalledWith(`/${MERCHANT_ID}/blog`);
@@ -624,23 +590,17 @@ describe('cache-revalidation utilities', () => {
         }
       }).not.toThrow();
 
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(900); // 9 calls per invocation * 100
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(700); // 7 calls per invocation * 100
     });
 
     it('handles null/undefined merchant IDs gracefully', () => {
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
-        // Expected in this runtime-guard test.
-      });
-
       // TypeScript should prevent this, but test runtime behavior
       revalidateProducts(undefined as unknown as string);
 
-      expect(mockRevalidateTag).not.toHaveBeenCalled();
-      expect(warnSpy).toHaveBeenCalledWith(
-        'Skipped product cache revalidation for invalid merchant ID',
-        { merchantId: undefined }
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'products-undefined',
+        'products'
       );
-      warnSpy.mockRestore();
     });
   });
 

@@ -11,10 +11,12 @@ const { mockGenerateStorefrontLayoutMetadata, mockStorefrontLayout } =
     mockStorefrontLayout: vi.fn(
       ({
         children,
+        enableDynamicHeroPreloadDecision: _enableDynamicHeroPreloadDecision,
         loadingFallback: _loadingFallback,
         params: _params,
       }: {
         children: ReactNode;
+        enableDynamicHeroPreloadDecision?: boolean;
         loadingFallback?: ReactNode;
         params: Promise<{ slug: string }>;
       }) => <section aria-label="storefront layout">{children}</section>
@@ -67,6 +69,7 @@ describe('OgabasseyDomainLayout', () => {
     expect(mockStorefrontLayout).toHaveBeenCalledOnce();
 
     const props = mockStorefrontLayout.mock.calls[0]?.[0];
+    expect(props?.enableDynamicHeroPreloadDecision).toBe(false);
     expect(props?.loadingFallback).toBeDefined();
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey.com' });
     expect(mockPrefetchDNS).not.toHaveBeenCalled();

@@ -15,7 +15,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OfflineNotice } from '@/components/OfflineNotice';
 import { BlockRenderer } from '@/components/storefront/BlockRenderer';
 import { Header } from '@/components/storefront/Header';
-import { HomeServiceCards } from '@/components/storefront/HomeServiceCards';
 import { SearchDropdown } from '@/components/storefront/SearchDropdown';
 // Footer component available but not currently rendered
 // import { Footer } from '@/components/storefront/Footer';
@@ -281,20 +280,6 @@ export default function HomeScreen() {
   });
   const primaryProductGridId =
     blocks.find((block) => block.type === 'ProductGrid')?.props.id ?? null;
-  const primaryProductGridIndex = (() => {
-    if (primaryProductGridId) {
-      const matchingGridIndex = blocks.findIndex(
-        (block) =>
-          block.type === 'ProductGrid' &&
-          block.props.id === primaryProductGridId
-      );
-      if (matchingGridIndex !== -1) {
-        return matchingGridIndex;
-      }
-    }
-
-    return blocks.findIndex((block) => block.type === 'ProductGrid');
-  })();
 
   useEffect(() => {
     void productGridDatasetKey;
@@ -330,6 +315,7 @@ export default function HomeScreen() {
     insets.bottom,
     isChatWidgetEnabled
   );
+
   if (isConfigLoading && !refreshing) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -431,29 +417,21 @@ export default function HomeScreen() {
         scrollEventThrottle={16}
       >
         <Animated.View style={headerSpacerAnimatedStyle} />
-        {blocks.map((block: Block, index: number) => {
-          const isPrimaryProductGrid =
-            block.type === 'ProductGrid' && index === primaryProductGridIndex;
-          const isUtilityBlock = block.type === 'CategoryRail';
-          return (
-            <View
-              key={block.props?.id || `block-${index}`}
-              style={styles.blockWrapper}
-            >
-              <BlockRenderer
-                blocks={[block]}
-                productGridLoadMoreSignal={
-                  isPrimaryProductGrid ? productGridLoadMoreSignal : 0
-                }
-                selectedCategoryId={selectedCategoryId}
-                onCategorySelect={handleCategorySelect}
-              />
-              {isUtilityBlock ? (
-                <HomeServiceCards placement="belowUtility" />
-              ) : null}
-            </View>
-          );
-        })}
+        {blocks.map((block: Block, index: number) => (
+          <View key={block.props?.id || `block-${index}`}>
+            <BlockRenderer
+              blocks={[block]}
+              productGridLoadMoreSignal={
+                block.type === 'ProductGrid' &&
+                block.props?.id === primaryProductGridId
+                  ? productGridLoadMoreSignal
+                  : 0
+              }
+              selectedCategoryId={selectedCategoryId}
+              onCategorySelect={handleCategorySelect}
+            />
+          </View>
+        ))}
       </Animated.ScrollView>
       <PermissionModal
         visible={showPermissionModal}
@@ -494,9 +472,5 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flexGrow: 1,
-  },
-  blockWrapper: {
-    alignSelf: 'stretch',
-    width: '100%',
   },
 });

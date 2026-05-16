@@ -16,7 +16,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useDebounce } from '@/hooks/use-debounce';
 import { formatCurrency } from '@/lib/currency';
 import { isSafeSlug } from '@/lib/validate-slug';
 
@@ -44,9 +43,6 @@ export function ProductEmbedPicker({
   selectedIds = [],
 }: ProductEmbedPickerProps) {
   const [search, setSearch] = useState('');
-  // ⚡ Bolt: Use standard useDebounce hook for network request debouncing
-  // Why: Replaces unreliable custom setTimeout logic with proven hook to reduce API calls
-  const debouncedSearch = useDebounce(search, 300);
   const [products, setProducts] = useState<Product[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set(selectedIds));
   const [isLoading, setIsLoading] = useState(false);
@@ -70,9 +66,17 @@ export function ProductEmbedPicker({
   // biome-ignore lint/correctness/useExhaustiveDependencies: React Compiler handles memoization (ADR-004)
   useEffect(() => {
     if (open) {
-      fetchProducts(debouncedSearch);
+      fetchProducts();
     }
-  }, [open, debouncedSearch]);
+  }, [open]);
+
+  const handleSearch = (value: string) => {
+    setSearch(value);
+    const timeout = setTimeout(() => {
+      fetchProducts(value);
+    }, 300);
+    return () => clearTimeout(timeout);
+  };
 
   const toggleProduct = (id: string) => {
     const newSelected = new Set(selected);
@@ -102,7 +106,7 @@ export function ProductEmbedPicker({
           <Input
             placeholder="Search products..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearch(e.target.value)}
             className="pl-10"
           />
         </div>

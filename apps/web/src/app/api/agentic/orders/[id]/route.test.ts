@@ -19,10 +19,6 @@ vi.mock('@/lib/agentic/auth', () => ({
   verifyAgenticApiKey: mockVerifyAgenticApiKey,
 }));
 vi.mock('@/lib/agentic/merchant-context', () => ({
-  AGENTIC_CHECKOUT_DISABLED_ERROR: 'Agentic checkout disabled',
-  isAgenticMerchantCheckoutEnabled: (merchant: {
-    agentic_checkout_enabled?: boolean;
-  }) => merchant.agentic_checkout_enabled !== false,
   resolveAgenticMerchantContext: mockResolveAgenticMerchantContext,
 }));
 vi.mock('@/lib/agentic/mutation-request', () => ({
@@ -185,49 +181,6 @@ describe('GET /api/agentic/orders/[id]', () => {
     expect(await response.json()).toEqual({
       error: 'Agentic merchant not found',
     });
-    expect(createAgenticScopedSupabaseClient).not.toHaveBeenCalled();
-  });
-
-  it('allows existing order reads when the merchant disables agentic checkout', async () => {
-    mockResolveAgenticMerchantContext.mockResolvedValueOnce({
-      agentic_checkout_enabled: false,
-      custom_domain: 'ogabassey.com',
-      id: 'merchant-1',
-      slug: 'ogabassey',
-    });
-    mockOrderRead({ data: orderRow });
-
-    const { GET } = await import('./route');
-    const response = await GET(request(), routeParams());
-
-    expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({
-      id: orderId,
-      payment_status: 'pending',
-      shipping_status: 'pending',
-    });
-    expect(createAgenticScopedSupabaseClient).toHaveBeenCalledWith({
-      merchantId: 'merchant-1',
-      merchantSlug: 'ogabassey',
-    });
-  });
-
-  it('returns 403 when the caller user-agent is not allowlisted', async () => {
-    mockResolveAgenticMerchantContext.mockResolvedValueOnce({
-      agent_user_agent_allowlist: ['trusted-agent'],
-      custom_domain: 'ogabassey.com',
-      id: 'merchant-1',
-      slug: 'ogabassey',
-    });
-
-    const { GET } = await import('./route');
-    const response = await GET(request(), routeParams());
-
-    expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({
-      error: 'Agent client not allowlisted',
-    });
-    expect(readAgenticQueryRequest).toHaveBeenCalled();
     expect(createAgenticScopedSupabaseClient).not.toHaveBeenCalled();
   });
 

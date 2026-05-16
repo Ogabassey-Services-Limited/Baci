@@ -25,10 +25,6 @@ vi.mock('@/lib/agentic/idempotency-response-storage', () => ({
 }));
 
 vi.mock('@/lib/agentic/merchant-context', () => ({
-  AGENTIC_CHECKOUT_DISABLED_ERROR: 'Agentic checkout disabled',
-  isAgenticMerchantCheckoutEnabled: (merchant: {
-    agentic_checkout_enabled?: boolean;
-  }) => merchant.agentic_checkout_enabled !== false,
   resolveAgenticMerchantContext: mockResolveAgenticMerchantContext,
 }));
 

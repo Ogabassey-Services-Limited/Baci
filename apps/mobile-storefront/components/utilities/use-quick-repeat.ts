@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useVTUHistory } from '@/hooks/use-vtu-history';
 import {
   type UtilityRepeatDefaults,
-  type UtilityRepeatRecipient,
   utilityRepeatHelpers,
 } from '@/lib/utility-repeat';
 import { getRouteRepeatDefaults } from './utility-purchase.config';
@@ -13,12 +12,12 @@ import type {
   ValidUtilityType,
 } from './utility-purchase.types';
 
-const RECENT_RECIPIENT_HISTORY_LIMIT = 20;
-
 interface UseQuickRepeatInput extends RouteRepeatParams {
   currentType: ValidUtilityType | null;
   historyFilter: ValidUtilityType;
+  isKeyboardVisible: boolean;
   routeType: ValidUtilityType | null;
+  title: string;
 }
 
 function buildRouteRepeatParams(params: RouteRepeatParams): RouteRepeatParams {
@@ -28,6 +27,7 @@ function buildRouteRepeatParams(params: RouteRepeatParams): RouteRepeatParams {
 export function useQuickRepeat({
   currentType,
   historyFilter,
+  isKeyboardVisible,
   repeatAmount,
   repeatBillerName,
   repeatBillItemIdentifier,
@@ -38,6 +38,7 @@ export function useQuickRepeat({
   repeatPhoneNumber,
   repeatVerified,
   routeType,
+  title,
 }: UseQuickRepeatInput) {
   const [repeatDefaults, setRepeatDefaults] = useState<UtilityRepeatDefaults>(
     () =>
@@ -58,11 +59,13 @@ export function useQuickRepeat({
         : {}
   );
   const [repeatRevision, setRepeatRevision] = useState(0);
+  const [isQuickRepeatDismissed, setIsQuickRepeatDismissed] = useState(false);
   const didInitializeRef = useRef(false);
-  const { data: recentTransactions } = useVTUHistory(
-    historyFilter,
-    RECENT_RECIPIENT_HISTORY_LIMIT
-  );
+  const {
+    data: recentTransactions,
+    error: recentTransactionsError,
+    isLoading: isRecentTransactionsLoading,
+  } = useVTUHistory(historyFilter, 5);
 
   useEffect(() => {
     if (!didInitializeRef.current) {
@@ -88,6 +91,7 @@ export function useQuickRepeat({
         : {}
     );
     setRepeatRevision(0);
+    setIsQuickRepeatDismissed(false);
   }, [
     currentType,
     routeType,
@@ -102,21 +106,47 @@ export function useQuickRepeat({
     repeatVerified,
   ]);
 
-  const recentRecipients = utilityRepeatHelpers.getRecentRecipients(
-    recentTransactions,
-    currentType ?? historyFilter
+  const lastTransaction =
+    recentTransactions?.find(
+      (transaction) =>
+        transaction.status === 'successful' &&
+        utilityRepeatHelpers.getRouteType(transaction.type) === currentType
+    ) ?? null;
+  const showQuickRepeat = Boolean(
+    lastTransaction &&
+      !isRecentTransactionsLoading &&
+      !recentTransactionsError &&
+      !isKeyboardVisible &&
+      !isQuickRepeatDismissed
   );
 
-  const handleRecipientSelect = (recipient: UtilityRepeatRecipient) => {
-    setRepeatDefaults(recipient.defaults);
+  let quickRepeatNotice: string | null = null;
+  if (!isKeyboardVisible && !isQuickRepeatDismissed) {
+    if (isRecentTransactionsLoading) {
+      quickRepeatNotice = `Checking recent ${title} transactions...`;
+    } else if (recentTransactionsError) {
+      quickRepeatNotice = `Recent ${title} transactions unavailable.`;
+    }
+  }
+
+  const handleQuickRepeat = () => {
+    if (!lastTransaction) {
+      return;
+    }
+
+    setRepeatDefaults(utilityRepeatHelpers.getDefaults(lastTransaction));
     setRepeatRevision((current) => current + 1);
+    setIsQuickRepeatDismissed(true);
   };
 
   return {
-    handleRecipientSelect,
+    handleQuickRepeat,
+    isRecentTransactionsLoading,
     isRepeatPaymentReady: Boolean(repeatDefaults.isVerified),
-    recentRecipients,
+    lastTransaction,
+    quickRepeatNotice,
     repeatDefaults,
     repeatRevision,
+    showQuickRepeat,
   };
 }

@@ -35,11 +35,6 @@ The YC framing should be:
 - The card separates attention, monitor, healthy, and unavailable states so merchants do not mistake outages or pending recovery work for a clean state.
 - Review links point merchants toward order operations, keeping the dashboard practical instead of purely analytical.
 
-### YC Demo Proof
-
-- `/.well-known/agent-native-commerce` packages the live merchant proof for positioning and demos: human storefront, machine contracts, trust readiness, signed checkout capability, payment methods, order-read recovery, and protected dashboard operations.
-- `/agent-commerce.json` links to that proof so agents and evaluators can discover it from the existing merchant contract.
-
 ## Platform Scope
 
 This is platform-wide Baci infrastructure. Ogabassey is the reference merchant and regression control, not the product boundary. New Baci merchants should inherit the same agent-ready contracts once their storefront, catalog, payment setup, and trust signals meet readiness requirements.
@@ -65,7 +60,7 @@ This is platform-wide Baci infrastructure. Ogabassey is the reference merchant a
 1. **Trust Health:** Add merchant-facing trust readiness checks for catalog parity, JSON-LD, image validity, policy links, feed freshness, and crawler visibility.
 2. **Action Reliability:** Add dashboards for idempotency failures, pending payment/order recovery, agent allowlists/denylists, and cancellation/refund boundaries.
 3. **Adaptive Operations:** Turn dashboard health cards into guided actions: explain what changed, what needs attention, and where to fix it.
-4. **YC Narrative:** Move external messaging from "AI ecommerce builder" to "agent-native commerce infrastructure for African merchants," backed by live merchant contracts, trust readiness, payment-capability evidence, and the public `/.well-known/agent-native-commerce` proof.
+4. **YC Narrative:** Move external messaging from "AI ecommerce builder" to "agent-native commerce infrastructure for African merchants," backed by live merchant contracts and payment flows.
 
 ## Metrics
 

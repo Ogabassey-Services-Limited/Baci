@@ -59,7 +59,6 @@ export async function DashboardAuthGuard({
 
   return (
     <DashboardProviders
-      initialUser={user}
       initialMerchant={merchant}
       initialStaffAccess={staffAccess}
       nonce={nonce}

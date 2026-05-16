@@ -46,16 +46,12 @@ import {
   CarouselPrevious,
 } from '@/components/ui/carousel';
 import { Input } from '@/components/ui/input';
-import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 import { AnimatedWrapper, type AnimationType } from './animated-wrapper';
 import { ColorPickerField } from './fields/color-picker-field';
 import { ImagePickerField } from './fields/image-picker-field';
 import { getIconOptions, renderIcon } from './icon-registry';
-import { ScopedStorefrontLink } from './scoped-storefront-link';
-import { getStorefrontScopedHref } from './storefront-scoping';
-import { useStorefrontScopedRoute } from './use-storefront-scoped-route';
 
 // Helper to map config animation values to AnimationType
 const mapAnimationType = (type: string | undefined): AnimationType => {
@@ -396,10 +392,6 @@ type RootProps = {
 };
 
 // ==================== HELPER COMPONENTS ====================
-// Storefront-scoping helpers (utility + hook + link wrapper) live in
-// dedicated modules to keep this config file focused.
-// See: storefront-scoping.ts, use-storefront-scoped-route.ts,
-//      scoped-storefront-link.tsx
 
 function HeroCarouselComponent({
   slides,
@@ -408,23 +400,13 @@ function HeroCarouselComponent({
   const plugin = Autoplay({ delay: autoplayDelay, stopOnInteraction: true });
   // Ensure slides is always an array to prevent "slides.map is not a function" error
   const safeSlides = Array.isArray(slides) ? slides : [];
-  const toScopedRoute = useStorefrontScopedRoute();
 
   return (
     <section className="w-full relative" aria-label="Hero Carousel">
       <Carousel className="w-full" plugins={[plugin]} opts={{ loop: true }}>
         <CarouselContent>
-          {safeSlides.map((slide, index) => (
-            <CarouselItem
-              // biome-ignore lint/suspicious/noArrayIndexKey: index is combined with a content fingerprint to disambiguate duplicate / placeholder slides whose content alone would collide.
-              key={`slide-${index}-${[
-                slide.image,
-                slide.title ?? '',
-                slide.subtitle ?? '',
-                slide.ctaText ?? '',
-                slide.ctaLink ?? '',
-              ].join('|')}`}
-            >
+          {safeSlides.map((slide) => (
+            <CarouselItem key={slide.image}>
               <div className="w-full h-[60vh] md:h-[70vh] relative">
                 <Image
                   src={slide.image}
@@ -432,7 +414,7 @@ function HeroCarouselComponent({
                   fill
                   sizes="100vw"
                   className="object-cover"
-                  priority={index === 0}
+                  priority={slide.image === safeSlides[0]?.image}
                 />
                 <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center text-center text-white p-4">
                   <h2 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">
@@ -442,9 +424,7 @@ function HeroCarouselComponent({
                     {slide.subtitle}
                   </p>
                   <ThemedButton asChild size="lg" colorRole="accent">
-                    <Link href={toScopedRoute(slide.ctaLink)}>
-                      {slide.ctaText}
-                    </Link>
+                    <Link href={asRoute(slide.ctaLink)}>{slide.ctaText}</Link>
                   </ThemedButton>
                 </div>
               </div>
@@ -475,8 +455,6 @@ function CustomFooter({
   backgroundColor,
   textColor,
 }: FooterProps) {
-  const merchantContext = useMerchantSafe();
-  const basePath = merchantContext?.basePath;
   const socialIcons: Record<
     string,
     React.ComponentType<{ className?: string }>
@@ -514,9 +492,7 @@ function CustomFooter({
                   {quickLinks.map((link) => (
                     <li key={link.url}>
                       <Link
-                        href={asRoute(
-                          getStorefrontScopedHref(link.url, basePath)
-                        )}
+                        href={asRoute(link.url)}
                         className="text-sm hover:underline underline-offset-4 opacity-80 hover:opacity-100"
                       >
                         {link.label}
@@ -651,7 +627,10 @@ export const builderConfig: Config<
     fields: {
       title: { type: 'text', label: 'Page Title' },
     },
-    render: ({ children }) => {
+    render: ({ children, title }) => {
+      if (typeof document !== 'undefined' && title) {
+        document.title = title;
+      }
       return <>{children}</>;
     },
   },
@@ -961,9 +940,7 @@ export const builderConfig: Config<
                 </HeadingTag>
                 <p className="text-xl max-w-[700px] opacity-90">{subtitle}</p>
                 <ThemedButton colorRole="primary" size="lg" asChild>
-                  <ScopedStorefrontLink href={ctaLink}>
-                    {ctaText}
-                  </ScopedStorefrontLink>
+                  <Link href={asRoute(ctaLink)}>{ctaText}</Link>
                 </ThemedButton>
               </div>
             </section>
@@ -1371,12 +1348,12 @@ export const builderConfig: Config<
           >
             <section className="py-8 container px-4 md:px-6">
               {link ? (
-                <ScopedStorefrontLink
+                <Link
+                  href={asRoute(link)}
                   className="block hover:opacity-90 transition-opacity"
-                  href={link}
                 >
                   {imageElement}
-                </ScopedStorefrontLink>
+                </Link>
               ) : (
                 imageElement
               )}
@@ -1424,22 +1401,20 @@ export const builderConfig: Config<
         align: 'center',
         size: 'default',
       },
-      render: ({ text, link, variant, align, size, puck }) => {
-        return (
-          <div
-            ref={puck.dragRef}
-            className={cn('py-4 container px-4 md:px-6 flex', {
-              'justify-start': align === 'left',
-              'justify-center': align === 'center',
-              'justify-end': align === 'right',
-            })}
-          >
-            <ThemedButton colorRole={variant} size={size} asChild>
-              <ScopedStorefrontLink href={link}>{text}</ScopedStorefrontLink>
-            </ThemedButton>
-          </div>
-        );
-      },
+      render: ({ text, link, variant, align, size, puck }) => (
+        <div
+          ref={puck.dragRef}
+          className={cn('py-4 container px-4 md:px-6 flex', {
+            'justify-start': align === 'left',
+            'justify-center': align === 'center',
+            'justify-end': align === 'right',
+          })}
+        >
+          <ThemedButton colorRole={variant} size={size} asChild>
+            <Link href={asRoute(link)}>{text}</Link>
+          </ThemedButton>
+        </div>
+      ),
     },
     ProductGrid: {
       label: 'Product Grid',

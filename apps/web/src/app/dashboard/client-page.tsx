@@ -26,7 +26,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { formatPrice } from '@/lib/currency-utils';
-import { requestMerchantPublish } from '@/lib/merchant-publish-client';
 import { cn } from '@/lib/utils';
 import {
   type DashboardMetrics,
@@ -139,7 +138,8 @@ export default function DashboardClientPage({
   const handlePublishToggle = async () => {
     setIsPublishing(true);
     try {
-      const response = await requestMerchantPublish(merchant?.is_published);
+      const method = merchant?.is_published ? 'DELETE' : 'POST';
+      const response = await fetch('/api/merchant/publish', { method });
       const data = await response.json();
 
       if (!response.ok) {

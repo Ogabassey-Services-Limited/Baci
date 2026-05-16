@@ -97,25 +97,6 @@ describe('NegotiationModal', () => {
     expect(defaultProps.onSuccess).toHaveBeenCalledWith(9600);
   });
 
-  it('cancels pending submit timers when unmounted', () => {
-    const onSuccess = vi.fn();
-    const { unmount } = render(
-      <NegotiationModal {...defaultProps} onSuccess={onSuccess} />
-    );
-
-    const input = screen.getByPlaceholderText('Enter amount...');
-    fireEvent.change(input, { target: { value: '9600' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Submit Offer' }));
-
-    unmount();
-
-    act(() => {
-      vi.advanceTimersByTime(1600);
-    });
-
-    expect(onSuccess).not.toHaveBeenCalled();
-  });
-
   it('shows counter offer for a low first attempt', () => {
     render(<NegotiationModal {...defaultProps} />);
     submitLowOffer('1000');
@@ -217,49 +198,6 @@ describe('NegotiationModal', () => {
     expect(alertSpy).toHaveBeenCalledWith(
       expect.stringContaining('Failed to submit')
     );
-    alertSpy.mockRestore();
-  });
-
-  it('skips async submit state updates after unmount', async () => {
-    const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {});
-    let resolveInsert:
-      | ((value: { error: { message: string } | null }) => void)
-      | undefined;
-    const insertPromise = new Promise<{ error: { message: string } | null }>(
-      (resolve) => {
-        resolveInsert = resolve;
-      }
-    );
-
-    mockInsert.mockReturnValueOnce(insertPromise);
-
-    const { unmount } = render(<NegotiationModal {...defaultProps} />);
-
-    submitLowOffer('500');
-    fireEvent.click(screen.getByText('Negotiate Again'));
-    submitLowOffer('500');
-    fireEvent.click(screen.getByText('Negotiate Again'));
-    submitLowOffer('500');
-
-    vi.useRealTimers();
-
-    const fileInput = screen.getByLabelText('Upload proof') as HTMLInputElement;
-    const file = new File(['proof'], 'screenshot.png', { type: 'image/png' });
-    fireEvent.change(fileInput, { target: { files: [file] } });
-
-    const form = fileInput.closest('form') as HTMLFormElement;
-    await act(async () => {
-      fireEvent.submit(form);
-    });
-
-    unmount();
-
-    await act(async () => {
-      resolveInsert?.({ error: { message: 'DB insert failed' } });
-      await Promise.resolve();
-    });
-
-    expect(alertSpy).not.toHaveBeenCalled();
     alertSpy.mockRestore();
   });
 

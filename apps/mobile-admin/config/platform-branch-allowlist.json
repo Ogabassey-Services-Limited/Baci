@@ -35,6 +35,5 @@
   "services/push-notifications.ts",
   "stores/revenueCatStore.ts",
   "utils/SubscriptionManagement.ts",
-  "utils/export-orders.ts",
-  "utils/order-export/loadOrderExportNativeModules.ts"
+  "utils/export-orders.ts"
 ]

@@ -9,7 +9,6 @@ import {
   withRetry,
 } from '@/ai/provider';
 import { logger } from '@/lib/logger';
-import { createFallbackLogo } from './fallback-logo';
 
 const _GuideBusinessOnboardingInputSchema = z.object({
   businessName: z.string().describe("The user's business name."),
@@ -53,13 +52,7 @@ const BrandColorsSchema = z.object({
     .string()
     .describe('An accent color for highlights and calls-to-action.'),
 });
-
-const AI_LOGO_RETRY_CONFIG = {
-  maxRetries: 0,
-  initialDelayMs: 0,
-  maxDelayMs: 0,
-  backoffMultiplier: 1,
-};
+type _BrandColors = z.infer<typeof BrandColorsSchema>;
 
 const _GuideBusinessOnboardingOutputSchema = z.object({
   logos: z
@@ -162,10 +155,9 @@ Please generate the logo image now.`;
       const result = await withRetry(async () => {
         return await generateText({
           model: activeImageModel,
-          prompt,
-          maxRetries: 0,
+          prompt: prompt,
         });
-      }, AI_LOGO_RETRY_CONFIG);
+      });
 
       // Extract image from files array
       const imageFile = result.files?.find((file) =>
@@ -192,11 +184,8 @@ Please generate the logo image now.`;
         error: errorMessage,
         stack: error instanceof Error ? error.stack : undefined,
       });
-      const fallbackLogo = createFallbackLogo(businessName, businessType);
-      return {
-        logos: [fallbackLogo.logoDataUri],
-        brandColors: fallbackLogo.brandColors,
-      };
+      console.error('Logo generation error details:', error);
+      throw new Error(`Failed to generate logo: ${errorMessage}`);
     }
   }
 

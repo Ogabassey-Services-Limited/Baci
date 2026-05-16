@@ -109,8 +109,7 @@ describe('BlogPostBody', () => {
   it('renders the legacy HTML branch and encodes share urls', async () => {
     mockResolveBlogPostContent.mockResolvedValue({
       isJson: false,
-      legacyHtml:
-        '<figure><img src="https://cdn.example.com/photo.jpg" alt="Legacy image"><figcaption>Legacy caption</figcaption></figure>',
+      legacyHtml: '<p>Legacy HTML body</p>',
       renderedContent: null,
     });
 
@@ -133,7 +132,7 @@ describe('BlogPostBody', () => {
     );
 
     expect(screen.getByTestId('blog-post-legacy-content').innerHTML).toContain(
-      'Legacy caption'
+      'Legacy HTML body'
     );
 
     const encodedTitle = encodeURIComponent('Pixel 9 Review');

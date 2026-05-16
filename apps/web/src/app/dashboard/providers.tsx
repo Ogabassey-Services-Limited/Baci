@@ -1,6 +1,5 @@
 'use client';
 
-import type { User } from '@supabase/supabase-js';
 import { ThemeProvider } from 'next-themes';
 import AppBody from '@/components/app-body';
 import { CsrfInitializer } from '@/components/csrf-initializer';
@@ -29,7 +28,6 @@ function ThemedDashboardLayout({ children }: { children: React.ReactNode }) {
 
 interface DashboardProvidersProps {
   children: React.ReactNode;
-  initialUser?: User | null;
   initialMerchant?: MerchantData | null;
   initialStaffAccess?: StaffAccess;
   nonce?: string;
@@ -39,7 +37,6 @@ type DashboardProvidersContentProps = Omit<DashboardProvidersProps, 'nonce'>;
 
 export function DashboardProviders({
   children,
-  initialUser,
   initialMerchant,
   initialStaffAccess,
   nonce,
@@ -47,7 +44,6 @@ export function DashboardProviders({
   return (
     <NonceProvider nonce={nonce}>
       <DashboardProvidersContent
-        initialUser={initialUser}
         initialMerchant={initialMerchant}
         initialStaffAccess={initialStaffAccess}
       >
@@ -59,7 +55,6 @@ export function DashboardProviders({
 
 function DashboardProvidersContent({
   children,
-  initialUser,
   initialMerchant,
   initialStaffAccess,
 }: DashboardProvidersContentProps) {
@@ -74,7 +69,7 @@ function DashboardProvidersContent({
       nonce={nonce}
     >
       <MotionNonceProvider>
-        <AuthProvider initialUser={initialUser}>
+        <AuthProvider>
           <CsrfInitializer />
           <MerchantProvider
             initialMerchant={initialMerchant}

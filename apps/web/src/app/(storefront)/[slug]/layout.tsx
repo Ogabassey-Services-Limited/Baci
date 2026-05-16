@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type React from 'react';
 import { Suspense } from 'react';
@@ -13,12 +12,9 @@ import { StorefrontCartProvider } from '@/hooks/cart/storefront-cart-provider';
 import { StorefrontMerchantProvider } from '@/hooks/merchant/storefront-merchant-provider';
 import type { MerchantData } from '@/hooks/merchant/types';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
-import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { buildStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
-import {
-  getStorefrontSeoDescription,
-  getStorefrontSeoTitle,
-} from './seo-helpers';
+import { StorefrontHeroPreloadDecision } from './storefront-hero-preload-decision';
 import {
   getStorefrontShellSnapshot,
   getStorefrontShellSnapshotBase,
@@ -124,9 +120,11 @@ export async function generateMetadata({
         : undefined;
 
   // Build SEO-friendly description with proper fallbacks
-  const description = getStorefrontSeoDescription(merchant);
-  const headersList = await headers();
-  const baseUrl = buildRequestScopedStoreUrl(merchant, headersList);
+  const description =
+    merchant.site_description ||
+    merchant.site_tagline ||
+    `Shop ${merchant.business_name} - Buy gadgets, electronics, and more with flexible payment options in Nigeria.`;
+  const baseUrl = buildStoreUrl(merchant);
   let metadataBase: URL | undefined;
 
   try {
@@ -137,7 +135,9 @@ export async function generateMetadata({
 
   return {
     metadataBase,
-    title: getStorefrontSeoTitle(merchant),
+    title:
+      merchant.site_title ||
+      `${merchant.business_name} | Buy Gadgets Pay Later`,
     description,
     icons,
     verification: verificationCode
@@ -225,6 +225,7 @@ function StorefrontThemeFrame({ children }: { children: React.ReactNode }) {
 
 export async function StorefrontLayoutContent(props: {
   children: React.ReactNode;
+  enableDynamicHeroPreloadDecision?: boolean;
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await props.params;
@@ -238,6 +239,12 @@ export async function StorefrontLayoutContent(props: {
   if (!shellSnapshotBase) {
     notFound();
   }
+
+  const enableDynamicHeroPreloadDecision =
+    props.enableDynamicHeroPreloadDecision ?? true;
+  const shouldResolveHeroPreloadDecision =
+    enableDynamicHeroPreloadDecision &&
+    shellSnapshotBase.merchant.template_id === OGABASSEY_TEMPLATE_ID;
 
   const isDevelopment = process.env.NODE_ENV === 'development';
   if (!shellSnapshotBase.merchant.is_published && !isDevelopment) {
@@ -255,19 +262,27 @@ export async function StorefrontLayoutContent(props: {
   }
 
   return (
-    <StorefrontShellFrame
-      // Page-level resource hints own LCP preloads. Keeping the shared
-      // layout disabled prevents home hero hints from leaking onto nested routes.
-      preloadHeroLcpImages={false}
-      shellSnapshot={shellSnapshot}
-    >
-      {props.children}
-    </StorefrontShellFrame>
+    <>
+      {shouldResolveHeroPreloadDecision ? (
+        <StorefrontHeroPreloadDecision
+          merchantSlug={shellSnapshotBase.merchant.slug}
+          routeSlug={slug}
+          templateId={shellSnapshotBase.merchant.template_id}
+        />
+      ) : null}
+      <StorefrontShellFrame
+        preloadHeroLcpImages={false}
+        shellSnapshot={shellSnapshot}
+      >
+        {props.children}
+      </StorefrontShellFrame>
+    </>
   );
 }
 
 export default function StorefrontLayout(props: {
   children: React.ReactNode;
+  enableDynamicHeroPreloadDecision?: boolean;
   loadingFallback?: React.ReactNode;
   params: Promise<{ slug: string }>;
 }) {

@@ -46,8 +46,6 @@ interface EditorToolbarProps {
   onOpenProducts?: () => void;
 }
 
-type ImagePopoverMode = 'insert' | 'edit-caption';
-
 export const EditorToolbar = ({
   onOpenLink,
   onOpenProducts,
@@ -58,44 +56,11 @@ export const EditorToolbar = ({
   const [openNode, setOpenNode] = useState(false);
   const [openColor, setOpenColor] = useState(false);
   const [imageUrlOpen, setImageUrlOpen] = useState(false);
-  const [imagePopoverMode, setImagePopoverMode] =
-    useState<ImagePopoverMode>('insert');
   const [imageUrlValue, setImageUrlValue] = useState('');
-  const [imageCaptionValue, setImageCaptionValue] = useState('');
   const [imageUrlError, setImageUrlError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!editor) return null;
-
-  const normalizeImageCaption = (value: string): string | null => {
-    const caption = value.trim();
-    return caption ? caption : null;
-  };
-
-  const openImageInsertPopover = () => {
-    setImagePopoverMode('insert');
-    setImageUrlValue('');
-    setImageCaptionValue('');
-    setImageUrlError(null);
-    setImageUrlOpen(true);
-  };
-
-  const openImageCaptionPopover = () => {
-    const imageAttrs = (editor.getAttributes('image') ?? {}) as {
-      title?: string | null;
-    };
-    setImagePopoverMode('edit-caption');
-    setImageCaptionValue(
-      typeof imageAttrs.title === 'string' ? imageAttrs.title : ''
-    );
-    setImageUrlError(null);
-    setImageUrlOpen(true);
-  };
-
-  const closeImagePopover = () => {
-    setImageUrlOpen(false);
-    setImageUrlError(null);
-  };
 
   const _insertImageFromUrl = () => {
     const url = imageUrlValue.trim();
@@ -118,40 +83,11 @@ export const EditorToolbar = ({
       return;
     }
 
-    editor
-      .chain()
-      .focus()
-      .setImage({
-        src: sanitized,
-        title: normalizeImageCaption(imageCaptionValue),
-      })
-      .run();
+    editor.chain().focus().setImage({ src: sanitized }).run();
     setImageUrlValue('');
-    setImageCaptionValue('');
     setImageUrlError(null);
-    closeImagePopover();
+    setImageUrlOpen(false);
   };
-
-  const _updateSelectedImageCaption = () => {
-    if (!editor.isActive('image')) {
-      return;
-    }
-
-    editor
-      .chain()
-      .focus()
-      .updateAttributes('image', {
-        title: normalizeImageCaption(imageCaptionValue),
-      })
-      .run();
-    setImageCaptionValue('');
-    closeImagePopover();
-  };
-
-  const handleUndo = () => editor.chain().focus().undo().run();
-  const handleRedo = () => editor.chain().focus().redo().run();
-  const canUndo = editor.can().chain().focus().undo().run();
-  const canRedo = editor.can().chain().focus().redo().run();
 
   const formatButtons = [
     {
@@ -239,9 +175,8 @@ export const EditorToolbar = ({
         <Button
           variant="ghost"
           size="sm"
-          type="button"
-          onClick={handleUndo}
-          disabled={!canUndo}
+          onClick={() => editor.chain().focus().undo().run()}
+          disabled={!editor.can().undo()}
           className="h-8 w-8 p-0"
           title="Undo"
         >
@@ -250,9 +185,8 @@ export const EditorToolbar = ({
         <Button
           variant="ghost"
           size="sm"
-          type="button"
-          onClick={handleRedo}
-          disabled={!canRedo}
+          onClick={() => editor.chain().focus().redo().run()}
+          disabled={!editor.can().redo()}
           className="h-8 w-8 p-0"
           title="Redo"
         >
@@ -274,7 +208,6 @@ export const EditorToolbar = ({
             key={btn.name}
             variant="ghost"
             size="sm"
-            type="button"
             onClick={btn.command}
             className={cn('h-8 w-8 p-0', {
               'bg-accent text-accent-foreground': btn.isActive(),
@@ -295,7 +228,6 @@ export const EditorToolbar = ({
             key={btn.name}
             variant="ghost"
             size="sm"
-            type="button"
             onClick={btn.command}
             className={cn('h-8 w-8 p-0', {
               'bg-accent text-accent-foreground': btn.isActive(),
@@ -316,7 +248,6 @@ export const EditorToolbar = ({
             key={btn.name}
             variant="ghost"
             size="sm"
-            type="button"
             onClick={btn.command}
             className={cn('h-8 w-8 p-0', {
               'bg-accent text-accent-foreground': btn.isActive(),
@@ -329,7 +260,6 @@ export const EditorToolbar = ({
         <Button
           variant="ghost"
           size="sm"
-          type="button"
           onClick={() =>
             // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
             (editor as any).chain().focus().toggleBlockquote().run()
@@ -346,7 +276,6 @@ export const EditorToolbar = ({
         <Button
           variant="ghost"
           size="sm"
-          type="button"
           onClick={() =>
             // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
             (editor as any).chain().focus().setHorizontalRule().run()
@@ -370,7 +299,6 @@ export const EditorToolbar = ({
         <Button
           variant="ghost"
           size="sm"
-          type="button"
           onClick={onOpenLink}
           className={cn('h-8 w-8 p-0', {
             'bg-accent text-accent-foreground': editor.isActive('link'),
@@ -384,7 +312,6 @@ export const EditorToolbar = ({
             <Button
               variant="ghost"
               size="sm"
-              type="button"
               className="h-8 w-8 p-0"
               title="Insert Image"
             >
@@ -400,84 +327,36 @@ export const EditorToolbar = ({
               Upload from device
             </DropdownMenuItem>
             <DropdownMenuItem
-              onClick={openImageInsertPopover}
+              onClick={() => setImageUrlOpen(true)}
               aria-label="Insert image from URL"
             >
               <LinkIcon className="mr-2 h-4 w-4" />
               Insert from URL
             </DropdownMenuItem>
-            {editor.isActive('image') ? (
-              <DropdownMenuItem
-                onClick={openImageCaptionPopover}
-                aria-label="Edit selected image caption"
-              >
-                <ImageIcon className="mr-2 h-4 w-4" />
-                Edit caption
-              </DropdownMenuItem>
-            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
-        <Popover
-          open={imageUrlOpen}
-          onOpenChange={(open) => {
-            setImageUrlOpen(open);
-            if (!open) {
-              setImageUrlError(null);
-            }
-          }}
-        >
+        <Popover open={imageUrlOpen} onOpenChange={setImageUrlOpen}>
           <PopoverContent
             align="start"
             className="w-80 p-3"
-            onInteractOutside={closeImagePopover}
+            onInteractOutside={() => setImageUrlOpen(false)}
           >
             <div className="space-y-2">
-              {imagePopoverMode === 'insert' ? (
-                <>
-                  <label
-                    htmlFor="image-url-input"
-                    className="text-sm font-medium"
-                  >
-                    Image URL
-                  </label>
-                  <Input
-                    id="image-url-input"
-                    placeholder="https://example.com/image.jpg"
-                    value={imageUrlValue}
-                    onChange={(e) => {
-                      setImageUrlValue(e.target.value);
-                      if (imageUrlError) setImageUrlError(null);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        _insertImageFromUrl();
-                      }
-                    }}
-                  />
-                </>
-              ) : null}
-              <label
-                htmlFor="image-caption-input"
-                className="text-sm font-medium"
-              >
-                Caption
+              <label htmlFor="image-url-input" className="text-sm font-medium">
+                Image URL
               </label>
               <Input
-                id="image-caption-input"
-                placeholder="Optional image caption"
-                value={imageCaptionValue}
-                onChange={(e) => setImageCaptionValue(e.target.value)}
+                id="image-url-input"
+                placeholder="https://example.com/image.jpg"
+                value={imageUrlValue}
+                onChange={(e) => {
+                  setImageUrlValue(e.target.value);
+                  if (imageUrlError) setImageUrlError(null);
+                }}
                 onKeyDown={(e) => {
-                  if (e.key !== 'Enter') {
-                    return;
-                  }
-                  e.preventDefault();
-                  if (imagePopoverMode === 'insert') {
+                  if (e.key === 'Enter') {
                     _insertImageFromUrl();
-                    return;
                   }
-                  _updateSelectedImageCaption();
                 }}
               />
               {imageUrlError ? (
@@ -485,22 +364,11 @@ export const EditorToolbar = ({
               ) : null}
               <Button
                 size="sm"
-                type="button"
                 className="w-full"
-                disabled={
-                  imagePopoverMode === 'insert' ? !imageUrlValue.trim() : false
-                }
-                onClick={() => {
-                  if (imagePopoverMode === 'insert') {
-                    _insertImageFromUrl();
-                    return;
-                  }
-                  _updateSelectedImageCaption();
-                }}
+                disabled={!imageUrlValue.trim()}
+                onClick={_insertImageFromUrl}
               >
-                {imagePopoverMode === 'insert'
-                  ? 'Insert Image'
-                  : 'Update Caption'}
+                Insert Image
               </Button>
             </div>
           </PopoverContent>
@@ -508,7 +376,6 @@ export const EditorToolbar = ({
         <Button
           variant="ghost"
           size="sm"
-          type="button"
           onClick={() =>
             editor
               .chain()
@@ -524,7 +391,6 @@ export const EditorToolbar = ({
         <Button
           variant="ghost"
           size="sm"
-          type="button"
           onClick={() => {
             const url = prompt('Enter YouTube URL');
             if (url) {
@@ -550,7 +416,6 @@ export const EditorToolbar = ({
           <Button
             variant="ghost"
             size="sm"
-            type="button"
             onClick={() => editor.chain().focus().toggleSuperscript().run()}
             className={cn(
               'h-8 w-8 p-0',
@@ -563,7 +428,6 @@ export const EditorToolbar = ({
           <Button
             variant="ghost"
             size="sm"
-            type="button"
             onClick={() => editor.chain().focus().toggleSubscript().run()}
             className={cn(
               'h-8 w-8 p-0',
@@ -578,7 +442,6 @@ export const EditorToolbar = ({
           <Button
             variant="ghost"
             size="sm"
-            type="button"
             onClick={onOpenProducts}
             className="h-8 w-8 p-0"
             title="Embed Products"

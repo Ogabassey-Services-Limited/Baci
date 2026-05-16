@@ -5,12 +5,13 @@ const mockAuthenticateApiRequest = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
 const mockHasPermission = vi.fn();
 const mockLoggerError = vi.fn();
-const mockLoggerWarn = vi.fn();
+
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: (...args: unknown[]) =>
     mockAuthenticateApiRequest(...args),
   hasPermission: (...args: unknown[]) => mockHasPermission(...args),
 }));
+
 vi.mock('@/lib/get-merchant-for-api-request', async () => {
   const actual = await vi.importActual<
     typeof import('@/lib/get-merchant-for-api-request')
@@ -25,9 +26,9 @@ vi.mock('@/lib/get-merchant-for-api-request', async () => {
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: (...args: unknown[]) => mockLoggerError(...args),
-    warn: (...args: unknown[]) => mockLoggerWarn(...args),
   },
 }));
+
 const merchantContext = {
   merchantId: 'merchant-1',
   merchantSlug: 'ogabassey',
@@ -46,28 +47,17 @@ function makeRequest() {
 }
 
 function createSupabaseMock({
-  featureSettingsData = {
-    agentic_checkout_enabled: true,
-    custom_settings: { agentic_agent_allowlist: ['chatgpt'] },
-  },
-  featureSettingsError = null,
   rpcData = buildRpcData(),
   rpcError = null,
 }: {
-  featureSettingsData?: unknown;
-  featureSettingsError?: unknown;
   rpcData?: unknown;
   rpcError?: unknown;
 } = {}) {
-  const maybeSingle = vi.fn(() =>
-    Promise.resolve({ data: featureSettingsData, error: featureSettingsError })
-  );
-  const eq = vi.fn(() => ({ maybeSingle }));
-  const select = vi.fn(() => ({ eq }));
-  const from = vi.fn(() => ({ select }));
   const rpc = vi.fn(() => Promise.resolve({ data: rpcData, error: rpcError }));
 
-  return { from, rpc };
+  return {
+    rpc,
+  };
 }
 
 function buildRpcData({
@@ -88,7 +78,7 @@ function buildRpcData({
   idempotencyRecords = [
     {
       created_at: '2026-05-12T10:00:00.000Z',
-      expires_at: '2099-05-12T10:15:00.000Z',
+      expires_at: '2026-05-12T10:15:00.000Z',
       idempotency_key: 'must-not-leak',
       request_hash: 'must-not-leak',
       route: 'checkout.complete',
@@ -123,6 +113,7 @@ function buildRpcData({
     request_records: requestRecords,
   };
 }
+
 describe('GET /api/merchant/agentic/action-health', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -134,6 +125,7 @@ describe('GET /api/merchant/agentic/action-health', () => {
       user: { id: 'user-1' },
     });
   });
+
   it('returns merchant-scoped agentic action health without raw retry secrets', async () => {
     const supabase = createSupabaseMock();
     mockAuthenticateApiRequest.mockResolvedValue({
@@ -141,9 +133,11 @@ describe('GET /api/merchant/agentic/action-health', () => {
       supabase,
       user: { id: 'user-1' },
     });
+
     const { GET } = await import('./route');
     const response = await GET(makeRequest());
     const payload = await response.json();
+
     expect(response.status).toBe(200);
     expect(payload).toMatchObject({
       actions: [
@@ -163,12 +157,6 @@ describe('GET /api/merchant/agentic/action-health', () => {
         terminal_error_count: 1,
       },
       merchant_id: 'merchant-1',
-      request_controls: {
-        allowlist_count: 1,
-        denylist_count: 0,
-        fetch_error: false,
-        is_agentic_checkout_enabled: true,
-      },
       requests: { recent_count: 1 },
     });
     expect(JSON.stringify(payload)).not.toContain('must-not-leak');
@@ -180,6 +168,7 @@ describe('GET /api/merchant/agentic/action-health', () => {
       }
     );
   });
+
   it('returns a healthy action when no recent issues are present', async () => {
     mockAuthenticateApiRequest.mockResolvedValue({
       error: null,
@@ -192,110 +181,6 @@ describe('GET /api/merchant/agentic/action-health', () => {
       }),
       user: { id: 'user-1' },
     });
-    const { GET } = await import('./route');
-    const response = await GET(makeRequest());
-    const payload = await response.json();
-    expect(response.status).toBe(200);
-    expect(payload.actions).toEqual([
-      {
-        code: 'AGENTIC_ACTIONS_HEALTHY',
-        count: 0,
-        message: 'No recent agentic action issues need attention.',
-        severity: 'ok',
-      },
-    ]);
-  });
-
-  it('adds a monitor action when agent checkout is enabled without an allowlist', async () => {
-    mockAuthenticateApiRequest.mockResolvedValue({
-      error: null,
-      supabase: createSupabaseMock({
-        featureSettingsData: {
-          agentic_checkout_enabled: true,
-          custom_settings: {},
-        },
-        rpcData: buildRpcData({
-          checkoutSessions: [],
-          idempotencyRecords: [{ status_code: 200 }],
-          requestRecords: [],
-        }),
-      }),
-      user: { id: 'user-1' },
-    });
-
-    const { GET } = await import('./route');
-    const response = await GET(makeRequest());
-    const payload = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(payload.actions).toEqual([
-      {
-        code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
-        count: 1,
-        message:
-          'No agent allowlist is configured. Contact support to configure trusted agent user-agents for this merchant.',
-        severity: 'monitor',
-      },
-    ]);
-    expect(payload.request_controls).toEqual({
-      allowlist_count: 0,
-      denylist_count: 0,
-      fetch_error: false,
-      is_agentic_checkout_enabled: true,
-    });
-  });
-
-  it('treats missing feature-settings rows as default-enabled and surfaces allowlist monitor action', async () => {
-    mockAuthenticateApiRequest.mockResolvedValue({
-      error: null,
-      supabase: createSupabaseMock({
-        featureSettingsData: null,
-        featureSettingsError: null,
-        rpcData: buildRpcData({
-          checkoutSessions: [],
-          idempotencyRecords: [{ status_code: 200 }],
-          requestRecords: [],
-        }),
-      }),
-      user: { id: 'user-1' },
-    });
-
-    const { GET } = await import('./route');
-    const response = await GET(makeRequest());
-    const payload = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(payload.actions).toEqual([
-      {
-        code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
-        count: 1,
-        message:
-          'No agent allowlist is configured. Contact support to configure trusted agent user-agents for this merchant.',
-        severity: 'monitor',
-      },
-    ]);
-    expect(payload.request_controls).toEqual({
-      allowlist_count: 0,
-      denylist_count: 0,
-      fetch_error: false,
-      is_agentic_checkout_enabled: true,
-    });
-  });
-
-  it('logs a warning and skips allowlist monitor actions when control lookup fails', async () => {
-    mockAuthenticateApiRequest.mockResolvedValue({
-      error: null,
-      supabase: createSupabaseMock({
-        featureSettingsData: null,
-        featureSettingsError: { message: 'feature settings unavailable' },
-        rpcData: buildRpcData({
-          checkoutSessions: [],
-          idempotencyRecords: [{ status_code: 200 }],
-          requestRecords: [],
-        }),
-      }),
-      user: { id: 'user-1' },
-    });
 
     const { GET } = await import('./route');
     const response = await GET(makeRequest());
@@ -310,126 +195,6 @@ describe('GET /api/merchant/agentic/action-health', () => {
         severity: 'ok',
       },
     ]);
-    expect(payload.request_controls).toEqual({
-      allowlist_count: 0,
-      denylist_count: 0,
-      fetch_error: true,
-      is_agentic_checkout_enabled: false,
-    });
-    expect(mockLoggerWarn).toHaveBeenCalledWith(
-      expect.objectContaining({
-        merchantId: 'merchant-1',
-        message: 'Failed to load agentic request controls for action health',
-      })
-    );
-  });
-  it('separates expired and active in-progress idempotency reservations', async () => {
-    mockAuthenticateApiRequest.mockResolvedValue({
-      error: null,
-      supabase: createSupabaseMock({
-        rpcData: buildRpcData({
-          checkoutSessions: [],
-          idempotencyRecords: [
-            {
-              created_at: '2026-05-12T10:00:00.000Z',
-              expires_at: '2020-01-01T00:00:00.000Z',
-              route: 'checkout.complete',
-              status_code: null,
-              updated_at: '2026-05-12T10:16:00.000Z',
-            },
-            {
-              created_at: '2026-05-12T10:20:00.000Z',
-              expires_at: '2099-01-01T00:00:00.000Z',
-              route: 'checkout.update',
-              status_code: null,
-              updated_at: '2026-05-12T10:21:00.000Z',
-            },
-          ],
-          requestRecords: [],
-        }),
-      }),
-      user: { id: 'user-1' },
-    });
-    const { GET } = await import('./route');
-    const response = await GET(makeRequest());
-    const payload = await response.json();
-    expect(response.status).toBe(200);
-    expect(payload.actions).toEqual(
-      expect.arrayContaining([
-        {
-          code: 'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS',
-          count: 1,
-          message:
-            'Agentic retry reservations expired before storing a response.',
-          severity: 'attention',
-        },
-        {
-          code: 'AGENTIC_REQUESTS_IN_PROGRESS',
-          count: 1,
-          message: 'Agentic idempotency reservations are still in progress.',
-          severity: 'monitor',
-        },
-      ])
-    );
-    expect(payload.idempotency).toMatchObject({
-      active_in_progress_count: 1,
-      in_progress_count: 2,
-      stale_in_progress_count: 1,
-    });
-  });
-
-  it('surfaces payment setup failures and active payment claims', async () => {
-    mockAuthenticateApiRequest.mockResolvedValue({
-      error: null,
-      supabase: createSupabaseMock({
-        rpcData: buildRpcData({
-          checkoutSessions: [
-            {
-              metadata: { agentic: { payment_state: 'payment_setup_failed' } },
-              session_id: 'agentic-session-setup-failed',
-              status: 'processing',
-              updated_at: '2026-05-12T10:06:00.000Z',
-            },
-            {
-              metadata: { agentic: { payment_state: 'claiming_payment' } },
-              session_id: 'agentic-session-claiming',
-              status: 'processing',
-              updated_at: '2026-05-12T10:05:00.000Z',
-            },
-          ],
-          idempotencyRecords: [{ status_code: 200 }],
-          requestRecords: [],
-        }),
-      }),
-      user: { id: 'user-1' },
-    });
-
-    const { GET } = await import('./route');
-    const response = await GET(makeRequest());
-    const payload = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(payload.actions).toEqual(
-      expect.arrayContaining([
-        {
-          code: 'AGENTIC_PAYMENT_SETUP_FAILED',
-          count: 1,
-          message:
-            'Agentic checkouts failed while setting up payment collection.',
-          severity: 'attention',
-        },
-        {
-          code: 'AGENTIC_PAYMENT_CLAIMING',
-          count: 1,
-          message: 'Agentic checkouts are claiming payment setup.',
-          severity: 'monitor',
-        },
-      ])
-    );
-    expect(payload.checkout_sessions).toMatchObject({
-      claiming_payment_count: 1,
-      payment_setup_failed_count: 1,
-    });
   });
 
   it('returns 401 before merchant lookup when authentication fails', async () => {
@@ -438,8 +203,10 @@ describe('GET /api/merchant/agentic/action-health', () => {
       supabase: null,
       user: null,
     });
+
     const { GET } = await import('./route');
     const response = await GET(makeRequest());
+
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: 'Unauthorized' });
     expect(mockAuthenticateApiRequest).toHaveBeenCalledOnce();
@@ -448,16 +215,20 @@ describe('GET /api/merchant/agentic/action-health', () => {
 
   it('returns 404 when no merchant context exists', async () => {
     mockGetMerchantForApiRequest.mockResolvedValue(null);
+
     const { GET } = await import('./route');
     const response = await GET(makeRequest());
+
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ error: 'Merchant not found' });
   });
 
   it('returns 403 when the user cannot view the dashboard', async () => {
     mockHasPermission.mockReturnValue(false);
+
     const { GET } = await import('./route');
     const response = await GET(makeRequest());
+
     expect(response.status).toBe(403);
     expect(await response.json()).toEqual({ error: 'Forbidden' });
     expect(mockHasPermission).toHaveBeenCalledWith(
@@ -475,8 +246,10 @@ describe('GET /api/merchant/agentic/action-health', () => {
       }),
       user: { id: 'user-1' },
     });
+
     const { GET } = await import('./route');
     const response = await GET(makeRequest());
+
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({
       error: 'Failed to load agentic action health',

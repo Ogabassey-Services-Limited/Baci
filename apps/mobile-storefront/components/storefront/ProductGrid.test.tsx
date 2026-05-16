@@ -51,32 +51,6 @@ describe('ProductGrid', () => {
     );
   });
 
-  it('deduplicates products by id, keeping the first occurrence', () => {
-    const firstProduct = sampleProducts[0];
-    const secondProduct = sampleProducts[1];
-    if (!firstProduct || !secondProduct) {
-      throw new Error('Expected sample products for duplicate-id regression');
-    }
-
-    // This verifies ID-based deduplication, not name-based filtering.
-    mockProductsHook({
-      products: [
-        firstProduct,
-        { ...firstProduct, name: 'Duplicate iPhone' },
-        secondProduct,
-      ],
-    });
-
-    render(
-      <ProductGrid block={block} selectedCategoryId={null} variant="grid" />
-    );
-
-    expect(mockProductCard).toHaveBeenCalledTimes(2);
-    expect(
-      mockProductCard.mock.calls.map(([props]) => props.product.name)
-    ).toEqual(['iPhone 13 Pro', 'Pixel 8']);
-  });
-
   it('applies prioritizeSmartphoneProducts and curated product-grid categories', () => {
     render(
       <ProductGrid block={block} selectedCategoryId={null} variant="grid" />

@@ -1,7 +1,6 @@
 'use client';
 
 import { Eye, Minus, Plus } from 'lucide-react';
-import type { Route } from 'next';
 import Link from 'next/link';
 import { ProductCardImage } from '@/components/optimized-image';
 import { ThemedButton, ThemedCard } from '@/components/themed';
@@ -25,28 +24,7 @@ interface StorefrontProductCardProps {
   onAddToCart: (product: Product) => void;
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onQuickView: (product: Product) => void;
-  merchantSlug?: string | null;
   priority?: boolean;
-}
-
-function buildStorefrontProductHref(
-  product: Product,
-  merchantSlug?: string | null
-): Route {
-  const productPath = getProductUrl(product);
-  if (!merchantSlug) return productPath;
-
-  if (
-    productPath === `/${merchantSlug}` ||
-    productPath.startsWith(`/${merchantSlug}/`)
-  ) {
-    return productPath;
-  }
-
-  const normalizedPath = productPath.startsWith('/')
-    ? productPath
-    : `/${productPath}`;
-  return `/${merchantSlug}${normalizedPath}` as Route;
 }
 
 /**
@@ -60,7 +38,6 @@ export function StorefrontProductCard({
   onAddToCart,
   onUpdateQuantity,
   onQuickView,
-  merchantSlug,
   priority = false,
 }: StorefrontProductCardProps) {
   const { formatCurrency } = useCurrency();
@@ -134,10 +111,7 @@ export function StorefrontProductCard({
       accentPosition="top"
     >
       <div className="relative group/image">
-        <Link
-          href={buildStorefrontProductHref(product, merchantSlug)}
-          className="block"
-        >
+        <Link href={getProductUrl(product)} className="block">
           <ProductCardImage
             src={product.imageLarge}
             alt={product.name}

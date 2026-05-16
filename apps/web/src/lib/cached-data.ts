@@ -7,7 +7,6 @@ import {
   getSupabaseServiceRoleKey,
   getSupabaseUrl,
 } from '@/env';
-import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
@@ -1674,7 +1673,10 @@ export async function getCachedBlogPost(
 ) {
   'use cache: remote';
   cacheLife('merchant');
-  cacheTag('blog-posts', getBlogCacheTag(identifier, postSlug));
+  cacheTag(
+    'blog-posts',
+    `blog-${identifier.toLowerCase()}-${postSlug.toLowerCase()}`
+  );
 
   const lookupKey = identifier.toLowerCase();
   const merchant = await getMerchantStrict(lookupKey);

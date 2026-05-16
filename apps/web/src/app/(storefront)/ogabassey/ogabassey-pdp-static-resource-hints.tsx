@@ -3,13 +3,19 @@ import { getImageProps } from 'next/image';
 import type { ReactElement } from 'react';
 import { FLASH_SALE_PROMO_IMAGE } from '@/components/storefront/ogabassey/components/hero-data';
 import imageLoader from '@/lib/image-loader';
-import { getOgabasseyImagePreloadType } from './ogabassey-image-preload-type';
 
 // The PDP banner only renders in the desktop carousel; keep the preload
 // desktop-scoped while matching BannerCarousel's fill image sizes.
 const PDP_BANNER_PRELOAD_MEDIA = '(min-width: 768px)';
 const PDP_BANNER_IMAGE_SIZES =
   '(max-width: 768px) 100vw, (max-width: 1200px) 80vw, 1400px';
+const IMAGE_PRELOAD_TYPES = {
+  avif: 'image/avif',
+  jpeg: 'image/jpeg',
+  jpg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+} as const;
 
 /**
  * PDP-only resource hints for the OgaBassey product detail page.
@@ -29,7 +35,7 @@ export function OgabasseyPdpStaticResourceHints(): ReactElement {
     sizes: PDP_BANNER_IMAGE_SIZES,
     src: FLASH_SALE_PROMO_IMAGE,
   });
-  const preloadType = getOgabasseyImagePreloadType(src);
+  const preloadType = getImagePreloadType(src);
 
   return (
     <link
@@ -43,4 +49,18 @@ export function OgabasseyPdpStaticResourceHints(): ReactElement {
       type={preloadType}
     />
   );
+}
+
+function getImagePreloadType(src: string) {
+  const transformedFormat = src.match(
+    /(?:^|[?&/,])format=(avif|jpe?g|png|webp)(?:[&/,]|$)/i
+  )?.[1];
+  const extension =
+    transformedFormat ?? src.match(/\.(avif|jpe?g|png|webp)(?:[?#].*)?$/i)?.[1];
+
+  return extension
+    ? IMAGE_PRELOAD_TYPES[
+        extension.toLowerCase() as keyof typeof IMAGE_PRELOAD_TYPES
+      ]
+    : undefined;
 }

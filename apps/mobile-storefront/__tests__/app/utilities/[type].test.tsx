@@ -11,7 +11,6 @@ import type {
   VTUHistoryTransaction,
 } from '@/hooks/use-vtu-history';
 import { walletKeys } from '@/hooks/use-wallet';
-import type { UtilityRepeatRecipient } from '@/lib/utility-repeat';
 
 // Test constants
 const EXPECTED_UTILITY_TAB_COUNT = 5;
@@ -33,7 +32,6 @@ type UtilityRouteParams = {
   repeatBillerName?: string;
   repeatBillItemIdentifier?: string;
   repeatCustomerIdentifier?: string;
-  repeatCustomerName?: string;
   repeatDataPlanCode?: string;
   repeatNetworkProvider?: string;
   repeatPhoneNumber?: string;
@@ -54,31 +52,6 @@ type MockUseVTUHistory = (
   limit: number
 ) => MockVTUHistoryResult;
 const mockUseVTUHistory = jest.fn<MockUseVTUHistory>();
-
-type MockAirtimeFormProps = {
-  initialPhoneNumber?: string;
-  recentRecipients?: UtilityRepeatRecipient[];
-  onSelectRecentRecipient?: (recipient: UtilityRepeatRecipient) => void;
-};
-
-type MockBillFormProps = {
-  initialAmount?: string;
-  initialCustomerIdentifier?: string;
-  isRepeatPaymentReady?: boolean;
-  recentRecipients?: UtilityRepeatRecipient[];
-  onSelectRecentRecipient?: (recipient: UtilityRepeatRecipient) => void;
-  type: string;
-};
-
-type MockDataFormProps = {
-  initialPhoneNumber?: string;
-  recentRecipients?: UtilityRepeatRecipient[];
-  onSelectRecentRecipient?: (recipient: UtilityRepeatRecipient) => void;
-};
-
-const mockAirtimeForm = jest.fn<(props: MockAirtimeFormProps) => void>();
-const mockBillForm = jest.fn<(props: MockBillFormProps) => void>();
-const mockDataForm = jest.fn<(props: MockDataFormProps) => void>();
 
 function createHistoryResult(
   overrides: Partial<MockVTUHistoryResult> = {}
@@ -136,92 +109,55 @@ jest.mock('@/components/useColorScheme', () => ({
 }));
 
 jest.mock('@/components/utilities/AirtimeForm', () => {
-  const { Pressable, Text, View } =
+  const { Text } =
     jest.requireActual<typeof import('react-native')>('react-native');
 
   return {
-    AirtimeForm: (props: MockAirtimeFormProps) => {
-      mockAirtimeForm(props);
-
-      return (
-        <View>
-          <Text>{`Airtime form ${props.initialPhoneNumber ?? ''}`}</Text>
-          {props.recentRecipients?.map((recipient) => (
-            <Pressable
-              key={recipient.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Select recent ${recipient.identifier}`}
-              onPress={() => props.onSelectRecentRecipient?.(recipient)}
-            >
-              <Text>{`Recent recipient ${recipient.identifier}`}</Text>
-            </Pressable>
-          ))}
-        </View>
-      );
-    },
+    AirtimeForm: ({ initialPhoneNumber }: { initialPhoneNumber?: string }) => (
+      <Text>{`Airtime form ${initialPhoneNumber ?? ''}`}</Text>
+    ),
   };
 });
 
 jest.mock('@/components/utilities/BillForm', () => {
-  const { Pressable, Text, View } =
+  const { Text } =
     jest.requireActual<typeof import('react-native')>('react-native');
 
   return {
-    BillForm: (props: MockBillFormProps) => {
-      mockBillForm(props);
+    BillForm: ({
+      initialAmount,
+      initialCustomerIdentifier,
+      isRepeatPaymentReady,
+      type,
+    }: {
+      initialAmount?: string;
+      initialCustomerIdentifier?: string;
+      isRepeatPaymentReady?: boolean;
+      type: string;
+    }) => {
       const formText = [
         'Bill form',
-        props.type,
-        props.initialCustomerIdentifier,
-        props.initialAmount,
-        props.isRepeatPaymentReady ? 'repeat-ready' : undefined,
+        type,
+        initialCustomerIdentifier,
+        initialAmount,
+        isRepeatPaymentReady ? 'repeat-ready' : undefined,
       ]
         .filter(Boolean)
         .join(' ');
 
-      return (
-        <View>
-          <Text>{formText}</Text>
-          {props.recentRecipients?.map((recipient) => (
-            <Pressable
-              key={recipient.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Select recent ${recipient.identifier}`}
-              onPress={() => props.onSelectRecentRecipient?.(recipient)}
-            >
-              <Text>{`Recent recipient ${recipient.identifier}`}</Text>
-            </Pressable>
-          ))}
-        </View>
-      );
+      return <Text>{formText}</Text>;
     },
   };
 });
 
 jest.mock('@/components/utilities/DataForm', () => {
-  const { Pressable, Text, View } =
+  const { Text } =
     jest.requireActual<typeof import('react-native')>('react-native');
 
   return {
-    DataForm: (props: MockDataFormProps) => {
-      mockDataForm(props);
-
-      return (
-        <View>
-          <Text>{`Data form ${props.initialPhoneNumber ?? ''}`}</Text>
-          {props.recentRecipients?.map((recipient) => (
-            <Pressable
-              key={recipient.id}
-              accessibilityRole="button"
-              accessibilityLabel={`Select recent ${recipient.identifier}`}
-              onPress={() => props.onSelectRecentRecipient?.(recipient)}
-            >
-              <Text>{`Recent recipient ${recipient.identifier}`}</Text>
-            </Pressable>
-          ))}
-        </View>
-      );
-    },
+    DataForm: ({ initialPhoneNumber }: { initialPhoneNumber?: string }) => (
+      <Text>{`Data form ${initialPhoneNumber ?? ''}`}</Text>
+    ),
   };
 });
 
@@ -255,6 +191,12 @@ jest.mock('@/stores/auth-store', () => ({
       merchantId: TEST_MERCHANT_ID,
       session: { access_token: 'token' },
     }),
+}));
+
+jest.mock('@/hooks/use-keyboard', () => ({
+  useKeyboard: () => ({
+    isKeyboardVisible: false,
+  }),
 }));
 
 jest.mock('@/hooks/use-vtu-history', () => ({
@@ -404,7 +346,7 @@ describe('UtilityPurchaseScreen', () => {
     });
   });
 
-  it('passes recent recipients to the current form and prefills after selection', () => {
+  it('prefills the current form from the last successful transaction quick action', () => {
     mockUseVTUHistory.mockReturnValue({
       ...createHistoryResult(),
       data: [createHistoryTransaction()],
@@ -412,26 +354,16 @@ describe('UtilityPurchaseScreen', () => {
 
     render(<UtilityPurchaseScreen />);
 
-    expect(mockBillForm).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        recentRecipients: [
-          expect.objectContaining({
-            identifier: '43901766923',
-            identifierLabel: 'Meter Number',
-          }),
-        ],
-        onSelectRecentRecipient: expect.any(Function),
-      })
+    fireEvent.press(
+      screen.getByLabelText('Repeat last Electricity transaction')
     );
-
-    fireEvent.press(screen.getByLabelText('Select recent 43901766923'));
 
     expect(
       screen.getByText('Bill form power 43901766923 2500 repeat-ready')
     ).toBeOnTheScreen();
   });
 
-  it('does not pass recent recipients for the latest failed transaction', () => {
+  it('does not show quick repeat for the latest failed transaction', () => {
     mockUseVTUHistory.mockReturnValue(
       createHistoryResult({
         data: [createHistoryTransaction({ status: 'failed' })],
@@ -440,24 +372,22 @@ describe('UtilityPurchaseScreen', () => {
 
     render(<UtilityPurchaseScreen />);
 
-    expect(screen.queryByLabelText('Select recent 43901766923')).toBeNull();
-    expect(mockBillForm).toHaveBeenLastCalledWith(
-      expect.objectContaining({ recentRecipients: [] })
-    );
+    expect(
+      screen.queryByLabelText('Repeat last Electricity transaction')
+    ).toBeNull();
   });
 
-  it('does not pass recent recipients when history is empty', () => {
+  it('does not show quick repeat when history is empty', () => {
     mockUseVTUHistory.mockReturnValue(createHistoryResult({ data: [] }));
 
     render(<UtilityPurchaseScreen />);
 
-    expect(screen.queryByLabelText(/Select recent/)).toBeNull();
-    expect(mockBillForm).toHaveBeenLastCalledWith(
-      expect.objectContaining({ recentRecipients: [] })
-    );
+    expect(
+      screen.queryByLabelText('Repeat last Electricity transaction')
+    ).toBeNull();
   });
 
-  it('does not pass recent recipients for a transaction outside the current utility type', () => {
+  it('does not show quick repeat for a transaction outside the current utility type', () => {
     mockUseVTUHistory.mockReturnValue(
       createHistoryResult({
         data: [
@@ -473,13 +403,12 @@ describe('UtilityPurchaseScreen', () => {
 
     render(<UtilityPurchaseScreen />);
 
-    expect(screen.queryByLabelText('Select recent 08031234567')).toBeNull();
-    expect(mockBillForm).toHaveBeenLastCalledWith(
-      expect.objectContaining({ recentRecipients: [] })
-    );
+    expect(
+      screen.queryByLabelText('Repeat last Electricity transaction')
+    ).toBeNull();
   });
 
-  it('clears inline recipient repeat defaults when switching utility types', async () => {
+  it('clears quick-repeat defaults when switching utility types', async () => {
     mockUseVTUHistory.mockReturnValue(
       createHistoryResult({
         data: [createHistoryTransaction()],
@@ -488,7 +417,9 @@ describe('UtilityPurchaseScreen', () => {
 
     render(<UtilityPurchaseScreen />);
 
-    fireEvent.press(screen.getByLabelText('Select recent 43901766923'));
+    fireEvent.press(
+      screen.getByLabelText('Repeat last Electricity transaction')
+    );
     expect(
       screen.getByText('Bill form power 43901766923 2500 repeat-ready')
     ).toBeOnTheScreen();
@@ -500,7 +431,7 @@ describe('UtilityPurchaseScreen', () => {
     });
   });
 
-  it('does not render floating quick repeat loading notices while history loads', () => {
+  it('shows a quiet loading state instead of quick repeat while history loads', () => {
     mockUseVTUHistory.mockReturnValue(
       createHistoryResult({
         data: [createHistoryTransaction()],
@@ -514,11 +445,11 @@ describe('UtilityPurchaseScreen', () => {
       screen.queryByLabelText('Repeat last Electricity transaction')
     ).toBeNull();
     expect(
-      screen.queryByText('Checking recent Electricity transactions...')
-    ).toBeNull();
+      screen.getByText('Checking recent Electricity transactions...')
+    ).toBeOnTheScreen();
   });
 
-  it('does not render floating quick repeat error notices when history fails', () => {
+  it('shows a quiet error state instead of quick repeat when history fails', () => {
     mockUseVTUHistory.mockReturnValue(
       createHistoryResult({
         data: [createHistoryTransaction()],
@@ -532,8 +463,8 @@ describe('UtilityPurchaseScreen', () => {
       screen.queryByLabelText('Repeat last Electricity transaction')
     ).toBeNull();
     expect(
-      screen.queryByText('Recent Electricity transactions unavailable.')
-    ).toBeNull();
+      screen.getByText('Recent Electricity transactions unavailable.')
+    ).toBeOnTheScreen();
   });
 
   it('passes verified repeat route params straight into the bill payment step', () => {

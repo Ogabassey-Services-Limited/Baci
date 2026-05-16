@@ -3,7 +3,7 @@
 // Migrated from temp-source/components/NegotiationModal.tsx
 import { CheckCircle2, HandCoins, Loader2, Upload, X } from 'lucide-react';
 import type React from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 interface NegotiationModalProps {
@@ -51,27 +51,12 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   // Upload Evidence State
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadLink, setUploadLink] = useState('');
-  const submitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isMountedRef = useRef(false);
-  const isOpenRef = useRef(isOpen);
 
-  const [supabase] = useState(() => createClient());
-
-  const clearSubmitTimeout = () => {
-    if (submitTimeoutRef.current) {
-      clearTimeout(submitTimeoutRef.current);
-      submitTimeoutRef.current = null;
-    }
-  };
-
-  const canApplyAsyncResult = () => isMountedRef.current && isOpenRef.current;
+  const supabase = createClient();
 
   // Reset state when opened
   useEffect(() => {
-    isOpenRef.current = isOpen;
-
     if (isOpen) {
-      clearSubmitTimeout();
       setOffer('');
       setStatus('input');
       setMessage('');
@@ -79,20 +64,8 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
       setCounterOffer(null);
       setUploadFile(null);
       setUploadLink('');
-      return;
     }
-
-    clearSubmitTimeout();
   }, [isOpen]);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-
-    return () => {
-      isMountedRef.current = false;
-      clearSubmitTimeout();
-    };
-  }, []);
 
   if (!isOpen) return null;
 
@@ -104,9 +77,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
     const offerAmount = Number.parseFloat(offer);
 
     // Simulate AI thinking delay
-    clearSubmitTimeout();
-    submitTimeoutRef.current = setTimeout(() => {
-      submitTimeoutRef.current = null;
+    setTimeout(() => {
       const discountPercentage = 1 - offerAmount / currentPrice;
 
       // 5% Hard Floor
@@ -184,18 +155,10 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
       if (error) throw error;
 
-      if (!canApplyAsyncResult()) {
-        return;
-      }
-
       setStatus('submitted');
       setMessage("Request submitted! We'll notify you as soon as the merchant reviews your offer.");
     } catch (error) {
       console.error('Failed to submit request:', error);
-      if (!canApplyAsyncResult()) {
-        return;
-      }
-
       alert('Failed to submit request. Please try again.');
       setStatus('upload');
     }

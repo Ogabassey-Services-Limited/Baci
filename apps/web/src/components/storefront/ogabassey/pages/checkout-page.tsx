@@ -282,11 +282,7 @@ export const CheckoutPage: React.FC = () => {
     searchParams.get('slug') ||
     merchant?.slug ||
     null;
-  const gatewayParam = searchParams.get('gateway')?.toLowerCase();
-  const preferredGateway =
-    gatewayParam === 'credpal' || gatewayParam === 'credit_direct'
-      ? gatewayParam
-      : null;
+  const preferredGateway = searchParams.get('gateway') as 'credpal' | 'credit_direct' | null;
   const [resumedOrder, setResumedOrder] = useState<{
     id: string;
     short_id: string;
@@ -1143,56 +1139,13 @@ export const CheckoutPage: React.FC = () => {
       return;
     }
 
+    setIsProcessing(true);
+
     // Handle resumed orders from mobile app (order already exists, just need payment)
     if (resumedOrder && preferredGateway) {
-      setIsProcessing(true);
-      try {
-        await executeDirectPayment();
-      } finally {
-        isOrderInFlightRef.current = false;
-      }
+      await executeDirectPayment();
       return;
     }
-
-    if (deliveryMethod === 'door' && !selectedQuoteId) {
-      toast({
-        title: 'Select Delivery Option',
-        description: 'Please select a delivery option before placing your order.',
-        variant: 'destructive',
-      });
-      setCurrentStep('delivery');
-      setCompletedSteps((prev) => ({ ...prev, delivery: false }));
-      isOrderInFlightRef.current = false;
-      return;
-    }
-
-    // Note: `airportType` is typed as `'delivery' | 'pickup'` with a
-    // 'delivery' default, so an explicit `!airportType` guard here would be
-    // unreachable. Airport flow validation lives in `isDeliveryValid`.
-
-    if (paymentMethod === 'bank_transfer' && !bankTransferCheckoutAvailable) {
-      toast({
-        title: 'Payment Unavailable',
-        description:
-          'Bank transfer is not available for this store yet. Please choose a different payment method.',
-        variant: 'destructive',
-      });
-      isOrderInFlightRef.current = false;
-      return;
-    }
-
-    if (paymentMethod === 'paystack' && !paystackCheckoutAvailable) {
-      toast({
-        title: 'Payment Unavailable',
-        description:
-          'Paystack is not available for this store yet. Please choose a different payment method.',
-        variant: 'destructive',
-      });
-      isOrderInFlightRef.current = false;
-      return;
-    }
-
-    setIsProcessing(true);
 
     const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
 
@@ -1211,9 +1164,6 @@ export const CheckoutPage: React.FC = () => {
             variant: 'destructive',
           });
           setIsProcessing(false);
-          setCompletedSteps((prev) => ({ ...prev, delivery: false }));
-          isOrderInFlightRef.current = false;
-          setCurrentStep('delivery');
           return;
         }
         finalAddress = newAddressStreet;
@@ -1508,6 +1458,18 @@ export const CheckoutPage: React.FC = () => {
         router.push(asRoute(getHref(`/order-success?${successQuery.toString()}`)));
         setTimeout(clearCart, 500);
         return;
+      }
+
+      if (paymentMethod === 'bank_transfer' && !bankTransferCheckoutAvailable) {
+        throw new Error(
+          'Bank transfer is not available for this store yet. Please choose a different payment method.'
+        );
+      }
+
+      if (paymentMethod === 'paystack' && !paystackCheckoutAvailable) {
+        throw new Error(
+          'Paystack is not available for this store yet. Please choose a different payment method.'
+        );
       }
 
       if (paymentMethod === 'bank_transfer') {

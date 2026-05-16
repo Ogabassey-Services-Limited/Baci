@@ -57,7 +57,6 @@ vi.mock('next/cache', () => ({
 }));
 
 // ---- Import handler AFTER mocks ----
-import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { POST } from './route';
 
 // ---- Helpers ----
@@ -345,19 +344,19 @@ describe('POST /api/cache/revalidate', () => {
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        getBlogCacheTag('test-store', 'apple-studio-display-review'),
+        'blog-test-store-apple-studio-display-review',
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        getBlogCacheTag('test-store', 'airpods-max-2-2026'),
+        'blog-test-store-airpods-max-2-2026',
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        getBlogCacheTag('ogabassey.com', 'apple-studio-display-review'),
+        'blog-ogabassey.com-apple-studio-display-review',
         'merchant'
       );
       expect(mockRevalidateTag).toHaveBeenCalledWith(
-        getBlogCacheTag('ogabassey.com', 'airpods-max-2-2026'),
+        'blog-ogabassey.com-airpods-max-2-2026',
         'merchant'
       );
       expect(mockRevalidatePath).toHaveBeenCalledWith('/test-store/blog');

@@ -87,8 +87,6 @@ export function DomainItemCard({
         disabled={actionLoading}
         accessibilityRole="button"
         accessibilityLabel={`Open options for ${domain.domain}`}
-        accessibilityHint="Opens options to manage this domain"
-        accessibilityState={{ disabled: actionLoading }}
         hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}
       >
         <Ionicons

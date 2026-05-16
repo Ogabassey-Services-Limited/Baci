@@ -10,25 +10,15 @@ import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase
 import { createAdminClient } from '@/lib/supabase/admin';
 
 const mockVerifyAgenticApiKey = vi.fn(() => true);
-type MockAgenticMerchantContext = {
-  agentic_checkout_enabled?: boolean;
-  id: string;
-  slug: string;
-};
-
-const mockResolveAgenticMerchantContext = vi.fn<
-  () => Promise<MockAgenticMerchantContext | null>
->(() => Promise.resolve({ id: 'merchant-1', slug: 'ogabassey' }));
+const mockResolveAgenticMerchantContext = vi.fn(() =>
+  Promise.resolve({ id: 'merchant-1', slug: 'ogabassey' })
+);
 
 vi.mock('@/lib/agentic/auth', () => ({
   verifyAgenticApiKey: mockVerifyAgenticApiKey,
 }));
 
 vi.mock('@/lib/agentic/merchant-context', () => ({
-  AGENTIC_CHECKOUT_DISABLED_ERROR: 'Agentic checkout disabled',
-  isAgenticMerchantCheckoutEnabled: (merchant: {
-    agentic_checkout_enabled?: boolean;
-  }) => merchant.agentic_checkout_enabled !== false,
   resolveAgenticMerchantContext: mockResolveAgenticMerchantContext,
 }));
 
@@ -87,53 +77,6 @@ describe('POST /api/agentic/checkout_sessions/[id] payment state', () => {
       ok: true,
     });
     vi.mocked(reserveAgenticRequestId).mockResolvedValue({ ok: true });
-  });
-
-  it('returns 403 when the merchant disables agentic checkout', async () => {
-    mockResolveAgenticMerchantContext.mockResolvedValueOnce({
-      agentic_checkout_enabled: false,
-      id: 'merchant-1',
-      slug: 'ogabassey',
-    });
-    vi.mocked(createAdminClient).mockReturnValue({} as never);
-
-    const request = new NextRequest(
-      'http://localhost/api/agentic/checkout_sessions/agentic_session_1',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Idempotency-Key': 'idem-1',
-        },
-        body: JSON.stringify({
-          shipping_address: { city: 'Abuja' },
-        }),
-      }
-    );
-
-    const { POST } = await import('./route');
-    const response = await POST(request, {
-      params: Promise.resolve({ id: 'agentic_session_1' }),
-    });
-    const body = await response.json();
-
-    expect(response.status).toBe(403);
-    expect(body).toEqual({ error: 'Agentic checkout disabled' });
-    expect(createAgenticScopedSupabaseClient).toHaveBeenCalledWith({
-      merchantId: 'merchant-1',
-      merchantSlug: 'ogabassey',
-    });
-    expect(reserveAgenticIdempotencyKey).toHaveBeenCalled();
-    expect(storeAgenticIdempotencyResponse).toHaveBeenCalledWith(
-      expect.objectContaining({
-        key: 'idem-1',
-        merchantId: 'merchant-1',
-        response: { error: 'Agentic checkout disabled' },
-        route: 'checkout_sessions.update',
-        status: 403,
-      })
-    );
-    expect(calculateCheckoutSession).not.toHaveBeenCalled();
   });
 
   it('rejects updates after payment setup has started', async () => {

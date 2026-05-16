@@ -1,8 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { buildAgenticHealthActions } from '@/lib/agentic/action-health-actions';
-import { getActionHealthRequestControlSummary } from '@/lib/agentic/action-health-request-controls';
 import {
   getAgenticPaymentState,
   parseAgenticActionHealthRpcPayload,
@@ -17,6 +15,15 @@ import { sanitizeForLog } from '@/lib/sanitize-core';
 
 const RECENT_RECORD_LIMIT = 25;
 
+type HealthSeverity = 'attention' | 'monitor' | 'ok';
+
+interface AgenticHealthAction {
+  code: string;
+  count: number;
+  message: string;
+  severity: HealthSeverity;
+}
+
 function getIdempotencyState(statusCode: number | null) {
   if (statusCode == null) return 'in_progress';
   if (statusCode >= 500) return 'server_error';
@@ -24,39 +31,75 @@ function getIdempotencyState(statusCode: number | null) {
   return 'completed';
 }
 
-function isExpiredInProgressReservation({
-  expiresAt,
-  nowMs,
-  statusCode = null,
+function buildHealthActions({
+  inProgressCount,
+  orderFinalizingCount,
+  paymentPendingCount,
+  terminalErrorCount,
 }: {
-  expiresAt: string;
-  nowMs: number;
-  statusCode?: number | null;
-}) {
-  if (statusCode !== null) return false;
+  inProgressCount: number;
+  orderFinalizingCount: number;
+  paymentPendingCount: number;
+  terminalErrorCount: number;
+}): AgenticHealthAction[] {
+  const actions: AgenticHealthAction[] = [];
 
-  const expiresAtMs = Date.parse(expiresAt);
-  return Number.isFinite(expiresAtMs) && expiresAtMs <= nowMs;
+  if (terminalErrorCount > 0) {
+    actions.push({
+      code: 'AGENTIC_IDEMPOTENCY_ERRORS',
+      count: terminalErrorCount,
+      message: 'Recent agentic retries ended with server errors.',
+      severity: 'attention',
+    });
+  }
+
+  if (orderFinalizingCount > 0) {
+    actions.push({
+      code: 'AGENTIC_ORDER_FINALIZING',
+      count: orderFinalizingCount,
+      message: 'Agentic checkouts are waiting on order finalization recovery.',
+      severity: 'attention',
+    });
+  }
+
+  if (inProgressCount > 0) {
+    actions.push({
+      code: 'AGENTIC_REQUESTS_IN_PROGRESS',
+      count: inProgressCount,
+      message: 'Agentic idempotency reservations are still in progress.',
+      severity: 'monitor',
+    });
+  }
+
+  if (paymentPendingCount > 0) {
+    actions.push({
+      code: 'AGENTIC_PAYMENT_PENDING',
+      count: paymentPendingCount,
+      message: 'Agentic checkouts are waiting for payment confirmation.',
+      severity: 'monitor',
+    });
+  }
+
+  if (actions.length === 0) {
+    actions.push({
+      code: 'AGENTIC_ACTIONS_HEALTHY',
+      count: 0,
+      message: 'No recent agentic action issues need attention.',
+      severity: 'ok',
+    });
+  }
+
+  return actions;
 }
 
 async function loadAgenticActionHealth(
   supabase: SupabaseClient,
   merchantId: string
 ) {
-  const [requestControlSummary, healthResult] = await Promise.all([
-    getActionHealthRequestControlSummary(supabase, merchantId),
-    supabase.rpc('get_agentic_action_health_records', {
-      p_merchant_id: merchantId,
-      p_record_limit: RECENT_RECORD_LIMIT,
-    }),
-  ]);
-  if (requestControlSummary.error) {
-    logger.warn({
-      error: sanitizeForLog(requestControlSummary.error),
-      merchantId,
-      message: 'Failed to load agentic request controls for action health',
-    });
-  }
+  const healthResult = await supabase.rpc('get_agentic_action_health_records', {
+    p_merchant_id: merchantId,
+    p_record_limit: RECENT_RECORD_LIMIT,
+  });
 
   if (healthResult.error) {
     return {
@@ -68,65 +111,36 @@ async function loadAgenticActionHealth(
   const { idempotencyRows, requestRows, sessionRows } =
     parseAgenticActionHealthRpcPayload(healthResult.data);
   let inProgressCount = 0;
-  let staleInProgressCount = 0;
   let terminalErrorCount = 0;
-  const nowMs = Date.now();
   for (const row of idempotencyRows) {
     if (row.status_code == null) {
       inProgressCount += 1;
-      if (
-        isExpiredInProgressReservation({
-          expiresAt: row.expires_at,
-          nowMs,
-        })
-      ) {
-        staleInProgressCount += 1;
-      }
     } else if (row.status_code >= 500) {
       terminalErrorCount += 1;
     }
   }
-  let orderFinalizingCount = 0;
-  let paymentClaimingCount = 0;
   let paymentPendingCount = 0;
-  let paymentSetupFailedCount = 0;
+  let orderFinalizingCount = 0;
   for (const row of sessionRows) {
     const paymentState = getAgenticPaymentState(row.metadata);
-    switch (paymentState) {
-      case 'claiming_payment':
-        paymentClaimingCount += 1;
-        break;
-      case 'order_finalizing':
-        orderFinalizingCount += 1;
-        break;
-      case 'payment_pending':
-        paymentPendingCount += 1;
-        break;
-      case 'payment_setup_failed':
-        paymentSetupFailedCount += 1;
-        break;
+    if (paymentState === 'payment_pending') {
+      paymentPendingCount += 1;
+    } else if (paymentState === 'order_finalizing') {
+      orderFinalizingCount += 1;
     }
   }
 
   return {
     data: {
-      actions: buildAgenticHealthActions({
-        activeInProgressCount: inProgressCount - staleInProgressCount,
-        allowlistCount: requestControlSummary.allowlistCount,
-        isAgenticCheckoutEnabled:
-          requestControlSummary.isAgenticCheckoutEnabled,
+      actions: buildHealthActions({
+        inProgressCount,
         orderFinalizingCount,
-        paymentClaimingCount,
         paymentPendingCount,
-        paymentSetupFailedCount,
-        staleInProgressCount,
         terminalErrorCount,
       }),
       checkout_sessions: {
-        claiming_payment_count: paymentClaimingCount,
         order_finalizing_count: orderFinalizingCount,
         payment_pending_count: paymentPendingCount,
-        payment_setup_failed_count: paymentSetupFailedCount,
         recent_count: sessionRows.length,
         records: sessionRows.map((row) => ({
           payment_state: getAgenticPaymentState(row.metadata),
@@ -137,7 +151,6 @@ async function loadAgenticActionHealth(
       },
       generated_at: new Date().toISOString(),
       idempotency: {
-        active_in_progress_count: inProgressCount - staleInProgressCount,
         in_progress_count: inProgressCount,
         recent_count: idempotencyRows.length,
         records: idempotencyRows.map((row) => ({
@@ -148,17 +161,9 @@ async function loadAgenticActionHealth(
           status_code: row.status_code,
           updated_at: row.updated_at,
         })),
-        stale_in_progress_count: staleInProgressCount,
         terminal_error_count: terminalErrorCount,
       },
       merchant_id: merchantId,
-      request_controls: {
-        allowlist_count: requestControlSummary.allowlistCount,
-        denylist_count: requestControlSummary.denylistCount,
-        fetch_error: requestControlSummary.error !== null,
-        is_agentic_checkout_enabled:
-          requestControlSummary.isAgenticCheckoutEnabled,
-      },
       requests: {
         recent_count: requestRows.length,
         records: requestRows.map((row) => ({

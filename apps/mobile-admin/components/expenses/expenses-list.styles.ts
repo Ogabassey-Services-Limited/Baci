@@ -10,17 +10,20 @@ export const styles = StyleSheet.create({
     borderRadius: RADIUS.xl,
   },
   summaryLabel: {
+    color: '#ffffffcc',
     fontSize: TYPOGRAPHY.size.sm,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     marginBottom: SPACING.xs,
   },
   summaryAmount: {
+    color: '#FFFFFF',
     fontSize: TYPOGRAPHY.size['3xl'],
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     marginBottom: SPACING.md,
   },
   summaryTrend: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   summaryTrendText: {
+    color: '#ffffffcc',
     fontSize: TYPOGRAPHY.size.xs,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
   },

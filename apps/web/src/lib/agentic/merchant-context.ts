@@ -5,15 +5,11 @@ import {
   getAgenticMerchantSlug,
   getAgenticSigningKeys,
 } from '@/env';
-import { readAgenticRequestControls } from '@/lib/agentic/agent-request-controls';
 import { hasUsableAgenticJwtSigningMaterial } from '@/lib/agentic/jwt-signing-material';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 
 export interface AgenticMerchantContext {
-  agent_user_agent_allowlist: string[];
-  agent_user_agent_denylist: string[];
-  agentic_checkout_enabled: boolean;
   business_name: string | null;
   id: string;
   pay_on_delivery_enabled: boolean;
@@ -36,14 +32,6 @@ export function isAgenticCheckoutRuntimeConfigured(): boolean {
       hasOnlyNonBlankEntries(signingKeys) &&
       hasUsableAgenticJwtSigningMaterial()
   );
-}
-
-export const AGENTIC_CHECKOUT_DISABLED_ERROR = 'Agentic checkout disabled';
-
-export function isAgenticMerchantCheckoutEnabled(
-  merchant: AgenticMerchantContext
-): boolean {
-  return merchant.agentic_checkout_enabled !== false;
 }
 
 function hasOnlyNonBlankEntries(values: readonly string[]): boolean {
@@ -70,9 +58,7 @@ export async function resolveAgenticMerchantContext(
 
   const { data: featureSettings, error: featureSettingsError } = await supabase
     .from('merchant_feature_settings')
-    .select(
-      'agentic_checkout_enabled, pay_on_delivery_enabled, custom_settings'
-    )
+    .select('pay_on_delivery_enabled')
     .eq('merchant_id', data.id)
     .maybeSingle();
 
@@ -84,16 +70,7 @@ export async function resolveAgenticMerchantContext(
     });
   }
 
-  const requestControls = readAgenticRequestControls(
-    featureSettings?.custom_settings
-  );
-
   return {
-    agent_user_agent_allowlist: requestControls.allowlist,
-    agent_user_agent_denylist: requestControls.denylist,
-    agentic_checkout_enabled: featureSettingsError
-      ? false
-      : featureSettings?.agentic_checkout_enabled !== false,
     business_name:
       typeof data.business_name === 'string' ? data.business_name : null,
     id: data.id,

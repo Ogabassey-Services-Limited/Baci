@@ -18,42 +18,11 @@ describe('sanitize', () => {
     expect(output).not.toContain('javascript:');
   });
 
-  it('does not rehydrate markup wrapped in disallowed xmp raw text', () => {
-    const output = sanitizeHtml(
-      '<xmp><img src=x onerror=alert(1)><script>alert(1)</script></xmp>'
-    );
-
-    expect(output).toBe('');
-    expect(output).not.toContain('<img');
-    expect(output).not.toContain('onerror=');
-    expect(output).not.toContain('<script');
-  });
-
   it('keeps safe links and adds rel protection', () => {
     const output = sanitizeHtml('<a href="https://example.com">Safe</a>');
 
     expect(output).toContain('href="https://example.com"');
     expect(output).toContain('rel="noopener noreferrer"');
-  });
-
-  it('preserves semantic figure and figcaption markup', () => {
-    const output = sanitizeHtml(
-      '<figure><img src="https://example.com/photo.jpg" alt="Camera"><figcaption>Camera sample</figcaption></figure>'
-    );
-
-    expect(output).toContain('<figure>');
-    expect(output).toContain('<figcaption>Camera sample</figcaption>');
-  });
-
-  it('sanitizes unsafe caption markup while keeping figcaption', () => {
-    const output = sanitizeHtml(
-      '<figure><img src="https://example.com/photo.jpg"><figcaption><img src=x onerror=alert(1)>Caption<script>alert(1)</script></figcaption></figure>'
-    );
-
-    expect(output).toContain('<figcaption>');
-    expect(output).toContain('Caption');
-    expect(output).not.toContain('onerror=');
-    expect(output).not.toContain('<script');
   });
 
   it('coerces heading offsets to safe finite integers', () => {

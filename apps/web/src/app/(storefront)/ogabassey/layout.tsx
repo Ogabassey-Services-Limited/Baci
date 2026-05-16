@@ -27,6 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function OgabasseyLayout({ children }: { children: ReactNode }) {
   return (
     <StorefrontLayout
+      enableDynamicHeroPreloadDecision={false}
       loadingFallback={<StorefrontLayoutLoadingFallback />}
       params={OGABASSEY_PARAMS}
     >

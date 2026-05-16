@@ -146,19 +146,12 @@ describe('resolveAgenticMerchantContext', () => {
     expect(getConfiguredAgenticMerchantSlug()).toBe('demo-store');
   });
 
-  it('includes agentic checkout and pay-on-delivery controls in the merchant context', async () => {
+  it('includes pay_on_delivery_enabled in the merchant context', async () => {
     stubBaseEnv();
     vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'demo-store');
     const { resolveAgenticMerchantContext } = await loadMerchantContextModule();
     const mock = createMerchantWithFeatureSettingsLookupMock({
-      featureSettings: {
-        agentic_checkout_enabled: false,
-        custom_settings: {
-          agentic_agent_allowlist: ['openai-agent'],
-          agentic_agent_denylist: ['blocked-agent'],
-        },
-        pay_on_delivery_enabled: true,
-      },
+      featureSettings: { pay_on_delivery_enabled: true },
       merchant: {
         business_name: 'Demo Store',
         id: 'merchant-2',
@@ -169,14 +162,11 @@ describe('resolveAgenticMerchantContext', () => {
 
     const context = await resolveAgenticMerchantContext(mock.supabase as never);
 
-    expect(context?.agentic_checkout_enabled).toBe(false);
-    expect(context?.agent_user_agent_allowlist).toEqual(['openai-agent']);
-    expect(context?.agent_user_agent_denylist).toEqual(['blocked-agent']);
     expect(context?.pay_on_delivery_enabled).toBe(true);
     expect(mock.settingsEq).toHaveBeenCalledWith('merchant_id', 'merchant-2');
   });
 
-  it('fails closed for agentic checkout when feature settings cannot be read', async () => {
+  it('defaults pay_on_delivery_enabled to false when feature settings cannot be read', async () => {
     stubBaseEnv();
     vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'demo-store');
     const { resolveAgenticMerchantContext } = await loadMerchantContextModule();
@@ -194,27 +184,6 @@ describe('resolveAgenticMerchantContext', () => {
     const context = await resolveAgenticMerchantContext(mock.supabase as never);
 
     expect(context?.id).toBe('merchant-2');
-    expect(context?.agentic_checkout_enabled).toBe(false);
-    expect(context?.pay_on_delivery_enabled).toBe(false);
-  });
-
-  it('defaults agentic checkout to enabled when the feature settings row is missing', async () => {
-    stubBaseEnv();
-    vi.stubEnv('OPENAI_AGENTIC_MERCHANT_SLUG', 'demo-store');
-    const { resolveAgenticMerchantContext } = await loadMerchantContextModule();
-    const mock = createMerchantWithFeatureSettingsLookupMock({
-      featureSettings: null,
-      merchant: {
-        business_name: 'Demo Store',
-        id: 'merchant-2',
-        paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
-        slug: 'demo-store',
-      },
-    });
-
-    const context = await resolveAgenticMerchantContext(mock.supabase as never);
-
-    expect(context?.agentic_checkout_enabled).toBe(true);
     expect(context?.pay_on_delivery_enabled).toBe(false);
   });
 

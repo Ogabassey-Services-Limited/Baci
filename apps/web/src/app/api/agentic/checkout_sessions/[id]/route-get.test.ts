@@ -23,10 +23,6 @@ vi.mock('@/lib/agentic/checkout', () => ({
   calculateCheckoutSession: vi.fn(),
 }));
 vi.mock('@/lib/agentic/merchant-context', () => ({
-  AGENTIC_CHECKOUT_DISABLED_ERROR: 'Agentic checkout disabled',
-  isAgenticMerchantCheckoutEnabled: (merchant: {
-    agentic_checkout_enabled?: boolean;
-  }) => merchant.agentic_checkout_enabled !== false,
   resolveAgenticMerchantContext: mockResolveAgenticMerchantContext,
 }));
 vi.mock('@/lib/agentic/mutation-request', () => ({
@@ -161,49 +157,6 @@ describe('GET /api/agentic/checkout_sessions/[id]', () => {
     expect(readAgenticMutationRequest).not.toHaveBeenCalled();
     expect(createAdminClient).not.toHaveBeenCalled();
     expect(calculateCheckoutSession).not.toHaveBeenCalled();
-  });
-
-  it('allows existing session reads when the merchant disables agentic checkout', async () => {
-    mockResolveAgenticMerchantContext.mockResolvedValueOnce({
-      agentic_checkout_enabled: false,
-      id: 'merchant-1',
-      slug: 'ogabassey',
-    });
-    mockCheckoutSessionRead({
-      session_id: 'agentic_session_1',
-      status: 'processing',
-      cart_items: [{ id: 'product-1', quantity: 1 }],
-      currency: 'NGN',
-      shipping_method: 'pickup_store_1',
-      shipping_address: { city: 'Lagos' },
-      order_id: null,
-      payment_reference: null,
-      virtual_account_number: null,
-      metadata: null,
-    });
-    vi.mocked(calculateCheckoutSession).mockResolvedValue({
-      fulfillmentOptions: [],
-      lineItems: [],
-      messages: [],
-      selectedOptionId: undefined,
-      totals: [],
-    });
-
-    const request = new NextRequest(
-      'http://localhost/api/agentic/checkout_sessions/agentic_session_1'
-    );
-
-    const { GET } = await import('./route');
-    const response = await GET(request, routeParams());
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body).toMatchObject({ id: 'agentic_session_1' });
-    expect(createAdminClient).toHaveBeenCalled();
-    expect(createAgenticScopedSupabaseClient).toHaveBeenCalledWith({
-      merchantId: 'merchant-1',
-      merchantSlug: 'ogabassey',
-    });
   });
 
   it('returns 500 when stored cart items are malformed', async () => {

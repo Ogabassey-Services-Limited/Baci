@@ -3,19 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // --- Mock setup ---
 
 const {
-  mockGetAppUrl,
   mockGetConfiguredAppUrl,
   mockGetOllamaStorefrontModel,
   mockGetRootDomain,
   mockIsAiStorefrontGenerationEnabled,
-  mockIsProduction,
 } = vi.hoisted(() => ({
-  mockGetAppUrl: vi.fn(),
   mockGetConfiguredAppUrl: vi.fn(),
   mockGetOllamaStorefrontModel: vi.fn(),
   mockGetRootDomain: vi.fn(),
   mockIsAiStorefrontGenerationEnabled: vi.fn(),
-  mockIsProduction: vi.fn(),
 }));
 
 const mockGetUser = vi.fn();
@@ -38,12 +34,11 @@ const mockAdminMaybeSingle = vi.fn();
 const mockAdminSingle = vi.fn();
 const mockAdminEq = vi.fn();
 const mockAdminFrom = vi.fn();
-const mockAdminRpc = vi.fn();
 const mockPageConfigInsert = vi.fn();
 const mockPageConfigSelect = vi.fn();
 const mockPageConfigSingle = vi.fn();
 const mockAiJobsInsert = vi.fn();
-const mockAdminClient = { from: mockAdminFrom, rpc: mockAdminRpc };
+const mockAdminClient = { from: mockAdminFrom };
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn().mockResolvedValue({
@@ -62,12 +57,10 @@ vi.mock('@/lib/supabase/admin', () => ({
 }));
 
 vi.mock('@/env', () => ({
-  getAppUrl: mockGetAppUrl,
   getConfiguredAppUrl: mockGetConfiguredAppUrl,
   getOllamaStorefrontModel: mockGetOllamaStorefrontModel,
   getRootDomain: mockGetRootDomain,
   isAiStorefrontGenerationEnabled: mockIsAiStorefrontGenerationEnabled,
-  isProduction: mockIsProduction,
 }));
 
 vi.mock('@/lib/email', () => ({
@@ -136,13 +129,10 @@ function setupChainedMock(
 describe('submitOnboarding', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetAppUrl.mockReturnValue('http://localhost:3000');
     mockGetConfiguredAppUrl.mockReturnValue('https://usebaci.com');
     mockGetOllamaStorefrontModel.mockReturnValue('gemma4:e4b');
     mockGetRootDomain.mockReturnValue('usebaci.com');
     mockIsAiStorefrontGenerationEnabled.mockReturnValue(false);
-    mockIsProduction.mockReturnValue(false);
-    mockAdminRpc.mockResolvedValue({ data: null, error: null });
     mockPageConfigSingle.mockResolvedValue({
       data: { updated_at: MOCK_PAGE_CONFIG_UPDATED_AT },
       error: null,
@@ -232,124 +222,6 @@ describe('submitOnboarding', () => {
         signup_source: 'web',
         business_name: 'TestStore',
         email: 'merchant@example.com',
-      })
-    );
-  });
-
-  it('falls back to buildMerchantSlug when the RPC returns no usable data', async () => {
-    // mockAdminRpc default in beforeEach is `{ data: null, error: null }`.
-    // This exercises the local fallback path in `resolveMerchantSlug`, not
-    // the RPC slug. The previous test name ("derives merchant slug from the
-    // full business name") implied the primary path — renamed for clarity.
-    mockAdminMaybeSingle
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({ data: null, error: null });
-    setupChainedMock({ id: 'merchant-1', slug: 'baci-food-123' });
-
-    const result = await submitOnboarding(
-      prevState,
-      makeFormData({
-        ...validFields,
-        businessName: 'Baci Food 123',
-      })
-    );
-
-    expect(result.success).toBe(true);
-    expect(mockAdminInsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        business_name: 'Baci Food 123',
-        slug: 'baci-food-123',
-      })
-    );
-  });
-
-  it('falls back to buildMerchantSlug when the slug RPC returns an error', async () => {
-    mockAdminMaybeSingle
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({ data: null, error: null });
-    mockAdminRpc.mockResolvedValueOnce({
-      data: null,
-      error: { message: 'RPC failed', code: 'XX000' },
-    });
-    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
-
-    const result = await submitOnboarding(prevState, makeFormData(validFields));
-
-    expect(result.success).toBe(true);
-    expect(mockAdminInsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        business_name: 'TestStore',
-        slug: 'teststore',
-      })
-    );
-  });
-
-  it('falls back when the slug RPC returns a non-string payload', async () => {
-    mockAdminMaybeSingle
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({ data: null, error: null });
-    mockAdminRpc.mockResolvedValueOnce({ data: 12345, error: null });
-    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
-
-    const result = await submitOnboarding(prevState, makeFormData(validFields));
-
-    expect(result.success).toBe(true);
-    expect(mockAdminInsert).toHaveBeenCalledWith(
-      expect.objectContaining({ slug: 'teststore' })
-    );
-  });
-
-  it('falls back when the slug RPC returns an empty / whitespace string', async () => {
-    mockAdminMaybeSingle
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({ data: null, error: null });
-    mockAdminRpc.mockResolvedValueOnce({ data: '   ', error: null });
-    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
-
-    const result = await submitOnboarding(prevState, makeFormData(validFields));
-
-    expect(result.success).toBe(true);
-    expect(mockAdminInsert).toHaveBeenCalledWith(
-      expect.objectContaining({ slug: 'teststore' })
-    );
-  });
-
-  it('uses the database slug generator to avoid merchant slug collisions', async () => {
-    mockAdminMaybeSingle
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({ data: null, error: null });
-    mockAdminRpc.mockResolvedValueOnce({ data: 'teststore-2', error: null });
-    setupChainedMock({ id: 'merchant-1', slug: 'teststore-2' });
-
-    const result = await submitOnboarding(prevState, makeFormData(validFields));
-
-    expect(result.success).toBe(true);
-    expect(mockAdminRpc).toHaveBeenCalledWith('generate_slug', {
-      text_input: 'TestStore',
-    });
-    expect(mockAdminInsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        business_name: 'TestStore',
-        slug: 'teststore-2',
-      })
-    );
-  });
-
-  it('uses local app URL for password signup redirects outside production', async () => {
-    mockGetConfiguredAppUrl.mockReturnValue(null);
-    mockAdminMaybeSingle
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({ data: null, error: null });
-    setupChainedMock({ id: 'merchant-1', slug: 'teststore' });
-
-    const result = await submitOnboarding(prevState, makeFormData(validFields));
-
-    expect(result.success).toBe(true);
-    expect(mockSignUp).toHaveBeenCalledWith(
-      expect.objectContaining({
-        options: {
-          emailRedirectTo: 'http://localhost:3000/onboarding',
-        },
       })
     );
   });

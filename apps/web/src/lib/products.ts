@@ -1,8 +1,6 @@
 // In a real app, this data would come from a database.
 // We are defining it here to be shared across the app.
 
-import { PRODUCT_CATEGORY_ALIASES } from '@/lib/product-category-aliases';
-
 export interface VariantInventoryItem {
   id: string;
   variant_id: string;
@@ -368,9 +366,6 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       ...products[0],
       id: 'fas1',
       name: 'Linen Summer Dress',
-      description:
-        'A breathable linen dress designed for polished everyday styling and warm-weather outings.',
-      status: PRODUCT_STATUS_ACTIVE,
       price: 120.0,
       imageHint: 'summer dress',
       category: 'Fashion',
@@ -379,9 +374,6 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       ...products[1],
       id: 'fas2',
       name: 'Classic Leather Jacket',
-      description:
-        'A timeless leather jacket with clean tailoring for day-to-night outfits.',
-      status: PRODUCT_STATUS_ACTIVE,
       price: 350.0,
       imageHint: 'leather jacket',
       category: 'Fashion',
@@ -392,9 +384,6 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       ...products[3],
       id: 'elec1',
       name: 'Wireless Noise-Cancelling Headphones',
-      description:
-        'Immersive wireless headphones with active noise cancellation and long battery life.',
-      status: PRODUCT_STATUS_ACTIVE,
       price: 299.99,
       imageHint: 'headphones',
       category: 'Electronics',
@@ -403,9 +392,6 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       ...products[1],
       id: 'elec2',
       name: '4K Ultra-HD Monitor',
-      description:
-        'A crisp 4K monitor for sharper work, streaming, and gaming setups.',
-      status: PRODUCT_STATUS_ACTIVE,
       price: 450.0,
       imageHint: 'computer monitor',
       category: 'Electronics',
@@ -416,9 +402,6 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       ...products[0],
       id: 'home1',
       name: 'Velvet Throw Pillow',
-      description:
-        'A soft velvet accent pillow that adds texture and warmth to any room.',
-      status: PRODUCT_STATUS_ACTIVE,
       price: 45.0,
       imageHint: 'throw pillow',
       category: 'Home Goods',
@@ -427,9 +410,6 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       ...products[1],
       id: 'home2',
       name: 'Acacia Wood Serving Bowl',
-      description:
-        'A natural acacia serving bowl for hosting, dining, and everyday table styling.',
-      status: PRODUCT_STATUS_ACTIVE,
       price: 65.0,
       imageHint: 'wood bowl',
       category: 'Home Goods',
@@ -440,9 +420,6 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       ...products[4],
       id: 'hb1',
       name: 'Vitamin C Serum',
-      description:
-        'A lightweight serum formulated to brighten skin and support a simple daily routine.',
-      status: PRODUCT_STATUS_ACTIVE,
       price: 55.0,
       imageHint: 'skincare serum',
       category: 'Health & Beauty',
@@ -451,9 +428,6 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       ...products[2],
       id: 'hb2',
       name: 'Organic Lavender Bath Bombs',
-      description:
-        'Soothing lavender bath bombs made for a relaxing self-care soak.',
-      status: PRODUCT_STATUS_ACTIVE,
       price: 25.0,
       imageHint: 'bath bombs',
       category: 'Health & Beauty',
@@ -464,9 +438,6 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       ...products[0],
       id: 'hand1',
       name: 'Hand-poured Soy Candle',
-      description:
-        'A small-batch soy candle poured by hand for a warm, clean home fragrance.',
-      status: PRODUCT_STATUS_ACTIVE,
       price: 30.0,
       imageHint: 'soy candle',
       category: 'Handmade',
@@ -475,9 +446,6 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       ...products[4],
       id: 'hand2',
       name: 'Macrame Wall Hanging',
-      description:
-        'A handcrafted macrame wall piece that brings texture and personality to your space.',
-      status: PRODUCT_STATUS_ACTIVE,
       price: 75.0,
       imageHint: 'macrame art',
       category: 'Handmade',
@@ -488,9 +456,6 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       ...products[0],
       id: 'food1',
       name: 'Artisanal Sourdough Loaf',
-      description:
-        'Freshly baked sourdough with a crisp crust, soft center, and slow-fermented flavor.',
-      status: PRODUCT_STATUS_ACTIVE,
       price: 12.0,
       imageHint: 'sourdough bread',
       category: 'Food & Beverage',
@@ -499,84 +464,15 @@ export const sampleProductsByCategory: Record<string, Product[]> = {
       ...products[1],
       id: 'food2',
       name: 'Cold-Pressed Olive Oil',
-      description:
-        'A rich cold-pressed olive oil for cooking, finishing dishes, and everyday pantry use.',
-      status: PRODUCT_STATUS_ACTIVE,
       price: 28.0,
       imageHint: 'olive oil',
       category: 'Food & Beverage',
-    },
-  ],
-  pharmaceuticals: [
-    {
-      ...products[3],
-      id: 'pharm1',
-      name: 'Digital Blood Pressure Monitor',
-      description:
-        'Easy-to-use home monitoring kit with clear readings and a comfortable cuff.',
-      status: PRODUCT_STATUS_ACTIVE,
-      price: 68.0,
-      imageHint: 'blood pressure monitor',
-      brand: 'Baci Care',
-      category: 'Pharmaceuticals',
-    },
-    {
-      ...products[4],
-      id: 'pharm2',
-      name: 'Daily Wellness Multivitamins',
-      description:
-        'A trusted daily supplement formulated for practical everyday wellness.',
-      status: PRODUCT_STATUS_ACTIVE,
-      price: 24.0,
-      imageHint: 'vitamin bottle',
-      brand: 'Baci Wellness',
-      category: 'Pharmaceuticals',
-    },
-  ],
-  'hair-extensions': [
-    {
-      ...products[0],
-      id: 'hair1',
-      name: 'Body Wave Hair Bundles',
-      description:
-        'Soft body wave bundles with natural movement and a polished finish.',
-      status: PRODUCT_STATUS_ACTIVE,
-      price: 185.0,
-      imageHint: 'hair bundles',
-      brand: 'Baci Hair',
-      category: 'Hair & Extensions',
-    },
-    {
-      ...products[1],
-      id: 'hair2',
-      name: 'Lace Closure Wig',
-      description:
-        'Ready-to-style lace closure wig designed for a seamless everyday look.',
-      status: PRODUCT_STATUS_ACTIVE,
-      price: 260.0,
-      imageHint: 'lace wig',
-      brand: 'Baci Hair',
-      category: 'Hair & Extensions',
     },
   ],
   other: [
     ...products.slice(0, 2), // Default to first two products for "Other"
   ],
 };
-
-export function getSampleProductsForBusinessType(
-  businessType?: string | null
-): Product[] {
-  if (!businessType) {
-    return sampleProductsByCategory.other;
-  }
-
-  const normalizedBusinessType = businessType.trim().toLowerCase();
-  const sampleKey =
-    PRODUCT_CATEGORY_ALIASES[normalizedBusinessType] || normalizedBusinessType;
-
-  return sampleProductsByCategory[sampleKey] || sampleProductsByCategory.other;
-}
 
 export function getProductById(id: string): Product | undefined {
   return products.find((p) => p.id === id);

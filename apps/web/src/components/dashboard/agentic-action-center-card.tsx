@@ -10,7 +10,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { agenticActionCenterCardHelpers } from '@/components/dashboard/agentic-action-center-card-helpers';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,11 +21,59 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import type {
-  AgenticActionHealthPayload,
-  AgenticActionSeverity,
-} from '@/schemas/agentic-action-health';
-import { agenticActionHealthPayloadSchema } from '@/schemas/agentic-action-health';
+
+type AgenticActionSeverity = 'attention' | 'monitor' | 'ok';
+
+interface AgenticAction {
+  code: string;
+  count: number;
+  message: string;
+  severity: AgenticActionSeverity;
+}
+
+interface AgenticActionHealthPayload {
+  actions: AgenticAction[];
+  generated_at?: string;
+}
+
+function isAgenticAction(value: unknown): value is AgenticAction {
+  if (!value || typeof value !== 'object') return false;
+
+  const action = value as Record<string, unknown>;
+  return (
+    typeof action.code === 'string' &&
+    typeof action.count === 'number' &&
+    typeof action.message === 'string' &&
+    (action.severity === 'attention' ||
+      action.severity === 'monitor' ||
+      action.severity === 'ok')
+  );
+}
+
+function isAgenticActionHealthPayload(
+  value: unknown
+): value is AgenticActionHealthPayload {
+  if (!value || typeof value !== 'object') return false;
+
+  const payload = value as Record<string, unknown>;
+  return (
+    Array.isArray(payload.actions) &&
+    payload.actions.every(isAgenticAction) &&
+    (payload.generated_at === undefined ||
+      typeof payload.generated_at === 'string')
+  );
+}
+
+function getActionHref(code: string) {
+  switch (code) {
+    case 'AGENTIC_IDEMPOTENCY_ERRORS':
+    case 'AGENTIC_ORDER_FINALIZING':
+    case 'AGENTIC_PAYMENT_PENDING':
+      return '/dashboard/orders?source=agentic';
+    default:
+      return null;
+  }
+}
 
 function getActionTone(severity: AgenticActionSeverity) {
   switch (severity) {
@@ -52,6 +99,18 @@ function getActionTone(severity: AgenticActionSeverity) {
         label: 'Healthy',
       };
   }
+}
+
+function formatGeneratedAt(value?: string) {
+  if (!value) return null;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
 }
 
 export function AgenticActionCenterCard() {
@@ -83,10 +142,9 @@ export function AgenticActionCenterCard() {
         }
 
         const value: unknown = await response.json();
-        const parsed = agenticActionHealthPayloadSchema.safeParse(value);
         if (active) {
-          setPayload(parsed.success ? parsed.data : null);
-          setFailed(!parsed.success);
+          setPayload(isAgenticActionHealthPayload(value) ? value : null);
+          setFailed(!isAgenticActionHealthPayload(value));
         }
       } catch (error) {
         console.error('Failed to load agentic action health:', error);
@@ -122,13 +180,17 @@ export function AgenticActionCenterCard() {
   if (!payload && !failed) return null;
 
   const actions = payload?.actions ?? [];
-  const briefing =
-    agenticActionCenterCardHelpers.buildAgenticDashboardBriefing(actions);
-  const attentionCount = briefing.attentionCount;
-  const monitorCount = briefing.monitorCount;
-  const generatedAt = agenticActionCenterCardHelpers.formatGeneratedAt(
-    payload?.generated_at
+  const attentionCount = actions.reduce(
+    (total, action) =>
+      action.severity === 'attention' ? total + action.count : total,
+    0
   );
+  const monitorCount = actions.reduce(
+    (total, action) =>
+      action.severity === 'monitor' ? total + action.count : total,
+    0
+  );
+  const generatedAt = formatGeneratedAt(payload?.generated_at);
   const statusDescription = failed
     ? 'Agentic checkout health could not be loaded.'
     : attentionCount > 0
@@ -176,74 +238,44 @@ export function AgenticActionCenterCard() {
             Agentic action health is temporarily unavailable.
           </div>
         ) : (
-          <>
-            <div className="grid gap-3 rounded-md border bg-muted/30 p-3 md:grid-cols-3">
-              <div className="space-y-1">
-                <p className="text-xs font-medium uppercase text-muted-foreground">
-                  What changed
-                </p>
-                <p className="text-sm leading-relaxed">
-                  {briefing.whatChanged}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs font-medium uppercase text-muted-foreground">
-                  Needs attention
-                </p>
-                <p className="text-sm leading-relaxed">
-                  {briefing.needsAttention}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-xs font-medium uppercase text-muted-foreground">
-                  Next move
-                </p>
-                <p className="text-sm leading-relaxed">{briefing.nextMove}</p>
-              </div>
-            </div>
-            {actions.map((action) => {
-              const tone = getActionTone(action.severity);
-              const Icon = tone.icon;
-              const href = agenticActionCenterCardHelpers.getActionHref(
-                action.code
-              );
+          actions.map((action) => {
+            const tone = getActionTone(action.severity);
+            const Icon = tone.icon;
+            const href = getActionHref(action.code);
 
-              return (
-                <div
-                  className={cn(
-                    'flex flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between',
-                    tone.className
-                  )}
-                  key={action.code}
-                >
-                  <div className="flex min-w-0 gap-3">
-                    <Icon className="mt-0.5 h-4 w-4 shrink-0" />
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-medium">{tone.label}</p>
-                        {action.count > 0 && (
-                          <span className="text-xs text-current/70">
-                            {action.count} affected
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-current/75">
-                        {action.message}
-                      </p>
+            return (
+              <div
+                className={cn(
+                  'flex flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between',
+                  tone.className
+                )}
+                key={action.code}
+              >
+                <div className="flex min-w-0 gap-3">
+                  <Icon className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-medium">{tone.label}</p>
+                      {action.count > 0 && (
+                        <span className="text-xs text-current/70">
+                          {action.count} affected
+                        </span>
+                      )}
                     </div>
+                    <p className="text-sm text-current/75">{action.message}</p>
                   </div>
-                  {href && (
-                    <Button asChild size="sm" variant="outline">
-                      <Link href={href}>
-                        Review
-                        <ExternalLink className="ml-2 h-3.5 w-3.5" />
-                      </Link>
-                    </Button>
-                  )}
                 </div>
-              );
-            })}
-          </>
+                {href && (
+                  <Button asChild size="sm" variant="outline">
+                    <Link href={href}>
+                      Review
+                      <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                )}
+              </div>
+            );
+          })
         )}
       </CardContent>
       {generatedAt && !failed && (

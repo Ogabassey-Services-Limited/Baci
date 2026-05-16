@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiGet } from '@/lib/api-client';
 import { sortCategories } from '@/lib/category-sorting';
 import { findDarkestColor } from '@/lib/color-utils';
-import { getSampleProductsForBusinessType, type Product } from '@/lib/products';
+import { type Product, sampleProductsByCategory } from '@/lib/products';
 import { DidYouMeanBanner } from './did-you-mean-banner';
 import { StorefrontProductCard } from './product-card';
 import { QuickViewModal, useQuickView } from './quick-view-modal';
@@ -104,7 +104,7 @@ export function StorefrontProductGrid({
     merchant?.id?.startsWith('demo-');
   const [products, setProducts] = useState<Product[]>(() => {
     if (isPreviewMode) {
-      return getSampleProductsForBusinessType(merchant?.business_type);
+      return sampleProductsByCategory.fashion || sampleProductsByCategory.other;
     }
     return [];
   });
@@ -120,18 +120,10 @@ export function StorefrontProductGrid({
   const [searchError, setSearchError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isPreviewMode) {
-      setProducts(getSampleProductsForBusinessType(merchant?.business_type));
-      return;
-    }
-
     if (merchant?.id && !isPreviewMode) {
       // Fetch products
       apiGet<{ products: Product[] }>(
-        `/api/storefront/products?merchant_id=${merchant.id}`,
-        // Dashboard product creation must be visible immediately on storefronts;
-        // do not let a browser cache serve the pre-creation product list here.
-        { cache: 'no-store' }
+        `/api/storefront/products?merchant_id=${merchant.id}`
       )
         .then((data) => {
           if (data.products) {
@@ -144,7 +136,7 @@ export function StorefrontProductGrid({
           setIsLoading(false);
         });
     }
-  }, [merchant?.business_type, merchant?.id, isPreviewMode]);
+  }, [merchant?.id, isPreviewMode]);
 
   useEffect(() => {
     if (!debouncedSearchQuery || !merchant?.id || isPreviewMode) {
@@ -490,7 +482,6 @@ export function StorefrontProductGrid({
                   onAddToCart={handleAddToCart}
                   onUpdateQuantity={updateQuantity}
                   onQuickView={openQuickView}
-                  merchantSlug={merchant?.slug}
                   priority={index < 4}
                 />
               );

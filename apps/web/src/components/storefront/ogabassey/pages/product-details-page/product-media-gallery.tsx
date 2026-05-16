@@ -1,9 +1,5 @@
 import Image from 'next/image';
 import { DeferredShellFeature } from '@/components/storefront/ogabassey/components/deferred-shell-feature';
-import {
-  OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
-  OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
-} from '@/components/storefront/ogabassey/config/product-media';
 import type {
   ConditionType,
   NormalizedProductDetails,
@@ -54,10 +50,10 @@ export function ProductMediaGallery({
           alt={productData.name}
           fill
           className="object-cover"
-          sizes={OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}
-          loading="eager"
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          priority
           fetchPriority="high"
-          quality={OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}
+          quality={70}
         />
         <div
           className={`absolute left-4 top-4 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${badgeClass}`}

@@ -237,14 +237,6 @@ const NodeRenderer = ({
       // Guard against missing src to prevent runtime errors
       const rawSrc = node.attrs?.src;
       const imageSrc = rawSrc ? sanitizeUrl(rawSrc) : '';
-      const imageCaption =
-        (typeof node.attrs?.title === 'string'
-          ? node.attrs.title
-          : ''
-        ).trim() ||
-        (typeof node.attrs?.caption === 'string'
-          ? node.attrs.caption.trim()
-          : '');
 
       // Only allow http/https protocols for blog images in 2026 for security and CDN stability
       if (!imageSrc?.startsWith('http')) {
@@ -252,13 +244,8 @@ const NodeRenderer = ({
         return null;
       }
 
-      const imageContainer = (
-        <div
-          className={cn(
-            'relative aspect-video rounded-2xl overflow-hidden shadow-xl border border-border/50',
-            !imageCaption && 'my-10'
-          )}
-        >
+      return (
+        <div className="relative aspect-video rounded-2xl overflow-hidden my-10 shadow-xl border border-border/50">
           <Image
             src={imageSrc}
             alt={node.attrs?.alt || 'Blog image'}
@@ -267,19 +254,6 @@ const NodeRenderer = ({
             sizes="(max-width: 768px) 100vw, 800px"
           />
         </div>
-      );
-
-      if (!imageCaption) {
-        return imageContainer;
-      }
-
-      return (
-        <figure className="my-10">
-          {imageContainer}
-          <figcaption className="mt-3 text-center text-sm leading-relaxed text-muted-foreground">
-            {imageCaption}
-          </figcaption>
-        </figure>
       );
     }
 

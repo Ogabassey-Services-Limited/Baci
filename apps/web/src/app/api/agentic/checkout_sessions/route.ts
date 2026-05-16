@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import { type NextRequest, NextResponse } from 'next/server';
-import { verifyAgenticRequestAccess } from '@/lib/agentic/agent-request-controls';
 import { verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { calculateCheckoutSession } from '@/lib/agentic/checkout';
 import { buildCheckoutSessionStateResponse } from '@/lib/agentic/checkout-session-response';
@@ -11,11 +10,7 @@ import {
 import { reserveAgenticIdempotencyKey } from '@/lib/agentic/idempotency';
 import { getAgenticIdempotencyErrorStatus } from '@/lib/agentic/idempotency-response';
 import { buildStoredAgenticIdempotencyResponse } from '@/lib/agentic/idempotency-response-storage';
-import {
-  AGENTIC_CHECKOUT_DISABLED_ERROR,
-  isAgenticMerchantCheckoutEnabled,
-  resolveAgenticMerchantContext,
-} from '@/lib/agentic/merchant-context';
+import { resolveAgenticMerchantContext } from '@/lib/agentic/merchant-context';
 import { readAgenticMutationRequest } from '@/lib/agentic/mutation-request';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { getAgenticReplayErrorStatus } from '@/lib/agentic/request-replay-response';
@@ -68,16 +63,7 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
-    const agentAccess = verifyAgenticRequestAccess({
-      controls: {
-        allowlist: merchant.agent_user_agent_allowlist ?? [],
-        denylist: merchant.agent_user_agent_denylist ?? [],
-      },
-      headers: request.headers,
-    });
-    if (!agentAccess.ok) {
-      return NextResponse.json({ error: agentAccess.error }, { status: 403 });
-    }
+
     const supabase = createAgenticScopedSupabaseClient({
       merchantId: merchant.id,
       merchantSlug: merchant.slug,
@@ -122,17 +108,6 @@ export async function POST(request: NextRequest) {
         storageFailureResponse,
         supabase,
       });
-    if (!isAgenticMerchantCheckoutEnabled(merchant)) {
-      logger.warn({
-        message: AGENTIC_CHECKOUT_DISABLED_ERROR,
-        merchantId: merchant.id,
-        route: CREATE_IDEMPOTENCY_ROUTE,
-      });
-      return await respondWithIdempotency(
-        { error: AGENTIC_CHECKOUT_DISABLED_ERROR },
-        403
-      );
-    }
     const replayReservation = await reserveAgenticRequestId({
       apiVersion: mutation.apiVersion,
       idempotencyKey: mutation.idempotencyKey,

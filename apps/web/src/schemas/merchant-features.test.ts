@@ -14,7 +14,6 @@ function createValidFeatureSettings() {
     discount_codes_enabled: true,
     guest_checkout_enabled: true,
     // Payment gateways
-    agentic_checkout_enabled: true,
     paystack_enabled: true,
     korapay_enabled: false,
     pay_on_delivery_enabled: true,
@@ -96,28 +95,6 @@ describe('merchantFeatureSettingsSchema', () => {
       if (result.success) {
         expect(result.data).toEqual(validSettings);
       }
-    });
-
-    it('accepts agentic_checkout_enabled = true', () => {
-      const settings = {
-        ...createValidFeatureSettings(),
-        agentic_checkout_enabled: true,
-      };
-
-      expect(merchantFeatureSettingsSchema.safeParse(settings).success).toBe(
-        true
-      );
-    });
-
-    it('accepts agentic_checkout_enabled = false', () => {
-      const settings = {
-        ...createValidFeatureSettings(),
-        agentic_checkout_enabled: false,
-      };
-
-      expect(merchantFeatureSettingsSchema.safeParse(settings).success).toBe(
-        true
-      );
     });
 
     it('accepts nullable string fields', () => {
@@ -444,17 +421,6 @@ describe('merchantFeatureSettingsSchema', () => {
   });
 
   describe('wrong types', () => {
-    it('rejects non-boolean agentic_checkout_enabled', () => {
-      const invalidSettings = {
-        ...createValidFeatureSettings(),
-        agentic_checkout_enabled: 'true' as unknown as boolean,
-      };
-
-      const result = merchantFeatureSettingsSchema.safeParse(invalidSettings);
-
-      expect(result.success).toBe(false);
-    });
-
     it('rejects string where boolean expected', () => {
       // Arrange
       const invalidSettings = {

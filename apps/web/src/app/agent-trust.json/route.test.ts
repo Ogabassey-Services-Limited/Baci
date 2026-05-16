@@ -5,7 +5,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedGoogleMerchantFeedData = vi.fn();
 const mockGetCachedOpenAIFeedData = vi.fn();
-const PRODUCT_UPDATED_AT = '2026-05-10T00:00:00.000Z';
 
 vi.mock('server-only', () => ({}));
 
@@ -87,7 +86,6 @@ describe('GET /agent-trust.json', () => {
           stock_quantity: 5,
           manage_stock: true,
           category: 'phones',
-          updated_at: PRODUCT_UPDATED_AT,
         },
       ],
     });
@@ -150,18 +148,11 @@ describe('GET /agent-trust.json', () => {
           openAiProducts: 1,
           googleProducts: 1,
           sharedProducts: 1,
-          latestProductUpdatedAt: PRODUCT_UPDATED_AT,
-          productsWithStructuredData: 1,
-          staleProducts: 0,
         },
       },
     });
     expect(body.trust.surfaces.agentTrust).toBe(
       'https://ogabassey.com/agent-trust.json'
-    );
-    expect(body.trust.surfaces.robots).toBe('https://ogabassey.com/robots.txt');
-    expect(body.trust.surfaces.sitemap).toBe(
-      'https://ogabassey.com/sitemap.xml'
     );
     expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith('merchant-1');
     expect(mockGetCachedGoogleMerchantFeedData).toHaveBeenCalledWith(

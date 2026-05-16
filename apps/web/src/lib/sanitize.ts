@@ -120,8 +120,6 @@ export function sanitizeHtml(
       'div',
       'span',
       'blockquote',
-      'figure',
-      'figcaption',
       'pre',
       'code',
       // Lists

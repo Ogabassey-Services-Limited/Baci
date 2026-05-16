@@ -38,12 +38,3 @@ Retry output:
 ```
 
 Proceeding with the implementation because the target URL responds normally outside PSI; post-merge measurement must retry PSI and verify the production preload HTML before judging the result.
-
-## Post-merge tracking
-
-| Date | Change | Page | Strategy | Perf | SEO | LCP | FCP | TBT | CLS | Notes |
-|---|---|---|---|---:|---:|---:|---:|---:|---:|---|
-| 2026-05-15 | PR #1671 deployed (`9882bb8451a168425bb5ef7001e511602c076d32`) | OgaBassey home | mobile | 87 | 100 | 3376 ms | 1201 ms | 76 ms | 0.001 | LCP request is discoverable/eager/high priority, but appears via RSC `:HL` stream data rather than a native initial-head link; resource load delay remains about 2080 ms. PR #1674 keeps the assets on public URLs so the existing viewport-scoped ReactDOM preloads match the image request; it intentionally avoids UA-selected HTTP `Link` variants because the rendered hero branch is viewport-driven. |
-| 2026-05-15 | PR #1671 deployed (`9882bb8451a168425bb5ef7001e511602c076d32`) | OgaBassey home | desktop | 99 | 100 | 761 ms | 281 ms | 6 ms | 0.000 | Desktop home is healthy. |
-| 2026-05-15 | PR #1671 deployed (`9882bb8451a168425bb5ef7001e511602c076d32`) | OgaBassey PDP | mobile | 84 | 100 | 3226 ms | 1201 ms | 358 ms | 0.072 | Improved from the prior 4824 ms plan baseline, but still over target; remaining bottleneck is main-thread JS work, not image discovery. |
-| 2026-05-15 | PR #1671 deployed (`9882bb8451a168425bb5ef7001e511602c076d32`) | OgaBassey PDP | desktop | 68 | 100 | 1182 ms | 403 ms | 589 ms | 0.000 | LCP is now under target; TBT is noisy/high, partly from ad scripts and shared storefront JS. |

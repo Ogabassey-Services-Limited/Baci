@@ -85,7 +85,7 @@ function getJoinedCategory(
   product: RawOpenAIFeedProductRow
 ): { name?: string | null; slug?: string | null } | null {
   return (
-    product.categories ?? product.product_categories?.[0]?.categories ?? null
+    product.product_categories?.[0]?.categories ?? product.categories ?? null
   );
 }
 
