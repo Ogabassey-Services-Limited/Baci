@@ -878,4 +878,25 @@ describe('POST /api/storefront/imei-check', () => {
     expect(body.success).toBe(true);
     expect(mocks.mockRedeemImeiWalletPayment).not.toHaveBeenCalled();
   });
+
+  it('returns 409 when a unique Idempotency-Key collision is hidden by RLS', async () => {
+    const adminSupabase = createSupabaseMock();
+    adminSupabase.__setInsertError({
+      code: '23505',
+      message: 'duplicate key',
+    });
+    mockAuthenticatedUser({
+      adminSupabase,
+      userSupabase: createSupabaseMock(),
+    });
+    const { POST } = await importRoute();
+
+    const response = await POST(createRequest());
+    const body = (await response.json()) as { code: string };
+
+    expect(response.status).toBe(409);
+    expect(body.code).toBe('IDEMPOTENCY_CONFLICT');
+    expect(mocks.mockRedeemImeiWalletPayment).not.toHaveBeenCalled();
+    expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
+  });
 });

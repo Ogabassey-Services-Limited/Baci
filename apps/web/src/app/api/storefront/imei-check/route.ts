@@ -243,6 +243,14 @@ export async function POST(request: NextRequest) {
         if (winningLookup) {
           return mapExistingLookup(winningLookup, replayContext);
         }
+
+        return json(
+          errorBody({
+            code: 'IDEMPOTENCY_CONFLICT',
+            error: 'Idempotency-Key already belongs to another request.',
+          }),
+          409
+        );
       }
       throw new Error(
         `Failed to create IMEI lookup row: ${insertError.message}`
