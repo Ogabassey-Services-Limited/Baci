@@ -13,6 +13,15 @@ import { SelectionRequiredModal } from './product-details-page/selection-require
 import { getAvailableOptionsForAxis } from '../variant-attributes';
 import { useProductDetailsState } from './product-details-page/use-product-details-state';
 
+function DeferredDetailsLoadingPlaceholder() {
+  return (
+    <div
+      aria-hidden="true"
+      className="mt-12 min-h-[1200px] [content-visibility:auto] [contain-intrinsic-size:1400px_2200px]"
+    />
+  );
+}
+
 const AdUnit = dynamic(
   () => import('../components/AdUnit').then((mod) => mod.AdUnit),
   { loading: () => null, ssr: false }
@@ -22,30 +31,12 @@ const BannerCarousel = dynamic(
     import('../components/BannerCarousel').then((mod) => mod.BannerCarousel),
   { loading: () => null, ssr: false }
 );
-const BrandProducts = dynamic(
+const DeferredProductDetailsSections = dynamic(
   () =>
-    import('@/components/storefront/brand-products').then(
-      (mod) => mod.BrandProducts
-    ),
-  { loading: () => null }
-);
-const PriceRangeProducts = dynamic(
-  () =>
-    import('@/components/storefront/price-range-products').then(
-      (mod) => mod.PriceRangeProducts
-    ),
-  { loading: () => null }
-);
-const ProductDetailsTabs = dynamic(
-  () =>
-    import('./product-details-page/product-details-tabs').then(
-      (mod) => mod.ProductDetailsTabs
-    ),
-  { loading: () => null }
-);
-const ProductVideo = dynamic(
-  () => import('../components/ProductVideo').then((mod) => mod.ProductVideo),
-  { loading: () => null }
+    import(
+      './product-details-page/deferred-product-details-sections'
+    ).then((mod) => mod.DeferredProductDetailsSections),
+  { loading: DeferredDetailsLoadingPlaceholder }
 );
 const NegotiationModal = dynamic(
   () =>
@@ -171,12 +162,7 @@ export function ProductDetailsPage({
     setSelectedAttributes((prev) => ({ ...prev, [axis]: value }));
     setMissingFields((prev) => prev.filter((field) => field !== label));
   };
-  const deferredDetailsFallback = (
-    <div
-      aria-hidden="true"
-      className="mt-12 min-h-[1200px] [content-visibility:auto] [contain-intrinsic-size:1400px_2200px]"
-    />
-  );
+  const deferredDetailsFallback = <DeferredDetailsLoadingPlaceholder />;
 
   return (
     <div className="relative bg-[var(--store-background,#ffffff)] pb-32 pt-4">
@@ -251,39 +237,14 @@ export function ProductDetailsPage({
         {semanticSections}
 
         <DeferredShellFeature fallback={deferredDetailsFallback} timeoutMs={1800}>
-          <div className="[content-visibility:auto] [contain-intrinsic-size:1400px_2200px]">
-            <div className="mb-12 mt-12">
-              <AdUnit placementKey="CONTENT_BREAK" />
-            </div>
-
-            <ProductDetailsTabs
-              activeTab={activeTab}
-              normalizedReviewRatingWidth={normalizedReviewRatingWidth}
-              onSelectTab={setActiveTab}
-              productData={productData}
-              storeSlug={merchantSlug}
-            />
-
-            {productData.videoUrl && (
-              <ProductVideo
-                videoId={productData.videoUrl}
-                title={productData.name}
-              />
-            )}
-
-            <div className="mx-auto max-w-[1400px]">
-              <BrandProducts
-                product={relatedProductsProduct}
-                maxProducts={4}
-                className="border-t border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)] pt-8"
-              />
-              <PriceRangeProducts
-                product={relatedProductsProduct}
-                maxProducts={4}
-                className="border-t border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)]"
-              />
-            </div>
-          </div>
+          <DeferredProductDetailsSections
+            activeTab={activeTab}
+            normalizedReviewRatingWidth={normalizedReviewRatingWidth}
+            onSelectTab={setActiveTab}
+            productData={productData}
+            relatedProductsProduct={relatedProductsProduct}
+            storeSlug={merchantSlug}
+          />
         </DeferredShellFeature>
       </div>
 
