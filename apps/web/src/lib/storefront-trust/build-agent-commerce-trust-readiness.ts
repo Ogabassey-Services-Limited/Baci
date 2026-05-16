@@ -33,6 +33,7 @@ export interface AgentCommerceTrustCheck {
   severity: AgentCommerceTrustSeverity;
   message: string;
   affectedProductIds?: string[];
+  affectedProductCount?: number;
 }
 
 export interface AgentCommerceTrustReadiness {
@@ -61,6 +62,44 @@ export interface AgentCommerceTrustReadiness {
     latestProductUpdatedAt: string | null;
     productsWithStructuredData: number;
     staleProducts: number;
+  };
+}
+
+/**
+ * Aggregate-only projection of {@link AgentCommerceTrustReadiness} that is safe
+ * to serialize into client component props. It deliberately omits the per-check
+ * `affectedProductIds` arrays (which can carry thousands of IDs for large
+ * catalogs) and the `surfaces` map, keeping only the counts/status/severity the
+ * dashboard trust card actually renders.
+ */
+export interface AgentCommerceTrustCheckSummary {
+  id: AgentCommerceTrustCheck['id'];
+  label: string;
+  severity: AgentCommerceTrustSeverity;
+  message: string;
+  affectedProductCount?: number;
+}
+
+export interface AgentCommerceTrustReadinessSummary {
+  checks: AgentCommerceTrustCheckSummary[];
+  status: AgentCommerceTrustSeverity;
+  totals: AgentCommerceTrustReadiness['totals'];
+}
+
+export function summarizeAgentCommerceTrustReadiness(
+  readiness: AgentCommerceTrustReadiness
+): AgentCommerceTrustReadinessSummary {
+  return {
+    status: readiness.status,
+    totals: readiness.totals,
+    checks: readiness.checks.map((check) => ({
+      id: check.id,
+      label: check.label,
+      severity: check.severity,
+      message: check.message,
+      affectedProductCount:
+        check.affectedProductCount ?? check.affectedProductIds?.length,
+    })),
   };
 }
 
