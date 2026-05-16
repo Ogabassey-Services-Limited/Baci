@@ -9,6 +9,8 @@ const validAction = {
   code: 'AGENTIC_PAYMENT_PENDING',
   count: 1,
   message: 'Agentic checkouts are waiting for payment confirmation.',
+  next_step:
+    'Confirm payment provider webhook status if pending payments do not settle.',
   severity: 'monitor',
 };
 
@@ -39,6 +41,16 @@ describe('agenticActionSchema', () => {
     ).toBe(false);
     expect(
       agenticActionSchema.safeParse({ ...validAction, message: null }).success
+    ).toBe(false);
+    expect(
+      agenticActionSchema.safeParse({ ...validAction, next_step: '' }).success
+    ).toBe(false);
+    expect(
+      agenticActionSchema.safeParse({ ...validAction, next_step: '   ' })
+        .success
+    ).toBe(false);
+    expect(
+      agenticActionSchema.safeParse({ ...validAction, next_step: null }).success
     ).toBe(false);
     expect(
       agenticActionSchema.safeParse({

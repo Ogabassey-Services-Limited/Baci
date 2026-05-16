@@ -30,6 +30,8 @@ describe('AgenticActionCenterCard', () => {
             count: 2,
             message:
               'Agentic checkouts are waiting on order finalization recovery.',
+            next_step:
+              'Check whether an order was created before allowing another completion retry.',
             severity: 'attention',
           },
           {
@@ -57,6 +59,11 @@ describe('AgenticActionCenterCard', () => {
         'Agentic checkouts are waiting on order finalization recovery.'
       )
     ).toHaveLength(2);
+    expect(
+      screen.getByText(
+        'Next step: Check whether an order was created before allowing another completion retry.'
+      )
+    ).toBeInTheDocument();
     expect(
       screen.getByText('Review affected checkout activity before agents retry.')
     ).toBeInTheDocument();

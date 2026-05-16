@@ -230,6 +230,11 @@ export function AgenticActionCenterCard() {
                       <p className="text-sm text-current/75">
                         {action.message}
                       </p>
+                      {action.next_step && (
+                        <p className="mt-1 text-xs text-current/70">
+                          Next step: {action.next_step}
+                        </p>
+                      )}
                     </div>
                   </div>
                   {href && (
