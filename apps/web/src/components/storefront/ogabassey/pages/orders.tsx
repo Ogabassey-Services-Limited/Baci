@@ -18,6 +18,7 @@ import { useMerchantSafe } from '@/hooks/use-merchant-client';
 import { asRoute } from '@/lib/routes';
 import { getStorefrontOrderItemHref } from '@/lib/storefront-order-item-href';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
+import type { StorefrontTransformedOrder } from '@baci/shared';
 
 // Mock data removed
 interface _OrderItem {
@@ -40,7 +41,7 @@ export const OgabasseyV2Orders: React.FC = () => {
   const { customer: _customer, isAuthenticated } = useCustomerAuth(); // Hook into auth
   const basePath = merchantContext?.merchant?.slug ? `/${merchantContext.merchant.slug}` : '';
 
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<StorefrontTransformedOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -79,7 +80,7 @@ export const OgabasseyV2Orders: React.FC = () => {
     // Safely check properties
     const orderIdMatch = order.order_number?.toLowerCase().includes(query) || order.id?.toLowerCase().includes(query);
     const statusMatch = order.shipping_status?.toLowerCase().includes(query) || order.payment_status?.toLowerCase().includes(query);
-    const itemMatch = order.items?.some((item: any) => item.name.toLowerCase().includes(query));
+    const itemMatch = order.items?.some((item) => item.name.toLowerCase().includes(query));
 
     return orderIdMatch || statusMatch || itemMatch;
   });
@@ -221,7 +222,7 @@ export const OgabasseyV2Orders: React.FC = () => {
                 {/* Order Items */}
                 <div className="p-4 md:p-6">
                   <div className="flex flex-col gap-4">
-                    {order.items?.map((item: any) => (
+                    {order.items?.map((item) => (
                       (() => {
                         const productHref = getStorefrontOrderItemHref(
                           item,

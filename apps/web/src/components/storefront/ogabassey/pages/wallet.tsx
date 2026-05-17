@@ -6,17 +6,13 @@ import { CreditCard, History, Plus, Wallet, Loader2 } from 'lucide-react';
 import { EmptyState } from '../components/empty-state';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import type { StorefrontWallet } from '@baci/shared';
 
 export function OgabasseyV2Wallet() {
   const { isAuthenticated } = useCustomerAuth();
   const { merchant } = useMerchantSafe() || {};
 
-  const [wallet, setWallet] = useState<{
-    balance: number;
-    totalEarned: number;
-    totalRedeemed: number;
-    transactions: any[];
-  } | null>(null);
+  const [wallet, setWallet] = useState<StorefrontWallet | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -143,7 +139,7 @@ export function OgabasseyV2Wallet() {
               <div className="flex-1 flex flex-col">
                 {wallet && wallet.transactions && wallet.transactions.length > 0 ? (
                   <div className="p-2 space-y-1">
-                    {wallet.transactions.map((tx: any) => (
+                    {wallet.transactions.map((tx) => (
                       <div key={tx.id} className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-lg transition-colors">
                         <div className="flex items-center gap-4">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.type === 'credit' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
