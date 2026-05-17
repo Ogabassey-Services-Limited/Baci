@@ -238,17 +238,17 @@ export const OgabasseyImeiEntry = ({
             </div>
             <input
               aria-label="15-digit IMEI Number"
+              inputMode="numeric"
+              pattern="[0-9]*"
               type="text"
               value={imei}
-              onChange={(event) =>
-                onImeiChange(event.target.value.replace(/\D/g, '').slice(0, 15))
-              }
+              onChange={(event) => onImeiChange(event.target.value.replace(/\D/g, '').slice(0, 15))}
               placeholder="Enter 15-digit IMEI Number"
               className="w-full pl-12 pr-4 py-4 bg-gray-50 hover:bg-white focus:bg-white border border-transparent focus:border-[var(--store-primary)]/10 rounded-2xl focus:ring-4 focus:ring-[var(--store-primary)]/10 outline-none text-lg font-mono tracking-widest transition-all placeholder:font-sans placeholder:tracking-normal text-gray-900"
             />
           </div>
           <button
-            aria-label={`Verify Now · ${currentTier.priceDisplay}`}
+            aria-label={isLoading ? 'Verifying IMEI' : `Verify Now · ${currentTier.priceDisplay}`}
             disabled={isLoading || imei.length < 15}
             type="submit"
             className="bg-[var(--store-primary)] text-[var(--store-primary-text,#ffffff)] font-bold text-base px-8 py-4 rounded-2xl hover:bg-[var(--store-primary)]/90 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-[var(--store-primary)]/20 active:scale-95 whitespace-nowrap"

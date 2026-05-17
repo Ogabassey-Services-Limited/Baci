@@ -77,16 +77,18 @@ describe('OgabasseyImeiEntry', () => {
     expect(props.onImeiChange).toHaveBeenCalledWith('354442067957452');
   });
 
-  it('submits valid IMEI checks and disables invalid checks', () => {
+  it('submits valid IMEI checks', () => {
     const props = renderEntry();
 
     fireEvent.submit(screen.getByLabelText(/15-digit imei number/i));
 
     expect(props.onCheck).toHaveBeenCalledOnce();
+  });
 
+  it('disables invalid checks', () => {
     renderEntry({ imei: '35444206795745' });
 
-    expect(screen.getAllByRole('button', { name: /verify now/i })[1]).toBeDisabled();
+    expect(screen.getByRole('button', { name: /verify now/i })).toBeDisabled();
   });
 
   it('shows loading and error states', () => {
@@ -96,7 +98,9 @@ describe('OgabasseyImeiEntry', () => {
     });
 
     expect(screen.getByText('Wallet balance is too low.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /verify now/i })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: /verifying imei/i })
+    ).toBeDisabled();
   });
 
   it('labels text inputs for assistive technology', () => {
@@ -108,5 +112,16 @@ describe('OgabasseyImeiEntry', () => {
     expect(
       screen.getByRole('textbox', { name: /15-digit imei number/i })
     ).toBeInTheDocument();
+  });
+
+  it('uses a numeric mobile keyboard hint for IMEI entry', () => {
+    renderEntry();
+
+    const imeiInput = screen.getByRole('textbox', {
+      name: /15-digit imei number/i,
+    });
+
+    expect(imeiInput).toHaveAttribute('inputmode', 'numeric');
+    expect(imeiInput).toHaveAttribute('pattern', '[0-9]*');
   });
 });
