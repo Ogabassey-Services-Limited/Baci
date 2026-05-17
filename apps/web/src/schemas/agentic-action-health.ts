@@ -21,7 +21,7 @@ export const agenticActionCheckoutSessionRecordSchema = z.object({
   payment_state: z.string().trim().min(1),
   session_id: z.string().trim().min(1),
   status: z.string().trim().min(1),
-  updated_at: z.string().datetime(),
+  updated_at: z.string().datetime({ offset: true }),
 });
 
 export const agenticActionCheckoutSessionsSchema = z

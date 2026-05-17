@@ -124,13 +124,21 @@ export async function loadAgenticActionHealth(
   }
 
   const checkoutActivityRecords = sessionRows
-    .filter((row) => Number.isFinite(Date.parse(row.updated_at)))
-    .map((row) => ({
-      payment_state: getAgenticPaymentState(row.metadata),
-      session_id: row.session_id,
-      status: row.status,
-      updated_at: row.updated_at,
-    }))
+    .flatMap((row) => {
+      const paymentState = getAgenticPaymentState(row.metadata);
+      if (!paymentState || !Number.isFinite(Date.parse(row.updated_at))) {
+        return [];
+      }
+
+      return [
+        {
+          payment_state: paymentState,
+          session_id: row.session_id,
+          status: row.status,
+          updated_at: row.updated_at,
+        },
+      ];
+    })
     .sort(
       (left, right) =>
         toTimestamp(right.updated_at) - toTimestamp(left.updated_at)

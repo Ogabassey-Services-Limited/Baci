@@ -44,13 +44,19 @@ describe('loadAgenticActionHealth', () => {
             metadata: { agentic: { payment_state: 'claiming_payment' } },
             session_id: 'session-3',
             status: 'processing',
-            updated_at: '2026-05-16T09:10:00.000Z',
+            updated_at: '2026-05-16T09:10:00+00:00',
           },
           {
             metadata: { agentic: { payment_state: 'payment_pending' } },
             session_id: 'session-4',
             status: 'processing',
             updated_at: 'not-a-date',
+          },
+          {
+            metadata: { agentic: {} },
+            session_id: 'session-5',
+            status: 'processing',
+            updated_at: '2026-05-16T09:11:00.000Z',
           },
         ],
         idempotency_records: [
@@ -109,6 +115,11 @@ describe('loadAgenticActionHealth', () => {
     expect(checkoutSessions?.records).not.toContainEqual(
       expect.objectContaining({
         session_id: 'session-4',
+      })
+    );
+    expect(checkoutSessions?.records).not.toContainEqual(
+      expect.objectContaining({
+        session_id: 'session-5',
       })
     );
   });
