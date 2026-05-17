@@ -4,7 +4,10 @@ import { verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { resolveAgenticMerchantContext } from '@/lib/agentic/merchant-context';
 import { readAgenticQueryRequest } from '@/lib/agentic/mutation-request';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
-import { buildUcpOrderResponse } from '@/lib/agentic/ucp-response-adapters';
+import {
+  adaptOrderResponseToUcp,
+  buildUcpOrderResponse,
+} from '@/lib/agentic/ucp-response-adapters';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 import { buildStoreUrl } from '@/lib/store-url';
@@ -20,18 +23,22 @@ export async function GET(
   props: { params: Promise<{ id: string }> }
 ) {
   if (!verifyAgenticApiKey(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return adaptOrderResponseToUcp(
+      NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    );
   }
 
   const params = await props.params;
   const parsedParams = agenticOrderRouteParamsSchema.safeParse(params);
   if (!parsedParams.success) {
-    return NextResponse.json(
-      {
-        error: 'Invalid route params',
-        details: parsedParams.error.flatten(),
-      },
-      { status: 400 }
+    return adaptOrderResponseToUcp(
+      NextResponse.json(
+        {
+          error: 'Invalid route params',
+          details: parsedParams.error.flatten(),
+        },
+        { status: 400 }
+      )
     );
   }
 
@@ -39,15 +46,17 @@ export async function GET(
     request,
   });
   if (!signedRead.ok) {
-    return signedRead.response;
+    return adaptOrderResponseToUcp(signedRead.response);
   }
 
   const bootstrap = createAdminClient();
   const merchant = await resolveAgenticMerchantContext(bootstrap);
   if (!merchant) {
-    return NextResponse.json(
-      { error: 'Agentic merchant not found' },
-      { status: 500 }
+    return adaptOrderResponseToUcp(
+      NextResponse.json(
+        { error: 'Agentic merchant not found' },
+        { status: 500 }
+      )
     );
   }
   const agentAccess = verifyAgenticRequestAccess({
@@ -58,7 +67,9 @@ export async function GET(
     headers: request.headers,
   });
   if (!agentAccess.ok) {
-    return NextResponse.json({ error: agentAccess.error }, { status: 403 });
+    return adaptOrderResponseToUcp(
+      NextResponse.json({ error: agentAccess.error }, { status: 403 })
+    );
   }
 
   const supabase = createAgenticScopedSupabaseClient({
@@ -81,14 +92,15 @@ export async function GET(
       merchantId: merchant.id,
       orderId: parsedParams.data.id,
     });
-    return NextResponse.json(
-      { error: 'Failed to fetch order' },
-      { status: 500 }
+    return adaptOrderResponseToUcp(
+      NextResponse.json({ error: 'Failed to fetch order' }, { status: 500 })
     );
   }
 
   if (!order) {
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    return adaptOrderResponseToUcp(
+      NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    );
   }
 
   const { data: checkoutSession, error: checkoutSessionError } = await supabase
@@ -105,9 +117,11 @@ export async function GET(
       merchantId: merchant.id,
       orderId: parsedParams.data.id,
     });
-    return NextResponse.json(
-      { error: 'Failed to fetch order checkout session' },
-      { status: 500 }
+    return adaptOrderResponseToUcp(
+      NextResponse.json(
+        { error: 'Failed to fetch order checkout session' },
+        { status: 500 }
+      )
     );
   }
 

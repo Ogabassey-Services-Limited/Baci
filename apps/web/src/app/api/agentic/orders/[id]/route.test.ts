@@ -214,7 +214,19 @@ describe('GET /api/agentic/orders/[id]', () => {
     const response = await GET(request(), routeParams());
 
     expect(response.status).toBe(401);
-    expect(await response.json()).toEqual({ error: 'Unauthorized' });
+    expect(await response.json()).toMatchObject({
+      error: 'Unauthorized',
+      messages: [
+        {
+          content: 'Unauthorized',
+          content_type: 'plain',
+          type: 'error',
+        },
+      ],
+      ucp: {
+        status: 'error',
+      },
+    });
     expect(readAgenticQueryRequest).not.toHaveBeenCalled();
     expect(createAdminClient).not.toHaveBeenCalled();
     expect(createAgenticScopedSupabaseClient).not.toHaveBeenCalled();
@@ -233,7 +245,19 @@ describe('GET /api/agentic/orders/[id]', () => {
     const response = await GET(request(), routeParams());
 
     expect(response.status).toBe(401);
-    expect(await response.json()).toEqual({ error: 'Invalid signature' });
+    expect(await response.json()).toMatchObject({
+      error: 'Invalid signature',
+      messages: [
+        {
+          content: 'Invalid signature',
+          content_type: 'plain',
+          type: 'error',
+        },
+      ],
+      ucp: {
+        status: 'error',
+      },
+    });
     expect(readAgenticQueryRequest).toHaveBeenCalledWith({
       request: expect.any(NextRequest),
     });
@@ -247,6 +271,9 @@ describe('GET /api/agentic/orders/[id]', () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({
       error: 'Invalid route params',
+      ucp: {
+        status: 'error',
+      },
     });
     expect(readAgenticQueryRequest).not.toHaveBeenCalled();
     expect(createAdminClient).not.toHaveBeenCalled();
@@ -259,8 +286,18 @@ describe('GET /api/agentic/orders/[id]', () => {
     const response = await GET(request(), routeParams());
 
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({
+    expect(await response.json()).toMatchObject({
       error: 'Agentic merchant not found',
+      messages: [
+        {
+          content: 'Agentic merchant not found',
+          content_type: 'plain',
+          type: 'error',
+        },
+      ],
+      ucp: {
+        status: 'error',
+      },
     });
     expect(createAgenticScopedSupabaseClient).not.toHaveBeenCalled();
   });
@@ -301,8 +338,18 @@ describe('GET /api/agentic/orders/[id]', () => {
     const response = await GET(request(), routeParams());
 
     expect(response.status).toBe(403);
-    expect(await response.json()).toEqual({
+    expect(await response.json()).toMatchObject({
       error: 'Agent client not allowlisted',
+      messages: [
+        {
+          content: 'Agent client not allowlisted',
+          content_type: 'plain',
+          type: 'error',
+        },
+      ],
+      ucp: {
+        status: 'error',
+      },
     });
     expect(readAgenticQueryRequest).toHaveBeenCalled();
     expect(createAgenticScopedSupabaseClient).not.toHaveBeenCalled();
@@ -315,7 +362,19 @@ describe('GET /api/agentic/orders/[id]', () => {
     const response = await GET(request(), routeParams());
 
     expect(response.status).toBe(404);
-    expect(await response.json()).toEqual({ error: 'Order not found' });
+    expect(await response.json()).toMatchObject({
+      error: 'Order not found',
+      messages: [
+        {
+          content: 'Order not found',
+          content_type: 'plain',
+          type: 'error',
+        },
+      ],
+      ucp: {
+        status: 'error',
+      },
+    });
   });
 
   it('returns 500 when the scoped order query fails', async () => {
@@ -328,7 +387,19 @@ describe('GET /api/agentic/orders/[id]', () => {
     const response = await GET(request(), routeParams());
 
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ error: 'Failed to fetch order' });
+    expect(await response.json()).toMatchObject({
+      error: 'Failed to fetch order',
+      messages: [
+        {
+          content: 'Failed to fetch order',
+          content_type: 'plain',
+          type: 'error',
+        },
+      ],
+      ucp: {
+        status: 'error',
+      },
+    });
   });
 
   it('returns a schema-safe checkout id fallback when checkout linkage is absent', async () => {
@@ -356,8 +427,18 @@ describe('GET /api/agentic/orders/[id]', () => {
     const response = await GET(request(), routeParams());
 
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({
+    expect(await response.json()).toMatchObject({
       error: 'Failed to fetch order checkout session',
+      messages: [
+        {
+          content: 'Failed to fetch order checkout session',
+          content_type: 'plain',
+          type: 'error',
+        },
+      ],
+      ucp: {
+        status: 'error',
+      },
     });
   });
 
