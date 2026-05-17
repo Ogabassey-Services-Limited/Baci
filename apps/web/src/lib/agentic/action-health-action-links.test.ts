@@ -6,6 +6,9 @@ import {
 
 describe('getAgenticActionNextStepUrl', () => {
   it('maps order-review action codes to the agentic orders dashboard', () => {
+    expect(
+      getAgenticActionNextStepUrl('AGENTIC_CHECKOUT_COMPLETE_ERRORS')
+    ).toBe(AGENTIC_ORDERS_REVIEW_HREF);
     expect(getAgenticActionNextStepUrl('AGENTIC_IDEMPOTENCY_ERRORS')).toBe(
       AGENTIC_ORDERS_REVIEW_HREF
     );

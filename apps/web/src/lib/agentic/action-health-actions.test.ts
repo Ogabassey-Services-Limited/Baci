@@ -4,6 +4,7 @@ import { buildAgenticHealthActions } from './action-health-actions';
 const healthyInput = {
   activeInProgressCount: 0,
   allowlistCount: 1,
+  completeTerminalErrorCount: 0,
   isAgenticCheckoutEnabled: true,
   orderFinalizingCount: 0,
   paymentClaimingCount: 0,
@@ -18,6 +19,8 @@ const expectedNextStepsByCode = {
   AGENTIC_ACTIONS_HEALTHY: 'No action required right now.',
   AGENTIC_AGENT_ALLOWLIST_UNSET:
     'Open Trust settings and configure trusted agent user-agents before broadly advertising checkout.',
+  AGENTIC_CHECKOUT_COMPLETE_ERRORS:
+    'Inspect completion failures, then retry checkout completion with the same idempotency key.',
   AGENTIC_IDEMPOTENCY_ERRORS:
     'Review failed agentic orders and retry only after the server error is resolved.',
   AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS:
@@ -39,6 +42,7 @@ const expectedNextStepsByCode = {
 const expectedNextStepUrlsByCode = {
   AGENTIC_ACTIONS_HEALTHY: undefined,
   AGENTIC_AGENT_ALLOWLIST_UNSET: '/dashboard/settings/trust',
+  AGENTIC_CHECKOUT_COMPLETE_ERRORS: '/dashboard/orders?source=agentic',
   AGENTIC_IDEMPOTENCY_ERRORS: '/dashboard/orders?source=agentic',
   AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS: '/dashboard/orders?source=agentic',
   AGENTIC_ORDER_FINALIZING: '/dashboard/orders?source=agentic',
@@ -56,6 +60,7 @@ describe('buildAgenticHealthActions', () => {
         ...healthyInput,
         activeInProgressCount: 5,
         allowlistCount: 0,
+        completeTerminalErrorCount: 1,
         orderFinalizingCount: 3,
         paymentClaimingCount: 6,
         paymentPendingCount: 7,
@@ -70,6 +75,12 @@ describe('buildAgenticHealthActions', () => {
         severity,
       }))
     ).toEqual([
+      {
+        code: 'AGENTIC_CHECKOUT_COMPLETE_ERRORS',
+        count: 1,
+        next_step_url: '/dashboard/orders?source=agentic',
+        severity: 'attention',
+      },
       {
         code: 'AGENTIC_IDEMPOTENCY_ERRORS',
         count: 2,
@@ -213,6 +224,7 @@ describe('buildAgenticHealthActions', () => {
       ...healthyInput,
       activeInProgressCount: 5,
       allowlistCount: 0,
+      completeTerminalErrorCount: 1,
       orderFinalizingCount: 3,
       paymentClaimingCount: 6,
       paymentPendingCount: 7,

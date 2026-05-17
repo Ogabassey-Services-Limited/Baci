@@ -4,6 +4,7 @@ import type { AgenticAction } from '@/schemas/agentic-action-health';
 interface BuildAgenticHealthActionsInput {
   activeInProgressCount: number;
   allowlistCount: number;
+  completeTerminalErrorCount: number;
   isAgenticCheckoutEnabled: boolean;
   orderFinalizingCount: number;
   paymentClaimingCount: number;
@@ -17,6 +18,7 @@ interface BuildAgenticHealthActionsInput {
 export function buildAgenticHealthActions({
   activeInProgressCount,
   allowlistCount,
+  completeTerminalErrorCount,
   isAgenticCheckoutEnabled,
   orderFinalizingCount,
   paymentClaimingCount,
@@ -33,6 +35,18 @@ export function buildAgenticHealthActions({
       nextStepUrl ? { ...action, next_step_url: nextStepUrl } : action
     );
   };
+
+  if (completeTerminalErrorCount > 0) {
+    pushAction({
+      code: 'AGENTIC_CHECKOUT_COMPLETE_ERRORS',
+      count: completeTerminalErrorCount,
+      message:
+        'Agentic checkout completions are failing before order finalization.',
+      next_step:
+        'Inspect completion failures, then retry checkout completion with the same idempotency key.',
+      severity: 'attention',
+    });
+  }
 
   if (terminalErrorCount > 0) {
     pushAction({

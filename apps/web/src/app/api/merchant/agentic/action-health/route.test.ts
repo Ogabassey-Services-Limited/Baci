@@ -412,6 +412,51 @@ describe('GET /api/merchant/agentic/action-health', () => {
     });
   });
 
+  it('surfaces checkout completion failures as a dedicated action', async () => {
+    mockAuthenticateApiRequest.mockResolvedValue({
+      error: null,
+      supabase: createSupabaseMock({
+        rpcData: buildRpcData({
+          checkoutSessions: [],
+          idempotencyRecords: [
+            {
+              created_at: '2026-05-12T10:00:00.000Z',
+              expires_at: '2099-01-01T00:00:00.000Z',
+              route: 'checkout_sessions.complete',
+              status_code: 502,
+              updated_at: '2026-05-12T10:01:00.000Z',
+            },
+          ],
+          requestRecords: [],
+        }),
+      }),
+      user: { id: 'user-1' },
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(makeRequest());
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'AGENTIC_CHECKOUT_COMPLETE_ERRORS',
+          count: 1,
+          message:
+            'Agentic checkout completions are failing before order finalization.',
+          next_step: expect.any(String),
+          next_step_url: '/dashboard/orders?source=agentic',
+          severity: 'attention',
+        }),
+        expect.objectContaining({
+          code: 'AGENTIC_IDEMPOTENCY_ERRORS',
+          count: 1,
+        }),
+      ])
+    );
+  });
+
   it('surfaces payment setup failures and active payment claims', async () => {
     mockAuthenticateApiRequest.mockResolvedValue({
       error: null,
