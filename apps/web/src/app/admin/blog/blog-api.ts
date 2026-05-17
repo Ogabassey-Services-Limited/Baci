@@ -26,7 +26,13 @@ async function readErrorMessage(
 
 function toApiPayload(
   input: PlatformAdminBlogFormState,
-  { clearEmptyToNull = false }: { clearEmptyToNull?: boolean } = {}
+  {
+    clearEmptyToNull = false,
+    includeFeaturedImageFields = true,
+  }: {
+    clearEmptyToNull?: boolean;
+    includeFeaturedImageFields?: boolean;
+  } = {}
 ) {
   const toOptionalString = (value: string) => {
     const trimmed = value.trim();
@@ -37,16 +43,12 @@ function toApiPayload(
     return clearEmptyToNull ? null : undefined;
   };
 
-  return {
+  const payload = {
     author_name: input.author_name,
     category: toOptionalString(input.category),
     content: input.content,
     excerpt: toOptionalString(input.excerpt),
     featured_image_alt: toOptionalString(input.featured_image_alt),
-    featured_image_height: input.featured_image_height,
-    featured_image_url: toOptionalString(input.featured_image_url) || null,
-    featured_image_variants: input.featured_image_variants,
-    featured_image_width: input.featured_image_width,
     seo_description: toOptionalString(input.seo_description),
     seo_title: toOptionalString(input.seo_title),
     slug: input.slug || undefined,
@@ -54,6 +56,78 @@ function toApiPayload(
     tags: input.tags,
     title: input.title,
   };
+
+  if (!includeFeaturedImageFields) {
+    return payload;
+  }
+
+  return {
+    ...payload,
+    featured_image_height: input.featured_image_height,
+    featured_image_url: toOptionalString(input.featured_image_url) || null,
+    featured_image_variants: input.featured_image_variants,
+    featured_image_width: input.featured_image_width,
+  };
+}
+
+function normalizeTrimmedString(value: string | null | undefined): string {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function areVariantMapsEqual(
+  left: Record<string, unknown> | null | undefined,
+  right: Record<string, unknown> | null | undefined
+): boolean {
+  const leftEntries = Object.entries(left ?? {}).sort(([a], [b]) =>
+    a.localeCompare(b)
+  );
+  const rightEntries = Object.entries(right ?? {}).sort(([a], [b]) =>
+    a.localeCompare(b)
+  );
+
+  if (leftEntries.length !== rightEntries.length) {
+    return false;
+  }
+
+  for (let index = 0; index < leftEntries.length; index += 1) {
+    const [leftKey, leftValue] = leftEntries[index];
+    const [rightKey, rightValue] = rightEntries[index];
+    if (leftKey !== rightKey || leftValue !== rightValue) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function shouldIncludeFeaturedImageFields(
+  input: PlatformAdminBlogFormState,
+  existingPost?: PlatformAdminBlogPostDetail | null
+): boolean {
+  if (!existingPost) {
+    return true;
+  }
+
+  if (
+    normalizeTrimmedString(input.featured_image_url) !==
+    normalizeTrimmedString(existingPost.featured_image_url)
+  ) {
+    return true;
+  }
+
+  if (
+    (input.featured_image_width ?? null) !==
+      (existingPost.featured_image_width ?? null) ||
+    (input.featured_image_height ?? null) !==
+      (existingPost.featured_image_height ?? null)
+  ) {
+    return true;
+  }
+
+  return !areVariantMapsEqual(
+    input.featured_image_variants,
+    existingPost.featured_image_variants
+  );
 }
 
 export async function listPlatformBlogPosts(): Promise<
@@ -106,10 +180,20 @@ export async function createPlatformBlogPost(
 
 export async function updatePlatformBlogPost(
   id: string,
-  input: PlatformAdminBlogFormState
+  input: PlatformAdminBlogFormState,
+  existingPost?: PlatformAdminBlogPostDetail | null
 ): Promise<PlatformAdminBlogPostDetail> {
+  const includeFeaturedImageFields = shouldIncludeFeaturedImageFields(
+    input,
+    existingPost
+  );
   const response = await fetchWithCsrf(`/api/admin/blog/posts/${id}`, {
-    body: JSON.stringify(toApiPayload(input, { clearEmptyToNull: true })),
+    body: JSON.stringify(
+      toApiPayload(input, {
+        clearEmptyToNull: true,
+        includeFeaturedImageFields,
+      })
+    ),
     method: 'PATCH',
   });
 

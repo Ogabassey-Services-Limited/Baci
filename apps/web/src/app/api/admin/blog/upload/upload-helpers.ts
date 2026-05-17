@@ -8,7 +8,8 @@ import {
 } from '@/lib/blog-managed-storage-paths';
 
 export const PLATFORM_STORAGE_SCOPE = { kind: 'platform' } as const;
-export const MAX_FILE_SIZE = 5 * 1024 * 1024;
+// Keep featured originals within OG loader limits to avoid publish-time preview drift.
+export const MAX_FILE_SIZE = 4 * 1024 * 1024;
 
 export const INLINE_ALLOWED_TYPES = [
   'image/jpeg',

@@ -1,5 +1,8 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PlatformAdminBlogFormState } from './blog-types';
+import type {
+  PlatformAdminBlogFormState,
+  PlatformAdminBlogPostDetail,
+} from './blog-types';
 
 const mockFetchWithCsrf = vi.fn();
 
@@ -36,6 +39,26 @@ const sampleForm: PlatformAdminBlogFormState = {
   status: 'draft',
   tags: '',
   title: 'Launch Faster',
+};
+
+const existingPost: PlatformAdminBlogPostDetail = {
+  author_name: sampleForm.author_name,
+  category: sampleForm.category || null,
+  content: sampleForm.content,
+  excerpt: sampleForm.excerpt || null,
+  featured_image_alt: sampleForm.featured_image_alt || null,
+  featured_image_height: sampleForm.featured_image_height,
+  featured_image_url: sampleForm.featured_image_url,
+  featured_image_variants: sampleForm.featured_image_variants,
+  featured_image_width: sampleForm.featured_image_width,
+  id: 'post-1',
+  published_at: null,
+  seo_description: sampleForm.seo_description || null,
+  seo_title: sampleForm.seo_title || null,
+  slug: 'launch-faster',
+  status: 'draft',
+  tags: [],
+  title: sampleForm.title,
 };
 
 function jsonResponse(payload: unknown, status = 200): Response {
@@ -166,19 +189,24 @@ describe('blog-api', () => {
     );
   });
 
-  it('includes featured image metadata when updating posts', async () => {
+  it('includes featured image metadata when the featured image changes', async () => {
     mockFetchWithCsrf.mockResolvedValueOnce(
       jsonResponse({ id: 'post-1', slug: 'launch-faster' })
     );
 
-    await updatePlatformBlogPost('post-1', {
-      ...sampleForm,
-      category: '',
-      excerpt: '',
-      featured_image_alt: '',
-      seo_description: '',
-      seo_title: '',
-    });
+    await updatePlatformBlogPost(
+      'post-1',
+      {
+        ...sampleForm,
+        featured_image_url: 'https://cdn.example.com/platform/blog/new.webp',
+        category: '',
+        excerpt: '',
+        featured_image_alt: '',
+        seo_description: '',
+        seo_title: '',
+      },
+      existingPost
+    );
 
     const [, options] = mockFetchWithCsrf.mock.calls[0] as [
       string,
@@ -195,6 +223,35 @@ describe('blog-api', () => {
     expect(body.featured_image_variants).toEqual(
       sampleForm.featured_image_variants
     );
+  });
+
+  it('omits featured image metadata when image fields are unchanged', async () => {
+    mockFetchWithCsrf.mockResolvedValueOnce(
+      jsonResponse({ id: 'post-1', slug: 'launch-faster' })
+    );
+
+    await updatePlatformBlogPost(
+      'post-1',
+      {
+        ...sampleForm,
+        category: 'Phones',
+        excerpt: 'Updated excerpt',
+      },
+      existingPost
+    );
+
+    const [, options] = mockFetchWithCsrf.mock.calls[0] as [
+      string,
+      RequestInit,
+    ];
+    const body = JSON.parse(String(options.body)) as Record<string, unknown>;
+
+    expect(Object.hasOwn(body, 'featured_image_url')).toBe(false);
+    expect(Object.hasOwn(body, 'featured_image_width')).toBe(false);
+    expect(Object.hasOwn(body, 'featured_image_height')).toBe(false);
+    expect(Object.hasOwn(body, 'featured_image_variants')).toBe(false);
+    expect(body.category).toBe('Phones');
+    expect(body.excerpt).toBe('Updated excerpt');
   });
 
   it('throws API error payloads from update endpoint', async () => {

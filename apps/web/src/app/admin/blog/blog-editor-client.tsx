@@ -162,7 +162,7 @@ export function BlogEditorClient({
       };
 
       if (isEditMode && postId) {
-        await updatePlatformBlogPost(postId, payload);
+        await updatePlatformBlogPost(postId, payload, initialPost);
       } else {
         await createPlatformBlogPost(payload);
       }

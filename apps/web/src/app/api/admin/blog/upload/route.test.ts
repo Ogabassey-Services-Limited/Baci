@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MAX_FILE_SIZE } from './upload-helpers';
 
 const mockGetPlatformAdminAuth = vi.fn();
 const mockCreateClient = vi.fn();
@@ -135,6 +136,29 @@ describe('POST /api/admin/blog/upload', () => {
         contentType: 'image/webp',
       })
     );
+  });
+
+  it('rejects files above the OG-compatible max size', async () => {
+    const file = new File([new Uint8Array(MAX_FILE_SIZE + 1)], 'cover.png', {
+      type: 'image/png',
+    });
+    const request = {
+      formData: vi.fn().mockResolvedValue({
+        get: (key: string) => {
+          if (key === 'file') return file;
+          if (key === 'purpose') return 'featured';
+          return null;
+        },
+      }),
+    } as unknown as NextRequest;
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'File too large. Maximum size is 4MB',
+    });
+    expect(mockStorageBucket.upload).not.toHaveBeenCalled();
   });
 });
 
