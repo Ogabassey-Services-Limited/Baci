@@ -64,6 +64,20 @@ vi.mock('next/dynamic', () => {
     );
   }
 
+  function DeferredProductDetailsSectionsMock(
+    props: Record<string, unknown> & {
+      productData?: { reviewCount?: number };
+    }
+  ) {
+    return (
+      <div role="region" aria-label="Deferred product details sections">
+        <div role="region" aria-label="Deferred ad slot" />
+        <ProductDetailsTabsMock {...props} />
+        <div role="region" aria-label="Deferred merchandising sections" />
+      </div>
+    );
+  }
+
   return {
     default: (loader: () => Promise<unknown>) => {
       const source = loader.toString();
@@ -79,6 +93,10 @@ vi.mock('next/dynamic', () => {
 
         if (source.includes('BannerCarousel')) {
           return <div data-testid="banner-carousel" />;
+        }
+
+        if (source.includes('deferred-product-details-sections')) {
+          return <DeferredProductDetailsSectionsMock {...props} />;
         }
 
         return null;
