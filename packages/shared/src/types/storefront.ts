@@ -28,7 +28,7 @@ export interface StorefrontTransformedOrder {
   currency: string;
   payment_status: string;
   shipping_status: string;
-  shipping_address: any;
+  shipping_address: Record<string, unknown> | null;
   tracking_number?: string;
   shipping_provider?: string;
   payment_method?: string;

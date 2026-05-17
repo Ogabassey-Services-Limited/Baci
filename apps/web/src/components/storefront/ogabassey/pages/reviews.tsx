@@ -183,7 +183,7 @@ export const OgabasseyV2Reviews: React.FC = () => {
   const pendingItems = orders
     .filter((o) => o.shipping_status === 'delivered' || o.status === 'Delivered') // Support both status fields
     .flatMap((order) =>
-      order.items?.map((item) => ({
+      (order.items ?? []).map((item) => ({
         ...item,
         orderDate: order.created_at,
         orderId: order.id,
