@@ -111,14 +111,16 @@ describe('GET /.well-known/ucp', () => {
       'dev.ucp.shopping': [
         {
           endpoint: 'https://ogabassey.com/api/agentic',
-          schema: 'https://ucp.dev/2026-04-08/schemas/shopping/checkout.json',
+          schema:
+            'https://ucp.dev/2026-04-08/services/shopping/rest.openapi.json',
           spec: 'https://ucp.dev/2026-04-08/specification/checkout',
           transport: 'rest',
           version: '2026-04-08',
         },
         {
           endpoint: 'https://ogabassey.com/api/agentic',
-          schema: 'https://ucp.dev/2026-04-08/schemas/shopping/order.json',
+          schema:
+            'https://ucp.dev/2026-04-08/services/shopping/rest.openapi.json',
           spec: 'https://ucp.dev/2026-04-08/specification/order',
           transport: 'rest',
           version: '2026-04-08',

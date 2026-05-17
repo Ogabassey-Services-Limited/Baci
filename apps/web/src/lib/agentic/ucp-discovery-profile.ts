@@ -8,8 +8,10 @@ import type { AgentCommerceManifest } from '@/lib/agentic/agent-commerce-manifes
 
 export const UCP_PROFILE_CACHE_CONTROL = 'public, max-age=300, s-maxage=300';
 export const UCP_PROFILE_VERSION = '2026-04-08';
-const UCP_SPEC_BASE_URL = `https://ucp.dev/${UCP_PROFILE_VERSION}/specification`;
-const UCP_SCHEMA_BASE_URL = `https://ucp.dev/${UCP_PROFILE_VERSION}/schemas/shopping`;
+const UCP_PROFILE_BASE_URL = `https://ucp.dev/${UCP_PROFILE_VERSION}`;
+const UCP_SPEC_BASE_URL = `${UCP_PROFILE_BASE_URL}/specification`;
+const UCP_SCHEMA_BASE_URL = `${UCP_PROFILE_BASE_URL}/schemas/shopping`;
+const UCP_SHOPPING_REST_SCHEMA_URL = `${UCP_PROFILE_BASE_URL}/services/shopping/rest.openapi.json`;
 
 const UCP_CHECKOUT_CAPABILITY = 'dev.ucp.shopping.checkout';
 const UCP_ORDER_CAPABILITY = 'dev.ucp.shopping.order';
@@ -163,7 +165,7 @@ function buildUcpServices({
   if (hasCheckoutCapabilities(manifest) && hasCheckoutLinks(manifest)) {
     shoppingServices.push({
       endpoint: agenticApiBaseUrl,
-      schema: UCP_CHECKOUT_SCHEMA_URL,
+      schema: UCP_SHOPPING_REST_SCHEMA_URL,
       spec: UCP_CHECKOUT_SPEC_URL,
       transport: 'rest',
       version: UCP_PROFILE_VERSION,
@@ -173,7 +175,7 @@ function buildUcpServices({
   if (hasOrderCapability(manifest)) {
     shoppingServices.push({
       endpoint: agenticApiBaseUrl,
-      schema: UCP_ORDER_SCHEMA_URL,
+      schema: UCP_SHOPPING_REST_SCHEMA_URL,
       spec: UCP_ORDER_SPEC_URL,
       transport: 'rest',
       version: UCP_PROFILE_VERSION,
