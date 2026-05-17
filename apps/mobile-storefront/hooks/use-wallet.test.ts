@@ -800,11 +800,13 @@ describe('useRedeemPoints', () => {
     queryClient.clear();
   });
 
-  it('reuses the same redemption id after an ambiguous rpc error', async () => {
+  it('uses a fresh redemption id after an ambiguous rpc error retry', async () => {
     jest
       .mocked(Crypto.randomUUID)
       .mockReturnValueOnce('live-attempt-id')
-      .mockReturnValueOnce('retry-redemption-id');
+      .mockReturnValueOnce('first-redemption-id')
+      .mockReturnValueOnce('retry-attempt-id')
+      .mockReturnValueOnce('second-redemption-id');
     mockCalculateCommerce.mockResolvedValue({
       success: true,
       walletCredit: 200,
@@ -839,14 +841,14 @@ describe('useRedeemPoints', () => {
     expect(mockRpc).toHaveBeenNthCalledWith(
       1,
       'redeem_loyalty_points',
-      expect.objectContaining({ p_redemption_id: 'retry-redemption-id' })
+      expect.objectContaining({ p_redemption_id: 'first-redemption-id' })
     );
     expect(mockRpc).toHaveBeenNthCalledWith(
       2,
       'redeem_loyalty_points',
-      expect.objectContaining({ p_redemption_id: 'retry-redemption-id' })
+      expect.objectContaining({ p_redemption_id: 'second-redemption-id' })
     );
-    expect(Crypto.randomUUID).toHaveBeenCalledTimes(2);
+    expect(Crypto.randomUUID).toHaveBeenCalledTimes(4);
 
     unmount();
     queryClient.clear();
@@ -857,6 +859,7 @@ describe('useRedeemPoints', () => {
       .mocked(Crypto.randomUUID)
       .mockReturnValueOnce('live-attempt-id')
       .mockReturnValueOnce('expired-redemption-id')
+      .mockReturnValueOnce('fresh-attempt-id')
       .mockReturnValueOnce('fresh-redemption-id');
     mockCalculateCommerce.mockResolvedValue({
       success: true,
@@ -909,7 +912,7 @@ describe('useRedeemPoints', () => {
       'redeem_loyalty_points',
       expect.objectContaining({ p_redemption_id: 'fresh-redemption-id' })
     );
-    expect(Crypto.randomUUID).toHaveBeenCalledTimes(3);
+    expect(Crypto.randomUUID).toHaveBeenCalledTimes(4);
 
     unmount();
     queryClient.clear();
