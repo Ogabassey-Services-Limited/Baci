@@ -27,6 +27,7 @@ function buildSignals(products: OpenAIFeedProduct[]) {
     now: NOW,
     openAiProducts: products,
     surfaces: {
+      llms: 'https://ogabassey.com/llms.txt',
       robots: 'https://ogabassey.com/robots.txt',
       sitemap: 'https://ogabassey.com/sitemap.xml',
     },
@@ -95,6 +96,7 @@ describe('buildAgentCommerceTrustHealthSignals', () => {
       now: NOW,
       openAiProducts: [product({ updated_at: 'not-a-date' })],
       surfaces: {
+        llms: 'https://ogabassey.com/llms.txt',
         robots: 'not-a-url',
         sitemap: 'https://ogabassey.com/sitemap.xml',
       },

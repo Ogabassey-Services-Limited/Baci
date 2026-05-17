@@ -13,24 +13,32 @@ import type { TransactionReviewItem } from '@/hooks/useTransactionReview';
 interface CostPriceEditorModalProps {
   colors: ThemeColors;
   costPriceInput: string;
+  dateInput: string;
   onChangeCostPrice: (value: string) => void;
+  onChangeDate: (value: string) => void;
+  onChangeSupplier: (value: string) => void;
   onClose: () => void;
   onSave: () => void;
   pending: boolean;
   saveError: string | null;
   selectedItem: TransactionReviewItem | null;
+  supplierInput: string;
   visible: boolean;
 }
 
 export function CostPriceEditorModal({
   colors,
   costPriceInput,
+  dateInput,
   onChangeCostPrice,
+  onChangeDate,
+  onChangeSupplier,
   onClose,
   onSave,
   pending,
   saveError,
   selectedItem,
+  supplierInput,
   visible,
 }: CostPriceEditorModalProps) {
   return (
@@ -40,29 +48,86 @@ export function CostPriceEditorModal({
       visible={visible}
     >
       <Text style={[styles.modalTitle, { color: colors.text }]}>
-        Update cost price
+        Update transaction
       </Text>
       <Text style={[styles.orderSubtitle, { color: colors.textSecondary }]}>
         {selectedItem?.name}
       </Text>
-      <TextInput
-        editable={!pending}
-        keyboardType="decimal-pad"
-        onChangeText={onChangeCostPrice}
-        onSubmitEditing={onSave}
-        placeholder="Enter cost price"
-        placeholderTextColor={colors.textMuted}
-        returnKeyType="done"
-        style={[
-          styles.input,
-          {
-            backgroundColor: colors.card,
-            borderColor: colors.border,
-            color: colors.text,
-          },
-        ]}
-        value={costPriceInput}
-      />
+      <View style={styles.modalFields}>
+        <View>
+          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+            Cost price
+          </Text>
+          <TextInput
+            accessibilityLabel="Cost price input"
+            editable={!pending}
+            keyboardType="decimal-pad"
+            onChangeText={onChangeCostPrice}
+            onSubmitEditing={onSave}
+            placeholder="Enter cost price"
+            placeholderTextColor={colors.textMuted}
+            returnKeyType="done"
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                color: colors.text,
+              },
+            ]}
+            value={costPriceInput}
+          />
+        </View>
+        <View>
+          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+            Transaction date
+          </Text>
+          <TextInput
+            accessibilityLabel="Transaction date input"
+            autoCapitalize="none"
+            editable={!pending}
+            keyboardType="numbers-and-punctuation"
+            onChangeText={onChangeDate}
+            onSubmitEditing={onSave}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={colors.textMuted}
+            returnKeyType="done"
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                color: colors.text,
+              },
+            ]}
+            value={dateInput}
+          />
+        </View>
+        <View>
+          <Text style={[styles.fieldLabel, { color: colors.textSecondary }]}>
+            Vendor / supplier
+          </Text>
+          <TextInput
+            accessibilityLabel="Vendor or supplier input"
+            autoCapitalize="words"
+            editable={!pending}
+            onChangeText={onChangeSupplier}
+            onSubmitEditing={onSave}
+            placeholder="Add supplier name"
+            placeholderTextColor={colors.textMuted}
+            returnKeyType="done"
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                color: colors.text,
+              },
+            ]}
+            value={supplierInput}
+          />
+        </View>
+      </View>
       {saveError ? (
         <Text style={[styles.errorText, { color: colors.error }]}>
           {saveError}

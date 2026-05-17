@@ -5,6 +5,7 @@ interface BottomSheetModalProps {
   accessibilityLabel: string;
   children: ReactNode;
   onDismiss: () => void;
+  scrollEnabled?: boolean;
   visible: boolean;
 }
 
@@ -12,6 +13,7 @@ export function BottomSheetModal({
   accessibilityLabel,
   children,
   onDismiss,
+  scrollEnabled = true,
   visible,
 }: BottomSheetModalProps) {
   return (
@@ -19,7 +21,7 @@ export function BottomSheetModal({
       accessibilityLabel={accessibilityLabel}
       onClose={onDismiss}
       presentation="detached"
-      scrollEnabled={false}
+      scrollEnabled={scrollEnabled}
       visible={visible}
     >
       {children}

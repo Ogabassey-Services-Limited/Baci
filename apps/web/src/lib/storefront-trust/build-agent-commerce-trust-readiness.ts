@@ -10,6 +10,10 @@ import {
   trimTrailingSlash,
 } from '@/lib/storefront-agent-urls';
 import { buildAgentCommerceTrustHealthSignals } from './agent-commerce-trust-health-signals';
+import {
+  hasPublishableReturnsPolicy,
+  hasPublishableShippingPolicy,
+} from './build-merchant-trust-profile';
 import { getTrustCoverageSeverity } from './get-trust-coverage-severity';
 import { isPresentString } from './is-present-string';
 import { isValidHttpUrl } from './is-valid-http-url';
@@ -32,6 +36,8 @@ export interface AgentCommerceTrustCheck {
   label: string;
   severity: AgentCommerceTrustSeverity;
   message: string;
+  next_step?: string;
+  next_step_url?: string;
   affectedProductIds?: string[];
   affectedProductCount?: number;
 }
@@ -47,6 +53,7 @@ export interface AgentCommerceTrustReadiness {
     googleMerchantXml: string;
     openAiProductFeed: string;
     productApi: string;
+    llms: string;
     policies: ReturnType<typeof buildAgentPolicyUrls>;
     robots: string;
     sitemap: string;
@@ -77,7 +84,81 @@ export interface AgentCommerceTrustCheckSummary {
   label: string;
   severity: AgentCommerceTrustSeverity;
   message: string;
+  next_step?: string;
+  next_step_url?: string;
   affectedProductCount?: number;
+}
+
+const TRUST_CHECK_ACTIONS: Record<
+  AgentCommerceTrustCheck['id'],
+  {
+    nextStep: string;
+    nextStepUrl: string;
+  }
+> = {
+  'catalog-surface-parity': {
+    nextStep:
+      'Open Products and publish any items missing across feed surfaces.',
+    nextStepUrl: '/dashboard/products',
+  },
+  'canonical-url-parity': {
+    nextStep:
+      'Open SEO settings and align canonical product URLs used by storefront feeds.',
+    nextStepUrl: '/dashboard/seo',
+  },
+  'price-parity': {
+    nextStep:
+      'Open Products and align feed prices with the storefront checkout price.',
+    nextStepUrl: '/dashboard/products',
+  },
+  'verified-image-coverage': {
+    nextStep:
+      'Open Products and add valid product media for missing feed image slots.',
+    nextStepUrl: '/dashboard/products',
+  },
+  'policy-coverage': {
+    nextStep:
+      'Open Trust settings and publish missing return, shipping, privacy, or terms policies.',
+    nextStepUrl: '/dashboard/settings/trust',
+  },
+  'support-contact': {
+    nextStep:
+      'Open Trust settings and add a support email, phone number, or WhatsApp contact.',
+    nextStepUrl: '/dashboard/settings/trust',
+  },
+  'structured-data-readiness': {
+    nextStep:
+      'Open Products and complete key fields used by JSON-LD and agent catalog surfaces.',
+    nextStepUrl: '/dashboard/products',
+  },
+  'feed-freshness': {
+    nextStep:
+      'Open Products and refresh stale catalog items so feed timestamps stay current.',
+    nextStepUrl: '/dashboard/products',
+  },
+  'crawler-visibility': {
+    nextStep:
+      'Open SEO settings and verify robots, sitemap, and llms routes are reachable.',
+    nextStepUrl: '/dashboard/seo',
+  },
+  'machine-endpoint-discovery': {
+    nextStep:
+      'Open Trust settings and correct malformed agent manifest, feed, or policy URLs.',
+    nextStepUrl: '/dashboard/settings/trust',
+  },
+};
+
+function withTrustActionGuidance(
+  check: AgentCommerceTrustCheck
+): AgentCommerceTrustCheck {
+  const action = TRUST_CHECK_ACTIONS[check.id];
+  return action
+    ? {
+        ...check,
+        next_step: action.nextStep,
+        next_step_url: action.nextStepUrl,
+      }
+    : check;
 }
 
 export interface AgentCommerceTrustReadinessSummary {
@@ -97,6 +178,8 @@ export function summarizeAgentCommerceTrustReadiness(
       label: check.label,
       severity: check.severity,
       message: check.message,
+      next_step: check.next_step,
+      next_step_url: check.next_step_url,
       affectedProductCount:
         check.affectedProductCount ?? check.affectedProductIds?.length,
     })),
@@ -126,6 +209,7 @@ function buildSurfaceUrls(baseUrl: string, slug: string) {
     googleMerchantXml: `${root}${STOREFRONT_FEED_ROUTES.googleMerchantXml}`,
     openAiProductFeed: `${root}${STOREFRONT_FEED_ROUTES.openaiProductFeed}`,
     productApi: `${root}/api/storefront/${encodeURIComponent(slug)}/products`,
+    llms: `${root}/llms.txt`,
     policies: buildAgentPolicyUrls(root),
     robots: `${root}/robots.txt`,
     sitemap: `${root}/sitemap.xml`,
@@ -226,23 +310,39 @@ export function buildAgentCommerceTrustReadiness({
     surfaces.googleMerchantXml,
     surfaces.openAiProductFeed,
     surfaces.productApi,
+    surfaces.llms,
     ...Object.values(surfaces.policies),
     surfaces.robots,
     surfaces.sitemap,
     surfaces.ucpProfile,
   ];
   const validSurfaceUrls = surfaceUrls.filter(isValidHttpUrl).length;
-  const policyCount = [
-    trustProfile.returnPolicy,
-    trustProfile.shippingPolicy,
+  const hasPublishedReturnPolicyLink =
+    hasPublishableReturnsPolicy(trustProfile) &&
+    isValidHttpUrl(trustProfile.derivedLinks.returns ?? '');
+  const hasPublishedShippingPolicyLink =
+    hasPublishableShippingPolicy(trustProfile) &&
+    isValidHttpUrl(trustProfile.derivedLinks.shipping ?? '');
+  const hasPublishedPrivacyPolicyLink = isValidHttpUrl(
+    trustProfile.derivedLinks.privacy ?? ''
+  );
+  const hasPublishedTermsLink = isValidHttpUrl(
+    trustProfile.derivedLinks.terms ?? ''
+  );
+  const publishedPolicyLinksCount = [
+    hasPublishedReturnPolicyLink,
+    hasPublishedShippingPolicyLink,
+    hasPublishedPrivacyPolicyLink,
+    hasPublishedTermsLink,
   ].filter(Boolean).length;
+  const requiredPolicyLinksCount = 4;
   const hasSupportContact = [
     trustProfile.supportEmail,
     trustProfile.supportPhone,
     trustProfile.whatsappNumber,
   ].some(isPresentString);
 
-  const checks: AgentCommerceTrustCheck[] = [
+  const checkCandidates: AgentCommerceTrustCheck[] = [
     {
       id: 'catalog-surface-parity',
       label: 'Catalog surface parity',
@@ -289,11 +389,14 @@ export function buildAgentCommerceTrustReadiness({
     {
       id: 'policy-coverage',
       label: 'Policy coverage',
-      severity: policyCount === 2 ? 'pass' : 'warn',
+      severity:
+        publishedPolicyLinksCount === requiredPolicyLinksCount
+          ? 'pass'
+          : 'warn',
       message:
-        policyCount === 2
-          ? 'Return and shipping policies are available for agent recommendation checks.'
-          : 'Add complete return and shipping policies for stronger agent recommendation trust.',
+        publishedPolicyLinksCount === requiredPolicyLinksCount
+          ? 'Return, shipping, privacy, and terms policy links are published.'
+          : `${publishedPolicyLinksCount} of ${requiredPolicyLinksCount} policy links are published (returns, shipping, privacy, terms).`,
     },
     {
       id: 'support-contact',
@@ -314,6 +417,7 @@ export function buildAgentCommerceTrustReadiness({
           : 'One or more machine-readable endpoint URLs are malformed.',
     },
   ];
+  const checks = checkCandidates.map(withTrustActionGuidance);
 
   return {
     checks,

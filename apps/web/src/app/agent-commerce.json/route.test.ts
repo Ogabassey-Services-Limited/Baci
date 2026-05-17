@@ -70,6 +70,7 @@ describe('GET /agent-commerce.json', () => {
       expect(body.links.trust).toBe('https://ogabassey.com/agent-trust.json');
       expect(body.links.feeds).toMatchObject({
         agent_products: 'https://ogabassey.com/feeds/agent-products.jsonl',
+        facebook_catalog_xml: 'https://ogabassey.com/feeds/facebook.xml',
         google_merchant_xml: 'https://ogabassey.com/feeds/google-merchant.xml',
       });
       expect(body.links.checkout_sessions).toBe(
@@ -122,6 +123,9 @@ describe('GET /agent-commerce.json', () => {
     expect(body.links.feeds.google_merchant_xml).toBe(
       'https://www.ogabassey.com/feeds/google-merchant.xml'
     );
+    expect(body.links.feeds.facebook_catalog_xml).toBe(
+      'https://www.ogabassey.com/feeds/facebook.xml'
+    );
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledTimes(1);
     expect(mockGetMerchantByIdentifier).not.toHaveBeenCalledWith(
@@ -161,6 +165,9 @@ describe('GET /agent-commerce.json', () => {
     expect(body.links.feeds.google_merchant_xml).toBe(
       'https://www.ogabassey.com/feeds/google-merchant.xml'
     );
+    expect(body.links.feeds.facebook_catalog_xml).toBe(
+      'https://www.ogabassey.com/feeds/facebook.xml'
+    );
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledTimes(2);
     expect(mockGetMerchantByIdentifier).toHaveBeenNthCalledWith(
       1,
@@ -189,6 +196,9 @@ describe('GET /agent-commerce.json', () => {
     });
     expect(body.links.feeds.google_merchant_xml).toBe(
       'http://ogabassey.localhost:3000/feeds/google-merchant.xml'
+    );
+    expect(body.links.feeds.facebook_catalog_xml).toBe(
+      'http://ogabassey.localhost:3000/feeds/facebook.xml'
     );
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey');
     expect(mockGetMerchantByIdentifier).not.toHaveBeenCalledWith(

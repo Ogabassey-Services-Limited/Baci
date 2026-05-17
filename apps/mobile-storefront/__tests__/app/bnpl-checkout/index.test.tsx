@@ -48,12 +48,18 @@ jest.mock('react-native-safe-area-context', () => ({
 jest.mock('react-native-webview', () => ({
   WebView: ({
     javaScriptCanOpenWindowsAutomatically,
+    onError,
+    onLoadStart,
     onMessage,
     setSupportMultipleWindows,
     source,
     thirdPartyCookiesEnabled,
   }: {
     javaScriptCanOpenWindowsAutomatically?: boolean;
+    onError?: (event: {
+      nativeEvent: { description?: string; url?: string };
+    }) => void;
+    onLoadStart?: () => void;
     onMessage?: (event: { nativeEvent: { data: string } }) => void;
     setSupportMultipleWindows?: boolean;
     source: { uri: string };
@@ -71,6 +77,12 @@ jest.mock('react-native-webview', () => ({
         <Text>{`multi-window:${String(setSupportMultipleWindows)}`}</Text>
         <Text>{`third-party-cookies:${String(thirdPartyCookiesEnabled)}`}</Text>
         <Pressable
+          accessibilityLabel="mock-bnpl-load-start"
+          onPress={() => onLoadStart?.()}
+        >
+          <Text>load-start</Text>
+        </Pressable>
+        <Pressable
           accessibilityLabel="mock-bnpl-navigation-message"
           onPress={() =>
             onMessage?.({
@@ -84,6 +96,35 @@ jest.mock('react-native-webview', () => ({
           }
         >
           <Text>navigation-message</Text>
+        </Pressable>
+        <Pressable
+          accessibilityLabel="mock-bnpl-success-message"
+          onPress={() =>
+            onMessage?.({
+              nativeEvent: {
+                data: JSON.stringify({
+                  reference: 'bnpl-ref-123',
+                  type: 'bnpl_success',
+                }),
+              },
+            })
+          }
+        >
+          <Text>success-message</Text>
+        </Pressable>
+        <Pressable
+          accessibilityLabel="mock-bnpl-error-then-load-start"
+          onPress={() => {
+            onError?.({
+              nativeEvent: {
+                description: 'Provider connection failed',
+                url: source.uri,
+              },
+            });
+            onLoadStart?.();
+          }}
+        >
+          <Text>error-then-load-start</Text>
         </Pressable>
       </View>
     );
@@ -141,6 +182,24 @@ describe('BNPLCheckoutScreen', () => {
     expect(screen.getByText('third-party-cookies:true')).toBeTruthy();
   });
 
+  it('shows a retryable error when the BNPL checkout page stalls while loading', () => {
+    jest.useFakeTimers();
+    render(<BNPLCheckoutScreen />);
+
+    fireEvent.press(screen.getByLabelText('mock-bnpl-load-start'));
+
+    act(() => {
+      jest.advanceTimersByTime(45_000);
+    });
+
+    expect(
+      screen.getByText(
+        'Payment page is taking longer than expected. Check your connection and try again.'
+      )
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
+  });
+
   it('routes bridged BNPL success navigation to the native order success screen', () => {
     jest.useFakeTimers();
     render(<BNPLCheckoutScreen />);
@@ -162,5 +221,37 @@ describe('BNPLCheckoutScreen', () => {
         trackingToken: 'track-token-123',
       },
     });
+  });
+
+  it('preserves tracking token when routing BNPL success callbacks', () => {
+    jest.useFakeTimers();
+    render(<BNPLCheckoutScreen />);
+
+    fireEvent.press(screen.getByLabelText('mock-bnpl-success-message'));
+
+    expect(mockClearCart).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(router.replace).toHaveBeenCalledWith({
+      pathname: '/order-success',
+      params: {
+        orderId: 'order-123',
+        paymentMethod: 'credit_direct',
+        reference: 'bnpl-ref-123',
+        trackingToken: 'track-token-123',
+      },
+    });
+  });
+
+  it('preserves WebView errors through immediate follow-up load events', () => {
+    render(<BNPLCheckoutScreen />);
+
+    fireEvent.press(screen.getByLabelText('mock-bnpl-error-then-load-start'));
+
+    expect(screen.getByText('Provider connection failed')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
   });
 });

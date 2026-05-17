@@ -1,3 +1,4 @@
+import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { buildStoreUrl } from '@/lib/store-url';
 import {
@@ -7,6 +8,7 @@ import {
 } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
 import type { MerchantTrustProfileSource } from '@/lib/storefront-trust/merchant-trust-profile-types';
+import { createClient } from '@/lib/supabase/server';
 import { getCachedGoogleMerchantFeedData } from '../api/feed/google-merchant/feed-data';
 import { getCachedOpenAIFeedData } from '../api/feed/openai/feed-data';
 import {
@@ -33,6 +35,20 @@ function sanitizeError(reason: unknown): string {
     return reason;
   }
   return 'Unknown error';
+}
+
+function isPermissionDeniedError(reason: unknown): boolean {
+  if (!reason || typeof reason !== 'object') return false;
+
+  const errorRecord = reason as Record<string, unknown>;
+  const code = errorRecord.code;
+  if (code === '42501') return true;
+
+  const message = errorRecord.message;
+  return (
+    typeof message === 'string' &&
+    message.toLowerCase().includes('permission denied')
+  );
 }
 
 async function loadAgenticTrustReadiness(
@@ -73,10 +89,16 @@ async function loadAgenticTrustReadiness(
 }
 
 export async function DashboardData() {
+  const supabase = await createClient();
   const { merchant } = await getMerchantForUser();
 
   if (!merchant) {
-    return <DashboardClientPage initialTrustCenterState="unauthorized" />;
+    return (
+      <DashboardClientPage
+        initialActionCenterState="unauthorized"
+        initialTrustCenterState="unauthorized"
+      />
+    );
   }
 
   // Trust readiness only renders on the dashboard when the store is
@@ -89,11 +111,15 @@ export async function DashboardData() {
     metricsResult,
     recentSalesResult,
     chartDataResult,
+    actionHealthResult,
     trustReadinessResult,
   ] = await Promise.allSettled([
     getDashboardMetrics(merchant.id),
     getRecentSales(merchant.id, RECENT_SALES_LIMIT),
     getMonthlyChartData(merchant.id),
+    isPublished
+      ? loadAgenticActionHealth(supabase, merchant.id)
+      : Promise.resolve(null),
     isPublished
       ? loadAgenticTrustReadiness(merchant)
       : Promise.resolve<AgentCommerceTrustReadinessSummary | null>(null),
@@ -105,6 +131,8 @@ export async function DashboardData() {
     recentSalesResult.status === 'fulfilled' ? recentSalesResult.value : [];
   const monthlyChartData =
     chartDataResult.status === 'fulfilled' ? chartDataResult.value : [];
+  const actionHealth =
+    actionHealthResult.status === 'fulfilled' ? actionHealthResult.value : null;
   const trustReadiness =
     trustReadinessResult.status === 'fulfilled'
       ? trustReadinessResult.value
@@ -129,6 +157,14 @@ export async function DashboardData() {
       sanitizeError(chartDataResult.reason)
     );
   }
+  if (actionHealthResult.status === 'rejected') {
+    if (!isPermissionDeniedError(actionHealthResult.reason)) {
+      console.error(
+        'Failed to fetch action health:',
+        sanitizeError(actionHealthResult.reason)
+      );
+    }
+  }
   if (trustReadinessResult.status === 'rejected') {
     console.error(
       'Failed to fetch trust readiness:',
@@ -136,8 +172,19 @@ export async function DashboardData() {
     );
   }
 
+  const actionCenterState: 'ready' | 'error' | 'unauthorized' = !isPublished
+    ? 'ready'
+    : actionHealth
+      ? 'ready'
+      : actionHealthResult.status === 'rejected' &&
+          isPermissionDeniedError(actionHealthResult.reason)
+        ? 'unauthorized'
+        : 'error';
+
   return (
     <DashboardClientPage
+      initialActionCenterState={actionCenterState}
+      initialActionHealth={actionHealth}
       initialMetrics={metrics ?? undefined}
       initialRecentSales={recentSales}
       initialChartData={monthlyChartData}

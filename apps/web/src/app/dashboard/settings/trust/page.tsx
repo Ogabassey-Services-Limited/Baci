@@ -69,10 +69,12 @@ export default async function TrustSettingsPage() {
         <AgentCommerceTrustReadinessCardServer merchant={merchant} />
       </Suspense>
 
-      <AgentCommerceControlsCard
-        initialCustomSettings={agenticCustomSettings}
-        initialEnabled={agenticCheckoutEnabled}
-      />
+      <div id="agent-checkout-controls">
+        <AgentCommerceControlsCard
+          initialCustomSettings={agenticCustomSettings}
+          initialEnabled={agenticCheckoutEnabled}
+        />
+      </div>
 
       <TrustSettingsClient
         initialTrustProfile={merchant.trust_profile ?? null}
