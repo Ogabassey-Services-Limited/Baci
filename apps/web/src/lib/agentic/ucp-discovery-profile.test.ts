@@ -119,16 +119,22 @@ describe('buildUcpDiscoveryProfile', () => {
     const profile = buildUcpDiscoveryProfile(manifest);
 
     expect(profile.ucp.services).toEqual({
-      'dev.ucp.shopping.checkout': {
-        endpoint: 'https://ogabassey.com/api/agentic',
-        schema: 'https://ucp.dev/2026-04-08/schemas/shopping/checkout.json',
-        transport: 'rest',
-      },
-      'dev.ucp.shopping.order': {
-        endpoint: 'https://ogabassey.com/api/agentic',
-        schema: 'https://ucp.dev/2026-04-08/schemas/shopping/order.json',
-        transport: 'rest',
-      },
+      'dev.ucp.shopping': [
+        {
+          endpoint: 'https://ogabassey.com/api/agentic',
+          schema: 'https://ucp.dev/2026-04-08/schemas/shopping/checkout.json',
+          spec: 'https://ucp.dev/2026-04-08/specification/checkout',
+          transport: 'rest',
+          version: '2026-04-08',
+        },
+        {
+          endpoint: 'https://ogabassey.com/api/agentic',
+          schema: 'https://ucp.dev/2026-04-08/schemas/shopping/order.json',
+          spec: 'https://ucp.dev/2026-04-08/specification/order',
+          transport: 'rest',
+          version: '2026-04-08',
+        },
+      ],
     });
     expect(profile.ucp.capabilities['dev.ucp.shopping.checkout']).toEqual([
       expect.objectContaining({
