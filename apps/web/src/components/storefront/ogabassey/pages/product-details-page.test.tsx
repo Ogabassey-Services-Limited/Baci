@@ -319,6 +319,18 @@ describe('ProductDetailsPage', () => {
     expect(source).toMatch(/import\([^)]*NegotiationModal[^)]*\)/);
   });
 
+  it('keeps post-action modal and cart animation code out of the initial client graph', () => {
+    const source = readFileSync(
+      'src/components/storefront/ogabassey/pages/product-details-page.tsx',
+      'utf8'
+    );
+
+    expect(source).not.toMatch(/import\s*{\s*FlyToCartAnimation\s*}\s*from/);
+    expect(source).not.toMatch(/import\s*{\s*SelectionRequiredModal\s*}\s*from/);
+    expect(source).toMatch(/import\([^)]*FlyToCartAnimation[^)]*\)/);
+    expect(source).toMatch(/import\([^)]*selection-required-modal[^)]*\)/);
+  });
+
   it('uses the real review count and exposes the reviews tab panel semantics', async () => {
     render(
       <ProductDetailsPage product={{
