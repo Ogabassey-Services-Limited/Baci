@@ -140,6 +140,12 @@ function hasCheckoutCapabilities(manifest: AgentCommerceManifest): boolean {
   );
 }
 
+function toUcpOperationUrlTemplate(url: string): string {
+  return url
+    .replace(/\{session_id\}/g, '{id}')
+    .replace(/\{order_id\}/g, '{id}');
+}
+
 function buildUcpCheckoutCapability({
   agenticApiBaseUrl,
   manifest,
@@ -148,6 +154,20 @@ function buildUcpCheckoutCapability({
   manifest: AgentCommerceManifest;
 }) {
   if (!hasCheckoutCapabilities(manifest) || !hasCheckoutLinks(manifest)) {
+    return null;
+  }
+  const {
+    checkout_session_cancel: checkoutSessionCancel,
+    checkout_session_complete: checkoutSessionComplete,
+    checkout_sessions: checkoutSessions,
+    checkout_session: checkoutSession,
+  } = manifest.links;
+  if (
+    !checkoutSessionCancel ||
+    !checkoutSessionComplete ||
+    !checkoutSessions ||
+    !checkoutSession
+  ) {
     return null;
   }
 
@@ -165,10 +185,11 @@ function buildUcpCheckoutCapability({
       rest: {
         endpoint: agenticApiBaseUrl,
         operations: {
-          cancel_checkout: manifest.links.checkout_session_cancel,
-          complete_checkout: manifest.links.checkout_session_complete,
-          create_checkout: manifest.links.checkout_sessions,
-          get_checkout: manifest.links.checkout_session,
+          cancel_checkout: toUcpOperationUrlTemplate(checkoutSessionCancel),
+          complete_checkout: toUcpOperationUrlTemplate(checkoutSessionComplete),
+          create_checkout: toUcpOperationUrlTemplate(checkoutSessions),
+          get_checkout: toUcpOperationUrlTemplate(checkoutSession),
+          update_checkout: toUcpOperationUrlTemplate(checkoutSession),
         },
       },
     },
@@ -182,9 +203,10 @@ function buildUcpOrderCapability({
   agenticApiBaseUrl: string;
   manifest: AgentCommerceManifest;
 }) {
+  const orderLink = manifest.links.order;
   if (
     !manifest.capabilities.includes('order.read') ||
-    !hasPresentString(manifest.links.order)
+    !hasPresentString(orderLink)
   ) {
     return null;
   }
@@ -203,7 +225,7 @@ function buildUcpOrderCapability({
       rest: {
         endpoint: agenticApiBaseUrl,
         operations: {
-          get_order: manifest.links.order,
+          get_order: toUcpOperationUrlTemplate(orderLink),
         },
       },
     },

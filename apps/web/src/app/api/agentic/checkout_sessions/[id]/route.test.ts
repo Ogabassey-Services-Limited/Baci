@@ -160,11 +160,11 @@ function createCheckoutSupabaseMock({
   };
 }
 
-function createRequest(body: unknown) {
+function createRequest(body: unknown, method: 'POST' | 'PUT' = 'POST') {
   return new NextRequest(
     'http://localhost/api/agentic/checkout_sessions/agentic_session_1',
     {
-      method: 'POST',
+      method,
       headers: {
         'Content-Type': 'application/json',
         'Idempotency-Key': 'idem-1',
@@ -346,6 +346,37 @@ describe('POST /api/agentic/checkout_sessions/[id]', () => {
     expect(mock.updateChain.is).toHaveBeenCalledWith(
       'virtual_account_number',
       null
+    );
+  });
+
+  it('supports PUT updates for UCP checkout operation compatibility', async () => {
+    const mock = createCheckoutSupabaseMock();
+    useCheckoutSupabaseMock(mock);
+
+    const { PUT } = await import('./route');
+    const response = await PUT(
+      createRequest(
+        {
+          shipping_address: { address: '12 Example Street', city: 'Lagos' },
+          fulfillment_option_id: 'shipping_standard',
+        },
+        'PUT'
+      ),
+      routeParams()
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toMatchObject({
+      id: 'agentic_session_1',
+      status: 'ready_for_payment',
+      fulfillment_option_id: 'shipping_standard',
+      shipping_address: { address: '12 Example Street', city: 'Lagos' },
+    });
+    expect(reserveAgenticIdempotencyKey).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'PUT',
+      })
     );
   });
 

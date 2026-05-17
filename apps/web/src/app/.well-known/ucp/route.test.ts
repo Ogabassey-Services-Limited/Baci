@@ -124,13 +124,15 @@ describe('GET /.well-known/ucp', () => {
         endpoint: 'https://ogabassey.com/api/agentic',
         operations: {
           cancel_checkout:
-            'https://ogabassey.com/api/agentic/checkout_sessions/{session_id}/cancel',
+            'https://ogabassey.com/api/agentic/checkout_sessions/{id}/cancel',
           complete_checkout:
-            'https://ogabassey.com/api/agentic/checkout_sessions/{session_id}/complete',
+            'https://ogabassey.com/api/agentic/checkout_sessions/{id}/complete',
           create_checkout:
             'https://ogabassey.com/api/agentic/checkout_sessions',
           get_checkout:
-            'https://ogabassey.com/api/agentic/checkout_sessions/{session_id}',
+            'https://ogabassey.com/api/agentic/checkout_sessions/{id}',
+          update_checkout:
+            'https://ogabassey.com/api/agentic/checkout_sessions/{id}',
         },
       },
     });
@@ -151,7 +153,7 @@ describe('GET /.well-known/ucp', () => {
       rest: {
         endpoint: 'https://ogabassey.com/api/agentic',
         operations: {
-          get_order: 'https://ogabassey.com/api/agentic/orders/{order_id}',
+          get_order: 'https://ogabassey.com/api/agentic/orders/{id}',
         },
       },
     });

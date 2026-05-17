@@ -303,3 +303,7 @@ export async function POST(request: NextRequest, props: SessionRouteProps) {
     return NextResponse.json(body, { status: 500 });
   }
 }
+
+export function PUT(request: NextRequest, props: SessionRouteProps) {
+  return POST(request, props);
+}
