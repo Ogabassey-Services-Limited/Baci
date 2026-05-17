@@ -1,3 +1,4 @@
+import type { Route } from 'next';
 import { getAgenticActionNextStepUrl } from '@/lib/agentic/action-health-action-links';
 import type { AgenticAction } from '@/schemas/agentic-action-health';
 
@@ -27,10 +28,16 @@ const BRIEFING_MESSAGES = {
     } active.`,
 };
 
-function getActionHref(action: AgenticAction): string | null {
-  const explicitUrl = action.next_step_url?.trim();
+function toRoute(value: string | undefined): Route | null {
+  const trimmed = value?.trim();
+  if (!trimmed?.startsWith('/')) return null;
+  return trimmed as Route;
+}
+
+function getActionHref(action: AgenticAction): Route | null {
+  const explicitUrl = toRoute(action.next_step_url);
   if (explicitUrl) return explicitUrl;
-  return getAgenticActionNextStepUrl(action.code) ?? null;
+  return toRoute(getAgenticActionNextStepUrl(action.code));
 }
 
 function formatGeneratedAt(value?: string): string | null {
