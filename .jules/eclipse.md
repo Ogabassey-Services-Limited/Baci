@@ -27,3 +27,6 @@
 ## 2026-05-13 - Replace hardcoded brand colors with theme tokens in Analytics Config
 **Learning:** Hardcoding brand colors like `#000000` for TikTok can make the icon completely invisible in dark mode when placed on dark card backgrounds (e.g., `#1A1A2E`). Furthermore, `#fff` for active toggle knob states should use semantic tokens.
 **Action:** Always replace hardcoded static brand hex values like `#000000` with adaptive tokens from `useTheme()` like `colors.text` so they maintain contrast across both light and dark themes. Use `colors.textOnPrimary` for white toggle knobs so they correctly adapt to the active semantic tokens.
+## 2024-05-17 - Replace Hardcoded Apple Sign-in Button Colors
+**Learning:** The Apple sign-in button in the mobile app's authentication screen was using hardcoded `#000` (black) backgrounds and `#FFF` (white) text/icons, making it completely invisible when the app was in dark mode (where the main background is also `#000`).
+**Action:** Replaced the hardcoded black `#000` with the adaptive theme token `colors.text` and the hardcoded white `#FFF` with `colors.card` so that the button contrasts properly and intelligently adapts to both light and dark modes.
