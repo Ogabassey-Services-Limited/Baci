@@ -130,6 +130,31 @@ describe('loadAgenticActionHealth', () => {
         session_id: 'session-5',
       })
     );
+
+    expect(result.idempotency).toMatchObject({
+      active_in_progress_count: 0,
+      in_progress_count: 1,
+      recent_count: 3,
+      stale_in_progress_count: 1,
+      terminal_error_count: 2,
+      records: [
+        expect.objectContaining({
+          route: 'COMPLETE',
+          state: 'in_progress',
+          status_code: null,
+        }),
+        expect.objectContaining({
+          route: 'checkout_sessions.complete',
+          state: 'server_error',
+          status_code: 503,
+        }),
+        expect.objectContaining({
+          route: 'checkout_sessions.update',
+          state: 'server_error',
+          status_code: 500,
+        }),
+      ],
+    });
   });
 
   it('throws when rpc returns an error', async () => {
