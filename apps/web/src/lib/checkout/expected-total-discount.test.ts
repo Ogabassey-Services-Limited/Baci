@@ -62,6 +62,18 @@ describe('computeExpectedTotalDiscount', () => {
     expect(discount).toBe(0);
   });
 
+  it('rejects crafted low-value totals that exceed the 3% cap by less than naira tolerance', () => {
+    const discount = computeExpectedTotalDiscount({
+      canonicalSubtotal: 20,
+      canonicalTaxAmount: 0,
+      shippingFee: 0,
+      giftWrappingFee: 0,
+      expectedTotal: 18.9,
+    });
+
+    expect(discount).toBe(0);
+  });
+
   it('skips the discount when no expected total was provided', () => {
     const discount = computeExpectedTotalDiscount({
       canonicalSubtotal: 780000,

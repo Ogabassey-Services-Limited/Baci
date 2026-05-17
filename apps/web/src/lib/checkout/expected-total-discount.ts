@@ -38,7 +38,7 @@ export function computeExpectedTotalDiscount({
       MAX_AUTO_NEGOTIATION_DISCOUNT_RATE
   );
 
-  if (requiredDiscount > maxAutoNegotiationDiscount + TOTAL_PARITY_TOLERANCE) {
+  if (requiredDiscount > maxAutoNegotiationDiscount) {
     return 0;
   }
 
