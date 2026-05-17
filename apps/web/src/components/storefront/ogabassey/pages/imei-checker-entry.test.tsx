@@ -86,7 +86,9 @@ describe('OgabasseyImeiEntry', () => {
 
     renderEntry({ imei: '35444206795745' });
 
-    expect(screen.getAllByRole('button', { name: /verify now/i })[1]).toBeDisabled();
+    expect(
+      screen.getAllByRole('button', { name: /verify now/i })[1]
+    ).toBeDisabled();
   });
 
   it('shows loading and error states', () => {
@@ -96,7 +98,9 @@ describe('OgabasseyImeiEntry', () => {
     });
 
     expect(screen.getByText('Wallet balance is too low.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /verify now/i })).toBeDisabled();
+    expect(
+      screen.getByRole('button', { name: /verifying imei/i })
+    ).toBeDisabled();
   });
 
   it('labels text inputs for assistive technology', () => {
@@ -108,5 +112,16 @@ describe('OgabasseyImeiEntry', () => {
     expect(
       screen.getByRole('textbox', { name: /15-digit imei number/i })
     ).toBeInTheDocument();
+  });
+
+  it('uses a numeric mobile keyboard hint for IMEI entry', () => {
+    renderEntry();
+
+    const imeiInput = screen.getByRole('textbox', {
+      name: /15-digit imei number/i,
+    });
+
+    expect(imeiInput).toHaveAttribute('inputmode', 'numeric');
+    expect(imeiInput).toHaveAttribute('pattern', '[0-9]*');
   });
 });
