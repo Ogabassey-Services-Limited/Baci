@@ -167,6 +167,23 @@ describe('transaction review helpers', () => {
     expect(buildTransactionDateIso('2026-02-31')).toBeNull();
   });
 
+  it('formats transaction date inputs using the local calendar day', () => {
+    const previousTimeZone = process.env.TZ;
+    process.env.TZ = 'Africa/Lagos';
+
+    try {
+      expect(formatTransactionDateInput('2026-05-12T23:30:00.000Z')).toBe(
+        '2026-05-13'
+      );
+    } finally {
+      if (previousTimeZone === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = previousTimeZone;
+      }
+    }
+  });
+
   it('maps edge cases for nullable items, product arrays, and fallback labels', () => {
     const [emptyOrder, mixedOrder] = mapTransactionOrderRows([
       {
