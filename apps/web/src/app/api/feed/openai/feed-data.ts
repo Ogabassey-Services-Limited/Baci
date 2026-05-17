@@ -238,9 +238,7 @@ async function hydrateProductsWithReviewSignals(
       merchantId,
       productCount: productIds.length,
     });
-    // Preserve trust-readiness correctness by avoiding fallback to raw product
-    // review columns when approved-review hydration is unavailable.
-    return withApprovedReviewSignals(products, new Map());
+    throw error;
   }
 }
 

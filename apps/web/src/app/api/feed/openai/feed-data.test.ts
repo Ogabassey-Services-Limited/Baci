@@ -437,7 +437,7 @@ describe('getCachedOpenAIFeedData', () => {
     });
   });
 
-  it('falls back to empty review signals when review hydration fails', async () => {
+  it('throws when review hydration fails to avoid caching false zero-review signals', async () => {
     productsResult = {
       data: [
         {
@@ -467,12 +467,11 @@ describe('getCachedOpenAIFeedData', () => {
     );
 
     const { getCachedOpenAIFeedData } = await import('./feed-data');
-    const result = await getCachedOpenAIFeedData('merchant-1', true);
-
-    expect(result.products[0]).toMatchObject({
-      average_rating: null,
-      review_count: 0,
-    });
+    await expect(getCachedOpenAIFeedData('merchant-1', true)).rejects.toEqual(
+      expect.objectContaining({
+        message: 'reviews unavailable',
+      })
+    );
     expect(warnSpy).toHaveBeenCalledWith(
       'DB_REVIEW_SIGNAL_WARNING:',
       expect.objectContaining({
