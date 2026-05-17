@@ -11,6 +11,7 @@ interface NegotiationModalProps {
   onClose: () => void;
   productName: string;
   currentPrice: number;
+  vatRate?: number;
   onSuccess: (finalPrice: number) => void;
   type: 'single' | 'total';
   itemId?: string;
@@ -35,7 +36,11 @@ function getOrCreateSessionId(): string {
   return id;
 }
 
-function computeCounterOffer(currentPrice: number, counterDiscount: number): number {
+function computeCounterOffer(
+  currentPrice: number,
+  counterDiscount: number,
+  vatRate = 0
+): number {
   const rawCounterOffer = Math.floor(currentPrice * (1 - counterDiscount));
 
   // Keep the final 3% counter-offer within the API's allowed discount cap.
@@ -44,8 +49,11 @@ function computeCounterOffer(currentPrice: number, counterDiscount: number): num
   }
 
   const rawDiscountAmount = currentPrice - rawCounterOffer;
+  const vatAwareCart = vatRate > 0;
   const maxServerAcceptedDiscountAmount =
-    currentPrice >= MIN_SUBTOTAL_FOR_ROUNDED_COUNTER
+    vatAwareCart
+      ? Math.floor(currentPrice * AUTO_ACCEPT_DISCOUNT_THRESHOLD)
+      : currentPrice >= MIN_SUBTOTAL_FOR_ROUNDED_COUNTER
       ? Math.ceil(currentPrice * AUTO_ACCEPT_DISCOUNT_THRESHOLD)
       : Math.floor(currentPrice * AUTO_ACCEPT_DISCOUNT_THRESHOLD);
 
@@ -57,6 +65,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   onClose,
   productName,
   currentPrice,
+  vatRate = 0,
   onSuccess,
   type,
   itemId,
@@ -280,7 +289,11 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
         replyMessage = 'This is my absolute final offer:';
       }
 
-      const proposedCounter = computeCounterOffer(currentPrice, counterDiscount);
+      const proposedCounter = computeCounterOffer(
+        currentPrice,
+        counterDiscount,
+        vatRate
+      );
 
       // Update State
       setStatus('failed'); // 'failed' triggers the rejection UI, which we repurpose for counter-offer

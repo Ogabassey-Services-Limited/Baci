@@ -75,6 +75,12 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
   const merchant = merchantContext?.merchant;
   const settings = merchant?.feature_settings;
   const basePath = merchantContext?.basePath ?? `/${merchantSlug || 'ogabassey'}`;
+  const negotiationVatRate =
+    merchant?.vat_registration_status === 'registered'
+      ? (merchant.vat_rate ?? vatRate) / 100
+      : vatEnabled
+        ? vatRate / 100
+        : 0;
 
   const [negotiationState, setNegotiationState] =
     useState<NegotiationState | null>(null);
@@ -461,6 +467,7 @@ export const CartPage: React.FC<CartPageProps> = ({ vatEnabled = false, vatRate 
           onClose={() => setNegotiationState(null)}
           productName={negotiationState.name}
           currentPrice={negotiationState.currentPrice}
+          vatRate={negotiationVatRate}
           onSuccess={handleNegotiationSuccess}
           type={negotiationState.type}
           merchantId={merchant.id}

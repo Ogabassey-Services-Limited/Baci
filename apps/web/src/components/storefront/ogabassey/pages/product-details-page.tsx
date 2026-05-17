@@ -85,6 +85,7 @@ export function ProductDetailsPage({
     isSelectionModalOpen,
     merchantId,
     merchantSlug,
+    merchantVatRate,
     missingFields,
     normalizedReviewRatingWidth,
     productData,
@@ -292,6 +293,7 @@ export function ProductDetailsPage({
           onClose={() => setIsNegotiationOpen(false)}
           productName={productData.name}
           currentPrice={currentOffer.rawPrice}
+          vatRate={merchantVatRate}
           onSuccess={handleNegotiationSuccess}
           type="single"
           itemId={String(productData.id)}

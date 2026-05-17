@@ -220,6 +220,25 @@ describe('NegotiationModal', () => {
     expect(screen.queryByText('₦969')).not.toBeInTheDocument();
   });
 
+  it('keeps final 3% counter-offers within VAT-aware backend bounds', () => {
+    render(
+      <NegotiationModal
+        {...defaultProps}
+        currentPrice={1001}
+        vatRate={0.075}
+      />
+    );
+
+    submitLowOffer('500');
+    fireEvent.click(screen.getByText('Negotiate Again'));
+    submitLowOffer('500');
+    fireEvent.click(screen.getByText('Negotiate Again'));
+    submitLowOffer('500');
+
+    expect(screen.getByText('₦971')).toBeInTheDocument();
+    expect(screen.queryByText('₦970')).not.toBeInTheDocument();
+  });
+
   it('clears counter-offer message when returning to input state', () => {
     render(<NegotiationModal {...defaultProps} />);
 
