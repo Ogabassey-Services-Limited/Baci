@@ -34,6 +34,7 @@ vi.mock('@/lib/agentic/scoped-supabase', () => ({
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: vi.fn() }));
 
 const orderId = '11111111-1111-4111-8111-111111111111';
+const checkoutSessionId = 'agentic_session_1';
 
 const orderRow = {
   created_at: '2026-04-28T12:00:00.000Z',
@@ -78,9 +79,13 @@ function routeParams(id = orderId) {
 }
 
 function mockOrderRead({
+  checkoutSession = { session_id: checkoutSessionId },
+  checkoutSessionError = null,
   data,
   error = null,
 }: {
+  checkoutSession?: Record<string, unknown> | null;
+  checkoutSessionError?: unknown;
   data: Record<string, unknown> | null;
   error?: unknown;
 }) {
@@ -89,17 +94,37 @@ function mockOrderRead({
     maybeSingle: vi.fn().mockResolvedValue({ data, error }),
   };
   orderChain.eq.mockReturnValue(orderChain);
+  const checkoutSessionChain = {
+    eq: vi.fn(),
+    maybeSingle: vi.fn().mockResolvedValue({
+      data: checkoutSession,
+      error: checkoutSessionError,
+    }),
+  };
+  checkoutSessionChain.eq.mockReturnValue(checkoutSessionChain);
   const select = vi.fn((_projection: string) => orderChain);
+  const checkoutSessionSelect = vi.fn(
+    (_projection: string) => checkoutSessionChain
+  );
   const scopedSupabase = {
     from: vi.fn((table: string) => {
       if (table === 'orders') return { select };
+      if (table === 'checkout_sessions') {
+        return { select: checkoutSessionSelect };
+      }
       throw new Error(`Unexpected scoped table ${table}`);
     }),
   };
   vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
     scopedSupabase as never
   );
-  return { orderChain, scopedSupabase, select };
+  return {
+    checkoutSessionChain,
+    checkoutSessionSelect,
+    orderChain,
+    scopedSupabase,
+    select,
+  };
 }
 
 describe('GET /api/agentic/orders/[id]', () => {
@@ -127,14 +152,16 @@ describe('GET /api/agentic/orders/[id]', () => {
   });
 
   it('returns public post-purchase order state for an agentic order', async () => {
-    const { orderChain, select } = mockOrderRead({ data: orderRow });
+    const { orderChain, scopedSupabase, select } = mockOrderRead({
+      data: orderRow,
+    });
 
     const { GET } = await import('./route');
     const response = await GET(request(), routeParams());
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      checkout_id: orderId,
+      checkout_id: checkoutSessionId,
       currency: 'NGN',
       id: orderId,
       line_items: [
@@ -171,6 +198,7 @@ describe('GET /api/agentic/orders/[id]', () => {
     expect(orderChain.eq).toHaveBeenCalledWith('id', orderId);
     expect(orderChain.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(orderChain.eq).toHaveBeenCalledWith('source', 'agentic_ai');
+    expect(scopedSupabase.from).toHaveBeenCalledWith('checkout_sessions');
     expect(select).toHaveBeenCalledWith(
       'id, order_number, payment_status, shipping_status, tracking_number, created_at, updated_at, subtotal, shipping_fee, discount_amount, tax_amount, total, currency, shipping_address, order_items(id, product_id, variant_id, name, price, quantity, line_extension_amount, vat_amount)'
     );
@@ -300,6 +328,34 @@ describe('GET /api/agentic/orders/[id]', () => {
 
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: 'Failed to fetch order' });
+  });
+
+  it('returns 500 when the linked checkout session cannot be resolved', async () => {
+    mockOrderRead({ checkoutSession: null, data: orderRow });
+
+    const { GET } = await import('./route');
+    const response = await GET(request(), routeParams());
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: 'Order checkout session not found',
+    });
+  });
+
+  it('returns 500 when the linked checkout session query fails', async () => {
+    mockOrderRead({
+      checkoutSession: null,
+      checkoutSessionError: { message: 'checkout unavailable' },
+      data: orderRow,
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(request(), routeParams());
+
+    expect(response.status).toBe(500);
+    expect(await response.json()).toEqual({
+      error: 'Failed to fetch order checkout session',
+    });
   });
 
   it('does not use a service-role bypass client for order data reads', async () => {

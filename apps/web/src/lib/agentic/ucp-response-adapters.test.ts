@@ -71,6 +71,7 @@ describe('buildUcpCheckoutResponse', () => {
 describe('buildUcpOrderResponse', () => {
   it('adds required UCP order fields while preserving legacy fields', () => {
     const response = buildUcpOrderResponse({
+      checkout_id: 'agentic_session_1',
       currency: 'ngn',
       id: 'order_1',
       links: { track_order: 'https://shop.example/track-order' },
@@ -94,7 +95,7 @@ describe('buildUcpOrderResponse', () => {
     });
 
     expect(response).toMatchObject({
-      checkout_id: 'order_1',
+      checkout_id: 'agentic_session_1',
       currency: 'NGN',
       id: 'order_1',
       order_number: 'BACI-1',

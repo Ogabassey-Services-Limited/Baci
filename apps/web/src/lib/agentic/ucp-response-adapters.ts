@@ -38,7 +38,6 @@ export function buildUcpCheckoutResponse(response: unknown) {
 export function buildUcpOrderResponse(response: unknown) {
   if (!isRecord(response)) return response;
 
-  const orderId = toStringValue(response.id) ?? 'unknown';
   const currency = toStringValue(response.currency)?.toUpperCase() ?? 'NGN';
   const total = toIntegerAmount(response.total);
   const subtotal = toIntegerAmount(response.subtotal) ?? total ?? 0;
@@ -65,8 +64,9 @@ export function buildUcpOrderResponse(response: unknown) {
         [UCP_ORDER_CAPABILITY]: [{ version: UCP_PROFILE_VERSION }],
       },
     },
-    checkout_id: toStringValue(response.checkout_id) ?? orderId,
+    checkout_id: toStringValue(response.checkout_id) ?? 'unknown',
     currency,
+    id: toStringValue(response.id) ?? 'unknown',
     fulfillment: {
       expectations: [],
       events: fulfillmentEvents,

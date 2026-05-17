@@ -7,6 +7,7 @@ import {
   CHECKOUT_SESSION_MUTABLE_STATUSES,
   getAgenticCheckoutSession,
 } from '@/lib/agentic/checkout-session-record';
+import { buildCheckoutSessionStateResponse } from '@/lib/agentic/checkout-session-response';
 import { mapCheckoutSessionStatus } from '@/lib/agentic/checkout-storage';
 import { reserveAgenticIdempotencyKey } from '@/lib/agentic/idempotency';
 import { getAgenticIdempotencyErrorStatus } from '@/lib/agentic/idempotency-response';
@@ -22,6 +23,7 @@ import { getAgenticReplayErrorStatus } from '@/lib/agentic/request-replay-respon
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
+import { buildStoreUrl } from '@/lib/store-url';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { agenticCheckoutItemsSchema } from '@/schemas/agentic-checkout';
 import { agenticCheckoutSessionRouteParamsSchema } from '@/schemas/agentic-checkout-session-route-params';
@@ -250,21 +252,22 @@ export async function POST(
       });
     }
 
-    const responsePayload = {
-      id: session.session_id,
+    const responsePayload = buildCheckoutSessionStateResponse({
       status: mapCheckoutSessionStatus({
         status: 'abandoned',
         hasFulfillmentAddress: !!session.shipping_address,
         hasLineItems: sessionCalc.lineItems.length > 0,
       }),
-      currency: session.currency.toLowerCase(),
-      line_items: sessionCalc.lineItems,
-      totals: sessionCalc.totals,
-      fulfillment_options: sessionCalc.fulfillmentOptions,
-      fulfillment_option_id: session.shipping_method,
-      shipping_address: session.shipping_address,
+      currency: session.currency,
+      fulfillmentOptionId: session.shipping_method,
+      fulfillmentOptions: sessionCalc.fulfillmentOptions,
+      lineItems: sessionCalc.lineItems,
       messages: sessionCalc.messages,
-    };
+      policyBaseUrl: buildStoreUrl(merchant),
+      sessionId: session.session_id,
+      shippingAddress: session.shipping_address,
+      totals: sessionCalc.totals,
+    });
 
     return await respond(responsePayload, 200);
   } catch (err: unknown) {

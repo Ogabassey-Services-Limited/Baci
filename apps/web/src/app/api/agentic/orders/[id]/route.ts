@@ -13,6 +13,7 @@ import { agenticOrderRouteParamsSchema } from '@/schemas/agentic-order-route-par
 
 const AGENTIC_ORDER_SELECT =
   'id, order_number, payment_status, shipping_status, tracking_number, created_at, updated_at, subtotal, shipping_fee, discount_amount, tax_amount, total, currency, shipping_address, order_items(id, product_id, variant_id, name, price, quantity, line_extension_amount, vat_amount)';
+const AGENTIC_ORDER_CHECKOUT_SESSION_SELECT = 'session_id';
 
 export async function GET(
   request: NextRequest,
@@ -90,10 +91,38 @@ export async function GET(
     return NextResponse.json({ error: 'Order not found' }, { status: 404 });
   }
 
+  const { data: checkoutSession, error: checkoutSessionError } = await supabase
+    .from('checkout_sessions')
+    .select(AGENTIC_ORDER_CHECKOUT_SESSION_SELECT)
+    .eq('order_id', order.id)
+    .eq('merchant_id', merchant.id)
+    .maybeSingle();
+
+  if (checkoutSessionError) {
+    logger.error({
+      message: 'Failed to fetch agentic order checkout session',
+      error: sanitizeForLog(checkoutSessionError),
+      merchantId: merchant.id,
+      orderId: parsedParams.data.id,
+    });
+    return NextResponse.json(
+      { error: 'Failed to fetch order checkout session' },
+      { status: 500 }
+    );
+  }
+
+  if (!checkoutSession) {
+    return NextResponse.json(
+      { error: 'Order checkout session not found' },
+      { status: 500 }
+    );
+  }
+
   const storeUrl = buildStoreUrl(merchant);
 
   return NextResponse.json(
     buildUcpOrderResponse({
+      checkout_id: checkoutSession.session_id,
       id: order.id,
       order_number: order.order_number,
       payment_status: order.payment_status,
