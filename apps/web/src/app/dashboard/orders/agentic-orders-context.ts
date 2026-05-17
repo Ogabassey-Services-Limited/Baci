@@ -1,14 +1,16 @@
+import type { Route } from 'next';
+
 export interface AgenticOrdersContext {
   code: string;
   nextStep: string;
   summary: string;
-  trustControlsHref?: string;
+  trustControlsHref?: Route;
 }
 
-export const AGENTIC_ORDERS_CLEAR_FOCUS_HREF =
+export const AGENTIC_ORDERS_CLEAR_FOCUS_HREF: Route =
   '/dashboard/orders?source=agentic';
 
-const AGENTIC_TRUST_CONTROLS_HREF =
+const AGENTIC_TRUST_CONTROLS_HREF: Route =
   '/dashboard/settings/trust#agent-checkout-controls';
 
 const AGENTIC_ORDERS_CONTEXT_BY_CODE: Record<
