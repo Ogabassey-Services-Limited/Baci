@@ -204,7 +204,10 @@ describe('GET /.well-known/agent-native-commerce', () => {
         }),
       ])
     );
-    expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith('merchant-1', true);
+    expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith(
+      'merchant-1',
+      true
+    );
     expect(mockGetCachedGoogleMerchantFeedData).toHaveBeenCalledWith(
       'merchant-1',
       'ogabassey'
@@ -238,7 +241,10 @@ describe('GET /.well-known/agent-native-commerce', () => {
         },
       },
     });
-    expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith('merchant-1', true);
+    expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith(
+      'merchant-1',
+      true
+    );
     expect(mockGetCachedGoogleMerchantFeedData).toHaveBeenCalledWith(
       'merchant-1',
       'ogabassey'
