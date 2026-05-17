@@ -912,6 +912,11 @@ describe('useRedeemPoints', () => {
       expect.objectContaining({ p_redemption_id: 'first-redemption-id' })
     );
     expect(mockCalculateCommerce).toHaveBeenNthCalledWith(
+      1,
+      'redeem_loyalty',
+      expect.objectContaining({ currentPoints: 200, points: 200 })
+    );
+    expect(mockCalculateCommerce).toHaveBeenNthCalledWith(
       2,
       'redeem_loyalty',
       expect.objectContaining({ currentPoints: 200, points: 200 })

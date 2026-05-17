@@ -473,10 +473,7 @@ export function useRedeemPoints() {
       }
 
       const commerceCurrentPoints = reusablePendingRedemption
-        ? Math.max(
-            currentPoints,
-            reusablePendingRedemption.pointsBeforeRedeem
-          )
+        ? Math.max(currentPoints, reusablePendingRedemption.pointsBeforeRedeem)
         : currentPoints;
 
       // First, validate with Commerce Brain

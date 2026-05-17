@@ -120,7 +120,12 @@ export async function getOrCreatePendingLoyaltyRedemptionId({
       ttlMs,
     })
   ) {
-    return { key, redemptionId: existingRecord.redemptionId };
+    return {
+      key,
+      pointsBeforeRedeem: existingRecord.pointsBeforeRedeem,
+      redemptionId: existingRecord.redemptionId,
+      reused: true,
+    };
   }
 
   if (existingRecord) {
@@ -138,7 +143,12 @@ export async function getOrCreatePendingLoyaltyRedemptionId({
       version: 2,
     } satisfies PendingLoyaltyRedemptionRecord)
   );
-  return { key, redemptionId };
+  return {
+    key,
+    pointsBeforeRedeem: currentPoints,
+    redemptionId,
+    reused: false,
+  };
 }
 
 export async function getReusablePendingLoyaltyRedemptionId({

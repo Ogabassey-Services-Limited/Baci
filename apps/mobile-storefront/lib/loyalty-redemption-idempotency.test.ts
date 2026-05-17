@@ -45,7 +45,9 @@ describe('loyalty redemption idempotency', () => {
 
     expect(result).toEqual({
       key: 'loyalty-redemption:customer-1:merchant-1:200',
+      pointsBeforeRedeem: 1000,
       redemptionId: 'redemption-id-1',
+      reused: false,
     });
     expect(mockSetItem).toHaveBeenCalledWith(
       'loyalty-redemption:customer-1:merchant-1:200',
@@ -81,6 +83,8 @@ describe('loyalty redemption idempotency', () => {
     });
 
     expect(result.redemptionId).toBe('persisted-redemption-id');
+    expect(result.reused).toBe(true);
+    expect(result.pointsBeforeRedeem).toBe(1000);
     expect(mockSetItem).not.toHaveBeenCalled();
   });
 
