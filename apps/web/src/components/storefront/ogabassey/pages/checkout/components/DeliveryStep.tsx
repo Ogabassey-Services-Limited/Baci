@@ -211,6 +211,12 @@ export function DeliveryStep({
                         if (inferred) {
                           setNewAddressState(inferred.state);
                           setNewAddressCity(inferred.city);
+                        } else {
+                          setNewAddressState('');
+                          setNewAddressCity('');
+                          setShippingQuotes([]);
+                          setSelectedQuoteId('');
+                          setDeliveryMethod('door');
                         }
                       }}
                       onSelect={(place: any) => {

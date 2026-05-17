@@ -96,6 +96,20 @@ describe('DeliveryStep', () => {
         'Lekki Phase 1',
       );
     });
+
+    it('clears inferred location and quotes when manual input no longer matches', () => {
+      render(<DeliveryStep {...defaultProps} />);
+
+      fireEvent.change(screen.getByTestId('address-autocomplete'), {
+        target: { value: 'Lekki, Nigeria' },
+      });
+
+      expect(defaultProps.setNewAddressState).toHaveBeenCalledWith('');
+      expect(defaultProps.setNewAddressCity).toHaveBeenCalledWith('');
+      expect(defaultProps.setShippingQuotes).toHaveBeenCalledWith([]);
+      expect(defaultProps.setSelectedQuoteId).toHaveBeenCalledWith('');
+      expect(defaultProps.setDeliveryMethod).toHaveBeenCalledWith('door');
+    });
   });
 
   describe('Delivery Method Selection', () => {
