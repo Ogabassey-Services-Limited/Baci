@@ -246,6 +246,7 @@ export const OgabasseyImeiEntry = ({
             />
           </div>
           <button
+            aria-label={`Verify Now · ${currentTier.priceDisplay}`}
             disabled={isLoading || imei.length < 15}
             type="submit"
             className="bg-[var(--store-primary)] text-[var(--store-primary-text,#ffffff)] font-bold text-base px-8 py-4 rounded-2xl hover:bg-[var(--store-primary)]/90 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-[var(--store-primary)]/20 active:scale-95 whitespace-nowrap"

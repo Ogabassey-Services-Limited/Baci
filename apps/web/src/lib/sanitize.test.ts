@@ -29,6 +29,26 @@ describe('sanitize', () => {
     expect(output).not.toContain('<script');
   });
 
+  it('strips disallowed raw text blocks while preserving adjacent allowed HTML', () => {
+    const output = sanitizeHtml(
+      '<p>Before</p><script>alert(1)</script><strong>Keep</strong><textarea><img src=x onerror=alert(1)></textarea><a href="https://example.com">Link</a>'
+    );
+
+    expect(output).toBe(
+      '<p>Before</p><strong>Keep</strong><a href="https://example.com" rel="noopener noreferrer">Link</a>'
+    );
+  });
+
+  it('strips multiple raw text blocks without dropping nested allowed neighbors', () => {
+    const output = sanitizeHtml(
+      '<div><p>Intro <strong>safe</strong></p><style>.x{color:red}</style><p>Middle</p><script><p>unsafe</p></script><p><a href="https://example.com">Outro</a></p></div>'
+    );
+
+    expect(output).toBe(
+      '<div><p>Intro <strong>safe</strong></p><p>Middle</p><p><a href="https://example.com" rel="noopener noreferrer">Outro</a></p></div>'
+    );
+  });
+
   it('keeps safe links and adds rel protection', () => {
     const output = sanitizeHtml('<a href="https://example.com">Safe</a>');
 

@@ -96,6 +96,6 @@ describe('OgabasseyImeiEntry', () => {
     });
 
     expect(screen.getByText('Wallet balance is too low.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: '' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /verify now/i })).toBeDisabled();
   });
 });

@@ -200,13 +200,19 @@ export async function cacheInsufficientBalanceResponse({
     error: 'Insufficient wallet balance',
     required: amount,
   });
-  await cacheLookupResponse({
-    body,
-    lookupId,
-    status: 402,
-    supabaseAdmin,
-    terminalStatus: 'wallet_rejected',
-  });
+  const { error } = await supabaseAdmin
+    .from('imei_lookups')
+    .delete()
+    .eq('id', lookupId)
+    .select('id')
+    .single();
+
+  if (error) {
+    throw new Error(
+      `Failed to remove insufficient-balance IMEI lookup: ${error.message}`
+    );
+  }
+
   return json(body, 402);
 }
 

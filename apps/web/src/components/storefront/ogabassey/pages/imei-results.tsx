@@ -61,7 +61,7 @@ export function OgabasseyImeiResults({
 
   return (
     <div className="max-w-2xl mx-auto mb-16 animate-in slide-in-from-bottom-8 duration-700">
-      <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+      <div className="bg-[var(--store-surface,#ffffff)] rounded-3xl shadow-xl border border-[var(--store-border,#f3f4f6)] overflow-hidden">
         <div
           className={`p-6 md:p-8 ${
             result.status === 'Clean'
@@ -70,7 +70,7 @@ export function OgabasseyImeiResults({
           }`}
         >
           <div className="flex flex-col md:flex-row items-center gap-6">
-            <div className="relative w-28 h-28 shrink-0 bg-white rounded-2xl p-2 shadow-sm border border-gray-100">
+            <div className="relative w-28 h-28 shrink-0 bg-[var(--store-surface,#ffffff)] rounded-2xl p-2 shadow-sm border border-[var(--store-border,#f3f4f6)]">
               {result.deviceImage ? (
                 <Image
                   src={result.deviceImage}
@@ -80,7 +80,7 @@ export function OgabasseyImeiResults({
                   className="object-contain p-2"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-gray-300">
+                <div className="w-full h-full flex items-center justify-center text-[var(--store-icon-muted,#d1d5db)]">
                   <Smartphone size={48} />
                 </div>
               )}
@@ -88,22 +88,22 @@ export function OgabasseyImeiResults({
 
             <div className="flex-1 text-center md:text-left">
               <div className="flex items-center justify-center md:justify-start gap-2 mb-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
+                <span className="text-xs font-bold uppercase tracking-wider text-[var(--store-muted-text,#6b7280)]">
                   {currentTierName} Report
                 </span>
-                <span className="text-gray-300">•</span>
-                <span className="text-xs font-mono text-gray-500">
+                <span className="text-[var(--store-icon-muted,#d1d5db)]">•</span>
+                <span className="text-xs font-mono text-[var(--store-muted-text,#6b7280)]">
                   {new Date().toLocaleString()}
                 </span>
               </div>
-              <h2 className="text-xl md:text-2xl font-bold text-gray-900">
+              <h2 className="text-xl md:text-2xl font-bold text-[var(--store-text,#111827)]">
                 {result.device}
               </h2>
-              <p className="text-sm text-gray-500 font-mono mt-1">
+              <p className="text-sm text-[var(--store-muted-text,#6b7280)] font-mono mt-1">
                 IMEI: {result.imei}
               </p>
               {result.modelNumber ? (
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-[var(--store-muted-text,#9ca3af)] mt-0.5">
                   Model: {result.modelNumber}
                 </p>
               ) : null}
@@ -112,8 +112,8 @@ export function OgabasseyImeiResults({
             <div
               className={`px-4 py-2 rounded-xl border flex flex-col items-center justify-center min-w-[100px] ${
                 result.status === 'Clean'
-                  ? `bg-white ${resultTones.safe.border}`
-                  : `bg-white ${resultTones.danger.border}`
+                  ? `bg-[var(--store-surface,#ffffff)] ${resultTones.safe.border}`
+                  : `bg-[var(--store-surface,#ffffff)] ${resultTones.danger.border}`
               }`}
             >
               <span
@@ -125,7 +125,7 @@ export function OgabasseyImeiResults({
               >
                 {result.score}%
               </span>
-              <span className="text-[10px] font-bold uppercase text-gray-400">
+              <span className="text-[10px] font-bold uppercase text-[var(--store-muted-text,#9ca3af)]">
                 Trust Score
               </span>
             </div>
@@ -133,7 +133,7 @@ export function OgabasseyImeiResults({
         </div>
 
         <div className="p-6 md:p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="flex items-start gap-4 p-4 rounded-2xl bg-gray-50/50 border border-gray-100">
+          <div className="flex items-start gap-4 p-4 rounded-2xl bg-[var(--store-muted-surface,#f9fafb)] border border-[var(--store-border,#f3f4f6)]">
             <div
               className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
                 isBlacklistClean(result.blacklistStatus)
@@ -144,7 +144,7 @@ export function OgabasseyImeiResults({
               <ShieldCheck size={20} />
             </div>
             <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-0.5">
+              <p className="text-xs font-bold text-[var(--store-muted-text,#9ca3af)] uppercase tracking-wide mb-0.5">
                 Blacklist Status
               </p>
               <p
@@ -156,11 +156,11 @@ export function OgabasseyImeiResults({
               >
                 {result.blacklistStatus}
               </p>
-              <p className="text-xs text-gray-500 mt-1">GSMA Database Check</p>
+              <p className="text-xs text-[var(--store-muted-text,#6b7280)] mt-1">GSMA Database Check</p>
             </div>
           </div>
 
-          <div className="flex items-start gap-4 p-4 rounded-2xl bg-gray-50/50 border border-gray-100">
+          <div className="flex items-start gap-4 p-4 rounded-2xl bg-[var(--store-muted-surface,#f9fafb)] border border-[var(--store-border,#f3f4f6)]">
             <div
               className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
                 result.icloudLock.toLowerCase() === 'off' ||
@@ -172,7 +172,7 @@ export function OgabasseyImeiResults({
               <Lock size={20} />
             </div>
             <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-0.5">
+              <p className="text-xs font-bold text-[var(--store-muted-text,#9ca3af)] uppercase tracking-wide mb-0.5">
                 Find My iPhone
               </p>
               <p
@@ -185,41 +185,41 @@ export function OgabasseyImeiResults({
               >
                 {result.icloudLock}
               </p>
-              <p className="text-xs text-gray-500 mt-1">iCloud Lock Status</p>
+              <p className="text-xs text-[var(--store-muted-text,#6b7280)] mt-1">iCloud Lock Status</p>
             </div>
           </div>
 
-          <div className="flex items-start gap-4 p-4 rounded-2xl bg-gray-50/50 border border-gray-100">
+          <div className="flex items-start gap-4 p-4 rounded-2xl bg-[var(--store-muted-surface,#f9fafb)] border border-[var(--store-border,#f3f4f6)]">
             <div
               className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${resultTones.info.icon}`}
             >
               <Globe size={20} />
             </div>
             <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-0.5">
+              <p className="text-xs font-bold text-[var(--store-muted-text,#9ca3af)] uppercase tracking-wide mb-0.5">
                 SIM Lock
               </p>
-              <p className="font-bold text-base text-gray-900">
+              <p className="font-bold text-base text-[var(--store-text,#111827)]">
                 {result.simLock}
               </p>
-              <p className="text-xs text-gray-500 mt-1">Network Restriction</p>
+              <p className="text-xs text-[var(--store-muted-text,#6b7280)] mt-1">Network Restriction</p>
             </div>
           </div>
 
-          <div className="flex items-start gap-4 p-4 rounded-2xl bg-gray-50/50 border border-gray-100">
+          <div className="flex items-start gap-4 p-4 rounded-2xl bg-[var(--store-muted-surface,#f9fafb)] border border-[var(--store-border,#f3f4f6)]">
             <div
               className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${resultTones.info.icon}`}
             >
               <Smartphone size={20} />
             </div>
             <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-0.5">
+              <p className="text-xs font-bold text-[var(--store-muted-text,#9ca3af)] uppercase tracking-wide mb-0.5">
                 Carrier
               </p>
-              <p className="font-bold text-base text-gray-900">
+              <p className="font-bold text-base text-[var(--store-text,#111827)]">
                 {result.carrier}
               </p>
-              <p className="text-xs text-gray-500 mt-1">Original Network</p>
+              <p className="text-xs text-[var(--store-muted-text,#6b7280)] mt-1">Original Network</p>
             </div>
           </div>
         </div>
@@ -239,7 +239,7 @@ export function OgabasseyImeiResults({
         <button
           type="button"
           onClick={onReset}
-          className="text-sm font-bold text-gray-500 hover:text-gray-900 inline-flex items-center gap-2"
+          className="text-sm font-bold text-[var(--store-muted-text,#6b7280)] hover:text-[var(--store-text,#111827)] inline-flex items-center gap-2"
         >
           <ScanBarcode size={16} />
           Check Another Device

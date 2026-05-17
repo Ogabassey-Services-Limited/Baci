@@ -8,6 +8,20 @@ const migrationPath = (fileName: string) =>
   resolve(currentDir, '../../../../../../../supabase/migrations', fileName);
 
 describe('IMEI lookup migration grants', () => {
+  it('never grants authenticated direct IMEI lookup writes during setup migrations', () => {
+    for (const fileName of [
+      '20260515142000_imei_lookups_table.sql',
+      '20260515142400_imei_lookups_authenticated_write_policies.sql',
+      '20260515142500_restrict_imei_lookup_authenticated_grants.sql',
+    ]) {
+      const sql = readFileSync(migrationPath(fileName), 'utf8');
+
+      expect(sql).not.toMatch(
+        /GRANT\s+(?:INSERT|UPDATE)\s*(?:\([^)]*\))?\s+ON\s+public\.imei_lookups\s+TO\s+authenticated/i
+      );
+    }
+  });
+
   it('revokes authenticated IMEI lookup writes in the final grant migration', () => {
     const sql = readFileSync(
       migrationPath(
@@ -77,8 +91,8 @@ describe('IMEI lookup migration grants', () => {
     expect(sql).not.toMatch(
       /INSERT\s+INTO\s+public\.customer_wallets[\s\S]*ON\s+CONFLICT/i
     );
-    expect(sql).toContain(
-      'FROM public.customer_wallets\n  WHERE customer_id = p_customer_id AND merchant_id = p_merchant_id\n  FOR UPDATE'
+    expect(sql).toMatch(
+      /FROM\s+public\.customer_wallets\s+WHERE\s+customer_id\s*=\s*p_customer_id\s+AND\s+merchant_id\s*=\s*p_merchant_id\s+FOR\s+UPDATE/i
     );
     expect(sql).toContain(
       'refund_imei_wallet_payment: wallet not found for customer'

@@ -199,5 +199,5 @@ export async function findLookupByIdempotencyKey(
     throw new Error(`Failed to read IMEI idempotency row: ${error.message}`);
   }
 
-  return (data as ImeiLookupRow | null) ?? null;
+  return data as ImeiLookupRow | null;
 }

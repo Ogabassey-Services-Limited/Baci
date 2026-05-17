@@ -554,13 +554,10 @@ describe('POST /api/storefront/imei-check', () => {
       required: 1500,
     });
     expect(mocks.mockRequestSickwCheck).not.toHaveBeenCalled();
-    expect(adminSupabase.__updates.at(-1)).toMatchObject({
+    expect(adminSupabase.__deletes.at(-1)).toMatchObject({
       filters: { id: 'lookup-1' },
-      payload: {
-        cached_status: 402,
-        status: 'wallet_rejected',
-      },
     });
+    expect(adminSupabase.__updates).toHaveLength(0);
   });
 
   it('continues the paid lookup when the preflight wallet balance read fails', async () => {
