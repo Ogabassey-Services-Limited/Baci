@@ -143,7 +143,13 @@ describe('GET /.well-known/ucp', () => {
         schema: 'https://ucp.dev/2026-04-08/schemas/shopping/order.json',
       }),
     ]);
-    expect(body.ucp.capabilities['dev.ucp.shopping.order'][0].config).toEqual({
+    expect(
+      body.ucp.capabilities['dev.ucp.shopping.order'][0].config
+    ).toMatchObject({
+      auth: {
+        supported_api_versions: expect.any(Array),
+        type: 'bearer_hmac',
+      },
       rest: {
         endpoint: 'https://ogabassey.com/api/agentic',
         operations: {

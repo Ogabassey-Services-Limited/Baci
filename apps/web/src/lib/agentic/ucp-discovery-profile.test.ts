@@ -152,6 +152,10 @@ describe('buildUcpDiscoveryProfile', () => {
         spec: 'https://ucp.dev/2026-04-08/specification/order',
         schema: 'https://ucp.dev/2026-04-08/schemas/shopping/order.json',
         config: {
+          auth: {
+            supported_api_versions: ['2026-04-30', '2026-04-01'],
+            type: 'bearer_hmac',
+          },
           rest: {
             endpoint: 'https://ogabassey.com/api/agentic',
             operations: {

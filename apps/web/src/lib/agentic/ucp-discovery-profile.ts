@@ -195,6 +195,12 @@ function buildUcpOrderCapability({
     spec: UCP_ORDER_SPEC_URL,
     schema: UCP_ORDER_SCHEMA_URL,
     config: {
+      auth: manifest.auth
+        ? {
+            supported_api_versions: manifest.auth.supported_api_versions,
+            type: manifest.auth.type,
+          }
+        : null,
       rest: {
         endpoint: agenticApiBaseUrl,
         operations: {
