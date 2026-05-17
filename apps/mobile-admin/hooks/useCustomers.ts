@@ -105,8 +105,10 @@ export function useCustomers(filters?: {
 
   return useInfiniteQuery({
     queryKey: ['customers', merchantId, filters],
-    queryFn: ({ pageParam = 0 }) =>
-      fetchCustomers(merchantId!, pageParam, filters),
+    queryFn: ({ pageParam = 0 }) => {
+      if (!merchantId) throw new Error('No merchant selected');
+      return fetchCustomers(merchantId, pageParam, filters);
+    },
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     initialPageParam: 0,
     enabled: !!merchantId,
@@ -116,10 +118,13 @@ export function useCustomers(filters?: {
 
 export function useCustomer(customerId: string) {
   const { merchant } = useMerchant();
+  const merchantId = merchant?.id;
 
   return useQuery({
-    queryKey: ['customer', customerId],
+    queryKey: ['customer', customerId, merchantId],
     queryFn: async () => {
+      if (!merchantId) throw new Error('No merchant selected');
+
       // PERFORMANCE: Use Promise.all to fetch customer details and recent orders concurrently
       const [customerRes, ordersRes] = await Promise.all([
         // Fetch customer
@@ -127,13 +132,13 @@ export function useCustomer(customerId: string) {
           .from('customers')
           .select(CUSTOMER_ADMIN_COLUMNS)
           .eq('id', customerId)
-          .eq('merchant_id', merchant?.id)
+          .eq('merchant_id', merchantId)
           .single(),
         // Fetch recent orders
         supabase
           .from('orders')
           .select('id, order_number, total, shipping_status, created_at')
-          .eq('merchant_id', merchant?.id)
+          .eq('merchant_id', merchantId)
           .eq('customer_id', customerId)
           .order('created_at', { ascending: false })
           .limit(5),
@@ -147,7 +152,8 @@ export function useCustomer(customerId: string) {
         recent_orders: ordersRes.data ?? [],
       };
     },
-    enabled: !!customerId && !!merchant?.id,
+    enabled: !!customerId && !!merchantId,
+    staleTime: 1000 * 60 * 2, // 2 minutes
   });
 }
 
