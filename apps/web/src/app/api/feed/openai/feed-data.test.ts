@@ -37,11 +37,18 @@ interface ProductFixture {
   }>;
 }
 
+interface ReviewFixture {
+  id: string;
+  product_id: string | null;
+  rating: number | string | null;
+}
+
 let productsResult: { data: ProductFixture[] | null; error: unknown };
 let nullCreatedAtProductsResult: {
   data: ProductFixture[] | null;
   error: unknown;
 };
+let reviewsResult: { data: ReviewFixture[] | null; error: unknown };
 const mockProductSelect = vi.fn();
 const mockProductsGt = vi.fn();
 const mockProductsIs = vi.fn();
@@ -49,6 +56,10 @@ const mockProductsOr = vi.fn();
 const mockProductsNot = vi.fn();
 const mockProductsOrder = vi.fn();
 const mockProductsLimit = vi.fn();
+const mockReviewSelect = vi.fn();
+const mockReviewsOrder = vi.fn();
+const mockReviewsRange = vi.fn();
+const mockReviewsIn = vi.fn();
 let productQueryMode: 'non_null' | 'null' = 'non_null';
 
 function createMockSupabase() {
@@ -94,6 +105,30 @@ function createMockSupabase() {
           }),
         };
       }
+      if (table === 'product_reviews') {
+        return {
+          select: mockReviewSelect.mockImplementation(() => {
+            const query = {
+              eq: () => query,
+              in: (column: string, values: string[]) => {
+                mockReviewsIn(column, values);
+                return query;
+              },
+              order: (
+                column: string,
+                options?: {
+                  ascending: boolean;
+                }
+              ) => {
+                mockReviewsOrder(column, options);
+                return query;
+              },
+              range: (from: number, to: number) => mockReviewsRange(from, to),
+            };
+            return query;
+          }),
+        };
+      }
       throw new Error(`Unexpected table: ${table}`);
     },
   };
@@ -108,12 +143,17 @@ beforeEach(() => {
   mockProductsGt.mockReset();
   mockProductsOrder.mockReset();
   mockProductsLimit.mockReset();
+  mockReviewSelect.mockReset();
+  mockReviewsOrder.mockReset();
+  mockReviewsRange.mockReset();
+  mockReviewsIn.mockReset();
   productQueryMode = 'non_null';
   mockProductsLimit.mockImplementation(() =>
     Promise.resolve(
       productQueryMode === 'null' ? nullCreatedAtProductsResult : productsResult
     )
   );
+  mockReviewsRange.mockImplementation(() => Promise.resolve(reviewsResult));
 
   productsResult = {
     data: [
@@ -141,6 +181,7 @@ beforeEach(() => {
     error: null,
   };
   nullCreatedAtProductsResult = { data: [], error: null };
+  reviewsResult = { data: [], error: null };
   mockCreateAnonClient.mockReturnValue(createMockSupabase());
 });
 
@@ -172,6 +213,8 @@ describe('getCachedOpenAIFeedData', () => {
         'variants:product_variants!product_variants_product_id_fkey('
       )
     );
+    expect(mockReviewSelect).toHaveBeenCalledWith('id, product_id, rating');
+    expect(mockReviewsIn).toHaveBeenCalledWith('product_id', ['prod-1']);
   });
 
   it('selects canonical URL and joined category fields without reading a missing category_slug column', async () => {
@@ -353,5 +396,40 @@ describe('getCachedOpenAIFeedData', () => {
       })
     );
     consoleSpy.mockRestore();
+  });
+
+  it('hydrates review_count and average_rating from approved review rows', async () => {
+    productsResult = {
+      data: [
+        {
+          id: 'prod-1',
+          name: 'Test Phone',
+          created_at: '2026-01-01T00:00:00.000Z',
+          description: 'A phone',
+          slug: 'test-phone',
+          price: 50000,
+          stock: 5,
+          stock_quantity: 5,
+          manage_stock: true,
+          variants: [],
+        },
+      ],
+      error: null,
+    };
+    reviewsResult = {
+      data: [
+        { id: 'review-1', product_id: 'prod-1', rating: 5 },
+        { id: 'review-2', product_id: 'prod-1', rating: 4 },
+      ],
+      error: null,
+    };
+
+    const { getCachedOpenAIFeedData } = await import('./feed-data');
+    const result = await getCachedOpenAIFeedData('merchant-1');
+
+    expect(result.products[0]).toMatchObject({
+      average_rating: 4.5,
+      review_count: 2,
+    });
   });
 });

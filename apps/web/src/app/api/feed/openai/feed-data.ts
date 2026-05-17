@@ -6,6 +6,8 @@ const OPENAI_FEED_PRODUCTS_PAGE_SIZE = 1000;
 // Keep parity with Google feed product coverage until variant hydration supports
 // catalogs above 10k products across both machine-readable surfaces.
 const MAX_OPENAI_FEED_PRODUCTS = 10_000;
+const OPENAI_FEED_REVIEW_PRODUCTS_CHUNK_SIZE = 200;
+const OPENAI_FEED_REVIEW_ROWS_PAGE_SIZE = 1000;
 const OPENAI_FEED_PRODUCTS_SELECT = `id, name, description, slug, canonical_url, price, compare_at_price, images,
        brand, gtin, mpn, sku, stock, stock_quantity, manage_stock, condition, google_product_category, category,
        average_rating, review_count,
@@ -59,6 +61,12 @@ interface RawOpenAIFeedProductRow extends OpenAIFeedProduct {
   }> | null;
 }
 
+interface RawOpenAIFeedReviewSignalRow {
+  id: string;
+  product_id: string | null;
+  rating: number | string | null;
+}
+
 export interface OpenAIFeedData {
   products: OpenAIFeedProduct[];
 }
@@ -106,6 +114,132 @@ function normalizeOpenAIFeedProducts(
       category: rest.category ?? joinedCategory?.name ?? undefined,
     };
   });
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string' && value.trim().length === 0) return null;
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function chunkValues<T>(items: T[], size: number): T[][] {
+  if (size <= 0) return [items];
+
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+function withApprovedReviewSignals(
+  products: OpenAIFeedProduct[],
+  reviewStatsByProductId: Map<string, { count: number; ratingTotal: number }>
+): OpenAIFeedProduct[] {
+  return products.map((product) => {
+    const stats = reviewStatsByProductId.get(product.id);
+
+    if (!stats || stats.count <= 0) {
+      return {
+        ...product,
+        average_rating: null,
+        review_count: 0,
+      };
+    }
+
+    return {
+      ...product,
+      average_rating: Math.round((stats.ratingTotal / stats.count) * 10) / 10,
+      review_count: stats.count,
+    };
+  });
+}
+
+async function fetchApprovedReviewSignalStats(
+  supabase: SupabaseClient,
+  merchantId: string,
+  productIds: string[]
+): Promise<Map<string, { count: number; ratingTotal: number }>> {
+  const reviewStatsByProductId = new Map<
+    string,
+    { count: number; ratingTotal: number }
+  >();
+
+  for (const productIdChunk of chunkValues(
+    productIds,
+    OPENAI_FEED_REVIEW_PRODUCTS_CHUNK_SIZE
+  )) {
+    let offset = 0;
+
+    while (true) {
+      const { data, error } = await supabase
+        .from('product_reviews')
+        .select('id, product_id, rating')
+        .eq('merchant_id', merchantId)
+        .eq('status', 'approved')
+        .in('product_id', productIdChunk)
+        .order('id', { ascending: true })
+        .range(offset, offset + OPENAI_FEED_REVIEW_ROWS_PAGE_SIZE - 1);
+
+      if (error) {
+        throw error;
+      }
+
+      const rows = (data || []) as RawOpenAIFeedReviewSignalRow[];
+      for (const row of rows) {
+        if (!row.product_id) continue;
+
+        const rating = toFiniteNumber(row.rating);
+        if (rating === null) continue;
+
+        const current = reviewStatsByProductId.get(row.product_id) ?? {
+          count: 0,
+          ratingTotal: 0,
+        };
+        current.count += 1;
+        current.ratingTotal += rating;
+        reviewStatsByProductId.set(row.product_id, current);
+      }
+
+      if (rows.length < OPENAI_FEED_REVIEW_ROWS_PAGE_SIZE) {
+        break;
+      }
+
+      offset += OPENAI_FEED_REVIEW_ROWS_PAGE_SIZE;
+    }
+  }
+
+  return reviewStatsByProductId;
+}
+
+async function hydrateProductsWithReviewSignals(
+  supabase: SupabaseClient,
+  merchantId: string,
+  products: OpenAIFeedProduct[]
+): Promise<OpenAIFeedProduct[]> {
+  if (products.length === 0) return products;
+
+  const productIds = products.map((product) => product.id);
+  if (productIds.length === 0) return products;
+
+  try {
+    const reviewStatsByProductId = await fetchApprovedReviewSignalStats(
+      supabase,
+      merchantId,
+      productIds
+    );
+    return withApprovedReviewSignals(products, reviewStatsByProductId);
+  } catch (error) {
+    console.warn('DB_REVIEW_SIGNAL_WARNING:', {
+      error,
+      merchantId,
+      productCount: productIds.length,
+    });
+    return products;
+  }
 }
 
 async function fetchActiveOpenAIFeedProducts(
@@ -197,7 +331,7 @@ async function fetchActiveOpenAIFeedProducts(
     cursor = nextCursor;
   }
 
-  return products;
+  return hydrateProductsWithReviewSignals(supabase, merchantId, products);
 }
 
 /**
