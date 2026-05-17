@@ -1,7 +1,26 @@
 'use server';
 
 import { cookies } from 'next/headers';
+import {
+  BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS,
+  BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES,
+} from '@/lib/public-blog-content-quality';
 import { createClient } from '@/lib/supabase/server';
+
+interface BlogListPost {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt: string | null;
+  featured_image_url: string | null;
+  featured_image_alt: string | null;
+  category: string | null;
+  tags: string[] | null;
+  author_name: string | null;
+  published_at: string;
+  reading_time_minutes: number | null;
+  view_count: number | null;
+}
 
 export async function fetchMorePosts(
   merchantId: string,
@@ -13,7 +32,6 @@ export async function fetchMorePosts(
   const supabase = createClient(cookieStore);
   const limit = 12;
   const offset = (page - 1) * limit;
-
   let query = supabase
     .from('blog_posts')
     .select(
@@ -22,8 +40,19 @@ export async function fetchMorePosts(
     .eq('merchant_id', merchantId)
     .eq('status', 'published')
     .not('published_at', 'is', null)
-    .order('published_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+    .not('title', 'is', null)
+    .not('slug', 'is', null)
+    .neq('title', '')
+    .neq('slug', '')
+    .order('published_at', { ascending: false });
+
+  for (const blockedPrefix of BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES) {
+    query = query.not('title', 'ilike', `${blockedPrefix}%`);
+  }
+
+  for (const blockedSlugPart of BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS) {
+    query = query.not('slug', 'ilike', `%${blockedSlugPart}%`);
+  }
 
   if (category) {
     query = query.eq('category', category);
@@ -39,6 +68,15 @@ export async function fetchMorePosts(
     }
   }
 
-  const { data: posts } = await query;
-  return posts || [];
+  const { data: posts, error } = await query.range(offset, offset + limit - 1);
+  if (error) {
+    console.error('Failed to fetch more blog posts', {
+      merchantId,
+      page,
+      error,
+    });
+    throw error;
+  }
+
+  return Array.isArray(posts) ? (posts as BlogListPost[]) : [];
 }
