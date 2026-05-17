@@ -38,7 +38,7 @@ describe('StorefrontLayoutLoadingFallback', () => {
     });
 
     expect(image).toHaveAttribute('src', '/hero-mobile.jpg');
-    expect(image).toHaveAttribute('fetchpriority', 'high');
-    expect(image).toHaveAttribute('loading', 'eager');
+    expect(image).toHaveAttribute('fetchpriority', 'auto');
+    expect(image).toHaveAttribute('loading', 'lazy');
   });
 });
