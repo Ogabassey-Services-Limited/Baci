@@ -84,6 +84,32 @@ describe('DeliveryStep', () => {
       render(<DeliveryStep {...defaultProps} />);
       expect(screen.getByText('Delivery Address')).toBeInTheDocument();
     });
+
+    it('infers city/state from manually typed address input', () => {
+      render(<DeliveryStep {...defaultProps} />);
+      fireEvent.change(screen.getByTestId('address-autocomplete'), {
+        target: { value: 'Lekki Phase 1, Lagos' },
+      });
+
+      expect(defaultProps.setNewAddressState).toHaveBeenCalledWith('Lagos');
+      expect(defaultProps.setNewAddressCity).toHaveBeenCalledWith(
+        'Lekki Phase 1',
+      );
+    });
+
+    it('clears inferred location and quotes when manual input no longer matches', () => {
+      render(<DeliveryStep {...defaultProps} />);
+
+      fireEvent.change(screen.getByTestId('address-autocomplete'), {
+        target: { value: 'Lekki, Nigeria' },
+      });
+
+      expect(defaultProps.setNewAddressState).toHaveBeenCalledWith('');
+      expect(defaultProps.setNewAddressCity).toHaveBeenCalledWith('');
+      expect(defaultProps.setShippingQuotes).toHaveBeenCalledWith([]);
+      expect(defaultProps.setSelectedQuoteId).toHaveBeenCalledWith('');
+      expect(defaultProps.setDeliveryMethod).toHaveBeenCalledWith('door');
+    });
   });
 
   describe('Delivery Method Selection', () => {

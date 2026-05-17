@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Logo } from '@/components/logo';
+import { PLATFORM_CONFIG } from '@/config/platform';
 
 export function PlatformFooter() {
   const [year, setYear] = useState(2026);
@@ -117,15 +118,30 @@ export function PlatformFooter() {
         <div className="mt-12 pt-8 border-t border-slate-200 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
           <p className="text-sm">&copy; {year} Baci. All rights reserved.</p>
           <div className="flex gap-6">
-            <Link href="#" className="hover:text-accent transition-colors">
+            <a
+              href={PLATFORM_CONFIG.socialMedia.twitter}
+              className="hover:text-accent transition-colors"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Twitter
-            </Link>
-            <Link href="#" className="hover:text-accent transition-colors">
+            </a>
+            <a
+              href={PLATFORM_CONFIG.socialMedia.linkedin}
+              className="hover:text-accent transition-colors"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               LinkedIn
-            </Link>
-            <Link href="#" className="hover:text-accent transition-colors">
+            </a>
+            <a
+              href={PLATFORM_CONFIG.socialMedia.instagram}
+              className="hover:text-accent transition-colors"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               Instagram
-            </Link>
+            </a>
           </div>
         </div>
       </div>

@@ -139,4 +139,29 @@ describe('DashboardClientLayout', () => {
       screen.queryByRole('link', { name: 'Migrations' })
     ).not.toBeInTheDocument();
   });
+
+  it('hides Santa Campaign for non-ogabassey merchants even when the user is owner', () => {
+    vi.mocked(useMerchant).mockReturnValue({
+      merchant: {
+        id: 'merchant-1',
+        slug: 'test-store',
+        country: 'NG',
+        custom_domain: null,
+      },
+      loading: false,
+      updateMerchant: vi.fn(),
+      hasPermission: vi.fn(() => true),
+      staffAccess: { isOwner: true },
+    } as never);
+
+    render(
+      <DashboardClientLayout>
+        <div>Test Content</div>
+      </DashboardClientLayout>
+    );
+
+    expect(
+      screen.queryByRole('link', { name: 'Santa Campaign' })
+    ).not.toBeInTheDocument();
+  });
 });
