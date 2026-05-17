@@ -2,6 +2,7 @@ export const AGENTIC_ORDERS_REVIEW_HREF = '/dashboard/orders?source=agentic';
 export const AGENTIC_TRUST_SETTINGS_HREF = '/dashboard/settings/trust';
 
 const ORDER_REVIEW_CODES = new Set([
+  'AGENTIC_CHECKOUT_COMPLETE_ERRORS',
   'AGENTIC_IDEMPOTENCY_ERRORS',
   'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS',
   'AGENTIC_ORDER_FINALIZING',

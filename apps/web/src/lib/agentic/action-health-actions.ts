@@ -4,6 +4,7 @@ import type { AgenticAction } from '@/schemas/agentic-action-health';
 interface BuildAgenticHealthActionsInput {
   activeInProgressCount: number;
   allowlistCount: number;
+  completeTerminalErrorCount: number;
   isAgenticCheckoutEnabled: boolean;
   orderFinalizingCount: number;
   paymentClaimingCount: number;
@@ -17,6 +18,7 @@ interface BuildAgenticHealthActionsInput {
 export function buildAgenticHealthActions({
   activeInProgressCount,
   allowlistCount,
+  completeTerminalErrorCount,
   isAgenticCheckoutEnabled,
   orderFinalizingCount,
   paymentClaimingCount,
@@ -27,6 +29,10 @@ export function buildAgenticHealthActions({
   terminalErrorCount,
 }: BuildAgenticHealthActionsInput): AgenticAction[] {
   const actions: AgenticAction[] = [];
+  const genericTerminalErrorCount = Math.max(
+    0,
+    terminalErrorCount - completeTerminalErrorCount
+  );
   const pushAction = (action: AgenticAction) => {
     const nextStepUrl = getAgenticActionNextStepUrl(action.code);
     actions.push(
@@ -34,10 +40,22 @@ export function buildAgenticHealthActions({
     );
   };
 
-  if (terminalErrorCount > 0) {
+  if (completeTerminalErrorCount > 0) {
+    pushAction({
+      code: 'AGENTIC_CHECKOUT_COMPLETE_ERRORS',
+      count: completeTerminalErrorCount,
+      message:
+        'Agentic checkout completions are failing before order finalization.',
+      next_step:
+        'Inspect completion failures, then retry checkout completion with the same idempotency key.',
+      severity: 'attention',
+    });
+  }
+
+  if (genericTerminalErrorCount > 0) {
     pushAction({
       code: 'AGENTIC_IDEMPOTENCY_ERRORS',
-      count: terminalErrorCount,
+      count: genericTerminalErrorCount,
       message: 'Recent agentic retries ended with server errors.',
       next_step:
         'Review failed agentic orders and retry only after the server error is resolved.',
