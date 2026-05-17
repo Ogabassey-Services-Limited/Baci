@@ -23,7 +23,7 @@ describe('StorefrontLayoutLoadingFallback', () => {
   });
 
   it('can render a real mobile hero image when provided', () => {
-    render(
+    const { container } = render(
       <StorefrontLayoutLoadingFallback
         mobileHeroImage={{
           alt: 'OgaBassey storefront hero',
@@ -36,9 +36,18 @@ describe('StorefrontLayoutLoadingFallback', () => {
     const image = screen.getByRole('img', {
       name: /ogabassey storefront hero/i,
     });
+    const sources = container.querySelectorAll('source');
 
-    expect(image).toHaveAttribute('src', '/hero-mobile.jpg');
-    expect(image).toHaveAttribute('fetchpriority', 'auto');
-    expect(image).toHaveAttribute('loading', 'lazy');
+    expect(sources).toHaveLength(2);
+    expect(sources[0]).toHaveAttribute('media', '(max-width: 767px)');
+    expect(sources[0]).toHaveAttribute('srcset', '/hero-mobile.avif');
+    expect(sources[1]).toHaveAttribute('media', '(max-width: 767px)');
+    expect(sources[1]).toHaveAttribute('srcset', '/hero-mobile.jpg');
+    expect(image).toHaveAttribute(
+      'src',
+      expect.stringMatching(/^data:image\//)
+    );
+    expect(image).toHaveAttribute('fetchpriority', 'high');
+    expect(image).toHaveAttribute('loading', 'eager');
   });
 });

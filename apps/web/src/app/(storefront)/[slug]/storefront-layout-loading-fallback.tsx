@@ -8,6 +8,9 @@ interface StorefrontLayoutLoadingFallbackProps {
   mobileHeroImage?: StorefrontLayoutLoadingFallbackMobileHeroImage;
 }
 
+const transparentPixelSrc =
+  'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+
 export function StorefrontLayoutLoadingFallback({
   mobileHeroImage,
 }: StorefrontLayoutLoadingFallbackProps = {}) {
@@ -48,15 +51,24 @@ export function StorefrontLayoutLoadingFallback({
           >
             {mobileHeroImage ? (
               <picture className="absolute inset-0 block h-full w-full">
-                <source srcSet={mobileHeroImage.avifSrc} type="image/avif" />
+                <source
+                  media="(max-width: 767px)"
+                  srcSet={mobileHeroImage.avifSrc}
+                  type="image/avif"
+                />
+                <source
+                  media="(max-width: 767px)"
+                  srcSet={mobileHeroImage.fallbackSrc}
+                  type="image/jpeg"
+                />
                 <img
                   alt={mobileHeroImage.alt}
                   className="h-full w-full object-contain object-right"
                   decoding="async"
-                  fetchPriority="auto"
+                  fetchPriority="high"
                   height={540}
-                  loading="lazy"
-                  src={mobileHeroImage.fallbackSrc}
+                  loading="eager"
+                  src={transparentPixelSrc}
                   width={960}
                 />
               </picture>
