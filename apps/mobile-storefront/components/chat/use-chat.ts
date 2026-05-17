@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState } from 'react';
 import { Platform, type TextInput } from 'react-native';
 import { createLogger } from '@/lib/logger';
+import { useShallow } from 'zustand/react/shallow';
 import { useUIStore } from '@/stores/ui-store';
 import { API_BASE_URL, CHAT_REQUEST_TIMEOUT_MS } from './constants';
 import { readChatResponseText } from './read-chat-response';
@@ -11,8 +12,12 @@ import type { ChatMessage } from './types';
 const log = createLogger('ChatWidget');
 
 export function useChat(santaMode: boolean) {
-  const isChatOpen = useUIStore((state) => state.isChatOpen);
-  const chatInitialMessage = useUIStore((state) => state.chatInitialMessage);
+  const { isChatOpen, chatInitialMessage } = useUIStore(
+    useShallow((state) => ({
+      isChatOpen: state.isChatOpen,
+      chatInitialMessage: state.chatInitialMessage,
+    }))
+  );
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');

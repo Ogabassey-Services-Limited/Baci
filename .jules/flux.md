@@ -1,0 +1,3 @@
+## 2024-05-18 - Missing useShallow on UIStore Selectors
+**Learning:** Zustand v5 selectors that return objects or arrays trigger re-renders whenever *any* state in the store changes, unless wrapped in `useShallow`. In the ChatWidget, the `useUIStore` selector returning `{ isChatOpen, openChat, closeChat }` was re-rendering every time unrelated UI store state (like `negotiationContext` or `isNegotiationModalOpen`) changed.
+**Action:** Always wrap Zustand selectors that return an object map of multiple properties in `useShallow` (imported from `zustand/react/shallow`) to ensure strict equality checks on the returned object keys, preventing performance degradations from unnecessary re-renders.
