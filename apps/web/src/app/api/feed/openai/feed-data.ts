@@ -7,10 +7,8 @@ const OPENAI_FEED_PRODUCTS_PAGE_SIZE = 1000;
 // catalogs above 10k products across both machine-readable surfaces.
 const MAX_OPENAI_FEED_PRODUCTS = 10_000;
 const OPENAI_FEED_REVIEW_PRODUCTS_CHUNK_SIZE = 200;
-const OPENAI_FEED_REVIEW_ROWS_PAGE_SIZE = 1000;
 const OPENAI_FEED_PRODUCTS_SELECT = `id, name, description, slug, canonical_url, price, compare_at_price, images,
        brand, gtin, mpn, sku, stock, stock_quantity, manage_stock, condition, google_product_category, category,
-       average_rating, review_count,
        weight_value, weight_unit, created_at, updated_at,
        categories:category_id(name, slug),
        product_categories(categories(name, slug)),
@@ -62,9 +60,9 @@ interface RawOpenAIFeedProductRow extends OpenAIFeedProduct {
 }
 
 interface RawOpenAIFeedReviewSignalRow {
-  id: string;
   product_id: string | null;
-  rating: number | string | null;
+  review_count: number | string | null;
+  average_rating: number | string | null;
 }
 
 export interface OpenAIFeedData {
@@ -172,43 +170,33 @@ async function fetchApprovedReviewSignalStats(
     productIds,
     OPENAI_FEED_REVIEW_PRODUCTS_CHUNK_SIZE
   )) {
-    let offset = 0;
+    const { data, error } = await supabase
+      .from('product_reviews')
+      .select(
+        'product_id, review_count:id.count(), average_rating:rating.avg()'
+      )
+      .eq('merchant_id', merchantId)
+      .eq('status', 'approved')
+      .in('product_id', productIdChunk);
 
-    while (true) {
-      const { data, error } = await supabase
-        .from('product_reviews')
-        .select('id, product_id, rating')
-        .eq('merchant_id', merchantId)
-        .eq('status', 'approved')
-        .in('product_id', productIdChunk)
-        .order('id', { ascending: true })
-        .range(offset, offset + OPENAI_FEED_REVIEW_ROWS_PAGE_SIZE - 1);
+    if (error) {
+      throw error;
+    }
 
-      if (error) {
-        throw error;
+    const rows = (data || []) as RawOpenAIFeedReviewSignalRow[];
+    for (const row of rows) {
+      if (!row.product_id) continue;
+
+      const reviewCount = toFiniteNumber(row.review_count);
+      const averageRating = toFiniteNumber(row.average_rating);
+      if (!reviewCount || reviewCount <= 0 || averageRating === null) {
+        continue;
       }
 
-      const rows = (data || []) as RawOpenAIFeedReviewSignalRow[];
-      for (const row of rows) {
-        if (!row.product_id) continue;
-
-        const rating = toFiniteNumber(row.rating);
-        if (rating === null) continue;
-
-        const current = reviewStatsByProductId.get(row.product_id) ?? {
-          count: 0,
-          ratingTotal: 0,
-        };
-        current.count += 1;
-        current.ratingTotal += rating;
-        reviewStatsByProductId.set(row.product_id, current);
-      }
-
-      if (rows.length < OPENAI_FEED_REVIEW_ROWS_PAGE_SIZE) {
-        break;
-      }
-
-      offset += OPENAI_FEED_REVIEW_ROWS_PAGE_SIZE;
+      reviewStatsByProductId.set(row.product_id, {
+        count: reviewCount,
+        ratingTotal: averageRating * reviewCount,
+      });
     }
   }
 

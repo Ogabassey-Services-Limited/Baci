@@ -40,9 +40,9 @@ interface ProductFixture {
 }
 
 interface ReviewFixture {
-  id: string;
   product_id: string | null;
-  rating: number | string | null;
+  review_count: number | string | null;
+  average_rating: number | string | null;
 }
 
 let productsResult: { data: ProductFixture[] | null; error: unknown };
@@ -59,8 +59,6 @@ const mockProductsNot = vi.fn();
 const mockProductsOrder = vi.fn();
 const mockProductsLimit = vi.fn();
 const mockReviewSelect = vi.fn();
-const mockReviewsOrder = vi.fn();
-const mockReviewsRange = vi.fn();
 const mockReviewsIn = vi.fn();
 let productQueryMode: 'non_null' | 'null' = 'non_null';
 
@@ -114,18 +112,8 @@ function createMockSupabase() {
               eq: () => query,
               in: (column: string, values: string[]) => {
                 mockReviewsIn(column, values);
-                return query;
+                return Promise.resolve(reviewsResult);
               },
-              order: (
-                column: string,
-                options?: {
-                  ascending: boolean;
-                }
-              ) => {
-                mockReviewsOrder(column, options);
-                return query;
-              },
-              range: (from: number, to: number) => mockReviewsRange(from, to),
             };
             return query;
           }),
@@ -146,8 +134,6 @@ beforeEach(() => {
   mockProductsOrder.mockReset();
   mockProductsLimit.mockReset();
   mockReviewSelect.mockReset();
-  mockReviewsOrder.mockReset();
-  mockReviewsRange.mockReset();
   mockReviewsIn.mockReset();
   productQueryMode = 'non_null';
   mockProductsLimit.mockImplementation(() =>
@@ -155,8 +141,6 @@ beforeEach(() => {
       productQueryMode === 'null' ? nullCreatedAtProductsResult : productsResult
     )
   );
-  mockReviewsRange.mockImplementation(() => Promise.resolve(reviewsResult));
-
   productsResult = {
     data: [
       {
@@ -419,17 +403,16 @@ describe('getCachedOpenAIFeedData', () => {
       error: null,
     };
     reviewsResult = {
-      data: [
-        { id: 'review-1', product_id: 'prod-1', rating: 5 },
-        { id: 'review-2', product_id: 'prod-1', rating: 4 },
-      ],
+      data: [{ product_id: 'prod-1', review_count: 2, average_rating: 4.5 }],
       error: null,
     };
 
     const { getCachedOpenAIFeedData } = await import('./feed-data');
     const result = await getCachedOpenAIFeedData('merchant-1', true);
 
-    expect(mockReviewSelect).toHaveBeenCalledWith('id, product_id, rating');
+    expect(mockReviewSelect).toHaveBeenCalledWith(
+      'product_id, review_count:id.count(), average_rating:rating.avg()'
+    );
     expect(mockReviewsIn).toHaveBeenCalledWith('product_id', ['prod-1']);
     expect(result.products[0]).toMatchObject({
       average_rating: 4.5,
