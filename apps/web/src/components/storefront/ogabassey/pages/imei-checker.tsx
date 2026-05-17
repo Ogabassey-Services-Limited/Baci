@@ -14,6 +14,7 @@ import type {
 } from './imei-checker-types';
 
 const UNRESOLVED_IMEI_RESPONSE_CODES = new Set([
+  'DEBIT_FAILURE_STATE_SAVE_FAILED',
   'IDEMPOTENT_REQUEST_IN_FLIGHT',
   'LOOKUP_RESULT_SAVE_FAILED',
   'REFUND_PENDING',

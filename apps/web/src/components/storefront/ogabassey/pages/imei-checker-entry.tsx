@@ -61,14 +61,14 @@ export const OgabasseyImeiEntry = ({
 }: OgabasseyImeiEntryProps) => (
   <>
     <div className="max-w-3xl mx-auto text-center mb-8">
-      <div className="inline-flex items-center gap-2 bg-red-50 border border-red-100 text-red-700 px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider mb-6">
+      <div className="inline-flex items-center gap-2 bg-[var(--store-primary)]/5 border border-[var(--store-primary)]/10 text-[var(--store-primary)] px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider mb-6">
         <ShieldCheck size={14} />
         Trusted by 10,000+ Buyers
       </div>
       <h1 className="text-3xl md:text-5xl font-extrabold text-gray-900 mb-4 tracking-tight">
         Don't Get Scammed.
         <br />
-        <span className="text-red-600">Verify First.</span>
+        <span className="text-[var(--store-primary)]">Verify First.</span>
       </h1>
       <p className="text-gray-600 text-lg mb-4 max-w-xl mx-auto leading-relaxed">
         That "Brand New" iPhone might be{' '}
@@ -81,7 +81,7 @@ export const OgabasseyImeiEntry = ({
         {['Instant Results', 'Official Database', '100% Accurate'].map(
           (label) => (
             <div className="flex items-center gap-1.5" key={label}>
-              <Check size={16} className="text-green-600" />
+              <Check size={16} className="text-[var(--store-success-text,#16a34a)]" />
               <span>{label}</span>
             </div>
           )
@@ -103,7 +103,7 @@ export const OgabasseyImeiEntry = ({
           onChange={(event) => onDeviceQueryChange(event.target.value)}
           onFocus={onDeviceSearchFocus}
           placeholder="Type device name (e.g., iPhone 16, Samsung S24...)"
-          className="w-full pl-12 pr-4 py-4 bg-white border border-gray-200 rounded-2xl focus:ring-4 focus:ring-red-500/10 focus:border-red-200 outline-none text-base transition-all"
+          className="w-full pl-12 pr-4 py-4 bg-white border border-gray-200 rounded-2xl focus:ring-4 focus:ring-[var(--store-primary)]/10 focus:border-[var(--store-primary)]/20 outline-none text-base transition-all"
         />
         {searchLoading && (
           <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
@@ -141,7 +141,7 @@ export const OgabasseyImeiEntry = ({
         )}
       </div>
       {selectedDevice && (
-        <div className="mt-3 flex items-center justify-center gap-2 text-sm text-green-600">
+        <div className="mt-3 flex items-center justify-center gap-2 text-sm text-[var(--store-success-text,#16a34a)]">
           <Check size={16} />
           <span>
             Checking: <strong>{selectedDevice.name}</strong>
@@ -174,7 +174,7 @@ export const OgabasseyImeiEntry = ({
               }`}
             >
               {'recommended' in tier && tier.recommended && (
-                <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                <div className="absolute -top-2 -right-2 bg-[var(--store-primary)] text-[var(--store-primary-text,#ffffff)] text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
                   <Star size={10} fill="currentColor" />
                   BEST
                 </div>
@@ -219,7 +219,7 @@ export const OgabasseyImeiEntry = ({
                 key={feature}
                 className="inline-flex items-center gap-1 bg-gray-100 text-gray-700 text-xs px-3 py-1 rounded-full"
               >
-                <Check size={12} className="text-green-600" />
+                <Check size={12} className="text-[var(--store-success-text,#16a34a)]" />
                 {feature}
               </span>
             ))}
@@ -242,13 +242,13 @@ export const OgabasseyImeiEntry = ({
                 onImeiChange(event.target.value.replace(/\D/g, '').slice(0, 15))
               }
               placeholder="Enter 15-digit IMEI Number"
-              className="w-full pl-12 pr-4 py-4 bg-gray-50 hover:bg-white focus:bg-white border border-transparent focus:border-red-100 rounded-2xl focus:ring-4 focus:ring-red-500/10 outline-none text-lg font-mono tracking-widest transition-all placeholder:font-sans placeholder:tracking-normal text-gray-900"
+              className="w-full pl-12 pr-4 py-4 bg-gray-50 hover:bg-white focus:bg-white border border-transparent focus:border-[var(--store-primary)]/10 rounded-2xl focus:ring-4 focus:ring-[var(--store-primary)]/10 outline-none text-lg font-mono tracking-widest transition-all placeholder:font-sans placeholder:tracking-normal text-gray-900"
             />
           </div>
           <button
             disabled={isLoading || imei.length < 15}
             type="submit"
-            className="bg-red-600 text-white font-bold text-base px-8 py-4 rounded-2xl hover:bg-red-700 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-red-200 active:scale-95 whitespace-nowrap"
+            className="bg-[var(--store-primary)] text-[var(--store-primary-text,#ffffff)] font-bold text-base px-8 py-4 rounded-2xl hover:bg-[var(--store-primary)]/90 transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-[var(--store-primary)]/20 active:scale-95 whitespace-nowrap"
           >
             {isLoading ? (
               <Loader2 className="animate-spin" />
@@ -262,9 +262,12 @@ export const OgabasseyImeiEntry = ({
         </form>
       </div>
       {error && (
-        <div className="mt-4 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-left">
-          <AlertTriangle className="text-red-500 shrink-0" size={20} />
-          <p className="text-sm text-red-700">{error}</p>
+        <div className="mt-4 p-4 bg-[var(--store-danger-bg,#fef2f2)] border border-[var(--store-danger-border,#fecaca)] rounded-2xl flex items-center gap-3 text-left">
+          <AlertTriangle
+            className="text-[var(--store-danger-text,#dc2626)] shrink-0"
+            size={20}
+          />
+          <p className="text-sm text-[var(--store-danger-text,#b91c1c)]">{error}</p>
         </div>
       )}
       <ImeiCheckerFindImei />
@@ -280,7 +283,7 @@ export const OgabasseyImeiEntry = ({
             className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm"
             key={title}
           >
-            <div className="w-12 h-12 bg-red-50 text-red-600 rounded-xl flex items-center justify-center mb-4">
+            <div className="w-12 h-12 bg-[var(--store-primary)]/5 text-[var(--store-primary)] rounded-xl flex items-center justify-center mb-4">
               <Icon size={24} />
             </div>
             <h3 className="font-bold text-gray-900 mb-2">{title}</h3>

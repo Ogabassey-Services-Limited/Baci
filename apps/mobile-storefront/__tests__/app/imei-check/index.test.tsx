@@ -275,6 +275,10 @@ describe('ImeiCheckerScreen', () => {
 
   it.each([
     [
+      'DEBIT_FAILURE_STATE_SAVE_FAILED',
+      'Lookup failed and debit failure state could not be saved.',
+    ],
+    [
       'LOOKUP_RESULT_SAVE_FAILED',
       'IMEI lookup completed but the result could not be saved.',
     ],

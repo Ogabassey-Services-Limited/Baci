@@ -22,6 +22,9 @@ import {
   cacheInsufficientBalanceResponse,
   cacheLookupResponse,
   cacheSuccessfulLookup,
+  refundAndCacheFailure,
+} from './route-cache-helpers';
+import {
   errorBody,
   findLookupByIdempotencyKey,
   hashImei,
@@ -30,7 +33,6 @@ import {
   json,
   mapExistingLookup,
   mapExistingTerminalLookupWithoutImeiHash,
-  refundAndCacheFailure,
   UUID_PATTERN,
 } from './route-helpers';
 
