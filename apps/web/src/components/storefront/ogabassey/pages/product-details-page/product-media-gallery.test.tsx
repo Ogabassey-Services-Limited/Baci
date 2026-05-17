@@ -78,6 +78,10 @@ describe('ProductMediaGallery', () => {
       'loading',
       'eager',
     );
+    expect(screen.getByAltText('Test Product')).toHaveAttribute(
+      'decoding',
+      'sync',
+    );
     expect(
       screen.queryByRole('button', { name: 'View image 2' }),
     ).not.toBeInTheDocument();
