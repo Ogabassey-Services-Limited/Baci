@@ -163,4 +163,23 @@ describe('buildMerchantTrustProfile', () => {
     });
     expect(result.derivedLinks.shipping).toBe('https://ogabassey.com/shipping');
   });
+
+  it('publishes privacy and terms links for template-backed storefront pages', () => {
+    const result = buildMerchantTrustProfile(
+      {
+        template_id: 'modern-electronics',
+        pages: {
+          privacy: null,
+          terms: null,
+        },
+        trust_profile: {},
+      },
+      'https://ogabassey.com'
+    );
+
+    expect(result.derivedLinks).toMatchObject({
+      privacy: 'https://ogabassey.com/privacy',
+      terms: 'https://ogabassey.com/terms',
+    });
+  });
 });

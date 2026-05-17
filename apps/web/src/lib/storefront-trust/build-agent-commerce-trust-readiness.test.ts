@@ -56,7 +56,12 @@ function trustProfile(
   overrides: Partial<MerchantTrustProfile> = {}
 ): MerchantTrustProfile {
   return {
-    derivedLinks: {},
+    derivedLinks: {
+      privacy: 'https://ogabassey.com/privacy',
+      returns: 'https://ogabassey.com/returns',
+      shipping: 'https://ogabassey.com/shipping',
+      terms: 'https://ogabassey.com/terms',
+    },
     returnPolicy: {
       localRoute: '/returns',
       summary: '7-day returns.',
@@ -344,5 +349,35 @@ describe('buildAgentCommerceTrustReadiness', () => {
     expect(
       result.checks.find((check) => check.id === 'policy-coverage')
     ).toMatchObject({ severity: 'warn' });
+  });
+
+  it('warns when privacy or terms links are not published', () => {
+    const result = buildAgentCommerceTrustReadiness({
+      baseUrl: 'https://ogabassey.com',
+      googleFeedData: googleFeedData(),
+      merchant: {
+        business_name: 'Ogabassey',
+        slug: 'ogabassey',
+      },
+      now: NOW,
+      openAiFeedData: {
+        products: [product()],
+      },
+      trustProfile: trustProfile({
+        derivedLinks: {
+          returns: 'https://ogabassey.com/returns',
+          shipping: 'https://ogabassey.com/shipping',
+        },
+      }),
+    });
+
+    expect(result.status).toBe('warn');
+    expect(
+      result.checks.find((check) => check.id === 'policy-coverage')
+    ).toMatchObject({
+      message:
+        '2 of 4 policy links are published (returns, shipping, privacy, terms).',
+      severity: 'warn',
+    });
   });
 });
