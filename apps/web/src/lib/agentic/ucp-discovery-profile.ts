@@ -16,6 +16,7 @@ const UCP_SHOPPING_REST_SCHEMA_URL = `${UCP_PROFILE_BASE_URL}/services/shopping/
 const UCP_CHECKOUT_CAPABILITY = 'dev.ucp.shopping.checkout';
 const UCP_ORDER_CAPABILITY = 'dev.ucp.shopping.order';
 const UCP_SHOPPING_SERVICE = 'dev.ucp.shopping';
+const UCP_SHOPPING_SPEC_URL = `${UCP_SPEC_BASE_URL}/overview`;
 const UCP_CHECKOUT_SPEC_URL = `${UCP_SPEC_BASE_URL}/checkout`;
 const UCP_ORDER_SPEC_URL = `${UCP_SPEC_BASE_URL}/order`;
 const UCP_CHECKOUT_SCHEMA_URL = `${UCP_SCHEMA_BASE_URL}/checkout.json`;
@@ -160,34 +161,24 @@ function buildUcpServices({
   agenticApiBaseUrl: string;
   manifest: AgentCommerceManifest;
 }) {
-  const shoppingServices: Record<string, string>[] = [];
+  const hasShoppingCapability =
+    (hasCheckoutCapabilities(manifest) && hasCheckoutLinks(manifest)) ||
+    hasOrderCapability(manifest);
 
-  if (hasCheckoutCapabilities(manifest) && hasCheckoutLinks(manifest)) {
-    shoppingServices.push({
-      endpoint: agenticApiBaseUrl,
-      schema: UCP_SHOPPING_REST_SCHEMA_URL,
-      spec: UCP_CHECKOUT_SPEC_URL,
-      transport: 'rest',
-      version: UCP_PROFILE_VERSION,
-    });
-  }
-
-  if (hasOrderCapability(manifest)) {
-    shoppingServices.push({
-      endpoint: agenticApiBaseUrl,
-      schema: UCP_SHOPPING_REST_SCHEMA_URL,
-      spec: UCP_ORDER_SPEC_URL,
-      transport: 'rest',
-      version: UCP_PROFILE_VERSION,
-    });
-  }
-
-  if (shoppingServices.length === 0) {
+  if (!hasShoppingCapability) {
     return {};
   }
 
   return {
-    [UCP_SHOPPING_SERVICE]: shoppingServices,
+    [UCP_SHOPPING_SERVICE]: [
+      {
+        endpoint: agenticApiBaseUrl,
+        schema: UCP_SHOPPING_REST_SCHEMA_URL,
+        spec: UCP_SHOPPING_SPEC_URL,
+        transport: 'rest',
+        version: UCP_PROFILE_VERSION,
+      },
+    ],
   };
 }
 

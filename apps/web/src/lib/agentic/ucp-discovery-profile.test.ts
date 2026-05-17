@@ -124,15 +124,7 @@ describe('buildUcpDiscoveryProfile', () => {
           endpoint: 'https://ogabassey.com/api/agentic',
           schema:
             'https://ucp.dev/2026-04-08/services/shopping/rest.openapi.json',
-          spec: 'https://ucp.dev/2026-04-08/specification/checkout',
-          transport: 'rest',
-          version: '2026-04-08',
-        },
-        {
-          endpoint: 'https://ogabassey.com/api/agentic',
-          schema:
-            'https://ucp.dev/2026-04-08/services/shopping/rest.openapi.json',
-          spec: 'https://ucp.dev/2026-04-08/specification/order',
+          spec: 'https://ucp.dev/2026-04-08/specification/overview',
           transport: 'rest',
           version: '2026-04-08',
         },
