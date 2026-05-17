@@ -1,4 +1,7 @@
+import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import bundleAnalyzer from '@next/bundle-analyzer';
 import type { NextConfig } from 'next';
 
@@ -14,6 +17,67 @@ const withBundleAnalyzer = bundleAnalyzer({
  */
 const HTML_LIMITED_BOTS_UA_RE =
   /Googlebot|Googlebot-Image|Googlebot-News|Googlebot-Video|[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight|AhrefsBot|AhrefsSiteAudit|SemrushBot|MJ12bot|DotBot|rogerbot|PetalBot|Bytespider/i;
+
+const NEXT_CONFIG_DIR = path.dirname(fileURLToPath(import.meta.url));
+const OGABASSEY_HERO_ASSET_DIR = path.join(
+  NEXT_CONFIG_DIR,
+  'src/components/storefront/ogabassey/components/assets'
+);
+const require = createRequire(import.meta.url);
+const loaderUtils = require('next/dist/compiled/loader-utils3') as {
+  interpolateName: (
+    loaderContext: { resourcePath: string; resourceQuery?: string },
+    name: string,
+    options: { context: string; content: Buffer }
+  ) => string;
+};
+
+function resolveOgabasseyMobileHeroPreloadPath() {
+  let files: string[] = [];
+
+  try {
+    files = fs.readdirSync(OGABASSEY_HERO_ASSET_DIR);
+  } catch {
+    return null;
+  }
+
+  const mobileHeroAvif = files.find((fileName) =>
+    /^iphone-17-pro-max-mobile\.[^.]+\.avif$/.test(fileName)
+  );
+
+  if (!mobileHeroAvif) {
+    return null;
+  }
+
+  const mobileHeroAssetPath = path.join(
+    OGABASSEY_HERO_ASSET_DIR,
+    mobileHeroAvif
+  );
+  let content: Buffer;
+  try {
+    content = fs.readFileSync(mobileHeroAssetPath);
+  } catch {
+    return null;
+  }
+
+  const interpolatedName = loaderUtils.interpolateName(
+    { resourcePath: mobileHeroAssetPath, resourceQuery: '' },
+    '/static/media/[name].[hash:8].[ext]',
+    {
+      context: NEXT_CONFIG_DIR,
+      content,
+    }
+  );
+
+  return `/_next${interpolatedName}`;
+}
+
+const OGABASSEY_HOME_MOBILE_HERO_PRELOAD_PATH =
+  resolveOgabasseyMobileHeroPreloadPath();
+const OGABASSEY_HOME_MOBILE_HERO_LINK_PRELOAD =
+  OGABASSEY_HOME_MOBILE_HERO_PRELOAD_PATH
+    ? `<${OGABASSEY_HOME_MOBILE_HERO_PRELOAD_PATH}>; rel=preload; as=image; type="image/avif"; media="(max-width: 767px)"`
+    : null;
 
 const nextConfig: NextConfig = {
   // Keep heavy server-only packages external to reduce function bundle size and peak memory.
@@ -411,7 +475,33 @@ const nextConfig: NextConfig = {
 
   // Security headers
   headers() {
+    const ogabasseyHomePreloadHeaders = OGABASSEY_HOME_MOBILE_HERO_LINK_PRELOAD
+      ? [
+          {
+            source: '/',
+            has: [{ type: 'host', value: 'ogabassey.com' }],
+            headers: [
+              {
+                key: 'Link',
+                value: OGABASSEY_HOME_MOBILE_HERO_LINK_PRELOAD,
+              },
+            ],
+          },
+          {
+            source: '/',
+            has: [{ type: 'host', value: 'www.ogabassey.com' }],
+            headers: [
+              {
+                key: 'Link',
+                value: OGABASSEY_HOME_MOBILE_HERO_LINK_PRELOAD,
+              },
+            ],
+          },
+        ]
+      : [];
+
     return [
+      ...ogabasseyHomePreloadHeaders,
       {
         source: '/(.*)',
         headers: [
