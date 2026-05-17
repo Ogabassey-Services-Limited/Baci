@@ -121,6 +121,21 @@ describe('ucpCheckoutCompleteRequestSchema', () => {
       },
     ],
     [
+      'billing address with unknown fields only',
+      {
+        payment: {
+          instruments: [
+            {
+              billing_address: { addressCountry: 'NG' },
+              handler_id: 'paystack_bank_transfer',
+              id: 'instrument_1',
+              type: 'paystack_bank_transfer',
+            },
+          ],
+        },
+      },
+    ],
+    [
       'empty billing address object',
       {
         payment: {
@@ -236,6 +251,20 @@ describe('ucpCheckoutUpdateRequestSchema', () => {
   it('rejects updates without replacement line items', () => {
     const parsed = ucpCheckoutUpdateRequestSchema.safeParse({
       shipping_address: { city: 'Lagos' },
+    });
+
+    expect(parsed.success).toBe(false);
+  });
+
+  it('rejects shipping addresses with unknown fields only', () => {
+    const parsed = ucpCheckoutUpdateRequestSchema.safeParse({
+      line_items: [
+        {
+          item: { id: 'product-2', price: 250_000, title: 'Case' },
+          quantity: 1,
+        },
+      ],
+      shipping_address: { addressCountry: 'NG' },
     });
 
     expect(parsed.success).toBe(false);

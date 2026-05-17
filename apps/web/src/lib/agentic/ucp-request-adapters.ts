@@ -39,7 +39,7 @@ export function adaptUcpCheckoutUpdateRequestBody(body: unknown): unknown {
   if (!parsed.success) return body;
 
   const adapted: JsonRecord = {
-    fulfillment_option_id: getOwnFieldOrNull(body, 'fulfillment_option_id'),
+    fulfillment_option_id: resolveFulfillmentOptionId(body),
     items: parsed.data.line_items.map(toAgenticCheckoutItem),
     shipping_address:
       parsed.data.shipping_address === undefined
@@ -262,6 +262,37 @@ function hasLegacyCompleteBody(value: unknown): boolean {
   return (
     isRecord(value) && isRecord(value.buyer) && isRecord(value.payment_data)
   );
+}
+
+function resolveFulfillmentOptionId(body: unknown): string | null {
+  if (isRecord(body) && Object.hasOwn(body, 'fulfillment_option_id')) {
+    const topLevelValue = getOwnFieldOrNull(body, 'fulfillment_option_id');
+    if (typeof topLevelValue === 'string' && topLevelValue.trim().length > 0) {
+      return topLevelValue.trim();
+    }
+    if (topLevelValue === null) {
+      return null;
+    }
+  }
+
+  const fulfillment = getRecordField(body, 'fulfillment');
+  const methods = Array.isArray(fulfillment?.methods)
+    ? fulfillment.methods
+    : [];
+
+  for (const method of methods) {
+    if (!isRecord(method)) continue;
+    const groups = Array.isArray(method.groups) ? method.groups : [];
+    for (const group of groups) {
+      if (!isRecord(group)) continue;
+      const selectedOptionId = group.selected_option_id;
+      if (typeof selectedOptionId === 'string' && selectedOptionId.trim()) {
+        return selectedOptionId.trim();
+      }
+    }
+  }
+
+  return null;
 }
 
 function getOwnFieldOrNull(value: unknown, key: string) {

@@ -1,5 +1,17 @@
 import { z } from 'zod';
 
+const UCP_POSTAL_ADDRESS_FIELDS = [
+  'street_address',
+  'extended_address',
+  'address_locality',
+  'address_region',
+  'address_country',
+  'postal_code',
+  'first_name',
+  'last_name',
+  'phone_number',
+] as const;
+
 const ucpCheckoutLineItemRequestSchema = z
   .object({
     item: z
@@ -34,11 +46,13 @@ const ucpPostalAddressSchema = z
   .passthrough()
   .refine(
     (payload) =>
-      Object.values(payload).some(
-        (value) =>
+      UCP_POSTAL_ADDRESS_FIELDS.some((field) => {
+        const value = payload[field];
+        return (
           value !== undefined &&
           (typeof value !== 'string' || value.trim().length > 0)
-      ),
+        );
+      }),
     { message: 'At least one address field is required' }
   );
 
