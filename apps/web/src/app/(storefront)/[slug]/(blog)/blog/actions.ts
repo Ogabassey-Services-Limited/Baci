@@ -68,6 +68,15 @@ export async function fetchMorePosts(
     }
   }
 
-  const { data: posts } = await query.range(offset, offset + limit - 1);
+  const { data: posts, error } = await query.range(offset, offset + limit - 1);
+  if (error) {
+    console.error('Failed to fetch more blog posts', {
+      merchantId,
+      page,
+      error,
+    });
+    throw error;
+  }
+
   return Array.isArray(posts) ? (posts as BlogListPost[]) : [];
 }

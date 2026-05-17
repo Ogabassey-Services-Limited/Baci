@@ -15,6 +15,7 @@ import {
   BLOCKED_PUBLIC_BLOG_CATEGORY_VALUES,
   BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS,
   BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES,
+  filterPublicBlogCategories,
   filterPublicBlogPosts,
   isPublicBlogPost,
 } from '@/lib/public-blog-content-quality';
@@ -1915,6 +1916,8 @@ export async function getCachedBlogListing(
   const uniqueCategories = categoriesError
     ? []
     : [...new Set(categories?.map((entry) => entry.category).filter(Boolean))];
+  const publicPosts = filterPublicBlogPosts(posts || []);
+  const publicCategories = filterPublicBlogCategories(uniqueCategories);
 
   return {
     merchant: {
@@ -1925,9 +1928,9 @@ export async function getCachedBlogListing(
       template_id: merchant.template_id,
       custom_domain: merchant.custom_domain,
     },
-    posts: posts || [],
+    posts: publicPosts,
     totalPosts: count || 0,
-    categories: uniqueCategories,
+    categories: publicCategories,
     currentPage: page,
     totalPages: Math.ceil((count || 0) / limit),
     searchQuery,

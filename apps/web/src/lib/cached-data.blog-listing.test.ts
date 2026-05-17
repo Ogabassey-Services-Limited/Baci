@@ -85,7 +85,13 @@ function buildMerchantRow() {
   };
 }
 
-function setupBlogListingFetch() {
+function setupBlogListingFetch({
+  categories = [],
+  posts = [],
+}: {
+  categories?: Array<{ category: string | null }>;
+  posts?: Array<{ id: string; slug: string | null; title: string | null }>;
+} = {}) {
   const merchantBuilder = createQueryBuilder({
     singleResult: { data: buildMerchantRow(), error: null },
   });
@@ -96,10 +102,10 @@ function setupBlogListingFetch() {
     singleResult: { data: { blog_enabled: true }, error: null },
   });
   const postsBuilder = createQueryBuilder({
-    queryResult: { data: [], count: 0, error: null },
+    queryResult: { data: posts, count: posts.length, error: null },
   });
   const categoriesBuilder = createQueryBuilder({
-    queryResult: { data: [], error: null },
+    queryResult: { data: categories, error: null },
   });
 
   const serviceFrom = vi.fn((table: string) => {
@@ -222,5 +228,35 @@ describe('getCachedBlogListing', () => {
       'ilike',
       'test'
     );
+  });
+
+  it('normalizes public posts and categories before returning the listing', async () => {
+    setupBlogListingFetch({
+      posts: [
+        { id: 'public-1', slug: 'best-phones', title: 'Best Phones' },
+        {
+          id: 'junk-1',
+          slug: 'test-post-agent-integration-working',
+          title: 'Test Post: Agent Integration Working',
+        },
+      ],
+      categories: [
+        { category: ' Smartphones ' },
+        { category: 'smartphones' },
+        { category: 'gcrblw' },
+        { category: '' },
+      ],
+    });
+
+    const result = await getCachedBlogListing('ogabassey');
+    expect(result).not.toBeNull();
+    if (!result) {
+      throw new Error('Expected blog listing result');
+    }
+
+    expect(result.posts).toEqual([
+      { id: 'public-1', slug: 'best-phones', title: 'Best Phones' },
+    ]);
+    expect(result.categories).toEqual(['Smartphones']);
   });
 });

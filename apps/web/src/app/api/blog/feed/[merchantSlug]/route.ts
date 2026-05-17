@@ -87,6 +87,8 @@ interface PublicFeedClient {
 
 const RSS_PUBLIC_POST_LIMIT = 50;
 const RSS_QUERY_BATCH_SIZE = 50;
+const RSS_MAX_FETCH_ITERATIONS =
+  Math.ceil(RSS_PUBLIC_POST_LIMIT / RSS_QUERY_BATCH_SIZE) + 5;
 
 // Create anonymous Supabase client for public access
 function getPublicClient(): PublicFeedClient | null {
@@ -209,8 +211,14 @@ async function fetchPublicFeedPosts(
   const publicPosts: BlogPost[] = [];
   let offset = 0;
   let hasMoreRows = true;
+  let fetchIterations = 0;
 
-  while (hasMoreRows && publicPosts.length < RSS_PUBLIC_POST_LIMIT) {
+  while (
+    hasMoreRows &&
+    publicPosts.length < RSS_PUBLIC_POST_LIMIT &&
+    fetchIterations < RSS_MAX_FETCH_ITERATIONS
+  ) {
+    fetchIterations += 1;
     const { data: posts, error: postsError } = await supabase
       .from('blog_posts')
       .select(
@@ -220,6 +228,7 @@ async function fetchPublicFeedPosts(
       .eq('status', 'published')
       .not('published_at', 'is', null)
       .order('published_at', { ascending: false })
+      .order('id', { ascending: false })
       .range(offset, offset + RSS_QUERY_BATCH_SIZE - 1);
 
     if (postsError) {
@@ -231,6 +240,18 @@ async function fetchPublicFeedPosts(
     publicPosts.push(...filterPublicBlogPosts(postBatch));
     hasMoreRows = postBatch.length === RSS_QUERY_BATCH_SIZE;
     offset += RSS_QUERY_BATCH_SIZE;
+  }
+
+  if (
+    hasMoreRows &&
+    publicPosts.length < RSS_PUBLIC_POST_LIMIT &&
+    fetchIterations >= RSS_MAX_FETCH_ITERATIONS
+  ) {
+    console.warn('Stopped blog feed fetch after max iterations', {
+      merchantId,
+      fetchIterations,
+      collectedPosts: publicPosts.length,
+    });
   }
 
   return publicPosts.slice(0, RSS_PUBLIC_POST_LIMIT);
