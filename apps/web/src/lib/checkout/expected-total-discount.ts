@@ -1,5 +1,6 @@
 export const MAX_AUTO_NEGOTIATION_DISCOUNT_RATE = 0.03;
 const TOTAL_PARITY_TOLERANCE = 1;
+const MIN_SUBTOTAL_FOR_WHOLE_NAIRA_CAP_ROUNDING = 1000;
 
 function roundMoney(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
@@ -38,6 +39,16 @@ export function computeExpectedTotalDiscount({
   );
 
   if (requiredDiscount > maxAutoNegotiationDiscount) {
+    const canAcceptRoundedCounterOffer =
+      canonicalSubtotal >= MIN_SUBTOTAL_FOR_WHOLE_NAIRA_CAP_ROUNDING &&
+      Number.isInteger(expectedTotal) &&
+      Number.isInteger(requiredDiscount) &&
+      requiredDiscount <= Math.ceil(maxAutoNegotiationDiscount);
+
+    if (canAcceptRoundedCounterOffer) {
+      return requiredDiscount;
+    }
+
     return 0;
   }
 

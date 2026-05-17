@@ -86,6 +86,30 @@ describe('computeExpectedTotalDiscount', () => {
     expect(discount).toBe(0);
   });
 
+  it('accepts whole-naira rounded 3% counter-offers for normal checkout subtotals', () => {
+    const discount = computeExpectedTotalDiscount({
+      canonicalSubtotal: 1001,
+      canonicalTaxAmount: 0,
+      shippingFee: 0,
+      giftWrappingFee: 0,
+      expectedTotal: 970,
+    });
+
+    expect(discount).toBe(31);
+  });
+
+  it('rejects whole-naira cap rounding on very low subtotal carts', () => {
+    const discount = computeExpectedTotalDiscount({
+      canonicalSubtotal: 20,
+      canonicalTaxAmount: 0,
+      shippingFee: 0,
+      giftWrappingFee: 0,
+      expectedTotal: 19,
+    });
+
+    expect(discount).toBe(0);
+  });
+
   it('skips the discount when no expected total was provided', () => {
     const discount = computeExpectedTotalDiscount({
       canonicalSubtotal: 780000,
