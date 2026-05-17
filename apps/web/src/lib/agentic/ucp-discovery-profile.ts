@@ -169,7 +169,6 @@ function buildUcpCheckoutCapability({
           complete_checkout: manifest.links.checkout_session_complete,
           create_checkout: manifest.links.checkout_sessions,
           get_checkout: manifest.links.checkout_session,
-          update_checkout: manifest.links.checkout_session,
         },
       },
     },

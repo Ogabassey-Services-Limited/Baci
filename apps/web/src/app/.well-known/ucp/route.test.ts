@@ -131,8 +131,6 @@ describe('GET /.well-known/ucp', () => {
             'https://ogabassey.com/api/agentic/checkout_sessions',
           get_checkout:
             'https://ogabassey.com/api/agentic/checkout_sessions/{session_id}',
-          update_checkout:
-            'https://ogabassey.com/api/agentic/checkout_sessions/{session_id}',
         },
       },
     });
