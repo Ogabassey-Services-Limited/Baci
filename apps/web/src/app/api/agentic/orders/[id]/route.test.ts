@@ -37,11 +37,30 @@ const orderId = '11111111-1111-4111-8111-111111111111';
 
 const orderRow = {
   created_at: '2026-04-28T12:00:00.000Z',
+  currency: 'NGN',
+  discount_amount: 0,
   id: orderId,
   order_number: 'BACI-2026-0001',
+  order_items: [
+    {
+      id: 'line-1',
+      line_extension_amount: 100_000,
+      name: 'Test laptop',
+      price: 100_000,
+      product_id: '22222222-2222-4222-8222-222222222222',
+      quantity: 1,
+      variant_id: null,
+      vat_amount: 0,
+    },
+  ],
   payment_status: 'pending',
+  shipping_address: null,
+  shipping_fee: 0,
   shipping_status: 'pending',
+  subtotal: 100_000,
+  tax_amount: 0,
   tracking_number: null,
+  total: 100_000,
   updated_at: '2026-04-28T12:00:00.000Z',
 };
 
@@ -114,18 +133,46 @@ describe('GET /api/agentic/orders/[id]', () => {
     const response = await GET(request(), routeParams());
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({
-      ...orderRow,
+    expect(await response.json()).toMatchObject({
+      checkout_id: orderId,
+      currency: 'NGN',
+      id: orderId,
+      line_items: [
+        {
+          id: 'line-1',
+          item: {
+            id: '22222222-2222-4222-8222-222222222222',
+            price: 100_000,
+            title: 'Test laptop',
+          },
+          quantity: { fulfilled: 0, total: 1 },
+          status: 'processing',
+        },
+      ],
       links: {
         support: 'https://ogabassey.com/contact',
         track_order: 'https://ogabassey.com/track-order',
+      },
+      order_number: 'BACI-2026-0001',
+      payment_status: 'pending',
+      shipping_status: 'pending',
+      totals: [
+        { amount: 100_000, display_text: 'Subtotal', type: 'subtotal' },
+        { amount: 100_000, display_text: 'Total', type: 'total' },
+      ],
+      ucp: {
+        capabilities: {
+          'dev.ucp.shopping.order': [{ version: '2026-04-08' }],
+        },
+        status: 'success',
+        version: '2026-04-08',
       },
     });
     expect(orderChain.eq).toHaveBeenCalledWith('id', orderId);
     expect(orderChain.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(orderChain.eq).toHaveBeenCalledWith('source', 'agentic_ai');
     expect(select).toHaveBeenCalledWith(
-      'id, order_number, payment_status, shipping_status, tracking_number, created_at, updated_at'
+      'id, order_number, payment_status, shipping_status, tracking_number, created_at, updated_at, subtotal, shipping_fee, discount_amount, tax_amount, total, currency, shipping_address, order_items(id, product_id, variant_id, name, price, quantity, line_extension_amount, vat_amount)'
     );
     const projection = vi.mocked(select).mock.calls[0]?.[0] ?? '';
     expect(projection).not.toMatch(/(^|,\s*)status(\s*,|$)/);

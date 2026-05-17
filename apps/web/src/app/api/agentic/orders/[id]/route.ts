@@ -4,6 +4,7 @@ import { verifyAgenticApiKey } from '@/lib/agentic/auth';
 import { resolveAgenticMerchantContext } from '@/lib/agentic/merchant-context';
 import { readAgenticQueryRequest } from '@/lib/agentic/mutation-request';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
+import { buildUcpOrderResponse } from '@/lib/agentic/ucp-response-adapters';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 import { buildStoreUrl } from '@/lib/store-url';
@@ -11,7 +12,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { agenticOrderRouteParamsSchema } from '@/schemas/agentic-order-route-params';
 
 const AGENTIC_ORDER_SELECT =
-  'id, order_number, payment_status, shipping_status, tracking_number, created_at, updated_at';
+  'id, order_number, payment_status, shipping_status, tracking_number, created_at, updated_at, subtotal, shipping_fee, discount_amount, tax_amount, total, currency, shipping_address, order_items(id, product_id, variant_id, name, price, quantity, line_extension_amount, vat_amount)';
 
 export async function GET(
   request: NextRequest,
@@ -91,17 +92,27 @@ export async function GET(
 
   const storeUrl = buildStoreUrl(merchant);
 
-  return NextResponse.json({
-    id: order.id,
-    order_number: order.order_number,
-    payment_status: order.payment_status,
-    shipping_status: order.shipping_status,
-    tracking_number: order.tracking_number,
-    created_at: order.created_at,
-    updated_at: order.updated_at,
-    links: {
-      track_order: `${storeUrl}/track-order`,
-      support: `${storeUrl}/contact`,
-    },
-  });
+  return NextResponse.json(
+    buildUcpOrderResponse({
+      id: order.id,
+      order_number: order.order_number,
+      payment_status: order.payment_status,
+      shipping_status: order.shipping_status,
+      tracking_number: order.tracking_number,
+      created_at: order.created_at,
+      updated_at: order.updated_at,
+      subtotal: order.subtotal,
+      shipping_fee: order.shipping_fee,
+      discount_amount: order.discount_amount,
+      tax_amount: order.tax_amount,
+      total: order.total,
+      currency: order.currency,
+      shipping_address: order.shipping_address,
+      order_items: order.order_items,
+      links: {
+        track_order: `${storeUrl}/track-order`,
+        support: `${storeUrl}/contact`,
+      },
+    })
+  );
 }

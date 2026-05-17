@@ -134,6 +134,7 @@ describe('buildUcpDiscoveryProfile', () => {
       expect.objectContaining({
         version: '2026-04-08',
         spec: 'https://ucp.dev/2026-04-08/specification/checkout',
+        schema: 'https://ucp.dev/2026-04-08/schemas/shopping/checkout.json',
         config: expect.objectContaining({
           auth: {
             supported_api_versions: ['2026-04-30', '2026-04-01'],
@@ -143,27 +144,25 @@ describe('buildUcpDiscoveryProfile', () => {
             endpoint: 'https://ogabassey.com/api/agentic',
             operations: {
               cancel_checkout:
-                'https://ogabassey.com/api/agentic/checkout_sessions/{id}/cancel',
+                'https://ogabassey.com/api/agentic/checkout-sessions/{id}/cancel',
               complete_checkout:
-                'https://ogabassey.com/api/agentic/checkout_sessions/{id}/complete',
+                'https://ogabassey.com/api/agentic/checkout-sessions/{id}/complete',
               create_checkout:
-                'https://ogabassey.com/api/agentic/checkout_sessions',
+                'https://ogabassey.com/api/agentic/checkout-sessions',
               get_checkout:
-                'https://ogabassey.com/api/agentic/checkout_sessions/{id}',
+                'https://ogabassey.com/api/agentic/checkout-sessions/{id}',
               update_checkout:
-                'https://ogabassey.com/api/agentic/checkout_sessions/{id}',
+                'https://ogabassey.com/api/agentic/checkout-sessions/{id}',
             },
           },
         }),
       }),
     ]);
-    expect(profile.ucp.capabilities['dev.ucp.shopping.checkout']).toEqual([
-      expect.not.objectContaining({ schema: expect.anything() }),
-    ]);
     expect(profile.ucp.capabilities['dev.ucp.shopping.order']).toEqual([
       expect.objectContaining({
         version: '2026-04-08',
         spec: 'https://ucp.dev/2026-04-08/specification/order',
+        schema: 'https://ucp.dev/2026-04-08/schemas/shopping/order.json',
         config: {
           auth: {
             supported_api_versions: ['2026-04-30', '2026-04-01'],
@@ -178,9 +177,6 @@ describe('buildUcpDiscoveryProfile', () => {
         },
       }),
     ]);
-    expect(profile.ucp.capabilities['dev.ucp.shopping.order']).toEqual([
-      expect.not.objectContaining({ schema: expect.anything() }),
-    ]);
     expect(profile.ucp.payment_handlers).toMatchObject({
       'com.paystack.bank_transfer': [
         expect.objectContaining({ id: 'paystack_bank_transfer' }),
@@ -189,9 +185,16 @@ describe('buildUcpDiscoveryProfile', () => {
     expect(profile.extensions.baci.capabilities).toContain(
       'checkout.session.complete'
     );
+    expect(profile.extensions.baci.capabilities).toContain('order.read');
     expect(profile.extensions.baci.auth).toMatchObject({
       type: 'bearer_hmac',
     });
+    expect(profile.extensions.baci.links.checkout_sessions).toBe(
+      'https://ogabassey.com/api/agentic/checkout_sessions'
+    );
+    expect(profile.extensions.baci.links.order).toBe(
+      'https://ogabassey.com/api/agentic/orders/{order_id}'
+    );
   });
 
   it('handles empty Baci capabilities and pay-on-delivery without checkout auth', () => {
