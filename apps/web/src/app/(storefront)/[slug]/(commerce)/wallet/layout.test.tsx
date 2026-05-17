@@ -19,7 +19,7 @@ describe('WalletLayout', () => {
   it('wraps the wallet route in CustomerAuthLayout with the resolved slug', async () => {
     const node = await WalletLayout({
       children: <div>Wallet content</div>,
-      params: Promise.resolve({ slug: 'ogabassey' }),
+      params: Promise.resolve({ slug: 'OgaBassey' }),
     });
 
     render(node);

@@ -8,7 +8,11 @@ export default async function WalletLayout({
   children: ReactNode;
   params: Promise<{ slug: string }>;
 }) {
+  const resolvedParams = await params;
+
   return (
-    <CustomerAuthLayout params={await params}>{children}</CustomerAuthLayout>
+    <CustomerAuthLayout params={{ slug: resolvedParams.slug.toLowerCase() }}>
+      {children}
+    </CustomerAuthLayout>
   );
 }

@@ -19,7 +19,7 @@ describe('WishlistLayout', () => {
   it('wraps the wishlist route in CustomerAuthLayout with the resolved slug', async () => {
     const node = await WishlistLayout({
       children: <div>Wishlist content</div>,
-      params: Promise.resolve({ slug: 'ogabassey' }),
+      params: Promise.resolve({ slug: 'OgaBassey' }),
     });
 
     render(node);

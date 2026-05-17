@@ -43,9 +43,39 @@ interface InferredAddressLocation {
 }
 
 const COUNTRY_LOCATION_TOKENS = new Set(['ng', 'nigeria']);
+const ABUJA_STATE_ALIASES = new Set([
+  'abuja',
+  'fct',
+  'fct abuja',
+  'federal capital territory',
+  'federal capital territory abuja',
+]);
 
 function normalizeStateToken(value: string): string {
   return value.replace(/\s+state$/i, '').trim().toLowerCase();
+}
+
+function normalizeStateMatchToken(value: string): string {
+  return normalizeStateToken(value).replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function isAbujaAlias(value: string): boolean {
+  return ABUJA_STATE_ALIASES.has(normalizeStateMatchToken(value));
+}
+
+function statesMatch(candidate: string, input: string): boolean {
+  const normalizedCandidate = normalizeStateMatchToken(candidate);
+  const normalizedInput = normalizeStateMatchToken(input);
+
+  if (!normalizedCandidate || !normalizedInput) {
+    return false;
+  }
+
+  if (normalizedCandidate === normalizedInput) {
+    return true;
+  }
+
+  return isAbujaAlias(normalizedCandidate) && isAbujaAlias(normalizedInput);
 }
 
 function stripTrailingCountryTokens(parts: string[]): string[] {
@@ -85,12 +115,10 @@ export function inferAddressLocationFromInput(
       : locationParts[0];
   if (!rawState || !rawCity) return null;
 
-  const normalizedState = normalizeStateToken(rawState);
-
   let matchedState = rawState.trim();
   if (shippingStates.length > 0) {
     const exactMatch = shippingStates.find(
-      (candidate) => normalizeStateToken(candidate) === normalizedState,
+      (candidate) => statesMatch(candidate, rawState),
     );
     if (exactMatch) {
       matchedState = exactMatch;

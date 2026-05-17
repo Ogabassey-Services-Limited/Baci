@@ -150,6 +150,14 @@ describe('inferAddressLocationFromInput', () => {
     expect(result).toEqual({ city: 'Maitama', state: 'Abuja' });
   });
 
+  it('matches Abuja aliases against configured FCT shipping state labels', () => {
+    const result = inferAddressLocationFromInput('Maitama, Abuja', [
+      'Lagos',
+      'FCT - Abuja',
+    ]);
+    expect(result).toEqual({ city: 'Maitama', state: 'FCT - Abuja' });
+  });
+
   it('strips trailing country tokens before inferring city/state', () => {
     const result = inferAddressLocationFromInput('Lekki, Lagos, Nigeria', [
       'Lagos',
