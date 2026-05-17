@@ -2166,6 +2166,9 @@ export default function CheckoutScreen() {
                 initData.dva?.account_name ||
                 initData.virtual_account?.account_name ||
                 '',
+              ...(order.tracking_token && {
+                trackingToken: order.tracking_token,
+              }),
             },
           });
         } else {
@@ -2179,6 +2182,9 @@ export default function CheckoutScreen() {
               authorizationUrl: authUrl,
               reference: initData.reference,
               amount: String(orderResponse.amountDueToGateway),
+              ...(order.tracking_token && {
+                trackingToken: order.tracking_token,
+              }),
             },
           });
         }

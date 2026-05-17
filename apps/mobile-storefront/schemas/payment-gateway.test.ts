@@ -26,6 +26,41 @@ describe('PaymentGatewayParamsSchema', () => {
     expect(result.paymentKind).toBe('order');
   });
 
+  it('preserves an optional tracking token for guest order recovery', () => {
+    const result = PaymentGatewayParamsSchema.parse({
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      orderId: 'order-id-123',
+      reference: 'ref-123',
+      trackingToken: ' track-token-123 ',
+    });
+
+    expect(result.trackingToken).toBe('track-token-123');
+  });
+
+  it('leaves tracking token undefined when it is omitted', () => {
+    const result = PaymentGatewayParamsSchema.parse({
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      orderId: 'order-id-123',
+      reference: 'ref-123',
+    });
+
+    expect(result.trackingToken).toBeUndefined();
+  });
+
+  it('trims whitespace-only tracking tokens to an empty string', () => {
+    const result = PaymentGatewayParamsSchema.parse({
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      orderId: 'order-id-123',
+      reference: 'ref-123',
+      trackingToken: '   ',
+    });
+
+    expect(result.trackingToken).toBe('');
+  });
+
   it('requires order ID or order number for order payments', () => {
     const result = PaymentGatewayParamsSchema.safeParse({
       authorizationUrl: 'https://checkout.paystack.com/test',

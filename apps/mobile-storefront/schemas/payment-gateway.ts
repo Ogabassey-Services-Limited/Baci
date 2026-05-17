@@ -7,6 +7,7 @@ const trimmedOptionalString = (message: string) =>
   trimmedRequiredString(message).optional();
 
 const optionalOrderIdentifier = z.string().trim().optional();
+const optionalTrackingToken = z.string().trim().optional();
 
 const optionalPositiveAmount = z.preprocess(
   (value) =>
@@ -33,6 +34,7 @@ export const PaymentGatewayParamsSchema = z
     paymentKind: z.enum(['order', 'vtu', 'wallet']).default('order'),
     merchantId: trimmedOptionalString('Merchant id cannot be empty'),
     merchantSlug: trimmedOptionalString('Merchant slug cannot be empty'),
+    trackingToken: optionalTrackingToken,
     utilityType: z
       .enum(['airtime', 'data', 'tv', 'power', 'gaming'])
       .optional(),
