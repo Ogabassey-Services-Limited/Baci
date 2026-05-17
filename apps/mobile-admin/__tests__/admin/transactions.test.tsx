@@ -9,6 +9,9 @@ const mocks = vi.hoisted(() => ({
   useUpdateTransactionCostPrice: vi.fn(),
 }));
 
+const localDateInputIso = (year: number, month: number, day: number) =>
+  new Date(year, month - 1, day).toISOString();
+
 vi.mock('react-native', async () => {
   const React = await import('react');
 
@@ -409,7 +412,7 @@ describe('TransactionsScreen', () => {
         orderId: 'order-1',
         productId: 'product-1',
         supplierName: 'New Supplier',
-        transactionDateIso: '2026-04-12T00:00:00.000Z',
+        transactionDateIso: localDateInputIso(2026, 4, 12),
       })
     );
   });
@@ -498,7 +501,7 @@ describe('TransactionsScreen', () => {
         orderId: 'order-1',
         productId: 'product-1',
         supplierName: 'Old Supplier',
-        transactionDateIso: '2026-04-10T00:00:00.000Z',
+        transactionDateIso: localDateInputIso(2026, 4, 10),
       })
     );
 
