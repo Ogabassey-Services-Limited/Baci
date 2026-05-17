@@ -62,6 +62,7 @@ type AgentCommerceLinks = AgentPolicyUrls &
     agent_native_commerce: string;
     feeds: {
       agent_products: string;
+      facebook_catalog_xml: string;
       google_merchant_xml: string;
     };
     llms: string;
@@ -142,6 +143,10 @@ export function buildAgentCommerceManifest(
       product_feed: buildUrl(baseUrl, STOREFRONT_FEED_ROUTES.openaiProductFeed),
       feeds: {
         agent_products: buildUrl(baseUrl, STOREFRONT_FEED_ROUTES.agentProducts),
+        facebook_catalog_xml: buildUrl(
+          baseUrl,
+          STOREFRONT_FEED_ROUTES.facebookCatalogXml
+        ),
         google_merchant_xml: buildUrl(
           baseUrl,
           STOREFRONT_FEED_ROUTES.googleMerchantXml

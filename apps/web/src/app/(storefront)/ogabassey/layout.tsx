@@ -5,6 +5,10 @@ import StorefrontLayout, {
   generateViewport,
 } from '@/app/(storefront)/[slug]/layout';
 import { StorefrontLayoutLoadingFallback } from '@/app/(storefront)/[slug]/storefront-layout-loading-fallback';
+import {
+  HERO_MOBILE_LCP_FALLBACK_SRC,
+  HERO_MOBILE_LCP_SRC,
+} from '@/components/storefront/ogabassey/components/hero-data';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
 const OGABASSEY_PARAMS = Promise.resolve({ slug: OGABASSEY_TEMPLATE_ID });
@@ -27,7 +31,15 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function OgabasseyLayout({ children }: { children: ReactNode }) {
   return (
     <StorefrontLayout
-      loadingFallback={<StorefrontLayoutLoadingFallback />}
+      loadingFallback={
+        <StorefrontLayoutLoadingFallback
+          mobileHeroImage={{
+            alt: 'OgaBassey storefront hero',
+            avifSrc: HERO_MOBILE_LCP_SRC,
+            fallbackSrc: HERO_MOBILE_LCP_FALLBACK_SRC,
+          }}
+        />
+      }
       params={OGABASSEY_PARAMS}
     >
       {children}
