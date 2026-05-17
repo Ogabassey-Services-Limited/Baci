@@ -339,6 +339,9 @@ function mapFulfillmentToResponse(
     amount: fulfillment.amount,
     cashback: fulfillment.cashback,
     customerIdentifier: fulfillment.customerIdentifier,
+    ...(fulfillment.loyaltyPoints && {
+      loyaltyPoints: fulfillment.loyaltyPoints,
+    }),
     reference: fulfillment.reference,
     status: 'successful',
     ...(fulfillment.voucherPin && { voucherPin: fulfillment.voucherPin }),
