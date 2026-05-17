@@ -25,6 +25,49 @@ CREATE INDEX IF NOT EXISTS idx_blog_post_products_product_id
 CREATE INDEX IF NOT EXISTS idx_blog_post_products_merchant_product
   ON public.blog_post_products (merchant_id, product_id);
 
+CREATE OR REPLACE FUNCTION public.enforce_blog_post_products_merchant_consistency()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.blog_posts
+    WHERE id = NEW.blog_post_id
+      AND merchant_id = NEW.merchant_id
+  ) THEN
+    RAISE EXCEPTION
+      'blog_post_id % is not owned by merchant %',
+      NEW.blog_post_id,
+      NEW.merchant_id
+      USING ERRCODE = '23514';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.products
+    WHERE id = NEW.product_id
+      AND merchant_id = NEW.merchant_id
+  ) THEN
+    RAISE EXCEPTION
+      'product_id % is not owned by merchant %',
+      NEW.product_id,
+      NEW.merchant_id
+      USING ERRCODE = '23514';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS blog_post_products_merchant_consistency_trigger
+  ON public.blog_post_products;
+
+CREATE TRIGGER blog_post_products_merchant_consistency_trigger
+  BEFORE INSERT OR UPDATE ON public.blog_post_products
+  FOR EACH ROW
+  EXECUTE FUNCTION public.enforce_blog_post_products_merchant_consistency();
+
 ALTER TABLE public.blog_post_products ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Public can read published blog product links"
