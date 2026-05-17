@@ -103,7 +103,7 @@ describe('GET /api/blog/posts', () => {
 
     expect(response.status).toBe(200);
     expect(mockGetPlatformBlogPost).toHaveBeenCalledWith('launch-faster');
-    expect(mockIncrementPlatformBlogPostViews).toHaveBeenCalledWith('post-1');
+    expect(mockIncrementPlatformBlogPostViews).not.toHaveBeenCalled();
     await expect(response.json()).resolves.toEqual({
       id: 'post-1',
       slug: 'launch-faster',
@@ -111,7 +111,26 @@ describe('GET /api/blog/posts', () => {
     });
   });
 
-  it('still returns the post when view-count increment fails', async () => {
+  it('tracks a post view when trackView=1 is provided', async () => {
+    mockGetPlatformBlogPost.mockResolvedValueOnce({
+      id: 'post-2',
+      slug: 'view-error',
+      title: 'View Error',
+    });
+    mockIncrementPlatformBlogPostViews.mockResolvedValueOnce(undefined);
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/blog/posts?slug=view-error&trackView=1'
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockIncrementPlatformBlogPostViews).toHaveBeenCalledWith('post-2');
+    await expect(response.json()).resolves.toEqual({ ok: true });
+  });
+
+  it('returns ok=false when trackView increment fails', async () => {
     mockGetPlatformBlogPost.mockResolvedValueOnce({
       id: 'post-2',
       slug: 'view-error',
@@ -126,15 +145,13 @@ describe('GET /api/blog/posts', () => {
       () => {}
     );
     const response = await GET(
-      new NextRequest('http://localhost/api/blog/posts?slug=view-error')
+      new NextRequest(
+        'http://localhost/api/blog/posts?slug=view-error&trackView=1'
+      )
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      id: 'post-2',
-      slug: 'view-error',
-      title: 'View Error',
-    });
+    await expect(response.json()).resolves.toEqual({ ok: false });
     expect(consoleSpy).toHaveBeenCalledWith(
       'Failed to increment platform blog post views:',
       expect.objectContaining({

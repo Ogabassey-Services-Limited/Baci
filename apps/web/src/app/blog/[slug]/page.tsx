@@ -9,7 +9,6 @@ import { PlatformHeader } from '@/components/platform/header';
 import { SafeHtml } from '@/components/ui/safe-html';
 import {
   getPlatformBlogPost,
-  incrementPlatformBlogPostViews,
   PLATFORM_BLOG_CONTEXT,
 } from '@/lib/platform-blog';
 import { asRoute } from '@/lib/routes';
@@ -20,6 +19,7 @@ import {
   generateMetaDescription,
   generateMetaTitle,
 } from '@/lib/seo-utils';
+import { BlogPostViewTracker } from './blog-post-view-tracker';
 
 interface PageProps {
   params: Promise<{ slug: string }>;
@@ -106,8 +106,6 @@ export default async function BlogPostPage({ params }: PageProps) {
     notFound();
   }
 
-  void incrementPlatformBlogPostViews(post.id);
-
   const postUrl = getPlatformBlogPostUrl(post.slug);
   const blogSchema = generateBlogPostSchema({
     title: post.seo_title || post.title,
@@ -168,6 +166,7 @@ export default async function BlogPostPage({ params }: PageProps) {
         />
 
         <PlatformHeader />
+        <BlogPostViewTracker slug={post.slug} />
         <main className="flex-1 pb-16 pt-24">
           <article className="container mx-auto max-w-4xl px-4 md:px-6">
             <Link

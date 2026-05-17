@@ -28,6 +28,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category');
     const slug = searchParams.get('slug')?.trim().toLowerCase();
+    const trackView = searchParams.get('trackView') === '1';
     const tag = searchParams.get('tag');
 
     if (slug) {
@@ -36,15 +37,20 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Post not found' }, { status: 404 });
       }
 
-      try {
-        await incrementPlatformBlogPostViews(post.id);
-      } catch (error) {
-        // Preserve read availability even if analytics increments fail.
-        console.error('Failed to increment platform blog post views:', {
-          error,
-          postId: post.id,
-        });
+      if (trackView) {
+        try {
+          await incrementPlatformBlogPostViews(post.id);
+          return NextResponse.json({ ok: true });
+        } catch (error) {
+          // Preserve read availability even if analytics increments fail.
+          console.error('Failed to increment platform blog post views:', {
+            error,
+            postId: post.id,
+          });
+          return NextResponse.json({ ok: false });
+        }
       }
+
       return NextResponse.json(post);
     }
 

@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetPlatformBlogPost = vi.fn();
-const mockIncrementPlatformBlogPostViews = vi.fn();
 const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
 });
@@ -15,8 +14,6 @@ vi.mock('@/lib/platform-blog', () => ({
     logoUrl: 'https://usebaci.com/logo.png',
   },
   getPlatformBlogPost: (...args: unknown[]) => mockGetPlatformBlogPost(...args),
-  incrementPlatformBlogPostViews: (...args: unknown[]) =>
-    mockIncrementPlatformBlogPostViews(...args),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -47,6 +44,12 @@ vi.mock('next/image', () => ({
 
 vi.mock('@/components/ui/safe-html', () => ({
   SafeHtml: ({ html }: { html: string }) => <div>{html}</div>,
+}));
+
+vi.mock('./blog-post-view-tracker', () => ({
+  BlogPostViewTracker: ({ slug }: { slug: string }) => (
+    <div data-testid="view-tracker">{slug}</div>
+  ),
 }));
 
 import BlogPostPage, { generateMetadata } from './page';
@@ -86,7 +89,9 @@ describe('platform blog post page', () => {
     );
 
     expect(mockGetPlatformBlogPost).toHaveBeenCalledWith('launch-faster');
-    expect(mockIncrementPlatformBlogPostViews).toHaveBeenCalledWith('post-1');
+    expect(screen.getByTestId('view-tracker')).toHaveTextContent(
+      'launch-faster'
+    );
     expect(screen.getByText('Platform Header')).toBeInTheDocument();
     expect(screen.getByText('Platform Footer')).toBeInTheDocument();
     expect(
