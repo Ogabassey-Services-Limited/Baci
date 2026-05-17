@@ -49,13 +49,27 @@ export function buildUcpOrderResponse(response: unknown) {
   const shippingFee = toIntegerAmount(response.shipping_fee);
   const taxAmount = toIntegerAmount(response.tax_amount);
   const discountAmount = toIntegerAmount(response.discount_amount);
+  const orderId = toStringValue(response.id) ?? 'unknown';
   const shippingStatus = toStringValue(response.shipping_status);
+  const lineItems = Array.isArray(response.order_items)
+    ? response.order_items.map((item, index) =>
+        mapUcpOrderLineItem(item, index, shippingStatus)
+      )
+    : [];
   const fulfillmentEvents = shippingStatus
     ? [
         {
-          status: shippingStatus,
-          timestamp:
+          id: `event_${orderId}_${shippingStatus}`,
+          line_items: lineItems.map((lineItem, index) => ({
+            id: toStringValue(lineItem.id) ?? `line_item_${index}`,
+            quantity:
+              toPositiveInteger(getRecord(lineItem.quantity)?.fulfilled) ??
+              toPositiveInteger(getRecord(lineItem.quantity)?.total) ??
+              1,
+          })),
+          occurred_at:
             toStringValue(response.updated_at) ?? new Date(0).toISOString(),
+          type: shippingStatus,
         },
       ]
     : [];
@@ -69,21 +83,14 @@ export function buildUcpOrderResponse(response: unknown) {
         [UCP_ORDER_CAPABILITY]: [{ version: UCP_PROFILE_VERSION }],
       },
     },
-    checkout_id:
-      toStringValue(response.checkout_id) ??
-      toStringValue(response.id) ??
-      'unknown',
+    checkout_id: toStringValue(response.checkout_id) ?? orderId ?? 'unknown',
     currency,
-    id: toStringValue(response.id) ?? 'unknown',
+    id: orderId,
     fulfillment: {
       expectations: [],
       events: fulfillmentEvents,
     },
-    line_items: Array.isArray(response.order_items)
-      ? response.order_items.map((item, index) =>
-          mapUcpOrderLineItem(item, index, shippingStatus)
-        )
-      : [],
+    line_items: lineItems,
     permalink_url:
       toStringValue(response.permalink_url) ??
       toStringValue(getRecord(response.links)?.track_order) ??

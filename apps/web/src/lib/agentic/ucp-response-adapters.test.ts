@@ -165,8 +165,10 @@ describe('buildUcpOrderResponse', () => {
       fulfillment: {
         events: [
           {
-            status: 'pending',
-            timestamp: '2026-05-17T09:00:00.000Z',
+            id: 'event_order_1_pending',
+            line_items: [{ id: 'item_1', quantity: 1 }],
+            occurred_at: '2026-05-17T09:00:00.000Z',
+            type: 'pending',
           },
         ],
         expectations: [],
