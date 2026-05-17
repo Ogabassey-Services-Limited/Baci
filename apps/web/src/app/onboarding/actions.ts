@@ -74,6 +74,10 @@ async function resolveMerchantSlug(
   return typeof data === 'string' && data.trim() ? data : fallbackSlug;
 }
 
+function hasEstablishedMerchantSlug(slug: string | null | undefined): boolean {
+  return typeof slug === 'string' && slug.trim().length > 0;
+}
+
 export async function submitOnboarding(
   _prevState: ServerActionState,
   formData: FormData
@@ -230,12 +234,10 @@ export async function submitOnboarding(
       businessType === 'other'
         ? otherBusinessType || businessType
         : businessType;
-    const slug = await resolveMerchantSlug(adminSupabase, businessName);
-
     // Check for existing merchant record
     const { data: existing } = await adminSupabase
       .from('merchants')
-      .select('id, business_name')
+      .select('id, business_name, slug')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -252,6 +254,10 @@ export async function submitOnboarding(
         };
       }
 
+      const resolvedSlug = hasEstablishedMerchantSlug(existing.slug)
+        ? null
+        : await resolveMerchantSlug(adminSupabase, businessName);
+
       // Incomplete merchant (from auto-trigger) - UPDATE with form data
       const { data: updatedMerchant, error: updateError } = await adminSupabase
         .from('merchants')
@@ -263,7 +269,7 @@ export async function submitOnboarding(
           // Sync logo to favicon for mobile app compatibility
           favicon_png_192_url: logoUrl,
           brand_colors: brandColors,
-          slug,
+          ...(resolvedSlug ? { slug: resolvedSlug } : {}),
         })
         .eq('id', existing.id)
         .select()
@@ -273,6 +279,8 @@ export async function submitOnboarding(
         throw new Error(`Failed to update merchant: ${updateError.message}`);
       merchant = updatedMerchant;
     } else {
+      const slug = await resolveMerchantSlug(adminSupabase, businessName);
+
       // No existing record - create new merchant
       const { data: newMerchant, error: createError } = await adminSupabase
         .from('merchants')

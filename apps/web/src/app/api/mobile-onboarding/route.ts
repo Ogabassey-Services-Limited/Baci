@@ -15,6 +15,41 @@ import type { BrandColors } from '@/types';
 // and hero-image assignment can also be slow. The default 10s is not enough.
 export const maxDuration = 60;
 
+type SlugResolverClient = {
+  rpc: (
+    fn: string,
+    params: { text_input: string }
+  ) => PromiseLike<{ data: unknown; error: { message?: string } | null }>;
+};
+
+function hasEstablishedMerchantSlug(slug: string | null | undefined): boolean {
+  return typeof slug === 'string' && slug.trim().length > 0;
+}
+
+async function resolveMerchantSlug(
+  supabase: SlugResolverClient,
+  textInput: string,
+  fallbackSlug: string
+): Promise<string> {
+  const { data, error } = await supabase.rpc('generate_slug', {
+    text_input: textInput,
+  });
+
+  if (error) {
+    console.warn(
+      'Failed to generate unique merchant slug for mobile onboarding',
+      {
+        error,
+        fallbackSlug,
+        textInput,
+      }
+    );
+    return fallbackSlug;
+  }
+
+  return typeof data === 'string' && data.trim() ? data : fallbackSlug;
+}
+
 // CSRF exempt: This endpoint is called exclusively by the mobile app (Expo/React Native)
 // which sends Authorization Bearer tokens, not browser cookies. CSRF is a browser-specific
 // attack vector that exploits automatic cookie sending — mobile apps are not vulnerable.
@@ -199,7 +234,7 @@ export async function POST(req: NextRequest) {
     // Check for existing merchant
     const { data: existingMerchant, error: lookupError } = await scopedSupabase
       .from('merchants')
-      .select('id, business_name')
+      .select('id, business_name, slug')
       .eq('user_id', user.id)
       .maybeSingle();
 
@@ -215,6 +250,10 @@ export async function POST(req: NextRequest) {
     let merchantSlug: string;
 
     if (existingMerchant) {
+      const resolvedSlug = hasEstablishedMerchantSlug(existingMerchant.slug)
+        ? null
+        : await resolveMerchantSlug(scopedSupabase, slug, slug);
+
       const merchantUpdate = {
         email,
         business_name: businessName,
@@ -222,8 +261,8 @@ export async function POST(req: NextRequest) {
         logo_url: logoUrl,
         favicon_png_192_url: logoUrl,
         brand_colors: brandColors,
-        slug,
         template_id: 'puck',
+        ...(resolvedSlug ? { slug: resolvedSlug } : {}),
         ...(!existingMerchant.business_name?.trim()
           ? { signup_source: signupSource }
           : {}),
