@@ -607,10 +607,6 @@ export function useRedeemPoints() {
 
     // Rollback on error
     onError: (_err, _points, context) => {
-      if (context?.snapshotKey) {
-        redemptionAttemptIdsRef.current.delete(context.snapshotKey);
-      }
-
       if (context?.previousData && context.queryKey) {
         queryClient.setQueryData(context.queryKey, context.previousData);
       }
