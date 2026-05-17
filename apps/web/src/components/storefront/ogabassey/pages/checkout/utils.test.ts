@@ -5,6 +5,7 @@ import {
   CRYPTO_CHAIN_SUPPORT,
   calculateDeliveryCost,
   getDeliveryDateRange,
+  inferAddressLocationFromInput,
 } from './utils';
 import type { ShippingQuote } from './types';
 
@@ -121,5 +122,66 @@ describe('calculateDeliveryCost', () => {
   it('returns 20000 for airport pickup', () => {
     const cost = calculateDeliveryCost('airport', '', mockQuotes, 'pickup');
     expect(cost).toBe(20000);
+  });
+});
+
+describe('inferAddressLocationFromInput', () => {
+  it('extracts city/state from a two-part address', () => {
+    const result = inferAddressLocationFromInput('Lekki Phase 1, Lagos', [
+      'Lagos',
+      'Abuja',
+    ]);
+    expect(result).toEqual({ city: 'Lekki Phase 1', state: 'Lagos' });
+  });
+
+  it('extracts city/state from a full street, city, state address', () => {
+    const result = inferAddressLocationFromInput(
+      '12 Admiralty Way, Lekki, Lagos',
+      ['Lagos', 'Abuja'],
+    );
+    expect(result).toEqual({ city: 'Lekki', state: 'Lagos' });
+  });
+
+  it('normalizes "State" suffix and matches configured shipping states', () => {
+    const result = inferAddressLocationFromInput('Maitama, Abuja State', [
+      'Lagos',
+      'Abuja',
+    ]);
+    expect(result).toEqual({ city: 'Maitama', state: 'Abuja' });
+  });
+
+  it('matches Abuja aliases against configured FCT shipping state labels', () => {
+    const result = inferAddressLocationFromInput('Maitama, Abuja', [
+      'Lagos',
+      'FCT - Abuja',
+    ]);
+    expect(result).toEqual({ city: 'Maitama', state: 'FCT - Abuja' });
+  });
+
+  it('strips trailing country tokens before inferring city/state', () => {
+    const result = inferAddressLocationFromInput('Lekki, Lagos, Nigeria', [
+      'Lagos',
+      'Abuja',
+    ]);
+    expect(result).toEqual({ city: 'Lekki', state: 'Lagos' });
+  });
+
+  it('returns null when the trailing state is not configured for shipping', () => {
+    const result = inferAddressLocationFromInput('Lekki, Lagos, Ghana', [
+      'Lagos',
+      'Abuja',
+    ]);
+    expect(result).toBeNull();
+  });
+
+  it('returns null until shipping state whitelist data is available', () => {
+    const result = inferAddressLocationFromInput('Lekki Phase 1, Lagos', []);
+
+    expect(result).toBeNull();
+  });
+
+  it('returns null when there are not enough address segments', () => {
+    const result = inferAddressLocationFromInput('Lagos', ['Lagos']);
+    expect(result).toBeNull();
   });
 });
