@@ -31,9 +31,9 @@ vi.mock('./trust-settings-client', () => ({
 }));
 
 vi.mock(
-  '@/components/dashboard/integrations/agent-commerce-trust-readiness-card',
+  '@/components/dashboard/integrations/agent-commerce-trust-readiness-card-server',
   () => ({
-    AgentCommerceTrustReadinessCard: () => <div>agent-trust-health</div>,
+    AgentCommerceTrustReadinessCardServer: () => <div>agent-trust-health</div>,
   })
 );
 
@@ -92,6 +92,13 @@ describe('dashboard trust settings page', () => {
     expect(
       screen.getByRole('link', { name: /back to settings/i })
     ).toHaveAttribute('href', '/dashboard/settings');
+    expect(
+      screen
+        .getByText((content) =>
+          content.includes('agent-commerce-controls:true')
+        )
+        .closest('#agent-checkout-controls')
+    ).not.toBeNull();
   });
 
   it('passes disabled agent checkout state into the controls card', async () => {

@@ -142,6 +142,10 @@ function buildDerivedLinks(
   profile: MerchantTrustProfile
 ): MerchantTrustProfileRouteLinks {
   const derivedLinks: MerchantTrustProfileRouteLinks = {};
+  const hasTemplatePolicyPages =
+    !!merchant.template_id &&
+    merchant.template_id !== 'default' &&
+    merchant.template_id !== 'puck';
 
   if (hasMeaningfulContent(merchant.about_page)) {
     derivedLinks.about = buildDerivedLink(normalizedBaseUrl, '/about');
@@ -151,11 +155,11 @@ function buildDerivedLinks(
     derivedLinks.contact = buildDerivedLink(normalizedBaseUrl, '/contact');
   }
 
-  if (hasMeaningfulContent(merchant.pages?.privacy)) {
+  if (hasMeaningfulContent(merchant.pages?.privacy) || hasTemplatePolicyPages) {
     derivedLinks.privacy = buildDerivedLink(normalizedBaseUrl, '/privacy');
   }
 
-  if (hasMeaningfulContent(merchant.pages?.terms)) {
+  if (hasMeaningfulContent(merchant.pages?.terms) || hasTemplatePolicyPages) {
     derivedLinks.terms = buildDerivedLink(normalizedBaseUrl, '/terms');
   }
 

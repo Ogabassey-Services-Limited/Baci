@@ -6,6 +6,7 @@ import { checkCsrfProtection } from '@/lib/csrf';
 import { WALLET_TOP_UP_TRANSACTION_TYPE } from '@/lib/customer-wallet-top-up';
 import { initializePayment as initializeKorapayPayment } from '@/lib/korapay';
 import { initializeTransaction as initializePaystackTransaction } from '@/lib/paystack';
+import { resolveWalletTopUpMerchant } from '@/lib/resolve-wallet-top-up-merchant';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveVtuCustomer } from '@/lib/vtu-pending-transaction';
 import {
@@ -34,6 +35,10 @@ function createErrorResponse(error: string, status = 400) {
 function isWalletTopUpGateway(value: unknown): value is WalletTopUpGateway {
   return value === 'paystack' || value === 'korapay';
 }
+
+// Merchant resolution uses id-first, slug-fallback via
+// resolveWalletTopUpMerchant so a stale merchantId does not 404 when a
+// valid merchantSlug is also supplied.
 
 function selectWalletTopUpGateway({
   requestedGateway,
@@ -95,13 +100,18 @@ export async function POST(request: NextRequest) {
     // writes: customer identity is authenticated above, while transaction
     // creation and gateway settings lookup are not exposed through customer RLS.
     const supabase = createAdminClient();
-    const { data: merchant, error: merchantError } = await supabase
-      .from('merchants')
-      .select('id, slug, business_name, paystack_subaccount_code')
-      .eq('slug', parsed.data.merchantSlug)
-      .single();
+    const merchant = await resolveWalletTopUpMerchant<{
+      id: string;
+      slug: string;
+      business_name: string;
+      paystack_subaccount_code: string | null;
+    }>(
+      supabase,
+      parsed.data,
+      'id, slug, business_name, paystack_subaccount_code'
+    );
 
-    if (merchantError || !merchant) {
+    if (!merchant) {
       return createErrorResponse('Merchant not found', 404);
     }
 

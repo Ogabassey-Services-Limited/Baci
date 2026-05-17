@@ -15,8 +15,10 @@ import {
   Users,
 } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AgenticActionCenterCard } from '@/components/dashboard/agentic-action-center-card';
+import { AgenticTrustCenterCard } from '@/components/dashboard/agentic-trust-center-card';
 import { SetupChecklist } from '@/components/dashboard/setup-checklist';
 import { StoreBuildStatusCard } from '@/components/dashboard/store-build-status-card';
 import { BentoCard } from '@/components/ui/bento-card';
@@ -27,7 +29,9 @@ import { useMerchant } from '@/hooks/use-merchant-client';
 import { useToast } from '@/hooks/use-toast';
 import { formatPrice } from '@/lib/currency-utils';
 import { requestMerchantPublish } from '@/lib/merchant-publish-client';
+import type { AgentCommerceTrustReadinessSummary } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 import { cn } from '@/lib/utils';
+import type { AgenticActionHealthPayload } from '@/schemas/agentic-action-health';
 import {
   type DashboardMetrics,
   getDashboardMetrics,
@@ -76,17 +80,26 @@ const chartConfig = {
 } satisfies ChartConfig;
 
 interface DashboardClientPageProps {
+  initialActionCenterState?: 'ready' | 'error' | 'unauthorized';
+  initialActionHealth?: AgenticActionHealthPayload | null;
   initialMetrics?: DashboardMetrics;
   initialRecentSales?: RecentSale[];
   initialChartData?: MonthlyChartData[];
+  initialTrustCenterState?: 'ready' | 'error' | 'unauthorized';
+  initialTrustReadiness?: AgentCommerceTrustReadinessSummary | null;
 }
 
 export default function DashboardClientPage({
+  initialActionCenterState = 'error',
+  initialActionHealth = null,
   initialMetrics,
   initialRecentSales,
   initialChartData,
+  initialTrustCenterState = 'error',
+  initialTrustReadiness = null,
 }: DashboardClientPageProps) {
   const { merchant, reloadMerchant } = useMerchant();
+  const router = useRouter();
   const { toast } = useToast();
   const [mounted, setMounted] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -160,6 +173,7 @@ export default function DashboardClientPage({
           : 'Your store is now live and accessible to customers.',
       });
       reloadMerchant();
+      router.refresh();
     } catch (_error) {
       toast({
         title: 'Error',
@@ -331,7 +345,22 @@ export default function DashboardClientPage({
           className="animate-in fade-in slide-in-from-bottom-4 duration-500"
           style={{ animationFillMode: 'both', animationDelay: '0.05s' }}
         >
-          <AgenticActionCenterCard />
+          <AgenticActionCenterCard
+            payload={initialActionHealth}
+            state={initialActionCenterState}
+          />
+        </div>
+      )}
+
+      {merchant?.is_published && (
+        <div
+          className="animate-in fade-in slide-in-from-bottom-4 duration-500"
+          style={{ animationFillMode: 'both', animationDelay: '0.075s' }}
+        >
+          <AgenticTrustCenterCard
+            readiness={initialTrustReadiness}
+            state={initialTrustCenterState}
+          />
         </div>
       )}
 

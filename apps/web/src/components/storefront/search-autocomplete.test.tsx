@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import {
@@ -44,11 +50,16 @@ afterAll(() => {
 describe('SearchAutocomplete', () => {
   beforeEach(() => {
     vi.useRealTimers();
-    globalThis.fetch = vi.fn();
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        json: () => Promise.resolve({ suggestions: [], popularSearches: [] }),
+      })
+    ) as any;
   });
 
   afterEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
   });
 
   it('exports a valid component', () => {
@@ -193,5 +204,44 @@ describe('SearchAutocomplete', () => {
 
     expect(onSelectProduct).toHaveBeenCalledTimes(1);
     expect(onSelectProduct.mock.calls[0]?.[0]).toContain('samsung-galaxy-s23');
+  });
+
+  it('clears loading when the debounced query becomes too short', async () => {
+    vi.useFakeTimers();
+    globalThis.fetch = vi.fn(
+      () =>
+        new Promise(() => {
+          // Keep the request pending to simulate a slow network.
+        })
+    ) as typeof fetch;
+
+    const { rerender } = render(
+      <SearchAutocomplete
+        merchantId="merchant-1"
+        value="iphone"
+        onChange={vi.fn()}
+      />
+    );
+
+    const combobox = screen.getByRole('combobox');
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(combobox).toHaveAttribute('aria-busy', 'true');
+
+    rerender(
+      <SearchAutocomplete
+        merchantId="merchant-1"
+        value="i"
+        onChange={vi.fn()}
+      />
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+      await Promise.resolve();
+    });
+
+    expect(combobox).toHaveAttribute('aria-busy', 'false');
   });
 });

@@ -63,6 +63,8 @@ const mockUseRequireAuth = jest.fn();
 const mockUseWallet = jest.fn();
 const mockUseRedeemPoints = jest.fn();
 const mockUseStorefrontInsets = jest.fn();
+let mockMerchantId = 'configured-merchant';
+let mockMerchantSlug = 'ogabassey';
 const mockInitializeWalletTopUp =
   jest.fn<
     (input: unknown) => Promise<{
@@ -127,8 +129,12 @@ jest.mock('@/hooks/use-wallet', () => ({
 
 jest.mock('@/lib/config', () => ({
   CONFIG: {
-    MERCHANT_ID: 'configured-merchant',
-    MERCHANT_SLUG: 'ogabassey',
+    get MERCHANT_ID() {
+      return mockMerchantId;
+    },
+    get MERCHANT_SLUG() {
+      return mockMerchantSlug;
+    },
   },
 }));
 
@@ -170,6 +176,8 @@ describe('WalletScreen', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     mockSearchParams = {};
+    mockMerchantId = 'configured-merchant';
+    mockMerchantSlug = 'ogabassey';
     mockRedirect.mockImplementation(({ href }) => (
       <View testID="wallet-redirect" accessibilityLabel={href} />
     ));
@@ -388,6 +396,8 @@ describe('WalletScreen', () => {
         amount: 2500,
         customerName: 'Ada Lovelace',
         customerPhone: '08012345678',
+        merchantId: 'merchant-1',
+        merchantSlug: 'ogabassey',
       });
     });
     expect(mockRouterPush).toHaveBeenCalledWith({
@@ -396,6 +406,8 @@ describe('WalletScreen', () => {
         amount: '2500',
         authorizationUrl: 'https://checkout.paystack.com/wallet',
         gateway: 'paystack',
+        merchantId: 'merchant-1',
+        merchantSlug: 'ogabassey',
         paymentKind: 'wallet',
         reference: 'WAL-123',
       },
@@ -408,6 +420,91 @@ describe('WalletScreen', () => {
         gateway: 'paystack',
       })
     );
+  });
+
+  it('routes wallet top-ups with slug fallback when merchant id is blank', async () => {
+    mockMerchantId = '';
+    mockUseAuthStore.mockReturnValue({
+      customer: {
+        email: 'customer@example.com',
+        first_name: 'Ada',
+        id: 'customer-1',
+        last_name: 'Lovelace',
+        phone: '08012345678',
+      },
+      merchantId: '   ',
+      user: { email: 'customer@example.com', id: 'user-1' },
+    });
+
+    render(<WalletScreen />);
+
+    fireEvent.press(screen.getByText('Open Fund Panel'));
+    fireEvent.press(screen.getByText('Set Valid Fund Amount'));
+    fireEvent.press(screen.getByText('Confirm Fund'));
+
+    await waitFor(() => {
+      expect(mockInitializeWalletTopUp).toHaveBeenCalledWith({
+        amount: 2500,
+        customerName: 'Ada Lovelace',
+        customerPhone: '08012345678',
+        merchantId: null,
+        merchantSlug: 'ogabassey',
+      });
+    });
+
+    const pushArg = mockRouterPush.mock.calls[0]?.[0] as {
+      params: Record<string, string>;
+      pathname: string;
+    };
+    expect(pushArg).toEqual({
+      pathname: '/payment-gateway',
+      params: {
+        amount: '2500',
+        authorizationUrl: 'https://checkout.paystack.com/wallet',
+        gateway: 'paystack',
+        merchantSlug: 'ogabassey',
+        paymentKind: 'wallet',
+        reference: 'WAL-123',
+      },
+    });
+    expect(pushArg.params).not.toHaveProperty('merchantId');
+  });
+
+  it('omits blank merchant slugs from wallet top-up route params when merchant id is available', async () => {
+    mockMerchantSlug = '   ';
+
+    render(<WalletScreen />);
+
+    fireEvent.press(screen.getByText('Open Fund Panel'));
+    fireEvent.press(screen.getByText('Set Valid Fund Amount'));
+    fireEvent.press(screen.getByText('Confirm Fund'));
+
+    await waitFor(() => {
+      expect(mockInitializeWalletTopUp).toHaveBeenCalledWith({
+        amount: 2500,
+        customerName: 'Ada Lovelace',
+        customerPhone: '08012345678',
+        merchantId: 'merchant-1',
+        merchantSlug: undefined,
+      });
+    });
+
+    const pushArg = mockRouterPush.mock.calls[0]?.[0] as {
+      params: Record<string, string>;
+      pathname: string;
+    };
+    expect(pushArg).toEqual({
+      pathname: '/payment-gateway',
+      params: {
+        amount: '2500',
+        authorizationUrl: 'https://checkout.paystack.com/wallet',
+        gateway: 'paystack',
+        merchantId: 'merchant-1',
+        paymentKind: 'wallet',
+        reference: 'WAL-123',
+      },
+    });
+    expect(pushArg.params).not.toHaveProperty('merchantSlug');
   });
 
   it('opens the wallet top-up panel from the route action', () => {

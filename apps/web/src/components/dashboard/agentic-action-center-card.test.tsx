@@ -1,6 +1,6 @@
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { AgenticActionCenterCard } from './agentic-action-center-card';
 
 vi.mock('next/link', () => ({
@@ -10,44 +10,45 @@ vi.mock('next/link', () => ({
 }));
 
 describe('AgenticActionCenterCard', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  afterEach(() => {
-    cleanup();
-    vi.restoreAllMocks();
-  });
-
-  it('renders attention actions with an order review link', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        actions: [
-          {
-            code: 'AGENTIC_ORDER_FINALIZING',
-            count: 2,
-            message:
-              'Agentic checkouts are waiting on order finalization recovery.',
-            next_step:
-              'Check whether an order was created before allowing another completion retry.',
-            severity: 'attention',
+  it('renders attention actions with an order review link', () => {
+    render(
+      <AgenticActionCenterCard
+        payload={{
+          actions: [
+            {
+              code: 'AGENTIC_ORDER_FINALIZING',
+              count: 2,
+              message:
+                'Agentic checkouts are waiting on order finalization recovery.',
+              next_step:
+                'Check whether an order was created before allowing another completion retry.',
+              severity: 'attention',
+            },
+            {
+              code: 'AGENTIC_PAYMENT_PENDING',
+              count: 1,
+              message:
+                'Agentic checkouts are waiting for payment confirmation.',
+              severity: 'monitor',
+            },
+          ],
+          checkout_sessions: {
+            records: [
+              {
+                payment_state: 'order_finalizing',
+                session_id: 'session-2',
+                status: 'processing',
+                updated_at: '2026-05-12T22:45:00.000Z',
+              },
+            ],
           },
-          {
-            code: 'AGENTIC_PAYMENT_PENDING',
-            count: 1,
-            message: 'Agentic checkouts are waiting for payment confirmation.',
-            severity: 'monitor',
-          },
-        ],
-        generated_at: '2026-05-12T22:50:00.000Z',
-      }),
-    } as Response);
+          generated_at: '2026-05-12T22:50:00.000Z',
+        }}
+        state="ready"
+      />
+    );
 
-    render(<AgenticActionCenterCard />);
-
-    expect(await screen.findByText('Agent action center')).toBeInTheDocument();
+    expect(screen.getByText('Agent action center')).toBeInTheDocument();
     expect(screen.getByText('What changed')).toBeInTheDocument();
     expect(screen.getAllByText('Needs attention')).toHaveLength(2);
     expect(screen.getByText('Next move')).toBeInTheDocument();
@@ -67,37 +68,35 @@ describe('AgenticActionCenterCard', () => {
     expect(
       screen.getByText('Review affected checkout activity before agents retry.')
     ).toBeInTheDocument();
+    expect(screen.getByText('Recent activity')).toBeInTheDocument();
+    expect(screen.getByText('session-2')).toBeInTheDocument();
+    expect(screen.getByText('moved to Order Finalizing.')).toBeInTheDocument();
     expect(screen.getByText('2 open')).toBeInTheDocument();
     expect(screen.getByText('2 affected')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /review/i })[0]).toHaveAttribute(
       'href',
-      '/dashboard/orders?source=agentic'
-    );
-    expect(globalThis.fetch).toHaveBeenCalledWith(
-      '/api/merchant/agentic/action-health',
-      { credentials: 'include' }
+      '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_ORDER_FINALIZING'
     );
   });
 
-  it('renders a clear state when no agentic action needs attention', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        actions: [
-          {
-            code: 'AGENTIC_ACTIONS_HEALTHY',
-            count: 0,
-            message: 'No recent agentic action issues need attention.',
-            severity: 'ok',
-          },
-        ],
-      }),
-    } as Response);
+  it('renders a clear state when no agentic action needs attention', () => {
+    render(
+      <AgenticActionCenterCard
+        payload={{
+          actions: [
+            {
+              code: 'AGENTIC_ACTIONS_HEALTHY',
+              count: 0,
+              message: 'No recent agentic action issues need attention.',
+              severity: 'ok',
+            },
+          ],
+        }}
+        state="ready"
+      />
+    );
 
-    render(<AgenticActionCenterCard />);
-
-    expect(await screen.findByText('Clear')).toBeInTheDocument();
+    expect(screen.getByText('Clear')).toBeInTheDocument();
     expect(
       screen.getByText('No new agentic recovery issues since the last refresh.')
     ).toBeInTheDocument();
@@ -113,25 +112,25 @@ describe('AgenticActionCenterCard', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('renders a monitor state when actions need watching but not attention', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        actions: [
-          {
-            code: 'AGENTIC_PAYMENT_PENDING',
-            count: 3,
-            message: 'Agentic checkouts are waiting for payment confirmation.',
-            severity: 'monitor',
-          },
-        ],
-      }),
-    } as Response);
+  it('renders a monitor state when actions need watching but not attention', () => {
+    render(
+      <AgenticActionCenterCard
+        payload={{
+          actions: [
+            {
+              code: 'AGENTIC_PAYMENT_PENDING',
+              count: 3,
+              message:
+                'Agentic checkouts are waiting for payment confirmation.',
+              severity: 'monitor',
+            },
+          ],
+        }}
+        state="ready"
+      />
+    );
 
-    render(<AgenticActionCenterCard />);
-
-    expect(await screen.findByText('3 monitor')).toBeInTheDocument();
+    expect(screen.getByText('3 monitor')).toBeInTheDocument();
     expect(
       screen.getByText('3 agentic checkout items are active.')
     ).toBeInTheDocument();
@@ -149,138 +148,115 @@ describe('AgenticActionCenterCard', () => {
     expect(screen.queryByText('Clear')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /review/i })).toHaveAttribute(
       'href',
-      '/dashboard/orders?source=agentic'
+      '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_PAYMENT_PENDING'
     );
   });
 
-  it('renders stale payment-pending sessions as attention items', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        actions: [
-          {
-            code: 'AGENTIC_PAYMENT_PENDING_STALE',
-            count: 1,
-            message:
-              'Agentic checkouts have been waiting for payment confirmation too long.',
-            severity: 'attention',
-          },
-        ],
-      }),
-    } as Response);
-
-    render(<AgenticActionCenterCard />);
-
-    expect(await screen.findByText('1 open')).toBeInTheDocument();
-    expect(
-      screen.getAllByText(
-        'Agentic checkouts have been waiting for payment confirmation too long.'
-      )
-    ).toHaveLength(2);
-    expect(screen.getByRole('link', { name: /review/i })).toHaveAttribute(
-      'href',
-      '/dashboard/orders?source=agentic'
+  it('renders allowlist control warnings with a trust-settings review link', () => {
+    render(
+      <AgenticActionCenterCard
+        payload={{
+          actions: [
+            {
+              code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
+              count: 1,
+              message: 'No agent allowlist is configured in Trust settings.',
+              severity: 'monitor',
+            },
+          ],
+        }}
+        state="ready"
+      />
     );
-  });
 
-  it('renders allowlist control warnings with a trust-settings review link', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        actions: [
-          {
-            code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
-            count: 1,
-            message: 'No agent allowlist is configured in Trust settings.',
-            severity: 'monitor',
-          },
-        ],
-      }),
-    } as Response);
-
-    render(<AgenticActionCenterCard />);
-
-    expect(await screen.findByText('1 monitor')).toBeInTheDocument();
+    expect(screen.getByText('1 monitor')).toBeInTheDocument();
     expect(
       screen.getByText('No agent allowlist is configured in Trust settings.')
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /review/i })).toHaveAttribute(
       'href',
-      '/dashboard/settings/trust'
+      '/dashboard/settings/trust#agent-checkout-controls'
     );
   });
 
-  it('treats negative action counts as a malformed payload', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({
-        actions: [
-          {
-            code: 'AGENTIC_IDEMPOTENCY_ERRORS',
-            count: -2,
-            message: 'Recent agentic retries ended with server errors.',
-            severity: 'attention',
+  it('formats recent payment-state labels safely when metadata has empty tokens', () => {
+    render(
+      <AgenticActionCenterCard
+        payload={{
+          actions: [
+            {
+              code: 'AGENTIC_PAYMENT_PENDING',
+              count: 1,
+              message:
+                'Agentic checkouts are waiting for payment confirmation.',
+              severity: 'monitor',
+            },
+          ],
+          checkout_sessions: {
+            records: [
+              {
+                payment_state: 'order__finalizing',
+                session_id: 'session-9',
+                status: 'processing',
+                updated_at: '2026-05-12T22:45:00.000Z',
+              },
+            ],
           },
-          {
-            code: 'AGENTIC_ORDER_FINALIZING',
-            count: 1,
-            message:
-              'Agentic checkouts are waiting on order finalization recovery.',
-            severity: 'attention',
-          },
-        ],
-      }),
-    } as Response);
+          generated_at: '2026-05-12T22:50:00.000Z',
+        }}
+        state="ready"
+      />
+    );
 
-    render(<AgenticActionCenterCard />);
-
-    expect(
-      await screen.findByText(
-        'Agentic action health is temporarily unavailable.'
-      )
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText('1 agentic checkout issue needs attention.')
-    ).not.toBeInTheDocument();
+    expect(screen.getByText('session-9')).toBeInTheDocument();
+    expect(screen.getByText('moved to Order Finalizing.')).toBeInTheDocument();
+    expect(screen.queryByText(/undefined/i)).not.toBeInTheDocument();
   });
 
-  it.each([
-    401, 403,
-  ])('renders nothing when the action health route returns %i', async (status) => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: false,
-      status,
-      json: async () => ({ error: 'Unauthorized' }),
-    } as Response);
+  it('uses next_step_url from the payload when present', () => {
+    render(
+      <AgenticActionCenterCard
+        payload={{
+          actions: [
+            {
+              code: 'AGENTIC_ORDER_FINALIZING',
+              count: 1,
+              message:
+                'Agentic checkouts are waiting on order finalization recovery.',
+              next_step_url:
+                '/dashboard/orders?source=agentic&focus=finalizing',
+              severity: 'attention',
+            },
+          ],
+        }}
+        state="ready"
+      />
+    );
 
-    const { container } = render(<AgenticActionCenterCard />);
-
-    await waitFor(() => {
-      expect(container.firstChild).toBeNull();
-    });
+    expect(screen.getByText('1 open')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /review/i })).toHaveAttribute(
+      'href',
+      '/dashboard/orders?source=agentic&focus=finalizing'
+    );
   });
 
-  it('shows a temporary unavailable state for malformed payloads', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => ({ actions: [{ code: 'BROKEN' }] }),
-    } as Response);
-
-    render(<AgenticActionCenterCard />);
+  it('renders an unavailable state when loading fails', () => {
+    render(<AgenticActionCenterCard payload={null} state="error" />);
 
     expect(
-      await screen.findByText(
-        'Agentic action health is temporarily unavailable.'
-      )
+      screen.getByText('Agentic action health is temporarily unavailable.')
     ).toBeInTheDocument();
     expect(screen.getByText('Unavailable')).toBeInTheDocument();
     expect(
       screen.getByText('Agentic checkout health could not be loaded.')
     ).toBeInTheDocument();
-    expect(screen.queryByText('Clear')).not.toBeInTheDocument();
+  });
+
+  it('renders nothing when state is unauthorized', () => {
+    const { container } = render(
+      <AgenticActionCenterCard payload={null} state="unauthorized" />
+    );
+
+    expect(container.firstChild).toBeNull();
   });
 });

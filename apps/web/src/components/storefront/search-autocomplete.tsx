@@ -4,6 +4,7 @@ import { Search, TrendingUp, X } from 'lucide-react';
 import Image from 'next/image';
 import { useEffect, useRef, useState } from 'react';
 import { Input } from '@/components/ui/input';
+import { useDebounce } from '@/hooks/use-debounce';
 import { trackEvent } from '@/lib/event-tracking';
 import { getProductUrl } from '@/lib/seo-utils';
 import { cn } from '@/lib/utils';
@@ -60,7 +61,7 @@ export function SearchAutocomplete({
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+  const debouncedValue = useDebounce(value, 300);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -81,51 +82,66 @@ export function SearchAutocomplete({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
+  // Immediately clear suggestions when value becomes too short
+  useEffect(() => {
+    if (value.length < 2) {
+      setLoading(false);
+      setSuggestions([]);
+      setPopularSearches([]);
+      setIsOpen(false);
+    }
+  }, [value]);
+
   // Debounced search with autocomplete suggestions
   useEffect(() => {
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-
-    if (value.length < 2) {
+    if (debouncedValue.length < 2) {
+      setLoading(false);
       setSuggestions([]);
       setPopularSearches([]);
       setIsOpen(false);
       return;
     }
 
-    debounceTimer.current = setTimeout(async () => {
+    let isMounted = true;
+    const fetchAutocomplete = async () => {
       setLoading(true);
       try {
         const response = await fetch(
-          `/api/search/autocomplete?q=${encodeURIComponent(value)}&merchant_id=${merchantId}&limit=10`
+          `/api/search/autocomplete?q=${encodeURIComponent(debouncedValue)}&merchant_id=${merchantId}&limit=10`
         );
         const data = await response.json();
 
-        setSuggestions(data.suggestions || []);
-        setPopularSearches(data.popularSearches || []);
-        setIsOpen(true);
-        setHighlightedIndex(-1);
+        if (isMounted) {
+          setSuggestions(data.suggestions || []);
+          setPopularSearches(data.popularSearches || []);
+          setIsOpen(true);
+          setHighlightedIndex(-1);
 
-        // Track search event for merchant analytics
-        const resultsCount =
-          (data.suggestions?.length || 0) + (data.popularSearches?.length || 0);
-        trackEvent.search(merchantId, value, resultsCount);
+          // Track search event for merchant analytics
+          const resultsCount =
+            (data.suggestions?.length || 0) +
+            (data.popularSearches?.length || 0);
+          trackEvent.search(merchantId, debouncedValue, resultsCount);
+        }
       } catch (error) {
-        console.error('Autocomplete error:', error);
-        setSuggestions([]);
-        setPopularSearches([]);
+        if (isMounted) {
+          console.error('Autocomplete error:', error);
+          setSuggestions([]);
+          setPopularSearches([]);
+        }
       } finally {
-        setLoading(false);
-      }
-    }, 300);
-
-    return () => {
-      if (debounceTimer.current) {
-        clearTimeout(debounceTimer.current);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
-  }, [value, merchantId]);
+
+    fetchAutocomplete();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [debouncedValue, merchantId]);
 
   // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -175,6 +191,7 @@ export function SearchAutocomplete({
       aria-haspopup="listbox"
       aria-controls={listboxId}
       aria-owns={listboxId}
+      aria-busy={loading}
       tabIndex={-1}
     >
       <div className="relative">
