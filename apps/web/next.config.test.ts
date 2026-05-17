@@ -17,7 +17,7 @@ describe('next.config OgaBassey resource headers', () => {
     expect(homeLinkRules).toHaveLength(2);
 
     const expectedLinkHeaderPattern =
-      /^<\/_next\/static\/media\/iphone-17-pro-max-mobile\.[^./]+\.[^./]+\.avif>; rel=preload; as=image; type="image\/avif"; media="\(max-width: 767px\)"$/;
+      /^<\/_next\/static\/media\/iphone-17-pro-max-mobile\.[^./]+\.[a-f0-9]{8}\.avif>; rel=preload; as=image; type="image\/avif"; media="\(max-width: 767px\)"$/;
 
     const linkHeaderValues = homeLinkRules.flatMap((rule) =>
       rule.headers

@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import bundleAnalyzer from '@next/bundle-analyzer';
@@ -22,6 +23,14 @@ const OGABASSEY_HERO_ASSET_DIR = path.join(
   NEXT_CONFIG_DIR,
   'src/components/storefront/ogabassey/components/assets'
 );
+const require = createRequire(import.meta.url);
+const loaderUtils = require('next/dist/compiled/loader-utils3') as {
+  interpolateName: (
+    loaderContext: { resourcePath: string; resourceQuery?: string },
+    name: string,
+    options: { context: string; content: Buffer }
+  ) => string;
+};
 
 function resolveOgabasseyMobileHeroPreloadPath() {
   let files: string[] = [];
@@ -40,16 +49,27 @@ function resolveOgabasseyMobileHeroPreloadPath() {
     return null;
   }
 
-  const match = /^iphone-17-pro-max-mobile\.([^.]+)\.avif$/.exec(
+  const mobileHeroAssetPath = path.join(
+    OGABASSEY_HERO_ASSET_DIR,
     mobileHeroAvif
   );
-
-  if (!match) {
+  let content: Buffer;
+  try {
+    content = fs.readFileSync(mobileHeroAssetPath);
+  } catch {
     return null;
   }
 
-  const [, contentHash] = match;
-  return `/_next/static/media/iphone-17-pro-max-mobile.${contentHash}.${contentHash}.avif`;
+  const interpolatedName = loaderUtils.interpolateName(
+    { resourcePath: mobileHeroAssetPath, resourceQuery: '' },
+    '/static/media/[name].[hash:8].[ext]',
+    {
+      context: NEXT_CONFIG_DIR,
+      content,
+    }
+  );
+
+  return `/_next${interpolatedName}`;
 }
 
 const OGABASSEY_HOME_MOBILE_HERO_PRELOAD_PATH =
