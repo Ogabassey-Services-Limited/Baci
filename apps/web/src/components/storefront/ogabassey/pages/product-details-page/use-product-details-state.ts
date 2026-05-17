@@ -91,6 +91,10 @@ export function useProductDetailsState(serverProduct: Product) {
     merchantContext?.merchant?.business_name || 'Ogabassey';
   const merchantId = merchantContext?.merchant?.id;
   const merchantSlug = merchantContext?.merchant?.slug || '';
+  const merchantVatRate =
+    merchantContext?.merchant?.vat_registration_status === 'registered'
+      ? (merchantContext.merchant.vat_rate ?? 7.5) / 100
+      : 0;
   const productData = normalizeProductDetails(serverProduct);
   const relatedProductsProduct = toRelatedProductsProduct(serverProduct);
   const effectiveAxes = getEffectiveAxes(serverProduct, productData);
@@ -600,6 +604,7 @@ export function useProductDetailsState(serverProduct: Product) {
     isSelectionModalOpen,
     merchantId,
     merchantSlug,
+    merchantVatRate,
     missingFields,
     normalizedReviewRatingWidth,
     productData,
