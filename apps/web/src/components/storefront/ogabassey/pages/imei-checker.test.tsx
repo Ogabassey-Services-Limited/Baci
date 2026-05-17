@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OgabasseyImeiChecker } from './imei-checker';
+import { SERVICE_TIERS, type ServiceTier } from './imei-checker-tiers';
 
 const fetchMock = vi.fn();
 
@@ -52,11 +53,16 @@ describe('OgabasseyImeiChecker', () => {
     },
   };
 
+  const tierButtonName = (tierKey: ServiceTier) => {
+    const tier = SERVICE_TIERS[tierKey];
+    return `${tier.name}, ${tier.tagline}, ${tier.priceDisplay}`;
+  };
+
   it('renders the public IMEI tiers accepted by the API', () => {
     render(<OgabasseyImeiChecker />);
 
     const selectedTierButton = screen.getByRole('button', {
-      name: /full report, know everything, ₦1,500/i,
+      name: tierButtonName('full'),
     });
     expect(selectedTierButton).toHaveClass('border-[var(--store-primary)]');
     expect(selectedTierButton.className).not.toContain('border-red-500');
@@ -67,17 +73,17 @@ describe('OgabasseyImeiChecker', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', {
-        name: /activation check, is it actually brand new\?, ₦700/i,
+        name: tierButtonName('activation'),
       })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', {
-        name: /stolen check, is it reported stolen\?, ₦700/i,
+        name: tierButtonName('blacklist'),
       })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', {
-        name: /network check, will my sim work\?, ₦1,000/i,
+        name: tierButtonName('carrier'),
       })
     ).toBeInTheDocument();
     expect(screen.queryByText('Quick ID')).not.toBeInTheDocument();
@@ -121,14 +127,10 @@ describe('OgabasseyImeiChecker', () => {
   });
 
   it.each([
-    [
-      'activation',
-      /activation check, is it actually brand new\?, ₦700/i,
-      'activation',
-    ],
-    ['blacklist', /stolen check, is it reported stolen\?, ₦700/i, 'blacklist'],
-    ['carrier', /network check, will my sim work\?, ₦1,000/i, 'carrier'],
-  ])('posts the selected %s tier', async (_label, tierButtonName, expectedTier) => {
+    ['activation', tierButtonName('activation'), 'activation'],
+    ['blacklist', tierButtonName('blacklist'), 'blacklist'],
+    ['carrier', tierButtonName('carrier'), 'carrier'],
+  ])('posts the selected %s tier', async (_label, buttonName, expectedTier) => {
     fetchMock.mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue(successfulImeiResponse),
@@ -136,7 +138,7 @@ describe('OgabasseyImeiChecker', () => {
 
     render(<OgabasseyImeiChecker />);
 
-    fireEvent.click(screen.getByRole('button', { name: tierButtonName }));
+    fireEvent.click(screen.getByRole('button', { name: buttonName }));
     enterValidImei();
     fireEvent.click(screen.getByRole('button', { name: /verify now/i }));
 

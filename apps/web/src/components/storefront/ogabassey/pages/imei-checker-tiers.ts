@@ -5,74 +5,58 @@ import {
   Sparkles,
   type LucideIcon,
 } from 'lucide-react';
+import {
+  IMEI_SERVICE_TIERS,
+  PRIMARY_IMEI_SERVICE_TIERS,
+  type ImeiServiceTierKey,
+} from '@baci/shared/imei';
+
+const TIER_ICONS = {
+  activation: Sparkles,
+  blacklist: ShieldAlert,
+  carrier: Globe,
+  full: BadgeCheck,
+} as const satisfies Record<PrimaryServiceTier, LucideIcon>;
+
+const currencyFormatter = new Intl.NumberFormat('en-NG', {
+  currency: 'NGN',
+  maximumFractionDigits: 0,
+  style: 'currency',
+});
+
+type PrimaryServiceTier = (typeof PRIMARY_IMEI_SERVICE_TIERS)[number];
+
+type PublicServiceTier = {
+  features: readonly string[];
+  icon: LucideIcon;
+  id: ImeiServiceTierKey;
+  name: string;
+  price: number;
+  priceDisplay: string;
+  recommended?: boolean;
+  tagline: string;
+};
+
+function buildPublicServiceTier(tierKey: PrimaryServiceTier): PublicServiceTier {
+  const tier = IMEI_SERVICE_TIERS[tierKey];
+
+  return {
+    features: tier.features,
+    icon: TIER_ICONS[tierKey],
+    id: tierKey,
+    name: tier.name,
+    price: tier.price,
+    priceDisplay: currencyFormatter.format(tier.price),
+    recommended: 'recommended' in tier ? tier.recommended : undefined,
+    tagline: tier.tagline,
+  };
+}
 
 export const SERVICE_TIERS = {
-  full: {
-    id: 'full',
-    name: 'Full Report',
-    tagline: 'Know everything',
-    price: 1500,
-    priceDisplay: '₦1,500',
-    features: [
-      'Device Model',
-      'iCloud Status',
-      'Blacklist Check',
-      'Carrier Info',
-      'SIM Lock',
-      'Trust Score',
-    ],
-    icon: BadgeCheck,
-    color: 'green',
-    recommended: true,
-  },
-  activation: {
-    id: 'activation',
-    name: 'Activation Check',
-    tagline: 'Is it actually brand new?',
-    price: 700,
-    priceDisplay: '₦700',
-    features: [
-      'Activation Status',
-      'Purchase Date',
-      'Warranty Status',
-      'Model / Serial',
-    ],
-    icon: Sparkles,
-    color: 'purple',
-  },
-  blacklist: {
-    id: 'blacklist',
-    name: 'Stolen Check',
-    tagline: 'Is it reported stolen?',
-    price: 700,
-    priceDisplay: '₦700',
-    features: ['Device Model', 'Blacklist Status', 'GSMA Database'],
-    icon: ShieldAlert,
-    color: 'orange',
-  },
-  carrier: {
-    id: 'carrier',
-    name: 'Network Check',
-    tagline: 'Will my SIM work?',
-    price: 1000,
-    priceDisplay: '₦1,000',
-    features: ['Device Model', 'Original Carrier', 'Network Info'],
-    icon: Globe,
-    color: 'blue',
-  },
-} as const satisfies Record<
-  string,
-  {
-    id: string;
-    name: string;
-    tagline: string;
-    price: number;
-    priceDisplay: string;
-    features: readonly string[];
-    icon: LucideIcon;
-    color: string;
-    recommended?: boolean;
-  }
->;
+  full: buildPublicServiceTier('full'),
+  activation: buildPublicServiceTier('activation'),
+  blacklist: buildPublicServiceTier('blacklist'),
+  carrier: buildPublicServiceTier('carrier'),
+} as const satisfies Record<PrimaryServiceTier, PublicServiceTier>;
 
 export type ServiceTier = keyof typeof SERVICE_TIERS;
