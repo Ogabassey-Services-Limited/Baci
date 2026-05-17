@@ -135,6 +135,7 @@ function buildStorefrontLlms(baseUrl: string, full: boolean): string {
     `- [OpenAI Product Feed](${baseUrl}${STOREFRONT_FEED_ROUTES.openaiProductFeed}): Public JSONL catalog feed for crawler-friendly product discovery`,
     `- [Current Agent Product Feed](${baseUrl}${STOREFRONT_FEED_ROUTES.agentProducts}): Current JSONL product feed with structured variant availability`,
     `- [Google Merchant XML Feed](${baseUrl}${STOREFRONT_FEED_ROUTES.googleMerchantXml}): Public product feed for merchant catalog discovery`,
+    `- [Facebook Catalog XML Feed](${baseUrl}${STOREFRONT_FEED_ROUTES.facebookCatalogXml}): Public Meta Facebook and Instagram catalog feed`,
     '',
     '## Guidance',
     `- [Robots](${baseUrl}/robots.txt): Crawl policy for this storefront host`,

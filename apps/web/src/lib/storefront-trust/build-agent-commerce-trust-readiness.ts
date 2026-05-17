@@ -10,6 +10,10 @@ import {
   trimTrailingSlash,
 } from '@/lib/storefront-agent-urls';
 import { buildAgentCommerceTrustHealthSignals } from './agent-commerce-trust-health-signals';
+import {
+  hasPublishableReturnsPolicy,
+  hasPublishableShippingPolicy,
+} from './build-merchant-trust-profile';
 import { getTrustCoverageSeverity } from './get-trust-coverage-severity';
 import { isPresentString } from './is-present-string';
 import { isValidHttpUrl } from './is-valid-http-url';
@@ -232,10 +236,25 @@ export function buildAgentCommerceTrustReadiness({
     surfaces.ucpProfile,
   ];
   const validSurfaceUrls = surfaceUrls.filter(isValidHttpUrl).length;
-  const policyCount = [
-    trustProfile.returnPolicy,
-    trustProfile.shippingPolicy,
+  const hasPublishedReturnPolicyLink =
+    hasPublishableReturnsPolicy(trustProfile) &&
+    isValidHttpUrl(trustProfile.derivedLinks.returns ?? '');
+  const hasPublishedShippingPolicyLink =
+    hasPublishableShippingPolicy(trustProfile) &&
+    isValidHttpUrl(trustProfile.derivedLinks.shipping ?? '');
+  const hasPublishedPrivacyPolicyLink = isValidHttpUrl(
+    trustProfile.derivedLinks.privacy ?? ''
+  );
+  const hasPublishedTermsLink = isValidHttpUrl(
+    trustProfile.derivedLinks.terms ?? ''
+  );
+  const publishedPolicyLinksCount = [
+    hasPublishedReturnPolicyLink,
+    hasPublishedShippingPolicyLink,
+    hasPublishedPrivacyPolicyLink,
+    hasPublishedTermsLink,
   ].filter(Boolean).length;
+  const requiredPolicyLinksCount = 4;
   const hasSupportContact = [
     trustProfile.supportEmail,
     trustProfile.supportPhone,
@@ -289,11 +308,14 @@ export function buildAgentCommerceTrustReadiness({
     {
       id: 'policy-coverage',
       label: 'Policy coverage',
-      severity: policyCount === 2 ? 'pass' : 'warn',
+      severity:
+        publishedPolicyLinksCount === requiredPolicyLinksCount
+          ? 'pass'
+          : 'warn',
       message:
-        policyCount === 2
-          ? 'Return and shipping policies are available for agent recommendation checks.'
-          : 'Add complete return and shipping policies for stronger agent recommendation trust.',
+        publishedPolicyLinksCount === requiredPolicyLinksCount
+          ? 'Return, shipping, privacy, and terms policy links are published.'
+          : `${publishedPolicyLinksCount} of ${requiredPolicyLinksCount} policy links are published (returns, shipping, privacy, terms).`,
     },
     {
       id: 'support-contact',

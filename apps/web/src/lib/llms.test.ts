@@ -80,6 +80,8 @@ describe('buildLlmsText()', () => {
     expect(result).toContain('Current Agent Product Feed');
     expect(result).toContain('https://ogabassey.com/feeds/google-merchant.xml');
     expect(result).toContain('Google Merchant XML Feed');
+    expect(result).toContain('https://ogabassey.com/feeds/facebook.xml');
+    expect(result).toContain('Facebook Catalog XML Feed');
     expect(result).not.toContain('/api/feed/openai');
   });
 
