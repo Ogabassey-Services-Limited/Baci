@@ -1,5 +1,29 @@
 import { describe, expect, it } from 'vitest';
-import { computeExpectedTotalDiscount } from './expected-total-discount';
+import {
+  computeExpectedTotalDiscount,
+  hasExpectedTotalMismatch,
+} from './expected-total-discount';
+
+type MoneyInputName =
+  | 'canonicalSubtotal'
+  | 'canonicalTaxAmount'
+  | 'shippingFee'
+  | 'giftWrappingFee';
+
+const baseDiscountInput = {
+  canonicalSubtotal: 1000,
+  canonicalTaxAmount: 75,
+  shippingFee: 0,
+  giftWrappingFee: 0,
+  expectedTotal: 1045,
+};
+
+function inputWithMoneyValue(parameterName: MoneyInputName, value: unknown) {
+  return {
+    ...baseDiscountInput,
+    [parameterName]: value as number,
+  };
+}
 
 describe('computeExpectedTotalDiscount', () => {
   it('returns the bounded server-side discount needed to honor an auto-negotiated total', () => {
@@ -120,5 +144,63 @@ describe('computeExpectedTotalDiscount', () => {
     });
 
     expect(discount).toBe(0);
+  });
+
+  it.each([
+    ['canonicalSubtotal', Number.NaN],
+    ['canonicalTaxAmount', Number.POSITIVE_INFINITY],
+    ['shippingFee', '0'],
+    ['giftWrappingFee', null],
+  ] satisfies [
+    MoneyInputName,
+    unknown,
+  ][])('throws TypeError when %s is not a finite number', (parameterName, value) => {
+    const computeDiscount = () =>
+      computeExpectedTotalDiscount(inputWithMoneyValue(parameterName, value));
+
+    expect(computeDiscount).toThrow(TypeError);
+    expect(computeDiscount).toThrow(parameterName);
+  });
+
+  it.each([
+    ['canonicalSubtotal', -1],
+    ['canonicalTaxAmount', -0.01],
+    ['shippingFee', -1],
+    ['giftWrappingFee', -1],
+  ] satisfies [
+    MoneyInputName,
+    number,
+  ][])('throws RangeError when %s is negative', (parameterName, value) => {
+    const computeDiscount = () =>
+      computeExpectedTotalDiscount(inputWithMoneyValue(parameterName, value));
+
+    expect(computeDiscount).toThrow(RangeError);
+    expect(computeDiscount).toThrow(parameterName);
+  });
+});
+
+describe('hasExpectedTotalMismatch', () => {
+  it('reports expected totals that drift beyond the parity tolerance', () => {
+    expect(
+      hasExpectedTotalMismatch({
+        canonicalSubtotal: 1000,
+        canonicalTaxAmount: 75,
+        shippingFee: 0,
+        giftWrappingFee: 0,
+        expectedTotal: 1042.75,
+      })
+    ).toBe(true);
+  });
+
+  it('ignores expected totals within the parity tolerance', () => {
+    expect(
+      hasExpectedTotalMismatch({
+        canonicalSubtotal: 1000,
+        canonicalTaxAmount: 75,
+        shippingFee: 0,
+        giftWrappingFee: 0,
+        expectedTotal: 1074,
+      })
+    ).toBe(false);
   });
 });

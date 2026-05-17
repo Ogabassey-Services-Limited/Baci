@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { computeAgenticOrderTax } from '@/lib/agentic/checkout-order-tax';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { POST } from './route';
 
@@ -29,6 +30,17 @@ vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: vi.fn(),
   hasPermission: vi.fn(() => true),
 }));
+
+vi.mock('@/lib/agentic/checkout-order-tax', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/agentic/checkout-order-tax')
+  >('@/lib/agentic/checkout-order-tax');
+
+  return {
+    ...actual,
+    computeAgenticOrderTax: vi.fn(actual.computeAgenticOrderTax),
+  };
+});
 
 // Shared mock for chainable methods
 const sharedChainableMock: any = {
@@ -451,6 +463,7 @@ describe('Order API Security', () => {
 
     expect(response.status).toBe(400);
     expect(data.code).toBe('discount_amount_not_supported');
+    expect(computeAgenticOrderTax).not.toHaveBeenCalled();
     expect(mockSupabase.rpc).not.toHaveBeenCalled();
   });
 

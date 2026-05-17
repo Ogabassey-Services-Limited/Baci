@@ -9,7 +9,10 @@ import {
   computeCanonicalOrderSubtotal,
   isCanonicalOrderSubtotalUuidError,
 } from '@/lib/checkout/canonical-order-subtotal';
-import { computeExpectedTotalDiscount } from '@/lib/checkout/expected-total-discount';
+import {
+  computeExpectedTotalDiscount,
+  hasExpectedTotalMismatch,
+} from '@/lib/checkout/expected-total-discount';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
@@ -372,7 +375,7 @@ export async function POST(request: NextRequest) {
     );
 
     let serverDerivedDiscountAmount = 0;
-    if (merchantCanAutoNegotiate && typeof body.expected_total === 'number') {
+    if (typeof body.expected_total === 'number') {
       let canonicalSubtotal: number | null;
       try {
         canonicalSubtotal = await computeCanonicalOrderSubtotal({
@@ -409,13 +412,26 @@ export async function POST(request: NextRequest) {
       }
 
       if (canonicalSubtotal !== null) {
-        serverDerivedDiscountAmount = computeExpectedTotalDiscount({
+        const expectedTotalInput = {
           canonicalSubtotal,
           canonicalTaxAmount: serverComputedTaxAmount,
           shippingFee: shippingFeeValue,
           giftWrappingFee: giftWrappingFeeValue,
           expectedTotal: body.expected_total,
-        });
+        };
+
+        if (merchantCanAutoNegotiate) {
+          serverDerivedDiscountAmount =
+            computeExpectedTotalDiscount(expectedTotalInput);
+        } else if (hasExpectedTotalMismatch(expectedTotalInput)) {
+          return NextResponse.json(
+            {
+              error: 'Failed to create order',
+              details: 'order_total_mismatch',
+            },
+            { status: 400 }
+          );
+        }
       }
     }
 

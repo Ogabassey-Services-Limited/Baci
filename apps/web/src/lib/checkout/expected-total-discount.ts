@@ -1,20 +1,89 @@
-/** Maximum auto-negotiation discount cap (3% of canonical subtotal). */
+/**
+ * Maximum auto-negotiation discount cap as a rate (0.03 = 3%).
+ * AI-accepted offers stay within 3%; deeper discounts require human review.
+ */
 export const MAX_AUTO_NEGOTIATION_DISCOUNT_RATE = 0.03;
-/** Treat <= ₦1 total drift as rounding parity, not a negotiated discount. */
+/**
+ * Allowed total-parity drift in currency units. A <= ₦1 difference covers
+ * display/rounding drift and is not treated as a negotiated discount.
+ */
 const TOTAL_PARITY_TOLERANCE = 1;
-/** Only larger carts can use whole-naira rounded cap exceptions. */
+/**
+ * Minimum subtotal in NGN for whole-naira cap rounding. Example: ₦1,001 * 3%
+ * = ₦30.03, so a ₦31 integer counter-offer can still pass policy.
+ */
 const MIN_SUBTOTAL_FOR_WHOLE_NAIRA_CAP_ROUNDING = 1000;
 
 function roundMoney(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
+  const sign = Math.sign(value);
+  const minorUnits = Math.round(Number(`${Math.abs(value)}e2`));
+  return sign * Number(`${minorUnits}e-2`);
 }
 
-interface ExpectedTotalDiscountInput {
+interface ExpectedTotalCalculationInput {
   canonicalSubtotal: number;
   canonicalTaxAmount: number;
   shippingFee: number;
   giftWrappingFee: number;
+}
+
+interface ExpectedTotalDiscountInput extends ExpectedTotalCalculationInput {
   expectedTotal: number | null;
+}
+
+type MoneyInputName = keyof ExpectedTotalCalculationInput;
+
+function assertNonNegativeMoneyInput(
+  parameterName: MoneyInputName,
+  value: number
+): void {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new TypeError(
+      `computeExpectedTotalDiscount expected ${parameterName} to be a finite number; received ${String(value)}`
+    );
+  }
+
+  if (value < 0) {
+    throw new RangeError(
+      `computeExpectedTotalDiscount expected ${parameterName} to be non-negative; received ${value}`
+    );
+  }
+}
+
+function validateExpectedTotalInputs(
+  input: ExpectedTotalCalculationInput
+): void {
+  assertNonNegativeMoneyInput('canonicalSubtotal', input.canonicalSubtotal);
+  assertNonNegativeMoneyInput('canonicalTaxAmount', input.canonicalTaxAmount);
+  assertNonNegativeMoneyInput('shippingFee', input.shippingFee);
+  assertNonNegativeMoneyInput('giftWrappingFee', input.giftWrappingFee);
+}
+
+function computeCanonicalOrderTotal({
+  canonicalSubtotal,
+  canonicalTaxAmount,
+  shippingFee,
+  giftWrappingFee,
+}: ExpectedTotalCalculationInput): number {
+  return roundMoney(
+    canonicalSubtotal + canonicalTaxAmount + shippingFee + giftWrappingFee
+  );
+}
+
+export function hasExpectedTotalMismatch(
+  input: ExpectedTotalDiscountInput
+): boolean {
+  validateExpectedTotalInputs(input);
+
+  if (input.expectedTotal === null) {
+    return false;
+  }
+
+  const requiredDiscount = roundMoney(
+    computeCanonicalOrderTotal(input) - input.expectedTotal
+  );
+
+  return Math.abs(requiredDiscount) > TOTAL_PARITY_TOLERANCE;
 }
 
 export function computeExpectedTotalDiscount({
@@ -24,13 +93,23 @@ export function computeExpectedTotalDiscount({
   giftWrappingFee,
   expectedTotal,
 }: ExpectedTotalDiscountInput): number {
+  validateExpectedTotalInputs({
+    canonicalSubtotal,
+    canonicalTaxAmount,
+    shippingFee,
+    giftWrappingFee,
+  });
+
   if (expectedTotal === null) {
     return 0;
   }
 
-  const canonicalOrderTotal = roundMoney(
-    canonicalSubtotal + canonicalTaxAmount + shippingFee + giftWrappingFee
-  );
+  const canonicalOrderTotal = computeCanonicalOrderTotal({
+    canonicalSubtotal,
+    canonicalTaxAmount,
+    shippingFee,
+    giftWrappingFee,
+  });
   const requiredDiscount = roundMoney(canonicalOrderTotal - expectedTotal);
 
   if (requiredDiscount <= TOTAL_PARITY_TOLERANCE) {
@@ -42,8 +121,10 @@ export function computeExpectedTotalDiscount({
   );
 
   if (requiredDiscount > maxAutoNegotiationDiscount) {
-    // Allow whole-naira counter-offers that round up over the decimal cap
-    // only when subtotal is large enough to avoid low-value abuse.
+    // `maxAutoNegotiationDiscount` is rounded to 2 decimals by `roundMoney`;
+    // `Math.ceil` intentionally lets integer `requiredDiscount`/`expectedTotal`
+    // values accept a whole-naira cap (e.g. 30.03 -> 31) once subtotals reach
+    // `MIN_SUBTOTAL_FOR_WHOLE_NAIRA_CAP_ROUNDING`.
     const canAcceptRoundedCounterOffer =
       canonicalSubtotal >= MIN_SUBTOTAL_FOR_WHOLE_NAIRA_CAP_ROUNDING &&
       Number.isInteger(expectedTotal) &&

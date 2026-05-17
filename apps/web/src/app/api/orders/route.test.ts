@@ -1045,12 +1045,7 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
 
     expect(response.status).toBe(400);
     expect(body.details).toBe('order_total_mismatch');
-    expect(rpcSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        p_discount_amount: 0,
-        p_expected_total: 1042.75,
-      })
-    );
+    expect(rpcSpy).not.toHaveBeenCalled();
   });
 
   it('does not apply legacy negotiation fallback when plan_tier is malformed', async () => {
@@ -1155,12 +1150,7 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
 
     expect(response.status).toBe(400);
     expect(body.details).toBe('order_total_mismatch');
-    expect(rpcSpy).toHaveBeenCalledWith(
-      expect.objectContaining({
-        p_discount_amount: 0,
-        p_expected_total: 1042.75,
-      })
-    );
+    expect(rpcSpy).not.toHaveBeenCalled();
   });
 
   it('returns 500 when canonical subtotal preload fails during negotiated checkout', async () => {
