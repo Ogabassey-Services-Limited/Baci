@@ -160,7 +160,7 @@ describe('agentCommerceTrustReadinessCardHelpers', () => {
       },
       {
         count: 2,
-        href: '/dashboard/products',
+        href: '/dashboard/reviews',
         id: 'review-signal-coverage',
         label: 'Strengthen review signals',
         message:

@@ -75,7 +75,7 @@ const CHECK_ACTIONS: Record<
     message: 'Complete product fields used by agent and JSON-LD surfaces.',
   },
   'review-signal-coverage': {
-    href: '/dashboard/products',
+    href: '/dashboard/reviews',
     label: 'Strengthen review signals',
     message:
       'Publish valid product review counts and ratings for trust scoring.',
