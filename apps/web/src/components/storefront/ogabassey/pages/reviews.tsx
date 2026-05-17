@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { EmptyState } from '../components/empty-state';
 import { useCustomerAuth } from '@/contexts/customer-auth-context';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import type { StorefrontTransformedOrder, StorefrontTransformedOrderItem } from '@baci/shared';
 
 interface Product {
   id: string;
@@ -139,7 +140,7 @@ export const OgabasseyV2Reviews: React.FC = () => {
   const { customer, isAuthenticated } = useCustomerAuth();
   const { merchant } = useMerchantSafe() || {};
 
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<StorefrontTransformedOrder[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -182,7 +183,7 @@ export const OgabasseyV2Reviews: React.FC = () => {
   const pendingItems = orders
     .filter((o) => o.shipping_status === 'delivered' || o.status === 'Delivered') // Support both status fields
     .flatMap((order) =>
-      order.items.map((item: any) => ({
+      order.items?.map((item) => ({
         ...item,
         orderDate: order.created_at,
         orderId: order.id,
@@ -197,12 +198,12 @@ export const OgabasseyV2Reviews: React.FC = () => {
       return !reviews.some((r) => r.product_id === item.id || r.product_id === item.product_id);
     });
 
-  const handleOpenRate = (item: any) => {
+  const handleOpenRate = (item: StorefrontTransformedOrderItem) => {
     // Map item to Product interface expected by modal
     const productToRate: Product = {
       id: item.id || item.product_id, // fallback
       name: item.name,
-      image: item.image,
+      image: item.image || item.image_url || '/placeholder.png',
       price: item.price?.toString() || '0',
     };
     setSelectedProduct(productToRate);
