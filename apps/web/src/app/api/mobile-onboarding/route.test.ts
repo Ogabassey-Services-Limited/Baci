@@ -6,9 +6,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockGetUser = vi.fn();
 const mockSignUp = vi.fn();
 const mockFrom = vi.fn();
+const mockRpc = vi.fn();
 const mockSupabaseServer = {
   auth: { getUser: mockGetUser, signUp: mockSignUp },
   from: mockFrom,
+  rpc: mockRpc,
 };
 
 const mockAdminFrom = vi.fn();
@@ -98,6 +100,10 @@ describe('POST /api/mobile-onboarding', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     afterCallbacks.length = 0;
+    mockRpc.mockResolvedValue({
+      data: 'generated-mobile-slug',
+      error: null,
+    });
   });
 
   // --- Validation ---
@@ -447,6 +453,69 @@ describe('POST /api/mobile-onboarding', () => {
       business_name: 'Renamed Store',
     });
     expect(merchantQuery.update.mock.calls[0]?.[0]).not.toHaveProperty('slug');
+  });
+
+  it('generates a unique slug when updating a merchant without an established slug', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user: { id: 'user-1', email: 'test@example.com' } },
+      error: null,
+    });
+
+    const merchantQuery = {
+      eq: vi.fn(),
+      maybeSingle: vi.fn(),
+      select: vi.fn(),
+      single: vi.fn(),
+      update: vi.fn(),
+    };
+    merchantQuery.select.mockReturnValue(merchantQuery);
+    merchantQuery.eq.mockReturnValue(merchantQuery);
+    merchantQuery.update.mockReturnValue(merchantQuery);
+    merchantQuery.maybeSingle.mockResolvedValue({
+      data: {
+        id: 'merch-1',
+        business_name: null,
+        slug: null,
+      },
+      error: null,
+    });
+    merchantQuery.single.mockResolvedValue({
+      data: { id: 'merch-1', slug: 'generated-mobile-slug' },
+      error: null,
+    });
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return merchantQuery;
+      }
+      if (table === 'domains') {
+        return {
+          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        };
+      }
+      if (table === 'staff_members') {
+        return {
+          upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        };
+      }
+      return {
+        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+    });
+
+    const res = await POST(makeRequest(validBody));
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(mockRpc).toHaveBeenCalledWith('generate_slug', {
+      text_input: 'test',
+    });
+    expect(merchantQuery.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        slug: 'generated-mobile-slug',
+      })
+    );
   });
 
   // --- Domain creation ---

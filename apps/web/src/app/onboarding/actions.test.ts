@@ -408,6 +408,34 @@ describe('submitOnboarding', () => {
     );
   });
 
+  it('generates a unique slug when completing a pending merchant without an established slug', async () => {
+    mockAdminMaybeSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({
+        data: {
+          id: 'existing-1',
+          business_name: null,
+          slug: null,
+        },
+        error: null,
+      });
+    mockAdminRpc.mockResolvedValueOnce({
+      data: 'teststore-2',
+      error: null,
+    });
+    setupChainedMock({ id: 'existing-1', slug: 'teststore-2' });
+
+    const result = await submitOnboarding(prevState, makeFormData(validFields));
+
+    expect(result.success).toBe(true);
+    expect(mockAdminRpc).toHaveBeenCalledWith('generate_slug', {
+      text_input: 'TestStore',
+    });
+    expect(mockAdminUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ slug: 'teststore-2' })
+    );
+  });
+
   it('returns early for existing completed merchant', async () => {
     mockAdminMaybeSingle.mockResolvedValueOnce({
       data: { id: 'existing-1', business_name: 'Already Set Up' },
