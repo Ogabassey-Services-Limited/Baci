@@ -1,0 +1,3 @@
+## 2025-05-17 - [Typeguard: Strict Typing for Storefront Orders and Wallet]
+**Learning:** Returning transformed database records directly from an API endpoint breaks strict typing for consumers expecting a standard model (e.g., `Order`). Explicit anonymous `any` casting in React state loops (`useState<any[]>`, `item: any`) masks these mismatches and risks downstream errors.
+**Action:** Always create a specific shared DTO interface (e.g., `StorefrontTransformedOrder`, `StorefrontWallet`) in `packages/shared/src/types/storefront.ts` that explicitly matches the API payload. Map state types and array loops exactly to these definitions to ensure correct inferences and type safety.
