@@ -150,6 +150,22 @@ describe('inferAddressLocationFromInput', () => {
     expect(result).toEqual({ city: 'Maitama', state: 'Abuja' });
   });
 
+  it('strips trailing country tokens before inferring city/state', () => {
+    const result = inferAddressLocationFromInput('Lekki, Lagos, Nigeria', [
+      'Lagos',
+      'Abuja',
+    ]);
+    expect(result).toEqual({ city: 'Lekki', state: 'Lagos' });
+  });
+
+  it('returns null when the trailing state is not configured for shipping', () => {
+    const result = inferAddressLocationFromInput('Lekki, Lagos, Ghana', [
+      'Lagos',
+      'Abuja',
+    ]);
+    expect(result).toBeNull();
+  });
+
   it('returns null when there are not enough address segments', () => {
     const result = inferAddressLocationFromInput('Lagos', ['Lagos']);
     expect(result).toBeNull();

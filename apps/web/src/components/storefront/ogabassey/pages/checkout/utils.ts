@@ -42,8 +42,22 @@ interface InferredAddressLocation {
   state: string;
 }
 
+const COUNTRY_LOCATION_TOKENS = new Set(['ng', 'nigeria']);
+
 function normalizeStateToken(value: string): string {
   return value.replace(/\s+state$/i, '').trim().toLowerCase();
+}
+
+function stripTrailingCountryTokens(parts: string[]): string[] {
+  const trimmedParts = [...parts];
+  while (
+    trimmedParts.length > 0 &&
+    COUNTRY_LOCATION_TOKENS.has(normalizeStateToken(trimmedParts.at(-1) ?? ''))
+  ) {
+    trimmedParts.pop();
+  }
+
+  return trimmedParts;
 }
 
 /**
@@ -60,11 +74,15 @@ export function inferAddressLocationFromInput(
     .split(',')
     .map((part) => part.trim())
     .filter(Boolean);
+  const locationParts = stripTrailingCountryTokens(parts);
 
-  if (parts.length < 2) return null;
+  if (locationParts.length < 2) return null;
 
-  const rawState = parts[parts.length - 1];
-  const rawCity = parts.length >= 3 ? parts[parts.length - 2] : parts[0];
+  const rawState = locationParts[locationParts.length - 1];
+  const rawCity =
+    locationParts.length >= 3
+      ? locationParts[locationParts.length - 2]
+      : locationParts[0];
   if (!rawState || !rawCity) return null;
 
   const normalizedState = normalizeStateToken(rawState);
@@ -76,6 +94,8 @@ export function inferAddressLocationFromInput(
     );
     if (exactMatch) {
       matchedState = exactMatch;
+    } else {
+      return null;
     }
   }
 
