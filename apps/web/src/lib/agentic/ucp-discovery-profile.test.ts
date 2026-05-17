@@ -134,7 +134,6 @@ describe('buildUcpDiscoveryProfile', () => {
       expect.objectContaining({
         version: '2026-04-08',
         spec: 'https://ucp.dev/2026-04-08/specification/checkout',
-        schema: 'https://ucp.dev/2026-04-08/schemas/shopping/checkout.json',
         config: expect.objectContaining({
           auth: {
             supported_api_versions: ['2026-04-30', '2026-04-01'],
@@ -158,11 +157,13 @@ describe('buildUcpDiscoveryProfile', () => {
         }),
       }),
     ]);
+    expect(profile.ucp.capabilities['dev.ucp.shopping.checkout']).toEqual([
+      expect.not.objectContaining({ schema: expect.anything() }),
+    ]);
     expect(profile.ucp.capabilities['dev.ucp.shopping.order']).toEqual([
       expect.objectContaining({
         version: '2026-04-08',
         spec: 'https://ucp.dev/2026-04-08/specification/order',
-        schema: 'https://ucp.dev/2026-04-08/schemas/shopping/order.json',
         config: {
           auth: {
             supported_api_versions: ['2026-04-30', '2026-04-01'],
@@ -176,6 +177,9 @@ describe('buildUcpDiscoveryProfile', () => {
           },
         },
       }),
+    ]);
+    expect(profile.ucp.capabilities['dev.ucp.shopping.order']).toEqual([
+      expect.not.objectContaining({ schema: expect.anything() }),
     ]);
     expect(profile.ucp.payment_handlers).toMatchObject({
       'com.paystack.bank_transfer': [

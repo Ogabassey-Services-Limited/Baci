@@ -123,8 +123,10 @@ describe('GET /.well-known/ucp', () => {
       expect.objectContaining({
         version: '2026-04-08',
         spec: 'https://ucp.dev/2026-04-08/specification/checkout',
-        schema: 'https://ucp.dev/2026-04-08/schemas/shopping/checkout.json',
       }),
+    ]);
+    expect(body.ucp.capabilities['dev.ucp.shopping.checkout']).toEqual([
+      expect.not.objectContaining({ schema: expect.anything() }),
     ]);
     expect(
       body.ucp.capabilities['dev.ucp.shopping.checkout'][0].config
@@ -152,8 +154,10 @@ describe('GET /.well-known/ucp', () => {
       expect.objectContaining({
         version: '2026-04-08',
         spec: 'https://ucp.dev/2026-04-08/specification/order',
-        schema: 'https://ucp.dev/2026-04-08/schemas/shopping/order.json',
       }),
+    ]);
+    expect(body.ucp.capabilities['dev.ucp.shopping.order']).toEqual([
+      expect.not.objectContaining({ schema: expect.anything() }),
     ]);
     expect(
       body.ucp.capabilities['dev.ucp.shopping.order'][0].config

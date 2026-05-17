@@ -10,7 +10,6 @@ export const UCP_PROFILE_CACHE_CONTROL = 'public, max-age=300, s-maxage=300';
 export const UCP_PROFILE_VERSION = '2026-04-08';
 const UCP_PROFILE_BASE_URL = `https://ucp.dev/${UCP_PROFILE_VERSION}`;
 const UCP_SPEC_BASE_URL = `${UCP_PROFILE_BASE_URL}/specification`;
-const UCP_SCHEMA_BASE_URL = `${UCP_PROFILE_BASE_URL}/schemas/shopping`;
 const UCP_SHOPPING_REST_SCHEMA_URL = `${UCP_PROFILE_BASE_URL}/services/shopping/rest.openapi.json`;
 
 const UCP_CHECKOUT_CAPABILITY = 'dev.ucp.shopping.checkout';
@@ -19,8 +18,6 @@ const UCP_SHOPPING_SERVICE = 'dev.ucp.shopping';
 const UCP_SHOPPING_SPEC_URL = `${UCP_SPEC_BASE_URL}/overview`;
 const UCP_CHECKOUT_SPEC_URL = `${UCP_SPEC_BASE_URL}/checkout`;
 const UCP_ORDER_SPEC_URL = `${UCP_SPEC_BASE_URL}/order`;
-const UCP_CHECKOUT_SCHEMA_URL = `${UCP_SCHEMA_BASE_URL}/checkout.json`;
-const UCP_ORDER_SCHEMA_URL = `${UCP_SCHEMA_BASE_URL}/order.json`;
 
 const CHECKOUT_SESSION_CAPABILITIES = [
   'checkout.session.create',
@@ -216,7 +213,6 @@ function buildUcpCheckoutCapability({
   return {
     version: UCP_PROFILE_VERSION,
     spec: UCP_CHECKOUT_SPEC_URL,
-    schema: UCP_CHECKOUT_SCHEMA_URL,
     config: {
       auth: manifest.auth
         ? {
@@ -253,7 +249,6 @@ function buildUcpOrderCapability({
   return {
     version: UCP_PROFILE_VERSION,
     spec: UCP_ORDER_SPEC_URL,
-    schema: UCP_ORDER_SCHEMA_URL,
     config: {
       auth: manifest.auth
         ? {
