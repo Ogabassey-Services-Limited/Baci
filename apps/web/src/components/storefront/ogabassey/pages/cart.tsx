@@ -49,6 +49,10 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
     cartTotal,
   } = useCart();
   const merchantContext = useMerchantSafe();
+  const negotiationVatRate =
+    merchantContext?.merchant?.vat_registration_status === 'registered'
+      ? (merchantContext.merchant.vat_rate ?? 7.5) / 100
+      : 0;
   const [negotiationState, setNegotiationState] =
     useState<NegotiationState | null>(null);
   const _router = useRouter();
@@ -395,6 +399,7 @@ export const OgabasseyV2CartPage: React.FC<OgabasseyV2CartPageProps> = ({
           onClose={() => setNegotiationState(null)}
           productName={negotiationState.name}
           currentPrice={negotiationState.currentPrice}
+          vatRate={negotiationVatRate}
           onSuccess={handleNegotiationSuccess}
           type={negotiationState.type}
           itemId={negotiationState.item?.cartItemId}

@@ -6,10 +6,16 @@ import {
 } from '@/lib/agentic/checkout-order-tax';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
 import {
+  computeCanonicalOrderSubtotal,
+  isCanonicalOrderSubtotalUuidError,
+} from '@/lib/checkout/canonical-order-subtotal';
+import { computeExpectedTotalDiscount } from '@/lib/checkout/expected-total-discount';
+import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
+import { FEATURES, isPlanTier, planHasFeature } from '@/lib/feature-flags';
 import { formatVariantAttributesLabel } from '@/lib/format-variant-attributes-label';
 import { detectPrivacyRegion } from '@/lib/geo-privacy';
 import {
@@ -30,6 +36,28 @@ function isPayOnDelivery(paymentMethod: string): boolean {
 
 /** Server-authoritative assurance rate — never trust the client value. */
 const SERVER_ASSURANCE_RATE = 0.05;
+const LEGACY_NEGOTIATION_SLUGS = new Set(['ogabassey', 'demo-premium']);
+
+function hasPriceNegotiationEntitlement(
+  planTier: string | null | undefined,
+  merchantSlug: string | null | undefined
+): boolean {
+  if (isPlanTier(planTier)) {
+    return planHasFeature(planTier, FEATURES.PRICE_NEGOTIATION);
+  }
+
+  // If plan_tier is present but malformed, fail closed.
+  if (planTier != null) {
+    return false;
+  }
+
+  // Maintain legacy storefront entitlement fallback until all
+  // merchants are backfilled with an explicit `plan_tier`.
+  return (
+    typeof merchantSlug === 'string' &&
+    LEGACY_NEGOTIATION_SLUGS.has(merchantSlug.toLowerCase())
+  );
+}
 
 type EmailOrderItem = {
   name?: string;
@@ -194,7 +222,7 @@ export async function POST(request: NextRequest) {
     const { data: merchant, error: merchantFetchError } = await supabase
       .from('merchants')
       .select(
-        'id, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number'
+        'id, rider_phone_number, business_name, business_address, slug, support_email, email_sender_name, email, tax_identification_number, cac_rc_number, plan_tier'
       )
       .eq('id', merchant_id)
       .single();
@@ -257,6 +285,16 @@ export async function POST(request: NextRequest) {
     ) {
       return NextResponse.json(
         { error: 'Invalid pricing values' },
+        { status: 400 }
+      );
+    }
+
+    if (discountAmountValue !== 0) {
+      return NextResponse.json(
+        {
+          code: 'discount_amount_not_supported',
+          error: 'Failed to create order',
+        },
         { status: 400 }
       );
     }
@@ -328,6 +366,64 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const merchantCanAutoNegotiate = hasPriceNegotiationEntitlement(
+      merchant.plan_tier,
+      merchant.slug
+    );
+
+    let serverDerivedDiscountAmount = 0;
+    if (merchantCanAutoNegotiate && typeof body.expected_total === 'number') {
+      let canonicalSubtotal: number | null;
+      try {
+        canonicalSubtotal = await computeCanonicalOrderSubtotal({
+          items: orderItemsPayload,
+          merchantId: merchant_id,
+          supabase,
+        });
+      } catch (canonicalSubtotalError) {
+        if (isCanonicalOrderSubtotalUuidError(canonicalSubtotalError)) {
+          logger.warn({
+            error: canonicalSubtotalError,
+            merchantId: merchant_id,
+            message:
+              'Storefront order received malformed identifier during subtotal parity lookup',
+          });
+          return NextResponse.json(
+            {
+              error: 'Failed to create order',
+              details: 'invalid_items',
+            },
+            { status: 400 }
+          );
+        }
+
+        logger.error({
+          error: canonicalSubtotalError,
+          merchantId: merchant_id,
+          message: 'Storefront order canonical subtotal recompute failed',
+        });
+        return NextResponse.json(
+          { error: 'Internal server error' },
+          { status: 500 }
+        );
+      }
+
+      if (canonicalSubtotal !== null) {
+        const expectedTotalInput = {
+          canonicalSubtotal,
+          canonicalTaxAmount: serverComputedTaxAmount,
+          shippingFee: shippingFeeValue,
+          giftWrappingFee: giftWrappingFeeValue,
+          expectedTotal: body.expected_total,
+        };
+
+        if (merchantCanAutoNegotiate) {
+          serverDerivedDiscountAmount =
+            computeExpectedTotalDiscount(expectedTotalInput);
+        }
+      }
+    }
+
     const adTrackingPayload = ad_tracking
       ? {
           ...ad_tracking,
@@ -381,7 +477,7 @@ export async function POST(request: NextRequest) {
         p_customer_phone: customer_phone || null,
         p_items: orderItemsPayload,
         p_shipping_fee: shippingFeeValue,
-        p_discount_amount: discountAmountValue,
+        p_discount_amount: serverDerivedDiscountAmount,
         p_tax_amount: serverComputedTaxAmount,
         p_payment_method: payment_method,
         p_payment_status: effectivePaymentStatus,

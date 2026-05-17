@@ -329,6 +329,40 @@ describe('POST /api/orders — wallet response shape', () => {
   });
 });
 
+describe('POST /api/orders — discount guard', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: 'Not authenticated',
+      supabase: null,
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => buildMockSupabase() as unknown as never
+    );
+  });
+
+  it('rejects any non-zero client discount amount', async () => {
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        discount_amount: 50,
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({
+      code: 'discount_amount_not_supported',
+      error: 'Failed to create order',
+    });
+  });
+});
+
 describe('POST /api/orders — B3.5 client/server total parity', () => {
   // Codex P1 (PR #1622): the parity check moved INTO the RPC so a
   // mismatch rolls back the transaction atomically BEFORE the order
@@ -683,6 +717,567 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
     );
   });
 
+  it('turns an entitled bounded negotiated expected_total drift into a server-derived discount', async () => {
+    const rpcSpy = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'order-id',
+          order_number: 'ORD-123',
+          total: 1042.75,
+          subtotal: 1000,
+          shipping_fee: 0,
+          customer_id: CUSTOMER_ID,
+        },
+      ],
+      error: null,
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      sb.from = ((table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: { vat_registration_status: 'registered' },
+                    error: null,
+                  }),
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: MERCHANT_ID,
+                      business_name: 'Test',
+                      plan_tier: 'pro',
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'products') {
+          return {
+            select: () => ({
+              eq: () => ({
+                in: () => ({
+                  returns: () =>
+                    Promise.resolve({
+                      data: [
+                        {
+                          id: 'p-1',
+                          price: 1000,
+                          vat_category_code: 'S',
+                          vat_rate: 7.5,
+                        },
+                      ],
+                      error: null,
+                    }),
+                }),
+              }),
+            }),
+          };
+        }
+        return {
+          select: () => ({
+            eq: () => ({
+              single: () => Promise.resolve({ data: null, error: null }),
+              maybeSingle: () => Promise.resolve({ data: null, error: null }),
+            }),
+          }),
+          insert: () => Promise.resolve({ error: null }),
+        };
+      }) as typeof sb.from;
+      sb.rpc = ((name: string, args: Record<string, unknown>) => {
+        if (name === 'create_storefront_order') {
+          return rpcSpy(args);
+        }
+        if (name === 'get_order_variant_overrides') {
+          return Promise.resolve({ data: [], error: null });
+        }
+        return Promise.resolve({ data: null, error: null });
+      }) as typeof sb.rpc;
+      return sb;
+    }) as unknown as never);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            product_id: 'p-1',
+            quantity: 1,
+            price: 970,
+            name: 'Widget',
+          },
+        ],
+        subtotal: 970,
+        tax_amount: 72.75,
+        expected_total: 1045,
+        client_total: 1045,
+      }),
+    });
+    await POST(request);
+
+    expect(rpcSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_discount_amount: 30,
+        p_expected_total: 1045,
+        p_tax_amount: 75,
+      })
+    );
+  });
+
+  it('preserves legacy negotiation entitlement fallback when plan_tier is missing', async () => {
+    const rpcSpy = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'order-id',
+          order_number: 'ORD-123',
+          total: 1045,
+          subtotal: 1000,
+          shipping_fee: 0,
+          customer_id: CUSTOMER_ID,
+        },
+      ],
+      error: null,
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      sb.from = ((table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: { vat_registration_status: 'registered' },
+                    error: null,
+                  }),
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: MERCHANT_ID,
+                      business_name: 'Test',
+                      plan_tier: null,
+                      slug: 'ogabassey',
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'products') {
+          return {
+            select: () => ({
+              eq: () => ({
+                in: () => ({
+                  returns: () =>
+                    Promise.resolve({
+                      data: [
+                        {
+                          id: 'p-1',
+                          price: 1000,
+                          vat_category_code: 'S',
+                          vat_rate: 7.5,
+                        },
+                      ],
+                      error: null,
+                    }),
+                }),
+              }),
+            }),
+          };
+        }
+        return {
+          select: () => ({
+            eq: () => ({
+              single: () => Promise.resolve({ data: null, error: null }),
+              maybeSingle: () => Promise.resolve({ data: null, error: null }),
+            }),
+          }),
+          insert: () => Promise.resolve({ error: null }),
+        };
+      }) as typeof sb.from;
+      sb.rpc = ((name: string, args: Record<string, unknown>) => {
+        if (name === 'create_storefront_order') {
+          return rpcSpy(args);
+        }
+        if (name === 'get_order_variant_overrides') {
+          return Promise.resolve({ data: [], error: null });
+        }
+        return Promise.resolve({ data: null, error: null });
+      }) as typeof sb.rpc;
+      return sb;
+    }) as unknown as never);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            product_id: 'p-1',
+            quantity: 1,
+            price: 970,
+            name: 'Widget',
+          },
+        ],
+        subtotal: 970,
+        tax_amount: 72.75,
+        expected_total: 1045,
+        client_total: 1045,
+      }),
+    });
+    await POST(request);
+
+    expect(rpcSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_discount_amount: 30,
+        p_expected_total: 1045,
+        p_tax_amount: 75,
+      })
+    );
+  });
+
+  it('does not derive a discount for merchants without price negotiation entitlement', async () => {
+    const rpcSpy = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        message: 'order_total_mismatch',
+      },
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      sb.from = ((table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: { vat_registration_status: 'registered' },
+                    error: null,
+                  }),
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: MERCHANT_ID,
+                      business_name: 'Test',
+                      plan_tier: 'starter',
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'products') {
+          return {
+            select: () => ({
+              eq: () => ({
+                in: () => ({
+                  returns: () =>
+                    Promise.resolve({
+                      data: [
+                        {
+                          id: 'p-1',
+                          price: 1000,
+                          vat_category_code: 'S',
+                          vat_rate: 7.5,
+                        },
+                      ],
+                      error: null,
+                    }),
+                }),
+              }),
+            }),
+          };
+        }
+        return {
+          select: () => ({
+            eq: () => ({
+              single: () => Promise.resolve({ data: null, error: null }),
+              maybeSingle: () => Promise.resolve({ data: null, error: null }),
+            }),
+          }),
+          insert: () => Promise.resolve({ error: null }),
+        };
+      }) as typeof sb.from;
+      sb.rpc = ((name: string, args: Record<string, unknown>) => {
+        if (name === 'create_storefront_order') {
+          return rpcSpy(args);
+        }
+        if (name === 'get_order_variant_overrides') {
+          return Promise.resolve({ data: [], error: null });
+        }
+        return Promise.resolve({ data: null, error: null });
+      }) as typeof sb.rpc;
+      return sb;
+    }) as unknown as never);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            product_id: 'p-1',
+            quantity: 1,
+            price: 970,
+            name: 'Widget',
+          },
+        ],
+        subtotal: 970,
+        tax_amount: 72.75,
+        expected_total: 1042.75,
+        client_total: 1042.75,
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body.details).toBe('order_total_mismatch');
+    expect(rpcSpy).toHaveBeenCalledTimes(1);
+    expect(rpcSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_discount_amount: 0,
+      })
+    );
+  });
+
+  it('does not apply legacy negotiation fallback when plan_tier is malformed', async () => {
+    const rpcSpy = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        message: 'order_total_mismatch',
+      },
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      sb.from = ((table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: { vat_registration_status: 'registered' },
+                    error: null,
+                  }),
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: MERCHANT_ID,
+                      business_name: 'Test',
+                      plan_tier: 'starter_typo',
+                      slug: 'ogabassey',
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'products') {
+          return {
+            select: () => ({
+              eq: () => ({
+                in: () => ({
+                  returns: () =>
+                    Promise.resolve({
+                      data: [
+                        {
+                          id: 'p-1',
+                          price: 1000,
+                          vat_category_code: 'S',
+                          vat_rate: 7.5,
+                        },
+                      ],
+                      error: null,
+                    }),
+                }),
+              }),
+            }),
+          };
+        }
+        return {
+          select: () => ({
+            eq: () => ({
+              single: () => Promise.resolve({ data: null, error: null }),
+              maybeSingle: () => Promise.resolve({ data: null, error: null }),
+            }),
+          }),
+          insert: () => Promise.resolve({ error: null }),
+        };
+      }) as typeof sb.from;
+      sb.rpc = ((name: string, args: Record<string, unknown>) => {
+        if (name === 'create_storefront_order') {
+          return rpcSpy(args);
+        }
+        if (name === 'get_order_variant_overrides') {
+          return Promise.resolve({ data: [], error: null });
+        }
+        return Promise.resolve({ data: null, error: null });
+      }) as typeof sb.rpc;
+      return sb;
+    }) as unknown as never);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            product_id: 'p-1',
+            quantity: 1,
+            price: 970,
+            name: 'Widget',
+          },
+        ],
+        subtotal: 970,
+        tax_amount: 72.75,
+        expected_total: 1042.75,
+        client_total: 1042.75,
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body.details).toBe('order_total_mismatch');
+    expect(rpcSpy).toHaveBeenCalledTimes(1);
+    expect(rpcSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_discount_amount: 0,
+      })
+    );
+  });
+
+  it('returns 500 when canonical subtotal preload fails during negotiated checkout', async () => {
+    const rpcSpy = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        message: 'order_total_mismatch',
+      },
+    });
+    let productLoadCount = 0;
+
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      sb.from = ((table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: { vat_registration_status: 'registered' },
+                    error: null,
+                  }),
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: MERCHANT_ID,
+                      business_name: 'Test',
+                      plan_tier: 'pro',
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'products') {
+          return {
+            select: () => ({
+              eq: () => ({
+                in: () => ({
+                  returns: () => {
+                    productLoadCount += 1;
+                    if (productLoadCount === 1) {
+                      return Promise.resolve({
+                        data: [
+                          {
+                            id: 'p-1',
+                            price: 1000,
+                            vat_category_code: 'S',
+                            vat_rate: 7.5,
+                          },
+                        ],
+                        error: null,
+                      });
+                    }
+
+                    return Promise.resolve({
+                      data: null,
+                      error: { message: 'db unavailable' },
+                    });
+                  },
+                }),
+              }),
+            }),
+          };
+        }
+        return {
+          select: () => ({
+            eq: () => ({
+              single: () => Promise.resolve({ data: null, error: null }),
+              maybeSingle: () => Promise.resolve({ data: null, error: null }),
+            }),
+          }),
+          insert: () => Promise.resolve({ error: null }),
+        };
+      }) as typeof sb.from;
+      sb.rpc = ((name: string, args: Record<string, unknown>) => {
+        if (name === 'create_storefront_order') {
+          return rpcSpy(args);
+        }
+        if (name === 'get_order_variant_overrides') {
+          return Promise.resolve({ data: [], error: null });
+        }
+        return Promise.resolve({ data: null, error: null });
+      }) as typeof sb.rpc;
+      return sb;
+    }) as unknown as never);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            product_id: 'p-1',
+            quantity: 1,
+            price: 970,
+            name: 'Widget',
+          },
+        ],
+        subtotal: 970,
+        tax_amount: 72.75,
+        expected_total: 1042.75,
+        client_total: 1042.75,
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe('Internal server error');
+    expect(rpcSpy).not.toHaveBeenCalled();
+  });
+
   it('maps a 22P02 UUID parse error from the tax helper to 400 INVALID_ITEM_ID (Codex P2 round 7)', async () => {
     // Item ids are only `z.string()` at the schema layer, so a
     // malformed product_id (e.g. a slug) reaches the helper and
@@ -768,6 +1363,118 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
       error: 'Failed to create order',
       details: 'invalid_items',
     });
+  });
+
+  it('maps a 22P02 UUID parse error from canonical subtotal lookup to 400 INVALID_ITEM_ID', async () => {
+    const rpcSpy = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'order-id',
+          order_number: 'ORD-123',
+          total: 1000,
+          subtotal: 1000,
+          shipping_fee: 0,
+          customer_id: CUSTOMER_ID,
+        },
+      ],
+      error: null,
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      sb.from = ((table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: { vat_registration_status: 'not_registered' },
+                    error: null,
+                  }),
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: MERCHANT_ID,
+                      business_name: 'Test',
+                      plan_tier: 'pro',
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'products') {
+          return {
+            select: () => ({
+              eq: () => ({
+                in: () => ({
+                  returns: () =>
+                    Promise.resolve({
+                      data: null,
+                      error: {
+                        code: '22P02',
+                        message:
+                          'invalid input syntax for type uuid: "not-a-uuid"',
+                      },
+                    }),
+                }),
+              }),
+            }),
+          };
+        }
+
+        return {
+          select: () => ({
+            eq: () => ({
+              single: () => Promise.resolve({ data: null, error: null }),
+              maybeSingle: () => Promise.resolve({ data: null, error: null }),
+            }),
+          }),
+          insert: () => Promise.resolve({ error: null }),
+        };
+      }) as typeof sb.from;
+      sb.rpc = ((name: string, args: Record<string, unknown>) => {
+        if (name === 'create_storefront_order') {
+          return rpcSpy(args);
+        }
+        if (name === 'get_order_variant_overrides') {
+          return Promise.resolve({ data: [], error: null });
+        }
+        return Promise.resolve({ data: null, error: null });
+      }) as typeof sb.rpc;
+      return sb;
+    }) as unknown as never);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            product_id: 'not-a-uuid',
+            quantity: 1,
+            price: 970,
+            name: 'Widget',
+          },
+        ],
+        subtotal: 970,
+        tax_amount: 0,
+        expected_total: 970,
+        client_total: 970,
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({
+      error: 'Failed to create order',
+      details: 'invalid_items',
+    });
+    expect(rpcSpy).not.toHaveBeenCalled();
   });
 
   it('forces p_tax_basis to "exclusive" regardless of client input (Codex P1 round 6)', async () => {
