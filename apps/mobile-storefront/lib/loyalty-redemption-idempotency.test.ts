@@ -83,7 +83,7 @@ describe('loyalty redemption idempotency', () => {
     expect(mockSetItem).not.toHaveBeenCalled();
   });
 
-  it('replaces a persisted redemption id from a different attempt', async () => {
+  it('reuses a persisted redemption id across attempts when the balance snapshot matches', async () => {
     mockGetItem.mockResolvedValueOnce(
       JSON.stringify({
         attemptId: 'previous-attempt',
@@ -104,20 +104,9 @@ describe('loyalty redemption idempotency', () => {
       points: 200,
     });
 
-    expect(result.redemptionId).toBe('new-redemption-id');
-    expect(mockRemoveItem).toHaveBeenCalledWith(
-      'loyalty-redemption:customer-1:merchant-1:200'
-    );
-    expect(mockSetItem).toHaveBeenCalledWith(
-      'loyalty-redemption:customer-1:merchant-1:200',
-      JSON.stringify({
-        attemptId: 'current-attempt',
-        createdAt: 1_500,
-        pointsBeforeRedeem: 1000,
-        redemptionId: 'new-redemption-id',
-        version: 2,
-      })
-    );
+    expect(result.redemptionId).toBe('persisted-redemption-id');
+    expect(mockRemoveItem).not.toHaveBeenCalled();
+    expect(mockSetItem).not.toHaveBeenCalled();
   });
 
   it('replaces a live-attempt redemption id when the balance snapshot changed', async () => {
