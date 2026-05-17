@@ -13,7 +13,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { deletePlatformBlogPost } from './blog-api';
+import { deletePlatformBlogPost, listPlatformBlogPostsPage } from './blog-api';
+import { PLATFORM_BLOG_PAGE_SIZE } from './blog-pagination';
 import type { PlatformAdminBlogPostSummary } from './blog-types';
 
 function formatUpdatedDate(value: string | null | undefined): string {
@@ -27,17 +28,23 @@ function formatUpdatedDate(value: string | null | undefined): string {
 
 type BlogListClientProps = {
   initialError?: string | null;
+  initialHasMore?: boolean;
   initialPosts: PlatformAdminBlogPostSummary[];
+  pageSize?: number;
 };
 
 export function BlogListClient({
   initialError = null,
+  initialHasMore = false,
   initialPosts,
+  pageSize = PLATFORM_BLOG_PAGE_SIZE,
 }: BlogListClientProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [posts, setPosts] =
     useState<PlatformAdminBlogPostSummary[]>(initialPosts);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
   const [errorMessage] = useState<string | null>(initialError);
 
@@ -64,6 +71,37 @@ export function BlogListClient({
       });
     } finally {
       setDeletingPostId(null);
+    }
+  };
+
+  const handleLoadMore = async () => {
+    if (loadingMore || !hasMore) {
+      return;
+    }
+
+    try {
+      setLoadingMore(true);
+      const nextPage = await listPlatformBlogPostsPage({
+        limit: pageSize,
+        offset: posts.length,
+      });
+      setPosts((current) => {
+        const seenIds = new Set(current.map((post) => post.id));
+        const uniquePosts = nextPage.posts.filter(
+          (post) => !seenIds.has(post.id)
+        );
+        return [...current, ...uniquePosts];
+      });
+      setHasMore(nextPage.hasMore);
+    } catch (error) {
+      toast({
+        title: 'Load failed',
+        description:
+          error instanceof Error ? error.message : 'Failed to load posts',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -124,7 +162,11 @@ export function BlogListClient({
 
                     <div className="flex items-center gap-2">
                       <Button asChild variant="outline" size="sm">
-                        <Link href={`/blog/${post.slug}`} target="_blank">
+                        <Link
+                          href={`/blog/${post.slug}`}
+                          rel="noopener noreferrer"
+                          target="_blank"
+                        >
                           View
                         </Link>
                       </Button>
@@ -151,6 +193,25 @@ export function BlogListClient({
                   </div>
                 );
               })}
+            </div>
+          ) : null}
+
+          {!errorMessage && hasMore ? (
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="outline"
+                disabled={loadingMore}
+                onClick={handleLoadMore}
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading...
+                  </>
+                ) : (
+                  'Load more'
+                )}
+              </Button>
             </div>
           ) : null}
         </CardContent>

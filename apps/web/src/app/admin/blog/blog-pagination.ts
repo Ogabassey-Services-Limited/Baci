@@ -1,0 +1,1 @@
+export const PLATFORM_BLOG_PAGE_SIZE = 25;

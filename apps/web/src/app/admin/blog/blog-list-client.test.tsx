@@ -6,6 +6,7 @@ import type { PlatformAdminBlogPostSummary } from './blog-types';
 const mockRefresh = vi.fn();
 const mockToast = vi.fn();
 const mockDeletePlatformBlogPost = vi.fn();
+const mockListPlatformBlogPostsPage = vi.fn();
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
@@ -35,6 +36,8 @@ vi.mock('@/hooks/use-toast', () => ({
 vi.mock('./blog-api', () => ({
   deletePlatformBlogPost: (...args: unknown[]) =>
     mockDeletePlatformBlogPost(...args),
+  listPlatformBlogPostsPage: (...args: unknown[]) =>
+    mockListPlatformBlogPostsPage(...args),
 }));
 
 import { BlogListClient } from './blog-list-client';
@@ -70,6 +73,10 @@ describe('BlogListClient', () => {
 
     expect(screen.getByText('Launch Faster')).toBeInTheDocument();
     expect(screen.getByText(/\/blog\/launch-faster/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View' })).toHaveAttribute(
+      'rel',
+      'noopener noreferrer'
+    );
   });
 
   it('shows initial error message when server fetch fails', () => {
@@ -134,5 +141,35 @@ describe('BlogListClient', () => {
         variant: 'destructive',
       })
     );
+  });
+
+  it('loads more posts when requested', async () => {
+    mockListPlatformBlogPostsPage.mockResolvedValueOnce({
+      hasMore: false,
+      limit: 25,
+      offset: 1,
+      posts: [
+        {
+          id: 'post-2',
+          slug: 'scale-faster',
+          status: 'published',
+          title: 'Scale Faster',
+          updated_at: '2026-05-17T00:00:00.000Z',
+        },
+      ],
+      total: 2,
+    });
+
+    render(<BlogListClient initialHasMore initialPosts={samplePosts} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Load more' }));
+
+    await waitFor(() => {
+      expect(mockListPlatformBlogPostsPage).toHaveBeenCalledWith({
+        limit: 25,
+        offset: 1,
+      });
+    });
+    expect(await screen.findByText('Scale Faster')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Load more' })).toBeNull();
   });
 });

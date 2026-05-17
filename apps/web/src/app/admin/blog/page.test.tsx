@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PLATFORM_BLOG_PAGE_SIZE } from './blog-pagination';
 
 const mockBlogListClient = vi.fn((_props: unknown) => (
   <div>Platform blog list</div>
@@ -53,6 +54,7 @@ describe('/admin/blog page', () => {
     });
     mockCreateClient.mockResolvedValue(mockSupabase);
     mockSupabase.range.mockResolvedValue({
+      count: 1,
       data: [
         {
           id: 'post-1',
@@ -72,6 +74,7 @@ describe('/admin/blog page', () => {
     expect(mockBlogListClient).toHaveBeenCalledWith(
       expect.objectContaining({
         initialError: null,
+        initialHasMore: false,
         initialPosts: [
           {
             id: 'post-1',
@@ -80,12 +83,14 @@ describe('/admin/blog page', () => {
             title: 'Launch Faster',
           },
         ],
+        pageSize: PLATFORM_BLOG_PAGE_SIZE,
       })
     );
   });
 
   it('passes an error message when the server query fails', async () => {
     mockSupabase.range.mockResolvedValueOnce({
+      count: null,
       data: null,
       error: { message: 'boom' },
     });
@@ -95,7 +100,30 @@ describe('/admin/blog page', () => {
     expect(mockBlogListClient).toHaveBeenCalledWith(
       expect.objectContaining({
         initialError: 'Failed to load platform blog posts',
+        initialHasMore: false,
         initialPosts: [],
+        pageSize: PLATFORM_BLOG_PAGE_SIZE,
+      })
+    );
+  });
+
+  it('enables load more when server count exceeds first page size', async () => {
+    mockSupabase.range.mockResolvedValueOnce({
+      count: PLATFORM_BLOG_PAGE_SIZE + 1,
+      data: Array.from({ length: PLATFORM_BLOG_PAGE_SIZE }, (_, index) => ({
+        id: `post-${index + 1}`,
+        slug: `post-${index + 1}`,
+        status: 'draft',
+        title: `Post ${index + 1}`,
+      })),
+      error: null,
+    });
+
+    render(await AdminBlogPage());
+
+    expect(mockBlogListClient).toHaveBeenCalledWith(
+      expect.objectContaining({
+        initialHasMore: true,
       })
     );
   });

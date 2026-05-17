@@ -1,4 +1,5 @@
 import { fetchWithCsrf } from '@/lib/api-client';
+import { PLATFORM_BLOG_PAGE_SIZE } from './blog-pagination';
 import type {
   PlatformAdminBlogFormState,
   PlatformAdminBlogPostDetail,
@@ -6,7 +7,19 @@ import type {
 } from './blog-types';
 
 type PlatformBlogListResponse = {
+  hasMore?: boolean;
+  limit?: number;
+  offset?: number;
   posts: PlatformAdminBlogPostSummary[];
+  total?: number;
+};
+
+export type PlatformBlogListPage = {
+  hasMore: boolean;
+  limit: number;
+  offset: number;
+  posts: PlatformAdminBlogPostSummary[];
+  total: number;
 };
 
 async function readErrorMessage(
@@ -133,10 +146,29 @@ function shouldIncludeFeaturedImageFields(
 export async function listPlatformBlogPosts(): Promise<
   PlatformAdminBlogPostSummary[]
 > {
-  const response = await fetch('/api/admin/blog/posts?limit=100&offset=0', {
-    cache: 'no-store',
-    credentials: 'include',
+  const page = await listPlatformBlogPostsPage({
+    limit: PLATFORM_BLOG_PAGE_SIZE,
+    offset: 0,
   });
+  return page.posts;
+}
+
+export async function listPlatformBlogPostsPage({
+  limit = PLATFORM_BLOG_PAGE_SIZE,
+  offset = 0,
+}: {
+  limit?: number;
+  offset?: number;
+} = {}): Promise<PlatformBlogListPage> {
+  const normalizedLimit = Math.min(Math.max(Math.trunc(limit), 1), 100);
+  const normalizedOffset = Math.max(Math.trunc(offset), 0);
+  const response = await fetch(
+    `/api/admin/blog/posts?limit=${normalizedLimit}&offset=${normalizedOffset}`,
+    {
+      cache: 'no-store',
+      credentials: 'include',
+    }
+  );
 
   if (!response.ok) {
     throw new Error(
@@ -145,7 +177,13 @@ export async function listPlatformBlogPosts(): Promise<
   }
 
   const payload = (await response.json()) as PlatformBlogListResponse;
-  return payload.posts || [];
+  return {
+    hasMore: Boolean(payload.hasMore),
+    limit: payload.limit ?? normalizedLimit,
+    offset: payload.offset ?? normalizedOffset,
+    posts: payload.posts || [],
+    total: payload.total ?? payload.posts?.length ?? 0,
+  };
 }
 
 export async function getPlatformBlogPost(

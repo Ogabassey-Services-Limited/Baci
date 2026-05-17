@@ -22,6 +22,9 @@ import {
   toPlatformMediaUrl,
 } from './upload-helpers';
 
+const PLATFORM_BLOG_UPLOAD_RATE_LIMIT = 30;
+const PLATFORM_BLOG_UPLOAD_RATE_WINDOW_MINUTES = 1;
+
 export async function POST(request: NextRequest) {
   const auth = await getPlatformAdminAuth();
   if (auth.status !== 'authenticated') {
@@ -41,8 +44,8 @@ export async function POST(request: NextRequest) {
     supabase,
     auth.user.id,
     'platform_blog_upload',
-    5,
-    1
+    PLATFORM_BLOG_UPLOAD_RATE_LIMIT,
+    PLATFORM_BLOG_UPLOAD_RATE_WINDOW_MINUTES
   );
   if (!isAllowed) {
     return NextResponse.json(
@@ -218,8 +221,8 @@ export async function DELETE(request: NextRequest) {
     supabase,
     auth.user.id,
     'platform_blog_upload',
-    5,
-    1
+    PLATFORM_BLOG_UPLOAD_RATE_LIMIT,
+    PLATFORM_BLOG_UPLOAD_RATE_WINDOW_MINUTES
   );
   if (!isAllowed) {
     return NextResponse.json(

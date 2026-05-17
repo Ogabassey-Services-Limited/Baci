@@ -17,8 +17,10 @@ import {
   deletePlatformBlogPost,
   getPlatformBlogPost,
   listPlatformBlogPosts,
+  listPlatformBlogPostsPage,
   updatePlatformBlogPost,
 } from './blog-api';
+import { PLATFORM_BLOG_PAGE_SIZE } from './blog-pagination';
 
 const sampleForm: PlatformAdminBlogFormState = {
   author_name: 'Baci Editorial',
@@ -95,7 +97,7 @@ describe('blog-api', () => {
     const posts = await listPlatformBlogPosts();
 
     expect(global.fetch).toHaveBeenCalledWith(
-      '/api/admin/blog/posts?limit=100&offset=0',
+      `/api/admin/blog/posts?limit=${PLATFORM_BLOG_PAGE_SIZE}&offset=0`,
       expect.objectContaining({
         cache: 'no-store',
         credentials: 'include',
@@ -117,6 +119,49 @@ describe('blog-api', () => {
     );
 
     await expect(listPlatformBlogPosts()).rejects.toThrow('boom');
+  });
+
+  it('lists platform blog posts with pagination metadata', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      jsonResponse({
+        hasMore: true,
+        limit: 25,
+        offset: 25,
+        posts: [
+          {
+            id: 'post-2',
+            slug: 'scale-faster',
+            status: 'published',
+            title: 'Scale Faster',
+          },
+        ],
+        total: 40,
+      })
+    );
+
+    const page = await listPlatformBlogPostsPage({ limit: 25, offset: 25 });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/admin/blog/posts?limit=25&offset=25',
+      expect.objectContaining({
+        cache: 'no-store',
+        credentials: 'include',
+      })
+    );
+    expect(page).toEqual({
+      hasMore: true,
+      limit: 25,
+      offset: 25,
+      posts: [
+        {
+          id: 'post-2',
+          slug: 'scale-faster',
+          status: 'published',
+          title: 'Scale Faster',
+        },
+      ],
+      total: 40,
+    });
   });
 
   it('loads a single post via GET endpoint', async () => {

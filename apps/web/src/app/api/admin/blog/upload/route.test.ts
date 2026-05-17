@@ -90,7 +90,35 @@ describe('POST /api/admin/blog/upload', () => {
         contentType: 'image/png',
       })
     );
+    expect(mockCheckRateLimit).toHaveBeenCalledWith(
+      mockSupabase,
+      'user-1',
+      'platform_blog_upload',
+      30,
+      1
+    );
     expect(mockRevalidatePlatformBlog).toHaveBeenCalled();
+  });
+
+  it('returns 429 when upload rate limit is exceeded', async () => {
+    mockCheckRateLimit.mockResolvedValueOnce(false);
+    const file = new File(['file-bytes'], 'cover.png', {
+      type: 'image/png',
+    });
+    const request = {
+      formData: vi.fn().mockResolvedValue({
+        get: (key: string) => (key === 'file' ? file : null),
+      }),
+    } as unknown as NextRequest;
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(429);
+    await expect(response.json()).resolves.toEqual({
+      code: 'rate_limited',
+      error: 'Rate limit exceeded',
+    });
+    expect(mockStorageBucket.upload).not.toHaveBeenCalled();
   });
 
   it('rejects webp uploads for featured images', async () => {
@@ -200,6 +228,13 @@ describe('DELETE /api/admin/blog/upload', () => {
     expect(mockStorageBucket.remove).toHaveBeenCalledWith([
       'platform/blog/cover.png',
     ]);
+    expect(mockCheckRateLimit).toHaveBeenCalledWith(
+      mockSupabase,
+      'user-1',
+      'platform_blog_upload',
+      30,
+      1
+    );
     expect(mockRevalidatePlatformBlog).toHaveBeenCalled();
   });
 });
