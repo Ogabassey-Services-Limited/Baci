@@ -46,8 +46,10 @@ describe('GET /api/blog/posts', () => {
 
     expect(response.status).toBe(200);
     expect(mockGetPlatformBlogListing).toHaveBeenCalledWith({
+      category: null,
       limit: 10,
       offset: 20,
+      tag: null,
     });
     await expect(response.json()).resolves.toEqual({
       hasMore: true,
@@ -76,8 +78,10 @@ describe('GET /api/blog/posts', () => {
 
     expect(response.status).toBe(200);
     expect(mockGetPlatformBlogListing).toHaveBeenCalledWith({
+      category: null,
       limit: 10,
       offset: 15,
+      tag: null,
     });
     await expect(response.json()).resolves.toMatchObject({
       offset: 15,
