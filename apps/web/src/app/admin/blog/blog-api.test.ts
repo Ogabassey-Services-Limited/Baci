@@ -1,84 +1,208 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fetchWithCsrf } from '@/lib/api-client';
-import { createPlatformBlogPost, updatePlatformBlogPost } from './blog-api';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlatformAdminBlogFormState } from './blog-types';
 
+const mockFetchWithCsrf = vi.fn();
+
 vi.mock('@/lib/api-client', () => ({
-  fetchWithCsrf: vi.fn(),
+  fetchWithCsrf: (...args: unknown[]) => mockFetchWithCsrf(...args),
 }));
 
-const mockFetchWithCsrf = vi.mocked(fetchWithCsrf);
+const originalFetch = global.fetch;
 
-const formState: PlatformAdminBlogFormState = {
+import {
+  createPlatformBlogPost,
+  deletePlatformBlogPost,
+  getPlatformBlogPost,
+  listPlatformBlogPosts,
+  updatePlatformBlogPost,
+} from './blog-api';
+
+const sampleForm: PlatformAdminBlogFormState = {
   author_name: 'Baci Editorial',
-  category: 'Commerce',
-  content: '<p>How to sell online</p>',
-  excerpt: 'A practical guide',
-  featured_image_alt: 'Phone shop counter',
+  category: '',
+  content: 'Hello world',
+  excerpt: '',
+  featured_image_alt: 'Hero image alt',
   featured_image_height: 675,
-  featured_image_url:
-    'https://cdn.ogabassey.com/blog/platform/original-image.webp',
+  featured_image_url: 'https://cdn.example.com/platform/blog/source.webp',
   featured_image_variants: {
-    landscape_16x9:
-      'https://cdn.ogabassey.com/blog/platform/image/landscape_16x9.webp',
-    square_1x1: 'https://cdn.ogabassey.com/blog/platform/image/square_1x1.webp',
+    landscape_16x9: 'https://cdn.example.com/platform/blog/landscape_16x9.webp',
+    square_1x1: 'https://cdn.example.com/platform/blog/square_1x1.webp',
   },
   featured_image_width: 1200,
-  seo_description: 'SEO description',
-  seo_title: 'SEO title',
-  slug: 'sell-online',
-  status: 'published',
-  tags: 'merchant, ecommerce',
-  title: 'Sell online',
+  seo_description: '',
+  seo_title: '',
+  slug: '',
+  status: 'draft',
+  tags: '',
+  title: 'Launch Faster',
 };
 
-function mockJsonResponse(body: unknown) {
-  return {
-    json: vi.fn().mockResolvedValue(body),
-    ok: true,
-  } as unknown as Response;
+function jsonResponse(payload: unknown, status = 200): Response {
+  return new Response(JSON.stringify(payload), {
+    headers: { 'Content-Type': 'application/json' },
+    status,
+  });
 }
 
-describe('platform blog API client', () => {
+describe('blog-api', () => {
   beforeEach(() => {
-    mockFetchWithCsrf.mockReset();
-    mockFetchWithCsrf.mockResolvedValue(mockJsonResponse({ id: 'post-1' }));
+    vi.clearAllMocks();
+    global.fetch = vi.fn();
   });
 
-  it('includes featured image metadata when creating a post', async () => {
-    await createPlatformBlogPost(formState);
-
-    expect(mockFetchWithCsrf).toHaveBeenCalledWith('/api/admin/blog/posts', {
-      body: JSON.stringify({
-        author_name: 'Baci Editorial',
-        category: 'Commerce',
-        content: '<p>How to sell online</p>',
-        excerpt: 'A practical guide',
-        featured_image_alt: 'Phone shop counter',
-        featured_image_height: 675,
-        featured_image_url:
-          'https://cdn.ogabassey.com/blog/platform/original-image.webp',
-        featured_image_variants: formState.featured_image_variants,
-        featured_image_width: 1200,
-        seo_description: 'SEO description',
-        seo_title: 'SEO title',
-        slug: 'sell-online',
-        status: 'published',
-        tags: 'merchant, ecommerce',
-        title: 'Sell online',
-      }),
-      method: 'POST',
-    });
+  afterAll(() => {
+    global.fetch = originalFetch;
   });
 
-  it('includes featured image metadata when updating a post', async () => {
-    await updatePlatformBlogPost('post-1', formState);
+  it('lists platform blog posts via GET endpoint', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      jsonResponse({
+        posts: [
+          {
+            id: 'post-1',
+            slug: 'launch-faster',
+            status: 'draft',
+            title: 'Launch Faster',
+          },
+        ],
+      })
+    );
 
-    const [, init] = mockFetchWithCsrf.mock.calls[0] ?? [];
-    expect(init).toEqual(
+    const posts = await listPlatformBlogPosts();
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/admin/blog/posts?limit=100&offset=0',
       expect.objectContaining({
-        body: expect.stringContaining('"featured_image_width":1200'),
-        method: 'PATCH',
+        cache: 'no-store',
+        credentials: 'include',
+      })
+    );
+    expect(posts).toEqual([
+      {
+        id: 'post-1',
+        slug: 'launch-faster',
+        status: 'draft',
+        title: 'Launch Faster',
+      },
+    ]);
+  });
+
+  it('surfaces JSON error payloads from list endpoint', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      jsonResponse({ error: 'boom' }, 500)
+    );
+
+    await expect(listPlatformBlogPosts()).rejects.toThrow('boom');
+  });
+
+  it('loads a single post via GET endpoint', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      jsonResponse({
+        id: 'post-1',
+        slug: 'launch-faster',
+        status: 'draft',
+        title: 'Launch Faster',
+      })
+    );
+
+    await expect(getPlatformBlogPost('post-1')).resolves.toEqual(
+      expect.objectContaining({ id: 'post-1', slug: 'launch-faster' })
+    );
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/admin/blog/posts/post-1',
+      expect.objectContaining({
+        cache: 'no-store',
+        credentials: 'include',
+      })
+    );
+  });
+
+  it('falls back to default error message when GET error body is not JSON', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      new Response('not-json', { status: 500 })
+    );
+
+    await expect(getPlatformBlogPost('post-1')).rejects.toThrow(
+      'Failed to load post'
+    );
+  });
+
+  it('creates posts using fetchWithCsrf and includes featured image metadata', async () => {
+    mockFetchWithCsrf.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          id: 'post-1',
+          slug: 'launch-faster',
+          status: 'draft',
+          title: 'Launch Faster',
+        },
+        201
+      )
+    );
+
+    await createPlatformBlogPost(sampleForm);
+
+    expect(mockFetchWithCsrf).toHaveBeenCalledWith(
+      '/api/admin/blog/posts',
+      expect.objectContaining({
+        method: 'POST',
+      })
+    );
+    const [, options] = mockFetchWithCsrf.mock.calls[0] as [
+      string,
+      RequestInit,
+    ];
+    const body = JSON.parse(String(options.body)) as Record<string, unknown>;
+    expect(body.category).toBeNull();
+    expect(body.excerpt).toBeNull();
+    expect(body.slug).toBeUndefined();
+    expect(body.featured_image_height).toBe(675);
+    expect(body.featured_image_width).toBe(1200);
+    expect(body.featured_image_variants).toEqual(
+      sampleForm.featured_image_variants
+    );
+  });
+
+  it('includes featured image metadata when updating posts', async () => {
+    mockFetchWithCsrf.mockResolvedValueOnce(
+      jsonResponse({ id: 'post-1', slug: 'launch-faster' })
+    );
+
+    await updatePlatformBlogPost('post-1', sampleForm);
+
+    const [, options] = mockFetchWithCsrf.mock.calls[0] as [
+      string,
+      RequestInit,
+    ];
+    const body = JSON.parse(String(options.body)) as Record<string, unknown>;
+    expect(body.featured_image_height).toBe(675);
+    expect(body.featured_image_width).toBe(1200);
+    expect(body.featured_image_variants).toEqual(
+      sampleForm.featured_image_variants
+    );
+  });
+
+  it('throws API error payloads from update endpoint', async () => {
+    mockFetchWithCsrf.mockResolvedValueOnce(
+      jsonResponse({ message: 'update failed' }, 500)
+    );
+
+    await expect(updatePlatformBlogPost('post-1', sampleForm)).rejects.toThrow(
+      'update failed'
+    );
+  });
+
+  it('deletes posts using DELETE mutation endpoint', async () => {
+    mockFetchWithCsrf.mockResolvedValueOnce(
+      jsonResponse({ success: true }, 200)
+    );
+
+    await expect(deletePlatformBlogPost('post-1')).resolves.toBeUndefined();
+    expect(mockFetchWithCsrf).toHaveBeenCalledWith(
+      '/api/admin/blog/posts/post-1',
+      expect.objectContaining({
+        method: 'DELETE',
       })
     );
   });

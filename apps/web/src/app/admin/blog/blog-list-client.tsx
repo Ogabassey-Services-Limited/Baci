@@ -3,7 +3,7 @@
 import { Loader2, PencilLine, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { deletePlatformBlogPost, listPlatformBlogPosts } from './blog-api';
+import { deletePlatformBlogPost } from './blog-api';
 import type { PlatformAdminBlogPostSummary } from './blog-types';
 
 function formatUpdatedDate(value: string | null | undefined): string {
@@ -25,46 +25,21 @@ function formatUpdatedDate(value: string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? 'Not updated' : date.toLocaleString();
 }
 
-export function BlogListClient() {
+type BlogListClientProps = {
+  initialError?: string | null;
+  initialPosts: PlatformAdminBlogPostSummary[];
+};
+
+export function BlogListClient({
+  initialError = null,
+  initialPosts,
+}: BlogListClientProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(true);
-  const [posts, setPosts] = useState<PlatformAdminBlogPostSummary[]>([]);
+  const [posts, setPosts] =
+    useState<PlatformAdminBlogPostSummary[]>(initialPosts);
   const [deletingPostId, setDeletingPostId] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadPosts = async () => {
-      try {
-        setLoading(true);
-        setErrorMessage(null);
-        const result = await listPlatformBlogPosts();
-        if (!cancelled) {
-          setPosts(result);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setErrorMessage(
-            error instanceof Error
-              ? error.message
-              : 'Failed to load platform blog posts'
-          );
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    loadPosts();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const [errorMessage] = useState<string | null>(initialError);
 
   const handleDelete = async (post: PlatformAdminBlogPostSummary) => {
     if (!window.confirm(`Delete "${post.title}"?`)) {
@@ -118,24 +93,17 @@ export function BlogListClient() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {loading ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading posts...
-            </div>
-          ) : null}
-
-          {!loading && errorMessage ? (
+          {errorMessage ? (
             <p className="text-sm text-destructive">{errorMessage}</p>
           ) : null}
 
-          {!loading && !errorMessage && posts.length === 0 ? (
+          {!errorMessage && posts.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No platform posts yet.
             </p>
           ) : null}
 
-          {!loading && !errorMessage && posts.length > 0 ? (
+          {!errorMessage && posts.length > 0 ? (
             <div className="space-y-3">
               {posts.map((post) => {
                 const deleting = deletingPostId === post.id;

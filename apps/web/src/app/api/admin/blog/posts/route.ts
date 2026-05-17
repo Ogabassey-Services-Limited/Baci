@@ -10,6 +10,9 @@ import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
 import { createClient } from '@/lib/supabase/server';
 import { createPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
 
+const PLATFORM_BLOG_DETAIL_SELECT =
+  'id, title, slug, content, excerpt, featured_image_url, featured_image_alt, featured_image_width, featured_image_height, featured_image_variants, category, tags, keywords, author_name, author_title, author_image_url, author_bio, status, seo_title, seo_description, focus_keyword, word_count, reading_time_minutes, view_count, created_at, updated_at, published_at';
+
 function parseSafeLimit(raw: string | null): number {
   const parsed = Number.parseInt(raw ?? '20', 10);
   if (!Number.isFinite(parsed)) {
@@ -161,7 +164,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from('blog_posts')
       .insert(insertData)
-      .select('*')
+      .select(PLATFORM_BLOG_DETAIL_SELECT)
       .single();
 
     if (error) {

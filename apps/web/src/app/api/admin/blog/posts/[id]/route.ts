@@ -9,6 +9,9 @@ import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
 import { createClient } from '@/lib/supabase/server';
 import { blogPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
 
+const PLATFORM_BLOG_DETAIL_SELECT =
+  'id, title, slug, content, excerpt, featured_image_url, featured_image_alt, featured_image_width, featured_image_height, featured_image_variants, category, tags, keywords, author_name, author_title, author_image_url, author_bio, status, seo_title, seo_description, focus_keyword, word_count, reading_time_minutes, view_count, created_at, updated_at, published_at';
+
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
@@ -39,9 +42,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('blog_posts')
-      .select(
-        'id, title, slug, content, excerpt, featured_image_url, featured_image_alt, featured_image_width, featured_image_height, featured_image_variants, category, tags, keywords, author_name, author_title, author_image_url, author_bio, status, seo_title, seo_description, focus_keyword, word_count, reading_time_minutes, view_count, created_at, updated_at, published_at'
-      )
+      .select(PLATFORM_BLOG_DETAIL_SELECT)
       .eq('id', id)
       .eq('is_platform_post', true)
       .is('merchant_id', null)
@@ -200,7 +201,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       .eq('id', id)
       .eq('is_platform_post', true)
       .is('merchant_id', null)
-      .select('*')
+      .select(PLATFORM_BLOG_DETAIL_SELECT)
       .single();
 
     if (error) {

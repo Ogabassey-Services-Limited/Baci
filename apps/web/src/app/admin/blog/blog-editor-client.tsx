@@ -1,24 +1,22 @@
 'use client';
 
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
-import {
-  createPlatformBlogPost,
-  getPlatformBlogPost,
-  updatePlatformBlogPost,
-} from './blog-api';
+import { createPlatformBlogPost, updatePlatformBlogPost } from './blog-api';
 import { BlogEditorFields } from './blog-editor-fields';
 import {
   DEFAULT_PLATFORM_BLOG_FORM_STATE,
   type PlatformAdminBlogFormState,
+  type PlatformAdminBlogPostDetail,
 } from './blog-types';
 
 type BlogEditorClientProps = {
+  initialPost?: PlatformAdminBlogPostDetail | null;
   mode: 'create' | 'edit';
   postId?: string;
 };
@@ -72,68 +70,49 @@ async function uploadBlogMedia(
   };
 }
 
-export function BlogEditorClient({ mode, postId }: BlogEditorClientProps) {
+function toFormState(
+  post?: PlatformAdminBlogPostDetail | null
+): PlatformAdminBlogFormState {
+  if (!post) {
+    return DEFAULT_PLATFORM_BLOG_FORM_STATE;
+  }
+
+  return {
+    author_name: post.author_name || 'Baci Editorial',
+    category: post.category || '',
+    content: post.content || '',
+    excerpt: post.excerpt || '',
+    featured_image_alt: post.featured_image_alt || '',
+    featured_image_height: post.featured_image_height ?? null,
+    featured_image_url: post.featured_image_url || '',
+    featured_image_variants: post.featured_image_variants ?? {},
+    featured_image_width: post.featured_image_width ?? null,
+    seo_description: post.seo_description || '',
+    seo_title: post.seo_title || '',
+    slug: post.slug,
+    status: post.status,
+    tags: post.tags?.join(', ') || '',
+    title: post.title,
+  };
+}
+
+export function BlogEditorClient({
+  initialPost,
+  mode,
+  postId,
+}: BlogEditorClientProps) {
   const isEditMode = mode === 'edit';
   const router = useRouter();
   const { toast } = useToast();
-  const [loading, setLoading] = useState(isEditMode);
   const [saving, setSaving] = useState(false);
   const [uploadingFeatured, setUploadingFeatured] = useState(false);
   const [form, setForm] = useState<PlatformAdminBlogFormState>(
-    DEFAULT_PLATFORM_BLOG_FORM_STATE
+    toFormState(initialPost)
   );
 
-  useEffect(() => {
-    if (!isEditMode || !postId) {
-      return;
-    }
-
-    let cancelled = false;
-    const loadPost = async () => {
-      try {
-        const post = await getPlatformBlogPost(postId);
-        if (cancelled) return;
-        setForm({
-          author_name: post.author_name || 'Baci Editorial',
-          category: post.category || '',
-          content: post.content || '',
-          excerpt: post.excerpt || '',
-          featured_image_alt: post.featured_image_alt || '',
-          featured_image_height: post.featured_image_height ?? null,
-          featured_image_url: post.featured_image_url || '',
-          featured_image_variants: post.featured_image_variants ?? {},
-          featured_image_width: post.featured_image_width ?? null,
-          seo_description: post.seo_description || '',
-          seo_title: post.seo_title || '',
-          slug: post.slug,
-          status: post.status,
-          tags: post.tags?.join(', ') || '',
-          title: post.title,
-        });
-      } catch (error) {
-        if (!cancelled) {
-          toast({
-            title: 'Failed to load post',
-            description:
-              error instanceof Error ? error.message : 'Unknown error',
-            variant: 'destructive',
-          });
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    loadPost();
-    return () => {
-      cancelled = true;
-    };
-  }, [isEditMode, postId, toast]);
-
-  const pageTitle = useMemo(
-    () => (isEditMode ? 'Edit Platform Blog Post' : 'New Platform Blog Post'),
-    [isEditMode]
-  );
+  const pageTitle = isEditMode
+    ? 'Edit Platform Blog Post'
+    : 'New Platform Blog Post';
 
   const handleUploadFeatured = () => {
     const input = document.createElement('input');
@@ -202,11 +181,10 @@ export function BlogEditorClient({ mode, postId }: BlogEditorClientProps) {
     }
   };
 
-  if (loading) {
+  if (isEditMode && !initialPost) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" />
-        Loading post...
+        Post not found.
       </div>
     );
   }

@@ -1,129 +1,26 @@
 import { nanoid } from 'nanoid';
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import {
   BlogFeaturedImageError,
   generateFeaturedImageVariants,
 } from '@/lib/blog-featured-image-variants';
-import {
-  buildBlogMediaCdnUrl,
-  isManagedBlogStoragePath,
-  PLATFORM_BLOG_MEDIA_PREFIX,
-} from '@/lib/blog-managed-storage-paths';
 import { revalidatePlatformBlog } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { createClient } from '@/lib/supabase/server';
-
-const PLATFORM_STORAGE_SCOPE = { kind: 'platform' } as const;
-const uploadPurposeSchema = z.enum(['featured', 'inline']);
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
-
-const INLINE_ALLOWED_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'image/avif',
-];
-
-const FEATURED_ALLOWED_TYPES = ['image/jpeg', 'image/png'];
-
-const mimeToExt: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/gif': 'gif',
-  'image/webp': 'webp',
-  'image/avif': 'avif',
-};
-
-const variantPathObjectSchema = z.object({
-  square_1x1: z.string().min(1).optional(),
-  standard_4x3: z.string().min(1).optional(),
-  landscape_16x9: z.string().min(1).optional(),
-});
-
-const deleteBodySchema = z
-  .object({
-    path: z.string().min(1).optional(),
-    variantPaths: z
-      .union([z.array(z.string().min(1)), variantPathObjectSchema])
-      .optional(),
-  })
-  .refine(
-    (value) =>
-      value.path ||
-      (Array.isArray(value.variantPaths)
-        ? value.variantPaths.length > 0
-        : Object.values(value.variantPaths ?? {}).length > 0),
-    {
-      message: 'No path provided',
-    }
-  );
-
-function toAuthErrorResponse(status: 'unauthenticated' | 'forbidden') {
-  return status === 'unauthenticated'
-    ? NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    : NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-}
-
-function getAllowedTypesForPurpose(
-  purpose: z.infer<typeof uploadPurposeSchema>
-) {
-  return purpose === 'featured' ? FEATURED_ALLOWED_TYPES : INLINE_ALLOWED_TYPES;
-}
-
-function resolveUploadPurpose(value: FormDataEntryValue | null) {
-  if (typeof value !== 'string') {
-    return 'inline' as const;
-  }
-
-  const parsed = uploadPurposeSchema.safeParse(value.toLowerCase().trim());
-  return parsed.success ? parsed.data : 'inline';
-}
-
-function toPlatformMediaUrl(path: string): string {
-  const url = buildBlogMediaCdnUrl(path, PLATFORM_STORAGE_SCOPE);
-  if (!url) {
-    throw new Error(
-      `Failed to build platform blog media URL for path "${path}"`
-    );
-  }
-  return url;
-}
-
-function buildPlatformMediaPath(pathSuffix: string): string {
-  return `${PLATFORM_BLOG_MEDIA_PREFIX}/${pathSuffix}`;
-}
-
-async function cleanupUploadedPaths(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  uploadedPaths: string[]
-) {
-  if (uploadedPaths.length === 0) {
-    return;
-  }
-
-  const { error } = await supabase.storage.from('media').remove(uploadedPaths);
-  if (error) {
-    console.error(
-      'Failed to clean up partially uploaded platform blog media paths',
-      {
-        error,
-        uploadedPaths,
-      }
-    );
-  }
-}
-
-function toFeaturedUploadErrorResponse(error: BlogFeaturedImageError) {
-  const status = error.code === 'FEATURED_IMAGE_PROCESSING_FAILED' ? 500 : 400;
-  return NextResponse.json(
-    { code: error.code, error: error.message },
-    { status }
-  );
-}
+import {
+  buildPlatformMediaPath,
+  cleanupUploadedPaths,
+  getAllowedTypesForPurpose,
+  MAX_FILE_SIZE,
+  MIME_TO_EXTENSION,
+  parseDeleteBodyFromRequest,
+  resolveUploadPurpose,
+  toAuthErrorResponse,
+  toFeaturedUploadErrorResponse,
+  toPlatformMediaUrl,
+} from './upload-helpers';
 
 export async function POST(request: NextRequest) {
   const auth = await getPlatformAdminAuth();
@@ -174,7 +71,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const extension = mimeToExt[file.type] || 'jpg';
+  const extension = MIME_TO_EXTENSION[file.type] || 'jpg';
   const fileToken = nanoid(12);
   const filePath = buildPlatformMediaPath(`${fileToken}.${extension}`);
   const sourceBuffer = Buffer.from(await file.arrayBuffer());
@@ -329,48 +226,18 @@ export async function DELETE(request: NextRequest) {
     );
   }
 
-  let requestBody: unknown;
-  try {
-    requestBody = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Malformed JSON' }, { status: 400 });
+  const parsedDeleteBody = await parseDeleteBodyFromRequest(request);
+  if (parsedDeleteBody.response) {
+    return parsedDeleteBody.response;
   }
 
-  const parsed = deleteBodySchema.safeParse(requestBody);
-  if (!parsed.success) {
-    return NextResponse.json({ error: 'No path provided' }, { status: 400 });
-  }
-
-  const variantPaths = Array.isArray(parsed.data.variantPaths)
-    ? parsed.data.variantPaths
-    : Object.values(parsed.data.variantPaths ?? {});
-  const inputPaths = [parsed.data.path, ...variantPaths]
-    .filter((path): path is string => typeof path === 'string')
-    .map((path) => path.trim())
-    .filter(Boolean);
-
-  const dedupedPaths: string[] = [];
-  const pathSet = new Set<string>();
-  for (const path of inputPaths) {
-    if (!isManagedBlogStoragePath(path, PLATFORM_STORAGE_SCOPE)) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
-    }
-
-    if (!pathSet.has(path)) {
-      pathSet.add(path);
-      dedupedPaths.push(path);
-    }
-  }
-
-  if (dedupedPaths.length === 0) {
-    return NextResponse.json({ error: 'No path provided' }, { status: 400 });
-  }
-
-  const { error } = await supabase.storage.from('media').remove(dedupedPaths);
+  const { error } = await supabase.storage
+    .from('media')
+    .remove(parsedDeleteBody.paths);
   if (error) {
     console.error('Platform blog media delete failed', {
       error,
-      paths: dedupedPaths,
+      paths: parsedDeleteBody.paths,
     });
     return NextResponse.json(
       { error: 'Failed to delete file' },
