@@ -166,6 +166,49 @@ describe('createPaymentGatewayMessageHandler', () => {
     });
   });
 
+  it('preserves tracking token when routing order crypto success', () => {
+    const { handler, scheduleDelayedNavigation } = createHandler({
+      trackingToken: ' track-token-123 ',
+    });
+
+    sendMessage(handler, { type: 'crypto_success' });
+
+    const scheduledNavigation = scheduleDelayedNavigation.mock.calls[0]?.[0];
+    scheduledNavigation?.();
+
+    expect(router.replace).toHaveBeenCalledWith({
+      pathname: '/order-success',
+      params: {
+        orderId: 'order-123',
+        orderNumber: 'ORD-123',
+        paymentMethod: 'crypto',
+        reference: 'ref-123',
+        trackingToken: 'track-token-123',
+      },
+    });
+  });
+
+  it('omits whitespace-only tracking token when routing order crypto success', () => {
+    const { handler, scheduleDelayedNavigation } = createHandler({
+      trackingToken: '   ',
+    });
+
+    sendMessage(handler, { type: 'crypto_success' });
+
+    const scheduledNavigation = scheduleDelayedNavigation.mock.calls[0]?.[0];
+    scheduledNavigation?.();
+
+    expect(router.replace).toHaveBeenCalledWith({
+      pathname: '/order-success',
+      params: {
+        orderId: 'order-123',
+        orderNumber: 'ORD-123',
+        paymentMethod: 'crypto',
+        reference: 'ref-123',
+      },
+    });
+  });
+
   it('confirms VTU crypto success before routing to the utility result screen', () => {
     const {
       clearCart,
