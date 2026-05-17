@@ -20,6 +20,8 @@ interface ProductFixture {
   stock: number;
   stock_quantity: number;
   manage_stock: boolean;
+  average_rating?: number | null;
+  review_count?: number | null;
   canonical_url?: string | null;
   category?: string | null;
   category_slug?: string | null;
