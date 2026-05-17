@@ -55,9 +55,7 @@ function isValidFeedProduct(product: FeedProduct): boolean {
 
   return (
     product.variant_model === 'sku_matrix' &&
-    (product.variants || []).some(
-      (variant) => (variant.price_override ?? variant.price ?? 0) > 0
-    )
+    getSkuMatrixFallbackEligibleVariants(product).length > 0
   );
 }
 
@@ -98,12 +96,16 @@ function getProductType(product: FeedProduct): string | undefined {
   return category || product.category_slug?.trim() || undefined;
 }
 
-function resolveSkuMatrixFallback(product: FeedProduct) {
-  const eligibleVariants = (product.variants || []).filter((variant) => {
+function getSkuMatrixFallbackEligibleVariants(product: FeedProduct) {
+  return (product.variants || []).filter((variant) => {
     const effectivePrice =
       variant.price_override ?? variant.price ?? product.price;
     return Boolean(variant.id && variant.condition && effectivePrice > 0);
   });
+}
+
+function resolveSkuMatrixFallback(product: FeedProduct) {
+  const eligibleVariants = getSkuMatrixFallbackEligibleVariants(product);
 
   if (eligibleVariants.length === 0) {
     return null;

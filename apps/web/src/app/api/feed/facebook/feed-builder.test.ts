@@ -144,6 +144,73 @@ describe('generateFacebookCatalogFeed', () => {
     expect(xml).toContain('<g:condition>used</g:condition>');
   });
 
+  it('skips zero-priced sku-matrix products when priced variants are missing fallback fields', () => {
+    const product: FeedProduct = {
+      ...baseProduct,
+      id: 'sku-product',
+      compare_at_price: undefined,
+      price: 0,
+      stock: 0,
+      stock_quantity: 0,
+      variant_model: 'sku_matrix',
+      variants: [
+        {
+          id: 'variant-missing-condition',
+          attributes: { storage: '256GB' },
+          price_override: 850_000,
+          stock_quantity: 2,
+        },
+      ],
+    };
+
+    const xml = generateFacebookCatalogFeed(
+      [product],
+      merchant,
+      'https://ogabassey.com',
+      {
+        'sku-product': imageManifest['product-1'],
+      }
+    );
+
+    expect(xml).not.toContain('<item>');
+    expect(xml).not.toContain('<g:id>sku-product</g:id>');
+    expect(xml).not.toContain('<g:price>0.00 NGN</g:price>');
+  });
+
+  it('skips zero-priced sku-matrix products when priced variants have blank ids', () => {
+    const product: FeedProduct = {
+      ...baseProduct,
+      id: 'sku-product',
+      compare_at_price: undefined,
+      price: 0,
+      stock: 0,
+      stock_quantity: 0,
+      variant_model: 'sku_matrix',
+      variants: [
+        {
+          id: '',
+          attributes: { storage: '256GB' },
+          condition: 'used',
+          price_override: 850_000,
+          stock_quantity: 2,
+        },
+      ],
+    };
+
+    const xml = generateFacebookCatalogFeed(
+      [product],
+      merchant,
+      'https://ogabassey.com',
+      {
+        'sku-product': imageManifest['product-1'],
+      }
+    );
+
+    expect(xml).not.toContain('<item>');
+    expect(xml).not.toContain('<g:id>sku-product</g:id>');
+    expect(xml).not.toContain('<g:price>0.00 NGN</g:price>');
+  });
+
   it('uses the merchant brand fallback and Facebook availability vocabulary', () => {
     const xml = generateFacebookCatalogFeed(
       [
