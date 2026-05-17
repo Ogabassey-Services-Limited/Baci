@@ -108,6 +108,13 @@ describe('platform-blog query helpers', () => {
     expect(result).toBeNull();
   });
 
+  it('returns null without querying when slug is missing at runtime', async () => {
+    const result = await getPlatformBlogPost(undefined as unknown as string);
+
+    expect(result).toBeNull();
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
   it('lists platform posts with pagination and list cache tags', async () => {
     mockRange.mockResolvedValueOnce({
       data: [

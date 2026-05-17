@@ -94,7 +94,11 @@ function getClient() {
   });
 }
 
-function normalizeSlug(slug: string): string {
+function normalizeSlug(slug: unknown): string {
+  if (typeof slug !== 'string') {
+    return '';
+  }
+
   return slug.trim().toLowerCase();
 }
 
