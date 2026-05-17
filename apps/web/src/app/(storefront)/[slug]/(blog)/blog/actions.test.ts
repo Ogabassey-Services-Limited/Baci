@@ -5,6 +5,7 @@ const mockRange = vi.fn();
 const mockQuery = {
   data: [],
   eq: vi.fn(() => mockQuery),
+  neq: vi.fn(() => mockQuery),
   not: mockNot,
   order: vi.fn(() => mockQuery),
   range: mockRange,
@@ -43,31 +44,30 @@ describe('fetchMorePosts', () => {
     expect(result).toEqual(expectedPosts);
   });
 
-  it('filters junk posts and keeps scanning later ranges for public posts', async () => {
-    const junkPosts = Array.from({ length: 12 }, (_, index) => ({
-      id: `junk-${index + 1}`,
-      title: 'Test Post: Agent Integration Working',
-      slug: `test-post-agent-integration-working-${index + 1}`,
-    }));
-    const publicPost = {
-      id: 'public-1',
-      title: 'Public buying guide',
-      slug: 'public-buying-guide',
-    };
-
-    let rangeCallCount = 0;
-    mockRange.mockImplementation((_from: number, _to: number) => {
-      rangeCallCount += 1;
-      mockQuery.data = (
-        rangeCallCount === 1 ? junkPosts : [publicPost]
-      ) as never[];
-      return mockQuery;
-    });
+  it('applies public-content filters before paging to keep page offsets aligned', async () => {
+    const expectedPosts = [
+      {
+        id: 'public-1',
+        title: 'Public buying guide',
+        slug: 'public-buying-guide',
+      },
+    ];
+    mockQuery.data = expectedPosts as never[];
 
     const result = await fetchMorePosts('merchant-1', 2);
 
-    expect(mockRange).toHaveBeenNthCalledWith(1, 12, 23);
-    expect(mockRange).toHaveBeenNthCalledWith(2, 24, 35);
-    expect(result).toEqual([publicPost]);
+    expect(mockNot).toHaveBeenCalledWith('title', 'is', null);
+    expect(mockNot).toHaveBeenCalledWith('slug', 'is', null);
+    expect(mockQuery.neq).toHaveBeenCalledWith('title', '');
+    expect(mockQuery.neq).toHaveBeenCalledWith('slug', '');
+    expect(mockNot).toHaveBeenCalledWith('title', 'ilike', 'test post%');
+    expect(mockNot).toHaveBeenCalledWith(
+      'slug',
+      'ilike',
+      '%agent-integration-working%'
+    );
+    expect(mockRange).toHaveBeenCalledTimes(1);
+    expect(mockRange).toHaveBeenCalledWith(12, 23);
+    expect(result).toEqual(expectedPosts);
   });
 });

@@ -1,7 +1,10 @@
 'use server';
 
 import { cookies } from 'next/headers';
-import { filterPublicBlogPosts } from '@/lib/public-blog-content-quality';
+import {
+  BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS,
+  BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES,
+} from '@/lib/public-blog-content-quality';
 import { createClient } from '@/lib/supabase/server';
 
 interface BlogListPost {
@@ -28,43 +31,43 @@ export async function fetchMorePosts(
   const cookieStore = await cookies();
   const supabase = createClient(cookieStore);
   const limit = 12;
-  const filteredPosts: BlogListPost[] = [];
-  let offset = (page - 1) * limit;
-  let hasMoreRows = true;
+  const offset = (page - 1) * limit;
+  let query = supabase
+    .from('blog_posts')
+    .select(
+      'id, title, slug, excerpt, featured_image_url, featured_image_alt, category, tags, author_name, published_at, reading_time_minutes, view_count'
+    )
+    .eq('merchant_id', merchantId)
+    .eq('status', 'published')
+    .not('published_at', 'is', null)
+    .not('title', 'is', null)
+    .not('slug', 'is', null)
+    .neq('title', '')
+    .neq('slug', '')
+    .order('published_at', { ascending: false });
 
-  while (hasMoreRows && filteredPosts.length < limit) {
-    let query = supabase
-      .from('blog_posts')
-      .select(
-        'id, title, slug, excerpt, featured_image_url, featured_image_alt, category, tags, author_name, published_at, reading_time_minutes, view_count'
-      )
-      .eq('merchant_id', merchantId)
-      .eq('status', 'published')
-      .not('published_at', 'is', null)
-      .order('published_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (category) {
-      query = query.eq('category', category);
-    }
-
-    if (searchQuery) {
-      const sanitizedSearch = searchQuery.trim().slice(0, 100);
-      if (sanitizedSearch) {
-        query = query.textSearch('search_vector', sanitizedSearch, {
-          type: 'websearch',
-          config: 'english',
-        });
-      }
-    }
-
-    const { data: posts } = await query;
-    const postBatch = Array.isArray(posts) ? (posts as BlogListPost[]) : [];
-    filteredPosts.push(...filterPublicBlogPosts(postBatch));
-
-    hasMoreRows = postBatch.length === limit;
-    offset += limit;
+  for (const blockedPrefix of BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES) {
+    query = query.not('title', 'ilike', `${blockedPrefix}%`);
   }
 
-  return filteredPosts.slice(0, limit);
+  for (const blockedSlugPart of BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS) {
+    query = query.not('slug', 'ilike', `%${blockedSlugPart}%`);
+  }
+
+  if (category) {
+    query = query.eq('category', category);
+  }
+
+  if (searchQuery) {
+    const sanitizedSearch = searchQuery.trim().slice(0, 100);
+    if (sanitizedSearch) {
+      query = query.textSearch('search_vector', sanitizedSearch, {
+        type: 'websearch',
+        config: 'english',
+      });
+    }
+  }
+
+  const { data: posts } = await query.range(offset, offset + limit - 1);
+  return Array.isArray(posts) ? (posts as BlogListPost[]) : [];
 }

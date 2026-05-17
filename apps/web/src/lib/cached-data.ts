@@ -26,6 +26,9 @@ import {
 import type { MerchantAboutPage } from '@/types/about-page';
 import type { MerchantTrustProfileDraft } from '../../../../packages/shared/src/contracts/merchant-trust-profile';
 
+const RELATED_BLOG_POSTS_LIMIT = 3;
+const RELATED_BLOG_POSTS_FETCH_LIMIT = 12;
+
 /**
  * Create a Supabase client for cached queries.
  * This client doesn't use cookies, so it's suitable for caching.
@@ -1728,15 +1731,26 @@ export async function getCachedBlogPost(
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
     .not('published_at', 'is', null)
-    .neq('id', post.id)
-    .limit(3);
+    .not('title', 'is', null)
+    .not('slug', 'is', null)
+    .neq('title', '')
+    .neq('slug', '')
+    .neq('id', post.id);
+
+  for (const blockedPrefix of BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES) {
+    relatedQuery = relatedQuery.not('title', 'ilike', `${blockedPrefix}%`);
+  }
+
+  for (const blockedSlugPart of BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS) {
+    relatedQuery = relatedQuery.not('slug', 'ilike', `%${blockedSlugPart}%`);
+  }
 
   if (post.category) {
     relatedQuery = relatedQuery.eq('category', post.category);
   }
 
   const { data: relatedPosts, error: relatedPostsError } =
-    await relatedQuery.limit(3);
+    await relatedQuery.limit(RELATED_BLOG_POSTS_FETCH_LIMIT);
 
   if (relatedPostsError) {
     console.error('Error fetching related blog posts:', relatedPostsError);
@@ -1767,7 +1781,10 @@ export async function getCachedBlogPost(
     post,
     relatedPosts: relatedPostsError
       ? []
-      : filterPublicBlogPosts(relatedPosts || []),
+      : filterPublicBlogPosts(relatedPosts || []).slice(
+          0,
+          RELATED_BLOG_POSTS_LIMIT
+        ),
     relatedProducts: relatedProducts || [],
   };
 }
