@@ -125,12 +125,12 @@ jobs:
       # ERR_PNPM_IGNORED_BUILDS does not block the dlx tmp install. Bumping
       # the pin requires re-checking that the new CLI's bundled esbuild
       # version is still on the allow list.
-      - run: pnpm dlx --allow-build=esbuild vercel@52.0.0 pull --yes --environment=production --token="${{ env.VERCEL_TOKEN }}"
-      - run: pnpm dlx --allow-build=esbuild vercel@52.0.0 build --yes --prod --token="${{ env.VERCEL_TOKEN }}"
+      - run: pnpm dlx --allow-build=esbuild vercel@52.0.0 pull --yes --environment=production
+      - run: pnpm dlx --allow-build=esbuild vercel@52.0.0 build --yes --prod
       # IMPORTANT: --archive=tgz is required to prevent Vercel upload rate limiting.
       # Do NOT remove it — without it, each deploy uploads thousands of individual files.
       - name: Deploy to Vercel (with retry)
-        run: .github/scripts/deploy-with-retry.sh pnpm dlx --allow-build=esbuild vercel@52.0.0 deploy --yes --prebuilt --prod --archive=tgz --token="${{ env.VERCEL_TOKEN }}"
+        run: .github/scripts/deploy-with-retry.sh pnpm dlx --allow-build=esbuild vercel@52.0.0 deploy --yes --prebuilt --prod --archive=tgz
       - name: Prepare storefront blog smoke checker
         run: |
           cat > "${RUNNER_TEMP}/blog-smoke-check.mjs" <<'NODE'
@@ -230,7 +230,7 @@ jobs:
         run: node "${RUNNER_TEMP}/blog-smoke-check.mjs"
       - name: Invalidate storefront blog cache tag
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' }}
-        run: pnpm dlx --allow-build=esbuild vercel@52.0.0 cache invalidate --tag "${{ env.BLOG_SMOKE_TAG }}" --token="${{ env.VERCEL_TOKEN }}" --yes
+        run: pnpm dlx --allow-build=esbuild vercel@52.0.0 cache invalidate --tag "${{ env.BLOG_SMOKE_TAG }}" --yes
       - name: Wait for cache invalidation to propagate
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' }}
         run: sleep 10
@@ -241,7 +241,7 @@ jobs:
         run: node "${RUNNER_TEMP}/blog-smoke-check.mjs"
       - name: Hard purge storefront blog cache tag
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' && steps.storefront-blog-smoke-after-invalidate.outcome == 'failure' }}
-        run: pnpm dlx --allow-build=esbuild vercel@52.0.0 cache dangerously-delete --tag "${{ env.BLOG_SMOKE_TAG }}" --token="${{ env.VERCEL_TOKEN }}" --yes
+        run: pnpm dlx --allow-build=esbuild vercel@52.0.0 cache dangerously-delete --tag "${{ env.BLOG_SMOKE_TAG }}" --yes
       - name: Wait for cache purge to propagate
         if: ${{ steps.storefront-blog-smoke.outcome == 'failure' && steps.storefront-blog-smoke-after-invalidate.outcome == 'failure' }}
         run: sleep 10
