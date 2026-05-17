@@ -2,6 +2,36 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMerchant } from '@/hooks/useMerchant';
 import { supabase } from '@/lib/supabase';
 
+interface UpdateTransactionReviewDetailsInput {
+  costPrice: number;
+  orderId: string;
+  productId: string;
+  supplierName: string;
+  transactionDateIso: string;
+}
+
+function getLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+}
+
+function isFutureCalendarDay(date: Date) {
+  return getLocalDateKey(date) > getLocalDateKey(new Date());
+}
+
+function getClientTimeZone(): string | null {
+  const resolvedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (typeof resolvedTimeZone !== 'string') {
+    return null;
+  }
+
+  const trimmedTimeZone = resolvedTimeZone.trim();
+  return trimmedTimeZone.length > 0 ? trimmedTimeZone : null;
+}
+
 export function useUpdateTransactionCostPrice() {
   const queryClient = useQueryClient();
   const { merchant } = useMerchant();
@@ -9,11 +39,11 @@ export function useUpdateTransactionCostPrice() {
   return useMutation({
     mutationFn: async ({
       costPrice,
+      orderId,
       productId,
-    }: {
-      costPrice: number;
-      productId: string;
-    }) => {
+      supplierName,
+      transactionDateIso,
+    }: UpdateTransactionReviewDetailsInput) => {
       if (
         typeof costPrice !== 'number' ||
         !Number.isFinite(costPrice) ||
@@ -24,28 +54,38 @@ export function useUpdateTransactionCostPrice() {
       if (!merchant?.id) {
         throw new Error('Merchant context is not ready');
       }
+      if (!orderId.trim() || !productId.trim()) {
+        throw new Error('Transaction and product are required');
+      }
+      if (!transactionDateIso.trim()) {
+        throw new Error('Enter a valid transaction date.');
+      }
 
-      // Select the updated row so we can detect the silent-success case
-      // where the update matched zero rows (wrong merchant, stale product id,
-      // or RLS mismatch) and surface it as a clear error to the caller.
-      const { data, error } = await supabase
-        .from('products')
-        .update({
-          cost_price: costPrice,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', productId)
-        .eq('merchant_id', merchant.id)
-        .select('id');
+      const parsedTransactionDate = new Date(transactionDateIso);
+      if (Number.isNaN(parsedTransactionDate.getTime())) {
+        throw new Error('Enter a valid transaction date.');
+      }
+      if (isFutureCalendarDay(parsedTransactionDate)) {
+        throw new Error('Transaction date cannot be in the future.');
+      }
+
+      const clientTimeZone = getClientTimeZone();
+
+      const { error } = await supabase.rpc(
+        'update_transaction_review_details',
+        {
+          p_cost_price: costPrice,
+          p_client_timezone: clientTimeZone,
+          p_merchant_id: merchant.id,
+          p_order_id: orderId.trim(),
+          p_product_id: productId.trim(),
+          p_supplier_name: supplierName,
+          p_transaction_date: parsedTransactionDate.toISOString(),
+        }
+      );
 
       if (error) {
         throw new Error(error.message);
-      }
-
-      if (!data || data.length === 0) {
-        throw new Error(
-          'Product not found for this merchant, or you no longer have permission to update it'
-        );
       }
     },
     onSuccess: () => {
