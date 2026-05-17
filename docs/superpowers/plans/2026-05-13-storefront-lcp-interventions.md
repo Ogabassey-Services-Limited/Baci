@@ -2,9 +2,20 @@
 
 ## Context
 
-Follow-up to the LCP baseline audit at [docs/audits/2026-05-13-storefront-lcp-baseline.md](../../audits/2026-05-13-storefront-lcp-baseline.md). PR #1607 cut mobile home element render delay in half (893 → 377 ms), but mobile home LCP is still 3226 ms (poor) and PDP desktop LCP is 2769 ms (poor) with the mobile PDP timing out in PSI entirely.
+Follow-up to the LCP baseline audit at [docs/audits/2026-05-13-storefront-lcp-baseline.md](../../audits/2026-05-13-storefront-lcp-baseline.md). PR #1607 cut mobile home element render delay in half (893 -> 377 ms), but mobile home LCP was still 3226 ms (poor) and PDP desktop LCP was 2769 ms (poor) with the mobile PDP timing out in PSI entirely.
 
-The audit identified five interventions in priority order. This plan sequences them across separate PRs so each can be measured independently before the next lands. Hot-take fixes ship first; diagnostic-required ones get a recon step.
+The audit identified five Core Web Vitals interventions in priority order. This plan sequences them across separate PRs so each can be measured independently before the next lands. Hot-take fixes ship first; diagnostic-required ones get a recon step.
+
+2026-05-16 update: PR #1693 restored the OgaBassey hero image to static-imported Next.js media assets after PR #1674/#1684's public-asset `headers()` path served cached HTML instead of images in production. Live response headers now preload immutable `/_next/static/media/...avif` assets, and PSI after deploy measured:
+
+| Page | Strategy | Perf | SEO | LCP | TBT | CLS | Status |
+|---|---|---:|---:|---:|---:|---:|---|
+| OgaBassey home | mobile | 89 | 100 | 3376 ms | 87 ms | 0.001 | LCP still poor |
+| OgaBassey home | desktop | 90 | 100 | 910 ms | 229 ms | 0.000 | Good LCP |
+| OgaBassey PDP | mobile | 78 | 100 | 4201 ms | 118 ms | 0.000 | LCP still poor |
+| OgaBassey PDP | desktop | 89 | 100 | 1583 ms | 152 ms | 0.045 | Good LCP |
+
+2026-05-16 Google AI Search guidance check: Google's official "Optimizing your website for generative AI features on Google Search" guide says generative AI visibility still depends on normal Search fundamentals: crawlable/indexable pages, clear technical structure, JavaScript SEO, good page experience, ecommerce details, high-quality images/video, unique people-first content, and agent-friendly experiences. Its linked crawling/ecommerce docs add that crawl budget depends heavily on URL inventory quality, crawlable `<a href>` internal links, consistent canonical/sitemap/internal-link URLs, category-to-product navigation, pagination with real links, and controlling duplicate/faceted/filter URL spaces. It also says not to chase AEO/GEO hacks such as `llms.txt`, AI-only chunking, or special schema solely for AI Search. This plan now keeps the LCP loop as the blocking technical track and adds an AI Search readiness track after the live CWV pages are stable.
 
 URL set, measurement script, threshold values: see [docs/perf/storefront-lcp-urls.md](../../perf/storefront-lcp-urls.md).
 
@@ -19,6 +30,7 @@ URL set, measurement script, threshold values: see [docs/perf/storefront-lcp-url
 | 3 | PDP JS bundle audit + tree-shake | Diag → fix | Half-day | −500 to −1500 ms TBT; ~−900 ms mobile LCP | **Prep doc**: [2026-05-14-fix3-pdp-bundle-trim-prep.md](2026-05-14-fix3-pdp-bundle-trim-prep.md) — library-presence findings + per-file-mapping methodology captured. Pick up here to produce the actual TDD plan. |
 | 4 | Storefront critical CSS / FCP reduction | Diag → fix | Half-day | −200 to −400 ms FCP | **Re-scoped — see note below** |
 | 5 | Lighthouse-UA cache bypass investigation | Diag | 1 h | SEO risk reduction | Pending diagnostic |
+| 6 | Google AI Search, internal-linking, and crawl-budget readiness audit | Audit → focused fixes | Half-day | SEO/AI Search eligibility hardening | Added 2026-05-16 from Google's AI optimization guide and linked crawling/ecommerce docs; run after the current LCP blockers or in parallel if no code conflicts |
 
 ### Note on Fix 4 re-scoping
 
@@ -60,7 +72,9 @@ So Fix 4 isn't a config flip — it needs its own diagnostic to identify a strea
 
 **2026-05-15 update after PR #1671.** Live PSI now reports mobile home LCP at 3376 ms with about 2080 ms resource load delay. The live HTML shows the hero image hints are emitted as React/Next RSC `:HL[...]` stream records after the initial head/scripts/fallback shell, not as native `<link rel="preload" as="image">` tags in the initial `<head>` or HTTP `Link` response header. Per Next.js 16 docs, the Metadata API does not directly support arbitrary resource hints; ReactDOM resource hints are supported, but the current placement is still too late for this streaming route.
 
-**2026-05-15 PR #1674 correction.** Do not select home hero preload variants from `User-Agent` in `next.config.ts`. The OgaBassey hero branch is viewport-driven in the client, so UA-selected HTTP `Link` headers can preload the wrong asset on tablets and phone-landscape viewports. The corrected Fix 2 slice keeps the LCP assets on stable public URLs, renders the first mobile and desktop hero images with `unoptimized` so the existing ReactDOM resource hints match the eventual image request URL, and leaves variant selection to viewport-scoped in-document preloads (`media="(max-width: 767px)"` / `media="(min-width: 768px)"`). Any future attempt at response-header image preloading must either use a proven viewport signal or emit a single route-safe asset that cannot compete with the actual LCP candidate.
+**2026-05-15 PR #1674 correction, superseded.** The public-asset approach was invalid in production. Serving content-hashed hero files from `public/` and stamping immutable cache headers through `next.config.ts headers()` caused Vercel to route matching asset requests through the storefront catch-all and cache HTML as `image` preload targets. Do not revive that mechanism.
+
+**2026-05-16 PR #1693 correction.** The canonical approach for this app is static image imports that emit `/_next/static/media/<contenthash>.avif` URLs. Those assets are served as `image/avif` with `cache-control: public,max-age=31536000,immutable`, bypass the `[slug]` catch-all, and match the live home preload targets. Any future home hero preload change must preserve URL equality between the preload target and the actual rendered image request.
 
 **Diagnostic step (no code change first).**
 
@@ -199,6 +213,111 @@ Inspect the PDP-relevant chunks using content searches rather than chunk hashes;
 
 ---
 
+## Fix 6 — Google AI Search, internal linking, and crawl-budget readiness audit
+
+**Problem.** PSI SEO is 100, but Google's 2026 AI Search guidance is broader than Lighthouse's SEO checklist. It emphasizes crawlable/indexable technical structure, people-first non-commodity content, ecommerce data sources, high-quality images/video, Search Console monitoring, and agent-friendly browser/DOM/accessibility behavior. The linked Google crawling/ecommerce docs also make internal linking and URL inventory quality first-class: Google uses links to find pages and infer site structure; crawl budget is wasted by duplicates, soft 404s, long redirects, temporary parameters, empty categories, and uncontrolled faceted/filter URL spaces. The current plan covers Core Web Vitals and some crawl risk, but it does not explicitly verify those AI Search readiness surfaces.
+
+**Source of truth.**
+- Google's guide: `https://developers.google.com/search/docs/fundamentals/ai-optimization-guide`
+- Existing Baci machine-readable surfaces: `/feeds/openai.jsonl`, `/agent-commerce.json`, `/agent-trust.json`
+- Existing Search surfaces: `robots.txt`, `sitemap.xml`, blog sitemap, canonical URLs, Product/Organization/Breadcrumb JSON-LD, Merchant Center feeds
+- Google linked docs to apply in this audit:
+  - `https://developers.google.com/search/docs/crawling-indexing/links-crawlable`
+  - `https://developers.google.com/crawling/docs/crawl-budget`
+  - `https://developers.google.com/search/docs/crawling-indexing/url-structure`
+  - `https://developers.google.com/search/docs/specialty/ecommerce/help-google-understand-your-ecommerce-site-structure`
+  - `https://developers.google.com/search/docs/specialty/ecommerce/designing-a-url-structure-for-ecommerce-sites`
+  - `https://developers.google.com/search/docs/specialty/ecommerce/pagination-and-incremental-page-loading`
+  - `https://developers.google.com/crawling/docs/faceted-navigation`
+
+**Do not do.**
+- Do not add `llms.txt` or AI-only markdown files as a ranking tactic.
+- Do not create thin "query fan-out" pages that exist only to target long-tail AI prompts.
+- Do not add special schema markup solely for generative AI Search. Keep structured data tied to eligible Google rich-result features and ecommerce needs.
+- Do not rewrite product/blog copy into generic AI-style summaries; preserve specific merchant expertise and first-hand product details.
+- Do not create indexable filtered/sorted/search-result URL spaces unless they have unique user value, stable URLs, canonical handling, and direct sitemap/internal-link support.
+
+**Audit steps.**
+
+1. Crawl/index eligibility:
+   ```bash
+   curl -sSI https://ogabassey.com/
+   curl -sS https://ogabassey.com/robots.txt
+   curl -sS https://ogabassey.com/sitemap.xml | head
+   curl -sS https://ogabassey.com/blog/sitemap.xml | head
+   ```
+   Expected: public pages return `200`, no accidental `noindex`, canonical host is `https://ogabassey.com`, and sitemap entries are current.
+
+2. Internal linking and ecommerce crawl paths:
+   - Use a small crawl script or browser DOM inspection over home, top categories, a paginated category page, representative PDPs, blog index, and representative blog posts.
+   - Confirm links that matter are real `<a href>` anchors, not only `onClick`, buttons, spans, router-only attributes, or JavaScript search flows.
+   - Confirm every indexable page class has at least one internal crawl path:
+     - Home -> top categories
+     - Category -> subcategory or product listing pages
+     - Category/pagination -> products reachable without search-box submission
+     - PDP -> category/breadcrumbs and relevant related products or buying-guide/blog context
+     - Blog post -> relevant category or PDP links when genuinely helpful
+   - Confirm anchor text is descriptive and human-readable; avoid generic "click here", empty anchors, and image-only links without useful `alt`.
+   - Promote genuinely important categories/products from home, category modules, or relevant blog content. Do not add excessive link blocks; Google says there is no ideal number of links, and user value is the guardrail.
+
+3. URL inventory and crawl-budget controls:
+   - Compare internal links, sitemap URLs, canonical tags, Merchant Center feed URLs, and machine-readable commerce URLs for the same representative products. They should point to the same preferred canonical URL.
+   - Confirm product/category URLs use stable, descriptive paths and avoid temporary parameters such as session IDs, tracking codes, current time, or user-relative filters in internal links.
+   - Confirm removed products/categories return the right final state: live useful page, `404`/`410`, or deliberate noindex for an empty-but-user-visible category. Avoid soft 404 pages.
+   - Audit filter/sort/search URLs for crawl traps:
+     ```bash
+     curl -sSI 'https://ogabassey.com/laptops?sort=price-asc'
+     curl -sSI 'https://ogabassey.com/laptops?color=black&storage=256gb'
+     curl -sSI 'https://ogabassey.com/search?q=iphone'
+     ```
+     Decide whether these should be indexable, canonicalized to an unfiltered/listing page, `noindex`, or blocked in robots.txt. Prefer blocking/noindex for filter/sort combinations that do not add unique Search value.
+   - For faceted URLs that must be crawlable, enforce standard `?key=value&key2=value2` parameters, stable filter ordering, no duplicate filters, and `404` for impossible/no-result combinations.
+
+4. Pagination and incremental loading:
+   - Confirm paginated category/listing pages have unique URLs such as `?page=2` and sequential `<a href>` links to the next page.
+   - Do not rely only on "Load more" buttons or infinite scroll for discoverability; Google crawlers generally do not click buttons or trigger user-action JavaScript.
+   - Do not canonicalize every paginated page to page one. Each indexable page in a useful paginated sequence should have its own canonical URL.
+   - Avoid indexing alternate sort/filter pages that duplicate the same product set.
+
+5. JavaScript SEO and rendered content:
+   - Use Chrome or Vercel agent-browser on the live home, category, PDP, and blog article URLs.
+   - Confirm primary product names, prices, availability, hero content, and blog article text are present in rendered DOM without requiring user interaction.
+   - Confirm the same pages remain readable with slow network and mobile viewport.
+
+6. Structured data and ecommerce details:
+   - Run Google's Rich Results Test or inspect HTML for Product, Organization, Breadcrumb, Article/BlogPosting where applicable.
+   - Confirm Product JSON-LD includes current price, availability, image, URL, and merchant identity.
+   - Confirm Merchant Center feed parity for representative OgaBassey products; do not rely only on on-page JSON-LD.
+
+7. People-first content quality:
+   - Sample OgaBassey home, top category pages, PDPs, and blog posts.
+   - Flag thin commodity copy, duplicate boilerplate, missing first-hand product context, missing comparison/use-case detail, or stale product claims.
+   - Add copy tasks only where a human shopper would get clearer buying guidance; avoid scaled-content patterns.
+
+8. Duplicate/canonical hygiene:
+   - Compare apex vs `www`, custom-domain vs slug route, and old product/category aliases.
+   - Confirm canonical URLs collapse to the preferred public URL and that duplicate paths do not waste crawl budget.
+
+9. Agent-friendly website pass:
+   - Verify DOM structure, headings, labels, buttons, forms, cart actions, and PDP purchase flow through the accessibility tree.
+   - Confirm machine-readable commerce/trust endpoints are live and consistent with visible storefront data.
+   - Capture failures as normal accessibility/semantic HTML bugs, not as AI-only hacks.
+
+**Validation.**
+1. PSI SEO stays 100 on home, category, PDP, and blog pages.
+2. Rich Results Test passes for representative PDP and blog article pages.
+3. Search Console inspection or URL live tests show indexable canonical pages.
+4. Merchant Center feed/product data remains consistent with live PDP content.
+5. Agent-browser/Chrome checks can identify primary content and purchase actions through DOM/accessibility, not screenshots only.
+6. Internal-link crawl map proves each indexable page class is reachable by crawlable `<a href>` paths, with descriptive anchors and no search-only product discoverability.
+7. URL inventory audit finds no uncontrolled duplicate, session, temporary, faceted, sorted, or empty-category URL spaces wasting crawl budget.
+
+**Risk.** Medium. Content and canonical changes can affect ranking/indexing if made broadly. Keep fixes narrow and test representative URLs before expanding.
+
+**Acceptance criteria.** No AI Search-specific hacks added; OgaBassey remains crawlable/indexable with clear technical structure, current ecommerce data, useful product/content pages, crawlable internal links, controlled URL inventory, stable structured data, and agent-readable commerce actions.
+
+---
+
 ## Cross-cutting concerns
 
 ### Re-measurement cadence
@@ -215,6 +334,7 @@ Stop the plan and re-diagnose if any of:
 - A fix delivers <30% of its expected LCP gain (signals the diagnosis was wrong)
 - Any fix regresses any other CWV metric beyond noise
 - CLS exceeds 0.1 on any measured page (would need to roll back the offending fix)
+- Any SEO/AI Search change creates thin duplicate pages, non-human copy, uncontrolled URL inventory, or schema that is not tied to a real eligible Search feature
 
 ### Tooling fix (parallel track)
 
@@ -232,6 +352,7 @@ Recommended: the IIFE wrap. Tracker-only — not blocking the LCP work.
 - **Not a font optimization pass.** `next/font` with `display: 'swap'` is already in place per the audit findings.
 - **Not changing the storefront `MerchantProvider`.** Already optimized (server snapshot pattern).
 - **Not adding nightly PSI monitoring CI.** Premature until the baselines stabilize. Add only after Fix 2 + Fix 3 land and we've seen stable post-fix numbers.
+- **Not adding AEO/GEO hacks.** Google's 2026 AI Search guidance explicitly says normal SEO fundamentals still apply; do not add `llms.txt`, special AI markup, artificial mentions, or chunked pages just for AI systems.
 
 ---
 
