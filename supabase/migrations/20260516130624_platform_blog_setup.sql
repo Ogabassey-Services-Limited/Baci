@@ -70,6 +70,30 @@ USING (
   )
 );
 
+DROP POLICY IF EXISTS "Platform blog posts require published status or admin read"
+ON public.blog_posts;
+CREATE POLICY "Platform blog posts require published status or admin read"
+ON public.blog_posts
+AS RESTRICTIVE
+FOR SELECT
+TO anon, authenticated
+USING (
+  is_platform_post IS NOT TRUE
+  OR (
+    is_platform_post IS TRUE
+    AND merchant_id IS NULL
+    AND (
+      (status = 'published' AND published_at IS NOT NULL)
+      OR EXISTS (
+        SELECT 1
+        FROM public.merchants
+        WHERE merchants.user_id = auth.uid()
+          AND merchants.is_platform_admin IS TRUE
+      )
+    )
+  )
+);
+
 DO $$
 DECLARE
   platform_blog_post_count bigint := 0;

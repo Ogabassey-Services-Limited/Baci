@@ -19,6 +19,7 @@ DECLARE
   policy_roles text;
   policy_using text;
   policy_check text;
+  policy_is_permissive boolean;
 BEGIN
   SELECT pg_get_expr(i.indpred, i.indrelid)
   INTO index_predicate
@@ -115,6 +116,39 @@ BEGIN
      OR policy_using NOT ILIKE '%merchant_id IS NULL%'
      OR policy_using NOT ILIKE '%is_platform_admin%' THEN
     RAISE EXCEPTION 'delete platform blog policy using is incomplete: %', policy_using;
+  END IF;
+
+  SELECT
+    array_to_string(polroles::regrole[]::text[], ','),
+    COALESCE(pg_get_expr(polqual, polrelid), ''),
+    polpermissive
+  INTO policy_roles, policy_using, policy_is_permissive
+  FROM pg_policy
+  WHERE polrelid = 'public.blog_posts'::regclass
+    AND polname = 'Platform blog posts require published status or admin read';
+
+  IF policy_roles IS NULL THEN
+    RAISE EXCEPTION
+      'missing policy: Platform blog posts require published status or admin read';
+  END IF;
+
+  IF policy_is_permissive IS TRUE THEN
+    RAISE EXCEPTION
+      'platform read guard policy must be restrictive to enforce published-only access';
+  END IF;
+
+  IF policy_roles NOT LIKE '%anon%'
+     OR policy_roles NOT LIKE '%authenticated%' THEN
+    RAISE EXCEPTION
+      'platform read guard policy must target anon + authenticated, found %',
+      policy_roles;
+  END IF;
+
+  IF policy_using NOT ILIKE '%is_platform_post%'
+     OR policy_using NOT ILIKE '%status = ''published''%'
+     OR policy_using NOT ILIKE '%published_at IS NOT NULL%'
+     OR policy_using NOT ILIKE '%is_platform_admin%' THEN
+    RAISE EXCEPTION 'platform read guard policy using is incomplete: %', policy_using;
   END IF;
 
   SELECT
@@ -354,6 +388,27 @@ VALUES (
   now()
 );
 
+INSERT INTO public.blog_posts (
+  merchant_id,
+  title,
+  slug,
+  content,
+  author_name,
+  status,
+  is_platform_post,
+  published_at
+)
+VALUES (
+  NULL,
+  'Platform admin can create draft platform post',
+  'platform-admin-draft-platform-post',
+  'draft content',
+  'Platform Admin',
+  'draft',
+  true,
+  NULL
+);
+
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -364,6 +419,17 @@ BEGIN
       AND merchant_id IS NULL
   ) THEN
     RAISE EXCEPTION 'platform admin insert did not persist expected platform blog post';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.blog_posts
+    WHERE slug = 'platform-admin-draft-platform-post'
+      AND status = 'draft'
+      AND is_platform_post IS TRUE
+      AND merchant_id IS NULL
+  ) THEN
+    RAISE EXCEPTION 'platform admin draft insert did not persist expected draft platform blog post';
   END IF;
 END;
 $$ LANGUAGE plpgsql;
@@ -389,6 +455,18 @@ END;
 $$ LANGUAGE plpgsql;
 
 SELECT set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-00000000c102', true);
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM public.blog_posts
+    WHERE slug = 'platform-admin-draft-platform-post'
+  ) THEN
+    RAISE EXCEPTION 'non-platform-admin unexpectedly read platform draft post';
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
 
 DO $$
 DECLARE
@@ -472,12 +550,42 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'platform storage object missing after non-admin update/delete attempts';
   END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.blog_posts
+    WHERE slug = 'platform-admin-draft-platform-post'
+      AND status = 'draft'
+  ) THEN
+    RAISE EXCEPTION 'platform admin unexpectedly lost visibility for draft platform post';
+  END IF;
 END;
 $$ LANGUAGE plpgsql;
 
 RESET ROLE;
 
 SET LOCAL ROLE anon;
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM public.blog_posts
+    WHERE slug = 'platform-admin-draft-platform-post'
+  ) THEN
+    RAISE EXCEPTION 'anon unexpectedly read platform draft post';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.blog_posts
+    WHERE slug = 'platform-admin-can-create-platform-post'
+      AND status = 'published'
+  ) THEN
+    RAISE EXCEPTION 'anon could not read published platform post';
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
 
 DO $$
 BEGIN

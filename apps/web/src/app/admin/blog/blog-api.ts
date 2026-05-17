@@ -24,10 +24,17 @@ async function readErrorMessage(
   }
 }
 
-function toApiPayload(input: PlatformAdminBlogFormState) {
+function toApiPayload(
+  input: PlatformAdminBlogFormState,
+  { clearEmptyToNull = false }: { clearEmptyToNull?: boolean } = {}
+) {
   const toOptionalString = (value: string) => {
     const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+
+    return clearEmptyToNull ? null : undefined;
   };
 
   return {
@@ -102,7 +109,7 @@ export async function updatePlatformBlogPost(
   input: PlatformAdminBlogFormState
 ): Promise<PlatformAdminBlogPostDetail> {
   const response = await fetchWithCsrf(`/api/admin/blog/posts/${id}`, {
-    body: JSON.stringify(toApiPayload(input)),
+    body: JSON.stringify(toApiPayload(input, { clearEmptyToNull: true })),
     method: 'PATCH',
   });
 

@@ -9,6 +9,7 @@ import { PlatformHeader } from '@/components/platform/header';
 import { SafeHtml } from '@/components/ui/safe-html';
 import {
   getPlatformBlogPost,
+  incrementPlatformBlogPostViews,
   PLATFORM_BLOG_CONTEXT,
 } from '@/lib/platform-blog';
 import { asRoute } from '@/lib/routes';
@@ -104,6 +105,8 @@ export default async function BlogPostPage({ params }: PageProps) {
   if (!post) {
     notFound();
   }
+
+  void incrementPlatformBlogPostViews(post.id);
 
   const postUrl = getPlatformBlogPostUrl(post.slug);
   const blogSchema = generateBlogPostSchema({

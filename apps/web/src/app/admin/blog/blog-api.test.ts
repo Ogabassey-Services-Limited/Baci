@@ -171,13 +171,25 @@ describe('blog-api', () => {
       jsonResponse({ id: 'post-1', slug: 'launch-faster' })
     );
 
-    await updatePlatformBlogPost('post-1', sampleForm);
+    await updatePlatformBlogPost('post-1', {
+      ...sampleForm,
+      category: '',
+      excerpt: '',
+      featured_image_alt: '',
+      seo_description: '',
+      seo_title: '',
+    });
 
     const [, options] = mockFetchWithCsrf.mock.calls[0] as [
       string,
       RequestInit,
     ];
     const body = JSON.parse(String(options.body)) as Record<string, unknown>;
+    expect(body.category).toBeNull();
+    expect(body.excerpt).toBeNull();
+    expect(body.featured_image_alt).toBeNull();
+    expect(body.seo_description).toBeNull();
+    expect(body.seo_title).toBeNull();
     expect(body.featured_image_height).toBe(675);
     expect(body.featured_image_width).toBe(1200);
     expect(body.featured_image_variants).toEqual(
