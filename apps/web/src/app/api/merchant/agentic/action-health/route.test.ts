@@ -452,7 +452,8 @@ describe('GET /api/merchant/agentic/action-health', () => {
           message:
             'Agentic checkout completions are failing before order finalization.',
           next_step: expect.any(String),
-          next_step_url: '/dashboard/orders?source=agentic',
+          next_step_url:
+            '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_CHECKOUT_COMPLETE_ERRORS',
           severity: 'attention',
         }),
       ])
