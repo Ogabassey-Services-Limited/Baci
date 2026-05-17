@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import bundleAnalyzer from '@next/bundle-analyzer';
 import type { NextConfig } from 'next';
 
@@ -16,8 +17,9 @@ const withBundleAnalyzer = bundleAnalyzer({
 const HTML_LIMITED_BOTS_UA_RE =
   /Googlebot|Googlebot-Image|Googlebot-News|Googlebot-Video|[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight|AhrefsBot|AhrefsSiteAudit|SemrushBot|MJ12bot|DotBot|rogerbot|PetalBot|Bytespider/i;
 
+const NEXT_CONFIG_DIR = path.dirname(fileURLToPath(import.meta.url));
 const OGABASSEY_HERO_ASSET_DIR = path.join(
-  process.cwd(),
+  NEXT_CONFIG_DIR,
   'src/components/storefront/ogabassey/components/assets'
 );
 
