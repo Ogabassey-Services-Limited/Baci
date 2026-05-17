@@ -56,8 +56,15 @@ export default function SettingsScreen() {
     onPress?: () => void;
   }) => (
     <Pressable
-      style={[styles.settingItem, { borderBottomColor: colors.border }]}
+      style={({ pressed }) => [
+        styles.settingItem,
+        { borderBottomColor: colors.border },
+        pressed && onPress && { opacity: 0.7 }
+      ]}
       onPress={onPress}
+      accessibilityRole={onPress ? "button" : undefined}
+      accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
+      accessibilityHint={onPress ? subtitle : undefined}
     >
       <View
         style={[styles.settingIcon, { backgroundColor: colors.background }]}
@@ -220,11 +227,13 @@ export default function SettingsScreen() {
 
         {/* Logout */}
         <Pressable
-          style={[
+          style={({ pressed }) => [
             styles.logoutButton,
             { backgroundColor: colors.card, borderColor: colors.border },
+            pressed && { opacity: 0.7 }
           ]}
           onPress={handleLogout}
+          accessibilityRole="button"
         >
           <Ionicons name="log-out-outline" size={20} color={colors.error} />
           <Text style={[styles.logoutText, { color: colors.error }]}>
