@@ -19,7 +19,7 @@ type SlugResolverClient = {
   rpc: (
     fn: string,
     params: { text_input: string }
-  ) => Promise<{ data: unknown; error: { message?: string } | null }>;
+  ) => PromiseLike<{ data: unknown; error: { message?: string } | null }>;
 };
 
 function hasEstablishedMerchantSlug(slug: string | null | undefined): boolean {
