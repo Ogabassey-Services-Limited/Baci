@@ -192,6 +192,25 @@ describe('getCachedBlogListing', () => {
 
     await getCachedBlogListing('ogabassey');
 
+    expect(categoriesBuilder.not).toHaveBeenCalledWith(
+      'published_at',
+      'is',
+      null
+    );
+    expect(categoriesBuilder.not).toHaveBeenCalledWith('title', 'is', null);
+    expect(categoriesBuilder.not).toHaveBeenCalledWith('slug', 'is', null);
+    expect(categoriesBuilder.neq).toHaveBeenCalledWith('title', '');
+    expect(categoriesBuilder.neq).toHaveBeenCalledWith('slug', '');
+    expect(categoriesBuilder.not).toHaveBeenCalledWith(
+      'title',
+      'ilike',
+      'test post%'
+    );
+    expect(categoriesBuilder.not).toHaveBeenCalledWith(
+      'slug',
+      'ilike',
+      '%agent-integration-working%'
+    );
     expect(categoriesBuilder.not).toHaveBeenCalledWith('category', 'is', null);
     expect(categoriesBuilder.not).toHaveBeenCalledWith(
       'category',

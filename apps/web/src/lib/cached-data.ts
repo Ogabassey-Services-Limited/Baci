@@ -1878,7 +1878,27 @@ export async function getCachedBlogListing(
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
     .not('published_at', 'is', null)
+    .not('title', 'is', null)
+    .not('slug', 'is', null)
+    .neq('title', '')
+    .neq('slug', '')
     .not('category', 'is', null);
+
+  for (const blockedPrefix of BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES) {
+    categoriesQuery = categoriesQuery.not(
+      'title',
+      'ilike',
+      `${blockedPrefix}%`
+    );
+  }
+
+  for (const blockedSlugPart of BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS) {
+    categoriesQuery = categoriesQuery.not(
+      'slug',
+      'ilike',
+      `%${blockedSlugPart}%`
+    );
+  }
 
   for (const blockedCategory of BLOCKED_PUBLIC_BLOG_CATEGORY_VALUES) {
     categoriesQuery = categoriesQuery.not('category', 'ilike', blockedCategory);

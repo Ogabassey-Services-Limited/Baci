@@ -189,7 +189,19 @@ describe('getLiveBlogPost', () => {
       'is',
       null
     );
-    expect(mockQueryBuilder.not).toHaveBeenCalledTimes(2);
+    expect(mockQueryBuilder.not).toHaveBeenCalledWith('title', 'is', null);
+    expect(mockQueryBuilder.not).toHaveBeenCalledWith('slug', 'is', null);
+    expect(mockQueryBuilder.not).toHaveBeenCalledWith(
+      'title',
+      'ilike',
+      'test post%'
+    );
+    expect(mockQueryBuilder.not).toHaveBeenCalledWith(
+      'slug',
+      'ilike',
+      '%agent-integration-working%'
+    );
+    expect(mockQueryBuilder.limit).toHaveBeenCalledWith(12);
   });
 
   it('slugifies free-text blog categories before filtering related products', async () => {
@@ -292,6 +304,76 @@ describe('getLiveBlogPost', () => {
         id: 'related-1',
         slug: 'best-phones-in-nigeria',
         title: 'Best Phones in Nigeria',
+      },
+    ]);
+  });
+
+  it('over-fetches related live posts so valid entries still fill all slots', async () => {
+    vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
+    vi.mocked(getCachedFeatureSettings).mockResolvedValue({
+      blog_enabled: true,
+      blog_discover_image_validation_enabled: false,
+      shipping_insurance_enabled: false,
+      shipping_insurance_min_order_value: 5000,
+      shipping_insurance_opt_in_default: false,
+    });
+
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'post-1',
+        title: 'Useful Post',
+        slug: 'useful-post',
+        category: null,
+      },
+      error: null,
+    });
+
+    relatedQueryResult.data = [
+      {
+        id: 'related-junk-1',
+        slug: 'test-post-agent-integration-working-1',
+        title: 'Test Post: Agent Integration Working',
+      },
+      {
+        id: 'related-junk-2',
+        slug: 'test-post-agent-integration-working-2',
+        title: 'Test Post: Agent Integration Working',
+      },
+      {
+        id: 'related-1',
+        slug: 'best-phones-in-nigeria',
+        title: 'Best Phones in Nigeria',
+      },
+      {
+        id: 'related-2',
+        slug: 'budget-phones-in-nigeria',
+        title: 'Budget Phones in Nigeria',
+      },
+      {
+        id: 'related-3',
+        slug: 'camera-phones-in-nigeria',
+        title: 'Camera Phones in Nigeria',
+      },
+    ];
+    relatedQueryResult.error = null;
+
+    const result = await getLiveBlogPost('test-store', 'useful-post');
+
+    expect(result?.relatedPosts).toEqual([
+      {
+        id: 'related-1',
+        slug: 'best-phones-in-nigeria',
+        title: 'Best Phones in Nigeria',
+      },
+      {
+        id: 'related-2',
+        slug: 'budget-phones-in-nigeria',
+        title: 'Budget Phones in Nigeria',
+      },
+      {
+        id: 'related-3',
+        slug: 'camera-phones-in-nigeria',
+        title: 'Camera Phones in Nigeria',
       },
     ]);
   });
