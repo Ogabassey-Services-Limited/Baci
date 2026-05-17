@@ -57,8 +57,7 @@ function toFiniteNumber(value: unknown): number | null {
 
 function hasReviewSignalFields(product: OpenAIFeedProduct): boolean {
   const reviewCount = toFiniteNumber(product.review_count);
-  if (reviewCount === null || reviewCount < 0) return false;
-  if (reviewCount === 0) return true;
+  if (reviewCount === null || reviewCount <= 0) return false;
 
   const averageRating = toFiniteNumber(product.average_rating);
   if (averageRating === null) return false;

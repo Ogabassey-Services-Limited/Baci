@@ -100,6 +100,24 @@ describe('buildAgentCommerceTrustHealthSignals', () => {
     });
   });
 
+  it('treats zero-review products as missing review signal coverage', () => {
+    const result = buildSignals([
+      product({
+        average_rating: 0,
+        review_count: 0,
+      }),
+    ]);
+
+    expect(
+      result.checks.find((check) => check.id === 'review-signal-coverage')
+    ).toMatchObject({
+      affectedProductCount: 1,
+      message:
+        '0 of 1 agent-visible products have usable review count and rating metadata.',
+      severity: 'fail',
+    });
+  });
+
   it('fails freshness and crawler checks when timestamps or crawler URLs are unusable', () => {
     const result = buildAgentCommerceTrustHealthSignals({
       now: NOW,
