@@ -22,6 +22,16 @@ function isFutureCalendarDay(date: Date) {
   return getLocalDateKey(date) > getLocalDateKey(new Date());
 }
 
+function getClientTimeZone(): string | null {
+  const resolvedTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (typeof resolvedTimeZone !== 'string') {
+    return null;
+  }
+
+  const trimmedTimeZone = resolvedTimeZone.trim();
+  return trimmedTimeZone.length > 0 ? trimmedTimeZone : null;
+}
+
 export function useUpdateTransactionCostPrice() {
   const queryClient = useQueryClient();
   const { merchant } = useMerchant();
@@ -59,10 +69,13 @@ export function useUpdateTransactionCostPrice() {
         throw new Error('Transaction date cannot be in the future.');
       }
 
+      const clientTimeZone = getClientTimeZone();
+
       const { error } = await supabase.rpc(
         'update_transaction_review_details',
         {
           p_cost_price: costPrice,
+          p_client_timezone: clientTimeZone,
           p_merchant_id: merchant.id,
           p_order_id: orderId.trim(),
           p_product_id: productId.trim(),

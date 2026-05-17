@@ -93,6 +93,7 @@ describe('useUpdateTransactionCostPrice', () => {
       'update_transaction_review_details',
       {
         p_cost_price: 125_000,
+        p_client_timezone: expect.any(String),
         p_merchant_id: 'merchant-1',
         p_order_id: 'order-1',
         p_product_id: 'product-1',
