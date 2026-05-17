@@ -21,4 +21,24 @@ describe('StorefrontLayoutLoadingFallback', () => {
       })
     ).toBeInTheDocument();
   });
+
+  it('can render a real mobile hero image when provided', () => {
+    render(
+      <StorefrontLayoutLoadingFallback
+        mobileHeroImage={{
+          alt: 'OgaBassey storefront hero',
+          avifSrc: '/hero-mobile.avif',
+          fallbackSrc: '/hero-mobile.jpg',
+        }}
+      />
+    );
+
+    const image = screen.getByRole('img', {
+      name: /ogabassey storefront hero/i,
+    });
+
+    expect(image).toHaveAttribute('src', '/hero-mobile.jpg');
+    expect(image).toHaveAttribute('fetchpriority', 'high');
+    expect(image).toHaveAttribute('loading', 'eager');
+  });
 });

@@ -5,6 +5,10 @@ import StorefrontLayout, {
   generateViewport,
 } from '@/app/(storefront)/[slug]/layout';
 import { StorefrontLayoutLoadingFallback } from '@/app/(storefront)/[slug]/storefront-layout-loading-fallback';
+import {
+  HERO_MOBILE_LCP_FALLBACK_SRC,
+  HERO_MOBILE_LCP_SRC,
+} from '@/components/storefront/ogabassey/components/hero-data';
 import { OGABASSEY_URL } from '@/config/ogabassey';
 
 const OGABASSEY_DOMAIN_IDENTIFIER = new URL(OGABASSEY_URL).hostname;
@@ -34,7 +38,15 @@ export default function OgabasseyDomainLayout({
 }) {
   return (
     <StorefrontLayout
-      loadingFallback={<StorefrontLayoutLoadingFallback />}
+      loadingFallback={
+        <StorefrontLayoutLoadingFallback
+          mobileHeroImage={{
+            alt: 'OgaBassey storefront hero',
+            avifSrc: HERO_MOBILE_LCP_SRC,
+            fallbackSrc: HERO_MOBILE_LCP_FALLBACK_SRC,
+          }}
+        />
+      }
       params={OGABASSEY_DOMAIN_PARAMS}
     >
       {children}
