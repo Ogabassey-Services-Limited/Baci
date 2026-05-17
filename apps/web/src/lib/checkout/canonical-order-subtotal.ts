@@ -27,7 +27,7 @@ export class CanonicalOrderSubtotalLoadError extends Error {
 }
 
 function roundMoney(value: number): number {
-  return Math.round(value * 100) / 100;
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 export async function computeCanonicalOrderSubtotal({

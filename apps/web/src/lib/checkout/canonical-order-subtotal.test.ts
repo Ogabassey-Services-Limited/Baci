@@ -60,6 +60,26 @@ describe('computeCanonicalOrderSubtotal', () => {
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
+  it('rounds canonical subtotal values with cent precision', async () => {
+    const { supabase } = buildSupabaseMock({
+      products: [{ id: 'p-1', price: 1.005 }],
+    });
+
+    const subtotal = await computeCanonicalOrderSubtotal({
+      items: [
+        {
+          product_id: 'p-1',
+          quantity: 1,
+          assurance_fee: 0,
+        },
+      ],
+      merchantId: 'merchant-1',
+      supabase: supabase as never,
+    });
+
+    expect(subtotal).toBe(1.01);
+  });
+
   it('uses a matching variant price override when present', async () => {
     const { supabase } = buildSupabaseMock({
       products: [{ id: 'p-1', price: 1000 }],

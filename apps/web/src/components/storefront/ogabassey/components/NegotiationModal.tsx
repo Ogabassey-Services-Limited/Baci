@@ -104,8 +104,20 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
     e.preventDefault();
     if (!offer) return;
 
-    setStatus('processing');
     const offerAmount = Number.parseFloat(offer);
+    if (
+      !Number.isFinite(offerAmount) ||
+      offerAmount <= 0 ||
+      offerAmount > currentPrice
+    ) {
+      setMessage(
+        `Enter an offer between ₦1 and ₦${currentPrice.toLocaleString()}.`
+      );
+      return;
+    }
+
+    setMessage('');
+    setStatus('processing');
 
     // Simulate AI thinking delay
     clearSubmitTimeout();
@@ -264,12 +276,22 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                 <input
                   type="number"
                   value={offer}
-                  onChange={(e) => setOffer(e.target.value)}
+                  onChange={(e) => {
+                    setOffer(e.target.value);
+                    if (message) {
+                      setMessage('');
+                    }
+                  }}
                   className="w-full bg-[hsl(var(--card))] pl-4 pr-4 py-3 border border-[hsl(var(--border))] rounded-xl focus:ring-2 focus:ring-[var(--store-primary)] focus:border-[var(--store-primary)] outline-none transition-all text-lg font-bold text-[hsl(var(--card-foreground))] placeholder:font-normal"
                   placeholder="Enter amount..."
                   autoFocus
                 />
               </div>
+              {message ? (
+                <p role="alert" className="mb-4 text-sm text-[hsl(var(--destructive))]">
+                  {message}
+                </p>
+              ) : null}
               <button
                 type="submit"
                 className="w-full bg-[var(--store-primary)] hover:bg-[var(--store-primary)]/90 text-[var(--store-primary-text)] font-bold py-3 rounded-xl transition-all shadow-md"

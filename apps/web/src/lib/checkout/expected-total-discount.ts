@@ -2,7 +2,7 @@ export const MAX_AUTO_NEGOTIATION_DISCOUNT_RATE = 0.03;
 const TOTAL_PARITY_TOLERANCE = 1;
 
 function roundMoney(value: number): number {
-  return Math.round(value * 100) / 100;
+  return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
 interface ExpectedTotalDiscountInput {

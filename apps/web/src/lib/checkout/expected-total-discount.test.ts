@@ -14,6 +14,18 @@ describe('computeExpectedTotalDiscount', () => {
     expect(discount).toBe(32.25);
   });
 
+  it('keeps one-cent negotiation deltas after money rounding', () => {
+    const discount = computeExpectedTotalDiscount({
+      canonicalSubtotal: 100.005,
+      canonicalTaxAmount: 0,
+      shippingFee: 0,
+      giftWrappingFee: 0,
+      expectedTotal: 99,
+    });
+
+    expect(discount).toBe(1.01);
+  });
+
   it('rejects the prior 5% negotiation ceiling', () => {
     const discount = computeExpectedTotalDiscount({
       canonicalSubtotal: 780000,

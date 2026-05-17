@@ -110,6 +110,22 @@ describe('NegotiationModal', () => {
     expect(screen.getByText(/human review/i)).toBeInTheDocument();
   });
 
+  it('rejects offers above the current price before entering processing', () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    const input = screen.getByPlaceholderText('Enter amount...');
+    fireEvent.change(input, { target: { value: '12000' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Offer' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      /between ₦1 and ₦10,000/i
+    );
+    expect(
+      screen.queryByText(/reviewing your offer/i)
+    ).not.toBeInTheDocument();
+    expect(defaultProps.onSuccess).not.toHaveBeenCalled();
+  });
+
   it('counters a first offer beyond 3% at 1% off', () => {
     render(<NegotiationModal {...defaultProps} />);
 
