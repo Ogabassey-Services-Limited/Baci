@@ -8,6 +8,7 @@ const OPENAI_FEED_PRODUCTS_PAGE_SIZE = 1000;
 const MAX_OPENAI_FEED_PRODUCTS = 10_000;
 const OPENAI_FEED_PRODUCTS_SELECT = `id, name, description, slug, canonical_url, price, compare_at_price, images,
        brand, gtin, mpn, sku, stock, stock_quantity, manage_stock, condition, google_product_category, category,
+       average_rating, review_count,
        weight_value, weight_unit, created_at, updated_at,
        categories:category_id(name, slug),
        product_categories(categories(name, slug)),
@@ -42,6 +43,8 @@ export interface OpenAIFeedProduct {
   google_product_category?: string;
   category?: string;
   category_slug?: string | null;
+  average_rating?: number | null;
+  review_count?: number | null;
   categories?: { name?: string | null; slug?: string | null } | null;
   weight_value?: number;
   weight_unit?: 'kg' | 'lb' | 'g' | 'oz';

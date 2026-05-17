@@ -95,6 +95,8 @@ describe('GET /agent-trust.json', () => {
           stock_quantity: 5,
           manage_stock: true,
           category: 'phones',
+          average_rating: 4.7,
+          review_count: 24,
           updated_at: PRODUCT_UPDATED_AT,
         },
       ],

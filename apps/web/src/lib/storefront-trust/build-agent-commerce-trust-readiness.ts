@@ -30,6 +30,7 @@ export interface AgentCommerceTrustCheck {
     | 'policy-coverage'
     | 'support-contact'
     | 'structured-data-readiness'
+    | 'review-signal-coverage'
     | 'feed-freshness'
     | 'crawler-visibility'
     | 'machine-endpoint-discovery';

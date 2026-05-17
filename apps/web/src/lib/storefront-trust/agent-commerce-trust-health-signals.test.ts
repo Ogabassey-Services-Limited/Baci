@@ -17,6 +17,8 @@ function product(
     stock_quantity: 5,
     manage_stock: true,
     category: 'phones',
+    average_rating: 4.7,
+    review_count: 24,
     updated_at: '2026-05-10T00:00:00.000Z',
     ...overrides,
   };
@@ -55,6 +57,9 @@ describe('buildAgentCommerceTrustHealthSignals', () => {
       result.checks.find((check) => check.id === 'structured-data-readiness')
     ).toMatchObject({ severity: 'pass' });
     expect(
+      result.checks.find((check) => check.id === 'review-signal-coverage')
+    ).toMatchObject({ severity: 'pass' });
+    expect(
       result.checks.find((check) => check.id === 'feed-freshness')
     ).toMatchObject({ severity: 'pass' });
     expect(
@@ -70,6 +75,7 @@ describe('buildAgentCommerceTrustHealthSignals', () => {
         description: '',
         id: 'product-2',
         name: 'Pixel 10',
+        review_count: undefined,
         slug: 'pixel-10',
         updated_at: undefined,
       }),
@@ -82,6 +88,9 @@ describe('buildAgentCommerceTrustHealthSignals', () => {
     });
     expect(
       result.checks.find((check) => check.id === 'structured-data-readiness')
+    ).toMatchObject({ severity: 'warn' });
+    expect(
+      result.checks.find((check) => check.id === 'review-signal-coverage')
     ).toMatchObject({ severity: 'warn' });
     expect(
       result.checks.find((check) => check.id === 'feed-freshness')

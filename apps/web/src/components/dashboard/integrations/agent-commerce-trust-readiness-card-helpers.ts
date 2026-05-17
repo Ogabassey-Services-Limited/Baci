@@ -74,6 +74,12 @@ const CHECK_ACTIONS: Record<
     label: 'Review structured data',
     message: 'Complete product fields used by agent and JSON-LD surfaces.',
   },
+  'review-signal-coverage': {
+    href: '/dashboard/products',
+    label: 'Strengthen review signals',
+    message:
+      'Publish valid product review counts and ratings for trust scoring.',
+  },
   'feed-freshness': {
     href: '/dashboard/products',
     label: 'Refresh catalog feed',

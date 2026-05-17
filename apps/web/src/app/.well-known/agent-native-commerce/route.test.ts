@@ -98,6 +98,8 @@ function stubFeedData() {
         manage_stock: true,
         name: 'Samsung Galaxy S25',
         price: 500_000,
+        average_rating: 4.7,
+        review_count: 24,
         slug: 'samsung-galaxy-s25',
         stock: 5,
         stock_quantity: 5,
