@@ -141,6 +141,50 @@ export async function getOrCreatePendingLoyaltyRedemptionId({
   return { key, redemptionId };
 }
 
+export async function getReusablePendingLoyaltyRedemptionId({
+  attemptId,
+  customerId,
+  merchantId,
+  now = Date.now,
+  points,
+  ttlMs = PENDING_LOYALTY_REDEMPTION_TTL_MS,
+}: RedemptionKeyInput & {
+  attemptId: string;
+  now?: () => number;
+  ttlMs?: number;
+}) {
+  const key = getPendingLoyaltyRedemptionStorageKey({
+    customerId,
+    merchantId,
+    points,
+  });
+  const existingRecord = parsePendingLoyaltyRedemptionRecord(
+    await AsyncStorage.getItem(key)
+  );
+
+  if (
+    existingRecord &&
+    canReusePendingLoyaltyRedemptionRecord({
+      attemptId,
+      now: now(),
+      record: existingRecord,
+      ttlMs,
+    })
+  ) {
+    return {
+      key,
+      pointsBeforeRedeem: existingRecord.pointsBeforeRedeem,
+      redemptionId: existingRecord.redemptionId,
+    };
+  }
+
+  if (existingRecord) {
+    await AsyncStorage.removeItem(key);
+  }
+
+  return null;
+}
+
 export async function clearPendingLoyaltyRedemptionId(key: string) {
   await AsyncStorage.removeItem(key);
 }

@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   clearPendingLoyaltyRedemptionId,
   getOrCreatePendingLoyaltyRedemptionId,
+  getReusablePendingLoyaltyRedemptionId,
 } from './loyalty-redemption-idempotency';
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
@@ -143,6 +144,59 @@ describe('loyalty redemption idempotency', () => {
 
     expect(result.redemptionId).toBe('pending-redemption-id');
     expect(mockRemoveItem).not.toHaveBeenCalled();
+    expect(mockSetItem).not.toHaveBeenCalled();
+  });
+
+  it('finds a reusable live-attempt redemption id without creating a new record', async () => {
+    mockGetItem.mockResolvedValueOnce(
+      JSON.stringify({
+        attemptId: 'attempt-1',
+        createdAt: 1_000,
+        pointsBeforeRedeem: 200,
+        redemptionId: 'pending-redemption-id',
+        version: 2,
+      })
+    );
+
+    const result = await getReusablePendingLoyaltyRedemptionId({
+      attemptId: 'attempt-1',
+      customerId: 'customer-1',
+      merchantId: 'merchant-1',
+      now: () => 1_500,
+      points: 200,
+    });
+
+    expect(result).toEqual({
+      key: 'loyalty-redemption:customer-1:merchant-1:200',
+      pointsBeforeRedeem: 200,
+      redemptionId: 'pending-redemption-id',
+    });
+    expect(mockSetItem).not.toHaveBeenCalled();
+  });
+
+  it('does not reuse an expired live-attempt redemption id', async () => {
+    mockGetItem.mockResolvedValueOnce(
+      JSON.stringify({
+        attemptId: 'attempt-1',
+        createdAt: 1_000,
+        pointsBeforeRedeem: 200,
+        redemptionId: 'expired-redemption-id',
+        version: 2,
+      })
+    );
+
+    const result = await getReusablePendingLoyaltyRedemptionId({
+      attemptId: 'attempt-1',
+      customerId: 'customer-1',
+      merchantId: 'merchant-1',
+      now: () => 1_801_001,
+      points: 200,
+    });
+
+    expect(result).toBeNull();
+    expect(mockRemoveItem).toHaveBeenCalledWith(
+      'loyalty-redemption:customer-1:merchant-1:200'
+    );
     expect(mockSetItem).not.toHaveBeenCalled();
   });
 

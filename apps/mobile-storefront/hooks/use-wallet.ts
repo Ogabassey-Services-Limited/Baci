@@ -10,6 +10,7 @@ import {
   clearPendingLoyaltyRedemptionId,
   getOrCreatePendingLoyaltyRedemptionId,
   getPendingLoyaltyRedemptionStorageKey,
+  getReusablePendingLoyaltyRedemptionId,
 } from '@/lib/loyalty-redemption-idempotency';
 import { calculateCommerce, supabase } from '@/lib/supabase';
 import { CustomerRowSchema, TransactionRowSchema } from '@/lib/validation';
@@ -459,15 +460,29 @@ export function useRedeemPoints() {
         redemptionBalanceSnapshotsRef.current.get(balanceSnapshotKey) ??
         cachedData?.wallet?.loyalty_points ??
         0;
+      const reusablePendingRedemption =
+        await getReusablePendingLoyaltyRedemptionId({
+          attemptId,
+          customerId,
+          merchantId: currentMerchantId,
+          points,
+        });
 
-      if (points > currentPoints) {
+      if (points > currentPoints && !reusablePendingRedemption) {
         throw new Error('Insufficient loyalty points');
       }
+
+      const commerceCurrentPoints = reusablePendingRedemption
+        ? Math.max(
+            currentPoints,
+            reusablePendingRedemption.pointsBeforeRedeem
+          )
+        : currentPoints;
 
       // First, validate with Commerce Brain
       const result = await calculateCommerce('redeem_loyalty', {
         points,
-        currentPoints,
+        currentPoints: commerceCurrentPoints,
         pointsToNairaRate: 1,
       });
 
@@ -475,14 +490,16 @@ export function useRedeemPoints() {
         throw new Error(result.error || 'Redemption failed');
       }
 
-      const { redemptionId } = await getOrCreatePendingLoyaltyRedemptionId({
-        attemptId,
-        createId: Crypto.randomUUID,
-        customerId,
-        currentPoints,
-        merchantId: currentMerchantId,
-        points,
-      });
+      const { redemptionId } =
+        reusablePendingRedemption ??
+        (await getOrCreatePendingLoyaltyRedemptionId({
+          attemptId,
+          createId: Crypto.randomUUID,
+          customerId,
+          currentPoints,
+          merchantId: currentMerchantId,
+          points,
+        }));
 
       // Then execute the RPC
       const { data: rpcData, error } = await supabase.rpc(

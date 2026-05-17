@@ -852,6 +852,75 @@ describe('useRedeemPoints', () => {
     queryClient.clear();
   });
 
+  it('retries an ambiguous redemption after a wallet balance refresh lowers points', async () => {
+    jest
+      .mocked(Crypto.randomUUID)
+      .mockReturnValueOnce('live-attempt-id')
+      .mockReturnValueOnce('first-redemption-id');
+    mockCalculateCommerce.mockResolvedValue({
+      success: true,
+      walletCredit: 200,
+      pointsRedeemed: 200,
+      remainingPoints: 0,
+    });
+    mockRpc
+      .mockRejectedValueOnce(new Error('Network request failed'))
+      .mockResolvedValueOnce({
+        data: {
+          success: true,
+          wallet_credited: 200,
+          points_deducted: 200,
+          new_points_balance: 0,
+          new_wallet_balance: 12500,
+        },
+        error: null,
+      });
+
+    const { result, unmount, queryClient } = setupHook();
+    const queryKey = walletKeys.data({
+      merchantId: 'merchant-1',
+      ownerId: 'customer-1',
+    });
+    queryClient.setQueryData<WalletQueryData>(queryKey, {
+      wallet: { balance: 0, loyalty_points: 200 },
+      transactions: [],
+    });
+
+    await act(async () => {
+      await expect(result.current.mutateAsync(200)).rejects.toThrow(
+        'Network request failed'
+      );
+    });
+
+    queryClient.setQueryData<WalletQueryData>(queryKey, {
+      wallet: { balance: 0, loyalty_points: 0 },
+      transactions: [],
+    });
+
+    await act(async () => {
+      await result.current.mutateAsync(200);
+    });
+
+    expect(mockRpc).toHaveBeenNthCalledWith(
+      1,
+      'redeem_loyalty_points',
+      expect.objectContaining({ p_redemption_id: 'first-redemption-id' })
+    );
+    expect(mockRpc).toHaveBeenNthCalledWith(
+      2,
+      'redeem_loyalty_points',
+      expect.objectContaining({ p_redemption_id: 'first-redemption-id' })
+    );
+    expect(mockCalculateCommerce).toHaveBeenNthCalledWith(
+      2,
+      'redeem_loyalty',
+      expect.objectContaining({ currentPoints: 200, points: 200 })
+    );
+
+    unmount();
+    queryClient.clear();
+  });
+
   it('uses a fresh redemption id when a live retry outlives the pending ttl', async () => {
     jest
       .mocked(Crypto.randomUUID)
