@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FEATURES, isPlanTier, planHasFeature } from './feature-flags';
+import { FEATURES, isPlanTier, planHasFeature } from '@/lib/feature-flags';
 
 describe('feature flags', () => {
   it('recognizes supported plan tiers at runtime', () => {

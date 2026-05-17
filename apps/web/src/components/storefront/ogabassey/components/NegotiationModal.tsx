@@ -232,12 +232,20 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
         className="absolute inset-0 bg-[hsl(var(--foreground))]/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="bg-[hsl(var(--card))] rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden z-10 animate-in zoom-in-95 duration-200">
+      <div
+        aria-labelledby="negotiation-modal-title"
+        aria-modal="true"
+        className="bg-[hsl(var(--card))] rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden z-10 animate-in zoom-in-95 duration-200"
+        role="dialog"
+      >
         {/* Header */}
         <div className="bg-[hsl(var(--foreground))] p-4 flex justify-between items-center">
           <div className="flex items-center gap-2 text-[hsl(var(--background))]">
             <HandCoins size={20} className="text-[var(--store-primary)]" />
-            <h3 className="font-bold text-sm uppercase tracking-wider">
+            <h3
+              id="negotiation-modal-title"
+              className="font-bold text-sm uppercase tracking-wider"
+            >
               Negotiate Price
             </h3>
           </div>

@@ -36,6 +36,7 @@ function isPayOnDelivery(paymentMethod: string): boolean {
 
 /** Server-authoritative assurance rate — never trust the client value. */
 const SERVER_ASSURANCE_RATE = 0.05;
+const LEGACY_NEGOTIATION_SLUGS = new Set(['ogabassey', 'demo-premium']);
 
 function hasPriceNegotiationEntitlement(
   planTier: string | null | undefined,
@@ -47,10 +48,9 @@ function hasPriceNegotiationEntitlement(
 
   // Maintain legacy storefront entitlement fallback until all
   // merchants are backfilled with an explicit `plan_tier`.
-  const legacyNegotiationSlugs = new Set(['ogabassey', 'demo-premium']);
   return (
     typeof merchantSlug === 'string' &&
-    legacyNegotiationSlugs.has(merchantSlug.toLowerCase())
+    LEGACY_NEGOTIATION_SLUGS.has(merchantSlug.toLowerCase())
   );
 }
 
@@ -287,8 +287,8 @@ export async function POST(request: NextRequest) {
     if (discountAmountValue > 0) {
       return NextResponse.json(
         {
+          code: 'discount_amount_not_supported',
           error: 'Failed to create order',
-          details: 'discount_amount_not_supported',
         },
         { status: 400 }
       );

@@ -430,7 +430,7 @@ describe('Order API Security', () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.details).toBe('discount_amount_not_supported');
+    expect(data.code).toBe('discount_amount_not_supported');
     expect(mockSupabase.rpc).not.toHaveBeenCalledWith(
       'create_storefront_order',
       expect.anything()
@@ -450,7 +450,7 @@ describe('Order API Security', () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.details).toBe('discount_amount_not_supported');
+    expect(data.code).toBe('discount_amount_not_supported');
     expect(mockSupabase.rpc).not.toHaveBeenCalled();
   });
 
@@ -467,7 +467,7 @@ describe('Order API Security', () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.details).toBe('discount_amount_not_supported');
+    expect(data.code).toBe('discount_amount_not_supported');
     expect(mockSupabase.rpc).not.toHaveBeenCalledWith(
       'create_storefront_order',
       expect.anything()
