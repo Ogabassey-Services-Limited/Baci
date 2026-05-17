@@ -38,7 +38,16 @@ function resolveOgabasseyMobileHeroPreloadPath() {
     return null;
   }
 
-  return `/_next/static/media/${mobileHeroAvif}`;
+  const match = /^iphone-17-pro-max-mobile\.([^.]+)\.avif$/.exec(
+    mobileHeroAvif
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  const [, contentHash] = match;
+  return `/_next/static/media/iphone-17-pro-max-mobile.${contentHash}.${contentHash}.avif`;
 }
 
 const OGABASSEY_HOME_MOBILE_HERO_PRELOAD_PATH =
