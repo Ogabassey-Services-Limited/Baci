@@ -64,7 +64,7 @@ export function StorefrontLayoutLoadingFallback({
                 <img
                   alt={mobileHeroImage.alt}
                   className="h-full w-full object-contain object-right"
-                  decoding="async"
+                  decoding="sync"
                   fetchPriority="high"
                   height={540}
                   loading="eager"

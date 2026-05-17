@@ -47,6 +47,7 @@ describe('StorefrontLayoutLoadingFallback', () => {
       'src',
       expect.stringMatching(/^data:image\//)
     );
+    expect(image).toHaveAttribute('decoding', 'sync');
     expect(image).toHaveAttribute('fetchpriority', 'high');
     expect(image).toHaveAttribute('loading', 'eager');
   });
