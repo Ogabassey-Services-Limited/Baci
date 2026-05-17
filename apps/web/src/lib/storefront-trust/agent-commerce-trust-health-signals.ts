@@ -48,6 +48,9 @@ function hasStructuredDataFields(product: OpenAIFeedProduct): boolean {
 }
 
 function toFiniteNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string' && value.trim().length === 0) return null;
+
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }

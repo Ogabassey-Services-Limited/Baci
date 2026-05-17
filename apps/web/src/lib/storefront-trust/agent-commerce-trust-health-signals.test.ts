@@ -75,7 +75,7 @@ describe('buildAgentCommerceTrustHealthSignals', () => {
         description: '',
         id: 'product-2',
         name: 'Pixel 10',
-        review_count: undefined,
+        review_count: null,
         slug: 'pixel-10',
         updated_at: undefined,
       }),

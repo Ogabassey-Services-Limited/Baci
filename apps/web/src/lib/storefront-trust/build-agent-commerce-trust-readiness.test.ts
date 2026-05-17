@@ -283,7 +283,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
           product({
             id: 'product-2',
             name: 'Pixel 10',
-            review_count: undefined,
+            review_count: null,
             slug: 'pixel-10',
           }),
         ],
