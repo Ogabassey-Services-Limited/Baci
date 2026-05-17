@@ -822,9 +822,16 @@ export async function proxy(request: NextRequest) {
     const isBlogMetadataEndpoint =
       legacyCategoryTargetBase !== undefined &&
       blogMetadataEndpoints.includes(legacyCategoryTargetBase);
+    const acceptHeader = request.headers.get('accept')?.toLowerCase() ?? '';
+    const fetchDestination =
+      request.headers.get('sec-fetch-dest')?.toLowerCase() ?? '';
+    const isDocumentNavigation =
+      fetchDestination === 'document' || acceptHeader.includes('text/html');
+    const shouldBypassLegacyCategoryRedirect =
+      isBlogMetadataEndpoint && !isDocumentNavigation;
     const isLegacyPost =
       legacyCategoryMatch &&
-      !isBlogMetadataEndpoint &&
+      !shouldBypassLegacyCategoryRedirect &&
       !blogExclusions.includes(legacyCategoryMatch[1].toLowerCase());
 
     const hasThumbnailId =
