@@ -52,7 +52,7 @@ vi.mock('./blog-post-view-tracker', () => ({
   ),
 }));
 
-import BlogPostPage, { generateMetadata } from './page';
+import { BlogPostPageContent, generateMetadata } from './page';
 
 describe('platform blog post page', () => {
   beforeEach(() => {
@@ -83,7 +83,7 @@ describe('platform blog post page', () => {
 
   it('renders the platform post using the shared post query helper', async () => {
     const { container } = render(
-      await BlogPostPage({
+      await BlogPostPageContent({
         params: Promise.resolve({ slug: 'launch-faster' }),
       })
     );
@@ -115,7 +115,7 @@ describe('platform blog post page', () => {
     mockGetPlatformBlogPost.mockResolvedValueOnce(null);
 
     await expect(
-      BlogPostPage({
+      BlogPostPageContent({
         params: Promise.resolve({ slug: 'missing-post' }),
       })
     ).rejects.toThrow('NEXT_NOT_FOUND');
