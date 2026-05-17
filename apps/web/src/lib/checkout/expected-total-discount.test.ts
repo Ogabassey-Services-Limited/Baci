@@ -134,6 +134,18 @@ describe('computeExpectedTotalDiscount', () => {
     expect(discount).toBe(1);
   });
 
+  it('rejects ≤ ₦1 discounts that still exceed the 3% cap', () => {
+    const discount = computeExpectedTotalDiscount({
+      canonicalSubtotal: 20,
+      canonicalTaxAmount: 0,
+      shippingFee: 0,
+      giftWrappingFee: 0,
+      expectedTotal: 19,
+    });
+
+    expect(discount).toBe(0);
+  });
+
   it('accepts whole-naira rounded 3% counter-offers for normal checkout subtotals', () => {
     const discount = computeExpectedTotalDiscount({
       canonicalSubtotal: 1001,

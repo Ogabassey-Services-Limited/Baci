@@ -116,10 +116,6 @@ export function computeExpectedTotalDiscount({
     return 0;
   }
 
-  if (requiredDiscount <= TOTAL_PARITY_TOLERANCE) {
-    return requiredDiscount;
-  }
-
   // Discounted totals for VAT-registered merchants include both the pre-tax
   // subtotal reduction and the tax reduction that follows from it. Cap against
   // subtotal + tax (not shipping/gift) so valid 3% offers remain payable.
@@ -144,6 +140,10 @@ export function computeExpectedTotalDiscount({
     }
 
     return 0;
+  }
+
+  if (requiredDiscount <= TOTAL_PARITY_TOLERANCE) {
+    return requiredDiscount;
   }
 
   return requiredDiscount;
