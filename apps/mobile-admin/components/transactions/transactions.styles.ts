@@ -21,6 +21,11 @@ export const styles = StyleSheet.create({
     fontSize: TYPOGRAPHY.size.sm,
     marginTop: SPACING.sm,
   },
+  fieldLabel: {
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    fontSize: TYPOGRAPHY.size.sm,
+    marginBottom: SPACING.xs,
+  },
   heroCard: {
     borderRadius: RADIUS.lg,
     borderWidth: 1,
@@ -41,9 +46,13 @@ export const styles = StyleSheet.create({
     borderWidth: 1,
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     fontSize: TYPOGRAPHY.size.lg,
-    marginTop: SPACING.md,
     paddingHorizontal: SPACING.md,
     paddingVertical: SPACING.md,
+  },
+  itemDetailText: {
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    fontSize: TYPOGRAPHY.size.xs,
+    marginTop: SPACING.xs,
   },
   itemMeta: {
     alignItems: 'flex-end',
@@ -82,6 +91,10 @@ export const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.bold,
     fontSize: TYPOGRAPHY.size.xl,
   },
+  modalFields: {
+    gap: SPACING.md,
+    marginTop: SPACING.md,
+  },
   orderAmount: {
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     fontSize: TYPOGRAPHY.size.md,
@@ -115,6 +128,21 @@ export const styles = StyleSheet.create({
   actionButtonText: {
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     fontSize: TYPOGRAPHY.size.md,
+  },
+  searchContainer: {
+    alignItems: 'center',
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    fontSize: TYPOGRAPHY.size.md,
+    minHeight: SPACING.touchTarget,
   },
   stateContainer: {
     alignItems: 'center',
