@@ -10,3 +10,6 @@
 
 **Learning:** Interactive icon-only buttons without explicit `type="button"` can accidentally trigger form submissions.
 **Action:** Always ensure `<button>` tags that don't submit forms have `type="button"` explicitly defined.
+## 2024-05-30 - Interactive Elements Pressable Feedback and A11y
+**Learning:** Custom interactive elements (like lists or buttons) built with React Native's `Pressable` often lack visual feedback when pressed and do not announce their role to screen readers by default.
+**Action:** Always provide visual feedback using the `({ pressed }) => [...]` style pattern (e.g., `opacity: 0.7`) and explicitly assign an `accessibilityRole="button"` (or appropriate role) to enhance both visual UX and accessibility.
