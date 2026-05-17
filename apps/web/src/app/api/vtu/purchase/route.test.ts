@@ -67,6 +67,11 @@ describe('POST /api/vtu/purchase', () => {
         credited: true,
         newBalance: 150,
       },
+      loyaltyPoints: {
+        credited: true,
+        earned: 5,
+        newBalance: 205,
+      },
     });
   });
 
@@ -154,6 +159,11 @@ describe('POST /api/vtu/purchase', () => {
         amount: 50,
         credited: true,
         newBalance: 150,
+      },
+      loyaltyPoints: {
+        credited: true,
+        earned: 5,
+        newBalance: 205,
       },
     });
   });

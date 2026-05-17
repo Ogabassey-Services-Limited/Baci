@@ -104,6 +104,9 @@ export async function POST(request: NextRequest) {
       ...(result.cashback && {
         cashback: result.cashback,
       }),
+      ...(result.loyaltyPoints && {
+        loyaltyPoints: result.loyaltyPoints,
+      }),
       ...(result.voucherPin && {
         voucherPin: result.voucherPin,
       }),

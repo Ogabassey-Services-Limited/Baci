@@ -195,6 +195,11 @@ describe('POST /api/vtu/checkout/wallet-only', () => {
     });
     mockFulfill.mockResolvedValue({
       amount: 1000,
+      loyaltyPoints: {
+        credited: true,
+        earned: 5,
+        newBalance: 205,
+      },
       reference: 'VTU-REF-NEW',
       status: 'successful',
     });
@@ -270,6 +275,11 @@ describe('POST /api/vtu/checkout/wallet-only', () => {
     expect(body).toMatchObject({
       status: 'successful',
       reference: 'VTU-REF-NEW',
+      loyaltyPoints: {
+        credited: true,
+        earned: 5,
+        newBalance: 205,
+      },
     });
     expect(mockPrepare).toHaveBeenCalledTimes(1);
     expect(mockFulfill).toHaveBeenCalledWith({
@@ -298,15 +308,27 @@ describe('POST /api/vtu/checkout/wallet-only', () => {
     supabaseMockRef.current = buildSupabase(state);
     mockFulfill.mockResolvedValue({
       amount: 1000,
+      loyaltyPoints: {
+        credited: true,
+        earned: 5,
+        newBalance: 205,
+      },
       reference: 'VTU-REF-OLD',
       status: 'successful',
     });
 
-    const { status } = await callRoute(
+    const { status, body } = await callRoute(
       makeRequest({ idempotencyKey: VALID_KEY })
     );
 
     expect(status).toBe(200);
+    expect(body).toMatchObject({
+      loyaltyPoints: {
+        credited: true,
+        earned: 5,
+        newBalance: 205,
+      },
+    });
     expect(mockPrepare).not.toHaveBeenCalled();
     expect(mockFulfill).toHaveBeenCalledWith({
       supabase: expect.anything(),

@@ -1,4 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import {
+  getRedeemablePointBalance,
+  VTU_MIN_REDEEMABLE_POINTS,
+} from '@baci/shared/lib';
 import type { ComponentProps } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import {
@@ -22,7 +26,6 @@ import { styles } from './wallet.styles';
 
 type WalletColors = (typeof Colors)['light'];
 type WalletIconName = ComponentProps<typeof Ionicons>['name'];
-const MIN_REDEEMABLE_POINTS = 100;
 
 export interface WalletContentProps {
   colors: WalletColors;
@@ -112,6 +115,7 @@ export function WalletContent({
       onPress: () => undefined,
     },
   ];
+  const redeemablePoints = getRedeemablePointBalance(loyaltyPoints);
 
   return (
     <ScrollView
@@ -270,22 +274,21 @@ export function WalletContent({
 
         <View style={[styles.redeemSection, { borderTopColor: colors.border }]}>
           <Text style={[styles.redeemInfo, { color: colors.textSecondary }]}>
-            {MIN_REDEEMABLE_POINTS} points = ₦{MIN_REDEEMABLE_POINTS} wallet
-            credit
+            {`${redeemablePoints.toLocaleString()} points redeemable now - ${VTU_MIN_REDEEMABLE_POINTS} points = ₦${VTU_MIN_REDEEMABLE_POINTS}`}
           </Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Redeem loyalty points"
             accessibilityHint="Opens the loyalty redemption panel"
             accessibilityState={{
-              disabled: loyaltyPoints < MIN_REDEEMABLE_POINTS,
+              disabled: loyaltyPoints < VTU_MIN_REDEEMABLE_POINTS,
             }}
             style={({ pressed }) => [
               styles.redeemBtn,
               {
                 backgroundColor: BRAND.primary,
                 opacity:
-                  loyaltyPoints < MIN_REDEEMABLE_POINTS
+                  loyaltyPoints < VTU_MIN_REDEEMABLE_POINTS
                     ? 0.45
                     : pressed
                       ? 0.8
@@ -293,7 +296,7 @@ export function WalletContent({
               },
             ]}
             onPress={onOpenRedeemPanel}
-            disabled={loyaltyPoints < MIN_REDEEMABLE_POINTS}
+            disabled={loyaltyPoints < VTU_MIN_REDEEMABLE_POINTS}
           >
             <Ionicons
               accessible={false}
@@ -340,7 +343,7 @@ export function WalletContent({
             value={redeemPoints}
             onChangeText={onChangeRedeemPoints}
             keyboardType="number-pad"
-            placeholder="Enter points to redeem (min 100)"
+            placeholder={`Enter points to redeem (min ${VTU_MIN_REDEEMABLE_POINTS})`}
             placeholderTextColor={colors.placeholder}
           />
 
