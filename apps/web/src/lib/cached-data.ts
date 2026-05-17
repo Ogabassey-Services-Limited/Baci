@@ -11,6 +11,14 @@ import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
+import {
+  BLOCKED_PUBLIC_BLOG_CATEGORY_VALUES,
+  BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS,
+  BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES,
+  filterPublicBlogCategories,
+  filterPublicBlogPosts,
+  isPublicBlogPost,
+} from '@/lib/public-blog-content-quality';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import {
   isDomainIdentifier,
@@ -18,6 +26,9 @@ import {
 } from '@/lib/validation';
 import type { MerchantAboutPage } from '@/types/about-page';
 import type { MerchantTrustProfileDraft } from '../../../../packages/shared/src/contracts/merchant-trust-profile';
+
+const RELATED_BLOG_POSTS_LIMIT = 3;
+const RELATED_BLOG_POSTS_FETCH_LIMIT = 12;
 
 /**
  * Create a Supabase client for cached queries.
@@ -1708,6 +1719,9 @@ export async function getCachedBlogPost(
     }
     return null;
   }
+  if (!includeDrafts && !isPublicBlogPost(post)) {
+    return null;
+  }
 
   // Fetch Related Posts
   let relatedQuery = supabase
@@ -1718,15 +1732,26 @@ export async function getCachedBlogPost(
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
     .not('published_at', 'is', null)
-    .neq('id', post.id)
-    .limit(3);
+    .not('title', 'is', null)
+    .not('slug', 'is', null)
+    .neq('title', '')
+    .neq('slug', '')
+    .neq('id', post.id);
+
+  for (const blockedPrefix of BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES) {
+    relatedQuery = relatedQuery.not('title', 'ilike', `${blockedPrefix}%`);
+  }
+
+  for (const blockedSlugPart of BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS) {
+    relatedQuery = relatedQuery.not('slug', 'ilike', `%${blockedSlugPart}%`);
+  }
 
   if (post.category) {
     relatedQuery = relatedQuery.eq('category', post.category);
   }
 
   const { data: relatedPosts, error: relatedPostsError } =
-    await relatedQuery.limit(3);
+    await relatedQuery.limit(RELATED_BLOG_POSTS_FETCH_LIMIT);
 
   if (relatedPostsError) {
     console.error('Error fetching related blog posts:', relatedPostsError);
@@ -1755,7 +1780,12 @@ export async function getCachedBlogPost(
       custom_domain: merchant.custom_domain,
     },
     post,
-    relatedPosts: relatedPostsError ? [] : relatedPosts || [],
+    relatedPosts: relatedPostsError
+      ? []
+      : filterPublicBlogPosts(relatedPosts || []).slice(
+          0,
+          RELATED_BLOG_POSTS_LIMIT
+        ),
     relatedProducts: relatedProducts || [],
   };
 }
@@ -1797,14 +1827,25 @@ export async function getCachedBlogListing(
   let query = supabase
     .from('blog_posts')
     .select(
-      'id, title, slug, excerpt, featured_image_url, featured_image_alt, category, tags, author_name, published_at, reading_time_minutes, view_count',
+      'id, title, slug, excerpt, featured_image_url, featured_image_alt, featured_image_variants, category, tags, author_name, published_at, reading_time_minutes, view_count',
       { count: 'exact' }
     )
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
     .not('published_at', 'is', null)
-    .order('published_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+    .not('title', 'is', null)
+    .not('slug', 'is', null)
+    .neq('title', '')
+    .neq('slug', '')
+    .order('published_at', { ascending: false });
+
+  for (const blockedPrefix of BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES) {
+    query = query.not('title', 'ilike', `${blockedPrefix}%`);
+  }
+
+  for (const blockedSlugPart of BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS) {
+    query = query.not('slug', 'ilike', `%${blockedSlugPart}%`);
+  }
 
   if (category) {
     query = query.eq('category', category);
@@ -1821,6 +1862,8 @@ export async function getCachedBlogListing(
     }
   }
 
+  query = query.range(offset, offset + limit - 1);
+
   const { data: posts, count, error: postsError } = await query;
   if (postsError) {
     console.error('Failed to load blog posts', {
@@ -1830,13 +1873,39 @@ export async function getCachedBlogListing(
     throw postsError;
   }
 
-  const { data: categories, error: categoriesError } = await supabase
+  let categoriesQuery = supabase
     .from('blog_posts')
     .select('category')
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
     .not('published_at', 'is', null)
+    .not('title', 'is', null)
+    .not('slug', 'is', null)
+    .neq('title', '')
+    .neq('slug', '')
     .not('category', 'is', null);
+
+  for (const blockedPrefix of BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES) {
+    categoriesQuery = categoriesQuery.not(
+      'title',
+      'ilike',
+      `${blockedPrefix}%`
+    );
+  }
+
+  for (const blockedSlugPart of BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS) {
+    categoriesQuery = categoriesQuery.not(
+      'slug',
+      'ilike',
+      `%${blockedSlugPart}%`
+    );
+  }
+
+  for (const blockedCategory of BLOCKED_PUBLIC_BLOG_CATEGORY_VALUES) {
+    categoriesQuery = categoriesQuery.not('category', 'ilike', blockedCategory);
+  }
+
+  const { data: categories, error: categoriesError } = await categoriesQuery;
   if (categoriesError) {
     console.warn('Failed to load blog categories', {
       merchantId: merchant.id,
@@ -1847,6 +1916,8 @@ export async function getCachedBlogListing(
   const uniqueCategories = categoriesError
     ? []
     : [...new Set(categories?.map((entry) => entry.category).filter(Boolean))];
+  const publicPosts = filterPublicBlogPosts(posts || []);
+  const publicCategories = filterPublicBlogCategories(uniqueCategories);
 
   return {
     merchant: {
@@ -1857,9 +1928,9 @@ export async function getCachedBlogListing(
       template_id: merchant.template_id,
       custom_domain: merchant.custom_domain,
     },
-    posts: posts || [],
+    posts: publicPosts,
     totalPosts: count || 0,
-    categories: uniqueCategories,
+    categories: publicCategories,
     currentPage: page,
     totalPages: Math.ceil((count || 0) / limit),
     searchQuery,

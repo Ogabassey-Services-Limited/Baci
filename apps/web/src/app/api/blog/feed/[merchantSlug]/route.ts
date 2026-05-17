@@ -3,7 +3,12 @@ import { Feed } from 'feed';
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getAppUrl, getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
 import { stripHtml } from '@/lib/blog-utils';
+import {
+  filterPublicBlogPosts,
+  isPublicBlogCategory,
+} from '@/lib/public-blog-content-quality';
 import { sanitizeForFeed } from '@/lib/sanitize';
 
 /**
@@ -30,6 +35,7 @@ interface BlogPost {
   content: string;
   excerpt: string;
   featured_image_url: string | null;
+  featured_image_variants?: Record<string, unknown> | null;
   category: string | null;
   author_name: string;
   published_at: string | null;
@@ -72,12 +78,17 @@ interface PublicFeedQueryBuilder {
     options: { ascending: boolean }
   ): PublicFeedQueryBuilder;
   maybeSingle(): Promise<QueryResult<unknown>>;
-  limit(count: number): Promise<QueryResult<unknown>>;
+  range(from: number, to: number): Promise<QueryResult<unknown>>;
 }
 
 interface PublicFeedClient {
   from(table: string): PublicFeedQueryBuilder;
 }
+
+const RSS_PUBLIC_POST_LIMIT = 50;
+const RSS_QUERY_BATCH_SIZE = 50;
+const RSS_MAX_FETCH_ITERATIONS =
+  Math.ceil(RSS_PUBLIC_POST_LIMIT / RSS_QUERY_BATCH_SIZE) + 5;
 
 // Create anonymous Supabase client for public access
 function getPublicClient(): PublicFeedClient | null {
@@ -193,6 +204,59 @@ async function resolveMerchantByIdentifier(
   return getMerchantByColumn(supabase, 'id', domainData.merchant_id);
 }
 
+async function fetchPublicFeedPosts(
+  supabase: PublicFeedClient,
+  merchantId: string
+): Promise<BlogPost[]> {
+  const publicPosts: BlogPost[] = [];
+  let offset = 0;
+  let hasMoreRows = true;
+  let fetchIterations = 0;
+
+  while (
+    hasMoreRows &&
+    publicPosts.length < RSS_PUBLIC_POST_LIMIT &&
+    fetchIterations < RSS_MAX_FETCH_ITERATIONS
+  ) {
+    fetchIterations += 1;
+    const { data: posts, error: postsError } = await supabase
+      .from('blog_posts')
+      .select(
+        'id, title, slug, content, excerpt, featured_image_url, featured_image_variants, category, author_name, published_at, updated_at'
+      )
+      .eq('merchant_id', merchantId)
+      .eq('status', 'published')
+      .not('published_at', 'is', null)
+      .order('published_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(offset, offset + RSS_QUERY_BATCH_SIZE - 1);
+
+    if (postsError) {
+      console.error('Error fetching blog posts for feed:', postsError);
+      throw postsError;
+    }
+
+    const postBatch = Array.isArray(posts) ? (posts as BlogPost[]) : [];
+    publicPosts.push(...filterPublicBlogPosts(postBatch));
+    hasMoreRows = postBatch.length === RSS_QUERY_BATCH_SIZE;
+    offset += RSS_QUERY_BATCH_SIZE;
+  }
+
+  if (
+    hasMoreRows &&
+    publicPosts.length < RSS_PUBLIC_POST_LIMIT &&
+    fetchIterations >= RSS_MAX_FETCH_ITERATIONS
+  ) {
+    console.warn('Stopped blog feed fetch after max iterations', {
+      merchantId,
+      fetchIterations,
+      collectedPosts: publicPosts.length,
+    });
+  }
+
+  return publicPosts.slice(0, RSS_PUBLIC_POST_LIMIT);
+}
+
 // Cache RSS feed for 1 hour by canonical merchant id.
 const getCachedFeedByMerchantId = unstable_cache(
   async (merchantId: string) => {
@@ -207,26 +271,9 @@ const getCachedFeedByMerchantId = unstable_cache(
       return null;
     }
 
-    // Get published blog posts
-    const { data: posts, error: postsError } = await supabase
-      .from('blog_posts')
-      .select(
-        'id, title, slug, content, excerpt, featured_image_url, category, author_name, published_at, updated_at'
-      )
-      .eq('merchant_id', merchant.id)
-      .eq('status', 'published')
-      .not('published_at', 'is', null)
-      .order('published_at', { ascending: false })
-      .limit(50);
-
-    if (postsError) {
-      console.error('Error fetching blog posts for feed:', postsError);
-      throw postsError;
-    }
-
     return {
       merchant,
-      posts: (Array.isArray(posts) ? posts : []) as BlogPost[],
+      posts: await fetchPublicFeedPosts(supabase, merchant.id),
     };
   },
   ['blog-rss-feed'],
@@ -311,6 +358,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       const excerpt = post.excerpt || stripHtml(post.content).substring(0, 300);
 
       const sanitizedContent = sanitizeForFeed(post.content);
+      const imageUrls = getBlogStructuredDataImageUrls(post);
 
       feed.addItem({
         title: post.title,
@@ -325,8 +373,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
           },
         ],
         date: publishedDate,
-        image: post.featured_image_url || undefined,
-        category: post.category ? [{ name: post.category }] : undefined,
+        image: imageUrls[0],
+        category:
+          post.category && isPublicBlogCategory(post.category)
+            ? [{ name: post.category }]
+            : undefined,
       });
     }
 

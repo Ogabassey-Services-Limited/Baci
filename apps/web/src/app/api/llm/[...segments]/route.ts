@@ -17,6 +17,10 @@ import {
   markdownResponse,
   notFoundMarkdownResponse,
 } from '@/lib/llms-markdown';
+import {
+  filterPublicBlogCategories,
+  filterPublicBlogPosts,
+} from '@/lib/public-blog-content-quality';
 
 function notFound() {
   return notFoundMarkdownResponse('# Not Found\n');
@@ -95,13 +99,14 @@ async function handleLlmRequest(
 
       case 'blog': {
         const data = await getCachedBlogListing(slug);
-        if (!data || data.posts.length === 0) return notFound();
+        const publicPosts = data ? filterPublicBlogPosts(data.posts) : [];
+        if (!data || publicPosts.length === 0) return notFound();
         return markdownResponse(
           buildBlogIndexMarkdown(
             data.merchant,
             origin,
-            data.posts,
-            data.categories
+            publicPosts,
+            filterPublicBlogCategories(data.categories)
           )
         );
       }
