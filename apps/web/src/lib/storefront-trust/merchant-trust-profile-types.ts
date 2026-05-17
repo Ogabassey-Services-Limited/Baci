@@ -63,6 +63,7 @@ export interface MerchantTrustProfile {
 }
 
 export interface MerchantTrustProfileSource {
+  template_id?: string | null;
   support_email?: string | null;
   support_phone?: string | null;
   social_media?: Record<string, string | undefined> | null;
