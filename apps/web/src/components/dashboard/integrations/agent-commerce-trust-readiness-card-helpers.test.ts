@@ -111,6 +111,13 @@ describe('agentCommerceTrustReadinessCardHelpers', () => {
             severity: 'warn',
           },
           {
+            affectedProductCount: 2,
+            id: 'review-signal-coverage',
+            label: 'Review signal coverage',
+            message: '2 products are missing review metadata.',
+            severity: 'warn',
+          },
+          {
             affectedProductIds: ['product-1', 'product-2'],
             id: 'canonical-url-parity',
             label: 'Canonical URL parity',
@@ -149,6 +156,15 @@ describe('agentCommerceTrustReadinessCardHelpers', () => {
         label: 'Verify product images',
         message:
           'Add valid product images for agent and Merchant Center trust.',
+        severity: 'warn',
+      },
+      {
+        count: 2,
+        href: '/dashboard/reviews',
+        id: 'review-signal-coverage',
+        label: 'Strengthen review signals',
+        message:
+          'Publish valid product review counts and ratings for trust scoring.',
         severity: 'warn',
       },
     ]);

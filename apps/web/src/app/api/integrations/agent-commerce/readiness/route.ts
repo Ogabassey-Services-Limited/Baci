@@ -24,7 +24,7 @@ export async function GET() {
   });
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
   const [openAiFeedData, googleFeedData] = await Promise.all([
-    getCachedOpenAIFeedData(merchant.id),
+    getCachedOpenAIFeedData(merchant.id, true),
     getCachedGoogleMerchantFeedData(merchant.id, slug),
   ]);
 
