@@ -63,7 +63,7 @@ export function buildUcpOrderResponse(response: unknown) {
           line_items: lineItems.map((lineItem, index) => ({
             id: toStringValue(lineItem.id) ?? `line_item_${index}`,
             quantity:
-              toPositiveInteger(getRecord(lineItem.quantity)?.fulfilled) ??
+              toNonNegativeInteger(getRecord(lineItem.quantity)?.fulfilled) ??
               toPositiveInteger(getRecord(lineItem.quantity)?.total) ??
               1,
           })),
@@ -358,4 +358,9 @@ function toIntegerAmount(value: unknown): number | null {
 function toPositiveInteger(value: unknown): number | null {
   const amount = toIntegerAmount(value);
   return amount && amount > 0 ? amount : null;
+}
+
+function toNonNegativeInteger(value: unknown): number | null {
+  const amount = toIntegerAmount(value);
+  return amount !== null && amount >= 0 ? amount : null;
 }

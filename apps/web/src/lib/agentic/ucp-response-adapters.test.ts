@@ -166,7 +166,7 @@ describe('buildUcpOrderResponse', () => {
         events: [
           {
             id: 'event_order_1_pending',
-            line_items: [{ id: 'item_1', quantity: 1 }],
+            line_items: [{ id: 'item_1', quantity: 0 }],
             occurred_at: '2026-05-17T09:00:00.000Z',
             type: 'pending',
           },
