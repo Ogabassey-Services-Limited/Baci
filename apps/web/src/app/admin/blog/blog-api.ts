@@ -160,8 +160,10 @@ export async function listPlatformBlogPostsPage({
   limit?: number;
   offset?: number;
 } = {}): Promise<PlatformBlogListPage> {
-  const normalizedLimit = Math.min(Math.max(Math.trunc(limit), 1), 100);
-  const normalizedOffset = Math.max(Math.trunc(offset), 0);
+  const safeLimit = Number.isFinite(limit) ? limit : PLATFORM_BLOG_PAGE_SIZE;
+  const safeOffset = Number.isFinite(offset) ? offset : 0;
+  const normalizedLimit = Math.min(Math.max(Math.trunc(safeLimit), 1), 100);
+  const normalizedOffset = Math.max(Math.trunc(safeOffset), 0);
   const response = await fetch(
     `/api/admin/blog/posts?limit=${normalizedLimit}&offset=${normalizedOffset}`,
     {

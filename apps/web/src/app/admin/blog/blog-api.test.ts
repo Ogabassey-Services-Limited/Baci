@@ -164,6 +164,31 @@ describe('blog-api', () => {
     });
   });
 
+  it('normalizes non-finite pagination values before querying', async () => {
+    vi.mocked(global.fetch).mockResolvedValueOnce(
+      jsonResponse({
+        hasMore: false,
+        limit: PLATFORM_BLOG_PAGE_SIZE,
+        offset: 0,
+        posts: [],
+        total: 0,
+      })
+    );
+
+    await listPlatformBlogPostsPage({
+      limit: Number.NaN,
+      offset: Number.POSITIVE_INFINITY,
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      `/api/admin/blog/posts?limit=${PLATFORM_BLOG_PAGE_SIZE}&offset=0`,
+      expect.objectContaining({
+        cache: 'no-store',
+        credentials: 'include',
+      })
+    );
+  });
+
   it('loads a single post via GET endpoint', async () => {
     vi.mocked(global.fetch).mockResolvedValueOnce(
       jsonResponse({
