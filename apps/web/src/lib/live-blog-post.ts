@@ -1,7 +1,16 @@
 import { getCachedFeatureSettings, getMerchantSafe } from '@/lib/cached-data';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
+import {
+  BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS,
+  BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES,
+  filterPublicBlogPosts,
+  isPublicBlogPost,
+} from '@/lib/public-blog-content-quality';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import { createPublicClient } from '@/lib/supabase/anon';
+
+const RELATED_BLOG_POSTS_LIMIT = 3;
+const RELATED_BLOG_POSTS_FETCH_LIMIT = 12;
 
 export async function getLiveBlogPost(
   identifier: string,
@@ -49,6 +58,9 @@ export async function getLiveBlogPost(
     }
     return null;
   }
+  if (!includeDrafts && !isPublicBlogPost(post)) {
+    return null;
+  }
 
   let relatedQuery = supabase
     .from('blog_posts')
@@ -58,15 +70,27 @@ export async function getLiveBlogPost(
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
     .not('published_at', 'is', null)
+    .not('title', 'is', null)
+    .not('slug', 'is', null)
+    .neq('title', '')
+    .neq('slug', '')
     .neq('id', post.id)
-    .order('published_at', { ascending: false })
-    .limit(3);
+    .order('published_at', { ascending: false });
+
+  for (const blockedPrefix of BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES) {
+    relatedQuery = relatedQuery.not('title', 'ilike', `${blockedPrefix}%`);
+  }
+
+  for (const blockedSlugPart of BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS) {
+    relatedQuery = relatedQuery.not('slug', 'ilike', `%${blockedSlugPart}%`);
+  }
 
   if (post.category) {
     relatedQuery = relatedQuery.eq('category', post.category);
   }
 
-  const { data: relatedPosts, error: relatedPostsError } = await relatedQuery;
+  const { data: relatedPosts, error: relatedPostsError } =
+    await relatedQuery.limit(RELATED_BLOG_POSTS_FETCH_LIMIT);
 
   if (relatedPostsError) {
     console.error('Error fetching related live blog posts:', relatedPostsError);
@@ -103,7 +127,12 @@ export async function getLiveBlogPost(
       custom_domain: merchant.custom_domain,
     },
     post,
-    relatedPosts: relatedPostsError ? [] : (relatedPosts ?? []),
+    relatedPosts: relatedPostsError
+      ? []
+      : filterPublicBlogPosts(relatedPosts ?? []).slice(
+          0,
+          RELATED_BLOG_POSTS_LIMIT
+        ),
     relatedProducts: relatedProductsError ? [] : (relatedProducts ?? []),
   };
 }

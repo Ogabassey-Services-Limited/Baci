@@ -32,6 +32,7 @@ type FeedPostRow = {
   content: string;
   excerpt: string;
   featured_image_url: string | null;
+  featured_image_variants?: Record<string, unknown> | null;
   category: string | null;
   author_name: string;
   published_at: string | null;
@@ -69,9 +70,9 @@ function createDomainQuery(
 function createPostQuery(result: QueryResult<FeedPostRow[]>) {
   const builder = {
     eq: vi.fn(() => builder),
-    limit: vi.fn().mockResolvedValue(result),
     not: vi.fn(() => builder),
     order: vi.fn(() => builder),
+    range: vi.fn().mockResolvedValue(result),
     select: vi.fn(() => builder),
   };
   return builder;
@@ -132,6 +133,21 @@ function enqueueCustomDomainFeedScenario(posts: FeedPostRow[] = []) {
     createMerchantQuery({ data: merchantWithCustomDomain, error: null })
   );
   enqueueTable('blog_posts', createPostQuery({ data: posts, error: null }));
+}
+
+function buildJunkFeedBatch(count = 50): FeedPostRow[] {
+  return Array.from({ length: count }, (_, index) => ({
+    id: `junk-${index + 1}`,
+    title: 'Test Post: Agent Integration Working',
+    slug: `test-post-agent-integration-working-${index + 1}`,
+    content: '<p>junk</p>',
+    excerpt: 'junk',
+    featured_image_url: null,
+    category: null,
+    author_name: 'Ogabassey',
+    published_at: '2026-05-01T10:00:00.000Z',
+    updated_at: null,
+  }));
 }
 
 vi.mock('@supabase/supabase-js', () => ({
@@ -203,6 +219,12 @@ describe('GET /api/blog/feed/[merchantSlug]', () => {
     >;
     expect(postQuery.eq).toHaveBeenCalledWith('status', 'published');
     expect(postQuery.not).toHaveBeenCalledWith('published_at', 'is', null);
+    expect(postQuery.order).toHaveBeenNthCalledWith(1, 'published_at', {
+      ascending: false,
+    });
+    expect(postQuery.order).toHaveBeenNthCalledWith(2, 'id', {
+      ascending: false,
+    });
     expect(mockUnstableCache.mock.calls.at(-1)).toEqual([
       expect.any(Function),
       ['blog-rss-feed'],
@@ -210,6 +232,94 @@ describe('GET /api/blog/feed/[merchantSlug]', () => {
         tags: ['blog-posts', 'blog-rss-feed'],
       }),
     ]);
+  });
+
+  it('over-fetches additional ranges when early batches are fully filtered', async () => {
+    const junkBatch = buildJunkFeedBatch();
+    const publicPost = {
+      id: 'public-post-1',
+      title: 'Public Feed Post',
+      slug: 'public-feed-post',
+      content: '<p>public</p>',
+      excerpt: 'public',
+      featured_image_url: null,
+      category: null,
+      author_name: 'Ogabassey',
+      published_at: '2026-05-02T10:00:00.000Z',
+      updated_at: null,
+    };
+
+    enqueueTable(
+      'merchants',
+      createMerchantQuery({ data: merchant, error: null })
+    );
+    enqueueTable(
+      'merchants',
+      createMerchantQuery({ data: merchant, error: null })
+    );
+    enqueueTable(
+      'blog_posts',
+      createPostQuery({ data: junkBatch, error: null })
+    );
+    enqueueTable(
+      'blog_posts',
+      createPostQuery({ data: [publicPost], error: null })
+    );
+
+    const response = await GET(new NextRequest('https://usebaci.com/feed'), {
+      params: Promise.resolve({ merchantSlug: 'ogabassey' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mockFeedAddItem).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Public Feed Post' })
+    );
+    const firstPostQuery = mockFrom.mock.results[2]?.value as ReturnType<
+      typeof createPostQuery
+    >;
+    const secondPostQuery = mockFrom.mock.results[3]?.value as ReturnType<
+      typeof createPostQuery
+    >;
+    expect(firstPostQuery.range).toHaveBeenCalledWith(0, 49);
+    expect(secondPostQuery.range).toHaveBeenCalledWith(50, 99);
+  });
+
+  it('stops over-fetching after a bounded number of filtered batches', async () => {
+    const consoleWarn = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    enqueueTable(
+      'merchants',
+      createMerchantQuery({ data: merchant, error: null })
+    );
+    enqueueTable(
+      'merchants',
+      createMerchantQuery({ data: merchant, error: null })
+    );
+
+    for (let index = 0; index < 6; index += 1) {
+      enqueueTable(
+        'blog_posts',
+        createPostQuery({ data: buildJunkFeedBatch(), error: null })
+      );
+    }
+
+    const response = await GET(new NextRequest('https://usebaci.com/feed'), {
+      params: Promise.resolve({ merchantSlug: 'ogabassey' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mockFeedAddItem).not.toHaveBeenCalled();
+    expect(mockFrom).toHaveBeenCalledTimes(8);
+    expect(consoleWarn).toHaveBeenCalledWith(
+      'Stopped blog feed fetch after max iterations',
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        fetchIterations: 6,
+        collectedPosts: 0,
+      })
+    );
+    consoleWarn.mockRestore();
   });
 
   it('resolves custom-domain identifiers to the canonical merchant feed', async () => {
@@ -339,6 +449,55 @@ describe('GET /api/blog/feed/[merchantSlug]', () => {
     );
     expect(mockFeedAddItem).not.toHaveBeenCalledWith(
       expect.objectContaining({ title: 'Bad Date' })
+    );
+  });
+
+  it('uses public-quality posts and the first Discover image variant in feed items', async () => {
+    enqueueSlugFeedScenario({
+      posts: [
+        {
+          id: 'good-post',
+          title: 'Best Android Phones',
+          slug: 'best-android-phones',
+          content: '<p>Useful guide</p>',
+          excerpt: 'Useful guide',
+          featured_image_url: 'https://cdn.example.com/original.jpg',
+          featured_image_variants: {
+            landscape_16x9: 'https://cdn.example.com/landscape.jpg',
+            standard_4x3: 'https://cdn.example.com/standard.jpg',
+          },
+          category: 'Smartphones',
+          author_name: 'Ogabassey',
+          published_at: '2026-05-01T10:00:00.000Z',
+          updated_at: null,
+        },
+        {
+          id: 'test-post',
+          title: 'Test Post: Agent Integration Working',
+          slug: 'test-post-agent-integration-working',
+          content: '<p>Test</p>',
+          excerpt: 'Test',
+          featured_image_url: 'https://cdn.example.com/test.jpg',
+          category: 'gcrblw',
+          author_name: 'Ogabassey',
+          published_at: '2026-05-01T10:00:00.000Z',
+          updated_at: null,
+        },
+      ],
+    });
+
+    const response = await GET(new NextRequest('https://usebaci.com/feed'), {
+      params: Promise.resolve({ merchantSlug: 'ogabassey' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mockFeedAddItem).toHaveBeenCalledOnce();
+    expect(mockFeedAddItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Best Android Phones',
+        image: 'https://cdn.example.com/landscape.jpg',
+        category: [{ name: 'Smartphones' }],
+      })
     );
   });
 });

@@ -29,6 +29,8 @@ interface BlogPostRow {
   published_at: string;
   updated_at: string;
   featured_image_url: string | null;
+  featured_image_variants?: Record<string, unknown> | null;
+  title?: string | null;
 }
 
 interface BlogPostsResponse {
@@ -101,6 +103,7 @@ describe('blog sitemap', () => {
           data: [
             {
               slug: 'factory-unlocked-iphones-explained',
+              title: 'Factory Unlocked iPhones Explained',
               published_at: '2026-03-01T00:00:00Z',
               updated_at: '2026-03-02T00:00:00Z',
               featured_image_url: null,
@@ -196,6 +199,56 @@ describe('blog sitemap', () => {
 
     await expect(sitemap()).rejects.toThrow(
       'Failed to fetch blog posts for sitemap'
+    );
+  });
+
+  it('uses Discover image variants and excludes test posts from sitemap entries', async () => {
+    mockHeaders = new Map([['host', 'ogabassey.com']]);
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    mockEq.mockImplementation(() => ({ eq: mockEq, not: mockNot }));
+    mockNot.mockReturnValue({
+      data: [
+        {
+          slug: 'android-17-buying-guide',
+          title: 'Android 17 Buying Guide',
+          published_at: '2026-05-01T00:00:00Z',
+          updated_at: '2026-05-02T00:00:00Z',
+          featured_image_url: 'https://cdn.example.com/original.jpg',
+          featured_image_variants: {
+            landscape_16x9: 'https://cdn.example.com/landscape.jpg',
+            standard_4x3: 'https://cdn.example.com/standard.jpg',
+            square_1x1: 'https://cdn.example.com/square.jpg',
+          },
+        },
+        {
+          slug: 'test-post-agent-integration-working',
+          title: 'Test Post: Agent Integration Working',
+          published_at: '2026-05-01T00:00:00Z',
+          updated_at: '2026-05-02T00:00:00Z',
+          featured_image_url: 'https://cdn.example.com/test.jpg',
+        },
+      ],
+      error: null,
+    });
+
+    const { default: sitemap } = await import('./sitemap');
+
+    const result = await sitemap();
+
+    expect(result).toHaveLength(2);
+    expect(result[1]).toEqual(
+      expect.objectContaining({
+        url: 'https://ogabassey.com/blog/android-17-buying-guide',
+        images: [
+          'https://cdn.example.com/landscape.jpg',
+          'https://cdn.example.com/standard.jpg',
+          'https://cdn.example.com/square.jpg',
+        ],
+      })
     );
   });
 });

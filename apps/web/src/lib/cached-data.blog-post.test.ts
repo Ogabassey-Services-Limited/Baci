@@ -96,11 +96,13 @@ function buildBlogPostRow(overrides: Record<string, unknown> = {}) {
 interface BlogPostFetchMocks {
   merchantRow: Record<string, unknown>;
   publishedPost: Record<string, unknown>;
+  relatedPostsResult?: { data: unknown; error: unknown };
 }
 
 function setupBlogPostFetch({
   merchantRow,
   publishedPost,
+  relatedPostsResult,
 }: BlogPostFetchMocks) {
   const domainLookupBuilder = createQueryBuilder({
     singleResult: {
@@ -117,7 +119,9 @@ function setupBlogPostFetch({
   const postLookupBuilder = createQueryBuilder({
     singleResult: { data: publishedPost, error: null },
   });
-  const relatedPostsBuilder = createQueryBuilder({});
+  const relatedPostsBuilder = createQueryBuilder({
+    queryResult: relatedPostsResult,
+  });
   const relatedProductsBuilder = createQueryBuilder({});
 
   const serviceFrom = vi.fn((table: string) => {
@@ -231,6 +235,19 @@ describe('getCachedBlogPost', () => {
       'is',
       null
     );
+    expect(relatedPostsBuilder.not).toHaveBeenCalledWith('title', 'is', null);
+    expect(relatedPostsBuilder.not).toHaveBeenCalledWith('slug', 'is', null);
+    expect(relatedPostsBuilder.not).toHaveBeenCalledWith(
+      'title',
+      'ilike',
+      'test post%'
+    );
+    expect(relatedPostsBuilder.not).toHaveBeenCalledWith(
+      'slug',
+      'ilike',
+      '%agent-integration-working%'
+    );
+    expect(relatedPostsBuilder.limit).toHaveBeenCalledWith(12);
   });
 
   it('slugifies free-text blog categories before filtering related products', async () => {
@@ -248,5 +265,117 @@ describe('getCachedBlogPost', () => {
       'category_slug',
       'product-news'
     );
+  });
+
+  it('returns null for public test posts instead of exposing direct article URLs', async () => {
+    setupBlogPostFetch({
+      merchantRow: buildMerchantRow(),
+      publishedPost: buildBlogPostRow({
+        slug: 'test-post-agent-integration-working',
+        title: 'Test Post: Agent Integration Working',
+      }),
+    });
+
+    const result = await getCachedBlogPost(
+      'ogabassey.com',
+      'test-post-agent-integration-working'
+    );
+
+    expect(result).toBeNull();
+  });
+
+  it('filters test posts from cached related posts', async () => {
+    setupBlogPostFetch({
+      merchantRow: buildMerchantRow(),
+      publishedPost: buildBlogPostRow({ category: null }),
+      relatedPostsResult: {
+        data: [
+          {
+            id: 'related-1',
+            slug: 'best-phones-in-nigeria',
+            title: 'Best Phones in Nigeria',
+          },
+          {
+            id: 'related-2',
+            slug: 'test-post-agent-integration-working',
+            title: 'Test Post: Agent Integration Working',
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const result = await getCachedBlogPost(
+      'ogabassey.com',
+      'factory-unlocked-iphones-explained'
+    );
+
+    expect(result?.relatedPosts).toEqual([
+      {
+        id: 'related-1',
+        slug: 'best-phones-in-nigeria',
+        title: 'Best Phones in Nigeria',
+      },
+    ]);
+  });
+
+  it('over-fetches related posts so public entries can still fill all slots', async () => {
+    setupBlogPostFetch({
+      merchantRow: buildMerchantRow(),
+      publishedPost: buildBlogPostRow({ category: null }),
+      relatedPostsResult: {
+        data: [
+          {
+            id: 'related-junk-1',
+            slug: 'test-post-agent-integration-working-1',
+            title: 'Test Post: Agent Integration Working',
+          },
+          {
+            id: 'related-junk-2',
+            slug: 'test-post-agent-integration-working-2',
+            title: 'Test Post: Agent Integration Working',
+          },
+          {
+            id: 'related-1',
+            slug: 'best-phones-in-nigeria',
+            title: 'Best Phones in Nigeria',
+          },
+          {
+            id: 'related-2',
+            slug: 'budget-phones-in-nigeria',
+            title: 'Budget Phones in Nigeria',
+          },
+          {
+            id: 'related-3',
+            slug: 'camera-phones-in-nigeria',
+            title: 'Camera Phones in Nigeria',
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const result = await getCachedBlogPost(
+      'ogabassey.com',
+      'factory-unlocked-iphones-explained'
+    );
+
+    expect(result?.relatedPosts).toEqual([
+      {
+        id: 'related-1',
+        slug: 'best-phones-in-nigeria',
+        title: 'Best Phones in Nigeria',
+      },
+      {
+        id: 'related-2',
+        slug: 'budget-phones-in-nigeria',
+        title: 'Budget Phones in Nigeria',
+      },
+      {
+        id: 'related-3',
+        slug: 'camera-phones-in-nigeria',
+        title: 'Camera Phones in Nigeria',
+      },
+    ]);
   });
 });
