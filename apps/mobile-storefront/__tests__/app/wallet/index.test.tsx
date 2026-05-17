@@ -680,10 +680,11 @@ describe('WalletScreen', () => {
     );
   });
 
-  it('blocks redemption above the available point balance before hitting the mutation', () => {
+  it('allows higher redemption values and surfaces backend validation errors', async () => {
     const alertSpy = jest
       .spyOn(Alert, 'alert')
       .mockImplementation(() => undefined);
+    mockMutateAsync.mockRejectedValueOnce(new Error('Insufficient loyalty points'));
 
     render(<WalletScreen />);
 
@@ -691,11 +692,10 @@ describe('WalletScreen', () => {
     fireEvent.press(screen.getByText('Set Over Balance Redeem Points'));
     fireEvent.press(screen.getByText('Confirm Redeem'));
 
-    expect(mockMutateAsync).not.toHaveBeenCalled();
-    expect(alertSpy).toHaveBeenCalledWith(
-      'Invalid Points',
-      'Insufficient loyalty points'
-    );
+    await waitFor(() => {
+      expect(mockMutateAsync).toHaveBeenCalledWith(2100);
+    });
+    expect(alertSpy).toHaveBeenCalledWith('Error', 'Insufficient loyalty points');
   });
 
   it('tracks and announces successful point redemptions', async () => {
