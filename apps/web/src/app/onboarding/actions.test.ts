@@ -372,7 +372,7 @@ describe('submitOnboarding', () => {
     expect(mockAdminInsert).not.toHaveBeenCalled();
   });
 
-  it('preserves an established slug when completing a pending merchant', async () => {
+  it('does not rewrite an established slug when completing a pending merchant', async () => {
     mockAdminMaybeSingle
       .mockResolvedValueOnce({ data: null, error: null })
       .mockResolvedValueOnce({
@@ -383,7 +383,7 @@ describe('submitOnboarding', () => {
         },
         error: null,
       });
-    setupChainedMock({ id: 'existing-1', slug: 'merchant-chosen-slug' });
+    setupChainedMock({ id: 'existing-1', slug: '  merchant-chosen-slug  ' });
 
     const result = await submitOnboarding(
       prevState,
@@ -400,9 +400,9 @@ describe('submitOnboarding', () => {
     expect(mockAdminUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         business_name: 'Renamed Business',
-        slug: 'merchant-chosen-slug',
       })
     );
+    expect(mockAdminUpdate.mock.calls[0]?.[0]).not.toHaveProperty('slug');
     expect(mockAdminUpdate).not.toHaveBeenCalledWith(
       expect.objectContaining({ slug: 'renamed-business' })
     );

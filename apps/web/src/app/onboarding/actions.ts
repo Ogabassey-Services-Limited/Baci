@@ -74,12 +74,6 @@ async function resolveMerchantSlug(
   return typeof data === 'string' && data.trim() ? data : fallbackSlug;
 }
 
-function getEstablishedMerchantSlug(slug: string | null | undefined) {
-  if (typeof slug !== 'string') return null;
-  const normalizedSlug = slug.trim();
-  return normalizedSlug ? normalizedSlug : null;
-}
-
 export async function submitOnboarding(
   _prevState: ServerActionState,
   formData: FormData
@@ -244,9 +238,6 @@ export async function submitOnboarding(
       .maybeSingle();
 
     let merchant: { id: string; slug?: string } | null;
-    const slug =
-      getEstablishedMerchantSlug(existing?.slug) ??
-      (await resolveMerchantSlug(adminSupabase, businessName));
 
     if (existing) {
       if (existing.business_name) {
@@ -270,7 +261,6 @@ export async function submitOnboarding(
           // Sync logo to favicon for mobile app compatibility
           favicon_png_192_url: logoUrl,
           brand_colors: brandColors,
-          slug,
         })
         .eq('id', existing.id)
         .select()
@@ -280,6 +270,8 @@ export async function submitOnboarding(
         throw new Error(`Failed to update merchant: ${updateError.message}`);
       merchant = updatedMerchant;
     } else {
+      const slug = await resolveMerchantSlug(adminSupabase, businessName);
+
       // No existing record - create new merchant
       const { data: newMerchant, error: createError } = await adminSupabase
         .from('merchants')

@@ -369,9 +369,9 @@ describe('POST /api/mobile-onboarding', () => {
     expect(merchantQuery.update).toHaveBeenCalledWith(
       expect.objectContaining({
         signup_source: 'ios',
-        slug: 'mobile-existing-slug',
       })
     );
+    expect(merchantQuery.update.mock.calls[0]?.[0]).not.toHaveProperty('slug');
     expect(mockSignUp).not.toHaveBeenCalled();
   });
 
@@ -445,8 +445,8 @@ describe('POST /api/mobile-onboarding', () => {
     );
     expect(merchantQuery.update.mock.calls[0]?.[0]).toMatchObject({
       business_name: 'Renamed Store',
-      slug: 'stable-mobile-slug',
     });
+    expect(merchantQuery.update.mock.calls[0]?.[0]).not.toHaveProperty('slug');
   });
 
   // --- Domain creation ---

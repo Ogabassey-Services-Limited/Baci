@@ -15,12 +15,6 @@ import type { BrandColors } from '@/types';
 // and hero-image assignment can also be slow. The default 10s is not enough.
 export const maxDuration = 60;
 
-function getEstablishedMerchantSlug(slug: string | null | undefined) {
-  if (typeof slug !== 'string') return null;
-  const normalizedSlug = slug.trim();
-  return normalizedSlug ? normalizedSlug : null;
-}
-
 // CSRF exempt: This endpoint is called exclusively by the mobile app (Expo/React Native)
 // which sends Authorization Bearer tokens, not browser cookies. CSRF is a browser-specific
 // attack vector that exploits automatic cookie sending — mobile apps are not vulnerable.
@@ -228,7 +222,6 @@ export async function POST(req: NextRequest) {
         logo_url: logoUrl,
         favicon_png_192_url: logoUrl,
         brand_colors: brandColors,
-        slug: getEstablishedMerchantSlug(existingMerchant.slug) ?? slug,
         template_id: 'puck',
         ...(!existingMerchant.business_name?.trim()
           ? { signup_source: signupSource }
