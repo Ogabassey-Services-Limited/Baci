@@ -34,4 +34,32 @@ describe('blog post product links', () => {
       slug: 'iphone-13-buying-guide',
     });
   });
+
+  it('returns null for null or malformed linked post data', () => {
+    expect(
+      normalizeBlogPostProductLink({
+        product_id: 'product-1',
+        blog_post_id: 'post-1',
+        relationship: 'primary',
+        blog_posts: null,
+      })
+    ).toBeNull();
+
+    expect(
+      normalizeBlogPostProductLink({
+        product_id: 'product-1',
+        blog_post_id: 'post-1',
+        relationship: 'primary',
+        blog_posts: {
+          id: 'post-1',
+          title: 'Missing slug',
+          slug: null,
+          excerpt: null,
+          featured_image_url: null,
+          category: null,
+          reading_time_minutes: null,
+        },
+      })
+    ).toBeNull();
+  });
 });

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockNot = vi.fn();
 const mockLimit = vi.fn();
 const mockExplicitLinkLimit = vi.fn();
+const mockExplicitLinkNot = vi.fn();
 const mockProductMaybeSingle = vi.fn();
 const mockRpc = vi.fn();
 const EXPECTED_FALLBACK_FILTER_CALLS = 2;
@@ -24,6 +25,7 @@ const productQuery = {
 const explicitLinkQuery = {
   eq: vi.fn(() => explicitLinkQuery),
   limit: mockExplicitLinkLimit,
+  not: mockExplicitLinkNot,
   order: vi.fn(() => explicitLinkQuery),
   select: vi.fn(() => explicitLinkQuery),
 };
@@ -75,6 +77,7 @@ describe('BlogSnippet', () => {
     mockNot.mockReturnValue(blogQuery);
     mockLimit.mockResolvedValue({ data: [], error: null });
     mockExplicitLinkLimit.mockResolvedValue({ data: [], error: null });
+    mockExplicitLinkNot.mockReturnValue(explicitLinkQuery);
     mockProductMaybeSingle.mockResolvedValue({ data: null, error: null });
     mockRpc.mockResolvedValue({ data: [], error: null });
   });
@@ -235,6 +238,15 @@ describe('BlogSnippet', () => {
     expect(
       screen.getByRole('link', { name: /read full article/i })
     ).toHaveAttribute('href', '/ogabassey/blog/iphone-13-buying-guide');
+    expect(explicitLinkQuery.eq).toHaveBeenCalledWith(
+      'blog_posts.status',
+      'published'
+    );
+    expect(mockExplicitLinkNot).toHaveBeenCalledWith(
+      'blog_posts.published_at',
+      'is',
+      null
+    );
     expect(mockProductMaybeSingle).not.toHaveBeenCalled();
     expect(mockRpc).not.toHaveBeenCalled();
   });

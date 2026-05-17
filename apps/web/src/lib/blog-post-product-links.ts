@@ -1,5 +1,5 @@
 export const BLOG_POST_PRODUCT_LINKS_SELECT =
-  'product_id, blog_post_id, relationship, blog_posts(id, title, slug, excerpt, featured_image_url, category, reading_time_minutes)' as const;
+  'product_id, blog_post_id, relationship, blog_posts!inner(id, title, slug, excerpt, featured_image_url, category, reading_time_minutes)' as const;
 
 export interface BlogPostProductLinkPost {
   id: string | null;

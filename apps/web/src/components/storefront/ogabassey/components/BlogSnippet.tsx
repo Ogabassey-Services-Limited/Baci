@@ -65,6 +65,8 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({
               .select(BLOG_POST_PRODUCT_LINKS_SELECT)
               .eq('merchant_id', merchantId)
               .eq('product_id', productId)
+              .eq('blog_posts.status', 'published')
+              .not('blog_posts.published_at', 'is', null)
               .order('created_at', { ascending: false })
               .limit(1);
 
