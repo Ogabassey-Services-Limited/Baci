@@ -88,7 +88,7 @@ export function LoginSecondaryActions({
           <Pressable
             style={({ pressed }) => [
               loginStyles.socialButton,
-              { backgroundColor: '#000', borderColor: '#000' },
+              { backgroundColor: colors.text, borderColor: colors.text },
               pressed && { opacity: 0.7 },
             ]}
             onPress={onAppleSignIn}
@@ -100,11 +100,11 @@ export function LoginSecondaryActions({
             accessibilityState={{ disabled: isAnyLoading }}
           >
             {isAppleLoading ? (
-              <ActivityIndicator size="small" color="#FFF" />
+              <ActivityIndicator size="small" color={colors.card} />
             ) : (
               <>
-                <Ionicons name="logo-apple" size={20} color="#FFF" />
-                <Text style={[loginStyles.socialButtonText, { color: '#FFF' }]}>
+                <Ionicons name="logo-apple" size={20} color={colors.card} />
+                <Text style={[loginStyles.socialButtonText, { color: colors.card }]}>
                   Apple
                 </Text>
               </>
