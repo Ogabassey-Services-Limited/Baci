@@ -2,7 +2,7 @@ import {
   AGENTIC_ORDERS_REVIEW_HREF,
   AGENTIC_TRUST_SETTINGS_HREF,
   getAgenticActionNextStepUrl,
-} from './action-health-action-links';
+} from '@/lib/agentic/action-health-action-links';
 
 describe('getAgenticActionNextStepUrl', () => {
   it('maps order-review action codes to the agentic orders dashboard', () => {

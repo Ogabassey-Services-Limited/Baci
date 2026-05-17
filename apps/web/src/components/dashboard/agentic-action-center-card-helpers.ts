@@ -30,7 +30,7 @@ const BRIEFING_MESSAGES = {
 
 function toRoute(value: string | undefined): Route | null {
   const trimmed = value?.trim();
-  if (!trimmed?.startsWith('/')) return null;
+  if (!trimmed?.startsWith('/') || trimmed.startsWith('//')) return null;
   return trimmed as Route;
 }
 
