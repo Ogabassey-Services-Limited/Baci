@@ -50,8 +50,11 @@ function computeCounterOffer(
 
   const rawDiscountAmount = currentPrice - rawCounterOffer;
   const vatAwareCart = vatRate > 0;
+  const hasFractionalPrice = !Number.isInteger(currentPrice);
   const maxServerAcceptedDiscountAmount =
     vatAwareCart
+      ? Math.floor(currentPrice * AUTO_ACCEPT_DISCOUNT_THRESHOLD)
+      : hasFractionalPrice
       ? Math.floor(currentPrice * AUTO_ACCEPT_DISCOUNT_THRESHOLD)
       : currentPrice >= MIN_SUBTOTAL_FOR_ROUNDED_COUNTER
       ? Math.ceil(currentPrice * AUTO_ACCEPT_DISCOUNT_THRESHOLD)
