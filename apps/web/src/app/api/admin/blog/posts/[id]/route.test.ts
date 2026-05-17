@@ -172,6 +172,53 @@ describe('PATCH /api/admin/blog/posts/[id]', () => {
     expect(mockRevalidatePlatformBlog).toHaveBeenCalledWith('launch-faster');
   });
 
+  it('recalculates reading metrics when content changes', async () => {
+    mockSupabase.single
+      .mockResolvedValueOnce({
+        data: {
+          id: 'post-1',
+          slug: 'launch-faster',
+          status: 'draft',
+          featured_image_url: null,
+          featured_image_width: null,
+          featured_image_height: null,
+          featured_image_variants: {},
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          id: 'post-1',
+          slug: 'launch-faster',
+          title: 'Launch Faster',
+        },
+        error: null,
+      });
+
+    const response = await PATCH(
+      new NextRequest('http://localhost/api/admin/blog/posts/post-1', {
+        body: JSON.stringify({
+          content: 'Updated platform content for fresh reading metrics.',
+          title: 'Launch Faster',
+        }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH',
+      }),
+      { params: Promise.resolve({ id: 'post-1' }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockSupabase.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: 'Updated platform content for fresh reading metrics.',
+        is_platform_post: true,
+        merchant_id: null,
+        reading_time_minutes: expect.any(Number),
+        word_count: expect.any(Number),
+      })
+    );
+  });
+
   it('revalidates both old and new slugs when a slug changes', async () => {
     mockSupabase.single
       .mockResolvedValueOnce({

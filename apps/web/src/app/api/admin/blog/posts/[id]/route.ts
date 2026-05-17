@@ -3,6 +3,7 @@ import {
   validateBlogDiscoverImageReadiness,
   validateBlogImageVariantIntegrity,
 } from '@/lib/blog-discover-readiness';
+import { calculateReadingTime, calculateWordCount } from '@/lib/blog-utils';
 import { revalidatePlatformBlog } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
@@ -206,6 +207,13 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       updateData.status === 'published' &&
       existingPost.status !== 'published' &&
       !updateData.published_at;
+
+    if (typeof updateData.content === 'string') {
+      updateData.word_count = calculateWordCount(updateData.content);
+      updateData.reading_time_minutes = calculateReadingTime(
+        updateData.content
+      );
+    }
 
     const finalUpdateData = {
       ...updateData,

@@ -172,7 +172,9 @@ describe('POST /api/admin/blog/posts', () => {
       expect.objectContaining({
         is_platform_post: true,
         merchant_id: null,
+        reading_time_minutes: expect.any(Number),
         slug: 'launch-faster',
+        word_count: expect.any(Number),
       })
     );
     expect(mockRevalidatePlatformBlog).toHaveBeenCalledWith('launch-faster');

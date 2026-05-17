@@ -3,7 +3,11 @@ import {
   validateBlogDiscoverImageReadiness,
   validateBlogImageVariantIntegrity,
 } from '@/lib/blog-discover-readiness';
-import { generateSlug } from '@/lib/blog-utils';
+import {
+  calculateReadingTime,
+  calculateWordCount,
+  generateSlug,
+} from '@/lib/blog-utils';
 import { revalidatePlatformBlog } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
@@ -156,8 +160,10 @@ export async function POST(request: NextRequest) {
       keywords: postData.keywords || [],
       merchant_id: null,
       published_at: publishedAt,
+      reading_time_minutes: calculateReadingTime(postData.content),
       status: postData.status || 'draft',
       tags: postData.tags || [],
+      word_count: calculateWordCount(postData.content),
     };
 
     const supabase = await createClient();
