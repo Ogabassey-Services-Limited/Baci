@@ -186,11 +186,6 @@ export default function WalletScreen({
       return;
     }
 
-    if (points > walletData.loyalty_points) {
-      Alert.alert('Invalid Points', 'Insufficient loyalty points');
-      return;
-    }
-
     try {
       const result = await redeemMutation.mutateAsync(points);
       const walletCreditMessage = formatNgnCurrency(result.walletCredit ?? 0);
