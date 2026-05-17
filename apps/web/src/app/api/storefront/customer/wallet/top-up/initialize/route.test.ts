@@ -48,6 +48,8 @@ vi.mock('@/lib/supabase/admin', () => ({
 
 import { POST } from './route';
 
+const VALID_MERCHANT_ID = '00000000-0000-4000-8000-000000000001';
+
 function makeRequest(body: Record<string, unknown>) {
   return new NextRequest(
     'http://localhost:3000/api/storefront/customer/wallet/top-up/initialize',
@@ -99,7 +101,9 @@ function mockSupabaseTables({
       return {
         select: vi.fn().mockReturnValue({
           eq: vi.fn().mockReturnValue({
-            single: vi.fn().mockResolvedValue({ data: merchant, error: null }),
+            maybeSingle: vi
+              .fn()
+              .mockResolvedValue({ data: merchant, error: null }),
           }),
         }),
       };
@@ -193,6 +197,23 @@ describe('POST /api/storefront/customer/wallet/top-up/initialize', () => {
     expect(mockFrom).not.toHaveBeenCalled();
   });
 
+  it('returns 400 for malformed merchant ids before merchant lookup', async () => {
+    const response = await POST(
+      makeRequest({ amount: 2500, merchantId: 'not-a-uuid' })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toMatchObject({
+      error: 'Invalid input',
+    });
+    expect(data).toHaveProperty('details.fieldErrors.merchantId');
+    expect(data.details.fieldErrors.merchantId).toEqual(
+      expect.arrayContaining(['Merchant id must be a valid UUID'])
+    );
+    expect(mockFrom).not.toHaveBeenCalled();
+  });
+
   it('returns 400 for deliberate gateway-selection failures', async () => {
     mockSupabaseTables({
       merchant: { ...defaultMerchant, paystack_subaccount_code: null },
@@ -239,6 +260,24 @@ describe('POST /api/storefront/customer/wallet/top-up/initialize', () => {
     });
     expect(mockInitializePaystackTransaction).toHaveBeenCalledTimes(1);
     expect(mockInitializeKorapayPayment).not.toHaveBeenCalled();
+  });
+
+  it('initializes with merchantId when the storefront slug is unavailable or stale', async () => {
+    const response = await POST(
+      makeRequest({
+        amount: 2500,
+        gateway: 'paystack',
+        merchantId: VALID_MERCHANT_ID,
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({
+      gateway: 'paystack',
+      success: true,
+    });
+    expect(mockInitializePaystackTransaction).toHaveBeenCalledTimes(1);
   });
 
   it('uses the database default when korapay setting is null', async () => {
