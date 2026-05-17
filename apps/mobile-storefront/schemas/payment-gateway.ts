@@ -7,6 +7,7 @@ const trimmedOptionalString = (message: string) =>
   trimmedRequiredString(message).optional();
 
 const optionalOrderIdentifier = z.string().trim().optional();
+const optionalTrackingToken = z.string().trim().optional();
 
 const optionalPositiveAmount = z.preprocess(
   (value) =>
@@ -31,6 +32,9 @@ export const PaymentGatewayParamsSchema = z
     reference: trimmedRequiredString('Reference is required'),
     amount: optionalPositiveAmount,
     paymentKind: z.enum(['order', 'vtu', 'wallet']).default('order'),
+    merchantId: trimmedOptionalString('Merchant id cannot be empty'),
+    merchantSlug: trimmedOptionalString('Merchant slug cannot be empty'),
+    trackingToken: optionalTrackingToken,
     utilityType: z
       .enum(['airtime', 'data', 'tv', 'power', 'gaming'])
       .optional(),
@@ -64,6 +68,13 @@ export const PaymentGatewayParamsSchema = z
           code: 'custom',
           message: 'Amount is required for wallet top-up payments',
           path: ['amount'],
+        });
+      }
+      if (!data.merchantId && !data.merchantSlug) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Merchant slug or id is required',
+          path: ['merchantSlug'],
         });
       }
       return;

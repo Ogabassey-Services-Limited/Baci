@@ -8,6 +8,7 @@ import { isValidHttpUrl } from './is-valid-http-url';
 const FEED_FRESHNESS_WARN_DAYS = 30;
 
 interface AgentCommerceCrawlerSurfaces {
+  llms: string;
   robots: string;
   sitemap: string;
 }
@@ -85,7 +86,7 @@ export function buildAgentCommerceTrustHealthSignals({
   ).length;
   const latestProductUpdatedAt = getLatestProductUpdatedAt(openAiProducts);
   const staleProducts = countStaleProducts(openAiProducts, now);
-  const crawlerUrls = [surfaces.robots, surfaces.sitemap];
+  const crawlerUrls = [surfaces.robots, surfaces.sitemap, surfaces.llms];
   const validCrawlerUrls = crawlerUrls.filter(isValidHttpUrl).length;
 
   return {
@@ -128,8 +129,8 @@ export function buildAgentCommerceTrustHealthSignals({
         severity: validCrawlerUrls === crawlerUrls.length ? 'pass' : 'fail',
         message:
           validCrawlerUrls === crawlerUrls.length
-            ? 'Robots and sitemap entry points are published for agent and search crawlers.'
-            : 'Robots or sitemap entry point URLs are malformed.',
+            ? 'Robots, sitemap, and llms entry points are published for agent and search crawlers.'
+            : 'Robots, sitemap, or llms entry point URLs are malformed.',
       },
     ],
     totals: {

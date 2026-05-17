@@ -26,6 +26,41 @@ describe('PaymentGatewayParamsSchema', () => {
     expect(result.paymentKind).toBe('order');
   });
 
+  it('preserves an optional tracking token for guest order recovery', () => {
+    const result = PaymentGatewayParamsSchema.parse({
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      orderId: 'order-id-123',
+      reference: 'ref-123',
+      trackingToken: ' track-token-123 ',
+    });
+
+    expect(result.trackingToken).toBe('track-token-123');
+  });
+
+  it('leaves tracking token undefined when it is omitted', () => {
+    const result = PaymentGatewayParamsSchema.parse({
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      orderId: 'order-id-123',
+      reference: 'ref-123',
+    });
+
+    expect(result.trackingToken).toBeUndefined();
+  });
+
+  it('trims whitespace-only tracking tokens to an empty string', () => {
+    const result = PaymentGatewayParamsSchema.parse({
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      orderId: 'order-id-123',
+      reference: 'ref-123',
+      trackingToken: '   ',
+    });
+
+    expect(result.trackingToken).toBe('');
+  });
+
   it('requires order ID or order number for order payments', () => {
     const result = PaymentGatewayParamsSchema.safeParse({
       authorizationUrl: 'https://checkout.paystack.com/test',
@@ -140,6 +175,7 @@ describe('PaymentGatewayParamsSchema', () => {
       amount: '2500',
       authorizationUrl: 'https://checkout.paystack.com/test',
       gateway: 'paystack',
+      merchantId: 'merchant-1',
       paymentKind: 'wallet',
       reference: 'WAL-123',
     });
@@ -147,6 +183,7 @@ describe('PaymentGatewayParamsSchema', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.amount).toBe(2500);
+      expect(result.data.merchantId).toBe('merchant-1');
       expect(result.data.paymentKind).toBe('wallet');
       expect(result.data.reference).toBe('WAL-123');
     }
@@ -166,6 +203,40 @@ describe('PaymentGatewayParamsSchema', () => {
       expect(extractIssueMessages(result.error.issues)).toContain(
         'Amount is required for wallet top-up payments'
       );
+    }
+  });
+
+  it('requires merchant context for wallet top-up payments', () => {
+    const result = PaymentGatewayParamsSchema.safeParse({
+      amount: '2500',
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      paymentKind: 'wallet',
+      reference: 'WAL-123',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(extractIssuePaths(result.error.issues)).toContain('merchantSlug');
+      expect(extractIssueMessages(result.error.issues)).toContain(
+        'Merchant slug or id is required'
+      );
+    }
+  });
+
+  it('accepts merchant slug for wallet top-up payments', () => {
+    const result = PaymentGatewayParamsSchema.safeParse({
+      amount: '2500',
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      merchantSlug: 'ogabassey',
+      paymentKind: 'wallet',
+      reference: 'WAL-123',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.merchantSlug).toBe('ogabassey');
     }
   });
 

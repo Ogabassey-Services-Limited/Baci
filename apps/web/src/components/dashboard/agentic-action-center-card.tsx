@@ -6,10 +6,8 @@ import {
   CheckCircle2,
   Clock3,
   ExternalLink,
-  Loader2,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 import { agenticActionCenterCardHelpers } from '@/components/dashboard/agentic-action-center-card-helpers';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,7 +24,13 @@ import type {
   AgenticActionHealthPayload,
   AgenticActionSeverity,
 } from '@/schemas/agentic-action-health';
-import { agenticActionHealthPayloadSchema } from '@/schemas/agentic-action-health';
+
+type AgenticActionCenterState = 'ready' | 'error' | 'unauthorized';
+
+interface AgenticActionCenterCardProps {
+  payload?: AgenticActionHealthPayload | null;
+  state?: AgenticActionCenterState;
+}
 
 function getActionTone(severity: AgenticActionSeverity) {
   switch (severity) {
@@ -54,71 +58,21 @@ function getActionTone(severity: AgenticActionSeverity) {
   }
 }
 
-export function AgenticActionCenterCard() {
-  const [payload, setPayload] = useState<AgenticActionHealthPayload | null>(
-    null
-  );
-  const [loading, setLoading] = useState(true);
-  const [failed, setFailed] = useState(false);
+function formatPaymentStateLabel(paymentState: string): string {
+  return paymentState
+    .split('_')
+    .filter((token) => token.length > 0)
+    .map((token) => token[0]?.toUpperCase() + token.slice(1))
+    .join(' ');
+}
 
-  useEffect(() => {
-    let active = true;
+export function AgenticActionCenterCard({
+  payload = null,
+  state = 'error',
+}: AgenticActionCenterCardProps) {
+  if (state === 'unauthorized') return null;
 
-    async function loadHealth() {
-      try {
-        const response = await fetch('/api/merchant/agentic/action-health', {
-          credentials: 'include',
-        });
-
-        if (response.status === 401 || response.status === 403) {
-          if (active) {
-            setPayload(null);
-            setFailed(false);
-          }
-          return;
-        }
-
-        if (!response.ok) {
-          throw new Error('Failed to load agentic action health');
-        }
-
-        const value: unknown = await response.json();
-        const parsed = agenticActionHealthPayloadSchema.safeParse(value);
-        if (active) {
-          setPayload(parsed.success ? parsed.data : null);
-          setFailed(!parsed.success);
-        }
-      } catch (error) {
-        console.error('Failed to load agentic action health:', error);
-        if (active) {
-          setFailed(true);
-          setPayload(null);
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
-      }
-    }
-
-    loadHealth();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  if (loading) {
-    return (
-      <Card className="border-border/70">
-        <CardContent className="flex items-center gap-3 py-5 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Checking agentic action health...
-        </CardContent>
-      </Card>
-    );
-  }
-
+  const failed = state === 'error';
   if (!payload && !failed) return null;
 
   const actions = payload?.actions ?? [];
@@ -129,6 +83,8 @@ export function AgenticActionCenterCard() {
   const generatedAt = agenticActionCenterCardHelpers.formatGeneratedAt(
     payload?.generated_at
   );
+  const recentSessionRecords =
+    payload?.checkout_sessions?.records?.slice(0, 3) ?? [];
   const statusDescription = failed
     ? 'Agentic checkout health could not be loaded.'
     : attentionCount > 0
@@ -201,12 +157,27 @@ export function AgenticActionCenterCard() {
                 <p className="text-sm leading-relaxed">{briefing.nextMove}</p>
               </div>
             </div>
+            {recentSessionRecords.length > 0 && (
+              <div className="rounded-md border bg-muted/20 p-3">
+                <p className="text-xs font-medium uppercase text-muted-foreground">
+                  Recent activity
+                </p>
+                <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                  {recentSessionRecords.map((record) => (
+                    <li key={`${record.session_id}-${record.updated_at}`}>
+                      <span className="font-medium text-foreground">
+                        {record.session_id}
+                      </span>{' '}
+                      moved to {formatPaymentStateLabel(record.payment_state)}.
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {actions.map((action) => {
               const tone = getActionTone(action.severity);
               const Icon = tone.icon;
-              const href = agenticActionCenterCardHelpers.getActionHref(
-                action.code
-              );
+              const href = agenticActionCenterCardHelpers.getActionHref(action);
 
               return (
                 <div

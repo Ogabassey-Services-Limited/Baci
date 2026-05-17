@@ -2,8 +2,9 @@ import { ChevronLeft, ShieldCheck } from 'lucide-react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
 import { AgentCommerceControlsCard } from '@/components/dashboard/integrations/agent-commerce-controls-card';
-import { AgentCommerceTrustReadinessCard } from '@/components/dashboard/integrations/agent-commerce-trust-readiness-card';
+import { AgentCommerceTrustReadinessCardServer } from '@/components/dashboard/integrations/agent-commerce-trust-readiness-card-server';
 import { Button } from '@/components/ui/button';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { TrustSettingsClient } from './trust-settings-client';
@@ -58,12 +59,22 @@ export default async function TrustSettingsPage() {
         </div>
       </div>
 
-      <AgentCommerceTrustReadinessCard />
+      <Suspense
+        fallback={
+          <div className="rounded-md border border-border/70 p-4 text-sm text-muted-foreground">
+            Loading agent trust health…
+          </div>
+        }
+      >
+        <AgentCommerceTrustReadinessCardServer merchant={merchant} />
+      </Suspense>
 
-      <AgentCommerceControlsCard
-        initialCustomSettings={agenticCustomSettings}
-        initialEnabled={agenticCheckoutEnabled}
-      />
+      <div id="agent-checkout-controls">
+        <AgentCommerceControlsCard
+          initialCustomSettings={agenticCustomSettings}
+          initialEnabled={agenticCheckoutEnabled}
+        />
+      </div>
 
       <TrustSettingsClient
         initialTrustProfile={merchant.trust_profile ?? null}

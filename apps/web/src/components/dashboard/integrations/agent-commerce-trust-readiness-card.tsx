@@ -1,15 +1,11 @@
-'use client';
-
 import {
   AlertCircle,
   ArrowRight,
   CheckCircle2,
   ExternalLink,
-  Loader2,
   TriangleAlert,
 } from 'lucide-react';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -26,7 +22,10 @@ import type {
 import { cn } from '@/lib/utils';
 import { agentCommerceTrustReadinessCardHelpers } from './agent-commerce-trust-readiness-card-helpers';
 
-const READINESS_ENDPOINT = '/api/integrations/agent-commerce/readiness';
+interface AgentCommerceTrustReadinessCardProps {
+  readiness: AgentCommerceTrustReadiness | null;
+  error?: string | null;
+}
 
 function getSeverityStyles(severity: AgentCommerceTrustCheck['severity']) {
   if (severity === 'pass') {
@@ -46,11 +45,10 @@ function getStatusCopy(status: AgentCommerceTrustReadiness['status']) {
   return 'Agent trust health has blockers.';
 }
 
-export function AgentCommerceTrustReadinessCard() {
-  const [readiness, setReadiness] =
-    useState<AgentCommerceTrustReadiness | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export function AgentCommerceTrustReadinessCard({
+  readiness,
+  error = null,
+}: AgentCommerceTrustReadinessCardProps) {
   const actionItems = readiness
     ? agentCommerceTrustReadinessCardHelpers.buildTrustActionItems(readiness)
     : [];
@@ -59,45 +57,6 @@ export function AgentCommerceTrustReadinessCard() {
         readiness
       )
     : [];
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadReadiness = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const response = await fetch(READINESS_ENDPOINT);
-        if (!response.ok) {
-          throw new Error('Unable to load agent trust health');
-        }
-
-        const data = (await response.json()) as AgentCommerceTrustReadiness;
-        if (isMounted) {
-          setReadiness(data);
-        }
-      } catch (fetchError) {
-        if (isMounted) {
-          setError(
-            fetchError instanceof Error
-              ? fetchError.message
-              : 'Unable to load agent trust health'
-          );
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    void loadReadiness();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   return (
     <Card className="glass">
@@ -109,17 +68,14 @@ export function AgentCommerceTrustReadinessCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isLoading ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Checking agent trust health...
-          </div>
-        ) : error ? (
+        {error || !readiness ? (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>
+              {error ?? 'Unable to load agent trust health'}
+            </AlertDescription>
           </Alert>
-        ) : readiness ? (
+        ) : (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
               {getStatusCopy(readiness.status)}{' '}
@@ -225,6 +181,11 @@ export function AgentCommerceTrustReadinessCard() {
                     <div className="space-y-1">
                       <div className="font-medium">{check.label}</div>
                       <div>{check.message}</div>
+                      {check.next_step && check.severity !== 'pass' ? (
+                        <div className="text-xs font-medium">
+                          Next: {check.next_step}
+                        </div>
+                      ) : null}
                       {check.affectedProductIds?.length ? (
                         <div className="text-xs">
                           {check.affectedProductIds.length} affected products
@@ -236,7 +197,7 @@ export function AgentCommerceTrustReadinessCard() {
               ))}
             </ul>
           </div>
-        ) : null}
+        )}
       </CardContent>
     </Card>
   );

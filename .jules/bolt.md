@@ -5,3 +5,7 @@
 ## 2025-05-15 - React Native FlatList optimizations with getItemLayout
 **Learning:** In Expo/React Native, `FlatList` components rendering predictable or fixed-height items without an explicit `getItemLayout` prop force the framework to calculate item dimensions asynchronously, causing significant UI thread overhead and skipped frames during scroll/mount.
 **Action:** Always provide the `getItemLayout` prop alongside explicit sizing (like `height: N`) in item containers to optimize performance by bypassing asynchronous measurement cycles.
+
+## 2025-05-16 - Safe data fetching within useEffect
+**Learning:** When fetching data asynchronously within a `useEffect` (e.g., for debounced autocomplete searches), failing to check if the component is still mounted before setting state can cause race conditions where stale data overwrites fresh data if earlier requests resolve after later ones.
+**Action:** Always implement an `isMounted` boolean flag within the effect, check it before calling state setters like `setSuggestions`, and toggle it to `false` in the cleanup function.

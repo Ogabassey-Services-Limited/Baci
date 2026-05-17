@@ -1,8 +1,10 @@
+import { getAgenticActionNextStepUrl } from '@/lib/agentic/action-health-action-links';
 import type { AgenticAction } from '@/schemas/agentic-action-health';
 
 interface BuildAgenticHealthActionsInput {
   activeInProgressCount: number;
   allowlistCount: number;
+  completeTerminalErrorCount: number;
   isAgenticCheckoutEnabled: boolean;
   orderFinalizingCount: number;
   paymentClaimingCount: number;
@@ -16,6 +18,7 @@ interface BuildAgenticHealthActionsInput {
 export function buildAgenticHealthActions({
   activeInProgressCount,
   allowlistCount,
+  completeTerminalErrorCount,
   isAgenticCheckoutEnabled,
   orderFinalizingCount,
   paymentClaimingCount,
@@ -26,11 +29,33 @@ export function buildAgenticHealthActions({
   terminalErrorCount,
 }: BuildAgenticHealthActionsInput): AgenticAction[] {
   const actions: AgenticAction[] = [];
+  const genericTerminalErrorCount = Math.max(
+    0,
+    terminalErrorCount - completeTerminalErrorCount
+  );
+  const pushAction = (action: AgenticAction) => {
+    const nextStepUrl = getAgenticActionNextStepUrl(action.code);
+    actions.push(
+      nextStepUrl ? { ...action, next_step_url: nextStepUrl } : action
+    );
+  };
 
-  if (terminalErrorCount > 0) {
-    actions.push({
+  if (completeTerminalErrorCount > 0) {
+    pushAction({
+      code: 'AGENTIC_CHECKOUT_COMPLETE_ERRORS',
+      count: completeTerminalErrorCount,
+      message:
+        'Agentic checkout completions are failing before order finalization.',
+      next_step:
+        'Inspect completion failures, then retry checkout completion with the same idempotency key.',
+      severity: 'attention',
+    });
+  }
+
+  if (genericTerminalErrorCount > 0) {
+    pushAction({
       code: 'AGENTIC_IDEMPOTENCY_ERRORS',
-      count: terminalErrorCount,
+      count: genericTerminalErrorCount,
       message: 'Recent agentic retries ended with server errors.',
       next_step:
         'Review failed agentic orders and retry only after the server error is resolved.',
@@ -39,7 +64,7 @@ export function buildAgenticHealthActions({
   }
 
   if (staleInProgressCount > 0) {
-    actions.push({
+    pushAction({
       code: 'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS',
       count: staleInProgressCount,
       message: 'Agentic retry reservations expired before storing a response.',
@@ -50,7 +75,7 @@ export function buildAgenticHealthActions({
   }
 
   if (orderFinalizingCount > 0) {
-    actions.push({
+    pushAction({
       code: 'AGENTIC_ORDER_FINALIZING',
       count: orderFinalizingCount,
       message: 'Agentic checkouts are waiting on order finalization recovery.',
@@ -61,7 +86,7 @@ export function buildAgenticHealthActions({
   }
 
   if (paymentSetupFailedCount > 0) {
-    actions.push({
+    pushAction({
       code: 'AGENTIC_PAYMENT_SETUP_FAILED',
       count: paymentSetupFailedCount,
       message: 'Agentic checkouts failed while setting up payment collection.',
@@ -72,7 +97,7 @@ export function buildAgenticHealthActions({
   }
 
   if (stalePaymentPendingCount > 0) {
-    actions.push({
+    pushAction({
       code: 'AGENTIC_PAYMENT_PENDING_STALE',
       count: stalePaymentPendingCount,
       message:
@@ -84,7 +109,7 @@ export function buildAgenticHealthActions({
   }
 
   if (activeInProgressCount > 0) {
-    actions.push({
+    pushAction({
       code: 'AGENTIC_REQUESTS_IN_PROGRESS',
       count: activeInProgressCount,
       message: 'Agentic idempotency reservations are still in progress.',
@@ -95,7 +120,7 @@ export function buildAgenticHealthActions({
   }
 
   if (paymentClaimingCount > 0) {
-    actions.push({
+    pushAction({
       code: 'AGENTIC_PAYMENT_CLAIMING',
       count: paymentClaimingCount,
       message: 'Agentic checkouts are claiming payment setup.',
@@ -106,7 +131,7 @@ export function buildAgenticHealthActions({
   }
 
   if (paymentPendingCount > 0) {
-    actions.push({
+    pushAction({
       code: 'AGENTIC_PAYMENT_PENDING',
       count: paymentPendingCount,
       message: 'Agentic checkouts are waiting for payment confirmation.',
@@ -117,7 +142,7 @@ export function buildAgenticHealthActions({
   }
 
   if (isAgenticCheckoutEnabled && allowlistCount === 0) {
-    actions.push({
+    pushAction({
       code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
       count: 1,
       message: 'No agent allowlist is configured in Trust settings.',
@@ -128,7 +153,7 @@ export function buildAgenticHealthActions({
   }
 
   if (actions.length === 0) {
-    actions.push({
+    pushAction({
       code: 'AGENTIC_ACTIONS_HEALTHY',
       count: 0,
       message: 'No recent agentic action issues need attention.',

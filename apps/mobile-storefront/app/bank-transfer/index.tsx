@@ -26,6 +26,7 @@ const BankTransferParamsSchema = z.object({
   bankName: z.string().min(1, 'Bank name is required'),
   accountNumber: z.string().min(1, 'Account number is required'),
   accountName: z.string().min(1, 'Account name is required'),
+  trackingToken: z.string().trim().optional(),
 });
 
 export default function BankTransferScreen() {
@@ -48,8 +49,15 @@ export default function BankTransferScreen() {
     return { isValid: true, error: null, data: result.data };
   })();
 
-  const { orderId, orderNumber, amount, bankName, accountNumber, accountName } =
-    validatedParams.data || {};
+  const {
+    orderId,
+    orderNumber,
+    amount,
+    bankName,
+    accountNumber,
+    accountName,
+    trackingToken,
+  } = validatedParams.data || {};
 
   const handleCopy = async (text: string, field: string) => {
     const success = await copyToClipboard(text);
@@ -71,6 +79,7 @@ export default function BankTransferScreen() {
         orderId,
         orderNumber: orderNumber || '',
         paymentMethod: 'bank_transfer',
+        ...(trackingToken && { trackingToken }),
       },
     });
   };

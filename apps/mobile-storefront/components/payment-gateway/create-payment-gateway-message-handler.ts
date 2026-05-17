@@ -30,6 +30,7 @@ interface CreatePaymentGatewayMessageHandlerInput {
   orderNumber?: string;
   paymentKind?: PaymentKind;
   reference?: string;
+  trackingToken?: string;
   utilityType?: string;
   markPaymentCompletionStarted: () => void;
   scheduleDelayedNavigation: (navigate: () => void) => void;
@@ -112,6 +113,7 @@ export function createPaymentGatewayMessageHandler({
   orderNumber,
   paymentKind,
   reference,
+  trackingToken,
   utilityType,
   markPaymentCompletionStarted,
   scheduleDelayedNavigation,
@@ -205,6 +207,9 @@ export function createPaymentGatewayMessageHandler({
             orderNumber: getTrimmedString(orderNumber),
             paymentMethod: getTrimmedString(gateway) || 'crypto',
             reference: cryptoReference,
+            ...(getTrimmedString(trackingToken) && {
+              trackingToken: getTrimmedString(trackingToken),
+            }),
           },
         });
       });

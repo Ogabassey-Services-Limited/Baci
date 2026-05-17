@@ -10,7 +10,10 @@ import type {
 interface TransactionOrderCardProps {
   colors: ThemeColors;
   formatCurrency: (amount: number) => string;
-  onOpenEditor: (item: TransactionReviewItem) => void;
+  onOpenEditor: (
+    order: TransactionReviewOrder,
+    item: TransactionReviewItem
+  ) => void;
   order: TransactionReviewOrder;
 }
 
@@ -58,12 +61,14 @@ export function TransactionOrderCard({
             { borderTopColor: colors.border },
             !item.productId && styles.itemRowDisabled,
           ]}
-          onPress={() => onOpenEditor(item)}
+          onPress={() => onOpenEditor(order, item)}
           accessibilityRole="button"
-          accessibilityLabel={`${item.name}, ${item.quantity} units, revenue ${formatCurrency(item.revenue)}`}
+          accessibilityLabel={`${item.name}, ${item.quantity} units, revenue ${formatCurrency(item.revenue)}${
+            item.supplierName ? `, supplier ${item.supplierName}` : ''
+          }`}
           accessibilityHint={
             item.productId
-              ? 'Opens the cost price editor for this item'
+              ? 'Opens the transaction editor for this item'
               : 'This line item cannot be edited because it is not linked to a product'
           }
         >
@@ -76,6 +81,27 @@ export function TransactionOrderCard({
             >
               {item.quantity} units · Revenue {formatCurrency(item.revenue)}
             </Text>
+            {item.supplierName ? (
+              <Text
+                style={[styles.itemDetailText, { color: colors.textMuted }]}
+              >
+                Supplier {item.supplierName}
+              </Text>
+            ) : null}
+            {item.imeiValues[0] ? (
+              <Text
+                style={[styles.itemDetailText, { color: colors.textMuted }]}
+              >
+                IMEI {item.imeiValues[0]}
+              </Text>
+            ) : null}
+            {item.serialValues[0] ? (
+              <Text
+                style={[styles.itemDetailText, { color: colors.textMuted }]}
+              >
+                S/N {item.serialValues[0]}
+              </Text>
+            ) : null}
           </View>
           <View style={styles.itemMeta}>
             <Text style={[styles.itemMetaValue, { color: colors.text }]}>

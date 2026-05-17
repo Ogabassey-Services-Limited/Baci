@@ -44,6 +44,8 @@ vi.mock('@/lib/supabase/admin', () => ({
 
 import { POST } from './route';
 
+const VALID_MERCHANT_ID = '00000000-0000-4000-8000-000000000001';
+
 function makeRequest(body: Record<string, unknown>) {
   return new NextRequest(
     'http://localhost:3000/api/storefront/customer/wallet/top-up/confirm',
@@ -95,7 +97,7 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({
+              maybeSingle: vi.fn().mockResolvedValue({
                 data: { id: 'merchant-1' },
                 error: null,
               }),
@@ -170,6 +172,26 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
     expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
   });
 
+  it('returns 400 for malformed merchant ids before merchant lookup', async () => {
+    const response = await POST(
+      makeRequest({
+        gateway: 'paystack',
+        merchantId: 'not-a-uuid',
+        reference: 'WAL-123',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toMatchObject({ error: 'Invalid input' });
+    expect(data).toHaveProperty('details.fieldErrors.merchantId');
+    expect(data.details.fieldErrors.merchantId).toEqual(
+      expect.arrayContaining(['Merchant id must be a valid UUID'])
+    );
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockCreditWalletTopUp).not.toHaveBeenCalled();
+  });
+
   it('returns 500 when gateway verification throws unexpectedly', async () => {
     const consoleErrorSpy = vi
       .spyOn(console, 'error')
@@ -203,7 +225,7 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({
+              maybeSingle: vi.fn().mockResolvedValue({
                 data: { id: 'merchant-1' },
                 error: null,
               }),
@@ -269,6 +291,30 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
       supabase: expect.any(Object),
       transactionId: 'txn-1',
     });
+  });
+
+  it('confirms with merchantId when the storefront slug is unavailable or stale', async () => {
+    const response = await POST(
+      makeRequest({
+        gateway: 'paystack',
+        merchantId: VALID_MERCHANT_ID,
+        reference: 'WAL-123',
+      })
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({
+      reference: 'WAL-123',
+      status: 'successful',
+      success: true,
+    });
+    expect(mockCreditWalletTopUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        reference: 'WAL-123',
+      })
+    );
   });
 
   it('uses the stored transaction gateway when the request gateway mismatches', async () => {
@@ -355,7 +401,7 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({
+              maybeSingle: vi.fn().mockResolvedValue({
                 data: { id: 'merchant-1' },
                 error: null,
               }),
@@ -431,7 +477,7 @@ describe('POST /api/storefront/customer/wallet/top-up/confirm', () => {
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
-              single: vi.fn().mockResolvedValue({
+              maybeSingle: vi.fn().mockResolvedValue({
                 data: { id: 'merchant-1' },
                 error: null,
               }),

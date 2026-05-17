@@ -108,6 +108,7 @@ const walletParams = {
   amount: '2500',
   authorizationUrl: 'https://checkout.paystack.com/test',
   gateway: 'paystack',
+  merchantId: 'merchant-1',
   paymentKind: 'wallet',
   reference: 'WAL-123',
 };
@@ -184,6 +185,23 @@ describe('usePaymentGatewayController', () => {
     expect(result.current.errorMessage).toBe('Payment was cancelled.');
   });
 
+  it('preserves WebView errors through immediate follow-up load events', () => {
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleWebViewError({
+        nativeEvent: {
+          description: 'Provider connection failed',
+          url: 'https://checkout.paystack.com/test',
+        },
+      } as Parameters<typeof result.current.handleWebViewError>[0]);
+      result.current.handleLoadStart();
+    });
+
+    expect(result.current.status).toBe('error');
+    expect(result.current.errorMessage).toBe('Provider connection failed');
+  });
+
   it('resets retry state and reloads the checkout WebView', () => {
     const reload = jest.fn();
     const { result } = renderHook(() => usePaymentGatewayController());
@@ -205,6 +223,26 @@ describe('usePaymentGatewayController', () => {
     expect(result.current.status).toBe('loading');
     expect(result.current.errorMessage).toBeNull();
     expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows a retryable error when the provider checkout page stalls while loading', () => {
+    jest.useFakeTimers();
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleLoadStart();
+    });
+
+    expect(result.current.status).toBe('loading');
+
+    act(() => {
+      jest.advanceTimersByTime(45_000);
+    });
+
+    expect(result.current.status).toBe('error');
+    expect(result.current.errorMessage).toBe(
+      'Payment page is taking longer than expected. Check your connection and try again.'
+    );
   });
 
   it('clears the cart and navigates after order payment completion', () => {
@@ -232,6 +270,32 @@ describe('usePaymentGatewayController', () => {
         paymentMethod: 'paystack',
         reference: 'ref-123',
       },
+    });
+  });
+
+  it('preserves tracking token when routing completed order payments', () => {
+    jest.useFakeTimers();
+    mockSearchParams = {
+      ...orderParams,
+      trackingToken: 'track-token-123',
+    };
+    const { result } = renderHook(() => usePaymentGatewayController());
+
+    act(() => {
+      result.current.handleNavigationChange(
+        navigation('https://usebaci.com/checkout/success?trxref=ref-123')
+      );
+    });
+    act(() => {
+      jest.runOnlyPendingTimers();
+    });
+
+    expect(router.replace).toHaveBeenCalledWith({
+      pathname: '/order-success',
+      params: expect.objectContaining({
+        orderId: 'order-123',
+        trackingToken: 'track-token-123',
+      }),
     });
   });
 
@@ -331,6 +395,8 @@ describe('usePaymentGatewayController', () => {
     await waitFor(() =>
       expect(mockWaitForWalletTopUpConfirmation).toHaveBeenCalledWith({
         gateway: 'paystack',
+        merchantId: 'merchant-1',
+        merchantSlug: undefined,
         reference: 'WAL-123',
       })
     );

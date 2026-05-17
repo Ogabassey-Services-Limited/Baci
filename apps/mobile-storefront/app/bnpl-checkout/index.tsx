@@ -6,7 +6,7 @@
 
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -39,6 +39,10 @@ const BNPLParamsSchema = z.object({
 });
 
 const API_BASE_URL = resolveApiBaseUrl(process.env.EXPO_PUBLIC_API_URL);
+const BNPL_LOAD_TIMEOUT_MS = 45_000;
+const BNPL_LOAD_TIMEOUT_MESSAGE =
+  'Payment page is taking longer than expected. Check your connection and try again.';
+type BNPLCheckoutStatus = 'loading' | 'ready' | 'success' | 'error';
 
 export default function BNPLCheckoutScreen() {
   const colorScheme = useColorScheme();
@@ -46,12 +50,25 @@ export default function BNPLCheckoutScreen() {
   // 2026 Best Practice: Use Record type for route params to satisfy expo-router constraints
   const params = useLocalSearchParams<Record<string, string>>();
   const webViewRef = useRef<WebView>(null);
+  const loadTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearCart = useCartStore((state) => state.clearCart);
 
-  const [status, setStatus] = useState<
-    'loading' | 'ready' | 'processing' | 'success' | 'error'
-  >('loading');
+  const [status, setStatusState] = useState<BNPLCheckoutStatus>('loading');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const statusRef = useRef<BNPLCheckoutStatus>('loading');
+
+  const setCheckoutStatus = (
+    nextStatus:
+      | BNPLCheckoutStatus
+      | ((currentStatus: BNPLCheckoutStatus) => BNPLCheckoutStatus)
+  ) => {
+    const resolvedStatus =
+      typeof nextStatus === 'function'
+        ? nextStatus(statusRef.current)
+        : nextStatus;
+    statusRef.current = resolvedStatus;
+    setStatusState(resolvedStatus);
+  };
 
   // 2026 Critical Fix: Validate route params with Zod
   const validatedParams = (() => {
@@ -69,6 +86,35 @@ export default function BNPLCheckoutScreen() {
 
   const { orderId, gateway, amount, customerEmail, trackingToken } =
     validatedParams.data || {};
+
+  useEffect(
+    () => () => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+    },
+    []
+  );
+
+  const clearPendingLoadTimeout = () => {
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
+  };
+
+  const scheduleLoadTimeout = () => {
+    clearPendingLoadTimeout();
+    loadTimeoutRef.current = setTimeout(() => {
+      loadTimeoutRef.current = null;
+      if (statusRef.current !== 'loading') {
+        return;
+      }
+      setErrorMessage(BNPL_LOAD_TIMEOUT_MESSAGE);
+      setCheckoutStatus('error');
+    }, BNPL_LOAD_TIMEOUT_MS);
+  };
 
   // Construct the BNPL launcher URL
   // 2026 Critical Fix: Include merchant slug in path for correct multi-tenant routing
@@ -119,6 +165,7 @@ export default function BNPLCheckoutScreen() {
             {validatedParams.error}
           </Text>
           <Pressable
+            accessibilityRole="button"
             style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
             onPress={() => router.back()}
           >
@@ -134,7 +181,8 @@ export default function BNPLCheckoutScreen() {
 
     // Check for success redirect
     if (url.includes('/order-success') || url.includes('success=true')) {
-      setStatus('success');
+      clearPendingLoadTimeout();
+      setCheckoutStatus('success');
       clearCart();
 
       // Extract reference from URL if present
@@ -157,13 +205,15 @@ export default function BNPLCheckoutScreen() {
 
     // Check for cancellation
     if (url.includes('/checkout') && url.includes('cancelled=true')) {
-      setStatus('error');
+      clearPendingLoadTimeout();
+      setCheckoutStatus('error');
       setErrorMessage('Payment was cancelled.');
     }
 
     // Check for error
     if (url.includes('error=') || url.includes('/checkout?error')) {
-      setStatus('error');
+      clearPendingLoadTimeout();
+      setCheckoutStatus('error');
       const urlParams = new URL(url);
       setErrorMessage(
         urlParams.searchParams.get('error') ||
@@ -179,7 +229,8 @@ export default function BNPLCheckoutScreen() {
       if (data.type === 'navigation' && typeof data.url === 'string') {
         handleNavigationChange({ url: data.url } as WebViewNavigation);
       } else if (data.type === 'bnpl_success') {
-        setStatus('success');
+        clearPendingLoadTimeout();
+        setCheckoutStatus('success');
         clearCart();
         setTimeout(() => {
           router.replace({
@@ -193,7 +244,8 @@ export default function BNPLCheckoutScreen() {
           });
         }, 1000);
       } else if (data.type === 'bnpl_error') {
-        setStatus('error');
+        clearPendingLoadTimeout();
+        setCheckoutStatus('error');
         setErrorMessage(data.message || 'Payment failed.');
       } else if (data.type === 'bnpl_close') {
         handleClose();
@@ -219,9 +271,28 @@ export default function BNPLCheckoutScreen() {
   };
 
   const handleRetry = () => {
-    setStatus('loading');
+    clearPendingLoadTimeout();
+    setCheckoutStatus('loading');
     setErrorMessage(null);
     webViewRef.current?.reload();
+  };
+
+  const handleLoadStart = () => {
+    if (statusRef.current === 'error' || statusRef.current === 'success') {
+      return;
+    }
+    setErrorMessage(null);
+    scheduleLoadTimeout();
+    setCheckoutStatus('loading');
+  };
+
+  const handleLoadEnd = () => {
+    clearPendingLoadTimeout();
+    setCheckoutStatus((currentStatus) =>
+      currentStatus === 'error' || currentStatus === 'success'
+        ? currentStatus
+        : 'ready'
+    );
   };
 
   const gatewayName = gateway === 'credpal' ? 'CredPal' : 'Credit Direct';
@@ -315,12 +386,14 @@ export default function BNPLCheckoutScreen() {
           </Text>
           <View style={styles.errorActions}>
             <Pressable
+              accessibilityRole="button"
               style={[styles.retryButton, { backgroundColor: BRAND.primary }]}
               onPress={handleRetry}
             >
               <Text style={styles.retryButtonText}>Try Again</Text>
             </Pressable>
             <Pressable
+              accessibilityRole="button"
               style={[styles.cancelButton, { borderColor: colors.border }]}
               onPress={() => router.back()}
             >
@@ -386,8 +459,8 @@ export default function BNPLCheckoutScreen() {
         ref={webViewRef}
         source={{ uri: bnplUrl }}
         style={styles.webView}
-        onLoadStart={() => setStatus('loading')}
-        onLoadEnd={() => setStatus('ready')}
+        onLoadStart={handleLoadStart}
+        onLoadEnd={handleLoadEnd}
         onNavigationStateChange={handleNavigationChange}
         onMessage={handleWebViewMessage}
         injectedJavaScript={injectedJavaScript}
@@ -403,7 +476,8 @@ export default function BNPLCheckoutScreen() {
         setSupportMultipleWindows={false}
         onError={(syntheticEvent) => {
           const { nativeEvent } = syntheticEvent;
-          setStatus('error');
+          clearPendingLoadTimeout();
+          setCheckoutStatus('error');
           setErrorMessage(
             nativeEvent.description || 'Failed to load payment page'
           );

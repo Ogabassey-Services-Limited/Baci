@@ -1,4 +1,19 @@
-export function StorefrontLayoutLoadingFallback() {
+interface StorefrontLayoutLoadingFallbackMobileHeroImage {
+  alt: string;
+  avifSrc: string;
+  fallbackSrc: string;
+}
+
+interface StorefrontLayoutLoadingFallbackProps {
+  mobileHeroImage?: StorefrontLayoutLoadingFallbackMobileHeroImage;
+}
+
+const transparentPixelSrc =
+  'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+
+export function StorefrontLayoutLoadingFallback({
+  mobileHeroImage,
+}: StorefrontLayoutLoadingFallbackProps = {}) {
   return (
     <div
       aria-busy="true"
@@ -34,10 +49,37 @@ export function StorefrontLayoutLoadingFallback() {
             aria-label="Mobile hero loading placeholder"
             className="relative order-1 mb-4 h-48 overflow-hidden rounded-2xl bg-[color-mix(in_srgb,var(--store-background-text,#111827)_88%,var(--store-background,#ffffff)_12%)] shadow-2xl ring-1 ring-[color-mix(in_srgb,var(--store-background-text,#111827)_15%,transparent)] md:hidden"
           >
-            <div className="absolute left-6 top-6 h-6 w-32 rounded bg-[color-mix(in_srgb,var(--store-background,#ffffff)_22%,transparent)]" />
-            <div className="absolute left-6 top-16 h-4 w-40 rounded bg-[color-mix(in_srgb,var(--store-background,#ffffff)_16%,transparent)]" />
-            <div className="absolute bottom-6 left-6 h-10 w-28 rounded-full bg-[color-mix(in_srgb,var(--store-background,#ffffff)_22%,transparent)]" />
-            <div className="absolute right-4 top-5 h-36 w-32 rounded-2xl bg-[color-mix(in_srgb,var(--store-background,#ffffff)_12%,transparent)]" />
+            {mobileHeroImage ? (
+              <picture className="absolute inset-0 block h-full w-full">
+                <source
+                  media="(max-width: 767px)"
+                  srcSet={mobileHeroImage.avifSrc}
+                  type="image/avif"
+                />
+                <source
+                  media="(max-width: 767px)"
+                  srcSet={mobileHeroImage.fallbackSrc}
+                  type="image/jpeg"
+                />
+                <img
+                  alt={mobileHeroImage.alt}
+                  className="h-full w-full object-contain object-right"
+                  decoding="async"
+                  fetchPriority="high"
+                  height={540}
+                  loading="eager"
+                  src={transparentPixelSrc}
+                  width={960}
+                />
+              </picture>
+            ) : (
+              <>
+                <div className="absolute left-6 top-6 h-6 w-32 rounded bg-[color-mix(in_srgb,var(--store-background,#ffffff)_22%,transparent)]" />
+                <div className="absolute left-6 top-16 h-4 w-40 rounded bg-[color-mix(in_srgb,var(--store-background,#ffffff)_16%,transparent)]" />
+                <div className="absolute bottom-6 left-6 h-10 w-28 rounded-full bg-[color-mix(in_srgb,var(--store-background,#ffffff)_22%,transparent)]" />
+                <div className="absolute right-4 top-5 h-36 w-32 rounded-2xl bg-[color-mix(in_srgb,var(--store-background,#ffffff)_12%,transparent)]" />
+              </>
+            )}
           </section>
 
           <section
