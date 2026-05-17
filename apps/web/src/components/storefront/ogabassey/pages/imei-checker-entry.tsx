@@ -98,6 +98,7 @@ export const OgabasseyImeiEntry = ({
           <Smartphone className="text-gray-400" size={20} />
         </div>
         <input
+          aria-label="Search for a device name"
           type="text"
           value={deviceQuery}
           onChange={(event) => onDeviceQueryChange(event.target.value)}
@@ -236,6 +237,7 @@ export const OgabasseyImeiEntry = ({
               <ScanBarcode className="text-gray-400" size={20} />
             </div>
             <input
+              aria-label="15-digit IMEI Number"
               type="text"
               value={imei}
               onChange={(event) =>

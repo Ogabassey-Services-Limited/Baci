@@ -70,7 +70,7 @@ describe('OgabasseyImeiEntry', () => {
   it('sanitizes IMEI input before emitting changes', () => {
     const props = renderEntry({ imei: '' });
 
-    fireEvent.change(screen.getByPlaceholderText(/enter 15-digit imei/i), {
+    fireEvent.change(screen.getByLabelText(/15-digit imei number/i), {
       target: { value: 'abc354442067957452999' },
     });
 
@@ -80,7 +80,7 @@ describe('OgabasseyImeiEntry', () => {
   it('submits valid IMEI checks and disables invalid checks', () => {
     const props = renderEntry();
 
-    fireEvent.submit(screen.getByPlaceholderText(/enter 15-digit imei/i));
+    fireEvent.submit(screen.getByLabelText(/15-digit imei number/i));
 
     expect(props.onCheck).toHaveBeenCalledOnce();
 
@@ -97,5 +97,16 @@ describe('OgabasseyImeiEntry', () => {
 
     expect(screen.getByText('Wallet balance is too low.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /verify now/i })).toBeDisabled();
+  });
+
+  it('labels text inputs for assistive technology', () => {
+    renderEntry();
+
+    expect(
+      screen.getByRole('textbox', { name: /search for a device name/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('textbox', { name: /15-digit imei number/i })
+    ).toBeInTheDocument();
   });
 });
