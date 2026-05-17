@@ -449,9 +449,12 @@ describe('GET /api/merchant/agentic/action-health', () => {
           next_step_url: '/dashboard/orders?source=agentic',
           severity: 'attention',
         }),
+      ])
+    );
+    expect(payload.actions).not.toEqual(
+      expect.arrayContaining([
         expect.objectContaining({
           code: 'AGENTIC_IDEMPOTENCY_ERRORS',
-          count: 1,
         }),
       ])
     );

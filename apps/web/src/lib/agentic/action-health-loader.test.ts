@@ -74,6 +74,13 @@ describe('loadAgenticActionHealth', () => {
             status_code: 503,
             updated_at: '2026-05-16T09:16:00.000Z',
           },
+          {
+            created_at: '2026-05-16T09:17:00.000Z',
+            expires_at: '2026-05-16T09:37:00.000Z',
+            route: 'checkout_sessions.update',
+            status_code: 500,
+            updated_at: '2026-05-16T09:18:00.000Z',
+          },
         ],
         request_records: [],
       },

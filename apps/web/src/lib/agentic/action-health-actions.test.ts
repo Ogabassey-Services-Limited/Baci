@@ -83,7 +83,7 @@ describe('buildAgenticHealthActions', () => {
       },
       {
         code: 'AGENTIC_IDEMPOTENCY_ERRORS',
-        count: 2,
+        count: 1,
         next_step_url: '/dashboard/orders?source=agentic',
         severity: 'attention',
       },

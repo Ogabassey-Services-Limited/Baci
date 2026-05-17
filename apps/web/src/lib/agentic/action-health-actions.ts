@@ -29,6 +29,10 @@ export function buildAgenticHealthActions({
   terminalErrorCount,
 }: BuildAgenticHealthActionsInput): AgenticAction[] {
   const actions: AgenticAction[] = [];
+  const genericTerminalErrorCount = Math.max(
+    0,
+    terminalErrorCount - completeTerminalErrorCount
+  );
   const pushAction = (action: AgenticAction) => {
     const nextStepUrl = getAgenticActionNextStepUrl(action.code);
     actions.push(
@@ -48,10 +52,10 @@ export function buildAgenticHealthActions({
     });
   }
 
-  if (terminalErrorCount > 0) {
+  if (genericTerminalErrorCount > 0) {
     pushAction({
       code: 'AGENTIC_IDEMPOTENCY_ERRORS',
-      count: terminalErrorCount,
+      count: genericTerminalErrorCount,
       message: 'Recent agentic retries ended with server errors.',
       next_step:
         'Review failed agentic orders and retry only after the server error is resolved.',
