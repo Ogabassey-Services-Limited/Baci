@@ -112,12 +112,20 @@ export function computeExpectedTotalDiscount({
   });
   const requiredDiscount = roundMoney(canonicalOrderTotal - expectedTotal);
 
-  if (requiredDiscount <= TOTAL_PARITY_TOLERANCE) {
+  if (requiredDiscount <= 0) {
     return 0;
   }
 
+  if (requiredDiscount <= TOTAL_PARITY_TOLERANCE) {
+    return requiredDiscount;
+  }
+
+  // Discounted totals for VAT-registered merchants include both the pre-tax
+  // subtotal reduction and the tax reduction that follows from it. Cap against
+  // subtotal + tax (not shipping/gift) so valid 3% offers remain payable.
   const maxAutoNegotiationDiscount = roundMoney(
-    canonicalSubtotal * MAX_AUTO_NEGOTIATION_DISCOUNT_RATE
+    (canonicalSubtotal + canonicalTaxAmount) *
+      MAX_AUTO_NEGOTIATION_DISCOUNT_RATE
   );
 
   if (requiredDiscount > maxAutoNegotiationDiscount) {

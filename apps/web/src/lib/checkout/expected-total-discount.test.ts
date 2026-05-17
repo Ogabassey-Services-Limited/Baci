@@ -38,7 +38,19 @@ describe('computeExpectedTotalDiscount', () => {
     expect(discount).toBe(30);
   });
 
-  it('rejects negotiated totals that require more than 3% off the pre-tax subtotal', () => {
+  it('rejects negotiated totals that require more than 3% off subtotal-plus-tax', () => {
+    const discount = computeExpectedTotalDiscount({
+      canonicalSubtotal: 1000,
+      canonicalTaxAmount: 75,
+      shippingFee: 0,
+      giftWrappingFee: 0,
+      expectedTotal: 1041.99,
+    });
+
+    expect(discount).toBe(0);
+  });
+
+  it('accepts VAT-adjusted totals for valid 3% negotiated offers', () => {
     const discount = computeExpectedTotalDiscount({
       canonicalSubtotal: 1000,
       canonicalTaxAmount: 75,
@@ -47,7 +59,7 @@ describe('computeExpectedTotalDiscount', () => {
       expectedTotal: 1042.75,
     });
 
-    expect(discount).toBe(0);
+    expect(discount).toBe(32.25);
   });
 
   it('keeps one-cent negotiation deltas after money rounding', () => {
@@ -110,6 +122,18 @@ describe('computeExpectedTotalDiscount', () => {
     expect(discount).toBe(0);
   });
 
+  it('keeps positive ≤ ₦1 negotiated discounts instead of dropping them', () => {
+    const discount = computeExpectedTotalDiscount({
+      canonicalSubtotal: 34,
+      canonicalTaxAmount: 0,
+      shippingFee: 0,
+      giftWrappingFee: 0,
+      expectedTotal: 33,
+    });
+
+    expect(discount).toBe(1);
+  });
+
   it('accepts whole-naira rounded 3% counter-offers for normal checkout subtotals', () => {
     const discount = computeExpectedTotalDiscount({
       canonicalSubtotal: 1001,
@@ -122,13 +146,13 @@ describe('computeExpectedTotalDiscount', () => {
     expect(discount).toBe(31);
   });
 
-  it('rejects whole-naira cap rounding on very low subtotal carts', () => {
+  it('rejects rounded-over-cap low-subtotal counter-offers beyond the ₦1 tolerance', () => {
     const discount = computeExpectedTotalDiscount({
       canonicalSubtotal: 20,
       canonicalTaxAmount: 0,
       shippingFee: 0,
       giftWrappingFee: 0,
-      expectedTotal: 19,
+      expectedTotal: 18,
     });
 
     expect(discount).toBe(0);
