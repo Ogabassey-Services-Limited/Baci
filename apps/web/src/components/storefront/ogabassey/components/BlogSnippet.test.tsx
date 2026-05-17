@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockNot = vi.fn();
 const mockLimit = vi.fn();
+const mockExplicitLinkLimit = vi.fn();
+const mockExplicitLinkNot = vi.fn();
 const mockProductMaybeSingle = vi.fn();
 const mockRpc = vi.fn();
 const EXPECTED_FALLBACK_FILTER_CALLS = 2;
@@ -20,6 +22,13 @@ const productQuery = {
   maybeSingle: mockProductMaybeSingle,
   select: vi.fn(() => productQuery),
 };
+const explicitLinkQuery = {
+  eq: vi.fn(() => explicitLinkQuery),
+  limit: mockExplicitLinkLimit,
+  not: mockExplicitLinkNot,
+  order: vi.fn(() => explicitLinkQuery),
+  select: vi.fn(() => explicitLinkQuery),
+};
 
 mockNot.mockReturnValue(blogQuery);
 mockLimit.mockResolvedValue({ data: [], error: null });
@@ -32,6 +41,9 @@ vi.mock('@/lib/supabase/client', () => ({
   createClient: vi.fn(() => ({
     rpc: mockRpc,
     from: (table: string) => {
+      if (table === 'blog_post_products') {
+        return explicitLinkQuery;
+      }
       if (table === 'blog_posts') {
         return blogQuery;
       }
@@ -64,6 +76,8 @@ describe('BlogSnippet', () => {
     vi.clearAllMocks();
     mockNot.mockReturnValue(blogQuery);
     mockLimit.mockResolvedValue({ data: [], error: null });
+    mockExplicitLinkLimit.mockResolvedValue({ data: [], error: null });
+    mockExplicitLinkNot.mockReturnValue(explicitLinkQuery);
     mockProductMaybeSingle.mockResolvedValue({ data: null, error: null });
     mockRpc.mockResolvedValue({ data: [], error: null });
   });
@@ -183,5 +197,111 @@ describe('BlogSnippet', () => {
     expect(
       screen.getByRole('link', { name: /read full article/i })
     ).toHaveAttribute('href', '/ogabassey/blog/best-smartphones-2026');
+  });
+
+  it('prefers explicit product blog links before semantic matching', async () => {
+    mockExplicitLinkLimit.mockResolvedValueOnce({
+      data: [
+        {
+          product_id: 'product-1',
+          blog_post_id: 'post-1',
+          relationship: 'primary',
+          blog_posts: {
+            id: 'post-1',
+            title: 'iPhone 13 Buying Guide',
+            slug: 'iphone-13-buying-guide',
+            excerpt: 'Useful buyer guide.',
+            featured_image_url:
+              'https://cdn.ogabassey.com/image/format=auto/core-assets/blog/codex/run/hero.jpg',
+            category: 'Buying Guides',
+            reading_time_minutes: 4,
+          },
+        },
+      ],
+      error: null,
+    });
+
+    render(
+      <BlogSnippet
+        category="Smartphones"
+        merchantId="merchant-1"
+        productId="product-1"
+      />
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: /from the blog/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /iphone 13 buying guide/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /read full article/i })
+    ).toHaveAttribute('href', '/ogabassey/blog/iphone-13-buying-guide');
+    expect(explicitLinkQuery.eq).toHaveBeenCalledWith(
+      'blog_posts.status',
+      'published'
+    );
+    expect(mockExplicitLinkNot).toHaveBeenCalledWith(
+      'blog_posts.published_at',
+      'is',
+      null
+    );
+    expect(mockProductMaybeSingle).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it('falls back to semantic matching when explicit product blog link lookup fails', async () => {
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockExplicitLinkLimit.mockResolvedValueOnce({
+      data: [],
+      error: new Error('link lookup failed'),
+    });
+    mockProductMaybeSingle.mockResolvedValueOnce({
+      data: { content_embedding: [0.1, 0.2] },
+      error: null,
+    });
+    mockRpc.mockResolvedValueOnce({
+      data: [
+        {
+          id: 'post-2',
+          title: 'Best Smartphones in 2026',
+          slug: 'best-smartphones-2026',
+          excerpt: 'Top picks.',
+          featured_image_url: null,
+          category: 'Smartphones',
+          reading_time_minutes: 5,
+        },
+      ],
+      error: null,
+    });
+
+    try {
+      render(
+        <BlogSnippet
+          category="Smartphones"
+          merchantId="merchant-1"
+          productId="product-1"
+        />
+      );
+
+      expect(
+        await screen.findByRole('heading', {
+          name: /best smartphones in 2026/i,
+        })
+      ).toBeInTheDocument();
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Error fetching explicit product blog link:',
+        expect.any(Error)
+      );
+      expect(mockRpc).toHaveBeenCalledWith(
+        'match_blog_to_product',
+        expect.anything()
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });
