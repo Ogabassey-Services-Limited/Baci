@@ -379,7 +379,7 @@ describe('submitOnboarding', () => {
         data: {
           id: 'existing-1',
           business_name: null,
-          slug: 'merchant-chosen-slug',
+          slug: '  merchant-chosen-slug  ',
         },
         error: null,
       });

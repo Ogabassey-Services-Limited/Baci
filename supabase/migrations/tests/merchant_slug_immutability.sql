@@ -59,7 +59,8 @@ BEGIN
     'slug-lock@example.com',
     'Slug Lock Store',
     'slug-lock-store'
-  );
+  )
+  ON CONFLICT (id) DO NOTHING;
 
   UPDATE public.merchants
   SET business_name = 'Slug Lock Store Renamed'
@@ -109,7 +110,8 @@ BEGIN
     'slug-initial-assignment@example.com',
     NULL,
     NULL
-  );
+  )
+  ON CONFLICT (id) DO NOTHING;
 
   UPDATE public.merchants
   SET business_name = 'Initial Assignment Store'

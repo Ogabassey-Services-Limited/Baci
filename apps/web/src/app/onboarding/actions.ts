@@ -75,7 +75,9 @@ async function resolveMerchantSlug(
 }
 
 function getEstablishedMerchantSlug(slug: string | null | undefined) {
-  return typeof slug === 'string' && slug.trim() ? slug : null;
+  if (typeof slug !== 'string') return null;
+  const normalizedSlug = slug.trim();
+  return normalizedSlug ? normalizedSlug : null;
 }
 
 export async function submitOnboarding(
