@@ -26,6 +26,7 @@ const readiness: AgentCommerceTrustReadiness = {
       label: 'Catalog surface parity',
       severity: 'pass',
       message: '2 products are present across feed sources.',
+      next_step: 'Keep feed parity checks in your weekly operations review.',
     },
     {
       affectedProductIds: ['product-1', 'product-2'],
@@ -33,6 +34,7 @@ const readiness: AgentCommerceTrustReadiness = {
       label: 'Canonical URL parity',
       severity: 'fail',
       message: '2 products have mismatched canonical URLs.',
+      next_step: 'Fix URL mismatches in product setup and rerun feed checks.',
     },
     {
       id: 'policy-coverage',
@@ -141,6 +143,16 @@ describe('AgentCommerceTrustReadinessCard', () => {
         name: 'Review Update policies',
       })
     ).toHaveAttribute('href', '/dashboard/settings/trust');
+    expect(
+      screen.getByText(
+        'Next: Fix URL mismatches in product setup and rerun feed checks.'
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'Next: Keep feed parity checks in your weekly operations review.'
+      )
+    ).not.toBeInTheDocument();
   });
 
   it('shows an error state when readiness data is unavailable', () => {
