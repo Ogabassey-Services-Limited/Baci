@@ -10,16 +10,24 @@ describe('SERVICE_TIERS', () => {
     expect(Object.keys(SERVICE_TIERS)).toEqual([...PRIMARY_IMEI_SERVICE_TIERS]);
 
     for (const tierKey of PRIMARY_IMEI_SERVICE_TIERS) {
+      const sourceTier = IMEI_SERVICE_TIERS[tierKey];
+
       expect(SERVICE_TIERS[tierKey]).toMatchObject({
-        features: IMEI_SERVICE_TIERS[tierKey].features,
+        features: sourceTier.features,
         id: tierKey,
-        name: IMEI_SERVICE_TIERS[tierKey].name,
-        price: IMEI_SERVICE_TIERS[tierKey].price,
+        name: sourceTier.name,
+        price: sourceTier.price,
         priceDisplay: expect.stringContaining(
-          IMEI_SERVICE_TIERS[tierKey].price.toLocaleString('en-NG')
+          sourceTier.price.toLocaleString('en-NG')
         ),
-        tagline: IMEI_SERVICE_TIERS[tierKey].tagline,
+        tagline: sourceTier.tagline,
       });
+
+      if ('recommended' in sourceTier) {
+        expect(SERVICE_TIERS[tierKey].recommended).toBe(sourceTier.recommended);
+      } else {
+        expect(SERVICE_TIERS[tierKey].recommended).toBeUndefined();
+      }
     }
   });
 });
