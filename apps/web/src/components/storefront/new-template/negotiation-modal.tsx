@@ -79,7 +79,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
               Negotiate Price
             </h3>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white" aria-label="Close">
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white" aria-label="Close">
             <X size={20} />
           </button>
         </div>
@@ -147,7 +147,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
               <p className="text-sm text-gray-500 mb-4">
                 Price has been updated in your cart.
               </p>
-              <button
+              <button type="button"
                 onClick={onClose}
                 className="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold text-sm hover:bg-black transition-colors"
               >
@@ -165,7 +165,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                 Offer Rejected
               </h4>
               <p className="text-sm text-gray-500 mb-6">{message}</p>
-              <button
+              <button type="button"
                 onClick={() => setStatus('input')}
                 className="w-full bg-gray-100 text-gray-900 font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors"
               >
