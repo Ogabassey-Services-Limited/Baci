@@ -8,7 +8,7 @@ const { mockGetCheckoutSession, mockHandleCheckoutSessionUpdate } = vi.hoisted(
   })
 );
 
-vi.mock('../../checkout_sessions/[id]/route', () => ({
+vi.mock('@/app/api/agentic/checkout_sessions/[id]/route', () => ({
   GET: mockGetCheckoutSession,
   handleAgenticCheckoutSessionUpdate: mockHandleCheckoutSessionUpdate,
 }));
@@ -60,6 +60,56 @@ describe('/api/agentic/checkout-sessions/[id]', () => {
     );
     expect(response.status).toBe(200);
     expect(body.status).toBe('ready_for_complete');
+  });
+
+  it('passes a UCP request adapter into POST checkout updates', async () => {
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout-sessions/agentic_session_1',
+      {
+        body: JSON.stringify({ line_items: [] }),
+        method: 'POST',
+      }
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(request, routeProps);
+    const body = await response.json();
+
+    expect(mockHandleCheckoutSessionUpdate).toHaveBeenCalledWith(
+      request,
+      routeProps,
+      {
+        requestBodyAdapter: expect.any(Function),
+      }
+    );
+    expect(response.status).toBe(200);
+    expect(body.status).toBe('ready_for_complete');
+  });
+
+  it('passes through delegated POST errors without adapting them', async () => {
+    mockHandleCheckoutSessionUpdate.mockResolvedValueOnce(
+      NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    );
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout-sessions/agentic_session_1',
+      {
+        body: JSON.stringify({ line_items: [] }),
+        method: 'POST',
+      }
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(request, routeProps);
+
+    expect(mockHandleCheckoutSessionUpdate).toHaveBeenCalledWith(
+      request,
+      routeProps,
+      {
+        requestBodyAdapter: expect.any(Function),
+      }
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'Invalid request body' });
   });
 
   it('keeps GET read-only and only adapts the response', async () => {

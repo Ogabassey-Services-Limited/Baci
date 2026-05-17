@@ -1,5 +1,5 @@
+import { POST as cancelCheckoutSession } from '@/app/api/agentic/checkout_sessions/[id]/cancel/route';
 import { adaptCheckoutResponseToUcp } from '@/lib/agentic/ucp-response-adapters';
-import { POST as cancelCheckoutSession } from '../../../checkout_sessions/[id]/cancel/route';
 
 export async function POST(
   request: Parameters<typeof cancelCheckoutSession>[0],

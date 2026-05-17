@@ -25,7 +25,7 @@ export function adaptUcpCheckoutUpdateRequestBody(body: unknown): unknown {
   if (hasLegacyItems(body)) return body;
 
   const parsed = ucpCheckoutUpdateRequestSchema.safeParse(body);
-  if (!parsed.success) return {};
+  if (!parsed.success) return body;
 
   const adapted: JsonRecord = {
     fulfillment_option_id: getOwnFieldOrNull(body, 'fulfillment_option_id'),

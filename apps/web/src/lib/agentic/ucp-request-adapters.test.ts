@@ -56,11 +56,11 @@ describe('adaptUcpCheckoutUpdateRequestBody', () => {
     expect(adaptUcpCheckoutUpdateRequestBody(body)).toBe(body);
   });
 
-  it('rejects malformed UCP updates before they can become partial legacy updates', () => {
-    expect(
-      adaptUcpCheckoutUpdateRequestBody({
-        shipping_address: { city: 'Lagos' },
-      })
-    ).toEqual({});
+  it('returns malformed UCP updates unchanged so legacy validation rejects them', () => {
+    const body = {
+      shipping_address: { city: 'Lagos' },
+    };
+
+    expect(adaptUcpCheckoutUpdateRequestBody(body)).toBe(body);
   });
 });

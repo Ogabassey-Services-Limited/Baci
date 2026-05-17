@@ -57,4 +57,19 @@ describe('mapUcpOrderLineItem', () => {
       { amount: 300_000, display_text: 'Total', type: 'total' },
     ]);
   });
+
+  it('falls back safely for malformed line-item payloads', () => {
+    const lineItem = mapUcpOrderLineItem(null, 0, null);
+
+    expect(lineItem).toMatchObject({
+      id: 'line_1',
+      item: {
+        id: 'line_1',
+        price: 0,
+        title: 'Unknown item',
+      },
+      quantity: { fulfilled: 0, total: 1 },
+      status: 'processing',
+    });
+  });
 });

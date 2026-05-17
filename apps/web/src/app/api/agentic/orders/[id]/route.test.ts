@@ -331,15 +331,17 @@ describe('GET /api/agentic/orders/[id]', () => {
     expect(await response.json()).toEqual({ error: 'Failed to fetch order' });
   });
 
-  it('returns 500 when the linked checkout session cannot be resolved', async () => {
+  it('returns the order with a null checkout id when checkout linkage is absent', async () => {
     mockOrderRead({ checkoutSession: null, data: orderRow });
 
     const { GET } = await import('./route');
     const response = await GET(request(), routeParams());
 
-    expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({
-      error: 'Order checkout session not found',
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      checkout_id: null,
+      id: orderId,
+      order_number: 'BACI-2026-0001',
     });
   });
 

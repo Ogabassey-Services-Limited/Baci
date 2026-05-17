@@ -111,18 +111,11 @@ export async function GET(
     );
   }
 
-  if (!checkoutSession) {
-    return NextResponse.json(
-      { error: 'Order checkout session not found' },
-      { status: 500 }
-    );
-  }
-
   const storeUrl = buildStoreUrl(merchant);
 
   return NextResponse.json(
     buildUcpOrderResponse({
-      checkout_id: checkoutSession.session_id,
+      checkout_id: checkoutSession?.session_id ?? null,
       id: order.id,
       order_number: order.order_number,
       payment_status: order.payment_status,

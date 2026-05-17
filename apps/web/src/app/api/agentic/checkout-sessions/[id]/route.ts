@@ -1,9 +1,9 @@
-import { adaptUcpCheckoutUpdateRequestBody } from '@/lib/agentic/ucp-request-adapters';
-import { adaptCheckoutResponseToUcp } from '@/lib/agentic/ucp-response-adapters';
 import {
   GET as getCheckoutSession,
   handleAgenticCheckoutSessionUpdate,
-} from '../../checkout_sessions/[id]/route';
+} from '@/app/api/agentic/checkout_sessions/[id]/route';
+import { adaptUcpCheckoutUpdateRequestBody } from '@/lib/agentic/ucp-request-adapters';
+import { adaptCheckoutResponseToUcp } from '@/lib/agentic/ucp-response-adapters';
 
 type RouteProps = Parameters<typeof getCheckoutSession>[1];
 

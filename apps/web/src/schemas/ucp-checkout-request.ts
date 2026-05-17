@@ -17,7 +17,7 @@ export const ucpCheckoutCreateRequestSchema = z
     currency: z
       .string()
       .trim()
-      .length(3, 'Currency must be a 3-letter ISO code')
+      .regex(/^[A-Za-z]{3}$/, 'Currency must be a 3-letter ISO code')
       .transform((value) => value.toUpperCase())
       .optional(),
     line_items: z.array(ucpCheckoutLineItemRequestSchema).min(1),

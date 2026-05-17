@@ -65,7 +65,10 @@ export function buildUcpOrderResponse(response: unknown) {
         [UCP_ORDER_CAPABILITY]: [{ version: UCP_PROFILE_VERSION }],
       },
     },
-    checkout_id: toStringValue(response.checkout_id) ?? 'unknown',
+    checkout_id:
+      response.checkout_id === null
+        ? null
+        : (toStringValue(response.checkout_id) ?? 'unknown'),
     currency,
     id: toStringValue(response.id) ?? 'unknown',
     fulfillment: {

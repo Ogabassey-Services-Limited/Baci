@@ -5,7 +5,7 @@ const { mockPostCheckoutSession } = vi.hoisted(() => ({
   mockPostCheckoutSession: vi.fn(),
 }));
 
-vi.mock('../checkout_sessions/route', () => ({
+vi.mock('@/app/api/agentic/checkout_sessions/route', () => ({
   handleAgenticCheckoutSessionCreate: mockPostCheckoutSession,
   POST: vi.fn(),
 }));
@@ -52,5 +52,27 @@ describe('POST /api/agentic/checkout-sessions', () => {
         },
       },
     });
+  });
+
+  it('passes through delegated create errors without adapting them', async () => {
+    mockPostCheckoutSession.mockResolvedValueOnce(
+      NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+    );
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout-sessions',
+      {
+        body: JSON.stringify({ line_items: [] }),
+        method: 'POST',
+      }
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+
+    expect(mockPostCheckoutSession).toHaveBeenCalledWith(request, {
+      requestBodyAdapter: expect.any(Function),
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: 'Invalid request body' });
   });
 });

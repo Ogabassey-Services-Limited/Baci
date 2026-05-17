@@ -27,6 +27,20 @@ describe('ucpCheckoutCreateRequestSchema', () => {
 
     expect(parsed.success).toBe(false);
   });
+
+  it('rejects non-letter currency codes', () => {
+    const parsed = ucpCheckoutCreateRequestSchema.safeParse({
+      currency: 'n1n',
+      line_items: [
+        {
+          item: { id: 'product-1' },
+          quantity: 1,
+        },
+      ],
+    });
+
+    expect(parsed.success).toBe(false);
+  });
 });
 
 describe('ucpCheckoutUpdateRequestSchema', () => {

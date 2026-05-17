@@ -30,9 +30,8 @@ const CHECKOUT_SESSION_CAPABILITIES = [
   'checkout.session.cancel',
 ] as const;
 
-function buildUrl(baseUrl: string, path: string): string {
-  return new URL(path, baseUrl).toString();
-}
+const buildUrl = (baseUrl: string, path: string): string =>
+  new URL(path, baseUrl).toString();
 
 export function buildUcpDiscoveryProfile(manifest: AgentCommerceManifest) {
   const agentCommerceManifestUrl = buildUrl(
@@ -46,10 +45,7 @@ export function buildUcpDiscoveryProfile(manifest: AgentCommerceManifest) {
   return {
     ucp: {
       version: UCP_PROFILE_VERSION,
-      services: buildUcpServices({
-        agenticApiBaseUrl,
-        manifest,
-      }),
+      services: buildUcpServices({ agenticApiBaseUrl, manifest }),
       capabilities: buildUcpCapabilities({
         agenticApiBaseUrl,
         agentCommerceManifestUrl,
@@ -140,7 +136,6 @@ function hasCheckoutLinks(manifest: AgentCommerceManifest): boolean {
     manifest.links.checkout_session_cancel,
   ].every(hasPresentString);
 }
-
 function hasCheckoutCapabilities(manifest: AgentCommerceManifest): boolean {
   return CHECKOUT_SESSION_CAPABILITIES.every((capability) =>
     manifest.capabilities.includes(capability)
