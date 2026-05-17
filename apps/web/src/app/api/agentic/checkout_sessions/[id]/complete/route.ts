@@ -30,10 +30,19 @@ import { agenticCheckoutCompleteSchema } from '@/schemas/agentic-checkout';
 import { agenticCheckoutSessionRouteParamsSchema } from '@/schemas/agentic-checkout-session-route-params';
 
 const COMPLETE_IDEMPOTENCY_ROUTE = 'checkout_sessions.complete';
+type SessionRouteProps = { params: Promise<{ id: string }> };
+type CheckoutSessionCompleteRouteOptions = {
+  requestBodyAdapter?: (body: unknown) => unknown;
+};
 
-export async function POST(
+export function POST(request: NextRequest, props: SessionRouteProps) {
+  return handleAgenticCheckoutSessionComplete(request, props);
+}
+
+export async function handleAgenticCheckoutSessionComplete(
   request: NextRequest,
-  props: { params: Promise<{ id: string }> }
+  props: SessionRouteProps,
+  options: CheckoutSessionCompleteRouteOptions = {}
 ) {
   const params = await props.params;
   if (!verifyAgenticApiKey(request))
@@ -62,7 +71,9 @@ export async function POST(
     | null = null;
 
   try {
-    const parsed = agenticCheckoutCompleteSchema.safeParse(mutation.body);
+    const requestBody =
+      options.requestBodyAdapter?.(mutation.body) ?? mutation.body;
+    const parsed = agenticCheckoutCompleteSchema.safeParse(requestBody);
     if (!parsed.success) {
       return NextResponse.json(
         {
