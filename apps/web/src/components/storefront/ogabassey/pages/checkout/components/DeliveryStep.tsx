@@ -4,6 +4,7 @@ import { Check, ChevronRight, Plane, Truck, Building2 } from 'lucide-react';
 import { AddressAutocomplete } from '@/components/address-autocomplete';
 import { SmartQuoteLoader } from '../../../components/SmartQuoteLoader';
 import type { SavedAddress, ShippingQuote } from '../types';
+import { inferAddressLocationFromInput } from '../utils';
 
 type StepName = 'contact' | 'delivery' | 'payment';
 
@@ -200,6 +201,22 @@ export function DeliveryStep({
                           setShippingQuotes([]);
                           setSelectedQuoteId('');
                           setDeliveryMethod('door'); // Reset to default
+                          return;
+                        }
+
+                        const inferred = inferAddressLocationFromInput(
+                          newVal,
+                          shippingStates,
+                        );
+                        if (inferred) {
+                          setNewAddressState(inferred.state);
+                          setNewAddressCity(inferred.city);
+                        } else {
+                          setNewAddressState('');
+                          setNewAddressCity('');
+                          setShippingQuotes([]);
+                          setSelectedQuoteId('');
+                          setDeliveryMethod('door');
                         }
                       }}
                       onSelect={(place: any) => {
