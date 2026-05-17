@@ -58,13 +58,75 @@ describe('buildUcpCheckoutResponse', () => {
     });
   });
 
-  it('leaves error responses untouched when wrapping route responses', async () => {
+  it('returns UCP error envelopes for non-2xx checkout responses', async () => {
     const response = NextResponse.json({ error: 'Invalid' }, { status: 400 });
 
     const adapted = await adaptCheckoutResponseToUcp(response);
+    const body = await adapted.json();
 
     expect(adapted.status).toBe(400);
-    expect(await adapted.json()).toEqual({ error: 'Invalid' });
+    expect(body).toMatchObject({
+      error: 'Invalid',
+      messages: [
+        {
+          content: 'Invalid',
+          content_type: 'plain',
+          type: 'error',
+        },
+      ],
+      ucp: {
+        capabilities: {
+          'dev.ucp.shopping.checkout': [{ version: '2026-04-08' }],
+        },
+        status: 'error',
+        version: '2026-04-08',
+      },
+    });
+  });
+
+  it('prefers top-level line item quantities over nested item quantities', () => {
+    const response = buildUcpCheckoutResponse({
+      line_items: [
+        {
+          id: 'line_product_1',
+          item: {
+            id: 'product_1',
+            quantity: 1,
+            title: 'Laptop',
+          },
+          quantity: 3,
+          total: 300_000,
+        },
+      ],
+      totals: [{ amount: 300_000, display_text: 'Total', type: 'total' }],
+    });
+
+    expect(response).toMatchObject({
+      line_items: [
+        {
+          item: { id: 'product_1', price: 100_000, title: 'Laptop' },
+          quantity: 3,
+        },
+      ],
+    });
+  });
+
+  it('ignores malformed totals entries without throwing', () => {
+    const response = buildUcpCheckoutResponse({
+      line_items: [],
+      totals: [
+        null,
+        0,
+        { amount: 200_000, display_text: 'Total', type: 'total' },
+      ],
+    });
+
+    expect(response).toMatchObject({
+      totals: [
+        { amount: 0, display_text: 'Subtotal', type: 'subtotal' },
+        { amount: 200_000, display_text: 'Total', type: 'total' },
+      ],
+    });
   });
 });
 

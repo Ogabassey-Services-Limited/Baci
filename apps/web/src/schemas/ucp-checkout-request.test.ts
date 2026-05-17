@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ucpCheckoutCompleteRequestSchema,
   ucpCheckoutCreateRequestSchema,
   ucpCheckoutUpdateRequestSchema,
 } from '@/schemas/ucp-checkout-request';
@@ -38,6 +39,143 @@ describe('ucpCheckoutCreateRequestSchema', () => {
         },
       ],
     });
+
+    expect(parsed.success).toBe(false);
+  });
+});
+
+describe('ucpCheckoutCompleteRequestSchema', () => {
+  it('accepts UCP payment instruments for checkout completion', () => {
+    const parsed = ucpCheckoutCompleteRequestSchema.parse({
+      payment: {
+        instruments: [
+          {
+            billing_address: {
+              address_country: 'NG',
+              address_locality: 'Lagos',
+              first_name: 'Buyer',
+              last_name: 'One',
+              phone_number: '08012345678',
+              street_address: '12 Broad Street',
+            },
+            credential: { token: 'instrument-token', type: 'token' },
+            handler_id: 'paystack_bank_transfer',
+            id: 'instrument_1',
+            selected: true,
+            type: 'paystack_bank_transfer',
+          },
+        ],
+      },
+    });
+
+    expect(parsed).toMatchObject({
+      payment: {
+        instruments: [
+          {
+            handler_id: 'paystack_bank_transfer',
+            id: 'instrument_1',
+            type: 'paystack_bank_transfer',
+          },
+        ],
+      },
+    });
+  });
+
+  it('rejects complete requests without a selected payment instrument candidate', () => {
+    const parsed = ucpCheckoutCompleteRequestSchema.safeParse({
+      payment: {
+        instruments: [],
+      },
+    });
+
+    expect(parsed.success).toBe(false);
+  });
+
+  it.each([
+    ['missing payment', {}],
+    ['missing instruments', { payment: {} }],
+    ['non-array instruments', { payment: { instruments: 'instrument_1' } }],
+    [
+      'invalid billing address field type',
+      {
+        payment: {
+          instruments: [
+            {
+              billing_address: { street_address: 123 },
+              handler_id: 'paystack_bank_transfer',
+              id: 'instrument_1',
+              type: 'paystack_bank_transfer',
+            },
+          ],
+        },
+      },
+    ],
+    [
+      'empty billing address object',
+      {
+        payment: {
+          instruments: [
+            {
+              billing_address: {},
+              handler_id: 'paystack_bank_transfer',
+              id: 'instrument_1',
+              type: 'paystack_bank_transfer',
+            },
+          ],
+        },
+      },
+    ],
+    [
+      'blank handler id',
+      {
+        payment: {
+          instruments: [
+            {
+              handler_id: '   ',
+              id: 'instrument_1',
+              type: 'paystack_bank_transfer',
+            },
+          ],
+        },
+      },
+    ],
+    [
+      'blank type',
+      {
+        payment: {
+          instruments: [
+            {
+              handler_id: 'paystack_bank_transfer',
+              id: 'instrument_1',
+              type: '   ',
+            },
+          ],
+        },
+      },
+    ],
+    [
+      'multiple selected instruments',
+      {
+        payment: {
+          instruments: [
+            {
+              handler_id: 'paystack_bank_transfer',
+              id: 'instrument_1',
+              selected: true,
+              type: 'paystack_bank_transfer',
+            },
+            {
+              handler_id: 'paystack_bank_transfer',
+              id: 'instrument_2',
+              selected: true,
+              type: 'paystack_bank_transfer',
+            },
+          ],
+        },
+      },
+    ],
+  ])('rejects invalid complete request bodies: %s', (_name, body) => {
+    const parsed = ucpCheckoutCompleteRequestSchema.safeParse(body);
 
     expect(parsed.success).toBe(false);
   });

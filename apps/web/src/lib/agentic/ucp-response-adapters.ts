@@ -8,11 +8,15 @@ const UCP_ORDER_CAPABILITY = 'dev.ucp.shopping.order';
 type JsonRecord = Record<string, unknown>;
 
 export function adaptCheckoutResponseToUcp(response: Response) {
-  return adaptSuccessfulJsonResponse(response, buildUcpCheckoutResponse);
+  return adaptJsonResponse(response, buildUcpCheckoutResponse, {
+    capability: UCP_CHECKOUT_CAPABILITY,
+  });
 }
 
 export function adaptOrderResponseToUcp(response: Response) {
-  return adaptSuccessfulJsonResponse(response, buildUcpOrderResponse);
+  return adaptJsonResponse(response, buildUcpOrderResponse, {
+    capability: UCP_ORDER_CAPABILITY,
+  });
 }
 
 export function buildUcpCheckoutResponse(response: unknown) {
@@ -94,14 +98,15 @@ export function buildUcpOrderResponse(response: unknown) {
   };
 }
 
-async function adaptSuccessfulJsonResponse(
+async function adaptJsonResponse(
   response: Response,
-  adapter: (body: unknown) => unknown
-): Promise<Response> {
-  if (response.status < 200 || response.status >= 300) {
-    return response;
+  adapter: (body: unknown) => unknown,
+  {
+    capability,
+  }: {
+    capability: string;
   }
-
+): Promise<Response> {
   let body: unknown;
   try {
     body = await response.clone().json();
@@ -112,6 +117,19 @@ async function adaptSuccessfulJsonResponse(
   const headers = new Headers(response.headers);
   headers.delete('content-length');
   headers.set('content-type', 'application/json');
+
+  if (response.status < 200 || response.status >= 300) {
+    return NextResponse.json(
+      buildUcpErrorResponse(body, {
+        capability,
+        statusCode: response.status,
+      }),
+      {
+        headers,
+        status: response.status,
+      }
+    );
+  }
 
   return NextResponse.json(adapter(body), {
     headers,
@@ -139,7 +157,10 @@ function mapCheckoutStatus(status: unknown): string {
 function mapCheckoutLineItem(lineItem: unknown) {
   const lineItemRecord = isRecord(lineItem) ? lineItem : {};
   const item = getRecord(lineItemRecord.item);
-  const quantity = toPositiveInteger(item?.quantity) ?? 1;
+  const quantity =
+    toPositiveInteger(lineItemRecord.quantity) ??
+    toPositiveInteger(item?.quantity) ??
+    1;
   const lineTotal =
     toIntegerAmount(lineItemRecord.total) ??
     toIntegerAmount(lineItemRecord.subtotal) ??
@@ -183,7 +204,9 @@ function mapCheckoutLineItem(lineItem: unknown) {
 }
 
 function mapCheckoutTotals(totals: unknown): unknown[] {
-  const sourceTotals = Array.isArray(totals) ? (totals as GPTTotal[]) : [];
+  const sourceTotals = Array.isArray(totals)
+    ? totals.filter((total): total is GPTTotal => isRecord(total))
+    : [];
   const mappedTotals = sourceTotals
     .map((total) => ({
       ...total,
@@ -206,6 +229,65 @@ function mapCheckoutTotals(totals: unknown): unknown[] {
   }
 
   return mappedTotals;
+}
+
+function buildUcpErrorResponse(
+  body: unknown,
+  {
+    capability,
+    statusCode,
+  }: {
+    capability: string;
+    statusCode: number;
+  }
+) {
+  const bodyRecord = isRecord(body) ? body : {};
+  const messages = toUcpErrorMessages(bodyRecord, statusCode);
+
+  return {
+    ...bodyRecord,
+    messages,
+    ucp: {
+      version: UCP_PROFILE_VERSION,
+      status: 'error',
+      capabilities: {
+        [capability]: [{ version: UCP_PROFILE_VERSION }],
+      },
+    },
+  };
+}
+
+function toUcpErrorMessages(body: JsonRecord, statusCode: number) {
+  const existingMessages = Array.isArray(body.messages)
+    ? body.messages.filter(isRecord)
+    : [];
+  if (existingMessages.length > 0) {
+    return existingMessages.map((message) => ({
+      ...message,
+      content:
+        toStringValue(message.content) ??
+        toStringValue(message.message) ??
+        `Request failed with status ${statusCode}`,
+      content_type: toStringValue(message.content_type) ?? 'plain',
+      type: toStringValue(message.type) ?? 'error',
+    }));
+  }
+
+  const fallbackContent =
+    toStringValue(body.error) ??
+    toStringValue(body.message) ??
+    `Request failed with status ${statusCode}`;
+  const fallbackCode =
+    toStringValue(body.code) ?? toStringValue(body.details) ?? undefined;
+
+  return [
+    {
+      ...(fallbackCode ? { code: fallbackCode } : {}),
+      content: fallbackContent,
+      content_type: 'plain',
+      type: 'error',
+    },
+  ];
 }
 
 function buildOrderTotals({

@@ -1,11 +1,14 @@
-import { POST as completeCheckoutSession } from '@/app/api/agentic/checkout_sessions/[id]/complete/route';
+import { handleAgenticCheckoutSessionComplete } from '@/app/api/agentic/checkout_sessions/[id]/complete/route';
+import { adaptUcpCheckoutCompleteRequestBody } from '@/lib/agentic/ucp-request-adapters';
 import { adaptCheckoutResponseToUcp } from '@/lib/agentic/ucp-response-adapters';
 
 export async function POST(
-  request: Parameters<typeof completeCheckoutSession>[0],
-  props: Parameters<typeof completeCheckoutSession>[1]
+  request: Parameters<typeof handleAgenticCheckoutSessionComplete>[0],
+  props: Parameters<typeof handleAgenticCheckoutSessionComplete>[1]
 ) {
   return adaptCheckoutResponseToUcp(
-    await completeCheckoutSession(request, props)
+    await handleAgenticCheckoutSessionComplete(request, props, {
+      requestBodyAdapter: adaptUcpCheckoutCompleteRequestBody,
+    })
   );
 }
