@@ -57,6 +57,7 @@ export function ProductMediaGallery({
           sizes={OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}
           loading="eager"
           fetchPriority="high"
+          decoding="sync"
           quality={OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY}
         />
         <div

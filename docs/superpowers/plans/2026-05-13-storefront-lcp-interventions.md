@@ -19,6 +19,10 @@ The audit identified five Core Web Vitals interventions in priority order. This 
 
 2026-05-17 update after PR #1728: the deployed mobile hero now renders with `decoding="sync"` and PSI identifies the streamed real `iPhone 17 Pro Max` image as the LCP element. The result did not move the lab number: Performance 90, SEO 100, LCP 3376 ms, FCP 1201 ms, TBT 67 ms, CLS 0.001. The LCP breakdown now shows the resource request itself starting at ~1555 ms, immediately after the document stream finishes, even though the request is marked as a link preload and all discovery checks pass. The next narrow Fix 2 slice is to remove the mobile preload's `media="(max-width: 767px)"` condition while leaving desktop scoped; the mobile AVIF is ~2 KB, so making it unconditional should let browsers process it in the earliest Link-header phase with minimal desktop cost.
 
+2026-05-17 update after PR #1729: the mobile home preload change worked. Production HTML now emits the mobile hero AVIF preload without a viewport `media` condition, keeps the desktop preload scoped, and all sampled static hero assets return immutable `200 image/*` responses. Three consecutive PSI mobile home runs were stable at Performance 96, SEO 100, LCP 2251 ms, FCP 1201 ms, TBT 37 ms, CLS 0.001. Home now meets the 2500 ms LCP target. The active CWV blocker is mobile PDP: PSI on `https://ogabassey.com/laptops/lenovo-legion-pro-9-16irx9-rtx-4090` reports Performance 91, SEO 100, LCP 3226 ms, FCP 1201 ms, TBT 116 ms, CLS 0.072. The LCP node is the primary product image, its request starts early and is marked as the existing high-priority preload, but the rendered image still has `decoding="async"`. The next narrow PDP slice is to make only that primary PDP image decode synchronously before moving to larger bundle/client-boundary work.
+
+2026-05-17 update after PR #1733: the primary PDP image sync-decode change is live, but it did not improve mobile PDP LCP. Production HTML shows the primary product image with `decoding="sync"`, `loading="eager"`, and `fetchPriority="high"`. PSI measured mobile Performance 86, SEO 100, LCP 4051 ms, FCP 1201 ms, TBT 100-250 ms, CLS 0.000; desktop measured Performance 82, SEO 100, LCP 1691 ms, FCP 321 ms, TBT 271 ms, CLS 0.045. Detailed mobile PSI now points at client-side work: about 120 KiB unused JS, 38 KiB unused CSS, 1.9 s main-thread work, and 934 ms script evaluation while the LCP product image is already high-priority and only about 32 KiB. Continue Fix 3 from measured bundle/main-thread bottlenecks.
+
 2026-05-16 Google AI Search guidance check: Google's official "Optimizing your website for generative AI features on Google Search" guide says generative AI visibility still depends on normal Search fundamentals: crawlable/indexable pages, clear technical structure, JavaScript SEO, good page experience, ecommerce details, high-quality images/video, unique people-first content, and agent-friendly experiences. Its linked crawling/ecommerce docs add that crawl budget depends heavily on URL inventory quality, crawlable `<a href>` internal links, consistent canonical/sitemap/internal-link URLs, category-to-product navigation, pagination with real links, and controlling duplicate/faceted/filter URL spaces. It also says not to chase AEO/GEO hacks such as `llms.txt`, AI-only chunking, or special schema solely for AI Search. This plan now keeps the LCP loop as the blocking technical track and adds an AI Search readiness track after the live CWV pages are stable.
 
 URL set, measurement script, threshold values: see [docs/perf/storefront-lcp-urls.md](../../perf/storefront-lcp-urls.md).
@@ -82,7 +86,7 @@ So Fix 4 isn't a config flip — it needs its own diagnostic to identify a strea
 
 **2026-05-17 PR #1728 result.** Synchronous decoding is live and visible in production, but PSI still reports LCP 3376 ms. The request discovery audit passes; the network request starts at ~1555 ms and is marked `isLinkPreload: true`, so the remaining issue is when browsers act on the viewport-scoped mobile preload, not the rendered image props.
 
-**Current implementation slice.** Remove the `media` condition from the mobile hero preload only. Keep the desktop preload scoped with `media="(min-width: 768px)"`. This follows MDN's 2026 Link-header guidance that `preload` is one of the reliable HTTP `Link` relations, while avoiding the viewport-evaluation delay observed in PSI for the mobile branch. The mobile AVIF is ~2 KB, so an unconditional mobile preload is a low-cost desktop over-fetch and a reasonable trade for mobile LCP.
+**Implemented in PR #1729.** Removed the `media` condition from the mobile hero preload only and kept the desktop preload scoped with `media="(min-width: 768px)"`. This avoided the viewport-evaluation delay observed in PSI for the mobile branch. The mobile AVIF is ~2 KB, so the unconditional mobile preload is a low-cost desktop over-fetch and a reasonable trade for mobile LCP.
 
 **Diagnostic step (no code change first).**
 
@@ -107,17 +111,21 @@ So Fix 4 isn't a config flip — it needs its own diagnostic to identify a strea
 - [apps/web/src/app/(storefront)/ogabassey/layout.tsx](../../../apps/web/src/app/(storefront)/ogabassey/layout.tsx)
 - Any preload-emitting component (e.g. `OgabasseyStaticResourceHints`)
 
-**Validation.** Re-run PSI on mobile home. Expected resource load delay reduction: 1806 ms → 600–1000 ms. Target overall LCP: 3226 → **~2200–2400 ms** (under threshold).
+**Validation.** PR #1729 production PSI met the target: mobile home LCP 2251 ms, Performance 96, SEO 100, FCP 1201 ms, TBT 37 ms, CLS 0.001.
 
 **Risk.** Medium. CSS / resource hint changes can cause FOIT/FOUC if mis-handled. Visual regression test the storefront after.
 
-**Acceptance criteria.** Mobile home LCP under 2500 ms post-deploy. Resource load delay under 1000 ms.
+**Acceptance criteria.** Mobile home LCP under 2500 ms post-deploy. Met by PR #1729.
 
 ---
 
 ## Fix 3 — PDP JS bundle audit + tree-shake
 
-**Problem.** After PR #1634, PDP desktop LCP improved from 2769 ms to 1357 ms and mobile PDP no longer times out in PSI. Mobile PDP LCP is now 4824 ms, with the LCP image discovery checks passing. The next bottleneck is main-thread cost from unused JS/CSS during the FCP to LCP window: the post-#1634 PSI run shows ~156 KiB unused JS and ~38 KiB unused CSS, plus local production chunks containing heavy libraries (`moment`, `lodash`, `three`, `puck`, `tiptap`, `prosemirror`, `recharts`) that should not be needed on the PDP.
+**Problem.** After PR #1733, mobile PDP still misses the target at 4051 ms LCP, while desktop PDP LCP remains good. The mobile LCP node is the primary product image; its request is discovered early, fetched at high priority, and rendered with `decoding="sync"`. Detailed PSI now points at client-side work instead of image discovery: about 120 KiB unused JS, 38 KiB unused CSS, 1.9 s main-thread work, and 934 ms script evaluation. Earlier post-#1634 evidence also showed local production chunks containing heavy libraries (`moment`, `lodash`, `three`, `puck`, `tiptap`, `prosemirror`, `recharts`) that should not be needed on the PDP.
+
+**Current implementation slice.** Keep the critical PDP shell unchanged and defer post-action-only client modules out of the initial PDP client graph. Convert `SelectionRequiredModal` and `FlyToCartAnimation` in `ProductDetailsPage` from static imports to client-only dynamic imports because they are needed only after invalid add-to-cart or add-to-cart animation paths, not for first paint or LCP. Add a source-boundary regression assertion so those modules cannot silently return to the initial client graph.
+
+**Current validation target.** After merge and production deploy, rerun PSI mobile and desktop on `https://ogabassey.com/laptops/lenovo-legion-pro-9-16irx9-rtx-4090`. Compare unused JS, unused CSS, main-thread work, script evaluation, LCP, and desktop TBT against the post-#1733 baseline before choosing the next intervention.
 
 **Prep handoff.** Start from [2026-05-14-fix3-pdp-bundle-trim-prep.md](2026-05-14-fix3-pdp-bundle-trim-prep.md). It records the PSI chunk findings, local library-presence evidence, Turbopack analyzer caveat, reusable `.next/` worktree, and the four-stage methodology for mapping libraries to import sites before choosing interventions.
 

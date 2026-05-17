@@ -95,6 +95,8 @@ describe('GET /agent-trust.json', () => {
           stock_quantity: 5,
           manage_stock: true,
           category: 'phones',
+          average_rating: 4.7,
+          review_count: 24,
           updated_at: PRODUCT_UPDATED_AT,
         },
       ],
@@ -172,7 +174,10 @@ describe('GET /agent-trust.json', () => {
       'https://ogabassey.com/sitemap.xml'
     );
     expect(body.trust.surfaces.llms).toBe('https://ogabassey.com/llms.txt');
-    expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith('merchant-1');
+    expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith(
+      'merchant-1',
+      true
+    );
     expect(mockGetCachedGoogleMerchantFeedData).toHaveBeenCalledWith(
       'merchant-1',
       'ogabassey'
