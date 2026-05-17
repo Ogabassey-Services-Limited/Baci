@@ -181,6 +181,11 @@ export function AgentCommerceTrustReadinessCard({
                     <div className="space-y-1">
                       <div className="font-medium">{check.label}</div>
                       <div>{check.message}</div>
+                      {check.next_step && check.severity !== 'pass' ? (
+                        <div className="text-xs font-medium">
+                          Next: {check.next_step}
+                        </div>
+                      ) : null}
                       {check.affectedProductIds?.length ? (
                         <div className="text-xs">
                           {check.affectedProductIds.length} affected products
