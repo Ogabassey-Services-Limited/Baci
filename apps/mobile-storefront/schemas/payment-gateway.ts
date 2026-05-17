@@ -8,6 +8,7 @@ const trimmedOptionalString = (message: string) =>
   trimmedRequiredString(message).optional();
 
 const optionalOrderIdentifier = z.string().trim().optional();
+const optionalTrackingToken = z.string().trim().optional();
 
 const sanitizedReturnTo = z.preprocess((value) => {
   return sanitizeWalletReturnTo(value);
@@ -38,6 +39,7 @@ const paymentGatewayParamsObject = z.object({
   returnTo: sanitizedReturnTo,
   merchantId: trimmedOptionalString('Merchant id cannot be empty'),
   merchantSlug: trimmedOptionalString('Merchant slug cannot be empty'),
+  trackingToken: optionalTrackingToken,
   utilityType: z.enum(['airtime', 'data', 'tv', 'power', 'gaming']).optional(),
   customerIdentifier: trimmedOptionalString(
     'Customer identifier cannot be empty'
