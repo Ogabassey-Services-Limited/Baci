@@ -814,6 +814,7 @@ export async function proxy(request: NextRequest) {
     const blogExclusions = ['page', 'tag', 'author', 'category'];
     const blogMetadataEndpoints = ['opengraph-image', 'twitter-image'];
     const legacyCategoryMatch = pathname.match(/^\/blog\/([^/]+)\/([^/]+)\/?$/);
+    const legacyCategorySegment = legacyCategoryMatch?.[1]?.toLowerCase();
     const legacyCategoryTarget = legacyCategoryMatch?.[2]?.toLowerCase();
     const legacyCategoryTargetBase = legacyCategoryTarget?.replace(
       /\.(?:avif|gif|jpe?g|png|webp)$/,
@@ -827,8 +828,14 @@ export async function proxy(request: NextRequest) {
       request.headers.get('sec-fetch-dest')?.toLowerCase() ?? '';
     const isDocumentNavigation =
       fetchDestination === 'document' || acceptHeader.includes('text/html');
+    const looksLikeLegacyCategorySegment =
+      legacyCategorySegment !== undefined &&
+      !legacyCategorySegment.includes('-') &&
+      !/\d/.test(legacyCategorySegment);
     const shouldBypassLegacyCategoryRedirect =
-      isBlogMetadataEndpoint && !isDocumentNavigation;
+      isBlogMetadataEndpoint &&
+      !isDocumentNavigation &&
+      !looksLikeLegacyCategorySegment;
     const isLegacyPost =
       legacyCategoryMatch &&
       !shouldBypassLegacyCategoryRedirect &&
