@@ -434,4 +434,50 @@ describe('getCachedOpenAIFeedData', () => {
       review_count: 2,
     });
   });
+
+  it('falls back to empty review signals when review hydration fails', async () => {
+    productsResult = {
+      data: [
+        {
+          id: 'prod-1',
+          name: 'Test Phone',
+          created_at: '2026-01-01T00:00:00.000Z',
+          description: 'A phone',
+          slug: 'test-phone',
+          price: 50000,
+          stock: 5,
+          stock_quantity: 5,
+          manage_stock: true,
+          average_rating: 4.8,
+          review_count: 18,
+          variants: [],
+        },
+      ],
+      error: null,
+    };
+    reviewsResult = {
+      data: null,
+      error: { message: 'reviews unavailable' },
+    };
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(
+      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console.warn noise in tests
+      () => {}
+    );
+
+    const { getCachedOpenAIFeedData } = await import('./feed-data');
+    const result = await getCachedOpenAIFeedData('merchant-1', true);
+
+    expect(result.products[0]).toMatchObject({
+      average_rating: null,
+      review_count: 0,
+    });
+    expect(warnSpy).toHaveBeenCalledWith(
+      'DB_REVIEW_SIGNAL_WARNING:',
+      expect.objectContaining({
+        merchantId: 'merchant-1',
+        productCount: 1,
+      })
+    );
+    warnSpy.mockRestore();
+  });
 });
