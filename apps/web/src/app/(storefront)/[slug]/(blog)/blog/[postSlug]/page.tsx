@@ -13,6 +13,12 @@ interface PageProps {
   params: Promise<{ slug: string; postSlug: string }>;
 }
 
+const SOCIAL_IMAGE_METADATA = {
+  width: 1200,
+  height: 630,
+  type: 'image/png',
+} as const;
+
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
@@ -34,10 +40,13 @@ export async function generateMetadata({
   const url = buildCanonicalBlogPostUrl(merchant, post.slug);
   const baseUrl = buildStoreUrl(merchant);
   const storefrontBaseUrl = baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`;
-  const twitterImageUrl = new URL(
+  const socialImageUrl = new URL(
     `blog/${post.slug}/opengraph-image`,
     storefrontBaseUrl
   ).toString();
+  const socialImageAlt = post.title
+    ? `${post.title} — ${merchant.business_name}`
+    : title;
 
   return {
     title: `${title} | ${merchant.business_name}`,
@@ -53,12 +62,19 @@ export async function generateMetadata({
       modifiedTime: post.updated_at,
       authors: [post.author_name],
       tags: post.tags,
+      images: [
+        {
+          url: socialImageUrl,
+          alt: socialImageAlt,
+          ...SOCIAL_IMAGE_METADATA,
+        },
+      ],
     },
     twitter: {
       card: 'summary_large_image',
       title,
       description,
-      images: [twitterImageUrl],
+      images: [socialImageUrl],
     },
     alternates: {
       canonical: url,
