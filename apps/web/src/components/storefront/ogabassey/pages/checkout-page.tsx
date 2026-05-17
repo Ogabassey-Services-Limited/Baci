@@ -2798,6 +2798,13 @@ export const CheckoutPage: React.FC = () => {
                                 scheduleInferredLocationUpdate(inferred);
                               } else {
                                 clearInferredLocationDebounce();
+                                setCheckoutFields({
+                                  newAddressCity: '',
+                                  newAddressState: '',
+                                });
+                                setShippingQuotes([]);
+                                setSelectedQuoteId('');
+                                setDeliveryMethod('door');
                               }
                             }}
                             onSelect={(place: any) => {
