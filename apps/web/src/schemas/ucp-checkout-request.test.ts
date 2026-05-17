@@ -15,11 +15,21 @@ describe('ucpCheckoutCreateRequestSchema', () => {
           quantity: 2,
         },
       ],
+      shipping_address: {
+        address_country: 'NG',
+        address_locality: 'Lagos',
+        street_address: '12 Broad Street',
+      },
     });
 
     expect(parsed).toMatchObject({
       currency: 'NGN',
       line_items: [{ item: { id: 'product-1' }, quantity: 2 }],
+      shipping_address: {
+        address_country: 'NG',
+        address_locality: 'Lagos',
+        street_address: '12 Broad Street',
+      },
     });
   });
 
@@ -196,6 +206,30 @@ describe('ucpCheckoutUpdateRequestSchema', () => {
     expect(parsed).toMatchObject({
       line_items: [{ item: { id: 'product-2' }, quantity: 1 }],
       shipping_address: null,
+    });
+  });
+
+  it('accepts UCP postal shipping addresses', () => {
+    const parsed = ucpCheckoutUpdateRequestSchema.parse({
+      line_items: [
+        {
+          item: { id: 'product-2', price: 250_000, title: 'Case' },
+          quantity: 1,
+        },
+      ],
+      shipping_address: {
+        address_country: 'NG',
+        address_locality: 'Lagos',
+        street_address: '12 Broad Street',
+      },
+    });
+
+    expect(parsed).toMatchObject({
+      shipping_address: {
+        address_country: 'NG',
+        address_locality: 'Lagos',
+        street_address: '12 Broad Street',
+      },
     });
   });
 

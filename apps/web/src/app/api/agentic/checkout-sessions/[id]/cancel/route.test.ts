@@ -48,7 +48,7 @@ describe('POST /api/agentic/checkout-sessions/[id]/cancel', () => {
     });
   });
 
-  it('passes through delegated cancel errors without adapting them', async () => {
+  it('adapts delegated cancel errors to UCP error payloads', async () => {
     mockCancelCheckoutSession.mockResolvedValueOnce(
       NextResponse.json({ error: 'Conflict' }, { status: 409 })
     );
@@ -62,6 +62,18 @@ describe('POST /api/agentic/checkout-sessions/[id]/cancel', () => {
 
     expect(mockCancelCheckoutSession).toHaveBeenCalledWith(request, routeProps);
     expect(response.status).toBe(409);
-    expect(await response.json()).toEqual({ error: 'Conflict' });
+    expect(await response.json()).toMatchObject({
+      error: 'Conflict',
+      messages: [
+        {
+          content: 'Conflict',
+          content_type: 'plain',
+          type: 'error',
+        },
+      ],
+      ucp: {
+        status: 'error',
+      },
+    });
   });
 });

@@ -54,7 +54,7 @@ describe('POST /api/agentic/checkout-sessions', () => {
     });
   });
 
-  it('passes through delegated create errors without adapting them', async () => {
+  it('adapts delegated create errors to UCP error payloads', async () => {
     mockPostCheckoutSession.mockResolvedValueOnce(
       NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
     );
@@ -73,6 +73,18 @@ describe('POST /api/agentic/checkout-sessions', () => {
       requestBodyAdapter: expect.any(Function),
     });
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: 'Invalid request body' });
+    expect(await response.json()).toMatchObject({
+      error: 'Invalid request body',
+      messages: [
+        {
+          content: 'Invalid request body',
+          content_type: 'plain',
+          type: 'error',
+        },
+      ],
+      ucp: {
+        status: 'error',
+      },
+    });
   });
 });

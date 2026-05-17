@@ -23,7 +23,11 @@ export function adaptUcpCheckoutCreateRequestBody(body: unknown): unknown {
   };
 
   if (parsed.data.currency) adapted.currency = parsed.data.currency;
-  copyOwnField({ from: body, key: 'shipping_address', to: adapted });
+  if (isRecord(body) && Object.hasOwn(body, 'shipping_address')) {
+    adapted.shipping_address = toAgenticShippingAddress(
+      parsed.data.shipping_address
+    );
+  }
 
   return adapted;
 }
@@ -37,7 +41,10 @@ export function adaptUcpCheckoutUpdateRequestBody(body: unknown): unknown {
   const adapted: JsonRecord = {
     fulfillment_option_id: getOwnFieldOrNull(body, 'fulfillment_option_id'),
     items: parsed.data.line_items.map(toAgenticCheckoutItem),
-    shipping_address: getOwnFieldOrNull(body, 'shipping_address'),
+    shipping_address:
+      parsed.data.shipping_address === undefined
+        ? null
+        : toAgenticShippingAddress(parsed.data.shipping_address),
   };
 
   return adapted;
@@ -74,7 +81,9 @@ export function adaptUcpCheckoutCompleteRequestBody(body: unknown): unknown {
     buyer,
     payment_data: paymentData,
   };
-  copyOwnField({ from: body, key: 'completion_authorization', to: adapted });
+  if (isRecord(body) && Object.hasOwn(body, 'completion_authorization')) {
+    adapted.completion_authorization = body.completion_authorization;
+  }
 
   return adapted;
 }
@@ -87,6 +96,13 @@ function toAgenticCheckoutItem(lineItem: {
     id: lineItem.item.id,
     quantity: lineItem.quantity,
   };
+}
+
+function toAgenticShippingAddress(
+  value: Record<string, unknown> | null | undefined
+) {
+  if (value === null) return null;
+  return toAgenticFulfillmentAddress(value) ?? null;
 }
 
 function toAgenticPaymentData({
@@ -246,20 +262,6 @@ function hasLegacyCompleteBody(value: unknown): boolean {
   return (
     isRecord(value) && isRecord(value.buyer) && isRecord(value.payment_data)
   );
-}
-
-function copyOwnField({
-  from,
-  key,
-  to,
-}: {
-  from: unknown;
-  key: string;
-  to: JsonRecord;
-}) {
-  if (isRecord(from) && Object.hasOwn(from, key)) {
-    to[key] = from[key];
-  }
 }
 
 function getOwnFieldOrNull(value: unknown, key: string) {

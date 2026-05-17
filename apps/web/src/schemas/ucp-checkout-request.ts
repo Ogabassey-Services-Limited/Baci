@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { agenticFulfillmentAddressSchema } from '@/schemas/agentic-checkout';
 
 const ucpCheckoutLineItemRequestSchema = z
   .object({
@@ -64,7 +63,7 @@ export const ucpCheckoutCreateRequestSchema = z
       .transform((value) => value.toUpperCase())
       .optional(),
     line_items: z.array(ucpCheckoutLineItemRequestSchema).min(1),
-    shipping_address: agenticFulfillmentAddressSchema.nullable().optional(),
+    shipping_address: ucpPostalAddressSchema.nullable().optional(),
   })
   .passthrough();
 
@@ -72,7 +71,7 @@ export const ucpCheckoutUpdateRequestSchema = z
   .object({
     fulfillment_option_id: z.string().trim().min(1).nullable().optional(),
     line_items: z.array(ucpCheckoutLineItemRequestSchema).min(1),
-    shipping_address: agenticFulfillmentAddressSchema.nullable().optional(),
+    shipping_address: ucpPostalAddressSchema.nullable().optional(),
   })
   .passthrough();
 

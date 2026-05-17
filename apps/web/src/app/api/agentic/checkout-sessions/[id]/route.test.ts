@@ -86,7 +86,7 @@ describe('/api/agentic/checkout-sessions/[id]', () => {
     expect(body.status).toBe('ready_for_complete');
   });
 
-  it('passes through delegated POST errors without adapting them', async () => {
+  it('adapts delegated POST errors to UCP error payloads', async () => {
     mockHandleCheckoutSessionUpdate.mockResolvedValueOnce(
       NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
     );
@@ -109,7 +109,19 @@ describe('/api/agentic/checkout-sessions/[id]', () => {
       }
     );
     expect(response.status).toBe(400);
-    expect(await response.json()).toEqual({ error: 'Invalid request body' });
+    expect(await response.json()).toMatchObject({
+      error: 'Invalid request body',
+      messages: [
+        {
+          content: 'Invalid request body',
+          content_type: 'plain',
+          type: 'error',
+        },
+      ],
+      ucp: {
+        status: 'error',
+      },
+    });
   });
 
   it('keeps GET read-only and only adapts the response', async () => {

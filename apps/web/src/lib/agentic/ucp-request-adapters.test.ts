@@ -15,13 +15,24 @@ describe('adaptUcpCheckoutCreateRequestBody', () => {
           quantity: 2,
         },
       ],
-      shipping_address: { city: 'Lagos' },
+      shipping_address: {
+        address_country: 'NG',
+        address_locality: 'Lagos',
+        address_region: 'Lagos',
+        street_address: '12 Broad Street',
+      },
     });
 
     expect(adapted).toEqual({
       currency: 'NGN',
       items: [{ id: 'product-1', quantity: 2 }],
-      shipping_address: { city: 'Lagos' },
+      shipping_address: {
+        address: '12 Broad Street',
+        city: 'Lagos',
+        country: 'NG',
+        country_code: 'NG',
+        state: 'Lagos',
+      },
     });
   });
 
@@ -301,6 +312,33 @@ describe('adaptUcpCheckoutUpdateRequestBody', () => {
       fulfillment_option_id: null,
       items: [{ id: 'product-2', quantity: 1 }],
       shipping_address: null,
+    });
+  });
+
+  it('normalizes UCP postal shipping addresses for checkout updates', () => {
+    const adapted = adaptUcpCheckoutUpdateRequestBody({
+      line_items: [
+        {
+          item: { id: 'product-2', price: 250_000, title: 'Case' },
+          quantity: 1,
+        },
+      ],
+      shipping_address: {
+        address_country: 'NG',
+        address_locality: 'Lagos',
+        address_region: 'Lagos',
+        street_address: '12 Broad Street',
+      },
+    });
+
+    expect(adapted).toMatchObject({
+      shipping_address: {
+        address: '12 Broad Street',
+        city: 'Lagos',
+        country: 'NG',
+        country_code: 'NG',
+        state: 'Lagos',
+      },
     });
   });
 
