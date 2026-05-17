@@ -107,8 +107,68 @@ describe('GET /.well-known/ucp', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.ucp.capabilities['dev.ucp.shopping.checkout']).toBeUndefined();
-    expect(body.ucp.capabilities['dev.ucp.shopping.order']).toBeUndefined();
+    expect(body.ucp.services).toEqual({
+      'dev.ucp.shopping': [
+        {
+          endpoint: 'https://ogabassey.com/api/agentic',
+          schema:
+            'https://ucp.dev/2026-04-08/services/shopping/rest.openapi.json',
+          spec: 'https://ucp.dev/2026-04-08/specification/overview',
+          transport: 'rest',
+          version: '2026-04-08',
+        },
+      ],
+    });
+    expect(body.ucp.capabilities['dev.ucp.shopping.checkout']).toEqual([
+      expect.objectContaining({
+        version: '2026-04-08',
+        spec: 'https://ucp.dev/2026-04-08/specification/checkout',
+        schema: 'https://ucp.dev/2026-04-08/schemas/shopping/checkout.json',
+      }),
+    ]);
+    expect(
+      body.ucp.capabilities['dev.ucp.shopping.checkout'][0].config
+    ).toMatchObject({
+      auth: {
+        type: 'bearer_hmac',
+      },
+      rest: {
+        endpoint: 'https://ogabassey.com/api/agentic',
+        operations: {
+          cancel_checkout:
+            'https://ogabassey.com/api/agentic/checkout-sessions/{id}/cancel',
+          complete_checkout:
+            'https://ogabassey.com/api/agentic/checkout-sessions/{id}/complete',
+          create_checkout:
+            'https://ogabassey.com/api/agentic/checkout-sessions',
+          get_checkout:
+            'https://ogabassey.com/api/agentic/checkout-sessions/{id}',
+          update_checkout:
+            'https://ogabassey.com/api/agentic/checkout-sessions/{id}',
+        },
+      },
+    });
+    expect(body.ucp.capabilities['dev.ucp.shopping.order']).toEqual([
+      expect.objectContaining({
+        version: '2026-04-08',
+        spec: 'https://ucp.dev/2026-04-08/specification/order',
+        schema: 'https://ucp.dev/2026-04-08/schemas/shopping/order.json',
+      }),
+    ]);
+    expect(
+      body.ucp.capabilities['dev.ucp.shopping.order'][0].config
+    ).toMatchObject({
+      auth: {
+        supported_api_versions: expect.any(Array),
+        type: 'bearer_hmac',
+      },
+      rest: {
+        endpoint: 'https://ogabassey.com/api/agentic',
+        operations: {
+          get_order: 'https://ogabassey.com/api/agentic/orders/{id}',
+        },
+      },
+    });
     expect(body.ucp.payment_handlers).toMatchObject({
       'com.paystack.bank_transfer': [
         expect.objectContaining({
@@ -120,12 +180,16 @@ describe('GET /.well-known/ucp', () => {
     expect(body.extensions.baci.capabilities).toContain(
       'checkout.session.complete'
     );
+    expect(body.extensions.baci.capabilities).toContain('order.read');
     expect(body.extensions.baci.payment_methods).toEqual([
       'paystack_bank_transfer',
     ]);
     expect(body.extensions.baci.auth?.type).toBe('bearer_hmac');
     expect(body.extensions.baci.links.checkout_sessions).toBe(
       'https://ogabassey.com/api/agentic/checkout_sessions'
+    );
+    expect(body.extensions.baci.links.order).toBe(
+      'https://ogabassey.com/api/agentic/orders/{order_id}'
     );
   });
 

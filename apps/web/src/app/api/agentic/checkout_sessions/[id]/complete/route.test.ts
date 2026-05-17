@@ -1,3 +1,4 @@
+import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAgenticCheckoutOrder } from '@/lib/agentic/checkout-order-dispatch';
 import {
@@ -112,6 +113,51 @@ describe('POST /api/agentic/checkout_sessions/[id]/complete', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  it('applies request body adapters before validating complete payloads', async () => {
+    mockResolveAgenticMerchantContext.mockResolvedValue({
+      agentic_checkout_enabled: false,
+      id: 'merchant-1',
+      pay_on_delivery_enabled: true,
+      paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
+      slug: 'ogabassey',
+    });
+    const requestBody = {
+      payment: { instruments: [{ handler_id: 'pay_on_delivery' }] },
+    };
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout_sessions/agentic_session_1/complete',
+      {
+        body: JSON.stringify(requestBody),
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'idem-1',
+        },
+        method: 'POST',
+      }
+    );
+    const requestBodyAdapter = vi.fn(() => ({
+      buyer: {
+        email: 'buyer@example.com',
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        phone_number: '+2348012345678',
+      },
+      payment_data: { provider: 'pay_on_delivery' },
+    }));
+
+    const { handleAgenticCheckoutSessionComplete } = await import('./route');
+    const response = await handleAgenticCheckoutSessionComplete(
+      request,
+      {
+        params: Promise.resolve({ id: 'agentic_session_1' }),
+      },
+      { requestBodyAdapter }
+    );
+
+    expect(requestBodyAdapter).toHaveBeenCalledWith(requestBody);
+    expect(response.status).toBe(403);
   });
 
   it('rejects checkout completion when the merchant subaccount is missing', async () => {

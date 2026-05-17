@@ -14,13 +14,20 @@ type MockAgenticMerchantContext = {
   agentic_checkout_enabled?: boolean;
   agent_user_agent_allowlist?: string[];
   agent_user_agent_denylist?: string[];
+  custom_domain?: string;
   id: string;
   slug: string;
 };
 
 const mockResolveAgenticMerchantContext = vi.fn<
   () => Promise<MockAgenticMerchantContext | null>
->(() => Promise.resolve({ id: 'merchant-1', slug: 'ogabassey' }));
+>(() =>
+  Promise.resolve({
+    custom_domain: 'ogabassey.com',
+    id: 'merchant-1',
+    slug: 'ogabassey',
+  })
+);
 
 vi.mock('@/lib/agentic/auth', () => ({
   verifyAgenticApiKey: mockVerifyAgenticApiKey,
@@ -145,6 +152,7 @@ describe('POST /api/agentic/checkout_sessions/[id]/cancel', () => {
     vi.clearAllMocks();
     mockVerifyAgenticApiKey.mockReturnValue(true);
     mockResolveAgenticMerchantContext.mockResolvedValue({
+      custom_domain: 'ogabassey.com',
       id: 'merchant-1',
       slug: 'ogabassey',
     });
@@ -209,6 +217,10 @@ describe('POST /api/agentic/checkout_sessions/[id]/cancel', () => {
       status: 'canceled',
       currency: 'ngn',
       fulfillment_option_id: 'pickup_store_1',
+      links: [
+        { type: 'terms_of_use', url: 'https://ogabassey.com/terms' },
+        { type: 'privacy_policy', url: 'https://ogabassey.com/privacy' },
+      ],
       shipping_address: { city: 'Lagos' },
     });
   });
