@@ -46,6 +46,11 @@ function hasPriceNegotiationEntitlement(
     return planHasFeature(planTier, FEATURES.PRICE_NEGOTIATION);
   }
 
+  // If plan_tier is present but malformed, fail closed.
+  if (planTier != null) {
+    return false;
+  }
+
   // Maintain legacy storefront entitlement fallback until all
   // merchants are backfilled with an explicit `plan_tier`.
   return (

@@ -161,6 +161,25 @@ describe('NegotiationModal', () => {
     expect(onSuccess).not.toHaveBeenCalled();
   });
 
+  it('cancels pending submit timers when the modal closes before completion', () => {
+    const onSuccess = vi.fn();
+    const { rerender } = render(
+      <NegotiationModal {...defaultProps} onSuccess={onSuccess} isOpen />
+    );
+
+    const input = screen.getByPlaceholderText('Enter amount...');
+    fireEvent.change(input, { target: { value: '9600' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Offer' }));
+
+    rerender(<NegotiationModal {...defaultProps} onSuccess={onSuccess} isOpen={false} />);
+
+    act(() => {
+      vi.advanceTimersByTime(1600);
+    });
+
+    expect(onSuccess).not.toHaveBeenCalled();
+  });
+
   it('shows counter offer for a low first attempt', () => {
     render(<NegotiationModal {...defaultProps} />);
     submitLowOffer('1000');
@@ -186,6 +205,31 @@ describe('NegotiationModal', () => {
     expect(
       screen.getByRole('button', { name: /i saw it cheaper/i })
     ).toBeInTheDocument();
+  });
+
+  it('keeps final 3% counter-offer within server-acceptable bounds for low subtotals', () => {
+    render(<NegotiationModal {...defaultProps} currentPrice={999} />);
+
+    submitLowOffer('500');
+    fireEvent.click(screen.getByText('Negotiate Again'));
+    submitLowOffer('500');
+    fireEvent.click(screen.getByText('Negotiate Again'));
+    submitLowOffer('500');
+
+    expect(screen.getByText('₦970')).toBeInTheDocument();
+    expect(screen.queryByText('₦969')).not.toBeInTheDocument();
+  });
+
+  it('clears counter-offer message when returning to input state', () => {
+    render(<NegotiationModal {...defaultProps} />);
+
+    submitLowOffer('1000');
+    fireEvent.click(screen.getByText('Negotiate Again'));
+
+    expect(
+      screen.getByPlaceholderText('Enter amount...')
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('includes customer_id and unique session_id in the insert payload', async () => {
@@ -314,6 +358,12 @@ describe('NegotiationModal', () => {
     render(<NegotiationModal {...defaultProps} />);
     const backdrop = screen.getByTestId('modal-backdrop');
     fireEvent.click(backdrop);
+    expect(defaultProps.onClose).toHaveBeenCalled();
+  });
+
+  it('calls onClose when Escape is pressed', () => {
+    render(<NegotiationModal {...defaultProps} />);
+    fireEvent.keyDown(document, { key: 'Escape' });
     expect(defaultProps.onClose).toHaveBeenCalled();
   });
 });

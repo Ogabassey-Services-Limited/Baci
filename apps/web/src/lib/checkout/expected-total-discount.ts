@@ -1,5 +1,8 @@
+/** Maximum auto-negotiation discount cap (3% of canonical subtotal). */
 export const MAX_AUTO_NEGOTIATION_DISCOUNT_RATE = 0.03;
+/** Treat <= ₦1 total drift as rounding parity, not a negotiated discount. */
 const TOTAL_PARITY_TOLERANCE = 1;
+/** Only larger carts can use whole-naira rounded cap exceptions. */
 const MIN_SUBTOTAL_FOR_WHOLE_NAIRA_CAP_ROUNDING = 1000;
 
 function roundMoney(value: number): number {
@@ -39,6 +42,8 @@ export function computeExpectedTotalDiscount({
   );
 
   if (requiredDiscount > maxAutoNegotiationDiscount) {
+    // Allow whole-naira counter-offers that round up over the decimal cap
+    // only when subtotal is large enough to avoid low-value abuse.
     const canAcceptRoundedCounterOffer =
       canonicalSubtotal >= MIN_SUBTOTAL_FOR_WHOLE_NAIRA_CAP_ROUNDING &&
       Number.isInteger(expectedTotal) &&

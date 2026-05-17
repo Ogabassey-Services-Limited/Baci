@@ -24,6 +24,7 @@ const AUTO_ACCEPT_DISCOUNT_THRESHOLD = 0.03;
 const COUNTER_DISCOUNT_STEPS = [0.01, 0.02, 0.03] as const;
 const AI_REVIEW_MESSAGE =
   'Your offer was accepted by our AI and is subject to human review.';
+const MIN_SUBTOTAL_FOR_ROUNDED_COUNTER = 1000;
 
 function getOrCreateSessionId(): string {
   if (typeof window === 'undefined') return `web-${Date.now()}`;
@@ -32,6 +33,23 @@ function getOrCreateSessionId(): string {
   const id = `web-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`}`;
   window.sessionStorage.setItem(SESSION_KEY, id);
   return id;
+}
+
+function computeCounterOffer(currentPrice: number, counterDiscount: number): number {
+  const rawCounterOffer = Math.floor(currentPrice * (1 - counterDiscount));
+
+  // Keep the final 3% counter-offer within the API's allowed discount cap.
+  if (counterDiscount < AUTO_ACCEPT_DISCOUNT_THRESHOLD) {
+    return rawCounterOffer;
+  }
+
+  const rawDiscountAmount = currentPrice - rawCounterOffer;
+  const maxServerAcceptedDiscountAmount =
+    currentPrice >= MIN_SUBTOTAL_FOR_ROUNDED_COUNTER
+      ? Math.ceil(currentPrice * AUTO_ACCEPT_DISCOUNT_THRESHOLD)
+      : Math.floor(currentPrice * AUTO_ACCEPT_DISCOUNT_THRESHOLD);
+
+  return currentPrice - Math.min(rawDiscountAmount, maxServerAcceptedDiscountAmount);
 }
 
 export const NegotiationModal: React.FC<NegotiationModalProps> = ({
@@ -58,6 +76,8 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   const submitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(false);
   const isOpenRef = useRef(isOpen);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
 
   const [supabase] = useState(() => createClient());
 
@@ -69,6 +89,18 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   };
 
   const canApplyAsyncResult = () => isMountedRef.current && isOpenRef.current;
+
+  const getFocusableElements = () => {
+    if (!dialogRef.current) {
+      return [] as HTMLElement[];
+    }
+
+    return Array.from(
+      dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      )
+    );
+  };
 
   // Reset state when opened
   useEffect(() => {
@@ -90,11 +122,105 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   }, [isOpen]);
 
   useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    if (!isOpen) {
+      if (previouslyFocusedElementRef.current) {
+        previouslyFocusedElementRef.current.focus();
+        previouslyFocusedElementRef.current = null;
+      }
+      return;
+    }
+
+    previouslyFocusedElementRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+
+    const frame = window.requestAnimationFrame(() => {
+      const focusableElements = getFocusableElements();
+      if (focusableElements.length > 0) {
+        focusableElements[0].focus();
+        return;
+      }
+      dialogRef.current?.focus();
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || typeof document === 'undefined') {
+      return;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (event.key !== 'Tab') {
+        return;
+      }
+
+      const focusableElements = getFocusableElements();
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        dialogRef.current?.focus();
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      const activeElement =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+
+      if (
+        event.shiftKey &&
+        (!activeElement ||
+          !dialogRef.current?.contains(activeElement) ||
+          activeElement === firstElement)
+      ) {
+        event.preventDefault();
+        lastElement.focus();
+        return;
+      }
+
+      if (
+        !event.shiftKey &&
+        (!activeElement ||
+          !dialogRef.current?.contains(activeElement) ||
+          activeElement === lastElement)
+      ) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
     isMountedRef.current = true;
 
     return () => {
       isMountedRef.current = false;
       clearSubmitTimeout();
+      if (previouslyFocusedElementRef.current) {
+        previouslyFocusedElementRef.current.focus();
+        previouslyFocusedElementRef.current = null;
+      }
     };
   }, []);
 
@@ -123,6 +249,10 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
     clearSubmitTimeout();
     submitTimeoutRef.current = setTimeout(() => {
       submitTimeoutRef.current = null;
+      if (!canApplyAsyncResult()) {
+        return;
+      }
+
       const discountAmount = currentPrice - offerAmount;
       const maxAutoAcceptedDiscountAmount =
         currentPrice * AUTO_ACCEPT_DISCOUNT_THRESHOLD;
@@ -150,7 +280,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
         replyMessage = 'This is my absolute final offer:';
       }
 
-      const proposedCounter = Math.floor(currentPrice * (1 - counterDiscount));
+      const proposedCounter = computeCounterOffer(currentPrice, counterDiscount);
 
       // Update State
       setStatus('failed'); // 'failed' triggers the rejection UI, which we repurpose for counter-offer
@@ -237,6 +367,8 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
         aria-modal="true"
         className="bg-[hsl(var(--card))] rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden z-10 animate-in zoom-in-95 duration-200"
         role="dialog"
+        ref={dialogRef}
+        tabIndex={-1}
       >
         {/* Header */}
         <div className="bg-[hsl(var(--foreground))] p-4 flex justify-between items-center">
@@ -366,7 +498,10 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                   </button>
                 )}
                 <button
-                  onClick={() => setStatus('input')}
+                  onClick={() => {
+                    setMessage('');
+                    setStatus('input');
+                  }}
                   className="w-full bg-[hsl(var(--muted))] text-[hsl(var(--card-foreground))] font-bold py-3 rounded-xl hover:bg-[var(--store-primary)]/10 transition-colors"
                 >
                   Negotiate Again
