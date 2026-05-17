@@ -8,6 +8,7 @@ import {
 } from '@/lib/agentic/idempotency';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
+import { adaptUcpCheckoutUpdateRequestBody } from '@/lib/agentic/ucp-request-adapters';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 type MockAgenticMerchantContext = {
@@ -64,7 +65,16 @@ vi.mock('@/lib/agentic/scoped-supabase', () => ({
 }));
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: vi.fn() }));
 
-const session = {
+type MockCheckoutSession = {
+  cart_items: Array<{ id: string; quantity: number }>;
+  currency: string;
+  session_id: string;
+  shipping_address: Record<string, unknown> | null;
+  shipping_method: string | null;
+  status: string;
+};
+
+const session: MockCheckoutSession = {
   session_id: 'agentic_session_1',
   status: 'pending',
   cart_items: [{ id: 'product-1', quantity: 1 }],
@@ -378,6 +388,55 @@ describe('POST /api/agentic/checkout_sessions/[id]', () => {
         method: 'PUT',
       })
     );
+  });
+
+  it('replaces checkout items from UCP line_items and clears omitted checkout fields', async () => {
+    const existingAddress = { address: 'Old Street', city: 'Lagos' };
+    const mock = createCheckoutSupabaseMock({
+      readSession: {
+        ...session,
+        cart_items: [{ id: 'old-product', quantity: 1 }],
+        shipping_address: existingAddress,
+      },
+    });
+    useCheckoutSupabaseMock(mock);
+
+    const { PUT } = await import('./route');
+    const response = await PUT(
+      createRequest(
+        {
+          line_items: [
+            {
+              item: { id: 'product-2', price: 250000, title: 'Case' },
+              quantity: 2,
+            },
+          ],
+        },
+        'PUT'
+      ),
+      routeParams(),
+      { requestBodyAdapter: adaptUcpCheckoutUpdateRequestBody }
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(calculateCheckoutSession).toHaveBeenCalledWith(
+      mock.scopedSupabase,
+      [{ id: 'product-2', quantity: 2 }],
+      null,
+      'NGN',
+      'merchant-1'
+    );
+    expect(mock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cart_items: [{ id: 'product-2', quantity: 2 }],
+        shipping_address: null,
+      })
+    );
+    expect(body).toMatchObject({
+      id: 'agentic_session_1',
+      shipping_address: null,
+    });
   });
 
   it('returns 500 when the guarded checkout session update fails', async () => {

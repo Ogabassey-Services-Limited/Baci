@@ -1,3 +1,4 @@
+import { adaptUcpCheckoutUpdateRequestBody } from '@/lib/agentic/ucp-request-adapters';
 import { adaptCheckoutResponseToUcp } from '@/lib/agentic/ucp-response-adapters';
 import {
   GET as getCheckoutSession,
@@ -18,12 +19,20 @@ export async function POST(
   request: Parameters<typeof postCheckoutSession>[0],
   props: Parameters<typeof postCheckoutSession>[1]
 ) {
-  return adaptCheckoutResponseToUcp(await postCheckoutSession(request, props));
+  return adaptCheckoutResponseToUcp(
+    await postCheckoutSession(request, props, {
+      requestBodyAdapter: adaptUcpCheckoutUpdateRequestBody,
+    })
+  );
 }
 
 export async function PUT(
   request: Parameters<typeof putCheckoutSession>[0],
   props: Parameters<typeof putCheckoutSession>[1]
 ) {
-  return adaptCheckoutResponseToUcp(await putCheckoutSession(request, props));
+  return adaptCheckoutResponseToUcp(
+    await putCheckoutSession(request, props, {
+      requestBodyAdapter: adaptUcpCheckoutUpdateRequestBody,
+    })
+  );
 }

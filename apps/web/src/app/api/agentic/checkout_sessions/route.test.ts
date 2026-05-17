@@ -7,6 +7,7 @@ import {
 } from '@/lib/agentic/idempotency';
 import { reserveAgenticRequestId } from '@/lib/agentic/request-replay';
 import { createAgenticScopedSupabaseClient } from '@/lib/agentic/scoped-supabase';
+import { adaptUcpCheckoutCreateRequestBody } from '@/lib/agentic/ucp-request-adapters';
 import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -339,6 +340,85 @@ describe('POST /api/agentic/checkout_sessions', () => {
         totals: expect.any(Array),
       },
     });
+  });
+
+  it('creates a checkout session from a UCP line_items payload when adapted', async () => {
+    const insertSpy = vi.fn((_: Record<string, unknown>) => ({
+      select: vi.fn(() => ({
+        single: vi.fn().mockResolvedValue({
+          data: { id: 'row-1', session_id: 'agentic_session_1' },
+          error: null,
+        }),
+      })),
+    }));
+    const mockSupabase = {
+      from: vi.fn((table: string) => {
+        if (table === 'checkout_sessions') {
+          return {
+            insert: insertSpy,
+          };
+        }
+
+        throw new Error(`Unexpected table ${table}`);
+      }),
+    };
+    vi.mocked(createAdminClient).mockReturnValue(mockSupabase as never);
+    vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
+      mockSupabase as never
+    );
+    vi.mocked(calculateCheckoutSession).mockResolvedValue({
+      fulfillmentOptions: [],
+      lineItems: [],
+      messages: [],
+      selectedOptionId: undefined,
+      totals: [{ amount: 0, display_text: 'Total Due', type: 'total' }],
+    });
+
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout-sessions',
+      {
+        body: JSON.stringify({
+          currency: 'ngn',
+          line_items: [
+            {
+              item: { id: 'product-1', price: 500000, title: 'Phone' },
+              quantity: 2,
+            },
+          ],
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'idem-1',
+        },
+        method: 'POST',
+      }
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(request, {
+      requestBodyAdapter: adaptUcpCheckoutCreateRequestBody,
+    });
+
+    expect(response.status).toBe(201);
+    expect(calculateCheckoutSession).toHaveBeenCalledWith(
+      mockSupabase,
+      [{ id: 'product-1', quantity: 2 }],
+      null,
+      'NGN',
+      'merchant-1'
+    );
+    expect(reserveAgenticIdempotencyKey).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining('"line_items"'),
+        pathname: '/api/agentic/checkout-sessions',
+      })
+    );
+    expect(insertSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cart_items: [{ id: 'product-1', quantity: 2 }],
+        currency: 'NGN',
+      })
+    );
   });
 
   it('returns a recoverable error when idempotency response storage fails', async () => {

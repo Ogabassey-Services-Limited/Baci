@@ -34,12 +34,19 @@ import { handleAgenticCheckoutSessionGet } from './route-get-handler';
 
 const UPDATE_IDEMPOTENCY_ROUTE = 'checkout_sessions.update';
 type SessionRouteProps = { params: Promise<{ id: string }> };
+type CheckoutSessionUpdateRouteOptions = {
+  requestBodyAdapter?: (body: unknown) => unknown;
+};
 
 export function GET(request: NextRequest, props: SessionRouteProps) {
   return handleAgenticCheckoutSessionGet(request, props);
 }
 
-export async function POST(request: NextRequest, props: SessionRouteProps) {
+export async function POST(
+  request: NextRequest,
+  props: SessionRouteProps,
+  options: CheckoutSessionUpdateRouteOptions = {}
+) {
   const params = await props.params;
   if (!verifyAgenticApiKey(request))
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -65,7 +72,9 @@ export async function POST(request: NextRequest, props: SessionRouteProps) {
     | null = null;
 
   try {
-    const parsed = agenticCheckoutUpdateSchema.safeParse(mutation.body);
+    const requestBody =
+      options.requestBodyAdapter?.(mutation.body) ?? mutation.body;
+    const parsed = agenticCheckoutUpdateSchema.safeParse(requestBody);
     if (!parsed.success) {
       return NextResponse.json(
         {
@@ -304,6 +313,10 @@ export async function POST(request: NextRequest, props: SessionRouteProps) {
   }
 }
 
-export function PUT(request: NextRequest, props: SessionRouteProps) {
-  return POST(request, props);
+export function PUT(
+  request: NextRequest,
+  props: SessionRouteProps,
+  options: CheckoutSessionUpdateRouteOptions = {}
+) {
+  return POST(request, props, options);
 }
