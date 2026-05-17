@@ -17,12 +17,20 @@ export const agenticActionSchema = z.object({
   severity: agenticActionSeveritySchema,
 });
 
+export const agenticActionCheckoutSessionRecordSchema = z.object({
+  payment_state: z.string().trim().min(1),
+  session_id: z.string().trim().min(1),
+  status: z.string().trim().min(1),
+  updated_at: z.string().datetime({ offset: true }),
+});
+
 export const agenticActionCheckoutSessionsSchema = z
   .object({
     claiming_payment_count: nonnegativeCountSchema.optional(),
     order_finalizing_count: nonnegativeCountSchema.optional(),
     payment_pending_count: nonnegativeCountSchema.optional(),
     payment_setup_failed_count: nonnegativeCountSchema.optional(),
+    records: z.array(agenticActionCheckoutSessionRecordSchema).optional(),
     recent_count: nonnegativeCountSchema.optional(),
     stale_payment_pending_count: nonnegativeCountSchema.optional(),
   })
@@ -37,6 +45,9 @@ export const agenticActionHealthPayloadSchema = z
   .passthrough();
 
 export type AgenticAction = z.infer<typeof agenticActionSchema>;
+export type AgenticActionCheckoutSessionRecord = z.infer<
+  typeof agenticActionCheckoutSessionRecordSchema
+>;
 export type AgenticActionHealthPayload = z.infer<
   typeof agenticActionHealthPayloadSchema
 >;
