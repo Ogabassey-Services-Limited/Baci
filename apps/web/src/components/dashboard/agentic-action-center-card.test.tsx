@@ -247,10 +247,18 @@ describe('AgenticActionCenterCard', () => {
               {
                 created_at: '2026-05-12T22:42:00.000Z',
                 expires_at: '2026-05-12T22:52:00.000Z',
+                route: 'checkout_sessions.complete',
+                state: 'client_error',
+                status_code: 409,
+                updated_at: '2026-05-12T22:47:00.000Z',
+              },
+              {
+                created_at: '2026-05-12T22:43:00.000Z',
+                expires_at: '2026-05-12T22:53:00.000Z',
                 route: 'checkout_sessions.update',
                 state: 'completed',
                 status_code: 200,
-                updated_at: '2026-05-12T22:47:00.000Z',
+                updated_at: '2026-05-12T22:48:00.000Z',
               },
             ],
           },
@@ -274,6 +282,11 @@ describe('AgenticActionCenterCard', () => {
           'checkout_sessions.cancel is In Progress (pending).'
       )
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'checkout_sessions.complete is Client Error (status 409).'
+      )
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByText('checkout_sessions.update is Completed (status 200).')
     ).not.toBeInTheDocument();

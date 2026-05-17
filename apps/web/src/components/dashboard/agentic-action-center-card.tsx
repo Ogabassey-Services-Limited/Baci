@@ -95,7 +95,10 @@ export function AgenticActionCenterCard({
     payload?.checkout_sessions?.records?.slice(0, 3) ?? [];
   const idempotencyPressureRecords =
     payload?.idempotency?.records
-      ?.filter((record) => record.state !== 'completed')
+      ?.filter(
+        (record) =>
+          record.state === 'in_progress' || record.state === 'server_error'
+      )
       .slice(0, 3) ?? [];
   const statusDescription = failed
     ? 'Agentic checkout health could not be loaded.'
