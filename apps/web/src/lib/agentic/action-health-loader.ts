@@ -11,6 +11,7 @@ import {
 } from '@/schemas/agentic-action-health';
 
 const ACTION_HEALTH_RECORD_LIMIT = 25;
+const CHECKOUT_ACTIVITY_RECORD_LIMIT = 5;
 const STALE_PAYMENT_PENDING_MS = 24 * 60 * 60 * 1000;
 
 function isExpiredInProgressReservation({
@@ -40,6 +41,11 @@ function isStalePaymentPendingSession({
     Number.isFinite(updatedAtMs) &&
     nowMs - updatedAtMs >= STALE_PAYMENT_PENDING_MS
   );
+}
+
+function toTimestamp(value: string): number {
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
 }
 
 export async function loadAgenticActionHealth(
@@ -117,6 +123,20 @@ export async function loadAgenticActionHealth(
     }
   }
 
+  const checkoutActivityRecords = sessionRows
+    .filter((row) => Number.isFinite(Date.parse(row.updated_at)))
+    .map((row) => ({
+      payment_state: getAgenticPaymentState(row.metadata),
+      session_id: row.session_id,
+      status: row.status,
+      updated_at: row.updated_at,
+    }))
+    .sort(
+      (left, right) =>
+        toTimestamp(right.updated_at) - toTimestamp(left.updated_at)
+    )
+    .slice(0, CHECKOUT_ACTIVITY_RECORD_LIMIT);
+
   const parsed = agenticActionHealthPayloadSchema.safeParse({
     actions: buildAgenticHealthActions({
       activeInProgressCount: inProgressCount - staleInProgressCount,
@@ -135,6 +155,7 @@ export async function loadAgenticActionHealth(
       order_finalizing_count: orderFinalizingCount,
       payment_pending_count: paymentPendingCount,
       payment_setup_failed_count: paymentSetupFailedCount,
+      records: checkoutActivityRecords,
       recent_count: sessionRows.length,
       stale_payment_pending_count: stalePaymentPendingCount,
     },

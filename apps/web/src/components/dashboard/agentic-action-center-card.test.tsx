@@ -32,6 +32,16 @@ describe('AgenticActionCenterCard', () => {
               severity: 'monitor',
             },
           ],
+          checkout_sessions: {
+            records: [
+              {
+                payment_state: 'order_finalizing',
+                session_id: 'session-2',
+                status: 'processing',
+                updated_at: '2026-05-12T22:45:00.000Z',
+              },
+            ],
+          },
           generated_at: '2026-05-12T22:50:00.000Z',
         }}
         state="ready"
@@ -58,6 +68,9 @@ describe('AgenticActionCenterCard', () => {
     expect(
       screen.getByText('Review affected checkout activity before agents retry.')
     ).toBeInTheDocument();
+    expect(screen.getByText('Recent activity')).toBeInTheDocument();
+    expect(screen.getByText('session-2')).toBeInTheDocument();
+    expect(screen.getByText('moved to Order Finalizing.')).toBeInTheDocument();
     expect(screen.getByText('2 open')).toBeInTheDocument();
     expect(screen.getByText('2 affected')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /review/i })[0]).toHaveAttribute(
@@ -164,6 +177,40 @@ describe('AgenticActionCenterCard', () => {
       'href',
       '/dashboard/settings/trust'
     );
+  });
+
+  it('formats recent payment-state labels safely when metadata has empty tokens', () => {
+    render(
+      <AgenticActionCenterCard
+        payload={{
+          actions: [
+            {
+              code: 'AGENTIC_PAYMENT_PENDING',
+              count: 1,
+              message:
+                'Agentic checkouts are waiting for payment confirmation.',
+              severity: 'monitor',
+            },
+          ],
+          checkout_sessions: {
+            records: [
+              {
+                payment_state: 'order__finalizing',
+                session_id: 'session-9',
+                status: 'processing',
+                updated_at: '2026-05-12T22:45:00.000Z',
+              },
+            ],
+          },
+          generated_at: '2026-05-12T22:50:00.000Z',
+        }}
+        state="ready"
+      />
+    );
+
+    expect(screen.getByText('session-9')).toBeInTheDocument();
+    expect(screen.getByText('moved to Order Finalizing.')).toBeInTheDocument();
+    expect(screen.queryByText(/undefined/i)).not.toBeInTheDocument();
   });
 
   it('uses next_step_url from the payload when present', () => {
