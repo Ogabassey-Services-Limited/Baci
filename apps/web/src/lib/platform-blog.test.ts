@@ -8,8 +8,10 @@ const mockMaybeSingle = vi.fn();
 const mockRange = vi.fn();
 const mockLimit = vi.fn();
 const mockFrom = vi.fn();
+const mockRpc = vi.fn();
 
 const mockQuery = {
+  contains: vi.fn(() => mockQuery),
   eq: vi.fn(() => mockQuery),
   is: vi.fn(() => mockQuery),
   limit: (...args: unknown[]) => mockLimit(...args),
@@ -35,6 +37,8 @@ import {
   getPlatformBlogListing,
   getPlatformBlogPost,
   getPlatformBlogPostCacheTag,
+  getScopedPlatformBlogListCacheTag,
+  incrementPlatformBlogPostViews,
   getPlatformBlogSitemapPosts,
   PLATFORM_BLOG_CACHE_TAG,
   PLATFORM_BLOG_FEED_CACHE_TAG,
@@ -49,10 +53,12 @@ describe('platform-blog query helpers', () => {
     mockFrom.mockReturnValue(mockQuery);
     mockCreatePublicClient.mockReturnValue({
       from: mockFrom,
+      rpc: (...args: unknown[]) => mockRpc(...args),
     });
     mockMaybeSingle.mockResolvedValue({ data: null, error: null });
     mockRange.mockResolvedValue({ data: [], error: null, count: 0 });
     mockLimit.mockResolvedValue({ data: [], error: null });
+    mockRpc.mockResolvedValue({ data: null, error: null });
   });
 
   it('reads a published platform post with persistent post cache tags', async () => {
@@ -168,6 +174,33 @@ describe('platform-blog query helpers', () => {
     );
   });
 
+  it('applies category/tag filters and scoped cache tags for filtered listings', async () => {
+    mockRange.mockResolvedValueOnce({
+      data: [],
+      error: null,
+      count: 0,
+    });
+
+    await getPlatformBlogListing({
+      category: 'insights',
+      limit: 10,
+      offset: 0,
+      tag: 'payments',
+    });
+
+    expect(mockQuery.eq).toHaveBeenCalledWith('category', 'insights');
+    expect(mockQuery.contains).toHaveBeenCalledWith('tags', ['payments']);
+    expect(mockCacheTag).toHaveBeenCalledWith(
+      PLATFORM_BLOG_CACHE_TAG,
+      PLATFORM_BLOG_LIST_CACHE_TAG,
+      getScopedPlatformBlogListCacheTag({
+        category: 'insights',
+        page: 1,
+        tag: 'payments',
+      })
+    );
+  });
+
   it('caps feed reads at 50 published platform posts', async () => {
     mockLimit.mockResolvedValueOnce({
       data: [{ slug: 'platform-launch' }],
@@ -220,5 +253,13 @@ describe('platform-blog query helpers', () => {
       PLATFORM_BLOG_CACHE_TAG,
       PLATFORM_BLOG_SITEMAP_CACHE_TAG
     );
+  });
+
+  it('increments platform post view counts through the public RPC', async () => {
+    await incrementPlatformBlogPostViews('  post-1  ');
+
+    expect(mockRpc).toHaveBeenCalledWith('increment_blog_post_views', {
+      p_post_id: 'post-1',
+    });
   });
 });

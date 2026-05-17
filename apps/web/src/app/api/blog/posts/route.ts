@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from 'next/server';
 import {
   getPlatformBlogListing,
   getPlatformBlogPost,
+  incrementPlatformBlogPostViews,
 } from '@/lib/platform-blog';
 
 function parseSafeLimit(raw: string | null): number {
@@ -25,7 +26,9 @@ function parseSafeOffset(raw: string | null): number {
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
+    const category = searchParams.get('category');
     const slug = searchParams.get('slug')?.trim().toLowerCase();
+    const tag = searchParams.get('tag');
 
     if (slug) {
       const post = await getPlatformBlogPost(slug);
@@ -33,12 +36,19 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Post not found' }, { status: 404 });
       }
 
+      // Do not block reads on best-effort analytics updates.
+      void incrementPlatformBlogPostViews(post.id);
       return NextResponse.json(post);
     }
 
     const limit = parseSafeLimit(searchParams.get('limit'));
     const offset = parseSafeOffset(searchParams.get('offset'));
-    const listing = await getPlatformBlogListing({ limit, offset });
+    const listing = await getPlatformBlogListing({
+      category,
+      limit,
+      offset,
+      tag,
+    });
 
     return NextResponse.json({
       hasMore: listing.hasMore,

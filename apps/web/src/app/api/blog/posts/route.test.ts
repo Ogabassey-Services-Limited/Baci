@@ -3,11 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetPlatformBlogListing = vi.fn();
 const mockGetPlatformBlogPost = vi.fn();
+const mockIncrementPlatformBlogPostViews = vi.fn();
 
 vi.mock('@/lib/platform-blog', () => ({
   getPlatformBlogListing: (...args: unknown[]) =>
     mockGetPlatformBlogListing(...args),
   getPlatformBlogPost: (...args: unknown[]) => mockGetPlatformBlogPost(...args),
+  incrementPlatformBlogPostViews: (...args: unknown[]) =>
+    mockIncrementPlatformBlogPostViews(...args),
 }));
 
 import { GET } from './route';
@@ -24,6 +27,7 @@ describe('GET /api/blog/posts', () => {
       totalPages: 1,
     });
     mockGetPlatformBlogPost.mockResolvedValue(null);
+    mockIncrementPlatformBlogPostViews.mockResolvedValue(undefined);
   });
 
   it('uses the shared platform listing helper with safe pagination', async () => {
@@ -95,10 +99,27 @@ describe('GET /api/blog/posts', () => {
 
     expect(response.status).toBe(200);
     expect(mockGetPlatformBlogPost).toHaveBeenCalledWith('launch-faster');
+    expect(mockIncrementPlatformBlogPostViews).toHaveBeenCalledWith('post-1');
     await expect(response.json()).resolves.toEqual({
       id: 'post-1',
       slug: 'launch-faster',
       title: 'Launch Faster',
+    });
+  });
+
+  it('forwards category and tag filters to the listing helper', async () => {
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/blog/posts?category=insights&tag=payments&limit=12&offset=24'
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetPlatformBlogListing).toHaveBeenCalledWith({
+      category: 'insights',
+      limit: 12,
+      offset: 24,
+      tag: 'payments',
     });
   });
 

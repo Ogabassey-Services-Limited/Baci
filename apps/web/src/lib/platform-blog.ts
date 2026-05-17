@@ -126,6 +126,38 @@ export function getPlatformBlogListCacheTag(page: number): string {
   return `platform-blog-list-page-${page}`;
 }
 
+function normalizeOptionalFilter(
+  value: string | null | undefined
+): string | null {
+  const normalizedValue = value?.trim();
+  if (!normalizedValue) {
+    return null;
+  }
+
+  return normalizedValue;
+}
+
+export function getScopedPlatformBlogListCacheTag({
+  category,
+  page,
+  tag,
+}: {
+  category?: string | null;
+  page: number;
+  tag?: string | null;
+}): string {
+  const normalizedCategory = normalizeOptionalFilter(category);
+  const normalizedTag = normalizeOptionalFilter(tag);
+
+  if (!normalizedCategory && !normalizedTag) {
+    return getPlatformBlogListCacheTag(page);
+  }
+
+  return `platform-blog-list-page-${page}:category-${encodeURIComponent(
+    normalizedCategory ?? 'all'
+  )}:tag-${encodeURIComponent(normalizedTag ?? 'all')}`;
+}
+
 export async function getPlatformBlogPost(
   slug: string
 ): Promise<PlatformBlogPost | null> {
@@ -164,10 +196,17 @@ export async function getPlatformBlogPost(
 }
 
 export async function getPlatformBlogListing(
-  options: { limit?: number; offset?: number; page?: number } = {}
+  options: {
+    category?: string | null;
+    limit?: number;
+    offset?: number;
+    page?: number;
+    tag?: string | null;
+  } = {}
 ): Promise<PlatformBlogListingResult> {
   'use cache: remote';
 
+  const category = normalizeOptionalFilter(options.category);
   const limit = normalizePositiveInt(
     options.limit ?? BLOG_LISTING_PAGE_SIZE,
     BLOG_LISTING_PAGE_SIZE,
@@ -181,15 +220,16 @@ export async function getPlatformBlogListing(
     0
   );
   const page = Math.floor(offset / limit) + 1;
+  const tag = normalizeOptionalFilter(options.tag);
 
   cacheLife('merchant');
   cacheTag(
     PLATFORM_BLOG_CACHE_TAG,
     PLATFORM_BLOG_LIST_CACHE_TAG,
-    getPlatformBlogListCacheTag(page)
+    getScopedPlatformBlogListCacheTag({ category, page, tag })
   );
 
-  const { data, error, count } = await getClient()
+  let query = getClient()
     .from('blog_posts')
     .select(
       'id, title, slug, excerpt, featured_image_url, featured_image_alt, category, tags, author_name, author_image_url, reading_time_minutes, published_at, view_count',
@@ -198,7 +238,17 @@ export async function getPlatformBlogListing(
     .eq('is_platform_post', true)
     .is('merchant_id', null)
     .eq('status', 'published')
-    .not('published_at', 'is', null)
+    .not('published_at', 'is', null);
+
+  if (category) {
+    query = query.eq('category', category);
+  }
+
+  if (tag) {
+    query = query.contains('tags', [tag]);
+  }
+
+  const { data, error, count } = await query
     .order('published_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
@@ -222,6 +272,26 @@ export async function getPlatformBlogListing(
     total,
     totalPages,
   };
+}
+
+export async function incrementPlatformBlogPostViews(
+  postId: string
+): Promise<void> {
+  const normalizedPostId = postId.trim();
+  if (!normalizedPostId) {
+    return;
+  }
+
+  const { error } = await getClient().rpc('increment_blog_post_views', {
+    p_post_id: normalizedPostId,
+  });
+
+  if (error) {
+    console.error('Failed to increment platform blog post views', {
+      error,
+      postId: normalizedPostId,
+    });
+  }
 }
 
 export async function getPlatformBlogFeedPosts(): Promise<
