@@ -1,6 +1,7 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { BlogEditorClient } from '@/app/admin/blog/blog-editor-client';
 import type { PlatformAdminBlogPostDetail } from '@/app/admin/blog/blog-types';
+import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
 import { createClient } from '@/lib/supabase/server';
 
 type EditAdminBlogPostPageProps = {
@@ -12,6 +13,15 @@ type EditAdminBlogPostPageProps = {
 export default async function EditAdminBlogPostPage({
   params,
 }: EditAdminBlogPostPageProps) {
+  const auth = await getPlatformAdminAuth();
+  if (auth.status === 'unauthenticated') {
+    redirect('/login?redirect=%2Fadmin');
+  }
+
+  if (auth.status === 'forbidden') {
+    redirect('/dashboard');
+  }
+
   const { id } = await params;
   const supabase = await createClient();
   const { data, error } = await supabase

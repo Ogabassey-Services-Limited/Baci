@@ -1,8 +1,19 @@
+import { redirect } from 'next/navigation';
 import { BlogListClient } from '@/app/admin/blog/blog-list-client';
 import type { PlatformAdminBlogPostSummary } from '@/app/admin/blog/blog-types';
+import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
 import { createClient } from '@/lib/supabase/server';
 
 export default async function AdminBlogPage() {
+  const auth = await getPlatformAdminAuth();
+  if (auth.status === 'unauthenticated') {
+    redirect('/login?redirect=%2Fadmin');
+  }
+
+  if (auth.status === 'forbidden') {
+    redirect('/dashboard');
+  }
+
   let initialError: string | null = null;
   let initialPosts: PlatformAdminBlogPostSummary[] = [];
 

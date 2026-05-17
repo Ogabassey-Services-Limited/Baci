@@ -5,9 +5,22 @@ const mockBlogListClient = vi.fn((_props: unknown) => (
   <div>Platform blog list</div>
 ));
 const mockCreateClient = vi.fn();
+const mockGetPlatformAdminAuth = vi.fn();
+const mockRedirect = vi.fn((destination: string) => {
+  throw new Error(`NEXT_REDIRECT:${destination}`);
+});
 
 vi.mock('@/app/admin/blog/blog-list-client', () => ({
   BlogListClient: (props: unknown) => mockBlogListClient(props),
+}));
+
+vi.mock('next/navigation', () => ({
+  redirect: (destination: string) => mockRedirect(destination),
+}));
+
+vi.mock('@/lib/platform-admin-auth', () => ({
+  getPlatformAdminAuth: (...args: unknown[]) =>
+    mockGetPlatformAdminAuth(...args),
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
@@ -34,6 +47,10 @@ import AdminBlogPage from './page';
 describe('/admin/blog page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetPlatformAdminAuth.mockResolvedValue({
+      status: 'authenticated',
+      user: { email: 'admin@example.com', id: 'admin-1' },
+    });
     mockCreateClient.mockResolvedValue(mockSupabase);
     mockSupabase.range.mockResolvedValue({
       data: [
@@ -81,5 +98,25 @@ describe('/admin/blog page', () => {
         initialPosts: [],
       })
     );
+  });
+
+  it('redirects unauthenticated users to login', async () => {
+    mockGetPlatformAdminAuth.mockResolvedValueOnce({
+      status: 'unauthenticated',
+    });
+
+    await expect(AdminBlogPage()).rejects.toThrow(
+      'NEXT_REDIRECT:/login?redirect=%2Fadmin'
+    );
+    expect(mockRedirect).toHaveBeenCalledWith('/login?redirect=%2Fadmin');
+    expect(mockCreateClient).not.toHaveBeenCalled();
+  });
+
+  it('redirects forbidden users to dashboard', async () => {
+    mockGetPlatformAdminAuth.mockResolvedValueOnce({ status: 'forbidden' });
+
+    await expect(AdminBlogPage()).rejects.toThrow('NEXT_REDIRECT:/dashboard');
+    expect(mockRedirect).toHaveBeenCalledWith('/dashboard');
+    expect(mockCreateClient).not.toHaveBeenCalled();
   });
 });

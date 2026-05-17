@@ -5,8 +5,12 @@ const mockBlogEditorClient = vi.fn((_props: unknown) => (
   <div>Blog editor client</div>
 ));
 const mockCreateClient = vi.fn();
+const mockGetPlatformAdminAuth = vi.fn();
 const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
+});
+const mockRedirect = vi.fn((destination: string) => {
+  throw new Error(`NEXT_REDIRECT:${destination}`);
 });
 
 vi.mock('@/app/admin/blog/blog-editor-client', () => ({
@@ -17,8 +21,14 @@ vi.mock('@/lib/supabase/server', () => ({
   createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
 
+vi.mock('@/lib/platform-admin-auth', () => ({
+  getPlatformAdminAuth: (...args: unknown[]) =>
+    mockGetPlatformAdminAuth(...args),
+}));
+
 vi.mock('next/navigation', () => ({
   notFound: () => mockNotFound(),
+  redirect: (destination: string) => mockRedirect(destination),
 }));
 
 const mockSupabase = {
@@ -39,6 +49,10 @@ import EditAdminBlogPostPage from './page';
 describe('/admin/blog/[id]/edit page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetPlatformAdminAuth.mockResolvedValue({
+      status: 'authenticated',
+      user: { email: 'admin@example.com', id: 'admin-1' },
+    });
     mockCreateClient.mockResolvedValue(mockSupabase);
     mockSupabase.single.mockResolvedValue({
       data: {
@@ -80,5 +94,31 @@ describe('/admin/blog/[id]/edit page', () => {
       })
     ).rejects.toThrow('NEXT_NOT_FOUND');
     expect(mockNotFound).toHaveBeenCalled();
+  });
+
+  it('redirects unauthenticated users to login', async () => {
+    mockGetPlatformAdminAuth.mockResolvedValueOnce({
+      status: 'unauthenticated',
+    });
+
+    await expect(
+      EditAdminBlogPostPage({
+        params: Promise.resolve({ id: 'post-1' }),
+      })
+    ).rejects.toThrow('NEXT_REDIRECT:/login?redirect=%2Fadmin');
+    expect(mockRedirect).toHaveBeenCalledWith('/login?redirect=%2Fadmin');
+    expect(mockCreateClient).not.toHaveBeenCalled();
+  });
+
+  it('redirects forbidden users to dashboard', async () => {
+    mockGetPlatformAdminAuth.mockResolvedValueOnce({ status: 'forbidden' });
+
+    await expect(
+      EditAdminBlogPostPage({
+        params: Promise.resolve({ id: 'post-1' }),
+      })
+    ).rejects.toThrow('NEXT_REDIRECT:/dashboard');
+    expect(mockRedirect).toHaveBeenCalledWith('/dashboard');
+    expect(mockCreateClient).not.toHaveBeenCalled();
   });
 });
