@@ -56,7 +56,7 @@ const OGABASSEY_HOME_MOBILE_HERO_PRELOAD_PATH =
   resolveOgabasseyMobileHeroPreloadPath();
 const OGABASSEY_HOME_MOBILE_HERO_LINK_PRELOAD =
   OGABASSEY_HOME_MOBILE_HERO_PRELOAD_PATH
-    ? `<${OGABASSEY_HOME_MOBILE_HERO_PRELOAD_PATH}>; rel=preload; as=image; type="image/avif"`
+    ? `<${OGABASSEY_HOME_MOBILE_HERO_PRELOAD_PATH}>; rel=preload; as=image; type="image/avif"; media="(max-width: 767px)"`
     : null;
 
 const nextConfig: NextConfig = {
