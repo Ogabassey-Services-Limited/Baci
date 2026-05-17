@@ -1,20 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const {
-  mockGetCheckoutSession,
-  mockPostCheckoutSession,
-  mockPutCheckoutSession,
-} = vi.hoisted(() => ({
-  mockGetCheckoutSession: vi.fn(),
-  mockPostCheckoutSession: vi.fn(),
-  mockPutCheckoutSession: vi.fn(),
-}));
+const { mockGetCheckoutSession, mockHandleCheckoutSessionUpdate } = vi.hoisted(
+  () => ({
+    mockGetCheckoutSession: vi.fn(),
+    mockHandleCheckoutSessionUpdate: vi.fn(),
+  })
+);
 
 vi.mock('../../checkout_sessions/[id]/route', () => ({
   GET: mockGetCheckoutSession,
-  POST: mockPostCheckoutSession,
-  PUT: mockPutCheckoutSession,
+  handleAgenticCheckoutSessionUpdate: mockHandleCheckoutSessionUpdate,
 }));
 
 const routeProps = { params: Promise.resolve({ id: 'agentic_session_1' }) };
@@ -31,16 +27,7 @@ describe('/api/agentic/checkout-sessions/[id]', () => {
         totals: [],
       })
     );
-    mockPostCheckoutSession.mockResolvedValue(
-      NextResponse.json({
-        id: 'agentic_session_1',
-        line_items: [],
-        links: [],
-        status: 'ready_for_payment',
-        totals: [],
-      })
-    );
-    mockPutCheckoutSession.mockResolvedValue(
+    mockHandleCheckoutSessionUpdate.mockResolvedValue(
       NextResponse.json({
         id: 'agentic_session_1',
         line_items: [],
@@ -64,9 +51,13 @@ describe('/api/agentic/checkout-sessions/[id]', () => {
     const response = await PUT(request, routeProps);
     const body = await response.json();
 
-    expect(mockPutCheckoutSession).toHaveBeenCalledWith(request, routeProps, {
-      requestBodyAdapter: expect.any(Function),
-    });
+    expect(mockHandleCheckoutSessionUpdate).toHaveBeenCalledWith(
+      request,
+      routeProps,
+      {
+        requestBodyAdapter: expect.any(Function),
+      }
+    );
     expect(response.status).toBe(200);
     expect(body.status).toBe('ready_for_complete');
   });

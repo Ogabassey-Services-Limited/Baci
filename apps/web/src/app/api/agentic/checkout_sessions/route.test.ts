@@ -394,8 +394,8 @@ describe('POST /api/agentic/checkout_sessions', () => {
       }
     );
 
-    const { POST } = await import('./route');
-    const response = await POST(request, {
+    const { handleAgenticCheckoutSessionCreate } = await import('./route');
+    const response = await handleAgenticCheckoutSessionCreate(request, {
       requestBodyAdapter: adaptUcpCheckoutCreateRequestBody,
     });
 

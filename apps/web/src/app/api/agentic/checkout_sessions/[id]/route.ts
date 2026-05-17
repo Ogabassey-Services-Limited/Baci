@@ -42,7 +42,11 @@ export function GET(request: NextRequest, props: SessionRouteProps) {
   return handleAgenticCheckoutSessionGet(request, props);
 }
 
-export async function POST(
+export function POST(request: NextRequest, props: SessionRouteProps) {
+  return handleAgenticCheckoutSessionUpdate(request, props);
+}
+
+export async function handleAgenticCheckoutSessionUpdate(
   request: NextRequest,
   props: SessionRouteProps,
   options: CheckoutSessionUpdateRouteOptions = {}
@@ -313,10 +317,6 @@ export async function POST(
   }
 }
 
-export function PUT(
-  request: NextRequest,
-  props: SessionRouteProps,
-  options: CheckoutSessionUpdateRouteOptions = {}
-) {
-  return POST(request, props, options);
+export function PUT(request: NextRequest, props: SessionRouteProps) {
+  return handleAgenticCheckoutSessionUpdate(request, props);
 }

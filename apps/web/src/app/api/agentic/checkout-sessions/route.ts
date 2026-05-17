@@ -1,10 +1,13 @@
 import { adaptUcpCheckoutCreateRequestBody } from '@/lib/agentic/ucp-request-adapters';
 import { adaptCheckoutResponseToUcp } from '@/lib/agentic/ucp-response-adapters';
-import { POST as postCheckoutSession } from '../checkout_sessions/route';
+import {
+  handleAgenticCheckoutSessionCreate,
+  type POST as postCheckoutSession,
+} from '../checkout_sessions/route';
 
 export async function POST(request: Parameters<typeof postCheckoutSession>[0]) {
   return adaptCheckoutResponseToUcp(
-    await postCheckoutSession(request, {
+    await handleAgenticCheckoutSessionCreate(request, {
       requestBodyAdapter: adaptUcpCheckoutCreateRequestBody,
     })
   );

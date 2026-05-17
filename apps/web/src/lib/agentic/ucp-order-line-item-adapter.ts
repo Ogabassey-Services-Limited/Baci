@@ -12,9 +12,14 @@ export function mapUcpOrderLineItem(
     quantity,
     orderShippingStatus
   );
-  const price = Math.max(0, toIntegerAmount(orderItemRecord.price) ?? 0);
-  const total =
-    toIntegerAmount(orderItemRecord.line_extension_amount) ?? price * quantity;
+  const rawPrice = Math.max(0, toIntegerAmount(orderItemRecord.price) ?? 0);
+  const total = Math.max(
+    0,
+    toIntegerAmount(orderItemRecord.line_extension_amount) ??
+      rawPrice * quantity
+  );
+  const price =
+    quantity > 0 ? Math.max(0, Math.round(total / quantity)) : rawPrice;
   const itemId =
     toStringValue(orderItemRecord.variant_id) ??
     toStringValue(orderItemRecord.product_id) ??
@@ -35,7 +40,7 @@ export function mapUcpOrderLineItem(
     status: getLineItemStatus(quantity, fulfilled),
     totals: [
       {
-        amount: Math.max(0, total),
+        amount: total,
         display_text: 'Total',
         type: 'total',
       },

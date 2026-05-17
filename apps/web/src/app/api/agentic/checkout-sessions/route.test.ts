@@ -6,7 +6,8 @@ const { mockPostCheckoutSession } = vi.hoisted(() => ({
 }));
 
 vi.mock('../checkout_sessions/route', () => ({
-  POST: mockPostCheckoutSession,
+  handleAgenticCheckoutSessionCreate: mockPostCheckoutSession,
+  POST: vi.fn(),
 }));
 
 describe('POST /api/agentic/checkout-sessions', () => {

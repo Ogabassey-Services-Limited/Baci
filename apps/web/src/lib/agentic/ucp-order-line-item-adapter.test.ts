@@ -38,4 +38,23 @@ describe('mapUcpOrderLineItem', () => {
       status: 'fulfilled',
     });
   });
+
+  it('normalizes line-item price to unit amount when line totals are provided', () => {
+    const lineItem = mapUcpOrderLineItem(
+      {
+        id: 'item_1',
+        line_extension_amount: 300_000,
+        name: 'Phone',
+        price: 300_000,
+        quantity: 2,
+      },
+      0,
+      'processing'
+    );
+
+    expect(lineItem.item.price).toBe(150_000);
+    expect(lineItem.totals).toEqual([
+      { amount: 300_000, display_text: 'Total', type: 'total' },
+    ]);
+  });
 });

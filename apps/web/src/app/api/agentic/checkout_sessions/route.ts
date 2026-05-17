@@ -30,7 +30,11 @@ type CheckoutSessionCreateRouteOptions = {
   requestBodyAdapter?: (body: unknown) => unknown;
 };
 
-export async function POST(
+export function POST(request: NextRequest) {
+  return handleAgenticCheckoutSessionCreate(request);
+}
+
+export async function handleAgenticCheckoutSessionCreate(
   request: NextRequest,
   options: CheckoutSessionCreateRouteOptions = {}
 ) {
