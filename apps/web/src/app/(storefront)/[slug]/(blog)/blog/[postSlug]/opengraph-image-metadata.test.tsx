@@ -26,7 +26,7 @@ import {
   revalidate,
   runtime,
   size,
-} from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image';
+} from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-renderer';
 
 describe('merchant blog post OG image metadata', () => {
   beforeEach(() => {
