@@ -381,4 +381,27 @@ describe('buildAgentCommerceTrustReadiness', () => {
       severity: 'warn',
     });
   });
+
+  it('adds a dashboard next step for every trust check', () => {
+    const result = buildAgentCommerceTrustReadiness({
+      baseUrl: 'https://ogabassey.com',
+      googleFeedData: googleFeedData(),
+      merchant: {
+        business_name: 'Ogabassey',
+        slug: 'ogabassey',
+      },
+      now: NOW,
+      openAiFeedData: {
+        products: [product()],
+      },
+      trustProfile: trustProfile(),
+    });
+
+    for (const check of result.checks) {
+      expect(check.next_step).toEqual(expect.any(String));
+      expect(check.next_step_url).toEqual(
+        expect.stringMatching(/^\/dashboard\//)
+      );
+    }
+  });
 });
