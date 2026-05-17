@@ -47,6 +47,24 @@ function hasStructuredDataFields(product: OpenAIFeedProduct): boolean {
   );
 }
 
+function toFiniteNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string' && value.trim().length === 0) return null;
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function hasReviewSignalFields(product: OpenAIFeedProduct): boolean {
+  const reviewCount = toFiniteNumber(product.review_count);
+  if (reviewCount === null || reviewCount <= 0) return false;
+
+  const averageRating = toFiniteNumber(product.average_rating);
+  if (averageRating === null) return false;
+
+  return averageRating >= 0 && averageRating <= 5;
+}
+
 function getProductUpdatedAt(
   product: Pick<FeedProduct, 'updated_at'>
 ): Date | null {
@@ -84,6 +102,9 @@ export function buildAgentCommerceTrustHealthSignals({
   const productsWithStructuredData = openAiProducts.filter(
     hasStructuredDataFields
   ).length;
+  const productsWithReviewSignals = openAiProducts.filter(
+    hasReviewSignalFields
+  ).length;
   const latestProductUpdatedAt = getLatestProductUpdatedAt(openAiProducts);
   const staleProducts = countStaleProducts(openAiProducts, now);
   const crawlerUrls = [surfaces.robots, surfaces.sitemap, surfaces.llms];
@@ -102,6 +123,22 @@ export function buildAgentCommerceTrustHealthSignals({
           openAiProducts.length === 0
             ? 'No active products are available for JSON-LD field auditing.'
             : `${productsWithStructuredData} of ${openAiProducts.length} agent-visible products have core JSON-LD product fields.`,
+      },
+      {
+        id: 'review-signal-coverage',
+        label: 'Review signal coverage',
+        severity: getTrustCoverageSeverity(
+          productsWithReviewSignals,
+          openAiProducts.length
+        ),
+        message:
+          openAiProducts.length === 0
+            ? 'No active products are available for review signal auditing.'
+            : `${productsWithReviewSignals} of ${openAiProducts.length} agent-visible products have usable review count and rating metadata.`,
+        affectedProductCount: Math.max(
+          0,
+          openAiProducts.length - productsWithReviewSignals
+        ),
       },
       {
         id: 'feed-freshness',

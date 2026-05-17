@@ -93,6 +93,7 @@ describe('GET /.well-known/ucp', () => {
     });
     expect(body.extensions.baci.capabilities).toEqual(['catalog.read']);
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(JSON.stringify(body)).not.toContain('xsoljx');
   });
 
   it('exposes Baci checkout extensions when agentic checkout is configured', async () => {
