@@ -342,9 +342,16 @@ describe('ImeiCheckerScreen', () => {
     await waitFor(() => {
       expect(screen.getByText(error)).toBeTruthy();
     });
+    await waitFor(() => {
+      expect(screen.getByText('Verify Now - ₦1,500')).toBeTruthy();
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
 
     fireEvent.press(screen.getByText('Verify Now - ₦1,500'));
 
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
     await screen.findByText('iPhone 13 Pro');
 
     const firstHeaders = (jest.mocked(fetch).mock.calls[0][1] as RequestInit)

@@ -11,7 +11,7 @@ import {
 import { OGABASSEY_CDN_ORIGIN } from '@/components/storefront/ogabassey/config/storefront-origins';
 
 describe('OgabasseyStaticResourceHints', () => {
-  it('emits viewport-scoped hero image hints into server HTML', () => {
+  it('emits an eager mobile hero image hint and keeps desktop viewport-scoped', () => {
     const html = renderToString(<OgabasseyStaticResourceHints />);
     const template = document.createElement('template');
     template.innerHTML = html;
@@ -51,7 +51,7 @@ describe('OgabasseyStaticResourceHints', () => {
     expect(mobilePreload?.getAttribute('as')).toBe('image');
     expect(mobilePreload?.getAttribute('type')).toBe('image/avif');
     expect(mobilePreload?.getAttribute('fetchpriority')).toBe('high');
-    expect(mobilePreload?.getAttribute('media')).toBe('(max-width: 767px)');
+    expect(mobilePreload?.getAttribute('media')).toBeNull();
     expect(
       links.filter((link) => link.getAttribute('rel') === 'preload')
     ).toHaveLength(2);

@@ -4,7 +4,9 @@ import { Suspense } from 'react';
 import { BlogListingFallback } from '@/app/(storefront)/[slug]/(blog)/blog/BlogListingFallback';
 import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
+import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
 import { getCachedBlogListing } from '@/lib/cached-data';
+import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
 import {
   generateBreadcrumbSchema,
   generateMetaDescription,
@@ -123,6 +125,7 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
     notFound();
   }
   const { merchant, posts, categories, totalPosts, searchQuery } = data;
+  const publicCategories = filterPublicBlogCategories(categories);
   const baseUrl = buildStoreUrl(merchant);
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
   const guideCollections = buildBlogClusterCollections({
@@ -155,18 +158,21 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
           }
         : undefined,
     },
-    blogPost: posts.slice(0, 10).map((post) => ({
-      '@type': 'BlogPosting',
-      headline: post.title,
-      description: post.excerpt || '',
-      url: `${baseUrl}/blog/${post.slug}`,
-      datePublished: post.published_at,
-      author: {
-        '@type': 'Person',
-        name: post.author_name || merchant.business_name,
-      },
-      image: post.featured_image_url || undefined,
-    })),
+    blogPost: posts.slice(0, 10).map((post) => {
+      const imageUrls = getBlogStructuredDataImageUrls(post);
+      return {
+        '@type': 'BlogPosting',
+        headline: post.title,
+        description: post.excerpt || '',
+        url: `${baseUrl}/blog/${post.slug}`,
+        datePublished: post.published_at,
+        author: {
+          '@type': 'Person',
+          name: post.author_name || merchant.business_name,
+        },
+        ...(imageUrls.length > 0 ? { image: imageUrls } : {}),
+      };
+    }),
   };
   const breadcrumbSchema = generateBreadcrumbSchema([
     {
@@ -186,7 +192,7 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
         const components = await template.getComponents();
         if (components.Blog) {
           const BlogComponent = components.Blog;
-          const templateCategories = categories.map((cat) => ({
+          const templateCategories = publicCategories.map((cat) => ({
             name: cat,
             slug: generateSlug(cat),
           }));
@@ -205,7 +211,7 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
             <>
               <BlogDiscoverySection
                 baseUrl={baseUrl}
-                categories={categories}
+                categories={publicCategories}
                 posts={posts}
               />
               <InformationalClusterIndex collections={guideCollections} />
@@ -236,7 +242,7 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
     <>
       <BlogDiscoverySection
         baseUrl={baseUrl}
-        categories={categories}
+        categories={publicCategories}
         posts={posts}
       />
       <InformationalClusterIndex collections={guideCollections} />
@@ -244,7 +250,7 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
         blogSchema={blogSchema}
         breadcrumbSchema={breadcrumbSchema}
         basePath={basePath}
-        categories={categories}
+        categories={publicCategories}
         category={category}
         merchant={merchant}
         posts={posts}
