@@ -284,7 +284,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (discountAmountValue > 0) {
+    if (discountAmountValue !== 0) {
       return NextResponse.json(
         {
           code: 'discount_amount_not_supported',

@@ -329,6 +329,40 @@ describe('POST /api/orders — wallet response shape', () => {
   });
 });
 
+describe('POST /api/orders — discount guard', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: 'Not authenticated',
+      supabase: null,
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => buildMockSupabase() as unknown as never
+    );
+  });
+
+  it('rejects any non-zero client discount amount', async () => {
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        discount_amount: 50,
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({
+      code: 'discount_amount_not_supported',
+      error: 'Failed to create order',
+    });
+  });
+});
+
 describe('POST /api/orders — B3.5 client/server total parity', () => {
   // Codex P1 (PR #1622): the parity check moved INTO the RPC so a
   // mismatch rolls back the transaction atomically BEFORE the order
