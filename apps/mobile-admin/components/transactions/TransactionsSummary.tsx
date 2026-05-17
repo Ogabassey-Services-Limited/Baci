@@ -1,10 +1,14 @@
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import { styles } from '@/components/transactions/transactions.styles';
 import type { ThemeColors } from '@/constants/theme';
 
+export type TransactionReviewTab = 'missing-costs' | 'paid';
+
 interface TransactionsSummaryProps {
+  activeTab: TransactionReviewTab;
   colors: ThemeColors;
   estimatedProfitLabel: string;
+  onTabChange: (tab: TransactionReviewTab) => void;
   summary: {
     missingCosts: number;
     transactions: number;
@@ -12,19 +16,28 @@ interface TransactionsSummaryProps {
 }
 
 export function TransactionsSummary({
+  activeTab,
   colors,
   estimatedProfitLabel,
+  onTabChange,
   summary,
 }: TransactionsSummaryProps) {
   return (
     <>
       <View style={styles.summaryRow}>
-        <View
-          accessible
+        <Pressable
           accessibilityLabel={`Paid transactions: ${summary.transactions}`}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === 'paid' }}
+          onPress={() => onTabChange('paid')}
           style={[
             styles.summaryCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
+            {
+              backgroundColor:
+                activeTab === 'paid' ? colors.primaryLight : colors.card,
+              borderColor:
+                activeTab === 'paid' ? colors.primary : colors.border,
+            },
           ]}
         >
           <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
@@ -33,13 +46,20 @@ export function TransactionsSummary({
           <Text style={[styles.summaryValue, { color: colors.text }]}>
             {summary.transactions}
           </Text>
-        </View>
-        <View
-          accessible
+        </Pressable>
+        <Pressable
           accessibilityLabel={`Missing costs: ${summary.missingCosts}`}
+          accessibilityRole="tab"
+          accessibilityState={{ selected: activeTab === 'missing-costs' }}
+          onPress={() => onTabChange('missing-costs')}
           style={[
             styles.summaryCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
+            {
+              backgroundColor:
+                activeTab === 'missing-costs' ? colors.errorLight : colors.card,
+              borderColor:
+                activeTab === 'missing-costs' ? colors.error : colors.border,
+            },
           ]}
         >
           <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
@@ -48,7 +68,7 @@ export function TransactionsSummary({
           <Text style={[styles.summaryValue, { color: colors.error }]}>
             {summary.missingCosts}
           </Text>
-        </View>
+        </Pressable>
       </View>
 
       <View
