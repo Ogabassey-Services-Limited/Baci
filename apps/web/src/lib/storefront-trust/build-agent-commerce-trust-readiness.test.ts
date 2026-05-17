@@ -128,6 +128,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
     );
     expect(result.surfaces.robots).toBe('https://ogabassey.com/robots.txt');
     expect(result.surfaces.sitemap).toBe('https://ogabassey.com/sitemap.xml');
+    expect(result.surfaces.llms).toBe('https://ogabassey.com/llms.txt');
     expect(result.surfaces.ucpProfile).toBe(
       'https://ogabassey.com/.well-known/ucp'
     );

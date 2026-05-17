@@ -105,6 +105,7 @@ const fullReadiness = {
     googleMerchantXml: 'https://shop.example.com/feeds/google-merchant.xml',
     openAiProductFeed: 'https://shop.example.com/feeds/openai.jsonl',
     productApi: 'https://shop.example.com/api/storefront/demo/products',
+    llms: 'https://shop.example.com/llms.txt',
     policies: {
       privacy_policy_url: 'https://shop.example.com/privacy',
       return_policy_url: 'https://shop.example.com/returns',

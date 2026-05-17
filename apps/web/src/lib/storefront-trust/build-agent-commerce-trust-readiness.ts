@@ -51,6 +51,7 @@ export interface AgentCommerceTrustReadiness {
     googleMerchantXml: string;
     openAiProductFeed: string;
     productApi: string;
+    llms: string;
     policies: ReturnType<typeof buildAgentPolicyUrls>;
     robots: string;
     sitemap: string;
@@ -130,6 +131,7 @@ function buildSurfaceUrls(baseUrl: string, slug: string) {
     googleMerchantXml: `${root}${STOREFRONT_FEED_ROUTES.googleMerchantXml}`,
     openAiProductFeed: `${root}${STOREFRONT_FEED_ROUTES.openaiProductFeed}`,
     productApi: `${root}/api/storefront/${encodeURIComponent(slug)}/products`,
+    llms: `${root}/llms.txt`,
     policies: buildAgentPolicyUrls(root),
     robots: `${root}/robots.txt`,
     sitemap: `${root}/sitemap.xml`,
@@ -230,6 +232,7 @@ export function buildAgentCommerceTrustReadiness({
     surfaces.googleMerchantXml,
     surfaces.openAiProductFeed,
     surfaces.productApi,
+    surfaces.llms,
     ...Object.values(surfaces.policies),
     surfaces.robots,
     surfaces.sitemap,
