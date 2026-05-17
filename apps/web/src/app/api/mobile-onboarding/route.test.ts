@@ -325,7 +325,11 @@ describe('POST /api/mobile-onboarding', () => {
     merchantQuery.eq.mockReturnValue(merchantQuery);
     merchantQuery.update.mockReturnValue(merchantQuery);
     merchantQuery.maybeSingle.mockResolvedValue({
-      data: { id: 'merch-1', business_name: null },
+      data: {
+        id: 'merch-1',
+        business_name: null,
+        slug: 'mobile-existing-slug',
+      },
       error: null,
     });
     merchantQuery.single.mockResolvedValue({
@@ -365,6 +369,7 @@ describe('POST /api/mobile-onboarding', () => {
     expect(merchantQuery.update).toHaveBeenCalledWith(
       expect.objectContaining({
         signup_source: 'ios',
+        slug: 'mobile-existing-slug',
       })
     );
     expect(mockSignUp).not.toHaveBeenCalled();
@@ -387,7 +392,11 @@ describe('POST /api/mobile-onboarding', () => {
     merchantQuery.eq.mockReturnValue(merchantQuery);
     merchantQuery.update.mockReturnValue(merchantQuery);
     merchantQuery.maybeSingle.mockResolvedValue({
-      data: { id: 'merch-1', business_name: 'Existing Store' },
+      data: {
+        id: 'merch-1',
+        business_name: 'Existing Store',
+        slug: 'stable-mobile-slug',
+      },
       error: null,
     });
     merchantQuery.single.mockResolvedValue({
@@ -415,9 +424,16 @@ describe('POST /api/mobile-onboarding', () => {
     });
 
     const res = await POST(
-      makeRequest(validBody, {
-        'User-Agent': 'BaciMobile/1.0 (Linux; Android 15)',
-      })
+      makeRequest(
+        {
+          ...validBody,
+          businessName: 'Renamed Store',
+          slug: 'requested-new-slug',
+        },
+        {
+          'User-Agent': 'BaciMobile/1.0 (Linux; Android 15)',
+        }
+      )
     );
     const body = await res.json();
 
@@ -427,6 +443,10 @@ describe('POST /api/mobile-onboarding', () => {
     expect(merchantQuery.update.mock.calls[0]?.[0]).not.toHaveProperty(
       'signup_source'
     );
+    expect(merchantQuery.update.mock.calls[0]?.[0]).toMatchObject({
+      business_name: 'Renamed Store',
+      slug: 'stable-mobile-slug',
+    });
   });
 
   // --- Domain creation ---
