@@ -31,7 +31,7 @@ interface ExpectedTotalDiscountInput extends ExpectedTotalCalculationInput {
   expectedTotal: number | null;
 }
 
-type MoneyInputName = keyof ExpectedTotalCalculationInput;
+type MoneyInputName = keyof ExpectedTotalCalculationInput | 'expectedTotal';
 
 function assertNonNegativeMoneyInput(
   parameterName: MoneyInputName,
@@ -50,13 +50,20 @@ function assertNonNegativeMoneyInput(
   }
 }
 
-function validateExpectedTotalInputs(
-  input: ExpectedTotalCalculationInput
-): void {
+function assertOptionalExpectedTotalInput(value: number | null): void {
+  if (value === null) {
+    return;
+  }
+
+  assertNonNegativeMoneyInput('expectedTotal', value);
+}
+
+function validateExpectedTotalInputs(input: ExpectedTotalDiscountInput): void {
   assertNonNegativeMoneyInput('canonicalSubtotal', input.canonicalSubtotal);
   assertNonNegativeMoneyInput('canonicalTaxAmount', input.canonicalTaxAmount);
   assertNonNegativeMoneyInput('shippingFee', input.shippingFee);
   assertNonNegativeMoneyInput('giftWrappingFee', input.giftWrappingFee);
+  assertOptionalExpectedTotalInput(input.expectedTotal);
 }
 
 function computeCanonicalOrderTotal({
@@ -98,6 +105,7 @@ export function computeExpectedTotalDiscount({
     canonicalTaxAmount,
     shippingFee,
     giftWrappingFee,
+    expectedTotal,
   });
 
   if (expectedTotal === null) {

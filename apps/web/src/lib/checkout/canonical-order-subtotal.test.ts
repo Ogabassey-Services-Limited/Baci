@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { computeCanonicalOrderSubtotal } from './canonical-order-subtotal';
+import { computeCanonicalOrderSubtotal } from '@/lib/checkout/canonical-order-subtotal';
 
 vi.mock('@/lib/logger', () => ({
   logger: {

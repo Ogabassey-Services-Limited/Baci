@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   computeExpectedTotalDiscount,
   hasExpectedTotalMismatch,
-} from './expected-total-discount';
+} from '@/lib/checkout/expected-total-discount';
 
 type MoneyInputName =
   | 'canonicalSubtotal'
   | 'canonicalTaxAmount'
   | 'shippingFee'
-  | 'giftWrappingFee';
+  | 'giftWrappingFee'
+  | 'expectedTotal';
 
 const baseDiscountInput = {
   canonicalSubtotal: 1000,
@@ -187,6 +188,9 @@ describe('computeExpectedTotalDiscount', () => {
     ['canonicalTaxAmount', Number.POSITIVE_INFINITY],
     ['shippingFee', '0'],
     ['giftWrappingFee', null],
+    ['expectedTotal', Number.NaN],
+    ['expectedTotal', Number.POSITIVE_INFINITY],
+    ['expectedTotal', '1045'],
   ] satisfies [
     MoneyInputName,
     unknown,
@@ -203,6 +207,7 @@ describe('computeExpectedTotalDiscount', () => {
     ['canonicalTaxAmount', -0.01],
     ['shippingFee', -1],
     ['giftWrappingFee', -1],
+    ['expectedTotal', -1],
   ] satisfies [
     MoneyInputName,
     number,
@@ -238,5 +243,37 @@ describe('hasExpectedTotalMismatch', () => {
         expectedTotal: 1074,
       })
     ).toBe(false);
+  });
+
+  it.each([
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    '1075',
+  ] satisfies unknown[])('throws TypeError when expectedTotal is not finite (%s)', (expectedTotal) => {
+    const hasMismatch = () =>
+      hasExpectedTotalMismatch({
+        canonicalSubtotal: 1000,
+        canonicalTaxAmount: 75,
+        shippingFee: 0,
+        giftWrappingFee: 0,
+        expectedTotal: expectedTotal as number | null,
+      });
+
+    expect(hasMismatch).toThrow(TypeError);
+    expect(hasMismatch).toThrow('expectedTotal');
+  });
+
+  it('throws RangeError when expectedTotal is negative', () => {
+    const hasMismatch = () =>
+      hasExpectedTotalMismatch({
+        canonicalSubtotal: 1000,
+        canonicalTaxAmount: 75,
+        shippingFee: 0,
+        giftWrappingFee: 0,
+        expectedTotal: -1,
+      });
+
+    expect(hasMismatch).toThrow(RangeError);
+    expect(hasMismatch).toThrow('expectedTotal');
   });
 });
