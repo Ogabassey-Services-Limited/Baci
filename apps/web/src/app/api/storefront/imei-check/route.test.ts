@@ -563,6 +563,34 @@ describe('POST /api/storefront/imei-check', () => {
     });
   });
 
+  it('continues the paid lookup when the preflight wallet balance read fails', async () => {
+    mocks.mockReadCustomerWalletBalance.mockRejectedValueOnce(
+      new Error('balance read unavailable')
+    );
+    const adminSupabase = createSupabaseMock();
+    const userSupabase = createSupabaseMock();
+    mockAuthenticatedUser({ adminSupabase, userSupabase });
+    const { POST } = await importRoute();
+
+    const response = await POST(createRequest());
+    const body = (await response.json()) as { data: { device: string } };
+
+    expect(response.status).toBe(200);
+    expect(body.data.device).toBe('iPhone 15');
+    expect(mocks.mockReadCustomerWalletBalance).toHaveBeenCalledOnce();
+    expect(mocks.mockRedeemImeiWalletPayment).toHaveBeenCalledWith(
+      expect.objectContaining({ supabaseAdmin: adminSupabase })
+    );
+    expect(mocks.mockRequestSickwCheck).toHaveBeenCalled();
+    expect(adminSupabase.__updates.at(-1)).toMatchObject({
+      filters: { id: 'lookup-1' },
+      payload: {
+        cached_status: 200,
+        status: 'completed',
+      },
+    });
+  });
+
   it('caches a terminal 500 when wallet debit fails unexpectedly', async () => {
     mocks.mockRedeemImeiWalletPayment.mockRejectedValueOnce(
       new Error('wallet rpc unavailable')

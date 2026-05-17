@@ -179,7 +179,7 @@ export async function cacheInsufficientBalanceResponse({
   customerId: string;
   lookupId: string;
   merchantId: string;
-  preflightBalance: number;
+  preflightBalance?: number;
   supabase: SupabaseClient;
   supabaseAdmin: AdminSupabaseClient;
 }) {

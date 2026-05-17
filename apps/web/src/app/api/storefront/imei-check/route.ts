@@ -266,11 +266,20 @@ export async function POST(request: NextRequest) {
       merchantId,
     };
 
-    const preflightBalance = await readCustomerWalletBalance({
-      customerId: customer.id,
-      merchantId,
-      supabase,
-    });
+    let preflightBalance: number | undefined;
+    try {
+      preflightBalance = await readCustomerWalletBalance({
+        customerId: customer.id,
+        merchantId,
+        supabase,
+      });
+    } catch (balanceError) {
+      console.error('[IMEI Check] Failed to read preflight wallet balance:', {
+        customerId: customer.id,
+        error: balanceError,
+        merchantId,
+      });
+    }
 
     try {
       await redeemImeiWalletPayment({
