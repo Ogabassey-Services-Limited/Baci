@@ -166,6 +166,33 @@ describe('AgenticActionCenterCard', () => {
     );
   });
 
+  it('uses next_step_url from the payload when present', () => {
+    render(
+      <AgenticActionCenterCard
+        payload={{
+          actions: [
+            {
+              code: 'AGENTIC_ORDER_FINALIZING',
+              count: 1,
+              message:
+                'Agentic checkouts are waiting on order finalization recovery.',
+              next_step_url:
+                '/dashboard/orders?source=agentic&focus=finalizing',
+              severity: 'attention',
+            },
+          ],
+        }}
+        state="ready"
+      />
+    );
+
+    expect(screen.getByText('1 open')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /review/i })).toHaveAttribute(
+      'href',
+      '/dashboard/orders?source=agentic&focus=finalizing'
+    );
+  });
+
   it('renders an unavailable state when loading fails', () => {
     render(<AgenticActionCenterCard payload={null} state="error" />);
 

@@ -13,6 +13,7 @@ export const agenticActionSchema = z.object({
   count: nonnegativeCountSchema,
   message: z.string(),
   next_step: z.string().trim().min(1).optional(),
+  next_step_url: z.string().trim().min(1).optional(),
   severity: agenticActionSeveritySchema,
 });
 

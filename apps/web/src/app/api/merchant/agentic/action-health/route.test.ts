@@ -151,24 +151,28 @@ describe('GET /api/merchant/agentic/action-health', () => {
           code: 'AGENTIC_IDEMPOTENCY_ERRORS',
           count: 1,
           next_step: expect.any(String),
+          next_step_url: '/dashboard/orders?source=agentic',
           severity: 'attention',
         },
         {
           code: 'AGENTIC_ORDER_FINALIZING',
           count: 1,
           next_step: expect.any(String),
+          next_step_url: '/dashboard/orders?source=agentic',
           severity: 'attention',
         },
         {
           code: 'AGENTIC_REQUESTS_IN_PROGRESS',
           count: 1,
           next_step: expect.any(String),
+          next_step_url: '/dashboard/orders?source=agentic',
           severity: 'monitor',
         },
         {
           code: 'AGENTIC_PAYMENT_PENDING',
           count: 1,
           next_step: expect.any(String),
+          next_step_url: '/dashboard/orders?source=agentic',
           severity: 'monitor',
         },
       ],
@@ -256,6 +260,7 @@ describe('GET /api/merchant/agentic/action-health', () => {
         message: 'No agent allowlist is configured in Trust settings.',
         next_step:
           'Open Trust settings and configure trusted agent user-agents before broadly advertising checkout.',
+        next_step_url: '/dashboard/settings/trust',
         severity: 'monitor',
       },
     ]);
@@ -294,6 +299,7 @@ describe('GET /api/merchant/agentic/action-health', () => {
         message: 'No agent allowlist is configured in Trust settings.',
         next_step:
           'Open Trust settings and configure trusted agent user-agents before broadly advertising checkout.',
+        next_step_url: '/dashboard/settings/trust',
         severity: 'monitor',
       },
     ]);
@@ -386,6 +392,7 @@ describe('GET /api/merchant/agentic/action-health', () => {
           message:
             'Agentic retry reservations expired before storing a response.',
           next_step: expect.any(String),
+          next_step_url: '/dashboard/orders?source=agentic',
           severity: 'attention',
         }),
         expect.objectContaining({
@@ -393,6 +400,7 @@ describe('GET /api/merchant/agentic/action-health', () => {
           count: 1,
           message: 'Agentic idempotency reservations are still in progress.',
           next_step: expect.any(String),
+          next_step_url: '/dashboard/orders?source=agentic',
           severity: 'monitor',
         }),
       ])
@@ -443,6 +451,7 @@ describe('GET /api/merchant/agentic/action-health', () => {
           message:
             'Agentic checkouts failed while setting up payment collection.',
           next_step: expect.any(String),
+          next_step_url: '/dashboard/orders?source=agentic',
           severity: 'attention',
         }),
         expect.objectContaining({
@@ -450,6 +459,7 @@ describe('GET /api/merchant/agentic/action-health', () => {
           count: 1,
           message: 'Agentic checkouts are claiming payment setup.',
           next_step: expect.any(String),
+          next_step_url: '/dashboard/orders?source=agentic',
           severity: 'monitor',
         }),
       ])
@@ -500,6 +510,7 @@ describe('GET /api/merchant/agentic/action-health', () => {
             'Agentic checkouts have been waiting for payment confirmation too long.',
           next_step:
             'Confirm payment manually or cancel stale sessions before agents keep polling.',
+          next_step_url: '/dashboard/orders?source=agentic',
           severity: 'attention',
         }),
         expect.objectContaining({
@@ -507,6 +518,7 @@ describe('GET /api/merchant/agentic/action-health', () => {
           count: 1,
           message: 'Agentic checkouts are waiting for payment confirmation.',
           next_step: expect.any(String),
+          next_step_url: '/dashboard/orders?source=agentic',
           severity: 'monitor',
         }),
       ])
