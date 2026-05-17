@@ -347,6 +347,16 @@ describe('fulfillPendingVtuTransaction', () => {
   });
 
   it('returns the existing success payload without repurchasing', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: {
+        awarded: false,
+        new_points_balance: 501,
+        points_awarded: 1,
+        reason: 'already_awarded',
+        success: true,
+      },
+      error: null,
+    });
     const single = vi.fn().mockResolvedValue({
       data: {
         id: 'vtu-1',
@@ -363,6 +373,9 @@ describe('fulfillPendingVtuTransaction', () => {
           customerNotificationAttempted: true,
           customerWalletCredited: true,
           customerNewBalance: 500,
+          loyaltyPointsAwarded: true,
+          loyaltyPointsBalance: 501,
+          loyaltyPointsEarned: 1,
           merchantWalletCredited: true,
         },
         error_message: null,
@@ -381,6 +394,7 @@ describe('fulfillPendingVtuTransaction', () => {
           eq: vi.fn().mockReturnValue({ single }),
         }),
       })),
+      rpc,
     } as unknown as Parameters<
       typeof fulfillPendingVtuTransaction
     >[0]['supabase'];
@@ -394,8 +408,13 @@ describe('fulfillPendingVtuTransaction', () => {
       amount: 1000,
       cashback: { amount: 5, credited: true, newBalance: 500 },
       customerIdentifier: undefined,
+      loyaltyPoints: { credited: true, earned: 1, newBalance: 501 },
       reference: 'VTU-123',
       status: 'successful',
+    });
+    expect(rpc).toHaveBeenCalledWith('award_vtu_airtime_loyalty_points', {
+      p_points: 1,
+      p_transaction_id: 'vtu-1',
     });
     expect(mockPurchaseAirtime).not.toHaveBeenCalled();
   });
@@ -698,6 +717,81 @@ describe('fulfillPendingVtuTransaction', () => {
       'OgaBassey',
       'VTU-123'
     );
+  });
+
+  it('awards airtime loyalty points from customer cashback after a new successful purchase', async () => {
+    mockPurchaseAirtime.mockResolvedValue({
+      success: true,
+      message: 'ok',
+      transactionId: 'kuda-1',
+      amount: 1000,
+      status: 'successful',
+    });
+
+    const updatePayloads: unknown[] = [];
+    const supabase = createPendingTransactionSupabaseMock({
+      transactionRow: {
+        id: 'vtu-1',
+        merchant_id: 'merchant-1',
+        customer_id: 'customer-1',
+        type: 'airtime',
+        network_provider: 'MTN',
+        phone_number: '08012345678',
+        amount: 1000,
+        request_reference: 'VTU-123',
+        transaction_id: null,
+        status: 'pending',
+        metadata: {},
+        error_message: null,
+        merchant_commission: 0,
+        customer_cashback: 15,
+        biller_name: null,
+        biller_item_code: null,
+        customer_identifier: null,
+      },
+      rpcImpl: (name: string) => {
+        if (name === 'credit_customer_wallet') {
+          return Promise.resolve({ data: [{ new_balance: 515 }], error: null });
+        }
+        if (name === 'award_vtu_airtime_loyalty_points') {
+          return Promise.resolve({
+            data: {
+              awarded: true,
+              new_points_balance: 205,
+              points_awarded: 5,
+              success: true,
+            },
+            error: null,
+          });
+        }
+        return Promise.resolve({ data: null, error: null });
+      },
+      updatePayloads,
+    });
+
+    const result = await fulfillPendingVtuTransaction({
+      supabase,
+      transactionId: 'vtu-1',
+    });
+
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'award_vtu_airtime_loyalty_points',
+      {
+        p_points: 5,
+        p_transaction_id: 'vtu-1',
+      }
+    );
+    expect(result).toMatchObject({
+      loyaltyPoints: { credited: true, earned: 5, newBalance: 205 },
+      status: 'successful',
+    });
+    expect(updatePayloads).toContainEqual({
+      metadata: expect.objectContaining({
+        loyaltyPointsAwarded: true,
+        loyaltyPointsBalance: 205,
+        loyaltyPointsEarned: 5,
+      }),
+    });
   });
 
   it('normalizes mobile provider IDs before purchasing airtime', async () => {

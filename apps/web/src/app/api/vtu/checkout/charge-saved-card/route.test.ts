@@ -128,6 +128,11 @@ describe('POST /api/vtu/checkout/charge-saved-card', () => {
     mockFulfillPendingVtuTransaction.mockResolvedValue({
       status: 'successful',
       amount: 1000,
+      loyaltyPoints: {
+        credited: true,
+        earned: 5,
+        newBalance: 205,
+      },
       reference: 'VTU-123',
     });
     updateErrorFor = () => null;
@@ -380,6 +385,11 @@ describe('POST /api/vtu/checkout/charge-saved-card', () => {
       status: 'successful',
       amount: 1000,
       reference: 'VTU-123',
+      loyaltyPoints: {
+        credited: true,
+        earned: 5,
+        newBalance: 205,
+      },
     });
     expect(mockUpsertPaystackAuthorization).toHaveBeenCalled();
     expect(mockFulfillPendingVtuTransaction).toHaveBeenCalledWith({

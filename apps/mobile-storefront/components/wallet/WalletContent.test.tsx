@@ -96,6 +96,15 @@ describe('WalletContent', () => {
     expect(props.onResetRedeem).toHaveBeenCalledTimes(1);
   });
 
+  it('shows the redeemable block balance and full point balance', () => {
+    render(<WalletContent {...props} loyaltyPoints={250} showRedeemPanel />);
+
+    expect(
+      screen.getByText('200 points redeemable now - 100 points = ₦100')
+    ).toBeOnTheScreen();
+    expect(screen.getByText('Available: 250 points')).toBeOnTheScreen();
+  });
+
   it('shows the empty-state copy when no transactions exist', () => {
     render(<WalletContent {...props} transactions={[]} />);
 

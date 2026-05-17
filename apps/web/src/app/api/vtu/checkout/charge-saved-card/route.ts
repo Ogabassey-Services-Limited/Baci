@@ -349,6 +349,9 @@ export async function POST(request: NextRequest) {
       amount: fulfillment.amount,
       cashback: fulfillment.cashback,
       customerIdentifier: fulfillment.customerIdentifier,
+      ...(fulfillment.loyaltyPoints && {
+        loyaltyPoints: fulfillment.loyaltyPoints,
+      }),
       reference: fulfillment.reference,
       status: 'successful',
       success: true,

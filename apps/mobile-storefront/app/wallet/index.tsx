@@ -2,6 +2,7 @@ import { Redirect, router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
+import { VTU_MIN_REDEEMABLE_POINTS } from '@baci/shared/lib';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
 import { useColorScheme } from '@/components/useColorScheme';
 import { WalletContent } from '@/components/wallet/WalletContent';
@@ -162,10 +163,26 @@ export default function WalletScreen({
   };
 
   const handleRedeemPoints = async () => {
-    const points = Number.parseInt(redeemPoints, 10);
-
-    if (Number.isNaN(points) || points <= 0) {
+    const trimmedRedeemPoints = redeemPoints.trim();
+    if (!/^\d+$/.test(trimmedRedeemPoints)) {
       Alert.alert('Invalid Input', 'Please enter a valid number of points');
+      return;
+    }
+
+    const points = Number(trimmedRedeemPoints);
+
+    if (!Number.isSafeInteger(points) || points <= 0) {
+      Alert.alert('Invalid Input', 'Please enter a valid number of points');
+      return;
+    }
+
+    if (points < VTU_MIN_REDEEMABLE_POINTS) {
+      Alert.alert('Invalid Points', 'Minimum redemption is 100 points');
+      return;
+    }
+
+    if (points % VTU_MIN_REDEEMABLE_POINTS !== 0) {
+      Alert.alert('Invalid Points', 'Redeem points in 100-point blocks');
       return;
     }
 
