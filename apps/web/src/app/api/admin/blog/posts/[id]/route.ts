@@ -122,27 +122,48 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const updateData: Record<string, unknown> = { ...validated.data };
+    const featuredImageUrlChanged =
+      Object.hasOwn(updateData, 'featured_image_url') &&
+      updateData.featured_image_url !== existingPost.featured_image_url;
+    if (featuredImageUrlChanged) {
+      // A new primary image invalidates dimensions and variants unless
+      // replacement metadata is supplied in this PATCH payload.
+      if (!Object.hasOwn(updateData, 'featured_image_width')) {
+        updateData.featured_image_width = null;
+      }
+      if (!Object.hasOwn(updateData, 'featured_image_height')) {
+        updateData.featured_image_height = null;
+      }
+      if (!Object.hasOwn(updateData, 'featured_image_variants')) {
+        updateData.featured_image_variants = {};
+      }
+    }
+
     const targetStatus =
-      typeof validated.data.status === 'string'
-        ? validated.data.status
+      typeof updateData.status === 'string'
+        ? updateData.status
         : existingPost.status;
     const effectiveImage = {
       featured_image_height:
-        validated.data.featured_image_height === undefined
+        updateData.featured_image_height === undefined
           ? existingPost.featured_image_height
-          : validated.data.featured_image_height,
+          : (updateData.featured_image_height as number | null),
       featured_image_url:
-        validated.data.featured_image_url === undefined
+        updateData.featured_image_url === undefined
           ? existingPost.featured_image_url
-          : validated.data.featured_image_url,
+          : (updateData.featured_image_url as string | null),
       featured_image_variants:
-        validated.data.featured_image_variants === undefined
+        updateData.featured_image_variants === undefined
           ? (existingPost.featured_image_variants ?? {})
-          : validated.data.featured_image_variants,
+          : ((updateData.featured_image_variants as Record<
+              string,
+              unknown
+            > | null) ?? {}),
       featured_image_width:
-        validated.data.featured_image_width === undefined
+        updateData.featured_image_width === undefined
           ? existingPost.featured_image_width
-          : validated.data.featured_image_width,
+          : (updateData.featured_image_width as number | null),
     };
 
     const variantIntegrity = validateBlogImageVariantIntegrity(effectiveImage, {
@@ -182,12 +203,12 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     }
 
     const shouldSetPublishedAt =
-      validated.data.status === 'published' &&
+      updateData.status === 'published' &&
       existingPost.status !== 'published' &&
-      !validated.data.published_at;
+      !updateData.published_at;
 
-    const updateData = {
-      ...validated.data,
+    const finalUpdateData = {
+      ...updateData,
       is_platform_post: true,
       merchant_id: null,
       ...(shouldSetPublishedAt
@@ -197,7 +218,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     const { data, error } = await supabase
       .from('blog_posts')
-      .update(updateData)
+      .update(finalUpdateData)
       .eq('id', id)
       .eq('is_platform_post', true)
       .is('merchant_id', null)

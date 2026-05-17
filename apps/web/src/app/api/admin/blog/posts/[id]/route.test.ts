@@ -221,6 +221,60 @@ describe('PATCH /api/admin/blog/posts/[id]', () => {
       })
     );
   });
+
+  it('clears stale image metadata when featured_image_url changes without replacement variants', async () => {
+    mockSupabase.single
+      .mockResolvedValueOnce({
+        data: {
+          id: 'post-1',
+          slug: 'launch-faster',
+          status: 'draft',
+          featured_image_url: 'https://cdn.example.com/old-cover.png',
+          featured_image_width: 1200,
+          featured_image_height: 675,
+          featured_image_variants: {
+            landscape_16x9: 'https://cdn.example.com/old-landscape.webp',
+          },
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          id: 'post-1',
+          slug: 'launch-faster',
+          status: 'draft',
+          featured_image_url: 'https://cdn.example.com/new-cover.png',
+          featured_image_width: null,
+          featured_image_height: null,
+          featured_image_variants: {},
+        },
+        error: null,
+      });
+
+    const response = await PATCH(
+      new NextRequest('http://localhost/api/admin/blog/posts/post-1', {
+        body: JSON.stringify({
+          featured_image_url: 'https://cdn.example.com/new-cover.png',
+          title: 'Launch Faster',
+        }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH',
+      }),
+      { params: Promise.resolve({ id: 'post-1' }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockSupabase.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        featured_image_url: 'https://cdn.example.com/new-cover.png',
+        featured_image_width: null,
+        featured_image_height: null,
+        featured_image_variants: {},
+        is_platform_post: true,
+        merchant_id: null,
+      })
+    );
+  });
 });
 
 describe('DELETE /api/admin/blog/posts/[id]', () => {
