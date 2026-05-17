@@ -154,8 +154,10 @@ describe('blog-api', () => {
       RequestInit,
     ];
     const body = JSON.parse(String(options.body)) as Record<string, unknown>;
-    expect(body.category).toBeNull();
-    expect(body.excerpt).toBeNull();
+    expect(body.category).toBeUndefined();
+    expect(body.excerpt).toBeUndefined();
+    expect(body.seo_description).toBeUndefined();
+    expect(body.seo_title).toBeUndefined();
     expect(body.slug).toBeUndefined();
     expect(body.featured_image_height).toBe(675);
     expect(body.featured_image_width).toBe(1200);

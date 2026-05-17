@@ -25,18 +25,23 @@ async function readErrorMessage(
 }
 
 function toApiPayload(input: PlatformAdminBlogFormState) {
+  const toOptionalString = (value: string) => {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  };
+
   return {
     author_name: input.author_name,
-    category: input.category || null,
+    category: toOptionalString(input.category),
     content: input.content,
-    excerpt: input.excerpt || null,
-    featured_image_alt: input.featured_image_alt || null,
+    excerpt: toOptionalString(input.excerpt),
+    featured_image_alt: toOptionalString(input.featured_image_alt),
     featured_image_height: input.featured_image_height,
-    featured_image_url: input.featured_image_url || null,
+    featured_image_url: toOptionalString(input.featured_image_url) || null,
     featured_image_variants: input.featured_image_variants,
     featured_image_width: input.featured_image_width,
-    seo_description: input.seo_description || null,
-    seo_title: input.seo_title || null,
+    seo_description: toOptionalString(input.seo_description),
+    seo_title: toOptionalString(input.seo_title),
     slug: input.slug || undefined,
     status: input.status,
     tags: input.tags,
