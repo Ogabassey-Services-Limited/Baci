@@ -64,7 +64,7 @@ export default function SettingsScreen() {
       onPress={onPress}
       accessibilityRole={onPress ? "button" : undefined}
       accessibilityLabel={title}
-      accessibilityHint={subtitle}
+      accessibilityHint={onPress ? subtitle : undefined}
     >
       <View
         style={[styles.settingIcon, { backgroundColor: colors.background }]}
