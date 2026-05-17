@@ -66,6 +66,14 @@ function formatPaymentStateLabel(paymentState: string): string {
     .join(' ');
 }
 
+function formatIdempotencyStateLabel(state: string): string {
+  return state
+    .split('_')
+    .filter((token) => token.length > 0)
+    .map((token) => token[0]?.toUpperCase() + token.slice(1))
+    .join(' ');
+}
+
 export function AgenticActionCenterCard({
   payload = null,
   state = 'error',
@@ -85,6 +93,10 @@ export function AgenticActionCenterCard({
   );
   const recentSessionRecords =
     payload?.checkout_sessions?.records?.slice(0, 3) ?? [];
+  const idempotencyPressureRecords =
+    payload?.idempotency?.records
+      ?.filter((record) => record.state !== 'completed')
+      .slice(0, 3) ?? [];
   const statusDescription = failed
     ? 'Agentic checkout health could not be loaded.'
     : attentionCount > 0
@@ -169,6 +181,29 @@ export function AgenticActionCenterCard({
                         {record.session_id}
                       </span>{' '}
                       moved to {formatPaymentStateLabel(record.payment_state)}.
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {idempotencyPressureRecords.length > 0 && (
+              <div className="rounded-md border bg-muted/20 p-3">
+                <p className="text-xs font-medium uppercase text-muted-foreground">
+                  Idempotency pressure
+                </p>
+                <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                  {idempotencyPressureRecords.map((record) => (
+                    <li
+                      key={`${record.route}-${record.updated_at}-${record.state}`}
+                    >
+                      <span className="font-medium text-foreground">
+                        {record.route}
+                      </span>{' '}
+                      is {formatIdempotencyStateLabel(record.state)} (
+                      {record.status_code == null
+                        ? 'pending'
+                        : `status ${record.status_code}`}
+                      ).
                     </li>
                   ))}
                 </ul>

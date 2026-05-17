@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   agenticActionCheckoutSessionsSchema,
   agenticActionHealthPayloadSchema,
+  agenticActionIdempotencySchema,
   agenticActionSchema,
 } from '@/schemas/agentic-action-health';
 
@@ -96,6 +97,28 @@ describe('agenticActionHealthPayloadSchema', () => {
         },
       }).success
     ).toBe(true);
+    expect(
+      agenticActionHealthPayloadSchema.safeParse({
+        actions: [validAction],
+        idempotency: {
+          active_in_progress_count: 1,
+          in_progress_count: 1,
+          recent_count: 2,
+          records: [
+            {
+              created_at: '2026-05-15T03:00:00.000Z',
+              expires_at: '2026-05-15T03:10:00.000Z',
+              route: 'checkout_sessions.complete',
+              state: 'server_error',
+              status_code: 502,
+              updated_at: '2026-05-15T03:01:00.000Z',
+            },
+          ],
+          stale_in_progress_count: 0,
+          terminal_error_count: 1,
+        },
+      }).success
+    ).toBe(true);
   });
 
   it('rejects malformed action payloads', () => {
@@ -152,6 +175,49 @@ describe('agenticActionCheckoutSessionsSchema', () => {
     expect(
       agenticActionCheckoutSessionsSchema.safeParse({
         stale_payment_pending_count: -1,
+      }).success
+    ).toBe(false);
+  });
+});
+
+describe('agenticActionIdempotencySchema', () => {
+  it('rejects malformed idempotency records and counters', () => {
+    expect(
+      agenticActionIdempotencySchema.safeParse({
+        active_in_progress_count: -1,
+      }).success
+    ).toBe(false);
+    expect(
+      agenticActionIdempotencySchema.safeParse({
+        terminal_error_count: 1.5,
+      }).success
+    ).toBe(false);
+    expect(
+      agenticActionIdempotencySchema.safeParse({
+        records: [
+          {
+            created_at: '2026-05-15T03:00:00.000Z',
+            expires_at: '2026-05-15T03:10:00.000Z',
+            route: 'checkout_sessions.complete',
+            state: 'unknown',
+            status_code: 502,
+            updated_at: '2026-05-15T03:01:00.000Z',
+          },
+        ],
+      }).success
+    ).toBe(false);
+    expect(
+      agenticActionIdempotencySchema.safeParse({
+        records: [
+          {
+            created_at: '2026-05-15T03:00:00.000Z',
+            expires_at: '2026-05-15T03:10:00.000Z',
+            route: '   ',
+            state: 'in_progress',
+            status_code: null,
+            updated_at: '2026-05-15T03:01:00.000Z',
+          },
+        ],
       }).success
     ).toBe(false);
   });
