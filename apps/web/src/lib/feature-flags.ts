@@ -25,7 +25,21 @@ export const FEATURES = {
 export type FeatureKey = (typeof FEATURES)[keyof typeof FEATURES];
 
 // Plan tiers
-export type PlanTier = 'free' | 'starter' | 'pro' | 'business' | 'enterprise';
+export const PLAN_TIERS = [
+  'free',
+  'starter',
+  'pro',
+  'business',
+  'enterprise',
+] as const;
+
+export type PlanTier = (typeof PLAN_TIERS)[number];
+
+export function isPlanTier(
+  value: string | null | undefined
+): value is PlanTier {
+  return typeof value === 'string' && PLAN_TIERS.some((tier) => tier === value);
+}
 
 // Default features by plan
 const PLAN_FEATURES: Record<PlanTier, FeatureKey[]> = {

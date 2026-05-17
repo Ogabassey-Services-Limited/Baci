@@ -12,7 +12,7 @@ import {
   generateOrderConfirmationText,
 } from '@/lib/email-templates';
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
-import { FEATURES, type PlanTier, planHasFeature } from '@/lib/feature-flags';
+import { FEATURES, isPlanTier, planHasFeature } from '@/lib/feature-flags';
 import { formatVariantAttributesLabel } from '@/lib/format-variant-attributes-label';
 import { detectPrivacyRegion } from '@/lib/geo-privacy';
 import {
@@ -34,28 +34,14 @@ function isPayOnDelivery(paymentMethod: string): boolean {
 /** Server-authoritative assurance rate — never trust the client value. */
 const SERVER_ASSURANCE_RATE = 0.05;
 
-function toPlanTier(value: string | null | undefined): PlanTier | null {
-  switch (value) {
-    case 'free':
-    case 'starter':
-    case 'pro':
-    case 'business':
-    case 'enterprise':
-      return value;
-    default:
-      return null;
-  }
-}
-
 function hasPriceNegotiationEntitlement(
   planTier: string | null | undefined
 ): boolean {
-  const normalizedPlanTier = toPlanTier(planTier);
-  if (!normalizedPlanTier) {
+  if (!isPlanTier(planTier)) {
     return false;
   }
 
-  return planHasFeature(normalizedPlanTier, FEATURES.PRICE_NEGOTIATION);
+  return planHasFeature(planTier, FEATURES.PRICE_NEGOTIATION);
 }
 
 type EmailOrderItem = {

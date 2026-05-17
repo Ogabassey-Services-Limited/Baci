@@ -217,19 +217,23 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
     <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
       <div
         data-testid="modal-backdrop"
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-[hsl(var(--foreground))]/60 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden z-10 animate-in zoom-in-95 duration-200">
+      <div className="bg-[hsl(var(--card))] rounded-2xl shadow-2xl w-full max-w-sm relative overflow-hidden z-10 animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="bg-[#1a1a1a] p-4 flex justify-between items-center">
-          <div className="flex items-center gap-2 text-white">
-            <HandCoins size={20} className="text-red-600" />
+        <div className="bg-[hsl(var(--foreground))] p-4 flex justify-between items-center">
+          <div className="flex items-center gap-2 text-[hsl(var(--background))]">
+            <HandCoins size={20} className="text-[var(--store-primary)]" />
             <h3 className="font-bold text-sm uppercase tracking-wider">
               Negotiate Price
             </h3>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white" aria-label="Close">
+          <button
+            onClick={onClose}
+            className="text-[hsl(var(--background))]/70 hover:text-[hsl(var(--background))]"
+            aria-label="Close"
+          >
             <X size={20} />
           </button>
         </div>
@@ -237,15 +241,15 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
         {/* Content */}
         <div className="p-6">
           <div className="mb-6">
-            <span className="text-xs text-gray-500 uppercase tracking-wide">
+            <span className="text-xs text-[hsl(var(--muted-foreground))] uppercase tracking-wide">
               Product
             </span>
-            <p className="font-bold text-gray-900 line-clamp-1">
+            <p className="font-bold text-[hsl(var(--card-foreground))] line-clamp-1">
               {productName}
             </p>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
               Current Price:{' '}
-              <span className="text-gray-900 font-semibold">
+              <span className="text-[hsl(var(--card-foreground))] font-semibold">
                 ₦{currentPrice.toLocaleString()}
               </span>
             </p>
@@ -253,7 +257,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
           {status === 'input' && (
             <form onSubmit={handleSubmit}>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2">
                 Your Offer (₦)
               </label>
               <div className="relative mb-6">
@@ -261,14 +265,14 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                   type="number"
                   value={offer}
                   onChange={(e) => setOffer(e.target.value)}
-                  className="w-full bg-white pl-4 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none transition-all text-lg font-bold text-gray-900 placeholder:font-normal"
+                  className="w-full bg-[hsl(var(--card))] pl-4 pr-4 py-3 border border-[hsl(var(--border))] rounded-xl focus:ring-2 focus:ring-[var(--store-primary)] focus:border-[var(--store-primary)] outline-none transition-all text-lg font-bold text-[hsl(var(--card-foreground))] placeholder:font-normal"
                   placeholder="Enter amount..."
                   autoFocus
                 />
               </div>
               <button
                 type="submit"
-                className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl transition-all shadow-md"
+                className="w-full bg-[var(--store-primary)] hover:bg-[var(--store-primary)]/90 text-[var(--store-primary-text)] font-bold py-3 rounded-xl transition-all shadow-md"
               >
                 Submit Offer
               </button>
@@ -277,11 +281,11 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
           {status === 'processing' && (
             <div className="flex flex-col items-center justify-center py-4">
-              <Loader2 size={40} className="text-red-600 animate-spin mb-4" />
-              <p className="font-medium text-gray-600">
+              <Loader2 size={40} className="text-[var(--store-primary)] animate-spin mb-4" />
+              <p className="font-medium text-[hsl(var(--muted-foreground))]">
                 Reviewing your offer...
               </p>
-              <p className="text-xs text-gray-400 mt-2">
+              <p className="text-xs text-[hsl(var(--muted-foreground))]/80 mt-2">
                 Checking with sales manager
               </p>
             </div>
@@ -289,16 +293,16 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
           {status === 'success' && (
             <div className="flex flex-col items-center justify-center py-2 text-center animate-in fade-in slide-in-from-bottom-2">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
-                <CheckCircle2 size={28} className="text-green-600" />
+              <div className="w-12 h-12 bg-[var(--store-primary)]/10 rounded-full flex items-center justify-center mb-3">
+                <CheckCircle2 size={28} className="text-[var(--store-primary)]" />
               </div>
-              <h4 className="text-xl font-bold text-gray-900 mb-1">Offer Accepted!</h4>
-              <p className="text-sm text-gray-500 mb-4">
+              <h4 className="text-xl font-bold text-[hsl(var(--card-foreground))] mb-1">Offer Accepted!</h4>
+              <p className="text-sm text-[hsl(var(--muted-foreground))] mb-4">
                 {message || 'Price has been updated in your cart.'}
               </p>
               <button
                 onClick={onClose}
-                className="bg-gray-900 text-white px-6 py-2 rounded-lg font-bold text-sm hover:bg-black transition-colors"
+                className="bg-[hsl(var(--foreground))] text-[hsl(var(--background))] px-6 py-2 rounded-lg font-bold text-sm hover:opacity-90 transition-opacity"
               >
                 Done
               </button>
@@ -307,16 +311,16 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
           {status === 'failed' && (
             <div className="flex flex-col items-center justify-center py-2 text-center animate-in shake duration-300">
-              <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mb-3">
-                <HandCoins size={28} className="text-amber-600" />
+              <div className="w-12 h-12 bg-[var(--store-primary)]/10 rounded-full flex items-center justify-center mb-3">
+                <HandCoins size={28} className="text-[var(--store-primary)]" />
               </div>
-              <h4 className="text-lg font-bold text-gray-900 mb-1">
+              <h4 className="text-lg font-bold text-[hsl(var(--card-foreground))] mb-1">
                 Counter Offer
               </h4>
-              <p className="text-sm text-gray-500 mb-2">{message}</p>
+              <p className="text-sm text-[hsl(var(--muted-foreground))] mb-2">{message}</p>
 
               {counterOffer && (
-                <div className="text-2xl font-bold text-gray-900 mb-6 bg-gray-50 px-4 py-2 rounded-lg border border-gray-100">
+                <div className="text-2xl font-bold text-[hsl(var(--card-foreground))] mb-6 bg-[hsl(var(--muted))] px-4 py-2 rounded-lg border border-[hsl(var(--border))]">
                   ₦{counterOffer.toLocaleString()}
                 </div>
               )}
@@ -325,7 +329,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                 {counterOffer && (
                   <button
                     onClick={handleAcceptCounter}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-xl transition-colors shadow-md flex items-center justify-center gap-2"
+                    className="w-full bg-[var(--store-primary)] hover:bg-[var(--store-primary)]/90 text-[var(--store-primary-text)] font-bold py-3 rounded-xl transition-colors shadow-md flex items-center justify-center gap-2"
                   >
                     <CheckCircle2 size={18} />
                     Accept ₦{counterOffer.toLocaleString()}
@@ -333,7 +337,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                 )}
                 <button
                   onClick={() => setStatus('input')}
-                  className="w-full bg-gray-100 text-gray-900 font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors"
+                  className="w-full bg-[hsl(var(--muted))] text-[hsl(var(--card-foreground))] font-bold py-3 rounded-xl hover:bg-[var(--store-primary)]/10 transition-colors"
                 >
                   Negotiate Again
                 </button>
@@ -342,7 +346,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                 {attemptCount >= COUNTER_DISCOUNT_STEPS.length && (
                   <button
                     onClick={() => setStatus('upload')}
-                    className="w-full bg-blue-50 text-blue-700 font-bold py-3 rounded-xl hover:bg-blue-100 transition-colors border border-blue-200 flex items-center justify-center gap-2"
+                    className="w-full bg-[var(--store-primary)]/5 text-[var(--store-primary)] font-bold py-3 rounded-xl hover:bg-[var(--store-primary)]/10 transition-colors border border-[var(--store-primary)]/20 flex items-center justify-center gap-2"
                   >
                     <Upload size={18} />
                     I Saw It Cheaper
@@ -355,18 +359,18 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
           {/* Upload Evidence Form */}
           {status === 'upload' && (
             <form onSubmit={handleUploadSubmit} className="space-y-4 animate-in fade-in slide-in-from-bottom-2">
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <p className="text-sm text-blue-900 font-medium mb-2">
+              <div className="bg-[var(--store-primary)]/5 border border-[var(--store-primary)]/20 rounded-xl p-4">
+                <p className="text-sm text-[hsl(var(--card-foreground))] font-medium mb-2">
                   📸 Saw it cheaper elsewhere?
                 </p>
-                <p className="text-xs text-blue-700">
+                <p className="text-xs text-[var(--store-primary)]">
                   Upload proof (screenshot, photo) and we'll try to match or beat that price!
                 </p>
               </div>
 
               {/* File Upload */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2">
                   Upload Proof (Required)
                 </label>
                 <div className="relative">
@@ -375,12 +379,12 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                     accept="image/*"
                     aria-label="Upload proof"
                     onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    className="w-full px-4 py-3 border border-[hsl(var(--border))] rounded-xl focus:ring-2 focus:ring-[var(--store-primary)] focus:border-[var(--store-primary)] outline-none transition-all text-sm text-[hsl(var(--card-foreground))] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[hsl(var(--muted))] file:text-[hsl(var(--card-foreground))] hover:file:bg-[var(--store-primary)]/10"
                     required
                   />
                 </div>
                 {uploadFile && (
-                  <p className="text-xs text-green-600 mt-2 flex items-center gap-1">
+                  <p className="text-xs text-[var(--store-primary)] mt-2 flex items-center gap-1">
                     <CheckCircle2 size={12} />
                     {uploadFile.name}
                   </p>
@@ -389,7 +393,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
               {/* Link (Optional) */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-[hsl(var(--card-foreground))] mb-2">
                   Link (Optional)
                 </label>
                 <input
@@ -397,7 +401,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                   value={uploadLink}
                   onChange={(e) => setUploadLink(e.target.value)}
                   placeholder="https://example.com/product"
-                  className="w-full bg-white px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition-all text-sm"
+                  className="w-full bg-[hsl(var(--card))] px-4 py-3 border border-[hsl(var(--border))] rounded-xl focus:ring-2 focus:ring-[var(--store-primary)] focus:border-[var(--store-primary)] outline-none transition-all text-sm text-[hsl(var(--card-foreground))]"
                 />
               </div>
 
@@ -406,13 +410,13 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
                 <button
                   type="button"
                   onClick={() => setStatus('failed')}
-                  className="flex-1 bg-gray-100 text-gray-700 font-bold py-3 rounded-xl hover:bg-gray-200 transition-colors"
+                  className="flex-1 bg-[hsl(var(--muted))] text-[hsl(var(--card-foreground))] font-bold py-3 rounded-xl hover:bg-[var(--store-primary)]/10 transition-colors"
                 >
                   Back
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors shadow-md flex items-center justify-center gap-2"
+                  className="flex-1 bg-[var(--store-primary)] hover:bg-[var(--store-primary)]/90 text-[var(--store-primary-text)] font-bold py-3 rounded-xl transition-colors shadow-md flex items-center justify-center gap-2"
                 >
                   <Upload size={18} />
                   Send for Review
@@ -423,14 +427,14 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
 
           {status === 'submitted' && (
             <div className="flex flex-col items-center justify-center py-4 text-center">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
-                <CheckCircle2 size={28} className="text-green-600" />
+              <div className="w-12 h-12 bg-[var(--store-primary)]/10 rounded-full flex items-center justify-center mb-3">
+                <CheckCircle2 size={28} className="text-[var(--store-primary)]" />
               </div>
-              <h4 className="text-lg font-bold text-gray-900 mb-1">Request Sent</h4>
-              <p className="text-sm text-gray-500 mb-6">{message}</p>
+              <h4 className="text-lg font-bold text-[hsl(var(--card-foreground))] mb-1">Request Sent</h4>
+              <p className="text-sm text-[hsl(var(--muted-foreground))] mb-6">{message}</p>
               <button
                 onClick={onClose}
-                className="bg-gray-900 text-white px-8 py-2 rounded-xl font-bold text-sm hover:bg-black transition-colors"
+                className="bg-[hsl(var(--foreground))] text-[hsl(var(--background))] px-8 py-2 rounded-xl font-bold text-sm hover:opacity-90 transition-opacity"
               >
                 Got it
               </button>
