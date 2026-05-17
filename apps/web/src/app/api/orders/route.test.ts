@@ -815,16 +815,16 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
         ],
         subtotal: 970,
         tax_amount: 72.75,
-        expected_total: 1042.75,
-        client_total: 1042.75,
+        expected_total: 1045,
+        client_total: 1045,
       }),
     });
     await POST(request);
 
     expect(rpcSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        p_discount_amount: 32.25,
-        p_expected_total: 1042.75,
+        p_discount_amount: 30,
+        p_expected_total: 1045,
         p_tax_amount: 75,
       })
     );
@@ -836,7 +836,7 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
         {
           id: 'order-id',
           order_number: 'ORD-123',
-          total: 1042.75,
+          total: 1045,
           subtotal: 1000,
           shipping_fee: 0,
           customer_id: CUSTOMER_ID,
@@ -929,16 +929,16 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
         ],
         subtotal: 970,
         tax_amount: 72.75,
-        expected_total: 1042.75,
-        client_total: 1042.75,
+        expected_total: 1045,
+        client_total: 1045,
       }),
     });
     await POST(request);
 
     expect(rpcSpy).toHaveBeenCalledWith(
       expect.objectContaining({
-        p_discount_amount: 32.25,
-        p_expected_total: 1042.75,
+        p_discount_amount: 30,
+        p_expected_total: 1045,
         p_tax_amount: 75,
       })
     );

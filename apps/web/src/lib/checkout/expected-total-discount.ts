@@ -34,8 +34,7 @@ export function computeExpectedTotalDiscount({
   }
 
   const maxAutoNegotiationDiscount = roundMoney(
-    (canonicalSubtotal + canonicalTaxAmount) *
-      MAX_AUTO_NEGOTIATION_DISCOUNT_RATE
+    canonicalSubtotal * MAX_AUTO_NEGOTIATION_DISCOUNT_RATE
   );
 
   if (requiredDiscount > maxAutoNegotiationDiscount) {

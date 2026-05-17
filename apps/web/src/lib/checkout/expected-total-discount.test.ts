@@ -8,10 +8,22 @@ describe('computeExpectedTotalDiscount', () => {
       canonicalTaxAmount: 75,
       shippingFee: 0,
       giftWrappingFee: 0,
+      expectedTotal: 1045,
+    });
+
+    expect(discount).toBe(30);
+  });
+
+  it('rejects negotiated totals that require more than 3% off the pre-tax subtotal', () => {
+    const discount = computeExpectedTotalDiscount({
+      canonicalSubtotal: 1000,
+      canonicalTaxAmount: 75,
+      shippingFee: 0,
+      giftWrappingFee: 0,
       expectedTotal: 1042.75,
     });
 
-    expect(discount).toBe(32.25);
+    expect(discount).toBe(0);
   });
 
   it('keeps one-cent negotiation deltas after money rounding', () => {
