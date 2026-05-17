@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { computeAgenticOrderTax } from '@/lib/agentic/checkout-order-tax';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { POST } from './route';
 
@@ -29,6 +30,17 @@ vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: vi.fn(),
   hasPermission: vi.fn(() => true),
 }));
+
+vi.mock('@/lib/agentic/checkout-order-tax', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/agentic/checkout-order-tax')
+  >('@/lib/agentic/checkout-order-tax');
+
+  return {
+    ...actual,
+    computeAgenticOrderTax: vi.fn(actual.computeAgenticOrderTax),
+  };
+});
 
 // Shared mock for chainable methods
 const sharedChainableMock: any = {
@@ -417,14 +429,7 @@ describe('Order API Security', () => {
     expect(data.details).toBe('invalid_payment_status');
   });
 
-  it('returns 400 when create_storefront_order rejects a raw discount amount', async () => {
-    mockSupabase.rpc.mockResolvedValueOnce({
-      data: null,
-      error: {
-        message: 'discount_amount_not_supported',
-      },
-    });
-
+  it('returns 400 before order creation when a raw discount amount is submitted', async () => {
     const request = new NextRequest('http://localhost:3000/api/orders', {
       method: 'POST',
       body: JSON.stringify({
@@ -437,17 +442,14 @@ describe('Order API Security', () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.details).toBe('discount_amount_not_supported');
+    expect(data.code).toBe('discount_amount_not_supported');
+    expect(mockSupabase.rpc).not.toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.anything()
+    );
   });
 
-  it('returns 400 when create_storefront_order rejects a raw discount amount via error code', async () => {
-    mockSupabase.rpc.mockResolvedValueOnce({
-      data: null,
-      error: {
-        code: 'discount_amount_not_supported',
-      },
-    });
-
+  it('does not compute tax for unsupported raw discount amounts', async () => {
     const request = new NextRequest('http://localhost:3000/api/orders', {
       method: 'POST',
       body: JSON.stringify({
@@ -460,18 +462,12 @@ describe('Order API Security', () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.details).toBe('discount_amount_not_supported');
+    expect(data.code).toBe('discount_amount_not_supported');
+    expect(computeAgenticOrderTax).not.toHaveBeenCalled();
+    expect(mockSupabase.rpc).not.toHaveBeenCalled();
   });
 
-  it('returns 400 when create_storefront_order rejects a raw discount amount via PostgREST error shape', async () => {
-    mockSupabase.rpc.mockResolvedValueOnce({
-      data: null,
-      error: {
-        code: 'P0001',
-        message: 'discount_amount_not_supported',
-      },
-    });
-
+  it('does not send unsupported raw discount amounts to the order RPC', async () => {
     const request = new NextRequest('http://localhost:3000/api/orders', {
       method: 'POST',
       body: JSON.stringify({
@@ -484,7 +480,11 @@ describe('Order API Security', () => {
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.details).toBe('discount_amount_not_supported');
+    expect(data.code).toBe('discount_amount_not_supported');
+    expect(mockSupabase.rpc).not.toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.anything()
+    );
   });
 
   it('waits for pay_on_delivery confirmation email dispatch before responding', async () => {

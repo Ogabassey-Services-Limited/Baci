@@ -56,6 +56,10 @@ export const CartSidebar: React.FC = () => {
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
   const basePath = merchantContext?.basePath;
+  const negotiationVatRate =
+    merchant?.vat_registration_status === 'registered'
+      ? (merchant.vat_rate ?? 7.5) / 100
+      : 0;
 
   const getHref = (path: string) =>
     path.startsWith('http') ? path : `${basePath || ''}${path === '/' ? '' : path}`;
@@ -490,6 +494,7 @@ export const CartSidebar: React.FC = () => {
           onClose={() => setNegotiationState(null)}
           productName={negotiationState.name}
           currentPrice={negotiationState.currentPrice}
+          vatRate={negotiationVatRate}
           onSuccess={handleNegotiationSuccess}
           type={negotiationState.type}
           merchantId={merchant.id}
