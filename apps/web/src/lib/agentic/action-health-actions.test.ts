@@ -41,16 +41,26 @@ const expectedNextStepsByCode = {
 
 const expectedNextStepUrlsByCode = {
   AGENTIC_ACTIONS_HEALTHY: undefined,
-  AGENTIC_AGENT_ALLOWLIST_UNSET: '/dashboard/settings/trust',
-  AGENTIC_CHECKOUT_COMPLETE_ERRORS: '/dashboard/orders?source=agentic',
-  AGENTIC_IDEMPOTENCY_ERRORS: '/dashboard/orders?source=agentic',
-  AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS: '/dashboard/orders?source=agentic',
-  AGENTIC_ORDER_FINALIZING: '/dashboard/orders?source=agentic',
-  AGENTIC_PAYMENT_CLAIMING: '/dashboard/orders?source=agentic',
-  AGENTIC_PAYMENT_PENDING: '/dashboard/orders?source=agentic',
-  AGENTIC_PAYMENT_PENDING_STALE: '/dashboard/orders?source=agentic',
-  AGENTIC_PAYMENT_SETUP_FAILED: '/dashboard/orders?source=agentic',
-  AGENTIC_REQUESTS_IN_PROGRESS: '/dashboard/orders?source=agentic',
+  AGENTIC_AGENT_ALLOWLIST_UNSET:
+    '/dashboard/settings/trust#agent-checkout-controls',
+  AGENTIC_CHECKOUT_COMPLETE_ERRORS:
+    '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_CHECKOUT_COMPLETE_ERRORS',
+  AGENTIC_IDEMPOTENCY_ERRORS:
+    '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_IDEMPOTENCY_ERRORS',
+  AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS:
+    '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS',
+  AGENTIC_ORDER_FINALIZING:
+    '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_ORDER_FINALIZING',
+  AGENTIC_PAYMENT_CLAIMING:
+    '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_PAYMENT_CLAIMING',
+  AGENTIC_PAYMENT_PENDING:
+    '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_PAYMENT_PENDING',
+  AGENTIC_PAYMENT_PENDING_STALE:
+    '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_PAYMENT_PENDING_STALE',
+  AGENTIC_PAYMENT_SETUP_FAILED:
+    '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_PAYMENT_SETUP_FAILED',
+  AGENTIC_REQUESTS_IN_PROGRESS:
+    '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_REQUESTS_IN_PROGRESS',
 };
 
 describe('buildAgenticHealthActions', () => {
@@ -78,61 +88,70 @@ describe('buildAgenticHealthActions', () => {
       {
         code: 'AGENTIC_CHECKOUT_COMPLETE_ERRORS',
         count: 1,
-        next_step_url: '/dashboard/orders?source=agentic',
+        next_step_url:
+          '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_CHECKOUT_COMPLETE_ERRORS',
         severity: 'attention',
       },
       {
         code: 'AGENTIC_IDEMPOTENCY_ERRORS',
         count: 1,
-        next_step_url: '/dashboard/orders?source=agentic',
+        next_step_url:
+          '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_IDEMPOTENCY_ERRORS',
         severity: 'attention',
       },
       {
         code: 'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS',
         count: 1,
-        next_step_url: '/dashboard/orders?source=agentic',
+        next_step_url:
+          '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS',
         severity: 'attention',
       },
       {
         code: 'AGENTIC_ORDER_FINALIZING',
         count: 3,
-        next_step_url: '/dashboard/orders?source=agentic',
+        next_step_url:
+          '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_ORDER_FINALIZING',
         severity: 'attention',
       },
       {
         code: 'AGENTIC_PAYMENT_SETUP_FAILED',
         count: 4,
-        next_step_url: '/dashboard/orders?source=agentic',
+        next_step_url:
+          '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_PAYMENT_SETUP_FAILED',
         severity: 'attention',
       },
       {
         code: 'AGENTIC_PAYMENT_PENDING_STALE',
         count: 8,
-        next_step_url: '/dashboard/orders?source=agentic',
+        next_step_url:
+          '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_PAYMENT_PENDING_STALE',
         severity: 'attention',
       },
       {
         code: 'AGENTIC_REQUESTS_IN_PROGRESS',
         count: 5,
-        next_step_url: '/dashboard/orders?source=agentic',
+        next_step_url:
+          '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_REQUESTS_IN_PROGRESS',
         severity: 'monitor',
       },
       {
         code: 'AGENTIC_PAYMENT_CLAIMING',
         count: 6,
-        next_step_url: '/dashboard/orders?source=agentic',
+        next_step_url:
+          '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_PAYMENT_CLAIMING',
         severity: 'monitor',
       },
       {
         code: 'AGENTIC_PAYMENT_PENDING',
         count: 7,
-        next_step_url: '/dashboard/orders?source=agentic',
+        next_step_url:
+          '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_PAYMENT_PENDING',
         severity: 'monitor',
       },
       {
         code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
         count: 1,
-        next_step_url: '/dashboard/settings/trust',
+        next_step_url: '/dashboard/settings/trust#agent-checkout-controls',
         severity: 'monitor',
       },
     ]);
@@ -155,7 +174,8 @@ describe('buildAgenticHealthActions', () => {
           'Agentic checkouts failed while setting up payment collection.',
         next_step:
           'Fix payment setup, then ask the buyer or agent to retry checkout completion.',
-        next_step_url: '/dashboard/orders?source=agentic',
+        next_step_url:
+          '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_PAYMENT_SETUP_FAILED',
         severity: 'attention',
       },
       {
@@ -165,7 +185,8 @@ describe('buildAgenticHealthActions', () => {
           'Agentic checkouts have been waiting for payment confirmation too long.',
         next_step:
           'Confirm payment manually or cancel stale sessions before agents keep polling.',
-        next_step_url: '/dashboard/orders?source=agentic',
+        next_step_url:
+          '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_PAYMENT_PENDING_STALE',
         severity: 'attention',
       },
       {
@@ -174,7 +195,8 @@ describe('buildAgenticHealthActions', () => {
         message: 'Agentic idempotency reservations are still in progress.',
         next_step:
           'Wait for the reservation window to close before manually retrying.',
-        next_step_url: '/dashboard/orders?source=agentic',
+        next_step_url:
+          '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_REQUESTS_IN_PROGRESS',
         severity: 'monitor',
       },
       {
@@ -183,7 +205,8 @@ describe('buildAgenticHealthActions', () => {
         message: 'Agentic checkouts are claiming payment setup.',
         next_step:
           'Monitor payment-account creation and investigate if this count does not fall.',
-        next_step_url: '/dashboard/orders?source=agentic',
+        next_step_url:
+          '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_PAYMENT_CLAIMING',
         severity: 'monitor',
       },
     ]);

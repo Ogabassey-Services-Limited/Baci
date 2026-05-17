@@ -16,55 +16,79 @@ describe('getActionHref', () => {
         ...validAction,
         code: 'AGENTIC_IDEMPOTENCY_ERRORS',
       })
-    ).toBe('/dashboard/orders?source=agentic');
+    ).toBe(
+      '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_IDEMPOTENCY_ERRORS'
+    );
     expect(
       agenticActionCenterCardHelpers.getActionHref({
         ...validAction,
         code: 'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS',
       })
-    ).toBe('/dashboard/orders?source=agentic');
+    ).toBe(
+      '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS'
+    );
+    expect(
+      agenticActionCenterCardHelpers.getActionHref({
+        ...validAction,
+        code: 'AGENTIC_CHECKOUT_COMPLETE_ERRORS',
+      })
+    ).toBe(
+      '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_CHECKOUT_COMPLETE_ERRORS'
+    );
     expect(
       agenticActionCenterCardHelpers.getActionHref({
         ...validAction,
         code: 'AGENTIC_ORDER_FINALIZING',
       })
-    ).toBe('/dashboard/orders?source=agentic');
+    ).toBe(
+      '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_ORDER_FINALIZING'
+    );
     expect(
       agenticActionCenterCardHelpers.getActionHref({
         ...validAction,
         code: 'AGENTIC_PAYMENT_PENDING',
       })
-    ).toBe('/dashboard/orders?source=agentic');
+    ).toBe(
+      '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_PAYMENT_PENDING'
+    );
     expect(
       agenticActionCenterCardHelpers.getActionHref({
         ...validAction,
         code: 'AGENTIC_PAYMENT_PENDING_STALE',
       })
-    ).toBe('/dashboard/orders?source=agentic');
+    ).toBe(
+      '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_PAYMENT_PENDING_STALE'
+    );
     expect(
       agenticActionCenterCardHelpers.getActionHref({
         ...validAction,
         code: 'AGENTIC_PAYMENT_SETUP_FAILED',
       })
-    ).toBe('/dashboard/orders?source=agentic');
+    ).toBe(
+      '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_PAYMENT_SETUP_FAILED'
+    );
     expect(
       agenticActionCenterCardHelpers.getActionHref({
         ...validAction,
         code: 'AGENTIC_PAYMENT_CLAIMING',
       })
-    ).toBe('/dashboard/orders?source=agentic');
+    ).toBe(
+      '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_PAYMENT_CLAIMING'
+    );
     expect(
       agenticActionCenterCardHelpers.getActionHref({
         ...validAction,
         code: 'AGENTIC_REQUESTS_IN_PROGRESS',
       })
-    ).toBe('/dashboard/orders?source=agentic');
+    ).toBe(
+      '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_REQUESTS_IN_PROGRESS'
+    );
     expect(
       agenticActionCenterCardHelpers.getActionHref({
         ...validAction,
         code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
       })
-    ).toBe('/dashboard/settings/trust');
+    ).toBe('/dashboard/settings/trust#agent-checkout-controls');
     expect(
       agenticActionCenterCardHelpers.getActionHref({
         ...validAction,
