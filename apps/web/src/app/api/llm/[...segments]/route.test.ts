@@ -343,6 +343,43 @@ describe('GET /api/llm/[...segments]', () => {
       );
     });
 
+    it('filters test posts and junk categories from blog index markdown', async () => {
+      const blogMerchant = { business_name: 'Ogabassey', slug: 'ogabassey' };
+      const publicPost = {
+        title: 'Guide',
+        slug: 'guide',
+        excerpt: 'Read this',
+      };
+      getMerchantByIdentifier.mockResolvedValue({ ...baseMerchant });
+      getCachedBlogListing.mockResolvedValue({
+        merchant: blogMerchant,
+        posts: [
+          publicPost,
+          {
+            title: 'Test Post: Agent Integration Working',
+            slug: 'test-post-agent-integration-working',
+            excerpt: 'Internal test',
+          },
+        ],
+        categories: ['Guides', 'gcrblw'],
+      });
+      buildBlogIndexMarkdown.mockReturnValue('# Ogabassey Blog\n');
+
+      const { GET } = await import('./route');
+      const response = await GET(
+        makeRequest('/api/llm/ogabassey/blog'),
+        makeParams(['ogabassey', 'blog'])
+      );
+
+      expect(response.status).toBe(200);
+      expect(buildBlogIndexMarkdown).toHaveBeenCalledWith(
+        blogMerchant,
+        ORIGIN,
+        [publicPost],
+        ['Guides']
+      );
+    });
+
     it('returns 404 when no blog posts exist', async () => {
       getMerchantByIdentifier.mockResolvedValue({ ...baseMerchant });
       getCachedBlogListing.mockResolvedValue({

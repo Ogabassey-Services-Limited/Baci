@@ -1,6 +1,8 @@
 import type { MetadataRoute } from 'next';
 import { headers } from 'next/headers';
+import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
 import { getCachedFeatureSettings } from '@/lib/cached-data';
+import { filterPublicBlogPosts } from '@/lib/public-blog-content-quality';
 import { resolveStorefrontSitemapContext } from '../../sitemap-data';
 
 export const dynamic = 'force-dynamic';
@@ -26,7 +28,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const { data: posts, error } = await supabase
     .from('blog_posts')
-    .select('slug, published_at, updated_at, featured_image_url')
+    .select(
+      'slug, title, published_at, updated_at, featured_image_url, featured_image_variants'
+    )
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
     .not('published_at', 'is', null);
@@ -44,20 +48,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
   ];
 
-  for (const post of posts || []) {
+  for (const post of filterPublicBlogPosts(posts || [])) {
     const lastModified = post.updated_at || post.published_at;
     if (!lastModified) {
       continue;
     }
+    const imageUrls = getBlogStructuredDataImageUrls(post);
 
     entries.push({
       url: `${storeUrl}/blog/${post.slug}`,
       lastModified: new Date(lastModified),
       changeFrequency: 'monthly',
       priority: 0.8,
-      ...(post.featured_image_url?.startsWith('http') && {
-        images: [post.featured_image_url],
-      }),
+      ...(imageUrls.length > 0 && { images: imageUrls }),
     });
   }
 
