@@ -20,10 +20,23 @@ type VariantPriceRow = {
 };
 
 export class CanonicalOrderSubtotalLoadError extends Error {
-  constructor(message: string, options?: ErrorOptions) {
+  readonly pgCode: string | undefined;
+
+  constructor(
+    message: string,
+    options?: ErrorOptions,
+    pgCode?: string | null | undefined
+  ) {
     super(message, options);
     this.name = 'CanonicalOrderSubtotalLoadError';
+    this.pgCode = typeof pgCode === 'string' ? pgCode : undefined;
   }
+}
+
+export function isCanonicalOrderSubtotalUuidError(err: unknown): boolean {
+  return (
+    err instanceof CanonicalOrderSubtotalLoadError && err.pgCode === '22P02'
+  );
 }
 
 function roundMoney(value: number): number {
@@ -73,7 +86,8 @@ export async function computeCanonicalOrderSubtotal({
     });
     throw new CanonicalOrderSubtotalLoadError(
       'Unable to load products for canonical subtotal parity',
-      { cause: productsError ?? undefined }
+      { cause: productsError ?? undefined },
+      (productsError as { code?: string } | null | undefined)?.code
     );
   }
 
@@ -94,7 +108,8 @@ export async function computeCanonicalOrderSubtotal({
     });
     throw new CanonicalOrderSubtotalLoadError(
       'Unable to load variants for canonical subtotal parity',
-      { cause: variantsError }
+      { cause: variantsError },
+      variantsError.code
     );
   }
 

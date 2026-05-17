@@ -5,7 +5,10 @@ import {
   isTaxComputeUuidError,
 } from '@/lib/agentic/checkout-order-tax';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
-import { computeCanonicalOrderSubtotal } from '@/lib/checkout/canonical-order-subtotal';
+import {
+  computeCanonicalOrderSubtotal,
+  isCanonicalOrderSubtotalUuidError,
+} from '@/lib/checkout/canonical-order-subtotal';
 import { computeExpectedTotalDiscount } from '@/lib/checkout/expected-total-discount';
 import {
   generateOrderConfirmationEmail,
@@ -357,11 +360,40 @@ export async function POST(request: NextRequest) {
 
     let serverDerivedDiscountAmount = 0;
     if (merchantCanAutoNegotiate && typeof body.expected_total === 'number') {
-      const canonicalSubtotal = await computeCanonicalOrderSubtotal({
-        items: orderItemsPayload,
-        merchantId: merchant_id,
-        supabase,
-      });
+      let canonicalSubtotal: number | null;
+      try {
+        canonicalSubtotal = await computeCanonicalOrderSubtotal({
+          items: orderItemsPayload,
+          merchantId: merchant_id,
+          supabase,
+        });
+      } catch (canonicalSubtotalError) {
+        if (isCanonicalOrderSubtotalUuidError(canonicalSubtotalError)) {
+          logger.warn({
+            error: canonicalSubtotalError,
+            merchantId: merchant_id,
+            message:
+              'Storefront order received malformed identifier during subtotal parity lookup',
+          });
+          return NextResponse.json(
+            {
+              error: 'Failed to create order',
+              details: 'invalid_items',
+            },
+            { status: 400 }
+          );
+        }
+
+        logger.error({
+          error: canonicalSubtotalError,
+          merchantId: merchant_id,
+          message: 'Storefront order canonical subtotal recompute failed',
+        });
+        return NextResponse.json(
+          { error: 'Internal server error' },
+          { status: 500 }
+        );
+      }
 
       if (canonicalSubtotal !== null) {
         serverDerivedDiscountAmount = computeExpectedTotalDiscount({
