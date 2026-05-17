@@ -9,10 +9,7 @@ import {
   computeCanonicalOrderSubtotal,
   isCanonicalOrderSubtotalUuidError,
 } from '@/lib/checkout/canonical-order-subtotal';
-import {
-  computeExpectedTotalDiscount,
-  hasExpectedTotalMismatch,
-} from '@/lib/checkout/expected-total-discount';
+import { computeExpectedTotalDiscount } from '@/lib/checkout/expected-total-discount';
 import {
   generateOrderConfirmationEmail,
   generateOrderConfirmationText,
@@ -375,7 +372,7 @@ export async function POST(request: NextRequest) {
     );
 
     let serverDerivedDiscountAmount = 0;
-    if (typeof body.expected_total === 'number') {
+    if (merchantCanAutoNegotiate && typeof body.expected_total === 'number') {
       let canonicalSubtotal: number | null;
       try {
         canonicalSubtotal = await computeCanonicalOrderSubtotal({
@@ -423,14 +420,6 @@ export async function POST(request: NextRequest) {
         if (merchantCanAutoNegotiate) {
           serverDerivedDiscountAmount =
             computeExpectedTotalDiscount(expectedTotalInput);
-        } else if (hasExpectedTotalMismatch(expectedTotalInput)) {
-          return NextResponse.json(
-            {
-              error: 'Failed to create order',
-              details: 'order_total_mismatch',
-            },
-            { status: 400 }
-          );
         }
       }
     }
