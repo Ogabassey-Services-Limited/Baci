@@ -107,24 +107,24 @@ describe('computeCanonicalOrderSubtotal', () => {
     expect(subtotal).toBe(1000);
   });
 
-  it('returns null when product prices cannot be loaded', async () => {
+  it('throws when product prices cannot be loaded', async () => {
     const { supabase } = buildSupabaseMock({
       products: null,
       productsError: { message: 'db unavailable' },
     });
 
-    const subtotal = await computeCanonicalOrderSubtotal({
-      items: [
-        {
-          product_id: 'p-1',
-          quantity: 1,
-          assurance_fee: 0,
-        },
-      ],
-      merchantId: 'merchant-1',
-      supabase: supabase as never,
-    });
-
-    expect(subtotal).toBeNull();
+    await expect(
+      computeCanonicalOrderSubtotal({
+        items: [
+          {
+            product_id: 'p-1',
+            quantity: 1,
+            assurance_fee: 0,
+          },
+        ],
+        merchantId: 'merchant-1',
+        supabase: supabase as never,
+      })
+    ).rejects.toThrow('Unable to load products for canonical subtotal parity');
   });
 });

@@ -19,6 +19,13 @@ type VariantPriceRow = {
   price_override: number | string | null;
 };
 
+export class CanonicalOrderSubtotalLoadError extends Error {
+  constructor(message: string, options?: ErrorOptions) {
+    super(message, options);
+    this.name = 'CanonicalOrderSubtotalLoadError';
+  }
+}
+
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
 }
@@ -64,7 +71,10 @@ export async function computeCanonicalOrderSubtotal({
       error: productsError,
       merchantId,
     });
-    return null;
+    throw new CanonicalOrderSubtotalLoadError(
+      'Unable to load products for canonical subtotal parity',
+      { cause: productsError ?? undefined }
+    );
   }
 
   const { data: variantsData, error: variantsError } = variantIds.length
@@ -82,7 +92,10 @@ export async function computeCanonicalOrderSubtotal({
       error: variantsError,
       merchantId,
     });
-    return null;
+    throw new CanonicalOrderSubtotalLoadError(
+      'Unable to load variants for canonical subtotal parity',
+      { cause: variantsError }
+    );
   }
 
   const productMap = new Map(products.map((product) => [product.id, product]));

@@ -905,6 +905,121 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
     );
   });
 
+  it('returns 500 when canonical subtotal preload fails during negotiated checkout', async () => {
+    const rpcSpy = vi.fn().mockResolvedValue({
+      data: null,
+      error: {
+        message: 'order_total_mismatch',
+      },
+    });
+    let productLoadCount = 0;
+
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      sb.from = ((table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: { vat_registration_status: 'registered' },
+                    error: null,
+                  }),
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: MERCHANT_ID,
+                      business_name: 'Test',
+                      plan_tier: 'pro',
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'products') {
+          return {
+            select: () => ({
+              eq: () => ({
+                in: () => ({
+                  returns: () => {
+                    productLoadCount += 1;
+                    if (productLoadCount === 1) {
+                      return Promise.resolve({
+                        data: [
+                          {
+                            id: 'p-1',
+                            price: 1000,
+                            vat_category_code: 'S',
+                            vat_rate: 7.5,
+                          },
+                        ],
+                        error: null,
+                      });
+                    }
+
+                    return Promise.resolve({
+                      data: null,
+                      error: { message: 'db unavailable' },
+                    });
+                  },
+                }),
+              }),
+            }),
+          };
+        }
+        return {
+          select: () => ({
+            eq: () => ({
+              single: () => Promise.resolve({ data: null, error: null }),
+              maybeSingle: () => Promise.resolve({ data: null, error: null }),
+            }),
+          }),
+          insert: () => Promise.resolve({ error: null }),
+        };
+      }) as typeof sb.from;
+      sb.rpc = ((name: string, args: Record<string, unknown>) => {
+        if (name === 'create_storefront_order') {
+          return rpcSpy(args);
+        }
+        if (name === 'get_order_variant_overrides') {
+          return Promise.resolve({ data: [], error: null });
+        }
+        return Promise.resolve({ data: null, error: null });
+      }) as typeof sb.rpc;
+      return sb;
+    }) as unknown as never);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            product_id: 'p-1',
+            quantity: 1,
+            price: 970,
+            name: 'Widget',
+          },
+        ],
+        subtotal: 970,
+        tax_amount: 72.75,
+        expected_total: 1042.75,
+        client_total: 1042.75,
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe('Internal server error');
+    expect(rpcSpy).not.toHaveBeenCalled();
+  });
+
   it('maps a 22P02 UUID parse error from the tax helper to 400 INVALID_ITEM_ID (Codex P2 round 7)', async () => {
     // Item ids are only `z.string()` at the schema layer, so a
     // malformed product_id (e.g. a slug) reaches the helper and
