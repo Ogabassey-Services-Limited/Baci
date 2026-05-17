@@ -99,6 +99,13 @@ interface QuoteResponse {
   sessionId: string;
 }
 
+interface InferredCheckoutAddressLocation {
+  city: string;
+  state: string;
+}
+
+const MANUAL_ADDRESS_LOCATION_DEBOUNCE_MS = 500;
+
 export const CheckoutPage: React.FC = () => {
   const { cart, cartTotal, clearCart, isHydrated } = useCart();
   const merchantContext = useMerchantSafe();
@@ -168,6 +175,26 @@ export const CheckoutPage: React.FC = () => {
       setCheckoutField('completedSteps', v);
     }
   };
+  const inferredLocationDebounceRef = useRef<number | null>(null);
+  const clearInferredLocationDebounce = () => {
+    if (inferredLocationDebounceRef.current !== null) {
+      window.clearTimeout(inferredLocationDebounceRef.current);
+      inferredLocationDebounceRef.current = null;
+    }
+  };
+  const scheduleInferredLocationUpdate = ({
+    city,
+    state,
+  }: InferredCheckoutAddressLocation) => {
+    clearInferredLocationDebounce();
+    inferredLocationDebounceRef.current = window.setTimeout(() => {
+      setCheckoutFields({
+        newAddressCity: city,
+        newAddressState: state,
+      });
+      inferredLocationDebounceRef.current = null;
+    }, MANUAL_ADDRESS_LOCATION_DEBOUNCE_MS);
+  };
   const [
     pendingCheckoutOrder,
     setPendingCheckoutOrder,
@@ -185,6 +212,14 @@ export const CheckoutPage: React.FC = () => {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [contactValidationAttempted, setContactValidationAttempted] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      if (inferredLocationDebounceRef.current !== null) {
+        window.clearTimeout(inferredLocationDebounceRef.current);
+      }
+    };
+  }, []);
 
   // Copy to clipboard helper (2025: Clipboard API with visual feedback)
   const [copiedText, setCopiedText] = useState<string | null>(null);
@@ -2703,6 +2738,7 @@ export const CheckoutPage: React.FC = () => {
                                 onChange={() => {
                                   setSelectedAddressId(addr.id);
                                   setIsNewAddressMode(false);
+                                  clearInferredLocationDebounce();
                                   // Extract state from saved address for eligibility checks
                                   const parts = addr.address.split(',').map(s => s.trim());
                                   if (parts.length >= 2) {
@@ -2743,6 +2779,7 @@ export const CheckoutPage: React.FC = () => {
 
                               // Reset state/city if address is cleared or changed significantly
                               if (!newVal || newVal.length < 10) {
+                                clearInferredLocationDebounce();
                                 setNewAddressState('');
                                 setNewAddressCity('');
                                 setShippingQuotes([]);
@@ -2758,11 +2795,13 @@ export const CheckoutPage: React.FC = () => {
                                 shippingStates,
                               );
                               if (inferred) {
-                                setNewAddressState(inferred.state);
-                                setNewAddressCity(inferred.city);
+                                scheduleInferredLocationUpdate(inferred);
+                              } else {
+                                clearInferredLocationDebounce();
                               }
                             }}
                             onSelect={(place: any) => {
+                              clearInferredLocationDebounce();
                               setNewAddressStreet(place.formattedAddress);
                               if (place.state) {
                                 setNewAddressState(place.state);
