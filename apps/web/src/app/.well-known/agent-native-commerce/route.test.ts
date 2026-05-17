@@ -12,6 +12,10 @@ type TestMerchant = {
   business_type: string;
   custom_domain: string;
   id: string;
+  pages: {
+    privacy: string;
+    terms: string;
+  };
   paystack_subaccount_code: string;
   slug: string;
   support_email: string;
@@ -64,6 +68,10 @@ function merchant(): TestMerchant {
     business_type: 'electronics',
     custom_domain: 'ogabassey.com',
     id: 'merchant-1',
+    pages: {
+      privacy: 'Privacy policy content',
+      terms: 'Terms of service content',
+    },
     paystack_subaccount_code: 'ACCT_TESTMOCK1234567',
     slug: 'ogabassey',
     support_email: 'support@ogabassey.com',
