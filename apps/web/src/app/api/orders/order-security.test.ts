@@ -66,13 +66,8 @@ const mockSupabase = {
     getUser: vi.fn(),
   },
   from: vi.fn(() => sharedChainableMock),
-  // biome-ignore lint/suspicious/noExplicitAny: variant return types per rpc name
   rpc: vi.fn(
-    (
-      name: string,
-      _args?: unknown
-      // biome-ignore lint/suspicious/noExplicitAny: variant return types per rpc name
-    ): Promise<{ data: any; error: any }> => {
+    (name: string, _args?: unknown): Promise<{ data: any; error: any }> => {
       // B3.5 round 7: helper's variant lookup routes through this
       // SDF on the same scoped client.
       if (name === 'get_order_variant_overrides') {
@@ -629,7 +624,6 @@ describe('Order API Security', () => {
       if (!orderCreateCall) {
         throw new Error('create_storefront_order rpc was not called');
       }
-      // biome-ignore lint/suspicious/noExplicitAny: test helper relaxes the RPC arg type
       const rpcArgs = orderCreateCall[1] as any;
       const items = Array.isArray(rpcArgs.p_items)
         ? rpcArgs.p_items
@@ -675,7 +669,6 @@ describe('Order API Security', () => {
       if (!orderCreateCall) {
         throw new Error('create_storefront_order rpc was not called');
       }
-      // biome-ignore lint/suspicious/noExplicitAny: test helper relaxes the RPC arg type
       const rpcArgs = orderCreateCall[1] as any;
       const items = Array.isArray(rpcArgs.p_items)
         ? rpcArgs.p_items
@@ -705,7 +698,6 @@ describe('Order API Security', () => {
       if (!orderCreateCall) {
         throw new Error('create_storefront_order rpc was not called');
       }
-      // biome-ignore lint/suspicious/noExplicitAny: test helper relaxes the RPC arg type
       const rpcArgs = orderCreateCall[1] as any;
       const items = Array.isArray(rpcArgs.p_items)
         ? rpcArgs.p_items
@@ -739,7 +731,6 @@ describe('Order API Security', () => {
       if (!orderCreateCall) {
         throw new Error('create_storefront_order rpc was not called');
       }
-      // biome-ignore lint/suspicious/noExplicitAny: test helper relaxes the RPC arg type
       const rpcArgs = orderCreateCall[1] as any;
       const items = Array.isArray(rpcArgs.p_items)
         ? rpcArgs.p_items
@@ -809,7 +800,6 @@ describe('Order API Security', () => {
       if (!orderCreateCall) {
         throw new Error('create_storefront_order rpc was not called');
       }
-      // biome-ignore lint/suspicious/noExplicitAny: test helper relaxes the RPC arg type
       const rpcArgs = orderCreateCall[1] as any;
       const items = Array.isArray(rpcArgs.p_items)
         ? rpcArgs.p_items
