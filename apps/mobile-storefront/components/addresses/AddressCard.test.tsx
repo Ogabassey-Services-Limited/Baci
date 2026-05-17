@@ -109,4 +109,23 @@ describe('AddressCard', () => {
       expect.arrayContaining([expect.objectContaining({ text: 'Set Default' })])
     );
   });
+
+  it('describes only available menu actions for default addresses', () => {
+    render(
+      <AddressCard
+        address={{ ...address, is_default: true }}
+        colors={colors}
+        onDelete={jest.fn()}
+        onEdit={jest.fn()}
+        onSetDefault={jest.fn()}
+      />
+    );
+
+    expect(
+      screen.getByRole('button', { name: 'Address options for Home' })
+    ).toHaveProp(
+      'accessibilityHint',
+      'Opens a menu with options to edit or delete this address'
+    );
+  });
 });
