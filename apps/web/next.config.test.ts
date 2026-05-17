@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import nextConfig from './next.config';
 
 describe('next.config OgaBassey resource headers', () => {
-  it('does not guess viewport-specific hero preloads from request headers', async () => {
+  it('emits a host-scoped mobile hero preload Link header on OgaBassey home responses', async () => {
     expect(typeof nextConfig.headers).toBe('function');
     const headers = await nextConfig.headers();
     expect(headers).toBeDefined();
@@ -14,7 +14,32 @@ describe('next.config OgaBassey resource headers', () => {
           entry.headers.some((header) => header.key === 'Link')
       ) ?? [];
 
-    expect(homeLinkRules).toHaveLength(0);
+    expect(homeLinkRules).toHaveLength(2);
+
+    const expectedLinkHeaderPattern =
+      /^<\/_next\/static\/media\/iphone-17-pro-max-mobile\.[^./]+\.[a-f0-9]{8}\.avif>; rel=preload; as=image; type="image\/avif"; media="\(max-width: 767px\)"$/;
+
+    const linkHeaderValues = homeLinkRules.flatMap((rule) =>
+      rule.headers
+        .filter((header) => header.key === 'Link')
+        .map((header) => header.value)
+    );
+
+    expect(linkHeaderValues).toHaveLength(2);
+    expect(
+      linkHeaderValues.every((value) => expectedLinkHeaderPattern.test(value))
+    ).toBe(true);
+
+    expect(homeLinkRules).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          has: [{ type: 'host', value: 'ogabassey.com' }],
+        }),
+        expect.objectContaining({
+          has: [{ type: 'host', value: 'www.ogabassey.com' }],
+        }),
+      ])
+    );
   });
 
   it('does not route OgaBassey hero assets through next.config headers matchers', async () => {
