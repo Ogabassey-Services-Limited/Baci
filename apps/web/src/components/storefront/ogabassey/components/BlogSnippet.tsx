@@ -13,8 +13,13 @@ import Image from 'next/image';
 import Link from 'next/link';
 import type React from 'react';
 import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { useMerchantSafe } from '@/hooks/use-merchant-client';
+import {
+  BLOG_POST_PRODUCT_LINKS_SELECT,
+  normalizeBlogPostProductLink,
+  type BlogPostProductLinkRow,
+} from '@/lib/blog-post-product-links';
+import { createClient } from '@/lib/supabase/client';
 
 interface BlogSnippetProps {
   category: string;
@@ -52,8 +57,38 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({
       const supabase = createClient();
 
       try {
-        // Try semantic matching first if productId is provided
+        // Prefer explicit product-post links authored by the content agent.
         if (productId) {
+          const { data: explicitLinks, error: explicitLinksError } =
+            await supabase
+              .from('blog_post_products')
+              .select(BLOG_POST_PRODUCT_LINKS_SELECT)
+              .eq('merchant_id', merchantId)
+              .eq('product_id', productId)
+              .eq('blog_posts.status', 'published')
+              .not('blog_posts.published_at', 'is', null)
+              .order('created_at', { ascending: false })
+              .limit(1);
+
+          if (explicitLinksError) {
+            console.error(
+              'Error fetching explicit product blog link:',
+              explicitLinksError
+            );
+          }
+
+          const explicitPost = (explicitLinks ?? [])
+            .map((row) =>
+              normalizeBlogPostProductLink(row as BlogPostProductLinkRow)
+            )
+            .find((candidate) => candidate !== null);
+
+          if (explicitPost) {
+            setPost(explicitPost);
+            setLoading(false);
+            return;
+          }
+
           // Get product embedding
           const { data: product, error: productError } = await supabase
             .from('products')
