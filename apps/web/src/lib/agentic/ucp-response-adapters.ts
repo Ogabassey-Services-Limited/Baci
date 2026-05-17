@@ -66,9 +66,9 @@ export function buildUcpOrderResponse(response: unknown) {
       },
     },
     checkout_id:
-      response.checkout_id === null
-        ? null
-        : (toStringValue(response.checkout_id) ?? 'unknown'),
+      toStringValue(response.checkout_id) ??
+      toStringValue(response.id) ??
+      'unknown',
     currency,
     id: toStringValue(response.id) ?? 'unknown',
     fulfillment: {

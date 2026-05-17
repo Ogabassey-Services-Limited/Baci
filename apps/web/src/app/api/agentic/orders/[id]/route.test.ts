@@ -331,7 +331,7 @@ describe('GET /api/agentic/orders/[id]', () => {
     expect(await response.json()).toEqual({ error: 'Failed to fetch order' });
   });
 
-  it('returns the order with a null checkout id when checkout linkage is absent', async () => {
+  it('returns a schema-safe checkout id fallback when checkout linkage is absent', async () => {
     mockOrderRead({ checkoutSession: null, data: orderRow });
 
     const { GET } = await import('./route');
@@ -339,7 +339,7 @@ describe('GET /api/agentic/orders/[id]', () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({
-      checkout_id: null,
+      checkout_id: orderId,
       id: orderId,
       order_number: 'BACI-2026-0001',
     });

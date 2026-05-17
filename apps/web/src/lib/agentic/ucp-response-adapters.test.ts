@@ -133,6 +133,19 @@ describe('buildUcpOrderResponse', () => {
     });
   });
 
+  it('falls back to the order id when checkout linkage is absent', () => {
+    const response = buildUcpOrderResponse({
+      checkout_id: null,
+      id: 'order_1',
+      order_items: [],
+    });
+
+    expect(response).toMatchObject({
+      checkout_id: 'order_1',
+      id: 'order_1',
+    });
+  });
+
   it('derives line fulfillment from item fulfillment data and order shipping state', () => {
     const partial = buildUcpOrderResponse({
       checkout_id: 'agentic_session_1',
