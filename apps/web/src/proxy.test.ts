@@ -792,6 +792,26 @@ describe('Middleware Proxy', () => {
   it.each([
     'opengraph-image',
     'twitter-image',
+  ])('does not flatten one-word post slug metadata routes: %s', async (metadataRoute) => {
+    const req = new NextRequest(
+      `https://ogabassey.com/blog/long/${metadataRoute}`
+    );
+    req.headers.set('host', 'ogabassey.com');
+    req.headers.set('accept', 'image/avif,image/webp,image/*,*/*;q=0.8');
+    req.headers.set('sec-fetch-dest', 'image');
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(301);
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      `https://ogabassey.com/ogabassey.com/blog/long/${metadataRoute}`
+    );
+  });
+
+  it.each([
+    'opengraph-image',
+    'twitter-image',
   ])('redirects legacy category paths to canonical post URLs for HTML navigation when slug is %s', async (postSlug) => {
     const req = new NextRequest(
       `https://ogabassey.com/blog/gadgets/${postSlug}`
@@ -802,25 +822,6 @@ describe('Middleware Proxy', () => {
       'text/html,application/xhtml+xml,image/avif,image/webp,*/*;q=0.8'
     );
     req.headers.set('sec-fetch-dest', 'document');
-
-    const res = await proxy(req);
-
-    expect(res.status).toBe(301);
-    expect(res.headers.get('location')).toBe(
-      `https://ogabassey.com/blog/${postSlug}`
-    );
-  });
-
-  it.each([
-    'opengraph-image',
-    'twitter-image',
-  ])('redirects legacy category paths to canonical post URLs for non-HTML requests when slug is %s', async (postSlug) => {
-    const req = new NextRequest(
-      `https://ogabassey.com/blog/gadgets/${postSlug}`
-    );
-    req.headers.set('host', 'ogabassey.com');
-    req.headers.set('accept', 'image/avif,image/webp,image/*,*/*;q=0.8');
-    req.headers.set('sec-fetch-dest', 'image');
 
     const res = await proxy(req);
 
