@@ -85,6 +85,7 @@ export function SearchAutocomplete({
   // Immediately clear suggestions when value becomes too short
   useEffect(() => {
     if (value.length < 2) {
+      setLoading(false);
       setSuggestions([]);
       setPopularSearches([]);
       setIsOpen(false);
@@ -94,6 +95,7 @@ export function SearchAutocomplete({
   // Debounced search with autocomplete suggestions
   useEffect(() => {
     if (debouncedValue.length < 2) {
+      setLoading(false);
       setSuggestions([]);
       setPopularSearches([]);
       setIsOpen(false);
@@ -189,6 +191,7 @@ export function SearchAutocomplete({
       aria-haspopup="listbox"
       aria-controls={listboxId}
       aria-owns={listboxId}
+      aria-busy={loading}
       tabIndex={-1}
     >
       <div className="relative">
