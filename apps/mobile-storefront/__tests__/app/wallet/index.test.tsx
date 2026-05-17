@@ -41,7 +41,11 @@ type MockWalletContentProps = {
 
 const mockRedirect = jest.fn<({ href }: { href: string }) => ReactNode>();
 const mockRouterPush = jest.fn();
-let mockSearchParams: { action?: string } = {};
+let mockSearchParams: {
+  action?: string;
+  requiredAmount?: string;
+  returnTo?: string;
+} = {};
 const mockStorefrontScreenShell =
   jest.fn<({ children, edges }: MockStorefrontScreenShellProps) => void>();
 const mockWalletContent =
@@ -514,6 +518,91 @@ describe('WalletScreen', () => {
 
     expect(screen.getByText('show-fund-panel:true')).toBeOnTheScreen();
     expect(screen.getByText('show-redeem-panel:false')).toBeOnTheScreen();
+  });
+
+  it('prefills requiredAmount and passes returnTo to payment gateway', async () => {
+    mockSearchParams = {
+      action: 'fund',
+      requiredAmount: '1000',
+      returnTo: '/imei-check',
+    };
+
+    render(<WalletScreen />);
+
+    expect(screen.getByText('show-fund-panel:true')).toBeOnTheScreen();
+    expect(screen.getByText('fund-amount:1000')).toBeOnTheScreen();
+
+    fireEvent.press(screen.getByText('Confirm Fund'));
+
+    await waitFor(() => {
+      expect(mockInitializeWalletTopUp).toHaveBeenCalledWith({
+        amount: 1000,
+        customerName: 'Ada Lovelace',
+        customerPhone: '08012345678',
+        merchantId: 'merchant-1',
+        merchantSlug: 'ogabassey',
+      });
+    });
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/payment-gateway',
+      params: expect.objectContaining({
+        amount: '1000',
+        paymentKind: 'wallet',
+        returnTo: '/imei-check',
+      }),
+    });
+  });
+
+  it('syncs wallet top-up state when route params change after mount', async () => {
+    const { rerender } = render(<WalletScreen />);
+
+    expect(screen.getByText('show-fund-panel:false')).toBeOnTheScreen();
+    expect(screen.getByText('fund-amount:')).toBeOnTheScreen();
+
+    mockSearchParams = {
+      action: 'fund',
+      requiredAmount: '1750',
+      returnTo: '/imei-check',
+    };
+
+    rerender(<WalletScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText('show-fund-panel:true')).toBeOnTheScreen();
+    });
+    expect(screen.getByText('fund-amount:1750')).toBeOnTheScreen();
+  });
+
+  it.each([
+    'https://evil.example',
+    '//evil.example',
+    '/\\evil',
+    '/safe/../evil',
+    '/safe/./evil',
+    '/safe%2fevil',
+    '/safe%5cevil',
+  ])('ignores invalid returnTo value %s when starting a top-up', async (returnTo) => {
+    mockSearchParams = {
+      action: 'fund',
+      requiredAmount: '1000',
+      returnTo,
+    };
+
+    render(<WalletScreen />);
+
+    fireEvent.press(screen.getByText('Confirm Fund'));
+
+    await waitFor(() => {
+      expect(mockInitializeWalletTopUp).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 1000 })
+      );
+    });
+    expect(mockRouterPush).toHaveBeenCalledWith({
+      pathname: '/payment-gateway',
+      params: expect.not.objectContaining({
+        returnTo: expect.anything(),
+      }),
+    });
   });
 
   it('opens the reward redemption panel from the route action', () => {

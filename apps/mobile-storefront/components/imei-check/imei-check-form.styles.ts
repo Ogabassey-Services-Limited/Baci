@@ -191,4 +191,51 @@ export const formStyles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
+  walletBalancePill: {
+    alignSelf: 'center',
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    marginBottom: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: 6,
+  },
+  walletBalanceText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+  },
+  walletCta: {
+    alignItems: 'center',
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: SPACING.md,
+    marginBottom: SPACING.md,
+    padding: SPACING.md,
+  },
+  walletCtaButton: {
+    alignItems: 'center',
+    backgroundColor: BRAND.primary,
+    borderRadius: RADIUS.md,
+    flexDirection: 'row',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.sm,
+  },
+  walletCtaButtonText: {
+    color: BRAND.onPrimary,
+    fontFamily: 'Inter_700Bold',
+    fontSize: 13,
+  },
+  walletCtaCopy: {
+    flex: 1,
+  },
+  walletCtaText: {
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  walletCtaTitle: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 13,
+  },
 });

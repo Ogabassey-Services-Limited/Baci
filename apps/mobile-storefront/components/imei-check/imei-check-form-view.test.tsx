@@ -29,15 +29,19 @@ const baseProps = {
   error: null as string | null,
   imei: '',
   isLoading: false,
+  isWalletError: false,
+  isWalletLoading: false,
   selectedBrand: 'all' as const,
   selectedTier: 'full' as const,
   canToggleServices: true,
   showAllServices: false,
+  walletBalance: 5000,
   onBrandSelect: jest.fn(),
   onChangeImei: jest.fn(),
   onCheck: jest.fn(),
   onClearImei: jest.fn(),
   onTierSelect: jest.fn(),
+  onTopUpWallet: jest.fn(),
   onToggleServices: jest.fn(),
 };
 
@@ -92,8 +96,69 @@ describe('ImeiCheckFormView', () => {
   });
 
   it('replaces the verify CTA with a loading indicator while a check is in flight', () => {
-    render(<ImeiCheckFormView {...baseProps} imei="490154203237518" isLoading />);
+    render(
+      <ImeiCheckFormView {...baseProps} imei="490154203237518" isLoading />
+    );
 
     expect(screen.queryByText('Verify Now - ₦1,500')).toBeNull();
+  });
+
+  it('renders the top-up CTA and disables verify when wallet balance is short', () => {
+    const onCheck = jest.fn();
+    const onTopUpWallet = jest.fn();
+    render(
+      <ImeiCheckFormView
+        {...baseProps}
+        imei="490154203237518"
+        walletBalance={500}
+        onCheck={onCheck}
+        onTopUpWallet={onTopUpWallet}
+      />
+    );
+
+    expect(screen.getByText('Top up to unlock')).toBeTruthy();
+    fireEvent.press(screen.getByText('Top up'));
+
+    expect(onTopUpWallet).toHaveBeenCalledTimes(1);
+    expect(onTopUpWallet).toHaveBeenCalledWith(1000);
+    expect(onCheck).not.toHaveBeenCalled();
+  });
+
+  it('disables verify while the wallet balance is loading', () => {
+    const onCheck = jest.fn();
+    render(
+      <ImeiCheckFormView
+        {...baseProps}
+        imei="490154203237518"
+        isWalletLoading
+        onCheck={onCheck}
+      />
+    );
+
+    expect(screen.getByText('Loading wallet balance...')).toBeTruthy();
+    fireEvent.press(screen.getByText('Loading wallet...'));
+
+    expect(onCheck).not.toHaveBeenCalled();
+  });
+
+  it('disables verify when the wallet balance cannot be loaded', () => {
+    const onCheck = jest.fn();
+    render(
+      <ImeiCheckFormView
+        {...baseProps}
+        imei="490154203237518"
+        isWalletError
+        onCheck={onCheck}
+      />
+    );
+
+    expect(
+      screen.getByText(
+        'Wallet balance unavailable. Refresh your wallet and try again.'
+      )
+    ).toBeTruthy();
+    fireEvent.press(screen.getByText('Wallet unavailable'));
+
+    expect(onCheck).not.toHaveBeenCalled();
   });
 });

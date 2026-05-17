@@ -1,0 +1,3 @@
+-- Superseded before merge: IMEI lookup writes are service-role-only.
+-- Keep this migration as an explicit no-op so applying migrations never
+-- temporarily grants authenticated users direct writes to imei_lookups.

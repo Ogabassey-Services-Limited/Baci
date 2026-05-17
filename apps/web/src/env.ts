@@ -100,6 +100,8 @@ const serverSchema = z
     KORAPAY_SECRET_KEY: z.string().optional(),
     JUICYWAY_SECRET_KEY: z.string().optional(),
     PAYSTACK_SECRET_KEY: z.string().optional(),
+    SICKW_API_KEY: optionalTrimmedStringSchema,
+    IMEI_HASH_SALT: optionalTrimmedStringSchema,
     OPENAI_AGENTIC_API_KEY: z.string().optional(),
     OPENAI_AGENTIC_CONFIRMATION_KEY: z.string().optional(),
     OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS: z.string().optional(),
@@ -302,6 +304,8 @@ const getEnv = () => {
         KORAPAY_SECRET_KEY: process.env.KORAPAY_SECRET_KEY,
         JUICYWAY_SECRET_KEY: process.env.JUICYWAY_SECRET_KEY,
         PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY,
+        SICKW_API_KEY: process.env.SICKW_API_KEY,
+        IMEI_HASH_SALT: process.env.IMEI_HASH_SALT,
         KUDA_BILL_DEBUG: process.env.KUDA_BILL_DEBUG,
         OPENAI_AGENTIC_API_KEY: process.env.OPENAI_AGENTIC_API_KEY,
         OPENAI_AGENTIC_CONFIRMATION_KEY:
@@ -500,6 +504,16 @@ export const getPaystackSecretKey = () => {
     process.env.PAYSTACK_SECRET_KEY ?? env?.PAYSTACK_SECRET_KEY
   );
   return secret || undefined;
+};
+export const getSickwApiKey = () => {
+  if (isBrowserRuntime()) return undefined;
+  const secret = trimSecret(process.env.SICKW_API_KEY ?? env?.SICKW_API_KEY);
+  return secret || undefined;
+};
+export const getImeiHashSalt = () => {
+  if (isBrowserRuntime()) return undefined;
+  const salt = trimSecret(process.env.IMEI_HASH_SALT ?? env?.IMEI_HASH_SALT);
+  return salt || undefined;
 };
 export const getKudaBillDebug = () => {
   if (isBrowserRuntime()) return undefined;

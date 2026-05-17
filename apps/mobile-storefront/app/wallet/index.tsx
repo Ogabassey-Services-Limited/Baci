@@ -1,5 +1,5 @@
 import { Redirect, router, Stack, useLocalSearchParams } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Text, View } from 'react-native';
 import { useShallow } from 'zustand/react/shallow';
 import { StorefrontScreenShell } from '@/components/storefront/StorefrontScreenShell';
@@ -15,6 +15,7 @@ import { CONFIG } from '@/lib/config';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { createLogger } from '@/lib/logger';
 import { pickMerchantId } from '@/lib/pick-merchant-id';
+import { sanitizeWalletReturnTo } from '@/lib/sanitize-wallet-return-to';
 import { initializeWalletTopUp } from '@/lib/wallet-top-up';
 import {
   WALLET_TOP_UP_MAX_AMOUNT,
@@ -36,8 +37,14 @@ export default function WalletScreen({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { getScrollContentStyle } = useStorefrontInsets();
-  const { action } = useLocalSearchParams<{ action?: string }>();
-  const initialAction = Array.isArray(action) ? action[0] : action;
+  const { action, requiredAmount, returnTo } = useLocalSearchParams<{
+    action?: string;
+    requiredAmount?: string;
+    returnTo?: string;
+  }>();
+  const routeAction = Array.isArray(action) ? action[0] : action;
+  const routeRequiredAmount = normalizeFundAmountParam(requiredAmount);
+  const walletReturnTo = sanitizeWalletReturnTo(returnTo);
 
   const { isLoading: authLoading, redirectTo } = useRequireAuth();
   const { customer, merchantId, user } = useAuthStore(
@@ -52,14 +59,28 @@ export default function WalletScreen({
 
   const [redeemPoints, setRedeemPoints] = useState('');
   const [showRedeemPanel, setShowRedeemPanel] = useState(
-    initialAction === 'redeem'
+    routeAction === 'redeem'
   );
-  const [fundAmount, setFundAmount] = useState('');
-  const [showFundPanel, setShowFundPanel] = useState(initialAction === 'fund');
+  const [fundAmount, setFundAmount] = useState(routeRequiredAmount);
+  const [showFundPanel, setShowFundPanel] = useState(routeAction === 'fund');
   const [isFundPending, setIsFundPending] = useState(false);
   const activeMerchantId = pickMerchantId(merchantId, CONFIG.MERCHANT_ID);
   const activeMerchantSlug = CONFIG.MERCHANT_SLUG.trim() || undefined;
   const hasMerchantContext = Boolean(activeMerchantId || activeMerchantSlug);
+
+  useEffect(() => {
+    if (routeAction === 'fund') {
+      setShowFundPanel(true);
+      setShowRedeemPanel(false);
+      setFundAmount(routeRequiredAmount);
+      return;
+    }
+
+    if (routeAction === 'redeem') {
+      setShowFundPanel(false);
+      setShowRedeemPanel(true);
+    }
+  }, [routeAction, routeRequiredAmount]);
 
   const handleFundAmountChange = (value: string) => {
     setFundAmount(value.replace(/\D/g, ''));
@@ -119,6 +140,7 @@ export default function WalletScreen({
           ...(activeMerchantSlug ? { merchantSlug: activeMerchantSlug } : {}),
           paymentKind: 'wallet',
           reference: result.reference,
+          ...(walletReturnTo ? { returnTo: walletReturnTo } : {}),
         },
       });
     } catch (error) {
@@ -302,4 +324,14 @@ export default function WalletScreen({
       </StorefrontScreenShell>
     </>
   );
+}
+
+function normalizeFundAmountParam(value: string | string[] | undefined) {
+  const rawValue = Array.isArray(value) ? value[0] : value;
+  const amount = Number(rawValue);
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return '';
+  }
+  // Wallet top-ups use whole naira amounts, so fractional required amounts round up.
+  return String(Math.ceil(amount));
 }

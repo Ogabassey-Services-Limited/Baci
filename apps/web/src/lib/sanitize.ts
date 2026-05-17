@@ -28,6 +28,8 @@ const HTML_ATTRIBUTE_ESCAPE_MAP: Record<string, string> = {
   '"': '&quot;',
   "'": '&#39;',
 };
+const DISALLOWED_RAW_TEXT_BLOCK_REGEX =
+  /<(script|style|xmp|iframe|noembed|noframes|textarea|title)\b[^>]*>[\s\S]*?<\/\1\s*>/gi;
 
 function clampHeadingLevel(level: number) {
   return Math.min(6, Math.max(1, level));
@@ -75,6 +77,10 @@ export function sanitizeHtml(
   dirty: string,
   options: SanitizeHtmlOptions = {}
 ): string {
+  const dirtyWithoutRawTextBlocks = dirty.replace(
+    DISALLOWED_RAW_TEXT_BLOCK_REGEX,
+    ''
+  );
   const rawHeadingLevelOffset = Number(options.headingLevelOffset ?? 0);
   const headingLevelOffset = Number.isFinite(rawHeadingLevelOffset)
     ? Math.max(0, Math.trunc(rawHeadingLevelOffset))
@@ -92,7 +98,7 @@ export function sanitizeHtml(
     }
   }
 
-  return sanitizeLib(dirty, {
+  return sanitizeLib(dirtyWithoutRawTextBlocks, {
     // Whitelist of allowed HTML tags
     allowedTags: [
       // Text formatting

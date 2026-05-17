@@ -167,6 +167,7 @@ export function usePaymentGatewayController() {
     orderNumber,
     paymentKind,
     reference,
+    returnTo,
     trackingToken,
     utilityType,
   } = validatedParams.data || {};
@@ -250,7 +251,7 @@ export function usePaymentGatewayController() {
         }
         setPaymentStatus('success');
         scheduleDelayedNavigation(() => {
-          router.replace('/wallet');
+          router.replace(returnTo || '/wallet');
         });
       } catch (error) {
         if (!isMountedRef.current) {
