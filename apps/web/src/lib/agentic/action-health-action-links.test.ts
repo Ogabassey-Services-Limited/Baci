@@ -5,18 +5,20 @@ import {
 } from '@/lib/agentic/action-health-action-links';
 
 describe('getAgenticActionNextStepUrl', () => {
-  it('maps order-review action codes to the agentic orders dashboard', () => {
-    expect(
-      getAgenticActionNextStepUrl('AGENTIC_CHECKOUT_COMPLETE_ERRORS')
-    ).toBe(AGENTIC_ORDERS_REVIEW_HREF);
+  it('maps order-review action codes to issue-specific order dashboard links', () => {
     expect(getAgenticActionNextStepUrl('AGENTIC_IDEMPOTENCY_ERRORS')).toBe(
-      AGENTIC_ORDERS_REVIEW_HREF
+      `${AGENTIC_ORDERS_REVIEW_HREF}&agentic_issue=AGENTIC_IDEMPOTENCY_ERRORS`
     );
     expect(getAgenticActionNextStepUrl('AGENTIC_ORDER_FINALIZING')).toBe(
-      AGENTIC_ORDERS_REVIEW_HREF
+      `${AGENTIC_ORDERS_REVIEW_HREF}&agentic_issue=AGENTIC_ORDER_FINALIZING`
     );
     expect(getAgenticActionNextStepUrl('AGENTIC_PAYMENT_SETUP_FAILED')).toBe(
-      AGENTIC_ORDERS_REVIEW_HREF
+      `${AGENTIC_ORDERS_REVIEW_HREF}&agentic_issue=AGENTIC_PAYMENT_SETUP_FAILED`
+    );
+    expect(
+      getAgenticActionNextStepUrl('AGENTIC_CHECKOUT_COMPLETE_ERRORS')
+    ).toBe(
+      `${AGENTIC_ORDERS_REVIEW_HREF}&agentic_issue=AGENTIC_CHECKOUT_COMPLETE_ERRORS`
     );
   });
 

@@ -75,7 +75,7 @@ describe('AgenticActionCenterCard', () => {
     expect(screen.getByText('2 affected')).toBeInTheDocument();
     expect(screen.getAllByRole('link', { name: /review/i })[0]).toHaveAttribute(
       'href',
-      '/dashboard/orders?source=agentic'
+      '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_ORDER_FINALIZING'
     );
   });
 
@@ -148,7 +148,7 @@ describe('AgenticActionCenterCard', () => {
     expect(screen.queryByText('Clear')).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /review/i })).toHaveAttribute(
       'href',
-      '/dashboard/orders?source=agentic'
+      '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_PAYMENT_PENDING'
     );
   });
 
@@ -175,7 +175,7 @@ describe('AgenticActionCenterCard', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /review/i })).toHaveAttribute(
       'href',
-      '/dashboard/settings/trust'
+      '/dashboard/settings/trust#agent-checkout-controls'
     );
   });
 

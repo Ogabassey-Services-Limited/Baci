@@ -2,8 +2,14 @@
 
 import { File, PlusCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import {
+  AGENTIC_ORDERS_CLEAR_FOCUS_HREF,
+  getAgenticOrdersContext,
+} from '@/app/dashboard/orders/agentic-orders-context';
 import { OrderManagerModal } from '@/components/jumia/order-manager-modal';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { BagLoader } from '@/components/ui/bag-loader';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/auth-context';
@@ -43,6 +49,7 @@ export default function OrdersClientPage({
     urgentOrders: 0,
   },
 }: OrdersClientPageProps) {
+  const searchParams = useSearchParams();
   const { merchant, loading: merchantLoading } = useMerchant();
   const { loading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -70,6 +77,8 @@ export default function OrdersClientPage({
   const [jumiaConnectError, setJumiaConnectError] = useState<string | null>(
     null
   );
+  const agenticIssue = searchParams.get('agentic_issue');
+  const agenticOrdersContext = getAgenticOrdersContext(agenticIssue);
   const isHydrated = useRef(false);
 
   // Fetch active Jumia integrations for order management
@@ -397,6 +406,30 @@ export default function OrdersClientPage({
         shippingFilter={shippingFilter}
         onShippingFilterChange={setShippingFilter}
       />
+
+      {agenticOrdersContext ? (
+        <Alert className="border-blue-200 bg-blue-50/80 text-blue-900 dark:border-blue-900 dark:bg-blue-950/20 dark:text-blue-100">
+          <AlertTitle>Agentic checkout focus</AlertTitle>
+          <AlertDescription className="space-y-2">
+            <p>{agenticOrdersContext.summary}</p>
+            <p className="text-xs text-current/80">
+              Next step: {agenticOrdersContext.nextStep}
+            </p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              {agenticOrdersContext.trustControlsHref ? (
+                <Button asChild size="sm" variant="outline">
+                  <Link href={agenticOrdersContext.trustControlsHref}>
+                    Open trust controls
+                  </Link>
+                </Button>
+              ) : null}
+              <Button asChild size="sm" variant="ghost">
+                <Link href={AGENTIC_ORDERS_CLEAR_FOCUS_HREF}>Clear focus</Link>
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <OrdersUrgentAlert
         showAlert={showAlert}
