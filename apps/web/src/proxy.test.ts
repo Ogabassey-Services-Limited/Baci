@@ -767,6 +767,27 @@ describe('Middleware Proxy', () => {
   });
 
   it.each([
+    'opengraph-image',
+    'opengraph-image.png',
+    'twitter-image',
+    'twitter-image.jpg',
+  ])('does not flatten blog post %s metadata routes as legacy category URLs', async (metadataRoute) => {
+    const req = new NextRequest(
+      `https://ogabassey.com/blog/airpods-max/${metadataRoute}`
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(301);
+    expect(res.headers.get('location')).toBeNull();
+    expect(getSlugForCustomDomain).toHaveBeenCalledWith('ogabassey.com');
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      `https://ogabassey.com/ogabassey.com/blog/airpods-max/${metadataRoute}`
+    );
+  });
+
+  it.each([
     '/blog/page/2',
     '/blog/tag/iphone',
     '/blog/author/jane',

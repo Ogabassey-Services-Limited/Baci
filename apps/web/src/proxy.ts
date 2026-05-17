@@ -812,9 +812,19 @@ export async function proxy(request: NextRequest) {
     // (both thumbnail_id and _thumbnail_id variants).
     // Exclude pagination, tags, and authors from being treated as posts.
     const blogExclusions = ['page', 'tag', 'author', 'category'];
+    const blogMetadataEndpoints = ['opengraph-image', 'twitter-image'];
     const legacyCategoryMatch = pathname.match(/^\/blog\/([^/]+)\/([^/]+)\/?$/);
+    const legacyCategoryTarget = legacyCategoryMatch?.[2]?.toLowerCase();
+    const legacyCategoryTargetBase = legacyCategoryTarget?.replace(
+      /\.(?:avif|gif|jpe?g|png|webp)$/,
+      ''
+    );
+    const isBlogMetadataEndpoint =
+      legacyCategoryTargetBase !== undefined &&
+      blogMetadataEndpoints.includes(legacyCategoryTargetBase);
     const isLegacyPost =
       legacyCategoryMatch &&
+      !isBlogMetadataEndpoint &&
       !blogExclusions.includes(legacyCategoryMatch[1].toLowerCase());
 
     const hasThumbnailId =
