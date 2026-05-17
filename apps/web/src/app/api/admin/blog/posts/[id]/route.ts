@@ -244,6 +244,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    const previousSlug =
+      typeof existingPost.slug === 'string'
+        ? existingPost.slug.trim().toLowerCase()
+        : '';
+    const nextSlug =
+      typeof data.slug === 'string' ? data.slug.trim().toLowerCase() : '';
+
+    if (previousSlug && previousSlug !== nextSlug) {
+      revalidatePlatformBlog(previousSlug);
+    }
+
     revalidatePlatformBlog(data.slug);
     return NextResponse.json(data);
   } catch (error) {

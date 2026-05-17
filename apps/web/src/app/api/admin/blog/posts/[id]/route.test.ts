@@ -172,6 +172,46 @@ describe('PATCH /api/admin/blog/posts/[id]', () => {
     expect(mockRevalidatePlatformBlog).toHaveBeenCalledWith('launch-faster');
   });
 
+  it('revalidates both old and new slugs when a slug changes', async () => {
+    mockSupabase.single
+      .mockResolvedValueOnce({
+        data: {
+          id: 'post-1',
+          slug: 'old-slug',
+          status: 'draft',
+          featured_image_url: null,
+          featured_image_width: null,
+          featured_image_height: null,
+          featured_image_variants: {},
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          id: 'post-1',
+          slug: 'new-slug',
+          title: 'Launch Faster',
+        },
+        error: null,
+      });
+
+    const response = await PATCH(
+      new NextRequest('http://localhost/api/admin/blog/posts/post-1', {
+        body: JSON.stringify({
+          slug: 'new-slug',
+          title: 'Launch Faster',
+        }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH',
+      }),
+      { params: Promise.resolve({ id: 'post-1' }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockRevalidatePlatformBlog).toHaveBeenNthCalledWith(1, 'old-slug');
+    expect(mockRevalidatePlatformBlog).toHaveBeenNthCalledWith(2, 'new-slug');
+  });
+
   it('sets published_at when promoting a draft without requiring content in the patch payload', async () => {
     mockSupabase.single
       .mockResolvedValueOnce({

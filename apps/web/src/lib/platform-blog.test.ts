@@ -269,4 +269,17 @@ describe('platform-blog query helpers', () => {
       p_post_id: 'post-1',
     });
   });
+
+  it('re-throws RPC errors when view increment fails', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'rpc failed' },
+    });
+
+    await expect(incrementPlatformBlogPostViews('post-1')).rejects.toEqual(
+      expect.objectContaining({
+        message: 'rpc failed',
+      })
+    );
+  });
 });

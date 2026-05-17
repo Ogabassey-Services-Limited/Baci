@@ -295,6 +295,7 @@ export async function incrementPlatformBlogPostViews(
       error,
       postId: normalizedPostId,
     });
+    throw error;
   }
 }
 
