@@ -4,12 +4,10 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState, type ReactNode } from 'react';
 import type { Product } from '../types';
 import { DeferredShellFeature } from '../components/deferred-shell-feature';
-import { FlyToCartAnimation } from '../components/FlyToCartAnimation';
 import { ProductBreadcrumbs } from './product-details-page/product-breadcrumbs';
 import { ProductMediaGallery } from './product-details-page/product-media-gallery';
 import { ProductMobileActionBar } from './product-details-page/product-mobile-action-bar';
 import { ProductPurchasePanel } from './product-details-page/product-purchase-panel';
-import { SelectionRequiredModal } from './product-details-page/selection-required-modal';
 import { getAvailableOptionsForAxis } from '../variant-attributes';
 import { useProductDetailsState } from './product-details-page/use-product-details-state';
 
@@ -41,6 +39,20 @@ const DeferredProductDetailsSections = dynamic(
 const NegotiationModal = dynamic(
   () =>
     import('../components/NegotiationModal').then((mod) => mod.NegotiationModal),
+  { loading: () => null, ssr: false }
+);
+const FlyToCartAnimation = dynamic(
+  () =>
+    import('../components/FlyToCartAnimation').then(
+      (mod) => mod.FlyToCartAnimation
+    ),
+  { loading: () => null, ssr: false }
+);
+const SelectionRequiredModal = dynamic(
+  () =>
+    import('./product-details-page/selection-required-modal').then(
+      (mod) => mod.SelectionRequiredModal
+    ),
   { loading: () => null, ssr: false }
 );
 

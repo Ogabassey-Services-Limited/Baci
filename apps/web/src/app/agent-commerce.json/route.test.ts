@@ -64,6 +64,9 @@ describe('GET /agent-commerce.json', () => {
       expect(body.links.product_feed).toBe(
         'https://ogabassey.com/feeds/openai.jsonl'
       );
+      expect(body.links.product_api).toBe(
+        'https://ogabassey.com/api/storefront/ogabassey/products'
+      );
       expect(body.links.agent_native_commerce).toBe(
         'https://ogabassey.com/.well-known/agent-native-commerce'
       );
@@ -87,6 +90,7 @@ describe('GET /agent-commerce.json', () => {
       });
       expect(response.headers.get('cache-control')).toBe('public, max-age=300');
       expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+      expect(JSON.stringify(body)).not.toContain('xsoljx');
     },
     ROUTE_TEST_TIMEOUT_MS
   );

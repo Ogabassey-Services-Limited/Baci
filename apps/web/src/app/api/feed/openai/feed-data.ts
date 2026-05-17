@@ -6,6 +6,7 @@ const OPENAI_FEED_PRODUCTS_PAGE_SIZE = 1000;
 // Keep parity with Google feed product coverage until variant hydration supports
 // catalogs above 10k products across both machine-readable surfaces.
 const MAX_OPENAI_FEED_PRODUCTS = 10_000;
+const OPENAI_FEED_REVIEW_PRODUCTS_CHUNK_SIZE = 200;
 const OPENAI_FEED_PRODUCTS_SELECT = `id, name, description, slug, canonical_url, price, compare_at_price, images,
        brand, gtin, mpn, sku, stock, stock_quantity, manage_stock, condition, google_product_category, category,
        weight_value, weight_unit, created_at, updated_at,
@@ -42,6 +43,8 @@ export interface OpenAIFeedProduct {
   google_product_category?: string;
   category?: string;
   category_slug?: string | null;
+  average_rating?: number | null;
+  review_count?: number | null;
   categories?: { name?: string | null; slug?: string | null } | null;
   weight_value?: number;
   weight_unit?: 'kg' | 'lb' | 'g' | 'oz';
@@ -54,6 +57,12 @@ interface RawOpenAIFeedProductRow extends OpenAIFeedProduct {
   product_categories?: Array<{
     categories?: { name?: string | null; slug?: string | null } | null;
   }> | null;
+}
+
+interface RawOpenAIFeedReviewSignalRow {
+  product_id: string | null;
+  review_count: number | string | null;
+  average_rating: number | string | null;
 }
 
 export interface OpenAIFeedData {
@@ -103,6 +112,122 @@ function normalizeOpenAIFeedProducts(
       category: rest.category ?? joinedCategory?.name ?? undefined,
     };
   });
+}
+
+function toFiniteNumber(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string' && value.trim().length === 0) return null;
+
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function chunkValues<T>(items: T[], size: number): T[][] {
+  if (size <= 0) return [items];
+
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+function withApprovedReviewSignals(
+  products: OpenAIFeedProduct[],
+  reviewStatsByProductId: Map<string, { count: number; ratingTotal: number }>
+): OpenAIFeedProduct[] {
+  return products.map((product) => {
+    const stats = reviewStatsByProductId.get(product.id);
+
+    if (!stats || stats.count <= 0) {
+      return {
+        ...product,
+        average_rating: null,
+        review_count: 0,
+      };
+    }
+
+    return {
+      ...product,
+      average_rating: Math.round((stats.ratingTotal / stats.count) * 10) / 10,
+      review_count: stats.count,
+    };
+  });
+}
+
+async function fetchApprovedReviewSignalStats(
+  supabase: SupabaseClient,
+  merchantId: string,
+  productIds: string[]
+): Promise<Map<string, { count: number; ratingTotal: number }>> {
+  const reviewStatsByProductId = new Map<
+    string,
+    { count: number; ratingTotal: number }
+  >();
+
+  for (const productIdChunk of chunkValues(
+    productIds,
+    OPENAI_FEED_REVIEW_PRODUCTS_CHUNK_SIZE
+  )) {
+    const { data, error } = await supabase
+      .from('product_reviews')
+      .select(
+        'product_id, review_count:id.count(), average_rating:rating.avg()'
+      )
+      .eq('merchant_id', merchantId)
+      .eq('status', 'approved')
+      .in('product_id', productIdChunk);
+
+    if (error) {
+      throw error;
+    }
+
+    const rows = (data || []) as RawOpenAIFeedReviewSignalRow[];
+    for (const row of rows) {
+      if (!row.product_id) continue;
+
+      const reviewCount = toFiniteNumber(row.review_count);
+      const averageRating = toFiniteNumber(row.average_rating);
+      if (!reviewCount || reviewCount <= 0 || averageRating === null) {
+        continue;
+      }
+
+      reviewStatsByProductId.set(row.product_id, {
+        count: reviewCount,
+        ratingTotal: averageRating * reviewCount,
+      });
+    }
+  }
+
+  return reviewStatsByProductId;
+}
+
+async function hydrateProductsWithReviewSignals(
+  supabase: SupabaseClient,
+  merchantId: string,
+  products: OpenAIFeedProduct[]
+): Promise<OpenAIFeedProduct[]> {
+  if (products.length === 0) return products;
+
+  const productIds = products.map((product) => product.id);
+  if (productIds.length === 0) return products;
+
+  try {
+    const reviewStatsByProductId = await fetchApprovedReviewSignalStats(
+      supabase,
+      merchantId,
+      productIds
+    );
+    return withApprovedReviewSignals(products, reviewStatsByProductId);
+  } catch (error) {
+    console.warn('DB_REVIEW_SIGNAL_WARNING:', {
+      error,
+      merchantId,
+      productCount: productIds.length,
+    });
+    throw error;
+  }
 }
 
 async function fetchActiveOpenAIFeedProducts(
@@ -205,15 +330,22 @@ async function fetchActiveOpenAIFeedProducts(
  * because `'use cache'` functions must not capture request context.
  */
 export async function getCachedOpenAIFeedData(
-  merchantId: string
+  merchantId: string,
+  includeReviewSignals = false
 ): Promise<OpenAIFeedData> {
   'use cache: remote';
   cacheLife('products');
   cacheTag('openai-product-feed', 'products', `merchant-feed-${merchantId}`);
+  if (includeReviewSignals) {
+    cacheTag(`merchant-feed-review-signals-${merchantId}`);
+  }
 
   const supabase = createAnonClient();
+  const products = await fetchActiveOpenAIFeedProducts(supabase, merchantId);
 
   return {
-    products: await fetchActiveOpenAIFeedProducts(supabase, merchantId),
+    products: includeReviewSignals
+      ? await hydrateProductsWithReviewSignals(supabase, merchantId, products)
+      : products,
   };
 }

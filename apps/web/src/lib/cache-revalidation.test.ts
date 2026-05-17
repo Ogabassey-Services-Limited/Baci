@@ -75,7 +75,7 @@ describe('cache-revalidation utilities', () => {
         `dashboard-${MERCHANT_ID}`,
         'merchant'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(9);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(10);
     });
 
     it('revalidates specific product when slug provided', () => {
@@ -123,7 +123,7 @@ describe('cache-revalidation utilities', () => {
         `dashboard-${MERCHANT_ID}`,
         'merchant'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(10);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(11);
     });
 
     it('handles empty slug gracefully', () => {
@@ -142,7 +142,7 @@ describe('cache-revalidation utilities', () => {
         `merchant-id-${MERCHANT_ID}`,
         'products'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(9);
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(10);
     });
   });
 
@@ -508,14 +508,18 @@ describe('cache-revalidation utilities', () => {
   });
 
   describe('revalidateMerchantFeed', () => {
-    it('revalidates only the merchant-scoped feed tag', () => {
+    it('revalidates merchant feed and review-signal tags', () => {
       revalidateMerchantFeed('ogabassey');
 
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         'merchant-feed-ogabassey',
         'products'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(1);
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'merchant-feed-review-signals-ogabassey',
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
     });
 
     it('does not flush the global google-merchant-feed tag', () => {
@@ -534,7 +538,11 @@ describe('cache-revalidation utilities', () => {
         `merchant-feed-${MERCHANT_ID}`,
         'products'
       );
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(1);
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        `merchant-feed-review-signals-${MERCHANT_ID}`,
+        'products'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -624,7 +632,7 @@ describe('cache-revalidation utilities', () => {
         }
       }).not.toThrow();
 
-      expect(mockRevalidateTag).toHaveBeenCalledTimes(900); // 9 calls per invocation * 100
+      expect(mockRevalidateTag).toHaveBeenCalledTimes(1000); // 10 calls per invocation * 100
     });
 
     it('handles null/undefined merchant IDs gracefully', () => {

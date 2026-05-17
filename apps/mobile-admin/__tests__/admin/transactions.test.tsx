@@ -245,6 +245,7 @@ vi.mock('@/components/transactions/CostPriceEditorModal', () => ({
 }));
 
 import TransactionsScreen from '@/app/(admin)/transactions';
+import { buildTransactionDateIso } from '@/lib/transaction-review';
 
 const sampleOrders = [
   {
@@ -389,6 +390,8 @@ describe('TransactionsScreen', () => {
   });
 
   it('saves a valid cost price update', async () => {
+    const expectedTransactionDateIso = buildTransactionDateIso('2026-04-12');
+
     render(<TransactionsScreen />);
 
     fireEvent.click(screen.getByText('Edit ORD-1'));
@@ -409,7 +412,7 @@ describe('TransactionsScreen', () => {
         orderId: 'order-1',
         productId: 'product-1',
         supplierName: 'New Supplier',
-        transactionDateIso: '2026-04-12T00:00:00.000Z',
+        transactionDateIso: expectedTransactionDateIso,
       })
     );
   });
@@ -482,6 +485,7 @@ describe('TransactionsScreen', () => {
   });
 
   it('shows the async save error and keeps the editor actionable', async () => {
+    const expectedTransactionDateIso = buildTransactionDateIso('2026-04-10');
     mocks.mutateAsync.mockRejectedValueOnce(new Error('save failed'));
 
     render(<TransactionsScreen />);
@@ -498,7 +502,7 @@ describe('TransactionsScreen', () => {
         orderId: 'order-1',
         productId: 'product-1',
         supplierName: 'Old Supplier',
-        transactionDateIso: '2026-04-10T00:00:00.000Z',
+        transactionDateIso: expectedTransactionDateIso,
       })
     );
 
