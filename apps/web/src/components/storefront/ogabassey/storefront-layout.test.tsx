@@ -165,7 +165,7 @@ describe('OgabasseyStorefrontLayout', () => {
     );
   });
 
-  it('emits viewport-scoped hero LCP preloads when the home route asks for them', () => {
+  it('emits an eager mobile hero LCP preload when the home route asks for them', () => {
     render(
       <OgabasseyStorefrontLayout merchant={merchant} preloadHeroLcpImages>
         <div>Storefront body</div>
@@ -186,8 +186,13 @@ describe('OgabasseyStorefrontLayout', () => {
       expect.objectContaining({
         as: 'image',
         fetchPriority: 'high',
-        media: '(max-width: 767px)',
         type: 'image/avif',
+      })
+    );
+    expect(mocks.preload).toHaveBeenCalledWith(
+      HERO_MOBILE_LCP_SRC,
+      expect.not.objectContaining({
+        media: expect.any(String),
       })
     );
   });
