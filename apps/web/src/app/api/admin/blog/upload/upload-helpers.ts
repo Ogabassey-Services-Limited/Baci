@@ -18,10 +18,7 @@ export const INLINE_ALLOWED_TYPES = [
   'image/avif',
 ];
 
-export const FEATURED_ALLOWED_TYPES = [
-  'image/jpeg',
-  'image/png',
-];
+export const FEATURED_ALLOWED_TYPES = ['image/jpeg', 'image/png'];
 
 export const MIME_TO_EXTENSION: Record<string, string> = {
   'image/avif': 'avif',
