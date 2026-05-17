@@ -25,10 +25,6 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
-// Cache Components cannot prerender unknown dynamic slugs without a Suspense shell.
-// Keep this route dynamic to avoid build-time blocking-route failures.
-export const dynamic = 'force-dynamic';
-
 function formatDate(dateString: string): string {
   return new Date(dateString).toLocaleDateString('en-US', {
     month: 'long',
