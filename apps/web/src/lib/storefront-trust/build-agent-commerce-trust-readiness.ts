@@ -132,6 +132,11 @@ const TRUST_CHECK_ACTIONS: Record<
       'Open Products and complete key fields used by JSON-LD and agent catalog surfaces.',
     nextStepUrl: '/dashboard/products',
   },
+  'review-signal-coverage': {
+    nextStep:
+      'Open Products and complete review metadata fields so agent consumers can trust rating signals.',
+    nextStepUrl: '/dashboard/products',
+  },
   'feed-freshness': {
     nextStep:
       'Open Products and refresh stale catalog items so feed timestamps stay current.',
