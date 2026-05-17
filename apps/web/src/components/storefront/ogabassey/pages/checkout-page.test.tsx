@@ -549,6 +549,11 @@ describe('CheckoutPage', () => {
 
     try {
       const { unmount } = render(<CheckoutPage />);
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(fetchMock).toHaveBeenCalledWith('/api/shipping/locations');
 
       fireEvent.change(screen.getByTestId('address-input'), {
         target: { value: 'Lekki, Lagos' },
@@ -637,6 +642,11 @@ describe('CheckoutPage', () => {
 
     try {
       render(<CheckoutPage />);
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(fetchMock).toHaveBeenCalledWith('/api/shipping/locations');
 
       fireEvent.change(screen.getByTestId('address-input'), {
         target: { value: 'Lekki, Lagos' },

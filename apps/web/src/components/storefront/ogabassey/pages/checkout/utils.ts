@@ -114,18 +114,12 @@ export function inferAddressLocationFromInput(
       ? locationParts[locationParts.length - 2]
       : locationParts[0];
   if (!rawState || !rawCity) return null;
+  if (shippingStates.length === 0) return null;
 
-  let matchedState = rawState.trim();
-  if (shippingStates.length > 0) {
-    const exactMatch = shippingStates.find(
-      (candidate) => statesMatch(candidate, rawState),
-    );
-    if (exactMatch) {
-      matchedState = exactMatch;
-    } else {
-      return null;
-    }
-  }
+  const matchedState = shippingStates.find((candidate) =>
+    statesMatch(candidate, rawState),
+  );
+  if (!matchedState) return null;
 
   return {
     city: rawCity,

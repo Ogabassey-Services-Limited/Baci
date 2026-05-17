@@ -174,6 +174,12 @@ describe('inferAddressLocationFromInput', () => {
     expect(result).toBeNull();
   });
 
+  it('returns null until shipping state whitelist data is available', () => {
+    const result = inferAddressLocationFromInput('Lekki Phase 1, Lagos', []);
+
+    expect(result).toBeNull();
+  });
+
   it('returns null when there are not enough address segments', () => {
     const result = inferAddressLocationFromInput('Lagos', ['Lagos']);
     expect(result).toBeNull();
