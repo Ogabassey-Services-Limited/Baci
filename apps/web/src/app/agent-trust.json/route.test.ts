@@ -174,7 +174,10 @@ describe('GET /agent-trust.json', () => {
       'https://ogabassey.com/sitemap.xml'
     );
     expect(body.trust.surfaces.llms).toBe('https://ogabassey.com/llms.txt');
-    expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith('merchant-1');
+    expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith(
+      'merchant-1',
+      true
+    );
     expect(mockGetCachedGoogleMerchantFeedData).toHaveBeenCalledWith(
       'merchant-1',
       'ogabassey'

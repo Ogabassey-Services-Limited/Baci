@@ -331,7 +331,7 @@ async function fetchActiveOpenAIFeedProducts(
     cursor = nextCursor;
   }
 
-  return hydrateProductsWithReviewSignals(supabase, merchantId, products);
+  return products;
 }
 
 /**
@@ -342,15 +342,22 @@ async function fetchActiveOpenAIFeedProducts(
  * because `'use cache'` functions must not capture request context.
  */
 export async function getCachedOpenAIFeedData(
-  merchantId: string
+  merchantId: string,
+  includeReviewSignals = false
 ): Promise<OpenAIFeedData> {
   'use cache: remote';
   cacheLife('products');
   cacheTag('openai-product-feed', 'products', `merchant-feed-${merchantId}`);
+  if (includeReviewSignals) {
+    cacheTag(`merchant-feed-review-signals-${merchantId}`);
+  }
 
   const supabase = createAnonClient();
+  const products = await fetchActiveOpenAIFeedProducts(supabase, merchantId);
 
   return {
-    products: await fetchActiveOpenAIFeedProducts(supabase, merchantId),
+    products: includeReviewSignals
+      ? await hydrateProductsWithReviewSignals(supabase, merchantId, products)
+      : products,
   };
 }

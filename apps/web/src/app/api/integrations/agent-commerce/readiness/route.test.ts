@@ -109,7 +109,10 @@ describe('GET /api/integrations/agent-commerce/readiness', () => {
       }),
       'https://ogabassey.com'
     );
-    expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith('merchant-1');
+    expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith(
+      'merchant-1',
+      true
+    );
     expect(mockGetCachedGoogleMerchantFeedData).toHaveBeenCalledWith(
       'merchant-1',
       'ogabassey'

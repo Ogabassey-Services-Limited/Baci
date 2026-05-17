@@ -213,8 +213,8 @@ describe('getCachedOpenAIFeedData', () => {
         'variants:product_variants!product_variants_product_id_fkey('
       )
     );
-    expect(mockReviewSelect).toHaveBeenCalledWith('id, product_id, rating');
-    expect(mockReviewsIn).toHaveBeenCalledWith('product_id', ['prod-1']);
+    expect(mockReviewSelect).not.toHaveBeenCalled();
+    expect(mockReviewsIn).not.toHaveBeenCalled();
   });
 
   it('selects canonical URL and joined category fields without reading a missing category_slug column', async () => {
@@ -425,8 +425,10 @@ describe('getCachedOpenAIFeedData', () => {
     };
 
     const { getCachedOpenAIFeedData } = await import('./feed-data');
-    const result = await getCachedOpenAIFeedData('merchant-1');
+    const result = await getCachedOpenAIFeedData('merchant-1', true);
 
+    expect(mockReviewSelect).toHaveBeenCalledWith('id, product_id, rating');
+    expect(mockReviewsIn).toHaveBeenCalledWith('product_id', ['prod-1']);
     expect(result.products[0]).toMatchObject({
       average_rating: 4.5,
       review_count: 2,
