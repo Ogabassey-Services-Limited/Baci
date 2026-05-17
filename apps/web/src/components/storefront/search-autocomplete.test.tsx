@@ -44,7 +44,11 @@ afterAll(() => {
 describe('SearchAutocomplete', () => {
   beforeEach(() => {
     vi.useRealTimers();
-    globalThis.fetch = vi.fn();
+    globalThis.fetch = vi.fn(() =>
+      Promise.resolve({
+        json: () => Promise.resolve({ suggestions: [], popularSearches: [] }),
+      })
+    ) as any;
   });
 
   afterEach(() => {

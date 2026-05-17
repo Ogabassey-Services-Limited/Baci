@@ -94,6 +94,9 @@ export function SearchAutocomplete({
   // Debounced search with autocomplete suggestions
   useEffect(() => {
     if (debouncedValue.length < 2) {
+      setSuggestions([]);
+      setPopularSearches([]);
+      setIsOpen(false);
       return;
     }
 
