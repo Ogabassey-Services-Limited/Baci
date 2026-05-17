@@ -1,3 +1,12 @@
+DROP FUNCTION IF EXISTS public.update_transaction_review_details(
+  uuid,
+  uuid,
+  uuid,
+  numeric,
+  text,
+  timestamptz
+);
+
 CREATE OR REPLACE FUNCTION public.update_transaction_review_details(
   p_merchant_id uuid,
   p_product_id uuid,

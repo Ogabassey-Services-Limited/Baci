@@ -148,12 +148,12 @@ export function buildTransactionDateIso(dateInput: string) {
   const year = Number(yearText);
   const month = Number(monthText);
   const day = Number(dayText);
-  const parsed = new Date(Date.UTC(year, month - 1, day));
+  const parsed = new Date(year, month - 1, day);
 
   if (
-    parsed.getUTCFullYear() !== year ||
-    parsed.getUTCMonth() !== month - 1 ||
-    parsed.getUTCDate() !== day
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
   ) {
     return null;
   }

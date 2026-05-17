@@ -160,11 +160,41 @@ describe('transaction review helpers', () => {
       '2026-05-11'
     );
     expect(formatTransactionDateInput('not-a-date')).toBe('');
-    expect(buildTransactionDateIso('2026-05-12')).toBe(
-      '2026-05-12T00:00:00.000Z'
-    );
+    const previousTimeZone = process.env.TZ;
+    process.env.TZ = 'UTC';
+
+    try {
+      expect(buildTransactionDateIso('2026-05-12')).toBe(
+        '2026-05-12T00:00:00.000Z'
+      );
+    } finally {
+      if (previousTimeZone === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = previousTimeZone;
+      }
+    }
+
     expect(buildTransactionDateIso('05-12-2026')).toBeNull();
     expect(buildTransactionDateIso('2026-02-31')).toBeNull();
+  });
+
+  it('keeps the same local calendar day for negative-offset timezones', () => {
+    const previousTimeZone = process.env.TZ;
+    process.env.TZ = 'America/New_York';
+
+    try {
+      const iso = buildTransactionDateIso('2026-05-13');
+
+      expect(iso).toBe('2026-05-13T04:00:00.000Z');
+      expect(formatTransactionDateInput(iso ?? '')).toBe('2026-05-13');
+    } finally {
+      if (previousTimeZone === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = previousTimeZone;
+      }
+    }
   });
 
   it('formats transaction date inputs using the local calendar day', () => {
