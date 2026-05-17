@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Suspense } from 'react';
 import AppBody from '@/components/app-body';
 import { PlatformFooter } from '@/components/platform/footer';
 import { PlatformHeader } from '@/components/platform/header';
@@ -63,7 +64,25 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function BlogPage({ searchParams }: BlogPageProps) {
+function BlogPageFallback() {
+  return (
+    <AppBody>
+      <div className="flex min-h-screen flex-col bg-background font-sans">
+        <PlatformHeader />
+        <main className="flex-1 pb-16 pt-24">
+          <section className="container mx-auto px-4 md:px-6">
+            <div className="mx-auto mb-12 max-w-3xl text-center">
+              <p className="text-sm text-muted-foreground">Loading posts…</p>
+            </div>
+          </section>
+        </main>
+        <PlatformFooter />
+      </div>
+    </AppBody>
+  );
+}
+
+export async function BlogPageContent({ searchParams }: BlogPageProps) {
   const { page: pageParam } = await searchParams;
   const page = parsePage(pageParam);
   const listing = await getPlatformBlogListing({
@@ -219,5 +238,13 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
         <PlatformFooter />
       </div>
     </AppBody>
+  );
+}
+
+export default function BlogPage(props: BlogPageProps) {
+  return (
+    <Suspense fallback={<BlogPageFallback />}>
+      <BlogPageContent {...props} />
+    </Suspense>
   );
 }

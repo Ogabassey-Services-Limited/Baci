@@ -33,7 +33,7 @@ vi.mock('next/link', () => ({
   ),
 }));
 
-import BlogPage from './page';
+import { BlogPageContent } from './page';
 
 describe('platform blog listing page', () => {
   beforeEach(() => {
@@ -49,7 +49,7 @@ describe('platform blog listing page', () => {
   });
 
   it('uses the shared listing query and renders the empty state', async () => {
-    render(await BlogPage({ searchParams: Promise.resolve({}) }));
+    render(await BlogPageContent({ searchParams: Promise.resolve({}) }));
 
     expect(mockGetPlatformBlogListing).toHaveBeenCalledWith({
       limit: BLOG_LISTING_PAGE_SIZE,
@@ -81,7 +81,7 @@ describe('platform blog listing page', () => {
     });
 
     const { container } = render(
-      await BlogPage({ searchParams: Promise.resolve({ page: '2' }) })
+      await BlogPageContent({ searchParams: Promise.resolve({ page: '2' }) })
     );
 
     expect(mockGetPlatformBlogListing).toHaveBeenCalledWith({
