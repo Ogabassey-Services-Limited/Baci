@@ -63,7 +63,7 @@ export default function SettingsScreen() {
       ]}
       onPress={onPress}
       accessibilityRole={onPress ? "button" : undefined}
-      accessibilityLabel={title}
+      accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
       accessibilityHint={onPress ? subtitle : undefined}
     >
       <View
