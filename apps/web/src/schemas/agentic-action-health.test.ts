@@ -181,6 +181,28 @@ describe('agenticActionCheckoutSessionsSchema', () => {
 });
 
 describe('agenticActionIdempotencySchema', () => {
+  it('accepts well-formed idempotency counters and records', () => {
+    expect(
+      agenticActionIdempotencySchema.safeParse({
+        active_in_progress_count: 1,
+        in_progress_count: 2,
+        recent_count: 3,
+        records: [
+          {
+            created_at: '2026-05-15T03:00:00.000Z',
+            expires_at: '2026-05-15T03:10:00.000Z',
+            route: 'checkout_sessions.complete',
+            state: 'completed',
+            status_code: 200,
+            updated_at: '2026-05-15T03:01:00.000Z',
+          },
+        ],
+        stale_in_progress_count: 0,
+        terminal_error_count: 0,
+      }).success
+    ).toBe(true);
+  });
+
   it('rejects malformed idempotency records and counters', () => {
     expect(
       agenticActionIdempotencySchema.safeParse({

@@ -196,7 +196,10 @@ export async function loadAgenticActionHealth(
       records: idempotencyRows.map((row) => ({
         created_at: row.created_at,
         expires_at: row.expires_at,
-        route: row.route ?? 'unknown',
+        route:
+          typeof row.route === 'string' && row.route.trim().length > 0
+            ? row.route.trim()
+            : 'unknown',
         state: getIdempotencyState(row.status_code),
         status_code: row.status_code,
         updated_at: row.updated_at,
