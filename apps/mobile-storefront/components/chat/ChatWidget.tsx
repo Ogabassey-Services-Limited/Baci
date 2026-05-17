@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { getChatWidgetBottomOffset } from '@/constants/layout';
+import { useShallow } from 'zustand/react/shallow';
 import { useUIStore } from '@/stores/ui-store';
 import { ChatModal } from './ChatModal';
 import { HIDDEN_ROUTES } from './constants';
@@ -43,9 +44,13 @@ export function ChatWidget({
     insets.bottom
   );
 
-  const isChatOpen = useUIStore((state) => state.isChatOpen);
-  const openChat = useUIStore((state) => state.openChat);
-  const closeChat = useUIStore((state) => state.closeChat);
+  const { isChatOpen, openChat, closeChat } = useUIStore(
+    useShallow((state) => ({
+      isChatOpen: state.isChatOpen,
+      openChat: state.openChat,
+      closeChat: state.closeChat,
+    }))
+  );
 
   const { pan, panResponder, pulseAnim, isDragging, hasMoved, isOnRight } =
     useDraggableFab(effectiveBottomOffset);
