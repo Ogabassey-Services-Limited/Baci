@@ -7,9 +7,11 @@ import {
   it,
   jest,
 } from '@jest/globals';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { notifyManager } from '@tanstack/query-core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react-native';
+import * as Crypto from 'expo-crypto';
 import { createElement, type PropsWithChildren } from 'react';
 
 const mockCalculateCommerce =
@@ -38,6 +40,10 @@ jest.mock('@/lib/config', () => ({
   },
 }));
 
+jest.mock('expo-crypto', () => ({
+  randomUUID: jest.fn(() => 'test-redemption-id'),
+}));
+
 jest.mock('@/stores/auth-store', () => {
   const { create } = require('zustand');
 
@@ -51,6 +57,7 @@ jest.mock('@/stores/auth-store', () => {
 });
 
 import { useRedeemPoints, useWallet, walletKeys } from '@/hooks/use-wallet';
+import { PENDING_LOYALTY_REDEMPTION_TTL_MS } from '@/lib/loyalty-redemption-idempotency';
 import { useAuthStore } from '@/stores/auth-store';
 
 function createMockUser(id = 'user-1') {
@@ -118,8 +125,11 @@ function setupHook() {
   return { ...hook, queryClient };
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   jest.clearAllMocks();
+  jest.mocked(Crypto.randomUUID).mockReset();
+  jest.mocked(Crypto.randomUUID).mockReturnValue('test-redemption-id');
+  await AsyncStorage.clear();
 
   act(() => {
     useAuthStore.setState({
@@ -131,9 +141,9 @@ beforeEach(() => {
 
   mockCalculateCommerce.mockResolvedValue({
     success: true,
-    walletCredit: 900,
-    pointsRedeemed: 90,
-    remainingPoints: 910,
+    walletCredit: 100,
+    pointsRedeemed: 100,
+    remainingPoints: 900,
   });
 });
 
@@ -592,16 +602,16 @@ describe('useRedeemPoints', () => {
   it('maps successful redeem_loyalty_points RPC values into mutation result', async () => {
     mockCalculateCommerce.mockResolvedValue({
       success: true,
-      walletCredit: 111,
-      pointsRedeemed: 11,
-      remainingPoints: 989,
+      walletCredit: 200,
+      pointsRedeemed: 200,
+      remainingPoints: 800,
     });
     mockRpc.mockResolvedValue({
       data: {
         success: true,
-        wallet_credited: 2500,
-        points_deducted: 120,
-        new_points_balance: 880,
+        wallet_credited: 200,
+        points_deducted: 200,
+        new_points_balance: 800,
         new_wallet_balance: 12500,
       },
       error: null,
@@ -618,7 +628,7 @@ describe('useRedeemPoints', () => {
       | undefined;
 
     await act(async () => {
-      response = (await result.current.mutateAsync(120)) as {
+      response = (await result.current.mutateAsync(200)) as {
         success: boolean;
         walletCredit: number;
         pointsRedeemed: number;
@@ -628,16 +638,74 @@ describe('useRedeemPoints', () => {
 
     expect(response).toMatchObject({
       success: true,
-      walletCredit: 2500,
-      pointsRedeemed: 120,
-      remainingPoints: 880,
+      walletCredit: 200,
+      pointsRedeemed: 200,
+      remainingPoints: 800,
     });
     expect(mockRpc).toHaveBeenCalledWith('redeem_loyalty_points', {
       p_customer_id: 'customer-1',
       p_merchant_id: 'merchant-1',
-      p_points: 120,
-      p_wallet_credit: 111,
+      p_points: 200,
+      p_redemption_id: 'test-redemption-id',
+      p_wallet_credit: 200,
     });
+    unmount();
+    queryClient.clear();
+  });
+
+  it('rejects redemption below 100 points before calling rpc', async () => {
+    const { result, unmount, queryClient } = setupHook();
+
+    await act(async () => {
+      await expect(result.current.mutateAsync(50)).rejects.toThrow(
+        'Minimum redemption is 100 points'
+      );
+    });
+    expect(mockCalculateCommerce).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(
+      queryClient.getQueryData<WalletQueryData>(
+        walletKeys.data({ merchantId: 'merchant-1', ownerId: 'customer-1' })
+      )?.wallet.loyalty_points
+    ).toBe(1000);
+    unmount();
+    queryClient.clear();
+  });
+
+  it('rejects non-integer redemption amounts before calling rpc', async () => {
+    const { result, unmount, queryClient } = setupHook();
+
+    await act(async () => {
+      await expect(result.current.mutateAsync(100.5)).rejects.toThrow(
+        'Invalid redemption amount'
+      );
+    });
+    expect(mockCalculateCommerce).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(
+      queryClient.getQueryData<WalletQueryData>(
+        walletKeys.data({ merchantId: 'merchant-1', ownerId: 'customer-1' })
+      )?.wallet.loyalty_points
+    ).toBe(1000);
+    unmount();
+    queryClient.clear();
+  });
+
+  it('rejects redemption amounts outside 100-point blocks before calling rpc', async () => {
+    const { result, unmount, queryClient } = setupHook();
+
+    await act(async () => {
+      await expect(result.current.mutateAsync(150)).rejects.toThrow(
+        'Redeem points in 100-point blocks'
+      );
+    });
+    expect(mockCalculateCommerce).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(
+      queryClient.getQueryData<WalletQueryData>(
+        walletKeys.data({ merchantId: 'merchant-1', ownerId: 'customer-1' })
+      )?.wallet.loyalty_points
+    ).toBe(1000);
     unmount();
     queryClient.clear();
   });
@@ -705,13 +773,7 @@ describe('useRedeemPoints', () => {
     queryClient.clear();
   });
 
-  it('clamps optimistic loyalty points at zero', async () => {
-    let resolveCommerce: ((value: unknown) => void) | undefined;
-    mockCalculateCommerce.mockReturnValue(
-      new Promise((resolve) => {
-        resolveCommerce = resolve;
-      })
-    );
+  it('rejects redemption above the cached point balance before calling commerce or rpc', async () => {
     const { result, unmount, queryClient } = setupHook();
     const queryKey = walletKeys.data({
       merchantId: 'merchant-1',
@@ -722,39 +784,396 @@ describe('useRedeemPoints', () => {
       transactions: [],
     });
 
-    let mutationPromise!: Promise<unknown>;
-    act(() => {
-      mutationPromise = result.current.mutateAsync(100);
+    await act(async () => {
+      await expect(result.current.mutateAsync(100)).rejects.toThrow(
+        'Insufficient loyalty points'
+      );
     });
 
-    await waitFor(() =>
-      expect(
-        queryClient.getQueryData<WalletQueryData>(queryKey)?.wallet
-          .loyalty_points
-      ).toBe(0)
-    );
+    expect(mockCalculateCommerce).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(
+      queryClient.getQueryData<WalletQueryData>(queryKey)?.wallet
+        .loyalty_points
+    ).toBe(50);
+    unmount();
+    queryClient.clear();
+  });
 
-    mockRpc.mockResolvedValue({
-      data: {
-        new_points_balance: 0,
-        new_wallet_balance: 1000,
-        points_deducted: 50,
-        success: true,
-        wallet_credited: 1000,
-      },
-      error: null,
+  it('reuses the same redemption id after an ambiguous rpc error retry', async () => {
+    jest
+      .mocked(Crypto.randomUUID)
+      .mockReturnValueOnce('live-attempt-id')
+      .mockReturnValueOnce('first-redemption-id');
+    mockCalculateCommerce.mockResolvedValue({
+      success: true,
+      walletCredit: 200,
+      pointsRedeemed: 200,
+      remainingPoints: 800,
     });
-    act(() => {
-      resolveCommerce?.({
-        remainingPoints: 0,
-        success: true,
-        walletCredit: 1000,
+    mockRpc
+      .mockRejectedValueOnce(new Error('Network request failed'))
+      .mockResolvedValueOnce({
+        data: {
+          success: true,
+          wallet_credited: 200,
+          points_deducted: 200,
+          new_points_balance: 800,
+          new_wallet_balance: 12500,
+        },
+        error: null,
       });
+
+    const { result, unmount, queryClient } = setupHook();
+
+    await act(async () => {
+      await expect(result.current.mutateAsync(200)).rejects.toThrow(
+        'Network request failed'
+      );
     });
 
     await act(async () => {
-      await mutationPromise;
+      await result.current.mutateAsync(200);
     });
+
+    expect(mockRpc).toHaveBeenNthCalledWith(
+      1,
+      'redeem_loyalty_points',
+      expect.objectContaining({ p_redemption_id: 'first-redemption-id' })
+    );
+    expect(mockRpc).toHaveBeenNthCalledWith(
+      2,
+      'redeem_loyalty_points',
+      expect.objectContaining({ p_redemption_id: 'first-redemption-id' })
+    );
+    expect(Crypto.randomUUID).toHaveBeenCalledTimes(2);
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('retries an ambiguous redemption after a wallet balance refresh lowers points', async () => {
+    jest
+      .mocked(Crypto.randomUUID)
+      .mockReturnValueOnce('live-attempt-id')
+      .mockReturnValueOnce('first-redemption-id');
+    mockCalculateCommerce.mockResolvedValue({
+      success: true,
+      walletCredit: 200,
+      pointsRedeemed: 200,
+      remainingPoints: 0,
+    });
+    mockRpc
+      .mockRejectedValueOnce(new Error('Network request failed'))
+      .mockResolvedValueOnce({
+        data: {
+          success: true,
+          wallet_credited: 200,
+          points_deducted: 200,
+          new_points_balance: 0,
+          new_wallet_balance: 12500,
+        },
+        error: null,
+      });
+
+    const { result, unmount, queryClient } = setupHook();
+    const queryKey = walletKeys.data({
+      merchantId: 'merchant-1',
+      ownerId: 'customer-1',
+    });
+    queryClient.setQueryData<WalletQueryData>(queryKey, {
+      wallet: { balance: 0, loyalty_points: 200 },
+      transactions: [],
+    });
+
+    await act(async () => {
+      await expect(result.current.mutateAsync(200)).rejects.toThrow(
+        'Network request failed'
+      );
+    });
+
+    queryClient.setQueryData<WalletQueryData>(queryKey, {
+      wallet: { balance: 0, loyalty_points: 0 },
+      transactions: [],
+    });
+
+    await act(async () => {
+      await result.current.mutateAsync(200);
+    });
+
+    expect(mockRpc).toHaveBeenNthCalledWith(
+      1,
+      'redeem_loyalty_points',
+      expect.objectContaining({ p_redemption_id: 'first-redemption-id' })
+    );
+    expect(mockRpc).toHaveBeenNthCalledWith(
+      2,
+      'redeem_loyalty_points',
+      expect.objectContaining({ p_redemption_id: 'first-redemption-id' })
+    );
+    expect(mockCalculateCommerce).toHaveBeenNthCalledWith(
+      1,
+      'redeem_loyalty',
+      expect.objectContaining({ currentPoints: 200, points: 200 })
+    );
+    expect(mockCalculateCommerce).toHaveBeenNthCalledWith(
+      2,
+      'redeem_loyalty',
+      expect.objectContaining({ currentPoints: 200, points: 200 })
+    );
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('uses a fresh redemption id when a live retry outlives the pending ttl', async () => {
+    jest
+      .mocked(Crypto.randomUUID)
+      .mockReturnValueOnce('live-attempt-id')
+      .mockReturnValueOnce('expired-redemption-id')
+      .mockReturnValueOnce('fresh-redemption-id');
+    mockCalculateCommerce.mockResolvedValue({
+      success: true,
+      walletCredit: 200,
+      pointsRedeemed: 200,
+      remainingPoints: 800,
+    });
+    mockRpc
+      .mockRejectedValueOnce(new Error('Network request failed'))
+      .mockResolvedValueOnce({
+        data: {
+          success: true,
+          wallet_credited: 200,
+          points_deducted: 200,
+          new_points_balance: 800,
+          new_wallet_balance: 12500,
+        },
+        error: null,
+      });
+
+    const { result, unmount, queryClient } = setupHook();
+
+    await act(async () => {
+      await expect(result.current.mutateAsync(200)).rejects.toThrow(
+        'Network request failed'
+      );
+    });
+    await AsyncStorage.setItem(
+      'loyalty-redemption:customer-1:merchant-1:200',
+      JSON.stringify({
+        attemptId: 'live-attempt-id',
+        createdAt: Date.now() - PENDING_LOYALTY_REDEMPTION_TTL_MS - 1,
+        pointsBeforeRedeem: 1000,
+        redemptionId: 'expired-redemption-id',
+        version: 2,
+      })
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync(200);
+    });
+
+    expect(mockRpc).toHaveBeenNthCalledWith(
+      1,
+      'redeem_loyalty_points',
+      expect.objectContaining({ p_redemption_id: 'expired-redemption-id' })
+    );
+    expect(mockRpc).toHaveBeenNthCalledWith(
+      2,
+      'redeem_loyalty_points',
+      expect.objectContaining({ p_redemption_id: 'fresh-redemption-id' })
+    );
+    expect(Crypto.randomUUID).toHaveBeenCalledTimes(3);
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('does not reuse a stale same-amount redemption id after the point balance changes', async () => {
+    jest
+      .mocked(Crypto.randomUUID)
+      .mockReturnValueOnce('new-attempt-id')
+      .mockReturnValueOnce('new-redemption-id');
+    mockCalculateCommerce.mockResolvedValue({
+      success: true,
+      walletCredit: 200,
+      pointsRedeemed: 200,
+      remainingPoints: 600,
+    });
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        success: true,
+        wallet_credited: 200,
+        points_deducted: 200,
+        new_points_balance: 600,
+        new_wallet_balance: 12500,
+      },
+      error: null,
+    });
+    await AsyncStorage.setItem(
+      'loyalty-redemption:customer-1:merchant-1:200',
+      JSON.stringify({
+        attemptId: 'previous-attempt-id',
+        createdAt: Date.now(),
+        pointsBeforeRedeem: 1000,
+        redemptionId: 'stale-redemption-id',
+        version: 2,
+      })
+    );
+
+    const { result, unmount, queryClient } = setupHook();
+    queryClient.setQueryData<WalletQueryData>(
+      walletKeys.data({ merchantId: 'merchant-1', ownerId: 'customer-1' }),
+      {
+        wallet: { balance: 0, loyalty_points: 800 },
+        transactions: [],
+      }
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync(200);
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith(
+      'redeem_loyalty_points',
+      expect.objectContaining({
+        p_redemption_id: 'new-redemption-id',
+      })
+    );
+
+    unmount();
+    queryClient.clear();
+  });
+
+  it('does not reuse a persisted redemption id after remounting before retry', async () => {
+    jest
+      .mocked(Crypto.randomUUID)
+      .mockReturnValueOnce('first-attempt-id')
+      .mockReturnValueOnce('first-redemption-id')
+      .mockReturnValueOnce('second-attempt-id')
+      .mockReturnValueOnce('second-redemption-id');
+    mockCalculateCommerce.mockResolvedValue({
+      success: true,
+      walletCredit: 200,
+      pointsRedeemed: 200,
+      remainingPoints: 800,
+    });
+    mockRpc.mockRejectedValueOnce(new Error('Network request failed'));
+
+    const first = setupHook();
+
+    await act(async () => {
+      await expect(first.result.current.mutateAsync(200)).rejects.toThrow(
+        'Network request failed'
+      );
+    });
+    first.unmount();
+    first.queryClient.clear();
+
+    mockRpc.mockResolvedValueOnce({
+      data: {
+        success: true,
+        wallet_credited: 200,
+        points_deducted: 200,
+        new_points_balance: 800,
+        new_wallet_balance: 12500,
+      },
+      error: null,
+    });
+
+    const second = setupHook();
+
+    await act(async () => {
+      await second.result.current.mutateAsync(200);
+    });
+
+    expect(mockRpc).toHaveBeenNthCalledWith(
+      1,
+      'redeem_loyalty_points',
+      expect.objectContaining({ p_redemption_id: 'first-redemption-id' })
+    );
+    expect(mockRpc).toHaveBeenNthCalledWith(
+      2,
+      'redeem_loyalty_points',
+      expect.objectContaining({ p_redemption_id: 'second-redemption-id' })
+    );
+    expect(Crypto.randomUUID).toHaveBeenCalledTimes(4);
+
+    second.unmount();
+    second.queryClient.clear();
+  });
+
+  it('does not reuse a pending redemption id across customer or merchant changes', async () => {
+    jest
+      .mocked(Crypto.randomUUID)
+      .mockReturnValueOnce('attempt-id-1')
+      .mockReturnValueOnce('redemption-id-1')
+      .mockReturnValueOnce('attempt-id-2')
+      .mockReturnValueOnce('redemption-id-2');
+    mockCalculateCommerce.mockResolvedValue({
+      success: true,
+      walletCredit: 200,
+      pointsRedeemed: 200,
+      remainingPoints: 800,
+    });
+    mockRpc
+      .mockRejectedValueOnce(new Error('Network request failed'))
+      .mockResolvedValueOnce({
+        data: {
+          success: true,
+          wallet_credited: 200,
+          points_deducted: 200,
+          new_points_balance: 800,
+          new_wallet_balance: 12500,
+        },
+        error: null,
+      });
+
+    const { result, unmount, queryClient } = setupHook();
+
+    await act(async () => {
+      await expect(result.current.mutateAsync(200)).rejects.toThrow(
+        'Network request failed'
+      );
+    });
+
+    act(() => {
+      useAuthStore.setState({
+        customer: { id: 'customer-2', email: 'changed@example.com' },
+        merchantId: 'merchant-2',
+        user: createMockUser('user-2'),
+      });
+    });
+    queryClient.setQueryData<WalletQueryData>(
+      walletKeys.data({ merchantId: 'merchant-2', ownerId: 'customer-2' }),
+      {
+        wallet: { balance: 0, loyalty_points: 1000 },
+        transactions: [],
+      }
+    );
+
+    await act(async () => {
+      await result.current.mutateAsync(200);
+    });
+
+    expect(mockRpc).toHaveBeenNthCalledWith(
+      1,
+      'redeem_loyalty_points',
+      expect.objectContaining({
+        p_customer_id: 'customer-1',
+        p_merchant_id: 'merchant-1',
+        p_redemption_id: 'redemption-id-1',
+      })
+    );
+    expect(mockRpc).toHaveBeenNthCalledWith(
+      2,
+      'redeem_loyalty_points',
+      expect.objectContaining({
+        p_customer_id: 'customer-2',
+        p_merchant_id: 'merchant-2',
+        p_redemption_id: 'redemption-id-2',
+      })
+    );
 
     unmount();
     queryClient.clear();

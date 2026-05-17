@@ -10,6 +10,7 @@ import {
 } from '@/lib/kuda';
 import { purchaseBill } from '@/lib/kuda-bills';
 import { normalizeVtuNetworkProvider } from '@/lib/normalize-vtu-network-provider';
+import { awardVtuAirtimeLoyaltyPoints } from '@/lib/vtu-loyalty-points-award';
 import { VTU_TYPE_LABELS } from '@/lib/vtu-pending-transaction';
 
 /**
@@ -110,6 +111,11 @@ export type FulfilledVtuResult =
       amount: number;
       cashback?: { amount: number; credited: boolean; newBalance: number };
       customerIdentifier?: string;
+      loyaltyPoints?: {
+        credited: boolean;
+        earned: number;
+        newBalance?: number;
+      };
       reference: string;
       status: 'successful';
       voucherPin?: string;
@@ -1205,6 +1211,12 @@ async function resolveSuccessfulVtuTransaction({
     supabase,
   });
   metadataChanged = walletSettlement.metadataChanged || metadataChanged;
+  const loyaltyPoints = await awardVtuAirtimeLoyaltyPoints({
+    metadata,
+    row,
+    supabase,
+  });
+  metadataChanged = loyaltyPoints.metadataChanged || metadataChanged;
   const notificationSettlement = await notifyVtuCustomerSuccess({
     cashbackAmount,
     customerWalletCredited: walletSettlement.customerWalletCredited,
@@ -1240,6 +1252,17 @@ async function resolveSuccessfulVtuTransaction({
           }
         : undefined,
     customerIdentifier: row.customer_identifier ?? undefined,
+    ...(loyaltyPoints.credited
+      ? {
+          loyaltyPoints: {
+            credited: loyaltyPoints.credited,
+            earned: loyaltyPoints.earned,
+            ...(loyaltyPoints.newBalance !== undefined
+              ? { newBalance: loyaltyPoints.newBalance }
+              : {}),
+          },
+        }
+      : {}),
     reference: row.request_reference,
     status: 'successful',
     ...(voucherPin && { voucherPin }),
@@ -2207,6 +2230,11 @@ export async function fulfillPendingVtuTransaction({
     row,
     supabase,
   });
+  const loyaltyPoints = await awardVtuAirtimeLoyaltyPoints({
+    metadata: finalMetadata,
+    row,
+    supabase,
+  });
   const notificationSettlement = await notifyVtuCustomerSuccess({
     cashbackAmount,
     customerWalletCredited: walletSettlement.customerWalletCredited,
@@ -2221,6 +2249,7 @@ export async function fulfillPendingVtuTransaction({
   );
   const metadataChanged =
     walletSettlement.metadataChanged ||
+    loyaltyPoints.metadataChanged ||
     notificationSettlement.metadataChanged ||
     paymentPendingMetadataChanged;
 
@@ -2253,6 +2282,17 @@ export async function fulfillPendingVtuTransaction({
           }
         : undefined,
     customerIdentifier: row.customer_identifier ?? undefined,
+    ...(loyaltyPoints.credited
+      ? {
+          loyaltyPoints: {
+            credited: loyaltyPoints.credited,
+            earned: loyaltyPoints.earned,
+            ...(loyaltyPoints.newBalance !== undefined
+              ? { newBalance: loyaltyPoints.newBalance }
+              : {}),
+          },
+        }
+      : {}),
     reference: row.request_reference,
     status: 'successful',
     ...(voucherPin && { voucherPin }),

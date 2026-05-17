@@ -1,4 +1,5 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { calculateLoyaltyRedemption } from '../../../src/lib/commerce-loyalty-redemption.ts';
 import {
   getVtuCommissionRate,
   normalizeVtuCommissionCategory,
@@ -65,39 +66,7 @@ Deno.serve(async (req) => {
       }
 
       case 'redeem_loyalty': {
-        // Loyalty Points Redemption: 100 points = ₦100 (1:1 ratio)
-        const { points, currentPoints = 0, pointsToNairaRate = 1 } = data;
-        const minRedeemPoints = 100; // Minimum 100 points to redeem
-
-        if (points < minRedeemPoints) {
-          result = {
-            success: false,
-            error: `Minimum ${minRedeemPoints} points required`,
-            minRedeemPoints,
-          };
-          break;
-        }
-
-        if (points > currentPoints) {
-          result = {
-            success: false,
-            error: 'Insufficient loyalty points',
-            currentPoints,
-            requestedPoints: points,
-          };
-          break;
-        }
-
-        const walletCredit = Math.round(points * pointsToNairaRate * 100) / 100;
-        const remainingPoints = currentPoints - points;
-
-        result = {
-          success: true,
-          pointsRedeemed: points,
-          walletCredit,
-          remainingPoints,
-          conversionRate: pointsToNairaRate,
-        };
+        result = calculateLoyaltyRedemption(data);
         break;
       }
 
