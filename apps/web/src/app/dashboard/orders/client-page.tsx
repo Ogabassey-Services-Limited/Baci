@@ -4,6 +4,10 @@ import { File, PlusCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import {
+  AGENTIC_ORDERS_CLEAR_FOCUS_HREF,
+  getAgenticOrdersContext,
+} from '@/app/dashboard/orders/agentic-orders-context';
 import { OrderManagerModal } from '@/components/jumia/order-manager-modal';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { BagLoader } from '@/components/ui/bag-loader';
@@ -19,10 +23,6 @@ import {
   type OrderStats,
   type ShippingStatus,
 } from './actions';
-import {
-  AGENTIC_ORDERS_CLEAR_FOCUS_HREF,
-  getAgenticOrdersContext,
-} from './agentic-orders-context';
 import type { PaymentStatus } from './order-statuses';
 import { OrdersFiltersBar } from './orders-filters-bar';
 import { OrdersListCard } from './orders-list-card';

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AGENTIC_ORDERS_CLEAR_FOCUS_HREF,
   getAgenticOrdersContext,
-} from './agentic-orders-context';
+} from '@/app/dashboard/orders/agentic-orders-context';
 
 describe('getAgenticOrdersContext', () => {
   it('returns null for empty or unknown issue codes', () => {
