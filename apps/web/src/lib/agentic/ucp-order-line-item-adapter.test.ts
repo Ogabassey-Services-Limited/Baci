@@ -1,0 +1,41 @@
+import { describe, expect, it } from 'vitest';
+import { mapUcpOrderLineItem } from '@/lib/agentic/ucp-order-line-item-adapter';
+
+describe('mapUcpOrderLineItem', () => {
+  it('derives partial fulfillment from item fulfillment data', () => {
+    const lineItem = mapUcpOrderLineItem(
+      {
+        fulfillment_data: { fulfilled_quantity: 1 },
+        id: 'item_1',
+        name: 'Phone',
+        price: 150_000,
+        quantity: 2,
+      },
+      0,
+      'processing'
+    );
+
+    expect(lineItem).toMatchObject({
+      quantity: { fulfilled: 1, total: 2 },
+      status: 'partial',
+    });
+  });
+
+  it('marks line items fulfilled when the order is delivered', () => {
+    const lineItem = mapUcpOrderLineItem(
+      {
+        id: 'item_1',
+        name: 'Phone',
+        price: 150_000,
+        quantity: 2,
+      },
+      0,
+      'delivered'
+    );
+
+    expect(lineItem).toMatchObject({
+      quantity: { fulfilled: 2, total: 2 },
+      status: 'fulfilled',
+    });
+  });
+});

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { GPTTotal } from '@/lib/agentic/checkout';
 import { UCP_PROFILE_VERSION } from '@/lib/agentic/ucp-discovery-profile';
+import { mapUcpOrderLineItem } from '@/lib/agentic/ucp-order-line-item-adapter';
 
 const UCP_CHECKOUT_CAPABILITY = 'dev.ucp.shopping.checkout';
 const UCP_ORDER_CAPABILITY = 'dev.ucp.shopping.order';
@@ -72,7 +73,9 @@ export function buildUcpOrderResponse(response: unknown) {
       events: fulfillmentEvents,
     },
     line_items: Array.isArray(response.order_items)
-      ? response.order_items.map((item, index) => mapOrderLineItem(item, index))
+      ? response.order_items.map((item, index) =>
+          mapUcpOrderLineItem(item, index, shippingStatus)
+        )
       : [],
     permalink_url:
       toStringValue(response.permalink_url) ??
@@ -200,40 +203,6 @@ function mapCheckoutTotals(totals: unknown): unknown[] {
   }
 
   return mappedTotals;
-}
-
-function mapOrderLineItem(orderItem: unknown, index: number) {
-  const orderItemRecord = isRecord(orderItem) ? orderItem : {};
-  const quantity = toPositiveInteger(orderItemRecord.quantity) ?? 1;
-  const price = Math.max(0, toIntegerAmount(orderItemRecord.price) ?? 0);
-  const total =
-    toIntegerAmount(orderItemRecord.line_extension_amount) ?? price * quantity;
-  const itemId =
-    toStringValue(orderItemRecord.variant_id) ??
-    toStringValue(orderItemRecord.product_id) ??
-    toStringValue(orderItemRecord.id) ??
-    `line_${index + 1}`;
-
-  return {
-    id: toStringValue(orderItemRecord.id) ?? `line_${index + 1}`,
-    item: {
-      id: itemId,
-      price,
-      title: toStringValue(orderItemRecord.name) ?? 'Unknown item',
-    },
-    quantity: {
-      fulfilled: 0,
-      total: quantity,
-    },
-    status: 'processing',
-    totals: [
-      {
-        amount: Math.max(0, total),
-        display_text: 'Total',
-        type: 'total',
-      },
-    ],
-  };
 }
 
 function buildOrderTotals({

@@ -132,4 +132,38 @@ describe('buildUcpOrderResponse', () => {
       ],
     });
   });
+
+  it('derives line fulfillment from item fulfillment data and order shipping state', () => {
+    const partial = buildUcpOrderResponse({
+      checkout_id: 'agentic_session_1',
+      id: 'order_1',
+      order_items: [
+        {
+          fulfillment_data: { fulfilled_quantity: 1 },
+          id: 'item_1',
+          name: 'Phone',
+          price: 150_000,
+          quantity: 2,
+        },
+      ],
+      shipping_status: 'processing',
+    });
+    const delivered = buildUcpOrderResponse({
+      checkout_id: 'agentic_session_1',
+      id: 'order_1',
+      order_items: [
+        { id: 'item_1', name: 'Phone', price: 150_000, quantity: 2 },
+      ],
+      shipping_status: 'delivered',
+    });
+
+    expect(partial).toMatchObject({
+      line_items: [{ quantity: { fulfilled: 1, total: 2 }, status: 'partial' }],
+    });
+    expect(delivered).toMatchObject({
+      line_items: [
+        { quantity: { fulfilled: 2, total: 2 }, status: 'fulfilled' },
+      ],
+    });
+  });
 });

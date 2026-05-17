@@ -12,7 +12,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { agenticOrderRouteParamsSchema } from '@/schemas/agentic-order-route-params';
 
 const AGENTIC_ORDER_SELECT =
-  'id, order_number, payment_status, shipping_status, tracking_number, created_at, updated_at, subtotal, shipping_fee, discount_amount, tax_amount, total, currency, shipping_address, order_items(id, product_id, variant_id, name, price, quantity, line_extension_amount, vat_amount)';
+  'id, order_number, payment_status, shipping_status, tracking_number, created_at, updated_at, subtotal, shipping_fee, discount_amount, tax_amount, total, currency, shipping_address, order_items(id, product_id, variant_id, name, price, quantity, line_extension_amount, vat_amount, fulfillment_data)';
 const AGENTIC_ORDER_CHECKOUT_SESSION_SELECT = 'session_id';
 
 export async function GET(

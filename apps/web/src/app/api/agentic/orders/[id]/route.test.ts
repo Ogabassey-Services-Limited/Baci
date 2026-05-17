@@ -45,6 +45,7 @@ const orderRow = {
   order_items: [
     {
       id: 'line-1',
+      fulfillment_data: null,
       line_extension_amount: 100_000,
       name: 'Test laptop',
       price: 100_000,
@@ -200,7 +201,7 @@ describe('GET /api/agentic/orders/[id]', () => {
     expect(orderChain.eq).toHaveBeenCalledWith('source', 'agentic_ai');
     expect(scopedSupabase.from).toHaveBeenCalledWith('checkout_sessions');
     expect(select).toHaveBeenCalledWith(
-      'id, order_number, payment_status, shipping_status, tracking_number, created_at, updated_at, subtotal, shipping_fee, discount_amount, tax_amount, total, currency, shipping_address, order_items(id, product_id, variant_id, name, price, quantity, line_extension_amount, vat_amount)'
+      'id, order_number, payment_status, shipping_status, tracking_number, created_at, updated_at, subtotal, shipping_fee, discount_amount, tax_amount, total, currency, shipping_address, order_items(id, product_id, variant_id, name, price, quantity, line_extension_amount, vat_amount, fulfillment_data)'
     );
     const projection = vi.mocked(select).mock.calls[0]?.[0] ?? '';
     expect(projection).not.toMatch(/(^|,\s*)status(\s*,|$)/);
