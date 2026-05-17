@@ -305,7 +305,10 @@ describe('buildAgentCommerceTrustReadiness', () => {
     ).toMatchObject({ severity: 'warn' });
     expect(
       result.checks.find((check) => check.id === 'review-signal-coverage')
-    ).toMatchObject({ severity: 'warn' });
+    ).toMatchObject({
+      next_step_url: '/dashboard/reviews',
+      severity: 'warn',
+    });
     expect(
       result.checks.find((check) => check.id === 'support-contact')
     ).toMatchObject({ severity: 'fail' });

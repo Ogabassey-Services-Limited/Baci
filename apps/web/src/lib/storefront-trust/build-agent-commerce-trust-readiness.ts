@@ -134,8 +134,8 @@ const TRUST_CHECK_ACTIONS: Record<
   },
   'review-signal-coverage': {
     nextStep:
-      'Open Products and complete review metadata fields so agent consumers can trust rating signals.',
-    nextStepUrl: '/dashboard/products',
+      'Open Reviews and approve/curate product reviews so agent consumers can trust rating signals.',
+    nextStepUrl: '/dashboard/reviews',
   },
   'feed-freshness': {
     nextStep:
