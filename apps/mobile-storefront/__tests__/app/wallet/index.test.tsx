@@ -470,6 +470,43 @@ describe('WalletScreen', () => {
     expect(pushArg.params).not.toHaveProperty('merchantId');
   });
 
+  it('omits blank merchant slugs from wallet top-up route params when merchant id is available', async () => {
+    mockMerchantSlug = '   ';
+
+    render(<WalletScreen />);
+
+    fireEvent.press(screen.getByText('Open Fund Panel'));
+    fireEvent.press(screen.getByText('Set Valid Fund Amount'));
+    fireEvent.press(screen.getByText('Confirm Fund'));
+
+    await waitFor(() => {
+      expect(mockInitializeWalletTopUp).toHaveBeenCalledWith({
+        amount: 2500,
+        customerName: 'Ada Lovelace',
+        customerPhone: '08012345678',
+        merchantId: 'merchant-1',
+        merchantSlug: undefined,
+      });
+    });
+
+    const pushArg = mockRouterPush.mock.calls[0]?.[0] as {
+      params: Record<string, string>;
+      pathname: string;
+    };
+    expect(pushArg).toEqual({
+      pathname: '/payment-gateway',
+      params: {
+        amount: '2500',
+        authorizationUrl: 'https://checkout.paystack.com/wallet',
+        gateway: 'paystack',
+        merchantId: 'merchant-1',
+        paymentKind: 'wallet',
+        reference: 'WAL-123',
+      },
+    });
+    expect(pushArg.params).not.toHaveProperty('merchantSlug');
+  });
+
   it('opens the wallet top-up panel from the route action', () => {
     mockSearchParams = { action: 'fund' };
 

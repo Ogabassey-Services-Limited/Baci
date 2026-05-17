@@ -58,7 +58,7 @@ export default function WalletScreen({
   const [showFundPanel, setShowFundPanel] = useState(initialAction === 'fund');
   const [isFundPending, setIsFundPending] = useState(false);
   const activeMerchantId = pickMerchantId(merchantId, CONFIG.MERCHANT_ID);
-  const activeMerchantSlug = CONFIG.MERCHANT_SLUG;
+  const activeMerchantSlug = CONFIG.MERCHANT_SLUG.trim() || undefined;
   const hasMerchantContext = Boolean(activeMerchantId || activeMerchantSlug);
 
   const handleFundAmountChange = (value: string) => {
@@ -116,7 +116,7 @@ export default function WalletScreen({
           authorizationUrl: result.authorization_url,
           gateway: result.gateway,
           ...(activeMerchantId ? { merchantId: activeMerchantId } : {}),
-          merchantSlug: activeMerchantSlug,
+          ...(activeMerchantSlug ? { merchantSlug: activeMerchantSlug } : {}),
           paymentKind: 'wallet',
           reference: result.reference,
         },
