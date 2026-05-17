@@ -38,13 +38,20 @@ function isPayOnDelivery(paymentMethod: string): boolean {
 const SERVER_ASSURANCE_RATE = 0.05;
 
 function hasPriceNegotiationEntitlement(
-  planTier: string | null | undefined
+  planTier: string | null | undefined,
+  merchantSlug: string | null | undefined
 ): boolean {
-  if (!isPlanTier(planTier)) {
-    return false;
+  if (isPlanTier(planTier)) {
+    return planHasFeature(planTier, FEATURES.PRICE_NEGOTIATION);
   }
 
-  return planHasFeature(planTier, FEATURES.PRICE_NEGOTIATION);
+  // Maintain legacy storefront entitlement fallback until all
+  // merchants are backfilled with an explicit `plan_tier`.
+  const legacyNegotiationSlugs = new Set(['ogabassey', 'demo-premium']);
+  return (
+    typeof merchantSlug === 'string' &&
+    legacyNegotiationSlugs.has(merchantSlug.toLowerCase())
+  );
 }
 
 type EmailOrderItem = {
@@ -355,7 +362,8 @@ export async function POST(request: NextRequest) {
     }
 
     const merchantCanAutoNegotiate = hasPriceNegotiationEntitlement(
-      merchant.plan_tier
+      merchant.plan_tier,
+      merchant.slug
     );
 
     let serverDerivedDiscountAmount = 0;

@@ -796,6 +796,120 @@ describe('POST /api/orders — B3.5 VAT RPC error mapping', () => {
     );
   });
 
+  it('preserves legacy negotiation entitlement fallback when plan_tier is missing', async () => {
+    const rpcSpy = vi.fn().mockResolvedValue({
+      data: [
+        {
+          id: 'order-id',
+          order_number: 'ORD-123',
+          total: 1042.75,
+          subtotal: 1000,
+          shipping_fee: 0,
+          customer_id: CUSTOMER_ID,
+        },
+      ],
+      error: null,
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation((() => {
+      const sb = buildMockSupabase();
+      sb.from = ((table: string) => {
+        if (table === 'merchants') {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: () =>
+                  Promise.resolve({
+                    data: { vat_registration_status: 'registered' },
+                    error: null,
+                  }),
+                single: () =>
+                  Promise.resolve({
+                    data: {
+                      id: MERCHANT_ID,
+                      business_name: 'Test',
+                      plan_tier: null,
+                      slug: 'ogabassey',
+                    },
+                    error: null,
+                  }),
+              }),
+            }),
+          };
+        }
+        if (table === 'products') {
+          return {
+            select: () => ({
+              eq: () => ({
+                in: () => ({
+                  returns: () =>
+                    Promise.resolve({
+                      data: [
+                        {
+                          id: 'p-1',
+                          price: 1000,
+                          vat_category_code: 'S',
+                          vat_rate: 7.5,
+                        },
+                      ],
+                      error: null,
+                    }),
+                }),
+              }),
+            }),
+          };
+        }
+        return {
+          select: () => ({
+            eq: () => ({
+              single: () => Promise.resolve({ data: null, error: null }),
+              maybeSingle: () => Promise.resolve({ data: null, error: null }),
+            }),
+          }),
+          insert: () => Promise.resolve({ error: null }),
+        };
+      }) as typeof sb.from;
+      sb.rpc = ((name: string, args: Record<string, unknown>) => {
+        if (name === 'create_storefront_order') {
+          return rpcSpy(args);
+        }
+        if (name === 'get_order_variant_overrides') {
+          return Promise.resolve({ data: [], error: null });
+        }
+        return Promise.resolve({ data: null, error: null });
+      }) as typeof sb.rpc;
+      return sb;
+    }) as unknown as never);
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            product_id: 'p-1',
+            quantity: 1,
+            price: 970,
+            name: 'Widget',
+          },
+        ],
+        subtotal: 970,
+        tax_amount: 72.75,
+        expected_total: 1042.75,
+        client_total: 1042.75,
+      }),
+    });
+    await POST(request);
+
+    expect(rpcSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_discount_amount: 32.25,
+        p_expected_total: 1042.75,
+        p_tax_amount: 75,
+      })
+    );
+  });
+
   it('does not derive a discount for merchants without price negotiation entitlement', async () => {
     const rpcSpy = vi.fn().mockResolvedValue({
       data: null,
