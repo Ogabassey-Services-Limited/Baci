@@ -79,6 +79,10 @@ function getOptionalString(value: string | null | undefined) {
   return trimmedValue ? trimmedValue : undefined;
 }
 
+function getMerchantSlug(value?: string | null) {
+  return getOptionalString(value) ?? getOptionalString(CONFIG.MERCHANT_SLUG);
+}
+
 async function parseJsonResponse(response: Response) {
   let data: Record<string, unknown>;
   try {
@@ -103,11 +107,15 @@ export async function initializeWalletTopUp({
   customerName,
   customerPhone,
   gateway,
+  merchantId,
+  merchantSlug,
 }: {
   amount: number;
   customerName?: string;
   customerPhone?: string | null;
   gateway?: WalletTopUpGateway;
+  merchantId?: string | null;
+  merchantSlug?: string | null;
 }): Promise<WalletTopUpInitializeResponse> {
   const accessToken = await getAccessToken();
   const requestBody = {
@@ -115,7 +123,8 @@ export async function initializeWalletTopUp({
     customerName: getOptionalString(customerName),
     customerPhone: getOptionalString(customerPhone),
     gateway,
-    merchantSlug: CONFIG.MERCHANT_SLUG,
+    merchantId: getOptionalString(merchantId),
+    merchantSlug: getMerchantSlug(merchantSlug),
   };
   const response = await fetchWithTimeout(
     `${API_URL}/api/storefront/customer/wallet/top-up/initialize`,
@@ -136,9 +145,13 @@ export async function initializeWalletTopUp({
 
 export async function confirmWalletTopUp({
   gateway,
+  merchantId,
+  merchantSlug,
   reference,
 }: {
   gateway: WalletTopUpGateway;
+  merchantId?: string | null;
+  merchantSlug?: string | null;
   reference: string;
 }): Promise<WalletTopUpConfirmation> {
   const accessToken = await getAccessToken();
@@ -147,7 +160,8 @@ export async function confirmWalletTopUp({
     {
       body: JSON.stringify({
         gateway,
-        merchantSlug: CONFIG.MERCHANT_SLUG,
+        merchantId: getOptionalString(merchantId),
+        merchantSlug: getMerchantSlug(merchantSlug),
         reference,
       }),
       headers: {
@@ -186,15 +200,24 @@ export async function confirmWalletTopUp({
 
 export async function waitForWalletTopUpConfirmation({
   gateway,
+  merchantId,
+  merchantSlug,
   maxAttempts = 10,
   reference,
 }: {
   gateway: WalletTopUpGateway;
+  merchantId?: string | null;
+  merchantSlug?: string | null;
   maxAttempts?: number;
   reference: string;
 }): Promise<WalletTopUpConfirmation> {
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-    const result = await confirmWalletTopUp({ gateway, reference });
+    const result = await confirmWalletTopUp({
+      gateway,
+      merchantId,
+      merchantSlug,
+      reference,
+    });
     if (result.status === 'successful') {
       return result;
     }

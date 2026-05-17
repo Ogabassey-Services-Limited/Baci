@@ -108,6 +108,7 @@ const walletParams = {
   amount: '2500',
   authorizationUrl: 'https://checkout.paystack.com/test',
   gateway: 'paystack',
+  merchantId: 'merchant-1',
   paymentKind: 'wallet',
   reference: 'WAL-123',
 };
@@ -331,6 +332,8 @@ describe('usePaymentGatewayController', () => {
     await waitFor(() =>
       expect(mockWaitForWalletTopUpConfirmation).toHaveBeenCalledWith({
         gateway: 'paystack',
+        merchantId: 'merchant-1',
+        merchantSlug: undefined,
         reference: 'WAL-123',
       })
     );
