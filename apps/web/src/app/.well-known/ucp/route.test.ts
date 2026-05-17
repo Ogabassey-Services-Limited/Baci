@@ -107,8 +107,50 @@ describe('GET /.well-known/ucp', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.ucp.capabilities['dev.ucp.shopping.checkout']).toBeUndefined();
-    expect(body.ucp.capabilities['dev.ucp.shopping.order']).toBeUndefined();
+    expect(body.ucp.capabilities['dev.ucp.shopping.checkout']).toEqual([
+      expect.objectContaining({
+        version: '2026-04-08',
+        spec: 'https://ucp.dev/2026-04-08/specification/checkout',
+        schema: 'https://ucp.dev/2026-04-08/schemas/shopping/checkout.json',
+      }),
+    ]);
+    expect(
+      body.ucp.capabilities['dev.ucp.shopping.checkout'][0].config
+    ).toMatchObject({
+      auth: {
+        type: 'bearer_hmac',
+      },
+      rest: {
+        endpoint: 'https://ogabassey.com/api/agentic',
+        operations: {
+          cancel_checkout:
+            'https://ogabassey.com/api/agentic/checkout_sessions/{session_id}/cancel',
+          complete_checkout:
+            'https://ogabassey.com/api/agentic/checkout_sessions/{session_id}/complete',
+          create_checkout:
+            'https://ogabassey.com/api/agentic/checkout_sessions',
+          get_checkout:
+            'https://ogabassey.com/api/agentic/checkout_sessions/{session_id}',
+          update_checkout:
+            'https://ogabassey.com/api/agentic/checkout_sessions/{session_id}',
+        },
+      },
+    });
+    expect(body.ucp.capabilities['dev.ucp.shopping.order']).toEqual([
+      expect.objectContaining({
+        version: '2026-04-08',
+        spec: 'https://ucp.dev/2026-04-08/specification/order',
+        schema: 'https://ucp.dev/2026-04-08/schemas/shopping/order.json',
+      }),
+    ]);
+    expect(body.ucp.capabilities['dev.ucp.shopping.order'][0].config).toEqual({
+      rest: {
+        endpoint: 'https://ogabassey.com/api/agentic',
+        operations: {
+          get_order: 'https://ogabassey.com/api/agentic/orders/{order_id}',
+        },
+      },
+    });
     expect(body.ucp.payment_handlers).toMatchObject({
       'com.paystack.bank_transfer': [
         expect.objectContaining({

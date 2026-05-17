@@ -8,6 +8,23 @@ import type { AgentCommerceManifest } from '@/lib/agentic/agent-commerce-manifes
 
 export const UCP_PROFILE_CACHE_CONTROL = 'public, max-age=300, s-maxage=300';
 export const UCP_PROFILE_VERSION = '2026-04-08';
+const UCP_SPEC_BASE_URL = `https://ucp.dev/${UCP_PROFILE_VERSION}/specification`;
+const UCP_SCHEMA_BASE_URL = `https://ucp.dev/${UCP_PROFILE_VERSION}/schemas/shopping`;
+
+const UCP_CHECKOUT_CAPABILITY = 'dev.ucp.shopping.checkout';
+const UCP_ORDER_CAPABILITY = 'dev.ucp.shopping.order';
+const UCP_CHECKOUT_SPEC_URL = `${UCP_SPEC_BASE_URL}/checkout`;
+const UCP_ORDER_SPEC_URL = `${UCP_SPEC_BASE_URL}/order`;
+const UCP_CHECKOUT_SCHEMA_URL = `${UCP_SCHEMA_BASE_URL}/checkout.json`;
+const UCP_ORDER_SCHEMA_URL = `${UCP_SCHEMA_BASE_URL}/order.json`;
+
+const CHECKOUT_SESSION_CAPABILITIES = [
+  'checkout.session.create',
+  'checkout.session.read',
+  'checkout.session.update',
+  'checkout.session.complete',
+  'checkout.session.cancel',
+] as const;
 
 function buildUrl(baseUrl: string, path: string): string {
   return new URL(path, baseUrl).toString();
@@ -27,6 +44,7 @@ export function buildUcpDiscoveryProfile(manifest: AgentCommerceManifest) {
       version: UCP_PROFILE_VERSION,
       services: {},
       capabilities: buildUcpCapabilities({
+        agenticApiBaseUrl,
         agentCommerceManifestUrl,
         manifest,
       }),
@@ -61,9 +79,11 @@ export function buildUcpDiscoveryProfile(manifest: AgentCommerceManifest) {
 }
 
 function buildUcpCapabilities({
+  agenticApiBaseUrl,
   agentCommerceManifestUrl,
   manifest,
 }: {
+  agenticApiBaseUrl: string;
   agentCommerceManifestUrl: string;
   manifest: AgentCommerceManifest;
 }) {
@@ -82,7 +102,107 @@ function buildUcpCapabilities({
     ];
   }
 
+  const checkoutCapability = buildUcpCheckoutCapability({
+    agenticApiBaseUrl,
+    manifest,
+  });
+  if (checkoutCapability) {
+    capabilities[UCP_CHECKOUT_CAPABILITY] = [checkoutCapability];
+  }
+
+  const orderCapability = buildUcpOrderCapability({
+    agenticApiBaseUrl,
+    manifest,
+  });
+  if (orderCapability) {
+    capabilities[UCP_ORDER_CAPABILITY] = [orderCapability];
+  }
+
   return capabilities;
+}
+
+function hasPresentString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function hasCheckoutLinks(manifest: AgentCommerceManifest): boolean {
+  return [
+    manifest.links.checkout_sessions,
+    manifest.links.checkout_session,
+    manifest.links.checkout_session_complete,
+    manifest.links.checkout_session_cancel,
+  ].every(hasPresentString);
+}
+
+function hasCheckoutCapabilities(manifest: AgentCommerceManifest): boolean {
+  return CHECKOUT_SESSION_CAPABILITIES.every((capability) =>
+    manifest.capabilities.includes(capability)
+  );
+}
+
+function buildUcpCheckoutCapability({
+  agenticApiBaseUrl,
+  manifest,
+}: {
+  agenticApiBaseUrl: string;
+  manifest: AgentCommerceManifest;
+}) {
+  if (!hasCheckoutCapabilities(manifest) || !hasCheckoutLinks(manifest)) {
+    return null;
+  }
+
+  return {
+    version: UCP_PROFILE_VERSION,
+    spec: UCP_CHECKOUT_SPEC_URL,
+    schema: UCP_CHECKOUT_SCHEMA_URL,
+    config: {
+      auth: manifest.auth
+        ? {
+            supported_api_versions: manifest.auth.supported_api_versions,
+            type: manifest.auth.type,
+          }
+        : null,
+      rest: {
+        endpoint: agenticApiBaseUrl,
+        operations: {
+          cancel_checkout: manifest.links.checkout_session_cancel,
+          complete_checkout: manifest.links.checkout_session_complete,
+          create_checkout: manifest.links.checkout_sessions,
+          get_checkout: manifest.links.checkout_session,
+          update_checkout: manifest.links.checkout_session,
+        },
+      },
+    },
+  };
+}
+
+function buildUcpOrderCapability({
+  agenticApiBaseUrl,
+  manifest,
+}: {
+  agenticApiBaseUrl: string;
+  manifest: AgentCommerceManifest;
+}) {
+  if (
+    !manifest.capabilities.includes('order.read') ||
+    !hasPresentString(manifest.links.order)
+  ) {
+    return null;
+  }
+
+  return {
+    version: UCP_PROFILE_VERSION,
+    spec: UCP_ORDER_SPEC_URL,
+    schema: UCP_ORDER_SCHEMA_URL,
+    config: {
+      rest: {
+        endpoint: agenticApiBaseUrl,
+        operations: {
+          get_order: manifest.links.order,
+        },
+      },
+    },
+  };
 }
 
 function buildUcpPaymentHandlers(
