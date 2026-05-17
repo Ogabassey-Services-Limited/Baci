@@ -111,6 +111,40 @@ describe('GET /api/blog/posts', () => {
     });
   });
 
+  it('still returns the post when view-count increment fails', async () => {
+    mockGetPlatformBlogPost.mockResolvedValueOnce({
+      id: 'post-2',
+      slug: 'view-error',
+      title: 'View Error',
+    });
+    mockIncrementPlatformBlogPostViews.mockRejectedValueOnce(
+      new Error('increment failed')
+    );
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(
+      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console.error noise in test
+      () => {}
+    );
+    const response = await GET(
+      new NextRequest('http://localhost/api/blog/posts?slug=view-error')
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      id: 'post-2',
+      slug: 'view-error',
+      title: 'View Error',
+    });
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to increment platform blog post views:',
+      expect.objectContaining({
+        postId: 'post-2',
+        error: expect.any(Error),
+      })
+    );
+    consoleSpy.mockRestore();
+  });
+
   it('forwards category and tag filters to the listing helper', async () => {
     const response = await GET(
       new NextRequest(

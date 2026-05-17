@@ -36,8 +36,15 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Post not found' }, { status: 404 });
       }
 
-      // Do not block reads on best-effort analytics updates.
-      void incrementPlatformBlogPostViews(post.id);
+      try {
+        await incrementPlatformBlogPostViews(post.id);
+      } catch (error) {
+        // Preserve read availability even if analytics increments fail.
+        console.error('Failed to increment platform blog post views:', {
+          error,
+          postId: post.id,
+        });
+      }
       return NextResponse.json(post);
     }
 
