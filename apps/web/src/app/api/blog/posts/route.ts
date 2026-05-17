@@ -22,10 +22,6 @@ function parseSafeOffset(raw: string | null): number {
   return Math.max(parsed, 0);
 }
 
-function parsePageFromOffset(offset: number, limit: number): number {
-  return Math.floor(offset / limit) + 1;
-}
-
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -42,8 +38,7 @@ export async function GET(request: NextRequest) {
 
     const limit = parseSafeLimit(searchParams.get('limit'));
     const offset = parseSafeOffset(searchParams.get('offset'));
-    const page = parsePageFromOffset(offset, limit);
-    const listing = await getPlatformBlogListing({ limit, page });
+    const listing = await getPlatformBlogListing({ limit, offset });
 
     return NextResponse.json({
       hasMore: listing.hasMore,

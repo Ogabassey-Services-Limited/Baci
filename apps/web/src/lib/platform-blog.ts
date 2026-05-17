@@ -110,6 +110,14 @@ function normalizePositiveInt(
   return Math.min(value, max);
 }
 
+function normalizeNonNegativeInt(value: number, fallback: number): number {
+  if (!Number.isInteger(value) || value < 0) {
+    return fallback;
+  }
+
+  return value;
+}
+
 export function getPlatformBlogPostCacheTag(slug: string): string {
   return `platform-blog-post-${normalizeSlug(slug)}`;
 }
@@ -156,21 +164,23 @@ export async function getPlatformBlogPost(
 }
 
 export async function getPlatformBlogListing(
-  options: { limit?: number; page?: number } = {}
+  options: { limit?: number; offset?: number; page?: number } = {}
 ): Promise<PlatformBlogListingResult> {
   'use cache: remote';
 
-  const page = normalizePositiveInt(
-    options.page ?? 1,
-    1,
-    Number.MAX_SAFE_INTEGER
-  );
   const limit = normalizePositiveInt(
     options.limit ?? BLOG_LISTING_PAGE_SIZE,
     BLOG_LISTING_PAGE_SIZE,
     MAX_LISTING_LIMIT
   );
-  const offset = (page - 1) * limit;
+  const offset = normalizeNonNegativeInt(
+    options.offset ??
+      (normalizePositiveInt(options.page ?? 1, 1, Number.MAX_SAFE_INTEGER) -
+        1) *
+        limit,
+    0
+  );
+  const page = Math.floor(offset / limit) + 1;
 
   cacheLife('merchant');
   cacheTag(

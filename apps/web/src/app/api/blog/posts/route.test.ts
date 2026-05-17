@@ -43,7 +43,7 @@ describe('GET /api/blog/posts', () => {
     expect(response.status).toBe(200);
     expect(mockGetPlatformBlogListing).toHaveBeenCalledWith({
       limit: 10,
-      page: 3,
+      offset: 20,
     });
     await expect(response.json()).resolves.toEqual({
       hasMore: true,
@@ -53,6 +53,32 @@ describe('GET /api/blog/posts', () => {
       posts: [{ id: 'post-1', slug: 'launch-faster', title: 'Launch Faster' }],
       total: 40,
       totalPages: 4,
+    });
+  });
+
+  it('honors non-page-aligned offsets exactly', async () => {
+    mockGetPlatformBlogListing.mockResolvedValueOnce({
+      hasMore: true,
+      limit: 10,
+      page: 2,
+      posts: [{ id: 'post-15', slug: 'exact-offset', title: 'Exact Offset' }],
+      total: 40,
+      totalPages: 4,
+    });
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/blog/posts?limit=10&offset=15')
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetPlatformBlogListing).toHaveBeenCalledWith({
+      limit: 10,
+      offset: 15,
+    });
+    await expect(response.json()).resolves.toMatchObject({
+      offset: 15,
+      page: 2,
+      posts: [{ id: 'post-15', slug: 'exact-offset', title: 'Exact Offset' }],
     });
   });
 

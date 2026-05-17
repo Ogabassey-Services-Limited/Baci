@@ -28,12 +28,7 @@ const INLINE_ALLOWED_TYPES = [
   'image/avif',
 ];
 
-const FEATURED_ALLOWED_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/avif',
-];
+const FEATURED_ALLOWED_TYPES = ['image/jpeg', 'image/png'];
 
 const mimeToExt: Record<string, string> = {
   'image/jpeg': 'jpg',

@@ -144,6 +144,30 @@ describe('platform-blog query helpers', () => {
     );
   });
 
+  it('uses exact offsets for platform listing ranges', async () => {
+    mockRange.mockResolvedValueOnce({
+      data: [],
+      error: null,
+      count: 40,
+    });
+
+    const result = await getPlatformBlogListing({ limit: 10, offset: 15 });
+
+    expect(result).toMatchObject({
+      hasMore: true,
+      limit: 10,
+      page: 2,
+      total: 40,
+      totalPages: 4,
+    });
+    expect(mockRange).toHaveBeenCalledWith(15, 24);
+    expect(mockCacheTag).toHaveBeenCalledWith(
+      PLATFORM_BLOG_CACHE_TAG,
+      PLATFORM_BLOG_LIST_CACHE_TAG,
+      getPlatformBlogListCacheTag(2)
+    );
+  });
+
   it('caps feed reads at 50 published platform posts', async () => {
     mockLimit.mockResolvedValueOnce({
       data: [{ slug: 'platform-launch' }],

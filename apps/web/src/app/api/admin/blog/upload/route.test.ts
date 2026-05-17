@@ -91,6 +91,51 @@ describe('POST /api/admin/blog/upload', () => {
     );
     expect(mockRevalidatePlatformBlog).toHaveBeenCalled();
   });
+
+  it('rejects webp uploads for featured images', async () => {
+    const file = new File(['file-bytes'], 'cover.webp', {
+      type: 'image/webp',
+    });
+    const request = {
+      formData: vi.fn().mockResolvedValue({
+        get: (key: string) => {
+          if (key === 'file') return file;
+          if (key === 'purpose') return 'featured';
+          return null;
+        },
+      }),
+    } as unknown as NextRequest;
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Invalid file type',
+    });
+    expect(mockStorageBucket.upload).not.toHaveBeenCalled();
+  });
+
+  it('allows webp uploads for inline images', async () => {
+    const file = new File(['file-bytes'], 'inline.webp', {
+      type: 'image/webp',
+    });
+    const request = {
+      formData: vi.fn().mockResolvedValue({
+        get: (key: string) => (key === 'file' ? file : null),
+      }),
+    } as unknown as NextRequest;
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(200);
+    expect(mockStorageBucket.upload).toHaveBeenCalledWith(
+      expect.stringMatching(/^platform\/blog\//),
+      expect.any(Buffer),
+      expect.objectContaining({
+        contentType: 'image/webp',
+      })
+    );
+  });
 });
 
 describe('DELETE /api/admin/blog/upload', () => {
