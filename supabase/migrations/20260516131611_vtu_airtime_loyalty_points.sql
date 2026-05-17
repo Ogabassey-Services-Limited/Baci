@@ -478,7 +478,10 @@ $$;
 REVOKE ALL ON FUNCTION public.redeem_loyalty_points(uuid, uuid, integer, numeric, uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.redeem_loyalty_points(uuid, uuid, integer, numeric, uuid) TO authenticated, service_role;
 
-CREATE OR REPLACE FUNCTION public.redeem_loyalty_points(
+-- Keep the legacy rejection helper off the PostgREST-exposed RPC name.
+-- Overloading public.redeem_loyalty_points can make Supabase RPC resolution
+-- ambiguous, so old 4-arg mobile callers should fail closed instead.
+CREATE OR REPLACE FUNCTION public.redeem_loyalty_points_legacy_rejected(
   p_customer_id uuid,
   p_merchant_id uuid,
   p_points integer,
@@ -494,5 +497,5 @@ AS $$
   );
 $$;
 
-REVOKE ALL ON FUNCTION public.redeem_loyalty_points(uuid, uuid, integer, numeric) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.redeem_loyalty_points(uuid, uuid, integer, numeric) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.redeem_loyalty_points_legacy_rejected(uuid, uuid, integer, numeric) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.redeem_loyalty_points_legacy_rejected(uuid, uuid, integer, numeric) TO authenticated, service_role;
