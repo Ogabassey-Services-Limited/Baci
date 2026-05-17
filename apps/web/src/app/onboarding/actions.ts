@@ -74,6 +74,10 @@ async function resolveMerchantSlug(
   return typeof data === 'string' && data.trim() ? data : fallbackSlug;
 }
 
+function getEstablishedMerchantSlug(slug: string | null | undefined) {
+  return typeof slug === 'string' && slug.trim() ? slug : null;
+}
+
 export async function submitOnboarding(
   _prevState: ServerActionState,
   formData: FormData
@@ -230,16 +234,17 @@ export async function submitOnboarding(
       businessType === 'other'
         ? otherBusinessType || businessType
         : businessType;
-    const slug = await resolveMerchantSlug(adminSupabase, businessName);
-
     // Check for existing merchant record
     const { data: existing } = await adminSupabase
       .from('merchants')
-      .select('id, business_name')
+      .select('id, business_name, slug')
       .eq('user_id', user.id)
       .maybeSingle();
 
     let merchant: { id: string; slug?: string } | null;
+    const slug =
+      getEstablishedMerchantSlug(existing?.slug) ??
+      (await resolveMerchantSlug(adminSupabase, businessName));
 
     if (existing) {
       if (existing.business_name) {

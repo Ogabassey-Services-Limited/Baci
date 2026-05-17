@@ -177,7 +177,7 @@ describe('submitOnboarding', () => {
             }),
           }),
           insert: mockAdminInsert,
-          update: vi.fn().mockReturnValue({
+          update: mockAdminUpdate.mockReturnValue({
             eq: mockAdminEq,
           }),
         };
@@ -370,6 +370,42 @@ describe('submitOnboarding', () => {
     expect(result.success).toBe(true);
     // Update path should NOT have been called with signup_source
     expect(mockAdminInsert).not.toHaveBeenCalled();
+  });
+
+  it('preserves an established slug when completing a pending merchant', async () => {
+    mockAdminMaybeSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({
+        data: {
+          id: 'existing-1',
+          business_name: null,
+          slug: 'merchant-chosen-slug',
+        },
+        error: null,
+      });
+    setupChainedMock({ id: 'existing-1', slug: 'merchant-chosen-slug' });
+
+    const result = await submitOnboarding(
+      prevState,
+      makeFormData({
+        ...validFields,
+        businessName: 'Renamed Business',
+      })
+    );
+
+    expect(result.success).toBe(true);
+    expect(mockAdminRpc).not.toHaveBeenCalledWith('generate_slug', {
+      text_input: 'Renamed Business',
+    });
+    expect(mockAdminUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        business_name: 'Renamed Business',
+        slug: 'merchant-chosen-slug',
+      })
+    );
+    expect(mockAdminUpdate).not.toHaveBeenCalledWith(
+      expect.objectContaining({ slug: 'renamed-business' })
+    );
   });
 
   it('returns early for existing completed merchant', async () => {
