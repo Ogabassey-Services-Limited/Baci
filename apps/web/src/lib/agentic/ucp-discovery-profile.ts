@@ -42,7 +42,10 @@ export function buildUcpDiscoveryProfile(manifest: AgentCommerceManifest) {
   return {
     ucp: {
       version: UCP_PROFILE_VERSION,
-      services: {},
+      services: buildUcpServices({
+        agenticApiBaseUrl,
+        manifest,
+      }),
       capabilities: buildUcpCapabilities({
         agenticApiBaseUrl,
         agentCommerceManifestUrl,
@@ -140,6 +143,41 @@ function hasCheckoutCapabilities(manifest: AgentCommerceManifest): boolean {
   );
 }
 
+function hasOrderCapability(manifest: AgentCommerceManifest): boolean {
+  return (
+    manifest.capabilities.includes('order.read') &&
+    hasPresentString(manifest.links.order)
+  );
+}
+
+function buildUcpServices({
+  agenticApiBaseUrl,
+  manifest,
+}: {
+  agenticApiBaseUrl: string;
+  manifest: AgentCommerceManifest;
+}) {
+  const services: Record<string, unknown> = {};
+
+  if (hasCheckoutCapabilities(manifest) && hasCheckoutLinks(manifest)) {
+    services[UCP_CHECKOUT_CAPABILITY] = {
+      endpoint: agenticApiBaseUrl,
+      schema: UCP_CHECKOUT_SCHEMA_URL,
+      transport: 'rest',
+    };
+  }
+
+  if (hasOrderCapability(manifest)) {
+    services[UCP_ORDER_CAPABILITY] = {
+      endpoint: agenticApiBaseUrl,
+      schema: UCP_ORDER_SCHEMA_URL,
+      transport: 'rest',
+    };
+  }
+
+  return services;
+}
+
 function toUcpOperationUrlTemplate(url: string): string {
   return url
     .replace(/\{session_id\}/g, '{id}')
@@ -204,10 +242,7 @@ function buildUcpOrderCapability({
   manifest: AgentCommerceManifest;
 }) {
   const orderLink = manifest.links.order;
-  if (
-    !manifest.capabilities.includes('order.read') ||
-    !hasPresentString(orderLink)
-  ) {
+  if (!hasOrderCapability(manifest) || !hasPresentString(orderLink)) {
     return null;
   }
 

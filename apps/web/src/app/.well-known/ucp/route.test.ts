@@ -107,6 +107,18 @@ describe('GET /.well-known/ucp', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(body.ucp.services).toEqual({
+      'dev.ucp.shopping.checkout': {
+        endpoint: 'https://ogabassey.com/api/agentic',
+        schema: 'https://ucp.dev/2026-04-08/schemas/shopping/checkout.json',
+        transport: 'rest',
+      },
+      'dev.ucp.shopping.order': {
+        endpoint: 'https://ogabassey.com/api/agentic',
+        schema: 'https://ucp.dev/2026-04-08/schemas/shopping/order.json',
+        transport: 'rest',
+      },
+    });
     expect(body.ucp.capabilities['dev.ucp.shopping.checkout']).toEqual([
       expect.objectContaining({
         version: '2026-04-08',
