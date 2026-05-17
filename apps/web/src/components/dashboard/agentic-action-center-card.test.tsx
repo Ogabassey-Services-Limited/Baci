@@ -213,6 +213,85 @@ describe('AgenticActionCenterCard', () => {
     expect(screen.queryByText(/undefined/i)).not.toBeInTheDocument();
   });
 
+  it('renders idempotency pressure records for unresolved states', () => {
+    render(
+      <AgenticActionCenterCard
+        payload={{
+          actions: [
+            {
+              code: 'AGENTIC_REQUESTS_IN_PROGRESS',
+              count: 2,
+              message:
+                'Agentic idempotency reservations are still in progress.',
+              severity: 'monitor',
+            },
+          ],
+          idempotency: {
+            records: [
+              {
+                created_at: '2026-05-12T22:40:00.000Z',
+                expires_at: '2026-05-12T22:50:00.000Z',
+                route: 'checkout_sessions.complete',
+                state: 'server_error',
+                status_code: 502,
+                updated_at: '2026-05-12T22:45:00.000Z',
+              },
+              {
+                created_at: '2026-05-12T22:41:00.000Z',
+                expires_at: '2026-05-12T22:51:00.000Z',
+                route: 'checkout_sessions.cancel',
+                state: 'in_progress',
+                status_code: null,
+                updated_at: '2026-05-12T22:46:00.000Z',
+              },
+              {
+                created_at: '2026-05-12T22:42:00.000Z',
+                expires_at: '2026-05-12T22:52:00.000Z',
+                route: 'checkout_sessions.complete',
+                state: 'client_error',
+                status_code: 409,
+                updated_at: '2026-05-12T22:47:00.000Z',
+              },
+              {
+                created_at: '2026-05-12T22:43:00.000Z',
+                expires_at: '2026-05-12T22:53:00.000Z',
+                route: 'checkout_sessions.update',
+                state: 'completed',
+                status_code: 200,
+                updated_at: '2026-05-12T22:48:00.000Z',
+              },
+            ],
+          },
+        }}
+        state="ready"
+      />
+    );
+
+    expect(screen.getByText('Idempotency pressure')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.textContent?.trim() ===
+          'checkout_sessions.complete is Server Error (status 502).'
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        (_, element) =>
+          element?.textContent?.trim() ===
+          'checkout_sessions.cancel is In Progress (pending).'
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'checkout_sessions.complete is Client Error (status 409).'
+      )
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('checkout_sessions.update is Completed (status 200).')
+    ).not.toBeInTheDocument();
+  });
+
   it('uses next_step_url from the payload when present', () => {
     render(
       <AgenticActionCenterCard

@@ -15,6 +15,13 @@ const CHECKOUT_ACTIVITY_RECORD_LIMIT = 5;
 const STALE_PAYMENT_PENDING_MS = 24 * 60 * 60 * 1000;
 const COMPLETE_ROUTE_SUFFIX = '.complete';
 
+function getIdempotencyState(statusCode: number | null) {
+  if (statusCode == null) return 'in_progress';
+  if (statusCode >= 500) return 'server_error';
+  if (statusCode >= 400) return 'client_error';
+  return 'completed';
+}
+
 function isCompleteMutationRoute(route: string | null): boolean {
   if (!route) return false;
   const normalized = route.trim().toLowerCase();
@@ -182,6 +189,24 @@ export async function loadAgenticActionHealth(
       stale_payment_pending_count: stalePaymentPendingCount,
     },
     generated_at: new Date().toISOString(),
+    idempotency: {
+      active_in_progress_count: inProgressCount - staleInProgressCount,
+      in_progress_count: inProgressCount,
+      recent_count: idempotencyRows.length,
+      records: idempotencyRows.map((row) => ({
+        created_at: row.created_at,
+        expires_at: row.expires_at,
+        route:
+          typeof row.route === 'string' && row.route.trim().length > 0
+            ? row.route.trim()
+            : 'unknown',
+        state: getIdempotencyState(row.status_code),
+        status_code: row.status_code,
+        updated_at: row.updated_at,
+      })),
+      stale_in_progress_count: staleInProgressCount,
+      terminal_error_count: terminalErrorCount,
+    },
   });
 
   if (!parsed.success) {
