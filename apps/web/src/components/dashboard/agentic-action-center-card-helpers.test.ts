@@ -12,43 +12,75 @@ const validAction: AgenticAction = {
 describe('getActionHref', () => {
   it('maps reviewable agentic action codes to order review', () => {
     expect(
-      agenticActionCenterCardHelpers.getActionHref('AGENTIC_IDEMPOTENCY_ERRORS')
+      agenticActionCenterCardHelpers.getActionHref({
+        ...validAction,
+        code: 'AGENTIC_IDEMPOTENCY_ERRORS',
+      })
     ).toBe('/dashboard/orders?source=agentic');
     expect(
-      agenticActionCenterCardHelpers.getActionHref(
-        'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS'
-      )
+      agenticActionCenterCardHelpers.getActionHref({
+        ...validAction,
+        code: 'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS',
+      })
     ).toBe('/dashboard/orders?source=agentic');
     expect(
-      agenticActionCenterCardHelpers.getActionHref('AGENTIC_ORDER_FINALIZING')
+      agenticActionCenterCardHelpers.getActionHref({
+        ...validAction,
+        code: 'AGENTIC_ORDER_FINALIZING',
+      })
     ).toBe('/dashboard/orders?source=agentic');
     expect(
-      agenticActionCenterCardHelpers.getActionHref('AGENTIC_PAYMENT_PENDING')
+      agenticActionCenterCardHelpers.getActionHref({
+        ...validAction,
+        code: 'AGENTIC_PAYMENT_PENDING',
+      })
     ).toBe('/dashboard/orders?source=agentic');
     expect(
-      agenticActionCenterCardHelpers.getActionHref(
-        'AGENTIC_PAYMENT_PENDING_STALE'
-      )
+      agenticActionCenterCardHelpers.getActionHref({
+        ...validAction,
+        code: 'AGENTIC_PAYMENT_PENDING_STALE',
+      })
     ).toBe('/dashboard/orders?source=agentic');
     expect(
-      agenticActionCenterCardHelpers.getActionHref(
-        'AGENTIC_PAYMENT_SETUP_FAILED'
-      )
+      agenticActionCenterCardHelpers.getActionHref({
+        ...validAction,
+        code: 'AGENTIC_PAYMENT_SETUP_FAILED',
+      })
     ).toBe('/dashboard/orders?source=agentic');
     expect(
-      agenticActionCenterCardHelpers.getActionHref('AGENTIC_PAYMENT_CLAIMING')
+      agenticActionCenterCardHelpers.getActionHref({
+        ...validAction,
+        code: 'AGENTIC_PAYMENT_CLAIMING',
+      })
     ).toBe('/dashboard/orders?source=agentic');
     expect(
-      agenticActionCenterCardHelpers.getActionHref(
-        'AGENTIC_REQUESTS_IN_PROGRESS'
-      )
+      agenticActionCenterCardHelpers.getActionHref({
+        ...validAction,
+        code: 'AGENTIC_REQUESTS_IN_PROGRESS',
+      })
     ).toBe('/dashboard/orders?source=agentic');
     expect(
-      agenticActionCenterCardHelpers.getActionHref(
-        'AGENTIC_AGENT_ALLOWLIST_UNSET'
-      )
+      agenticActionCenterCardHelpers.getActionHref({
+        ...validAction,
+        code: 'AGENTIC_AGENT_ALLOWLIST_UNSET',
+      })
     ).toBe('/dashboard/settings/trust');
-    expect(agenticActionCenterCardHelpers.getActionHref('UNKNOWN')).toBeNull();
+    expect(
+      agenticActionCenterCardHelpers.getActionHref({
+        ...validAction,
+        code: 'UNKNOWN',
+      })
+    ).toBeNull();
+  });
+
+  it('prefers next_step_url from the health contract when provided', () => {
+    expect(
+      agenticActionCenterCardHelpers.getActionHref({
+        ...validAction,
+        code: 'AGENTIC_PAYMENT_PENDING',
+        next_step_url: '/dashboard/custom-action',
+      })
+    ).toBe('/dashboard/custom-action');
   });
 });
 

@@ -68,6 +68,11 @@ describe('OgabasseyLayout', () => {
 
     const props = mockStorefrontLayout.mock.calls[0]?.[0];
     expect(props?.loadingFallback).toBeDefined();
+    const { unmount } = render(props?.loadingFallback as ReactNode);
+    expect(
+      screen.getByRole('img', { name: /ogabassey storefront hero/i })
+    ).toBeInTheDocument();
+    unmount();
     await expect(props?.params).resolves.toEqual({ slug: 'ogabassey' });
     expect(mockPrefetchDNS).not.toHaveBeenCalled();
     expect(mockPreconnect).not.toHaveBeenCalled();
