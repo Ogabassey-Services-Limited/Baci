@@ -70,9 +70,9 @@ function createDomainQuery(
 function createPostQuery(result: QueryResult<FeedPostRow[]>) {
   const builder = {
     eq: vi.fn(() => builder),
-    limit: vi.fn().mockResolvedValue(result),
     not: vi.fn(() => builder),
     order: vi.fn(() => builder),
+    range: vi.fn().mockResolvedValue(result),
     select: vi.fn(() => builder),
   };
   return builder;
@@ -211,6 +211,67 @@ describe('GET /api/blog/feed/[merchantSlug]', () => {
         tags: ['blog-posts', 'blog-rss-feed'],
       }),
     ]);
+  });
+
+  it('over-fetches additional ranges when early batches are fully filtered', async () => {
+    const junkBatch = Array.from({ length: 50 }, (_, index) => ({
+      id: `junk-${index + 1}`,
+      title: 'Test Post: Agent Integration Working',
+      slug: `test-post-agent-integration-working-${index + 1}`,
+      content: '<p>junk</p>',
+      excerpt: 'junk',
+      featured_image_url: null,
+      category: null,
+      author_name: 'Ogabassey',
+      published_at: '2026-05-01T10:00:00.000Z',
+      updated_at: null,
+    }));
+    const publicPost = {
+      id: 'public-post-1',
+      title: 'Public Feed Post',
+      slug: 'public-feed-post',
+      content: '<p>public</p>',
+      excerpt: 'public',
+      featured_image_url: null,
+      category: null,
+      author_name: 'Ogabassey',
+      published_at: '2026-05-02T10:00:00.000Z',
+      updated_at: null,
+    };
+
+    enqueueTable(
+      'merchants',
+      createMerchantQuery({ data: merchant, error: null })
+    );
+    enqueueTable(
+      'merchants',
+      createMerchantQuery({ data: merchant, error: null })
+    );
+    enqueueTable(
+      'blog_posts',
+      createPostQuery({ data: junkBatch, error: null })
+    );
+    enqueueTable(
+      'blog_posts',
+      createPostQuery({ data: [publicPost], error: null })
+    );
+
+    const response = await GET(new NextRequest('https://usebaci.com/feed'), {
+      params: Promise.resolve({ merchantSlug: 'ogabassey' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mockFeedAddItem).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Public Feed Post' })
+    );
+    const firstPostQuery = mockFrom.mock.results[2]?.value as ReturnType<
+      typeof createPostQuery
+    >;
+    const secondPostQuery = mockFrom.mock.results[3]?.value as ReturnType<
+      typeof createPostQuery
+    >;
+    expect(firstPostQuery.range).toHaveBeenCalledWith(0, 49);
+    expect(secondPostQuery.range).toHaveBeenCalledWith(50, 99);
   });
 
   it('resolves custom-domain identifiers to the canonical merchant feed', async () => {

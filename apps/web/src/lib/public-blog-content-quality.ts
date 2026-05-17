@@ -3,24 +3,26 @@ interface PublicBlogPostCandidate {
   title?: string | null;
 }
 
-const BLOCKED_CATEGORY_VALUES = new Set([
+export const BLOCKED_PUBLIC_BLOG_CATEGORY_VALUES = [
   'gcrblw',
   'misc',
   'miscellaneous',
   'test',
   'uncategorized',
   'unknown',
-]);
+] as const;
 
-const BLOCKED_POST_TITLE_PREFIXES = ['test post'];
-const BLOCKED_POST_SLUG_PARTS = ['agent-integration-working'];
+const BLOCKED_CATEGORY_VALUES = new Set<string>(
+  BLOCKED_PUBLIC_BLOG_CATEGORY_VALUES
+);
+
+export const BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES = ['test post'] as const;
+export const BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS = [
+  'agent-integration-working',
+] as const;
 
 function normalizeText(value: string | null | undefined): string {
   return typeof value === 'string' ? value.trim() : '';
-}
-
-function hasVowel(value: string): boolean {
-  return /[aeiou]/i.test(value);
 }
 
 export function isPublicBlogCategory(
@@ -36,11 +38,7 @@ export function isPublicBlogCategory(
     return false;
   }
 
-  return !(
-    normalized.length >= 5 &&
-    /^[a-z0-9]+$/i.test(normalized) &&
-    !hasVowel(normalized)
-  );
+  return true;
 }
 
 export function filterPublicBlogCategories(
@@ -73,14 +71,16 @@ export function isPublicBlogPost(post: PublicBlogPostCandidate): boolean {
   const loweredTitle = title.toLowerCase();
   const loweredSlug = slug.toLowerCase();
   if (
-    BLOCKED_POST_TITLE_PREFIXES.some((prefix) =>
+    BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES.some((prefix) =>
       loweredTitle.startsWith(prefix)
     )
   ) {
     return false;
   }
 
-  return !BLOCKED_POST_SLUG_PARTS.some((part) => loweredSlug.includes(part));
+  return !BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS.some((part) =>
+    loweredSlug.includes(part)
+  );
 }
 
 export function filterPublicBlogPosts<T extends PublicBlogPostCandidate>(

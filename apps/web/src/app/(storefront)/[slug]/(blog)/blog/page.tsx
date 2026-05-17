@@ -6,10 +6,7 @@ import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/store
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
 import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
 import { getCachedBlogListing } from '@/lib/cached-data';
-import {
-  filterPublicBlogCategories,
-  filterPublicBlogPosts,
-} from '@/lib/public-blog-content-quality';
+import { filterPublicBlogCategories } from '@/lib/public-blog-content-quality';
 import {
   generateBreadcrumbSchema,
   generateMetaDescription,
@@ -128,15 +125,12 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
     notFound();
   }
   const { merchant, posts, categories, totalPosts, searchQuery } = data;
-  const publicPosts = filterPublicBlogPosts(posts);
   const publicCategories = filterPublicBlogCategories(categories);
-  const publicTotalPosts =
-    publicPosts.length === posts.length ? totalPosts : publicPosts.length;
   const baseUrl = buildStoreUrl(merchant);
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
   const guideCollections = buildBlogClusterCollections({
     storeUrl: baseUrl,
-    posts: publicPosts.map((post) => ({
+    posts: posts.map((post) => ({
       slug: post.slug,
       title: post.title,
       excerpt: post.excerpt,
@@ -164,7 +158,7 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
           }
         : undefined,
     },
-    blogPost: publicPosts.slice(0, 10).map((post) => {
+    blogPost: posts.slice(0, 10).map((post) => {
       const imageUrls = getBlogStructuredDataImageUrls(post);
       return {
         '@type': 'BlogPosting',
@@ -202,7 +196,7 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
             name: cat,
             slug: generateSlug(cat),
           }));
-          const blogPosts: BlogPostData[] = publicPosts.map((p) => ({
+          const blogPosts: BlogPostData[] = posts.map((p) => ({
             id: p.id,
             title: p.title,
             slug: p.slug,
@@ -218,7 +212,7 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
               <BlogDiscoverySection
                 baseUrl={baseUrl}
                 categories={publicCategories}
-                posts={publicPosts}
+                posts={posts}
               />
               <InformationalClusterIndex collections={guideCollections} />
               <TemplateBlogRenderer
@@ -249,7 +243,7 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
       <BlogDiscoverySection
         baseUrl={baseUrl}
         categories={publicCategories}
-        posts={publicPosts}
+        posts={posts}
       />
       <InformationalClusterIndex collections={guideCollections} />
       <DefaultBlogUi
@@ -259,10 +253,10 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
         categories={publicCategories}
         category={category}
         merchant={merchant}
-        posts={publicPosts}
+        posts={posts}
         searchQuery={searchQuery}
         slug={slug}
-        totalPosts={publicTotalPosts}
+        totalPosts={totalPosts}
       />
     </>
   );

@@ -12,6 +12,9 @@ import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
 import {
+  BLOCKED_PUBLIC_BLOG_CATEGORY_VALUES,
+  BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS,
+  BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES,
   filterPublicBlogPosts,
   isPublicBlogPost,
 } from '@/lib/public-blog-content-quality';
@@ -1812,8 +1815,19 @@ export async function getCachedBlogListing(
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
     .not('published_at', 'is', null)
-    .order('published_at', { ascending: false })
-    .range(offset, offset + limit - 1);
+    .not('title', 'is', null)
+    .not('slug', 'is', null)
+    .neq('title', '')
+    .neq('slug', '')
+    .order('published_at', { ascending: false });
+
+  for (const blockedPrefix of BLOCKED_PUBLIC_BLOG_POST_TITLE_PREFIXES) {
+    query = query.not('title', 'ilike', `${blockedPrefix}%`);
+  }
+
+  for (const blockedSlugPart of BLOCKED_PUBLIC_BLOG_POST_SLUG_PARTS) {
+    query = query.not('slug', 'ilike', `%${blockedSlugPart}%`);
+  }
 
   if (category) {
     query = query.eq('category', category);
@@ -1830,6 +1844,8 @@ export async function getCachedBlogListing(
     }
   }
 
+  query = query.range(offset, offset + limit - 1);
+
   const { data: posts, count, error: postsError } = await query;
   if (postsError) {
     console.error('Failed to load blog posts', {
@@ -1839,13 +1855,19 @@ export async function getCachedBlogListing(
     throw postsError;
   }
 
-  const { data: categories, error: categoriesError } = await supabase
+  let categoriesQuery = supabase
     .from('blog_posts')
     .select('category')
     .eq('merchant_id', merchant.id)
     .eq('status', 'published')
     .not('published_at', 'is', null)
     .not('category', 'is', null);
+
+  for (const blockedCategory of BLOCKED_PUBLIC_BLOG_CATEGORY_VALUES) {
+    categoriesQuery = categoriesQuery.not('category', 'ilike', blockedCategory);
+  }
+
+  const { data: categories, error: categoriesError } = await categoriesQuery;
   if (categoriesError) {
     console.warn('Failed to load blog categories', {
       merchantId: merchant.id,

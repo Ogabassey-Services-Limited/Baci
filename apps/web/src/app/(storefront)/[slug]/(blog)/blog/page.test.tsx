@@ -135,13 +135,14 @@ function buildListingResult(
   overrides?: Partial<{
     merchant: typeof merchant;
     posts: typeof postsPayload;
+    totalPosts: number;
   }>
 ) {
   const posts = overrides?.posts ?? postsPayload;
   return {
     merchant: overrides?.merchant ?? merchant,
     posts,
-    totalPosts: posts.length,
+    totalPosts: overrides?.totalPosts ?? posts.length,
     categories: ['News', 'gcrblw'],
     currentPage: 1,
     totalPages: 1,
@@ -309,18 +310,10 @@ describe('blog page metadata', () => {
     );
   });
 
-  it('uses structured image variants and filters junk public discovery data', async () => {
+  it('uses structured image variants and preserves listing pagination totals', async () => {
     vi.mocked(getCachedBlogListing).mockResolvedValueOnce(
       buildListingResult({
-        posts: [
-          postsPayload[0],
-          {
-            ...postsPayload[0],
-            id: 'post-2',
-            title: 'Test Post: Agent Integration Working',
-            slug: 'test-post-agent-integration-working',
-          },
-        ],
+        totalPosts: 50,
       })
     );
 
@@ -335,7 +328,7 @@ describe('blog page metadata', () => {
       expect.objectContaining({
         categories: ['News'],
         posts: [postsPayload[0]],
-        totalPosts: 1,
+        totalPosts: 50,
       })
     );
     expect(mockDefaultBlogUi.mock.calls[0]?.[0].blogSchema.blogPost).toEqual([

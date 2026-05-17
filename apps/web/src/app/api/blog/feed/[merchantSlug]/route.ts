@@ -78,12 +78,15 @@ interface PublicFeedQueryBuilder {
     options: { ascending: boolean }
   ): PublicFeedQueryBuilder;
   maybeSingle(): Promise<QueryResult<unknown>>;
-  limit(count: number): Promise<QueryResult<unknown>>;
+  range(from: number, to: number): Promise<QueryResult<unknown>>;
 }
 
 interface PublicFeedClient {
   from(table: string): PublicFeedQueryBuilder;
 }
+
+const RSS_PUBLIC_POST_LIMIT = 50;
+const RSS_QUERY_BATCH_SIZE = 50;
 
 // Create anonymous Supabase client for public access
 function getPublicClient(): PublicFeedClient | null {
@@ -199,6 +202,40 @@ async function resolveMerchantByIdentifier(
   return getMerchantByColumn(supabase, 'id', domainData.merchant_id);
 }
 
+async function fetchPublicFeedPosts(
+  supabase: PublicFeedClient,
+  merchantId: string
+): Promise<BlogPost[]> {
+  const publicPosts: BlogPost[] = [];
+  let offset = 0;
+  let hasMoreRows = true;
+
+  while (hasMoreRows && publicPosts.length < RSS_PUBLIC_POST_LIMIT) {
+    const { data: posts, error: postsError } = await supabase
+      .from('blog_posts')
+      .select(
+        'id, title, slug, content, excerpt, featured_image_url, featured_image_variants, category, author_name, published_at, updated_at'
+      )
+      .eq('merchant_id', merchantId)
+      .eq('status', 'published')
+      .not('published_at', 'is', null)
+      .order('published_at', { ascending: false })
+      .range(offset, offset + RSS_QUERY_BATCH_SIZE - 1);
+
+    if (postsError) {
+      console.error('Error fetching blog posts for feed:', postsError);
+      throw postsError;
+    }
+
+    const postBatch = Array.isArray(posts) ? (posts as BlogPost[]) : [];
+    publicPosts.push(...filterPublicBlogPosts(postBatch));
+    hasMoreRows = postBatch.length === RSS_QUERY_BATCH_SIZE;
+    offset += RSS_QUERY_BATCH_SIZE;
+  }
+
+  return publicPosts.slice(0, RSS_PUBLIC_POST_LIMIT);
+}
+
 // Cache RSS feed for 1 hour by canonical merchant id.
 const getCachedFeedByMerchantId = unstable_cache(
   async (merchantId: string) => {
@@ -213,28 +250,9 @@ const getCachedFeedByMerchantId = unstable_cache(
       return null;
     }
 
-    // Get published blog posts
-    const { data: posts, error: postsError } = await supabase
-      .from('blog_posts')
-      .select(
-        'id, title, slug, content, excerpt, featured_image_url, featured_image_variants, category, author_name, published_at, updated_at'
-      )
-      .eq('merchant_id', merchant.id)
-      .eq('status', 'published')
-      .not('published_at', 'is', null)
-      .order('published_at', { ascending: false })
-      .limit(50);
-
-    if (postsError) {
-      console.error('Error fetching blog posts for feed:', postsError);
-      throw postsError;
-    }
-
     return {
       merchant,
-      posts: filterPublicBlogPosts(
-        (Array.isArray(posts) ? posts : []) as BlogPost[]
-      ),
+      posts: await fetchPublicFeedPosts(supabase, merchant.id),
     };
   },
   ['blog-rss-feed'],

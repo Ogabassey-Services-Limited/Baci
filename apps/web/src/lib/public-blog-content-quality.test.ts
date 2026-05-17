@@ -37,10 +37,9 @@ describe('public blog content quality filters', () => {
     ).toEqual(['Technology', 'Buying Guides']);
   });
 
-  it('rejects likely random vowel-free category tokens', () => {
-    expect(isPublicBlogCategory('bcdfg')).toBe(false);
-    expect(isPublicBlogCategory('qwrtyp')).toBe(false);
-    expect(isPublicBlogCategory('bcdf')).toBe(true);
+  it('does not reject merchant acronyms only because they lack vowels', () => {
+    expect(isPublicBlogCategory('HTML5')).toBe(true);
+    expect(isPublicBlogCategory('VRR')).toBe(true);
   });
 
   it('removes explicit test and agent-integration posts from public surfaces', () => {
