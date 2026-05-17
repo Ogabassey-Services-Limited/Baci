@@ -51,6 +51,40 @@ describe('blog post product links', () => {
         blog_post_id: 'post-1',
         relationship: 'primary',
         blog_posts: {
+          id: null,
+          title: 'Missing id',
+          slug: 'missing-id',
+          excerpt: null,
+          featured_image_url: null,
+          category: null,
+          reading_time_minutes: null,
+        },
+      })
+    ).toBeNull();
+
+    expect(
+      normalizeBlogPostProductLink({
+        product_id: 'product-1',
+        blog_post_id: 'post-1',
+        relationship: 'primary',
+        blog_posts: {
+          id: 'post-1',
+          title: null,
+          slug: 'missing-title',
+          excerpt: null,
+          featured_image_url: null,
+          category: null,
+          reading_time_minutes: null,
+        },
+      })
+    ).toBeNull();
+
+    expect(
+      normalizeBlogPostProductLink({
+        product_id: 'product-1',
+        blog_post_id: 'post-1',
+        relationship: 'primary',
+        blog_posts: {
           id: 'post-1',
           title: 'Missing slug',
           slug: null,
