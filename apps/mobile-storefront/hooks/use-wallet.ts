@@ -477,7 +477,7 @@ export function useRedeemPoints() {
 
       const { redemptionId } = await getOrCreatePendingLoyaltyRedemptionId({
         attemptId,
-        createId: () => attemptId,
+        createId: Crypto.randomUUID,
         customerId,
         currentPoints,
         merchantId: currentMerchantId,
