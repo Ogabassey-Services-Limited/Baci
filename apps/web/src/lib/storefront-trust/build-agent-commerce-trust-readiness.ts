@@ -30,6 +30,7 @@ export interface AgentCommerceTrustCheck {
     | 'policy-coverage'
     | 'support-contact'
     | 'structured-data-readiness'
+    | 'review-signal-coverage'
     | 'feed-freshness'
     | 'crawler-visibility'
     | 'machine-endpoint-discovery';
@@ -130,6 +131,11 @@ const TRUST_CHECK_ACTIONS: Record<
     nextStep:
       'Open Products and complete key fields used by JSON-LD and agent catalog surfaces.',
     nextStepUrl: '/dashboard/products',
+  },
+  'review-signal-coverage': {
+    nextStep:
+      'Open Reviews and approve/curate product reviews so agent consumers can trust rating signals.',
+    nextStepUrl: '/dashboard/reviews',
   },
   'feed-freshness': {
     nextStep:
