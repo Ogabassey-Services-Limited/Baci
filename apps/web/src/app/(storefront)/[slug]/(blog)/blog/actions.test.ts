@@ -79,16 +79,15 @@ describe('fetchMorePosts', () => {
     expect(result).toEqual(expectedPosts);
   });
 
-  it('returns an empty page when Supabase range errors occur', async () => {
+  it('surfaces Supabase range errors instead of treating them as empty pages', async () => {
     const consoleError = vi
       .spyOn(console, 'error')
       .mockImplementation(() => undefined);
     const rangeError = { message: 'range failed' };
     mockQuery.error = rangeError as never;
 
-    const result = await fetchMorePosts('merchant-1', 1);
+    await expect(fetchMorePosts('merchant-1', 1)).rejects.toBe(rangeError);
 
-    expect(result).toEqual([]);
     expect(consoleError).toHaveBeenCalledWith(
       'Failed to fetch more blog posts',
       expect.objectContaining({

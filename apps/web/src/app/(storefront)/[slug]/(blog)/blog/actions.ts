@@ -75,7 +75,7 @@ export async function fetchMorePosts(
       page,
       error,
     });
-    return [];
+    throw error;
   }
 
   return Array.isArray(posts) ? (posts as BlogListPost[]) : [];
