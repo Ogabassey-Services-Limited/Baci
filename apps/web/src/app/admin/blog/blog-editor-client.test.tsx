@@ -169,6 +169,11 @@ describe('BlogEditorClient', () => {
           content: 'Article body',
           slug: 'launch-faster',
           title: 'Launch Faster',
+        }),
+        expect.objectContaining({
+          id: 'post-1',
+          slug: 'launch-faster',
+          title: 'Launch Faster',
         })
       );
     });
