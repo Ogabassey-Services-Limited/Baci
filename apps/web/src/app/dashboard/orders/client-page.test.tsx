@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/image', () => ({
   default: (props: Record<string, unknown>) => (
@@ -46,12 +46,24 @@ vi.mock('@/contexts/auth-context', () => ({
   AuthProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
+import { useSearchParams } from 'next/navigation';
 import OrdersClientPage from './client-page';
 
 describe('OrdersClientPage', () => {
-  it('renders without crashing', () => {
-    const { container } = render(<OrdersClientPage />);
-    expect(container).toBeDefined();
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.mocked(useSearchParams).mockReturnValue(new URLSearchParams() as never);
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ integrations: [] }),
+    } as Response);
+  });
+
+  it('renders the orders header', () => {
+    render(<OrdersClientPage />);
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Orders 📦' })
+    ).toBeInTheDocument();
   });
 
   it('renders order cards with initial data', () => {
@@ -91,5 +103,41 @@ describe('OrdersClientPage', () => {
 
     expect(screen.getByText('Failed to Load Orders')).toBeInTheDocument();
     expect(screen.getByText(/Could not load orders\./i)).toBeInTheDocument();
+  });
+
+  it('renders an agentic issue banner when agentic_issue is present', () => {
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams('agentic_issue=AGENTIC_PAYMENT_SETUP_FAILED') as never
+    );
+
+    render(<OrdersClientPage />);
+
+    expect(screen.getByText('Agentic checkout focus')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Payment setup failed for one or more agentic checkouts.'
+      )
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Clear focus' })).toHaveAttribute(
+      'href',
+      '/dashboard/orders?source=agentic'
+    );
+  });
+
+  it('adds a trust-controls shortcut for allowlist issues', () => {
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams(
+        'agentic_issue=AGENTIC_AGENT_ALLOWLIST_UNSET'
+      ) as never
+    );
+
+    render(<OrdersClientPage />);
+
+    expect(
+      screen.getByRole('link', { name: 'Open trust controls' })
+    ).toHaveAttribute(
+      'href',
+      '/dashboard/settings/trust#agent-checkout-controls'
+    );
   });
 });

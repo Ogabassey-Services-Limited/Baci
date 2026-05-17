@@ -1,16 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native';
+import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CostPriceEditorModal } from '@/components/transactions/CostPriceEditorModal';
+import { TransactionListState } from '@/components/transactions/TransactionListState';
 import { TransactionOrderCard } from '@/components/transactions/TransactionOrderCard';
 import { TransactionsSummary } from '@/components/transactions/TransactionsSummary';
 import { styles } from '@/components/transactions/transactions.styles';
@@ -18,9 +13,17 @@ import { useCurrency } from '@/hooks/useCurrency';
 import { useTheme } from '@/hooks/useTheme';
 import {
   type TransactionReviewItem,
+  type TransactionReviewOrder,
   useTransactionReview,
 } from '@/hooks/useTransactionReview';
 import { useUpdateTransactionCostPrice } from '@/hooks/useUpdateTransactionCostPrice';
+import {
+  buildTransactionDateIso,
+  filterTransactionOrders,
+  formatTransactionDateInput,
+} from '@/lib/transaction-review';
+
+type TransactionReviewTab = 'missing-costs' | 'paid';
 
 export default function TransactionsScreen() {
   const { colors, isDark } = useTheme();
@@ -59,8 +62,14 @@ export default function TransactionsScreen() {
   const updateCostPrice = useUpdateTransactionCostPrice();
   const [selectedItem, setSelectedItem] =
     useState<TransactionReviewItem | null>(null);
+  const [selectedOrder, setSelectedOrder] =
+    useState<TransactionReviewOrder | null>(null);
+  const [activeTab, setActiveTab] = useState<TransactionReviewTab>('paid');
   const [costPriceInput, setCostPriceInput] = useState('');
+  const [dateInput, setDateInput] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [supplierInput, setSupplierInput] = useState('');
 
   const summary = orders.reduce(
     (acc, order) => ({
@@ -71,23 +80,38 @@ export default function TransactionsScreen() {
     { estimatedProfit: 0, missingCosts: 0, transactions: 0 }
   );
 
-  const handleOpenEditor = (item: TransactionReviewItem) => {
+  const searchedOrders = filterTransactionOrders(orders, searchQuery);
+  const visibleOrders =
+    activeTab === 'missing-costs'
+      ? searchedOrders.filter((order) => order.missingCostCount > 0)
+      : searchedOrders;
+
+  const handleOpenEditor = (
+    order: TransactionReviewOrder,
+    item: TransactionReviewItem
+  ) => {
     if (!item.productId) {
       return;
     }
+    setSelectedOrder(order);
     setSelectedItem(item);
     setCostPriceInput(item.costPrice == null ? '' : String(item.costPrice));
+    setDateInput(formatTransactionDateInput(order.createdAt));
+    setSupplierInput(item.supplierName ?? '');
     setSaveError(null);
   };
 
   const handleCloseEditor = () => {
+    setSelectedOrder(null);
     setSelectedItem(null);
     setCostPriceInput('');
+    setDateInput('');
     setSaveError(null);
+    setSupplierInput('');
   };
 
   const handleSave = async () => {
-    if (!selectedItem || selectedItem.productId == null) {
+    if (!selectedOrder || !selectedItem || selectedItem.productId == null) {
       return;
     }
 
@@ -97,11 +121,20 @@ export default function TransactionsScreen() {
       return;
     }
 
+    const nextTransactionDateIso = buildTransactionDateIso(dateInput);
+    if (!nextTransactionDateIso) {
+      setSaveError('Enter a valid transaction date in YYYY-MM-DD format.');
+      return;
+    }
+
     try {
       setSaveError(null);
       await updateCostPrice.mutateAsync({
         costPrice: nextCostPrice,
+        orderId: selectedOrder.id,
         productId: selectedItem.productId,
+        supplierName: supplierInput,
+        transactionDateIso: nextTransactionDateIso,
       });
       handleCloseEditor();
     } catch (err) {
@@ -132,66 +165,62 @@ export default function TransactionsScreen() {
 
         <ScrollView contentContainerStyle={styles.content}>
           <TransactionsSummary
+            activeTab={activeTab}
             colors={colors}
             estimatedProfitLabel={formatCurrency(summary.estimatedProfit)}
+            onTabChange={setActiveTab}
             summary={summary}
           />
 
-          {isLoading && orders.length === 0 ? (
-            <View style={styles.stateContainer}>
-              <ActivityIndicator size="large" color={colors.primary} />
-            </View>
-          ) : error && orders.length === 0 ? (
-            <View style={styles.stateContainer}>
-              <Ionicons
-                name="alert-circle-outline"
-                size={32}
-                color={colors.error}
-              />
-              <Text style={[styles.stateText, { color: colors.textSecondary }]}>
-                Unable to load transactions.
-              </Text>
+          <View
+            style={[
+              styles.searchContainer,
+              { backgroundColor: colors.card, borderColor: colors.border },
+            ]}
+          >
+            <Ionicons
+              name="search-outline"
+              size={18}
+              color={colors.textMuted}
+            />
+            <TextInput
+              accessibilityLabel="Search transactions"
+              autoCapitalize="none"
+              autoCorrect={false}
+              onChangeText={setSearchQuery}
+              placeholder="Search IMEI, serial, customer, order, supplier"
+              placeholderTextColor={colors.textMuted}
+              returnKeyType="search"
+              style={[styles.searchInput, { color: colors.text }]}
+              value={searchQuery}
+            />
+            {searchQuery ? (
               <Pressable
+                accessibilityLabel="Clear transaction search"
                 accessibilityRole="button"
-                accessibilityLabel="Retry loading transactions"
-                disabled={isRetrying}
-                onPress={() => {
-                  void refetch();
-                }}
-                style={({ pressed }) => [
-                  styles.actionButton,
-                  {
-                    backgroundColor: colors.primary,
-                    opacity: isRetrying ? 0.6 : pressed ? 0.7 : 1,
-                  },
-                ]}
+                onPress={() => setSearchQuery('')}
+                hitSlop={8}
               >
-                {isRetrying ? (
-                  <ActivityIndicator color={colors.textOnPrimary} />
-                ) : (
-                  <Text
-                    style={[
-                      styles.actionButtonText,
-                      { color: colors.textOnPrimary },
-                    ]}
-                  >
-                    Try again
-                  </Text>
-                )}
+                <Ionicons
+                  name="close-circle"
+                  size={18}
+                  color={colors.textMuted}
+                />
               </Pressable>
-            </View>
-          ) : orders.length === 0 ? (
-            <View style={styles.stateContainer}>
-              <Ionicons
-                name="receipt-outline"
-                size={32}
-                color={colors.textMuted}
-              />
-              <Text style={[styles.stateText, { color: colors.textSecondary }]}>
-                No transactions yet.
-              </Text>
-            </View>
-          ) : null}
+            ) : null}
+          </View>
+
+          <TransactionListState
+            colors={colors}
+            error={error}
+            hasOrders={orders.length > 0}
+            isLoading={isLoading}
+            isRetrying={isRetrying}
+            onRetry={() => {
+              void refetch();
+            }}
+            visibleOrderCount={visibleOrders.length}
+          />
 
           {error && orders.length > 0 ? (
             <View
@@ -211,7 +240,7 @@ export default function TransactionsScreen() {
             </View>
           ) : null}
 
-          {orders.map((order) => (
+          {visibleOrders.map((order) => (
             <TransactionOrderCard
               key={order.id}
               colors={colors}
@@ -225,12 +254,16 @@ export default function TransactionsScreen() {
         <CostPriceEditorModal
           colors={colors}
           costPriceInput={costPriceInput}
+          dateInput={dateInput}
           onChangeCostPrice={setCostPriceInput}
+          onChangeDate={setDateInput}
+          onChangeSupplier={setSupplierInput}
           onClose={handleCloseEditor}
           onSave={handleSave}
           pending={updateCostPrice.isPending}
           saveError={saveError}
           selectedItem={selectedItem}
+          supplierInput={supplierInput}
           visible={Boolean(selectedItem)}
         />
       </SafeAreaView>

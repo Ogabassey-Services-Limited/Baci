@@ -34,6 +34,7 @@ function manifest(
         'https://ogabassey.com/.well-known/agent-native-commerce',
       feeds: {
         agent_products: 'https://ogabassey.com/feeds/agent-products.jsonl',
+        facebook_catalog_xml: 'https://ogabassey.com/feeds/facebook.xml',
         google_merchant_xml: 'https://ogabassey.com/feeds/google-merchant.xml',
       },
       llms: 'https://ogabassey.com/llms.txt',
@@ -87,6 +88,7 @@ function trustReadiness(
       currentProductFeed: 'https://ogabassey.com/feeds/agent-products.jsonl',
       googleMerchantXml: 'https://ogabassey.com/feeds/google-merchant.xml',
       openAiProductFeed: 'https://ogabassey.com/feeds/openai.jsonl',
+      llms: 'https://ogabassey.com/llms.txt',
       policies: {
         privacy_policy_url: 'https://ogabassey.com/privacy',
         return_policy_url: 'https://ogabassey.com/returns',

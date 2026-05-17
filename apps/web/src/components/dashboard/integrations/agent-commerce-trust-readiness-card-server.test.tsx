@@ -33,6 +33,7 @@ vi.mock('@/lib/storefront-trust/build-agent-commerce-trust-readiness', () => ({
       googleMerchantXml: 'https://example.com/feeds/google-merchant.xml',
       openAiProductFeed: 'https://example.com/feeds/openai.jsonl',
       productApi: 'https://example.com/api/storefront/demo/products',
+      llms: 'https://example.com/llms.txt',
       policies: {
         privacy_policy_url: 'https://example.com/privacy',
         return_policy_url: 'https://example.com/returns',

@@ -43,6 +43,24 @@ vi.mock('react-native', async () => {
     },
     Text: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('span', null, children),
+    TextInput: ({
+      accessibilityLabel,
+      onChangeText,
+      placeholder,
+      value,
+    }: {
+      accessibilityLabel?: string;
+      onChangeText?: (value: string) => void;
+      placeholder?: string;
+      value?: string;
+    }) =>
+      React.createElement('input', {
+        'aria-label': accessibilityLabel ?? placeholder,
+        onChange: (event: React.ChangeEvent<HTMLInputElement>) =>
+          onChangeText?.(event.target.value),
+        placeholder,
+        value: value ?? '',
+      }),
     View: ({ children }: { children?: React.ReactNode }) =>
       React.createElement('div', null, children),
   };
@@ -105,13 +123,31 @@ vi.mock('@/hooks/useUpdateTransactionCostPrice', () => ({
 
 vi.mock('@/components/transactions/TransactionsSummary', () => ({
   TransactionsSummary: ({
+    activeTab,
     estimatedProfitLabel,
+    onTabChange,
     summary,
   }: {
+    activeTab?: 'paid' | 'missing-costs';
     estimatedProfitLabel: string;
+    onTabChange?: (tab: 'paid' | 'missing-costs') => void;
     summary: { missingCosts: number; transactions: number };
   }) => (
     <div>
+      <button
+        aria-pressed={activeTab === 'paid'}
+        type="button"
+        onClick={() => onTabChange?.('paid')}
+      >
+        Paid transactions tab
+      </button>
+      <button
+        aria-pressed={activeTab === 'missing-costs'}
+        type="button"
+        onClick={() => onTabChange?.('missing-costs')}
+      >
+        Missing costs tab
+      </button>
       <span>{estimatedProfitLabel}</span>
       <span>{summary.transactions} transactions</span>
       <span>{summary.missingCosts} missing costs</span>
@@ -124,23 +160,33 @@ vi.mock('@/components/transactions/TransactionOrderCard', () => ({
     onOpenEditor,
     order,
   }: {
-    onOpenEditor: (item: {
-      costPrice: number | null;
-      id: string;
-      name: string;
-      productId: string | null;
-    }) => void;
+    onOpenEditor: (
+      order: {
+        createdAt: string;
+        id: string;
+      },
+      item: {
+        costPrice: number | null;
+        id: string;
+        name: string;
+        productId: string | null;
+        supplierName: string;
+      }
+    ) => void;
     order: {
+      createdAt: string;
+      id: string;
       items: Array<{
         costPrice: number | null;
         id: string;
         name: string;
         productId: string | null;
+        supplierName: string;
       }>;
       orderNumber: string;
     };
   }) => (
-    <button type="button" onClick={() => onOpenEditor(order.items[0])}>
+    <button type="button" onClick={() => onOpenEditor(order, order.items[0])}>
       Edit {order.orderNumber}
     </button>
   ),
@@ -149,17 +195,25 @@ vi.mock('@/components/transactions/TransactionOrderCard', () => ({
 vi.mock('@/components/transactions/CostPriceEditorModal', () => ({
   CostPriceEditorModal: ({
     costPriceInput,
+    dateInput,
     onChangeCostPrice,
+    onChangeDate,
+    onChangeSupplier,
     onClose,
     onSave,
     saveError,
+    supplierInput,
     visible,
   }: {
     costPriceInput: string;
+    dateInput?: string;
     onChangeCostPrice: (value: string) => void;
+    onChangeDate?: (value: string) => void;
+    onChangeSupplier?: (value: string) => void;
     onClose: () => void;
     onSave: () => void;
     saveError: string | null;
+    supplierInput?: string;
     visible: boolean;
   }) =>
     visible ? (
@@ -168,6 +222,16 @@ vi.mock('@/components/transactions/CostPriceEditorModal', () => ({
           aria-label="Cost price input"
           value={costPriceInput}
           onChange={(event) => onChangeCostPrice(event.target.value)}
+        />
+        <input
+          aria-label="Transaction date input"
+          value={dateInput ?? ''}
+          onChange={(event) => onChangeDate?.(event.target.value)}
+        />
+        <input
+          aria-label="Vendor or supplier input"
+          value={supplierInput ?? ''}
+          onChange={(event) => onChangeSupplier?.(event.target.value)}
         />
         {saveError ? <span>{saveError}</span> : null}
         <button type="button" onClick={onSave}>
@@ -185,24 +249,63 @@ import TransactionsScreen from '@/app/(admin)/transactions';
 const sampleOrders = [
   {
     createdAt: '2026-04-10T10:00:00.000Z',
+    customerEmail: null,
     customerName: 'Bassey',
+    customerPhone: null,
     estimatedProfit: 3000,
     id: 'order-1',
     items: [
       {
         costPrice: null,
+        imeiValues: ['353232106161443'],
         id: 'item-1',
         name: 'Samsung Galaxy S26',
         productId: 'product-1',
         profit: null,
         quantity: 1,
         revenue: 5000,
+        searchText:
+          'samsung galaxy s26 bassey 353232106161443 sn-123 old supplier',
+        serialValues: ['SN-123'],
+        sku: 'SG-S26',
+        supplierName: 'Old Supplier',
       },
     ],
     missingCostCount: 1,
     orderNumber: 'ORD-1',
     paymentMethod: 'card',
+    searchText:
+      'ord-1 bassey samsung galaxy s26 353232106161443 sn-123 old supplier',
     total: 5000,
+  },
+  {
+    createdAt: '2026-04-09T10:00:00.000Z',
+    customerEmail: null,
+    customerName: 'Efosa',
+    customerPhone: null,
+    estimatedProfit: 1000,
+    id: 'order-2',
+    items: [
+      {
+        costPrice: 2000,
+        imeiValues: [],
+        id: 'item-2',
+        name: 'Itel Buds Neo 3',
+        productId: 'product-2',
+        profit: 1000,
+        quantity: 1,
+        revenue: 3000,
+        searchText: 'itel buds neo 3 efosa',
+        serialValues: [],
+        sku: null,
+        supplierName: '',
+      },
+    ],
+    missingCostCount: 0,
+    orderNumber: 'ORD-2',
+    paymentMethod: 'transfer',
+    searchText: 'ord-2 efosa itel buds neo 3',
+    total: 3000,
   },
 ];
 
@@ -292,14 +395,90 @@ describe('TransactionsScreen', () => {
     fireEvent.change(screen.getByLabelText('Cost price input'), {
       target: { value: '1200' },
     });
+    fireEvent.change(screen.getByLabelText('Transaction date input'), {
+      target: { value: '2026-04-12' },
+    });
+    fireEvent.change(screen.getByLabelText('Vendor or supplier input'), {
+      target: { value: 'New Supplier' },
+    });
     fireEvent.click(screen.getByText('Save cost price'));
 
     await waitFor(() =>
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
         costPrice: 1200,
+        orderId: 'order-1',
         productId: 'product-1',
+        supplierName: 'New Supplier',
+        transactionDateIso: '2026-04-12T00:00:00.000Z',
       })
     );
+  });
+
+  it('filters visible transactions by IMEI', () => {
+    render(<TransactionsScreen />);
+
+    fireEvent.change(screen.getByLabelText('Search transactions'), {
+      target: { value: '353232106161443' },
+    });
+
+    expect(screen.getByText('Edit ORD-1')).toBeInTheDocument();
+    expect(screen.queryByText('Edit ORD-2')).not.toBeInTheDocument();
+  });
+
+  it('filters visible transactions by serial number', () => {
+    render(<TransactionsScreen />);
+
+    fireEvent.change(screen.getByLabelText('Search transactions'), {
+      target: { value: 'SN-123' },
+    });
+
+    expect(screen.getByText('Edit ORD-1')).toBeInTheDocument();
+    expect(screen.queryByText('Edit ORD-2')).not.toBeInTheDocument();
+  });
+
+  it('filters visible transactions by customer name', () => {
+    render(<TransactionsScreen />);
+
+    fireEvent.change(screen.getByLabelText('Search transactions'), {
+      target: { value: 'Efosa' },
+    });
+
+    expect(screen.queryByText('Edit ORD-1')).not.toBeInTheDocument();
+    expect(screen.getByText('Edit ORD-2')).toBeInTheDocument();
+  });
+
+  it('filters visible transactions by supplier name', () => {
+    render(<TransactionsScreen />);
+
+    fireEvent.change(screen.getByLabelText('Search transactions'), {
+      target: { value: 'Old Supplier' },
+    });
+
+    expect(screen.getByText('Edit ORD-1')).toBeInTheDocument();
+    expect(screen.queryByText('Edit ORD-2')).not.toBeInTheDocument();
+  });
+
+  it('filters visible transactions by product name', () => {
+    render(<TransactionsScreen />);
+
+    fireEvent.change(screen.getByLabelText('Search transactions'), {
+      target: { value: 'Galaxy' },
+    });
+
+    expect(screen.getByText('Edit ORD-1')).toBeInTheDocument();
+    expect(screen.queryByText('Edit ORD-2')).not.toBeInTheDocument();
+  });
+
+  it('switches between paid and missing-cost transaction tabs', () => {
+    render(<TransactionsScreen />);
+
+    expect(screen.getByText('Edit ORD-1')).toBeInTheDocument();
+    expect(screen.getByText('Edit ORD-2')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Missing costs tab'));
+
+    expect(screen.getByText('Edit ORD-1')).toBeInTheDocument();
+    expect(screen.queryByText('Edit ORD-2')).not.toBeInTheDocument();
   });
 
   it('shows the async save error and keeps the editor actionable', async () => {
@@ -316,7 +495,10 @@ describe('TransactionsScreen', () => {
     await waitFor(() =>
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
         costPrice: 1200,
+        orderId: 'order-1',
         productId: 'product-1',
+        supplierName: 'Old Supplier',
+        transactionDateIso: '2026-04-10T00:00:00.000Z',
       })
     );
 

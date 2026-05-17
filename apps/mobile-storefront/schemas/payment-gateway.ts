@@ -36,6 +36,8 @@ const paymentGatewayParamsObject = z.object({
   amount: optionalPositiveAmount,
   paymentKind: z.enum(['order', 'vtu', 'wallet']).default('order'),
   returnTo: sanitizedReturnTo,
+  merchantId: trimmedOptionalString('Merchant id cannot be empty'),
+  merchantSlug: trimmedOptionalString('Merchant slug cannot be empty'),
   utilityType: z.enum(['airtime', 'data', 'tv', 'power', 'gaming']).optional(),
   customerIdentifier: trimmedOptionalString(
     'Customer identifier cannot be empty'
@@ -69,6 +71,13 @@ export const PaymentGatewayParamsSchema = paymentGatewayParamsObject
           code: 'custom',
           message: 'Amount is required for wallet top-up payments',
           path: ['amount'],
+        });
+      }
+      if (!data.merchantId && !data.merchantSlug) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Merchant slug or id is required',
+          path: ['merchantSlug'],
         });
       }
       return;

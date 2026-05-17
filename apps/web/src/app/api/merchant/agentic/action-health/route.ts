@@ -17,12 +17,21 @@ import { sanitizeForLog } from '@/lib/sanitize-core';
 
 const RECENT_RECORD_LIMIT = 25;
 const STALE_PAYMENT_PENDING_MS = 24 * 60 * 60 * 1000;
+const COMPLETE_ROUTE_SUFFIX = '.complete';
 
 function getIdempotencyState(statusCode: number | null) {
   if (statusCode == null) return 'in_progress';
   if (statusCode >= 500) return 'server_error';
   if (statusCode >= 400) return 'client_error';
   return 'completed';
+}
+
+function isCompleteMutationRoute(route: string | null) {
+  if (!route) return false;
+  const normalized = route.trim().toLowerCase();
+  return (
+    normalized === 'complete' || normalized.endsWith(COMPLETE_ROUTE_SUFFIX)
+  );
 }
 
 function isExpiredInProgressReservation({
@@ -84,6 +93,7 @@ async function loadAgenticActionHealth(
     parseAgenticActionHealthRpcPayload(healthResult.data);
   let inProgressCount = 0;
   let staleInProgressCount = 0;
+  let completeTerminalErrorCount = 0;
   let terminalErrorCount = 0;
   const nowMs = Date.now();
   for (const row of idempotencyRows) {
@@ -99,6 +109,9 @@ async function loadAgenticActionHealth(
       }
     } else if (row.status_code >= 500) {
       terminalErrorCount += 1;
+      if (isCompleteMutationRoute(row.route)) {
+        completeTerminalErrorCount += 1;
+      }
     }
   }
   let orderFinalizingCount = 0;
@@ -137,6 +150,7 @@ async function loadAgenticActionHealth(
       actions: buildAgenticHealthActions({
         activeInProgressCount: inProgressCount - staleInProgressCount,
         allowlistCount: requestControlSummary.allowlistCount,
+        completeTerminalErrorCount,
         isAgenticCheckoutEnabled:
           requestControlSummary.isAgenticCheckoutEnabled,
         orderFinalizingCount,

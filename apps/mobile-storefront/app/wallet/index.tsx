@@ -14,6 +14,7 @@ import { useRedeemPoints, useWallet } from '@/hooks/use-wallet';
 import { CONFIG } from '@/lib/config';
 import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { createLogger } from '@/lib/logger';
+import { pickMerchantId } from '@/lib/pick-merchant-id';
 import { sanitizeWalletReturnTo } from '@/lib/sanitize-wallet-return-to';
 import { initializeWalletTopUp } from '@/lib/wallet-top-up';
 import {
@@ -63,7 +64,9 @@ export default function WalletScreen({
   const [fundAmount, setFundAmount] = useState(routeRequiredAmount);
   const [showFundPanel, setShowFundPanel] = useState(routeAction === 'fund');
   const [isFundPending, setIsFundPending] = useState(false);
-  const activeMerchantId = merchantId || CONFIG.MERCHANT_ID;
+  const activeMerchantId = pickMerchantId(merchantId, CONFIG.MERCHANT_ID);
+  const activeMerchantSlug = CONFIG.MERCHANT_SLUG.trim() || undefined;
+  const hasMerchantContext = Boolean(activeMerchantId || activeMerchantSlug);
 
   useEffect(() => {
     if (routeAction === 'fund') {
@@ -114,6 +117,8 @@ export default function WalletScreen({
         amount,
         customerName,
         customerPhone: customer?.phone,
+        merchantId: activeMerchantId,
+        merchantSlug: activeMerchantSlug,
       });
 
       trackEvent('wallet_top_up_started', {
@@ -121,6 +126,7 @@ export default function WalletScreen({
         customer_id: customer?.id,
         gateway: result.gateway,
         merchant_id: activeMerchantId,
+        merchant_slug: activeMerchantSlug,
       });
 
       resetFundPanel();
@@ -130,6 +136,8 @@ export default function WalletScreen({
           amount: String(amount),
           authorizationUrl: result.authorization_url,
           gateway: result.gateway,
+          ...(activeMerchantId ? { merchantId: activeMerchantId } : {}),
+          ...(activeMerchantSlug ? { merchantSlug: activeMerchantSlug } : {}),
           paymentKind: 'wallet',
           reference: result.reference,
           ...(walletReturnTo ? { returnTo: walletReturnTo } : {}),
@@ -252,7 +260,7 @@ export default function WalletScreen({
     return <Redirect href={redirectTo} />;
   }
 
-  if (!user || !activeMerchantId) {
+  if (!user || !hasMerchantContext) {
     return renderLoadingState('Preparing your wallet...');
   }
 

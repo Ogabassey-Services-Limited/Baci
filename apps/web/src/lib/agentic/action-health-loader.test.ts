@@ -44,7 +44,19 @@ describe('loadAgenticActionHealth', () => {
             metadata: { agentic: { payment_state: 'claiming_payment' } },
             session_id: 'session-3',
             status: 'processing',
-            updated_at: '2026-05-16T09:10:00.000Z',
+            updated_at: '2026-05-16T09:10:00+00:00',
+          },
+          {
+            metadata: { agentic: { payment_state: 'payment_pending' } },
+            session_id: 'session-4',
+            status: 'processing',
+            updated_at: 'not-a-date',
+          },
+          {
+            metadata: { agentic: {} },
+            session_id: 'session-5',
+            status: 'processing',
+            updated_at: '2026-05-16T09:11:00.000Z',
           },
         ],
         idempotency_records: [
@@ -58,9 +70,16 @@ describe('loadAgenticActionHealth', () => {
           {
             created_at: '2026-05-16T09:15:00.000Z',
             expires_at: '2026-05-16T09:35:00.000Z',
-            route: 'UPDATE',
+            route: 'checkout_sessions.complete',
             status_code: 503,
             updated_at: '2026-05-16T09:16:00.000Z',
+          },
+          {
+            created_at: '2026-05-16T09:17:00.000Z',
+            expires_at: '2026-05-16T09:37:00.000Z',
+            route: 'checkout_sessions.update',
+            status_code: 500,
+            updated_at: '2026-05-16T09:18:00.000Z',
           },
         ],
         request_records: [],
@@ -73,6 +92,7 @@ describe('loadAgenticActionHealth', () => {
     const actionCodes = result.actions.map((action) => action.code);
 
     expect(actionCodes).toContain('AGENTIC_IDEMPOTENCY_ERRORS');
+    expect(actionCodes).toContain('AGENTIC_CHECKOUT_COMPLETE_ERRORS');
     expect(actionCodes).toContain('AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS');
     expect(actionCodes).toContain('AGENTIC_ORDER_FINALIZING');
     expect(actionCodes).toContain('AGENTIC_PAYMENT_PENDING_STALE');
@@ -81,9 +101,35 @@ describe('loadAgenticActionHealth', () => {
     expect(result.checkout_sessions).toMatchObject({
       claiming_payment_count: 1,
       order_finalizing_count: 1,
-      payment_pending_count: 1,
+      payment_pending_count: 2,
+      records: [
+        expect.objectContaining({
+          payment_state: 'claiming_payment',
+          session_id: 'session-3',
+        }),
+        expect.objectContaining({
+          payment_state: 'order_finalizing',
+          session_id: 'session-2',
+        }),
+        expect.objectContaining({
+          payment_state: 'payment_pending',
+          session_id: 'session-1',
+        }),
+      ],
       stale_payment_pending_count: 1,
     });
+    expect(result.checkout_sessions).toBeDefined();
+    const checkoutSessions = result.checkout_sessions;
+    expect(checkoutSessions?.records).not.toContainEqual(
+      expect.objectContaining({
+        session_id: 'session-4',
+      })
+    );
+    expect(checkoutSessions?.records).not.toContainEqual(
+      expect.objectContaining({
+        session_id: 'session-5',
+      })
+    );
   });
 
   it('throws when rpc returns an error', async () => {

@@ -110,6 +110,8 @@ export function usePaymentGatewayController() {
     authorizationUrl,
     customerIdentifier,
     gateway,
+    merchantId,
+    merchantSlug,
     orderId,
     orderNumber,
     paymentKind,
@@ -178,7 +180,12 @@ export function usePaymentGatewayController() {
 
     void (async () => {
       try {
-        await waitForWalletTopUpConfirmation({ gateway, reference });
+        await waitForWalletTopUpConfirmation({
+          gateway,
+          merchantId,
+          merchantSlug,
+          reference,
+        });
         if (!isMountedRef.current) {
           return;
         }

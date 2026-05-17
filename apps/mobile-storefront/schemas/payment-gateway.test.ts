@@ -140,6 +140,7 @@ describe('PaymentGatewayParamsSchema', () => {
       amount: '2500',
       authorizationUrl: 'https://checkout.paystack.com/test',
       gateway: 'paystack',
+      merchantId: 'merchant-1',
       paymentKind: 'wallet',
       reference: 'WAL-123',
     });
@@ -147,6 +148,7 @@ describe('PaymentGatewayParamsSchema', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.amount).toBe(2500);
+      expect(result.data.merchantId).toBe('merchant-1');
       expect(result.data.paymentKind).toBe('wallet');
       expect(result.data.reference).toBe('WAL-123');
     }
@@ -157,6 +159,7 @@ describe('PaymentGatewayParamsSchema', () => {
       amount: '2500',
       authorizationUrl: 'https://checkout.paystack.com/test',
       gateway: 'paystack',
+      merchantId: 'merchant-1',
       paymentKind: 'wallet',
       reference: 'WAL-123',
       returnTo: '/imei-check',
@@ -183,6 +186,7 @@ describe('PaymentGatewayParamsSchema', () => {
       amount: '2500',
       authorizationUrl: 'https://checkout.paystack.com/test',
       gateway: 'paystack',
+      merchantId: 'merchant-1',
       paymentKind: 'wallet',
       reference: 'WAL-123',
       returnTo,
@@ -224,6 +228,40 @@ describe('PaymentGatewayParamsSchema', () => {
       expect(extractIssueMessages(result.error.issues)).toContain(
         'Amount is required for wallet top-up payments'
       );
+    }
+  });
+
+  it('requires merchant context for wallet top-up payments', () => {
+    const result = PaymentGatewayParamsSchema.safeParse({
+      amount: '2500',
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      paymentKind: 'wallet',
+      reference: 'WAL-123',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(extractIssuePaths(result.error.issues)).toContain('merchantSlug');
+      expect(extractIssueMessages(result.error.issues)).toContain(
+        'Merchant slug or id is required'
+      );
+    }
+  });
+
+  it('accepts merchant slug for wallet top-up payments', () => {
+    const result = PaymentGatewayParamsSchema.safeParse({
+      amount: '2500',
+      authorizationUrl: 'https://checkout.paystack.com/test',
+      gateway: 'paystack',
+      merchantSlug: 'ogabassey',
+      paymentKind: 'wallet',
+      reference: 'WAL-123',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.merchantSlug).toBe('ogabassey');
     }
   });
 
