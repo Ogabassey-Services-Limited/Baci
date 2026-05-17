@@ -139,14 +139,16 @@ describe('getLiveBlogPost', () => {
 
     const mockPost = {
       id: 'post-1',
-      title: 'Test Post',
+      title: 'Useful Post',
       slug: 'my-post',
       category: 'tech',
     };
 
     mockSingle.mockResolvedValueOnce({ data: mockPost, error: null });
 
-    relatedQueryResult.data = [{ id: 'related-1', title: 'Related Post' }];
+    relatedQueryResult.data = [
+      { id: 'related-1', slug: 'related-post', title: 'Related Post' },
+    ];
     relatedQueryResult.error = null;
 
     const result = await getLiveBlogPost('test-store', 'my-post');
@@ -156,7 +158,7 @@ describe('getLiveBlogPost', () => {
     expect(result?.merchant.business_name).toBe('Test Store');
     expect(result?.post).toEqual(mockPost);
     expect(result?.relatedPosts).toEqual([
-      { id: 'related-1', title: 'Related Post' },
+      { id: 'related-1', slug: 'related-post', title: 'Related Post' },
     ]);
   });
 
@@ -173,7 +175,7 @@ describe('getLiveBlogPost', () => {
     mockSingle.mockResolvedValueOnce({
       data: {
         id: 'post-1',
-        title: 'Test Post',
+        title: 'Useful Post',
         slug: 'my-post',
         category: null,
       },
@@ -203,7 +205,7 @@ describe('getLiveBlogPost', () => {
     mockSingle.mockResolvedValueOnce({
       data: {
         id: 'post-1',
-        title: 'Test Post',
+        title: 'Useful Post',
         slug: 'my-post',
         category: 'Product News',
       },
@@ -233,7 +235,7 @@ describe('getLiveBlogPost', () => {
 
     const mockPost = {
       id: 'post-1',
-      title: 'Test Post',
+      title: 'Useful Post',
       slug: 'my-post',
       category: null,
     };
@@ -247,6 +249,79 @@ describe('getLiveBlogPost', () => {
 
     expect(result).not.toBeNull();
     expect(result?.relatedPosts).toEqual([]);
+  });
+
+  it('filters test and agent-integration posts from related posts', async () => {
+    vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
+    vi.mocked(getCachedFeatureSettings).mockResolvedValue({
+      blog_enabled: true,
+      blog_discover_image_validation_enabled: false,
+      shipping_insurance_enabled: false,
+      shipping_insurance_min_order_value: 5000,
+      shipping_insurance_opt_in_default: false,
+    });
+
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'post-1',
+        title: 'Useful Post',
+        slug: 'useful-post',
+        category: null,
+      },
+      error: null,
+    });
+
+    relatedQueryResult.data = [
+      {
+        id: 'related-1',
+        slug: 'best-phones-in-nigeria',
+        title: 'Best Phones in Nigeria',
+      },
+      {
+        id: 'related-2',
+        slug: 'test-post-agent-integration-working',
+        title: 'Test Post: Agent Integration Working',
+      },
+    ];
+    relatedQueryResult.error = null;
+
+    const result = await getLiveBlogPost('test-store', 'useful-post');
+
+    expect(result?.relatedPosts).toEqual([
+      {
+        id: 'related-1',
+        slug: 'best-phones-in-nigeria',
+        title: 'Best Phones in Nigeria',
+      },
+    ]);
+  });
+
+  it('returns null for public test posts instead of exposing direct article URLs', async () => {
+    vi.mocked(getMerchantSafe).mockResolvedValue(mockMerchant as never);
+    vi.mocked(getCachedFeatureSettings).mockResolvedValue({
+      blog_enabled: true,
+      blog_discover_image_validation_enabled: false,
+      shipping_insurance_enabled: false,
+      shipping_insurance_min_order_value: 5000,
+      shipping_insurance_opt_in_default: false,
+    });
+
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'post-1',
+        title: 'Test Post: Agent Integration Working',
+        slug: 'test-post-agent-integration-working',
+        category: null,
+      },
+      error: null,
+    });
+
+    const result = await getLiveBlogPost(
+      'test-store',
+      'test-post-agent-integration-working'
+    );
+
+    expect(result).toBeNull();
   });
 
   it('normalizes postSlug to lowercase and trimmed', async () => {
@@ -282,7 +357,7 @@ describe('getLiveBlogPost', () => {
     mockSingle.mockResolvedValueOnce({
       data: {
         id: 'post-1',
-        title: 'Test Post',
+        title: 'Useful Post',
         slug: 'my-post',
         // whitespace-only category — slugifier returns null
         category: '   ',

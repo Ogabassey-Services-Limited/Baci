@@ -4,14 +4,22 @@ import { getCachedBlogListing } from '@/lib/cached-data';
 
 const { mockConnection, mockDefaultBlogUi } = vi.hoisted(() => ({
   mockConnection: vi.fn(),
-  mockDefaultBlogUi: vi.fn(
-    ({ merchant }: { merchant: { business_name: string } }) => (
-      <div>{merchant.business_name} blog</div>
-    )
-  ),
+  mockDefaultBlogUi: vi.fn((props: MockDefaultBlogUiProps) => (
+    <div>{props.merchant.business_name} blog</div>
+  )),
 }));
 
 const mockBuildBlogClusterCollections = vi.fn();
+
+interface MockDefaultBlogUiProps {
+  blogSchema: {
+    blogPost?: unknown;
+  };
+  categories: string[];
+  merchant: { business_name: string };
+  posts: unknown[];
+  totalPosts: number;
+}
 
 vi.mock('@/lib/cached-data', () => ({
   getCachedBlogListing: vi.fn(),
@@ -56,8 +64,7 @@ vi.mock('@/templates/registry', () => ({
 }));
 
 vi.mock('./default-blog-ui', () => ({
-  DefaultBlogUi: (props: { merchant: { business_name: string } }) =>
-    mockDefaultBlogUi(props),
+  DefaultBlogUi: (props: MockDefaultBlogUiProps) => mockDefaultBlogUi(props),
 }));
 
 vi.mock('./template-blog-renderer', () => ({
@@ -87,6 +94,11 @@ const postsPayload = [
     slug: 'first-post',
     excerpt: 'Latest store updates',
     featured_image_url: 'https://cdn.example.com/blog-cover.png',
+    featured_image_variants: {
+      landscape_16x9: 'https://cdn.example.com/blog-cover-16x9.png',
+      standard_4x3: 'https://cdn.example.com/blog-cover-4x3.png',
+      square_1x1: 'https://cdn.example.com/blog-cover-1x1.png',
+    },
     featured_image_alt: 'First Post cover',
     category: 'News',
     tags: ['launch'],
@@ -130,7 +142,7 @@ function buildListingResult(
     merchant: overrides?.merchant ?? merchant,
     posts,
     totalPosts: posts.length,
-    categories: ['News'],
+    categories: ['News', 'gcrblw'],
     currentPage: 1,
     totalPages: 1,
     searchQuery: undefined,
@@ -152,11 +164,9 @@ describe('blog page metadata', () => {
     mockBuildBlogClusterCollections.mockReset();
     mockBuildBlogClusterCollections.mockReturnValue([]);
     mockDefaultBlogUi.mockReset();
-    mockDefaultBlogUi.mockImplementation(
-      ({ merchant }: { merchant: { business_name: string } }) => (
-        <div>{merchant.business_name} blog</div>
-      )
-    );
+    mockDefaultBlogUi.mockImplementation((props: MockDefaultBlogUiProps) => (
+      <div>{props.merchant.business_name} blog</div>
+    ));
   });
 
   it('includes social images for the blog listing metadata', async () => {
@@ -297,5 +307,45 @@ describe('blog page metadata', () => {
       'href',
       'https://ogabassey.com/blog/best-phones-in-nigeria'
     );
+  });
+
+  it('uses structured image variants and filters junk public discovery data', async () => {
+    vi.mocked(getCachedBlogListing).mockResolvedValueOnce(
+      buildListingResult({
+        posts: [
+          postsPayload[0],
+          {
+            ...postsPayload[0],
+            id: 'post-2',
+            title: 'Test Post: Agent Integration Working',
+            slug: 'test-post-agent-integration-working',
+          },
+        ],
+      })
+    );
+
+    render(
+      await BlogPageContent({
+        params: Promise.resolve({ slug: 'ogabassey' }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(mockDefaultBlogUi).toHaveBeenCalledWith(
+      expect.objectContaining({
+        categories: ['News'],
+        posts: [postsPayload[0]],
+        totalPosts: 1,
+      })
+    );
+    expect(mockDefaultBlogUi.mock.calls[0]?.[0].blogSchema.blogPost).toEqual([
+      expect.objectContaining({
+        image: [
+          'https://cdn.example.com/blog-cover-16x9.png',
+          'https://cdn.example.com/blog-cover-4x3.png',
+          'https://cdn.example.com/blog-cover-1x1.png',
+        ],
+      }),
+    ]);
   });
 });

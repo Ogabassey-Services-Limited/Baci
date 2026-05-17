@@ -11,6 +11,10 @@ import { getBlogCacheTag } from '@/lib/blog-cache-tags';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
 import { PRODUCT_KEY_SPECS_RELATION_SELECT } from '@/lib/product-key-specs-select';
+import {
+  filterPublicBlogPosts,
+  isPublicBlogPost,
+} from '@/lib/public-blog-content-quality';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import {
   isDomainIdentifier,
@@ -1708,6 +1712,9 @@ export async function getCachedBlogPost(
     }
     return null;
   }
+  if (!includeDrafts && !isPublicBlogPost(post)) {
+    return null;
+  }
 
   // Fetch Related Posts
   let relatedQuery = supabase
@@ -1755,7 +1762,9 @@ export async function getCachedBlogPost(
       custom_domain: merchant.custom_domain,
     },
     post,
-    relatedPosts: relatedPostsError ? [] : relatedPosts || [],
+    relatedPosts: relatedPostsError
+      ? []
+      : filterPublicBlogPosts(relatedPosts || []),
     relatedProducts: relatedProducts || [],
   };
 }
@@ -1797,7 +1806,7 @@ export async function getCachedBlogListing(
   let query = supabase
     .from('blog_posts')
     .select(
-      'id, title, slug, excerpt, featured_image_url, featured_image_alt, category, tags, author_name, published_at, reading_time_minutes, view_count',
+      'id, title, slug, excerpt, featured_image_url, featured_image_alt, featured_image_variants, category, tags, author_name, published_at, reading_time_minutes, view_count',
       { count: 'exact' }
     )
     .eq('merchant_id', merchant.id)

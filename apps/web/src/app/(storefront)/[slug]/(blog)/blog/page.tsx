@@ -4,7 +4,12 @@ import { Suspense } from 'react';
 import { BlogListingFallback } from '@/app/(storefront)/[slug]/(blog)/blog/BlogListingFallback';
 import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
+import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
 import { getCachedBlogListing } from '@/lib/cached-data';
+import {
+  filterPublicBlogCategories,
+  filterPublicBlogPosts,
+} from '@/lib/public-blog-content-quality';
 import {
   generateBreadcrumbSchema,
   generateMetaDescription,
@@ -123,11 +128,15 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
     notFound();
   }
   const { merchant, posts, categories, totalPosts, searchQuery } = data;
+  const publicPosts = filterPublicBlogPosts(posts);
+  const publicCategories = filterPublicBlogCategories(categories);
+  const publicTotalPosts =
+    publicPosts.length === posts.length ? totalPosts : publicPosts.length;
   const baseUrl = buildStoreUrl(merchant);
   const basePath = isDomainIdentifier(slug) ? '' : `/${slug}`;
   const guideCollections = buildBlogClusterCollections({
     storeUrl: baseUrl,
-    posts: posts.map((post) => ({
+    posts: publicPosts.map((post) => ({
       slug: post.slug,
       title: post.title,
       excerpt: post.excerpt,
@@ -155,18 +164,21 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
           }
         : undefined,
     },
-    blogPost: posts.slice(0, 10).map((post) => ({
-      '@type': 'BlogPosting',
-      headline: post.title,
-      description: post.excerpt || '',
-      url: `${baseUrl}/blog/${post.slug}`,
-      datePublished: post.published_at,
-      author: {
-        '@type': 'Person',
-        name: post.author_name || merchant.business_name,
-      },
-      image: post.featured_image_url || undefined,
-    })),
+    blogPost: publicPosts.slice(0, 10).map((post) => {
+      const imageUrls = getBlogStructuredDataImageUrls(post);
+      return {
+        '@type': 'BlogPosting',
+        headline: post.title,
+        description: post.excerpt || '',
+        url: `${baseUrl}/blog/${post.slug}`,
+        datePublished: post.published_at,
+        author: {
+          '@type': 'Person',
+          name: post.author_name || merchant.business_name,
+        },
+        ...(imageUrls.length > 0 ? { image: imageUrls } : {}),
+      };
+    }),
   };
   const breadcrumbSchema = generateBreadcrumbSchema([
     {
@@ -186,11 +198,11 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
         const components = await template.getComponents();
         if (components.Blog) {
           const BlogComponent = components.Blog;
-          const templateCategories = categories.map((cat) => ({
+          const templateCategories = publicCategories.map((cat) => ({
             name: cat,
             slug: generateSlug(cat),
           }));
-          const blogPosts: BlogPostData[] = posts.map((p) => ({
+          const blogPosts: BlogPostData[] = publicPosts.map((p) => ({
             id: p.id,
             title: p.title,
             slug: p.slug,
@@ -205,8 +217,8 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
             <>
               <BlogDiscoverySection
                 baseUrl={baseUrl}
-                categories={categories}
-                posts={posts}
+                categories={publicCategories}
+                posts={publicPosts}
               />
               <InformationalClusterIndex collections={guideCollections} />
               <TemplateBlogRenderer
@@ -236,21 +248,21 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
     <>
       <BlogDiscoverySection
         baseUrl={baseUrl}
-        categories={categories}
-        posts={posts}
+        categories={publicCategories}
+        posts={publicPosts}
       />
       <InformationalClusterIndex collections={guideCollections} />
       <DefaultBlogUi
         blogSchema={blogSchema}
         breadcrumbSchema={breadcrumbSchema}
         basePath={basePath}
-        categories={categories}
+        categories={publicCategories}
         category={category}
         merchant={merchant}
-        posts={posts}
+        posts={publicPosts}
         searchQuery={searchQuery}
         slug={slug}
-        totalPosts={totalPosts}
+        totalPosts={publicTotalPosts}
       />
     </>
   );

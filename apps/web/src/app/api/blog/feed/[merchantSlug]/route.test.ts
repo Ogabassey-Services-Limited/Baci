@@ -32,6 +32,7 @@ type FeedPostRow = {
   content: string;
   excerpt: string;
   featured_image_url: string | null;
+  featured_image_variants?: Record<string, unknown> | null;
   category: string | null;
   author_name: string;
   published_at: string | null;
@@ -339,6 +340,55 @@ describe('GET /api/blog/feed/[merchantSlug]', () => {
     );
     expect(mockFeedAddItem).not.toHaveBeenCalledWith(
       expect.objectContaining({ title: 'Bad Date' })
+    );
+  });
+
+  it('uses public-quality posts and the first Discover image variant in feed items', async () => {
+    enqueueSlugFeedScenario({
+      posts: [
+        {
+          id: 'good-post',
+          title: 'Best Android Phones',
+          slug: 'best-android-phones',
+          content: '<p>Useful guide</p>',
+          excerpt: 'Useful guide',
+          featured_image_url: 'https://cdn.example.com/original.jpg',
+          featured_image_variants: {
+            landscape_16x9: 'https://cdn.example.com/landscape.jpg',
+            standard_4x3: 'https://cdn.example.com/standard.jpg',
+          },
+          category: 'Smartphones',
+          author_name: 'Ogabassey',
+          published_at: '2026-05-01T10:00:00.000Z',
+          updated_at: null,
+        },
+        {
+          id: 'test-post',
+          title: 'Test Post: Agent Integration Working',
+          slug: 'test-post-agent-integration-working',
+          content: '<p>Test</p>',
+          excerpt: 'Test',
+          featured_image_url: 'https://cdn.example.com/test.jpg',
+          category: 'gcrblw',
+          author_name: 'Ogabassey',
+          published_at: '2026-05-01T10:00:00.000Z',
+          updated_at: null,
+        },
+      ],
+    });
+
+    const response = await GET(new NextRequest('https://usebaci.com/feed'), {
+      params: Promise.resolve({ merchantSlug: 'ogabassey' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(mockFeedAddItem).toHaveBeenCalledOnce();
+    expect(mockFeedAddItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: 'Best Android Phones',
+        image: 'https://cdn.example.com/landscape.jpg',
+        category: [{ name: 'Smartphones' }],
+      })
     );
   });
 });

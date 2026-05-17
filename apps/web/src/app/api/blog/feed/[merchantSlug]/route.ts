@@ -3,7 +3,12 @@ import { Feed } from 'feed';
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getAppUrl, getSupabaseAnonKey, getSupabaseUrl } from '@/env';
+import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
 import { stripHtml } from '@/lib/blog-utils';
+import {
+  filterPublicBlogPosts,
+  isPublicBlogCategory,
+} from '@/lib/public-blog-content-quality';
 import { sanitizeForFeed } from '@/lib/sanitize';
 
 /**
@@ -30,6 +35,7 @@ interface BlogPost {
   content: string;
   excerpt: string;
   featured_image_url: string | null;
+  featured_image_variants?: Record<string, unknown> | null;
   category: string | null;
   author_name: string;
   published_at: string | null;
@@ -211,7 +217,7 @@ const getCachedFeedByMerchantId = unstable_cache(
     const { data: posts, error: postsError } = await supabase
       .from('blog_posts')
       .select(
-        'id, title, slug, content, excerpt, featured_image_url, category, author_name, published_at, updated_at'
+        'id, title, slug, content, excerpt, featured_image_url, featured_image_variants, category, author_name, published_at, updated_at'
       )
       .eq('merchant_id', merchant.id)
       .eq('status', 'published')
@@ -226,7 +232,9 @@ const getCachedFeedByMerchantId = unstable_cache(
 
     return {
       merchant,
-      posts: (Array.isArray(posts) ? posts : []) as BlogPost[],
+      posts: filterPublicBlogPosts(
+        (Array.isArray(posts) ? posts : []) as BlogPost[]
+      ),
     };
   },
   ['blog-rss-feed'],
@@ -311,6 +319,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       const excerpt = post.excerpt || stripHtml(post.content).substring(0, 300);
 
       const sanitizedContent = sanitizeForFeed(post.content);
+      const imageUrls = getBlogStructuredDataImageUrls(post);
 
       feed.addItem({
         title: post.title,
@@ -325,8 +334,11 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
           },
         ],
         date: publishedDate,
-        image: post.featured_image_url || undefined,
-        category: post.category ? [{ name: post.category }] : undefined,
+        image: imageUrls[0],
+        category:
+          post.category && isPublicBlogCategory(post.category)
+            ? [{ name: post.category }]
+            : undefined,
       });
     }
 

@@ -1,5 +1,9 @@
 import { getCachedFeatureSettings, getMerchantSafe } from '@/lib/cached-data';
 import { normalizeStorefrontCategoryValue } from '@/lib/normalize-storefront-category-value';
+import {
+  filterPublicBlogPosts,
+  isPublicBlogPost,
+} from '@/lib/public-blog-content-quality';
 import { STOREFRONT_BLOG_POST_SELECT } from '@/lib/storefront-blog-post-select';
 import { createPublicClient } from '@/lib/supabase/anon';
 
@@ -47,6 +51,9 @@ export async function getLiveBlogPost(
     if (postError && postError.code !== 'PGRST116') {
       console.error('Error fetching live blog post:', postError);
     }
+    return null;
+  }
+  if (!includeDrafts && !isPublicBlogPost(post)) {
     return null;
   }
 
@@ -103,7 +110,9 @@ export async function getLiveBlogPost(
       custom_domain: merchant.custom_domain,
     },
     post,
-    relatedPosts: relatedPostsError ? [] : (relatedPosts ?? []),
+    relatedPosts: relatedPostsError
+      ? []
+      : filterPublicBlogPosts(relatedPosts ?? []),
     relatedProducts: relatedProductsError ? [] : (relatedProducts ?? []),
   };
 }
