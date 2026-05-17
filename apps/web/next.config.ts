@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import path from 'node:path';
 import bundleAnalyzer from '@next/bundle-analyzer';
 import type { NextConfig } from 'next';
@@ -14,6 +15,47 @@ const withBundleAnalyzer = bundleAnalyzer({
  */
 const HTML_LIMITED_BOTS_UA_RE =
   /Googlebot|Googlebot-Image|Googlebot-News|Googlebot-Video|[\w-]+-Google|Google-[\w-]+|Chrome-Lighthouse|Slurp|DuckDuckBot|baiduspider|yandex|sogou|bitlybot|tumblr|vkShare|quora link preview|redditbot|ia_archiver|Bingbot|BingPreview|applebot|facebookexternalhit|facebookcatalog|Twitterbot|LinkedInBot|Slackbot|Discordbot|WhatsApp|SkypeUriPreview|Yeti|googleweblight|AhrefsBot|AhrefsSiteAudit|SemrushBot|MJ12bot|DotBot|rogerbot|PetalBot|Bytespider/i;
+
+const OGABASSEY_HERO_ASSET_DIR = path.join(
+  process.cwd(),
+  'src/components/storefront/ogabassey/components/assets'
+);
+
+function resolveOgabasseyMobileHeroPreloadPath() {
+  let files: string[] = [];
+
+  try {
+    files = fs.readdirSync(OGABASSEY_HERO_ASSET_DIR);
+  } catch {
+    return null;
+  }
+
+  const mobileHeroAvif = files.find((fileName) =>
+    /^iphone-17-pro-max-mobile\.[^.]+\.avif$/.test(fileName)
+  );
+
+  if (!mobileHeroAvif) {
+    return null;
+  }
+
+  const match = /^iphone-17-pro-max-mobile\.([^.]+)\.avif$/.exec(
+    mobileHeroAvif
+  );
+
+  if (!match) {
+    return null;
+  }
+
+  const [, contentHash] = match;
+  return `/_next/static/media/iphone-17-pro-max-mobile.${contentHash}.${contentHash}.avif`;
+}
+
+const OGABASSEY_HOME_MOBILE_HERO_PRELOAD_PATH =
+  resolveOgabasseyMobileHeroPreloadPath();
+const OGABASSEY_HOME_MOBILE_HERO_LINK_PRELOAD =
+  OGABASSEY_HOME_MOBILE_HERO_PRELOAD_PATH
+    ? `<${OGABASSEY_HOME_MOBILE_HERO_PRELOAD_PATH}>; rel=preload; as=image; type="image/avif"`
+    : null;
 
 const nextConfig: NextConfig = {
   // Keep heavy server-only packages external to reduce function bundle size and peak memory.
@@ -411,7 +453,33 @@ const nextConfig: NextConfig = {
 
   // Security headers
   headers() {
+    const ogabasseyHomePreloadHeaders = OGABASSEY_HOME_MOBILE_HERO_LINK_PRELOAD
+      ? [
+          {
+            source: '/',
+            has: [{ type: 'host', value: 'ogabassey.com' }],
+            headers: [
+              {
+                key: 'Link',
+                value: OGABASSEY_HOME_MOBILE_HERO_LINK_PRELOAD,
+              },
+            ],
+          },
+          {
+            source: '/',
+            has: [{ type: 'host', value: 'www.ogabassey.com' }],
+            headers: [
+              {
+                key: 'Link',
+                value: OGABASSEY_HOME_MOBILE_HERO_LINK_PRELOAD,
+              },
+            ],
+          },
+        ]
+      : [];
+
     return [
+      ...ogabasseyHomePreloadHeaders,
       {
         source: '/(.*)',
         headers: [
