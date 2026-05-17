@@ -33,7 +33,7 @@ export function MobileLcpHeroImage({
     props: { src: _avifSrc, srcSet, sizes, ...imgProps },
   } = getImageProps({
     alt,
-    decoding: 'auto',
+    decoding: 'sync',
     fetchPriority: 'high',
     height: MOBILE_HERO_IMAGE_HEIGHT,
     loading: 'eager',

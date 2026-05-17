@@ -48,6 +48,7 @@ describe('MobileLcpHeroImage', () => {
 
     expect(mockGetImageProps).toHaveBeenCalledWith(
       expect.objectContaining({
+        decoding: 'sync',
         fetchPriority: 'high',
         loading: 'eager',
         src: HERO_MOBILE_LCP_SRC,
@@ -71,6 +72,7 @@ describe('MobileLcpHeroImage', () => {
       name: 'iPhone 17 Pro Max',
     });
     expect(lcpImage).toHaveAttribute('loading', 'eager');
+    expect(lcpImage).toHaveAttribute('decoding', 'sync');
     expect(lcpImage).toHaveAttribute('src', HERO_MOBILE_LCP_FALLBACK_SRC);
     expect(lcpImage).toHaveAttribute('fetchpriority', 'high');
     expect(lcpImage).toHaveAttribute(
