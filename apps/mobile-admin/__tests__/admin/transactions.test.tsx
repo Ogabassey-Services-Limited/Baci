@@ -465,7 +465,7 @@ describe('TransactionsScreen', () => {
     );
   });
 
-  it('saves comma decimal cost price input without converting it to hundreds', async () => {
+  it('treats comma-separated cost price input as grouped digits on save', async () => {
     const expectedTransactionDateIso = buildTransactionDateIso('2026-04-10');
 
     render(<TransactionsScreen />);
@@ -478,7 +478,7 @@ describe('TransactionsScreen', () => {
 
     await waitFor(() =>
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
-        costPrice: 12.5,
+        costPrice: 125,
         orderId: 'order-1',
         productId: 'product-1',
         supplierName: 'Old supplier',
@@ -491,6 +491,23 @@ describe('TransactionsScreen', () => {
     render(<TransactionsScreen />);
 
     fireEvent.click(screen.getByText('Edit ORD-2'));
+
+    expect(screen.getByLabelText('Cost price input')).toHaveValue('₦2,000');
+  });
+
+  it('preserves thousands separators as grouping while editing formatted prices', () => {
+    render(<TransactionsScreen />);
+
+    fireEvent.click(screen.getByText('Edit ORD-2'));
+    fireEvent.change(screen.getByLabelText('Cost price input'), {
+      target: { value: '₦2,0005' },
+    });
+
+    expect(screen.getByLabelText('Cost price input')).toHaveValue('₦20,005');
+
+    fireEvent.change(screen.getByLabelText('Cost price input'), {
+      target: { value: '₦20,00' },
+    });
 
     expect(screen.getByLabelText('Cost price input')).toHaveValue('₦2,000');
   });

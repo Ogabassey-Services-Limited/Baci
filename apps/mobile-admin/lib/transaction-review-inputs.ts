@@ -1,45 +1,16 @@
 import type { TransactionReviewOrder } from './transaction-review-types';
 
-function countDigits(value: string) {
-  return value.replace(/\D/g, '').length;
-}
-
-function getCostPriceDecimalIndex(value: string) {
-  const dotIndex = value.indexOf('.');
-
-  if (dotIndex !== -1) {
-    return dotIndex;
-  }
-
-  const commaIndex = value.lastIndexOf(',');
-
-  if (commaIndex === -1) {
-    return -1;
-  }
-
-  const digitsBeforeComma = countDigits(value.slice(0, commaIndex));
-  const digitsAfterComma = countDigits(value.slice(commaIndex + 1));
-
-  if (digitsBeforeComma === 0 && digitsAfterComma > 0) {
-    return commaIndex;
-  }
-
-  if (digitsBeforeComma > 0 && digitsAfterComma > 0 && digitsAfterComma !== 3) {
-    return commaIndex;
-  }
-
-  return -1;
-}
-
 function normalizeCostPriceParts(value: string) {
-  const decimalIndex = getCostPriceDecimalIndex(value);
-  const digits = value
+  let sawDecimal = false;
+  const normalized = value.replace(/,/g, '');
+  const digits = normalized
     .split('')
-    .map((character, index) => {
+    .map((character) => {
       if (/\d/.test(character)) {
         return character;
       }
-      if (index === decimalIndex) {
+      if (character === '.' && !sawDecimal) {
+        sawDecimal = true;
         return '.';
       }
       return '';
