@@ -2,7 +2,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { createElement, type ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getBranchScopeStorageKey, useBranchScope } from '@/hooks/useBranchScope';
+import {
+  getBranchScopeStorageKey,
+  useBranchScope,
+} from '@/hooks/useBranchScope';
 
 const uuid = '123e4567-e89b-42d3-a456-426614174000';
 const staleUuid = '123e4567-e89b-42d3-a456-426614174001';

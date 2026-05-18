@@ -65,7 +65,9 @@ function renderTopProduct(input: OrderReportHtmlInput): string {
             <div class="insight-stat-label">Fulfillment Rate</div>
             <div class="insight-main" style="color: var(--success); font-size: 20px;">${
               summary.totalOrders > 0
-                ? Math.round((summary.completedCount / summary.totalOrders) * 100)
+                ? Math.round(
+                    (summary.completedCount / summary.totalOrders) * 100
+                  )
                 : 0
             }%</div>
           </div>

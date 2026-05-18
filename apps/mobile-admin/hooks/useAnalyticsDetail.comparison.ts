@@ -2,6 +2,7 @@ import { getPreviousAnalyticsDateRange } from '@/lib/analytics-period';
 import { applyOrderBranchScope } from '@/lib/branch-scope-query';
 import { supabase } from '@/lib/supabase';
 import type { BranchScope } from '@/schemas/branch';
+import type { Granularity } from './analyticsDetailBuckets';
 import { aggregateAnalyticsDetail } from './useAnalyticsDetail.aggregate';
 import type {
   AnalyticsOrder,
@@ -9,7 +10,6 @@ import type {
   OrderItemWithJoins,
   TimeSeriesDataPoint,
 } from './useAnalyticsDetail.types';
-import type { Granularity } from './analyticsDetailBuckets';
 
 interface FetchAnalyticsDetailComparisonArgs {
   endDateValue: Date;

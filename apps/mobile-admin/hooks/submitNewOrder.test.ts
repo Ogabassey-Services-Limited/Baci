@@ -113,10 +113,12 @@ describe('submitNewOrder', () => {
   });
 
   it('blocks submission when the customer is missing', async () => {
-    await submitNewOrder(createSubmitParams({
-      customer: { address: '', email: '', id: null, name: '', phone: '' },
-      orderItems: [],
-    }));
+    await submitNewOrder(
+      createSubmitParams({
+        customer: { address: '', email: '', id: null, name: '', phone: '' },
+        orderItems: [],
+      })
+    );
 
     expect(mocks.alert).toHaveBeenCalledWith(
       'Required',
@@ -130,11 +132,13 @@ describe('submitNewOrder', () => {
     const setLastOrderId = vi.fn();
     const setShowSuccessModal = vi.fn();
 
-    await submitNewOrder(createSubmitParams({
-      setIsSubmitting,
-      setLastOrderId,
-      setShowSuccessModal,
-    }));
+    await submitNewOrder(
+      createSubmitParams({
+        setIsSubmitting,
+        setLastOrderId,
+        setShowSuccessModal,
+      })
+    );
 
     expect(mocks.supabaseFrom).toHaveBeenCalledWith('branches');
     expect(branchQuery.select).toHaveBeenCalledWith('id');
@@ -207,11 +211,13 @@ describe('submitNewOrder', () => {
       new Error('Create failed')
     );
 
-    await submitNewOrder(createSubmitParams({
-      setIsSubmitting,
-      setLastOrderId,
-      setShowSuccessModal,
-    }));
+    await submitNewOrder(
+      createSubmitParams({
+        setIsSubmitting,
+        setLastOrderId,
+        setShowSuccessModal,
+      })
+    );
 
     expect(mocks.alert).toHaveBeenCalledWith('Error', 'Create failed');
     expect(setIsSubmitting).toHaveBeenLastCalledWith(false);
@@ -224,10 +230,12 @@ describe('submitNewOrder', () => {
     branchQuery = createBranchQuery({ data: null, error: null });
     mocks.supabaseFrom.mockReturnValue(branchQuery);
 
-    await submitNewOrder(createSubmitParams({
-      selectedBranchId: 'branch-from-another-merchant',
-      setIsSubmitting,
-    }));
+    await submitNewOrder(
+      createSubmitParams({
+        selectedBranchId: 'branch-from-another-merchant',
+        setIsSubmitting,
+      })
+    );
 
     expect(mocks.supabaseFrom).toHaveBeenCalledWith('branches');
     expect(branchQuery.eq).toHaveBeenCalledWith(

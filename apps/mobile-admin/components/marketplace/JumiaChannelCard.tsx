@@ -8,13 +8,7 @@ import { makeRedirectUri } from 'expo-auth-session';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
 import { JUMIA_CONNECTION_STATUS } from '@/constants/marketplace';
 import { useMerchant } from '@/hooks/useMerchant';
 import { apiClient } from '@/lib/api-client';
@@ -177,9 +171,7 @@ export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
         if (failedResults.length > 1) {
           console.error(
             '[JumiaChannelCard] disconnect failures',
-            failedResults.map((result) =>
-              getSafeJumiaErrorLog(result.reason)
-            )
+            failedResults.map((result) => getSafeJumiaErrorLog(result.reason))
           );
         }
         throw failedResults[0].reason;

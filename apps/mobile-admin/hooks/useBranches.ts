@@ -14,8 +14,8 @@ import {
 import { storage } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 import {
-  BranchSchema,
   type Branch,
+  BranchSchema,
   type CreateBranchInput,
   type UpdateBranchInput,
 } from '@/schemas/branch';

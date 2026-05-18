@@ -464,7 +464,12 @@ export default function ProductsScreen() {
       accessibilityState={{ selected: isActive }}
       accessibilityHint={`Filter products by ${label.toLowerCase()}`}
     >
-      <Text style={[styles.statValue, { color: isActive ? colors.textOnPrimary : color }]}>
+      <Text
+        style={[
+          styles.statValue,
+          { color: isActive ? colors.textOnPrimary : color },
+        ]}
+      >
         {value}
       </Text>
       <Text
@@ -525,9 +530,7 @@ export default function ProductsScreen() {
     if (isStatsLoading) {
       return (
         <View style={styles.summaryWrapper}>
-          <View
-            style={[styles.summaryBar, { backgroundColor: colors.card }]}
-          >
+          <View style={[styles.summaryBar, { backgroundColor: colors.card }]}>
             <Text style={{ color: colors.text }}>Loading stats...</Text>
           </View>
         </View>
@@ -538,10 +541,7 @@ export default function ProductsScreen() {
       return (
         <View style={styles.summaryWrapper}>
           <View
-            style={[
-              styles.summaryBar,
-              { backgroundColor: colors.errorLight },
-            ]}
+            style={[styles.summaryBar, { backgroundColor: colors.errorLight }]}
           >
             <Text style={{ color: colors.error }}>No stats data</Text>
           </View>
@@ -755,7 +755,14 @@ export default function ProductsScreen() {
                   accessibilityHint="Opens form to create a new product category"
                 >
                   <Ionicons name="add" size={20} color={colors.textOnPrimary} />
-                  <Text style={[styles.emptyButtonText, { color: colors.textOnPrimary }]}>Create Category</Text>
+                  <Text
+                    style={[
+                      styles.emptyButtonText,
+                      { color: colors.textOnPrimary },
+                    ]}
+                  >
+                    Create Category
+                  </Text>
                 </Pressable>
               </View>
             ) : null
@@ -857,7 +864,14 @@ export default function ProductsScreen() {
                   accessibilityHint="Opens form to create a new product"
                 >
                   <Ionicons name="add" size={20} color={colors.textOnPrimary} />
-                  <Text style={[styles.emptyButtonText, { color: colors.textOnPrimary }]}>Add Product</Text>
+                  <Text
+                    style={[
+                      styles.emptyButtonText,
+                      { color: colors.textOnPrimary },
+                    ]}
+                  >
+                    Add Product
+                  </Text>
                 </Pressable>
               </View>
             ) : null
@@ -1003,7 +1017,9 @@ export default function ProductsScreen() {
                   {createCategoryMutation.isPending ? (
                     <ActivityIndicator color={colors.textOnPrimary} />
                   ) : (
-                    <Text style={{ color: colors.textOnPrimary, fontWeight: '600' }}>
+                    <Text
+                      style={{ color: colors.textOnPrimary, fontWeight: '600' }}
+                    >
                       Create
                     </Text>
                   )}

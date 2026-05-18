@@ -293,10 +293,17 @@ export default function CustomerDetailsScreen() {
               </View>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <Pressable
-                  style={[styles.iconButton, { backgroundColor: colors.successLight }]}
+                  style={[
+                    styles.iconButton,
+                    { backgroundColor: colors.successLight },
+                  ]}
                   onPress={handleWhatsApp}
                 >
-                  <Ionicons name="logo-whatsapp" size={20} color={colors.success} />
+                  <Ionicons
+                    name="logo-whatsapp"
+                    size={20}
+                    color={colors.success}
+                  />
                 </Pressable>
                 <Pressable
                   style={[styles.iconButton, { backgroundColor: colors.card }]}
@@ -353,7 +360,12 @@ export default function CustomerDetailsScreen() {
               shadows.sm,
             ]}
           >
-            <View style={[styles.statIcon, { backgroundColor: colors.successLight }]}>
+            <View
+              style={[
+                styles.statIcon,
+                { backgroundColor: colors.successLight },
+              ]}
+            >
               <Ionicons name="wallet" size={20} color={colors.success} />
             </View>
             <Text style={[styles.statValue, { color: colors.text }]}>

@@ -34,27 +34,19 @@ const getNextDateRangeSelection = (
   return { ...selection, end: day };
 };
 
-const isDateRangeDaySelected = (
-  day: Date,
-  selection: DateRangeSelection
-) => {
+const isDateRangeDaySelected = (day: Date, selection: DateRangeSelection) => {
   if (!selection.start) {
     return false;
   }
 
   if (selection.end) {
-    return (
-      isSameDay(day, selection.start) || isSameDay(day, selection.end)
-    );
+    return isSameDay(day, selection.start) || isSameDay(day, selection.end);
   }
 
   return isSameDay(day, selection.start);
 };
 
-const isDateRangeDayInRange = (
-  day: Date,
-  selection: DateRangeSelection
-) => {
+const isDateRangeDayInRange = (day: Date, selection: DateRangeSelection) => {
   if (!selection.start || !selection.end) {
     return false;
   }

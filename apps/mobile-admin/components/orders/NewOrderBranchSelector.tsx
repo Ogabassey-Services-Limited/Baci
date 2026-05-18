@@ -1,11 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import {
   Pressable,
+  type StyleProp,
   StyleSheet,
   Text,
-  View,
-  type StyleProp,
   type TextStyle,
+  View,
   type ViewStyle,
 } from 'react-native';
 

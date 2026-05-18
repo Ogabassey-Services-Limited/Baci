@@ -9,14 +9,14 @@ import { useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { BranchModal } from '@/components/staff/BranchModal';
 import { BranchesTabContent } from '@/components/staff/BranchesTabContent';
+import { BranchModal } from '@/components/staff/BranchModal';
 import { StaffAccountModal } from '@/components/staff/StaffAccountModal';
 import { StaffAccountsStatusShell } from '@/components/staff/StaffAccountsStatusShell';
 import { StaffAccountsTabContent } from '@/components/staff/StaffAccountsTabContent';
 import styles from '@/components/staff/staff-accounts.styles';
-import { useBranchManagement } from '@/hooks/useBranchManagement';
 import { useDeactivateBranch, useUpdateBranch } from '@/hooks/useBranches';
+import { useBranchManagement } from '@/hooks/useBranchManagement';
 import { useStaff } from '@/hooks/useStaff';
 import { useStaffAccounts } from '@/hooks/useStaffAccounts';
 import { useTheme } from '@/hooks/useTheme';
@@ -101,12 +101,21 @@ export default function StaffAccountsScreen() {
             <Ionicons
               name="person-outline"
               size={18}
-              color={activeTab === 'accounts' ? colors.textOnPrimary : colors.textMuted}
+              color={
+                activeTab === 'accounts'
+                  ? colors.textOnPrimary
+                  : colors.textMuted
+              }
             />
             <Text
               style={[
                 styles.tabText,
-                { color: activeTab === 'accounts' ? colors.textOnPrimary : colors.textMuted },
+                {
+                  color:
+                    activeTab === 'accounts'
+                      ? colors.textOnPrimary
+                      : colors.textMuted,
+                },
               ]}
             >
               Staff Accounts
@@ -126,12 +135,21 @@ export default function StaffAccountsScreen() {
             <Ionicons
               name="business-outline"
               size={18}
-              color={activeTab === 'branches' ? colors.textOnPrimary : colors.textMuted}
+              color={
+                activeTab === 'branches'
+                  ? colors.textOnPrimary
+                  : colors.textMuted
+              }
             />
             <Text
               style={[
                 styles.tabText,
-                { color: activeTab === 'branches' ? colors.textOnPrimary : colors.textMuted },
+                {
+                  color:
+                    activeTab === 'branches'
+                      ? colors.textOnPrimary
+                      : colors.textMuted,
+                },
               ]}
             >
               Branches
@@ -160,20 +178,9 @@ export default function StaffAccountsScreen() {
             />
           )}
 
-          <View
-            style={[
-              styles.notice,
-              { backgroundColor: colors.infoLight },
-            ]}
-          >
-            <Ionicons
-              name="information-circle"
-              size={20}
-              color={colors.info}
-            />
-            <Text
-              style={[styles.noticeText, { color: colors.info }]}
-            >
+          <View style={[styles.notice, { backgroundColor: colors.infoLight }]}>
+            <Ionicons name="information-circle" size={20} color={colors.info} />
+            <Text style={[styles.noticeText, { color: colors.info }]}>
               All payments reconcile to your main wallet automatically.
             </Text>
           </View>

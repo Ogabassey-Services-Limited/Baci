@@ -250,13 +250,29 @@ export default function BlogPostDetailScreen() {
 
       {/* Header */}
       <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => router.back()} style={styles.backButton}>
+        <Pressable
+          onPress={() => router.back()}
+          style={({ pressed }) => [
+            styles.backButton,
+            pressed && { opacity: 0.7 },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Go Back"
+          accessibilityHint="Navigates to the previous screen"
+        >
           <Ionicons name="close" size={24} color={colors.text} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
           {id === 'new' ? 'New Post' : 'Edit Post'}
         </Text>
-        <Pressable onPress={handleSave} disabled={isSaving}>
+        <Pressable
+          onPress={handleSave}
+          disabled={isSaving}
+          style={({ pressed }) => [pressed && { opacity: 0.7 }]}
+          accessibilityRole="button"
+          accessibilityLabel="Save Post"
+          accessibilityState={{ disabled: isSaving }}
+        >
           {isSaving ? (
             <ActivityIndicator color={colors.primary} />
           ) : (
@@ -410,10 +426,14 @@ export default function BlogPostDetailScreen() {
                 'Preview functionality coming soon! Check the web dashboard for live preview.'
               )
             }
-            style={[
+            style={({ pressed }) => [
               styles.actionButton,
               { backgroundColor: colors.card, borderColor: colors.primary },
+              pressed && { opacity: 0.7 },
             ]}
+            accessibilityRole="button"
+            accessibilityLabel="Preview Article"
+            accessibilityHint="Shows a preview of the article"
           >
             <Ionicons name="eye-outline" size={20} color={colors.primary} />
             <Text style={[styles.actionText, { color: colors.primary }]}>

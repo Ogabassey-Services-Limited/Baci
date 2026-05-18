@@ -104,7 +104,9 @@ export function LoginSecondaryActions({
             ) : (
               <>
                 <Ionicons name="logo-apple" size={20} color={colors.card} />
-                <Text style={[loginStyles.socialButtonText, { color: colors.card }]}>
+                <Text
+                  style={[loginStyles.socialButtonText, { color: colors.card }]}
+                >
                   Apple
                 </Text>
               </>

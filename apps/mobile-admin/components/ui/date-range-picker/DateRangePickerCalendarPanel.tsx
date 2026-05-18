@@ -1,9 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { format, isSameDay, isSameMonth } from 'date-fns';
 import { Pressable, Text, View } from 'react-native';
-import {
-  DATE_RANGE_PICKER_WEEKDAYS,
-} from '@/components/ui/date-range-picker/dateRangePickerConstants';
+import { DATE_RANGE_PICKER_WEEKDAYS } from '@/components/ui/date-range-picker/dateRangePickerConstants';
 import { dateRangePickerHelpers } from '@/components/ui/date-range-picker/dateRangePickerHelpers';
 import styles from '@/components/ui/date-range-picker/dateRangePickerStyles';
 import type { DateRangeSelection } from '@/components/ui/date-range-picker/dateRangePickerTypes';
