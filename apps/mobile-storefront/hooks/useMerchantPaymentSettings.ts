@@ -13,6 +13,9 @@ interface PaymentSettings {
   juicyway_enabled: boolean;
   credpal_enabled: boolean;
   credit_direct_enabled: boolean;
+  klump_enabled: boolean;
+  klump_min_amount: number;
+  klump_max_amount: number;
   pay_on_delivery_enabled: boolean;
   vat_registration_status: string;
   vat_rate: number;
@@ -77,6 +80,7 @@ export function getEnabledPaymentMethods(
   if (settings.pay_on_delivery_enabled) methods.push('pay_on_delivery');
   if (settings.credpal_enabled) methods.push('credpal');
   if (settings.credit_direct_enabled) methods.push('credit_direct');
+  if (settings.klump_enabled) methods.push('klump');
 
   // Bank transfer is a Paystack sub-feature (DVA), include when paystack is enabled
   if (settings.paystack_enabled) methods.push('bank_transfer');

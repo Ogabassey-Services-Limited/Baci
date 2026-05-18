@@ -24,6 +24,7 @@ export type PaymentMethodType =
   | 'pay_on_delivery'
   | 'credpal'
   | 'credit_direct'
+  | 'klump'
   | 'juicyway'
   | 'invoice'
   | 'payforme';
@@ -94,6 +95,13 @@ const PAYMENT_METHODS: PaymentMethod[] = [
     logoUrl: credpalLogoSource,
   },
   {
+    id: 'klump',
+    label: 'Klump',
+    description: 'Buy now, pay in installments',
+    icon: 'wallet-outline',
+    tab: 'installments',
+  },
+  {
     id: 'invoice',
     label: 'Generate Invoice',
     description: 'Create an invoice for later payment',
@@ -140,6 +148,7 @@ interface PaymentMethodSelectorProps {
   suppressedSelectedMethods?: PaymentMethodType[];
   methodBadgeOverrides?: Partial<Record<PaymentMethodType, string>>;
   methodDescriptionOverrides?: Partial<Record<PaymentMethodType, string>>;
+  methodDisabledReasons?: Partial<Record<PaymentMethodType, string>>;
   methodLabelOverrides?: Partial<Record<PaymentMethodType, string>>;
 }
 
@@ -159,6 +168,7 @@ export function PaymentMethodSelector({
   suppressedSelectedMethods = [],
   methodBadgeOverrides = {},
   methodDescriptionOverrides = {},
+  methodDisabledReasons = {},
   methodLabelOverrides = {},
 }: PaymentMethodSelectorProps) {
   const colorScheme = useColorScheme();
@@ -184,7 +194,9 @@ export function PaymentMethodSelector({
   // Hide installments tab if no BNPL methods are enabled
   const hasBNPLMethods =
     !enabledMethods ||
-    enabledMethods.some((m) => m === 'credpal' || m === 'credit_direct');
+    enabledMethods.some(
+      (m) => m === 'credpal' || m === 'credit_direct' || m === 'klump'
+    );
   const hasPayLaterMethods =
     !enabledMethods ||
     enabledMethods.some((m) => m === 'invoice' || m === 'payforme');
@@ -192,6 +204,15 @@ export function PaymentMethodSelector({
   const filteredMethods = PAYMENT_METHODS.filter((m) => m.tab === selectedTab)
     .filter((m) => !enabledMethods || enabledMethods.includes(m.id))
     .map((method) => {
+      const disabledReason = methodDisabledReasons[method.id];
+      if (disabledReason) {
+        return {
+          ...method,
+          disabled: true,
+          disabledReason,
+        };
+      }
+
       // Add eligibility check for BNPL methods
       if (method.tab === 'installments' && !isBNPLEligible) {
         const disabledReason =
