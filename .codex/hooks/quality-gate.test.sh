@@ -36,7 +36,7 @@ run_hook() {
   local active="${3:-false}"
   local mode="${4:-completion}"
   make_input "$cwd" "$message" "$active" |
-    CODEX_QUALITY_GATE_MODE="$mode" CODEX_QUALITY_GATE_CODERABBIT=0 bash "$HOOK"
+    CODEX_QUALITY_GATE_MODE="$mode" CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=off bash "$HOOK"
 }
 
 TMPDIR=$(mktemp -d)
@@ -72,11 +72,21 @@ exit 0
 SH
 chmod +x "$STUB_BIN/pnpm"
 
+cat > "$STUB_BIN/gh" <<'SH'
+#!/usr/bin/env bash
+if [ "${1:-}" = "pr" ] && [ "${2:-}" = "view" ]; then
+  printf '%s\n' "${GH_STUB_PR_JSON:-}"
+  exit 0
+fi
+exit 1
+SH
+chmod +x "$STUB_BIN/gh"
+
 rm "$TMPDIR/apps/web/src/lib/existing.ts"
 : > "$PNPM_LOG"
 output=$(
   make_input "$TMPDIR" "Implemented the change." false |
-    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 bash "$HOOK"
+    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=off bash "$HOOK"
 )
 [ -z "$output" ] || fail "deleted code file with existing test should allow stop without output"
 grep -q 'pnpm stub turbo lint' "$PNPM_LOG" || fail "deleted code file should run lint"
@@ -88,7 +98,7 @@ rm "$TMPDIR/apps/web/src/lib/legacy-without-test.ts"
 : > "$PNPM_LOG"
 output=$(
   make_input "$TMPDIR" "Implemented the change." false |
-    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 bash "$HOOK"
+    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=off bash "$HOOK"
 )
 [ -z "$output" ] || fail "deleted legacy code file without existing test should allow stop without output"
 grep -q 'pnpm stub turbo lint' "$PNPM_LOG" || fail "deleted legacy code file should run lint"
@@ -109,7 +119,7 @@ printf 'export const mobileStorefrontConstant = 1;\n' > "$TMPDIR/apps/mobile-sto
 : > "$PNPM_LOG"
 output=$(
   make_input "$TMPDIR" "Implemented the change." false |
-    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 bash "$HOOK"
+    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=off bash "$HOOK"
 )
 [ -z "$output" ] || fail "tested app code outside allowlisted folders should allow stop without output"
 grep -q 'pnpm stub turbo lint' "$PNPM_LOG" || fail "app code outside allowlisted folders should run lint"
@@ -123,7 +133,7 @@ printf 'export const mobileStorefrontConstant = 1;\n' > "$TMPDIR/apps/mobile-sto
 : > "$PNPM_LOG"
 output=$(
   make_input "$TMPDIR" "Implemented the change." false |
-    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 bash "$HOOK"
+    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=off bash "$HOOK"
 )
 [ -z "$output" ] || fail "constants-only app code should allow stop without output"
 grep -q 'pnpm stub turbo lint' "$PNPM_LOG" || fail "constants-only app code should run lint"
@@ -135,7 +145,7 @@ printf 'export const shared = 2;\n' > "$TMPDIR/packages/shared/src/index.ts"
 : > "$PNPM_LOG"
 output=$(
   make_input "$TMPDIR" "Implemented the change." false |
-    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 bash "$HOOK"
+    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=off bash "$HOOK"
 )
 [ -z "$output" ] || fail "top-level package src code should allow stop without output when tested"
 grep -q 'pnpm stub turbo lint' "$PNPM_LOG" || fail "top-level package src code should run lint"
@@ -148,7 +158,7 @@ printf '{"extends":"../../tsconfig.json"}\n' > "$TMPDIR/apps/web/tsconfig.json"
 : > "$PNPM_LOG"
 output=$(
   make_input "$TMPDIR" "Implemented the change." false |
-    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 bash "$HOOK"
+    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=off bash "$HOOK"
 )
 [ -z "$output" ] || fail "workspace manifest and tsconfig changes should allow stop without output"
 grep -q 'pnpm stub turbo lint' "$PNPM_LOG" || fail "workspace manifest and tsconfig changes should run lint"
@@ -166,8 +176,73 @@ printf 'import { describe, it, expect } from "vitest";\ndescribe("missing", () =
 
 output=$(
   make_input "$TMPDIR" "Implemented the change." false |
-    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 bash "$HOOK"
+    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=off bash "$HOOK"
 )
 [ -z "$output" ] || fail "passing stubbed gates should allow stop without output"
+
+head_sha=$(git -C "$TMPDIR" rev-parse HEAD)
+pr_findings_json=$(jq -n --arg head "$head_sha" '{
+  number: 999,
+  url: "https://example.com/pr/999",
+  state: "OPEN",
+  headRefOid: $head,
+  reviews: [
+    {
+      author: { login: "github-actions" },
+      state: "COMMENTED",
+      submittedAt: "2026-05-18T00:00:00Z",
+      commit: { oid: $head },
+      body: "## Findings\n- Low: sample finding\n## Suggested next steps\n- Fix it"
+    }
+  ]
+}')
+output=$(
+  make_input "$TMPDIR" "Implemented the change." false |
+    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" GH_STUB_PR_JSON="$pr_findings_json" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=on bash "$HOOK"
+)
+printf '%s' "$output" | jq -e '.decision == "block"' >/dev/null || fail "head-commit bot findings should block"
+printf '%s' "$output" | grep -q 'PR #999 has unresolved bot review findings' || fail "PR findings block should include PR context"
+
+pr_stale_findings_json=$(jq -n --arg head "$head_sha" '{
+  number: 1000,
+  url: "https://example.com/pr/1000",
+  state: "OPEN",
+  headRefOid: $head,
+  reviews: [
+    {
+      author: { login: "github-actions" },
+      state: "COMMENTED",
+      submittedAt: "2026-05-18T00:00:00Z",
+      commit: { oid: "deadbeef" },
+      body: "## Findings\n- Low: stale finding\n## Suggested next steps\n- Ignore"
+    }
+  ]
+}')
+output=$(
+  make_input "$TMPDIR" "Implemented the change." false |
+    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" GH_STUB_PR_JSON="$pr_stale_findings_json" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=on bash "$HOOK"
+)
+[ -z "$output" ] || fail "non-head commit findings should not block"
+
+pr_no_issues_json=$(jq -n --arg head "$head_sha" '{
+  number: 1001,
+  url: "https://example.com/pr/1001",
+  state: "OPEN",
+  headRefOid: $head,
+  reviews: [
+    {
+      author: { login: "github-actions" },
+      state: "COMMENTED",
+      submittedAt: "2026-05-18T00:00:00Z",
+      commit: { oid: $head },
+      body: "## Findings\nI found no meaningful issues.\n- No meaningful issues found.\n## Suggested next steps\n- Merge."
+    }
+  ]
+}')
+output=$(
+  make_input "$TMPDIR" "Implemented the change." false |
+    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" GH_STUB_PR_JSON="$pr_no_issues_json" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=on bash "$HOOK"
+)
+[ -z "$output" ] || fail "head review with explicit no-issues verdict should not block"
 
 printf 'quality-gate self-test passed\n'
