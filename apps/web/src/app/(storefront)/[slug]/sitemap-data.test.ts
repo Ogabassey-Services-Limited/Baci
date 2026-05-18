@@ -195,6 +195,24 @@ describe('sitemap-data', () => {
     expect(context?.merchant.slug).toBe('ogabassey');
   });
 
+  it('prefers the custom domain header over route params for named sitemap rewrites', async () => {
+    setCustomDomainHeader('ogabassey.com');
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+
+    const context = await resolveStorefrontSitemapContext(
+      mockHeaders as unknown as Headers,
+      'sitemap'
+    );
+
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(context?.storeUrl).toBe('https://ogabassey.com');
+  });
+
   it('returns static sitemap entries for the storefront root and faq', async () => {
     const { getStaticSitemapEntries } = await import('./sitemap-data');
     const entries = getStaticSitemapEntries('https://ogabassey.com');
