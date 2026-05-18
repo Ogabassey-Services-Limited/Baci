@@ -1,10 +1,10 @@
-import { fetchWithCsrf } from '@/lib/api-client';
-import { PLATFORM_BLOG_PAGE_SIZE } from './blog-pagination';
+import { PLATFORM_BLOG_PAGE_SIZE } from '@/app/admin/blog/blog-pagination';
 import type {
   PlatformAdminBlogFormState,
   PlatformAdminBlogPostDetail,
   PlatformAdminBlogPostSummary,
-} from './blog-types';
+} from '@/app/admin/blog/blog-types';
+import { fetchWithCsrf } from '@/lib/api-client';
 
 type PlatformBlogListResponse = {
   hasMore?: boolean;
@@ -191,7 +191,8 @@ export async function listPlatformBlogPostsPage({
 export async function getPlatformBlogPost(
   id: string
 ): Promise<PlatformAdminBlogPostDetail> {
-  const response = await fetch(`/api/admin/blog/posts/${id}`, {
+  const encodedId = encodeURIComponent(id);
+  const response = await fetch(`/api/admin/blog/posts/${encodedId}`, {
     cache: 'no-store',
     credentials: 'include',
   });
@@ -223,11 +224,12 @@ export async function updatePlatformBlogPost(
   input: PlatformAdminBlogFormState,
   existingPost?: PlatformAdminBlogPostDetail | null
 ): Promise<PlatformAdminBlogPostDetail> {
+  const encodedId = encodeURIComponent(id);
   const includeFeaturedImageFields = shouldIncludeFeaturedImageFields(
     input,
     existingPost
   );
-  const response = await fetchWithCsrf(`/api/admin/blog/posts/${id}`, {
+  const response = await fetchWithCsrf(`/api/admin/blog/posts/${encodedId}`, {
     body: JSON.stringify(
       toApiPayload(input, {
         clearEmptyToNull: true,
@@ -245,7 +247,8 @@ export async function updatePlatformBlogPost(
 }
 
 export async function deletePlatformBlogPost(id: string): Promise<void> {
-  const response = await fetchWithCsrf(`/api/admin/blog/posts/${id}`, {
+  const encodedId = encodeURIComponent(id);
+  const response = await fetchWithCsrf(`/api/admin/blog/posts/${encodedId}`, {
     method: 'DELETE',
   });
 

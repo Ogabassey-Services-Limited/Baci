@@ -34,7 +34,15 @@ export default async function EditAdminBlogPostPage({
     .is('merchant_id', null)
     .single();
 
-  if (error || !data) {
+  if (error) {
+    if (error.code === 'PGRST116') {
+      notFound();
+    }
+    console.error('Failed to load platform blog post for edit:', error);
+    throw new Error('Failed to load platform blog post');
+  }
+
+  if (!data) {
     notFound();
   }
 

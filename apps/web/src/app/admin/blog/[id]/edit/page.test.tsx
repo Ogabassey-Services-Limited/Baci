@@ -96,6 +96,20 @@ describe('/admin/blog/[id]/edit page', () => {
     expect(mockNotFound).toHaveBeenCalled();
   });
 
+  it('throws a server error when lookup fails for non-404 reasons', async () => {
+    mockSupabase.single.mockResolvedValueOnce({
+      data: null,
+      error: { code: '57014', message: 'statement timeout' },
+    });
+
+    await expect(
+      EditAdminBlogPostPage({
+        params: Promise.resolve({ id: 'post-1' }),
+      })
+    ).rejects.toThrow('Failed to load platform blog post');
+    expect(mockNotFound).not.toHaveBeenCalled();
+  });
+
   it('redirects unauthenticated users to login', async () => {
     mockGetPlatformAdminAuth.mockResolvedValueOnce({
       status: 'unauthenticated',
