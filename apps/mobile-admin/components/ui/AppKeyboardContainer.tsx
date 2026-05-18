@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import {
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   type StyleProp,
   StyleSheet,
@@ -9,6 +8,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { isRuntimePlatform } from '@/config/runtime-platform';
 import { SPACING } from '@/constants/theme';
 
 interface AppKeyboardContainerProps {
@@ -31,9 +31,10 @@ export function AppKeyboardContainer({
   style,
 }: AppKeyboardContainerProps) {
   const insets = useSafeAreaInsets();
+  const isIos = isRuntimePlatform('ios');
   const resolvedKeyboardVerticalOffset =
     keyboardVerticalOffset ??
-    (offsetPreset === 'compactHeader' && Platform.OS !== 'ios' ? 16 : 24);
+    (offsetPreset === 'compactHeader' && !isIos ? 16 : 24);
   const justifyContent =
     align === 'start'
       ? 'flex-start'
@@ -53,7 +54,7 @@ export function AppKeyboardContainer({
     <KeyboardAvoidingView
       // iOS needs padding to keep the active field above the software keyboard,
       // while Android behaves more reliably when the container resizes by height.
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={isIos ? 'padding' : 'height'}
       keyboardVerticalOffset={resolvedKeyboardVerticalOffset}
       style={[styles.container, style]}
     >
@@ -64,7 +65,7 @@ export function AppKeyboardContainer({
           keyboardDismissMode={
             // iOS supports interactive dismissal that tracks the user's drag,
             // while Android reliably dismisses on drag in this sheet pattern.
-            Platform.OS === 'ios' ? 'interactive' : 'on-drag'
+            isIos ? 'interactive' : 'on-drag'
           }
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}

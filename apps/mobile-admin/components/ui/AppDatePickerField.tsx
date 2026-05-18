@@ -1,7 +1,8 @@
 import type { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { isRuntimePlatform } from '@/config/runtime-platform';
 import { SPACING, TYPOGRAPHY } from '@/constants/theme';
 
 interface AppDatePickerFieldProps {
@@ -28,12 +29,13 @@ export function AppDatePickerField({
   value,
 }: AppDatePickerFieldProps) {
   const [tempDate, setTempDate] = useState(value);
+  const isIos = isRuntimePlatform('ios');
 
   const handleDateChange = (
     event: DateTimePickerEvent,
     selectedDate?: Date
   ) => {
-    if (Platform.OS === 'android') {
+    if (isRuntimePlatform('android')) {
       onClose();
       if (event.type === 'dismissed') {
         return;
@@ -54,12 +56,12 @@ export function AppDatePickerField({
     onClose();
   };
 
-  const pickerValue = Platform.OS === 'ios' ? tempDate : value;
-  const pickerDisplay = Platform.OS === 'ios' ? 'spinner' : 'default';
+  const pickerValue = isIos ? tempDate : value;
+  const pickerDisplay = isIos ? 'spinner' : 'default';
 
   return (
     <View>
-      {Platform.OS === 'ios' ? (
+      {isIos ? (
         <View style={styles.iosActions}>
           <Pressable
             accessibilityLabel="Cancel date selection"
