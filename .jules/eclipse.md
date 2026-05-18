@@ -30,3 +30,6 @@
 ## 2024-05-17 - Replace Hardcoded Apple Sign-in Button Colors
 **Learning:** The Apple sign-in button in the mobile app's authentication screen was using hardcoded `#000` (black) backgrounds and `#FFF` (white) text/icons, making it completely invisible when the app was in dark mode (where the main background is also `#000`).
 **Action:** Replaced the hardcoded black `#000` with the adaptive theme token `colors.text` and the hardcoded white `#FFF` with `colors.card` so that the button contrasts properly and intelligently adapts to both light and dark modes.
+## $(date +%Y-%m-%d) - Replaced hardcoded hex colors with dynamic theme colors in Discounts mobile screens
+**Learning:** Hardcoded white `#FFFFFF` text on primary color backgrounds breaks theming consistency, and static border colors like `#eee` do not adjust well to dark mode. Also, `StyleSheet.create` cannot have dynamic colors natively.
+**Action:** Removed hardcoded colors from `StyleSheet.create` in `apps/mobile-admin/app/(admin)/discounts/new.tsx` and `apps/mobile-admin/app/(admin)/discounts/index.tsx`. Replaced with `colors.textOnPrimary` and `colors.border` via inline styles array where needed, ensuring we use dynamic colors from `useTheme()` correctly without refactoring into factory functions.
