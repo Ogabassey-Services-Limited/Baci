@@ -50,19 +50,28 @@ const PAYMENT_GATEWAYS = [
   'juicyway',
   'credit_direct',
   'credpal',
+  'klump',
 ] as const;
 type PaymentGateway = (typeof PAYMENT_GATEWAYS)[number];
+
+type PreferredGateway = 'paystack' | 'korapay';
 
 interface GatewaySettings {
   paystack_enabled: boolean;
   korapay_enabled: boolean;
-  preferred_local_gateway: PaymentGateway;
-  preferred_international_gateway: PaymentGateway;
+  klump_enabled: boolean;
+  klump_min_amount: number;
+  klump_max_amount: number;
+  preferred_local_gateway: PreferredGateway;
+  preferred_international_gateway: PreferredGateway;
 }
 
 const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
   paystack_enabled: true,
   korapay_enabled: true,
+  klump_enabled: false,
+  klump_min_amount: 10_000,
+  klump_max_amount: 500_000,
   preferred_local_gateway: 'paystack',
   preferred_international_gateway: 'korapay',
 };
@@ -118,6 +127,15 @@ function createErrorResponse(
   status: number = 400
 ) {
   return NextResponse.json({ error, code }, { status });
+}
+
+function numberOrDefault(value: unknown, fallback: number): number {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) ? numericValue : fallback;
+}
+
+function amountsMatch(a: number, b: number): boolean {
+  return Math.abs(a - b) < 0.01;
 }
 
 function selectGateway(
@@ -888,7 +906,7 @@ export async function POST(request: NextRequest) {
     const { data: featureSettings } = await supabase
       .from('merchant_feature_settings')
       .select(
-        'paystack_enabled, korapay_enabled, preferred_local_gateway, preferred_international_gateway'
+        'paystack_enabled, korapay_enabled, klump_enabled, klump_min_amount, klump_max_amount, preferred_local_gateway, preferred_international_gateway'
       )
       .eq('merchant_id', merchantId)
       .single();
@@ -897,11 +915,20 @@ export async function POST(request: NextRequest) {
       ? {
           paystack_enabled: featureSettings.paystack_enabled ?? true,
           korapay_enabled: featureSettings.korapay_enabled ?? true,
+          klump_enabled: featureSettings.klump_enabled ?? false,
+          klump_min_amount: numberOrDefault(
+            featureSettings.klump_min_amount,
+            DEFAULT_GATEWAY_SETTINGS.klump_min_amount
+          ),
+          klump_max_amount: numberOrDefault(
+            featureSettings.klump_max_amount,
+            DEFAULT_GATEWAY_SETTINGS.klump_max_amount
+          ),
           preferred_local_gateway:
-            (featureSettings.preferred_local_gateway as PaymentGateway) ||
+            (featureSettings.preferred_local_gateway as PreferredGateway) ||
             'paystack',
           preferred_international_gateway:
-            (featureSettings.preferred_international_gateway as PaymentGateway) ||
+            (featureSettings.preferred_international_gateway as PreferredGateway) ||
             'korapay',
         }
       : DEFAULT_GATEWAY_SETTINGS;
@@ -916,6 +943,43 @@ export async function POST(request: NextRequest) {
       data.gateway && PAYMENT_GATEWAYS.includes(data.gateway)
         ? data.gateway
         : selectGateway(validCurrency, gatewaySettings, hasPaystackSubaccount);
+
+    if (gateway === 'klump') {
+      if (!gatewaySettings.klump_enabled) {
+        return createErrorResponse(
+          'Klump is not enabled for this merchant',
+          'GATEWAY_DISABLED',
+          400
+        );
+      }
+
+      if (validCurrency !== 'NGN') {
+        return createErrorResponse(
+          'Klump only supports NGN payments',
+          'UNSUPPORTED_CURRENCY',
+          400
+        );
+      }
+
+      if (!amountsMatch(data.amount, snapshotTotal)) {
+        return createErrorResponse(
+          'Klump requires the full order total; wallet-composed Klump payments are not supported',
+          'AMOUNT_COMPOSITION_UNSUPPORTED',
+          400
+        );
+      }
+
+      if (
+        data.amount < gatewaySettings.klump_min_amount ||
+        data.amount > gatewaySettings.klump_max_amount
+      ) {
+        return createErrorResponse(
+          'Order total is outside the merchant Klump amount range',
+          'AMOUNT_OUT_OF_RANGE',
+          400
+        );
+      }
+    }
 
     // Generate reference and URLs
     // Use customAlphabet with uppercase-safe alphabet for consistent uppercase references
@@ -1058,6 +1122,28 @@ export async function POST(request: NextRequest) {
             reference, // Use the generated reference
             platformFee: 0, // Fees calculated client-side or by gateway
             merchantAmount: data.amount, // Full amount (fees handled separately)
+          };
+          break;
+        }
+        case 'klump': {
+          // Klump still uses the Baci BNPL launcher, but it needs the BAC
+          // reference in the URL so the launcher can record Klump's provider id
+          // before any success page is shown.
+          const bnplQuery = new URLSearchParams({
+            gateway,
+            orderId: data.order_id,
+            reference,
+          });
+          if (trackingToken) {
+            bnplQuery.set('trackingToken', trackingToken);
+          }
+          const launcherUrl = `${protocol}://${merchant.slug}.${rootDomain}/checkout/bnpl?${bnplQuery.toString()}`;
+          paymentResult = {
+            authorization_url: launcherUrl,
+            checkout_url: launcherUrl,
+            reference,
+            platformFee: 0,
+            merchantAmount: data.amount,
           };
           break;
         }
