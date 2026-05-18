@@ -41,8 +41,7 @@ interface ProductFixture {
 
 interface ReviewFixture {
   product_id: string | null;
-  review_count: number | string | null;
-  average_rating: number | string | null;
+  rating: number | string | null;
 }
 
 let productsResult: { data: ProductFixture[] | null; error: unknown };
@@ -50,7 +49,16 @@ let nullCreatedAtProductsResult: {
   data: ProductFixture[] | null;
   error: unknown;
 };
-let reviewsResult: { data: ReviewFixture[] | null; error: unknown };
+let reviewsResult: {
+  count?: number | null;
+  data: ReviewFixture[] | null;
+  error: unknown;
+};
+let reviewPageResults: Array<{
+  count?: number | null;
+  data: ReviewFixture[] | null;
+  error: unknown;
+}>;
 const mockProductSelect = vi.fn();
 const mockProductsGt = vi.fn();
 const mockProductsIs = vi.fn();
@@ -60,6 +68,8 @@ const mockProductsOrder = vi.fn();
 const mockProductsLimit = vi.fn();
 const mockReviewSelect = vi.fn();
 const mockReviewsIn = vi.fn();
+const mockReviewsOrder = vi.fn();
+const mockReviewsRange = vi.fn();
 let productQueryMode: 'non_null' | 'null' = 'non_null';
 
 function createMockSupabase() {
@@ -112,8 +122,18 @@ function createMockSupabase() {
               eq: () => query,
               in: (column: string, values: string[]) => {
                 mockReviewsIn(column, values);
-                return Promise.resolve(reviewsResult);
+                return query;
               },
+              order: (
+                column: string,
+                options?: {
+                  ascending: boolean;
+                }
+              ) => {
+                mockReviewsOrder(column, options);
+                return query;
+              },
+              range: (from: number, to: number) => mockReviewsRange(from, to),
             };
             return query;
           }),
@@ -135,6 +155,8 @@ beforeEach(() => {
   mockProductsLimit.mockReset();
   mockReviewSelect.mockReset();
   mockReviewsIn.mockReset();
+  mockReviewsOrder.mockReset();
+  mockReviewsRange.mockReset();
   productQueryMode = 'non_null';
   mockProductsLimit.mockImplementation(() =>
     Promise.resolve(
@@ -168,6 +190,10 @@ beforeEach(() => {
   };
   nullCreatedAtProductsResult = { data: [], error: null };
   reviewsResult = { data: [], error: null };
+  reviewPageResults = [];
+  mockReviewsRange.mockImplementation(() =>
+    Promise.resolve(reviewPageResults.shift() ?? reviewsResult)
+  );
   mockCreateAnonClient.mockReturnValue(createMockSupabase());
 });
 
@@ -403,24 +429,189 @@ describe('getCachedOpenAIFeedData', () => {
       error: null,
     };
     reviewsResult = {
-      data: [{ product_id: 'prod-1', review_count: 2, average_rating: 4.5 }],
+      data: [
+        { product_id: 'prod-1', rating: 4 },
+        { product_id: 'prod-1', rating: 5 },
+      ],
       error: null,
     };
 
     const { getCachedOpenAIFeedData } = await import('./feed-data');
     const result = await getCachedOpenAIFeedData('merchant-1', true);
 
-    expect(mockReviewSelect).toHaveBeenCalledWith(
-      'product_id, review_count:id.count(), average_rating:rating.avg()'
-    );
+    expect(mockReviewSelect).toHaveBeenCalledWith('product_id, rating', {
+      count: 'exact',
+    });
     expect(mockReviewsIn).toHaveBeenCalledWith('product_id', ['prod-1']);
+    expect(mockReviewsOrder).toHaveBeenNthCalledWith(1, 'product_id', {
+      ascending: true,
+    });
+    expect(mockReviewsOrder).toHaveBeenNthCalledWith(2, 'id', {
+      ascending: true,
+    });
+    expect(mockReviewsRange).toHaveBeenCalledWith(0, 999);
     expect(result.products[0]).toMatchObject({
       average_rating: 4.5,
       review_count: 2,
     });
   });
 
-  it('throws when review hydration fails to avoid caching false zero-review signals', async () => {
+  it('paginates approved review rows before aggregating review signals', async () => {
+    productsResult = {
+      data: [
+        {
+          id: 'prod-1',
+          name: 'Test Phone',
+          created_at: '2026-01-01T00:00:00.000Z',
+          description: 'A phone',
+          slug: 'test-phone',
+          price: 50000,
+          stock: 5,
+          stock_quantity: 5,
+          manage_stock: true,
+          variants: [],
+        },
+      ],
+      error: null,
+    };
+    reviewPageResults = [
+      {
+        data: Array.from({ length: 1000 }, () => ({
+          product_id: 'prod-1',
+          rating: 4,
+        })),
+        error: null,
+      },
+      {
+        data: [{ product_id: 'prod-1', rating: 5 }],
+        error: null,
+      },
+    ];
+
+    const { getCachedOpenAIFeedData } = await import('./feed-data');
+    const result = await getCachedOpenAIFeedData('merchant-1', true);
+
+    expect(mockReviewSelect).toHaveBeenNthCalledWith(1, 'product_id, rating', {
+      count: 'exact',
+    });
+    expect(mockReviewSelect).toHaveBeenNthCalledWith(2, 'product_id, rating');
+    expect(mockReviewsRange).toHaveBeenNthCalledWith(1, 0, 999);
+    expect(mockReviewsRange).toHaveBeenNthCalledWith(2, 1000, 1999);
+    expect(mockReviewsOrder).toHaveBeenCalledTimes(4);
+    expect(result.products[0]).toMatchObject({
+      average_rating: 4,
+      review_count: 1001,
+    });
+  });
+
+  it('continues paging when the server caps review rows below the requested page size', async () => {
+    productsResult = {
+      data: [
+        {
+          id: 'prod-1',
+          name: 'Test Phone',
+          created_at: '2026-01-01T00:00:00.000Z',
+          description: 'A phone',
+          slug: 'test-phone',
+          price: 50000,
+          stock: 5,
+          stock_quantity: 5,
+          manage_stock: true,
+          variants: [],
+        },
+      ],
+      error: null,
+    };
+    reviewPageResults = [
+      {
+        count: 5,
+        data: [
+          { product_id: 'prod-1', rating: 4 },
+          { product_id: 'prod-1', rating: 4 },
+        ],
+        error: null,
+      },
+      {
+        count: 5,
+        data: [
+          { product_id: 'prod-1', rating: 4 },
+          { product_id: 'prod-1', rating: 4 },
+        ],
+        error: null,
+      },
+      {
+        count: 5,
+        data: [{ product_id: 'prod-1', rating: 5 }],
+        error: null,
+      },
+    ];
+
+    const { getCachedOpenAIFeedData } = await import('./feed-data');
+    const result = await getCachedOpenAIFeedData('merchant-1', true);
+
+    expect(mockReviewSelect).toHaveBeenNthCalledWith(1, 'product_id, rating', {
+      count: 'exact',
+    });
+    expect(mockReviewSelect).toHaveBeenNthCalledWith(2, 'product_id, rating');
+    expect(mockReviewSelect).toHaveBeenNthCalledWith(3, 'product_id, rating');
+    expect(mockReviewsRange).toHaveBeenNthCalledWith(1, 0, 999);
+    expect(mockReviewsRange).toHaveBeenNthCalledWith(2, 2, 1001);
+    expect(mockReviewsRange).toHaveBeenNthCalledWith(3, 4, 1003);
+    expect(mockReviewsOrder).toHaveBeenCalledTimes(6);
+    expect(result.products[0]).toMatchObject({
+      average_rating: 4.2,
+      review_count: 5,
+    });
+  });
+
+  it('drops blank, null, non-finite, and out-of-range review ratings', async () => {
+    productsResult = {
+      data: [
+        {
+          id: 'prod-1',
+          name: 'Test Phone',
+          created_at: '2026-01-01T00:00:00.000Z',
+          description: 'A phone',
+          slug: 'test-phone',
+          price: 50000,
+          stock: 5,
+          stock_quantity: 5,
+          manage_stock: true,
+          variants: [],
+        },
+      ],
+      error: null,
+    };
+    reviewPageResults = [
+      {
+        data: [
+          { product_id: 'prod-1', rating: '4' },
+          { product_id: 'prod-1', rating: '' },
+          { product_id: 'prod-1', rating: null },
+          { product_id: 'prod-1', rating: 6 },
+          { product_id: 'prod-1', rating: 'not-a-number' },
+        ],
+        error: null,
+      },
+    ];
+
+    const { getCachedOpenAIFeedData } = await import('./feed-data');
+    const result = await getCachedOpenAIFeedData('merchant-1', true);
+
+    expect(mockReviewsOrder).toHaveBeenNthCalledWith(1, 'product_id', {
+      ascending: true,
+    });
+    expect(mockReviewsOrder).toHaveBeenNthCalledWith(2, 'id', {
+      ascending: true,
+    });
+    expect(mockReviewsRange).toHaveBeenCalledWith(0, 999);
+    expect(result.products[0]).toMatchObject({
+      average_rating: 4,
+      review_count: 1,
+    });
+  });
+
+  it('marks review signals unknown when review hydration fails', async () => {
     productsResult = {
       data: [
         {
@@ -450,11 +641,12 @@ describe('getCachedOpenAIFeedData', () => {
     );
 
     const { getCachedOpenAIFeedData } = await import('./feed-data');
-    await expect(getCachedOpenAIFeedData('merchant-1', true)).rejects.toEqual(
-      expect.objectContaining({
-        message: 'reviews unavailable',
-      })
-    );
+    const result = await getCachedOpenAIFeedData('merchant-1', true);
+
+    expect(result.products[0]).toMatchObject({
+      average_rating: null,
+      review_count: null,
+    });
     expect(warnSpy).toHaveBeenCalledWith(
       'DB_REVIEW_SIGNAL_WARNING:',
       expect.objectContaining({

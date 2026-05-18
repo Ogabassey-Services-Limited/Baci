@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { getTerminalIdempotencyRecordWindowMs } from '@/env';
 import { buildAgenticHealthActions } from '@/lib/agentic/action-health-actions';
 import { getActionHealthRequestControlSummary } from '@/lib/agentic/action-health-request-controls';
 import {
@@ -64,6 +65,19 @@ function toTimestamp(value: string): number {
   return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
 }
 
+function shouldIncludeIdempotencyRow(
+  row: { status_code: number | null; updated_at: string },
+  nowMs: number
+): boolean {
+  if (row.status_code == null) return true;
+
+  const updatedAtMs = Date.parse(row.updated_at);
+  return (
+    Number.isFinite(updatedAtMs) &&
+    nowMs - updatedAtMs <= getTerminalIdempotencyRecordWindowMs()
+  );
+}
+
 export async function loadAgenticActionHealth(
   supabase: SupabaseClient,
   merchantId: string
@@ -84,12 +98,15 @@ export async function loadAgenticActionHealth(
     healthResult.data
   );
   const nowMs = Date.now();
+  const relevantIdempotencyRows = idempotencyRows.filter((row) =>
+    shouldIncludeIdempotencyRow(row, nowMs)
+  );
   let inProgressCount = 0;
   let staleInProgressCount = 0;
   let completeTerminalErrorCount = 0;
   let terminalErrorCount = 0;
 
-  for (const row of idempotencyRows) {
+  for (const row of relevantIdempotencyRows) {
     if (row.status_code == null) {
       inProgressCount += 1;
       if (
@@ -192,8 +209,8 @@ export async function loadAgenticActionHealth(
     idempotency: {
       active_in_progress_count: inProgressCount - staleInProgressCount,
       in_progress_count: inProgressCount,
-      recent_count: idempotencyRows.length,
-      records: idempotencyRows.map((row) => ({
+      recent_count: relevantIdempotencyRows.length,
+      records: relevantIdempotencyRows.map((row) => ({
         created_at: row.created_at,
         expires_at: row.expires_at,
         route:

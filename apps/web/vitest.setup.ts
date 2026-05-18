@@ -90,6 +90,21 @@ process.env.NEXT_PUBLIC_SUPABASE_URL =
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'mock-anon-key';
 
+if (typeof window !== 'undefined') {
+  // Radix FocusScope creates CustomEvent from the global constructor; jsdom
+  // EventTargets require events from the window realm.
+  Object.defineProperty(globalThis, 'Event', {
+    configurable: true,
+    writable: true,
+    value: window.Event,
+  });
+  Object.defineProperty(globalThis, 'CustomEvent', {
+    configurable: true,
+    writable: true,
+    value: window.CustomEvent,
+  });
+}
+
 // Patch Blob stream for Undici in Vitest
 if (typeof Blob !== 'undefined' && !Blob.prototype.stream) {
   Blob.prototype.stream = function () {

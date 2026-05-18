@@ -314,6 +314,32 @@ describe('buildAgentCommerceTrustReadiness', () => {
     ).toMatchObject({ severity: 'fail' });
   });
 
+  it('treats a missing image manifest as zero verified images instead of failing', () => {
+    const result = buildAgentCommerceTrustReadiness({
+      baseUrl: 'https://ogabassey.com',
+      googleFeedData: {
+        ...googleFeedData(),
+        imageManifest: undefined,
+      } as unknown as GoogleMerchantFeedData,
+      merchant: {
+        business_name: 'Ogabassey',
+        slug: 'ogabassey',
+      },
+      now: NOW,
+      openAiFeedData: {
+        products: [product()],
+      },
+      trustProfile: trustProfile(),
+    });
+
+    expect(result.totals.productsWithVerifiedImages).toBe(0);
+    expect(
+      result.checks.find((check) => check.id === 'verified-image-coverage')
+    ).toMatchObject({
+      severity: 'fail',
+    });
+  });
+
   it('warns but does not fail when only policy details are missing', () => {
     const result = buildAgentCommerceTrustReadiness({
       baseUrl: 'https://ogabassey.com',

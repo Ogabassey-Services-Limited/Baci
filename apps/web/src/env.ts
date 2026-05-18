@@ -24,6 +24,7 @@ const DEFAULT_CAC_API_URL =
   'https://authapp.cac.gov.ng/name_similarity_app/api/public_search/search';
 const DEFAULT_CAC_TIN_API_BASE_URL =
   'https://icrp.cac.gov.ng/tin_service/api/v1/public/tin';
+const DEFAULT_TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Strict 127.0.0.0/8 hostname matcher. Anchored regex on the URL `hostname`
@@ -141,6 +142,11 @@ const serverSchema = z
     INTERNAL_API_SECRET: z.string().optional(),
     IMPORT_JOB_WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(3),
     IMPORT_JOB_DIRECT_UPLOAD_ENABLED: booleanStringSchema.optional(),
+    TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(DEFAULT_TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS),
 
     // Push Notifications
     EXPO_ACCESS_TOKEN: z.string().optional(),
@@ -331,6 +337,8 @@ const getEnv = () => {
         MYCOVER_WEBHOOK_SECRET: process.env.MYCOVER_WEBHOOK_SECRET,
         CRON_SECRET: process.env.CRON_SECRET,
         IMPORT_JOB_WORKER_BATCH_SIZE: process.env.IMPORT_JOB_WORKER_BATCH_SIZE,
+        TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS:
+          process.env.TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS,
         JUMIA_ENVIRONMENT: process.env.JUMIA_ENVIRONMENT,
         JUMIA_CLIENT_ID: process.env.JUMIA_CLIENT_ID,
         JUMIA_CLIENT_SECRET: process.env.JUMIA_CLIENT_SECRET,
@@ -597,6 +605,17 @@ export const getInternalApiSecret = () => {
 
 export const getImportJobWorkerBatchSize = () =>
   env?.IMPORT_JOB_WORKER_BATCH_SIZE || 3;
+
+export const getTerminalIdempotencyRecordWindowMs = () => {
+  if (isBrowserRuntime())
+    throw new Error(
+      'TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS cannot be accessed on the client'
+    );
+  return (
+    env?.TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS ??
+    DEFAULT_TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS
+  );
+};
 
 export const isImportJobDirectUploadEnabled = () => {
   if (typeof window !== 'undefined') {

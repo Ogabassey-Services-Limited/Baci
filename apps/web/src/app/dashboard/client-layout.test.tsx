@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import type { MerchantContextType, MerchantData } from '@/hooks/merchant/types';
 
 // Mock next/navigation and next/link
 vi.mock('next/navigation', () => ({
@@ -69,6 +70,45 @@ vi.mock('@/components/notifications/notification-center', () => ({
 import { useMerchant } from '@/hooks/use-merchant-client';
 import DashboardClientLayout from './client-layout';
 
+const defaultMerchant: MerchantData = {
+  business_name: 'Test Store',
+  business_type: 'retail',
+  country: 'NG',
+  id: 'merchant-1',
+  slug: 'test-store',
+  user_id: 'user-1',
+};
+
+const defaultStaffAccess: MerchantContextType['staffAccess'] = {
+  isOwner: true,
+  isStaff: false,
+  permissions: {},
+  role: null,
+};
+
+function createMerchantHookValue(
+  overrides: Partial<MerchantContextType> = {}
+): MerchantContextType {
+  return {
+    basePath: '/test-store',
+    hasPermission: vi.fn<MerchantContextType['hasPermission']>(() => true),
+    loading: false,
+    merchant: defaultMerchant,
+    navigationCategories: [],
+    reloadMerchant: vi.fn<MerchantContextType['reloadMerchant']>(),
+    routingMode: 'path',
+    staffAccess: defaultStaffAccess,
+    updateMerchant: vi.fn<MerchantContextType['updateMerchant']>(
+      async () => undefined
+    ),
+    ...overrides,
+  };
+}
+
+function mockUseMerchantForLayout(value: ReturnType<typeof useMerchant>) {
+  vi.mocked(useMerchant).mockReturnValueOnce(value).mockReturnValueOnce(value);
+}
+
 describe('DashboardClientLayout', () => {
   it('renders the Migrations nav item', () => {
     render(
@@ -103,6 +143,10 @@ describe('DashboardClientLayout', () => {
     expect(screen.getAllByText('Dashboard').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Orders').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Products').length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: 'Agentic' })[0]).toHaveAttribute(
+      'href',
+      '/dashboard/agentic'
+    );
   });
 
   it('renders children content', () => {
@@ -116,18 +160,12 @@ describe('DashboardClientLayout', () => {
   });
 
   it('hides the Migrations nav item when the merchant lacks permission', () => {
-    vi.mocked(useMerchant).mockReturnValue({
-      merchant: {
-        id: 'merchant-1',
-        slug: 'test-store',
-        country: 'NG',
-        custom_domain: null,
-      },
-      loading: false,
-      updateMerchant: vi.fn(),
-      hasPermission: vi.fn(() => false),
-      staffAccess: { isOwner: false },
-    } as never);
+    mockUseMerchantForLayout(
+      createMerchantHookValue({
+        hasPermission: vi.fn(() => false),
+        staffAccess: { ...defaultStaffAccess, isOwner: false },
+      })
+    );
 
     render(
       <DashboardClientLayout>
@@ -140,19 +178,37 @@ describe('DashboardClientLayout', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('hides Agentic when integrations view permission is false', () => {
+    mockUseMerchantForLayout(
+      createMerchantHookValue({
+        hasPermission: vi.fn((resource: string, action: string) => {
+          if (resource === 'integrations' && action === 'view') {
+            return false;
+          }
+          return true;
+        }),
+        staffAccess: { ...defaultStaffAccess, isOwner: false },
+      })
+    );
+
+    render(
+      <DashboardClientLayout>
+        <div>Test Content</div>
+      </DashboardClientLayout>
+    );
+
+    expect(
+      screen.queryByRole('link', { name: 'Agentic' })
+    ).not.toBeInTheDocument();
+  });
+
   it('hides Santa Campaign for non-ogabassey merchants even when the user is owner', () => {
-    vi.mocked(useMerchant).mockReturnValue({
-      merchant: {
-        id: 'merchant-1',
-        slug: 'test-store',
-        country: 'NG',
-        custom_domain: null,
-      },
-      loading: false,
-      updateMerchant: vi.fn(),
-      hasPermission: vi.fn(() => true),
-      staffAccess: { isOwner: true },
-    } as never);
+    mockUseMerchantForLayout(
+      createMerchantHookValue({
+        hasPermission: vi.fn(() => true),
+        staffAccess: { ...defaultStaffAccess, isOwner: true },
+      })
+    );
 
     render(
       <DashboardClientLayout>
