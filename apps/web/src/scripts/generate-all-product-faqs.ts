@@ -4,7 +4,7 @@ import * as dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 // import { generateProductFAQ } from '../ai/flows/generate-product-faq';
-import type { Database } from '../lib/database.types';
+import type { Database } from '../types/database.types';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

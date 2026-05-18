@@ -182,6 +182,78 @@ describe('orderCreateSchema', () => {
     }
   });
 
+  it('normalizes blank and sanitized-empty voucher tokens to undefined', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      items: [
+        {
+          ...validOrder.items[0],
+          voucher_token: '   ',
+        },
+        {
+          ...validOrder.items[0],
+          productId: 'prod-2',
+          voucher_token: '<script></script>',
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items[0].voucher_token).toBeUndefined();
+      expect(result.data.items[1].voucher_token).toBeUndefined();
+    }
+  });
+
+  it('trims and sanitizes voucher tokens', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      items: [
+        {
+          ...validOrder.items[0],
+          voucher_token: '  <strong>quiz-token</strong>  ',
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items[0].voucher_token).toBe('quiz-token');
+    }
+  });
+
+  it('rejects voucher tokens longer than 128 sanitized characters', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      items: [
+        {
+          ...validOrder.items[0],
+          voucher_token: 'x'.repeat(129),
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts voucher tokens exactly 128 sanitized characters long', () => {
+    const voucherToken = 'x'.repeat(128);
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      items: [
+        {
+          ...validOrder.items[0],
+          voucher_token: voucherToken,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items[0].voucher_token).toBe(voucherToken);
+    }
+  });
+
   describe('B3.5 — VAT / total parity fields', () => {
     it("defaults tax_basis to 'exclusive' when omitted", () => {
       const result = orderCreateSchema.safeParse(validOrder);

@@ -46,6 +46,20 @@ const optionalHttpUrlSchema = z.preprocess(
     .optional()
 );
 
+const optionalVoucherTokenSchema = z.preprocess((value) => {
+  if (value === null) {
+    return undefined;
+  }
+
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const sanitized = sanitizeText(value.trim());
+
+  return sanitized.length > 0 ? sanitized : undefined;
+}, z.string().max(128).optional());
+
 const orderCreateSchemaBase = z.object({
   merchant_id: z.string().uuid(),
   customer_email: z
@@ -108,6 +122,7 @@ const orderCreateSchemaBase = z.object({
               z.string().transform((val) => sanitizeText(val).trim())
             )
             .optional(),
+          voucher_token: optionalVoucherTokenSchema,
         })
         .refine((data) => data.product_id || data.productId || data.id, {
           message:

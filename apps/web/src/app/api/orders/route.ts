@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
+import { getQuizProductionApprovedEnv } from '@/env';
 import {
   computeAgenticOrderTax,
   isTaxComputeUuidError,
@@ -24,6 +25,10 @@ import {
 } from '@/lib/get-merchant-for-api-request';
 import { logger } from '@/lib/logger';
 import { ORDER_WITH_ITEMS_QUERY } from '@/lib/order-queries';
+import {
+  enforcePrizeProductionGuard,
+  QuizProductionNotApprovedError,
+} from '@/lib/quiz-compliance-gate';
 import { getClientIdentifier } from '@/lib/rate-limit';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
@@ -65,6 +70,12 @@ type EmailOrderItem = {
   quantity?: number;
   price?: number;
 };
+
+function hasQuizVoucherItem(
+  items: Array<{ voucher_token?: string | undefined }>
+): boolean {
+  return items.some((item) => (item.voucher_token ?? '').trim().length > 0);
+}
 
 // GET /api/orders - Fetch orders for authenticated merchant
 export async function GET(request: NextRequest) {
@@ -212,6 +223,32 @@ export async function POST(request: NextRequest) {
 
     if (user && user_id && user_id !== user.id) {
       return NextResponse.json({ error: 'User mismatch' }, { status: 403 });
+    }
+
+    // Phase 1a intentionally runs hasQuizVoucherItem/enforcePrizeProductionGuard
+    // before merchant verification so quiz voucher requests fail closed first.
+    if (hasQuizVoucherItem(items)) {
+      try {
+        // Phase 1a has no prize-bearing order path. The later production
+        // voucher path must load the quiz event/compliance evidence before
+        // calling create_storefront_order_with_quiz_voucher.
+        enforcePrizeProductionGuard(
+          { nlrc_permit_ref: null },
+          getQuizProductionApprovedEnv()
+        );
+      } catch (error) {
+        if (error instanceof QuizProductionNotApprovedError) {
+          return NextResponse.json(
+            {
+              error: 'Quiz vouchers are not approved for production use',
+              code: error.code,
+            },
+            { status: error.status }
+          );
+        }
+
+        throw error;
+      }
     }
 
     // SECURITY: Only use user_id from authenticated session.

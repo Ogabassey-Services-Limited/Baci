@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { computeAgenticOrderTax } from '@/lib/agentic/checkout-order-tax';
 import { authenticateApiRequest } from '@/lib/api-auth';
+import { normalizeEnvBoolean } from '@/lib/env-boolean';
 import { POST } from './route';
 
 const {
@@ -24,6 +25,9 @@ vi.mock('@/env', () => ({
   getSupabaseAnonKey: () => 'mock-key',
   getSupabaseServiceRoleKey: () => 'mock-service-key',
   getRootDomain: () => 'localhost:3000',
+  getQuizPhaseEnv: () => process.env.QUIZ_PHASE ?? '1a',
+  getQuizProductionApprovedEnv: () =>
+    normalizeEnvBoolean(process.env.QUIZ_PRODUCTION_APPROVED) ?? false,
 }));
 
 vi.mock('@/lib/api-auth', () => ({
@@ -191,6 +195,10 @@ describe('Order API Security', () => {
       error: 'Not authenticated',
       supabase: null,
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   const validOrderPayload = {
@@ -550,6 +558,68 @@ describe('Order API Security', () => {
         p_tracking_number: null,
       })
     );
+  });
+
+  describe('Quiz voucher production guard', () => {
+    it('rejects quiz voucher orders when production approval is false', async () => {
+      vi.stubEnv('QUIZ_PHASE', 'production');
+      vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'false');
+
+      const request = new NextRequest('http://localhost:3000/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...validOrderPayload,
+          items: [
+            {
+              ...validOrderPayload.items[0],
+              price: 0,
+              voucher_token: 'quiz-voucher-token',
+            },
+          ],
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(403);
+      expect(data).toEqual({
+        code: 'quiz_production_not_approved',
+        error: 'Quiz vouchers are not approved for production use',
+      });
+      expect(mockSupabase.rpc).not.toHaveBeenCalled();
+    });
+
+    // QUIZ_PRODUCTION_APPROVED alone is not enough; Phase 1b event permit
+    // evidence is intentionally unwired, so POST(request) must still reject.
+    it('keeps quiz voucher orders fail-closed until event permit evidence is wired', async () => {
+      vi.stubEnv('QUIZ_PHASE', 'production');
+      vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
+
+      const request = new NextRequest('http://localhost:3000/api/orders', {
+        method: 'POST',
+        body: JSON.stringify({
+          ...validOrderPayload,
+          items: [
+            {
+              ...validOrderPayload.items[0],
+              price: 0,
+              voucher_token: 'quiz-voucher-token',
+            },
+          ],
+        }),
+      });
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(403);
+      expect(data).toEqual({
+        code: 'quiz_production_not_approved',
+        error: 'Quiz vouchers are not approved for production use',
+      });
+      expect(mockSupabase.rpc).not.toHaveBeenCalled();
+    });
   });
 
   describe('Variant attributes handling', () => {

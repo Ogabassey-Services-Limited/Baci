@@ -1,3 +1,5 @@
+import { jest } from '@jest/globals';
+
 jest.mock('../lib/storage', () => ({
   syncStorage: {
     getItem: jest.fn(() => null),
@@ -6,11 +8,20 @@ jest.mock('../lib/storage', () => ({
   },
 }));
 
-import { useCartStore } from './cart-store';
+import { resetCartLineSequence, useCartStore } from './cart-store';
+
+const { syncStorage } =
+  require('../lib/storage') as typeof import('../lib/storage');
 
 describe('cart-store', () => {
   beforeEach(() => {
-    useCartStore.setState({ items: [], isLoading: false });
+    resetCartLineSequence();
+    useCartStore.setState({ items: [], isLoading: false, lineSequence: 0 });
+    jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   it('refreshes image and variant metadata when the same cart line is added again', () => {
@@ -60,6 +71,173 @@ describe('cart-store', () => {
       variant_attributes: {
         color: 'Midnight Black',
         storage: '128GB',
+      },
+    });
+  });
+
+  it('keeps voucher awards as separate zero-price cart lines for the same SKU', () => {
+    const { addItem } = useCartStore.getState();
+
+    addItem({
+      product_id: 'product-1',
+      slug: 'redmi-note-14',
+      variant_id: 'variant-128',
+      name: 'Redmi Note 14',
+      price: 220000,
+      quantity: 2,
+      color: 'Midnight Black',
+      storage: '128GB',
+      condition: 'New',
+    });
+
+    const firstVoucherItem = {
+      product_id: 'product-1',
+      slug: 'redmi-note-14',
+      variant_id: 'variant-128',
+      name: 'Redmi Note 14',
+      price: 0,
+      quantity: 3,
+      color: 'Midnight Black',
+      storage: '128GB',
+      condition: 'New',
+      voucher_token: 'voucher-token-1',
+      voucher_award_id: 'voucher-award-1',
+    };
+
+    const secondVoucherItem = {
+      ...firstVoucherItem,
+      voucher_token: 'voucher-token-2',
+      voucher_award_id: 'voucher-award-2',
+    };
+
+    addItem(firstVoucherItem);
+    addItem(secondVoucherItem);
+
+    const items = useCartStore.getState().items;
+
+    expect(items).toHaveLength(3);
+    expect(new Set(items.map((item) => item.id)).size).toBe(3);
+
+    const paidLine = items.find((item) => item.price === 220000);
+    expect(paidLine).toMatchObject({
+      product_id: 'product-1',
+      variant_id: 'variant-128',
+      price: 220000,
+      quantity: 2,
+    });
+    expect(paidLine).not.toHaveProperty('voucher_token');
+    expect(paidLine).not.toHaveProperty('voucher_award_id');
+
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          price: 0,
+          quantity: 1,
+          voucher_token: 'voucher-token-1',
+          voucher_award_id: 'voucher-award-1',
+        }),
+        expect.objectContaining({
+          price: 0,
+          quantity: 1,
+          voucher_token: 'voucher-token-2',
+          voucher_award_id: 'voucher-award-2',
+        }),
+      ])
+    );
+  });
+
+  it('keeps token-only voucher cart lines separate from paid SKU lines', () => {
+    const { addItem } = useCartStore.getState();
+
+    addItem({
+      product_id: 'product-1',
+      slug: 'redmi-note-14',
+      variant_id: 'variant-128',
+      name: 'Redmi Note 14',
+      price: 220000,
+      quantity: 1,
+      color: 'Midnight Black',
+      storage: '128GB',
+      condition: 'New',
+    });
+
+    addItem({
+      product_id: 'product-1',
+      slug: 'redmi-note-14',
+      variant_id: 'variant-128',
+      name: 'Redmi Note 14',
+      price: 0,
+      quantity: 4,
+      color: 'Midnight Black',
+      storage: '128GB',
+      condition: 'New',
+      voucher_token: 'voucher-token-only',
+    });
+
+    const items = useCartStore.getState().items;
+
+    expect(items).toHaveLength(2);
+    expect(items).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ price: 220000, quantity: 1 }),
+        expect.objectContaining({
+          price: 0,
+          quantity: 1,
+          voucher_token: 'voucher-token-only',
+        }),
+      ])
+    );
+  });
+
+  it('resets generated voucher line ids for deterministic test isolation', () => {
+    const { addItem } = useCartStore.getState();
+
+    addItem({
+      product_id: 'product-1',
+      slug: 'redmi-note-14',
+      variant_id: 'variant-128',
+      name: 'Redmi Note 14',
+      price: 0,
+      quantity: 1,
+      voucher_award_id: 'voucher-award-1',
+    });
+
+    const firstId = useCartStore.getState().items[0]?.id;
+    resetCartLineSequence();
+    useCartStore.setState({ items: [], isLoading: false, lineSequence: 0 });
+
+    addItem({
+      product_id: 'product-1',
+      slug: 'redmi-note-14',
+      variant_id: 'variant-128',
+      name: 'Redmi Note 14',
+      price: 0,
+      quantity: 1,
+      voucher_award_id: 'voucher-award-1',
+    });
+
+    expect(useCartStore.getState().items[0]?.id).toBe(firstId);
+  });
+
+  it('persists the generated line sequence with cart items', () => {
+    const { addItem } = useCartStore.getState();
+
+    addItem({
+      product_id: 'product-1',
+      slug: 'redmi-note-14',
+      variant_id: 'variant-128',
+      name: 'Redmi Note 14',
+      price: 0,
+      quantity: 1,
+      voucher_award_id: 'voucher-award-1',
+    });
+
+    const lastPayload = jest.mocked(syncStorage.setItem).mock.calls.at(-1)?.[1];
+
+    expect(lastPayload).toEqual(expect.any(String));
+    expect(JSON.parse(lastPayload as string)).toMatchObject({
+      state: {
+        lineSequence: 1,
       },
     });
   });
