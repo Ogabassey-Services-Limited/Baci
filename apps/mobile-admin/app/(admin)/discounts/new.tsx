@@ -234,7 +234,9 @@ export default function NewDiscountScreen() {
                         styles.segmentText,
                         {
                           color:
-                            discountType === type ? '#FFFFFF' : colors.text,
+                            discountType === type
+                              ? colors.textOnPrimary
+                              : colors.text,
                         },
                       ]}
                     >
@@ -332,7 +334,12 @@ export default function NewDiscountScreen() {
             </View>
 
             {appliesTo === 'specific_products' && (
-              <View style={styles.selectorContainer}>
+              <View
+                style={[
+                  styles.selectorContainer,
+                  { borderColor: colors.border },
+                ]}
+              >
                 <Text style={[styles.label, { color: colors.text }]}>
                   Selected Products: {productIds.length}
                 </Text>
@@ -349,7 +356,12 @@ export default function NewDiscountScreen() {
             )}
 
             {appliesTo === 'specific_categories' && (
-              <View style={styles.selectorContainer}>
+              <View
+                style={[
+                  styles.selectorContainer,
+                  { borderColor: colors.border },
+                ]}
+              >
                 <Text style={[styles.label, { color: colors.text }]}>
                   Selected Categories: {categoryIds.length}
                 </Text>
@@ -566,9 +578,16 @@ export default function NewDiscountScreen() {
             disabled={isCreating}
           >
             {isCreating ? (
-              <ActivityIndicator color="#FFFFFF" />
+              <ActivityIndicator color={colors.textOnPrimary} />
             ) : (
-              <Text style={styles.submitButtonText}>Create Discount</Text>
+              <Text
+                style={[
+                  styles.submitButtonText,
+                  { color: colors.textOnPrimary },
+                ]}
+              >
+                Create Discount
+              </Text>
             )}
           </Pressable>
         </ScrollView>
@@ -643,7 +662,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: SPACING.sm,
     borderWidth: 1,
-    borderColor: '#eee',
+
     borderRadius: RADIUS.md,
   },
   selectorButton: {
@@ -673,7 +692,6 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.xl,
   },
   submitButtonText: {
-    color: '#FFFFFF',
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.bold,
   },
