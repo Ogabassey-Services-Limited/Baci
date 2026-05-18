@@ -13,6 +13,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useRevenueCatStore } from '@/stores/revenueCatStore';
 import type { PurchasesPackage } from 'react-native-purchases';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
@@ -70,8 +71,6 @@ export default function Paywall({ onClose }: PaywallProps) {
           { text: 'OK', onPress: onClose },
         ]);
       } else {
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { useRevenueCatStore } = require('@/stores/revenueCatStore');
         const storeError = useRevenueCatStore.getState().error;
         if (!storeError) {
           Alert.alert(
