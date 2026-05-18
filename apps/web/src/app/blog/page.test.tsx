@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 
 const mockGetPlatformBlogListing = vi.fn();
+const mockRedirect = vi.fn();
 
 vi.mock('@/lib/platform-blog', () => ({
   PLATFORM_BLOG_CONTEXT: {
@@ -33,11 +34,18 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+vi.mock('next/navigation', () => ({
+  redirect: (...args: unknown[]) => mockRedirect(...args),
+}));
+
 import { BlogPageContent } from './page';
 
 describe('platform blog listing page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRedirect.mockImplementation((target: string) => {
+      throw new Error(`NEXT_REDIRECT:${target}`);
+    });
     mockGetPlatformBlogListing.mockResolvedValue({
       hasMore: false,
       limit: 12,
@@ -100,5 +108,22 @@ describe('platform blog listing page', () => {
     expect(jsonLdScripts[1]?.textContent || '').toContain(
       '"@type":"BreadcrumbList"'
     );
+  });
+
+  it('redirects out-of-range page numbers to the last available page', async () => {
+    mockGetPlatformBlogListing.mockResolvedValueOnce({
+      hasMore: false,
+      limit: 12,
+      page: 999,
+      posts: [],
+      total: 12,
+      totalPages: 1,
+    });
+
+    await expect(
+      BlogPageContent({ searchParams: Promise.resolve({ page: '999' }) })
+    ).rejects.toThrow('NEXT_REDIRECT:/blog');
+
+    expect(mockRedirect).toHaveBeenCalledWith('/blog');
   });
 });

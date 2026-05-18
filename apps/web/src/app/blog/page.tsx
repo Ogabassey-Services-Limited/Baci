@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import AppBody from '@/components/app-body';
 import { PlatformFooter } from '@/components/platform/footer';
@@ -89,6 +90,11 @@ export async function BlogPageContent({ searchParams }: BlogPageProps) {
     limit: BLOG_LISTING_PAGE_SIZE,
     page,
   });
+  const totalPages = Math.max(listing.totalPages, 1);
+
+  if (listing.total > 0 && page > totalPages) {
+    redirect(asRoute(totalPages === 1 ? '/blog' : `/blog?page=${totalPages}`));
+  }
 
   const blogSchema = {
     '@context': 'https://schema.org',
@@ -129,10 +135,15 @@ export async function BlogPageContent({ searchParams }: BlogPageProps) {
     },
   ]);
 
-  const showPagination = listing.totalPages > 1;
+  const currentPage = Math.min(page, totalPages);
+  const showPagination = totalPages > 1;
   const previousPageHref =
-    page > 2 ? `/blog?page=${page - 1}` : page === 2 ? '/blog' : null;
-  const nextPageHref = listing.hasMore ? `/blog?page=${page + 1}` : null;
+    currentPage > 2
+      ? `/blog?page=${currentPage - 1}`
+      : currentPage === 2
+        ? '/blog'
+        : null;
+  const nextPageHref = listing.hasMore ? `/blog?page=${currentPage + 1}` : null;
 
   return (
     <AppBody>
@@ -218,7 +229,7 @@ export async function BlogPageContent({ searchParams }: BlogPageProps) {
                 )}
 
                 <span className="text-sm text-muted-foreground">
-                  Page {page} of {listing.totalPages}
+                  Page {currentPage} of {totalPages}
                 </span>
 
                 {nextPageHref ? (
