@@ -9,6 +9,11 @@ export function resolveMerchantContextIdentifier(
     return customDomain;
   }
 
+  const merchantDomain = headersList.get('x-merchant-domain')?.toLowerCase();
+  if (merchantDomain) {
+    return merchantDomain;
+  }
+
   const merchantSlug = headersList.get('x-merchant-slug')?.toLowerCase();
   if (merchantSlug) {
     return merchantSlug;

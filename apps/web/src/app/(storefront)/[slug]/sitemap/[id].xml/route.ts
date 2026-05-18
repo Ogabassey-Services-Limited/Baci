@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import {
   createSitemapResponse,
   getNamedSitemapEntries,
@@ -5,13 +6,13 @@ import {
 } from '../../sitemap-data';
 
 export async function GET(
-  request: Request,
+  _request: Request,
   context: { params: Promise<{ slug: string; id: string }> }
 ): Promise<Response> {
   const { id: rawId, slug } = await context.params;
   const id = rawId.replace(/\.xml$/i, '');
   const sitemapContext = await resolveStorefrontSitemapContext(
-    request.headers,
+    await headers(),
     slug
   );
 

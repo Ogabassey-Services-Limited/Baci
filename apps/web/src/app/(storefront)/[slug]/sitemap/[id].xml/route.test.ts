@@ -1,8 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+const routeHeadersState = vi.hoisted(() => ({
+  current: new Headers(),
+}));
+
 const mockResolveStorefrontSitemapContext = vi.fn();
 const mockGetNamedSitemapEntries = vi.fn();
 const mockCreateSitemapResponse = vi.fn();
+
+vi.mock('next/headers', () => ({
+  headers: () => Promise.resolve(routeHeadersState.current),
+}));
 
 vi.mock('../../sitemap-data', () => ({
   resolveStorefrontSitemapContext: (...args: unknown[]) =>
@@ -16,6 +24,7 @@ vi.mock('../../sitemap-data', () => ({
 describe('GET /[slug]/sitemap/[id].xml', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    routeHeadersState.current = new Headers();
     mockCreateSitemapResponse.mockImplementation(
       (entries: unknown[]) =>
         new Response(JSON.stringify(entries), {
@@ -48,6 +57,29 @@ describe('GET /[slug]/sitemap/[id].xml', () => {
       'categories'
     );
     expect(body).toContain('https://ogabassey.com/smartphones');
+  });
+
+  it('uses request-scoped headers for custom-domain sitemap rewrites', async () => {
+    routeHeadersState.current = new Headers([
+      ['x-merchant-domain', 'ogabassey.com'],
+    ]);
+    mockResolveStorefrontSitemapContext.mockResolvedValue({
+      merchant: { id: 'm1' },
+    });
+    mockGetNamedSitemapEntries.mockResolvedValue([
+      { url: 'https://ogabassey.com/laptops' },
+    ]);
+
+    const { GET } = await import('./route');
+    await GET(
+      new Request('https://ogabassey.com/ogabassey/sitemap/categories.xml'),
+      { params: Promise.resolve({ slug: 'ogabassey', id: 'categories' }) }
+    );
+
+    expect(mockResolveStorefrontSitemapContext).toHaveBeenCalledWith(
+      routeHeadersState.current,
+      'ogabassey'
+    );
   });
 
   it('returns an empty sitemap response when the storefront is unresolved', async () => {
