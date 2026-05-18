@@ -49,8 +49,13 @@ let nullCreatedAtProductsResult: {
   data: ProductFixture[] | null;
   error: unknown;
 };
-let reviewsResult: { data: ReviewFixture[] | null; error: unknown };
+let reviewsResult: {
+  count?: number | null;
+  data: ReviewFixture[] | null;
+  error: unknown;
+};
 let reviewPageResults: Array<{
+  count?: number | null;
   data: ReviewFixture[] | null;
   error: unknown;
 }>;
@@ -434,7 +439,9 @@ describe('getCachedOpenAIFeedData', () => {
     const { getCachedOpenAIFeedData } = await import('./feed-data');
     const result = await getCachedOpenAIFeedData('merchant-1', true);
 
-    expect(mockReviewSelect).toHaveBeenCalledWith('product_id, rating');
+    expect(mockReviewSelect).toHaveBeenCalledWith('product_id, rating', {
+      count: 'exact',
+    });
     expect(mockReviewsIn).toHaveBeenCalledWith('product_id', ['prod-1']);
     expect(mockReviewsOrder).toHaveBeenNthCalledWith(1, 'product_id', {
       ascending: true,
@@ -484,12 +491,123 @@ describe('getCachedOpenAIFeedData', () => {
     const { getCachedOpenAIFeedData } = await import('./feed-data');
     const result = await getCachedOpenAIFeedData('merchant-1', true);
 
+    expect(mockReviewSelect).toHaveBeenNthCalledWith(1, 'product_id, rating', {
+      count: 'exact',
+    });
+    expect(mockReviewSelect).toHaveBeenNthCalledWith(2, 'product_id, rating');
     expect(mockReviewsRange).toHaveBeenNthCalledWith(1, 0, 999);
     expect(mockReviewsRange).toHaveBeenNthCalledWith(2, 1000, 1999);
     expect(mockReviewsOrder).toHaveBeenCalledTimes(4);
     expect(result.products[0]).toMatchObject({
       average_rating: 4,
       review_count: 1001,
+    });
+  });
+
+  it('continues paging when the server caps review rows below the requested page size', async () => {
+    productsResult = {
+      data: [
+        {
+          id: 'prod-1',
+          name: 'Test Phone',
+          created_at: '2026-01-01T00:00:00.000Z',
+          description: 'A phone',
+          slug: 'test-phone',
+          price: 50000,
+          stock: 5,
+          stock_quantity: 5,
+          manage_stock: true,
+          variants: [],
+        },
+      ],
+      error: null,
+    };
+    reviewPageResults = [
+      {
+        count: 5,
+        data: [
+          { product_id: 'prod-1', rating: 4 },
+          { product_id: 'prod-1', rating: 4 },
+        ],
+        error: null,
+      },
+      {
+        count: 5,
+        data: [
+          { product_id: 'prod-1', rating: 4 },
+          { product_id: 'prod-1', rating: 4 },
+        ],
+        error: null,
+      },
+      {
+        count: 5,
+        data: [{ product_id: 'prod-1', rating: 5 }],
+        error: null,
+      },
+    ];
+
+    const { getCachedOpenAIFeedData } = await import('./feed-data');
+    const result = await getCachedOpenAIFeedData('merchant-1', true);
+
+    expect(mockReviewSelect).toHaveBeenNthCalledWith(1, 'product_id, rating', {
+      count: 'exact',
+    });
+    expect(mockReviewSelect).toHaveBeenNthCalledWith(2, 'product_id, rating');
+    expect(mockReviewSelect).toHaveBeenNthCalledWith(3, 'product_id, rating');
+    expect(mockReviewsRange).toHaveBeenNthCalledWith(1, 0, 999);
+    expect(mockReviewsRange).toHaveBeenNthCalledWith(2, 2, 1001);
+    expect(mockReviewsRange).toHaveBeenNthCalledWith(3, 4, 1003);
+    expect(mockReviewsOrder).toHaveBeenCalledTimes(6);
+    expect(result.products[0]).toMatchObject({
+      average_rating: 4.2,
+      review_count: 5,
+    });
+  });
+
+  it('drops blank, null, non-finite, and out-of-range review ratings', async () => {
+    productsResult = {
+      data: [
+        {
+          id: 'prod-1',
+          name: 'Test Phone',
+          created_at: '2026-01-01T00:00:00.000Z',
+          description: 'A phone',
+          slug: 'test-phone',
+          price: 50000,
+          stock: 5,
+          stock_quantity: 5,
+          manage_stock: true,
+          variants: [],
+        },
+      ],
+      error: null,
+    };
+    reviewPageResults = [
+      {
+        data: [
+          { product_id: 'prod-1', rating: '4' },
+          { product_id: 'prod-1', rating: '' },
+          { product_id: 'prod-1', rating: null },
+          { product_id: 'prod-1', rating: 6 },
+          { product_id: 'prod-1', rating: 'not-a-number' },
+        ],
+        error: null,
+      },
+    ];
+
+    const { getCachedOpenAIFeedData } = await import('./feed-data');
+    const result = await getCachedOpenAIFeedData('merchant-1', true);
+
+    expect(mockReviewsOrder).toHaveBeenNthCalledWith(1, 'product_id', {
+      ascending: true,
+    });
+    expect(mockReviewsOrder).toHaveBeenNthCalledWith(2, 'id', {
+      ascending: true,
+    });
+    expect(mockReviewsRange).toHaveBeenCalledWith(0, 999);
+    expect(result.products[0]).toMatchObject({
+      average_rating: 4,
+      review_count: 1,
     });
   });
 

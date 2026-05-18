@@ -1,10 +1,24 @@
-import { normalizeCacSearchTerm } from '@baci/shared';
 import { type NextRequest, NextResponse } from 'next/server';
-import { getCacApiUrl } from '@/env';
 import { authenticateApiRequest, getUserAccess } from '@/lib/api-auth';
+import {
+  type CacPublicRecordsError,
+  fetchCacCompanies,
+} from '@/lib/cac-public-records';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { checkRateLimit } from '@/lib/rate-limiter';
 import { cacSearchSchema } from '@/schemas/verification';
+
+function isCacPublicRecordsError(
+  error: unknown
+): error is CacPublicRecordsError {
+  return (
+    error instanceof Error &&
+    'status' in error &&
+    typeof error.status === 'number' &&
+    'code' in error &&
+    typeof error.code === 'string'
+  );
+}
 
 export async function POST(request: NextRequest) {
   const auth = await authenticateApiRequest(request);
@@ -65,46 +79,16 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const normalizedSearchTerm = normalizeCacSearchTerm(parsed.data.searchTerm);
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10_000);
-
-    let cacResponse: Response;
-    try {
-      // CAC's public search API validates Origin/Referer/User-Agent to block
-      // non-browser callers. These values intentionally mimic a browser request.
-      // If CAC requests start failing, check whether they changed validation
-      // rules and update these headers accordingly.
-      cacResponse = await fetch(getCacApiUrl(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          Origin: 'https://icrp.cac.gov.ng',
-          Referer: 'https://icrp.cac.gov.ng/public-search',
-        },
-        body: JSON.stringify({ searchTerm: normalizedSearchTerm }),
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    if (!cacResponse.ok) {
+    const companies = await fetchCacCompanies(parsed.data.searchTerm);
+    return NextResponse.json({ companies });
+  } catch (err) {
+    if (isCacPublicRecordsError(err)) {
       return NextResponse.json(
-        { error: 'CAC search service unavailable' },
-        { status: 502 }
+        { error: err.message, code: err.code },
+        { status: err.status }
       );
     }
 
-    const data = (await cacResponse.json()) as {
-      data?: unknown[];
-      success?: boolean;
-    };
-    const companies = Array.isArray(data?.data) ? data.data : [];
-    return NextResponse.json({ companies });
-  } catch (err) {
     console.error('CAC search error:', err);
     return NextResponse.json({ error: 'CAC search failed' }, { status: 500 });
   }

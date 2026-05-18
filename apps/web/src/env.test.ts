@@ -136,6 +136,32 @@ describe('env validation', () => {
     await expect(loadEnvModule()).resolves.toBeDefined();
   });
 
+  it('defaults the terminal idempotency record window to seven days', async () => {
+    const { getTerminalIdempotencyRecordWindowMs } = await loadEnvModule();
+
+    expect(getTerminalIdempotencyRecordWindowMs()).toBe(
+      7 * 24 * 60 * 60 * 1000
+    );
+  });
+
+  it('allows overriding the terminal idempotency record window', async () => {
+    vi.stubEnv('TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS', '3600000');
+    const { getTerminalIdempotencyRecordWindowMs } = await loadEnvModule();
+
+    expect(getTerminalIdempotencyRecordWindowMs()).toBe(3_600_000);
+  });
+
+  it('rejects invalid terminal idempotency record windows in production', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'legacy-test-secret');
+    vi.stubEnv('TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS', '0');
+
+    await expect(loadEnvModule()).rejects.toThrow(
+      'TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS'
+    );
+  });
+
   it('ignores a whitespace-only agentic signing key when a legacy JWT secret is configured', async () => {
     vi.stubEnv('NODE_ENV', 'production');
     vi.stubEnv('SUPABASE_JWT_SECRET', 'legacy-test-secret');
@@ -265,6 +291,17 @@ describe('env model getters', () => {
 
     expect(() => getOllamaCacModel()).toThrow(
       'OLLAMA_CAC_MODEL must resolve to a non-empty model name'
+    );
+  });
+
+  it('defaults CAC verification endpoints to the current public APIs', async () => {
+    const { getCacApiUrl, getCacTinApiBaseUrl } = await loadEnvModule();
+
+    expect(getCacApiUrl()).toBe(
+      'https://authapp.cac.gov.ng/name_similarity_app/api/public_search/search'
+    );
+    expect(getCacTinApiBaseUrl()).toBe(
+      'https://icrp.cac.gov.ng/tin_service/api/v1/public/tin'
     );
   });
 });

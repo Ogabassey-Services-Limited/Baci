@@ -29,6 +29,13 @@ export default function AgenticDashboardClientPage({
   trustCenterState,
   trustReadiness,
 }: AgenticDashboardClientPageProps) {
+  const isActionUnauthorized = actionCenterState === 'unauthorized';
+  const isTrustUnauthorized = trustCenterState === 'unauthorized';
+  const isUnauthorized = isActionUnauthorized && isTrustUnauthorized;
+  const showActionCenter = !isActionUnauthorized;
+  const showTrustCenter = !isTrustUnauthorized;
+  const defaultTab = showActionCenter ? 'actions' : 'trust';
+
   return (
     <div className="space-y-6 p-3 pb-24 md:p-6 md:pb-8">
       <div className="space-y-1">
@@ -39,7 +46,20 @@ export default function AgenticDashboardClientPage({
         </p>
       </div>
 
-      {!isPublished ? (
+      {isUnauthorized ? (
+        <Card className="border-border/70">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Bot className="h-5 w-5 text-primary" />
+              Agentic centers are unavailable
+            </CardTitle>
+            <CardDescription>
+              We could not verify merchant access for these agentic commerce
+              checks. Sign in again or review your dashboard permissions.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : !isPublished ? (
         <Card className="border-border/70">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -53,31 +73,39 @@ export default function AgenticDashboardClientPage({
           </CardHeader>
         </Card>
       ) : (
-        <Tabs defaultValue="actions" className="space-y-4">
+        <Tabs defaultValue={defaultTab} className="space-y-4">
           <TabsList aria-label="Agentic commerce center tabs">
-            <TabsTrigger value="actions">
-              <Bot className="mr-2 h-4 w-4" />
-              Action center
-            </TabsTrigger>
-            <TabsTrigger value="trust">
-              <ShieldCheck className="mr-2 h-4 w-4" />
-              Trust center
-            </TabsTrigger>
+            {showActionCenter && (
+              <TabsTrigger value="actions">
+                <Bot className="mr-2 h-4 w-4" />
+                Action center
+              </TabsTrigger>
+            )}
+            {showTrustCenter && (
+              <TabsTrigger value="trust">
+                <ShieldCheck className="mr-2 h-4 w-4" />
+                Trust center
+              </TabsTrigger>
+            )}
           </TabsList>
 
-          <TabsContent value="actions" className="space-y-4">
-            <AgenticActionCenterCard
-              payload={actionHealth}
-              state={actionCenterState}
-            />
-          </TabsContent>
+          {showActionCenter && (
+            <TabsContent value="actions" className="space-y-4">
+              <AgenticActionCenterCard
+                payload={actionHealth}
+                state={actionCenterState}
+              />
+            </TabsContent>
+          )}
 
-          <TabsContent value="trust" className="space-y-4">
-            <AgenticTrustCenterCard
-              readiness={trustReadiness}
-              state={trustCenterState}
-            />
-          </TabsContent>
+          {showTrustCenter && (
+            <TabsContent value="trust" className="space-y-4">
+              <AgenticTrustCenterCard
+                readiness={trustReadiness}
+                state={trustCenterState}
+              />
+            </TabsContent>
+          )}
         </Tabs>
       )}
     </div>

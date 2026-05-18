@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const loadAgenticCentersData = vi.fn();
 
@@ -12,6 +12,10 @@ vi.mock('./client-page', () => ({
 }));
 
 describe('AgenticDashboardPage', () => {
+  beforeEach(() => {
+    loadAgenticCentersData.mockReset();
+  });
+
   it('loads agentic center data before rendering the client page', async () => {
     loadAgenticCentersData.mockResolvedValue({
       actionCenterState: 'ready',
@@ -26,5 +30,13 @@ describe('AgenticDashboardPage', () => {
 
     expect(loadAgenticCentersData).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Agentic client page')).toBeInTheDocument();
+  });
+
+  it('propagates loader failures', async () => {
+    loadAgenticCentersData.mockRejectedValueOnce(new Error('loader failed'));
+    const { default: AgenticDashboardPage } = await import('./page');
+
+    await expect(AgenticDashboardPage()).rejects.toThrow('loader failed');
+    expect(loadAgenticCentersData).toHaveBeenCalledTimes(1);
   });
 });

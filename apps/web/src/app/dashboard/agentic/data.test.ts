@@ -47,12 +47,12 @@ vi.mock(
   }
 );
 
-vi.mock('../../api/feed/openai/feed-data', () => ({
+vi.mock('@/app/api/feed/openai/feed-data', () => ({
   getCachedOpenAIFeedData: (...args: unknown[]) =>
     getCachedOpenAIFeedData(...args),
 }));
 
-vi.mock('../../api/feed/google-merchant/feed-data', () => ({
+vi.mock('@/app/api/feed/google-merchant/feed-data', () => ({
   getCachedGoogleMerchantFeedData: (...args: unknown[]) =>
     getCachedGoogleMerchantFeedData(...args),
 }));
@@ -63,6 +63,13 @@ const merchant = {
   id: 'merchant-1',
   is_published: true,
   slug: 'demo',
+};
+
+const ownerStaffAccess = {
+  isOwner: true,
+  isStaff: false,
+  permissions: { full_access: { all: true } },
+  role: null,
 };
 
 const actionHealth = {
@@ -125,7 +132,10 @@ describe('loadAgenticCentersData', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     createClient.mockResolvedValue({ from: vi.fn() });
-    getMerchantForUser.mockResolvedValue({ merchant });
+    getMerchantForUser.mockResolvedValue({
+      merchant,
+      staffAccess: ownerStaffAccess,
+    });
     loadAgenticActionHealth.mockResolvedValue(actionHealth);
     getCachedOpenAIFeedData.mockResolvedValue({ products: [] });
     getCachedGoogleMerchantFeedData.mockResolvedValue({
@@ -163,13 +173,16 @@ describe('loadAgenticCentersData', () => {
   it('skips loaders when the store is unpublished', async () => {
     getMerchantForUser.mockResolvedValue({
       merchant: { ...merchant, is_published: false },
+      staffAccess: ownerStaffAccess,
     });
     const { loadAgenticCentersData } = await import('./data');
 
     const result = await loadAgenticCentersData();
 
     expect(loadAgenticActionHealth).not.toHaveBeenCalled();
+    expect(createClient).not.toHaveBeenCalled();
     expect(getCachedOpenAIFeedData).not.toHaveBeenCalled();
+    expect(getCachedGoogleMerchantFeedData).not.toHaveBeenCalled();
     expect(result).toMatchObject({
       actionCenterState: 'ready',
       actionHealth: null,
@@ -180,7 +193,15 @@ describe('loadAgenticCentersData', () => {
   });
 
   it('returns unauthorized states when no merchant is available', async () => {
-    getMerchantForUser.mockResolvedValue({ merchant: null });
+    getMerchantForUser.mockResolvedValue({
+      merchant: null,
+      staffAccess: {
+        isOwner: false,
+        isStaff: false,
+        permissions: {},
+        role: null,
+      },
+    });
     const { loadAgenticCentersData } = await import('./data');
 
     const result = await loadAgenticCentersData();
@@ -188,6 +209,31 @@ describe('loadAgenticCentersData', () => {
     expect(result).toMatchObject({
       actionCenterState: 'unauthorized',
       actionHealth: null,
+      trustCenterState: 'unauthorized',
+      trustReadiness: null,
+    });
+  });
+
+  it('does not load centers when staff lacks integrations view permission', async () => {
+    getMerchantForUser.mockResolvedValue({
+      merchant,
+      staffAccess: {
+        isOwner: false,
+        isStaff: true,
+        permissions: { integrations: { view: false } },
+        role: 'manager',
+      },
+    });
+    const { loadAgenticCentersData } = await import('./data');
+
+    const result = await loadAgenticCentersData();
+
+    expect(loadAgenticActionHealth).not.toHaveBeenCalled();
+    expect(getCachedOpenAIFeedData).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      actionCenterState: 'unauthorized',
+      actionHealth: null,
+      isPublished: true,
       trustCenterState: 'unauthorized',
       trustReadiness: null,
     });
@@ -205,5 +251,30 @@ describe('loadAgenticCentersData', () => {
     expect(result.actionCenterState).toBe('unauthorized');
     expect(result.actionHealth).toBeNull();
     expect(result.trustCenterState).toBe('ready');
+  });
+
+  it('marks trust center unavailable when trust readiness loading fails', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    getCachedOpenAIFeedData.mockRejectedValueOnce(
+      new Error('feed unavailable')
+    );
+    const { loadAgenticCentersData } = await import('./data');
+
+    try {
+      const result = await loadAgenticCentersData();
+
+      expect(result.actionCenterState).toBe('ready');
+      expect(result.actionHealth).toBe(actionHealth);
+      expect(result.trustCenterState).toBe('error');
+      expect(result.trustReadiness).toBeNull();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch trust readiness:',
+        'feed unavailable'
+      );
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 });

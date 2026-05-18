@@ -171,11 +171,17 @@ async function fetchApprovedReviewSignalStats(
     OPENAI_FEED_REVIEW_PRODUCTS_CHUNK_SIZE
   )) {
     let offset = 0;
+    let requestedExactCount = false;
+    let totalRows: number | null = null;
 
     while (true) {
-      const { data, error } = await supabase
-        .from('product_reviews')
-        .select('product_id, rating')
+      const shouldRequestExactCount = !requestedExactCount;
+      requestedExactCount = true;
+      const reviewQuery = supabase.from('product_reviews');
+      const selectQuery = shouldRequestExactCount
+        ? reviewQuery.select('product_id, rating', { count: 'exact' })
+        : reviewQuery.select('product_id, rating');
+      const { count, data, error } = await selectQuery
         .eq('merchant_id', merchantId)
         .eq('status', 'approved')
         .in('product_id', productIdChunk)
@@ -188,6 +194,9 @@ async function fetchApprovedReviewSignalStats(
       }
 
       const rows = (data || []) as RawOpenAIFeedReviewSignalRow[];
+      if (shouldRequestExactCount && typeof count === 'number') {
+        totalRows = count;
+      }
       for (const row of rows) {
         if (!row.product_id) continue;
 
@@ -206,11 +215,22 @@ async function fetchApprovedReviewSignalStats(
         });
       }
 
-      if (rows.length < OPENAI_FEED_REVIEW_ROWS_PAGE_SIZE) {
+      if (rows.length === 0) {
         break;
       }
 
-      offset += OPENAI_FEED_REVIEW_ROWS_PAGE_SIZE;
+      const nextOffset = offset + rows.length;
+      if (totalRows !== null && nextOffset >= totalRows) {
+        break;
+      }
+      if (
+        totalRows === null &&
+        rows.length < OPENAI_FEED_REVIEW_ROWS_PAGE_SIZE
+      ) {
+        break;
+      }
+
+      offset = nextOffset;
     }
   }
 

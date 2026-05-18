@@ -149,9 +149,12 @@ describe('POST /api/merchant/cac-search', () => {
 
     expect(res.status).toBe(200);
     expect(fetchSpy).toHaveBeenCalledWith(
-      expect.any(String),
+      'https://authapp.cac.gov.ng/name_similarity_app/api/public_search/search',
       expect.objectContaining({
-        body: JSON.stringify({ searchTerm: 'Baci Tech' }),
+        body: JSON.stringify({
+          searchTerm: 'Baci Tech',
+          classification: 'ALL',
+        }),
       })
     );
     await expect(res.json()).resolves.toEqual({ companies: mockCompanies });
@@ -175,7 +178,10 @@ describe('POST /api/merchant/cac-search', () => {
     expect(fetchSpy).toHaveBeenCalledWith(
       expect.any(String),
       expect.objectContaining({
-        body: JSON.stringify({ searchTerm: normalizedSearchTerm }),
+        body: JSON.stringify({
+          searchTerm: normalizedSearchTerm,
+          classification: 'ALL',
+        }),
       })
     );
   });

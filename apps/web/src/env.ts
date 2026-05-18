@@ -20,6 +20,12 @@ const optionalTrimmedStringSchema = z.preprocess((value) => {
   return trimmed || undefined;
 }, z.string().optional());
 
+const DEFAULT_CAC_API_URL =
+  'https://authapp.cac.gov.ng/name_similarity_app/api/public_search/search';
+const DEFAULT_CAC_TIN_API_BASE_URL =
+  'https://icrp.cac.gov.ng/tin_service/api/v1/public/tin';
+const DEFAULT_TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
 /**
  * Strict 127.0.0.0/8 hostname matcher. Anchored regex on the URL `hostname`
  * (already brackets-stripped by the `URL` parser) so only true IPv4 loopback
@@ -136,6 +142,11 @@ const serverSchema = z
     INTERNAL_API_SECRET: z.string().optional(),
     IMPORT_JOB_WORKER_BATCH_SIZE: z.coerce.number().int().positive().default(3),
     IMPORT_JOB_DIRECT_UPLOAD_ENABLED: booleanStringSchema.optional(),
+    TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(DEFAULT_TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS),
 
     // Push Notifications
     EXPO_ACCESS_TOKEN: z.string().optional(),
@@ -144,12 +155,11 @@ const serverSchema = z
     MONNIFY_API_KEY: z.string().optional(),
     MONNIFY_SECRET_KEY: z.string().optional(),
     MONNIFY_BASE_URL: z.string().url().default('https://api.monnify.com'),
-    CAC_API_URL: z
+    CAC_API_URL: z.string().url().default(DEFAULT_CAC_API_URL),
+    CAC_TIN_API_BASE_URL: z
       .string()
       .url()
-      .default(
-        'https://icrp.cac.gov.ng/name_similarity_app/api/public_search/search'
-      ),
+      .default(DEFAULT_CAC_TIN_API_BASE_URL),
     // Ollama (CAC certificate OCR — Gemma 4 on VPS)
     OLLAMA_BASE_URL: httpsOrLocalhostUrl('OLLAMA_BASE_URL').optional(),
     OLLAMA_CAC_MODEL: z.string().default('gemma4:e4b'),
@@ -327,6 +337,8 @@ const getEnv = () => {
         MYCOVER_WEBHOOK_SECRET: process.env.MYCOVER_WEBHOOK_SECRET,
         CRON_SECRET: process.env.CRON_SECRET,
         IMPORT_JOB_WORKER_BATCH_SIZE: process.env.IMPORT_JOB_WORKER_BATCH_SIZE,
+        TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS:
+          process.env.TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS,
         JUMIA_ENVIRONMENT: process.env.JUMIA_ENVIRONMENT,
         JUMIA_CLIENT_ID: process.env.JUMIA_CLIENT_ID,
         JUMIA_CLIENT_SECRET: process.env.JUMIA_CLIENT_SECRET,
@@ -338,6 +350,7 @@ const getEnv = () => {
         MONNIFY_SECRET_KEY: process.env.MONNIFY_SECRET_KEY,
         MONNIFY_BASE_URL: process.env.MONNIFY_BASE_URL,
         CAC_API_URL: process.env.CAC_API_URL,
+        CAC_TIN_API_BASE_URL: process.env.CAC_TIN_API_BASE_URL,
         OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL,
         OLLAMA_CAC_MODEL: process.env.OLLAMA_CAC_MODEL,
         OLLAMA_BASIC_AUTH: process.env.OLLAMA_BASIC_AUTH,
@@ -593,6 +606,17 @@ export const getInternalApiSecret = () => {
 export const getImportJobWorkerBatchSize = () =>
   env?.IMPORT_JOB_WORKER_BATCH_SIZE || 3;
 
+export const getTerminalIdempotencyRecordWindowMs = () => {
+  if (isBrowserRuntime())
+    throw new Error(
+      'TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS cannot be accessed on the client'
+    );
+  return (
+    env?.TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS ??
+    DEFAULT_TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS
+  );
+};
+
 export const isImportJobDirectUploadEnabled = () => {
   if (typeof window !== 'undefined') {
     return false;
@@ -632,9 +656,9 @@ export const getMonnifySecretKey = () => {
 };
 export const getMonnifyBaseUrl = () =>
   env?.MONNIFY_BASE_URL ?? 'https://api.monnify.com';
-export const getCacApiUrl = () =>
-  env?.CAC_API_URL ??
-  'https://icrp.cac.gov.ng/name_similarity_app/api/public_search/search';
+export const getCacApiUrl = () => env?.CAC_API_URL ?? DEFAULT_CAC_API_URL;
+export const getCacTinApiBaseUrl = () =>
+  env?.CAC_TIN_API_BASE_URL ?? DEFAULT_CAC_TIN_API_BASE_URL;
 export const getOllamaBaseUrl = () => {
   if (typeof window !== 'undefined')
     throw new Error('OLLAMA_BASE_URL cannot be accessed on the client');

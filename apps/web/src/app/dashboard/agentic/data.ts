@@ -1,7 +1,11 @@
 import 'server-only';
 
+import { getCachedGoogleMerchantFeedData } from '@/app/api/feed/google-merchant/feed-data';
+import { getCachedOpenAIFeedData } from '@/app/api/feed/openai/feed-data';
+import type { StaffAccess } from '@/hooks/merchant';
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
 import { getMerchantForUser } from '@/lib/merchant-server';
+import { sanitizeErrorMessage } from '@/lib/sanitize-error-message';
 import { buildStoreUrl } from '@/lib/store-url';
 import {
   type AgentCommerceTrustReadinessSummary,
@@ -12,8 +16,6 @@ import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant
 import type { MerchantTrustProfileSource } from '@/lib/storefront-trust/merchant-trust-profile-types';
 import { createClient } from '@/lib/supabase/server';
 import type { AgenticActionHealthPayload } from '@/schemas/agentic-action-health';
-import { getCachedGoogleMerchantFeedData } from '../../api/feed/google-merchant/feed-data';
-import { getCachedOpenAIFeedData } from '../../api/feed/openai/feed-data';
 
 export type AgenticCenterState = 'ready' | 'error' | 'unauthorized';
 
@@ -23,20 +25,6 @@ export interface AgenticCentersData {
   isPublished: boolean;
   trustCenterState: AgenticCenterState;
   trustReadiness: AgentCommerceTrustReadinessSummary | null;
-}
-
-function sanitizeError(reason: unknown): string {
-  if (
-    reason &&
-    typeof reason === 'object' &&
-    'message' in reason &&
-    typeof (reason as { message: unknown }).message === 'string'
-  ) {
-    return (reason as { message: string }).message;
-  }
-
-  if (typeof reason === 'string') return reason;
-  return 'Unknown error';
 }
 
 function isPermissionDeniedError(reason: unknown): boolean {
@@ -50,6 +38,12 @@ function isPermissionDeniedError(reason: unknown): boolean {
     typeof message === 'string' &&
     message.toLowerCase().includes('permission denied')
   );
+}
+
+function canViewAgenticCenters(staffAccess: StaffAccess): boolean {
+  if (staffAccess.isOwner) return true;
+  if (!staffAccess.isStaff) return false;
+  return staffAccess.permissions.integrations?.view === true;
 }
 
 async function loadAgenticTrustReadiness(
@@ -90,13 +84,13 @@ async function loadAgenticTrustReadiness(
 }
 
 export async function loadAgenticCentersData(): Promise<AgenticCentersData> {
-  const { merchant } = await getMerchantForUser();
+  const { merchant, staffAccess } = await getMerchantForUser();
 
-  if (!merchant) {
+  if (!merchant || !canViewAgenticCenters(staffAccess)) {
     return {
       actionCenterState: 'unauthorized',
       actionHealth: null,
-      isPublished: false,
+      isPublished: Boolean(merchant?.is_published),
       trustCenterState: 'unauthorized',
       trustReadiness: null,
     };
@@ -125,14 +119,14 @@ export async function loadAgenticCentersData(): Promise<AgenticCentersData> {
   ) {
     console.error(
       'Failed to fetch action health:',
-      sanitizeError(actionHealthResult.reason)
+      sanitizeErrorMessage(actionHealthResult.reason)
     );
   }
 
   if (trustReadinessResult.status === 'rejected') {
     console.error(
       'Failed to fetch trust readiness:',
-      sanitizeError(trustReadinessResult.reason)
+      sanitizeErrorMessage(trustReadinessResult.reason)
     );
   }
 

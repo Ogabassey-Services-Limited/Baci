@@ -1,4 +1,5 @@
 import { getMerchantForUser } from '@/lib/merchant-server';
+import { sanitizeErrorMessage } from '@/lib/sanitize-error-message';
 import {
   getDashboardMetrics,
   getMonthlyChartData,
@@ -8,22 +9,6 @@ import DashboardClientPage from './client-page';
 
 // Configuration constants
 const RECENT_SALES_LIMIT = 5;
-
-// Sanitize error output to avoid leaking sensitive info
-function sanitizeError(reason: unknown): string {
-  if (
-    reason &&
-    typeof reason === 'object' &&
-    'message' in reason &&
-    typeof (reason as { message: unknown }).message === 'string'
-  ) {
-    return (reason as { message: string }).message;
-  }
-  if (typeof reason === 'string') {
-    return reason;
-  }
-  return 'Unknown error';
-}
 
 export async function DashboardData() {
   const { merchant } = await getMerchantForUser();
@@ -51,19 +36,19 @@ export async function DashboardData() {
   if (metricsResult.status === 'rejected') {
     console.error(
       'Failed to fetch dashboard metrics:',
-      sanitizeError(metricsResult.reason)
+      sanitizeErrorMessage(metricsResult.reason)
     );
   }
   if (recentSalesResult.status === 'rejected') {
     console.error(
       'Failed to fetch recent sales:',
-      sanitizeError(recentSalesResult.reason)
+      sanitizeErrorMessage(recentSalesResult.reason)
     );
   }
   if (chartDataResult.status === 'rejected') {
     console.error(
       'Failed to fetch chart data:',
-      sanitizeError(chartDataResult.reason)
+      sanitizeErrorMessage(chartDataResult.reason)
     );
   }
   return (

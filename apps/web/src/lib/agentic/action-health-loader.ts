@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { getTerminalIdempotencyRecordWindowMs } from '@/env';
 import { buildAgenticHealthActions } from '@/lib/agentic/action-health-actions';
 import { getActionHealthRequestControlSummary } from '@/lib/agentic/action-health-request-controls';
 import {
@@ -13,7 +14,6 @@ import {
 const ACTION_HEALTH_RECORD_LIMIT = 25;
 const CHECKOUT_ACTIVITY_RECORD_LIMIT = 5;
 const STALE_PAYMENT_PENDING_MS = 24 * 60 * 60 * 1000;
-const TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const COMPLETE_ROUTE_SUFFIX = '.complete';
 
 function getIdempotencyState(statusCode: number | null) {
@@ -74,7 +74,7 @@ function shouldIncludeIdempotencyRow(
   const updatedAtMs = Date.parse(row.updated_at);
   return (
     Number.isFinite(updatedAtMs) &&
-    nowMs - updatedAtMs <= TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS
+    nowMs - updatedAtMs <= getTerminalIdempotencyRecordWindowMs()
   );
 }
 

@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const createClient = vi.fn();
 const getMerchantForUser = vi.fn();
@@ -85,50 +85,6 @@ const merchantBase = {
   slug: 'demo',
 };
 
-const fullReadiness = {
-  checks: [
-    {
-      affectedProductIds: ['p-1', 'p-2', 'p-3'],
-      id: 'catalog-surface-parity' as const,
-      label: 'Catalog surface parity',
-      message: '3 products missing from a surface.',
-      severity: 'fail' as const,
-    },
-  ],
-  status: 'fail' as const,
-  surfaces: {
-    agentCommerceManifest: 'https://shop.example.com/agent-commerce.json',
-    agentNativeCommerce:
-      'https://shop.example.com/.well-known/agent-native-commerce',
-    agentTrust: 'https://shop.example.com/agent-trust.json',
-    currentProductFeed: 'https://shop.example.com/feeds/agent-products.jsonl',
-    googleMerchantXml: 'https://shop.example.com/feeds/google-merchant.xml',
-    openAiProductFeed: 'https://shop.example.com/feeds/openai.jsonl',
-    productApi: 'https://shop.example.com/api/storefront/demo/products',
-    llms: 'https://shop.example.com/llms.txt',
-    policies: {
-      privacy_policy_url: 'https://shop.example.com/privacy',
-      return_policy_url: 'https://shop.example.com/returns',
-      shipping_policy_url: 'https://shop.example.com/shipping',
-      terms_of_service_url: 'https://shop.example.com/terms',
-    },
-    robots: 'https://shop.example.com/robots.txt',
-    sitemap: 'https://shop.example.com/sitemap.xml',
-    ucpProfile: 'https://shop.example.com/.well-known/ucp',
-  },
-  totals: {
-    googleProducts: 3,
-    latestProductUpdatedAt: '2026-05-15T00:00:00.000Z',
-    openAiProducts: 3,
-    priceMismatches: 0,
-    productsWithStructuredData: 3,
-    productsWithVerifiedImages: 3,
-    sharedProducts: 3,
-    staleProducts: 0,
-    urlMismatches: 0,
-  },
-};
-
 async function renderDashboardData() {
   const { DashboardData } = await import('./dashboard-data');
   const ui = await DashboardData();
@@ -136,6 +92,10 @@ async function renderDashboardData() {
 }
 
 describe('DashboardData', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     createClient.mockReturnValue({});
@@ -153,10 +113,6 @@ describe('DashboardData', () => {
     getDashboardMetrics.mockResolvedValue(null);
     getRecentSales.mockResolvedValue([]);
     getMonthlyChartData.mockResolvedValue([]);
-    getCachedOpenAIFeedData.mockResolvedValue({ products: [] });
-    getCachedGoogleMerchantFeedData.mockResolvedValue({ products: [] });
-    buildMerchantTrustProfile.mockReturnValue({});
-    buildAgentCommerceTrustReadiness.mockReturnValue(fullReadiness);
   });
 
   it('loads only home dashboard data for published merchants', async () => {
@@ -212,5 +168,94 @@ describe('DashboardData', () => {
     expect(buildAgentCommerceTrustReadiness).not.toHaveBeenCalled();
     const props = clientProps.mock.calls[0][0];
     expect(props).toEqual({});
+  });
+
+  it('keeps recent sales and chart data when metrics loading rejects', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const recentSales = [{ id: 'sale-1', total: 1000 }];
+    const chartData = [{ month: 'May', revenue: 1000 }];
+    getMerchantForUser.mockResolvedValue({
+      merchant: { ...merchantBase, is_published: true },
+    });
+    getDashboardMetrics.mockRejectedValueOnce(new Error('metrics failed'));
+    getRecentSales.mockResolvedValueOnce(recentSales);
+    getMonthlyChartData.mockResolvedValueOnce(chartData);
+
+    await renderDashboardData();
+
+    const props = clientProps.mock.calls[0][0];
+    expect(props.initialMetrics).toBeUndefined();
+    expect(props.initialRecentSales).toBe(recentSales);
+    expect(props.initialChartData).toBe(chartData);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to fetch dashboard metrics:',
+      'metrics failed'
+    );
+  });
+
+  it('falls back to empty recent sales when recent sales loading rejects', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const metrics = {
+      activeNow: { change: 0, value: 1 },
+      aov: 0,
+      customers: { change: 0, value: 2 },
+      fulfillmentRate: 0,
+      orders: { change: 0, value: 3 },
+      revenue: { change: 0, value: 4 },
+    };
+    const chartData = [{ month: 'May', revenue: 1000 }];
+    getMerchantForUser.mockResolvedValue({
+      merchant: { ...merchantBase, is_published: true },
+    });
+    getDashboardMetrics.mockResolvedValueOnce(metrics);
+    getRecentSales.mockRejectedValueOnce(new Error('sales failed'));
+    getMonthlyChartData.mockResolvedValueOnce(chartData);
+
+    await renderDashboardData();
+
+    const props = clientProps.mock.calls[0][0];
+    expect(props.initialMetrics).toBe(metrics);
+    expect(props.initialRecentSales).toEqual([]);
+    expect(props.initialChartData).toBe(chartData);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to fetch recent sales:',
+      'sales failed'
+    );
+  });
+
+  it('falls back to empty chart data when chart loading rejects', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    const metrics = {
+      activeNow: { change: 0, value: 1 },
+      aov: 0,
+      customers: { change: 0, value: 2 },
+      fulfillmentRate: 0,
+      orders: { change: 0, value: 3 },
+      revenue: { change: 0, value: 4 },
+    };
+    const recentSales = [{ id: 'sale-1', total: 1000 }];
+    getMerchantForUser.mockResolvedValue({
+      merchant: { ...merchantBase, is_published: true },
+    });
+    getDashboardMetrics.mockResolvedValueOnce(metrics);
+    getRecentSales.mockResolvedValueOnce(recentSales);
+    getMonthlyChartData.mockRejectedValueOnce(new Error('chart failed'));
+
+    await renderDashboardData();
+
+    const props = clientProps.mock.calls[0][0];
+    expect(props.initialMetrics).toBe(metrics);
+    expect(props.initialRecentSales).toBe(recentSales);
+    expect(props.initialChartData).toEqual([]);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to fetch chart data:',
+      'chart failed'
+    );
   });
 });

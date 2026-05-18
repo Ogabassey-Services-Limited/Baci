@@ -72,4 +72,45 @@ describe('AgenticDashboardClientPage', () => {
     expect(screen.getByText('Agentic centers are paused')).toBeInTheDocument();
     expect(screen.queryByRole('tab')).not.toBeInTheDocument();
   });
+
+  it('shows unauthorized state before the unpublished pause state', () => {
+    render(
+      <AgenticDashboardClientPage
+        {...baseProps}
+        actionCenterState="unauthorized"
+        actionHealth={null}
+        isPublished={false}
+        trustCenterState="unauthorized"
+        trustReadiness={null}
+      />
+    );
+
+    expect(
+      screen.getByText('Agentic centers are unavailable')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText('Agentic centers are paused')
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+  });
+
+  it('keeps trust center visible when only action center is unauthorized', () => {
+    render(
+      <AgenticDashboardClientPage
+        {...baseProps}
+        actionCenterState="unauthorized"
+        actionHealth={null}
+      />
+    );
+
+    expect(
+      screen.queryByText('Agentic centers are unavailable')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('tab', { name: /action center/i })
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /trust center/i })).toBeVisible();
+    expect(screen.getByText('Trust card content')).toBeInTheDocument();
+    expect(screen.queryByText('Action card content')).not.toBeInTheDocument();
+  });
 });
