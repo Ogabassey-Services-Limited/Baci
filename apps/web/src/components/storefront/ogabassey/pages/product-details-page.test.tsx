@@ -95,10 +95,6 @@ vi.mock('next/dynamic', () => {
           return <div data-testid="banner-carousel" />;
         }
 
-        if (source.includes('deferred-product-details-sections')) {
-          return <DeferredProductDetailsSectionsMock {...props} />;
-        }
-
         return null;
       };
     },
@@ -199,6 +195,48 @@ vi.mock('./product-details-page/product-purchase-panel', () => ({
   }: {
     productData: { name: string };
   }) => <h1>{productData.name}</h1>,
+}));
+vi.mock('./product-details-page/deferred-product-details-sections-loader', () => ({
+  DeferredProductDetailsSectionsLoader: (
+    props: Record<string, unknown> & {
+      productData?: { reviewCount?: number };
+      activeTab?: 'description' | 'reviews';
+      onSelectTab?: (tab: 'description' | 'reviews') => void;
+    }
+  ) => {
+    const reviewCount = props.productData?.reviewCount ?? 0;
+    const [activeTab, setActiveTab] = useState<'description' | 'reviews'>(
+      props.activeTab ?? 'description'
+    );
+    const handleTabChange = (tab: 'description' | 'reviews') => {
+      setActiveTab(tab);
+      props.onSelectTab?.(tab);
+    };
+
+    return shouldRenderDeferredShellChildren ? (
+      <div role="region" aria-label="Deferred product details sections">
+        <div role="region" aria-label="Deferred ad slot" />
+        <button role="tab" onClick={() => handleTabChange('description')}>
+          Description
+        </button>
+        <button role="tab" onClick={() => handleTabChange('reviews')}>
+          {`Reviews (${reviewCount})`}
+        </button>
+        {activeTab === 'reviews' ? (
+          <div role="tabpanel" aria-label={`Reviews (${reviewCount})`}>
+            {`Based on ${reviewCount} reviews`}
+          </div>
+        ) : (
+          <div role="tabpanel" aria-label="Description">
+            Description
+          </div>
+        )}
+        <div role="region" aria-label="Deferred merchandising sections" />
+      </div>
+    ) : (
+      <div data-testid="deferred-product-details-placeholder" />
+    );
+  },
 }));
 vi.mock('./product-details-page/selection-required-modal', () => ({
   SelectionRequiredModal: () => null,
