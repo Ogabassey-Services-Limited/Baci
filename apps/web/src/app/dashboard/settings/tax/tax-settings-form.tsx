@@ -20,7 +20,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
-import { apiPatch } from '@/lib/api-client';
+import { apiPatch, apiPost } from '@/lib/api-client';
+import {
+  isValidTaxIdentificationNumber,
+  normalizeTaxIdentificationNumber,
+  TAX_IDENTIFICATION_NUMBER_MAX_LENGTH,
+} from '@/lib/tax-identification';
 
 interface TaxSettingsFormProps {
   initialVatEnabled: boolean;
@@ -29,6 +34,11 @@ interface TaxSettingsFormProps {
   initialLegalEntityName: string;
   initialRegisteredAddress: RegisteredAddress;
   initialStateCode: string;
+}
+
+interface VerifyTaxIdResponse {
+  verified: boolean;
+  taxIdentificationNumber?: string;
 }
 
 export function TaxSettingsForm({
@@ -41,7 +51,9 @@ export function TaxSettingsForm({
 }: TaxSettingsFormProps) {
   const { toast } = useToast();
   const [vatEnabled, setVatEnabled] = useState(initialVatEnabled);
-  const [taxId, setTaxId] = useState(initialTaxId);
+  const [taxId, setTaxId] = useState(
+    normalizeTaxIdentificationNumber(initialTaxId)
+  );
   const [legalEntityName, setLegalEntityName] = useState(
     initialLegalEntityName
   );
@@ -86,10 +98,12 @@ export function TaxSettingsForm({
   };
 
   const handleSaveTaxId = async () => {
-    if (taxId && !/^\d{10}$/.test(taxId)) {
+    const normalizedTaxId = normalizeTaxIdentificationNumber(taxId);
+
+    if (normalizedTaxId && !isValidTaxIdentificationNumber(normalizedTaxId)) {
       toast({
         title: 'Invalid Tax ID',
-        description: 'Nigerian TIN must be exactly 10 digits.',
+        description: 'Nigerian TIN must be 10 to 15 digits.',
         variant: 'destructive',
       });
       return;
@@ -97,18 +111,38 @@ export function TaxSettingsForm({
 
     setIsLoading(true);
     try {
-      await saveSettings({
-        tax_identification_number: taxId || null,
-      });
+      if (!normalizedTaxId) {
+        await saveSettings({
+          tax_identification_number: null,
+        });
 
+        toast({
+          title: 'Tax ID Saved',
+          description: 'Your Tax Identification Number has been cleared.',
+        });
+        return;
+      }
+
+      const verification = await apiPost<VerifyTaxIdResponse>(
+        '/api/merchant/verify-tax-id',
+        {
+          taxIdentificationNumber: normalizedTaxId,
+          legalEntityName: legalEntityName.trim() || undefined,
+        }
+      );
+
+      setTaxId(verification.taxIdentificationNumber ?? normalizedTaxId);
       toast({
-        title: 'Tax ID Saved',
-        description: 'Your Tax Identification Number has been updated.',
+        title: 'Tax ID Verified',
+        description: 'Your Tax Identification Number matches the CAC record.',
       });
-    } catch (_error) {
+    } catch (error) {
       toast({
-        title: 'Update Failed',
-        description: 'Could not save Tax ID. Please try again.',
+        title: 'Tax ID Verification Failed',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Could not verify Tax ID. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -251,21 +285,26 @@ export function TaxSettingsForm({
             <div className="flex gap-2">
               <Input
                 id="tax-id"
-                placeholder="1234567890"
+                placeholder="2522599781276"
                 value={taxId}
                 onChange={(e) =>
-                  setTaxId(e.target.value.replace(/\D/g, '').slice(0, 10))
+                  setTaxId(
+                    normalizeTaxIdentificationNumber(e.target.value).slice(
+                      0,
+                      TAX_IDENTIFICATION_NUMBER_MAX_LENGTH
+                    )
+                  )
                 }
-                maxLength={10}
+                maxLength={TAX_IDENTIFICATION_NUMBER_MAX_LENGTH}
                 className="font-mono"
               />
               <Button onClick={handleSaveTaxId} disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save
+                {taxId ? 'Verify & Save' : 'Save'}
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              10-digit Nigerian TIN issued by FIRS
+              TIN issued to this CAC-registered business
             </p>
           </div>
         </CardContent>
