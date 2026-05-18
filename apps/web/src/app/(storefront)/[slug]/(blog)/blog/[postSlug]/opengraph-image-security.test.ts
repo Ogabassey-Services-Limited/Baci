@@ -75,6 +75,7 @@ describe('merchant blog OG image security helpers', () => {
         'https://project.supabase.co/storage/v1/object/public/media/merchant-2/logo.png'
       )
     ).toBe(true);
+    expect(isAllowedLogoUrl('https://usebaci.com/logo.png')).toBe(true);
     expect(isAllowedLogoUrl('https://evil.example.com/logo.png')).toBe(false);
     expect(isAllowedLogoUrl('http://cdn.ogabassey.com/logo.png')).toBe(false);
   });
