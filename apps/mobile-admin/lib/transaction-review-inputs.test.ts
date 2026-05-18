@@ -30,11 +30,13 @@ describe('transaction review input helpers', () => {
     expect(formatCostPriceInput(1200, '₦')).toBe('₦1,200');
     expect(formatCostPriceInput(-1200, '₦')).toBe('-₦1,200');
     expect(formatCostPriceInputText('12,5', '₦')).toBe('₦12.5');
+    expect(formatCostPriceInputText(',5', '₦')).toBe('₦0.5');
     expect(formatCostPriceInputText('1,200', '₦')).toBe('₦1,200');
     expect(formatCostPriceInputText('1200000.50', '₦')).toBe('₦1,200,000.50');
     expect(formatCostPriceInputText('-1200', '₦')).toBe('-₦1,200');
     expect(parseCostPriceInput('₦1,200,000.50')).toBe(1_200_000.5);
     expect(parseCostPriceInput('₦12,5')).toBe(12.5);
+    expect(parseCostPriceInput('₦,5')).toBe(0.5);
     expect(parseCostPriceInput('₦1,200')).toBe(1200);
     expect(parseCostPriceInput('-₦1,200')).toBe(-1200);
     expect(parseCostPriceInput('₦-1,200')).toBe(-1200);
