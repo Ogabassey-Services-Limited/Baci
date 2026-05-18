@@ -2,6 +2,8 @@ import type { TransactionReviewOrder } from './transaction-review-types';
 
 function normalizeCostPriceParts(value: string) {
   let sawDecimal = false;
+  const minusIndex = value.indexOf('-');
+  const firstDigitIndex = value.search(/\d/);
   const normalized = value.replace(/,/g, '');
   const digits = normalized
     .split('')
@@ -19,7 +21,9 @@ function normalizeCostPriceParts(value: string) {
 
   return {
     digits,
-    isNegative: value.includes('-'),
+    isNegative:
+      minusIndex !== -1 &&
+      (firstDigitIndex === -1 || minusIndex < firstDigitIndex),
   };
 }
 
