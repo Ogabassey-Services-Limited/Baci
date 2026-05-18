@@ -69,9 +69,9 @@ function getActionSeverityVariant(
   return 'secondary';
 }
 
-function formatAffectedCount(count: number | null) {
-  if (count === null) return null;
-  return `${count.toLocaleString()} affected`;
+function formatAffectedCount(count: number | null | undefined) {
+  if (count == null) return null;
+  return `${count.toLocaleString('en-US')} affected`;
 }
 
 export function AgenticTrustCenterCard({
