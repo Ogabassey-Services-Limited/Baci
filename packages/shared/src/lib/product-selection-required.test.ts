@@ -42,8 +42,7 @@ describe('requiresProductSelection', () => {
     expect(
       requiresProductSelection(
         {
-          name: 'Saved iPhone 15',
-          slug: 'iphone-15',
+          available_conditions: undefined,
         },
         { metadataTrust: 'legacy-saved-record' }
       )
@@ -64,7 +63,6 @@ describe('requiresProductSelection', () => {
   it('requires product-detail selection for iPhone 15-style mixed-condition SKU matrices', () => {
     expect(
       requiresProductSelection({
-        condition: 'open_box',
         has_variants: true,
         variant_model: 'sku_matrix',
         available_conditions: ['open_box', 'used'],
