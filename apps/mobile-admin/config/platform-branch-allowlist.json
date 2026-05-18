@@ -1,5 +1,4 @@
 [
-  "app/(admin)/domains/connect.tsx",
   "app/(admin)/send-feedback.tsx",
   "app/(auth)/login.tsx",
   "components/analytics/ReportsGenerator.ts",
