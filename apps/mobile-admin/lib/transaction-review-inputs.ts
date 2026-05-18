@@ -1,19 +1,48 @@
 import type { TransactionReviewOrder } from './transaction-review-types';
 
-function normalizeCostPriceParts(value: string) {
-  let hasDecimal = false;
+function countDigits(value: string) {
+  return value.replace(/\D/g, '').length;
+}
 
+function getCostPriceDecimalIndex(value: string) {
+  const dotIndex = value.indexOf('.');
+
+  if (dotIndex !== -1) {
+    return dotIndex;
+  }
+
+  const commaIndex = value.lastIndexOf(',');
+
+  if (commaIndex === -1) {
+    return -1;
+  }
+
+  const digitsBeforeComma = countDigits(value.slice(0, commaIndex));
+  const digitsAfterComma = countDigits(value.slice(commaIndex + 1));
+
+  if (
+    digitsBeforeComma > 0 &&
+    digitsAfterComma > 0 &&
+    digitsAfterComma !== 3
+  ) {
+    return commaIndex;
+  }
+
+  return -1;
+}
+
+function normalizeCostPriceParts(value: string) {
+  const decimalIndex = getCostPriceDecimalIndex(value);
   const digits = value
     .split('')
-    .filter((character) => {
+    .map((character, index) => {
       if (/\d/.test(character)) {
-        return true;
+        return character;
       }
-      if (character === '.' && !hasDecimal) {
-        hasDecimal = true;
-        return true;
+      if (index === decimalIndex) {
+        return '.';
       }
-      return false;
+      return '';
     })
     .join('');
 
@@ -111,6 +140,20 @@ export function getSupplierOptionsFromOrders(orders: TransactionReviewOrder[]) {
   ).sort((first, second) => first.localeCompare(second));
 }
 
+function getVisibleOrderSearchText(order: TransactionReviewOrder) {
+  return [
+    order.orderNumber,
+    order.customerName,
+    order.customerEmail,
+    order.customerPhone,
+    order.paymentMethod,
+    ...order.items.map((item) => item.searchText),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
 export function filterOrdersForTransactionTab(
   orders: TransactionReviewOrder[],
   activeTab: 'missing-costs' | 'paid'
@@ -133,6 +176,10 @@ export function filterOrdersForTransactionTab(
         ),
         items: missingCostItems,
         missingCostCount: missingCostItems.length,
+        searchText: getVisibleOrderSearchText({
+          ...order,
+          items: missingCostItems,
+        }),
       };
     })
     .filter((order) => order.items.length > 0);

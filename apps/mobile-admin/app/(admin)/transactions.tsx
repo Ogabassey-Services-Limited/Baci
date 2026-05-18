@@ -86,11 +86,8 @@ export default function TransactionsScreen() {
     { estimatedProfit: 0, missingCosts: 0, transactions: 0 }
   );
 
-  const searchedOrders = filterTransactionOrders(orders, searchQuery);
-  const visibleOrders = filterOrdersForTransactionTab(
-    searchedOrders,
-    activeTab
-  );
+  const tabFilteredOrders = filterOrdersForTransactionTab(orders, activeTab);
+  const visibleOrders = filterTransactionOrders(tabFilteredOrders, searchQuery);
   const supplierOptions = getSupplierOptionsFromOrders(orders);
 
   const handleOpenEditor = (
