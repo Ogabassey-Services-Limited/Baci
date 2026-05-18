@@ -79,6 +79,8 @@ jobs:
       - if: needs.changes.outputs.web == 'true'
         run: pnpm turbo lint typecheck test --concurrency=3
       - if: needs.changes.outputs.web == 'true'
+        run: pnpm --filter @baci/web verify:quiz-assets
+      - if: needs.changes.outputs.web == 'true'
         run: pnpm knip
       - if: needs.changes.outputs.web != 'true'
         run: echo "No web changes — skipping quality checks"

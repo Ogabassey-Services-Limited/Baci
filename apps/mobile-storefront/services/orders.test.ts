@@ -1,4 +1,5 @@
 import { jest } from '@jest/globals';
+import type { CreateOrderRequest } from './orders';
 
 type MockAuthUserResponse = {
   data: { user: { id: string } | null };
@@ -52,7 +53,11 @@ interface RetryOptions {
 }
 
 const mockFetchWithRetry = jest.fn<
-  (url: string, options?: MockFetchOptions, retryOptions?: RetryOptions) => Promise<MockFetchResponse>
+  (
+    url: string,
+    options?: MockFetchOptions,
+    retryOptions?: RetryOptions
+  ) => Promise<MockFetchResponse>
 >(async () => mockFetchResponse);
 
 mockNetInfoFetch.mockResolvedValue({ isConnected: true });
@@ -143,6 +148,10 @@ type CreateOrderResult = {
   };
 };
 
+type TestOrderItem = CreateOrderRequest['items'][number] & {
+  voucher_award_id?: string;
+};
+
 function getLastFetchCall(): [string, MockFetchOptions] {
   const fetchCall = mockFetchWithRetry.mock.calls.at(-1) as
     | [string, MockFetchOptions]
@@ -171,6 +180,31 @@ function getLastFetchBody() {
 function getLastFetchOptions(): MockFetchOptions {
   const [, options] = getLastFetchCall();
   return options;
+}
+
+async function createOrderWithItems(items: TestOrderItem[]) {
+  const { createOrder } = require('./orders') as typeof import('./orders');
+
+  await createOrder({
+    customer_email: 'test@example.com',
+    customer_name: 'Test User',
+    customer_phone: '+2348012345678',
+    items,
+    subtotal: items.reduce(
+      (total, item) => total + item.price * item.quantity,
+      0
+    ),
+    shipping_fee: 2000,
+    payment_method: 'card',
+    source: 'mobile',
+    shipping_address: {
+      firstName: 'Test',
+      lastName: 'User',
+      address: '123 St',
+      city: 'Lagos',
+      state: 'Lagos',
+    },
+  });
 }
 
 describe('createOrder — variant_attributes', () => {
@@ -261,6 +295,99 @@ describe('createOrder — variant_attributes', () => {
 
     const body = getLastFetchBody();
     expect(body.items[0].image_url).toBe('https://cdn.example.com/gold.jpg');
+  });
+
+  it('forwards a trimmed voucher_token for token-only quiz voucher items', async () => {
+    await createOrderWithItems([
+      {
+        id: 'prod-1',
+        product_id: 'prod-1',
+        name: 'Quiz Voucher Item',
+        quantity: 1,
+        price: 0,
+        voucher_token: '  voucher-token-1  ',
+      },
+    ]);
+
+    const body = getLastFetchBody();
+    expect(body.items[0].voucher_token).toBe('voucher-token-1');
+    expect(body.items[0]).not.toHaveProperty('voucher_award_id');
+  });
+
+  it('rejects blank voucher_token values after trimming', async () => {
+    await expect(
+      createOrderWithItems([
+        {
+          id: 'prod-1',
+          product_id: 'prod-1',
+          name: 'Quiz Voucher Item',
+          quantity: 1,
+          price: 0,
+          voucher_token: '   ',
+        },
+      ])
+    ).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: expect.stringContaining('Voucher token'),
+    });
+
+    expect(mockFetchWithRetry).not.toHaveBeenCalled();
+  });
+
+  it('keeps voucher_award_id client-only for award-id-only quiz voucher items', async () => {
+    await createOrderWithItems([
+      {
+        id: 'prod-1',
+        product_id: 'prod-1',
+        name: 'Quiz Voucher Item',
+        quantity: 1,
+        price: 0,
+        voucher_award_id: 'voucher-award-1',
+      },
+    ]);
+
+    const body = getLastFetchBody();
+    expect(body.items[0]).not.toHaveProperty('voucher_token');
+    expect(body.items[0]).not.toHaveProperty('voucher_award_id');
+  });
+
+  it('serializes only voucher_token across mixed multi-item carts', async () => {
+    await createOrderWithItems([
+      {
+        id: 'prod-paid-1',
+        product_id: 'prod-paid-1',
+        name: 'Paid Item',
+        quantity: 1,
+        price: 720000,
+      },
+      {
+        id: 'prod-voucher-token',
+        product_id: 'prod-voucher-token',
+        name: 'Token Voucher Item',
+        quantity: 1,
+        price: 0,
+        voucher_token: 'voucher-token-2',
+        voucher_award_id: 'voucher-award-2',
+      },
+      {
+        id: 'prod-voucher-award',
+        product_id: 'prod-voucher-award',
+        name: 'Award Only Voucher Item',
+        quantity: 1,
+        price: 0,
+        voucher_award_id: 'voucher-award-3',
+      },
+    ]);
+
+    const body = getLastFetchBody();
+    expect(body.items[0]).not.toHaveProperty('voucher_token');
+    expect(body.items[1].voucher_token).toBe('voucher-token-2');
+    expect(body.items[2]).not.toHaveProperty('voucher_token');
+    expect(
+      body.items.some((item: Record<string, unknown>) =>
+        Object.hasOwn(item, 'voucher_award_id')
+      )
+    ).toBe(false);
   });
 
   it('supports guest checkout when no authenticated session is present', async () => {
@@ -596,13 +723,18 @@ describe('createOrderWithOfflineSupport — offline queue contract', () => {
   it('queues the order when createOrder encounters a NETWORK_ERROR', async () => {
     const { createOrderWithOfflineSupport } = require('./orders');
     const { NetworkError } = require('@/lib/api');
-    mockFetchWithRetry.mockRejectedValueOnce(new NetworkError('connection refused'));
+    mockFetchWithRetry.mockRejectedValueOnce(
+      new NetworkError('connection refused')
+    );
 
     const result = await createOrderWithOfflineSupport(baseRequest);
 
     expect(result.queued).toBe(true);
     const { offlineQueue } = require('@/lib/offline-queue');
-    expect(offlineQueue.enqueue).toHaveBeenCalledWith('create_order', baseRequest);
+    expect(offlineQueue.enqueue).toHaveBeenCalledWith(
+      'create_order',
+      baseRequest
+    );
   });
 
   it('re-throws TIMEOUT_ERROR without queuing to avoid duplicate orders', async () => {
@@ -610,7 +742,9 @@ describe('createOrderWithOfflineSupport — offline queue contract', () => {
     const { TimeoutError } = require('@/lib/api');
     mockFetchWithRetry.mockRejectedValueOnce(new TimeoutError('timed out'));
 
-    await expect(createOrderWithOfflineSupport(baseRequest)).rejects.toMatchObject({
+    await expect(
+      createOrderWithOfflineSupport(baseRequest)
+    ).rejects.toMatchObject({
       code: 'TIMEOUT_ERROR',
     });
 

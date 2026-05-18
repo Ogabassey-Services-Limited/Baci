@@ -30,6 +30,24 @@ export interface CartItem {
   // Device assurance support
   hasAssurance?: boolean;
   assuranceRate?: number;
+  voucher_token?: string;
+  voucher_award_id?: string;
+}
+
+function createCartLineId(
+  item: Omit<CartItem, 'id'>,
+  sequence: number
+): string {
+  // Award IDs are stable after redemption; pending awards use voucher_token,
+  // and plain products use the persisted monotonic sequence for uniqueness.
+  // createCartLineId keeps sequence inside uniquePart even with a
+  // voucherIdentifier so repeated add-to-cart actions stay collision-free.
+  const voucherIdentifier = item.voucher_award_id ?? item.voucher_token;
+  const uniquePart = voucherIdentifier
+    ? `${voucherIdentifier}::${sequence}`
+    : `cart-line::${sequence}`;
+
+  return `${item.product_id}::${item.variant_id || 'default'}::${uniquePart}`;
 }
 
 function mergeExistingCartItem(
@@ -56,6 +74,7 @@ interface CartState {
   // State
   items: CartItem[];
   isLoading: boolean;
+  lineSequence: number;
 
   // Computed (via getters)
   itemCount: () => number;
@@ -78,6 +97,10 @@ interface CartState {
   toggleAssurance: (id: string) => void;
 }
 
+export function resetCartLineSequence() {
+  useCartStore.setState({ lineSequence: 0 });
+}
+
 function areEquivalentCartAttributes(
   existingValue: string | undefined,
   incomingValue: string | undefined
@@ -96,6 +119,15 @@ function isSameCartLine(
   existingItem: CartItem,
   incomingItem: Omit<CartItem, 'id'>
 ) {
+  if (
+    existingItem.voucher_award_id ||
+    existingItem.voucher_token ||
+    incomingItem.voucher_award_id ||
+    incomingItem.voucher_token
+  ) {
+    return false;
+  }
+
   if (existingItem.product_id !== incomingItem.product_id) {
     return false;
   }
@@ -110,10 +142,7 @@ function isSameCartLine(
   if (existingVariantId || incomingVariantId) {
     return (
       areEquivalentCartAttributes(existingItem.color, incomingItem.color) &&
-      areEquivalentCartAttributes(
-        existingItem.storage,
-        incomingItem.storage
-      ) &&
+      areEquivalentCartAttributes(existingItem.storage, incomingItem.storage) &&
       areEquivalentCartAttributes(
         existingItem.condition,
         incomingItem.condition
@@ -134,6 +163,7 @@ export const useCartStore = create<CartState>()(
       // Initial state
       items: [],
       isLoading: false,
+      lineSequence: 0,
 
       // Computed values
       itemCount: () => {
@@ -163,9 +193,14 @@ export const useCartStore = create<CartState>()(
       // Add item to cart
       addItem: (item) => {
         set((state) => {
+          const itemToAdd =
+            item.voucher_token || item.voucher_award_id
+              ? { ...item, quantity: 1 }
+              : item;
+
           // Check if item already exists (same product + variant + options)
-          const existingIndex = state.items.findIndex(
-            (existingItem) => isSameCartLine(existingItem, item)
+          const existingIndex = state.items.findIndex((existingItem) =>
+            isSameCartLine(existingItem, itemToAdd)
           );
 
           if (existingIndex >= 0) {
@@ -174,19 +209,20 @@ export const useCartStore = create<CartState>()(
             const existingItem = updatedItems[existingIndex];
             updatedItems[existingIndex] = mergeExistingCartItem(
               existingItem,
-              item
+              itemToAdd
             );
 
             return { items: updatedItems };
           }
 
           // Add new item
+          const lineSequence = state.lineSequence + 1;
           const newItem: CartItem = {
-            ...item,
-            id: `${item.product_id}::${item.variant_id || 'default'}::${Date.now()}`,
+            ...itemToAdd,
+            id: createCartLineId(itemToAdd, lineSequence),
           };
 
-          return { items: [...state.items, newItem] };
+          return { items: [...state.items, newItem], lineSequence };
         });
       },
 
@@ -221,7 +257,7 @@ export const useCartStore = create<CartState>()(
 
       // Clear all items
       clearCart: () => {
-        set({ items: [] });
+        set({ items: [], lineSequence: 0 });
       },
 
       // Get specific item
@@ -309,7 +345,10 @@ export const useCartStore = create<CartState>()(
     {
       name: 'cart-storage',
       storage: createJSONStorage(() => syncStorage),
-      partialize: (state) => ({ items: state.items }), // Only persist items
+      partialize: (state) => ({
+        items: state.items,
+        lineSequence: state.lineSequence,
+      }),
     }
   )
 );
