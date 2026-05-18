@@ -152,7 +152,9 @@ export async function POST(request: NextRequest) {
       variants = data || [];
     }
 
-    const productMap = new Map(products.map((product) => [String(product.id), product]));
+    const productMap = new Map(
+      products.map((product) => [String(product.id), product])
+    );
     const variantMap = new Map(
       variants.map((variant) => [String(variant.id), variant])
     );

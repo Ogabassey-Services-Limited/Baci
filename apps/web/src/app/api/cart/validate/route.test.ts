@@ -199,7 +199,9 @@ describe('POST /api/cart/validate', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.invalidProductIds).toEqual([`${PRODUCT_ID}::${BAD_VARIANT_ID}`]);
+    expect(body.invalidProductIds).toEqual([
+      `${PRODUCT_ID}::${BAD_VARIANT_ID}`,
+    ]);
     expect(body.priceChanges).toEqual([
       {
         id: PRODUCT_ID,
@@ -258,7 +260,9 @@ describe('POST /api/cart/validate', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.invalidProductIds).toEqual([`${OTHER_PRODUCT_ID}::${VARIANT_ID}`]);
+    expect(body.invalidProductIds).toEqual([
+      `${OTHER_PRODUCT_ID}::${VARIANT_ID}`,
+    ]);
     expect(body.priceChanges).toEqual([
       {
         id: PRODUCT_ID,
