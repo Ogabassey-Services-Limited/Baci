@@ -244,6 +244,38 @@ describe('CostPriceEditorModal', () => {
     );
   });
 
+  it('resets the transaction date picker after closing and reopening', () => {
+    const props = {
+      colors: LIGHT_COLORS,
+      costPriceInput: '₦1,000',
+      currencySymbol: '₦',
+      dateInput: '2026-05-12',
+      onChangeCostPrice: vi.fn(),
+      onChangeDate: vi.fn(),
+      onChangeSupplier: vi.fn(),
+      onClose: vi.fn(),
+      onSave: vi.fn(),
+      pending: false,
+      saveError: null,
+      selectedItem,
+      supplierOptions: [],
+      supplierInput: '',
+      visible: true,
+    };
+
+    const { rerender } = render(<CostPriceEditorModal {...props} />);
+
+    fireEvent.click(screen.getByLabelText('Open transaction date picker'));
+    expect(screen.getByLabelText('Mock transaction date picker')).toBeInTheDocument();
+
+    rerender(<CostPriceEditorModal {...props} visible={false} />);
+    rerender(<CostPriceEditorModal {...props} visible />);
+
+    expect(
+      screen.queryByLabelText('Mock transaction date picker')
+    ).not.toBeInTheDocument();
+  });
+
   it('shows matching previous supplier options while typing', () => {
     const onChangeSupplier = vi.fn();
 
@@ -273,6 +305,38 @@ describe('CostPriceEditorModal', () => {
 
     expect(onChangeSupplier).toHaveBeenCalledWith('Slot wholesale');
     expect(screen.queryByText('Main supplier')).not.toBeInTheDocument();
+  });
+
+  it('disables supplier suggestions while pending', () => {
+    const onChangeSupplier = vi.fn();
+
+    render(
+      <CostPriceEditorModal
+        colors={LIGHT_COLORS}
+        costPriceInput="₦1,000"
+        currencySymbol="₦"
+        dateInput="2026-05-12"
+        onChangeCostPrice={vi.fn()}
+        onChangeDate={vi.fn()}
+        onChangeSupplier={onChangeSupplier}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+        pending
+        saveError={null}
+        selectedItem={selectedItem}
+        supplierOptions={['Slot wholesale']}
+        supplierInput="sl"
+        visible
+      />
+    );
+
+    const suggestion = screen.getByRole('button', {
+      name: /select supplier slot wholesale/i,
+    });
+
+    expect(suggestion).toBeDisabled();
+    fireEvent.click(suggestion);
+    expect(onChangeSupplier).not.toHaveBeenCalled();
   });
 
   it('saves and cancels from the action buttons', () => {

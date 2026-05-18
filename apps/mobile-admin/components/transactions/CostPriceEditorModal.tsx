@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -67,10 +67,21 @@ export function CostPriceEditorModal({
         .slice(0, 5)
     : [];
 
+  useEffect(() => {
+    if (!visible) {
+      setShowDatePicker(false);
+    }
+  }, [visible]);
+
+  const handleClose = () => {
+    setShowDatePicker(false);
+    onClose();
+  };
+
   return (
     <BottomSheetModal
       accessibilityLabel="Dismiss cost price editor"
-      onDismiss={onClose}
+      onDismiss={handleClose}
       visible={visible}
     >
       <View style={styles.modalHeader}>
@@ -86,7 +97,7 @@ export function CostPriceEditorModal({
           accessibilityLabel="Close editor"
           accessibilityRole="button"
           disabled={pending}
-          onPress={onClose}
+          onPress={handleClose}
           style={[
             styles.modalCloseButton,
             {
@@ -176,6 +187,7 @@ export function CostPriceEditorModal({
               maximumDate={new Date()}
               mode="date"
               onChange={(event, selectedDate) => {
+                // Android uses a dismissible dialog; iOS keeps the picker inline.
                 if (Platform.OS === 'android') {
                   setShowDatePicker(false);
                   if (event.type === 'dismissed') {
@@ -219,13 +231,20 @@ export function CostPriceEditorModal({
                 <Pressable
                   accessibilityLabel={`Select supplier ${option}`}
                   accessibilityRole="button"
+                  accessibilityState={{ disabled: pending }}
+                  disabled={pending}
                   key={option}
-                  onPress={() => onChangeSupplier(option)}
+                  onPress={() => {
+                    if (!pending) {
+                      onChangeSupplier(option);
+                    }
+                  }}
                   style={[
                     styles.supplierSuggestionButton,
                     {
                       backgroundColor: colors.card,
                       borderColor: colors.border,
+                      opacity: pending ? 0.5 : 1,
                     },
                   ]}
                 >
@@ -250,7 +269,7 @@ export function CostPriceEditorModal({
       ) : null}
       <View style={styles.modalActions}>
         <Pressable
-          onPress={onClose}
+          onPress={handleClose}
           disabled={pending}
           accessibilityRole="button"
           accessibilityLabel="Cancel cost price update"

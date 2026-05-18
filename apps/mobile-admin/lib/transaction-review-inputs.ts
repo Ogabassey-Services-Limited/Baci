@@ -20,11 +20,11 @@ function getCostPriceDecimalIndex(value: string) {
   const digitsBeforeComma = countDigits(value.slice(0, commaIndex));
   const digitsAfterComma = countDigits(value.slice(commaIndex + 1));
 
-  if (
-    digitsBeforeComma > 0 &&
-    digitsAfterComma > 0 &&
-    digitsAfterComma !== 3
-  ) {
+  if (digitsBeforeComma === 0 && digitsAfterComma > 0) {
+    return commaIndex;
+  }
+
+  if (digitsBeforeComma > 0 && digitsAfterComma > 0 && digitsAfterComma !== 3) {
     return commaIndex;
   }
 

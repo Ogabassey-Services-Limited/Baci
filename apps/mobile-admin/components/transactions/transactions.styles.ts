@@ -145,9 +145,9 @@ export const styles = StyleSheet.create({
   orderCloseButton: {
     alignItems: 'center',
     borderRadius: RADIUS.full,
-    height: 32,
+    height: SPACING.touchTarget,
     justifyContent: 'center',
-    width: 32,
+    width: SPACING.touchTarget,
   },
   orderCustomerName: {
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
