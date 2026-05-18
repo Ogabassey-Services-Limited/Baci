@@ -11,15 +11,15 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { OfflineEmptyState, OfflineNotice } from '@/components/OfflineNotice';
+import { OrdersListEmptyState } from '@/components/orders/OrdersListEmptyState';
+import { OrdersListHeader } from '@/components/orders/OrdersListHeader';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
@@ -312,153 +312,6 @@ export default function OrdersScreen() {
     router.replace('/account');
   };
 
-  const renderListHeader = () => (
-    <View
-      style={[
-        styles.heroCard,
-        { backgroundColor: colors.card, borderColor: colors.border },
-      ]}
-    >
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.filterRow}
-      >
-        {orderFilters.map((filter) => {
-          const isActive = selectedFilter === filter.key;
-
-          return (
-            <TouchableOpacity
-              key={filter.key}
-              onPress={() => setSelectedFilter(filter.key)}
-              style={[
-                styles.filterChip,
-                {
-                  backgroundColor: isActive ? BRAND.primary : colors.muted,
-                  borderColor: isActive ? BRAND.primary : colors.border,
-                },
-              ]}
-              activeOpacity={0.85}
-              accessibilityRole="button"
-              accessibilityState={{ selected: isActive }}
-              accessibilityLabel={`Filter orders by ${filter.label}`}
-            >
-              <Text
-                style={[
-                  styles.filterLabel,
-                  { color: isActive ? '#FFF' : colors.textSecondary },
-                ]}
-              >
-                {filter.label}
-              </Text>
-              <Text
-                style={[
-                  styles.filterCount,
-                  { color: isActive ? '#FFF' : colors.text },
-                ]}
-              >
-                {filter.count}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-
-      <View
-        style={[
-          styles.searchContainer,
-          { backgroundColor: colors.muted, borderColor: colors.border },
-        ]}
-      >
-        <Ionicons
-          name="search-outline"
-          size={20}
-          color={colors.textSecondary}
-        />
-        <TextInput
-          style={[styles.searchInput, { color: colors.text }]}
-          placeholder="Search orders, items, or status"
-          placeholderTextColor={colors.placeholder}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          autoCapitalize="none"
-          autoCorrect={false}
-          returnKeyType="search"
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity
-            onPress={() => setSearchQuery('')}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons
-              name="close-circle"
-              size={20}
-              color={colors.textSecondary}
-            />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {searchQuery.length > 0 && (
-        <Text style={[styles.searchResults, { color: colors.textSecondary }]}>
-          {filteredOrders.length}{' '}
-          {filteredOrders.length === 1 ? 'match' : 'matches'}
-        </Text>
-      )}
-    </View>
-  );
-
-  const renderEmptyState = () => {
-    // Show different empty states based on context
-    if (orders.length > 0 && filteredOrders.length === 0) {
-      // Has orders but search returned no results
-      return (
-        <View style={styles.emptyState}>
-          <Ionicons
-            name="search-outline"
-            size={64}
-            color={colors.textSecondary}
-          />
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            No matching orders
-          </Text>
-          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            Try searching with a different term
-          </Text>
-          <TouchableOpacity
-            style={[styles.shopButton, { backgroundColor: BRAND.primary }]}
-            onPress={() => setSearchQuery('')}
-          >
-            <Text style={styles.shopButtonText}>Clear Search</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    }
-
-    // No orders at all
-    return (
-      <View style={styles.emptyState}>
-        <Ionicons
-          name="receipt-outline"
-          size={64}
-          color={colors.textSecondary}
-        />
-        <Text style={[styles.emptyTitle, { color: colors.text }]}>
-          No orders yet
-        </Text>
-        <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-          When you place orders, they'll appear here
-        </Text>
-        <TouchableOpacity
-          style={[styles.shopButton, { backgroundColor: BRAND.primary }]}
-          onPress={() => router.push('/')}
-        >
-          <Text style={styles.shopButtonText}>Start Shopping</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
   if (!user) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -594,8 +447,27 @@ export default function OrdersScreen() {
             styles.listContent,
             orders.length === 0 && styles.emptyListContent,
           ]}
-          ListEmptyComponent={renderEmptyState}
-          ListHeaderComponent={orders.length > 0 ? renderListHeader : null}
+          ListEmptyComponent={
+            <OrdersListEmptyState
+              colors={colors}
+              hasOrders={orders.length > 0}
+              onClearSearch={() => setSearchQuery('')}
+              onStartShopping={() => router.push('/')}
+            />
+          }
+          ListHeaderComponent={
+            orders.length > 0 ? (
+              <OrdersListHeader
+                colors={colors}
+                orderFilters={orderFilters}
+                selectedFilter={selectedFilter}
+                onSelectFilter={setSelectedFilter}
+                searchQuery={searchQuery}
+                onSearchQueryChange={setSearchQuery}
+                filteredOrdersCount={filteredOrders.length}
+              />
+            ) : null
+          }
           refreshControl={
             <RefreshControl
               refreshing={isRefreshing}
@@ -750,34 +622,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
-  heroCard: {
-    padding: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    marginBottom: 14,
-  },
-  filterRow: {
-    gap: 10,
-    paddingRight: 4,
-  },
-  filterChip: {
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  filterLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  filterCount: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
   emptyState: {
     flex: 1,
     justifyContent: 'center',
@@ -813,24 +657,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     marginTop: 8,
-  },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 10,
-    marginTop: 18,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    paddingVertical: 0,
-  },
-  searchResults: {
-    fontSize: 13,
-    marginTop: 10,
   },
 });
