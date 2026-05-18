@@ -409,6 +409,21 @@ describe('TransactionsScreen', () => {
     expect(mocks.mutateAsync).not.toHaveBeenCalled();
   });
 
+  it('shows a validation error before saving a negative cost price', async () => {
+    render(<TransactionsScreen />);
+
+    fireEvent.click(screen.getByText('Edit ORD-1'));
+    fireEvent.change(screen.getByLabelText('Cost price input'), {
+      target: { value: '-1200' },
+    });
+    fireEvent.click(screen.getByText('Save cost price'));
+
+    expect(
+      await screen.findByText('Enter a valid cost price (0 or greater).')
+    ).toBeInTheDocument();
+    expect(mocks.mutateAsync).not.toHaveBeenCalled();
+  });
+
   it('saves a valid cost price update', async () => {
     const expectedTransactionDateIso = buildTransactionDateIso('2026-04-12');
 
