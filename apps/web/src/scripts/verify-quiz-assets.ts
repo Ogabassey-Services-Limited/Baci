@@ -45,6 +45,19 @@ function resolveRelativePath(root: string, relativePath: string): string | null 
   return resolved;
 }
 
+function resolveManifestPath(repoRoot: string, manifestPath?: string): string {
+  if (manifestPath === undefined) {
+    return path.resolve(repoRoot, DEFAULT_MANIFEST_PATH);
+  }
+
+  const resolved = resolveRelativePath(repoRoot, manifestPath);
+  if (!resolved) {
+    throw new Error(`Invalid quiz asset manifest path: ${manifestPath}`);
+  }
+
+  return resolved;
+}
+
 function toRepoPath(repoRoot: string, filePath: string): string {
   return path.relative(repoRoot, filePath).split(path.sep).join('/');
 }
@@ -147,11 +160,7 @@ export async function writeQuizAssetManifest(
   options: GenerateQuizAssetManifestOptions & { manifestPath?: string } = {}
 ) {
   const repoRoot = await resolveRepoRoot(options.repoRoot ?? process.cwd());
-  const manifestPath =
-    resolveRelativePath(
-      repoRoot,
-      options.manifestPath ?? DEFAULT_MANIFEST_PATH
-    ) ?? path.resolve(repoRoot, DEFAULT_MANIFEST_PATH);
+  const manifestPath = resolveManifestPath(repoRoot, options.manifestPath);
   const manifest = await generateQuizAssetManifest({
     generatedAt: options.generatedAt,
     repoRoot,
@@ -232,11 +241,7 @@ export async function verifyQuizAssets(
   options: VerifyQuizAssetsOptions = {}
 ): Promise<VerifyQuizAssetsResult> {
   const repoRoot = await resolveRepoRoot(options.repoRoot ?? process.cwd());
-  const manifestPath =
-    resolveRelativePath(
-      repoRoot,
-      options.manifestPath ?? DEFAULT_MANIFEST_PATH
-    ) ?? path.resolve(repoRoot, DEFAULT_MANIFEST_PATH);
+  const manifestPath = resolveManifestPath(repoRoot, options.manifestPath);
   const errors: string[] = [];
   const manifest = await readManifest(manifestPath, errors);
 

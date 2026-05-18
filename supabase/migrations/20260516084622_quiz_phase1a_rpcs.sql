@@ -470,11 +470,21 @@ BEGIN
     RAISE EXCEPTION 'quiz prize finalization requires route proof and production approval' USING ERRCODE = 'QZ020';
   END IF;
 
-  -- Phase 1a records the privileged boundary only; Phase 1b computes winners.
+  -- Phase 1a records the privileged boundary only once; Phase 1b computes winners.
+  UPDATE public.quiz_events
+  SET award_finalized_at = pg_catalog.now(),
+      updated_at = pg_catalog.now()
+  WHERE id = p_event_id
+    AND award_finalized_at IS NULL;
+
+  IF NOT FOUND THEN
+    RETURN 0;
+  END IF;
+
   INSERT INTO public.leaderboard_refresh_log (event_id, refresh_reason, status, details)
   VALUES (p_event_id, 'phase1a_award_finalize_stub', 'queued', pg_catalog.jsonb_build_object('proof_id', p_route_proof->>'proof_id'));
 
-  RETURN 0;
+  RETURN 1;
 END;
 $$;
 

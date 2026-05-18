@@ -237,7 +237,10 @@ describe('POST /api/orders — quiz voucher guard', () => {
     });
   });
 
-  it('rejects quiz voucher orders in Phase 1a before creating an order', async () => {
+  it.each([
+    'voucher_token',
+    'voucherToken',
+  ] as const)('rejects quiz voucher orders with %s in Phase 1a before creating an order', async (voucherField) => {
     vi.stubEnv('QUIZ_PHASE', '1a');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', '');
     const supabase = buildMockSupabase();
@@ -254,7 +257,7 @@ describe('POST /api/orders — quiz voucher guard', () => {
           {
             ...baseOrderPayload.items[0],
             price: 0,
-            voucher_token: 'quiz-voucher-token',
+            [voucherField]: ' quiz-voucher-token ',
           },
         ],
       }),

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { authenticateApiRequest } from '@/lib/api-auth';
+import { type AuthResult, authenticateApiRequest } from '@/lib/api-auth';
 import { createClient } from '@/lib/supabase/server';
 import { requireQuizUser } from './_shared/route-helpers';
 
@@ -23,11 +23,13 @@ describe('quiz route mobile auth contract', () => {
     const request = new NextRequest('http://localhost/api/quiz/events', {
       headers: { Authorization: 'Bearer mobile-token' },
     });
-    const scopedSupabase = { rpc: vi.fn() };
+    const scopedSupabase = {
+      rpc: vi.fn(),
+    } as unknown as NonNullable<AuthResult['supabase']>;
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       error: null,
-      supabase: scopedSupabase as never,
-      user: { id: USER_ID } as never,
+      supabase: scopedSupabase,
+      user: { id: USER_ID } as NonNullable<AuthResult['user']>,
     });
 
     const result = await requireQuizUser(request);
@@ -45,9 +47,9 @@ describe('quiz route mobile auth contract', () => {
     });
     vi.mocked(authenticateApiRequest).mockResolvedValue({
       error: 'Unauthorized',
-      supabase: undefined,
+      supabase: null,
       user: null,
-    } as never);
+    });
 
     const result = await requireQuizUser(request);
 

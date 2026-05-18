@@ -16,6 +16,15 @@ describe('wcag contrast helpers', () => {
     expect(() => parseHexColor('rgb(255,0,0)')).toThrow(
       'Unsupported contrast test color'
     );
+    expect(() => parseHexColor('#fff')).toThrow(
+      'Unsupported contrast test color'
+    );
+    expect(() => parseHexColor('#ffffff80')).toThrow(
+      'Unsupported contrast test color'
+    );
+    expect(() => parseHexColor('red')).toThrow(
+      'Unsupported contrast test color'
+    );
   });
 
   it('uses the linear branch at the exact WCAG luminance threshold', () => {

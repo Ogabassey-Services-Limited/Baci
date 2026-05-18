@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import type { z } from 'zod';
 import { resolveApiBaseUrl } from '@/lib/api-url';
+import { CONFIG } from '@/lib/config';
 import { supabase } from '@/lib/supabase';
 import {
   quizAttemptSchema,
@@ -33,6 +34,12 @@ export { QuizServiceError };
 
 const QUIZ_AUTH_RETRY_DELAY_MS = 300;
 
+function getOptionalString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
 function getApiBaseUrl(configuredUrl?: string): string {
   const extra = getExpoExtraConfig(Constants.expoConfig?.extra);
   return resolveApiBaseUrl(configuredUrl ?? extra?.apiBaseUrl ?? extra?.apiUrl);
@@ -48,24 +55,24 @@ function getExpoExtraConfig(value: unknown):
   | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const extra = value as Record<string, unknown>;
-  const apiBaseUrl =
-    typeof extra.apiBaseUrl === 'string' ? extra.apiBaseUrl : undefined;
-  const apiUrl = typeof extra.apiUrl === 'string' ? extra.apiUrl : undefined;
-  const merchantId =
-    typeof extra.merchantId === 'string' ? extra.merchantId : undefined;
-  const merchantSlug =
-    typeof extra.merchantSlug === 'string' ? extra.merchantSlug : undefined;
+  const apiBaseUrl = getOptionalString(extra.apiBaseUrl);
+  const apiUrl = getOptionalString(extra.apiUrl);
+  const merchantId = getOptionalString(extra.merchantId);
+  const merchantSlug = getOptionalString(extra.merchantSlug);
   return { apiBaseUrl, apiUrl, merchantId, merchantSlug };
 }
 
 function getQuizEventsPath(): string {
   const extra = getExpoExtraConfig(Constants.expoConfig?.extra);
   const params = new URLSearchParams();
+  const merchantId = extra?.merchantId ?? getOptionalString(CONFIG.MERCHANT_ID);
+  const merchantSlug =
+    extra?.merchantSlug ?? getOptionalString(CONFIG.MERCHANT_SLUG);
 
-  if (extra?.merchantId) {
-    params.set('merchantId', extra.merchantId);
-  } else if (extra?.merchantSlug) {
-    params.set('merchantSlug', extra.merchantSlug);
+  if (merchantId) {
+    params.set('merchantId', merchantId);
+  } else if (merchantSlug) {
+    params.set('merchantSlug', merchantSlug);
   }
 
   const query = params.toString();

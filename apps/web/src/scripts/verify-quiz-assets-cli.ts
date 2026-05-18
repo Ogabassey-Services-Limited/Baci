@@ -4,7 +4,7 @@ import {
   verifyQuizAssets,
   type VerifyQuizAssetsOptions,
   writeQuizAssetManifest,
-} from './verify-quiz-assets';
+} from '@/scripts/verify-quiz-assets';
 
 export function parseArgs(
   argv: readonly string[]

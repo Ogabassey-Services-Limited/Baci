@@ -213,12 +213,52 @@ describe('orderCreateSchema', () => {
           ...validOrder.items[0],
           voucher_token: '  <strong>quiz-token</strong>  ',
         },
+        {
+          ...validOrder.items[0],
+          productId: 'prod-2',
+          voucherToken: '  <strong>camel-token</strong>  ',
+        },
       ],
     });
 
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.items[0].voucher_token).toBe('quiz-token');
+      expect(result.data.items[1].voucherToken).toBe('camel-token');
+    }
+  });
+
+  it('rejects mismatched voucher token aliases', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      items: [
+        {
+          ...validOrder.items[0],
+          voucher_token: 'quiz-token',
+          voucherToken: 'other-token',
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts matching voucher token aliases', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      items: [
+        {
+          ...validOrder.items[0],
+          voucher_token: '  quiz-token  ',
+          voucherToken: '<strong>quiz-token</strong>',
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items[0].voucher_token).toBe('quiz-token');
+      expect(result.data.items[0].voucherToken).toBe('quiz-token');
     }
   });
 

@@ -14,45 +14,28 @@ import { useTheme } from '@/hooks/useTheme';
 import { createLogger } from '@/lib/logger';
 import {
   fetchQuizEvents,
-  type QuizEvent,
   type QuizIntegrityTier,
   startQuizAttempt,
   submitQuizAnswer,
 } from '@/services/quiz';
 import { useQuizStore } from '@/stores/quiz-store';
 import { createQuizStyles } from './QuizScreen.styles';
+import {
+  formatPointCount,
+  formatTimeRange,
+  getQuizErrorMessage,
+} from './QuizScreen.utils';
 
 const log = createLogger('Quiz');
+
+const QUIZ_COPY = {
+  actionFailed: 'Quiz action failed',
+  timeNotSet: 'Time not set',
+} as const;
 
 interface QuizScreenProps {
   integrityTier?: QuizIntegrityTier;
   locale?: string;
-}
-
-function formatTimeRange(event: QuizEvent, locale?: string): string {
-  if (!event.startsAt || !event.endsAt) {
-    return 'Time not set';
-  }
-
-  const resolvedLocale =
-    locale || Intl.DateTimeFormat().resolvedOptions().locale;
-  const start = new Date(event.startsAt).toLocaleTimeString(resolvedLocale, {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  const end = new Date(event.endsAt).toLocaleTimeString(resolvedLocale, {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  return `${start} - ${end}`;
-}
-
-function getQuizErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Quiz action failed';
-}
-
-function formatPointCount(points: number, singular = 'point'): string {
-  return `${points} ${points === 1 ? singular : `${singular}s`}`;
 }
 
 export function QuizScreen({
@@ -82,7 +65,7 @@ export function QuizScreen({
       loadEvents(fetchQuizEvents).catch((error) => {
         log.warn('Failed to load quiz events', error);
         if (mounted) {
-          setError(getQuizErrorMessage(error));
+          setError(getQuizErrorMessage(error, QUIZ_COPY.actionFailed));
         }
       });
     }
@@ -98,7 +81,7 @@ export function QuizScreen({
       );
     } catch (error) {
       log.warn('Failed to start quiz attempt', error);
-      setError(getQuizErrorMessage(error));
+      setError(getQuizErrorMessage(error, QUIZ_COPY.actionFailed));
     }
   };
 
@@ -117,7 +100,7 @@ export function QuizScreen({
       );
     } catch (error) {
       log.warn('Failed to submit quiz answer', error);
-      setError(getQuizErrorMessage(error));
+      setError(getQuizErrorMessage(error, QUIZ_COPY.actionFailed));
     }
   };
 
@@ -193,7 +176,7 @@ export function QuizScreen({
                 <Text style={styles.eventPrize}>{event.prizeName}</Text>
                 <Text style={styles.eventMeta}>
                   {event.questionCount} questions,{' '}
-                  {formatTimeRange(event, locale)},{' '}
+                  {formatTimeRange(event, locale, QUIZ_COPY.timeNotSet)},{' '}
                   {formatPointCount(EXAM_PASS_POINTS_COST, 'loyalty point')}{' '}
                   exam pass
                 </Text>

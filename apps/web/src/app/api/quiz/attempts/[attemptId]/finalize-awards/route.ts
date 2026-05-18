@@ -1,9 +1,4 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { logger } from '@/lib/logger';
-import {
-  finalizeQuizAwardsSchema,
-  quizAttemptParamsSchema,
-} from '@/schemas/quiz';
 import {
   createRouteProof,
   enforceEventPrizeGuard,
@@ -13,7 +8,12 @@ import {
   requireQuizCsrf,
   requireQuizUser,
   rpcErrorResponse,
-} from '../../../_shared/route-helpers';
+} from '@/app/api/quiz/_shared/route-helpers';
+import { logger } from '@/lib/logger';
+import {
+  finalizeQuizAwardsSchema,
+  quizAttemptParamsSchema,
+} from '@/schemas/quiz';
 
 export async function POST(
   request: NextRequest,

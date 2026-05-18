@@ -89,6 +89,7 @@ BEGIN
       'quiz_awards',
       'quiz_attempt_signal_flags',
       'quiz_integrity_challenges',
+      'quiz_proof_validation_failures',
       'quiz_compliance_tracker',
       'leaderboard_refresh_log'
     )

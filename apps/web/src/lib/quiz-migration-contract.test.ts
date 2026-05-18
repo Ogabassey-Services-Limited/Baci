@@ -189,6 +189,25 @@ describe('quiz migration contracts', () => {
     );
   });
 
+  it('makes event award finalization idempotent before queueing work', () => {
+    const eventFinalizerSql = rpcSql.match(
+      /CREATE OR REPLACE FUNCTION public\.finalize_quiz_event_awards[\s\S]*?\$\$;/i
+    )?.[0];
+
+    expect(eventFinalizerSql).toBeDefined();
+    expect(eventFinalizerSql).toMatch(
+      /UPDATE\s+public\.quiz_events[\s\S]*award_finalized_at\s*=\s*pg_catalog\.now\(\)[\s\S]*WHERE\s+id\s*=\s*p_event_id[\s\S]*award_finalized_at\s+IS\s+NULL/is
+    );
+    expect(eventFinalizerSql).toMatch(/IF\s+NOT\s+FOUND\s+THEN\s+RETURN\s+0/is);
+    expect(
+      eventFinalizerSql?.indexOf('UPDATE public.quiz_events')
+    ).toBeLessThan(
+      eventFinalizerSql?.indexOf(
+        'INSERT INTO public.leaderboard_refresh_log'
+      ) ?? -1
+    );
+  });
+
   it('scopes prize claim customer lookups through the award event merchant', () => {
     const grandClaimSql = rpcSql.match(
       /CREATE OR REPLACE FUNCTION public\.claim_quiz_grand_prize[\s\S]*?\$\$;/i

@@ -1,4 +1,5 @@
 import {
+  afterAll,
   afterEach,
   beforeEach,
   describe,
@@ -21,6 +22,7 @@ type MockUserResult = {
 const mockGetSession = jest.fn<() => Promise<MockSessionResult>>();
 const mockGetUser = jest.fn<(token?: string) => Promise<MockUserResult>>();
 
+const originalFetch = global.fetch;
 global.fetch = mockFetch;
 
 jest.mock('expo-constants', () => ({
@@ -35,6 +37,13 @@ jest.mock('expo-constants', () => ({
   },
 }));
 
+jest.mock('@/lib/config', () => ({
+  CONFIG: {
+    MERCHANT_ID: '',
+    MERCHANT_SLUG: 'ogabassey',
+  },
+}));
+
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
@@ -44,14 +53,27 @@ jest.mock('@/lib/supabase', () => ({
   },
 }));
 
+const mockExpoConstants = require('expo-constants').default as {
+  expoConfig?: { extra?: Record<string, unknown> };
+};
 const { fetchQuizEvents, startQuizAttempt } =
   require('./quiz') as typeof import('./quiz');
 
 describe('quiz service', () => {
+  afterAll(() => {
+    global.fetch = originalFetch;
+  });
+
   beforeEach(() => {
     mockFetch.mockReset();
     mockGetSession.mockReset();
     mockGetUser.mockReset();
+    mockExpoConstants.expoConfig = {
+      extra: {
+        merchantId: 'merchant-1',
+        merchantSlug: 'ogabassey',
+      },
+    };
     mockGetSession.mockResolvedValue({
       data: { session: { access_token: 'token-123' } },
     });
@@ -106,6 +128,21 @@ describe('quiz service', () => {
         }),
         method: 'GET',
       })
+    );
+  });
+
+  it('falls back to the configured merchant slug when Expo merchant context is missing', async () => {
+    mockExpoConstants.expoConfig = { extra: {} };
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ events: [] }), { status: 200 })
+    );
+
+    await expect(
+      fetchQuizEvents({ baseUrl: 'https://example.com' })
+    ).resolves.toEqual([]);
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://example.com/api/quiz/events?merchantSlug=ogabassey',
+      expect.objectContaining({ method: 'GET' })
     );
   });
 

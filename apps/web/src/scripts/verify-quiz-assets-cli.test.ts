@@ -1,8 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { verifyQuizAssets, writeQuizAssetManifest } from './verify-quiz-assets';
-import { parseArgs, runVerifyQuizAssetsCli } from './verify-quiz-assets-cli';
+import {
+  verifyQuizAssets,
+  writeQuizAssetManifest,
+} from '@/scripts/verify-quiz-assets';
+import {
+  parseArgs,
+  runVerifyQuizAssetsCli,
+} from '@/scripts/verify-quiz-assets-cli';
 
-vi.mock('./verify-quiz-assets', () => ({
+vi.mock('@/scripts/verify-quiz-assets', () => ({
   verifyQuizAssets: vi.fn(),
   writeQuizAssetManifest: vi.fn(),
 }));
