@@ -159,13 +159,16 @@ describe('AddressesScreen', () => {
       expect(mockStorefrontScreenShell).toHaveBeenCalled();
     });
 
+    await waitFor(() => {
+      expect(mockGetListContentStyle).toHaveBeenCalledWith({
+        includeBottomInset: false,
+        paddingBottom: ADDRESS_LIST_BOTTOM_PADDING,
+      });
+    });
+
     const shellProps = mockStorefrontScreenShell.mock.calls[0]?.[0];
 
     expect(shellProps?.edges).toEqual(['bottom']);
-    expect(mockGetListContentStyle).toHaveBeenCalledWith({
-      includeBottomInset: false,
-      paddingBottom: ADDRESS_LIST_BOTTOM_PADDING,
-    });
   });
 
   it('shows the floating add button when saved addresses exist', async () => {
