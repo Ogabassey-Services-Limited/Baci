@@ -24,6 +24,7 @@
   "components/staff/BranchModal.tsx",
   "components/staff/StaffAccountModal.tsx",
   "components/tax/StatePickerModal.tsx",
+  "components/transactions/CostPriceEditorModal.tsx",
   "components/ui/AppKeyboardContainer.tsx",
   "components/ui/KeyboardAwareModalContainer.tsx",
   "components/ui/ReceiptPreviewModal.tsx",
