@@ -1,9 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  makeOrder,
-  makeOrderItemQueryData,
-} from './order-export.test-helpers';
 import { exportOrderReportPdf } from './exportOrderReportPdf';
+import { makeOrder, makeOrderItemQueryData } from './order-export.test-helpers';
 
 const {
   mockIn,
@@ -153,9 +150,7 @@ describe('exportOrderReportPdf', () => {
     expect(mockIn.mock.calls[0][1]).toHaveLength(50);
     expect(mockIn.mock.calls[1][1]).toHaveLength(50);
     expect(mockIn.mock.calls[2][1]).toEqual(['order-101']);
-    expect(mockPrintToFileAsync.mock.calls[0][0].html).toContain(
-      'Product 101'
-    );
+    expect(mockPrintToFileAsync.mock.calls[0][0].html).toContain('Product 101');
   });
 
   it('throws when the sharing module is unavailable', async () => {

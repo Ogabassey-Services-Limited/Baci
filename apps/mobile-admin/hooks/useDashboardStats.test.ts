@@ -398,8 +398,7 @@ describe('fetchTopProducts', () => {
     expect(
       supabaseMock.chains.flatMap((chain) =>
         chain.calls.filter(
-          (call) =>
-            call.method === 'eq' && call.args[0] === 'orders.branch_id'
+          (call) => call.method === 'eq' && call.args[0] === 'orders.branch_id'
         )
       )
     ).toEqual([{ method: 'eq', args: ['orders.branch_id', 'branch-1'] }]);

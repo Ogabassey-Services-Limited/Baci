@@ -501,8 +501,7 @@ export async function fetchTopProducts(
       'orders.branch_id'
     );
 
-    const { data: orderItems, error: orderItemsError } =
-      await orderItemsQuery;
+    const { data: orderItems, error: orderItemsError } = await orderItemsQuery;
 
     if (orderItemsError) {
       throw new Error(

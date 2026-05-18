@@ -15,9 +15,7 @@ interface OrderReportStatsPanelProps {
   stats: OrderReportStats;
 }
 
-export function OrderReportStatsPanel({
-  stats,
-}: OrderReportStatsPanelProps) {
+export function OrderReportStatsPanel({ stats }: OrderReportStatsPanelProps) {
   const { colors } = useTheme();
 
   return (
@@ -68,7 +66,8 @@ export function OrderReportStatsPanel({
       <View style={[styles.infoBox, { backgroundColor: colors.infoLight }]}>
         <Ionicons name="information-circle" size={20} color={colors.info} />
         <Text style={[styles.infoText, { color: colors.info }]}>
-          Exporting will capture all {stats.totalOrders} currently loaded orders.
+          Exporting will capture all {stats.totalOrders} currently loaded
+          orders.
         </Text>
       </View>
     </>

@@ -154,9 +154,11 @@ describe('fetchOrderById staff metadata', () => {
   });
 
   it('logs profile lookup errors but still resolves the order', async () => {
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {
-      // Silence expected log-and-skip auxiliary lookup errors.
-    });
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {
+        // Silence expected log-and-skip auxiliary lookup errors.
+      });
 
     try {
       supabaseMock.setTableResult('profiles', {
@@ -178,9 +180,11 @@ describe('fetchOrderById staff metadata', () => {
   });
 
   it('logs staff member lookup errors but still resolves the order', async () => {
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {
-      // Silence expected log-and-skip auxiliary lookup errors.
-    });
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {
+        // Silence expected log-and-skip auxiliary lookup errors.
+      });
 
     try {
       supabaseMock.setTableResult('staff_members', {
@@ -202,9 +206,11 @@ describe('fetchOrderById staff metadata', () => {
   });
 
   it('logs terminal lookup errors but still resolves the order', async () => {
-    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {
-      // Silence expected log-and-skip auxiliary lookup errors.
-    });
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {
+        // Silence expected log-and-skip auxiliary lookup errors.
+      });
 
     try {
       supabaseMock.setTableResult('staff_members', {

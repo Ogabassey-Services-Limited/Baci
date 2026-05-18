@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Text, View } from 'react-native';
-import type { ThemeColors, ThemeShadows } from '@/constants/theme';
 import { StaffAccountCard } from '@/components/staff/StaffAccountCard';
 import styles from '@/components/staff/staff-accounts.styles';
 import type { StaffAccount } from '@/components/staff/types';
+import type { ThemeColors, ThemeShadows } from '@/constants/theme';
 
 interface StaffAccountsTabContentProps {
   accounts?: StaffAccount[];

@@ -1,14 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
-const {
-  mockBuildOrdersCsv,
-  mockExportOrderReportPdf,
-  mockExportOrdersCsv,
-} = vi.hoisted(() => ({
-  mockBuildOrdersCsv: vi.fn(),
-  mockExportOrderReportPdf: vi.fn(),
-  mockExportOrdersCsv: vi.fn(),
-}));
+const { mockBuildOrdersCsv, mockExportOrderReportPdf, mockExportOrdersCsv } =
+  vi.hoisted(() => ({
+    mockBuildOrdersCsv: vi.fn(),
+    mockExportOrderReportPdf: vi.fn(),
+    mockExportOrdersCsv: vi.fn(),
+  }));
 
 vi.mock('./order-export/buildOrdersCsv', () => ({
   buildOrdersCsv: mockBuildOrdersCsv,

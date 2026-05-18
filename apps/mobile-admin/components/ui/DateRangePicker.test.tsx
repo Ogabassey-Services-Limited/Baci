@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
-import { format } from 'date-fns';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { format } from 'date-fns';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DateRangePicker from '@/components/ui/DateRangePicker';
@@ -30,13 +30,10 @@ vi.mock('react-native', () => ({
   Dimensions: {
     get: () => ({ height: 800, width: 400 }),
   },
-  Modal: ({
-    children,
-    visible,
-  }: {
-    children?: ReactNode;
-    visible: boolean;
-  }) => (visible ? <section aria-label="date-range-picker">{children}</section> : null),
+  Modal: ({ children, visible }: { children?: ReactNode; visible: boolean }) =>
+    visible ? (
+      <section aria-label="date-range-picker">{children}</section>
+    ) : null,
   Pressable: ({
     accessibilityLabel,
     children,

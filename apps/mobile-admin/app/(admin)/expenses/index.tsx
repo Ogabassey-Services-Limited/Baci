@@ -107,8 +107,17 @@ export default function ExpensesScreen() {
               shadows.md,
             ]}
           >
-            <Text style={[styles.summaryLabel, { color: colors.textOnPrimary, opacity: 0.8 }]}>Total this Month</Text>
-            <Text style={[styles.summaryAmount, { color: colors.textOnPrimary }]}>
+            <Text
+              style={[
+                styles.summaryLabel,
+                { color: colors.textOnPrimary, opacity: 0.8 },
+              ]}
+            >
+              Total this Month
+            </Text>
+            <Text
+              style={[styles.summaryAmount, { color: colors.textOnPrimary }]}
+            >
               {formatCurrency(
                 monthlyTotal,
                 undefined,
@@ -116,8 +125,21 @@ export default function ExpensesScreen() {
               )}
             </Text>
             <View style={styles.summaryTrend}>
-              <Ionicons name="trending-up" size={16} color={colors.textOnPrimary} style={{ opacity: 0.8 }} />
-              <Text style={[styles.summaryTrendText, { color: colors.textOnPrimary, opacity: 0.8 }]}> recorded spending</Text>
+              <Ionicons
+                name="trending-up"
+                size={16}
+                color={colors.textOnPrimary}
+                style={{ opacity: 0.8 }}
+              />
+              <Text
+                style={[
+                  styles.summaryTrendText,
+                  { color: colors.textOnPrimary, opacity: 0.8 },
+                ]}
+              >
+                {' '}
+                recorded spending
+              </Text>
             </View>
           </View>
         </View>

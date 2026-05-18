@@ -10,8 +10,8 @@ import { useMerchant } from '@/hooks/useMerchant';
 import { storage } from '@/lib/storage';
 import {
   ALL_BRANCH_SCOPE,
-  BranchScopeSchema,
   type BranchScope,
+  BranchScopeSchema,
   parsePersistedBranchScope,
   serializeBranchScope,
 } from '@/schemas/branch';
@@ -23,7 +23,10 @@ export function getBranchScopeStorageKey(
   return `branch-scope:${merchantId}:${userId}`;
 }
 
-function getStoredBranchScope(merchantId?: string, userId?: string): BranchScope {
+function getStoredBranchScope(
+  merchantId?: string,
+  userId?: string
+): BranchScope {
   if (!merchantId || !userId) {
     return ALL_BRANCH_SCOPE;
   }

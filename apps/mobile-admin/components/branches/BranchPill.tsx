@@ -2,9 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import {
   Pressable,
+  type StyleProp,
   StyleSheet,
   Text,
-  type StyleProp,
   type ViewStyle,
 } from 'react-native';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';

@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { SPACING, TYPOGRAPHY, type ThemeColors } from '@/constants/theme';
+import { SPACING, type ThemeColors, TYPOGRAPHY } from '@/constants/theme';
 import styles from './staff-accounts.styles';
 
 interface StaffAccountsStatusShellProps {

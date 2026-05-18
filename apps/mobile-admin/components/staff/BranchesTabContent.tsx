@@ -1,9 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Text, View } from 'react-native';
-import type { ThemeColors, ThemeShadows } from '@/constants/theme';
 import { BranchCard } from '@/components/staff/BranchCard';
 import styles from '@/components/staff/staff-accounts.styles';
 import type { Branch } from '@/components/staff/types';
+import type { ThemeColors, ThemeShadows } from '@/constants/theme';
 
 interface BranchesTabContentProps {
   activeBranches: Branch[];

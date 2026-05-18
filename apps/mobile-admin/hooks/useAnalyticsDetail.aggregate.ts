@@ -4,8 +4,8 @@ import {
   getBuckets,
 } from '@/hooks/analyticsDetailBuckets';
 import {
-  getJoinedRecord,
   type AnalyticsOrder,
+  getJoinedRecord,
   type MetricType,
   type OrderItemWithJoins,
   type TimeSeriesDataPoint,
@@ -106,9 +106,7 @@ export function aggregateAnalyticsDetail({
   const safeFiniteData = data.filter(
     (d) =>
       Number.isFinite(d.value) &&
-      ((d.count ?? 0) > 0 ||
-        d.value !== 0 ||
-        (d.secondaryValue ?? 0) !== 0)
+      ((d.count ?? 0) > 0 || d.value !== 0 || (d.secondaryValue ?? 0) !== 0)
   );
   const bestPeriod =
     safeFiniteData.length > 0

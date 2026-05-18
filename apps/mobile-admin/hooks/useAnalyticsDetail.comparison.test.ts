@@ -98,8 +98,12 @@ describe('fetchAnalyticsDetailComparison', () => {
 
     expect(mocks.from).toHaveBeenCalledWith('orders');
     expect(mocks.from).toHaveBeenCalledWith('order_items');
-    expect(mocks.chains.find((chain) => chain.table === 'orders')?.calls).toEqual(
-      expect.arrayContaining([{ method: 'eq', args: ['branch_id', 'branch-1'] }])
+    expect(
+      mocks.chains.find((chain) => chain.table === 'orders')?.calls
+    ).toEqual(
+      expect.arrayContaining([
+        { method: 'eq', args: ['branch_id', 'branch-1'] },
+      ])
     );
     expect(
       mocks.chains.find((chain) => chain.table === 'order_items')?.calls

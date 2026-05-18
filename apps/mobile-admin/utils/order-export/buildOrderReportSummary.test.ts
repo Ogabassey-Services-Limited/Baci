@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  makeOrder,
-  makeOrderItemQueryData,
-} from './order-export.test-helpers';
 import { buildOrderReportSummary } from './buildOrderReportSummary';
+import { makeOrder, makeOrderItemQueryData } from './order-export.test-helpers';
 
 describe('buildOrderReportSummary', () => {
   it('aggregates totals, statuses, breakdowns, and top product insights', () => {
