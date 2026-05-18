@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 
 const mockGetPlatformAdminAuth = vi.fn();
 const mockCreateClient = vi.fn();
@@ -266,13 +267,11 @@ describe('PATCH /api/admin/blog/posts/[id]', () => {
           id: 'post-1',
           slug: 'launch-faster',
           status: 'draft',
-          featured_image_url:
-            'https://cdn.example.com/storage/v1/object/public/media/platform/blog/cover.png',
+          featured_image_url: `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/platform/blog/cover.png`,
           featured_image_width: 1200,
           featured_image_height: 675,
           featured_image_variants: {
-            landscape_16x9:
-              'https://cdn.example.com/storage/v1/object/public/media/platform/blog/upload-1/landscape_16x9.webp',
+            landscape_16x9: `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/platform/blog/upload-1/landscape_16x9.webp`,
           },
         },
         error: null,
@@ -330,7 +329,7 @@ describe('PATCH /api/admin/blog/posts/[id]', () => {
           id: 'post-1',
           slug: 'launch-faster',
           status: 'draft',
-          featured_image_url: 'https://cdn.example.com/new-cover.png',
+          featured_image_url: `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/media/platform/blog/new-cover.png`,
           featured_image_width: null,
           featured_image_height: null,
           featured_image_variants: {},
@@ -341,7 +340,7 @@ describe('PATCH /api/admin/blog/posts/[id]', () => {
     const response = await PATCH(
       new NextRequest('http://localhost/api/admin/blog/posts/post-1', {
         body: JSON.stringify({
-          featured_image_url: 'https://cdn.example.com/new-cover.png',
+          featured_image_url: `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/media/platform/blog/new-cover.png`,
           title: 'Launch Faster',
         }),
         headers: { 'Content-Type': 'application/json' },
@@ -353,7 +352,7 @@ describe('PATCH /api/admin/blog/posts/[id]', () => {
     expect(response.status).toBe(200);
     expect(mockSupabase.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        featured_image_url: 'https://cdn.example.com/new-cover.png',
+        featured_image_url: `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/media/platform/blog/new-cover.png`,
         featured_image_width: null,
         featured_image_height: null,
         featured_image_variants: {},

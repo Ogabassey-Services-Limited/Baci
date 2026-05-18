@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 
 // ---- Mocks ----
 
@@ -113,8 +114,8 @@ import { GET, POST } from './route';
 
 const MERCHANT_ID = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
 const USER_ID = 'user-123';
-const managedFeaturedImageUrl = `https://cdn.example.com/storage/v1/object/public/media/${MERCHANT_ID}/blog/cover.png`;
-const managedLandscapeVariantUrl = `https://cdn.example.com/storage/v1/object/public/media/${MERCHANT_ID}/blog/upload-1/landscape_16x9.webp`;
+const managedFeaturedImageUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/${MERCHANT_ID}/blog/cover.png`;
+const managedLandscapeVariantUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/${MERCHANT_ID}/blog/upload-1/landscape_16x9.webp`;
 
 // ---- Helpers ----
 

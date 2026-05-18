@@ -1,5 +1,4 @@
 import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
-import { env } from '@/env';
 import {
   BLOG_FEATURED_VARIANT_KEYS,
   type BlogStorageScope,
@@ -41,8 +40,9 @@ type BlogDiscoverImageFields = {
 };
 
 const trustedOriginCandidates = [
-  env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN || DEFAULT_BLOG_MEDIA_CDN_ORIGIN,
-  env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN ||
+    DEFAULT_BLOG_MEDIA_CDN_ORIGIN,
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
 ];
 
 const TRUSTED_BLOG_IMAGE_ORIGINS = new Set(
