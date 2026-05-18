@@ -230,4 +230,53 @@ if [ "$should_run_coderabbit" -eq 1 ] && command -v coderabbit >/dev/null 2>&1; 
   fi
 fi
 
+should_run_pr_review_check=0
+case "${CODEX_QUALITY_GATE_PR_REVIEW:-auto}" in
+  0|false|off)
+    should_run_pr_review_check=0
+    ;;
+  1|true|on)
+    should_run_pr_review_check=1
+    ;;
+  auto|*)
+    if looks_like_completion; then
+      should_run_pr_review_check=1
+    fi
+    ;;
+esac
+
+if [ "$should_run_pr_review_check" -eq 1 ] && command -v gh >/dev/null 2>&1; then
+  current_branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
+  if [ -n "$current_branch" ]; then
+    pr_json=$(gh pr view "$current_branch" --json number,url,state,headRefOid,reviews 2>/dev/null || true)
+    if [ -n "$pr_json" ] && printf '%s' "$pr_json" | jq -e '.state == "OPEN"' >/dev/null 2>&1; then
+      pr_review_findings=$(
+        printf '%s' "$pr_json" | jq -r '
+          . as $pr
+          | (.reviews // [])
+          | map(
+              select((.state // "") != "DISMISSED")
+              | select((.author.login // "") | test("^(github-actions|coderabbitai|chatgpt-codex-connector|claude|claude-code-review|jules)(\\[bot\\])?$"; "i"))
+              | select((.commit.oid // "") == ($pr.headRefOid // ""))
+              | . as $review
+              | (($review.body // "") | ascii_downcase) as $body
+              | select(
+                  ($body | test("actionable comments posted:|\\bp[0-3]\\b|\\*\\*(critical|high|medium|low)\\*\\*|\\n-\\s*(critical|high|medium|low)\\b"))
+                  and ($body | test("no meaningful issues|found no meaningful issues|no actionable findings|no actionable issues|0 findings") | not)
+                )
+              | "  - @" + (.author.login // "unknown") + " at " + (.submittedAt // "unknown-time") + " (" + (.state // "COMMENTED") + ")"
+            )
+          | .[]'
+      )
+
+      if [ -n "$pr_review_findings" ]; then
+        pr_url=$(printf '%s' "$pr_json" | jq -r '.url // empty')
+        pr_number=$(printf '%s' "$pr_json" | jq -r '.number // empty')
+        block "PR #${pr_number} has unresolved bot review findings on the current head commit:\n\n${pr_review_findings}\n\nAddress or explicitly dismiss these findings before merging.\n${pr_url}"
+        exit 0
+      fi
+    fi
+  fi
+fi
+
 exit 0
