@@ -97,15 +97,28 @@ describe('platform-blog query helpers', () => {
     );
   });
 
-  it('returns null when platform post lookup errors', async () => {
+  it('throws when platform post lookup errors', async () => {
     mockMaybeSingle.mockResolvedValueOnce({
       data: null,
       error: { message: 'query failed' },
     });
 
-    const result = await getPlatformBlogPost('missing-post');
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(
+      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console.error noise in test
+      () => {}
+    );
 
-    expect(result).toBeNull();
+    await expect(getPlatformBlogPost('missing-post')).rejects.toEqual({
+      message: 'query failed',
+    });
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to load platform blog post',
+      expect.objectContaining({
+        error: { message: 'query failed' },
+        slug: 'missing-post',
+      })
+    );
+    consoleSpy.mockRestore();
   });
 
   it('returns null without querying when slug is missing at runtime', async () => {

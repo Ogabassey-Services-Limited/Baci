@@ -201,4 +201,17 @@ describe('GET /api/blog/posts', () => {
       error: 'Failed to fetch blog posts',
     });
   });
+
+  it('returns 500 when platform slug fetch fails', async () => {
+    mockGetPlatformBlogPost.mockRejectedValueOnce(new Error('db failed'));
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/blog/posts?slug=launch-faster')
+    );
+
+    expect(response.status).toBe(500);
+    await expect(response.json()).resolves.toEqual({
+      error: 'Failed to fetch blog posts',
+    });
+  });
 });

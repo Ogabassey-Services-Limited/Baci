@@ -193,7 +193,7 @@ export async function getPlatformBlogPost(
       error,
       slug: normalizedSlug,
     });
-    return null;
+    throw error;
   }
 
   return (data as PlatformBlogPost | null) ?? null;
