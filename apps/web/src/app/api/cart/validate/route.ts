@@ -142,12 +142,16 @@ export async function POST(request: NextRequest) {
     }
 
     let variants: CartVariantRow[] = [];
-    if (validVariantIds.length > 0) {
-      const { data, error } = await supabase
-        .from('product_variants')
-        .select('id, product_id, price_override')
-        .in('id', validVariantIds)
-        .returns<CartVariantRow[]>();
+    if (validVariantIds.length > 0 && validFormatIds.length > 0) {
+      const { data, error } = (await supabase.rpc(
+        'get_storefront_product_variants',
+        {
+          p_product_ids: Array.from(new Set(validFormatIds)),
+        }
+      )) as {
+        data: CartVariantRow[] | null;
+        error: { message: string } | null;
+      };
 
       if (error) {
         console.error('Cart validation variant query error:', error);

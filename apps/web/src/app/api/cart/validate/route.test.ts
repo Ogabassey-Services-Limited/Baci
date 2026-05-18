@@ -25,20 +25,14 @@ function buildSupabaseMock() {
       Promise.resolve({ data: mocks.products, error: mocks.productError })
     ),
   };
-  const variantsQuery = {
-    select: vi.fn(() => variantsQuery),
-    in: vi.fn(() => variantsQuery),
-    returns: vi.fn(() =>
+  const supabase = {
+    from: vi.fn(() => productsQuery),
+    rpc: vi.fn(() =>
       Promise.resolve({ data: mocks.variants, error: mocks.variantError })
     ),
   };
-  const supabase = {
-    from: vi.fn((table: string) =>
-      table === 'product_variants' ? variantsQuery : productsQuery
-    ),
-  };
 
-  return { productsQuery, supabase, variantsQuery };
+  return { productsQuery, supabase };
 }
 
 function postCartValidate(body: unknown) {
@@ -60,7 +54,7 @@ describe('POST /api/cart/validate', () => {
   });
 
   it('reports stale selected-variant prices against the variant override', async () => {
-    const { supabase, productsQuery, variantsQuery } = buildSupabaseMock();
+    const { supabase, productsQuery } = buildSupabaseMock();
     mocks.createClient.mockResolvedValue(supabase);
     mocks.products = [
       {
@@ -94,9 +88,14 @@ describe('POST /api/cart/validate', () => {
 
     expect(response.status).toBe(200);
     expect(supabase.from).toHaveBeenCalledWith('products');
-    expect(supabase.from).toHaveBeenCalledWith('product_variants');
     expect(productsQuery.in).toHaveBeenCalledWith('id', [PRODUCT_ID]);
-    expect(variantsQuery.in).toHaveBeenCalledWith('id', [VARIANT_ID]);
+    expect(supabase.from).not.toHaveBeenCalledWith('product_variants');
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'get_storefront_product_variants',
+      {
+        p_product_ids: [PRODUCT_ID],
+      }
+    );
     expect(body.priceChanges).toEqual([
       {
         id: PRODUCT_ID,
