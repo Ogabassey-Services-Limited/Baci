@@ -75,6 +75,14 @@ chmod +x "$STUB_BIN/pnpm"
 cat > "$STUB_BIN/gh" <<'SH'
 #!/usr/bin/env bash
 if [ "${1:-}" = "pr" ] && [ "${2:-}" = "view" ]; then
+  for arg in "$@"; do
+    if [ "$arg" = "--head" ]; then
+      exit 2
+    fi
+  done
+  if [ -n "${GH_STUB_EXPECT_BRANCH:-}" ] && [ "${3:-}" != "$GH_STUB_EXPECT_BRANCH" ]; then
+    exit 3
+  fi
   printf '%s\n' "${GH_STUB_PR_JSON:-}"
   exit 0
 fi
@@ -181,6 +189,7 @@ output=$(
 [ -z "$output" ] || fail "passing stubbed gates should allow stop without output"
 
 head_sha=$(git -C "$TMPDIR" rev-parse HEAD)
+current_branch=$(git -C "$TMPDIR" symbolic-ref --quiet --short HEAD)
 pr_findings_json=$(jq -n --arg head "$head_sha" '{
   number: 999,
   url: "https://example.com/pr/999",
@@ -198,10 +207,31 @@ pr_findings_json=$(jq -n --arg head "$head_sha" '{
 }')
 output=$(
   make_input "$TMPDIR" "Implemented the change." false |
-    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" GH_STUB_PR_JSON="$pr_findings_json" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=on bash "$HOOK"
+    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" GH_STUB_PR_JSON="$pr_findings_json" GH_STUB_EXPECT_BRANCH="$current_branch" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=on bash "$HOOK"
 )
 printf '%s' "$output" | jq -e '.decision == "block"' >/dev/null || fail "head-commit bot findings should block"
 printf '%s' "$output" | grep -q 'PR #999 has unresolved bot review findings' || fail "PR findings block should include PR context"
+
+pr_findings_bot_suffix_json=$(jq -n --arg head "$head_sha" '{
+  number: 1002,
+  url: "https://example.com/pr/1002",
+  state: "OPEN",
+  headRefOid: $head,
+  reviews: [
+    {
+      author: { login: "github-actions[bot]" },
+      state: "COMMENTED",
+      submittedAt: "2026-05-18T00:00:00Z",
+      commit: { oid: $head },
+      body: "## Findings\n- Low: sample finding\n## Suggested next steps\n- Fix it"
+    }
+  ]
+}')
+output=$(
+  make_input "$TMPDIR" "Implemented the change." false |
+    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" GH_STUB_PR_JSON="$pr_findings_bot_suffix_json" GH_STUB_EXPECT_BRANCH="$current_branch" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=on bash "$HOOK"
+)
+printf '%s' "$output" | jq -e '.decision == "block"' >/dev/null || fail "bot findings with [bot] suffix should block"
 
 pr_stale_findings_json=$(jq -n --arg head "$head_sha" '{
   number: 1000,
@@ -220,7 +250,7 @@ pr_stale_findings_json=$(jq -n --arg head "$head_sha" '{
 }')
 output=$(
   make_input "$TMPDIR" "Implemented the change." false |
-    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" GH_STUB_PR_JSON="$pr_stale_findings_json" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=on bash "$HOOK"
+    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" GH_STUB_PR_JSON="$pr_stale_findings_json" GH_STUB_EXPECT_BRANCH="$current_branch" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=on bash "$HOOK"
 )
 [ -z "$output" ] || fail "non-head commit findings should not block"
 
@@ -241,7 +271,7 @@ pr_no_issues_json=$(jq -n --arg head "$head_sha" '{
 }')
 output=$(
   make_input "$TMPDIR" "Implemented the change." false |
-    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" GH_STUB_PR_JSON="$pr_no_issues_json" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=on bash "$HOOK"
+    PATH="$STUB_BIN:$PATH" PNPM_STUB_LOG="$PNPM_LOG" GH_STUB_PR_JSON="$pr_no_issues_json" GH_STUB_EXPECT_BRANCH="$current_branch" CODEX_QUALITY_GATE_MODE=completion CODEX_QUALITY_GATE_CODERABBIT=0 CODEX_QUALITY_GATE_PR_REVIEW=on bash "$HOOK"
 )
 [ -z "$output" ] || fail "head review with explicit no-issues verdict should not block"
 

@@ -248,7 +248,7 @@ esac
 if [ "$should_run_pr_review_check" -eq 1 ] && command -v gh >/dev/null 2>&1; then
   current_branch=$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)
   if [ -n "$current_branch" ]; then
-    pr_json=$(gh pr view --head "$current_branch" --json number,url,state,headRefOid,reviews 2>/dev/null || true)
+    pr_json=$(gh pr view "$current_branch" --json number,url,state,headRefOid,reviews 2>/dev/null || true)
     if [ -n "$pr_json" ] && printf '%s' "$pr_json" | jq -e '.state == "OPEN"' >/dev/null 2>&1; then
       pr_review_findings=$(
         printf '%s' "$pr_json" | jq -r '
@@ -256,7 +256,7 @@ if [ "$should_run_pr_review_check" -eq 1 ] && command -v gh >/dev/null 2>&1; the
           | (.reviews // [])
           | map(
               select((.state // "") != "DISMISSED")
-              | select((.author.login // "") | test("^(github-actions|coderabbitai|chatgpt-codex-connector|claude|claude-code-review|jules)$"; "i"))
+              | select((.author.login // "") | test("^(github-actions|coderabbitai|chatgpt-codex-connector|claude|claude-code-review|jules)(\\[bot\\])?$"; "i"))
               | select((.commit.oid // "") == ($pr.headRefOid // ""))
               | . as $review
               | (($review.body // "") | ascii_downcase) as $body
