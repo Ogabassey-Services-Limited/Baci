@@ -1,4 +1,5 @@
 'use client';
+// Client component: manages interactive list pagination and mutation actions.
 
 import { Loader2, PencilLine, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';

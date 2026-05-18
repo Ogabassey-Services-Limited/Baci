@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
   validateBlogDiscoverImageReadiness,
   validateBlogImageVariantIntegrity,
@@ -17,23 +18,10 @@ import { createPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
 const PLATFORM_BLOG_DETAIL_SELECT =
   'id, title, slug, content, excerpt, featured_image_url, featured_image_alt, featured_image_width, featured_image_height, featured_image_variants, category, tags, keywords, author_name, author_title, author_image_url, author_bio, status, seo_title, seo_description, focus_keyword, word_count, reading_time_minutes, view_count, created_at, updated_at, published_at';
 
-function parseSafeLimit(raw: string | null): number {
-  const parsed = Number.parseInt(raw ?? '20', 10);
-  if (!Number.isFinite(parsed)) {
-    return 20;
-  }
-
-  return Math.min(Math.max(parsed, 1), 100);
-}
-
-function parseSafeOffset(raw: string | null): number {
-  const parsed = Number.parseInt(raw ?? '0', 10);
-  if (!Number.isFinite(parsed)) {
-    return 0;
-  }
-
-  return Math.max(parsed, 0);
-}
+const platformBlogListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
 
 function toAuthErrorResponse(status: 'unauthenticated' | 'forbidden') {
   return status === 'unauthenticated'
@@ -50,8 +38,21 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
-    const limit = parseSafeLimit(searchParams.get('limit'));
-    const offset = parseSafeOffset(searchParams.get('offset'));
+    const parsedQuery = platformBlogListQuerySchema.safeParse({
+      limit: searchParams.get('limit') ?? undefined,
+      offset: searchParams.get('offset') ?? undefined,
+    });
+    if (!parsedQuery.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid query parameters',
+          details: parsedQuery.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+
+    const { limit, offset } = parsedQuery.data;
 
     const { data, error, count } = await supabase
       .from('blog_posts')

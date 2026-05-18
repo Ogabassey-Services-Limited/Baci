@@ -1,4 +1,5 @@
 'use client';
+// Client component: handles editor state, uploads, and imperative navigation.
 
 import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -7,6 +8,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { fetchWithCsrf } from '@/lib/api-client';
+import { generateSlug } from '@/lib/blog-utils';
 import { createPlatformBlogPost, updatePlatformBlogPost } from './blog-api';
 import { BlogEditorFields } from './blog-editor-fields';
 import {
@@ -27,15 +29,6 @@ type BlogMediaUploadResult = {
   variants?: Record<string, string>;
   width?: number | null;
 };
-
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-');
-}
 
 async function uploadBlogMedia(
   file: File,
@@ -158,7 +151,7 @@ export function BlogEditorClient({
 
       const payload: PlatformAdminBlogFormState = {
         ...form,
-        slug: form.slug.trim() || slugify(form.title),
+        slug: form.slug.trim() || generateSlug(form.title.trim()),
       };
 
       if (isEditMode && postId) {

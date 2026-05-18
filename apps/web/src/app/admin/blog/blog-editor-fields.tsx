@@ -1,4 +1,5 @@
 'use client';
+// Client component: renders interactive editor controls and rich-text input.
 
 import { Loader2, Upload } from 'lucide-react';
 import { BlogEditor } from '@/components/blog/blog-editor';

@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
   validateBlogDiscoverImageReadiness,
   validateBlogImageVariantIntegrity,
@@ -16,6 +17,10 @@ const PLATFORM_BLOG_DETAIL_SELECT =
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
+
+const platformBlogRouteParamsSchema = z.object({
+  id: z.string().min(1),
+});
 
 function toAuthErrorResponse(status: 'unauthenticated' | 'forbidden') {
   return status === 'unauthenticated'
@@ -39,7 +44,17 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    const { id } = await params;
+    const parsedParams = platformBlogRouteParamsSchema.safeParse(await params);
+    if (!parsedParams.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid route parameters',
+          details: parsedParams.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+    const { id } = parsedParams.data;
     const supabase = await createClient();
     const { data, error } = await supabase
       .from('blog_posts')
@@ -86,7 +101,17 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    const { id } = await params;
+    const parsedParams = platformBlogRouteParamsSchema.safeParse(await params);
+    if (!parsedParams.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid route parameters',
+          details: parsedParams.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+    const { id } = parsedParams.data;
     const body = sanitizeBlogPostData(await request.json());
     const validated = blogPostSchema.partial().safeParse(body);
 
@@ -289,7 +314,17 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
   }
 
   try {
-    const { id } = await params;
+    const parsedParams = platformBlogRouteParamsSchema.safeParse(await params);
+    if (!parsedParams.success) {
+      return NextResponse.json(
+        {
+          error: 'Invalid route parameters',
+          details: parsedParams.error.flatten(),
+        },
+        { status: 400 }
+      );
+    }
+    const { id } = parsedParams.data;
     const supabase = await createClient();
 
     const { data: existing, error: existingError } = await supabase
