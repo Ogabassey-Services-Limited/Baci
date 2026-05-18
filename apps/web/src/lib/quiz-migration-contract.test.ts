@@ -188,6 +188,31 @@ describe('quiz migration contracts', () => {
     );
   });
 
+  it('scopes prize claim customer lookups through the award event merchant', () => {
+    const grandClaimSql = rpcSql.match(
+      /CREATE OR REPLACE FUNCTION public\.claim_quiz_grand_prize[\s\S]*?\$\$;/i
+    )?.[0];
+    const cashClaimSql = rpcSql.match(
+      /CREATE OR REPLACE FUNCTION public\.claim_quiz_cash_award[\s\S]*?\$\$;/i
+    )?.[0];
+
+    expect(grandClaimSql).toBeDefined();
+    expect(cashClaimSql).toBeDefined();
+    expect(grandClaimSql).toMatch(
+      /JOIN\s+public\.quiz_events\s+e\s+ON\s+e\.id\s*=\s*p_event_id\s+AND\s+e\.merchant_id\s*=\s*c\.merchant_id/i
+    );
+    expect(grandClaimSql).toMatch(/c\.user_id\s*=\s*p_user_id/i);
+    expect(cashClaimSql).toMatch(/FROM\s+public\.quiz_awards\s+qa/i);
+    expect(cashClaimSql).toMatch(
+      /JOIN\s+public\.quiz_events\s+e\s+ON\s+e\.id\s*=\s*qa\.event_id/i
+    );
+    expect(cashClaimSql).toMatch(
+      /JOIN\s+public\.customers\s+c\s+ON\s+c\.merchant_id\s*=\s*e\.merchant_id/i
+    );
+    expect(cashClaimSql).toMatch(/qa\.id\s*=\s*p_award_id/i);
+    expect(cashClaimSql).toMatch(/c\.user_id\s*=\s*p_user_id/i);
+  });
+
   it('records non-sensitive proof validation failures without granting client access', () => {
     expect(foundationSql).toMatch(
       /CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+public\.quiz_proof_validation_failures/is

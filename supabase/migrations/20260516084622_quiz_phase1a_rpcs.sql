@@ -580,6 +580,8 @@ DECLARE
 BEGIN
   SELECT c.id INTO v_customer_id
   FROM public.customers c
+  JOIN public.quiz_events e ON e.id = p_event_id
+    AND e.merchant_id = c.merchant_id
   WHERE c.user_id = p_user_id
   ORDER BY c.created_at DESC, c.id DESC
   LIMIT 1;
@@ -629,8 +631,11 @@ DECLARE
   v_customer_id uuid;
 BEGIN
   SELECT c.id INTO v_customer_id
-  FROM public.customers c
-  WHERE c.user_id = p_user_id
+  FROM public.quiz_awards qa
+  JOIN public.quiz_events e ON e.id = qa.event_id
+  JOIN public.customers c ON c.merchant_id = e.merchant_id
+  WHERE qa.id = p_award_id
+    AND c.user_id = p_user_id
   ORDER BY c.created_at DESC, c.id DESC
   LIMIT 1;
 
