@@ -372,7 +372,7 @@ export const NegotiationModal: React.FC<NegotiationModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-70 flex items-center justify-center px-4">
       <div
         data-testid="modal-backdrop"
         className="absolute inset-0 bg-[hsl(var(--foreground))]/60 backdrop-blur-sm"

@@ -375,7 +375,7 @@ export const EngineProductGrid: React.FC<EngineProductGridProps> = ({
         <div className="flex items-center justify-between mb-6 md:mb-8">
           <div>
             {title === 'Featured Products' && (
-              <span className="text-[color:var(--store-primary)] font-bold uppercase tracking-wider text-xs md:text-sm">
+              <span className="text-store-primary font-bold uppercase tracking-wider text-xs md:text-sm">
                 Best Sellers
               </span>
             )}

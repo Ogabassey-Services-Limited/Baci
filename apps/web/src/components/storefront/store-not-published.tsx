@@ -6,7 +6,7 @@ interface StoreNotPublishedProps {
 
 export function StoreNotPublished({ businessName }: StoreNotPublishedProps) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
       <div className="text-center px-4 max-w-md">
         <div className="mb-8 flex justify-center">
           <div className="relative">

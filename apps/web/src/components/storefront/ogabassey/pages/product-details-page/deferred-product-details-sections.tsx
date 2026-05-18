@@ -54,12 +54,12 @@ export function DeferredProductDetailsSections({
         <BrandProducts
           product={relatedProductsProduct}
           maxProducts={4}
-          className="border-t border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)] pt-8"
+          className="border-t border-store-background-text/10 pt-8"
         />
         <PriceRangeProducts
           product={relatedProductsProduct}
           maxProducts={4}
-          className="border-t border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)]"
+          className="border-t border-store-background-text/10"
         />
       </div>
     </div>

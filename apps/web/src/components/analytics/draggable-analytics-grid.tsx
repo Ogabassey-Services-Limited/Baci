@@ -497,7 +497,7 @@ export function DraggableAnalyticsGrid({
               key={i}
               className="h-32 bg-muted/10 rounded-2xl border border-border/50 overflow-hidden relative"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
+              <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
               <div className="p-4 space-y-2">
                 <div className="h-3 w-20 bg-muted/30 rounded" />
                 <div className="h-6 w-24 bg-muted/20 rounded" />
@@ -505,7 +505,7 @@ export function DraggableAnalyticsGrid({
             </div>
           ))}
           <div className="col-span-1 md:col-span-3 h-80 bg-muted/10 rounded-2xl border border-border/50 overflow-hidden relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
+            <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
             <div className="p-4">
               <div className="h-4 w-32 bg-muted/30 rounded mb-4" />
               <div className="h-full w-full flex items-end gap-2 pb-8">
@@ -521,7 +521,7 @@ export function DraggableAnalyticsGrid({
             </div>
           </div>
           <div className="col-span-1 h-80 bg-muted/10 rounded-2xl border border-border/50 overflow-hidden relative">
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
+            <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/5 to-transparent animate-shimmer" />
           </div>
         </div>
       </div>
@@ -687,7 +687,7 @@ export function DraggableAnalyticsGrid({
             variant="outline"
             size="sm"
             onClick={() => setIsEditMode(true)}
-            className="gap-2 flex-shrink-0"
+            className="gap-2 shrink-0"
             aria-label="Customize Dashboard Layout"
           >
             <Settings2 className="w-4 h-4" />
@@ -1268,7 +1268,7 @@ export function DraggableAnalyticsGrid({
           variant="default"
           size="sm"
           onClick={() => setIsEditMode(false)}
-          className="gap-2 flex-shrink-0"
+          className="gap-2 shrink-0"
           aria-label="Save Dashboard Layout"
         >
           <Check className="w-4 h-4" />

@@ -227,7 +227,7 @@ export function FileUploader({
       <div
         {...getRootProps()}
         className={cn(
-          'border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+          'border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2',
           isDragActive
             ? 'border-primary bg-primary/5'
             : 'border-muted-foreground/25 hover:border-primary/50',

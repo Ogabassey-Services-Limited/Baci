@@ -163,7 +163,7 @@ export function ChatInput({ onSendMessage, isLoading }: ChatInputProps) {
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder=""
-            className="w-full outline-none text-gray-800 bg-transparent px-2 resize-none overflow-y-auto caret-red-600"
+            className="w-full outline-hidden text-gray-800 bg-transparent px-2 resize-none overflow-y-auto caret-red-600"
             style={{ maxHeight: '8rem' }}
             disabled={isLoading}
             aria-label="Type your message to Santa"

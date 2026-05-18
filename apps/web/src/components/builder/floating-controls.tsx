@@ -136,7 +136,7 @@ export function FloatingControls() {
   };
 
   return (
-    <div className="fixed right-6 top-24 z-[60] w-80 bg-background/95 backdrop-blur-md border rounded-lg shadow-xl overflow-hidden flex flex-col max-h-[calc(100vh-8rem)] animate-in slide-in-from-right-5 duration-200">
+    <div className="fixed right-6 top-24 z-60 w-80 bg-background/95 backdrop-blur-md border rounded-lg shadow-xl overflow-hidden flex flex-col max-h-[calc(100vh-8rem)] animate-in slide-in-from-right-5 duration-200">
       <div className="flex items-center justify-between p-4 border-b bg-muted/30">
         <h3 className="font-semibold text-sm">
           Edit {componentConfig.label || selectedItem.type}

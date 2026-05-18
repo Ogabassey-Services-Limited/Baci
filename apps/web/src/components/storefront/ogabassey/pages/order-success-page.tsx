@@ -104,7 +104,7 @@ export const OrderSuccessPage: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 flex-col gap-4">
         <p>Order not found</p>
-        <Link href={getUrl('/') as any} className="text-[var(--store-primary)] font-bold hover:underline">
+        <Link href={getUrl('/') as any} className="text-store-primary font-bold hover:underline">
           Return Home
         </Link>
       </div>
@@ -153,7 +153,7 @@ export const OrderSuccessPage: React.FC = () => {
           <div className="mb-10">
             <button
               onClick={() => setIsInvoiceOpen(true)}
-              className="w-full bg-[var(--store-primary)] hover:bg-[var(--store-primary)]/90 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg hover:shadow-[var(--store-primary)]/20 flex items-center justify-center gap-2 active:scale-[0.98]"
+              className="w-full bg-store-primary hover:bg-store-primary/90 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg hover:shadow-store-primary/20 flex items-center justify-center gap-2 active:scale-[0.98]"
             >
               <Download size={20} /> Download Invoice
             </button>
@@ -179,7 +179,7 @@ export const OrderSuccessPage: React.FC = () => {
           </a>
         </div>
 
-        <p className="text-[var(--store-primary)] font-bold italic mb-8 flex items-center justify-center gap-2">
+        <p className="text-store-primary font-bold italic mb-8 flex items-center justify-center gap-2">
           <span className="w-8 h-px bg-red-200" />
           Ogabassey never disappoints ✨
           <span className="w-8 h-px bg-red-200" />
@@ -200,7 +200,7 @@ export const OrderSuccessPage: React.FC = () => {
                 router.push(getUrl('/account/orders') as any);
               }
             }}
-            className="flex-1 bg-[var(--store-primary)] text-white font-bold py-3.5 px-6 rounded-xl hover:bg-[var(--store-primary)]/90 transition-all shadow-lg hover:shadow-[var(--store-primary)]/20 active:scale-[0.98] flex items-center justify-center gap-2"
+            className="flex-1 bg-store-primary text-white font-bold py-3.5 px-6 rounded-xl hover:bg-store-primary/90 transition-all shadow-lg hover:shadow-store-primary/20 active:scale-[0.98] flex items-center justify-center gap-2"
           >
             See Order Details <ArrowRight size={18} />
           </button>

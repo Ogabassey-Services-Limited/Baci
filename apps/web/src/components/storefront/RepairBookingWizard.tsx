@@ -266,7 +266,7 @@ export function RepairBookingWizard({
                                     className="peer sr-only"
                                   />
                                 </FormControl>
-                                <FormLabel className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer transition-all">
+                                <FormLabel className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary has-data-[state=checked]:border-primary cursor-pointer transition-all">
                                   <type.icon className="mb-3 h-6 w-6" />
                                   {type.label}
                                 </FormLabel>
@@ -402,7 +402,7 @@ export function RepairBookingWizard({
                               />
                             </FormControl>
                             <FormLabel
-                              className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-current [&:has([data-state=checked])]:border-current cursor-pointer transition-all"
+                              className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-current has-data-[state=checked]:border-current cursor-pointer transition-all"
                               style={{
                                 borderColor:
                                   field.value === 'dropoff'
@@ -425,7 +425,7 @@ export function RepairBookingWizard({
                               />
                             </FormControl>
                             <FormLabel
-                              className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-current [&:has([data-state=checked])]:border-current cursor-pointer transition-all"
+                              className="flex flex-col items-center justify-center rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-current has-data-[state=checked]:border-current cursor-pointer transition-all"
                               style={{
                                 borderColor:
                                   field.value === 'pickup'
@@ -589,7 +589,7 @@ export function RepairBookingWizard({
                 </div>
 
                 <div className="bg-blue-50 text-blue-800 p-4 rounded-md flex gap-3 items-start text-sm">
-                  <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
                   <p>
                     Submitting this request does not guarantee an appointment
                     slot. The merchant will review and confirm availability.

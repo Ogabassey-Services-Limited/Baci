@@ -217,7 +217,7 @@ export function BusinessNameGeneratorModal({
                     key={index}
                     type="button"
                     onClick={() => handleSelectName(name)}
-                    className="group relative flex items-center justify-center rounded-lg border bg-card p-4 text-center text-sm font-medium transition-all hover:border-primary hover:bg-primary/5 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                    className="group relative flex items-center justify-center rounded-lg border bg-card p-4 text-center text-sm font-medium transition-all hover:border-primary hover:bg-primary/5 hover:shadow-sm focus:outline-hidden focus:ring-2 focus:ring-primary focus:ring-offset-2"
                   >
                     {name}
                   </button>

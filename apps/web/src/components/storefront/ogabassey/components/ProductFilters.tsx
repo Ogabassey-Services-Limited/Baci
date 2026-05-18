@@ -112,7 +112,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
                       onPriceChange(Number(e.target.value), maxPrice)
                     }
                     placeholder="Min"
-                    className="w-full pl-6 pr-2 py-2.5 text-xs sm:text-sm bg-gray-50 border border-gray-100 rounded-lg focus:bg-white focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all font-medium text-gray-900 outline-none h-10"
+                    className="w-full pl-6 pr-2 py-2.5 text-xs sm:text-sm bg-gray-50 border border-gray-100 rounded-lg focus:bg-white focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all font-medium text-gray-900 outline-hidden h-10"
                   />
                 </div>
                 <span className="text-gray-300 font-medium">-</span>
@@ -127,7 +127,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
                       onPriceChange(minPrice, Number(e.target.value))
                     }
                     placeholder="Max"
-                    className="w-full pl-6 pr-2 py-2.5 text-xs sm:text-sm bg-gray-50 border border-gray-100 rounded-lg focus:bg-white focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all font-medium text-gray-900 outline-none h-10"
+                    className="w-full pl-6 pr-2 py-2.5 text-xs sm:text-sm bg-gray-50 border border-gray-100 rounded-lg focus:bg-white focus:border-red-500 focus:ring-2 focus:ring-red-100 transition-all font-medium text-gray-900 outline-hidden h-10"
                   />
                 </div>
 

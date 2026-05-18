@@ -2750,7 +2750,7 @@ export const builderConfig: Config<
                       link?: string;
                     }) => (
                       <div key={info.label} className="flex items-start gap-4">
-                        <div className="p-3 rounded-lg bg-[var(--store-primary)]/10">
+                        <div className="p-3 rounded-lg bg-store-primary/10">
                           {renderIcon(info.icon, {
                             className: 'w-5 h-5',
                             style: { color: 'var(--store-primary)' },
@@ -2761,7 +2761,7 @@ export const builderConfig: Config<
                           {info.link ? (
                             <Link
                               href={asRoute(info.link)}
-                              className="text-muted-foreground hover:text-[var(--store-primary)] transition-colors"
+                              className="text-muted-foreground hover:text-store-primary transition-colors"
                             >
                               {info.value}
                             </Link>
@@ -3041,7 +3041,7 @@ export const builderConfig: Config<
           if (style === 'boxes') {
             return (
               <div className="flex flex-col items-center">
-                <div className="bg-[var(--store-primary)] text-[var(--store-primary-text)] rounded-lg p-3 md:p-4 min-w-[60px] md:min-w-[80px]">
+                <div className="bg-store-primary text-store-primary-text rounded-lg p-3 md:p-4 min-w-[60px] md:min-w-[80px]">
                   <span className="text-2xl md:text-4xl font-bold">
                     {String(value).padStart(2, '0')}
                   </span>

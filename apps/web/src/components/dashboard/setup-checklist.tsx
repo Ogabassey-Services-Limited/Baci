@@ -90,7 +90,7 @@ function SetupChecklistMobileWidget({
           ? 'Ready to Launch, tap to publish your store'
           : `Finish Setup, ${readiness.completedRequired} of ${readiness.totalRequired} required steps done`
       }
-      className="md:hidden w-full bg-gradient-to-br from-primary/10 to-transparent border border-primary/10 rounded-2xl p-4 flex items-center justify-between active:scale-[0.98] transition-all touch-manipulation cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      className="md:hidden w-full bg-linear-to-br from-primary/10 to-transparent border border-primary/10 rounded-2xl p-4 flex items-center justify-between active:scale-[0.98] transition-all touch-manipulation cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
     >
       <div className="flex items-center gap-4">
         {/* Progress Ring */}

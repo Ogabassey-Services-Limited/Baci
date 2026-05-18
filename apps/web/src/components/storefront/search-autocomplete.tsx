@@ -233,7 +233,7 @@ export function SearchAutocomplete({
               setPopularSearches([]);
               inputRef.current?.focus();
             }}
-            className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm z-20 h-8 w-8 flex items-center justify-center"
+            className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm z-20 h-8 w-8 flex items-center justify-center"
             aria-label="Clear search"
           >
             <X className="h-4 w-4" />
@@ -290,7 +290,7 @@ export function SearchAutocomplete({
                     )}
                   >
                     {product.image_small ? (
-                      <div className="relative h-10 w-10 flex-shrink-0 overflow-hidden rounded bg-gray-100 border border-gray-100">
+                      <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded bg-gray-100 border border-gray-100">
                         <Image
                           src={product.image_small}
                           alt=""

@@ -417,7 +417,7 @@ export default function AdminDashboardPage() {
                       content={({ active, payload, label }) => {
                         if (active && payload?.length) {
                           return (
-                            <div className="rounded-xl border bg-background/95 backdrop-blur-sm p-3 shadow-xl">
+                            <div className="rounded-xl border bg-background/95 backdrop-blur-xs p-3 shadow-xl">
                               <p className="text-xs font-medium text-muted-foreground mb-1">
                                 {label}
                               </p>
@@ -478,7 +478,7 @@ export default function AdminDashboardPage() {
                         if (active && payload?.length) {
                           const data = payload[0].payload;
                           return (
-                            <div className="rounded-xl border bg-background/95 backdrop-blur-sm p-3 shadow-xl">
+                            <div className="rounded-xl border bg-background/95 backdrop-blur-xs p-3 shadow-xl">
                               <p className="text-sm font-medium">{data.name}</p>
                               <p className="text-lg font-bold">
                                 {data.value} merchants

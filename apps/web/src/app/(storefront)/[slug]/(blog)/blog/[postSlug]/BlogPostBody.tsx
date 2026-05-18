@@ -86,7 +86,7 @@ export async function BlogPostBody({
   });
 
   return (
-    <div className="[content-visibility:auto] [contain-intrinsic-size:1152px_2400px]">
+    <div className="content-auto [contain-intrinsic-size:1152px_2400px]">
       {isJson && <TableOfContents />}
 
       <div className="mb-8">
@@ -101,7 +101,7 @@ export async function BlogPostBody({
           <SafeHtml
             data-testid="blog-post-legacy-content"
             html={legacyHtml}
-            className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:!text-blue-600 [&_img:first-of-type]:hidden"
+            className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:text-blue-600! [&_img:first-of-type]:hidden"
           />
         )}
       </div>

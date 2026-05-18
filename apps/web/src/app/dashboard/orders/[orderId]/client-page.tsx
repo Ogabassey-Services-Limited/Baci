@@ -403,7 +403,7 @@ export default function OrderDetailsClientPage({
                     variant="default"
                     className="mt-2 bg-blue-50 border-blue-200 text-blue-800"
                   >
-                    <Package className="h-4 w-4 !text-blue-800" />
+                    <Package className="h-4 w-4 text-blue-800!" />
                     <AlertTitle>Fulfillment Details Required</AlertTitle>
                     <AlertDescription>
                       One or more items in this order need specific details

@@ -24,10 +24,10 @@ export function CryptoSelectorModal({
   onClose,
 }: CryptoSelectorModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-[var(--store-primary)] to-[var(--store-primary)]/80 p-4 flex items-center justify-between rounded-t-2xl">
+        <div className="sticky top-0 bg-linear-to-r from-store-primary to-store-primary/80 p-4 flex items-center justify-between rounded-t-2xl">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
               <CreditCard size={16} className="text-white" />
@@ -58,7 +58,7 @@ export function CryptoSelectorModal({
                   onClick={() => onCurrencyChange(currency)}
                   className={`p-4 rounded-xl border-2 transition-all ${
                     selectedCryptoCurrency === currency
-                      ? 'border-red-500 bg-[var(--store-primary)]/5'
+                      ? 'border-red-500 bg-store-primary/5'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
@@ -88,7 +88,7 @@ export function CryptoSelectorModal({
                   onClick={() => onChainChange(chain)}
                   className={`p-4 rounded-xl border-2 transition-all ${
                     selectedCryptoChain === chain
-                      ? 'border-red-500 bg-[var(--store-primary)]/5'
+                      ? 'border-red-500 bg-store-primary/5'
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
@@ -127,7 +127,7 @@ export function CryptoSelectorModal({
             type="button"
             onClick={onInitialize}
             disabled={isInitializingCrypto}
-            className="w-full py-3.5 bg-[var(--store-primary)] text-white font-bold rounded-xl hover:bg-[var(--store-primary)]/90 transition-colors shadow-lg shadow-[var(--store-primary)]/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full py-3.5 bg-store-primary text-white font-bold rounded-xl hover:bg-store-primary/90 transition-colors shadow-lg shadow-store-primary/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {isInitializingCrypto ? (
               <>

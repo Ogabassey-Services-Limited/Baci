@@ -103,7 +103,7 @@ export default function Step1_BusinessDetails({ onKeyDown }: Step1Props) {
                   return (
                     <SelectItem key={type.id} value={type.id}>
                       <div className="flex items-center gap-2 w-full min-w-0">
-                        <span className="text-lg flex-shrink-0">{emoji}</span>
+                        <span className="text-lg shrink-0">{emoji}</span>
                         <span className="text-primary truncate">
                           {type.label}
                         </span>
@@ -204,7 +204,7 @@ export default function Step1_BusinessDetails({ onKeyDown }: Step1Props) {
               onClick={() => setIsGeneratorOpen(true)}
             >
               <Sparkles className="w-3.5 h-3.5 mr-0.5 text-amber-500 group-hover:text-amber-600 transition-colors" />
-              <span className="bg-gradient-to-r from-primary via-primary to-primary/70 bg-clip-text text-transparent group-hover:from-primary/90 group-hover:to-primary/60">
+              <span className="bg-linear-to-r from-primary via-primary to-primary/70 bg-clip-text text-transparent group-hover:from-primary/90 group-hover:to-primary/60">
                 Generate Business Name
               </span>
             </Button>

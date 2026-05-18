@@ -13,7 +13,7 @@ export async function RootCartPageContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-50 to-white">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-b from-gray-50 to-white">
       <div className="text-center max-w-md px-6">
         <div className="mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-6">
           <ShoppingCart className="w-8 h-8 text-gray-400" />

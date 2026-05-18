@@ -73,7 +73,7 @@ export function HandmadeHome(props: TemplatePageProps) {
   return (
     <div className="min-h-screen bg-[#FAF6F1]">
       {/* Hero Section - Warm & Authentic */}
-      <section className="relative bg-gradient-to-br from-[#FAF6F1] via-[#F5EDE3] to-[#EDDFD2] overflow-hidden">
+      <section className="relative bg-linear-to-br from-[#FAF6F1] via-[#F5EDE3] to-[#EDDFD2] overflow-hidden">
         {/* Decorative elements */}
         <div className="absolute inset-0 overflow-hidden opacity-20">
           <div className="absolute top-10 right-20">
@@ -136,7 +136,7 @@ export function HandmadeHome(props: TemplatePageProps) {
               const Icon = badge.icon;
               return (
                 <div key={index} className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-[#C4785E]/10 rounded-full flex items-center justify-center flex-shrink-0">
+                  <div className="w-12 h-12 bg-[#C4785E]/10 rounded-full flex items-center justify-center shrink-0">
                     <Icon className="w-5 h-5 text-[#C4785E]" />
                   </div>
                   <div>
@@ -154,7 +154,7 @@ export function HandmadeHome(props: TemplatePageProps) {
       <section className="py-16 bg-[#FAF6F1]">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-2 gap-12 items-center">
-            <div className="bg-gradient-to-br from-[#C4785E]/10 to-[#7D8B6C]/10 rounded-3xl h-80 flex items-center justify-center border border-[#E5DDD3]">
+            <div className="bg-linear-to-br from-[#C4785E]/10 to-[#7D8B6C]/10 rounded-3xl h-80 flex items-center justify-center border border-[#E5DDD3]">
               <div className="text-center">
                 <span className="text-8xl">👩‍🎨</span>
                 <p className="text-[#8B7B7B] mt-4">The Maker at Work</p>
@@ -273,7 +273,7 @@ export function HandmadeHome(props: TemplatePageProps) {
       </section>
 
       {/* Custom Orders CTA */}
-      <section className="py-16 bg-gradient-to-r from-[#C4785E] to-[#B06A4F] text-white">
+      <section className="py-16 bg-linear-to-r from-[#C4785E] to-[#B06A4F] text-white">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
@@ -302,7 +302,7 @@ export function HandmadeHome(props: TemplatePageProps) {
               </button>
             </div>
             <div className="relative">
-              <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-8 text-center border border-white/20">
+              <div className="bg-white/10 backdrop-blur-xs rounded-3xl p-8 text-center border border-white/20">
                 <Scissors className="w-16 h-16 text-white/80 mx-auto mb-4" />
                 <div className="text-2xl font-bold">Made Just for You</div>
                 <div className="text-white/70">Usually ready in 2-3 weeks</div>

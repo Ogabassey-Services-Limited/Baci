@@ -96,7 +96,7 @@ export function DeferredChatWidget({
             <>
               <Sparkles
                 size={28}
-                className="md:w-8 md:h-8 drop-shadow-sm"
+                className="md:w-8 md:h-8 drop-shadow-xs"
                 fill="currentColor"
                 fillOpacity={0.1}
               />

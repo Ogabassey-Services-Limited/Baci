@@ -22,12 +22,12 @@ export function MobilePreview({ config }: MobilePreviewProps) {
   const { content } = result.data;
 
   return (
-    <div className="relative mx-auto border-gray-800 dark:border-gray-800 bg-gray-800 border-[14px] rounded-[2.5rem] h-[600px] w-[300px] shadow-xl">
-      <div className="h-[32px] w-[3px] bg-gray-800 absolute -left-[17px] top-[72px] rounded-l-lg" />
-      <div className="h-[46px] w-[3px] bg-gray-800 absolute -left-[17px] top-[124px] rounded-l-lg" />
-      <div className="h-[46px] w-[3px] bg-gray-800 absolute -left-[17px] top-[178px] rounded-l-lg" />
-      <div className="h-[64px] w-[3px] bg-gray-800 absolute -right-[17px] top-[142px] rounded-r-lg" />
-      <div className="rounded-[2rem] overflow-hidden w-full h-full bg-white dark:bg-gray-900">
+    <div className="relative mx-auto border-gray-800 dark:border-gray-800 bg-gray-800 border-14 rounded-[2.5rem] h-[600px] w-[300px] shadow-xl">
+      <div className="h-[32px] w-[3px] bg-gray-800 absolute left-[-17px] top-[72px] rounded-l-lg" />
+      <div className="h-[46px] w-[3px] bg-gray-800 absolute left-[-17px] top-[124px] rounded-l-lg" />
+      <div className="h-[46px] w-[3px] bg-gray-800 absolute left-[-17px] top-[178px] rounded-l-lg" />
+      <div className="h-[64px] w-[3px] bg-gray-800 absolute right-[-17px] top-[142px] rounded-r-lg" />
+      <div className="rounded-4xl overflow-hidden w-full h-full bg-white dark:bg-gray-900">
         <div className="h-full overflow-y-auto scrollbar-hide">
           {/* Mock Status Bar */}
           <div className="h-6 bg-black flex justify-between px-6 items-center text-[10px] text-white">
@@ -52,7 +52,7 @@ export function MobilePreview({ config }: MobilePreviewProps) {
                 </div>
               )}
               {block.type === 'HeroCarousel' && (
-                <div className="aspect-[16/9] bg-gray-100 rounded relative overflow-hidden flex items-center justify-center">
+                <div className="aspect-video bg-gray-100 rounded relative overflow-hidden flex items-center justify-center">
                   <span className="text-[10px] text-gray-400">
                     {block.props.slides[0]?.title}
                   </span>

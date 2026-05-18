@@ -554,7 +554,7 @@ export function BlogClientPage({
                 <div className="flex items-start gap-4">
                   {/* Thumbnail */}
                   {post.featured_image_url && (
-                    <div className="hidden sm:block w-24 h-24 rounded-lg overflow-hidden bg-muted flex-shrink-0 relative">
+                    <div className="hidden sm:block w-24 h-24 rounded-lg overflow-hidden bg-muted shrink-0 relative">
                       <Image
                         src={post.featured_image_url}
                         alt=""

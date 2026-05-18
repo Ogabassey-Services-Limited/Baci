@@ -328,7 +328,7 @@ export default function AnalyticsPage() {
                       content={({ active, payload, label }) => {
                         if (active && payload?.length) {
                           return (
-                            <div className="rounded-xl border bg-background/95 backdrop-blur-sm p-3 shadow-xl">
+                            <div className="rounded-xl border bg-background/95 backdrop-blur-xs p-3 shadow-xl">
                               <p className="text-xs font-medium text-muted-foreground mb-1">
                                 {label}
                               </p>
@@ -395,7 +395,7 @@ export default function AnalyticsPage() {
                       content={({ active, payload, label }) => {
                         if (active && payload?.length) {
                           return (
-                            <div className="rounded-xl border bg-background/95 backdrop-blur-sm p-3 shadow-xl">
+                            <div className="rounded-xl border bg-background/95 backdrop-blur-xs p-3 shadow-xl">
                               <p className="text-xs font-medium text-muted-foreground mb-1">
                                 {label}
                               </p>

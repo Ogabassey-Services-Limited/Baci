@@ -124,7 +124,7 @@ export const OgabasseyV2PrivacyPolicy: React.FC<PrivacyProps> = ({ merchant }) =
       <div className="bg-[#1a1a1a] text-white py-16 md:py-20 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/security.png')]" />
         <div className="max-w-[1400px] mx-auto px-4 md:px-6 relative z-10 text-center">
-          <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-6 backdrop-blur-sm border border-white/10">
+          <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mx-auto mb-6 backdrop-blur-xs border border-white/10">
             <Shield size={32} className="text-red-500" />
           </div>
           <h1 className="text-3xl md:text-5xl font-extrabold mb-4 tracking-tight">

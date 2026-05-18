@@ -19,43 +19,41 @@
 export const checkoutStyles = {
   // Primary buttons (Pay, Continue, etc.)
   primaryButton:
-    'bg-[var(--store-primary)] text-[var(--store-primary-text)] hover:opacity-90 transition-opacity',
+    'bg-store-primary text-store-primary-text hover:opacity-90 transition-opacity',
   primaryButtonDisabled:
     'disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed',
 
   // Secondary/outline buttons
   outlineButton:
-    'border-[var(--store-primary)] text-[var(--store-primary)] hover:bg-[var(--store-primary)]/10',
+    'border-store-primary text-store-primary hover:bg-store-primary/10',
 
   // Active/selected states
-  activeCard: 'border-[var(--store-primary)] bg-[var(--store-primary)]/5',
-  activeBorder: 'border-[var(--store-primary)]',
-  activeRing: 'ring-1 ring-[var(--store-primary)]/20',
+  activeCard: 'border-store-primary bg-store-primary/5',
+  activeBorder: 'border-store-primary',
+  activeRing: 'ring-1 ring-store-primary/20',
 
   // Radio buttons and checkboxes
-  radioSelected: 'border-[var(--store-primary)]',
-  radioDot: 'bg-[var(--store-primary)]',
-  checkbox: 'text-[var(--store-primary)] focus:ring-[var(--store-primary)]',
+  radioSelected: 'border-store-primary',
+  radioDot: 'bg-store-primary',
+  checkbox: 'text-store-primary focus:ring-store-primary',
 
   // Text colors
-  primaryText: 'text-[var(--store-primary)]',
-  primaryTextHover: 'hover:text-[var(--store-primary)]',
+  primaryText: 'text-store-primary',
+  primaryTextHover: 'hover:text-store-primary',
 
   // Backgrounds
-  primaryBg: 'bg-[var(--store-primary)]',
-  primaryBgLight: 'bg-[var(--store-primary)]/10',
-  primaryBgGradient:
-    'bg-gradient-to-r from-[var(--store-primary)] to-[var(--store-primary)]/80',
+  primaryBg: 'bg-store-primary',
+  primaryBgLight: 'bg-store-primary/10',
+  primaryBgGradient: 'bg-linear-to-r from-store-primary to-store-primary/80',
 
   // Focus states
-  focusRing:
-    'focus:ring-[var(--store-primary)] focus:border-[var(--store-primary)]',
+  focusRing: 'focus:ring-store-primary focus:border-store-primary',
 
   // Shadows
-  primaryShadow: 'shadow-[var(--store-primary)]/20',
+  primaryShadow: 'shadow-store-primary/20',
 
   // Step indicator states
-  stepActive: 'bg-[var(--store-primary)]/10 text-[var(--store-primary)]',
+  stepActive: 'bg-store-primary/10 text-store-primary',
   stepCompleted: 'bg-green-100 text-green-600',
   stepPending: 'bg-gray-100 text-gray-500',
 } as const;
@@ -73,20 +71,20 @@ export function cx(...classes: (string | undefined | false)[]): string {
  *
  * Hardcoded → CSS Variable
  * ━━━━━━━━━━━━━━━━━━━━━━━
- * bg-red-600 → bg-[var(--store-primary)]
- * bg-red-700 → bg-[var(--store-primary)]/90 (or hover state)
- * text-red-600 → text-[var(--store-primary)]
- * text-red-700 → text-[var(--store-primary)]
- * border-red-600 → border-[var(--store-primary)]
- * ring-red-100 → ring-[var(--store-primary)]/20
- * shadow-red-200 → shadow-[var(--store-primary)]/20
- * focus:ring-red-500 → focus:ring-[var(--store-primary)]
- * hover:bg-red-700 → hover:bg-[var(--store-primary)]/90
- * hover:text-red-600 → hover:text-[var(--store-primary)]
- * hover:text-red-700 → hover:text-[var(--store-primary)]
- * hover:border-red-200 → hover:border-[var(--store-primary)]/40
- * from-red-600 → from-[var(--store-primary)]
- * to-red-700 → to-[var(--store-primary)]/80
- * bg-red-50 → bg-[var(--store-primary)]/5
- * bg-red-100 → bg-[var(--store-primary)]/10
+ * bg-red-600 → bg-store-primary
+ * bg-red-700 → bg-store-primary/90 (or hover state)
+ * text-red-600 → text-store-primary
+ * text-red-700 → text-store-primary
+ * border-red-600 → border-store-primary
+ * ring-red-100 → ring-store-primary/20
+ * shadow-red-200 → shadow-store-primary/20
+ * focus:ring-red-500 → focus:ring-store-primary
+ * hover:bg-red-700 → hover:bg-store-primary/90
+ * hover:text-red-600 → hover:text-store-primary
+ * hover:text-red-700 → hover:text-store-primary
+ * hover:border-red-200 → hover:border-store-primary/40
+ * from-red-600 → from-store-primary
+ * to-red-700 → to-store-primary/80
+ * bg-red-50 → bg-store-primary/5
+ * bg-red-100 → bg-store-primary/10
  */

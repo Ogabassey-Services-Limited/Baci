@@ -16,7 +16,7 @@ function Skeleton({
         'animate-pulse rounded-md bg-muted relative overflow-hidden',
         // Shimmer effect overlay
         'after:absolute after:inset-0 after:-translate-x-full after:animate-[shimmer_2s_infinite]',
-        'after:bg-gradient-to-r after:from-transparent after:via-white/10 after:to-transparent',
+        'after:bg-linear-to-r after:from-transparent after:via-white/10 after:to-transparent',
         className
       )}
       {...props}
@@ -43,7 +43,7 @@ export function ProductCardSkeleton({ className }: { className?: string }) {
       aria-hidden="true"
     >
       {/* Shimmer Overlay */}
-      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/40 to-transparent z-10" />
+      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-linear-to-r from-transparent via-white/40 to-transparent z-10" />
 
       {/* Image placeholder */}
       <div className="aspect-square w-full rounded-lg bg-gray-200" />
@@ -194,7 +194,7 @@ export function ProductDetailSkeleton({ className }: { className?: string }) {
       aria-hidden="true"
     >
       {/* Shimmer Overlay */}
-      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/50 to-transparent z-10" />
+      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-linear-to-r from-transparent via-white/50 to-transparent z-10" />
 
       {/* Image gallery */}
       <div className="space-y-4">
@@ -233,7 +233,7 @@ export function ProductDetailSkeleton({ className }: { className?: string }) {
 export function CartItemSkeleton({ className }: { className?: string }) {
   return (
     <div className={cn('flex gap-4 p-4 border-b', className)}>
-      <Skeleton className="w-20 h-20 rounded-md flex-shrink-0" />
+      <Skeleton className="w-20 h-20 rounded-md shrink-0" />
       <div className="flex-1 space-y-2">
         <Skeleton className="h-4 w-3/4" />
         <Skeleton className="h-4 w-1/4" />
@@ -351,7 +351,7 @@ export function StorefrontHeaderSkeleton({
       )}
       aria-busy="true"
     >
-      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/50 to-transparent z-10" />
+      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-linear-to-r from-transparent via-white/50 to-transparent z-10" />
 
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
@@ -385,7 +385,7 @@ export function StorefrontHeroSkeleton({ className }: { className?: string }) {
       )}
       aria-hidden="true"
     >
-      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-white/30 to-transparent z-10" />
+      <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-linear-to-r from-transparent via-white/30 to-transparent z-10" />
 
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="text-center space-y-4 px-4">
@@ -413,7 +413,7 @@ export function StorefrontPageSkeleton({ className }: { className?: string }) {
       <StorefrontHeroSkeleton />
       <div className="container mx-auto px-4 py-12 relative overflow-hidden">
         {/* Shimmer for the grid section */}
-        <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-gradient-to-r from-transparent via-foreground/5 to-transparent z-10 pointer-events-none" />
+        <div className="absolute inset-0 -translate-x-full animate-[shimmer_2s_infinite] bg-linear-to-r from-transparent via-foreground/5 to-transparent z-10 pointer-events-none" />
 
         <div className="text-center mb-8">
           <div className="h-8 w-48 mx-auto mb-2 bg-muted rounded" />

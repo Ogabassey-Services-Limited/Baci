@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 export default function MigrationShopifyPlaceholder() {
   return (
     <Card className="overflow-hidden border-border/70">
-      <CardHeader className="border-b border-border/60 bg-gradient-to-r from-background via-background to-muted/20">
+      <CardHeader className="border-b border-border/60 bg-linear-to-r from-background via-background to-muted/20">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.26em] text-emerald-500">
             Shopify migration

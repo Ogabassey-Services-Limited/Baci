@@ -71,7 +71,7 @@ export function AnalyticsCategoryNav({
             onClick={() => onCategoryChange(category.id)}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
-              'relative flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+              'relative flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 whitespace-nowrap focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
               isActive
                 ? 'text-white'
                 : 'text-foreground/70 hover:text-foreground hover:bg-muted/50'

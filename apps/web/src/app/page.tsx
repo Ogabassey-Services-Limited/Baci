@@ -83,10 +83,10 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
 
       <main id="main-content" className="flex-1 pt-16">
         {/* Hero Section */}
-        <section className="relative w-full pt-3 pb-7 md:pb-10 lg:pb-14 overflow-hidden bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-background min-h-[85vh] flex items-center">
+        <section className="relative w-full pt-3 pb-7 md:pb-10 lg:pb-14 overflow-hidden bg-linear-to-b from-slate-50 to-white dark:from-slate-950 dark:to-background min-h-[85vh] flex items-center">
           {/* Background Elements - Optimized with radial gradients instead of heavy blur filters */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-[radial-gradient(ellipse_at_center,_var(--theme-accent)_0%,_transparent_70%)] opacity-5 -z-10 pointer-events-none" />
-          <div className="absolute bottom-0 right-0 w-[800px] h-[600px] bg-[radial-gradient(ellipse_at_center,_var(--theme-primary)_0%,_transparent_70%)] opacity-5 -z-10 pointer-events-none" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-[radial-gradient(ellipse_at_center,var(--theme-accent)_0%,transparent_70%)] opacity-5 -z-10 pointer-events-none" />
+          <div className="absolute bottom-0 right-0 w-[800px] h-[600px] bg-[radial-gradient(ellipse_at_center,var(--theme-primary)_0%,transparent_70%)] opacity-5 -z-10 pointer-events-none" />
 
           <div
             className="container relative z-10"
@@ -96,7 +96,7 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
             }}
           >
             <div className="flex flex-col items-center space-y-8 text-center max-w-5xl mx-auto">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 dark:bg-white/10 border border-accent/60 rounded-full text-indigo-900 dark:text-indigo-100 text-sm font-medium shadow-sm backdrop-blur-sm animate-fade-in">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 dark:bg-white/10 border border-accent/60 rounded-full text-indigo-900 dark:text-indigo-100 text-sm font-medium shadow-sm backdrop-blur-xs animate-fade-in">
                 <Sparkles className="w-4 h-4 text-accent" />
                 <span>AI-Powered E-commerce Platform</span>
               </div>
@@ -110,7 +110,7 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
                   <span className="relative inline-block">
                     ı
                     <span
-                      className="absolute -top-[0.005em] left-[52%] -translate-x-1/2 w-[0.16em] h-[0.16em] bg-accent rounded-full"
+                      className="absolute top-[-0.005em] left-[52%] -translate-x-1/2 w-[0.16em] h-[0.16em] bg-accent rounded-full"
                       aria-hidden="true"
                     />
                   </span>
@@ -219,7 +219,7 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
         {/* Features Grid */}
         <section
           id="features"
-          className="py-24 bg-slate-50 dark:bg-slate-900/50 [content-visibility:auto] contain-intrinsic-size-[1px_1000px]"
+          className="py-24 bg-slate-50 dark:bg-slate-900/50 content-auto contain-intrinsic-size-[1px_1000px]"
         >
           <div
             className="container"
@@ -297,7 +297,7 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
         {/* How It Works Section */}
         <section
           id="how-it-works"
-          className="py-24 bg-white dark:bg-slate-950 [content-visibility:auto] contain-intrinsic-size-[1px_800px]"
+          className="py-24 bg-white dark:bg-slate-950 content-auto contain-intrinsic-size-[1px_800px]"
         >
           <div
             className="container"
@@ -413,7 +413,7 @@ function BaciLandingPage({ metrics }: { metrics: LandingMetrics }) {
         {/* FAQs Section */}
         <section
           id="faqs"
-          className="py-24 bg-slate-50 dark:bg-slate-900/50 [content-visibility:auto] contain-intrinsic-size-[1px_1000px]"
+          className="py-24 bg-slate-50 dark:bg-slate-900/50 content-auto contain-intrinsic-size-[1px_1000px]"
         >
           <div
             className="container"

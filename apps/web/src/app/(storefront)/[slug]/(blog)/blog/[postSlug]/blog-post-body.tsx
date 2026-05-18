@@ -85,7 +85,7 @@ export async function BlogPostBody({
   });
 
   return (
-    <div className="[content-visibility:auto] [contain-intrinsic-size:1152px_2400px]">
+    <div className="content-auto [contain-intrinsic-size:1152px_2400px]">
       {/* Table of Contents (auto-generated from headings) */}
       {isJson && <TableOfContents />}
 
@@ -96,7 +96,7 @@ export async function BlogPostBody({
         ) : (
           <SafeHtml
             html={legacyHtml}
-            className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:!text-blue-600 [&_img:first-of-type]:hidden"
+            className="prose dark:prose-invert prose-baci max-w-none w-full [&_a]:text-blue-600! [&_img:first-of-type]:hidden"
           />
         )}
       </div>

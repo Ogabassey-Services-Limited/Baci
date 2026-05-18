@@ -98,7 +98,7 @@ export function createProductCartHandlers({
         title: 'Selection unavailable',
         description: 'This exact selection is currently out of stock.',
         className:
-          'border-2 border-[var(--store-primary)] bg-white text-[var(--store-background-text,#111827)]',
+          'border-2 border-store-primary bg-white text-store-background-text',
       });
       return false;
     }
@@ -119,7 +119,7 @@ export function createProductCartHandlers({
       title: 'Added to cart',
       description: `${productData.name} has been added to your cart.`,
       className:
-        'border-2 border-[var(--store-primary)] bg-white text-[var(--store-background-text,#111827)]',
+        'border-2 border-store-primary bg-white text-store-background-text',
     });
     return true;
   };

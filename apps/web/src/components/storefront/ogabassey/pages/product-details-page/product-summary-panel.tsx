@@ -59,14 +59,14 @@ export function ProductSummaryPanel({
   return (
     <>
       <div className="mb-2 flex items-start justify-between">
-        <h2 className="text-sm font-bold uppercase tracking-wider text-[var(--store-primary)]">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-store-primary">
           {productData.brand}
         </h2>
         <div className="flex gap-3">
           <button
             type="button"
             onClick={onShare}
-            className="text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_45%,transparent)] transition-colors active:text-[var(--store-primary)] md:hover:text-[var(--store-primary)]"
+            className="text-store-background-text/45 transition-colors active:text-store-primary md:hover:text-store-primary"
             aria-label="Share this product"
           >
             <Share2 size={20} />
@@ -74,10 +74,10 @@ export function ProductSummaryPanel({
           <button
             type="button"
             onClick={onToggleSaved}
-            className={`transition-colors active:text-[var(--store-primary)] ${
+            className={`transition-colors active:text-store-primary ${
               isLiked
-                ? 'text-[var(--store-primary)]'
-                : 'text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_45%,transparent)] md:hover:text-[var(--store-primary)]'
+                ? 'text-store-primary'
+                : 'text-store-background-text/45 md:hover:text-store-primary'
             }`}
             aria-label={isLiked ? 'Remove from wishlist' : 'Add to wishlist'}
           >
@@ -86,13 +86,13 @@ export function ProductSummaryPanel({
         </div>
       </div>
 
-      <h1 className="mb-4 text-3xl font-extrabold text-[var(--store-background-text,#111827)] md:text-3xl">
+      <h1 className="mb-4 text-3xl font-extrabold text-store-background-text md:text-3xl">
         {productData.name}
       </h1>
 
       <div className="mb-6 flex items-center gap-4">
         <div
-          className="flex items-center gap-0.5 text-[color:var(--store-rating,#facc15)]"
+          className="flex items-center gap-0.5 text-store-rating"
           role="img"
           aria-label={`Rated ${productData.rating} out of 5 stars`}
         >
@@ -109,7 +109,7 @@ export function ProductSummaryPanel({
                   <span className="absolute inset-0 overflow-hidden" style={{ width: `${fraction * 100}%` }}>
                     <Star size={18} fill="currentColor" className="shrink-0" />
                   </span>
-                  <Star size={18} fill="none" className="text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_18%,transparent)]" />
+                  <Star size={18} fill="none" className="text-store-background-text/18" />
                 </span>
               );
             }
@@ -119,26 +119,26 @@ export function ProductSummaryPanel({
                 key={index}
                 size={18}
                 fill={isFull ? 'currentColor' : 'none'}
-                className={isEmpty ? 'text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_18%,transparent)]' : ''}
+                className={isEmpty ? 'text-store-background-text/18' : ''}
                 aria-hidden="true"
               />
             );
           })}
         </div>
-        <span className="text-sm font-medium text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_60%,transparent)]">
+        <span className="text-sm font-medium text-store-background-text/60">
           {productData.reviewCount} Reviews
         </span>
       </div>
 
-      <div className="mb-6 text-3xl font-bold text-[var(--store-primary)]">
+      <div className="mb-6 text-3xl font-bold text-store-primary">
         {currentOfferPrice}
       </div>
 
       {conditionOptions.length > 1 && (
         <div className="mb-6">
-          <label className="mb-3 block text-sm font-bold text-[var(--store-background-text,#111827)]">
+          <label className="mb-3 block text-sm font-bold text-store-background-text">
             Condition:{' '}
-            <span className="text-[var(--store-primary)]">
+            <span className="text-store-primary">
               {formatConditionLabel(selectedCondition)}
             </span>
           </label>
@@ -151,8 +151,8 @@ export function ProductSummaryPanel({
                 aria-pressed={selectedCondition === condition}
                 className={`rounded-lg border-2 px-4 py-2 text-sm font-bold transition-all ${
                   selectedCondition === condition
-                    ? 'border-[var(--store-primary)] bg-[var(--store-primary)]/5 text-[var(--store-primary)]'
-                    : 'border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_15%,transparent)] text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_70%,transparent)] hover:border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_30%,transparent)]'
+                    ? 'border-store-primary bg-store-primary/5 text-store-primary'
+                    : 'border-store-background-text/15 text-store-background-text/70 hover:border-store-background-text/30'
                 }`}
               >
                 {formatConditionLabel(condition)}

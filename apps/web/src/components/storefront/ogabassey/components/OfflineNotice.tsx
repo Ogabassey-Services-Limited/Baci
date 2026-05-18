@@ -27,7 +27,7 @@ export const OfflineNotice: React.FC = () => {
   if (!isOffline) return null;
 
   return (
-    <div className="fixed bottom-20 md:bottom-6 left-1/2 transform -translate-x-1/2 z-[100] w-[90%] md:w-auto min-w-[300px] animate-in slide-in-from-bottom-5 duration-300">
+    <div className="fixed bottom-20 md:bottom-6 left-1/2 transform -translate-x-1/2 z-100 w-[90%] md:w-auto min-w-[300px] animate-in slide-in-from-bottom-5 duration-300">
       <div className="bg-[#1a1a1a] text-white px-4 py-3 rounded-xl shadow-2xl border border-red-500/30 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-red-600/20 flex items-center justify-center text-red-500">

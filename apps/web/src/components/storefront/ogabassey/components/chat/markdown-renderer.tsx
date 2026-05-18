@@ -133,7 +133,7 @@ export function renderMarkdown(text: string): React.ReactNode {
     if (isListItem) {
       return (
         <div key={lineIndex} className="flex items-start gap-2 my-1">
-          <span className="text-red-600 mt-0.5 flex-shrink-0">&bull;</span>
+          <span className="text-red-600 mt-0.5 shrink-0">&bull;</span>
           <span className="flex-1">{renderedParts}</span>
         </div>
       );

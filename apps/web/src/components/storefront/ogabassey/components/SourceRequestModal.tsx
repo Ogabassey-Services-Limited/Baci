@@ -45,9 +45,9 @@ export const SourceRequestModal: React.FC<SourceRequestModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-100 flex items-center justify-center px-4">
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-xs"
         onClick={onClose}
       />
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md relative overflow-hidden z-10 animate-in zoom-in-95 duration-200">
@@ -85,7 +85,7 @@ export const SourceRequestModal: React.FC<SourceRequestModalProps> = ({
                   onChange={(e) =>
                     setFormData({ ...formData, productName: e.target.value })
                   }
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-600/20 focus:border-red-600 outline-none bg-gray-50 transition-all font-medium text-gray-900"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-600/20 focus:border-red-600 outline-hidden bg-gray-50 transition-all font-medium text-gray-900"
                   placeholder="e.g. iPhone 15 Pro Max 1TB"
                 />
               </div>
@@ -99,7 +99,7 @@ export const SourceRequestModal: React.FC<SourceRequestModalProps> = ({
                   onChange={(e) =>
                     setFormData({ ...formData, details: e.target.value })
                   }
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-600/20 focus:border-red-600 outline-none bg-gray-50 min-h-[100px] transition-all text-sm resize-none"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-600/20 focus:border-red-600 outline-hidden bg-gray-50 min-h-[100px] transition-all text-sm resize-none"
                   placeholder="Specific color, specs, condition (New/Used), or your budget..."
                 />
               </div>
@@ -115,7 +115,7 @@ export const SourceRequestModal: React.FC<SourceRequestModalProps> = ({
                   onChange={(e) =>
                     setFormData({ ...formData, contact: e.target.value })
                   }
-                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-600/20 focus:border-red-600 outline-none bg-gray-50 transition-all text-sm"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-600/20 focus:border-red-600 outline-hidden bg-gray-50 transition-all text-sm"
                   placeholder="Email address or Phone number"
                 />
               </div>

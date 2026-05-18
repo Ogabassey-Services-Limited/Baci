@@ -58,7 +58,7 @@ describe('HeroUtilityPanel', () => {
     const { container } = render(<HeroUtilityPanel />);
 
     expect(container.firstElementChild).not.toHaveClass(
-      '[content-visibility:auto]'
+      'content-auto'
     );
     expect(container.firstElementChild).not.toHaveClass(
       '[contain-intrinsic-size:1400px_260px]'

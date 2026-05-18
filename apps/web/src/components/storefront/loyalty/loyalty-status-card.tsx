@@ -65,7 +65,7 @@ export function LoyaltyStatusCard({
 
   if (compact) {
     return (
-      <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg">
+      <div className="flex items-center gap-3 p-3 bg-linear-to-r from-purple-50 to-pink-50 rounded-lg">
         <div className="p-2 bg-white rounded-full shadow-sm">
           <Sparkles className="h-4 w-4 text-purple-600" />
         </div>
@@ -93,7 +93,7 @@ export function LoyaltyStatusCard({
 
   return (
     <Card className="overflow-hidden">
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-4 text-white">
+      <div className="bg-linear-to-r from-purple-600 to-pink-600 p-4 text-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Trophy className="h-5 w-5" />

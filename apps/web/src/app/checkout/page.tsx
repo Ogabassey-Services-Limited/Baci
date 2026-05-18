@@ -1401,8 +1401,8 @@ function CheckoutPageContent() {
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-background py-10 px-4">
       {/* Dynamic Background Elements */}
-      <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-background to-background" />
-      <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]" />
+      <div className="absolute inset-0 w-full h-full bg-[radial-gradient(ellipse_at_top,var(--tw-gradient-stops))] from-primary/20 via-background to-background" />
+      <div className="absolute top-0 left-0 w-full h-full bg-[url('/grid.svg')] bg-center mask-[linear-gradient(180deg,white,rgba(255,255,255,0))]" />
 
       {/* Animated Orbs */}
       <div
@@ -1421,7 +1421,7 @@ function CheckoutPageContent() {
           <div className="lg:col-span-7">
             <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-2xl">
               {/* Glass Shine Effect */}
-              <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-linear-to-br from-white/20 via-transparent to-transparent pointer-events-none" />
 
               <div className="relative p-6 md:p-8">
                 {/* Header */}
@@ -1561,7 +1561,7 @@ function CheckoutPageContent() {
           {/* Right Column: Order Summary */}
           <div className="lg:col-span-5 space-y-6">
             <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-white/60 dark:bg-black/40 backdrop-blur-xl shadow-xl sticky top-8">
-              <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
+              <div className="absolute inset-0 bg-linear-to-br from-white/10 via-transparent to-transparent pointer-events-none" />
               <div className="relative p-6 md:p-8">
                 <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-primary" />

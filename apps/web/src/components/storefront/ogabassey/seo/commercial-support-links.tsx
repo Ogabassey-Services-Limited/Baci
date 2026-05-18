@@ -20,11 +20,11 @@ export function CommercialSupportLinks({
   return (
     <section
       aria-labelledby={headingId}
-      className="mt-10 border-t border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_12%,transparent)] pt-8"
+      className="mt-10 border-t border-store-background-text/12 pt-8"
     >
       <h2
         id={headingId}
-        className="text-xl font-semibold text-[var(--store-background-text,#111827)]"
+        className="text-xl font-semibold text-store-background-text"
       >
         {heading}
       </h2>
@@ -32,7 +32,7 @@ export function CommercialSupportLinks({
         {links.map((link) => (
           <li key={link.href}>
             <a
-              className="text-sm font-medium text-[var(--store-primary,#dc2626)] underline-offset-4 hover:underline"
+              className="text-sm font-medium text-store-primary underline-offset-4 hover:underline"
               href={link.href}
             >
               {link.label}
