@@ -20,6 +20,7 @@ import {
   revalidateMerchant,
   revalidateMerchantFeed,
   revalidatePageConfig,
+  revalidatePlatformBlog,
   revalidateProducts,
   revalidateReviews,
 } from './cache-revalidation';
@@ -596,6 +597,45 @@ describe('cache-revalidation utilities', () => {
       expect(mockRevalidateTag).toHaveBeenCalledWith(
         'domain-shop.example.com',
         'merchant'
+      );
+    });
+  });
+
+  describe('revalidatePlatformBlog', () => {
+    it('revalidates platform blog tags and shared paths', () => {
+      revalidatePlatformBlog();
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'platform-blog',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'platform-blog-list',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'platform-blog-sitemap',
+        'merchant'
+      );
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'platform-blog-feed',
+        'merchant'
+      );
+      expect(mockRevalidatePath).toHaveBeenCalledWith('/blog');
+      expect(mockRevalidatePath).toHaveBeenCalledWith('/blog/feed.xml');
+      expect(mockRevalidatePath).toHaveBeenCalledWith('/sitemap.xml');
+    });
+
+    it('revalidates slug-scoped paths and tag when a slug is provided', () => {
+      revalidatePlatformBlog('platform-launch');
+
+      expect(mockRevalidateTag).toHaveBeenCalledWith(
+        'platform-blog-post-platform-launch',
+        'merchant'
+      );
+      expect(mockRevalidatePath).toHaveBeenCalledWith('/blog/platform-launch');
+      expect(mockRevalidatePath).toHaveBeenCalledWith(
+        '/blog/platform-launch/opengraph-image'
       );
     });
   });

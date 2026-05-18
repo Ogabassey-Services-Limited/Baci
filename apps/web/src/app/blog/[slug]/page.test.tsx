@@ -2,50 +2,18 @@ import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockSingle = vi.fn();
-const mockNot = vi.fn();
+const mockGetPlatformBlogPost = vi.fn();
 const mockNotFound = vi.fn(() => {
   throw new Error('NEXT_NOT_FOUND');
 });
 
-vi.mock('@supabase/supabase-js', () => ({
-  createClient: vi.fn(() => ({
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          eq: () => ({
-            not: (...args: unknown[]) => {
-              mockNot(...args);
-              return {
-                eq: () => ({
-                  single: (...singleArgs: unknown[]) =>
-                    mockSingle(...singleArgs),
-                }),
-              };
-            },
-            eq: () => ({
-              single: (...args: unknown[]) => mockSingle(...args),
-            }),
-          }),
-        }),
-      }),
-    }),
-  })),
-}));
-
-vi.mock('lucide-react', () => ({
-  ArrowLeft: () => null,
-  Calendar: () => null,
-  Clock: () => null,
-  Eye: () => null,
-}));
-
-vi.mock('next/image', () => ({
-  default: () => null,
-}));
-
-vi.mock('next/link', () => ({
-  default: ({ children }: { children: ReactNode }) => children,
+vi.mock('@/lib/platform-blog', () => ({
+  PLATFORM_BLOG_CONTEXT: {
+    baseUrl: 'https://usebaci.com',
+    businessName: 'Baci',
+    logoUrl: 'https://usebaci.com/logo.png',
+  },
+  getPlatformBlogPost: (...args: unknown[]) => mockGetPlatformBlogPost(...args),
 }));
 
 vi.mock('next/navigation', () => ({
@@ -56,78 +24,118 @@ vi.mock('@/components/app-body', () => ({
   default: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
-vi.mock('@/components/platform/footer', () => ({
-  PlatformFooter: () => null,
+vi.mock('@/components/platform/header', () => ({
+  PlatformHeader: () => <header>Platform Header</header>,
 }));
 
-vi.mock('@/components/platform/header', () => ({
-  PlatformHeader: () => null,
+vi.mock('@/components/platform/footer', () => ({
+  PlatformFooter: () => <footer>Platform Footer</footer>,
+}));
+
+vi.mock('next/link', () => ({
+  default: ({ children, href }: { children: ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
+}));
+
+vi.mock('next/image', () => ({
+  default: () => null,
 }));
 
 vi.mock('@/components/ui/safe-html', () => ({
-  SafeHtml: () => null,
+  SafeHtml: ({ html }: { html: string }) => <div>{html}</div>,
 }));
 
-vi.mock('@/lib/routes', () => ({
-  asRoute: (value: string) => value,
+vi.mock('./blog-post-view-tracker', () => ({
+  BlogPostViewTracker: ({ slug }: { slug: string }) => (
+    <div data-testid="view-tracker">{slug}</div>
+  ),
 }));
 
-import BlogPostPage, { generateMetadata } from './page';
+import { BlogPostPageContent, generateMetadata } from './page';
 
 describe('platform blog post page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetPlatformBlogPost.mockResolvedValue({
+      author_bio: 'Baci editorial desk',
+      author_image_url: null,
+      author_name: 'Baci Editorial',
+      author_title: 'Editorial Team',
+      category: 'Guides',
+      content: '<p>Article body</p>',
+      excerpt: 'Article excerpt',
+      featured_image_alt: 'Launch image',
+      featured_image_url: 'https://usebaci.com/media/platform/blog/launch.png',
+      id: 'post-1',
+      keywords: ['launch', 'guides'],
+      published_at: '2026-05-16T10:00:00.000Z',
+      reading_time_minutes: 5,
+      seo_description: 'SEO description',
+      seo_title: 'SEO title',
+      slug: 'launch-faster',
+      title: 'Launch Faster',
+      updated_at: '2026-05-16T10:00:00.000Z',
+      view_count: 3,
+      word_count: 450,
+    });
   });
 
-  it('renders the local page fallback while the post query is pending', () => {
-    mockSingle.mockReturnValue(
-      new Promise(() => {
-        // Keep the page content pending so the Suspense fallback renders.
+  it('renders the platform post using the shared post query helper', async () => {
+    const { container } = render(
+      await BlogPostPageContent({
+        params: Promise.resolve({ slug: 'launch-faster' }),
       })
     );
 
-    render(
-      <BlogPostPage
-        params={Promise.resolve({
-          slug: 'test-post',
-        })}
-      />
+    expect(mockGetPlatformBlogPost).toHaveBeenCalledWith('launch-faster');
+    expect(screen.getByTestId('view-tracker')).toHaveTextContent(
+      'launch-faster'
     );
+    expect(screen.getByText('Platform Header')).toBeInTheDocument();
+    expect(screen.getByText('Platform Footer')).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Launch Faster' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('<p>Article body</p>')).toBeInTheDocument();
 
-    expect(screen.getByText('Loading article…')).toBeInTheDocument();
+    const jsonLdScripts = container.querySelectorAll(
+      'script[type="application/ld+json"]'
+    );
+    expect(jsonLdScripts).toHaveLength(2);
+    expect(jsonLdScripts[0]?.textContent || '').toContain(
+      '"@type":"BlogPosting"'
+    );
+    expect(jsonLdScripts[1]?.textContent || '').toContain(
+      '"@type":"BreadcrumbList"'
+    );
   });
 
-  it('excludes platform post metadata lookups without a published_at timestamp', async () => {
-    mockSingle.mockResolvedValue({
-      data: {
-        id: 'post-1',
-        title: 'Discover Ready Post',
-        slug: 'discover-ready-post',
-        content: '<p>Post body</p>',
-        excerpt:
-          'A practical Discover-ready post with enough description for metadata generation.',
-        featured_image_url: null,
-        featured_image_alt: null,
-        category: 'Guides',
-        tags: [],
-        keywords: [],
-        author_name: 'Baci',
-        author_title: null,
-        author_image_url: null,
-        author_bio: null,
-        reading_time_minutes: 4,
-        published_at: '2026-05-01T00:00:00Z',
-        view_count: 10,
-        seo_title: null,
-        seo_description: null,
-      },
-      error: null,
+  it('calls notFound when the post does not exist', async () => {
+    mockGetPlatformBlogPost.mockResolvedValueOnce(null);
+
+    await expect(
+      BlogPostPageContent({
+        params: Promise.resolve({ slug: 'missing-post' }),
+      })
+    ).rejects.toThrow('NEXT_NOT_FOUND');
+
+    expect(mockNotFound).toHaveBeenCalled();
+  });
+
+  it('builds canonical article metadata', async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: 'launch-faster' }),
     });
 
-    await generateMetadata({
-      params: Promise.resolve({ slug: 'discover-ready-post' }),
-    });
-
-    expect(mockNot).toHaveBeenCalledWith('published_at', 'is', null);
+    expect(metadata.alternates?.canonical).toBe(
+      'https://usebaci.com/blog/launch-faster'
+    );
+    expect((metadata.openGraph as { type?: string } | undefined)?.type).toBe(
+      'article'
+    );
+    expect(metadata.robots).toEqual(
+      expect.objectContaining({ 'max-image-preview': 'large' })
+    );
   });
 });

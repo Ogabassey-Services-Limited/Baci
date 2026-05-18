@@ -1,10 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 
 const mockGetMerchantBlogCacheIdentifiers = vi.fn();
 const mockRevalidateBlogPosts = vi.fn();
 const merchantId = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
-const managedFeaturedImageUrl = `https://cdn.example.com/storage/v1/object/public/media/${merchantId}/blog/cover.png`;
-const managedLandscapeVariantUrl = `https://cdn.example.com/storage/v1/object/public/media/${merchantId}/blog/upload-1/landscape_16x9.webp`;
+const managedFeaturedImageUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/${merchantId}/blog/cover.png`;
+const managedLandscapeVariantUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/${merchantId}/blog/upload-1/landscape_16x9.webp`;
 
 const createServiceClientMock = () => {
   const mock = {

@@ -1,5 +1,7 @@
+import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 import {
   BLOG_FEATURED_VARIANT_KEYS,
+  type BlogStorageScope,
   extractManagedBlogStoragePath,
 } from '@/lib/blog-managed-storage-paths';
 
@@ -37,6 +39,26 @@ type BlogDiscoverImageFields = {
   featured_image_variants?: Record<string, unknown> | null;
 };
 
+const trustedOriginCandidates = [
+  process.env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN ||
+    DEFAULT_BLOG_MEDIA_CDN_ORIGIN,
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+];
+
+const TRUSTED_BLOG_IMAGE_ORIGINS = new Set(
+  trustedOriginCandidates.flatMap((value) => {
+    if (!value) {
+      return [];
+    }
+
+    try {
+      return [new URL(value).origin];
+    } catch {
+      return [];
+    }
+  })
+);
+
 function notReady(
   code: BlogDiscoverImageReadinessCode,
   details: Record<string, unknown>
@@ -66,9 +88,20 @@ function isManagedVariantBlogPath(path: string | null): path is string {
   return Boolean(path && path.split('/').length === 4);
 }
 
+function isTrustedManagedBlogImageUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw);
+    return (
+      url.protocol === 'https:' && TRUSTED_BLOG_IMAGE_ORIGINS.has(url.origin)
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function validateBlogImageVariantIntegrity(
   image: Pick<BlogDiscoverImageFields, 'featured_image_variants'>,
-  merchantId: string
+  storageScope: string | BlogStorageScope
 ): BlogDiscoverImageReadinessResult {
   const variants = getVariantMap(image.featured_image_variants);
   const allowedKeys = new Set<string>(BLOG_FEATURED_VARIANT_KEYS);
@@ -84,7 +117,13 @@ export function validateBlogImageVariantIntegrity(
       continue;
     }
 
-    const path = extractManagedBlogStoragePath(value, merchantId);
+    if (!isTrustedManagedBlogImageUrl(value)) {
+      return notReady('BLOG_FEATURED_IMAGE_VARIANT_NOT_MANAGED', {
+        variantKey: key,
+      });
+    }
+
+    const path = extractManagedBlogStoragePath(value, storageScope);
     if (!isManagedVariantBlogPath(path)) {
       return notReady('BLOG_FEATURED_IMAGE_VARIANT_NOT_MANAGED', {
         variantKey: key,
@@ -97,9 +136,12 @@ export function validateBlogImageVariantIntegrity(
 
 export function validateBlogDiscoverImageReadiness(
   image: BlogDiscoverImageFields,
-  merchantId: string
+  storageScope: string | BlogStorageScope
 ): BlogDiscoverImageReadinessResult {
-  const variantIntegrity = validateBlogImageVariantIntegrity(image, merchantId);
+  const variantIntegrity = validateBlogImageVariantIntegrity(
+    image,
+    storageScope
+  );
   if (!variantIntegrity.ready) {
     return variantIntegrity;
   }
@@ -110,9 +152,15 @@ export function validateBlogDiscoverImageReadiness(
     });
   }
 
+  if (!isTrustedManagedBlogImageUrl(image.featured_image_url)) {
+    return notReady('BLOG_FEATURED_IMAGE_NOT_MANAGED', {
+      reason: 'unmanaged_featured_image',
+    });
+  }
+
   const originalPath = extractManagedBlogStoragePath(
     image.featured_image_url,
-    merchantId
+    storageScope
   );
   if (!isManagedOriginalBlogPath(originalPath)) {
     return notReady('BLOG_FEATURED_IMAGE_NOT_MANAGED', {
@@ -145,7 +193,10 @@ export function validateBlogDiscoverImageReadiness(
     });
   }
 
-  const landscapePath = extractManagedBlogStoragePath(landscapeUrl, merchantId);
+  const landscapePath = extractManagedBlogStoragePath(
+    landscapeUrl,
+    storageScope
+  );
   if (!isManagedVariantBlogPath(landscapePath)) {
     return notReady('BLOG_FEATURED_IMAGE_VARIANT_NOT_MANAGED', {
       variantKey: 'landscape_16x9',
@@ -157,13 +208,13 @@ export function validateBlogDiscoverImageReadiness(
 
 export function classifyBlogDiscoverImageReadiness(
   post: BlogDiscoverImageFields,
-  merchantId: string
+  storageScope: string | BlogStorageScope
 ): BlogDiscoverImageReadinessState {
   if (post.status !== 'published') {
     return 'ready';
   }
 
-  const result = validateBlogDiscoverImageReadiness(post, merchantId);
+  const result = validateBlogDiscoverImageReadiness(post, storageScope);
   if (result.ready) {
     return 'ready';
   }

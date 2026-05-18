@@ -12,6 +12,13 @@
  */
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { getBlogCacheTag } from '@/lib/blog-cache-tags';
+import {
+  getPlatformBlogPostCacheTag,
+  PLATFORM_BLOG_CACHE_TAG,
+  PLATFORM_BLOG_FEED_CACHE_TAG,
+  PLATFORM_BLOG_LIST_CACHE_TAG,
+  PLATFORM_BLOG_SITEMAP_CACHE_TAG,
+} from '@/lib/platform-blog';
 import { buildStorefrontProductsCacheTags } from '@/lib/storefront-products-cache-key';
 
 interface BlogRevalidationOptions {
@@ -219,6 +226,24 @@ export function revalidateBlogPosts(
       revalidatePath(`/${identifier}/blog/${slug}/opengraph-image`);
     }
   }
+}
+
+export function revalidatePlatformBlog(slug?: string) {
+  revalidateTag(PLATFORM_BLOG_CACHE_TAG, 'merchant');
+  revalidateTag(PLATFORM_BLOG_LIST_CACHE_TAG, 'merchant');
+  revalidateTag(PLATFORM_BLOG_SITEMAP_CACHE_TAG, 'merchant');
+  revalidateTag(PLATFORM_BLOG_FEED_CACHE_TAG, 'merchant');
+
+  const normalizedSlug = slug?.trim().toLowerCase();
+  if (normalizedSlug) {
+    revalidateTag(getPlatformBlogPostCacheTag(normalizedSlug), 'merchant');
+    revalidatePath(`/blog/${normalizedSlug}`);
+    revalidatePath(`/blog/${normalizedSlug}/opengraph-image`);
+  }
+
+  revalidatePath('/blog');
+  revalidatePath('/blog/feed.xml');
+  revalidatePath('/sitemap.xml');
 }
 
 /**

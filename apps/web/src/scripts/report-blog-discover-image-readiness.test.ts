@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 
 const mocks = vi.hoisted(() => ({
   createServiceClient: vi.fn(),
@@ -129,7 +130,7 @@ function createSupabaseMock({
         }),
         getPublicUrl: vi.fn((path: string) => ({
           data: {
-            publicUrl: `https://cdn.example.com/storage/v1/object/public/media/${path}`,
+            publicUrl: `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/${path}`,
           },
         })),
       })),
@@ -197,12 +198,12 @@ describe('buildBlogDiscoverReadinessRows', () => {
       slug: 'ready-post',
       status: 'published',
       featured_image_url:
-        'https://cdn.example.com/storage/v1/object/public/media/merchant-1/blog/cover.jpg',
+        `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/merchant-1/blog/cover.jpg`,
       featured_image_width: 1200,
       featured_image_height: 675,
       featured_image_variants: {
         landscape_16x9:
-          'https://cdn.example.com/storage/v1/object/public/media/merchant-1/blog/file-token/landscape_16x9.webp',
+          `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/merchant-1/blog/file-token/landscape_16x9.webp`,
       },
     },
     {
@@ -211,7 +212,7 @@ describe('buildBlogDiscoverReadinessRows', () => {
       slug: 'legacy-post',
       status: 'published',
       featured_image_url:
-        'https://cdn.example.com/storage/v1/object/public/media/merchant-1/blog/original.jpg',
+        `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/merchant-1/blog/original.jpg`,
       featured_image_width: null,
       featured_image_height: null,
       featured_image_variants: {},
@@ -271,7 +272,7 @@ describe('runReportBlogDiscoverImageReadinessCli', () => {
     slug: 'legacy-post',
     status: 'published',
     featured_image_url:
-      'https://cdn.example.com/storage/v1/object/public/media/merchant-1/blog/original.jpg',
+      `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/merchant-1/blog/original.jpg`,
     featured_image_width: null,
     featured_image_height: null,
     featured_image_variants: {},

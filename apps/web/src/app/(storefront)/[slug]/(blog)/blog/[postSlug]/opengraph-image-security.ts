@@ -1,6 +1,10 @@
 import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 import { env } from '@/env';
-import { extractManagedBlogStoragePath } from '@/lib/blog-managed-storage-paths';
+import {
+  type BlogStorageScope,
+  extractManagedBlogStoragePath,
+} from '@/lib/blog-managed-storage-paths';
+import { PLATFORM_BLOG_CONTEXT } from '@/lib/platform-blog';
 
 export { getBlogCacheTag } from '@/lib/blog-cache-tags';
 
@@ -19,6 +23,17 @@ const TRUSTED_OG_IMAGE_ORIGINS = new Set(
     }
   })
 );
+
+const TRUSTED_LOGO_ORIGINS = new Set([
+  ...TRUSTED_OG_IMAGE_ORIGINS,
+  ...(() => {
+    try {
+      return [new URL(PLATFORM_BLOG_CONTEXT.baseUrl).origin];
+    } catch {
+      return [];
+    }
+  })(),
+]);
 
 export async function withTimeout<T>(
   promise: Promise<T>,
@@ -42,13 +57,13 @@ export async function withTimeout<T>(
 
 export function isAllowedBlogOgImageUrl(
   raw: string,
-  merchantId: string
+  storageScope: string | BlogStorageScope
 ): boolean {
   try {
     const url = new URL(raw);
     if (url.protocol !== 'https:') return false;
     if (!TRUSTED_OG_IMAGE_ORIGINS.has(url.origin)) return false;
-    return extractManagedBlogStoragePath(raw, merchantId) !== null;
+    return extractManagedBlogStoragePath(raw, storageScope) !== null;
   } catch {
     return false;
   }
@@ -57,9 +72,7 @@ export function isAllowedBlogOgImageUrl(
 export function isAllowedLogoUrl(raw: string): boolean {
   try {
     const url = new URL(raw);
-    return (
-      url.protocol === 'https:' && TRUSTED_OG_IMAGE_ORIGINS.has(url.origin)
-    );
+    return url.protocol === 'https:' && TRUSTED_LOGO_ORIGINS.has(url.origin);
   } catch {
     return false;
   }

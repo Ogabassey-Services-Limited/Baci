@@ -1,104 +1,196 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'test-anon-key';
+const mockGetPlatformBlogListing = vi.fn();
+const mockGetPlatformBlogPost = vi.fn();
+const mockIncrementPlatformBlogPostViews = vi.fn();
 
-const mockNot = vi.fn();
-const mockSingle = vi.fn();
-const mockRange = vi.fn();
-const mockQuery = {
-  contains: vi.fn(() => mockQuery),
-  eq: vi.fn(() => mockQuery),
-  from: vi.fn(() => mockQuery),
-  not: mockNot,
-  order: vi.fn(() => mockQuery),
-  range: mockRange,
-  rpc: vi.fn(),
-  select: vi.fn(() => mockQuery),
-  single: mockSingle,
-};
-
-mockNot.mockReturnValue(mockQuery);
-mockRange.mockResolvedValue({ data: [], error: null, count: 0 });
-mockSingle.mockResolvedValue({
-  data: {
-    id: 'post-1',
-    slug: 'discover-ready-post',
-    title: 'Discover Ready Post',
-  },
-  error: null,
-});
-
-vi.mock('@supabase/supabase-js', () => ({
-  createClient: vi.fn(() => mockQuery),
+vi.mock('@/lib/platform-blog', () => ({
+  getPlatformBlogListing: (...args: unknown[]) =>
+    mockGetPlatformBlogListing(...args),
+  getPlatformBlogPost: (...args: unknown[]) => mockGetPlatformBlogPost(...args),
+  incrementPlatformBlogPostViews: (...args: unknown[]) =>
+    mockIncrementPlatformBlogPostViews(...args),
 }));
 
 import { GET } from './route';
 
 describe('GET /api/blog/posts', () => {
-  const publishedPosts = [
-    {
-      id: 'post-1',
-      slug: 'discover-ready-post',
-      title: 'Discover Ready Post',
-      published_at: '2026-01-01T00:00:00Z',
-    },
-    {
-      id: 'post-2',
-      slug: 'discover-ready-follow-up',
-      title: 'Discover Ready Follow Up',
-      published_at: '2026-01-02T00:00:00Z',
-    },
-  ];
-
   beforeEach(() => {
     vi.clearAllMocks();
-    mockNot.mockReturnValue(mockQuery);
-    mockRange.mockResolvedValue({
-      data: publishedPosts,
-      error: null,
-      count: publishedPosts.length,
+    mockGetPlatformBlogListing.mockResolvedValue({
+      hasMore: false,
+      limit: 20,
+      page: 1,
+      posts: [],
+      total: 0,
+      totalPages: 1,
     });
-    mockSingle.mockResolvedValue({
-      data: {
-        id: 'post-1',
-        slug: 'discover-ready-post',
-        title: 'Discover Ready Post',
-      },
-      error: null,
-    });
+    mockGetPlatformBlogPost.mockResolvedValue(null);
+    mockIncrementPlatformBlogPostViews.mockResolvedValue(undefined);
   });
 
-  it('excludes platform listing rows without a published_at timestamp', async () => {
+  it('uses the shared platform listing helper with safe pagination', async () => {
+    mockGetPlatformBlogListing.mockResolvedValueOnce({
+      hasMore: true,
+      limit: 10,
+      page: 3,
+      posts: [{ id: 'post-1', slug: 'launch-faster', title: 'Launch Faster' }],
+      total: 40,
+      totalPages: 4,
+    });
+
     const response = await GET(
-      new NextRequest('http://localhost/api/blog/posts')
+      new NextRequest('http://localhost/api/blog/posts?limit=10&offset=20')
     );
 
     expect(response.status).toBe(200);
-    const body = await response.json();
-    expect(body).toEqual(
-      expect.objectContaining({
-        posts: publishedPosts,
-        total: publishedPosts.length,
-      })
-    );
-    expect(body.posts).toHaveLength(2);
-    expect(
-      body.posts.every(
-        (post: { published_at: string | null }) => post.published_at !== null
-      )
-    ).toBe(true);
-    expect(mockQuery.eq).toHaveBeenCalledWith('status', 'published');
-    expect(mockNot).toHaveBeenCalledWith('published_at', 'is', null);
+    expect(mockGetPlatformBlogListing).toHaveBeenCalledWith({
+      category: null,
+      limit: 10,
+      offset: 20,
+      tag: null,
+    });
+    await expect(response.json()).resolves.toEqual({
+      hasMore: true,
+      limit: 10,
+      offset: 20,
+      page: 3,
+      posts: [{ id: 'post-1', slug: 'launch-faster', title: 'Launch Faster' }],
+      total: 40,
+      totalPages: 4,
+    });
   });
 
-  it('returns 500 when the platform listing query fails', async () => {
-    mockRange.mockResolvedValueOnce({
-      data: null,
-      error: new Error('listing query failed'),
-      count: 0,
+  it('honors non-page-aligned offsets exactly', async () => {
+    mockGetPlatformBlogListing.mockResolvedValueOnce({
+      hasMore: true,
+      limit: 10,
+      page: 2,
+      posts: [{ id: 'post-15', slug: 'exact-offset', title: 'Exact Offset' }],
+      total: 40,
+      totalPages: 4,
     });
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/blog/posts?limit=10&offset=15')
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetPlatformBlogListing).toHaveBeenCalledWith({
+      category: null,
+      limit: 10,
+      offset: 15,
+      tag: null,
+    });
+    await expect(response.json()).resolves.toMatchObject({
+      offset: 15,
+      page: 2,
+      posts: [{ id: 'post-15', slug: 'exact-offset', title: 'Exact Offset' }],
+    });
+  });
+
+  it('returns a single post when slug is provided', async () => {
+    mockGetPlatformBlogPost.mockResolvedValueOnce({
+      id: 'post-1',
+      slug: 'launch-faster',
+      title: 'Launch Faster',
+    });
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/blog/posts?slug=launch-faster')
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetPlatformBlogPost).toHaveBeenCalledWith('launch-faster');
+    expect(mockIncrementPlatformBlogPostViews).not.toHaveBeenCalled();
+    await expect(response.json()).resolves.toEqual({
+      id: 'post-1',
+      slug: 'launch-faster',
+      title: 'Launch Faster',
+    });
+  });
+
+  it('tracks a post view when trackView=1 is provided', async () => {
+    mockGetPlatformBlogPost.mockResolvedValueOnce({
+      id: 'post-2',
+      slug: 'view-error',
+      title: 'View Error',
+    });
+    mockIncrementPlatformBlogPostViews.mockResolvedValueOnce(undefined);
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/blog/posts?slug=view-error&trackView=1'
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockIncrementPlatformBlogPostViews).toHaveBeenCalledWith('post-2');
+    await expect(response.json()).resolves.toEqual({ ok: true });
+  });
+
+  it('returns ok=false when trackView increment fails', async () => {
+    mockGetPlatformBlogPost.mockResolvedValueOnce({
+      id: 'post-2',
+      slug: 'view-error',
+      title: 'View Error',
+    });
+    mockIncrementPlatformBlogPostViews.mockRejectedValueOnce(
+      new Error('increment failed')
+    );
+
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(
+      // biome-ignore lint/suspicious/noEmptyBlockStatements: suppress console.error noise in test
+      () => {}
+    );
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/blog/posts?slug=view-error&trackView=1'
+      )
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ ok: false });
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Failed to increment platform blog post views:',
+      expect.objectContaining({
+        postId: 'post-2',
+        error: expect.any(Error),
+      })
+    );
+    consoleSpy.mockRestore();
+  });
+
+  it('forwards category and tag filters to the listing helper', async () => {
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/blog/posts?category=insights&tag=payments&limit=12&offset=24'
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockGetPlatformBlogListing).toHaveBeenCalledWith({
+      category: 'insights',
+      limit: 12,
+      offset: 24,
+      tag: 'payments',
+    });
+  });
+
+  it('returns 404 for missing slug lookups', async () => {
+    mockGetPlatformBlogPost.mockResolvedValueOnce(null);
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/blog/posts?slug=missing')
+    );
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({ error: 'Post not found' });
+  });
+
+  it('returns 500 when platform listing fetch fails', async () => {
+    mockGetPlatformBlogListing.mockRejectedValueOnce(new Error('db failed'));
 
     const response = await GET(
       new NextRequest('http://localhost/api/blog/posts')
@@ -108,39 +200,18 @@ describe('GET /api/blog/posts', () => {
     await expect(response.json()).resolves.toEqual({
       error: 'Failed to fetch blog posts',
     });
-    expect(mockQuery.eq).toHaveBeenCalledWith('status', 'published');
-    expect(mockNot).toHaveBeenCalledWith('published_at', 'is', null);
   });
 
-  it('excludes platform slug lookups without a published_at timestamp', async () => {
-    const response = await GET(
-      new NextRequest(
-        'http://localhost/api/blog/posts?slug=discover-ready-post'
-      )
-    );
-
-    expect(response.status).toBe(200);
-    expect(mockQuery.eq).toHaveBeenCalledWith('status', 'published');
-    expect(mockNot).toHaveBeenCalledWith('published_at', 'is', null);
-  });
-
-  it('returns 500 when the platform slug lookup query fails', async () => {
-    mockSingle.mockResolvedValueOnce({
-      data: null,
-      error: new Error('slug query failed'),
-    });
+  it('returns 500 when platform slug fetch fails', async () => {
+    mockGetPlatformBlogPost.mockRejectedValueOnce(new Error('db failed'));
 
     const response = await GET(
-      new NextRequest(
-        'http://localhost/api/blog/posts?slug=discover-ready-post'
-      )
+      new NextRequest('http://localhost/api/blog/posts?slug=launch-faster')
     );
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
-      error: 'Failed to fetch blog post',
+      error: 'Failed to fetch blog posts',
     });
-    expect(mockQuery.eq).toHaveBeenCalledWith('status', 'published');
-    expect(mockNot).toHaveBeenCalledWith('published_at', 'is', null);
   });
 });

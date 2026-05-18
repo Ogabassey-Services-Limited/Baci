@@ -56,6 +56,16 @@ describe('merchant blog OG image security helpers', () => {
     );
   });
 
+  it('allows trusted platform-blog paths only when the platform scope is provided', () => {
+    const platformUrl =
+      'https://cdn.ogabassey.com/media/platform/blog/launch-faster.png';
+
+    expect(isAllowedBlogOgImageUrl(platformUrl, { kind: 'platform' })).toBe(
+      true
+    );
+    expect(isAllowedBlogOgImageUrl(platformUrl, 'merchant-1')).toBe(false);
+  });
+
   it('allows logos only from trusted HTTPS origins', () => {
     expect(
       isAllowedLogoUrl('https://cdn.ogabassey.com/media/merchant-2/logo.png')
@@ -65,6 +75,7 @@ describe('merchant blog OG image security helpers', () => {
         'https://project.supabase.co/storage/v1/object/public/media/merchant-2/logo.png'
       )
     ).toBe(true);
+    expect(isAllowedLogoUrl('https://usebaci.com/logo.png')).toBe(true);
     expect(isAllowedLogoUrl('https://evil.example.com/logo.png')).toBe(false);
     expect(isAllowedLogoUrl('http://cdn.ogabassey.com/logo.png')).toBe(false);
   });

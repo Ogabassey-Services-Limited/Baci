@@ -5,6 +5,7 @@ import {
   canonicalizeBlogMediaUrl,
   extractManagedBlogStoragePath,
   isManagedBlogStoragePath,
+  PLATFORM_BLOG_MEDIA_PREFIX,
 } from '@/lib/blog-managed-storage-paths';
 
 describe('blog managed storage paths', () => {
@@ -110,5 +111,52 @@ describe('blog managed storage paths', () => {
         'merchant-1'
       )
     ).toBeNull();
+  });
+
+  it('accepts platform blog originals and variants for the platform scope', () => {
+    expect(
+      isManagedBlogStoragePath(`${PLATFORM_BLOG_MEDIA_PREFIX}/cover.png`, {
+        kind: 'platform',
+      })
+    ).toBe(true);
+    expect(
+      isManagedBlogStoragePath(
+        `${PLATFORM_BLOG_MEDIA_PREFIX}/upload-1/landscape_16x9.webp`,
+        { kind: 'platform' }
+      )
+    ).toBe(true);
+  });
+
+  it('rejects platform paths for merchant scope and merchant paths for platform scope', () => {
+    expect(
+      isManagedBlogStoragePath(
+        `${PLATFORM_BLOG_MEDIA_PREFIX}/cover.png`,
+        'merchant-1'
+      )
+    ).toBe(false);
+    expect(
+      isManagedBlogStoragePath('merchant-1/blog/cover.png', {
+        kind: 'platform',
+      })
+    ).toBe(false);
+  });
+
+  it('extracts managed platform paths from public URLs', () => {
+    expect(
+      extractManagedBlogStoragePath(
+        'https://cdn.example.com/media/platform/blog/upload-1/landscape_16x9.webp',
+        { kind: 'platform' }
+      )
+    ).toBe(`${PLATFORM_BLOG_MEDIA_PREFIX}/upload-1/landscape_16x9.webp`);
+  });
+
+  it('builds canonical CDN URLs for platform scope managed paths', () => {
+    expect(
+      buildBlogMediaCdnUrl(`${PLATFORM_BLOG_MEDIA_PREFIX}/cover_image.png`, {
+        kind: 'platform',
+      })
+    ).toBe(
+      `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/media/${PLATFORM_BLOG_MEDIA_PREFIX}/cover_image.png`
+    );
   });
 });

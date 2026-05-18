@@ -1,13 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 import {
   classifyBlogDiscoverImageReadiness,
   validateBlogDiscoverImageReadiness,
   validateBlogImageVariantIntegrity,
 } from '@/lib/blog-discover-readiness';
+import { PLATFORM_BLOG_MEDIA_PREFIX } from '@/lib/blog-managed-storage-paths';
 
 const merchantId = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
-const managedOriginalUrl = `https://cdn.example.com/storage/v1/object/public/media/${merchantId}/blog/cover.png`;
-const managedLandscapeUrl = `https://cdn.example.com/storage/v1/object/public/media/${merchantId}/blog/upload-1/landscape_16x9.webp`;
+const managedOriginalUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/${merchantId}/blog/cover.png`;
+const managedLandscapeUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/${merchantId}/blog/upload-1/landscape_16x9.webp`;
+const managedPlatformOriginalUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/${PLATFORM_BLOG_MEDIA_PREFIX}/cover.png`;
+const managedPlatformLandscapeUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/${PLATFORM_BLOG_MEDIA_PREFIX}/upload-1/landscape_16x9.webp`;
 
 describe('validateBlogDiscoverImageReadiness', () => {
   it('returns ready for a managed image with valid dimensions and landscape variant', () => {
@@ -47,7 +51,7 @@ describe('validateBlogDiscoverImageReadiness', () => {
     expect(
       validateBlogDiscoverImageReadiness(
         {
-          featured_image_url: 'https://example.com/external.jpg',
+          featured_image_url: `https://evil.example.com/media/${merchantId}/blog/cover.png`,
           featured_image_width: 1200,
           featured_image_height: 675,
           featured_image_variants: {
@@ -78,6 +82,22 @@ describe('validateBlogDiscoverImageReadiness', () => {
       code: 'BLOG_FEATURED_IMAGE_VARIANT_MISSING',
     });
   });
+
+  it('supports platform scope validation for platform-managed media paths', () => {
+    expect(
+      validateBlogDiscoverImageReadiness(
+        {
+          featured_image_url: managedPlatformOriginalUrl,
+          featured_image_width: 1200,
+          featured_image_height: 675,
+          featured_image_variants: {
+            landscape_16x9: managedPlatformLandscapeUrl,
+          },
+        },
+        { kind: 'platform' }
+      )
+    ).toEqual({ ready: true });
+  });
 });
 
 describe('validateBlogImageVariantIntegrity', () => {
@@ -86,7 +106,7 @@ describe('validateBlogImageVariantIntegrity', () => {
       validateBlogImageVariantIntegrity(
         {
           featured_image_variants: {
-            landscape_16x9: 'https://example.com/variant.webp',
+            landscape_16x9: `https://evil.example.com/media/${merchantId}/blog/upload-1/landscape_16x9.webp`,
           },
         },
         merchantId
