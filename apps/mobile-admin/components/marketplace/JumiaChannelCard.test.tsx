@@ -6,9 +6,9 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react';
+import * as WebBrowser from 'expo-web-browser';
 import type React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import * as WebBrowser from 'expo-web-browser';
 import { JUMIA_CONNECTION_STATUS } from '@/constants/marketplace';
 import { JumiaChannelCard } from './JumiaChannelCard';
 
@@ -130,9 +130,7 @@ describe('JumiaChannelCard', () => {
     expect(mocks.alert).toHaveBeenCalledWith(
       'Disconnect Jumia Account?',
       expect.any(String),
-      expect.arrayContaining([
-        expect.objectContaining({ text: 'Disconnect' }),
-      ])
+      expect.arrayContaining([expect.objectContaining({ text: 'Disconnect' })])
     );
 
     await invokeAlertButton('Disconnect');
@@ -178,10 +176,7 @@ describe('JumiaChannelCard', () => {
     await invokeAlertButton('Disconnect');
 
     await waitFor(() => {
-      expect(mocks.alert).toHaveBeenLastCalledWith(
-        'Error',
-        'Network failed'
-      );
+      expect(mocks.alert).toHaveBeenLastCalledWith('Error', 'Network failed');
     });
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({
       queryKey: [JUMIA_CONNECTION_STATUS, 'merchant-1'],
@@ -299,7 +294,8 @@ describe('JumiaChannelCard', () => {
     const openAuthSessionAsync = vi.mocked(WebBrowser.openAuthSessionAsync);
     mocks.apiClient.mockResolvedValueOnce({
       ticket: 'ticket-1',
-      authUrl: 'https://usebaci.com/api/marketplace/jumia/connect?ticket=ticket-1',
+      authUrl:
+        'https://usebaci.com/api/marketplace/jumia/connect?ticket=ticket-1',
     });
     openAuthSessionAsync.mockResolvedValueOnce({
       type: 'cancel',

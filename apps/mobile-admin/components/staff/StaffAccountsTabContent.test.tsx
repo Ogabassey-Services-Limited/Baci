@@ -60,7 +60,9 @@ describe('StaffAccountsTabContent', () => {
     );
 
     expect(screen.getByText('No Staff Accounts Yet')).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: /add person/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: /add person/i })
+    ).toBeInTheDocument();
   });
 
   it('passes account rows to StaffAccountCard', () => {

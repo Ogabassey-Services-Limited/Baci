@@ -104,9 +104,7 @@ export function BranchCard({
               style={[
                 styles.actionText,
                 {
-                  color: canDeactivate
-                    ? colors.notification
-                    : colors.textMuted,
+                  color: canDeactivate ? colors.notification : colors.textMuted,
                 },
               ]}
             >

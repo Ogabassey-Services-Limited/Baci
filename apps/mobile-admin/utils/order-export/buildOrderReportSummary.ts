@@ -30,7 +30,10 @@ export function buildOrderReportSummary(
   itemData: OrderItemQueryData[]
 ): OrderReportSummary {
   const totalOrders = orders.length;
-  const totalRevenue = orders.reduce((sum, order) => sum + (Number(order.total) || 0), 0);
+  const totalRevenue = orders.reduce(
+    (sum, order) => sum + (Number(order.total) || 0),
+    0
+  );
   const totalSubtotal = orders.reduce(
     (sum, order) => sum + (Number(order.subtotal) || 0),
     0
@@ -61,7 +64,10 @@ export function buildOrderReportSummary(
     0
   );
 
-  const productStats: Record<string, { name: string; qty: number; revenue: number }> = {};
+  const productStats: Record<
+    string,
+    { name: string; qty: number; revenue: number }
+  > = {};
   for (const item of itemData) {
     const name = item.products?.name || 'Unknown Product';
     if (!productStats[name]) {

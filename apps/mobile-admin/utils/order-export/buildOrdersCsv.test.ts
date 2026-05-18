@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { makeOrder } from './order-export.test-helpers';
 import { buildOrdersCsv } from './buildOrdersCsv';
+import { makeOrder } from './order-export.test-helpers';
 
 describe('buildOrdersCsv', () => {
   it('builds a CSV with the expected order columns', () => {

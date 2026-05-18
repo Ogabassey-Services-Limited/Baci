@@ -1,8 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import {
-  addMonths,
-  subMonths,
-} from 'date-fns';
+import { addMonths, subMonths } from 'date-fns';
 import { useEffect, useState } from 'react';
 import {
   Dimensions,
@@ -59,7 +56,9 @@ export default function DateRangePicker({
   }, [visible, currentFilter]);
 
   const handleDayPress = (day: Date) => {
-    setSelection(dateRangePickerHelpers.getNextDateRangeSelection(selection, day));
+    setSelection(
+      dateRangePickerHelpers.getNextDateRangeSelection(selection, day)
+    );
   };
 
   const activePreset = typeof currentFilter === 'string' ? currentFilter : null;

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { makeOrder } from './order-export.test-helpers';
 import { buildOrderReportHtml } from './buildOrderReportHtml';
 import { buildOrderReportSummary } from './buildOrderReportSummary';
+import { makeOrder } from './order-export.test-helpers';
 
 vi.mock('@/utils/format', () => ({
   formatCurrency: (amount: number) => `NGN ${amount}`,

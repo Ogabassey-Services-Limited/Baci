@@ -9,10 +9,10 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useTheme } from '@/hooks/useTheme';
 import { OrderReportDateMenu } from '@/components/ui/order-report-modal/OrderReportDateMenu';
 import { OrderReportStatsPanel } from '@/components/ui/order-report-modal/OrderReportStatsPanel';
 import styles from '@/components/ui/order-report-modal/orderReportModalStyles';
+import { useTheme } from '@/hooks/useTheme';
 import { orderExportTools } from '@/utils/export-orders';
 
 interface OrderReportModalProps {

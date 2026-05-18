@@ -38,8 +38,7 @@ export function DateRangePickerPresetPanel({
             style={[
               styles.presetText,
               {
-                color:
-                  activePreset === preset ? colors.primary : colors.text,
+                color: activePreset === preset ? colors.primary : colors.text,
               },
             ]}
           >

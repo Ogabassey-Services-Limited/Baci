@@ -19,7 +19,9 @@ export async function exportOrdersCsv(orders: Order[]): Promise<void> {
   }
 
   const fileUri = `${
-    documentDirectory.endsWith('/') ? documentDirectory : `${documentDirectory}/`
+    documentDirectory.endsWith('/')
+      ? documentDirectory
+      : `${documentDirectory}/`
   }${filename}`;
   await FileSystem.writeAsStringAsync(fileUri, csvData);
 

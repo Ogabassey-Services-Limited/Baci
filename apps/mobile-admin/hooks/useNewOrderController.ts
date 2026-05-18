@@ -27,8 +27,8 @@ import { createNewOrderCustomerActions } from './createNewOrderCustomerActions';
 import { createNewOrderProductActions } from './createNewOrderProductActions';
 import { submitNewOrder } from './submitNewOrder';
 import { useNewOrderLookupData } from './useNewOrderLookupData';
-import { useOrderBranchSelection } from './useOrderBranchSelection';
 import { useNewOrderUiState } from './useNewOrderUiState';
+import { useOrderBranchSelection } from './useOrderBranchSelection';
 
 export function useNewOrderController() {
   const { colors, shadows } = useTheme();

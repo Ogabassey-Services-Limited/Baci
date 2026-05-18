@@ -59,10 +59,10 @@ export default function SettingsScreen() {
       style={({ pressed }) => [
         styles.settingItem,
         { borderBottomColor: colors.border },
-        pressed && onPress && { opacity: 0.7 }
+        pressed && onPress && { opacity: 0.7 },
       ]}
       onPress={onPress}
-      accessibilityRole={onPress ? "button" : undefined}
+      accessibilityRole={onPress ? 'button' : undefined}
       accessibilityLabel={subtitle ? `${title}, ${subtitle}` : title}
       accessibilityHint={onPress ? subtitle : undefined}
     >
@@ -230,7 +230,7 @@ export default function SettingsScreen() {
           style={({ pressed }) => [
             styles.logoutButton,
             { backgroundColor: colors.card, borderColor: colors.border },
-            pressed && { opacity: 0.7 }
+            pressed && { opacity: 0.7 },
           ]}
           onPress={handleLogout}
           accessibilityRole="button"
