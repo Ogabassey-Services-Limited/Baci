@@ -296,7 +296,7 @@ const sampleOrders = [
     orderNumber: 'ORD-1',
     paymentMethod: 'card',
     searchText:
-      'ord-1 bassey samsung galaxy s26 353232106161443 sn-123 old supplier',
+      'ord-1 bassey samsung galaxy s26 353232106161443 sn-123 old supplier known cost accessory known supplier',
     total: 5000,
   },
   {
@@ -452,6 +452,28 @@ describe('TransactionsScreen', () => {
     );
   });
 
+  it('saves comma decimal cost price input without converting it to hundreds', async () => {
+    const expectedTransactionDateIso = buildTransactionDateIso('2026-04-10');
+
+    render(<TransactionsScreen />);
+
+    fireEvent.click(screen.getByText('Edit ORD-1'));
+    fireEvent.change(screen.getByLabelText('Cost price input'), {
+      target: { value: '12,5' },
+    });
+    fireEvent.click(screen.getByText('Save cost price'));
+
+    await waitFor(() =>
+      expect(mocks.mutateAsync).toHaveBeenCalledWith({
+        costPrice: 12.5,
+        orderId: 'order-1',
+        productId: 'product-1',
+        supplierName: 'Old supplier',
+        transactionDateIso: expectedTransactionDateIso,
+      })
+    );
+  });
+
   it('opens existing cost prices with currency symbol and comma formatting', () => {
     render(<TransactionsScreen />);
 
@@ -526,6 +548,18 @@ describe('TransactionsScreen', () => {
     expect(screen.getByText('Edit ORD-1')).toBeInTheDocument();
     expect(screen.queryByText('Known Cost Accessory')).not.toBeInTheDocument();
     expect(screen.queryByText('Edit ORD-2')).not.toBeInTheDocument();
+  });
+
+  it('does not match paid line items after switching to the missing-cost tab', () => {
+    render(<TransactionsScreen />);
+
+    fireEvent.click(screen.getByText('Missing costs tab'));
+    fireEvent.change(screen.getByLabelText('Search transactions'), {
+      target: { value: 'Known Supplier' },
+    });
+
+    expect(screen.queryByText('Edit ORD-1')).not.toBeInTheDocument();
+    expect(screen.queryByText('Known Cost Accessory')).not.toBeInTheDocument();
   });
 
   it('shows the async save error and keeps the editor actionable', async () => {
