@@ -94,6 +94,7 @@ describe('checkout-step-helpers', () => {
         provider: undefined,
         carrierName: undefined,
       })
-    ).toBe('Topship');
+    ).toBeUndefined();
+    expect(getShippingProviderForMethod('door', undefined)).toBeUndefined();
   });
 });
