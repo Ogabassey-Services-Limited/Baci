@@ -52,7 +52,7 @@ export const NegotiationModal: React.FC = () => {
       type === 'single' && negotiationContext
         ? {
             currentPrice,
-            id: itemId,
+            id: itemId ?? undefined,
             name: productName,
           }
         : null,
