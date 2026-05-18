@@ -7,7 +7,6 @@ import {
   quizEventsResponseSchema,
   quizResultSchema,
 } from '@/schemas/quiz-schemas';
-import { QuizServiceError } from '@/services/quiz-types';
 import type {
   QuizAttempt,
   QuizEvent,
@@ -16,8 +15,8 @@ import type {
   StartQuizAttemptInput,
   SubmitQuizAnswerInput,
 } from '@/services/quiz-types';
+import { QuizServiceError } from '@/services/quiz-types';
 
-export { QuizServiceError };
 export type {
   QuizAttempt,
   QuizEvent,
@@ -30,6 +29,7 @@ export type {
   StartQuizAttemptInput,
   SubmitQuizAnswerInput,
 } from '@/services/quiz-types';
+export { QuizServiceError };
 
 const QUIZ_AUTH_RETRY_DELAY_MS = 300;
 
@@ -38,15 +38,38 @@ function getApiBaseUrl(configuredUrl?: string): string {
   return resolveApiBaseUrl(configuredUrl ?? extra?.apiBaseUrl ?? extra?.apiUrl);
 }
 
-function getExpoExtraConfig(
-  value: unknown
-): { apiBaseUrl?: string; apiUrl?: string } | undefined {
+function getExpoExtraConfig(value: unknown):
+  | {
+      apiBaseUrl?: string;
+      apiUrl?: string;
+      merchantId?: string;
+      merchantSlug?: string;
+    }
+  | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const extra = value as Record<string, unknown>;
   const apiBaseUrl =
     typeof extra.apiBaseUrl === 'string' ? extra.apiBaseUrl : undefined;
   const apiUrl = typeof extra.apiUrl === 'string' ? extra.apiUrl : undefined;
-  return { apiBaseUrl, apiUrl };
+  const merchantId =
+    typeof extra.merchantId === 'string' ? extra.merchantId : undefined;
+  const merchantSlug =
+    typeof extra.merchantSlug === 'string' ? extra.merchantSlug : undefined;
+  return { apiBaseUrl, apiUrl, merchantId, merchantSlug };
+}
+
+function getQuizEventsPath(): string {
+  const extra = getExpoExtraConfig(Constants.expoConfig?.extra);
+  const params = new URLSearchParams();
+
+  if (extra?.merchantId) {
+    params.set('merchantId', extra.merchantId);
+  } else if (extra?.merchantSlug) {
+    params.set('merchantSlug', extra.merchantSlug);
+  }
+
+  const query = params.toString();
+  return query ? `/api/quiz/events?${query}` : '/api/quiz/events';
 }
 
 async function readJson(response: Response): Promise<unknown> {
@@ -230,7 +253,7 @@ export async function fetchQuizEvents(
   options: QuizServiceOptions = {}
 ): Promise<QuizEvent[]> {
   const payload = await requestQuiz(
-    '/api/quiz/events',
+    getQuizEventsPath(),
     { method: 'GET' },
     quizEventsResponseSchema,
     options.baseUrl

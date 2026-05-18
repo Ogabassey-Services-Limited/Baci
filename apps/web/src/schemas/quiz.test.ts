@@ -14,6 +14,7 @@ const EVENT_ID = '11111111-1111-1111-1111-111111111111';
 const ATTEMPT_ID = '22222222-2222-2222-2222-222222222222';
 const QUESTION_ID = '33333333-3333-3333-3333-333333333333';
 const AWARD_ID = '44444444-4444-4444-4444-444444444444';
+const MERCHANT_ID = '55555555-5555-5555-5555-555555555555';
 
 describe('quiz route schemas', () => {
   it('validates start attempt payloads', () => {
@@ -158,26 +159,55 @@ describe('quiz route schemas', () => {
   });
 
   it('validates bounded event list pagination', () => {
-    expect(quizEventsQuerySchema.parse({ limit: '25', offset: '10' })).toEqual({
+    expect(
+      quizEventsQuerySchema.parse({
+        limit: '25',
+        merchantId: MERCHANT_ID,
+        offset: '10',
+      })
+    ).toEqual({
       limit: 25,
+      merchantId: MERCHANT_ID,
+      merchantSlug: undefined,
       offset: 10,
     });
-    expect(quizEventsQuerySchema.parse({})).toEqual({
+    expect(quizEventsQuerySchema.parse({ merchantId: MERCHANT_ID })).toEqual({
       limit: 20,
+      merchantId: MERCHANT_ID,
+      merchantSlug: undefined,
       offset: 0,
     });
-    expect(quizEventsQuerySchema.parse({ limit: '1' })).toEqual({
+    expect(
+      quizEventsQuerySchema.parse({ limit: '1', merchantSlug: ' ogabassey ' })
+    ).toEqual({
       limit: 1,
+      merchantId: undefined,
+      merchantSlug: 'ogabassey',
       offset: 0,
     });
-    expect(quizEventsQuerySchema.parse({ limit: '50' })).toEqual({
+    expect(
+      quizEventsQuerySchema.parse({ limit: '50', merchantId: MERCHANT_ID })
+    ).toEqual({
       limit: 50,
+      merchantId: MERCHANT_ID,
+      merchantSlug: undefined,
       offset: 0,
     });
 
     expect(() => quizEventsQuerySchema.parse({ limit: '500' })).toThrow();
     expect(() => quizEventsQuerySchema.parse({ limit: '0' })).toThrow();
     expect(() => quizEventsQuerySchema.parse({ offset: '-1' })).toThrow();
+    expect(() => quizEventsQuerySchema.parse({})).toThrow();
+    expect(() =>
+      quizEventsQuerySchema.parse({ merchantSlug: '   ' })
+    ).toThrow();
+    expect(() => quizEventsQuerySchema.parse({ merchantId: 'bad' })).toThrow();
+    expect(() =>
+      quizEventsQuerySchema.parse({
+        merchantId: MERCHANT_ID,
+        merchantSlug: 'ogabassey',
+      })
+    ).toThrow();
   });
 
   it('validates quiz event database rows at runtime', () => {

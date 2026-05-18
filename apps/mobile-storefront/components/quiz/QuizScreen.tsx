@@ -1,3 +1,4 @@
+import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
 import { useEffect } from 'react';
 import {
   ActivityIndicator,
@@ -48,6 +49,10 @@ function formatTimeRange(event: QuizEvent, locale?: string): string {
 
 function getQuizErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Quiz action failed';
+}
+
+function formatPointCount(points: number, singular = 'point'): string {
+  return `${points} ${points === 1 ? singular : `${singular}s`}`;
 }
 
 export function QuizScreen({
@@ -132,10 +137,10 @@ export function QuizScreen({
         <View style={styles.header}>
           <View>
             <Text accessibilityRole="header" style={styles.title}>
-              Prize Quiz
+              Prize Exam
             </Text>
             <Text style={styles.subtitle}>
-              Pick an event and play for the prize.
+              Use loyalty points to enter and answer for the prize.
             </Text>
           </View>
           <Image
@@ -145,6 +150,17 @@ export function QuizScreen({
             accessibilityElementsHidden
             importantForAccessibility="no-hide-descendants"
           />
+        </View>
+
+        <View style={styles.introPanel}>
+          <Text style={styles.introTitle}>Exam pass</Text>
+          <Text style={styles.introText}>
+            Use {formatPointCount(EXAM_PASS_POINTS_COST, 'loyalty point')} as
+            your exam pass.
+          </Text>
+          <Text style={styles.introMeta}>
+            Your pass is charged when the exam starts.
+          </Text>
         </View>
 
         {status === 'loading' ? (
@@ -177,11 +193,13 @@ export function QuizScreen({
                 <Text style={styles.eventPrize}>{event.prizeName}</Text>
                 <Text style={styles.eventMeta}>
                   {event.questionCount} questions,{' '}
-                  {formatTimeRange(event, locale)}
+                  {formatTimeRange(event, locale)},{' '}
+                  {formatPointCount(EXAM_PASS_POINTS_COST, 'loyalty point')}{' '}
+                  exam pass
                 </Text>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Start ${event.title}`}
+                  accessibilityLabel={`Use ${formatPointCount(EXAM_PASS_POINTS_COST)} to start ${event.title}`}
                   disabled={status === 'starting'}
                   onPress={() => {
                     void handleStart(event.id);
@@ -189,7 +207,9 @@ export function QuizScreen({
                   style={styles.primaryButton}
                 >
                   <Text style={styles.primaryButtonText}>
-                    {status === 'starting' ? 'Starting...' : 'Start quiz'}
+                    {status === 'starting'
+                      ? 'Starting...'
+                      : `Use ${formatPointCount(EXAM_PASS_POINTS_COST)} to start`}
                   </Text>
                 </Pressable>
               </View>
@@ -220,6 +240,10 @@ export function QuizScreen({
             </View>
             <Text style={styles.timer}>
               You have {attempt.question.timeLimitSeconds}s per question
+            </Text>
+            <Text style={styles.passReceipt}>
+              {formatPointCount(attempt.examPassPointsSpent)} exam pass used.{' '}
+              {formatPointCount(attempt.remainingLoyaltyPoints)} left.
             </Text>
             <Text accessibilityRole="header" style={styles.question}>
               {attempt.question.prompt}

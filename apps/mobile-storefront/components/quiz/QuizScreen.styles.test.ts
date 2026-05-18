@@ -25,6 +25,11 @@ describe('createQuizStyles', () => {
     expect(styles.title.color).toBe(mockColors.text);
     expect(styles.primaryButton.backgroundColor).toBe(mockColors.primary);
     expect(styles.primaryButtonText.color).toBe(mockColors.primaryForeground);
+    expect(styles.introPanel.backgroundColor).toBe(
+      mockColors.primaryLowOpacity
+    );
+    expect(styles.introPanel.borderColor).toBe(mockColors.primary);
+    expect(styles.introTitle.color).toBe(mockColors.primary);
     expect(styles.answerButton.borderColor).toBe(mockColors.border);
     expect(styles.answerButtonSelected.backgroundColor).toBe(
       mockColors.primaryLowOpacity

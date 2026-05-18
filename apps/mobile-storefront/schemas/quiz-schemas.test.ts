@@ -36,6 +36,8 @@ const validEvent = {
 const validAttempt = {
   attemptId: 'attempt-1',
   eventId: 'event-1',
+  examPassPointsSpent: 1,
+  remainingLoyaltyPoints: 4,
   question: validQuestion,
 };
 
@@ -129,11 +131,34 @@ describe('quiz response schemas', () => {
         quizResultSchema.safeParse({ ...completedResult, totalQuestions: 0 }),
         ['totalQuestions'],
       ],
+      [
+        quizAttemptSchema.safeParse({
+          ...validAttempt,
+          examPassPointsSpent: 2,
+        }),
+        ['examPassPointsSpent'],
+      ],
+      [
+        quizAttemptSchema.safeParse({
+          ...validAttempt,
+          remainingLoyaltyPoints: -1,
+        }),
+        ['remainingLoyaltyPoints'],
+      ],
     ] as const;
 
     for (const [result, path] of invalidFields) {
       expectInvalidIssue(result, [...path]);
     }
+  });
+
+  it('accepts zero remaining loyalty points after spending the exam pass', () => {
+    expect(
+      quizAttemptSchema.safeParse({
+        ...validAttempt,
+        remainingLoyaltyPoints: 0,
+      }).success
+    ).toBe(true);
   });
 
   it('accepts only supported event and result statuses', () => {

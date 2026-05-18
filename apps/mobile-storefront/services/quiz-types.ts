@@ -27,6 +27,8 @@ export interface QuizQuestion {
 export interface QuizAttempt {
   attemptId: string;
   eventId: string;
+  examPassPointsSpent: number;
+  remainingLoyaltyPoints: number;
   question: QuizQuestion;
 }
 

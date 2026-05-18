@@ -15,6 +15,8 @@ export const events: QuizEvent[] = [
 export const attempt: QuizAttempt = {
   attemptId: 'attempt-1',
   eventId: 'event-1',
+  examPassPointsSpent: 1,
+  remainingLoyaltyPoints: 4,
   question: {
     id: 'question-1',
     prompt: 'Pick the answer',

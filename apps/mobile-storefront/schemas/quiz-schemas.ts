@@ -1,3 +1,4 @@
+import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
 import { z } from 'zod';
 
 export const quizOptionSchema = z.object({
@@ -32,6 +33,8 @@ export const quizEventsResponseSchema = z.object({
 export const quizAttemptSchema = z.object({
   attemptId: z.string().min(1),
   eventId: z.string().min(1),
+  examPassPointsSpent: z.literal(EXAM_PASS_POINTS_COST),
+  remainingLoyaltyPoints: z.number().int().nonnegative(),
   question: quizQuestionSchema,
 });
 

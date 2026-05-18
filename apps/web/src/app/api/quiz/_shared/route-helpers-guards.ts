@@ -9,6 +9,7 @@ type QuizSupabaseQueryResult<TData = unknown> = {
 
 type QuizSupabaseQueryBuilder = {
   eq(column: string, value: string): QuizSupabaseQueryBuilder;
+  limit(count: number): QuizSupabaseQueryBuilder;
   maybeSingle(): Promise<QuizSupabaseQueryResult>;
   order(
     column: string,
