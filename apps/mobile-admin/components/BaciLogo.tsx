@@ -6,6 +6,8 @@
 import { StyleSheet, View } from 'react-native';
 import SafeImage from '@/components/ui/SafeImage';
 
+const BaciIcon = require('@/assets/images/icon.png');
+
 interface BaciLogoProps {
   size?: number;
   borderRadius?: number;
@@ -25,8 +27,7 @@ export function BaciLogo({ size = 32, borderRadius = 8 }: BaciLogoProps) {
       ]}
     >
       <SafeImage
-        // eslint-disable-next-line @typescript-eslint/no-require-imports
-        source={require('@/assets/images/icon.png')}
+        source={BaciIcon}
         style={{ width: size, height: size }}
         contentFit="cover"
       />
