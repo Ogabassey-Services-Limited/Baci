@@ -19,6 +19,12 @@ export interface CustomerOrderStatusMeta {
   icon: string;
 }
 
+export interface CustomerOrderStatusPalette {
+  accent: string;
+  surface: string;
+  border: string;
+}
+
 export const CUSTOMER_ORDER_PROGRESS_STEPS = [
   {
     key: 'placed',
@@ -90,6 +96,42 @@ const CUSTOMER_ORDER_STATUS_META: Record<
   },
 };
 
+const CUSTOMER_ORDER_STATUS_PALETTES: Record<
+  CustomerOrderStatusKey,
+  CustomerOrderStatusPalette
+> = {
+  placed: {
+    accent: '#DC2626',
+    surface: 'rgba(220, 38, 38, 0.10)',
+    border: 'rgba(220, 38, 38, 0.18)',
+  },
+  confirmed: {
+    accent: '#2563EB',
+    surface: 'rgba(37, 99, 235, 0.10)',
+    border: 'rgba(37, 99, 235, 0.18)',
+  },
+  shipped: {
+    accent: '#7C3AED',
+    surface: 'rgba(124, 58, 237, 0.10)',
+    border: 'rgba(124, 58, 237, 0.18)',
+  },
+  delivered: {
+    accent: '#059669',
+    surface: 'rgba(5, 150, 105, 0.10)',
+    border: 'rgba(5, 150, 105, 0.18)',
+  },
+  cancelled: {
+    accent: '#DC2626',
+    surface: 'rgba(220, 38, 38, 0.10)',
+    border: 'rgba(220, 38, 38, 0.18)',
+  },
+  returned: {
+    accent: '#6B7280',
+    surface: 'rgba(107, 114, 128, 0.12)',
+    border: 'rgba(107, 114, 128, 0.18)',
+  },
+};
+
 export function getCustomerOrderStatusKey(
   status: string | null | undefined
 ): CustomerOrderStatusKey {
@@ -117,6 +159,12 @@ export function getCustomerOrderStatusMeta(
   status: string | null | undefined
 ): CustomerOrderStatusMeta {
   return CUSTOMER_ORDER_STATUS_META[getCustomerOrderStatusKey(status)];
+}
+
+export function getCustomerOrderStatusPalette(
+  status: string | null | undefined
+): CustomerOrderStatusPalette {
+  return CUSTOMER_ORDER_STATUS_PALETTES[getCustomerOrderStatusKey(status)];
 }
 
 export function getCustomerOrderProgressIndex(

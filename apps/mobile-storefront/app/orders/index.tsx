@@ -25,10 +25,10 @@ import Colors, { BRAND } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useNetworkState } from '@/hooks/use-network-state';
 import {
-  type CustomerOrderStatusKey,
-  getCustomerOrderStatusKey,
+  getCustomerOrderStatusPalette,
   getCustomerOrderStatusMeta,
 } from '@/lib/customer-order-status';
+import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { createLogger } from '@/lib/logger';
 import {
   buildOrderListFilters,
@@ -60,46 +60,6 @@ interface Order {
     price: number;
   }>;
 }
-
-const CUSTOMER_STATUS_PALETTES: Record<
-  CustomerOrderStatusKey,
-  {
-    accent: string;
-    surface: string;
-    border: string;
-  }
-> = {
-  placed: {
-    accent: BRAND.primary,
-    surface: 'rgba(220, 38, 38, 0.10)',
-    border: 'rgba(220, 38, 38, 0.18)',
-  },
-  confirmed: {
-    accent: '#2563EB',
-    surface: 'rgba(37, 99, 235, 0.10)',
-    border: 'rgba(37, 99, 235, 0.18)',
-  },
-  shipped: {
-    accent: '#7C3AED',
-    surface: 'rgba(124, 58, 237, 0.10)',
-    border: 'rgba(124, 58, 237, 0.18)',
-  },
-  delivered: {
-    accent: '#059669',
-    surface: 'rgba(5, 150, 105, 0.10)',
-    border: 'rgba(5, 150, 105, 0.18)',
-  },
-  cancelled: {
-    accent: '#DC2626',
-    surface: 'rgba(220, 38, 38, 0.10)',
-    border: 'rgba(220, 38, 38, 0.18)',
-  },
-  returned: {
-    accent: '#6B7280',
-    surface: 'rgba(107, 114, 128, 0.12)',
-    border: 'rgba(107, 114, 128, 0.18)',
-  },
-};
 
 export default function OrdersScreen() {
   const colorScheme = useColorScheme();
@@ -200,18 +160,6 @@ export default function OrdersScreen() {
     });
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0,
-    }).format(price);
-  };
-
-  const getStatusPalette = (status: string) => {
-    return CUSTOMER_STATUS_PALETTES[getCustomerOrderStatusKey(status)];
-  };
-
   // Declarative auth-gate: redirect to login if not authenticated
   if (redirectTo) {
     return <Redirect href={redirectTo} />;
@@ -243,7 +191,7 @@ export default function OrdersScreen() {
 
   const renderOrderItem = ({ item }: { item: Order }) => {
     const statusMeta = getCustomerOrderStatusMeta(item.shipping_status);
-    const statusPalette = getStatusPalette(item.shipping_status);
+    const statusPalette = getCustomerOrderStatusPalette(item.shipping_status);
     const primaryItem = item.items[0];
     const secondaryItems = Math.max(item.items.length - 1, 0);
     const displayTotal = getOrderDisplayTotal({
@@ -310,7 +258,7 @@ export default function OrdersScreen() {
               Total
             </Text>
             <Text style={[styles.totalAmount, { color: colors.text }]}>
-              {formatPrice(displayTotal)}
+              {formatNgnCurrency(displayTotal)}
             </Text>
           </View>
         </View>
