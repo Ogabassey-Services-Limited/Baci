@@ -8,6 +8,13 @@ import {
   quizEventsResponseSchema,
   quizResultSchema,
 } from '@/schemas/quiz-schemas';
+import {
+  getOptionalString,
+  getQuizErrorCode,
+  getQuizErrorMessage,
+  getSafeErrorMessage,
+  readQuizJson,
+} from '@/services/quiz-service-utils';
 import type {
   QuizAttempt,
   QuizEvent,
@@ -33,12 +40,6 @@ export type {
 export { QuizServiceError };
 
 const QUIZ_AUTH_RETRY_DELAY_MS = 300;
-
-function getOptionalString(value: unknown): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-}
 
 function getApiBaseUrl(configuredUrl?: string): string {
   const extra = getExpoExtraConfig(Constants.expoConfig?.extra);
@@ -85,18 +86,6 @@ function getQuizEventsPath(): string {
   }
 
   return `/api/quiz/events?${query}`;
-}
-
-async function readJson(response: Response): Promise<unknown> {
-  try {
-    return await response.json();
-  } catch (error) {
-    console.warn('Unable to parse quiz API JSON response', {
-      errorName: error instanceof Error ? error.name : typeof error,
-      status: response.status,
-    });
-    return null;
-  }
 }
 
 function waitForQuizAuthRetry() {
@@ -187,45 +176,6 @@ async function getQuizAuthHeaders(): Promise<Record<string, string>> {
   );
 }
 
-function getSafeErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (
-    error &&
-    typeof error === 'object' &&
-    'message' in error &&
-    typeof (error as { message?: unknown }).message === 'string'
-  ) {
-    return (error as { message: string }).message;
-  }
-  return String(error);
-}
-
-function getErrorMessage(payload: unknown): string {
-  if (
-    payload &&
-    typeof payload === 'object' &&
-    'error' in payload &&
-    typeof payload.error === 'string'
-  ) {
-    return payload.error;
-  }
-
-  return 'Quiz request failed';
-}
-
-function getErrorCode(payload: unknown): string {
-  if (
-    payload &&
-    typeof payload === 'object' &&
-    'code' in payload &&
-    typeof payload.code === 'string'
-  ) {
-    return payload.code;
-  }
-
-  return 'QUIZ_REQUEST_FAILED';
-}
-
 async function requestQuiz<T>(
   path: string,
   init: RequestInit,
@@ -242,12 +192,12 @@ async function requestQuiz<T>(
       ...authHeaders,
     },
   });
-  const payload = await readJson(response);
+  const payload = await readQuizJson(response);
 
   if (!response.ok) {
     throw new QuizServiceError(
-      getErrorMessage(payload),
-      getErrorCode(payload),
+      getQuizErrorMessage(payload),
+      getQuizErrorCode(payload),
       response.status
     );
   }
