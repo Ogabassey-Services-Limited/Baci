@@ -267,6 +267,17 @@ describe('env model getters', () => {
       'OLLAMA_CAC_MODEL must resolve to a non-empty model name'
     );
   });
+
+  it('defaults CAC verification endpoints to the current public APIs', async () => {
+    const { getCacApiUrl, getCacTinApiBaseUrl } = await loadEnvModule();
+
+    expect(getCacApiUrl()).toBe(
+      'https://authapp.cac.gov.ng/name_similarity_app/api/public_search/search'
+    );
+    expect(getCacTinApiBaseUrl()).toBe(
+      'https://icrp.cac.gov.ng/tin_service/api/v1/public/tin'
+    );
+  });
 });
 
 describe('env LLM server validation', () => {

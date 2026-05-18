@@ -4,10 +4,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TaxSettingsForm } from './tax-settings-form';
 
 const mockApiPatch = vi.fn();
+const mockApiPost = vi.fn();
 const mockToast = vi.fn();
 
 vi.mock('@/lib/api-client', () => ({
   apiPatch: (...args: unknown[]) => mockApiPatch(...args),
+  apiPost: (...args: unknown[]) => mockApiPost(...args),
 }));
 
 vi.mock('@/components/address-autocomplete', () => ({
@@ -43,6 +45,11 @@ describe('TaxSettingsForm', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockApiPatch.mockResolvedValue({ merchant: { id: 'merchant-1' } });
+    mockApiPost.mockResolvedValue({
+      verified: true,
+      merchant: { id: 'merchant-1' },
+      taxIdentificationNumber: '2522599781276',
+    });
   });
 
   it('renders all card sections', () => {
@@ -97,12 +104,47 @@ describe('TaxSettingsForm', () => {
     });
   });
 
-  it('renders Tax ID input with initial value', () => {
-    render(<TaxSettingsForm {...defaultProps} initialTaxId="1234567890" />);
+  it('renders Tax ID input with initial CAC-returned 13-digit value', () => {
+    render(<TaxSettingsForm {...defaultProps} initialTaxId="2522599781276" />);
 
     const input = screen.getByLabelText('Tax Identification Number (TIN)');
     expect(input).toBeDefined();
-    expect((input as HTMLInputElement).value).toBe('1234567890');
+    expect((input as HTMLInputElement).value).toBe('2522599781276');
+  });
+
+  it('verifies a CAC-returned 13-digit TIN before saving', async () => {
+    render(
+      <TaxSettingsForm
+        {...defaultProps}
+        initialLegalEntityName="OGABASSEY SERVICES LIMITED"
+      />
+    );
+
+    const input = screen.getByLabelText(
+      'Tax Identification Number (TIN)'
+    ) as HTMLInputElement;
+    fireEvent.change(input, { target: { value: '2522599781276' } });
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Verify & Save',
+      })
+    );
+
+    await waitFor(() => {
+      expect(mockApiPost).toHaveBeenCalledWith('/api/merchant/verify-tax-id', {
+        taxIdentificationNumber: '2522599781276',
+        legalEntityName: 'OGABASSEY SERVICES LIMITED',
+      });
+      expect(mockApiPatch).not.toHaveBeenCalledWith(
+        '/api/merchant/settings',
+        expect.objectContaining({
+          tax_identification_number: expect.anything(),
+        })
+      );
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Tax ID Verified' })
+      );
+    });
   });
 
   it('rejects invalid TIN values before calling the API', async () => {
@@ -112,12 +154,12 @@ describe('TaxSettingsForm', () => {
       'Tax Identification Number (TIN)'
     ) as HTMLInputElement;
     fireEvent.change(input, { target: { value: '123456789' } });
-    const [saveButton] = screen.getAllByRole('button', { name: 'Save' });
-    expect(saveButton).toBeDefined();
+    const saveButton = screen.getByRole('button', { name: 'Verify & Save' });
     fireEvent.click(saveButton);
 
     await waitFor(() => {
       expect(mockApiPatch).not.toHaveBeenCalled();
+      expect(mockApiPost).not.toHaveBeenCalled();
       expect(mockToast).toHaveBeenCalledWith(
         expect.objectContaining({
           title: 'Invalid Tax ID',

@@ -20,6 +20,11 @@ const optionalTrimmedStringSchema = z.preprocess((value) => {
   return trimmed || undefined;
 }, z.string().optional());
 
+const DEFAULT_CAC_API_URL =
+  'https://authapp.cac.gov.ng/name_similarity_app/api/public_search/search';
+const DEFAULT_CAC_TIN_API_BASE_URL =
+  'https://icrp.cac.gov.ng/tin_service/api/v1/public/tin';
+
 /**
  * Strict 127.0.0.0/8 hostname matcher. Anchored regex on the URL `hostname`
  * (already brackets-stripped by the `URL` parser) so only true IPv4 loopback
@@ -144,12 +149,11 @@ const serverSchema = z
     MONNIFY_API_KEY: z.string().optional(),
     MONNIFY_SECRET_KEY: z.string().optional(),
     MONNIFY_BASE_URL: z.string().url().default('https://api.monnify.com'),
-    CAC_API_URL: z
+    CAC_API_URL: z.string().url().default(DEFAULT_CAC_API_URL),
+    CAC_TIN_API_BASE_URL: z
       .string()
       .url()
-      .default(
-        'https://icrp.cac.gov.ng/name_similarity_app/api/public_search/search'
-      ),
+      .default(DEFAULT_CAC_TIN_API_BASE_URL),
     // Ollama (CAC certificate OCR — Gemma 4 on VPS)
     OLLAMA_BASE_URL: httpsOrLocalhostUrl('OLLAMA_BASE_URL').optional(),
     OLLAMA_CAC_MODEL: z.string().default('gemma4:e4b'),
@@ -338,6 +342,7 @@ const getEnv = () => {
         MONNIFY_SECRET_KEY: process.env.MONNIFY_SECRET_KEY,
         MONNIFY_BASE_URL: process.env.MONNIFY_BASE_URL,
         CAC_API_URL: process.env.CAC_API_URL,
+        CAC_TIN_API_BASE_URL: process.env.CAC_TIN_API_BASE_URL,
         OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL,
         OLLAMA_CAC_MODEL: process.env.OLLAMA_CAC_MODEL,
         OLLAMA_BASIC_AUTH: process.env.OLLAMA_BASIC_AUTH,
@@ -632,9 +637,9 @@ export const getMonnifySecretKey = () => {
 };
 export const getMonnifyBaseUrl = () =>
   env?.MONNIFY_BASE_URL ?? 'https://api.monnify.com';
-export const getCacApiUrl = () =>
-  env?.CAC_API_URL ??
-  'https://icrp.cac.gov.ng/name_similarity_app/api/public_search/search';
+export const getCacApiUrl = () => env?.CAC_API_URL ?? DEFAULT_CAC_API_URL;
+export const getCacTinApiBaseUrl = () =>
+  env?.CAC_TIN_API_BASE_URL ?? DEFAULT_CAC_TIN_API_BASE_URL;
 export const getOllamaBaseUrl = () => {
   if (typeof window !== 'undefined')
     throw new Error('OLLAMA_BASE_URL cannot be accessed on the client');
