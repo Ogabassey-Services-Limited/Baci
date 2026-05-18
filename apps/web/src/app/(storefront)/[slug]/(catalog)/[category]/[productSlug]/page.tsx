@@ -7,7 +7,10 @@ import { preloadOgabasseyPdpProductImage } from '@/app/(storefront)/ogabassey/og
 import { OgabasseyPdpStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
 import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
-import type { Product as OgabasseyProduct } from '@/components/storefront/ogabassey/types';
+import {
+  normalizeProductCondition,
+  type Product as OgabasseyProduct,
+} from '@/components/storefront/ogabassey/types';
 import type { VariantAttributeSource } from '@/components/storefront/ogabassey/variant-attributes';
 import {
   getRenderableVariantAxes,
@@ -133,6 +136,7 @@ function toOgabasseyProduct(
           id: string;
           sku?: string;
           attributes?: Record<string, string>;
+          condition?: string | null;
           price_override?: number;
           price_modifier?: number;
           stock_quantity?: number;
@@ -149,6 +153,7 @@ function toOgabasseyProduct(
             storage,
             ram,
             color,
+            condition: normalizeProductCondition(v.condition),
             platform,
             attributes: v.attributes,
             price_override: v.price_override,

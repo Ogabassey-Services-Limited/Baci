@@ -441,6 +441,7 @@ export const CartProvider = ({
             variantId: defaultVariantSelection.variant.id,
             variantAttributes: defaultVariantSelection.attributes,
             color: options?.color ?? defaultVariantSelection.color,
+            condition: options?.condition ?? defaultVariantSelection.condition,
             storage: options?.storage ?? defaultVariantSelection.storage,
           }
         : options;

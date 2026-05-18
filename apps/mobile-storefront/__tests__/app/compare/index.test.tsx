@@ -19,6 +19,10 @@ const mockComparisonState = {
     brand?: string;
     specifications?: Record<string, string>;
     rating?: number;
+    has_variants?: boolean;
+    variant_model?: 'legacy' | 'sku_matrix';
+    available_conditions?: string[];
+    has_condition_offers?: boolean;
   }>,
   removeProduct: mockRemoveProduct,
   clearComparison: mockClearComparison,
@@ -114,5 +118,55 @@ describe('CompareScreen', () => {
 
     fireEvent.press(screen.getByText('Browse Products'));
     expect(mockPush).toHaveBeenCalledWith('/');
+  });
+
+  it('routes SKU-matrix products to detail selection instead of adding the parent product', () => {
+    mockComparisonState.products = [
+      {
+        id: 'product-1',
+        slug: 'iphone-15',
+        name: 'iPhone 15',
+        price: 900000,
+        has_variants: true,
+        variant_model: 'sku_matrix',
+        available_conditions: ['open_box', 'used'],
+        has_condition_offers: true,
+      },
+    ];
+
+    render(<CompareScreen />);
+
+    fireEvent.press(screen.getByText('Add'));
+
+    expect(mockPush).toHaveBeenCalledWith('/product/iphone-15');
+    expect(mockAddItem).not.toHaveBeenCalled();
+  });
+
+  it('adds simple comparison products directly when no selection is required', () => {
+    mockComparisonState.products = [
+      {
+        id: 'product-1',
+        slug: 'test-product',
+        name: 'Test Product',
+        price: 1999,
+        has_variants: false,
+        variant_model: 'legacy',
+        available_conditions: ['new'],
+        has_condition_offers: false,
+      },
+    ];
+
+    render(<CompareScreen />);
+
+    fireEvent.press(screen.getByText('Add'));
+
+    expect(mockAddItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        product_id: 'product-1',
+        slug: 'test-product',
+        quantity: 1,
+      })
+    );
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });

@@ -1,4 +1,8 @@
-import { resolveDefaultVariantSelection } from '@baci/shared/lib';
+import {
+  requiresProductSelection,
+  resolveDefaultVariantSelection,
+} from '@baci/shared/lib';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { resolveCartItemImageUrl } from '@/lib/cart-display';
 
 const mockPush = jest.fn();
@@ -31,13 +35,17 @@ describe('ProductCard handleAddToCart logic', () => {
     name: string;
     price: number;
     has_variants?: boolean;
+    has_condition_offers?: boolean;
     image?: string;
     condition?: string;
     compare_at_price?: number;
     manage_stock?: boolean;
+    variant_model?: 'legacy' | 'sku_matrix';
+    available_conditions?: string[];
     variants?: Array<{
       id: string;
       name?: string;
+      condition?: string;
       price?: number;
       price_override?: number;
       stock_quantity?: number;
@@ -47,6 +55,11 @@ describe('ProductCard handleAddToCart logic', () => {
     }>;
   }) {
     const defaultVariantSelection = resolveDefaultVariantSelection(product);
+
+    if (requiresProductSelection(product)) {
+      mockPush(`/product/${product.slug}`);
+      return;
+    }
 
     if (product.has_variants && !defaultVariantSelection) {
       mockPush(`/product/${product.slug}`);
@@ -76,7 +89,7 @@ describe('ProductCard handleAddToCart logic', () => {
     });
   }
 
-  it('adds the cheapest available variant directly when a default variant can be resolved', () => {
+  it('navigates variant products to detail instead of quick-adding a default variant', () => {
     simulateHandleAddToCart({
       id: 'prod-1',
       slug: 'redmi-note-14',
@@ -102,16 +115,40 @@ describe('ProductCard handleAddToCart logic', () => {
       ],
     });
 
-    expect(mockAddItem).toHaveBeenCalledWith(
-      expect.objectContaining({
-        product_id: 'prod-1',
-        variant_id: 'variant-128gb',
-        storage: '128GB',
-        price: 220000,
-      })
-    );
-    expect(mockPush).not.toHaveBeenCalled();
-    expect(mockHapticsLight).toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith('/product/redmi-note-14');
+    expect(mockAddItem).not.toHaveBeenCalled();
+    expect(mockHapticsLight).not.toHaveBeenCalled();
+  });
+
+  it('navigates SKU-matrix products to detail instead of quick-adding a default variant', () => {
+    simulateHandleAddToCart({
+      id: 'iphone-15',
+      slug: 'iphone-15',
+      name: 'iPhone 15',
+      price: 900000,
+      available_conditions: ['open_box', 'used'],
+      has_variants: true,
+      manage_stock: true,
+      variant_model: 'sku_matrix',
+      variants: [
+        {
+          id: 'iphone15-openbox-128-black-esim',
+          name: 'Open Box 128GB Black eSIM',
+          condition: 'open_box',
+          price_override: 829000,
+          stock_quantity: 3,
+          attributes: {
+            color: 'Black',
+            sim_type: 'eSIM Only',
+            storage: '128GB',
+          },
+        },
+      ],
+    });
+
+    expect(mockPush).toHaveBeenCalledWith('/product/iphone-15');
+    expect(mockAddItem).not.toHaveBeenCalled();
+    expect(mockHapticsLight).not.toHaveBeenCalled();
   });
 
   it('navigates to product detail when has_variants is true but no purchasable default exists', () => {
@@ -138,7 +175,7 @@ describe('ProductCard handleAddToCart logic', () => {
     expect(mockHapticsLight).not.toHaveBeenCalled();
   });
 
-  it('falls back to the card image when the default variant has no dedicated image', () => {
+  it('falls back to the card image when a simple product is quick-added', () => {
     const product = {
       id: 'prod-4',
       slug: 'redmi-pad',
@@ -146,19 +183,7 @@ describe('ProductCard handleAddToCart logic', () => {
       price: 180000,
       image: 'https://cdn.example.com/redmi-pad-card.jpg',
       condition: 'New',
-      has_variants: true,
-      manage_stock: true,
-      variants: [
-        {
-          id: 'variant-128gb',
-          name: '128GB',
-          price_override: 180000,
-          stock_quantity: 3,
-          image: undefined,
-          images: undefined,
-          attributes: { storage: '128GB' },
-        },
-      ],
+      has_variants: false,
     };
 
     simulateHandleAddToCart(product);

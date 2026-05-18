@@ -59,7 +59,21 @@ describe('storefront-cart-validation', () => {
     ]);
 
     expect(first).toBe(second);
-    expect(first).toBe('a:10|b::v-b:20');
+    expect(first).toBe('a:::10|b::v-b:::20');
+  });
+
+  it('includes variant and condition identity in the cart validation hash', () => {
+    expect(
+      createCartHash([
+        makeCartItem({
+          id: 'iphone-15',
+          cartItemId: 'iphone-15::variant=used',
+          condition: 'used',
+          price: 829000,
+          variantId: 'variant-used',
+        }),
+      ])
+    ).toBe('iphone-15::variant-used:used::829000');
   });
 
   it('posts the first 50 cart items for validation and returns the response body', async () => {
@@ -97,6 +111,53 @@ describe('storefront-cart-validation', () => {
       })
     );
     expect(result).toEqual({ invalidProductIds: ['cart-item-1'] });
+  });
+
+  it('posts SKU-matrix variant identity for server-side validation', async () => {
+    mocks.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ invalidProductIds: [] }),
+    });
+    const controller = new AbortController();
+
+    await validateStorefrontCart(
+      [
+        makeCartItem({
+          id: 'iphone-15',
+          condition: 'open_box',
+          price: 829000,
+          variantAttributes: {
+            color: 'Black',
+            sim_type: 'eSIM Only',
+            storage: '128GB',
+          },
+          variantId: 'iphone15-openbox-128-black-esim',
+        }),
+      ],
+      controller.signal
+    );
+
+    expect(mocks.fetch).toHaveBeenCalledWith(
+      '/api/cart/validate',
+      expect.objectContaining({
+        body: JSON.stringify({
+          cartItems: [
+            {
+              condition: 'open_box',
+              id: 'iphone-15',
+              price: 829000,
+              variantAttributes: {
+                color: 'Black',
+                sim_type: 'eSIM Only',
+                storage: '128GB',
+              },
+              variantId: 'iphone15-openbox-128-black-esim',
+            },
+          ],
+        }),
+        signal: controller.signal,
+      })
+    );
   });
 
   it('returns null and warns when validation fails', async () => {
@@ -202,6 +263,35 @@ describe('storefront-cart-validation', () => {
       expect.objectContaining({
         cartItemId: 'product-1::variant-b',
         price: 250,
+      }),
+    ]);
+  });
+
+  it('invalidates only the targeted variant cart line key', () => {
+    const result = applyValidationResults(
+      [
+        makeCartItem({
+          id: 'product-1',
+          cartItemId: 'product-1::variant-a',
+          variantId: 'variant-a',
+          price: 100,
+        }),
+        makeCartItem({
+          id: 'product-1',
+          cartItemId: 'product-1::variant-b',
+          variantId: 'variant-b',
+          price: 200,
+        }),
+      ],
+      {
+        invalidProductIds: ['product-1::variant-b'],
+      }
+    );
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        cartItemId: 'product-1::variant-a',
+        price: 100,
       }),
     ]);
   });

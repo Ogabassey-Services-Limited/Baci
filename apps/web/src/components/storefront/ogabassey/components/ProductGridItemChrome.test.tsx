@@ -8,15 +8,17 @@ import {
 } from './ProductGridItemChrome';
 
 vi.mock('next/link', () => ({
-  default: ({
-    children,
-    href,
-    ...rest
-  }: { children: React.ReactNode; href: string } & Record<string, unknown>) => (
-    <a href={href} {...rest}>
-      {children}
-    </a>
-  ),
+  default: (
+    props: { children: React.ReactNode; href: string } & Record<string, unknown>
+  ) => {
+    const { children, href, prefetch: _prefetch, ...anchorProps } = props;
+
+    return (
+      <a href={href} {...anchorProps}>
+        {children}
+      </a>
+    );
+  },
 }));
 
 const baseProduct: Product = {
@@ -82,6 +84,46 @@ describe('ProductGridItemChrome', () => {
     expect(onToggleWishlist).toHaveBeenCalledOnce();
     expect(onAddToCart).toHaveBeenCalledWith(expect.any(Object), baseProduct);
     expect(screen.getByText('PS5')).toBeInTheDocument();
+  });
+
+  it('links SKU-matrix products to option selection instead of quick-adding', () => {
+    const onAddToCart = vi.fn();
+
+    render(
+      <ProductGridImageChrome
+        activeColorIndex={0}
+        basePath="/ogabassey"
+        cartQuantity={0}
+        iconSize={18}
+        isAdded={false}
+        isWishlisted={false}
+        onAddToCart={onAddToCart}
+        onNextColor={vi.fn()}
+        onPrevColor={vi.fn()}
+        onSelectColor={vi.fn()}
+        onToggleWishlist={vi.fn()}
+        product={
+          {
+            ...baseProduct,
+            available_conditions: ['open_box', 'used'],
+            has_variants: true,
+            variant_model: 'sku_matrix',
+          } as Product
+        }
+      />
+    );
+
+    expect(
+      screen.getByRole('link', {
+        name: `Choose options for ${baseProduct.name}`,
+      })
+    ).toHaveAttribute('href', '/ogabassey/gaming/playstation-5');
+    expect(
+      screen.queryByRole('button', {
+        name: `Add ${baseProduct.name} to cart`,
+      })
+    ).not.toBeInTheDocument();
+    expect(onAddToCart).not.toHaveBeenCalled();
   });
 
   it('renders content chrome with ratings, teaser, and cart CTA', () => {

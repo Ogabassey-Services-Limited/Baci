@@ -6,10 +6,13 @@ const variantIdSchema = z
 
 const cartItemSchema = z
   .object({
+    condition: z.string().optional(),
     id: z.string(),
     price: z.number(),
-    variantId: variantIdSchema.optional(),
+    variant_attributes: z.record(z.string(), z.string()).optional(),
     variant_id: variantIdSchema.optional(),
+    variantAttributes: z.record(z.string(), z.string()).optional(),
+    variantId: variantIdSchema.optional(),
   })
   .superRefine((item, ctx) => {
     if (

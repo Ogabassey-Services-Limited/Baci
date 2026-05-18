@@ -3,6 +3,7 @@
  * Displays user's saved/favorited products
  */
 
+import { requiresProductSelection } from '@baci/shared/lib';
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import { Image } from 'expo-image';
@@ -62,6 +63,23 @@ export default function SavedItemsScreen() {
   };
 
   const handleAddToCart = (item: SavedItem) => {
+    if (
+      requiresProductSelection(
+        {
+          available_conditions: item.available_conditions,
+          has_condition_offers: item.has_condition_offers,
+          has_variants: item.has_variants,
+          variant_model: item.variant_model,
+        },
+        { metadataTrust: 'legacy-saved-record' }
+      )
+    ) {
+      if (item.slug) {
+        router.push(`/product/${item.slug}`);
+      }
+      return;
+    }
+
     addToCart({
       product_id: item.product_id,
       slug: item.slug,
@@ -106,7 +124,9 @@ export default function SavedItemsScreen() {
           style={styles.itemContent}
         >
           {/* Product Image */}
-          <View style={[styles.imageContainer, { backgroundColor: colors.muted }]}>
+          <View
+            style={[styles.imageContainer, { backgroundColor: colors.muted }]}
+          >
             <Image
               source={{ uri: item.image }}
               style={styles.image}
@@ -116,8 +136,20 @@ export default function SavedItemsScreen() {
               cachePolicy="memory-disk"
             />
             {discountPercentage && (
-              <View style={[styles.discountBadge, { backgroundColor: colors.primary }]}>
-                <Text style={[styles.discountText, { color: colors.primaryForeground }]}>-{discountPercentage}%</Text>
+              <View
+                style={[
+                  styles.discountBadge,
+                  { backgroundColor: colors.primary },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.discountText,
+                    { color: colors.primaryForeground },
+                  ]}
+                >
+                  -{discountPercentage}%
+                </Text>
               </View>
             )}
           </View>
@@ -189,8 +221,17 @@ export default function SavedItemsScreen() {
             ]}
             onPress={() => handleAddToCart(item)}
           >
-            <Ionicons name="cart-outline" size={18} color={colors.primaryForeground} />
-            <Text style={[styles.actionButtonText, { color: colors.primaryForeground }]}>
+            <Ionicons
+              name="cart-outline"
+              size={18}
+              color={colors.primaryForeground}
+            />
+            <Text
+              style={[
+                styles.actionButtonText,
+                { color: colors.primaryForeground },
+              ]}
+            >
               Add to Cart
             </Text>
           </Pressable>
@@ -212,7 +253,11 @@ export default function SavedItemsScreen() {
         style={[styles.shopButton, { backgroundColor: colors.primary }]}
         onPress={() => router.push('/')}
       >
-        <Text style={[styles.shopButtonText, { color: colors.primaryForeground }]}>Browse Products</Text>
+        <Text
+          style={[styles.shopButtonText, { color: colors.primaryForeground }]}
+        >
+          Browse Products
+        </Text>
       </Pressable>
     </View>
   );
@@ -307,7 +352,6 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: RADIUS.md,
     overflow: 'hidden',
-
   },
   image: {
     width: '100%',
@@ -323,7 +367,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.sm,
   },
   discountText: {
-
     fontSize: 10,
     fontWeight: '700',
   },
@@ -409,7 +452,6 @@ const styles = StyleSheet.create({
     marginTop: SPACING.xl,
   },
   shopButtonText: {
-
     fontSize: 16,
     fontWeight: '600',
   },

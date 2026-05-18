@@ -5,21 +5,25 @@ import type { Product } from '../types';
 import { ProductListItem } from './ProductListItem';
 
 vi.mock('next/link', () => ({
-  default: ({
-    children,
-    href,
-    ...rest
-  }: { children: React.ReactNode; href: string } & Record<string, unknown>) => (
-    <a href={href} {...rest}>
-      {children}
-    </a>
-  ),
+  default: (
+    props: { children: React.ReactNode; href: string } & Record<string, unknown>
+  ) => {
+    const { children, href, prefetch: _prefetch, ...anchorProps } = props;
+
+    return (
+      <a href={href} {...anchorProps}>
+        {children}
+      </a>
+    );
+  },
 }));
 
 vi.mock('next/image', () => ({
-  default: (props: Record<string, unknown>) => (
-    <img {...props} alt={String(props.alt ?? '')} />
-  ),
+  default: (props: Record<string, unknown>) => {
+    const { alt, fill: _fill, priority: _priority, ...imageProps } = props;
+
+    return <img {...imageProps} alt={String(alt ?? '')} />;
+  },
 }));
 
 const baseProduct: Product = {
@@ -74,5 +78,37 @@ describe('ProductListItem', () => {
 
     expect(onToggleWishlist).toHaveBeenCalledOnce();
     expect(onAddToCart).toHaveBeenCalledWith(expect.any(Object), baseProduct);
+  });
+
+  it('links SKU-matrix products to option selection instead of quick-adding', () => {
+    const onAddToCart = vi.fn();
+
+    render(
+      <ProductListItem
+        basePath="/ogabassey"
+        product={
+          {
+            ...baseProduct,
+            available_conditions: ['open_box', 'used'],
+            has_variants: true,
+            variant_model: 'sku_matrix',
+          } as Product
+        }
+        onAddToCart={onAddToCart}
+        isAdded={false}
+        isWishlisted={false}
+        onToggleWishlist={vi.fn()}
+      />
+    );
+
+    expect(
+      screen.getByRole('link', {
+        name: `Choose options for ${baseProduct.name}`,
+      })
+    ).toHaveAttribute('href', '/ogabassey/laptops/macbook-pro');
+    expect(
+      screen.queryByRole('button', { name: /Add to Cart/i })
+    ).not.toBeInTheDocument();
+    expect(onAddToCart).not.toHaveBeenCalled();
   });
 });

@@ -211,6 +211,67 @@ describe('useCart - Validation', () => {
     });
   });
 
+  it('stores the default SKU-matrix variant condition for quick add flows', async () => {
+    const skuMatrixProduct: AddToCartProduct = {
+      ...mockProduct,
+      id: 'iphone-15',
+      has_variants: true,
+      manage_stock: true,
+      price: 900000,
+      variants: [
+        {
+          id: 'iphone15-openbox-128-black-esim',
+          product_id: 'iphone-15',
+          merchant_id: 'merch-1',
+          condition: 'open_box',
+          price_override: 829000,
+          stock_quantity: 3,
+          attributes: {
+            color: 'Black',
+            sim_type: 'eSIM Only',
+            storage: '128GB',
+          },
+        },
+      ],
+    };
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <CartProvider>{children}</CartProvider>
+    );
+
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    (global.fetch as any).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        invalidProductIds: [],
+        priceChanges: [],
+      }),
+    });
+
+    await waitFor(() => expect(result.current.isHydrated).toBe(true));
+
+    act(() => {
+      result.current.addToCart(skuMatrixProduct, 1);
+    });
+
+    await waitFor(() => {
+      expect(result.current.cart[0]).toMatchObject({
+        id: 'iphone-15',
+        condition: 'open_box',
+        price: 829000,
+        selectedColor: 'Black',
+        selectedStorage: '128GB',
+        variantAttributes: {
+          color: 'Black',
+          sim_type: 'eSIM Only',
+          storage: '128GB',
+        },
+        variantId: 'iphone15-openbox-128-black-esim',
+      });
+    });
+  });
+
   it('defers cart validation until interaction when requested', async () => {
     vi.useFakeTimers();
 

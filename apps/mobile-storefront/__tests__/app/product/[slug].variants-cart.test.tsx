@@ -98,4 +98,88 @@ describe('ProductDetailScreen variant cart behavior', () => {
       })
     );
   });
+
+  it('adds SKU-matrix SIM type, condition, and variant identity to cart from the PDP', async () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'iphone-15',
+      condition: 'open_box',
+    });
+    mockUseProduct.mockReturnValue({
+      product: {
+        ...variantProduct,
+        name: 'iPhone 15',
+        slug: 'iphone-15',
+        manage_stock: true,
+        variant_attributes: {
+          storage: ['128GB'],
+          sim_type: ['eSIM Only'],
+        },
+        available_conditions: ['open_box', 'used'],
+        variant_model: 'sku_matrix',
+        variants: [
+          {
+            ...primaryVariant,
+            id: 'iphone15-openbox-128-black-esim',
+            condition: 'open_box',
+            name: 'Open Box 128GB Black eSIM',
+            price: 829000,
+            price_override: 829000,
+            stock_quantity: 3,
+            attributes: {
+              color: 'Black',
+              sim_type: 'eSIM Only',
+              storage: '128GB',
+            },
+          },
+        ],
+      },
+      isLoading: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+    mockUseEffectivePrice.mockReturnValue({
+      price: 829000,
+      comparePrice: undefined,
+    });
+
+    render(<ProductDetailScreen />);
+
+    await waitFor(() => {
+      expect(getLastMockProps(mockProductDetailsBody)).toEqual(
+        expect.objectContaining({
+          canPurchase: true,
+          selectedCondition: 'open_box',
+          selectedStorage: '128GB',
+        })
+      );
+    });
+
+    act(() => {
+      getLastMockProps<{
+        onAddToCart: (event?: {
+          nativeEvent?: Record<string, unknown>;
+        }) => void;
+      }>(mockStickyBottomActions)?.onAddToCart({
+        nativeEvent: {
+          pageX: 180,
+          pageY: 720,
+        },
+      });
+    });
+
+    expect(mockCartStoreState.addItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        condition: 'Open Box',
+        price: 829000,
+        slug: 'iphone-15',
+        storage: '128GB',
+        variant_attributes: expect.objectContaining({
+          condition: 'Open Box',
+          sim_type: 'eSIM Only',
+          storage: '128GB',
+        }),
+        variant_id: 'iphone15-openbox-128-black-esim',
+      })
+    );
+  });
 });
