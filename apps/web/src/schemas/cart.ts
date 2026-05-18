@@ -7,6 +7,8 @@ export const cartValidateSchema = z.object({
       z.object({
         id: z.string(),
         price: z.number(),
+        variantId: z.string().optional(),
+        variant_id: z.string().optional(),
       })
     )
     .optional(),

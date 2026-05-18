@@ -3,12 +3,23 @@ import type { CartItem } from './cart-types';
 
 interface CartValidationResponse {
   invalidProductIds?: string[];
-  priceChanges?: { id: string; oldPrice: number; newPrice: number }[];
+  priceChanges?: {
+    id: string;
+    variantId?: string;
+    oldPrice: number;
+    newPrice: number;
+  }[];
 }
+
+const createCartValidationKey = (id: string, variantId?: string | null) =>
+  variantId ? `${id}::${variantId}` : id;
 
 export const createCartHash = (cart: CartItem[]) => {
   return cart
-    .map((item) => `${item.id}:${item.price}`)
+    .map(
+      (item) =>
+        `${createCartValidationKey(item.id, item.variantId)}:${item.price}`
+    )
     .sort()
     .join('|');
 };
@@ -20,6 +31,7 @@ export const validateStorefrontCart = async (
   const limitedCart = cart.slice(0, 50).map((item) => ({
     id: item.id,
     price: item.price,
+    variantId: item.variantId,
   }));
 
   const response = await fetch('/api/cart/validate', {
@@ -47,7 +59,7 @@ export const applyValidationResults = (
   const invalidIds = new Set(validation.invalidProductIds || []);
   const priceChanges = new Map(
     (validation.priceChanges || []).map((priceChange) => [
-      priceChange.id,
+      createCartValidationKey(priceChange.id, priceChange.variantId),
       priceChange,
     ])
   );
@@ -59,7 +71,9 @@ export const applyValidationResults = (
   return cart
     .filter((item) => !invalidIds.has(item.id))
     .map((item) => {
-      const priceChange = priceChanges.get(item.id);
+      const priceChange = priceChanges.get(
+        createCartValidationKey(item.id, item.variantId)
+      );
       if (!priceChange) {
         return item;
       }

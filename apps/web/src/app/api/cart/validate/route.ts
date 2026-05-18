@@ -3,6 +3,46 @@ import { getEffectiveStock } from '@/lib/product-stock';
 import { createServiceClient } from '@/lib/supabase/service';
 import { cartValidateSchema } from '@/schemas/cart';
 
+type CartProductRow = {
+  id: string;
+  name: string;
+  price: number | string | null;
+  stock: number | null;
+  stock_quantity: number | null;
+  status: string | null;
+  manage_stock: boolean | null;
+};
+
+type CartVariantRow = {
+  id: string;
+  product_id: string;
+  price_override: number | string | null;
+};
+
+type CartValidationItem = {
+  id: string;
+  price: number | null;
+  variantId?: string;
+};
+
+const uuidRegex =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function normalizeVariantId(
+  item: { variantId?: string; variant_id?: string } | undefined
+) {
+  return item?.variantId || item?.variant_id || undefined;
+}
+
+function toPriceNumber(value: number | string | null | undefined) {
+  const price = Number(value ?? 0);
+  return Number.isFinite(price) ? price : 0;
+}
+
+function getCartValidationKey(id: string, variantId?: string) {
+  return variantId ? `${id}::${variantId}` : id;
+}
+
 /**
  * POST /api/cart/validate
  *
@@ -13,7 +53,7 @@ import { cartValidateSchema } from '@/schemas/cart';
  * Response: {
  *   validProducts: { id, price, stock, name }[],
  *   invalidProductIds: string[],
- *   priceChanges: { id, oldPrice, newPrice }[]
+ *   priceChanges: { id, variantId?, oldPrice, newPrice }[]
  * }
  */
 export async function POST(request: NextRequest) {
@@ -34,8 +74,15 @@ export async function POST(request: NextRequest) {
     }
     const { productIds, cartItems } = parsed.data;
 
-    // Support both formats: just IDs or full cart items with prices
-    const idsToValidate = productIds || cartItems?.map((item) => item.id) || [];
+    // Support both formats: just IDs or full cart items with prices.
+    const validationItems: CartValidationItem[] = cartItems
+      ? cartItems.map((item) => ({
+          id: item.id,
+          price: item.price,
+          variantId: normalizeVariantId(item),
+        }))
+      : (productIds ?? []).map((id) => ({ id, price: null }));
+    const idsToValidate = validationItems.map((item) => item.id);
 
     if (!idsToValidate.length) {
       return NextResponse.json({
@@ -45,18 +92,22 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 1. Separate potentially valid IDs (must be valid UUIDs for this database)
-    // 1. Separate potentially valid IDs
     const validFormatIds: string[] = [];
     const invalidFormatIds: string[] = [];
+    const validVariantIds = Array.from(
+      new Set(
+        validationItems
+          .map((item) => item.variantId)
+          .filter(
+            (variantId): variantId is string =>
+              typeof variantId === 'string' && uuidRegex.test(variantId)
+          )
+      )
+    );
 
     // Use Service Client (Admin) to bypass RLS.
     // This ensures we can validate products even if the user is a guest.
     const supabase = createServiceClient();
-
-    // UUID v4 regex pattern
-    const uuidRegex =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
     for (const id of idsToValidate) {
       const strId = String(id);
@@ -71,14 +122,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 2. Fetch only valid-formatted IDs
-    // biome-ignore lint/suspicious/noExplicitAny: Supabase returns dynamic rows
-    let products: any[] = [];
+    let products: CartProductRow[] = [];
     if (validFormatIds.length > 0) {
       const { data, error } = await supabase
         .from('products')
         .select('id, name, price, stock, stock_quantity, status, manage_stock')
-        .in('id', validFormatIds);
+        .in('id', validFormatIds)
+        .returns<CartProductRow[]>();
 
       if (error) {
         console.error('Cart validation query error:', error);
@@ -93,8 +143,28 @@ export async function POST(request: NextRequest) {
       products = data || [];
     }
 
-    // 3. Map for lookup (normalize keys to string to be safe)
+    let variants: CartVariantRow[] = [];
+    if (validVariantIds.length > 0) {
+      const { data, error } = await supabase
+        .from('product_variants')
+        .select('id, product_id, price_override')
+        .in('id', validVariantIds)
+        .returns<CartVariantRow[]>();
+
+      if (error) {
+        console.error('Cart validation variant query error:', error);
+        return NextResponse.json(
+          { error: `Failed to validate cart: ${error.message}` },
+          { status: 500 }
+        );
+      }
+      variants = data || [];
+    }
+
     const productMap = new Map(products.map((p) => [String(p.id), p]));
+    const variantMap = new Map(
+      variants.map((variant) => [variant.id, variant])
+    );
 
     const validProducts: {
       id: string;
@@ -104,12 +174,16 @@ export async function POST(request: NextRequest) {
       name: string;
     }[] = [];
     const invalidProductIds: string[] = [...invalidFormatIds]; // Start with known junk
-    const priceChanges: { id: string; oldPrice: number; newPrice: number }[] =
-      [];
+    const priceChanges: {
+      id: string;
+      variantId?: string;
+      oldPrice: number;
+      newPrice: number;
+    }[] = [];
+    const seenPriceChangeKeys = new Set<string>();
 
-    // 4. Validate all input IDs
-    for (const id of idsToValidate) {
-      const strId = String(id);
+    for (const item of validationItems) {
+      const strId = String(item.id);
       // If it was junk, it's already in invalidProductIds (but we need to avoid adding it twice if using set?)
       // Actually simpler: iterate idsToValidate. check map.
 
@@ -134,22 +208,32 @@ export async function POST(request: NextRequest) {
           }
         }
       } else {
+        const variant = item.variantId ? variantMap.get(item.variantId) : null;
+        const variantBelongsToProduct =
+          variant && String(variant.product_id) === strId;
+        const currentPrice = toPriceNumber(
+          variantBelongsToProduct
+            ? (variant.price_override ?? product.price)
+            : product.price
+        );
+
         validProducts.push({
           id: String(product.id), // Ensure string
-          price: product.price,
+          price: currentPrice,
           stock: getEffectiveStock(product),
           name: product.name,
-          manage_stock: product.manage_stock,
+          manage_stock: Boolean(product.manage_stock),
         });
 
-        // Check for price changes
-        if (cartItems) {
-          const cartItem = cartItems.find((item) => String(item.id) === strId);
-          if (cartItem && cartItem.price !== product.price) {
+        if (item.price !== null && item.price !== currentPrice) {
+          const priceChangeKey = getCartValidationKey(strId, item.variantId);
+          if (!seenPriceChangeKeys.has(priceChangeKey)) {
+            seenPriceChangeKeys.add(priceChangeKey);
             priceChanges.push({
               id: strId,
-              oldPrice: cartItem.price,
-              newPrice: product.price,
+              variantId: item.variantId,
+              oldPrice: item.price,
+              newPrice: currentPrice,
             });
           }
         }

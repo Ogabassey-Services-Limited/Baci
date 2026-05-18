@@ -50,16 +50,16 @@ describe('storefront-cart-validation', () => {
 
   it('creates a stable hash from cart contents regardless of order', () => {
     const first = createCartHash([
-      makeCartItem({ id: 'b', cartItemId: 'b', price: 20 }),
+      makeCartItem({ id: 'b', cartItemId: 'b', price: 20, variantId: 'v-b' }),
       makeCartItem({ id: 'a', cartItemId: 'a', price: 10 }),
     ]);
     const second = createCartHash([
       makeCartItem({ id: 'a', cartItemId: 'a', price: 10 }),
-      makeCartItem({ id: 'b', cartItemId: 'b', price: 20 }),
+      makeCartItem({ id: 'b', cartItemId: 'b', price: 20, variantId: 'v-b' }),
     ]);
 
     expect(first).toBe(second);
-    expect(first).toBe('a:10|b:20');
+    expect(first).toBe('a:10|b::v-b:20');
   });
 
   it('posts the first 50 cart items for validation and returns the response body', async () => {
@@ -75,6 +75,7 @@ describe('storefront-cart-validation', () => {
           id: `cart-item-${index + 1}`,
           cartItemId: `cart-item-${index + 1}`,
           price: index + 1,
+          variantId: index === 0 ? 'variant-1' : undefined,
         })
       ),
       controller.signal
@@ -89,6 +90,7 @@ describe('storefront-cart-validation', () => {
           cartItems: Array.from({ length: 50 }, (_, index) => ({
             id: `cart-item-${index + 1}`,
             price: index + 1,
+            variantId: index === 0 ? 'variant-1' : undefined,
           })),
         }),
         signal: controller.signal,
@@ -162,6 +164,46 @@ describe('storefront-cart-validation', () => {
         productId: 'cart-item-2',
       })
     );
+  });
+
+  it('applies variant-specific price changes only to the matching cart line', () => {
+    const result = applyValidationResults(
+      [
+        makeCartItem({
+          id: 'product-1',
+          cartItemId: 'product-1::variant-a',
+          variantId: 'variant-a',
+          price: 100,
+        }),
+        makeCartItem({
+          id: 'product-1',
+          cartItemId: 'product-1::variant-b',
+          variantId: 'variant-b',
+          price: 200,
+        }),
+      ],
+      {
+        priceChanges: [
+          {
+            id: 'product-1',
+            variantId: 'variant-b',
+            oldPrice: 200,
+            newPrice: 250,
+          },
+        ],
+      }
+    );
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        cartItemId: 'product-1::variant-a',
+        price: 100,
+      }),
+      expect.objectContaining({
+        cartItemId: 'product-1::variant-b',
+        price: 250,
+      }),
+    ]);
   });
 
   it('returns the original cart when validation reports no changes', () => {

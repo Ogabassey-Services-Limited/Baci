@@ -336,7 +336,12 @@ export const CartProvider = ({
     // 2026 Critical Fix: Create a stable hash of cart item IDs+prices to detect meaningful changes
     // This prevents infinite loops when validation updates prices
     const cartHash = cart
-      .map((item) => `${item.id}:${item.price}`)
+      .map((item) => {
+        const itemKey = item.variantId
+          ? `${item.id}::${item.variantId}`
+          : item.id;
+        return `${itemKey}:${item.price}`;
+      })
       .sort()
       .join('|');
 
@@ -359,6 +364,7 @@ export const CartProvider = ({
         const cartItems = limitedCart.map((item) => ({
           id: item.id,
           price: item.price,
+          variantId: item.variantId,
         }));
 
         const response = await fetch('/api/cart/validate', {
@@ -378,7 +384,12 @@ export const CartProvider = ({
 
         const { invalidProductIds, priceChanges } = (await response.json()) as {
           invalidProductIds: string[];
-          priceChanges: { id: string; oldPrice: number; newPrice: number }[];
+          priceChanges: {
+            id: string;
+            variantId?: string;
+            oldPrice: number;
+            newPrice: number;
+          }[];
         };
 
         // OPTIMIZATION: Use Set for O(1) lookup to remove ghost products
@@ -410,14 +421,21 @@ export const CartProvider = ({
             // Update stale prices
             if (hasPriceChanges) {
               const priceChangesMap = new Map(
-                priceChanges.map((pc) => [pc.id, pc])
+                priceChanges.map((pc) => [
+                  pc.variantId ? `${pc.id}::${pc.variantId}` : pc.id,
+                  pc,
+                ])
               );
               updated = updated.map((item) => {
-                const priceChange = priceChangesMap.get(item.id);
+                const itemKey = item.variantId
+                  ? `${item.id}::${item.variantId}`
+                  : item.id;
+                const priceChange = priceChangesMap.get(itemKey);
                 if (priceChange) {
                   logger.info({
                     message: 'Updated stale price in cart',
                     productId: item.id,
+                    variantId: item.variantId,
                     oldPrice: priceChange.oldPrice,
                     newPrice: priceChange.newPrice,
                   });
@@ -430,7 +448,12 @@ export const CartProvider = ({
             // 2026 Critical Fix: Update the hash ref AFTER cart changes
             // to prevent re-validation of the same corrected cart
             const newHash = updated
-              .map((item) => `${item.id}:${item.price}`)
+              .map((item) => {
+                const itemKey = item.variantId
+                  ? `${item.id}::${item.variantId}`
+                  : item.id;
+                return `${itemKey}:${item.price}`;
+              })
               .sort()
               .join('|');
             lastValidatedCartHashRef.current = newHash;
