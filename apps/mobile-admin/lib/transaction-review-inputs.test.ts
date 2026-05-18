@@ -40,6 +40,7 @@ describe('transaction review input helpers', () => {
     expect(parseCostPriceInput('₦12,5')).toBe(125);
     expect(parseCostPriceInput('₦,5')).toBe(5);
     expect(parseCostPriceInput('₦1,200')).toBe(1200);
+    expect(parseCostPriceInput('₦1-200')).toBe(1200);
     expect(parseCostPriceInput('-₦1,200')).toBe(-1200);
     expect(parseCostPriceInput('₦-1,200')).toBe(-1200);
     expect(Number.isNaN(parseCostPriceInput('₦'))).toBe(true);
