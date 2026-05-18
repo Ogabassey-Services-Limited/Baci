@@ -2,10 +2,16 @@ import { describe, expect, it } from 'vitest';
 import {
   buildTransactionDateIso,
   buildTransactionReviewRangeFilters,
+  filterOrdersForTransactionTab,
+  formatCostPriceInput,
+  formatCostPriceInputText,
   filterTransactionOrders,
   formatTransactionDateInput,
   getSupplierNameFromMetadata,
+  getSupplierOptionsFromOrders,
   mapTransactionOrderRows,
+  parseCostPriceInput,
+  toSentenceCaseSupplierName,
 } from './transaction-review';
 
 describe('transaction review helpers', () => {
@@ -115,6 +121,128 @@ describe('transaction review helpers', () => {
       'ORD-260509-00NV-R'
     );
     expect(filterTransactionOrders(orders, 'missing text')).toEqual([]);
+  });
+
+  it('filters the missing-cost tab down to only missing-cost line items', () => {
+    const orders = mapTransactionOrderRows([
+      {
+        created_at: '2026-05-11T12:30:00.000Z',
+        transaction_date: null,
+        customer_email: null,
+        customer_name: 'Mixed Customer',
+        customer_phone: null,
+        fulfillment_details: null,
+        id: 'order-1',
+        order_items: [
+          {
+            fulfillment_data: null,
+            id: 'item-known',
+            name: 'Known Cost',
+            price: 5000,
+            product_id: 'product-1',
+            products: {
+              cost_price: 3000,
+              fulfillment_details: null,
+              metadata: null,
+              sku: null,
+            },
+            quantity: 1,
+          },
+          {
+            fulfillment_data: null,
+            id: 'item-missing',
+            name: 'Missing Cost',
+            price: 4000,
+            product_id: 'product-2',
+            products: {
+              cost_price: null,
+              fulfillment_details: null,
+              metadata: null,
+              sku: null,
+            },
+            quantity: 1,
+          },
+        ],
+        order_number: 'ORD-MIXED',
+        payment_method: 'transfer',
+        total: 9000,
+      },
+    ]);
+
+    expect(filterOrdersForTransactionTab(orders, 'paid')[0]?.items).toHaveLength(
+      2
+    );
+    expect(filterOrdersForTransactionTab(orders, 'missing-costs')).toEqual([
+      expect.objectContaining({
+        items: [expect.objectContaining({ id: 'item-missing' })],
+        missingCostCount: 1,
+        orderNumber: 'ORD-MIXED',
+      }),
+    ]);
+  });
+
+  it('formats and parses currency cost price input', () => {
+    expect(formatCostPriceInput(null, '₦')).toBe('');
+    expect(formatCostPriceInput(1200, '₦')).toBe('₦1,200');
+    expect(formatCostPriceInput(1200.5, '₦')).toBe('₦1,200.5');
+    expect(formatCostPriceInputText('1200000.50', '₦')).toBe('₦1,200,000.50');
+    expect(formatCostPriceInputText('₦1,200,000.50', '₦')).toBe(
+      '₦1,200,000.50'
+    );
+    expect(parseCostPriceInput('₦1,200,000.50')).toBe(1_200_000.5);
+    expect(Number.isNaN(parseCostPriceInput('₦'))).toBe(true);
+  });
+
+  it('sentence-cases supplier names and derives unique previous suppliers', () => {
+    const orders = mapTransactionOrderRows([
+      {
+        created_at: '2026-05-11T12:30:00.000Z',
+        transaction_date: null,
+        customer_email: null,
+        customer_name: 'Supplier Customer',
+        customer_phone: null,
+        fulfillment_details: null,
+        id: 'order-1',
+        order_items: [
+          {
+            fulfillment_data: null,
+            id: 'item-1',
+            name: 'Supplier Item',
+            price: 5000,
+            product_id: 'product-1',
+            products: {
+              cost_price: null,
+              fulfillment_details: null,
+              metadata: { supplier_name: 'SLOT WHOLESALE' },
+              sku: null,
+            },
+            quantity: 1,
+          },
+          {
+            fulfillment_data: null,
+            id: 'item-2',
+            name: 'Supplier Item 2',
+            price: 6000,
+            product_id: 'product-2',
+            products: {
+              cost_price: null,
+              fulfillment_details: null,
+              metadata: { vendor_name: 'slot wholesale' },
+              sku: null,
+            },
+            quantity: 1,
+          },
+        ],
+        order_number: 'ORD-SUPPLIER',
+        payment_method: 'transfer',
+        total: 11_000,
+      },
+    ]);
+
+    expect(toSentenceCaseSupplierName('  MAIN SUPPLIER ltd  ')).toBe(
+      'Main supplier ltd'
+    );
+    expect(getSupplierOptionsFromOrders(orders)).toEqual(['Slot wholesale']);
   });
 
   it('builds range filters that fall back to created_at for historical rows', () => {

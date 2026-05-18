@@ -9,6 +9,18 @@ export const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  datePickerButton: {
+    alignSelf: 'flex-start',
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    marginTop: SPACING.sm,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+  },
+  datePickerButtonText: {
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    fontSize: TYPOGRAPHY.size.sm,
+  },
   flexOne: {
     flex: 1,
   },
@@ -95,26 +107,98 @@ export const styles = StyleSheet.create({
     gap: SPACING.md,
     marginTop: SPACING.md,
   },
+  modalCloseButton: {
+    alignItems: 'center',
+    borderRadius: RADIUS.full,
+    height: SPACING.touchTarget,
+    justifyContent: 'center',
+    width: SPACING.touchTarget,
+  },
+  modalHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: SPACING.md,
+  },
   orderAmount: {
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     fontSize: TYPOGRAPHY.size.md,
   },
+  orderBadge: {
+    borderRadius: RADIUS.full,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    fontSize: TYPOGRAPHY.size.xs,
+    overflow: 'hidden',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
+  },
+  orderBadgeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+  },
   orderCard: {
     borderRadius: RADIUS.lg,
     borderWidth: 1,
-    gap: SPACING.md,
+    gap: SPACING.sm,
     padding: SPACING.lg,
+  },
+  orderCloseButton: {
+    alignItems: 'center',
+    borderRadius: RADIUS.full,
+    height: SPACING.touchTarget,
+    justifyContent: 'center',
+    width: SPACING.touchTarget,
+  },
+  orderCustomerName: {
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: TYPOGRAPHY.size.xl,
+  },
+  orderDetailGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+  },
+  orderDetails: {
+    gap: SPACING.sm,
+  },
+  orderDetailText: {
+    borderRadius: RADIUS.full,
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    fontSize: TYPOGRAPHY.size.xs,
+    overflow: 'hidden',
+    paddingHorizontal: SPACING.sm,
+    paddingVertical: SPACING.xs,
   },
   orderHeader: {
     alignItems: 'center',
     flexDirection: 'row',
   },
+  orderHeaderButton: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: SPACING.sm,
+  },
   orderMeta: {
     alignItems: 'flex-end',
+  },
+  orderNumberText: {
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    fontSize: TYPOGRAPHY.size.xs,
+    marginTop: SPACING.xs,
+  },
+  orderPreview: {
+    gap: SPACING.sm,
+  },
+  orderPreviewTitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    fontSize: TYPOGRAPHY.size.sm,
   },
   orderSubtitle: {
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     fontSize: TYPOGRAPHY.size.sm,
+  },
+  orderSummaryButton: {
+    gap: SPACING.sm,
   },
   orderTitle: {
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
@@ -154,6 +238,22 @@ export const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     fontSize: TYPOGRAPHY.size.sm,
     textAlign: 'center',
+  },
+  supplierSuggestionButton: {
+    borderRadius: RADIUS.full,
+    borderWidth: 1,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+  },
+  supplierSuggestions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.xs,
+    marginTop: SPACING.sm,
+  },
+  supplierSuggestionText: {
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    fontSize: TYPOGRAPHY.size.sm,
   },
   summaryCard: {
     borderRadius: RADIUS.lg,

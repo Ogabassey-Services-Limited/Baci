@@ -12,12 +12,14 @@ vi.mock('react-native', async () => {
     Pressable: ({
       accessibilityLabel,
       accessibilityRole,
+      accessibilityState,
       children,
       disabled,
       onPress,
     }: {
       accessibilityLabel?: string;
       accessibilityRole?: string;
+      accessibilityState?: { expanded?: boolean };
       children?: React.ReactNode;
       disabled?: boolean;
       onPress?: () => void;
@@ -26,6 +28,7 @@ vi.mock('react-native', async () => {
         'button',
         {
           'aria-label': accessibilityLabel,
+          'aria-expanded': accessibilityState?.expanded,
           disabled,
           role: accessibilityRole,
           onClick: () => onPress?.(),
@@ -88,6 +91,59 @@ const nonEditableItem = {
 };
 
 describe('TransactionOrderCard', () => {
+  it('reveals order details from the compact transaction card and closes them', () => {
+    render(
+      <TransactionOrderCard
+        colors={LIGHT_COLORS}
+        formatCurrency={(amount) => `NGN ${amount}`}
+        onOpenEditor={vi.fn()}
+        order={{
+          createdAt: '2026-04-11T09:00:00.000Z',
+          customerEmail: 'bassey@example.com',
+          customerName: 'Bassey',
+          customerPhone: '08030000000',
+          estimatedProfit: 3400,
+          id: 'order-1',
+          items: [editableItem],
+          missingCostCount: 0,
+          orderNumber: 'ORD-1',
+          paymentMethod: 'card',
+          searchText: 'ord-1 bassey samsung galaxy s26',
+          total: 4600,
+        }}
+      />
+    );
+
+    expect(screen.getByText('Bassey')).toBeInTheDocument();
+    expect(screen.getByText('ORD-1')).toBeInTheDocument();
+    expect(screen.queryByText('Supplier Slot Wholesale')).not.toBeInTheDocument();
+    expect(screen.getByText('chevron-down')).toBeInTheDocument();
+
+    const viewDetailsButton = screen.getByRole('button', {
+      name: /view order details for bassey/i,
+    });
+    expect(viewDetailsButton).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(
+      viewDetailsButton
+    );
+
+    expect(screen.getByText('Supplier Slot Wholesale')).toBeInTheDocument();
+    expect(screen.getByText('08030000000')).toBeInTheDocument();
+    expect(screen.getByText('bassey@example.com')).toBeInTheDocument();
+    expect(screen.getByText('close')).toBeInTheDocument();
+
+    const closeDetailsButton = screen.getByRole('button', {
+      name: /close order details for bassey/i,
+    });
+    expect(closeDetailsButton).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(
+      closeDetailsButton
+    );
+
+    expect(screen.queryByText('Supplier Slot Wholesale')).not.toBeInTheDocument();
+    expect(screen.getByText('chevron-down')).toBeInTheDocument();
+  });
+
   it('opens the editor for editable product-linked rows', () => {
     const onOpenEditor = vi.fn();
     const order = {
@@ -112,6 +168,10 @@ describe('TransactionOrderCard', () => {
         onOpenEditor={onOpenEditor}
         order={order}
       />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /view order details for bassey/i })
     );
 
     const row = screen.getByRole('button', {
@@ -150,6 +210,10 @@ describe('TransactionOrderCard', () => {
           total: 500,
         }}
       />
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /view order details for bassey/i })
     );
 
     const row = screen.getByRole('button', {

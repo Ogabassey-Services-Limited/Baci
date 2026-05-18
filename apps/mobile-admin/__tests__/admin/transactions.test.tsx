@@ -109,7 +109,8 @@ vi.mock('@/hooks/useTheme', () => ({
 
 vi.mock('@/hooks/useCurrency', () => ({
   useCurrency: () => ({
-    format: (amount: number) => `NGN ${amount}`,
+    format: (amount: number) => `₦${amount.toLocaleString('en-US')}`,
+    symbol: '₦',
   }),
 }));
 
@@ -186,9 +187,14 @@ vi.mock('@/components/transactions/TransactionOrderCard', () => ({
       orderNumber: string;
     };
   }) => (
-    <button type="button" onClick={() => onOpenEditor(order, order.items[0])}>
-      Edit {order.orderNumber}
-    </button>
+    <div>
+      <button type="button" onClick={() => onOpenEditor(order, order.items[0])}>
+        Edit {order.orderNumber}
+      </button>
+      {order.items.map((item) => (
+        <span key={item.id}>{item.name}</span>
+      ))}
+    </div>
   ),
 }));
 
@@ -271,12 +277,26 @@ const sampleOrders = [
         sku: 'SG-S26',
         supplierName: 'Old Supplier',
       },
+      {
+        costPrice: 4000,
+        imeiValues: [],
+        id: 'item-known',
+        name: 'Known Cost Accessory',
+        productId: 'product-known',
+        profit: 1000,
+        quantity: 1,
+        revenue: 5000,
+        searchText: 'known cost accessory',
+        serialValues: [],
+        sku: 'KNOWN',
+        supplierName: 'Known Supplier',
+      },
     ],
     missingCostCount: 1,
     orderNumber: 'ORD-1',
     paymentMethod: 'card',
     searchText:
-      'ord-1 bassey samsung galaxy s26 353232106161443 sn-123 old supplier',
+      'ord-1 bassey samsung galaxy s26 353232106161443 sn-123 old supplier known cost accessory known supplier',
     total: 5000,
   },
   {
@@ -389,6 +409,21 @@ describe('TransactionsScreen', () => {
     expect(mocks.mutateAsync).not.toHaveBeenCalled();
   });
 
+  it('shows a validation error before saving a negative cost price', async () => {
+    render(<TransactionsScreen />);
+
+    fireEvent.click(screen.getByText('Edit ORD-1'));
+    fireEvent.change(screen.getByLabelText('Cost price input'), {
+      target: { value: '-1200' },
+    });
+    fireEvent.click(screen.getByText('Save cost price'));
+
+    expect(
+      await screen.findByText('Enter a valid cost price (0 or greater).')
+    ).toBeInTheDocument();
+    expect(mocks.mutateAsync).not.toHaveBeenCalled();
+  });
+
   it('saves a valid cost price update', async () => {
     const expectedTransactionDateIso = buildTransactionDateIso('2026-04-12');
 
@@ -396,13 +431,13 @@ describe('TransactionsScreen', () => {
 
     fireEvent.click(screen.getByText('Edit ORD-1'));
     fireEvent.change(screen.getByLabelText('Cost price input'), {
-      target: { value: '1200' },
+      target: { value: '₦1,200' },
     });
     fireEvent.change(screen.getByLabelText('Transaction date input'), {
       target: { value: '2026-04-12' },
     });
     fireEvent.change(screen.getByLabelText('Vendor or supplier input'), {
-      target: { value: 'New Supplier' },
+      target: { value: 'new supplier' },
     });
     fireEvent.click(screen.getByText('Save cost price'));
 
@@ -411,10 +446,70 @@ describe('TransactionsScreen', () => {
         costPrice: 1200,
         orderId: 'order-1',
         productId: 'product-1',
-        supplierName: 'New Supplier',
+        supplierName: 'New supplier',
         transactionDateIso: expectedTransactionDateIso,
       })
     );
+  });
+
+  it('preserves spaces while typing a supplier name before save', () => {
+    render(<TransactionsScreen />);
+
+    fireEvent.click(screen.getByText('Edit ORD-1'));
+    fireEvent.change(screen.getByLabelText('Vendor or supplier input'), {
+      target: { value: 'main ' },
+    });
+
+    expect(screen.getByLabelText('Vendor or supplier input')).toHaveValue(
+      'main '
+    );
+  });
+
+  it('treats comma-separated cost price input as grouped digits on save', async () => {
+    const expectedTransactionDateIso = buildTransactionDateIso('2026-04-10');
+
+    render(<TransactionsScreen />);
+
+    fireEvent.click(screen.getByText('Edit ORD-1'));
+    fireEvent.change(screen.getByLabelText('Cost price input'), {
+      target: { value: '12,5' },
+    });
+    fireEvent.click(screen.getByText('Save cost price'));
+
+    await waitFor(() =>
+      expect(mocks.mutateAsync).toHaveBeenCalledWith({
+        costPrice: 125,
+        orderId: 'order-1',
+        productId: 'product-1',
+        supplierName: 'Old supplier',
+        transactionDateIso: expectedTransactionDateIso,
+      })
+    );
+  });
+
+  it('opens existing cost prices with currency symbol and comma formatting', () => {
+    render(<TransactionsScreen />);
+
+    fireEvent.click(screen.getByText('Edit ORD-2'));
+
+    expect(screen.getByLabelText('Cost price input')).toHaveValue('₦2,000');
+  });
+
+  it('preserves thousands separators as grouping while editing formatted prices', () => {
+    render(<TransactionsScreen />);
+
+    fireEvent.click(screen.getByText('Edit ORD-2'));
+    fireEvent.change(screen.getByLabelText('Cost price input'), {
+      target: { value: '₦2,0005' },
+    });
+
+    expect(screen.getByLabelText('Cost price input')).toHaveValue('₦20,005');
+
+    fireEvent.change(screen.getByLabelText('Cost price input'), {
+      target: { value: '₦20,00' },
+    });
+
+    expect(screen.getByLabelText('Cost price input')).toHaveValue('₦2,000');
   });
 
   it('filters visible transactions by IMEI', () => {
@@ -481,7 +576,20 @@ describe('TransactionsScreen', () => {
     fireEvent.click(screen.getByText('Missing costs tab'));
 
     expect(screen.getByText('Edit ORD-1')).toBeInTheDocument();
+    expect(screen.queryByText('Known Cost Accessory')).not.toBeInTheDocument();
     expect(screen.queryByText('Edit ORD-2')).not.toBeInTheDocument();
+  });
+
+  it('does not match paid line items after switching to the missing-cost tab', () => {
+    render(<TransactionsScreen />);
+
+    fireEvent.click(screen.getByText('Missing costs tab'));
+    fireEvent.change(screen.getByLabelText('Search transactions'), {
+      target: { value: 'Known Supplier' },
+    });
+
+    expect(screen.queryByText('Edit ORD-1')).not.toBeInTheDocument();
+    expect(screen.queryByText('Known Cost Accessory')).not.toBeInTheDocument();
   });
 
   it('shows the async save error and keeps the editor actionable', async () => {
@@ -492,7 +600,7 @@ describe('TransactionsScreen', () => {
 
     fireEvent.click(screen.getByText('Edit ORD-1'));
     fireEvent.change(screen.getByLabelText('Cost price input'), {
-      target: { value: '1200' },
+      target: { value: '₦1,200' },
     });
     fireEvent.click(screen.getByText('Save cost price'));
 
@@ -501,7 +609,7 @@ describe('TransactionsScreen', () => {
         costPrice: 1200,
         orderId: 'order-1',
         productId: 'product-1',
-        supplierName: 'Old Supplier',
+        supplierName: 'Old supplier',
         transactionDateIso: expectedTransactionDateIso,
       })
     );

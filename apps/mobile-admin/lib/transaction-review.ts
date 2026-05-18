@@ -14,6 +14,17 @@ export type {
   TransactionReviewProductRow,
 } from './transaction-review-types';
 
+export {
+  filterOrdersForTransactionTab,
+  formatCostPriceInput,
+  formatCostPriceInputText,
+  formatPickerDateInput,
+  getSupplierOptionsFromOrders,
+  parseDateInputForPicker,
+  parseCostPriceInput,
+  toSentenceCaseSupplierName,
+} from './transaction-review-inputs';
+
 const SUPPLIER_METADATA_KEYS = [
   'supplier_name',
   'supplier',

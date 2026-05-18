@@ -19,15 +19,21 @@ import {
 import { useUpdateTransactionCostPrice } from '@/hooks/useUpdateTransactionCostPrice';
 import {
   buildTransactionDateIso,
+  filterOrdersForTransactionTab,
   filterTransactionOrders,
+  formatCostPriceInput,
+  formatCostPriceInputText,
   formatTransactionDateInput,
+  getSupplierOptionsFromOrders,
+  parseCostPriceInput,
+  toSentenceCaseSupplierName,
 } from '@/lib/transaction-review';
 
 type TransactionReviewTab = 'missing-costs' | 'paid';
 
 export default function TransactionsScreen() {
   const { colors, isDark } = useTheme();
-  const { format: formatCurrency } = useCurrency();
+  const { format: formatCurrency, symbol: currencySymbol } = useCurrency();
   const params = useLocalSearchParams<{
     endDate?: string | string[];
     startDate?: string | string[];
@@ -80,11 +86,9 @@ export default function TransactionsScreen() {
     { estimatedProfit: 0, missingCosts: 0, transactions: 0 }
   );
 
-  const searchedOrders = filterTransactionOrders(orders, searchQuery);
-  const visibleOrders =
-    activeTab === 'missing-costs'
-      ? searchedOrders.filter((order) => order.missingCostCount > 0)
-      : searchedOrders;
+  const tabFilteredOrders = filterOrdersForTransactionTab(orders, activeTab);
+  const visibleOrders = filterTransactionOrders(tabFilteredOrders, searchQuery);
+  const supplierOptions = getSupplierOptionsFromOrders(orders);
 
   const handleOpenEditor = (
     order: TransactionReviewOrder,
@@ -95,9 +99,9 @@ export default function TransactionsScreen() {
     }
     setSelectedOrder(order);
     setSelectedItem(item);
-    setCostPriceInput(item.costPrice == null ? '' : String(item.costPrice));
+    setCostPriceInput(formatCostPriceInput(item.costPrice, currencySymbol));
     setDateInput(formatTransactionDateInput(order.createdAt));
-    setSupplierInput(item.supplierName ?? '');
+    setSupplierInput(toSentenceCaseSupplierName(item.supplierName ?? ''));
     setSaveError(null);
   };
 
@@ -110,12 +114,20 @@ export default function TransactionsScreen() {
     setSupplierInput('');
   };
 
+  const handleChangeCostPrice = (value: string) => {
+    setCostPriceInput(formatCostPriceInputText(value, currencySymbol));
+  };
+
+  const handleChangeSupplier = (value: string) => {
+    setSupplierInput(value);
+  };
+
   const handleSave = async () => {
     if (!selectedOrder || !selectedItem || selectedItem.productId == null) {
       return;
     }
 
-    const nextCostPrice = Number.parseFloat(costPriceInput);
+    const nextCostPrice = parseCostPriceInput(costPriceInput);
     if (Number.isNaN(nextCostPrice) || nextCostPrice < 0) {
       setSaveError('Enter a valid cost price (0 or greater).');
       return;
@@ -133,7 +145,7 @@ export default function TransactionsScreen() {
         costPrice: nextCostPrice,
         orderId: selectedOrder.id,
         productId: selectedItem.productId,
-        supplierName: supplierInput,
+        supplierName: toSentenceCaseSupplierName(supplierInput),
         transactionDateIso: nextTransactionDateIso,
       });
       handleCloseEditor();
@@ -254,15 +266,17 @@ export default function TransactionsScreen() {
         <CostPriceEditorModal
           colors={colors}
           costPriceInput={costPriceInput}
+          currencySymbol={currencySymbol}
           dateInput={dateInput}
-          onChangeCostPrice={setCostPriceInput}
+          onChangeCostPrice={handleChangeCostPrice}
           onChangeDate={setDateInput}
-          onChangeSupplier={setSupplierInput}
+          onChangeSupplier={handleChangeSupplier}
           onClose={handleCloseEditor}
           onSave={handleSave}
           pending={updateCostPrice.isPending}
           saveError={saveError}
           selectedItem={selectedItem}
+          supplierOptions={supplierOptions}
           supplierInput={supplierInput}
           visible={Boolean(selectedItem)}
         />
