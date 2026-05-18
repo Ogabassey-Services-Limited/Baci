@@ -13,6 +13,7 @@ import {
 const ACTION_HEALTH_RECORD_LIMIT = 25;
 const CHECKOUT_ACTIVITY_RECORD_LIMIT = 5;
 const STALE_PAYMENT_PENDING_MS = 24 * 60 * 60 * 1000;
+const TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const COMPLETE_ROUTE_SUFFIX = '.complete';
 
 function getIdempotencyState(statusCode: number | null) {
@@ -64,6 +65,19 @@ function toTimestamp(value: string): number {
   return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
 }
 
+function shouldIncludeIdempotencyRow(
+  row: { status_code: number | null; updated_at: string },
+  nowMs: number
+): boolean {
+  if (row.status_code == null) return true;
+
+  const updatedAtMs = Date.parse(row.updated_at);
+  return (
+    Number.isFinite(updatedAtMs) &&
+    nowMs - updatedAtMs <= TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS
+  );
+}
+
 export async function loadAgenticActionHealth(
   supabase: SupabaseClient,
   merchantId: string
@@ -84,12 +98,15 @@ export async function loadAgenticActionHealth(
     healthResult.data
   );
   const nowMs = Date.now();
+  const relevantIdempotencyRows = idempotencyRows.filter((row) =>
+    shouldIncludeIdempotencyRow(row, nowMs)
+  );
   let inProgressCount = 0;
   let staleInProgressCount = 0;
   let completeTerminalErrorCount = 0;
   let terminalErrorCount = 0;
 
-  for (const row of idempotencyRows) {
+  for (const row of relevantIdempotencyRows) {
     if (row.status_code == null) {
       inProgressCount += 1;
       if (
@@ -192,8 +209,8 @@ export async function loadAgenticActionHealth(
     idempotency: {
       active_in_progress_count: inProgressCount - staleInProgressCount,
       in_progress_count: inProgressCount,
-      recent_count: idempotencyRows.length,
-      records: idempotencyRows.map((row) => ({
+      recent_count: relevantIdempotencyRows.length,
+      records: relevantIdempotencyRows.map((row) => ({
         created_at: row.created_at,
         expires_at: row.expires_at,
         route:

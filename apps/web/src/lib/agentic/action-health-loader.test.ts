@@ -175,4 +175,58 @@ describe('loadAgenticActionHealth', () => {
       loadAgenticActionHealth(supabase, 'merchant-1')
     ).rejects.toThrow('rpc failed');
   });
+
+  it('ages out old terminal idempotency errors without hiding stale in-progress reservations', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-05-18T10:00:00.000Z'));
+    getActionHealthRequestControlSummary.mockResolvedValue({
+      allowlistCount: 1,
+      denylistCount: 0,
+      error: null,
+      isAgenticCheckoutEnabled: true,
+    });
+    const supabase = {
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          checkout_sessions: [],
+          idempotency_records: [
+            {
+              created_at: '2026-05-09T07:20:00.000Z',
+              expires_at: '2026-05-09T07:40:00.000Z',
+              route: 'checkout_sessions.complete',
+              status_code: 500,
+              updated_at: '2026-05-09T07:28:45.000Z',
+            },
+            {
+              created_at: '2026-05-09T07:30:00.000Z',
+              expires_at: '2026-05-09T07:50:00.000Z',
+              route: 'checkout_sessions.complete',
+              status_code: null,
+              updated_at: '2026-05-09T07:31:00.000Z',
+            },
+          ],
+          request_records: [],
+        },
+        error: null,
+      }),
+    } as unknown as SupabaseClient;
+
+    const result = await loadAgenticActionHealth(supabase, 'merchant-1');
+
+    expect(result.idempotency).toMatchObject({
+      recent_count: 1,
+      stale_in_progress_count: 1,
+      terminal_error_count: 0,
+    });
+    expect(result.idempotency?.records).toEqual([
+      expect.objectContaining({
+        route: 'checkout_sessions.complete',
+        state: 'in_progress',
+        status_code: null,
+      }),
+    ]);
+    expect(result.actions.map((action) => action.code)).toEqual([
+      'AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS',
+    ]);
+  });
 });

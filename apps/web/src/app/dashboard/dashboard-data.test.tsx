@@ -135,7 +135,7 @@ async function renderDashboardData() {
   render(ui);
 }
 
-describe('DashboardData trust readiness gating', () => {
+describe('DashboardData', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     createClient.mockReturnValue({});
@@ -159,30 +159,35 @@ describe('DashboardData trust readiness gating', () => {
     buildAgentCommerceTrustReadiness.mockReturnValue(fullReadiness);
   });
 
-  it('loads and slims trust readiness for published merchants', async () => {
+  it('loads only home dashboard data for published merchants', async () => {
     getMerchantForUser.mockResolvedValue({
       merchant: { ...merchantBase, is_published: true },
+    });
+    getDashboardMetrics.mockResolvedValue({
+      activeNow: { change: 0, value: 1 },
+      aov: 0,
+      customers: { change: 0, value: 2 },
+      fulfillmentRate: 0,
+      orders: { change: 0, value: 3 },
+      revenue: { change: 0, value: 4 },
     });
 
     await renderDashboardData();
 
-    expect(buildAgentCommerceTrustReadiness).toHaveBeenCalledTimes(1);
-    expect(loadAgenticActionHealth).toHaveBeenCalledTimes(1);
+    expect(buildAgentCommerceTrustReadiness).not.toHaveBeenCalled();
+    expect(loadAgenticActionHealth).not.toHaveBeenCalled();
+    expect(getCachedOpenAIFeedData).not.toHaveBeenCalled();
+    expect(getCachedGoogleMerchantFeedData).not.toHaveBeenCalled();
     const props = clientProps.mock.calls[0][0];
-    expect(props.initialActionCenterState).toBe('ready');
-    expect(props.initialActionHealth).not.toBeNull();
-    expect(props.initialTrustCenterState).toBe('ready');
-
-    const readiness = props.initialTrustReadiness;
-    expect(readiness).not.toBeNull();
-    // Slim payload: no `surfaces`, no per-check `affectedProductIds`.
-    expect(readiness).not.toHaveProperty('surfaces');
-    expect(readiness.checks[0]).not.toHaveProperty('affectedProductIds');
-    expect(readiness.checks[0].affectedProductCount).toBe(3);
-    expect(readiness.status).toBe('fail');
+    expect(props.initialMetrics).toMatchObject({
+      revenue: { value: 4 },
+      orders: { value: 3 },
+    });
+    expect(props).not.toHaveProperty('initialActionHealth');
+    expect(props).not.toHaveProperty('initialTrustReadiness');
   });
 
-  it('skips trust readiness work for unpublished merchants', async () => {
+  it('does not load agentic centers for unpublished merchants', async () => {
     getMerchantForUser.mockResolvedValue({
       merchant: { ...merchantBase, is_published: false },
     });
@@ -195,49 +200,17 @@ describe('DashboardData trust readiness gating', () => {
     expect(loadAgenticActionHealth).not.toHaveBeenCalled();
 
     const props = clientProps.mock.calls[0][0];
-    expect(props.initialActionHealth).toBeNull();
-    expect(props.initialActionCenterState).toBe('ready');
-    expect(props.initialTrustReadiness).toBeNull();
-    expect(props.initialTrustCenterState).toBe('ready');
+    expect(props).not.toHaveProperty('initialActionHealth');
+    expect(props).not.toHaveProperty('initialTrustReadiness');
   });
 
-  it('renders the unauthorized state when there is no merchant', async () => {
+  it('renders the client page when there is no merchant', async () => {
     getMerchantForUser.mockResolvedValue({ merchant: null });
 
     await renderDashboardData();
 
     expect(buildAgentCommerceTrustReadiness).not.toHaveBeenCalled();
     const props = clientProps.mock.calls[0][0];
-    expect(props.initialActionCenterState).toBe('unauthorized');
-    expect(props.initialTrustCenterState).toBe('unauthorized');
-  });
-
-  it('marks action center state as error when action health loading fails', async () => {
-    getMerchantForUser.mockResolvedValue({
-      merchant: { ...merchantBase, is_published: true },
-    });
-    loadAgenticActionHealth.mockRejectedValueOnce(new Error('rpc failed'));
-
-    await renderDashboardData();
-
-    const props = clientProps.mock.calls[0][0];
-    expect(props.initialActionHealth).toBeNull();
-    expect(props.initialActionCenterState).toBe('error');
-  });
-
-  it('marks action center state as unauthorized when action health is permission denied', async () => {
-    getMerchantForUser.mockResolvedValue({
-      merchant: { ...merchantBase, is_published: true },
-    });
-    loadAgenticActionHealth.mockRejectedValueOnce({
-      code: '42501',
-      message: 'permission denied for relation merchant_feature_settings',
-    });
-
-    await renderDashboardData();
-
-    const props = clientProps.mock.calls[0][0];
-    expect(props.initialActionHealth).toBeNull();
-    expect(props.initialActionCenterState).toBe('unauthorized');
+    expect(props).toEqual({});
   });
 });

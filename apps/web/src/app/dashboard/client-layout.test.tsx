@@ -103,6 +103,10 @@ describe('DashboardClientLayout', () => {
     expect(screen.getAllByText('Dashboard').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Orders').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Products').length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: 'Agentic' })[0]).toHaveAttribute(
+      'href',
+      '/dashboard/agentic'
+    );
   });
 
   it('renders children content', () => {

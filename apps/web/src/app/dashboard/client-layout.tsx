@@ -2,6 +2,7 @@
 
 import {
   BarChart3,
+  Bot,
   ChevronDown,
   FileText,
   Gift,
@@ -373,6 +374,11 @@ export default function DashboardClientLayout({
       label: 'SEO',
     },
     {
+      href: '/dashboard/agentic' as Route,
+      icon: Bot,
+      label: 'Agentic',
+    },
+    {
       href: '/dashboard/domains' as Route,
       icon: Globe,
       label: 'Domains',
@@ -446,6 +452,7 @@ export default function DashboardClientLayout({
       'Santa Campaign': 'marketing',
       Wallet: 'wallet', // Assuming wallet exists, check role_permissions
       SEO: 'marketing',
+      Agentic: 'integrations',
       Domains: 'settings',
       Pages: 'pages',
       Blog: 'marketing', // Blog is usually under marketing, or its own 'blog'

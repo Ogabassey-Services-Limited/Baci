@@ -1,4 +1,7 @@
-import type { FeedProduct } from '@/app/api/feed/google-merchant/feed-builder';
+import type {
+  FeedProduct,
+  ImageManifestMap,
+} from '@/app/api/feed/google-merchant/feed-builder';
 import type { GoogleMerchantFeedData } from '@/app/api/feed/google-merchant/feed-data';
 import type { OpenAIFeedData } from '@/app/api/feed/openai/feed-data';
 import { STOREFRONT_AGENT_ROUTES } from '@/config/storefront-agent-routes';
@@ -293,11 +296,10 @@ export function buildAgentCommerceTrustReadiness({
     return Number(openAiProduct.price) !== Number(googleProduct.price);
   });
 
+  const imageManifest: ImageManifestMap = googleFeedData.imageManifest ?? {};
   const productsWithVerifiedImages = openAiFeedData.products.filter(
     (product) => {
-      const imageUrl = resolveGmcPrimaryImage(
-        googleFeedData.imageManifest[product.id] ?? []
-      );
+      const imageUrl = resolveGmcPrimaryImage(imageManifest[product.id] ?? []);
       return imageUrl ? isValidHttpUrl(imageUrl) : false;
     }
   ).length;
