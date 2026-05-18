@@ -38,7 +38,12 @@ vi.mock('@/components/blog/blog-editor', () => ({
 type BlogEditorFieldsProps = Parameters<typeof BlogEditorFields>[0];
 
 function renderComponent(overrides?: Partial<BlogEditorFieldsProps>) {
-  let currentForm = { ...DEFAULT_PLATFORM_BLOG_FORM_STATE };
+  const initialForm = overrides?.form
+    ? { ...overrides.form }
+    : { ...DEFAULT_PLATFORM_BLOG_FORM_STATE };
+  const { form: _ignoredForm, ...remainingOverrides } = (overrides ??
+    {}) as Partial<BlogEditorFieldsProps>;
+  let currentForm = initialForm;
   const onFormChange = vi.fn((updater) => {
     currentForm =
       typeof updater === 'function' ? updater(currentForm) : updater;
@@ -61,7 +66,7 @@ function renderComponent(overrides?: Partial<BlogEditorFieldsProps>) {
       onUploadFeatured={onUploadFeatured}
       saving={false}
       uploadingFeatured={false}
-      {...overrides}
+      {...remainingOverrides}
     />
   );
 
@@ -156,5 +161,32 @@ describe('BlogEditorFields', () => {
 
     expect(ctx.onUploadFeatured).toHaveBeenCalledTimes(1);
     expect(ctx.onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves featured metadata while editing the image url', () => {
+    const originalUrl = 'https://cdn.example.com/platform/blog/source.webp';
+    const ctx = renderComponent({
+      form: {
+        ...DEFAULT_PLATFORM_BLOG_FORM_STATE,
+        featured_image_height: 675,
+        featured_image_url: originalUrl,
+        featured_image_variants: {
+          desktop: 'https://cdn.example.com/platform/blog/source/desktop.webp',
+        },
+        featured_image_width: 1200,
+      },
+    });
+
+    fireEvent.change(screen.getByLabelText('Featured Image URL'), {
+      target: { value: 'https://example.com/new-source.webp' },
+    });
+    expect(ctx.getCurrentForm().featured_image_url).toBe(
+      'https://example.com/new-source.webp'
+    );
+    expect(ctx.getCurrentForm().featured_image_width).toBe(1200);
+    expect(ctx.getCurrentForm().featured_image_height).toBe(675);
+    expect(ctx.getCurrentForm().featured_image_variants).toEqual({
+      desktop: 'https://cdn.example.com/platform/blog/source/desktop.webp',
+    });
   });
 });

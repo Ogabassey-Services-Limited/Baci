@@ -5,6 +5,12 @@ import { Loader2, PencilLine, Plus, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import {
+  deletePlatformBlogPost,
+  listPlatformBlogPostsPage,
+} from '@/app/admin/blog/blog-api';
+import { PLATFORM_BLOG_PAGE_SIZE } from '@/app/admin/blog/blog-pagination';
+import type { PlatformAdminBlogPostSummary } from '@/app/admin/blog/blog-types';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -14,9 +20,6 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
-import { deletePlatformBlogPost, listPlatformBlogPostsPage } from './blog-api';
-import { PLATFORM_BLOG_PAGE_SIZE } from './blog-pagination';
-import type { PlatformAdminBlogPostSummary } from './blog-types';
 
 function formatUpdatedDate(value: string | null | undefined): string {
   if (!value) {

@@ -37,7 +37,7 @@ vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
-vi.mock('./blog-api', () => ({
+vi.mock('@/app/admin/blog/blog-api', () => ({
   createPlatformBlogPost: (...args: unknown[]) =>
     mockCreatePlatformBlogPost(...args),
   updatePlatformBlogPost: (...args: unknown[]) =>
@@ -48,7 +48,7 @@ vi.mock('@/lib/api-client', () => ({
   fetchWithCsrf: (...args: unknown[]) => mockFetchWithCsrf(...args),
 }));
 
-vi.mock('./blog-editor-fields', () => ({
+vi.mock('@/app/admin/blog/blog-editor-fields', () => ({
   BlogEditorFields: ({
     onFormChange,
     onInlineImageUpload,
@@ -180,6 +180,25 @@ describe('BlogEditorClient', () => {
     expect(mockToast).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'Post updated' })
     );
+  });
+
+  it('fails fast in edit mode when postId is missing', async () => {
+    render(<BlogEditorClient mode="edit" initialPost={editPost} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fill valid form' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Submit post' }));
+
+    await waitFor(() => {
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: 'Save failed',
+          description: 'Missing post id for edit mode',
+          variant: 'destructive',
+        })
+      );
+    });
+    expect(mockUpdatePlatformBlogPost).not.toHaveBeenCalled();
+    expect(mockCreatePlatformBlogPost).not.toHaveBeenCalled();
   });
 
   it('uploads inline images through the upload route helper', async () => {

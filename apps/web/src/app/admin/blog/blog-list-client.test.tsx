@@ -33,7 +33,7 @@ vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({ toast: mockToast }),
 }));
 
-vi.mock('./blog-api', () => ({
+vi.mock('@/app/admin/blog/blog-api', () => ({
   deletePlatformBlogPost: (...args: unknown[]) =>
     mockDeletePlatformBlogPost(...args),
   listPlatformBlogPostsPage: (...args: unknown[]) =>

@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
 import {
   validateBlogDiscoverImageReadiness,
   validateBlogImageVariantIntegrity,
@@ -13,15 +12,14 @@ import { revalidatePlatformBlog } from '@/lib/cache-revalidation';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';
 import { createClient } from '@/lib/supabase/server';
-import { createPostSchema, sanitizeBlogPostData } from '@/lib/validations/blog';
+import { sanitizeBlogPostData } from '@/lib/validations/blog';
+import {
+  adminPlatformBlogPostsListQuerySchema,
+  createPostSchema,
+} from '@/schemas/admin-platform-blog-posts';
 
 const PLATFORM_BLOG_DETAIL_SELECT =
   'id, title, slug, content, excerpt, featured_image_url, featured_image_alt, featured_image_width, featured_image_height, featured_image_variants, category, tags, keywords, author_name, author_title, author_image_url, author_bio, status, seo_title, seo_description, focus_keyword, word_count, reading_time_minutes, view_count, created_at, updated_at, published_at';
-
-const platformBlogListQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).default(20),
-  offset: z.coerce.number().int().min(0).default(0),
-});
 
 function toAuthErrorResponse(status: 'unauthenticated' | 'forbidden') {
   return status === 'unauthenticated'
@@ -38,7 +36,7 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
-    const parsedQuery = platformBlogListQuerySchema.safeParse({
+    const parsedQuery = adminPlatformBlogPostsListQuerySchema.safeParse({
       limit: searchParams.get('limit') ?? undefined,
       offset: searchParams.get('offset') ?? undefined,
     });

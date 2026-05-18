@@ -41,9 +41,11 @@ function toApiPayload(
   input: PlatformAdminBlogFormState,
   {
     clearEmptyToNull = false,
+    existingPost = null,
     includeFeaturedImageFields = true,
   }: {
     clearEmptyToNull?: boolean;
+    existingPost?: PlatformAdminBlogPostDetail | null;
     includeFeaturedImageFields?: boolean;
   } = {}
 ) {
@@ -74,10 +76,21 @@ function toApiPayload(
     return payload;
   }
 
+  const featuredImageUrl = toOptionalString(input.featured_image_url) || null;
+  if (shouldResetFeaturedMetadataForChangedUrl(input, existingPost)) {
+    return {
+      ...payload,
+      featured_image_height: null,
+      featured_image_url: featuredImageUrl,
+      featured_image_variants: {},
+      featured_image_width: null,
+    };
+  }
+
   return {
     ...payload,
     featured_image_height: input.featured_image_height,
-    featured_image_url: toOptionalString(input.featured_image_url) || null,
+    featured_image_url: featuredImageUrl,
     featured_image_variants: input.featured_image_variants,
     featured_image_width: input.featured_image_width,
   };
@@ -138,6 +151,36 @@ function shouldIncludeFeaturedImageFields(
   }
 
   return !areVariantMapsEqual(
+    input.featured_image_variants,
+    existingPost.featured_image_variants
+  );
+}
+
+function shouldResetFeaturedMetadataForChangedUrl(
+  input: PlatformAdminBlogFormState,
+  existingPost?: PlatformAdminBlogPostDetail | null
+): boolean {
+  if (!existingPost) {
+    return false;
+  }
+
+  if (
+    normalizeTrimmedString(input.featured_image_url) ===
+    normalizeTrimmedString(existingPost.featured_image_url)
+  ) {
+    return false;
+  }
+
+  if (
+    (input.featured_image_width ?? null) !==
+      (existingPost.featured_image_width ?? null) ||
+    (input.featured_image_height ?? null) !==
+      (existingPost.featured_image_height ?? null)
+  ) {
+    return false;
+  }
+
+  return areVariantMapsEqual(
     input.featured_image_variants,
     existingPost.featured_image_variants
   );
@@ -233,6 +276,7 @@ export async function updatePlatformBlogPost(
     body: JSON.stringify(
       toApiPayload(input, {
         clearEmptyToNull: true,
+        existingPost,
         includeFeaturedImageFields,
       })
     ),

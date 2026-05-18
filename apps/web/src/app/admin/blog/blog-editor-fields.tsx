@@ -144,10 +144,7 @@ export function BlogEditorFields({
           onChange={(event) =>
             setForm((current) => ({
               ...current,
-              featured_image_height: null,
               featured_image_url: event.target.value,
-              featured_image_variants: {},
-              featured_image_width: null,
             }))
           }
         />

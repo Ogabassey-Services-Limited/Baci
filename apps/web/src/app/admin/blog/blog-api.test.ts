@@ -259,7 +259,7 @@ describe('blog-api', () => {
     );
   });
 
-  it('includes featured image metadata when the featured image changes', async () => {
+  it('resets featured metadata when url changes without new metadata', async () => {
     mockFetchWithCsrf.mockResolvedValueOnce(
       jsonResponse({ id: 'post-1', slug: 'launch-faster' })
     );
@@ -288,11 +288,43 @@ describe('blog-api', () => {
     expect(body.featured_image_alt).toBeNull();
     expect(body.seo_description).toBeNull();
     expect(body.seo_title).toBeNull();
-    expect(body.featured_image_height).toBe(675);
-    expect(body.featured_image_width).toBe(1200);
-    expect(body.featured_image_variants).toEqual(
-      sampleForm.featured_image_variants
+    expect(body.featured_image_height).toBeNull();
+    expect(body.featured_image_width).toBeNull();
+    expect(body.featured_image_variants).toEqual({});
+  });
+
+  it('keeps featured metadata when url and metadata change together', async () => {
+    mockFetchWithCsrf.mockResolvedValueOnce(
+      jsonResponse({ id: 'post-1', slug: 'launch-faster' })
     );
+
+    await updatePlatformBlogPost(
+      'post-1',
+      {
+        ...sampleForm,
+        featured_image_height: 900,
+        featured_image_url: 'https://cdn.example.com/platform/blog/new.webp',
+        featured_image_variants: {
+          landscape_16x9:
+            'https://cdn.example.com/platform/blog/new/landscape_16x9.webp',
+        },
+        featured_image_width: 1600,
+      },
+      existingPost
+    );
+
+    const [, options] = mockFetchWithCsrf.mock.calls[0] as [
+      string,
+      RequestInit,
+    ];
+    const body = JSON.parse(String(options.body)) as Record<string, unknown>;
+
+    expect(body.featured_image_height).toBe(900);
+    expect(body.featured_image_width).toBe(1600);
+    expect(body.featured_image_variants).toEqual({
+      landscape_16x9:
+        'https://cdn.example.com/platform/blog/new/landscape_16x9.webp',
+    });
   });
 
   it('omits featured image metadata when image fields are unchanged', async () => {

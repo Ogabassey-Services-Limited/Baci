@@ -5,17 +5,20 @@ import { ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
-import { fetchWithCsrf } from '@/lib/api-client';
-import { generateSlug } from '@/lib/blog-utils';
-import { createPlatformBlogPost, updatePlatformBlogPost } from './blog-api';
-import { BlogEditorFields } from './blog-editor-fields';
+import {
+  createPlatformBlogPost,
+  updatePlatformBlogPost,
+} from '@/app/admin/blog/blog-api';
+import { BlogEditorFields } from '@/app/admin/blog/blog-editor-fields';
 import {
   DEFAULT_PLATFORM_BLOG_FORM_STATE,
   type PlatformAdminBlogFormState,
   type PlatformAdminBlogPostDetail,
-} from './blog-types';
+} from '@/app/admin/blog/blog-types';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
+import { fetchWithCsrf } from '@/lib/api-client';
+import { generateSlug } from '@/lib/blog-utils';
 
 type BlogEditorClientProps = {
   initialPost?: PlatformAdminBlogPostDetail | null;
@@ -154,7 +157,10 @@ export function BlogEditorClient({
         slug: form.slug.trim() || generateSlug(form.title.trim()),
       };
 
-      if (isEditMode && postId) {
+      if (isEditMode) {
+        if (!postId) {
+          throw new Error('Missing post id for edit mode');
+        }
         await updatePlatformBlogPost(postId, payload, initialPost);
       } else {
         await createPlatformBlogPost(payload);
