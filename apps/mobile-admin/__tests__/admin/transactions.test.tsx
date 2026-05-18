@@ -109,7 +109,8 @@ vi.mock('@/hooks/useTheme', () => ({
 
 vi.mock('@/hooks/useCurrency', () => ({
   useCurrency: () => ({
-    format: (amount: number) => `NGN ${amount}`,
+    format: (amount: number) => `₦${amount.toLocaleString('en-US')}`,
+    symbol: '₦',
   }),
 }));
 
@@ -186,9 +187,14 @@ vi.mock('@/components/transactions/TransactionOrderCard', () => ({
       orderNumber: string;
     };
   }) => (
-    <button type="button" onClick={() => onOpenEditor(order, order.items[0])}>
-      Edit {order.orderNumber}
-    </button>
+    <div>
+      <button type="button" onClick={() => onOpenEditor(order, order.items[0])}>
+        Edit {order.orderNumber}
+      </button>
+      {order.items.map((item) => (
+        <span key={item.id}>{item.name}</span>
+      ))}
+    </div>
   ),
 }));
 
@@ -270,6 +276,20 @@ const sampleOrders = [
         serialValues: ['SN-123'],
         sku: 'SG-S26',
         supplierName: 'Old Supplier',
+      },
+      {
+        costPrice: 4000,
+        imeiValues: [],
+        id: 'item-known',
+        name: 'Known Cost Accessory',
+        productId: 'product-known',
+        profit: 1000,
+        quantity: 1,
+        revenue: 5000,
+        searchText: 'known cost accessory',
+        serialValues: [],
+        sku: 'KNOWN',
+        supplierName: 'Known Supplier',
       },
     ],
     missingCostCount: 1,
@@ -396,13 +416,13 @@ describe('TransactionsScreen', () => {
 
     fireEvent.click(screen.getByText('Edit ORD-1'));
     fireEvent.change(screen.getByLabelText('Cost price input'), {
-      target: { value: '1200' },
+      target: { value: '₦1,200' },
     });
     fireEvent.change(screen.getByLabelText('Transaction date input'), {
       target: { value: '2026-04-12' },
     });
     fireEvent.change(screen.getByLabelText('Vendor or supplier input'), {
-      target: { value: 'New Supplier' },
+      target: { value: 'new supplier' },
     });
     fireEvent.click(screen.getByText('Save cost price'));
 
@@ -411,10 +431,18 @@ describe('TransactionsScreen', () => {
         costPrice: 1200,
         orderId: 'order-1',
         productId: 'product-1',
-        supplierName: 'New Supplier',
+        supplierName: 'New supplier',
         transactionDateIso: expectedTransactionDateIso,
       })
     );
+  });
+
+  it('opens existing cost prices with currency symbol and comma formatting', () => {
+    render(<TransactionsScreen />);
+
+    fireEvent.click(screen.getByText('Edit ORD-2'));
+
+    expect(screen.getByLabelText('Cost price input')).toHaveValue('₦2,000');
   });
 
   it('filters visible transactions by IMEI', () => {
@@ -481,6 +509,7 @@ describe('TransactionsScreen', () => {
     fireEvent.click(screen.getByText('Missing costs tab'));
 
     expect(screen.getByText('Edit ORD-1')).toBeInTheDocument();
+    expect(screen.queryByText('Known Cost Accessory')).not.toBeInTheDocument();
     expect(screen.queryByText('Edit ORD-2')).not.toBeInTheDocument();
   });
 
@@ -492,7 +521,7 @@ describe('TransactionsScreen', () => {
 
     fireEvent.click(screen.getByText('Edit ORD-1'));
     fireEvent.change(screen.getByLabelText('Cost price input'), {
-      target: { value: '1200' },
+      target: { value: '₦1,200' },
     });
     fireEvent.click(screen.getByText('Save cost price'));
 
@@ -501,7 +530,7 @@ describe('TransactionsScreen', () => {
         costPrice: 1200,
         orderId: 'order-1',
         productId: 'product-1',
-        supplierName: 'Old Supplier',
+        supplierName: 'Old supplier',
         transactionDateIso: expectedTransactionDateIso,
       })
     );
