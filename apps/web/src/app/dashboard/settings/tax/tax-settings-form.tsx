@@ -369,7 +369,7 @@ export function TaxSettingsForm({
               id="address-state"
               value={stateCode}
               onChange={(e) => setStateCode(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
             >
               <option value="">Select state...</option>
               {NIGERIAN_STATES.map((state) => (

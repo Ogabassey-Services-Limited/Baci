@@ -172,7 +172,7 @@ export function RecentlyViewedProducts({
             {products.map((product) => (
               <ThemedCard
                 key={product.id}
-                className="flex-shrink-0 w-[200px] sm:w-[240px] overflow-hidden hover:shadow-lg transition-shadow snap-start"
+                className="shrink-0 w-[200px] sm:w-[240px] overflow-hidden hover:shadow-lg transition-shadow snap-start"
                 accentPosition="top"
               >
                 <Link href={getProductUrl(product)} className="block relative">
@@ -193,7 +193,7 @@ export function RecentlyViewedProducts({
                 </Link>
                 <CardContent className="p-3">
                   <Link href={getProductUrl(product)}>
-                    <h3 className="font-medium text-sm line-clamp-2 hover:text-[var(--store-primary)] transition-colors">
+                    <h3 className="font-medium text-sm line-clamp-2 hover:text-store-primary transition-colors">
                       {product.name}
                     </h3>
                   </Link>

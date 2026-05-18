@@ -170,7 +170,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
         {slides.map((slide, idx) => (
           <div
             key={slide.id}
-            className="w-full h-full flex-shrink-0 relative"
+            className="w-full h-full shrink-0 relative"
             aria-hidden={idx !== currentSlide}
             // `inert` removes the entire subtree from the accessibility tree,
             // tab order, and click/pointer events while the slide is hidden.
@@ -197,7 +197,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
                   }
                 />
                 <div
-                  className={`absolute inset-0 bg-gradient-to-r ${slide.bgColor === 'bg-black' ? 'from-black/80' : 'from-red-900/80'} to-transparent flex flex-col justify-center px-8 md:px-16`}
+                  className={`absolute inset-0 bg-linear-to-r ${slide.bgColor === 'bg-black' ? 'from-black/80' : 'from-red-900/80'} to-transparent flex flex-col justify-center px-8 md:px-16`}
                 >
                   <h3
                     className={`text-2xl md:text-4xl font-bold ${slide.textColor} mb-2 leading-tight line-clamp-1`}
@@ -257,7 +257,7 @@ export const BannerCarousel: React.FC<BannerCarouselProps> = ({
               <span
                 className={`block h-1.5 rounded-full transition-all duration-300 shadow-sm ${isCurrentSlide
                   ? 'w-6'
-                  : 'w-1.5 group-hover:[background-color:color-mix(in_srgb,var(--store-on-primary,#ffffff)_70%,transparent)]'
+                  : 'w-1.5 group-hover:bg-store-on-primary/70'
                   } ${slide.type === 'ad' && !isCurrentSlide ? 'opacity-30' : 'opacity-100'}`}
                 style={{
                   backgroundColor: isCurrentSlide

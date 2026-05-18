@@ -69,7 +69,7 @@ export function ContactStep({
 }: ContactStepProps) {
   return (
     <div
-      className={`bg-white rounded-2xl shadow-sm border ${currentStep === 'contact' ? 'border-[var(--store-primary)] ring-1 ring-[var(--store-primary)]/20' : 'border-gray-100'} overflow-hidden transition-all duration-300`}
+      className={`bg-white rounded-2xl shadow-sm border ${currentStep === 'contact' ? 'border-store-primary ring-1 ring-store-primary/20' : 'border-gray-100'} overflow-hidden transition-all duration-300`}
     >
       <button
         type="button"
@@ -78,14 +78,14 @@ export function ContactStep({
       >
         <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
           <div
-            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors ${completedSteps.contact ? 'bg-green-100 text-green-600' : currentStep === 'contact' ? 'bg-[var(--store-primary)]/10 text-[var(--store-primary)]' : 'bg-gray-100 text-gray-500'}`}
+            className={`w-6 h-6 rounded-full flex items-center justify-center text-xs transition-colors ${completedSteps.contact ? 'bg-green-100 text-green-600' : currentStep === 'contact' ? 'bg-store-primary/10 text-store-primary' : 'bg-gray-100 text-gray-500'}`}
           >
             {completedSteps.contact ? <Check size={14} /> : '1'}
           </div>
           Contact Information
         </h2>
         {completedSteps.contact && currentStep !== 'contact' && (
-          <span className="text-sm font-medium text-[var(--store-primary)] hover:text-[var(--store-primary)]">
+          <span className="text-sm font-medium text-store-primary hover:text-store-primary">
             Edit
           </span>
         )}
@@ -107,9 +107,9 @@ export function ContactStep({
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   placeholder="John"
-                  className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none text-sm text-gray-900 placeholder:text-gray-400 ${
+                  className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-hidden text-sm text-gray-900 placeholder:text-gray-400 ${
                     contactValidationAttempted && !firstName.trim()
-                      ? 'border-red-500 focus:border-red-500 bg-[var(--store-primary)]/5'
+                      ? 'border-red-500 focus:border-red-500 bg-store-primary/5'
                       : 'border-gray-200 focus:border-red-500'
                   }`}
                   required
@@ -129,9 +129,9 @@ export function ContactStep({
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   placeholder="Doe"
-                  className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none text-sm text-gray-900 placeholder:text-gray-400 ${
+                  className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-hidden text-sm text-gray-900 placeholder:text-gray-400 ${
                     contactValidationAttempted && !lastName.trim()
-                      ? 'border-red-500 focus:border-red-500 bg-[var(--store-primary)]/5'
+                      ? 'border-red-500 focus:border-red-500 bg-store-primary/5'
                       : 'border-gray-200 focus:border-red-500'
                   }`}
                   required
@@ -151,13 +151,13 @@ export function ContactStep({
                   value={customerEmail}
                   onChange={(e) => setCustomerEmail(e.target.value)}
                   placeholder="john@example.com"
-                  className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-none text-sm text-gray-900 placeholder:text-gray-400 ${
+                  className={`w-full px-4 py-3 bg-gray-50 border rounded-xl focus:outline-hidden text-sm text-gray-900 placeholder:text-gray-400 ${
                     contactValidationAttempted &&
                     (!customerEmail.trim() ||
                       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
                         customerEmail.trim(),
                       ))
-                      ? 'border-red-500 focus:border-red-500 bg-[var(--store-primary)]/5'
+                      ? 'border-red-500 focus:border-red-500 bg-store-primary/5'
                       : 'border-gray-200 focus:border-red-500'
                   }`}
                   required
@@ -217,7 +217,7 @@ export function ContactStep({
               <div className="md:col-span-2 space-y-4 pt-4">
                 {/* Account Creation Checkbox (Retention) */}
                 <div
-                  className={`bg-gray-50 rounded-xl p-4 border transition-all duration-300 ${createAccount ? 'border-[var(--store-primary)]/30 bg-[var(--store-primary)]/5' : 'border-gray-100 hover:border-[var(--store-primary)]/20'}`}
+                  className={`bg-gray-50 rounded-xl p-4 border transition-all duration-300 ${createAccount ? 'border-store-primary/30 bg-store-primary/5' : 'border-gray-100 hover:border-store-primary/20'}`}
                 >
                   <label className="flex items-start gap-3 cursor-pointer group mb-2">
                     <div className="relative flex items-center pt-0.5">
@@ -228,11 +228,11 @@ export function ContactStep({
                           setCreateAccount(e.target.checked);
                           setShowPasswordInput(e.target.checked);
                         }}
-                        className="peer h-5 w-5 rounded border-gray-300 text-[var(--store-primary)] focus:ring-[var(--store-primary)]"
+                        className="peer h-5 w-5 rounded border-gray-300 text-store-primary focus:ring-store-primary"
                       />
                     </div>
                     <div>
-                      <span className="block text-sm font-bold text-gray-900 group-hover:text-[var(--store-primary)] transition-colors">
+                      <span className="block text-sm font-bold text-gray-900 group-hover:text-store-primary transition-colors">
                         Save my information for a faster checkout next
                         time
                       </span>
@@ -258,12 +258,12 @@ export function ContactStep({
                           setAccountPassword(e.target.value)
                         }
                         placeholder="Min. 6 characters"
-                        className={`w-full px-4 py-3 bg-white border rounded-xl focus:outline-none text-sm text-gray-900 placeholder:text-gray-400 pr-12 ${
+                        className={`w-full px-4 py-3 bg-white border rounded-xl focus:outline-hidden text-sm text-gray-900 placeholder:text-gray-400 pr-12 ${
                           contactValidationAttempted &&
                           createAccount &&
                           accountPassword.length < 6
                             ? 'border-red-500 focus:border-red-500'
-                            : 'border-gray-200 focus:border-[var(--store-primary)]'
+                            : 'border-gray-200 focus:border-store-primary'
                         }`}
                       />
                       <button
@@ -306,7 +306,7 @@ export function ContactStep({
                   !isContactValid ||
                   (createAccount && accountPassword.length < 6)
                 }
-                className="px-6 py-3 bg-[var(--store-primary)] text-white font-bold rounded-xl hover:bg-[var(--store-primary)]/90 transition-colors w-full md:w-auto disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed shadow-lg disabled:shadow-none"
+                className="px-6 py-3 bg-store-primary text-white font-bold rounded-xl hover:bg-store-primary/90 transition-colors w-full md:w-auto disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed shadow-lg disabled:shadow-none"
               >
                 Continue to Delivery
               </button>

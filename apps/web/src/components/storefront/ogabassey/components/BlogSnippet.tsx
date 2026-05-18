@@ -216,7 +216,7 @@ export const BlogSnippet: React.FC<BlogSnippetProps> = ({
               />
               <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors" />
               {(post.category || category) && (
-                <div className="absolute top-4 left-4 bg-white/90 backdrop-blur text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider text-gray-800">
+                <div className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider text-gray-800">
                   {post.category || category}
                 </div>
               )}

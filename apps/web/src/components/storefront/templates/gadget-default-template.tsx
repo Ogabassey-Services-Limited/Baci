@@ -265,9 +265,9 @@ export function GadgetDefaultTemplate({
                     radiusClass,
                     theme.layout.categoryRail === 'circle' &&
                       'aspect-square rounded-full',
-                    theme.layout.categoryRail === 'pill' && 'aspect-[2/1]',
+                    theme.layout.categoryRail === 'pill' && 'aspect-2/1',
                     theme.layout.categoryRail === 'square' && 'aspect-square',
-                    theme.layout.categoryRail === 'card' && 'aspect-[4/3]'
+                    theme.layout.categoryRail === 'card' && 'aspect-4/3'
                   )}
                   style={{
                     backgroundColor: theme.colors.card,
@@ -294,7 +294,7 @@ export function GadgetDefaultTemplate({
                     className={cn(
                       'group flex flex-col items-center justify-center p-6 transition-all hover:shadow-lg border',
                       radiusClass,
-                      'aspect-[4/3]'
+                      'aspect-4/3'
                     )}
                     style={{
                       backgroundColor: theme.colors.card,
@@ -326,7 +326,7 @@ export function GadgetDefaultTemplate({
                   className={cn(
                     'group flex flex-col items-center justify-center p-6 transition-all hover:shadow-lg border',
                     radiusClass,
-                    'aspect-[4/3]'
+                    'aspect-4/3'
                   )}
                   style={{
                     backgroundColor: theme.colors.card,

@@ -73,7 +73,7 @@ export function InlineContextMenu({
     >
       <TooltipProvider delayDuration={300}>
         <div
-          className="flex items-center gap-1 bg-white border-2 rounded-lg shadow-lg px-2 py-1.5 backdrop-blur-sm bg-white/95"
+          className="flex items-center gap-1 bg-white border-2 rounded-lg shadow-lg px-2 py-1.5 backdrop-blur-xs bg-white/95"
           style={{ borderColor: '#2a2c6e20' }}
         >
           {/* Drag Handle */}
@@ -109,7 +109,7 @@ export function InlineContextMenu({
                 aria-label="Edit Properties"
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0 hover:bg-opacity-10 transition-all"
+                className="h-8 w-8 p-0 transition-all"
                 style={{ color: '#2a2c6e' }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#2a2c6e10';

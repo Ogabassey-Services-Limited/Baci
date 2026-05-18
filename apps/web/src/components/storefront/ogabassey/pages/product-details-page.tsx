@@ -178,7 +178,7 @@ export function ProductDetailsPage({
   const deferredDetailsFallback = <DeferredDetailsLoadingPlaceholder />;
 
   return (
-    <div className="relative bg-[var(--store-background,#ffffff)] pb-32 pt-4">
+    <div className="relative bg-store-background pb-32 pt-4">
       <div
         data-testid="product-banner-carousel"
         role="region"
@@ -237,9 +237,9 @@ export function ProductDetailsPage({
             showColorToast={showColorToast}
           />
 
-          <div className="hidden lg:col-span-3 lg:block lg:border-l lg:border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_10%,transparent)] lg:pl-8">
+          <div className="hidden lg:col-span-3 lg:block lg:border-l lg:border-store-background-text/10 lg:pl-8">
             <div className="sticky top-24">
-              <p className="mb-4 text-xs font-bold uppercase tracking-widest text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_50%,transparent)]">
+              <p className="mb-4 text-xs font-bold uppercase tracking-widest text-store-background-text/50">
                 Sponsored
               </p>
               <AdUnit placementKey="SIDEBAR_HALF_PAGE" className="mb-6" />

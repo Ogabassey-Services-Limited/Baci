@@ -91,7 +91,7 @@ class EditorErrorBoundary extends Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="fixed inset-0 z-[100] bg-background flex items-center justify-center p-8">
+        <div className="fixed inset-0 z-100 bg-background flex items-center justify-center p-8">
           <div className="max-w-md w-full space-y-4 text-center">
             <div className="mx-auto w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center text-destructive mb-4">
               <span className="text-2xl">!</span>
@@ -189,7 +189,7 @@ export function OnboardingTemplateEditor({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-background flex flex-col animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-100 bg-background flex flex-col animate-in fade-in duration-300">
       <div
         className="flex-1 overflow-hidden relative"
         id="puck-editor-container"

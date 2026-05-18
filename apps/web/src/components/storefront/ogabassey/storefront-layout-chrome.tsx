@@ -77,7 +77,7 @@ export function OgabasseyLayoutChrome({
           timeoutMs={1600}
           activateOnInteraction={false}
         >
-          <div className="flex justify-center bg-gray-50 border-t border-gray-100/50 py-4 min-h-[120px] [content-visibility:auto] [contain-intrinsic-size:1400px_120px]">
+          <div className="flex justify-center bg-gray-50 border-t border-gray-100/50 py-4 min-h-[120px] content-auto [contain-intrinsic-size:1400px_120px]">
             <AdUnit placementKey="FOOTER_BANNER" />
           </div>
         </DeferredShellFeature>
@@ -86,7 +86,7 @@ export function OgabasseyLayoutChrome({
           timeoutMs={1400}
           activateOnInteraction={false}
         >
-          <div className="[content-visibility:auto] [contain-intrinsic-size:1400px_480px]">
+          <div className="content-auto [contain-intrinsic-size:1400px_480px]">
             <DeferredFooter merchant={merchant} storeSlug={basePath} />
           </div>
         </DeferredShellFeature>

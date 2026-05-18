@@ -127,7 +127,7 @@ export const OgabasseyV2Orders: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search Order ID, Item or Status..."
-              className="w-full pl-10 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-200 transition-all text-sm"
+              className="w-full pl-10 pr-10 py-2.5 bg-white border border-gray-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-100 focus:border-red-200 transition-all text-sm"
             />
             <Search
               className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
@@ -235,7 +235,7 @@ export const OgabasseyV2Orders: React.FC = () => {
                               key={item.id}
                               className="flex gap-4 items-center group/item hover:bg-gray-50 p-2 rounded-xl transition-colors -mx-2"
                             >
-                              <div className="w-16 h-16 bg-gray-50 rounded-lg p-2 border border-gray-100 flex-shrink-0 group-hover/item:bg-white group-hover/item:border-red-100 transition-colors relative">
+                              <div className="w-16 h-16 bg-gray-50 rounded-lg p-2 border border-gray-100 shrink-0 group-hover/item:bg-white group-hover/item:border-red-100 transition-colors relative">
                                 <Image
                                   src={item.image || item.product_image || '/placeholder.png'}
                                   alt={item.name}
@@ -266,7 +266,7 @@ export const OgabasseyV2Orders: React.FC = () => {
                             href={asRoute(productHref)}
                             className="flex gap-4 items-center group/item hover:bg-gray-50 p-2 rounded-xl transition-colors -mx-2"
                           >
-                            <div className="w-16 h-16 bg-gray-50 rounded-lg p-2 border border-gray-100 flex-shrink-0 group-hover/item:bg-white group-hover/item:border-red-100 transition-colors relative">
+                            <div className="w-16 h-16 bg-gray-50 rounded-lg p-2 border border-gray-100 shrink-0 group-hover/item:bg-white group-hover/item:border-red-100 transition-colors relative">
                               <Image
                                 src={item.image || item.product_image || '/placeholder.png'}
                                 alt={item.name}

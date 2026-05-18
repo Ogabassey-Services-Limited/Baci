@@ -110,10 +110,10 @@ export function BillPaymentBillerList({
                 onClick={() => onSelect(biller)}
                 onKeyDown={(event) => handleKeyDown(event, index)}
                 className={cn(
-                  'text-left p-3 rounded-xl border-2 transition-all text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--store-primary,#ef4444)] focus-visible:ring-offset-2',
+                  'text-left p-3 rounded-xl border-2 transition-all text-sm font-medium focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-store-primary focus-visible:ring-offset-2',
                   isSelected
-                    ? 'border-[var(--store-primary,#ef4444)] bg-[var(--store-primary,#ef4444)]/10 text-[var(--store-primary,#ef4444)]'
-                    : 'border-[color:color-mix(in_srgb,var(--store-background-text,#111827)_12%,transparent)] text-[color:color-mix(in_srgb,var(--store-background-text,#111827)_72%,transparent)] hover:border-[color:color-mix(in_srgb,var(--store-primary,#ef4444)_35%,transparent)]'
+                    ? 'border-store-primary bg-store-primary/10 text-store-primary'
+                    : 'border-store-background-text/12 text-store-background-text/72 hover:border-store-primary/35'
                 )}
               >
                 {biller.billerName}

@@ -253,10 +253,10 @@ export function DomainCard({ domain }: DomainCardProps) {
         <div
           className={`absolute top-0 left-0 right-0 h-1 ${
             domain.status === 'active'
-              ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+              ? 'bg-linear-to-r from-green-400 to-emerald-500'
               : domain.status === 'failed'
-                ? 'bg-gradient-to-r from-red-400 to-rose-500'
-                : 'bg-gradient-to-r from-amber-400 to-yellow-500'
+                ? 'bg-linear-to-r from-red-400 to-rose-500'
+                : 'bg-linear-to-r from-amber-400 to-yellow-500'
           }`}
         />
 
@@ -265,12 +265,12 @@ export function DomainCard({ domain }: DomainCardProps) {
             <div className="flex items-start gap-4">
               {/* Domain Icon with status-based styling */}
               <div
-                className={`flex-shrink-0 w-14 h-14 rounded-xl flex items-center justify-center shadow-sm ${
+                className={`shrink-0 w-14 h-14 rounded-xl flex items-center justify-center shadow-sm ${
                   domain.status === 'active'
-                    ? 'bg-gradient-to-br from-green-100 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/20'
+                    ? 'bg-linear-to-br from-green-100 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/20'
                     : domain.status === 'failed'
-                      ? 'bg-gradient-to-br from-red-100 to-rose-50 dark:from-red-900/30 dark:to-rose-900/20'
-                      : 'bg-gradient-to-br from-amber-100 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/20'
+                      ? 'bg-linear-to-br from-red-100 to-rose-50 dark:from-red-900/30 dark:to-rose-900/20'
+                      : 'bg-linear-to-br from-amber-100 to-yellow-50 dark:from-amber-900/30 dark:to-yellow-900/20'
                 }`}
               >
                 <Globe
@@ -288,7 +288,7 @@ export function DomainCard({ domain }: DomainCardProps) {
                 <CardTitle className="flex items-center gap-2 text-xl">
                   <span className="font-semibold">{domain.domain}</span>
                   {domain.is_primary && (
-                    <Badge className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white border-0">
+                    <Badge className="bg-linear-to-r from-indigo-500 to-purple-500 text-white border-0">
                       ⭐ Primary
                     </Badge>
                   )}

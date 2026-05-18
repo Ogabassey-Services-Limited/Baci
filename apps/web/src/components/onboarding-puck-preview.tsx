@@ -507,7 +507,7 @@ export function OnboardingPuckPreview({
     <div className="relative w-full h-full rounded-xl border border-white/10 bg-muted/20 overflow-hidden flex flex-col group">
       {/* Loading Overlay */}
       {isLoading && (
-        <div className="absolute inset-0 z-[60] flex items-center justify-center bg-background/50 backdrop-blur-sm transition-opacity duration-200">
+        <div className="absolute inset-0 z-60 flex items-center justify-center bg-background/50 backdrop-blur-xs transition-opacity duration-200">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
       )}

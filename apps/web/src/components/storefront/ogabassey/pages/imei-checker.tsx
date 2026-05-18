@@ -164,7 +164,7 @@ export const OgabasseyImeiChecker: React.FC = () => {
   const currentTier = SERVICE_TIERS[selectedTier];
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
+    <div className="min-h-screen bg-linear-to-b from-gray-50 to-white pb-24 md:pb-12 pt-4 md:pt-8 flex flex-col">
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 w-full flex-1">
         {!result && (
           <OgabasseyImeiEntry

@@ -25,7 +25,7 @@ export function OrderDetailsItemRow({
   const imageSrc = getOrderItemImage(item);
   const productName = item.product_name || item.name;
   const image = (
-    <div className="w-20 h-20 bg-gray-50 rounded-xl p-2 border border-gray-100 flex-shrink-0 block relative overflow-hidden">
+    <div className="w-20 h-20 bg-gray-50 rounded-xl p-2 border border-gray-100 shrink-0 block relative overflow-hidden">
       <Image
         src={imageSrc}
         alt={productName}

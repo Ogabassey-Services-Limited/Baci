@@ -50,10 +50,10 @@ const RatingModal: React.FC<RatingModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
       <button
         type="button"
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60 backdrop-blur-xs"
         onClick={onClose}
         aria-label="Close modal"
       />
@@ -92,12 +92,12 @@ const RatingModal: React.FC<RatingModalProps> = ({
               onMouseEnter={() => setHoverRating(star)}
               onMouseLeave={() => setHoverRating(0)}
               onClick={() => setRating(star)}
-              className="transition-transform hover:scale-110 active:scale-95 focus:outline-none"
+              className="transition-transform hover:scale-110 active:scale-95 focus:outline-hidden"
             >
               <Star
                 size={32}
                 className={`transition-colors duration-200 ${(hoverRating || rating) >= star
-                  ? 'fill-yellow-400 text-yellow-400 drop-shadow-sm'
+                  ? 'fill-yellow-400 text-yellow-400 drop-shadow-xs'
                   : 'text-gray-200 fill-gray-50'
                   }`}
                 strokeWidth={1.5}

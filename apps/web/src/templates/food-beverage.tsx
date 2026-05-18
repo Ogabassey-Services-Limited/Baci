@@ -77,7 +77,7 @@ export function FoodBeverageHome(props: TemplatePageProps) {
 
     return (
         <div 
-            className="min-h-screen bg-[var(--store-background)] text-[var(--store-foreground)]"
+            className="min-h-screen bg-store-background text-store-foreground"
             style={{
                 '--store-primary': primary,
                 '--store-background': background,
@@ -86,7 +86,7 @@ export function FoodBeverageHome(props: TemplatePageProps) {
             } as React.CSSProperties}
         >
             {/* Hero Section - Warm, Appetizing */}
-            <section className="relative bg-gradient-to-br from-[var(--store-primary)] to-[color-mix(in_srgb,var(--store-primary),black_20%)] text-white overflow-hidden">
+            <section className="relative bg-linear-to-br from-store-primary to-[color-mix(in_srgb,var(--store-primary),black_20%)] text-white overflow-hidden">
                 {/* Decorative pattern */}
                 <div className="absolute inset-0 opacity-10">
                     <div className="absolute top-10 left-10 text-8xl">🌾</div>
@@ -101,7 +101,7 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                                 <ChefHat className="w-7 h-7" />
                             </div>
                             <div className="flex gap-2">
-                                <span className="px-3 py-1 bg-[var(--store-accent)] text-white text-xs font-semibold rounded-full">
+                                <span className="px-3 py-1 bg-store-accent text-white text-xs font-semibold rounded-full">
                                     Farm Fresh
                                 </span>
                                 <span className="px-3 py-1 bg-white/20 text-white text-xs font-semibold rounded-full">
@@ -124,11 +124,11 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                                 onClick={() => {
                                     document.getElementById('products')?.scrollIntoView({ behavior: 'smooth' });
                                 }}
-                                className="px-8 py-4 bg-white text-[var(--store-primary)] rounded-full font-semibold hover:bg-orange-50 transition-colors shadow-lg"
+                                className="px-8 py-4 bg-white text-store-primary rounded-full font-semibold hover:bg-orange-50 transition-colors shadow-lg"
                             >
                                 Shop Fresh
                             </button>
-                            <button className="px-8 py-4 bg-[var(--store-accent)] text-white rounded-full font-semibold hover:bg-[color-mix(in_srgb,var(--store-accent),black_10%)] transition-colors shadow-lg flex items-center gap-2">
+                            <button className="px-8 py-4 bg-store-accent text-white rounded-full font-semibold hover:bg-[color-mix(in_srgb,var(--store-accent),black_10%)] transition-colors shadow-lg flex items-center gap-2">
                                 <Heart className="w-5 h-5" />
                                 Weekly Box
                             </button>
@@ -145,11 +145,11 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                             const Icon = badge.icon;
                             return (
                                 <div key={index} className="flex items-center gap-3">
-                                    <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                        <Icon className="w-6 h-6 text-[var(--store-primary)]" />
+                                    <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center shrink-0">
+                                        <Icon className="w-6 h-6 text-store-primary" />
                                     </div>
                                     <div>
-                                        <div className="font-semibold text-[var(--store-foreground)] text-sm">{badge.title}</div>
+                                        <div className="font-semibold text-store-foreground text-sm">{badge.title}</div>
                                         <div className="text-xs text-gray-600">{badge.subtitle}</div>
                                     </div>
                                 </div>
@@ -160,9 +160,9 @@ export function FoodBeverageHome(props: TemplatePageProps) {
             </section>
 
             {/* Category Navigation */}
-            <section className="py-12 bg-[var(--store-background)]">
+            <section className="py-12 bg-store-background">
                 <div className="max-w-7xl mx-auto px-6">
-                    <h2 className="text-3xl font-serif font-bold text-center text-[var(--store-foreground)] mb-8">
+                    <h2 className="text-3xl font-serif font-bold text-center text-store-foreground mb-8">
                         Shop by Category
                     </h2>
                     <div className="grid grid-cols-3 md:grid-cols-6 gap-4">
@@ -174,12 +174,12 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                                     key={category.value}
                                     onClick={() => setSelectedCategory(category.value)}
                                     className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${isActive
-                                            ? 'border-[var(--store-primary)] bg-orange-50 shadow-md'
-                                            : 'border-orange-200 bg-white hover:border-[var(--store-primary)] hover:shadow-sm'
+                                            ? 'border-store-primary bg-orange-50 shadow-md'
+                                            : 'border-orange-200 bg-white hover:border-store-primary hover:shadow-sm'
                                         }`}
                                 >
-                                    <Icon className={`w-8 h-8 ${isActive ? 'text-[var(--store-primary)]' : 'text-gray-400'}`} />
-                                    <span className={`text-sm font-medium ${isActive ? 'text-[var(--store-primary)]' : 'text-gray-700'}`}>
+                                    <Icon className={`w-8 h-8 ${isActive ? 'text-store-primary' : 'text-gray-400'}`} />
+                                    <span className={`text-sm font-medium ${isActive ? 'text-store-primary' : 'text-gray-700'}`}>
                                         {category.name}
                                     </span>
                                 </button>
@@ -196,7 +196,7 @@ export function FoodBeverageHome(props: TemplatePageProps) {
             >
                 <div className="max-w-7xl mx-auto px-6">
                     <div className="text-center mb-8">
-                        <h2 className="text-4xl font-serif font-bold text-[var(--store-foreground)] mb-4">
+                        <h2 className="text-4xl font-serif font-bold text-store-foreground mb-4">
                             Fresh from the Kitchen
                         </h2>
                         <p className="text-lg text-gray-600 max-w-2xl mx-auto">
@@ -206,9 +206,9 @@ export function FoodBeverageHome(props: TemplatePageProps) {
 
                     {/* Dietary Filter Bar */}
                     <div className="mb-8">
-                        <div className="bg-gradient-to-r from-orange-50 to-lime-50 border border-orange-200 rounded-2xl p-4 shadow-sm">
+                        <div className="bg-linear-to-r from-orange-50 to-lime-50 border border-orange-200 rounded-2xl p-4 shadow-sm">
                             <div className="flex items-center justify-center gap-2 flex-wrap">
-                                <span className="text-sm font-medium text-[var(--store-foreground)] mr-2">Dietary:</span>
+                                <span className="text-sm font-medium text-store-foreground mr-2">Dietary:</span>
                                 {dietaryFilters.map((filter) => {
                                     const isActive = selectedDiet === filter.value;
                                     return (
@@ -216,7 +216,7 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                                             key={filter.value}
                                             onClick={() => setSelectedDiet(isActive ? null : filter.value)}
                                             className={`px-4 py-2 rounded-full text-sm font-medium transition-all border ${isActive
-                                                    ? 'bg-[var(--store-primary)] text-white border-[var(--store-primary)] shadow-md'
+                                                    ? 'bg-store-primary text-white border-store-primary shadow-md'
                                                     : `${filter.color} hover:shadow-sm`
                                                 }`}
                                         >
@@ -238,7 +238,7 @@ export function FoodBeverageHome(props: TemplatePageProps) {
             </section>
 
             {/* Weekly Subscription Box CTA */}
-            <section className="py-16 bg-gradient-to-r from-[var(--store-accent)] to-[color-mix(in_srgb,var(--store-accent),black_20%)] text-white">
+            <section className="py-16 bg-linear-to-r from-store-accent to-[color-mix(in_srgb,var(--store-accent),black_20%)] text-white">
                 <div className="max-w-7xl mx-auto px-6">
                     <div className="grid md:grid-cols-2 gap-12 items-center">
                         <div>
@@ -261,12 +261,12 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                                     </li>
                                 ))}
                             </ul>
-                            <button className="px-8 py-4 bg-white text-[var(--store-accent)] rounded-full font-semibold hover:bg-lime-50 transition-colors shadow-lg">
+                            <button className="px-8 py-4 bg-white text-store-accent rounded-full font-semibold hover:bg-lime-50 transition-colors shadow-lg">
                                 Start Your Box →
                             </button>
                         </div>
                         <div className="relative">
-                            <div className="bg-white/10 backdrop-blur-sm rounded-3xl p-8 text-center">
+                            <div className="bg-white/10 backdrop-blur-xs rounded-3xl p-8 text-center">
                                 <div className="text-8xl mb-4">🧺</div>
                                 <div className="text-2xl font-bold">From $49/week</div>
                                 <div className="text-lime-200">Customize your box</div>
@@ -277,10 +277,10 @@ export function FoodBeverageHome(props: TemplatePageProps) {
             </section>
 
             {/* Recipe Inspiration */}
-            <section className="py-16 bg-[var(--store-background)]">
+            <section className="py-16 bg-store-background">
                 <div className="max-w-7xl mx-auto px-6">
                     <div className="text-center mb-12">
-                        <h2 className="text-4xl font-serif font-bold text-[var(--store-foreground)] mb-4">
+                        <h2 className="text-4xl font-serif font-bold text-store-foreground mb-4">
                             Recipe Inspiration
                         </h2>
                         <p className="text-lg text-gray-600">
@@ -290,16 +290,16 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                     <div className="grid md:grid-cols-3 gap-8">
                         {recipes.map((recipe, idx) => (
                             <div key={idx} className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-lg transition-shadow group cursor-pointer">
-                                <div className="h-48 bg-gradient-to-br from-orange-100 to-amber-50 flex items-center justify-center">
+                                <div className="h-48 bg-linear-to-br from-orange-100 to-amber-50 flex items-center justify-center">
                                     <span className="text-7xl group-hover:scale-110 transition-transform">{recipe.image}</span>
                                 </div>
                                 <div className="p-6">
-                                    <h3 className="text-xl font-serif font-bold text-[var(--store-foreground)] mb-2">{recipe.name}</h3>
+                                    <h3 className="text-xl font-serif font-bold text-store-foreground mb-2">{recipe.name}</h3>
                                     <div className="flex items-center gap-4 text-sm text-gray-600">
                                         <span className="flex items-center gap-1">
                                             <Clock className="w-4 h-4" /> {recipe.time}
                                         </span>
-                                        <span className="px-2 py-1 bg-orange-100 text-[var(--store-primary)] rounded-full text-xs font-medium">
+                                        <span className="px-2 py-1 bg-orange-100 text-store-primary rounded-full text-xs font-medium">
                                             {recipe.difficulty}
                                         </span>
                                     </div>
@@ -314,14 +314,14 @@ export function FoodBeverageHome(props: TemplatePageProps) {
             <section className="py-16 bg-white border-t border-orange-200">
                 <div className="max-w-7xl mx-auto px-6">
                     <div className="grid md:grid-cols-2 gap-12 items-center">
-                        <div className="bg-gradient-to-br from-orange-100 to-amber-50 rounded-3xl h-80 flex items-center justify-center">
+                        <div className="bg-linear-to-br from-orange-100 to-amber-50 rounded-3xl h-80 flex items-center justify-center">
                             <span className="text-9xl">🌾</span>
                         </div>
                         <div>
-                            <span className="text-[var(--store-primary)] text-sm font-semibold uppercase tracking-wider">
+                            <span className="text-store-primary text-sm font-semibold uppercase tracking-wider">
                                 Our Story
                             </span>
-                            <h2 className="text-3xl font-serif font-bold text-[var(--store-foreground)] mt-2 mb-4">
+                            <h2 className="text-3xl font-serif font-bold text-store-foreground mt-2 mb-4">
                                 From Farm to Your Table
                             </h2>
                             <p className="text-gray-600 leading-relaxed mb-6">
@@ -333,7 +333,7 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                                 Our commitment to sustainable practices means less packaging, local sourcing,
                                 and supporting small-batch producers who care about their craft.
                             </p>
-                            <button className="text-[var(--store-primary)] font-semibold hover:text-[color-mix(in_srgb,var(--store-primary),black_20%)] transition-colors">
+                            <button className="text-store-primary font-semibold hover:text-[color-mix(in_srgb,var(--store-primary),black_20%)] transition-colors">
                                 Learn More About Our Farms →
                             </button>
                         </div>
@@ -353,35 +353,35 @@ export function FoodBeverageHome(props: TemplatePageProps) {
                                 Handcrafted with love. Fresh from the farm to your table.
                             </p>
                             <div className="flex gap-2">
-                                <span className="px-2 py-1 bg-[var(--store-accent)] text-white text-xs rounded">Organic</span>
-                                <span className="px-2 py-1 bg-[var(--store-primary)] text-white text-xs rounded">Local</span>
+                                <span className="px-2 py-1 bg-store-accent text-white text-xs rounded">Organic</span>
+                                <span className="px-2 py-1 bg-store-primary text-white text-xs rounded">Local</span>
                             </div>
                         </div>
                         <div>
                             <h4 className="font-semibold text-white mb-4">Shop</h4>
                             <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-[var(--store-primary)] transition-colors">Bakery</a></li>
-                                <li><a href="#" className="hover:text-[var(--store-primary)] transition-colors">Produce</a></li>
-                                <li><a href="#" className="hover:text-[var(--store-primary)] transition-colors">Dairy & Eggs</a></li>
-                                <li><a href="#" className="hover:text-[var(--store-primary)] transition-colors">Beverages</a></li>
+                                <li><a href="#" className="hover:text-store-primary transition-colors">Bakery</a></li>
+                                <li><a href="#" className="hover:text-store-primary transition-colors">Produce</a></li>
+                                <li><a href="#" className="hover:text-store-primary transition-colors">Dairy & Eggs</a></li>
+                                <li><a href="#" className="hover:text-store-primary transition-colors">Beverages</a></li>
                             </ul>
                         </div>
                         <div>
                             <h4 className="font-semibold text-white mb-4">Company</h4>
                             <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-[var(--store-primary)] transition-colors">Our Story</a></li>
-                                <li><a href="#" className="hover:text-[var(--store-primary)] transition-colors">Our Farmers</a></li>
-                                <li><a href="#" className="hover:text-[var(--store-primary)] transition-colors">Sustainability</a></li>
-                                <li><a href="#" className="hover:text-[var(--store-primary)] transition-colors">Recipes</a></li>
+                                <li><a href="#" className="hover:text-store-primary transition-colors">Our Story</a></li>
+                                <li><a href="#" className="hover:text-store-primary transition-colors">Our Farmers</a></li>
+                                <li><a href="#" className="hover:text-store-primary transition-colors">Sustainability</a></li>
+                                <li><a href="#" className="hover:text-store-primary transition-colors">Recipes</a></li>
                             </ul>
                         </div>
                         <div>
                             <h4 className="font-semibold text-white mb-4">Support</h4>
                             <ul className="space-y-2 text-sm">
-                                <li><a href="#" className="hover:text-[var(--store-primary)] transition-colors">Contact Us</a></li>
-                                <li><a href="#" className="hover:text-[var(--store-primary)] transition-colors">Delivery Info</a></li>
-                                <li><a href="#" className="hover:text-[var(--store-primary)] transition-colors">Returns</a></li>
-                                <li><a href="#" className="hover:text-[var(--store-primary)] transition-colors">FAQs</a></li>
+                                <li><a href="#" className="hover:text-store-primary transition-colors">Contact Us</a></li>
+                                <li><a href="#" className="hover:text-store-primary transition-colors">Delivery Info</a></li>
+                                <li><a href="#" className="hover:text-store-primary transition-colors">Returns</a></li>
+                                <li><a href="#" className="hover:text-store-primary transition-colors">FAQs</a></li>
                             </ul>
                         </div>
                     </div>

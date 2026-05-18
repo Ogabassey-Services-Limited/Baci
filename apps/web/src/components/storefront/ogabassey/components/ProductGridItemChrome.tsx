@@ -85,7 +85,7 @@ export function ProductGridImageChrome({
               (platform) => (
                 <span
                   key={platform}
-                  className="bg-white/90 backdrop-blur-sm text-gray-900 text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm border border-gray-100 uppercase tracking-tighter"
+                  className="bg-white/90 backdrop-blur-xs text-gray-900 text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm border border-gray-100 uppercase tracking-tighter"
                 >
                   {platform
                     .replace('PlayStation ', 'PS')
@@ -94,7 +94,7 @@ export function ProductGridImageChrome({
               )
             )}
             {product.variant_attributes.Platform.length > 3 && (
-              <span className="bg-white/90 backdrop-blur-sm text-gray-500 text-[9px] px-1 py-0.5 rounded">
+              <span className="bg-white/90 backdrop-blur-xs text-gray-500 text-[9px] px-1 py-0.5 rounded">
                 +
               </span>
             )}
@@ -140,7 +140,7 @@ export function ProductGridImageChrome({
           onToggleWishlist(event);
         }}
         aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-        className="absolute top-2 right-2 z-20 p-2 rounded-full bg-white/50 md:hover:bg-white active:bg-white backdrop-blur-sm shadow-sm transition-all duration-200 pointer-events-auto group/heart active:scale-90"
+        className="absolute top-2 right-2 z-20 p-2 rounded-full bg-white/50 md:hover:bg-white active:bg-white backdrop-blur-xs shadow-sm transition-all duration-200 pointer-events-auto group/heart active:scale-90"
       >
         <Heart
           size={18}

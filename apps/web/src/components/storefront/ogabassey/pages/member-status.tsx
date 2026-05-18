@@ -128,7 +128,7 @@ export const OgabasseyV2MemberStatus: React.FC = () => {
 
         {/* Current Tier Card */}
         <div
-          className={`bg-gradient-to-r ${currentTier.color} rounded-2xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden mb-8 transition-all duration-500`}
+          className={`bg-linear-to-r ${currentTier.color} rounded-2xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden mb-8 transition-all duration-500`}
         >
           <div className="absolute top-0 right-0 p-8 opacity-10">
             <Crown size={120} />
@@ -156,7 +156,7 @@ export const OgabasseyV2MemberStatus: React.FC = () => {
                   <span>Current: {currentTier.name}</span>
                   <span>Next: {nextTier.name}</span>
                 </div>
-                <div className="h-3 bg-black/20 rounded-full overflow-hidden mb-2 backdrop-blur-sm border border-white/10">
+                <div className="h-3 bg-black/20 rounded-full overflow-hidden mb-2 backdrop-blur-xs border border-white/10">
                   <div
                     className="h-full bg-white/90 shadow-[0_0_10px_rgba(255,255,255,0.5)] rounded-full transition-all duration-1000 ease-out"
                     style={{ width: `${progress}%` }}
@@ -287,7 +287,7 @@ export const OgabasseyV2MemberStatus: React.FC = () => {
 
                     <div className="flex items-center gap-3 mb-2">
                       <div
-                        className={`w-3 h-3 rounded-full bg-gradient-to-br ${tier.color}`}
+                        className={`w-3 h-3 rounded-full bg-linear-to-br ${tier.color}`}
                       />
                       <h4
                         className={`font-bold ${isUnlocked ? 'text-gray-900' : 'text-gray-500'}`}

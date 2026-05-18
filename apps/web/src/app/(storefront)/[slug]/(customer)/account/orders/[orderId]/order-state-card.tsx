@@ -15,7 +15,7 @@ interface OrderStateCardProps {
 
 export function OrderStateCard(props: OrderStateCardProps) {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/20">
+    <div className="min-h-screen bg-linear-to-b from-background to-muted/20">
       <div className="container mx-auto max-w-5xl px-4 py-8">
         <Card className="border-destructive/50">
           <CardContent className="p-10 text-center">

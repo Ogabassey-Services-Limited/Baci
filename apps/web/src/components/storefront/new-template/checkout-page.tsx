@@ -111,7 +111,7 @@ export const CheckoutPage: React.FC = () => {
                       </label>
                       <input
                         type="text"
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-none transition-all"
+                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-hidden transition-all"
                         placeholder="John"
                       />
                     </div>
@@ -121,7 +121,7 @@ export const CheckoutPage: React.FC = () => {
                       </label>
                       <input
                         type="text"
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-none transition-all"
+                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-hidden transition-all"
                         placeholder="Doe"
                       />
                     </div>
@@ -132,7 +132,7 @@ export const CheckoutPage: React.FC = () => {
                     </label>
                     <input
                       type="email"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-none transition-all"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-hidden transition-all"
                       placeholder="john@example.com"
                     />
                   </div>
@@ -142,7 +142,7 @@ export const CheckoutPage: React.FC = () => {
                     </label>
                     <input
                       type="text"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-none transition-all"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-hidden transition-all"
                       placeholder="123 Main St"
                     />
                   </div>
@@ -153,7 +153,7 @@ export const CheckoutPage: React.FC = () => {
                       </label>
                       <input
                         type="text"
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-none transition-all"
+                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-hidden transition-all"
                         placeholder="Lagos"
                       />
                     </div>
@@ -163,7 +163,7 @@ export const CheckoutPage: React.FC = () => {
                       </label>
                       <input
                         type="text"
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-none transition-all"
+                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-hidden transition-all"
                         placeholder="Lagos"
                       />
                     </div>
@@ -173,7 +173,7 @@ export const CheckoutPage: React.FC = () => {
                       </label>
                       <input
                         type="text"
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-none transition-all"
+                        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-red-600 focus:ring-4 focus:ring-red-50 outline-hidden transition-all"
                         placeholder="100001"
                       />
                     </div>
@@ -276,7 +276,7 @@ export const CheckoutPage: React.FC = () => {
                       key={item.variant_id || item.id}
                       className="flex gap-3"
                     >
-                      <div className="w-16 h-16 bg-gray-50 rounded-lg p-1 flex-shrink-0">
+                      <div className="w-16 h-16 bg-gray-50 rounded-lg p-1 shrink-0">
                         <img
                           src={item.image}
                           alt=""

@@ -247,7 +247,7 @@ export function ProductComparisonTable({
                                                         autoFocus
                                                         type="text"
                                                         placeholder="Type to search..."
-                                                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
+                                                        className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-hidden focus:ring-2 focus:ring-red-500/20 focus:border-red-500"
                                                         value={query}
                                                         onChange={(e) => setQuery(e.target.value)}
                                                     />
@@ -267,7 +267,7 @@ export function ProductComparisonTable({
                                                                     onClick={() => addProduct(res)}
                                                                     className="w-full flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg text-left transition-colors"
                                                                 >
-                                                                    <div className="w-8 h-8 rounded bg-gray-100 flex-shrink-0 flex items-center justify-center overflow-hidden relative">
+                                                                    <div className="w-8 h-8 rounded bg-gray-100 shrink-0 flex items-center justify-center overflow-hidden relative">
                                                                         <Image src={res.image || res.imageLarge || '/placeholder.png'} alt={res.name} fill sizes="32px" className="object-cover" />
                                                                     </div>
                                                                     <div className="min-w-0">

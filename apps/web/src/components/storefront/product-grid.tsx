@@ -391,7 +391,7 @@ export function StorefrontProductGrid({
                         }
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                           selectedCategory === option
-                            ? 'bg-[var(--store-primary)] text-[var(--store-primary-text)] shadow-md scale-105'
+                            ? 'bg-store-primary text-store-primary-text shadow-md scale-105'
                             : 'bg-muted/50 hover:bg-muted text-foreground hover:shadow-sm'
                         }`}
                       >

@@ -24,7 +24,7 @@ export function OrdersUrgentAlert({
   }
 
   return (
-    <Alert className="relative border-yellow-200 bg-yellow-50/80 text-yellow-900 backdrop-blur-sm dark:border-yellow-500/20 dark:bg-yellow-500/10 dark:text-yellow-100">
+    <Alert className="relative border-yellow-200 bg-yellow-50/80 text-yellow-900 backdrop-blur-xs dark:border-yellow-500/20 dark:bg-yellow-500/10 dark:text-yellow-100">
       <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-300" />
       <AlertTitle className="font-semibold">
         {statsLoading ? (

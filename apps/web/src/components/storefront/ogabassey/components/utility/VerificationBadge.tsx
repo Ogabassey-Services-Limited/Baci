@@ -27,7 +27,7 @@ export function VerificationBadge({
   if (verified) {
     return (
       <div className="flex items-center gap-2 p-3 bg-green-50 rounded-xl border border-green-200">
-        <Check size={18} className="text-green-600 flex-shrink-0" />
+        <Check size={18} className="text-green-600 shrink-0" />
         <div>
           <p className="text-sm font-medium text-green-800">{customerName}</p>
           <p className="text-xs text-green-600">Customer verified</p>
@@ -38,7 +38,7 @@ export function VerificationBadge({
 
   return (
     <div className="flex items-center gap-2 p-3 bg-red-50 rounded-xl border border-red-200">
-      <X size={18} className="text-red-600 flex-shrink-0" />
+      <X size={18} className="text-red-600 shrink-0" />
       <p className="text-sm text-red-700">
         {message || 'Verification failed'}
       </p>

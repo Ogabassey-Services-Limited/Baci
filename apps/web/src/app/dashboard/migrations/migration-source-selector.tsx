@@ -43,7 +43,7 @@ export default function MigrationSourceSelector({
   value,
 }: MigrationSourceSelectorProps) {
   return (
-    <div className="rounded-2xl border border-border/70 bg-gradient-to-r from-background via-background to-muted/20 p-5 sm:p-6">
+    <div className="rounded-2xl border border-border/70 bg-linear-to-r from-background via-background to-muted/20 p-5 sm:p-6">
       <div className="space-y-5">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.28em] text-primary/80">

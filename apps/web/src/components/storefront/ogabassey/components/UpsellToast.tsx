@@ -110,7 +110,7 @@ export const UpsellToast: React.FC<UpsellToastProps> = ({
   };
 
   return (
-    <div className="fixed bottom-24 left-4 right-4 md:bottom-6 md:left-1/2 md:-translate-x-1/2 md:w-auto md:min-w-[400px] z-[90] animate-in slide-in-from-bottom-5 fade-in duration-300">
+    <div className="fixed bottom-24 left-4 right-4 md:bottom-6 md:left-1/2 md:-translate-x-1/2 md:w-auto md:min-w-[400px] z-90 animate-in slide-in-from-bottom-5 fade-in duration-300">
       <div className="bg-white rounded-2xl shadow-2xl border border-red-100 p-4 relative overflow-hidden">
         {/* AI Background Effect */}
         <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">

@@ -371,7 +371,7 @@ export function MerchantBankForm({
                         tabIndex={0}
                         aria-selected={field.value === bank.code}
                         className={cn(
-                          'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground',
+                          'relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-hidden hover:bg-accent hover:text-accent-foreground',
                           field.value === bank.code && 'bg-accent/50',
                           highlightedIndex === index &&
                             'bg-accent text-accent-foreground'
@@ -490,7 +490,7 @@ export function MerchantBankForm({
                       <FormControl>
                         <input
                           type="checkbox"
-                          className="h-5 w-5 rounded border-gray-300 text-[var(--store-primary)] focus:ring-[var(--store-primary)]"
+                          className="h-5 w-5 rounded border-gray-300 text-store-primary focus:ring-store-primary"
                           checked={field.value ?? false}
                           onChange={field.onChange}
                         />

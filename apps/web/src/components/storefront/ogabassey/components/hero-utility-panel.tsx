@@ -133,7 +133,7 @@ export function HeroUtilityPanel() {
       </div>
 
       <div className="hidden md:flex max-w-[1400px] mx-auto px-4 md:px-6 flex-row items-center justify-between">
-        <div className="bg-primary/5 px-10 py-8 rounded-lg min-w-[280px] text-center xl:text-left xl:-translate-x-[5%]">
+        <div className="bg-primary/5 px-10 py-8 rounded-lg min-w-[280px] text-center xl:text-left xl:translate-x-[-5%]">
           <span className="text-gray-900 font-medium text-xl">
             We Pay <span className="text-primary font-bold">YOU</span> When
           </span>

@@ -189,7 +189,7 @@ export const OgabasseyV2Security: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setTwoFactorEnabled(!twoFactorEnabled)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 ${twoFactorEnabled ? 'bg-green-600' : 'bg-gray-200'}`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-hidden focus:ring-2 focus:ring-red-500 focus:ring-offset-2 ${twoFactorEnabled ? 'bg-green-600' : 'bg-gray-200'}`}
                 >
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${twoFactorEnabled ? 'translate-x-6' : 'translate-x-1'}`}
@@ -302,10 +302,10 @@ export const OgabasseyV2Security: React.FC = () => {
 
       {/* Password Modal */}
       {isPasswordModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
           <button
             type="button"
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/60 backdrop-blur-xs"
             onClick={() => setIsPasswordModalOpen(false)}
             aria-label="Close modal"
           />
@@ -347,7 +347,7 @@ export const OgabasseyV2Security: React.FC = () => {
                       type={showPassword.current ? 'text' : 'password'}
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
-                      className="w-full pl-4 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all text-sm font-medium"
+                      className="w-full pl-4 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all text-sm font-medium"
                       placeholder="Enter current password"
                       required
                     />
@@ -376,7 +376,7 @@ export const OgabasseyV2Security: React.FC = () => {
                       type={showPassword.new ? 'text' : 'password'}
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="w-full pl-4 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all text-sm font-medium"
+                      className="w-full pl-4 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-red-500/20 focus:border-red-500 transition-all text-sm font-medium"
                       placeholder="At least 8 characters"
                       required
                     />
@@ -405,7 +405,7 @@ export const OgabasseyV2Security: React.FC = () => {
                       type={showPassword.confirm ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className={`w-full pl-4 pr-10 py-3 bg-gray-50 border rounded-xl focus:outline-none focus:ring-2 transition-all text-sm font-medium ${passwordError ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : 'border-gray-200 focus:border-red-500 focus:ring-red-500/20'}`}
+                      className={`w-full pl-4 pr-10 py-3 bg-gray-50 border rounded-xl focus:outline-hidden focus:ring-2 transition-all text-sm font-medium ${passwordError ? 'border-red-300 focus:border-red-500 focus:ring-red-500/20' : 'border-gray-200 focus:border-red-500 focus:ring-red-500/20'}`}
                       placeholder="Re-enter new password"
                       required
                     />

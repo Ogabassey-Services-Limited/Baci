@@ -178,7 +178,7 @@ export const NativeProductAd: React.FC<NativeProductAdProps> = ({
 
     return (
         <div className={`relative group ${className}`}>
-            <div className="absolute top-5 left-5 z-30 bg-gray-900/90 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider backdrop-blur-sm shadow-lg">
+            <div className="absolute top-5 left-5 z-30 bg-gray-900/90 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider backdrop-blur-xs shadow-lg">
                 Sponsored
             </div>
             <a
@@ -226,7 +226,7 @@ export const NativeProductAdStatic: React.FC<{
     return (
         <div className={`relative group ${className}`}>
             {/* Sponsored Badge Overlay */}
-            <div className="absolute top-5 left-5 z-30 bg-gray-900/90 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider backdrop-blur-sm shadow-lg">
+            <div className="absolute top-5 left-5 z-30 bg-gray-900/90 text-white text-[9px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider backdrop-blur-xs shadow-lg">
                 Sponsored
             </div>
 

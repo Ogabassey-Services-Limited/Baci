@@ -107,7 +107,7 @@ describe('CryptoSelectorModal', () => {
 
       const usdtButton = screen.getByText('USDT').closest('button');
       expect(usdtButton).toHaveClass('border-red-500');
-      expect(usdtButton).toHaveClass('bg-[var(--store-primary)]/5');
+      expect(usdtButton).toHaveClass('bg-store-primary/5');
     });
 
     it('highlights selected chain', () => {
@@ -115,7 +115,7 @@ describe('CryptoSelectorModal', () => {
 
       const trxButton = screen.getByText('TRX').closest('button');
       expect(trxButton).toHaveClass('border-red-500');
-      expect(trxButton).toHaveClass('bg-[var(--store-primary)]/5');
+      expect(trxButton).toHaveClass('bg-store-primary/5');
     });
 
     it('renders close button', () => {

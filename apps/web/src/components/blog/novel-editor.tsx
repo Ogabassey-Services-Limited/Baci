@@ -125,7 +125,7 @@ export default function NovelEditor({
             },
             attributes: {
               class:
-                'prose dark:prose-invert prose-baci text-foreground focus:outline-none max-w-none min-h-[700px] pt-10 pb-24 px-8 sm:px-12',
+                'prose dark:prose-invert prose-baci text-foreground focus:outline-hidden max-w-none min-h-[700px] pt-10 pb-24 px-8 sm:px-12',
             } as Record<string, string>,
           }}
           onUpdate={({ editor }) => {

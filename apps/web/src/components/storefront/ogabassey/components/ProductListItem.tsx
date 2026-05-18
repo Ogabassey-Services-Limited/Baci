@@ -89,7 +89,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   };
 
   return (
-    <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 active:scale-[0.99] transition-all duration-300 group flex flex-row gap-4 md:gap-6 relative [content-visibility:auto] [contain-intrinsic-size:auto_220px]">
+    <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 active:scale-[0.99] transition-all duration-300 group flex flex-row gap-4 md:gap-6 relative content-auto [contain-intrinsic-size:auto_220px]">
       <Link
         href={asRoute(`${basePath}${getProductUrl({ ...product, id: String(product.id) })}`)}
         prefetch={false}
@@ -102,7 +102,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
 
 
       {/* Image (Left Side) */}
-      <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl flex-shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
+      <div className="w-28 md:w-48 aspect-square bg-gray-50 rounded-xl shrink-0 flex items-center justify-center overflow-hidden z-10 pointer-events-none relative">
         {/* Navigation Arrows (Desktop Hover Only) */}
         {product.colors && product.colors.length > 1 && (
           <>
@@ -192,7 +192,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
           }}
           aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
           title={isWishlisted ? 'Remove from Wishlist' : 'Add to Wishlist'}
-          className="absolute top-2 right-2 z-20 p-1.5 rounded-full bg-white/60 md:hover:bg-white active:bg-white backdrop-blur-sm shadow-sm transition-all duration-200 pointer-events-auto group/heart active:scale-90"
+          className="absolute top-2 right-2 z-20 p-1.5 rounded-full bg-white/60 md:hover:bg-white active:bg-white backdrop-blur-xs shadow-sm transition-all duration-200 pointer-events-auto group/heart active:scale-90"
         >
           <Heart
             size={16}

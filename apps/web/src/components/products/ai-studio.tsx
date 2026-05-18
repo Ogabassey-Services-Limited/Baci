@@ -242,7 +242,7 @@ export function AIStudio({
                   alt="Processed"
                   className="w-full h-full object-contain bg-white"
                 />
-                <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded-full backdrop-blur-sm">
+                <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded-full backdrop-blur-xs">
                   Studio White
                 </div>
               </div>

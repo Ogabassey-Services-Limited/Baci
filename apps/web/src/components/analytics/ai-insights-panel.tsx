@@ -124,8 +124,8 @@ export function AIInsightsPanel({
   return (
     <div
       className={cn(
-        'w-full min-h-[72px] h-auto rounded-xl border bg-card/50 backdrop-blur-sm flex items-center px-4 py-3 gap-3 relative overflow-hidden shadow-sm transition-all',
-        isAnalyzing && 'bg-gradient-to-r from-indigo-500/5 to-violet-500/5',
+        'w-full min-h-[72px] h-auto rounded-xl border bg-card/50 backdrop-blur-xs flex items-center px-4 py-3 gap-3 relative overflow-hidden shadow-sm transition-all',
+        isAnalyzing && 'bg-linear-to-r from-indigo-500/5 to-violet-500/5',
         error && 'border-destructive/30',
         className
       )}
@@ -133,7 +133,7 @@ export function AIInsightsPanel({
       {/* Icon */}
       <div
         className={cn(
-          'flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-colors',
+          'shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-colors',
           isAnalyzing ? 'bg-indigo-500/10' : 'bg-primary/10'
         )}
       >
@@ -223,7 +223,7 @@ export function AIInsightsPanel({
 
       {/* Loading shimmer overlay */}
       {isAnalyzing && (
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent animate-shimmer pointer-events-none" />
+        <div className="absolute inset-0 bg-linear-to-r from-transparent via-white/5 to-transparent animate-shimmer pointer-events-none" />
       )}
     </div>
   );
