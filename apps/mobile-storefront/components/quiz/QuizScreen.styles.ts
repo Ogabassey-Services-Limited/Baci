@@ -50,6 +50,28 @@ export function createQuizStyles(colors: QuizThemeColors) {
       color: colors.error,
       fontWeight: '700',
     },
+    introPanel: {
+      gap: 4,
+      padding: 16,
+      borderRadius: 8,
+      backgroundColor: colors.primaryLowOpacity,
+      borderColor: colors.primary,
+      borderWidth: 1,
+    },
+    introTitle: {
+      color: colors.primary,
+      fontSize: 16,
+      fontWeight: '800',
+    },
+    introText: {
+      color: colors.text,
+      fontSize: 15,
+      fontWeight: '700',
+    },
+    introMeta: {
+      color: colors.textSecondary,
+      fontSize: 14,
+    },
     eventCard: {
       gap: 8,
       padding: 16,
@@ -104,6 +126,10 @@ export function createQuizStyles(colors: QuizThemeColors) {
     },
     timer: {
       color: colors.warning,
+      fontWeight: '700',
+    },
+    passReceipt: {
+      color: colors.textSecondary,
       fontWeight: '700',
     },
     question: {

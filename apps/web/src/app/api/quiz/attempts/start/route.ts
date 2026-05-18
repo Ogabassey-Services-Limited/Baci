@@ -1,3 +1,4 @@
+import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
 import { type NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/logger';
 import { startQuizAttemptSchema } from '@/schemas/quiz';
@@ -9,6 +10,22 @@ import {
   requireQuizUser,
   rpcErrorResponse,
 } from '../../_shared/route-helpers';
+
+function isExamPassRequiredError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const code =
+    'code' in error && typeof error.code === 'string' ? error.code : null;
+  const message =
+    'message' in error && typeof error.message === 'string'
+      ? error.message
+      : null;
+
+  return code === 'QZ011' || message === 'quiz_exam_pass_required';
+}
+
+function formatLoyaltyPointCount(points: number): string {
+  return `${points} loyalty ${points === 1 ? 'point' : 'points'}`;
+}
 
 export async function POST(request: NextRequest) {
   const auth = await requireQuizUser(request);
@@ -45,6 +62,16 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) {
+    if (isExamPassRequiredError(error)) {
+      return NextResponse.json(
+        {
+          code: 'QUIZ_EXAM_PASS_REQUIRED',
+          error: `You need ${formatLoyaltyPointCount(EXAM_PASS_POINTS_COST)} to start this exam`,
+        },
+        { status: 409 }
+      );
+    }
+
     logger.error({
       error,
       event: 'start_quiz_attempt',

@@ -5,6 +5,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react-native';
+import QuizRoute from '@/app/quiz';
 import {
   fetchQuizEvents,
   type QuizEvent,
@@ -12,7 +13,6 @@ import {
   submitQuizAnswer,
 } from '@/services/quiz';
 import { useQuizStore } from '@/stores/quiz-store';
-import QuizRoute from '@/app/quiz';
 
 const mockEvents: QuizEvent[] = [
   {
@@ -35,6 +35,8 @@ jest.mock('@/services/quiz', () => ({
   startQuizAttempt: jest.fn(async () => ({
     attemptId: 'attempt-1',
     eventId: 'event-1',
+    examPassPointsSpent: 1,
+    remainingLoyaltyPoints: 4,
     question: {
       id: 'question-1',
       prompt: 'What is 2 + 2?',
@@ -64,6 +66,8 @@ describe('/quiz screen', () => {
     jest.mocked(startQuizAttempt).mockResolvedValue({
       attemptId: 'attempt-1',
       eventId: 'event-1',
+      examPassPointsSpent: 1,
+      remainingLoyaltyPoints: 4,
       question: {
         id: 'question-1',
         prompt: 'What is 2 + 2?',
@@ -89,10 +93,12 @@ describe('/quiz screen', () => {
     render(<QuizRoute />);
 
     expect(
-      await screen.findByRole('header', { name: 'Prize Quiz' })
+      await screen.findByRole('header', { name: 'Prize Exam' })
     ).toBeOnTheScreen();
     expect(
-      screen.getByRole('button', { name: 'Start Daily Prize Quiz' })
+      screen.getByRole('button', {
+        name: 'Use 1 point to start Daily Prize Quiz',
+      })
     ).toBeOnTheScreen();
     expect(
       screen.getByLabelText(
@@ -105,7 +111,9 @@ describe('/quiz screen', () => {
     render(<QuizRoute />);
 
     fireEvent.press(
-      await screen.findByRole('button', { name: 'Start Daily Prize Quiz' })
+      await screen.findByRole('button', {
+        name: 'Use 1 point to start Daily Prize Quiz',
+      })
     );
 
     expect(await screen.findByLabelText('Question 1 of 3')).toHaveProp(
@@ -155,7 +163,9 @@ describe('/quiz screen', () => {
     render(<QuizRoute />);
 
     fireEvent.press(
-      await screen.findByRole('button', { name: 'Start Daily Prize Quiz' })
+      await screen.findByRole('button', {
+        name: 'Use 1 point to start Daily Prize Quiz',
+      })
     );
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
@@ -171,7 +181,9 @@ describe('/quiz screen', () => {
     render(<QuizRoute />);
 
     fireEvent.press(
-      await screen.findByRole('button', { name: 'Start Daily Prize Quiz' })
+      await screen.findByRole('button', {
+        name: 'Use 1 point to start Daily Prize Quiz',
+      })
     );
     fireEvent.press(await screen.findByRole('button', { name: 'Answer 4' }));
     fireEvent.press(screen.getByRole('button', { name: 'Submit answer' }));

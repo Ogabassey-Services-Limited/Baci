@@ -175,7 +175,10 @@ DECLARE
   v_attempt_id uuid;
   v_attempt_number integer;
   v_customer_id uuid;
+  -- TODO(Phase 1b): read this from quiz_events.settings when pass costs become merchant-configurable.
+  v_exam_pass_cost integer := 1;
   v_question jsonb;
+  v_remaining_loyalty_points integer;
   v_total_questions integer;
 BEGIN
   IF NOT public.quiz_route_proof_valid(p_route_proof, 'start_quiz_attempt', p_event_id::text, p_user_id) THEN
@@ -184,6 +187,7 @@ BEGIN
 
   SELECT c.id INTO v_customer_id
   FROM public.customers c
+  JOIN public.quiz_events e ON e.id = p_event_id AND e.merchant_id = c.merchant_id
   WHERE c.user_id = p_user_id
   ORDER BY c.created_at DESC, c.id DESC
   LIMIT 1;
@@ -206,6 +210,21 @@ BEGIN
   PERFORM pg_catalog.pg_advisory_xact_lock(
     ('x' || pg_catalog.substr(pg_catalog.md5(p_event_id::text || ':' || v_customer_id::text), 1, 16))::bit(64)::bigint
   );
+
+  SELECT COALESCE(c.loyalty_points, 0) INTO v_remaining_loyalty_points
+  FROM public.customers c
+  WHERE c.id = v_customer_id
+  FOR UPDATE;
+
+  IF COALESCE(v_remaining_loyalty_points, 0) < v_exam_pass_cost THEN
+    RAISE EXCEPTION 'quiz_exam_pass_required' USING ERRCODE = 'QZ011';
+  END IF;
+
+  UPDATE public.customers c
+  SET loyalty_points = COALESCE(c.loyalty_points, 0) - v_exam_pass_cost,
+      updated_at = pg_catalog.now()
+  WHERE c.id = v_customer_id
+  RETURNING COALESCE(c.loyalty_points, 0) INTO v_remaining_loyalty_points;
 
   SELECT COALESCE(pg_catalog.max(a.attempt_number), 0) + 1 INTO v_attempt_number
   FROM public.quiz_attempts a
@@ -290,6 +309,8 @@ BEGIN
   RETURN pg_catalog.jsonb_build_object(
     'attemptId', v_attempt_id,
     'eventId', p_event_id,
+    'examPassPointsSpent', v_exam_pass_cost,
+    'remainingLoyaltyPoints', v_remaining_loyalty_points,
     'question', v_question
   );
 END;
@@ -521,6 +542,17 @@ BEGIN
   -- finalization; the privileged award finalizer below remains event-scoped.
   IF NOT public.quiz_route_proof_valid(p_server_proof, 'finalize_awards', p_event_id::text, p_user_id) THEN
     RAISE EXCEPTION 'quiz route proof required' USING ERRCODE = 'QZ010';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.quiz_attempts a
+    JOIN public.customers c ON c.id = a.customer_id
+    WHERE a.id = p_attempt_id
+      AND a.event_id = p_event_id
+      AND c.user_id = p_user_id
+  ) THEN
+    RAISE EXCEPTION 'quiz_attempt_not_found' USING ERRCODE = 'QZ004';
   END IF;
 
   RETURN public.finalize_quiz_event_awards(

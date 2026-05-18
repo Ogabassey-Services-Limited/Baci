@@ -1,12 +1,12 @@
 import { jest } from '@jest/globals';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { QuizScreen } from '@/components/quiz/QuizScreen';
+import type { QuizAttempt, QuizEvent, QuizResult } from '@/services/quiz';
 import {
   fetchQuizEvents,
   startQuizAttempt,
   submitQuizAnswer,
 } from '@/services/quiz';
-import type { QuizAttempt, QuizEvent, QuizResult } from '@/services/quiz';
 import { useQuizStore } from '@/stores/quiz-store';
 
 const quizEvent: QuizEvent = {
@@ -22,6 +22,8 @@ const quizEvent: QuizEvent = {
 const quizAttempt: QuizAttempt = {
   attemptId: 'attempt-1',
   eventId: 'event-1',
+  examPassPointsSpent: 1,
+  remainingLoyaltyPoints: 4,
   question: {
     id: 'question-1',
     index: 1,
@@ -84,10 +86,19 @@ describe('QuizScreen', () => {
   it('renders fetched quiz events', async () => {
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
+    expect(await screen.findByText('Prize Exam')).toBeTruthy();
+    expect(
+      screen.getByText('Use 1 loyalty point as your exam pass.')
+    ).toBeTruthy();
+    expect(
+      screen.getByText('Your pass is charged when the exam starts.')
+    ).toBeTruthy();
     expect(await screen.findByText('Daily Prize Quiz')).toBeTruthy();
     expect(screen.getByText('N50,000 store credit')).toBeTruthy();
     expect(
-      screen.getByRole('button', { name: 'Start Daily Prize Quiz' })
+      screen.getByRole('button', {
+        name: 'Use 1 point to start Daily Prize Quiz',
+      })
     ).toBeTruthy();
   });
 
@@ -97,7 +108,9 @@ describe('QuizScreen', () => {
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
     fireEvent.press(
-      await screen.findByRole('button', { name: 'Start Daily Prize Quiz' })
+      await screen.findByRole('button', {
+        name: 'Use 1 point to start Daily Prize Quiz',
+      })
     );
 
     expect(await screen.findByText('Starting...')).toBeTruthy();
@@ -113,6 +126,9 @@ describe('QuizScreen', () => {
 
     expect(await screen.findByText('What is 2 + 2?')).toBeTruthy();
     expect(screen.getByText('You have 30s per question')).toBeTruthy();
+    expect(
+      screen.getByText('1 point exam pass used. 4 points left.')
+    ).toBeTruthy();
   });
 
   it('shows a pending submit state and renders a successful result', async () => {
@@ -121,7 +137,9 @@ describe('QuizScreen', () => {
     render(<QuizScreen integrityTier="strong" locale="en-US" />);
 
     fireEvent.press(
-      await screen.findByRole('button', { name: 'Start Daily Prize Quiz' })
+      await screen.findByRole('button', {
+        name: 'Use 1 point to start Daily Prize Quiz',
+      })
     );
     fireEvent.press(await screen.findByRole('button', { name: 'Answer 4' }));
 
@@ -153,7 +171,9 @@ describe('QuizScreen', () => {
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
     fireEvent.press(
-      await screen.findByRole('button', { name: 'Start Daily Prize Quiz' })
+      await screen.findByRole('button', {
+        name: 'Use 1 point to start Daily Prize Quiz',
+      })
     );
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Start failed');
@@ -168,7 +188,9 @@ describe('QuizScreen', () => {
     render(<QuizScreen integrityTier="strong" locale="en-US" />);
 
     fireEvent.press(
-      await screen.findByRole('button', { name: 'Start Daily Prize Quiz' })
+      await screen.findByRole('button', {
+        name: 'Use 1 point to start Daily Prize Quiz',
+      })
     );
     fireEvent.press(await screen.findByRole('button', { name: 'Answer 4' }));
     fireEvent.press(screen.getByRole('button', { name: 'Submit answer' }));

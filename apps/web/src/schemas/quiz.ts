@@ -4,10 +4,21 @@ const quizUuidSchema = z.string().uuid();
 const quizIsoDatetimeSchema = z.string().datetime({ offset: true });
 const quizIntegrityTierSchema = z.enum(['basic', 'device', 'strong']);
 
-export const quizEventsQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(50).default(20),
-  offset: z.coerce.number().int().min(0).default(0),
-});
+export const quizEventsQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(50).default(20),
+    merchantId: quizUuidSchema.optional(),
+    merchantSlug: z.string().trim().min(1).max(120).optional(),
+    offset: z.coerce.number().int().min(0).default(0),
+  })
+  .refine((value) => value.merchantId || value.merchantSlug, {
+    message: 'merchantId or merchantSlug is required',
+    path: ['merchantId'],
+  })
+  .refine((value) => !(value.merchantId && value.merchantSlug), {
+    message: 'provide either merchantId or merchantSlug, not both',
+    path: ['merchantId'],
+  });
 
 export const startQuizAttemptSchema = z.object({
   eventId: quizUuidSchema,

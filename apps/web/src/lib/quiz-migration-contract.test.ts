@@ -141,6 +141,53 @@ describe('quiz migration contracts', () => {
     ).toHaveLength(3);
   });
 
+  it('requires and spends one customer loyalty point before starting an exam attempt', () => {
+    const startAttemptSql = rpcSql.match(
+      /CREATE OR REPLACE FUNCTION public\.start_quiz_attempt[\s\S]*?\$\$;/i
+    )?.[0];
+
+    expect(startAttemptSql).toBeDefined();
+    expect(startAttemptSql).toMatch(
+      /JOIN\s+public\.quiz_events\s+e\s+ON\s+e\.id\s*=\s*p_event_id\s+AND\s+e\.merchant_id\s*=\s*c\.merchant_id/i
+    );
+    expect(startAttemptSql).toMatch(/v_exam_pass_cost\s+integer\s*:=\s*1/i);
+    expect(startAttemptSql).toMatch(
+      /SELECT\s+COALESCE\(c\.loyalty_points,\s*0\)[\s\S]*FROM\s+public\.customers\s+c[\s\S]*FOR\s+UPDATE/i
+    );
+    expect(startAttemptSql).toMatch(/quiz_exam_pass_required/i);
+    expect(startAttemptSql).toMatch(/ERRCODE\s*=\s*'QZ011'/i);
+    expect(startAttemptSql).toMatch(
+      /UPDATE\s+public\.customers\s+c[\s\S]*SET\s+loyalty_points\s*=\s*COALESCE\(c\.loyalty_points,\s*0\)\s*-\s*v_exam_pass_cost/i
+    );
+    expect(startAttemptSql).toMatch(
+      /'examPassPointsSpent',\s*v_exam_pass_cost/i
+    );
+    expect(startAttemptSql).toMatch(
+      /'remainingLoyaltyPoints',\s*v_remaining_loyalty_points/i
+    );
+    expect(startAttemptSql?.indexOf('UPDATE public.customers c')).toBeLessThan(
+      startAttemptSql?.indexOf('INSERT INTO public.quiz_attempts') ?? -1
+    );
+  });
+
+  it('checks finalize-awards attempt ownership before calling the privileged event finalizer', () => {
+    const finalizeAwardsSql = rpcSql.match(
+      /CREATE OR REPLACE FUNCTION public\.finalize_quiz_awards[\s\S]*?\$\$;/i
+    )?.[0];
+
+    expect(finalizeAwardsSql).toBeDefined();
+    expect(finalizeAwardsSql).toMatch(
+      /JOIN\s+public\.customers\s+c\s+ON\s+c\.id\s*=\s*a\.customer_id/i
+    );
+    expect(finalizeAwardsSql).toMatch(/a\.id\s*=\s*p_attempt_id/i);
+    expect(finalizeAwardsSql).toMatch(/a\.event_id\s*=\s*p_event_id/i);
+    expect(finalizeAwardsSql).toMatch(/c\.user_id\s*=\s*p_user_id/i);
+    expect(finalizeAwardsSql).toMatch(/quiz_attempt_not_found/i);
+    expect(finalizeAwardsSql?.indexOf('JOIN public.customers c')).toBeLessThan(
+      finalizeAwardsSql?.indexOf('public.finalize_quiz_event_awards') ?? -1
+    );
+  });
+
   it('records non-sensitive proof validation failures without granting client access', () => {
     expect(foundationSql).toMatch(
       /CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+public\.quiz_proof_validation_failures/is

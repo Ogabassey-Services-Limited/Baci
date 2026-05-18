@@ -23,6 +23,18 @@ const mockGetUser = jest.fn<(token?: string) => Promise<MockUserResult>>();
 
 global.fetch = mockFetch;
 
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  default: {
+    expoConfig: {
+      extra: {
+        merchantId: 'merchant-1',
+        merchantSlug: 'ogabassey',
+      },
+    },
+  },
+}));
+
 jest.mock('@/lib/supabase', () => ({
   supabase: {
     auth: {
@@ -87,7 +99,7 @@ describe('quiz service', () => {
       },
     ]);
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://example.com/api/quiz/events',
+      'https://example.com/api/quiz/events?merchantId=merchant-1',
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: 'Bearer token-123',
@@ -131,7 +143,9 @@ describe('quiz service', () => {
 
   it('retries transient mobile bearer session read errors once', async () => {
     jest.useFakeTimers();
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const warnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
     mockGetSession
       .mockResolvedValueOnce({
         data: { session: null },
@@ -158,7 +172,7 @@ describe('quiz service', () => {
   });
 
   it('fails closed before requests when reading the mobile bearer session has a definitive auth error', async () => {
-    jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     mockGetSession.mockResolvedValueOnce({
       data: { session: null },
       error: { message: 'invalid refresh token', status: 401 },
@@ -176,7 +190,7 @@ describe('quiz service', () => {
   });
 
   it('fails closed when the mobile bearer token cannot be validated', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     mockGetUser.mockResolvedValueOnce({
       data: { user: null },
       error: { message: 'token invalid' },
@@ -195,7 +209,9 @@ describe('quiz service', () => {
 
   it('retries transient mobile bearer token validation errors once', async () => {
     jest.useFakeTimers();
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const warnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
     mockGetUser
       .mockResolvedValueOnce({
         data: { user: null },
@@ -246,8 +262,53 @@ describe('quiz service', () => {
     });
   });
 
+  it('maps start responses with the spent exam pass and remaining loyalty points', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          attemptId: 'attempt-1',
+          eventId: 'event-1',
+          examPassPointsSpent: 1,
+          remainingLoyaltyPoints: 4,
+          question: {
+            id: 'question-1',
+            index: 1,
+            options: [{ id: 'a', label: 'A' }],
+            prompt: 'Pick one',
+            timeLimitSeconds: 30,
+            total: 1,
+          },
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(
+      startQuizAttempt({
+        baseUrl: 'https://example.com',
+        eventId: 'event-1',
+        integrityTier: 'device',
+      })
+    ).resolves.toEqual({
+      attemptId: 'attempt-1',
+      eventId: 'event-1',
+      examPassPointsSpent: 1,
+      remainingLoyaltyPoints: 4,
+      question: {
+        id: 'question-1',
+        index: 1,
+        options: [{ id: 'a', label: 'A' }],
+        prompt: 'Pick one',
+        timeLimitSeconds: 30,
+        total: 1,
+      },
+    });
+  });
+
   it('logs only safe metadata when API JSON parsing fails', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const warnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
     mockFetch.mockResolvedValueOnce(
       new Response('session-token=secret', { status: 200 })
     );

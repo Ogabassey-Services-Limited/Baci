@@ -40,6 +40,8 @@ describe('quiz service attempt lifecycle', () => {
           JSON.stringify({
             attemptId: 'attempt-1',
             eventId: 'event-1',
+            examPassPointsSpent: 1,
+            remainingLoyaltyPoints: 4,
             question: {
               id: 'question-1',
               prompt: 'What is 2 + 2?',
@@ -82,6 +84,10 @@ describe('quiz service attempt lifecycle', () => {
     });
 
     expect(attempt.question.prompt).toBe('What is 2 + 2?');
+    expect(attempt).toMatchObject({
+      examPassPointsSpent: 1,
+      remainingLoyaltyPoints: 4,
+    });
     expect(result).toMatchObject({ status: 'completed', prizeEligible: true });
     expect(mockFetch).toHaveBeenNthCalledWith(
       1,
@@ -219,7 +225,9 @@ describe('quiz service attempt lifecycle', () => {
   });
 
   it('rejects invalid start attempt responses', async () => {
-    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const warnSpy = jest
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
     mockFetch.mockResolvedValueOnce(new Response('{bad-json', { status: 200 }));
 
     await expect(

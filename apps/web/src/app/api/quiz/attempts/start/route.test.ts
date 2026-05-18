@@ -1,3 +1,4 @@
+import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkCsrfProtection } from '@/lib/csrf';
@@ -34,7 +35,12 @@ function jsonRequest(body: unknown) {
 
 function mockAuthenticatedSupabase({
   rpcResult = {
-    data: { attemptId: 'attempt-1', eventId: EVENT_ID },
+    data: {
+      attemptId: 'attempt-1',
+      eventId: EVENT_ID,
+      examPassPointsSpent: EXAM_PASS_POINTS_COST,
+      remainingLoyaltyPoints: 4,
+    },
     error: null,
   },
   user = { id: USER_ID },
@@ -123,6 +129,12 @@ describe('start quiz attempt route', () => {
     );
 
     expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      attemptId: 'attempt-1',
+      eventId: EVENT_ID,
+      examPassPointsSpent: EXAM_PASS_POINTS_COST,
+      remainingLoyaltyPoints: 4,
+    });
     expect(rpc).toHaveBeenCalledWith(
       'start_quiz_attempt',
       expect.objectContaining({
@@ -160,5 +172,37 @@ describe('start quiz attempt route', () => {
       message: 'start_quiz_attempt RPC failed',
       userId: USER_ID,
     });
+  });
+
+  it('returns 409 when the customer does not have an exam pass point', async () => {
+    const { rpc } = mockAuthenticatedSupabase({
+      rpcResult: {
+        data: null,
+        error: { code: 'QZ011', message: 'quiz_exam_pass_required' },
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(409);
+    const pointLabel = `${EXAM_PASS_POINTS_COST} loyalty ${
+      EXAM_PASS_POINTS_COST === 1 ? 'point' : 'points'
+    }`;
+    expect(await response.json()).toEqual({
+      code: 'QUIZ_EXAM_PASS_REQUIRED',
+      error: `You need ${pointLabel} to start this exam`,
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      'start_quiz_attempt',
+      expect.objectContaining({
+        p_event_id: EVENT_ID,
+        p_integrity_tier: 'device',
+        p_user_id: USER_ID,
+      })
+    );
+    expect(logger.error).not.toHaveBeenCalled();
   });
 });
