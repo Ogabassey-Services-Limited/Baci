@@ -6,15 +6,15 @@ const OTHER_PRODUCT_ID = '22222222-2222-4222-8222-222222222222';
 const VARIANT_ID = '33333333-3333-4333-8333-333333333333';
 
 const mocks = vi.hoisted(() => ({
-  createServiceClient: vi.fn(),
+  createClient: vi.fn(),
   products: [] as unknown[],
   productError: null as { message: string } | null,
   variants: [] as unknown[],
   variantError: null as { message: string } | null,
 }));
 
-vi.mock('@/lib/supabase/service', () => ({
-  createServiceClient: mocks.createServiceClient,
+vi.mock('@/lib/supabase/server', () => ({
+  createClient: mocks.createClient,
 }));
 
 function buildSupabaseMock() {
@@ -61,7 +61,7 @@ describe('POST /api/cart/validate', () => {
 
   it('reports stale selected-variant prices against the variant override', async () => {
     const { supabase, productsQuery, variantsQuery } = buildSupabaseMock();
-    mocks.createServiceClient.mockReturnValue(supabase);
+    mocks.createClient.mockResolvedValue(supabase);
     mocks.products = [
       {
         id: PRODUCT_ID,
@@ -113,7 +113,7 @@ describe('POST /api/cart/validate', () => {
 
   it('keeps variant price changes scoped to the matching product variant', async () => {
     const { supabase } = buildSupabaseMock();
-    mocks.createServiceClient.mockReturnValue(supabase);
+    mocks.createClient.mockResolvedValue(supabase);
     mocks.products = [
       {
         id: PRODUCT_ID,
@@ -171,7 +171,7 @@ describe('POST /api/cart/validate', () => {
 
   it('returns 500 when variant prices cannot be loaded', async () => {
     const { supabase } = buildSupabaseMock();
-    mocks.createServiceClient.mockReturnValue(supabase);
+    mocks.createClient.mockResolvedValue(supabase);
     mocks.products = [
       {
         id: PRODUCT_ID,

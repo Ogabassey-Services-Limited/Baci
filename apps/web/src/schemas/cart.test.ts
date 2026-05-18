@@ -34,4 +34,23 @@ describe('cartValidateSchema', () => {
       },
     ]);
   });
+
+  it('rejects cartItems larger than 50 entries', () => {
+    const cartItems = Array.from({ length: 51 }, (_, index) => ({
+      id: `product-${index}`,
+      price: 100 + index,
+    }));
+
+    const result = cartValidateSchema.safeParse({ cartItems });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects productIds larger than 50 entries', () => {
+    const productIds = Array.from({ length: 51 }, (_, index) => `id-${index}`);
+
+    const result = cartValidateSchema.safeParse({ productIds });
+
+    expect(result.success).toBe(false);
+  });
 });

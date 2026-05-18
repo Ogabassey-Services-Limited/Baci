@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getEffectiveStock } from '@/lib/product-stock';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createClient } from '@/lib/supabase/server';
 import { cartValidateSchema } from '@/schemas/cart';
 
 type CartProductRow = {
@@ -105,9 +105,7 @@ export async function POST(request: NextRequest) {
       )
     );
 
-    // Use Service Client (Admin) to bypass RLS.
-    // This ensures we can validate products even if the user is a guest.
-    const supabase = createServiceClient();
+    const supabase = await createClient();
 
     for (const id of idsToValidate) {
       const strId = String(id);
