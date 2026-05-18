@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 const SCAN_DIRECTORIES = [
   'app',
   'components',
+  'config',
   'hooks',
   'lib',
   'services',

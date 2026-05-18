@@ -1,4 +1,5 @@
-import { ActionSheetIOS, Alert, Platform } from 'react-native';
+import { ActionSheetIOS, Alert } from 'react-native';
+import { isRuntimePlatform } from '@/config/runtime-platform';
 
 interface ChoiceOption<TValue extends string> {
   label: string;
@@ -19,7 +20,7 @@ export function showChoiceSheet<TValue extends string>({
   title,
 }: ShowChoiceSheetOptions<TValue>): Promise<TValue | null> {
   // iOS gets the native action sheet; other platforms fall back to Alert.
-  if (Platform.OS === 'ios') {
+  if (isRuntimePlatform('ios')) {
     return new Promise((resolve) => {
       ActionSheetIOS.showActionSheetWithOptions(
         {

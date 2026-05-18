@@ -1,19 +1,13 @@
 [
-  "app/(admin)/send-feedback.tsx",
-  "app/(auth)/login.tsx",
-  "components/analytics/ReportsGenerator.ts",
+  "config/runtime-platform.ts",
   "components/tax/StatePickerModal.tsx",
   "components/transactions/CostPriceEditorModal.tsx",
   "components/ui/AppDatePickerField.tsx",
   "components/ui/AppKeyboardContainer.tsx",
-  "components/ui/virtualized-list-props.ts",
-  "components/ui/showChoiceSheet.ts",
-  "hooks/useOrderDetailsBackHandler.ts",
   "hooks/usePushNotifications.ts",
   "lib/auth/sign-in-with-apple.ts",
   "lib/auth/sign-in-with-google.ts",
   "services/push-notifications.ts",
   "stores/revenueCatStore.ts",
-  "utils/SubscriptionManagement.ts",
-  "utils/order-export/loadOrderExportNativeModules.ts"
+  "utils/SubscriptionManagement.ts"
 ]

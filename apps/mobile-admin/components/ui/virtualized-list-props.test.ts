@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Platform } from 'react-native';
+import { getRuntimePlatform } from '@/config/runtime-platform';
 import { getVirtualizedListProps } from './virtualized-list-props';
 
 describe('getVirtualizedListProps', () => {
@@ -23,7 +23,7 @@ describe('getVirtualizedListProps', () => {
 
   it('uses Platform.OS when no platform argument is provided', () => {
     expect(getVirtualizedListProps()).toEqual(
-      getVirtualizedListProps(Platform.OS)
+      getVirtualizedListProps(getRuntimePlatform())
     );
   });
 });

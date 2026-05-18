@@ -1,9 +1,10 @@
-import { Platform } from 'react-native';
-
-type SupportedPlatform = 'android' | 'ios' | (string & {});
+import {
+  getRuntimePlatform,
+  type RuntimePlatform,
+} from '@/config/runtime-platform';
 
 export function getVirtualizedListProps(
-  platformOs: SupportedPlatform = Platform.OS
+  platformOs: RuntimePlatform = getRuntimePlatform()
 ) {
   // `removeClippedSubviews` improves memory/scroll performance on Android.
   // iOS clipping can cause rendering/measurement glitches, so we keep it off there.
