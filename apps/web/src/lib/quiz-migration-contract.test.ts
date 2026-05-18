@@ -181,6 +181,7 @@ describe('quiz migration contracts', () => {
     );
     expect(finalizeAwardsSql).toMatch(/a\.id\s*=\s*p_attempt_id/i);
     expect(finalizeAwardsSql).toMatch(/a\.event_id\s*=\s*p_event_id/i);
+    expect(finalizeAwardsSql).toMatch(/a\.status\s*=\s*'submitted'/i);
     expect(finalizeAwardsSql).toMatch(/c\.user_id\s*=\s*p_user_id/i);
     expect(finalizeAwardsSql).toMatch(/quiz_attempt_not_found/i);
     expect(finalizeAwardsSql?.indexOf('JOIN public.customers c')).toBeLessThan(

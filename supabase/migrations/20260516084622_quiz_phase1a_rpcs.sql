@@ -550,6 +550,7 @@ BEGIN
     JOIN public.customers c ON c.id = a.customer_id
     WHERE a.id = p_attempt_id
       AND a.event_id = p_event_id
+      AND a.status = 'submitted'
       AND c.user_id = p_user_id
   ) THEN
     RAISE EXCEPTION 'quiz_attempt_not_found' USING ERRCODE = 'QZ004';
