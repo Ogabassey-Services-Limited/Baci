@@ -1,14 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { format } from 'date-fns';
 import { useEffect } from 'react';
-import {
-  Platform,
-  Pressable,
-  Switch,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, Switch, Text, TextInput, View } from 'react-native';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { AppDatePickerField } from '@/components/ui/AppDatePickerField';
 import { NewOrderAddressInput } from './NewOrderAddressInput';
@@ -218,13 +211,7 @@ export function NewOrderDetailsSection({
             accessibilityState={{ checked: sameAsCustomer }}
             onValueChange={setSameAsCustomer}
             thumbColor={
-              // iOS uses the native thumb styling for contrast. Android needs
-              // explicit colors so the off state stays visible against the card.
-              Platform.OS === 'ios'
-                ? '#fff'
-                : sameAsCustomer
-                  ? '#fff'
-                  : '#f4f3f4'
+              sameAsCustomer ? '#fff' : '#f4f3f4'
             }
             trackColor={{ false: colors.border, true: colors.primary }}
             value={sameAsCustomer}

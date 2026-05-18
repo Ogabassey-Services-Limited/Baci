@@ -1,10 +1,8 @@
 [
   "app/(admin)/domains/connect.tsx",
-  "app/(admin)/payout-settings.tsx",
   "app/(admin)/send-feedback.tsx",
   "app/(auth)/login.tsx",
   "components/analytics/ReportsGenerator.ts",
-  "components/orders/NewOrderDetailsSection.tsx",
   "components/tax/StatePickerModal.tsx",
   "components/transactions/CostPriceEditorModal.tsx",
   "components/ui/AppDatePickerField.tsx",
