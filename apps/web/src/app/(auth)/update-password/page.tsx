@@ -74,7 +74,7 @@ export default function UpdatePasswordPage() {
           <div className="mt-8">
             <Link
               href="/login"
-              className="text-sm font-semibold text-[#23255d] dark:text-yellow-500 hover:text-opacity-80"
+              className="text-sm font-semibold text-[#23255d] hover:text-[#23255d]/80 dark:text-yellow-500 dark:hover:text-yellow-500/80"
             >
               Go to Login &rarr;
             </Link>
