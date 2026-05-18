@@ -1,9 +1,9 @@
 import type { TransactionReviewOrder } from './transaction-review-types';
 
-function normalizeCostPriceDigits(value: string) {
+function normalizeCostPriceParts(value: string) {
   let hasDecimal = false;
 
-  return value
+  const digits = value
     .split('')
     .filter((character) => {
       if (/\d/.test(character)) {
@@ -16,6 +16,11 @@ function normalizeCostPriceDigits(value: string) {
       return false;
     })
     .join('');
+
+  return {
+    digits,
+    isNegative: value.includes('-'),
+  };
 }
 
 export function formatCostPriceInput(
@@ -33,29 +38,36 @@ export function formatCostPriceInputText(
   value: string,
   currencySymbol: string
 ) {
-  const normalized = normalizeCostPriceDigits(value);
+  const normalized = normalizeCostPriceParts(value);
 
-  if (!normalized) {
-    return '';
+  if (!normalized.digits) {
+    return normalized.isNegative ? '-' : '';
   }
 
-  const [rawIntegerPart, decimalPart] = normalized.split('.');
+  const [rawIntegerPart, decimalPart] = normalized.digits.split('.');
   const integerPart = rawIntegerPart || '0';
   const formattedInteger = Number(integerPart).toLocaleString('en-US');
+  const sign = normalized.isNegative ? '-' : '';
 
-  return `${currencySymbol}${formattedInteger}${
+  return `${sign}${currencySymbol}${formattedInteger}${
     decimalPart == null ? '' : `.${decimalPart}`
   }`;
 }
 
 export function parseCostPriceInput(value: string) {
-  const normalized = normalizeCostPriceDigits(value);
+  const normalized = normalizeCostPriceParts(value);
 
-  if (!normalized) {
+  if (!normalized.digits) {
     return Number.NaN;
   }
 
-  return Number.parseFloat(normalized);
+  const parsed = Number.parseFloat(normalized.digits);
+
+  if (Number.isNaN(parsed)) {
+    return Number.NaN;
+  }
+
+  return normalized.isNegative ? -parsed : parsed;
 }
 
 export function parseDateInputForPicker(dateInput: string) {

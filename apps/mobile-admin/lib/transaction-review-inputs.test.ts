@@ -28,8 +28,12 @@ describe('transaction review input helpers', () => {
   it('formats and parses currency cost price text', () => {
     expect(formatCostPriceInput(null, '₦')).toBe('');
     expect(formatCostPriceInput(1200, '₦')).toBe('₦1,200');
+    expect(formatCostPriceInput(-1200, '₦')).toBe('-₦1,200');
     expect(formatCostPriceInputText('1200000.50', '₦')).toBe('₦1,200,000.50');
+    expect(formatCostPriceInputText('-1200', '₦')).toBe('-₦1,200');
     expect(parseCostPriceInput('₦1,200,000.50')).toBe(1_200_000.5);
+    expect(parseCostPriceInput('-₦1,200')).toBe(-1200);
+    expect(parseCostPriceInput('₦-1,200')).toBe(-1200);
     expect(Number.isNaN(parseCostPriceInput('₦'))).toBe(true);
   });
 
