@@ -4,9 +4,8 @@
  */
 
 import { StyleSheet, View } from 'react-native';
+import baciIcon from '@/assets/images/icon.png';
 import SafeImage from '@/components/ui/SafeImage';
-
-const BaciIcon = require('@/assets/images/icon.png');
 
 interface BaciLogoProps {
   size?: number;
@@ -27,7 +26,7 @@ export function BaciLogo({ size = 32, borderRadius = 8 }: BaciLogoProps) {
       ]}
     >
       <SafeImage
-        source={BaciIcon}
+        source={baciIcon}
         style={{ width: size, height: size }}
         contentFit="cover"
       />
