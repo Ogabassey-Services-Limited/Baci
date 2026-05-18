@@ -63,6 +63,14 @@ import {
   PICKUP_STATION_STATE,
   PickupStationCard,
 } from '@/components/checkout/PickupStationCard';
+import {
+  AIRPORT_DELIVERY_FEE,
+  getDeliveryMethodFee,
+  getDeliveryMethodLabel,
+  getDeliveryMethodSummary,
+  getPaymentTabForMethod,
+  getShippingProviderForMethod,
+} from '@/components/checkout/checkout-step-helpers';
 import { ShippingQuotesCard } from '@/components/checkout/ShippingQuotesCard';
 import type {
   DeliveryMethod,
@@ -143,8 +151,6 @@ interface ShippingLocation {
   city: string;
 }
 
-const AIRPORT_DELIVERY_FEE = 25000;
-
 interface PendingCryptoOrder {
   order: OrderResponse['order'];
   orderResponse: OrderResponse;
@@ -175,67 +181,6 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
   invoice: 'Generate Invoice',
   payforme: 'Pay for Me',
 };
-
-function getPaymentTabForMethod(method: PaymentMethodType): PaymentTab {
-  if (method === 'credpal' || method === 'credit_direct') {
-    return 'installments';
-  }
-  if (method === 'invoice' || method === 'payforme') {
-    return 'pay_later';
-  }
-  return 'full';
-}
-
-function getDeliveryMethodFee(
-  deliveryMethod: DeliveryMethod,
-  selectedQuote: ShippingQuote | undefined
-) {
-  if (deliveryMethod === 'airport') return AIRPORT_DELIVERY_FEE;
-  if (deliveryMethod === 'pickup_station') return 0;
-  return selectedQuote?.price ?? 0;
-}
-
-function getDeliveryMethodLabel(deliveryMethod: DeliveryMethod) {
-  switch (deliveryMethod) {
-    case 'airport':
-      return 'Airport Delivery';
-    case 'pickup_station':
-      return 'Pick Up Station';
-    default:
-      return 'Door Delivery';
-  }
-}
-
-function getDeliveryMethodSummary(
-  deliveryMethod: DeliveryMethod,
-  selectedQuote: ShippingQuote | undefined
-) {
-  if (deliveryMethod === 'airport') {
-    return 'Est Delivery within 24-48 working hours';
-  }
-  if (deliveryMethod === 'pickup_station') {
-    return PICKUP_STATION_ADDRESS_LINES.join(', ');
-  }
-
-  const carrier =
-    selectedQuote?.carrierName || selectedQuote?.provider || 'Topship';
-  const eta =
-    selectedQuote?.deliveryRange ||
-    (selectedQuote?.estimatedDays
-      ? `${selectedQuote.estimatedDays} days`
-      : 'Delivery estimate shown after selection');
-
-  return `${carrier} • ${eta}`;
-}
-
-function getShippingProviderForMethod(
-  deliveryMethod: DeliveryMethod,
-  selectedQuote: ShippingQuote | undefined
-) {
-  if (deliveryMethod === 'airport') return 'Airport Delivery';
-  if (deliveryMethod === 'pickup_station') return 'Pick Up Station';
-  return selectedQuote?.provider || selectedQuote?.carrierName || undefined;
-}
 
 const GOOGLE_STATE_ALIASES: Record<string, string> = {
   'federal capital territory': 'FCT - Abuja',
