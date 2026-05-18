@@ -21,6 +21,10 @@ type MockUserResult = {
 
 const mockGetSession = jest.fn<() => Promise<MockSessionResult>>();
 const mockGetUser = jest.fn<(token?: string) => Promise<MockUserResult>>();
+const mockConfig = {
+  MERCHANT_ID: '',
+  MERCHANT_SLUG: 'ogabassey',
+};
 
 const originalFetch = global.fetch;
 global.fetch = mockFetch;
@@ -38,10 +42,7 @@ jest.mock('expo-constants', () => ({
 }));
 
 jest.mock('@/lib/config', () => ({
-  CONFIG: {
-    MERCHANT_ID: '',
-    MERCHANT_SLUG: 'ogabassey',
-  },
+  CONFIG: mockConfig,
 }));
 
 jest.mock('@/lib/supabase', () => ({
@@ -80,6 +81,8 @@ describe('quiz service', () => {
     mockGetUser.mockResolvedValue({
       data: { user: { id: 'user-1' } },
     });
+    mockConfig.MERCHANT_ID = '';
+    mockConfig.MERCHANT_SLUG = 'ogabassey';
   });
 
   afterEach(() => {
@@ -144,6 +147,20 @@ describe('quiz service', () => {
       'https://example.com/api/quiz/events?merchantSlug=ogabassey',
       expect.objectContaining({ method: 'GET' })
     );
+  });
+
+  it('fails closed before event requests when merchant context is unavailable', async () => {
+    mockExpoConstants.expoConfig = { extra: {} };
+    mockConfig.MERCHANT_SLUG = '';
+
+    await expect(
+      fetchQuizEvents({ baseUrl: 'https://example.com' })
+    ).rejects.toMatchObject({
+      code: 'QUIZ_CONFIGURATION_REQUIRED',
+      message: 'Quiz merchant context is not configured',
+      status: 500,
+    });
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('throws mapped quiz errors from API error responses', async () => {

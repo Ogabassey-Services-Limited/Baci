@@ -76,7 +76,15 @@ function getQuizEventsPath(): string {
   }
 
   const query = params.toString();
-  return query ? `/api/quiz/events?${query}` : '/api/quiz/events';
+  if (!query) {
+    throw new QuizServiceError(
+      'Quiz merchant context is not configured',
+      'QUIZ_CONFIGURATION_REQUIRED',
+      500
+    );
+  }
+
+  return `/api/quiz/events?${query}`;
 }
 
 async function readJson(response: Response): Promise<unknown> {
