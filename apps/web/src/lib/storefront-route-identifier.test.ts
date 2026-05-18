@@ -37,6 +37,14 @@ describe('resolveRouteIdentifier', () => {
     ).toBe('ogabassey');
   });
 
+  it('falls back to the merchant domain header used by proxy rewrites', () => {
+    expect(
+      resolveRouteIdentifier(
+        createHeaders([['x-merchant-domain', 'Ogabassey.com']])
+      )
+    ).toBe('ogabassey.com');
+  });
+
   it('derives the slug from a root-domain subdomain host', () => {
     expect(
       resolveRouteIdentifier(
@@ -94,6 +102,14 @@ describe('resolveMerchantContextIdentifier', () => {
         createHeaders([['x-merchant-slug', 'Ogabassey']])
       )
     ).toBe('ogabassey');
+  });
+
+  it('falls back to the merchant domain header used by proxy rewrites', () => {
+    expect(
+      resolveMerchantContextIdentifier(
+        createHeaders([['x-merchant-domain', 'Ogabassey.com']])
+      )
+    ).toBe('ogabassey.com');
   });
 
   it('ignores deployment hosts without merchant context headers', () => {
