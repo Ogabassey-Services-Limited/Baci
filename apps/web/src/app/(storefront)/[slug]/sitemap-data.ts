@@ -46,9 +46,12 @@ export async function resolveStorefrontSitemapContext(
   headersList: Headers,
   routeIdentifierOverride?: string | null
 ): Promise<StorefrontSitemapContext | null> {
-  const routeIdentifier =
-    routeIdentifierOverride?.trim().toLowerCase() ||
-    resolveRouteIdentifier(headersList);
+  const merchantContextHeader =
+    headersList.get('x-custom-domain') || headersList.get('x-merchant-slug');
+  const headerRouteIdentifier = resolveRouteIdentifier(headersList);
+  const routeIdentifier = merchantContextHeader?.trim()
+    ? headerRouteIdentifier
+    : routeIdentifierOverride?.trim().toLowerCase() || headerRouteIdentifier;
   let merchant = null;
 
   try {
