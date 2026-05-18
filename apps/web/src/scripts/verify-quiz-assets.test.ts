@@ -216,6 +216,23 @@ describe('verifyQuizAssets', () => {
     });
   });
 
+  it('rejects invalid caller-provided manifest paths instead of falling back', async () => {
+    const root = await createTempRepo();
+
+    await expect(
+      verifyQuizAssets({ repoRoot: root, manifestPath: '../manifest.json' })
+    ).rejects.toThrow(
+      'Invalid quiz asset manifest path: ../manifest.json'
+    );
+    await expect(
+      writeQuizAssetManifest({
+        generatedAt: '2026-05-16T10:00:00.000Z',
+        manifestPath: '/tmp/manifest.json',
+        repoRoot: root,
+      })
+    ).rejects.toThrow('Invalid quiz asset manifest path: /tmp/manifest.json');
+  });
+
   it('fails fast when the asset tree is unexpectedly deep', async () => {
     const root = await createTempRepo();
     let nestedDirectory = path.join(

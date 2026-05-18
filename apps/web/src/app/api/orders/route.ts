@@ -71,10 +71,21 @@ type EmailOrderItem = {
   price?: number;
 };
 
-function hasQuizVoucherItem(
-  items: Array<{ voucher_token?: string | undefined }>
-): boolean {
-  return items.some((item) => (item.voucher_token ?? '').trim().length > 0);
+type QuizVoucherItemCandidate = {
+  voucherToken?: unknown;
+  voucher_token?: unknown;
+};
+
+function hasNonEmptyToken(value: unknown): boolean {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function hasQuizVoucherItem(items: QuizVoucherItemCandidate[]): boolean {
+  return items.some(
+    (item) =>
+      hasNonEmptyToken(item.voucher_token) ||
+      hasNonEmptyToken(item.voucherToken)
+  );
 }
 
 // GET /api/orders - Fetch orders for authenticated merchant

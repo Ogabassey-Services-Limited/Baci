@@ -177,6 +177,11 @@ describe('QuizScreen', () => {
     );
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Start failed');
+    expect(
+      screen.getByRole('button', {
+        name: 'Use 1 point to start Daily Prize Quiz',
+      })
+    ).toBeTruthy();
     expect(startQuizAttempt).toHaveBeenCalledWith({
       eventId: 'event-1',
       integrityTier: 'device',

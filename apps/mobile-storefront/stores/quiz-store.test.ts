@@ -93,6 +93,26 @@ describe('useQuizStore', () => {
     });
   });
 
+  it('returns to the event list after a start attempt failure', async () => {
+    await act(async () => {
+      await useQuizStore.getState().loadEvents(async () => events);
+    });
+
+    await act(async () => {
+      await useQuizStore.getState().startEvent('event-1', 'strong', async () => {
+        throw new Error('Exam pass unavailable');
+      });
+    });
+
+    expect(useQuizStore.getState()).toMatchObject({
+      status: 'ready',
+      events,
+      attempt: null,
+      selectedEventId: 'event-1',
+      error: 'Exam pass unavailable',
+    });
+  });
+
   it('keeps the attempt open when submit returns the next question', async () => {
     const nextQuestion = {
       ...attempt.question,

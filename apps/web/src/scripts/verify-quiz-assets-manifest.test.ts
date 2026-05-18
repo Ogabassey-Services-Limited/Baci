@@ -46,6 +46,25 @@ describe('normalizeQuizAssetManifest', () => {
     expect(errors).toEqual([]);
   });
 
+  it('normalizes generated asset repoPath separators', () => {
+    const errors: string[] = [];
+
+    expect(
+      normalizeQuizAssetManifest(
+        {
+          assets: [
+            {
+              repoPath: 'apps\\mobile-storefront\\assets\\quiz\\svg\\Logo.svg',
+              sha256: 'b'.repeat(64),
+            },
+          ],
+        },
+        errors
+      )
+    ).toEqual([{ path: 'svg/Logo.svg', sha256: 'b'.repeat(64) }]);
+    expect(errors).toEqual([]);
+  });
+
   it('accepts uppercase SHA-256 values and normalizes them for checksum comparison', () => {
     const errors: string[] = [];
 
@@ -58,6 +77,20 @@ describe('normalizeQuizAssetManifest', () => {
               sha256: 'A'.repeat(64),
             },
           ],
+        },
+        errors
+      )
+    ).toEqual([{ path: 'png/Coins.png', sha256: 'a'.repeat(64) }]);
+    expect(errors).toEqual([]);
+  });
+
+  it('normalizes hand-authored manifest file path separators', () => {
+    const errors: string[] = [];
+
+    expect(
+      normalizeQuizAssetManifest(
+        {
+          files: [{ path: 'png\\Coins.png', sha256: 'a'.repeat(64) }],
         },
         errors
       )

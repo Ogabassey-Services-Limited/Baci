@@ -1,0 +1,44 @@
+import type { QuizEvent } from '@/services/quiz';
+
+export function formatTimeRange(
+  event: QuizEvent,
+  locale: string | undefined,
+  fallbackMessage: string
+): string {
+  if (!event.startsAt || !event.endsAt) {
+    return fallbackMessage;
+  }
+
+  const startDate = new Date(event.startsAt);
+  const endDate = new Date(event.endsAt);
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return fallbackMessage;
+  }
+
+  const resolvedLocale =
+    locale || Intl.DateTimeFormat().resolvedOptions().locale;
+  const start = startDate.toLocaleTimeString(resolvedLocale, {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const end = endDate.toLocaleTimeString(resolvedLocale, {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  return `${start} - ${end}`;
+}
+
+export function getQuizErrorMessage(
+  error: unknown,
+  fallbackMessage: string
+): string {
+  return error instanceof Error ? error.message : fallbackMessage;
+}
+
+export function formatPointCount(
+  points: number,
+  singular = 'point',
+  plural = `${singular}s`
+): string {
+  return `${points} ${Math.abs(points) === 1 ? singular : plural}`;
+}

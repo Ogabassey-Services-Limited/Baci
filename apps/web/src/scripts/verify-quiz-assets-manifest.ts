@@ -44,6 +44,10 @@ function isSha256(value: string): boolean {
   return /^[a-f0-9]{64}$/i.test(value);
 }
 
+function normalizeManifestPath(value: string): string {
+  return value.replaceAll('\\', '/');
+}
+
 function isManifestFileEntry(value: unknown): value is QuizAssetManifestFile {
   if (!value || typeof value !== 'object') return false;
   const entry = value as Partial<QuizAssetManifestFile>;
@@ -72,7 +76,7 @@ function normalizeGeneratedManifestEntry(
   asset: QuizAssetGeneratedManifestFile,
   errors: string[]
 ): QuizAssetVerificationEntry | null {
-  const normalizedRepoPath = asset.repoPath.replaceAll('\\', '/');
+  const normalizedRepoPath = normalizeManifestPath(asset.repoPath);
   const normalizedRoot = `${QUIZ_ASSET_ROOT}/`;
   if (!normalizedRepoPath.startsWith(normalizedRoot)) {
     errors.push(`Invalid quiz asset repoPath: ${asset.repoPath}`);
@@ -110,7 +114,10 @@ export function normalizeQuizAssetManifest(
           return null;
         }
 
-        return { path: file.path, sha256: file.sha256.toLowerCase() };
+        return {
+          path: normalizeManifestPath(file.path),
+          sha256: file.sha256.toLowerCase(),
+        };
       })
       .filter((entry): entry is QuizAssetVerificationEntry => entry !== null);
   }

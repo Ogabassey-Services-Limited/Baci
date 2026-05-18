@@ -93,7 +93,7 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
       const attempt = await starter();
       set({ status: 'question', attempt, error: null });
     } catch (error) {
-      set({ status: 'error', error: getMessage(error) });
+      set({ status: 'ready', error: getMessage(error) });
     }
   },
   selectAnswer: (optionId) => {
