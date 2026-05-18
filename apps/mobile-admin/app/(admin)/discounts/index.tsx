@@ -197,7 +197,7 @@ export default function DiscountsScreen() {
                   ]}
                   onPress={handleCreateDiscount}
                 >
-                  <Text style={styles.createButtonText}>Create Discount</Text>
+                  <Text style={[styles.createButtonText, { color: colors.textOnPrimary }]}>Create Discount</Text>
                 </Pressable>
               </View>
             }
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.full,
   },
   createButtonText: {
-    color: '#FFFFFF',
+
     fontSize: TYPOGRAPHY.size.md,
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
   },
