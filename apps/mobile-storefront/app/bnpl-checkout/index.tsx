@@ -42,7 +42,64 @@ const API_BASE_URL = resolveApiBaseUrl(process.env.EXPO_PUBLIC_API_URL);
 const BNPL_LOAD_TIMEOUT_MS = 45_000;
 const BNPL_LOAD_TIMEOUT_MESSAGE =
   'Payment page is taking longer than expected. Check your connection and try again.';
+const BNPL_UNTRUSTED_POPUP_MESSAGE =
+  'Payment provider opened an untrusted checkout window.';
+const USEBACI_HOSTNAME = 'usebaci.com';
+const BNPL_PROVIDER_POPUP_ORIGINS = new Set([
+  'https://api.credpal.com',
+  'https://app.creditdirect.ng',
+  'https://cdl.test.lendastack.io',
+  'https://checkout.creditdirect.ng',
+  'https://checkout.credpal.com',
+  'https://corporate-loans.obs.sa-brazil-1.myhuaweicloud.com',
+]);
 type BNPLCheckoutStatus = 'loading' | 'ready' | 'success' | 'error';
+
+type WebViewOpenWindowEventLike = {
+  nativeEvent: {
+    targetUrl?: string;
+  };
+};
+
+function isBaciReturnOrigin(targetUrl: URL, baseUrl: string) {
+  try {
+    const base = new URL(baseUrl);
+
+    if (targetUrl.origin === base.origin) {
+      return true;
+    }
+
+    if (
+      base.hostname === USEBACI_HOSTNAME &&
+      targetUrl.protocol === base.protocol &&
+      (targetUrl.hostname === USEBACI_HOSTNAME ||
+        targetUrl.hostname.endsWith(`.${USEBACI_HOSTNAME}`))
+    ) {
+      return true;
+    }
+  } catch {
+    return false;
+  }
+
+  return false;
+}
+
+function isAllowedBnplPopupUrl(targetUrl: string, baseUrl: string) {
+  try {
+    const parsedTargetUrl = new URL(targetUrl);
+
+    if (!['https:', 'http:'].includes(parsedTargetUrl.protocol)) {
+      return false;
+    }
+
+    return (
+      BNPL_PROVIDER_POPUP_ORIGINS.has(parsedTargetUrl.origin) ||
+      isBaciReturnOrigin(parsedTargetUrl, baseUrl)
+    );
+  } catch {
+    return false;
+  }
+}
 
 export default function BNPLCheckoutScreen() {
   const colorScheme = useColorScheme();
@@ -54,6 +111,7 @@ export default function BNPLCheckoutScreen() {
   const clearCart = useCartStore((state) => state.clearCart);
 
   const [status, setStatusState] = useState<BNPLCheckoutStatus>('loading');
+  const [currentUrl, setCurrentUrl] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const statusRef = useRef<BNPLCheckoutStatus>('loading');
 
@@ -148,6 +206,12 @@ export default function BNPLCheckoutScreen() {
     // because Next.js handles the rewrite.
     return `${baseUrl}/${slug}/checkout/bnpl?${query.toString()}`;
   })();
+
+  useEffect(() => {
+    if (bnplUrl) {
+      setCurrentUrl(bnplUrl);
+    }
+  }, [bnplUrl]);
 
   // 2026 Critical Fix: Show error state for invalid params
   if (!validatedParams.isValid) {
@@ -274,7 +338,10 @@ export default function BNPLCheckoutScreen() {
     clearPendingLoadTimeout();
     setCheckoutStatus('loading');
     setErrorMessage(null);
-    webViewRef.current?.reload();
+    setCurrentUrl(bnplUrl);
+    if ((currentUrl || bnplUrl) === bnplUrl) {
+      webViewRef.current?.reload();
+    }
   };
 
   const handleLoadStart = () => {
@@ -293,6 +360,22 @@ export default function BNPLCheckoutScreen() {
         ? currentStatus
         : 'ready'
     );
+  };
+
+  const handleOpenWindow = (event: WebViewOpenWindowEventLike) => {
+    const targetUrl = event.nativeEvent.targetUrl;
+
+    if (!targetUrl || !isAllowedBnplPopupUrl(targetUrl, API_BASE_URL)) {
+      clearPendingLoadTimeout();
+      setCheckoutStatus('error');
+      setErrorMessage(BNPL_UNTRUSTED_POPUP_MESSAGE);
+      return;
+    }
+
+    setErrorMessage(null);
+    scheduleLoadTimeout();
+    setCheckoutStatus('loading');
+    setCurrentUrl(targetUrl);
   };
 
   const gatewayName = gateway === 'credpal' ? 'CredPal' : 'Credit Direct';
@@ -457,12 +540,13 @@ export default function BNPLCheckoutScreen() {
       {/* BNPL WebView */}
       <WebView
         ref={webViewRef}
-        source={{ uri: bnplUrl }}
+        source={{ uri: currentUrl || bnplUrl }}
         style={styles.webView}
         onLoadStart={handleLoadStart}
         onLoadEnd={handleLoadEnd}
         onNavigationStateChange={handleNavigationChange}
         onMessage={handleWebViewMessage}
+        onOpenWindow={handleOpenWindow}
         injectedJavaScript={injectedJavaScript}
         javaScriptEnabled={true}
         javaScriptCanOpenWindowsAutomatically={true}
@@ -473,7 +557,6 @@ export default function BNPLCheckoutScreen() {
         scalesPageToFit={true}
         mixedContentMode="compatibility"
         allowsInlineMediaPlayback={true}
-        setSupportMultipleWindows={false}
         onError={(syntheticEvent) => {
           const { nativeEvent } = syntheticEvent;
           clearPendingLoadTimeout();

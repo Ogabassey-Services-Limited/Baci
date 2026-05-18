@@ -51,6 +51,7 @@ jest.mock('react-native-webview', () => ({
     onError,
     onLoadStart,
     onMessage,
+    onOpenWindow,
     setSupportMultipleWindows,
     source,
     thirdPartyCookiesEnabled,
@@ -61,12 +62,15 @@ jest.mock('react-native-webview', () => ({
     }) => void;
     onLoadStart?: () => void;
     onMessage?: (event: { nativeEvent: { data: string } }) => void;
+    onOpenWindow?: (event: { nativeEvent: { targetUrl: string } }) => void;
     setSupportMultipleWindows?: boolean;
     source: { uri: string };
     thirdPartyCookiesEnabled?: boolean;
   }) => {
     const { Pressable, Text, View } =
       jest.requireActual<typeof import('react-native')>('react-native');
+    const openWindow = (targetUrl: string) =>
+      onOpenWindow?.({ nativeEvent: { targetUrl } });
 
     return (
       <View>
@@ -75,7 +79,22 @@ jest.mock('react-native-webview', () => ({
           javaScriptCanOpenWindowsAutomatically
         )}`}</Text>
         <Text>{`multi-window:${String(setSupportMultipleWindows)}`}</Text>
+        <Text>{`open-window-handler:${String(Boolean(onOpenWindow))}`}</Text>
         <Text>{`third-party-cookies:${String(thirdPartyCookiesEnabled)}`}</Text>
+        <Pressable
+          accessibilityLabel="mock-bnpl-open-credit-direct-popup"
+          onPress={() =>
+            openWindow('https://checkout.creditdirect.ng/bnpl/session-123')
+          }
+        >
+          <Text>open-credit-direct-popup</Text>
+        </Pressable>
+        <Pressable
+          accessibilityLabel="mock-bnpl-open-untrusted-popup"
+          onPress={() => openWindow('https://evil.example/phish')}
+        >
+          <Text>open-untrusted-popup</Text>
+        </Pressable>
         <Pressable
           accessibilityLabel="mock-bnpl-load-start"
           onPress={() => onLoadStart?.()}
@@ -178,8 +197,30 @@ describe('BNPLCheckoutScreen', () => {
     render(<BNPLCheckoutScreen />);
 
     expect(screen.getByText('popup-windows:true')).toBeTruthy();
-    expect(screen.getByText('multi-window:false')).toBeTruthy();
+    expect(screen.getByText('multi-window:undefined')).toBeTruthy();
+    expect(screen.getByText('open-window-handler:true')).toBeTruthy();
     expect(screen.getByText('third-party-cookies:true')).toBeTruthy();
+  });
+
+  it('loads allowed Credit Direct popup windows in the same WebView', () => {
+    render(<BNPLCheckoutScreen />);
+
+    fireEvent.press(screen.getByLabelText('mock-bnpl-open-credit-direct-popup'));
+
+    expect(screen.getByText(/^webview:/).props.children).toBe(
+      'webview:https://checkout.creditdirect.ng/bnpl/session-123'
+    );
+  });
+
+  it('blocks untrusted popup windows from replacing the checkout WebView', () => {
+    render(<BNPLCheckoutScreen />);
+
+    fireEvent.press(screen.getByLabelText('mock-bnpl-open-untrusted-popup'));
+
+    expect(
+      screen.getByText('Payment provider opened an untrusted checkout window.')
+    ).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Try Again' })).toBeTruthy();
   });
 
   it('shows a retryable error when the BNPL checkout page stalls while loading', () => {
