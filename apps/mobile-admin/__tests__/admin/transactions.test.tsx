@@ -452,6 +452,19 @@ describe('TransactionsScreen', () => {
     );
   });
 
+  it('preserves spaces while typing a supplier name before save', () => {
+    render(<TransactionsScreen />);
+
+    fireEvent.click(screen.getByText('Edit ORD-1'));
+    fireEvent.change(screen.getByLabelText('Vendor or supplier input'), {
+      target: { value: 'main ' },
+    });
+
+    expect(screen.getByLabelText('Vendor or supplier input')).toHaveValue(
+      'main '
+    );
+  });
+
   it('saves comma decimal cost price input without converting it to hundreds', async () => {
     const expectedTransactionDateIso = buildTransactionDateIso('2026-04-10');
 

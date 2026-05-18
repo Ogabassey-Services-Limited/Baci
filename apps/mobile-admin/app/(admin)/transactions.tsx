@@ -119,7 +119,7 @@ export default function TransactionsScreen() {
   };
 
   const handleChangeSupplier = (value: string) => {
-    setSupplierInput(toSentenceCaseSupplierName(value));
+    setSupplierInput(value);
   };
 
   const handleSave = async () => {
@@ -145,7 +145,7 @@ export default function TransactionsScreen() {
         costPrice: nextCostPrice,
         orderId: selectedOrder.id,
         productId: selectedItem.productId,
-        supplierName: supplierInput,
+        supplierName: toSentenceCaseSupplierName(supplierInput),
         transactionDateIso: nextTransactionDateIso,
       });
       handleCloseEditor();
