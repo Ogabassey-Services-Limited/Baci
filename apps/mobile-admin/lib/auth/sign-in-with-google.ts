@@ -4,7 +4,7 @@ import type {
 } from '@react-native-google-signin/google-signin';
 import type { Session, User } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import { isRuntimePlatform } from '@/config/runtime-platform';
 import { supabase } from '@/lib/supabase';
 
 interface GoogleSignInModule {
@@ -54,7 +54,7 @@ function getGoogleConfigError(): {
   error: string;
 } | null {
   const missingConfigFields = [
-    Platform.OS === 'ios' && !googleConfig.iosClientId
+    isRuntimePlatform('ios') && !googleConfig.iosClientId
       ? 'googleConfig.iosClientId'
       : null,
     !googleConfig.webClientId ? 'googleConfig.webClientId' : null,
@@ -121,7 +121,7 @@ function ensureGoogleConfigured(googleModule: GoogleSignInModule): void {
 }
 
 export async function signInWithGoogleNative(): Promise<GoogleSignInResult> {
-  if (Platform.OS === 'web') {
+  if (isRuntimePlatform('web')) {
     return {
       code: 'google_platform_not_supported',
       error: 'Google Sign-in is only available on native devices.',

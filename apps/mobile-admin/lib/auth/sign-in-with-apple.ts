@@ -1,6 +1,6 @@
 import type { Session, User } from '@supabase/supabase-js';
 import * as Crypto from 'expo-crypto';
-import { Platform } from 'react-native';
+import { isRuntimePlatform } from '@/config/runtime-platform';
 import { supabase } from '@/lib/supabase';
 import { generateUUID } from '@/utils/uuid';
 
@@ -38,7 +38,7 @@ function buildAppleFullName(
 }
 
 export async function signInWithAppleNative(): Promise<AppleSignInResult> {
-  if (Platform.OS !== 'ios') {
+  if (!isRuntimePlatform('ios')) {
     return {
       code: 'apple_platform_not_supported',
       error: 'Apple Sign-In is only available on iOS devices.',

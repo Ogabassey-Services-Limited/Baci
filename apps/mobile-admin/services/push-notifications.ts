@@ -14,13 +14,15 @@ import { getAdminNotificationNavigationTarget } from '@baci/shared/lib';
 import Constants from 'expo-constants';
 import type * as DeviceType from 'expo-device';
 import type * as NotificationsType from 'expo-notifications';
+import { getRuntimePlatform, isRuntimePlatform } from '@/config/runtime-platform';
+import { supabase } from '@/lib/supabase';
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
 let Device: typeof DeviceType | null = null;
 let Notifications: typeof NotificationsType | null = null;
 
 const loadNativeModules = async () => {
-  if (Platform.OS === 'web') return;
+  if (isRuntimePlatform('web')) return;
   try {
     const [dev, notif] = await Promise.all([
       import('expo-device'),
@@ -47,9 +49,6 @@ const loadNativeModules = async () => {
 };
 
 loadNativeModules();
-
-import { Platform } from 'react-native';
-import { supabase } from '@/lib/supabase';
 
 // Note: Notification handler is configured inside loadNativeModules() above
 
@@ -125,7 +124,7 @@ export async function registerForPushNotifications(): Promise<string | null> {
     }
 
     // Configure Android notification channels
-    if (Platform.OS === 'android') {
+    if (isRuntimePlatform('android')) {
       await setupAndroidChannels();
     }
 
@@ -200,7 +199,7 @@ export async function savePushTokenToServer(
         user_id: userId,
         merchant_id: merchantId,
         token: token,
-        platform: Platform.OS,
+        platform: getRuntimePlatform(),
         device_name: Device?.modelName || 'Unknown Device',
         app_type: 'admin',
         is_active: true,

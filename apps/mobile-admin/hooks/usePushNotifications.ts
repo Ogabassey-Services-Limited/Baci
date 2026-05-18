@@ -12,12 +12,12 @@ import type {
   Notification as ExpoNotification,
   NotificationResponse as ExpoNotificationResponse,
 } from 'expo-notifications';
-import { Platform } from 'react-native';
+import { isRuntimePlatform } from '@/config/runtime-platform';
 
 // Dynamic imports for native modules to prevent evaluation-time crashes
 let Notifications: typeof import('expo-notifications') | null = null;
 try {
-  if (Platform.OS !== 'web') {
+  if (!isRuntimePlatform('web')) {
     Notifications = require('expo-notifications');
   }
 } catch (_e) {

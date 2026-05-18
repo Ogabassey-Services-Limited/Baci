@@ -1,10 +1,5 @@
 [
   "config/runtime-platform.ts",
   "components/tax/StatePickerModal.tsx",
-  "components/transactions/CostPriceEditorModal.tsx",
-  "hooks/usePushNotifications.ts",
-  "lib/auth/sign-in-with-apple.ts",
-  "lib/auth/sign-in-with-google.ts",
-  "services/push-notifications.ts",
-  "stores/revenueCatStore.ts"
+  "components/transactions/CostPriceEditorModal.tsx"
 ]
