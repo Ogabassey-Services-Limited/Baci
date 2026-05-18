@@ -15,7 +15,7 @@ const AdUnit = dynamic(
   { loading: () => null, ssr: false }
 );
 
-interface DeferredProductDetailsSectionsProps {
+export interface DeferredProductDetailsSectionsProps {
   activeTab: ProductDetailsActiveTab;
   normalizedReviewRatingWidth: string;
   onSelectTab: (tab: ProductDetailsActiveTab) => void;

@@ -3,22 +3,13 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useState, type ReactNode } from 'react';
 import type { Product } from '../types';
-import { DeferredShellFeature } from '../components/deferred-shell-feature';
+import { DeferredProductDetailsSectionsLoader } from './product-details-page/deferred-product-details-sections-loader';
 import { ProductBreadcrumbs } from './product-details-page/product-breadcrumbs';
 import { ProductMediaGallery } from './product-details-page/product-media-gallery';
 import { ProductMobileActionBar } from './product-details-page/product-mobile-action-bar';
 import { ProductPurchasePanel } from './product-details-page/product-purchase-panel';
 import { getAvailableOptionsForAxis } from '../variant-attributes';
 import { useProductDetailsState } from './product-details-page/use-product-details-state';
-
-function DeferredDetailsLoadingPlaceholder() {
-  return (
-    <div
-      aria-hidden="true"
-      className="mt-12 min-h-[1200px] [content-visibility:auto] [contain-intrinsic-size:1400px_2200px]"
-    />
-  );
-}
 
 const AdUnit = dynamic(
   () => import('../components/AdUnit').then((mod) => mod.AdUnit),
@@ -28,13 +19,6 @@ const BannerCarousel = dynamic(
   () =>
     import('../components/BannerCarousel').then((mod) => mod.BannerCarousel),
   { loading: () => null, ssr: false }
-);
-const DeferredProductDetailsSections = dynamic(
-  () =>
-    import(
-      './product-details-page/deferred-product-details-sections'
-    ).then((mod) => mod.DeferredProductDetailsSections),
-  { loading: DeferredDetailsLoadingPlaceholder }
 );
 const NegotiationModal = dynamic(
   () =>
@@ -175,8 +159,6 @@ export function ProductDetailsPage({
     setSelectedAttributes((prev) => ({ ...prev, [axis]: value }));
     setMissingFields((prev) => prev.filter((field) => field !== label));
   };
-  const deferredDetailsFallback = <DeferredDetailsLoadingPlaceholder />;
-
   return (
     <div className="relative bg-store-background pb-32 pt-4">
       <div
@@ -249,16 +231,14 @@ export function ProductDetailsPage({
 
         {semanticSections}
 
-        <DeferredShellFeature fallback={deferredDetailsFallback} timeoutMs={1800}>
-          <DeferredProductDetailsSections
-            activeTab={activeTab}
-            normalizedReviewRatingWidth={normalizedReviewRatingWidth}
-            onSelectTab={setActiveTab}
-            productData={productData}
-            relatedProductsProduct={relatedProductsProduct}
-            storeSlug={merchantSlug}
-          />
-        </DeferredShellFeature>
+        <DeferredProductDetailsSectionsLoader
+          activeTab={activeTab}
+          normalizedReviewRatingWidth={normalizedReviewRatingWidth}
+          onSelectTab={setActiveTab}
+          productData={productData}
+          relatedProductsProduct={relatedProductsProduct}
+          storeSlug={merchantSlug}
+        />
       </div>
 
       <ProductMobileActionBar

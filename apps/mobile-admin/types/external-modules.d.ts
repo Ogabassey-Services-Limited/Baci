@@ -17,6 +17,11 @@ declare module 'qrcode' {
   export default QRCode;
 }
 
+declare module '*.png' {
+  const asset: import('react-native').ImageSourcePropType;
+  export default asset;
+}
+
 declare module 'react-native-image-colors' {
   type IOSColorResult = {
     platform: 'ios';
