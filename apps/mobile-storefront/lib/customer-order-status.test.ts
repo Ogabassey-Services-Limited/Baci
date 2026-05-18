@@ -5,6 +5,7 @@ import {
   getCustomerOrderProgressState,
   getCustomerOrderStatusKey,
   getCustomerOrderStatusMeta,
+  getCustomerOrderStatusPalette,
   isCustomerOrderClosed,
 } from './customer-order-status';
 
@@ -30,6 +31,21 @@ describe('customer order status helpers', () => {
     expect(isCustomerOrderClosed('cancelled')).toBe(true);
     expect(isCustomerOrderClosed('returned')).toBe(true);
     expect(isCustomerOrderClosed('shipped')).toBe(false);
+  });
+
+  it('returns consistent customer-facing status palettes', () => {
+    expect(getCustomerOrderStatusPalette('pending')).toMatchObject({
+      accent: '#DC2626',
+    });
+    expect(getCustomerOrderStatusPalette('processing')).toMatchObject({
+      accent: '#2563EB',
+    });
+    expect(getCustomerOrderStatusPalette('shipped')).toMatchObject({
+      accent: '#7C3AED',
+    });
+    expect(getCustomerOrderStatusPalette('delivered')).toMatchObject({
+      accent: '#059669',
+    });
   });
 
   it('returns progress indices only for active delivery states', () => {

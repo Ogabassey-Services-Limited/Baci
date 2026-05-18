@@ -27,10 +27,12 @@ import { useReceiptPreview } from '@/hooks/use-receipt-preview';
 import { useMerchantReceiptInfo } from '@/hooks/use-receipts';
 import {
   CUSTOMER_ORDER_PROGRESS_STEPS,
+  getCustomerOrderStatusPalette,
   getCustomerOrderProgressState,
   getCustomerOrderStatusMeta,
   isCustomerOrderClosed,
 } from '@/lib/customer-order-status';
+import { formatNgnCurrency } from '@/lib/format-ngn-currency';
 import { createLogger } from '@/lib/logger';
 import {
   getOrderAssuranceFeeTotal,
@@ -99,39 +101,6 @@ interface OrderDetails {
   notes?: string;
   items: OrderItem[];
 }
-
-const ORDER_STATUS_PALETTES = {
-  placed: {
-    accent: BRAND.primary,
-    surface: 'rgba(220, 38, 38, 0.10)',
-    border: 'rgba(220, 38, 38, 0.18)',
-  },
-  confirmed: {
-    accent: '#2563EB',
-    surface: 'rgba(37, 99, 235, 0.10)',
-    border: 'rgba(37, 99, 235, 0.18)',
-  },
-  shipped: {
-    accent: '#7C3AED',
-    surface: 'rgba(124, 58, 237, 0.10)',
-    border: 'rgba(124, 58, 237, 0.18)',
-  },
-  delivered: {
-    accent: '#059669',
-    surface: 'rgba(5, 150, 105, 0.10)',
-    border: 'rgba(5, 150, 105, 0.18)',
-  },
-  cancelled: {
-    accent: '#DC2626',
-    surface: 'rgba(220, 38, 38, 0.10)',
-    border: 'rgba(220, 38, 38, 0.18)',
-  },
-  returned: {
-    accent: '#6B7280',
-    surface: 'rgba(107, 114, 128, 0.12)',
-    border: 'rgba(107, 114, 128, 0.18)',
-  },
-} as const;
 
 export default function OrderDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -319,14 +288,6 @@ export default function OrderDetailsScreen() {
     });
   };
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0,
-    }).format(price);
-  };
-
   const handleTrackOrder = () => {
     const trackingNumber = order?.tracking_number;
     const provider = order?.shipping_provider?.toLowerCase();
@@ -470,7 +431,7 @@ export default function OrderDetailsScreen() {
   }
 
   const statusMeta = getCustomerOrderStatusMeta(order.shipping_status);
-  const statusPalette = ORDER_STATUS_PALETTES[statusMeta.key];
+  const statusPalette = getCustomerOrderStatusPalette(order.shipping_status);
   const isClosedOrder = isCustomerOrderClosed(order.shipping_status);
   const orderAssuranceFee = getOrderAssuranceFeeTotal(
     order.items,
@@ -809,7 +770,7 @@ export default function OrderDetailsScreen() {
                       Qty: {item.quantity}
                     </Text>
                     <Text style={[styles.itemPrice, { color: colors.text }]}>
-                      {formatPrice(item.price * item.quantity)}
+                      {formatNgnCurrency(item.price * item.quantity)}
                     </Text>
                   </View>
                 </View>
@@ -859,7 +820,7 @@ export default function OrderDetailsScreen() {
                     Coverage
                   </Text>
                   <Text style={[styles.insuranceValue, { color: colors.text }]}>
-                    {formatPrice(insurancePolicy.coverage_amount)}
+                    {formatNgnCurrency(insurancePolicy.coverage_amount)}
                   </Text>
                 </View>
                 <View style={styles.insuranceRow}>
@@ -872,7 +833,7 @@ export default function OrderDetailsScreen() {
                     Premium
                   </Text>
                   <Text style={[styles.insuranceValue, { color: colors.text }]}>
-                    {formatPrice(insurancePolicy.premium_amount)}
+                    {formatNgnCurrency(insurancePolicy.premium_amount)}
                   </Text>
                 </View>
                 <View style={styles.insuranceRow}>
@@ -1080,7 +1041,7 @@ export default function OrderDetailsScreen() {
                 Subtotal
               </Text>
               <Text style={[styles.summaryValue, { color: colors.text }]}>
-                {formatPrice(summaryBreakdown.itemsSubtotal)}
+                {formatNgnCurrency(summaryBreakdown.itemsSubtotal)}
               </Text>
             </View>
             {summaryBreakdown.assuranceFee > 0 && (
@@ -1091,7 +1052,7 @@ export default function OrderDetailsScreen() {
                   Device Assurance
                 </Text>
                 <Text style={[styles.summaryValue, { color: colors.text }]}>
-                  {formatPrice(summaryBreakdown.assuranceFee)}
+                  {formatNgnCurrency(summaryBreakdown.assuranceFee)}
                 </Text>
               </View>
             )}
@@ -1104,7 +1065,7 @@ export default function OrderDetailsScreen() {
               <Text style={[styles.summaryValue, { color: colors.text }]}>
                 {summaryBreakdown.shippingFee === 0
                   ? 'Free'
-                  : formatPrice(summaryBreakdown.shippingFee)}
+                  : formatNgnCurrency(summaryBreakdown.shippingFee)}
               </Text>
             </View>
             {summaryBreakdown.taxAmount > 0 && (
@@ -1115,7 +1076,7 @@ export default function OrderDetailsScreen() {
                   VAT
                 </Text>
                 <Text style={[styles.summaryValue, { color: colors.text }]}>
-                  {formatPrice(summaryBreakdown.taxAmount)}
+                  {formatNgnCurrency(summaryBreakdown.taxAmount)}
                 </Text>
               </View>
             )}
@@ -1127,7 +1088,7 @@ export default function OrderDetailsScreen() {
                   Discount
                 </Text>
                 <Text style={[styles.summaryValue, { color: '#059669' }]}>
-                  -{formatPrice(summaryBreakdown.discountAmount)}
+                  -{formatNgnCurrency(summaryBreakdown.discountAmount)}
                 </Text>
               </View>
             )}
@@ -1136,7 +1097,7 @@ export default function OrderDetailsScreen() {
                 Total
               </Text>
               <Text style={[styles.totalValue, { color: colors.text }]}>
-                {formatPrice(summaryBreakdown.total)}
+                {formatNgnCurrency(summaryBreakdown.total)}
               </Text>
             </View>
             <View style={styles.paymentInfo}>
