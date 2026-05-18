@@ -11,8 +11,10 @@ interface CartValidationResponse {
   }[];
 }
 
-const createCartValidationKey = (id: string, variantId?: string | null) =>
-  variantId ? `${id}::${variantId}` : id;
+export const createCartValidationKey = (
+  id: string,
+  variantId?: string | null
+) => (variantId ? `${id}::${variantId}` : id);
 
 export const createCartHash = (cart: CartItem[]) => {
   return cart

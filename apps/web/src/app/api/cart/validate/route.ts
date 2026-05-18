@@ -75,7 +75,8 @@ export async function POST(request: NextRequest) {
     const { productIds, cartItems } = parsed.data;
 
     // Support both formats: just IDs or full cart items with prices.
-    const validationItems: CartValidationItem[] = cartItems
+    const hasCartItems = Array.isArray(cartItems) && cartItems.length > 0;
+    const validationItems: CartValidationItem[] = hasCartItems
       ? cartItems.map((item) => ({
           id: item.id,
           price: item.price,

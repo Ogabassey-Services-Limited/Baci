@@ -7,6 +7,11 @@ import type {
   CartContextType,
   CartItem,
 } from '@/hooks/cart/cart-types';
+import {
+  applyValidationResults,
+  createCartHash,
+  validateStorefrontCart,
+} from '@/hooks/cart/storefront-cart-validation';
 import { logger } from '@/lib/logger';
 import type { Product } from '@/lib/products';
 import { resolveDefaultVariantSelection } from '../../../../packages/shared/src/lib/product-default-variant';
@@ -335,15 +340,7 @@ export const CartProvider = ({
 
     // 2026 Critical Fix: Create a stable hash of cart item IDs+prices to detect meaningful changes
     // This prevents infinite loops when validation updates prices
-    const cartHash = cart
-      .map((item) => {
-        const itemKey = item.variantId
-          ? `${item.id}::${item.variantId}`
-          : item.id;
-        return `${itemKey}:${item.price}`;
-      })
-      .sort()
-      .join('|');
+    const cartHash = createCartHash(cart);
 
     // Skip if already validating or cart hasn't meaningfully changed
     if (cartHash === lastValidatedCartHashRef.current) {
@@ -356,107 +353,36 @@ export const CartProvider = ({
       // 2026 Critical Fix: Set validation lock
       lastValidatedCartHashRef.current = cartHash;
 
-      // Limit batch size to prevent massive payloads
-      const BATCH_SIZE = 50;
-      const limitedCart = cart.slice(0, BATCH_SIZE);
-
       try {
-        const cartItems = limitedCart.map((item) => ({
-          id: item.id,
-          price: item.price,
-          variantId: item.variantId,
-        }));
-
-        const response = await fetch('/api/cart/validate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cartItems }),
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          logger.warn({
-            message: 'Cart validation failed',
-            status: response.status,
-          });
-          return;
-        }
-
-        const { invalidProductIds, priceChanges } = (await response.json()) as {
-          invalidProductIds: string[];
-          priceChanges: {
-            id: string;
-            variantId?: string;
-            oldPrice: number;
-            newPrice: number;
-          }[];
-        };
-
-        // OPTIMIZATION: Use Set for O(1) lookup to remove ghost products
-        const invalidIdsSet = new Set(invalidProductIds || []);
+        const validation = await validateStorefrontCart(
+          cart,
+          controller.signal
+        );
+        if (!validation) return;
 
         // 2026 Critical Fix: Only update if there are actual changes
-        const hasInvalidProducts = invalidIdsSet.size > 0;
-        const hasPriceChanges = priceChanges?.length > 0;
+        const hasInvalidProducts =
+          (validation.invalidProductIds?.length ?? 0) > 0;
+        const hasPriceChanges = (validation.priceChanges?.length ?? 0) > 0;
 
         if (hasInvalidProducts || hasPriceChanges) {
           // Check if aborted before applying state
           if (controller.signal.aborted) return;
 
           setCart((prev) => {
-            let updated = prev;
+            const updated = applyValidationResults(prev, validation);
 
-            // Remove ghost products
-            if (hasInvalidProducts) {
-              updated = updated.filter((item) => !invalidIdsSet.has(item.id));
-              if (updated.length !== prev.length) {
-                logger.info({
-                  message: 'Removed ghost products from cart',
-                  count: prev.length - updated.length,
-                  removedIds: invalidProductIds,
-                });
-              }
-            }
-
-            // Update stale prices
-            if (hasPriceChanges) {
-              const priceChangesMap = new Map(
-                priceChanges.map((pc) => [
-                  pc.variantId ? `${pc.id}::${pc.variantId}` : pc.id,
-                  pc,
-                ])
-              );
-              updated = updated.map((item) => {
-                const itemKey = item.variantId
-                  ? `${item.id}::${item.variantId}`
-                  : item.id;
-                const priceChange = priceChangesMap.get(itemKey);
-                if (priceChange) {
-                  logger.info({
-                    message: 'Updated stale price in cart',
-                    productId: item.id,
-                    variantId: item.variantId,
-                    oldPrice: priceChange.oldPrice,
-                    newPrice: priceChange.newPrice,
-                  });
-                  return { ...item, price: priceChange.newPrice };
-                }
-                return item;
+            if (updated.length !== prev.length) {
+              logger.info({
+                message: 'Removed ghost products from cart',
+                count: prev.length - updated.length,
+                removedIds: validation.invalidProductIds ?? [],
               });
             }
 
             // 2026 Critical Fix: Update the hash ref AFTER cart changes
             // to prevent re-validation of the same corrected cart
-            const newHash = updated
-              .map((item) => {
-                const itemKey = item.variantId
-                  ? `${item.id}::${item.variantId}`
-                  : item.id;
-                return `${itemKey}:${item.price}`;
-              })
-              .sort()
-              .join('|');
-            lastValidatedCartHashRef.current = newHash;
+            lastValidatedCartHashRef.current = createCartHash(updated);
 
             return updated;
           });

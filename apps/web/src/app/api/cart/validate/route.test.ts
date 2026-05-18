@@ -53,6 +53,54 @@ describe('POST /api/cart/validate', () => {
     mocks.variantError = null;
   });
 
+  it('returns 400 for invalid request body', async () => {
+    const { supabase } = buildSupabaseMock();
+    mocks.createClient.mockResolvedValue(supabase);
+
+    const response = await postCartValidate({
+      cartItems: [{ id: PRODUCT_ID, price: '370000' }],
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Invalid request body');
+    expect(mocks.createClient).not.toHaveBeenCalled();
+  });
+
+  it('falls back to productIds when cartItems is empty', async () => {
+    const { supabase, productsQuery } = buildSupabaseMock();
+    mocks.createClient.mockResolvedValue(supabase);
+    mocks.products = [
+      {
+        id: PRODUCT_ID,
+        name: 'iPhone 15',
+        price: 370_000,
+        stock: 5,
+        stock_quantity: 5,
+        status: 'active',
+        manage_stock: true,
+      },
+    ];
+
+    const response = await postCartValidate({
+      productIds: [PRODUCT_ID],
+      cartItems: [],
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(productsQuery.in).toHaveBeenCalledWith('id', [PRODUCT_ID]);
+    expect(body.validProducts).toEqual([
+      {
+        id: PRODUCT_ID,
+        price: 370_000,
+        stock: 5,
+        name: 'iPhone 15',
+        manage_stock: true,
+      },
+    ]);
+  });
+
   it('reports stale selected-variant prices against the variant override', async () => {
     const { supabase, productsQuery } = buildSupabaseMock();
     mocks.createClient.mockResolvedValue(supabase);
