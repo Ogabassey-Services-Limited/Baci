@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
 import {
   classifyBlogDiscoverImageReadiness,
   validateBlogDiscoverImageReadiness,
@@ -7,10 +8,10 @@ import {
 import { PLATFORM_BLOG_MEDIA_PREFIX } from '@/lib/blog-managed-storage-paths';
 
 const merchantId = '6b5cb8a4-5575-456c-b936-8cdfae30db74';
-const managedOriginalUrl = `https://cdn.example.com/storage/v1/object/public/media/${merchantId}/blog/cover.png`;
-const managedLandscapeUrl = `https://cdn.example.com/storage/v1/object/public/media/${merchantId}/blog/upload-1/landscape_16x9.webp`;
-const managedPlatformOriginalUrl = `https://cdn.example.com/storage/v1/object/public/media/${PLATFORM_BLOG_MEDIA_PREFIX}/cover.png`;
-const managedPlatformLandscapeUrl = `https://cdn.example.com/storage/v1/object/public/media/${PLATFORM_BLOG_MEDIA_PREFIX}/upload-1/landscape_16x9.webp`;
+const managedOriginalUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/${merchantId}/blog/cover.png`;
+const managedLandscapeUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/${merchantId}/blog/upload-1/landscape_16x9.webp`;
+const managedPlatformOriginalUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/${PLATFORM_BLOG_MEDIA_PREFIX}/cover.png`;
+const managedPlatformLandscapeUrl = `${DEFAULT_BLOG_MEDIA_CDN_ORIGIN}/storage/v1/object/public/media/${PLATFORM_BLOG_MEDIA_PREFIX}/upload-1/landscape_16x9.webp`;
 
 describe('validateBlogDiscoverImageReadiness', () => {
   it('returns ready for a managed image with valid dimensions and landscape variant', () => {
@@ -50,7 +51,7 @@ describe('validateBlogDiscoverImageReadiness', () => {
     expect(
       validateBlogDiscoverImageReadiness(
         {
-          featured_image_url: 'https://example.com/external.jpg',
+          featured_image_url: `https://evil.example.com/media/${merchantId}/blog/cover.png`,
           featured_image_width: 1200,
           featured_image_height: 675,
           featured_image_variants: {
@@ -105,7 +106,7 @@ describe('validateBlogImageVariantIntegrity', () => {
       validateBlogImageVariantIntegrity(
         {
           featured_image_variants: {
-            landscape_16x9: 'https://example.com/variant.webp',
+            landscape_16x9: `https://evil.example.com/media/${merchantId}/blog/upload-1/landscape_16x9.webp`,
           },
         },
         merchantId

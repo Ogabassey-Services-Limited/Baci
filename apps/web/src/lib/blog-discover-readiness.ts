@@ -1,3 +1,5 @@
+import { DEFAULT_BLOG_MEDIA_CDN_ORIGIN } from '@/config/cdn';
+import { env } from '@/env';
 import {
   BLOG_FEATURED_VARIANT_KEYS,
   type BlogStorageScope,
@@ -38,6 +40,25 @@ type BlogDiscoverImageFields = {
   featured_image_variants?: Record<string, unknown> | null;
 };
 
+const trustedOriginCandidates = [
+  env.NEXT_PUBLIC_BLOG_MEDIA_CDN_ORIGIN || DEFAULT_BLOG_MEDIA_CDN_ORIGIN,
+  env.NEXT_PUBLIC_SUPABASE_URL,
+];
+
+const TRUSTED_BLOG_IMAGE_ORIGINS = new Set(
+  trustedOriginCandidates.flatMap((value) => {
+    if (!value) {
+      return [];
+    }
+
+    try {
+      return [new URL(value).origin];
+    } catch {
+      return [];
+    }
+  })
+);
+
 function notReady(
   code: BlogDiscoverImageReadinessCode,
   details: Record<string, unknown>
@@ -67,6 +88,17 @@ function isManagedVariantBlogPath(path: string | null): path is string {
   return Boolean(path && path.split('/').length === 4);
 }
 
+function isTrustedManagedBlogImageUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw);
+    return (
+      url.protocol === 'https:' && TRUSTED_BLOG_IMAGE_ORIGINS.has(url.origin)
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function validateBlogImageVariantIntegrity(
   image: Pick<BlogDiscoverImageFields, 'featured_image_variants'>,
   storageScope: string | BlogStorageScope
@@ -83,6 +115,12 @@ export function validateBlogImageVariantIntegrity(
 
     if (typeof value !== 'string' || value.trim().length === 0) {
       continue;
+    }
+
+    if (!isTrustedManagedBlogImageUrl(value)) {
+      return notReady('BLOG_FEATURED_IMAGE_VARIANT_NOT_MANAGED', {
+        variantKey: key,
+      });
     }
 
     const path = extractManagedBlogStoragePath(value, storageScope);
@@ -111,6 +149,12 @@ export function validateBlogDiscoverImageReadiness(
   if (!image.featured_image_url) {
     return notReady('BLOG_FEATURED_IMAGE_NOT_DISCOVER_READY', {
       reason: 'missing_featured_image',
+    });
+  }
+
+  if (!isTrustedManagedBlogImageUrl(image.featured_image_url)) {
+    return notReady('BLOG_FEATURED_IMAGE_NOT_MANAGED', {
+      reason: 'unmanaged_featured_image',
     });
   }
 
