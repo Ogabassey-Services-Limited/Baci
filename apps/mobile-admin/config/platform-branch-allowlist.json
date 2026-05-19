@@ -1,5 +1,4 @@
 [
   "config/runtime-platform.ts",
-  "components/tax/StatePickerModal.tsx",
   "components/transactions/CostPriceEditorModal.tsx"
 ]
