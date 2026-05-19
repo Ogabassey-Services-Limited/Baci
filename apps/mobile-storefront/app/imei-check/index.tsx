@@ -11,6 +11,11 @@ import { useRef, useState } from 'react';
 import { Alert, Keyboard } from 'react-native';
 import { ImeiCheckFormView } from '@/components/imei-check/imei-check-form-view';
 import { ImeiCheckResultView } from '@/components/imei-check/imei-check-result-view';
+import {
+  getPublicVisibleImeiServiceTierKeys,
+  hasAdditionalPublicImeiServiceTierKeys,
+  resolveImeiCheckFailure,
+} from '@/components/imei-check/resolve-imei-check-failure';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { useWallet } from '@/hooks/use-wallet';
@@ -25,17 +30,6 @@ import { useAuthStore } from '@/stores/auth-store';
 
 const log = createLogger('ImeiChecker');
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ogabassey.com';
-const PUBLIC_IMEI_SERVICE_TIER_KEYS = new Set<ImeiServiceTierKey>(
-  PRIMARY_IMEI_SERVICE_TIERS
-);
-const UNRESOLVED_IMEI_RESPONSE_CODES = new Set([
-  'DEBIT_FAILURE_STATE_SAVE_FAILED',
-  'IDEMPOTENT_REQUEST_IN_FLIGHT',
-  'LOOKUP_RESULT_SAVE_FAILED',
-  'REFUND_PENDING',
-  'REFUND_STATE_SAVE_FAILED',
-  'REFUNDED_STATE_SAVE_FAILED',
-]);
 
 export default function ImeiCheckerScreen() {
   const colorScheme = useColorScheme();
@@ -54,12 +48,15 @@ export default function ImeiCheckerScreen() {
     key: string;
     tier: ImeiServiceTierKey;
   } | null>(null);
-  const canToggleServices =
-    hasAdditionalPublicImeiServiceTierKeys(selectedBrand);
+  const canToggleServices = hasAdditionalPublicImeiServiceTierKeys(
+    getVisibleImeiServiceTierKeys,
+    selectedBrand
+  );
   const expandedViewEnabled = canToggleServices && showAllServices;
 
   const currentTier = IMEI_SERVICE_TIERS[selectedTier];
   const visibleTierKeys = getPublicVisibleImeiServiceTierKeys(
+    getVisibleImeiServiceTierKeys,
     selectedBrand,
     expandedViewEnabled
   );
@@ -74,12 +71,16 @@ export default function ImeiCheckerScreen() {
   const handleBrandSelect = (brand: ImeiBrandFilter) => {
     activeIdempotencyRef.current = null;
     setSelectedBrand(brand);
-    const nextCanToggle = hasAdditionalPublicImeiServiceTierKeys(brand);
+    const nextCanToggle = hasAdditionalPublicImeiServiceTierKeys(
+      getVisibleImeiServiceTierKeys,
+      brand
+    );
     const nextExpanded = nextCanToggle && showAllServices;
     if (!nextCanToggle && showAllServices) {
       setShowAllServices(false);
     }
     const nextVisibleTiers = getPublicVisibleImeiServiceTierKeys(
+      getVisibleImeiServiceTierKeys,
       brand,
       nextExpanded
     );
@@ -93,6 +94,7 @@ export default function ImeiCheckerScreen() {
     const nextExpanded = !showAllServices;
     setShowAllServices(nextExpanded);
     const nextVisibleTiers = getPublicVisibleImeiServiceTierKeys(
+      getVisibleImeiServiceTierKeys,
       selectedBrand,
       nextExpanded
     );
@@ -184,73 +186,30 @@ export default function ImeiCheckerScreen() {
 
       const rawData = await response.json();
       if (!response.ok || rawData?.error) {
-        const shouldPreserveIdempotencyKey =
-          typeof rawData?.code === 'string' &&
-          UNRESOLVED_IMEI_RESPONSE_CODES.has(rawData.code);
-        const shouldClearIdempotencyKey =
-          !shouldPreserveIdempotencyKey &&
-          ([200, 402, 404].includes(response.status) ||
-            (response.status === 502 && rawData?.code !== 'REFUND_PENDING'));
-        if (shouldClearIdempotencyKey) {
+        const outcome = resolveImeiCheckFailure({
+          currentTierPrice: currentTier.price,
+          payload: rawData,
+          responseStatus: response.status,
+          walletBalance,
+        });
+
+        if (outcome.shouldClearIdempotencyKey) {
           clearIdempotencyKey();
         }
-
-        if (response.status === 401) {
-          clearIdempotencyKey();
+        if (outcome.shouldRedirectToLogin) {
           router.push('/auth/login?returnTo=/imei-check');
           return;
         }
-
-        if (response.status === 402) {
-          const parsedRequired = Number(rawData?.required);
-          const parsedBalance = Number(rawData?.balance);
-          const required = Number.isFinite(parsedRequired)
-            ? parsedRequired
-            : currentTier.price;
-          const balance = Number.isFinite(parsedBalance)
-            ? parsedBalance
-            : walletBalance;
-          const topUpDelta = Math.max(0, required - balance);
-          handleTopUpWallet(Number.isFinite(topUpDelta) ? topUpDelta : 0);
+        if (outcome.topUpAmount !== null) {
+          handleTopUpWallet(outcome.topUpAmount);
           return;
         }
-
-        if (response.status === 404 && rawData?.code === 'CUSTOMER_NOT_FOUND') {
-          setError(
-            'Your customer profile is not ready for this store. Please sign in again.'
-          );
-          return;
-        }
-
-        if (response.status === 502 && rawData?.code === 'REFUND_PENDING') {
+        if (outcome.shouldRefetchWallet) {
           await walletQuery.refetch?.();
-          setError(
-            'Lookup failed; your refund is pending. We will credit you within 24h.'
-          );
-          return;
         }
-
-        if (
-          (response.status === 404 && rawData?.code === 'SICKW_NOT_FOUND') ||
-          (response.status === 502 && rawData?.code === 'SICKW_UNAVAILABLE')
-        ) {
-          await walletQuery.refetch?.();
-          setError('Lookup failed; your wallet was refunded.');
-          return;
+        if (outcome.errorMessage) {
+          setError(outcome.errorMessage);
         }
-
-        if (response.status === 409) {
-          if (!shouldPreserveIdempotencyKey) {
-            clearIdempotencyKey();
-          }
-          setError(rawData?.error || 'Unable to check IMEI. Please try again.');
-          return;
-        }
-
-        if (!shouldPreserveIdempotencyKey) {
-          clearIdempotencyKey();
-        }
-        setError(rawData?.error || 'Unable to check IMEI. Please try again.');
         return;
       }
 
@@ -327,21 +286,4 @@ export default function ImeiCheckerScreen() {
       onToggleServices={handleToggleServices}
     />
   );
-}
-
-function getPublicVisibleImeiServiceTierKeys(
-  brand: ImeiBrandFilter,
-  expanded: boolean
-): ImeiServiceTierKey[] {
-  return getVisibleImeiServiceTierKeys(brand, expanded).filter((tierKey) =>
-    PUBLIC_IMEI_SERVICE_TIER_KEYS.has(tierKey)
-  );
-}
-
-function hasAdditionalPublicImeiServiceTierKeys(
-  brand: ImeiBrandFilter
-): boolean {
-  const collapsedKeys = getPublicVisibleImeiServiceTierKeys(brand, false);
-  const expandedKeys = getPublicVisibleImeiServiceTierKeys(brand, true);
-  return expandedKeys.some((tierKey) => !collapsedKeys.includes(tierKey));
 }
