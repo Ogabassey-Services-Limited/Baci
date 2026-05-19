@@ -600,9 +600,10 @@ export const EditorToolbar = ({
         accept="image/*"
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (file && editor) {
-            const pos = getTiptap(editor)!.state.selection.from;
-            uploadFn(file, getTiptap(editor)!.view, pos);
+          const tiptap = getTiptap(editor);
+          if (file && tiptap) {
+            const pos = tiptap.state.selection.from;
+            uploadFn(file, tiptap.view, pos);
           }
           e.target.value = '';
         }}
