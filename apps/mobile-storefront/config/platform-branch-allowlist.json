@@ -85,6 +85,10 @@
       "justification": "Reviewed Android back-button behavior for drawer dismissal."
     },
     {
+      "path": "components/negotiation/useNegotiationModalController.ts",
+      "justification": "Reviewed web guard for native evidence modules and iOS-only haptic feedback."
+    },
+    {
       "path": "components/payment-gateway/PaymentGatewayCheckoutView.tsx",
       "justification": "Reviewed Android WebView scaling behavior."
     },
