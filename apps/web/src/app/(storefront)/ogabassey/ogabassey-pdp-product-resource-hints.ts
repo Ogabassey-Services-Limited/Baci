@@ -2,6 +2,7 @@ import 'server-only';
 import { getImageProps } from 'next/image';
 import type { ComponentProps, ReactElement } from 'react';
 import { createElement } from 'react';
+import { preload } from 'react-dom';
 import {
   OGABASSEY_PDP_PRIMARY_IMAGE_PRELOAD_FALLBACK_WIDTH,
   OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
@@ -11,16 +12,21 @@ import imageLoader from '@/lib/image-loader';
 import { getOgabasseyImagePreloadType } from './ogabassey-image-preload-type';
 
 type ImagePreloadLinkProps = ComponentProps<'link'> & {
+  as: 'image';
   fetchPriority: 'high';
+  href: string;
   imageSizes: string;
   imageSrcSet: string;
+  rel: 'preload';
 };
 
-export function OgabasseyPdpProductResourceHints({
-  src,
-}: {
+type ProductResourceHintInput = {
   src: string | null | undefined;
-}): ReactElement | null {
+};
+
+function buildProductImagePreloadProps({
+  src,
+}: ProductResourceHintInput): ImagePreloadLinkProps | null {
   if (!src) return null;
 
   const {
@@ -51,6 +57,30 @@ export function OgabasseyPdpProductResourceHints({
     rel: 'preload',
     type: getOgabasseyImagePreloadType(preloadSrc),
   };
+
+  return props;
+}
+
+export function preloadOgabasseyPdpProductImage({
+  src,
+}: ProductResourceHintInput): void {
+  const props = buildProductImagePreloadProps({ src });
+  if (!props) return;
+
+  preload(props.href, {
+    as: props.as,
+    fetchPriority: props.fetchPriority,
+    imageSizes: props.imageSizes,
+    imageSrcSet: props.imageSrcSet,
+    type: props.type,
+  });
+}
+
+export function OgabasseyPdpProductResourceHints({
+  src,
+}: ProductResourceHintInput): ReactElement | null {
+  const props = buildProductImagePreloadProps({ src });
+  if (!props) return null;
 
   return createElement('link', props);
 }

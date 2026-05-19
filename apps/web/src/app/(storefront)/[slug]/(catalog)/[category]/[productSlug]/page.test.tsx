@@ -11,6 +11,7 @@ const {
   mockOgabasseyPdpSemanticSections,
   mockOgabasseyPdpStaticResourceHints,
   mockOgabasseyProductDetailsPage,
+  mockPreloadOgabasseyPdpProductImage,
   mockProductDetailClient,
 } = vi.hoisted(() => ({
   mockNormalizeStorefrontProductVariants: vi.fn<
@@ -22,6 +23,8 @@ const {
   mockOgabasseyPdpSemanticSections: vi.fn<(props: unknown) => void>(),
   mockOgabasseyPdpStaticResourceHints: vi.fn<() => void>(),
   mockOgabasseyProductDetailsPage: vi.fn<(props: unknown) => void>(),
+  mockPreloadOgabasseyPdpProductImage:
+    vi.fn<(props: { src: string | null | undefined }) => void>(),
   mockProductDetailClient: vi.fn<(props: unknown) => null>(() => null),
 }));
 
@@ -95,6 +98,9 @@ vi.mock(
     OgabasseyPdpProductResourceHints: (props: {
       src: string | null | undefined;
     }) => mockOgabasseyPdpProductResourceHints(props),
+    preloadOgabasseyPdpProductImage: (props: {
+      src: string | null | undefined;
+    }) => mockPreloadOgabasseyPdpProductImage(props),
   })
 );
 
@@ -606,6 +612,9 @@ describe('[category]/[productSlug] page render', () => {
     );
 
     expect(mockOgabasseyPdpStaticResourceHints).toHaveBeenCalledTimes(1);
+    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
+      src: 'https://cdn.ogabassey.com/core-assets/products/hp-laptop.avif',
+    });
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: 'https://cdn.ogabassey.com/core-assets/products/hp-laptop.avif',
     });
@@ -647,6 +656,9 @@ describe('[category]/[productSlug] page render', () => {
     });
 
     render(pageUi as ReactNode);
+    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
+      src: 'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif',
+    });
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: 'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif',
     });
@@ -680,6 +692,7 @@ describe('[category]/[productSlug] page render', () => {
     );
 
     expect(mockOgabasseyPdpStaticResourceHints).not.toHaveBeenCalled();
+    expect(mockPreloadOgabasseyPdpProductImage).not.toHaveBeenCalled();
     expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
   });
 

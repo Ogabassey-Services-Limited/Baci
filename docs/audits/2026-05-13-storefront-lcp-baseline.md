@@ -41,12 +41,30 @@ Proceeding with the implementation because the target URL responds normally outs
 
 ## Post-merge tracking
 
-| Date | Change | Page | Strategy | Perf | SEO | LCP | FCP | TBT | CLS | Notes |
-|---|---|---|---|---:|---:|---:|---:|---:|---:|---|
-| 2026-05-15 | PR #1671 deployed (`9882bb8451a168425bb5ef7001e511602c076d32`) | OgaBassey home | mobile | 87 | 100 | 3376 ms | 1201 ms | 76 ms | 0.001 | LCP request is discoverable/eager/high priority, but appears via RSC `:HL` stream data rather than a native initial-head link; resource load delay remains about 2080 ms. PR #1674 keeps the assets on public URLs so the existing viewport-scoped ReactDOM preloads match the image request; it intentionally avoids UA-selected HTTP `Link` variants because the rendered hero branch is viewport-driven. |
-| 2026-05-15 | PR #1671 deployed (`9882bb8451a168425bb5ef7001e511602c076d32`) | OgaBassey home | desktop | 99 | 100 | 761 ms | 281 ms | 6 ms | 0.000 | Desktop home is healthy. |
-| 2026-05-15 | PR #1671 deployed (`9882bb8451a168425bb5ef7001e511602c076d32`) | OgaBassey PDP | mobile | 84 | 100 | 3226 ms | 1201 ms | 358 ms | 0.072 | Improved from the prior 4824 ms plan baseline, but still over target; remaining bottleneck is main-thread JS work, not image discovery. |
-| 2026-05-15 | PR #1671 deployed (`9882bb8451a168425bb5ef7001e511602c076d32`) | OgaBassey PDP | desktop | 68 | 100 | 1182 ms | 403 ms | 589 ms | 0.000 | LCP is now under target; TBT is noisy/high, partly from ad scripts and shared storefront JS. |
+| Date | Change | Page | Strategy | Perf | A11y | BP | SEO | LCP | FCP | TBT | CLS | Notes |
+|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---|
+| 2026-05-15 | PR #1671 deployed (`9882bb8451a168425bb5ef7001e511602c076d32`) | OgaBassey home | mobile | 87 | - | - | 100 | 3376 ms | 1201 ms | 76 ms | 0.001 | LCP request is discoverable/eager/high priority, but appears via RSC `:HL` stream data rather than a native initial-head link; resource load delay remains about 2080 ms. PR #1674 keeps the assets on public URLs so the existing viewport-scoped ReactDOM preloads match the image request; it intentionally avoids UA-selected HTTP `Link` variants because the rendered hero branch is viewport-driven. |
+| 2026-05-15 | PR #1671 deployed (`9882bb8451a168425bb5ef7001e511602c076d32`) | OgaBassey home | desktop | 99 | - | - | 100 | 761 ms | 281 ms | 6 ms | 0.000 | Desktop home is healthy. |
+| 2026-05-15 | PR #1671 deployed (`9882bb8451a168425bb5ef7001e511602c076d32`) | OgaBassey PDP | mobile | 84 | - | - | 100 | 3226 ms | 1201 ms | 358 ms | 0.072 | Improved from the prior 4824 ms plan baseline, but still over target; remaining bottleneck is main-thread JS work, not image discovery. |
+| 2026-05-15 | PR #1671 deployed (`9882bb8451a168425bb5ef7001e511602c076d32`) | OgaBassey PDP | desktop | 68 | - | - | 100 | 1182 ms | 403 ms | 589 ms | 0.000 | LCP is now under target; TBT is noisy/high, partly from ad scripts and shared storefront JS. |
+| 2026-05-19 | PR #1763 deployed (`fa2e087a0951f4cfd7f7c32a582b938cab14947c`), rechecked with `web-quality-skills` guidance | OgaBassey home | mobile | 95 | 100 | 100 | 100 | 2851 ms | 1201 ms | 29 ms | 0.001 | Still above the 2500 ms target, but much closer. LCP discovery passes; PSI reports a 415 ms resource-load delay and no render-blocking insight. |
+| 2026-05-19 | PR #1763 deployed (`fa2e087a0951f4cfd7f7c32a582b938cab14947c`), rechecked with `web-quality-skills` guidance | OgaBassey home | desktop | 98 | 100 | 100 | 100 | 861 ms | 321 ms | 19 ms | 0.000 | Desktop remains good. |
+| 2026-05-19 | PR #1763 deployed (`fa2e087a0951f4cfd7f7c32a582b938cab14947c`), rechecked with `web-quality-skills` guidance | OgaBassey PDP | mobile | 83 | 100 | 100 | 100 | 3976 ms | 1201 ms | 65 ms | 0.000 | Remaining primary blocker. LCP element is now the primary product image. LCP discovery passes, TBT is low, and unused JS is only about 21 KiB, but the LCP breakdown still shows about 2606 ms resource-load delay. |
+| 2026-05-19 | PR #1763 deployed (`fa2e087a0951f4cfd7f7c32a582b938cab14947c`), rechecked with `web-quality-skills` guidance | OgaBassey PDP | desktop | 95 | 100 | 100 | 100 | 901 ms | 321 ms | 123 ms | 0.045 | Desktop PDP remains good. Google/DoubleClick ads account for most third-party main-thread time, but desktop TBT is still under the 300 ms budget. |
+
+## 2026-05-19 PDP mobile follow-up evidence
+
+Source captures:
+
+- PSI JSON output saved locally under `/tmp/ogabassey-psi-2026-05-19T21-20-11-030Z/`.
+- Read-only Vercel production inspection showed the active production alias on a deployment newer than PR #1763 and containing `fa2e087a0951f4cfd7f7c32a582b938cab14947c`.
+- Curl against `https://ogabassey.com/laptops/lenovo-legion-pro-9-16irx9-rtx-4090` still returned an old edge-cached HTML object (`x-vercel-cache: HIT`, age about 19k seconds), so DOM ordering from curl alone is not reliable until the cache refreshes.
+- A Playwright resource-timing check on the live PDP showed the product image preload request starting immediately after the streamed HTML response completed: navigation `responseEnd` about 2052 ms, product image preload `startTime` about 2054 ms.
+
+Decision:
+
+- Do not continue with the broad PDP bundle-trim plan as the next slice. Latest mobile PDP TBT is 65 ms and Lighthouse's duplicated-JS/cache/render-blocking insights are clean.
+- The next narrow intervention should move product-image resource discovery earlier in the server render. Keep the native link fallback from PR #1763, but add an imperative React DOM `preload()` call as soon as the PDP product image is known so React can emit the responsive image hint before the rest of the streamed page finishes.
 | 2026-05-17 | PR #1727 deployed (`5c577817f887597e91dddbb3b7dd530fa01536cd`) | OgaBassey home | mobile | 90-97 | 100 | 2551-3376 ms | 1201 ms | 33-59 ms | 0.001 | #1727 removed the invalid hand-built `next.config.ts` Link preload that pointed at a 404. Live HTML now has zero references to the bad `b344efbb` URL, and the remaining static-imported mobile/desktop hero AVIF preloads return `200 image/avif` with immutable caching. PSI LCP discovery passes, so the remaining home gap is render/resource delay around the Suspense fallback hero, not a missing hero image request. |
 | 2026-05-17 | PR #1728 deployed (`cefa5f8461287a67f6ccdff7989b044288e33a92`) | OgaBassey home | mobile | 90 | 100 | 3376 ms | 1201 ms | 67 ms | 0.001 | #1728 made the mobile hero decode synchronously. Live HTML shows `decoding="sync"` on the streamed real hero image and PSI identifies that real `iPhone 17 Pro Max` image as LCP. LCP discovery still passes, but the mobile AVIF request starts at about 1555 ms, immediately after the document stream finishes; the next fix removes the mobile preload's viewport `media` condition so the tiny 2 KB mobile AVIF can be acted on in the earliest preload phase. |
 | 2026-05-17 | PR #1729 deployed (`46331be1bc6b002e92789c8281f7abffee812b33`) | OgaBassey home | mobile | 96 | 100 | 2251 ms | 1201 ms | 37 ms | 0.001 | #1729 removed the mobile hero preload's viewport `media` condition while keeping the desktop preload scoped. Three consecutive PSI mobile runs were stable at LCP 2251 ms, so the home route now meets the 2500 ms target. |

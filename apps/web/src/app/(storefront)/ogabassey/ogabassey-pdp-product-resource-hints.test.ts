@@ -37,16 +37,29 @@ const mockGetImageProps = vi.hoisted(() =>
     }
   )
 );
+const mockPreload = vi.hoisted(() => vi.fn());
 
 vi.mock('next/image', () => ({
   getImageProps: mockGetImageProps,
 }));
 
-import { OgabasseyPdpProductResourceHints } from './ogabassey-pdp-product-resource-hints';
+vi.mock('react-dom', async () => {
+  const actual = await vi.importActual<typeof import('react-dom')>('react-dom');
+  return {
+    ...actual,
+    preload: mockPreload,
+  };
+});
+
+import {
+  OgabasseyPdpProductResourceHints,
+  preloadOgabasseyPdpProductImage,
+} from './ogabassey-pdp-product-resource-hints';
 
 describe('OgabasseyPdpProductResourceHints', () => {
   beforeEach(() => {
     mockGetImageProps.mockClear();
+    mockPreload.mockClear();
   });
 
   it('renders an early preload link for the primary product image with the gallery sizes', () => {
@@ -90,6 +103,24 @@ describe('OgabasseyPdpProductResourceHints', () => {
     expect(html).toContain('type="image/png"');
   });
 
+  it('imperatively preloads the primary product image during server render', () => {
+    const productImage =
+      'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif';
+
+    preloadOgabasseyPdpProductImage({ src: productImage });
+
+    expect(mockPreload).toHaveBeenCalledWith(
+      imageLoader({ src: productImage, width: 640, quality: 70 }),
+      {
+        as: 'image',
+        fetchPriority: 'high',
+        imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
+        imageSrcSet: expect.stringContaining('lenovo-legion.avif 640w'),
+        type: 'image/webp',
+      }
+    );
+  });
+
   it('skips empty product image URLs', () => {
     const html = renderToStaticMarkup(
       createElement(OgabasseyPdpProductResourceHints, { src: '' })
@@ -97,6 +128,8 @@ describe('OgabasseyPdpProductResourceHints', () => {
 
     expect(html).toBe('');
     expect(mockGetImageProps).not.toHaveBeenCalled();
+    preloadOgabasseyPdpProductImage({ src: '' });
+    expect(mockPreload).not.toHaveBeenCalled();
   });
 
   it('skips null product image URLs', () => {
