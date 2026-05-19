@@ -105,7 +105,6 @@ const MAIN_APP_ROUTES = [
   '/auth',
   '/login',
   '/onboarding',
-  '/checkout',
   '/builder',
   '/reset-password',
   '/_next',
@@ -531,11 +530,11 @@ function generateCSP(
     routeType === 'admin' || routeType === 'auth'
       ? {
           ...baseDirectives,
-          // 2026 Next.js 16 Caveat: 'strict-dynamic' requires ALL scripts to be nonced.
-          // Since Next.js internal chunks are not easily nonced in App Router, we use a
-          // strict policy that allows 'self' and 'unsafe-inline' (for framework tags)
-          // but still nonces our own custom scripts.
-          'script-src': `'self' 'nonce-${nonce}' 'unsafe-inline'${isLocal ? " 'unsafe-eval'" : ''} https://vercel.live https://va.vercel-scripts.com`,
+          // Keep nonce validation for script execution contexts while explicitly
+          // allowing framework inline <script> elements for App Router hydration.
+          'script-src': `'self' 'nonce-${nonce}'${isLocal ? " 'unsafe-eval'" : ''} https://vercel.live https://va.vercel-scripts.com`,
+          'script-src-elem': `'self' 'unsafe-inline'${isLocal ? " 'unsafe-eval'" : ''} https://vercel.live https://va.vercel-scripts.com`,
+          'script-src-attr': "'none'",
           'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
           'connect-src':
             "'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live https://vitals.vercel-insights.com https://helpdesk.usebaci.com",
@@ -812,26 +811,9 @@ export async function proxy(request: NextRequest) {
     // (both thumbnail_id and _thumbnail_id variants).
     // Exclude pagination, tags, and authors from being treated as posts.
     const blogExclusions = ['page', 'tag', 'author', 'category'];
-    const blogMetadataEndpoints = ['opengraph-image', 'twitter-image'];
     const legacyCategoryMatch = pathname.match(/^\/blog\/([^/]+)\/([^/]+)\/?$/);
-    const legacyCategoryTarget = legacyCategoryMatch?.[2]?.toLowerCase();
-    const legacyCategoryTargetBase = legacyCategoryTarget?.replace(
-      /\.(?:avif|gif|jpe?g|png|webp)$/,
-      ''
-    );
-    const isBlogMetadataEndpoint =
-      legacyCategoryTargetBase !== undefined &&
-      blogMetadataEndpoints.includes(legacyCategoryTargetBase);
-    const acceptHeader = request.headers.get('accept')?.toLowerCase() ?? '';
-    const fetchDestination =
-      request.headers.get('sec-fetch-dest')?.toLowerCase() ?? '';
-    const isDocumentNavigation =
-      fetchDestination === 'document' || acceptHeader.includes('text/html');
-    const shouldBypassLegacyCategoryRedirect =
-      isBlogMetadataEndpoint && !isDocumentNavigation;
     const isLegacyPost =
       legacyCategoryMatch &&
-      !shouldBypassLegacyCategoryRedirect &&
       !blogExclusions.includes(legacyCategoryMatch[1].toLowerCase());
 
     const hasThumbnailId =

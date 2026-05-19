@@ -76,6 +76,8 @@ function assertNonceHeadersForwarded(
   expect(nonce).toMatch(/^[A-Za-z0-9_-]+$/);
   expect(forwardedCsp).toContain(`'nonce-${nonce}'`);
   expect(responseCsp).toContain(`'nonce-${nonce}'`);
+  expect(responseCsp).toContain("script-src-elem 'self' 'unsafe-inline'");
+  expect(responseCsp).toContain("script-src-attr 'none'");
   expect(responseCsp).toBe(forwardedCsp);
 }
 
@@ -444,6 +446,21 @@ describe('Middleware Proxy', () => {
     expect(res.status).not.toBe(308);
   });
 
+  it('should rewrite storefront checkout routes on merchant subdomains', async () => {
+    const req = new NextRequest(`https://ogabassey.${ROOT_DOMAIN}/checkout`);
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      `https://ogabassey.${ROOT_DOMAIN}/ogabassey/checkout`
+    );
+    expect(res.headers.get('x-middleware-request-x-merchant-slug')).toBe(
+      'ogabassey'
+    );
+  });
+
   it('should fall back to domain when slug lookup returns null', async () => {
     vi.mocked(getSlugForCustomDomain).mockResolvedValueOnce(null);
     const req = new NextRequest(
@@ -801,71 +818,6 @@ describe('Middleware Proxy', () => {
     expect(res.status).toBe(301);
     expect(res.headers.get('location')).toBe(
       'https://ogabassey.com/blog/how-to-maintain-your-iphone-battery-health-at-85-and-beyond'
-    );
-  });
-
-  it.each([
-    'opengraph-image',
-    'opengraph-image.png',
-    'twitter-image',
-    'twitter-image.jpg',
-  ])('does not flatten blog post %s metadata routes as legacy category URLs', async (metadataRoute) => {
-    const req = new NextRequest(
-      `https://ogabassey.com/blog/airpods-max/${metadataRoute}`
-    );
-    req.headers.set('host', 'ogabassey.com');
-    req.headers.set('accept', 'image/avif,image/webp,image/*,*/*;q=0.8');
-    req.headers.set('sec-fetch-dest', 'image');
-
-    const res = await proxy(req);
-
-    expect(res.status).not.toBe(301);
-    expect(res.headers.get('location')).toBeNull();
-    expect(getSlugForCustomDomain).toHaveBeenCalledWith('ogabassey.com');
-    expect(res.headers.get('x-middleware-rewrite')).toBe(
-      `https://ogabassey.com/ogabassey.com/blog/airpods-max/${metadataRoute}`
-    );
-  });
-
-  it.each([
-    'opengraph-image',
-    'twitter-image',
-  ])('does not flatten one-word post slug metadata routes: %s', async (metadataRoute) => {
-    const req = new NextRequest(
-      `https://ogabassey.com/blog/long/${metadataRoute}`
-    );
-    req.headers.set('host', 'ogabassey.com');
-    req.headers.set('accept', 'image/avif,image/webp,image/*,*/*;q=0.8');
-    req.headers.set('sec-fetch-dest', 'image');
-
-    const res = await proxy(req);
-
-    expect(res.status).not.toBe(301);
-    expect(res.headers.get('location')).toBeNull();
-    expect(res.headers.get('x-middleware-rewrite')).toBe(
-      `https://ogabassey.com/ogabassey.com/blog/long/${metadataRoute}`
-    );
-  });
-
-  it.each([
-    'opengraph-image',
-    'twitter-image',
-  ])('redirects legacy category paths to canonical post URLs for HTML navigation when slug is %s', async (postSlug) => {
-    const req = new NextRequest(
-      `https://ogabassey.com/blog/gadgets/${postSlug}`
-    );
-    req.headers.set('host', 'ogabassey.com');
-    req.headers.set(
-      'accept',
-      'text/html,application/xhtml+xml,image/avif,image/webp,*/*;q=0.8'
-    );
-    req.headers.set('sec-fetch-dest', 'document');
-
-    const res = await proxy(req);
-
-    expect(res.status).toBe(301);
-    expect(res.headers.get('location')).toBe(
-      `https://ogabassey.com/blog/${postSlug}`
     );
   });
 
