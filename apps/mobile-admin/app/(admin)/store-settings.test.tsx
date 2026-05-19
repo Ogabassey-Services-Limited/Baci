@@ -7,6 +7,21 @@ import StoreSettingsScreen from './store-settings';
 const mocks = vi.hoisted(() => ({
   getManagementLabel: vi.fn(() => 'Manage from helper'),
   getPlanLabel: vi.fn(() => 'Baci Pro'),
+  useMerchantResult: {
+    isLoading: false,
+    merchant: {
+      business_name: 'Baci Store',
+      country: 'NG',
+      email: 'owner@baci.test',
+      id: 'merchant-1',
+      logo_url: null,
+      phone: '08012345678',
+      payout_currency: 'NGN',
+      slug: 'baci-store',
+      support_email: null,
+      support_phone: null,
+    },
+  },
   subscriptionCardProps: {
     manageSubscriptionLabel: '',
     planLabel: '',
@@ -49,21 +64,7 @@ vi.mock('@/hooks/useTheme', () => ({
 }));
 
 vi.mock('@/hooks/useMerchant', () => ({
-  useMerchant: () => ({
-    isLoading: false,
-    merchant: {
-      business_name: 'Baci Store',
-      country: 'NG',
-      email: 'owner@baci.test',
-      id: 'merchant-1',
-      logo_url: null,
-      phone: '08012345678',
-      payout_currency: 'NGN',
-      slug: 'baci-store',
-      support_email: null,
-      support_phone: null,
-    },
-  }),
+  useMerchant: () => mocks.useMerchantResult,
 }));
 
 vi.mock('@/hooks/useRevenueCat', () => ({
@@ -162,6 +163,21 @@ describe('StoreSettingsScreen', () => {
     mocks.getPlanLabel.mockReset();
     mocks.getManagementLabel.mockReturnValue('Manage from helper');
     mocks.getPlanLabel.mockReturnValue('Baci Pro');
+    mocks.useMerchantResult = {
+      isLoading: false,
+      merchant: {
+        business_name: 'Baci Store',
+        country: 'NG',
+        email: 'owner@baci.test',
+        id: 'merchant-1',
+        logo_url: null,
+        phone: '08012345678',
+        payout_currency: 'NGN',
+        slug: 'baci-store',
+        support_email: null,
+        support_phone: null,
+      },
+    };
     mocks.subscriptionCardProps.manageSubscriptionLabel = '';
     mocks.subscriptionCardProps.planLabel = '';
   });
@@ -193,5 +209,17 @@ describe('StoreSettingsScreen', () => {
     render(<StoreSettingsScreen />);
 
     expect(mocks.subscriptionCardProps.planLabel).toBe('Free Plan');
+  });
+
+  it('renders loading state while merchant profile is resolving', () => {
+    mocks.useMerchantResult = {
+      isLoading: true,
+      merchant: null,
+    };
+
+    render(<StoreSettingsScreen />);
+
+    expect(screen.getByText('loading')).toBeInTheDocument();
+    expect(screen.queryByText('subscription-card')).not.toBeInTheDocument();
   });
 });
