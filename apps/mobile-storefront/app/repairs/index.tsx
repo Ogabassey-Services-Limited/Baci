@@ -7,79 +7,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { router, Stack } from 'expo-router';
-import {
-  Linking,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  buildRepairWhatsappUrl,
+  REPAIR_SERVICES,
+  REPAIR_WORKFLOW_STEPS,
+} from '@/components/repairs/repairs-content';
+import { repairsScreenStyles as styles } from '@/components/repairs/repairs-screen.styles';
 import { useColorScheme } from '@/components/useColorScheme';
-import Colors, { BRAND, RADIUS, SPACING } from '@/constants/Colors';
+import Colors, { BRAND } from '@/constants/Colors';
 import { SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
-
-// ─── Data ──────────────────────────────────────────────
-
-interface RepairService {
-  title: string;
-  price: string;
-  desc: string;
-  icon: keyof typeof Ionicons.glyphMap;
-}
-
-const REPAIR_SERVICES: RepairService[] = [
-  {
-    title: 'Screen Renewal',
-    price: 'From ₦25,000',
-    desc: "Cracked or unresponsive display? We'll restore it to factory clarity.",
-    icon: 'phone-portrait-outline',
-  },
-  {
-    title: 'Battery Boost',
-    price: 'From ₦15,000',
-    desc: 'Restore all-day power with a genuine battery replacement.',
-    icon: 'battery-half-outline',
-  },
-  {
-    title: 'Port Restoration',
-    price: 'From ₦12,000',
-    desc: "Charging issues? We'll fix or replace your connector port.",
-    icon: 'flash-outline',
-  },
-  {
-    title: 'System Revive',
-    price: 'From ₦10,000',
-    desc: 'Software optimization, OS updates, and performance tuning.',
-    icon: 'settings-outline',
-  },
-];
-
-const HOW_IT_WORKS = [
-  {
-    title: 'Book Online',
-    desc: 'Tap the button below to chat with us on WhatsApp',
-    icon: 'chatbubble-ellipses-outline' as const,
-  },
-  {
-    title: 'Drop Off or Ship',
-    desc: 'Bring your device in or schedule a pickup',
-    icon: 'cube-outline' as const,
-  },
-  {
-    title: 'Expert Repair',
-    desc: 'Certified technicians fix it with genuine parts',
-    icon: 'construct-outline' as const,
-  },
-  {
-    title: 'Pick Up',
-    desc: 'Get your device back, good as new',
-    icon: 'checkmark-done-outline' as const,
-  },
-];
-
-// ─── Component ─────────────────────────────────────────
 
 export default function RepairsScreen() {
   const colorScheme = useColorScheme();
@@ -88,11 +26,7 @@ export default function RepairsScreen() {
 
   const handleBookRepair = (service?: string) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    const serviceText = service ? `\n\nService: ${service}` : '';
-    const message = encodeURIComponent(
-      `Hello! I'd like to book a device repair.${serviceText}\n\nPlease let me know your available time slots.`
-    );
-    Linking.openURL(`https://wa.me/${SUPPORT_WHATSAPP_PHONE}?text=${message}`);
+    Linking.openURL(buildRepairWhatsappUrl(SUPPORT_WHATSAPP_PHONE, service));
   };
 
   const handleSwap = () => {
@@ -151,7 +85,7 @@ export default function RepairsScreen() {
           How it Works
         </Text>
         <View style={styles.stepsContainer}>
-          {HOW_IT_WORKS.map((step, index) => (
+          {REPAIR_WORKFLOW_STEPS.map((step, index) => (
             <View
               key={index}
               style={[styles.stepCard, { backgroundColor: colors.card }]}
@@ -274,223 +208,3 @@ export default function RepairsScreen() {
     </SafeAreaView>
   );
 }
-
-// ─── Styles ──────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: SPACING.md,
-    paddingBottom: 40,
-  },
-
-  // ── Hero ──
-  heroCard: {
-    backgroundColor: BRAND.primary,
-    borderRadius: RADIUS.xl,
-    padding: SPACING.lg,
-    marginBottom: SPACING.xl,
-  },
-  heroBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignSelf: 'flex-start',
-    paddingHorizontal: SPACING.sm,
-    paddingVertical: 4,
-    borderRadius: 20,
-    marginBottom: SPACING.md,
-  },
-  heroBadgeText: {
-    color: '#FFF',
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  heroTitle: {
-    color: '#FFF',
-    fontSize: 26,
-    fontWeight: '800',
-    lineHeight: 32,
-    marginBottom: SPACING.sm,
-  },
-  heroSubtitle: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 13,
-    lineHeight: 20,
-    marginBottom: SPACING.lg,
-  },
-  heroButton: {
-    backgroundColor: '#FFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.sm,
-    paddingVertical: SPACING.md,
-    borderRadius: RADIUS.lg,
-  },
-  heroButtonText: {
-    color: BRAND.primary,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-
-  // ── Section Titles ──
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: SPACING.md,
-  },
-
-  // ── Steps ──
-  stepsContainer: {
-    gap: SPACING.sm,
-    marginBottom: SPACING.xl,
-  },
-  stepCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-    borderRadius: RADIUS.lg,
-    gap: SPACING.md,
-  },
-  stepIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: `${BRAND.primary}15`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stepTextContainer: {
-    flex: 1,
-  },
-  stepTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  stepDesc: {
-    fontSize: 12,
-    lineHeight: 17,
-  },
-
-  // ── Services ──
-  servicesList: {
-    gap: SPACING.sm,
-    marginBottom: SPACING.xl,
-  },
-  serviceCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: SPACING.md,
-    borderRadius: RADIUS.lg,
-    gap: SPACING.md,
-  },
-  serviceIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: RADIUS.md,
-    backgroundColor: `${BRAND.primary}15`,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  serviceContent: {
-    flex: 1,
-  },
-  serviceTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  serviceDesc: {
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  servicePriceBadge: {
-    backgroundColor: `${BRAND.primary}15`,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: RADIUS.md,
-  },
-  servicePriceText: {
-    color: BRAND.primary,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-
-  // ── Free Cleaning Banner ──
-  freeBanner: {
-    flexDirection: 'row',
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
-    gap: SPACING.md,
-    marginBottom: SPACING.lg,
-    alignItems: 'flex-start',
-  },
-  freeBannerIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  freeBannerContent: {
-    flex: 1,
-  },
-  freeBannerTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  freeBannerDesc: {
-    fontSize: 12,
-    lineHeight: 18,
-  },
-
-  // ── Trade-in CTA ──
-  tradeinCard: {
-    borderRadius: RADIUS.lg,
-    padding: SPACING.md,
-    marginBottom: SPACING.lg,
-  },
-  tradeinContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  tradeinText: {
-    flex: 1,
-  },
-  tradeinTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  tradeinDesc: {
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  tradeinButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: SPACING.xs,
-    paddingVertical: SPACING.sm,
-    borderRadius: RADIUS.md,
-    borderWidth: 1,
-    borderColor: BRAND.primary,
-  },
-  tradeinButtonText: {
-    color: BRAND.primary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-});
