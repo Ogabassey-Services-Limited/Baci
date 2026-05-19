@@ -88,10 +88,7 @@ vi.mock('next/headers', () => ({
 }));
 
 vi.mock('@/lib/store-url', () => ({
-  buildRequestScopedStoreUrl: (merchant: {
-    slug: string;
-    custom_domain?: string | null;
-  }) =>
+  buildStoreUrl: (merchant: { slug: string; custom_domain?: string | null }) =>
     merchant.custom_domain
       ? `https://${merchant.custom_domain}`
       : `https://${merchant.slug}.usebaci.com`,

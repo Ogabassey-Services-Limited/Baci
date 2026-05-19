@@ -7,7 +7,7 @@ import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
 const {
   mockNormalizeStorefrontProductVariants,
-  mockPreloadOgabasseyPdpProductImage,
+  mockOgabasseyPdpProductResourceHints,
   mockOgabasseyPdpSemanticSections,
   mockOgabasseyPdpStaticResourceHints,
   mockOgabasseyProductDetailsPage,
@@ -16,7 +16,9 @@ const {
   mockNormalizeStorefrontProductVariants: vi.fn<
     (...args: unknown[]) => Record<string, unknown>[]
   >(() => []),
-  mockPreloadOgabasseyPdpProductImage: vi.fn<(src: string) => void>(),
+  mockOgabasseyPdpProductResourceHints: vi.fn<
+    (props: { src: string | null | undefined }) => null
+  >(() => null),
   mockOgabasseyPdpSemanticSections: vi.fn<(props: unknown) => void>(),
   mockOgabasseyPdpStaticResourceHints: vi.fn<() => void>(),
   mockOgabasseyProductDetailsPage: vi.fn<(props: unknown) => void>(),
@@ -90,8 +92,9 @@ vi.mock(
 vi.mock(
   '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints',
   () => ({
-    preloadOgabasseyPdpProductImage: (src: string) =>
-      mockPreloadOgabasseyPdpProductImage(src),
+    OgabasseyPdpProductResourceHints: (props: {
+      src: string | null | undefined;
+    }) => mockOgabasseyPdpProductResourceHints(props),
   })
 );
 
@@ -549,7 +552,8 @@ describe('[category]/[productSlug] page render', () => {
     mockGetPublishedClusterPosts.mockReset();
     mockGetPublishedClusterPosts.mockResolvedValue([]);
     mockBuildProductSemanticModel.mockReset();
-    mockPreloadOgabasseyPdpProductImage.mockReset();
+    mockOgabasseyPdpProductResourceHints.mockReset();
+    mockOgabasseyPdpProductResourceHints.mockReturnValue(null);
     mockOgabasseyPdpSemanticSections.mockReset();
     mockOgabasseyPdpStaticResourceHints.mockReset();
     mockOgabasseyProductDetailsPage.mockReset();
@@ -585,6 +589,11 @@ describe('[category]/[productSlug] page render', () => {
   });
 
   it('mounts the OgaBassey PDP preload hints for the OgaBassey template branch', async () => {
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      images: ['https://cdn.ogabassey.com/core-assets/products/hp-laptop.avif'],
+    });
+
     render(
       await CategoryProductPage({
         params: Promise.resolve({
@@ -597,6 +606,9 @@ describe('[category]/[productSlug] page render', () => {
     );
 
     expect(mockOgabasseyPdpStaticResourceHints).toHaveBeenCalledTimes(1);
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
+      src: 'https://cdn.ogabassey.com/core-assets/products/hp-laptop.avif',
+    });
   });
 
   it('renders the OgaBassey product shell before supplemental PDP data resolves', async () => {
@@ -631,15 +643,13 @@ describe('[category]/[productSlug] page render', () => {
     });
 
     await waitFor(() => {
-      expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith(
-        'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif'
-      );
-    });
-    await waitFor(() => {
       expect(pageUi).toBeDefined();
     });
 
     render(pageUi as ReactNode);
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
+      src: 'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif',
+    });
     expect(mockOgabasseyProductDetailsPage).toHaveBeenCalledWith(
       expect.objectContaining({
         product: expect.objectContaining({
@@ -670,6 +680,7 @@ describe('[category]/[productSlug] page render', () => {
     );
 
     expect(mockOgabasseyPdpStaticResourceHints).not.toHaveBeenCalled();
+    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
   });
 
   it('keeps the generic product client behind the default branch loader', () => {

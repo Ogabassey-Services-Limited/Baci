@@ -29,6 +29,11 @@ const quizProductionApprovedSchema = z.preprocess((value) => {
   return value;
 }, z.boolean().default(false));
 
+const defaultFalseBooleanStringSchema = z.preprocess(
+  (value) => (value === undefined ? 'false' : value),
+  booleanStringSchema
+);
+
 const optionalTrimmedStringSchema = z.preprocess((value) => {
   if (typeof value !== 'string') return value;
   const trimmed = value.trim();
@@ -202,7 +207,7 @@ const serverSchema = z
       .int()
       .positive()
       .default(90_000),
-    AI_STOREFRONT_GENERATION_ENABLED: booleanStringSchema.default('false'),
+    AI_STOREFRONT_GENERATION_ENABLED: defaultFalseBooleanStringSchema,
 
     // LLM server (llama.cpp / OpenAI-compatible — Gemma 4 + MTP drafter on VPS)
     LLM_SERVER_URL: httpsOrLocalhostUrl('LLM_SERVER_URL').optional(),

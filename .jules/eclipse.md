@@ -33,3 +33,6 @@
 ## $(date +%Y-%m-%d) - Replaced hardcoded hex colors with dynamic theme colors in Discounts mobile screens
 **Learning:** Hardcoded white `#FFFFFF` text on primary color backgrounds breaks theming consistency, and static border colors like `#eee` do not adjust well to dark mode. Also, `StyleSheet.create` cannot have dynamic colors natively.
 **Action:** Removed hardcoded colors from `StyleSheet.create` in `apps/mobile-admin/app/(admin)/discounts/new.tsx` and `apps/mobile-admin/app/(admin)/discounts/index.tsx`. Replaced with `colors.textOnPrimary` and `colors.border` via inline styles array where needed, ensuring we use dynamic colors from `useTheme()` correctly without refactoring into factory functions.
+## 2024-05-24 - Fix hardcoded white color in Expense FAB
+**Learning:** Hardcoded `#FFFFFF` icons on primary backgrounds cause theming violations if the primary color requires a dark icon in certain themes, and fail to use semantic tokens.
+**Action:** Always map white colors on primary backgrounds to `colors.textOnPrimary` from the `useTheme()` hook in Expo apps.

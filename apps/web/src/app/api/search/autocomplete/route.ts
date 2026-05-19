@@ -3,6 +3,8 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { isValidUuid, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 
+const POSTGRES_QUERY_CANCELED_CODE = '57014';
+
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const rawQuery = searchParams.get('q');
@@ -60,6 +62,21 @@ export async function GET(request: NextRequest) {
       popularSearches: [],
     });
   } catch (error) {
+    const errorCode =
+      typeof error === 'object' && error && 'code' in error
+        ? String(error.code)
+        : '';
+
+    if (errorCode === POSTGRES_QUERY_CANCELED_CODE) {
+      console.warn(
+        'Autocomplete timed out; returning empty suggestions for this request'
+      );
+      return NextResponse.json({
+        suggestions: [],
+        popularSearches: [],
+      });
+    }
+
     console.error('Autocomplete error:', error);
     return NextResponse.json(
       { error: 'Failed to get autocomplete suggestions' },

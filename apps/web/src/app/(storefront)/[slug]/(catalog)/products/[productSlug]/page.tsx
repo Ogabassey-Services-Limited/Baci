@@ -28,7 +28,7 @@ import {
   getProductUrl,
   getValidatedProductUrl,
 } from '@/lib/seo-utils';
-import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
 import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
@@ -323,7 +323,7 @@ export async function generateMetadata(
     return { robots: { index: false, follow: false } };
   }
   const { merchant } = productResult;
-  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const baseUrl = buildStoreUrl(merchant);
   const canonicalUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
   // Metadata needs a generic noun here; the UI uses a friendlier "All Products"
   // fallback later for visible copy when no category label exists.

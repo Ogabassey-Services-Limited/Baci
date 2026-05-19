@@ -88,13 +88,14 @@ describe('buildAgentCommerceTrustHealthSignals', () => {
     });
     expect(
       result.checks.find((check) => check.id === 'structured-data-readiness')
-    ).toMatchObject({ severity: 'warn' });
+    ).toMatchObject({ affectedProductCount: 1, severity: 'warn' });
     expect(
       result.checks.find((check) => check.id === 'review-signal-coverage')
     ).toMatchObject({ severity: 'warn' });
     expect(
       result.checks.find((check) => check.id === 'feed-freshness')
     ).toMatchObject({
+      affectedProductCount: 2,
       message: '2 products have stale or missing feed timestamps.',
       severity: 'warn',
     });
@@ -136,7 +137,7 @@ describe('buildAgentCommerceTrustHealthSignals', () => {
     });
     expect(
       result.checks.find((check) => check.id === 'feed-freshness')
-    ).toMatchObject({ severity: 'fail' });
+    ).toMatchObject({ affectedProductCount: 1, severity: 'fail' });
     expect(
       result.checks.find((check) => check.id === 'crawler-visibility')
     ).toMatchObject({ severity: 'fail' });
