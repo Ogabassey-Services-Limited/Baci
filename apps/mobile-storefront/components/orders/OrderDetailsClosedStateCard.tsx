@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { ComponentProps } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { CustomerOrderStatusMeta } from '@/lib/customer-order-status';
 
@@ -30,17 +29,18 @@ export function OrderDetailsClosedStateCard({
         },
       ]}
     >
-      <View style={styles.cancelledStatus}>
+      <View style={styles.closedStatus}>
         <Ionicons
-          name={statusMeta.icon as ComponentProps<typeof Ionicons>['name']}
+          accessibilityLabel={`${statusMeta.key} status icon`}
+          name={statusMeta.icon}
           size={24}
           color={statusPalette.accent}
         />
-        <View style={styles.cancelledCopy}>
-          <Text style={[styles.cancelledText, { color: statusPalette.accent }]}>
+        <View style={styles.closedCopy}>
+          <Text style={[styles.closedText, { color: statusPalette.accent }]}>
             {statusMeta.label}
           </Text>
-          <Text style={[styles.cancelledSubtext, { color: textSecondaryColor }]}>
+          <Text style={[styles.closedSubtext, { color: textSecondaryColor }]}>
             {statusMeta.description}
           </Text>
         </View>
@@ -55,19 +55,19 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
   },
-  cancelledStatus: {
+  closedStatus: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
   },
-  cancelledCopy: {
+  closedCopy: {
     flex: 1,
   },
-  cancelledText: {
+  closedText: {
     fontSize: 15,
     fontWeight: '700',
   },
-  cancelledSubtext: {
+  closedSubtext: {
     fontSize: 13,
     lineHeight: 19,
     marginTop: 4,

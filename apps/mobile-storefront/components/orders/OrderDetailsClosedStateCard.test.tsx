@@ -9,18 +9,44 @@ const statusPalette = {
 } as const;
 
 describe('OrderDetailsClosedStateCard', () => {
-  it('renders the closed status label and description', () => {
-    const statusMeta = getCustomerOrderStatusMeta('cancelled');
+  const textSecondaryColor = '#6b7280';
+
+  it.each(['cancelled', 'returned', 'refunded'])(
+    'renders label, description, and colors for %s status',
+    (status) => {
+      const statusMeta = getCustomerOrderStatusMeta(status);
+
+      render(
+        <OrderDetailsClosedStateCard
+          statusMeta={statusMeta}
+          statusPalette={statusPalette}
+          textSecondaryColor={textSecondaryColor}
+        />
+      );
+
+      screen.getByLabelText(`${statusMeta.key} status icon`);
+      const label = screen.getByText(statusMeta.label);
+      const description = screen.getByText(statusMeta.description);
+
+      expect(label).toHaveStyle({ color: statusPalette.accent });
+      expect(description).toHaveStyle({ color: textSecondaryColor });
+    }
+  );
+
+  it('renders gracefully when the description is empty', () => {
+    const statusMeta = {
+      ...getCustomerOrderStatusMeta('cancelled'),
+      description: '',
+    };
 
     render(
       <OrderDetailsClosedStateCard
         statusMeta={statusMeta}
         statusPalette={statusPalette}
-        textSecondaryColor="#6b7280"
+        textSecondaryColor={textSecondaryColor}
       />
     );
 
-    expect(screen.getByText(statusMeta.label)).toBeTruthy();
-    expect(screen.getByText(statusMeta.description)).toBeTruthy();
+    screen.getByText(statusMeta.label);
   });
 });
