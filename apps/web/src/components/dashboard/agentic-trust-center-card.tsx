@@ -14,8 +14,6 @@ import {
 } from '@/components/ui/card';
 import type { AgentCommerceTrustReadinessSummary } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 
-const MAX_ACTION_ITEMS = 3;
-
 export type TrustCenterState = 'ready' | 'error' | 'unauthorized';
 
 interface AgenticTrustCenterCardProps {
@@ -55,14 +53,33 @@ function buildStatusSummary(readiness: AgentCommerceTrustReadinessSummary) {
   return `${failingChecks} failing checks, ${warningChecks} warning checks, ${sharedProducts} shared products.`;
 }
 
+function getActionSeverityLabel(
+  severity: AgentCommerceTrustReadinessSummary['checks'][number]['severity']
+) {
+  if (severity === 'fail') return 'Needs fixes';
+  if (severity === 'warn') return 'Monitor';
+  return 'Healthy';
+}
+
+function getActionSeverityVariant(
+  severity: AgentCommerceTrustReadinessSummary['checks'][number]['severity']
+) {
+  if (severity === 'fail') return 'destructive';
+  if (severity === 'warn') return 'outline';
+  return 'secondary';
+}
+
+function formatAffectedCount(count: number | null | undefined) {
+  if (count == null) return null;
+  return `${count.toLocaleString('en-US')} affected`;
+}
+
 export function AgenticTrustCenterCard({
   readiness,
   state,
 }: AgenticTrustCenterCardProps) {
   const actions = readiness
-    ? agentCommerceTrustReadinessCardHelpers
-        .buildTrustActionItems(readiness)
-        .slice(0, MAX_ACTION_ITEMS)
+    ? agentCommerceTrustReadinessCardHelpers.buildTrustActionItems(readiness)
     : [];
 
   if (state === 'unauthorized') return null;
@@ -124,25 +141,42 @@ export function AgenticTrustCenterCard({
         </div>
 
         {actions.length > 0 ? (
-          actions.map((action) => (
-            <div
-              className="flex flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between"
-              key={action.id}
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-medium">{action.label}</p>
-                <p className="text-sm text-muted-foreground">
-                  {action.message}
-                </p>
+          actions.map((action) => {
+            const affectedCountLabel = formatAffectedCount(action.count);
+
+            return (
+              <div
+                className="flex flex-col gap-3 rounded-md border p-3 sm:flex-row sm:items-center sm:justify-between"
+                key={action.id}
+              >
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="text-sm font-medium">{action.label}</p>
+                    <Badge variant={getActionSeverityVariant(action.severity)}>
+                      {getActionSeverityLabel(action.severity)}
+                    </Badge>
+                    {affectedCountLabel ? (
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {affectedCountLabel}
+                      </span>
+                    ) : null}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {action.message}
+                  </p>
+                </div>
+                <Button asChild size="sm" variant="outline">
+                  <Link
+                    aria-label={`Review ${action.label}`}
+                    href={action.href}
+                  >
+                    Review
+                    <ExternalLink className="ml-2 h-3.5 w-3.5" />
+                  </Link>
+                </Button>
               </div>
-              <Button asChild size="sm" variant="outline">
-                <Link href={action.href}>
-                  Review
-                  <ExternalLink className="ml-2 h-3.5 w-3.5" />
-                </Link>
-              </Button>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">
             No trust issues require action right now.

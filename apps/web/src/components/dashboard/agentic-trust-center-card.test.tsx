@@ -50,10 +50,29 @@ describe('AgenticTrustCenterCard', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders top trust fixes with review links when readiness has blockers', () => {
+  it('renders every trust fix with counts and review links when readiness has blockers', () => {
     const readinessWithBlockers = {
       ...baseReadiness,
       checks: [
+        {
+          affectedProductCount: 1168,
+          id: 'review-signal-coverage',
+          label: 'Review signal coverage',
+          message: 'Reviews are missing.',
+          severity: 'fail',
+        },
+        {
+          id: 'verified-image-coverage',
+          label: 'Verified image coverage',
+          message: 'Some images are not verified.',
+          severity: 'warn',
+        },
+        {
+          id: 'policy-coverage',
+          label: 'Policy coverage',
+          message: 'Policies are incomplete.',
+          severity: 'warn',
+        },
         {
           id: 'canonical-url-parity',
           label: 'Canonical URL parity',
@@ -70,6 +89,8 @@ describe('AgenticTrustCenterCard', () => {
       status: 'fail',
       totals: {
         ...baseReadiness.totals,
+        openAiProducts: 1168,
+        productsWithVerifiedImages: 693,
         staleProducts: 2,
         urlMismatches: 3,
       },
@@ -79,12 +100,20 @@ describe('AgenticTrustCenterCard', () => {
       <AgenticTrustCenterCard readiness={readinessWithBlockers} state="ready" />
     );
 
-    expect(screen.getByText('Needs fixes')).toBeInTheDocument();
+    expect(screen.getAllByText('Needs fixes')).toHaveLength(3);
+    expect(screen.getByText('Strengthen review signals')).toBeInTheDocument();
+    expect(screen.getByText('1,168 affected')).toBeInTheDocument();
+    expect(screen.getByText('Verify product images')).toBeInTheDocument();
+    expect(screen.getByText('475 affected')).toBeInTheDocument();
+    expect(screen.getByText('Update policies')).toBeInTheDocument();
     expect(screen.getByText('Fix product URLs')).toBeInTheDocument();
     expect(screen.getByText('Refresh catalog feed')).toBeInTheDocument();
+    expect(screen.getAllByText('Monitor')).toHaveLength(3);
     const reviewLinks = screen.getAllByRole('link', { name: /review/i });
-    expect(reviewLinks).toHaveLength(2);
-    expect(reviewLinks[0]).toHaveAttribute('href', '/dashboard/seo');
+    expect(reviewLinks).toHaveLength(5);
+    expect(
+      screen.getByRole('link', { name: 'Review Fix product URLs' })
+    ).toHaveAttribute('href', '/dashboard/seo');
   });
 
   it('renders action fixes from the slim summary affectedProductCount', () => {
@@ -109,8 +138,9 @@ describe('AgenticTrustCenterCard', () => {
       <AgenticTrustCenterCard readiness={readinessWithCounts} state="ready" />
     );
 
-    expect(screen.getByText('Needs fixes')).toBeInTheDocument();
+    expect(screen.getAllByText('Needs fixes')).toHaveLength(2);
     expect(screen.getByText('Review catalog surfaces')).toBeInTheDocument();
+    expect(screen.getByText('7 affected')).toBeInTheDocument();
   });
 
   it('returns null for unauthorized state', () => {
