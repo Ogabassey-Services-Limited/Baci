@@ -6,9 +6,11 @@ import { startQuizAttemptSchema } from '@/schemas/quiz';
 import {
   createRouteProof,
   enforceEventPrizeGuard,
+  enforceQuizAgeGate,
   invalidInputResponse,
   parseJsonBody,
   prizeGuardErrorResponse,
+  quizAgeGateErrorResponse,
   requireQuizCsrf,
   requireQuizUser,
   rpcErrorResponse,
@@ -47,8 +49,17 @@ export async function POST(request: NextRequest) {
 
   if (getQuizPhaseEnv() === 'production') {
     try {
-      await enforceEventPrizeGuard(auth.supabase, parsed.data.eventId);
+      const { merchantId } = await enforceEventPrizeGuard(
+        auth.supabase,
+        parsed.data.eventId
+      );
+      await enforceQuizAgeGate(auth.supabase, merchantId, auth.user.id);
     } catch (error) {
+      try {
+        return quizAgeGateErrorResponse(error);
+      } catch {
+        // no-op: fall through to prize guard mapping below
+      }
       return prizeGuardErrorResponse(error);
     }
   }

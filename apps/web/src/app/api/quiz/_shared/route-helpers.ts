@@ -10,10 +10,12 @@ import {
 } from '@/lib/quiz-proof';
 import { createClient } from '@/lib/supabase/server';
 import type { ServerSupabaseClient } from './route-helpers-guards';
+import { QuizAgeGateError } from './route-helpers-guards';
 
 export {
   enforceCashAwardPrizeGuard,
   enforceEventPrizeGuard,
+  enforceQuizAgeGate,
 } from './route-helpers-guards';
 
 type RequireQuizUserResult =
@@ -157,6 +159,20 @@ export function prizeGuardErrorResponse(error: unknown) {
       {
         code: error.code,
         error: 'Quiz prizes are not approved for production use',
+      },
+      { status: error.status }
+    );
+  }
+
+  throw error;
+}
+
+export function quizAgeGateErrorResponse(error: unknown) {
+  if (error instanceof QuizAgeGateError) {
+    return NextResponse.json(
+      {
+        code: error.code,
+        error: 'Quiz participation requires an adult profile (18+)',
       },
       { status: error.status }
     );
