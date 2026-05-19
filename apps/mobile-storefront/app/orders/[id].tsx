@@ -21,6 +21,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { OrderDetailsClosedStateCard } from '@/components/orders/OrderDetailsClosedStateCard';
 import { OrderDetailsHeaderCard } from '@/components/orders/OrderDetailsHeaderCard';
+import { OrderDetailsShippingAddressCard } from '@/components/orders/OrderDetailsShippingAddressCard';
 import { ReceiptPreviewModal } from '@/components/receipts/ReceiptPreviewModal';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -886,74 +887,11 @@ export default function OrderDetailsScreen() {
               </View>
             )}
 
-          {/* Shipping Address */}
-          <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Shipping Address
-            </Text>
-            <View style={styles.addressContent}>
-              <View
-                style={[
-                  styles.addressIconRail,
-                  {
-                    backgroundColor: isDark
-                      ? 'rgba(217, 59, 48, 0.14)'
-                      : `${BRAND.primary}12`,
-                  },
-                ]}
-              >
-                <Ionicons
-                  name="location"
-                  size={18}
-                  color={BRAND.primary}
-                  style={{ textAlign: 'center', marginLeft: 1 }}
-                />
-              </View>
-              <View style={styles.addressDetails}>
-                {!!order.shipping_address?.name && (
-                  <Text style={[styles.addressName, { color: colors.text }]}>
-                    {order.shipping_address.name}
-                  </Text>
-                )}
-                {!!order.shipping_address?.phone && (
-                  <Text
-                    style={[
-                      styles.addressLine,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {order.shipping_address.phone}
-                  </Text>
-                )}
-                {!!order.shipping_address?.address && (
-                  <Text
-                    style={[
-                      styles.addressLine,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {order.shipping_address.address}
-                  </Text>
-                )}
-                {(!!order.shipping_address?.city ||
-                  !!order.shipping_address?.state) && (
-                  <Text
-                    style={[
-                      styles.addressLine,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {[
-                      order.shipping_address?.city,
-                      order.shipping_address?.state,
-                    ]
-                      .filter(Boolean)
-                      .join(', ')}
-                  </Text>
-                )}
-              </View>
-            </View>
-          </View>
+          <OrderDetailsShippingAddressCard
+            colors={colors}
+            isDark={isDark}
+            shippingAddress={order.shipping_address}
+          />
 
           <OrderDetailsSummaryCard
             colors={colors}
@@ -1342,29 +1280,6 @@ const styles = StyleSheet.create({
   itemPrice: {
     fontSize: 15,
     fontWeight: '600',
-  },
-  addressIconRail: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addressContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  addressDetails: {
-    flex: 1,
-  },
-  addressName: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  addressLine: {
-    fontSize: 14,
-    marginTop: 2,
   },
   actionStack: {
     gap: 12,
