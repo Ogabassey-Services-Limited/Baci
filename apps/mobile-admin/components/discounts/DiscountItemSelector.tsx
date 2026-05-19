@@ -219,11 +219,6 @@ export function DiscountItemSelector({
             />
           ) : (
             <FlatList
-              getItemLayout={(data, index) => ({
-                length: 83, // 50 image height + 16 vertical padding * 2 + 1 border bottom
-                offset: 83 * index,
-                index,
-              })}
               data={items}
               keyExtractor={(item) => item.id}
               keyboardDismissMode="on-drag"

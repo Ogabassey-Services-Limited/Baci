@@ -88,11 +88,6 @@ export default function UtilityHistoryScreen() {
         edges={['bottom']}
       >
         <FlatList<VTUHistoryTransaction>
-          getItemLayout={(data, index) => ({
-            length: 120, // rough height based on styling
-            offset: 120 * index,
-            index,
-          })}
           data={transactions ?? EMPTY_TRANSACTIONS}
           renderItem={({ item }) => (
             <UtilityTransactionCard

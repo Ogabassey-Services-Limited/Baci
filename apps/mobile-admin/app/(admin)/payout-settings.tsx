@@ -380,11 +380,6 @@ export default function PayoutSettingsScreen() {
                 />
               ) : (
                 <FlatList
-                  getItemLayout={(data, index) => ({
-                    length: 64, // roughly 64 based on styling
-                    offset: 64 * index,
-                    index,
-                  })}
                   data={filteredBanks}
                   keyExtractor={(item) => item.code}
                   keyboardDismissMode="on-drag"
