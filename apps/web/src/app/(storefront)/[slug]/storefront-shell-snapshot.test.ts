@@ -117,6 +117,24 @@ describe('getStorefrontShellSnapshot', () => {
     expect(getCachedNavigationCategories).toHaveBeenCalledWith('merchant-1');
   });
 
+  it('treats slug subdomains as domain-routed even without x-merchant headers', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(
+      baseMerchant as unknown as Awaited<
+        ReturnType<typeof getRequestScopedMerchant>
+      >
+    );
+    mockHeaders.mockResolvedValue(
+      new Headers([['host', 'ogabassey.usebaci.com']])
+    );
+
+    const shellSnapshotBase = await getStorefrontShellSnapshotBase('ogabassey');
+
+    expect(shellSnapshotBase).toMatchObject({
+      routingMode: 'domain',
+      basePath: '',
+    });
+  });
+
   it('expands a precomputed base snapshot without repeating merchant lookup work', async () => {
     const shellSnapshotBase = {
       merchant: {

@@ -32,8 +32,21 @@ async function resolveRoutingMode(slug: string): Promise<RoutingMode> {
 
   try {
     const headersList = await headers();
+    const requestHost = (
+      headersList.get('x-forwarded-host') ||
+      headersList.get('host') ||
+      ''
+    )
+      .split(':')[0]
+      .toLowerCase();
+    const slugSubdomainHost = `${slug.toLowerCase()}.usebaci.com`;
+    const hostMatchesSlugSubdomain =
+      requestHost === slugSubdomainHost ||
+      requestHost.startsWith(`${slugSubdomainHost}.`);
+
     return headersList.has('x-merchant-slug') ||
-      headersList.has('x-custom-domain')
+      headersList.has('x-custom-domain') ||
+      hostMatchesSlugSubdomain
       ? 'domain'
       : 'path';
   } catch (error) {
