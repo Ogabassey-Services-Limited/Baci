@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { OrderDetailsClosedStateCard } from '@/components/orders/OrderDetailsClosedStateCard';
+import { OrderDetailsHeaderCard } from '@/components/orders/OrderDetailsHeaderCard';
 import { ReceiptPreviewModal } from '@/components/receipts/ReceiptPreviewModal';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -504,59 +505,14 @@ export default function OrderDetailsScreen() {
               },
             ]}
           >
-            <View style={styles.orderHeader}>
-              <View
-                style={[
-                  styles.orderHeaderIcon,
-                  { backgroundColor: statusPalette.surface },
-                ]}
-              >
-                <Ionicons
-                  name={
-                    statusMeta.icon as React.ComponentProps<
-                      typeof Ionicons
-                    >['name']
-                  }
-                  size={20}
-                  color={statusPalette.accent}
-                />
-              </View>
-              <View style={styles.orderHeaderCopy}>
-                <View style={styles.orderHeaderTopRow}>
-                  <Text style={[styles.orderNumber, { color: colors.text }]}>
-                    Order #{order.order_number}
-                  </Text>
-                  <View
-                    style={[
-                      styles.statusChip,
-                      { backgroundColor: statusPalette.surface },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.statusChipText,
-                        { color: statusPalette.accent },
-                      ]}
-                    >
-                      {statusMeta.shortLabel}
-                    </Text>
-                  </View>
-                </View>
-                <Text
-                  style={[styles.orderDate, { color: colors.textSecondary }]}
-                >
-                  {formatDate(order.created_at)}
-                </Text>
-                <Text
-                  style={[
-                    styles.orderStatusDescription,
-                    { color: colors.textSecondary },
-                  ]}
-                >
-                  {statusMeta.description}
-                </Text>
-              </View>
-            </View>
+            <OrderDetailsHeaderCard
+              orderNumber={order.order_number}
+              createdAt={order.created_at}
+              statusMeta={statusMeta}
+              statusPalette={statusPalette}
+              colors={colors}
+              formatDate={formatDate}
+            />
           </View>
 
           {/* Order Status Timeline */}
@@ -1353,54 +1309,6 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 12,
     padding: 16,
-  },
-  orderHeader: {
-    flexDirection: 'row',
-    gap: 14,
-    alignItems: 'flex-start',
-  },
-  orderHeaderIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  orderHeaderCopy: {
-    flex: 1,
-  },
-  orderHeaderTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    flexWrap: 'wrap',
-    columnGap: 12,
-    rowGap: 8,
-    alignItems: 'flex-start',
-  },
-  orderNumber: {
-    fontSize: 18,
-    fontWeight: '700',
-    flexShrink: 1,
-    minWidth: 0,
-  },
-  orderDate: {
-    fontSize: 14,
-    marginTop: 4,
-  },
-  statusChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 999,
-    alignSelf: 'flex-start',
-  },
-  statusChipText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  orderStatusDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 10,
   },
   sectionTitle: {
     fontSize: 16,
