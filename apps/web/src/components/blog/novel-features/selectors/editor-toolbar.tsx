@@ -80,9 +80,9 @@ export const EditorToolbar = ({
   };
 
   const openImageCaptionPopover = () => {
-    const imageAttrs = (getTiptap(editor)?.getAttributes('image') ?? {}) as {
-      title?: string | null;
-    };
+    const imageAttrs =
+      getTiptap(editor)?.getAttributes<{ title?: string | null }>('image') ??
+      {};
     setImagePopoverMode('edit-caption');
     setImageCaptionValue(
       typeof imageAttrs.title === 'string' ? imageAttrs.title : ''
