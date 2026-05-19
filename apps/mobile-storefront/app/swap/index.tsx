@@ -48,6 +48,12 @@ import { SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
 import { fetchWithTimeout, LONG_TIMEOUT } from '@/lib/fetch-with-timeout';
 import { createLogger } from '@/lib/logger';
 import {
+  buildSwapWhatsappUrl,
+  getSwapGradeColor,
+  SWAP_ELIGIBLE_DEVICES,
+  SWAP_HOW_IT_WORKS,
+} from '@/lib/swap-utils';
+import {
   type AIAnalysisResult,
   AIGradeDeviceApiResponseSchema,
   parseApiResponse,
@@ -56,32 +62,6 @@ import {
 const log = createLogger('Swap');
 
 // Using AIAnalysisResult type from validation.ts
-
-const ELIGIBLE_DEVICES = [
-  'iPhones (11 and newer)',
-  'Samsung Galaxy S Series',
-  'MacBooks (2018+)',
-  'PlayStation 4 & 5',
-  'iPads',
-];
-
-const HOW_IT_WORKS = [
-  {
-    title: 'Record Video',
-    desc: 'Quick 10s video showing screen and body',
-    icon: 'videocam-outline' as const,
-  },
-  {
-    title: 'AI Analysis',
-    desc: 'Gemini grades condition automatically',
-    icon: 'sparkles-outline' as const,
-  },
-  {
-    title: 'Get Paid',
-    desc: 'Accept offer and swap instantly',
-    icon: 'cash-outline' as const,
-  },
-];
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://ogabassey.com';
 
@@ -239,17 +219,7 @@ export default function SwapScreen() {
 
   const handleAcceptOffer = () => {
     if (!result) return;
-
-    const message = encodeURIComponent(
-      `Hello! I did an AI trade-in check.\n\n` +
-        `Device: ${result.model}\n` +
-        `Grade: ${result.grade}\n` +
-        `Estimate: N${result.estimatedValue.toLocaleString()}\n` +
-        `Observations: ${result.observations.map((o) => o.replace(/\n/g, ' ').trim()).join(', ')}\n\n` +
-        `I'd like to proceed with the swap.`
-    );
-
-    Linking.openURL(`https://wa.me/${SUPPORT_WHATSAPP_PHONE}?text=${message}`);
+    Linking.openURL(buildSwapWhatsappUrl(result, SUPPORT_WHATSAPP_PHONE));
     setIsModalOpen(false);
   };
 
@@ -263,19 +233,6 @@ export default function SwapScreen() {
   const closeModal = () => {
     setIsModalOpen(false);
     resetModal();
-  };
-
-  const getGradeColor = (grade: string) => {
-    switch (grade) {
-      case 'Excellent':
-        return colors.success;
-      case 'Good':
-        return colors.primary;
-      case 'Fair':
-        return colors.warning;
-      default:
-        return colors.error;
-    }
   };
 
   return (
@@ -341,7 +298,7 @@ export default function SwapScreen() {
           How it Works
         </Text>
         <View style={styles.stepsContainer}>
-          {HOW_IT_WORKS.map((step, index) => (
+          {SWAP_HOW_IT_WORKS.map((step, index) => (
             <View
               key={index}
               style={[styles.stepCard, { backgroundColor: colors.card }]}
@@ -364,7 +321,7 @@ export default function SwapScreen() {
           <Text style={[styles.eligibleTitle, { color: colors.text }]}>
             What can you trade in?
           </Text>
-          {ELIGIBLE_DEVICES.map((device, index) => (
+          {SWAP_ELIGIBLE_DEVICES.map((device, index) => (
             <View key={index} style={styles.eligibleItem}>
               <View style={[styles.eligibleCheck, { backgroundColor: colors.muted }]}>
                 <Ionicons name="checkmark" size={14} color={colors.success} />
@@ -599,7 +556,7 @@ export default function SwapScreen() {
                       <Text
                         style={[
                           styles.detailValue,
-                          { color: getGradeColor(result.grade) },
+                          { color: getSwapGradeColor(result.grade, colors) },
                         ]}
                       >
                         {result.grade}
