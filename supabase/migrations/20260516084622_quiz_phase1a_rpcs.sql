@@ -160,6 +160,19 @@ AS $$
   SELECT public.quiz_route_proof_valid(p_route_proof, NULL, NULL, NULL);
 $$;
 
+-- Deployment must set app.quiz_rpc_server_secret_current to the same HMAC
+-- secret used by the app's QUIZ_RPC_SERVER_SECRET. The deploy checker calls
+-- this non-sensitive helper so missing DB-side proof config fails before routes
+-- start returning proof validation errors.
+CREATE OR REPLACE FUNCTION public.quiz_rpc_server_secret_configured()
+RETURNS boolean
+LANGUAGE sql
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT NULLIF(current_setting('app.quiz_rpc_server_secret_current', true), '') IS NOT NULL;
+$$;
+
 CREATE OR REPLACE FUNCTION public.start_quiz_attempt(
   p_event_id uuid,
   p_integrity_tier text,
@@ -694,6 +707,7 @@ $$;
 
 COMMENT ON FUNCTION public.quiz_compare_signatures(text, text) IS 'Phase 1a helper for comparing SHA-256 quiz route proof signature digests.';
 COMMENT ON FUNCTION public.quiz_log_route_proof_failure(jsonb, text) IS 'Phase 1a helper for recording non-sensitive quiz route proof validation failures while preserving fail-closed behavior.';
+COMMENT ON FUNCTION public.quiz_rpc_server_secret_configured() IS 'Phase 1a deploy-check helper that reports whether the DB-side quiz RPC HMAC secret is configured without exposing the secret value.';
 COMMENT ON FUNCTION public.start_quiz_attempt(uuid, text, jsonb, uuid) IS 'Phase 1a minimal RPC: creates a proof-gated attempt and returns the first assigned mobile question for the authenticated customer; Phase 1b adds abuse-budget enforcement.';
 COMMENT ON FUNCTION public.record_quiz_answer(uuid, uuid, jsonb, jsonb, uuid, boolean) IS 'Phase 1a minimal RPC: records a proof-gated answer for a preassigned question owned by the authenticated customer; Phase 1b adds scoring and timing validation.';
 COMMENT ON FUNCTION public.submit_quiz_answer(uuid, uuid, text, timestamptz, text, jsonb, uuid) IS 'Phase 1a route-compatible answer contract that wraps record_quiz_answer with proof and metadata payload.';
@@ -709,6 +723,7 @@ REVOKE ALL ON FUNCTION public.quiz_compare_signatures(text, text) FROM PUBLIC, a
 REVOKE ALL ON FUNCTION public.quiz_log_route_proof_failure(jsonb, text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.quiz_route_proof_valid(jsonb) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.quiz_route_proof_valid(jsonb, text, text, uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.quiz_rpc_server_secret_configured() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.start_quiz_attempt(uuid, text, jsonb, uuid) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.record_quiz_answer(uuid, uuid, jsonb, jsonb, uuid, boolean) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.submit_quiz_answer(uuid, uuid, text, timestamptz, text, jsonb, uuid) FROM PUBLIC, anon, authenticated;
@@ -730,3 +745,4 @@ GRANT EXECUTE ON FUNCTION public.claim_quiz_award_cash(uuid, jsonb, boolean) TO 
 GRANT EXECUTE ON FUNCTION public.claim_quiz_grand_prize(uuid, jsonb, uuid) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.claim_quiz_cash_award(uuid, jsonb, uuid) TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.app_integrity_tier_rank(text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.quiz_rpc_server_secret_configured() TO service_role;

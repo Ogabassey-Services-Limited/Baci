@@ -19,6 +19,7 @@ describe('evaluateQuizProductionApproval', () => {
     const result = evaluateQuizProductionApproval({
       quizPhase: '1a',
       quizProductionApproved: false,
+      quizRpcServerSecretConfigured: true,
       events: [],
       trackerRows: [],
     });
@@ -27,10 +28,26 @@ describe('evaluateQuizProductionApproval', () => {
     expect(result.mode).toBe('1a');
   });
 
+  it('fails Phase 1a when the DB-side proof secret is not configured', () => {
+    const result = evaluateQuizProductionApproval({
+      quizPhase: '1a',
+      quizProductionApproved: false,
+      quizRpcServerSecretConfigured: false,
+      events: [],
+      trackerRows: [],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain(
+      'Postgres setting app.quiz_rpc_server_secret_current must be configured for quiz route proof verification'
+    );
+  });
+
   it('fails production mode when approval is not truthy', () => {
     const result = evaluateQuizProductionApproval({
       quizPhase: 'production',
       quizProductionApproved: false,
+      quizRpcServerSecretConfigured: true,
       events: [],
       trackerRows: [],
     });
@@ -45,6 +62,7 @@ describe('evaluateQuizProductionApproval', () => {
     const result = evaluateQuizProductionApproval({
       quizPhase: 'staging',
       quizProductionApproved: true,
+      quizRpcServerSecretConfigured: true,
       events: [],
       trackerRows: [],
     });
@@ -56,10 +74,26 @@ describe('evaluateQuizProductionApproval', () => {
     });
   });
 
+  it('fails production mode when the DB-side proof secret is not configured', () => {
+    const result = evaluateQuizProductionApproval({
+      quizPhase: 'production',
+      quizProductionApproved: true,
+      quizRpcServerSecretConfigured: false,
+      events: [],
+      trackerRows: [],
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContain(
+      'Postgres setting app.quiz_rpc_server_secret_current must be configured for quiz route proof verification'
+    );
+  });
+
   it('fails production mode when active prize events lack permit or odds evidence', () => {
     const result = evaluateQuizProductionApproval({
       quizPhase: 'production',
       quizProductionApproved: true,
+      quizRpcServerSecretConfigured: true,
       events: [
         {
           id: 'event-1',
@@ -85,6 +119,7 @@ describe('evaluateQuizProductionApproval', () => {
     const result = evaluateQuizProductionApproval({
       quizPhase: 'production',
       quizProductionApproved: true,
+      quizRpcServerSecretConfigured: true,
       events: [
         {
           id: 'event-draft',
@@ -111,6 +146,7 @@ describe('evaluateQuizProductionApproval', () => {
     const result = evaluateQuizProductionApproval({
       quizPhase: 'production',
       quizProductionApproved: true,
+      quizRpcServerSecretConfigured: true,
       events: [],
       trackerRows: [
         {
@@ -134,6 +170,7 @@ describe('evaluateQuizProductionApproval', () => {
     const result = evaluateQuizProductionApproval({
       quizPhase: 'production',
       quizProductionApproved: true,
+      quizRpcServerSecretConfigured: true,
       events: [
         {
           id: 'event-2',
@@ -169,6 +206,7 @@ describe('evaluateQuizProductionApproval', () => {
     const result = evaluateQuizProductionApproval({
       quizPhase: 'production',
       quizProductionApproved: true,
+      quizRpcServerSecretConfigured: true,
       events: [
         {
           id: 'event-circular',
@@ -210,6 +248,7 @@ describe('evaluateQuizProductionApproval', () => {
     const result = evaluateQuizProductionApproval({
       quizPhase: 'production',
       quizProductionApproved: true,
+      quizRpcServerSecretConfigured: true,
       events: [
         {
           id: 'event-3',

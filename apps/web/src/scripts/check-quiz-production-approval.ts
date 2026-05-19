@@ -23,6 +23,7 @@ export type QuizComplianceTrackerRow = {
 export type QuizProductionApprovalInput = {
   quizPhase: string | undefined;
   quizProductionApproved: boolean;
+  quizRpcServerSecretConfigured: boolean;
   events: QuizProductionApprovalEvent[];
   trackerRows: QuizComplianceTrackerRow[];
 };
@@ -143,11 +144,23 @@ export function evaluateQuizProductionApproval(
   }
 
   if (phase === '1a') {
+    if (!input.quizRpcServerSecretConfigured) {
+      errors.push(
+        'Postgres setting app.quiz_rpc_server_secret_current must be configured for quiz route proof verification'
+      );
+    }
+
     return {
-      ok: true,
+      ok: errors.length === 0,
       mode: phase,
       errors,
     };
+  }
+
+  if (!input.quizRpcServerSecretConfigured) {
+    errors.push(
+      'Postgres setting app.quiz_rpc_server_secret_current must be configured for quiz route proof verification'
+    );
   }
 
   if (!input.quizProductionApproved) {
@@ -257,9 +270,25 @@ async function loadProductionRows() {
   };
 }
 
+async function loadQuizRpcServerSecretConfigured() {
+  const { createServiceClient } = await import('@/lib/supabase/service');
+  const supabase = createServiceClient();
+  const result = await supabase.rpc('quiz_rpc_server_secret_configured');
+
+  if (result.error) {
+    throw new Error(
+      `Failed to check quiz RPC server secret configuration (function=quiz_rpc_server_secret_configured code=${result.error.code ?? 'unknown'}): ${result.error.message ?? 'unknown'}`
+    );
+  }
+
+  return result.data === true;
+}
+
 export async function runCheckQuizProductionApprovalCli(): Promise<number> {
   const phase = getQuizPhaseEnv();
   const approved = getQuizProductionApprovedEnv();
+  const quizRpcServerSecretConfigured =
+    await loadQuizRpcServerSecretConfigured();
   const rows =
     phase === 'production'
       ? await loadProductionRows()
@@ -267,6 +296,7 @@ export async function runCheckQuizProductionApprovalCli(): Promise<number> {
   const result = evaluateQuizProductionApproval({
     quizPhase: phase,
     quizProductionApproved: approved,
+    quizRpcServerSecretConfigured,
     ...rows,
   });
 
