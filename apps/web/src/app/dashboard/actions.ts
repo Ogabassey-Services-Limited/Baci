@@ -2,6 +2,7 @@
 
 import { cookies } from 'next/headers';
 import { getCachedDashboardStats } from '@/lib/cached-data';
+import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
 
 export interface DashboardMetrics {
@@ -88,11 +89,27 @@ export async function getRecentSales(
   try {
     const cookieStore = await cookies();
     const supabase = createClient(cookieStore);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return [];
+    }
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+      requestedMerchantId: merchantId,
+    });
+
+    if (!merchantContext) {
+      return [];
+    }
 
     const { data: orders, error } = await supabase
       .from('orders')
       .select('id, customer_name, customer_email, total, payment_status')
-      .eq('merchant_id', merchantId)
+      .eq('merchant_id', merchantContext.merchantId)
       .eq('payment_status', 'paid')
       .order('created_at', { ascending: false })
       .limit(limit);

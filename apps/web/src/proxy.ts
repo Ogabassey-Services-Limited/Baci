@@ -530,10 +530,9 @@ function generateCSP(
     routeType === 'admin' || routeType === 'auth'
       ? {
           ...baseDirectives,
-          // Keep nonce validation for script execution contexts while explicitly
-          // allowing framework inline <script> elements for App Router hydration.
+          // Next reads the forwarded request CSP and applies this nonce to its
+          // framework and Flight script tags before rendering admin/auth pages.
           'script-src': `'self' 'nonce-${nonce}'${isLocal ? " 'unsafe-eval'" : ''} https://vercel.live https://va.vercel-scripts.com`,
-          'script-src-elem': `'self' 'unsafe-inline'${isLocal ? " 'unsafe-eval'" : ''} https://vercel.live https://va.vercel-scripts.com`,
           'script-src-attr': "'none'",
           'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
           'connect-src':
@@ -811,9 +810,26 @@ export async function proxy(request: NextRequest) {
     // (both thumbnail_id and _thumbnail_id variants).
     // Exclude pagination, tags, and authors from being treated as posts.
     const blogExclusions = ['page', 'tag', 'author', 'category'];
+    const blogMetadataEndpoints = ['opengraph-image', 'twitter-image'];
     const legacyCategoryMatch = pathname.match(/^\/blog\/([^/]+)\/([^/]+)\/?$/);
+    const legacyCategoryTarget = legacyCategoryMatch?.[2]?.toLowerCase();
+    const legacyCategoryTargetBase = legacyCategoryTarget?.replace(
+      /\.(?:avif|gif|jpe?g|png|webp)$/,
+      ''
+    );
+    const isBlogMetadataEndpoint =
+      legacyCategoryTargetBase !== undefined &&
+      blogMetadataEndpoints.includes(legacyCategoryTargetBase);
+    const acceptHeader = request.headers.get('accept')?.toLowerCase() ?? '';
+    const fetchDestination =
+      request.headers.get('sec-fetch-dest')?.toLowerCase() ?? '';
+    const isDocumentNavigation =
+      fetchDestination === 'document' || acceptHeader.includes('text/html');
+    const shouldBypassLegacyCategoryRedirect =
+      isBlogMetadataEndpoint && !isDocumentNavigation;
     const isLegacyPost =
       legacyCategoryMatch &&
+      !shouldBypassLegacyCategoryRedirect &&
       !blogExclusions.includes(legacyCategoryMatch[1].toLowerCase());
 
     const hasThumbnailId =
