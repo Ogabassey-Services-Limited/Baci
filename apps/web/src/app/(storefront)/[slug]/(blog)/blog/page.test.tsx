@@ -2,8 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getCachedBlogListing } from '@/lib/cached-data';
 
-const { mockConnection, mockDefaultBlogUi } = vi.hoisted(() => ({
-  mockConnection: vi.fn(),
+const { mockDefaultBlogUi } = vi.hoisted(() => ({
   mockDefaultBlogUi: vi.fn((props: MockDefaultBlogUiProps) => (
     <div>{props.merchant.business_name} blog</div>
   )),
@@ -23,10 +22,6 @@ interface MockDefaultBlogUiProps {
 
 vi.mock('@/lib/cached-data', () => ({
   getCachedBlogListing: vi.fn(),
-}));
-
-vi.mock('next/server', () => ({
-  connection: () => mockConnection(),
 }));
 
 vi.mock('@/lib/routes', () => ({
@@ -160,8 +155,6 @@ describe('blog page metadata', () => {
   beforeEach(() => {
     vi.mocked(getCachedBlogListing).mockReset();
     vi.mocked(getCachedBlogListing).mockResolvedValue(buildListingResult());
-    mockConnection.mockReset();
-    mockConnection.mockResolvedValue(undefined);
     mockBuildBlogClusterCollections.mockReset();
     mockBuildBlogClusterCollections.mockReturnValue([]);
     mockDefaultBlogUi.mockReset();
@@ -270,7 +263,6 @@ describe('blog page metadata', () => {
     const pending = new Promise(() => {
       // Keep request-time metadata and listing UI suspended behind their boundaries.
     });
-    mockConnection.mockReturnValue(pending);
     mockDefaultBlogUi.mockImplementation(() => {
       throw pending;
     });
@@ -286,7 +278,6 @@ describe('blog page metadata', () => {
       screen.getByRole('status', { name: /loading blog posts/i })
     ).toBeInTheDocument();
     expect(screen.queryByText('Ogabassey blog')).not.toBeInTheDocument();
-    expect(mockConnection).toHaveBeenCalledOnce();
   });
 
   it('renders guide collections above the blog listing', async () => {
