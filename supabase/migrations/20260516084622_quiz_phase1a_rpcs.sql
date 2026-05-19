@@ -75,6 +75,8 @@ AS $$
 DECLARE
   v_action text := COALESCE(p_route_proof->>'action', '');
   v_canonical text;
+  -- Configure this GUC outside the migration, for example with ALTER DATABASE
+  -- postgres SET app.quiz_rpc_server_secret_current = '<QUIZ_RPC_SERVER_SECRET>'.
   v_current_secret text := NULLIF(current_setting('app.quiz_rpc_server_secret_current', true), '');
   v_expected_signature text;
   v_issued_at text := COALESCE(p_route_proof->>'issued_at', '');
