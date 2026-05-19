@@ -18,6 +18,10 @@ const QUESTION_ID = '33333333-3333-3333-3333-333333333333';
 const MERCHANT_ID = '55555555-5555-5555-5555-555555555555';
 const MERCHANT_SLUG = 'ogabassey';
 
+function testUuid(index: number) {
+  return `00000000-0000-0000-0000-${String(index).padStart(12, '0')}`;
+}
+
 function eventRow(overrides: Record<string, unknown> = {}) {
   return {
     compliance_verified: true,
@@ -41,9 +45,14 @@ function mockAuthenticatedSupabase({
 }: {
   customerResult?: { data: unknown; error: unknown };
   merchantResult?: { data: unknown; error: unknown };
-  selectResult?: { data: unknown; error: unknown };
+  selectResult?:
+    | { data: unknown; error: unknown }
+    | Array<{ data: unknown; error: unknown }>;
   user?: { id: string } | null;
 } = {}) {
+  const selectResults = Array.isArray(selectResult)
+    ? [...selectResult]
+    : [selectResult];
   const customerBuilder = {
     eq: vi.fn(() => customerBuilder),
     limit: vi.fn(() => customerBuilder),
@@ -59,7 +68,14 @@ function mockAuthenticatedSupabase({
   const queryBuilder = {
     eq: vi.fn(() => queryBuilder),
     order: vi.fn(() => queryBuilder),
-    range: vi.fn().mockResolvedValue(selectResult),
+    range: vi.fn().mockImplementation(() =>
+      Promise.resolve(
+        selectResults.shift() ?? {
+          data: [],
+          error: null,
+        }
+      )
+    ),
     select: vi.fn(() => queryBuilder),
   };
   const from = vi.fn((table: string) => {
@@ -228,7 +244,7 @@ describe('quiz events route', () => {
         offset: 0,
       },
     });
-    expect(queryBuilder.range).toHaveBeenCalledWith(0, 20);
+    expect(queryBuilder.range).toHaveBeenCalledWith(0, 49);
   });
 
   it('maps missing optional event fields to safe response defaults', async () => {
@@ -320,6 +336,30 @@ describe('quiz events route', () => {
     });
   });
 
+  it('accepts forward-compatible event settings keys', async () => {
+    mockAuthenticatedSupabase({
+      selectResult: {
+        data: [
+          eventRow({
+            settings: {
+              future_phase_metadata: { display: 'hero' },
+              prize_name: '  N50,000 store credit  ',
+            },
+          }),
+        ],
+        error: null,
+      },
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(eventsRequest());
+
+    expect(response.status).toBe(200);
+    expect(await readJson(response)).toMatchObject({
+      events: [{ prizeName: 'N50,000 store credit' }],
+    });
+  });
+
   it('filters out events with no question slots before returning mobile data', async () => {
     mockAuthenticatedSupabase({
       selectResult: {
@@ -346,6 +386,60 @@ describe('quiz events route', () => {
         },
       ],
     });
+  });
+
+  it('computes pagination after filtering events with no question slots', async () => {
+    const hiddenRows = Array.from({ length: 50 }, (_, index) =>
+      eventRow({
+        id: testUuid(index + 1),
+        quiz_question_slots: [],
+        title: `Hidden Quiz ${index + 1}`,
+      })
+    );
+    const { queryBuilder } = mockAuthenticatedSupabase({
+      selectResult: [
+        {
+          data: hiddenRows,
+          error: null,
+        },
+        {
+          data: [
+            eventRow(),
+            eventRow({
+              id: testUuid(51),
+              title: 'June Quiz',
+            }),
+          ],
+          error: null,
+        },
+      ],
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(eventsRequest('?limit=1&offset=0'));
+
+    expect(response.status).toBe(200);
+    expect(await readJson(response)).toEqual({
+      events: [
+        {
+          endsAt: '2026-05-16T12:00:00.000Z',
+          id: EVENT_ID,
+          prizeName: 'N50,000 store credit',
+          questionCount: 1,
+          startsAt: '2026-05-16T10:00:00.000Z',
+          status: 'open',
+          title: 'May Quiz',
+        },
+      ],
+      pagination: {
+        hasMore: true,
+        limit: 1,
+        nextOffset: 51,
+        offset: 0,
+      },
+    });
+    expect(queryBuilder.range).toHaveBeenNthCalledWith(1, 0, 49);
+    expect(queryBuilder.range).toHaveBeenNthCalledWith(2, 50, 99);
   });
 
   it('fails closed in production mode when approval evidence is missing from a listed event', async () => {
@@ -419,7 +513,7 @@ describe('quiz events route', () => {
       'id, title, status, starts_at, ends_at, settings, nlrc_permit_ref, compliance_verified, quiz_question_slots!inner(id)'
     );
     expect(queryBuilder.eq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
-    expect(queryBuilder.range).toHaveBeenCalledWith(2, 3);
+    expect(queryBuilder.range).toHaveBeenCalledWith(2, 51);
   });
 
   it('returns hasMore pagination metadata when one extra row is loaded', async () => {
@@ -457,6 +551,6 @@ describe('quiz events route', () => {
         offset: 0,
       },
     });
-    expect(queryBuilder.range).toHaveBeenCalledWith(0, 1);
+    expect(queryBuilder.range).toHaveBeenCalledWith(0, 49);
   });
 });

@@ -2,7 +2,11 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { getQuizPhaseEnv } from '@/env';
 import { logger } from '@/lib/logger';
 import { enforcePrizeProductionGuard } from '@/lib/quiz-compliance-gate';
-import { quizEventRowSchema, quizEventsQuerySchema } from '@/schemas/quiz';
+import {
+  type QuizEventRow,
+  quizEventRowSchema,
+  quizEventsQuerySchema,
+} from '@/schemas/quiz';
 import {
   invalidInputResponse,
   prizeGuardErrorResponse,
@@ -11,6 +15,14 @@ import {
 } from '../_shared/route-helpers';
 
 const DEFAULT_PRIZE_NAME = 'Quiz prize';
+const MIN_INTERNAL_PAGE_SIZE = 50;
+
+// rawIndex is the source query offset for a qualifying event. Pagination uses
+// it after post-fetch filtering so hidden rows do not cause duplicates.
+type IndexedQuizEvent = {
+  event: QuizEventRow;
+  rawIndex: number;
+};
 
 function mapQuizEventStatus(status: string): 'open' | 'scheduled' | 'closed' {
   if (status === 'active') return 'open';
@@ -109,24 +121,40 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const { data, error } = await auth.supabase
-    .from('quiz_events')
-    .select(
-      'id, title, status, starts_at, ends_at, settings, nlrc_permit_ref, compliance_verified, quiz_question_slots!inner(id)'
-    )
-    .eq('merchant_id', merchantId)
-    .order('starts_at', { ascending: false })
-    .range(offset, offset + limit);
+  const rows: IndexedQuizEvent[] = [];
+  let fetchOffset = offset;
+  let exhausted = false;
+  const internalPageSize = Math.max(limit + 1, MIN_INTERNAL_PAGE_SIZE);
 
-  if (error) return rpcErrorResponse();
+  while (rows.length <= limit && !exhausted) {
+    const { data, error } = await auth.supabase
+      .from('quiz_events')
+      .select(
+        'id, title, status, starts_at, ends_at, settings, nlrc_permit_ref, compliance_verified, quiz_question_slots!inner(id)'
+      )
+      .eq('merchant_id', merchantId)
+      .order('starts_at', { ascending: false })
+      .range(fetchOffset, fetchOffset + internalPageSize - 1);
 
-  const parsedRows = quizEventRowSchema.array().safeParse(data ?? []);
-  if (!parsedRows.success) return rpcErrorResponse();
+    if (error) return rpcErrorResponse();
 
-  const rows = parsedRows.data.filter((event) => getQuestionCount(event) > 0);
+    const parsedRows = quizEventRowSchema.array().safeParse(data ?? []);
+    if (!parsedRows.success) return rpcErrorResponse();
+
+    parsedRows.data.forEach((event, index) => {
+      if (getQuestionCount(event) > 0) {
+        rows.push({ event, rawIndex: fetchOffset + index });
+      }
+    });
+
+    exhausted = parsedRows.data.length < internalPageSize;
+    fetchOffset += parsedRows.data.length;
+  }
+
+  const pageRows = rows.slice(0, limit);
   if (getQuizPhaseEnv() === 'production') {
     try {
-      for (const event of rows) {
+      for (const { event } of rows) {
         enforcePrizeProductionGuard(
           { nlrc_permit_ref: event.nlrc_permit_ref },
           event.compliance_verified === true
@@ -138,7 +166,11 @@ export async function GET(request: NextRequest) {
   }
 
   const hasMore = rows.length > limit;
-  const events = rows.slice(0, limit).map((event) => ({
+  const lastPageRow = pageRows[pageRows.length - 1];
+  // Advance from the last returned raw row; filtered rows before it still count
+  // in the next database offset.
+  const nextOffset = hasMore ? (lastPageRow?.rawIndex ?? offset) + 1 : null;
+  const events = pageRows.map(({ event }) => ({
     endsAt: event.ends_at,
     id: event.id,
     prizeName: getPrizeName(event.settings),
@@ -153,7 +185,7 @@ export async function GET(request: NextRequest) {
     pagination: {
       hasMore,
       limit,
-      nextOffset: hasMore ? offset + limit : null,
+      nextOffset,
       offset,
     },
   });

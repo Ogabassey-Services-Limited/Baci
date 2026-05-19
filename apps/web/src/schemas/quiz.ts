@@ -53,7 +53,9 @@ export const quizEventSettingsSchema = z
     prize_name: z.string().optional(),
     time_limit_seconds: z.coerce.number().int().positive().optional(),
   })
-  .strict();
+  // Forward-compatible settings rows should not break older clients, but typoed
+  // unknown keys are silently dropped rather than rejected.
+  .strip();
 
 export const quizEventRowSchema = z.object({
   compliance_verified: z.boolean().nullable().optional(),

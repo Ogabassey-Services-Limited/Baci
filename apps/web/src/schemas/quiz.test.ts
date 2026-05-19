@@ -231,16 +231,18 @@ describe('quiz route schemas', () => {
       title: 'Daily quiz',
     });
 
-    expect(() =>
+    expect(
       quizEventRowSchema.parse({
         ends_at: null,
         id: EVENT_ID,
-        settings: { unexpected: true },
+        settings: { prize_name: 'Store credit', unexpected: true },
         starts_at: '2026-05-16T10:00:00.000Z',
         status: 'active',
         title: 'Daily quiz',
       })
-    ).toThrow();
+    ).toMatchObject({
+      settings: { prize_name: 'Store credit' },
+    });
     expect(() =>
       quizEventRowSchema.parse({
         id: EVENT_ID,
