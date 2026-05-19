@@ -64,6 +64,11 @@ import {
   PickupStationCard,
 } from '@/components/checkout/PickupStationCard';
 import {
+  fetchShippingQuotes,
+  normalizeStateName,
+  type ShippingLocation,
+} from '@/components/checkout/checkout-shipping.helpers';
+import {
   AIRPORT_DELIVERY_FEE,
   getDeliveryMethodFee,
   getDeliveryMethodLabel,
@@ -105,8 +110,6 @@ import {
 import { setClipboardString } from '@/lib/clipboard';
 import {
   buildShippingQuoteContextKey,
-  getPreferredShippingQuoteId,
-  normalizeShippingQuotes,
 } from '@/lib/shipping-quotes';
 import { calculateCommerce, supabase } from '@/lib/supabase';
 import {
@@ -127,8 +130,7 @@ import {
 } from '@/lib/wallet-payment-helpers';
 import { createOrder, OrderError, type OrderResponse } from '@/services/orders';
 import { scheduleLocalNotification } from '@/services/push-notifications';
-import type { Customer } from '@/stores/auth-store';
-import { type CartItem, formatPrice, useCartStore } from '@/stores/cart-store';
+import { formatPrice, useCartStore } from '@/stores/cart-store';
 
 type ThemeColors = (typeof Colors)[keyof typeof Colors];
 
@@ -139,17 +141,6 @@ type TextInputAutoComplete = React.ComponentProps<
 const shippingAddressResolver = zodResolver(
   ShippingAddressSchema as unknown as Parameters<typeof zodResolver>[0]
 ) as unknown as Resolver<ShippingAddressInput>;
-
-interface QuoteResponse {
-  quotes: {
-    all: ShippingQuote[];
-  };
-}
-
-interface ShippingLocation {
-  state: string;
-  city: string;
-}
 
 interface PendingCryptoOrder {
   order: OrderResponse['order'];
@@ -182,22 +173,6 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
   payforme: 'Pay for Me',
 };
 
-const GOOGLE_STATE_ALIASES: Record<string, string> = {
-  'federal capital territory': 'FCT - Abuja',
-  fct: 'FCT - Abuja',
-  abuja: 'FCT - Abuja',
-  'lagos state': 'Lagos',
-  'rivers state': 'Rivers',
-  'ogun state': 'Ogun',
-  'oyo state': 'Oyo',
-  'kano state': 'Kano',
-  'kaduna state': 'Kaduna',
-  'enugu state': 'Enugu',
-  'delta state': 'Delta',
-  'edo state': 'Edo',
-  'anambra state': 'Anambra',
-};
-
 const TEXT_CONTENT_TYPE_MAP: Partial<
   Record<keyof ShippingAddressInput, TextContentType>
 > = {
@@ -219,25 +194,6 @@ const AUTO_COMPLETE_MAP: Partial<
   address: 'street-address',
   city: 'postal-address-locality',
 };
-
-function normalizeStateName(
-  googleState: string,
-  knownStates: string[]
-): string {
-  const trimmed = googleState.trim();
-  if (knownStates.includes(trimmed)) return trimmed;
-  const lower = trimmed.toLowerCase();
-  const exactMatch = knownStates.find((s) => s.toLowerCase() === lower);
-  if (exactMatch) return exactMatch;
-  const alias = GOOGLE_STATE_ALIASES[lower];
-  if (alias && knownStates.includes(alias)) return alias;
-  const withoutSuffix = lower.replace(/\s+state$/i, '');
-  const suffixMatch = knownStates.find(
-    (s) => s.toLowerCase() === withoutSuffix
-  );
-  if (suffixMatch) return suffixMatch;
-  return trimmed;
-}
 
 function humanizeCheckoutFieldName(field: keyof ShippingAddressInput): string {
   switch (field) {
@@ -367,114 +323,6 @@ function FormField({
     </View>
   );
 }
-
-type FetchQuotesArgs = {
-  apiUrl: string;
-  state: string;
-  city: string;
-  items: CartItem[];
-  customer: Customer | null;
-  watchedFirstName: string;
-  watchedLastName: string;
-  watchedPhone: string;
-  watchedAddress: string;
-  watchedEmail: string;
-  setIsLoadingQuotes: (value: boolean) => void;
-  setSelectedQuoteId: (value: string) => void;
-  setResolvedShippingQuoteContextKey: (value: string) => void;
-  setShippingQuotes: (value: ShippingQuote[]) => void;
-  previousSelectedQuoteId?: string | null;
-  quoteContextKey: string;
-  shouldResetSelection: boolean;
-  signal?: AbortSignal;
-};
-
-const fetchShippingQuotes = async ({
-  apiUrl,
-  state,
-  city,
-  items,
-  customer,
-  watchedFirstName,
-  watchedLastName,
-  watchedPhone,
-  watchedAddress,
-  watchedEmail,
-  setIsLoadingQuotes,
-  setSelectedQuoteId,
-  setResolvedShippingQuoteContextKey,
-  setShippingQuotes,
-  previousSelectedQuoteId,
-  quoteContextKey,
-  shouldResetSelection,
-  signal,
-}: FetchQuotesArgs) => {
-  if (!state || !city || items.length === 0) return;
-
-  setIsLoadingQuotes(true);
-  if (shouldResetSelection) {
-    setShippingQuotes([]);
-    setSelectedQuoteId('');
-    setResolvedShippingQuoteContextKey('');
-  }
-
-  try {
-    const res = await fetch(`${apiUrl}/api/shipping/quotes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        receiver: {
-          name:
-            `${watchedFirstName} ${watchedLastName}`.trim() ||
-            'Valued Customer',
-          email: customer?.email || watchedEmail || 'guest@example.com',
-          phone: watchedPhone || '',
-          address: watchedAddress || `${city}, ${state}`,
-          city,
-          state,
-          country: 'Nigeria',
-        },
-        items: items.map((item) => ({
-          name: item.name,
-          quantity: item.quantity,
-          weight: 1,
-          value: item.negotiatedPrice ?? item.price,
-        })),
-      }),
-      signal,
-    });
-
-    // If aborted between fetch and processing, bail out silently
-    if (signal?.aborted) return;
-
-    if (res.ok) {
-      const data: QuoteResponse & { warnings?: string[] } = await res.json();
-      const quotes = normalizeShippingQuotes(data.quotes?.all || []);
-      setShippingQuotes(quotes);
-      setResolvedShippingQuoteContextKey(quoteContextKey);
-      setSelectedQuoteId(
-        getPreferredShippingQuoteId(quotes, previousSelectedQuoteId)
-      );
-    } else if (shouldResetSelection) {
-      setShippingQuotes([]);
-      setSelectedQuoteId('');
-      setResolvedShippingQuoteContextKey('');
-    }
-  } catch (_error) {
-    // Don't update state if the request was aborted (superseded by a newer request)
-    if (signal?.aborted) return;
-    if (shouldResetSelection) {
-      setShippingQuotes([]);
-      setSelectedQuoteId('');
-      setResolvedShippingQuoteContextKey('');
-    }
-  } finally {
-    // Don't clear loading state if aborted — the newer request owns loading state
-    if (!signal?.aborted) {
-      setIsLoadingQuotes(false);
-    }
-  }
-};
 
 export default function CheckoutScreen() {
   const ctaArrowTranslateX = useSharedValue(0);
