@@ -57,11 +57,19 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const merchantId = merchantContext.merchantId;
 
     // Verify merchant owns this terminal by checking virtual_terminal_code
-    const { data: merchantRecord } = await supabase
+    const { data: merchantRecord, error: merchantError } = await supabase
       .from('merchants')
       .select('virtual_terminal_code')
       .eq('id', merchantId)
-      .single();
+      .maybeSingle();
+
+    if (merchantError) {
+      console.error('Database error fetching merchant record:', merchantError);
+      return NextResponse.json(
+        { error: 'Database error verifying terminal ownership' },
+        { status: 500 }
+      );
+    }
 
     if (!merchantRecord || merchantRecord.virtual_terminal_code !== code) {
       return NextResponse.json(
@@ -133,11 +141,19 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const merchantId = merchantContext.merchantId;
 
     // Verify merchant owns this terminal by checking virtual_terminal_code
-    const { data: merchantRecord } = await supabase
+    const { data: merchantRecord, error: merchantError } = await supabase
       .from('merchants')
       .select('virtual_terminal_code')
       .eq('id', merchantId)
-      .single();
+      .maybeSingle();
+
+    if (merchantError) {
+      console.error('Database error fetching merchant record:', merchantError);
+      return NextResponse.json(
+        { error: 'Database error verifying terminal ownership' },
+        { status: 500 }
+      );
+    }
 
     if (!merchantRecord || merchantRecord.virtual_terminal_code !== code) {
       return NextResponse.json(
@@ -219,11 +235,19 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     const merchantId = merchantContext.merchantId;
 
     // Verify merchant owns this terminal by checking virtual_terminal_code
-    const { data: merchantRecord } = await supabase
+    const { data: merchantRecord, error: merchantError } = await supabase
       .from('merchants')
       .select('virtual_terminal_code')
       .eq('id', merchantId)
-      .single();
+      .maybeSingle();
+
+    if (merchantError) {
+      console.error('Database error fetching merchant record:', merchantError);
+      return NextResponse.json(
+        { error: 'Database error verifying terminal ownership' },
+        { status: 500 }
+      );
+    }
 
     if (!merchantRecord || merchantRecord.virtual_terminal_code !== code) {
       return NextResponse.json(

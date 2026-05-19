@@ -72,11 +72,22 @@ export async function POST(
     }
 
     // 5. Check for existing DVA in our DB (idempotent)
-    const { data: existingVba } = await supabase
+    const { data: existingVba, error: existingVbaError } = await supabase
       .from('order_payment_accounts')
       .select('account_number, bank_name, account_name')
       .eq('order_id', orderId)
       .maybeSingle();
+
+    if (existingVbaError) {
+      logger.error({
+        message: 'Database error checking existing VBA',
+        error: existingVbaError,
+      });
+      return NextResponse.json(
+        { error: 'Failed to verify existing payment account' },
+        { status: 500 }
+      );
+    }
 
     if (existingVba) {
       return NextResponse.json({
@@ -94,11 +105,18 @@ export async function POST(
     // 6b. Get a valid phone number — wema-bank requires it for DVA creation.
     let phone = order.customer_phone || '';
     if (!phone) {
-      const { data: merchant } = await supabase
+      const { data: merchant, error: merchantError } = await supabase
         .from('merchants')
         .select('phone')
         .eq('id', merchantId)
-        .single();
+        .maybeSingle();
+
+      if (merchantError) {
+        logger.error({
+          message: 'Database error fetching merchant phone',
+          error: merchantError,
+        });
+      }
       phone = merchant?.phone || '08000000000';
     }
 

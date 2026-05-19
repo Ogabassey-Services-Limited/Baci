@@ -35,12 +35,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if already enrolled
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from('customer_loyalty')
       .select('id')
       .eq('merchant_id', merchant_id)
       .eq('customer_id', customer_id)
-      .single();
+      .maybeSingle();
+
+    if (existingError) {
+      console.error('Error checking existing enrollment:', existingError);
+      return NextResponse.json(
+        { error: 'Failed to verify enrollment status' },
+        { status: 500 }
+      );
+    }
 
     if (existing) {
       return NextResponse.json(
@@ -56,12 +64,20 @@ export async function POST(request: NextRequest) {
     let referrerId: string | null = null;
     if (referral_code) {
       // Find the referrer by their referral code
-      const { data: referrer } = await supabase
+      const { data: referrer, error: referrerError } = await supabase
         .from('customer_loyalty')
         .select('customer_id')
         .eq('merchant_id', merchant_id)
         .eq('referral_code', referral_code)
-        .single();
+        .maybeSingle();
+
+      if (referrerError) {
+        console.error('Error fetching referrer:', referrerError);
+        return NextResponse.json(
+          { error: 'Database error verifying referral code' },
+          { status: 500 }
+        );
+      }
 
       if (referrer) {
         referrerId = referrer.customer_id;
