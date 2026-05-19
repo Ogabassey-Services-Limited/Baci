@@ -28,7 +28,18 @@ function eventRow(overrides: Record<string, unknown> = {}) {
     ends_at: '2026-05-16T12:00:00.000Z',
     id: EVENT_ID,
     nlrc_permit_ref: 'NLRC-123',
-    quiz_question_slots: [{ id: QUESTION_ID }],
+    quiz_question_slots: [
+      {
+        active: true,
+        id: QUESTION_ID,
+        quiz_question_variants: [
+          {
+            active: true,
+            id: '44444444-4444-4444-4444-444444444444',
+          },
+        ],
+      },
+    ],
     settings: { prize_name: 'N50,000 store credit' },
     starts_at: '2026-05-16T10:00:00.000Z',
     status: 'active',
@@ -253,14 +264,12 @@ describe('quiz events route', () => {
         data: [
           eventRow({
             ends_at: null,
-            quiz_question_slots: [{ id: QUESTION_ID }],
             settings: {},
             starts_at: null,
             status: 'scheduled',
           }),
           eventRow({
             id: '22222222-2222-2222-2222-222222222222',
-            quiz_question_slots: [{ id: QUESTION_ID }],
             settings: { prize_name: '' },
             status: 'closed',
             title: 'Closed Quiz',
@@ -385,6 +394,40 @@ describe('quiz events route', () => {
           questionCount: 1,
         },
       ],
+    });
+  });
+
+  it('filters out events without startable active question variants', async () => {
+    mockAuthenticatedSupabase({
+      selectResult: {
+        data: [
+          eventRow({
+            id: '22222222-2222-2222-2222-222222222222',
+            quiz_question_slots: [
+              {
+                active: true,
+                id: QUESTION_ID,
+                quiz_question_variants: [
+                  {
+                    active: false,
+                    id: '44444444-4444-4444-4444-444444444444',
+                  },
+                ],
+              },
+            ],
+          }),
+          eventRow(),
+        ],
+        error: null,
+      },
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(eventsRequest('?limit=2'));
+
+    expect(response.status).toBe(200);
+    expect(await readJson(response)).toMatchObject({
+      events: [{ id: EVENT_ID, questionCount: 1 }],
     });
   });
 
@@ -553,9 +596,17 @@ describe('quiz events route', () => {
     expect(customerBuilder.eq).toHaveBeenCalledWith('user_id', 'user-1');
     expect(from).toHaveBeenCalledWith('quiz_events');
     expect(queryBuilder.select).toHaveBeenCalledWith(
-      'id, title, status, starts_at, ends_at, settings, nlrc_permit_ref, compliance_verified, quiz_question_slots!inner(id)'
+      'id, title, status, starts_at, ends_at, settings, nlrc_permit_ref, compliance_verified, quiz_question_slots!inner(id, active, quiz_question_variants!inner(id, active))'
     );
     expect(queryBuilder.eq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
+    expect(queryBuilder.eq).toHaveBeenCalledWith(
+      'quiz_question_slots.active',
+      'true'
+    );
+    expect(queryBuilder.eq).toHaveBeenCalledWith(
+      'quiz_question_slots.quiz_question_variants.active',
+      'true'
+    );
     expect(queryBuilder.range).toHaveBeenCalledWith(2, 51);
   });
 

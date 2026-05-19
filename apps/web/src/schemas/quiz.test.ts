@@ -215,7 +215,18 @@ describe('quiz route schemas', () => {
       quizEventRowSchema.parse({
         ends_at: null,
         id: EVENT_ID,
-        quiz_question_slots: [{ id: QUESTION_ID }],
+        quiz_question_slots: [
+          {
+            active: true,
+            id: QUESTION_ID,
+            quiz_question_variants: [
+              {
+                active: true,
+                id: '44444444-4444-4444-4444-444444444444',
+              },
+            ],
+          },
+        ],
         settings: { prize_name: 'Store credit', time_limit_seconds: '30' },
         starts_at: '2026-05-16T10:00:00.000Z',
         status: 'active',
@@ -224,7 +235,18 @@ describe('quiz route schemas', () => {
     ).toEqual({
       ends_at: null,
       id: EVENT_ID,
-      quiz_question_slots: [{ id: QUESTION_ID }],
+      quiz_question_slots: [
+        {
+          active: true,
+          id: QUESTION_ID,
+          quiz_question_variants: [
+            {
+              active: true,
+              id: '44444444-4444-4444-4444-444444444444',
+            },
+          ],
+        },
+      ],
       settings: { prize_name: 'Store credit', time_limit_seconds: 30 },
       starts_at: '2026-05-16T10:00:00.000Z',
       status: 'active',
@@ -275,7 +297,18 @@ describe('quiz route schemas', () => {
       quizEventRowSchema.parse({
         ends_at: null,
         id: EVENT_ID,
-        quiz_question_slots: [{ id: 'not-a-uuid' }],
+        quiz_question_slots: [
+          {
+            active: true,
+            id: 'not-a-uuid',
+            quiz_question_variants: [
+              {
+                active: true,
+                id: '44444444-4444-4444-4444-444444444444',
+              },
+            ],
+          },
+        ],
         settings: { prize_name: 'Store credit' },
         starts_at: '2026-05-16T10:00:00.000Z',
         status: 'active',

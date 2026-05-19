@@ -63,7 +63,20 @@ export const quizEventRowSchema = z.object({
   id: quizUuidSchema,
   nlrc_permit_ref: z.string().nullable().optional(),
   quiz_question_slots: z
-    .array(z.object({ id: quizUuidSchema }))
+    .array(
+      z.object({
+        active: z.boolean().optional(),
+        id: quizUuidSchema,
+        quiz_question_variants: z
+          .array(
+            z.object({
+              active: z.boolean().optional(),
+              id: quizUuidSchema,
+            })
+          )
+          .optional(),
+      })
+    )
     .nullable()
     .optional(),
   settings: quizEventSettingsSchema,

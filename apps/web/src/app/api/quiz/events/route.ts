@@ -54,9 +54,21 @@ function getPrizeName(settings: unknown): string {
 }
 
 function getQuestionCount(event: { quiz_question_slots?: unknown[] | null }) {
-  return Array.isArray(event.quiz_question_slots)
-    ? event.quiz_question_slots.length
-    : 0;
+  if (!Array.isArray(event.quiz_question_slots)) return 0;
+
+  // Keep this defensive even though the query filters embedded rows.
+  return event.quiz_question_slots.filter((slot) => {
+    if (!slot || typeof slot !== 'object') return false;
+    const { active, quiz_question_variants: variants } = slot as {
+      active?: boolean;
+      quiz_question_variants?: Array<{ active?: boolean }> | null;
+    };
+    return (
+      active === true &&
+      Array.isArray(variants) &&
+      variants.some((variant) => variant.active === true)
+    );
+  }).length;
 }
 
 function getResolvedMerchantId(row: unknown) {
@@ -130,9 +142,11 @@ export async function GET(request: NextRequest) {
     const { data, error } = await auth.supabase
       .from('quiz_events')
       .select(
-        'id, title, status, starts_at, ends_at, settings, nlrc_permit_ref, compliance_verified, quiz_question_slots!inner(id)'
+        'id, title, status, starts_at, ends_at, settings, nlrc_permit_ref, compliance_verified, quiz_question_slots!inner(id, active, quiz_question_variants!inner(id, active))'
       )
       .eq('merchant_id', merchantId)
+      .eq('quiz_question_slots.active', 'true')
+      .eq('quiz_question_slots.quiz_question_variants.active', 'true')
       .order('starts_at', { ascending: false })
       .range(fetchOffset, fetchOffset + internalPageSize - 1);
 
