@@ -133,6 +133,59 @@ describe('GET /api/google-places/reviews', () => {
     );
   });
 
+  it('prefers the server Places API key when both Google keys are configured', async () => {
+    vi.stubEnv('GOOGLE_MAPS_API_KEY', 'browser-maps-key');
+    vi.stubEnv('GOOGLE_PLACES_API_KEY', 'server-places-key');
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ rating: 4.5, userRatingCount: 12 }), {
+        status: 200,
+      })
+    );
+    const { GET } = await importRoute();
+
+    const response = await GET(makeRequest('ChIJ1234'));
+
+    expect(response.status).toBe(200);
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://places.googleapis.com/v1/places/ChIJ1234',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'X-Goog-Api-Key': 'server-places-key',
+        }),
+      })
+    );
+  });
+
+  it('does not reject long syntactically valid Place IDs before the API call', async () => {
+    const longPlaceId = `ChIJ${'A'.repeat(400)}`;
+    mockFetch.mockResolvedValueOnce(
+      new Response(JSON.stringify({ rating: 4.5, userRatingCount: 12 }), {
+        status: 200,
+      })
+    );
+    const { GET } = await importRoute();
+
+    const response = await GET(makeRequest(longPlaceId));
+
+    expect(response.status).toBe(200);
+    expect(mockFetch).toHaveBeenCalledWith(
+      `https://places.googleapis.com/v1/places/${longPlaceId}`,
+      expect.any(Object)
+    );
+  });
+
+  it('rejects excessively long Place IDs without calling Google', async () => {
+    const excessivelyLongPlaceId = `ChIJ${'A'.repeat(1025)}`;
+    const { GET } = await importRoute();
+
+    const response = await GET(makeRequest(excessivelyLongPlaceId));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({ error: 'Invalid Place ID format' });
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
   it('rejects malformed place IDs without calling Google', async () => {
     const { GET } = await importRoute();
 

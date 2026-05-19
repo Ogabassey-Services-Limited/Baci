@@ -12,6 +12,7 @@ import { type NextRequest, NextResponse } from 'next/server';
  */
 
 const NEW_PLACES_API_BASE = 'https://places.googleapis.com/v1';
+const MAX_PLACE_ID_LENGTH = 1024;
 const PLACE_REVIEW_FIELD_MASK = [
   'displayName',
   'rating',
@@ -81,7 +82,7 @@ interface ReviewsResponse {
 }
 
 function getGooglePlacesApiKey(): string | undefined {
-  return process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
+  return process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
 }
 
 function normalizePlaceId(placeId: string): string | null {
@@ -89,9 +90,12 @@ function normalizePlaceId(placeId: string): string | null {
   const cleanPlaceId = trimmed.startsWith('places/')
     ? trimmed.slice('places/'.length)
     : trimmed;
-  const placeIdPattern = /^[A-Za-z0-9_-]{1,300}$/;
+  const placeIdPattern = /^[A-Za-z0-9_-]+$/;
 
-  return placeIdPattern.test(cleanPlaceId) ? cleanPlaceId : null;
+  return cleanPlaceId.length <= MAX_PLACE_ID_LENGTH &&
+    placeIdPattern.test(cleanPlaceId)
+    ? cleanPlaceId
+    : null;
 }
 
 function toUnixSeconds(value?: string): number | undefined {
