@@ -347,10 +347,10 @@ describe('StoreSettingsScreen', () => {
       });
     });
 
+    expect(await screen.findByText('Success!')).toBeInTheDocument();
     expect(mocks.eq).toHaveBeenCalledWith('id', 'merchant-1');
-    expect(screen.getByText('Success!')).toBeInTheDocument();
     expect(
-      screen.getByText('Store settings updated successfully.')
+      await screen.findByText('Store settings updated successfully.')
     ).toBeInTheDocument();
   });
 
