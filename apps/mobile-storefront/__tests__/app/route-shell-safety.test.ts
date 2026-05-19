@@ -11,7 +11,7 @@ const DYNAMIC_ROUTE_MODULE_PATTERN =
   /^(?:\[[a-zA-Z0-9_-]+\]|\[\.\.\.[a-zA-Z0-9_-]+\]|\[\[\.\.\.[a-zA-Z0-9_-]+\]\])\.(ts|tsx|js|jsx)$/;
 const LAYOUT_ROUTE_MODULE_PATTERN = /^_layout\.(ts|tsx|js|jsx)$/;
 const INDEX_ROUTE_MODULE_PATTERN = /^index\.(ts|tsx|js|jsx)$/;
-const SHELL_JSX_PATTERN = /<StorefrontScreenShell(?:[\s>])/;
+const SHELL_JSX_PATTERN = /<StorefrontScreenShell(?=[\s/>])/;
 
 type RouteModule = {
   actualPath: string;
@@ -114,32 +114,32 @@ function toRouteModule(relativePath: string): RouteModule {
   };
 }
 
-function assertRouteFile(relativePath: string): boolean {
+function validateRouteFile(relativePath: string): void {
   const routePath = normalizeRouteModulePath(relativePath);
   const fileName = path.basename(routePath);
 
   if (EXPO_ROUTER_SPECIAL_FILES.has(fileName)) {
-    return true;
+    return;
   }
 
   if (LAYOUT_ROUTE_MODULE_PATTERN.test(fileName)) {
-    return true;
+    return;
   }
 
   if (INDEX_ROUTE_MODULE_PATTERN.test(fileName)) {
-    return true;
+    return;
   }
 
   if (API_ROUTE_MODULE_PATTERN.test(fileName)) {
-    return true;
+    return;
   }
 
   if (DYNAMIC_ROUTE_MODULE_PATTERN.test(fileName)) {
-    return true;
+    return;
   }
 
   if (EXPLICIT_STATIC_ROUTES.has(routePath)) {
-    return true;
+    return;
   }
 
   throw new Error(
@@ -166,8 +166,10 @@ function routeUsesStorefrontScreenShell(routeModule: RouteModule) {
 
 describe('app route shell safety', () => {
   it('keeps StorefrontScreenShell coverage from regressing', () => {
-    const routeFiles = collectModuleFiles(APP_ROOT)
-      .filter(assertRouteFile)
+    const moduleFiles = collectModuleFiles(APP_ROOT);
+    moduleFiles.forEach(validateRouteFile);
+
+    const routeFiles = moduleFiles
       .map(toRouteModule)
       .filter((routeModule) => isShellCheckRoute(routeModule.normalizedPath));
 
