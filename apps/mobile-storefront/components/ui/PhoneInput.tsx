@@ -437,6 +437,11 @@ export function PhoneInput({
 
           {/* Country List */}
           <FlatList
+            getItemLayout={(data, index) => ({
+              length: 56, // 14 paddingVertical * 2 + 24 fontSize + hairlineWidth roughly 56
+              offset: 56 * index,
+              index,
+            })}
             data={filteredCountries}
             keyExtractor={(item) => item.code}
             // Prevent UI thread blocking during modal open by virtualizing the 200+ country list

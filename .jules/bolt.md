@@ -15,3 +15,6 @@
 
 **Learning:** When fetching data asynchronously within a `useEffect` (e.g., for debounced autocomplete searches), failing to check if the component is still mounted before setting state can cause race conditions where stale data overwrites fresh data if earlier requests resolve after later ones.
 **Action:** Always implement an `isMounted` boolean flag within the effect, check it before calling state setters like `setSuggestions`, and toggle it to `false` in the cleanup function.
+## 2025-05-19 - Explicit getItemLayout in FlatList
+**Learning:** React Native's FlatList performance can be degraded significantly on large sets (like countries or history lists) if the UI thread has to asynchronously measure the height of each item layout continuously during scroll.
+**Action:** Always provide an explicit `getItemLayout` prop to `FlatList` when rendering lists of predictable fixed-height items to bypass measurement cycles and optimize list rendering performance.

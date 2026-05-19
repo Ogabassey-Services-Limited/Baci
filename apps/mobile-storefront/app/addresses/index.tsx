@@ -208,6 +208,11 @@ export default function AddressesScreen() {
         </View>
       ) : (
         <FlatList
+          getItemLayout={(data, index) => ({
+            length: 156, // rough height based on styling
+            offset: 156 * index,
+            index,
+          })}
           data={addresses}
           renderItem={({ item }) => (
             <AddressCard
