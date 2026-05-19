@@ -60,6 +60,7 @@ export function useProductDetailSelection({
   const [hasCustomizedSelection, setHasCustomizedSelection] = useState(false);
   const lastSelectionSyncSignatureRef = useRef<string>('');
   const lastRouteSelectionSignatureRef = useRef(routeSelectionSignature);
+  const pendingRouteReseedRef = useRef(false);
 
   const usesImageDrivenColorSelection =
     Object.keys(productImageColorMap).length > 0;
@@ -96,26 +97,43 @@ export function useProductDetailSelection({
     }
 
     lastRouteSelectionSignatureRef.current = routeSelectionSignature;
+    pendingRouteReseedRef.current = true;
     setHasCustomizedSelection(false);
-  }, [routeSelectionSignature]);
+    setSelectedVariant(null);
+    setSelectedColor(null);
+    setSelectedStorage(null);
+    setSelectedAttributes({});
+    setSelectedCondition(routeCondition);
+    setSelectedImageIndex(0);
+  }, [routeCondition, routeSelectionSignature]);
 
   useEffect(() => {
     if (!product) {
       lastSelectionSyncSignatureRef.current = '';
+      pendingRouteReseedRef.current = false;
       return;
     }
 
-    if (lastSelectionSyncSignatureRef.current === selectionSyncSignature) {
+    const shouldForceRouteSeed = pendingRouteReseedRef.current;
+    const shouldRepairInvalidSelection =
+      product.has_variants === true &&
+      (product.variants?.length ?? 0) > 0 &&
+      currentVariantDisplaySelection === null;
+
+    if (
+      lastSelectionSyncSignatureRef.current === selectionSyncSignature &&
+      !shouldForceRouteSeed &&
+      !shouldRepairInvalidSelection
+    ) {
       return;
     }
 
     const shouldSeedSelection =
-      !selectedVariant &&
-      !selectedStorage &&
-      !selectedColor &&
-      Object.keys(selectedAttributes).length === 0;
-    const shouldRepairInvalidSelection =
-      product.has_variants === true && currentVariantDisplaySelection === null;
+      shouldForceRouteSeed ||
+      (!selectedVariant &&
+        !selectedStorage &&
+        !selectedColor &&
+        Object.keys(selectedAttributes).length === 0);
     const seededSelection =
       resolveVariantDisplaySelection(product, {
         condition: routeCondition,
@@ -177,6 +195,7 @@ export function useProductDetailSelection({
       }
     }
 
+    pendingRouteReseedRef.current = false;
     lastSelectionSyncSignatureRef.current = selectionSyncSignature;
   }, [
     currentVariantDisplaySelection,
