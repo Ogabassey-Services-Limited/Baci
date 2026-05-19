@@ -19,6 +19,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { OrderDetailsClosedStateCard } from '@/components/orders/OrderDetailsClosedStateCard';
 import { ReceiptPreviewModal } from '@/components/receipts/ReceiptPreviewModal';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
@@ -694,46 +695,11 @@ export default function OrderDetailsScreen() {
 
           {/* Cancelled/Refunded Status */}
           {isClosedOrder && (
-            <View
-              style={[
-                styles.card,
-                {
-                  backgroundColor: statusPalette.surface,
-                  borderColor: statusPalette.border,
-                  borderWidth: 1,
-                },
-              ]}
-            >
-              <View style={styles.cancelledStatus}>
-                <Ionicons
-                  name={
-                    statusMeta.icon as React.ComponentProps<
-                      typeof Ionicons
-                    >['name']
-                  }
-                  size={24}
-                  color={statusPalette.accent}
-                />
-                <View style={styles.cancelledCopy}>
-                  <Text
-                    style={[
-                      styles.cancelledText,
-                      { color: statusPalette.accent },
-                    ]}
-                  >
-                    {statusMeta.label}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.cancelledSubtext,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    {statusMeta.description}
-                  </Text>
-                </View>
-              </View>
-            </View>
+            <OrderDetailsClosedStateCard
+              statusMeta={statusMeta}
+              statusPalette={statusPalette}
+              textSecondaryColor={colors.textSecondary}
+            />
           )}
 
           {/* Order Items */}
@@ -1509,23 +1475,6 @@ const styles = StyleSheet.create({
   trackButtonText: {
     fontSize: 14,
     fontWeight: '600',
-  },
-  cancelledStatus: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  cancelledCopy: {
-    flex: 1,
-  },
-  cancelledText: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  cancelledSubtext: {
-    fontSize: 13,
-    lineHeight: 19,
-    marginTop: 4,
   },
   orderItem: {
     flexDirection: 'row',
