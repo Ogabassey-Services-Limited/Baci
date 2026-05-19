@@ -258,6 +258,11 @@ export function Hero({
     <View style={{ height: getHeroHeight() }}>
       <Animated.FlatList
         ref={flatListRef}
+        getItemLayout={(_, index) => ({
+          length: screenWidth,
+          offset: screenWidth * index,
+          index,
+        })}
         data={slides}
         renderItem={renderSlide}
         keyExtractor={(_, index) => index.toString()}
