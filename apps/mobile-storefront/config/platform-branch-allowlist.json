@@ -65,8 +65,16 @@
       "justification": "Reviewed native-only haptic support guard."
     },
     {
+      "path": "components/imei-check/imei-check-theme.ts",
+      "justification": "Reviewed platform-specific monospace font selection for IMEI result UI."
+    },
+    {
       "path": "components/modals/NegotiationModal.tsx",
       "justification": "Reviewed web guard for native image picker loading."
+    },
+    {
+      "path": "components/negotiation/useNegotiationModalController.ts",
+      "justification": "Reviewed web guard for native evidence modules and iOS-only haptic feedback."
     },
     {
       "path": "components/navigation/DrawerMenu.tsx",
