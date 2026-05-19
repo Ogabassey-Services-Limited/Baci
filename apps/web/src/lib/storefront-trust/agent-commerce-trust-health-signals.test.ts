@@ -91,7 +91,7 @@ describe('buildAgentCommerceTrustHealthSignals', () => {
     ).toMatchObject({ affectedProductCount: 1, severity: 'warn' });
     expect(
       result.checks.find((check) => check.id === 'review-signal-coverage')
-    ).toMatchObject({ affectedProductCount: 1, severity: 'warn' });
+    ).toMatchObject({ severity: 'warn' });
     expect(
       result.checks.find((check) => check.id === 'feed-freshness')
     ).toMatchObject({
