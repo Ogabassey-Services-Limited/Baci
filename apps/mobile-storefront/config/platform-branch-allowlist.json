@@ -53,6 +53,10 @@
       "justification": "Reviewed iOS haptic branch for draggable chat FAB interactions."
     },
     {
+      "path": "components/imei-check/imei-check-theme.ts",
+      "justification": "Reviewed iOS-specific monospace font fallback for IMEI verdict formatting."
+    },
+    {
       "path": "components/checkout/OrderSummary.tsx",
       "justification": "Reviewed Android-specific compact order-summary layout."
     },
@@ -91,6 +95,10 @@
     {
       "path": "components/product/NegotiationModal.tsx",
       "justification": "Reviewed web guard for native image picker and haptics loading."
+    },
+    {
+      "path": "components/negotiation/useNegotiationModalController.ts",
+      "justification": "Reviewed web/native guards around haptics and media picker interaction flow."
     },
     {
       "path": "components/receipts/ReceiptPreviewModal.tsx",
