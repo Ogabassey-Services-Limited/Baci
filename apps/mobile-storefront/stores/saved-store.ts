@@ -19,6 +19,10 @@ export interface SavedItem {
   image: string;
   brand?: string;
   condition?: string;
+  has_variants?: boolean;
+  variant_model?: Product['variant_model'];
+  available_conditions?: Product['available_conditions'];
+  has_condition_offers?: boolean;
   savedAt: number;
 }
 
@@ -90,6 +94,10 @@ export const useSavedStore = create<SavedState>()(
             image: product.image,
             brand: product.brand,
             condition: product.condition,
+            has_variants: product.has_variants,
+            variant_model: product.variant_model,
+            available_conditions: product.available_conditions,
+            has_condition_offers: product.has_condition_offers,
             savedAt: Date.now(),
           };
 
@@ -126,6 +134,10 @@ export const useSavedStore = create<SavedState>()(
             image: product.image,
             brand: product.brand,
             condition: product.condition,
+            has_variants: product.has_variants,
+            variant_model: product.variant_model,
+            available_conditions: product.available_conditions,
+            has_condition_offers: product.has_condition_offers,
             savedAt: Date.now(),
           };
 

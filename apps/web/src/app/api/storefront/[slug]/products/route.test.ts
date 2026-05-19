@@ -204,6 +204,42 @@ describe('GET /api/storefront/[slug]/products', () => {
     expect(data.products).toHaveLength(2);
   });
 
+  it('preserves SKU-matrix selection metadata in the response', async () => {
+    mockMerchantSingle.mockResolvedValue({
+      data: { id: 'merchant-123' },
+      error: null,
+    });
+    mockProductOrder.mockResolvedValue({
+      data: [
+        product({
+          id: 'iphone-15',
+          name: 'iPhone 15',
+          has_variants: true,
+          variant_model: 'sku_matrix',
+          available_conditions: ['open_box', 'used'],
+          has_condition_offers: true,
+        }),
+      ],
+      error: null,
+    });
+
+    const response = await requestProducts(
+      'https://example.com/api/storefront/test-store/products'
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.products).toEqual([
+      expect.objectContaining({
+        id: 'iphone-15',
+        has_variants: true,
+        variant_model: 'sku_matrix',
+        available_conditions: ['open_box', 'used'],
+        has_condition_offers: true,
+      }),
+    ]);
+  });
+
   it.each([
     [
       'invalid',

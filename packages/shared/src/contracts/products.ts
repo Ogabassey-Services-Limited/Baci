@@ -4,7 +4,7 @@ export const MOBILE_ADMIN_PRODUCT_COLUMNS =
 export const MOBILE_ADMIN_PRODUCT_WITH_RELATIONS_QUERY = `${MOBILE_ADMIN_PRODUCT_COLUMNS}, categories(name), brands(name)`;
 
 export const WEB_PRODUCT_COLUMNS =
-  'id, created_at, updated_at, merchant_id, name, description, price, compare_at_price, cost_price, stock, stock_quantity, manage_stock, low_stock_threshold, sku, slug, status, condition, condition_detail, brand, category, color, has_variants, variant_model, migration_status, default_variant_id, available_conditions, min_variant_price, max_variant_price, images, image_hint, weight_value, weight_unit, dimensions, taxable, tax_code, meta_title, meta_description, keywords, canonical_url, schema_markup, gtin, mpn, google_product_category, fulfillment_details';
+  'id, created_at, updated_at, merchant_id, name, description, price, compare_at_price, cost_price, stock, stock_quantity, manage_stock, low_stock_threshold, sku, slug, status, condition, condition_detail, brand, category, color, has_variants, variant_model, migration_status, default_variant_id, available_conditions, has_condition_offers, min_variant_price, max_variant_price, images, image_hint, weight_value, weight_unit, dimensions, taxable, tax_code, meta_title, meta_description, keywords, canonical_url, schema_markup, gtin, mpn, google_product_category, fulfillment_details';
 
 export const WEB_PRODUCT_VARIANT_COLUMNS =
   'id, created_at, updated_at, product_id, merchant_id, condition, attributes, price_override, cost_price, stock_quantity, sku, primary_image, images';

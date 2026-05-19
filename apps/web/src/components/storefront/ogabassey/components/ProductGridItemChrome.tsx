@@ -10,9 +10,12 @@ import Link from 'next/link';
 import type React from 'react';
 import type { Product } from '../types';
 import { asRoute } from '@/lib/routes';
+import { getProductUrl } from '@/lib/seo-utils';
+import { requiresOgabasseyProductSelection } from '../product-selection';
 
 interface ProductGridImageChromeProps {
   activeColorIndex: number;
+  basePath?: string;
   cartQuantity: number;
   iconSize: number;
   isAdded: boolean;
@@ -46,6 +49,7 @@ function getHexColor(color: string | { name: string; value: string }) {
 
 export function ProductGridImageChrome({
   activeColorIndex,
+  basePath = '',
   cartQuantity,
   iconSize,
   isAdded,
@@ -57,6 +61,16 @@ export function ProductGridImageChrome({
   onToggleWishlist,
   product,
 }: ProductGridImageChromeProps) {
+  const requiresSelection = requiresOgabasseyProductSelection(product);
+  const productHref = asRoute(
+    `${basePath}${getProductUrl({ ...product, id: String(product.id) })}`
+  );
+  const cartActionClass = `absolute bottom-3 right-3 z-20 h-10 w-10 flex items-center justify-center rounded-full shadow-md border-2 ring-2 ring-red-500/70 ring-offset-2 ring-offset-white transition-all duration-200 pointer-events-auto active:scale-90 ${
+    isAdded
+      ? 'bg-primary text-white md:hover:bg-primary/90'
+      : 'bg-white text-gray-900 border-red-200 md:hover:text-primary md:hover:border-red-300'
+  }`;
+
   return (
     <>
       {product.colors && product.colors.length > 1 && (
@@ -152,26 +166,38 @@ export function ProductGridImageChrome({
         />
       </button>
 
-      <button
-        onClick={(event) => onAddToCart(event, product)}
-        aria-label={
-          isAdded
-            ? `${product.name} added to cart`
-            : `Add ${product.name} to cart`
-        }
-        className={`absolute bottom-3 right-3 z-20 h-10 w-10 flex items-center justify-center rounded-full shadow-md border-2 ring-2 ring-red-500/70 ring-offset-2 ring-offset-white transition-all duration-200 pointer-events-auto active:scale-90 ${
-          isAdded
-            ? 'bg-primary text-white md:hover:bg-primary/90'
-            : 'bg-white text-gray-900 border-red-200 md:hover:text-primary md:hover:border-red-300'
-        }`}
-      >
-        {isAdded ? <Check size={iconSize} /> : <ShoppingCart size={iconSize} />}
-        {cartQuantity > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 flex items-center justify-center bg-primary text-white text-[10px] font-bold rounded-full border-2 border-white shadow-sm">
-            {cartQuantity > 99 ? '99+' : cartQuantity}
-          </span>
-        )}
-      </button>
+      {requiresSelection ? (
+        <Link
+          href={productHref}
+          prefetch={false}
+          aria-label={`Choose options for ${product.name}`}
+          className={cartActionClass}
+        >
+          <ShoppingCart size={iconSize} />
+          {cartQuantity > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 flex items-center justify-center bg-primary text-white text-[10px] font-bold rounded-full border-2 border-white shadow-sm">
+              {cartQuantity > 99 ? '99+' : cartQuantity}
+            </span>
+          )}
+        </Link>
+      ) : (
+        <button
+          onClick={(event) => onAddToCart(event, product)}
+          aria-label={
+            isAdded
+              ? `${product.name} added to cart`
+              : `Add ${product.name} to cart`
+          }
+          className={cartActionClass}
+        >
+          {isAdded ? <Check size={iconSize} /> : <ShoppingCart size={iconSize} />}
+          {cartQuantity > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 flex items-center justify-center bg-primary text-white text-[10px] font-bold rounded-full border-2 border-white shadow-sm">
+              {cartQuantity > 99 ? '99+' : cartQuantity}
+            </span>
+          )}
+        </button>
+      )}
     </>
   );
 }

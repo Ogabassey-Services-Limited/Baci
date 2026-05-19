@@ -88,10 +88,13 @@ function toTemplateProducts(storefrontProducts: StorefrontProduct[]): Product[] 
       condition,
       available_conditions: product.available_conditions,
       has_condition_offers: product.has_condition_offers,
+      has_variants: product.has_variants,
+      variant_model: product.variant_model,
       brand: product.brand,
       colors: product.colors,
       storage: product.storage_options?.[0],
       images,
+      variants: product.variants,
     };
   });
 }

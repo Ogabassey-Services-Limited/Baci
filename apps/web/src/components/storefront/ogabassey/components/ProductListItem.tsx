@@ -16,6 +16,7 @@ import { useEffect, useState } from 'react';
 import type { Product } from '../types';
 import { getProductUrl } from '@/lib/seo-utils';
 import { asRoute } from '@/lib/routes';
+import { requiresOgabasseyProductSelection } from '../product-selection';
 
 /**
  * Safely strips HTML tags from a string using iterative approach
@@ -60,6 +61,10 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   // Determine current image with fallback
   const currentImage =
     product.images?.[activeColorIndex] || product.image || PLACEHOLDER_IMAGE;
+  const productHref = asRoute(
+    `${basePath}${getProductUrl({ ...product, id: String(product.id) })}`
+  );
+  const requiresSelection = requiresOgabasseyProductSelection(product);
 
   // Reset loading state when image source changes
   useEffect(() => {
@@ -91,7 +96,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
   return (
     <div className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm md:hover:shadow-lg md:hover:border-red-100 active:scale-[0.99] transition-all duration-300 group flex flex-row gap-4 md:gap-6 relative content-auto [contain-intrinsic-size:auto_220px]">
       <Link
-        href={asRoute(`${basePath}${getProductUrl({ ...product, id: String(product.id) })}`)}
+        href={productHref}
         prefetch={false}
         className="absolute inset-0 z-0"
       >
@@ -237,23 +242,34 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
             {product.price}
           </span>
 
-          <button
-            onClick={(e) => onAddToCart(e, product)}
-            className={`z-20 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 ${isAdded
-              ? 'bg-red-600 text-white pointer-events-none'
-              : 'bg-gray-900 text-white md:hover:bg-red-600 active:bg-red-700 pointer-events-auto'
-              }`}
-          >
-            {isAdded ? (
-              <>
-                Added <Check size={20} />
-              </>
-            ) : (
-              <>
-                Add to Cart <ShoppingCart size={20} />
-              </>
-            )}
-          </button>
+          {requiresSelection ? (
+            <Link
+              href={productHref}
+              prefetch={false}
+              aria-label={`Choose options for ${product.name}`}
+              className="z-20 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 bg-gray-900 text-white md:hover:bg-red-600 active:bg-red-700 pointer-events-auto"
+            >
+              View Options <ShoppingCart size={20} />
+            </Link>
+          ) : (
+            <button
+              onClick={(e) => onAddToCart(e, product)}
+              className={`z-20 flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 ${isAdded
+                ? 'bg-red-600 text-white pointer-events-none'
+                : 'bg-gray-900 text-white md:hover:bg-red-600 active:bg-red-700 pointer-events-auto'
+                }`}
+            >
+              {isAdded ? (
+                <>
+                  Added <Check size={20} />
+                </>
+              ) : (
+                <>
+                  Add to Cart <ShoppingCart size={20} />
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div >

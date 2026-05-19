@@ -1,13 +1,22 @@
 import { render, screen } from '@testing-library/react';
+import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('next/image', () => ({
-  default: (props: Record<string, unknown>) => <img {...props} alt={props.alt as string} />,
+  default: (props: Record<string, unknown>) => {
+    const { alt, fill: _fill, priority: _priority, ...imageProps } = props;
+
+    return <img {...imageProps} alt={String(alt ?? '')} />;
+  },
 }));
 vi.mock('next/link', () => ({
-  default: ({ children, ...props }: { children: React.ReactNode; href: string }) => (
-    <a {...props}>{children}</a>
-  ),
+  default: (
+    props: { children: React.ReactNode; href: string } & Record<string, unknown>
+  ) => {
+    const { children, prefetch: _prefetch, ...anchorProps } = props;
+
+    return <a {...anchorProps}>{children}</a>;
+  },
 }));
 vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchantSafe: vi.fn(() => ({ merchant: { id: 'm-1', slug: 'test' } })),
@@ -67,5 +76,31 @@ describe('ProductCard', () => {
       />
     );
     expect(container).toBeDefined();
+  });
+
+  it('links SKU-matrix products to option selection instead of quick-adding', () => {
+    const onAddToCart = vi.fn();
+
+    render(
+      <ProductCard
+        product={
+          {
+            ...mockProduct,
+            available_conditions: ['open_box', 'used'],
+            has_variants: true,
+            variant_model: 'sku_matrix',
+          } as typeof mockProduct
+        }
+        onAddToCart={onAddToCart}
+        isAdded={false}
+      />
+    );
+
+    const chooseOptionsLink = screen.getByRole('link', {
+      name: `Choose options for ${mockProduct.name}`,
+    });
+
+    expect(chooseOptionsLink).toHaveAttribute('href', '/test/product');
+    expect(onAddToCart).not.toHaveBeenCalled();
   });
 });

@@ -16,12 +16,25 @@ export const createCartValidationKey = (
   variantId?: string | null
 ) => (variantId ? `${id}::${variantId}` : id);
 
+const serializeVariantAttributes = (
+  variantAttributes: CartItem['variantAttributes']
+) => {
+  if (!variantAttributes) return '';
+  return Object.entries(variantAttributes)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${key}:${value}`)
+    .join(',');
+};
+
 export const createCartHash = (cart: CartItem[]) => {
   return cart
-    .map(
-      (item) =>
-        `${createCartValidationKey(item.id, item.variantId)}:${item.price}`
-    )
+    .map((item) => {
+      const itemKey = createCartValidationKey(item.id, item.variantId);
+      const serializedAttributes = serializeVariantAttributes(
+        item.variantAttributes
+      );
+      return `${itemKey}:${item.condition ?? ''}:${serializedAttributes}:${item.price}`;
+    })
     .sort()
     .join('|');
 };
@@ -31,8 +44,10 @@ export const validateStorefrontCart = async (
   signal: AbortSignal
 ) => {
   const limitedCart = cart.slice(0, 50).map((item) => ({
+    condition: item.condition,
     id: item.id,
     price: item.price,
+    variantAttributes: item.variantAttributes,
     variantId: item.variantId,
   }));
 
@@ -71,7 +86,10 @@ export const applyValidationResults = (
   }
 
   return cart
-    .filter((item) => !invalidIds.has(item.id))
+    .filter((item) => {
+      const itemKey = createCartValidationKey(item.id, item.variantId);
+      return !invalidIds.has(item.id) && !invalidIds.has(itemKey);
+    })
     .map((item) => {
       const priceChange = priceChanges.get(
         createCartValidationKey(item.id, item.variantId)

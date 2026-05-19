@@ -46,15 +46,7 @@ function getCartValidationKey(id: string, variantId?: string) {
 /**
  * POST /api/cart/validate
  *
- * Validates cart items against the database.
- * Returns which products exist, their current prices, and stock status.
- *
- * Body: { productIds: string[] }
- * Response: {
- *   validProducts: { id, price, stock, name }[],
- *   invalidProductIds: string[],
- *   priceChanges: { id, variantId?, oldPrice, newPrice }[]
- * }
+ * Body: { productIds?: string[], cartItems?: { id, price, variantId? }[] }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -72,9 +64,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const { productIds, cartItems } = parsed.data;
 
-    // Support both formats: just IDs or full cart items with prices.
+    const { productIds, cartItems } = parsed.data;
     const hasCartItems = Array.isArray(cartItems) && cartItems.length > 0;
     const validationItems: CartValidationItem[] = hasCartItems
       ? cartItems.map((item) => ({
@@ -106,20 +97,18 @@ export async function POST(request: NextRequest) {
       )
     );
 
-    const supabase = await createClient();
-
     for (const id of idsToValidate) {
       const strId = String(id);
-      // Only accept valid UUIDs - the products table uses UUID primary key
       if (uuidRegex.test(strId)) {
         validFormatIds.push(strId);
       } else {
-        // Log invalid format for debugging (sanitize to prevent log injection)
-        const safeId = strId.replace(/[\r\n]/g, '').substring(0, 50);
+        const safeId = strId.replace(/[\r\n]/g, '').slice(0, 50);
         console.warn(`Cart contains invalid product ID format: "${safeId}"`);
         invalidFormatIds.push(strId);
       }
     }
+
+    const supabase = await createClient();
 
     let products: CartProductRow[] = [];
     if (validFormatIds.length > 0) {
@@ -131,14 +120,12 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         console.error('Cart validation query error:', error);
-        // Don't fail entire request, just return what we know (unsafe IDs are definitely invalid)
-        // But safer to fail if DB is down. However, typical error is "invalid input syntax"
-        // which we avoided by filtering. So if error now, it's real DB error.
         return NextResponse.json(
           { error: `Failed to validate cart: ${error.message}` },
           { status: 500 }
         );
       }
+
       products = data || [];
     }
 
@@ -161,12 +148,15 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+
       variants = data || [];
     }
 
-    const productMap = new Map(products.map((p) => [String(p.id), p]));
+    const productMap = new Map(
+      products.map((product) => [String(product.id), product])
+    );
     const variantMap = new Map(
-      variants.map((variant) => [variant.id, variant])
+      variants.map((variant) => [String(variant.id), variant])
     );
 
     const validProducts: {
@@ -175,8 +165,9 @@ export async function POST(request: NextRequest) {
       stock: number;
       manage_stock: boolean;
       name: string;
+      variantId?: string;
     }[] = [];
-    const invalidProductIds: string[] = [...invalidFormatIds]; // Start with known junk
+    const invalidProductIds: string[] = [...invalidFormatIds];
     const priceChanges: {
       id: string;
       variantId?: string;
@@ -187,58 +178,52 @@ export async function POST(request: NextRequest) {
 
     for (const item of validationItems) {
       const strId = String(item.id);
-      // If it was junk, it's already in invalidProductIds (but we need to avoid adding it twice if using set?)
-      // Actually simpler: iterate idsToValidate. check map.
-
-      // If it was invalid format, map.get will be undefined.
       const product = productMap.get(strId);
 
-      // Check status instead of is_published
       if (!product || product.status !== 'active') {
-        // Product doesn't exist or is unpublished
-        // Only mark as invalid if we actually checked it (i.e., it was a valid UUID that wasn't found)
-        // OR if we found it but it's not active
-        if (product) {
-          // Found but not active -> Invalid
-          if (!invalidProductIds.includes(strId)) invalidProductIds.push(strId);
-        } else {
-          // Not found.
-          // If it was a valid UUID and not found, it's invalid.
-          // If it was INVALID credentials (skipped DB check), we KEEP it (fail open) to support mock/legacy IDs.
-          const isUuid = uuidRegex.test(strId);
-          if (isUuid && !invalidProductIds.includes(strId)) {
-            invalidProductIds.push(strId);
-          }
+        if (uuidRegex.test(strId) && !invalidProductIds.includes(strId)) {
+          invalidProductIds.push(strId);
         }
-      } else {
-        const variant = item.variantId ? variantMap.get(item.variantId) : null;
-        const variantBelongsToProduct =
-          variant && String(variant.product_id) === strId;
-        const currentPrice = toPriceNumber(
-          variantBelongsToProduct
-            ? (variant.price_override ?? product.price)
-            : product.price
-        );
+        continue;
+      }
 
-        validProducts.push({
-          id: String(product.id), // Ensure string
-          price: currentPrice,
-          stock: getEffectiveStock(product),
-          name: product.name,
-          manage_stock: Boolean(product.manage_stock),
-        });
+      const variant = item.variantId ? variantMap.get(item.variantId) : null;
+      const variantBelongsToProduct =
+        variant && String(variant.product_id) === strId;
 
-        if (item.price !== null && item.price !== currentPrice) {
-          const priceChangeKey = getCartValidationKey(strId, item.variantId);
-          if (!seenPriceChangeKeys.has(priceChangeKey)) {
-            seenPriceChangeKeys.add(priceChangeKey);
-            priceChanges.push({
-              id: strId,
-              variantId: item.variantId,
-              oldPrice: item.price,
-              newPrice: currentPrice,
-            });
-          }
+      if (item.variantId && !variantBelongsToProduct) {
+        const invalidVariantKey = getCartValidationKey(strId, item.variantId);
+        if (!invalidProductIds.includes(invalidVariantKey)) {
+          invalidProductIds.push(invalidVariantKey);
+        }
+        continue;
+      }
+
+      const currentPrice = toPriceNumber(
+        variantBelongsToProduct
+          ? (variant.price_override ?? product.price)
+          : product.price
+      );
+
+      validProducts.push({
+        id: String(product.id),
+        price: currentPrice,
+        stock: getEffectiveStock(product),
+        name: product.name,
+        manage_stock: Boolean(product.manage_stock),
+        ...(item.variantId ? { variantId: item.variantId } : {}),
+      });
+
+      if (item.price !== null && item.price !== currentPrice) {
+        const priceChangeKey = getCartValidationKey(strId, item.variantId);
+        if (!seenPriceChangeKeys.has(priceChangeKey)) {
+          seenPriceChangeKeys.add(priceChangeKey);
+          priceChanges.push({
+            id: strId,
+            variantId: item.variantId,
+            oldPrice: item.price,
+            newPrice: currentPrice,
+          });
         }
       }
     }

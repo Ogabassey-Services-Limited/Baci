@@ -3,7 +3,10 @@
  * Supports 'grid', 'editorial', and 'list' layouts with Reanimated motion
  */
 
-import { resolveDefaultVariantSelection } from '@baci/shared/lib';
+import {
+  requiresProductSelection,
+  resolveDefaultVariantSelection,
+} from '@baci/shared/lib';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { useWindowDimensions } from 'react-native';
@@ -76,6 +79,7 @@ export function ProductCard({
       .reduce((total, item) => total + item.quantity, 0)
   );
   const defaultVariantSelection = resolveDefaultVariantSelection(product);
+  const requiresSelection = requiresProductSelection(product);
   const displayProduct =
     product.has_variants && defaultVariantSelection
       ? {
@@ -168,6 +172,11 @@ export function ProductCard({
   });
 
   const handleAddToCart = () => {
+    if (requiresSelection) {
+      router.push(`/product/${product.slug}`);
+      return;
+    }
+
     if (product.has_variants && !defaultVariantSelection) {
       router.push(`/product/${product.slug}`);
       return;

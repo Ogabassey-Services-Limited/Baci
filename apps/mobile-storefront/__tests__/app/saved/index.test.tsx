@@ -2,9 +2,10 @@
  * Regression tests for SavedItemsScreen
  */
 
-import { describe, expect, it, jest, beforeEach } from '@jest/globals';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
+import { Alert } from 'react-native';
 import type { SavedItem } from '@/stores/saved-store';
 
 const mockPush = jest.fn();
@@ -31,9 +32,8 @@ jest.mock('@shopify/flash-list', () => ({
     ListEmptyComponent?: () => ReactNode;
   }) => {
     const React = jest.requireActual('react') as typeof import('react');
-    const MockView = jest.requireActual<typeof import('react-native')>(
-      'react-native'
-    ).View;
+    const MockView =
+      jest.requireActual<typeof import('react-native')>('react-native').View;
 
     return React.createElement(
       MockView,
@@ -59,7 +59,8 @@ jest.mock('expo-image', () => ({
 jest.mock('react-native-reanimated', () => ({
   __esModule: true,
   default: {
-    View: jest.requireActual<typeof import('react-native')>('react-native').View,
+    View: jest.requireActual<typeof import('react-native')>('react-native')
+      .View,
   },
   FadeIn: { duration: () => ({}) },
   FadeOut: { duration: () => ({}) },
@@ -138,6 +139,7 @@ describe('SavedItemsScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockItems.mockReturnValue([]);
+    jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
   });
 
   it('does not navigate when the saved item has no slug', () => {
@@ -160,5 +162,47 @@ describe('SavedItemsScreen', () => {
     fireEvent.press(screen.getByText('Test Phone'));
 
     expect(mockPush).toHaveBeenCalledWith('/product/test-phone');
+  });
+
+  it('routes saved SKU-matrix products to detail selection instead of direct cart add', () => {
+    const skuMatrixItem = makeSavedItem({
+      name: 'iPhone 15',
+      slug: 'iphone-15',
+      has_variants: true,
+      variant_model: 'sku_matrix',
+      available_conditions: ['open_box', 'used'],
+      has_condition_offers: true,
+    });
+    mockItems.mockReturnValue([skuMatrixItem]);
+
+    render(<SavedItemsScreen />);
+
+    fireEvent.press(screen.getByText('Add to Cart'));
+
+    expect(mockPush).toHaveBeenCalledWith('/product/iphone-15');
+    expect(mockAddItem).not.toHaveBeenCalled();
+  });
+
+  it('adds saved simple products directly when trusted metadata says no selection is required', () => {
+    const simpleItem = makeSavedItem({
+      has_variants: false,
+      variant_model: 'legacy',
+      available_conditions: ['new'],
+      has_condition_offers: false,
+    });
+    mockItems.mockReturnValue([simpleItem]);
+
+    render(<SavedItemsScreen />);
+
+    fireEvent.press(screen.getByText('Add to Cart'));
+
+    expect(mockAddItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        product_id: 'prod-1',
+        slug: 'test-phone',
+        quantity: 1,
+      })
+    );
+    expect(mockPush).not.toHaveBeenCalled();
   });
 });

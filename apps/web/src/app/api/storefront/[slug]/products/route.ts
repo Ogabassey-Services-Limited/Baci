@@ -63,6 +63,16 @@ function mapProduct(p: Record<string, unknown>) {
     brand: p.brand,
     status: p.status || 'active',
     has_variants: p.has_variants,
+    variant_model: p.variant_model,
+    available_conditions: Array.isArray(p.available_conditions)
+      ? p.available_conditions.filter(
+          (condition): condition is string => typeof condition === 'string'
+        )
+      : [],
+    has_condition_offers:
+      typeof p.has_condition_offers === 'boolean'
+        ? p.has_condition_offers
+        : false,
     slug: p.slug,
     sku: p.sku,
     manage_stock: manageStock,

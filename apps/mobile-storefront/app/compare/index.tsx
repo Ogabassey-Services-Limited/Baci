@@ -3,6 +3,7 @@
  * Side-by-side comparison of up to 3 products
  */
 
+import { requiresProductSelection } from '@baci/shared/lib';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { router, Stack } from 'expo-router';
@@ -44,6 +45,13 @@ export default function CompareScreen() {
   })();
 
   const handleAddToCart = (product: (typeof products)[0]) => {
+    if (requiresProductSelection(product)) {
+      if (product.slug) {
+        router.push(`/product/${product.slug}`);
+      }
+      return;
+    }
+
     addToCart({
       product_id: product.id,
       slug: product.slug,

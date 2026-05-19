@@ -109,7 +109,9 @@ export interface Product {
   available_conditions?: ProductCondition[];
   offers?: ProductConditionOffer[];
   // Phase 4: Product Variants (Storage/Color/etc)
+  has_variants?: boolean;
   variants?: ProductVariant[];
+  variant_model?: string;
   variant_attributes?: Record<string, string[]>;
   /** Ordered list of variant dimension keys to render as selectors (e.g. ['storage', 'ram']) */
   attributeAxes?: string[];

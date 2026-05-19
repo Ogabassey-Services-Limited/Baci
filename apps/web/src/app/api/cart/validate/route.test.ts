@@ -4,6 +4,7 @@ import { POST } from './route';
 const PRODUCT_ID = '11111111-1111-4111-8111-111111111111';
 const OTHER_PRODUCT_ID = '22222222-2222-4222-8222-222222222222';
 const VARIANT_ID = '33333333-3333-4333-8333-333333333333';
+const BAD_VARIANT_ID = '44444444-4444-4444-8444-444444444444';
 
 const mocks = vi.hoisted(() => ({
   createClient: vi.fn(),
@@ -155,7 +156,60 @@ describe('POST /api/cart/validate', () => {
     expect(body.validProducts[0]).toMatchObject({
       id: PRODUCT_ID,
       price: 320_000,
+      variantId: VARIANT_ID,
     });
+  });
+
+  it('invalidates only the mismatched variant line key', async () => {
+    const { supabase } = buildSupabaseMock();
+    mocks.createClient.mockResolvedValue(supabase);
+    mocks.products = [
+      {
+        id: PRODUCT_ID,
+        name: 'iPhone 15',
+        price: 370_000,
+        stock: 5,
+        stock_quantity: 5,
+        status: 'active',
+        manage_stock: true,
+      },
+    ];
+    mocks.variants = [
+      {
+        id: VARIANT_ID,
+        product_id: PRODUCT_ID,
+        price_override: 320_000,
+      },
+    ];
+
+    const response = await postCartValidate({
+      cartItems: [
+        {
+          id: PRODUCT_ID,
+          price: 370_000,
+          variantId: VARIANT_ID,
+        },
+        {
+          id: PRODUCT_ID,
+          price: 370_000,
+          variantId: BAD_VARIANT_ID,
+        },
+      ],
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.invalidProductIds).toEqual([
+      `${PRODUCT_ID}::${BAD_VARIANT_ID}`,
+    ]);
+    expect(body.priceChanges).toEqual([
+      {
+        id: PRODUCT_ID,
+        variantId: VARIANT_ID,
+        oldPrice: 370_000,
+        newPrice: 320_000,
+      },
+    ]);
   });
 
   it('keeps variant price changes scoped to the matching product variant', async () => {
@@ -206,6 +260,9 @@ describe('POST /api/cart/validate', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
+    expect(body.invalidProductIds).toEqual([
+      `${OTHER_PRODUCT_ID}::${VARIANT_ID}`,
+    ]);
     expect(body.priceChanges).toEqual([
       {
         id: PRODUCT_ID,

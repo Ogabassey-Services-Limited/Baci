@@ -367,16 +367,24 @@ describe('[category]/[productSlug] page metadata', () => {
   });
 
   it('calls notFound when the product is missing and no legacy redirect exists', async () => {
-    await expect(
-      generateMetadata({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'smartphones',
-          productSlug: 'missing-product',
-        }),
-        searchParams: Promise.resolve({}),
-      })
-    ).rejects.toThrow('NEXT_NOT_FOUND');
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    try {
+      await expect(
+        generateMetadata({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'smartphones',
+            productSlug: 'missing-product',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      ).rejects.toThrow('NEXT_NOT_FOUND');
+    } finally {
+      consoleWarnSpy.mockRestore();
+    }
 
     expect(mockPermanentRedirect).not.toHaveBeenCalled();
   });
@@ -748,6 +756,85 @@ describe('[category]/[productSlug] page render', () => {
       expect.objectContaining({
         stock: 0,
         stock_quantity: 0,
+      })
+    );
+  });
+
+  it('preserves SKU-matrix variant conditions for the Ogabassey PDP', async () => {
+    mockNormalizeStorefrontProductVariants.mockReturnValue([
+      {
+        id: 'iphone15-used-esim',
+        condition: 'used',
+        attributes: {
+          storage: '128GB',
+          color: 'Black',
+          sim_type: 'eSIM Only',
+        },
+        images: [],
+        price_override: 829000,
+        sku: 'IPHONE15-USED-128-BLK-ESIM',
+        stock_quantity: 3,
+      },
+    ]);
+    mockGetCachedProductWithDetails.mockResolvedValue({
+      ...categorizedDetailedProduct,
+      category: 'Smartphones',
+      categories: {
+        id: 'cat-smartphones',
+        name: 'Smartphones',
+        parent_id: null,
+        slug: 'smartphones',
+      },
+      has_variants: true,
+      name: 'iPhone 15',
+      product_variants: [
+        {
+          id: 'iphone15-used-esim',
+          attributes: {
+            storage: '128GB',
+            color: 'Black',
+            sim_type: 'eSIM Only',
+          },
+          condition: 'used',
+          images: [],
+          price_override: 829000,
+          sku: 'IPHONE15-USED-128-BLK-ESIM',
+          stock_quantity: 3,
+        },
+      ],
+      slug: 'iphone-15',
+      variant_model: 'sku_matrix',
+    });
+
+    render(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'smartphones',
+          productSlug: 'iphone-15',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    const ogabasseyProps = mockOgabasseyProductDetailsPage.mock.calls
+      .at(-1)
+      ?.at(0) as
+      | {
+          product?: {
+            variants?: Record<string, unknown>[];
+          };
+        }
+      | undefined;
+
+    expect(ogabasseyProps?.product?.variants?.[0]).toEqual(
+      expect.objectContaining({
+        attributes: expect.objectContaining({
+          sim_type: 'eSIM Only',
+          storage: '128GB',
+        }),
+        condition: 'used',
+        id: 'iphone15-used-esim',
       })
     );
   });

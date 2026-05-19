@@ -101,9 +101,20 @@ vi.mock('./ProductGridItem', () => ({
   ProductGridItem: ({
     product,
   }: {
-    product: { name: string; condition?: string };
+    product: {
+      name: string;
+      condition?: string;
+      has_variants?: boolean;
+      variant_model?: string;
+    };
   }) => (
-    <article data-condition={product.condition ?? ''}>{product.name}</article>
+    <article
+      data-condition={product.condition ?? ''}
+      data-has-variants={String(product.has_variants ?? false)}
+      data-variant-model={product.variant_model ?? ''}
+    >
+      {product.name}
+    </article>
   ),
 }));
 
@@ -201,6 +212,34 @@ describe('EngineProductGrid', () => {
     );
 
     expect(screen.getByRole('article')).toHaveAttribute('data-condition', '');
+  });
+
+  it('preserves SKU-matrix metadata from storefront products for quick-add guards', () => {
+    render(
+      <EngineProductGrid
+        externalProducts={[
+          createTestProduct({
+            id: 'iphone-15-family',
+            name: 'iPhone 15 Family',
+            price: 900000,
+            stock: 3,
+            available_conditions: ['open_box', 'used'],
+            has_variants: true,
+            variant_model: 'sku_matrix',
+          }),
+        ]}
+        categories={[]}
+      />
+    );
+
+    expect(screen.getByRole('article')).toHaveAttribute(
+      'data-has-variants',
+      'true'
+    );
+    expect(screen.getByRole('article')).toHaveAttribute(
+      'data-variant-model',
+      'sku_matrix'
+    );
   });
 
   it('initializes category from ?category= URL param when valid', () => {

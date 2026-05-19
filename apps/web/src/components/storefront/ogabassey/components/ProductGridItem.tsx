@@ -200,6 +200,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
         {showInteractiveChrome && (
           <DeferredProductGridImageChrome
             activeColorIndex={activeColorIndex}
+            basePath={basePath}
             cartQuantity={cartQuantity}
             iconSize={iconSize}
             isAdded={isAdded}

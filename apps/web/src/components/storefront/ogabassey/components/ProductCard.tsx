@@ -10,6 +10,7 @@ import { asRoute } from '@/lib/routes';
 import { getProductUrl } from '@/lib/seo-utils';
 import { useV2Comparison } from '../providers/v2-comparison-context';
 import { useV2Saved } from '../providers/v2-saved-context';
+import { requiresOgabasseyProductSelection } from '../product-selection';
 import type { Product } from '../types';
 
 const PLACEHOLDER_IMAGE = 'https://placehold.co/400x400/f8fafc/94a3b8?text=No+Image';
@@ -89,6 +90,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const productForUrl = { ...product, id: String(product.id) };
   // Build full URL with basePath for proper routing on custom domains
   const productHref = asRoute(`${basePath}${getProductUrl(productForUrl)}`);
+  const requiresSelection = requiresOgabasseyProductSelection(product);
 
   // Image optimization props for Next.js Image component
   // Using exact dimensions from design but allowing responsive sizing
@@ -194,24 +196,39 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
 
           {/* Floating Cart Button - Inside Image Container for balance */}
-          <button
-            onClick={handleCartClick}
-            aria-label={`Add ${product.name} to cart`}
-            className={`absolute bottom-2 right-2 md:bottom-3 md:right-3 z-20 h-9 w-9 md:h-10 md:w-10 flex items-center justify-center rounded-full shadow-lg border border-gray-100 transition-all duration-300 pointer-events-auto active:scale-95 bg-white text-gray-900 md:hover:bg-primary md:hover:text-white md:hover:border-primary overflow-visible`}
-          >
-            <ShoppingCart
-              size={16}
-              className={`transition-transform md:w-[18px] md:h-[18px] ${showPlusOne ? 'scale-90' : ''}`}
-              strokeWidth={2}
-            />
+          {requiresSelection ? (
+            <Link
+              href={productHref}
+              prefetch={false}
+              aria-label={`Choose options for ${product.name}`}
+              className="absolute bottom-2 right-2 md:bottom-3 md:right-3 z-20 h-9 w-9 md:h-10 md:w-10 flex items-center justify-center rounded-full shadow-lg border border-gray-100 transition-all duration-300 pointer-events-auto active:scale-95 bg-white text-gray-900 md:hover:bg-primary md:hover:text-white md:hover:border-primary overflow-visible"
+            >
+              <ShoppingCart
+                size={16}
+                className="transition-transform md:w-[18px] md:h-[18px]"
+                strokeWidth={2}
+              />
+            </Link>
+          ) : (
+            <button
+              onClick={handleCartClick}
+              aria-label={`Add ${product.name} to cart`}
+              className={`absolute bottom-2 right-2 md:bottom-3 md:right-3 z-20 h-9 w-9 md:h-10 md:w-10 flex items-center justify-center rounded-full shadow-lg border border-gray-100 transition-all duration-300 pointer-events-auto active:scale-95 bg-white text-gray-900 md:hover:bg-primary md:hover:text-white md:hover:border-primary overflow-visible`}
+            >
+              <ShoppingCart
+                size={16}
+                className={`transition-transform md:w-[18px] md:h-[18px] ${showPlusOne ? 'scale-90' : ''}`}
+                strokeWidth={2}
+              />
 
-            {/* +1 Animation */}
-            {showPlusOne && (
-              <span className="absolute -top-8 left-1/2 -translate-x-1/2 text-primary font-bold text-sm animate-out fade-out slide-out-to-top-4 duration-1000 fill-mode-forwards z-30 pointer-events-none shadow-sm bg-white px-1.5 rounded-full border border-primary/20">
-                +1
-              </span>
-            )}
-          </button>
+              {/* +1 Animation */}
+              {showPlusOne && (
+                <span className="absolute -top-8 left-1/2 -translate-x-1/2 text-primary font-bold text-sm animate-out fade-out slide-out-to-top-4 duration-1000 fill-mode-forwards z-30 pointer-events-none shadow-sm bg-white px-1.5 rounded-full border border-primary/20">
+                  +1
+                </span>
+              )}
+            </button>
+          )}
         </div>
 
         {/* Content */}
@@ -357,18 +374,29 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <ArrowRightLeft size={18} strokeWidth={2} />
             </button>
 
-            <button
-              onClick={handleCartClick}
-              aria-label={`Add ${product.name} to cart`}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 bg-gray-900 text-white md:hover:bg-primary relative overflow-visible`}
-            >
-              {showPlusOne && (
-                <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-primary font-bold text-lg animate-out fade-out slide-out-to-top-4 duration-1000 fill-mode-forwards z-30 pointer-events-none">
-                  +1
-                </span>
-              )}
-              Add to Cart <ShoppingCart size={16} />
-            </button>
+            {requiresSelection ? (
+              <Link
+                href={productHref}
+                prefetch={false}
+                aria-label={`Choose options for ${product.name}`}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 bg-gray-900 text-white md:hover:bg-primary relative overflow-visible"
+              >
+                View Options <ShoppingCart size={16} />
+              </Link>
+            ) : (
+              <button
+                onClick={handleCartClick}
+                aria-label={`Add ${product.name} to cart`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold transition-all active:scale-95 bg-gray-900 text-white md:hover:bg-primary relative overflow-visible`}
+              >
+                {showPlusOne && (
+                  <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-primary font-bold text-lg animate-out fade-out slide-out-to-top-4 duration-1000 fill-mode-forwards z-30 pointer-events-none">
+                    +1
+                  </span>
+                )}
+                Add to Cart <ShoppingCart size={16} />
+              </button>
+            )}
           </div>
         </div>
       </div>

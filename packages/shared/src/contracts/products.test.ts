@@ -99,6 +99,7 @@ describe('product column constants', () => {
       'migration_status',
       'default_variant_id',
       'available_conditions',
+      'has_condition_offers',
       'min_variant_price',
       'max_variant_price',
     ];
