@@ -11,13 +11,13 @@ import {
   TextQuote,
 } from 'lucide-react';
 import { EditorBubbleItem, useEditor } from 'novel';
-
 import { Button } from '@/components/ui/button';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { getTiptap } from '../utils/tiptap';
 
 export type SelectorItem = {
   name: string;
@@ -25,25 +25,6 @@ export type SelectorItem = {
   command: (editor: ReturnType<typeof useEditor>['editor']) => void;
   isActive: (editor: ReturnType<typeof useEditor>['editor']) => boolean;
 };
-
-// Type guard interface for tiptap editor methods missing in novel's types
-interface TiptapEditor {
-  chain: () => {
-    focus: () => {
-      toggleTaskList: () => { run: () => void };
-      toggleBulletList: () => { run: () => void };
-      toggleOrderedList: () => { run: () => void };
-    };
-  };
-  isActive: (name: string, options?: Record<string, unknown>) => boolean;
-}
-
-function getTiptap(
-  editor: ReturnType<typeof useEditor>['editor']
-): TiptapEditor | null {
-  if (!editor) return null;
-  return editor as unknown as TiptapEditor;
-}
 
 const items: SelectorItem[] = [
   {
