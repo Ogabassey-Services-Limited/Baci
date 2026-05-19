@@ -7,8 +7,6 @@
  */
 
 import {
-  resolveDefaultVariantSelection,
-  resolveVariantDisplaySelection,
   resolveVariantSelectionParamResolution,
 } from '@baci/shared/lib';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,6 +40,7 @@ import { NegotiationModal } from '@/components/product/NegotiationModal';
 import { ProductDetailsBody } from '@/components/product/ProductDetailsBody';
 import { ProductImageGallery } from '@/components/product/ProductImageGallery';
 import { StickyBottomActions } from '@/components/product/StickyBottomActions';
+import { useProductDetailSelection } from '@/components/product/hooks/use-product-detail-selection';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS } from '@/constants/Colors';
 import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
@@ -64,7 +63,6 @@ import {
 } from '@/lib/product-internal-selection-axes';
 import { mergeVariantAttributes } from '@/lib/product-normalization';
 import { normalizeRouteCondition } from '@/lib/product-route/normalize-route-condition';
-import { computeProductSelectionState } from '@/lib/product-route/product-selection';
 import { resolveProductVariantMetadata } from '@/lib/product-variant-metadata';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
@@ -294,30 +292,12 @@ export default function ProductDetailScreen() {
           product.variant_attributes,
       }
     : null;
-  const usesImageDrivenColorSelection =
-    Object.keys(productImageColorMap).length > 0;
-
-  const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
-  const [selectedCondition, setSelectedCondition] =
-    useState<ProductCondition | null>(routeCondition);
-  const [selectedColor, setSelectedColor] = useState<string | null>(null);
-  const [selectedStorage, setSelectedStorage] = useState<string | null>(null);
-  const [selectedAttributes, setSelectedAttributes] = useState<
-    Record<string, string>
-  >({});
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [showAddedToast, setShowAddedToast] = useState(false);
   const [showNegotiationModal, setShowNegotiationModal] = useState(false);
   const [negotiatedPrice, setNegotiatedPrice] = useState<number | null>(null);
   const [showImageZoom, setShowImageZoom] = useState(false);
-  const [hasCustomizedSelection, setHasCustomizedSelection] = useState(false);
-  const lastSelectionSyncSignatureRef = useRef<string>('');
   const hasInvalidSelectionRedirectedRef = useRef(false);
-  const lastRouteSelectionSignatureRef = useRef(routeSelectionSignature);
 
-  const defaultVariantSelection = product
-    ? resolveDefaultVariantSelection(product)
-    : null;
   const {
     availableConditions,
     currentVariantDisplaySelection,
@@ -327,20 +307,30 @@ export default function ProductDetailScreen() {
     effectiveSelectedCondition,
     effectiveSelectedStorage,
     effectiveSelectedVariantId,
+    selectedImageIndex,
+    selectedVariant,
+    setHasCustomizedSelection,
+    setSelectedAttributes,
+    setSelectedColor,
+    setSelectedCondition,
+    setSelectedImageIndex,
+    setSelectedStorage,
+    setSelectedVariant,
+    usesImageDrivenColorSelection,
     usesVariantConditions,
-  } = computeProductSelectionState({
-    defaultVariantSelection,
+  } = useProductDetailSelection({
+    getFallbackVariantSelections,
+    getFirstImageIndexForColor,
+    getSelectionSyncSignature,
     product,
+    productGalleryImages,
+    productImageColorMap,
+    resolvedColorImages,
     routeCondition,
     routeSelectionAttributes,
-    routeVariantId: hasCustomizedSelection ? null : routeVariantId,
-    selectedAttributes,
-    selectedColor,
-    selectedCondition,
-    selectedStorage,
-    selectedVariant,
+    routeSelectionSignature,
+    routeVariantId,
   });
-  const selectionSyncSignature = getSelectionSyncSignature(product);
   const offerConditionKey =
     product?.has_variants === true
       ? null
@@ -394,170 +384,6 @@ export default function ProductDetailScreen() {
     }
     return product?.condition;
   };
-
-  useEffect(() => {
-    if (lastRouteSelectionSignatureRef.current === routeSelectionSignature) {
-      return;
-    }
-
-    lastRouteSelectionSignatureRef.current = routeSelectionSignature;
-    setHasCustomizedSelection(false);
-  }, [routeSelectionSignature]);
-
-  useEffect(() => {
-    if (!product) {
-      lastSelectionSyncSignatureRef.current = '';
-      return;
-    }
-
-    if (lastSelectionSyncSignatureRef.current === selectionSyncSignature) {
-      return;
-    }
-
-    const shouldSeedSelection =
-      !selectedVariant &&
-      !selectedStorage &&
-      !selectedColor &&
-      Object.keys(selectedAttributes).length === 0;
-    const shouldRepairInvalidSelection =
-      product.has_variants === true && currentVariantDisplaySelection === null;
-    const seededSelection =
-      resolveVariantDisplaySelection(product, {
-        condition: routeCondition,
-        variantId: typeof routeVariantId === 'string' ? routeVariantId : null,
-        attributes: routeSelectionAttributes,
-      }) ??
-      resolveDefaultVariantSelection(product, {
-        condition: routeCondition,
-      }) ??
-      resolveDefaultVariantSelection(product);
-    const activeSelectionAttributes = {
-      ...routeSelectionAttributes,
-      ...selectedAttributes,
-      color: selectedColor ?? routeSelectionAttributes.color ?? null,
-      storage: selectedStorage ?? routeSelectionAttributes.storage ?? null,
-    };
-    const repairCondition = selectedCondition ?? routeCondition;
-    const repairedSelection =
-      resolveVariantDisplaySelection(product, {
-        condition: repairCondition,
-        variantId:
-          selectedVariant ??
-          (typeof routeVariantId === 'string' ? routeVariantId : null),
-        attributes: activeSelectionAttributes,
-      }) ??
-      resolveDefaultVariantSelection(product, {
-        condition: repairCondition,
-      }) ??
-      resolveDefaultVariantSelection(product);
-    const nextSelection = shouldRepairInvalidSelection
-      ? repairedSelection
-      : seededSelection;
-    const fallbackSelection = getFallbackVariantSelections(product);
-    const syncedAttributes = {
-      ...fallbackSelection.attributes,
-      ...stripInternalSelectionAxes(nextSelection?.attributes ?? {}),
-    };
-    // When a legacy variant only exposes the `colour` axis, the shared
-    // resolver leaves `.color` undefined on the resolved selection. Prefer
-    // the resolved variant's own legacy color value before falling back to
-    // the first available color, otherwise seeding can overwrite the
-    // resolved SKU's color with an unrelated swatch.
-    const resolvedLegacyColor =
-      nextSelection?.attributes?.colour?.trim() || undefined;
-    const syncedColor =
-      nextSelection?.color ?? resolvedLegacyColor ?? fallbackSelection.color;
-
-    if (shouldSeedSelection || shouldRepairInvalidSelection) {
-      setSelectedVariant(nextSelection?.variant.id ?? null);
-      setSelectedStorage(nextSelection?.storage ?? fallbackSelection.storage);
-      setSelectedColor(syncedColor);
-      setSelectedAttributes(syncedAttributes);
-      setSelectedImageIndex(
-        getFirstImageIndexForColor({
-          color: syncedColor,
-          colorImages: resolvedColorImages,
-          images: productGalleryImages,
-        })
-      );
-      if (nextSelection?.condition) {
-        setSelectedCondition(nextSelection.condition as ProductCondition);
-      }
-    }
-
-    lastSelectionSyncSignatureRef.current = selectionSyncSignature;
-  }, [
-    currentVariantDisplaySelection,
-    product,
-    routeCondition,
-    selectedAttributes,
-    selectedColor,
-    selectedCondition,
-    selectedStorage,
-    selectedVariant,
-    selectionSyncSignature,
-    routeVariantId,
-    routeSelectionAttributes,
-    productGalleryImages,
-    resolvedColorImages,
-  ]);
-
-  useEffect(() => {
-    if (!usesImageDrivenColorSelection || !effectiveSelectedColor) {
-      return;
-    }
-
-    const currentImage = productGalleryImages[selectedImageIndex];
-    const currentImageColor = currentImage
-      ? productImageColorMap[currentImage]
-      : undefined;
-
-    if (!currentImageColor || currentImageColor === effectiveSelectedColor) {
-      return;
-    }
-
-    setSelectedImageIndex(
-      getFirstImageIndexForColor({
-        color: effectiveSelectedColor,
-        colorImages: resolvedColorImages,
-        images: productGalleryImages,
-      })
-    );
-  }, [
-    effectiveSelectedColor,
-    resolvedColorImages,
-    productGalleryImages,
-    productImageColorMap,
-    selectedImageIndex,
-    usesImageDrivenColorSelection,
-  ]);
-
-  useEffect(() => {
-    if (availableConditions.length === 0) {
-      return;
-    }
-
-    const normalizedCondition = normalizeRouteCondition(selectedCondition);
-    if (
-      selectedCondition &&
-      normalizedCondition !== null &&
-      availableConditions.some((c) => c === normalizedCondition)
-    ) {
-      return;
-    }
-
-    setSelectedCondition(
-      (currentVariantDisplaySelection?.condition as
-        | ProductCondition
-        | undefined) ??
-        normalizeRouteCondition(availableConditions[0] ?? product?.condition)
-    );
-  }, [
-    availableConditions,
-    currentVariantDisplaySelection?.condition,
-    product,
-    selectedCondition,
-  ]);
 
   // Sync quantity with cart store
   const cartItem = (() => {
@@ -830,7 +656,7 @@ export default function ProductDetailScreen() {
     }
 
     setSelectedImageIndex(0);
-  }, [images.length, selectedImageIndex]);
+  }, [images.length, selectedImageIndex, setSelectedImageIndex]);
 
   // 2026 Critical Fix: Handle invalid slug parameter
   if (!isValidSlug) {
