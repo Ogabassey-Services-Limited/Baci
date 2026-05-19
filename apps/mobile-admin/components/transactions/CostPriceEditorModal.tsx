@@ -3,12 +3,15 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Platform,
   Pressable,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import {
+  isRuntimePlatform,
+  selectRuntimePlatform,
+} from '@/config/runtime-platform';
 import { styles } from '@/components/transactions/transactions.styles';
 import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import type { ThemeColors } from '@/constants/theme';
@@ -36,6 +39,8 @@ interface CostPriceEditorModalProps {
   visible: boolean;
 }
 
+type DatePickerDisplay = 'default' | 'spinner';
+
 export function CostPriceEditorModal({
   colors,
   costPriceInput,
@@ -54,6 +59,12 @@ export function CostPriceEditorModal({
   visible,
 }: CostPriceEditorModalProps) {
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const isAndroid = isRuntimePlatform('android');
+  const pickerDisplay =
+    selectRuntimePlatform<DatePickerDisplay>({
+      default: 'default',
+      ios: 'spinner',
+    }) ?? 'default';
   const normalizedSupplierInput = supplierInput.trim().toLowerCase();
   const visibleSupplierOptions = normalizedSupplierInput
     ? supplierOptions
@@ -183,12 +194,12 @@ export function CostPriceEditorModal({
           </Pressable>
           {showDatePicker ? (
             <DateTimePicker
-              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              display={pickerDisplay}
               maximumDate={new Date()}
               mode="date"
               onChange={(event, selectedDate) => {
                 // Android uses a dismissible dialog; iOS keeps the picker inline.
-                if (Platform.OS === 'android') {
+                if (isAndroid) {
                   setShowDatePicker(false);
                   if (event.type === 'dismissed') {
                     return;

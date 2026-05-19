@@ -4,6 +4,24 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import StoreSettingsScreen from './store-settings';
 
+interface MockMerchant {
+  business_name: string;
+  country: string;
+  email: string;
+  id: string;
+  logo_url: string | null;
+  phone: string;
+  payout_currency: string;
+  slug: string;
+  support_email: string | null;
+  support_phone: string | null;
+}
+
+interface MockUseMerchantResult {
+  isLoading: boolean;
+  merchant: MockMerchant | null;
+}
+
 const mocks = vi.hoisted(() => ({
   getManagementLabel: vi.fn(() => 'Manage from helper'),
   getPlanLabel: vi.fn(() => 'Baci Pro'),
@@ -21,7 +39,7 @@ const mocks = vi.hoisted(() => ({
       support_email: null,
       support_phone: null,
     },
-  },
+  } as MockUseMerchantResult,
   subscriptionCardProps: {
     manageSubscriptionLabel: '',
     planLabel: '',
@@ -215,7 +233,7 @@ describe('StoreSettingsScreen', () => {
     mocks.useMerchantResult = {
       isLoading: true,
       merchant: null,
-    };
+    } as MockUseMerchantResult;
 
     render(<StoreSettingsScreen />);
 

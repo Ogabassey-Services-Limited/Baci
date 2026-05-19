@@ -1,4 +1,3 @@
 [
-  "config/runtime-platform.ts",
-  "components/transactions/CostPriceEditorModal.tsx"
+  "config/runtime-platform.ts"
 ]
