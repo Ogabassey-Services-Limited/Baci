@@ -22,7 +22,9 @@ DECLARE
   missing_search_path_function text;
   anon_callable_function text;
   missing_authenticated_function text;
+  event_policy_using text;
   missing_variant_select_column text;
+  normalized_event_policy_using text;
   variant_policy_using text;
   normalized_variant_policy_using text;
 BEGIN
@@ -111,7 +113,23 @@ BEGIN
     WHERE polname = 'quiz_variants_client_read'
       AND polrelid = 'public.quiz_question_variants'::regclass
   ) THEN
-    RAISE EXCEPTION 'quiz Phase 1a must expose quiz_variants_client_read for safe client question variant reads';
+    RAISE EXCEPTION 'quiz Phase 1a must expose quiz_variants_client_read for assigned customer question reads';
+  END IF;
+
+  SELECT pg_get_expr(polqual, polrelid) INTO event_policy_using
+  FROM pg_policy
+  WHERE polname = 'quiz_events_client_read'
+    AND polrelid = 'public.quiz_events'::regclass;
+
+  normalized_event_policy_using := pg_catalog.lower(
+    pg_catalog.regexp_replace(COALESCE(event_policy_using, ''), '[^a-z0-9_]+', ' ', 'g')
+  );
+
+  IF pg_catalog.strpos(normalized_event_policy_using, 'customers') = 0
+     OR pg_catalog.strpos(normalized_event_policy_using, 'merchant_id') = 0
+     OR pg_catalog.strpos(normalized_event_policy_using, 'user_id') = 0
+     OR pg_catalog.strpos(normalized_event_policy_using, 'auth uid') = 0 THEN
+    RAISE EXCEPTION 'quiz Phase 1a quiz_events_client_read policy must stay scoped to the authenticated customer merchant';
   END IF;
 
   SELECT expected.column_name INTO missing_variant_select_column
@@ -120,12 +138,24 @@ BEGIN
       ('prompt'),
       ('options')
   ) AS expected(column_name)
-  WHERE NOT has_column_privilege('anon', 'public.quiz_question_variants', expected.column_name, 'SELECT')
-     OR NOT has_column_privilege('authenticated', 'public.quiz_question_variants', expected.column_name, 'SELECT')
+  WHERE NOT has_column_privilege('authenticated', 'public.quiz_question_variants', expected.column_name, 'SELECT')
   LIMIT 1;
 
   IF missing_variant_select_column IS NOT NULL THEN
-    RAISE EXCEPTION 'quiz Phase 1a must grant client SELECT on public.quiz_question_variants.%', missing_variant_select_column;
+    RAISE EXCEPTION 'quiz Phase 1a must grant authenticated SELECT on public.quiz_question_variants.%', missing_variant_select_column;
+  END IF;
+
+  SELECT expected.column_name INTO missing_variant_select_column
+  FROM (
+    VALUES
+      ('prompt'),
+      ('options')
+  ) AS expected(column_name)
+  WHERE has_column_privilege('anon', 'public.quiz_question_variants', expected.column_name, 'SELECT')
+  LIMIT 1;
+
+  IF missing_variant_select_column IS NOT NULL THEN
+    RAISE EXCEPTION 'quiz Phase 1a must not grant anon SELECT on public.quiz_question_variants.% before an attempt', missing_variant_select_column;
   END IF;
 
   IF has_column_privilege('anon', 'public.quiz_question_variants', 'answer_key_hash', 'SELECT')
@@ -145,11 +175,11 @@ BEGIN
   );
 
   IF pg_catalog.strpos(normalized_variant_policy_using, 'active') = 0
-     OR pg_catalog.strpos(normalized_variant_policy_using, 'quiz_question_slots') = 0
-     OR pg_catalog.strpos(normalized_variant_policy_using, 'quiz_events') = 0
-     OR pg_catalog.strpos(normalized_variant_policy_using, 'scheduled') = 0
-     OR pg_catalog.strpos(normalized_variant_policy_using, 'completed') = 0 THEN
-    RAISE EXCEPTION 'quiz Phase 1a quiz_variants_client_read policy must stay scoped to active variants on visible quiz events';
+     OR pg_catalog.strpos(normalized_variant_policy_using, 'quiz_attempt_questions') = 0
+     OR pg_catalog.strpos(normalized_variant_policy_using, 'quiz_attempts') = 0
+     OR pg_catalog.strpos(normalized_variant_policy_using, 'customers') = 0
+     OR pg_catalog.strpos(normalized_variant_policy_using, 'user_id') = 0 THEN
+    RAISE EXCEPTION 'quiz Phase 1a quiz_variants_client_read policy must stay scoped to active variants assigned to the authenticated customer';
   END IF;
 
   SELECT expected.signature INTO insecure_function

@@ -467,6 +467,49 @@ describe('quiz events route', () => {
     });
   });
 
+  it('does not fail the returned production page for a non-compliant prefetched row', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
+    mockAuthenticatedSupabase({
+      selectResult: {
+        data: [
+          eventRow(),
+          eventRow({
+            compliance_verified: false,
+            id: '22222222-2222-2222-2222-222222222222',
+            nlrc_permit_ref: '',
+            title: 'June Quiz',
+          }),
+        ],
+        error: null,
+      },
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(eventsRequest('?limit=1&offset=0'));
+
+    expect(response.status).toBe(200);
+    expect(await readJson(response)).toEqual({
+      events: [
+        {
+          endsAt: '2026-05-16T12:00:00.000Z',
+          id: EVENT_ID,
+          prizeName: 'N50,000 store credit',
+          questionCount: 1,
+          startsAt: '2026-05-16T10:00:00.000Z',
+          status: 'open',
+          title: 'May Quiz',
+        },
+      ],
+      pagination: {
+        hasMore: true,
+        limit: 1,
+        nextOffset: 1,
+        offset: 0,
+      },
+    });
+  });
+
   it('lists quiz events with explicit columns and bounded pagination', async () => {
     const rows = [eventRow()];
     const { customerBuilder, from, merchantBuilder, queryBuilder } =

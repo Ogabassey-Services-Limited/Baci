@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
   const pageRows = rows.slice(0, limit);
   if (getQuizPhaseEnv() === 'production') {
     try {
-      for (const { event } of rows) {
+      for (const { event } of pageRows) {
         enforcePrizeProductionGuard(
           { nlrc_permit_ref: event.nlrc_permit_ref },
           event.compliance_verified === true

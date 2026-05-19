@@ -193,11 +193,11 @@ REVOKE ALL ON TABLE public.quiz_events, public.quiz_question_slots, public.quiz_
   public.leaderboard_refresh_log FROM anon, authenticated;
 
 GRANT SELECT (id, merchant_id, slug, title, status, starts_at, ends_at, settings, created_at, updated_at)
-  ON public.quiz_events TO anon, authenticated;
+  ON public.quiz_events TO authenticated;
 GRANT SELECT (id, event_id, slot_index, category, difficulty, active, created_at)
-  ON public.quiz_question_slots TO anon, authenticated;
+  ON public.quiz_question_slots TO authenticated;
 GRANT SELECT (id, prompt, options)
-  ON public.quiz_question_variants TO anon, authenticated;
+  ON public.quiz_question_variants TO authenticated;
 GRANT SELECT ON public.quiz_attempts, public.quiz_attempt_questions, public.quiz_attempt_answers,
   public.quiz_awards, public.quiz_attempt_signal_flags, public.quiz_integrity_challenges,
   public.leaderboard_refresh_log TO authenticated;
@@ -206,13 +206,13 @@ GRANT SELECT ON public.quiz_proof_validation_failures, public.quiz_compliance_tr
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname = 'quiz_events_client_read' AND polrelid = 'public.quiz_events'::regclass) THEN
-    CREATE POLICY quiz_events_client_read ON public.quiz_events FOR SELECT TO anon, authenticated USING (status IN ('scheduled', 'active', 'completed'));
+    CREATE POLICY quiz_events_client_read ON public.quiz_events FOR SELECT TO authenticated USING (status IN ('scheduled', 'active', 'completed') AND EXISTS (SELECT 1 FROM public.customers c WHERE c.merchant_id = quiz_events.merchant_id AND c.user_id = (SELECT auth.uid())));
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname = 'quiz_slots_client_read' AND polrelid = 'public.quiz_question_slots'::regclass) THEN
-    CREATE POLICY quiz_slots_client_read ON public.quiz_question_slots FOR SELECT TO anon, authenticated USING (active AND EXISTS (SELECT 1 FROM public.quiz_events e WHERE e.id = event_id AND e.status IN ('scheduled', 'active', 'completed')));
+    CREATE POLICY quiz_slots_client_read ON public.quiz_question_slots FOR SELECT TO authenticated USING (active AND EXISTS (SELECT 1 FROM public.quiz_attempt_questions aq JOIN public.quiz_attempts a ON a.id = aq.attempt_id JOIN public.customers c ON c.id = a.customer_id WHERE aq.slot_id = quiz_question_slots.id AND c.user_id = (SELECT auth.uid())));
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname = 'quiz_variants_client_read' AND polrelid = 'public.quiz_question_variants'::regclass) THEN
-    CREATE POLICY quiz_variants_client_read ON public.quiz_question_variants FOR SELECT TO anon, authenticated USING (active AND EXISTS (SELECT 1 FROM public.quiz_question_slots s JOIN public.quiz_events e ON e.id = s.event_id WHERE s.id = slot_id AND s.active AND e.status IN ('scheduled', 'active', 'completed')));
+    CREATE POLICY quiz_variants_client_read ON public.quiz_question_variants FOR SELECT TO authenticated USING (active AND EXISTS (SELECT 1 FROM public.quiz_attempt_questions aq JOIN public.quiz_attempts a ON a.id = aq.attempt_id JOIN public.customers c ON c.id = a.customer_id WHERE aq.variant_id = quiz_question_variants.id AND c.user_id = (SELECT auth.uid())));
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname = 'quiz_attempts_customer_read' AND polrelid = 'public.quiz_attempts'::regclass) THEN
     CREATE POLICY quiz_attempts_customer_read ON public.quiz_attempts FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.customers c WHERE c.id = customer_id AND c.user_id = (SELECT auth.uid())));

@@ -76,7 +76,7 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
       const events = await loader();
       set({ status: 'ready', events, error: null });
     } catch (error) {
-      set({ status: 'error', error: getMessage(error) });
+      set({ status: 'ready', error: getMessage(error) });
     }
   },
   startEvent: async (eventId, integrityTier, starter) => {
@@ -139,7 +139,10 @@ export const useQuizStore = create<QuizStore>((set, get) => ({
 
       set({ status: 'result', result, error: null });
     } catch (error) {
-      set({ status: 'error', error: getMessage(error) });
+      set({
+        status: currentAttempt ? 'question' : 'ready',
+        error: getMessage(error),
+      });
     }
   },
   setError: (actionError) => {

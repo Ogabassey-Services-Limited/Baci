@@ -154,6 +154,19 @@ export function QuizScreen({
         </Text>
       ) : null}
 
+      {error && (status === 'ready' || status === 'error') ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading quiz events"
+          onPress={() => {
+            void loadEvents(fetchQuizEvents);
+          }}
+          style={styles.primaryButton}
+        >
+          <Text style={styles.primaryButtonText}>Try again</Text>
+        </Pressable>
+      ) : null}
+
       {(status === 'ready' || status === 'starting') && events.length === 0 ? (
         <Text style={styles.eventMeta}>No quiz events available.</Text>
       ) : null}

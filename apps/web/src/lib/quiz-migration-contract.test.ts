@@ -22,13 +22,11 @@ const regressionSql = readFileSync(
 );
 
 describe('quiz migration contracts', () => {
-  // These regex-based SQL assertions are intentionally fragile executable
-  // security documentation. A full SQL AST parser would be higher-maintenance
-  // for this narrow gate, while these checks pin RLS, restricted GRANT columns,
+  // Fragile by design: these regex assertions pin RLS, restricted GRANT columns,
   // and proof-validation constraints that must not drift silently.
-  it('exposes only safe question variant fields to visible quiz clients', () => {
+  it('exposes only safe assigned question variant fields to authenticated quiz clients', () => {
     const variantGrant = foundationSql.match(
-      /GRANT\s+SELECT\s*\(([^)]*)\)\s+ON\s+public\.quiz_question_variants\s+TO\s+anon,\s+authenticated/i
+      /GRANT\s+SELECT\s*\(([^)]*)\)\s+ON\s+public\.quiz_question_variants\s+TO\s+authenticated/i
     )?.[1];
 
     expect(variantGrant).toBeDefined();
@@ -42,8 +40,29 @@ describe('quiz migration contracts', () => {
     expect(variantGrantColumns).toEqual(new Set(['id', 'prompt', 'options']));
     expect(variantGrantColumnList).not.toContain('answer_key_hash');
     expect(variantGrantColumnList).not.toContain('explanation');
+    expect(foundationSql).not.toMatch(
+      /GRANT\s+SELECT\s*\([^)]*\)\s+ON\s+public\.quiz_question_variants\s+TO\s+anon/i
+    );
     expect(foundationSql).toMatch(
-      /CREATE\s+POLICY\s+quiz_variants_client_read\s+ON\s+public\.quiz_question_variants\s+FOR\s+SELECT\s+TO\s+anon,\s+authenticated\s+USING\s+\(active\s+AND\s+EXISTS/is
+      /CREATE\s+POLICY\s+quiz_variants_client_read\s+ON\s+public\.quiz_question_variants\s+FOR\s+SELECT\s+TO\s+authenticated\s+USING\s+\(active\s+AND\s+EXISTS\s+\(SELECT\s+1\s+FROM\s+public\.quiz_attempt_questions/is
+    );
+  });
+
+  it('scopes direct quiz event reads to authenticated customer merchants', () => {
+    expect(foundationSql).not.toMatch(
+      /GRANT\s+SELECT\s*\([^)]*\)\s+ON\s+public\.quiz_events\s+TO\s+anon/i
+    );
+    expect(foundationSql).toMatch(
+      /CREATE\s+POLICY\s+quiz_events_client_read\s+ON\s+public\.quiz_events\s+FOR\s+SELECT\s+TO\s+authenticated\s+USING\s+\(status\s+IN\s+\('scheduled',\s*'active',\s*'completed'\)\s+AND\s+EXISTS\s+\(SELECT\s+1\s+FROM\s+public\.customers\s+c\s+WHERE\s+c\.merchant_id\s*=\s*quiz_events\.merchant_id\s+AND\s+c\.user_id\s*=\s*\(SELECT\s+auth\.uid\(\)\)\)\)/is
+    );
+  });
+
+  it('keeps direct quiz slot reads behind assigned attempts', () => {
+    expect(foundationSql).not.toMatch(
+      /GRANT\s+SELECT\s*\([^)]*\)\s+ON\s+public\.quiz_question_slots\s+TO\s+anon/i
+    );
+    expect(foundationSql).toMatch(
+      /CREATE\s+POLICY\s+quiz_slots_client_read\s+ON\s+public\.quiz_question_slots\s+FOR\s+SELECT\s+TO\s+authenticated\s+USING\s+\(active\s+AND\s+EXISTS\s+\(SELECT\s+1\s+FROM\s+public\.quiz_attempt_questions/is
     );
   });
 
@@ -91,6 +110,7 @@ describe('quiz migration contracts', () => {
     );
     expect(regressionSql).toMatch(/answer_key_hash/i);
     expect(regressionSql).toMatch(/explanation/i);
+    expect(regressionSql).toMatch(/quiz_events_client_read/i);
     expect(regressionSql).toMatch(/quiz_variants_client_read/i);
   });
 

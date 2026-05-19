@@ -223,7 +223,7 @@ describe('useQuizStore', () => {
         .loadEvents(async () => Promise.reject(new Error('events failed')));
     });
     expect(useQuizStore.getState()).toMatchObject({
-      status: 'error',
+      status: 'ready',
       error: 'events failed',
     });
 
@@ -231,7 +231,7 @@ describe('useQuizStore', () => {
       useQuizStore.getState().selectAnswer('a');
     });
     expect(useQuizStore.getState()).toMatchObject({
-      status: 'error',
+      status: 'ready',
       error: 'Cannot select answer outside question phase.',
     });
   });
@@ -244,15 +244,13 @@ describe('useQuizStore', () => {
     });
 
     expect(useQuizStore.getState()).toMatchObject({
-      status: 'error',
+      status: 'ready',
       error: 'Quiz action failed (Object: {"code":"EVENTS_FAILED"})',
     });
   });
 
   it('surfaces null-prototype async failures without throwing from error handling', async () => {
-    const nullPrototypeError = Object.assign(Object.create(null), {
-      code: 'NO_PROTOTYPE',
-    });
+    const nullPrototypeError = Object.assign(Object.create(null), { code: 'NO_PROTOTYPE' });
 
     await act(async () => {
       await useQuizStore.getState().loadEvents(async () => {
@@ -261,7 +259,7 @@ describe('useQuizStore', () => {
     });
 
     expect(useQuizStore.getState()).toMatchObject({
-      status: 'error',
+      status: 'ready',
       error: 'Quiz action failed (Object: {"code":"NO_PROTOTYPE"})',
     });
   });

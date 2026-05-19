@@ -74,13 +74,18 @@ describe('QuizScreen', () => {
   });
 
   it('renders a load error as an accessible alert', async () => {
-    jest.mocked(fetchQuizEvents).mockRejectedValue(new Error('Events offline'));
+    jest.mocked(fetchQuizEvents).mockRejectedValueOnce(new Error('Events offline'));
 
     render(<QuizScreen integrityTier="device" locale="en-US" />);
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Events offline'
     );
+    fireEvent.press(
+      screen.getByRole('button', { name: 'Retry loading quiz events' })
+    );
+
+    expect(await screen.findByText('Daily Prize Quiz')).toBeTruthy();
   });
 
   it('renders fetched quiz events', async () => {
@@ -201,6 +206,8 @@ describe('QuizScreen', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Submit answer' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Submit failed');
+    expect(screen.getByText('What is 2 + 2?')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Submit answer' })).toBeTruthy();
     expect(submitQuizAnswer).toHaveBeenCalledWith({
       answer: 'b',
       attemptId: 'attempt-1',
