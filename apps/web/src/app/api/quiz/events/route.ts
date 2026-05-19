@@ -1,8 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import { getQuizPhaseEnv } from '@/env';
 import { logger } from '@/lib/logger';
+import { enforcePrizeProductionGuard } from '@/lib/quiz-compliance-gate';
 import { quizEventRowSchema, quizEventsQuerySchema } from '@/schemas/quiz';
 import {
   invalidInputResponse,
+  prizeGuardErrorResponse,
   requireQuizUser,
   rpcErrorResponse,
 } from '../_shared/route-helpers';
@@ -109,7 +112,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await auth.supabase
     .from('quiz_events')
     .select(
-      'id, title, status, starts_at, ends_at, settings, quiz_question_slots!inner(id)'
+      'id, title, status, starts_at, ends_at, settings, nlrc_permit_ref, compliance_verified, quiz_question_slots!inner(id)'
     )
     .eq('merchant_id', merchantId)
     .order('starts_at', { ascending: false })
@@ -121,6 +124,19 @@ export async function GET(request: NextRequest) {
   if (!parsedRows.success) return rpcErrorResponse();
 
   const rows = parsedRows.data.filter((event) => getQuestionCount(event) > 0);
+  if (getQuizPhaseEnv() === 'production') {
+    try {
+      for (const event of rows) {
+        enforcePrizeProductionGuard(
+          { nlrc_permit_ref: event.nlrc_permit_ref },
+          event.compliance_verified === true
+        );
+      }
+    } catch (error) {
+      return prizeGuardErrorResponse(error);
+    }
+  }
+
   const hasMore = rows.length > limit;
   const events = rows.slice(0, limit).map((event) => ({
     endsAt: event.ends_at,

@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 
@@ -20,8 +20,10 @@ const MERCHANT_SLUG = 'ogabassey';
 
 function eventRow(overrides: Record<string, unknown> = {}) {
   return {
+    compliance_verified: true,
     ends_at: '2026-05-16T12:00:00.000Z',
     id: EVENT_ID,
+    nlrc_permit_ref: 'NLRC-123',
     quiz_question_slots: [{ id: QUESTION_ID }],
     settings: { prize_name: 'N50,000 store credit' },
     starts_at: '2026-05-16T10:00:00.000Z',
@@ -102,6 +104,10 @@ async function readJson(response: Response) {
 describe('quiz events route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('returns 401 when the customer is unauthenticated', async () => {
@@ -342,6 +348,31 @@ describe('quiz events route', () => {
     });
   });
 
+  it('fails closed in production mode when approval evidence is missing from a listed event', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
+    mockAuthenticatedSupabase({
+      selectResult: {
+        data: [
+          eventRow({
+            compliance_verified: false,
+            nlrc_permit_ref: '',
+          }),
+        ],
+        error: null,
+      },
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(eventsRequest());
+
+    expect(response.status).toBe(403);
+    expect(await readJson(response)).toEqual({
+      code: 'quiz_production_not_approved',
+      error: 'Quiz prizes are not approved for production use',
+    });
+  });
+
   it('lists quiz events with explicit columns and bounded pagination', async () => {
     const rows = [eventRow()];
     const { customerBuilder, from, merchantBuilder, queryBuilder } =
@@ -385,7 +416,7 @@ describe('quiz events route', () => {
     expect(customerBuilder.eq).toHaveBeenCalledWith('user_id', 'user-1');
     expect(from).toHaveBeenCalledWith('quiz_events');
     expect(queryBuilder.select).toHaveBeenCalledWith(
-      'id, title, status, starts_at, ends_at, settings, quiz_question_slots!inner(id)'
+      'id, title, status, starts_at, ends_at, settings, nlrc_permit_ref, compliance_verified, quiz_question_slots!inner(id)'
     );
     expect(queryBuilder.eq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
     expect(queryBuilder.range).toHaveBeenCalledWith(2, 3);
