@@ -237,12 +237,58 @@ describe('PayoutSettingsScreen', () => {
 
     fireEvent.click(screen.getByLabelText('Select bank'));
     fireEvent.click(screen.getByText('GTBank'));
-    fireEvent.click(screen.getByText('Save'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     expect(mocks.savePayoutSettings.mutate).not.toHaveBeenCalled();
     expect(mocks.alert).toHaveBeenCalledWith(
       'Error',
       'Please wait for account verification'
+    );
+  });
+
+  it('blocks save when account verification is still in progress', () => {
+    mocks.isVerifying = true;
+    mocks.merchantData = {
+      id: 'merchant-1',
+      bank_account_number: '0123456789',
+      bank_code: null,
+      bank_name: null,
+      business_name: 'Baci Store',
+    };
+
+    render(<PayoutSettingsScreen />);
+
+    fireEvent.click(screen.getByLabelText('Select bank'));
+    fireEvent.click(screen.getByText('GTBank'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(mocks.savePayoutSettings.mutate).not.toHaveBeenCalled();
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Error',
+      'Please wait for account verification'
+    );
+  });
+
+  it('blocks save when account verification reports an error', () => {
+    mocks.verifyError = 'Unable to verify account';
+    mocks.merchantData = {
+      id: 'merchant-1',
+      bank_account_number: '0123456789',
+      bank_code: null,
+      bank_name: null,
+      business_name: 'Baci Store',
+    };
+
+    render(<PayoutSettingsScreen />);
+
+    fireEvent.click(screen.getByLabelText('Select bank'));
+    fireEvent.click(screen.getByText('GTBank'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(mocks.savePayoutSettings.mutate).not.toHaveBeenCalled();
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Error',
+      'Cannot save: Unable to verify account'
     );
   });
 });

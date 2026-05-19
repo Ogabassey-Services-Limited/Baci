@@ -186,4 +186,12 @@ describe('StoreSettingsScreen', () => {
       'Manage Subscription'
     );
   });
+
+  it('falls back to Free Plan when helper plan label output is empty', () => {
+    mocks.getPlanLabel.mockReturnValue('');
+
+    render(<StoreSettingsScreen />);
+
+    expect(mocks.subscriptionCardProps.planLabel).toBe('Free Plan');
+  });
 });

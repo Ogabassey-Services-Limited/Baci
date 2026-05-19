@@ -22,8 +22,11 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '../../constants/theme';
 const { width: _width } = Dimensions.get('window');
 const DEFAULT_CLOSE_TOP = 30;
 const DEFAULT_HEADER_PADDING = 50;
+// Extra top spacing (dp) above safe-area inset to avoid close button overlap.
 const SAFE_AREA_CLOSE_OFFSET = 11;
+// Extra bottom spacing (dp) above safe-area inset to keep footer clear of system UI.
 const SAFE_AREA_FOOTER_OFFSET = 6;
+// Extra top spacing (dp) above safe-area inset to keep header clear of system UI.
 const SAFE_AREA_HEADER_OFFSET = 26;
 
 interface PaywallProps {
