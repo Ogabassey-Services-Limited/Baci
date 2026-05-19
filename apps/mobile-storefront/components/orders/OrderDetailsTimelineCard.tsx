@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { ComponentProps } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
   CUSTOMER_ORDER_PROGRESS_STEPS,
@@ -73,7 +72,7 @@ export function OrderDetailsTimelineCard({
                 ]}
               >
                 <Ionicons
-                  name={step.icon as ComponentProps<typeof Ionicons>['name']}
+                  name={step.icon}
                   size={16}
                   color={
                     isCurrent
@@ -111,7 +110,7 @@ export function OrderDetailsTimelineCard({
         ]}
       >
         <Ionicons
-          name={statusMeta.icon as ComponentProps<typeof Ionicons>['name']}
+          name={statusMeta.icon}
           size={18}
           color={statusPalette.accent}
         />
