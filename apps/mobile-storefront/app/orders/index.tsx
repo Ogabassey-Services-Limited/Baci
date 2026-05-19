@@ -7,11 +7,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { Redirect, router, Stack } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useCallback } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
-  StyleSheet,
   Text,
   TouchableOpacity,
   View,
@@ -21,41 +20,13 @@ import { OfflineEmptyState, OfflineNotice } from '@/components/OfflineNotice';
 import { OrdersListEmptyState } from '@/components/orders/OrdersListEmptyState';
 import { OrdersListHeader } from '@/components/orders/OrdersListHeader';
 import { OrdersListItem } from '@/components/orders/OrdersListItem';
+import { ordersScreenStyles as styles } from '@/components/orders/orders-screen.styles';
+import { useOrdersListController } from '@/components/orders/use-orders-list-controller';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useNetworkState } from '@/hooks/use-network-state';
-import { createLogger } from '@/lib/logger';
-import {
-  buildOrderListFilters,
-  matchesOrderListFilter,
-  type OrderListFilterKey,
-} from '@/lib/order-list-filters';
-import { filterOrdersBySearchQuery } from '@/lib/order-list-search';
-import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
-
-const log = createLogger('OrdersList');
-
-interface Order {
-  id: string;
-  order_number: string;
-  shipping_status: string;
-  subtotal: number;
-  shipping_fee: number;
-  discount_amount: number;
-  tax_amount: number;
-  total: number;
-  payment_status: string;
-  created_at: string;
-  items_count: number;
-  items: Array<{
-    id: string;
-    product_name: string;
-    quantity: number;
-    price: number;
-  }>;
-}
 
 export default function OrdersScreen() {
   const colorScheme = useColorScheme();
@@ -69,105 +40,37 @@ export default function OrdersScreen() {
   // 2026 Best Practice: Network state monitoring for offline UX
   const { isOnline, onReconnect } = useNetworkState();
 
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedFilter, setSelectedFilter] =
-    useState<OrderListFilterKey>('all');
+  const {
+    error,
+    fetchOrders,
+    filteredOrders,
+    handleRefresh,
+    isLoading,
+    isRefreshing,
+    orderFilters,
+    orders,
+    searchQuery,
+    selectedFilter,
+    setSearchQuery,
+    setSelectedFilter,
+  } = useOrdersListController({
+    customerId: customer?.id,
+    onReconnect,
+  });
 
-  const fetchOrders = async () => {
-    if (!customer?.id) {
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      const { data, error: fetchError } = await supabase
-        .from('orders')
-        .select(`
-          id,
-          order_number,
-          shipping_status,
-          subtotal,
-          shipping_fee,
-          discount_amount,
-          tax_amount,
-          total,
-          payment_status,
-          created_at,
-          order_items (
-            id,
-            name,
-            quantity,
-            price
-          )
-        `)
-        .eq('customer_id', customer.id)
-        .order('created_at', { ascending: false });
-
-      if (fetchError) throw fetchError;
-
-      const formattedOrders = (data || []).map((order) => ({
-        ...order,
-        items_count: (order.order_items ?? []).length,
-        items: (order.order_items ?? []).map((item) => ({
-          ...item,
-          product_name: item.name,
-        })),
-      }));
-
-      setOrders(formattedOrders);
-      setError(null);
-    } catch (err) {
-      log.error('Error fetching orders:', err);
-      setError('Failed to load orders');
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
-
-  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchOrders used in multiple places; React Compiler handles memoization (ADR-004)
-  useEffect(() => {
-    fetchOrders();
-  }, [customer?.id]);
-
-  // 2026 Best Practice: Auto-refetch when coming back online
-  // biome-ignore lint/correctness/useExhaustiveDependencies: fetchOrders used in multiple places; React Compiler handles memoization (ADR-004)
-  useEffect(() => {
-    return onReconnect(() => {
-      fetchOrders();
-    });
-  }, [onReconnect]);
-
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    fetchOrders();
-  };
-
-  const formatDate = (dateString: string) => {
+  const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-NG', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
     });
-  };
+  }, []);
 
   // Declarative auth-gate: redirect to login if not authenticated
   if (redirectTo) {
     return <Redirect href={redirectTo} />;
   }
-
-  const orderFilters = buildOrderListFilters(orders);
-
-  // Filter orders based on the selected chip and search query
-  const filteredOrders = filterOrdersBySearchQuery(
-    orders.filter((order) => matchesOrderListFilter(order, selectedFilter)),
-    searchQuery
-  );
 
   const handleGoBack = () => {
     if (router.canGoBack()) {
@@ -357,86 +260,3 @@ export default function OrdersScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  centered: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 2,
-    paddingBottom: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  backButton: {
-    minHeight: 40,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-  },
-  backButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 88,
-  },
-  listContent: {
-    padding: 16,
-    gap: 14,
-  },
-  emptyListContent: {
-    flex: 1,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 32,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginTop: 16,
-  },
-  emptySubtitle: {
-    fontSize: 15,
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  shopButton: {
-    paddingHorizontal: 32,
-    paddingVertical: 14,
-    borderRadius: 8,
-    marginTop: 24,
-  },
-  shopButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  errorText: {
-    fontSize: 16,
-    marginTop: 12,
-  },
-  retryText: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 8,
-  },
-});
