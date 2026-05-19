@@ -25,13 +25,13 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useNetworkState } from '@/hooks/use-network-state';
-import { getCustomerOrderStatusMeta } from '@/lib/customer-order-status';
 import { createLogger } from '@/lib/logger';
 import {
   buildOrderListFilters,
   matchesOrderListFilter,
   type OrderListFilterKey,
 } from '@/lib/order-list-filters';
+import { filterOrdersBySearchQuery } from '@/lib/order-list-search';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -164,26 +164,10 @@ export default function OrdersScreen() {
   const orderFilters = buildOrderListFilters(orders);
 
   // Filter orders based on the selected chip and search query
-  const filteredOrders = orders
-    .filter((order) => matchesOrderListFilter(order, selectedFilter))
-    .filter((order) => {
-      if (!searchQuery.trim()) return true;
-
-      const query = searchQuery.toLowerCase().trim();
-
-      const orderNumberMatch = order.order_number
-        ?.toLowerCase()
-        .includes(query);
-      const statusMeta = getCustomerOrderStatusMeta(order.shipping_status);
-      const statusMatch =
-        statusMeta.label.toLowerCase().includes(query) ||
-        statusMeta.shortLabel.toLowerCase().includes(query);
-      const itemMatch = order.items?.some((item) =>
-        item.product_name?.toLowerCase().includes(query)
-      );
-
-      return orderNumberMatch || statusMatch || itemMatch;
-    });
+  const filteredOrders = filterOrdersBySearchQuery(
+    orders.filter((order) => matchesOrderListFilter(order, selectedFilter)),
+    searchQuery
+  );
 
   const handleGoBack = () => {
     if (router.canGoBack()) {
