@@ -1,8 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import type { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppDatePickerField } from '@/components/ui/AppDatePickerField';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import type { useTheme } from '@/hooks/useTheme';
 
@@ -52,28 +51,9 @@ export default function DateOfBirthPicker({
   const maximumDate = yearsAgo(18);
   const minimumDate = yearsAgo(120);
   const [showPicker, setShowPicker] = useState(false);
-  const [tempDate, setTempDate] = useState<Date>(() =>
-    parseValue(value, maximumDate)
-  );
-
-  const handleChange = (event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowPicker(false);
-      if (event.type === 'dismissed') return;
-      if (selectedDate) onChange(toYYYYMMDD(selectedDate));
-    } else if (selectedDate) {
-      setTempDate(selectedDate);
-    }
-  };
 
   const handleOpenPicker = () => {
-    setTempDate(parseValue(value, maximumDate));
     setShowPicker(true);
-  };
-
-  const handleConfirmIOS = () => {
-    onChange(toYYYYMMDD(tempDate));
-    setShowPicker(false);
   };
 
   return (
@@ -106,42 +86,15 @@ export default function DateOfBirthPicker({
       </Pressable>
 
       {showPicker && (
-        <View>
-          {Platform.OS === 'ios' && (
-            <View style={styles.iosActions}>
-              <Pressable
-                onPress={() => setShowPicker(false)}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessibilityRole="button"
-                accessibilityLabel="Cancel date selection"
-              >
-                <Text style={[styles.actionText, { color: colors.textMuted }]}>
-                  Cancel
-                </Text>
-              </Pressable>
-              <Pressable
-                onPress={handleConfirmIOS}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                accessibilityRole="button"
-                accessibilityLabel="Confirm date selection"
-              >
-                <Text style={[styles.actionText, { color: colors.primary }]}>
-                  Done
-                </Text>
-              </Pressable>
-            </View>
-          )}
-          <DateTimePicker
-            value={
-              Platform.OS === 'ios' ? tempDate : parseValue(value, maximumDate)
-            }
-            mode="date"
-            display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-            maximumDate={maximumDate}
-            minimumDate={minimumDate}
-            onChange={handleChange}
-          />
-        </View>
+        <AppDatePickerField
+          cancelTextColor={colors.textMuted}
+          confirmTextColor={colors.primary}
+          maximumDate={maximumDate}
+          minimumDate={minimumDate}
+          onClose={() => setShowPicker(false)}
+          onConfirm={(selectedDate) => onChange(toYYYYMMDD(selectedDate))}
+          value={parseValue(value, maximumDate)}
+        />
       )}
     </View>
   );
@@ -165,15 +118,5 @@ const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.regular,
     fontSize: TYPOGRAPHY.size.md,
     flex: 1,
-  },
-  iosActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.sm,
-  },
-  actionText: {
-    fontFamily: TYPOGRAPHY.fontFamily.medium,
-    fontSize: TYPOGRAPHY.size.md,
   },
 });

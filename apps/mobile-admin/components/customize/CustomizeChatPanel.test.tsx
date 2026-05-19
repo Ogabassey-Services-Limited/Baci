@@ -2,12 +2,22 @@ import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createRef, type ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LIGHT_COLORS, SHADOWS } from '@/constants/theme';
 import {
   CustomizeChatPanel,
   type CustomizeMessage,
 } from './CustomizeChatPanel';
+
+const mocks = vi.hoisted(() => ({
+  listProps: {
+    initialNumToRender: 0,
+    maxToRenderPerBatch: 0,
+    removeClippedSubviews: false,
+    windowSize: 0,
+  },
+  platform: { OS: 'ios' as 'ios' | 'android' },
+}));
 
 vi.mock('@/components/ui/AppKeyboardContainer', () => ({
   AppKeyboardContainer: ({ children }: { children?: ReactNode }) => (
@@ -23,9 +33,16 @@ vi.mock('react-native', () => ({
   ActivityIndicator: () => <span>loading</span>,
   FlatList: ({
     data,
+    initialNumToRender,
+    maxToRenderPerBatch,
+    removeClippedSubviews,
     renderItem,
+    windowSize,
   }: {
     data: CustomizeMessage[];
+    initialNumToRender?: number;
+    maxToRenderPerBatch?: number;
+    removeClippedSubviews?: boolean;
     renderItem: ({
       item,
       index,
@@ -34,13 +51,20 @@ vi.mock('react-native', () => ({
       index: number;
       separators?: unknown;
     }) => ReactNode;
-  }) => (
-    <div>
-      {data.map((item, index) => (
-        <div key={item.id}>{renderItem({ item, index })}</div>
-      ))}
-    </div>
-  ),
+    windowSize?: number;
+  }) => {
+    mocks.listProps.initialNumToRender = initialNumToRender ?? 0;
+    mocks.listProps.maxToRenderPerBatch = maxToRenderPerBatch ?? 0;
+    mocks.listProps.removeClippedSubviews = removeClippedSubviews ?? false;
+    mocks.listProps.windowSize = windowSize ?? 0;
+    return (
+      <div>
+        {data.map((item, index) => (
+          <div key={item.id}>{renderItem({ item, index })}</div>
+        ))}
+      </div>
+    );
+  },
   Pressable: ({
     accessibilityLabel,
     children,
@@ -61,10 +85,7 @@ vi.mock('react-native', () => ({
       {children}
     </button>
   ),
-  Platform: {
-    OS: 'ios',
-    select: (opts: Record<string, unknown>) => opts.ios || opts.default,
-  },
+  Platform: mocks.platform,
   StyleSheet: {
     create: (styles: Record<string, unknown>) => styles,
   },
@@ -91,6 +112,10 @@ vi.mock('react-native', () => ({
 }));
 
 describe('CustomizeChatPanel', () => {
+  afterEach(() => {
+    mocks.platform.OS = 'ios';
+  });
+
   it('renders the shared keyboard shell and forwards suggestion presses', async () => {
     const onSuggestionSelect = vi.fn();
 
@@ -164,5 +189,36 @@ describe('CustomizeChatPanel', () => {
 
     expect(onInputTextChange).toHaveBeenCalledWith('Add testimonials');
     expect(onSend).toHaveBeenCalledTimes(1);
+    expect(mocks.listProps.initialNumToRender).toBe(15);
+    expect(mocks.listProps.maxToRenderPerBatch).toBe(10);
+    expect(mocks.listProps.windowSize).toBe(5);
+    expect(mocks.listProps.removeClippedSubviews).toBe(false);
+  });
+
+  it('applies Android-specific virtualization optimizations', () => {
+    mocks.platform.OS = 'android';
+
+    render(
+      <CustomizeChatPanel
+        colors={LIGHT_COLORS}
+        flatListRef={createRef()}
+        inputText="Trigger list render"
+        isProcessingAI={false}
+        messages={[
+          {
+            content: 'Android test message',
+            id: 'android-1',
+            role: 'assistant',
+            timestamp: new Date(),
+          },
+        ]}
+        onInputTextChange={vi.fn()}
+        onSend={vi.fn()}
+        onSuggestionSelect={vi.fn()}
+        shadowStyle={SHADOWS.md}
+      />
+    );
+
+    expect(mocks.listProps.removeClippedSubviews).toBe(true);
   });
 });

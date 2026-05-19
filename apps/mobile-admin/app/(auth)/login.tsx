@@ -6,14 +6,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Platform,
-  Pressable,
-  Text,
-  type TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, Text, type TextInput, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { AuthInput } from '@/components/auth/AuthInput';
 import { LoginSecondaryActions } from '@/components/auth/LoginSecondaryActions';
@@ -21,6 +14,7 @@ import { styles } from '@/components/auth/login.styles';
 import { PasswordVisibilityToggle } from '@/components/auth/PasswordVisibilityToggle';
 import { BaciLogo } from '@/components/BaciLogo';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
+import { isRuntimePlatform } from '@/config/runtime-platform';
 import { BRAND } from '@/constants/brand';
 import { useOnboarding } from '@/context/OnboardingContext';
 import { useAuth } from '@/hooks/useAuth';
@@ -232,7 +226,7 @@ export default function LoginScreen() {
             onResetOnboarding={resetOnboarding}
             onSignUp={() => push('/(auth)/register')}
             replace={replace}
-            showAppleSignIn={Platform.OS === 'ios'}
+            showAppleSignIn={isRuntimePlatform('ios')}
           />
         </View>
       </View>

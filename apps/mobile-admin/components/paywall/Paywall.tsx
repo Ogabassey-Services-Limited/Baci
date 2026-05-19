@@ -6,7 +6,6 @@ import {
   Alert,
   Dimensions,
   Linking,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,11 +14,20 @@ import {
 } from 'react-native';
 import { useRevenueCatStore } from '@/stores/revenueCatStore';
 import type { PurchasesPackage } from 'react-native-purchases';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
 import { RADIUS, SPACING, TYPOGRAPHY } from '../../constants/theme';
 
 const { width: _width } = Dimensions.get('window');
+const DEFAULT_CLOSE_TOP = 30;
+const DEFAULT_HEADER_PADDING = 50;
+// Extra top spacing (dp) above safe-area inset to avoid close button overlap.
+const SAFE_AREA_CLOSE_OFFSET = 11;
+// Extra bottom spacing (dp) above safe-area inset to keep footer clear of system UI.
+const SAFE_AREA_FOOTER_OFFSET = 6;
+// Extra top spacing (dp) above safe-area inset to keep header clear of system UI.
+const SAFE_AREA_HEADER_OFFSET = 26;
 
 interface PaywallProps {
   onClose?: () => void;
@@ -27,6 +35,7 @@ interface PaywallProps {
 
 export default function Paywall({ onClose }: PaywallProps) {
   const { colors, shadows: _shadows } = useTheme();
+  const insets = useSafeAreaInsets();
   const {
     currentOffering,
     purchasePackage,
@@ -38,6 +47,18 @@ export default function Paywall({ onClose }: PaywallProps) {
 
   const [selectedPackage, setSelectedPackage] =
     useState<PurchasesPackage | null>(null);
+  const headerPaddingTop = Math.max(
+    DEFAULT_HEADER_PADDING,
+    insets.top + SAFE_AREA_HEADER_OFFSET
+  );
+  const closeButtonTop = Math.max(
+    DEFAULT_CLOSE_TOP,
+    insets.top + SAFE_AREA_CLOSE_OFFSET
+  );
+  const stickyFooterPaddingBottom = Math.max(
+    SPACING.xl,
+    insets.bottom + SAFE_AREA_FOOTER_OFFSET
+  );
 
   useEffect(() => {
     if (error) {
@@ -145,10 +166,10 @@ export default function Paywall({ onClose }: PaywallProps) {
         {/* Premium Header */}
         <LinearGradient
           colors={[colors.primary, '#8B0000']} // Premium Baci Red Gradient
-          style={styles.header}
+          style={[styles.header, { paddingTop: headerPaddingTop }]}
         >
           <Pressable
-            style={styles.closeButton}
+            style={[styles.closeButton, { top: closeButtonTop }]}
             onPress={onClose}
             accessibilityRole="button"
             accessibilityLabel="Close paywall"
@@ -259,7 +280,11 @@ export default function Paywall({ onClose }: PaywallProps) {
       <View
         style={[
           styles.stickyFooter,
-          { borderTopColor: colors.border, backgroundColor: colors.background },
+          {
+            backgroundColor: colors.background,
+            borderTopColor: colors.border,
+            paddingBottom: stickyFooterPaddingBottom,
+          },
         ]}
       >
         <Pressable
@@ -360,7 +385,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    paddingTop: Platform.OS === 'ios' ? 70 : 50, // Added 20px more room for better balance
+    paddingTop: DEFAULT_HEADER_PADDING,
     paddingBottom: 25,
     paddingHorizontal: SPACING.xl,
     alignItems: 'center',
@@ -369,7 +394,7 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 55 : 30, // Also moved close button down slightly
+    top: DEFAULT_CLOSE_TOP,
     right: 20,
     width: 32,
     height: 32,
@@ -474,7 +499,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: SPACING.xl,
-    paddingBottom: Platform.OS === 'ios' ? 40 : SPACING.xl,
+    paddingBottom: SPACING.xl,
     borderTopWidth: 1,
   },
   mainButton: {

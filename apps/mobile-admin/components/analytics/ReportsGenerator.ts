@@ -1,12 +1,12 @@
 import type { MerchantAnalyticsResponse } from '@baci/shared';
-import { Platform } from 'react-native';
+import { isRuntimePlatform } from '@/config/runtime-platform';
 
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
 let Print: typeof import('expo-print') | null = null;
 let Sharing: typeof import('expo-sharing') | null = null;
 
 const loadNativeModules = async () => {
-  if (Platform.OS === 'web') return;
+  if (isRuntimePlatform('web')) return;
   try {
     const [prnt, shr] = await Promise.all([
       import('expo-print'),

@@ -1,4 +1,3 @@
-import { Platform } from 'react-native';
 import type {
   CustomerInfo,
   PurchasesOffering,
@@ -6,6 +5,11 @@ import type {
   PurchasesPackage,
 } from 'react-native-purchases';
 import { create } from 'zustand';
+import {
+  getRuntimePlatform,
+  isRuntimePlatform,
+  selectRuntimePlatform,
+} from '@/config/runtime-platform';
 
 /** Typed interface for the subset of Purchases methods actually used in this store */
 interface PurchasesModule {
@@ -25,7 +29,7 @@ interface PurchasesModule {
 let Purchases: PurchasesModule | null = null;
 
 const loadNativeModules = async () => {
-  if (Platform.OS === 'web') return;
+  if (isRuntimePlatform('web')) return;
   try {
     const purchasesModule = await import('react-native-purchases');
     Purchases = purchasesModule.default as unknown as PurchasesModule;
@@ -112,28 +116,29 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
       // Ensure native module is loaded (module-level call may not have resolved yet)
       if (!Purchases) await loadNativeModules();
 
-      const apiKey = Platform.select({
+      const apiKey = selectRuntimePlatform({
         ios: API_KEY_IOS,
         android: API_KEY_ANDROID,
         default: null,
       });
+      const runtimePlatform = getRuntimePlatform();
 
       if (!apiKey) {
         console.warn(
-          `[RevenueCat] No API Key found for platform: ${Platform.OS}`
+          `[RevenueCat] No API Key found for platform: ${runtimePlatform}`
         );
         set({
           isLoading: false,
           isInitializing: false,
           isInitialized: true,
-          error: `Missing API Key for ${Platform.OS}`,
+          error: `Missing API Key for ${runtimePlatform}`,
         });
         return;
       }
 
       // Guard: Ensure we are on native and Purchases is available
       const purchasesRef = Purchases;
-      if (Platform.OS === 'web' || !purchasesRef) {
+      if (isRuntimePlatform('web') || !purchasesRef) {
         console.warn(
           '[RevenueCat] Purchases module not available on this platform'
         );

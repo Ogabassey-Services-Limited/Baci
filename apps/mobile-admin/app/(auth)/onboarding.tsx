@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   FlatList,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -14,7 +13,7 @@ import {
   type ViewToken,
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   DARK_COLORS,
   RADIUS,
@@ -81,6 +80,7 @@ const SLIDES: OnboardingSlide[] = [
 export default function OnboardingScreen() {
   const router = useRouter();
   const { completeOnboarding } = useOnboarding();
+  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const scrollX = useRef(new Animated.Value(0)).current;
   const slidesRef = useRef<FlatList<OnboardingSlide>>(null);
@@ -177,6 +177,7 @@ export default function OnboardingScreen() {
       </View>
     );
   };
+  const footerPaddingBottom = insets.bottom > 0 ? SPACING.lg : SPACING.xl;
 
   return (
     <View style={styles.container}>
@@ -218,7 +219,7 @@ export default function OnboardingScreen() {
         />
 
         {/* Footer with Pagination and Auth Buttons */}
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: footerPaddingBottom }]}>
           {/* Pagination Indicators */}
           <View style={styles.paginator}>
             {SLIDES.map((_, i) => {
@@ -371,7 +372,6 @@ const styles = StyleSheet.create({
   // Footer Styles
   footer: {
     paddingHorizontal: SPACING['2xl'],
-    paddingBottom: Platform.OS === 'ios' ? SPACING.lg : SPACING.xl,
     gap: SPACING.lg,
   },
   paginator: {

@@ -11,9 +11,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,6 +20,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppKeyboardContainer } from '@/components/ui/AppKeyboardContainer';
+import { getVirtualizedListProps } from '@/components/ui/virtualized-list-props';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { usePayoutAccountVerification } from '@/hooks/usePayoutAccountVerification';
@@ -326,9 +326,9 @@ export default function PayoutSettingsScreen() {
           animationType="slide"
           presentationStyle="pageSheet"
         >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            keyboardVerticalOffset={24}
+          <AppKeyboardContainer
+            align="start"
+            scrollEnabled={false}
             style={styles.modalContainer}
           >
             <View
@@ -382,20 +382,9 @@ export default function PayoutSettingsScreen() {
                 <FlatList
                   data={filteredBanks}
                   keyExtractor={(item) => item.code}
-                  keyboardDismissMode={
-                    Platform.OS === 'ios' ? 'interactive' : 'on-drag'
-                  }
+                  keyboardDismissMode="on-drag"
                   keyboardShouldPersistTaps="handled"
-                  // ⚡ Bolt Performance Optimization
-                  // Applying standard windowing props to optimize Modal render cycles and prevent UI thread blocking
-                  // initialNumToRender: Keeps initial mount fast by limiting items rendered on first pass
-                  // maxToRenderPerBatch: Prevents dropping frames when rendering subsequent items
-                  // windowSize: Reduces memory footprint by keeping only a small buffer of items outside the viewport
-                  // removeClippedSubviews: Frees memory for off-screen views (Android only due to iOS clipping bugs)
-                  initialNumToRender={15}
-                  maxToRenderPerBatch={10}
-                  windowSize={5}
-                  removeClippedSubviews={Platform.OS === 'android'}
+                  {...getVirtualizedListProps()}
                   renderItem={({ item }) => (
                     <Pressable
                       style={[
@@ -423,7 +412,7 @@ export default function PayoutSettingsScreen() {
                 />
               )}
             </View>
-          </KeyboardAvoidingView>
+          </AppKeyboardContainer>
         </Modal>
       </SafeAreaView>
     </>

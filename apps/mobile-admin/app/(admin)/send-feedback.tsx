@@ -9,7 +9,6 @@ import { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,6 +18,7 @@ import {
 } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getRuntimePlatform } from '@/config/runtime-platform';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
 import { useAuth } from '@/hooks/useAuth';
 import { useMerchant } from '@/hooks/useMerchant';
@@ -82,7 +82,7 @@ export default function SendFeedbackScreen() {
         rating: rating,
         categories: selectedCategories,
         message: message.trim() || null,
-        platform: Platform.OS,
+        platform: getRuntimePlatform(),
       });
 
       if (insertError) throw insertError;

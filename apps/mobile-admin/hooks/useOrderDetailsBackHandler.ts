@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import { BackHandler, Platform } from 'react-native';
+import { BackHandler } from 'react-native';
+import { isRuntimePlatform } from '@/config/runtime-platform';
 import type { ShipmentFlowStep } from '@/lib/order-shipment';
 
 export function useOrderDetailsBackHandler({
@@ -38,7 +39,7 @@ export function useOrderDetailsBackHandler({
   shipmentFlowStep: ShipmentFlowStep;
 }) {
   useEffect(() => {
-    if (Platform.OS !== 'android') return;
+    if (!isRuntimePlatform('android')) return;
 
     const anyModalOpen =
       showStatusModal ||

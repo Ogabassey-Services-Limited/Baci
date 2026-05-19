@@ -6,6 +6,7 @@ import {
   findForbiddenPatternViolations,
   findNonAllowlistedFiles,
   findPlatformBranchFiles,
+  findStaleAllowlistEntries,
 } from './check-platform-drift.mjs';
 
 const tempDirs = new Set<string>();
@@ -50,6 +51,15 @@ describe('check-platform-drift', () => {
         ['app/known.tsx']
       )
     ).toEqual(['components/new.tsx']);
+  });
+
+  it('detects stale entries in the allowlist', () => {
+    expect(
+      findStaleAllowlistEntries(
+        ['app/known.tsx', 'components/stale.tsx'],
+        ['app/known.tsx']
+      )
+    ).toEqual(['components/stale.tsx']);
   });
 
   it('flags the forbidden android keyboard pattern', () => {

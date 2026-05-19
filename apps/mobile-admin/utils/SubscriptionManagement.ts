@@ -1,9 +1,20 @@
-import { Alert, Linking, Platform } from 'react-native';
+import { Alert, Linking } from 'react-native';
+import {
+  getRuntimePlatform,
+  isRuntimePlatform,
+  type RuntimePlatform,
+} from '@/config/runtime-platform';
 
 /**
  * Utility to help manage subscriptions natively
  */
 export const SubscriptionManagement = {
+  getManagementLabel: (platformOs: RuntimePlatform = getRuntimePlatform()) => {
+    return platformOs === 'ios'
+      ? 'Manage in App Store'
+      : 'Manage in Google Play';
+  },
+
   /**
    * Opens the native subscription management page for the current platform
    * @returns true if successful, false if failed
@@ -14,10 +25,10 @@ export const SubscriptionManagement = {
     const androidUrl = `https://play.google.com/store/account/subscriptions?package=${androidPackage}`;
 
     try {
-      if (Platform.OS === 'ios') {
+      if (isRuntimePlatform('ios')) {
         await Linking.openURL(iosUrl);
         return true;
-      } else if (Platform.OS === 'android') {
+      } else if (isRuntimePlatform('android')) {
         await Linking.openURL(androidUrl);
         return true;
       }
@@ -27,10 +38,10 @@ export const SubscriptionManagement = {
 
       // Try fallback: open device settings on iOS, general Play Store on Android
       try {
-        if (Platform.OS === 'ios') {
+        if (isRuntimePlatform('ios')) {
           await Linking.openSettings();
           return true;
-        } else if (Platform.OS === 'android') {
+        } else if (isRuntimePlatform('android')) {
           // Fallback to general Play Store subscriptions page
           await Linking.openURL(
             'https://play.google.com/store/account/subscriptions'
@@ -44,7 +55,7 @@ export const SubscriptionManagement = {
       // Show user feedback if all attempts failed
       Alert.alert(
         'Unable to Open',
-        'Could not open subscription management. Please manage your subscription directly in the App Store or Google Play Store.',
+        `Could not open subscription management. Please ${SubscriptionManagement.getManagementLabel().toLowerCase()} directly.`,
         [{ text: 'OK' }]
       );
       return false;

@@ -1,4 +1,4 @@
-import { Platform } from 'react-native';
+import { isRuntimePlatform } from '@/config/runtime-platform';
 
 export interface OrderExportNativeModules {
   FileSystem: typeof import('expo-file-system/legacy') | null;
@@ -8,7 +8,7 @@ export interface OrderExportNativeModules {
 
 export async function loadOrderExportNativeModules(): Promise<OrderExportNativeModules> {
   // Expo export modules are native-only; reject web before loading them.
-  if (Platform.OS === 'web') {
+  if (isRuntimePlatform('web')) {
     throw new Error('Export modules not available');
   }
 

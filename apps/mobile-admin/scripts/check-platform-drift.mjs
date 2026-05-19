@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 const SCAN_DIRECTORIES = [
   'app',
   'components',
+  'config',
   'hooks',
   'lib',
   'services',
@@ -81,6 +82,11 @@ export function findNonAllowlistedFiles(foundFiles, allowlist) {
   return foundFiles.filter((relativePath) => !allowlistSet.has(relativePath));
 }
 
+export function findStaleAllowlistEntries(allowlist, foundFiles) {
+  const foundSet = new Set(foundFiles);
+  return allowlist.filter((relativePath) => !foundSet.has(relativePath));
+}
+
 function main() {
   const scriptFile = fileURLToPath(import.meta.url);
   const projectRoot = path.resolve(path.dirname(scriptFile), '..');
@@ -111,6 +117,7 @@ function main() {
 
   const foundFiles = findPlatformBranchFiles(projectRoot);
   const nonAllowlistedFiles = findNonAllowlistedFiles(foundFiles, allowlist);
+  const staleAllowlistEntries = findStaleAllowlistEntries(allowlist, foundFiles);
   // Forbidden patterns are only enforced on non-allowlisted files so existing
   // grandfathered files are not retroactively blocked.
   const violations = findForbiddenPatternViolations(
@@ -118,7 +125,11 @@ function main() {
     nonAllowlistedFiles
   );
 
-  if (nonAllowlistedFiles.length === 0 && violations.length === 0) {
+  if (
+    nonAllowlistedFiles.length === 0 &&
+    violations.length === 0 &&
+    staleAllowlistEntries.length === 0
+  ) {
     console.log(
       `[platform-drift] OK: ${foundFiles.length} allowlisted platform-specific files, no forbidden drift patterns found.`
     );
@@ -136,6 +147,13 @@ function main() {
     console.error('[platform-drift] Forbidden platform patterns found:');
     for (const violation of violations) {
       console.error(`- ${violation.file}: ${violation.description}`);
+    }
+  }
+
+  if (staleAllowlistEntries.length > 0) {
+    console.error('[platform-drift] Stale allowlist entries:');
+    for (const relativePath of staleAllowlistEntries) {
+      console.error(`- ${relativePath}`);
     }
   }
 

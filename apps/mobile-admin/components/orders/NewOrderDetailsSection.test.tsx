@@ -11,19 +11,26 @@ vi.mock('@expo/vector-icons', () => ({
   Ionicons: () => null,
 }));
 
-vi.mock('@react-native-community/datetimepicker', () => ({
-  default: ({
-    onChange,
+vi.mock('@/components/ui/AppDatePickerField', () => ({
+  AppDatePickerField: ({
+    onClose,
+    onConfirm,
   }: {
-    onChange: (_event: unknown, date?: Date) => void;
+    onClose: () => void;
+    onConfirm: (date: Date) => void;
   }) => (
-    <button
-      aria-label="Pick order date"
-      onClick={() => onChange(null, new Date('2024-02-03T00:00:00.000Z'))}
-      type="button"
-    >
-      Pick order date
-    </button>
+    <div>
+      <button
+        aria-label="Pick order date"
+        onClick={() => onConfirm(new Date('2024-02-03T00:00:00.000Z'))}
+        type="button"
+      >
+        Pick order date
+      </button>
+      <button aria-label="Close date picker" onClick={onClose} type="button">
+        Close date picker
+      </button>
+    </div>
   ),
 }));
 
@@ -274,7 +281,7 @@ describe('NewOrderDetailsSection', () => {
     expect(screen.getAllByText(/Date/i).length).toBeGreaterThan(0);
   });
 
-  it('updates the selected date when the picker fires on iOS/web-style platforms', () => {
+  it('updates the selected date when the shared date picker confirms a value', () => {
     platformState.OS = 'ios';
     const controller = makeController({ showDatePicker: true });
 
@@ -288,17 +295,14 @@ describe('NewOrderDetailsSection', () => {
     expect(controller.setShowDatePicker).not.toHaveBeenCalledWith(false);
   });
 
-  it('closes the picker after selecting a date on Android', () => {
+  it('closes the picker when the shared date picker signals close', () => {
     platformState.OS = 'android';
     const controller = makeController({ showDatePicker: true });
 
     render(<NewOrderDetailsSection controller={controller} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Pick order date' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close date picker' }));
 
-    expect(controller.setDate).toHaveBeenCalledWith(
-      new Date('2024-02-03T00:00:00.000Z')
-    );
     expect(controller.setShowDatePicker).toHaveBeenCalledWith(false);
   });
 
