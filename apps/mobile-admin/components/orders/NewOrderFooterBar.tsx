@@ -39,6 +39,7 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
             const isSelected = paymentStatus === status;
             return (
               <Pressable
+                accessibilityLabel={`Payment status: ${status === 'partially_paid' ? 'Partial' : status}`}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: isSelected }}
                 key={status}
@@ -48,7 +49,8 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
                     setPartialAmount('');
                   }
                 }}
-                style={[
+                style={({ pressed }) => [
+                  pressed && { opacity: 0.7 },
                   styles.toggleOption,
                   isSelected && {
                     backgroundColor: colors.background,
@@ -100,27 +102,33 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {PAYMENT_METHODS.map((method) => (
               <Pressable
+                accessibilityLabel={`Payment method: ${method.label}`}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: paymentMethod === method.id }}
                 key={method.id}
                 onPress={() => setPaymentMethod(method.id)}
-                style={{
-                  alignItems: 'center',
-                  backgroundColor:
-                    paymentMethod === method.id ? colors.primary : colors.card,
-                  borderColor:
-                    paymentMethod === method.id
-                      ? colors.primary
-                      : colors.border,
-                  borderRadius: 12,
-                  borderWidth: 1,
-                  flex: 1,
-                  flexDirection: 'row',
-                  gap: 6,
-                  justifyContent: 'center',
-                  paddingHorizontal: 12,
-                  paddingVertical: 10,
-                }}
+                style={({ pressed }) => [
+                  {
+                    opacity: pressed ? 0.7 : 1,
+                    alignItems: 'center',
+                    backgroundColor:
+                      paymentMethod === method.id
+                        ? colors.primary
+                        : colors.card,
+                    borderColor:
+                      paymentMethod === method.id
+                        ? colors.primary
+                        : colors.border,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    flex: 1,
+                    flexDirection: 'row',
+                    gap: 6,
+                    justifyContent: 'center',
+                    paddingHorizontal: 12,
+                    paddingVertical: 10,
+                  },
+                ]}
               >
                 <Ionicons
                   color={
@@ -197,13 +205,15 @@ export function NewOrderFooterBar({ controller }: NewOrderFooterBarProps) {
           </Text>
         </View>
         <Pressable
+          accessibilityLabel="Save Order"
           accessibilityRole="button"
           accessibilityState={{
             disabled: isSubmitting || orderItems.length === 0,
           }}
           disabled={isSubmitting || orderItems.length === 0}
           onPress={handleSubmit}
-          style={[
+          style={({ pressed }) => [
+            pressed && { opacity: 0.7 },
             styles.payBtn,
             {
               backgroundColor: colors.primary,
