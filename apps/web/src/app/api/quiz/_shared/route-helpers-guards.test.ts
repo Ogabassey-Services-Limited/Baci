@@ -4,6 +4,8 @@ import { enforcePrizeProductionGuard } from '@/lib/quiz-compliance-gate';
 import {
   enforceCashAwardPrizeGuard,
   enforceEventPrizeGuard,
+  enforceQuizAgeGate,
+  QuizAgeGateError,
   type ServerSupabaseClient,
 } from './route-helpers-guards';
 
@@ -21,6 +23,7 @@ vi.mock('@/lib/quiz-compliance-gate', () => ({
 function mockSupabaseResult(result: { data: unknown; error: unknown }) {
   const queryBuilder = {
     eq: vi.fn(() => queryBuilder),
+    limit: vi.fn(() => queryBuilder),
     maybeSingle: vi.fn().mockResolvedValue(result),
     order: vi.fn(() => queryBuilder),
     range: vi.fn().mockResolvedValue(result),
@@ -52,7 +55,7 @@ describe('quiz route helper prize guards', () => {
 
     expect(supabase.from).toHaveBeenCalledWith('quiz_events');
     expect(queryBuilder.select).toHaveBeenCalledWith(
-      'nlrc_permit_ref, compliance_verified'
+      'merchant_id, nlrc_permit_ref, compliance_verified'
     );
     expect(queryBuilder.eq).toHaveBeenCalledWith('id', 'event-1');
     expect(enforcePrizeProductionGuard).toHaveBeenCalledWith(
@@ -177,5 +180,90 @@ describe('quiz route helper prize guards', () => {
       { nlrc_permit_ref: 'NLRC-789' },
       true
     );
+  });
+
+  it('rejects quiz age gate checks without merchant scope', async () => {
+    const { supabase } = mockSupabaseResult({
+      data: { date_of_birth: '1990-01-01' },
+      error: null,
+    });
+
+    await expect(
+      enforceQuizAgeGate(supabase, null, 'user-1')
+    ).rejects.toBeInstanceOf(QuizAgeGateError);
+
+    expect(logger.warn).toHaveBeenCalledWith({
+      message: 'Quiz age gate missing merchant context',
+      userId: 'user-1',
+    });
+  });
+
+  it('rejects quiz age gate when date of birth is missing', async () => {
+    const { queryBuilder, supabase } = mockSupabaseResult({
+      data: { date_of_birth: null },
+      error: null,
+    });
+
+    await expect(
+      enforceQuizAgeGate(supabase, 'merchant-1', 'user-1')
+    ).rejects.toBeInstanceOf(QuizAgeGateError);
+
+    expect(supabase.from).toHaveBeenCalledWith('customers');
+    expect(queryBuilder.select).toHaveBeenCalledWith('date_of_birth');
+    expect(queryBuilder.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
+    expect(queryBuilder.eq).toHaveBeenCalledWith('user_id', 'user-1');
+    expect(queryBuilder.order).toHaveBeenCalledWith('created_at', {
+      ascending: false,
+    });
+    expect(queryBuilder.limit).toHaveBeenCalledWith(1);
+    expect(logger.warn).toHaveBeenCalledWith({
+      merchantId: 'merchant-1',
+      message: 'Quiz age gate missing or invalid date_of_birth',
+      userId: 'user-1',
+    });
+  });
+
+  it('rejects quiz age gate when the customer is underage', async () => {
+    const { supabase } = mockSupabaseResult({
+      data: { date_of_birth: '2012-01-01' },
+      error: null,
+    });
+
+    await expect(
+      enforceQuizAgeGate(supabase, 'merchant-1', 'user-1')
+    ).rejects.toBeInstanceOf(QuizAgeGateError);
+
+    expect(logger.warn).toHaveBeenCalledWith({
+      merchantId: 'merchant-1',
+      message: 'Quiz age gate blocked underage customer',
+      userId: 'user-1',
+    });
+  });
+
+  it('throws and logs age gate lookup failures', async () => {
+    const dbError = new Error('customer lookup failed');
+    const { supabase } = mockSupabaseResult({ data: null, error: dbError });
+
+    await expect(
+      enforceQuizAgeGate(supabase, 'merchant-1', 'user-1')
+    ).rejects.toThrow('Quiz age gate customer lookup failed for user-1');
+
+    expect(logger.error).toHaveBeenCalledWith({
+      error: dbError,
+      merchantId: 'merchant-1',
+      message: 'Quiz age gate customer lookup failed',
+      userId: 'user-1',
+    });
+  });
+
+  it('passes age gate checks for adults', async () => {
+    const { supabase } = mockSupabaseResult({
+      data: { date_of_birth: '1990-05-01' },
+      error: null,
+    });
+
+    await expect(
+      enforceQuizAgeGate(supabase, 'merchant-1', 'user-1')
+    ).resolves.toBeUndefined();
   });
 });

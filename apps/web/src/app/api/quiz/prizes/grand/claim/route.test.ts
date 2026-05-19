@@ -90,7 +90,9 @@ describe('grand prize claim route', () => {
       proof: { proof_id: 'proof-1' },
       response: null,
     } as never);
-    vi.mocked(enforceEventPrizeGuard).mockResolvedValue(undefined);
+    vi.mocked(enforceEventPrizeGuard).mockResolvedValue({
+      merchantId: 'merchant-1',
+    });
   });
 
   it('returns auth failures before parsing JSON or guard work', async () => {

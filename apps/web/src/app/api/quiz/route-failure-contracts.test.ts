@@ -42,7 +42,9 @@ function mockSupabase({
   selectResult = {
     data: {
       compliance_verified: true,
+      date_of_birth: '1990-01-01',
       event_id: EVENT_ID,
+      merchant_id: 'merchant-1',
       nlrc_permit_ref: 'NLRC-1',
       quiz_events: { compliance_verified: true, nlrc_permit_ref: 'NLRC-1' },
     },
@@ -57,7 +59,9 @@ function mockSupabase({
   const rpc = vi.fn().mockResolvedValue(rpcResult);
   const queryBuilder = {
     eq: vi.fn(() => queryBuilder),
+    limit: vi.fn(() => queryBuilder),
     maybeSingle: vi.fn().mockResolvedValue(selectResult),
+    order: vi.fn(() => queryBuilder),
     select: vi.fn(() => queryBuilder),
     single: vi.fn().mockResolvedValue(selectResult),
   };

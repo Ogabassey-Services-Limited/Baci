@@ -39,7 +39,15 @@ function jsonRequest(body: unknown) {
 
 function mockAuthenticatedSupabase({
   eventGuardResult = {
-    data: { compliance_verified: true, nlrc_permit_ref: 'NLRC-123' },
+    data: {
+      compliance_verified: true,
+      merchant_id: 'merchant-1',
+      nlrc_permit_ref: 'NLRC-123',
+    },
+    error: null,
+  },
+  customerAgeResult = {
+    data: { date_of_birth: '1990-01-01' },
     error: null,
   },
   rpcResult = {
@@ -54,6 +62,7 @@ function mockAuthenticatedSupabase({
   user = { id: USER_ID },
 }: {
   eventGuardResult?: { data: unknown; error: unknown };
+  customerAgeResult?: { data: unknown; error: unknown };
   rpcResult?: { data: unknown; error: unknown };
   user?: { id: string } | null;
 } = {}) {
@@ -62,8 +71,16 @@ function mockAuthenticatedSupabase({
     maybeSingle: vi.fn().mockResolvedValue(eventGuardResult),
     select: vi.fn(() => eventGuardBuilder),
   };
+  const customerAgeBuilder = {
+    eq: vi.fn(() => customerAgeBuilder),
+    limit: vi.fn(() => customerAgeBuilder),
+    maybeSingle: vi.fn().mockResolvedValue(customerAgeResult),
+    order: vi.fn(() => customerAgeBuilder),
+    select: vi.fn(() => customerAgeBuilder),
+  };
   const from = vi.fn((table: string) => {
     if (table === 'quiz_events') return eventGuardBuilder;
+    if (table === 'customers') return customerAgeBuilder;
     return eventGuardBuilder;
   });
   const rpc = vi.fn().mockResolvedValue(rpcResult);
@@ -79,7 +96,7 @@ function mockAuthenticatedSupabase({
   };
 
   vi.mocked(createClient).mockResolvedValue(supabase as never);
-  return { eventGuardBuilder, from, rpc };
+  return { customerAgeBuilder, eventGuardBuilder, from, rpc };
 }
 
 describe('start quiz attempt route', () => {
@@ -250,9 +267,38 @@ describe('start quiz attempt route', () => {
     });
     expect(from).toHaveBeenCalledWith('quiz_events');
     expect(eventGuardBuilder.select).toHaveBeenCalledWith(
-      'nlrc_permit_ref, compliance_verified'
+      'merchant_id, nlrc_permit_ref, compliance_verified'
     );
     expect(eventGuardBuilder.eq).toHaveBeenCalledWith('id', EVENT_ID);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('blocks production quiz start when customer date of birth is missing', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
+    const { customerAgeBuilder, rpc } = mockAuthenticatedSupabase({
+      customerAgeResult: {
+        data: { date_of_birth: null },
+        error: null,
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      code: 'quiz_age_restricted',
+      error: 'Quiz participation requires an adult profile (18+)',
+    });
+    expect(customerAgeBuilder.select).toHaveBeenCalledWith('date_of_birth');
+    expect(customerAgeBuilder.eq).toHaveBeenCalledWith(
+      'merchant_id',
+      'merchant-1'
+    );
+    expect(customerAgeBuilder.eq).toHaveBeenCalledWith('user_id', USER_ID);
     expect(rpc).not.toHaveBeenCalled();
   });
 });
