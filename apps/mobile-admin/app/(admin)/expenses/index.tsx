@@ -207,7 +207,7 @@ export default function ExpensesScreen() {
           style={[styles.fab, { backgroundColor: colors.primary }, shadows.lg]}
           onPress={() => router.push('/expenses/new')}
         >
-          <Ionicons name="add" size={32} color="#FFFFFF" />
+          <Ionicons name="add" size={32} color={colors.textOnPrimary} />
         </Pressable>
       </SafeAreaView>
     </>
