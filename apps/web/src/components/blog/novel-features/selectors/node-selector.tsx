@@ -26,6 +26,25 @@ export type SelectorItem = {
   isActive: (editor: ReturnType<typeof useEditor>['editor']) => boolean;
 };
 
+// Type guard interface for tiptap editor methods missing in novel's types
+interface TiptapEditor {
+  chain: () => {
+    focus: () => {
+      toggleTaskList: () => { run: () => void };
+      toggleBulletList: () => { run: () => void };
+      toggleOrderedList: () => { run: () => void };
+    };
+  };
+  isActive: (name: string, options?: Record<string, unknown>) => boolean;
+}
+
+function getTiptap(
+  editor: ReturnType<typeof useEditor>['editor']
+): TiptapEditor | null {
+  if (!editor) return null;
+  return editor as unknown as TiptapEditor;
+}
+
 const items: SelectorItem[] = [
   {
     name: 'Text',
@@ -63,31 +82,22 @@ const items: SelectorItem[] = [
     name: 'To-do List',
     icon: CheckSquare,
     command: (editor) =>
-      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-      (editor as any)?.chain().focus().toggleTaskList().run(),
-    isActive: (editor) =>
-      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-      (editor as any)?.isActive('taskItem') ?? false,
+      getTiptap(editor)?.chain().focus().toggleTaskList().run(),
+    isActive: (editor) => getTiptap(editor)?.isActive('taskItem') ?? false,
   },
   {
     name: 'Bullet List',
     icon: ListOrdered,
     command: (editor) =>
-      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-      (editor as any)?.chain().focus().toggleBulletList().run(),
-    isActive: (editor) =>
-      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-      (editor as any)?.isActive('bulletList') ?? false,
+      getTiptap(editor)?.chain().focus().toggleBulletList().run(),
+    isActive: (editor) => getTiptap(editor)?.isActive('bulletList') ?? false,
   },
   {
     name: 'Numbered List',
     icon: ListOrdered,
     command: (editor) =>
-      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-      (editor as any)?.chain().focus().toggleOrderedList().run(),
-    isActive: (editor) =>
-      // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-      (editor as any)?.isActive('orderedList') ?? false,
+      getTiptap(editor)?.chain().focus().toggleOrderedList().run(),
+    isActive: (editor) => getTiptap(editor)?.isActive('orderedList') ?? false,
   },
   {
     name: 'Quote',

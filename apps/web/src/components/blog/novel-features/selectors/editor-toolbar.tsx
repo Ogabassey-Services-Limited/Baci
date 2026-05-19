@@ -24,6 +24,7 @@ import {
   Youtube as YoutubeIcon,
 } from 'lucide-react';
 import { useEditor } from 'novel';
+import type { EditorView } from 'prosemirror-view';
 import { useRef, useState } from 'react';
 import { uploadFn } from '@/components/blog/novel-features/image-upload';
 import { Button } from '@/components/ui/button';
@@ -48,13 +49,71 @@ interface EditorToolbarProps {
 
 type ImagePopoverMode = 'insert' | 'edit-caption';
 
+// Type guard interface for tiptap editor methods missing in novel's types
+interface TiptapEditor {
+  isActive: (
+    name: string | Record<string, unknown>,
+    options?: Record<string, unknown>
+  ) => boolean;
+  getAttributes: (name: string) => Record<string, unknown>;
+  chain: () => {
+    focus: () => {
+      toggleBold: () => { run: () => void };
+      toggleItalic: () => { run: () => void };
+      toggleUnderline: () => { run: () => void };
+      toggleStrike: () => { run: () => void };
+      toggleCode: () => { run: () => void };
+      setTextAlign: (alignment: string) => { run: () => void };
+      toggleBulletList: () => { run: () => void };
+      toggleOrderedList: () => { run: () => void };
+      toggleBlockquote: () => { run: () => void };
+      setHorizontalRule: () => { run: () => void };
+      toggleSuperscript: () => { run: () => void };
+      toggleSubscript: () => { run: () => void };
+      setImage: (options: { src: string; title?: string | null }) => {
+        run: () => void;
+      };
+      updateAttributes: (
+        typeOrName: string,
+        attributes: Record<string, unknown>
+      ) => { run: () => void };
+      insertTable: (options: {
+        rows: number;
+        cols: number;
+        withHeaderRow: boolean;
+      }) => { run: () => void };
+      undo: () => { run: () => void };
+      redo: () => { run: () => void };
+    };
+  };
+  can: () => {
+    chain: () => {
+      focus: () => {
+        undo: () => { run: () => boolean };
+        redo: () => { run: () => boolean };
+      };
+    };
+  };
+  commands: {
+    setYoutubeVideo: (options: { src: string }) => void;
+  };
+  state: {
+    selection: {
+      from: number;
+    };
+  };
+  view: EditorView;
+}
+
+function getTiptap(editor: unknown): TiptapEditor {
+  return editor as unknown as TiptapEditor;
+}
+
 export const EditorToolbar = ({
   onOpenLink,
   onOpenProducts,
 }: EditorToolbarProps) => {
-  const { editor: _editor } = useEditor();
-  // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex in novel
-  const editor = _editor as any;
+  const { editor } = useEditor();
   const [openNode, setOpenNode] = useState(false);
   const [openColor, setOpenColor] = useState(false);
   const [imageUrlOpen, setImageUrlOpen] = useState(false);
@@ -81,7 +140,7 @@ export const EditorToolbar = ({
   };
 
   const openImageCaptionPopover = () => {
-    const imageAttrs = (editor.getAttributes('image') ?? {}) as {
+    const imageAttrs = (getTiptap(editor).getAttributes('image') ?? {}) as {
       title?: string | null;
     };
     setImagePopoverMode('edit-caption');
@@ -118,7 +177,7 @@ export const EditorToolbar = ({
       return;
     }
 
-    editor
+    getTiptap(editor)
       .chain()
       .focus()
       .setImage({
@@ -133,11 +192,11 @@ export const EditorToolbar = ({
   };
 
   const _updateSelectedImageCaption = () => {
-    if (!editor.isActive('image')) {
+    if (!getTiptap(editor).isActive('image')) {
       return;
     }
 
-    editor
+    getTiptap(editor)
       .chain()
       .focus()
       .updateAttributes('image', {
@@ -148,44 +207,44 @@ export const EditorToolbar = ({
     closeImagePopover();
   };
 
-  const handleUndo = () => editor.chain().focus().undo().run();
-  const handleRedo = () => editor.chain().focus().redo().run();
-  const canUndo = editor.can().chain().focus().undo().run();
-  const canRedo = editor.can().chain().focus().redo().run();
+  const handleUndo = () => getTiptap(editor).chain().focus().undo().run();
+  const handleRedo = () => getTiptap(editor).chain().focus().redo().run();
+  const canUndo = getTiptap(editor).can().chain().focus().undo().run();
+  const canRedo = getTiptap(editor).can().chain().focus().redo().run();
 
   const formatButtons = [
     {
       name: 'bold',
-      isActive: () => editor.isActive('bold'),
-      command: () => editor.chain().focus().toggleBold().run(),
+      isActive: () => getTiptap(editor).isActive('bold'),
+      command: () => getTiptap(editor).chain().focus().toggleBold().run(),
       icon: Bold,
       title: 'Bold (Cmd+B)',
     },
     {
       name: 'italic',
-      isActive: () => editor.isActive('italic'),
-      command: () => editor.chain().focus().toggleItalic().run(),
+      isActive: () => getTiptap(editor).isActive('italic'),
+      command: () => getTiptap(editor).chain().focus().toggleItalic().run(),
       icon: Italic,
       title: 'Italic (Cmd+I)',
     },
     {
       name: 'underline',
-      isActive: () => editor.isActive('underline'),
-      command: () => editor.chain().focus().toggleUnderline().run(),
+      isActive: () => getTiptap(editor).isActive('underline'),
+      command: () => getTiptap(editor).chain().focus().toggleUnderline().run(),
       icon: Underline,
       title: 'Underline (Cmd+U)',
     },
     {
       name: 'strike',
-      isActive: () => editor.isActive('strike'),
-      command: () => editor.chain().focus().toggleStrike().run(),
+      isActive: () => getTiptap(editor).isActive('strike'),
+      command: () => getTiptap(editor).chain().focus().toggleStrike().run(),
       icon: Strikethrough,
       title: 'Strikethrough',
     },
     {
       name: 'code',
-      isActive: () => editor.isActive('code'),
-      command: () => editor.chain().focus().toggleCode().run(),
+      isActive: () => getTiptap(editor).isActive('code'),
+      command: () => getTiptap(editor).chain().focus().toggleCode().run(),
       icon: Code,
       title: 'Code Inline',
     },
@@ -194,22 +253,25 @@ export const EditorToolbar = ({
   const alignmentButtons = [
     {
       name: 'left',
-      isActive: () => editor.isActive({ textAlign: 'left' }),
-      command: () => editor.chain().focus().setTextAlign('left').run(),
+      isActive: () => getTiptap(editor).isActive({ textAlign: 'left' }),
+      command: () =>
+        getTiptap(editor).chain().focus().setTextAlign('left').run(),
       icon: AlignLeft,
       title: 'Align Left',
     },
     {
       name: 'center',
-      isActive: () => editor.isActive({ textAlign: 'center' }),
-      command: () => editor.chain().focus().setTextAlign('center').run(),
+      isActive: () => getTiptap(editor).isActive({ textAlign: 'center' }),
+      command: () =>
+        getTiptap(editor).chain().focus().setTextAlign('center').run(),
       icon: AlignCenter,
       title: 'Align Center',
     },
     {
       name: 'right',
-      isActive: () => editor.isActive({ textAlign: 'right' }),
-      command: () => editor.chain().focus().setTextAlign('right').run(),
+      isActive: () => getTiptap(editor).isActive({ textAlign: 'right' }),
+      command: () =>
+        getTiptap(editor).chain().focus().setTextAlign('right').run(),
       icon: AlignRight,
       title: 'Align Right',
     },
@@ -218,15 +280,16 @@ export const EditorToolbar = ({
   const listButtons = [
     {
       name: 'bulletList',
-      isActive: () => editor.isActive('bulletList'),
-      command: () => editor.chain().focus().toggleBulletList().run(),
+      isActive: () => getTiptap(editor).isActive('bulletList'),
+      command: () => getTiptap(editor).chain().focus().toggleBulletList().run(),
       icon: List,
       title: 'Bullet List',
     },
     {
       name: 'orderedList',
-      isActive: () => editor.isActive('orderedList'),
-      command: () => editor.chain().focus().toggleOrderedList().run(),
+      isActive: () => getTiptap(editor).isActive('orderedList'),
+      command: () =>
+        getTiptap(editor).chain().focus().toggleOrderedList().run(),
       icon: ListOrdered,
       title: 'Ordered List',
     },
@@ -331,13 +394,11 @@ export const EditorToolbar = ({
           size="sm"
           type="button"
           onClick={() =>
-            // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-            (editor as any).chain().focus().toggleBlockquote().run()
+            getTiptap(editor).chain().focus().toggleBlockquote().run()
           }
           className={cn('h-8 w-8 p-0', {
             'bg-accent text-accent-foreground':
-              // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-              (editor as any).isActive('blockquote'),
+              getTiptap(editor).isActive('blockquote'),
           })}
           title="Blockquote"
         >
@@ -348,8 +409,7 @@ export const EditorToolbar = ({
           size="sm"
           type="button"
           onClick={() =>
-            // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-            (editor as any).chain().focus().setHorizontalRule().run()
+            getTiptap(editor).chain().focus().setHorizontalRule().run()
           }
           className="h-8 w-8 p-0"
           title="Horizontal Rule"
@@ -373,7 +433,8 @@ export const EditorToolbar = ({
           type="button"
           onClick={onOpenLink}
           className={cn('h-8 w-8 p-0', {
-            'bg-accent text-accent-foreground': editor.isActive('link'),
+            'bg-accent text-accent-foreground':
+              getTiptap(editor).isActive('link'),
           })}
           title="Hyperlink"
         >
@@ -406,7 +467,7 @@ export const EditorToolbar = ({
               <LinkIcon className="mr-2 h-4 w-4" />
               Insert from URL
             </DropdownMenuItem>
-            {editor.isActive('image') ? (
+            {getTiptap(editor).isActive('image') ? (
               <DropdownMenuItem
                 onClick={openImageCaptionPopover}
                 aria-label="Edit selected image caption"
@@ -530,8 +591,7 @@ export const EditorToolbar = ({
             if (url) {
               const sanitized = sanitizeUrl(url.trim());
               if (sanitized) {
-                // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-                (editor as any).commands.setYoutubeVideo({
+                getTiptap(editor).commands.setYoutubeVideo({
                   src: sanitized,
                 });
               } else {
@@ -551,10 +611,12 @@ export const EditorToolbar = ({
             variant="ghost"
             size="sm"
             type="button"
-            onClick={() => editor.chain().focus().toggleSuperscript().run()}
+            onClick={() =>
+              getTiptap(editor).chain().focus().toggleSuperscript().run()
+            }
             className={cn(
               'h-8 w-8 p-0',
-              editor.isActive('superscript') && 'bg-accent'
+              getTiptap(editor).isActive('superscript') && 'bg-accent'
             )}
             title="Superscript"
           >
@@ -564,10 +626,12 @@ export const EditorToolbar = ({
             variant="ghost"
             size="sm"
             type="button"
-            onClick={() => editor.chain().focus().toggleSubscript().run()}
+            onClick={() =>
+              getTiptap(editor).chain().focus().toggleSubscript().run()
+            }
             className={cn(
               'h-8 w-8 p-0',
-              editor.isActive('subscript') && 'bg-accent'
+              getTiptap(editor).isActive('subscript') && 'bg-accent'
             )}
             title="Subscript"
           >
@@ -596,8 +660,8 @@ export const EditorToolbar = ({
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (file && editor) {
-            const pos = editor.state.selection.from;
-            uploadFn(file, editor.view, pos);
+            const pos = getTiptap(editor).state.selection.from;
+            uploadFn(file, getTiptap(editor).view, pos);
           }
           e.target.value = '';
         }}
