@@ -126,7 +126,7 @@ export function OrderDetailsTimelineCard({
         </View>
       </View>
 
-      {trackingNumber && (
+      {Boolean(trackingNumber) && (
         <TouchableOpacity
           style={[styles.trackButton, { borderColor: BRAND.primary }]}
           onPress={onTrackOrder}
