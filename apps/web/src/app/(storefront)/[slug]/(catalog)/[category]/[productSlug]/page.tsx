@@ -3,7 +3,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { type ReactNode, Suspense } from 'react';
-import { preloadOgabasseyPdpProductImage } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
+import { OgabasseyPdpProductResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
 import { OgabasseyPdpStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
 import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
@@ -620,9 +620,12 @@ export default async function CategoryProductPage({
   }
 
   redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
-  if (merchant?.template_id === OGABASSEY_TEMPLATE_ID) {
-    preloadOgabasseyPdpProductImage(product.imageLarge || product.image);
-  }
+  const productResourceHints =
+    merchant?.template_id === OGABASSEY_TEMPLATE_ID ? (
+      <OgabasseyPdpProductResourceHints
+        src={product.imageLarge || product.image}
+      />
+    ) : null;
 
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const resolvedCategorySlug =
@@ -691,6 +694,7 @@ export default async function CategoryProductPage({
 
   return (
     <>
+      {productResourceHints}
       {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml - JSON-LD is sanitized and not executed */}
       <script
         type="application/ld+json"

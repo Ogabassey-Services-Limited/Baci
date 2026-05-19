@@ -1,10 +1,11 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OGABASSEY_PDP_PRIMARY_IMAGE_SIZES } from '@/components/storefront/ogabassey/config/product-media';
 import imageLoader from '@/lib/image-loader';
 
 vi.mock('server-only', () => ({}));
 
-const mockPreload = vi.hoisted(() => vi.fn());
 const mockGetImageProps = vi.hoisted(() =>
   vi.fn(
     (props: {
@@ -37,27 +38,24 @@ const mockGetImageProps = vi.hoisted(() =>
   )
 );
 
-vi.mock('react-dom', () => ({
-  preload: mockPreload,
-}));
-
 vi.mock('next/image', () => ({
   getImageProps: mockGetImageProps,
 }));
 
-import { preloadOgabasseyPdpProductImage } from './ogabassey-pdp-product-resource-hints';
+import { OgabasseyPdpProductResourceHints } from './ogabassey-pdp-product-resource-hints';
 
-describe('preloadOgabasseyPdpProductImage', () => {
+describe('OgabasseyPdpProductResourceHints', () => {
   beforeEach(() => {
     mockGetImageProps.mockClear();
-    mockPreload.mockClear();
   });
 
-  it('preloads the primary product image with the same responsive sizes as the gallery', () => {
+  it('renders an early preload link for the primary product image with the gallery sizes', () => {
     const productImage =
       'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif';
 
-    preloadOgabasseyPdpProductImage(productImage);
+    const html = renderToStaticMarkup(
+      createElement(OgabasseyPdpProductResourceHints, { src: productImage })
+    );
 
     expect(mockGetImageProps).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -67,37 +65,55 @@ describe('preloadOgabasseyPdpProductImage', () => {
         src: productImage,
       })
     );
-    expect(mockPreload).toHaveBeenCalledWith(
-      imageLoader({ src: productImage, width: 640, quality: 70 }),
-      expect.objectContaining({
-        as: 'image',
-        fetchPriority: 'high',
-        imageSizes: OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
-        imageSrcSet: expect.stringContaining(
-          imageLoader({ src: productImage, width: 640, quality: 70 })
-        ),
-        type: 'image/webp',
-      })
+    expect(html).toContain('rel="preload"');
+    expect(html).toContain('as="image"');
+    expect(html).toMatch(/fetchpriority="high"/i);
+    expect(html).toContain(
+      `href="${imageLoader({ src: productImage, width: 640, quality: 70 })}"`
     );
+    expect(html).toContain(`imageSizes="${OGABASSEY_PDP_PRIMARY_IMAGE_SIZES}"`);
+    expect(html).toMatch(/imageSrcSet="[^"]*lenovo-legion\.avif/);
+    expect(html).toContain(
+      imageLoader({ src: productImage, width: 640, quality: 70 })
+    );
+    expect(html).toContain('type="image/webp"');
   });
 
   it('uses the fallback URL extension when the image is not CDN transformed', () => {
     const productImage =
       'https://assets.example.com/products/lenovo-legion.png';
 
-    preloadOgabasseyPdpProductImage(productImage);
-
-    expect(mockPreload).toHaveBeenCalledWith(
-      imageLoader({ src: productImage, width: 640, quality: 70 }),
-      expect.objectContaining({
-        type: 'image/png',
-      })
+    const html = renderToStaticMarkup(
+      createElement(OgabasseyPdpProductResourceHints, { src: productImage })
     );
+
+    expect(html).toContain('type="image/png"');
   });
 
   it('skips empty product image URLs', () => {
-    preloadOgabasseyPdpProductImage('');
+    const html = renderToStaticMarkup(
+      createElement(OgabasseyPdpProductResourceHints, { src: '' })
+    );
 
-    expect(mockPreload).not.toHaveBeenCalled();
+    expect(html).toBe('');
+    expect(mockGetImageProps).not.toHaveBeenCalled();
+  });
+
+  it('skips null product image URLs', () => {
+    const html = renderToStaticMarkup(
+      createElement(OgabasseyPdpProductResourceHints, { src: null })
+    );
+
+    expect(html).toBe('');
+    expect(mockGetImageProps).not.toHaveBeenCalled();
+  });
+
+  it('skips undefined product image URLs', () => {
+    const html = renderToStaticMarkup(
+      createElement(OgabasseyPdpProductResourceHints, { src: undefined })
+    );
+
+    expect(html).toBe('');
+    expect(mockGetImageProps).not.toHaveBeenCalled();
   });
 });
