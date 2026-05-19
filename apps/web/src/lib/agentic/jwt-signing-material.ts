@@ -1,7 +1,8 @@
-// Namespace import as a value (not type-only) because we use `crypto.createPrivateKey`
-// at runtime and `crypto.KeyObject` / `crypto.JsonWebKey` as types.
+// Namespace import as a value (not type-only) because we use
+// `crypto.createPrivateKey` at runtime and `crypto.KeyObject` as a type.
 import * as crypto from 'node:crypto';
 import 'server-only';
+import type { z } from 'zod';
 import { getSupabaseAgenticJwtPrivateJwk, getSupabaseJwtSecret } from '@/env';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
@@ -15,10 +16,9 @@ export type AgenticJwtSigningMaterial =
       type: 'private-jwk';
     };
 
-export type SupabaseAgenticPrivateJwk = crypto.JsonWebKey & {
-  alg?: string;
-  kid?: string;
-};
+export type SupabaseAgenticPrivateJwk = z.infer<
+  typeof supabaseAgenticJwtPrivateJwkSchema
+>;
 
 let cachedPrivateJwkRaw: string | null = null;
 const INVALID_PRIVATE_JWK_MATERIAL = Symbol('invalid-private-jwk-material');
@@ -48,10 +48,7 @@ export function getAgenticJwtSigningMaterial(): AgenticJwtSigningMaterial {
       // via redeploy or runtime env refresh.
       const jwk = parseSupabaseAgenticPrivateJwk(privateJwk);
       // Cast the full input object so we don't have to name the inner `key`
-      // type — that field is `crypto.JsonWebKey` in @types/node@20 (the
-      // version pinned by apps/web) but `crypto.webcrypto.JsonWebKey` in
-      // @types/node@25+ (which gets hoisted in some installs). Casting the
-      // outer `JsonWebKeyInput` shape is portable across both versions.
+      // type, which differs between hoisted @types/node versions.
       const keyInput = {
         format: 'jwk',
         key: jwk,

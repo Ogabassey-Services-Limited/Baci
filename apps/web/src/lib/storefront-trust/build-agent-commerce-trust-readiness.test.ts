@@ -299,10 +299,10 @@ describe('buildAgentCommerceTrustReadiness', () => {
     expect(result.totals.productsWithVerifiedImages).toBe(1);
     expect(
       result.checks.find((check) => check.id === 'verified-image-coverage')
-    ).toMatchObject({ severity: 'warn' });
+    ).toMatchObject({ affectedProductCount: 1, severity: 'warn' });
     expect(
       result.checks.find((check) => check.id === 'policy-coverage')
-    ).toMatchObject({ severity: 'warn' });
+    ).toMatchObject({ affectedProductCount: 2, severity: 'warn' });
     expect(
       result.checks.find((check) => check.id === 'review-signal-coverage')
     ).toMatchObject({
@@ -336,6 +336,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
     expect(
       result.checks.find((check) => check.id === 'verified-image-coverage')
     ).toMatchObject({
+      affectedProductCount: 1,
       severity: 'fail',
     });
   });
@@ -361,7 +362,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
     expect(result.status).toBe('warn');
     expect(
       result.checks.find((check) => check.id === 'policy-coverage')
-    ).toMatchObject({ severity: 'warn' });
+    ).toMatchObject({ affectedProductCount: 1, severity: 'warn' });
     expect(
       result.checks.find((check) => check.id === 'support-contact')
     ).toMatchObject({ severity: 'pass' });
@@ -387,7 +388,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
     expect(result.status).toBe('warn');
     expect(
       result.checks.find((check) => check.id === 'policy-coverage')
-    ).toMatchObject({ severity: 'warn' });
+    ).toMatchObject({ affectedProductCount: 1, severity: 'warn' });
   });
 
   it('warns when privacy or terms links are not published', () => {
@@ -414,6 +415,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
     expect(
       result.checks.find((check) => check.id === 'policy-coverage')
     ).toMatchObject({
+      affectedProductCount: 1,
       message:
         '2 of 4 policy links are published (returns, shipping, privacy, terms).',
       severity: 'warn',

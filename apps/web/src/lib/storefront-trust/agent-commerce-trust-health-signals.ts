@@ -123,6 +123,10 @@ export function buildAgentCommerceTrustHealthSignals({
           openAiProducts.length === 0
             ? 'No active products are available for JSON-LD field auditing.'
             : `${productsWithStructuredData} of ${openAiProducts.length} agent-visible products have core JSON-LD product fields.`,
+        affectedProductCount: Math.max(
+          0,
+          openAiProducts.length - productsWithStructuredData
+        ),
       },
       {
         id: 'review-signal-coverage',
@@ -159,6 +163,7 @@ export function buildAgentCommerceTrustHealthSignals({
                 ? `Latest product feed timestamp is ${latestProductUpdatedAt}.`
                 : `${staleProducts} products have stale or missing feed timestamps.`
               : 'No valid product update timestamps were found for feed freshness checks.',
+        affectedProductCount: staleProducts,
       },
       {
         id: 'crawler-visibility',

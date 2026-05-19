@@ -303,6 +303,10 @@ export function buildAgentCommerceTrustReadiness({
       return imageUrl ? isValidHttpUrl(imageUrl) : false;
     }
   ).length;
+  const productsMissingVerifiedImages = Math.max(
+    0,
+    openAiFeedData.products.length - productsWithVerifiedImages
+  );
 
   const surfaces = buildSurfaceUrls(baseUrl, merchant.slug);
   const healthSignals = buildAgentCommerceTrustHealthSignals({
@@ -344,6 +348,8 @@ export function buildAgentCommerceTrustReadiness({
     hasPublishedTermsLink,
   ].filter(Boolean).length;
   const requiredPolicyLinksCount = 4;
+  const isPolicyCoverageComplete =
+    publishedPolicyLinksCount === requiredPolicyLinksCount;
   const hasSupportContact = [
     trustProfile.supportEmail,
     trustProfile.supportPhone,
@@ -393,18 +399,18 @@ export function buildAgentCommerceTrustReadiness({
         openAiFeedData.products.length === 0
           ? 'No active products are available for image validation.'
           : `${productsWithVerifiedImages} of ${openAiFeedData.products.length} agent-visible products have verified feed images.`,
+      affectedProductCount: productsMissingVerifiedImages,
     },
     {
       id: 'policy-coverage',
       label: 'Policy coverage',
-      severity:
-        publishedPolicyLinksCount === requiredPolicyLinksCount
-          ? 'pass'
-          : 'warn',
-      message:
-        publishedPolicyLinksCount === requiredPolicyLinksCount
-          ? 'Return, shipping, privacy, and terms policy links are published.'
-          : `${publishedPolicyLinksCount} of ${requiredPolicyLinksCount} policy links are published (returns, shipping, privacy, terms).`,
+      severity: isPolicyCoverageComplete ? 'pass' : 'warn',
+      message: isPolicyCoverageComplete
+        ? 'Return, shipping, privacy, and terms policy links are published.'
+        : `${publishedPolicyLinksCount} of ${requiredPolicyLinksCount} policy links are published (returns, shipping, privacy, terms).`,
+      affectedProductCount: isPolicyCoverageComplete
+        ? 0
+        : openAiFeedData.products.length,
     },
     {
       id: 'support-contact',
