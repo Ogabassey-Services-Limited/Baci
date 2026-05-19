@@ -124,6 +124,7 @@ vi.mock('../components/SmartQuoteLoader', () => ({
 
 vi.mock('../components/PaymentLogos', () => ({
   PaystackLogo: vi.fn(() => null),
+  KorapayLogo: vi.fn(() => null),
   CredPalLogo: vi.fn(() => null),
   CreditDirectLogo: vi.fn(() => null),
   JuicywayLogo: vi.fn(() => null),

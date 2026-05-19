@@ -6,6 +6,7 @@ import type { PaymentMethod, PaymentTab } from '../types';
 // Mock PaymentLogos module
 vi.mock('../../../components/PaymentLogos', () => ({
   PaystackLogo: vi.fn(({ className }) => <div data-testid="paystack-logo" className={className} />),
+  KorapayLogo: vi.fn(({ className }) => <div data-testid="korapay-logo" className={className} />),
   CredPalLogo: vi.fn(({ className }) => <div data-testid="credpal-logo" className={className} />),
   CreditDirectLogo: vi.fn(({ className }) => <div data-testid="credit-direct-logo" className={className} />),
   JuicywayLogo: vi.fn(({ className }) => <div data-testid="juicyway-logo" className={className} />),
@@ -21,6 +22,7 @@ interface CompletedSteps {
 
 interface FeatureSettings {
   paystack_enabled?: boolean;
+  korapay_enabled?: boolean;
   juicyway_enabled?: boolean;
   pay_on_delivery_enabled?: boolean;
   credpal_enabled?: boolean;
@@ -186,6 +188,13 @@ describe('PaymentStep', () => {
       expect(screen.getByTestId('bank-transfer-logo')).toBeInTheDocument();
     });
 
+    it('shows Korapay when not explicitly disabled in feature settings', () => {
+      render(<PaymentStep {...defaultProps} />);
+
+      expect(screen.getByText('Korapay')).toBeInTheDocument();
+      expect(screen.getByTestId('korapay-logo')).toBeInTheDocument();
+    });
+
     it('hides Paystack when explicitly disabled in feature settings', () => {
       // Arrange
       const merchant = {
@@ -199,6 +208,17 @@ describe('PaymentStep', () => {
       // Assert
       expect(screen.queryByText('Paystack')).not.toBeInTheDocument();
       expect(screen.queryByText('Bank Transfer')).not.toBeInTheDocument();
+    });
+
+    it('hides Korapay when explicitly disabled in feature settings', () => {
+      const merchant = {
+        paystack_subaccount_code: 'ACCT_123',
+        feature_settings: { korapay_enabled: false } as FeatureSettings,
+      };
+
+      render(<PaymentStep {...defaultProps} merchant={merchant} />);
+
+      expect(screen.queryByText('Korapay')).not.toBeInTheDocument();
     });
 
     it('hides Paystack and Bank Transfer when the merchant has no Paystack subaccount', () => {
@@ -283,6 +303,16 @@ describe('PaymentStep', () => {
       expect(setPaymentMethod).toHaveBeenCalledWith('bank_transfer');
     });
 
+    it('calls setPaymentMethod when Korapay is selected', () => {
+      const setPaymentMethod = vi.fn();
+      render(<PaymentStep {...defaultProps} setPaymentMethod={setPaymentMethod} />);
+
+      const korapayLabel = screen.getByText('Korapay').closest('label');
+      if (korapayLabel) fireEvent.click(korapayLabel);
+
+      expect(setPaymentMethod).toHaveBeenCalledWith('korapay');
+    });
+
     it('clears a stale Paystack selection when Paystack is unavailable', () => {
       const setPaymentMethod = vi.fn();
 
@@ -306,6 +336,25 @@ describe('PaymentStep', () => {
           {...defaultProps}
           merchant={null}
           paymentMethod="bank_transfer"
+          setPaymentMethod={setPaymentMethod}
+        />
+      );
+
+      expect(setPaymentMethod).toHaveBeenCalledWith('');
+    });
+
+    it('clears a stale Korapay selection when Korapay is unavailable', () => {
+      const setPaymentMethod = vi.fn();
+
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={{
+            feature_settings: {
+              korapay_enabled: false,
+            } as FeatureSettings,
+          }}
+          paymentMethod="korapay"
           setPaymentMethod={setPaymentMethod}
         />
       );
