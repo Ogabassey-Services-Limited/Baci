@@ -34,12 +34,7 @@ interface DashboardChartsProps {
 export function RevenueSparkline({ data, config }: DashboardChartsProps) {
   return (
     <ChartContainer config={config} className="h-full w-full min-h-[100px]">
-      <AreaChart
-        data={data}
-        width={0}
-        height={0}
-        margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
-      >
+      <AreaChart data={data} margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
         <defs>
           <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
             <stop
