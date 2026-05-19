@@ -56,8 +56,10 @@ export const quizEventSettingsSchema = z
   .strict();
 
 export const quizEventRowSchema = z.object({
+  compliance_verified: z.boolean().nullable().optional(),
   ends_at: quizIsoDatetimeSchema.nullable(),
   id: quizUuidSchema,
+  nlrc_permit_ref: z.string().nullable().optional(),
   quiz_question_slots: z
     .array(z.object({ id: quizUuidSchema }))
     .nullable()
