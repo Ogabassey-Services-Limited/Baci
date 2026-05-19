@@ -188,8 +188,20 @@ describe('PaymentStep', () => {
       expect(screen.getByTestId('bank-transfer-logo')).toBeInTheDocument();
     });
 
-    it('shows Korapay when not explicitly disabled in feature settings', () => {
+    it('hides Korapay when not explicitly enabled in feature settings', () => {
       render(<PaymentStep {...defaultProps} />);
+
+      expect(screen.queryByText('Korapay')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('korapay-logo')).not.toBeInTheDocument();
+    });
+
+    it('shows Korapay when explicitly enabled in feature settings', () => {
+      const merchant = {
+        paystack_subaccount_code: 'ACCT_123',
+        feature_settings: { korapay_enabled: true } as FeatureSettings,
+      };
+
+      render(<PaymentStep {...defaultProps} merchant={merchant} />);
 
       expect(screen.getByText('Korapay')).toBeInTheDocument();
       expect(screen.getByTestId('korapay-logo')).toBeInTheDocument();
@@ -305,7 +317,16 @@ describe('PaymentStep', () => {
 
     it('calls setPaymentMethod when Korapay is selected', () => {
       const setPaymentMethod = vi.fn();
-      render(<PaymentStep {...defaultProps} setPaymentMethod={setPaymentMethod} />);
+      render(
+        <PaymentStep
+          {...defaultProps}
+          merchant={{
+            paystack_subaccount_code: 'ACCT_123',
+            feature_settings: { korapay_enabled: true } as FeatureSettings,
+          }}
+          setPaymentMethod={setPaymentMethod}
+        />
+      );
 
       const korapayLabel = screen.getByText('Korapay').closest('label');
       if (korapayLabel) fireEvent.click(korapayLabel);

@@ -242,6 +242,15 @@ function setupDefaults() {
   rpcCalls.length = 0;
 }
 
+function enableKorapayForTest() {
+  featureSettingsResult = {
+    data: {
+      korapay_enabled: true,
+    },
+    error: null,
+  };
+}
+
 // ---- Tests ----
 
 describe('POST /api/payments/initialize', () => {
@@ -333,7 +342,17 @@ describe('POST /api/payments/initialize', () => {
   });
 
   describe('korapay gateway', () => {
+    it('returns GATEWAY_DISABLED when Korapay is not explicitly enabled', async () => {
+      const res = await POST(makeRequest({ ...validBody, gateway: 'korapay' }));
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('GATEWAY_DISABLED');
+      expect(mockInitializeKorapay).not.toHaveBeenCalled();
+    });
+
     it('returns success with checkout_url for korapay', async () => {
+      enableKorapayForTest();
       mockInitializeKorapay.mockResolvedValue({
         authorization_url: 'https://korapay.com/checkout/abc',
         checkout_url: 'https://korapay.com/checkout/abc',
@@ -346,7 +365,38 @@ describe('POST /api/payments/initialize', () => {
       expect(json.checkout_url).toBe('https://korapay.com/checkout/abc');
     });
 
+    it('falls back to checkout_url when korapay omits authorization_url', async () => {
+      enableKorapayForTest();
+      mockInitializeKorapay.mockResolvedValue({
+        checkout_url: 'https://korapay.com/checkout/abc',
+      });
+
+      const res = await POST(makeRequest({ ...validBody, gateway: 'korapay' }));
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.authorization_url).toBe('https://korapay.com/checkout/abc');
+      expect(json.checkout_url).toBe('https://korapay.com/checkout/abc');
+    });
+
+    it('falls back to authorization_url when korapay omits checkout_url', async () => {
+      enableKorapayForTest();
+      mockInitializeKorapay.mockResolvedValue({
+        authorization_url: 'https://korapay.com/checkout/xyz',
+      });
+
+      const res = await POST(makeRequest({ ...validBody, gateway: 'korapay' }));
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.authorization_url).toBe('https://korapay.com/checkout/xyz');
+      expect(json.checkout_url).toBe('https://korapay.com/checkout/xyz');
+    });
+
     it('returns 502 when korapay initialization throws', async () => {
+      enableKorapayForTest();
       mockInitializeKorapay.mockRejectedValue(new Error('Korapay down'));
       const res = await POST(makeRequest({ ...validBody, gateway: 'korapay' }));
       const json = await res.json();
@@ -846,6 +896,7 @@ describe('POST /api/payments/initialize', () => {
         authorization_url: 'https://korapay.com/checkout/abc',
         checkout_url: 'https://korapay.com/checkout/abc',
       });
+      enableKorapayForTest();
 
       const res = await POST(makeRequest({ ...validBody, gateway: 'korapay' }));
       const json = await res.json();

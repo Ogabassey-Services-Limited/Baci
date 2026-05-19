@@ -29,7 +29,7 @@ export function isKorapayCheckoutAvailable(
   merchant: CheckoutPaymentMerchant | null | undefined
 ): boolean {
   if (!merchant) return false;
-  return readKorapayEnabled(merchant.feature_settings) !== false;
+  return readKorapayEnabled(merchant.feature_settings) === true;
 }
 
 // Bank transfer checkout currently provisions a Paystack DVA, so it must track

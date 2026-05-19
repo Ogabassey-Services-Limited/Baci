@@ -224,20 +224,48 @@ function verifyKorapayWebhookSignature(
   }
 
   try {
-    // Generate expected signature using HMAC-SHA512
-    const expectedSignature = createHmac('sha512', secretKey)
+    const signatureHex = String(signature).toLowerCase();
+    let expectedKorapaySignature: string | null = null;
+
+    // Korapay currently signs ONLY the `data` object with HMAC-SHA256.
+    // Keep a legacy fallback for existing integrations that may still sign
+    // the full payload with SHA512.
+    try {
+      const parsedPayload = JSON.parse(payload) as {
+        data?: Record<string, unknown>;
+      };
+      const dataPayload = parsedPayload.data;
+
+      expectedKorapaySignature =
+        dataPayload && typeof dataPayload === 'object'
+          ? createHmac('sha256', secretKey)
+              .update(JSON.stringify(dataPayload))
+              .digest('hex')
+          : null;
+    } catch {
+      expectedKorapaySignature = null;
+    }
+
+    if (
+      expectedKorapaySignature &&
+      verifyWebhookSignature(signatureHex, expectedKorapaySignature)
+    ) {
+      return true;
+    }
+
+    const legacySignature = createHmac('sha512', secretKey)
       .update(payload)
       .digest('hex');
 
-    // Use timing-safe comparison to prevent timing attacks
-    const signatureBuffer = Buffer.from(String(signature), 'hex');
-    const expectedBuffer = Buffer.from(String(expectedSignature), 'hex');
-
-    if (signatureBuffer.length !== expectedBuffer.length) {
-      return false;
+    const isLegacyMatch = verifyWebhookSignature(signatureHex, legacySignature);
+    if (isLegacyMatch) {
+      logger.warn({
+        message:
+          'Korapay webhook matched legacy SHA512 payload signature. Please use SHA256 over payload.data.',
+      });
     }
 
-    return timingSafeEqual(signatureBuffer, expectedBuffer);
+    return isLegacyMatch;
   } catch (error) {
     logger.error({
       message: 'Korapay webhook signature verification error',
@@ -273,21 +301,33 @@ function verifyPaystackWebhookSignature(
     const expectedSignature = createHmac('sha512', secretKey)
       .update(payload)
       .digest('hex');
+    return verifyWebhookSignature(
+      String(signature).toLowerCase(),
+      expectedSignature
+    );
+  } catch (error) {
+    logger.error({
+      message: 'Paystack webhook signature verification error',
+      error,
+    });
+    return false;
+  }
+}
 
-    // Use timing-safe comparison to prevent timing attacks
-    const signatureBuffer = Buffer.from(String(signature), 'hex');
-    const expectedBuffer = Buffer.from(String(expectedSignature), 'hex');
+function verifyWebhookSignature(
+  providedSignature: string,
+  expectedSignature: string
+): boolean {
+  try {
+    const signatureBuffer = Buffer.from(providedSignature, 'hex');
+    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
 
     if (signatureBuffer.length !== expectedBuffer.length) {
       return false;
     }
 
     return timingSafeEqual(signatureBuffer, expectedBuffer);
-  } catch (error) {
-    logger.error({
-      message: 'Paystack webhook signature verification error',
-      error,
-    });
+  } catch {
     return false;
   }
 }
@@ -327,6 +367,7 @@ export async function POST(request: NextRequest) {
       reference?: string;
       data?: {
         reference?: string;
+        status?: string;
         [key: string]: unknown;
       };
       [key: string]: unknown;
@@ -374,10 +415,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ message: 'Event ignored' });
       }
     } else {
-      // Korapay webhook structure: { reference, status, event, ... }
-      reference = body.reference ?? '';
+      // Korapay webhook structure can place the reference either at the top
+      // level or nested in data.reference, depending on event type/version.
+      reference = body.reference ?? body.data?.reference ?? '';
       const event = body.event;
-      const status = body.status;
+      const status = body.status ?? body.data?.status;
 
       isSuccessEvent = event === 'charge.success' || status === 'success';
 

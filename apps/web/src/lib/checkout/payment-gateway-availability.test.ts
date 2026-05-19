@@ -75,13 +75,15 @@ describe('payment-gateway-availability', () => {
     expect(isKorapayCheckoutAvailable(undefined)).toBe(false);
   });
 
-  it('returns true for Korapay when not explicitly disabled', () => {
+  it('returns false for Korapay when not explicitly enabled', () => {
     expect(
       isKorapayCheckoutAvailable({
         feature_settings: {},
       })
-    ).toBe(true);
+    ).toBe(false);
+  });
 
+  it('returns true for Korapay when explicitly enabled', () => {
     expect(
       isKorapayCheckoutAvailable({
         feature_settings: { korapay_enabled: true },

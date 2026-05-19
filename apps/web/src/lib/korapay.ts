@@ -70,11 +70,21 @@ export type PayoutStatus = (typeof PAYOUT_STATUSES)[number];
 // Zod Schemas
 // =============================================================================
 
-const PaymentInitResponseSchema = z.object({
-  reference: z.string(),
-  checkout_url: z.string().url(),
-  authorization_url: z.string().url(),
-});
+const PaymentInitResponseSchema = z
+  .object({
+    reference: z.string(),
+    checkout_url: z.string().url().optional(),
+    authorization_url: z.string().url().optional(),
+  })
+  .refine(
+    (value) =>
+      typeof value.checkout_url === 'string' ||
+      typeof value.authorization_url === 'string',
+    {
+      message:
+        'Korapay response must include checkout_url or authorization_url',
+    }
+  );
 
 const PaymentVerificationSchema = z.object({
   reference: z.string(),
@@ -126,7 +136,12 @@ const ResolvedAccountSchema = z.object({
 // TypeScript Interfaces
 // =============================================================================
 
-export type PaymentInitResponse = z.infer<typeof PaymentInitResponseSchema>;
+type PaymentInitGatewayPayload = z.infer<typeof PaymentInitResponseSchema>;
+export interface PaymentInitResponse {
+  reference: string;
+  checkout_url: string;
+  authorization_url: string;
+}
 export type PaymentVerificationResponse = z.infer<
   typeof PaymentVerificationSchema
 >;
@@ -256,7 +271,7 @@ async function korapayRequest<T>(
 export async function initializePayment(
   data: PaymentInitData
 ): Promise<PaymentInitResponse> {
-  const result = await korapayRequest<PaymentInitResponse>(
+  const result = await korapayRequest<PaymentInitGatewayPayload>(
     '/charges/initialize',
     {
       method: 'POST',
@@ -278,16 +293,35 @@ export async function initializePayment(
     throw new Error(result.error);
   }
 
-  // Validate response
+  // Validate and normalize response: Korapay may omit authorization_url
+  // while still returning a usable checkout_url.
   const parsed = PaymentInitResponseSchema.safeParse(result.data);
   if (!parsed.success) {
-    logger.warn({
-      message: 'Korapay payment init response validation warning',
+    logger.error({
+      message: 'Korapay payment init response validation failed',
       issues: parsed.error.issues,
+      payload: result.data,
     });
+    throw new Error('Invalid Korapay payment initialization response');
   }
 
-  return result.data;
+  const authorizationUrl =
+    parsed.data.authorization_url ?? parsed.data.checkout_url;
+  const checkoutUrl = parsed.data.checkout_url ?? parsed.data.authorization_url;
+
+  if (!authorizationUrl || !checkoutUrl) {
+    logger.error({
+      message: 'Korapay payment init response missing usable checkout URL',
+      payload: result.data,
+    });
+    throw new Error('Korapay checkout URL is missing');
+  }
+
+  return {
+    reference: parsed.data.reference,
+    authorization_url: authorizationUrl,
+    checkout_url: checkoutUrl,
+  };
 }
 
 /**

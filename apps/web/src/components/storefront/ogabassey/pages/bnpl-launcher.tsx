@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Script from 'next/script';
 import { ShieldCheck, AlertCircle } from 'lucide-react';
 import { openCreditDirectCheckout } from '@/lib/credit-direct-client';
 import { openCredPalCheckout } from '@/lib/credpal';
@@ -97,31 +98,8 @@ function getKlumpPublicKey() {
     return key;
 }
 
-function loadKlumpScript() {
-    return new Promise<void>((resolve, reject) => {
-        if (typeof window !== 'undefined' && window.Klump) {
-            resolve();
-            return;
-        }
-
-        const existingScript = document.querySelector(
-            `script[src="${KLUMP_SCRIPT_URL}"]`
-        );
-        if (existingScript) {
-            existingScript.addEventListener('load', () => resolve());
-            existingScript.addEventListener('error', () =>
-                reject(new Error('Failed to load Klump script'))
-            );
-            return;
-        }
-
-        const script = document.createElement('script');
-        script.src = KLUMP_SCRIPT_URL;
-        script.async = true;
-        script.onload = () => resolve();
-        script.onerror = () => reject(new Error('Failed to load Klump script'));
-        document.head.appendChild(script);
-    });
+function buildCurrentPathRedirectUrl(callbackQuery: URLSearchParams) {
+    return `${window.location.origin}${window.location.pathname}?${callbackQuery.toString()}`;
 }
 
 function readPendingOrderSnapshot(orderId: string | null) {
@@ -187,6 +165,8 @@ export function BnplLauncher() {
         'loading'
     );
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const [klumpScriptReady, setKlumpScriptReady] = useState(false);
+    const [klumpScriptFailed, setKlumpScriptFailed] = useState(false);
 
     useEffect(() => {
         if (loading) return;
@@ -356,10 +336,14 @@ export function BnplLauncher() {
                         );
                     }
 
-                    await loadKlumpScript();
-
                     if (!window.Klump) {
-                        throw new Error('Klump SDK failed to load');
+                        if (klumpScriptFailed) {
+                            throw new Error('Failed to load Klump script');
+                        }
+                        if (klumpScriptReady) {
+                            throw new Error('Klump SDK failed to load');
+                        }
+                        return;
                     }
 
                     const publicKey = getKlumpPublicKey();
@@ -392,7 +376,7 @@ export function BnplLauncher() {
                                 ? { phone: order.customer_phone }
                                 : {}),
                             merchant_reference: klumpReference,
-                            redirect_url: `${window.location.origin}/${slug}/checkout/bnpl?${callbackQuery.toString()}`,
+                            redirect_url: buildCurrentPathRedirectUrl(callbackQuery),
                             shipping_fee: Number(order.shipping_fee) || 0,
                             items: order.items.map(
                                 (item: {
@@ -454,13 +438,25 @@ export function BnplLauncher() {
         klumpCallback,
         klumpReference,
         klumpTransactionId,
+        klumpScriptFailed,
+        klumpScriptReady,
         router,
         trackingToken,
     ]);
 
+    const shouldLoadKlumpScript = gateway === 'klump' && !klumpCallback;
+
     if (status === 'error') {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+                {shouldLoadKlumpScript && (
+                    <Script
+                        src={KLUMP_SCRIPT_URL}
+                        strategy="afterInteractive"
+                        onReady={() => setKlumpScriptReady(true)}
+                        onError={() => setKlumpScriptFailed(true)}
+                    />
+                )}
                 <div className="bg-white rounded-xl shadow-lg max-w-md w-full p-8 text-center">
                     <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <AlertCircle className="w-8 h-8 text-red-600" />
@@ -488,6 +484,14 @@ export function BnplLauncher() {
 
     return (
         <div className="min-h-screen bg-white flex flex-col items-center justify-center p-4">
+            {shouldLoadKlumpScript && (
+                <Script
+                    src={KLUMP_SCRIPT_URL}
+                    strategy="afterInteractive"
+                    onReady={() => setKlumpScriptReady(true)}
+                    onError={() => setKlumpScriptFailed(true)}
+                />
+            )}
             <div className="text-center">
                 <div className="relative w-20 h-20 mx-auto mb-6">
                     <div className="absolute inset-0 border-4 border-gray-100 rounded-full"></div>

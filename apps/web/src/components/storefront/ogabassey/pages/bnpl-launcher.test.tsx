@@ -15,6 +15,10 @@ vi.mock('next/navigation', () => ({
   useSearchParams: vi.fn(() => mockSearchParams()),
 }));
 
+vi.mock('next/script', () => ({
+  default: () => null,
+}));
+
 vi.mock('@/hooks/use-merchant-client', () => ({
   useMerchant: vi.fn(() => ({
     merchant: { slug: 'test-store' },
@@ -40,6 +44,7 @@ vi.mock('@/lib/api-client', () => ({
 describe('BnplLauncher', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.history.replaceState({}, '', '/checkout/bnpl');
     window.sessionStorage.clear();
     window.Klump = mockKlumpConstructor as never;
     mockSearchParams.mockReturnValue(
@@ -200,7 +205,8 @@ describe('BnplLauncher', () => {
 
     expect(config.publicKey).toBe('klp_pk_test_123');
     expect(config.data.merchant_reference).toBe('BAC-ABCD12345678');
-    expect(config.data.redirect_url).toContain('/test-store/checkout/bnpl?');
+    expect(config.data.redirect_url).toContain('/checkout/bnpl?');
+    expect(config.data.redirect_url).not.toContain('/test-store/checkout/bnpl?');
     expect(config.data.redirect_url).toContain('gateway=klump');
     expect(config.data.redirect_url).toContain('klump_callback=1');
     expect(config.data.redirect_url).toContain('reference=BAC-ABCD12345678');

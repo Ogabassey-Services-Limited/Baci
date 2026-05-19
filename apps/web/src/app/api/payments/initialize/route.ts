@@ -68,7 +68,7 @@ interface GatewaySettings {
 
 const DEFAULT_GATEWAY_SETTINGS: GatewaySettings = {
   paystack_enabled: true,
-  korapay_enabled: true,
+  korapay_enabled: false,
   klump_enabled: false,
   klump_min_amount: 10_000,
   klump_max_amount: 500_000,
@@ -779,9 +779,17 @@ async function initializeKorapay(
     },
   });
 
+  const authorizationUrl =
+    korapayData.authorization_url || korapayData.checkout_url;
+  const checkoutUrl = korapayData.checkout_url || korapayData.authorization_url;
+
+  if (!authorizationUrl || !checkoutUrl) {
+    throw new Error('Korapay checkout URL is missing from initialization');
+  }
+
   return {
-    authorization_url: korapayData.authorization_url,
-    checkout_url: korapayData.checkout_url,
+    authorization_url: authorizationUrl,
+    checkout_url: checkoutUrl,
     reference,
     platformFee: fees.platformFee,
     merchantAmount: fees.merchantAmount,
@@ -914,7 +922,7 @@ export async function POST(request: NextRequest) {
     const gatewaySettings: GatewaySettings = featureSettings
       ? {
           paystack_enabled: featureSettings.paystack_enabled ?? true,
-          korapay_enabled: featureSettings.korapay_enabled ?? true,
+          korapay_enabled: featureSettings.korapay_enabled === true,
           klump_enabled: featureSettings.klump_enabled ?? false,
           klump_min_amount: numberOrDefault(
             featureSettings.klump_min_amount,
@@ -943,6 +951,14 @@ export async function POST(request: NextRequest) {
       data.gateway && PAYMENT_GATEWAYS.includes(data.gateway)
         ? data.gateway
         : selectGateway(validCurrency, gatewaySettings, hasPaystackSubaccount);
+
+    if (gateway === 'korapay' && !gatewaySettings.korapay_enabled) {
+      return createErrorResponse(
+        'Korapay is not enabled for this merchant',
+        'GATEWAY_DISABLED',
+        400
+      );
+    }
 
     if (gateway === 'klump') {
       if (!gatewaySettings.klump_enabled) {
