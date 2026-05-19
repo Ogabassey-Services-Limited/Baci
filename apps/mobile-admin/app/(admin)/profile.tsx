@@ -175,7 +175,8 @@ export default function ProfileScreen() {
   const { colors, isDark } = useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const manageSubscriptionLabel = SubscriptionManagement.getManagementLabel();
+  const manageSubscriptionLabel =
+    SubscriptionManagement.getManagementLabel() || 'Manage Subscription';
 
   if (isLoading) {
     return (

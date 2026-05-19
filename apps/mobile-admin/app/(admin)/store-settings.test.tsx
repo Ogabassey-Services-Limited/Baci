@@ -1,10 +1,12 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import StoreSettingsScreen from './store-settings';
 
 const mocks = vi.hoisted(() => ({
+  getManagementLabel: vi.fn(() => 'Manage from helper'),
+  getPlanLabel: vi.fn(() => 'Baci Pro'),
   subscriptionCardProps: {
     manageSubscriptionLabel: '',
     planLabel: '',
@@ -80,8 +82,8 @@ vi.mock('@/hooks/useSubscriptionManagement', () => ({
 
 vi.mock('@/utils/SubscriptionManagement', () => ({
   SubscriptionManagement: {
-    getManagementLabel: () => 'Manage from helper',
-    getPlanLabel: () => 'Baci Pro',
+    getManagementLabel: mocks.getManagementLabel,
+    getPlanLabel: mocks.getPlanLabel,
   },
 }));
 
@@ -155,6 +157,15 @@ vi.mock('@expo/vector-icons', () => ({
 }));
 
 describe('StoreSettingsScreen', () => {
+  beforeEach(() => {
+    mocks.getManagementLabel.mockReset();
+    mocks.getPlanLabel.mockReset();
+    mocks.getManagementLabel.mockReturnValue('Manage from helper');
+    mocks.getPlanLabel.mockReturnValue('Baci Pro');
+    mocks.subscriptionCardProps.manageSubscriptionLabel = '';
+    mocks.subscriptionCardProps.planLabel = '';
+  });
+
   it('uses SubscriptionManagement helper label for subscription actions', () => {
     render(<StoreSettingsScreen />);
 
@@ -164,5 +175,15 @@ describe('StoreSettingsScreen', () => {
       'Manage from helper'
     );
     expect(mocks.subscriptionCardProps.planLabel).toBe('Baci Pro');
+  });
+
+  it('falls back to default management label when helper output is empty', () => {
+    mocks.getManagementLabel.mockReturnValue('');
+
+    render(<StoreSettingsScreen />);
+
+    expect(mocks.subscriptionCardProps.manageSubscriptionLabel).toBe(
+      'Manage Subscription'
+    );
   });
 });

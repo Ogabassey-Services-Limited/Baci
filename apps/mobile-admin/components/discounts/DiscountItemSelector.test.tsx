@@ -218,4 +218,22 @@ describe('DiscountItemSelector', () => {
 
     expect(mocks.listProps.removeClippedSubviews).toBe(true);
   });
+
+  it('renders error feedback when selectable items fetch fails', async () => {
+    mocks.fetchSelectableItems.mockRejectedValue(new Error('fetch failed'));
+
+    render(
+      <DiscountItemSelector
+        initialIds={[]}
+        onClose={vi.fn()}
+        onSelect={vi.fn()}
+        type="product"
+        visible={true}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load items')).toBeInTheDocument();
+    });
+  });
 });

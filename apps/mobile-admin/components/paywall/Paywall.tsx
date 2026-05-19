@@ -22,9 +22,9 @@ import { RADIUS, SPACING, TYPOGRAPHY } from '../../constants/theme';
 const { width: _width } = Dimensions.get('window');
 const DEFAULT_CLOSE_TOP = 30;
 const DEFAULT_HEADER_PADDING = 50;
-const SAFE_AREA_CLOSE_TOP = 55;
-const SAFE_AREA_FOOTER_PADDING = 40;
-const SAFE_AREA_HEADER_PADDING = 70;
+const SAFE_AREA_CLOSE_OFFSET = 11;
+const SAFE_AREA_FOOTER_OFFSET = 6;
+const SAFE_AREA_HEADER_OFFSET = 26;
 
 interface PaywallProps {
   onClose?: () => void;
@@ -44,11 +44,18 @@ export default function Paywall({ onClose }: PaywallProps) {
 
   const [selectedPackage, setSelectedPackage] =
     useState<PurchasesPackage | null>(null);
-  const headerPaddingTop =
-    insets.top > 0 ? SAFE_AREA_HEADER_PADDING : DEFAULT_HEADER_PADDING;
-  const closeButtonTop = insets.top > 0 ? SAFE_AREA_CLOSE_TOP : DEFAULT_CLOSE_TOP;
-  const stickyFooterPaddingBottom =
-    insets.bottom > 0 ? SAFE_AREA_FOOTER_PADDING : SPACING.xl;
+  const headerPaddingTop = Math.max(
+    DEFAULT_HEADER_PADDING,
+    insets.top + SAFE_AREA_HEADER_OFFSET
+  );
+  const closeButtonTop = Math.max(
+    DEFAULT_CLOSE_TOP,
+    insets.top + SAFE_AREA_CLOSE_OFFSET
+  );
+  const stickyFooterPaddingBottom = Math.max(
+    SPACING.xl,
+    insets.bottom + SAFE_AREA_FOOTER_OFFSET
+  );
 
   useEffect(() => {
     if (error) {

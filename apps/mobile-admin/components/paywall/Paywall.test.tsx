@@ -91,6 +91,7 @@ vi.mock('react-native', () => ({
   Alert: { alert: vi.fn() },
   Dimensions: { get: () => ({ width: 390 }) },
   Linking: { openURL: vi.fn() },
+  Platform: { OS: 'ios' },
   Pressable: ({
     children,
     style,
@@ -165,5 +166,14 @@ describe('Paywall', () => {
     expect(mocks.capturedHeaderPaddingTop).toBe(50);
     expect(mocks.capturedCloseTop).toBe(30);
     expect(mocks.capturedStickyPaddingBottom).toBe(SPACING.xl);
+  });
+
+  it('scales spacing based on larger safe-area insets', () => {
+    mocks.insets = { bottom: 21, left: 0, right: 0, top: 59 };
+    render(<Paywall />);
+
+    expect(mocks.capturedHeaderPaddingTop).toBe(85);
+    expect(mocks.capturedCloseTop).toBe(70);
+    expect(mocks.capturedStickyPaddingBottom).toBe(27);
   });
 });

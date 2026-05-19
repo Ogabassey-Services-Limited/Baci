@@ -57,4 +57,19 @@ describe('SubscriptionManagement', () => {
       'https://play.google.com/store/account/subscriptions?package=com.ogabassey.baci'
     );
   });
+
+  it('returns false and alerts when direct and fallback flows fail', async () => {
+    mocks.platform.OS = 'ios';
+    mocks.openURL.mockRejectedValue(new Error('failed'));
+    mocks.openSettings.mockRejectedValue(new Error('fallback failed'));
+
+    await expect(
+      SubscriptionManagement.openNativeManagement()
+    ).resolves.toBe(false);
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Unable to Open',
+      expect.stringContaining('manage in app store directly.'),
+      [{ text: 'OK' }]
+    );
+  });
 });

@@ -1,8 +1,12 @@
 import '@testing-library/jest-dom/vitest';
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ProfileScreen from './profile';
+
+const mocks = vi.hoisted(() => ({
+  getManagementLabel: vi.fn(() => 'Manage from helper'),
+}));
 
 vi.mock('expo-router', async () => {
   const React = await import('react');
@@ -71,7 +75,7 @@ vi.mock('@/hooks/useTheme', () => ({
 
 vi.mock('@/utils/SubscriptionManagement', () => ({
   SubscriptionManagement: {
-    getManagementLabel: () => 'Manage from helper',
+    getManagementLabel: mocks.getManagementLabel,
     getPlanLabel: () => 'Baci Pro',
     openNativeManagement: vi.fn().mockResolvedValue(true),
   },
@@ -125,8 +129,21 @@ vi.mock('@expo/vector-icons', () => ({
 }));
 
 describe('ProfileScreen', () => {
+  beforeEach(() => {
+    mocks.getManagementLabel.mockReset();
+    mocks.getManagementLabel.mockReturnValue('Manage from helper');
+  });
+
   it('renders management CTA label from SubscriptionManagement helper', () => {
     render(<ProfileScreen />);
     expect(screen.getByText('Manage from helper')).toBeInTheDocument();
+  });
+
+  it('falls back to default management label when helper output is empty', () => {
+    mocks.getManagementLabel.mockReturnValue('');
+
+    render(<ProfileScreen />);
+
+    expect(screen.getByText('Manage Subscription')).toBeInTheDocument();
   });
 });

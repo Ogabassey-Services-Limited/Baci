@@ -1,10 +1,13 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import PayoutSettingsScreen from './payout-settings';
 
 const mocks = vi.hoisted(() => ({
+  alert: vi.fn(),
+  accountName: null as string | null,
+  isVerifying: false,
   keyboardContainerProps: [] as Array<{
     align?: 'start' | 'center' | 'end';
     scrollEnabled?: boolean;
@@ -13,6 +16,14 @@ const mocks = vi.hoisted(() => ({
     isPending: false,
     mutate: vi.fn(),
   },
+  merchantData: {
+    id: 'merchant-1',
+    bank_account_number: null as string | null,
+    bank_code: null as string | null,
+    bank_name: null as string | null,
+    business_name: 'Baci Store',
+  },
+  verifyError: null as string | null,
 }));
 
 vi.mock('expo-router', async () => {
@@ -37,13 +48,7 @@ vi.mock('expo-router', async () => {
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: () => ({
-    data: {
-      id: 'merchant-1',
-      bank_account_number: null,
-      bank_code: null,
-      bank_name: null,
-      business_name: 'Baci Store',
-    },
+    data: mocks.merchantData,
     isLoading: false,
   }),
 }));
@@ -73,9 +78,9 @@ vi.mock('@/hooks/usePaystackBanks', () => ({
 
 vi.mock('@/hooks/usePayoutAccountVerification', () => ({
   usePayoutAccountVerification: () => ({
-    accountName: null,
-    isVerifying: false,
-    verifyError: null,
+    accountName: mocks.accountName,
+    isVerifying: mocks.isVerifying,
+    verifyError: mocks.verifyError,
   }),
 }));
 
@@ -128,7 +133,7 @@ vi.mock('react-native-safe-area-context', () => ({
 
 vi.mock('react-native', () => ({
   ActivityIndicator: () => <span>loading</span>,
-  Alert: { alert: vi.fn() },
+  Alert: { alert: mocks.alert },
   FlatList: ({
     data,
     renderItem,
@@ -181,6 +186,22 @@ vi.mock('react-native', () => ({
 }));
 
 describe('PayoutSettingsScreen', () => {
+  beforeEach(() => {
+    mocks.alert.mockReset();
+    mocks.accountName = null;
+    mocks.isVerifying = false;
+    mocks.keyboardContainerProps = [];
+    mocks.merchantData = {
+      id: 'merchant-1',
+      bank_account_number: null,
+      bank_code: null,
+      bank_name: null,
+      business_name: 'Baci Store',
+    };
+    mocks.savePayoutSettings.mutate.mockReset();
+    mocks.verifyError = null;
+  });
+
   it('renders bank and account fields in the settings form', () => {
     render(<PayoutSettingsScreen />);
 
@@ -201,5 +222,27 @@ describe('PayoutSettingsScreen', () => {
         (entry) => entry.align === 'start' && entry.scrollEnabled === false
       )
     ).toBe(true);
+  });
+
+  it('blocks save when account verification has not produced an account name', () => {
+    mocks.merchantData = {
+      id: 'merchant-1',
+      bank_account_number: '0123456789',
+      bank_code: null,
+      bank_name: null,
+      business_name: 'Baci Store',
+    };
+
+    render(<PayoutSettingsScreen />);
+
+    fireEvent.click(screen.getByLabelText('Select bank'));
+    fireEvent.click(screen.getByText('GTBank'));
+    fireEvent.click(screen.getByText('Save'));
+
+    expect(mocks.savePayoutSettings.mutate).not.toHaveBeenCalled();
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Error',
+      'Please wait for account verification'
+    );
   });
 });

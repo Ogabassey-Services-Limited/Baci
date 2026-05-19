@@ -167,8 +167,9 @@ export default function StoreSettingsScreen() {
   const selectedCountryLabel =
     COUNTRIES.find((c) => c.code === country || c.name === country)?.name ||
     country;
-  const planLabel = SubscriptionManagement.getPlanLabel(isPro);
-  const manageSubscriptionLabel = SubscriptionManagement.getManagementLabel();
+  const planLabel = SubscriptionManagement.getPlanLabel(isPro) || 'Free Plan';
+  const manageSubscriptionLabel =
+    SubscriptionManagement.getManagementLabel() || 'Manage Subscription';
 
   return (
     <>

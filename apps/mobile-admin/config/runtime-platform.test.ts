@@ -15,6 +15,10 @@ describe('runtime-platform', () => {
     expect(isRuntimePlatform(getRuntimePlatform())).toBe(true);
   });
 
+  it('returns false for non-runtime platform values', () => {
+    expect(isRuntimePlatform('windows' as never)).toBe(false);
+  });
+
   it('selects platform-specific values with fallback support', () => {
     expect(
       selectRuntimePlatform(
@@ -35,5 +39,9 @@ describe('runtime-platform', () => {
       )
     ).toBe('w');
     expect(selectRuntimePlatform({ default: 'd' }, 'windows')).toBe('d');
+  });
+
+  it('returns undefined when no platform or default match exists', () => {
+    expect(selectRuntimePlatform({ ios: 'i' }, 'windows')).toBeUndefined();
   });
 });
