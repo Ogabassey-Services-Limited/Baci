@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import {
   getCachedCategoryPageData,
@@ -12,7 +11,7 @@ import {
   generateMetaTitle,
   getIndexableRobotsMetadata,
 } from '@/lib/seo-utils';
-import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { buildStoreUrl } from '@/lib/store-url';
 import {
   parseStorefrontPageParam,
   STOREFRONT_PRODUCTS_PER_PAGE,
@@ -85,7 +84,7 @@ export async function generateMetadata({
     notFound();
   }
 
-  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const baseUrl = buildStoreUrl(merchant);
   const categoryUrl = `${baseUrl}/${category}`;
   const hubContent = buildCategoryPageHubModel({
     data,
