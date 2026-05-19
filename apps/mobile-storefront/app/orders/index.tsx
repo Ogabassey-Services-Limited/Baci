@@ -20,22 +20,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { OfflineEmptyState, OfflineNotice } from '@/components/OfflineNotice';
 import { OrdersListEmptyState } from '@/components/orders/OrdersListEmptyState';
 import { OrdersListHeader } from '@/components/orders/OrdersListHeader';
+import { OrdersListItem } from '@/components/orders/OrdersListItem';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND } from '@/constants/Colors';
 import { useRequireAuth } from '@/hooks/use-auth-guard';
 import { useNetworkState } from '@/hooks/use-network-state';
-import {
-  getCustomerOrderStatusPalette,
-  getCustomerOrderStatusMeta,
-} from '@/lib/customer-order-status';
-import { formatNgnCurrency } from '@/lib/format-ngn-currency';
+import { getCustomerOrderStatusMeta } from '@/lib/customer-order-status';
 import { createLogger } from '@/lib/logger';
 import {
   buildOrderListFilters,
   matchesOrderListFilter,
   type OrderListFilterKey,
 } from '@/lib/order-list-filters';
-import { getOrderDisplayTotal } from '@/lib/order-summary';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/stores/auth-store';
 
@@ -189,120 +185,6 @@ export default function OrdersScreen() {
       return orderNumberMatch || statusMatch || itemMatch;
     });
 
-  const renderOrderItem = ({ item }: { item: Order }) => {
-    const statusMeta = getCustomerOrderStatusMeta(item.shipping_status);
-    const statusPalette = getCustomerOrderStatusPalette(item.shipping_status);
-    const primaryItem = item.items[0];
-    const secondaryItems = Math.max(item.items.length - 1, 0);
-    const displayTotal = getOrderDisplayTotal({
-      subtotal: item.subtotal,
-      shippingFee: item.shipping_fee,
-      taxAmount: item.tax_amount,
-      discountAmount: item.discount_amount,
-      total: item.total,
-      paymentStatus: item.payment_status,
-    });
-
-    return (
-      <TouchableOpacity
-        style={[
-          styles.orderCard,
-          {
-            backgroundColor: colors.card,
-            borderColor: statusPalette.border,
-            shadowColor: statusPalette.accent,
-          },
-        ]}
-        onPress={() => router.push(`/orders/${item.id}`)}
-        activeOpacity={0.7}
-      >
-        <View
-          style={[
-            styles.orderAccent,
-            { backgroundColor: statusPalette.accent },
-          ]}
-        />
-
-        <View style={styles.orderTopRow}>
-          <View style={styles.orderStatusRow}>
-            <View
-              style={[
-                styles.statusIconWrap,
-                { backgroundColor: statusPalette.surface },
-              ]}
-            >
-              <Ionicons
-                name={
-                  statusMeta.icon as React.ComponentProps<
-                    typeof Ionicons
-                  >['name']
-                }
-                size={18}
-                color={statusPalette.accent}
-              />
-            </View>
-            <View style={styles.orderStatusCopy}>
-              <Text
-                style={[styles.statusHeadline, { color: statusPalette.accent }]}
-              >
-                {statusMeta.label}
-              </Text>
-              <Text style={[styles.orderDate, { color: colors.textSecondary }]}>
-                Placed {formatDate(item.created_at)}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.orderTotalBlock}>
-            <Text style={[styles.totalLabel, { color: colors.textSecondary }]}>
-              Total
-            </Text>
-            <Text style={[styles.totalAmount, { color: colors.text }]}>
-              {formatNgnCurrency(displayTotal)}
-            </Text>
-          </View>
-        </View>
-
-        <View
-          style={[
-            styles.orderBody,
-            { borderTopColor: colors.border, borderBottomColor: colors.border },
-          ]}
-        >
-          <Text
-            style={[styles.primaryItemName, { color: colors.text }]}
-            numberOfLines={1}
-          >
-            {primaryItem?.product_name || 'Order items'}
-          </Text>
-          <Text
-            style={[styles.orderNarrative, { color: colors.textSecondary }]}
-            numberOfLines={1}
-          >
-            {primaryItem
-              ? secondaryItems > 0
-                ? `+${secondaryItems} more item${secondaryItems === 1 ? '' : 's'}`
-                : `${primaryItem.quantity} ${primaryItem.quantity === 1 ? 'item' : 'items'}`
-              : `${item.items_count} ${item.items_count === 1 ? 'item' : 'items'}`}
-          </Text>
-        </View>
-
-        <View style={styles.viewDetails}>
-          <Text
-            style={[styles.viewDetailsText, { color: statusPalette.accent }]}
-          >
-            View order details
-          </Text>
-          <Ionicons
-            name="chevron-forward"
-            size={16}
-            color={statusPalette.accent}
-          />
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
   const handleGoBack = () => {
     if (router.canGoBack()) {
       router.back();
@@ -441,7 +323,14 @@ export default function OrdersScreen() {
 
         <FlashList
           data={filteredOrders}
-          renderItem={renderOrderItem}
+          renderItem={({ item }) => (
+            <OrdersListItem
+              item={item}
+              colors={colors}
+              formatDate={formatDate}
+              onPress={(orderId) => router.push(`/orders/${orderId}`)}
+            />
+          )}
           keyExtractor={(item) => item.id}
           contentContainerStyle={[
             styles.listContent,
@@ -529,98 +418,6 @@ const styles = StyleSheet.create({
   },
   emptyListContent: {
     flex: 1,
-  },
-  orderCard: {
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    overflow: 'hidden',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 3,
-  },
-  orderAccent: {
-    position: 'absolute',
-    left: 0,
-    top: 18,
-    bottom: 18,
-    width: 4,
-    borderRadius: 999,
-  },
-  orderTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 12,
-    alignItems: 'flex-start',
-  },
-  orderStatusRow: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'center',
-  },
-  statusIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  orderStatusCopy: {
-    flex: 1,
-  },
-  statusHeadline: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  orderTotalBlock: {
-    alignItems: 'flex-end',
-  },
-  orderNumber: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  orderDate: {
-    fontSize: 13,
-    marginTop: 4,
-  },
-  orderBody: {
-    marginTop: 16,
-    paddingTop: 14,
-    paddingBottom: 14,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  primaryItemName: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  orderNarrative: {
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 8,
-  },
-  totalLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  totalAmount: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  viewDetails: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 4,
-    marginTop: 14,
-  },
-  viewDetailsText: {
-    fontSize: 14,
-    fontWeight: '600',
   },
   emptyState: {
     flex: 1,
