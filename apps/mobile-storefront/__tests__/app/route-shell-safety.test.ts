@@ -6,6 +6,17 @@ const ROUTE_MODULE_EXTENSION_PATTERN =
   /\.(?:(?:android|ios|native|web)\.)?(ts|tsx|js|jsx)$/;
 const ROUTE_PLATFORM_SEGMENT_PATTERN =
   /\.(android|ios|native|web)\.(ts|tsx|js|jsx)$/;
+const API_ROUTE_MODULE_PATTERN = /\+api\.(ts|tsx|js|jsx)$/;
+const DYNAMIC_ROUTE_MODULE_PATTERN =
+  /^(?:\[[a-zA-Z0-9_-]+\]|\[\.\.\.[a-zA-Z0-9_-]+\]|\[\[\.\.\.[a-zA-Z0-9_-]+\]\])\.(ts|tsx|js|jsx)$/;
+const LAYOUT_ROUTE_MODULE_PATTERN = /^_layout\.(ts|tsx|js|jsx)$/;
+const INDEX_ROUTE_MODULE_PATTERN = /^index\.(ts|tsx|js|jsx)$/;
+const SHELL_JSX_PATTERN = /<StorefrontScreenShell(?:[\s>])/;
+
+type RouteModule = {
+  actualPath: string;
+  normalizedPath: string;
+};
 const EXPO_ROUTER_SPECIAL_FILES = new Set([
   '+html.ts',
   '+html.tsx',
@@ -96,7 +107,14 @@ function normalizeRouteModulePath(relativePath: string) {
   return relativePath.replace(ROUTE_PLATFORM_SEGMENT_PATTERN, '.$2');
 }
 
-function isRouteFile(relativePath: string): boolean {
+function toRouteModule(relativePath: string): RouteModule {
+  return {
+    actualPath: relativePath,
+    normalizedPath: normalizeRouteModulePath(relativePath),
+  };
+}
+
+function assertRouteFile(relativePath: string): boolean {
   const routePath = normalizeRouteModulePath(relativePath);
   const fileName = path.basename(routePath);
 
@@ -104,50 +122,72 @@ function isRouteFile(relativePath: string): boolean {
     return true;
   }
 
-  if (/^_layout\.(ts|tsx|js|jsx)$/.test(fileName)) {
+  if (LAYOUT_ROUTE_MODULE_PATTERN.test(fileName)) {
     return true;
   }
 
-  if (/^index\.(ts|tsx|js|jsx)$/.test(fileName)) {
+  if (INDEX_ROUTE_MODULE_PATTERN.test(fileName)) {
     return true;
   }
 
-  if (/^.+\+api\.(ts|tsx|js|jsx)$/.test(fileName)) {
+  if (API_ROUTE_MODULE_PATTERN.test(fileName)) {
     return true;
   }
 
-  if (
-    /^(?:\[[a-zA-Z0-9_-]+\]|\[\.\.\.[a-zA-Z0-9_-]+\]|\[\[\.\.\.[a-zA-Z0-9_-]+\]\])\.(ts|tsx|js|jsx)$/.test(
-      fileName
-    )
-  ) {
+  if (DYNAMIC_ROUTE_MODULE_PATTERN.test(fileName)) {
     return true;
   }
 
-  return EXPLICIT_STATIC_ROUTES.has(routePath);
+  if (EXPLICIT_STATIC_ROUTES.has(routePath)) {
+    return true;
+  }
+
+  throw new Error(
+    [
+      `Unclassified app route module: ${routePath}`,
+      'If this is a new static screen, add it to EXPLICIT_STATIC_ROUTES so the StorefrontScreenShell safety check covers it.',
+      'If this is support code, move it out of app/ so Expo Router does not discover it as a route.',
+    ].join('\n')
+  );
 }
 
 function isShellCheckRoute(routePath: string) {
   const fileName = path.basename(routePath);
   if (EXPO_ROUTER_SPECIAL_FILES.has(fileName)) return false;
-  return !/^_layout\.(ts|tsx|js|jsx)$/.test(fileName);
+  if (LAYOUT_ROUTE_MODULE_PATTERN.test(fileName)) return false;
+  return !API_ROUTE_MODULE_PATTERN.test(fileName);
 }
 
-function routeUsesStorefrontScreenShell(routePath: string) {
-  const absolutePath = path.join(APP_ROOT, routePath);
+function routeUsesStorefrontScreenShell(routeModule: RouteModule) {
+  const absolutePath = path.join(APP_ROOT, routeModule.actualPath);
   const source = readFileSync(absolutePath, 'utf8');
-  return source.includes('StorefrontScreenShell');
+  return SHELL_JSX_PATTERN.test(source);
 }
 
 describe('app route shell safety', () => {
   it('keeps StorefrontScreenShell coverage from regressing', () => {
     const routeFiles = collectModuleFiles(APP_ROOT)
-      .filter((filePath) => isRouteFile(filePath))
-      .map(normalizeRouteModulePath)
-      .filter(isShellCheckRoute);
+      .filter(assertRouteFile)
+      .map(toRouteModule)
+      .filter((routeModule) => isShellCheckRoute(routeModule.normalizedPath));
 
-    const routesWithoutShell = routeFiles.filter(
-      (routePath) => !routeUsesStorefrontScreenShell(routePath)
+    const routePathSet = new Set(
+      routeFiles.map((routeModule) => routeModule.normalizedPath)
+    );
+
+    const routesWithoutShell = routeFiles
+      .filter((routeModule) => !routeUsesStorefrontScreenShell(routeModule))
+      .map((routeModule) => routeModule.normalizedPath);
+
+    const routeModulesByPath = routeFiles.reduce(
+      (modulesByPath, routeModule) => {
+        const routeModules =
+          modulesByPath.get(routeModule.normalizedPath) ?? [];
+        routeModules.push(routeModule);
+        modulesByPath.set(routeModule.normalizedPath, routeModules);
+        return modulesByPath;
+      },
+      new Map<string, RouteModule[]>()
     );
 
     const unexpectedRoutesWithoutShell = routesWithoutShell.filter(
@@ -155,10 +195,22 @@ describe('app route shell safety', () => {
     );
 
     const staleExemptions = [...SHELL_EXEMPT_ROUTES]
-      .filter((routePath) => routeFiles.includes(routePath))
-      .filter(routeUsesStorefrontScreenShell);
+      .filter((routePath) => routePathSet.has(routePath))
+      .filter((routePath) =>
+        routeModulesByPath
+          .get(routePath)!
+          .every(routeUsesStorefrontScreenShell)
+      );
 
-    if (unexpectedRoutesWithoutShell.length > 0 || staleExemptions.length > 0) {
+    const orphanedExemptions = [...SHELL_EXEMPT_ROUTES].filter(
+      (routePath) => !routePathSet.has(routePath)
+    );
+
+    if (
+      unexpectedRoutesWithoutShell.length > 0 ||
+      staleExemptions.length > 0 ||
+      orphanedExemptions.length > 0
+    ) {
       throw new Error(
         [
           'Storefront route shell safety check failed.',
@@ -176,6 +228,13 @@ describe('app route shell safety', () => {
             ? [
                 'Stale StorefrontScreenShell exemptions (route now uses shell; remove from SHELL_EXEMPT_ROUTES):',
                 ...staleExemptions.map((routePath) => `- ${routePath}`),
+                '',
+              ]
+            : []),
+          ...(orphanedExemptions.length > 0
+            ? [
+                'Orphaned StorefrontScreenShell exemptions (route no longer exists; remove from SHELL_EXEMPT_ROUTES):',
+                ...orphanedExemptions.map((routePath) => `- ${routePath}`),
               ]
             : []),
         ].join('\n')
@@ -184,5 +243,6 @@ describe('app route shell safety', () => {
 
     expect(unexpectedRoutesWithoutShell).toEqual([]);
     expect(staleExemptions).toEqual([]);
+    expect(orphanedExemptions).toEqual([]);
   });
 });
