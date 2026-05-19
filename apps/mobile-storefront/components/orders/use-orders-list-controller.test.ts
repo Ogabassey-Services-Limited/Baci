@@ -1,5 +1,5 @@
-import { describe, expect, it, jest } from '@jest/globals';
-import { renderHook, waitFor } from '@testing-library/react-native';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { act, renderHook, waitFor } from '@testing-library/react-native';
 import { useOrdersListController } from './use-orders-list-controller';
 
 const mockFrom = jest.fn();
@@ -33,7 +33,10 @@ type MockOrderRow = {
   total: number;
 };
 
-function setSupabaseRows(rows: MockOrderRow[], error: { message: string } | null) {
+function setSupabaseRows(
+  rows: MockOrderRow[],
+  error: { message: string } | null
+) {
   mockFrom.mockReturnValue({
     select: () => ({
       eq: () => ({
@@ -46,7 +49,38 @@ function setSupabaseRows(rows: MockOrderRow[], error: { message: string } | null
   });
 }
 
+function createMockOrderRow(
+  overrides: Partial<MockOrderRow> & { id: string; order_number: string },
+  itemName: string
+): MockOrderRow {
+  return {
+    created_at: '2026-05-01T12:00:00.000Z',
+    discount_amount: 0,
+    id: overrides.id,
+    order_items: [
+      {
+        id: `${overrides.id}-item`,
+        name: itemName,
+        price: 470000,
+        quantity: 1,
+      },
+    ],
+    order_number: overrides.order_number,
+    payment_status: 'paid',
+    shipping_fee: 0,
+    shipping_status: 'pending',
+    subtotal: 470000,
+    tax_amount: 0,
+    total: 470000,
+    ...overrides,
+  };
+}
+
 describe('useOrdersListController', () => {
+  beforeEach(() => {
+    mockFrom.mockReset();
+  });
+
   it('maps order rows into order list items on successful fetch', async () => {
     setSupabaseRows(
       [
@@ -107,5 +141,125 @@ describe('useOrdersListController', () => {
       expect(result.current.isLoading).toBe(false);
       expect(result.current.error).toBe('Failed to load orders');
     });
+  });
+
+  it('updates filtered orders when search text and status filters change', async () => {
+    setSupabaseRows(
+      [
+        createMockOrderRow(
+          {
+            id: 'order-1',
+            order_number: 'ORD-001',
+            shipping_status: 'delivered',
+          },
+          'iPhone 11 Pro Max'
+        ),
+        createMockOrderRow(
+          {
+            id: 'order-2',
+            order_number: 'ORD-002',
+            shipping_status: 'pending',
+          },
+          'Samsung Charger'
+        ),
+        createMockOrderRow(
+          {
+            id: 'order-3',
+            order_number: 'ORD-003',
+            shipping_status: 'cancelled',
+          },
+          'USB Cable'
+        ),
+      ],
+      null
+    );
+
+    const { result } = renderHook(() =>
+      useOrdersListController({
+        customerId: 'customer-1',
+        onReconnect: () => () => undefined,
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.orders).toHaveLength(3);
+    });
+
+    expect(result.current.orderFilters).toEqual([
+      { count: 3, key: 'all', label: 'All' },
+      { count: 1, key: 'active', label: 'Active' },
+      { count: 1, key: 'delivered', label: 'Delivered' },
+      { count: 1, key: 'closed', label: 'Closed' },
+    ]);
+
+    act(() => {
+      result.current.setSearchQuery('iphone');
+    });
+
+    expect(result.current.filteredOrders.map((order) => order.id)).toEqual([
+      'order-1',
+    ]);
+
+    act(() => {
+      result.current.setSearchQuery('');
+      result.current.setSelectedFilter('closed');
+    });
+
+    expect(result.current.filteredOrders.map((order) => order.id)).toEqual([
+      'order-3',
+    ]);
+  });
+
+  it('refreshes orders and clears the refreshing state', async () => {
+    setSupabaseRows(
+      [
+        createMockOrderRow(
+          { id: 'order-1', order_number: 'ORD-001' },
+          'iPhone'
+        ),
+      ],
+      null
+    );
+
+    const { result } = renderHook(() =>
+      useOrdersListController({
+        customerId: 'customer-1',
+        onReconnect: () => () => undefined,
+      })
+    );
+
+    await waitFor(() => {
+      expect(result.current.orders.map((order) => order.id)).toEqual([
+        'order-1',
+      ]);
+    });
+
+    setSupabaseRows(
+      [
+        createMockOrderRow(
+          {
+            id: 'order-2',
+            order_number: 'ORD-002',
+            shipping_status: 'delivered',
+          },
+          'Pixel 8'
+        ),
+      ],
+      null
+    );
+
+    act(() => {
+      result.current.handleRefresh();
+    });
+
+    await waitFor(() => {
+      expect(result.current.isRefreshing).toBe(false);
+      expect(result.current.orders.map((order) => order.id)).toEqual([
+        'order-2',
+      ]);
+    });
+
+    expect(mockFrom).toHaveBeenCalledTimes(2);
   });
 });

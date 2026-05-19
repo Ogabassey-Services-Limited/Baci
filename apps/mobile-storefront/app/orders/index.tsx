@@ -7,7 +7,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { FlashList } from '@shopify/flash-list';
 import { Redirect, router, Stack } from 'expo-router';
-import { useCallback } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -58,14 +57,14 @@ export default function OrdersScreen() {
     onReconnect,
   });
 
-  const formatDate = useCallback((dateString: string) => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-NG', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
     });
-  }, []);
+  };
 
   // Declarative auth-gate: redirect to login if not authenticated
   if (redirectTo) {
