@@ -53,26 +53,28 @@ function createMockOrderRow(
   overrides: Partial<MockOrderRow> & { id: string; order_number: string },
   itemName: string
 ): MockOrderRow {
+  const { id, order_number, ...rest } = overrides;
+
   return {
     created_at: '2026-05-01T12:00:00.000Z',
     discount_amount: 0,
-    id: overrides.id,
+    id,
     order_items: [
       {
-        id: `${overrides.id}-item`,
+        id: `${id}-item`,
         name: itemName,
         price: 470000,
         quantity: 1,
       },
     ],
-    order_number: overrides.order_number,
+    order_number,
     payment_status: 'paid',
     shipping_fee: 0,
     shipping_status: 'pending',
     subtotal: 470000,
     tax_amount: 0,
     total: 470000,
-    ...overrides,
+    ...rest,
   };
 }
 
