@@ -1,11 +1,14 @@
 import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
 import { type NextRequest, NextResponse } from 'next/server';
+import { getQuizPhaseEnv } from '@/env';
 import { logger } from '@/lib/logger';
 import { startQuizAttemptSchema } from '@/schemas/quiz';
 import {
   createRouteProof,
+  enforceEventPrizeGuard,
   invalidInputResponse,
   parseJsonBody,
+  prizeGuardErrorResponse,
   requireQuizCsrf,
   requireQuizUser,
   rpcErrorResponse,
@@ -40,6 +43,14 @@ export async function POST(request: NextRequest) {
   const parsed = startQuizAttemptSchema.safeParse(body);
   if (!parsed.success) {
     return invalidInputResponse(parsed.error.flatten().fieldErrors);
+  }
+
+  if (getQuizPhaseEnv() === 'production') {
+    try {
+      await enforceEventPrizeGuard(auth.supabase, parsed.data.eventId);
+    } catch (error) {
+      return prizeGuardErrorResponse(error);
+    }
   }
 
   const { proof, response: proofResponse } = createRouteProof({

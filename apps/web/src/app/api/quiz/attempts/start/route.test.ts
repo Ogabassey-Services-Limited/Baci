@@ -23,7 +23,11 @@ vi.mock('@/lib/logger', () => ({
 
 const EVENT_ID = '11111111-1111-1111-1111-111111111111';
 const USER_ID = 'user-1';
-const ORIGINAL_QUIZ_RPC_SERVER_SECRET = process.env.QUIZ_RPC_SERVER_SECRET;
+const ORIGINAL_QUIZ_ENV = {
+  QUIZ_PHASE: process.env.QUIZ_PHASE,
+  QUIZ_PRODUCTION_APPROVED: process.env.QUIZ_PRODUCTION_APPROVED,
+  QUIZ_RPC_SERVER_SECRET: process.env.QUIZ_RPC_SERVER_SECRET,
+};
 
 function jsonRequest(body: unknown) {
   return new NextRequest('http://localhost/api/quiz/attempts/start', {
@@ -34,6 +38,10 @@ function jsonRequest(body: unknown) {
 }
 
 function mockAuthenticatedSupabase({
+  eventGuardResult = {
+    data: { compliance_verified: true, nlrc_permit_ref: 'NLRC-123' },
+    error: null,
+  },
   rpcResult = {
     data: {
       attemptId: 'attempt-1',
@@ -45,9 +53,19 @@ function mockAuthenticatedSupabase({
   },
   user = { id: USER_ID },
 }: {
+  eventGuardResult?: { data: unknown; error: unknown };
   rpcResult?: { data: unknown; error: unknown };
   user?: { id: string } | null;
 } = {}) {
+  const eventGuardBuilder = {
+    eq: vi.fn(() => eventGuardBuilder),
+    maybeSingle: vi.fn().mockResolvedValue(eventGuardResult),
+    select: vi.fn(() => eventGuardBuilder),
+  };
+  const from = vi.fn((table: string) => {
+    if (table === 'quiz_events') return eventGuardBuilder;
+    return eventGuardBuilder;
+  });
   const rpc = vi.fn().mockResolvedValue(rpcResult);
   const supabase = {
     auth: {
@@ -56,11 +74,12 @@ function mockAuthenticatedSupabase({
         error: null,
       }),
     },
+    from,
     rpc,
   };
 
   vi.mocked(createClient).mockResolvedValue(supabase as never);
-  return { rpc };
+  return { eventGuardBuilder, from, rpc };
 }
 
 describe('start quiz attempt route', () => {
@@ -71,11 +90,14 @@ describe('start quiz attempt route', () => {
   });
 
   afterEach(() => {
-    if (ORIGINAL_QUIZ_RPC_SERVER_SECRET === undefined) {
-      delete process.env.QUIZ_RPC_SERVER_SECRET;
-      return;
+    vi.unstubAllEnvs();
+    for (const [key, value] of Object.entries(ORIGINAL_QUIZ_ENV)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
     }
-    process.env.QUIZ_RPC_SERVER_SECRET = ORIGINAL_QUIZ_RPC_SERVER_SECRET;
   });
 
   it('returns 401 before RPC calls when authentication is missing', async () => {
@@ -204,5 +226,33 @@ describe('start quiz attempt route', () => {
       })
     );
     expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('fails closed before starting prize play in production when permit evidence is missing', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
+    const { eventGuardBuilder, from, rpc } = mockAuthenticatedSupabase({
+      eventGuardResult: {
+        data: { compliance_verified: true, nlrc_permit_ref: '   ' },
+        error: null,
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      code: 'quiz_production_not_approved',
+      error: 'Quiz prizes are not approved for production use',
+    });
+    expect(from).toHaveBeenCalledWith('quiz_events');
+    expect(eventGuardBuilder.select).toHaveBeenCalledWith(
+      'nlrc_permit_ref, compliance_verified'
+    );
+    expect(eventGuardBuilder.eq).toHaveBeenCalledWith('id', EVENT_ID);
+    expect(rpc).not.toHaveBeenCalled();
   });
 });
