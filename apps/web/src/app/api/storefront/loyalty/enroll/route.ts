@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { type NextRequest, NextResponse } from 'next/server';
+import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
 
 // POST - Enroll a customer in loyalty program
@@ -43,7 +44,10 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (existingError) {
-      console.error('Error checking existing enrollment:', existingError);
+      logger.error({
+        message: 'Error checking existing enrollment',
+        error: existingError,
+      });
       return NextResponse.json(
         { error: 'Failed to verify enrollment status' },
         { status: 500 }
@@ -72,7 +76,10 @@ export async function POST(request: NextRequest) {
         .maybeSingle();
 
       if (referrerError) {
-        console.error('Error fetching referrer:', referrerError);
+        logger.error({
+          message: 'Error fetching referrer',
+          error: referrerError,
+        });
         return NextResponse.json(
           { error: 'Database error verifying referral code' },
           { status: 500 }
@@ -104,7 +111,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (createError) {
-      console.error('Error creating loyalty record:', createError);
+      logger.error({
+        message: 'Error creating loyalty record',
+        error: createError,
+      });
       return NextResponse.json(
         { error: 'Failed to enroll in loyalty program' },
         { status: 500 }
@@ -126,7 +136,10 @@ export async function POST(request: NextRequest) {
         });
 
       if (transactionError) {
-        console.error('Error recording welcome bonus:', transactionError);
+        logger.error({
+          message: 'Error recording welcome bonus',
+          error: transactionError,
+        });
       }
     }
 
@@ -143,7 +156,10 @@ export async function POST(request: NextRequest) {
       );
 
       if (referrerUpdateError) {
-        console.error('Error awarding referrer bonus:', referrerUpdateError);
+        logger.error({
+          message: 'Error awarding referrer bonus',
+          error: referrerUpdateError,
+        });
       } else {
         // Record referrer transaction
         const { error: referrerTxError } = await supabase
@@ -156,10 +172,10 @@ export async function POST(request: NextRequest) {
             description: 'Referral bonus - new customer signup',
           });
         if (referrerTxError) {
-          console.error(
-            'Error recording referrer points transaction:',
-            referrerTxError
-          );
+          logger.error({
+            message: 'Error recording referrer points transaction',
+            error: referrerTxError,
+          });
         }
       }
     }
@@ -174,7 +190,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Error in loyalty enrollment:', error);
+    logger.error({ message: 'Error in loyalty enrollment', error });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

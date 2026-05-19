@@ -14,6 +14,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { logger } from '@/lib/logger';
 import {
   assignVirtualTerminalDestinations,
   unassignVirtualTerminalDestinations,
@@ -94,7 +95,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       .maybeSingle();
 
     if (merchantError) {
-      console.error('Database error fetching merchant record:', merchantError);
+      logger.error({
+        message: 'Database error fetching merchant record',
+        error: merchantError,
+      });
       return NextResponse.json(
         { error: 'Database error verifying terminal ownership' },
         { status: 500 }
@@ -131,7 +135,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       destinations: result.data,
     });
   } catch (error) {
-    console.error('Destination assignment error:', error);
+    logger.error({ message: 'Destination assignment error', error });
     return NextResponse.json(
       { error: 'Failed to add WhatsApp destinations' },
       { status: 500 }
@@ -189,7 +193,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       .maybeSingle();
 
     if (merchantError) {
-      console.error('Database error fetching merchant record:', merchantError);
+      logger.error({
+        message: 'Database error fetching merchant record',
+        error: merchantError,
+      });
       return NextResponse.json(
         { error: 'Database error verifying terminal ownership' },
         { status: 500 }
@@ -226,7 +233,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       message: 'Destinations removed',
     });
   } catch (error) {
-    console.error('Destination removal error:', error);
+    logger.error({ message: 'Destination removal error', error });
     return NextResponse.json(
       { error: 'Failed to remove WhatsApp destinations' },
       { status: 500 }
