@@ -28,6 +28,10 @@ import { SUPPORT_WHATSAPP_PHONE } from '@/constants/Support';
 import { useReceiptPreview } from '@/hooks/use-receipt-preview';
 import { useMerchantReceiptInfo } from '@/hooks/use-receipts';
 import {
+  type OrderDetailsSummaryBreakdown,
+  OrderDetailsSummaryCard,
+} from '@/components/orders/OrderDetailsSummaryCard';
+import {
   CUSTOMER_ORDER_PROGRESS_STEPS,
   getCustomerOrderStatusPalette,
   getCustomerOrderProgressState,
@@ -439,7 +443,7 @@ export default function OrderDetailsScreen() {
     order.items,
     insurancePolicy?.premium_amount
   );
-  const summaryBreakdown = getOrderSummaryBreakdown({
+  const summaryBreakdown: OrderDetailsSummaryBreakdown = getOrderSummaryBreakdown({
     subtotal: order.subtotal,
     shippingFee: order.shipping_fee,
     taxAmount: order.tax_amount,
@@ -951,91 +955,13 @@ export default function OrderDetailsScreen() {
             </View>
           </View>
 
-          {/* Order Summary */}
-          <View style={[styles.card, { backgroundColor: colors.card }]}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              Order Summary
-            </Text>
-            <View style={styles.summaryRow}>
-              <Text
-                style={[styles.summaryLabel, { color: colors.textSecondary }]}
-              >
-                Subtotal
-              </Text>
-              <Text style={[styles.summaryValue, { color: colors.text }]}>
-                {formatNgnCurrency(summaryBreakdown.itemsSubtotal)}
-              </Text>
-            </View>
-            {summaryBreakdown.assuranceFee > 0 && (
-              <View style={styles.summaryRow}>
-                <Text
-                  style={[styles.summaryLabel, { color: colors.textSecondary }]}
-                >
-                  Device Assurance
-                </Text>
-                <Text style={[styles.summaryValue, { color: colors.text }]}>
-                  {formatNgnCurrency(summaryBreakdown.assuranceFee)}
-                </Text>
-              </View>
-            )}
-            <View style={styles.summaryRow}>
-              <Text
-                style={[styles.summaryLabel, { color: colors.textSecondary }]}
-              >
-                Shipping
-              </Text>
-              <Text style={[styles.summaryValue, { color: colors.text }]}>
-                {summaryBreakdown.shippingFee === 0
-                  ? 'Free'
-                  : formatNgnCurrency(summaryBreakdown.shippingFee)}
-              </Text>
-            </View>
-            {summaryBreakdown.taxAmount > 0 && (
-              <View style={styles.summaryRow}>
-                <Text
-                  style={[styles.summaryLabel, { color: colors.textSecondary }]}
-                >
-                  VAT
-                </Text>
-                <Text style={[styles.summaryValue, { color: colors.text }]}>
-                  {formatNgnCurrency(summaryBreakdown.taxAmount)}
-                </Text>
-              </View>
-            )}
-            {summaryBreakdown.discountAmount > 0 && (
-              <View style={styles.summaryRow}>
-                <Text
-                  style={[styles.summaryLabel, { color: colors.textSecondary }]}
-                >
-                  Discount
-                </Text>
-                <Text style={[styles.summaryValue, { color: '#059669' }]}>
-                  -{formatNgnCurrency(summaryBreakdown.discountAmount)}
-                </Text>
-              </View>
-            )}
-            <View style={[styles.summaryRow, styles.totalRow]}>
-              <Text style={[styles.totalLabel, { color: colors.text }]}>
-                Total
-              </Text>
-              <Text style={[styles.totalValue, { color: colors.text }]}>
-                {formatNgnCurrency(summaryBreakdown.total)}
-              </Text>
-            </View>
-            <View style={styles.paymentInfo}>
-              <Text
-                style={[styles.paymentMethod, { color: colors.textSecondary }]}
-              >
-                {order.payment_status === 'paid'
-                  ? `Paid via ${order.payment_method?.replace('_', ' ')}`
-                  : order.payment_status === 'partially_paid'
-                    ? `Partially paid via ${order.payment_method?.replace('_', ' ')}`
-                    : order.payment_status === 'pending'
-                      ? 'Payment pending'
-                      : `${order.payment_method?.replace('_', ' ')} - ${order.payment_status?.replace('_', ' ')}`}
-              </Text>
-            </View>
-          </View>
+          <OrderDetailsSummaryCard
+            colors={colors}
+            formatCurrency={formatNgnCurrency}
+            paymentMethod={order.payment_method}
+            paymentStatus={order.payment_status}
+            summaryBreakdown={summaryBreakdown}
+          />
 
           {(isReceiptReady ||
             canShowRiderContact ||
@@ -1439,42 +1365,6 @@ const styles = StyleSheet.create({
   addressLine: {
     fontSize: 14,
     marginTop: 2,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  summaryLabel: {
-    fontSize: 14,
-  },
-  summaryValue: {
-    fontSize: 14,
-  },
-  totalRow: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E5E5E5',
-    paddingTop: 12,
-    marginTop: 4,
-    marginBottom: 0,
-  },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  totalValue: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  paymentInfo: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#E5E5E5',
-  },
-  paymentMethod: {
-    fontSize: 13,
-    textTransform: 'capitalize',
   },
   actionStack: {
     gap: 12,
