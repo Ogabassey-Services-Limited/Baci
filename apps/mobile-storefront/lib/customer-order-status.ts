@@ -11,12 +11,20 @@ export type CustomerOrderProgressState =
   | 'current'
   | 'upcoming';
 
+export type CustomerOrderStatusIconName =
+  | 'receipt-outline'
+  | 'checkmark-circle-outline'
+  | 'car-outline'
+  | 'checkmark-done-outline'
+  | 'close-circle-outline'
+  | 'return-down-back-outline';
+
 export interface CustomerOrderStatusMeta {
   key: CustomerOrderStatusKey;
   label: string;
   shortLabel: string;
   description: string;
-  icon: string;
+  icon: CustomerOrderStatusIconName;
 }
 
 export interface CustomerOrderStatusPalette {
