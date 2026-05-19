@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import type React from 'react';
 import { Suspense } from 'react';
@@ -13,7 +12,7 @@ import { StorefrontCartProvider } from '@/hooks/cart/storefront-cart-provider';
 import { StorefrontMerchantProvider } from '@/hooks/merchant/storefront-merchant-provider';
 import type { MerchantData } from '@/hooks/merchant/types';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
-import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { buildStoreUrl } from '@/lib/store-url';
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import {
   getStorefrontSeoDescription,
@@ -125,8 +124,7 @@ export async function generateMetadata({
 
   // Build SEO-friendly description with proper fallbacks
   const description = getStorefrontSeoDescription(merchant);
-  const headersList = await headers();
-  const baseUrl = buildRequestScopedStoreUrl(merchant, headersList);
+  const baseUrl = buildStoreUrl(merchant);
   let metadataBase: URL | undefined;
 
   try {

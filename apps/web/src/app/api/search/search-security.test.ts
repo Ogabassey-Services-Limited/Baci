@@ -152,6 +152,29 @@ describe('Search API Security', () => {
       expect(data.popularSearches).toEqual([]);
     });
 
+    it('returns empty suggestions when autocomplete query times out', async () => {
+      mockSupabase.rpc.mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: '57014',
+          message: 'canceling statement due to statement timeout',
+        },
+      });
+
+      const request = new NextRequest(
+        'http://localhost:3000/api/search/autocomplete?q=iphone&merchant_id=123e4567-e89b-12d3-a456-426614174000'
+      );
+
+      const response = await autocompleteGET(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data).toEqual({
+        suggestions: [],
+        popularSearches: [],
+      });
+    });
+
     it('should validate merchant_id UUID', async () => {
       const invalidMerchantId = 'not-a-uuid';
       const request = new NextRequest(

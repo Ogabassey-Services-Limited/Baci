@@ -109,13 +109,16 @@ export async function GET(request: NextRequest) {
 
     // Parse address components (New API format uses `longText`)
     interface AddressComponent {
-      types: string[];
+      types?: string[];
       longText?: string;
     }
-    const components: AddressComponent[] = data.addressComponents || [];
+    const components: AddressComponent[] = Array.isArray(data.addressComponents)
+      ? data.addressComponents
+      : [];
 
     const getComponent = (type: string) =>
-      components.find((c) => c.types.includes(type))?.longText || '';
+      components.find((component) => component.types?.includes(type))
+        ?.longText || '';
 
     const details = {
       placeId: data.name,
