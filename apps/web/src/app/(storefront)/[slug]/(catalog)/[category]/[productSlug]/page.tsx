@@ -40,7 +40,7 @@ import {
   getProductUrl,
   getValidatedProductUrl,
 } from '@/lib/seo-utils';
-import { buildRequestScopedStoreUrl } from '@/lib/store-url';
+import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
 import {
@@ -522,7 +522,7 @@ export async function generateMetadata({
     return { robots: { index: false, follow: false } };
   }
 
-  const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
+  const baseUrl = buildStoreUrl(merchant);
   redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
 
   const canonicalUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);

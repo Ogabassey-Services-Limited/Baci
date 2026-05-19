@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { BlogListingFallback } from '@/app/(storefront)/[slug]/(blog)/blog/BlogListingFallback';
-import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import { InformationalClusterIndex } from '@/components/storefront/ogabassey/seo/informational-cluster-index';
 import { getBlogStructuredDataImageUrls } from '@/lib/blog-structured-data-images';
 import { getCachedBlogListing } from '@/lib/cached-data';
@@ -264,13 +263,8 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
 
 export default function BlogPage(props: PageProps) {
   return (
-    <>
-      <Suspense fallback={null}>
-        <StorefrontDynamicMetadataMarker />
-      </Suspense>
-      <Suspense fallback={<BlogListingFallback />}>
-        <BlogPageContent {...props} />
-      </Suspense>
-    </>
+    <Suspense fallback={<BlogListingFallback />}>
+      <BlogPageContent {...props} />
+    </Suspense>
   );
 }
