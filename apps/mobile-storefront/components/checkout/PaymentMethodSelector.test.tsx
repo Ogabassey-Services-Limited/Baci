@@ -135,6 +135,34 @@ describe('PaymentMethodSelector', () => {
     expect(onSelectMethod).not.toHaveBeenCalled();
   });
 
+  it('disables Klump when wallet credit is already active', () => {
+    const onSelectMethod = jest.fn();
+
+    render(
+      <PaymentMethodSelector
+        selectedMethod={'klump' as PaymentMethodType}
+        onSelectMethod={onSelectMethod}
+        selectedTab="installments"
+        onSelectTab={() => {}}
+        orderTotal={120000}
+        enabledMethods={['klump' as PaymentMethodType]}
+        walletSelection={{ use: true, amount: 5000 }}
+      />
+    );
+
+    const klumpRow = screen.getByLabelText(
+      'Klump. Wallet credit cannot be combined with Klump'
+    );
+
+    expect(klumpRow.props.accessibilityState).toMatchObject({
+      disabled: true,
+    });
+
+    fireEvent.press(klumpRow);
+
+    expect(onSelectMethod).not.toHaveBeenCalled();
+  });
+
   it('can show Paystack as an unselected alternate card option when a saved card owns the selection', () => {
     render(
       <PaymentMethodSelector

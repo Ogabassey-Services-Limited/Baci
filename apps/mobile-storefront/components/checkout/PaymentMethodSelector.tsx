@@ -204,6 +204,18 @@ export function PaymentMethodSelector({
   const filteredMethods = PAYMENT_METHODS.filter((m) => m.tab === selectedTab)
     .filter((m) => !enabledMethods || enabledMethods.includes(m.id))
     .map((method) => {
+      const walletDisablesKlump =
+        method.id === 'klump' &&
+        walletSelection?.use === true &&
+        (walletSelection.amount ?? 0) > 0;
+      if (walletDisablesKlump) {
+        return {
+          ...method,
+          disabled: true,
+          disabledReason: 'Wallet credit cannot be combined with Klump',
+        };
+      }
+
       const disabledReason = methodDisabledReasons[method.id];
       if (disabledReason) {
         return {

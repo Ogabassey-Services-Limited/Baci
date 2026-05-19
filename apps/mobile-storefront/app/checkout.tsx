@@ -102,6 +102,11 @@ import {
   toCheckoutAddressValues,
   upsertSavedAddress,
 } from '@/lib/checkout-saved-address';
+import {
+  buildKlumpBnplRouteParams,
+  buildKlumpInitializePayload,
+  getKlumpDisabledReason,
+} from '@/lib/klump-checkout';
 import { setClipboardString } from '@/lib/clipboard';
 import {
   buildShippingQuoteContextKey,
@@ -177,6 +182,7 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
   pay_on_delivery: 'Pay on Delivery',
   credpal: 'CredPal (Buy Now Pay Later)',
   credit_direct: 'Credit Direct (Installments)',
+  klump: 'Klump (Buy Now Pay Later)',
   juicyway: 'Crypto (Juicyway)',
   invoice: 'Generate Invoice',
   payforme: 'Pay for Me',
@@ -1430,6 +1436,11 @@ export default function CheckoutScreen() {
   const taxAmount = orderTotals?.taxAmount ?? 0;
   const total =
     orderTotals?.total ?? subtotal + deliveryFee + assuranceFee + taxAmount;
+  const klumpDisabledReason = getKlumpDisabledReason(
+    paymentSettings,
+    total,
+    walletSelection
+  );
   // Show subtotal + delivery + assurance (no VAT) in steps 1 & 2; full total (with VAT) in Review
   const displayTotal =
     step === 'review' ? total : subtotal + deliveryFee + assuranceFee;
@@ -1801,9 +1812,28 @@ export default function CheckoutScreen() {
             : address;
 
       const isBNPL =
-        selectedPayment === 'credpal' || selectedPayment === 'credit_direct';
+        selectedPayment === 'credpal' ||
+        selectedPayment === 'credit_direct' ||
+        selectedPayment === 'klump';
 
       if (isBNPL) {
+        const klumpSubmitDisabledReason =
+          selectedPayment === 'klump'
+            ? getKlumpDisabledReason(
+                paymentSettings,
+                snapshotTotal,
+                walletSelection
+              )
+            : undefined;
+        if (klumpSubmitDisabledReason) {
+          Alert.alert('Klump unavailable', klumpSubmitDisabledReason, [
+            { text: 'OK' },
+          ]);
+          isOrderInFlight.current = false;
+          setIsProcessing(false);
+          return;
+        }
+
         const orderResponse = await createOrder({
           customer_email: customerEmail,
           customer_name: customerName,
@@ -1845,9 +1875,62 @@ export default function CheckoutScreen() {
           source: 'mobile_app',
         });
 
+        if (selectedPayment === 'klump') {
+          const orderTotal = Number(orderResponse.order.total);
+          const initResponse = await fetch(
+            `${API_BASE_URL}/api/payments/initialize`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Idempotency-Key': `payment-init-${orderResponse.order.id}-klump`,
+              },
+              body: JSON.stringify(
+                buildKlumpInitializePayload({
+                  customerEmail,
+                  customerName,
+                  customerPhone,
+                  merchantId: MERCHANT_ID,
+                  orderId: orderResponse.order.id,
+                  orderTotal,
+                })
+              ),
+            }
+          );
+
+          const initData = await initResponse.json();
+          if (
+            !initResponse.ok ||
+            !initData.success ||
+            typeof initData.authorization_url !== 'string' ||
+            typeof initData.reference !== 'string'
+          ) {
+            throw new OrderError(
+              initData.error || 'Failed to initialize Klump payment',
+              'PAYMENT_INIT_ERROR'
+            );
+          }
+
+          isOrderInFlight.current = false;
+          setIsProcessing(false);
+          router.push({
+            pathname: '/bnpl-checkout',
+            params: buildKlumpBnplRouteParams({
+              amount: orderTotal,
+              authorizationUrl: initData.authorization_url,
+              customerEmail,
+              customerName,
+              customerPhone,
+              orderId: orderResponse.order.id,
+              reference: initData.reference,
+              trackingToken: orderResponse.order.tracking_token,
+            }),
+          });
+          return;
+        }
+
         isOrderInFlight.current = false;
         setIsProcessing(false);
-
         router.push({
           pathname: '/bnpl-checkout',
           params: {
@@ -2955,6 +3038,9 @@ export default function CheckoutScreen() {
         walletOrderTotal={total}
         walletSelection={walletSelection}
         onWalletToggle={setWalletSelection}
+        methodDisabledReasons={
+          klumpDisabledReason ? { klump: klumpDisabledReason } : undefined
+        }
       />
     </ScrollView>
   );

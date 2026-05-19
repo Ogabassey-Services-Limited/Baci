@@ -7,7 +7,7 @@ const MERCHANT_ID =
   Constants.expoConfig?.extra?.merchantId ||
   '6b5cb8a4-5575-456c-b936-8cdfae30db74';
 
-interface PaymentSettings {
+export interface PaymentSettings {
   paystack_enabled: boolean;
   korapay_enabled: boolean;
   juicyway_enabled: boolean;
