@@ -107,6 +107,50 @@ interface PublicStorefrontProductVariant {
   updated_at?: string | null;
 }
 
+interface LegacyPriceCompatibleProduct {
+  price?: number | string | null;
+  compare_at_price?: number | string | null;
+  sale_price?: number | null;
+  base_price?: number | null;
+}
+
+function parsePriceValue(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function withLegacyPriceFields<T extends LegacyPriceCompatibleProduct>(
+  product: T
+): T & { base_price: number; sale_price: number | null } {
+  const currentPrice = parsePriceValue(product.price);
+  const compareAtPrice = parsePriceValue(product.compare_at_price);
+  const hasSale =
+    currentPrice !== null &&
+    compareAtPrice !== null &&
+    compareAtPrice > currentPrice;
+
+  const basePrice = hasSale
+    ? compareAtPrice
+    : (currentPrice ?? compareAtPrice ?? 0);
+  const salePrice = hasSale ? currentPrice : null;
+
+  return {
+    ...product,
+    base_price: basePrice,
+    sale_price: salePrice,
+  };
+}
+
 async function getPublicProductVariantsByProductIds(productIds: string[]) {
   const uniqueProductIds = Array.from(
     new Set(productIds.filter((id): id is string => Boolean(id)))
@@ -726,8 +770,8 @@ export async function getCachedProducts(
         description,
         slug,
         canonical_url,
-        base_price,
-        sale_price,
+        price,
+        compare_at_price,
         currency,
         status,
         is_featured,
@@ -778,7 +822,7 @@ export async function getCachedProducts(
     return [];
   }
 
-  const products = data || [];
+  const products = (data || []).map(withLegacyPriceFields);
   const variantsByProductId = await getPublicProductVariantsByProductIds(
     products.map((product) => product.id)
   );
@@ -817,8 +861,8 @@ export async function getCachedProduct(
         description,
         slug,
         canonical_url,
-        base_price,
-        sale_price,
+        price,
+        compare_at_price,
         currency,
         status,
         is_featured,
@@ -869,13 +913,14 @@ export async function getCachedProduct(
     return null;
   }
 
+  const product = withLegacyPriceFields(data);
   const variantsByProductId = await getPublicProductVariantsByProductIds([
-    data.id,
+    product.id,
   ]);
 
   return {
-    ...data,
-    product_variants: variantsByProductId[data.id] || [],
+    ...product,
+    product_variants: variantsByProductId[product.id] || [],
   };
 }
 

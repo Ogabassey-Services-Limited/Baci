@@ -148,6 +148,43 @@ describe('cached-data product query projections', () => {
     );
   });
 
+  it('getCachedProducts maps price fields to legacy base/sale fields', async () => {
+    harness.mockListResult.data = [
+      {
+        id: 'product-123',
+        slug: 'iphone-16',
+        price: 950000,
+        compare_at_price: 1000000,
+      },
+      {
+        id: 'product-456',
+        slug: 'iphone-15',
+        price: 500000,
+        compare_at_price: null,
+      },
+    ];
+    harness.mockListResult.error = null;
+    harness.mockRpc.mockResolvedValueOnce({
+      data: [],
+      error: null,
+    });
+
+    const result = await getCachedProducts('merchant-123');
+
+    expect(result).toEqual([
+      expect.objectContaining({
+        id: 'product-123',
+        base_price: 1000000,
+        sale_price: 950000,
+      }),
+      expect.objectContaining({
+        id: 'product-456',
+        base_price: 500000,
+        sale_price: null,
+      }),
+    ]);
+  });
+
   it('getCachedProducts falls back to empty variants when the public RPC fails', async () => {
     harness.mockListResult.data = productList;
     harness.mockListResult.error = null;
@@ -200,6 +237,32 @@ describe('cached-data product query projections', () => {
       {
         p_product_ids: ['product-123'],
       }
+    );
+  });
+
+  it('getCachedProduct maps price fields to legacy base/sale fields', async () => {
+    harness.mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'product-123',
+        slug: 'iphone-16',
+        price: 910000,
+        compare_at_price: 950000,
+      },
+      error: null,
+    });
+    harness.mockRpc.mockResolvedValueOnce({
+      data: [],
+      error: null,
+    });
+
+    const result = await getCachedProduct('merchant-123', 'iphone-16');
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: 'product-123',
+        base_price: 950000,
+        sale_price: 910000,
+      })
     );
   });
 
