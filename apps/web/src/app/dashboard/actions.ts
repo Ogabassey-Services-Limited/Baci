@@ -1,6 +1,5 @@
 'use server';
 
-import { cookies } from 'next/headers';
 import { getCachedDashboardStats } from '@/lib/cached-data';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
@@ -56,8 +55,7 @@ export async function getDashboardMetrics(
   merchantId: string
 ): Promise<DashboardMetrics> {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = await createClient();
     const {
       data: { user },
       error: authError,
@@ -103,8 +101,7 @@ export async function getRecentSales(
   limit = 5
 ): Promise<RecentSale[]> {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = await createClient();
     const {
       data: { user },
       error: authError,
@@ -152,8 +149,7 @@ export async function getMonthlyChartData(
   merchantId: string
 ): Promise<MonthlyChartData[]> {
   try {
-    const cookieStore = await cookies();
-    const supabase = createClient(cookieStore);
+    const supabase = await createClient();
 
     // OPTIMIZED: Use database RPC function
     const { data: chartData, error } = await supabase.rpc(

@@ -1,13 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockCookies = vi.fn();
 const mockCreateClient = vi.fn();
 const mockGetCachedDashboardStats = vi.fn();
 const mockGetMerchantForApiRequest = vi.fn();
-
-vi.mock('next/headers', () => ({
-  cookies: (...args: unknown[]) => mockCookies(...args),
-}));
 
 vi.mock('@/lib/cached-data', () => ({
   getCachedDashboardStats: (...args: unknown[]) =>
@@ -89,7 +84,6 @@ function createDashboardSupabaseClient() {
 describe('dashboard actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockCookies.mockResolvedValue({});
     mockGetMerchantForApiRequest.mockResolvedValue({
       merchantId: 'merchant-1',
       staffAccess: {
@@ -115,7 +109,7 @@ describe('dashboard actions', () => {
       error: null,
     });
     const supabaseClient = createSupabaseClient(query);
-    mockCreateClient.mockReturnValue(supabaseClient);
+    mockCreateClient.mockResolvedValue(supabaseClient);
 
     const sales = await getRecentSales('merchant-1', 3);
 
@@ -151,7 +145,7 @@ describe('dashboard actions', () => {
       data: null,
       error: { message: 'orders failed' },
     });
-    mockCreateClient.mockReturnValue(createSupabaseClient(query));
+    mockCreateClient.mockResolvedValue(createSupabaseClient(query));
 
     await expect(getRecentSales('merchant-1')).resolves.toEqual([]);
   });
@@ -161,7 +155,7 @@ describe('dashboard actions', () => {
       data: [],
       error: null,
     });
-    mockCreateClient.mockReturnValue(createSupabaseClient(query));
+    mockCreateClient.mockResolvedValue(createSupabaseClient(query));
 
     await expect(getRecentSales('merchant-1')).resolves.toEqual([]);
   });
@@ -179,7 +173,7 @@ describe('dashboard actions', () => {
       ],
       error: null,
     });
-    mockCreateClient.mockReturnValue(createSupabaseClient(query));
+    mockCreateClient.mockResolvedValue(createSupabaseClient(query));
 
     await expect(getRecentSales('merchant-1')).resolves.toEqual([
       {
@@ -198,7 +192,7 @@ describe('dashboard actions', () => {
       error: null,
     });
     const supabaseClient = createSupabaseClient(query);
-    mockCreateClient.mockReturnValue(supabaseClient);
+    mockCreateClient.mockResolvedValue(supabaseClient);
     mockGetMerchantForApiRequest.mockResolvedValue(null);
 
     const result = await getRecentSales('merchant-1', 5);
@@ -217,7 +211,7 @@ describe('dashboard actions', () => {
       data: { user: null },
       error: null,
     });
-    mockCreateClient.mockReturnValue(supabaseClient);
+    mockCreateClient.mockResolvedValue(supabaseClient);
 
     const result = await getRecentSales('merchant-1', 5);
 
@@ -231,7 +225,7 @@ describe('dashboard actions', () => {
       data: [{ month: 'May', orders: 2, profit: 500, revenue: 12500 }],
       error: null,
     }));
-    mockCreateClient.mockReturnValue({ rpc });
+    mockCreateClient.mockResolvedValue({ rpc });
 
     await expect(getMonthlyChartData('merchant-1')).resolves.toEqual([
       { month: 'May', orders: 2, profit: 500, revenue: 12500 },
@@ -246,7 +240,7 @@ describe('dashboard actions', () => {
       data: null,
       error: { message: 'rpc failed' },
     }));
-    mockCreateClient.mockReturnValue({ rpc });
+    mockCreateClient.mockResolvedValue({ rpc });
 
     await expect(getMonthlyChartData('merchant-1')).resolves.toEqual([]);
   });
@@ -261,7 +255,7 @@ describe('dashboard actions', () => {
       orders: { change: 33, value: 8 },
       revenue: { change: 50, value: 5000 },
     };
-    mockCreateClient.mockReturnValue(supabaseClient);
+    mockCreateClient.mockResolvedValue(supabaseClient);
     mockGetMerchantForApiRequest.mockResolvedValueOnce({
       merchantId: 'merchant-authorized',
       staffAccess: {
@@ -296,7 +290,7 @@ describe('dashboard actions', () => {
       data: { user: null },
       error: null,
     });
-    mockCreateClient.mockReturnValue(supabaseClient);
+    mockCreateClient.mockResolvedValue(supabaseClient);
 
     const result = await getDashboardMetrics('merchant-1');
 
@@ -307,7 +301,7 @@ describe('dashboard actions', () => {
 
   it('falls back to zeroed metrics when the caller has no merchant access', async () => {
     const supabaseClient = createDashboardSupabaseClient();
-    mockCreateClient.mockReturnValue(supabaseClient);
+    mockCreateClient.mockResolvedValue(supabaseClient);
     mockGetMerchantForApiRequest.mockResolvedValueOnce(null);
 
     const result = await getDashboardMetrics('merchant-1');
@@ -317,7 +311,7 @@ describe('dashboard actions', () => {
   });
 
   it('falls back to zeroed metrics when cached dashboard stats are unavailable', async () => {
-    mockCreateClient.mockReturnValue(createDashboardSupabaseClient());
+    mockCreateClient.mockResolvedValue(createDashboardSupabaseClient());
     mockGetCachedDashboardStats.mockResolvedValue(null);
 
     const result = await getDashboardMetrics('merchant-1');
@@ -326,7 +320,7 @@ describe('dashboard actions', () => {
   });
 
   it('falls back to zeroed metrics when cached dashboard stats throw', async () => {
-    mockCreateClient.mockReturnValue(createDashboardSupabaseClient());
+    mockCreateClient.mockResolvedValue(createDashboardSupabaseClient());
     mockGetCachedDashboardStats.mockRejectedValue(new Error('rpc failed'));
 
     const result = await getDashboardMetrics('merchant-1');
