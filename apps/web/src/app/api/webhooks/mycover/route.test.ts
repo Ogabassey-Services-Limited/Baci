@@ -122,6 +122,57 @@ describe('POST /api/webhooks/mycover', () => {
     );
   });
 
+  it('fails purchase webhooks when no stored policy row is updated', async () => {
+    mocks.createServiceClient.mockReturnValue(
+      createSupabaseMock({
+        policyUpdateResult: { data: null, error: null },
+      })
+    );
+    const payload = {
+      data: {
+        amount: 5000,
+        id: 'purchase-123',
+        policy_expiry_date: '2026-06-20T09:47:22.008Z',
+        reference: 'BUY-PSKUEVZSSXVJRPQX',
+        status: 'successful',
+      },
+      event: 'purchase.successful',
+    };
+    const rawBody = JSON.stringify(payload);
+
+    const response = await POST(
+      createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Webhook processing failed' });
+    expect(mocks.policyEq).toHaveBeenCalledWith(
+      'mycover_purchase_id',
+      'purchase-123'
+    );
+  });
+
+  it('does not use claim data.id as a stored policy identifier', async () => {
+    const payload = {
+      data: {
+        claim_id: 'claim-123',
+        id: 'claim-123',
+        status: 'approved',
+      },
+      event: 'claim.approved',
+    };
+    const rawBody = JSON.stringify(payload);
+
+    const response = await POST(
+      createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.policyUpdate).not.toHaveBeenCalled();
+    expect(mocks.policyEq).not.toHaveBeenCalled();
+  });
+
   it('handles documented renewal.successful payloads', async () => {
     const payload = {
       data: {

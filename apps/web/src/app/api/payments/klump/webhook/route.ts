@@ -139,6 +139,11 @@ export async function POST(request: NextRequest) {
   }
 
   const { details, payload } = parsedPayload;
+  if (details.isLive === false) {
+    logger.warn({ message: 'Ignoring sandbox Klump success webhook event' });
+    return errorResponse('Sandbox Klump webhook not accepted', 400);
+  }
+
   const referenceResult = referenceSchema.safeParse(details.merchantReference);
   if (!referenceResult.success) {
     return errorResponse('Invalid reference', 400);

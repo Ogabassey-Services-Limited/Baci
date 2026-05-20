@@ -317,6 +317,26 @@ describe('POST /api/payments/klump/webhook', () => {
     expect(mocks.createServiceClient).not.toHaveBeenCalled();
   });
 
+  it('rejects sandbox success events before marking the order paid', async () => {
+    const payload = {
+      ...successfulPayload,
+      data: {
+        ...successfulPayload.data,
+        is_live: false,
+      },
+    };
+    const rawBody = JSON.stringify(payload);
+
+    const response = await POST(
+      createRequest(payload, signPayload(rawBody, 'klump-secret'))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Sandbox Klump webhook not accepted');
+    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+  });
+
   it('does not mark the order paid when the transaction update fails', async () => {
     mocks.createServiceClient.mockReturnValue(
       createSupabaseMock({

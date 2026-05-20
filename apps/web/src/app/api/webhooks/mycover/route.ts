@@ -189,7 +189,7 @@ async function handlePolicyPurchased(
     return;
   }
 
-  const { error } = await supabase
+  const { data: updatedPolicy, error } = await supabase
     .from('order_insurance_policies')
     .update({
       mycover_policy_number: data.policy_number,
@@ -205,14 +205,23 @@ async function handlePolicyPurchased(
 
   if (error) {
     console.error('[MyCover Webhook] Failed to update policy:', error);
-  } else {
-    const safeIdentifier = lookup.value.replace(/[\r\n]/g, '');
-    console.log('[MyCover Webhook] Policy confirmed:', safeIdentifier);
+    throw error;
   }
+
+  if (!updatedPolicy) {
+    throw new Error('MyCover purchase webhook did not match a stored policy');
+  }
+
+  const safeIdentifier = lookup.value.replace(/[\r\n]/g, '');
+  console.log('[MyCover Webhook] Policy confirmed:', safeIdentifier);
 }
 
 function getPolicyId(data: MyCoverWebhookPayload['data']) {
   return data.policy_id || data.id;
+}
+
+function getExplicitPolicyId(data: MyCoverWebhookPayload['data']) {
+  return data.policy_id || null;
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
@@ -385,7 +394,7 @@ async function handleClaimUpdate(
   payload: MyCoverWebhookPayload
 ) {
   const { event, data } = payload;
-  const policyId = getPolicyId(data);
+  const policyId = getExplicitPolicyId(data);
   if (!policyId) return;
 
   let claimStatus: string;
