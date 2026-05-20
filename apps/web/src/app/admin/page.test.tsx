@@ -11,6 +11,22 @@ function MockChart({ children }: { children?: ReactNode }) {
   return <div>{children}</div>;
 }
 
+function MockResponsiveContainer({
+  minHeight,
+  minWidth,
+}: {
+  minHeight?: number;
+  minWidth?: number;
+}) {
+  return (
+    <div
+      data-min-height={minHeight}
+      data-min-width={minWidth}
+      data-testid="responsive-container"
+    />
+  );
+}
+
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (
     <a href={href}>{children}</a>
@@ -25,7 +41,7 @@ vi.mock('recharts', () => ({
   Legend: MockChart,
   Pie: MockChart,
   PieChart: MockChart,
-  ResponsiveContainer: MockChart,
+  ResponsiveContainer: MockResponsiveContainer,
   Tooltip: MockChart,
   XAxis: MockChart,
   YAxis: MockChart,
@@ -144,5 +160,17 @@ describe('AdminDashboardPage', () => {
         '/api/admin/analytics?period=all'
       );
     });
+  });
+
+  it('sets explicit minimum dimensions on responsive charts', async () => {
+    render(<AdminDashboardPage />);
+
+    const containers = await screen.findAllByTestId('responsive-container');
+
+    expect(containers.length).toBeGreaterThan(0);
+    for (const container of containers) {
+      expect(container).toHaveAttribute('data-min-width', '0');
+      expect(container).toHaveAttribute('data-min-height', '0');
+    }
   });
 });

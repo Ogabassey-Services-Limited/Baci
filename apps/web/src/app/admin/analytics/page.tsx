@@ -285,7 +285,13 @@ export default function AnalyticsPage() {
               <Skeleton className="h-[300px] w-full" />
             ) : (
               <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%" debounce={100}>
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  debounce={100}
+                  minWidth={0}
+                  minHeight={0}
+                >
                   <AreaChart
                     data={chartData}
                     margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
@@ -367,7 +373,13 @@ export default function AnalyticsPage() {
               <Skeleton className="h-[250px] w-full" />
             ) : (
               <div className="h-[250px]">
-                <ResponsiveContainer width="100%" height="100%" debounce={100}>
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  debounce={100}
+                  minWidth={0}
+                  minHeight={0}
+                >
                   <BarChart
                     data={chartData}
                     margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
