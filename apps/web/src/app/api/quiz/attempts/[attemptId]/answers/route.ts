@@ -57,7 +57,7 @@ function getQuestionScore(question: unknown): number {
     : answers
       ? [answers]
       : [];
-  return answerRows.reduce((score, answer) => {
+  return answerRows.reduce<number>((score, answer) => {
     if (!answer || typeof answer !== 'object' || !('score_delta' in answer)) {
       return score;
     }
@@ -79,7 +79,7 @@ function mapSubmittedAttemptResult(
 
   return {
     attemptId,
-    correctAnswers: questions.reduce(
+    correctAnswers: questions.reduce<number>(
       (score, question) => score + getQuestionScore(question),
       0
     ),
