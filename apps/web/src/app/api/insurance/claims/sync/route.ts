@@ -1,11 +1,16 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCronSecret } from '@/env';
-import { constantTimeEqual } from '@/lib/constant-time-equal';
+import { hasValidCronSecret } from '@/lib/cron-secret-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { syncClaimsStatus } from '@/services/insurance';
 
 export async function POST(_request: NextRequest) {
   try {
+    // Verify cron secret before other request validation.
+    if (!hasValidCronSecret(_request.headers, getCronSecret())) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     // CSRF protection
     const { valid: csrfValid, response: csrfResponse } =
       await checkCsrfProtection(_request);
@@ -14,18 +19,6 @@ export async function POST(_request: NextRequest) {
         csrfResponse ??
         NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
       );
-    }
-
-    // Verify cron secret
-    const cronSecret = _request.headers.get('x-cron-secret');
-    const expectedSecret = getCronSecret();
-
-    if (
-      !cronSecret ||
-      !expectedSecret ||
-      !constantTimeEqual(cronSecret, expectedSecret)
-    ) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // merchantId is available via searchParams if needed in the future

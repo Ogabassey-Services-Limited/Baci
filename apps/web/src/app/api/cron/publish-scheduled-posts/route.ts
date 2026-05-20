@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
+import { getCronSecret } from '@/env';
 import { validateBlogDiscoverImageReadiness } from '@/lib/blog-discover-readiness';
 import { BLOG_LISTING_PAGE_SIZE } from '@/lib/blog-listing-page-size';
 import { revalidateBlogPosts } from '@/lib/cache-revalidation';
-import { constantTimeEqual } from '@/lib/constant-time-equal';
+import { hasValidCronSecret } from '@/lib/cron-secret-auth';
 import { getMerchantBlogRevalidationContext } from '@/lib/get-merchant-blog-cache-identifiers';
 import { createServiceClient } from '@/lib/supabase/service';
 
@@ -12,18 +13,12 @@ import { createServiceClient } from '@/lib/supabase/service';
  * Manual fallback only - DO NOT re-enable Vercel Cron for this route.
  * Scheduled execution lives in vps-workers; keep CRON_SECRET gating intact.
  *
- * Security: Requires x-cron-secret header
+ * Security: Requires Authorization header (fallback to x-cron-secret)
  */
 export async function POST(request: Request) {
   try {
     // 1. Security Check - use constant-time comparison to prevent timing attacks
-    const cronSecret = request.headers.get('x-cron-secret');
-    const expectedSecret = process.env.CRON_SECRET;
-    if (
-      !cronSecret ||
-      !expectedSecret ||
-      !constantTimeEqual(cronSecret, expectedSecret)
-    ) {
+    if (!hasValidCronSecret(request.headers, getCronSecret())) {
       console.warn('Unauthorized cron attempt');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -290,19 +285,14 @@ export async function POST(request: Request) {
 
 // Support GET for manual fallback invocation.
 export async function GET(request: Request) {
-  const authHeader = request.headers.get('Authorization');
-  const secret = process.env.CRON_SECRET;
-  if (
-    !secret ||
-    !authHeader ||
-    !constantTimeEqual(authHeader, `Bearer ${secret}`)
-  ) {
+  const secret = getCronSecret();
+  if (!hasValidCronSecret(request.headers, secret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const mockRequest = new Request(request.url, {
     method: 'POST',
-    headers: { 'x-cron-secret': secret },
+    headers: { Authorization: `Bearer ${secret}` },
   });
 
   return await POST(mockRequest);
