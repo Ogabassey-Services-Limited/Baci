@@ -7,22 +7,17 @@ import {
   myCoverWebhookSchema,
 } from '@/schemas/mycover-webhook';
 
-/**
- * MyCover.ai Webhook Handler
- *
- * Receives webhook events for:
- * - Policy purchases
- * - Policy renewals
- * - Claim status updates
- *
- * Security: Verifies HMAC-SHA512 signature using x-mycoverai-signature header
- */
+type MyCoverPolicyLookup = {
+  column: 'mycover_policy_id' | 'mycover_purchase_id';
+  value: string;
+};
 
-/**
- * Verify MyCover webhook signature using HMAC-SHA512
- * Uses Web Crypto API (SubtleCrypto) for Edge Runtime compatibility
- * Implements constant-time comparison to prevent timing attacks
- */
+type MyCoverUpdatedPolicy = {
+  id: string;
+};
+
+const MYCOVER_RENEWAL_DETAILS_URL = 'https://api.mycover.ai/v1/renewals';
+
 async function verifyWebhookSignature(
   rawBody: string,
   signature: string | null,
@@ -34,12 +29,10 @@ async function verifyWebhookSignature(
   }
 
   try {
-    // Encode the secret and body for Web Crypto API
     const encoder = new TextEncoder();
     const keyData = encoder.encode(secret);
     const messageData = encoder.encode(rawBody);
 
-    // Import the secret as an HMAC key
     const cryptoKey = await crypto.subtle.importKey(
       'raw',
       keyData,
@@ -48,7 +41,6 @@ async function verifyWebhookSignature(
       ['sign']
     );
 
-    // Generate the expected signature
     const signatureBuffer = await crypto.subtle.sign(
       'HMAC',
       cryptoKey,
@@ -58,13 +50,10 @@ async function verifyWebhookSignature(
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
 
-    // Constant-time comparison to prevent timing attacks
-    // We iterate exactly the length of the expected signature to ensure consistent timing
     const expectedLen = expectedSignature.length;
     let result = signature.length ^ expectedLen;
 
     for (let i = 0; i < expectedLen; i++) {
-      // Use logical OR with 0 for out-of-bounds to keep type numeric and prevent early returns
       const charA = signature.charCodeAt(i) || 0;
       const charB = expectedSignature.charCodeAt(i);
       result |= charA ^ charB;
@@ -79,16 +68,14 @@ async function verifyWebhookSignature(
 
 export async function POST(request: NextRequest) {
   try {
-    // Read raw body for signature verification
     const rawBody = await request.text();
 
-    // Verify webhook environment configuration (2026 Best Practice: Check dependencies early)
     let myCoverWebhookSecret: string;
     try {
       myCoverWebhookSecret = getMyCoverWebhookSecret();
     } catch (error) {
       console.error(
-        '[MyCover Webhook] MYCOVER_WEBHOOK_SECRET is not configured in environment variables',
+        '[MyCover Webhook] MYCOVER_WEBHOOK_SECRET or MYCOVER_SECRET_KEY is not configured in environment variables',
         error
       );
       return NextResponse.json(
@@ -97,7 +84,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify webhook signature (2026 security best practice)
     const signature = request.headers.get('x-mycoverai-signature');
     const isValid = await verifyWebhookSignature(
       rawBody,
@@ -149,11 +135,18 @@ export async function POST(request: NextRequest) {
     switch (payload.event) {
       case 'policy.purchased':
       case 'policy.created':
-        await handlePolicyPurchased(supabase, payload.data);
+      case 'purchase.successful':
+        await handlePolicyPurchased(supabase, payload.data, payload.event);
         break;
 
       case 'policy.renewed':
-        await handlePolicyRenewed(supabase, payload.data);
+      case 'renewal.successful':
+        await handlePolicyRenewed(
+          supabase,
+          payload.data,
+          payload.event,
+          myCoverWebhookSecret
+        );
         break;
 
       case 'policy.expired':
@@ -182,52 +175,198 @@ export async function POST(request: NextRequest) {
 
 async function handlePolicyPurchased(
   supabase: SupabaseClient,
-  data: MyCoverWebhookPayload['data']
+  data: MyCoverWebhookPayload['data'],
+  event: MyCoverWebhookPayload['event']
 ) {
-  if (!data.policy_id) {
+  const lookup = getPolicyLookup(data, {
+    dataIdColumn:
+      event === 'purchase.successful'
+        ? 'mycover_purchase_id'
+        : 'mycover_policy_id',
+  });
+  if (!lookup) {
     console.warn('[MyCover Webhook] Policy purchased without policy_id');
     return;
   }
 
-  // Update the policy record with confirmed details from MyCover
-  const { error } = await supabase
+  const { data: updatedPolicy, error } = await supabase
     .from('order_insurance_policies')
     .update({
       mycover_policy_number: data.policy_number,
-      policy_start_date: data.start_date,
-      policy_expiry_date: data.expiration_date,
+      policy_start_date: getPolicyStartDate(data),
+      policy_expiry_date: getPolicyExpiryDate(data),
       certificate_url: data.certificate_url,
       status: 'active',
       updated_at: new Date().toISOString(),
     })
-    .eq('mycover_policy_id', data.policy_id);
+    .eq(lookup.column, lookup.value)
+    .select('id')
+    .maybeSingle<MyCoverUpdatedPolicy>();
 
   if (error) {
     console.error('[MyCover Webhook] Failed to update policy:', error);
-  } else {
-    // Sanitize policy_id before logging to prevent log injection
-    const safePolicyId = String(data.policy_id || '').replace(/[\r\n]/g, '');
-    console.log('[MyCover Webhook] Policy confirmed:', safePolicyId);
+    throw error;
   }
+
+  if (!updatedPolicy) {
+    throw new Error('MyCover purchase webhook did not match a stored policy');
+  }
+
+  const safeIdentifier = lookup.value.replace(/[\r\n]/g, '');
+  console.log('[MyCover Webhook] Policy confirmed:', safeIdentifier);
+}
+
+function getPolicyId(data: MyCoverWebhookPayload['data']) {
+  return data.policy_id || data.id;
+}
+
+function getExplicitPolicyId(data: MyCoverWebhookPayload['data']) {
+  return data.policy_id || null;
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function readString(
+  sources: readonly Record<string, unknown>[],
+  keys: readonly string[]
+): string | null {
+  for (const source of sources) {
+    for (const key of keys) {
+      const value = source[key];
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value.trim();
+      }
+    }
+  }
+
+  return null;
+}
+
+function getLookupFromRenewalDetails(
+  response: unknown
+): MyCoverPolicyLookup | null {
+  const data = asRecord(asRecord(response).data);
+  const policy = asRecord(data.policy);
+  const purchase = asRecord(data.purchase);
+
+  const policyId =
+    readString([data], ['policy_id', 'mycover_policy_id']) ??
+    readString([policy], ['id', 'policy_id']);
+  if (policyId) {
+    return { column: 'mycover_policy_id', value: policyId };
+  }
+
+  const purchaseId =
+    readString([data], ['purchase_id', 'mycover_purchase_id']) ??
+    readString([purchase], ['id', 'purchase_id']);
+  if (purchaseId) {
+    return { column: 'mycover_purchase_id', value: purchaseId };
+  }
+
+  return null;
+}
+
+async function resolveRenewalPolicyLookup(
+  renewalId: string,
+  configuredSecret: string
+): Promise<MyCoverPolicyLookup | null> {
+  const secretKey =
+    process.env.MYCOVER_SECRET_KEY?.trim() || configuredSecret.trim();
+  if (!secretKey) return null;
+
+  const response = await fetch(
+    `${MYCOVER_RENEWAL_DETAILS_URL}/${encodeURIComponent(renewalId)}`,
+    {
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${secretKey}`,
+      },
+      signal: AbortSignal.timeout(10_000),
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to resolve MyCover renewal details');
+  }
+
+  return getLookupFromRenewalDetails(await response.json());
+}
+
+function getPolicyLookup(
+  data: MyCoverWebhookPayload['data'],
+  {
+    dataIdColumn = 'mycover_policy_id',
+  }: {
+    dataIdColumn?: MyCoverPolicyLookup['column'] | null;
+  } = {}
+): MyCoverPolicyLookup | null {
+  if (data.policy_id) {
+    return { column: 'mycover_policy_id', value: data.policy_id };
+  }
+
+  if (data.purchase_id) {
+    return { column: 'mycover_purchase_id', value: data.purchase_id };
+  }
+
+  if (!(data.id && dataIdColumn)) {
+    return null;
+  }
+
+  return {
+    column: dataIdColumn,
+    value: data.id,
+  };
+}
+
+function getPolicyStartDate(data: MyCoverWebhookPayload['data']) {
+  return data.start_date || data.policy_start_date;
+}
+
+function getPolicyExpiryDate(data: MyCoverWebhookPayload['data']) {
+  return data.expiration_date || data.policy_expiry_date;
 }
 
 async function handlePolicyRenewed(
   supabase: SupabaseClient,
-  data: MyCoverWebhookPayload['data']
+  data: MyCoverWebhookPayload['data'],
+  event: MyCoverWebhookPayload['event'],
+  configuredSecret: string
 ) {
-  if (!data.policy_id) return;
+  let lookup = getPolicyLookup(data, {
+    dataIdColumn: event === 'renewal.successful' ? null : 'mycover_policy_id',
+  });
+  if (!lookup && event === 'renewal.successful' && data.id) {
+    lookup = await resolveRenewalPolicyLookup(data.id, configuredSecret);
+  }
 
-  const { error } = await supabase
+  if (!lookup) {
+    throw new Error(
+      'MyCover renewal webhook missing stored policy or purchase identifier'
+    );
+  }
+
+  const { data: updatedPolicy, error } = await supabase
     .from('order_insurance_policies')
     .update({
-      policy_expiry_date: data.expiration_date,
+      policy_expiry_date: getPolicyExpiryDate(data),
       status: 'active',
       updated_at: new Date().toISOString(),
     })
-    .eq('mycover_policy_id', data.policy_id);
+    .eq(lookup.column, lookup.value)
+    .select('id')
+    .maybeSingle<MyCoverUpdatedPolicy>();
 
   if (error) {
     console.error('[MyCover Webhook] Failed to renew policy:', error);
+    throw error;
+  }
+
+  if (!updatedPolicy) {
+    throw new Error('MyCover renewal webhook did not match a stored policy');
   }
 }
 
@@ -235,7 +374,8 @@ async function handlePolicyExpired(
   supabase: SupabaseClient,
   data: MyCoverWebhookPayload['data']
 ) {
-  if (!data.policy_id) return;
+  const policyId = getPolicyId(data);
+  if (!policyId) return;
 
   const { error } = await supabase
     .from('order_insurance_policies')
@@ -243,10 +383,14 @@ async function handlePolicyExpired(
       status: 'expired',
       updated_at: new Date().toISOString(),
     })
-    .eq('mycover_policy_id', data.policy_id);
+    .eq('mycover_policy_id', policyId);
 
   if (error) {
-    console.error('[MyCover Webhook] Failed to expire policy:', error);
+    console.error('[MyCover Webhook] Failed to expire policy:', {
+      error,
+      policyId,
+    });
+    throw error;
   }
 }
 
@@ -255,7 +399,8 @@ async function handleClaimUpdate(
   payload: MyCoverWebhookPayload
 ) {
   const { event, data } = payload;
-  if (!data.policy_id) return;
+  const policyId = getExplicitPolicyId(data);
+  if (!policyId) return;
 
   let claimStatus: string;
   switch (event) {
@@ -291,14 +436,18 @@ async function handleClaimUpdate(
   const { error } = await supabase
     .from('order_insurance_policies')
     .update(updateData)
-    .eq('mycover_policy_id', data.policy_id);
+    .eq('mycover_policy_id', policyId);
 
   if (error) {
-    console.error('[MyCover Webhook] Failed to update claim:', error);
+    console.error('[MyCover Webhook] Failed to update claim:', {
+      claimId: data.claim_id,
+      error,
+      policyId,
+    });
+    throw error;
   }
 }
 
-// Allow GET for webhook URL verification
 export function GET() {
   return NextResponse.json({
     status: 'ok',
