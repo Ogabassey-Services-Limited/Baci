@@ -46,6 +46,8 @@ describe('dashboard sales RPC contract', () => {
       expect(block).toContain("o.payment_status = 'paid'");
     }
 
+    expect(sql).toContain("auth.role() <> 'service_role'");
+    expect(sql).toContain('public.has_merchant_access(p_merchant_id)');
     expect(sql).toContain(
       "'revenue', jsonb_build_object('value', v_current_revenue"
     );

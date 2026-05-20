@@ -29,6 +29,10 @@ DECLARE
   v_fulfillment_rate INTEGER := 0;
   v_aov DECIMAL(15, 2) := 0;
 BEGIN
+  IF auth.role() <> 'service_role' AND NOT public.has_merchant_access(p_merchant_id) THEN
+    RAISE EXCEPTION 'not authorized';
+  END IF;
+
   -- Current period stats use paid orders only, matching monthly sales stats.
   SELECT
     COALESCE(SUM(o.total), 0),
