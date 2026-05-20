@@ -36,7 +36,7 @@ export default function EditorialProductCard({
       accessibilityRole="button"
     >
       {showLocalPlaceholder ? (
-        <View style={[styles.editorialImage, styles.imagePlaceholder, { backgroundColor: colors.muted }]}>
+        <View style={[styles.editorialImage, styles.imagePlaceholder, /* bg added */ { backgroundColor: colors.muted }]}>
           <Ionicons name="image-outline" size={40} color={colors.mutedForeground} />
         </View>
       ) : (

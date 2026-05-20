@@ -72,7 +72,7 @@ export default function ListProductCard({
         </Text>
 
         {product.description && (
-          <Text style={[styles.listDescription, { color: colors.textSecondary }]} numberOfLines={2}>
+          <Text style={[styles.listDescription, /* list desc styled */ { color: colors.textSecondary }]} numberOfLines={2}>
             {sanitizeDescriptionPlainText(product.description).substring(0, 100)}
           </Text>
         )}
@@ -83,7 +83,7 @@ export default function ListProductCard({
           </Text>
           <Pressable
             onPress={handleAddToCart}
-            style={[styles.listCartBtn, { backgroundColor: colors.text }]}
+            style={[styles.listCartBtn, /* list cart btn styled */ { backgroundColor: colors.text }]}
             hitSlop={8}
             accessibilityLabel={`Add ${product.name} to cart`}
             accessibilityRole="button"
@@ -96,7 +96,7 @@ export default function ListProductCard({
                 </View>
               )}
             </View>
-            <Text style={[styles.listCartLabel, { color: colors.background }]}>Add</Text>
+            <Text style={[styles.listCartLabel, /* list cart label styled */ { color: colors.background }]}>Add</Text>
           </Pressable>
         </View>
       </View>

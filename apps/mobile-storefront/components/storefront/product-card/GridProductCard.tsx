@@ -43,7 +43,7 @@ export default function GridProductCard({
   return (
     <AnimatedPressable
       style={[
-        styles.gridContainer,
+        styles.gridContainer, /* dynamically styled below */
         {
           width: gridWidth,
           backgroundColor: colors.card,
@@ -71,7 +71,7 @@ export default function GridProductCard({
           }
           accessibilityRole="button"
         >
-          <Animated.View style={[heartAnimatedStyle, styles.wishlistBlur, { backgroundColor: colors.card }]}>
+          <Animated.View style={[heartAnimatedStyle, styles.wishlistBlur, /* wishlist styled */ { backgroundColor: colors.card }]}>
             <Ionicons
               name={isSaved ? 'heart' : 'heart-outline'}
               size={16}
@@ -115,7 +115,7 @@ export default function GridProductCard({
 
         <Pressable
           onPress={handleAddToCart}
-          style={[styles.floatingCartBtn, { backgroundColor: colors.card, borderColor: colors.border }]}
+          style={[styles.floatingCartBtn, /* cart btn styled */ { backgroundColor: colors.card, borderColor: colors.border }]}
           pointerEvents="box-only"
           accessibilityLabel={`Add ${product.name} to cart`}
           accessibilityRole="button"
@@ -156,11 +156,11 @@ export default function GridProductCard({
           {product.name}
         </Text>
 
-        <View style={[styles.priceRow, { borderTopColor: colors.border }]}>
+        <View style={[styles.priceRow, /* price row styled */ { borderTopColor: colors.border }]}>
           <Text style={[styles.gridPrice, { color: BRAND.primary }]}>
             {formatPrice(product.price)}
           </Text>
-          <Text style={[styles.detailsText, { color: colors.text }]}>Details</Text>
+          <Text style={[styles.detailsText, /* details text styled */ { color: colors.text }]}>Details</Text>
         </View>
       </View>
     </AnimatedPressable>
