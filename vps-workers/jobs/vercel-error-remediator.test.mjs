@@ -76,4 +76,105 @@ describe('vercel error remediator worker', () => {
     assert.equal(result.candidates.length, 0);
     assert.deepEqual(result.actions, []);
   });
+
+  it('continues processing candidates when one autofix fails', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-remediator-'));
+    const logPath = join(directory, 'vercel.jsonl');
+    writeFileSync(
+      logPath,
+      [
+        JSON.stringify({
+          level: 'error',
+          message: 'Error: first',
+          route: '/a',
+        }),
+        JSON.stringify({
+          level: 'error',
+          message: 'Error: first',
+          route: '/a',
+        }),
+        JSON.stringify({
+          level: 'error',
+          message: 'Error: second',
+          route: '/b',
+        }),
+        JSON.stringify({
+          level: 'error',
+          message: 'Error: second',
+          route: '/b',
+        }),
+      ].join('\n')
+    );
+    let calls = 0;
+
+    const result = await runVercelErrorRemediator({
+      env: {
+        VERCEL_ERROR_LOG_PATH: logPath,
+        BACI_REMEDIATION_AUTOFIX_ENABLED: '1',
+        BACI_REMEDIATION_OUTPUT_DIR: join(directory, 'out'),
+      },
+      logger: silentLogger,
+      autofixRunner() {
+        calls += 1;
+        if (calls === 1) {
+          throw new Error('codex failed');
+        }
+        return {
+          type: 'pr_opened',
+          prUrl: 'https://github.com/ogabasseyy/Baci/pull/1',
+        };
+      },
+    });
+
+    assert.equal(result.candidates.length, 2);
+    assert.equal(
+      result.actions.some((action) => action.type === 'autofix_failed'),
+      true
+    );
+    assert.equal(
+      result.actions.some((action) => action.type === 'pr_opened'),
+      true
+    );
+  });
+
+  it('reports email failures without failing the worker', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-remediator-'));
+    const logPath = join(directory, 'vercel.jsonl');
+    writeFileSync(
+      logPath,
+      [
+        JSON.stringify({
+          level: 'error',
+          message: 'Error: email',
+          route: '/a',
+        }),
+        JSON.stringify({
+          level: 'error',
+          message: 'Error: email',
+          route: '/a',
+        }),
+      ].join('\n')
+    );
+
+    const result = await runVercelErrorRemediator({
+      env: {
+        VERCEL_ERROR_LOG_PATH: logPath,
+        BACI_REMEDIATION_OUTPUT_DIR: join(directory, 'out'),
+        BACI_REMEDIATION_NOTIFY_EMAILS: 'ops@example.com',
+        ZEPTOMAIL_TOKEN: 'token',
+      },
+      logger: silentLogger,
+      fetchFn: () => new Response('down', { status: 503 }),
+    });
+
+    assert.deepEqual(result.email, {
+      error: 'ZeptoMail report failed with HTTP 503: down',
+      skipped: true,
+    });
+    assert.equal(
+      result.actions.some((action) => action.type === 'email_failed'),
+      true
+    );
+    assert.match(result.report.text, /email_failed/);
+  });
 });
