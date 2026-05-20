@@ -80,6 +80,12 @@ const CHECK_ACTIONS: Record<
     message:
       'Publish valid product review counts and ratings for trust scoring.',
   },
+  'merchant-review-authority': {
+    href: '/dashboard/settings/trust#merchant-review-authority',
+    label: 'Connect Google reviews',
+    message:
+      'Connect a Google Business Profile place ID for merchant-level review authority.',
+  },
   'feed-freshness': {
     href: '/dashboard/products',
     label: 'Refresh catalog feed',
