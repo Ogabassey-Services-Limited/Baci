@@ -79,7 +79,7 @@ function getReviewSignalSeverity({
     hasVerifiedMerchantReviewAuthority &&
     productsWithReviewSignals < openAiProductsCount
   ) {
-    return 'pass';
+    return 'warn';
   }
 
   return getTrustCoverageSeverity(
@@ -152,9 +152,10 @@ export function buildAgentCommerceTrustHealthSignals({
   const productsWithReviewSignals = openAiProducts.filter(
     hasReviewSignalFields
   ).length;
-  const productsMissingReviewSignals = hasVerifiedMerchantReviewAuthority
-    ? 0
-    : Math.max(0, openAiProducts.length - productsWithReviewSignals);
+  const productsMissingReviewSignals = Math.max(
+    0,
+    openAiProducts.length - productsWithReviewSignals
+  );
   const latestProductUpdatedAt = getLatestProductUpdatedAt(openAiProducts);
   const staleProducts = countStaleProducts(openAiProducts, now);
   const crawlerUrls = [surfaces.robots, surfaces.sitemap, surfaces.llms];
