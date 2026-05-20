@@ -10,7 +10,6 @@ import Constants from 'expo-constants';
 import { router, Stack } from 'expo-router';
 import React, { useEffect, useEffectEvent, useRef } from 'react';
 import {
-  type Control,
   Controller,
   type FieldErrors,
   type Resolver,
@@ -30,7 +29,6 @@ import {
   Text,
   TextInput,
   View,
-  type ViewStyle,
 } from 'react-native';
 import Animated, {
   cancelAnimation,
@@ -49,6 +47,7 @@ import {
   type CheckoutStep,
   CheckoutStepper,
 } from '@/components/checkout/CheckoutStepper';
+import { CheckoutFormField } from '@/components/checkout/CheckoutFormField';
 import { CryptoSelectionModal } from '@/components/checkout/CryptoSelectionModal';
 import { DeliveryMethodCard } from '@/components/checkout/DeliveryMethodCard';
 import { DeliveryNotesCard } from '@/components/checkout/DeliveryNotesCard';
@@ -76,6 +75,7 @@ import {
   getPaymentTabForMethod,
   getShippingProviderForMethod,
 } from '@/components/checkout/checkout-step-helpers';
+import { humanizeCheckoutFieldName } from '@/components/checkout/checkout-form-field.helpers';
 import { ShippingQuotesCard } from '@/components/checkout/ShippingQuotesCard';
 import type {
   DeliveryMethod,
@@ -93,7 +93,6 @@ import Colors, {
   SPACING,
 } from '@/constants/Colors';
 import { useAuthStatus } from '@/hooks/use-auth-guard';
-import { type TextContentType, TextContentTypes } from '@/hooks/use-keyboard';
 import {
   getEnabledPaymentMethods,
   getMerchantTaxRate,
@@ -137,12 +136,6 @@ import { createOrder, OrderError, type OrderResponse } from '@/services/orders';
 import { scheduleLocalNotification } from '@/services/push-notifications';
 import { formatPrice, useCartStore } from '@/stores/cart-store';
 
-type ThemeColors = (typeof Colors)[keyof typeof Colors];
-
-type TextInputAutoComplete = React.ComponentProps<
-  typeof TextInput
->['autoComplete'];
-
 const shippingAddressResolver = zodResolver(
   ShippingAddressSchema as unknown as Parameters<typeof zodResolver>[0]
 ) as unknown as Resolver<ShippingAddressInput>;
@@ -178,157 +171,6 @@ const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
   invoice: 'Generate Invoice',
   payforme: 'Pay for Me',
 };
-
-const TEXT_CONTENT_TYPE_MAP: Partial<
-  Record<keyof ShippingAddressInput, TextContentType>
-> = {
-  email: TextContentTypes.emailAddress,
-  firstName: TextContentTypes.givenName,
-  lastName: TextContentTypes.familyName,
-  phone: TextContentTypes.telephoneNumber,
-  address: TextContentTypes.fullStreetAddress,
-  city: TextContentTypes.addressCity,
-};
-
-const AUTO_COMPLETE_MAP: Partial<
-  Record<keyof ShippingAddressInput, TextInputAutoComplete>
-> = {
-  email: 'email',
-  firstName: 'name-given',
-  lastName: 'name-family',
-  phone: 'tel',
-  address: 'street-address',
-  city: 'postal-address-locality',
-};
-
-function humanizeCheckoutFieldName(field: keyof ShippingAddressInput): string {
-  switch (field) {
-    case 'firstName':
-      return 'first name';
-    case 'lastName':
-      return 'last name';
-    case 'phone':
-      return 'phone number';
-    case 'email':
-      return 'email address';
-    case 'address':
-      return 'delivery address';
-    case 'city':
-      return 'city';
-    case 'state':
-      return 'state';
-    case 'notes':
-      return 'delivery notes';
-    default:
-      return field;
-  }
-}
-
-function FormField({
-  name,
-  label,
-  placeholder,
-  control,
-  errors,
-  colors,
-  keyboardType = 'default',
-  multiline = false,
-  containerStyle,
-  returnKeyType = 'next',
-  onSubmitEditing,
-  transformText,
-  maxLength,
-  autoCapitalize,
-}: {
-  name: keyof ShippingAddressInput;
-  label: string;
-  placeholder: string;
-  control: Control<ShippingAddressInput>;
-  errors: FieldErrors<ShippingAddressInput>;
-  colors: ThemeColors;
-  keyboardType?: 'default' | 'phone-pad' | 'email-address';
-  multiline?: boolean;
-  containerStyle?: ViewStyle;
-  returnKeyType?: 'next' | 'done' | 'go';
-  onSubmitEditing?: () => void;
-  transformText?: (value: string, previous: string) => string;
-  maxLength?: number;
-  autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters';
-}) {
-  const [isFocused, setIsFocused] = React.useState(false);
-  const isDark = colors.text === '#FFFFFF' || colors.background === '#111827';
-
-  return (
-    <View style={[styles.inputGroup, containerStyle]}>
-      {label ? (
-        <Text style={[styles.label, { color: colors.textSecondary }]}>
-          {label}
-        </Text>
-      ) : null}
-      <Controller
-        control={control}
-        name={name}
-        render={({ field: { onChange, onBlur, value } }) => {
-          const stringValue = typeof value === 'string' ? value : '';
-
-          return (
-            <TextInput
-              style={[
-                styles.input,
-                multiline && styles.multilineInput,
-                {
-                  backgroundColor: isDark
-                    ? 'rgba(255, 255, 255, 0.05)'
-                    : colors.muted,
-                  color: colors.text,
-                  borderColor: errors[name]
-                    ? colors.error
-                    : isFocused
-                      ? BRAND.primary
-                      : colors.border,
-                },
-              ]}
-              value={stringValue}
-              onChangeText={(text) => {
-                const currentValue = stringValue;
-                const processed = transformText
-                  ? transformText(text, currentValue)
-                  : text;
-                if (processed !== currentValue) {
-                  onChange(processed);
-                }
-              }}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => {
-                setIsFocused(false);
-                onBlur();
-              }}
-              maxLength={maxLength}
-              placeholder={placeholder}
-              placeholderTextColor={colors.placeholder}
-              keyboardType={keyboardType}
-              multiline={multiline}
-              numberOfLines={multiline ? 2 : 1}
-              accessibilityLabel={label}
-              accessibilityHint={`Enter your ${label}`}
-              textContentType={TEXT_CONTENT_TYPE_MAP[name]}
-              autoComplete={AUTO_COMPLETE_MAP[name]}
-              autoCapitalize={autoCapitalize}
-              returnKeyType={multiline ? 'default' : returnKeyType}
-              blurOnSubmit={!multiline}
-              onSubmitEditing={onSubmitEditing}
-            />
-          );
-        }}
-      />
-      {errors[name] && (
-        <Text style={styles.fieldError} accessibilityLiveRegion="polite">
-          {errors[name]?.message}
-        </Text>
-      )}
-    </View>
-  );
-}
 
 export default function CheckoutScreen() {
   const ctaArrowTranslateX = useSharedValue(0);
@@ -2296,13 +2138,14 @@ export default function CheckoutScreen() {
                 <Text style={[styles.label, { color: colors.textSecondary }]}>
                   First Name
                 </Text>
-                <FormField
+                <CheckoutFormField
                   name="firstName"
                   label=""
                   placeholder="E.g. John"
                   control={control}
                   errors={errors}
                   colors={colors}
+                  isDark={isDark}
                   autoCapitalize="words"
                 />
               </View>
@@ -2310,13 +2153,14 @@ export default function CheckoutScreen() {
                 <Text style={[styles.label, { color: colors.textSecondary }]}>
                   Last Name
                 </Text>
-                <FormField
+                <CheckoutFormField
                   name="lastName"
                   label=""
                   placeholder="E.g. Doe"
                   control={control}
                   errors={errors}
                   colors={colors}
+                  isDark={isDark}
                   autoCapitalize="words"
                 />
               </View>
@@ -2347,13 +2191,14 @@ export default function CheckoutScreen() {
             <Text style={[styles.label, { color: colors.textSecondary }]}>
               Email Address
             </Text>
-            <FormField
+            <CheckoutFormField
               name="email"
               label=""
               placeholder="john@example.com"
               control={control}
               errors={errors}
               colors={colors}
+              isDark={isDark}
               containerStyle={styles.compactInputGroup}
               keyboardType="email-address"
               autoCapitalize="none"
@@ -2841,7 +2686,7 @@ export default function CheckoutScreen() {
       )}
 
       <DeliveryNotesCard colors={colors} isDark={isDark}>
-        <FormField
+        <CheckoutFormField
           name="notes"
           label=""
           placeholder="Any special instructions for delivery"
@@ -2849,6 +2694,7 @@ export default function CheckoutScreen() {
           control={control}
           errors={errors}
           colors={colors}
+          isDark={isDark}
         />
       </DeliveryNotesCard>
     </ScrollView>

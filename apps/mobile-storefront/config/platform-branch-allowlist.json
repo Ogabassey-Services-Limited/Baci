@@ -141,6 +141,10 @@
       "justification": "Reviewed web guard for native push notification registration."
     },
     {
+      "path": "lib/get-quiz-device-fingerprint.ts",
+      "justification": "Reviewed native installation ID lookup split for Android ID, iOS vendor ID, and unsupported platform fallback."
+    },
+    {
       "path": "lib/notifications.ts",
       "justification": "Reviewed web and Android notification channel handling."
     },
