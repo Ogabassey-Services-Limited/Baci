@@ -32,6 +32,24 @@ async function checkNetwork(): Promise<boolean> {
 // Types for cart operations
 type AddToCartInput = Omit<CartItem, 'id'>;
 
+function getExistingCartQuantityForStock(item: AddToCartInput): number {
+  const variantId = item.variant_id ?? null;
+  return useCartStore
+    .getState()
+    .items.reduce(
+      (total, cartItem) =>
+        cartItem.product_id === item.product_id &&
+        (cartItem.variant_id ?? null) === variantId
+          ? total + cartItem.quantity
+          : total,
+      0
+    );
+}
+
+function getIncomingCartQuantityForStock(item: AddToCartInput): number {
+  return item.voucher_token || item.voucher_award_id ? 1 : item.quantity;
+}
+
 interface StockCheckResult {
   available: boolean;
   currentStock: number;
@@ -197,9 +215,9 @@ export function useCart() {
    */
   const addToCartMutation = useMutation({
     mutationFn: async (item: AddToCartInput) => {
-      // Check if item already exists to calculate total requested quantity
-      const existingItem = getItem(item.product_id, item.variant_id);
-      const totalQuantity = (existingItem?.quantity || 0) + item.quantity;
+      const totalQuantity =
+        getExistingCartQuantityForStock(item) +
+        getIncomingCartQuantityForStock(item);
 
       // Validate stock in background, with cached fallback for offline
       const stockCheck = await checkStock(

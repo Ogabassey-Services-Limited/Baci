@@ -1,5 +1,6 @@
 // src/env.ts
 import z from 'zod';
+import { normalizeEnvBoolean } from '@/lib/env-boolean';
 import { buildLlmBearerAuthHeader } from '@/lib/llm-auth';
 import { supabaseAgenticJwtPrivateJwkStringSchema } from '@/schemas/supabase-agentic-jwt-private-jwk';
 
@@ -13,6 +14,38 @@ import { supabaseAgenticJwtPrivateJwkStringSchema } from '@/schemas/supabase-age
 const booleanStringSchema = z
   .enum(['true', 'false'])
   .transform((value) => value === 'true');
+
+const quizProductionApprovedSchema = z.preprocess((value) => {
+  if (value === undefined) return value;
+  if (typeof value !== 'string') return value;
+
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const normalized = normalizeEnvBoolean(trimmed);
+  if (normalized !== undefined) return normalized;
+
+  // Keep invalid strings unchanged so z.boolean().default(false) reports
+  // the standard type error for malformed QUIZ_PRODUCTION_APPROVED values.
+  return value;
+}, z.boolean().default(false));
+
+const quizIntegrityTierSchema = z.enum(['basic', 'device', 'strong']);
+const quizIntegrityTierOverridesSchema = z.preprocess((value) => {
+  if (value === undefined) return value;
+  if (typeof value !== 'string') return value;
+
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}, z.record(z.string().min(1), quizIntegrityTierSchema).optional());
+type QuizIntegrityTierOverrides = z.infer<
+  typeof quizIntegrityTierOverridesSchema
+>;
 
 const defaultFalseBooleanStringSchema = z.preprocess(
   (value) => (value === undefined ? 'false' : value),
@@ -155,6 +188,19 @@ const serverSchema = z
       .positive()
       .default(DEFAULT_TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS),
 
+    // Quiz
+    // QUIZ_PHASE accepts "1a" (default, fail-closed prize stubs) or
+    // "production" (requires QUIZ_RPC_SERVER_SECRET and prize approval gates).
+    // QUIZ_PRODUCTION_APPROVED uses normalizeEnvBoolean:
+    // true/1/yes enable production prize mutations; false/0/no disable them.
+    // QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON is an optional JSON object whose
+    // keys are quiz event ids and values are "basic", "device", or "strong";
+    // for example: {"event-id":"strong"}.
+    QUIZ_PHASE: z.enum(['1a', 'production']).default('1a'),
+    QUIZ_PRODUCTION_APPROVED: quizProductionApprovedSchema,
+    QUIZ_RPC_SERVER_SECRET: optionalTrimmedStringSchema,
+    QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON: quizIntegrityTierOverridesSchema,
+
     // Push Notifications
     EXPO_ACCESS_TOKEN: z.string().optional(),
 
@@ -224,6 +270,16 @@ const serverSchema = z
         'SUPABASE_AGENTIC_JWT_PRIVATE_JWK or SUPABASE_JWT_SECRET is required in production',
       path: ['SUPABASE_AGENTIC_JWT_PRIVATE_JWK'],
     });
+  })
+  .superRefine((value, ctx) => {
+    if (value.QUIZ_PHASE === 'production' && !value.QUIZ_RPC_SERVER_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          'QUIZ_RPC_SERVER_SECRET is required when QUIZ_PHASE is production',
+        path: ['QUIZ_RPC_SERVER_SECRET'],
+      });
+    }
   })
   .superRefine((value, ctx) => {
     if (value.LLM_SERVER_URL && !value.LLM_SERVER_BEARER) {
@@ -354,6 +410,11 @@ const getEnv = () => {
         INTERNAL_API_SECRET: process.env.INTERNAL_API_SECRET,
         IMPORT_JOB_DIRECT_UPLOAD_ENABLED:
           process.env.IMPORT_JOB_DIRECT_UPLOAD_ENABLED,
+        QUIZ_PHASE: process.env.QUIZ_PHASE,
+        QUIZ_PRODUCTION_APPROVED: process.env.QUIZ_PRODUCTION_APPROVED,
+        QUIZ_RPC_SERVER_SECRET: process.env.QUIZ_RPC_SERVER_SECRET,
+        QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON:
+          process.env.QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON,
         EXPO_ACCESS_TOKEN: process.env.EXPO_ACCESS_TOKEN,
         MONNIFY_API_KEY: process.env.MONNIFY_API_KEY,
         MONNIFY_SECRET_KEY: process.env.MONNIFY_SECRET_KEY,
@@ -453,6 +514,30 @@ const isBrowserRuntime = () =>
   // helper to avoid treating Vitest's window shim as a real browser runtime.
   typeof window !== 'undefined' && process.env.NODE_ENV !== 'test';
 const trimSecret = (value: string | undefined): string => value?.trim() ?? '';
+const getRuntimeEnvValue = (
+  rawValue: string | undefined,
+  fallbackValue: string | undefined
+): string | undefined => {
+  const trimmedRaw = trimSecret(rawValue);
+  if (trimmedRaw) return trimmedRaw;
+
+  const trimmedFallback = trimSecret(fallbackValue);
+  return trimmedFallback || undefined;
+};
+const getRuntimeQuizIntegrityTierOverrides = (
+  rawValue: string | undefined,
+  fallbackValue: QuizIntegrityTierOverrides
+): QuizIntegrityTierOverrides => {
+  const trimmedRaw = trimSecret(rawValue);
+  if (!trimmedRaw) return fallbackValue;
+
+  const parsed = quizIntegrityTierOverridesSchema.safeParse(trimmedRaw);
+  if (parsed.success) return parsed.data;
+
+  throw new Error(
+    'QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON must be a JSON object with basic, device, or strong values'
+  );
+};
 
 export const getSupabaseJwtSecret = (): string => {
   if (isBrowserRuntime())
@@ -541,6 +626,46 @@ export const getKudaBillDebug = () => {
   if (isBrowserRuntime()) return undefined;
   const debug = trimSecret(process.env.KUDA_BILL_DEBUG ?? env?.KUDA_BILL_DEBUG);
   return debug || undefined;
+};
+export const getQuizPhaseEnv = () => {
+  if (isBrowserRuntime())
+    throw new Error('QUIZ_PHASE cannot be accessed on the client');
+  const phase =
+    getRuntimeEnvValue(process.env.QUIZ_PHASE, env?.QUIZ_PHASE) || '1a';
+  if (phase === '1a' || phase === 'production') return phase;
+  throw new Error('QUIZ_PHASE must be 1a or production');
+};
+export const getQuizProductionApprovedEnv = () => {
+  if (isBrowserRuntime())
+    throw new Error(
+      'QUIZ_PRODUCTION_APPROVED cannot be accessed on the client'
+    );
+  const configured = trimSecret(process.env.QUIZ_PRODUCTION_APPROVED);
+  if (!configured) return env?.QUIZ_PRODUCTION_APPROVED ?? false;
+  const normalized = normalizeEnvBoolean(configured);
+  if (normalized !== undefined) return normalized;
+  throw new Error(
+    'QUIZ_PRODUCTION_APPROVED must be one of true/false/1/0/yes/no'
+  );
+};
+export const getQuizRpcServerSecret = () => {
+  if (isBrowserRuntime())
+    throw new Error('QUIZ_RPC_SERVER_SECRET cannot be accessed on the client');
+  const secret = getRuntimeEnvValue(
+    process.env.QUIZ_RPC_SERVER_SECRET,
+    env?.QUIZ_RPC_SERVER_SECRET
+  );
+  return secret || undefined;
+};
+export const getQuizIntegrityTierOverridesJson = () => {
+  if (isBrowserRuntime())
+    throw new Error(
+      'QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON cannot be accessed on the client'
+    );
+  return getRuntimeQuizIntegrityTierOverrides(
+    process.env.QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON,
+    env?.QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON
+  );
 };
 export const getZeptoMailToken = () =>
   env?.ZEPTOMAIL_TOKEN?.trim() || undefined;
