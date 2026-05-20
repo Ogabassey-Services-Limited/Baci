@@ -45,8 +45,15 @@ const KLUMP_SUCCESS_EVENTS = new Set([
 
 const SHA256_HEX_SIGNATURE_PATTERN = /^[a-f0-9]{64}$/;
 
-export function getKlumpWebhookSecret(env: NodeJS.ProcessEnv = process.env) {
-  return env.KLUMP_WEBHOOK_SECRET || env.KLUMP_SECRET_KEY || '';
+export function getKlumpWebhookSecret(
+  env: Partial<NodeJS.ProcessEnv> = process.env
+) {
+  const webhookSecret = env.KLUMP_WEBHOOK_SECRET?.trim();
+  if (webhookSecret) {
+    return webhookSecret;
+  }
+
+  return env.KLUMP_SECRET_KEY?.trim() || '';
 }
 
 function normalizeSignature(signature: string | null) {

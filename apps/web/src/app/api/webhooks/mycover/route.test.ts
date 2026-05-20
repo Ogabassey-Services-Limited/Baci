@@ -76,7 +76,7 @@ describe('POST /api/webhooks/mycover', () => {
     expect(mocks.createServiceClient).not.toHaveBeenCalled();
   });
 
-  it('handles documented purchase.successful payloads with data.id policy ids', async () => {
+  it('handles documented purchase.successful payloads with data.id purchase ids', async () => {
     const payload = {
       data: {
         amount: 5000,
@@ -101,7 +101,7 @@ describe('POST /api/webhooks/mycover', () => {
       })
     );
     expect(mocks.policyEq).toHaveBeenCalledWith(
-      'mycover_policy_id',
+      'mycover_purchase_id',
       'policy-123'
     );
   });
@@ -131,7 +131,7 @@ describe('POST /api/webhooks/mycover', () => {
       })
     );
     expect(mocks.policyEq).toHaveBeenCalledWith(
-      'mycover_policy_id',
+      'mycover_purchase_id',
       'policy-123'
     );
   });
