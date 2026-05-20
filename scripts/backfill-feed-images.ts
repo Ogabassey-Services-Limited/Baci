@@ -28,8 +28,9 @@ import {
 } from '../packages/shared/src/gmc-feed/index';
 import {
   type VerificationResult,
+  getClassifiedImageVerificationUrl,
   isCdnUrl,
-  verifyCdnImage,
+  verifyCdnImageWithTransformFallback,
   verifyRemoteImage,
 } from './lib/gmc-feed-verifier';
 
@@ -78,7 +79,7 @@ async function verifyClassifiedImage(
   classified: ClassifiedImage,
   cdnBasePath: string
 ): Promise<VerificationResult> {
-  const url = classified.verified_url || classified.source_url;
+  const url = getClassifiedImageVerificationUrl(classified);
 
   // Already invalid — no verification needed
   if (classified.status === 'invalid') {
@@ -92,7 +93,7 @@ async function verifyClassifiedImage(
 
   // CDN-hosted: verify via filesystem
   if (isCdnUrl(url)) {
-    return verifyCdnImage(url, cdnBasePath);
+    return verifyCdnImageWithTransformFallback(url, cdnBasePath);
   }
 
   // Non-CDN absolute URL or absolutized relative path: verify via HTTP

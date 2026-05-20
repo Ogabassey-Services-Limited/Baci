@@ -14,6 +14,7 @@ interface AgentCommerceCrawlerSurfaces {
 }
 
 interface BuildAgentCommerceTrustHealthSignalsInput {
+  hasVerifiedMerchantReviewAuthority?: boolean;
   now?: Date;
   openAiProducts: OpenAIFeedProduct[];
   surfaces: AgentCommerceCrawlerSurfaces;
@@ -65,6 +66,51 @@ function hasReviewSignalFields(product: OpenAIFeedProduct): boolean {
   return averageRating >= 0 && averageRating <= 5;
 }
 
+function getReviewSignalSeverity({
+  hasVerifiedMerchantReviewAuthority,
+  openAiProductsCount,
+  productsWithReviewSignals,
+}: {
+  hasVerifiedMerchantReviewAuthority: boolean;
+  openAiProductsCount: number;
+  productsWithReviewSignals: number;
+}): AgentCommerceTrustCheck['severity'] {
+  if (
+    hasVerifiedMerchantReviewAuthority &&
+    productsWithReviewSignals < openAiProductsCount
+  ) {
+    return 'warn';
+  }
+
+  return getTrustCoverageSeverity(
+    productsWithReviewSignals,
+    openAiProductsCount
+  );
+}
+
+function getReviewSignalMessage({
+  hasVerifiedMerchantReviewAuthority,
+  openAiProductsCount,
+  productsWithReviewSignals,
+}: {
+  hasVerifiedMerchantReviewAuthority: boolean;
+  openAiProductsCount: number;
+  productsWithReviewSignals: number;
+}): string {
+  if (openAiProductsCount === 0) {
+    return 'No active products are available for review signal auditing.';
+  }
+
+  if (
+    hasVerifiedMerchantReviewAuthority &&
+    productsWithReviewSignals < openAiProductsCount
+  ) {
+    return `${productsWithReviewSignals} of ${openAiProductsCount} agent-visible products have product-level review metadata; verified merchant-level Google review authority is connected as fallback review evidence.`;
+  }
+
+  return `${productsWithReviewSignals} of ${openAiProductsCount} agent-visible products have usable review count and rating metadata.`;
+}
+
 function getProductUpdatedAt(
   product: Pick<FeedProduct, 'updated_at'>
 ): Date | null {
@@ -95,6 +141,7 @@ function countStaleProducts(products: OpenAIFeedProduct[], now: Date): number {
 }
 
 export function buildAgentCommerceTrustHealthSignals({
+  hasVerifiedMerchantReviewAuthority = false,
   now = new Date(),
   openAiProducts,
   surfaces,
@@ -105,6 +152,10 @@ export function buildAgentCommerceTrustHealthSignals({
   const productsWithReviewSignals = openAiProducts.filter(
     hasReviewSignalFields
   ).length;
+  const productsMissingReviewSignals = Math.max(
+    0,
+    openAiProducts.length - productsWithReviewSignals
+  );
   const latestProductUpdatedAt = getLatestProductUpdatedAt(openAiProducts);
   const staleProducts = countStaleProducts(openAiProducts, now);
   const crawlerUrls = [surfaces.robots, surfaces.sitemap, surfaces.llms];
@@ -131,18 +182,17 @@ export function buildAgentCommerceTrustHealthSignals({
       {
         id: 'review-signal-coverage',
         label: 'Review signal coverage',
-        severity: getTrustCoverageSeverity(
+        severity: getReviewSignalSeverity({
+          hasVerifiedMerchantReviewAuthority,
+          openAiProductsCount: openAiProducts.length,
           productsWithReviewSignals,
-          openAiProducts.length
-        ),
-        message:
-          openAiProducts.length === 0
-            ? 'No active products are available for review signal auditing.'
-            : `${productsWithReviewSignals} of ${openAiProducts.length} agent-visible products have usable review count and rating metadata.`,
-        affectedProductCount: Math.max(
-          0,
-          openAiProducts.length - productsWithReviewSignals
-        ),
+        }),
+        message: getReviewSignalMessage({
+          hasVerifiedMerchantReviewAuthority,
+          openAiProductsCount: openAiProducts.length,
+          productsWithReviewSignals,
+        }),
+        affectedProductCount: productsMissingReviewSignals,
       },
       {
         id: 'feed-freshness',

@@ -2,45 +2,15 @@ import { NextResponse } from 'next/server';
 import { getCachedGoogleMerchantFeedData } from '@/app/api/feed/google-merchant/feed-data';
 import { getCachedOpenAIFeedData } from '@/app/api/feed/openai/feed-data';
 import { getRootDomain } from '@/env';
-import { getCachedGooglePlacesReviews } from '@/lib/google-places-reviews';
 import { buildRequestBaseUrl } from '@/lib/storefront-host';
 import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant';
 import { buildAgentCommerceTrustReadiness } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
-import type { MerchantTrustProfile } from '@/lib/storefront-trust/merchant-trust-profile-types';
+import { enrichMerchantReviewAuthority } from '@/lib/storefront-trust/enrich-merchant-review-authority';
 
 const AGENT_TRUST_SCHEMA_VERSION = '2026-05-20';
 const ROOT_DOMAIN = (getRootDomain() || 'usebaci.com').toLowerCase();
 const AGENT_TRUST_CACHE_CONTROL = 'public, max-age=300';
-
-async function enrichMerchantReviewAuthority(
-  trustProfile: MerchantTrustProfile
-): Promise<MerchantTrustProfile> {
-  const authority = trustProfile.merchantReviewAuthority;
-  if (!authority) return trustProfile;
-
-  try {
-    const reviewsData = await getCachedGooglePlacesReviews(authority.placeId);
-
-    return {
-      ...trustProfile,
-      merchantReviewAuthority: {
-        ...authority,
-        attributionLabel: reviewsData.attributionLabel,
-        attributions: reviewsData.attributions,
-        businessName: reviewsData.businessName,
-        googleMapsUrl: reviewsData.googleMapsUrl,
-        rating: reviewsData.rating,
-        reviewsSortedBy: reviewsData.reviewsSortedBy,
-        source: reviewsData.source,
-        totalReviews: reviewsData.totalReviews,
-      },
-    };
-  } catch (error) {
-    console.warn('MERCHANT_REVIEW_AUTHORITY_ERROR:', error);
-    return trustProfile;
-  }
-}
 
 export async function GET(request: Request) {
   const merchantResolution = await resolveStorefrontMerchantFromRequest({

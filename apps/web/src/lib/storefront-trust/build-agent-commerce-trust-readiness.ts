@@ -351,6 +351,9 @@ export function buildAgentCommerceTrustReadiness({
 
   const surfaces = buildSurfaceUrls(baseUrl, merchant.slug);
   const healthSignals = buildAgentCommerceTrustHealthSignals({
+    hasVerifiedMerchantReviewAuthority: hasVerifiedMerchantReviewAuthority(
+      trustProfile.merchantReviewAuthority
+    ),
     now,
     openAiProducts: openAiFeedData.products,
     surfaces,

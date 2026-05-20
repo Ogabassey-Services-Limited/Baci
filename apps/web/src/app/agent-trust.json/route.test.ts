@@ -6,6 +6,7 @@ const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedGoogleMerchantFeedData = vi.fn();
 const mockGetCachedOpenAIFeedData = vi.fn();
 const mockGetCachedGooglePlacesReviews = vi.fn();
+const mockLoggerError = vi.fn();
 const PRODUCT_UPDATED_AT = '2026-05-10T00:00:00.000Z';
 
 vi.mock('server-only', () => ({}));
@@ -28,6 +29,14 @@ vi.mock('@/app/api/feed/openai/feed-data', () => ({
 vi.mock('@/lib/google-places-reviews', () => ({
   getCachedGooglePlacesReviews: (...args: unknown[]) =>
     mockGetCachedGooglePlacesReviews(...args),
+}));
+
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: (...args: unknown[]) => mockLoggerError(...args),
+    info: vi.fn(),
+    warn: vi.fn(),
+  },
 }));
 
 type TestMerchant = {
@@ -263,9 +272,6 @@ describe('GET /agent-trust.json', () => {
   });
 
   it('keeps configured Google review authority when Places lookup fails', async () => {
-    const warnSpy = vi
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
     mockGetMerchantByIdentifier.mockResolvedValueOnce({
       ...merchant(),
       feature_settings: {
@@ -277,37 +283,34 @@ describe('GET /agent-trust.json', () => {
       new Error('Google Places API error: 403')
     );
 
-    try {
-      const { GET } = await import('./route');
-      const response = await GET(
-        new Request('https://ogabassey.com/agent-trust.json', {
-          headers: { host: 'ogabassey.com' },
-        })
-      );
-      const body = await response.json();
+    const { GET } = await import('./route');
+    const response = await GET(
+      new Request('https://ogabassey.com/agent-trust.json', {
+        headers: { host: 'ogabassey.com' },
+      })
+    );
+    const body = await response.json();
 
-      expect(response.status).toBe(200);
-      expect(mockGetCachedGooglePlacesReviews).toHaveBeenCalledWith('ChIJ1234');
-      expect(body.trust.merchantReviewAuthority).toMatchObject({
-        attributionLabel: 'Google Maps',
-        placeId: 'ChIJ1234',
-        reviewsSortedBy: 'relevance',
-        source: 'google_maps',
-      });
-      expect(
-        body.trust.checks.find(
-          (check: { id: string }) => check.id === 'merchant-review-authority'
-        )
-      ).toMatchObject({
-        severity: 'warn',
-      });
-      expect(warnSpy).toHaveBeenCalledWith(
-        'MERCHANT_REVIEW_AUTHORITY_ERROR:',
-        expect.any(Error)
-      );
-    } finally {
-      warnSpy.mockRestore();
-    }
+    expect(response.status).toBe(200);
+    expect(mockGetCachedGooglePlacesReviews).toHaveBeenCalledWith('ChIJ1234');
+    expect(body.trust.merchantReviewAuthority).toMatchObject({
+      attributionLabel: 'Google Maps',
+      placeId: 'ChIJ1234',
+      reviewsSortedBy: 'relevance',
+      source: 'google_maps',
+    });
+    expect(
+      body.trust.checks.find(
+        (check: { id: string }) => check.id === 'merchant-review-authority'
+      )
+    ).toMatchObject({
+      severity: 'warn',
+    });
+    expect(mockLoggerError).toHaveBeenCalledWith({
+      message: 'Merchant review authority enrichment failed',
+      error: expect.any(Error),
+      placeId: 'ChIJ1234',
+    });
   });
 
   it('returns 404 when the storefront host has no merchant record', async () => {

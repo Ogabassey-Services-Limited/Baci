@@ -119,6 +119,33 @@ describe('buildAgentCommerceTrustHealthSignals', () => {
     });
   });
 
+  it('warns about missing product reviews when merchant review authority is connected', () => {
+    const result = buildAgentCommerceTrustHealthSignals({
+      hasVerifiedMerchantReviewAuthority: true,
+      now: NOW,
+      openAiProducts: [
+        product({
+          average_rating: null,
+          review_count: null,
+        }),
+      ],
+      surfaces: {
+        llms: 'https://ogabassey.com/llms.txt',
+        robots: 'https://ogabassey.com/robots.txt',
+        sitemap: 'https://ogabassey.com/sitemap.xml',
+      },
+    });
+
+    expect(
+      result.checks.find((check) => check.id === 'review-signal-coverage')
+    ).toMatchObject({
+      affectedProductCount: 1,
+      message:
+        '0 of 1 agent-visible products have product-level review metadata; verified merchant-level Google review authority is connected as fallback review evidence.',
+      severity: 'warn',
+    });
+  });
+
   it('fails freshness and crawler checks when timestamps or crawler URLs are unusable', () => {
     const result = buildAgentCommerceTrustHealthSignals({
       now: NOW,

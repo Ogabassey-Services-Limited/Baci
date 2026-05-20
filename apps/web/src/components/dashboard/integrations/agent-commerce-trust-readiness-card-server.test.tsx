@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { MerchantTrustProfile } from '@/lib/storefront-trust/merchant-trust-profile-types';
 
 vi.mock('@/app/api/feed/google-merchant/feed-data', () => ({
   getCachedGoogleMerchantFeedData: vi.fn(),
@@ -58,6 +59,10 @@ vi.mock('@/lib/storefront-trust/build-agent-commerce-trust-readiness', () => ({
   })),
 }));
 
+vi.mock('@/lib/storefront-trust/enrich-merchant-review-authority', () => ({
+  enrichMerchantReviewAuthority: vi.fn(),
+}));
+
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
@@ -86,6 +91,7 @@ import { getCachedGoogleMerchantFeedData } from '@/app/api/feed/google-merchant/
 import { getCachedOpenAIFeedData } from '@/app/api/feed/openai/feed-data';
 import { logger } from '@/lib/logger';
 import { buildAgentCommerceTrustReadiness } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
+import { enrichMerchantReviewAuthority } from '@/lib/storefront-trust/enrich-merchant-review-authority';
 import { AgentCommerceTrustReadinessCardServer } from './agent-commerce-trust-readiness-card-server';
 
 const merchant = {
@@ -96,8 +102,31 @@ const merchant = {
   trust_profile: null,
 };
 
+const enrichedTrustProfile: MerchantTrustProfile = {
+  derivedLinks: {},
+  merchantReviewAuthority: {
+    attributionLabel: 'Google Maps',
+    placeId: 'ChIJ1234',
+    rating: 4.8,
+    reviewsSortedBy: 'relevance',
+    source: 'google_maps',
+    totalReviews: 217,
+  },
+  socialLinks: {},
+};
+
 describe('AgentCommerceTrustReadinessCardServer', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(enrichMerchantReviewAuthority).mockImplementation(
+      async (profile) => profile
+    );
+  });
+
   it('loads trust readiness and passes it to the card', async () => {
+    vi.mocked(enrichMerchantReviewAuthority).mockResolvedValueOnce(
+      enrichedTrustProfile
+    );
     vi.mocked(getCachedOpenAIFeedData).mockResolvedValue({
       products: [],
     } as never);
@@ -110,6 +139,10 @@ describe('AgentCommerceTrustReadinessCardServer', () => {
 
     render(await AgentCommerceTrustReadinessCardServer({ merchant }));
 
+    expect(enrichMerchantReviewAuthority).toHaveBeenCalledWith({
+      derivedLinks: {},
+      socialLinks: {},
+    });
     expect(buildAgentCommerceTrustReadiness).toHaveBeenCalledWith(
       expect.objectContaining({
         baseUrl: 'https://example.com',
@@ -117,9 +150,32 @@ describe('AgentCommerceTrustReadinessCardServer', () => {
           business_name: 'Demo Store',
           slug: 'demo-store',
         },
+        trustProfile: enrichedTrustProfile,
       })
     );
     expect(screen.getByText('trust-card:pass:none')).toBeInTheDocument();
+  });
+
+  it('renders an error fallback when review authority enrichment fails', async () => {
+    vi.mocked(getCachedOpenAIFeedData).mockResolvedValue({
+      products: [],
+    } as never);
+    vi.mocked(getCachedGoogleMerchantFeedData).mockResolvedValue({
+      products: [],
+      imageManifest: {},
+      custom_domain: null,
+      slug: 'demo-store',
+    } as never);
+    vi.mocked(enrichMerchantReviewAuthority).mockRejectedValueOnce(
+      new Error('Enrichment failed')
+    );
+
+    render(await AgentCommerceTrustReadinessCardServer({ merchant }));
+
+    expect(
+      screen.getByText('trust-card:none:Unable to load agent trust health')
+    ).toBeInTheDocument();
+    expect(logger.error).toHaveBeenCalled();
   });
 
   it('renders an error fallback when readiness loading fails', async () => {

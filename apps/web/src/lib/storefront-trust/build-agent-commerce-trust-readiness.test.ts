@@ -151,7 +151,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
     ).toMatchObject({ severity: 'pass' });
   });
 
-  it('reports merchant Google review authority separately from product review coverage', () => {
+  it('warns and uses merchant Google review authority as fallback trust when product review coverage is missing', () => {
     const result = buildAgentCommerceTrustReadiness({
       baseUrl: 'https://ogabassey.com',
       googleFeedData: googleFeedData(),
@@ -182,7 +182,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
       }),
     });
 
-    expect(result.status).toBe('fail');
+    expect(result.status).toBe('warn');
     expect(result.merchantReviewAuthority).toMatchObject({
       attributionLabel: 'Google Maps',
       googleMapsUrl: 'https://maps.google.com/?cid=ogabassey',
@@ -200,6 +200,51 @@ describe('buildAgentCommerceTrustReadiness', () => {
     expect(
       result.checks.find((check) => check.id === 'review-signal-coverage')
     ).toMatchObject({
+      affectedProductCount: 1,
+      message:
+        '0 of 1 agent-visible products have product-level review metadata; verified merchant-level Google review authority is connected as fallback review evidence.',
+      severity: 'warn',
+    });
+  });
+
+  it('does not use unverified Google review settings as fallback trust for missing product reviews', () => {
+    const result = buildAgentCommerceTrustReadiness({
+      baseUrl: 'https://ogabassey.com',
+      googleFeedData: googleFeedData(),
+      merchant: {
+        business_name: 'Ogabassey',
+        slug: 'ogabassey',
+      },
+      now: NOW,
+      openAiFeedData: {
+        products: [
+          product({
+            average_rating: null,
+            review_count: null,
+          }),
+        ],
+      },
+      trustProfile: trustProfile({
+        merchantReviewAuthority: {
+          attributionLabel: 'Google Maps',
+          placeId: 'ChIJ1234',
+          reviewsSortedBy: 'relevance',
+          source: 'google_maps',
+        },
+      }),
+    });
+
+    expect(result.status).toBe('fail');
+    expect(
+      result.checks.find((check) => check.id === 'merchant-review-authority')
+    ).toMatchObject({
+      severity: 'warn',
+    });
+    expect(
+      result.checks.find((check) => check.id === 'review-signal-coverage')
+    ).toMatchObject({
+      message:
+        '0 of 1 agent-visible products have usable review count and rating metadata.',
       severity: 'fail',
     });
   });
@@ -444,7 +489,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
     ).toMatchObject({ affectedProductCount: 1, severity: 'warn' });
   });
 
-  it('warns when privacy or terms links are not published', () => {
+  it('does not count generated privacy and terms URLs as published policies', () => {
     const result = buildAgentCommerceTrustReadiness({
       baseUrl: 'https://ogabassey.com',
       googleFeedData: googleFeedData(),

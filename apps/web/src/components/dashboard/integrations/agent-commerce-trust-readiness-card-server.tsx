@@ -5,6 +5,7 @@ import { sanitizeForLog } from '@/lib/sanitize-core';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildAgentCommerceTrustReadiness } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
+import { enrichMerchantReviewAuthority } from '@/lib/storefront-trust/enrich-merchant-review-authority';
 import type { MerchantTrustProfileSource } from '@/lib/storefront-trust/merchant-trust-profile-types';
 import { AgentCommerceTrustReadinessCard } from './agent-commerce-trust-readiness-card';
 
@@ -30,11 +31,12 @@ export async function AgentCommerceTrustReadinessCardServer({
   });
 
   try {
-    const [openAiFeedData, googleFeedData] = await Promise.all([
+    const baseTrustProfile = buildMerchantTrustProfile(merchant, baseUrl);
+    const [openAiFeedData, googleFeedData, trustProfile] = await Promise.all([
       getCachedOpenAIFeedData(merchant.id, true),
       getCachedGoogleMerchantFeedData(merchant.id, slug),
+      enrichMerchantReviewAuthority(baseTrustProfile),
     ]);
-    const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
     const readiness = buildAgentCommerceTrustReadiness({
       baseUrl,
       googleFeedData,
