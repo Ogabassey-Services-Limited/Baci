@@ -1,5 +1,6 @@
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
 /**
  * Google Places API Reviews Route
@@ -20,6 +21,20 @@ const PLACE_REVIEW_FIELD_MASK = [
   'googleMapsUri',
   'attributions',
 ].join(',');
+const PLACE_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
+
+const reviewsQuerySchema = z.object({
+  placeId: z
+    .string()
+    .trim()
+    .min(1, 'Place ID is required')
+    .transform((value) =>
+      value.startsWith('places/') ? value.slice('places/'.length) : value
+    )
+    .refine((value) => PLACE_ID_PATTERN.test(value), {
+      message: 'Invalid Place ID format',
+    }),
+});
 
 interface GooglePlaceLocalizedText {
   languageCode?: string;
@@ -67,7 +82,7 @@ interface FormattedReview {
   rating: number;
   text: string;
   relativeTime: string;
-  timestamp?: number;
+  timestamp: number;
   flagContentUri?: string;
   googleMapsUri?: string;
 }
@@ -88,21 +103,11 @@ function getGooglePlacesApiKey(): string | undefined {
   return process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
 }
 
-function normalizePlaceId(placeId: string): string | null {
-  const trimmed = placeId.trim();
-  const cleanPlaceId = trimmed.startsWith('places/')
-    ? trimmed.slice('places/'.length)
-    : trimmed;
-  const placeIdPattern = /^[A-Za-z0-9_-]+$/;
-
-  return placeIdPattern.test(cleanPlaceId) ? cleanPlaceId : null;
-}
-
-function toUnixSeconds(value?: string): number | undefined {
-  if (!value) return undefined;
+function toUnixSeconds(value?: string): number {
+  if (!value) return 0;
 
   const parsed = Date.parse(value);
-  return Number.isNaN(parsed) ? undefined : Math.floor(parsed / 1000);
+  return Number.isNaN(parsed) ? 0 : Math.floor(parsed / 1000);
 }
 
 function formatReview(review: GooglePlaceReview): FormattedReview {
@@ -172,24 +177,17 @@ const getCachedReviews = unstable_cache(
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const placeId = searchParams.get('placeId');
+    const queryResult = reviewsQuerySchema.safeParse({
+      placeId: searchParams.get('placeId') ?? '',
+    });
 
-    if (!placeId) {
-      return NextResponse.json(
-        { error: 'Place ID is required' },
-        { status: 400 }
-      );
+    if (!queryResult.success) {
+      const message =
+        queryResult.error.issues[0]?.message ?? 'Invalid Place ID format';
+      return NextResponse.json({ error: message }, { status: 400 });
     }
 
-    const normalizedPlaceId = normalizePlaceId(placeId);
-    if (!normalizedPlaceId) {
-      return NextResponse.json(
-        { error: 'Invalid Place ID format' },
-        { status: 400 }
-      );
-    }
-
-    const reviewsData = await getCachedReviews(normalizedPlaceId);
+    const reviewsData = await getCachedReviews(queryResult.data.placeId);
 
     return NextResponse.json(reviewsData, {
       headers: {

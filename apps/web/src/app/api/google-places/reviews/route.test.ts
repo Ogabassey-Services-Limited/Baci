@@ -180,6 +180,35 @@ describe('GET /api/google-places/reviews', () => {
     );
   });
 
+  it('keeps review timestamps numeric when Google omits publish time', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          reviews: [
+            {
+              authorAttribution: { displayName: 'Ada' },
+              rating: 4,
+              text: { text: 'Helpful staff.' },
+            },
+          ],
+        }),
+        { status: 200 }
+      )
+    );
+    const { GET } = await importRoute();
+
+    const response = await GET(makeRequest('ChIJ1234'));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.reviews[0]).toMatchObject({
+      authorName: 'Ada',
+      rating: 4,
+      text: 'Helpful staff.',
+      timestamp: 0,
+    });
+  });
+
   it('rejects malformed place IDs without calling Google', async () => {
     const { GET } = await importRoute();
 
