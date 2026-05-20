@@ -99,10 +99,10 @@ async function getSubmittedAttemptResult(
   const { data, error } = await supabase
     .from('quiz_attempts')
     .select(
-      'id, status, quiz_attempt_questions(id, quiz_attempt_answers(score_delta))'
+      'id, status, customers!inner(user_id), quiz_attempt_questions(id, quiz_attempt_answers(score_delta))'
     )
     .eq('id', attemptId)
-    .eq('user_id', userId)
+    .eq('customers.user_id', userId)
     .maybeSingle();
 
   if (error) return { error, result: null };
