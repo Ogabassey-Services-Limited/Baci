@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildCrawlerLogSummary,
   classifyCrawlerUserAgent,
+  createCrawlerLogSummaryAccumulator,
   getCrawlerClassificationForEvent,
   normalizeCrawlerHost,
   normalizeCrawlerPath,
@@ -77,6 +78,7 @@ describe('crawler observability helpers', () => {
     );
 
     expect(summary.totalCrawls).toBe(2);
+    expect(summary.isPartial).toBe(false);
     expect(summary.byBot.find((bot) => bot.family === 'openai')).toMatchObject({
       count: 1,
       family: 'openai',
@@ -121,5 +123,68 @@ describe('crawler observability helpers', () => {
         name: 'OpenAI',
       },
     ]);
+  });
+
+  it('accumulates paged summaries while keeping only the requested recent rows', () => {
+    const accumulator = createCrawlerLogSummaryAccumulator(14, {
+      recentLimit: 2,
+    });
+
+    accumulator.addRows([
+      {
+        agent_family: 'openai',
+        bot_name: 'OpenAI',
+        cache_outcome: 'hit',
+        crawled_at: '2026-05-20T03:00:00.000Z',
+        host: 'ogabassey.com',
+        response_time_ms: 120,
+        status_code: 200,
+        url_path: '/latest',
+        user_agent: 'GPTBot/1.0',
+      },
+      {
+        agent_family: 'openai',
+        bot_name: 'OpenAI',
+        cache_outcome: 'hit',
+        crawled_at: '2026-05-20T02:00:00.000Z',
+        host: 'ogabassey.com',
+        response_time_ms: 120,
+        status_code: 200,
+        url_path: '/second',
+        user_agent: 'GPTBot/1.0',
+      },
+    ]);
+    const firstSummary = accumulator.toSummary();
+    accumulator.addRows([
+      {
+        agent_family: 'search',
+        bot_name: 'Bing',
+        cache_outcome: 'miss',
+        crawled_at: '2026-05-20T01:00:00.000Z',
+        host: 'ogabassey.com',
+        response_time_ms: 3200,
+        status_code: 404,
+        url_path: '/older',
+        user_agent: 'Bingbot',
+      },
+    ]);
+
+    const summary = accumulator.toSummary();
+
+    expect(firstSummary.recent.map((row) => row.url_path)).toEqual([
+      '/latest',
+      '/second',
+    ]);
+    expect(summary.totalCrawls).toBe(3);
+    expect(summary.recent.map((row) => row.url_path)).toEqual([
+      '/latest',
+      '/second',
+    ]);
+    expect(summary.health).toMatchObject({
+      aiAgentCrawls: 2,
+      cacheMissCrawls: 1,
+      failedCrawls: 1,
+      slowCrawls: 1,
+    });
   });
 });
