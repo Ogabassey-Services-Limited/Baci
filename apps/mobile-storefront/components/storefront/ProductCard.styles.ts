@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: 4,
     borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
+
     paddingTop: 8,
   },
   gridPrice: { fontSize: 16, fontFamily: "serif", fontWeight: "bold" },
