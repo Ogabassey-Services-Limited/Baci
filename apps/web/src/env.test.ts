@@ -516,6 +516,135 @@ describe('env LLM server validation', () => {
   });
 });
 
+describe('env quiz validation', () => {
+  beforeEach(() => {
+    vi.resetModules();
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    stubBaseEnv();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    vi.resetModules();
+  });
+
+  it('defaults QUIZ_PHASE to 1a and treats missing production approval as false', async () => {
+    delete process.env.QUIZ_PHASE;
+    delete process.env.QUIZ_PRODUCTION_APPROVED;
+
+    const { env } = await loadEnvModule();
+
+    expect(env.QUIZ_PHASE).toBe('1a');
+    expect(env.QUIZ_PRODUCTION_APPROVED).toBe(false);
+  });
+
+  it('accepts production quiz phase and truthy production approval aliases', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'quiz-secret');
+
+    const { env } = await loadEnvModule();
+
+    expect(env.QUIZ_PHASE).toBe('production');
+    expect(env.QUIZ_PRODUCTION_APPROVED).toBe(true);
+  });
+
+  it('requires QUIZ_RPC_SERVER_SECRET when QUIZ_PHASE is production', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    delete process.env.QUIZ_RPC_SERVER_SECRET;
+
+    await expect(loadEnvModule()).rejects.toThrow(
+      /QUIZ_RPC_SERVER_SECRET is required when QUIZ_PHASE is production/
+    );
+  });
+
+  it('declares and trims quiz runtime secret configuration', async () => {
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', '  quiz-secret  ');
+    vi.stubEnv(
+      'QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON',
+      '  {"ios":"strong"}  '
+    );
+
+    const { env } = await loadEnvModule();
+
+    expect(env.QUIZ_RPC_SERVER_SECRET).toBe('quiz-secret');
+    expect(env.QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON).toEqual({
+      ios: 'strong',
+    });
+  });
+
+  it('reads quiz runtime getters from current process env values', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'runtime-secret');
+
+    const {
+      getQuizIntegrityTierOverridesJson,
+      getQuizPhaseEnv,
+      getQuizProductionApprovedEnv,
+      getQuizRpcServerSecret,
+    } = await loadEnvModule();
+
+    expect(getQuizPhaseEnv()).toBe('production');
+    expect(getQuizProductionApprovedEnv()).toBe(true);
+
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', '0');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', '  runtime-secret  ');
+    vi.stubEnv('QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON', ' {"ios":"strong"} ');
+
+    expect(getQuizProductionApprovedEnv()).toBe(false);
+    expect(getQuizRpcServerSecret()).toBe('runtime-secret');
+    expect(getQuizIntegrityTierOverridesJson()).toEqual({ ios: 'strong' });
+  });
+
+  it('rejects malformed quiz integrity tier override JSON at boot', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv('QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON', '{not-json');
+
+    await expect(loadEnvModule()).rejects.toThrow(
+      /QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON/
+    );
+  });
+
+  it('rejects unsupported quiz integrity tier override values at runtime', async () => {
+    const { getQuizIntegrityTierOverridesJson } = await loadEnvModule();
+
+    vi.stubEnv('QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON', '{"ios":"turbo"}');
+
+    expect(() => getQuizIntegrityTierOverridesJson()).toThrow(
+      'QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON must be a JSON object with basic, device, or strong values'
+    );
+  });
+
+  it('rejects invalid QUIZ_PRODUCTION_APPROVED runtime values', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'maybe');
+
+    const { getQuizProductionApprovedEnv } = await loadEnvModule();
+
+    expect(() => getQuizProductionApprovedEnv()).toThrow(
+      'QUIZ_PRODUCTION_APPROVED must be one of true/false/1/0/yes/no'
+    );
+  });
+
+  it('rejects invalid QUIZ_PHASE values at boot', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv('QUIZ_PHASE', 'staging');
+
+    await expect(loadEnvModule()).rejects.toThrow(/QUIZ_PHASE/);
+  });
+});
+
 describe('isAllowedLlmServerUrl', () => {
   // Pure unit tests against the exported helper — no env stubbing needed.
   // Covers the codex P1 (loose 127.* prefix) and P2 (any-scheme loopback)
