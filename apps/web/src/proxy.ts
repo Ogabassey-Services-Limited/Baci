@@ -519,6 +519,9 @@ function generateCSP(
   nonce?: string
 ): string {
   const storefrontUnsafeEval = isLocal ? " 'unsafe-eval'" : '';
+  const strictScriptSource = nonce
+    ? `'self' 'nonce-${nonce}'`
+    : "'self' 'unsafe-inline'";
   const baseDirectives = {
     'default-src': "'self'",
     'img-src': "'self' blob: data: https:",
@@ -536,7 +539,7 @@ function generateCSP(
           ...baseDirectives,
           // Next reads the forwarded request CSP and applies this nonce to its
           // framework and Flight script tags before rendering admin/auth pages.
-          'script-src': `'self' 'nonce-${nonce}'${isLocal ? " 'unsafe-eval'" : ''} https://vercel.live https://va.vercel-scripts.com`,
+          'script-src': `${strictScriptSource}${isLocal ? " 'unsafe-eval'" : ''} https://vercel.live https://va.vercel-scripts.com`,
           'script-src-attr': "'none'",
           'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
           'connect-src':
@@ -580,6 +583,33 @@ function encodeCspNonce(value: string): string {
     .replaceAll('+', '-')
     .replaceAll('/', '_')
     .replaceAll('=', '');
+}
+
+function shouldForwardStrictCspNonce(
+  routeType: 'admin' | 'auth' | 'storefront' | 'api'
+): routeType is 'admin' | 'auth' {
+  return routeType === 'admin' || routeType === 'auth';
+}
+
+function buildStrictCspResponse(
+  request: NextRequest,
+  routeType: 'admin' | 'auth',
+  isLocal: boolean
+): { nonce: string; response: NextResponse } {
+  const nonce = generateCspNonce();
+  const csp = generateCSP(routeType, isLocal, nonce);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-nonce', nonce);
+  requestHeaders.set('Content-Security-Policy', csp);
+
+  return {
+    nonce,
+    response: NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    }),
+  };
 }
 
 /**
@@ -1528,10 +1558,29 @@ export async function proxy(request: NextRequest) {
   }
 
   // Standard request - generate route-specific CSP
-  const response = NextResponse.next();
   const routeType = getRouteType(pathname);
   const isLocal = isLocalhost(hostname);
 
+  if (shouldForwardStrictCspNonce(routeType)) {
+    const { nonce, response } = buildStrictCspResponse(
+      request,
+      routeType,
+      isLocal
+    );
+
+    return applySecurityHeaders(
+      response,
+      pathname,
+      userAgent,
+      routeType,
+      isLocal,
+      nonce,
+      request,
+      hostname
+    );
+  }
+
+  const response = NextResponse.next();
   return applySecurityHeaders(
     response,
     pathname,

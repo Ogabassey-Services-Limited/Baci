@@ -234,6 +234,35 @@ describe('Middleware Proxy', () => {
     assertNonceHeadersForwarded(forwardedRequest, res);
   });
 
+  it('forwards nonce headers for public onboarding renders', async () => {
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/onboarding`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+    const nonce = res.headers.get('x-nonce');
+    const csp = res.headers.get('Content-Security-Policy');
+
+    expect(updateSession).not.toHaveBeenCalled();
+    expect(nonce).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(csp).toContain(`script-src 'self' 'nonce-${nonce}'`);
+    expect(csp).not.toContain("'nonce-undefined'");
+    const directives = Object.fromEntries(
+      (csp ?? '')
+        .split(';')
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .map((entry) => {
+          const [name, ...values] = entry.split(/\s+/);
+          return [name, values.join(' ')];
+        })
+    );
+    expect(directives['script-src']).not.toContain("'unsafe-inline'");
+    expect(res.headers.get('x-middleware-request-x-nonce')).toBe(nonce);
+    expect(
+      res.headers.get('x-middleware-request-content-security-policy')
+    ).toBe(csp);
+  });
+
   it('generates unique CSP nonces for repeated auth renders', async () => {
     const nonces: string[] = [];
 
