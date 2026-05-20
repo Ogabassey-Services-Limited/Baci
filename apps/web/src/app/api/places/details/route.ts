@@ -7,7 +7,7 @@
 import { type NextRequest, NextResponse } from 'next/server';
 
 const GOOGLE_API_KEY =
-  process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
+  process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
 const NEW_PLACES_API_BASE = 'https://places.googleapis.com/v1';
 
 // Simple retry wrapper for fetch
@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
     const placeId = searchParams.get('placeId');
+    const sessionToken = searchParams.get('sessionToken');
 
     if (!placeId) {
       return NextResponse.json(
@@ -84,17 +85,19 @@ export async function GET(request: NextRequest) {
       'userRatingCount',
     ].join(',');
 
-    const response = await fetchWithRetry(
-      `${NEW_PLACES_API_BASE}/${resourceName}`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Goog-Api-Key': GOOGLE_API_KEY,
-          'X-Goog-FieldMask': fields,
-        },
-      }
-    );
+    const detailsUrl = new URL(`${NEW_PLACES_API_BASE}/${resourceName}`);
+    if (sessionToken) {
+      detailsUrl.searchParams.set('sessionToken', sessionToken);
+    }
+
+    const response = await fetchWithRetry(detailsUrl.toString(), {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': GOOGLE_API_KEY,
+        'X-Goog-FieldMask': fields,
+      },
+    });
 
     if (!response.ok) {
       const errorText = await response.text();

@@ -66,6 +66,12 @@ vi.mock('@/lib/cached-data', () => ({
       .substring(0, 100),
 }));
 
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => (
+    <div aria-label="dynamic metadata marker" role="status" />
+  ),
+}));
+
 vi.mock('@/lib/storefront-product/build-product-semantic-model', () => ({
   buildProductSemanticModel: (...args: unknown[]) =>
     mockBuildProductSemanticModel(...args),
@@ -956,6 +962,9 @@ describe('products/[productSlug] page', () => {
         name: /Shop more Products/i,
       })
     ).toHaveAttribute('href', 'https://teststore.usebaci.com/products');
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('link', {
         name: /Compare with Samsung Galaxy Z TriFold/i,

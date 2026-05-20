@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { type ReactNode, Suspense } from 'react';
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import {
   OgabasseyPdpProductResourceHints,
   preloadOgabasseyPdpProductImage,
@@ -699,6 +700,9 @@ export default async function CategoryProductPage({
 
   return (
     <>
+      <Suspense fallback={null}>
+        <StorefrontDynamicMetadataMarker />
+      </Suspense>
       {productResourceHints}
       {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml - JSON-LD is sanitized and not executed */}
       <script
