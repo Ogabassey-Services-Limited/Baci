@@ -37,6 +37,7 @@ run_adb_shell_with_timeout() {
   exit_file="$(mktemp "${TMPDIR:-/tmp}/baci-adb-shell-exit.XXXXXX")"
 
   (
+    set +e
     "$ADB" -s "$ADB_SERIAL" shell "$@" >"$output_file" 2>/dev/null
     printf '%s\n' "$?" >"$exit_file"
   ) &
@@ -59,10 +60,13 @@ run_adb_shell_with_timeout() {
   if [[ -f "$exit_file" ]]; then
     exit_status="$(tr -d '\r\n ' <"$exit_file")"
   fi
+  if ! [[ "$exit_status" =~ ^[0-9]+$ ]]; then
+    exit_status=1
+  fi
 
   cat "$output_file"
   rm -f "$output_file" "$exit_file"
-  return "$exit_status"
+  return "${exit_status:-1}"
 }
 
 if [[ ! -x "$ADB" ]]; then

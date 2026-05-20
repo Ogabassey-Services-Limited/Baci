@@ -258,6 +258,11 @@ describe('Android emulator launcher', () => {
     expect(debugApkInstaller).toContain('LOCALAPPDATA');
     expect(debugApkInstaller).toContain('cd \\"${APP_ROOT}/android\\"');
     expect(debugApkInstaller).toContain('run_adb_shell_with_timeout');
+    expect(debugApkInstaller).toContain('set +e');
+    expect(debugApkInstaller).toContain(
+      'if ! [[ "$exit_status" =~ ^[0-9]+$ ]]'
+    );
+    expect(debugApkInstaller).toContain('return "${exit_status:-1}"');
     expect(debugApkInstaller).toContain('get-state');
     expect(debugApkInstaller).toContain("tr -d '\\r\\n '");
     expect(debugApkInstaller).toContain('getprop sys.boot_completed');
