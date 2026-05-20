@@ -39,6 +39,7 @@ const baseProps = {
       lastAgentCrawlAt: null,
       slowCrawls: 0,
     },
+    isPartial: false,
     recent: [],
     topPages: [],
     totalCrawls: 0,

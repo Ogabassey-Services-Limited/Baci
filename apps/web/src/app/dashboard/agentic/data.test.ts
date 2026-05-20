@@ -92,6 +92,7 @@ const crawlerRows = [
     cache_outcome: 'hit',
     crawled_at: '2026-05-20T05:00:00.000Z',
     host: 'shop.example.com',
+    id: 'crawler-row-2',
     response_time_ms: 120,
     status_code: 200,
     url_path: '/agent-commerce.json',
@@ -103,6 +104,7 @@ const crawlerRows = [
     cache_outcome: 'miss',
     crawled_at: '2026-05-20T04:58:00.000Z',
     host: 'shop.example.com',
+    id: 'crawler-row-1',
     response_time_ms: 320,
     status_code: 200,
     url_path: '/feeds/openai.jsonl',
@@ -157,14 +159,13 @@ const fullReadiness = {
 interface CrawlerLogQuery {
   eq(column: string, value: string): CrawlerLogQuery;
   gte(column: string, value: string): CrawlerLogQuery;
-  order(column: string, options: { ascending: boolean }): CrawlerLogQuery;
-  range(
-    from: number,
-    to: number
-  ): Promise<{
+  limit(count: number): Promise<{
     data: Record<string, unknown>[] | null;
     error: unknown;
   }>;
+  lte(column: string, value: string): CrawlerLogQuery;
+  or(filter: string): CrawlerLogQuery;
+  order(column: string, options: { ascending: boolean }): CrawlerLogQuery;
   select(columns: string): CrawlerLogQuery;
 }
 
@@ -175,49 +176,95 @@ function createCrawlerLogQuery({
   data?: Record<string, unknown>[] | null;
   error?: unknown;
 } = {}): CrawlerLogQuery {
-  let orderColumn: string | null = null;
-  let orderOptions: { ascending: boolean } = { ascending: true };
+  const orderSpecs: Array<{ ascending: boolean; column: string }> = [];
+  let cursorFilter: string | null = null;
+
+  const compareOrderValues = (leftValue: unknown, rightValue: unknown) => {
+    if (typeof leftValue === 'number' && typeof rightValue === 'number') {
+      return leftValue - rightValue;
+    }
+
+    if (typeof leftValue === 'string' && typeof rightValue === 'string') {
+      return leftValue.localeCompare(rightValue);
+    }
+
+    return 0;
+  };
 
   const getOrderedData = () => {
-    if (!data || orderColumn !== 'crawled_at') {
+    if (!data || orderSpecs.length === 0) {
       return data;
     }
 
     return [...data].sort((leftRow, rightRow) => {
-      const leftValue = leftRow.crawled_at;
-      const rightValue = rightRow.crawled_at;
-
-      if (typeof leftValue !== 'string' || typeof rightValue !== 'string') {
-        return 0;
+      for (const { ascending, column } of orderSpecs) {
+        const comparison = compareOrderValues(
+          leftRow[column],
+          rightRow[column]
+        );
+        if (comparison !== 0) {
+          return ascending ? comparison : -comparison;
+        }
       }
 
-      const leftTime = Date.parse(leftValue);
-      const rightTime = Date.parse(rightValue);
+      return 0;
+    });
+  };
 
-      if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) {
-        return 0;
+  const parseCursorFilter = () => {
+    const match = cursorFilter?.match(
+      /^crawled_at\.lt\.(.*),and\(crawled_at\.eq\.(.*),id\.lt\.(.*)\)$/
+    );
+    if (!match) return null;
+
+    return {
+      crawledAt: match[1] ?? '',
+      tiedCrawledAt: match[2] ?? '',
+      id: match[3] ?? '',
+    };
+  };
+
+  const getFilteredData = () => {
+    const orderedData = getOrderedData();
+    const cursor = parseCursorFilter();
+
+    if (!orderedData || !cursor) {
+      return orderedData;
+    }
+
+    return orderedData.filter((row) => {
+      const crawledAt = row.crawled_at;
+      const id = row.id;
+
+      if (typeof crawledAt !== 'string' || typeof id !== 'string') {
+        return false;
       }
 
-      return orderOptions.ascending
-        ? leftTime - rightTime
-        : rightTime - leftTime;
+      return (
+        crawledAt < cursor.crawledAt ||
+        (crawledAt === cursor.tiedCrawledAt && id < cursor.id)
+      );
     });
   };
 
   const query: CrawlerLogQuery = {
     eq: vi.fn((_column: string, _value: string) => query),
     gte: vi.fn((_column: string, _value: string) => query),
-    order: vi.fn((column: string, options: { ascending: boolean }) => {
-      orderColumn = column;
-      orderOptions = options;
-      return query;
-    }),
-    range: vi.fn((from: number, to: number) => {
-      const orderedData = getOrderedData();
+    limit: vi.fn((count: number) => {
+      const filteredData = getFilteredData();
       return Promise.resolve({
-        data: orderedData?.slice(from, to + 1) ?? null,
+        data: filteredData?.slice(0, count) ?? null,
         error,
       });
+    }),
+    lte: vi.fn((_column: string, _value: string) => query),
+    or: vi.fn((filter: string) => {
+      cursorFilter = filter;
+      return query;
+    }),
+    order: vi.fn((column: string, options: { ascending: boolean }) => {
+      orderSpecs.push({ column, ascending: options.ascending });
+      return query;
     }),
     select: vi.fn((_columns: string) => query),
   };
@@ -277,6 +324,7 @@ describe('loadAgenticCentersData', () => {
         cacheMissCrawls: 1,
         failedCrawls: 0,
       },
+      isPartial: false,
       totalCrawls: 2,
       windowDays: 14,
     });
@@ -289,6 +337,7 @@ describe('loadAgenticCentersData', () => {
       cache_outcome: index === 4 ? 'miss' : 'hit',
       crawled_at: `2026-05-20T05:0${index}:00.000Z`,
       host: 'shop.example.com',
+      id: `crawler-row-${index}`,
       response_time_ms: 120,
       status_code: 200,
       url_path: `/agent-page-${index}`,
@@ -317,6 +366,75 @@ describe('loadAgenticCentersData', () => {
       '/agent-page-3',
       '/agent-page-2',
     ]);
+    expect(result.crawlerSummary?.recent[0]).not.toHaveProperty('id');
+  });
+
+  it('orders same-timestamp crawler rows by id before trimming recent activity', async () => {
+    const tiedCrawlerRows = [
+      {
+        agent_family: 'openai',
+        bot_name: 'OpenAI',
+        cache_outcome: 'hit',
+        crawled_at: '2026-05-20T05:00:00.000Z',
+        host: 'shop.example.com',
+        id: 'crawler-row-001',
+        response_time_ms: 120,
+        status_code: 200,
+        url_path: '/agent-page-low',
+        user_agent: 'GPTBot/1.0',
+      },
+      {
+        agent_family: 'openai',
+        bot_name: 'OpenAI',
+        cache_outcome: 'hit',
+        crawled_at: '2026-05-20T05:00:00.000Z',
+        host: 'shop.example.com',
+        id: 'crawler-row-003',
+        response_time_ms: 120,
+        status_code: 200,
+        url_path: '/agent-page-high',
+        user_agent: 'GPTBot/1.0',
+      },
+      {
+        agent_family: 'openai',
+        bot_name: 'OpenAI',
+        cache_outcome: 'hit',
+        crawled_at: '2026-05-20T05:00:00.000Z',
+        host: 'shop.example.com',
+        id: 'crawler-row-002',
+        response_time_ms: 120,
+        status_code: 200,
+        url_path: '/agent-page-mid',
+        user_agent: 'GPTBot/1.0',
+      },
+      {
+        agent_family: 'openai',
+        bot_name: 'OpenAI',
+        cache_outcome: 'hit',
+        crawled_at: '2026-05-20T04:59:00.000Z',
+        host: 'shop.example.com',
+        id: 'crawler-row-004',
+        response_time_ms: 120,
+        status_code: 200,
+        url_path: '/agent-page-older',
+        user_agent: 'GPTBot/1.0',
+      },
+    ];
+    supabaseFrom.mockImplementation((table: string) => {
+      if (table === 'crawler_logs') {
+        return createCrawlerLogQuery({ data: tiedCrawlerRows });
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+    const { loadAgenticCentersData } = await import('./data');
+
+    const result = await loadAgenticCentersData();
+
+    expect(result.crawlerSummary?.recent.map((row) => row.url_path)).toEqual([
+      '/agent-page-high',
+      '/agent-page-mid',
+      '/agent-page-low',
+    ]);
   });
 
   it('pages crawler rows before building aggregate counts', async () => {
@@ -328,6 +446,7 @@ describe('loadAgenticCentersData', () => {
         cache_outcome: 'hit',
         crawled_at: `2026-05-20T05:${String(index % 60).padStart(2, '0')}:00.000Z`,
         host: 'shop.example.com',
+        id: `crawler-row-${String(index).padStart(4, '0')}`,
         response_time_ms: 120,
         status_code: 200,
         url_path: `/agent-page-${index}`,
@@ -349,8 +468,90 @@ describe('loadAgenticCentersData', () => {
 
     expect(result.crawlerSummary?.totalCrawls).toBe(1001);
     expect(result.crawlerSummary?.health.aiAgentCrawls).toBe(1001);
-    expect(crawlerLogQuery.range).toHaveBeenNthCalledWith(1, 0, 999);
-    expect(crawlerLogQuery.range).toHaveBeenNthCalledWith(2, 1000, 1999);
+    expect(result.crawlerSummary?.isPartial).toBe(false);
+    expect(crawlerLogQuery.order).toHaveBeenNthCalledWith(1, 'crawled_at', {
+      ascending: false,
+    });
+    expect(crawlerLogQuery.order).toHaveBeenNthCalledWith(2, 'id', {
+      ascending: false,
+    });
+    expect(crawlerLogQuery.limit).toHaveBeenNthCalledWith(1, 1001);
+    expect(crawlerLogQuery.limit).toHaveBeenNthCalledWith(2, 1001);
+    expect(crawlerLogQuery.lte).toHaveBeenCalledWith(
+      'crawled_at',
+      expect.any(String)
+    );
+    expect(crawlerLogQuery.or).toHaveBeenCalledTimes(1);
+    expect(crawlerLogQuery.or).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /^crawled_at\.lt\..*,and\(crawled_at\.eq\..*,id\.lt\..*\)$/
+      )
+    );
+  });
+
+  it('caps crawler aggregation after the maximum page window', async () => {
+    const cappedCrawlerRows = Array.from(
+      { length: 10_001 },
+      (_value, index) => ({
+        agent_family: 'openai',
+        bot_name: 'OpenAI',
+        cache_outcome: 'hit',
+        crawled_at: `2026-05-20T${String(Math.floor(index / 3600)).padStart(2, '0')}:${String(Math.floor(index / 60) % 60).padStart(2, '0')}:${String(index % 60).padStart(2, '0')}.000Z`,
+        host: 'shop.example.com',
+        id: `crawler-row-${String(index).padStart(5, '0')}`,
+        response_time_ms: 120,
+        status_code: 200,
+        url_path: `/agent-page-${index}`,
+        user_agent: 'GPTBot/1.0',
+      })
+    );
+    const crawlerLogQuery = createCrawlerLogQuery({ data: cappedCrawlerRows });
+    supabaseFrom.mockImplementation((table: string) => {
+      if (table === 'crawler_logs') {
+        return crawlerLogQuery;
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+    const { loadAgenticCentersData } = await import('./data');
+
+    const result = await loadAgenticCentersData();
+
+    expect(result.crawlerSummary?.totalCrawls).toBe(10_000);
+    expect(result.crawlerSummary?.isPartial).toBe(true);
+    expect(crawlerLogQuery.limit).toHaveBeenCalledTimes(10);
+    expect(crawlerLogQuery.limit).toHaveBeenNthCalledWith(10, 1001);
+  });
+
+  it('does not mark crawler aggregation partial at the exact page cap', async () => {
+    const cappedCrawlerRows = Array.from(
+      { length: 10_000 },
+      (_value, index) => ({
+        agent_family: 'openai',
+        bot_name: 'OpenAI',
+        cache_outcome: 'hit',
+        crawled_at: `2026-05-20T${String(Math.floor(index / 3600)).padStart(2, '0')}:${String(Math.floor(index / 60) % 60).padStart(2, '0')}:${String(index % 60).padStart(2, '0')}.000Z`,
+        host: 'shop.example.com',
+        id: `crawler-row-${String(index).padStart(5, '0')}`,
+        response_time_ms: 120,
+        status_code: 200,
+        url_path: `/agent-page-${index}`,
+        user_agent: 'GPTBot/1.0',
+      })
+    );
+    const crawlerLogQuery = createCrawlerLogQuery({ data: cappedCrawlerRows });
+    supabaseFrom.mockImplementation((table: string) => {
+      if (table === 'crawler_logs') {
+        return crawlerLogQuery;
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+    const { loadAgenticCentersData } = await import('./data');
+
+    const result = await loadAgenticCentersData();
+
+    expect(result.crawlerSummary?.totalCrawls).toBe(10_000);
+    expect(result.crawlerSummary?.isPartial).toBe(false);
+    expect(crawlerLogQuery.limit).toHaveBeenCalledTimes(10);
   });
 
   it('skips loaders when the store is unpublished', async () => {

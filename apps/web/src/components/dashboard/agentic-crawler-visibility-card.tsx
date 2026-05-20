@@ -1,5 +1,3 @@
-'use client';
-
 import { AlertTriangle, Bot, CheckCircle2, Clock3, Radar } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -160,6 +158,17 @@ export function AgenticCrawlerVisibilityCard({
             </p>
           </div>
         </div>
+
+        {summary.isPartial && (
+          <div className="rounded-md border border-amber-200 bg-amber-50/70 p-3 text-sm text-amber-950">
+            <p className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 shrink-0" />
+              Crawler metrics are capped at the newest{' '}
+              {summary.totalCrawls.toLocaleString('en-US')} records in this
+              window.
+            </p>
+          </div>
+        )}
 
         <div className="grid gap-3 md:grid-cols-2">
           <div className="rounded-md border bg-muted/20 p-3">

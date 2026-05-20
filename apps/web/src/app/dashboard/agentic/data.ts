@@ -6,9 +6,9 @@ import { getCachedOpenAIFeedData } from '@/app/api/feed/openai/feed-data';
 import type { StaffAccess } from '@/hooks/merchant';
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
 import {
-  buildCrawlerLogSummary,
   type CrawlerLogSummary,
   type CrawlerLogSummaryRow,
+  createCrawlerLogSummaryAccumulator,
 } from '@/lib/agentic/crawler-observability';
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { sanitizeErrorMessage } from '@/lib/sanitize-error-message';
@@ -37,9 +37,18 @@ export interface AgenticCentersData {
 
 const CRAWLER_VISIBILITY_WINDOW_DAYS = 14;
 const CRAWLER_LOG_PAGE_SIZE = 1000;
+const CRAWLER_LOG_FETCH_LIMIT = CRAWLER_LOG_PAGE_SIZE + 1;
+const CRAWLER_LOG_MAX_PAGES = 10;
 const CRAWLER_RECENT_ACTIVITY_LIMIT = 3;
 const CRAWLER_LOG_SELECT_COLUMNS =
-  'agent_family, bot_name, cache_outcome, crawled_at, host, response_time_ms, status_code, url_path, user_agent';
+  'id, agent_family, bot_name, cache_outcome, crawled_at, host, response_time_ms, status_code, url_path, user_agent';
+
+type CrawlerLogQueryRow = CrawlerLogSummaryRow & { id: string };
+
+interface CrawlerLogCursor {
+  crawledAt: string;
+  id: string;
+}
 
 function isPermissionDeniedError(reason: unknown): boolean {
   if (!reason || typeof reason !== 'object') return false;
@@ -64,6 +73,24 @@ function canViewCrawlerVisibility(staffAccess: StaffAccess): boolean {
   if (staffAccess.isOwner) return true;
   if (!staffAccess.isStaff) return false;
   return staffAccess.permissions.analytics?.view === true;
+}
+
+function toCrawlerLogSummaryRow(row: CrawlerLogQueryRow): CrawlerLogSummaryRow {
+  return {
+    agent_family: row.agent_family,
+    bot_name: row.bot_name,
+    cache_outcome: row.cache_outcome,
+    crawled_at: row.crawled_at,
+    host: row.host,
+    response_time_ms: row.response_time_ms,
+    status_code: row.status_code,
+    url_path: row.url_path,
+    user_agent: row.user_agent,
+  };
+}
+
+function buildCrawlerLogCursorFilter(cursor: CrawlerLogCursor) {
+  return `crawled_at.lt.${cursor.crawledAt},and(crawled_at.eq.${cursor.crawledAt},id.lt.${cursor.id})`;
 }
 
 async function loadAgenticTrustReadiness(
@@ -110,37 +137,54 @@ async function loadAgenticCrawlerVisibility(
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - CRAWLER_VISIBILITY_WINDOW_DAYS);
   const crawledSince = startDate.toISOString();
-  const rows: CrawlerLogSummaryRow[] = [];
-  let rangeStart = 0;
+  const crawledUntil = new Date().toISOString();
+  const accumulator = createCrawlerLogSummaryAccumulator(
+    CRAWLER_VISIBILITY_WINDOW_DAYS,
+    { recentLimit: CRAWLER_RECENT_ACTIVITY_LIMIT }
+  );
+  let cursor: CrawlerLogCursor | null = null;
+  let isPartial = false;
 
-  while (true) {
-    const rangeEnd = rangeStart + CRAWLER_LOG_PAGE_SIZE - 1;
-    const { data, error } = await supabase
+  for (let page = 0; page < CRAWLER_LOG_MAX_PAGES; page += 1) {
+    const query = supabase
       .from('crawler_logs')
       .select(CRAWLER_LOG_SELECT_COLUMNS)
       .eq('merchant_id', merchantId)
       .gte('crawled_at', crawledSince)
+      .lte('crawled_at', crawledUntil)
       .order('crawled_at', { ascending: false })
-      .range(rangeStart, rangeEnd);
+      .order('id', { ascending: false });
+
+    const pagedQuery = cursor
+      ? query.or(buildCrawlerLogCursorFilter(cursor))
+      : query;
+    const { data, error } = await pagedQuery.limit(CRAWLER_LOG_FETCH_LIMIT);
 
     if (error) throw error;
 
-    const pageRows = (data ?? []) as CrawlerLogSummaryRow[];
-    rows.push(...pageRows);
+    const fetchedRows = (data ?? []) as CrawlerLogQueryRow[];
+    const hasMoreRows = fetchedRows.length > CRAWLER_LOG_PAGE_SIZE;
+    const pageRows = hasMoreRows
+      ? fetchedRows.slice(0, CRAWLER_LOG_PAGE_SIZE)
+      : fetchedRows;
+    accumulator.addRows(pageRows.map(toCrawlerLogSummaryRow));
 
-    if (pageRows.length < CRAWLER_LOG_PAGE_SIZE) {
+    if (!hasMoreRows) {
       break;
     }
 
-    rangeStart += CRAWLER_LOG_PAGE_SIZE;
+    const lastRow = pageRows.at(-1);
+    if (!lastRow) {
+      break;
+    }
+
+    cursor = { crawledAt: lastRow.crawled_at, id: lastRow.id };
+    if (page === CRAWLER_LOG_MAX_PAGES - 1) {
+      isPartial = true;
+    }
   }
 
-  const summary = buildCrawlerLogSummary(rows, CRAWLER_VISIBILITY_WINDOW_DAYS);
-
-  return {
-    ...summary,
-    recent: summary.recent.slice(0, CRAWLER_RECENT_ACTIVITY_LIMIT),
-  };
+  return { ...accumulator.toSummary(), isPartial };
 }
 
 export async function loadAgenticCentersData(): Promise<AgenticCentersData> {

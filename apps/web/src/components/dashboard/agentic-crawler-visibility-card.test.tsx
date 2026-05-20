@@ -27,6 +27,7 @@ const baseSummary: CrawlerLogSummary = {
     lastAgentCrawlAt: '2026-05-20T05:00:00.000Z',
     slowCrawls: 0,
   },
+  isPartial: false,
   recent: [
     {
       agent_family: 'openai',
@@ -122,6 +123,19 @@ describe('AgenticCrawlerVisibilityCard', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText('No crawled pages logged in this window.')
+    ).toBeInTheDocument();
+  });
+
+  it('shows capped crawler metrics when the summary is partial', () => {
+    render(
+      <AgenticCrawlerVisibilityCard
+        state="ready"
+        summary={{ ...baseSummary, isPartial: true }}
+      />
+    );
+
+    expect(
+      screen.getByText(/Crawler metrics are capped at the newest 6 records/)
     ).toBeInTheDocument();
   });
 

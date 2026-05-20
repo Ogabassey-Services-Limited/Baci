@@ -45,10 +45,16 @@ export interface CrawlerLogSummary {
     lastAgentCrawlAt: string | null;
     slowCrawls: number;
   };
+  isPartial: boolean;
   recent: CrawlerLogSummaryRow[];
   topPages: Array<{ count: number; path: string }>;
   totalCrawls: number;
   windowDays: number;
+}
+
+export interface CrawlerLogSummaryAccumulator {
+  addRows(rows: CrawlerLogSummaryRow[]): void;
+  toSummary(): CrawlerLogSummary;
 }
 
 const AI_AGENT_FAMILIES: ReadonlySet<AgentCrawlerFamily> = new Set([
@@ -182,19 +188,38 @@ export function buildCrawlerLogSummary(
   rows: CrawlerLogSummaryRow[],
   windowDays: number
 ): CrawlerLogSummary {
+  const accumulator = createCrawlerLogSummaryAccumulator(windowDays);
+  accumulator.addRows(rows);
+  return accumulator.toSummary();
+}
+
+export function createCrawlerLogSummaryAccumulator(
+  windowDays: number,
+  options: { recentLimit?: number } = {}
+): CrawlerLogSummaryAccumulator {
   const botStats = new Map<
     string,
     { count: number; family: string; lastCrawledAt: string; name: string }
   >();
   const pageCounts = new Map<string, number>();
   const dailyCounts = new Map<string, number>();
+  const recentRows: CrawlerLogSummaryRow[] = [];
   let aiAgentCrawls = 0;
   let cacheMissCrawls = 0;
   let failedCrawls = 0;
   let lastAgentCrawlAt: string | null = null;
   let slowCrawls = 0;
+  let totalCrawls = 0;
 
-  for (const row of rows) {
+  const addRow = (row: CrawlerLogSummaryRow) => {
+    totalCrawls += 1;
+    if (
+      options.recentLimit === undefined ||
+      recentRows.length < options.recentLimit
+    ) {
+      recentRows.push(row);
+    }
+
     const fallbackClassification = classifyCrawlerUserAgent(
       row.user_agent ?? row.bot_name
     );
@@ -248,33 +273,43 @@ export function buildCrawlerLogSummary(
     ) {
       cacheMissCrawls += 1;
     }
-  }
+  };
 
   return {
-    byBot: Array.from(botStats.values()).sort((left, right) => {
-      if (right.count !== left.count) return right.count - left.count;
-      return left.name.localeCompare(right.name);
-    }),
-    byDay: Array.from(dailyCounts.entries())
-      .map(([date, count]) => ({ count, date }))
-      .sort((left, right) => left.date.localeCompare(right.date)),
-    generatedAt: new Date().toISOString(),
-    health: {
-      aiAgentCrawls,
-      cacheMissCrawls,
-      failedCrawls,
-      lastAgentCrawlAt,
-      slowCrawls,
+    addRows(rowsToAdd) {
+      for (const row of rowsToAdd) {
+        addRow(row);
+      }
     },
-    recent: rows,
-    topPages: Array.from(pageCounts.entries())
-      .map(([path, count]) => ({ count, path }))
-      .sort((left, right) => {
-        if (right.count !== left.count) return right.count - left.count;
-        return left.path.localeCompare(right.path);
-      })
-      .slice(0, 20),
-    totalCrawls: rows.length,
-    windowDays,
+    toSummary() {
+      return {
+        byBot: Array.from(botStats.values()).sort((left, right) => {
+          if (right.count !== left.count) return right.count - left.count;
+          return left.name.localeCompare(right.name);
+        }),
+        byDay: Array.from(dailyCounts.entries())
+          .map(([date, count]) => ({ count, date }))
+          .sort((left, right) => left.date.localeCompare(right.date)),
+        generatedAt: new Date().toISOString(),
+        health: {
+          aiAgentCrawls,
+          cacheMissCrawls,
+          failedCrawls,
+          lastAgentCrawlAt,
+          slowCrawls,
+        },
+        isPartial: false,
+        recent: recentRows.slice(),
+        topPages: Array.from(pageCounts.entries())
+          .map(([path, count]) => ({ count, path }))
+          .sort((left, right) => {
+            if (right.count !== left.count) return right.count - left.count;
+            return left.path.localeCompare(right.path);
+          })
+          .slice(0, 20),
+        totalCrawls,
+        windowDays,
+      };
+    },
   };
 }
