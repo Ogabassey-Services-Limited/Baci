@@ -48,7 +48,7 @@ vi.mock('next/server', async () => {
   };
 });
 
-import { POST } from '@/app/api/payments/klump/webhook/route';
+import { GET, HEAD, POST } from '@/app/api/payments/klump/webhook/route';
 
 function signPayload(rawBody: string, secret: string) {
   return createHmac('sha256', secret).update(rawBody).digest('hex');
@@ -251,6 +251,64 @@ describe('POST /api/payments/klump/webhook', () => {
       messageId: 'message-123',
       success: true,
     });
+  });
+
+  it('acknowledges Klump dashboard reachability checks', async () => {
+    const response = GET();
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload).toEqual({
+      message: 'Klump webhook endpoint reachable',
+      success: true,
+    });
+  });
+
+  it('acknowledges Klump dashboard HEAD checks', () => {
+    const response = HEAD();
+
+    expect(response.status).toBe(200);
+  });
+
+  it('acknowledges unsigned empty setup probes before database writes', async () => {
+    const response = await POST(createRequest({}));
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload).toEqual({
+      message: 'Klump webhook endpoint reachable',
+      success: true,
+    });
+    expect(mocks.createAdminClient).not.toHaveBeenCalled();
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects unsigned webhook events before database writes', async () => {
+    const response = await POST(createRequest(successfulPayload));
+    const payload = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(payload.error).toBe('Invalid signature');
+    expect(mocks.createAdminClient).not.toHaveBeenCalled();
+  });
+
+  it('rejects unsigned top-level payment payloads before database writes', async () => {
+    const response = await POST(
+      createRequest({
+        amount: 50000,
+        currency: 'NGN',
+        id: 'klump-txn-123',
+        is_live: true,
+        merchant_reference: 'BAC-ABCD12345678',
+        status: 'successful',
+      })
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(401);
+    expect(payload.error).toBe('Invalid signature');
+    expect(mocks.createAdminClient).not.toHaveBeenCalled();
+    expect(mocks.fetch).not.toHaveBeenCalled();
   });
 
   it('rejects webhook calls with invalid signatures before database writes', async () => {
