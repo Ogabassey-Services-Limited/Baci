@@ -144,6 +144,15 @@ describe('env validation', () => {
     );
   });
 
+  it('uses MYCOVER_SECRET_KEY as the MyCover webhook signing secret fallback', async () => {
+    delete process.env.MYCOVER_WEBHOOK_SECRET;
+    vi.stubEnv('MYCOVER_SECRET_KEY', '  MCASECK|secret  ');
+
+    const { getMyCoverWebhookSecret } = await loadEnvModule();
+
+    expect(getMyCoverWebhookSecret()).toBe('MCASECK|secret');
+  });
+
   it('allows overriding the terminal idempotency record window', async () => {
     vi.stubEnv('TERMINAL_IDEMPOTENCY_RECORD_WINDOW_MS', '3600000');
     const { getTerminalIdempotencyRecordWindowMs } = await loadEnvModule();
