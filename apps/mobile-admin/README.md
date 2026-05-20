@@ -90,16 +90,16 @@ baci-mobile-admin/
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Start the development server
-npm start
+pnpm start
 
 # Run on iOS
-npm run ios
+pnpm ios
 
 # Run on Android
-npm run android
+pnpm android
 ```
 
 ### Environment Setup
@@ -110,6 +110,18 @@ Create a `.env` file (not committed to git):
 EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
+
+### Android Emulator QA
+
+Use the checked-in launcher for Android QA:
+
+```bash
+pnpm --filter baci-mobile-admin android:emulator
+```
+
+Do not launch the mobile-admin emulator directly with `-gpu swiftshader_indirect`.
+The launcher owns GPU mode, restarts ADB, waits for boot, and fails if `adb shell`
+is not responsive.
 
 ### Simulator and Emulator Keyboards
 

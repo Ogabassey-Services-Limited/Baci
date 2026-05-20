@@ -31,6 +31,7 @@ export function BranchSwitcher() {
     branches,
     setAllLocations,
   });
+  const shouldShowBranchFilters = branchManagement.activeBranches.length > 1;
   const handleAllLocationsPress = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setAllLocations();
@@ -60,56 +61,60 @@ export function BranchSwitcher() {
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
         >
-          <BranchPill
-            icon="business"
-            label="All locations"
-            selected={isAllLocations}
-            colors={colors}
-            shadowStyle={shadows.sm}
-            onPress={handleAllLocationsPress}
-            accessibilityLabel="Show all branch locations"
-            accessibilityHint="Double tap to show all branch locations"
-          />
-          {branchManagement.activeBranches.map((branch) => {
-            const isActive = branch.id === branchId;
-            return (
-              <View key={branch.id} style={styles.branchItem}>
-                <BranchPill
-                  icon="location"
-                  label={branch.name}
-                  selected={isActive}
-                  colors={colors}
-                  shadowStyle={shadows.sm}
-                  onPress={() => handleBranchPress(branch)}
-                  accessibilityLabel={`Switch to ${branch.name} branch`}
-                  accessibilityHint="Double tap to set as active branch"
-                />
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.manageButton,
-                    {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
-                    },
-                    shadows.sm,
-                    pressed && { opacity: 0.7 },
-                  ]}
-                  onPress={() =>
-                    branchManagement.handleManageBranchPress(branch)
-                  }
-                  accessibilityRole="button"
-                  accessibilityLabel={`Manage ${branch.name} branch`}
-                  accessibilityHint="Double tap to edit or deactivate this branch"
-                >
-                  <Ionicons
-                    name="ellipsis-horizontal"
-                    size={16}
-                    color={colors.textSecondary}
-                  />
-                </Pressable>
-              </View>
-            );
-          })}
+          {shouldShowBranchFilters && (
+            <>
+              <BranchPill
+                icon="business"
+                label="All locations"
+                selected={isAllLocations}
+                colors={colors}
+                shadowStyle={shadows.sm}
+                onPress={handleAllLocationsPress}
+                accessibilityLabel="Show all branch locations"
+                accessibilityHint="Double tap to show all branch locations"
+              />
+              {branchManagement.activeBranches.map((branch) => {
+                const isActive = branch.id === branchId;
+                return (
+                  <View key={branch.id} style={styles.branchItem}>
+                    <BranchPill
+                      icon="location"
+                      label={branch.name}
+                      selected={isActive}
+                      colors={colors}
+                      shadowStyle={shadows.sm}
+                      onPress={() => handleBranchPress(branch)}
+                      accessibilityLabel={`Switch to ${branch.name} branch`}
+                      accessibilityHint="Double tap to set as active branch"
+                    />
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.manageButton,
+                        {
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                        },
+                        shadows.sm,
+                        pressed && { opacity: 0.7 },
+                      ]}
+                      onPress={() =>
+                        branchManagement.handleManageBranchPress(branch)
+                      }
+                      accessibilityRole="button"
+                      accessibilityLabel={`Manage ${branch.name} branch`}
+                      accessibilityHint="Double tap to edit or deactivate this branch"
+                    >
+                      <Ionicons
+                        name="ellipsis-horizontal"
+                        size={16}
+                        color={colors.textSecondary}
+                      />
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </>
+          )}
           <Pressable
             style={({ pressed }) => [
               styles.addButton,

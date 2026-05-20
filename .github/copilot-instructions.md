@@ -62,3 +62,13 @@ pnpm turbo lint       # Biome linting
 pnpm turbo typecheck  # TypeScript check
 pnpm turbo test       # Run tests (Vitest)
 ```
+
+## Android Emulator QA
+
+For `apps/mobile-admin`, Android emulator QA must start from:
+
+```bash
+pnpm --filter baci-mobile-admin android:emulator
+```
+
+Do not launch the emulator directly or with `-gpu swiftshader_indirect`; the repo launcher owns GPU mode, ADB reset, boot waiting, and ADB shell stability checks.

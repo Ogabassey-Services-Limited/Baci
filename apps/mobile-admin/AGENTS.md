@@ -3,6 +3,7 @@
 ## Platform Drift
 
 - Prefer shared primitives over inline platform branches.
+- Android emulator QA must start from `pnpm --filter baci-mobile-admin android:emulator`. Do not launch the emulator directly or with `-gpu swiftshader_indirect`; the script owns GPU mode, ADB reset, boot waiting, and ADB shell validation.
 - Add new modal, sheet, picker, or keyboard behavior through shared UI helpers in `components/ui/` whenever possible.
 - Treat new `Platform.OS` and `Platform.select` usage as exceptional, not normal.
 - If a new platform-specific branch is unavoidable:

@@ -78,39 +78,36 @@ git diff --check exits 0
 
 ## Task 2: Android Tooling and Emulator Setup
 
-- [ ] **Step 1: Locate adb and emulator**
+- [ ] **Step 1: Start the checked-in Android emulator launcher**
 
 Run:
 
 ```bash
-ADB="$HOME/Library/Android/sdk/platform-tools/adb"
-EMULATOR="$HOME/Library/Android/sdk/emulator/emulator"
-test -x "$ADB"
-test -x "$EMULATOR"
-"$EMULATOR" -list-avds
+pnpm --filter baci-mobile-admin android:emulator
 ```
 
 Expected:
 
 ```text
-Medium_Phone_API_36.1
+Android emulator is ready on emulator-5554.
 ```
 
-- [ ] **Step 2: Boot emulator if no device is attached**
+- [ ] **Step 2: Confirm adb sees the launched emulator**
 
 Run:
 
 ```bash
-"$ADB" devices
-"$EMULATOR" -avd Medium_Phone_API_36.1 -netdelay none -netspeed full >/tmp/baci-branch-android-emulator.log 2>&1 &
-"$ADB" wait-for-device
-"$ADB" shell getprop sys.boot_completed
+ADB="$HOME/Library/Android/sdk/platform-tools/adb"
+"$ADB" -s emulator-5554 devices
+"$ADB" -s emulator-5554 shell getprop sys.boot_completed
+"$ADB" -s emulator-5554 shell echo ok
 ```
 
 Expected:
 
 ```text
 1
+ok
 ```
 
 - [ ] **Step 3: Save baseline emulator evidence**

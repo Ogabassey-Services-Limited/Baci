@@ -62,6 +62,15 @@ Before submitting a PR, ensure:
 2. `pnpm test` passes (Vitest for web and `apps/mobile-admin`; Jest for `apps/mobile-storefront`).
 3. The "CI Quality Gate" workflow passes on GitHub Actions.
 
+## Android Emulator QA
+For `apps/mobile-admin`, Android emulator QA must start from:
+
+```bash
+pnpm --filter baci-mobile-admin android:emulator
+```
+
+Do not launch the emulator directly or with `-gpu swiftshader_indirect`; the repo launcher owns GPU mode, ADB reset, boot waiting, and ADB shell stability checks.
+
 
 
 <!-- Source: .ruler/AGENTS.md -->

@@ -18,6 +18,7 @@ This file gives Gemini the repository constraints it must follow when reviewing 
 - Avoid `any`; prefer explicit types or `unknown`.
 - Validate API inputs with Zod and keep protected routes auth-first.
 - Do not use `select('*')` in Supabase queries.
+- For `apps/mobile-admin` Android emulator QA, start only with `pnpm --filter baci-mobile-admin android:emulator`; do not launch the emulator directly or with `-gpu swiftshader_indirect`.
 
 ## Architecture notes
 

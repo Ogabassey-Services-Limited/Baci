@@ -108,11 +108,18 @@ export default function AdminLayout() {
         />
 
         {/* Sub-screens with headers enabled */}
-        <Stack.Screen name="analytics" options={{ title: 'Analytics' }} />
-        <Stack.Screen name="blog" options={{ title: 'Blog' }} />
-        <Stack.Screen name="customer" options={{ title: 'Customers' }} />
-        <Stack.Screen name="discounts" options={{ title: 'Discounts' }} />
-        <Stack.Screen name="expenses" options={{ title: 'Expenses' }} />
+        <Stack.Screen name="analytics/index" options={{ title: 'Analytics' }} />
+        <Stack.Screen name="blog/index" options={{ title: 'Blog' }} />
+        <Stack.Screen
+          name="customer/[id]"
+          options={{ title: 'Customer Details' }}
+        />
+        <Stack.Screen
+          name="customer/edit/[id]"
+          options={{ title: 'Edit Customer', presentation: 'card' }}
+        />
+        <Stack.Screen name="discounts/index" options={{ title: 'Discounts' }} />
+        <Stack.Screen name="expenses/index" options={{ title: 'Expenses' }} />
 
         {/* Individual screens */}
         <Stack.Screen

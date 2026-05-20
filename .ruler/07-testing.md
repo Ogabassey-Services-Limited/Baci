@@ -114,3 +114,13 @@ Before marking any task as complete, verify:
 3. No files exceed 300 lines
 4. No duplicated logic across files (extract to shared)
 5. All exports are typed (no implicit `any`)
+
+## Android Emulator QA
+
+For `apps/mobile-admin`, Android emulator QA must start from:
+
+```bash
+pnpm --filter baci-mobile-admin android:emulator
+```
+
+Do not launch the emulator directly or with `-gpu swiftshader_indirect`; the repo launcher owns GPU mode, ADB reset, boot waiting, and ADB shell stability checks.
