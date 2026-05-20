@@ -195,4 +195,47 @@ describe('POST /api/webhooks/mycover', () => {
       'policy-123'
     );
   });
+
+  it('uses the configured webhook secret for renewal lookups when no API secret is set', async () => {
+    delete process.env.MYCOVER_SECRET_KEY;
+    mocks.getMyCoverWebhookSecret.mockReturnValue('webhook-only-secret');
+    mocks.fetch.mockResolvedValue({
+      json: async () => ({
+        data: {
+          purchase: {
+            id: 'purchase-123',
+          },
+        },
+      }),
+      ok: true,
+    });
+    const payload = {
+      data: {
+        id: 'renewal-123',
+        policy_expiry_date: '2027-06-20T09:47:22.008Z',
+        reference: 'BUY-PSKUEVZSSXVJRPQX',
+        status: 'successful',
+      },
+      event: 'renewal.successful',
+    };
+    const rawBody = JSON.stringify(payload);
+
+    const response = await POST(
+      createRequest(payload, signPayload(rawBody, 'webhook-only-secret'))
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetch).toHaveBeenCalledWith(
+      'https://api.mycover.ai/v1/renewals/renewal-123',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer webhook-only-secret',
+        }),
+      })
+    );
+    expect(mocks.policyEq).toHaveBeenCalledWith(
+      'mycover_purchase_id',
+      'purchase-123'
+    );
+  });
 });

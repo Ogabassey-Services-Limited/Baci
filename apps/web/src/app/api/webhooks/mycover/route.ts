@@ -141,7 +141,12 @@ export async function POST(request: NextRequest) {
 
       case 'policy.renewed':
       case 'renewal.successful':
-        await handlePolicyRenewed(supabase, payload.data, payload.event);
+        await handlePolicyRenewed(
+          supabase,
+          payload.data,
+          payload.event,
+          myCoverWebhookSecret
+        );
         break;
 
       case 'policy.expired':
@@ -257,9 +262,11 @@ function getLookupFromRenewalDetails(
 }
 
 async function resolveRenewalPolicyLookup(
-  renewalId: string
+  renewalId: string,
+  configuredSecret: string
 ): Promise<MyCoverPolicyLookup | null> {
-  const secretKey = process.env.MYCOVER_SECRET_KEY?.trim();
+  const secretKey =
+    process.env.MYCOVER_SECRET_KEY?.trim() || configuredSecret.trim();
   if (!secretKey) return null;
 
   const response = await fetch(
@@ -316,13 +323,14 @@ function getPolicyExpiryDate(data: MyCoverWebhookPayload['data']) {
 async function handlePolicyRenewed(
   supabase: SupabaseClient,
   data: MyCoverWebhookPayload['data'],
-  event: MyCoverWebhookPayload['event']
+  event: MyCoverWebhookPayload['event'],
+  configuredSecret: string
 ) {
   let lookup = getPolicyLookup(data, {
     dataIdColumn: event === 'renewal.successful' ? null : 'mycover_policy_id',
   });
   if (!lookup && event === 'renewal.successful' && data.id) {
-    lookup = await resolveRenewalPolicyLookup(data.id);
+    lookup = await resolveRenewalPolicyLookup(data.id, configuredSecret);
   }
 
   if (!lookup) {
