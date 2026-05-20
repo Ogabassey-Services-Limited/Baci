@@ -89,6 +89,8 @@ BACI_REPO_DIR=/opt/baci/app
 BACI_REMEDIATION_WORKTREE_ROOT=/opt/baci/remediation-worktrees
 BACI_REMEDIATION_VERIFY_COMMAND="pnpm turbo lint && pnpm turbo typecheck"
 BACI_REMEDIATION_NOTIFY_EMAILS=owner@example.com
+VERCEL_LOG_DRAIN_SECRET=...
+VERCEL_LOG_DRAIN_RECEIVER_PORT=8787
 ```
 
 Do not commit this file or any `.env*` file to version control. Keep those
@@ -116,6 +118,8 @@ Variable purposes:
 - `BACI_REMEDIATION_WORKTREE_ROOT`: Directory where isolated remediation worktrees are created. Defaults beside `BACI_REPO_DIR`.
 - `BACI_REMEDIATION_VERIFY_COMMAND`: Shell command run before commit/push in autofix mode.
 - `BACI_REMEDIATION_NOTIFY_EMAILS`: Comma-separated report recipients. Requires `ZEPTOMAIL_TOKEN`; `ZEPTOMAIL_FROM_DOMAIN` defaults to `usebaci.com`.
+- `VERCEL_LOG_DRAIN_SECRET`: Shared secret used to verify Vercel Drain HMAC signatures before appending log events.
+- `VERCEL_LOG_DRAIN_RECEIVER_PORT`: Local receiver port proxied by nginx. Default is `8787`.
 
 ### Runtime Checks and Rotation
 
@@ -155,6 +159,12 @@ must run through `bin/process-ai-storefront-jobs.sh`, which talks to local
 Ollama from the VPS checkout and processes one job per invocation.
 
 ## Vercel Error Remediator
+
+`jobs/vercel-log-drain-receiver.mjs` receives signed Vercel Drain HTTP POSTs,
+verifies `x-vercel-signature` with `VERCEL_LOG_DRAIN_SECRET`, normalizes JSON or
+NDJSON payloads, and appends valid log events to `VERCEL_ERROR_LOG_PATH`.
+`deploy.sh` installs it as the `baci-vercel-log-drain-receiver.service` user
+service. Expose only an HTTPS reverse proxy path to this local listener.
 
 `jobs/vercel-error-remediator.mjs` is a guarded remediation worker for Vercel
 runtime/build error logs.

@@ -16,7 +16,8 @@
     "sync-jumia-orders": "bash bin/sync-jumia-orders.sh",
     "run-web-cron": "node jobs/run-web-cron.mjs",
     "vercel-error-remediator": "node jobs/vercel-error-remediator.mjs",
-    "test": "node scripts/run-tests.mjs"
+    "test": "node scripts/run-tests.mjs",
+    "vercel-log-drain-receiver": "node jobs/vercel-log-drain-receiver.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.103.0",
