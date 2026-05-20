@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ComponentProps } from 'react';
-import Colors from '@/constants/Colors';
+import { StyleSheet } from 'react-native';
+import Colors, { BRAND } from '@/constants/Colors';
 import { sanitizeDescriptionPlainText } from '@/components/storefront/utils/text';
 import type { Product } from '@/types/product';
 import { formatPrice } from '@/types/product';
@@ -105,11 +106,16 @@ describe('ListProductCard', () => {
     });
 
     expect(screen.getByText(sanitized)).toBeTruthy();
+    expect(
+      StyleSheet.flatten(screen.getByText(sanitized).props.style)
+    ).toMatchObject({ color: Colors.light.mutedForeground });
   });
 
   it('shows cart badge when cartItemCount > 0 and hides it when 0', () => {
     const { rerender } = renderCard({ cartItemCount: 3 });
-    expect(screen.getByText('3')).toBeTruthy();
+    expect(StyleSheet.flatten(screen.getByText('3').props.style)).toMatchObject(
+      { color: BRAND.onPrimary }
+    );
 
     rerender(
       <ListProductCard

@@ -1,5 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import type { ComponentProps } from 'react';
+import { StyleSheet } from 'react-native';
+import Colors, { BRAND, withAlpha } from '@/constants/Colors';
 import type { Product } from '@/types/product';
 import { formatPrice } from '@/types/product';
 import GridProductCard from './GridProductCard';
@@ -133,6 +135,21 @@ describe('GridProductCard', () => {
     expect(handlePress).toHaveBeenCalledTimes(1);
     expect(handleWishlistPress).toHaveBeenCalledTimes(1);
     expect(handleAddToCart).toHaveBeenCalledTimes(1);
-    expect(screen.getByText('2')).toBeTruthy();
+
+    expect(StyleSheet.flatten(screen.getByText('2').props.style)).toMatchObject(
+      { color: BRAND.onPrimary }
+    );
+    expect(
+      StyleSheet.flatten(
+        screen.getByTestId('grid-wishlist-surface').props.style
+      )
+    ).toMatchObject({
+      backgroundColor: withAlpha(Colors.light.card, 0.8),
+    });
+    expect(
+      StyleSheet.flatten(
+        screen.getByLabelText(`Add ${baseProduct.name} to cart`).props.style
+      )
+    ).toMatchObject({ shadowColor: Colors.light.black });
   });
 });

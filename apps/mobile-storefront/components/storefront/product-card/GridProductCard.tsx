@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { Pressable, Text, View } from 'react-native';
 import Animated from 'react-native-reanimated';
-import Colors, { BRAND } from '@/constants/Colors';
+import Colors, { BRAND, withAlpha } from '@/constants/Colors';
 import { formatPrice, formatProductConditionDisplay } from '@/types/product';
 import styles from '../ProductCard.styles';
 import type { GridProductCardProps } from './types';
@@ -43,7 +43,7 @@ export default function GridProductCard({
   return (
     <AnimatedPressable
       style={[
-        styles.gridContainer, /* dynamically styled below */
+        styles.gridContainer,
         {
           width: gridWidth,
           backgroundColor: colors.card,
@@ -71,7 +71,14 @@ export default function GridProductCard({
           }
           accessibilityRole="button"
         >
-          <Animated.View style={[heartAnimatedStyle, styles.wishlistBlur, /* wishlist styled */ { backgroundColor: colors.card }]}>
+          <Animated.View
+            testID="grid-wishlist-surface"
+            style={[
+              heartAnimatedStyle,
+              styles.wishlistBlur,
+              { backgroundColor: withAlpha(colors.card, 0.8) },
+            ]}
+          >
             <Ionicons
               name={isSaved ? 'heart' : 'heart-outline'}
               size={16}
@@ -115,7 +122,14 @@ export default function GridProductCard({
 
         <Pressable
           onPress={handleAddToCart}
-          style={[styles.floatingCartBtn, /* cart btn styled */ { backgroundColor: colors.card, borderColor: colors.border }]}
+          style={[
+            styles.floatingCartBtn,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              shadowColor: colors.black,
+            },
+          ]}
           pointerEvents="box-only"
           accessibilityLabel={`Add ${product.name} to cart`}
           accessibilityRole="button"
@@ -123,7 +137,9 @@ export default function GridProductCard({
           <Ionicons name="cart" size={18} color={BRAND.primary} />
           {cartItemCount > 0 && (
             <View style={[styles.cartBadge, { borderColor: colors.card }]}>
-              <Text style={[styles.badgeTextMini, { color: colors.primaryForeground }]}>{cartItemCount}</Text>
+              <Text style={[styles.badgeTextMini, { color: BRAND.onPrimary }]}>
+                {cartItemCount}
+              </Text>
             </View>
           )}
         </Pressable>
@@ -156,11 +172,13 @@ export default function GridProductCard({
           {product.name}
         </Text>
 
-        <View style={[styles.priceRow, /* price row styled */ { borderTopColor: colors.border }]}>
+        <View style={[styles.priceRow, { borderTopColor: colors.border }]}>
           <Text style={[styles.gridPrice, { color: BRAND.primary }]}>
             {formatPrice(product.price)}
           </Text>
-          <Text style={[styles.detailsText, /* details text styled */ { color: colors.text }]}>Details</Text>
+          <Text style={[styles.detailsText, { color: colors.text }]}>
+            Details
+          </Text>
         </View>
       </View>
     </AnimatedPressable>
