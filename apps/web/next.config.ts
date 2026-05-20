@@ -29,6 +29,10 @@ const nextConfig: NextConfig = {
   // Reduces unnecessary re-renders without manual useMemo/useCallback
   reactCompiler: true,
 
+  // Let proxy.ts keep legacy webhook paths compatible while preserving the
+  // normal no-trailing-slash policy for the rest of the app.
+  skipTrailingSlashRedirect: true,
+
   // Production source maps disabled to save ~1-2 min build time
   // Re-enable if needed for debugging: productionBrowserSourceMaps: true,
   productionBrowserSourceMaps: false,
