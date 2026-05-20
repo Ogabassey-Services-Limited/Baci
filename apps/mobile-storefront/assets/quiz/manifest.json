@@ -1,0 +1,26 @@
+{
+  "generatedAt": "2026-05-18T01:20:17Z",
+  "assets": [
+    {
+      "repoPath": "apps/mobile-storefront/assets/quiz/icons/Search.svg",
+      "sha256": "d98e051118b9e7db557c5bdb58a7c08148b6b9113fa1b19d3c581673a30ffca8"
+    },
+    {
+      "repoPath": "apps/mobile-storefront/assets/quiz/png/Coins.png",
+      "sha256": "fb18dc96213b59cfe3bd05854a3934c6a2ac5fdbdd77e1d5bf6128b69a902bb6"
+    },
+    {
+      "repoPath": "apps/mobile-storefront/assets/quiz/png/Rectangle-2171.png",
+      "sha256": "82f56966a21d14c2fc27a8be2e49c5405b584201883213fdfd53c6082a8b7714"
+    },
+    {
+      "repoPath": "apps/mobile-storefront/assets/quiz/svg/Coins.svg",
+      "sha256": "28c57f3646edaae58779baf3f1693b67847572ab0840ebcd7e3a21e046976011"
+    },
+    {
+      "repoPath": "apps/mobile-storefront/assets/quiz/svg/Logo.svg",
+      "sha256": "97ade673fbf1396e39834dc58cd44cb6d74352e2d575bf3bb1e649c5e2540cc5"
+    }
+  ],
+  "note": "Build-time asset verification manifest"
+}

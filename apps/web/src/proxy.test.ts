@@ -118,6 +118,44 @@ describe('Middleware Proxy', () => {
     expect(csp).toContain("frame-ancestors 'self'");
   });
 
+  it('allows Klump checkout hosts on storefront CSP', async () => {
+    const req = new NextRequest(`https://ogabassey.${ROOT_DOMAIN}/products`);
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+    const res = await proxy(req);
+    const csp = res.headers.get('Content-Security-Policy') || '';
+    const directives = Object.fromEntries(
+      csp
+        .split(';')
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .map((entry) => {
+          const [name, ...values] = entry.split(/\s+/);
+          return [name, values.join(' ')];
+        })
+    );
+
+    expect(directives['script-src']).toContain('https://js.useklump.com');
+    expect(directives['script-src']).toContain('https://asset.useklump.com');
+    expect(directives['connect-src']).toContain(
+      'https://checkout.useklump.com'
+    );
+    expect(directives['connect-src']).toContain(
+      'https://checkout-v2.useklump.com'
+    );
+    expect(directives['connect-src']).toContain(
+      'https://directdebit.useklump.com'
+    );
+    expect(directives['frame-src']).toContain('https://asset.useklump.com');
+    expect(directives['frame-src']).toContain('https://checkout.useklump.com');
+    expect(directives['frame-src']).toContain(
+      'https://checkout-v2.useklump.com'
+    );
+    expect(directives['frame-src']).toContain(
+      'https://directdebit.useklump.com'
+    );
+  });
+
   it('does not allow unsafe-eval on production storefront routes', async () => {
     const req = new NextRequest(`https://ogabassey.${ROOT_DOMAIN}/products`);
     req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);

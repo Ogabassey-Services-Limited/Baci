@@ -1,0 +1,337 @@
+import type { User } from '@supabase/supabase-js';
+import { type NextRequest, NextResponse } from 'next/server';
+import { authenticateApiRequest } from '@/lib/api-auth';
+import { checkCsrfProtection } from '@/lib/csrf';
+import { logger } from '@/lib/logger';
+import { QuizProductionNotApprovedError } from '@/lib/quiz-compliance-gate';
+import {
+  createQuizRpcServerProof,
+  QuizRpcServerConfigError,
+} from '@/lib/quiz-proof';
+import { createClient } from '@/lib/supabase/server';
+import type { ServerSupabaseClient } from './route-helpers-guards';
+import { QuizAgeGateError } from './route-helpers-guards';
+
+export {
+  enforceCashAwardPrizeGuard,
+  enforceEventPrizeGuard,
+  enforceQuizAgeGate,
+} from './route-helpers-guards';
+
+type RequireQuizUserResult =
+  | {
+      response: null;
+      supabase: ServerSupabaseClient;
+      user: User;
+    }
+  | {
+      response: NextResponse;
+      supabase: null;
+      user: null;
+    };
+
+function getSafeAuthErrorFields(error: unknown) {
+  if (!error || typeof error !== 'object') {
+    return { errorMessage: String(error) };
+  }
+
+  const fields: {
+    errorCode?: string;
+    errorMessage?: string;
+    errorStatus?: number;
+  } = {};
+  if (
+    'message' in error &&
+    typeof (error as { message?: unknown }).message === 'string'
+  ) {
+    fields.errorMessage = (error as { message: string }).message;
+  }
+  if (
+    'code' in error &&
+    typeof (error as { code?: unknown }).code === 'string'
+  ) {
+    fields.errorCode = (error as { code: string }).code;
+  }
+  if (
+    'status' in error &&
+    typeof (error as { status?: unknown }).status === 'number'
+  ) {
+    fields.errorStatus = (error as { status: number }).status;
+  }
+
+  return fields;
+}
+
+export async function requireQuizUser(
+  request?: NextRequest
+): Promise<RequireQuizUserResult> {
+  const authHeader = request?.headers?.get('Authorization');
+  if (request && authHeader?.startsWith('Bearer ')) {
+    const auth = await authenticateApiRequest(request);
+    if (auth.user && auth.supabase) {
+      return {
+        response: null,
+        // authenticateApiRequest returns the real Supabase client; this local
+        // structural type only narrows the quiz routes to the methods they use.
+        supabase: auth.supabase as unknown as ServerSupabaseClient,
+        user: auth.user,
+      };
+    }
+
+    return {
+      response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+      supabase: null,
+      user: null,
+    };
+  }
+
+  const supabase = (await createClient()) as unknown as ServerSupabaseClient;
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error) {
+    logger.error({
+      message: 'Quiz auth lookup failed',
+      ...getSafeAuthErrorFields(error),
+    });
+    return {
+      // Supabase auth lookup errors are service failures, not bad credentials.
+      response: NextResponse.json(
+        { code: 'auth_unavailable', error: 'Authentication lookup failed' },
+        { status: 503 }
+      ),
+      supabase: null,
+      user: null,
+    };
+  }
+
+  if (!user) {
+    return {
+      response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
+      supabase: null,
+      user: null,
+    };
+  }
+
+  return { response: null, supabase, user };
+}
+
+export async function requireQuizCsrf(request: NextRequest) {
+  const csrf = await checkCsrfProtection(request);
+  if (!csrf.valid) {
+    return (
+      csrf.response ??
+      NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
+    );
+  }
+
+  return null;
+}
+
+type ParseJsonBodyResult =
+  | { body: unknown; response: null }
+  | { body: null; response: NextResponse };
+
+export async function parseJsonBody(
+  request: Request
+): Promise<ParseJsonBodyResult> {
+  try {
+    const body: unknown = await request.json();
+    return { body, response: null };
+  } catch {
+    return {
+      body: null,
+      response: NextResponse.json(
+        { error: 'Invalid JSON body' },
+        { status: 400 }
+      ),
+    };
+  }
+}
+
+export function invalidInputResponse(details: unknown) {
+  return NextResponse.json(
+    { details, error: 'Invalid input' },
+    { status: 400 }
+  );
+}
+
+export function rpcErrorResponse() {
+  return NextResponse.json({ error: 'Quiz request failed' }, { status: 500 });
+}
+
+function getQuizRpcErrorCode(error: unknown): string | null {
+  if (!error || typeof error !== 'object') return null;
+  return 'code' in error && typeof error.code === 'string' ? error.code : null;
+}
+
+const QUIZ_RPC_CLIENT_ERRORS: Record<
+  string,
+  { code: string; error: string; status: number }
+> = {
+  QZ001: {
+    code: 'QUIZ_CUSTOMER_NOT_FOUND',
+    error: 'Quiz customer profile not found',
+    status: 404,
+  },
+  QZ002: {
+    code: 'QUIZ_EVENT_NOT_OPEN',
+    error: 'Quiz event is not open',
+    status: 409,
+  },
+  QZ003: {
+    code: 'QUIZ_QUESTION_NOT_FOUND',
+    error: 'Quiz has no available questions',
+    status: 409,
+  },
+  QZ004: {
+    code: 'QUIZ_ATTEMPT_NOT_READY',
+    error: 'Quiz attempt is not ready for this action',
+    status: 409,
+  },
+  QZ010: {
+    code: 'QUIZ_ROUTE_PROOF_REQUIRED',
+    error: 'Quiz request is not authorized',
+    status: 403,
+  },
+  QZ020: {
+    code: 'QUIZ_PRIZE_FINALIZATION_NOT_APPROVED',
+    error: 'Quiz prize finalization is not approved',
+    status: 403,
+  },
+  QZ021: {
+    code: 'QUIZ_GRAND_PRIZE_CLAIM_NOT_APPROVED',
+    error: 'Grand prize claim is not approved',
+    status: 403,
+  },
+  QZ022: {
+    code: 'QUIZ_CASH_AWARD_CLAIM_NOT_APPROVED',
+    error: 'Cash award claim is not approved',
+    status: 403,
+  },
+  QZ023: {
+    code: 'QUIZ_GRAND_AWARD_NOT_CLAIMABLE',
+    error: 'No approved grand prize is available to claim',
+    status: 409,
+  },
+  QZ024: {
+    code: 'QUIZ_CASH_AWARD_NOT_CLAIMABLE',
+    error: 'No approved cash award is available to claim',
+    status: 409,
+  },
+};
+
+export function quizRpcClientErrorResponse(error: unknown) {
+  const code = getQuizRpcErrorCode(error);
+  if (!code) return null;
+
+  const mapped = QUIZ_RPC_CLIENT_ERRORS[code];
+  if (!mapped) return null;
+
+  return NextResponse.json(
+    { code: mapped.code, error: mapped.error },
+    { status: mapped.status }
+  );
+}
+
+export function prizeGuardErrorResponse(error: unknown) {
+  if (error instanceof QuizProductionNotApprovedError) {
+    return NextResponse.json(
+      {
+        code: error.code,
+        error: 'Quiz prizes are not approved for production use',
+      },
+      { status: error.status }
+    );
+  }
+
+  throw error;
+}
+
+export function isQuizAgeGateError(error: unknown): error is QuizAgeGateError {
+  return error instanceof QuizAgeGateError;
+}
+
+export function quizAgeGateErrorResponse(error: unknown) {
+  if (isQuizAgeGateError(error)) {
+    return NextResponse.json(
+      {
+        code: error.code,
+        error: 'Quiz participation requires an adult profile (18+)',
+      },
+      { status: error.status }
+    );
+  }
+
+  throw error;
+}
+
+type CreateRouteProofResult =
+  | {
+      proof: ReturnType<typeof createQuizRpcServerProof>;
+      response: null;
+    }
+  | {
+      proof: null;
+      response: NextResponse;
+    };
+
+export function createRouteProof({
+  action,
+  payload,
+  subjectId,
+  userId,
+}: {
+  action: string;
+  payload: Record<string, unknown>;
+  subjectId: string;
+  userId: string;
+}): CreateRouteProofResult {
+  try {
+    const proof = createQuizRpcServerProof({
+      action,
+      payload,
+      subjectId,
+      userId,
+    });
+    return {
+      proof,
+      response: null,
+    };
+  } catch (error) {
+    if (error instanceof QuizRpcServerConfigError) {
+      logger.error({ message: 'Quiz route proof configuration failed', error });
+      return {
+        proof: null,
+        response: NextResponse.json(
+          {
+            code: 'quiz_route_proof_unavailable',
+            error: 'quiz_route_proof_unavailable',
+          },
+          { status: 500 }
+        ),
+      };
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      throw error;
+    }
+
+    // Production fails closed for malformed proof payloads without exposing
+    // proof-generation internals to the client.
+    logger.warn({ message: 'Quiz route proof validation failed', error });
+
+    return {
+      proof: null,
+      response: NextResponse.json(
+        {
+          code: 'invalid_quiz_rpc_request',
+          error: 'invalid_quiz_rpc_request',
+        },
+        { status: 403 }
+      ),
+    };
+  }
+}

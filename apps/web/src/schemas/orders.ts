@@ -46,6 +46,20 @@ const optionalHttpUrlSchema = z.preprocess(
     .optional()
 );
 
+const optionalVoucherTokenSchema = z.preprocess((value) => {
+  if (value === null) {
+    return undefined;
+  }
+
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  const sanitized = sanitizeText(value.trim());
+
+  return sanitized.length > 0 ? sanitized : undefined;
+}, z.string().max(128).optional());
+
 const orderCreateSchemaBase = z.object({
   merchant_id: z.string().uuid(),
   customer_email: z
@@ -108,6 +122,10 @@ const orderCreateSchemaBase = z.object({
               z.string().transform((val) => sanitizeText(val).trim())
             )
             .optional(),
+          voucherAwardId: optionalVoucherTokenSchema,
+          voucherToken: optionalVoucherTokenSchema,
+          voucher_award_id: optionalVoucherTokenSchema,
+          voucher_token: optionalVoucherTokenSchema,
         })
         .refine((data) => data.product_id || data.productId || data.id, {
           message:
@@ -120,6 +138,26 @@ const orderCreateSchemaBase = z.object({
             data.imageUrl === data.image_url,
           {
             message: 'imageUrl and image_url must match when both are provided',
+          }
+        )
+        .refine(
+          (data) =>
+            !data.voucherToken ||
+            !data.voucher_token ||
+            data.voucherToken === data.voucher_token,
+          {
+            message:
+              'voucherToken and voucher_token must match when both are provided',
+          }
+        )
+        .refine(
+          (data) =>
+            !data.voucherAwardId ||
+            !data.voucher_award_id ||
+            data.voucherAwardId === data.voucher_award_id,
+          {
+            message:
+              'voucherAwardId and voucher_award_id must match when both are provided',
           }
         )
     )
