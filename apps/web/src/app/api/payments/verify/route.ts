@@ -6,23 +6,12 @@ import {
 import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
 import { verifyPayment as verifyKorapayPayment } from '@/lib/korapay';
 import { logger } from '@/lib/logger';
+import type { GatewayVerificationResult } from '@/lib/payments/types';
 import { extractVerifiedGatewayFeeNgn } from '@/lib/payments/verified-gateway-fee';
 import { verifyTransaction as verifyPaystackPayment } from '@/lib/paystack';
 import { createServiceClient } from '@/lib/supabase/service';
 import { sendEmail } from '@/lib/zeptomail';
 import { referenceSchema } from '@/schemas/payments';
-
-type GatewayVerificationResult =
-  | {
-      success: true;
-      status: string;
-      gatewayResponse: Record<string, unknown>;
-    }
-  | {
-      success: false;
-      error: string;
-      code?: string;
-    };
 
 type ShippingAddress = {
   address?: string;

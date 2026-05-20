@@ -24,6 +24,7 @@ describe('checkout-step-helpers', () => {
     expect(getPaymentTabForMethod('paystack')).toBe('full');
     expect(getPaymentTabForMethod('credpal')).toBe('installments');
     expect(getPaymentTabForMethod('credit_direct')).toBe('installments');
+    expect(getPaymentTabForMethod('klump')).toBe('installments');
     expect(getPaymentTabForMethod('invoice')).toBe('pay_later');
     expect(getPaymentTabForMethod('payforme')).toBe('pay_later');
   });

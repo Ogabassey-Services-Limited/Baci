@@ -81,6 +81,14 @@ OLLAMA_STOREFRONT_BASE_URL=http://localhost:11434
 OLLAMA_STOREFRONT_MODEL=gemma4:e4b
 OLLAMA_STOREFRONT_TIMEOUT_MS=90000
 AI_STOREFRONT_GENERATION_ENABLED=false
+VERCEL_ERROR_LOG_PATH=/home/bassey/baci-workers/logs/vercel-drain.jsonl
+BACI_REMEDIATION_OUTPUT_DIR=/home/bassey/baci-workers/logs/vercel-error-remediator
+BACI_REMEDIATION_MIN_OCCURRENCES=2
+BACI_REMEDIATION_AUTOFIX_ENABLED=0
+BACI_REPO_DIR=/opt/baci/app
+BACI_REMEDIATION_WORKTREE_ROOT=/opt/baci/remediation-worktrees
+BACI_REMEDIATION_VERIFY_COMMAND="pnpm turbo lint && pnpm turbo typecheck"
+BACI_REMEDIATION_NOTIFY_EMAILS=owner@example.com
 ```
 
 Do not commit this file or any `.env*` file to version control. Keep those
@@ -100,6 +108,14 @@ Variable purposes:
 - `OLLAMA_STOREFRONT_MODEL`: Gemma model used for storefront layout generation.
 - `OLLAMA_STOREFRONT_TIMEOUT_MS`: Per-request Ollama timeout for the storefront worker.
 - `AI_STOREFRONT_GENERATION_ENABLED`: Rollout flag for enqueueing new storefront generation jobs during onboarding.
+- `VERCEL_ERROR_LOG_PATH`: JSONL file written by the Vercel log-drain receiver or log export process. Each line must be one Vercel log event JSON object.
+- `BACI_REMEDIATION_OUTPUT_DIR`: Directory where the remediator writes Codex prompts and reports.
+- `BACI_REMEDIATION_MIN_OCCURRENCES`: Minimum repeated fingerprint count before the worker creates remediation work. Default is `2`.
+- `BACI_REMEDIATION_AUTOFIX_ENABLED`: Set to `1` only after Codex CLI and GitHub CLI are logged in on the VPS. Default/dry-run mode writes prompts and sends reports only.
+- `BACI_REPO_DIR`: Full Baci checkout used for autonomous fix PRs. The checkout must have `origin`, dependencies, `gh`, and Codex CLI access.
+- `BACI_REMEDIATION_WORKTREE_ROOT`: Directory where isolated remediation worktrees are created. Defaults beside `BACI_REPO_DIR`.
+- `BACI_REMEDIATION_VERIFY_COMMAND`: Shell command run before commit/push in autofix mode.
+- `BACI_REMEDIATION_NOTIFY_EMAILS`: Comma-separated report recipients. Requires `ZEPTOMAIL_TOKEN`; `ZEPTOMAIL_FROM_DOMAIN` defaults to `usebaci.com`.
 
 ### Runtime Checks and Rotation
 
@@ -137,3 +153,34 @@ process. No API keys, passwords, or tokens should be stored in repo files.
 jobs such as price list processing. Long `storefront_layout_generation` jobs
 must run through `bin/process-ai-storefront-jobs.sh`, which talks to local
 Ollama from the VPS checkout and processes one job per invocation.
+
+## Vercel Error Remediator
+
+`jobs/vercel-error-remediator.mjs` is a guarded remediation worker for Vercel
+runtime/build error logs.
+
+It does three things in dry-run mode:
+
+- reads newline-delimited Vercel log-drain events from `VERCEL_ERROR_LOG_PATH`
+- fingerprints repeated 5xx/error events and writes Codex remediation prompts
+- emails an operator report when `BACI_REMEDIATION_NOTIFY_EMAILS` and `ZEPTOMAIL_TOKEN` are configured
+
+Run manually:
+
+```bash
+cd /home/bassey/baci-workers
+node jobs/vercel-error-remediator.mjs
+```
+
+Autofix mode is intentionally off by default. When
+`BACI_REMEDIATION_AUTOFIX_ENABLED=1`, the worker uses the full checkout at
+`BACI_REPO_DIR` to create an isolated git worktree, run Codex, inspect changed files,
+require and run `BACI_REMEDIATION_VERIFY_COMMAND`, push a
+`codex/vercel-remediation-*` branch, and open a GitHub PR. It blocks PR creation
+if Codex touches protected surfaces:
+`proxy.ts`, payment/auth/webhook routes, payment libraries, migrations, GitHub
+workflows, or secret files.
+
+`BACI_REMEDIATION_REQUEST_AUTO_MERGE=1` can request GitHub auto-merge after PR
+creation, but branch protection must remain authoritative. Do not give the
+worker a GitHub token that can bypass required checks or reviews.

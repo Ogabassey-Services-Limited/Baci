@@ -7,10 +7,16 @@ const mockPush = vi.fn();
 const mockSearchParams = vi.fn();
 const mockOpenCreditDirectCheckout = vi.fn();
 const mockOpenCredPalCheckout = vi.fn();
+const mockApiPost = vi.fn();
+const mockKlumpConstructor = vi.fn();
 
 vi.mock('next/navigation', () => ({
   useRouter: vi.fn(() => ({ push: mockPush })),
   useSearchParams: vi.fn(() => mockSearchParams()),
+}));
+
+vi.mock('next/script', () => ({
+  default: () => null,
 }));
 
 vi.mock('@/hooks/use-merchant-client', () => ({
@@ -31,10 +37,16 @@ vi.mock('@/lib/credpal', () => ({
   getCredPalKey: vi.fn(() => 'credpal_test_key'),
 }));
 
+vi.mock('@/lib/api-client', () => ({
+  apiPost: (...args: unknown[]) => mockApiPost(...args),
+}));
+
 describe('BnplLauncher', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    window.history.replaceState({}, '', '/checkout/bnpl');
     window.sessionStorage.clear();
+    window.Klump = mockKlumpConstructor as never;
     mockSearchParams.mockReturnValue(
       new URLSearchParams({
         orderId: 'order-1',
@@ -43,6 +55,7 @@ describe('BnplLauncher', () => {
         trackingToken: 'tok-123',
       })
     );
+    mockApiPost.mockResolvedValue({ success: true });
 
     vi.stubGlobal(
       'fetch',
@@ -162,6 +175,69 @@ describe('BnplLauncher', () => {
         '/order-success?orderId=order-1&reference=credpal-ref-1&trackingToken=track-order-token'
       );
     });
+  });
+
+  it('launches Klump checkout with BAC reference and callback route', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-1',
+        gateway: 'klump',
+        merchant_slug: 'test-store',
+        reference: 'BAC-ABCD12345678',
+        trackingToken: 'tok-123',
+      })
+    );
+    vi.stubEnv('NEXT_PUBLIC_KLUMP_PUBLIC_KEY', 'klp_pk_test_123');
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(mockKlumpConstructor).toHaveBeenCalled();
+    });
+
+    const config = mockKlumpConstructor.mock.calls[0][0] as {
+      data: {
+        merchant_reference: string;
+        redirect_url: string;
+      };
+      publicKey: string;
+    };
+
+    expect(config.publicKey).toBe('klp_pk_test_123');
+    expect(config.data.merchant_reference).toBe('BAC-ABCD12345678');
+    expect(config.data.redirect_url).toContain('/checkout/bnpl?');
+    expect(config.data.redirect_url).not.toContain('/test-store/checkout/bnpl?');
+    expect(config.data.redirect_url).toContain('gateway=klump');
+    expect(config.data.redirect_url).toContain('klump_callback=1');
+    expect(config.data.redirect_url).toContain('reference=BAC-ABCD12345678');
+  });
+
+  it('records Klump callback transaction ids before redirecting to success', async () => {
+    mockSearchParams.mockReturnValue(
+      new URLSearchParams({
+        orderId: 'order-1',
+        gateway: 'klump',
+        merchant_slug: 'test-store',
+        reference: 'BAC-ABCD12345678',
+        trackingToken: 'tok-123',
+        klump_callback: '1',
+        transaction_id: 'klump-txn-123',
+      })
+    );
+
+    render(<BnplLauncher />);
+
+    await waitFor(() => {
+      expect(mockApiPost).toHaveBeenCalledWith('/api/payments/klump/record', {
+        merchant_reference: 'BAC-ABCD12345678',
+        klump_transaction_id: 'klump-txn-123',
+        tracking_token: 'tok-123',
+      });
+    });
+
+    expect(mockPush).toHaveBeenCalledWith(
+      '/order-success?orderId=order-1&reference=BAC-ABCD12345678&trackingToken=tok-123'
+    );
   });
 
   it('shows an error state and does not redirect when order fetch fails', async () => {

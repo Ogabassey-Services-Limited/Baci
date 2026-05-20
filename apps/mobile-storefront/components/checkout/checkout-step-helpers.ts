@@ -12,7 +12,11 @@ const DEFAULT_CARRIER = 'Topship';
 const AIRPORT_DELIVERY_ESTIMATE = 'Est Delivery within 24-48 working hours';
 
 export function getPaymentTabForMethod(method: PaymentMethodType): PaymentTab {
-  if (method === 'credpal' || method === 'credit_direct') {
+  if (
+    method === 'credpal' ||
+    method === 'credit_direct' ||
+    method === 'klump'
+  ) {
     return 'installments';
   }
 

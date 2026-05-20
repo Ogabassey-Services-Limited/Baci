@@ -16,6 +16,9 @@ export const merchantFeatureSettingsSchema = z.object({
   credit_direct_public_key: z.string().nullable(),
   credit_direct_min_amount: z.number(),
   credit_direct_max_amount: z.number(),
+  klump_enabled: z.boolean().default(false),
+  klump_min_amount: z.number().default(10_000),
+  klump_max_amount: z.number().default(500_000),
   preferred_local_gateway: z.enum(['paystack', 'korapay']),
   preferred_international_gateway: z.enum(['paystack', 'korapay']),
   // Shipping

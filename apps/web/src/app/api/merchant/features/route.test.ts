@@ -73,6 +73,7 @@ let settingsData: unknown = {
 let settingsError: unknown = null;
 let upsertData: unknown = null;
 let upsertError: unknown = null;
+let upsertPayload: unknown = null;
 let insertData: unknown = null;
 let insertError: unknown = null;
 let insertPayload: unknown = null;
@@ -103,12 +104,15 @@ function createMockSupabase() {
               }),
             };
           }),
-          upsert: vi.fn().mockReturnValue({
-            select: vi.fn().mockReturnValue({
-              single: vi.fn(() =>
-                Promise.resolve({ data: upsertData, error: upsertError })
-              ),
-            }),
+          upsert: vi.fn((payload: unknown) => {
+            upsertPayload = payload;
+            return {
+              select: vi.fn().mockReturnValue({
+                single: vi.fn(() =>
+                  Promise.resolve({ data: upsertData, error: upsertError })
+                ),
+              }),
+            };
           }),
         };
       }
@@ -147,6 +151,7 @@ describe('GET /api/merchant/features', () => {
     insertData = null;
     insertError = null;
     insertPayload = null;
+    upsertPayload = null;
     selectColumns = null;
     csrfValid = true;
   });
@@ -158,6 +163,9 @@ describe('GET /api/merchant/features', () => {
 
     expect(response.status).toBe(200);
     expect(selectColumns).toContain('agentic_checkout_enabled');
+    expect(selectColumns).toContain('klump_enabled');
+    expect(selectColumns).toContain('klump_min_amount');
+    expect(selectColumns).toContain('klump_max_amount');
     expect(selectColumns).toContain('vtu_electricity_enabled');
     expect(selectColumns).toContain('vtu_tv_enabled');
     expect(selectColumns).toContain('vtu_betting_enabled');
@@ -175,6 +183,9 @@ describe('GET /api/merchant/features', () => {
     expect(response.status).toBe(200);
     expect(insertPayload).toMatchObject({
       agentic_checkout_enabled: true,
+      klump_enabled: false,
+      klump_min_amount: 10000,
+      klump_max_amount: 500000,
       vtu_customer_cashback_enabled: false,
       vtu_customer_cashback_rate: 50,
     });
@@ -260,6 +271,7 @@ describe('PATCH /api/merchant/features', () => {
       loyalty_enabled: true,
     };
     upsertError = null;
+    upsertPayload = null;
     csrfValid = true;
   });
 
@@ -306,6 +318,26 @@ describe('PATCH /api/merchant/features', () => {
     expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
   });
 
+  it('updates merchant-scoped Klump installment settings', async () => {
+    const { PATCH } = await import('./route');
+
+    const res = await PATCH(
+      makeRequest('PATCH', {
+        klump_enabled: true,
+        klump_min_amount: 2500,
+        klump_max_amount: 750000,
+      })
+    );
+
+    expect(res.status).toBe(200);
+    expect(upsertPayload).toMatchObject({
+      merchant_id: MERCHANT_ID,
+      klump_enabled: true,
+      klump_min_amount: 2500,
+      klump_max_amount: 750000,
+    });
+  });
+
   it('returns 500 when upsert fails', async () => {
     const { PATCH } = await import('./route');
     upsertError = { message: 'DB error' };
@@ -327,6 +359,7 @@ describe('PUT /api/merchant/features', () => {
     hasSettingsEdit = true;
     upsertData = { id: 'settings-1', merchant_id: MERCHANT_ID };
     upsertError = null;
+    upsertPayload = null;
     csrfValid = true;
   });
 
@@ -358,6 +391,11 @@ describe('PUT /api/merchant/features', () => {
     );
 
     expect(res.status).toBe(200);
+    expect(upsertPayload).toMatchObject({
+      klump_enabled: false,
+      klump_min_amount: 10000,
+      klump_max_amount: 500000,
+    });
     expect(mockRevalidateFeatures).toHaveBeenCalledWith(MERCHANT_ID);
     expect(mockRevalidateMerchant).toHaveBeenCalledWith(MERCHANT_ID);
   });

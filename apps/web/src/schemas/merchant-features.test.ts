@@ -22,6 +22,9 @@ function createValidFeatureSettings() {
     credit_direct_public_key: null,
     credit_direct_min_amount: 5000,
     credit_direct_max_amount: 500000,
+    klump_enabled: false,
+    klump_min_amount: 10000,
+    klump_max_amount: 500000,
     preferred_local_gateway: 'paystack' as const,
     preferred_international_gateway: 'paystack' as const,
     // Shipping
@@ -153,6 +156,44 @@ describe('merchantFeatureSettingsSchema', () => {
 
       // Assert
       expect(result.success).toBe(true);
+    });
+
+    it('accepts Klump installment settings and keeps them merchant-scoped', () => {
+      const settings = {
+        ...createValidFeatureSettings(),
+        klump_enabled: true,
+        klump_min_amount: 2500,
+        klump_max_amount: 750000,
+      };
+
+      const result = merchantFeatureSettingsSchema.safeParse(settings);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.klump_enabled).toBe(true);
+        expect(result.data.klump_min_amount).toBe(2500);
+        expect(result.data.klump_max_amount).toBe(750000);
+      }
+    });
+
+    it('defaults Klump installment settings when older rows omit the fields', () => {
+      const settings = createValidFeatureSettings();
+      const {
+        klump_enabled,
+        klump_min_amount,
+        klump_max_amount,
+        ...withoutKlumpSettings
+      } = settings;
+
+      const result =
+        merchantFeatureSettingsSchema.safeParse(withoutKlumpSettings);
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.klump_enabled).toBe(false);
+        expect(result.data.klump_min_amount).toBe(10_000);
+        expect(result.data.klump_max_amount).toBe(500_000);
+      }
     });
 
     it('accepts empty arrays for shipping_providers', () => {
@@ -497,6 +538,24 @@ describe('merchantFeatureSettingsSchema', () => {
       expect(result.success).toBe(false);
     });
 
+    it('rejects non-numeric Klump amount bounds', () => {
+      const invalidMin = {
+        ...createValidFeatureSettings(),
+        klump_min_amount: '1000' as unknown as number,
+      };
+      const invalidMax = {
+        ...createValidFeatureSettings(),
+        klump_max_amount: '500000' as unknown as number,
+      };
+
+      expect(merchantFeatureSettingsSchema.safeParse(invalidMin).success).toBe(
+        false
+      );
+      expect(merchantFeatureSettingsSchema.safeParse(invalidMax).success).toBe(
+        false
+      );
+    });
+
     it('rejects number where boolean expected', () => {
       // Arrange
       const invalidSettings = {
@@ -552,6 +611,17 @@ describe('merchantFeatureSettingsSchema', () => {
       // Assert
       expect(result.success).toBe(false);
     });
+
+    it('rejects Klump as preferred_local_gateway because it is an installment option', () => {
+      const invalidSettings = {
+        ...createValidFeatureSettings(),
+        preferred_local_gateway: 'klump' as const,
+      };
+
+      const result = merchantFeatureSettingsSchema.safeParse(invalidSettings);
+
+      expect(result.success).toBe(false);
+    });
   });
 
   describe('edge cases', () => {
@@ -577,6 +647,8 @@ describe('merchantFeatureSettingsSchema', () => {
         ...createValidFeatureSettings(),
         credit_direct_min_amount: 0,
         credit_direct_max_amount: 0,
+        klump_min_amount: 0,
+        klump_max_amount: 0,
         shipping_markup_percentage: 0,
         low_stock_threshold: 0,
         vtu_merchant_commission_rate: 0,
@@ -595,6 +667,7 @@ describe('merchantFeatureSettingsSchema', () => {
       const settingsWithLargeNumbers = {
         ...createValidFeatureSettings(),
         credit_direct_max_amount: 999999999,
+        klump_max_amount: 999999999,
         free_shipping_threshold: 999999999,
         vtu_merchant_commission_rate: 100,
       };

@@ -13,6 +13,7 @@ const mockSettingsSelect = vi.fn();
 const mockFrom = vi.fn();
 const mockCreateClient = vi.fn();
 const mockLoggerError = vi.fn();
+let settingsSelectColumns: string | null = null;
 
 vi.mock('next/headers', () => ({
   cookies: vi.fn(() => Promise.resolve(new Map())),
@@ -38,13 +39,17 @@ describe('GET /api/storefront/features', () => {
     mockFrom.mockReset();
     mockCreateClient.mockReset();
     mockLoggerError.mockReset();
+    settingsSelectColumns = null;
 
     mockMerchantEq.mockReturnValue({ single: mockSingle });
     mockMerchantSelect.mockReturnValue({ eq: mockMerchantEq });
     mockSettingsEq.mockReturnValue({ single: mockSingle });
-    mockSettingsSelect.mockReturnValue({
-      eq: mockSettingsEq,
-      single: mockSingle,
+    mockSettingsSelect.mockImplementation((columns: string) => {
+      settingsSelectColumns = columns;
+      return {
+        eq: mockSettingsEq,
+        single: mockSingle,
+      };
     });
     mockFrom.mockImplementation((table: string) => {
       if (table === 'merchants') {
@@ -89,12 +94,21 @@ describe('GET /api/storefront/features', () => {
     const response = await GET(request);
     const body = (await response.json()) as {
       paystackEnabled: boolean;
+      klumpEnabled: boolean;
+      klumpMinAmount: number;
+      klumpMaxAmount: number;
       reviewsEnabled: boolean;
     };
 
     expect(response.status).toBe(200);
     expect(body.paystackEnabled).toBe(false);
+    expect(body.klumpEnabled).toBe(false);
+    expect(body.klumpMinAmount).toBe(10000);
+    expect(body.klumpMaxAmount).toBe(500000);
     expect(body.reviewsEnabled).toBe(true);
+    expect(settingsSelectColumns).toContain('klump_enabled');
+    expect(settingsSelectColumns).toContain('klump_min_amount');
+    expect(settingsSelectColumns).toContain('klump_max_amount');
     expect(mockFrom).toHaveBeenCalledWith('merchants');
     expect(mockFrom).toHaveBeenCalledWith('merchant_feature_settings');
   });
@@ -121,14 +135,57 @@ describe('GET /api/storefront/features', () => {
     const response = await GET(request);
     const body = (await response.json()) as {
       paystackEnabled: boolean;
+      klumpEnabled: boolean;
+      klumpMinAmount: number;
+      klumpMaxAmount: number;
       reviewsEnabled: boolean;
       wishlistEnabled: boolean;
     };
 
     expect(response.status).toBe(200);
     expect(body.paystackEnabled).toBe(false);
+    expect(body.klumpEnabled).toBe(false);
+    expect(body.klumpMinAmount).toBe(10000);
+    expect(body.klumpMaxAmount).toBe(500000);
     expect(body.reviewsEnabled).toBe(true);
     expect(body.wishlistEnabled).toBe(true);
+  });
+
+  it('returns merchant Klump installment settings in the public feature payload', async () => {
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        id: 'merchant-1',
+        paystack_subaccount_code: 'ACCT_123',
+      },
+      error: null,
+    });
+    mockSingle.mockResolvedValueOnce({
+      data: {
+        paystack_enabled: true,
+        klump_enabled: true,
+        klump_min_amount: 2500,
+        klump_max_amount: 750000,
+      },
+      error: null,
+    });
+
+    const request = {
+      nextUrl: new URL(
+        `https://example.com/api/storefront/features?merchantId=${VALID_MERCHANT_ID}`
+      ),
+    } as unknown as NextRequest;
+
+    const response = await GET(request);
+    const body = (await response.json()) as {
+      klumpEnabled: boolean;
+      klumpMinAmount: number;
+      klumpMaxAmount: number;
+    };
+
+    expect(response.status).toBe(200);
+    expect(body.klumpEnabled).toBe(true);
+    expect(body.klumpMinAmount).toBe(2500);
+    expect(body.klumpMaxAmount).toBe(750000);
   });
 
   it('returns 400 when neither merchantId nor slug is provided', async () => {
