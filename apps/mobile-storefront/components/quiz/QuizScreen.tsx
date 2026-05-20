@@ -22,6 +22,7 @@ import { createQuizStyles } from './QuizScreen.styles';
 import {
   formatPointCount,
   formatTimeRange,
+  getEventStartButtonText,
   getQuizErrorMessage,
 } from './QuizScreen.utils';
 
@@ -192,17 +193,16 @@ export function QuizScreen({
               </Text>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Use ${formatPointCount(EXAM_PASS_POINTS_COST)} to start ${event.title}`}
-                disabled={status === 'starting'}
+                accessibilityLabel={`${getEventStartButtonText(event.status, status === 'starting', EXAM_PASS_POINTS_COST)} ${event.title}`}
+                accessibilityState={{ disabled: status === 'starting' || event.status !== 'open' }}
+                disabled={status === 'starting' || event.status !== 'open'}
                 onPress={() => {
-                  void handleStart(event.id);
+                  if (status !== 'starting' && event.status === 'open') void handleStart(event.id);
                 }}
                 style={styles.primaryButton}
               >
                 <Text style={styles.primaryButtonText}>
-                  {status === 'starting'
-                    ? 'Starting...'
-                    : `Use ${formatPointCount(EXAM_PASS_POINTS_COST)} to start`}
+                  {getEventStartButtonText(event.status, status === 'starting', EXAM_PASS_POINTS_COST)}
                 </Text>
               </Pressable>
             </View>

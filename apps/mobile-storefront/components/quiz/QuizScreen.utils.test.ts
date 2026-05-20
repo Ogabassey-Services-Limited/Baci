@@ -3,6 +3,7 @@ import type { QuizEvent } from '@/services/quiz';
 import {
   formatPointCount,
   formatTimeRange,
+  getEventStartButtonText,
   getQuizErrorMessage,
 } from './QuizScreen.utils';
 
@@ -44,6 +45,16 @@ describe('QuizScreen utils', () => {
     expect(formatPointCount(1)).toBe('1 point');
     expect(formatPointCount(2, 'loyalty point')).toBe('2 loyalty points');
     expect(formatPointCount(2, 'entry', 'entries')).toBe('2 entries');
+  });
+
+  it('formats start button text for event status', () => {
+    expect(getEventStartButtonText('open', false, 1)).toBe('Use 1 point to start');
+    expect(getEventStartButtonText('open', false, 0)).toBe('Use 0 points to start');
+    expect(getEventStartButtonText('open', false, 2)).toBe('Use 2 points to start');
+    expect(getEventStartButtonText('open', false, -1)).toBe('Use -1 point to start');
+    expect(getEventStartButtonText('open', true, 1)).toBe('Starting...');
+    expect(getEventStartButtonText('scheduled', false, 1)).toBe('Scheduled');
+    expect(getEventStartButtonText('closed', false, 1)).toBe('Closed');
   });
 
   it('normalizes unknown errors to user-facing messages', () => {

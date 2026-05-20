@@ -35,6 +35,17 @@ export function getQuizErrorMessage(
   return error instanceof Error ? error.message : fallbackMessage;
 }
 
+export function getEventStartButtonText(
+  eventStatus: QuizEvent['status'],
+  isStarting: boolean,
+  points: number
+): string {
+  if (eventStatus === 'scheduled') return 'Scheduled';
+  if (eventStatus === 'closed') return 'Closed';
+  if (isStarting) return 'Starting...';
+  return `Use ${formatPointCount(points)} to start`;
+}
+
 export function formatPointCount(
   points: number,
   singular = 'point',

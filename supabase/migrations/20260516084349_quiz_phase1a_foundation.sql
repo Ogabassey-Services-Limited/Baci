@@ -233,6 +233,6 @@ BEGIN
     CREATE POLICY quiz_integrity_challenges_customer_read ON public.quiz_integrity_challenges FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.quiz_attempts a JOIN public.customers c ON c.id = a.customer_id WHERE a.id = attempt_id AND c.user_id = (SELECT auth.uid())));
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polname = 'leaderboard_refresh_log_client_read' AND polrelid = 'public.leaderboard_refresh_log'::regclass) THEN
-    CREATE POLICY leaderboard_refresh_log_client_read ON public.leaderboard_refresh_log FOR SELECT TO anon, authenticated USING (EXISTS (SELECT 1 FROM public.quiz_events e WHERE e.id = event_id AND e.status IN ('active', 'completed')));
+    CREATE POLICY leaderboard_refresh_log_client_read ON public.leaderboard_refresh_log FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.quiz_events e JOIN public.customers c ON c.merchant_id = e.merchant_id WHERE e.id = event_id AND e.status IN ('active', 'completed') AND c.user_id = (SELECT auth.uid())));
   END IF;
 END $$;

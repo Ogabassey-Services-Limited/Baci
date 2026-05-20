@@ -490,7 +490,8 @@ BEGIN
   SET award_finalized_at = pg_catalog.now(),
       updated_at = pg_catalog.now()
   WHERE id = p_event_id
-    AND award_finalized_at IS NULL;
+    AND award_finalized_at IS NULL
+    AND (status = 'completed' OR (ends_at IS NOT NULL AND ends_at <= pg_catalog.now()));
 
   IF NOT FOUND THEN
     RETURN 0;
