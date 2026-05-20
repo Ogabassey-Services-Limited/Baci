@@ -119,7 +119,7 @@ describe('buildAgentCommerceTrustHealthSignals', () => {
     });
   });
 
-  it('warns about missing product reviews when merchant review authority is connected', () => {
+  it('passes missing product reviews when merchant review authority is connected', () => {
     const result = buildAgentCommerceTrustHealthSignals({
       hasVerifiedMerchantReviewAuthority: true,
       now: NOW,
@@ -139,10 +139,10 @@ describe('buildAgentCommerceTrustHealthSignals', () => {
     expect(
       result.checks.find((check) => check.id === 'review-signal-coverage')
     ).toMatchObject({
-      affectedProductCount: 1,
+      affectedProductCount: 0,
       message:
-        '0 of 1 agent-visible products have product-level review metadata; verified merchant-level Google review authority is connected as fallback review evidence.',
-      severity: 'warn',
+        '0 of 1 agent-visible products have product-level review metadata; verified merchant-level Google review authority satisfies review trust for this catalog.',
+      severity: 'pass',
     });
   });
 

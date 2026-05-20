@@ -35,7 +35,7 @@ let manifestResult: ManifestResult;
 let variantRpcResult: VariantRpcResult;
 let offersResult: OffersResult;
 let nullCreatedAtProductsResult: ProductsResult;
-const mockManifestStatusEq = vi.fn();
+const mockManifestRange = vi.fn();
 const mockOffersIn = vi.fn();
 const mockRpc = vi.fn();
 const mockOffersStatusEq = vi.fn();
@@ -109,11 +109,15 @@ function createMockSupabase() {
 
       if (table === 'product_feed_images') {
         return {
-          select: () => ({
-            eq: () => ({
-              eq: mockManifestStatusEq,
-            }),
-          }),
+          select: () => {
+            const query = {
+              eq: () => query,
+              order: () => query,
+              range: (from: number, to: number) => mockManifestRange(from, to),
+            };
+
+            return query;
+          },
         };
       }
 
@@ -191,7 +195,9 @@ beforeEach(() => {
     data: [],
     error: null,
   };
-  mockManifestStatusEq.mockResolvedValue(manifestResult);
+  mockManifestRange.mockImplementation(() => ({
+    overrideTypes: () => Promise.resolve(manifestResult),
+  }));
   mockOffersStatusEq.mockImplementation(() => Promise.resolve(offersResult));
   mockRpc.mockResolvedValue(variantRpcResult);
   mockCreateAnonClient.mockReturnValue(createMockSupabase());
@@ -746,6 +752,57 @@ describe('getCachedGoogleMerchantFeedData', () => {
     });
   });
 
+  it('paginates verified image manifest rows beyond the first Supabase page', async () => {
+    productsResult = {
+      data: [
+        { id: 'product-1', name: 'Phone 1' },
+        { id: 'product-1000', name: 'Phone 1000' },
+      ],
+      error: null,
+    };
+    const firstManifestPage = Array.from({ length: 1000 }, (_, index) => ({
+      product_id: index === 0 ? 'product-1' : `archived-${index}`,
+      verified_url: `https://cdn.example.com/image-${index}.jpg`,
+      verified_format: 'jpeg',
+      status: 'verified',
+      is_primary: true,
+      position: 0,
+    }));
+    const secondManifestPage = [
+      {
+        product_id: 'product-1000',
+        verified_url: 'https://cdn.example.com/phone-1000.jpg',
+        verified_format: 'jpeg',
+        status: 'verified',
+        is_primary: true,
+        position: 0,
+      },
+    ];
+
+    mockManifestRange
+      .mockImplementationOnce(() => ({
+        overrideTypes: () =>
+          Promise.resolve({ data: firstManifestPage, error: null }),
+      }))
+      .mockImplementationOnce(() => ({
+        overrideTypes: () =>
+          Promise.resolve({ data: secondManifestPage, error: null }),
+      }));
+
+    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const result = await getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(mockManifestRange).toHaveBeenCalledTimes(2);
+    expect(mockManifestRange).toHaveBeenNthCalledWith(1, 0, 999);
+    expect(mockManifestRange).toHaveBeenNthCalledWith(2, 1000, 1999);
+    expect(result.imageManifest['product-1']).toHaveLength(1);
+    expect(result.imageManifest['product-1000']).toHaveLength(1);
+    expect(result.imageManifest['archived-1']).toBeUndefined();
+  });
+
   it('filters manifest rows down to active feed products', async () => {
     manifestResult = {
       data: [
@@ -768,7 +825,9 @@ describe('getCachedGoogleMerchantFeedData', () => {
       ],
       error: null,
     };
-    mockManifestStatusEq.mockResolvedValue(manifestResult);
+    mockManifestRange.mockImplementation(() => ({
+      overrideTypes: () => Promise.resolve(manifestResult),
+    }));
 
     const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
     const result = await getCachedGoogleMerchantFeedData(
@@ -812,7 +871,9 @@ describe('getCachedGoogleMerchantFeedData', () => {
 
   it('throws when manifest query fails', async () => {
     manifestResult = { data: null, error: { message: 'manifest error' } };
-    mockManifestStatusEq.mockResolvedValue(manifestResult);
+    mockManifestRange.mockImplementation(() => ({
+      overrideTypes: () => Promise.resolve(manifestResult),
+    }));
     const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
 
     await expect(

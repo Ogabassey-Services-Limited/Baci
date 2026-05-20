@@ -10,8 +10,12 @@ import type {
 import { FEED_PRODUCTS_SELECT } from './feed-query';
 
 const FEED_PRODUCTS_PAGE_SIZE = 1000;
+const FEED_IMAGE_MANIFEST_PAGE_SIZE = 1000;
 // get_feed_product_variants accepts at most 10k product IDs.
 const MAX_FEED_PRODUCTS = 10_000;
+const MAX_FEED_IMAGES_PER_PRODUCT = 12;
+const MAX_FEED_IMAGE_MANIFEST_ROWS =
+  MAX_FEED_PRODUCTS * MAX_FEED_IMAGES_PER_PRODUCT;
 // Keep PostgREST `in(...)` URL filters under common proxy limits.
 const FEED_PRODUCT_OFFERS_BATCH_SIZE = 250;
 
@@ -37,6 +41,15 @@ interface FeedProductCursor {
   createdAt: string;
   id: string;
 }
+
+type ManifestRow = {
+  product_id: string;
+  verified_url: string | null;
+  verified_format: string | null;
+  status: string;
+  is_primary: boolean;
+  position: number;
+};
 
 function getFeedProductCursor(
   page: RawFeedProductRow[]
@@ -243,6 +256,46 @@ async function fetchActiveFeedOffers(
   return offerRows;
 }
 
+async function fetchVerifiedImageManifestRows(
+  supabase: SupabaseClient,
+  merchantId: string
+): Promise<ManifestRow[]> {
+  const manifestRows: ManifestRow[] = [];
+  let offset = 0;
+
+  while (manifestRows.length < MAX_FEED_IMAGE_MANIFEST_ROWS) {
+    const remainingRows = MAX_FEED_IMAGE_MANIFEST_ROWS - manifestRows.length;
+    const pageSize = Math.min(FEED_IMAGE_MANIFEST_PAGE_SIZE, remainingRows);
+    const { data, error } = await supabase
+      .from('product_feed_images')
+      .select(
+        'product_id, verified_url, verified_format, status, is_primary, position'
+      )
+      .eq('merchant_id', merchantId)
+      .eq('status', 'verified')
+      .order('product_id', { ascending: true })
+      .order('position', { ascending: true })
+      .range(offset, offset + pageSize - 1)
+      .overrideTypes<ManifestRow[], { merge: false }>();
+
+    if (error) {
+      console.error('DB_MANIFEST_ERROR:', { error, merchantId, offset });
+      throw new Error('Failed to fetch image manifest');
+    }
+
+    const page = data || [];
+    manifestRows.push(...page);
+
+    if (page.length < pageSize) {
+      break;
+    }
+
+    offset += pageSize;
+  }
+
+  return manifestRows;
+}
+
 /**
  * Cached data fetcher for Google Merchant feed.
  * Uses `'use cache'` with the `products` cache profile.
@@ -296,31 +349,14 @@ export async function getCachedGoogleMerchantFeedData(
     };
   }
 
-  const { data: manifestRows, error: manifestError } = await supabase
-    .from('product_feed_images')
-    .select(
-      'product_id, verified_url, verified_format, status, is_primary, position'
-    )
-    .eq('merchant_id', merchantId)
-    .eq('status', 'verified');
-
-  if (manifestError) {
-    console.error('DB_MANIFEST_ERROR:', manifestError);
-    throw new Error('Failed to fetch image manifest');
-  }
+  const manifestRows = await fetchVerifiedImageManifestRows(
+    supabase,
+    merchantId
+  );
 
   // Group manifest rows by product_id
-  type ManifestRow = {
-    product_id: string;
-    verified_url: string | null;
-    verified_format: string | null;
-    status: string;
-    is_primary: boolean;
-    position: number;
-  };
-
   const imageManifest: ImageManifestMap = {};
-  for (const row of (manifestRows || []) as ManifestRow[]) {
+  for (const row of manifestRows) {
     if (!activeProductIds.has(row.product_id)) {
       continue;
     }
