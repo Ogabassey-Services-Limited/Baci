@@ -62,13 +62,16 @@ export async function getPlacePredictions(
  */
 export async function getPlaceDetails(
   placeId: string,
-  _sessionToken?: string
+  sessionToken?: string
 ): Promise<GooglePlaceDetails | null> {
   if (!placeId) return null;
 
   try {
+    const params = new URLSearchParams({ placeId });
+    if (sessionToken) params.append('sessionToken', sessionToken);
+
     const data = await apiGet<{ details: GooglePlaceDetails }>(
-      `/api/places/details?placeId=${encodeURIComponent(placeId)}`
+      `/api/places/details?${params.toString()}`
     );
 
     return data.details || null;
@@ -83,7 +86,7 @@ export async function getPlaceDetails(
  */
 export async function getPlaceDetailsServer(placeId: string) {
   const apiKey =
-    process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
+    process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
   if (!apiKey || !placeId) return null;
 
   const resourceName = placeId.startsWith('places/')
