@@ -89,6 +89,20 @@ pnpm --filter baci-mobile-admin android:emulator
 This is the only supported emulator launch path for agents and automation. The
 launcher owns GPU mode, Quick Boot, ADB reset, boot waiting, Android settle
 checks, the Metro ADB reverse, and ADB shell stability checks.
+The default launcher AVD is `Baci_Pixel_9_Pro_XL_API_36_Google`, an Android 16
+API 36 Google APIs Pixel 9 Pro XL profile with `auto` GPU, 2 CPU cores, and
+4096 MB RAM.
+Use `BACI_ANDROID_AVD_NAME` only for explicit emulator-infrastructure fallback
+triage.
+
+Build and install the debug APK only with:
+
+```bash
+cd apps/mobile-admin/android
+./gradlew :app:assembleDebug -PreactNativeArchitectures=arm64-v8a --console=plain
+cd ../../..
+pnpm --filter baci-mobile-admin android:install
+```
 
 Then run Metro for Android with:
 
