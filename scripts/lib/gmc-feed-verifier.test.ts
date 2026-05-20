@@ -2,6 +2,7 @@ import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vite
 import {
   type FetchFn,
   buildCdnTransformImageUrl,
+  getClassifiedImageVerificationUrl,
   verifyCdnImage,
   verifyCdnImageWithTransformFallback,
   verifyRemoteImage,
@@ -259,6 +260,53 @@ describe('verifyCdnImageWithTransformFallback', () => {
     expect(result.verified_url).toBe(
       'https://cdn.ogabassey.com/core-assets/products/phone.jpg'
     );
+  });
+
+  it('preserves pending_verification when the CDN transformer probe is transient', async () => {
+    existsSyncMock.mockReturnValue(false);
+    fetchMock.mockResolvedValue(
+      fakeResponse({
+        ok: false,
+        status: 503,
+        headers: new Headers(),
+      })
+    );
+
+    const result = await verifyCdnImageWithTransformFallback(
+      'https://cdn.ogabassey.com/core-assets/products/phone.avif',
+      cdnBasePath,
+      existsSyncMock,
+      fetchMock
+    );
+
+    expect(result.status).toBe('pending_verification');
+    expect(result.verified_url).toBeNull();
+    expect(result.failure_reason).toContain('503');
+  });
+});
+
+// ---------- getClassifiedImageVerificationUrl ----------
+describe('getClassifiedImageVerificationUrl', () => {
+  it('uses the original CDN AVIF URL for pending derivative verification', () => {
+    const result = getClassifiedImageVerificationUrl({
+      source_url: 'https://cdn.ogabassey.com/core-assets/products/phone.avif',
+      verified_url: 'https://cdn.ogabassey.com/core-assets/products/phone.jpg',
+      status: 'pending_derivative',
+    });
+
+    expect(result).toBe(
+      'https://cdn.ogabassey.com/core-assets/products/phone.avif'
+    );
+  });
+
+  it('keeps a verified URL for non-derivative candidates', () => {
+    const result = getClassifiedImageVerificationUrl({
+      source_url: 'https://example.com/products/phone.png',
+      verified_url: 'https://store.example/products/phone.png',
+      status: 'pending_verification',
+    });
+
+    expect(result).toBe('https://store.example/products/phone.png');
   });
 });
 

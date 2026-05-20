@@ -10,6 +10,7 @@ import { resolve } from 'node:path';
 // Relative path: scripts/ has no tsconfig and runs via `npx tsx` outside the
 // workspace package graph, so `@baci/shared/gmc-feed` won't resolve here.
 import {
+  type ClassifiedImage,
   getImageFormat,
   replaceAvifWithJpg,
 } from '../../packages/shared/src/gmc-feed/index';
@@ -135,6 +136,19 @@ export function buildCdnTransformImageUrl(
   return `${url.origin}/image/width=1200,quality=90,format=${format}${url.pathname}${url.search}${url.hash}`;
 }
 
+export function getClassifiedImageVerificationUrl(
+  classified: Pick<ClassifiedImage, 'source_url' | 'status' | 'verified_url'>
+): string {
+  if (
+    classified.status === 'pending_derivative' &&
+    isCdnUrl(classified.source_url)
+  ) {
+    return classified.source_url;
+  }
+
+  return classified.verified_url || classified.source_url;
+}
+
 /**
  * Verify a remote image URL via HTTP HEAD (with GET fallback on 405).
  *
@@ -225,10 +239,18 @@ export async function verifyCdnImageWithTransformFallback(
     fetchFn
   );
 
-  return transformedVerification.status === 'verified' &&
+  if (
+    transformedVerification.status === 'verified' &&
     transformedVerification.verified_format === 'jpeg'
-    ? transformedVerification
-    : localVerification;
+  ) {
+    return transformedVerification;
+  }
+
+  if (transformedVerification.status === 'pending_verification') {
+    return transformedVerification;
+  }
+
+  return localVerification;
 }
 
 /**
