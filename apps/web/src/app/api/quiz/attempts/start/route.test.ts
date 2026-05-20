@@ -21,7 +21,7 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
-const EVENT_ID = '11111111-1111-1111-1111-111111111111';
+const EVENT_ID = '11111111-1111-4111-8111-111111111111';
 const USER_ID = 'user-1';
 const ORIGINAL_QUIZ_ENV = {
   QUIZ_PHASE: process.env.QUIZ_PHASE,

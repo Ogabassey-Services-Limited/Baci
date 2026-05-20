@@ -132,7 +132,7 @@ describe('Self-fulfill API routes', () => {
 
     const response = await POST(
       createRequest({
-        orderId: '11111111-1111-1111-1111-111111111111',
+        orderId: '11111111-1111-4111-8111-111111111111',
         dispatchPhone: '+2348035962150',
         carrierName: 'Dispatch Rider',
       })
@@ -144,7 +144,7 @@ describe('Self-fulfill API routes', () => {
     await vi.waitFor(() => {
       expect(notifyOrderStatusChange).toHaveBeenCalledWith(
         'customer-user-1',
-        '11111111-1111-1111-1111-111111111111',
+        '11111111-1111-4111-8111-111111111111',
         'ORD-260411-TEST',
         'shipped'
       );
@@ -164,7 +164,7 @@ describe('Self-fulfill API routes', () => {
 
     const response = await POST(
       createRequest({
-        orderId: '11111111-1111-1111-1111-111111111111',
+        orderId: '11111111-1111-4111-8111-111111111111',
         dispatchPhone: '+2348035962150',
       })
     );
@@ -184,7 +184,7 @@ describe('Self-fulfill API routes', () => {
 
     const response = await POST(
       createRequest({
-        orderId: '11111111-1111-1111-1111-111111111111',
+        orderId: '11111111-1111-4111-8111-111111111111',
         dispatchPhone: '+2348035962150',
         unknownField: 'nope',
       })
@@ -210,7 +210,7 @@ describe('Self-fulfill API routes', () => {
     const response = await PATCH(
       createRequest(
         {
-          orderId: '11111111-1111-1111-1111-111111111111',
+          orderId: '11111111-1111-4111-8111-111111111111',
           unknownField: 'nope',
         },
         'PATCH'

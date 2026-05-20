@@ -1,23 +1,34 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const cookies = vi.fn();
-const createClient = vi.fn();
-const getCachedDashboardStats = vi.fn();
-
-vi.mock('next/headers', () => ({
-  cookies: () => cookies(),
-}));
+const mockCreateClient = vi.fn();
+const mockGetCachedDashboardStats = vi.fn();
+const mockGetMerchantForApiRequest = vi.fn();
 
 vi.mock('@/lib/cached-data', () => ({
   getCachedDashboardStats: (...args: unknown[]) =>
-    getCachedDashboardStats(...args),
+    mockGetCachedDashboardStats(...args),
+}));
+
+vi.mock('@/lib/get-merchant-for-api-request', () => ({
+  getMerchantForApiRequest: (...args: unknown[]) =>
+    mockGetMerchantForApiRequest(...args),
 }));
 
 vi.mock('@/lib/supabase/server', () => ({
-  createClient: (...args: unknown[]) => createClient(...args),
+  createClient: (...args: unknown[]) => mockCreateClient(...args),
 }));
 
-import { getMonthlyChartData, getRecentSales } from './actions';
+const { getDashboardMetrics, getMonthlyChartData, getRecentSales } =
+  await import('./actions');
+
+const zeroMetrics = {
+  activeNow: { change: 0, value: 0 },
+  aov: 0,
+  customers: { change: 0, value: 0 },
+  fulfillmentRate: 0,
+  orders: { change: 0, value: 0 },
+  revenue: { change: 0, value: 0 },
+};
 
 interface RecentSalesOrder {
   customer_email: string | null;
@@ -27,32 +38,77 @@ interface RecentSalesOrder {
   total: number | string | null;
 }
 
-function mockRecentSalesQuery({
+function createOrdersQuery({
   data,
   error,
 }: {
   data: RecentSalesOrder[] | null;
-  error: unknown;
+  error: { message: string } | null;
 }) {
-  const limit = vi.fn(async () => ({ data, error }));
-  const order = vi.fn(() => ({ limit }));
-  const eq = vi.fn(() => ({ eq, order }));
-  const select = vi.fn(() => ({ eq }));
-  const from = vi.fn(() => ({ select }));
+  const query = {
+    eq: vi.fn(),
+    limit: vi.fn(),
+    order: vi.fn(),
+    select: vi.fn(),
+  };
 
-  createClient.mockReturnValue({ from });
+  query.select.mockReturnValue(query);
+  query.eq.mockReturnValue(query);
+  query.order.mockReturnValue(query);
+  query.limit.mockResolvedValue({ data, error });
 
-  return { eq, from, limit, order, select };
+  return query;
+}
+
+function createSupabaseClient(query: ReturnType<typeof createOrdersQuery>) {
+  return {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({
+        data: { user: { id: 'user-1' } },
+        error: null,
+      }),
+    },
+    from: vi.fn(() => query),
+  };
+}
+
+function createDashboardSupabaseClient() {
+  return createSupabaseClient(
+    createOrdersQuery({
+      data: [],
+      error: null,
+    })
+  );
+}
+
+function createMonthlyChartSupabaseClient(rpc: ReturnType<typeof vi.fn>) {
+  return {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({
+        data: { user: { id: 'user-1' } },
+        error: null,
+      }),
+    },
+    rpc,
+  };
 }
 
 describe('dashboard actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    cookies.mockResolvedValue({});
+    mockGetMerchantForApiRequest.mockResolvedValue({
+      merchantId: 'merchant-1',
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: { full_access: { all: true } },
+        role: null,
+      },
+    });
   });
 
   it('limits recent sales to paid orders before rendering them as completed sales', async () => {
-    const { eq, from, limit, order, select } = mockRecentSalesQuery({
+    const query = createOrdersQuery({
       data: [
         {
           customer_email: 'ada@example.com',
@@ -64,17 +120,27 @@ describe('dashboard actions', () => {
       ],
       error: null,
     });
+    const supabaseClient = createSupabaseClient(query);
+    mockCreateClient.mockResolvedValue(supabaseClient);
 
     const sales = await getRecentSales('merchant-1', 3);
 
-    expect(from).toHaveBeenCalledWith('orders');
-    expect(select).toHaveBeenCalledWith(
+    expect(supabaseClient.auth.getUser).toHaveBeenCalledTimes(1);
+    expect(mockGetMerchantForApiRequest).toHaveBeenCalledWith(
+      supabaseClient,
+      'user-1',
+      { requestedMerchantId: 'merchant-1' }
+    );
+    expect(supabaseClient.from).toHaveBeenCalledWith('orders');
+    expect(query.select).toHaveBeenCalledWith(
       'id, customer_name, customer_email, total, payment_status'
     );
-    expect(eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
-    expect(eq).toHaveBeenCalledWith('payment_status', 'paid');
-    expect(order).toHaveBeenCalledWith('created_at', { ascending: false });
-    expect(limit).toHaveBeenCalledWith(3);
+    expect(query.eq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
+    expect(query.eq).toHaveBeenCalledWith('payment_status', 'paid');
+    expect(query.order).toHaveBeenCalledWith('created_at', {
+      ascending: false,
+    });
+    expect(query.limit).toHaveBeenCalledWith(3);
     expect(sales).toEqual([
       {
         amount: 12500,
@@ -87,25 +153,27 @@ describe('dashboard actions', () => {
   });
 
   it('returns an empty recent sales list when the paid sales query fails', async () => {
-    mockRecentSalesQuery({
+    const query = createOrdersQuery({
       data: null,
       error: { message: 'orders failed' },
     });
+    mockCreateClient.mockResolvedValue(createSupabaseClient(query));
 
     await expect(getRecentSales('merchant-1')).resolves.toEqual([]);
   });
 
   it('returns an empty recent sales list when there are no paid orders', async () => {
-    mockRecentSalesQuery({
+    const query = createOrdersQuery({
       data: [],
       error: null,
     });
+    mockCreateClient.mockResolvedValue(createSupabaseClient(query));
 
     await expect(getRecentSales('merchant-1')).resolves.toEqual([]);
   });
 
   it('uses customer fallbacks and numeric amounts for paid recent sales', async () => {
-    mockRecentSalesQuery({
+    const query = createOrdersQuery({
       data: [
         {
           customer_email: null,
@@ -117,6 +185,7 @@ describe('dashboard actions', () => {
       ],
       error: null,
     });
+    mockCreateClient.mockResolvedValue(createSupabaseClient(query));
 
     await expect(getRecentSales('merchant-1')).resolves.toEqual([
       {
@@ -129,18 +198,75 @@ describe('dashboard actions', () => {
     ]);
   });
 
+  it('does not query recent sales when the caller has no merchant access', async () => {
+    const query = createOrdersQuery({
+      data: [],
+      error: null,
+    });
+    const supabaseClient = createSupabaseClient(query);
+    mockCreateClient.mockResolvedValue(supabaseClient);
+    mockGetMerchantForApiRequest.mockResolvedValue(null);
+
+    const result = await getRecentSales('merchant-1', 5);
+
+    expect(result).toEqual([]);
+    expect(supabaseClient.from).not.toHaveBeenCalled();
+  });
+
+  it('does not query recent sales for unauthenticated callers', async () => {
+    const query = createOrdersQuery({
+      data: [],
+      error: null,
+    });
+    const supabaseClient = createSupabaseClient(query);
+    supabaseClient.auth.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+    mockCreateClient.mockResolvedValue(supabaseClient);
+
+    const result = await getRecentSales('merchant-1', 5);
+
+    expect(result).toEqual([]);
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(supabaseClient.from).not.toHaveBeenCalled();
+  });
+
+  it('does not query recent sales for invalid action arguments', async () => {
+    const result = await getRecentSales('merchant-1', 0);
+
+    expect(result).toEqual([]);
+    expect(mockCreateClient).not.toHaveBeenCalled();
+  });
+
   it('loads monthly chart data from the dashboard sales RPC', async () => {
     const rpc = vi.fn(async () => ({
       data: [{ month: 'May', orders: 2, profit: 500, revenue: 12500 }],
       error: null,
     }));
-    createClient.mockReturnValue({ rpc });
+    const supabaseClient = createMonthlyChartSupabaseClient(rpc);
+    mockCreateClient.mockResolvedValue(supabaseClient);
+    mockGetMerchantForApiRequest.mockResolvedValueOnce({
+      merchantId: 'merchant-authorized',
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: { full_access: { all: true } },
+        role: null,
+      },
+    });
 
-    await expect(getMonthlyChartData('merchant-1')).resolves.toEqual([
+    await expect(getMonthlyChartData('merchant-tampered')).resolves.toEqual([
       { month: 'May', orders: 2, profit: 500, revenue: 12500 },
     ]);
+    expect(supabaseClient.auth.getUser).toHaveBeenCalledTimes(1);
+    expect(mockGetMerchantForApiRequest).toHaveBeenCalledWith(
+      supabaseClient,
+      'user-1',
+      { requestedMerchantId: 'merchant-tampered' }
+    );
     expect(rpc).toHaveBeenCalledWith('get_monthly_sales_stats', {
-      p_merchant_id: 'merchant-1',
+      p_merchant_id: 'merchant-authorized',
     });
   });
 
@@ -149,8 +275,133 @@ describe('dashboard actions', () => {
       data: null,
       error: { message: 'rpc failed' },
     }));
-    createClient.mockReturnValue({ rpc });
+    mockCreateClient.mockResolvedValue(createMonthlyChartSupabaseClient(rpc));
 
     await expect(getMonthlyChartData('merchant-1')).resolves.toEqual([]);
+  });
+
+  it('does not load monthly chart data for unauthenticated callers', async () => {
+    const rpc = vi.fn();
+    const supabaseClient = createMonthlyChartSupabaseClient(rpc);
+    supabaseClient.auth.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+    mockCreateClient.mockResolvedValue(supabaseClient);
+
+    const result = await getMonthlyChartData('merchant-1');
+
+    expect(result).toEqual([]);
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('does not load monthly chart data when the caller has no merchant access', async () => {
+    const rpc = vi.fn();
+    const supabaseClient = createMonthlyChartSupabaseClient(rpc);
+    mockCreateClient.mockResolvedValue(supabaseClient);
+    mockGetMerchantForApiRequest.mockResolvedValueOnce(null);
+
+    const result = await getMonthlyChartData('merchant-1');
+
+    expect(result).toEqual([]);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('does not load monthly chart data for invalid action arguments', async () => {
+    const result = await getMonthlyChartData('   ');
+
+    expect(result).toEqual([]);
+    expect(mockCreateClient).not.toHaveBeenCalled();
+  });
+
+  it('authorizes cached dashboard metrics before calling service-role stats', async () => {
+    const supabaseClient = createDashboardSupabaseClient();
+    const metrics = {
+      activeNow: { change: 0, value: 2 },
+      aov: 625,
+      customers: { change: 20, value: 4 },
+      fulfillmentRate: 75,
+      orders: { change: 33, value: 8 },
+      revenue: { change: 50, value: 5000 },
+    };
+    mockCreateClient.mockResolvedValue(supabaseClient);
+    mockGetMerchantForApiRequest.mockResolvedValueOnce({
+      merchantId: 'merchant-authorized',
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: { full_access: { all: true } },
+        role: null,
+      },
+    });
+    mockGetCachedDashboardStats.mockResolvedValue(metrics);
+
+    const result = await getDashboardMetrics('merchant-tampered');
+
+    expect(supabaseClient.auth.getUser).toHaveBeenCalledTimes(1);
+    expect(mockGetMerchantForApiRequest).toHaveBeenCalledWith(
+      supabaseClient,
+      'user-1',
+      { requestedMerchantId: 'merchant-tampered' }
+    );
+    expect(mockGetCachedDashboardStats).toHaveBeenCalledWith(
+      'merchant-authorized'
+    );
+    expect(mockGetCachedDashboardStats).not.toHaveBeenCalledWith(
+      'merchant-tampered'
+    );
+    expect(result).toEqual(metrics);
+  });
+
+  it('falls back to zeroed metrics for unauthenticated callers', async () => {
+    const supabaseClient = createDashboardSupabaseClient();
+    supabaseClient.auth.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+    mockCreateClient.mockResolvedValue(supabaseClient);
+
+    const result = await getDashboardMetrics('merchant-1');
+
+    expect(result).toEqual(zeroMetrics);
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(mockGetCachedDashboardStats).not.toHaveBeenCalled();
+  });
+
+  it('falls back to zeroed metrics when the caller has no merchant access', async () => {
+    const supabaseClient = createDashboardSupabaseClient();
+    mockCreateClient.mockResolvedValue(supabaseClient);
+    mockGetMerchantForApiRequest.mockResolvedValueOnce(null);
+
+    const result = await getDashboardMetrics('merchant-1');
+
+    expect(result).toEqual(zeroMetrics);
+    expect(mockGetCachedDashboardStats).not.toHaveBeenCalled();
+  });
+
+  it('falls back to zeroed metrics when cached dashboard stats are unavailable', async () => {
+    mockCreateClient.mockResolvedValue(createDashboardSupabaseClient());
+    mockGetCachedDashboardStats.mockResolvedValue(null);
+
+    const result = await getDashboardMetrics('merchant-1');
+
+    expect(result).toEqual(zeroMetrics);
+  });
+
+  it('falls back to zeroed metrics when cached dashboard stats throw', async () => {
+    mockCreateClient.mockResolvedValue(createDashboardSupabaseClient());
+    mockGetCachedDashboardStats.mockRejectedValue(new Error('rpc failed'));
+
+    const result = await getDashboardMetrics('merchant-1');
+
+    expect(result).toEqual(zeroMetrics);
+  });
+
+  it('falls back to zeroed metrics for invalid action arguments', async () => {
+    const result = await getDashboardMetrics('   ');
+
+    expect(result).toEqual(zeroMetrics);
+    expect(mockCreateClient).not.toHaveBeenCalled();
   });
 });

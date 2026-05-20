@@ -61,7 +61,7 @@ describe('runReconcilePaystackDvaCli — happy path (incident shape)', () => {
         p_transaction_id: '427ec4ea-b41d-4058-aaf9-3de57ee5fa35',
         p_paystack_reference: '100026260509110323000058369193',
         p_canonical_order_id: '211bcf0e-0795-488f-aeeb-52c5b7a8b9ae',
-        p_operator_user_id: '11111111-1111-1111-1111-111111111111',
+        p_operator_user_id: '11111111-1111-4111-8111-111111111111',
         p_cancel_order_ids: [
           '9235a8d5-55fc-4e90-8238-4bb6698679bd',
           'de838a51-d0e9-4438-9f55-135b7677783f',

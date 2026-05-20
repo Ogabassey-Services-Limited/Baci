@@ -58,7 +58,7 @@ vi.mock('@/lib/logger', () => ({
 }));
 
 const USER_ID = 'user-1';
-const AWARD_ID = '44444444-4444-4444-4444-444444444444';
+const AWARD_ID = '44444444-4444-4444-8444-444444444444';
 
 const rpc = vi.fn();
 const supabase = { rpc };

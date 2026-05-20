@@ -14,13 +14,13 @@ vi.mock('@/lib/logger', () => ({
   },
 }));
 
-const EVENT_ID = '11111111-1111-1111-1111-111111111111';
-const QUESTION_ID = '33333333-3333-3333-3333-333333333333';
-const MERCHANT_ID = '55555555-5555-5555-5555-555555555555';
+const EVENT_ID = '11111111-1111-4111-8111-111111111111';
+const QUESTION_ID = '33333333-3333-4333-8333-333333333333';
+const MERCHANT_ID = '55555555-5555-4555-8555-555555555555';
 const MERCHANT_SLUG = 'ogabassey';
 
 function testUuid(index: number) {
-  return `00000000-0000-0000-0000-${String(index).padStart(12, '0')}`;
+  return `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`;
 }
 
 function eventRow(overrides: Record<string, unknown> = {}) {
@@ -36,7 +36,7 @@ function eventRow(overrides: Record<string, unknown> = {}) {
         quiz_question_variants: [
           {
             active: true,
-            id: '44444444-4444-4444-4444-444444444444',
+            id: '44444444-4444-4444-8444-444444444444',
           },
         ],
       },
@@ -332,7 +332,7 @@ describe('quiz events route', () => {
             status: 'scheduled',
           }),
           eventRow({
-            id: '22222222-2222-2222-2222-222222222222',
+            id: '22222222-2222-4222-8222-222222222222',
             settings: { prize_name: '' },
             status: 'closed',
             title: 'Closed Quiz',
@@ -356,7 +356,7 @@ describe('quiz events route', () => {
           status: 'scheduled',
         },
         {
-          id: '22222222-2222-2222-2222-222222222222',
+          id: '22222222-2222-4222-8222-222222222222',
           prizeName: 'Quiz prize',
           questionCount: 1,
           status: 'closed',
@@ -437,7 +437,7 @@ describe('quiz events route', () => {
       selectResult: {
         data: [
           eventRow({
-            id: '22222222-2222-2222-2222-222222222222',
+            id: '22222222-2222-4222-8222-222222222222',
             quiz_question_slots: [],
           }),
           eventRow(),
@@ -465,7 +465,7 @@ describe('quiz events route', () => {
       selectResult: {
         data: [
           eventRow({
-            id: '22222222-2222-2222-2222-222222222222',
+            id: '22222222-2222-4222-8222-222222222222',
             quiz_question_slots: [
               {
                 active: true,
@@ -473,7 +473,7 @@ describe('quiz events route', () => {
                 quiz_question_variants: [
                   {
                     active: false,
-                    id: '44444444-4444-4444-4444-444444444444',
+                    id: '44444444-4444-4444-8444-444444444444',
                   },
                 ],
               },
@@ -613,7 +613,7 @@ describe('quiz events route', () => {
           eventRow(),
           eventRow({
             compliance_verified: false,
-            id: '22222222-2222-2222-2222-222222222222',
+            id: '22222222-2222-4222-8222-222222222222',
             nlrc_permit_ref: '',
             title: 'June Quiz',
           }),
@@ -714,7 +714,7 @@ describe('quiz events route', () => {
     const rows = [
       eventRow(),
       eventRow({
-        id: '22222222-2222-2222-2222-222222222222',
+        id: '22222222-2222-4222-8222-222222222222',
         title: 'June Quiz',
       }),
     ];
