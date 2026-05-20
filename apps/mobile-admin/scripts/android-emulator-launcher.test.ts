@@ -87,6 +87,9 @@ describe('Android emulator launcher', () => {
       'pnpm --filter baci-mobile-admin android:install'
     );
     expect(rootAgents).toContain(
+      'cd apps/mobile-admin/android && ./gradlew :app:assembleDebug'
+    );
+    expect(rootAgents).toContain(
       'pnpm --filter baci-mobile-admin android:metro'
     );
     expect(rootAgents).toContain(
@@ -235,12 +238,21 @@ describe('Android emulator launcher', () => {
     expect(debugApkInstaller).toContain(
       'BACI_ANDROID_APK_PATH:-android/app/build/outputs/apk/debug/app-debug.apk'
     );
+    expect(debugApkInstaller).toContain(
+      'BACI_ANDROID_ADB_WAIT_TIMEOUT_SECONDS:-60'
+    );
+    expect(debugApkInstaller).toContain(
+      'BACI_ANDROID_ADB_WAIT_TIMEOUT_SECONDS must be a positive integer.'
+    );
     expect(debugApkInstaller).toContain('default_sdk_root');
     expect(debugApkInstaller).toContain('uname -s');
     expect(debugApkInstaller).toContain('LOCALAPPDATA');
     expect(debugApkInstaller).toContain('cd \\"${APP_ROOT}/android\\"');
+    expect(debugApkInstaller).toContain('get-state');
+    expect(debugApkInstaller).toContain('did not become ready within');
     expect(debugApkInstaller).toContain('shell echo ok');
     expect(debugApkInstaller).toContain('install -r -d -t --no-streaming');
+    expect(debugApkInstaller).not.toContain('wait-for-device');
     expect(debugApkInstaller).not.toContain('installDebug');
     expect(devClientLauncher).toContain('BACI_ANDROID_ADB_SERIAL:-emulator-5554');
     expect(devClientLauncher).toContain('BACI_ANDROID_APP_ID:-com.ogabassey.baci');
