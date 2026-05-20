@@ -151,6 +151,59 @@ describe('buildAgentCommerceTrustReadiness', () => {
     ).toMatchObject({ severity: 'pass' });
   });
 
+  it('reports merchant Google review authority separately from product review coverage', () => {
+    const result = buildAgentCommerceTrustReadiness({
+      baseUrl: 'https://ogabassey.com',
+      googleFeedData: googleFeedData(),
+      merchant: {
+        business_name: 'Ogabassey',
+        slug: 'ogabassey',
+      },
+      now: NOW,
+      openAiFeedData: {
+        products: [
+          product({
+            average_rating: null,
+            review_count: null,
+          }),
+        ],
+      },
+      trustProfile: trustProfile({
+        merchantReviewAuthority: {
+          attributionLabel: 'Google Maps',
+          businessName: 'Ogabassey',
+          googleMapsUrl: 'https://maps.google.com/?cid=ogabassey',
+          placeId: 'ChIJ1234',
+          rating: 4.8,
+          reviewsSortedBy: 'relevance',
+          source: 'google_maps',
+          totalReviews: 217,
+        },
+      }),
+    });
+
+    expect(result.status).toBe('fail');
+    expect(result.merchantReviewAuthority).toMatchObject({
+      attributionLabel: 'Google Maps',
+      googleMapsUrl: 'https://maps.google.com/?cid=ogabassey',
+      placeId: 'ChIJ1234',
+      rating: 4.8,
+      source: 'google_maps',
+      totalReviews: 217,
+    });
+    expect(
+      result.checks.find((check) => check.id === 'merchant-review-authority')
+    ).toMatchObject({
+      label: 'Merchant review authority',
+      severity: 'pass',
+    });
+    expect(
+      result.checks.find((check) => check.id === 'review-signal-coverage')
+    ).toMatchObject({
+      severity: 'fail',
+    });
+  });
+
   it('fails when a product is missing from one catalog surface', () => {
     const result = buildAgentCommerceTrustReadiness({
       baseUrl: 'https://ogabassey.com',

@@ -93,6 +93,7 @@ export async function getRecentSales(
       .from('orders')
       .select('id, customer_name, customer_email, total, payment_status')
       .eq('merchant_id', merchantId)
+      .eq('payment_status', 'paid')
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -106,12 +107,7 @@ export async function getRecentSales(
       name: order.customer_name || 'Unknown Customer',
       email: order.customer_email || 'no-email@example.com',
       amount: Number(order.total) || 0,
-      status:
-        order.payment_status === 'paid'
-          ? 'Completed'
-          : order.payment_status === 'unpaid'
-            ? 'Pending'
-            : 'Failed',
+      status: 'Completed',
     }));
   } catch (error) {
     console.error('Failed to fetch recent sales:', error);

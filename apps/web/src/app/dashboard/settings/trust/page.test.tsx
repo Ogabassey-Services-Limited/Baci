@@ -30,6 +30,21 @@ vi.mock('./trust-settings-client', () => ({
   }) => <div>trust:{initialTrustProfile?.founded_year ?? 'none'}</div>,
 }));
 
+vi.mock('./google-review-authority-settings-card', () => ({
+  GoogleReviewAuthoritySettingsCard: ({
+    initialGooglePlaceId,
+    initialGoogleReviewsEnabled,
+  }: {
+    initialGooglePlaceId?: string | null;
+    initialGoogleReviewsEnabled: boolean;
+  }) => (
+    <div>
+      google-review-authority:{String(initialGoogleReviewsEnabled)}:
+      {initialGooglePlaceId ?? 'none'}
+    </div>
+  ),
+}));
+
 vi.mock(
   '@/components/dashboard/integrations/agent-commerce-trust-readiness-card-server',
   () => ({
@@ -76,6 +91,8 @@ describe('dashboard trust settings page', () => {
             agentic_agent_allowlist: ['openai-agent'],
             agentic_agent_denylist: ['badbot'],
           },
+          google_place_id: 'places/ChIJ1234',
+          google_reviews_enabled: true,
         },
       },
     } as never);
@@ -89,6 +106,9 @@ describe('dashboard trust settings page', () => {
       )
     ).toBeInTheDocument();
     expect(screen.getByText('agent-trust-health')).toBeInTheDocument();
+    expect(
+      screen.getByText('google-review-authority:true:places/ChIJ1234')
+    ).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: /back to settings/i })
     ).toHaveAttribute('href', '/dashboard/settings');

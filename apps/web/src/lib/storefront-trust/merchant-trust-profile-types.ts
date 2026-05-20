@@ -23,6 +23,23 @@ export interface MerchantTrustProfileRouteLinks {
   warranty?: string;
 }
 
+export interface MerchantReviewAttribution {
+  provider?: string;
+  providerUri?: string;
+}
+
+export interface MerchantReviewAuthority {
+  attributionLabel: 'Google Maps';
+  attributions?: MerchantReviewAttribution[];
+  businessName?: string;
+  googleMapsUrl?: string;
+  placeId: string;
+  rating?: number;
+  reviewsSortedBy: 'relevance';
+  source: 'google_maps';
+  totalReviews?: number;
+}
+
 export interface MerchantTrustProfile {
   supportEmail?: string;
   supportPhone?: string;
@@ -59,7 +76,14 @@ export interface MerchantTrustProfile {
     summary?: string;
     localRoute: '/warranty';
   };
+  merchantReviewAuthority?: MerchantReviewAuthority;
   derivedLinks: MerchantTrustProfileRouteLinks;
+}
+
+interface MerchantTrustProfileFeatureSettings {
+  [key: string]: unknown;
+  google_reviews_enabled?: boolean | null;
+  google_place_id?: string | null;
 }
 
 export interface MerchantTrustProfileSource {
@@ -80,4 +104,5 @@ export interface MerchantTrustProfileSource {
     faq?: string | null;
   } | null;
   trust_profile?: MerchantTrustProfileDraft | null;
+  feature_settings?: MerchantTrustProfileFeatureSettings | null;
 }
