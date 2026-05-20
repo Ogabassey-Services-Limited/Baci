@@ -77,6 +77,15 @@ function createSupabaseClient(query: ReturnType<typeof createOrdersQuery>) {
   };
 }
 
+function createDashboardSupabaseClient() {
+  return createSupabaseClient(
+    createOrdersQuery({
+      data: [],
+      error: null,
+    })
+  );
+}
+
 describe('dashboard actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -242,7 +251,8 @@ describe('dashboard actions', () => {
     await expect(getMonthlyChartData('merchant-1')).resolves.toEqual([]);
   });
 
-  it('returns cached dashboard metrics when available', async () => {
+  it('authorizes cached dashboard metrics before calling service-role stats', async () => {
+    const supabaseClient = createDashboardSupabaseClient();
     const metrics = {
       activeNow: { change: 0, value: 2 },
       aov: 625,
@@ -251,15 +261,63 @@ describe('dashboard actions', () => {
       orders: { change: 33, value: 8 },
       revenue: { change: 50, value: 5000 },
     };
+    mockCreateClient.mockReturnValue(supabaseClient);
+    mockGetMerchantForApiRequest.mockResolvedValueOnce({
+      merchantId: 'merchant-authorized',
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: { full_access: { all: true } },
+        role: null,
+      },
+    });
     mockGetCachedDashboardStats.mockResolvedValue(metrics);
 
-    const result = await getDashboardMetrics('merchant-1');
+    const result = await getDashboardMetrics('merchant-tampered');
 
-    expect(mockGetCachedDashboardStats).toHaveBeenCalledWith('merchant-1');
+    expect(supabaseClient.auth.getUser).toHaveBeenCalledTimes(1);
+    expect(mockGetMerchantForApiRequest).toHaveBeenCalledWith(
+      supabaseClient,
+      'user-1',
+      { requestedMerchantId: 'merchant-tampered' }
+    );
+    expect(mockGetCachedDashboardStats).toHaveBeenCalledWith(
+      'merchant-authorized'
+    );
+    expect(mockGetCachedDashboardStats).not.toHaveBeenCalledWith(
+      'merchant-tampered'
+    );
     expect(result).toEqual(metrics);
   });
 
+  it('falls back to zeroed metrics for unauthenticated callers', async () => {
+    const supabaseClient = createDashboardSupabaseClient();
+    supabaseClient.auth.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+    mockCreateClient.mockReturnValue(supabaseClient);
+
+    const result = await getDashboardMetrics('merchant-1');
+
+    expect(result).toEqual(zeroMetrics);
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(mockGetCachedDashboardStats).not.toHaveBeenCalled();
+  });
+
+  it('falls back to zeroed metrics when the caller has no merchant access', async () => {
+    const supabaseClient = createDashboardSupabaseClient();
+    mockCreateClient.mockReturnValue(supabaseClient);
+    mockGetMerchantForApiRequest.mockResolvedValueOnce(null);
+
+    const result = await getDashboardMetrics('merchant-1');
+
+    expect(result).toEqual(zeroMetrics);
+    expect(mockGetCachedDashboardStats).not.toHaveBeenCalled();
+  });
+
   it('falls back to zeroed metrics when cached dashboard stats are unavailable', async () => {
+    mockCreateClient.mockReturnValue(createDashboardSupabaseClient());
     mockGetCachedDashboardStats.mockResolvedValue(null);
 
     const result = await getDashboardMetrics('merchant-1');
@@ -268,6 +326,7 @@ describe('dashboard actions', () => {
   });
 
   it('falls back to zeroed metrics when cached dashboard stats throw', async () => {
+    mockCreateClient.mockReturnValue(createDashboardSupabaseClient());
     mockGetCachedDashboardStats.mockRejectedValue(new Error('rpc failed'));
 
     const result = await getDashboardMetrics('merchant-1');

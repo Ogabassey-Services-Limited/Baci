@@ -41,24 +41,47 @@ export interface RecentSale {
   status: 'Completed' | 'Processing' | 'Failed' | 'Pending';
 }
 
+function getZeroDashboardMetrics(): DashboardMetrics {
+  return {
+    revenue: { value: 0, change: 0 },
+    customers: { value: 0, change: 0 },
+    orders: { value: 0, change: 0 },
+    activeNow: { value: 0, change: 0 },
+    fulfillmentRate: 0,
+    aov: 0,
+  };
+}
+
 export async function getDashboardMetrics(
   merchantId: string
 ): Promise<DashboardMetrics> {
   try {
+    const cookieStore = await cookies();
+    const supabase = createClient(cookieStore);
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return getZeroDashboardMetrics();
+    }
+
+    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+      requestedMerchantId: merchantId,
+    });
+
+    if (!merchantContext) {
+      return getZeroDashboardMetrics();
+    }
+
     // OPTIMIZED: Use cached RPC function
     // This uses stable caching (1 min) to prevent DB hammering on refresh
-    const stats = await getCachedDashboardStats(merchantId);
+    const stats = await getCachedDashboardStats(merchantContext.merchantId);
 
     // If RPC returns null/empty (shouldn't happen with our SQL logic but safe to handle)
     if (!stats) {
-      return {
-        revenue: { value: 0, change: 0 },
-        customers: { value: 0, change: 0 },
-        orders: { value: 0, change: 0 },
-        activeNow: { value: 0, change: 0 },
-        fulfillmentRate: 0,
-        aov: 0,
-      };
+      return getZeroDashboardMetrics();
     }
 
     return {
@@ -71,14 +94,7 @@ export async function getDashboardMetrics(
     };
   } catch (error) {
     console.error('Failed to fetch dashboard metrics:', error);
-    return {
-      revenue: { value: 0, change: 0 },
-      customers: { value: 0, change: 0 },
-      orders: { value: 0, change: 0 },
-      activeNow: { value: 0, change: 0 },
-      fulfillmentRate: 0,
-      aov: 0,
-    };
+    return getZeroDashboardMetrics();
   }
 }
 

@@ -581,7 +581,7 @@ export default function DashboardClientPage({
           className="col-span-1 animate-in fade-in slide-in-from-bottom-4 duration-500"
           style={{ animationFillMode: 'both', animationDelay: '0.2s' }}
         >
-          <BentoCard title="Paid Orders" icon={ShoppingBag}>
+          <BentoCard title="30-Day Paid Orders" icon={ShoppingBag}>
             <div className="mt-2 space-y-1">
               <div className="text-3xl font-bold tracking-tight">
                 {dashboardData.orders.value.toLocaleString()}
