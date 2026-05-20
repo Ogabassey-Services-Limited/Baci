@@ -1,5 +1,27 @@
-import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
+import { parseRequestedMerchantId } from '@/app/api/branches/branch-route-utils';
+import { getInternalApiSecret, getRootDomain } from '@/env';
+import {
+  buildCrawlerLogSummary,
+  type CrawlerLogSummaryRow,
+  getCrawlerClassificationForEvent,
+  normalizeCrawlerHost,
+  normalizeCrawlerPath,
+} from '@/lib/agentic/crawler-observability';
+import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
+import {
+  getMerchantForApiRequest,
+  toUserAccess,
+} from '@/lib/get-merchant-for-api-request';
+import { logger } from '@/lib/logger';
+import { sanitizeForLog } from '@/lib/sanitize-core';
+import { resolveStorefrontRouteIdentifiers } from '@/lib/storefront-host';
+import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  crawlerLogPostSchema,
+  crawlerLogQuerySchema,
+} from '@/schemas/crawler-observability';
 
 /**
  * Crawler Log API
@@ -13,82 +35,150 @@ import { type NextRequest, NextResponse } from 'next/server';
  * - Trends in crawl frequency
  */
 
-// Create a service role client for logging (bypasses RLS)
-function getServiceClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const PLATFORM_PATH_PREFIXES = new Set([
+  'api',
+  'auth',
+  'dashboard',
+  'login',
+  'onboarding',
+]);
 
-  if (!supabaseUrl || !serviceRoleKey) {
-    return null;
+function isAuthorizedInternalCrawlerLogRequest(request: NextRequest) {
+  const secret = getInternalApiSecret();
+  if (!secret) {
+    return { configured: false, ok: false };
   }
 
-  return createClient(supabaseUrl, serviceRoleKey, {
-    auth: { persistSession: false },
+  return {
+    configured: true,
+    ok: request.headers.get('authorization') === `Bearer ${secret}`,
+  };
+}
+
+function getIdentifierCandidates(host: string | null, path: string) {
+  if (!host) return getPathIdentifierCandidates(path);
+
+  const request = new Request(`https://${host}${path}`, {
+    headers: { host },
   });
+  const identifiers = resolveStorefrontRouteIdentifiers({
+    request,
+    rootDomain: getRootDomain() ?? 'usebaci.com',
+  });
+
+  return identifiers.length > 0
+    ? identifiers
+    : getPathIdentifierCandidates(path);
+}
+
+function getPathIdentifierCandidates(path: string) {
+  const firstSegment = path.split('?')[0]?.split('/').filter(Boolean)[0];
+  if (!firstSegment || PLATFORM_PATH_PREFIXES.has(firstSegment)) return [];
+  return [firstSegment];
+}
+
+async function resolveCrawlerMerchantId(
+  supabase: SupabaseClient,
+  host: string | null,
+  path: string
+): Promise<string | null> {
+  const candidates = getIdentifierCandidates(host, path);
+
+  for (const candidate of candidates) {
+    if (candidate.includes('.')) {
+      const { data: domain, error: domainError } = await supabase
+        .from('domains')
+        .select('merchant_id')
+        .eq('domain', candidate)
+        .eq('status', 'active')
+        .limit(1)
+        .maybeSingle();
+
+      if (!domainError && domain?.merchant_id) {
+        return domain.merchant_id as string;
+      }
+    }
+
+    const { data: merchant, error: merchantError } = await supabase
+      .from('merchants')
+      .select('id')
+      .eq('slug', candidate)
+      .maybeSingle();
+
+    if (!merchantError && merchant?.id) {
+      return merchant.id as string;
+    }
+  }
+
+  return null;
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { botName, urlPath, userAgent } = body;
+    const auth = isAuthorizedInternalCrawlerLogRequest(request);
+    if (!auth.configured) {
+      return NextResponse.json({
+        success: true,
+        logged: false,
+        reason: 'logging_unconfigured',
+      });
+    }
 
-    // Validate required fields
-    if (!botName || !urlPath) {
+    if (!auth.ok) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const parsed = crawlerLogPostSchema.safeParse(body);
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        {
+          code: 'INVALID_CRAWLER_LOG',
+          error:
+            parsed.error.issues[0]?.message ?? 'Invalid crawler log payload',
+        },
         { status: 400 }
       );
     }
 
-    const supabase = getServiceClient();
-    if (!supabase) {
-      // Silently fail if Supabase not configured - this is non-critical
-      return NextResponse.json({ success: true, logged: false });
-    }
-
-    // Extract merchant ID from URL path if it's a storefront page
-    // Path format: /merchant-slug/... or /merchant-slug
-    let merchantId: string | null = null;
-    const pathParts = urlPath.split('/').filter(Boolean);
-
-    if (
-      pathParts.length > 0 &&
-      !['dashboard', 'api', 'auth', 'login', 'onboarding'].includes(
-        pathParts[0]
-      )
-    ) {
-      const potentialSlug = pathParts[0];
-
-      // Try to find merchant by slug
-      const { data: merchant } = await supabase
-        .from('merchants')
-        .select('id')
-        .eq('slug', potentialSlug)
-        .maybeSingle();
-
-      if (merchant) {
-        merchantId = merchant.id;
-      }
-    }
+    const supabase = createAdminClient();
+    const path = normalizeCrawlerPath(parsed.data.urlPath);
+    const host = normalizeCrawlerHost(
+      parsed.data.host ??
+        request.headers.get('x-forwarded-host') ??
+        request.headers.get('host')
+    );
+    const classification = getCrawlerClassificationForEvent(parsed.data);
+    const merchantId = await resolveCrawlerMerchantId(supabase, host, path);
 
     // Insert crawler log
     const { error } = await supabase.from('crawler_logs').insert({
-      bot_name: botName,
-      url_path: urlPath.substring(0, 500), // Limit length
-      user_agent: userAgent?.substring(0, 500),
+      agent_family: classification.family,
+      bot_name: classification.botName,
+      cache_outcome: parsed.data.cacheOutcome,
+      host,
       merchant_id: merchantId,
-      status_code: 200, // Assume success since middleware passed
+      response_time_ms: parsed.data.responseTimeMs ?? null,
+      status_code: parsed.data.statusCode,
+      url_path: path,
+      user_agent: parsed.data.userAgent ?? null,
     });
 
     if (error) {
       // Log but don't fail - this is non-critical
-      console.error('Failed to log crawler visit:', error.message);
+      logger.warn({
+        error: sanitizeForLog(error),
+        message: 'Failed to log crawler visit',
+      });
     }
 
     return NextResponse.json({ success: true, logged: !error });
   } catch (error) {
     // Silently fail - crawler logging should never break the app
-    console.error('Crawler log error:', error);
+    logger.warn({
+      error: sanitizeForLog(error),
+      message: 'Crawler log error',
+    });
     return NextResponse.json({ success: true, logged: false });
   }
 }
@@ -96,34 +186,61 @@ export async function POST(request: NextRequest) {
 // GET endpoint to retrieve crawler stats (for dashboard)
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const merchantId = searchParams.get('merchantId');
-    const days = Number.parseInt(searchParams.get('days') || '7', 10);
+    const auth = await authenticateApiRequest(request);
+    if (!auth.user || !auth.supabase) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    const supabase = getServiceClient();
-    if (!supabase) {
+    const parsedQuery = crawlerLogQuerySchema.safeParse({
+      days: request.nextUrl.searchParams.get('days') ?? undefined,
+      limit: request.nextUrl.searchParams.get('limit') ?? undefined,
+    });
+    if (!parsedQuery.success) {
       return NextResponse.json(
-        { error: 'Service unavailable' },
-        { status: 503 }
+        {
+          code: 'INVALID_QUERY',
+          error:
+            parsedQuery.error.issues[0]?.message ?? 'Invalid crawler log query',
+        },
+        { status: 400 }
       );
     }
 
+    const requestedMerchant = parseRequestedMerchantId(request);
+    if (requestedMerchant.response) {
+      return requestedMerchant.response;
+    }
+
+    const merchantContext = await getMerchantForApiRequest(
+      auth.supabase,
+      auth.user.id,
+      { requestedMerchantId: requestedMerchant.merchantId }
+    );
+    if (!merchantContext) {
+      return NextResponse.json(
+        { error: 'Merchant not found' },
+        { status: 404 }
+      );
+    }
+
+    const access = toUserAccess(merchantContext);
+    if (!hasPermission(access, 'analytics', 'view')) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const { days, limit } = parsedQuery.data;
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
-    // Build query
-    let query = supabase
+    const { data, error } = await auth.supabase
       .from('crawler_logs')
-      .select('bot_name, url_path, crawled_at')
+      .select(
+        'agent_family, bot_name, cache_outcome, crawled_at, host, response_time_ms, status_code, url_path, user_agent'
+      )
+      .eq('merchant_id', merchantContext.merchantId)
       .gte('crawled_at', startDate.toISOString())
       .order('crawled_at', { ascending: false })
-      .limit(1000);
-
-    if (merchantId) {
-      query = query.eq('merchant_id', merchantId);
-    }
-
-    const { data, error } = await query;
+      .limit(limit);
 
     if (error) {
       return NextResponse.json(
@@ -132,39 +249,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Aggregate stats
-    const botCounts: Record<string, number> = {};
-    const pageCounts: Record<string, number> = {};
-    const dailyCounts: Record<string, number> = {};
-
-    for (const log of data || []) {
-      // Count by bot
-      botCounts[log.bot_name] = (botCounts[log.bot_name] || 0) + 1;
-
-      // Count by page (normalized)
-      const normalizedPath = log.url_path.split('?')[0];
-      pageCounts[normalizedPath] = (pageCounts[normalizedPath] || 0) + 1;
-
-      // Count by day
-      const day = log.crawled_at.split('T')[0];
-      dailyCounts[day] = (dailyCounts[day] || 0) + 1;
-    }
-
-    return NextResponse.json({
-      totalCrawls: data?.length || 0,
-      byBot: Object.entries(botCounts)
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count),
-      topPages: Object.entries(pageCounts)
-        .map(([path, count]) => ({ path, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 20),
-      byDay: Object.entries(dailyCounts)
-        .map(([date, count]) => ({ date, count }))
-        .sort((a, b) => a.date.localeCompare(b.date)),
-    });
+    return NextResponse.json(
+      buildCrawlerLogSummary((data ?? []) as CrawlerLogSummaryRow[], days)
+    );
   } catch (error) {
-    console.error('Crawler stats error:', error);
+    logger.error({
+      error: sanitizeForLog(error),
+      message: 'Crawler stats error',
+    });
     return NextResponse.json(
       { error: 'Failed to fetch stats' },
       { status: 500 }
