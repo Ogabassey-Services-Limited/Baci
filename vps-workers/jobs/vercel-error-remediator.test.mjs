@@ -77,6 +77,30 @@ describe('vercel error remediator worker', () => {
     assert.deepEqual(result.actions, []);
   });
 
+  it('does not email no-candidate reports', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'baci-remediator-'));
+    const logPath = join(directory, 'vercel.jsonl');
+    writeFileSync(logPath, '');
+
+    const result = await runVercelErrorRemediator({
+      env: {
+        VERCEL_ERROR_LOG_PATH: logPath,
+        BACI_REMEDIATION_NOTIFY_EMAILS: 'ops@example.com',
+        ZEPTOMAIL_TOKEN: 'token',
+      },
+      logger: silentLogger,
+      fetchFn: () => {
+        throw new Error('email should not be sent');
+      },
+    });
+
+    assert.equal(result.candidates.length, 0);
+    assert.deepEqual(result.email, {
+      reason: 'no candidates',
+      skipped: true,
+    });
+  });
+
   it('continues processing candidates when one autofix fails', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'baci-remediator-'));
     const logPath = join(directory, 'vercel.jsonl');
