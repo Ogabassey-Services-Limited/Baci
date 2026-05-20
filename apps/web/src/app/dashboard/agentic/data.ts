@@ -37,6 +37,7 @@ export interface AgenticCentersData {
 
 const CRAWLER_VISIBILITY_WINDOW_DAYS = 14;
 const CRAWLER_VISIBILITY_LIMIT = 500;
+const CRAWLER_RECENT_ACTIVITY_LIMIT = 3;
 
 function isPermissionDeniedError(reason: unknown): boolean {
   if (!reason || typeof reason !== 'object') return false;
@@ -119,10 +120,15 @@ async function loadAgenticCrawlerVisibility(
 
   if (error) throw error;
 
-  return buildCrawlerLogSummary(
+  const summary = buildCrawlerLogSummary(
     (data ?? []) as CrawlerLogSummaryRow[],
     CRAWLER_VISIBILITY_WINDOW_DAYS
   );
+
+  return {
+    ...summary,
+    recent: summary.recent.slice(0, CRAWLER_RECENT_ACTIVITY_LIMIT),
+  };
 }
 
 export async function loadAgenticCentersData(): Promise<AgenticCentersData> {

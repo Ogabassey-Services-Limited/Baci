@@ -240,6 +240,43 @@ describe('loadAgenticCentersData', () => {
     });
   });
 
+  it('trims recent crawler rows while preserving aggregate counts', async () => {
+    const manyCrawlerRows = [0, 1, 2, 3, 4].map((index) => ({
+      agent_family: 'openai',
+      bot_name: 'OpenAI',
+      cache_outcome: index === 4 ? 'miss' : 'hit',
+      crawled_at: `2026-05-20T05:0${index}:00.000Z`,
+      host: 'shop.example.com',
+      response_time_ms: 120,
+      status_code: 200,
+      url_path: `/agent-page-${index}`,
+      user_agent: 'GPTBot/1.0',
+    }));
+    supabaseFrom.mockImplementation((table: string) => {
+      if (table === 'crawler_logs') {
+        return createCrawlerLogQuery({ data: manyCrawlerRows });
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+    const { loadAgenticCentersData } = await import('./data');
+
+    const result = await loadAgenticCentersData();
+
+    expect(result.crawlerSummary).toMatchObject({
+      health: {
+        aiAgentCrawls: 5,
+        cacheMissCrawls: 1,
+      },
+      totalCrawls: 5,
+    });
+    expect(result.crawlerSummary?.recent).toHaveLength(3);
+    expect(result.crawlerSummary?.recent.map((row) => row.url_path)).toEqual([
+      '/agent-page-0',
+      '/agent-page-1',
+      '/agent-page-2',
+    ]);
+  });
+
   it('skips loaders when the store is unpublished', async () => {
     getMerchantForUser.mockResolvedValue({
       merchant: { ...merchant, is_published: false },
