@@ -1,80 +1,151 @@
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 
 /**
  * Google Places API Reviews Route
  * Fetches reviews for a business using Google Places API
  *
- * Note: Google Places API returns max 5 "most relevant" reviews
- * This is a limitation of the API, not our implementation
+ * Note: Google Places API returns up to 5 relevant reviews.
+ * This is a limitation of the API, not our implementation.
  *
- * @see https://developers.google.com/maps/documentation/places/web-service/details
+ * @see https://developers.google.com/maps/documentation/places/web-service/place-details
  */
 
+const NEW_PLACES_API_BASE = 'https://places.googleapis.com/v1';
+const PLACE_REVIEW_FIELD_MASK = [
+  'displayName',
+  'rating',
+  'userRatingCount',
+  'reviews',
+  'googleMapsUri',
+  'attributions',
+].join(',');
+const PLACE_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
+
+const reviewsQuerySchema = z.object({
+  placeId: z
+    .string()
+    .trim()
+    .min(1, 'Place ID is required')
+    .transform((value) =>
+      value.startsWith('places/') ? value.slice('places/'.length) : value
+    )
+    .refine((value) => PLACE_ID_PATTERN.test(value), {
+      message: 'Invalid Place ID format',
+    }),
+});
+
+interface GooglePlaceLocalizedText {
+  languageCode?: string;
+  text?: string;
+}
+
+interface GooglePlaceAuthorAttribution {
+  displayName?: string;
+  photoUri?: string;
+  uri?: string;
+}
+
 interface GooglePlaceReview {
-  author_name: string;
-  author_url?: string;
-  profile_photo_url?: string;
-  rating: number;
-  relative_time_description: string;
-  text: string;
-  time: number;
-  language?: string;
+  authorAttribution?: GooglePlaceAuthorAttribution;
+  name?: string;
+  originalText?: GooglePlaceLocalizedText;
+  publishTime?: string;
+  rating?: number;
+  relativePublishTimeDescription?: string;
+  text?: GooglePlaceLocalizedText;
+  flagContentUri?: string;
+  googleMapsUri?: string;
 }
 
 interface GooglePlaceDetails {
-  result: {
-    name?: string;
-    rating?: number;
-    user_ratings_total?: number;
-    reviews?: GooglePlaceReview[];
-    url?: string;
-  };
-  status: string;
-  error_message?: string;
+  attributions?: GooglePlaceAttribution[];
+  displayName?: GooglePlaceLocalizedText;
+  googleMapsUri?: string;
+  rating?: number;
+  reviews?: GooglePlaceReview[];
+  userRatingCount?: number;
+}
+
+interface GooglePlaceAttribution {
+  provider?: string;
+  providerUri?: string;
 }
 
 interface FormattedReview {
   authorName: string;
   authorUrl?: string;
   authorPhoto?: string;
+  language?: string;
+  publishedAt?: string;
   rating: number;
   text: string;
   relativeTime: string;
   timestamp: number;
+  flagContentUri?: string;
+  googleMapsUri?: string;
 }
 
 interface ReviewsResponse {
+  attributionLabel: 'Google Maps';
+  attributions: GooglePlaceAttribution[];
   reviews: FormattedReview[];
+  reviewsSortedBy: 'relevance';
   rating: number;
+  source: 'google_maps';
   totalReviews: number;
   businessName?: string;
   googleMapsUrl?: string;
 }
 
+function getGooglePlacesApiKey(): string | undefined {
+  return process.env.GOOGLE_PLACES_API_KEY || process.env.GOOGLE_MAPS_API_KEY;
+}
+
+function toUnixSeconds(value?: string): number {
+  if (!value) return 0;
+
+  const parsed = Date.parse(value);
+  return Number.isNaN(parsed) ? 0 : Math.floor(parsed / 1000);
+}
+
+function formatReview(review: GooglePlaceReview): FormattedReview {
+  const authorAttribution = review.authorAttribution;
+  const text = review.text?.text ?? review.originalText?.text ?? '';
+
+  return {
+    authorName: authorAttribution?.displayName || 'Google Maps user',
+    authorUrl: authorAttribution?.uri,
+    authorPhoto: authorAttribution?.photoUri,
+    language: review.text?.languageCode ?? review.originalText?.languageCode,
+    publishedAt: review.publishTime,
+    rating: review.rating ?? 0,
+    text,
+    relativeTime: review.relativePublishTimeDescription || '',
+    timestamp: toUnixSeconds(review.publishTime),
+    flagContentUri: review.flagContentUri,
+    googleMapsUri: review.googleMapsUri,
+  };
+}
+
 // Cache reviews for 1 hour to reduce API calls
 const getCachedReviews = unstable_cache(
   async (placeId: string): Promise<ReviewsResponse> => {
-    const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+    const apiKey = getGooglePlacesApiKey();
 
     if (!apiKey) {
       throw new Error('Google Places API key not configured');
     }
 
-    const url = new URL(
-      'https://maps.googleapis.com/maps/api/place/details/json'
-    );
-    url.searchParams.set('place_id', placeId);
-    url.searchParams.set('key', apiKey);
-    url.searchParams.set(
-      'fields',
-      'name,rating,user_ratings_total,reviews,url'
-    );
-    url.searchParams.set('reviews_sort', 'newest'); // Get newest reviews
+    const url = `${NEW_PLACES_API_BASE}/places/${placeId}`;
 
-    const response = await fetch(url.toString(), {
+    const response = await fetch(url, {
+      method: 'GET',
       headers: {
-        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': apiKey,
+        'X-Goog-FieldMask': PLACE_REVIEW_FIELD_MASK,
       },
     });
 
@@ -84,31 +155,16 @@ const getCachedReviews = unstable_cache(
 
     const data: GooglePlaceDetails = await response.json();
 
-    if (data.status !== 'OK') {
-      throw new Error(
-        data.error_message || `Google Places API status: ${data.status}`
-      );
-    }
-
-    const result = data.result;
-
-    // Format reviews for our frontend
-    const reviews: FormattedReview[] = (result.reviews || []).map((review) => ({
-      authorName: review.author_name,
-      authorUrl: review.author_url,
-      authorPhoto: review.profile_photo_url,
-      rating: review.rating,
-      text: review.text,
-      relativeTime: review.relative_time_description,
-      timestamp: review.time,
-    }));
-
     return {
-      reviews,
-      rating: result.rating || 0,
-      totalReviews: result.user_ratings_total || 0,
-      businessName: result.name,
-      googleMapsUrl: result.url,
+      attributionLabel: 'Google Maps',
+      attributions: data.attributions ?? [],
+      businessName: data.displayName?.text,
+      googleMapsUrl: data.googleMapsUri,
+      rating: data.rating || 0,
+      reviews: (data.reviews || []).map(formatReview),
+      reviewsSortedBy: 'relevance',
+      source: 'google_maps',
+      totalReviews: data.userRatingCount || 0,
     };
   },
   ['google-places-reviews'],
@@ -121,24 +177,17 @@ const getCachedReviews = unstable_cache(
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const placeId = searchParams.get('placeId');
+    const queryResult = reviewsQuerySchema.safeParse({
+      placeId: searchParams.get('placeId') ?? '',
+    });
 
-    if (!placeId) {
-      return NextResponse.json(
-        { error: 'Place ID is required' },
-        { status: 400 }
-      );
+    if (!queryResult.success) {
+      const message =
+        queryResult.error.issues[0]?.message ?? 'Invalid Place ID format';
+      return NextResponse.json({ error: message }, { status: 400 });
     }
 
-    // Validate Place ID format (starts with ChIJ)
-    if (!placeId.startsWith('ChIJ') && !placeId.startsWith('Eh')) {
-      return NextResponse.json(
-        { error: 'Invalid Place ID format' },
-        { status: 400 }
-      );
-    }
-
-    const reviewsData = await getCachedReviews(placeId);
+    const reviewsData = await getCachedReviews(queryResult.data.placeId);
 
     return NextResponse.json(reviewsData, {
       headers: {
