@@ -5,6 +5,7 @@ import {
   getCustomDomainForSlug,
   getSlugForCustomDomain,
 } from '@/lib/domain-cache-simple';
+import { checkRateLimit } from '@/lib/rate-limit';
 import { updateSession } from '@/lib/supabase/middleware';
 import { config, proxy } from './proxy';
 
@@ -503,6 +504,51 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('location')).toBeNull();
     expect(res.headers.get('x-middleware-rewrite')).toBeNull();
     expect(getCustomDomainForSlug).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    '/wc-api/klp_wc_payment_webhook',
+    '/wc-api/klp_wc_payment_webhook/',
+  ])('rewrites legacy Klump WooCommerce webhook path %s to the Klump API handler', async (path) => {
+    const req = new NextRequest(`https://ogabassey.com${path}?source=klump`, {
+      body: '{}',
+      headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+    });
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).not.toBe(301);
+    expect(res.status).not.toBe(308);
+    expect(checkRateLimit).toHaveBeenCalledTimes(1);
+    expect(getSlugForCustomDomain).not.toHaveBeenCalled();
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      'https://ogabassey.com/api/payments/klump/webhook?source=klump'
+    );
+    expect(res.headers.get('x-pathname')).toBe('/api/payments/klump/webhook');
+  });
+
+  it('preserves no-trailing-slash redirects for ordinary storefront paths', async () => {
+    const req = new NextRequest('https://ogabassey.com/products/');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(308);
+    expect(res.headers.get('location')).toBe('https://ogabassey.com/products');
+  });
+
+  it('preserves no-trailing-slash redirects for storefront paths with dots in slugs', async () => {
+    const req = new NextRequest('https://ogabassey.com/products/iphone-v1.0/');
+    req.headers.set('host', 'ogabassey.com');
+
+    const res = await proxy(req);
+
+    expect(res.status).toBe(308);
+    expect(res.headers.get('location')).toBe(
+      'https://ogabassey.com/products/iphone-v1.0'
+    );
   });
 
   it('should fall back to domain when slug lookup returns null', async () => {

@@ -53,6 +53,8 @@ const VALID_SUBDOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 // remain free to publish their own `/<key>.txt` file on custom domains without
 // the proxy intercepting and bypassing their storefront rewrite.
 const INDEXNOW_KEY_PATH = '/0751d5c882ab3d7c013ecbfe9e624d71.txt';
+const KLUMP_WEBHOOK_API_PATH = '/api/payments/klump/webhook';
+const LEGACY_KLUMP_WOOCOMMERCE_WEBHOOK_PATH = '/wc-api/klp_wc_payment_webhook';
 const PUBLIC_MACHINE_READABLE_PATHS = new Set<string>([
   ...Object.values(STOREFRONT_AGENT_ROUTES),
   ...Object.values(STOREFRONT_FEED_ROUTES),
@@ -267,6 +269,33 @@ function lowercaseStorefrontPathname(pathname: string): string {
   }
 
   return normalized;
+}
+
+function isLegacyKlumpWooCommerceWebhookPath(pathname: string): boolean {
+  const normalizedPathname =
+    pathname.length > 1 && pathname.endsWith('/')
+      ? pathname.slice(0, -1)
+      : pathname;
+
+  return (
+    normalizedPathname.toLowerCase() === LEGACY_KLUMP_WOOCOMMERCE_WEBHOOK_PATH
+  );
+}
+
+function getNoTrailingSlashRedirectPath(pathname: string): string | null {
+  if (pathname === '/' || !pathname.endsWith('/')) {
+    return null;
+  }
+
+  const pathnameWithoutTrailingSlash = pathname.slice(0, -1);
+  if (
+    !pathnameWithoutTrailingSlash.startsWith('/.well-known/') &&
+    STATIC_FILES_REGEX.test(pathnameWithoutTrailingSlash)
+  ) {
+    return null;
+  }
+
+  return pathnameWithoutTrailingSlash;
 }
 
 /**
@@ -661,9 +690,24 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  const isLegacyKlumpWebhook = isLegacyKlumpWooCommerceWebhookPath(pathname);
+  const apiSecurityPathname = isLegacyKlumpWebhook
+    ? KLUMP_WEBHOOK_API_PATH
+    : pathname;
+
+  const noTrailingSlashPathname = isLegacyKlumpWebhook
+    ? null
+    : getNoTrailingSlashRedirectPath(pathname);
+  if (noTrailingSlashPathname) {
+    return NextResponse.redirect(
+      new URL(noTrailingSlashPathname + request.nextUrl.search, request.url),
+      308
+    );
+  }
+
   // ==== RATE LIMITING (API Routes) ====
   // Protect API endpoints from abuse
-  if (pathname.startsWith('/api')) {
+  if (apiSecurityPathname.startsWith('/api')) {
     const rateLimitResult = await checkRateLimit(request);
     if (!rateLimitResult.allowed) {
       return createRateLimitResponse(
@@ -720,16 +764,16 @@ export async function proxy(request: NextRequest) {
       const isBearerAuth = authHeader?.startsWith('Bearer ');
 
       // Skip: Webhook endpoints — called by external services, not browsers.
-      const isWebhook = pathname.startsWith('/api/webhooks/');
+      const isWebhook = apiSecurityPathname.startsWith('/api/webhooks/');
 
       // Skip: Auth callback routes — called by OAuth providers.
-      const isAuthCallback = pathname.startsWith('/api/auth/');
+      const isAuthCallback = apiSecurityPathname.startsWith('/api/auth/');
 
       // Skip: Cron endpoints — called by Vercel cron, not browsers.
-      const isCron = pathname.startsWith('/api/cron/');
+      const isCron = apiSecurityPathname.startsWith('/api/cron/');
 
       // Skip: Public analytics endpoint
-      const isPublicAnalytics = pathname === '/api/platform/events';
+      const isPublicAnalytics = apiSecurityPathname === '/api/platform/events';
 
       if (
         !isBearerAuth &&
@@ -778,6 +822,25 @@ export async function proxy(request: NextRequest) {
         }
       }
     }
+  }
+
+  if (isLegacyKlumpWebhook) {
+    const webhookUrl = new URL(
+      KLUMP_WEBHOOK_API_PATH + request.nextUrl.search,
+      request.url
+    );
+
+    const response = NextResponse.rewrite(webhookUrl);
+    return applySecurityHeaders(
+      response,
+      KLUMP_WEBHOOK_API_PATH,
+      userAgent,
+      'api',
+      isLocalhost(hostname),
+      undefined,
+      request,
+      hostname
+    );
   }
 
   // ==== BLOG MIGRATION REDIRECTS ====
