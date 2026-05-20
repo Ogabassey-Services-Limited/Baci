@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS public.quiz_awards (
   attempt_id uuid REFERENCES public.quiz_attempts(id) ON DELETE SET NULL,
   customer_id uuid NOT NULL REFERENCES public.customers(id) ON DELETE RESTRICT,
   award_type text NOT NULL CHECK (award_type IN ('grand', 'cash', 'store_credit')),
+  CONSTRAINT chk_quiz_awards_attempt_required CHECK ((award_type = 'grand' AND attempt_id IS NULL) OR (award_type IN ('cash', 'store_credit') AND attempt_id IS NOT NULL)),
   status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'claimed', 'void')),
   amount numeric(12,2) CHECK (amount IS NULL OR amount >= 0),
   currency text NOT NULL DEFAULT 'NGN',

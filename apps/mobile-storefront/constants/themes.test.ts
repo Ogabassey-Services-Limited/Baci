@@ -8,9 +8,12 @@ function expectTokenContrast(
   background: string
 ) {
   const ratio = contrastRatio(token, background);
-  expect({ ratio, token, tokenName, valid: ratio >= 4.5 }).toMatchObject({
-    valid: true,
-  });
+  if (ratio < 4.5) {
+    throw new Error(
+      `${tokenName} (${token}) contrast ratio ${ratio} is below WCAG AA`
+    );
+  }
+  expect(ratio).toBeGreaterThanOrEqual(4.5);
 }
 
 describe('theme contrast tokens', () => {

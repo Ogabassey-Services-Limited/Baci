@@ -89,6 +89,12 @@ describe('quiz migration contracts', () => {
     );
   });
 
+  it('keeps quiz route proof future clock skew tightly bounded', () => {
+    expect(rpcSql).toMatch(/INTERVAL\s+'30 seconds'/i);
+    expect(rpcSql).toMatch(/small future skew for serverless clock drift/i);
+    expect(rpcSql).not.toMatch(/INTERVAL\s+'1 minute'/i);
+  });
+
   it('signs payload hashes and derives answer completion from answered question count', () => {
     expect(rpcSql).toMatch(/v_payload_hash\s+text/i);
     expect(rpcSql).toMatch(/v_canonical\s*:=.*v_payload_hash/is);
@@ -288,6 +294,10 @@ describe('quiz migration contracts', () => {
   it('keeps quiz awards customer ownership non-null and non-orphaning', () => {
     expect(foundationSql).toMatch(
       /customer_id\s+uuid\s+NOT\s+NULL\s+REFERENCES\s+public\.customers\(id\)\s+ON\s+DELETE\s+RESTRICT/i
+    );
+    expect(foundationSql).toMatch(/chk_quiz_awards_attempt_required/i);
+    expect(foundationSql).toMatch(
+      /award_type\s+IN\s+\('cash',\s*'store_credit'\)\s+AND\s+attempt_id\s+IS\s+NOT\s+NULL/i
     );
     expect(foundationSql).toMatch(
       /CREATE\s+INDEX\s+IF\s+NOT\s+EXISTS\s+idx_quiz_awards_customer\s+ON\s+public\.quiz_awards\(customer_id\);/i

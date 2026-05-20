@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { after, type NextRequest, NextResponse } from 'next/server';
-import { getQuizProductionApprovedEnv } from '@/env';
+import { getQuizPhaseEnv, getQuizProductionApprovedEnv } from '@/env';
 import {
   computeAgenticOrderTax,
   isTaxComputeUuidError,
@@ -243,9 +243,11 @@ export async function POST(request: NextRequest) {
         // Phase 1a has no prize-bearing order path. The later production
         // voucher path must load the quiz event/compliance evidence before
         // calling create_storefront_order_with_quiz_voucher.
+        const quizProductionApproved =
+          getQuizPhaseEnv() === 'production' && getQuizProductionApprovedEnv();
         enforcePrizeProductionGuard(
           { nlrc_permit_ref: null },
-          getQuizProductionApprovedEnv()
+          quizProductionApproved
         );
       } catch (error) {
         if (error instanceof QuizProductionNotApprovedError) {

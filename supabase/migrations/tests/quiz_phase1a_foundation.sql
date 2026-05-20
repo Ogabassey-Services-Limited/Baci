@@ -18,6 +18,7 @@ DECLARE
   missing_table text;
   rls_disabled_table text;
   mutable_policy_table text;
+  missing_constraint text;
   insecure_function text;
   missing_search_path_function text;
   anon_callable_function text;
@@ -107,6 +108,23 @@ BEGIN
 
   IF mutable_policy_table IS NOT NULL THEN
     RAISE EXCEPTION 'quiz Phase 1a table public.% must not expose INSERT/UPDATE/DELETE policies to anon/authenticated clients', mutable_policy_table;
+  END IF;
+
+  SELECT expected.constraint_name INTO missing_constraint
+  FROM (
+    VALUES
+      ('chk_quiz_awards_attempt_required')
+  ) AS expected(constraint_name)
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint con
+    WHERE con.conname = expected.constraint_name
+      AND con.conrelid = 'public.quiz_awards'::regclass
+  )
+  LIMIT 1;
+
+  IF missing_constraint IS NOT NULL THEN
+    RAISE EXCEPTION 'quiz Phase 1a missing constraint %', missing_constraint;
   END IF;
 
   IF NOT EXISTS (

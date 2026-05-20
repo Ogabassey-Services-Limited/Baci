@@ -274,6 +274,39 @@ describe('POST /api/orders — quiz voucher guard', () => {
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
+  it('keeps Phase 1a quiz voucher orders locked even when approval env is truthy', async () => {
+    vi.stubEnv('QUIZ_PHASE', '1a');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    const supabase = buildMockSupabase();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            price: 0,
+            voucher_token: 'quiz-voucher-token',
+          },
+        ],
+      }),
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(403);
+    expect(mockEnforcePrizeProductionGuard).toHaveBeenCalledWith(
+      { nlrc_permit_ref: null },
+      false
+    );
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
   it('passes production approval env into the quiz voucher guard', async () => {
     vi.stubEnv('QUIZ_PHASE', 'production');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');

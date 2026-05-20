@@ -64,8 +64,10 @@ export const palette = {
   black: '#000000',
 };
 
+export const OVERLAY_COLOR = 'rgba(0, 0, 0, 0.5)' as const;
+
 export const SEMANTIC_COLORS = {
-  overlay: 'rgba(0, 0, 0, 0.5)',
+  overlay: OVERLAY_COLOR,
   white: palette.white,
 } as const;
 

@@ -97,6 +97,7 @@ export async function requireQuizUser(
       ...getSafeAuthErrorFields(error),
     });
     return {
+      // Supabase auth lookup errors are service failures, not bad credentials.
       response: NextResponse.json(
         { code: 'auth_unavailable', error: 'Authentication lookup failed' },
         { status: 503 }

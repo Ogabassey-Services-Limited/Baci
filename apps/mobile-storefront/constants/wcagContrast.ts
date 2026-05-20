@@ -8,7 +8,13 @@ const WCAG_RED_COEFFICIENT = 0.2126;
 const WCAG_GREEN_COEFFICIENT = 0.7152;
 const WCAG_BLUE_COEFFICIENT = 0.0722;
 
-export function parseHexColor(hexColor: string) {
+type RgbColor = {
+  r: number;
+  g: number;
+  b: number;
+};
+
+export function parseHexColor(hexColor: string): RgbColor {
   const normalized = hexColor.replace(/^#/, '');
   if (!/^[0-9a-f]{6}$/i.test(normalized)) {
     throw new Error(`Unsupported contrast test color: ${hexColor}`);
@@ -21,14 +27,14 @@ export function parseHexColor(hexColor: string) {
   };
 }
 
-export function linearize(channel: number) {
+export function linearize(channel: number): number {
   return channel <= WCAG_LINEAR_THRESHOLD
     ? channel / WCAG_LINEAR_DIVISOR
     : ((channel + WCAG_GAMMA_OFFSET) / WCAG_GAMMA_DIVISOR) **
         WCAG_GAMMA_EXPONENT;
 }
 
-export function relativeLuminance(hexColor: string) {
+export function relativeLuminance(hexColor: string): number {
   const { r, g, b } = parseHexColor(hexColor);
   return (
     WCAG_RED_COEFFICIENT * linearize(r) +
@@ -37,7 +43,7 @@ export function relativeLuminance(hexColor: string) {
   );
 }
 
-export function contrastRatio(foreground: string, background: string) {
+export function contrastRatio(foreground: string, background: string): number {
   const foregroundLuminance = relativeLuminance(foreground);
   const backgroundLuminance = relativeLuminance(background);
   const lighter = Math.max(foregroundLuminance, backgroundLuminance);

@@ -136,6 +136,9 @@ export async function GET(request: NextRequest) {
   let exhausted = false;
   const internalPageSize = Math.max(limit + 1, MIN_INTERNAL_PAGE_SIZE);
 
+  // Rows are still filtered after each bounded fetch because variant prompts
+  // remain RLS-protected until an attempt exists; joining variants here would
+  // reintroduce the first-attempt discovery deadlock this route avoids.
   while (rows.length <= limit && !exhausted) {
     const { data, error } = await auth.supabase
       .from('quiz_events')

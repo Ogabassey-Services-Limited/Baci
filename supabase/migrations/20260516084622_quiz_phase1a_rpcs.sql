@@ -108,8 +108,9 @@ BEGIN
     RETURN public.quiz_log_route_proof_failure(p_route_proof, 'invalid_issued_at');
   END;
 
+  -- Allow only a small future skew for serverless clock drift.
   IF v_issued_at_at < pg_catalog.now() - INTERVAL '5 minutes'
-     OR v_issued_at_at > pg_catalog.now() + INTERVAL '1 minute' THEN
+     OR v_issued_at_at > pg_catalog.now() + INTERVAL '30 seconds' THEN
     RETURN public.quiz_log_route_proof_failure(p_route_proof, 'issued_at_out_of_window');
   END IF;
 
@@ -273,6 +274,7 @@ BEGIN
       FROM public.quiz_question_variants variant
       WHERE variant.slot_id = s.id
         AND variant.active
+      -- MD5 is only for deterministic non-cryptographic variant ordering.
       ORDER BY pg_catalog.md5(variant.id::text || p_event_id::text || v_customer_id::text)
       LIMIT 1
     ) qv ON true
