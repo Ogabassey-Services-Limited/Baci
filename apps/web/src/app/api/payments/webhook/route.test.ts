@@ -182,6 +182,15 @@ function createSignature(payload: string, secret: string): string {
   return createHmac('sha512', secret).update(payload).digest('hex');
 }
 
+function createKorapaySignature(
+  data: Record<string, unknown>,
+  secret: string
+): string {
+  return createHmac('sha256', secret)
+    .update(JSON.stringify(data))
+    .digest('hex');
+}
+
 // Helper to create mock request
 function createMockRequest(
   body: Record<string, unknown>,
@@ -386,6 +395,47 @@ describe('POST /api/payments/webhook', () => {
       const response = await POST(request);
 
       expect(response.status).toBe(200);
+    });
+
+    it('accepts valid Korapay signature when reference is nested in data', async () => {
+      const body = {
+        event: 'charge.success',
+        data: {
+          reference: 'REF123',
+          status: 'success',
+          amount: 1000,
+          currency: 'NGN',
+        },
+      };
+      const signature = createKorapaySignature(
+        body.data,
+        'test-korapay-secret'
+      );
+
+      const request = createMockRequest(body, {
+        'x-korapay-signature': signature,
+      });
+
+      const { verifyPayment } = await import('@/lib/korapay');
+      vi.mocked(verifyPayment).mockResolvedValue({
+        success: true,
+        data: {
+          status: 'success',
+          amount: 1000,
+          reference: 'REF123',
+          currency: 'NGN',
+          paid_at: '2026-01-01T00:00:00Z',
+          created_at: '2026-01-01T00:00:00Z',
+          customer: { name: 'Test', email: 'test@example.com' },
+        },
+      });
+
+      setupSuccessfulTransactionMocks();
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(verifyPayment).toHaveBeenCalledWith('REF123');
     });
 
     it('accepts valid Paystack signature', async () => {

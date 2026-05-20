@@ -41,6 +41,9 @@ export interface MerchantFeatureSettings {
   credit_direct_min_amount: number;
   credit_direct_max_amount: number;
   credpal_enabled: boolean;
+  klump_enabled: boolean;
+  klump_min_amount: number;
+  klump_max_amount: number;
   preferred_local_gateway: 'paystack' | 'korapay';
   preferred_international_gateway: 'paystack' | 'korapay';
 
@@ -136,6 +139,9 @@ const MERCHANT_FEATURE_SELECT_FIELDS: readonly (keyof MerchantFeatureSettings)[]
     'credit_direct_min_amount',
     'credit_direct_max_amount',
     'credpal_enabled',
+    'klump_enabled',
+    'klump_min_amount',
+    'klump_max_amount',
     'preferred_local_gateway',
     'preferred_international_gateway',
     'shipping_providers',
@@ -226,6 +232,9 @@ const DEFAULT_SETTINGS: Partial<MerchantFeatureSettings> = {
   credit_direct_min_amount: 10000,
   credit_direct_max_amount: 500000,
   credpal_enabled: false,
+  klump_enabled: false,
+  klump_min_amount: 10000,
+  klump_max_amount: 500000,
   preferred_local_gateway: 'paystack',
   preferred_international_gateway: 'korapay',
   // Shipping

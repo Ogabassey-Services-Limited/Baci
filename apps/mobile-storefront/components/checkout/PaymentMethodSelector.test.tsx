@@ -88,6 +88,81 @@ describe('PaymentMethodSelector', () => {
     expect(screen.getByLabelText('Pay later')).toBeTruthy();
   });
 
+  it('keeps the installments tab visible when Klump is the only enabled BNPL provider', () => {
+    render(
+      <PaymentMethodSelector
+        selectedMethod={'klump' as PaymentMethodType}
+        onSelectMethod={() => {}}
+        selectedTab="installments"
+        onSelectTab={() => {}}
+        orderTotal={120000}
+        enabledMethods={['klump' as PaymentMethodType]}
+      />
+    );
+
+    expect(screen.getByLabelText('Pay in installments')).toBeTruthy();
+    expect(screen.getByText('Klump')).toBeTruthy();
+  });
+
+  it('uses caller-supplied Klump disabled reasons for wallet and merchant range boundaries', () => {
+    const onSelectMethod = jest.fn();
+    const klumpDisabledProps = {
+      methodDisabledReasons: {
+        klump: 'Minimum order: ₦7,500',
+      },
+    } as Record<string, unknown>;
+
+    render(
+      <PaymentMethodSelector
+        selectedMethod={'klump' as PaymentMethodType}
+        onSelectMethod={onSelectMethod}
+        selectedTab="installments"
+        onSelectTab={() => {}}
+        orderTotal={5000}
+        enabledMethods={['klump' as PaymentMethodType]}
+        {...klumpDisabledProps}
+      />
+    );
+
+    const klumpRow = screen.getByLabelText('Klump. Minimum order: ₦7,500');
+
+    expect(klumpRow.props.accessibilityState).toMatchObject({
+      disabled: true,
+    });
+
+    fireEvent.press(klumpRow);
+
+    expect(onSelectMethod).not.toHaveBeenCalled();
+  });
+
+  it('disables Klump when wallet credit is already active', () => {
+    const onSelectMethod = jest.fn();
+
+    render(
+      <PaymentMethodSelector
+        selectedMethod={'klump' as PaymentMethodType}
+        onSelectMethod={onSelectMethod}
+        selectedTab="installments"
+        onSelectTab={() => {}}
+        orderTotal={120000}
+        enabledMethods={['klump' as PaymentMethodType]}
+        walletSelection={{ use: true, amount: 5000 }}
+      />
+    );
+
+    const klumpRow = screen.getByLabelText(
+      'Klump. Wallet credit cannot be combined with Klump'
+    );
+
+    expect(klumpRow.props.accessibilityState).toMatchObject({
+      disabled: true,
+    });
+
+    fireEvent.press(klumpRow);
+
+    expect(onSelectMethod).not.toHaveBeenCalled();
+  });
+
   it('can show Paystack as an unselected alternate card option when a saved card owns the selection', () => {
     render(
       <PaymentMethodSelector

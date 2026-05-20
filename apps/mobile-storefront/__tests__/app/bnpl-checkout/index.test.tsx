@@ -193,6 +193,26 @@ describe('BNPLCheckoutScreen', () => {
     expect(webView.props.children).toContain('token=track-token-123');
   });
 
+  it('accepts Klump as a BNPL gateway and loads the explicit authorization URL', () => {
+    mockSearchParams = {
+      amount: '120000',
+      authorizationUrl:
+        'https://ogabassey.usebaci.com/checkout/bnpl?gateway=klump&orderId=order-123&reference=BAC-ABCD12345678&trackingToken=track-token-123',
+      customerEmail: 'customer@example.com',
+      customerName: 'Ada Customer',
+      gateway: 'klump',
+      merchantSlug: 'ogabassey',
+      orderId: 'order-123',
+      trackingToken: 'track-token-123',
+    };
+
+    render(<BNPLCheckoutScreen />);
+
+    expect(screen.getByText(/^webview:/).props.children).toBe(
+      `webview:${mockSearchParams.authorizationUrl}`
+    );
+  });
+
   it('allows Credit Direct popup windows to render in the Android WebView', () => {
     render(<BNPLCheckoutScreen />);
 

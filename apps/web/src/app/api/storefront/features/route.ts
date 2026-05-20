@@ -30,8 +30,11 @@ export interface StorefrontFeatures {
   payOnDeliveryEnabled: boolean;
   creditDirectEnabled: boolean;
   credpalEnabled: boolean;
+  klumpEnabled: boolean;
   creditDirectMinAmount: number;
   creditDirectMaxAmount: number;
+  klumpMinAmount: number;
+  klumpMaxAmount: number;
   preferredLocalGateway: 'paystack' | 'korapay';
   preferredInternationalGateway: 'paystack' | 'korapay';
 
@@ -91,8 +94,11 @@ const DEFAULT_FEATURES: StorefrontFeatures = {
   payOnDeliveryEnabled: false,
   creditDirectEnabled: false,
   credpalEnabled: false,
+  klumpEnabled: false,
   creditDirectMinAmount: 10000,
   creditDirectMaxAmount: 500000,
+  klumpMinAmount: 10000,
+  klumpMaxAmount: 500000,
   preferredLocalGateway: 'paystack',
   preferredInternationalGateway: 'korapay',
   shippingProviders: ['gigl', 'topship'],
@@ -182,7 +188,7 @@ export async function GET(request: NextRequest) {
     const { data: settings, error: settingsError } = await supabase
       .from('merchant_feature_settings')
       .select(
-        'loyalty_enabled, reviews_enabled, wishlist_enabled, order_tracking_enabled, discount_codes_enabled, guest_checkout_enabled, paystack_enabled, korapay_enabled, pay_on_delivery_enabled, credit_direct_enabled, credpal_enabled, credit_direct_min_amount, credit_direct_max_amount, preferred_local_gateway, preferred_international_gateway, shipping_providers, free_shipping_threshold, checkout_collect_phone, checkout_require_account, checkout_show_order_notes, about_page_enabled, contact_page_enabled, faq_page_enabled, privacy_page_enabled, terms_page_enabled, rewards_page_enabled, show_recent_purchases, show_stock_levels, low_stock_threshold, google_analytics_id, facebook_pixel_id, tiktok_pixel_id, vtu_enabled, vtu_airtime_enabled, vtu_data_enabled, vtu_checkout_addon_enabled, vtu_checkout_addon_amounts, vtu_loyalty_reward_enabled, blog_enabled, auto_blog_enabled'
+        'loyalty_enabled, reviews_enabled, wishlist_enabled, order_tracking_enabled, discount_codes_enabled, guest_checkout_enabled, paystack_enabled, korapay_enabled, pay_on_delivery_enabled, credit_direct_enabled, credpal_enabled, credit_direct_min_amount, credit_direct_max_amount, klump_enabled, klump_min_amount, klump_max_amount, preferred_local_gateway, preferred_international_gateway, shipping_providers, free_shipping_threshold, checkout_collect_phone, checkout_require_account, checkout_show_order_notes, about_page_enabled, contact_page_enabled, faq_page_enabled, privacy_page_enabled, terms_page_enabled, rewards_page_enabled, show_recent_purchases, show_stock_levels, low_stock_threshold, google_analytics_id, facebook_pixel_id, tiktok_pixel_id, vtu_enabled, vtu_airtime_enabled, vtu_data_enabled, vtu_checkout_addon_enabled, vtu_checkout_addon_amounts, vtu_loyalty_reward_enabled, blog_enabled, auto_blog_enabled'
       )
       .eq('merchant_id', resolvedMerchantId)
       .single();
@@ -231,8 +237,11 @@ export async function GET(request: NextRequest) {
       payOnDeliveryEnabled: settings.pay_on_delivery_enabled ?? false,
       creditDirectEnabled: settings.credit_direct_enabled ?? false,
       credpalEnabled: settings.credpal_enabled ?? false,
+      klumpEnabled: settings.klump_enabled ?? false,
       creditDirectMinAmount: settings.credit_direct_min_amount ?? 10000,
       creditDirectMaxAmount: settings.credit_direct_max_amount ?? 500000,
+      klumpMinAmount: settings.klump_min_amount ?? 10000,
+      klumpMaxAmount: settings.klump_max_amount ?? 500000,
       preferredLocalGateway: settings.preferred_local_gateway || 'paystack',
       preferredInternationalGateway:
         settings.preferred_international_gateway || 'korapay',

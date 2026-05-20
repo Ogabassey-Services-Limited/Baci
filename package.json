@@ -26,7 +26,7 @@
     "lefthook": "^2.1.0",
     "next": "16.2.6",
     "tailwindcss": "^4.2.2",
-    "turbo": "^2.9.1",
+    "turbo": "^2.9.14",
     "typescript": "^5.9.3"
   },
   "pnpm": {
@@ -55,8 +55,10 @@
       "@firebase/database-types": "Dedupe with @firebase/util — same reason.",
       "@firebase/database-compat": "Dedupe with @firebase/util — same reason.",
       "mermaid": "Pin to ^11.15.0 to close GHSA-6m6c-36f7-fhxh (Gantt-chart infinite-loop DoS), GHSA-87f9-hvmw-gh4p (CSS injection via configuration), GHSA-ghcm-xqfw-q4vr (HTML injection in classDef state diagrams), and GHSA-xcj9-5m2h-648r (CSS injection in classDefs). All four advisories fixed in 11.15.0. mermaid arrives here transitively via streamdown 1.6.11 (markdown streaming for the AI chat rendering pipeline).",
-      "protobufjs": "Pin to 7.5.6 to close 6 Dependabot CVEs on the 7.x line: high-severity GHSA-h755-8qp9-cq85 (code injection via bytes-field defaults in toObject), GHSA-g5vw-3h65-jc7g (process-wide DoS via unsafe option paths), GHSA-h2gq-xq6f-4cv3 (code-generation gadget after prototype pollution), GHSA-xg7m-fjjr-r96r (unbounded recursion DoS), plus medium-severity GHSA-rp78-h6w7-h8j8 (prototype injection in generated message constructors), GHSA-h825-3vrg-fvjm (DoS from crafted field names), and GHSA-mm78-2hpw-9j97 (overlong UTF-8 decoding). All seven advisories fix at 7.5.6. The previous override pinned to ^7.5.5, which is itself in the vulnerable range — exact pin per the CVE-motivated-override convention.",
-      "@protobufjs/utf8": "Pin to 1.1.1 to close GHSA-mm78-2hpw-9j97 (overlong UTF-8 decoding allows mis-encoded sequences through). 1.1.0 is the vulnerable transitive that the legacy protobufjs 6.x consumers still drag in; 1.1.1 is the patched release."
+      "protobufjs": "Pin to 7.6.0 to close the 7.x CVE set, including GHSA-jggg-4jg4-v7c6 / CVE-2026-45740 for unbounded recursive JSON descriptor expansion. This preserves the protobufjs 7 major while moving beyond the prior 7.5.6 override, which became vulnerable.",
+      "@protobufjs/utf8": "Pin to 1.1.1 to close GHSA-mm78-2hpw-9j97 (overlong UTF-8 decoding allows mis-encoded sequences through). 1.1.0 is the vulnerable transitive that the legacy protobufjs 6.x consumers still drag in; 1.1.1 is the patched release.",
+      "brace-expansion": "Pin to 5.0.6 to mitigate GHSA-jxxr-4gwj-5jf2 / CVE-2026-45149: enforce documented max limits before large numeric range expansion allocates the full intermediate array.",
+      "ws@>=8 <8.20.1": "Pin vulnerable ws 8.x consumers to 8.20.1 to mitigate GHSA-58qx-3vcg-4xpx / CVE-2026-45736 without forcing older ws 7.x consumers across a major version."
     },
     "overrides": {
       "defu": "6.1.6",
@@ -82,14 +84,15 @@
       "underscore": "^1.13.8",
       "dompurify": "^3.4.0",
       "sanitize-html": "2.17.4",
-      "protobufjs": "7.5.6",
+      "protobufjs": "7.6.0",
       "@protobufjs/utf8": "1.1.1",
       "rollup": "^4.59.0",
       "basic-ftp": "5.3.1",
       "ajv@<6.14.0": "6.14.0",
       "glob@13": "13.0.6",
       "minimatch": "10.2.3",
-      "minimatch>brace-expansion": "^5.0.5",
+      "minimatch>brace-expansion": "5.0.6",
+      "ws@>=8 <8.20.1": "8.20.1",
       "h3": "1.15.9",
       "tar": "^7.5.8",
       "fast-xml-parser": "5.7.2",

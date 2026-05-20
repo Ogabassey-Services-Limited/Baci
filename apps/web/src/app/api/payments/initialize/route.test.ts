@@ -104,10 +104,12 @@ const ORDER_ID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890';
 
 let rpcResult: { data: unknown; error: unknown };
 let rpcTransactionResult: { data: unknown; error: unknown };
+const rpcCalls: Array<{ args?: unknown; name: string }> = [];
 
 function createMockSupabase() {
   return {
-    rpc: vi.fn((name: string) => {
+    rpc: vi.fn((name: string, args?: unknown) => {
+      rpcCalls.push({ name, args });
       if (name === 'get_order_payment_snapshot')
         return Promise.resolve(rpcResult);
       if (name === 'create_payment_transaction')
@@ -237,6 +239,16 @@ function setupDefaults() {
   featureSettingsResult = { data: null, error: null };
   dvaUpsertResult = { data: null, error: null };
   dvaUpsertCalls.length = 0;
+  rpcCalls.length = 0;
+}
+
+function enableKorapayForTest() {
+  featureSettingsResult = {
+    data: {
+      korapay_enabled: true,
+    },
+    error: null,
+  };
 }
 
 // ---- Tests ----
@@ -330,7 +342,17 @@ describe('POST /api/payments/initialize', () => {
   });
 
   describe('korapay gateway', () => {
+    it('returns GATEWAY_DISABLED when Korapay is not explicitly enabled', async () => {
+      const res = await POST(makeRequest({ ...validBody, gateway: 'korapay' }));
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('GATEWAY_DISABLED');
+      expect(mockInitializeKorapay).not.toHaveBeenCalled();
+    });
+
     it('returns success with checkout_url for korapay', async () => {
+      enableKorapayForTest();
       mockInitializeKorapay.mockResolvedValue({
         authorization_url: 'https://korapay.com/checkout/abc',
         checkout_url: 'https://korapay.com/checkout/abc',
@@ -343,7 +365,38 @@ describe('POST /api/payments/initialize', () => {
       expect(json.checkout_url).toBe('https://korapay.com/checkout/abc');
     });
 
+    it('falls back to checkout_url when korapay omits authorization_url', async () => {
+      enableKorapayForTest();
+      mockInitializeKorapay.mockResolvedValue({
+        checkout_url: 'https://korapay.com/checkout/abc',
+      });
+
+      const res = await POST(makeRequest({ ...validBody, gateway: 'korapay' }));
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.authorization_url).toBe('https://korapay.com/checkout/abc');
+      expect(json.checkout_url).toBe('https://korapay.com/checkout/abc');
+    });
+
+    it('falls back to authorization_url when korapay omits checkout_url', async () => {
+      enableKorapayForTest();
+      mockInitializeKorapay.mockResolvedValue({
+        authorization_url: 'https://korapay.com/checkout/xyz',
+      });
+
+      const res = await POST(makeRequest({ ...validBody, gateway: 'korapay' }));
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.authorization_url).toBe('https://korapay.com/checkout/xyz');
+      expect(json.checkout_url).toBe('https://korapay.com/checkout/xyz');
+    });
+
     it('returns 502 when korapay initialization throws', async () => {
+      enableKorapayForTest();
       mockInitializeKorapay.mockRejectedValue(new Error('Korapay down'));
       const res = await POST(makeRequest({ ...validBody, gateway: 'korapay' }));
       const json = await res.json();
@@ -484,6 +537,166 @@ describe('POST /api/payments/initialize', () => {
       );
       expect(json.authorization_url).toContain('trackingToken=track-token-123');
       expect(json.checkout_url).toContain('trackingToken=track-token-123');
+    });
+
+    it('returns GATEWAY_DISABLED when Klump is not enabled for the merchant', async () => {
+      rpcResult = {
+        data: [
+          {
+            merchant_id: MERCHANT_ID,
+            total: 50_000,
+            tracking_token: 'track-token-123',
+          },
+        ],
+        error: null,
+      };
+      featureSettingsResult = {
+        data: {
+          klump_enabled: false,
+          klump_min_amount: 10_000,
+          klump_max_amount: 500_000,
+          korapay_enabled: true,
+          paystack_enabled: true,
+          preferred_international_gateway: 'korapay',
+          preferred_local_gateway: 'paystack',
+        },
+        error: null,
+      };
+
+      const res = await POST(
+        makeRequest({ ...validBody, amount: 50_000, gateway: 'klump' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('GATEWAY_DISABLED');
+      expect(
+        rpcCalls.some((call) => call.name === 'create_payment_transaction')
+      ).toBe(false);
+    });
+
+    it('rejects Klump when the amount does not equal the full order total', async () => {
+      rpcResult = {
+        data: [
+          {
+            merchant_id: MERCHANT_ID,
+            total: 50_000,
+            tracking_token: 'track-token-123',
+          },
+        ],
+        error: null,
+      };
+      featureSettingsResult = {
+        data: {
+          klump_enabled: true,
+          klump_min_amount: 10_000,
+          klump_max_amount: 500_000,
+          korapay_enabled: true,
+          paystack_enabled: true,
+          preferred_international_gateway: 'korapay',
+          preferred_local_gateway: 'paystack',
+        },
+        error: null,
+      };
+
+      const res = await POST(
+        makeRequest({ ...validBody, amount: 25_000, gateway: 'klump' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('AMOUNT_COMPOSITION_UNSUPPORTED');
+      expect(
+        rpcCalls.some((call) => call.name === 'create_payment_transaction')
+      ).toBe(false);
+    });
+
+    it('rejects Klump outside the merchant configured amount range', async () => {
+      rpcResult = {
+        data: [
+          {
+            merchant_id: MERCHANT_ID,
+            total: 5_000,
+            tracking_token: 'track-token-123',
+          },
+        ],
+        error: null,
+      };
+      featureSettingsResult = {
+        data: {
+          klump_enabled: true,
+          klump_min_amount: 10_000,
+          klump_max_amount: 500_000,
+          korapay_enabled: true,
+          paystack_enabled: true,
+          preferred_international_gateway: 'korapay',
+          preferred_local_gateway: 'paystack',
+        },
+        error: null,
+      };
+
+      const res = await POST(
+        makeRequest({ ...validBody, amount: 5_000, gateway: 'klump' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(400);
+      expect(json.code).toBe('AMOUNT_OUT_OF_RANGE');
+      expect(
+        rpcCalls.some((call) => call.name === 'create_payment_transaction')
+      ).toBe(false);
+    });
+
+    it('returns a Klump BNPL launcher URL with reference and tracking token', async () => {
+      rpcResult = {
+        data: [
+          {
+            merchant_id: MERCHANT_ID,
+            total: 50_000,
+            tracking_token: 'track-token-123',
+          },
+        ],
+        error: null,
+      };
+      featureSettingsResult = {
+        data: {
+          klump_enabled: true,
+          klump_min_amount: 10_000,
+          klump_max_amount: 500_000,
+          korapay_enabled: true,
+          paystack_enabled: true,
+          preferred_international_gateway: 'korapay',
+          preferred_local_gateway: 'paystack',
+        },
+        error: null,
+      };
+
+      const res = await POST(
+        makeRequest({ ...validBody, amount: 50_000, gateway: 'klump' })
+      );
+      const json = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.gateway).toBe('klump');
+      expect(json.reference).toBe('BAC-ABCD12345678');
+      expect(json.authorization_url).toContain('gateway=klump');
+      expect(json.authorization_url).toContain(
+        'orderId=a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+      );
+      expect(json.authorization_url).toContain('reference=BAC-ABCD12345678');
+      expect(json.authorization_url).toContain('trackingToken=track-token-123');
+
+      const transactionCall = rpcCalls.find(
+        (call) => call.name === 'create_payment_transaction'
+      );
+      expect(transactionCall?.args).toMatchObject({
+        p_amount: 50_000,
+        p_gateway: 'klump',
+        p_merchant_amount: 50_000,
+        p_platform_fee: 0,
+        p_reference: 'BAC-ABCD12345678',
+      });
     });
   });
 
@@ -683,6 +896,7 @@ describe('POST /api/payments/initialize', () => {
         authorization_url: 'https://korapay.com/checkout/abc',
         checkout_url: 'https://korapay.com/checkout/abc',
       });
+      enableKorapayForTest();
 
       const res = await POST(makeRequest({ ...validBody, gateway: 'korapay' }));
       const json = await res.json();
