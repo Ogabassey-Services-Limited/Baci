@@ -36,6 +36,10 @@ vi.mock('@/lib/cache-revalidation', () => ({
   revalidateBlogPosts: (...args: unknown[]) => mockRevalidateBlogPosts(...args),
 }));
 
+vi.mock('@/env', () => ({
+  getCronSecret: () => 'test-secret',
+}));
+
 vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: () => mockSupabase,
 }));
@@ -58,12 +62,31 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
       new Request('http://localhost/api/cron/publish-scheduled-posts', {
         method: 'POST',
         headers: {
-          'x-cron-secret': 'test-secrex',
+          Authorization: 'Bearer test-secrex',
         },
       })
     );
 
     expect(response.status).toBe(401);
+  });
+
+  it('accepts lowercase bearer authorization for cron authentication', async () => {
+    mockSupabase.lte.mockResolvedValue({ data: [], error: null });
+
+    const response = await POST(
+      new Request('http://localhost/api/cron/publish-scheduled-posts', {
+        method: 'POST',
+        headers: {
+          authorization: 'bearer test-secret',
+        },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      success: true,
+      message: 'No posts to publish',
+    });
   });
 
   it('publishes scheduled posts and revalidates all merchant blog identifiers', async () => {
@@ -110,7 +133,7 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
       new Request('http://localhost/api/cron/publish-scheduled-posts', {
         method: 'POST',
         headers: {
-          'x-cron-secret': 'test-secret',
+          Authorization: 'Bearer test-secret',
         },
       })
     );
@@ -185,7 +208,7 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
       new Request('http://localhost/api/cron/publish-scheduled-posts', {
         method: 'POST',
         headers: {
-          'x-cron-secret': 'test-secret',
+          Authorization: 'Bearer test-secret',
         },
       })
     );
@@ -244,7 +267,7 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
       new Request('http://localhost/api/cron/publish-scheduled-posts', {
         method: 'POST',
         headers: {
-          'x-cron-secret': 'test-secret',
+          Authorization: 'Bearer test-secret',
         },
       })
     );
@@ -282,7 +305,7 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
         new Request('http://localhost/api/cron/publish-scheduled-posts', {
           method: 'POST',
           headers: {
-            'x-cron-secret': 'test-secret',
+            Authorization: 'Bearer test-secret',
           },
         })
       );
@@ -353,7 +376,7 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
       new Request('http://localhost/api/cron/publish-scheduled-posts', {
         method: 'POST',
         headers: {
-          'x-cron-secret': 'test-secret',
+          Authorization: 'Bearer test-secret',
         },
       })
     );
@@ -419,7 +442,7 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
       new Request('http://localhost/api/cron/publish-scheduled-posts', {
         method: 'POST',
         headers: {
-          'x-cron-secret': 'test-secret',
+          Authorization: 'Bearer test-secret',
         },
       })
     );
@@ -474,7 +497,7 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
       new Request('http://localhost/api/cron/publish-scheduled-posts', {
         method: 'POST',
         headers: {
-          'x-cron-secret': 'test-secret',
+          Authorization: 'Bearer test-secret',
         },
       })
     );

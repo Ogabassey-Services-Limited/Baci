@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { constantTimeEqual } from '@/lib/constant-time-equal';
+import { getCronSecret } from '@/env';
+import { hasValidCronSecret } from '@/lib/cron-secret-auth';
 import { payoutMerchantCommission } from '@/lib/kuda';
 import { createServiceClient } from '@/lib/supabase/service';
 
@@ -19,14 +20,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 export async function POST(request: Request) {
   try {
     // Verify cron secret
-    const cronSecret = request.headers.get('x-cron-secret');
-    const expectedSecret = process.env.CRON_SECRET;
-
-    if (
-      !cronSecret ||
-      !expectedSecret ||
-      !constantTimeEqual(cronSecret, expectedSecret)
-    ) {
+    if (!hasValidCronSecret(request.headers, getCronSecret())) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -228,19 +222,14 @@ export async function POST(request: Request) {
 
 // Support GET for manual fallback invocation.
 export function GET(request: Request) {
-  const authHeader = request.headers.get('Authorization');
-  const secret = process.env.CRON_SECRET;
-  if (
-    !secret ||
-    !authHeader ||
-    !constantTimeEqual(authHeader, `Bearer ${secret}`)
-  ) {
+  const secret = getCronSecret();
+  if (!hasValidCronSecret(request.headers, secret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   const mockRequest = new Request(request.url, {
     method: 'POST',
-    headers: { 'x-cron-secret': secret },
+    headers: { Authorization: `Bearer ${secret}` },
   });
 
   return POST(mockRequest);
