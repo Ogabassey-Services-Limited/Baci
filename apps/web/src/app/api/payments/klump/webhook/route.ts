@@ -15,9 +15,6 @@ import { calculatePlatformFee } from '@/lib/paystack';
 import { createServiceClient } from '@/lib/supabase/service';
 import { referenceSchema } from '@/schemas/payments';
 
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
-
 interface TransactionRecord {
   amount: number | string | null;
   currency: string | null;
@@ -163,8 +160,35 @@ export async function POST(request: NextRequest) {
     return errorResponse('Klump transaction id conflict', 409);
   }
 
-  if (transaction.status === 'completed') {
-    return NextResponse.json({ message: 'Already processed', success: true });
+  let updatedTransaction: { id: string } | null = null;
+  if (transaction.status !== 'completed') {
+    const { data, error: updateError } = await supabase
+      .from('transactions')
+      .update({
+        gateway_response: payload,
+        metadata: getMergedKlumpMetadata({
+          details,
+          headers: request.headers,
+          metadata: transaction.metadata,
+        }),
+        status: 'completed',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', transaction.id)
+      .neq('status', 'completed')
+      .select('id')
+      .maybeSingle<{ id: string }>();
+
+    if (updateError) {
+      logger.error({
+        message: 'Failed to update Klump transaction',
+        error: updateError,
+        reference: referenceResult.data,
+      });
+      return errorResponse('Failed to update transaction', 500);
+    }
+
+    updatedTransaction = data;
   }
 
   let order: PaidOrderRecord | null = null;
@@ -184,32 +208,6 @@ export async function POST(request: NextRequest) {
     }
 
     order = updatedOrder;
-  }
-
-  const { data: updatedTransaction, error: updateError } = await supabase
-    .from('transactions')
-    .update({
-      gateway_response: payload,
-      metadata: getMergedKlumpMetadata({
-        details,
-        headers: request.headers,
-        metadata: transaction.metadata,
-      }),
-      status: 'completed',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', transaction.id)
-    .neq('status', 'completed')
-    .select('id')
-    .maybeSingle<{ id: string }>();
-
-  if (updateError) {
-    logger.error({
-      message: 'Failed to update Klump transaction',
-      error: updateError,
-      reference: referenceResult.data,
-    });
-    return errorResponse('Failed to update transaction', 500);
   }
 
   if (!updatedTransaction) {

@@ -35,6 +35,13 @@ describe('Klump webhook helpers', () => {
         signature: 'bad-signature',
       })
     ).toBe(false);
+    expect(
+      verifyKlumpWebhookSignature({
+        rawBody,
+        secret: 'secret',
+        signature: `${signature}zz`,
+      })
+    ).toBe(false);
   });
 
   it('treats initiated events as non-success even when nested status is successful', () => {
@@ -47,6 +54,26 @@ describe('Klump webhook helpers', () => {
           status: 'successful',
         },
         event: 'klump.payment.transaction.initiated',
+      })
+    );
+
+    expect(parsed).toEqual({
+      details: null,
+      payload: expect.any(Object),
+      success: true,
+    });
+  });
+
+  it('treats unsuccessful events as non-success even though they contain success', () => {
+    const parsed = parseKlumpWebhookPayload(
+      JSON.stringify({
+        data: {
+          amount: 50000,
+          id: 'klump-txn-123',
+          merchant_reference: 'BAC-ABCD12345678',
+          status: 'successful',
+        },
+        event: 'klump.payment.transaction.unsuccessful',
       })
     );
 
