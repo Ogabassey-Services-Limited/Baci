@@ -173,6 +173,7 @@ export async function GET(request: NextRequest) {
       .eq('merchant_id', merchantId)
       .eq('quiz_question_slots.active', 'true')
       .order('starts_at', { ascending: false })
+      .order('id', { ascending: true })
       .range(fetchOffset, fetchOffset + internalPageSize - 1);
 
     if (error) return rpcErrorResponse();

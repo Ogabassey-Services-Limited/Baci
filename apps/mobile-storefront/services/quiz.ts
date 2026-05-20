@@ -40,6 +40,7 @@ export type {
 export { QuizServiceError };
 
 const QUIZ_AUTH_RETRY_DELAY_MS = 300;
+const QUIZ_EVENTS_PAGE_LIMIT = 50;
 
 function getApiBaseUrl(configuredUrl?: string): string {
   const extra = getExpoExtraConfig(Constants.expoConfig?.extra);
@@ -63,21 +64,16 @@ function getExpoExtraConfig(value: unknown):
   return { apiBaseUrl, apiUrl, merchantId, merchantSlug };
 }
 
-function getQuizEventsPath(): string {
+function getQuizEventsPath(
+  pagination: { limit?: number; offset?: number } = {}
+): string {
   const extra = getExpoExtraConfig(Constants.expoConfig?.extra);
   const params = new URLSearchParams();
   const merchantId = extra?.merchantId ?? getOptionalString(CONFIG.MERCHANT_ID);
   const merchantSlug =
     extra?.merchantSlug ?? getOptionalString(CONFIG.MERCHANT_SLUG);
 
-  if (merchantId) {
-    params.set('merchantId', merchantId);
-  } else if (merchantSlug) {
-    params.set('merchantSlug', merchantSlug);
-  }
-
-  const query = params.toString();
-  if (!query) {
+  if (!merchantId && !merchantSlug) {
     throw new QuizServiceError(
       'Quiz merchant context is not configured',
       'QUIZ_CONFIGURATION_REQUIRED',
@@ -85,6 +81,19 @@ function getQuizEventsPath(): string {
     );
   }
 
+  if (merchantId) {
+    params.set('merchantId', merchantId);
+  } else if (merchantSlug) {
+    params.set('merchantSlug', merchantSlug);
+  }
+  if (pagination.limit !== undefined) {
+    params.set('limit', String(pagination.limit));
+  }
+  if (pagination.offset !== undefined) {
+    params.set('offset', String(pagination.offset));
+  }
+
+  const query = params.toString();
   return `/api/quiz/events?${query}`;
 }
 
@@ -217,13 +226,30 @@ async function requestQuiz<T>(
 export async function fetchQuizEvents(
   options: QuizServiceOptions = {}
 ): Promise<QuizEvent[]> {
-  const payload = await requestQuiz(
-    getQuizEventsPath(),
-    { method: 'GET' },
-    quizEventsResponseSchema,
-    options.baseUrl
-  );
-  return payload.events;
+  const events: QuizEvent[] = [];
+  let offset = 0;
+
+  for (;;) {
+    const payload = await requestQuiz(
+      getQuizEventsPath({ limit: QUIZ_EVENTS_PAGE_LIMIT, offset }),
+      { method: 'GET' },
+      quizEventsResponseSchema,
+      options.baseUrl
+    );
+    events.push(...payload.events);
+
+    if (!payload.pagination?.hasMore || payload.pagination.nextOffset === null) {
+      return events;
+    }
+    if (payload.pagination.nextOffset <= offset) {
+      throw new QuizServiceError(
+        'Invalid quiz pagination response',
+        'QUIZ_INVALID_RESPONSE',
+        502
+      );
+    }
+    offset = payload.pagination.nextOffset;
+  }
 }
 
 export function startQuizAttempt({

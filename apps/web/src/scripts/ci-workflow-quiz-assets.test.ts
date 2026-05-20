@@ -32,8 +32,10 @@ describe('CI workflow quiz asset coverage', () => {
 
     expect(webFilter).toContain("- 'apps/mobile-storefront/app/**'");
     expect(webFilter).toContain("- 'apps/mobile-storefront/components/**'");
+    expect(webFilter).toContain("- 'apps/mobile-storefront/constants/**'");
     expect(webFilter).toContain("- 'apps/mobile-storefront/hooks/**'");
     expect(webFilter).toContain("- 'apps/mobile-storefront/lib/**'");
+    expect(webFilter).toContain("- 'apps/mobile-storefront/schemas/**'");
     expect(webFilter).toContain("- 'apps/mobile-storefront/services/**'");
     expect(webFilter).toContain("- 'apps/mobile-storefront/stores/**'");
   });

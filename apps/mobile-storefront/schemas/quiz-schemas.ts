@@ -31,6 +31,14 @@ export const quizEventSchema = z.object({
 
 export const quizEventsResponseSchema = z.object({
   events: z.array(quizEventSchema),
+  pagination: z
+    .object({
+      hasMore: z.boolean(),
+      limit: z.number().int().positive(),
+      nextOffset: z.number().int().nonnegative().nullable(),
+      offset: z.number().int().nonnegative(),
+    })
+    .optional(),
 });
 
 export const quizAttemptSchema = z.object({

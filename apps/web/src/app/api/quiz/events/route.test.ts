@@ -701,6 +701,12 @@ describe('quiz events route', () => {
       'quiz_question_slots.quiz_question_variants.active',
       'true'
     );
+    expect(queryBuilder.order).toHaveBeenNthCalledWith(1, 'starts_at', {
+      ascending: false,
+    });
+    expect(queryBuilder.order).toHaveBeenNthCalledWith(2, 'id', {
+      ascending: true,
+    });
     expect(queryBuilder.range).toHaveBeenCalledWith(2, 51);
   });
 

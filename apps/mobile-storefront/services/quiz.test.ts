@@ -124,7 +124,7 @@ describe('quiz service', () => {
       },
     ]);
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://example.com/api/quiz/events?merchantId=merchant-1',
+      'https://example.com/api/quiz/events?merchantId=merchant-1&limit=50&offset=0',
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: 'Bearer token-123',
@@ -144,9 +144,119 @@ describe('quiz service', () => {
       fetchQuizEvents({ baseUrl: 'https://example.com' })
     ).resolves.toEqual([]);
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://example.com/api/quiz/events?merchantSlug=ogabassey',
+      'https://example.com/api/quiz/events?merchantSlug=ogabassey&limit=50&offset=0',
       expect.objectContaining({ method: 'GET' })
     );
+  });
+
+  it('fetches all quiz event pages before returning the mobile list', async () => {
+    mockFetch
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            events: [
+              {
+                id: 'event-1',
+                title: 'Win airtime',
+                prizeName: 'N50,000 airtime',
+                startsAt: '2026-05-20T10:00:00.000Z',
+                endsAt: '2026-05-20T10:10:00.000Z',
+                status: 'open',
+                questionCount: 5,
+              },
+            ],
+            pagination: {
+              hasMore: true,
+              limit: 50,
+              nextOffset: 50,
+              offset: 0,
+            },
+          }),
+          { status: 200 }
+        )
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            events: [
+              {
+                id: 'event-2',
+                title: 'Win data',
+                prizeName: 'N10,000 data',
+                startsAt: '2026-05-21T10:00:00.000Z',
+                endsAt: '2026-05-21T10:10:00.000Z',
+                status: 'scheduled',
+                questionCount: 3,
+              },
+            ],
+            pagination: {
+              hasMore: false,
+              limit: 50,
+              nextOffset: null,
+              offset: 50,
+            },
+          }),
+          { status: 200 }
+        )
+      );
+
+    await expect(
+      fetchQuizEvents({ baseUrl: 'https://example.com' })
+    ).resolves.toEqual([
+      {
+        id: 'event-1',
+        title: 'Win airtime',
+        prizeName: 'N50,000 airtime',
+        startsAt: '2026-05-20T10:00:00.000Z',
+        endsAt: '2026-05-20T10:10:00.000Z',
+        status: 'open',
+        questionCount: 5,
+      },
+      {
+        id: 'event-2',
+        title: 'Win data',
+        prizeName: 'N10,000 data',
+        startsAt: '2026-05-21T10:00:00.000Z',
+        endsAt: '2026-05-21T10:10:00.000Z',
+        status: 'scheduled',
+        questionCount: 3,
+      },
+    ]);
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      1,
+      'https://example.com/api/quiz/events?merchantId=merchant-1&limit=50&offset=0',
+      expect.objectContaining({ method: 'GET' })
+    );
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      2,
+      'https://example.com/api/quiz/events?merchantId=merchant-1&limit=50&offset=50',
+      expect.objectContaining({ method: 'GET' })
+    );
+  });
+
+  it('fails closed when quiz event pagination does not advance', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          events: [],
+          pagination: {
+            hasMore: true,
+            limit: 50,
+            nextOffset: 0,
+            offset: 0,
+          },
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(
+      fetchQuizEvents({ baseUrl: 'https://example.com' })
+    ).rejects.toMatchObject({
+      code: 'QUIZ_INVALID_RESPONSE',
+      message: 'Invalid quiz pagination response',
+      status: 502,
+    });
   });
 
   it('fails closed before event requests when merchant context is unavailable', async () => {
