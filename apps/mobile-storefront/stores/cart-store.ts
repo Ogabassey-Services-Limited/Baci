@@ -30,6 +30,59 @@ export interface CartItem {
   // Device assurance support
   hasAssurance?: boolean;
   assuranceRate?: number;
+  voucher_token?: string;
+  voucher_award_id?: string;
+}
+
+function createCartLineId(
+  item: Omit<CartItem, 'id'>,
+  sequence: number
+): string {
+  // Award IDs are stable after redemption; pending awards use voucher_token,
+  // and plain products use the persisted monotonic sequence for new lines.
+  const voucherIdentifier = item.voucher_award_id ?? item.voucher_token;
+  const uniquePart = voucherIdentifier
+    ? `${voucherIdentifier}::${sequence}`
+    : `cart-line::${sequence}`;
+
+  return `${item.product_id}::${item.variant_id || 'default'}::${uniquePart}`;
+}
+
+function getNormalizedVoucherIdentifier(value: string | undefined) {
+  const trimmedValue = value?.trim();
+  return trimmedValue ? trimmedValue : null;
+}
+
+function hasVoucherIdentifier(
+  item: Pick<CartItem, 'voucher_award_id' | 'voucher_token'>
+) {
+  return Boolean(
+    getNormalizedVoucherIdentifier(item.voucher_award_id) ||
+      getNormalizedVoucherIdentifier(item.voucher_token)
+  );
+}
+
+function hasMatchingVoucherIdentifier(
+  existingItem: Pick<CartItem, 'voucher_award_id' | 'voucher_token'>,
+  incomingItem: Pick<CartItem, 'voucher_award_id' | 'voucher_token'>
+) {
+  const existingAwardId = getNormalizedVoucherIdentifier(
+    existingItem.voucher_award_id
+  );
+  const incomingAwardId = getNormalizedVoucherIdentifier(
+    incomingItem.voucher_award_id
+  );
+  const existingToken = getNormalizedVoucherIdentifier(
+    existingItem.voucher_token
+  );
+  const incomingToken = getNormalizedVoucherIdentifier(
+    incomingItem.voucher_token
+  );
+
+  return (
+    (existingAwardId !== null && existingAwardId === incomingAwardId) ||
+    (existingToken !== null && existingToken === incomingToken)
+  );
 }
 
 function mergeExistingCartItem(
@@ -37,14 +90,18 @@ function mergeExistingCartItem(
   incomingItem: Omit<CartItem, 'id'>
 ): CartItem {
   const newQuantity = existingItem.quantity + incomingItem.quantity;
+  const isVoucherLine =
+    hasVoucherIdentifier(existingItem) || hasVoucherIdentifier(incomingItem);
 
   return {
     ...existingItem,
     ...incomingItem,
     id: existingItem.id,
-    quantity: existingItem.max_quantity
-      ? Math.min(newQuantity, existingItem.max_quantity)
-      : newQuantity,
+    quantity: isVoucherLine
+      ? 1
+      : existingItem.max_quantity
+        ? Math.min(newQuantity, existingItem.max_quantity)
+        : newQuantity,
     negotiatedPrice: existingItem.negotiatedPrice,
     negotiationStatus: existingItem.negotiationStatus,
     hasAssurance: existingItem.hasAssurance,
@@ -56,6 +113,7 @@ interface CartState {
   // State
   items: CartItem[];
   isLoading: boolean;
+  lineSequence: number;
 
   // Computed (via getters)
   itemCount: () => number;
@@ -78,6 +136,12 @@ interface CartState {
   toggleAssurance: (id: string) => void;
 }
 
+export function resetCartLineSequence() {
+  if (useCartStore.getState().items.length === 0) {
+    useCartStore.setState({ lineSequence: 0 });
+  }
+}
+
 function areEquivalentCartAttributes(
   existingValue: string | undefined,
   incomingValue: string | undefined
@@ -96,6 +160,19 @@ function isSameCartLine(
   existingItem: CartItem,
   incomingItem: Omit<CartItem, 'id'>
 ) {
+  const existingHasVoucher = hasVoucherIdentifier(existingItem);
+  const incomingHasVoucher = hasVoucherIdentifier(incomingItem);
+
+  if (existingHasVoucher || incomingHasVoucher) {
+    if (!existingHasVoucher || !incomingHasVoucher) {
+      return false;
+    }
+
+    if (!hasMatchingVoucherIdentifier(existingItem, incomingItem)) {
+      return false;
+    }
+  }
+
   if (existingItem.product_id !== incomingItem.product_id) {
     return false;
   }
@@ -110,10 +187,7 @@ function isSameCartLine(
   if (existingVariantId || incomingVariantId) {
     return (
       areEquivalentCartAttributes(existingItem.color, incomingItem.color) &&
-      areEquivalentCartAttributes(
-        existingItem.storage,
-        incomingItem.storage
-      ) &&
+      areEquivalentCartAttributes(existingItem.storage, incomingItem.storage) &&
       areEquivalentCartAttributes(
         existingItem.condition,
         incomingItem.condition
@@ -134,6 +208,7 @@ export const useCartStore = create<CartState>()(
       // Initial state
       items: [],
       isLoading: false,
+      lineSequence: 0,
 
       // Computed values
       itemCount: () => {
@@ -163,9 +238,14 @@ export const useCartStore = create<CartState>()(
       // Add item to cart
       addItem: (item) => {
         set((state) => {
+          const itemToAdd =
+            item.voucher_token || item.voucher_award_id
+              ? { ...item, quantity: 1 }
+              : item;
+
           // Check if item already exists (same product + variant + options)
-          const existingIndex = state.items.findIndex(
-            (existingItem) => isSameCartLine(existingItem, item)
+          const existingIndex = state.items.findIndex((existingItem) =>
+            isSameCartLine(existingItem, itemToAdd)
           );
 
           if (existingIndex >= 0) {
@@ -174,19 +254,20 @@ export const useCartStore = create<CartState>()(
             const existingItem = updatedItems[existingIndex];
             updatedItems[existingIndex] = mergeExistingCartItem(
               existingItem,
-              item
+              itemToAdd
             );
 
             return { items: updatedItems };
           }
 
           // Add new item
+          const lineSequence = state.lineSequence + 1;
           const newItem: CartItem = {
-            ...item,
-            id: `${item.product_id}::${item.variant_id || 'default'}::${Date.now()}`,
+            ...itemToAdd,
+            id: createCartLineId(itemToAdd, lineSequence),
           };
 
-          return { items: [...state.items, newItem] };
+          return { items: [...state.items, newItem], lineSequence };
         });
       },
 
@@ -221,7 +302,7 @@ export const useCartStore = create<CartState>()(
 
       // Clear all items
       clearCart: () => {
-        set({ items: [] });
+        set({ items: [], lineSequence: 0 });
       },
 
       // Get specific item
@@ -309,7 +390,10 @@ export const useCartStore = create<CartState>()(
     {
       name: 'cart-storage',
       storage: createJSONStorage(() => syncStorage),
-      partialize: (state) => ({ items: state.items }), // Only persist items
+      partialize: (state) => ({
+        items: state.items,
+        lineSequence: state.lineSequence,
+      }),
     }
   )
 );

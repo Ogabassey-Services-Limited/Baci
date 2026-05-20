@@ -3,8 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-// import { generateProductFAQ } from '../ai/flows/generate-product-faq';
-import type { Database } from '../lib/database.types';
+// import { generateProductFAQ } from '@/ai/flows/generate-product-faq';
+import type { Database } from '@/types/database.types';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -27,7 +27,7 @@ const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey);
 
 async function main() {
     // Dynamically import AI flow to ensure env vars are loaded first
-    const { generateProductFAQ } = await import('../ai/flows/generate-product-faq');
+    const { generateProductFAQ } = await import('@/ai/flows/generate-product-faq');
 
     console.log('🚀 Starting bulk product FAQ generation...');
 

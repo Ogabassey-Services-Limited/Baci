@@ -236,6 +236,14 @@ jest.mock('@/hooks/product-utils', () => {
 const mockUseMerchant = useMerchant as jest.MockedFunction<typeof useMerchant>;
 const mockResolveAndEvictProduct =
   resolveAndEvictProduct as jest.MockedFunction<typeof resolveAndEvictProduct>;
+const queryClients: QueryClient[] = [];
+
+afterEach(() => {
+  for (const queryClient of queryClients) {
+    queryClient.clear();
+  }
+  queryClients.length = 0;
+});
 
 const validProductRow = {
   id: '123e4567-e89b-12d3-a456-426614174000',
@@ -297,13 +305,16 @@ const validProductRow = {
 };
 
 function createQueryClient() {
-  return new QueryClient({
+  const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
         retry: false,
       },
     },
   });
+
+  queryClients.push(queryClient);
+  return queryClient;
 }
 
 function createWrapper(queryClient: QueryClient) {

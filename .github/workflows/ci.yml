@@ -43,6 +43,15 @@ jobs:
               - 'biome.json'
             web:
               - 'apps/web/**'
+              - 'apps/mobile-storefront/assets/quiz/**'
+              - 'apps/mobile-storefront/app/**'
+              - 'apps/mobile-storefront/components/**'
+              - 'apps/mobile-storefront/constants/**'
+              - 'apps/mobile-storefront/hooks/**'
+              - 'apps/mobile-storefront/lib/**'
+              - 'apps/mobile-storefront/schemas/**'
+              - 'apps/mobile-storefront/services/**'
+              - 'apps/mobile-storefront/stores/**'
               - 'packages/shared/**'
               - '.github/actions/pnpm-install-cached/**'
               - '.github/actions/setup-pnpm-store/**'
@@ -78,6 +87,8 @@ jobs:
       # to catch cross-package breakages from shared code changes
       - if: needs.changes.outputs.web == 'true'
         run: pnpm turbo lint typecheck test --concurrency=3
+      - if: needs.changes.outputs.web == 'true'
+        run: pnpm --filter @baci/web verify:quiz-assets
       - if: needs.changes.outputs.web == 'true'
         run: pnpm knip
       - if: needs.changes.outputs.web != 'true'
