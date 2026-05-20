@@ -69,7 +69,12 @@ describe('DashboardClientPage', () => {
     expect(await screen.findByText('30-Day Paid Revenue')).toBeInTheDocument();
     expect(screen.getByText('30-Day Paid Orders')).toBeInTheDocument();
     expect(screen.getByText('30-Day Customers')).toBeInTheDocument();
+    expect(screen.getByTitle('30-Day Paid Orders')).toHaveTextContent(
+      '30D Paid'
+    );
+    expect(screen.getByTitle('30-Day Customers')).toHaveTextContent('30D New');
     expect(screen.queryByText('Total Revenue')).not.toBeInTheDocument();
     expect(screen.queryByText('Active Orders')).not.toBeInTheDocument();
+    expect(screen.queryByText('New')).not.toBeInTheDocument();
   });
 });
