@@ -42,11 +42,12 @@ describe('dashboard sales RPC contract', () => {
     const queryBlocks = ordersQueryBlocks(sql);
 
     expect(queryBlocks).toHaveLength(3);
-    for (const block of queryBlocks) {
+    for (const block of queryBlocks.slice(0, 2)) {
       expect(block).toContain("o.payment_status = 'paid'");
     }
+    expect(queryBlocks[2]).not.toContain("o.payment_status = 'paid'");
 
-    expect(sql).toContain("auth.role() <> 'service_role'");
+    expect(sql).toContain("auth.role() IS DISTINCT FROM 'service_role'");
     expect(sql).toContain('public.has_merchant_access(p_merchant_id)');
     expect(sql).toContain(
       "'revenue', jsonb_build_object('value', v_current_revenue"

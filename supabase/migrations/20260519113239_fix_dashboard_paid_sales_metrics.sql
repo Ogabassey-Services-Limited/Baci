@@ -29,7 +29,7 @@ DECLARE
   v_fulfillment_rate INTEGER := 0;
   v_aov DECIMAL(15, 2) := 0;
 BEGIN
-  IF auth.role() <> 'service_role' AND NOT public.has_merchant_access(p_merchant_id) THEN
+  IF auth.role() IS DISTINCT FROM 'service_role' AND NOT public.has_merchant_access(p_merchant_id) THEN
     RAISE EXCEPTION 'not authorized';
   END IF;
 
@@ -67,7 +67,6 @@ BEGIN
   INTO v_active_now
   FROM orders o
   WHERE o.merchant_id = p_merchant_id
-    AND o.payment_status = 'paid'
     AND o.created_at >= v_1_hour_ago;
 
   IF v_previous_revenue > 0 THEN
