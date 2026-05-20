@@ -26,3 +26,8 @@
 **Vulnerability:** The API endpoint `apps/web/src/app/api/insurance/claims/sync/route.ts` was unauthenticated. While it checked for a CSRF token, it lacked actual authorization to execute its background/cron logic.
 **Learning:** The endpoint contained a comment (`// In a real scenario, verify admin auth or cron secret`) but didn't implement the check, leaving it exposed to anyone who could pass the CSRF check (or send a request where CSRF wasn't enforced properly).
 **Prevention:** Always implement authentication/authorization checks for administrative and cron endpoints using standard helpers like `getCronSecret()` and `constantTimeEqual()`, and never rely on CSRF protection alone or leave security implementations as TODO comments.
+
+## 2025-05-20 - Standardize Cron Authentication Headers
+**Vulnerability:** Use of custom `x-cron-secret` HTTP header for secret passing in cron endpoints (`publish-scheduled-posts`, `wallet-payouts`, `insurance/claims/sync`).
+**Learning:** Some background endpoints were using a custom header which is a bad security practice because proxies and other intermediators might strip them or log them improperly. Furthermore, using a standard `Authorization: Bearer <secret>` header ensures consistency across the codebase and aligns with the expected format from calling clients.
+**Prevention:** Always prefer using the standard `Authorization` HTTP header with a bearer token for authentication. In the Baci monorepo, cron endpoints should use the standard `Authorization` header fallback, extracting it and passing it to `constantTimeEqual()` against `getCronSecret()`.

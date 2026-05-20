@@ -17,7 +17,12 @@ export async function POST(_request: NextRequest) {
     }
 
     // Verify cron secret
-    const cronSecret = _request.headers.get('x-cron-secret');
+    const authHeader = _request.headers.get('authorization');
+    const bearerToken = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice('Bearer '.length)
+      : null;
+    const legacyHeader = _request.headers.get('x-cron-secret');
+    const cronSecret = bearerToken || legacyHeader;
     const expectedSecret = getCronSecret();
 
     if (

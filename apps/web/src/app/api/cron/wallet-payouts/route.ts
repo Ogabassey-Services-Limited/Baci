@@ -19,7 +19,12 @@ import { createServiceClient } from '@/lib/supabase/service';
 export async function POST(request: Request) {
   try {
     // Verify cron secret
-    const cronSecret = request.headers.get('x-cron-secret');
+    const authHeader = request.headers.get('authorization');
+    const bearerToken = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice('Bearer '.length)
+      : null;
+    const legacyHeader = request.headers.get('x-cron-secret');
+    const cronSecret = bearerToken || legacyHeader;
     const expectedSecret = process.env.CRON_SECRET;
 
     if (
@@ -240,7 +245,7 @@ export function GET(request: Request) {
 
   const mockRequest = new Request(request.url, {
     method: 'POST',
-    headers: { 'x-cron-secret': secret },
+    headers: { Authorization: `Bearer ${secret}` },
   });
 
   return POST(mockRequest);

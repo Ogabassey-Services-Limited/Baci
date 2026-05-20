@@ -58,7 +58,7 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
       new Request('http://localhost/api/cron/publish-scheduled-posts', {
         method: 'POST',
         headers: {
-          'x-cron-secret': 'test-secrex',
+          'Authorization': 'Bearer test-secrex',
         },
       })
     );
@@ -110,7 +110,7 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
       new Request('http://localhost/api/cron/publish-scheduled-posts', {
         method: 'POST',
         headers: {
-          'x-cron-secret': 'test-secret',
+          'Authorization': 'Bearer test-secret',
         },
       })
     );
@@ -185,7 +185,7 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
       new Request('http://localhost/api/cron/publish-scheduled-posts', {
         method: 'POST',
         headers: {
-          'x-cron-secret': 'test-secret',
+          'Authorization': 'Bearer test-secret',
         },
       })
     );
@@ -244,7 +244,7 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
       new Request('http://localhost/api/cron/publish-scheduled-posts', {
         method: 'POST',
         headers: {
-          'x-cron-secret': 'test-secret',
+          'Authorization': 'Bearer test-secret',
         },
       })
     );
@@ -282,7 +282,7 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
         new Request('http://localhost/api/cron/publish-scheduled-posts', {
           method: 'POST',
           headers: {
-            'x-cron-secret': 'test-secret',
+            'Authorization': 'Bearer test-secret',
           },
         })
       );
@@ -353,7 +353,7 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
       new Request('http://localhost/api/cron/publish-scheduled-posts', {
         method: 'POST',
         headers: {
-          'x-cron-secret': 'test-secret',
+          'Authorization': 'Bearer test-secret',
         },
       })
     );
@@ -419,7 +419,7 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
       new Request('http://localhost/api/cron/publish-scheduled-posts', {
         method: 'POST',
         headers: {
-          'x-cron-secret': 'test-secret',
+          'Authorization': 'Bearer test-secret',
         },
       })
     );
@@ -474,7 +474,7 @@ describe('POST /api/cron/publish-scheduled-posts', () => {
       new Request('http://localhost/api/cron/publish-scheduled-posts', {
         method: 'POST',
         headers: {
-          'x-cron-secret': 'test-secret',
+          'Authorization': 'Bearer test-secret',
         },
       })
     );

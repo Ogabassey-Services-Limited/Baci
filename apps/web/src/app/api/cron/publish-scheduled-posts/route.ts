@@ -12,12 +12,17 @@ import { createServiceClient } from '@/lib/supabase/service';
  * Manual fallback only - DO NOT re-enable Vercel Cron for this route.
  * Scheduled execution lives in vps-workers; keep CRON_SECRET gating intact.
  *
- * Security: Requires x-cron-secret header
+ * Security: Requires Authorization header (fallback to x-cron-secret)
  */
 export async function POST(request: Request) {
   try {
     // 1. Security Check - use constant-time comparison to prevent timing attacks
-    const cronSecret = request.headers.get('x-cron-secret');
+    const authHeader = request.headers.get('authorization');
+    const bearerToken = authHeader?.startsWith('Bearer ')
+      ? authHeader.slice('Bearer '.length)
+      : null;
+    const legacyHeader = request.headers.get('x-cron-secret');
+    const cronSecret = bearerToken || legacyHeader;
     const expectedSecret = process.env.CRON_SECRET;
     if (
       !cronSecret ||
@@ -302,7 +307,7 @@ export async function GET(request: Request) {
 
   const mockRequest = new Request(request.url, {
     method: 'POST',
-    headers: { 'x-cron-secret': secret },
+    headers: { Authorization: `Bearer ${secret}` },
   });
 
   return await POST(mockRequest);
