@@ -37,7 +37,6 @@ export interface AgenticCentersData {
 
 const CRAWLER_VISIBILITY_WINDOW_DAYS = 14;
 const CRAWLER_LOG_PAGE_SIZE = 1000;
-const CRAWLER_LOG_FETCH_LIMIT = CRAWLER_LOG_PAGE_SIZE + 1;
 const CRAWLER_LOG_MAX_PAGES = 10;
 const CRAWLER_RECENT_ACTIVITY_LIMIT = 3;
 const CRAWLER_LOG_SELECT_COLUMNS =
@@ -91,6 +90,35 @@ function toCrawlerLogSummaryRow(row: CrawlerLogQueryRow): CrawlerLogSummaryRow {
 
 function buildCrawlerLogCursorFilter(cursor: CrawlerLogCursor) {
   return `crawled_at.lt.${cursor.crawledAt},and(crawled_at.eq.${cursor.crawledAt},id.lt.${cursor.id})`;
+}
+
+async function hasCrawlerRowsAfterCursor({
+  crawledSince,
+  crawledUntil,
+  cursor,
+  merchantId,
+  supabase,
+}: {
+  crawledSince: string;
+  crawledUntil: string;
+  cursor: CrawlerLogCursor;
+  merchantId: string;
+  supabase: SupabaseClient;
+}): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('crawler_logs')
+    .select('id')
+    .eq('merchant_id', merchantId)
+    .gte('crawled_at', crawledSince)
+    .lte('crawled_at', crawledUntil)
+    .order('crawled_at', { ascending: false })
+    .order('id', { ascending: false })
+    .or(buildCrawlerLogCursorFilter(cursor))
+    .limit(1);
+
+  if (error) throw error;
+
+  return (data ?? []).length > 0;
 }
 
 async function loadAgenticTrustReadiness(
@@ -158,18 +186,14 @@ async function loadAgenticCrawlerVisibility(
     const pagedQuery = cursor
       ? query.or(buildCrawlerLogCursorFilter(cursor))
       : query;
-    const { data, error } = await pagedQuery.limit(CRAWLER_LOG_FETCH_LIMIT);
+    const { data, error } = await pagedQuery.limit(CRAWLER_LOG_PAGE_SIZE);
 
     if (error) throw error;
 
-    const fetchedRows = (data ?? []) as CrawlerLogQueryRow[];
-    const hasMoreRows = fetchedRows.length > CRAWLER_LOG_PAGE_SIZE;
-    const pageRows = hasMoreRows
-      ? fetchedRows.slice(0, CRAWLER_LOG_PAGE_SIZE)
-      : fetchedRows;
+    const pageRows = (data ?? []) as CrawlerLogQueryRow[];
     accumulator.addRows(pageRows.map(toCrawlerLogSummaryRow));
 
-    if (!hasMoreRows) {
+    if (pageRows.length < CRAWLER_LOG_PAGE_SIZE) {
       break;
     }
 
@@ -180,7 +204,13 @@ async function loadAgenticCrawlerVisibility(
 
     cursor = { crawledAt: lastRow.crawled_at, id: lastRow.id };
     if (page === CRAWLER_LOG_MAX_PAGES - 1) {
-      isPartial = true;
+      isPartial = await hasCrawlerRowsAfterCursor({
+        crawledSince,
+        crawledUntil,
+        cursor,
+        merchantId,
+        supabase,
+      });
     }
   }
 

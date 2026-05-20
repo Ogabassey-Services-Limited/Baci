@@ -475,8 +475,9 @@ describe('loadAgenticCentersData', () => {
     expect(crawlerLogQuery.order).toHaveBeenNthCalledWith(2, 'id', {
       ascending: false,
     });
-    expect(crawlerLogQuery.limit).toHaveBeenNthCalledWith(1, 1001);
-    expect(crawlerLogQuery.limit).toHaveBeenNthCalledWith(2, 1001);
+    expect(crawlerLogQuery.limit).toHaveBeenCalledTimes(2);
+    expect(crawlerLogQuery.limit).toHaveBeenNthCalledWith(1, 1000);
+    expect(crawlerLogQuery.limit).toHaveBeenNthCalledWith(2, 1000);
     expect(crawlerLogQuery.lte).toHaveBeenCalledWith(
       'crawled_at',
       expect.any(String)
@@ -518,8 +519,9 @@ describe('loadAgenticCentersData', () => {
 
     expect(result.crawlerSummary?.totalCrawls).toBe(10_000);
     expect(result.crawlerSummary?.isPartial).toBe(true);
-    expect(crawlerLogQuery.limit).toHaveBeenCalledTimes(10);
-    expect(crawlerLogQuery.limit).toHaveBeenNthCalledWith(10, 1001);
+    expect(crawlerLogQuery.limit).toHaveBeenCalledTimes(11);
+    expect(crawlerLogQuery.limit).toHaveBeenNthCalledWith(10, 1000);
+    expect(crawlerLogQuery.limit).toHaveBeenNthCalledWith(11, 1);
   });
 
   it('does not mark crawler aggregation partial at the exact page cap', async () => {
@@ -551,7 +553,9 @@ describe('loadAgenticCentersData', () => {
 
     expect(result.crawlerSummary?.totalCrawls).toBe(10_000);
     expect(result.crawlerSummary?.isPartial).toBe(false);
-    expect(crawlerLogQuery.limit).toHaveBeenCalledTimes(10);
+    expect(crawlerLogQuery.limit).toHaveBeenCalledTimes(11);
+    expect(crawlerLogQuery.limit).toHaveBeenNthCalledWith(10, 1000);
+    expect(crawlerLogQuery.limit).toHaveBeenNthCalledWith(11, 1);
   });
 
   it('skips loaders when the store is unpublished', async () => {
