@@ -234,7 +234,10 @@ describe('Android emulator launcher', () => {
     expect(launcher).toContain('start_new_session=True');
     expect(launcher).toContain("emulator_args.append('-no-snapshot-load')");
     expect(launcher).not.toContain("'-no-snapshot'");
-    expect(debugApkInstaller).toContain('BACI_ANDROID_ADB_SERIAL:-emulator-5554');
+    expect(debugApkInstaller).toContain('BACI_ANDROID_EMULATOR_PORT:-5554');
+    expect(debugApkInstaller).toContain(
+      'BACI_ANDROID_ADB_SERIAL:-emulator-${EMULATOR_PORT}'
+    );
     expect(debugApkInstaller).toContain(
       'BACI_ANDROID_APK_PATH:-android/app/build/outputs/apk/debug/app-debug.apk'
     );
@@ -242,15 +245,27 @@ describe('Android emulator launcher', () => {
       'BACI_ANDROID_ADB_WAIT_TIMEOUT_SECONDS:-60'
     );
     expect(debugApkInstaller).toContain(
+      'BACI_ANDROID_ADB_SHELL_TIMEOUT_SECONDS:-20'
+    );
+    expect(debugApkInstaller).toContain(
       'BACI_ANDROID_ADB_WAIT_TIMEOUT_SECONDS must be a positive integer.'
+    );
+    expect(debugApkInstaller).toContain(
+      'BACI_ANDROID_ADB_SHELL_TIMEOUT_SECONDS must be a positive integer.'
     );
     expect(debugApkInstaller).toContain('default_sdk_root');
     expect(debugApkInstaller).toContain('uname -s');
     expect(debugApkInstaller).toContain('LOCALAPPDATA');
     expect(debugApkInstaller).toContain('cd \\"${APP_ROOT}/android\\"');
+    expect(debugApkInstaller).toContain('run_adb_shell_with_timeout');
     expect(debugApkInstaller).toContain('get-state');
-    expect(debugApkInstaller).toContain('did not become ready within');
-    expect(debugApkInstaller).toContain('shell echo ok');
+    expect(debugApkInstaller).toContain("tr -d '\\r\\n '");
+    expect(debugApkInstaller).toContain('getprop sys.boot_completed');
+    expect(debugApkInstaller).toContain(
+      'did not become ready and boot-complete within'
+    );
+    expect(debugApkInstaller).toContain('boot-complete');
+    expect(debugApkInstaller).toContain('echo ok');
     expect(debugApkInstaller).toContain('install -r -d -t --no-streaming');
     expect(debugApkInstaller).not.toContain('wait-for-device');
     expect(debugApkInstaller).not.toContain('installDebug');
