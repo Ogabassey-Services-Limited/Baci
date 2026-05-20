@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import {
   invalidInputResponse,
   parseJsonBody,
+  quizRpcClientErrorResponse,
   requireQuizCsrf,
   requireQuizUser,
   rpcErrorResponse,
@@ -246,6 +247,26 @@ describe('quiz route-helpers', () => {
       expect(await readJson(response)).toEqual({
         error: 'Quiz request failed',
       });
+    });
+
+    it('quizRpcClientErrorResponse maps expected quiz business-state codes', async () => {
+      const response = quizRpcClientErrorResponse({
+        code: 'QZ023',
+        message: 'quiz_grand_award_not_found',
+      });
+
+      expect(response?.status).toBe(409);
+      expect(await readJson(response as Response)).toEqual({
+        code: 'QUIZ_GRAND_AWARD_NOT_CLAIMABLE',
+        error: 'No approved grand prize is available to claim',
+      });
+    });
+
+    it('quizRpcClientErrorResponse ignores unknown RPC errors', () => {
+      expect(
+        quizRpcClientErrorResponse({ code: 'PGRST000', message: 'timeout' })
+      ).toBeNull();
+      expect(quizRpcClientErrorResponse(new Error('timeout'))).toBeNull();
     });
   });
 });

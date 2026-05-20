@@ -5,6 +5,7 @@ import {
   invalidInputResponse,
   parseJsonBody,
   prizeGuardErrorResponse,
+  quizRpcClientErrorResponse,
   requireQuizCsrf,
   requireQuizUser,
   rpcErrorResponse,
@@ -52,6 +53,9 @@ export async function POST(request: NextRequest) {
   });
 
   if (error) {
+    const clientErrorResponse = quizRpcClientErrorResponse(error);
+    if (clientErrorResponse) return clientErrorResponse;
+
     logger.error({
       awardId: parsed.data.awardId,
       error,

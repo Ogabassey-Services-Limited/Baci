@@ -6,6 +6,7 @@ import {
   invalidInputResponse,
   parseJsonBody,
   prizeGuardErrorResponse,
+  quizRpcClientErrorResponse,
   requireQuizCsrf,
   requireQuizUser,
   rpcErrorResponse,
@@ -40,6 +41,7 @@ vi.mock('@/app/api/quiz/_shared/route-helpers', () => ({
       { status: 403 }
     )
   ),
+  quizRpcClientErrorResponse: vi.fn(() => null),
   requireQuizCsrf: vi.fn(),
   requireQuizUser: vi.fn(),
   rpcErrorResponse: vi.fn(() =>
@@ -219,6 +221,37 @@ describe('grand prize claim route', () => {
       userId: USER_ID,
     });
     expect(rpcErrorResponse).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns a client error when the user has no approved grand-prize award', async () => {
+    rpc.mockResolvedValue({
+      data: null,
+      error: { code: 'QZ023', message: 'quiz_grand_award_not_found' },
+    });
+    vi.mocked(quizRpcClientErrorResponse).mockReturnValueOnce(
+      NextResponse.json(
+        {
+          code: 'QUIZ_GRAND_AWARD_NOT_CLAIMABLE',
+          error: 'No approved grand prize is available to claim',
+        },
+        { status: 409 }
+      )
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(jsonRequest({ eventId: EVENT_ID }));
+
+    expect(response.status).toBe(409);
+    expect(await readJson(response)).toEqual({
+      code: 'QUIZ_GRAND_AWARD_NOT_CLAIMABLE',
+      error: 'No approved grand prize is available to claim',
+    });
+    expect(quizRpcClientErrorResponse).toHaveBeenCalledWith({
+      code: 'QZ023',
+      message: 'quiz_grand_award_not_found',
+    });
+    expect(logger.error).not.toHaveBeenCalled();
+    expect(rpcErrorResponse).not.toHaveBeenCalled();
   });
 
   it('claims grand prizes with the signed server proof', async () => {

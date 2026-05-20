@@ -9,6 +9,7 @@ import {
   parseJsonBody,
   prizeGuardErrorResponse,
   quizAgeGateErrorResponse,
+  quizRpcClientErrorResponse,
   requireQuizCsrf,
   requireQuizUser,
   rpcErrorResponse,
@@ -92,6 +93,9 @@ export async function POST(request: NextRequest) {
         { status: 409 }
       );
     }
+
+    const clientErrorResponse = quizRpcClientErrorResponse(error);
+    if (clientErrorResponse) return clientErrorResponse;
 
     logger.error({
       error,

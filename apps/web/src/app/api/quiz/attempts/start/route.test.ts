@@ -245,6 +245,35 @@ describe('start quiz attempt route', () => {
     expect(logger.error).not.toHaveBeenCalled();
   });
 
+  it('returns a client error when the event is no longer open', async () => {
+    const { rpc } = mockAuthenticatedSupabase({
+      rpcResult: {
+        data: null,
+        error: { code: 'QZ002', message: 'quiz_event_not_open' },
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({ eventId: EVENT_ID, integrityTier: 'device' })
+    );
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({
+      code: 'QUIZ_EVENT_NOT_OPEN',
+      error: 'Quiz event is not open',
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      'start_quiz_attempt',
+      expect.objectContaining({
+        p_event_id: EVENT_ID,
+        p_integrity_tier: 'device',
+        p_user_id: USER_ID,
+      })
+    );
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
   it('fails closed before starting prize play in production when permit evidence is missing', async () => {
     vi.stubEnv('QUIZ_PHASE', 'production');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');

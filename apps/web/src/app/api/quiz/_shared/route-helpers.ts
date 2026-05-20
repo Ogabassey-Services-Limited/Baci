@@ -162,6 +162,80 @@ export function rpcErrorResponse() {
   return NextResponse.json({ error: 'Quiz request failed' }, { status: 500 });
 }
 
+function getQuizRpcErrorCode(error: unknown): string | null {
+  if (!error || typeof error !== 'object') return null;
+  return 'code' in error && typeof error.code === 'string' ? error.code : null;
+}
+
+const QUIZ_RPC_CLIENT_ERRORS: Record<
+  string,
+  { code: string; error: string; status: number }
+> = {
+  QZ001: {
+    code: 'QUIZ_CUSTOMER_NOT_FOUND',
+    error: 'Quiz customer profile not found',
+    status: 404,
+  },
+  QZ002: {
+    code: 'QUIZ_EVENT_NOT_OPEN',
+    error: 'Quiz event is not open',
+    status: 409,
+  },
+  QZ003: {
+    code: 'QUIZ_QUESTION_NOT_FOUND',
+    error: 'Quiz has no available questions',
+    status: 409,
+  },
+  QZ004: {
+    code: 'QUIZ_ATTEMPT_NOT_READY',
+    error: 'Quiz attempt is not ready for this action',
+    status: 409,
+  },
+  QZ010: {
+    code: 'QUIZ_ROUTE_PROOF_REQUIRED',
+    error: 'Quiz request is not authorized',
+    status: 403,
+  },
+  QZ020: {
+    code: 'QUIZ_PRIZE_FINALIZATION_NOT_APPROVED',
+    error: 'Quiz prize finalization is not approved',
+    status: 403,
+  },
+  QZ021: {
+    code: 'QUIZ_GRAND_PRIZE_CLAIM_NOT_APPROVED',
+    error: 'Grand prize claim is not approved',
+    status: 403,
+  },
+  QZ022: {
+    code: 'QUIZ_CASH_AWARD_CLAIM_NOT_APPROVED',
+    error: 'Cash award claim is not approved',
+    status: 403,
+  },
+  QZ023: {
+    code: 'QUIZ_GRAND_AWARD_NOT_CLAIMABLE',
+    error: 'No approved grand prize is available to claim',
+    status: 409,
+  },
+  QZ024: {
+    code: 'QUIZ_CASH_AWARD_NOT_CLAIMABLE',
+    error: 'No approved cash award is available to claim',
+    status: 409,
+  },
+};
+
+export function quizRpcClientErrorResponse(error: unknown) {
+  const code = getQuizRpcErrorCode(error);
+  if (!code) return null;
+
+  const mapped = QUIZ_RPC_CLIENT_ERRORS[code];
+  if (!mapped) return null;
+
+  return NextResponse.json(
+    { code: mapped.code, error: mapped.error },
+    { status: mapped.status }
+  );
+}
+
 export function prizeGuardErrorResponse(error: unknown) {
   if (error instanceof QuizProductionNotApprovedError) {
     return NextResponse.json(
