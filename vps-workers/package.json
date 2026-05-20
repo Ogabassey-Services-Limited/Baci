@@ -15,13 +15,16 @@
     "vtu-cashback-summaries": "node jobs/run-web-cron.mjs /api/cron/vtu-cashback-summaries",
     "sync-jumia-orders": "bash bin/sync-jumia-orders.sh",
     "run-web-cron": "node jobs/run-web-cron.mjs",
-    "vercel-error-remediator": "node jobs/vercel-error-remediator.mjs",
-    "test": "node scripts/run-tests.mjs",
-    "vercel-log-drain-receiver": "node jobs/vercel-log-drain-receiver.mjs"
+    "test": "node scripts/run-tests.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.103.0",
     "dotenv": "^16.0.0",
     "expo-server-sdk": "^6.1.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "ws": "^8.20.1"
+    }
   }
 }
