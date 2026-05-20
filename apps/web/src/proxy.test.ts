@@ -529,6 +529,62 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('x-pathname')).toBe('/api/payments/klump/webhook');
   });
 
+  it('does not block legacy Klump payment webhooks with an external Origin header', async () => {
+    const getSlugForCustomDomainMock = vi.mocked(getSlugForCustomDomain);
+    getSlugForCustomDomainMock.mockResolvedValue(null);
+    const req = new NextRequest(
+      'https://ogabassey.com/wc-api/klp_wc_payment_webhook/',
+      {
+        body: '{}',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: 'https://checkout.useklump.com',
+        },
+        method: 'POST',
+      }
+    );
+    req.headers.set('host', 'ogabassey.com');
+
+    try {
+      const res = await proxy(req);
+
+      expect(res.status).not.toBe(403);
+      expect(getSlugForCustomDomain).not.toHaveBeenCalled();
+      expect(res.headers.get('x-middleware-rewrite')).toBe(
+        'https://ogabassey.com/api/payments/klump/webhook'
+      );
+    } finally {
+      getSlugForCustomDomainMock.mockResolvedValue('ogabassey');
+    }
+  });
+
+  it('does not block direct payment webhook API routes with an external Origin header', async () => {
+    const getSlugForCustomDomainMock = vi.mocked(getSlugForCustomDomain);
+    getSlugForCustomDomainMock.mockResolvedValue(null);
+    const req = new NextRequest(
+      `https://${ROOT_DOMAIN}/api/payments/klump/webhook`,
+      {
+        body: '{}',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: 'https://checkout.useklump.com',
+        },
+        method: 'POST',
+      }
+    );
+    req.headers.set('host', ROOT_DOMAIN);
+
+    try {
+      const res = await proxy(req);
+
+      expect(res.status).toBe(200);
+      expect(getSlugForCustomDomain).not.toHaveBeenCalled();
+      expect(res.headers.get('x-pathname')).toBe('/api/payments/klump/webhook');
+    } finally {
+      getSlugForCustomDomainMock.mockResolvedValue('ogabassey');
+    }
+  });
+
   it('preserves no-trailing-slash redirects for ordinary storefront paths', async () => {
     const req = new NextRequest('https://ogabassey.com/products/');
     req.headers.set('host', 'ogabassey.com');

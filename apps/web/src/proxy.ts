@@ -761,7 +761,11 @@ export async function proxy(request: NextRequest) {
       const isBearerAuth = authHeader?.startsWith('Bearer ');
 
       // Skip: Webhook endpoints — called by external services, not browsers.
-      const isWebhook = apiSecurityPathname.startsWith('/api/webhooks/');
+      const isPaymentWebhook = /^\/api\/payments\/[^/]+\/webhook$/.test(
+        apiSecurityPathname
+      );
+      const isWebhook =
+        apiSecurityPathname.startsWith('/api/webhooks/') || isPaymentWebhook;
 
       // Skip: Auth callback routes — called by OAuth providers.
       const isAuthCallback = apiSecurityPathname.startsWith('/api/auth/');
