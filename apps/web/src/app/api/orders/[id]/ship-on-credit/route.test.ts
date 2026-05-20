@@ -90,12 +90,13 @@ function createPaymentAccountTable(options: {
     bank_name: string;
     account_name: string;
   } | null;
+  existingAccountError?: unknown;
 }) {
   const selectQuery = {
     eq: vi.fn().mockReturnThis(),
     maybeSingle: vi.fn().mockResolvedValue({
       data: options.existingAccount ?? null,
-      error: null,
+      error: options.existingAccountError ?? null,
     }),
   };
 
@@ -233,6 +234,58 @@ describe('POST /api/orders/[id]/ship-on-credit', () => {
       expect.objectContaining({
         message:
           'Order payment account already exists, treating as idempotent success',
+        orderId: ORDER_ID,
+      })
+    );
+  });
+
+  it('returns 500 when payment account fallback lookup fails', async () => {
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') {
+        return createSelectSingleQuery({
+          id: MERCHANT_ID,
+          business_name: 'Ogabassey',
+        });
+      }
+
+      if (table === 'orders') {
+        return {
+          ...createSelectSingleQuery({
+            id: ORDER_ID,
+            order_number: 'ORD-001',
+            total: '5000',
+            customer_name: 'John Doe',
+            customer_email: 'john@example.com',
+            payment_status: 'unpaid',
+            shipping_status: 'pending',
+          }),
+          ...createUpdateQuery(),
+        };
+      }
+
+      if (table === 'order_payment_accounts') {
+        return createPaymentAccountTable({
+          insertError: { code: '23505', message: 'duplicate key value' },
+          existingAccountError: { message: 'read failed' },
+        });
+      }
+
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const response = await POST(
+      createRequest({ credit_notes: 'Ship now' }),
+      createParams()
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({
+      error: 'Failed to create or fetch payment account',
+    });
+    expect(mockLogger.error).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Database error fetching existing payment account',
         orderId: ORDER_ID,
       })
     );

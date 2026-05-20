@@ -6,3 +6,7 @@
 
 **Learning:** Using `select('*')` when checking for existing customers overfetches all columns, increasing payload size and query execution time unnecessarily.
 **Action:** Always specify exact columns needed (like `id, first_name, last_name, email, phone, address`) instead of `*` for database reads to improve performance and prevent unintended data exposure.
+
+## 2025-02-27 - Unhandled Errors in maybeSingle / single Queries
+**Learning:** Destructuring `{ data }` from `supabase.from().single()` or `maybeSingle()` without checking for the `error` object causes silent failures. If `.single()` expects 0 rows, it incorrectly throws a PGRST116 error that could be swallowed. On the flip side, real database errors on `.maybeSingle()` are ignored if `error` is unchecked, allowing dependent logic to proceed with `data = null` improperly, leading to data integrity issues.
+**Action:** Always extract and handle `error` explicitly when fetching data. Use `.maybeSingle()` when 0 rows is valid, and handle true database errors distinctly from the 0-rows case.
