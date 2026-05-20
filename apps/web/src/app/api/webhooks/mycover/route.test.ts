@@ -204,6 +204,41 @@ describe('POST /api/webhooks/mycover', () => {
     );
   });
 
+  it('fails renewal webhooks when the stored policy update errors', async () => {
+    mocks.createServiceClient.mockReturnValue(
+      createSupabaseMock({
+        policyUpdateResult: {
+          data: null,
+          error: { message: 'policy update failed' },
+        },
+      })
+    );
+    const payload = {
+      data: {
+        amount: 5000,
+        id: 'renewal-123',
+        policy_expiry_date: '2027-06-20T09:47:22.008Z',
+        purchase_id: 'policy-123',
+        reference: 'BUY-PSKUEVZSSXVJRPQX',
+        status: 'successful',
+      },
+      event: 'renewal.successful',
+    };
+    const rawBody = JSON.stringify(payload);
+
+    const response = await POST(
+      createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Webhook processing failed' });
+    expect(mocks.policyEq).toHaveBeenCalledWith(
+      'mycover_purchase_id',
+      'policy-123'
+    );
+  });
+
   it('resolves renewal.successful payloads that only include a renewal id', async () => {
     mocks.fetch.mockResolvedValue({
       json: async () => ({

@@ -125,10 +125,12 @@ function createSupabaseMock({
     error: null,
   },
   platformFee = null,
+  settlementResult = { data: null, error: null },
   transactionStatus = 'pending',
 }: {
   orderUpdateResult?: { data: unknown; error: unknown };
   platformFee?: number | string | null;
+  settlementResult?: { data: unknown; error: unknown };
   transactionStatus?: string;
   transactionUpdateResult?: { data: unknown; error: unknown };
 } = {}) {
@@ -192,7 +194,7 @@ function createSupabaseMock({
     rpc: vi.fn((name: string, args: unknown) => {
       if (name === 'record_merchant_settlement') {
         mocks.recordMerchantSettlement(args);
-        return Promise.resolve({ data: null, error: null });
+        return Promise.resolve(settlementResult);
       }
 
       const result = {
@@ -384,6 +386,32 @@ describe('POST /api/payments/klump/webhook', () => {
         shipping_status: 'processing',
       })
     );
+    expect(mocks.recordMerchantSettlement).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_gateway: 'klump',
+        p_gateway_reference: 'BAC-ABCD12345678',
+      })
+    );
+  });
+
+  it('returns 500 when settlement recording fails so Klump can retry', async () => {
+    mocks.createServiceClient.mockReturnValue(
+      createSupabaseMock({
+        settlementResult: {
+          data: null,
+          error: { message: 'settlement unavailable' },
+        },
+      })
+    );
+    const rawBody = JSON.stringify(successfulPayload);
+
+    const response = await POST(
+      createRequest(successfulPayload, signPayload(rawBody, 'klump-secret'))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe('Failed to record settlement');
     expect(mocks.recordMerchantSettlement).toHaveBeenCalledWith(
       expect.objectContaining({
         p_gateway: 'klump',

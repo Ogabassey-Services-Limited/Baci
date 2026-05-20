@@ -262,11 +262,12 @@ export async function POST(request: NextRequest) {
   );
 
   if (settlementError) {
-    logger.warn({
+    logger.error({
       message: 'Failed to record Klump merchant settlement',
       error: settlementError,
       reference: referenceResult.data,
     });
+    return errorResponse('Failed to record settlement', 500);
   }
 
   if (order) {

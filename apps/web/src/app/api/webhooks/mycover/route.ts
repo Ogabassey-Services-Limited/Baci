@@ -361,7 +361,7 @@ async function handlePolicyRenewed(
 
   if (error) {
     console.error('[MyCover Webhook] Failed to renew policy:', error);
-    return;
+    throw error;
   }
 
   if (!updatedPolicy) {
