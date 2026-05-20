@@ -1,6 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
+  getKlumpWebhookSecret,
   parseKlumpWebhookPayload,
   verifyKlumpWebhookSignature,
 } from './klump-webhook';
@@ -10,6 +11,21 @@ function sign(rawBody: string, secret: string) {
 }
 
 describe('Klump webhook helpers', () => {
+  it('trims Klump webhook secrets before selecting the fallback secret', () => {
+    expect(
+      getKlumpWebhookSecret({
+        KLUMP_SECRET_KEY: ' fallback-secret ',
+        KLUMP_WEBHOOK_SECRET: '   ',
+      })
+    ).toBe('fallback-secret');
+    expect(
+      getKlumpWebhookSecret({
+        KLUMP_SECRET_KEY: 'fallback-secret',
+        KLUMP_WEBHOOK_SECRET: ' webhook-secret ',
+      })
+    ).toBe('webhook-secret');
+  });
+
   it('verifies raw-body HMAC signatures with or without a sha256 prefix', () => {
     const rawBody = JSON.stringify({ event: 'klump.payment.successful' });
     const signature = sign(rawBody, 'secret');

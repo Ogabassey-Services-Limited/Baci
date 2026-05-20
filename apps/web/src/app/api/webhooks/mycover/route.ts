@@ -7,6 +7,11 @@ import {
   myCoverWebhookSchema,
 } from '@/schemas/mycover-webhook';
 
+type MyCoverPolicyLookup = {
+  column: 'mycover_policy_id' | 'mycover_purchase_id';
+  value: string;
+};
+
 async function verifyWebhookSignature(
   rawBody: string,
   signature: string | null,
@@ -125,12 +130,12 @@ export async function POST(request: NextRequest) {
       case 'policy.purchased':
       case 'policy.created':
       case 'purchase.successful':
-        await handlePolicyPurchased(supabase, payload.data);
+        await handlePolicyPurchased(supabase, payload.data, payload.event);
         break;
 
       case 'policy.renewed':
       case 'renewal.successful':
-        await handlePolicyRenewed(supabase, payload.data);
+        await handlePolicyRenewed(supabase, payload.data, payload.event);
         break;
 
       case 'policy.expired':
@@ -159,10 +164,13 @@ export async function POST(request: NextRequest) {
 
 async function handlePolicyPurchased(
   supabase: SupabaseClient,
-  data: MyCoverWebhookPayload['data']
+  data: MyCoverWebhookPayload['data'],
+  event: MyCoverWebhookPayload['event']
 ) {
-  const policyId = getPolicyId(data);
-  if (!policyId) {
+  const lookup = getPolicyLookup(data, {
+    dataIdIsPurchaseId: event === 'purchase.successful',
+  });
+  if (!lookup) {
     console.warn('[MyCover Webhook] Policy purchased without policy_id');
     return;
   }
@@ -177,18 +185,40 @@ async function handlePolicyPurchased(
       status: 'active',
       updated_at: new Date().toISOString(),
     })
-    .eq('mycover_policy_id', policyId);
+    .eq(lookup.column, lookup.value);
 
   if (error) {
     console.error('[MyCover Webhook] Failed to update policy:', error);
   } else {
-    const safePolicyId = String(policyId || '').replace(/[\r\n]/g, '');
-    console.log('[MyCover Webhook] Policy confirmed:', safePolicyId);
+    const safeIdentifier = lookup.value.replace(/[\r\n]/g, '');
+    console.log('[MyCover Webhook] Policy confirmed:', safeIdentifier);
   }
 }
 
 function getPolicyId(data: MyCoverWebhookPayload['data']) {
   return data.policy_id || data.id;
+}
+
+function getPolicyLookup(
+  data: MyCoverWebhookPayload['data'],
+  {
+    dataIdIsPurchaseId = false,
+  }: {
+    dataIdIsPurchaseId?: boolean;
+  } = {}
+): MyCoverPolicyLookup | null {
+  if (data.policy_id) {
+    return { column: 'mycover_policy_id', value: data.policy_id };
+  }
+
+  if (!data.id) {
+    return null;
+  }
+
+  return {
+    column: dataIdIsPurchaseId ? 'mycover_purchase_id' : 'mycover_policy_id',
+    value: data.id,
+  };
 }
 
 function getPolicyStartDate(data: MyCoverWebhookPayload['data']) {
@@ -201,10 +231,13 @@ function getPolicyExpiryDate(data: MyCoverWebhookPayload['data']) {
 
 async function handlePolicyRenewed(
   supabase: SupabaseClient,
-  data: MyCoverWebhookPayload['data']
+  data: MyCoverWebhookPayload['data'],
+  event: MyCoverWebhookPayload['event']
 ) {
-  const policyId = getPolicyId(data);
-  if (!policyId) return;
+  const lookup = getPolicyLookup(data, {
+    dataIdIsPurchaseId: event === 'renewal.successful',
+  });
+  if (!lookup) return;
 
   const { error } = await supabase
     .from('order_insurance_policies')
@@ -213,7 +246,7 @@ async function handlePolicyRenewed(
       status: 'active',
       updated_at: new Date().toISOString(),
     })
-    .eq('mycover_policy_id', policyId);
+    .eq(lookup.column, lookup.value);
 
   if (error) {
     console.error('[MyCover Webhook] Failed to renew policy:', error);

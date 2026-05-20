@@ -124,8 +124,10 @@ function createSupabaseMock({
     data: { id: 'transaction-123' },
     error: null,
   },
+  transactionStatus = 'pending',
 }: {
   orderUpdateResult?: { data: unknown; error: unknown };
+  transactionStatus?: string;
   transactionUpdateResult?: { data: unknown; error: unknown };
 } = {}) {
   return {
@@ -143,7 +145,7 @@ function createSupabaseMock({
                 metadata: {},
                 order_id: 'order-123',
                 platform_fee: null,
-                status: 'pending',
+                status: transactionStatus,
               },
               error: null,
             })
@@ -313,5 +315,25 @@ describe('POST /api/payments/klump/webhook', () => {
     expect(body.error).toBe('Failed to update transaction');
     expect(mocks.transactionUpdateMaybeSingle).toHaveBeenCalled();
     expect(mocks.orderUpdateSingle).not.toHaveBeenCalled();
+  });
+
+  it('does not rewrite the order when the Klump transaction is already completed', async () => {
+    mocks.createServiceClient.mockReturnValue(
+      createSupabaseMock({
+        transactionStatus: 'completed',
+      })
+    );
+    const rawBody = JSON.stringify(successfulPayload);
+
+    const response = await POST(
+      createRequest(successfulPayload, signPayload(rawBody, 'klump-secret'))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({ message: 'Already processed', success: true });
+    expect(mocks.transactionUpdateMaybeSingle).not.toHaveBeenCalled();
+    expect(mocks.orderUpdateSingle).not.toHaveBeenCalled();
+    expect(mocks.recordMerchantSettlement).not.toHaveBeenCalled();
   });
 });

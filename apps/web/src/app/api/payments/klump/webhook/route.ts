@@ -191,6 +191,10 @@ export async function POST(request: NextRequest) {
     updatedTransaction = data;
   }
 
+  if (!updatedTransaction) {
+    return NextResponse.json({ message: 'Already processed', success: true });
+  }
+
   let order: PaidOrderRecord | null = null;
   if (transaction.order_id) {
     const { data: updatedOrder, error: orderError } = await updateKlumpOrder({
@@ -208,10 +212,6 @@ export async function POST(request: NextRequest) {
     }
 
     order = updatedOrder;
-  }
-
-  if (!updatedTransaction) {
-    return NextResponse.json({ message: 'Already processed', success: true });
   }
 
   const grossAmount = Number(transaction.amount) || details.amount;
