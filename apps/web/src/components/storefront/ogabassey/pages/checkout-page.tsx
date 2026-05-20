@@ -18,7 +18,7 @@ import {
   EyeOff,
 } from 'lucide-react';
 import { SmartQuoteLoader } from '../components/SmartQuoteLoader';
-import { PaystackLogo, CredPalLogo, CreditDirectLogo, JuicywayLogo, BankTransferLogo } from '../components/PaymentLogos';
+import { PaystackLogo, KorapayLogo, CredPalLogo, CreditDirectLogo, JuicywayLogo, BankTransferLogo } from '../components/PaymentLogos';
 import { MobileOrderSummary } from '../components/MobileCheckoutComponents';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -45,6 +45,7 @@ import { calculateCommerce } from '@/lib/supabase/client';
 import { buildCheckoutOrderItems } from '@/lib/checkout/build-order-items';
 import {
   isBankTransferCheckoutAvailable,
+  isKorapayCheckoutAvailable,
   isPaystackCheckoutAvailable,
 } from '@/lib/checkout/payment-gateway-availability';
 import { isValidPhoneNumber } from 'react-phone-number-input';
@@ -111,6 +112,7 @@ export const CheckoutPage: React.FC = () => {
   const merchantContext = useMerchantSafe();
   const merchant = merchantContext?.merchant;
   const paystackCheckoutAvailable = isPaystackCheckoutAvailable(merchant);
+  const korapayCheckoutAvailable = isKorapayCheckoutAvailable(merchant);
   const bankTransferCheckoutAvailable =
     isBankTransferCheckoutAvailable(merchant);
   const basePath = merchantContext?.basePath;
@@ -1222,6 +1224,17 @@ export const CheckoutPage: React.FC = () => {
         title: 'Payment Unavailable',
         description:
           'Paystack is not available for this store yet. Please choose a different payment method.',
+        variant: 'destructive',
+      });
+      isOrderInFlightRef.current = false;
+      return;
+    }
+
+    if (paymentMethod === 'korapay' && !korapayCheckoutAvailable) {
+      toast({
+        title: 'Payment Unavailable',
+        description:
+          'Korapay is not available for this store yet. Please choose a different payment method.',
         variant: 'destructive',
       });
       isOrderInFlightRef.current = false;
@@ -3177,34 +3190,34 @@ export const CheckoutPage: React.FC = () => {
                             </label>
                           )}
 
-                          {/* Korapay - Disabled until API keys are configured */}
-                          {/* TODO: Re-enable when KORAPAY_SECRET_KEY and KORAPAY_PUBLIC_KEY are added to .env.local
-                          <label
-                            className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'korapay'
-                              ? 'border-store-primary bg-store-primary/5'
-                              : 'border-gray-200 bg-gray-50 hover:border-gray-300'
-                              }`}
-                          >
-                            <input
-                              type="radio"
-                              name="payment"
-                              value="korapay"
-                              checked={paymentMethod === 'korapay'}
-                              onChange={() => setPaymentMethod('korapay')}
-                              className="sr-only"
-                            />
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'korapay' ? 'border-store-primary' : 'border-gray-400'}`}>
-                              {paymentMethod === 'korapay' && <div className="w-2.5 h-2.5 rounded-full bg-store-primary" />}
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-sm text-gray-900">Korapay</span>
+                          {/* Korapay */}
+                          {korapayCheckoutAvailable && (
+                            <label
+                              className={`relative flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'korapay'
+                                ? 'border-store-primary bg-store-primary/5'
+                                : 'border-gray-200 bg-gray-50 hover:border-gray-300'
+                                }`}
+                            >
+                              <input
+                                type="radio"
+                                name="payment"
+                                value="korapay"
+                                checked={paymentMethod === 'korapay'}
+                                onChange={() => setPaymentMethod('korapay')}
+                                className="sr-only"
+                              />
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'korapay' ? 'border-store-primary' : 'border-gray-400'}`}>
+                                {paymentMethod === 'korapay' && <div className="w-2.5 h-2.5 rounded-full bg-store-primary" />}
                               </div>
-                              <span className="text-xs text-gray-500 block mt-0.5">Other African Countries</span>
-                            </div>
-                            <KorapayLogo className="w-6 h-6" />
-                          </label>
-                          */}
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-sm text-gray-900">Korapay</span>
+                                </div>
+                                <span className="text-xs text-gray-500 block mt-0.5">Card payments across Africa</span>
+                              </div>
+                              <KorapayLogo className="w-6 h-6" />
+                            </label>
+                          )}
 
                           {/* Juicyway */}
                           {merchant?.feature_settings?.juicyway_enabled === true && (

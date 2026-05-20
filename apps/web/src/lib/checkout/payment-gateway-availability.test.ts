@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isBankTransferCheckoutAvailable,
+  isKorapayCheckoutAvailable,
   isPaystackCheckoutAvailable,
 } from '@/lib/checkout/payment-gateway-availability';
 
@@ -70,5 +71,31 @@ describe('payment-gateway-availability', () => {
     expect(isPaystackCheckoutAvailable(undefined)).toBe(false);
     expect(isBankTransferCheckoutAvailable(null)).toBe(false);
     expect(isBankTransferCheckoutAvailable(undefined)).toBe(false);
+    expect(isKorapayCheckoutAvailable(null)).toBe(false);
+    expect(isKorapayCheckoutAvailable(undefined)).toBe(false);
+  });
+
+  it('returns false for Korapay when not explicitly enabled', () => {
+    expect(
+      isKorapayCheckoutAvailable({
+        feature_settings: {},
+      })
+    ).toBe(false);
+  });
+
+  it('returns true for Korapay when explicitly enabled', () => {
+    expect(
+      isKorapayCheckoutAvailable({
+        feature_settings: { korapay_enabled: true },
+      })
+    ).toBe(true);
+  });
+
+  it('returns false for Korapay when explicitly disabled', () => {
+    expect(
+      isKorapayCheckoutAvailable({
+        feature_settings: { korapay_enabled: false },
+      })
+    ).toBe(false);
   });
 });

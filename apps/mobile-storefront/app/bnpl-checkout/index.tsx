@@ -1,7 +1,7 @@
 /**
  * BNPL Checkout Screen
  * Handles Buy Now Pay Later checkout via WebView
- * Supports CredPal and Credit Direct payment gateways
+ * Supports CredPal, Credit Direct, and Klump payment gateways
  */
 
 import { Ionicons } from '@expo/vector-icons';
@@ -27,9 +27,10 @@ import { useCartStore } from '@/stores/cart-store';
 const BNPLParamsSchema = z.object({
   orderId: z.string().min(1, 'Order ID is required'),
   // Zod 4: Use message option instead of errorMap
-  gateway: z.enum(['credpal', 'credit_direct'] as const, {
+  gateway: z.enum(['credpal', 'credit_direct', 'klump'] as const, {
     message: 'Invalid payment gateway',
   }),
+  authorizationUrl: z.string().min(1).optional(),
   amount: z.string().regex(/^\d+$/, 'Amount must be a number').optional(),
   customerEmail: z.string().email().optional(),
   customerName: z.string().optional(),
@@ -142,7 +143,14 @@ export default function BNPLCheckoutScreen() {
     return { isValid: true, error: null, data: result.data };
   })();
 
-  const { orderId, gateway, amount, customerEmail, trackingToken } =
+  const {
+    orderId,
+    gateway,
+    authorizationUrl,
+    amount,
+    customerEmail,
+    trackingToken,
+  } =
     validatedParams.data || {};
 
   useEffect(
@@ -179,6 +187,10 @@ export default function BNPLCheckoutScreen() {
   // and as a query parameter for the order fetch API.
   const bnplUrl = (() => {
     if (!validatedParams.isValid || !orderId) return '';
+
+    if (gateway === 'klump' && authorizationUrl?.trim()) {
+      return authorizationUrl.trim();
+    }
 
     const slug =
       validatedParams.isValid && validatedParams.data
@@ -378,7 +390,12 @@ export default function BNPLCheckoutScreen() {
     setCurrentUrl(targetUrl);
   };
 
-  const gatewayName = gateway === 'credpal' ? 'CredPal' : 'Credit Direct';
+  const gatewayName =
+    gateway === 'credpal'
+      ? 'CredPal'
+      : gateway === 'credit_direct'
+        ? 'Credit Direct'
+        : 'Klump';
 
   // Inject JavaScript to capture BNPL callbacks
   const injectedJavaScript = `
@@ -388,7 +405,7 @@ export default function BNPLCheckoutScreen() {
       console.log = function(...args) {
         originalLog.apply(console, args);
         const message = args.join(' ');
-        if (message.includes('Credit Direct') || message.includes('CredPal')) {
+        if (message.includes('Credit Direct') || message.includes('CredPal') || message.includes('Klump')) {
           window.ReactNativeWebView?.postMessage(JSON.stringify({
             type: 'bnpl_log',
             message: message
