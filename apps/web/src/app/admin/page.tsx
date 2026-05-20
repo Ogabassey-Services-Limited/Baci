@@ -372,7 +372,13 @@ export default function AdminDashboardPage() {
               <Skeleton className="h-[300px] w-full" />
             ) : (
               <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%" debounce={100}>
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  debounce={100}
+                  minWidth={0}
+                  minHeight={0}
+                >
                   <AreaChart
                     data={chartData}
                     margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
@@ -456,7 +462,13 @@ export default function AdminDashboardPage() {
               <Skeleton className="h-[300px] w-full" />
             ) : healthData.length > 0 ? (
               <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%" debounce={100}>
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                  debounce={100}
+                  minWidth={0}
+                  minHeight={0}
+                >
                   <PieChart>
                     <Pie
                       data={healthData}

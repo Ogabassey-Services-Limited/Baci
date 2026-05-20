@@ -432,12 +432,15 @@ export default function DashboardClientPage({
       <div className="md:hidden space-y-4">
         {/* Compact Stat Row - 4 cards with Blue/White/Yellow Theme & Inline Icons */}
         <div className="grid grid-cols-4 gap-2 my-4">
-          {/* Orders - Blue (Primary) */}
+          {/* 30-Day Paid Orders - Blue (Primary) */}
           <div className="bg-blue-50/80 dark:bg-blue-950/20 rounded-xl border border-blue-100 dark:border-blue-900 p-2 text-center flex flex-col justify-center h-20">
             <div className="flex items-center justify-center gap-1 mb-1 opacity-90">
               <ShoppingBag className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-              <span className="text-[10px] text-blue-700 dark:text-blue-300 font-medium">
-                Orders
+              <span
+                className="text-[10px] text-blue-700 dark:text-blue-300 font-medium"
+                title="30-Day Paid Orders"
+              >
+                30D Paid
               </span>
             </div>
             <div className="text-base font-bold text-blue-900 dark:text-blue-100 leading-none">
@@ -475,12 +478,15 @@ export default function DashboardClientPage({
             </div>
           </div>
 
-          {/* Customers - Sky/Blue (Secondary Blue) */}
+          {/* 30-Day Customers - Sky/Blue (Secondary Blue) */}
           <div className="bg-sky-50/80 dark:bg-sky-950/20 rounded-xl border border-sky-100 dark:border-sky-900 p-2 text-center flex flex-col justify-center h-20">
             <div className="flex items-center justify-center gap-1 mb-1 opacity-90">
               <Users className="h-3 w-3 text-sky-600 dark:text-sky-400" />
-              <span className="text-[10px] text-sky-700 dark:text-sky-300 font-medium">
-                New
+              <span
+                className="text-[10px] text-sky-700 dark:text-sky-300 font-medium"
+                title="30-Day Customers"
+              >
+                30D New
               </span>
             </div>
             <div className="text-base font-bold text-sky-900 dark:text-sky-100 leading-none">
@@ -552,7 +558,7 @@ export default function DashboardClientPage({
           className="min-w-[85vw] md:min-w-0 snap-center col-span-1 animate-in fade-in slide-in-from-bottom-4 duration-500"
           style={{ animationFillMode: 'both', animationDelay: '0.1s' }}
         >
-          <BentoCard title="Total Revenue" icon={DollarSign}>
+          <BentoCard title="30-Day Paid Revenue" icon={DollarSign}>
             <div className="mt-2 space-y-1">
               <div className="text-3xl font-bold tracking-tight">
                 {formatPrice(
@@ -575,7 +581,7 @@ export default function DashboardClientPage({
           className="min-w-[85vw] md:min-w-0 snap-center col-span-1 animate-in fade-in slide-in-from-bottom-4 duration-500"
           style={{ animationFillMode: 'both', animationDelay: '0.2s' }}
         >
-          <BentoCard title="Active Orders" icon={ShoppingBag}>
+          <BentoCard title="30-Day Paid Orders" icon={ShoppingBag}>
             <div className="mt-2 space-y-1">
               <div className="text-3xl font-bold tracking-tight">
                 +{dashboardData.orders.value.toLocaleString()}
@@ -603,7 +609,7 @@ export default function DashboardClientPage({
           className="min-w-[85vw] md:min-w-0 snap-center col-span-1 animate-in fade-in slide-in-from-bottom-4 duration-500"
           style={{ animationFillMode: 'both', animationDelay: '0.3s' }}
         >
-          <BentoCard title="Customers" icon={Users}>
+          <BentoCard title="30-Day Customers" icon={Users}>
             <div className="mt-2 space-y-1">
               <div className="text-3xl font-bold tracking-tight">
                 +{dashboardData.customers.value.toLocaleString()}

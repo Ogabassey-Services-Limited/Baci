@@ -8,13 +8,29 @@ function MockChart({ children }: { children?: ReactNode }) {
   return <div>{children}</div>;
 }
 
+function MockResponsiveContainer({
+  minHeight,
+  minWidth,
+}: {
+  minHeight?: number;
+  minWidth?: number;
+}) {
+  return (
+    <div
+      data-min-height={minHeight}
+      data-min-width={minWidth}
+      data-testid="responsive-container"
+    />
+  );
+}
+
 vi.mock('recharts', () => ({
   Area: MockChart,
   AreaChart: MockChart,
   Bar: MockChart,
   BarChart: MockChart,
   CartesianGrid: MockChart,
-  ResponsiveContainer: MockChart,
+  ResponsiveContainer: MockResponsiveContainer,
   Tooltip: MockChart,
   XAxis: MockChart,
   YAxis: MockChart,
@@ -148,5 +164,17 @@ describe('AnalyticsPage', () => {
     expect(await screen.findByText('Processing')).toBeInTheDocument();
     expect(await screen.findByText('Paid Order Methods')).toBeInTheDocument();
     expect(await screen.findByText('Card')).toBeInTheDocument();
+  });
+
+  it('sets explicit minimum dimensions on responsive charts', async () => {
+    render(<AnalyticsPage />);
+
+    const containers = await screen.findAllByTestId('responsive-container');
+
+    expect(containers.length).toBeGreaterThan(0);
+    for (const container of containers) {
+      expect(container).toHaveAttribute('data-min-width', '0');
+      expect(container).toHaveAttribute('data-min-height', '0');
+    }
   });
 });

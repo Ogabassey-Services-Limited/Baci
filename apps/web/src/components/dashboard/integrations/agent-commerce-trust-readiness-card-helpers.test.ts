@@ -118,6 +118,12 @@ describe('agentCommerceTrustReadinessCardHelpers', () => {
             severity: 'warn',
           },
           {
+            id: 'merchant-review-authority',
+            label: 'Merchant review authority',
+            message: 'Google Maps review metadata could not be verified.',
+            severity: 'warn',
+          },
+          {
             affectedProductIds: ['product-1', 'product-2'],
             id: 'canonical-url-parity',
             label: 'Canonical URL parity',
@@ -165,6 +171,15 @@ describe('agentCommerceTrustReadinessCardHelpers', () => {
         label: 'Strengthen review signals',
         message:
           'Publish valid product review counts and ratings for trust scoring.',
+        severity: 'warn',
+      },
+      {
+        count: null,
+        href: '/dashboard/settings/trust#merchant-review-authority',
+        id: 'merchant-review-authority',
+        label: 'Connect Google reviews',
+        message:
+          'Connect a Google Business Profile place ID for merchant-level review authority.',
         severity: 'warn',
       },
     ]);

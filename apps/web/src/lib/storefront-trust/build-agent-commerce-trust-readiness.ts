@@ -32,6 +32,7 @@ export interface AgentCommerceTrustCheck {
     | 'verified-image-coverage'
     | 'policy-coverage'
     | 'support-contact'
+    | 'merchant-review-authority'
     | 'structured-data-readiness'
     | 'review-signal-coverage'
     | 'feed-freshness'
@@ -63,6 +64,7 @@ export interface AgentCommerceTrustReadiness {
     sitemap: string;
     ucpProfile: string;
   };
+  merchantReviewAuthority?: MerchantTrustProfile['merchantReviewAuthority'];
   totals: {
     googleProducts: number;
     openAiProducts: number;
@@ -129,6 +131,11 @@ const TRUST_CHECK_ACTIONS: Record<
     nextStep:
       'Open Trust settings and add a support email, phone number, or WhatsApp contact.',
     nextStepUrl: '/dashboard/settings/trust',
+  },
+  'merchant-review-authority': {
+    nextStep:
+      'Open Trust settings and connect a Google Business Profile place ID.',
+    nextStepUrl: '/dashboard/settings/trust#merchant-review-authority',
   },
   'structured-data-readiness': {
     nextStep:
@@ -236,6 +243,40 @@ function getStatus(
   if (checks.some((check) => check.severity === 'fail')) return 'fail';
   if (checks.some((check) => check.severity === 'warn')) return 'warn';
   return 'pass';
+}
+
+function hasVerifiedMerchantReviewAuthority(
+  authority: MerchantTrustProfile['merchantReviewAuthority']
+): boolean {
+  const rating = authority?.rating;
+  const totalReviews = authority?.totalReviews;
+
+  return Boolean(
+    typeof rating === 'number' &&
+      Number.isFinite(rating) &&
+      rating > 0 &&
+      rating <= 5 &&
+      typeof totalReviews === 'number' &&
+      Number.isFinite(totalReviews) &&
+      totalReviews > 0
+  );
+}
+
+function buildMerchantReviewAuthorityCheck(
+  authority: MerchantTrustProfile['merchantReviewAuthority']
+): AgentCommerceTrustCheck | null {
+  if (!authority) return null;
+
+  const isVerified = hasVerifiedMerchantReviewAuthority(authority);
+
+  return {
+    id: 'merchant-review-authority',
+    label: 'Merchant review authority',
+    severity: isVerified ? 'pass' : 'warn',
+    message: isVerified
+      ? `Google Maps review authority is connected with ${authority.rating} rating from ${authority.totalReviews} reviews.`
+      : 'Google Maps review authority is connected, but rating and review-count metadata could not be verified.',
+  };
 }
 
 function findCatalogSurfaceGaps({
@@ -355,6 +396,9 @@ export function buildAgentCommerceTrustReadiness({
     trustProfile.supportPhone,
     trustProfile.whatsappNumber,
   ].some(isPresentString);
+  const merchantReviewAuthorityCheck = buildMerchantReviewAuthorityCheck(
+    trustProfile.merchantReviewAuthority
+  );
 
   const checkCandidates: AgentCommerceTrustCheck[] = [
     {
@@ -420,6 +464,7 @@ export function buildAgentCommerceTrustReadiness({
         ? 'A support contact is available for post-purchase questions.'
         : 'Add support email, phone, or WhatsApp details.',
     },
+    ...(merchantReviewAuthorityCheck ? [merchantReviewAuthorityCheck] : []),
     ...healthSignals.checks,
     {
       id: 'machine-endpoint-discovery',
@@ -437,6 +482,7 @@ export function buildAgentCommerceTrustReadiness({
     checks,
     status: getStatus(checks),
     surfaces,
+    merchantReviewAuthority: trustProfile.merchantReviewAuthority,
     totals: {
       googleProducts: googleFeedData.products.length,
       openAiProducts: openAiFeedData.products.length,
