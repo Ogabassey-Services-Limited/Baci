@@ -4,6 +4,9 @@
 `/home/bassey/baci-workers` and installs the worker package with
 `pnpm install --frozen-lockfile --prod`.
 
+This package is intentionally installed outside the root pnpm workspace, so it
+keeps its own `pnpm-lock.yaml` for frozen production installs.
+
 The Jumia order sync, import queue, and AI storefront generation wrappers do not run TypeScript from this
 production-only worker install. They delegate to a separate full Baci monorepo
 checkout, resolved from `BACI_REPO_DIR` or `/opt/baci/app`, via
