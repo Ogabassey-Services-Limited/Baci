@@ -16,7 +16,15 @@ describe('quiz service utils', () => {
   it('reads safe error messages from common error shapes', () => {
     expect(getSafeErrorMessage(new Error('network down'))).toBe('network down');
     expect(getSafeErrorMessage({ message: 'jwt expired' })).toBe('jwt expired');
+    expect(getSafeErrorMessage({ code: 'QZ004' })).toBe('{"code":"QZ004"}');
     expect(getSafeErrorMessage('fallback')).toBe('fallback');
+  });
+
+  it('returns a safe placeholder for circular error objects', () => {
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+
+    expect(getSafeErrorMessage(circular)).toBe('Unserializable error object');
   });
 
   it('maps quiz API error payloads', () => {

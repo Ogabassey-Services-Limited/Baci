@@ -35,10 +35,12 @@ function jsonRequest(body: unknown) {
 }
 
 function mockReplaySupabase({
-  attemptResult,
+  attemptResult = { data: null, error: null },
+  user = { id: USER_ID },
 }: {
-  attemptResult: { data: unknown; error: unknown };
-}) {
+  attemptResult?: { data: unknown; error: unknown };
+  user?: { id: string } | null;
+} = {}) {
   const attemptBuilder = {
     eq: vi.fn(() => attemptBuilder),
     maybeSingle: vi.fn().mockResolvedValue(attemptResult),
@@ -58,7 +60,7 @@ function mockReplaySupabase({
   const supabase = {
     auth: {
       getUser: vi.fn().mockResolvedValue({
-        data: { user: { id: USER_ID } },
+        data: { user },
         error: null,
       }),
     },
@@ -83,6 +85,37 @@ describe('submit quiz answer replay recovery', () => {
       return;
     }
     process.env.QUIZ_RPC_SERVER_SECRET = ORIGINAL_QUIZ_RPC_SERVER_SECRET;
+  });
+
+  it('returns 401 before replay recovery when authentication is missing', async () => {
+    const { rpc } = mockReplaySupabase({ user: null });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({
+        answer: 'A',
+        integrityTier: 'strong',
+        questionId: QUESTION_ID,
+      }),
+      { params: Promise.resolve({ attemptId: ATTEMPT_ID }) }
+    );
+
+    expect(response.status).toBe(401);
+    expect(rpc).not.toHaveBeenCalled();
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 before replay recovery when the body is invalid', async () => {
+    const { rpc } = mockReplaySupabase();
+
+    const { POST } = await import('./route');
+    const response = await POST(jsonRequest({}), {
+      params: Promise.resolve({ attemptId: ATTEMPT_ID }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(rpc).not.toHaveBeenCalled();
+    expect(logger.error).not.toHaveBeenCalled();
   });
 
   it('recovers completed results for replayed answer submissions', async () => {

@@ -1,5 +1,12 @@
 import type { QuizEvent } from '@/services/quiz';
 
+let fallbackLocale: string | undefined;
+
+function getFallbackLocale() {
+  fallbackLocale ??= Intl.DateTimeFormat().resolvedOptions().locale;
+  return fallbackLocale;
+}
+
 export function formatTimeRange(
   event: QuizEvent,
   locale: string | undefined,
@@ -15,8 +22,7 @@ export function formatTimeRange(
     return fallbackMessage;
   }
 
-  const resolvedLocale =
-    locale || Intl.DateTimeFormat().resolvedOptions().locale;
+  const resolvedLocale = locale || getFallbackLocale();
   const start = startDate.toLocaleTimeString(resolvedLocale, {
     hour: '2-digit',
     minute: '2-digit',

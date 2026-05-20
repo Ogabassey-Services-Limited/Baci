@@ -556,7 +556,9 @@ describe('env quiz validation', () => {
     const { env } = await loadEnvModule();
 
     expect(env.QUIZ_RPC_SERVER_SECRET).toBe('quiz-secret');
-    expect(env.QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON).toBe('{"ios":"strong"}');
+    expect(env.QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON).toEqual({
+      ios: 'strong',
+    });
   });
 
   it('reads quiz runtime getters from current process env values', async () => {
@@ -580,7 +582,28 @@ describe('env quiz validation', () => {
 
     expect(getQuizProductionApprovedEnv()).toBe(false);
     expect(getQuizRpcServerSecret()).toBe('runtime-secret');
-    expect(getQuizIntegrityTierOverridesJson()).toBe('{"ios":"strong"}');
+    expect(getQuizIntegrityTierOverridesJson()).toEqual({ ios: 'strong' });
+  });
+
+  it('rejects malformed quiz integrity tier override JSON at boot', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('SUPABASE_JWT_SECRET', 'jwt-secret');
+    vi.stubEnv('QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON', '{not-json');
+
+    await expect(loadEnvModule()).rejects.toThrow(
+      /QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON/
+    );
+  });
+
+  it('rejects unsupported quiz integrity tier override values at runtime', async () => {
+    const { getQuizIntegrityTierOverridesJson } = await loadEnvModule();
+
+    vi.stubEnv('QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON', '{"ios":"turbo"}');
+
+    expect(() => getQuizIntegrityTierOverridesJson()).toThrow(
+      'QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON must be a JSON object with basic, device, or strong values'
+    );
   });
 
   it('rejects invalid QUIZ_PRODUCTION_APPROVED runtime values', async () => {

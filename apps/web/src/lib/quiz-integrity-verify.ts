@@ -39,17 +39,24 @@ export function normalizeQuizIntegrityTier(value: unknown): QuizIntegrityTier {
 
 export function getQuizIntegrityTierOverride(
   key: string,
-  rawJson?: string
+  rawOverrides?: string | Record<string, QuizIntegrityTier>
 ): QuizIntegrityTier | undefined {
-  const resolvedJson =
-    rawJson === undefined ? getQuizIntegrityTierOverridesJson() : rawJson;
-  if (!resolvedJson?.trim()) return undefined;
+  const resolvedOverrides =
+    rawOverrides === undefined
+      ? getQuizIntegrityTierOverridesJson()
+      : rawOverrides;
+  if (resolvedOverrides === undefined) return undefined;
 
   let parsed: unknown;
-  try {
-    parsed = JSON.parse(resolvedJson);
-  } catch {
-    throw new Error('invalid_quiz_integrity_tier_overrides_json');
+  if (typeof resolvedOverrides === 'string') {
+    if (!resolvedOverrides.trim()) return undefined;
+    try {
+      parsed = JSON.parse(resolvedOverrides);
+    } catch {
+      throw new Error('invalid_quiz_integrity_tier_overrides_json');
+    }
+  } else {
+    parsed = resolvedOverrides;
   }
 
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {

@@ -29,6 +29,24 @@ const quizProductionApprovedSchema = z.preprocess((value) => {
   return value;
 }, z.boolean().default(false));
 
+const quizIntegrityTierSchema = z.enum(['basic', 'device', 'strong']);
+const quizIntegrityTierOverridesSchema = z.preprocess((value) => {
+  if (value === undefined) return value;
+  if (typeof value !== 'string') return value;
+
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return value;
+  }
+}, z.record(z.string().min(1), quizIntegrityTierSchema).optional());
+type QuizIntegrityTierOverrides = z.infer<
+  typeof quizIntegrityTierOverridesSchema
+>;
+
 const defaultFalseBooleanStringSchema = z.preprocess(
   (value) => (value === undefined ? 'false' : value),
   booleanStringSchema
@@ -179,7 +197,7 @@ const serverSchema = z
     QUIZ_PHASE: z.enum(['1a', 'production']).default('1a'),
     QUIZ_PRODUCTION_APPROVED: quizProductionApprovedSchema,
     QUIZ_RPC_SERVER_SECRET: optionalTrimmedStringSchema,
-    QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON: optionalTrimmedStringSchema,
+    QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON: quizIntegrityTierOverridesSchema,
 
     // Push Notifications
     EXPO_ACCESS_TOKEN: z.string().optional(),
@@ -502,6 +520,20 @@ const getRuntimeEnvValue = (
   const trimmedFallback = trimSecret(fallbackValue);
   return trimmedFallback || undefined;
 };
+const getRuntimeQuizIntegrityTierOverrides = (
+  rawValue: string | undefined,
+  fallbackValue: QuizIntegrityTierOverrides
+): QuizIntegrityTierOverrides => {
+  const trimmedRaw = trimSecret(rawValue);
+  if (!trimmedRaw) return fallbackValue;
+
+  const parsed = quizIntegrityTierOverridesSchema.safeParse(trimmedRaw);
+  if (parsed.success) return parsed.data;
+
+  throw new Error(
+    'QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON must be a JSON object with basic, device, or strong values'
+  );
+};
 
 export const getSupabaseJwtSecret = (): string => {
   if (isBrowserRuntime())
@@ -626,11 +658,10 @@ export const getQuizIntegrityTierOverridesJson = () => {
     throw new Error(
       'QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON cannot be accessed on the client'
     );
-  const overrides = getRuntimeEnvValue(
+  return getRuntimeQuizIntegrityTierOverrides(
     process.env.QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON,
     env?.QUIZ_APP_INTEGRITY_TIER_OVERRIDES_JSON
   );
-  return overrides || undefined;
 };
 export const getZeptoMailToken = () =>
   env?.ZEPTOMAIL_TOKEN?.trim() || undefined;

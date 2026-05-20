@@ -16,7 +16,6 @@ function restoreEnv() {
 
 describe('quiz route proof helpers', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
     restoreEnv();
   });
 

@@ -93,9 +93,9 @@ describe('quiz integrity tier normalization', () => {
   });
 
   it('reads the current default override JSON when raw JSON is omitted', () => {
-    vi.mocked(getQuizIntegrityTierOverridesJson).mockReturnValue(
-      '{"event-default":"strong"}'
-    );
+    vi.mocked(getQuizIntegrityTierOverridesJson).mockReturnValue({
+      'event-default': 'strong',
+    });
 
     expect(getQuizIntegrityTierOverride('event-default')).toBe('strong');
     expect(getQuizIntegrityTierOverridesJson).toHaveBeenCalled();

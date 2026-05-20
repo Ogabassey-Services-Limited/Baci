@@ -43,5 +43,12 @@ export function withAlpha(color: string, alpha: number): string {
     }
   }
 
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn('withAlpha received unsupported color format', {
+      alpha: normalizedAlpha,
+      color,
+    });
+  }
+
   return color;
 }

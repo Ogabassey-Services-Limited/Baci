@@ -14,6 +14,14 @@ export function getSafeErrorMessage(error: unknown): string {
   ) {
     return (error as { message: string }).message;
   }
+  if (error && typeof error === 'object') {
+    try {
+      const serialized = JSON.stringify(error);
+      if (serialized) return serialized;
+    } catch {
+      return 'Unserializable error object';
+    }
+  }
   return String(error);
 }
 

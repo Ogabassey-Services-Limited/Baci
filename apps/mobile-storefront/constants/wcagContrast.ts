@@ -1,3 +1,13 @@
+// WCAG 2.x relative luminance constants for sRGB colors.
+const WCAG_LINEAR_THRESHOLD = 0.03928;
+const WCAG_LINEAR_DIVISOR = 12.92;
+const WCAG_GAMMA_OFFSET = 0.055;
+const WCAG_GAMMA_DIVISOR = 1.055;
+const WCAG_GAMMA_EXPONENT = 2.4;
+const WCAG_RED_COEFFICIENT = 0.2126;
+const WCAG_GREEN_COEFFICIENT = 0.7152;
+const WCAG_BLUE_COEFFICIENT = 0.0722;
+
 export function parseHexColor(hexColor: string) {
   const normalized = hexColor.replace(/^#/, '');
   if (!/^[0-9a-f]{6}$/i.test(normalized)) {
@@ -12,14 +22,19 @@ export function parseHexColor(hexColor: string) {
 }
 
 export function linearize(channel: number) {
-  return channel <= 0.03928
-    ? channel / 12.92
-    : ((channel + 0.055) / 1.055) ** 2.4;
+  return channel <= WCAG_LINEAR_THRESHOLD
+    ? channel / WCAG_LINEAR_DIVISOR
+    : ((channel + WCAG_GAMMA_OFFSET) / WCAG_GAMMA_DIVISOR) **
+        WCAG_GAMMA_EXPONENT;
 }
 
 export function relativeLuminance(hexColor: string) {
   const { r, g, b } = parseHexColor(hexColor);
-  return 0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b);
+  return (
+    WCAG_RED_COEFFICIENT * linearize(r) +
+    WCAG_GREEN_COEFFICIENT * linearize(g) +
+    WCAG_BLUE_COEFFICIENT * linearize(b)
+  );
 }
 
 export function contrastRatio(foreground: string, background: string) {

@@ -32,13 +32,30 @@ describe('withAlpha', () => {
   });
 
   it('returns unsupported color formats unchanged', () => {
-    expect(withAlpha('red', 0.5)).toBe('red');
-    expect(withAlpha('hsl(0, 100%, 50%)', 0.5)).toBe('hsl(0, 100%, 50%)');
-    expect(withAlpha('rgb(100% 0% 0%)', 0.5)).toBe('rgb(100% 0% 0%)');
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      expect(withAlpha('red', 0.5)).toBe('red');
+      expect(withAlpha('hsl(0, 100%, 50%)', 0.5)).toBe('hsl(0, 100%, 50%)');
+      expect(withAlpha('rgb(100% 0% 0%)', 0.5)).toBe('rgb(100% 0% 0%)');
+      expect(warnSpy).toHaveBeenCalledWith(
+        'withAlpha received unsupported color format',
+        expect.objectContaining({ alpha: 0.5, color: 'red' })
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it('returns malformed colors unchanged', () => {
-    expect(withAlpha('#ggg', 0.5)).toBe('#ggg');
-    expect(withAlpha('rgb(999, 1, 1)', 0.5)).toBe('rgb(999, 1, 1)');
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    try {
+      expect(withAlpha('#ggg', 0.5)).toBe('#ggg');
+      expect(withAlpha('rgb(999, 1, 1)', 0.5)).toBe('rgb(999, 1, 1)');
+      expect(warnSpy).toHaveBeenCalledTimes(2);
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });
