@@ -552,7 +552,7 @@ export default function DashboardClientPage({
           className="min-w-[85vw] md:min-w-0 snap-center col-span-1 animate-in fade-in slide-in-from-bottom-4 duration-500"
           style={{ animationFillMode: 'both', animationDelay: '0.1s' }}
         >
-          <BentoCard title="Total Revenue" icon={DollarSign}>
+          <BentoCard title="30-Day Paid Revenue" icon={DollarSign}>
             <div className="mt-2 space-y-1">
               <div className="text-3xl font-bold tracking-tight">
                 {formatPrice(
@@ -575,7 +575,7 @@ export default function DashboardClientPage({
           className="min-w-[85vw] md:min-w-0 snap-center col-span-1 animate-in fade-in slide-in-from-bottom-4 duration-500"
           style={{ animationFillMode: 'both', animationDelay: '0.2s' }}
         >
-          <BentoCard title="Active Orders" icon={ShoppingBag}>
+          <BentoCard title="30-Day Paid Orders" icon={ShoppingBag}>
             <div className="mt-2 space-y-1">
               <div className="text-3xl font-bold tracking-tight">
                 +{dashboardData.orders.value.toLocaleString()}
@@ -603,7 +603,7 @@ export default function DashboardClientPage({
           className="min-w-[85vw] md:min-w-0 snap-center col-span-1 animate-in fade-in slide-in-from-bottom-4 duration-500"
           style={{ animationFillMode: 'both', animationDelay: '0.3s' }}
         >
-          <BentoCard title="Customers" icon={Users}>
+          <BentoCard title="30-Day Customers" icon={Users}>
             <div className="mt-2 space-y-1">
               <div className="text-3xl font-bold tracking-tight">
                 +{dashboardData.customers.value.toLocaleString()}
