@@ -6,9 +6,7 @@
  * - High-performance image handling via expo-image
  */
 
-import {
-  resolveVariantSelectionParamResolution,
-} from '@baci/shared/lib';
+import { resolveVariantSelectionParamResolution } from '@baci/shared/lib';
 import { Ionicons } from '@expo/vector-icons';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -36,11 +34,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useShallow } from 'zustand/react/shallow';
 import { OfflineEmptyState } from '@/components/OfflineNotice';
 import { FlyToCartParticle } from '@/components/product/FlyToCartParticle';
+import { useProductDetailSelection } from '@/components/product/hooks/use-product-detail-selection';
 import { NegotiationModal } from '@/components/product/NegotiationModal';
 import { ProductDetailsBody } from '@/components/product/ProductDetailsBody';
 import { ProductImageGallery } from '@/components/product/ProductImageGallery';
 import { StickyBottomActions } from '@/components/product/StickyBottomActions';
-import { useProductDetailSelection } from '@/components/product/hooks/use-product-detail-selection';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, { BRAND, RADIUS } from '@/constants/Colors';
 import { PLACEHOLDER_IMAGE_URL } from '@/constants/Images';
