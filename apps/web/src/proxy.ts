@@ -113,6 +113,10 @@ const MAIN_APP_ROUTES = [
   '/manifest.webmanifest',
 ];
 
+// Platform root routes that should still be served by the main app but cannot
+// live in MAIN_APP_ROUTES because merchant subdomains need storefront versions.
+const ROOT_DOMAIN_ONLY_MAIN_APP_ROUTES = ['/checkout'];
+
 // Prefixes whose tail segments may be case-sensitive (tracking numbers,
 // API identifiers, build IDs). Only the prefix itself is lowercased.
 // Important: do NOT derive from MAIN_APP_ROUTES wholesale — /checkout
@@ -1499,8 +1503,12 @@ export async function proxy(request: NextRequest) {
     !isLocalhost(hostname)
   ) {
     const pathSegments = pathname.split('/').filter(Boolean);
+    const isRootDomainOnlyMainAppRoute = ROOT_DOMAIN_ONLY_MAIN_APP_ROUTES.some(
+      (route) => pathname === route || pathname.startsWith(`${route}/`)
+    );
     if (
       pathSegments.length >= 1 &&
+      !isRootDomainOnlyMainAppRoute &&
       !MAIN_APP_ROUTES.some((route) => pathname.startsWith(route))
     ) {
       const potentialSlug = pathSegments[0];

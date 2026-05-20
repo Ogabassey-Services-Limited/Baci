@@ -1,7 +1,10 @@
 import type { User } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getSlugForCustomDomain } from '@/lib/domain-cache-simple';
+import {
+  getCustomDomainForSlug,
+  getSlugForCustomDomain,
+} from '@/lib/domain-cache-simple';
 import { updateSession } from '@/lib/supabase/middleware';
 import { config, proxy } from './proxy';
 
@@ -460,6 +463,17 @@ describe('Middleware Proxy', () => {
     expect(res.headers.get('x-middleware-request-x-merchant-slug')).toBe(
       'ogabassey'
     );
+  });
+
+  it('does not treat root checkout as a merchant slug redirect candidate', async () => {
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/checkout`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+    expect(getCustomDomainForSlug).not.toHaveBeenCalled();
   });
 
   it('should fall back to domain when slug lookup returns null', async () => {
