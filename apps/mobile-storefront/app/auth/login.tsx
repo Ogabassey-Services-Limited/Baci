@@ -596,7 +596,11 @@ export default function LoginScreen() {
             returnKeyType="done"
             onSubmitEditing={handlePasswordSignIn}
           />
-          <Pressable onPress={() => setShowPassword(!showPassword)}>
+          <Pressable
+            onPress={() => setShowPassword(!showPassword)}
+            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+            accessibilityRole="button"
+          >
             <Ionicons
               name={showPassword ? 'eye-off-outline' : 'eye-outline'}
               size={20}
