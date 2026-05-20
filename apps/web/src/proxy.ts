@@ -288,10 +288,7 @@ function getNoTrailingSlashRedirectPath(pathname: string): string | null {
   }
 
   const pathnameWithoutTrailingSlash = pathname.slice(0, -1);
-  if (
-    !pathnameWithoutTrailingSlash.startsWith('/.well-known/') &&
-    STATIC_FILES_REGEX.test(pathnameWithoutTrailingSlash)
-  ) {
+  if (pathnameWithoutTrailingSlash.startsWith('/.well-known/')) {
     return null;
   }
 
@@ -1843,6 +1840,6 @@ export const config = {
      * - sitemap.xml (SEO file)
      * - Static files with extensions (.svg, .png, .jpg, etc.)
      */
-    '/((?!_next/image|_next/static|favicon.ico|manifest.webmanifest|robots.txt|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff|woff2|ttf|eot|css|js|json)$).*)',
+    '/((?!_next/image(?:/.*[^/])?$|_next/static(?:/.*[^/])?$|favicon\\.ico$|manifest\\.webmanifest$|robots\\.txt$|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|woff|woff2|ttf|eot|css|js|json)$).*)',
   ],
 };

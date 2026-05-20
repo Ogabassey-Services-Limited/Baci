@@ -1337,6 +1337,30 @@ describe('Middleware Proxy', () => {
       expect(res.status).not.toBe(308);
     });
 
+    it('redirects trailing slash static asset variants to canonical asset URLs', async () => {
+      const req = new NextRequest(`https://${ROOT_DOMAIN}/favicon.ico/`);
+      req.headers.set('host', ROOT_DOMAIN);
+
+      const res = await proxy(req);
+      const location = res.headers.get('location');
+
+      expect(res.status).toBe(308);
+      expect(location).toBeTruthy();
+      expect(new URL(location || '').pathname).toBe('/favicon.ico');
+    });
+
+    it('does not redirect trailing slash /.well-known paths', async () => {
+      const req = new NextRequest(
+        `https://${ROOT_DOMAIN}/.well-known/assetlinks.json/`
+      );
+      req.headers.set('host', ROOT_DOMAIN);
+
+      const res = await proxy(req);
+
+      expect(res.status).toBe(200);
+      expect(res.headers.get('location')).toBeNull();
+    });
+
     it('does not redirect when only percent-encoded octets differ in case', async () => {
       const req = new NextRequest(
         `https://ogabassey.${ROOT_DOMAIN}/laptop/14%E2%80%9D-hp-omnibook-x-copilot%2B-pc-`
@@ -1367,6 +1391,23 @@ describe('Middleware Proxy', () => {
 
       // .avif should NOT match (excluded from middleware)
       expect(regex.test('/images/hero.avif')).toBe(false);
+    });
+
+    it('includes trailing slash asset variants so proxy can canonicalize them', () => {
+      const matcherPattern = config.matcher.find((matcher) =>
+        matcher?.includes('_next/image')
+      );
+      if (!matcherPattern) throw new Error('Static asset matcher is missing');
+      const regex = new RegExp(matcherPattern);
+
+      expect(regex.test('/favicon.ico')).toBe(false);
+      expect(regex.test('/favicon.ico/')).toBe(true);
+      expect(regex.test('/robots.txt')).toBe(false);
+      expect(regex.test('/robots.txt/')).toBe(true);
+      expect(regex.test('/manifest.webmanifest')).toBe(false);
+      expect(regex.test('/manifest.webmanifest/')).toBe(true);
+      expect(regex.test('/_next/static/chunks/app.js')).toBe(false);
+      expect(regex.test('/_next/static/chunks/app.js/')).toBe(true);
     });
   });
 });
