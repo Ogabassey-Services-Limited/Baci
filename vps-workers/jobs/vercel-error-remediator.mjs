@@ -39,6 +39,7 @@ function writePrompt({ candidate, outputDir }) {
 }
 
 export async function runVercelErrorRemediator({
+  autofixRunner = runRemediationAutofix,
   env = process.env,
   fetchFn = fetch,
   logger = console,
@@ -65,8 +66,17 @@ export async function runVercelErrorRemediator({
     logger.log(`[vercel-error-remediator] wrote ${path}`);
 
     if (mode === 'autofix') {
-      const result = runRemediationAutofix({ candidate, env, prompt });
-      actions.push(result);
+      try {
+        const result = await autofixRunner({ candidate, env, prompt });
+        actions.push(result);
+      } catch (error) {
+        logger.error('[vercel-error-remediator] autofix failed:', error);
+        actions.push({
+          detail: error instanceof Error ? error.message : String(error),
+          fingerprint: candidate.fingerprint,
+          type: 'autofix_failed',
+        });
+      }
     }
   }
 
@@ -76,8 +86,17 @@ export async function runVercelErrorRemediator({
     hasHighSeverityReview: false,
     hasUnresolvedThreads: false,
   });
-  const report = buildRemediationReport({ actions, candidates, mode, policy });
-  const email = await sendRemediationReportEmail({ env, fetchFn, report });
+  let report = buildRemediationReport({ actions, candidates, mode, policy });
+  let email;
+  try {
+    email = await sendRemediationReportEmail({ env, fetchFn, report });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    logger.error('[vercel-error-remediator] report email failed:', error);
+    actions.push({ detail, type: 'email_failed' });
+    report = buildRemediationReport({ actions, candidates, mode, policy });
+    email = { error: detail, skipped: true };
+  }
 
   return { actions, candidates, email, mode, policy, report };
 }
