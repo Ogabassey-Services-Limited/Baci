@@ -148,9 +148,7 @@ type CreateOrderResult = {
   };
 };
 
-type TestOrderItem = CreateOrderRequest['items'][number] & {
-  voucher_award_id?: string;
-};
+type TestOrderItem = CreateOrderRequest['items'][number];
 
 function getLastFetchCall(): [string, MockFetchOptions] {
   const fetchCall = mockFetchWithRetry.mock.calls.at(-1) as
@@ -334,7 +332,7 @@ describe('createOrder — variant_attributes', () => {
     expect(mockFetchWithRetry).not.toHaveBeenCalled();
   });
 
-  it('keeps voucher_award_id client-only for award-id-only quiz voucher items', async () => {
+  it('forwards a trimmed voucher_award_id for award-id-only quiz voucher items', async () => {
     await createOrderWithItems([
       {
         id: 'prod-1',
@@ -342,16 +340,36 @@ describe('createOrder — variant_attributes', () => {
         name: 'Quiz Voucher Item',
         quantity: 1,
         price: 0,
-        voucher_award_id: 'voucher-award-1',
+        voucher_award_id: '  voucher-award-1  ',
       },
     ]);
 
     const body = getLastFetchBody();
     expect(body.items[0]).not.toHaveProperty('voucher_token');
-    expect(body.items[0]).not.toHaveProperty('voucher_award_id');
+    expect(body.items[0].voucher_award_id).toBe('voucher-award-1');
   });
 
-  it('serializes only voucher_token across mixed multi-item carts', async () => {
+  it('rejects blank voucher_award_id values after trimming', async () => {
+    await expect(
+      createOrderWithItems([
+        {
+          id: 'prod-1',
+          product_id: 'prod-1',
+          name: 'Quiz Voucher Item',
+          quantity: 1,
+          price: 0,
+          voucher_award_id: '   ',
+        },
+      ])
+    ).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      message: expect.stringContaining('Voucher award ID'),
+    });
+
+    expect(mockFetchWithRetry).not.toHaveBeenCalled();
+  });
+
+  it('serializes voucher identifiers across mixed multi-item carts', async () => {
     await createOrderWithItems([
       {
         id: 'prod-paid-1',
@@ -381,13 +399,11 @@ describe('createOrder — variant_attributes', () => {
 
     const body = getLastFetchBody();
     expect(body.items[0]).not.toHaveProperty('voucher_token');
+    expect(body.items[0]).not.toHaveProperty('voucher_award_id');
     expect(body.items[1].voucher_token).toBe('voucher-token-2');
+    expect(body.items[1].voucher_award_id).toBe('voucher-award-2');
     expect(body.items[2]).not.toHaveProperty('voucher_token');
-    expect(
-      body.items.some((item: Record<string, unknown>) =>
-        Object.hasOwn(item, 'voucher_award_id')
-      )
-    ).toBe(false);
+    expect(body.items[2].voucher_award_id).toBe('voucher-award-3');
   });
 
   it('supports guest checkout when no authenticated session is present', async () => {

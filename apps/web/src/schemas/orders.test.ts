@@ -188,11 +188,13 @@ describe('orderCreateSchema', () => {
       items: [
         {
           ...validOrder.items[0],
+          voucher_award_id: '   ',
           voucher_token: '   ',
         },
         {
           ...validOrder.items[0],
           productId: 'prod-2',
+          voucherAwardId: '<script></script>',
           voucher_token: '<script></script>',
         },
       ],
@@ -200,7 +202,9 @@ describe('orderCreateSchema', () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
+      expect(result.data.items[0].voucher_award_id).toBeUndefined();
       expect(result.data.items[0].voucher_token).toBeUndefined();
+      expect(result.data.items[1].voucherAwardId).toBeUndefined();
       expect(result.data.items[1].voucher_token).toBeUndefined();
     }
   });
@@ -211,11 +215,13 @@ describe('orderCreateSchema', () => {
       items: [
         {
           ...validOrder.items[0],
+          voucher_award_id: '  <strong>quiz-award</strong>  ',
           voucher_token: '  <strong>quiz-token</strong>  ',
         },
         {
           ...validOrder.items[0],
           productId: 'prod-2',
+          voucherAwardId: '  <strong>camel-award</strong>  ',
           voucherToken: '  <strong>camel-token</strong>  ',
         },
       ],
@@ -223,7 +229,9 @@ describe('orderCreateSchema', () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
+      expect(result.data.items[0].voucher_award_id).toBe('quiz-award');
       expect(result.data.items[0].voucher_token).toBe('quiz-token');
+      expect(result.data.items[1].voucherAwardId).toBe('camel-award');
       expect(result.data.items[1].voucherToken).toBe('camel-token');
     }
   });
@@ -243,12 +251,29 @@ describe('orderCreateSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects mismatched voucher award ID aliases', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      items: [
+        {
+          ...validOrder.items[0],
+          voucher_award_id: 'quiz-award',
+          voucherAwardId: 'other-award',
+        },
+      ],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it('accepts matching voucher token aliases', () => {
     const result = orderCreateSchema.safeParse({
       ...validOrder,
       items: [
         {
           ...validOrder.items[0],
+          voucher_award_id: '  quiz-award  ',
+          voucherAwardId: '<strong>quiz-award</strong>',
           voucher_token: '  quiz-token  ',
           voucherToken: '<strong>quiz-token</strong>',
         },
@@ -257,6 +282,8 @@ describe('orderCreateSchema', () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
+      expect(result.data.items[0].voucher_award_id).toBe('quiz-award');
+      expect(result.data.items[0].voucherAwardId).toBe('quiz-award');
       expect(result.data.items[0].voucher_token).toBe('quiz-token');
       expect(result.data.items[0].voucherToken).toBe('quiz-token');
     }
@@ -268,6 +295,7 @@ describe('orderCreateSchema', () => {
       items: [
         {
           ...validOrder.items[0],
+          voucher_award_id: 'x'.repeat(129),
           voucher_token: 'x'.repeat(129),
         },
       ],
@@ -283,6 +311,7 @@ describe('orderCreateSchema', () => {
       items: [
         {
           ...validOrder.items[0],
+          voucher_award_id: voucherToken,
           voucher_token: voucherToken,
         },
       ],
@@ -290,6 +319,7 @@ describe('orderCreateSchema', () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
+      expect(result.data.items[0].voucher_award_id).toBe(voucherToken);
       expect(result.data.items[0].voucher_token).toBe(voucherToken);
     }
   });

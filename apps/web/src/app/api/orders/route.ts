@@ -72,19 +72,23 @@ type EmailOrderItem = {
 };
 
 type QuizVoucherItemCandidate = {
+  voucherAwardId?: unknown;
   voucherToken?: unknown;
+  voucher_award_id?: unknown;
   voucher_token?: unknown;
 };
 
-function hasNonEmptyToken(value: unknown): boolean {
+function hasNonEmptyVoucherIdentifier(value: unknown): boolean {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
 function hasQuizVoucherItem(items: QuizVoucherItemCandidate[]): boolean {
   return items.some(
     (item) =>
-      hasNonEmptyToken(item.voucher_token) ||
-      hasNonEmptyToken(item.voucherToken)
+      hasNonEmptyVoucherIdentifier(item.voucher_award_id) ||
+      hasNonEmptyVoucherIdentifier(item.voucherAwardId) ||
+      hasNonEmptyVoucherIdentifier(item.voucher_token) ||
+      hasNonEmptyVoucherIdentifier(item.voucherToken)
   );
 }
 

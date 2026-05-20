@@ -122,7 +122,9 @@ const orderCreateSchemaBase = z.object({
               z.string().transform((val) => sanitizeText(val).trim())
             )
             .optional(),
+          voucherAwardId: optionalVoucherTokenSchema,
           voucherToken: optionalVoucherTokenSchema,
+          voucher_award_id: optionalVoucherTokenSchema,
           voucher_token: optionalVoucherTokenSchema,
         })
         .refine((data) => data.product_id || data.productId || data.id, {
@@ -146,6 +148,16 @@ const orderCreateSchemaBase = z.object({
           {
             message:
               'voucherToken and voucher_token must match when both are provided',
+          }
+        )
+        .refine(
+          (data) =>
+            !data.voucherAwardId ||
+            !data.voucher_award_id ||
+            data.voucherAwardId === data.voucher_award_id,
+          {
+            message:
+              'voucherAwardId and voucher_award_id must match when both are provided',
           }
         )
     )

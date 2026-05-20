@@ -62,6 +62,12 @@ const OrderItemSchema = z.object({
     .min(1, 'Voucher token cannot be blank')
     .max(128, 'Voucher token must be 128 characters or less')
     .optional(),
+  voucher_award_id: z
+    .string()
+    .trim()
+    .min(1, 'Voucher award ID cannot be blank')
+    .max(128, 'Voucher award ID must be 128 characters or less')
+    .optional(),
 });
 
 // Order creation request schema
@@ -213,6 +219,7 @@ export async function createOrder(
       variant_attributes: item.variant_attributes || {},
       has_assurance: item.has_assurance ?? false,
       assurance_fee: item.assurance_fee ?? 0,
+      voucher_award_id: item.voucher_award_id,
       voucher_token: item.voucher_token,
     })),
     subtotal: request.subtotal,

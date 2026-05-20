@@ -240,6 +240,8 @@ describe('POST /api/orders — quiz voucher guard', () => {
   it.each([
     'voucher_token',
     'voucherToken',
+    'voucher_award_id',
+    'voucherAwardId',
   ] as const)('rejects quiz voucher orders with %s in Phase 1a before creating an order', async (voucherField) => {
     vi.stubEnv('QUIZ_PHASE', '1a');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', '');
