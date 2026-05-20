@@ -24,6 +24,12 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedBlogListing: vi.fn(),
 }));
 
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => (
+    <div aria-label="dynamic metadata marker" role="status" />
+  ),
+}));
+
 vi.mock('@/lib/routes', () => ({
   asRoute: (value: string) => value,
 }));
@@ -276,6 +282,9 @@ describe('blog page metadata', () => {
 
     expect(
       screen.getByRole('status', { name: /loading blog posts/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
     ).toBeInTheDocument();
     expect(screen.queryByText('Ogabassey blog')).not.toBeInTheDocument();
   });

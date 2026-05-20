@@ -50,6 +50,27 @@ describe('GET /api/places/details', () => {
     });
   });
 
+  it('passes the autocomplete session token through to Place Details', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        name: 'places/ChIJ1234',
+        formattedAddress: 'Lagos, Nigeria',
+        addressComponents: [],
+      }),
+    } as Response);
+
+    const response = await GET(
+      makeRequest({ placeId: 'ChIJ1234', sessionToken: 'session-123' })
+    );
+
+    expect(response.status).toBe(200);
+    const requestUrl = String(mockFetch.mock.calls[0]?.[0]);
+    expect(requestUrl).toBe(
+      'https://places.googleapis.com/v1/places/ChIJ1234?sessionToken=session-123'
+    );
+  });
+
   it('returns 400 for malformed placeId', async () => {
     const response = await GET(makeRequest({ placeId: '../../etc/passwd' }));
     const data = await response.json();
