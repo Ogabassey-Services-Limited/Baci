@@ -124,12 +124,28 @@ not launch the mobile-admin emulator directly with `-gpu swiftshader_indirect`.
 The launcher owns GPU mode, Quick Boot, restarts ADB, waits for boot, disables
 unused radio services, registers the Metro ADB reverse on port 8081, waits for
 Android load to settle, and fails if `adb shell` is not responsive.
-By default it launches `Baci_Pixel_9_API_35_ATD`, an AOSP ATD arm64 AVD
-configured with emulator GPU mode set to `auto`, 6 CPU cores, and 6144 MB RAM.
-ATD is the default because Google documents it as CPU/memory-optimized for
-automated tests; ATD also disables hardware rendering, so use UIAutomator
-evidence rather than screenshot assertions on this path.
+By default it launches `Baci_Pixel_9_Pro_XL_API_36_Google`, an Android 16 API 36
+Google APIs arm64 AVD using the Pixel 9 Pro XL device profile. The launcher uses
+emulator GPU mode `auto`, 2 CPU cores, and 4096 MB RAM. API 36 ATD images are
+not exposed by the current command-line SDK catalog on this host, and API 36.1
+Google APIs hung during install verification, so do not downgrade the default to
+API 35 ATD or switch to API 36.1 without a passing scripted launch and install smoke.
+Use `BACI_ANDROID_AVD_NAME` only for an explicit fallback during
+emulator-infrastructure triage.
 Set `BACI_ANDROID_COLD_BOOT=1` only when a fresh emulator state is required.
+
+Build and install the debug APK with:
+
+```bash
+cd apps/mobile-admin/android
+./gradlew :app:assembleDebug -PreactNativeArchitectures=arm64-v8a --console=plain
+cd ../../..
+pnpm --filter baci-mobile-admin android:install
+```
+
+Do not use Gradle `installDebug` for emulator QA on this host; Android 16 ADB
+install is stable with the repo `--no-streaming` installer, while Gradle's
+device property fetcher can time out.
 
 Run Metro for Android with:
 
