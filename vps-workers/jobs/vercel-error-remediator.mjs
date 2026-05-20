@@ -87,7 +87,11 @@ export async function runVercelErrorRemediator({
     hasUnresolvedThreads: false,
   });
   let report = buildRemediationReport({ actions, candidates, mode, policy });
-  let email;
+  let email = { reason: 'no candidates', skipped: true };
+  if (candidates.length === 0) {
+    return { actions, candidates, email, mode, policy, report };
+  }
+
   try {
     email = await sendRemediationReportEmail({ env, fetchFn, report });
   } catch (error) {
