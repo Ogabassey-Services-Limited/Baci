@@ -193,11 +193,15 @@ export function buildCrawlerLogSummary(
   let slowCrawls = 0;
 
   for (const row of rows) {
+    const fallbackClassification = classifyCrawlerUserAgent(
+      row.user_agent ?? row.bot_name
+    );
     const family =
       typeof row.agent_family === 'string' && row.agent_family.length > 0
         ? row.agent_family
-        : classifyCrawlerUserAgent(row.user_agent ?? row.bot_name).family;
-    const name = row.bot_name?.trim() || classifyCrawlerUserAgent(null).botName;
+        : fallbackClassification.family;
+    const name =
+      row.bot_name?.trim() || classifyCrawlerUserAgent(row.user_agent).botName;
     const key = `${family}:${name}`;
     const previous = botStats.get(key);
 

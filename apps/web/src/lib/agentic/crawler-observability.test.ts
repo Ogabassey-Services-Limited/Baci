@@ -94,4 +94,32 @@ describe('crawler observability helpers', () => {
       slowCrawls: 1,
     });
   });
+
+  it('uses the user-agent classification when legacy rows do not have a bot name', () => {
+    const summary = buildCrawlerLogSummary(
+      [
+        {
+          agent_family: null,
+          bot_name: null,
+          cache_outcome: null,
+          crawled_at: '2026-05-20T01:00:00.000Z',
+          host: 'ogabassey.com',
+          response_time_ms: null,
+          status_code: 200,
+          url_path: '/agent-commerce.json',
+          user_agent: 'GPTBot/1.0',
+        },
+      ],
+      7
+    );
+
+    expect(summary.byBot).toEqual([
+      {
+        count: 1,
+        family: 'openai',
+        lastCrawledAt: '2026-05-20T01:00:00.000Z',
+        name: 'OpenAI',
+      },
+    ]);
+  });
 });
