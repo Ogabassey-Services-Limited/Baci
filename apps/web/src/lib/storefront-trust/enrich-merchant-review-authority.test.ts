@@ -101,6 +101,31 @@ describe('enrichMerchantReviewAuthority', () => {
     });
   });
 
+  it('trims configured Google Place IDs before lookup and logging', async () => {
+    const profile = trustProfile({
+      merchantReviewAuthority: {
+        attributionLabel: 'Google Maps',
+        placeId: '  ChIJ1234  ',
+        reviewsSortedBy: 'relevance',
+        source: 'google_maps',
+      },
+    });
+
+    getCachedGooglePlacesReviews.mockRejectedValueOnce(
+      new Error('Google Places API error: 404')
+    );
+
+    const result = await enrichMerchantReviewAuthority(profile);
+
+    expect(result).toBe(profile);
+    expect(getCachedGooglePlacesReviews).toHaveBeenCalledWith('ChIJ1234');
+    expect(loggerError).toHaveBeenCalledWith({
+      message: 'Merchant review authority enrichment failed',
+      error: expect.any(Error),
+      placeId: 'ChIJ1234',
+    });
+  });
+
   it('keeps configured authority when Google Places enrichment fails', async () => {
     const profile = trustProfile({
       merchantReviewAuthority: {

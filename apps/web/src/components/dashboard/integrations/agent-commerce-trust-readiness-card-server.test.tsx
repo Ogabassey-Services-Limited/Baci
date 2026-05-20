@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { MerchantTrustProfile } from '@/lib/storefront-trust/merchant-trust-profile-types';
 
 vi.mock('@/app/api/feed/google-merchant/feed-data', () => ({
   getCachedGoogleMerchantFeedData: vi.fn(),
@@ -101,6 +102,19 @@ const merchant = {
   trust_profile: null,
 };
 
+const enrichedTrustProfile: MerchantTrustProfile = {
+  derivedLinks: {},
+  merchantReviewAuthority: {
+    attributionLabel: 'Google Maps',
+    placeId: 'ChIJ1234',
+    rating: 4.8,
+    reviewsSortedBy: 'relevance',
+    source: 'google_maps',
+    totalReviews: 217,
+  },
+  socialLinks: {},
+};
+
 describe('AgentCommerceTrustReadinessCardServer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -110,6 +124,9 @@ describe('AgentCommerceTrustReadinessCardServer', () => {
   });
 
   it('loads trust readiness and passes it to the card', async () => {
+    vi.mocked(enrichMerchantReviewAuthority).mockResolvedValueOnce(
+      enrichedTrustProfile
+    );
     vi.mocked(getCachedOpenAIFeedData).mockResolvedValue({
       products: [],
     } as never);
@@ -133,9 +150,32 @@ describe('AgentCommerceTrustReadinessCardServer', () => {
           business_name: 'Demo Store',
           slug: 'demo-store',
         },
+        trustProfile: enrichedTrustProfile,
       })
     );
     expect(screen.getByText('trust-card:pass:none')).toBeInTheDocument();
+  });
+
+  it('renders an error fallback when review authority enrichment fails', async () => {
+    vi.mocked(getCachedOpenAIFeedData).mockResolvedValue({
+      products: [],
+    } as never);
+    vi.mocked(getCachedGoogleMerchantFeedData).mockResolvedValue({
+      products: [],
+      imageManifest: {},
+      custom_domain: null,
+      slug: 'demo-store',
+    } as never);
+    vi.mocked(enrichMerchantReviewAuthority).mockRejectedValueOnce(
+      new Error('Enrichment failed')
+    );
+
+    render(await AgentCommerceTrustReadinessCardServer({ merchant }));
+
+    expect(
+      screen.getByText('trust-card:none:Unable to load agent trust health')
+    ).toBeInTheDocument();
+    expect(logger.error).toHaveBeenCalled();
   });
 
   it('renders an error fallback when readiness loading fails', async () => {
