@@ -7,6 +7,7 @@ const getMerchantForUser = vi.fn();
 const loadAgenticActionHealth = vi.fn();
 const getCachedOpenAIFeedData = vi.fn();
 const getCachedGoogleMerchantFeedData = vi.fn();
+const getCachedGooglePlacesReviews = vi.fn();
 const buildMerchantTrustProfile = vi.fn();
 const buildAgentCommerceTrustReadiness = vi.fn();
 const supabaseFrom = vi.fn();
@@ -56,6 +57,11 @@ vi.mock('@/app/api/feed/openai/feed-data', () => ({
 vi.mock('@/app/api/feed/google-merchant/feed-data', () => ({
   getCachedGoogleMerchantFeedData: (...args: unknown[]) =>
     getCachedGoogleMerchantFeedData(...args),
+}));
+
+vi.mock('@/lib/google-places-reviews', () => ({
+  getCachedGooglePlacesReviews: (...args: unknown[]) =>
+    getCachedGooglePlacesReviews(...args),
 }));
 
 const merchant = {
@@ -290,6 +296,17 @@ describe('loadAgenticCentersData', () => {
       imageManifest: {},
       products: [],
     });
+    getCachedGooglePlacesReviews.mockResolvedValue({
+      attributionLabel: 'Google Maps',
+      attributions: [],
+      businessName: 'Demo Store',
+      googleMapsUrl: 'https://maps.google.com/?cid=demo',
+      rating: 4.8,
+      reviews: [],
+      reviewsSortedBy: 'relevance',
+      source: 'google_maps',
+      totalReviews: 217,
+    });
     buildMerchantTrustProfile.mockReturnValue({});
     buildAgentCommerceTrustReadiness.mockReturnValue(fullReadiness);
   });
@@ -328,6 +345,67 @@ describe('loadAgenticCentersData', () => {
       totalCrawls: 2,
       windowDays: 14,
     });
+  });
+
+  it('enriches Google review authority before building dashboard trust readiness', async () => {
+    buildMerchantTrustProfile.mockReturnValueOnce({
+      merchantReviewAuthority: {
+        attributionLabel: 'Google Maps',
+        placeId: 'ChIJ1234',
+        reviewsSortedBy: 'relevance',
+        source: 'google_maps',
+      },
+    });
+    const { loadAgenticCentersData } = await import('./data');
+
+    await loadAgenticCentersData();
+
+    expect(getCachedGooglePlacesReviews).toHaveBeenCalledWith('ChIJ1234');
+    expect(buildAgentCommerceTrustReadiness).toHaveBeenCalledWith(
+      expect.objectContaining({
+        trustProfile: expect.objectContaining({
+          merchantReviewAuthority: expect.objectContaining({
+            googleMapsUrl: 'https://maps.google.com/?cid=demo',
+            placeId: 'ChIJ1234',
+            rating: 4.8,
+            totalReviews: 217,
+          }),
+        }),
+      })
+    );
+  });
+
+  it('skips Google review enrichment when dashboard authority has no Place ID', async () => {
+    buildMerchantTrustProfile.mockReturnValueOnce({
+      merchantReviewAuthority: {
+        attributionLabel: 'Google Maps',
+        reviewsSortedBy: 'relevance',
+        source: 'google_maps',
+      },
+    });
+    const { loadAgenticCentersData } = await import('./data');
+
+    await loadAgenticCentersData();
+
+    const readinessInput = buildAgentCommerceTrustReadiness.mock
+      .calls[0]?.[0] as
+      | {
+          trustProfile: {
+            merchantReviewAuthority?: Record<string, unknown>;
+          };
+        }
+      | undefined;
+
+    expect(getCachedGooglePlacesReviews).not.toHaveBeenCalled();
+    expect(
+      readinessInput?.trustProfile.merchantReviewAuthority
+    ).not.toHaveProperty('googleMapsUrl');
+    expect(
+      readinessInput?.trustProfile.merchantReviewAuthority
+    ).not.toHaveProperty('rating');
+    expect(
+      readinessInput?.trustProfile.merchantReviewAuthority
+    ).not.toHaveProperty('totalReviews');
   });
 
   it('trims recent crawler rows while preserving aggregate counts', async () => {

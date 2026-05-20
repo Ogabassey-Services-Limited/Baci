@@ -19,6 +19,7 @@ import {
   summarizeAgentCommerceTrustReadiness,
 } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
+import { enrichMerchantReviewAuthority } from '@/lib/storefront-trust/enrich-merchant-review-authority';
 import type { MerchantTrustProfileSource } from '@/lib/storefront-trust/merchant-trust-profile-types';
 import { createClient } from '@/lib/supabase/server';
 import type { AgenticActionHealthPayload } from '@/schemas/agentic-action-health';
@@ -134,7 +135,9 @@ async function loadAgenticTrustReadiness(
     slug,
     custom_domain: merchant.custom_domain ?? undefined,
   });
-  const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
+  const trustProfile = await enrichMerchantReviewAuthority(
+    buildMerchantTrustProfile(merchant, baseUrl)
+  );
   const [openAiFeedData, googleFeedData] = await Promise.all([
     getCachedOpenAIFeedData(merchant.id, true),
     getCachedGoogleMerchantFeedData(merchant.id, slug),
