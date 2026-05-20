@@ -177,10 +177,31 @@ function createCrawlerLogQuery({
   const query: CrawlerLogQuery = {
     eq: vi.fn((_column: string, _value: string) => query),
     gte: vi.fn((_column: string, _value: string) => query),
-    order: vi.fn(async (_column: string, _options: { ascending: boolean }) => ({
-      data,
-      error,
-    })),
+    order: vi.fn((column: string, options: { ascending: boolean }) => {
+      if (!data || column !== 'crawled_at') {
+        return Promise.resolve({ data, error });
+      }
+
+      const sortedData = [...data].sort((leftRow, rightRow) => {
+        const leftValue = leftRow.crawled_at;
+        const rightValue = rightRow.crawled_at;
+
+        if (typeof leftValue !== 'string' || typeof rightValue !== 'string') {
+          return 0;
+        }
+
+        const leftTime = Date.parse(leftValue);
+        const rightTime = Date.parse(rightValue);
+
+        if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) {
+          return 0;
+        }
+
+        return options.ascending ? leftTime - rightTime : rightTime - leftTime;
+      });
+
+      return Promise.resolve({ data: sortedData, error });
+    }),
     select: vi.fn((_columns: string) => query),
   };
 
@@ -275,8 +296,8 @@ describe('loadAgenticCentersData', () => {
     });
     expect(result.crawlerSummary?.recent).toHaveLength(3);
     expect(result.crawlerSummary?.recent.map((row) => row.url_path)).toEqual([
-      '/agent-page-0',
-      '/agent-page-1',
+      '/agent-page-4',
+      '/agent-page-3',
       '/agent-page-2',
     ]);
   });
