@@ -18,16 +18,19 @@ interface AgenticCrawlerVisibilityCardProps {
   summary: CrawlerLogSummary | null;
 }
 
+const crawlerVisibilityDateFormatter = new Intl.DateTimeFormat('en-US', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+  timeZone: 'UTC',
+});
+
 function formatDateTime(value: string | null | undefined) {
   if (!value) return 'No agent visits yet';
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Unknown';
 
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
+  return crawlerVisibilityDateFormatter.format(date);
 }
 
 function getHealthTone(summary: CrawlerLogSummary) {

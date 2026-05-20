@@ -58,6 +58,7 @@ describe('AgenticCrawlerVisibilityCard', () => {
     expect(screen.getByText('Monitor')).toBeInTheDocument();
     expect(screen.getByText('AI agent crawls')).toBeInTheDocument();
     expect(screen.getByText('Total crawls')).toBeInTheDocument();
+    expect(screen.getByText('May 20, 2026, 5:00 AM')).toBeInTheDocument();
     expect(screen.getAllByText('OpenAI')).toHaveLength(2);
     expect(screen.getByText('Google')).toBeInTheDocument();
     expect(screen.getAllByText('/agent-commerce.json')).toHaveLength(2);

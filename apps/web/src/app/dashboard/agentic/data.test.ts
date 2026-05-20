@@ -157,9 +157,10 @@ const fullReadiness = {
 interface CrawlerLogQuery {
   eq(column: string, value: string): CrawlerLogQuery;
   gte(column: string, value: string): CrawlerLogQuery;
-  order(
-    column: string,
-    options: { ascending: boolean }
+  order(column: string, options: { ascending: boolean }): CrawlerLogQuery;
+  range(
+    from: number,
+    to: number
   ): Promise<{
     data: Record<string, unknown>[] | null;
     error: unknown;
@@ -174,33 +175,49 @@ function createCrawlerLogQuery({
   data?: Record<string, unknown>[] | null;
   error?: unknown;
 } = {}): CrawlerLogQuery {
+  let orderColumn: string | null = null;
+  let orderOptions: { ascending: boolean } = { ascending: true };
+
+  const getOrderedData = () => {
+    if (!data || orderColumn !== 'crawled_at') {
+      return data;
+    }
+
+    return [...data].sort((leftRow, rightRow) => {
+      const leftValue = leftRow.crawled_at;
+      const rightValue = rightRow.crawled_at;
+
+      if (typeof leftValue !== 'string' || typeof rightValue !== 'string') {
+        return 0;
+      }
+
+      const leftTime = Date.parse(leftValue);
+      const rightTime = Date.parse(rightValue);
+
+      if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) {
+        return 0;
+      }
+
+      return orderOptions.ascending
+        ? leftTime - rightTime
+        : rightTime - leftTime;
+    });
+  };
+
   const query: CrawlerLogQuery = {
     eq: vi.fn((_column: string, _value: string) => query),
     gte: vi.fn((_column: string, _value: string) => query),
     order: vi.fn((column: string, options: { ascending: boolean }) => {
-      if (!data || column !== 'crawled_at') {
-        return Promise.resolve({ data, error });
-      }
-
-      const sortedData = [...data].sort((leftRow, rightRow) => {
-        const leftValue = leftRow.crawled_at;
-        const rightValue = rightRow.crawled_at;
-
-        if (typeof leftValue !== 'string' || typeof rightValue !== 'string') {
-          return 0;
-        }
-
-        const leftTime = Date.parse(leftValue);
-        const rightTime = Date.parse(rightValue);
-
-        if (Number.isNaN(leftTime) || Number.isNaN(rightTime)) {
-          return 0;
-        }
-
-        return options.ascending ? leftTime - rightTime : rightTime - leftTime;
+      orderColumn = column;
+      orderOptions = options;
+      return query;
+    }),
+    range: vi.fn((from: number, to: number) => {
+      const orderedData = getOrderedData();
+      return Promise.resolve({
+        data: orderedData?.slice(from, to + 1) ?? null,
+        error,
       });
-
-      return Promise.resolve({ data: sortedData, error });
     }),
     select: vi.fn((_columns: string) => query),
   };
@@ -300,6 +317,40 @@ describe('loadAgenticCentersData', () => {
       '/agent-page-3',
       '/agent-page-2',
     ]);
+  });
+
+  it('pages crawler rows before building aggregate counts', async () => {
+    const paginatedCrawlerRows = Array.from(
+      { length: 1001 },
+      (_value, index) => ({
+        agent_family: 'openai',
+        bot_name: 'OpenAI',
+        cache_outcome: 'hit',
+        crawled_at: `2026-05-20T05:${String(index % 60).padStart(2, '0')}:00.000Z`,
+        host: 'shop.example.com',
+        response_time_ms: 120,
+        status_code: 200,
+        url_path: `/agent-page-${index}`,
+        user_agent: 'GPTBot/1.0',
+      })
+    );
+    const crawlerLogQuery = createCrawlerLogQuery({
+      data: paginatedCrawlerRows,
+    });
+    supabaseFrom.mockImplementation((table: string) => {
+      if (table === 'crawler_logs') {
+        return crawlerLogQuery;
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+    const { loadAgenticCentersData } = await import('./data');
+
+    const result = await loadAgenticCentersData();
+
+    expect(result.crawlerSummary?.totalCrawls).toBe(1001);
+    expect(result.crawlerSummary?.health.aiAgentCrawls).toBe(1001);
+    expect(crawlerLogQuery.range).toHaveBeenNthCalledWith(1, 0, 999);
+    expect(crawlerLogQuery.range).toHaveBeenNthCalledWith(2, 1000, 1999);
   });
 
   it('skips loaders when the store is unpublished', async () => {

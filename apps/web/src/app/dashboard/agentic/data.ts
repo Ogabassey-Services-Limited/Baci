@@ -36,7 +36,10 @@ export interface AgenticCentersData {
 }
 
 const CRAWLER_VISIBILITY_WINDOW_DAYS = 14;
+const CRAWLER_LOG_PAGE_SIZE = 1000;
 const CRAWLER_RECENT_ACTIVITY_LIMIT = 3;
+const CRAWLER_LOG_SELECT_COLUMNS =
+  'agent_family, bot_name, cache_outcome, crawled_at, host, response_time_ms, status_code, url_path, user_agent';
 
 function isPermissionDeniedError(reason: unknown): boolean {
   if (!reason || typeof reason !== 'object') return false;
@@ -106,22 +109,33 @@ async function loadAgenticCrawlerVisibility(
 ): Promise<CrawlerLogSummary> {
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - CRAWLER_VISIBILITY_WINDOW_DAYS);
+  const crawledSince = startDate.toISOString();
+  const rows: CrawlerLogSummaryRow[] = [];
+  let rangeStart = 0;
 
-  const { data, error } = await supabase
-    .from('crawler_logs')
-    .select(
-      'agent_family, bot_name, cache_outcome, crawled_at, host, response_time_ms, status_code, url_path, user_agent'
-    )
-    .eq('merchant_id', merchantId)
-    .gte('crawled_at', startDate.toISOString())
-    .order('crawled_at', { ascending: false });
+  while (true) {
+    const rangeEnd = rangeStart + CRAWLER_LOG_PAGE_SIZE - 1;
+    const { data, error } = await supabase
+      .from('crawler_logs')
+      .select(CRAWLER_LOG_SELECT_COLUMNS)
+      .eq('merchant_id', merchantId)
+      .gte('crawled_at', crawledSince)
+      .order('crawled_at', { ascending: false })
+      .range(rangeStart, rangeEnd);
 
-  if (error) throw error;
+    if (error) throw error;
 
-  const summary = buildCrawlerLogSummary(
-    (data ?? []) as CrawlerLogSummaryRow[],
-    CRAWLER_VISIBILITY_WINDOW_DAYS
-  );
+    const pageRows = (data ?? []) as CrawlerLogSummaryRow[];
+    rows.push(...pageRows);
+
+    if (pageRows.length < CRAWLER_LOG_PAGE_SIZE) {
+      break;
+    }
+
+    rangeStart += CRAWLER_LOG_PAGE_SIZE;
+  }
+
+  const summary = buildCrawlerLogSummary(rows, CRAWLER_VISIBILITY_WINDOW_DAYS);
 
   return {
     ...summary,
