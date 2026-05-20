@@ -1,18 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-AVD_NAME="${BACI_ANDROID_AVD_NAME:-Baci_Pixel_9_API_35_ATD}"
+AVD_NAME="${BACI_ANDROID_AVD_NAME:-Baci_Pixel_9_Pro_XL_API_36_Google}"
+ANDROID_PLATFORM_PACKAGE="${BACI_ANDROID_PLATFORM_PACKAGE:-platforms;android-36}"
+ANDROID_SYSTEM_IMAGE_PACKAGE="${BACI_ANDROID_SYSTEM_IMAGE_PACKAGE:-system-images;android-36;google_apis;arm64-v8a}"
+ANDROID_DEVICE_PROFILE="${BACI_ANDROID_DEVICE_PROFILE:-pixel_9_pro_xl}"
 GPU_MODE="${BACI_ANDROID_GPU_MODE:-auto}"
 SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Library/Android/sdk}}"
 ADB="${SDK_ROOT}/platform-tools/adb"
 EMULATOR="${SDK_ROOT}/emulator/emulator"
 LOG_FILE="${BACI_ANDROID_EMULATOR_LOG:-/tmp/baci-mobile-admin-emulator.log}"
 BOOT_TIMEOUT_SECONDS="${BACI_ANDROID_BOOT_TIMEOUT_SECONDS:-420}"
-ADB_SERIAL="${BACI_ANDROID_ADB_SERIAL:-emulator-5554}"
+EMULATOR_PORT="${BACI_ANDROID_EMULATOR_PORT:-5554}"
+ADB_SERIAL="${BACI_ANDROID_ADB_SERIAL:-emulator-${EMULATOR_PORT}}"
 MIN_EMULATOR_BUILD="${BACI_ANDROID_MIN_EMULATOR_BUILD:-15261927}"
 ADB_STABILITY_PROBES="${BACI_ANDROID_ADB_STABILITY_PROBES:-3}"
-EMULATOR_MEMORY_MB="${BACI_ANDROID_EMULATOR_MEMORY_MB:-6144}"
-EMULATOR_CORES="${BACI_ANDROID_EMULATOR_CORES:-6}"
+EMULATOR_MEMORY_MB="${BACI_ANDROID_EMULATOR_MEMORY_MB:-4096}"
+EMULATOR_CORES="${BACI_ANDROID_EMULATOR_CORES:-2}"
 COLD_BOOT="${BACI_ANDROID_COLD_BOOT:-0}"
 SETTLE_TIMEOUT_SECONDS="${BACI_ANDROID_SETTLE_TIMEOUT_SECONDS:-600}"
 SETTLE_LOAD_MAX="${BACI_ANDROID_SETTLE_LOAD_MAX:-8.0}"
@@ -78,7 +82,7 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 if [[ "$GPU_MODE" == "swiftshader_indirect" ]]; then
-  echo "Refusing -gpu swiftshader_indirect for mobile-admin QA; use auto or host." >&2
+  echo "Refusing -gpu swiftshader_indirect for mobile-admin QA; use host or auto." >&2
   exit 1
 fi
 
@@ -102,8 +106,8 @@ fi
 if ! "$EMULATOR" -list-avds | grep -Fxq -- "$AVD_NAME"; then
   echo "Required AVD '$AVD_NAME' is not installed." >&2
   echo "Use the mobile-admin Android QA setup path before launching:" >&2
-  echo "  ${SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --sdk_root=${SDK_ROOT} \"emulator\" \"platform-tools\" \"platforms;android-35\" \"system-images;android-35;aosp_atd;arm64-v8a\"" >&2
-  echo "  printf 'no\\n' | ${SDK_ROOT}/cmdline-tools/latest/bin/avdmanager create avd --force --name ${AVD_NAME} --package \"system-images;android-35;aosp_atd;arm64-v8a\" --device \"pixel_9\"" >&2
+  echo "  ${SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --sdk_root=${SDK_ROOT} \"emulator\" \"platform-tools\" \"${ANDROID_PLATFORM_PACKAGE}\" \"${ANDROID_SYSTEM_IMAGE_PACKAGE}\"" >&2
+  echo "  printf 'no\\n' | ${SDK_ROOT}/cmdline-tools/latest/bin/avdmanager create avd --force --name ${AVD_NAME} --package \"${ANDROID_SYSTEM_IMAGE_PACKAGE}\" --device \"${ANDROID_DEVICE_PROFILE}\"" >&2
   echo "Then launch only with: pnpm --filter baci-mobile-admin android:emulator" >&2
   exit 1
 fi
@@ -195,7 +199,6 @@ stabilize_android_system() {
   local package_name
   local package_names=(
     com.android.bluetooth
-    com.android.phone
     com.android.launcher3
     com.android.quicksearchbox
     com.android.localtransport
@@ -247,6 +250,10 @@ wait_for_android_settle() {
 
 echo "Starting Android emulator for mobile-admin QA"
 echo "AVD: $AVD_NAME"
+echo "Platform package: $ANDROID_PLATFORM_PACKAGE"
+echo "System image: $ANDROID_SYSTEM_IMAGE_PACKAGE"
+echo "Device profile: $ANDROID_DEVICE_PROFILE"
+echo "Emulator port: $EMULATOR_PORT"
 echo "GPU: $GPU_MODE"
 echo "Cores: $EMULATOR_CORES"
 echo "Memory: ${EMULATOR_MEMORY_MB}MB"
@@ -264,17 +271,19 @@ fi
 
 rm -f "$LOG_FILE"
 emulator_pid="$(
-  python3 - "$EMULATOR" "$AVD_NAME" "$GPU_MODE" "$LOG_FILE" "$EMULATOR_MEMORY_MB" "$EMULATOR_CORES" "$COLD_BOOT" <<'PY'
+  python3 - "$EMULATOR" "$AVD_NAME" "$GPU_MODE" "$EMULATOR_PORT" "$LOG_FILE" "$EMULATOR_MEMORY_MB" "$EMULATOR_CORES" "$COLD_BOOT" <<'PY'
 import subprocess
 import sys
 
-emulator, avd_name, gpu_mode, log_file, memory_mb, cores, cold_boot = sys.argv[1:]
+emulator, avd_name, gpu_mode, emulator_port, log_file, memory_mb, cores, cold_boot = sys.argv[1:]
 log = open(log_file, 'ab', buffering=0)
 emulator_args = [
     emulator,
     f'@{avd_name}',
     '-gpu',
     gpu_mode,
+    '-port',
+    emulator_port,
     '-no-boot-anim',
     '-no-audio',
     '-netdelay',
