@@ -3,7 +3,10 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { type ReactNode, Suspense } from 'react';
-import { OgabasseyPdpProductResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
+import {
+  OgabasseyPdpProductResourceHints,
+  preloadOgabasseyPdpProductImage,
+} from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-resource-hints';
 import { OgabasseyPdpStaticResourceHints } from '@/app/(storefront)/ogabassey/ogabassey-pdp-static-resource-hints';
 import { ProductDetailsPage as OgabasseyProductPage } from '@/components/storefront/ogabassey/pages/product-details-page';
 import { buildOgabasseyProductSpecData } from '@/components/storefront/ogabassey/product-spec-data';
@@ -620,11 +623,13 @@ export default async function CategoryProductPage({
   }
 
   redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
+  const primaryProductImage = product.imageLarge || product.image;
+  if (merchant?.template_id === OGABASSEY_TEMPLATE_ID) {
+    preloadOgabasseyPdpProductImage({ src: primaryProductImage });
+  }
   const productResourceHints =
     merchant?.template_id === OGABASSEY_TEMPLATE_ID ? (
-      <OgabasseyPdpProductResourceHints
-        src={product.imageLarge || product.image}
-      />
+      <OgabasseyPdpProductResourceHints src={primaryProductImage} />
     ) : null;
 
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
