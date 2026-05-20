@@ -200,14 +200,14 @@ describe('GET /api/storefront/auth/session', () => {
     expect(body.customer).toEqual(customer);
   });
 
-  it('creates no-email customer sessions without calling the email-checked RPC', async () => {
+  it('claims phone-auth customer sessions without calling the email-checked RPC', async () => {
     const phoneOnlyUser = {
       ...user,
       email: undefined,
+      phone: '+2348000000000',
       user_metadata: {
         first_name: 'Ada',
         last_name: 'Lovelace',
-        phone: '+2348000000000',
         role: 'customer',
       },
     };
@@ -222,8 +222,74 @@ describe('GET /api/storefront/auth/session', () => {
       data: null,
       error: { code: 'PGRST116', message: 'No rows found' },
     });
-    const insertCustomerChain = makeInsertChain({
+    const claimedCustomerChain = makeSelectChain({
       data: { ...customer, email: null },
+      error: null,
+    });
+
+    let customerLookupCount = 0;
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') return merchantChain;
+      if (table === 'customers') {
+        customerLookupCount += 1;
+        return customerLookupCount === 1
+          ? missingCustomerChain
+          : claimedCustomerChain;
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith('claim_customer_on_phone_auth', {
+      p_first_name: 'Ada',
+      p_last_name: 'Lovelace',
+      p_merchant_id: 'merchant-1',
+      p_phone: '+2348000000000',
+      p_user_id: 'user-1',
+    });
+    expect(claimedCustomerChain.eq).toHaveBeenCalledWith('id', 'customer-1');
+    expect(claimedCustomerChain.eq).toHaveBeenCalledWith(
+      'merchant_id',
+      'merchant-1'
+    );
+    expect(claimedCustomerChain.eq).toHaveBeenCalledWith('user_id', 'user-1');
+    expect(body).toEqual({
+      authenticated: true,
+      customer: { ...customer, email: null },
+      user: {
+        email: null,
+        id: 'user-1',
+        role: 'customer',
+      },
+    });
+  });
+
+  it('falls back to direct no-email customer creation when there is no verified phone', async () => {
+    const noIdentifierUser = {
+      ...user,
+      email: undefined,
+      user_metadata: {
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        role: 'customer',
+      },
+    };
+
+    mockGetUser.mockResolvedValue({
+      data: { user: noIdentifierUser },
+      error: null,
+    });
+
+    const merchantChain = makeSelectChain({ data: merchant, error: null });
+    const missingCustomerChain = makeSelectChain({
+      data: null,
+      error: { code: 'PGRST116', message: 'No rows found' },
+    });
+    const insertCustomerChain = makeInsertChain({
+      data: { ...customer, email: null, phone: null },
       error: null,
     });
 
@@ -249,18 +315,10 @@ describe('GET /api/storefront/auth/session', () => {
       first_name: 'Ada',
       last_name: 'Lovelace',
       merchant_id: 'merchant-1',
-      phone: '+2348000000000',
+      phone: null,
       user_id: 'user-1',
     });
-    expect(body).toEqual({
-      authenticated: true,
-      customer: { ...customer, email: null },
-      user: {
-        email: null,
-        id: 'user-1',
-        role: 'customer',
-      },
-    });
+    expect(body.customer).toEqual({ ...customer, email: null, phone: null });
   });
 
   it('preserves split names when the secure customer auth upsert links a row without them', async () => {

@@ -32,7 +32,8 @@ function normalizeProfileString(value: unknown): string | null {
 }
 
 function getCustomerProfileFields(
-  metadata: Record<string, unknown> | null | undefined
+  metadata: Record<string, unknown> | null | undefined,
+  authPhone?: unknown
 ) {
   const explicitFirstName = normalizeProfileString(metadata?.first_name);
   const explicitLastName = normalizeProfileString(metadata?.last_name);
@@ -50,7 +51,9 @@ function getCustomerProfileFields(
     firstName,
     fullName,
     lastName,
-    phone: normalizeProfileString(metadata?.phone),
+    phone:
+      normalizeProfileString(authPhone) ??
+      normalizeProfileString(metadata?.phone),
   };
 }
 
@@ -134,10 +137,52 @@ export async function GET(request: Request) {
       // PGRST116 = no rows found (customer not yet created for this merchant)
       console.error('Customer fetch error:', customerError);
     } else if (!customer) {
-      const profileFields = getCustomerProfileFields(user.user_metadata);
+      const profileFields = getCustomerProfileFields(
+        user.user_metadata,
+        'phone' in user ? user.phone : undefined
+      );
       const userEmail = normalizeProfileString(user.email);
 
-      if (!userEmail) {
+      if (!userEmail && profileFields.phone) {
+        const { data: claimedCustomerId, error: claimError } =
+          await supabase.rpc('claim_customer_on_phone_auth', {
+            p_first_name: profileFields.firstName,
+            p_last_name: profileFields.lastName,
+            p_merchant_id: merchant.id,
+            p_phone: profileFields.phone,
+            p_user_id: user.id,
+          });
+
+        if (claimError) {
+          console.error(
+            'Failed to claim no-email customer session:',
+            claimError
+          );
+        } else if (!claimedCustomerId) {
+          console.error('Phone auth customer claim returned no customer id', {
+            merchantId: merchant.id,
+            userId: user.id,
+          });
+        } else {
+          const { data: claimedCustomer, error: claimedCustomerError } =
+            await supabase
+              .from('customers')
+              .select(CUSTOMER_SESSION_SELECT)
+              .eq('id', claimedCustomerId)
+              .eq('merchant_id', merchant.id)
+              .eq('user_id', user.id)
+              .single();
+
+          if (claimedCustomerError) {
+            console.error(
+              'Customer fetch after phone claim error:',
+              claimedCustomerError
+            );
+          } else {
+            customer = claimedCustomer;
+          }
+        }
+      } else if (!userEmail) {
         const { data: newCustomer, error: createError } = await supabase
           .from('customers')
           .insert({
