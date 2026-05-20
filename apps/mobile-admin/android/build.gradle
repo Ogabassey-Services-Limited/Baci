@@ -13,6 +13,12 @@ buildscript {
   }
 }
 
+ext {
+  compileSdkVersion = 36
+  minSdkVersion = 24
+  targetSdkVersion = 36
+}
+
 allprojects {
   repositories {
     maven { url "${rootDir}/../../../node_modules/@react-native-async-storage/async-storage/android/local_repo" }

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, Text, TextInput, View } from 'react-native';
-import { VariantConditionEditor } from '@/app/(admin)/product/VariantConditionEditor';
+import { VariantConditionEditor } from '@/components/product/VariantConditionEditor';
 import type { ThemeColors } from '@/constants/theme';
 import {
   EDITABLE_PRODUCT_CONDITIONS,

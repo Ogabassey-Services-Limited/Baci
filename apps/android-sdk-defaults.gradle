@@ -5,18 +5,31 @@ ext.configureAndroidSdkDefaults = { subproject ->
       return
     }
 
+    def toSdkInt = { value ->
+      if (value == null) {
+        return null
+      }
+      if (value instanceof Number) {
+        return value.toInteger()
+      }
+      if (value.metaClass.hasProperty(value, "apiLevel")) {
+        return value.apiLevel.toInteger()
+      }
+      return value.toString().trim().toInteger()
+    }
+
     def compileSdkVersion =
-      rootProject.ext.has("compileSdkVersion")
+      toSdkInt(rootProject.ext.has("compileSdkVersion")
         ? rootProject.ext.get("compileSdkVersion")
-        : 36
+        : 36)
     def minSdkVersion =
-      rootProject.ext.has("minSdkVersion")
+      toSdkInt(rootProject.ext.has("minSdkVersion")
         ? rootProject.ext.get("minSdkVersion")
-        : 24
+        : 24)
     def targetSdkVersion =
-      rootProject.ext.has("targetSdkVersion")
+      toSdkInt(rootProject.ext.has("targetSdkVersion")
         ? rootProject.ext.get("targetSdkVersion")
-        : 36
+        : 36)
 
     if (android.hasProperty("compileSdk") && !android.compileSdk) {
       android.compileSdk = compileSdkVersion
@@ -24,10 +37,15 @@ ext.configureAndroidSdkDefaults = { subproject ->
 
     if (android.defaultConfig != null) {
       if (
-        android.defaultConfig.hasProperty("minSdk") &&
-        android.defaultConfig.minSdk == null
+        android.defaultConfig.hasProperty("minSdk")
       ) {
-        android.defaultConfig.minSdk = minSdkVersion
+        def currentMinSdkVersion = toSdkInt(android.defaultConfig.minSdk)
+        if (
+          currentMinSdkVersion == null ||
+          currentMinSdkVersion < minSdkVersion
+        ) {
+          android.defaultConfig.minSdk = minSdkVersion
+        }
       }
       if (
         android.defaultConfig.hasProperty("targetSdk") &&

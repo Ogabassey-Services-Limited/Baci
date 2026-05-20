@@ -189,12 +189,32 @@ describe('BranchSwitcher', () => {
     mocks.branchesLoading = false;
   });
 
-  it('shows all locations and add branch when no active branches exist', () => {
+  it('shows only add branch when no active branches exist', () => {
     mocks.branches = [];
 
     render(<BranchSwitcher />);
 
-    expect(screen.getByText('All locations')).toBeInTheDocument();
+    expect(screen.queryByText('All locations')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Add new branch' })
+    ).toBeInTheDocument();
+  });
+
+  it('does not expose branch filter controls when only one active branch exists', () => {
+    mocks.branches = [mocks.branches[0]];
+
+    render(<BranchSwitcher />);
+
+    expect(screen.queryByText('All locations')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Show all branch locations' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Switch to Lagos main branch' })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Manage Lagos main branch' })
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Add new branch' })
     ).toBeInTheDocument();
@@ -287,28 +307,6 @@ describe('BranchSwitcher', () => {
         },
       });
     });
-  });
-
-  it('disables deactivation when the selected branch is the only active branch', () => {
-    mocks.branches = [mocks.branches[0]];
-
-    render(<BranchSwitcher />);
-
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Manage Lagos main branch' })
-    );
-
-    expect(
-      screen.getByRole('button', {
-        name: 'Deactivate branch',
-      })
-    ).toBeDisabled();
-    fireEvent.click(
-      screen.getByRole('button', {
-        name: 'Deactivate branch',
-      })
-    );
-    expect(mocks.deactivateMutateAsync).not.toHaveBeenCalled();
   });
 
   it('deactivates a branch from the edit flow when another active branch exists', async () => {

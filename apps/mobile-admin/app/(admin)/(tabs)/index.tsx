@@ -378,7 +378,7 @@ export default function HomeScreen() {
             <StatCard
               // fetchDashboardStats intentionally leaves visitsQuery and
               // customersQuery unscoped, so these totals stay cross-branch.
-              label="Visits (all stores)"
+              label="Visits"
               value={formatMetric(stats?.visits ?? 0)}
               icon="globe-outline"
               iconColor={colors.info}
@@ -386,7 +386,7 @@ export default function HomeScreen() {
             <StatCard
               // fetchDashboardStats intentionally leaves visitsQuery and
               // customersQuery unscoped, so these totals stay cross-branch.
-              label="New (all stores)"
+              label="New"
               value={formatMetric(stats?.newCustomers ?? 0)}
               icon="people-outline"
               iconColor={colors.success}
