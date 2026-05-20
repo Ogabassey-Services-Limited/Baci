@@ -123,7 +123,7 @@ export default function GridProductCard({
           <Ionicons name="cart" size={18} color={BRAND.primary} />
           {cartItemCount > 0 && (
             <View style={[styles.cartBadge, { borderColor: colors.card }]}>
-              <Text style={styles.badgeTextMini}>{cartItemCount}</Text>
+              <Text style={[styles.badgeTextMini, { color: colors.primaryForeground }]}>{cartItemCount}</Text>
             </View>
           )}
         </Pressable>
@@ -144,11 +144,11 @@ export default function GridProductCard({
                 color={BRAND.secondary}
               />
             ))}
-            <Text style={styles.ratingTextMini}>({rating})</Text>
+            <Text style={[styles.ratingTextMini, { color: colors.mutedForeground }]}>({rating})</Text>
           </View>
         ) : (
           <View style={styles.ratingRowMini} accessible accessibilityLabel="No ratings">
-            <Text style={styles.ratingTextMini}>No ratings</Text>
+            <Text style={[styles.ratingTextMini, { color: colors.mutedForeground }]}>No ratings</Text>
           </View>
         )}
 

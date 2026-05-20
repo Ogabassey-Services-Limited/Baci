@@ -49,7 +49,7 @@ export default function ListProductCard({
         <Image
           {...imageProps}
           source={imageSource}
-          style={styles.listImage}
+          style={[styles.listImage, { backgroundColor: colors.muted }]}
           testID="list-product-image"
         />
       )}
@@ -92,7 +92,7 @@ export default function ListProductCard({
               <Ionicons name="cart" size={16} color={colors.background} />
               {cartItemCount > 0 && (
                 <View style={[styles.listBadge, { borderColor: colors.card }]}>
-                  <Text style={styles.badgeTextMini}>{cartItemCount}</Text>
+                  <Text style={[styles.badgeTextMini, { color: colors.primaryForeground }]}>{cartItemCount}</Text>
                 </View>
               )}
             </View>
