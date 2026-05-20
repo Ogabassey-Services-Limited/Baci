@@ -56,6 +56,18 @@ const OrderItemSchema = z.object({
   variant_attributes: z.record(z.string(), z.string()).optional(),
   has_assurance: z.boolean().optional(),
   assurance_fee: z.number().min(0).optional(),
+  voucher_token: z
+    .string()
+    .trim()
+    .min(1, 'Voucher token cannot be blank')
+    .max(128, 'Voucher token must be 128 characters or less')
+    .optional(),
+  voucher_award_id: z
+    .string()
+    .trim()
+    .min(1, 'Voucher award ID cannot be blank')
+    .max(128, 'Voucher award ID must be 128 characters or less')
+    .optional(),
 });
 
 // Order creation request schema
@@ -165,6 +177,7 @@ export async function createOrder(
       validationResult.error
     );
   }
+  const validatedRequest = validationResult.data;
 
   // 2. Check network connectivity
   const isOnline = await checkNetwork();
@@ -193,7 +206,7 @@ export async function createOrder(
     customer_email: request.customer_email,
     customer_name: request.customer_name,
     customer_phone: request.customer_phone,
-    items: request.items.map((item) => ({
+    items: validatedRequest.items.map((item) => ({
       id: item.id,
       condition: item.condition,
       product_id: item.product_id || item.id,
@@ -206,6 +219,8 @@ export async function createOrder(
       variant_attributes: item.variant_attributes || {},
       has_assurance: item.has_assurance ?? false,
       assurance_fee: item.assurance_fee ?? 0,
+      voucher_award_id: item.voucher_award_id,
+      voucher_token: item.voucher_token,
     })),
     subtotal: request.subtotal,
     shipping_fee: request.shipping_fee,

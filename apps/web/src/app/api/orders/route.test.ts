@@ -1,15 +1,27 @@
 import { NextRequest } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authenticateApiRequest } from '@/lib/api-auth';
 import { POST } from './route';
 
 // Hoisted mocks for fire-and-forget side effects so tests don't await emails / push.
 const {
+  MockQuizProductionNotApprovedError,
+  mockEnforcePrizeProductionGuard,
   mockNotifyNewOrder,
   mockNotifyPaymentReceived,
   mockSendEmail,
   mockAfter,
 } = vi.hoisted(() => ({
+  MockQuizProductionNotApprovedError: class MockQuizProductionNotApprovedError extends Error {
+    code = 'quiz_production_not_approved' as const;
+    status = 403 as const;
+
+    constructor() {
+      super('quiz_production_not_approved');
+      this.name = 'QuizProductionNotApprovedError';
+    }
+  },
+  mockEnforcePrizeProductionGuard: vi.fn(),
   mockNotifyNewOrder: vi.fn(() =>
     Promise.resolve({ sent: 1, failed: 0, errors: [] })
   ),
@@ -25,6 +37,12 @@ vi.mock('@/env', () => ({
   getSupabaseAnonKey: () => 'mock-key',
   getSupabaseServiceRoleKey: () => 'mock-service-key',
   getRootDomain: () => 'localhost:3000',
+  getQuizPhaseEnv: () => process.env.QUIZ_PHASE ?? '1a',
+  getQuizProductionApprovedEnv: () => {
+    const normalized =
+      process.env.QUIZ_PRODUCTION_APPROVED?.trim().toLowerCase() ?? '';
+    return normalized === 'true' || normalized === '1' || normalized === 'yes';
+  },
 }));
 
 vi.mock('@/lib/api-auth', () => ({
@@ -60,6 +78,11 @@ vi.mock('@/lib/geo-privacy', () => ({
     region: 'Lagos',
     shouldApplyLDU: false,
   }),
+}));
+
+vi.mock('@/lib/quiz-compliance-gate', () => ({
+  enforcePrizeProductionGuard: mockEnforcePrizeProductionGuard,
+  QuizProductionNotApprovedError: MockQuizProductionNotApprovedError,
 }));
 
 vi.mock('@/lib/shipping/providers/gigl', () => ({
@@ -192,6 +215,136 @@ const baseOrderPayload = {
 async function readJson(response: Response) {
   return JSON.parse(await response.text());
 }
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+describe('POST /api/orders — quiz voucher guard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockEnforcePrizeProductionGuard.mockImplementation(
+      (_event, complianceVerified) => {
+        if (!complianceVerified) {
+          throw new MockQuizProductionNotApprovedError();
+        }
+      }
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: null,
+      error: 'Not authenticated',
+      supabase: null,
+    });
+  });
+
+  it.each([
+    'voucher_token',
+    'voucherToken',
+    'voucher_award_id',
+    'voucherAwardId',
+  ] as const)('rejects quiz voucher orders with %s in Phase 1a before creating an order', async (voucherField) => {
+    vi.stubEnv('QUIZ_PHASE', '1a');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', '');
+    const supabase = buildMockSupabase();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            price: 0,
+            [voucherField]: ' quiz-voucher-token ',
+          },
+        ],
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(403);
+    expect(body).toEqual({
+      code: 'quiz_production_not_approved',
+      error: 'Quiz vouchers are not approved for production use',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('keeps Phase 1a quiz voucher orders locked even when approval env is truthy', async () => {
+    vi.stubEnv('QUIZ_PHASE', '1a');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    const supabase = buildMockSupabase();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            price: 0,
+            voucher_token: 'quiz-voucher-token',
+          },
+        ],
+      }),
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(403);
+    expect(mockEnforcePrizeProductionGuard).toHaveBeenCalledWith(
+      { nlrc_permit_ref: null },
+      false
+    );
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('passes production approval env into the quiz voucher guard', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    const supabase = buildMockSupabase();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            price: 0,
+            voucher_token: 'quiz-voucher-token',
+          },
+        ],
+      }),
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(201);
+    expect(mockEnforcePrizeProductionGuard).toHaveBeenCalledWith(
+      { nlrc_permit_ref: null },
+      true
+    );
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order',
+      expect.any(Object)
+    );
+  });
+});
 
 describe('POST /api/orders — wallet response shape', () => {
   beforeEach(async () => {
