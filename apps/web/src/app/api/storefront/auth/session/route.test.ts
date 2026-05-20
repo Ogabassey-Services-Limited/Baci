@@ -33,6 +33,27 @@ function makeSelectChain(result: { data: unknown; error: unknown }) {
   return chain;
 }
 
+function makeInsertChain(result: { data: unknown; error: unknown }) {
+  const chain = {
+    insert: vi.fn(() => chain),
+    select: vi.fn(() => chain),
+    single: vi.fn().mockResolvedValue(result),
+  };
+
+  return chain;
+}
+
+function makeUpdateChain(result: { data: unknown; error: unknown }) {
+  const chain = {
+    update: vi.fn(() => chain),
+    eq: vi.fn(() => chain),
+    select: vi.fn(() => chain),
+    single: vi.fn().mockResolvedValue(result),
+  };
+
+  return chain;
+}
+
 const merchant = { id: 'merchant-1' };
 const user = {
   id: 'user-1',
@@ -175,6 +196,119 @@ describe('GET /api/storefront/auth/session', () => {
       p_email: 'customer@example.com',
       p_full_name: 'Ada Lovelace',
       p_phone: '+2348000000000',
+    });
+    expect(body.customer).toEqual(customer);
+  });
+
+  it('creates no-email customer sessions without calling the email-checked RPC', async () => {
+    const phoneOnlyUser = {
+      ...user,
+      email: undefined,
+      user_metadata: {
+        first_name: 'Ada',
+        last_name: 'Lovelace',
+        phone: '+2348000000000',
+        role: 'customer',
+      },
+    };
+
+    mockGetUser.mockResolvedValue({
+      data: { user: phoneOnlyUser },
+      error: null,
+    });
+
+    const merchantChain = makeSelectChain({ data: merchant, error: null });
+    const missingCustomerChain = makeSelectChain({
+      data: null,
+      error: { code: 'PGRST116', message: 'No rows found' },
+    });
+    const insertCustomerChain = makeInsertChain({
+      data: { ...customer, email: null },
+      error: null,
+    });
+
+    let customerLookupCount = 0;
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') return merchantChain;
+      if (table === 'customers') {
+        customerLookupCount += 1;
+        return customerLookupCount === 1
+          ? missingCustomerChain
+          : insertCustomerChain;
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(insertCustomerChain.insert).toHaveBeenCalledWith({
+      email: null,
+      first_name: 'Ada',
+      last_name: 'Lovelace',
+      merchant_id: 'merchant-1',
+      phone: '+2348000000000',
+      user_id: 'user-1',
+    });
+    expect(body).toEqual({
+      authenticated: true,
+      customer: { ...customer, email: null },
+      user: {
+        email: null,
+        id: 'user-1',
+        role: 'customer',
+      },
+    });
+  });
+
+  it('preserves split names when the secure customer auth upsert links a row without them', async () => {
+    mockGetUser.mockResolvedValue({
+      data: { user },
+      error: null,
+    });
+
+    const merchantChain = makeSelectChain({ data: merchant, error: null });
+    const missingCustomerChain = makeSelectChain({
+      data: null,
+      error: { code: 'PGRST116', message: 'No rows found' },
+    });
+    const linkedCustomerWithoutNamesChain = makeSelectChain({
+      data: { ...customer, first_name: null, last_name: null },
+      error: null,
+    });
+    const updateCustomerNamesChain = makeUpdateChain({
+      data: customer,
+      error: null,
+    });
+
+    let customerLookupCount = 0;
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') return merchantChain;
+      if (table === 'customers') {
+        customerLookupCount += 1;
+        if (customerLookupCount === 1) return missingCustomerChain;
+        if (customerLookupCount === 2) return linkedCustomerWithoutNamesChain;
+        return updateCustomerNamesChain;
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockRpc).toHaveBeenCalledWith('upsert_customer_on_auth', {
+      p_merchant_id: 'merchant-1',
+      p_user_id: 'user-1',
+      p_email: 'customer@example.com',
+      p_full_name: 'Ada Lovelace',
+      p_phone: '+2348000000000',
+    });
+    expect(updateCustomerNamesChain.update).toHaveBeenCalledWith({
+      first_name: 'Ada',
+      last_name: 'Lovelace',
     });
     expect(body.customer).toEqual(customer);
   });

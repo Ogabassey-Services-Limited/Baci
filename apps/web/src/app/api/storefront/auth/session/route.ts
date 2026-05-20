@@ -22,6 +22,38 @@ const CUSTOMER_SESSION_SELECT = `
   created_at
 `;
 
+function normalizeProfileString(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmedValue = value.trim();
+  return trimmedValue.length > 0 ? trimmedValue : null;
+}
+
+function getCustomerProfileFields(
+  metadata: Record<string, unknown> | null | undefined
+) {
+  const explicitFirstName = normalizeProfileString(metadata?.first_name);
+  const explicitLastName = normalizeProfileString(metadata?.last_name);
+  const explicitFullName = normalizeProfileString(metadata?.full_name);
+  const fullNameParts = explicitFullName?.split(/\s+/) ?? [];
+  const firstName = explicitFirstName ?? fullNameParts[0] ?? null;
+  const lastName =
+    explicitLastName ??
+    (fullNameParts.length > 1 ? fullNameParts.slice(1).join(' ') : null);
+  const fullName =
+    explicitFullName ??
+    ([firstName, lastName].filter(Boolean).join(' ') || null);
+
+  return {
+    firstName,
+    fullName,
+    lastName,
+    phone: normalizeProfileString(metadata?.phone),
+  };
+}
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -102,48 +134,102 @@ export async function GET(request: Request) {
       // PGRST116 = no rows found (customer not yet created for this merchant)
       console.error('Customer fetch error:', customerError);
     } else if (!customer) {
-      const fullName =
-        user.user_metadata?.full_name ||
-        [user.user_metadata?.first_name, user.user_metadata?.last_name]
-          .filter(Boolean)
-          .join(' ') ||
-        null;
-      const { error: upsertError } = await supabase.rpc(
-        'upsert_customer_on_auth',
-        {
-          p_merchant_id: merchant.id,
-          p_user_id: user.id,
-          p_email: user.email,
-          p_full_name: fullName,
-          p_phone: user.user_metadata?.phone || null,
-        }
-      );
+      const profileFields = getCustomerProfileFields(user.user_metadata);
+      const userEmail = normalizeProfileString(user.email);
 
-      if (upsertError) {
-        console.error('Failed to upsert customer session:', upsertError);
-      } else {
-        const { data: linkedCustomer, error: linkedCustomerError } =
-          await supabase
-            .from('customers')
-            .select(CUSTOMER_SESSION_SELECT)
-            .eq('merchant_id', merchant.id)
-            .eq('user_id', user.id)
-            .single();
+      if (!userEmail) {
+        const { data: newCustomer, error: createError } = await supabase
+          .from('customers')
+          .insert({
+            email: null,
+            first_name: profileFields.firstName,
+            last_name: profileFields.lastName,
+            merchant_id: merchant.id,
+            phone: profileFields.phone,
+            user_id: user.id,
+          })
+          .select(CUSTOMER_SESSION_SELECT)
+          .single();
 
-        if (linkedCustomerError && linkedCustomerError.code !== 'PGRST116') {
+        if (createError) {
           console.error(
-            'Customer fetch after upsert error:',
-            linkedCustomerError
+            'Failed to create no-email customer session:',
+            createError
           );
-        } else if (linkedCustomerError?.code === 'PGRST116') {
-          console.error('Customer fetch after upsert returned no rows', {
-            error: linkedCustomerError,
-            merchantId: merchant.id,
-            userId: user.id,
-          });
+        } else {
+          customer = newCustomer;
         }
+      } else {
+        const { error: upsertError } = await supabase.rpc(
+          'upsert_customer_on_auth',
+          {
+            p_merchant_id: merchant.id,
+            p_user_id: user.id,
+            p_email: userEmail,
+            p_full_name: profileFields.fullName,
+            p_phone: profileFields.phone,
+          }
+        );
 
-        customer = linkedCustomer;
+        if (upsertError) {
+          console.error('Failed to upsert customer session:', upsertError);
+        } else {
+          const { data: linkedCustomer, error: linkedCustomerError } =
+            await supabase
+              .from('customers')
+              .select(CUSTOMER_SESSION_SELECT)
+              .eq('merchant_id', merchant.id)
+              .eq('user_id', user.id)
+              .single();
+
+          if (linkedCustomerError && linkedCustomerError.code !== 'PGRST116') {
+            console.error(
+              'Customer fetch after upsert error:',
+              linkedCustomerError
+            );
+          } else if (linkedCustomerError?.code === 'PGRST116') {
+            console.error('Customer fetch after upsert returned no rows', {
+              error: linkedCustomerError,
+              merchantId: merchant.id,
+              userId: user.id,
+            });
+          }
+
+          customer = linkedCustomer;
+
+          const profileNameUpdates: {
+            first_name?: string;
+            last_name?: string;
+          } = {};
+
+          if (!customer?.first_name && profileFields.firstName) {
+            profileNameUpdates.first_name = profileFields.firstName;
+          }
+          if (!customer?.last_name && profileFields.lastName) {
+            profileNameUpdates.last_name = profileFields.lastName;
+          }
+
+          if (customer && Object.keys(profileNameUpdates).length > 0) {
+            const { data: namedCustomer, error: nameUpdateError } =
+              await supabase
+                .from('customers')
+                .update(profileNameUpdates)
+                .eq('id', customer.id)
+                .eq('merchant_id', merchant.id)
+                .eq('user_id', user.id)
+                .select(CUSTOMER_SESSION_SELECT)
+                .single();
+
+            if (nameUpdateError) {
+              console.error(
+                'Customer profile name update error:',
+                nameUpdateError
+              );
+            } else {
+              customer = namedCustomer;
+            }
+          }
+        }
       }
     }
 
@@ -151,7 +237,7 @@ export async function GET(request: Request) {
       authenticated: true,
       user: {
         id: user.id,
-        email: user.email,
+        email: normalizeProfileString(user.email),
         role: userRole || 'customer',
       },
       customer: customer || null,
