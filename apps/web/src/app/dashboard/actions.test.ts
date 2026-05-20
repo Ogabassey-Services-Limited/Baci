@@ -81,6 +81,18 @@ function createDashboardSupabaseClient() {
   );
 }
 
+function createMonthlyChartSupabaseClient(rpc: ReturnType<typeof vi.fn>) {
+  return {
+    auth: {
+      getUser: vi.fn().mockResolvedValue({
+        data: { user: { id: 'user-1' } },
+        error: null,
+      }),
+    },
+    rpc,
+  };
+}
+
 describe('dashboard actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -220,18 +232,41 @@ describe('dashboard actions', () => {
     expect(supabaseClient.from).not.toHaveBeenCalled();
   });
 
+  it('does not query recent sales for invalid action arguments', async () => {
+    const result = await getRecentSales('merchant-1', 0);
+
+    expect(result).toEqual([]);
+    expect(mockCreateClient).not.toHaveBeenCalled();
+  });
+
   it('loads monthly chart data from the dashboard sales RPC', async () => {
     const rpc = vi.fn(async () => ({
       data: [{ month: 'May', orders: 2, profit: 500, revenue: 12500 }],
       error: null,
     }));
-    mockCreateClient.mockResolvedValue({ rpc });
+    const supabaseClient = createMonthlyChartSupabaseClient(rpc);
+    mockCreateClient.mockResolvedValue(supabaseClient);
+    mockGetMerchantForApiRequest.mockResolvedValueOnce({
+      merchantId: 'merchant-authorized',
+      staffAccess: {
+        isOwner: true,
+        isStaff: false,
+        permissions: { full_access: { all: true } },
+        role: null,
+      },
+    });
 
-    await expect(getMonthlyChartData('merchant-1')).resolves.toEqual([
+    await expect(getMonthlyChartData('merchant-tampered')).resolves.toEqual([
       { month: 'May', orders: 2, profit: 500, revenue: 12500 },
     ]);
+    expect(supabaseClient.auth.getUser).toHaveBeenCalledTimes(1);
+    expect(mockGetMerchantForApiRequest).toHaveBeenCalledWith(
+      supabaseClient,
+      'user-1',
+      { requestedMerchantId: 'merchant-tampered' }
+    );
     expect(rpc).toHaveBeenCalledWith('get_monthly_sales_stats', {
-      p_merchant_id: 'merchant-1',
+      p_merchant_id: 'merchant-authorized',
     });
   });
 
@@ -240,9 +275,44 @@ describe('dashboard actions', () => {
       data: null,
       error: { message: 'rpc failed' },
     }));
-    mockCreateClient.mockResolvedValue({ rpc });
+    mockCreateClient.mockResolvedValue(createMonthlyChartSupabaseClient(rpc));
 
     await expect(getMonthlyChartData('merchant-1')).resolves.toEqual([]);
+  });
+
+  it('does not load monthly chart data for unauthenticated callers', async () => {
+    const rpc = vi.fn();
+    const supabaseClient = createMonthlyChartSupabaseClient(rpc);
+    supabaseClient.auth.getUser.mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    });
+    mockCreateClient.mockResolvedValue(supabaseClient);
+
+    const result = await getMonthlyChartData('merchant-1');
+
+    expect(result).toEqual([]);
+    expect(mockGetMerchantForApiRequest).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('does not load monthly chart data when the caller has no merchant access', async () => {
+    const rpc = vi.fn();
+    const supabaseClient = createMonthlyChartSupabaseClient(rpc);
+    mockCreateClient.mockResolvedValue(supabaseClient);
+    mockGetMerchantForApiRequest.mockResolvedValueOnce(null);
+
+    const result = await getMonthlyChartData('merchant-1');
+
+    expect(result).toEqual([]);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it('does not load monthly chart data for invalid action arguments', async () => {
+    const result = await getMonthlyChartData('   ');
+
+    expect(result).toEqual([]);
+    expect(mockCreateClient).not.toHaveBeenCalled();
   });
 
   it('authorizes cached dashboard metrics before calling service-role stats', async () => {
@@ -326,5 +396,12 @@ describe('dashboard actions', () => {
     const result = await getDashboardMetrics('merchant-1');
 
     expect(result).toEqual(zeroMetrics);
+  });
+
+  it('falls back to zeroed metrics for invalid action arguments', async () => {
+    const result = await getDashboardMetrics('   ');
+
+    expect(result).toEqual(zeroMetrics);
+    expect(mockCreateClient).not.toHaveBeenCalled();
   });
 });

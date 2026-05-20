@@ -3,6 +3,10 @@
 import { getCachedDashboardStats } from '@/lib/cached-data';
 import { getMerchantForApiRequest } from '@/lib/get-merchant-for-api-request';
 import { createClient } from '@/lib/supabase/server';
+import {
+  dashboardMerchantActionArgsSchema,
+  dashboardRecentSalesArgsSchema,
+} from '@/schemas/dashboard-actions';
 
 export interface DashboardMetrics {
   revenue: {
@@ -51,31 +55,50 @@ function getZeroDashboardMetrics(): DashboardMetrics {
   };
 }
 
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+async function getAuthorizedDashboardMerchantId(
+  supabase: SupabaseServerClient,
+  requestedMerchantId: string
+): Promise<string | null> {
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return null;
+  }
+
+  const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
+    requestedMerchantId,
+  });
+
+  return merchantContext?.merchantId ?? null;
+}
+
 export async function getDashboardMetrics(
   merchantId: string
 ): Promise<DashboardMetrics> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const args = dashboardMerchantActionArgsSchema.safeParse({ merchantId });
+    if (!args.success) {
       return getZeroDashboardMetrics();
     }
 
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
-      requestedMerchantId: merchantId,
-    });
+    const supabase = await createClient();
+    const authorizedMerchantId = await getAuthorizedDashboardMerchantId(
+      supabase,
+      args.data.merchantId
+    );
 
-    if (!merchantContext) {
+    if (!authorizedMerchantId) {
       return getZeroDashboardMetrics();
     }
 
     // OPTIMIZED: Use cached RPC function
     // This uses stable caching (1 min) to prevent DB hammering on refresh
-    const stats = await getCachedDashboardStats(merchantContext.merchantId);
+    const stats = await getCachedDashboardStats(authorizedMerchantId);
 
     // If RPC returns null/empty (shouldn't happen with our SQL logic but safe to handle)
     if (!stats) {
@@ -101,31 +124,31 @@ export async function getRecentSales(
   limit = 5
 ): Promise<RecentSale[]> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
+    const args = dashboardRecentSalesArgsSchema.safeParse({
+      limit,
+      merchantId,
+    });
+    if (!args.success) {
       return [];
     }
 
-    const merchantContext = await getMerchantForApiRequest(supabase, user.id, {
-      requestedMerchantId: merchantId,
-    });
+    const supabase = await createClient();
+    const authorizedMerchantId = await getAuthorizedDashboardMerchantId(
+      supabase,
+      args.data.merchantId
+    );
 
-    if (!merchantContext) {
+    if (!authorizedMerchantId) {
       return [];
     }
 
     const { data: orders, error } = await supabase
       .from('orders')
       .select('id, customer_name, customer_email, total, payment_status')
-      .eq('merchant_id', merchantContext.merchantId)
+      .eq('merchant_id', authorizedMerchantId)
       .eq('payment_status', 'paid')
       .order('created_at', { ascending: false })
-      .limit(limit);
+      .limit(args.data.limit);
 
     if (error) {
       console.error('Error fetching recent sales:', error);
@@ -149,12 +172,25 @@ export async function getMonthlyChartData(
   merchantId: string
 ): Promise<MonthlyChartData[]> {
   try {
+    const args = dashboardMerchantActionArgsSchema.safeParse({ merchantId });
+    if (!args.success) {
+      return [];
+    }
+
     const supabase = await createClient();
+    const authorizedMerchantId = await getAuthorizedDashboardMerchantId(
+      supabase,
+      args.data.merchantId
+    );
+
+    if (!authorizedMerchantId) {
+      return [];
+    }
 
     // OPTIMIZED: Use database RPC function
     const { data: chartData, error } = await supabase.rpc(
       'get_monthly_sales_stats',
-      { p_merchant_id: merchantId }
+      { p_merchant_id: authorizedMerchantId }
     );
 
     if (error) {
