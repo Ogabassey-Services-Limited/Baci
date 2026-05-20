@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { getRootDomain } from '@/env';
 import { getCachedNavigationCategories } from '@/lib/cached-categories';
 import { getRequestScopedMerchant } from '@/lib/cached-data';
+
+vi.mock('@/env', () => ({
+  getRootDomain: vi.fn(() => 'usebaci.com'),
+}));
 
 vi.mock('@/lib/cached-categories', () => ({
   getCachedNavigationCategories: vi.fn(),
@@ -56,6 +61,7 @@ describe('getStorefrontShellSnapshot', () => {
     vi.mocked(getCachedNavigationCategories).mockReset();
     mockHeaders.mockReset();
     mockHeaders.mockResolvedValue(new Headers());
+    vi.mocked(getRootDomain).mockReturnValue('usebaci.com');
   });
 
   it('returns path-routed shell data with a slug-based basePath on first render', async () => {
@@ -132,6 +138,84 @@ describe('getStorefrontShellSnapshot', () => {
     expect(shellSnapshotBase).toMatchObject({
       routingMode: 'domain',
       basePath: '',
+    });
+  });
+
+  it('uses the configured root domain for slug subdomain routing', async () => {
+    vi.mocked(getRootDomain).mockReturnValue('shops.example');
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(
+      baseMerchant as unknown as Awaited<
+        ReturnType<typeof getRequestScopedMerchant>
+      >
+    );
+    mockHeaders.mockResolvedValue(
+      new Headers([['host', 'ogabassey.shops.example']])
+    );
+
+    const shellSnapshotBase = await getStorefrontShellSnapshotBase('ogabassey');
+
+    expect(shellSnapshotBase).toMatchObject({
+      routingMode: 'domain',
+      basePath: '',
+    });
+  });
+
+  it('rejects confusable host suffixes when inferring slug subdomain routing', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(
+      baseMerchant as unknown as Awaited<
+        ReturnType<typeof getRequestScopedMerchant>
+      >
+    );
+    mockHeaders.mockResolvedValue(
+      new Headers([['host', 'ogabassey.usebaci.com.attacker.tld']])
+    );
+
+    const shellSnapshotBase = await getStorefrontShellSnapshotBase('ogabassey');
+
+    expect(shellSnapshotBase).toMatchObject({
+      routingMode: 'path',
+      basePath: '/ogabassey',
+    });
+  });
+
+  it('parses forwarded host lists when host is unavailable', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(
+      baseMerchant as unknown as Awaited<
+        ReturnType<typeof getRequestScopedMerchant>
+      >
+    );
+    mockHeaders.mockResolvedValue(
+      new Headers([
+        ['x-forwarded-host', 'ogabassey.usebaci.com:443, proxy.local'],
+      ])
+    );
+
+    const shellSnapshotBase = await getStorefrontShellSnapshotBase('ogabassey');
+
+    expect(shellSnapshotBase).toMatchObject({
+      routingMode: 'domain',
+      basePath: '',
+    });
+  });
+
+  it('prefers host over forwarded host for slug subdomain routing inference', async () => {
+    vi.mocked(getRequestScopedMerchant).mockResolvedValue(
+      baseMerchant as unknown as Awaited<
+        ReturnType<typeof getRequestScopedMerchant>
+      >
+    );
+    mockHeaders.mockResolvedValue(
+      new Headers([
+        ['host', 'usebaci.com'],
+        ['x-forwarded-host', 'ogabassey.usebaci.com'],
+      ])
+    );
+
+    const shellSnapshotBase = await getStorefrontShellSnapshotBase('ogabassey');
+
+    expect(shellSnapshotBase).toMatchObject({
+      routingMode: 'path',
+      basePath: '/ogabassey',
     });
   });
 
