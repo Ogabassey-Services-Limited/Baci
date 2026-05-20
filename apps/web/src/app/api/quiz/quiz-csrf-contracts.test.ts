@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { createClient } from '@/lib/supabase/server';
 
@@ -16,6 +16,11 @@ const EVENT_ID = '11111111-1111-1111-1111-111111111111';
 const ATTEMPT_ID = '22222222-2222-2222-2222-222222222222';
 const QUESTION_ID = '33333333-3333-3333-3333-333333333333';
 const AWARD_ID = '44444444-4444-4444-4444-444444444444';
+const ORIGINAL_QUIZ_ENV = {
+  QUIZ_PHASE: process.env.QUIZ_PHASE,
+  QUIZ_PRODUCTION_APPROVED: process.env.QUIZ_PRODUCTION_APPROVED,
+  QUIZ_RPC_SERVER_SECRET: process.env.QUIZ_RPC_SERVER_SECRET,
+};
 
 function jsonRequest(url: string, body: unknown) {
   return new NextRequest(url, {
@@ -90,6 +95,16 @@ describe('quiz mutation CSRF contracts', () => {
     process.env.QUIZ_PHASE = 'production';
     process.env.QUIZ_PRODUCTION_APPROVED = 'true';
     process.env.QUIZ_RPC_SERVER_SECRET = 'test-secret';
+  });
+
+  afterEach(() => {
+    for (const [key, value] of Object.entries(ORIGINAL_QUIZ_ENV)) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
   });
 
   it('blocks start attempt mutations when csrf validation fails', async () => {

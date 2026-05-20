@@ -241,4 +241,34 @@ describe('cart-store', () => {
       },
     });
   });
+
+  it('does not reset generated line ids while cart items still exist', () => {
+    const { addItem } = useCartStore.getState();
+
+    addItem({
+      product_id: 'product-1',
+      slug: 'redmi-note-14',
+      variant_id: 'variant-128',
+      name: 'Redmi Note 14',
+      price: 0,
+      quantity: 1,
+      voucher_award_id: 'voucher-award-1',
+    });
+
+    resetCartLineSequence();
+
+    addItem({
+      product_id: 'product-1',
+      slug: 'redmi-note-14',
+      variant_id: 'variant-128',
+      name: 'Redmi Note 14',
+      price: 0,
+      quantity: 1,
+      voucher_award_id: 'voucher-award-1',
+    });
+
+    const ids = useCartStore.getState().items.map((item) => item.id);
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+  });
 });

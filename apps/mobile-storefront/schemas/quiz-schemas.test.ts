@@ -132,6 +132,14 @@ describe('quiz response schemas', () => {
         ['totalQuestions'],
       ],
       [
+        quizResultSchema.safeParse({
+          ...completedResult,
+          correctAnswers: 4,
+          totalQuestions: 3,
+        }),
+        ['correctAnswers'],
+      ],
+      [
         quizAttemptSchema.safeParse({
           ...validAttempt,
           examPassPointsSpent: 2,

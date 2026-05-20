@@ -1,4 +1,10 @@
 import { type NextRequest, NextResponse } from 'next/server';
+import {
+  invalidInputResponse,
+  prizeGuardErrorResponse,
+  requireQuizUser,
+  rpcErrorResponse,
+} from '@/app/api/quiz/_shared/route-helpers';
 import { getQuizPhaseEnv } from '@/env';
 import { logger } from '@/lib/logger';
 import { enforcePrizeProductionGuard } from '@/lib/quiz-compliance-gate';
@@ -7,12 +13,6 @@ import {
   quizEventRowSchema,
   quizEventsQuerySchema,
 } from '@/schemas/quiz';
-import {
-  invalidInputResponse,
-  prizeGuardErrorResponse,
-  requireQuizUser,
-  rpcErrorResponse,
-} from '../_shared/route-helpers';
 
 const DEFAULT_PRIZE_NAME = 'Quiz prize';
 const MIN_INTERNAL_PAGE_SIZE = 50;

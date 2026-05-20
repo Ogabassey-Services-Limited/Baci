@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { requireQuizUser } from '@/app/api/quiz/_shared/route-helpers';
 import { type AuthResult, authenticateApiRequest } from '@/lib/api-auth';
 import { createClient } from '@/lib/supabase/server';
-import { requireQuizUser } from './_shared/route-helpers';
 
 vi.mock('@/lib/api-auth', () => ({
   authenticateApiRequest: vi.fn(),

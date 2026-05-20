@@ -14,7 +14,8 @@
  */
 export function withAlpha(color: string, alpha: number): string {
   const normalizedAlpha = Math.min(Math.max(alpha, 0), 1);
-  const hex = color.trim().replace(/^#/, '');
+  const input = color.trim();
+  const hex = input.replace(/^#/, '');
 
   if (/^[0-9a-f]{3}$/i.test(hex)) {
     const [r, g, b] = hex
@@ -30,7 +31,7 @@ export function withAlpha(color: string, alpha: number): string {
     return `rgba(${r}, ${g}, ${b}, ${normalizedAlpha})`;
   }
 
-  const rgbMatch = color.match(
+  const rgbMatch = input.match(
     /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})(?:\s*,\s*[\d.]+)?\s*\)$/i
   );
   if (rgbMatch) {

@@ -99,7 +99,7 @@ describe('quiz API route contracts', () => {
       }),
     } as unknown as NextRequest;
 
-    const { POST } = await import('./attempts/start/route');
+    const { POST } = await import('@/app/api/quiz/attempts/start/route');
     const response = await POST(request);
 
     expect(order).toEqual(['auth', 'json']);
@@ -120,7 +120,7 @@ describe('quiz API route contracts', () => {
   it('returns 400 for invalid start payloads before RPC calls', async () => {
     const { rpc } = mockAuthenticatedSupabase();
 
-    const { POST } = await import('./attempts/start/route');
+    const { POST } = await import('@/app/api/quiz/attempts/start/route');
     const response = await POST(
       jsonRequest('http://localhost/api/quiz/attempts/start', {
         eventId: 'not-a-uuid',
@@ -146,7 +146,9 @@ describe('quiz API route contracts', () => {
     };
     const { rpc } = mockAuthenticatedSupabase({ rpcResult });
 
-    const { POST } = await import('./attempts/[attemptId]/answers/route');
+    const { POST } = await import(
+      '@/app/api/quiz/attempts/[attemptId]/answers/route'
+    );
     const response = await POST(
       jsonRequest(`http://localhost/api/quiz/attempts/${ATTEMPT_ID}/answers`, {
         answer: 'A',
@@ -183,7 +185,7 @@ describe('quiz API route contracts', () => {
     });
 
     const { POST } = await import(
-      './attempts/[attemptId]/finalize-awards/route'
+      '@/app/api/quiz/attempts/[attemptId]/finalize-awards/route'
     );
     const response = await POST(
       jsonRequest(
@@ -215,7 +217,7 @@ describe('quiz API route contracts', () => {
       },
     });
 
-    const { POST } = await import('./prizes/grand/claim/route');
+    const { POST } = await import('@/app/api/quiz/prizes/grand/claim/route');
     const response = await POST(
       jsonRequest('http://localhost/api/quiz/prizes/grand/claim', {
         eventId: EVENT_ID,
@@ -252,7 +254,7 @@ describe('quiz API route contracts', () => {
       },
     });
 
-    const { POST } = await import('./awards/cash/claim/route');
+    const { POST } = await import('@/app/api/quiz/awards/cash/claim/route');
     const response = await POST(
       jsonRequest('http://localhost/api/quiz/awards/cash/claim', {
         awardId: AWARD_ID,

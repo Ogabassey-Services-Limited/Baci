@@ -149,6 +149,9 @@ export function createQuizStyles(colors: QuizThemeColors) {
       borderColor: colors.primary,
       backgroundColor: colors.primaryLowOpacity,
     },
+    answerButtonDisabled: {
+      opacity: 0.56,
+    },
     answerText: {
       color: colors.text,
       fontSize: 16,

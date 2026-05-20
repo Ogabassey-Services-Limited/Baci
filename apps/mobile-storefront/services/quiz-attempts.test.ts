@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterAll, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const mockFetch = jest.fn<typeof fetch>();
 const mockGetSession = jest.fn(() =>
@@ -7,6 +7,7 @@ const mockGetSession = jest.fn(() =>
 const mockGetUser = jest.fn(() =>
   Promise.resolve({ data: { user: { id: 'user-1' } } })
 );
+const originalFetch = global.fetch;
 
 global.fetch = mockFetch;
 
@@ -23,6 +24,10 @@ const { startQuizAttempt, submitQuizAnswer } =
   require('./quiz-attempts') as typeof import('./quiz-attempts');
 
 describe('quiz service attempt lifecycle', () => {
+  afterAll(() => {
+    global.fetch = originalFetch;
+  });
+
   beforeEach(() => {
     mockFetch.mockReset();
     mockGetSession.mockResolvedValue({
@@ -108,6 +113,9 @@ describe('quiz service attempt lifecycle', () => {
           answer: 'b',
           integrityTier: 'basic',
           questionId: 'question-1',
+        }),
+        headers: expect.objectContaining({
+          Authorization: 'Bearer token-123',
         }),
         method: 'POST',
       })

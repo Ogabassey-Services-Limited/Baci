@@ -1,20 +1,21 @@
 import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
 import { type NextRequest, NextResponse } from 'next/server';
-import { getQuizPhaseEnv } from '@/env';
-import { logger } from '@/lib/logger';
-import { startQuizAttemptSchema } from '@/schemas/quiz';
 import {
   createRouteProof,
   enforceEventPrizeGuard,
   enforceQuizAgeGate,
   invalidInputResponse,
+  isQuizAgeGateError,
   parseJsonBody,
   prizeGuardErrorResponse,
   quizAgeGateErrorResponse,
   requireQuizCsrf,
   requireQuizUser,
   rpcErrorResponse,
-} from '../../_shared/route-helpers';
+} from '@/app/api/quiz/_shared/route-helpers';
+import { getQuizPhaseEnv } from '@/env';
+import { logger } from '@/lib/logger';
+import { startQuizAttemptSchema } from '@/schemas/quiz';
 
 function isExamPassRequiredError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
@@ -55,10 +56,8 @@ export async function POST(request: NextRequest) {
       );
       await enforceQuizAgeGate(auth.supabase, merchantId, auth.user.id);
     } catch (error) {
-      try {
+      if (isQuizAgeGateError(error)) {
         return quizAgeGateErrorResponse(error);
-      } catch {
-        // no-op: fall through to prize guard mapping below
       }
       return prizeGuardErrorResponse(error);
     }

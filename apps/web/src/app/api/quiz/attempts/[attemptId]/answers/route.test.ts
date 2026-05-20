@@ -1,8 +1,13 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { authenticateApiRequest } from '@/lib/api-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { logger } from '@/lib/logger';
 import { createClient } from '@/lib/supabase/server';
+
+vi.mock('@/lib/api-auth', () => ({
+  authenticateApiRequest: vi.fn(),
+}));
 
 vi.mock('@/lib/csrf', () => ({
   checkCsrfProtection: vi.fn(),
@@ -25,12 +30,12 @@ const QUESTION_ID = '33333333-3333-3333-3333-333333333333';
 const USER_ID = 'user-1';
 const ORIGINAL_QUIZ_RPC_SERVER_SECRET = process.env.QUIZ_RPC_SERVER_SECRET;
 
-function jsonRequest(body: unknown) {
+function jsonRequest(body: unknown, headers: Record<string, string> = {}) {
   return new NextRequest(
     `http://localhost/api/quiz/attempts/${ATTEMPT_ID}/answers`,
     {
       body: JSON.stringify(body),
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...headers },
       method: 'POST',
     }
   );
@@ -177,6 +182,70 @@ describe('submit quiz answer route', () => {
         p_user_id: USER_ID,
       })
     );
+  });
+
+  it('accepts bearer-token mobile submissions through scoped API auth', async () => {
+    const rpc = vi.fn().mockResolvedValue({
+      data: { attemptId: ATTEMPT_ID, status: 'completed' },
+      error: null,
+    });
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: null,
+      supabase: { rpc } as never,
+      user: { id: USER_ID } as never,
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest(
+        {
+          answer: 'A',
+          clientAnsweredAt: '2026-05-16T10:00:00.000Z',
+          integrityTier: 'strong',
+          questionId: QUESTION_ID,
+        },
+        { Authorization: 'Bearer mobile-token' }
+      ),
+      { params: Promise.resolve({ attemptId: ATTEMPT_ID }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(authenticateApiRequest).toHaveBeenCalledWith(
+      expect.any(NextRequest)
+    );
+    expect(createClient).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith(
+      'submit_quiz_answer',
+      expect.objectContaining({
+        p_attempt_id: ATTEMPT_ID,
+        p_user_id: USER_ID,
+      })
+    );
+  });
+
+  it('rejects invalid bearer-token mobile submissions before RPC', async () => {
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      error: 'Unauthorized',
+      supabase: null,
+      user: null,
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest(
+        {
+          answer: 'A',
+          integrityTier: 'strong',
+          questionId: QUESTION_ID,
+        },
+        { Authorization: 'Bearer invalid-token' }
+      ),
+      { params: Promise.resolve({ attemptId: ATTEMPT_ID }) }
+    );
+
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ error: 'Unauthorized' });
+    expect(createClient).not.toHaveBeenCalled();
   });
 
   it('returns 500 when the submit RPC reports an error', async () => {

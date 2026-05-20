@@ -96,9 +96,17 @@ export async function requireQuizUser(
       message: 'Quiz auth lookup failed',
       ...getSafeAuthErrorFields(error),
     });
+    return {
+      response: NextResponse.json(
+        { code: 'auth_unavailable', error: 'Authentication lookup failed' },
+        { status: 503 }
+      ),
+      supabase: null,
+      user: null,
+    };
   }
 
-  if (error || !user) {
+  if (!user) {
     return {
       response: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }),
       supabase: null,
@@ -167,8 +175,12 @@ export function prizeGuardErrorResponse(error: unknown) {
   throw error;
 }
 
+export function isQuizAgeGateError(error: unknown): error is QuizAgeGateError {
+  return error instanceof QuizAgeGateError;
+}
+
 export function quizAgeGateErrorResponse(error: unknown) {
-  if (error instanceof QuizAgeGateError) {
+  if (isQuizAgeGateError(error)) {
     return NextResponse.json(
       {
         code: error.code,

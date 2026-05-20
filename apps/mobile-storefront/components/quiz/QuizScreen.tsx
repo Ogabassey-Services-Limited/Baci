@@ -32,12 +32,10 @@ const QUIZ_COPY = {
   actionFailed: 'Quiz action failed',
   timeNotSet: 'Time not set',
 } as const;
-
 interface QuizScreenProps {
   integrityTier?: QuizIntegrityTier;
   locale?: string;
 }
-
 export function QuizScreen({
   integrityTier = 'basic',
   locale,
@@ -246,7 +244,9 @@ export function QuizScreen({
               key={option.id}
               accessibilityRole="button"
               accessibilityLabel={`Answer ${option.label}`}
+              disabled={status === 'submitting'}
               accessibilityState={{
+                disabled: status === 'submitting',
                 selected: selectedOptionId === option.id,
               }}
               onPress={() => {
@@ -255,6 +255,7 @@ export function QuizScreen({
               style={[
                 styles.answerButton,
                 selectedOptionId === option.id && styles.answerButtonSelected,
+                status === 'submitting' && styles.answerButtonDisabled,
               ]}
             >
               <Text style={styles.answerText}>{option.label}</Text>

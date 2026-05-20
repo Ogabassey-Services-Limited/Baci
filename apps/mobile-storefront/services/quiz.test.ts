@@ -57,7 +57,7 @@ jest.mock('@/lib/supabase', () => ({
 const mockExpoConstants = require('expo-constants').default as {
   expoConfig?: { extra?: Record<string, unknown> };
 };
-const { fetchQuizEvents, startQuizAttempt } =
+const { fetchQuizEvents, startQuizAttempt, submitQuizAnswer } =
   require('./quiz') as typeof import('./quiz');
 
 describe('quiz service', () => {
@@ -356,6 +356,71 @@ describe('quiz service', () => {
         timeLimitSeconds: 30,
         total: 1,
       },
+    });
+  });
+
+  it('submits quiz answers with the encoded attempt path and bearer auth', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          attemptId: 'attempt/1',
+          status: 'completed',
+          correctAnswers: 1,
+          totalQuestions: 1,
+          prizeEligible: true,
+        }),
+        { status: 200 }
+      )
+    );
+
+    await expect(
+      submitQuizAnswer({
+        answer: 'b',
+        baseUrl: 'https://example.com',
+        integrityTier: 'strong',
+        attemptId: 'attempt/1',
+        questionId: 'question-1',
+      })
+    ).resolves.toMatchObject({
+      attemptId: 'attempt/1',
+      status: 'completed',
+    });
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://example.com/api/quiz/attempts/attempt%2F1/answers',
+      expect.objectContaining({
+        body: JSON.stringify({
+          answer: 'b',
+          integrityTier: 'strong',
+          questionId: 'question-1',
+        }),
+        headers: expect.objectContaining({
+          Authorization: 'Bearer token-123',
+        }),
+        method: 'POST',
+      })
+    );
+  });
+
+  it('maps submit quiz answer API errors', async () => {
+    mockFetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ error: 'Attempt closed', code: 'QUIZ_CLOSED' }),
+        { status: 409 }
+      )
+    );
+
+    await expect(
+      submitQuizAnswer({
+        answer: 'b',
+        baseUrl: 'https://example.com',
+        integrityTier: 'basic',
+        attemptId: 'attempt-1',
+        questionId: 'question-1',
+      })
+    ).rejects.toMatchObject({
+      code: 'QUIZ_CLOSED',
+      message: 'Attempt closed',
+      status: 409,
     });
   });
 

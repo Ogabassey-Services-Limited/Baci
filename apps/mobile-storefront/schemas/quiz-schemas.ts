@@ -55,4 +55,11 @@ export const quizResultSchema = z
         path: ['question'],
       });
     }
+    if (value.correctAnswers > value.totalQuestions) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'correctAnswers cannot exceed totalQuestions',
+        path: ['correctAnswers'],
+      });
+    }
   });

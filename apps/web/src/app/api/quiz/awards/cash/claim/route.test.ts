@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { logger } from '@/lib/logger';
 import {
   createRouteProof,
   enforceCashAwardPrizeGuard,
@@ -10,9 +9,10 @@ import {
   requireQuizCsrf,
   requireQuizUser,
   rpcErrorResponse,
-} from '../../../_shared/route-helpers';
+} from '@/app/api/quiz/_shared/route-helpers';
+import { logger } from '@/lib/logger';
 
-vi.mock('../../../_shared/route-helpers', () => ({
+vi.mock('@/app/api/quiz/_shared/route-helpers', () => ({
   createRouteProof: vi.fn(),
   enforceCashAwardPrizeGuard: vi.fn(),
   invalidInputResponse: vi.fn((details: unknown) =>

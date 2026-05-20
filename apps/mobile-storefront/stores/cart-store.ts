@@ -98,7 +98,9 @@ interface CartState {
 }
 
 export function resetCartLineSequence() {
-  useCartStore.setState({ lineSequence: 0 });
+  if (useCartStore.getState().items.length === 0) {
+    useCartStore.setState({ lineSequence: 0 });
+  }
 }
 
 function areEquivalentCartAttributes(

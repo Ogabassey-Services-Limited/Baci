@@ -174,6 +174,14 @@ describe('QuizScreen', () => {
       screen.getByRole('button', { name: 'Submit answer' }).props
         .accessibilityState
     ).toMatchObject({ disabled: true });
+    expect(
+      screen.getByRole('button', { name: 'Answer 4' }).props
+        .accessibilityState
+    ).toMatchObject({ disabled: true, selected: true });
+    expect(
+      screen.getByRole('button', { name: 'Answer 3' }).props
+        .accessibilityState
+    ).toMatchObject({ disabled: true });
     expect(submitQuizAnswer).toHaveBeenCalledWith({
       answer: 'b',
       attemptId: 'attempt-1',

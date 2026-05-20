@@ -29,14 +29,16 @@ describe('quiz service utils', () => {
   it('returns null when the quiz response JSON cannot be parsed', async () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
-    await expect(
-      readQuizJson(new Response('not json', { status: 502 }))
-    ).resolves.toBeNull();
-    expect(warnSpy).toHaveBeenCalledWith(
-      'Unable to parse quiz API JSON response',
-      expect.objectContaining({ status: 502 })
-    );
-
-    warnSpy.mockRestore();
+    try {
+      await expect(
+        readQuizJson(new Response('not json', { status: 502 }))
+      ).resolves.toBeNull();
+      expect(warnSpy).toHaveBeenCalledWith(
+        'Unable to parse quiz API JSON response',
+        expect.objectContaining({ status: 502 })
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 });

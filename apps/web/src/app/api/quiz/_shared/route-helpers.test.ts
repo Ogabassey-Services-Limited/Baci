@@ -110,7 +110,11 @@ describe('quiz route-helpers', () => {
 
       const result = await requireQuizUser();
 
-      expect(result.response?.status).toBe(401);
+      expect(result.response?.status).toBe(503);
+      expect(await readJson(result.response as Response)).toEqual({
+        code: 'auth_unavailable',
+        error: 'Authentication lookup failed',
+      });
       expect(logger.error).toHaveBeenCalledWith({
         errorCode: 'auth_lookup_failed',
         errorMessage: 'lookup failed',
