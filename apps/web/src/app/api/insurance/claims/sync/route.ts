@@ -6,6 +6,11 @@ import { syncClaimsStatus } from '@/services/insurance';
 
 export async function POST(_request: NextRequest) {
   try {
+    // Verify cron secret before other request validation.
+    if (!hasValidCronSecret(_request.headers, getCronSecret())) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     // CSRF protection
     const { valid: csrfValid, response: csrfResponse } =
       await checkCsrfProtection(_request);
@@ -14,11 +19,6 @@ export async function POST(_request: NextRequest) {
         csrfResponse ??
         NextResponse.json({ error: 'CSRF validation failed' }, { status: 403 })
       );
-    }
-
-    // Verify cron secret
-    if (!hasValidCronSecret(_request.headers, getCronSecret())) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // merchantId is available via searchParams if needed in the future
