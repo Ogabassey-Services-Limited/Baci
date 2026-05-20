@@ -5,6 +5,7 @@ import { getMerchantForUser } from '@/lib/merchant-server';
 import { buildStoreUrl } from '@/lib/store-url';
 import { buildAgentCommerceTrustReadiness } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
+import { enrichMerchantReviewAuthority } from '@/lib/storefront-trust/enrich-merchant-review-authority';
 
 export async function GET() {
   const { merchant, user } = await getMerchantForUser();
@@ -22,10 +23,11 @@ export async function GET() {
     slug,
     custom_domain: merchant.custom_domain ?? undefined,
   });
-  const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
-  const [openAiFeedData, googleFeedData] = await Promise.all([
+  const baseTrustProfile = buildMerchantTrustProfile(merchant, baseUrl);
+  const [openAiFeedData, googleFeedData, trustProfile] = await Promise.all([
     getCachedOpenAIFeedData(merchant.id, true),
     getCachedGoogleMerchantFeedData(merchant.id, slug),
+    enrichMerchantReviewAuthority(baseTrustProfile),
   ]);
 
   return NextResponse.json(

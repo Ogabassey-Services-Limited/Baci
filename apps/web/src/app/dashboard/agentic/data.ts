@@ -135,12 +135,11 @@ async function loadAgenticTrustReadiness(
     slug,
     custom_domain: merchant.custom_domain ?? undefined,
   });
-  const trustProfile = await enrichMerchantReviewAuthority(
-    buildMerchantTrustProfile(merchant, baseUrl)
-  );
-  const [openAiFeedData, googleFeedData] = await Promise.all([
+  const baseTrustProfile = buildMerchantTrustProfile(merchant, baseUrl);
+  const [openAiFeedData, googleFeedData, trustProfile] = await Promise.all([
     getCachedOpenAIFeedData(merchant.id, true),
     getCachedGoogleMerchantFeedData(merchant.id, slug),
+    enrichMerchantReviewAuthority(baseTrustProfile),
   ]);
 
   // Project to the aggregate-only summary before it crosses the

@@ -5,6 +5,7 @@ const mockBuildMerchantTrustProfile = vi.fn();
 const mockGetCachedGoogleMerchantFeedData = vi.fn();
 const mockGetCachedOpenAIFeedData = vi.fn();
 const mockBuildAgentCommerceTrustReadiness = vi.fn();
+const mockEnrichMerchantReviewAuthority = vi.fn();
 
 vi.mock('@/lib/merchant-server', () => ({
   getMerchantForUser: (...args: unknown[]) => mockGetMerchantForUser(...args),
@@ -30,6 +31,11 @@ vi.mock('@/lib/storefront-trust/build-agent-commerce-trust-readiness', () => ({
     mockBuildAgentCommerceTrustReadiness(...args),
 }));
 
+vi.mock('@/lib/storefront-trust/enrich-merchant-review-authority', () => ({
+  enrichMerchantReviewAuthority: (...args: unknown[]) =>
+    mockEnrichMerchantReviewAuthority(...args),
+}));
+
 describe('GET /api/integrations/agent-commerce/readiness', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -50,6 +56,9 @@ describe('GET /api/integrations/agent-commerce/readiness', () => {
       socialLinks: {},
       derivedLinks: {},
     });
+    mockEnrichMerchantReviewAuthority.mockImplementation(
+      async (profile: unknown) => profile
+    );
 
     mockGetCachedOpenAIFeedData.mockResolvedValue({
       products: [],
@@ -109,6 +118,10 @@ describe('GET /api/integrations/agent-commerce/readiness', () => {
       }),
       'https://ogabassey.com'
     );
+    expect(mockEnrichMerchantReviewAuthority).toHaveBeenCalledWith({
+      socialLinks: {},
+      derivedLinks: {},
+    });
     expect(mockGetCachedOpenAIFeedData).toHaveBeenCalledWith(
       'merchant-1',
       true

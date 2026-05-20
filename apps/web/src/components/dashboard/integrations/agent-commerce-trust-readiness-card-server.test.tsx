@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/app/api/feed/google-merchant/feed-data', () => ({
   getCachedGoogleMerchantFeedData: vi.fn(),
@@ -58,6 +58,10 @@ vi.mock('@/lib/storefront-trust/build-agent-commerce-trust-readiness', () => ({
   })),
 }));
 
+vi.mock('@/lib/storefront-trust/enrich-merchant-review-authority', () => ({
+  enrichMerchantReviewAuthority: vi.fn(),
+}));
+
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
@@ -86,6 +90,7 @@ import { getCachedGoogleMerchantFeedData } from '@/app/api/feed/google-merchant/
 import { getCachedOpenAIFeedData } from '@/app/api/feed/openai/feed-data';
 import { logger } from '@/lib/logger';
 import { buildAgentCommerceTrustReadiness } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
+import { enrichMerchantReviewAuthority } from '@/lib/storefront-trust/enrich-merchant-review-authority';
 import { AgentCommerceTrustReadinessCardServer } from './agent-commerce-trust-readiness-card-server';
 
 const merchant = {
@@ -97,6 +102,13 @@ const merchant = {
 };
 
 describe('AgentCommerceTrustReadinessCardServer', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(enrichMerchantReviewAuthority).mockImplementation(
+      async (profile) => profile
+    );
+  });
+
   it('loads trust readiness and passes it to the card', async () => {
     vi.mocked(getCachedOpenAIFeedData).mockResolvedValue({
       products: [],
@@ -110,6 +122,10 @@ describe('AgentCommerceTrustReadinessCardServer', () => {
 
     render(await AgentCommerceTrustReadinessCardServer({ merchant }));
 
+    expect(enrichMerchantReviewAuthority).toHaveBeenCalledWith({
+      derivedLinks: {},
+      socialLinks: {},
+    });
     expect(buildAgentCommerceTrustReadiness).toHaveBeenCalledWith(
       expect.objectContaining({
         baseUrl: 'https://example.com',

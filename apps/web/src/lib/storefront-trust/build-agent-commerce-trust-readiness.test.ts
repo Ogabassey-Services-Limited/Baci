@@ -488,7 +488,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
     ).toMatchObject({ affectedProductCount: 1, severity: 'warn' });
   });
 
-  it('uses public privacy and terms policy routes when merchant legal content is not customized', () => {
+  it('does not count generated privacy and terms URLs as published policies', () => {
     const result = buildAgentCommerceTrustReadiness({
       baseUrl: 'https://ogabassey.com',
       googleFeedData: googleFeedData(),
@@ -508,14 +508,14 @@ describe('buildAgentCommerceTrustReadiness', () => {
       }),
     });
 
-    expect(result.status).toBe('pass');
+    expect(result.status).toBe('warn');
     expect(
       result.checks.find((check) => check.id === 'policy-coverage')
     ).toMatchObject({
-      affectedProductCount: 0,
+      affectedProductCount: 1,
       message:
-        'Return, shipping, privacy, and terms policy links are published.',
-      severity: 'pass',
+        '2 of 4 policy links are published (returns, shipping, privacy, terms).',
+      severity: 'warn',
     });
   });
 

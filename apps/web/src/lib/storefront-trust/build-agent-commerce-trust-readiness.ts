@@ -379,14 +379,12 @@ export function buildAgentCommerceTrustReadiness({
   const hasPublishedShippingPolicyLink =
     hasPublishableShippingPolicy(trustProfile) &&
     isValidHttpUrl(trustProfile.derivedLinks.shipping ?? '');
-  const hasPublishedPrivacyPolicyLink = [
-    trustProfile.derivedLinks.privacy,
-    surfaces.policies.privacy_policy_url,
-  ].some((url) => isValidHttpUrl(url ?? ''));
-  const hasPublishedTermsLink = [
-    trustProfile.derivedLinks.terms,
-    surfaces.policies.terms_of_service_url,
-  ].some((url) => isValidHttpUrl(url ?? ''));
+  const hasPublishedPrivacyPolicyLink = isValidHttpUrl(
+    trustProfile.derivedLinks.privacy ?? ''
+  );
+  const hasPublishedTermsLink = isValidHttpUrl(
+    trustProfile.derivedLinks.terms ?? ''
+  );
   const publishedPolicyLinksCount = [
     hasPublishedReturnPolicyLink,
     hasPublishedShippingPolicyLink,
