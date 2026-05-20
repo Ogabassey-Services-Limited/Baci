@@ -18,11 +18,13 @@ const mockColors = {
 function CheckoutFormFieldHarness({
   defaultEmail = '',
   errors = {},
+  label = 'Email',
   multiline = false,
   transformText,
 }: {
   defaultEmail?: string;
   errors?: FieldErrors<ShippingAddressInput>;
+  label?: string;
   multiline?: boolean;
   transformText?: (value: string, previous: string) => string;
 }) {
@@ -46,7 +48,7 @@ function CheckoutFormFieldHarness({
       errors={errors}
       isDark={false}
       keyboardType="email-address"
-      label="Email"
+      label={label}
       multiline={multiline}
       name="email"
       placeholder="you@example.com"
@@ -72,6 +74,15 @@ describe('CheckoutFormField', () => {
     expect(input.props.autoComplete).toBe('email');
     expect(input.props.keyboardType).toBe('email-address');
     expect(input.props.returnKeyType).toBe('done');
+  });
+
+  it('falls back to the humanized field name for external visual labels', () => {
+    render(<CheckoutFormFieldHarness label="" />);
+
+    const input = screen.getByPlaceholderText('you@example.com');
+
+    expect(input.props.accessibilityLabel).toBe('email address');
+    expect(input.props.accessibilityHint).toBe('Enter your email address');
   });
 
   it('applies transformText before updating the form value', () => {

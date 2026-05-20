@@ -16,6 +16,7 @@ import type { ShippingAddressInput } from '@/lib/validation';
 import {
   CHECKOUT_FIELD_AUTO_COMPLETE,
   CHECKOUT_FIELD_TEXT_CONTENT_TYPES,
+  humanizeCheckoutFieldName,
 } from './checkout-form-field.helpers';
 
 type CheckoutFormFieldColors = {
@@ -64,6 +65,7 @@ export function CheckoutFormField({
   autoCapitalize,
 }: CheckoutFormFieldProps) {
   const [isFocused, setIsFocused] = React.useState(false);
+  const accessibilityLabel = label || humanizeCheckoutFieldName(name);
 
   return (
     <View style={[styles.inputGroup, containerStyle]}>
@@ -80,8 +82,8 @@ export function CheckoutFormField({
 
           return (
             <TextInput
-              accessibilityHint={`Enter your ${label}`}
-              accessibilityLabel={label}
+              accessibilityHint={`Enter your ${accessibilityLabel}`}
+              accessibilityLabel={accessibilityLabel}
               autoCapitalize={autoCapitalize}
               autoComplete={CHECKOUT_FIELD_AUTO_COMPLETE[name]}
               blurOnSubmit={!multiline}
