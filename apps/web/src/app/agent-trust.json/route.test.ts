@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedGoogleMerchantFeedData = vi.fn();
 const mockGetCachedOpenAIFeedData = vi.fn();
+const mockGetCachedGooglePlacesReviews = vi.fn();
 const PRODUCT_UPDATED_AT = '2026-05-10T00:00:00.000Z';
 
 vi.mock('server-only', () => ({}));
@@ -24,10 +25,19 @@ vi.mock('@/app/api/feed/openai/feed-data', () => ({
     mockGetCachedOpenAIFeedData(...args),
 }));
 
+vi.mock('@/lib/google-places-reviews', () => ({
+  getCachedGooglePlacesReviews: (...args: unknown[]) =>
+    mockGetCachedGooglePlacesReviews(...args),
+}));
+
 type TestMerchant = {
   business_name: string;
   business_type: string;
   custom_domain: string;
+  feature_settings?: {
+    google_place_id: string | null;
+    google_reviews_enabled: boolean;
+  };
   id: string;
   pages: {
     privacy: string;
@@ -147,7 +157,7 @@ describe('GET /agent-trust.json', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('public, max-age=300');
     expect(body).toMatchObject({
-      schema_version: '2026-05-11',
+      schema_version: '2026-05-20',
       platform: 'baci',
       store: {
         slug: 'ogabassey',
@@ -182,6 +192,122 @@ describe('GET /agent-trust.json', () => {
       'merchant-1',
       'ogabassey'
     );
+    expect(mockGetCachedGooglePlacesReviews).not.toHaveBeenCalled();
+  });
+
+  it('enriches configured Google review authority in the public trust payload', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValueOnce({
+      ...merchant(),
+      feature_settings: {
+        google_place_id: 'places/ChIJ1234',
+        google_reviews_enabled: true,
+      },
+    });
+    mockGetCachedGooglePlacesReviews.mockResolvedValueOnce({
+      attributionLabel: 'Google Maps',
+      attributions: [
+        {
+          provider: 'Google Maps',
+          providerUri: 'https://maps.google.com',
+        },
+      ],
+      businessName: 'Ogabassey',
+      googleMapsUrl: 'https://maps.google.com/?cid=ogabassey',
+      rating: 4.8,
+      reviews: [],
+      reviewsSortedBy: 'relevance',
+      source: 'google_maps',
+      totalReviews: 217,
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new Request('https://ogabassey.com/agent-trust.json', {
+        headers: { host: 'ogabassey.com' },
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockGetCachedGooglePlacesReviews).toHaveBeenCalledWith('ChIJ1234');
+    expect(body.trust.merchantReviewAuthority).toMatchObject({
+      attributionLabel: 'Google Maps',
+      attributions: [
+        {
+          provider: 'Google Maps',
+          providerUri: 'https://maps.google.com',
+        },
+      ],
+      businessName: 'Ogabassey',
+      googleMapsUrl: 'https://maps.google.com/?cid=ogabassey',
+      placeId: 'ChIJ1234',
+      rating: 4.8,
+      reviewsSortedBy: 'relevance',
+      source: 'google_maps',
+      totalReviews: 217,
+    });
+    expect(
+      body.trust.checks.find(
+        (check: { id: string }) => check.id === 'merchant-review-authority'
+      )
+    ).toMatchObject({
+      severity: 'pass',
+    });
+    expect(
+      body.trust.checks.find(
+        (check: { id: string }) => check.id === 'review-signal-coverage'
+      )
+    ).toMatchObject({
+      severity: 'pass',
+    });
+  });
+
+  it('keeps configured Google review authority when Places lookup fails', async () => {
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    mockGetMerchantByIdentifier.mockResolvedValueOnce({
+      ...merchant(),
+      feature_settings: {
+        google_place_id: 'ChIJ1234',
+        google_reviews_enabled: true,
+      },
+    });
+    mockGetCachedGooglePlacesReviews.mockRejectedValueOnce(
+      new Error('Google Places API error: 403')
+    );
+
+    try {
+      const { GET } = await import('./route');
+      const response = await GET(
+        new Request('https://ogabassey.com/agent-trust.json', {
+          headers: { host: 'ogabassey.com' },
+        })
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(mockGetCachedGooglePlacesReviews).toHaveBeenCalledWith('ChIJ1234');
+      expect(body.trust.merchantReviewAuthority).toMatchObject({
+        attributionLabel: 'Google Maps',
+        placeId: 'ChIJ1234',
+        reviewsSortedBy: 'relevance',
+        source: 'google_maps',
+      });
+      expect(
+        body.trust.checks.find(
+          (check: { id: string }) => check.id === 'merchant-review-authority'
+        )
+      ).toMatchObject({
+        severity: 'warn',
+      });
+      expect(warnSpy).toHaveBeenCalledWith(
+        'MERCHANT_REVIEW_AUTHORITY_ERROR:',
+        expect.any(Error)
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it('returns 404 when the storefront host has no merchant record', async () => {

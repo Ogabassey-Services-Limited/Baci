@@ -182,4 +182,45 @@ describe('buildMerchantTrustProfile', () => {
       terms: 'https://ogabassey.com/terms',
     });
   });
+
+  it('normalizes enabled Google review settings into merchant review authority', () => {
+    const result = buildMerchantTrustProfile(
+      {
+        feature_settings: {
+          google_reviews_enabled: true,
+          google_place_id: ' places/ChIJ1234 ',
+        },
+      },
+      'https://ogabassey.com'
+    );
+
+    expect(result.merchantReviewAuthority).toEqual({
+      attributionLabel: 'Google Maps',
+      placeId: 'ChIJ1234',
+      reviewsSortedBy: 'relevance',
+      source: 'google_maps',
+    });
+  });
+
+  it('omits merchant review authority when Google reviews are disabled', () => {
+    const result = buildMerchantTrustProfile({
+      feature_settings: {
+        google_reviews_enabled: false,
+        google_place_id: 'ChIJ1234',
+      },
+    });
+
+    expect(result.merchantReviewAuthority).toBeUndefined();
+  });
+
+  it('omits merchant review authority when the Google Place ID is invalid', () => {
+    const result = buildMerchantTrustProfile({
+      feature_settings: {
+        google_reviews_enabled: true,
+        google_place_id: '   ',
+      },
+    });
+
+    expect(result.merchantReviewAuthority).toBeUndefined();
+  });
 });
