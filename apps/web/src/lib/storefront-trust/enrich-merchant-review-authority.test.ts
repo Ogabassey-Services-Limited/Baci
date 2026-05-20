@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { enrichMerchantReviewAuthority } from './enrich-merchant-review-authority';
-import type { MerchantTrustProfile } from './merchant-trust-profile-types';
+import { enrichMerchantReviewAuthority } from '@/lib/storefront-trust/enrich-merchant-review-authority';
+import type { MerchantTrustProfile } from '@/lib/storefront-trust/merchant-trust-profile-types';
 
 const { getCachedGooglePlacesReviews, loggerError } = vi.hoisted(() => ({
   getCachedGooglePlacesReviews: vi.fn(),
