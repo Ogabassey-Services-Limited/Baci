@@ -57,6 +57,18 @@ describe('CSRF utility coverage', () => {
       expect(result).toEqual({ valid: true });
     });
 
+    it('skips csrf checks for bearer authorization regardless of scheme casing', async () => {
+      const csrf = await import('./csrf');
+      const request = new NextRequest('https://example.com/api/products', {
+        headers: { authorization: 'bearer cron-secret' },
+        method: 'POST',
+      });
+
+      const result = await csrf.checkCsrfProtection(request);
+
+      expect(result).toEqual({ valid: true });
+    });
+
     it('returns 403 response when csrf validation fails', async () => {
       vi.stubEnv('NODE_ENV', 'development');
       const csrf = await import('./csrf');

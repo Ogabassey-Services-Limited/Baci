@@ -147,7 +147,7 @@ export async function checkCsrfProtection(request: NextRequest): Promise<{
   // Skip CSRF for Bearer token auth (mobile apps).
   // CSRF exploits automatic cookie sending; Bearer tokens are not sent automatically.
   const authHeader = request.headers.get('Authorization');
-  if (authHeader?.startsWith('Bearer ')) {
+  if (authHeader?.match(/^bearer\s+.+$/i)) {
     return { valid: true };
   }
 
