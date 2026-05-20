@@ -143,10 +143,15 @@ export async function POST(request: NextRequest) {
     return errorResponse('Klump transaction id conflict', 409);
   }
 
-  const klumpSecretKey = getKlumpSecretKey();
+  const klumpSecretKey = getKlumpSecretKey() ?? secret;
   if (!klumpSecretKey) {
-    logger.error({ message: 'KLUMP_SECRET_KEY is not configured' });
-    return errorResponse('Klump secret key not configured', 500);
+    logger.error({
+      message: 'Klump provider verification secret is not configured',
+    });
+    return errorResponse(
+      'Klump provider verification secret not configured',
+      500
+    );
   }
 
   const verification = await verifyKlumpWebhookTransaction({
@@ -199,7 +204,12 @@ export async function POST(request: NextRequest) {
   }
 
   if (!transactionAlreadyCompleted && !updatedTransaction) {
-    return NextResponse.json({ message: 'Already processed', success: true });
+    logger.info({
+      message:
+        'Klump transaction was completed concurrently; continuing downstream reconciliation',
+      reference: referenceResult.data,
+      transactionId: details.transactionId,
+    });
   }
 
   let order: KlumpPaidOrder | null = null;

@@ -242,6 +242,7 @@ describe('POST /api/payments/klump/webhook', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.KLUMP_SECRET_KEY = 'klump-secret';
+    delete process.env.KLUMP_WEBHOOK_SECRET;
     process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
     vi.stubGlobal('fetch', mocks.fetch);
     mockVerifiedKlumpTransaction();
@@ -404,6 +405,38 @@ describe('POST /api/payments/klump/webhook', () => {
     expect(mocks.recordMerchantSettlement).not.toHaveBeenCalled();
   });
 
+  it('uses the webhook secret for provider verification when the Klump secret key is unset', async () => {
+    delete process.env.KLUMP_SECRET_KEY;
+    process.env.KLUMP_WEBHOOK_SECRET = 'webhook-secret';
+    const rawBody = JSON.stringify(successfulPayload);
+
+    const response = await POST(
+      createRequest(successfulPayload, signPayload(rawBody, 'webhook-secret'))
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.fetch).toHaveBeenCalledWith(
+      'https://api.useklump.com/v1/transactions/klump-txn-123/verify',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'klump-secret-key': 'webhook-secret',
+        }),
+        method: 'GET',
+      })
+    );
+    expect(mocks.transactionUpdateMaybeSingle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'completed',
+      })
+    );
+    expect(mocks.recordMerchantSettlement).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_gateway: 'klump',
+        p_gateway_reference: 'BAC-ABCD12345678',
+      })
+    );
+  });
+
   it('does not mark the order paid when the transaction update fails', async () => {
     mocks.createAdminClient.mockReturnValue(
       createSupabaseMock({
@@ -424,6 +457,46 @@ describe('POST /api/payments/klump/webhook', () => {
     expect(body.error).toBe('Failed to update transaction');
     expect(mocks.transactionUpdateMaybeSingle).toHaveBeenCalled();
     expect(mocks.orderUpdateSingle).not.toHaveBeenCalled();
+  });
+
+  it('continues downstream reconciliation when a concurrent webhook completes the transaction first', async () => {
+    mocks.createAdminClient.mockReturnValue(
+      createSupabaseMock({
+        transactionUpdateResult: {
+          data: null,
+          error: null,
+        },
+      })
+    );
+    const rawBody = JSON.stringify(successfulPayload);
+
+    const response = await POST(
+      createRequest(successfulPayload, signPayload(rawBody, 'klump-secret'))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      message: 'Klump payment processed successfully',
+      success: true,
+    });
+    expect(mocks.transactionUpdateMaybeSingle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'completed',
+      })
+    );
+    expect(mocks.orderUpdateSingle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payment_status: 'paid',
+        shipping_status: 'processing',
+      })
+    );
+    expect(mocks.recordMerchantSettlement).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_gateway: 'klump',
+        p_gateway_reference: 'BAC-ABCD12345678',
+      })
+    );
   });
 
   it('retries downstream order and settlement work when the Klump transaction is already completed', async () => {
