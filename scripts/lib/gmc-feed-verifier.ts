@@ -119,6 +119,22 @@ export type FetchFn = (
   init?: RequestInit
 ) => Promise<Response>;
 
+export function buildCdnTransformImageUrl(
+  sourceUrl: string,
+  format: 'jpeg' | 'webp' = 'jpeg'
+): string | null {
+  let url: URL;
+  try {
+    url = new URL(sourceUrl);
+  } catch {
+    return null;
+  }
+
+  if (url.hostname !== CDN_HOST) return null;
+
+  return `${url.origin}/image/width=1200,quality=90,format=${format}${url.pathname}${url.search}${url.hash}`;
+}
+
 /**
  * Verify a remote image URL via HTTP HEAD (with GET fallback on 405).
  *
@@ -183,6 +199,36 @@ export async function verifyRemoteImage(
       failure_reason: `${message} for ${url}`,
     };
   }
+}
+
+export async function verifyCdnImageWithTransformFallback(
+  sourceUrl: string,
+  cdnBasePath: string,
+  fileExistsFn: (path: string) => boolean = existsSync,
+  fetchFn: FetchFn = globalThis.fetch
+): Promise<VerificationResult> {
+  const localVerification = verifyCdnImage(
+    sourceUrl,
+    cdnBasePath,
+    fileExistsFn
+  );
+
+  if (localVerification.status !== 'pending_derivative') {
+    return localVerification;
+  }
+
+  const transformedUrl = buildCdnTransformImageUrl(sourceUrl, 'jpeg');
+  if (!transformedUrl) return localVerification;
+
+  const transformedVerification = await verifyRemoteImage(
+    transformedUrl,
+    fetchFn
+  );
+
+  return transformedVerification.status === 'verified' &&
+    transformedVerification.verified_format === 'jpeg'
+    ? transformedVerification
+    : localVerification;
 }
 
 /**

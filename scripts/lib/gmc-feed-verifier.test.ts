@@ -1,7 +1,9 @@
 import { type Mock, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   type FetchFn,
+  buildCdnTransformImageUrl,
   verifyCdnImage,
+  verifyCdnImageWithTransformFallback,
   verifyRemoteImage,
 } from './gmc-feed-verifier';
 
@@ -165,6 +167,97 @@ describe('verifyCdnImage', () => {
     expect(result.status).toBe('verified');
     expect(existsSyncMock).toHaveBeenCalledWith(
       '/home/bassey/baci-cdn/public/core-assets/products/gaming/controller.jpg'
+    );
+  });
+});
+
+// ---------- verifyCdnImageWithTransformFallback ----------
+describe('verifyCdnImageWithTransformFallback', () => {
+  const cdnBasePath = '/home/bassey/baci-cdn/public';
+
+  let existsSyncMock: Mock<(path: string) => boolean>;
+  let fetchMock: Mock<FetchFn>;
+
+  beforeEach(() => {
+    existsSyncMock = vi.fn<(path: string) => boolean>();
+    fetchMock = vi.fn<FetchFn>();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('builds a CDN JPEG transform URL from an AVIF source URL', () => {
+    expect(
+      buildCdnTransformImageUrl(
+        'https://cdn.ogabassey.com/core-assets/products/phone.avif?v=1'
+      )
+    ).toBe(
+      'https://cdn.ogabassey.com/image/width=1200,quality=90,format=jpeg/core-assets/products/phone.avif?v=1'
+    );
+  });
+
+  it('keeps the sidecar JPG result when the derivative file exists', async () => {
+    existsSyncMock.mockReturnValue(true);
+
+    const result = await verifyCdnImageWithTransformFallback(
+      'https://cdn.ogabassey.com/core-assets/products/phone.avif',
+      cdnBasePath,
+      existsSyncMock,
+      fetchMock
+    );
+
+    expect(result.status).toBe('verified');
+    expect(result.verified_url).toBe(
+      'https://cdn.ogabassey.com/core-assets/products/phone.jpg'
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('uses the CDN JPEG transformer when an AVIF sidecar JPG is missing', async () => {
+    existsSyncMock.mockReturnValue(false);
+    fetchMock.mockResolvedValue(
+      fakeResponse({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'image/jpeg' }),
+      })
+    );
+
+    const result = await verifyCdnImageWithTransformFallback(
+      'https://cdn.ogabassey.com/core-assets/products/phone.avif',
+      cdnBasePath,
+      existsSyncMock,
+      fetchMock
+    );
+
+    expect(result.status).toBe('verified');
+    expect(result.verified_url).toBe(
+      'https://cdn.ogabassey.com/image/width=1200,quality=90,format=jpeg/core-assets/products/phone.avif'
+    );
+    expect(result.verified_format).toBe('jpeg');
+  });
+
+  it('falls back to pending_derivative when the CDN transformer is not verified', async () => {
+    existsSyncMock.mockReturnValue(false);
+    fetchMock.mockResolvedValue(
+      fakeResponse({
+        ok: false,
+        status: 404,
+        headers: new Headers(),
+      })
+    );
+
+    const result = await verifyCdnImageWithTransformFallback(
+      'https://cdn.ogabassey.com/core-assets/products/phone.avif',
+      cdnBasePath,
+      existsSyncMock,
+      fetchMock
+    );
+
+    expect(result.status).toBe('pending_derivative');
+    expect(result.verified_url).toBe(
+      'https://cdn.ogabassey.com/core-assets/products/phone.jpg'
     );
   });
 });

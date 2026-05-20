@@ -182,7 +182,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
       }),
     });
 
-    expect(result.status).toBe('warn');
+    expect(result.status).toBe('pass');
     expect(result.merchantReviewAuthority).toMatchObject({
       attributionLabel: 'Google Maps',
       googleMapsUrl: 'https://maps.google.com/?cid=ogabassey',
@@ -201,8 +201,8 @@ describe('buildAgentCommerceTrustReadiness', () => {
       result.checks.find((check) => check.id === 'review-signal-coverage')
     ).toMatchObject({
       message:
-        '0 of 1 agent-visible products have product-level review metadata, but merchant-level Google review authority is connected.',
-      severity: 'warn',
+        '0 of 1 agent-visible products have product-level review metadata; verified merchant-level Google review authority is connected as fallback review evidence.',
+      severity: 'pass',
     });
   });
 

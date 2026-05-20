@@ -79,7 +79,7 @@ function getReviewSignalSeverity({
     hasVerifiedMerchantReviewAuthority &&
     productsWithReviewSignals < openAiProductsCount
   ) {
-    return 'warn';
+    return 'pass';
   }
 
   return getTrustCoverageSeverity(
@@ -105,7 +105,7 @@ function getReviewSignalMessage({
     hasVerifiedMerchantReviewAuthority &&
     productsWithReviewSignals < openAiProductsCount
   ) {
-    return `${productsWithReviewSignals} of ${openAiProductsCount} agent-visible products have product-level review metadata, but merchant-level Google review authority is connected.`;
+    return `${productsWithReviewSignals} of ${openAiProductsCount} agent-visible products have product-level review metadata; verified merchant-level Google review authority is connected as fallback review evidence.`;
   }
 
   return `${productsWithReviewSignals} of ${openAiProductsCount} agent-visible products have usable review count and rating metadata.`;
@@ -152,6 +152,9 @@ export function buildAgentCommerceTrustHealthSignals({
   const productsWithReviewSignals = openAiProducts.filter(
     hasReviewSignalFields
   ).length;
+  const productsMissingReviewSignals = hasVerifiedMerchantReviewAuthority
+    ? 0
+    : Math.max(0, openAiProducts.length - productsWithReviewSignals);
   const latestProductUpdatedAt = getLatestProductUpdatedAt(openAiProducts);
   const staleProducts = countStaleProducts(openAiProducts, now);
   const crawlerUrls = [surfaces.robots, surfaces.sitemap, surfaces.llms];
@@ -188,10 +191,7 @@ export function buildAgentCommerceTrustHealthSignals({
           openAiProductsCount: openAiProducts.length,
           productsWithReviewSignals,
         }),
-        affectedProductCount: Math.max(
-          0,
-          openAiProducts.length - productsWithReviewSignals
-        ),
+        affectedProductCount: productsMissingReviewSignals,
       },
       {
         id: 'feed-freshness',

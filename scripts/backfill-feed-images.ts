@@ -29,7 +29,7 @@ import {
 import {
   type VerificationResult,
   isCdnUrl,
-  verifyCdnImage,
+  verifyCdnImageWithTransformFallback,
   verifyRemoteImage,
 } from './lib/gmc-feed-verifier';
 
@@ -92,7 +92,7 @@ async function verifyClassifiedImage(
 
   // CDN-hosted: verify via filesystem
   if (isCdnUrl(url)) {
-    return verifyCdnImage(url, cdnBasePath);
+    return verifyCdnImageWithTransformFallback(url, cdnBasePath);
   }
 
   // Non-CDN absolute URL or absolutized relative path: verify via HTTP
