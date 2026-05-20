@@ -596,7 +596,15 @@ export default function LoginScreen() {
             returnKeyType="done"
             onSubmitEditing={handlePasswordSignIn}
           />
-          <Pressable onPress={() => setShowPassword(!showPassword)}>
+          <Pressable
+            onPress={() => setShowPassword(!showPassword)}
+            accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.passwordToggle,
+              pressed && styles.pressablePressed,
+            ]}
+          >
             <Ionicons
               name={showPassword ? 'eye-off-outline' : 'eye-outline'}
               size={20}
@@ -833,6 +841,12 @@ const styles = StyleSheet.create({
   resendLink: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  passwordToggle: {
+    padding: 4,
+  },
+  pressablePressed: {
+    opacity: 0.7,
   },
   errorText: {
     fontSize: 13,

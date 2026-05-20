@@ -19,3 +19,6 @@
 ## 2024-05-18 - Mobile Admin Pressable Accessibility & Feedback
 **Learning:** React Native `Pressable` components in the Baci monorepo often lack visual feedback and screen reader labels when initially created, particularly in dynamic mapped elements like lists and toggles. When refactoring complex `style` properties on `Pressable`, carefully wrapping existing style objects in arrays alongside the `({ pressed }) => [...]` function is necessary.
 **Action:** When creating or modifying `Pressable` components, always use the `({ pressed }) => [pressed && { opacity: 0.7 }, ...]` pattern for visual feedback, and assign explicit `accessibilityLabel` attributes (especially mapped elements or icon buttons). Validate syntax correctness when refactoring inline styles.
+## 2026-05-20 - Icon-only Buttons Accessibility
+**Learning:** Icon-only buttons (like password show/hide toggles) are inaccessible to screen readers without an explicit label.
+**Action:** Always add `accessibilityLabel` (and `accessibilityRole="button"`) to `Pressable` components that only contain icons.
