@@ -91,7 +91,8 @@ function mapSubmittedAttemptResult(
 
 async function getSubmittedAttemptResult(
   supabase: Awaited<ReturnType<typeof requireQuizUser>>['supabase'],
-  attemptId: string
+  attemptId: string,
+  userId: string
 ): Promise<{ error: unknown; result: SubmittedAttemptResult | null }> {
   if (!supabase) return { error: null, result: null };
 
@@ -101,6 +102,7 @@ async function getSubmittedAttemptResult(
       'id, status, quiz_attempt_questions(id, quiz_attempt_answers(score_delta))'
     )
     .eq('id', attemptId)
+    .eq('user_id', userId)
     .maybeSingle();
 
   if (error) return { error, result: null };
@@ -157,7 +159,8 @@ export async function POST(
     if (isReplayStateError(error)) {
       const recovered = await getSubmittedAttemptResult(
         auth.supabase,
-        params.data.attemptId
+        params.data.attemptId,
+        auth.user.id
       );
       if (recovered.error) return rpcErrorResponse();
       if (recovered.result) return NextResponse.json(recovered.result);

@@ -164,6 +164,9 @@ BEGIN
   IF pg_catalog.strpos(normalized_slot_policy_using, 'active') = 0
      OR pg_catalog.strpos(normalized_slot_policy_using, 'quiz_events') = 0
      OR pg_catalog.strpos(normalized_slot_policy_using, 'event_id') = 0
+     OR pg_catalog.strpos(normalized_slot_policy_using, 'status') = 0
+     OR pg_catalog.strpos(normalized_slot_policy_using, 'scheduled') = 0
+     OR pg_catalog.strpos(normalized_slot_policy_using, 'completed') = 0
      OR pg_catalog.strpos(normalized_slot_policy_using, 'customers') = 0
      OR pg_catalog.strpos(normalized_slot_policy_using, 'merchant_id') = 0
      OR pg_catalog.strpos(normalized_slot_policy_using, 'user_id') = 0

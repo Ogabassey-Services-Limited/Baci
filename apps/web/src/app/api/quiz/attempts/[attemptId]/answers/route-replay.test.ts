@@ -161,6 +161,8 @@ describe('submit quiz answer replay recovery', () => {
     expect(attemptBuilder.select).toHaveBeenCalledWith(
       'id, status, quiz_attempt_questions(id, quiz_attempt_answers(score_delta))'
     );
+    expect(attemptBuilder.eq).toHaveBeenCalledWith('id', ATTEMPT_ID);
+    expect(attemptBuilder.eq).toHaveBeenCalledWith('user_id', USER_ID);
     expect(logger.error).not.toHaveBeenCalled();
   });
 
