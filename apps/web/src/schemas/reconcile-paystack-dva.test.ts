@@ -73,7 +73,7 @@ describe('reconcileArgsSchema', () => {
     '--canonical-order-id': '211bcf0e-0795-488f-aeeb-52c5b7a8b9ae',
     '--cancel-orders':
       '9235a8d5-55fc-4e90-8238-4bb6698679bd,de838a51-d0e9-4438-9f55-135b7677783f',
-    '--operator-user-id': '11111111-1111-1111-1111-111111111111',
+    '--operator-user-id': '11111111-1111-4111-8111-111111111111',
   };
 
   it('parses a fully-valid recovery args object', () => {
