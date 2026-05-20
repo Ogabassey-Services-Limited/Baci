@@ -63,6 +63,9 @@ describe('GET /api/google-places/reviews', () => {
               relativePublishTimeDescription: 'a month ago',
               text: { text: 'Great service.', languageCode: 'en' },
               publishTime: '2026-05-01T12:00:00Z',
+              flagContentUri:
+                'https://www.google.com/local/reviews/report/ada-review',
+              googleMapsUri: 'https://maps.google.com/?review=ada',
             },
           ],
         }),
@@ -111,6 +114,9 @@ describe('GET /api/google-places/reviews', () => {
           relativeTime: 'a month ago',
           text: 'Great service.',
           timestamp: 1_777_636_800,
+          flagContentUri:
+            'https://www.google.com/local/reviews/report/ada-review',
+          googleMapsUri: 'https://maps.google.com/?review=ada',
         },
       ],
     });
@@ -157,7 +163,7 @@ describe('GET /api/google-places/reviews', () => {
   });
 
   it('does not reject long syntactically valid Place IDs before the API call', async () => {
-    const longPlaceId = `ChIJ${'A'.repeat(400)}`;
+    const longPlaceId = `ChIJ${'A'.repeat(2048)}`;
     mockFetch.mockResolvedValueOnce(
       new Response(JSON.stringify({ rating: 4.5, userRatingCount: 12 }), {
         status: 200,
@@ -172,18 +178,6 @@ describe('GET /api/google-places/reviews', () => {
       `https://places.googleapis.com/v1/places/${longPlaceId}`,
       expect.any(Object)
     );
-  });
-
-  it('rejects excessively long Place IDs without calling Google', async () => {
-    const excessivelyLongPlaceId = `ChIJ${'A'.repeat(1025)}`;
-    const { GET } = await importRoute();
-
-    const response = await GET(makeRequest(excessivelyLongPlaceId));
-    const body = await response.json();
-
-    expect(response.status).toBe(400);
-    expect(body).toEqual({ error: 'Invalid Place ID format' });
-    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('rejects malformed place IDs without calling Google', async () => {

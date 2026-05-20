@@ -12,7 +12,6 @@ import { type NextRequest, NextResponse } from 'next/server';
  */
 
 const NEW_PLACES_API_BASE = 'https://places.googleapis.com/v1';
-const MAX_PLACE_ID_LENGTH = 1024;
 const PLACE_REVIEW_FIELD_MASK = [
   'displayName',
   'rating',
@@ -41,6 +40,8 @@ interface GooglePlaceReview {
   rating?: number;
   relativePublishTimeDescription?: string;
   text?: GooglePlaceLocalizedText;
+  flagContentUri?: string;
+  googleMapsUri?: string;
 }
 
 interface GooglePlaceDetails {
@@ -67,6 +68,8 @@ interface FormattedReview {
   text: string;
   relativeTime: string;
   timestamp?: number;
+  flagContentUri?: string;
+  googleMapsUri?: string;
 }
 
 interface ReviewsResponse {
@@ -92,10 +95,7 @@ function normalizePlaceId(placeId: string): string | null {
     : trimmed;
   const placeIdPattern = /^[A-Za-z0-9_-]+$/;
 
-  return cleanPlaceId.length <= MAX_PLACE_ID_LENGTH &&
-    placeIdPattern.test(cleanPlaceId)
-    ? cleanPlaceId
-    : null;
+  return placeIdPattern.test(cleanPlaceId) ? cleanPlaceId : null;
 }
 
 function toUnixSeconds(value?: string): number | undefined {
@@ -119,6 +119,8 @@ function formatReview(review: GooglePlaceReview): FormattedReview {
     text,
     relativeTime: review.relativePublishTimeDescription || '',
     timestamp: toUnixSeconds(review.publishTime),
+    flagContentUri: review.flagContentUri,
+    googleMapsUri: review.googleMapsUri,
   };
 }
 
