@@ -9,6 +9,7 @@ const getCachedOpenAIFeedData = vi.fn();
 const getCachedGoogleMerchantFeedData = vi.fn();
 const buildMerchantTrustProfile = vi.fn();
 const buildAgentCommerceTrustReadiness = vi.fn();
+const supabaseFrom = vi.fn();
 
 vi.mock('@/lib/supabase/server', () => ({
   createClient: (...args: unknown[]) => createClient(...args),
@@ -84,6 +85,31 @@ const actionHealth = {
   generated_at: '2026-05-18T08:00:00.000Z',
 };
 
+const crawlerRows = [
+  {
+    agent_family: 'openai',
+    bot_name: 'OpenAI',
+    cache_outcome: 'hit',
+    crawled_at: '2026-05-20T05:00:00.000Z',
+    host: 'shop.example.com',
+    response_time_ms: 120,
+    status_code: 200,
+    url_path: '/agent-commerce.json',
+    user_agent: 'GPTBot/1.0',
+  },
+  {
+    agent_family: 'google',
+    bot_name: 'Google',
+    cache_outcome: 'miss',
+    crawled_at: '2026-05-20T04:58:00.000Z',
+    host: 'shop.example.com',
+    response_time_ms: 320,
+    status_code: 200,
+    url_path: '/feeds/openai.jsonl',
+    user_agent: 'Google-Extended',
+  },
+];
+
 const fullReadiness = {
   checks: [
     {
@@ -128,10 +154,43 @@ const fullReadiness = {
   },
 };
 
+interface CrawlerLogQuery {
+  eq(column: string, value: string): CrawlerLogQuery;
+  gte(column: string, value: string): CrawlerLogQuery;
+  limit(count: number): Promise<{
+    data: Record<string, unknown>[] | null;
+    error: unknown;
+  }>;
+  order(column: string, options: { ascending: boolean }): CrawlerLogQuery;
+  select(columns: string): CrawlerLogQuery;
+}
+
+function createCrawlerLogQuery({
+  data = crawlerRows,
+  error = null,
+}: {
+  data?: Record<string, unknown>[] | null;
+  error?: unknown;
+} = {}): CrawlerLogQuery {
+  const query: CrawlerLogQuery = {
+    eq: vi.fn((_column: string, _value: string) => query),
+    gte: vi.fn((_column: string, _value: string) => query),
+    limit: vi.fn(async (_count: number) => ({ data, error })),
+    order: vi.fn((_column: string, _options: { ascending: boolean }) => query),
+    select: vi.fn((_columns: string) => query),
+  };
+
+  return query;
+}
+
 describe('loadAgenticCentersData', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    createClient.mockResolvedValue({ from: vi.fn() });
+    supabaseFrom.mockImplementation((table: string) => {
+      if (table === 'crawler_logs') return createCrawlerLogQuery();
+      throw new Error(`Unexpected table: ${table}`);
+    });
+    createClient.mockResolvedValue({ from: supabaseFrom });
     getMerchantForUser.mockResolvedValue({
       merchant,
       staffAccess: ownerStaffAccess,
@@ -146,7 +205,7 @@ describe('loadAgenticCentersData', () => {
     buildAgentCommerceTrustReadiness.mockReturnValue(fullReadiness);
   });
 
-  it('loads action and slim trust center data for published merchants', async () => {
+  it('loads action, slim trust, and crawler center data for published merchants', async () => {
     const { loadAgenticCentersData } = await import('./data');
 
     const result = await loadAgenticCentersData();
@@ -168,6 +227,17 @@ describe('loadAgenticCentersData', () => {
       affectedProductCount: 2,
       id: 'catalog-surface-parity',
     });
+    expect(supabaseFrom).toHaveBeenCalledWith('crawler_logs');
+    expect(result.crawlerCenterState).toBe('ready');
+    expect(result.crawlerSummary).toMatchObject({
+      health: {
+        aiAgentCrawls: 2,
+        cacheMissCrawls: 1,
+        failedCrawls: 0,
+      },
+      totalCrawls: 2,
+      windowDays: 14,
+    });
   });
 
   it('skips loaders when the store is unpublished', async () => {
@@ -186,6 +256,8 @@ describe('loadAgenticCentersData', () => {
     expect(result).toMatchObject({
       actionCenterState: 'ready',
       actionHealth: null,
+      crawlerCenterState: 'ready',
+      crawlerSummary: null,
       isPublished: false,
       trustCenterState: 'ready',
       trustReadiness: null,
@@ -209,6 +281,8 @@ describe('loadAgenticCentersData', () => {
     expect(result).toMatchObject({
       actionCenterState: 'unauthorized',
       actionHealth: null,
+      crawlerCenterState: 'unauthorized',
+      crawlerSummary: null,
       trustCenterState: 'unauthorized',
       trustReadiness: null,
     });
@@ -220,7 +294,10 @@ describe('loadAgenticCentersData', () => {
       staffAccess: {
         isOwner: false,
         isStaff: true,
-        permissions: { integrations: { view: false } },
+        permissions: {
+          analytics: { view: false },
+          integrations: { view: false },
+        },
         role: 'manager',
       },
     });
@@ -233,6 +310,8 @@ describe('loadAgenticCentersData', () => {
     expect(result).toMatchObject({
       actionCenterState: 'unauthorized',
       actionHealth: null,
+      crawlerCenterState: 'unauthorized',
+      crawlerSummary: null,
       isPublished: true,
       trustCenterState: 'unauthorized',
       trustReadiness: null,
@@ -250,6 +329,7 @@ describe('loadAgenticCentersData', () => {
 
     expect(result.actionCenterState).toBe('unauthorized');
     expect(result.actionHealth).toBeNull();
+    expect(result.crawlerCenterState).toBe('ready');
     expect(result.trustCenterState).toBe('ready');
   });
 
@@ -267,11 +347,68 @@ describe('loadAgenticCentersData', () => {
 
       expect(result.actionCenterState).toBe('ready');
       expect(result.actionHealth).toBe(actionHealth);
+      expect(result.crawlerCenterState).toBe('ready');
       expect(result.trustCenterState).toBe('error');
       expect(result.trustReadiness).toBeNull();
       expect(consoleSpy).toHaveBeenCalledWith(
         'Failed to fetch trust readiness:',
         'feed unavailable'
+      );
+    } finally {
+      consoleSpy.mockRestore();
+    }
+  });
+
+  it('keeps crawler visibility available for staff with analytics view only', async () => {
+    getMerchantForUser.mockResolvedValue({
+      merchant,
+      staffAccess: {
+        isOwner: false,
+        isStaff: true,
+        permissions: {
+          analytics: { view: true },
+          integrations: { view: false },
+        },
+        role: 'marketing',
+      },
+    });
+    const { loadAgenticCentersData } = await import('./data');
+
+    const result = await loadAgenticCentersData();
+
+    expect(loadAgenticActionHealth).not.toHaveBeenCalled();
+    expect(getCachedOpenAIFeedData).not.toHaveBeenCalled();
+    expect(result.actionCenterState).toBe('unauthorized');
+    expect(result.trustCenterState).toBe('unauthorized');
+    expect(result.crawlerCenterState).toBe('ready');
+    expect(result.crawlerSummary?.totalCrawls).toBe(2);
+  });
+
+  it('marks crawler visibility unavailable when crawler loading fails', async () => {
+    const consoleSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    supabaseFrom.mockImplementation((table: string) => {
+      if (table === 'crawler_logs') {
+        return createCrawlerLogQuery({
+          data: null,
+          error: { message: 'crawler logs unavailable' },
+        });
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+    const { loadAgenticCentersData } = await import('./data');
+
+    try {
+      const result = await loadAgenticCentersData();
+
+      expect(result.actionCenterState).toBe('ready');
+      expect(result.trustCenterState).toBe('ready');
+      expect(result.crawlerCenterState).toBe('error');
+      expect(result.crawlerSummary).toBeNull();
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'Failed to fetch crawler visibility:',
+        'crawler logs unavailable'
       );
     } finally {
       consoleSpy.mockRestore();

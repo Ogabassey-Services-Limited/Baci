@@ -29,6 +29,28 @@ export interface CrawlerLogSummaryRow {
   user_agent: string | null;
 }
 
+export interface CrawlerLogSummary {
+  byBot: Array<{
+    count: number;
+    family: string;
+    lastCrawledAt: string;
+    name: string;
+  }>;
+  byDay: Array<{ count: number; date: string }>;
+  generatedAt: string;
+  health: {
+    aiAgentCrawls: number;
+    cacheMissCrawls: number;
+    failedCrawls: number;
+    lastAgentCrawlAt: string | null;
+    slowCrawls: number;
+  };
+  recent: CrawlerLogSummaryRow[];
+  topPages: Array<{ count: number; path: string }>;
+  totalCrawls: number;
+  windowDays: number;
+}
+
 const AI_AGENT_FAMILIES: ReadonlySet<AgentCrawlerFamily> = new Set([
   'anthropic',
   'generic-agent',
@@ -159,27 +181,7 @@ export function getCrawlerClassificationForEvent(
 export function buildCrawlerLogSummary(
   rows: CrawlerLogSummaryRow[],
   windowDays: number
-): {
-  byBot: Array<{
-    count: number;
-    family: string;
-    lastCrawledAt: string;
-    name: string;
-  }>;
-  byDay: Array<{ count: number; date: string }>;
-  generatedAt: string;
-  health: {
-    aiAgentCrawls: number;
-    cacheMissCrawls: number;
-    failedCrawls: number;
-    lastAgentCrawlAt: string | null;
-    slowCrawls: number;
-  };
-  recent: CrawlerLogSummaryRow[];
-  topPages: Array<{ count: number; path: string }>;
-  totalCrawls: number;
-  windowDays: number;
-} {
+): CrawlerLogSummary {
   const botStats = new Map<
     string,
     { count: number; family: string; lastCrawledAt: string; name: string }
