@@ -36,7 +36,6 @@ export interface AgenticCentersData {
 }
 
 const CRAWLER_VISIBILITY_WINDOW_DAYS = 14;
-const CRAWLER_VISIBILITY_LIMIT = 500;
 const CRAWLER_RECENT_ACTIVITY_LIMIT = 3;
 
 function isPermissionDeniedError(reason: unknown): boolean {
@@ -115,8 +114,7 @@ async function loadAgenticCrawlerVisibility(
     )
     .eq('merchant_id', merchantId)
     .gte('crawled_at', startDate.toISOString())
-    .order('crawled_at', { ascending: false })
-    .limit(CRAWLER_VISIBILITY_LIMIT);
+    .order('crawled_at', { ascending: false });
 
   if (error) throw error;
 

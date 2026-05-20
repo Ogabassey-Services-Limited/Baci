@@ -157,11 +157,13 @@ const fullReadiness = {
 interface CrawlerLogQuery {
   eq(column: string, value: string): CrawlerLogQuery;
   gte(column: string, value: string): CrawlerLogQuery;
-  limit(count: number): Promise<{
+  order(
+    column: string,
+    options: { ascending: boolean }
+  ): Promise<{
     data: Record<string, unknown>[] | null;
     error: unknown;
   }>;
-  order(column: string, options: { ascending: boolean }): CrawlerLogQuery;
   select(columns: string): CrawlerLogQuery;
 }
 
@@ -175,8 +177,10 @@ function createCrawlerLogQuery({
   const query: CrawlerLogQuery = {
     eq: vi.fn((_column: string, _value: string) => query),
     gte: vi.fn((_column: string, _value: string) => query),
-    limit: vi.fn(async (_count: number) => ({ data, error })),
-    order: vi.fn((_column: string, _options: { ascending: boolean }) => query),
+    order: vi.fn(async (_column: string, _options: { ascending: boolean }) => ({
+      data,
+      error,
+    })),
     select: vi.fn((_columns: string) => query),
   };
 
