@@ -189,6 +189,41 @@ describe('cart-store', () => {
     );
   });
 
+  it('keeps repeated adds of the same voucher entitlement on one cart line', () => {
+    const { addItem } = useCartStore.getState();
+
+    const voucherItem = {
+      product_id: 'product-1',
+      slug: 'redmi-note-14',
+      variant_id: 'variant-128',
+      name: 'Redmi Note 14',
+      price: 0,
+      quantity: 5,
+      color: 'Midnight Black',
+      storage: '128GB',
+      condition: 'New',
+      voucher_token: 'voucher-token-1',
+      voucher_award_id: 'voucher-award-1',
+    };
+
+    addItem(voucherItem);
+    addItem({
+      ...voucherItem,
+      image_url: 'https://cdn.example.com/redmi-note-14-black.jpg',
+    });
+
+    const items = useCartStore.getState().items;
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      image_url: 'https://cdn.example.com/redmi-note-14-black.jpg',
+      price: 0,
+      quantity: 1,
+      voucher_token: 'voucher-token-1',
+      voucher_award_id: 'voucher-award-1',
+    });
+  });
+
   it('resets generated voucher line ids for deterministic test isolation', () => {
     const { addItem } = useCartStore.getState();
 
@@ -264,7 +299,7 @@ describe('cart-store', () => {
       name: 'Redmi Note 14',
       price: 0,
       quantity: 1,
-      voucher_award_id: 'voucher-award-1',
+      voucher_award_id: 'voucher-award-2',
     });
 
     const ids = useCartStore.getState().items.map((item) => item.id);

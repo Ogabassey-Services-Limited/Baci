@@ -39,9 +39,7 @@ function createCartLineId(
   sequence: number
 ): string {
   // Award IDs are stable after redemption; pending awards use voucher_token,
-  // and plain products use the persisted monotonic sequence for uniqueness.
-  // createCartLineId keeps sequence inside uniquePart even with a
-  // voucherIdentifier so repeated add-to-cart actions stay collision-free.
+  // and plain products use the persisted monotonic sequence for new lines.
   const voucherIdentifier = item.voucher_award_id ?? item.voucher_token;
   const uniquePart = voucherIdentifier
     ? `${voucherIdentifier}::${sequence}`
@@ -50,19 +48,60 @@ function createCartLineId(
   return `${item.product_id}::${item.variant_id || 'default'}::${uniquePart}`;
 }
 
+function getNormalizedVoucherIdentifier(value: string | undefined) {
+  const trimmedValue = value?.trim();
+  return trimmedValue ? trimmedValue : null;
+}
+
+function hasVoucherIdentifier(
+  item: Pick<CartItem, 'voucher_award_id' | 'voucher_token'>
+) {
+  return Boolean(
+    getNormalizedVoucherIdentifier(item.voucher_award_id) ||
+      getNormalizedVoucherIdentifier(item.voucher_token)
+  );
+}
+
+function hasMatchingVoucherIdentifier(
+  existingItem: Pick<CartItem, 'voucher_award_id' | 'voucher_token'>,
+  incomingItem: Pick<CartItem, 'voucher_award_id' | 'voucher_token'>
+) {
+  const existingAwardId = getNormalizedVoucherIdentifier(
+    existingItem.voucher_award_id
+  );
+  const incomingAwardId = getNormalizedVoucherIdentifier(
+    incomingItem.voucher_award_id
+  );
+  const existingToken = getNormalizedVoucherIdentifier(
+    existingItem.voucher_token
+  );
+  const incomingToken = getNormalizedVoucherIdentifier(
+    incomingItem.voucher_token
+  );
+
+  return (
+    (existingAwardId !== null && existingAwardId === incomingAwardId) ||
+    (existingToken !== null && existingToken === incomingToken)
+  );
+}
+
 function mergeExistingCartItem(
   existingItem: CartItem,
   incomingItem: Omit<CartItem, 'id'>
 ): CartItem {
   const newQuantity = existingItem.quantity + incomingItem.quantity;
+  const isVoucherLine =
+    hasVoucherIdentifier(existingItem) || hasVoucherIdentifier(incomingItem);
 
   return {
     ...existingItem,
     ...incomingItem,
     id: existingItem.id,
-    quantity: existingItem.max_quantity
-      ? Math.min(newQuantity, existingItem.max_quantity)
-      : newQuantity,
+    quantity: isVoucherLine
+      ? 1
+      : existingItem.max_quantity
+        ? Math.min(newQuantity, existingItem.max_quantity)
+        : newQuantity,
     negotiatedPrice: existingItem.negotiatedPrice,
     negotiationStatus: existingItem.negotiationStatus,
     hasAssurance: existingItem.hasAssurance,
@@ -121,13 +160,17 @@ function isSameCartLine(
   existingItem: CartItem,
   incomingItem: Omit<CartItem, 'id'>
 ) {
-  if (
-    existingItem.voucher_award_id ||
-    existingItem.voucher_token ||
-    incomingItem.voucher_award_id ||
-    incomingItem.voucher_token
-  ) {
-    return false;
+  const existingHasVoucher = hasVoucherIdentifier(existingItem);
+  const incomingHasVoucher = hasVoucherIdentifier(incomingItem);
+
+  if (existingHasVoucher || incomingHasVoucher) {
+    if (!existingHasVoucher || !incomingHasVoucher) {
+      return false;
+    }
+
+    if (!hasMatchingVoucherIdentifier(existingItem, incomingItem)) {
+      return false;
+    }
   }
 
   if (existingItem.product_id !== incomingItem.product_id) {

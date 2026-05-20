@@ -283,4 +283,37 @@ describe('submit quiz answer route', () => {
       userId: USER_ID,
     });
   });
+
+  it('maps expected non-replay quiz RPC errors to client responses', async () => {
+    const { rpc } = mockAuthenticatedSupabase({
+      rpcResult: {
+        data: null,
+        error: { code: 'QZ010', message: 'quiz route proof required' },
+      },
+    });
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      jsonRequest({
+        answer: 'A',
+        integrityTier: 'strong',
+        questionId: QUESTION_ID,
+      }),
+      { params: Promise.resolve({ attemptId: ATTEMPT_ID }) }
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      code: 'QUIZ_ROUTE_PROOF_REQUIRED',
+      error: 'Quiz request is not authorized',
+    });
+    expect(rpc).toHaveBeenCalledWith(
+      'submit_quiz_answer',
+      expect.objectContaining({
+        p_attempt_id: ATTEMPT_ID,
+        p_question_id: QUESTION_ID,
+      })
+    );
+    expect(logger.error).not.toHaveBeenCalled();
+  });
 });

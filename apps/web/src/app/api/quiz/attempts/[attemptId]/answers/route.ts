@@ -3,6 +3,7 @@ import {
   createRouteProof,
   invalidInputResponse,
   parseJsonBody,
+  quizRpcClientErrorResponse,
   requireQuizCsrf,
   requireQuizUser,
   rpcErrorResponse,
@@ -173,6 +174,9 @@ export async function POST(
         { status: 409 }
       );
     }
+
+    const clientErrorResponse = quizRpcClientErrorResponse(error);
+    if (clientErrorResponse) return clientErrorResponse;
 
     logger.error({
       attemptId: params.data.attemptId,
