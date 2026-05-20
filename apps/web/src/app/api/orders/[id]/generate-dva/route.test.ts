@@ -224,6 +224,41 @@ describe('POST /api/orders/[id]/generate-dva', () => {
     expect(body.virtualAccount.account_number).toBe('1234567890');
   });
 
+  it('returns 500 when checking for an existing DVA fails', async () => {
+    mockAuthenticateApiRequest.mockResolvedValue({
+      user: { id: 'user-1' },
+      error: null,
+      supabase: mockSupabaseClient,
+    });
+    mockGetMerchantIdForApiUser.mockResolvedValue(MERCHANT_ID);
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'orders') {
+        return mockQuery({
+          id: ORDER_ID,
+          order_number: 'ORD-001',
+          total: '5000',
+          customer_name: 'John Doe',
+          customer_email: 'john@test.com',
+          customer_phone: '+2348012345678',
+          payment_status: 'unpaid',
+          merchant_id: MERCHANT_ID,
+        });
+      }
+      if (table === 'order_payment_accounts') {
+        return mockQuery(null, { message: 'connection reset' });
+      }
+      return mockQuery(null);
+    });
+
+    const response = await POST(createRequest(), createParams());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe('Failed to verify existing payment account');
+    expect(mockGeneratePaymentAccount).not.toHaveBeenCalled();
+  });
+
   it('creates new Paystack DVA and returns details', async () => {
     mockAuthenticateApiRequest.mockResolvedValue({
       user: { id: 'user-1' },

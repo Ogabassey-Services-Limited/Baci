@@ -13,6 +13,7 @@ import {
   getMerchantForApiRequest,
   toUserAccess,
 } from '@/lib/get-merchant-for-api-request';
+import { logger } from '@/lib/logger';
 import {
   deactivateVirtualTerminal,
   fetchVirtualTerminal,
@@ -57,11 +58,22 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
     const merchantId = merchantContext.merchantId;
 
     // Verify merchant owns this terminal by checking virtual_terminal_code
-    const { data: merchantRecord } = await supabase
+    const { data: merchantRecord, error: merchantError } = await supabase
       .from('merchants')
       .select('virtual_terminal_code')
       .eq('id', merchantId)
-      .single();
+      .maybeSingle();
+
+    if (merchantError) {
+      logger.error({
+        message: 'Database error fetching merchant record',
+        error: merchantError,
+      });
+      return NextResponse.json(
+        { error: 'Database error verifying terminal ownership' },
+        { status: 500 }
+      );
+    }
 
     if (!merchantRecord || merchantRecord.virtual_terminal_code !== code) {
       return NextResponse.json(
@@ -82,7 +94,7 @@ export async function GET(_request: NextRequest, { params }: RouteParams) {
       paymentLink: `https://paystack.com/vt/${result.data.code}`,
     });
   } catch (error) {
-    console.error('Virtual Terminal fetch error:', error);
+    logger.error({ message: 'Virtual Terminal fetch error', error });
     return NextResponse.json(
       { error: 'Failed to fetch Virtual Terminal' },
       { status: 500 }
@@ -133,11 +145,22 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const merchantId = merchantContext.merchantId;
 
     // Verify merchant owns this terminal by checking virtual_terminal_code
-    const { data: merchantRecord } = await supabase
+    const { data: merchantRecord, error: merchantError } = await supabase
       .from('merchants')
       .select('virtual_terminal_code')
       .eq('id', merchantId)
-      .single();
+      .maybeSingle();
+
+    if (merchantError) {
+      logger.error({
+        message: 'Database error fetching merchant record',
+        error: merchantError,
+      });
+      return NextResponse.json(
+        { error: 'Database error verifying terminal ownership' },
+        { status: 500 }
+      );
+    }
 
     if (!merchantRecord || merchantRecord.virtual_terminal_code !== code) {
       return NextResponse.json(
@@ -168,7 +191,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       terminal: result.data,
     });
   } catch (error) {
-    console.error('Virtual Terminal update error:', error);
+    logger.error({ message: 'Virtual Terminal update error', error });
     return NextResponse.json(
       { error: 'Failed to update Virtual Terminal' },
       { status: 500 }
@@ -219,11 +242,22 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     const merchantId = merchantContext.merchantId;
 
     // Verify merchant owns this terminal by checking virtual_terminal_code
-    const { data: merchantRecord } = await supabase
+    const { data: merchantRecord, error: merchantError } = await supabase
       .from('merchants')
       .select('virtual_terminal_code')
       .eq('id', merchantId)
-      .single();
+      .maybeSingle();
+
+    if (merchantError) {
+      logger.error({
+        message: 'Database error fetching merchant record',
+        error: merchantError,
+      });
+      return NextResponse.json(
+        { error: 'Database error verifying terminal ownership' },
+        { status: 500 }
+      );
+    }
 
     if (!merchantRecord || merchantRecord.virtual_terminal_code !== code) {
       return NextResponse.json(
@@ -249,7 +283,7 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
       message: 'Virtual Terminal deactivated',
     });
   } catch (error) {
-    console.error('Virtual Terminal deactivation error:', error);
+    logger.error({ message: 'Virtual Terminal deactivation error', error });
     return NextResponse.json(
       { error: 'Failed to deactivate Virtual Terminal' },
       { status: 500 }

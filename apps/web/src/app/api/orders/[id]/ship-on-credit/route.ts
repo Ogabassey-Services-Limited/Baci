@@ -135,12 +135,25 @@ export async function POST(
 
         if (insertError) {
           // Handle duplicate key conflicts as idempotent success
-          const { data: existingAccount } = await supabase
-            .from('order_payment_accounts')
-            .select('account_number, bank_name, account_name')
-            .eq('order_id', orderId)
-            .eq('provider', 'paystack')
-            .maybeSingle();
+          const { data: existingAccount, error: existingAccountError } =
+            await supabase
+              .from('order_payment_accounts')
+              .select('account_number, bank_name, account_name')
+              .eq('order_id', orderId)
+              .eq('provider', 'paystack')
+              .maybeSingle();
+
+          if (existingAccountError) {
+            logger.error({
+              message: 'Database error fetching existing payment account',
+              error: existingAccountError,
+              orderId,
+            });
+            return NextResponse.json(
+              { error: 'Failed to create or fetch payment account' },
+              { status: 500 }
+            );
+          }
 
           if (existingAccount) {
             logger.info({
