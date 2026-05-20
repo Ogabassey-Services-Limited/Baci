@@ -596,7 +596,8 @@ export const getMyCoverWebhookSecret = (): string => {
   if (typeof window !== 'undefined')
     throw new Error('MYCOVER_WEBHOOK_SECRET cannot be accessed on the client');
   const webhookSecret =
-    env?.MYCOVER_WEBHOOK_SECRET || process.env.MYCOVER_SECRET_KEY?.trim();
+    env?.MYCOVER_WEBHOOK_SECRET?.trim() ||
+    process.env.MYCOVER_SECRET_KEY?.trim();
   if (!webhookSecret)
     throw new Error(
       'MYCOVER_WEBHOOK_SECRET or MYCOVER_SECRET_KEY is not defined'

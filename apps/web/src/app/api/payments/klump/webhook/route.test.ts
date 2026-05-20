@@ -87,7 +87,47 @@ function makeUpdateChain<T>(result: T) {
   };
 }
 
-function createSupabaseMock() {
+function createSupabaseMock({
+  orderUpdateResult = {
+    data: {
+      currency: 'NGN',
+      customer_email: 'buyer@example.com',
+      customer_id: 'customer-123',
+      customer_name: 'Buyer Name',
+      customer_phone: '+2348000000000',
+      discount_amount: 0,
+      gift_wrapping_fee: 0,
+      id: 'order-123',
+      merchant_id: 'merchant-123',
+      order_items: [
+        {
+          name: 'Phone',
+          price: 50000,
+          quantity: 1,
+          subtotal: 50000,
+        },
+      ],
+      order_number: 'ORD-123',
+      payment_status: 'paid',
+      shipping_address: { address: '1 Market Street' },
+      shipping_fee: '0',
+      shipping_status: 'processing',
+      subtotal: '50000',
+      tax_amount: 0,
+      tax_basis: null,
+      total: '50000',
+      updated_at: '2026-05-20T00:00:00.000Z',
+    },
+    error: null,
+  },
+  transactionUpdateResult = {
+    data: { id: 'transaction-123' },
+    error: null,
+  },
+}: {
+  orderUpdateResult?: { data: unknown; error: unknown };
+  transactionUpdateResult?: { data: unknown; error: unknown };
+} = {}) {
   return {
     from: vi.fn((table: string) => {
       if (table === 'transactions') {
@@ -110,10 +150,7 @@ function createSupabaseMock() {
           ),
           update: vi.fn((payload: unknown) => {
             mocks.transactionUpdateMaybeSingle(payload);
-            return makeUpdateChain({
-              data: { id: 'transaction-123' },
-              error: null,
-            });
+            return makeUpdateChain(transactionUpdateResult);
           }),
         };
       }
@@ -122,38 +159,7 @@ function createSupabaseMock() {
         return {
           update: vi.fn((payload: unknown) => {
             mocks.orderUpdateSingle(payload);
-            return makeUpdateChain({
-              data: {
-                currency: 'NGN',
-                customer_email: 'buyer@example.com',
-                customer_id: 'customer-123',
-                customer_name: 'Buyer Name',
-                customer_phone: '+2348000000000',
-                discount_amount: 0,
-                gift_wrapping_fee: 0,
-                id: 'order-123',
-                merchant_id: 'merchant-123',
-                order_items: [
-                  {
-                    name: 'Phone',
-                    price: 50000,
-                    quantity: 1,
-                    subtotal: 50000,
-                  },
-                ],
-                order_number: 'ORD-123',
-                payment_status: 'paid',
-                shipping_address: { address: '1 Market Street' },
-                shipping_fee: '0',
-                shipping_status: 'processing',
-                subtotal: '50000',
-                tax_amount: 0,
-                tax_basis: null,
-                total: '50000',
-                updated_at: '2026-05-20T00:00:00.000Z',
-              },
-              error: null,
-            });
+            return makeUpdateChain(orderUpdateResult);
           }),
         };
       }
@@ -255,6 +261,9 @@ describe('POST /api/payments/klump/webhook', () => {
         shipping_status: 'processing',
       })
     );
+    expect(
+      mocks.transactionUpdateMaybeSingle.mock.invocationCallOrder[0]
+    ).toBeLessThan(mocks.orderUpdateSingle.mock.invocationCallOrder[0]);
     expect(mocks.recordMerchantSettlement).toHaveBeenCalledWith(
       expect.objectContaining({
         p_gateway: 'klump',
@@ -282,5 +291,27 @@ describe('POST /api/payments/klump/webhook', () => {
     expect(response.status).toBe(200);
     expect(body.message).toBe('Event ignored');
     expect(mocks.createServiceClient).not.toHaveBeenCalled();
+  });
+
+  it('does not mark the order paid when the transaction update fails', async () => {
+    mocks.createServiceClient.mockReturnValue(
+      createSupabaseMock({
+        transactionUpdateResult: {
+          data: null,
+          error: { message: 'transaction update failed' },
+        },
+      })
+    );
+    const rawBody = JSON.stringify(successfulPayload);
+
+    const response = await POST(
+      createRequest(successfulPayload, signPayload(rawBody, 'klump-secret'))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body.error).toBe('Failed to update transaction');
+    expect(mocks.transactionUpdateMaybeSingle).toHaveBeenCalled();
+    expect(mocks.orderUpdateSingle).not.toHaveBeenCalled();
   });
 });

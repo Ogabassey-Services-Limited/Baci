@@ -30,6 +30,21 @@ const KlumpWebhookSchema = z
   })
   .passthrough();
 
+const KLUMP_SUCCESS_EVENTS = new Set([
+  'klump.payment.success',
+  'klump.payment.successful',
+  'klump.payment.transaction.success',
+  'klump.payment.transaction.successful',
+  'payment.success',
+  'payment.successful',
+  'success',
+  'successful',
+  'transaction.success',
+  'transaction.successful',
+]);
+
+const SHA256_HEX_SIGNATURE_PATTERN = /^[a-f0-9]{64}$/;
+
 export function getKlumpWebhookSecret(env: NodeJS.ProcessEnv = process.env) {
   return env.KLUMP_WEBHOOK_SECRET || env.KLUMP_SECRET_KEY || '';
 }
@@ -55,6 +70,10 @@ export function verifyKlumpWebhookSignature({
 }) {
   const normalizedSignature = normalizeSignature(signature);
   if (!(secret && normalizedSignature)) {
+    return false;
+  }
+
+  if (!SHA256_HEX_SIGNATURE_PATTERN.test(normalizedSignature)) {
     return false;
   }
 
@@ -127,7 +146,7 @@ function readBoolean(sources: readonly JsonRecord[], keys: readonly string[]) {
 function isSuccessfulKlumpEvent(payload: JsonRecord, sources: JsonRecord[]) {
   const event = readString([payload], ['event'])?.toLowerCase() ?? null;
   if (event) {
-    return event.includes('success');
+    return KLUMP_SUCCESS_EVENTS.has(event);
   }
 
   const status = readString(sources, [
@@ -198,7 +217,7 @@ export function parseKlumpWebhookPayload(
   const payload = parsed.data;
   const details = extractKlumpDetails(payload);
   const event = readString([payload], ['event']);
-  if (event?.toLowerCase().includes('success') && !details) {
+  if (event && KLUMP_SUCCESS_EVENTS.has(event.toLowerCase()) && !details) {
     return { error: 'Invalid Klump payment payload', success: false };
   }
 
