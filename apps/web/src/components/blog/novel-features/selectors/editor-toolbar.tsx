@@ -38,6 +38,7 @@ import { Popover, PopoverContent } from '@/components/ui/popover';
 import { Separator } from '@/components/ui/separator';
 import { sanitizeUrl } from '@/lib/sanitize-core';
 import { cn } from '@/lib/utils';
+import { getTiptap } from '../utils/tiptap';
 import { ColorSelector } from './color-selector';
 import { NodeSelector } from './node-selector';
 
@@ -52,9 +53,7 @@ export const EditorToolbar = ({
   onOpenLink,
   onOpenProducts,
 }: EditorToolbarProps) => {
-  const { editor: _editor } = useEditor();
-  // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex in novel
-  const editor = _editor as any;
+  const { editor } = useEditor();
   const [openNode, setOpenNode] = useState(false);
   const [openColor, setOpenColor] = useState(false);
   const [imageUrlOpen, setImageUrlOpen] = useState(false);
@@ -81,9 +80,9 @@ export const EditorToolbar = ({
   };
 
   const openImageCaptionPopover = () => {
-    const imageAttrs = (editor.getAttributes('image') ?? {}) as {
-      title?: string | null;
-    };
+    const imageAttrs =
+      getTiptap(editor)?.getAttributes<{ title?: string | null }>('image') ??
+      {};
     setImagePopoverMode('edit-caption');
     setImageCaptionValue(
       typeof imageAttrs.title === 'string' ? imageAttrs.title : ''
@@ -118,8 +117,8 @@ export const EditorToolbar = ({
       return;
     }
 
-    editor
-      .chain()
+    getTiptap(editor)
+      ?.chain()
       .focus()
       .setImage({
         src: sanitized,
@@ -133,12 +132,12 @@ export const EditorToolbar = ({
   };
 
   const _updateSelectedImageCaption = () => {
-    if (!editor.isActive('image')) {
+    if (!getTiptap(editor)?.isActive('image')) {
       return;
     }
 
-    editor
-      .chain()
+    getTiptap(editor)
+      ?.chain()
       .focus()
       .updateAttributes('image', {
         title: normalizeImageCaption(imageCaptionValue),
@@ -148,44 +147,44 @@ export const EditorToolbar = ({
     closeImagePopover();
   };
 
-  const handleUndo = () => editor.chain().focus().undo().run();
-  const handleRedo = () => editor.chain().focus().redo().run();
-  const canUndo = editor.can().chain().focus().undo().run();
-  const canRedo = editor.can().chain().focus().redo().run();
+  const handleUndo = () => getTiptap(editor)?.chain().focus().undo().run();
+  const handleRedo = () => getTiptap(editor)?.chain().focus().redo().run();
+  const canUndo = getTiptap(editor)?.can().chain().focus().undo().run();
+  const canRedo = getTiptap(editor)?.can().chain().focus().redo().run();
 
   const formatButtons = [
     {
       name: 'bold',
-      isActive: () => editor.isActive('bold'),
-      command: () => editor.chain().focus().toggleBold().run(),
+      isActive: () => getTiptap(editor)?.isActive('bold'),
+      command: () => getTiptap(editor)?.chain().focus().toggleBold().run(),
       icon: Bold,
       title: 'Bold (Cmd+B)',
     },
     {
       name: 'italic',
-      isActive: () => editor.isActive('italic'),
-      command: () => editor.chain().focus().toggleItalic().run(),
+      isActive: () => getTiptap(editor)?.isActive('italic'),
+      command: () => getTiptap(editor)?.chain().focus().toggleItalic().run(),
       icon: Italic,
       title: 'Italic (Cmd+I)',
     },
     {
       name: 'underline',
-      isActive: () => editor.isActive('underline'),
-      command: () => editor.chain().focus().toggleUnderline().run(),
+      isActive: () => getTiptap(editor)?.isActive('underline'),
+      command: () => getTiptap(editor)?.chain().focus().toggleUnderline().run(),
       icon: Underline,
       title: 'Underline (Cmd+U)',
     },
     {
       name: 'strike',
-      isActive: () => editor.isActive('strike'),
-      command: () => editor.chain().focus().toggleStrike().run(),
+      isActive: () => getTiptap(editor)?.isActive('strike'),
+      command: () => getTiptap(editor)?.chain().focus().toggleStrike().run(),
       icon: Strikethrough,
       title: 'Strikethrough',
     },
     {
       name: 'code',
-      isActive: () => editor.isActive('code'),
-      command: () => editor.chain().focus().toggleCode().run(),
+      isActive: () => getTiptap(editor)?.isActive('code'),
+      command: () => getTiptap(editor)?.chain().focus().toggleCode().run(),
       icon: Code,
       title: 'Code Inline',
     },
@@ -194,22 +193,25 @@ export const EditorToolbar = ({
   const alignmentButtons = [
     {
       name: 'left',
-      isActive: () => editor.isActive({ textAlign: 'left' }),
-      command: () => editor.chain().focus().setTextAlign('left').run(),
+      isActive: () => getTiptap(editor)?.isActive({ textAlign: 'left' }),
+      command: () =>
+        getTiptap(editor)?.chain().focus().setTextAlign('left').run(),
       icon: AlignLeft,
       title: 'Align Left',
     },
     {
       name: 'center',
-      isActive: () => editor.isActive({ textAlign: 'center' }),
-      command: () => editor.chain().focus().setTextAlign('center').run(),
+      isActive: () => getTiptap(editor)?.isActive({ textAlign: 'center' }),
+      command: () =>
+        getTiptap(editor)?.chain().focus().setTextAlign('center').run(),
       icon: AlignCenter,
       title: 'Align Center',
     },
     {
       name: 'right',
-      isActive: () => editor.isActive({ textAlign: 'right' }),
-      command: () => editor.chain().focus().setTextAlign('right').run(),
+      isActive: () => getTiptap(editor)?.isActive({ textAlign: 'right' }),
+      command: () =>
+        getTiptap(editor)?.chain().focus().setTextAlign('right').run(),
       icon: AlignRight,
       title: 'Align Right',
     },
@@ -218,15 +220,17 @@ export const EditorToolbar = ({
   const listButtons = [
     {
       name: 'bulletList',
-      isActive: () => editor.isActive('bulletList'),
-      command: () => editor.chain().focus().toggleBulletList().run(),
+      isActive: () => getTiptap(editor)?.isActive('bulletList'),
+      command: () =>
+        getTiptap(editor)?.chain().focus().toggleBulletList().run(),
       icon: List,
       title: 'Bullet List',
     },
     {
       name: 'orderedList',
-      isActive: () => editor.isActive('orderedList'),
-      command: () => editor.chain().focus().toggleOrderedList().run(),
+      isActive: () => getTiptap(editor)?.isActive('orderedList'),
+      command: () =>
+        getTiptap(editor)?.chain().focus().toggleOrderedList().run(),
       icon: ListOrdered,
       title: 'Ordered List',
     },
@@ -331,13 +335,11 @@ export const EditorToolbar = ({
           size="sm"
           type="button"
           onClick={() =>
-            // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-            (editor as any).chain().focus().toggleBlockquote().run()
+            getTiptap(editor)?.chain().focus().toggleBlockquote().run()
           }
           className={cn('h-8 w-8 p-0', {
             'bg-accent text-accent-foreground':
-              // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-              (editor as any).isActive('blockquote'),
+              getTiptap(editor)?.isActive('blockquote'),
           })}
           title="Blockquote"
         >
@@ -348,8 +350,7 @@ export const EditorToolbar = ({
           size="sm"
           type="button"
           onClick={() =>
-            // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-            (editor as any).chain().focus().setHorizontalRule().run()
+            getTiptap(editor)?.chain().focus().setHorizontalRule().run()
           }
           className="h-8 w-8 p-0"
           title="Horizontal Rule"
@@ -373,7 +374,8 @@ export const EditorToolbar = ({
           type="button"
           onClick={onOpenLink}
           className={cn('h-8 w-8 p-0', {
-            'bg-accent text-accent-foreground': editor.isActive('link'),
+            'bg-accent text-accent-foreground':
+              getTiptap(editor)?.isActive('link'),
           })}
           title="Hyperlink"
         >
@@ -406,7 +408,7 @@ export const EditorToolbar = ({
               <LinkIcon className="mr-2 h-4 w-4" />
               Insert from URL
             </DropdownMenuItem>
-            {editor.isActive('image') ? (
+            {getTiptap(editor)?.isActive('image') ? (
               <DropdownMenuItem
                 onClick={openImageCaptionPopover}
                 aria-label="Edit selected image caption"
@@ -530,8 +532,7 @@ export const EditorToolbar = ({
             if (url) {
               const sanitized = sanitizeUrl(url.trim());
               if (sanitized) {
-                // biome-ignore lint/suspicious/noExplicitAny: Tiptap types can be complex
-                (editor as any).commands.setYoutubeVideo({
+                getTiptap(editor)?.commands.setYoutubeVideo({
                   src: sanitized,
                 });
               } else {
@@ -551,10 +552,12 @@ export const EditorToolbar = ({
             variant="ghost"
             size="sm"
             type="button"
-            onClick={() => editor.chain().focus().toggleSuperscript().run()}
+            onClick={() =>
+              getTiptap(editor)?.chain().focus().toggleSuperscript().run()
+            }
             className={cn(
               'h-8 w-8 p-0',
-              editor.isActive('superscript') && 'bg-accent'
+              getTiptap(editor)?.isActive('superscript') && 'bg-accent'
             )}
             title="Superscript"
           >
@@ -564,10 +567,12 @@ export const EditorToolbar = ({
             variant="ghost"
             size="sm"
             type="button"
-            onClick={() => editor.chain().focus().toggleSubscript().run()}
+            onClick={() =>
+              getTiptap(editor)?.chain().focus().toggleSubscript().run()
+            }
             className={cn(
               'h-8 w-8 p-0',
-              editor.isActive('subscript') && 'bg-accent'
+              getTiptap(editor)?.isActive('subscript') && 'bg-accent'
             )}
             title="Subscript"
           >
@@ -595,9 +600,10 @@ export const EditorToolbar = ({
         accept="image/*"
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (file && editor) {
-            const pos = editor.state.selection.from;
-            uploadFn(file, editor.view, pos);
+          const tiptap = getTiptap(editor);
+          if (file && tiptap) {
+            const pos = tiptap.state.selection.from;
+            uploadFn(file, tiptap.view, pos);
           }
           e.target.value = '';
         }}

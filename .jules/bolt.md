@@ -15,3 +15,6 @@
 
 **Learning:** When fetching data asynchronously within a `useEffect` (e.g., for debounced autocomplete searches), failing to check if the component is still mounted before setting state can cause race conditions where stale data overwrites fresh data if earlier requests resolve after later ones.
 **Action:** Always implement an `isMounted` boolean flag within the effect, check it before calling state setters like `setSuggestions`, and toggle it to `false` in the cleanup function.
+## 2025-05-19 - Exact getItemLayout only for fixed-axis FlatLists
+**Learning:** React Native's `getItemLayout` is safe only when each item has an exact, deterministic size on the scroll axis. Rough estimates for text-heavy vertical rows, country lists, addresses, or history cards can corrupt offsets when content wraps or font scaling changes.
+**Action:** Provide `getItemLayout` only when the rendered item enforces the exact scroll-axis dimension, such as a horizontal pager whose item width is the viewport width. Leave variable-height lists to React Native's measurement path.
