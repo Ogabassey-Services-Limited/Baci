@@ -55,6 +55,8 @@ export function RevenueChart({ data, className }: ChartProps) {
     <ResponsiveContainer
       width="100%"
       height="100%"
+      minWidth={0}
+      minHeight={0}
       className={className}
       debounce={100}
     >
@@ -113,6 +115,8 @@ export function OrdersChart({ data, className }: ChartProps) {
     <ResponsiveContainer
       width="100%"
       height="100%"
+      minWidth={0}
+      minHeight={0}
       className={className}
       debounce={100}
     >
@@ -164,6 +168,8 @@ export function SalesByChannelChart({ data, className }: ChartProps) {
     <ResponsiveContainer
       width="100%"
       height="100%"
+      minWidth={0}
+      minHeight={0}
       className={className}
       debounce={100}
     >
