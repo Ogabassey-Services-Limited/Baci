@@ -36,6 +36,49 @@ function errorResponse(error: string, status: number) {
   return NextResponse.json({ error }, { status });
 }
 
+function webhookReachabilityResponse() {
+  return NextResponse.json({
+    message: 'Klump webhook endpoint reachable',
+    success: true,
+  });
+}
+
+function isUnsignedWebhookSetupProbe({
+  rawBody,
+  signature,
+}: {
+  rawBody: string;
+  signature: string | null;
+}) {
+  if (signature?.trim()) {
+    return false;
+  }
+
+  const trimmedBody = rawBody.trim();
+  if (!trimmedBody) {
+    return true;
+  }
+
+  try {
+    const payload: unknown = JSON.parse(trimmedBody);
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      return false;
+    }
+
+    return Object.keys(payload).length === 0;
+  } catch {
+    return false;
+  }
+}
+
+export function GET() {
+  return webhookReachabilityResponse();
+}
+
+export function HEAD() {
+  return new Response(null, { status: 200 });
+}
+
 function updateKlumpOrder({
   orderId,
   supabase,
@@ -73,6 +116,7 @@ function getKlumpPlatformFee(
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
   const secret = getKlumpWebhookSecret();
+  const signature = request.headers.get('x-klump-signature');
 
   if (!secret) {
     logger.error({
@@ -81,10 +125,15 @@ export async function POST(request: NextRequest) {
     return errorResponse('Webhook secret not configured', 500);
   }
 
+  if (isUnsignedWebhookSetupProbe({ rawBody, signature })) {
+    logger.info({ message: 'Klump webhook setup probe acknowledged' });
+    return webhookReachabilityResponse();
+  }
+
   const validSignature = verifyKlumpWebhookSignature({
     rawBody,
     secret,
-    signature: request.headers.get('x-klump-signature'),
+    signature,
   });
   if (!validSignature) {
     logger.warn({ message: 'Invalid Klump webhook signature' });
