@@ -137,19 +137,23 @@ export async function GET(request: Request) {
       // PGRST116 = no rows found (customer not yet created for this merchant)
       console.error('Customer fetch error:', customerError);
     } else if (!customer) {
-      const profileFields = getCustomerProfileFields(
-        user.user_metadata,
+      const authPhone = normalizeProfileString(
         'phone' in user ? user.phone : undefined
       );
+      const profileFields = getCustomerProfileFields(
+        user.user_metadata,
+        authPhone
+      );
       const userEmail = normalizeProfileString(user.email);
+      let shouldCreateNoEmailCustomer = !authPhone;
 
-      if (!userEmail && profileFields.phone) {
+      if (!userEmail && authPhone) {
         const { data: claimedCustomerId, error: claimError } =
           await supabase.rpc('claim_customer_on_phone_auth', {
             p_first_name: profileFields.firstName,
             p_last_name: profileFields.lastName,
             p_merchant_id: merchant.id,
-            p_phone: profileFields.phone,
+            p_phone: authPhone,
             p_user_id: user.id,
           });
 
@@ -158,11 +162,13 @@ export async function GET(request: Request) {
             'Failed to claim no-email customer session:',
             claimError
           );
+          shouldCreateNoEmailCustomer = true;
         } else if (!claimedCustomerId) {
           console.error('Phone auth customer claim returned no customer id', {
             merchantId: merchant.id,
             userId: user.id,
           });
+          shouldCreateNoEmailCustomer = true;
         } else {
           const { data: claimedCustomer, error: claimedCustomerError } =
             await supabase
@@ -182,7 +188,9 @@ export async function GET(request: Request) {
             customer = claimedCustomer;
           }
         }
-      } else if (!userEmail) {
+      }
+
+      if (!userEmail && shouldCreateNoEmailCustomer) {
         const { data: newCustomer, error: createError } = await supabase
           .from('customers')
           .insert({
@@ -204,7 +212,7 @@ export async function GET(request: Request) {
         } else {
           customer = newCustomer;
         }
-      } else {
+      } else if (userEmail) {
         const { error: upsertError } = await supabase.rpc(
           'upsert_customer_on_auth',
           {

@@ -267,6 +267,59 @@ describe('GET /api/storefront/auth/session', () => {
     });
   });
 
+  it('uses direct no-email customer creation when only metadata phone is available', async () => {
+    const metadataPhoneUser = {
+      ...user,
+      email: undefined,
+      user_metadata: {
+        ...user.user_metadata,
+        role: 'customer',
+      },
+    };
+
+    mockGetUser.mockResolvedValue({
+      data: { user: metadataPhoneUser },
+      error: null,
+    });
+
+    const merchantChain = makeSelectChain({ data: merchant, error: null });
+    const missingCustomerChain = makeSelectChain({
+      data: null,
+      error: { code: 'PGRST116', message: 'No rows found' },
+    });
+    const insertCustomerChain = makeInsertChain({
+      data: { ...customer, email: null },
+      error: null,
+    });
+
+    let customerLookupCount = 0;
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'merchants') return merchantChain;
+      if (table === 'customers') {
+        customerLookupCount += 1;
+        return customerLookupCount === 1
+          ? missingCustomerChain
+          : insertCustomerChain;
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    const response = await GET(makeRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(insertCustomerChain.insert).toHaveBeenCalledWith({
+      email: null,
+      first_name: 'Ada',
+      last_name: 'Lovelace',
+      merchant_id: 'merchant-1',
+      phone: '+2348000000000',
+      user_id: 'user-1',
+    });
+    expect(body.customer).toEqual({ ...customer, email: null });
+  });
+
   it('falls back to direct no-email customer creation when there is no verified phone', async () => {
     const noIdentifierUser = {
       ...user,
