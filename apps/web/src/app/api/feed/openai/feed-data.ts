@@ -371,7 +371,7 @@ export async function getCachedOpenAIFeedData(
   merchantId: string,
   includeReviewSignals = false
 ): Promise<OpenAIFeedData> {
-  'use cache: remote';
+  'use cache';
   cacheLife('products');
   cacheTag('openai-product-feed', 'products', `merchant-feed-${merchantId}`);
   if (includeReviewSignals) {

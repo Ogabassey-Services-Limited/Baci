@@ -70,6 +70,7 @@ describe('cached-data product query projections', () => {
     data: null,
     error: { message: 'RPC failed', code: 'P0001' },
   };
+  const standaloneCurrencyColumnPattern = /(?:^|[\s,])currency\s*(?:,|\n|$)/;
 
   it('getCachedProduct uses explicit column select without product_variants', async () => {
     harness.mockSingle.mockResolvedValueOnce(singleProductResult);
@@ -80,6 +81,7 @@ describe('cached-data product query projections', () => {
     expect(harness.mockEq).toHaveBeenCalledWith('slug', 'iphone-16');
     const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
     expect(selectArg).not.toMatch(/\*\s*,/);
+    expect(selectArg).not.toMatch(standaloneCurrencyColumnPattern);
     expect(selectArg).toContain('canonical_url');
   });
 
@@ -146,6 +148,8 @@ describe('cached-data product query projections', () => {
     expect(harness.mockQueryExecution.mock.invocationCallOrder[0]).toBeLessThan(
       harness.mockRpc.mock.invocationCallOrder[0]
     );
+    const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
+    expect(selectArg).not.toMatch(standaloneCurrencyColumnPattern);
   });
 
   it('getCachedProducts maps price fields to legacy base/sale fields', async () => {

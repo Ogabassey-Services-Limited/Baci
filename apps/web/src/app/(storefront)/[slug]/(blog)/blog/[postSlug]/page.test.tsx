@@ -35,6 +35,12 @@ vi.mock('@/lib/cached-data', () => ({
   getCachedBlogPost: (...args: unknown[]) => mockGetCachedBlogPost(...args),
 }));
 
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => (
+    <div aria-label="dynamic metadata marker" role="status" />
+  ),
+}));
+
 vi.mock('@/lib/live-blog-post', () => ({
   getLiveBlogPost: (...args: unknown[]) => mockGetLiveBlogPost(...args),
 }));
@@ -145,6 +151,21 @@ describe('storefront blog post page', () => {
     expect(
       screen.queryByText('Blog post page content')
     ).not.toBeInTheDocument();
+  });
+
+  it('marks runtime metadata as intentional dynamic content', () => {
+    render(
+      <BlogPostPage
+        params={Promise.resolve({
+          slug: 'ogabassey.com',
+          postSlug: 'apple-studio-display-review',
+        })}
+      />
+    );
+
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
   });
 
   it('falls back to a live blog query for metadata when the cached lookup misses', async () => {
