@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react';
 import { stripInternalSelectionAxes } from '@/lib/product-internal-selection-axes';
 import { computeProductSelectionState } from '@/lib/product-route/product-selection';
 import type { Product, ProductCondition } from '@/types/product';
+import { resolveAvailableProductCondition } from './product-condition-selection';
 
 type FirstImageIndexForColorInput = {
   color: string | null | undefined;
@@ -30,10 +31,6 @@ type UseProductDetailSelectionArgs = {
   routeSelectionSignature: string;
   routeVariantId: string | null;
 };
-
-function isProductCondition(value: unknown): value is ProductCondition {
-  return typeof value === 'string';
-}
 
 export function useProductDetailSelection({
   getFallbackVariantSelections,
@@ -247,30 +244,19 @@ export function useProductDetailSelection({
   ]);
 
   useEffect(() => {
-    if (availableConditions.length === 0) {
+    const nextCondition = resolveAvailableProductCondition({
+      availableConditions,
+      preferredConditions: [
+        selectedCondition,
+        currentVariantDisplaySelection?.condition,
+      ],
+    });
+
+    if (!nextCondition || nextCondition === selectedCondition) {
       return;
     }
 
-    if (
-      selectedCondition &&
-      availableConditions.some((c) => c === selectedCondition)
-    ) {
-      return;
-    }
-
-    const displayCondition = currentVariantDisplaySelection?.condition;
-    if (
-      isProductCondition(displayCondition) &&
-      availableConditions.some((condition) => condition === displayCondition)
-    ) {
-      setSelectedCondition(displayCondition);
-      return;
-    }
-
-    const fallbackCondition = availableConditions[0];
-    if (isProductCondition(fallbackCondition)) {
-      setSelectedCondition(fallbackCondition);
-    }
+    setSelectedCondition(nextCondition);
   }, [
     availableConditions,
     currentVariantDisplaySelection?.condition,

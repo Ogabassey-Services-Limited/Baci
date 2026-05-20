@@ -4,6 +4,7 @@ import {
   baseProduct,
   variantProduct,
 } from '@/lib/product-route/product-detail-screen.fixtures';
+import type { ProductCondition } from '@/types/product';
 import { useProductDetailSelection } from './use-product-detail-selection';
 
 type HookArgs = Parameters<typeof useProductDetailSelection>[0];
@@ -186,26 +187,50 @@ describe('useProductDetailSelection', () => {
   it.each([
     ['null route condition', null, 'used'],
     ['unavailable route condition', 'refurbished', 'used'],
-  ] as const)(
-    'falls back to a valid condition for %s',
-    async (_label, routeCondition, expectedCondition) => {
-      const { result } = renderHook(() =>
-        useProductDetailSelection(
-          createHookArgs({
-            routeCondition,
-            routeSelectionSignature: routeSelectionSignature({
-              condition: routeCondition,
-            }),
-          })
-        )
-      );
+  ] as const)('falls back to a valid condition for %s', async (_label, routeCondition, expectedCondition) => {
+    const { result } = renderHook(() =>
+      useProductDetailSelection(
+        createHookArgs({
+          routeCondition,
+          routeSelectionSignature: routeSelectionSignature({
+            condition: routeCondition,
+          }),
+        })
+      )
+    );
 
-      await waitFor(() => {
-        expect(result.current.selectedCondition).toBe(expectedCondition);
-        expect(result.current.effectiveSelectedCondition).toBe(
-          expectedCondition
-        );
-      });
-    }
-  );
+    await waitFor(() => {
+      expect(result.current.selectedCondition).toBe(expectedCondition);
+      expect(result.current.effectiveSelectedCondition).toBe(expectedCondition);
+    });
+  });
+
+  it('normalizes display conditions before accepting an available condition', async () => {
+    const { result } = renderHook(() =>
+      useProductDetailSelection(
+        createHookArgs({
+          product: {
+            ...variantProduct,
+            variants: variantProduct.variants?.map((variant) =>
+              variant.id === 'variant-used-128'
+                ? {
+                    ...variant,
+                    condition: 'Used' as ProductCondition,
+                  }
+                : variant
+            ),
+          },
+          routeSelectionSignature: routeSelectionSignature({
+            variantId: 'variant-used-128',
+          }),
+          routeVariantId: 'variant-used-128',
+        })
+      )
+    );
+
+    await waitFor(() => {
+      expect(result.current.selectedCondition).toBe('used');
+      expect(result.current.effectiveSelectedCondition).toBe('used');
+    });
+  });
 });
