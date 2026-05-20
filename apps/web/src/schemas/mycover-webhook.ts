@@ -5,8 +5,10 @@ export const myCoverWebhookSchema = z.object({
   data: z
     .object({
       policy_id: z.string().optional(),
+      id: z.string().optional(),
       policy_number: z.string().optional(),
       status: z.string().optional(),
+      reference: z.string().optional(),
       customer: z
         .object({
           email: z.string().email().optional(),
@@ -16,10 +18,12 @@ export const myCoverWebhookSchema = z.object({
         })
         .optional(),
       start_date: z.string().optional(),
+      policy_start_date: z.string().optional(),
       expiration_date: z.string().optional(),
+      policy_expiry_date: z.string().optional(),
       genius_price: z.number().optional(),
       market_price: z.number().optional(),
-      amount: z.string().optional(),
+      amount: z.union([z.string(), z.number()]).optional(),
       certificate_url: z.string().optional(),
       product_id: z.string().optional(),
       product_category_id: z.string().optional(),

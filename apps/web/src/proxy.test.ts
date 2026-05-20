@@ -118,6 +118,20 @@ describe('Middleware Proxy', () => {
     expect(csp).toContain("frame-ancestors 'self'");
   });
 
+  it('allows Klump checkout hosts on storefront CSP', async () => {
+    const req = new NextRequest(`https://ogabassey.${ROOT_DOMAIN}/products`);
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+    const res = await proxy(req);
+    const csp = res.headers.get('Content-Security-Policy') || '';
+
+    expect(csp).toContain('https://js.useklump.com');
+    expect(csp).toContain('https://asset.useklump.com');
+    expect(csp).toContain('https://checkout.useklump.com');
+    expect(csp).toContain('https://checkout-v2.useklump.com');
+    expect(csp).toContain('https://directdebit.useklump.com');
+  });
+
   it('does not allow unsafe-eval on production storefront routes', async () => {
     const req = new NextRequest(`https://ogabassey.${ROOT_DOMAIN}/products`);
     req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);

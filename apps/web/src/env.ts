@@ -595,9 +595,13 @@ export const getConfiguredAppUrl = (): string | null => {
 export const getMyCoverWebhookSecret = (): string => {
   if (typeof window !== 'undefined')
     throw new Error('MYCOVER_WEBHOOK_SECRET cannot be accessed on the client');
-  if (!env?.MYCOVER_WEBHOOK_SECRET)
-    throw new Error('MYCOVER_WEBHOOK_SECRET is not defined');
-  return env.MYCOVER_WEBHOOK_SECRET;
+  const webhookSecret =
+    env?.MYCOVER_WEBHOOK_SECRET || process.env.MYCOVER_SECRET_KEY?.trim();
+  if (!webhookSecret)
+    throw new Error(
+      'MYCOVER_WEBHOOK_SECRET or MYCOVER_SECRET_KEY is not defined'
+    );
+  return webhookSecret;
 };
 
 export const getCronSecret = () => env?.CRON_SECRET;
