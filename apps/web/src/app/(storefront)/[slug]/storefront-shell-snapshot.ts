@@ -1,4 +1,5 @@
 import { headers } from 'next/headers';
+import { getRootDomain } from '@/env';
 import type {
   StorefrontShellSnapshot,
   StorefrontShellSnapshotBase,
@@ -25,6 +26,12 @@ function shouldFallbackToPathRouting(error: unknown): boolean {
   );
 }
 
+function normalizeHostHeader(rawHost: string | null): string {
+  return (
+    rawHost?.split(',')[0]?.trim().replace(/:\d+$/, '').toLowerCase() ?? ''
+  );
+}
+
 async function resolveRoutingMode(slug: string): Promise<RoutingMode> {
   if (isDomainIdentifier(slug)) {
     return 'domain';
@@ -32,8 +39,16 @@ async function resolveRoutingMode(slug: string): Promise<RoutingMode> {
 
   try {
     const headersList = await headers();
+    const requestHost = normalizeHostHeader(
+      headersList.get('host') || headersList.get('x-forwarded-host')
+    );
+    const rootDomain = normalizeHostHeader(getRootDomain() || 'usebaci.com');
+    const slugSubdomainHost = `${slug.toLowerCase()}.${rootDomain}`;
+    const hostMatchesSlugSubdomain = requestHost === slugSubdomainHost;
+
     return headersList.has('x-merchant-slug') ||
-      headersList.has('x-custom-domain')
+      headersList.has('x-custom-domain') ||
+      hostMatchesSlugSubdomain
       ? 'domain'
       : 'path';
   } catch (error) {
