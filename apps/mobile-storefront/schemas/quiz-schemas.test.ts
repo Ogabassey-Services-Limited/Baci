@@ -212,6 +212,33 @@ describe('quiz response schemas', () => {
     );
   });
 
+  it('accepts Supabase timestamptz values with numeric offsets', () => {
+    expect(
+      quizEventSchema.safeParse({
+        ...validEvent,
+        startsAt: '2026-05-20T10:00:00.123456+00:00',
+        endsAt: '2026-05-20T10:10:00+01:00',
+      }).success
+    ).toBe(true);
+  });
+
+  it('rejects datetime strings without a timezone offset', () => {
+    expectInvalidIssue(
+      quizEventSchema.safeParse({
+        ...validEvent,
+        startsAt: '2026-05-20T10:00:00',
+      }),
+      ['startsAt']
+    );
+    expectInvalidIssue(
+      quizEventSchema.safeParse({
+        ...validEvent,
+        endsAt: '2026-05-20T10:10:00.123',
+      }),
+      ['endsAt']
+    );
+  });
+
   it('allows completed results without a next question', () => {
     expect(quizResultSchema.safeParse(completedResult).success).toBe(true);
   });

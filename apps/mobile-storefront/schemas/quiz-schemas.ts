@@ -1,6 +1,9 @@
 import { EXAM_PASS_POINTS_COST } from '@baci/shared/constants';
 import { z } from 'zod';
 
+/** Supabase timestamptz values are ISO strings with a timezone offset. */
+const quizEventDateTimeSchema = z.string().datetime({ offset: true }).nullable();
+
 export const quizOptionSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
@@ -20,8 +23,8 @@ export const quizEventSchema = z.object({
   id: z.string().min(1),
   title: z.string().min(1),
   prizeName: z.string().min(1),
-  startsAt: z.string().datetime().nullable(),
-  endsAt: z.string().datetime().nullable(),
+  startsAt: quizEventDateTimeSchema,
+  endsAt: quizEventDateTimeSchema,
   status: z.enum(['open', 'scheduled', 'closed']),
   questionCount: z.number().int().positive(),
 });
