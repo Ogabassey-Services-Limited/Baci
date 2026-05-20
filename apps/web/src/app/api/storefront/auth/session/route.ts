@@ -8,6 +8,20 @@ import { createClient } from '@/lib/supabase/server';
  * GET - Returns the current customer session and customer data
  */
 
+const CUSTOMER_SESSION_SELECT = `
+  id,
+  first_name,
+  last_name,
+  email,
+  phone,
+  address,
+  saved_addresses,
+  store_credit,
+  total_orders,
+  total_spent,
+  created_at
+`;
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -79,19 +93,7 @@ export async function GET(request: Request) {
     // Get customer record for this merchant
     let { data: customer, error: customerError } = await supabase
       .from('customers')
-      .select(`
-        id,
-        first_name,
-        last_name,
-        email,
-        phone,
-        address,
-        saved_addresses,
-        store_credit,
-        total_orders,
-        total_spent,
-        created_at
-      `)
+      .select(CUSTOMER_SESSION_SELECT)
       .eq('merchant_id', merchant.id)
       .eq('user_id', user.id)
       .single();
@@ -100,42 +102,48 @@ export async function GET(request: Request) {
       // PGRST116 = no rows found (customer not yet created for this merchant)
       console.error('Customer fetch error:', customerError);
     } else if (!customer) {
-      // Auto-create customer record if it doesn't exist
-      const { data: newCustomer, error: createError } = await supabase
-        .from('customers')
-        .insert({
-          merchant_id: merchant.id,
-          user_id: user.id,
-          email: user.email,
-          first_name:
-            user.user_metadata?.first_name ||
-            user.user_metadata?.full_name?.split(' ')[0] ||
-            null,
-          last_name:
-            user.user_metadata?.last_name ||
-            user.user_metadata?.full_name?.split(' ').slice(1).join(' ') ||
-            null,
-        })
-        .select(`
-          id,
-          first_name,
-          last_name,
-          email,
-          phone,
-          address,
-          saved_addresses,
-          store_credit,
-          total_orders,
-          total_spent,
-          created_at
-        `)
-        .single();
+      const fullName =
+        user.user_metadata?.full_name ||
+        [user.user_metadata?.first_name, user.user_metadata?.last_name]
+          .filter(Boolean)
+          .join(' ') ||
+        null;
+      const { error: upsertError } = await supabase.rpc(
+        'upsert_customer_on_auth',
+        {
+          p_merchant_id: merchant.id,
+          p_user_id: user.id,
+          p_email: user.email,
+          p_full_name: fullName,
+          p_phone: user.user_metadata?.phone || null,
+        }
+      );
 
-      if (createError) {
-        console.error('Failed to auto-create customer:', createError);
+      if (upsertError) {
+        console.error('Failed to upsert customer session:', upsertError);
       } else {
-        customer = newCustomer;
-        console.log('Auto-created customer for merchant:', merchant.id);
+        const { data: linkedCustomer, error: linkedCustomerError } =
+          await supabase
+            .from('customers')
+            .select(CUSTOMER_SESSION_SELECT)
+            .eq('merchant_id', merchant.id)
+            .eq('user_id', user.id)
+            .single();
+
+        if (linkedCustomerError && linkedCustomerError.code !== 'PGRST116') {
+          console.error(
+            'Customer fetch after upsert error:',
+            linkedCustomerError
+          );
+        } else if (linkedCustomerError?.code === 'PGRST116') {
+          console.error('Customer fetch after upsert returned no rows', {
+            error: linkedCustomerError,
+            merchantId: merchant.id,
+            userId: user.id,
+          });
+        }
+
+        customer = linkedCustomer;
       }
     }
 

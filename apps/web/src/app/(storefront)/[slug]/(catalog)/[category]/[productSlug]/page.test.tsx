@@ -126,6 +126,12 @@ vi.mock('@/lib/cached-data', () => ({
       .substring(0, 100),
 }));
 
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => (
+    <div aria-label="dynamic metadata marker" role="status" />
+  ),
+}));
+
 vi.mock('@/lib/storefront-product/build-product-semantic-model', () => ({
   buildProductSemanticModel: (...args: unknown[]) =>
     mockBuildProductSemanticModel(...args),
@@ -590,6 +596,9 @@ describe('[category]/[productSlug] page render', () => {
         level: 1,
         name: 'HP Laptop 14-ep0063nia',
       })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
     ).toBeInTheDocument();
     expect(container.querySelectorAll('h1')).toHaveLength(1);
   });
