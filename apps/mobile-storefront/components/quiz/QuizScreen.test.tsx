@@ -198,6 +198,25 @@ describe('QuizScreen', () => {
     expect(screen.getByText('1 of 3 correct')).toBeTruthy();
   });
 
+  it('keeps available events reachable after a completed attempt result', async () => {
+    render(<QuizScreen integrityTier="strong" locale="en-US" />);
+
+    fireEvent.press(
+      await screen.findByRole('button', {
+        name: 'Use 1 point to start Daily Prize Quiz',
+      })
+    );
+    fireEvent.press(await screen.findByRole('button', { name: 'Answer 4' }));
+    fireEvent.press(screen.getByRole('button', { name: 'Submit answer' }));
+
+    expect(await screen.findByText('Result')).toBeTruthy();
+    expect(
+      screen.getByRole('button', {
+        name: 'Use 1 point to start Daily Prize Quiz',
+      })
+    ).toBeTruthy();
+  });
+
   it('renders a start error as an accessible alert', async () => {
     jest.mocked(startQuizAttempt).mockRejectedValue(new Error('Start failed'));
     render(<QuizScreen integrityTier="device" locale="en-US" />);

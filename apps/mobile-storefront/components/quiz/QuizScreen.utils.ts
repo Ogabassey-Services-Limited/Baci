@@ -1,5 +1,15 @@
 import type { QuizEvent } from '@/services/quiz';
 
+export type QuizScreenStatus =
+  | 'idle'
+  | 'loading'
+  | 'ready'
+  | 'starting'
+  | 'question'
+  | 'submitting'
+  | 'result'
+  | 'error';
+
 let fallbackLocale: string | undefined;
 
 function getFallbackLocale() {
@@ -58,4 +68,8 @@ export function formatPointCount(
   plural = `${singular}s`
 ): string {
   return `${points} ${Math.abs(points) === 1 ? singular : plural}`;
+}
+
+export function shouldShowEventList(status: QuizScreenStatus): boolean {
+  return status === 'ready' || status === 'starting' || status === 'result';
 }

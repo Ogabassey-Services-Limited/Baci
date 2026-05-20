@@ -24,6 +24,7 @@ import {
   formatTimeRange,
   getEventStartButtonText,
   getQuizErrorMessage,
+  shouldShowEventList,
 } from './QuizScreen.utils';
 
 const log = createLogger('Quiz');
@@ -111,7 +112,6 @@ export function QuizScreen({
         )
       )
     : 0;
-
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.container}>
       <View style={styles.header}>
@@ -166,11 +166,11 @@ export function QuizScreen({
         </Pressable>
       ) : null}
 
-      {(status === 'ready' || status === 'starting') && events.length === 0 ? (
+      {shouldShowEventList(status) && events.length === 0 ? (
         <Text style={styles.eventMeta}>No quiz events available.</Text>
       ) : null}
 
-      {(status === 'ready' || status === 'starting') && events.length > 0 ? (
+      {shouldShowEventList(status) && events.length > 0 ? (
         <View
           accessibilityRole="list"
           accessibilityLabel="Available quiz events"

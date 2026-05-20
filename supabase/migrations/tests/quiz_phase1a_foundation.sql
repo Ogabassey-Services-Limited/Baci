@@ -232,6 +232,7 @@ BEGIN
       ('public.quiz_route_proof_valid(jsonb)'),
       ('public.quiz_route_proof_valid(jsonb, text, text, uuid)'),
       ('public.quiz_rpc_server_secret_configured()'),
+      ('public.get_quiz_event_question_counts(uuid[])'),
       ('public.start_quiz_attempt(uuid, text, jsonb, uuid)'),
       ('public.record_quiz_answer(uuid, uuid, jsonb, jsonb, uuid, boolean)'),
       ('public.submit_quiz_answer(uuid, uuid, text, timestamptz, text, jsonb, uuid)'),
@@ -259,6 +260,7 @@ BEGIN
       ('public.quiz_route_proof_valid(jsonb)'),
       ('public.quiz_route_proof_valid(jsonb, text, text, uuid)'),
       ('public.quiz_rpc_server_secret_configured()'),
+      ('public.get_quiz_event_question_counts(uuid[])'),
       ('public.start_quiz_attempt(uuid, text, jsonb, uuid)'),
       ('public.record_quiz_answer(uuid, uuid, jsonb, jsonb, uuid, boolean)'),
       ('public.submit_quiz_answer(uuid, uuid, text, timestamptz, text, jsonb, uuid)'),
@@ -286,6 +288,7 @@ BEGIN
       ('public.quiz_route_proof_valid(jsonb)', false),
       ('public.quiz_route_proof_valid(jsonb, text, text, uuid)', false),
       ('public.quiz_rpc_server_secret_configured()', false),
+      ('public.get_quiz_event_question_counts(uuid[])', true),
       ('public.start_quiz_attempt(uuid, text, jsonb, uuid)', true),
       ('public.record_quiz_answer(uuid, uuid, jsonb, jsonb, uuid, boolean)', false),
       ('public.submit_quiz_answer(uuid, uuid, text, timestamptz, text, jsonb, uuid)', true),
@@ -313,6 +316,7 @@ BEGIN
   FROM (
     VALUES
       ('public.start_quiz_attempt(uuid, text, jsonb, uuid)'),
+      ('public.get_quiz_event_question_counts(uuid[])'),
       ('public.submit_quiz_answer(uuid, uuid, text, timestamptz, text, jsonb, uuid)'),
       ('public.finalize_quiz_awards(uuid, uuid, jsonb, uuid)'),
       ('public.claim_quiz_grand_prize(uuid, jsonb, uuid)'),

@@ -5,6 +5,7 @@ import {
   formatTimeRange,
   getEventStartButtonText,
   getQuizErrorMessage,
+  shouldShowEventList,
 } from './QuizScreen.utils';
 
 describe('QuizScreen utils', () => {
@@ -64,5 +65,13 @@ describe('QuizScreen utils', () => {
     expect(getQuizErrorMessage('failed', 'Action failed')).toBe(
       'Action failed'
     );
+  });
+
+  it('keeps the event list visible in list and result states only', () => {
+    expect(shouldShowEventList('ready')).toBe(true);
+    expect(shouldShowEventList('starting')).toBe(true);
+    expect(shouldShowEventList('result')).toBe(true);
+    expect(shouldShowEventList('question')).toBe(false);
+    expect(shouldShowEventList('loading')).toBe(false);
   });
 });

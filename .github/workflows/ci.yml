@@ -44,6 +44,12 @@ jobs:
             web:
               - 'apps/web/**'
               - 'apps/mobile-storefront/assets/quiz/**'
+              - 'apps/mobile-storefront/app/**'
+              - 'apps/mobile-storefront/components/**'
+              - 'apps/mobile-storefront/hooks/**'
+              - 'apps/mobile-storefront/lib/**'
+              - 'apps/mobile-storefront/services/**'
+              - 'apps/mobile-storefront/stores/**'
               - 'packages/shared/**'
               - '.github/actions/pnpm-install-cached/**'
               - '.github/actions/setup-pnpm-store/**'

@@ -5,11 +5,13 @@ import {
   requireQuizUser,
   rpcErrorResponse,
 } from '@/app/api/quiz/_shared/route-helpers';
+import type { ServerSupabaseClient } from '@/app/api/quiz/_shared/route-helpers-guards';
 import { getQuizPhaseEnv } from '@/env';
 import { logger } from '@/lib/logger';
 import { enforcePrizeProductionGuard } from '@/lib/quiz-compliance-gate';
 import {
   type QuizEventRow,
+  quizEventQuestionCountRowSchema,
   quizEventRowSchema,
   quizEventsQuerySchema,
 } from '@/schemas/quiz';
@@ -21,6 +23,7 @@ const MIN_INTERNAL_PAGE_SIZE = 50;
 // it after post-fetch filtering so hidden rows do not cause duplicates.
 type IndexedQuizEvent = {
   event: QuizEventRow;
+  questionCount: number;
   rawIndex: number;
 };
 
@@ -53,26 +56,48 @@ function getPrizeName(settings: unknown): string {
   return DEFAULT_PRIZE_NAME;
 }
 
-function getQuestionCount(event: { quiz_question_slots?: unknown[] | null }) {
-  if (!Array.isArray(event.quiz_question_slots)) return 0;
-
-  // Keep this defensive even though the query filters embedded rows.
-  return event.quiz_question_slots.filter((slot) => {
-    if (!slot || typeof slot !== 'object') return false;
-    const { active, quiz_question_variants: variants } = slot as {
-      active?: boolean;
-      quiz_question_variants?: Array<{ active?: boolean }> | null;
-    };
-    if (active !== true) return false;
-    if (!Array.isArray(variants)) return true;
-    return variants.some((variant) => variant.active === true);
-  }).length;
-}
-
 function getResolvedMerchantId(row: unknown) {
   if (!row || typeof row !== 'object' || !('id' in row)) return null;
   const id = (row as { id?: unknown }).id;
   return typeof id === 'string' ? id : null;
+}
+
+async function getQuestionCountsByEventId(
+  supabase: ServerSupabaseClient,
+  eventIds: string[]
+) {
+  if (eventIds.length === 0) return new Map<string, number>();
+
+  const { data, error } = await supabase.rpc('get_quiz_event_question_counts', {
+    p_event_ids: eventIds,
+  });
+  if (error) {
+    const rpcError = error as { details?: unknown; message?: unknown };
+    logger.error({
+      details: rpcError.details,
+      message:
+        'getQuestionCountsByEventId get_quiz_event_question_counts RPC failed',
+      rpc: 'get_quiz_event_question_counts',
+      rpcMessage: rpcError.message,
+    });
+    return null;
+  }
+
+  const parsed = quizEventQuestionCountRowSchema.array().safeParse(data ?? []);
+  if (!parsed.success) {
+    logger.error({
+      issues: parsed.error.issues,
+      message:
+        'getQuestionCountsByEventId get_quiz_event_question_counts response parse failed',
+      rawData: data,
+      rpc: 'get_quiz_event_question_counts',
+    });
+    return null;
+  }
+
+  return new Map(
+    parsed.data.map((row) => [row.event_id, row.question_count] as const)
+  );
 }
 
 export async function GET(request: NextRequest) {
@@ -155,9 +180,16 @@ export async function GET(request: NextRequest) {
     const parsedRows = quizEventRowSchema.array().safeParse(data ?? []);
     if (!parsedRows.success) return rpcErrorResponse();
 
+    const questionCounts = await getQuestionCountsByEventId(
+      auth.supabase,
+      parsedRows.data.map((event) => event.id)
+    );
+    if (!questionCounts) return rpcErrorResponse();
+
     parsedRows.data.forEach((event, index) => {
-      if (getQuestionCount(event) > 0) {
-        rows.push({ event, rawIndex: fetchOffset + index });
+      const questionCount = questionCounts.get(event.id) ?? 0;
+      if (questionCount > 0) {
+        rows.push({ event, questionCount, rawIndex: fetchOffset + index });
       }
     });
 
@@ -184,11 +216,11 @@ export async function GET(request: NextRequest) {
   // Advance from the last returned raw row; filtered rows before it still count
   // in the next database offset.
   const nextOffset = hasMore ? (lastPageRow?.rawIndex ?? offset) + 1 : null;
-  const events = pageRows.map(({ event }) => ({
+  const events = pageRows.map(({ event, questionCount }) => ({
     endsAt: event.ends_at,
     id: event.id,
     prizeName: getPrizeName(event.settings),
-    questionCount: getQuestionCount(event),
+    questionCount,
     startsAt: event.starts_at,
     status: mapQuizEventStatus(event.status),
     title: event.title,

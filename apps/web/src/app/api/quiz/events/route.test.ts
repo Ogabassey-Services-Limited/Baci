@@ -9,6 +9,7 @@ vi.mock('@/lib/supabase/server', () => ({
 
 vi.mock('@/lib/logger', () => ({
   logger: {
+    error: vi.fn(),
     warn: vi.fn(),
   },
 }));
@@ -48,14 +49,54 @@ function eventRow(overrides: Record<string, unknown> = {}) {
   };
 }
 
+function getMockQuestionCount(row: unknown) {
+  if (!row || typeof row !== 'object') return 0;
+  const { quiz_question_slots: slots } = row as {
+    quiz_question_slots?: unknown;
+  };
+  if (!Array.isArray(slots)) return 0;
+
+  return slots.filter((slot) => {
+    if (!slot || typeof slot !== 'object') return false;
+    const { active, quiz_question_variants: variants } = slot as {
+      active?: boolean;
+      quiz_question_variants?: Array<{ active?: boolean }> | null;
+    };
+    return (
+      active === true &&
+      Array.isArray(variants) &&
+      variants.some((variant) => variant.active === true)
+    );
+  }).length;
+}
+
+function getMockQuestionCountsByEventId(
+  selectResults: Array<{ data: unknown; error: unknown }>
+) {
+  const counts = new Map<string, number>();
+  for (const result of selectResults) {
+    if (!Array.isArray(result.data)) continue;
+    for (const row of result.data) {
+      if (!row || typeof row !== 'object') continue;
+      const id = (row as { id?: unknown }).id;
+      if (typeof id === 'string') {
+        counts.set(id, getMockQuestionCount(row));
+      }
+    }
+  }
+  return counts;
+}
+
 function mockAuthenticatedSupabase({
   customerResult = { data: { id: 'customer-1' }, error: null },
   merchantResult = { data: { id: MERCHANT_ID }, error: null },
+  questionCountResult,
   selectResult = { data: null, error: null },
   user = { id: 'user-1' },
 }: {
   customerResult?: { data: unknown; error: unknown };
   merchantResult?: { data: unknown; error: unknown };
+  questionCountResult?: { data: unknown; error: unknown };
   selectResult?:
     | { data: unknown; error: unknown }
     | Array<{ data: unknown; error: unknown }>;
@@ -64,6 +105,7 @@ function mockAuthenticatedSupabase({
   const selectResults = Array.isArray(selectResult)
     ? [...selectResult]
     : [selectResult];
+  const defaultQuestionCounts = getMockQuestionCountsByEventId(selectResults);
   const customerBuilder = {
     eq: vi.fn(() => customerBuilder),
     limit: vi.fn(() => customerBuilder),
@@ -94,6 +136,26 @@ function mockAuthenticatedSupabase({
     if (table === 'merchants') return merchantBuilder;
     return queryBuilder;
   });
+  const rpc = vi
+    .fn()
+    .mockImplementation(
+      (_functionName: string, args?: { p_event_ids?: unknown }) => {
+        if (questionCountResult) return Promise.resolve(questionCountResult);
+        const eventIds = Array.isArray(args?.p_event_ids)
+          ? args.p_event_ids
+          : [];
+        return Promise.resolve({
+          data: eventIds.map((eventId) => ({
+            event_id: eventId,
+            question_count:
+              typeof eventId === 'string'
+                ? (defaultQuestionCounts.get(eventId) ?? 0)
+                : 0,
+          })),
+          error: null,
+        });
+      }
+    );
   const supabase = {
     auth: {
       getUser: vi.fn().mockResolvedValue({
@@ -102,11 +164,12 @@ function mockAuthenticatedSupabase({
       }),
     },
     from,
+    rpc,
   };
 
   vi.mocked(createClient).mockResolvedValue(supabase as never);
 
-  return { customerBuilder, from, merchantBuilder, queryBuilder };
+  return { customerBuilder, from, merchantBuilder, queryBuilder, supabase };
 }
 
 function eventsRequest(query = '') {
@@ -431,8 +494,12 @@ describe('quiz events route', () => {
     });
   });
 
-  it('counts active slots without joining variants during event discovery', async () => {
-    mockAuthenticatedSupabase({
+  it('filters events whose active slots have no active variants', async () => {
+    const { supabase } = mockAuthenticatedSupabase({
+      questionCountResult: {
+        data: [{ event_id: EVENT_ID, question_count: 0 }],
+        error: null,
+      },
       selectResult: {
         data: [
           eventRow({
@@ -448,8 +515,14 @@ describe('quiz events route', () => {
 
     expect(response.status).toBe(200);
     expect(await readJson(response)).toMatchObject({
-      events: [{ id: EVENT_ID, questionCount: 1 }],
+      events: [],
     });
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'get_quiz_event_question_counts',
+      {
+        p_event_ids: [EVENT_ID],
+      }
+    );
   });
 
   it('computes pagination after filtering events with no question slots', async () => {

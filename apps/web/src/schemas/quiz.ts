@@ -85,6 +85,11 @@ export const quizEventRowSchema = z.object({
   title: z.string(),
 });
 
+export const quizEventQuestionCountRowSchema = z.object({
+  event_id: quizUuidSchema,
+  question_count: z.coerce.number().int().nonnegative(),
+});
+
 export type QuizEventRow = z.infer<typeof quizEventRowSchema>;
 export type QuizEventsQuery = z.infer<typeof quizEventsQuerySchema>;
 export type StartQuizAttemptInput = z.infer<typeof startQuizAttemptSchema>;
