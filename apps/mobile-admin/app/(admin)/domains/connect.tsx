@@ -16,10 +16,10 @@ import {
   View,
 } from 'react-native';
 import { AppFormScreen } from '@/components/ui/AppFormScreen';
+import { connectStyles as styles } from '@/components/domains/connect.styles';
 import { SPACING } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
-import { connectStyles as styles } from './connect.styles';
 
 // Use Environment Variable or Fallback
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://baci.app/api';

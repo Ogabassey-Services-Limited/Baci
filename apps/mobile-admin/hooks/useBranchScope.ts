@@ -113,8 +113,15 @@ export function useBranchScope() {
       return;
     }
 
-    const selectedBranchIsActive = (branches ?? []).some(
-      (branch) => branch.id === scope.branchId && branch.active
+    const activeBranches = (branches ?? []).filter((branch) => branch.active);
+
+    if (activeBranches.length <= 1) {
+      commitBranchScope(queryClient, merchantId, userId, ALL_BRANCH_SCOPE);
+      return;
+    }
+
+    const selectedBranchIsActive = activeBranches.some(
+      (branch) => branch.id === scope.branchId
     );
 
     if (!selectedBranchIsActive) {

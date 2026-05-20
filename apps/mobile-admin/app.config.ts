@@ -1,6 +1,15 @@
 import 'dotenv/config';
 import type { ConfigContext, ExpoConfig } from 'expo/config';
 
+const { resolveAndroidGoogleServicesFile } = require(
+  './config/android-google-services-file'
+) as {
+  resolveAndroidGoogleServicesFile: (options?: {
+    easBuildProfile?: string;
+    projectRoot?: string;
+  }) => string;
+};
+
 const rawAndroidVersionCode = process.env.ANDROID_VERSION_CODE;
 const parsedAndroidVersionCode =
   rawAndroidVersionCode === undefined
@@ -104,7 +113,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       'android.permission.CAMERA',
       'android.permission.RECORD_AUDIO',
     ],
-    googleServicesFile: './google-services.json',
+    googleServicesFile: resolveAndroidGoogleServicesFile(),
     intentFilters: [
       {
         action: 'VIEW',

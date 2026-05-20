@@ -78,39 +78,59 @@ git diff --check exits 0
 
 ## Task 2: Android Tooling and Emulator Setup
 
-- [ ] **Step 1: Locate adb and emulator**
+- [ ] **Step 1: Start the checked-in Android emulator launcher**
+
+Run:
+
+```bash
+pnpm --filter baci-mobile-admin android:emulator
+```
+
+This is the only supported emulator launch path for agents and automation. The
+launcher owns GPU mode, Quick Boot, ADB reset, boot waiting, Android settle
+checks, the Metro ADB reverse, and ADB shell stability checks.
+
+Then run Metro for Android with:
+
+```bash
+pnpm --filter baci-mobile-admin android:metro
+```
+
+Do not use a localhost-only Metro host for emulator QA; the dev client connects
+through `10.0.2.2`.
+
+Launch the Android dev client only with:
+
+```bash
+pnpm --filter baci-mobile-admin android:launch
+```
+
+Do not use raw `adb shell am start` commands for mobile-admin QA. The launcher
+owns the Metro reverse, settled-load check, package force-stop, and Expo
+dev-client URL.
+
+Expected:
+
+```text
+Android emulator is ready on emulator-5554.
+```
+
+- [ ] **Step 2: Confirm adb sees the launched emulator**
 
 Run:
 
 ```bash
 ADB="$HOME/Library/Android/sdk/platform-tools/adb"
-EMULATOR="$HOME/Library/Android/sdk/emulator/emulator"
-test -x "$ADB"
-test -x "$EMULATOR"
-"$EMULATOR" -list-avds
-```
-
-Expected:
-
-```text
-Medium_Phone_API_36.1
-```
-
-- [ ] **Step 2: Boot emulator if no device is attached**
-
-Run:
-
-```bash
-"$ADB" devices
-"$EMULATOR" -avd Medium_Phone_API_36.1 -netdelay none -netspeed full >/tmp/baci-branch-android-emulator.log 2>&1 &
-"$ADB" wait-for-device
-"$ADB" shell getprop sys.boot_completed
+"$ADB" -s emulator-5554 devices
+"$ADB" -s emulator-5554 shell getprop sys.boot_completed
+"$ADB" -s emulator-5554 shell echo ok
 ```
 
 Expected:
 
 ```text
 1
+ok
 ```
 
 - [ ] **Step 3: Save baseline emulator evidence**
@@ -171,13 +191,10 @@ Run:
 
 ```bash
 ADB="$HOME/Library/Android/sdk/platform-tools/adb"
-PACKAGE="com.ogabassey.baci"
-ACTIVITY="$("$ADB" shell cmd package resolve-activity --brief "$PACKAGE" | tail -n 1)"
-"$ADB" shell am force-stop "$PACKAGE"
-"$ADB" shell am start -n "$ACTIVITY"
+pnpm --filter baci-mobile-admin android:launch
 sleep 5
-"$ADB" shell pidof -s "$PACKAGE"
-"$ADB" exec-out screencap -p > /tmp/baci-branch-qa-01-launch.png
+"$ADB" -s emulator-5554 shell pidof -s com.ogabassey.baci
+"$ADB" -s emulator-5554 exec-out screencap -p > /tmp/baci-branch-qa-01-launch.png
 ```
 
 Expected:

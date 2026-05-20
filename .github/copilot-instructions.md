@@ -62,3 +62,15 @@ pnpm turbo lint       # Biome linting
 pnpm turbo typecheck  # TypeScript check
 pnpm turbo test       # Run tests (Vitest)
 ```
+
+## Android Emulator QA
+
+For `apps/mobile-admin`, Android emulator QA must start from:
+
+```bash
+pnpm --filter baci-mobile-admin android:emulator
+```
+
+This is the only supported emulator launch path for agents and automation. Do not launch the emulator directly or with `-gpu swiftshader_indirect`; the repo launcher owns GPU mode, Quick Boot, ADB reset, boot waiting, Android settle checks, the Metro ADB reverse, and ADB shell stability checks.
+Run Metro for Android with `pnpm --filter baci-mobile-admin android:metro`; do not use a localhost-only Metro host for emulator QA because the dev client connects through `10.0.2.2`.
+Launch the Android dev client with `pnpm --filter baci-mobile-admin android:launch`; do not use raw `adb shell am start` commands because the repo launcher owns the Metro reverse, settled-load check, package force-stop, and Expo dev-client URL.

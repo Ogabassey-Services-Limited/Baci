@@ -142,12 +142,30 @@ describe('useBranchScope', () => {
   it('loads a persisted concrete branch scope', () => {
     const key = getBranchScopeStorageKey('merchant-1', 'user-1');
     mocks.storageValues.set(key, uuid);
+    mocks.branches = [
+      { id: uuid, active: true },
+      { id: staleUuid, active: true },
+    ];
     const { Wrapper } = createWrapper();
 
     const { result } = renderHook(() => useBranchScope(), { wrapper: Wrapper });
 
     expect(result.current.scope).toEqual({ type: 'branch', branchId: uuid });
     expect(result.current.branchId).toBe(uuid);
+  });
+
+  it('clears a concrete branch scope when only one active branch exists', async () => {
+    const key = getBranchScopeStorageKey('merchant-1', 'user-1');
+    mocks.storageValues.set(key, uuid);
+    mocks.branches = [{ id: uuid, active: true }];
+    const { Wrapper } = createWrapper();
+
+    const { result } = renderHook(() => useBranchScope(), { wrapper: Wrapper });
+
+    await waitFor(() => {
+      expect(result.current.scope).toEqual({ type: 'all' });
+    });
+    expect(mocks.storageRemove).toHaveBeenCalledWith(key);
   });
 
   it('clears a persisted concrete branch scope when the branch is not in the current list', async () => {
@@ -179,6 +197,10 @@ describe('useBranchScope', () => {
   });
 
   it('persists branch scope updates', async () => {
+    mocks.branches = [
+      { id: uuid, active: true },
+      { id: staleUuid, active: true },
+    ];
     const { Wrapper } = createWrapper();
     const { result } = renderHook(() => useBranchScope(), { wrapper: Wrapper });
     const key = getBranchScopeStorageKey('merchant-1', 'user-1');

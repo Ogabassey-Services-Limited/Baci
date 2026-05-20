@@ -6,7 +6,7 @@ import type { ThemeColors } from '@/constants/theme';
 import type { EditableProductVariant } from '@/lib/product-variant-form';
 import { ProductVariantRow } from './ProductVariantRow';
 
-vi.mock('@/app/(admin)/product/VariantConditionEditor', () => ({
+vi.mock('@/components/product/VariantConditionEditor', () => ({
   VariantConditionEditor: ({
     updateVariantCondition,
     variantIndex,

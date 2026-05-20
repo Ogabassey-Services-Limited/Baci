@@ -63,17 +63,17 @@ react {
 }
 
 gradle.projectsEvaluated {
-    def autolinkingTask = tasks.named("generateAutolinkingNewArchitectureFiles").get()
+    def autolinkingTaskProvider = tasks.named("generateAutolinkingNewArchitectureFiles")
 
     rootProject.allprojects { subproject ->
         subproject.tasks.matching { task ->
             task.name == "generateCodegenArtifactsFromSchema" || task.name == "generateCodegenSchemaFromJavaScript"
-        }.configureEach { codegenTask ->
-            autolinkingTask.dependsOn(codegenTask)
+        }.all { codegenTask ->
+            autolinkingTaskProvider.configure { dependsOn(codegenTask) }
         }
     }
 
-    autolinkingTask.outputs.upToDateWhen { false }
+    autolinkingTaskProvider.configure { outputs.upToDateWhen { false } }
 }
 
 /**

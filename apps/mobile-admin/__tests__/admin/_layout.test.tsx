@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
     isRegistered: false,
     registerPush: vi.fn().mockResolvedValue(undefined),
   },
+  stackScreenNames: [] as Array<string | undefined>,
 }));
 
 vi.mock('react-native', async () => {
@@ -45,7 +46,10 @@ vi.mock('expo-router', async () => {
       },
       children
     );
-  Stack.Screen = () => null;
+  Stack.Screen = ({ name }: { name?: string }) => {
+    mocks.stackScreenNames.push(name);
+    return null;
+  };
 
   return {
     Redirect: ({ href }: { href: string }) =>
@@ -91,6 +95,8 @@ describe('AdminLayout', () => {
     mocks.merchant.merchant = { id: 'merchant-1' };
     mocks.push.isLoading = false;
     mocks.push.isRegistered = false;
+    mocks.push.registerPush = vi.fn().mockResolvedValue(undefined);
+    mocks.stackScreenNames = [];
   });
 
   it('registers push notifications when auth and merchant context are ready', async () => {
@@ -139,5 +145,33 @@ describe('AdminLayout', () => {
     );
 
     consoleErrorSpy.mockRestore();
+  });
+
+  it('registers concrete route names for nested stack screens', async () => {
+    render(<AdminLayout />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('main', { name: 'admin stack' })).toBeTruthy();
+    });
+
+    expect(mocks.stackScreenNames).not.toEqual(
+      expect.arrayContaining([
+        'analytics',
+        'blog',
+        'customer',
+        'discounts',
+        'expenses',
+      ])
+    );
+    expect(mocks.stackScreenNames).toEqual(
+      expect.arrayContaining([
+        'analytics/index',
+        'blog/index',
+        'customer/[id]',
+        'customer/edit/[id]',
+        'discounts/index',
+        'expenses/index',
+      ])
+    );
   });
 });

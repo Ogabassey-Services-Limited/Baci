@@ -10,7 +10,7 @@
  * - DeviceNotRegistered handling
  */
 
-import { getAdminNotificationNavigationTarget } from '@baci/shared/lib';
+import { getAdminNotificationNavigationTarget } from '@baci/shared';
 import Constants from 'expo-constants';
 import type * as DeviceType from 'expo-device';
 import type * as NotificationsType from 'expo-notifications';
@@ -24,11 +24,17 @@ let Notifications: typeof NotificationsType | null = null;
 const loadNativeModules = async () => {
   if (isRuntimePlatform('web')) return;
   try {
-    const [dev, notif] = await Promise.all([
-      import('expo-device'),
-      import('expo-notifications'),
-    ]);
+    const dev = await import('expo-device');
     Device = dev;
+
+    if (!Device?.isDevice) {
+      if (__DEV__) {
+        console.log('[Push] Native notifications skipped on simulator');
+      }
+      return;
+    }
+
+    const notif = await import('expo-notifications');
     Notifications = notif;
 
     // Configure notification behavior after successful load

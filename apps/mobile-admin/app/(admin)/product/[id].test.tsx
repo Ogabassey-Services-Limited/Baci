@@ -167,7 +167,7 @@ vi.mock('@/components/ui/SafeImage', () => ({
   default: () => <div>safe-image</div>,
 }));
 
-vi.mock('./VariantConditionEditor', () => ({
+vi.mock('@/components/product/VariantConditionEditor', () => ({
   VariantConditionEditor: () => <div>variant-condition-editor</div>,
 }));
 

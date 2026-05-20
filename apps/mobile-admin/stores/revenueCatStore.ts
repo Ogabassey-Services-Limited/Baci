@@ -25,6 +25,10 @@ interface PurchasesModule {
   restorePurchases(): Promise<CustomerInfo>;
 }
 
+interface DeviceModule {
+  isDevice?: boolean;
+}
+
 // 2026 Best Practice: Dynamic imports for native modules to prevent evaluation-time crashes
 let Purchases: PurchasesModule | null = null;
 
@@ -39,6 +43,19 @@ const loadNativeModules = async () => {
 };
 
 loadNativeModules();
+
+const shouldSkipNativePurchasesOnDevelopmentSimulator = async () => {
+  if (!__DEV__ || isRuntimePlatform('web')) {
+    return false;
+  }
+
+  try {
+    const deviceModule = (await import('expo-device')) as DeviceModule;
+    return deviceModule.isDevice === false;
+  } catch {
+    return false;
+  }
+};
 
 // Get keys from environment
 const API_KEY_IOS = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_IOS;
@@ -113,6 +130,16 @@ export const useRevenueCatStore = create<RevenueCatState>((set, get) => ({
     set({ isLoading: true, error: null, isInitializing: true });
 
     try {
+      if (await shouldSkipNativePurchasesOnDevelopmentSimulator()) {
+        set({
+          isLoading: false,
+          isInitializing: false,
+          isInitialized: true,
+          error: null,
+        });
+        return;
+      }
+
       // Ensure native module is loaded (module-level call may not have resolved yet)
       if (!Purchases) await loadNativeModules();
 

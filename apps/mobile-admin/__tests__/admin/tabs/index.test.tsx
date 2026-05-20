@@ -193,19 +193,19 @@ describe('HomeScreen', () => {
     render(<HomeScreen />);
 
     screen.getByText('welcome-header');
-    screen.getByText('Visits (all stores)');
-    screen.getByText('New (all stores)');
+    screen.getByText('Visits');
+    screen.getByText('New');
     expect(mocks.safeAreaEdges).toEqual(['top']);
   });
 
-  it('shows all-stores suffix and hides bare labels when scoped to a single branch', () => {
+  it('keeps concise metric labels when scoped to a single branch', () => {
     mocks.branchScope = { isAllLocations: false };
 
     render(<HomeScreen />);
 
-    screen.getByText('Visits (all stores)');
-    screen.getByText('New (all stores)');
-    expect(screen.queryAllByText(/^Visits$/)).toHaveLength(0);
-    expect(screen.queryAllByText(/^New$/)).toHaveLength(0);
+    screen.getByText('Visits');
+    screen.getByText('New');
+    expect(screen.queryByText('Visits (all stores)')).toBeNull();
+    expect(screen.queryByText('New (all stores)')).toBeNull();
   });
 });
