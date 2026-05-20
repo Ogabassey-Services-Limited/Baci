@@ -25,6 +25,8 @@ DECLARE
   event_policy_using text;
   missing_variant_select_column text;
   normalized_event_policy_using text;
+  normalized_slot_policy_using text;
+  slot_policy_using text;
   variant_policy_using text;
   normalized_variant_policy_using text;
 BEGIN
@@ -130,6 +132,25 @@ BEGIN
      OR pg_catalog.strpos(normalized_event_policy_using, 'user_id') = 0
      OR pg_catalog.strpos(normalized_event_policy_using, 'auth uid') = 0 THEN
     RAISE EXCEPTION 'quiz Phase 1a quiz_events_client_read policy must stay scoped to the authenticated customer merchant';
+  END IF;
+
+  SELECT pg_get_expr(polqual, polrelid) INTO slot_policy_using
+  FROM pg_policy
+  WHERE polname = 'quiz_slots_client_read'
+    AND polrelid = 'public.quiz_question_slots'::regclass;
+
+  normalized_slot_policy_using := pg_catalog.lower(
+    pg_catalog.regexp_replace(COALESCE(slot_policy_using, ''), '[^a-z0-9_]+', ' ', 'g')
+  );
+
+  IF pg_catalog.strpos(normalized_slot_policy_using, 'active') = 0
+     OR pg_catalog.strpos(normalized_slot_policy_using, 'quiz_events') = 0
+     OR pg_catalog.strpos(normalized_slot_policy_using, 'event_id') = 0
+     OR pg_catalog.strpos(normalized_slot_policy_using, 'customers') = 0
+     OR pg_catalog.strpos(normalized_slot_policy_using, 'merchant_id') = 0
+     OR pg_catalog.strpos(normalized_slot_policy_using, 'user_id') = 0
+     OR pg_catalog.strpos(normalized_slot_policy_using, 'auth uid') = 0 THEN
+    RAISE EXCEPTION 'quiz Phase 1a quiz_slots_client_read policy must expose listable slots only to authenticated customer merchants';
   END IF;
 
   SELECT expected.column_name INTO missing_variant_select_column

@@ -63,11 +63,9 @@ function getQuestionCount(event: { quiz_question_slots?: unknown[] | null }) {
       active?: boolean;
       quiz_question_variants?: Array<{ active?: boolean }> | null;
     };
-    return (
-      active === true &&
-      Array.isArray(variants) &&
-      variants.some((variant) => variant.active === true)
-    );
+    if (active !== true) return false;
+    if (!Array.isArray(variants)) return true;
+    return variants.some((variant) => variant.active === true);
   }).length;
 }
 
@@ -142,11 +140,10 @@ export async function GET(request: NextRequest) {
     const { data, error } = await auth.supabase
       .from('quiz_events')
       .select(
-        'id, title, status, starts_at, ends_at, settings, nlrc_permit_ref, compliance_verified, quiz_question_slots!inner(id, active, quiz_question_variants!inner(id, active))'
+        'id, title, status, starts_at, ends_at, settings, nlrc_permit_ref, compliance_verified, quiz_question_slots!inner(id, active)'
       )
       .eq('merchant_id', merchantId)
       .eq('quiz_question_slots.active', 'true')
-      .eq('quiz_question_slots.quiz_question_variants.active', 'true')
       .order('starts_at', { ascending: false })
       .range(fetchOffset, fetchOffset + internalPageSize - 1);
 

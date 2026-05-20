@@ -397,7 +397,7 @@ describe('quiz events route', () => {
     });
   });
 
-  it('filters out events without startable active question variants', async () => {
+  it('filters rows with embedded variant data when no variant is active', async () => {
     mockAuthenticatedSupabase({
       selectResult: {
         data: [
@@ -424,6 +424,27 @@ describe('quiz events route', () => {
 
     const { GET } = await import('./route');
     const response = await GET(eventsRequest('?limit=2'));
+
+    expect(response.status).toBe(200);
+    expect(await readJson(response)).toMatchObject({
+      events: [{ id: EVENT_ID, questionCount: 1 }],
+    });
+  });
+
+  it('counts active slots without joining variants during event discovery', async () => {
+    mockAuthenticatedSupabase({
+      selectResult: {
+        data: [
+          eventRow({
+            quiz_question_slots: [{ active: true, id: QUESTION_ID }],
+          }),
+        ],
+        error: null,
+      },
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(eventsRequest());
 
     expect(response.status).toBe(200);
     expect(await readJson(response)).toMatchObject({
@@ -596,14 +617,14 @@ describe('quiz events route', () => {
     expect(customerBuilder.eq).toHaveBeenCalledWith('user_id', 'user-1');
     expect(from).toHaveBeenCalledWith('quiz_events');
     expect(queryBuilder.select).toHaveBeenCalledWith(
-      'id, title, status, starts_at, ends_at, settings, nlrc_permit_ref, compliance_verified, quiz_question_slots!inner(id, active, quiz_question_variants!inner(id, active))'
+      'id, title, status, starts_at, ends_at, settings, nlrc_permit_ref, compliance_verified, quiz_question_slots!inner(id, active)'
     );
     expect(queryBuilder.eq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
     expect(queryBuilder.eq).toHaveBeenCalledWith(
       'quiz_question_slots.active',
       'true'
     );
-    expect(queryBuilder.eq).toHaveBeenCalledWith(
+    expect(queryBuilder.eq).not.toHaveBeenCalledWith(
       'quiz_question_slots.quiz_question_variants.active',
       'true'
     );

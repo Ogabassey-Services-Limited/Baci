@@ -13,6 +13,100 @@ import {
   submitQuizAnswerSchema,
 } from '@/schemas/quiz';
 
+type SubmittedAttemptResult = {
+  attemptId: string;
+  correctAnswers: number;
+  prizeEligible: false;
+  status: 'completed';
+  totalQuestions: number;
+};
+
+function getRpcErrorCode(error: unknown): string | null {
+  if (!error || typeof error !== 'object' || !('code' in error)) return null;
+  const code = (error as { code?: unknown }).code;
+  return typeof code === 'string' ? code : null;
+}
+
+function isReplayStateError(error: unknown) {
+  return getRpcErrorCode(error) === 'QZ004';
+}
+
+function getQuestionRows(row: unknown): unknown[] {
+  if (!row || typeof row !== 'object' || !('quiz_attempt_questions' in row)) {
+    return [];
+  }
+
+  const questions = (row as { quiz_attempt_questions?: unknown })
+    .quiz_attempt_questions;
+  return Array.isArray(questions) ? questions : [];
+}
+
+function getQuestionScore(question: unknown): number {
+  if (
+    !question ||
+    typeof question !== 'object' ||
+    !('quiz_attempt_answers' in question)
+  ) {
+    return 0;
+  }
+
+  const answers = (question as { quiz_attempt_answers?: unknown })
+    .quiz_attempt_answers;
+  const answerRows = Array.isArray(answers)
+    ? answers
+    : answers
+      ? [answers]
+      : [];
+  return answerRows.reduce((score, answer) => {
+    if (!answer || typeof answer !== 'object' || !('score_delta' in answer)) {
+      return score;
+    }
+
+    const delta = (answer as { score_delta?: unknown }).score_delta;
+    return score + (typeof delta === 'number' ? delta : 0);
+  }, 0);
+}
+
+function mapSubmittedAttemptResult(
+  attemptId: string,
+  row: unknown
+): SubmittedAttemptResult | null {
+  if (!row || typeof row !== 'object' || !('status' in row)) return null;
+  if ((row as { status?: unknown }).status !== 'submitted') return null;
+
+  const questions = getQuestionRows(row);
+  if (questions.length === 0) return null;
+
+  return {
+    attemptId,
+    correctAnswers: questions.reduce(
+      (score, question) => score + getQuestionScore(question),
+      0
+    ),
+    prizeEligible: false,
+    status: 'completed',
+    totalQuestions: questions.length,
+  };
+}
+
+async function getSubmittedAttemptResult(
+  supabase: Awaited<ReturnType<typeof requireQuizUser>>['supabase'],
+  attemptId: string
+): Promise<{ error: unknown; result: SubmittedAttemptResult | null }> {
+  if (!supabase) return { error: null, result: null };
+
+  const { data, error } = await supabase
+    .from('quiz_attempts')
+    .select(
+      'id, status, quiz_attempt_questions(id, quiz_attempt_answers(score_delta))'
+    )
+    .eq('id', attemptId)
+    .maybeSingle();
+
+  if (error) return { error, result: null };
+  return { error: null, result: mapSubmittedAttemptResult(attemptId, data) };
+}
+
 export async function POST(
   request: NextRequest,
   context: { params: Promise<{ attemptId: string }> }
@@ -60,6 +154,23 @@ export async function POST(
   });
 
   if (error) {
+    if (isReplayStateError(error)) {
+      const recovered = await getSubmittedAttemptResult(
+        auth.supabase,
+        params.data.attemptId
+      );
+      if (recovered.error) return rpcErrorResponse();
+      if (recovered.result) return NextResponse.json(recovered.result);
+
+      return NextResponse.json(
+        {
+          code: 'quiz_attempt_not_answerable',
+          error: 'Quiz answer is no longer accepted for this attempt',
+        },
+        { status: 409 }
+      );
+    }
+
     logger.error({
       attemptId: params.data.attemptId,
       error,

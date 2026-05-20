@@ -57,12 +57,12 @@ describe('quiz migration contracts', () => {
     );
   });
 
-  it('keeps direct quiz slot reads behind assigned attempts', () => {
+  it('allows direct quiz slot reads only for listable customer merchant events', () => {
     expect(foundationSql).not.toMatch(
       /GRANT\s+SELECT\s*\([^)]*\)\s+ON\s+public\.quiz_question_slots\s+TO\s+anon/i
     );
     expect(foundationSql).toMatch(
-      /CREATE\s+POLICY\s+quiz_slots_client_read\s+ON\s+public\.quiz_question_slots\s+FOR\s+SELECT\s+TO\s+authenticated\s+USING\s+\(active\s+AND\s+EXISTS\s+\(SELECT\s+1\s+FROM\s+public\.quiz_attempt_questions/is
+      /CREATE\s+POLICY\s+quiz_slots_client_read\s+ON\s+public\.quiz_question_slots\s+FOR\s+SELECT\s+TO\s+authenticated\s+USING\s+\(active\s+AND\s+EXISTS\s+\(SELECT\s+1\s+FROM\s+public\.quiz_events\s+e\s+JOIN\s+public\.customers\s+c\s+ON\s+c\.merchant_id\s*=\s*e\.merchant_id[\s\S]*e\.id\s*=\s*quiz_question_slots\.event_id[\s\S]*c\.user_id\s*=\s*\(SELECT\s+auth\.uid\(\)\)\)\)/is
     );
   });
 
