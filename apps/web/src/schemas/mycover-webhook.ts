@@ -6,6 +6,7 @@ export const myCoverWebhookSchema = z.object({
     .object({
       policy_id: z.string().optional(),
       id: z.string().optional(),
+      purchase_id: z.string().optional(),
       policy_number: z.string().optional(),
       status: z.string().optional(),
       reference: z.string().optional(),

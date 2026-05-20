@@ -54,8 +54,9 @@ function updateKlumpOrder({
       updated_at: new Date().toISOString(),
     })
     .eq('id', orderId)
+    .neq('payment_status', 'paid')
     .select('id, merchant_id, order_number, customer_name, total, currency')
-    .single<PaidOrderRecord>();
+    .maybeSingle<PaidOrderRecord>();
 }
 
 async function notifyKlumpPaidOrder({
@@ -90,6 +91,20 @@ async function notifyKlumpPaidOrder({
   } catch (error) {
     logger.warn({ message: 'Klump payment notification failed', error });
   }
+}
+
+function getKlumpPlatformFee(
+  platformFee: number | string | null,
+  grossAmount: number
+) {
+  const hasStoredFee =
+    platformFee != null &&
+    !(typeof platformFee === 'string' && platformFee.trim() === '');
+  const storedFee = hasStoredFee ? Number(platformFee) : Number.NaN;
+
+  return Number.isFinite(storedFee)
+    ? storedFee
+    : calculatePlatformFee(grossAmount * 100).platformFee / 100;
 }
 
 export async function POST(request: NextRequest) {
@@ -160,8 +175,9 @@ export async function POST(request: NextRequest) {
     return errorResponse('Klump transaction id conflict', 409);
   }
 
+  const transactionAlreadyCompleted = transaction.status === 'completed';
   let updatedTransaction: { id: string } | null = null;
-  if (transaction.status !== 'completed') {
+  if (!transactionAlreadyCompleted) {
     const { data, error: updateError } = await supabase
       .from('transactions')
       .update({
@@ -191,7 +207,7 @@ export async function POST(request: NextRequest) {
     updatedTransaction = data;
   }
 
-  if (!updatedTransaction) {
+  if (!transactionAlreadyCompleted && !updatedTransaction) {
     return NextResponse.json({ message: 'Already processed', success: true });
   }
 
@@ -202,7 +218,7 @@ export async function POST(request: NextRequest) {
       supabase,
     });
 
-    if (orderError || !updatedOrder) {
+    if (orderError) {
       logger.error({
         message: 'Failed to update Klump order',
         error: orderError,
@@ -215,9 +231,10 @@ export async function POST(request: NextRequest) {
   }
 
   const grossAmount = Number(transaction.amount) || details.amount;
-  const platformFee =
-    Number(transaction.platform_fee) ||
-    calculatePlatformFee(grossAmount * 100).platformFee / 100;
+  const platformFee = getKlumpPlatformFee(
+    transaction.platform_fee,
+    grossAmount
+  );
 
   const { error: settlementError } = await supabase.rpc(
     'record_merchant_settlement',

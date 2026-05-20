@@ -12,6 +12,12 @@ type MyCoverPolicyLookup = {
   value: string;
 };
 
+type MyCoverUpdatedPolicy = {
+  id: string;
+};
+
+const MYCOVER_RENEWAL_DETAILS_URL = 'https://api.mycover.ai/v1/renewals';
+
 async function verifyWebhookSignature(
   rawBody: string,
   signature: string | null,
@@ -168,7 +174,10 @@ async function handlePolicyPurchased(
   event: MyCoverWebhookPayload['event']
 ) {
   const lookup = getPolicyLookup(data, {
-    dataIdIsPurchaseId: event === 'purchase.successful',
+    dataIdColumn:
+      event === 'purchase.successful'
+        ? 'mycover_purchase_id'
+        : 'mycover_policy_id',
   });
   if (!lookup) {
     console.warn('[MyCover Webhook] Policy purchased without policy_id');
@@ -185,7 +194,9 @@ async function handlePolicyPurchased(
       status: 'active',
       updated_at: new Date().toISOString(),
     })
-    .eq(lookup.column, lookup.value);
+    .eq(lookup.column, lookup.value)
+    .select('id')
+    .maybeSingle<MyCoverUpdatedPolicy>();
 
   if (error) {
     console.error('[MyCover Webhook] Failed to update policy:', error);
@@ -199,24 +210,97 @@ function getPolicyId(data: MyCoverWebhookPayload['data']) {
   return data.policy_id || data.id;
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function readString(
+  sources: readonly Record<string, unknown>[],
+  keys: readonly string[]
+): string | null {
+  for (const source of sources) {
+    for (const key of keys) {
+      const value = source[key];
+      if (typeof value === 'string' && value.trim().length > 0) {
+        return value.trim();
+      }
+    }
+  }
+
+  return null;
+}
+
+function getLookupFromRenewalDetails(
+  response: unknown
+): MyCoverPolicyLookup | null {
+  const data = asRecord(asRecord(response).data);
+  const policy = asRecord(data.policy);
+  const purchase = asRecord(data.purchase);
+
+  const policyId =
+    readString([data], ['policy_id', 'mycover_policy_id']) ??
+    readString([policy], ['id', 'policy_id']);
+  if (policyId) {
+    return { column: 'mycover_policy_id', value: policyId };
+  }
+
+  const purchaseId =
+    readString([data], ['purchase_id', 'mycover_purchase_id']) ??
+    readString([purchase], ['id', 'purchase_id']);
+  if (purchaseId) {
+    return { column: 'mycover_purchase_id', value: purchaseId };
+  }
+
+  return null;
+}
+
+async function resolveRenewalPolicyLookup(
+  renewalId: string
+): Promise<MyCoverPolicyLookup | null> {
+  const secretKey = process.env.MYCOVER_SECRET_KEY?.trim();
+  if (!secretKey) return null;
+
+  const response = await fetch(
+    `${MYCOVER_RENEWAL_DETAILS_URL}/${encodeURIComponent(renewalId)}`,
+    {
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${secretKey}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to resolve MyCover renewal details');
+  }
+
+  return getLookupFromRenewalDetails(await response.json());
+}
+
 function getPolicyLookup(
   data: MyCoverWebhookPayload['data'],
   {
-    dataIdIsPurchaseId = false,
+    dataIdColumn = 'mycover_policy_id',
   }: {
-    dataIdIsPurchaseId?: boolean;
+    dataIdColumn?: MyCoverPolicyLookup['column'] | null;
   } = {}
 ): MyCoverPolicyLookup | null {
   if (data.policy_id) {
     return { column: 'mycover_policy_id', value: data.policy_id };
   }
 
-  if (!data.id) {
+  if (data.purchase_id) {
+    return { column: 'mycover_purchase_id', value: data.purchase_id };
+  }
+
+  if (!(data.id && dataIdColumn)) {
     return null;
   }
 
   return {
-    column: dataIdIsPurchaseId ? 'mycover_purchase_id' : 'mycover_policy_id',
+    column: dataIdColumn,
     value: data.id,
   };
 }
@@ -234,22 +318,37 @@ async function handlePolicyRenewed(
   data: MyCoverWebhookPayload['data'],
   event: MyCoverWebhookPayload['event']
 ) {
-  const lookup = getPolicyLookup(data, {
-    dataIdIsPurchaseId: event === 'renewal.successful',
+  let lookup = getPolicyLookup(data, {
+    dataIdColumn: event === 'renewal.successful' ? null : 'mycover_policy_id',
   });
-  if (!lookup) return;
+  if (!lookup && event === 'renewal.successful' && data.id) {
+    lookup = await resolveRenewalPolicyLookup(data.id);
+  }
 
-  const { error } = await supabase
+  if (!lookup) {
+    throw new Error(
+      'MyCover renewal webhook missing stored policy or purchase identifier'
+    );
+  }
+
+  const { data: updatedPolicy, error } = await supabase
     .from('order_insurance_policies')
     .update({
       policy_expiry_date: getPolicyExpiryDate(data),
       status: 'active',
       updated_at: new Date().toISOString(),
     })
-    .eq(lookup.column, lookup.value);
+    .eq(lookup.column, lookup.value)
+    .select('id')
+    .maybeSingle<MyCoverUpdatedPolicy>();
 
   if (error) {
     console.error('[MyCover Webhook] Failed to renew policy:', error);
+    return;
+  }
+
+  if (!updatedPolicy) {
+    throw new Error('MyCover renewal webhook did not match a stored policy');
   }
 }
 

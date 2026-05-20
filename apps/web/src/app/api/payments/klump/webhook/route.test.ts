@@ -124,9 +124,11 @@ function createSupabaseMock({
     data: { id: 'transaction-123' },
     error: null,
   },
+  platformFee = null,
   transactionStatus = 'pending',
 }: {
   orderUpdateResult?: { data: unknown; error: unknown };
+  platformFee?: number | string | null;
   transactionStatus?: string;
   transactionUpdateResult?: { data: unknown; error: unknown };
 } = {}) {
@@ -144,7 +146,7 @@ function createSupabaseMock({
                 merchant_id: 'merchant-123',
                 metadata: {},
                 order_id: 'order-123',
-                platform_fee: null,
+                platform_fee: platformFee,
                 status: transactionStatus,
               },
               error: null,
@@ -278,6 +280,26 @@ describe('POST /api/payments/klump/webhook', () => {
     );
   });
 
+  it('preserves an explicit zero platform fee when recording settlement', async () => {
+    mocks.createServiceClient.mockReturnValue(
+      createSupabaseMock({
+        platformFee: 0,
+      })
+    );
+    const rawBody = JSON.stringify(successfulPayload);
+
+    const response = await POST(
+      createRequest(successfulPayload, signPayload(rawBody, 'klump-secret'))
+    );
+
+    expect(response.status).toBe(200);
+    expect(mocks.recordMerchantSettlement).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_platform_fee: 0,
+      })
+    );
+  });
+
   it('acknowledges non-success events without marking the order paid', async () => {
     const payload = {
       ...successfulPayload,
@@ -317,7 +339,7 @@ describe('POST /api/payments/klump/webhook', () => {
     expect(mocks.orderUpdateSingle).not.toHaveBeenCalled();
   });
 
-  it('does not rewrite the order when the Klump transaction is already completed', async () => {
+  it('retries downstream order and settlement work when the Klump transaction is already completed', async () => {
     mocks.createServiceClient.mockReturnValue(
       createSupabaseMock({
         transactionStatus: 'completed',
@@ -331,9 +353,22 @@ describe('POST /api/payments/klump/webhook', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ message: 'Already processed', success: true });
+    expect(body).toEqual({
+      message: 'Klump payment processed successfully',
+      success: true,
+    });
     expect(mocks.transactionUpdateMaybeSingle).not.toHaveBeenCalled();
-    expect(mocks.orderUpdateSingle).not.toHaveBeenCalled();
-    expect(mocks.recordMerchantSettlement).not.toHaveBeenCalled();
+    expect(mocks.orderUpdateSingle).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payment_status: 'paid',
+        shipping_status: 'processing',
+      })
+    );
+    expect(mocks.recordMerchantSettlement).toHaveBeenCalledWith(
+      expect.objectContaining({
+        p_gateway: 'klump',
+        p_gateway_reference: 'BAC-ABCD12345678',
+      })
+    );
   });
 });
