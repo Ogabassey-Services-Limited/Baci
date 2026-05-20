@@ -172,4 +172,31 @@ describe('LoginScreen', () => {
     });
     expect(screen.queryByText('Verify Your Email')).toBeNull();
   });
+
+  it('announces and toggles password visibility from the password step', async () => {
+    render(<LoginScreen />);
+
+    fireEvent.changeText(
+      screen.getByPlaceholderText('john@example.com'),
+      'shopper@example.com'
+    );
+    fireEvent.press(screen.getByText('Use password instead'));
+    fireEvent.press(screen.getByText('Continue with Password'));
+
+    expect(
+      await screen.findByText(
+        'Sign in with your password for shopper@example.com'
+      )
+    ).toBeOnTheScreen();
+
+    const passwordInput = screen.getByPlaceholderText('••••••••');
+    expect(passwordInput).toHaveProp('secureTextEntry', true);
+
+    fireEvent.press(screen.getByRole('button', { name: 'Show password' }));
+
+    expect(
+      screen.getByRole('button', { name: 'Hide password' })
+    ).toBeOnTheScreen();
+    expect(passwordInput).toHaveProp('secureTextEntry', false);
+  });
 });
