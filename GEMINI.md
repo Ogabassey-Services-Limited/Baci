@@ -18,7 +18,9 @@ This file gives Gemini the repository constraints it must follow when reviewing 
 - Avoid `any`; prefer explicit types or `unknown`.
 - Validate API inputs with Zod and keep protected routes auth-first.
 - Do not use `select('*')` in Supabase queries.
-- For `apps/mobile-admin` Android emulator QA, start only with `pnpm --filter baci-mobile-admin android:emulator`; do not launch the emulator directly or with `-gpu swiftshader_indirect`.
+- For `apps/mobile-admin` Android emulator QA, start only with `pnpm --filter baci-mobile-admin android:emulator`; this is the only supported emulator launch path for agents and automation. Do not launch the emulator directly or with `-gpu swiftshader_indirect`.
+- For `apps/mobile-admin` Android Metro QA, start only with `pnpm --filter baci-mobile-admin android:metro`; do not use a localhost-only Metro host for emulator QA because the dev client connects through `10.0.2.2`.
+- For `apps/mobile-admin` Android dev-client launch QA, start only with `pnpm --filter baci-mobile-admin android:launch`; do not use raw `adb shell am start` commands because the repo launcher owns the Metro reverse, settled-load check, package force-stop, and Expo dev-client URL.
 
 ## Architecture notes
 

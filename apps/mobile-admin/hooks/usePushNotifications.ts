@@ -12,16 +12,34 @@ import type {
   Notification as ExpoNotification,
   NotificationResponse as ExpoNotificationResponse,
 } from 'expo-notifications';
+import type * as DeviceType from 'expo-device';
 import { isRuntimePlatform } from '@/config/runtime-platform';
 
-// Dynamic imports for native modules to prevent evaluation-time crashes
+// Dynamic imports for native modules to prevent evaluation-time crashes.
+let Device: typeof DeviceType | null = null;
 let Notifications: typeof import('expo-notifications') | null = null;
-try {
-  if (!isRuntimePlatform('web')) {
-    Notifications = require('expo-notifications');
+
+async function loadNotificationsForDevice() {
+  if (Notifications || isRuntimePlatform('web')) {
+    return Notifications;
   }
-} catch (_e) {
-  console.debug('[PushHook] Native module ignored during evaluation');
+
+  try {
+    Device = await import('expo-device');
+
+    if (!Device?.isDevice) {
+      if (__DEV__) {
+        console.log('[PushHook] Native notifications skipped on simulator');
+      }
+      return null;
+    }
+
+    Notifications = await import('expo-notifications');
+    return Notifications;
+  } catch (_e) {
+    console.debug('[PushHook] Native module ignored during evaluation');
+    return null;
+  }
 }
 
 import { type Href, useRouter } from 'expo-router';
@@ -202,57 +220,63 @@ export function usePushNotifications(): UsePushNotificationsResult {
    * Set up notification listeners
    */
   useEffect(() => {
-    if (!Notifications) return;
     let cancelled = false;
 
-    // Listener for notifications received while app is foregrounded
-    notificationListener.current =
-      Notifications.addNotificationReceivedListener(
-        (notification: ExpoNotification) => {
-          if (__DEV__) {
-            console.log(
-              '[Push] Notification received:',
-              notification.request.content.title
+    void loadNotificationsForDevice().then((loadedNotifications) => {
+      if (cancelled || !loadedNotifications) {
+        return;
+      }
+
+      // Listener for notifications received while app is foregrounded
+      notificationListener.current =
+        loadedNotifications.addNotificationReceivedListener(
+          (notification: ExpoNotification) => {
+            if (__DEV__) {
+              console.log(
+                '[Push] Notification received:',
+                notification.request.content.title
+              );
+            }
+            // You can show an in-app toast here if desired
+          }
+        );
+
+      // Listener for when user taps on a notification
+      responseListener.current =
+        loadedNotifications.addNotificationResponseReceivedListener(
+          (response: ExpoNotificationResponse) => {
+            if (__DEV__) {
+              console.log('[Push] Notification tapped');
+            }
+
+            // Clear badge on interaction
+            void clearBadge();
+            navigateToNotificationTarget(
+              router,
+              getNotificationNavigationParams(response)
             );
           }
-          // You can show an in-app toast here if desired
-        }
-      );
+        );
 
-    // Listener for when user taps on a notification
-    responseListener.current =
-      Notifications.addNotificationResponseReceivedListener(
-        (response: ExpoNotificationResponse) => {
-          if (__DEV__) {
-            console.log('[Push] Notification tapped');
+      loadedNotifications
+        .getLastNotificationResponseAsync?.()
+        .then((response) => {
+          if (cancelled || !response) {
+            return;
           }
 
-          // Clear badge on interaction
           void clearBadge();
           navigateToNotificationTarget(
             router,
             getNotificationNavigationParams(response)
           );
-        }
-      );
-
-    Notifications.getLastNotificationResponseAsync?.()
-      .then((response) => {
-        if (cancelled || !response) {
-          return;
-        }
-
-        void clearBadge();
-        navigateToNotificationTarget(
-          router,
-          getNotificationNavigationParams(response)
-        );
-      })
-      .catch((error) => {
-        if (__DEV__) {
-          console.debug('[Push] Failed to get last notification:', error);
-        }
-      });
+        })
+        .catch((error) => {
+          if (__DEV__) {
+            console.debug('[Push] Failed to get last notification:', error);
+          }
+        });
+    });
 
     // Cleanup listeners on unmount
     return () => {

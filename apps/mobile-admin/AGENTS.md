@@ -3,7 +3,10 @@
 ## Platform Drift
 
 - Prefer shared primitives over inline platform branches.
-- Android emulator QA must start from `pnpm --filter baci-mobile-admin android:emulator`. Do not launch the emulator directly or with `-gpu swiftshader_indirect`; the script owns GPU mode, ADB reset, boot waiting, and ADB shell validation.
+- Android emulator QA must start from `pnpm --filter baci-mobile-admin android:emulator`. This is the only supported emulator launch path for agents and automation. Do not launch the emulator directly or with `-gpu swiftshader_indirect`; the script owns GPU mode, Quick Boot, ADB reset, boot waiting, Android settle checks, the Metro ADB reverse, and ADB shell validation.
+- The default Android QA AVD is `Baci_Pixel_9_API_35_ATD`, an AOSP ATD arm64 image with emulator GPU mode set to `auto`, 6 CPU cores, and 6144 MB RAM.
+- Android Metro QA must use `pnpm --filter baci-mobile-admin android:metro`. Do not use a localhost-only Metro host for emulator QA because the dev client connects through `10.0.2.2`.
+- Android dev-client launch QA must use `pnpm --filter baci-mobile-admin android:launch`. Do not use raw `adb shell am start` commands because the script owns the Metro reverse, settled-load check, package force-stop, and Expo dev-client URL.
 - Add new modal, sheet, picker, or keyboard behavior through shared UI helpers in `components/ui/` whenever possible.
 - Treat new `Platform.OS` and `Platform.select` usage as exceptional, not normal.
 - If a new platform-specific branch is unavoidable:

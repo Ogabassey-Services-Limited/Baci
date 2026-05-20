@@ -1,17 +1,28 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-AVD_NAME="${BACI_ANDROID_AVD_NAME:-Medium_Phone_API_36.1}"
+AVD_NAME="${BACI_ANDROID_AVD_NAME:-Baci_Pixel_9_API_35_ATD}"
 GPU_MODE="${BACI_ANDROID_GPU_MODE:-auto}"
 SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/Library/Android/sdk}}"
 ADB="${SDK_ROOT}/platform-tools/adb"
 EMULATOR="${SDK_ROOT}/emulator/emulator"
 LOG_FILE="${BACI_ANDROID_EMULATOR_LOG:-/tmp/baci-mobile-admin-emulator.log}"
-BOOT_TIMEOUT_SECONDS="${BACI_ANDROID_BOOT_TIMEOUT_SECONDS:-180}"
+BOOT_TIMEOUT_SECONDS="${BACI_ANDROID_BOOT_TIMEOUT_SECONDS:-420}"
 ADB_SERIAL="${BACI_ANDROID_ADB_SERIAL:-emulator-5554}"
 MIN_EMULATOR_BUILD="${BACI_ANDROID_MIN_EMULATOR_BUILD:-15261927}"
 ADB_STABILITY_PROBES="${BACI_ANDROID_ADB_STABILITY_PROBES:-3}"
+EMULATOR_MEMORY_MB="${BACI_ANDROID_EMULATOR_MEMORY_MB:-6144}"
+EMULATOR_CORES="${BACI_ANDROID_EMULATOR_CORES:-6}"
+COLD_BOOT="${BACI_ANDROID_COLD_BOOT:-0}"
+SETTLE_TIMEOUT_SECONDS="${BACI_ANDROID_SETTLE_TIMEOUT_SECONDS:-600}"
+SETTLE_LOAD_MAX="${BACI_ANDROID_SETTLE_LOAD_MAX:-8.0}"
+SETTLE_STABILITY_PROBES="${BACI_ANDROID_SETTLE_STABILITY_PROBES:-2}"
+METRO_PORT="${BACI_ANDROID_METRO_PORT:-8081}"
 cleanup_files=()
+
+export ANDROID_HOME="$SDK_ROOT"
+export ANDROID_SDK_ROOT="$SDK_ROOT"
+export PATH="${SDK_ROOT}/platform-tools:${SDK_ROOT}/emulator:${SDK_ROOT}/cmdline-tools/latest/bin:${PATH}"
 
 cleanup() {
   if ((${#cleanup_files[@]} > 0)); then
@@ -34,7 +45,11 @@ untrack_temp_file() {
     fi
   done
 
-  cleanup_files=("${remaining[@]}")
+  if ((${#remaining[@]} == 0)); then
+    cleanup_files=()
+  else
+    cleanup_files=("${remaining[@]}")
+  fi
 }
 
 remove_temp_file() {
@@ -67,6 +82,11 @@ if [[ "$GPU_MODE" == "swiftshader_indirect" ]]; then
   exit 1
 fi
 
+if [[ "$COLD_BOOT" != "0" && "$COLD_BOOT" != "1" ]]; then
+  echo "BACI_ANDROID_COLD_BOOT must be 0 or 1." >&2
+  exit 1
+fi
+
 emulator_version_output="$("$EMULATOR" -version 2>/dev/null | head -1)"
 emulator_build="$(
   sed -n 's/.*build_id \([0-9][0-9]*\).*/\1/p' <<<"$emulator_version_output"
@@ -76,6 +96,15 @@ if [[ -z "$emulator_build" || "$emulator_build" -lt "$MIN_EMULATOR_BUILD" ]]; th
   echo "Android Emulator is too old for mobile-admin QA: ${emulator_version_output:-unknown}." >&2
   echo "Install a current emulator package with:" >&2
   echo "  ${SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --sdk_root=${SDK_ROOT} \"emulator\"" >&2
+  exit 1
+fi
+
+if ! "$EMULATOR" -list-avds | grep -Fxq -- "$AVD_NAME"; then
+  echo "Required AVD '$AVD_NAME' is not installed." >&2
+  echo "Use the mobile-admin Android QA setup path before launching:" >&2
+  echo "  ${SDK_ROOT}/cmdline-tools/latest/bin/sdkmanager --sdk_root=${SDK_ROOT} \"emulator\" \"platform-tools\" \"platforms;android-35\" \"system-images;android-35;aosp_atd;arm64-v8a\"" >&2
+  echo "  printf 'no\\n' | ${SDK_ROOT}/cmdline-tools/latest/bin/avdmanager create avd --force --name ${AVD_NAME} --package \"system-images;android-35;aosp_atd;arm64-v8a\" --device \"pixel_9\"" >&2
+  echo "Then launch only with: pnpm --filter baci-mobile-admin android:emulator" >&2
   exit 1
 fi
 
@@ -162,9 +191,66 @@ confirm_adb_shell_stable() {
   return 0
 }
 
+stabilize_android_system() {
+  local package_name
+  local package_names=(
+    com.android.bluetooth
+    com.android.phone
+    com.android.launcher3
+    com.android.quicksearchbox
+    com.android.localtransport
+    com.android.printspooler
+  )
+
+  "$ADB" -s "$ADB_SERIAL" shell svc bluetooth disable >/dev/null 2>&1 || true
+  "$ADB" -s "$ADB_SERIAL" shell settings put global bluetooth_on 0 >/dev/null 2>&1 || true
+  "$ADB" -s "$ADB_SERIAL" shell settings put global window_animation_scale 0 >/dev/null 2>&1 || true
+  "$ADB" -s "$ADB_SERIAL" shell settings put global transition_animation_scale 0 >/dev/null 2>&1 || true
+  "$ADB" -s "$ADB_SERIAL" shell settings put global animator_duration_scale 0 >/dev/null 2>&1 || true
+  "$ADB" -s "$ADB_SERIAL" reverse "tcp:${METRO_PORT}" "tcp:${METRO_PORT}" >/dev/null 2>&1 || true
+
+  for package_name in "${package_names[@]}"; do
+    "$ADB" -s "$ADB_SERIAL" shell cmd package disable-user --user 0 "$package_name" >/dev/null 2>&1 || true
+  done
+}
+
+wait_for_android_settle() {
+  local deadline=$((SECONDS + SETTLE_TIMEOUT_SECONDS))
+  local load_output
+  local load_one
+  local stable_probe_count=0
+
+  while (( SECONDS < deadline )); do
+    load_output="$(mktemp)"
+    track_temp_file "$load_output"
+    if capture_with_timeout 5 "$load_output" "$ADB" -s "$ADB_SERIAL" shell cat /proc/loadavg; then
+      load_one="$(awk '{print $1}' "$load_output")"
+      if awk -v load="$load_one" -v max="$SETTLE_LOAD_MAX" 'BEGIN { exit !(load <= max) }'; then
+        stable_probe_count=$((stable_probe_count + 1))
+        if (( stable_probe_count >= SETTLE_STABILITY_PROBES )); then
+          remove_temp_file "$load_output"
+          return 0
+        fi
+      else
+        stable_probe_count=0
+      fi
+      echo "Android load average: ${load_one:-unknown} (target <= $SETTLE_LOAD_MAX)"
+    else
+      stable_probe_count=0
+    fi
+    remove_temp_file "$load_output"
+    sleep 5
+  done
+
+  return 1
+}
+
 echo "Starting Android emulator for mobile-admin QA"
 echo "AVD: $AVD_NAME"
 echo "GPU: $GPU_MODE"
+echo "Cores: $EMULATOR_CORES"
+echo "Memory: ${EMULATOR_MEMORY_MB}MB"
+echo "Cold boot: $COLD_BOOT"
 echo "Emulator: $emulator_version_output"
 echo "Log: $LOG_FILE"
 
@@ -178,30 +264,32 @@ fi
 
 rm -f "$LOG_FILE"
 emulator_pid="$(
-  python3 - "$EMULATOR" "$AVD_NAME" "$GPU_MODE" "$LOG_FILE" <<'PY'
+  python3 - "$EMULATOR" "$AVD_NAME" "$GPU_MODE" "$LOG_FILE" "$EMULATOR_MEMORY_MB" "$EMULATOR_CORES" "$COLD_BOOT" <<'PY'
 import subprocess
 import sys
 
-emulator, avd_name, gpu_mode, log_file = sys.argv[1:]
+emulator, avd_name, gpu_mode, log_file, memory_mb, cores, cold_boot = sys.argv[1:]
 log = open(log_file, 'ab', buffering=0)
+emulator_args = [
+    emulator,
+    f'@{avd_name}',
+    '-gpu',
+    gpu_mode,
+    '-no-boot-anim',
+    '-no-audio',
+    '-netdelay',
+    'none',
+    '-netspeed',
+    'full',
+    '-memory',
+    memory_mb,
+    '-cores',
+    cores,
+]
+if cold_boot == '1':
+    emulator_args.append('-no-snapshot-load')
 process = subprocess.Popen(
-    [
-        emulator,
-        f'@{avd_name}',
-        '-gpu',
-        gpu_mode,
-        '-no-snapshot',
-        '-no-boot-anim',
-        '-no-audio',
-        '-netdelay',
-        'none',
-        '-netspeed',
-        'full',
-        '-memory',
-        '4096',
-        '-cores',
-        '4',
-    ],
+    emulator_args,
     stdin=subprocess.DEVNULL,
     stdout=log,
     stderr=subprocess.STDOUT,
@@ -229,5 +317,15 @@ if ! confirm_adb_shell_stable; then
   exit 1
 fi
 
+stabilize_android_system
+
+if ! wait_for_android_settle; then
+  echo "Emulator booted, but Android did not settle below load ${SETTLE_LOAD_MAX} within ${SETTLE_TIMEOUT_SECONDS}s." >&2
+  echo "Last emulator log lines:" >&2
+  tail -40 "$LOG_FILE" >&2 || true
+  kill "$emulator_pid" >/dev/null 2>&1 || true
+  exit 1
+fi
+
 echo "Android emulator ready on $ADB_SERIAL."
-echo "Use this emulator for QA; do not relaunch it with -gpu swiftshader_indirect."
+echo "Use this emulator for QA; do not relaunch it with raw emulator commands or -gpu swiftshader_indirect."

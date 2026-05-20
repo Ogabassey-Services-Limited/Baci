@@ -86,6 +86,29 @@ Run:
 pnpm --filter baci-mobile-admin android:emulator
 ```
 
+This is the only supported emulator launch path for agents and automation. The
+launcher owns GPU mode, Quick Boot, ADB reset, boot waiting, Android settle
+checks, the Metro ADB reverse, and ADB shell stability checks.
+
+Then run Metro for Android with:
+
+```bash
+pnpm --filter baci-mobile-admin android:metro
+```
+
+Do not use a localhost-only Metro host for emulator QA; the dev client connects
+through `10.0.2.2`.
+
+Launch the Android dev client only with:
+
+```bash
+pnpm --filter baci-mobile-admin android:launch
+```
+
+Do not use raw `adb shell am start` commands for mobile-admin QA. The launcher
+owns the Metro reverse, settled-load check, package force-stop, and Expo
+dev-client URL.
+
 Expected:
 
 ```text
@@ -168,13 +191,10 @@ Run:
 
 ```bash
 ADB="$HOME/Library/Android/sdk/platform-tools/adb"
-PACKAGE="com.ogabassey.baci"
-ACTIVITY="$("$ADB" shell cmd package resolve-activity --brief "$PACKAGE" | tail -n 1)"
-"$ADB" shell am force-stop "$PACKAGE"
-"$ADB" shell am start -n "$ACTIVITY"
+pnpm --filter baci-mobile-admin android:launch
 sleep 5
-"$ADB" shell pidof -s "$PACKAGE"
-"$ADB" exec-out screencap -p > /tmp/baci-branch-qa-01-launch.png
+"$ADB" -s emulator-5554 shell pidof -s com.ogabassey.baci
+"$ADB" -s emulator-5554 exec-out screencap -p > /tmp/baci-branch-qa-01-launch.png
 ```
 
 Expected:

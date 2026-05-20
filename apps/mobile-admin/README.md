@@ -119,9 +119,36 @@ Use the checked-in launcher for Android QA:
 pnpm --filter baci-mobile-admin android:emulator
 ```
 
-Do not launch the mobile-admin emulator directly with `-gpu swiftshader_indirect`.
-The launcher owns GPU mode, restarts ADB, waits for boot, and fails if `adb shell`
-is not responsive.
+This is the only supported emulator launch path for agents and automation. Do
+not launch the mobile-admin emulator directly with `-gpu swiftshader_indirect`.
+The launcher owns GPU mode, Quick Boot, restarts ADB, waits for boot, disables
+unused radio services, registers the Metro ADB reverse on port 8081, waits for
+Android load to settle, and fails if `adb shell` is not responsive.
+By default it launches `Baci_Pixel_9_API_35_ATD`, an AOSP ATD arm64 AVD
+configured with emulator GPU mode set to `auto`, 6 CPU cores, and 6144 MB RAM.
+ATD is the default because Google documents it as CPU/memory-optimized for
+automated tests; ATD also disables hardware rendering, so use UIAutomator
+evidence rather than screenshot assertions on this path.
+Set `BACI_ANDROID_COLD_BOOT=1` only when a fresh emulator state is required.
+
+Run Metro for Android with:
+
+```bash
+pnpm --filter baci-mobile-admin android:metro
+```
+
+Do not use a localhost-only Metro host for emulator QA; the dev client connects
+through `10.0.2.2`.
+
+Launch the Android dev client with:
+
+```bash
+pnpm --filter baci-mobile-admin android:launch
+```
+
+Do not use raw `adb shell am start` commands for mobile-admin QA. The launcher
+owns the Metro reverse, settled-load check, package force-stop, and Expo
+dev-client URL.
 
 ### Simulator and Emulator Keyboards
 
