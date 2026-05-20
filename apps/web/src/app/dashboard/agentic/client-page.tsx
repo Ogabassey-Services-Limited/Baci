@@ -1,7 +1,8 @@
 'use client';
 
-import { Bot, ShieldCheck } from 'lucide-react';
+import { Bot, Radar, ShieldCheck } from 'lucide-react';
 import { AgenticActionCenterCard } from '@/components/dashboard/agentic-action-center-card';
+import { AgenticCrawlerVisibilityCard } from '@/components/dashboard/agentic-crawler-visibility-card';
 import { AgenticTrustCenterCard } from '@/components/dashboard/agentic-trust-center-card';
 import {
   Card,
@@ -10,6 +11,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { CrawlerLogSummary } from '@/lib/agentic/crawler-observability';
 import type { AgentCommerceTrustReadinessSummary } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 import type { AgenticActionHealthPayload } from '@/schemas/agentic-action-health';
 import type { AgenticCenterState } from './data';
@@ -17,6 +19,8 @@ import type { AgenticCenterState } from './data';
 interface AgenticDashboardClientPageProps {
   actionCenterState: AgenticCenterState;
   actionHealth: AgenticActionHealthPayload | null;
+  crawlerCenterState: AgenticCenterState;
+  crawlerSummary: CrawlerLogSummary | null;
   isPublished: boolean;
   trustCenterState: AgenticCenterState;
   trustReadiness: AgentCommerceTrustReadinessSummary | null;
@@ -25,16 +29,25 @@ interface AgenticDashboardClientPageProps {
 export default function AgenticDashboardClientPage({
   actionCenterState,
   actionHealth,
+  crawlerCenterState,
+  crawlerSummary,
   isPublished,
   trustCenterState,
   trustReadiness,
 }: AgenticDashboardClientPageProps) {
   const isActionUnauthorized = actionCenterState === 'unauthorized';
+  const isCrawlerUnauthorized = crawlerCenterState === 'unauthorized';
   const isTrustUnauthorized = trustCenterState === 'unauthorized';
-  const isUnauthorized = isActionUnauthorized && isTrustUnauthorized;
+  const isUnauthorized =
+    isActionUnauthorized && isCrawlerUnauthorized && isTrustUnauthorized;
   const showActionCenter = !isActionUnauthorized;
+  const showCrawlerCenter = !isCrawlerUnauthorized;
   const showTrustCenter = !isTrustUnauthorized;
-  const defaultTab = showActionCenter ? 'actions' : 'trust';
+  const defaultTab = showActionCenter
+    ? 'actions'
+    : showTrustCenter
+      ? 'trust'
+      : 'crawler';
 
   return (
     <div className="space-y-6 p-3 pb-24 md:p-6 md:pb-8">
@@ -87,6 +100,12 @@ export default function AgenticDashboardClientPage({
                 Trust center
               </TabsTrigger>
             )}
+            {showCrawlerCenter && (
+              <TabsTrigger value="crawler">
+                <Radar className="mr-2 h-4 w-4" />
+                Crawler visibility
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {showActionCenter && (
@@ -103,6 +122,15 @@ export default function AgenticDashboardClientPage({
               <AgenticTrustCenterCard
                 readiness={trustReadiness}
                 state={trustCenterState}
+              />
+            </TabsContent>
+          )}
+
+          {showCrawlerCenter && (
+            <TabsContent value="crawler" className="space-y-4">
+              <AgenticCrawlerVisibilityCard
+                state={crawlerCenterState}
+                summary={crawlerSummary}
               />
             </TabsContent>
           )}
