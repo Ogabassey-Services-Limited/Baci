@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCronSecret } from '@/env';
-import { constantTimeEqual } from '@/lib/constant-time-equal';
+import { hasValidCronSecret } from '@/lib/cron-secret-auth';
 import { checkCsrfProtection } from '@/lib/csrf';
 import { syncClaimsStatus } from '@/services/insurance';
 
@@ -17,19 +17,7 @@ export async function POST(_request: NextRequest) {
     }
 
     // Verify cron secret
-    const authHeader = _request.headers.get('authorization');
-    const bearerToken = authHeader?.startsWith('Bearer ')
-      ? authHeader.slice('Bearer '.length)
-      : null;
-    const legacyHeader = _request.headers.get('x-cron-secret');
-    const cronSecret = bearerToken || legacyHeader;
-    const expectedSecret = getCronSecret();
-
-    if (
-      !cronSecret ||
-      !expectedSecret ||
-      !constantTimeEqual(cronSecret, expectedSecret)
-    ) {
+    if (!hasValidCronSecret(_request.headers, getCronSecret())) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
