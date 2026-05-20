@@ -1,4 +1,5 @@
 import type { RegisteredAddress } from '@baci/shared';
+import { normalizeGooglePlaceId } from '@/lib/google-place-id';
 import type {
   MerchantTrustProfile,
   MerchantTrustProfileRouteLinks,
@@ -277,6 +278,18 @@ export function buildMerchantTrustProfile(
     result.warrantyPolicy = {
       summary: warrantySummary,
       localRoute: '/warranty',
+    };
+  }
+
+  const googlePlaceId = merchant.feature_settings?.google_reviews_enabled
+    ? normalizeGooglePlaceId(merchant.feature_settings.google_place_id)
+    : undefined;
+  if (googlePlaceId) {
+    result.merchantReviewAuthority = {
+      attributionLabel: 'Google Maps',
+      placeId: googlePlaceId,
+      reviewsSortedBy: 'relevance',
+      source: 'google_maps',
     };
   }
 

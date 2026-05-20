@@ -163,6 +163,8 @@ const serverSchema = z
     // AI
     GOOGLE_GENAI_API_KEY: z.string().optional(),
     GEMINI_API_KEY: z.string().optional(),
+    GOOGLE_MAPS_API_KEY: optionalTrimmedStringSchema,
+    GOOGLE_PLACES_API_KEY: optionalTrimmedStringSchema,
     AI_CHAT_MODEL: z.string().default('gemma4:e4b'),
 
     // BNPL
@@ -391,6 +393,8 @@ const getEnv = () => {
         ZEPTOMAIL_FROM_DOMAIN: process.env.ZEPTOMAIL_FROM_DOMAIN,
         GOOGLE_GENAI_API_KEY: process.env.GOOGLE_GENAI_API_KEY,
         GEMINI_API_KEY: process.env.GEMINI_API_KEY,
+        GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
+        GOOGLE_PLACES_API_KEY: process.env.GOOGLE_PLACES_API_KEY,
         AI_CHAT_MODEL: process.env.AI_CHAT_MODEL,
         CREDIT_DIRECT_PRIVATE_KEY: process.env.CREDIT_DIRECT_PRIVATE_KEY,
         NODE_ENV: process.env.NODE_ENV,
@@ -669,6 +673,11 @@ export const getZeptoMailFromDomain = () =>
   env?.ZEPTOMAIL_FROM_DOMAIN?.trim() || 'usebaci.com';
 export const getGeminiApiKey = () =>
   env?.GOOGLE_GENAI_API_KEY || env?.GEMINI_API_KEY;
+export const getGooglePlacesApiKey = () =>
+  process.env.GOOGLE_PLACES_API_KEY?.trim() ||
+  env?.GOOGLE_PLACES_API_KEY ||
+  process.env.GOOGLE_MAPS_API_KEY?.trim() ||
+  env?.GOOGLE_MAPS_API_KEY;
 export const getAiChatModel = () => {
   if (typeof window !== 'undefined')
     throw new Error('AI_CHAT_MODEL cannot be accessed on the client');

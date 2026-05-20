@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
+import { GoogleReviewAuthoritySettingsCard } from '@/app/dashboard/settings/trust/google-review-authority-settings-card';
 import { AgentCommerceControlsCard } from '@/components/dashboard/integrations/agent-commerce-controls-card';
 import { AgentCommerceTrustReadinessCardServer } from '@/components/dashboard/integrations/agent-commerce-trust-readiness-card-server';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,12 @@ export default async function TrustSettingsPage() {
   const agenticCheckoutEnabled =
     merchant.feature_settings?.agentic_checkout_enabled !== false;
   const customSettings = merchant.feature_settings?.custom_settings;
+  const googleReviewsEnabled =
+    merchant.feature_settings?.google_reviews_enabled === true;
+  const googlePlaceId =
+    typeof merchant.feature_settings?.google_place_id === 'string'
+      ? merchant.feature_settings.google_place_id
+      : null;
   const agenticCustomSettings =
     customSettings &&
     typeof customSettings === 'object' &&
@@ -75,6 +82,11 @@ export default async function TrustSettingsPage() {
           initialEnabled={agenticCheckoutEnabled}
         />
       </div>
+
+      <GoogleReviewAuthoritySettingsCard
+        initialGooglePlaceId={googlePlaceId}
+        initialGoogleReviewsEnabled={googleReviewsEnabled}
+      />
 
       <TrustSettingsClient
         initialTrustProfile={merchant.trust_profile ?? null}
