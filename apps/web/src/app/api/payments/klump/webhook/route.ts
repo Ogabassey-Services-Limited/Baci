@@ -1,5 +1,10 @@
 import { after, type NextRequest, NextResponse } from 'next/server';
-import { notifyNewOrder, notifyPaymentReceived } from '@/lib/expo-push';
+import { getKlumpSecretKey } from '@/env';
+import {
+  type KlumpPaidOrder,
+  notifyKlumpPaidOrder,
+} from '@/lib/klump-payment-notifications';
+import { verifyKlumpWebhookTransaction } from '@/lib/klump-transaction-verification';
 import {
   amountsMatch,
   currenciesMatch,
@@ -12,7 +17,7 @@ import {
 } from '@/lib/klump-webhook';
 import { logger } from '@/lib/logger';
 import { calculatePlatformFee } from '@/lib/paystack';
-import { createServiceClient } from '@/lib/supabase/service';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { referenceSchema } from '@/schemas/payments';
 
 interface TransactionRecord {
@@ -27,14 +32,6 @@ interface TransactionRecord {
   status: string | null;
 }
 
-interface PaidOrderRecord {
-  currency?: string | null;
-  customer_name?: string | null;
-  id: string;
-  order_number?: string | null;
-  total?: number | string | null;
-}
-
 function errorResponse(error: string, status: number) {
   return NextResponse.json({ error }, { status });
 }
@@ -44,7 +41,7 @@ function updateKlumpOrder({
   supabase,
 }: {
   orderId: string;
-  supabase: ReturnType<typeof createServiceClient>;
+  supabase: ReturnType<typeof createAdminClient>;
 }) {
   return supabase
     .from('orders')
@@ -56,41 +53,7 @@ function updateKlumpOrder({
     .eq('id', orderId)
     .neq('payment_status', 'paid')
     .select('id, merchant_id, order_number, customer_name, total, currency')
-    .maybeSingle<PaidOrderRecord>();
-}
-
-async function notifyKlumpPaidOrder({
-  amount,
-  currency,
-  merchantId,
-  order,
-}: {
-  amount: number;
-  currency: string;
-  merchantId: string;
-  order: PaidOrderRecord;
-}) {
-  const orderNumber = order.order_number || order.id.slice(0, 8).toUpperCase();
-
-  try {
-    await notifyNewOrder(
-      merchantId,
-      order.id,
-      orderNumber,
-      order.customer_name || 'Customer',
-      amount,
-      currency
-    );
-    await notifyPaymentReceived(
-      merchantId,
-      amount,
-      currency,
-      orderNumber,
-      order.id
-    );
-  } catch (error) {
-    logger.warn({ message: 'Klump payment notification failed', error });
-  }
+    .maybeSingle<KlumpPaidOrder>();
 }
 
 function getKlumpPlatformFee(
@@ -149,7 +112,7 @@ export async function POST(request: NextRequest) {
     return errorResponse('Invalid reference', 400);
   }
 
-  const supabase = createServiceClient();
+  const supabase = createAdminClient();
   const { data: transaction, error: transactionError } = await supabase
     .from('transactions')
     .select(
@@ -178,6 +141,29 @@ export async function POST(request: NextRequest) {
 
   if (hasKlumpIdConflict(transaction.metadata, details.transactionId)) {
     return errorResponse('Klump transaction id conflict', 409);
+  }
+
+  const klumpSecretKey = getKlumpSecretKey();
+  if (!klumpSecretKey) {
+    logger.error({ message: 'KLUMP_SECRET_KEY is not configured' });
+    return errorResponse('Klump secret key not configured', 500);
+  }
+
+  const verification = await verifyKlumpWebhookTransaction({
+    details,
+    reference: referenceResult.data,
+    secretKey: klumpSecretKey,
+    transaction,
+  });
+
+  if (!verification.success) {
+    logger.error({
+      error: verification.error,
+      message: 'Klump transaction verification failed',
+      reference: referenceResult.data,
+      transactionId: details.transactionId,
+    });
+    return errorResponse(verification.error, verification.status);
   }
 
   const transactionAlreadyCompleted = transaction.status === 'completed';
@@ -216,7 +202,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ message: 'Already processed', success: true });
   }
 
-  let order: PaidOrderRecord | null = null;
+  let order: KlumpPaidOrder | null = null;
   if (transaction.order_id) {
     const { data: updatedOrder, error: orderError } = await updateKlumpOrder({
       orderId: transaction.order_id,

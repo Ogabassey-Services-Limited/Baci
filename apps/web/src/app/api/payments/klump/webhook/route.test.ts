@@ -3,7 +3,8 @@ import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  createServiceClient: vi.fn(),
+  createAdminClient: vi.fn(),
+  fetch: vi.fn(),
   logger: {
     error: vi.fn(),
     info: vi.fn(),
@@ -32,8 +33,8 @@ vi.mock('@/lib/zeptomail', () => ({
   sendEmail: (...args: unknown[]) => mocks.sendEmail(...args),
 }));
 
-vi.mock('@/lib/supabase/service', () => ({
-  createServiceClient: () => mocks.createServiceClient(),
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: () => mocks.createAdminClient(),
 }));
 
 vi.mock('next/server', async () => {
@@ -47,7 +48,7 @@ vi.mock('next/server', async () => {
   };
 });
 
-import { POST } from './route';
+import { POST } from '@/app/api/payments/klump/webhook/route';
 
 function signPayload(rawBody: string, secret: string) {
   return createHmac('sha256', secret).update(rawBody).digest('hex');
@@ -221,12 +222,30 @@ const successfulPayload = {
   event: 'klump.payment.transaction.successful',
 };
 
+function mockVerifiedKlumpTransaction(overrides: Record<string, unknown> = {}) {
+  mocks.fetch.mockResolvedValue(
+    Response.json({
+      data: {
+        amount: 50000,
+        currency: 'NGN',
+        id: 'klump-txn-123',
+        is_live: true,
+        merchant_reference: 'BAC-ABCD12345678',
+        status: 'successful',
+        ...overrides,
+      },
+    })
+  );
+}
+
 describe('POST /api/payments/klump/webhook', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.KLUMP_SECRET_KEY = 'klump-secret';
     process.env.NEXT_PUBLIC_ROOT_DOMAIN = 'usebaci.com';
-    mocks.createServiceClient.mockReturnValue(createSupabaseMock());
+    vi.stubGlobal('fetch', mocks.fetch);
+    mockVerifiedKlumpTransaction();
+    mocks.createAdminClient.mockReturnValue(createSupabaseMock());
     mocks.sendEmail.mockResolvedValue({
       messageId: 'message-123',
       success: true,
@@ -241,7 +260,7 @@ describe('POST /api/payments/klump/webhook', () => {
 
     expect(response.status).toBe(401);
     expect(payload.error).toBe('Invalid signature');
-    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+    expect(mocks.createAdminClient).not.toHaveBeenCalled();
   });
 
   it('marks the Klump transaction and order paid after a signed successful event', async () => {
@@ -256,10 +275,22 @@ describe('POST /api/payments/klump/webhook', () => {
       message: 'Klump payment processed successfully',
       success: true,
     });
+    expect(mocks.fetch).toHaveBeenCalledWith(
+      'https://api.useklump.com/v1/transactions/klump-txn-123/verify',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          'klump-secret-key': 'klump-secret',
+        }),
+        method: 'GET',
+      })
+    );
     expect(mocks.transactionUpdateMaybeSingle).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'completed',
       })
+    );
+    expect(mocks.fetch.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.transactionUpdateMaybeSingle.mock.invocationCallOrder[0]
     );
     expect(mocks.orderUpdateSingle).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -283,7 +314,7 @@ describe('POST /api/payments/klump/webhook', () => {
   });
 
   it('preserves an explicit zero platform fee when recording settlement', async () => {
-    mocks.createServiceClient.mockReturnValue(
+    mocks.createAdminClient.mockReturnValue(
       createSupabaseMock({
         platformFee: 0,
       })
@@ -316,7 +347,7 @@ describe('POST /api/payments/klump/webhook', () => {
 
     expect(response.status).toBe(200);
     expect(body.message).toBe('Event ignored');
-    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+    expect(mocks.createAdminClient).not.toHaveBeenCalled();
   });
 
   it('rejects sandbox success events before marking the order paid', async () => {
@@ -336,11 +367,45 @@ describe('POST /api/payments/klump/webhook', () => {
 
     expect(response.status).toBe(400);
     expect(body.error).toBe('Sandbox Klump webhook not accepted');
-    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+    expect(mocks.createAdminClient).not.toHaveBeenCalled();
+  });
+
+  it('does not mark the order paid when Klump provider verification fails', async () => {
+    mocks.fetch.mockResolvedValue(
+      Response.json({ error: 'not found' }, { status: 404 })
+    );
+    const rawBody = JSON.stringify(successfulPayload);
+
+    const response = await POST(
+      createRequest(successfulPayload, signPayload(rawBody, 'klump-secret'))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(body.error).toBe('Klump transaction verification failed');
+    expect(mocks.transactionUpdateMaybeSingle).not.toHaveBeenCalled();
+    expect(mocks.orderUpdateSingle).not.toHaveBeenCalled();
+    expect(mocks.recordMerchantSettlement).not.toHaveBeenCalled();
+  });
+
+  it('does not mark the order paid when provider verification returns a different amount', async () => {
+    mockVerifiedKlumpTransaction({ amount: 49000 });
+    const rawBody = JSON.stringify(successfulPayload);
+
+    const response = await POST(
+      createRequest(successfulPayload, signPayload(rawBody, 'klump-secret'))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe('Verified payment amount mismatch');
+    expect(mocks.transactionUpdateMaybeSingle).not.toHaveBeenCalled();
+    expect(mocks.orderUpdateSingle).not.toHaveBeenCalled();
+    expect(mocks.recordMerchantSettlement).not.toHaveBeenCalled();
   });
 
   it('does not mark the order paid when the transaction update fails', async () => {
-    mocks.createServiceClient.mockReturnValue(
+    mocks.createAdminClient.mockReturnValue(
       createSupabaseMock({
         transactionUpdateResult: {
           data: null,
@@ -362,7 +427,7 @@ describe('POST /api/payments/klump/webhook', () => {
   });
 
   it('retries downstream order and settlement work when the Klump transaction is already completed', async () => {
-    mocks.createServiceClient.mockReturnValue(
+    mocks.createAdminClient.mockReturnValue(
       createSupabaseMock({
         transactionStatus: 'completed',
       })
@@ -395,7 +460,7 @@ describe('POST /api/payments/klump/webhook', () => {
   });
 
   it('returns 500 when settlement recording fails so Klump can retry', async () => {
-    mocks.createServiceClient.mockReturnValue(
+    mocks.createAdminClient.mockReturnValue(
       createSupabaseMock({
         settlementResult: {
           data: null,

@@ -141,6 +141,8 @@ const serverSchema = z
     BLOG_PREVIEW_SECRET: z.string().default('dev-preview-secret'), // Fallback for dev
 
     // Payments (Server keys)
+    KLUMP_SECRET_KEY: optionalTrimmedStringSchema,
+    KLUMP_WEBHOOK_SECRET: optionalTrimmedStringSchema,
     KORAPAY_SECRET_KEY: z.string().optional(),
     JUICYWAY_SECRET_KEY: z.string().optional(),
     PAYSTACK_SECRET_KEY: z.string().optional(),
@@ -374,6 +376,8 @@ const getEnv = () => {
         SUPABASE_AGENTIC_JWT_PRIVATE_JWK:
           process.env.SUPABASE_AGENTIC_JWT_PRIVATE_JWK,
         BLOG_PREVIEW_SECRET: process.env.BLOG_PREVIEW_SECRET,
+        KLUMP_SECRET_KEY: process.env.KLUMP_SECRET_KEY,
+        KLUMP_WEBHOOK_SECRET: process.env.KLUMP_WEBHOOK_SECRET,
         KORAPAY_SECRET_KEY: process.env.KORAPAY_SECRET_KEY,
         JUICYWAY_SECRET_KEY: process.env.JUICYWAY_SECRET_KEY,
         PAYSTACK_SECRET_KEY: process.env.PAYSTACK_SECRET_KEY,
@@ -566,6 +570,22 @@ export const getKorapaySecretKey = () => env?.KORAPAY_SECRET_KEY;
 export const getKorapayPublicKey = () => env?.KORAPAY_PUBLIC_KEY;
 export const getJuicywaySecretKey = () => env?.JUICYWAY_SECRET_KEY;
 export const getJuicywayBaseUrl = () => env?.JUICYWAY_BASE_URL;
+export const getKlumpSecretKey = () => {
+  if (isBrowserRuntime()) return undefined;
+  return getRuntimeEnvValue(
+    process.env.KLUMP_SECRET_KEY,
+    env?.KLUMP_SECRET_KEY
+  );
+};
+export const getKlumpWebhookSecret = () => {
+  if (isBrowserRuntime()) return undefined;
+  return (
+    getRuntimeEnvValue(
+      process.env.KLUMP_WEBHOOK_SECRET,
+      env?.KLUMP_WEBHOOK_SECRET
+    ) ?? getKlumpSecretKey()
+  );
+};
 
 // Agentic runtime secrets are read at call time so serverless env rotations and
 // tests that stub process.env after module load use the current secret values.

@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
+import { getKlumpWebhookSecret as getConfiguredKlumpWebhookSecret } from '@/env';
 
 export type JsonRecord = Record<string, unknown>;
 
@@ -45,9 +46,11 @@ const KLUMP_SUCCESS_EVENTS = new Set([
 
 const SHA256_HEX_SIGNATURE_PATTERN = /^[a-f0-9]{64}$/;
 
-export function getKlumpWebhookSecret(
-  env: Partial<NodeJS.ProcessEnv> = process.env
-) {
+export function getKlumpWebhookSecret(env?: Partial<NodeJS.ProcessEnv>) {
+  if (!env) {
+    return getConfiguredKlumpWebhookSecret() ?? '';
+  }
+
   const webhookSecret = env.KLUMP_WEBHOOK_SECRET?.trim();
   if (webhookSecret) {
     return webhookSecret;

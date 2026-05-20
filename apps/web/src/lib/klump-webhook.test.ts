@@ -4,7 +4,7 @@ import {
   getKlumpWebhookSecret,
   parseKlumpWebhookPayload,
   verifyKlumpWebhookSignature,
-} from './klump-webhook';
+} from '@/lib/klump-webhook';
 
 function sign(rawBody: string, secret: string) {
   return createHmac('sha256', secret).update(rawBody).digest('hex');

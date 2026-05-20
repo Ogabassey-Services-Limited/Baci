@@ -285,6 +285,7 @@ async function resolveRenewalPolicyLookup(
         Accept: 'application/json',
         Authorization: `Bearer ${secretKey}`,
       },
+      signal: AbortSignal.timeout(10_000),
     }
   );
 
