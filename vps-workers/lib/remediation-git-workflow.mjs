@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import {
   buildCodexRemediationPrompt,
@@ -30,16 +31,36 @@ function runChecked(command, args, options) {
   return result.stdout || '';
 }
 
-function branchNameFor(candidate) {
-  return `codex/vercel-remediation-${candidate.fingerprint}`;
+function sanitizeRunId(value) {
+  const runId = String(value || randomUUID())
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 24);
+  return runId || randomUUID().toLowerCase().slice(0, 24);
+}
+
+function branchNameFor(candidate, runId) {
+  return `codex/vercel-remediation-${candidate.fingerprint}-${runId}`;
 }
 
 function parseStatusFiles(status) {
   return String(status || '')
     .split(/\r?\n/)
     .map((line) => line.slice(3).trim())
-    .map((line) => line.split(' -> ').pop())
+    .flatMap((line) => line.split(' -> '))
     .filter(Boolean);
+}
+
+function cleanupWorktree({ commandEnv, repoDir, runner, worktreeDir }) {
+  if (!worktreeDir) {
+    return;
+  }
+  runner('git', ['worktree', 'remove', '--force', worktreeDir], {
+    cwd: repoDir,
+    env: commandEnv,
+    shell: false,
+  });
 }
 
 function prBodyFor(candidate) {
@@ -68,114 +89,125 @@ export function runRemediationAutofix({
     throw new Error('BACI_REPO_DIR is required for autofix mode');
   }
 
-  const branch = branchNameFor(candidate);
+  const runId = sanitizeRunId(env.BACI_REMEDIATION_RUN_ID);
+  const branch = branchNameFor(candidate, runId);
   const commandEnv = { ...process.env, ...env };
   const worktreeRoot =
     env.BACI_REMEDIATION_WORKTREE_ROOT ||
     join(dirname(repoDir), 'baci-remediation-worktrees');
-  const worktreeDir = join(worktreeRoot, candidate.fingerprint);
+  const worktreeDir = join(worktreeRoot, `${candidate.fingerprint}-${runId}`);
   const rootCommandOptions = { cwd: repoDir, env: commandEnv, runner };
   const worktreeCommandOptions = { cwd: worktreeDir, env: commandEnv, runner };
   const codexBin = env.CODEX_BIN || 'codex';
   const ghBin = env.GH_BIN || 'gh';
+  let worktreeCreated = false;
 
-  runChecked('git', ['fetch', 'origin', 'main'], rootCommandOptions);
-  runChecked(
-    'git',
-    ['worktree', 'add', worktreeDir, '-b', branch, 'origin/main'],
-    rootCommandOptions
-  );
-  runChecked(
-    codexBin,
-    [
-      '--search',
-      'exec',
-      '--skip-git-repo-check',
-      '--sandbox',
-      'workspace-write',
-      '-C',
-      worktreeDir,
-      prompt,
-    ],
-    worktreeCommandOptions
-  );
-
-  const status = runChecked(
-    'git',
-    ['status', '--porcelain'],
-    worktreeCommandOptions
-  );
-  if (!status.trim()) {
-    return { branch, type: 'no_changes', worktreeDir };
-  }
-
-  const changedFiles = parseStatusFiles(status);
-  const policy = evaluateMergePolicy({
-    changedFiles,
-    checksPassed: true,
-    hasHighSeverityReview: false,
-    hasUnresolvedThreads: false,
-  });
-  if (!policy.allowed) {
-    return {
-      branch,
-      changedFiles,
-      reasons: policy.reasons,
-      type: 'policy_blocked',
-      worktreeDir,
-    };
-  }
-
-  const verifyCommand = env.BACI_REMEDIATION_VERIFY_COMMAND;
-  if (!verifyCommand) {
-    return {
-      branch,
-      changedFiles,
-      reasons: ['BACI_REMEDIATION_VERIFY_COMMAND is required for autofix mode'],
-      type: 'policy_blocked',
-      worktreeDir,
-    };
-  }
-  runChecked('bash', ['-lc', verifyCommand], worktreeCommandOptions);
-
-  runChecked('git', ['add', '-A'], worktreeCommandOptions);
-  runChecked(
-    'git',
-    ['commit', '-m', `Fix Vercel error ${candidate.fingerprint}`],
-    worktreeCommandOptions
-  );
-  runChecked('git', ['push', '-u', 'origin', branch], worktreeCommandOptions);
-  const prUrl = runChecked(
-    ghBin,
-    [
-      'pr',
-      'create',
-      '--base',
-      'main',
-      '--head',
-      branch,
-      '--title',
-      `Fix Vercel error ${candidate.fingerprint}`,
-      '--body',
-      prBodyFor(candidate),
-    ],
-    worktreeCommandOptions
-  ).trim();
-
-  if (env.BACI_REMEDIATION_REQUEST_AUTO_MERGE === '1') {
+  try {
+    runChecked('git', ['fetch', 'origin', 'main'], rootCommandOptions);
     runChecked(
-      ghBin,
-      ['pr', 'merge', prUrl, '--auto', '--squash'],
+      'git',
+      ['worktree', 'add', worktreeDir, '-b', branch, 'origin/main'],
+      rootCommandOptions
+    );
+    worktreeCreated = true;
+    runChecked(
+      codexBin,
+      [
+        '--search',
+        'exec',
+        '--skip-git-repo-check',
+        '--sandbox',
+        'workspace-write',
+        '-C',
+        worktreeDir,
+        prompt,
+      ],
       worktreeCommandOptions
     );
-    return {
-      branch,
-      changedFiles,
-      prUrl,
-      type: 'auto_merge_requested',
-      worktreeDir,
-    };
-  }
 
-  return { branch, changedFiles, prUrl, type: 'pr_opened', worktreeDir };
+    const status = runChecked(
+      'git',
+      ['status', '--porcelain'],
+      worktreeCommandOptions
+    );
+    if (!status.trim()) {
+      return { branch, type: 'no_changes', worktreeDir };
+    }
+
+    const changedFiles = parseStatusFiles(status);
+    const policy = evaluateMergePolicy({
+      changedFiles,
+      checksPassed: true,
+      hasHighSeverityReview: false,
+      hasUnresolvedThreads: false,
+    });
+    if (!policy.allowed) {
+      return {
+        branch,
+        changedFiles,
+        reasons: policy.reasons,
+        type: 'policy_blocked',
+        worktreeDir,
+      };
+    }
+
+    const verifyCommand = env.BACI_REMEDIATION_VERIFY_COMMAND;
+    if (!verifyCommand) {
+      return {
+        branch,
+        changedFiles,
+        reasons: [
+          'BACI_REMEDIATION_VERIFY_COMMAND is required for autofix mode',
+        ],
+        type: 'policy_blocked',
+        worktreeDir,
+      };
+    }
+    runChecked('bash', ['-lc', verifyCommand], worktreeCommandOptions);
+
+    runChecked('git', ['add', '-A'], worktreeCommandOptions);
+    runChecked(
+      'git',
+      ['commit', '-m', `Fix Vercel error ${candidate.fingerprint}`],
+      worktreeCommandOptions
+    );
+    runChecked('git', ['push', '-u', 'origin', branch], worktreeCommandOptions);
+    const prUrl = runChecked(
+      ghBin,
+      [
+        'pr',
+        'create',
+        '--base',
+        'main',
+        '--head',
+        branch,
+        '--title',
+        `Fix Vercel error ${candidate.fingerprint}`,
+        '--body',
+        prBodyFor(candidate),
+      ],
+      worktreeCommandOptions
+    ).trim();
+
+    if (env.BACI_REMEDIATION_REQUEST_AUTO_MERGE === '1') {
+      runChecked(
+        ghBin,
+        ['pr', 'merge', prUrl, '--auto', '--squash'],
+        worktreeCommandOptions
+      );
+      return {
+        branch,
+        changedFiles,
+        prUrl,
+        type: 'auto_merge_requested',
+        worktreeDir,
+      };
+    }
+
+    return { branch, changedFiles, prUrl, type: 'pr_opened', worktreeDir };
+  } finally {
+    if (worktreeCreated) {
+      cleanupWorktree({ commandEnv, repoDir, runner, worktreeDir });
+    }
+  }
 }

@@ -6,7 +6,7 @@ const PROTECTED_PATH_PATTERNS = [
   /^apps\/web\/src\/lib\/payments\//,
   /^supabase\/migrations\//,
   /^\.github\/workflows\//,
-  /^\.env/,
+  /(^|\/)\.env/,
   /(^|\/)secrets?\./,
 ];
 

@@ -17,6 +17,8 @@ describe('remediation policy', () => {
       isProtectedPath('supabase/migrations/20260519120000_new.sql'),
       true
     );
+    assert.equal(isProtectedPath('.env.local'), true);
+    assert.equal(isProtectedPath('apps/web/.env.local'), true);
     assert.equal(isProtectedPath('apps/web/src/components/cart.tsx'), false);
   });
 
