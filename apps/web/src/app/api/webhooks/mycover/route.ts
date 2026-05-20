@@ -386,7 +386,11 @@ async function handlePolicyExpired(
     .eq('mycover_policy_id', policyId);
 
   if (error) {
-    console.error('[MyCover Webhook] Failed to expire policy:', error);
+    console.error('[MyCover Webhook] Failed to expire policy:', {
+      error,
+      policyId,
+    });
+    throw error;
   }
 }
 
@@ -435,7 +439,12 @@ async function handleClaimUpdate(
     .eq('mycover_policy_id', policyId);
 
   if (error) {
-    console.error('[MyCover Webhook] Failed to update claim:', error);
+    console.error('[MyCover Webhook] Failed to update claim:', {
+      claimId: data.claim_id,
+      error,
+      policyId,
+    });
+    throw error;
   }
 }
 

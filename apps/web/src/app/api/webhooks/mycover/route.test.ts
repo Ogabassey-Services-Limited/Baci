@@ -18,7 +18,7 @@ vi.mock('@/lib/supabase/service', () => ({
   createServiceClient: () => mocks.createServiceClient(),
 }));
 
-import { POST } from './route';
+import { POST } from '@/app/api/webhooks/mycover/route';
 
 function signPayload(rawBody: string, secret: string) {
   return createHmac('sha512', secret).update(rawBody).digest('hex');
@@ -55,6 +55,7 @@ function createSupabaseMock({
               mocks.policyEq(column, value);
               return chain;
             }),
+            error: policyUpdateResult.error,
             maybeSingle: vi.fn().mockResolvedValue(policyUpdateResult),
             select: vi.fn(() => chain),
           };
@@ -171,6 +172,69 @@ describe('POST /api/webhooks/mycover', () => {
     expect(response.status).toBe(200);
     expect(mocks.policyUpdate).not.toHaveBeenCalled();
     expect(mocks.policyEq).not.toHaveBeenCalled();
+  });
+
+  it('fails policy.expired webhooks when the stored policy update errors', async () => {
+    mocks.createServiceClient.mockReturnValue(
+      createSupabaseMock({
+        policyUpdateResult: {
+          data: null,
+          error: { message: 'policy expiry failed' },
+        },
+      })
+    );
+    const payload = {
+      data: {
+        policy_id: 'policy-123',
+        status: 'expired',
+      },
+      event: 'policy.expired',
+    };
+    const rawBody = JSON.stringify(payload);
+
+    const response = await POST(
+      createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Webhook processing failed' });
+    expect(mocks.policyEq).toHaveBeenCalledWith(
+      'mycover_policy_id',
+      'policy-123'
+    );
+  });
+
+  it('fails claim webhooks when the stored policy update errors', async () => {
+    mocks.createServiceClient.mockReturnValue(
+      createSupabaseMock({
+        policyUpdateResult: {
+          data: null,
+          error: { message: 'claim update failed' },
+        },
+      })
+    );
+    const payload = {
+      data: {
+        claim_id: 'claim-123',
+        policy_id: 'policy-123',
+        status: 'approved',
+      },
+      event: 'claim.approved',
+    };
+    const rawBody = JSON.stringify(payload);
+
+    const response = await POST(
+      createRequest(payload, signPayload(rawBody, 'MCASECK|secret'))
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual({ error: 'Webhook processing failed' });
+    expect(mocks.policyEq).toHaveBeenCalledWith(
+      'mycover_policy_id',
+      'policy-123'
+    );
   });
 
   it('handles documented renewal.successful payloads', async () => {
