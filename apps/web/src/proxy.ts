@@ -105,7 +105,6 @@ const MAIN_APP_ROUTES = [
   '/auth',
   '/login',
   '/onboarding',
-  '/checkout',
   '/builder',
   '/reset-password',
   '/_next',
@@ -113,6 +112,10 @@ const MAIN_APP_ROUTES = [
   '/robots.txt',
   '/manifest.webmanifest',
 ];
+
+// Platform root routes that should still be served by the main app but cannot
+// live in MAIN_APP_ROUTES because merchant subdomains need storefront versions.
+const ROOT_DOMAIN_ONLY_MAIN_APP_ROUTES = ['/checkout'];
 
 // Prefixes whose tail segments may be case-sensitive (tracking numbers,
 // API identifiers, build IDs). Only the prefix itself is lowercased.
@@ -516,6 +519,9 @@ function generateCSP(
   nonce?: string
 ): string {
   const storefrontUnsafeEval = isLocal ? " 'unsafe-eval'" : '';
+  const strictScriptSource = nonce
+    ? `'self' 'nonce-${nonce}'`
+    : "'self' 'unsafe-inline'";
   const baseDirectives = {
     'default-src': "'self'",
     'img-src': "'self' blob: data: https:",
@@ -531,11 +537,10 @@ function generateCSP(
     routeType === 'admin' || routeType === 'auth'
       ? {
           ...baseDirectives,
-          // 2026 Next.js 16 Caveat: 'strict-dynamic' requires ALL scripts to be nonced.
-          // Since Next.js internal chunks are not easily nonced in App Router, we use a
-          // strict policy that allows 'self' and 'unsafe-inline' (for framework tags)
-          // but still nonces our own custom scripts.
-          'script-src': `'self' 'nonce-${nonce}' 'unsafe-inline'${isLocal ? " 'unsafe-eval'" : ''} https://vercel.live https://va.vercel-scripts.com`,
+          // Next reads the forwarded request CSP and applies this nonce to its
+          // framework and Flight script tags before rendering admin/auth pages.
+          'script-src': `${strictScriptSource}${isLocal ? " 'unsafe-eval'" : ''} https://vercel.live https://va.vercel-scripts.com`,
+          'script-src-attr': "'none'",
           'style-src': "'self' 'unsafe-inline' https://fonts.googleapis.com",
           'connect-src':
             "'self' https://*.supabase.co wss://*.supabase.co https://api.korapay.com https://generativelanguage.googleapis.com https://vercel.live https://vitals.vercel-insights.com https://helpdesk.usebaci.com",
@@ -578,6 +583,33 @@ function encodeCspNonce(value: string): string {
     .replaceAll('+', '-')
     .replaceAll('/', '_')
     .replaceAll('=', '');
+}
+
+function shouldForwardStrictCspNonce(
+  routeType: 'admin' | 'auth' | 'storefront' | 'api'
+): routeType is 'admin' | 'auth' {
+  return routeType === 'admin' || routeType === 'auth';
+}
+
+function buildStrictCspResponse(
+  request: NextRequest,
+  routeType: 'admin' | 'auth',
+  isLocal: boolean
+): { nonce: string; response: NextResponse } {
+  const nonce = generateCspNonce();
+  const csp = generateCSP(routeType, isLocal, nonce);
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set('x-nonce', nonce);
+  requestHeaders.set('Content-Security-Policy', csp);
+
+  return {
+    nonce,
+    response: NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    }),
+  };
 }
 
 /**
@@ -1501,8 +1533,12 @@ export async function proxy(request: NextRequest) {
     !isLocalhost(hostname)
   ) {
     const pathSegments = pathname.split('/').filter(Boolean);
+    const isRootDomainOnlyMainAppRoute = ROOT_DOMAIN_ONLY_MAIN_APP_ROUTES.some(
+      (route) => pathname === route || pathname.startsWith(`${route}/`)
+    );
     if (
       pathSegments.length >= 1 &&
+      !isRootDomainOnlyMainAppRoute &&
       !MAIN_APP_ROUTES.some((route) => pathname.startsWith(route))
     ) {
       const potentialSlug = pathSegments[0];
@@ -1522,10 +1558,29 @@ export async function proxy(request: NextRequest) {
   }
 
   // Standard request - generate route-specific CSP
-  const response = NextResponse.next();
   const routeType = getRouteType(pathname);
   const isLocal = isLocalhost(hostname);
 
+  if (shouldForwardStrictCspNonce(routeType)) {
+    const { nonce, response } = buildStrictCspResponse(
+      request,
+      routeType,
+      isLocal
+    );
+
+    return applySecurityHeaders(
+      response,
+      pathname,
+      userAgent,
+      routeType,
+      isLocal,
+      nonce,
+      request,
+      hostname
+    );
+  }
+
+  const response = NextResponse.next();
   return applySecurityHeaders(
     response,
     pathname,

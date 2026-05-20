@@ -154,7 +154,7 @@ describe('generateFeaturedImageVariants', () => {
 });
 
 describe('managed blog storage path helpers', () => {
-  const merchantId = '11111111-1111-1111-1111-111111111111';
+  const merchantId = '11111111-1111-4111-8111-111111111111';
 
   it('accepts legacy and variant paths for the same merchant', () => {
     expect(
@@ -171,7 +171,7 @@ describe('managed blog storage path helpers', () => {
     ).toBe(true);
     expect(
       isManagedBlogStoragePath(
-        `22222222-2222-2222-2222-222222222222/blog/abcdef123456.png`,
+        `22222222-2222-4222-8222-222222222222/blog/abcdef123456.png`,
         merchantId
       )
     ).toBe(false);
@@ -179,7 +179,7 @@ describe('managed blog storage path helpers', () => {
 
   it('extracts managed blog paths from media public URLs', () => {
     const publicUrl =
-      'https://project.supabase.co/storage/v1/object/public/media/11111111-1111-1111-1111-111111111111/blog/abcdef123456/landscape_16x9.webp';
+      'https://project.supabase.co/storage/v1/object/public/media/11111111-1111-4111-8111-111111111111/blog/abcdef123456/landscape_16x9.webp';
 
     expect(extractManagedBlogStoragePath(publicUrl, merchantId)).toBe(
       `${merchantId}/blog/abcdef123456/landscape_16x9.webp`
@@ -187,7 +187,7 @@ describe('managed blog storage path helpers', () => {
     expect(
       extractManagedBlogStoragePath(
         publicUrl,
-        '22222222-2222-2222-2222-222222222222'
+        '22222222-2222-4222-8222-222222222222'
       )
     ).toBeNull();
   });

@@ -1,7 +1,10 @@
 import type { User } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { getSlugForCustomDomain } from '@/lib/domain-cache-simple';
+import {
+  getCustomDomainForSlug,
+  getSlugForCustomDomain,
+} from '@/lib/domain-cache-simple';
 import { updateSession } from '@/lib/supabase/middleware';
 import { config, proxy } from './proxy';
 
@@ -76,6 +79,9 @@ function assertNonceHeadersForwarded(
   expect(nonce).toMatch(/^[A-Za-z0-9_-]+$/);
   expect(forwardedCsp).toContain(`'nonce-${nonce}'`);
   expect(responseCsp).toContain(`'nonce-${nonce}'`);
+  expect(responseCsp).toContain(`script-src 'self' 'nonce-${nonce}'`);
+  expect(responseCsp).not.toContain('script-src-elem');
+  expect(responseCsp).toContain("script-src-attr 'none'");
   expect(responseCsp).toBe(forwardedCsp);
 }
 
@@ -226,6 +232,35 @@ describe('Middleware Proxy', () => {
     const [forwardedRequest] = vi.mocked(updateSession).mock.calls[0] ?? [];
 
     assertNonceHeadersForwarded(forwardedRequest, res);
+  });
+
+  it('forwards nonce headers for public onboarding renders', async () => {
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/onboarding`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+    const nonce = res.headers.get('x-nonce');
+    const csp = res.headers.get('Content-Security-Policy');
+
+    expect(updateSession).not.toHaveBeenCalled();
+    expect(nonce).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(csp).toContain(`script-src 'self' 'nonce-${nonce}'`);
+    expect(csp).not.toContain("'nonce-undefined'");
+    const directives = Object.fromEntries(
+      (csp ?? '')
+        .split(';')
+        .map((entry) => entry.trim())
+        .filter(Boolean)
+        .map((entry) => {
+          const [name, ...values] = entry.split(/\s+/);
+          return [name, values.join(' ')];
+        })
+    );
+    expect(directives['script-src']).not.toContain("'unsafe-inline'");
+    expect(res.headers.get('x-middleware-request-x-nonce')).toBe(nonce);
+    expect(
+      res.headers.get('x-middleware-request-content-security-policy')
+    ).toBe(csp);
   });
 
   it('generates unique CSP nonces for repeated auth renders', async () => {
@@ -442,6 +477,32 @@ describe('Middleware Proxy', () => {
     // Verify it didn't redirect (which would happen if /api was in MAIN_APP_ROUTES)
     expect(res.status).not.toBe(307);
     expect(res.status).not.toBe(308);
+  });
+
+  it('should rewrite storefront checkout routes on merchant subdomains', async () => {
+    const req = new NextRequest(`https://ogabassey.${ROOT_DOMAIN}/checkout`);
+    req.headers.set('host', `ogabassey.${ROOT_DOMAIN}`);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.headers.get('x-middleware-rewrite')).toBe(
+      `https://ogabassey.${ROOT_DOMAIN}/ogabassey/checkout`
+    );
+    expect(res.headers.get('x-middleware-request-x-merchant-slug')).toBe(
+      'ogabassey'
+    );
+  });
+
+  it('does not treat root checkout as a merchant slug redirect candidate', async () => {
+    const req = new NextRequest(`https://${ROOT_DOMAIN}/checkout`);
+    req.headers.set('host', ROOT_DOMAIN);
+
+    const res = await proxy(req);
+
+    expect(res.headers.get('location')).toBeNull();
+    expect(res.headers.get('x-middleware-rewrite')).toBeNull();
+    expect(getCustomDomainForSlug).not.toHaveBeenCalled();
   });
 
   it('should fall back to domain when slug lookup returns null', async () => {

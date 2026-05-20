@@ -22,7 +22,7 @@ export const efosaArgs = [
   '--cancel-orders',
   '9235a8d5-55fc-4e90-8238-4bb6698679bd,de838a51-d0e9-4438-9f55-135b7677783f,a259300d-aef4-44f2-9506-22b47fab756d',
   '--operator-user-id',
-  '11111111-1111-1111-1111-111111111111',
+  '11111111-1111-4111-8111-111111111111',
 ];
 
 export const verifySuccess = {

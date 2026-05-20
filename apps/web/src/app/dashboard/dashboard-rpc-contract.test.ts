@@ -48,7 +48,12 @@ describe('dashboard sales RPC contract', () => {
     expect(queryBlocks[2]).not.toContain("o.payment_status = 'paid'");
 
     expect(sql).toContain("auth.role() IS DISTINCT FROM 'service_role'");
-    expect(sql).toContain('public.has_merchant_access(p_merchant_id)');
+    expect(sql).toContain(
+      'COALESCE(public.has_merchant_access(p_merchant_id), FALSE)'
+    );
+    expect(sql).toContain(
+      "RAISE EXCEPTION 'not authorized' USING ERRCODE = '42501'"
+    );
     expect(sql).toContain(
       "'revenue', jsonb_build_object('value', v_current_revenue"
     );
@@ -62,5 +67,16 @@ describe('dashboard sales RPC contract', () => {
     expect(sql).not.toContain('v_total_unique_customers');
     expect(sql).not.toContain('v_total_paid_orders');
     expect(sql).not.toMatch(/FROM orders\s+WHERE merchant_id = p_merchant_id;/);
+  });
+
+  it('restricts dashboard sales RPC execution to authenticated server contexts', () => {
+    const sql = latestFunctionDefinition('get_sales_dashboard_stats');
+
+    expect(sql).toMatch(
+      /REVOKE\s+ALL\s+ON\s+FUNCTION\s+"public"\."get_sales_dashboard_stats"\("p_merchant_id"\s+"uuid"\)[\s\S]*?FROM\s+PUBLIC,\s+"anon"/i
+    );
+    expect(sql).toMatch(
+      /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+"public"\."get_sales_dashboard_stats"\("p_merchant_id"\s+"uuid"\)[\s\S]*?TO\s+"authenticated",\s+"service_role"/i
+    );
   });
 });

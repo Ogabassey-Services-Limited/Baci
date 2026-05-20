@@ -3,7 +3,7 @@ import { createRouteProof } from './route-helpers';
 
 const ORIGINAL_ENV = { ...process.env };
 const USER_ID = 'user-1';
-const EVENT_ID = '11111111-1111-1111-1111-111111111111';
+const EVENT_ID = '11111111-1111-4111-8111-111111111111';
 
 function restoreEnv() {
   for (const key of Object.keys(process.env)) {
