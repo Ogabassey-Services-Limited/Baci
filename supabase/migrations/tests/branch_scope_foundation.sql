@@ -267,6 +267,36 @@ VALUES (
 );
 
 DO $$
+DECLARE
+  assigned_branch_id uuid;
+BEGIN
+  INSERT INTO public.orders (
+    id,
+    merchant_id,
+    order_number,
+    customer_name,
+    total
+  )
+  VALUES (
+    '00000000-0000-4000-8000-00000000b500',
+    '00000000-0000-4000-8000-00000000b201',
+    'BTEST-000',
+    'Branch Test',
+    100
+  );
+
+  SELECT branch_id INTO assigned_branch_id
+  FROM public.orders
+  WHERE id = '00000000-0000-4000-8000-00000000b500';
+
+  IF assigned_branch_id IS DISTINCT FROM '00000000-0000-4000-8000-00000000b401'::uuid THEN
+    RAISE EXCEPTION 'single-active branch order insert was not auto-assigned to the default branch: %',
+      assigned_branch_id;
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+
+DO $$
 BEGIN
   BEGIN
     INSERT INTO public.branches (
