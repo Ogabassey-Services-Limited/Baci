@@ -1,0 +1,97 @@
+import { describe, expect, it } from 'vitest';
+import {
+  buildCrawlerLogSummary,
+  classifyCrawlerUserAgent,
+  getCrawlerClassificationForEvent,
+  normalizeCrawlerHost,
+  normalizeCrawlerPath,
+} from '@/lib/agentic/crawler-observability';
+
+describe('crawler observability helpers', () => {
+  it.each([
+    ['GPTBot/1.0', 'openai', true],
+    ['Googlebot/2.1', 'google', true],
+    ['ClaudeBot', 'anthropic', true],
+    ['PerplexityBot', 'perplexity', true],
+    ['Bingbot', 'search', false],
+    ['InternalAgent', 'generic-agent', true],
+  ])('classifies %s as %s', (userAgent, family, isAiAgent) => {
+    expect(classifyCrawlerUserAgent(userAgent)).toMatchObject({
+      family,
+      isAiAgent,
+    });
+  });
+
+  it('prefers an explicit bot name while preserving classified family', () => {
+    expect(
+      getCrawlerClassificationForEvent({
+        botName: 'ChatGPT Shopping',
+        userAgent: 'GPTBot/1.0',
+      })
+    ).toMatchObject({
+      botName: 'ChatGPT Shopping',
+      family: 'openai',
+    });
+  });
+
+  it('normalizes hosts and route paths', () => {
+    expect(normalizeCrawlerHost('https://WWW.Ogabassey.COM/path')).toBe(
+      'www.ogabassey.com'
+    );
+    expect(normalizeCrawlerHost('ogabassey.com:443')).toBe('ogabassey.com');
+    expect(
+      normalizeCrawlerPath('https://ogabassey.com/products?q=iphone')
+    ).toBe('/products?q=iphone');
+    expect(normalizeCrawlerPath('agent-commerce.json')).toBe(
+      '/agent-commerce.json'
+    );
+  });
+
+  it('builds crawler health and aggregation summaries', () => {
+    const summary = buildCrawlerLogSummary(
+      [
+        {
+          agent_family: 'openai',
+          bot_name: 'OpenAI',
+          cache_outcome: 'miss',
+          crawled_at: '2026-05-20T01:00:00.000Z',
+          host: 'ogabassey.com',
+          response_time_ms: 3200,
+          status_code: 200,
+          url_path: '/agent-commerce.json?x=1',
+          user_agent: 'GPTBot/1.0',
+        },
+        {
+          agent_family: 'search',
+          bot_name: 'Bing',
+          cache_outcome: 'hit',
+          crawled_at: '2026-05-20T02:00:00.000Z',
+          host: 'ogabassey.com',
+          response_time_ms: 120,
+          status_code: 404,
+          url_path: '/missing',
+          user_agent: 'Bingbot',
+        },
+      ],
+      7
+    );
+
+    expect(summary.totalCrawls).toBe(2);
+    expect(summary.byBot.find((bot) => bot.family === 'openai')).toMatchObject({
+      count: 1,
+      family: 'openai',
+      name: 'OpenAI',
+    });
+    expect(summary.topPages).toEqual([
+      { count: 1, path: '/agent-commerce.json' },
+      { count: 1, path: '/missing' },
+    ]);
+    expect(summary.health).toEqual({
+      aiAgentCrawls: 1,
+      cacheMissCrawls: 1,
+      failedCrawls: 1,
+      lastAgentCrawlAt: '2026-05-20T01:00:00.000Z',
+      slowCrawls: 1,
+    });
+  });
+});
