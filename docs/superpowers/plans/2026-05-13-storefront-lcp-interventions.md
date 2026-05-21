@@ -27,6 +27,8 @@ The audit identified five Core Web Vitals interventions in priority order. This 
 
 2026-05-19 update after PR #1763: the native PDP product preload link deployed at `fa2e087a0951f4cfd7f7c32a582b938cab14947c`. A follow-up PSI run using the installed `web-quality-skills` checklist measured SEO 100, accessibility 100, and best-practices 100 on home and PDP mobile/desktop. Desktop home/PDP are good. The remaining blockers are mobile home LCP 2851 ms and mobile PDP LCP 3976 ms. Mobile PDP is now the highest-priority route: Lighthouse says LCP discovery passes and TBT is only 65 ms, but the LCP breakdown still shows about 2606 ms resource-load delay for the primary product image. Playwright resource timing on the live PDP showed the product preload request starting immediately after the streamed HTML response completed, so the next narrow slice is preload emission timing, not JS bundle trimming.
 
+2026-05-20 update after PR #1790: #1790 merged as `5ac0f34a44b05df7b6e970b0a382a1f39cfe46c1` and production now includes it. The first PSI attempts failed because the configured key loaded from `.env.local` but Google returned `API_KEY_SERVICE_BLOCKED` for the PageSpeed `RunPagespeed` method; after the PageSpeed API was enabled, keyed PSI succeeded for all four home/PDP mobile/desktop requests. PSI measured home mobile Performance 92, A11y 100, BP 100, SEO 100, LCP 3151 ms, TBT 79 ms, CLS 0.001; home desktop Performance 99, A11y 100, BP 100, SEO 100, LCP 777 ms, TBT 22 ms, CLS 0.000; PDP mobile Performance 87, A11y 100, BP 100, SEO 100, LCP 3976 ms, TBT 36 ms, CLS 0.000; PDP desktop Performance 79, A11y 100, BP 100, SEO 100, LCP 909 ms, TBT 425 ms, CLS 0.045. PDP metadata is no longer the next blocker because PSI returns SEO 100. PDP product-image discovery passes and the mobile high-priority product image request starts at 924 ms and finishes at 967 ms, shortly after the document finishes at 874 ms, but LCP still lands at 3976 ms. The next actionable blocker is mobile PDP element-render/shell timing for an already-loaded product image. Desktop PDP's TBT issue is separate and dominated by Google Publisher Tags plus app chunk long tasks.
+
 2026-05-16 Google AI Search guidance check: Google's official "Optimizing your website for generative AI features on Google Search" guide says generative AI visibility still depends on normal Search fundamentals: crawlable/indexable pages, clear technical structure, JavaScript SEO, good page experience, ecommerce details, high-quality images/video, unique people-first content, and agent-friendly experiences. Its linked crawling/ecommerce docs add that crawl budget depends heavily on URL inventory quality, crawlable `<a href>` internal links, consistent canonical/sitemap/internal-link URLs, category-to-product navigation, pagination with real links, and controlling duplicate/faceted/filter URL spaces. It also says not to chase AEO/GEO hacks such as `llms.txt`, AI-only chunking, or special schema solely for AI Search. This plan now keeps the LCP loop as the blocking technical track and adds an AI Search readiness track after the live CWV pages are stable.
 
 URL set, measurement script, threshold values: see [docs/perf/storefront-lcp-urls.md](../../perf/storefront-lcp-urls.md).
@@ -38,12 +40,14 @@ URL set, measurement script, threshold values: see [docs/perf/storefront-lcp-url
 | Order | Fix | Type | Effort | Est. LCP gain | Detailed plan? |
 |---|---|---|---|---|---|
 | 1 | PDP banner LCP preload hint (server-side `<link rel="preload">`) | New component + mount | 1-2 h | **−1500 to −2000 ms PDP desktop** | ✅ [2026-05-13-pdp-banner-lcp-priority.md](2026-05-13-pdp-banner-lcp-priority.md) — strategy revised 2026-05-13 after finding `BannerCarousel` is `dynamic({ ssr: false })` on PDP; image-prop changes alone don't reach initial HTML |
-| 2 | PDP mobile product preload timing | Hot-take fix + measure | 1 h | −500 to −1500 ms PDP mobile | **Current slice after 2026-05-19 audit.** Keep PR narrow: invoke React DOM `preload()` as soon as the product image is known, before the rest of the page stream is assembled; retain the native `<link>` fallback from PR #1763. |
-| 3 | Mobile home final LCP trim | Diag → fix | 2–4 h | −300 to −600 ms | Re-run after Fix 2; home mobile is 2851 ms and only needs about 350 ms to clear the target. |
-| 4 | PDP JS bundle audit + tree-shake | Diag → fix | Half-day | Watch item only | Deprioritized by the 2026-05-19 audit: mobile PDP TBT is 65 ms and unused JS is about 21 KiB. Revisit only if later PSI runs show TBT/INP risk or unused JS regression. Prep doc remains [2026-05-14-fix3-pdp-bundle-trim-prep.md](2026-05-14-fix3-pdp-bundle-trim-prep.md). |
-| 5 | Storefront critical CSS / FCP reduction | Diag → fix | Half-day | −200 to −400 ms FCP | **Re-scoped — see note below** |
-| 6 | Lighthouse-UA cache bypass investigation | Diag | 1 h | SEO risk reduction | Pending diagnostic |
-| 7 | Google AI Search, internal-linking, and crawl-budget readiness audit | Audit → focused fixes | Half-day | SEO/AI Search eligibility hardening | Added 2026-05-16 from Google's AI optimization guide and linked crawling/ecommerce docs; run after the current LCP blockers or in parallel if no code conflicts |
+| 2 | PDP mobile product preload timing | Hot-take fix + measure | 1 h | −500 to −1500 ms PDP mobile | Implemented in PR #1790. Keyed PSI now confirms LCP discovery passes; do not add more duplicate image hints unless a trace proves the request itself is again the bottleneck. |
+| 3 | PDP mobile element-render/shell timing + sticky CTA accessible-name fix | Diagnostic + narrow fix | 2-4 h | −800 to −1500 ms PDP mobile | **Current slice after keyed PSI retry.** The product image transfer completes around 967 ms but mobile LCP is still 3976 ms. Diagnose why the SSR image does not paint sooner; fix the sticky Add to Cart accessible name if the touched component is adjacent. |
+| 4 | Mobile home final LCP trim | Watch item | 2-4 h | −300 to −800 ms | Keyed PSI has home mobile LCP at 3151 ms, but PDP mobile is worse and should stay first. Revisit home after the PDP render-delay diagnostic or if a shared shell fix applies to both routes. |
+| 5 | Desktop PDP ad/GPT TBT investigation | Diag → fix | Half-day | TBT restoration | Separate from mobile PDP LCP. Keyed PSI desktop PDP has BP 100 but TBT 425 ms, with the longest task from Google Publisher Tags and additional app chunk long tasks. |
+| 6 | PDP JS bundle audit + tree-shake | Watch item only | Half-day | Watch item only | Deprioritized by the keyed PSI audit: mobile PDP TBT is 36 ms and unused JS is about 21 KiB. Revisit only if later PSI runs show TBT/INP risk or unused JS regression. Prep doc remains [2026-05-14-fix3-pdp-bundle-trim-prep.md](2026-05-14-fix3-pdp-bundle-trim-prep.md). |
+| 7 | Storefront critical CSS / FCP reduction | Diag → fix | Half-day | −200 to −400 ms FCP | **Re-scoped — see note below** |
+| 8 | Lighthouse-UA cache bypass investigation | Diag | 1 h | SEO risk reduction | Pending diagnostic |
+| 9 | Google AI Search, internal-linking, and crawl-budget readiness audit | Audit → focused fixes | Half-day | SEO/AI Search eligibility hardening | Added 2026-05-16 from Google's AI optimization guide and linked crawling/ecommerce docs; run after the current LCP blockers or in parallel if no code conflicts |
 
 ### Note on Fix 4 re-scoping
 
@@ -128,9 +132,9 @@ So Fix 4 isn't a config flip — it needs its own diagnostic to identify a strea
 
 **Problem.** After PR #1733, mobile PDP still misses the target at 4051 ms LCP, while desktop PDP LCP remains good. The mobile LCP node is the primary product image; its request is discovered early, fetched at high priority, and rendered with `decoding="sync"`. Detailed PSI now points at client-side work instead of image discovery: about 120 KiB unused JS, 38 KiB unused CSS, 1.9 s main-thread work, and 934 ms script evaluation. Earlier post-#1634 evidence also showed local production chunks containing heavy libraries (`moment`, `lodash`, `three`, `puck`, `tiptap`, `prosemirror`, `recharts`) that should not be needed on the PDP.
 
-**Current implementation slice.** PR #1756 completed the viewport-loader bundle slice: the critical PDP shell stays unchanged while below-fold details are loaded on viewport activation instead of a fixed timer. PR #1763 replaced the late component-level `ReactDOM.preload()` hint with a native `<link rel="preload">` fallback. Post-deploy PSI still shows mobile PDP LCP at 3976 ms with the product image request starting after the streamed HTML response completes. The active slice is now to call React DOM `preload()` imperatively as soon as the product image is known in the PDP server component, before JSON-LD, semantic sections, and the page body are assembled. Keep the native link fallback in place for markup compatibility.
+**Current implementation state.** PR #1756 completed the viewport-loader bundle slice: the critical PDP shell stays unchanged while below-fold details are loaded on viewport activation instead of a fixed timer. PR #1763 replaced the late component-level `ReactDOM.preload()` hint with a native `<link rel="preload">` fallback. PR #1790 then added the imperative React DOM `preload()` call as soon as the PDP product image is known in the server component, before JSON-LD, semantic sections, and the page body are assembled, while retaining the native link fallback.
 
-**Current validation target.** After merge and production deploy, verify with browser resource timing that the primary product image preload starts before the document `responseEnd` rather than immediately after it. Then rerun PSI mobile and desktop on `https://ogabassey.com/laptops/lenovo-legion-pro-9-16irx9-rtx-4090`. Compare LCP resource-load delay, element-render delay, LCP, and desktop TBT against the 2026-05-19 post-#1763 baseline before choosing the next intervention.
+**2026-05-20 validation result.** Browser resource timing now shows the primary product image preload starts before the document `responseEnd` rather than immediately after it. Local Lighthouse also marks the product image `isLinkPreload: true`, high priority, and discoverable before the document finishes. After the PageSpeed API was enabled, keyed PSI confirmed LCP discovery passes on PDP mobile and desktop. PSI mobile still reports LCP 3976 ms even though the high-priority product image request starts at 924 ms and finishes at 967 ms, so the next intervention should not add more duplicate product-image preloads.
 
 **Prep handoff.** Start from [2026-05-14-fix3-pdp-bundle-trim-prep.md](2026-05-14-fix3-pdp-bundle-trim-prep.md). It records the PSI chunk findings, local library-presence evidence, Turbopack analyzer caveat, reusable `.next/` worktree, and the four-stage methodology for mapping libraries to import sites before choosing interventions.
 
@@ -168,6 +172,35 @@ Inspect the PDP-relevant chunks using content searches rather than chunk hashes;
 - PSI unused JavaScript under 80 KiB and unused CSS under 20 KiB
 - PDP desktop TBT under 300 ms
 - PDP mobile LCP under 3500 ms for this bundle-trim PR; under 2500 ms remains the overall storefront target after later fixes
+
+---
+
+## Fix 3a — PDP mobile element-render timing + sticky CTA accessible name
+
+**Problem.** The 2026-05-20 keyed PSI retry superseded the earlier local Lighthouse SEO concern: PDP mobile and desktop both return SEO 100, accessibility 100, and LCP discovery passes. Mobile PDP still misses the target at 3976 ms LCP. The LCP node is the primary product image; its high-priority request starts at 924 ms and finishes at 967 ms, while the document finishes at 874 ms. The remaining problem is therefore when the already-loaded image becomes paintable in the PDP shell, not meta tags and not another image hint. The same PSI run still exposes a raw `label-content-name-mismatch` failure on the sticky Add to Cart button because visible text `Add to Cart` is not included in `aria-label="Add this product to cart"`, even though the accessibility category remains 100.
+
+**Diagnostic step.**
+
+1. Reproduce the keyed PSI mobile PDP run and keep `/tmp/ogabassey-psi-enabled-2026-05-20T21-55-22-473Z/summary.json` as the comparison point.
+2. Capture a Chrome trace or Playwright/CDP run on the canonical PDP with mobile throttling. Correlate:
+   - document `responseEnd`
+   - product image request start/end
+   - first paint/FCP
+   - when the product image element enters layout and becomes visible
+   - long tasks between image `responseEnd` and LCP
+3. Inspect the PDP shell for render gates after the image is known: Suspense boundaries, client-only viewport checks, hydration-dependent class changes, font/layout dependencies, overlays, or image container sizing that could delay the first paint of the already-loaded image.
+4. Find the sticky Add to Cart button in the OgaBassey PDP component and either remove the custom `aria-label` or change it so the accessible name includes the visible label, for example `aria-label="Add to Cart - Lenovo Legion Pro 9 16IRX9 (RTX 4090)"`.
+
+**Validation.**
+
+1. Keyed PSI PDP mobile LCP improves from 3976 ms toward the 2500 ms target without regressing SEO, a11y, BP, CLS, or TBT.
+2. Browser trace shows the product image paints closer to image `responseEnd`; any remaining delay is explained by a concrete task, layout dependency, or shell gate.
+3. Local Lighthouse/axe: `label-content-name-mismatch` no longer appears on PDP mobile.
+4. No product-image preload regression: PSI LCP discovery still passes and browser resource timing still shows the product image starts no later than immediately after document `responseEnd`.
+
+**Risk.** Medium. Rendering-gate fixes can affect PDP layout, hydration, image gallery behavior, and add-to-cart affordances. Keep the change scoped and visually smoke-test the PDP on mobile and desktop.
+
+**Acceptance criteria.** PDP mobile LCP under 2500 ms in keyed PSI, PDP desktop LCP remains under target, SEO/a11y/BP stay at 100, and the sticky CTA accessible-name mismatch is gone.
 
 ---
 
