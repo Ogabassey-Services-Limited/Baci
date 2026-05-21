@@ -35,6 +35,9 @@ let manifestResult: ManifestResult;
 let variantRpcResult: VariantRpcResult;
 let offersResult: OffersResult;
 let nullCreatedAtProductsResult: ProductsResult;
+const mockManifestEq = vi.fn();
+const mockManifestIn = vi.fn();
+const mockManifestOrder = vi.fn();
 const mockManifestRange = vi.fn();
 const mockOffersIn = vi.fn();
 const mockRpc = vi.fn();
@@ -111,8 +114,23 @@ function createMockSupabase() {
         return {
           select: () => {
             const query = {
-              eq: () => query,
-              order: () => query,
+              eq: (column: string, value: unknown) => {
+                mockManifestEq(column, value);
+                return query;
+              },
+              in: (column: string, ids: string[]) => {
+                mockManifestIn(column, ids);
+                return query;
+              },
+              order: (
+                column: string,
+                options?: {
+                  ascending: boolean;
+                }
+              ) => {
+                mockManifestOrder(column, options);
+                return query;
+              },
               range: (from: number, to: number) => mockManifestRange(from, to),
             };
 
@@ -752,30 +770,96 @@ describe('getCachedGoogleMerchantFeedData', () => {
     });
   });
 
-  it('paginates verified image manifest rows beyond the first Supabase page', async () => {
+  it('fetches verified image manifest rows only for active product id chunks', async () => {
+    const activeProducts = Array.from({ length: 251 }, (_, index) => ({
+      id: `product-${index}`,
+      name: `Phone ${index}`,
+    }));
+    productsResult = {
+      data: activeProducts,
+      error: null,
+    };
+
+    mockManifestRange
+      .mockImplementationOnce(() => ({
+        overrideTypes: () =>
+          Promise.resolve({
+            data: [
+              {
+                product_id: 'product-0',
+                verified_url: 'https://cdn.example.com/phone-0.jpg',
+                verified_format: 'jpeg',
+                status: 'verified',
+                is_primary: true,
+                position: 0,
+              },
+            ],
+            error: null,
+          }),
+      }))
+      .mockImplementationOnce(() => ({
+        overrideTypes: () =>
+          Promise.resolve({
+            data: [
+              {
+                product_id: 'product-250',
+                verified_url: 'https://cdn.example.com/phone-250.jpg',
+                verified_format: 'jpeg',
+                status: 'verified',
+                is_primary: true,
+                position: 0,
+              },
+            ],
+            error: null,
+          }),
+      }));
+
+    const { getCachedGoogleMerchantFeedData } = await import('./feed-data');
+    const result = await getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    expect(mockManifestIn).toHaveBeenCalledTimes(2);
+    expect(mockManifestIn).toHaveBeenNthCalledWith(
+      1,
+      'product_id',
+      activeProducts.slice(0, 250).map((product) => product.id)
+    );
+    expect(mockManifestIn).toHaveBeenNthCalledWith(2, 'product_id', [
+      'product-250',
+    ]);
+    expect(mockManifestRange).toHaveBeenCalledTimes(2);
+    expect(mockManifestRange).toHaveBeenNthCalledWith(1, 0, 999);
+    expect(mockManifestRange).toHaveBeenNthCalledWith(2, 0, 999);
+    expect(result.imageManifest['product-0']).toHaveLength(1);
+    expect(result.imageManifest['product-250']).toHaveLength(1);
+  });
+
+  it('paginates each active product image chunk with deterministic ordering', async () => {
     productsResult = {
       data: [
         { id: 'product-1', name: 'Phone 1' },
-        { id: 'product-1000', name: 'Phone 1000' },
+        { id: 'product-2', name: 'Phone 2' },
       ],
       error: null,
     };
     const firstManifestPage = Array.from({ length: 1000 }, (_, index) => ({
-      product_id: index === 0 ? 'product-1' : `archived-${index}`,
+      product_id: index === 0 ? 'product-1' : 'product-2',
       verified_url: `https://cdn.example.com/image-${index}.jpg`,
       verified_format: 'jpeg',
       status: 'verified',
-      is_primary: true,
-      position: 0,
+      is_primary: index === 0,
+      position: index,
     }));
     const secondManifestPage = [
       {
-        product_id: 'product-1000',
-        verified_url: 'https://cdn.example.com/phone-1000.jpg',
+        product_id: 'product-2',
+        verified_url: 'https://cdn.example.com/phone-2-extra.jpg',
         verified_format: 'jpeg',
         status: 'verified',
-        is_primary: true,
-        position: 0,
+        is_primary: false,
+        position: 1000,
       },
     ];
 
@@ -795,12 +879,22 @@ describe('getCachedGoogleMerchantFeedData', () => {
       'ogabassey'
     );
 
+    expect(mockManifestIn).toHaveBeenCalledWith('product_id', [
+      'product-1',
+      'product-2',
+    ]);
+    expect(mockManifestOrder).toHaveBeenCalledWith('product_id', {
+      ascending: true,
+    });
+    expect(mockManifestOrder).toHaveBeenCalledWith('position', {
+      ascending: true,
+    });
+    expect(mockManifestOrder).toHaveBeenCalledWith('id', { ascending: true });
     expect(mockManifestRange).toHaveBeenCalledTimes(2);
     expect(mockManifestRange).toHaveBeenNthCalledWith(1, 0, 999);
     expect(mockManifestRange).toHaveBeenNthCalledWith(2, 1000, 1999);
     expect(result.imageManifest['product-1']).toHaveLength(1);
-    expect(result.imageManifest['product-1000']).toHaveLength(1);
-    expect(result.imageManifest['archived-1']).toBeUndefined();
+    expect(result.imageManifest['product-2']).toHaveLength(1000);
   });
 
   it('filters manifest rows down to active feed products', async () => {

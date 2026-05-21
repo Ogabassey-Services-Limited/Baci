@@ -13,11 +13,9 @@ const FEED_PRODUCTS_PAGE_SIZE = 1000;
 const FEED_IMAGE_MANIFEST_PAGE_SIZE = 1000;
 // get_feed_product_variants accepts at most 10k product IDs.
 const MAX_FEED_PRODUCTS = 10_000;
-const MAX_FEED_IMAGES_PER_PRODUCT = 12;
-const MAX_FEED_IMAGE_MANIFEST_ROWS =
-  MAX_FEED_PRODUCTS * MAX_FEED_IMAGES_PER_PRODUCT;
 // Keep PostgREST `in(...)` URL filters under common proxy limits.
 const FEED_PRODUCT_OFFERS_BATCH_SIZE = 250;
+const FEED_IMAGE_MANIFEST_PRODUCT_BATCH_SIZE = 250;
 
 export interface GoogleMerchantFeedData {
   custom_domain: string | null;
@@ -94,6 +92,17 @@ function normalizeFeedProducts(products: RawFeedProductRow[]): FeedProduct[] {
       category: rest.category ?? joinedCategory?.name ?? null,
     };
   });
+}
+
+function chunkValues<T>(items: T[], size: number): T[][] {
+  if (size <= 0) return [items];
+
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
 }
 
 async function fetchActiveFeedProducts(
@@ -258,42 +267,60 @@ async function fetchActiveFeedOffers(
 
 async function fetchVerifiedImageManifestRows(
   supabase: SupabaseClient,
-  merchantId: string
+  merchantId: string,
+  productIds: string[]
 ): Promise<ManifestRow[]> {
-  const manifestRows: ManifestRow[] = [];
-  let offset = 0;
+  const manifestBatches = chunkValues(
+    productIds,
+    FEED_IMAGE_MANIFEST_PRODUCT_BATCH_SIZE
+  );
 
-  while (manifestRows.length < MAX_FEED_IMAGE_MANIFEST_ROWS) {
-    const remainingRows = MAX_FEED_IMAGE_MANIFEST_ROWS - manifestRows.length;
-    const pageSize = Math.min(FEED_IMAGE_MANIFEST_PAGE_SIZE, remainingRows);
-    const { data, error } = await supabase
-      .from('product_feed_images')
-      .select(
-        'product_id, verified_url, verified_format, status, is_primary, position'
-      )
-      .eq('merchant_id', merchantId)
-      .eq('status', 'verified')
-      .order('product_id', { ascending: true })
-      .order('position', { ascending: true })
-      .range(offset, offset + pageSize - 1)
-      .overrideTypes<ManifestRow[], { merge: false }>();
+  const batchResults = await Promise.all(
+    manifestBatches.map(async (batchProductIds, batchIndex) => {
+      const manifestRows: ManifestRow[] = [];
+      let offset = 0;
 
-    if (error) {
-      console.error('DB_MANIFEST_ERROR:', { error, merchantId, offset });
-      throw new Error('Failed to fetch image manifest');
-    }
+      while (true) {
+        const { data, error } = await supabase
+          .from('product_feed_images')
+          .select(
+            'product_id, verified_url, verified_format, status, is_primary, position'
+          )
+          .eq('merchant_id', merchantId)
+          .eq('status', 'verified')
+          .in('product_id', batchProductIds)
+          .order('product_id', { ascending: true })
+          .order('position', { ascending: true })
+          .order('id', { ascending: true })
+          .range(offset, offset + FEED_IMAGE_MANIFEST_PAGE_SIZE - 1)
+          .overrideTypes<ManifestRow[], { merge: false }>();
 
-    const page = data || [];
-    manifestRows.push(...page);
+        if (error) {
+          console.error('DB_MANIFEST_ERROR:', {
+            batchIndex,
+            batchProductCount: batchProductIds.length,
+            error,
+            merchantId,
+            offset,
+          });
+          throw new Error('Failed to fetch image manifest');
+        }
 
-    if (page.length < pageSize) {
-      break;
-    }
+        const page = data || [];
+        manifestRows.push(...page);
 
-    offset += pageSize;
-  }
+        if (page.length < FEED_IMAGE_MANIFEST_PAGE_SIZE) {
+          break;
+        }
 
-  return manifestRows;
+        offset += FEED_IMAGE_MANIFEST_PAGE_SIZE;
+      }
+
+      return manifestRows;
+    })
+  );
+
+  return batchResults.flat();
 }
 
 /**
@@ -328,9 +355,8 @@ export async function getCachedGoogleMerchantFeedData(
 
   const products = await fetchActiveFeedProducts(supabase, merchantId);
 
-  // Fetch prevalidated image manifest once per merchant and keep only active
-  // product entries in memory. This avoids oversized PostgREST `in(...)`
-  // filters for larger catalogs while preserving active-product scoping.
+  // Fetch prevalidated image manifest only for active products in bounded
+  // chunks, keeping PostgREST `in(...)` filters under common proxy limits.
   const feedProducts: FeedProduct[] = normalizeFeedProducts(products).map(
     (product) => ({
       ...product,
@@ -351,7 +377,8 @@ export async function getCachedGoogleMerchantFeedData(
 
   const manifestRows = await fetchVerifiedImageManifestRows(
     supabase,
-    merchantId
+    merchantId,
+    productIds
   );
 
   // Group manifest rows by product_id
