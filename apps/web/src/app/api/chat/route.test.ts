@@ -341,6 +341,47 @@ describe('POST /api/chat', () => {
     warnSpy.mockRestore();
   });
 
+  it('returns a static chat fallback when Ollama and Gemini are unavailable', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaError = new Error('Ollama chat request timed out');
+    generateTextError = new Error('Gemini quota exhausted');
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Show me phones' }],
+      })
+    );
+    const text = await response.text();
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Type')).toBe(
+      'text/plain; charset=utf-8'
+    );
+    expect(response.headers.get('x-baci-chat-fallback')).toBe('static');
+    expect(text).toContain('AI assistant is temporarily busy');
+    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Ollama request failed; falling back to Gemini:',
+      'Ollama chat request timed out'
+    );
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Gemini fallback failed; returning static response:',
+      'Gemini quota exhausted'
+    );
+    warnSpy.mockRestore();
+    errorSpy.mockRestore();
+  });
+
   it('does not fall back to Gemini when Ollama config resolution fails', async () => {
     // Arrange
     ollamaBaseUrl = 'https://ollama.example.com';
@@ -524,9 +565,12 @@ describe('POST /api/chat', () => {
     );
   });
 
-  it('returns 500 on error', async () => {
+  it('returns a static chat fallback when Gemini generation fails', async () => {
     // Arrange
     generateTextError = new Error('Model unavailable');
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
 
     // Act
     const response = await POST(
@@ -534,12 +578,20 @@ describe('POST /api/chat', () => {
         messages: [{ role: 'user', content: 'Hello' }],
       })
     );
-    const json = await response.json();
+    const text = await response.text();
 
     // Assert
-    expect(response.status).toBe(500);
-    expect(json.error).toBe('Internal server error');
-    expect(json.message).toContain('trouble right now');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Type')).toBe(
+      'text/plain; charset=utf-8'
+    );
+    expect(response.headers.get('x-baci-chat-fallback')).toBe('static');
+    expect(text).toContain('AI assistant is temporarily busy');
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Gemini fallback failed; returning static response:',
+      'Model unavailable'
+    );
+    errorSpy.mockRestore();
   });
 
   // ---- LLM server (llama.cpp / OpenAI-compatible) cases ----
