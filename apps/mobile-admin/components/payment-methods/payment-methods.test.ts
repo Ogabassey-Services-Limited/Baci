@@ -57,6 +57,7 @@ describe('mobile admin payment method definitions', () => {
           id: 'settings-1',
           merchant_id: 'merchant-1',
           new_bnpl_enabled: true,
+          pay_on_delivery_limit: 10000,
         },
         [
           {
@@ -72,6 +73,7 @@ describe('mobile admin payment method definitions', () => {
       id: 'settings-1',
       merchant_id: 'merchant-1',
       new_bnpl_enabled: true,
+      pay_on_delivery_limit: 10000,
     });
 
     expect(() =>
@@ -92,6 +94,30 @@ describe('mobile admin payment method definitions', () => {
         ]
       )
     ).toThrow('Invalid payment setting: new_bnpl_enabled');
+  });
+
+  it('defaults omitted dynamic enabled fields to false', () => {
+    expect(
+      parsePaymentSettings(
+        {
+          id: 'settings-1',
+          merchant_id: 'merchant-1',
+        },
+        [
+          {
+            category: 'bnpl',
+            description: 'A newly integrated BNPL provider',
+            enabledField: 'new_bnpl_enabled',
+            id: 'new_bnpl',
+            name: 'New BNPL',
+          },
+        ]
+      )
+    ).toEqual({
+      id: 'settings-1',
+      merchant_id: 'merchant-1',
+      new_bnpl_enabled: false,
+    });
   });
 
   it('treats nullable payment flags as disabled for legacy settings rows', () => {

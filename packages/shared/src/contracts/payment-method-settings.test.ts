@@ -61,10 +61,12 @@ describe('payment method setting definitions', () => {
       },
     ]);
 
-    expect(columns).toContain('id');
-    expect(columns).toContain('merchant_id');
-    expect(columns).toContain('klump_enabled');
-    expect(columns).toContain('new_gateway_enabled');
+    const parsedColumns = columns.split(',').map((column) => column.trim());
+
+    expect(parsedColumns[0]).toBe('id');
+    expect(parsedColumns[1]).toBe('merchant_id');
+    expect(parsedColumns).toContain('klump_enabled');
+    expect(parsedColumns).toContain('new_gateway_enabled');
   });
 
   it('returns only base columns when no provider definitions are passed', () => {
