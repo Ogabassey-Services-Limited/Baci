@@ -111,7 +111,6 @@ export function HeroMobileCarousel({
                         <MobileLcpHeroImage
                           alt={slide.title || 'Hero slide'}
                           imageFit={slide.imageFit}
-                          isResolvedMobileViewport={isResolvedMobileViewport}
                           shouldPrioritizeImage={shouldPrioritizeMobileLcpImage}
                           src={slide.src}
                         />
