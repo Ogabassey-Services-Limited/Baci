@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SPACING } from '@/constants/theme';
 import { useRevenueCat } from '@/hooks/useRevenueCat';
 import { useTheme } from '@/hooks/useTheme';
+import { useRevenueCatStore } from '@/stores/revenueCatStore';
 import type { PurchasesPackage } from 'react-native-purchases';
 import PaywallFeatureList from './PaywallFeatureList';
 import PaywallFooter from './PaywallFooter';
@@ -71,7 +72,8 @@ export default function Paywall({ onClose }: PaywallProps) {
         return;
       }
 
-      if (!error) {
+      const latestError = useRevenueCatStore.getState().error;
+      if (!latestError) {
         Alert.alert(
           'Purchase Complete',
           'Your purchase was successful! If your features don\'t appear immediately, please try "Restore Purchases".',

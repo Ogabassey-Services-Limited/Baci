@@ -1,6 +1,17 @@
 import { useEffect, useRef } from 'react';
-import { Modal, Pressable, Text, View } from 'react-native';
-import Animated from 'react-native-reanimated';
+import {
+  InteractionManager,
+  Modal,
+  Pressable,
+  Text,
+  View,
+} from 'react-native';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  SlideInDown,
+  SlideOutDown,
+} from 'react-native-reanimated';
 import { SPACING } from '@/constants/theme';
 import { useTheme } from '@/hooks/useTheme';
 import DomainOptionsSheetActions from './DomainOptionsSheetActions';
@@ -22,35 +33,48 @@ export default function DomainOptionsSheet({
   onAction,
 }: DomainOptionsSheetProps) {
   const { colors, shadows } = useTheme();
-  const actionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isMountedRef = useRef(true);
+  const pendingActionRef = useRef<{
+    action: DomainAction;
+    domain: Domain;
+  } | null>(null);
 
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
-      if (actionTimeoutRef.current) {
-        clearTimeout(actionTimeoutRef.current);
-        actionTimeoutRef.current = null;
-      }
+      pendingActionRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (visible) {
+      pendingActionRef.current = null;
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    if (visible || !pendingActionRef.current) return;
+
+    const interactionHandle = InteractionManager.runAfterInteractions(() => {
+      if (!isMountedRef.current) return;
+
+      const pendingAction = pendingActionRef.current;
+      if (!pendingAction) return;
+      pendingActionRef.current = null;
+      onAction(pendingAction.action, pendingAction.domain);
+    });
+
+    return () => {
+      interactionHandle.cancel();
+    };
+  }, [onAction, visible]);
 
   const handleAction = (action: DomainAction) => {
     if (!domain) return;
 
+    pendingActionRef.current = { action, domain };
     onClose();
-
-    if (actionTimeoutRef.current) {
-      clearTimeout(actionTimeoutRef.current);
-    }
-
-    actionTimeoutRef.current = setTimeout(() => {
-      if (isMountedRef.current) {
-        onAction(action, domain);
-      }
-      actionTimeoutRef.current = null;
-    }, 100);
   };
 
   if (!domain) return null;
@@ -59,7 +83,7 @@ export default function DomainOptionsSheet({
     <Modal
       transparent
       visible={visible}
-      animationType="none"
+      animationType="fade"
       onRequestClose={onClose}
       statusBarTranslucent
     >
@@ -71,6 +95,8 @@ export default function DomainOptionsSheet({
         accessibilityHint="Closes the domain options menu"
       >
         <Animated.View
+          entering={FadeIn}
+          exiting={FadeOut}
           style={[
             domainOptionsSheetStyles.backdrop,
             { backgroundColor: 'rgba(0,0,0,0.4)' },
@@ -80,6 +106,8 @@ export default function DomainOptionsSheet({
 
       <View style={domainOptionsSheetStyles.sheetContainer} pointerEvents="box-none">
         <Animated.View
+          entering={SlideInDown}
+          exiting={SlideOutDown}
           style={[
             domainOptionsSheetStyles.sheet,
             { backgroundColor: colors.card, paddingBottom: SPACING.xl * 2 },

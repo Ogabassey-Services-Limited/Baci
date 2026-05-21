@@ -13,6 +13,7 @@ interface ActionButtonProps {
   label: string;
   onAction: (action: DomainAction) => void;
   pressedTone?: string;
+  showChevron?: boolean;
   subtext?: string;
   textColor?: string;
 }
@@ -26,6 +27,7 @@ function ActionButton({
   label,
   onAction,
   pressedTone,
+  showChevron = true,
   subtext,
   textColor,
 }: ActionButtonProps) {
@@ -72,7 +74,7 @@ function ActionButton({
           </Text>
         )}
       </View>
-      {!textColor && (
+      {showChevron && (
         <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
       )}
     </Pressable>
@@ -101,6 +103,7 @@ export default function DomainOptionsSheetActions({
         label="Visit Site"
         onAction={onAction}
         pressedTone={colors.background}
+        showChevron
       />
 
       {domain.domain_type === 'custom' && domain.status !== 'active' && (
@@ -113,6 +116,7 @@ export default function DomainOptionsSheetActions({
           label="Verify DNS Connection"
           onAction={onAction}
           pressedTone={colors.background}
+          showChevron
           subtext="Required to take site live"
         />
       )}
@@ -127,6 +131,7 @@ export default function DomainOptionsSheetActions({
           label="Set as Primary Domain"
           onAction={onAction}
           pressedTone={colors.background}
+          showChevron
           subtext="Make this your main store link"
         />
       )}
@@ -148,6 +153,7 @@ export default function DomainOptionsSheetActions({
             label="Delete Domain"
             onAction={onAction}
             pressedTone={colors.errorLight}
+            showChevron={false}
             textColor={colors.error}
           />
         </>

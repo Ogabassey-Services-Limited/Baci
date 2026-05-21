@@ -15,7 +15,7 @@ const SCAN_DIRECTORIES = [
 const EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);
 const PLATFORM_USAGE_PATTERN = /\bPlatform\./;
 const PLATFORM_IMPORT_PATTERN =
-  /import\s*\{[^}]*\bPlatform(?:\s+as\s+[A-Za-z_$][\w$]*)?\b[^}]*\}\s*from\s*['"]react-native['"]/;
+  /import\s+(?:[A-Za-z_$][\w$]*\s*,\s*)?\{[^}]*\bPlatform(?:\s+as\s+[A-Za-z_$][\w$]*)?\b[^}]*\}\s*from\s*['"]react-native['"]/;
 const CANONICAL_ALLOWLIST = ['config/runtime-platform.ts'];
 const IGNORED_SUFFIXES = ['.test.ts', '.test.tsx', '.test.js', '.test.jsx'];
 const FORBIDDEN_PATTERNS = [

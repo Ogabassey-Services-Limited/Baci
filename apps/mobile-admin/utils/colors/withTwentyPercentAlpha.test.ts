@@ -20,5 +20,9 @@ describe('withTwentyPercentAlpha', () => {
 
   it('returns original value for unsupported color formats', () => {
     expect(withTwentyPercentAlpha('blue')).toBe('blue');
+    expect(withTwentyPercentAlpha('rgb(999, 20, 30)')).toBe('rgb(999, 20, 30)');
+    expect(withTwentyPercentAlpha('rgba(10, 300, 30, 0.5)')).toBe(
+      'rgba(10, 300, 30, 0.5)'
+    );
   });
 });

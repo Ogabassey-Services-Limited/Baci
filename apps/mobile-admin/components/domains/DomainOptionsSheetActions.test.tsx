@@ -1,8 +1,12 @@
 import '@testing-library/jest-dom/vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import DomainOptionsSheetActions from './DomainOptionsSheetActions';
 import type { Domain } from './domain-types';
+
+const mocks = vi.hoisted(() => ({
+  chevronCount: 0,
+}));
 
 vi.mock('@/hooks/useTheme', () => ({
   useTheme: () => ({
@@ -26,7 +30,12 @@ vi.mock('@/hooks/useTheme', () => ({
 }));
 
 vi.mock('@expo/vector-icons', () => ({
-  Ionicons: () => <span>icon</span>,
+  Ionicons: ({ name }: { name?: string }) => {
+    if (name === 'chevron-forward') {
+      mocks.chevronCount += 1;
+    }
+    return <span>icon</span>;
+  },
 }));
 
 const baseDomain: Domain = {
@@ -39,6 +48,10 @@ const baseDomain: Domain = {
 };
 
 describe('DomainOptionsSheetActions', () => {
+  afterEach(() => {
+    mocks.chevronCount = 0;
+  });
+
   it('shows visit, verify, and delete actions for a pending custom non-primary domain', () => {
     render(
       <DomainOptionsSheetActions domain={baseDomain} onAction={() => undefined} />
@@ -145,5 +158,17 @@ describe('DomainOptionsSheetActions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Set as Primary Domain' }));
     expect(onAction).toHaveBeenCalledWith('set_primary');
+  });
+
+  it('renders chevrons only for non-destructive actions', () => {
+    render(
+      <DomainOptionsSheetActions
+        domain={{ ...baseDomain, status: 'active' }}
+        onAction={() => undefined}
+      />
+    );
+
+    // Active non-primary domains show chevrons for Visit + Set as Primary, but not Delete.
+    expect(mocks.chevronCount).toBe(2);
   });
 });
