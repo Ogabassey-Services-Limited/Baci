@@ -21,13 +21,103 @@ import {
   type PaymentMethodCategory,
   type PaymentMethodField,
   type PaymentSettings,
+  getPaymentMethodDefinitionsForColumns,
+  getRenderablePaymentMethods,
+  parsePaymentSettings,
   paymentMethods,
+  paymentSettingsSelectColumns,
 } from '@/components/payment-methods/payment-methods';
 import { styles } from '@/components/payment-methods/payment-methods.styles';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
+
+const REQUIRED_PAYMENT_SETTINGS_COLUMNS = new Set(['id', 'merchant_id']);
+
+type PostgrestErrorShape = {
+  message?: string;
+  details?: string;
+  hint?: string;
+};
+
+function getMissingColumnFromPostgrestError(
+  error: PostgrestErrorShape | null | undefined
+): string | null {
+  if (!error) return null;
+
+  const text = [error.message, error.details, error.hint]
+    .filter((part): part is string => typeof part === 'string' && part.length > 0)
+    .join(' ');
+
+  if (!text) return null;
+
+  const postgrestMatch = text.match(
+    /Could not find the ['"]([^'"]+)['"] column/i
+  );
+  if (postgrestMatch?.[1]) {
+    return postgrestMatch[1];
+  }
+
+  const postgresMatch = text.match(
+    /column\s+\w+\.("?)([a-zA-Z0-9_]+)\1\s+does not exist/i
+  );
+  return postgresMatch?.[2] ?? null;
+}
+
+async function fetchPaymentSettings(
+  merchantId: string,
+  columns: string
+): Promise<PaymentSettings> {
+  let selectColumns = Array.from(
+    new Set(
+      columns
+        .split(',')
+        .map((column) => column.trim())
+        .filter((column) => column.length > 0)
+    )
+  );
+
+  const maxAttempts = selectColumns.length;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const { data, error } = await supabase
+      .from('merchant_feature_settings')
+      .select(selectColumns.join(', '))
+      .eq('merchant_id', merchantId)
+      .single();
+
+    if (!error) {
+      return parsePaymentSettings(
+        data,
+        getPaymentMethodDefinitionsForColumns(selectColumns)
+      );
+    }
+
+    const missingColumn = getMissingColumnFromPostgrestError(error);
+    if (
+      !missingColumn ||
+      !selectColumns.includes(missingColumn) ||
+      REQUIRED_PAYMENT_SETTINGS_COLUMNS.has(missingColumn)
+    ) {
+      throw error;
+    }
+
+    const remainingColumns = selectColumns.filter(
+      (column) => column !== missingColumn
+    );
+    if (remainingColumns.length === selectColumns.length) {
+      throw error;
+    }
+    if (remainingColumns.length === 0) {
+      throw error;
+    }
+
+    selectColumns = remainingColumns;
+  }
+
+  throw new Error('Unable to load payment settings');
+}
 
 export default function PaymentMethodsScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -61,16 +151,8 @@ export default function PaymentMethodsScreen() {
   } = useQuery({
     queryKey: ['payment-settings', merchant?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('merchant_feature_settings')
-        .select(
-          'id, merchant_id, paystack_enabled, korapay_enabled, credit_direct_enabled, credpal_enabled, pay_on_delivery_enabled, juicyway_enabled'
-        )
-        .eq('merchant_id', merchant?.id)
-        .single();
-
-      if (error) throw error;
-      return data as PaymentSettings;
+      if (!merchant?.id) throw new Error('Merchant not found');
+      return fetchPaymentSettings(merchant.id, paymentSettingsSelectColumns);
     },
     enabled: !!merchant?.id,
   });
@@ -149,6 +231,10 @@ export default function PaymentMethodsScreen() {
   };
 
   const loadError = merchantError ?? (isError ? error : null);
+  const renderablePaymentMethods = getRenderablePaymentMethods(
+    settings,
+    paymentMethods
+  );
 
   if (merchantLoading || isLoading) {
     return (
@@ -226,7 +312,7 @@ export default function PaymentMethodsScreen() {
               key={section.category}
               title={section.title}
               category={section.category}
-              methods={paymentMethods}
+              methods={renderablePaymentMethods}
               settings={settings}
               colors={colors}
               shadowStyle={shadows.sm}
