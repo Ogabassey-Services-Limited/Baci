@@ -21,6 +21,8 @@ import {
   type PaymentMethodCategory,
   type PaymentMethodField,
   type PaymentSettings,
+  getPaymentMethodDefinitionsForColumns,
+  getRenderablePaymentMethods,
   parsePaymentSettings,
   paymentMethods,
   paymentSettingsSelectColumns,
@@ -86,7 +88,10 @@ async function fetchPaymentSettings(
       .single();
 
     if (!error) {
-      return parsePaymentSettings(data);
+      return parsePaymentSettings(
+        data,
+        getPaymentMethodDefinitionsForColumns(selectColumns)
+      );
     }
 
     const missingColumn = getMissingColumnFromPostgrestError(error);
@@ -226,6 +231,10 @@ export default function PaymentMethodsScreen() {
   };
 
   const loadError = merchantError ?? (isError ? error : null);
+  const renderablePaymentMethods = getRenderablePaymentMethods(
+    settings,
+    paymentMethods
+  );
 
   if (merchantLoading || isLoading) {
     return (
@@ -303,7 +312,7 @@ export default function PaymentMethodsScreen() {
               key={section.category}
               title={section.title}
               category={section.category}
-              methods={paymentMethods}
+              methods={renderablePaymentMethods}
               settings={settings}
               colors={colors}
               shadowStyle={shadows.sm}

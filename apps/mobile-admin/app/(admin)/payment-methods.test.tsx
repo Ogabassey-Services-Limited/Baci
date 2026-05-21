@@ -221,6 +221,24 @@ describe('PaymentMethodsScreen', () => {
     });
   });
 
+  it('hides payment methods whose backing settings columns are unavailable', () => {
+    const { klump_enabled: _klumpEnabled, ...settingsWithoutKlump } =
+      paymentSettings;
+    mocks.useQuery.mockReturnValue({
+      data: settingsWithoutKlump,
+      error: null,
+      isError: false,
+      isLoading: false,
+      refetch: mocks.refetch,
+    });
+
+    render(<PaymentMethodsScreen />);
+
+    expect(screen.queryByText('Klump')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Toggle Klump')).not.toBeInTheDocument();
+    expect(screen.getByText('Credit Direct')).toBeInTheDocument();
+  });
+
   it('shows the payment settings error state when settings fail to load', () => {
     mocks.useQuery.mockReturnValue({
       data: undefined,
@@ -325,11 +343,11 @@ describe('PaymentMethodsScreen', () => {
       expect.objectContaining({
         id: 'settings-1',
         merchant_id: 'merchant-1',
-        klump_enabled: false,
-        juicyway_enabled: false,
         paystack_enabled: true,
       })
     );
+    expect(result).not.toHaveProperty('klump_enabled');
+    expect(result).not.toHaveProperty('juicyway_enabled');
 
     const selectedColumns = mocks.select.mock.calls.map(
       ([columns]) => columns as string

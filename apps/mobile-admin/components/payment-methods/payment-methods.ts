@@ -58,6 +58,27 @@ export function getPaymentSettingsSelectColumns(
   return getPaymentMethodSettingSelectColumns(definitions);
 }
 
+export function getPaymentMethodDefinitionsForColumns(
+  columns: readonly string[],
+  definitions: readonly PaymentMethodSettingDefinition[] = PAYMENT_METHOD_SETTING_DEFINITIONS
+): readonly PaymentMethodSettingDefinition[] {
+  const selectedColumns = new Set(columns);
+  return definitions.filter((definition) =>
+    selectedColumns.has(definition.enabledField)
+  );
+}
+
+export function getRenderablePaymentMethods(
+  settings: PaymentSettings | undefined,
+  methods: readonly Readonly<PaymentMethod>[] = paymentMethods
+): readonly Readonly<PaymentMethod>[] {
+  if (!settings) return [];
+
+  return methods.filter((method) =>
+    Object.prototype.hasOwnProperty.call(settings, method.dbField)
+  );
+}
+
 const paymentSettingsRecordSchema = z.record(z.string(), z.unknown());
 const paymentSettingsBaseSchema = z.object({
   id: z.string(),
