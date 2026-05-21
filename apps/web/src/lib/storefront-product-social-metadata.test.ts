@@ -87,4 +87,21 @@ describe('getStorefrontProductSocialMetadata', () => {
       'twitter:data1': 'NGN 180000',
     });
   });
+
+  it('keeps zero-price products in social price metadata', () => {
+    const metadata = getStorefrontProductSocialMetadata(
+      'https://ogabassey.com',
+      {
+        name: 'Launch Giveaway',
+        price: 0,
+      },
+      'NGN'
+    );
+
+    expect(metadata.other).toMatchObject({
+      'product:price:amount': '0',
+      'product:price:currency': 'NGN',
+      'twitter:data1': 'NGN 0',
+    });
+  });
 });

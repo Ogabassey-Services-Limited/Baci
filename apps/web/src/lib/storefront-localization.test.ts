@@ -20,7 +20,8 @@ describe('getCountryShoppingContext', () => {
 
   it('treats empty and lowercase country codes explicitly', () => {
     expect(getCountryShoppingContext('')).toBe('in Nigeria');
-    expect(getCountryShoppingContext('ng')).toBe('');
+    expect(getCountryShoppingContext('ng')).toBe('in Nigeria');
+    expect(getCountryShoppingContext(' NG ')).toBe('in Nigeria');
   });
 });
 
@@ -30,6 +31,8 @@ describe('getStorefrontLocale', () => {
     expect(getStorefrontLocale('GH')).toBe('en-GH');
     expect(getStorefrontLocale('KE')).toBe('en-KE');
     expect(getStorefrontLocale('US')).toBe('en-US');
+    expect(getStorefrontLocale(' gh ')).toBe('en-GH');
+    expect(getStorefrontLocale('us')).toBe('en-US');
     expect(getStorefrontLocale('ZA')).toBe('en-NG');
     expect(getStorefrontLocale(undefined)).toBe('en-NG');
   });

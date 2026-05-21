@@ -43,11 +43,9 @@ import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant
 import { isValidMerchantIdentifier } from '@/lib/validation';
 import type { FAQItem } from '@/types/faq';
 import { buildProductRedirectPath } from './build-product-redirect-path';
+import { mapDetailedCachedProductToProduct } from './detailed-product-mapper';
+import { mapLegacyCachedProductToProduct } from './legacy-product-mapper';
 import ProductDetailClient from './product-detail-client';
-import {
-  mapDetailedCachedProductToProduct,
-  mapLegacyCachedProductToProduct,
-} from './product-mappers';
 
 interface PageProps {
   params: Promise<{
@@ -341,6 +339,7 @@ export async function generateMetadata(
     merchantDisplayName,
     categoryName: productCategoryName,
     currency,
+    country: merchant.country,
   });
   const seoDescription = generateMetaDescription(
     product.meta_description || priceSeoCopy.description,
@@ -453,6 +452,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
     categoryName:
       product.categories?.name || product.category || 'All Products',
     currency,
+    country: merchant.country,
   });
   const productUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
   const productSchema = generateProductSchema(

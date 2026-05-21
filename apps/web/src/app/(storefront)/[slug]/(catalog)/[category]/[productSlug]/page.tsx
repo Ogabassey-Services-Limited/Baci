@@ -542,6 +542,7 @@ export async function generateMetadata({
     merchantDisplayName,
     categoryName: productCategoryName,
     currency,
+    country: merchant.country,
   });
   const seoDescription = generateMetaDescription(
     product.meta_description || priceSeoCopy.description,
@@ -652,6 +653,7 @@ export default async function CategoryProductPage({
     merchantDisplayName: merchant?.business_name || DEFAULT_STORE_NAME,
     categoryName: product.category || 'All Products',
     currency,
+    country: merchant.country,
   });
   const trustBullets = [
     priceSeoCopy.answer,

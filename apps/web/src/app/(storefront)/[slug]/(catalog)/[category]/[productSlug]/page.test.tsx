@@ -556,6 +556,41 @@ describe('[category]/[productSlug] page metadata', () => {
     });
   });
 
+  it('omits Nigeria price copy for non-Nigerian storefront metadata', async () => {
+    mockGetRequestScopedMerchant.mockResolvedValueOnce({
+      ...baseMerchant,
+      country: 'GH',
+      payout_currency: 'GHS',
+    });
+    mockGetCachedProductWithDetails.mockResolvedValue({
+      ...categorizedDetailedProduct,
+      name: 'Pixel 10',
+      slug: 'pixel-10',
+      description: 'Google Pixel phone.',
+      price: 999,
+      category: 'Smartphones',
+      categories: {
+        id: 'cat-smartphones',
+        name: 'Smartphones',
+        slug: 'smartphones',
+        parent_id: null,
+      },
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'smartphones',
+        productSlug: 'pixel-10',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.title).toBe('Pixel 10 Price | TestStore');
+    expect(metadata.description).toContain('Pixel 10 price is');
+    expect(metadata.description).not.toContain('in Nigeria');
+  });
+
   it('redirects attribute-only variant params to the bare family URL', async () => {
     mockGetCachedProductWithDetails.mockResolvedValue(
       categorizedDetailedProduct

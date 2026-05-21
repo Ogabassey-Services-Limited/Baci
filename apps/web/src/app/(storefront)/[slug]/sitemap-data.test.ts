@@ -257,6 +257,18 @@ describe('sitemap-data', () => {
     expect(context?.storeUrl).toBe('https://ogabassey.com');
   });
 
+  it('does not resolve a literal metadata route identifier without header context', async () => {
+    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+
+    const context = await resolveStorefrontSitemapContext(
+      mockHeaders as unknown as Headers,
+      'sitemap'
+    );
+
+    expect(mockGetMerchantByIdentifier).not.toHaveBeenCalled();
+    expect(context).toBeNull();
+  });
+
   it('returns static sitemap entries for the storefront root and faq', async () => {
     const { getStaticSitemapEntries } = await import('./sitemap-data');
     const entries = getStaticSitemapEntries('https://ogabassey.com');

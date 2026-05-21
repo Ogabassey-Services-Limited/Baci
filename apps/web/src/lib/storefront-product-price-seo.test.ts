@@ -25,7 +25,7 @@ describe('getProductPriceRange', () => {
     });
   });
 
-  it('falls back to the product sale or base price when variants are absent', () => {
+  it('uses the active sale price without treating base price as a range', () => {
     const range = getProductPriceRange({
       name: 'Samsung Galaxy A57',
       sale_price: 415000,
@@ -34,8 +34,21 @@ describe('getProductPriceRange', () => {
 
     expect(range).toEqual({
       min: 415000,
-      max: 450000,
-      hasRange: true,
+      max: 415000,
+      hasRange: false,
+    });
+  });
+
+  it('keeps zero prices as valid promotional prices', () => {
+    const range = getProductPriceRange({
+      name: 'Launch Giveaway',
+      price: 0,
+    });
+
+    expect(range).toEqual({
+      min: 0,
+      max: 0,
+      hasRange: false,
     });
   });
 
@@ -82,6 +95,7 @@ describe('buildProductPriceSeoCopy', () => {
       merchantDisplayName: 'Ogabassey',
       categoryName: 'Smartphones',
       currency: 'NGN',
+      country: 'NG',
     });
 
     expect(copy.title).toBe('iPhone 13 Price in Nigeria');
@@ -102,6 +116,7 @@ describe('buildProductPriceSeoCopy', () => {
       merchantDisplayName: 'Ogabassey',
       categoryName: 'Laptops',
       currency: 'NGN',
+      country: 'NG',
     });
 
     expect(copy.answer).toContain(
@@ -118,6 +133,7 @@ describe('buildProductPriceSeoCopy', () => {
       merchantDisplayName: 'Ogabassey',
       categoryName: 'Electronics',
       currency: 'NGN',
+      country: 'NG',
     });
 
     expect(copy.title).toBe('Custom Device Price in Nigeria');
@@ -129,5 +145,26 @@ describe('buildProductPriceSeoCopy', () => {
     );
     expect(copy.priceText).toBeNull();
     expect(copy.range).toBeNull();
+  });
+
+  it('omits Nigeria copy and formats with the storefront locale for other countries', () => {
+    const copy = buildProductPriceSeoCopy({
+      product: {
+        name: 'Pixel 10',
+        price: 999,
+      },
+      merchantDisplayName: 'US Gadget Store',
+      categoryName: 'Smartphones',
+      currency: 'USD',
+      country: 'us',
+    });
+
+    expect(copy.title).toBe('Pixel 10 Price');
+    expect(copy.description).toBe(
+      'Pixel 10 price is $999 on US Gadget Store. Check specs, condition, warranty, delivery, and flexible payment options before you buy.'
+    );
+    expect(copy.answer).toBe(
+      'The Pixel 10 price on US Gadget Store is $999. Check specs, condition, warranty, delivery, and payment options before you buy.'
+    );
   });
 });

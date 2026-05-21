@@ -1,3 +1,9 @@
+import {
+  appendCountryContext,
+  getCountryShoppingContext,
+  getStorefrontLocale,
+} from './storefront-localization';
+
 interface ProductPriceSeoVariant {
   price_override?: number | null;
 }
@@ -28,10 +34,11 @@ interface BuildProductPriceSeoCopyInput {
   merchantDisplayName: string;
   categoryName: string;
   currency: string;
+  country?: string | null;
 }
 
 function toFinitePrice(value: number | null | undefined): number | null {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0
     ? value
     : null;
 }
@@ -51,9 +58,12 @@ export function getProductPriceRange(
 ): ProductPriceRange | null {
   const candidates: number[] = [];
 
-  addPriceCandidate(candidates, product.sale_price);
-  addPriceCandidate(candidates, product.price);
-  addPriceCandidate(candidates, product.base_price);
+  addPriceCandidate(
+    candidates,
+    toFinitePrice(product.sale_price) ??
+      toFinitePrice(product.price) ??
+      product.base_price
+  );
   addPriceCandidate(candidates, product.min_variant_price);
   addPriceCandidate(candidates, product.max_variant_price);
 
@@ -79,8 +89,12 @@ export function getProductPriceRange(
   };
 }
 
-export function formatProductPrice(price: number, currency: string): string {
-  return new Intl.NumberFormat('en-NG', {
+export function formatProductPrice(
+  price: number,
+  currency: string,
+  locale = getStorefrontLocale()
+): string {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency,
     maximumFractionDigits: 0,
@@ -90,19 +104,20 @@ export function formatProductPrice(price: number, currency: string): string {
 
 export function formatProductPriceRange(
   range: ProductPriceRange | null,
-  currency: string
+  currency: string,
+  locale = getStorefrontLocale()
 ): string | null {
   if (!range) {
     return null;
   }
 
-  const min = formatProductPrice(range.min, currency);
+  const min = formatProductPrice(range.min, currency, locale);
 
   if (!range.hasRange) {
     return min;
   }
 
-  return `${min} - ${formatProductPrice(range.max, currency)}`;
+  return `${min} - ${formatProductPrice(range.max, currency, locale)}`;
 }
 
 export function buildProductPriceSeoCopy({
@@ -110,35 +125,46 @@ export function buildProductPriceSeoCopy({
   merchantDisplayName,
   categoryName,
   currency,
+  country,
 }: BuildProductPriceSeoCopyInput) {
   const range = getProductPriceRange(product);
-  const priceText = formatProductPriceRange(range, currency);
+  const locale = getStorefrontLocale(country);
+  const priceText = formatProductPriceRange(range, currency, locale);
   const category = categoryName.toLowerCase();
+  const countryContext = getCountryShoppingContext(country);
+  const title = appendCountryContext(`${product.name} Price`, countryContext);
+  const pricePhrase = appendCountryContext(
+    `${product.name} price`,
+    countryContext
+  );
 
   if (!range || !priceText) {
     return {
-      title: `${product.name} Price in Nigeria`,
-      description: `Check ${product.name} price in Nigeria on ${merchantDisplayName}. Review current ${category} availability, condition, delivery, warranty, and payment options before you buy.`,
-      answer: `Check the current ${product.name} price in Nigeria on ${merchantDisplayName}, including availability, condition, delivery, warranty, and payment options before you buy.`,
+      title,
+      description: `Check ${pricePhrase} on ${merchantDisplayName}. Review current ${category} availability, condition, delivery, warranty, and payment options before you buy.`,
+      answer: `Check the current ${pricePhrase} on ${merchantDisplayName}, including availability, condition, delivery, warranty, and payment options before you buy.`,
       priceText: null,
       range,
     };
   }
 
   if (range.hasRange) {
+    const minPrice = formatProductPrice(range.min, currency, locale);
+    const maxPrice = formatProductPrice(range.max, currency, locale);
+
     return {
-      title: `${product.name} Price in Nigeria`,
-      description: `${product.name} price in Nigeria starts from ${formatProductPrice(range.min, currency)} on ${merchantDisplayName}. Compare variants, condition, warranty, delivery, and payment options before you buy.`,
-      answer: `The ${product.name} price in Nigeria on ${merchantDisplayName} starts from ${formatProductPrice(range.min, currency)} and goes up to ${formatProductPrice(range.max, currency)}, depending on storage, color, condition, and availability.`,
+      title,
+      description: `${pricePhrase} starts from ${minPrice} on ${merchantDisplayName}. Compare variants, condition, warranty, delivery, and payment options before you buy.`,
+      answer: `The ${pricePhrase} on ${merchantDisplayName} starts from ${minPrice} and goes up to ${maxPrice}, depending on storage, color, condition, and availability.`,
       priceText,
       range,
     };
   }
 
   return {
-    title: `${product.name} Price in Nigeria`,
-    description: `${product.name} price in Nigeria is ${priceText} on ${merchantDisplayName}. Check specs, condition, warranty, delivery, and flexible payment options before you buy.`,
-    answer: `The ${product.name} price in Nigeria on ${merchantDisplayName} is ${priceText}. Check specs, condition, warranty, delivery, and payment options before you buy.`,
+    title,
+    description: `${pricePhrase} is ${priceText} on ${merchantDisplayName}. Check specs, condition, warranty, delivery, and flexible payment options before you buy.`,
+    answer: `The ${pricePhrase} on ${merchantDisplayName} is ${priceText}. Check specs, condition, warranty, delivery, and payment options before you buy.`,
     priceText,
     range,
   };

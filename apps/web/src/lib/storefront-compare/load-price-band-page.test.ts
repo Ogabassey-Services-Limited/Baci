@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadPriceBandPage } from './load-price-band-page';
 
 const mockGetMerchantByIdentifier = vi.fn();
@@ -129,14 +129,14 @@ describe('loadPriceBandPage', () => {
     expect(result?.metaTitle).toBe(
       'Best Smartphones Under ₦1,000,000 in Nigeria | Ogabassey'
     );
-    expect(result?.metaDescription).toContain(
-      'Compare the best smartphones under ₦1,000,000 in Nigeria'
+    expect(result?.metaDescription).toBe(
+      'Compare the best smartphones under ₦1,000,000 in Nigeria. See live prices, stock, condition, and buying options from Ogabassey.'
     );
     expect(result?.heading).toBe(
       'Best Smartphones Under ₦1,000,000 in Nigeria'
     );
-    expect(result?.intro).toContain(
-      'under ₦1,000,000 in Nigeria, based on live Ogabassey inventory'
+    expect(result?.intro).toBe(
+      'These are the strongest smartphones options under ₦1,000,000 in Nigeria, based on live Ogabassey inventory with price, condition, and availability details.'
     );
     expect(result?.products).toHaveLength(6);
     expect(result?.products).toEqual(

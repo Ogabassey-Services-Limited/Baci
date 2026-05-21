@@ -47,24 +47,19 @@ export async function resolveStorefrontSitemapContext(
   headersList: Headers,
   routeIdentifierOverride?: string | null
 ): Promise<StorefrontSitemapContext | null> {
-  const merchantContextHeader =
-    headersList.get('x-custom-domain') ||
-    headersList.get('x-merchant-domain') ||
-    headersList.get('x-merchant-slug');
   const headerRouteIdentifier = resolveRouteIdentifier(headersList);
   const routeIdentifierOverrideValue =
     routeIdentifierOverride?.trim().toLowerCase() || '';
   // METADATA_ROUTE_IDENTIFIER_OVERRIDES prevents metadata route params such as
-  // "sitemap" from being treated as literal merchant ids. If a merchant header
-  // or metadata override is present, use headerRouteIdentifier; otherwise fall
-  // back to the normalized routeIdentifierOverrideValue.
-  const shouldPreferHeaderRouteIdentifier =
-    Boolean(headerRouteIdentifier) &&
-    (Boolean(merchantContextHeader?.trim()) ||
-      METADATA_ROUTE_IDENTIFIER_OVERRIDES.has(routeIdentifierOverrideValue));
-  const routeIdentifier = shouldPreferHeaderRouteIdentifier
-    ? headerRouteIdentifier
-    : routeIdentifierOverrideValue || headerRouteIdentifier;
+  // "sitemap" from being treated as literal merchant ids. Header-derived
+  // storefront context always wins, and metadata route params are never passed
+  // through to merchant lookup when no header context exists.
+  const canUseRouteIdentifierOverride =
+    Boolean(routeIdentifierOverrideValue) &&
+    !METADATA_ROUTE_IDENTIFIER_OVERRIDES.has(routeIdentifierOverrideValue);
+  const routeIdentifier =
+    headerRouteIdentifier ||
+    (canUseRouteIdentifierOverride ? routeIdentifierOverrideValue : '');
   let merchant = null;
 
   try {
