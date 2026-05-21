@@ -186,13 +186,8 @@ describe('OgabasseyStorefrontLayout', () => {
       expect.objectContaining({
         as: 'image',
         fetchPriority: 'high',
+        media: '(max-width: 767px)',
         type: 'image/avif',
-      })
-    );
-    expect(mocks.preload).toHaveBeenCalledWith(
-      HERO_MOBILE_LCP_SRC,
-      expect.not.objectContaining({
-        media: expect.any(String),
       })
     );
   });
