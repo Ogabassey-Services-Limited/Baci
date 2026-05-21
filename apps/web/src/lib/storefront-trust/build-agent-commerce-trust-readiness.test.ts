@@ -151,7 +151,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
     ).toMatchObject({ severity: 'pass' });
   });
 
-  it('warns and uses merchant Google review authority as fallback trust when product review coverage is missing', () => {
+  it('passes review trust with merchant Google review authority when product review coverage is missing', () => {
     const result = buildAgentCommerceTrustReadiness({
       baseUrl: 'https://ogabassey.com',
       googleFeedData: googleFeedData(),
@@ -182,7 +182,7 @@ describe('buildAgentCommerceTrustReadiness', () => {
       }),
     });
 
-    expect(result.status).toBe('warn');
+    expect(result.status).toBe('pass');
     expect(result.merchantReviewAuthority).toMatchObject({
       attributionLabel: 'Google Maps',
       googleMapsUrl: 'https://maps.google.com/?cid=ogabassey',
@@ -200,10 +200,10 @@ describe('buildAgentCommerceTrustReadiness', () => {
     expect(
       result.checks.find((check) => check.id === 'review-signal-coverage')
     ).toMatchObject({
-      affectedProductCount: 1,
+      affectedProductCount: 0,
       message:
-        '0 of 1 agent-visible products have product-level review metadata; verified merchant-level Google review authority is connected as fallback review evidence.',
-      severity: 'warn',
+        '0 of 1 agent-visible products have product-level review metadata; verified merchant-level Google review authority satisfies review trust for this catalog.',
+      severity: 'pass',
     });
   });
 

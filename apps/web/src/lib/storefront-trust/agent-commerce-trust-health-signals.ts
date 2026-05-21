@@ -75,12 +75,9 @@ function getReviewSignalSeverity({
   openAiProductsCount: number;
   productsWithReviewSignals: number;
 }): AgentCommerceTrustCheck['severity'] {
-  if (
-    hasVerifiedMerchantReviewAuthority &&
-    productsWithReviewSignals < openAiProductsCount
-  ) {
-    return 'warn';
-  }
+  if (openAiProductsCount === 0) return 'warn';
+
+  if (hasVerifiedMerchantReviewAuthority) return 'pass';
 
   return getTrustCoverageSeverity(
     productsWithReviewSignals,
@@ -105,7 +102,7 @@ function getReviewSignalMessage({
     hasVerifiedMerchantReviewAuthority &&
     productsWithReviewSignals < openAiProductsCount
   ) {
-    return `${productsWithReviewSignals} of ${openAiProductsCount} agent-visible products have product-level review metadata; verified merchant-level Google review authority is connected as fallback review evidence.`;
+    return `${productsWithReviewSignals} of ${openAiProductsCount} agent-visible products have product-level review metadata; verified merchant-level Google review authority satisfies review trust for this catalog.`;
   }
 
   return `${productsWithReviewSignals} of ${openAiProductsCount} agent-visible products have usable review count and rating metadata.`;
@@ -192,7 +189,9 @@ export function buildAgentCommerceTrustHealthSignals({
           openAiProductsCount: openAiProducts.length,
           productsWithReviewSignals,
         }),
-        affectedProductCount: productsMissingReviewSignals,
+        affectedProductCount: hasVerifiedMerchantReviewAuthority
+          ? 0
+          : productsMissingReviewSignals,
       },
       {
         id: 'feed-freshness',
