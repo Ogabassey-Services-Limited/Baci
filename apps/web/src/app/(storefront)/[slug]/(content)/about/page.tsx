@@ -66,9 +66,7 @@ export async function generateMetadata({
 export default function AboutPage({ params }: PageProps) {
   return (
     <>
-      <Suspense fallback={null}>
-        <StorefrontDynamicMetadataMarker />
-      </Suspense>
+      <StorefrontDynamicMetadataMarker />
       <Suspense fallback={null}>
         <AboutJsonLd params={params} />
       </Suspense>

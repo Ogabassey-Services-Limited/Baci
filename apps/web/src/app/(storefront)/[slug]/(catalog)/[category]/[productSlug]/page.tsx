@@ -700,9 +700,7 @@ export default async function CategoryProductPage({
 
   return (
     <>
-      <Suspense fallback={null}>
-        <StorefrontDynamicMetadataMarker />
-      </Suspense>
+      <StorefrontDynamicMetadataMarker />
       {productResourceHints}
       {/* nosemgrep: typescript.react.security.audit.react-dangerouslysetinnerhtml - JSON-LD is sanitized and not executed */}
       <script

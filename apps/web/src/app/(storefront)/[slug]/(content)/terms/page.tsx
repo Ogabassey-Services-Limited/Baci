@@ -55,9 +55,7 @@ export async function generateMetadata({
 export default function TermsPage({ params }: PageProps) {
   return (
     <>
-      <Suspense fallback={null}>
-        <StorefrontDynamicMetadataMarker />
-      </Suspense>
+      <StorefrontDynamicMetadataMarker />
       <Suspense fallback={<ContentRouteLoading />}>
         <TermsPageContent params={params} />
       </Suspense>

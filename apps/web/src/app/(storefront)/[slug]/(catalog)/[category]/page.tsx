@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import {
   getCachedCategoryPageData,
   getCachedMerchant,
@@ -146,5 +147,10 @@ export async function generateMetadata({
 }
 
 export default function CategoryPageRoute(props: PageProps) {
-  return <CategoryPageContent {...props} />;
+  return (
+    <>
+      <StorefrontDynamicMetadataMarker />
+      <CategoryPageContent {...props} />
+    </>
+  );
 }

@@ -55,9 +55,7 @@ export async function generateMetadata({
 export default function PrivacyPage({ params }: PageProps) {
   return (
     <>
-      <Suspense fallback={null}>
-        <StorefrontDynamicMetadataMarker />
-      </Suspense>
+      <StorefrontDynamicMetadataMarker />
       <Suspense fallback={<ContentRouteLoading />}>
         <PrivacyPageContent params={params} />
       </Suspense>
