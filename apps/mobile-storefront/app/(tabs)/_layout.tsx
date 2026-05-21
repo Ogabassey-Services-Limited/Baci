@@ -9,7 +9,6 @@ import type React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ErrorFallback } from '@/components/ErrorBoundary';
-import { BRAND } from '@/constants/Colors';
 import { TAB_BAR_BASE_HEIGHT } from '@/constants/layout';
 import { useCartStore } from '@/stores/cart-store';
 import { useSavedStore } from '@/stores/saved-store';
@@ -58,8 +57,16 @@ function TabBarIcon({
           style={{ opacity: focused ? 1 : 0.6 }}
         />
         {badge !== undefined && badge > 0 && (
-          <View style={[styles.badge, { borderColor: colors.card }]}>
-            <Text style={[styles.badgeText, { color: BRAND.onPrimary }]}>
+          <View
+            style={[
+              styles.badge,
+              {
+                backgroundColor: colors.primary,
+                borderColor: colors.card,
+              },
+            ]}
+          >
+            <Text style={[styles.badgeText, { color: colors.primaryForeground }]}>
               {badge > 99 ? '99+' : badge}
             </Text>
           </View>
@@ -243,7 +250,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -4,
     right: 4,
-    backgroundColor: BRAND.primary,
     borderRadius: 9,
     minWidth: 16,
     height: 16,

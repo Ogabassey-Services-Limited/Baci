@@ -10,7 +10,6 @@ import {
   type ViewStyle,
 } from 'react-native';
 import TabLayout from '@/app/(tabs)/_layout';
-import { BRAND } from '@/constants/Colors';
 import { TAB_BAR_BASE_HEIGHT } from '@/constants/layout';
 
 const MockText = Text;
@@ -20,6 +19,8 @@ const mockThemeColors = {
   border: '#333333',
   card: '#202020',
   mutedForeground: '#999999',
+  primary: '#2563eb',
+  primaryForeground: '#f8fafc',
   selectedIconBackground: '#303030',
   tabIconDefault: '#888888',
   tabIconSelected: '#ffffff',
@@ -206,11 +207,11 @@ describe('TabLayout', () => {
       borderTopColor: mockThemeColors.border,
     });
     expect(cartBadgeStyle).toMatchObject({
-      backgroundColor: BRAND.primary,
+      backgroundColor: mockThemeColors.primary,
       borderColor: mockThemeColors.card,
     });
     expect(cartBadgeTextStyle).toMatchObject({
-      color: BRAND.onPrimary,
+      color: mockThemeColors.primaryForeground,
     });
   });
 });
