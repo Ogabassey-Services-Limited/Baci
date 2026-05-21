@@ -31,22 +31,57 @@ import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
-function getMissingColumnFromPostgrestError(message?: string): string | null {
-  if (!message) return null;
-  const match = message.match(/column\s+\w+\.(\w+)\s+does not exist/i);
-  return match?.[1] ?? null;
+const REQUIRED_PAYMENT_SETTINGS_COLUMNS = new Set(['id', 'merchant_id']);
+
+type PostgrestErrorShape = {
+  message?: string;
+  details?: string;
+  hint?: string;
+};
+
+function getMissingColumnFromPostgrestError(
+  error: PostgrestErrorShape | null | undefined
+): string | null {
+  if (!error) return null;
+
+  const text = [error.message, error.details, error.hint]
+    .filter((part): part is string => typeof part === 'string' && part.length > 0)
+    .join(' ');
+
+  if (!text) return null;
+
+  const postgrestMatch = text.match(
+    /Could not find the ['"]([^'"]+)['"] column/i
+  );
+  if (postgrestMatch?.[1]) {
+    return postgrestMatch[1];
+  }
+
+  const postgresMatch = text.match(
+    /column\s+\w+\.("?)([a-zA-Z0-9_]+)\1\s+does not exist/i
+  );
+  return postgresMatch?.[2] ?? null;
 }
 
 async function fetchPaymentSettings(
   merchantId: string,
   columns: string
 ): Promise<PaymentSettings> {
-  let selectColumns = columns;
+  let selectColumns = Array.from(
+    new Set(
+      columns
+        .split(',')
+        .map((column) => column.trim())
+        .filter((column) => column.length > 0)
+    )
+  );
 
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  const maxAttempts = selectColumns.length;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const { data, error } = await supabase
       .from('merchant_feature_settings')
-      .select(selectColumns)
+      .select(selectColumns.join(', '))
       .eq('merchant_id', merchantId)
       .single();
 
@@ -54,21 +89,26 @@ async function fetchPaymentSettings(
       return parsePaymentSettings(data);
     }
 
-    const missingColumn = getMissingColumnFromPostgrestError(error.message);
-    if (!missingColumn || !selectColumns.includes(missingColumn)) {
+    const missingColumn = getMissingColumnFromPostgrestError(error);
+    if (
+      !missingColumn ||
+      !selectColumns.includes(missingColumn) ||
+      REQUIRED_PAYMENT_SETTINGS_COLUMNS.has(missingColumn)
+    ) {
       throw error;
     }
 
-    const remainingColumns = selectColumns
-      .split(',')
-      .map((column) => column.trim())
-      .filter((column) => column !== missingColumn);
-
+    const remainingColumns = selectColumns.filter(
+      (column) => column !== missingColumn
+    );
+    if (remainingColumns.length === selectColumns.length) {
+      throw error;
+    }
     if (remainingColumns.length === 0) {
       throw error;
     }
 
-    selectColumns = remainingColumns.join(', ');
+    selectColumns = remainingColumns;
   }
 
   throw new Error('Unable to load payment settings');

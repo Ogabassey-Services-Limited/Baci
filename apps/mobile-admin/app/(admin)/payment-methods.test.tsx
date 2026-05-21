@@ -270,4 +270,75 @@ describe('PaymentMethodsScreen', () => {
       paymentSettings
     );
   });
+
+  it('retries payment settings fetch when PostgREST reports missing columns', async () => {
+    let capturedQueryFn: (() => Promise<unknown>) | undefined;
+
+    mocks.useQuery.mockImplementation((config: QueryConfig) => {
+      capturedQueryFn = config.queryFn;
+      return {
+        data: paymentSettings,
+        error: null,
+        isError: false,
+        isLoading: false,
+        refetch: mocks.refetch,
+      };
+    });
+
+    mocks.single
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          message:
+            "Could not find the 'klump_enabled' column of 'merchant_feature_settings' in the schema cache",
+        },
+      })
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          message:
+            "Could not find the 'juicyway_enabled' column of 'merchant_feature_settings' in the schema cache",
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          id: 'settings-1',
+          merchant_id: 'merchant-1',
+          paystack_enabled: true,
+          korapay_enabled: true,
+          credpal_enabled: false,
+          credit_direct_enabled: false,
+          pay_on_delivery_enabled: true,
+        },
+        error: null,
+      });
+
+    render(<PaymentMethodsScreen />);
+
+    expect(capturedQueryFn).toBeDefined();
+    if (!capturedQueryFn) {
+      throw new Error('Expected payment settings query function');
+    }
+    const result = await capturedQueryFn();
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: 'settings-1',
+        merchant_id: 'merchant-1',
+        klump_enabled: false,
+        juicyway_enabled: false,
+        paystack_enabled: true,
+      })
+    );
+
+    const selectedColumns = mocks.select.mock.calls.map(
+      ([columns]) => columns as string
+    );
+    expect(selectedColumns[0]).toContain('klump_enabled');
+    expect(selectedColumns[0]).toContain('juicyway_enabled');
+    expect(selectedColumns[1]).not.toContain('klump_enabled');
+    expect(selectedColumns[1]).toContain('juicyway_enabled');
+    expect(selectedColumns[2]).not.toContain('klump_enabled');
+    expect(selectedColumns[2]).not.toContain('juicyway_enabled');
+  });
 });
