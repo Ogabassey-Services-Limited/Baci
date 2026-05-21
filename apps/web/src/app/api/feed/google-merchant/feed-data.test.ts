@@ -1031,6 +1031,7 @@ describe('getCachedGoogleMerchantFeedData', () => {
     );
 
     expect(mockManifestIn).toHaveBeenCalledWith('product_id', ['product-1']);
+    expect(mockManifestEq).toHaveBeenCalledWith('merchant_id', 'merchant-1');
     expect(result.imageManifest['product-1']).toHaveLength(1);
   });
 
