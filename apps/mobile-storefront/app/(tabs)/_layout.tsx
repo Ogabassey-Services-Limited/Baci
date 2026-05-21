@@ -45,7 +45,12 @@ function TabBarIcon({
   const { colors } = useTheme();
   return (
     <View style={styles.iconContainer}>
-      <View style={[styles.iconInner, focused && { backgroundColor: colors.selectedIconBackground }]}>
+      <View
+        style={[
+          styles.iconInner,
+          focused && { backgroundColor: colors.selectedIconBackground },
+        ]}
+      >
         <Ionicons
           name={name}
           size={22}
@@ -54,7 +59,9 @@ function TabBarIcon({
         />
         {badge !== undefined && badge > 0 && (
           <View style={[styles.badge, { borderColor: colors.card }]}>
-            <Text style={[styles.badgeText, { color: colors.primaryForeground }]}>{badge > 99 ? '99+' : badge}</Text>
+            <Text style={[styles.badgeText, { color: BRAND.onPrimary }]}>
+              {badge > 99 ? '99+' : badge}
+            </Text>
           </View>
         )}
       </View>
@@ -115,7 +122,6 @@ export default function TabLayout() {
         headerTitleStyle: {
           fontFamily: 'Inter_600SemiBold',
           fontSize: 17,
-
         },
         headerTintColor: colors.text,
         headerShadowVisible: false,
@@ -135,7 +141,9 @@ export default function TabLayout() {
               focused={focused}
             />
           ),
-          tabBarLabel: ({ focused }) => <TabBarLabel focused={focused} label="Home" />,
+          tabBarLabel: ({ focused }) => (
+            <TabBarLabel focused={focused} label="Home" />
+          ),
         }}
       />
       <Tabs.Screen
@@ -150,7 +158,9 @@ export default function TabLayout() {
               badge={savedCount}
             />
           ),
-          tabBarLabel: ({ focused }) => <TabBarLabel focused={focused} label="Saved" />,
+          tabBarLabel: ({ focused }) => (
+            <TabBarLabel focused={focused} label="Saved" />
+          ),
         }}
       />
       <Tabs.Screen
@@ -165,7 +175,9 @@ export default function TabLayout() {
               badge={cartCount}
             />
           ),
-          tabBarLabel: ({ focused }) => <TabBarLabel focused={focused} label="Cart" />,
+          tabBarLabel: ({ focused }) => (
+            <TabBarLabel focused={focused} label="Cart" />
+          ),
         }}
       />
       <Tabs.Screen
@@ -179,7 +191,9 @@ export default function TabLayout() {
               focused={focused}
             />
           ),
-          tabBarLabel: ({ focused }) => <TabBarLabel focused={focused} label="Wallet" />,
+          tabBarLabel: ({ focused }) => (
+            <TabBarLabel focused={focused} label="Wallet" />
+          ),
         }}
         listeners={createAuthListener('wallet')}
       />
@@ -194,7 +208,9 @@ export default function TabLayout() {
               focused={focused}
             />
           ),
-          tabBarLabel: ({ focused }) => <TabBarLabel focused={focused} label="Account" />,
+          tabBarLabel: ({ focused }) => (
+            <TabBarLabel focused={focused} label="Account" />
+          ),
         }}
         listeners={createAuthListener('account')}
       />
@@ -235,15 +251,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 2,
     borderWidth: 1.5,
-    borderColor: '#0F0F0F',
   },
   badgeText: {
-
     fontSize: 8,
     fontWeight: '800',
   },
   tabLabel: {
-
     fontSize: 10,
     fontWeight: '600',
     fontFamily: 'Inter_600SemiBold',
