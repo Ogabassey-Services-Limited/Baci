@@ -21,7 +21,9 @@ import {
   type PaymentMethodCategory,
   type PaymentMethodField,
   type PaymentSettings,
+  parsePaymentSettings,
   paymentMethods,
+  paymentSettingsSelectColumns,
 } from '@/components/payment-methods/payment-methods';
 import { styles } from '@/components/payment-methods/payment-methods.styles';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
@@ -63,14 +65,12 @@ export default function PaymentMethodsScreen() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('merchant_feature_settings')
-        .select(
-          'id, merchant_id, paystack_enabled, korapay_enabled, credit_direct_enabled, credpal_enabled, pay_on_delivery_enabled, juicyway_enabled'
-        )
+        .select(paymentSettingsSelectColumns)
         .eq('merchant_id', merchant?.id)
         .single();
 
       if (error) throw error;
-      return data as PaymentSettings;
+      return parsePaymentSettings(data);
     },
     enabled: !!merchant?.id,
   });

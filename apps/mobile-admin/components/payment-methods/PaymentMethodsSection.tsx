@@ -56,7 +56,7 @@ export function PaymentMethodsSection({
         {title}
       </Text>
       {sectionMethods.map((method, index) => {
-        const isEnabled = settings?.[method.dbField] ?? false;
+        const isEnabled = settings?.[method.dbField] === true;
 
         return (
           <View key={method.id}>
