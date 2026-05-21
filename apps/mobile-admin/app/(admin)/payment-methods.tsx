@@ -31,6 +31,49 @@ import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
 
+function getMissingColumnFromPostgrestError(message?: string): string | null {
+  if (!message) return null;
+  const match = message.match(/column\s+\w+\.(\w+)\s+does not exist/i);
+  return match?.[1] ?? null;
+}
+
+async function fetchPaymentSettings(
+  merchantId: string,
+  columns: string
+): Promise<PaymentSettings> {
+  let selectColumns = columns;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const { data, error } = await supabase
+      .from('merchant_feature_settings')
+      .select(selectColumns)
+      .eq('merchant_id', merchantId)
+      .single();
+
+    if (!error) {
+      return parsePaymentSettings(data);
+    }
+
+    const missingColumn = getMissingColumnFromPostgrestError(error.message);
+    if (!missingColumn || !selectColumns.includes(missingColumn)) {
+      throw error;
+    }
+
+    const remainingColumns = selectColumns
+      .split(',')
+      .map((column) => column.trim())
+      .filter((column) => column !== missingColumn);
+
+    if (remainingColumns.length === 0) {
+      throw error;
+    }
+
+    selectColumns = remainingColumns.join(', ');
+  }
+
+  throw new Error('Unable to load payment settings');
+}
+
 export default function PaymentMethodsScreen() {
   const { colors, shadows, isDark } = useTheme();
   const {
@@ -63,14 +106,8 @@ export default function PaymentMethodsScreen() {
   } = useQuery({
     queryKey: ['payment-settings', merchant?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('merchant_feature_settings')
-        .select(paymentSettingsSelectColumns)
-        .eq('merchant_id', merchant?.id)
-        .single();
-
-      if (error) throw error;
-      return parsePaymentSettings(data);
+      if (!merchant?.id) throw new Error('Merchant not found');
+      return fetchPaymentSettings(merchant.id, paymentSettingsSelectColumns);
     },
     enabled: !!merchant?.id,
   });
