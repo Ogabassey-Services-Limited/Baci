@@ -6,7 +6,9 @@ import {
   findForbiddenPatternViolations,
   findNonAllowlistedFiles,
   findPlatformBranchFiles,
+  findPlatformImportFiles,
   findStaleAllowlistEntries,
+  isCanonicalAllowlist,
 } from './check-platform-drift.mjs';
 
 const tempDirs = new Set<string>();
@@ -44,6 +46,53 @@ describe('check-platform-drift', () => {
     expect(findPlatformBranchFiles(root)).toEqual(['app/example.tsx']);
   });
 
+  it('detects any Platform property usage, not only OS/select', () => {
+    const root = createFixture({
+      'hooks/example.ts': 'const version = Platform.Version;',
+    });
+
+    expect(findPlatformBranchFiles(root)).toEqual(['hooks/example.ts']);
+  });
+
+  it('returns empty array when no Platform usage exists', () => {
+    const root = createFixture({
+      'hooks/no-platform.ts': 'const label = "no platform branch";',
+    });
+
+    expect(findPlatformBranchFiles(root)).toEqual([]);
+  });
+
+  it('detects Platform imports from react-native', () => {
+    const root = createFixture({
+      'lib/example.ts':
+        'import { Platform } from "react-native"; const value = "ok";',
+      'lib/example-alias.ts':
+        'import { Platform as NativePlatform } from "react-native"; const value = "ok";',
+    });
+
+    expect(findPlatformImportFiles(root)).toEqual([
+      'lib/example-alias.ts',
+      'lib/example.ts',
+    ]);
+  });
+
+  it('returns empty array when no Platform imports exist', () => {
+    const root = createFixture({
+      'lib/no-platform-import.ts': 'const stable = "no import";',
+    });
+
+    expect(findPlatformImportFiles(root)).toEqual([]);
+  });
+
+  it('ignores Platform imports from non-react-native packages', () => {
+    const root = createFixture({
+      'lib/other-package.ts':
+        'import { Platform } from "some-other-package"; const stable = true;',
+    });
+
+    expect(findPlatformImportFiles(root)).toEqual([]);
+  });
+
   it('detects files outside the allowlist', () => {
     expect(
       findNonAllowlistedFiles(
@@ -60,6 +109,26 @@ describe('check-platform-drift', () => {
         ['app/known.tsx']
       )
     ).toEqual(['components/stale.tsx']);
+  });
+
+  it('returns true for canonical one-file allowlist', () => {
+    expect(isCanonicalAllowlist(['config/runtime-platform.ts'])).toBe(true);
+  });
+
+  it('returns false for non-canonical allowlist', () => {
+    expect(
+      isCanonicalAllowlist(['config/runtime-platform.ts', 'app/legacy.tsx'])
+    ).toBe(false);
+  });
+
+  it('returns false for empty allowlists', () => {
+    expect(isCanonicalAllowlist([])).toBe(false);
+  });
+
+  it('returns false for invalid allowlist inputs', () => {
+    expect(isCanonicalAllowlist(undefined as unknown as string[])).toBe(false);
+    expect(isCanonicalAllowlist(null as unknown as string[])).toBe(false);
+    expect(isCanonicalAllowlist(['app/not-runtime-platform.ts'])).toBe(false);
   });
 
   it('flags the forbidden android keyboard pattern', () => {
