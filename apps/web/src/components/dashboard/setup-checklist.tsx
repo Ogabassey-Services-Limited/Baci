@@ -295,6 +295,7 @@ export function SetupChecklist({
           type="button"
           onClick={() => setShowAll(!showAll)}
           className="mt-4 text-sm text-primary hover:underline flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+          aria-expanded={showAll}
           aria-label={
             showAll
               ? 'Show fewer setup items'
