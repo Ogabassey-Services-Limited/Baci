@@ -65,4 +65,26 @@ describe('getStorefrontProductSocialMetadata', () => {
       'twitter:data2': 'Out of stock',
     });
   });
+
+  it('uses the lowest variant price for product-family social metadata', () => {
+    const metadata = getStorefrontProductSocialMetadata(
+      'https://ogabassey.com',
+      {
+        name: 'iPhone XR',
+        price: 230000,
+        variants: [
+          { price_override: 180000 },
+          { price_override: 220000 },
+          { price_override: 300000 },
+        ],
+      },
+      'NGN'
+    );
+
+    expect(metadata.other).toMatchObject({
+      'product:price:amount': '180000',
+      'product:price:currency': 'NGN',
+      'twitter:data1': 'NGN 180000',
+    });
+  });
 });

@@ -126,6 +126,18 @@ describe('loadPriceBandPage', () => {
     expect(result?.canonicalUrl).toBe(
       'http://localhost:3000/ogabassey/smartphones/best-under/under-1m'
     );
+    expect(result?.metaTitle).toBe(
+      'Best Smartphones Under ₦1,000,000 in Nigeria | Ogabassey'
+    );
+    expect(result?.metaDescription).toContain(
+      'Compare the best smartphones under ₦1,000,000 in Nigeria'
+    );
+    expect(result?.heading).toBe(
+      'Best Smartphones Under ₦1,000,000 in Nigeria'
+    );
+    expect(result?.intro).toContain(
+      'under ₦1,000,000 in Nigeria, based on live Ogabassey inventory'
+    );
     expect(result?.products).toHaveLength(6);
     expect(result?.products).toEqual(
       expect.arrayContaining([

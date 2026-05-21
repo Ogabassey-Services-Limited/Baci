@@ -1,3 +1,4 @@
+import { getProductPriceRange } from './storefront-product-price-seo';
 import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
@@ -18,6 +19,12 @@ interface StorefrontProductSocialMetadataInput {
   price?: number | null;
   base_price?: number | null;
   sale_price?: number | null;
+  min_variant_price?: number | null;
+  max_variant_price?: number | null;
+  variants?: Array<
+    { price_override?: number | null } | null | undefined
+  > | null;
+  offers?: Array<{ price?: number | null } | null | undefined> | null;
   stock_quantity?: number | null;
   quantity?: number | null;
   manage_stock?: boolean | null;
@@ -49,11 +56,7 @@ function getPrimaryProductImage(
 function getProductPriceAmount(
   product: StorefrontProductSocialMetadataInput
 ): number | null {
-  const rawPrice =
-    product.sale_price ?? product.price ?? product.base_price ?? null;
-  return typeof rawPrice === 'number' && Number.isFinite(rawPrice)
-    ? rawPrice
-    : null;
+  return getProductPriceRange(product)?.min ?? null;
 }
 
 function getProductAvailability(

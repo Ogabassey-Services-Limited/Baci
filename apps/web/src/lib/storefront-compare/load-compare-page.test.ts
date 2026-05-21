@@ -146,8 +146,14 @@ describe('loadComparePage', () => {
     expect(result?.canonicalUrl).toBe(
       'http://localhost:3000/ogabassey/smartphones/compare/iphone-17-pro-max-vs-samsung-galaxy-z-trifold'
     );
-    expect(result?.metaTitle).toContain(
-      'iPhone 17 Pro Max vs Samsung Galaxy Z TriFold'
+    expect(result?.metaTitle).toBe(
+      'iPhone 17 Pro Max vs Samsung Galaxy Z TriFold in Nigeria | Ogabassey'
+    );
+    expect(result?.metaDescription).toContain(
+      'Compare iPhone 17 Pro Max vs Samsung Galaxy Z TriFold in Nigeria by price, specs'
+    );
+    expect(result?.faqItems[0]?.question).toBe(
+      'Which is better in Nigeria, iPhone 17 Pro Max or Samsung Galaxy Z TriFold?'
     );
     expect(result?.comparisonRows[0]).toMatchObject({
       label: expect.any(String),
@@ -166,8 +172,11 @@ describe('loadComparePage', () => {
 
     expect(result?.kind).toBe('brand');
     expect(result?.canonicalSlug).toBe('apple-vs-samsung');
-    expect(result?.heading).toBe('Apple vs Samsung Smartphones');
-    expect(result?.summaryVerdict).toMatch(/smartphones shoppers/i);
+    expect(result?.heading).toBe('Apple vs Samsung Smartphones in Nigeria');
+    expect(result?.metaDescription).toContain(
+      'Compare Apple and Samsung smartphones in Nigeria by live model count'
+    );
+    expect(result?.summaryVerdict).toMatch(/smartphones shoppers in Nigeria/i);
     expect(result?.faqItems.length).toBeGreaterThan(0);
     expect(result?.comparisonRows).toEqual(
       expect.arrayContaining([

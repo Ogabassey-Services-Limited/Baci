@@ -33,6 +33,7 @@ import {
 import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
 import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
 import { buildProductSemanticModel } from '@/lib/storefront-product/build-product-semantic-model';
+import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
 import {
   DEFAULT_STORE_NAME,
@@ -334,21 +335,28 @@ export async function generateMetadata(
     product.category ||
     DEFAULT_STOREFRONT_SEO_CATEGORY;
   const merchantDisplayName = merchant.business_name || DEFAULT_STORE_NAME;
+  const currency = merchant.payout_currency || 'NGN';
+  const priceSeoCopy = buildProductPriceSeoCopy({
+    product,
+    merchantDisplayName,
+    categoryName: productCategoryName,
+    currency,
+  });
   const seoDescription = generateMetaDescription(
-    product.meta_description || product.description || '',
+    product.meta_description || priceSeoCopy.description,
     160,
     {
       minLength: 110,
-      fallback: `Buy ${product.name} from ${merchantDisplayName}. Shop verified ${productCategoryName} with delivery and flexible payment options.`,
+      fallback: priceSeoCopy.description,
     }
   );
   const socialMetadata = getStorefrontProductSocialMetadata(
     baseUrl,
     product,
-    merchant.payout_currency || 'USD'
+    currency
   );
   const metadataTitle = generateMetaTitle(
-    product.meta_title || `${product.name} - ${productCategoryName}`,
+    product.meta_title || priceSeoCopy.title,
     {
       maxLength: 70,
       suffix: merchantDisplayName,
@@ -438,6 +446,14 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
       : product;
   const baseUrl = buildRequestScopedStoreUrl(merchant, await headers());
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
+  const currency = merchant.payout_currency || 'NGN';
+  const priceSeoCopy = buildProductPriceSeoCopy({
+    product,
+    merchantDisplayName: merchant.business_name || DEFAULT_STORE_NAME,
+    categoryName:
+      product.categories?.name || product.category || 'All Products',
+    currency,
+  });
   const productUrl = getValidatedProductUrl(product, baseUrl, merchant.slug);
   const productSchema = generateProductSchema(
     productWithReviews,
@@ -506,6 +522,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
   const semanticSectionsModel = {
     ...semanticModel,
     trustBullets: [
+      priceSeoCopy.answer,
       ...buildTrustBulletsFromProfile(trustProfile),
       ...semanticModel.trustBullets,
     ],

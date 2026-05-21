@@ -85,8 +85,13 @@ export interface LegacyCachedProduct {
   status: string;
   slug?: string | null;
   canonical_url?: string | null;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  keywords?: string[] | null;
   sale_price?: number | null;
   base_price: number;
+  min_variant_price?: number | null;
+  max_variant_price?: number | null;
   track_quantity?: boolean | null;
   quantity?: number | null;
   images?: RawProductImage[] | null;
@@ -117,10 +122,17 @@ export interface DetailedCachedProduct {
   status?: string | null;
   slug?: string | null;
   canonical_url?: string | null;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  keywords?: string[] | null;
+  schema_markup?: Product['schema_markup'] | null;
+  google_product_category?: string | null;
   condition?: string | null;
   condition_detail?: string | null;
   price?: number | string | null;
   compare_at_price?: number | string | null;
+  min_variant_price?: number | null;
+  max_variant_price?: number | null;
   manage_stock?: boolean | null;
   stock?: number | string | null;
   stock_quantity?: number | string | null;
@@ -213,6 +225,9 @@ export function mapLegacyCachedProductToProduct(
       category_slug: primaryCategory?.slug,
       canonical_url: cachedProduct.canonical_url,
     }),
+    meta_title: cachedProduct.meta_title ?? undefined,
+    meta_description: cachedProduct.meta_description ?? undefined,
+    keywords: cachedProduct.keywords ?? undefined,
     // Use nullish coalescing so a legitimate `0` sale_price (free promo,
     // giveaway) is preserved rather than coerced up to base_price.
     price: cachedProduct.sale_price ?? cachedProduct.base_price,
@@ -221,6 +236,8 @@ export function mapLegacyCachedProductToProduct(
       cachedProduct.sale_price !== undefined
         ? cachedProduct.base_price
         : undefined,
+    min_variant_price: cachedProduct.min_variant_price ?? undefined,
+    max_variant_price: cachedProduct.max_variant_price ?? undefined,
     manage_stock: cachedProduct.track_quantity ?? false,
     stock: cachedProduct.quantity ?? 0,
     image: firstImage,
@@ -288,6 +305,12 @@ export function mapDetailedCachedProductToProduct(
       condition: detailedProduct.condition,
       condition_detail: detailedProduct.condition_detail,
     }),
+    meta_title: detailedProduct.meta_title ?? undefined,
+    meta_description: detailedProduct.meta_description ?? undefined,
+    keywords: detailedProduct.keywords ?? undefined,
+    schema_markup: detailedProduct.schema_markup ?? undefined,
+    google_product_category:
+      detailedProduct.google_product_category ?? undefined,
     price:
       typeof detailedProduct.price === 'string'
         ? Number.parseFloat(detailedProduct.price) || 0
@@ -296,6 +319,8 @@ export function mapDetailedCachedProductToProduct(
       typeof detailedProduct.compare_at_price === 'string'
         ? Number.parseFloat(detailedProduct.compare_at_price) || undefined
         : detailedProduct.compare_at_price || undefined,
+    min_variant_price: detailedProduct.min_variant_price ?? undefined,
+    max_variant_price: detailedProduct.max_variant_price ?? undefined,
     manage_stock: detailedProduct.manage_stock ?? false,
     stock: getEffectiveStock(detailedProduct),
     image: firstImage,

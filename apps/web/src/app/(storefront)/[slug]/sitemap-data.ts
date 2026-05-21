@@ -35,6 +35,7 @@ const SITEMAP_QUERY_PAGE_SIZE = 1000;
 // static/category/commercial URLs plus product URLs stay comfortably under the
 // limit in getRootSitemapEntries.
 const SITEMAP_MAX_PRODUCT_URLS = 45_000;
+const METADATA_ROUTE_IDENTIFIER_OVERRIDES = new Set(['sitemap']);
 
 export interface StorefrontSitemapContext {
   merchant: NonNullable<Awaited<ReturnType<typeof getMerchantByIdentifier>>>;
@@ -47,11 +48,23 @@ export async function resolveStorefrontSitemapContext(
   routeIdentifierOverride?: string | null
 ): Promise<StorefrontSitemapContext | null> {
   const merchantContextHeader =
-    headersList.get('x-custom-domain') || headersList.get('x-merchant-slug');
+    headersList.get('x-custom-domain') ||
+    headersList.get('x-merchant-domain') ||
+    headersList.get('x-merchant-slug');
   const headerRouteIdentifier = resolveRouteIdentifier(headersList);
-  const routeIdentifier = merchantContextHeader?.trim()
+  const routeIdentifierOverrideValue =
+    routeIdentifierOverride?.trim().toLowerCase() || '';
+  // METADATA_ROUTE_IDENTIFIER_OVERRIDES prevents metadata route params such as
+  // "sitemap" from being treated as literal merchant ids. If a merchant header
+  // or metadata override is present, use headerRouteIdentifier; otherwise fall
+  // back to the normalized routeIdentifierOverrideValue.
+  const shouldPreferHeaderRouteIdentifier =
+    Boolean(headerRouteIdentifier) &&
+    (Boolean(merchantContextHeader?.trim()) ||
+      METADATA_ROUTE_IDENTIFIER_OVERRIDES.has(routeIdentifierOverrideValue));
+  const routeIdentifier = shouldPreferHeaderRouteIdentifier
     ? headerRouteIdentifier
-    : routeIdentifierOverride?.trim().toLowerCase() || headerRouteIdentifier;
+    : routeIdentifierOverrideValue || headerRouteIdentifier;
   let merchant = null;
 
   try {

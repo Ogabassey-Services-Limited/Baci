@@ -13,6 +13,10 @@ import { buildStoreUrl } from '@/lib/store-url';
 import { buildCommercialGuideLinks } from '@/lib/storefront-content/build-commercial-guide-links';
 import type { SupportedClusterCategory } from '@/lib/storefront-content/content-cluster-types';
 import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
+import {
+  getCountryShoppingContext,
+  getStorefrontLocale,
+} from '@/lib/storefront-localization';
 import { isDomainIdentifier } from '@/lib/validation';
 import { buildPriceBandCandidate } from './compare-eligibility';
 import { getCuratedPriceBands } from './price-band-taxonomy';
@@ -143,7 +147,19 @@ export async function loadPriceBandPage(args: {
   const guidePosts = await getPublishedClusterPosts(merchant.id);
   const categoryName = categoryData.fallbackName || args.categorySlug;
   const canonicalUrl = `${storeUrl}/${args.categorySlug}/best-under/${band.slug}`;
-  const labelWithoutBest = band.label.replace(/^Best\s+/i, '');
+  const payoutCurrency = merchant.payout_currency || 'NGN';
+  const priceFormatter = new Intl.NumberFormat(
+    getStorefrontLocale(merchant.country),
+    {
+      style: 'currency',
+      currency: payoutCurrency,
+      maximumFractionDigits: 0,
+    }
+  );
+  const ceilingText = priceFormatter.format(band.ceiling);
+  const countryContext = getCountryShoppingContext(merchant.country);
+  const countrySuffix = countryContext ? ` ${countryContext}` : '';
+  const heading = `${band.label}${countrySuffix}`;
   const supportedClusterCategory = getSupportedClusterCategory(
     args.categorySlug
   );
@@ -151,14 +167,14 @@ export async function loadPriceBandPage(args: {
   return {
     merchant,
     canonicalUrl,
-    metaTitle: `${band.label} | ${merchant.business_name}`,
-    metaDescription: `Compare the best ${categoryName.toLowerCase()} under ${labelWithoutBest} from ${merchant.business_name}.`,
-    heading: band.label,
-    intro: `These are the strongest ${categoryName.toLowerCase()} options below the ${labelWithoutBest.toLowerCase()} price band.`,
+    metaTitle: `${heading} | ${merchant.business_name}`,
+    metaDescription: `Compare the best ${categoryName.toLowerCase()} under ${ceilingText}${countrySuffix}. See live prices, stock, condition, and buying options from ${merchant.business_name}.`,
+    heading,
+    intro: `These are the strongest ${categoryName.toLowerCase()} options under ${ceilingText}${countrySuffix}, based on live ${merchant.business_name} inventory with price, condition, and availability details.`,
     breadcrumbItems: [
       { name: merchant.business_name, url: storeUrl },
       { name: categoryName, url: `${storeUrl}/${args.categorySlug}` },
-      { name: band.label, url: canonicalUrl },
+      { name: heading, url: canonicalUrl },
     ],
     products,
     guideLinks: supportedClusterCategory
@@ -174,6 +190,6 @@ export async function loadPriceBandPage(args: {
       : [],
     isIndexable: bandCandidate.isIndexable,
     pathPrefix: await getStorefrontPathPrefix(args.merchantSlug, merchant.slug),
-    payoutCurrency: merchant.payout_currency || 'NGN',
+    payoutCurrency,
   };
 }

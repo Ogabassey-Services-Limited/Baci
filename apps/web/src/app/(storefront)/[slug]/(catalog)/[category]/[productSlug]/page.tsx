@@ -45,6 +45,7 @@ import {
   getValidatedProductUrl,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
+import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
 import {
@@ -535,21 +536,28 @@ export async function generateMetadata({
     product.category ||
     DEFAULT_STOREFRONT_SEO_CATEGORY;
   const merchantDisplayName = merchant?.business_name || DEFAULT_STORE_NAME;
+  const currency = merchant.payout_currency || 'NGN';
+  const priceSeoCopy = buildProductPriceSeoCopy({
+    product,
+    merchantDisplayName,
+    categoryName: productCategoryName,
+    currency,
+  });
   const seoDescription = generateMetaDescription(
-    product.meta_description || product.description || '',
+    product.meta_description || priceSeoCopy.description,
     160,
     {
       minLength: 110,
-      fallback: `Buy ${product.name} from ${merchantDisplayName}. Shop trusted ${productCategoryName} with delivery and flexible payment options.`,
+      fallback: priceSeoCopy.description,
     }
   );
   const socialMetadata = getStorefrontProductSocialMetadata(
     baseUrl,
     product,
-    merchant.payout_currency || 'USD'
+    currency
   );
   const metadataTitle = generateMetaTitle(
-    product.meta_title || `${product.name} - ${productCategoryName}`,
+    product.meta_title || priceSeoCopy.title,
     {
       maxLength: 70,
       suffix: merchantDisplayName,
@@ -638,7 +646,17 @@ export default async function CategoryProductPage({
     product.category_slug ||
     (product.category ? generateSlug(product.category) : 'products');
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
-  const trustBullets = buildTrustBulletsFromProfile(trustProfile);
+  const currency = merchant.payout_currency || 'NGN';
+  const priceSeoCopy = buildProductPriceSeoCopy({
+    product,
+    merchantDisplayName: merchant?.business_name || DEFAULT_STORE_NAME,
+    categoryName: product.category || 'All Products',
+    currency,
+  });
+  const trustBullets = [
+    priceSeoCopy.answer,
+    ...buildTrustBulletsFromProfile(trustProfile),
+  ];
   const semanticSections = (
     <Suspense fallback={null}>
       <OgabasseyPdpSemanticSections
@@ -721,10 +739,8 @@ export default async function CategoryProductPage({
       />
       {/* Hidden crawlable summary without a second page-level heading */}
       <article className="sr-only" aria-label={`${product.name} summary`}>
-        <p>
-          {product.description ||
-            `Buy ${product.name} at the best price in Nigeria. Pay later with flexible options.`}
-        </p>
+        <p>{priceSeoCopy.answer}</p>
+        {product.description ? <p>{product.description}</p> : null}
         <dl>
           <dt>Brand</dt>
           <dd>{product.brand || 'OgaBassey'}</dd>
@@ -733,7 +749,7 @@ export default async function CategoryProductPage({
           <dt>Condition</dt>
           <dd>{product.condition || 'New'}</dd>
           <dt>Price</dt>
-          <dd>₦{product.price?.toLocaleString() || 'Contact for price'}</dd>
+          <dd>{priceSeoCopy.priceText || 'Contact for price'}</dd>
         </dl>
       </article>
       {productPage}

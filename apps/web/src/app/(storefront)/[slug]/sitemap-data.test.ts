@@ -130,6 +130,14 @@ function setCustomDomainHeader(domain: string) {
   mockHeaders = new Map<string, string>([['x-custom-domain', domain]]);
 }
 
+function setMerchantDomainHeader(domain: string) {
+  mockHeaders = new Map<string, string>([['x-merchant-domain', domain]]);
+}
+
+function setHostHeader(host: string) {
+  mockHeaders = new Map<string, string>([['host', host]]);
+}
+
 function mockProductsQuery(data: unknown, error: Error | null = null) {
   mockQueryResults.set('products', { data, error });
 }
@@ -197,6 +205,42 @@ describe('sitemap-data', () => {
 
   it('prefers the custom domain header over route params for named sitemap rewrites', async () => {
     setCustomDomainHeader('ogabassey.com');
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+
+    const context = await resolveStorefrontSitemapContext(
+      mockHeaders as unknown as Headers,
+      'sitemap'
+    );
+
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(context?.storeUrl).toBe('https://ogabassey.com');
+  });
+
+  it('treats x-merchant-domain as a storefront context header for named sitemap rewrites', async () => {
+    setMerchantDomainHeader('ogabassey.com');
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+
+    const context = await resolveStorefrontSitemapContext(
+      mockHeaders as unknown as Headers,
+      'sitemap'
+    );
+
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(context?.storeUrl).toBe('https://ogabassey.com');
+  });
+
+  it('uses the custom-domain host when direct named sitemap routing exposes sitemap as the slug param', async () => {
+    setHostHeader('ogabassey.com');
     mockGetMerchantByIdentifier.mockResolvedValue({
       id: 'merchant-1',
       slug: 'ogabassey',
