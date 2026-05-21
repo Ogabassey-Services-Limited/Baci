@@ -265,7 +265,9 @@ export async function BlogPageContent({ params, searchParams }: PageProps) {
 export default function BlogPage(props: PageProps) {
   return (
     <>
-      <StorefrontDynamicMetadataMarker />
+      <Suspense fallback={null}>
+        <StorefrontDynamicMetadataMarker />
+      </Suspense>
       <Suspense fallback={<BlogListingFallback />}>
         <BlogPageContent {...props} />
       </Suspense>

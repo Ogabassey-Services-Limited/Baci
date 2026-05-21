@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { Suspense } from 'react';
 import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
 import {
   getCachedCategoryPageData,
@@ -149,7 +150,9 @@ export async function generateMetadata({
 export default function CategoryPageRoute(props: PageProps) {
   return (
     <>
-      <StorefrontDynamicMetadataMarker />
+      <Suspense fallback={null}>
+        <StorefrontDynamicMetadataMarker />
+      </Suspense>
       <CategoryPageContent {...props} />
     </>
   );

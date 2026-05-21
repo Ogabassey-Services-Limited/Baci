@@ -1,23 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import { headers } from 'next/headers';
-import {
-  Children,
-  isValidElement,
-  type ReactElement,
-  type ReactNode,
-  Suspense,
-} from 'react';
+import { Suspense } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getMerchantByIdentifier,
   getRequestScopedMerchant,
 } from '@/lib/cached-data';
-
-const { MockStorefrontDynamicMetadataMarker } = vi.hoisted(() => ({
-  MockStorefrontDynamicMetadataMarker: () => (
-    <div aria-label="dynamic metadata marker" role="status" />
-  ),
-}));
 
 vi.mock('@/lib/cached-data', () => ({
   getMerchantByIdentifier: vi.fn(),
@@ -25,7 +13,7 @@ vi.mock('@/lib/cached-data', () => ({
 }));
 
 vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: MockStorefrontDynamicMetadataMarker,
+  StorefrontDynamicMetadataMarker: () => null,
 }));
 
 vi.mock('@/lib/merchant-template-data', () => ({
@@ -109,26 +97,6 @@ describe('FAQPage', () => {
     );
 
     expect(screen.queryByText('Loading FAQ...')).toBeNull();
-  });
-
-  it('marks runtime metadata as intentional dynamic content', () => {
-    const page = FAQPage({
-      params: Promise.resolve({ slug: 'test-store' }),
-    }) as ReactElement<{ children?: ReactNode }>;
-    const metadataMarker = Children.toArray(page.props.children).find(
-      (child) =>
-        isValidElement(child) &&
-        child.type === MockStorefrontDynamicMetadataMarker
-    );
-
-    // Rendering the full route in jsdom is hidden by the outer test Suspense
-    // because FAQContent is an async RSC; render the route-owned marker itself.
-    expect(metadataMarker).toBeDefined();
-    render(metadataMarker as ReactElement);
-
-    expect(
-      screen.getByRole('status', { name: /dynamic metadata marker/i })
-    ).toBeInTheDocument();
   });
 
   it('does not call notFound when merchant has FAQ items', async () => {

@@ -88,7 +88,9 @@ export async function generateMetadata({
 export default function ShippingPage({ params }: PageProps) {
   return (
     <>
-      <StorefrontDynamicMetadataMarker />
+      <Suspense fallback={null}>
+        <StorefrontDynamicMetadataMarker />
+      </Suspense>
       <Suspense fallback={<ContentRouteLoading />}>
         <ShippingPageContent params={params} />
       </Suspense>
