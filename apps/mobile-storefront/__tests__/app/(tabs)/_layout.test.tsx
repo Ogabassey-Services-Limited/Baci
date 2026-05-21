@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react-native';
 import type React from 'react';
 import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import TabLayout from '@/app/(tabs)/_layout';
+
 import { TAB_BAR_BASE_HEIGHT } from '@/constants/layout';
 
 const MockText = Text;
@@ -42,6 +43,22 @@ const mockTabs = jest.fn(({ children, screenOptions }: MockTabsProps) => (
     {children}
   </MockView>
 ));
+
+jest.mock('@/hooks/useTheme', () => ({
+  useTheme: () => ({
+    colors: {
+      text: '#FFFFFF',
+      mutedForeground: '#9CA3AF',
+      card: '#0F0F0F',
+      border: 'rgba(255, 255, 255, 0.08)',
+      background: '#000000',
+      primaryForeground: '#FFFFFF',
+      primary: '#DC2626',
+      primaryLowOpacity: 'rgba(255, 0, 0, 0.1)',
+      icon: '#9CA3AF',
+          },
+  }),
+}));
 
 jest.mock('expo-router', () => {
   const Tabs = (props: MockTabsProps) => mockTabs(props);
