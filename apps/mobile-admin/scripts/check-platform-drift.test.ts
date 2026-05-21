@@ -72,12 +72,20 @@ describe('check-platform-drift', () => {
         'import RN, { Platform as NativePlatform } from "react-native"; const value = NativePlatform.OS;',
       'lib/example-default-plus-named-no-alias.ts':
         'import RN, { Platform } from "react-native"; const value = Platform.OS;',
+      'lib/example-namespace-destructure.ts':
+        'import * as RN from "react-native"; const { Platform: NativePlatform } = RN; const value = NativePlatform.OS;',
+      'lib/example-namespace-direct.ts':
+        'import * as RN from "react-native"; const value = RN.Platform.OS;',
+      'lib/example-namespace-no-platform.ts':
+        'import * as RN from "react-native"; const value = RN.View;',
     });
 
     expect(findPlatformImportFiles(root)).toEqual([
       'lib/example-alias.ts',
       'lib/example-default-plus-named-no-alias.ts',
       'lib/example-default-plus-named.ts',
+      'lib/example-namespace-destructure.ts',
+      'lib/example-namespace-direct.ts',
       'lib/example.ts',
     ]);
   });

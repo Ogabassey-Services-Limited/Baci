@@ -13,9 +13,14 @@ const SCAN_DIRECTORIES = [
   'utils',
 ];
 const EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);
+const IDENTIFIER_PATTERN = String.raw`[A-Za-z_$][\w$]*`;
 const PLATFORM_USAGE_PATTERN = /\bPlatform\./;
 const PLATFORM_IMPORT_PATTERN =
   /import\s+(?:[A-Za-z_$][\w$]*\s*,\s*)?\{[^}]*\bPlatform(?:\s+as\s+[A-Za-z_$][\w$]*)?\b[^}]*\}\s*from\s*['"]react-native['"]/;
+const REACT_NATIVE_NAMESPACE_IMPORT_PATTERN = new RegExp(
+  String.raw`import\s+\*\s+as\s+(${IDENTIFIER_PATTERN})\s+from\s*['"]react-native['"]`,
+  'g'
+);
 const CANONICAL_ALLOWLIST = ['config/runtime-platform.ts'];
 const IGNORED_SUFFIXES = ['.test.ts', '.test.tsx', '.test.js', '.test.jsx'];
 const FORBIDDEN_PATTERNS = [
@@ -26,6 +31,10 @@ const FORBIDDEN_PATTERNS = [
       /behavior=\{Platform\.OS === ['"]ios['"] \? ['"]padding['"] : undefined\}/,
   },
 ];
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 function listFiles(rootDir) {
   const output = [];
@@ -52,7 +61,7 @@ function isIgnored(relativePath) {
   return IGNORED_SUFFIXES.some((suffix) => relativePath.endsWith(suffix));
 }
 
-function findFilesMatchingPattern(projectRoot, pattern) {
+function findFilesMatchingSource(projectRoot, matchesSource) {
   return SCAN_DIRECTORIES.flatMap((directory) => {
     const absoluteDirectory = path.join(projectRoot, directory);
     if (!existsSync(absoluteDirectory)) return [];
@@ -62,9 +71,42 @@ function findFilesMatchingPattern(projectRoot, pattern) {
       .filter((relativePath) => !isIgnored(relativePath))
       .filter((relativePath) => {
         const source = readFileSync(path.join(projectRoot, relativePath), 'utf8');
-        return pattern.test(source);
+        return matchesSource(source);
       });
   }).sort();
+}
+
+function findFilesMatchingPattern(projectRoot, pattern) {
+  return findFilesMatchingSource(projectRoot, (source) => pattern.test(source));
+}
+
+function hasReactNativeNamespacePlatformAccess(source) {
+  for (const match of source.matchAll(REACT_NATIVE_NAMESPACE_IMPORT_PATTERN)) {
+    const namespaceIdentifier = match[1];
+    const escapedNamespace = escapeRegExp(namespaceIdentifier);
+    const directAccessPattern = new RegExp(
+      String.raw`\b${escapedNamespace}\.Platform\b`
+    );
+    const destructuredAccessPattern = new RegExp(
+      String.raw`\b(?:const|let|var)\s*\{[^}]*\bPlatform(?:\s*:\s*${IDENTIFIER_PATTERN})?\b[^}]*\}\s*=\s*${escapedNamespace}\b`
+    );
+
+    if (
+      directAccessPattern.test(source) ||
+      destructuredAccessPattern.test(source)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function importsPlatformFromReactNative(source) {
+  return (
+    PLATFORM_IMPORT_PATTERN.test(source) ||
+    hasReactNativeNamespacePlatformAccess(source)
+  );
 }
 
 export function findPlatformBranchFiles(projectRoot) {
@@ -72,7 +114,7 @@ export function findPlatformBranchFiles(projectRoot) {
 }
 
 export function findPlatformImportFiles(projectRoot) {
-  return findFilesMatchingPattern(projectRoot, PLATFORM_IMPORT_PATTERN);
+  return findFilesMatchingSource(projectRoot, importsPlatformFromReactNative);
 }
 
 export function findForbiddenPatternViolations(projectRoot, relativePaths) {
