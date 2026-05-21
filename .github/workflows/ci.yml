@@ -46,12 +46,15 @@ jobs:
               - 'apps/mobile-storefront/assets/quiz/**'
               - 'apps/mobile-storefront/app/**'
               - 'apps/mobile-storefront/components/**'
+              - 'apps/mobile-storefront/config/**'
               - 'apps/mobile-storefront/constants/**'
               - 'apps/mobile-storefront/hooks/**'
               - 'apps/mobile-storefront/lib/**'
               - 'apps/mobile-storefront/schemas/**'
+              - 'apps/mobile-storefront/scripts/**'
               - 'apps/mobile-storefront/services/**'
               - 'apps/mobile-storefront/stores/**'
+              - 'apps/mobile-storefront/package.json'
               - 'packages/shared/**'
               - '.github/actions/pnpm-install-cached/**'
               - '.github/actions/setup-pnpm-store/**'
@@ -89,6 +92,8 @@ jobs:
         run: pnpm turbo lint typecheck test --concurrency=3
       - if: needs.changes.outputs.web == 'true'
         run: pnpm --filter @baci/web verify:quiz-assets
+      - if: needs.changes.outputs.web == 'true'
+        run: pnpm --filter @baci/mobile-storefront check:route-size
       - if: needs.changes.outputs.web == 'true'
         run: pnpm knip
       - if: needs.changes.outputs.web != 'true'
