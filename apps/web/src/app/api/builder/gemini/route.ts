@@ -18,6 +18,11 @@ import {
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
 import { builderConfigSchema } from '@/schemas/builder';
 import { BUILDER_GEMINI_SYSTEM_PROMPT } from '../gemini-system-prompt';
+import {
+  BUILDER_GEMINI_RETRY_CONFIG,
+  getBuilderGeminiFailure,
+  runBuilderGeminiWithTimeout,
+} from './route-provider-errors';
 
 const PuckThemeColorsSchema = z
   .object({
@@ -60,15 +65,6 @@ const builderGeminiRequestSchema = z.object({
   currentConfig: aiBuilderConfigSchema,
 });
 
-const BUILDER_GEMINI_RETRY_CONFIG = {
-  maxRetries: 1,
-  initialDelayMs: 750,
-  maxDelayMs: 1500,
-  backoffMultiplier: 2,
-};
-
-const BUILDER_GEMINI_TIMEOUT_MS = 25_000;
-
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -84,29 +80,6 @@ function mergeThemeValue(existingValue: unknown, nextValue: unknown): unknown {
   }
 
   return merged;
-}
-
-async function runBuilderGeminiWithTimeout<T>(
-  operation: (abortSignal: AbortSignal) => Promise<T>
-): Promise<T> {
-  const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    BUILDER_GEMINI_TIMEOUT_MS
-  );
-
-  try {
-    return await operation(controller.signal);
-  } catch (error) {
-    if (controller.signal.aborted) {
-      const timeoutError = new Error('builder_gemini_timeout');
-      timeoutError.name = 'BuilderGeminiTimeoutError';
-      throw timeoutError;
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
 }
 
 export async function POST(req: NextRequest) {
@@ -295,8 +268,8 @@ Please return the complete updated configuration as valid JSON. Make intelligent
       }
     );
   } catch (error) {
-    // Log full error details server-side for debugging
-    console.error('Gemini AI Builder Error:', {
+    const failure = getBuilderGeminiFailure(error, requestId);
+    const logPayload = {
       requestId,
       userId: aiLogContext.userId,
       merchantId: aiLogContext.merchantId,
@@ -306,15 +279,14 @@ Please return the complete updated configuration as valid JSON. Make intelligent
       errorName: error instanceof Error ? error.name : 'UnknownError',
       errorMessage: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
-    });
+    };
 
-    return NextResponse.json(
-      {
-        error: 'AI editor is temporarily unavailable',
-        code: 'ai_provider_unavailable',
-        requestId,
-      },
-      { status: 503 }
-    );
+    if (failure.logLevel === 'warn') {
+      console.warn('Gemini AI Builder Error:', logPayload);
+    } else {
+      console.error('Gemini AI Builder Error:', logPayload);
+    }
+
+    return NextResponse.json(failure.response, { status: failure.status });
   }
 }
