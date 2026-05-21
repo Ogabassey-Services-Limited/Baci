@@ -50,6 +50,23 @@ const mockProductsOrder = vi.fn();
 const mockProductsLimit = vi.fn();
 let productQueryMode: 'non_null' | 'null' = 'non_null';
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+
+  return { promise, reject, resolve };
+}
+
+async function flushMicrotasks(cycles = 10) {
+  for (let cycle = 0; cycle < cycles; cycle += 1) {
+    await Promise.resolve();
+  }
+}
+
 function createMockSupabase() {
   return {
     rpc: mockRpc,
@@ -836,6 +853,98 @@ describe('getCachedGoogleMerchantFeedData', () => {
     expect(result.imageManifest['product-250']).toHaveLength(1);
   });
 
+  it('limits concurrent verified image manifest batch queries', async () => {
+    const firstProductPage = Array.from({ length: 1000 }, (_, index) => ({
+      id: `product-${index}`,
+      name: `Phone ${index}`,
+      created_at: '2026-01-01T00:00:00.000Z',
+    }));
+    const secondProductPage = [
+      {
+        id: 'product-1000',
+        name: 'Phone 1000',
+        created_at: '2025-12-31T00:00:00.000Z',
+      },
+    ];
+    let rangeCallIndex = 0;
+    const {
+      FEED_IMAGE_MANIFEST_MAX_CONCURRENT_BATCHES,
+      getCachedGoogleMerchantFeedData,
+    } = await import('./feed-data');
+    const deferredManifestResults = Array.from(
+      { length: FEED_IMAGE_MANIFEST_MAX_CONCURRENT_BATCHES },
+      () => createDeferred<ManifestResult>()
+    );
+
+    mockProductsLimit
+      .mockImplementationOnce(() => ({
+        overrideTypes: () =>
+          Promise.resolve({
+            data: firstProductPage,
+            error: null,
+          } satisfies ProductsResult),
+      }))
+      .mockImplementationOnce(() => ({
+        overrideTypes: () =>
+          Promise.resolve({
+            data: secondProductPage,
+            error: null,
+          } satisfies ProductsResult),
+      }));
+    mockManifestRange.mockImplementation(() => {
+      const callIndex = rangeCallIndex;
+      rangeCallIndex += 1;
+
+      if (callIndex < deferredManifestResults.length) {
+        return {
+          overrideTypes: () => deferredManifestResults[callIndex].promise,
+        };
+      }
+
+      return {
+        overrideTypes: () =>
+          Promise.resolve({ data: [], error: null } satisfies ManifestResult),
+      };
+    });
+
+    const resultPromise = getCachedGoogleMerchantFeedData(
+      'merchant-1',
+      'ogabassey'
+    );
+
+    await flushMicrotasks();
+
+    expect(mockManifestRange).toHaveBeenCalledTimes(
+      FEED_IMAGE_MANIFEST_MAX_CONCURRENT_BATCHES
+    );
+    expect(
+      mockManifestIn.mock.calls.map(([, productIds]) => productIds.length)
+    ).toEqual(
+      Array.from(
+        { length: FEED_IMAGE_MANIFEST_MAX_CONCURRENT_BATCHES },
+        () => 250
+      )
+    );
+
+    for (const deferredResult of deferredManifestResults) {
+      deferredResult.resolve({ data: [], error: null });
+    }
+
+    const result = await resultPromise;
+
+    expect(mockManifestRange).toHaveBeenCalledTimes(5);
+    expect(
+      mockManifestIn.mock.calls.map(([, productIds]) => productIds.length)
+    ).toEqual([
+      ...Array.from(
+        { length: FEED_IMAGE_MANIFEST_MAX_CONCURRENT_BATCHES },
+        () => 250
+      ),
+      1,
+    ]);
+    expect(result.products).toHaveLength(1001);
+  });
+
   it('paginates each active product image chunk with deterministic ordering', async () => {
     productsResult = {
       data: [
@@ -897,20 +1006,12 @@ describe('getCachedGoogleMerchantFeedData', () => {
     expect(result.imageManifest['product-2']).toHaveLength(1000);
   });
 
-  it('filters manifest rows down to active feed products', async () => {
+  it('scopes manifest queries to active feed products', async () => {
     manifestResult = {
       data: [
         {
           product_id: 'product-1',
           verified_url: 'https://cdn.example.com/phone.jpg',
-          verified_format: 'jpeg',
-          status: 'verified',
-          is_primary: true,
-          position: 0,
-        },
-        {
-          product_id: 'archived-product',
-          verified_url: 'https://cdn.example.com/archived.jpg',
           verified_format: 'jpeg',
           status: 'verified',
           is_primary: true,
@@ -929,8 +1030,8 @@ describe('getCachedGoogleMerchantFeedData', () => {
       'ogabassey'
     );
 
+    expect(mockManifestIn).toHaveBeenCalledWith('product_id', ['product-1']);
     expect(result.imageManifest['product-1']).toHaveLength(1);
-    expect(result.imageManifest['archived-product']).toBeUndefined();
   });
 
   it('returns empty imageManifest when no products exist (short-circuit)', async () => {
