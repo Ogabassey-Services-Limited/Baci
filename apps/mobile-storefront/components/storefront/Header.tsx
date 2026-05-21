@@ -29,6 +29,7 @@ interface HeaderProps {
   onSearchQueryChange?: (text: string) => void;
   onSearchSubmit?: () => void;
   onSearchCancel?: () => void;
+  isScrolled?: boolean;
 }
 
 // Background pattern from web (SVG Data URI)
@@ -41,6 +42,7 @@ export function Header({
   onSearchQueryChange,
   onSearchSubmit,
   onSearchCancel,
+  isScrolled = false,
 }: HeaderProps) {
   const insets = useSafeAreaInsets();
   const searchInputRef = useRef<TextInput>(null);
@@ -78,8 +80,10 @@ export function Header({
 
     return (
       <View
+        testID="storefront-header"
         style={[
           styles.eliteContainer,
+          isScrolled && { backgroundColor: colors.black },
           { paddingTop: eliteTopPadding },
           isSanta && { backgroundColor: seasonalTokens.holidayBg },
         ]}
@@ -228,8 +232,10 @@ export function Header({
   if (template.headerStyle === 'minimal') {
     return (
       <View
+        testID="storefront-header"
         style={[
           styles.minimalContainer,
+          isScrolled && { backgroundColor: colors.background },
           { paddingTop: insets.top + SPACING.sm },
         ]}
       >
