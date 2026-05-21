@@ -11,7 +11,6 @@ import {
 interface MobileLcpHeroImageProps {
   alt: string;
   imageFit?: 'contain' | 'cover';
-  isResolvedMobileViewport: boolean;
   shouldPrioritizeImage: boolean;
   src: string;
 }
@@ -25,7 +24,6 @@ function getResponsiveSizes(srcSetValue: string, sizesValue?: string) {
 export function MobileLcpHeroImage({
   alt,
   imageFit,
-  isResolvedMobileViewport,
   shouldPrioritizeImage,
   src,
 }: MobileLcpHeroImageProps) {
@@ -86,9 +84,7 @@ export function MobileLcpHeroImage({
       <img
         {...imgProps}
         fetchPriority={shouldPrioritizeImage ? 'high' : undefined}
-        sizes={isResolvedMobileViewport ? resolvedFallbackSizes : undefined}
-        src={isResolvedMobileViewport ? fallbackSrc : TRANSPARENT_PIXEL_SRC}
-        srcSet={isResolvedMobileViewport ? resolvedFallbackSrcSet : undefined}
+        src={TRANSPARENT_PIXEL_SRC}
         className={`h-full w-full ${
           imageFit === 'contain' ? 'object-contain object-right' : 'object-cover'
         }`}

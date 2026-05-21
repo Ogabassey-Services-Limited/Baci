@@ -51,7 +51,7 @@ describe('OgabasseyStaticResourceHints', () => {
     expect(mobilePreload?.getAttribute('as')).toBe('image');
     expect(mobilePreload?.getAttribute('type')).toBe('image/avif');
     expect(mobilePreload?.getAttribute('fetchpriority')).toBe('high');
-    expect(mobilePreload?.getAttribute('media')).toBeNull();
+    expect(mobilePreload?.getAttribute('media')).toBe('(max-width: 767px)');
     expect(
       links.filter((link) => link.getAttribute('rel') === 'preload')
     ).toHaveLength(2);
