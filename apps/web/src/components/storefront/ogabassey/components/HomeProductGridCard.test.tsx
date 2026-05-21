@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { act, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -104,5 +106,13 @@ describe('HomeProductGridCard', () => {
     });
 
     expect(screen.getByAltText(baseProduct.name)).toBeInTheDocument();
+  });
+
+  it('keeps lazy product images visible after they load', () => {
+    const globalsCss = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf8');
+
+    expect(globalsCss).not.toMatch(
+      /img\[loading="lazy"\]\s*{[^}]*opacity:\s*0\b/s
+    );
   });
 });
