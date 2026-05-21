@@ -31,6 +31,7 @@ const mocks = vi.hoisted(() => ({
   refetch: vi.fn(),
   select: vi.fn(),
   eq: vi.fn(),
+  setQueryData: vi.fn(),
   single: vi.fn(),
   useQuery: vi.fn(),
   useMerchantResult: {
@@ -62,7 +63,7 @@ vi.mock('@tanstack/react-query', () => ({
     cancelQueries: vi.fn(),
     getQueryData: vi.fn(),
     invalidateQueries: mocks.invalidateQueries,
-    setQueryData: vi.fn(),
+    setQueryData: mocks.setQueryData,
   }),
 }));
 
@@ -183,6 +184,7 @@ describe('PaymentMethodsScreen', () => {
     mocks.refetch.mockReset();
     mocks.select.mockReset();
     mocks.eq.mockReset();
+    mocks.setQueryData.mockReset();
     mocks.single.mockReset();
     mocks.useQuery.mockReset();
     mocks.useMerchantResult = {
@@ -209,14 +211,8 @@ describe('PaymentMethodsScreen', () => {
     expect(screen.getByLabelText('Toggle Klump')).toBeChecked();
   });
 
-  it('loads and toggles the klump_enabled setting', async () => {
+  it('toggles the klump_enabled setting from rendered payment settings', () => {
     render(<PaymentMethodsScreen />);
-
-    const queryConfig = mocks.useQuery.mock.calls[0]?.[0] as QueryConfig;
-    await queryConfig.queryFn();
-    expect(mocks.select).toHaveBeenCalledWith(
-      expect.stringContaining('klump_enabled')
-    );
 
     fireEvent.click(screen.getByLabelText('Toggle Klump'));
     expect(mocks.mutate).toHaveBeenCalledWith({
@@ -268,6 +264,10 @@ describe('PaymentMethodsScreen', () => {
     expect(mocks.alert).toHaveBeenCalledWith(
       'Error',
       'Failed to update payment method'
+    );
+    expect(mocks.setQueryData).toHaveBeenCalledWith(
+      ['payment-settings', 'merchant-1'],
+      paymentSettings
     );
   });
 });

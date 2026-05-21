@@ -28,6 +28,10 @@ describe('mobile admin payment method definitions', () => {
     ]);
   });
 
+  it('returns no admin methods when no provider definitions are registered', () => {
+    expect(buildPaymentMethods([])).toEqual([]);
+  });
+
   it('builds the settings select columns from provider definitions', () => {
     const columns = getPaymentSettingsSelectColumns([
       {
@@ -40,6 +44,10 @@ describe('mobile admin payment method definitions', () => {
     ]);
 
     expect(columns).toBe('id, merchant_id, new_bnpl_enabled');
+  });
+
+  it('returns only base settings columns when no provider definitions are registered', () => {
+    expect(getPaymentSettingsSelectColumns([])).toBe('id, merchant_id');
   });
 
   it('validates dynamic payment settings rows before rendering', () => {
@@ -84,5 +92,52 @@ describe('mobile admin payment method definitions', () => {
         ]
       )
     ).toThrow('Invalid payment setting: new_bnpl_enabled');
+  });
+
+  it('treats nullable payment flags as disabled for legacy settings rows', () => {
+    expect(
+      parsePaymentSettings(
+        {
+          id: 'settings-1',
+          merchant_id: 'merchant-1',
+          new_bnpl_enabled: null,
+        },
+        [
+          {
+            category: 'bnpl',
+            description: 'A newly integrated BNPL provider',
+            enabledField: 'new_bnpl_enabled',
+            id: 'new_bnpl',
+            name: 'New BNPL',
+          },
+        ]
+      )
+    ).toEqual({
+      id: 'settings-1',
+      merchant_id: 'merchant-1',
+      new_bnpl_enabled: false,
+    });
+  });
+
+  it('rejects malformed pay on delivery limits instead of dropping them', () => {
+    expect(() =>
+      parsePaymentSettings(
+        {
+          id: 'settings-1',
+          merchant_id: 'merchant-1',
+          new_bnpl_enabled: true,
+          pay_on_delivery_limit: '10000',
+        },
+        [
+          {
+            category: 'bnpl',
+            description: 'A newly integrated BNPL provider',
+            enabledField: 'new_bnpl_enabled',
+            id: 'new_bnpl',
+            name: 'New BNPL',
+          },
+        ]
+      )
+    ).toThrow('Invalid payment setting: pay_on_delivery_limit');
   });
 });

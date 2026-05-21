@@ -6,12 +6,13 @@ import {
   type PaymentMethodSettingDefinition,
 } from '@baci/shared';
 import type { Ionicons } from '@expo/vector-icons';
+import { z } from 'zod';
 
-export interface PaymentSettings extends Record<string, unknown> {
+export type PaymentSettings = {
   id: string;
   merchant_id: string;
   pay_on_delivery_limit?: number | null;
-}
+} & Partial<Record<PaymentMethodEnabledField, boolean>>;
 
 export type PaymentMethodCategory = PaymentMethodSettingCategory;
 
@@ -57,44 +58,57 @@ export function getPaymentSettingsSelectColumns(
   return getPaymentMethodSettingSelectColumns(definitions);
 }
 
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+const paymentSettingsRecordSchema = z.record(z.string(), z.unknown());
+const paymentSettingsBaseSchema = z.object({
+  id: z.string(),
+  merchant_id: z.string(),
+});
+const paymentSettingLimitSchema = z.union([z.number(), z.null()]);
+const paymentSettingEnabledSchema = z
+  .union([z.boolean(), z.null()])
+  .optional()
+  .transform((value) => value ?? false);
 
 export function parsePaymentSettings(
   value: unknown,
   definitions: readonly PaymentMethodSettingDefinition[] = PAYMENT_METHOD_SETTING_DEFINITIONS
 ): PaymentSettings {
-  if (!isObjectRecord(value)) {
+  const recordResult = paymentSettingsRecordSchema.safeParse(value);
+  if (!recordResult.success) {
     throw new Error('Invalid payment settings response');
   }
 
-  if (typeof value.id !== 'string') {
-    throw new Error('Invalid payment setting: id');
-  }
-
-  if (typeof value.merchant_id !== 'string') {
-    throw new Error('Invalid payment setting: merchant_id');
+  const baseResult = paymentSettingsBaseSchema.safeParse(recordResult.data);
+  if (!baseResult.success) {
+    const field = baseResult.error.issues[0]?.path[0];
+    throw new Error(
+      `Invalid payment setting: ${field ? String(field) : 'response'}`
+    );
   }
 
   const settings: PaymentSettings = {
-    id: value.id,
-    merchant_id: value.merchant_id,
+    id: baseResult.data.id,
+    merchant_id: baseResult.data.merchant_id,
   };
 
-  if (
-    value.pay_on_delivery_limit === null ||
-    typeof value.pay_on_delivery_limit === 'number'
-  ) {
-    settings.pay_on_delivery_limit = value.pay_on_delivery_limit;
+  if ('pay_on_delivery_limit' in recordResult.data) {
+    const limitResult = paymentSettingLimitSchema.safeParse(
+      recordResult.data.pay_on_delivery_limit
+    );
+    if (!limitResult.success) {
+      throw new Error('Invalid payment setting: pay_on_delivery_limit');
+    }
+    settings.pay_on_delivery_limit = limitResult.data;
   }
 
   for (const definition of definitions) {
-    const fieldValue = value[definition.enabledField];
-    if (typeof fieldValue !== 'boolean') {
+    const fieldResult = paymentSettingEnabledSchema.safeParse(
+      recordResult.data[definition.enabledField]
+    );
+    if (!fieldResult.success) {
       throw new Error(`Invalid payment setting: ${definition.enabledField}`);
     }
-    settings[definition.enabledField] = fieldValue;
+    settings[definition.enabledField] = fieldResult.data;
   }
 
   return settings;

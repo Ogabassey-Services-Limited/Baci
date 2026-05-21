@@ -66,4 +66,8 @@ describe('payment method setting definitions', () => {
     expect(columns).toContain('klump_enabled');
     expect(columns).toContain('new_gateway_enabled');
   });
+
+  it('returns only base columns when no provider definitions are passed', () => {
+    expect(getPaymentMethodSettingSelectColumns([])).toBe('id, merchant_id');
+  });
 });
