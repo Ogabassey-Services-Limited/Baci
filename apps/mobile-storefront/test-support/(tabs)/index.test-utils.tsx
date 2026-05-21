@@ -26,6 +26,11 @@ export const mockGetTemplateConfig = jest.fn(
 export const mockRouterPush = jest.fn<(href: Href) => void>();
 const MockText = Text;
 const MockView = View;
+const mockHeader = jest.fn(
+  ({ isScrolled }: { isScrolled?: boolean }) => (
+    <MockText testID="mock-header">Header {String(isScrolled)}</MockText>
+  )
+);
 
 export const mockBlockRenderer = jest.fn(
   ({
@@ -83,7 +88,7 @@ jest.mock('@/components/storefront/BlockRenderer', () => ({
 }));
 
 jest.mock('@/components/storefront/Header', () => ({
-  Header: () => <MockText>Header</MockText>,
+  Header: (props: { isScrolled?: boolean }) => mockHeader(props),
 }));
 
 jest.mock('@/components/storefront/SearchDropdown', () => ({
@@ -160,6 +165,7 @@ export function setupHomeScreenTestState() {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.clearAllMocks();
+    mockHeader.mockClear();
     mockUseColorScheme.mockReturnValue('dark');
     mockRequestPermission.mockResolvedValue('granted');
     mockGetTemplateConfig.mockReturnValue(createTemplateConfig());
