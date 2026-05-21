@@ -1,4 +1,10 @@
 source "https://rubygems.org"
 
-gem "fastlane", "~> 2.232"
+# RubyGems fastlane 2.234.0 still constrains jwt to < 3; pin fastlane#30042
+# until a published release allows the patched jwt 3.x series.
+gem "fastlane",
+  "~> 2.234",
+  git: "https://github.com/fastlane/fastlane.git",
+  ref: "17054b235c12826daba96d9d29ba76fdb939a5ec"
 gem "cocoapods", "~> 1.16"
+gem "jwt", ">= 3.2.0", "< 4"

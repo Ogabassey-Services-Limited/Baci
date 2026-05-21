@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
 import { getHomeContentBottomPadding } from '@/constants/layout';
 import {
@@ -42,6 +42,32 @@ describe('HomeScreen', () => {
       )
     ).toMatchObject({
       paddingBottom: getHomeContentBottomPadding(34, false),
+    });
+  });
+
+  it('passes scroll state to the header while keeping spacer height stable', () => {
+    render(<HomeScreen />);
+
+    expect(screen.getByTestId('mock-header')).toHaveTextContent('Header false');
+    expect(
+      StyleSheet.flatten(screen.getByTestId('home-header-spacer').props.style)
+    ).toMatchObject({
+      height: 150,
+    });
+
+    fireEvent.scroll(screen.getByTestId('home-scroll-view'), {
+      nativeEvent: {
+        contentOffset: { x: 0, y: 12 },
+        contentSize: { width: 375, height: 1000 },
+        layoutMeasurement: { width: 375, height: 300 },
+      },
+    });
+
+    expect(screen.getByTestId('mock-header')).toHaveTextContent('Header true');
+    expect(
+      StyleSheet.flatten(screen.getByTestId('home-header-spacer').props.style)
+    ).toMatchObject({
+      height: 150,
     });
   });
 });

@@ -4,6 +4,7 @@ import {
   HERO_MOBILE_LCP_FALLBACK_SRC,
   HERO_MOBILE_LCP_SRC,
 } from './hero-data';
+import { TRANSPARENT_PIXEL_SRC } from './hero-mobile-image-config';
 import { MobileLcpHeroImage } from './mobile-lcp-hero-image';
 
 const mockGetImageProps = vi.hoisted(() =>
@@ -40,7 +41,6 @@ describe('MobileLcpHeroImage', () => {
       <MobileLcpHeroImage
         alt="iPhone 17 Pro Max"
         imageFit="contain"
-        isResolvedMobileViewport={true}
         shouldPrioritizeImage={true}
         src={HERO_MOBILE_LCP_SRC}
       />
@@ -73,12 +73,9 @@ describe('MobileLcpHeroImage', () => {
     });
     expect(lcpImage).toHaveAttribute('loading', 'eager');
     expect(lcpImage).toHaveAttribute('decoding', 'sync');
-    expect(lcpImage).toHaveAttribute('src', HERO_MOBILE_LCP_FALLBACK_SRC);
+    expect(lcpImage).toHaveAttribute('src', TRANSPARENT_PIXEL_SRC);
     expect(lcpImage).toHaveAttribute('fetchpriority', 'high');
-    expect(lcpImage).toHaveAttribute(
-      'srcset',
-      expect.stringContaining(HERO_MOBILE_LCP_FALLBACK_SRC)
-    );
+    expect(lcpImage).not.toHaveAttribute('srcset');
 
     const mobileAvifSource = container.querySelector(
       'source[type="image/avif"][media="(max-width: 767px)"]'
@@ -131,7 +128,6 @@ describe('MobileLcpHeroImage', () => {
       <MobileLcpHeroImage
         alt="iPhone 17 Pro Max"
         imageFit="contain"
-        isResolvedMobileViewport={true}
         shouldPrioritizeImage={true}
         src={HERO_MOBILE_LCP_SRC}
       />
@@ -148,12 +144,11 @@ describe('MobileLcpHeroImage', () => {
     ).not.toHaveAttribute('sizes');
   });
 
-  it('keeps the fallback image transparent after resolving a desktop viewport', () => {
+  it('keeps the fallback image transparent and lets picture sources select the asset', () => {
     render(
       <MobileLcpHeroImage
         alt="iPhone 17 Pro Max"
         imageFit="contain"
-        isResolvedMobileViewport={false}
         shouldPrioritizeImage={false}
         src={HERO_MOBILE_LCP_SRC}
       />

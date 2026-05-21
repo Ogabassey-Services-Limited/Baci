@@ -1,7 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 import { Header } from './Header';
 
 const mockOpenDrawer = jest.fn();
+let mockTemplateHeaderStyle = 'elite';
+let mockIsSanta = false;
+const mockSeasonalTokens = { holidayBg: '#123456' };
 
 jest.mock('expo-constants', () => ({
   expoConfig: { name: 'Ogabassey' },
@@ -31,6 +35,7 @@ jest.mock('@/hooks/useTheme', () => ({
       card: '#ffffff',
       border: '#dddddd',
       background: '#ffffff',
+      black: '#000000',
     },
   }),
 }));
@@ -44,14 +49,14 @@ jest.mock('@/lib/config', () => ({
 
 jest.mock('@/lib/seasonal', () => ({
   SEASONAL: {
-    shouldShowSanta: () => false,
-    getTokens: () => ({}),
+    shouldShowSanta: () => mockIsSanta,
+    getTokens: () => mockSeasonalTokens,
   },
 }));
 
 jest.mock('@/lib/templates', () => ({
   getTemplateConfig: () => ({
-    headerStyle: 'elite',
+    headerStyle: mockTemplateHeaderStyle,
     features: {},
   }),
 }));
@@ -75,6 +80,8 @@ jest.mock('@/stores/theme-store', () => ({
 describe('Header search behavior', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockTemplateHeaderStyle = 'elite';
+    mockIsSanta = false;
   });
 
   it('calls the provided search handler when the search trigger is pressed', () => {
@@ -114,5 +121,57 @@ describe('Header search behavior', () => {
     expect(onSearchQueryChange).toHaveBeenCalledWith('samsung');
     expect(onSearchSubmit).toHaveBeenCalledTimes(1);
     expect(onSearchCancel).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('Header scrolled background', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockTemplateHeaderStyle = 'elite';
+    mockIsSanta = false;
+  });
+
+  it('keeps the elite header transparent at the top', () => {
+    render(<Header showSearch={false} />);
+
+    expect(
+      StyleSheet.flatten(screen.getByTestId('storefront-header').props.style)
+    ).toMatchObject({
+      backgroundColor: 'transparent',
+    });
+  });
+
+  it('uses a solid elite header background after scrolling', () => {
+    render(<Header isScrolled showSearch={false} />);
+
+    expect(
+      StyleSheet.flatten(screen.getByTestId('storefront-header').props.style)
+    ).toMatchObject({
+      backgroundColor: '#000000',
+    });
+  });
+
+  it('uses the theme background for minimal headers after scrolling', () => {
+    mockTemplateHeaderStyle = 'minimal';
+
+    render(<Header isScrolled showSearch={false} />);
+
+    expect(
+      StyleSheet.flatten(screen.getByTestId('storefront-header').props.style)
+    ).toMatchObject({
+      backgroundColor: '#ffffff',
+    });
+  });
+
+  it('keeps the seasonal header background when Santa mode is active', () => {
+    mockIsSanta = true;
+
+    render(<Header isScrolled showSearch={false} />);
+
+    expect(
+      StyleSheet.flatten(screen.getByTestId('storefront-header').props.style)
+    ).toMatchObject({
+      backgroundColor: mockSeasonalTokens.holidayBg,
+    });
   });
 });

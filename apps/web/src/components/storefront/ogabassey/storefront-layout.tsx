@@ -46,6 +46,7 @@ export function OgabasseyStorefrontLayout({
     ReactDOM.preload(HERO_MOBILE_LCP_SRC, {
       as: 'image',
       fetchPriority: 'high',
+      media: '(max-width: 767px)',
       type: 'image/avif',
     });
   }
