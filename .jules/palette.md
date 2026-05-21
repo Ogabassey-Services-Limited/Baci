@@ -22,3 +22,7 @@
 ## 2026-05-20 - Icon-only Buttons Accessibility
 **Learning:** Icon-only buttons (like password show/hide toggles) are inaccessible to screen readers without an explicit label.
 **Action:** Always add `accessibilityLabel` (and `accessibilityRole="button"`) to `Pressable` components that only contain icons.
+
+## 2026-05-21 - Add aria-expanded to toggle buttons
+**Learning:** Toggle buttons (like 'Show more/less') modifying the visual state of content require `aria-expanded` to accurately inform screen readers of their current state.
+**Action:** Always bind `aria-expanded={state}` to any button functioning as an accordion or toggle switch.
