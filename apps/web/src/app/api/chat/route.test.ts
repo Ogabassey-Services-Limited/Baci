@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // ---- Test fixtures ----
 const TEST_LLM_SERVER_URL = 'https://llm.example.com';
@@ -190,6 +190,10 @@ function makeInvalidJsonRequest(): Request {
 // ---- Tests ----
 
 describe('POST /api/chat', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     rateLimitAllowed = true;
@@ -338,7 +342,6 @@ describe('POST /api/chat', () => {
       '[Agentic Chat] Ollama request failed; falling back to Gemini:',
       'Ollama unavailable'
     );
-    warnSpy.mockRestore();
   });
 
   it('returns a static chat fallback when Ollama and Gemini are unavailable', async () => {
@@ -378,8 +381,6 @@ describe('POST /api/chat', () => {
       '[Agentic Chat] Gemini fallback failed; returning static response:',
       'Gemini quota exhausted'
     );
-    warnSpy.mockRestore();
-    errorSpy.mockRestore();
   });
 
   it('does not fall back to Gemini when Ollama config resolution fails', async () => {
@@ -388,9 +389,7 @@ describe('POST /api/chat', () => {
     vi.mocked(getAiChatModel).mockImplementationOnce(() => {
       throw new Error('Invalid Ollama model config');
     });
-    const errorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => undefined);
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
 
     // Act
     const response = await POST(
@@ -405,7 +404,6 @@ describe('POST /api/chat', () => {
     expect(json.error).toBe('Internal server error');
     expect(createOllamaChatResponse).not.toHaveBeenCalled();
     expect(generateText).not.toHaveBeenCalled();
-    errorSpy.mockRestore();
   });
 
   it('does not fall back to Gemini when the client aborts the Ollama request', async () => {
@@ -430,7 +428,6 @@ describe('POST /api/chat', () => {
     expect(createOllamaChatResponse).toHaveBeenCalledOnce();
     expect(generateText).not.toHaveBeenCalled();
     expect(warnSpy).not.toHaveBeenCalled();
-    warnSpy.mockRestore();
   });
 
   it('falls back to Gemini when the Ollama stream fails before completion', async () => {
@@ -460,7 +457,6 @@ describe('POST /api/chat', () => {
       '[Agentic Chat] Ollama request failed; falling back to Gemini:',
       'Invalid Ollama chat chunk JSON: Unexpected end of JSON input; payloadLength=42'
     );
-    warnSpy.mockRestore();
   });
 
   it('falls back to Gemini when Ollama returns an empty completion', async () => {
@@ -488,7 +484,6 @@ describe('POST /api/chat', () => {
       '[Agentic Chat] Ollama request failed; falling back to Gemini:',
       'Chat returned an empty completion'
     );
-    warnSpy.mockRestore();
   });
 
   it('forwards Ollama Basic Auth when configured', async () => {
@@ -591,7 +586,6 @@ describe('POST /api/chat', () => {
       '[Agentic Chat] Gemini fallback failed; returning static response:',
       'Model unavailable'
     );
-    errorSpy.mockRestore();
   });
 
   // ---- LLM server (llama.cpp / OpenAI-compatible) cases ----
@@ -668,7 +662,6 @@ describe('POST /api/chat', () => {
       '[Agentic Chat] LLM server request failed; falling back to Gemini:',
       'LLM chat returned 502'
     );
-    warnSpy.mockRestore();
   });
 
   it('falls back to Gemini when the LLM stream errors mid-flight', async () => {
@@ -693,7 +686,6 @@ describe('POST /api/chat', () => {
       '[Agentic Chat] LLM server request failed; falling back to Gemini:',
       'Invalid LLM chat chunk JSON'
     );
-    warnSpy.mockRestore();
   });
 
   it('falls back to Gemini when the LLM server returns an empty completion', async () => {
@@ -718,7 +710,6 @@ describe('POST /api/chat', () => {
       '[Agentic Chat] LLM server request failed; falling back to Gemini:',
       'Chat returned an empty completion'
     );
-    warnSpy.mockRestore();
   });
 
   it('does not fall back to Gemini when the client aborts the LLM request', async () => {
@@ -741,7 +732,6 @@ describe('POST /api/chat', () => {
     expect(createLlmChatResponse).toHaveBeenCalledOnce();
     expect(generateText).not.toHaveBeenCalled();
     expect(warnSpy).not.toHaveBeenCalled();
-    warnSpy.mockRestore();
   });
 
   it('does not fall back to Ollama when the LLM server fails (only to Gemini)', async () => {
@@ -752,9 +742,7 @@ describe('POST /api/chat', () => {
     llmServerBearer = TEST_LLM_SERVER_BEARER;
     ollamaBaseUrl = 'https://ollama.example.com';
     llmError = new Error('LLM chat returned 503');
-    const warnSpy = vi
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
     const response = await POST(
       makeRequest({
@@ -767,6 +755,5 @@ describe('POST /api/chat', () => {
     expect(createLlmChatResponse).toHaveBeenCalledOnce();
     expect(createOllamaChatResponse).not.toHaveBeenCalled();
     expect(generateText).toHaveBeenCalledOnce();
-    warnSpy.mockRestore();
   });
 });
