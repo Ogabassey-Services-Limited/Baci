@@ -1,15 +1,19 @@
 import '@testing-library/jest-dom/vitest';
-import { render } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SPACING } from '@/constants/theme';
 import Paywall from './Paywall';
 
 const mocks = vi.hoisted(() => ({
+  alert: vi.fn(),
   capturedCloseTop: 0,
   capturedHeaderPaddingTop: 0,
   capturedStickyPaddingBottom: 0,
   insets: { bottom: 34, left: 0, right: 0, top: 44 },
+  purchasePackage: vi.fn(),
+  restorePurchases: vi.fn(),
+  storeError: null as string | null,
   offering: {
     availablePackages: [
       {
@@ -46,10 +50,18 @@ vi.mock('@/hooks/useRevenueCat', () => ({
     error: null,
     isLoading: false,
     isPro: false,
-    purchasePackage: vi.fn(),
-    restorePurchases: vi.fn(),
+    purchasePackage: mocks.purchasePackage,
+    restorePurchases: mocks.restorePurchases,
   }),
 }));
+
+vi.mock('@/stores/revenueCatStore', () => {
+  const useRevenueCatStore = Object.assign(() => ({}), {
+    getState: () => ({ error: mocks.storeError }),
+  });
+
+  return { useRevenueCatStore };
+});
 
 vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => mocks.insets,
@@ -88,15 +100,19 @@ vi.mock('@expo/vector-icons', () => ({
 
 vi.mock('react-native', () => ({
   ActivityIndicator: () => <span>loading</span>,
-  Alert: { alert: vi.fn() },
+  Alert: { alert: mocks.alert },
   Dimensions: { get: () => ({ width: 390 }) },
   Linking: { openURL: vi.fn() },
   Platform: { OS: 'ios' },
   Pressable: ({
+    accessibilityLabel,
     children,
+    onPress,
     style,
   }: {
+    accessibilityLabel?: string;
     children?: ReactNode;
+    onPress?: () => void;
     style?: unknown;
   }) => {
     const resolvedStyle =
@@ -118,7 +134,15 @@ vi.mock('react-native', () => ({
         (mergedStyle as { top?: number }).top ?? 0
       );
     }
-    return <button type="button">{children}</button>;
+    return (
+      <button
+        type="button"
+        aria-label={accessibilityLabel}
+        onClick={() => onPress?.()}
+      >
+        {children}
+      </button>
+    );
   },
   ScrollView: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   StyleSheet: {
@@ -145,9 +169,13 @@ vi.mock('react-native', () => ({
 
 describe('Paywall', () => {
   afterEach(() => {
+    mocks.alert.mockReset();
     mocks.capturedCloseTop = 0;
     mocks.capturedHeaderPaddingTop = 0;
     mocks.capturedStickyPaddingBottom = 0;
+    mocks.purchasePackage.mockReset();
+    mocks.restorePurchases.mockReset();
+    mocks.storeError = null;
   });
 
   it('uses inset-driven top and footer spacing when safe-area insets are present', () => {
@@ -175,5 +203,51 @@ describe('Paywall', () => {
     expect(mocks.capturedHeaderPaddingTop).toBe(85);
     expect(mocks.capturedCloseTop).toBe(70);
     expect(mocks.capturedStickyPaddingBottom).toBe(27);
+  });
+
+  it('does not show fallback purchase success when store error is updated during purchase', async () => {
+    mocks.purchasePackage.mockImplementation(async () => {
+      mocks.storeError = 'Purchase failed';
+      return false;
+    });
+
+    render(<Paywall />);
+
+    const purchaseButton = screen.getByRole('button', {
+      name: /Subscribe to Monthly for \$9\.99/i,
+    });
+    fireEvent.click(purchaseButton);
+
+    await waitFor(() => {
+      expect(mocks.purchasePackage).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.alert).not.toHaveBeenCalledWith(
+      'Purchase Complete',
+      expect.any(String),
+      expect.any(Array)
+    );
+  });
+
+  it('shows fallback purchase success when purchase is non-pro and no store error exists', async () => {
+    mocks.purchasePackage.mockImplementation(async () => {
+      mocks.storeError = null;
+      return false;
+    });
+
+    render(<Paywall />);
+
+    const purchaseButton = screen.getByRole('button', {
+      name: /Subscribe to Monthly for \$9\.99/i,
+    });
+    fireEvent.click(purchaseButton);
+
+    await waitFor(() => {
+      expect(mocks.purchasePackage).toHaveBeenCalledTimes(1);
+    });
+    expect(mocks.alert).toHaveBeenCalledWith(
+      'Purchase Complete',
+      expect.any(String),
+      expect.any(Array)
+    );
   });
 });
