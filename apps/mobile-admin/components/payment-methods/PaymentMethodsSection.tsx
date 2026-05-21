@@ -11,8 +11,8 @@ import type {
   PaymentMethod,
   PaymentMethodCategory,
   PaymentMethodField,
-  PaymentSettings,
 } from './payment-methods';
+import type { PaymentSettings } from '@/schemas/payment-settings';
 
 interface PaymentMethodsSectionProps {
   title: string;
