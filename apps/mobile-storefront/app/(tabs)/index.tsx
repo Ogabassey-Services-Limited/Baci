@@ -39,6 +39,8 @@ import type { Block } from '@/types/blocks';
 
 const PATTERN_URI =
   'https://www.transparenttextures.com/patterns/carbon-fibre.png';
+const HEADER_SOLID_BACKGROUND_OFFSET_PX = 10;
+
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -93,6 +95,8 @@ export default function HomeScreen() {
 
   const [refreshing, setRefreshing] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(150); // Initial estimate for spacer
+  const [isScrolled, setIsScrolled] = useState(false);
+  const isScrolledRef = useRef(false);
   const headerVisibility = useRef(new Animated.Value(1)).current;
   const headerScrollState = useRef({
     isVisible: true,
@@ -140,7 +144,7 @@ export default function HomeScreen() {
     Animated.timing(headerVisibility, {
       toValue: isVisible ? 1 : 0,
       duration: 180,
-      useNativeDriver: false,
+      useNativeDriver: true,
     }).start();
   };
 
@@ -162,7 +166,15 @@ export default function HomeScreen() {
 
     const currentState = headerScrollState.current;
     const currentOffsetY = event.nativeEvent.contentOffset.y;
+    const normalizedOffsetY = Math.max(0, currentOffsetY);
     const currentContentHeight = event.nativeEvent.contentSize.height;
+    const nextIsScrolled =
+      normalizedOffsetY > HEADER_SOLID_BACKGROUND_OFFSET_PX;
+
+    if (nextIsScrolled !== isScrolledRef.current) {
+      isScrolledRef.current = nextIsScrolled;
+      setIsScrolled(nextIsScrolled);
+    }
 
     if (currentContentHeight < lastLoadMoreContentHeightRef.current) {
       lastLoadMoreContentHeightRef.current = 0;
@@ -319,10 +331,7 @@ export default function HomeScreen() {
     ],
   };
   const headerSpacerAnimatedStyle = {
-    height: headerVisibility.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, resolvedHeaderHeight],
-    }),
+    height: resolvedHeaderHeight,
   };
 
   const isElite = template.headerStyle === 'elite';
@@ -387,6 +396,7 @@ export default function HomeScreen() {
             onSearchQueryChange={setSearchQuery}
             onSearchSubmit={handleSearchSubmit}
             onSearchCancel={handleSearchCancel}
+            isScrolled={isScrolled}
           />
 
           {!isOnline && pageConfig && (
@@ -430,7 +440,10 @@ export default function HomeScreen() {
         onScroll={handleListScroll}
         scrollEventThrottle={16}
       >
-        <Animated.View style={headerSpacerAnimatedStyle} />
+        <Animated.View
+          testID="home-header-spacer"
+          style={headerSpacerAnimatedStyle}
+        />
         {blocks.map((block: Block, index: number) => {
           const isPrimaryProductGrid =
             block.type === 'ProductGrid' && index === primaryProductGridIndex;
