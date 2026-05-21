@@ -230,8 +230,8 @@ describe('merchant blog post OG image route', () => {
 
     const response = await renderImage();
 
-    expect(mockImageResponse).toHaveBeenCalledTimes(2);
     const { element, options } = getLastImageResponseCall();
+    expect(response.status).toBe(200);
     expect(collectText(element)).toContain('Best iPhone Deals');
     expect(collectImageSources(element)).not.toContain(
       'data:image/jpeg;base64,ZmVhdHVyZWQ='

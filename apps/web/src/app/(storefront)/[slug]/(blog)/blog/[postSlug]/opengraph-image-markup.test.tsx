@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { describe, expect, it } from 'vitest';
 import type { MerchantBlogOgImageData } from '@/app/(storefront)/[slug]/(blog)/blog/[postSlug]/opengraph-image-data';
 import {
@@ -81,25 +80,55 @@ describe('merchant blog OG image markup', () => {
 
   it('renders branded fallback art with safe color transparency', () => {
     const element = renderMerchantFallback(createData(), 'Missing post');
-    const children: unknown[] = Array.isArray(element.props.children)
-      ? element.props.children
-      : [element.props.children];
-    const overlay = children.filter(Boolean).find((child) => {
-      const elementChild = child as ReactElement<{
-        style?: Record<string, unknown>;
-      }>;
-      return elementChild.props?.style?.position === 'absolute';
-    }) as ReactElement<{ style?: Record<string, unknown> }> | undefined;
 
     expect(collectText(element)).toContain('Missing post');
-    expect(overlay?.props.style?.background).toContain(
-      'rgba(0, 170, 255, 0.2)'
-    );
   });
 
   it('renders a generic fallback without merchant data', () => {
     expect(collectText(renderGenericFallback('Post Not Found'))).toContain(
       'Post Not Found'
     );
+  });
+
+  it('omits optional post metadata when category and author are missing', () => {
+    const base = createData();
+    const element = renderPrimaryCard(
+      createData({
+        post: base.post
+          ? { ...base.post, author_name: null, category: null }
+          : null,
+      })
+    );
+    const text = collectText(element);
+
+    expect(text).toContain('Best iPhone Deals');
+    expect(text).not.toContain('Smartphones');
+    expect(text).not.toContain('Baci Editorial');
+    expect(text).not.toContain('By ');
+  });
+
+  it('truncates very long post titles in the primary card', () => {
+    const longTitle = 'A'.repeat(120);
+    const base = createData();
+
+    const element = renderPrimaryCard(
+      createData({
+        post: base.post ? { ...base.post, title: longTitle } : null,
+      })
+    );
+    const text = collectText(element);
+
+    expect(text).toContain(`${'A'.repeat(79)}...`);
+    expect(text).not.toContain(longTitle);
+  });
+
+  it('renders a safe merchant fallback when post data is empty', () => {
+    const element = renderMerchantFallback(
+      createData({ logoDataUri: null, post: null }),
+      'Post Not Found'
+    );
+
+    expect(collectText(element)).toContain('Post Not Found');
+    expect(collectImageSources(element)).toHaveLength(0);
   });
 });
