@@ -75,7 +75,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
           <div className="flex flex-wrap items-center gap-4 w-full lg:w-auto border-t lg:border-none pt-3 lg:pt-0">
             {/* Price Filter Toggle & Inputs */}
             <div className="flex items-center gap-2 flex-1 lg:flex-none">
-              <button aria-expanded={isFilterExpanded}
+              <button aria-expanded={isFilterExpanded} aria-controls="price-filter-inputs"
                 onClick={() => setIsFilterExpanded(!isFilterExpanded)}
                 className={`h-10 px-3 rounded-xl border transition-all duration-200 flex items-center gap-2 shadow-sm ${
                   isFilterExpanded || isFilterActive
@@ -95,7 +95,7 @@ export const ProductFilters: React.FC<ProductFiltersProps> = ({
 
               {/* Expandable Inputs */}
               <div
-                className={`flex items-center gap-2 overflow-hidden transition-all duration-300 ease-in-out ${
+                id="price-filter-inputs" className={`flex items-center gap-2 overflow-hidden transition-all duration-300 ease-in-out ${
                   isFilterExpanded
                     ? 'w-auto opacity-100 translate-x-0'
                     : 'w-0 opacity-0 -translate-x-2 pointer-events-none'
