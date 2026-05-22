@@ -513,7 +513,9 @@ async function preloadOgabasseyPdpProductImageFromFastLookup(
       merchant.id,
       productSlug
     );
-    preloadOgabasseyPdpProductImage({ src: primaryProductImage });
+    if (primaryProductImage) {
+      preloadOgabasseyPdpProductImage({ src: primaryProductImage });
+    }
   } catch (error) {
     console.warn(
       'Unable to preload OgaBassey PDP product image early:',
