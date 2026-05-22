@@ -1,11 +1,10 @@
 import type { FeedProduct } from '@/app/api/feed/google-merchant/feed-builder';
 import type { OpenAIFeedProduct } from '@/app/api/feed/openai/feed-data';
+import { AGENT_COMMERCE_FEED_FRESHNESS } from '@/lib/agent-commerce-feed-freshness';
 import type { AgentCommerceTrustCheck } from './build-agent-commerce-trust-readiness';
 import { getTrustCoverageSeverity } from './get-trust-coverage-severity';
 import { isPresentString } from './is-present-string';
 import { isValidHttpUrl } from './is-valid-http-url';
-
-const FEED_FRESHNESS_WARN_DAYS = 30;
 
 interface AgentCommerceCrawlerSurfaces {
   llms: string;
@@ -64,6 +63,10 @@ function hasReviewSignalFields(product: OpenAIFeedProduct): boolean {
   if (averageRating === null) return false;
 
   return averageRating >= 0 && averageRating <= 5;
+}
+
+function formatProductCount(count: number): string {
+  return `${count} ${count === 1 ? 'product' : 'products'}`;
 }
 
 function getReviewSignalSeverity({
@@ -128,15 +131,6 @@ function getLatestProductUpdatedAt(
   return latest?.toISOString() ?? null;
 }
 
-function countStaleProducts(products: OpenAIFeedProduct[], now: Date): number {
-  const cutoff = now.getTime() - FEED_FRESHNESS_WARN_DAYS * 24 * 60 * 60 * 1000;
-
-  return products.filter((product) => {
-    const updatedAt = getProductUpdatedAt(product);
-    return !updatedAt || updatedAt.getTime() < cutoff;
-  }).length;
-}
-
 export function buildAgentCommerceTrustHealthSignals({
   hasVerifiedMerchantReviewAuthority = false,
   now = new Date(),
@@ -154,7 +148,19 @@ export function buildAgentCommerceTrustHealthSignals({
     openAiProducts.length - productsWithReviewSignals
   );
   const latestProductUpdatedAt = getLatestProductUpdatedAt(openAiProducts);
-  const staleProducts = countStaleProducts(openAiProducts, now);
+  const staleProducts = AGENT_COMMERCE_FEED_FRESHNESS.countStaleProducts({
+    now,
+    products: openAiProducts,
+  });
+  const productsMissingTimestamps =
+    AGENT_COMMERCE_FEED_FRESHNESS.countProductsMissingTimestamps(
+      openAiProducts
+    );
+  const hasAcceptableFreshnessCoverage =
+    AGENT_COMMERCE_FEED_FRESHNESS.hasCurrentProductCoverage({
+      staleProducts,
+      totalProducts: openAiProducts.length,
+    });
   const crawlerUrls = [surfaces.robots, surfaces.sitemap, surfaces.llms];
   const validCrawlerUrls = crawlerUrls.filter(isValidHttpUrl).length;
 
@@ -200,7 +206,8 @@ export function buildAgentCommerceTrustHealthSignals({
           openAiProducts.length === 0
             ? 'warn'
             : latestProductUpdatedAt
-              ? staleProducts === 0
+              ? productsMissingTimestamps === 0 &&
+                hasAcceptableFreshnessCoverage
                 ? 'pass'
                 : 'warn'
               : 'fail',
@@ -208,11 +215,20 @@ export function buildAgentCommerceTrustHealthSignals({
           openAiProducts.length === 0
             ? 'No active products are available for feed freshness checks.'
             : latestProductUpdatedAt
-              ? staleProducts === 0
-                ? `Latest product feed timestamp is ${latestProductUpdatedAt}.`
-                : `${staleProducts} products have stale or missing feed timestamps.`
+              ? productsMissingTimestamps > 0 && !hasAcceptableFreshnessCoverage
+                ? `Product timestamps are missing or invalid for ${formatProductCount(productsMissingTimestamps)}, and ${formatProductCount(staleProducts)} are outside the freshness window.`
+                : productsMissingTimestamps > 0
+                  ? `Product timestamps are missing or invalid for ${formatProductCount(productsMissingTimestamps)}.`
+                  : hasAcceptableFreshnessCoverage
+                    ? `Latest product feed timestamp is ${latestProductUpdatedAt}.`
+                    : `Product timestamps are outside the freshness window for ${formatProductCount(staleProducts)}.`
               : 'No valid product update timestamps were found for feed freshness checks.',
-        affectedProductCount: staleProducts,
+        affectedProductCount:
+          productsMissingTimestamps > 0 && hasAcceptableFreshnessCoverage
+            ? productsMissingTimestamps
+            : hasAcceptableFreshnessCoverage
+              ? 0
+              : staleProducts,
       },
       {
         id: 'crawler-visibility',
