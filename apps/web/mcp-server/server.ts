@@ -1373,8 +1373,8 @@ function createOgabasseyServer() {
         idempotentHint: false,
       },
       description:
-        'Create a real Baci agentic checkout session through the signed and idempotent /api/agentic/checkout_sessions flow. Use this after the customer chooses products and quantities to get authoritative totals, fulfillment options, and the checkout session id. This does not complete payment or create an order.',
-      inputSchema: createAgenticCheckoutSessionInputSchema.shape,
+        'Create a real Baci agentic checkout session through the signed and idempotent /api/agentic/checkout_sessions flow. Use this after the customer chooses products and quantities to get authoritative totals, fulfillment options, and the checkout session id. This does not complete payment or create an order. To safely retry requests on failure, generate a unique idempotency_key before the first request and reuse it for subsequent retries.',
+      inputSchema: createAgenticCheckoutSessionInputSchema,
       _meta: {
         'openai/toolInvocation/invoking': 'Creating checkout session...',
         'openai/toolInvocation/invoked': 'Checkout session created',
