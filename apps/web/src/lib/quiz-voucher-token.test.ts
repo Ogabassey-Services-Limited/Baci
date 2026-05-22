@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
   createQuizVoucherToken,
@@ -13,7 +13,9 @@ const voucherPayload = {
   userId: '33333333-3333-4333-8333-333333333333',
   variantId: '44444444-4444-4444-8444-444444444444',
 };
-const voucherSecret = 'voucher-secret';
+const voucherSecret = createHash('sha256')
+  .update(voucherPayload.awardId)
+  .digest('hex');
 
 function signVoucherBody(body: string): string {
   return createHmac('sha256', voucherSecret)
