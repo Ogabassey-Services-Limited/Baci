@@ -3,6 +3,7 @@ import {
   agenticCheckoutCompleteSchema,
   agenticCheckoutUpdateSchema,
   checkoutSessionSchema,
+  createAgenticCheckoutSessionInputSchema,
 } from '@/schemas/agentic-checkout';
 
 describe('checkoutSessionSchema', () => {
@@ -37,6 +38,31 @@ describe('checkoutSessionSchema', () => {
   it('rejects whitespace-only item identifiers', () => {
     const result = checkoutSessionSchema.safeParse({
       items: [{ id: '   ', quantity: 1 }],
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('createAgenticCheckoutSessionInputSchema', () => {
+  it('accepts an MCP checkout session payload with an idempotency key', () => {
+    const result = createAgenticCheckoutSessionInputSchema.safeParse({
+      currency: 'ngn',
+      idempotency_key: 'idem-checkout-1',
+      items: [{ id: 'product-1', quantity: 2 }],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.currency).toBe('NGN');
+      expect(result.data.idempotency_key).toBe('idem-checkout-1');
+    }
+  });
+
+  it('rejects item quantities above the MCP checkout limit', () => {
+    const result = createAgenticCheckoutSessionInputSchema.safeParse({
+      idempotency_key: 'idem-checkout-1',
+      items: [{ id: 'product-1', quantity: 21 }],
     });
 
     expect(result.success).toBe(false);
