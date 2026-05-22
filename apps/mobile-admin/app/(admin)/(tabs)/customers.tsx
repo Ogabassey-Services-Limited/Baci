@@ -25,6 +25,7 @@ import {
 import { SystemBars } from 'react-native-edge-to-edge';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RADIUS, SPACING, TYPOGRAPHY } from '@/constants/theme';
+import { useDebounce } from '@/hooks/useDebounce';
 import {
   type Customer,
   useCustomerStats,
@@ -377,15 +378,7 @@ export default function CustomersScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = React.useState<'all' | 'failed'>('failed');
   const [searchQuery, setSearchQuery] = React.useState('');
-  const [debouncedSearchQuery, setDebouncedSearchQuery] = React.useState('');
-
-  // Debounce search query for server-side filtering
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   // Collapsible search bar animation
   // Using opacity and translateY for native driver support (better performance)
