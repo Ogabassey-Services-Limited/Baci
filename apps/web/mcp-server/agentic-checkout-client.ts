@@ -1,39 +1,11 @@
 import { createHmac, randomUUID } from 'node:crypto';
-import { z } from 'zod';
+import type { z } from 'zod';
+import { createAgenticCheckoutSessionInputSchema } from '../src/schemas/agentic-checkout';
+
+export { createAgenticCheckoutSessionInputSchema };
 
 export const AGENTIC_CHECKOUT_API_VERSION = '2026-04-30';
 const AGENTIC_CHECKOUT_PATH = '/api/agentic/checkout_sessions';
-
-const fulfillmentAddressSchema = z.object({
-  address: z.string().trim().min(1).optional(),
-  city: z.string().trim().min(1).optional(),
-  country: z.string().trim().min(1).optional(),
-  country_code: z.string().trim().min(2).max(3).optional(),
-  email: z.string().email().optional(),
-  name: z.string().trim().min(1).optional(),
-  phone: z.string().trim().min(7).optional(),
-  postal_code: z.string().trim().min(1).optional(),
-  state: z.string().trim().min(1).optional(),
-  station_id: z.number().int().nonnegative().optional(),
-});
-
-const checkoutItemSchema = z.object({
-  id: z.string().trim().min(1),
-  quantity: z.number().int().positive().max(20),
-});
-
-export const createAgenticCheckoutSessionInputSchema = z.object({
-  currency: z
-    .string()
-    .trim()
-    .length(3)
-    .transform((value) => value.toUpperCase())
-    .optional()
-    .default('NGN'),
-  idempotency_key: z.string().trim().min(8).max(128).optional(),
-  items: z.array(checkoutItemSchema).min(1).max(50),
-  shipping_address: fulfillmentAddressSchema.nullable().optional(),
-});
 
 export type CreateAgenticCheckoutSessionInput = z.input<
   typeof createAgenticCheckoutSessionInputSchema
