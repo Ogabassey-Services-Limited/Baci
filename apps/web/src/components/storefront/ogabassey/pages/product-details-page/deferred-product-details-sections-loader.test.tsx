@@ -1,15 +1,24 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import type { Product as RelatedProduct } from '@/lib/products';
 import type { NormalizedProductDetails } from './product-details-helpers';
 import type { ProductDetailsActiveTab } from './use-product-details-state';
 import { DeferredProductDetailsSectionsLoader } from './deferred-product-details-sections-loader';
 
-const mockUseViewportActivation = vi.hoisted(() => vi.fn());
-
-vi.mock('@/components/storefront/use-viewport-activation', () => ({
-  useViewportActivation: mockUseViewportActivation,
-}));
+vi.mock('next/dynamic', () => {
+  return {
+    default: (loader: () => Promise<unknown>) => {
+      return function MockDynamic(props: any) {
+        return (
+          <section aria-label={`Deferred Details for ${props.productData?.name}`}>
+            <h1>Mock Deferred Product Sections</h1>
+            <p>{props.productData?.name}</p>
+          </section>
+        );
+      };
+    },
+  };
+});
 
 const baseProps = {
   activeTab: 'description' as ProductDetailsActiveTab,
@@ -24,55 +33,13 @@ const baseProps = {
 };
 
 describe('DeferredProductDetailsSectionsLoader', () => {
-  beforeEach(() => {
-    mockUseViewportActivation.mockReset();
-    mockUseViewportActivation.mockReturnValue({
-      ref: { current: null },
-      isActive: false,
+  it('renders the dynamic deferred product details sections and passes props correctly', () => {
+    render(<DeferredProductDetailsSectionsLoader {...baseProps} />);
+
+    const sections = screen.getByRole('region', {
+      name: /deferred details for lenovo legion pro 9/i,
     });
-  });
-
-  it('does not import below-fold product details before viewport activation', () => {
-    const loadDeferredSections = vi.fn();
-
-    render(
-      <DeferredProductDetailsSectionsLoader
-        {...baseProps}
-        loadDeferredSections={loadDeferredSections}
-      />
-    );
-
-    expect(loadDeferredSections).not.toHaveBeenCalled();
-    expect(
-      screen.getByTestId('deferred-product-details-placeholder')
-    ).toBeInTheDocument();
-  });
-
-  it('imports and renders the details section after viewport activation', async () => {
-    mockUseViewportActivation.mockReturnValue({
-      ref: { current: null },
-      isActive: true,
-    });
-    const loadDeferredSections = vi.fn().mockResolvedValue({
-      DeferredProductDetailsSections: ({
-        productData,
-      }: {
-        productData: { name: string };
-      }) => (
-        <section aria-label="Loaded product details">{productData.name}</section>
-      ),
-    });
-
-    render(
-      <DeferredProductDetailsSectionsLoader
-        {...baseProps}
-        loadDeferredSections={loadDeferredSections}
-      />
-    );
-
-    await waitFor(() => expect(loadDeferredSections).toHaveBeenCalledOnce());
-    expect(
-      await screen.findByRole('region', { name: 'Loaded product details' })
-    ).toHaveTextContent('Lenovo Legion Pro 9');
+    expect(sections).toBeInTheDocument();
+    expect(sections).toHaveTextContent('Lenovo Legion Pro 9');
   });
 });

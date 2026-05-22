@@ -770,6 +770,9 @@ export default async function CategoryProductPage({
     notFound();
   }
 
+  // Start the product fetch first to run in parallel with the preloading lookups
+  const productResultPromise = getProduct(slug, category, productSlug);
+
   // Preload OgaBassey LCP image synchronously using the warmed request cache.
   // Because generateMetadata warming run finished immediately prior, these cache ticks resolve in <1ms
   // allowing the preload tag to stream in the absolute first byte of the HTML head.
@@ -791,8 +794,6 @@ export default async function CategoryProductPage({
       error
     );
   }
-
-  const productResultPromise = getProduct(slug, category, productSlug);
 
   return (
     <>
