@@ -588,6 +588,21 @@ describe('POST /api/chat', () => {
     );
   });
 
+  it('returns a static chat fallback when Gemini returns empty text', async () => {
+    generateTextResult = { text: '   ' };
+
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Hello' }],
+      })
+    );
+    const text = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-baci-chat-fallback')).toBe('static');
+    expect(text).toContain('AI assistant is temporarily busy');
+  });
+
   it('preserves client abort handling when Gemini generation aborts', async () => {
     const abortError = new Error('The operation was aborted');
     abortError.name = 'AbortError';

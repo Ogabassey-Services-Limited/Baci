@@ -274,7 +274,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!result) {
+    if (!result?.text.trim()) {
       return createStaticChatFallbackResponse();
     }
 

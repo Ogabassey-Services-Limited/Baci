@@ -71,6 +71,14 @@ describe('chat route helpers', () => {
     expect(getSafeChatBackendErrorMessage(undefined)).toBe('Unknown error');
   });
 
+  it('truncates long backend error messages to 300 characters', () => {
+    const long = `prefix ${'x'.repeat(500)}`;
+    const sanitized = getSafeChatBackendErrorMessage(long);
+
+    expect(sanitized).toHaveLength(300);
+    expect(sanitized.startsWith('prefix ')).toBe(true);
+  });
+
   it('detects aborted chat requests from either signal or error name', () => {
     const controller = new AbortController();
     const abortError = new Error('aborted');
