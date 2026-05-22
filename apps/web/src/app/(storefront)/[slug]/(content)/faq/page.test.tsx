@@ -13,7 +13,9 @@ vi.mock('@/lib/cached-data', () => ({
 }));
 
 vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
-  StorefrontDynamicMetadataMarker: () => null,
+  StorefrontDynamicMetadataMarker: () => (
+    <div aria-label="dynamic metadata marker" role="status" />
+  ),
 }));
 
 vi.mock('@/lib/merchant-template-data', () => ({
@@ -97,6 +99,24 @@ describe('FAQPage', () => {
     );
 
     expect(screen.queryByText('Loading FAQ...')).toBeNull();
+  });
+
+  it('renders the dynamic metadata marker outside suspended FAQ content', () => {
+    vi.mocked(getRequestScopedMerchant).mockReturnValue(
+      new Promise<null>(() => {
+        /* deferred: keep Suspense pending */
+      })
+    );
+
+    render(
+      <Suspense fallback={null}>
+        <FAQPage params={Promise.resolve({ slug: 'test-store' })} />
+      </Suspense>
+    );
+
+    expect(
+      screen.getByRole('status', { name: 'dynamic metadata marker' })
+    ).toBeInTheDocument();
   });
 
   it('does not call notFound when merchant has FAQ items', async () => {
