@@ -67,7 +67,7 @@ describe('buildAgentCommerceTrustHealthSignals', () => {
     ).toMatchObject({ severity: 'pass' });
   });
 
-  it('warns when only some products have structured fields or fresh timestamps', () => {
+  it('warns when only some products have structured fields or usable timestamps', () => {
     const result = buildSignals([
       product({ updated_at: '2026-03-01T00:00:00.000Z' }),
       product({
@@ -96,7 +96,83 @@ describe('buildAgentCommerceTrustHealthSignals', () => {
       result.checks.find((check) => check.id === 'feed-freshness')
     ).toMatchObject({
       affectedProductCount: 2,
-      message: '2 products have stale or missing feed timestamps.',
+      message:
+        'Product timestamps are missing or invalid for 1 product, and 2 products are outside the freshness window.',
+      severity: 'warn',
+    });
+  });
+
+  it('passes freshness when older valid timestamps stay below the warning threshold', () => {
+    // Two stale products keeps the catalog at the 98% freshness threshold.
+    const result = buildSignals(
+      Array.from({ length: 100 }, (_, index) =>
+        product({
+          id: `product-${index + 1}`,
+          slug: `product-${index + 1}`,
+          updated_at:
+            index < 2 ? '2026-03-01T00:00:00.000Z' : '2026-05-10T00:00:00.000Z',
+        })
+      )
+    );
+
+    expect(result.totals).toMatchObject({
+      latestProductUpdatedAt: '2026-05-10T00:00:00.000Z',
+      staleProducts: 2,
+    });
+    expect(
+      result.checks.find((check) => check.id === 'feed-freshness')
+    ).toMatchObject({
+      affectedProductCount: 0,
+      message: 'Latest product feed timestamp is 2026-05-10T00:00:00.000Z.',
+      severity: 'pass',
+    });
+  });
+
+  it('warns freshness when older valid timestamps exceed the warning threshold', () => {
+    const result = buildSignals([
+      product({ updated_at: '2026-03-01T00:00:00.000Z' }),
+      product({
+        id: 'product-2',
+        slug: 'product-2',
+        updated_at: '2026-05-10T00:00:00.000Z',
+      }),
+    ]);
+
+    expect(result.totals).toMatchObject({
+      latestProductUpdatedAt: '2026-05-10T00:00:00.000Z',
+      staleProducts: 1,
+    });
+    expect(
+      result.checks.find((check) => check.id === 'feed-freshness')
+    ).toMatchObject({
+      affectedProductCount: 1,
+      message:
+        'Product timestamps are outside the freshness window for 1 product.',
+      severity: 'warn',
+    });
+  });
+
+  it('reports stale coverage when missing timestamps also exceed the warning threshold', () => {
+    const result = buildSignals(
+      Array.from({ length: 100 }, (_, index) =>
+        product({
+          id: `product-${index + 1}`,
+          slug: `product-${index + 1}`,
+          updated_at: index === 0 ? undefined : '2026-03-01T00:00:00.000Z',
+        })
+      )
+    );
+
+    expect(result.totals).toMatchObject({
+      latestProductUpdatedAt: '2026-03-01T00:00:00.000Z',
+      staleProducts: 100,
+    });
+    expect(
+      result.checks.find((check) => check.id === 'feed-freshness')
+    ).toMatchObject({
+      affectedProductCount: 100,
+      message:
+        'Product timestamps are missing or invalid for 1 product, and 100 products are outside the freshness window.',
       severity: 'warn',
     });
   });
