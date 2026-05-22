@@ -33,6 +33,7 @@ import {
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
+import { stripHtmlTags } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateBreadcrumbSchema,
@@ -655,6 +656,9 @@ export default async function CategoryProductPage({
     currency,
     country: merchant.country,
   });
+  const plainProductDescription = stripHtmlTags(product.description)
+    .replace(/\s+/g, ' ')
+    .trim();
   const trustBullets = [
     priceSeoCopy.answer,
     ...buildTrustBulletsFromProfile(trustProfile),
@@ -742,7 +746,7 @@ export default async function CategoryProductPage({
       {/* Hidden crawlable summary without a second page-level heading */}
       <article className="sr-only" aria-label={`${product.name} summary`}>
         <p>{priceSeoCopy.answer}</p>
-        {product.description ? <p>{product.description}</p> : null}
+        {plainProductDescription ? <p>{plainProductDescription}</p> : null}
         <dl>
           <dt>Brand</dt>
           <dd>{product.brand || 'OgaBassey'}</dd>

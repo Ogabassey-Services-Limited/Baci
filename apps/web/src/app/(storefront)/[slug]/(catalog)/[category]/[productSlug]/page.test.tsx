@@ -148,6 +148,8 @@ vi.mock('@/lib/product-stock', () => ({
 
 vi.mock('@/lib/sanitize-core', () => ({
   escapeHtml: (value: string) => value,
+  stripHtmlTags: (value: string | null | undefined) =>
+    value?.replace(/<[^>]+>/g, '') || '',
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
@@ -691,6 +693,30 @@ describe('[category]/[productSlug] page render', () => {
       screen.getByRole('status', { name: /dynamic metadata marker/i })
     ).toBeInTheDocument();
     expect(container.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('strips HTML tags from hidden summary description text', async () => {
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      description:
+        '<p>A <strong>premium</strong> laptop built for creators.</p>',
+    });
+
+    render(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(
+      screen.getByText('A premium laptop built for creators.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/<strong>/)).not.toBeInTheDocument();
   });
 
   it('mounts the OgaBassey PDP preload hints for the OgaBassey template branch', async () => {
