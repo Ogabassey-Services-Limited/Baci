@@ -42,3 +42,7 @@
 ## 2026-05-23 - Conditionally apply aria-controls for unmounted elements
 **Learning:** If the target of an `aria-controls` attribute is conditionally unmounted (e.g., `return null` when closed instead of hidden via CSS), having a static `aria-controls="id"` on the toggle button will point to a non-existent DOM element, causing an accessibility violation.
 **Action:** When the controlled element is conditionally unmounted, conditionally apply the attribute: `aria-controls={isOpen ? "id-of-container" : undefined}`.
+
+## 2026-05-22 - Storefront disclosure toggles need explicit state
+**Learning:** In the web storefront, custom toggle buttons (like those for filters or expanding order summaries) often miss the `aria-expanded` attribute, causing assistive technologies to remain unaware of the collapsible content's state.
+**Action:** Always ensure that custom disclosure widgets or toggle buttons explicitly implement `aria-expanded={booleanState}` to accurately reflect their expanded or collapsed status to screen readers.

@@ -51,7 +51,7 @@ export const MobileOrderSummary: React.FC<MobileOrderSummaryProps> = ({
         <div className="lg:hidden bg-gray-50 border-b border-gray-200">
             <div className="max-w-[1400px] mx-auto px-4">
                 {/* Toggle Header */}
-                <button
+                <button aria-expanded={isExpanded}
                     onClick={() => setIsExpanded(!isExpanded)}
                     className="w-full py-4 flex items-center justify-between text-sm"
                 >
