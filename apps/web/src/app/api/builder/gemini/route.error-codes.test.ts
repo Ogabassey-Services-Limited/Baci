@@ -101,7 +101,7 @@ describe('/api/builder/gemini structured error codes', () => {
 
   it('returns ai_provider_unavailable when provider generation fails', async () => {
     vi.mocked(generateObject).mockRejectedValueOnce(
-      new Error('quota exceeded')
+      new Error('network unavailable')
     );
 
     const { POST } = await import('./route');
@@ -113,6 +113,45 @@ describe('/api/builder/gemini structured error codes', () => {
       expect.objectContaining({
         error: 'AI editor is temporarily unavailable',
         code: 'ai_provider_unavailable',
+        requestId: expect.any(String),
+      })
+    );
+  });
+
+  it('returns ai_provider_rate_limited when Gemini quota is exhausted', async () => {
+    vi.mocked(generateObject).mockRejectedValueOnce(
+      new Error(
+        'Quota exceeded for metric: generate_content_free_tier_requests'
+      )
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(createRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(429);
+    expect(body).toEqual(
+      expect.objectContaining({
+        error: 'AI editor quota is temporarily exhausted',
+        code: 'ai_provider_rate_limited',
+        requestId: expect.any(String),
+      })
+    );
+  });
+
+  it('keeps non-provider route failures out of provider error mapping', async () => {
+    mockGetMerchantForApiRequest.mockRejectedValueOnce(
+      new Error('Quota exceeded while loading merchant metadata')
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(createRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual(
+      expect.objectContaining({
+        error: 'Internal server error',
         requestId: expect.any(String),
       })
     );

@@ -18,6 +18,13 @@ import {
 import { getAuthenticatedUser } from '@/lib/supabase/mobile-auth';
 import { builderConfigSchema } from '@/schemas/builder';
 import { BUILDER_GEMINI_SYSTEM_PROMPT } from '../gemini-system-prompt';
+import {
+  BUILDER_GEMINI_RETRY_CONFIG,
+  type BuilderGeminiLogContext,
+  getBuilderGeminiFailure,
+  logBuilderGeminiError,
+  runBuilderGeminiWithTimeout,
+} from './route-provider-errors';
 
 const PuckThemeColorsSchema = z
   .object({
@@ -60,14 +67,7 @@ const builderGeminiRequestSchema = z.object({
   currentConfig: aiBuilderConfigSchema,
 });
 
-const BUILDER_GEMINI_RETRY_CONFIG = {
-  maxRetries: 1,
-  initialDelayMs: 750,
-  maxDelayMs: 1500,
-  backoffMultiplier: 2,
-};
-
-const BUILDER_GEMINI_TIMEOUT_MS = 25_000;
+type AiBuilderConfig = z.infer<typeof aiBuilderConfigSchema>;
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -86,38 +86,9 @@ function mergeThemeValue(existingValue: unknown, nextValue: unknown): unknown {
   return merged;
 }
 
-async function runBuilderGeminiWithTimeout<T>(
-  operation: (abortSignal: AbortSignal) => Promise<T>
-): Promise<T> {
-  const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    BUILDER_GEMINI_TIMEOUT_MS
-  );
-
-  try {
-    return await operation(controller.signal);
-  } catch (error) {
-    if (controller.signal.aborted) {
-      const timeoutError = new Error('builder_gemini_timeout');
-      timeoutError.name = 'BuilderGeminiTimeoutError';
-      throw timeoutError;
-    }
-    throw error;
-  } finally {
-    clearTimeout(timeout);
-  }
-}
-
 export async function POST(req: NextRequest) {
   const requestId = crypto.randomUUID();
-  const aiLogContext: {
-    userId?: string;
-    merchantId?: string;
-    model?: string;
-    promptLength?: number;
-    componentCount?: number;
-  } = {};
+  const aiLogContext: BuilderGeminiLogContext = {};
 
   try {
     const { valid, response } = await checkCsrfProtection(req);
@@ -216,19 +187,32 @@ User Request: ${sanitizedPrompt}
 Please return the complete updated configuration as valid JSON. Make intelligent modifications based on the request while preserving all existing structure and content unless explicitly asked to change or remove it.`;
 
     // Generate the updated config using Vercel AI SDK with retry logic
-    const result = await runBuilderGeminiWithTimeout((abortSignal) =>
-      withRetry(async () => {
-        return await generateObject({
-          model: activeTextModel,
-          schema: aiBuilderConfigSchema,
-          system: BUILDER_GEMINI_SYSTEM_PROMPT,
-          prompt: builtPrompt,
-          abortSignal,
-        });
-      }, BUILDER_GEMINI_RETRY_CONFIG)
-    );
+    let updatedConfig: AiBuilderConfig;
+    try {
+      const result = (await runBuilderGeminiWithTimeout((abortSignal) =>
+        withRetry(async () => {
+          return await generateObject({
+            model: activeTextModel,
+            schema: aiBuilderConfigSchema,
+            system: BUILDER_GEMINI_SYSTEM_PROMPT,
+            prompt: builtPrompt,
+            abortSignal,
+          });
+        }, BUILDER_GEMINI_RETRY_CONFIG)
+      )) as { object: AiBuilderConfig };
+      updatedConfig = result.object;
+    } catch (error) {
+      const failure = getBuilderGeminiFailure(error, requestId);
+      logBuilderGeminiError(
+        'Gemini AI Builder Error:',
+        error,
+        requestId,
+        aiLogContext,
+        failure.logLevel
+      );
 
-    let updatedConfig = result.object;
+      return NextResponse.json(failure.response, { status: failure.status });
+    }
 
     // Preserve existing theme sections unless Gemini explicitly changes them.
     const mergedTheme = updatedConfig.theme
@@ -295,26 +279,17 @@ Please return the complete updated configuration as valid JSON. Make intelligent
       }
     );
   } catch (error) {
-    // Log full error details server-side for debugging
-    console.error('Gemini AI Builder Error:', {
+    logBuilderGeminiError(
+      'Gemini AI Builder Route Error:',
+      error,
       requestId,
-      userId: aiLogContext.userId,
-      merchantId: aiLogContext.merchantId,
-      model: aiLogContext.model,
-      promptLength: aiLogContext.promptLength,
-      componentCount: aiLogContext.componentCount,
-      errorName: error instanceof Error ? error.name : 'UnknownError',
-      errorMessage: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
+      aiLogContext,
+      'error'
+    );
 
     return NextResponse.json(
-      {
-        error: 'AI editor is temporarily unavailable',
-        code: 'ai_provider_unavailable',
-        requestId,
-      },
-      { status: 503 }
+      { error: 'Internal server error', requestId },
+      { status: 500 }
     );
   }
 }
