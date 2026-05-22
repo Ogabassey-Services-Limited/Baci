@@ -58,12 +58,12 @@ describe('getStorefrontProductSocialMetadata', () => {
       'https://ogabassey.com/opengraph-image',
     ]);
     expect(metadata.other).toMatchObject({
-      'product:price:amount': '645600',
-      'product:price:currency': 'NGN',
       'product:availability': 'out of stock',
       'product:condition': 'used',
       'twitter:data2': 'Out of stock',
     });
+    expect(metadata.other).not.toHaveProperty('product:price:amount');
+    expect(metadata.other).not.toHaveProperty('product:price:currency');
   });
 
   it('uses the lowest variant price for product-family social metadata', () => {
