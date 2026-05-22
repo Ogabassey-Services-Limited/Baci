@@ -606,38 +606,6 @@ export async function generateMetadata({
   };
 }
 
-interface OgabasseyPdpProductImagePreloadWrapperProps {
-  productSlug: string;
-  slug: string;
-}
-
-async function OgabasseyPdpProductImagePreloadWrapper({
-  productSlug,
-  slug,
-}: OgabasseyPdpProductImagePreloadWrapperProps) {
-  try {
-    const merchant = await getRequestScopedMerchant(slug);
-    if (!merchant || merchant.template_id !== OGABASSEY_TEMPLATE_ID) {
-      return null;
-    }
-    const primaryProductImage = await getCachedStorefrontProductLcpImage(
-      merchant.id,
-      productSlug
-    );
-
-    if (primaryProductImage) {
-      preloadOgabasseyPdpProductImage({ src: primaryProductImage });
-    }
-  } catch (error) {
-    console.warn(
-      'Unable to preload OgaBassey PDP product image early:',
-      sanitizeLookupLogValue(productSlug),
-      error
-    );
-  }
-  return null;
-}
-
 interface CategoryProductPageContentProps {
   slug: string;
   searchParams: PageProps['searchParams'];
@@ -802,18 +770,34 @@ export default async function CategoryProductPage({
     notFound();
   }
 
+  // Preload OgaBassey LCP image synchronously using the warmed request cache.
+  // Because generateMetadata warming run finished immediately prior, these cache ticks resolve in <1ms
+  // allowing the preload tag to stream in the absolute first byte of the HTML head.
+  try {
+    const merchant = await getRequestScopedMerchant(slug);
+    if (merchant && merchant.template_id === OGABASSEY_TEMPLATE_ID) {
+      const primaryProductImage = await getCachedStorefrontProductLcpImage(
+        merchant.id,
+        productSlug
+      );
+      if (primaryProductImage) {
+        preloadOgabasseyPdpProductImage({ src: primaryProductImage });
+      }
+    }
+  } catch (error) {
+    console.warn(
+      'Unable to preload OgaBassey PDP product image early:',
+      sanitizeLookupLogValue(productSlug),
+      error
+    );
+  }
+
   const productResultPromise = getProduct(slug, category, productSlug);
 
   return (
     <>
       <Suspense fallback={null}>
         <StorefrontDynamicMetadataMarker />
-      </Suspense>
-      <Suspense fallback={null}>
-        <OgabasseyPdpProductImagePreloadWrapper
-          productSlug={productSlug}
-          slug={slug}
-        />
       </Suspense>
       <Suspense fallback={null}>
         <CategoryProductPageContent

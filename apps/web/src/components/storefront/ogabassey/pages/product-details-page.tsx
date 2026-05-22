@@ -3,7 +3,6 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useState, type ReactNode } from 'react';
 import type { Product } from '../types';
-import { DeferredProductDetailsSectionsLoader } from './product-details-page/deferred-product-details-sections-loader';
 import { ProductBreadcrumbs } from './product-details-page/product-breadcrumbs';
 import { ProductMediaGallery } from './product-details-page/product-media-gallery';
 import { ProductMobileActionBar } from './product-details-page/product-mobile-action-bar';
@@ -38,6 +37,31 @@ const SelectionRequiredModal = dynamic(
       (mod) => mod.SelectionRequiredModal
     ),
   { loading: () => null, ssr: false }
+);
+
+const DeferredProductDetailsSectionsLoader = dynamic(
+  () =>
+    import(
+      './product-details-page/deferred-product-details-sections-loader'
+    ).then((mod) => mod.DeferredProductDetailsSectionsLoader),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        className="mt-12 min-h-[1200px] [content-visibility:auto] [contain-intrinsic-size:1400px_2200px] w-full"
+        data-testid="deferred-product-details-placeholder"
+        aria-busy="true"
+        aria-label="Loading product details..."
+      >
+        <div className="animate-pulse space-y-6 px-4">
+          <div className="h-10 bg-neutral-200/60 rounded w-1/3" />
+          <div className="h-4 bg-neutral-200/60 rounded w-full" />
+          <div className="h-4 bg-neutral-200/60 rounded w-5/6" />
+          <div className="h-4 bg-neutral-200/60 rounded w-4/5" />
+        </div>
+      </div>
+    ),
+  }
 );
 
 interface ProductDetailsPageProps {

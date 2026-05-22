@@ -95,6 +95,10 @@ vi.mock('next/dynamic', () => {
           return <div data-testid="banner-carousel" />;
         }
 
+        if (source.includes('deferred-product-details-sections-loader')) {
+          return <DeferredProductDetailsSectionsMock {...props} />;
+        }
+
         return null;
       };
     },
