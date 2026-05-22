@@ -46,6 +46,8 @@ const optionalHttpUrlSchema = z.preprocess(
     .optional()
 );
 
+const VOUCHER_TOKEN_MAX_LENGTH = 512;
+
 const optionalVoucherTokenSchema = z.preprocess((value) => {
   if (value === null) {
     return undefined;
@@ -58,7 +60,7 @@ const optionalVoucherTokenSchema = z.preprocess((value) => {
   const sanitized = sanitizeText(value.trim());
 
   return sanitized.length > 0 ? sanitized : undefined;
-}, z.string().max(128).optional());
+}, z.string().max(VOUCHER_TOKEN_MAX_LENGTH).optional());
 
 const orderCreateSchemaBase = z.object({
   merchant_id: z.string().uuid(),
