@@ -35,8 +35,6 @@ const SITEMAP_QUERY_PAGE_SIZE = 1000;
 // static/category/commercial URLs plus product URLs stay comfortably under the
 // limit in getRootSitemapEntries.
 const SITEMAP_MAX_PRODUCT_URLS = 45_000;
-const METADATA_ROUTE_IDENTIFIER_OVERRIDES = new Set(['sitemap']);
-
 export interface StorefrontSitemapContext {
   merchant: NonNullable<Awaited<ReturnType<typeof getMerchantByIdentifier>>>;
   storeUrl: string;
@@ -50,16 +48,9 @@ export async function resolveStorefrontSitemapContext(
   const headerRouteIdentifier = resolveRouteIdentifier(headersList);
   const routeIdentifierOverrideValue =
     routeIdentifierOverride?.trim().toLowerCase() || '';
-  // METADATA_ROUTE_IDENTIFIER_OVERRIDES prevents metadata route params such as
-  // "sitemap" from being treated as literal merchant ids. Header-derived
-  // storefront context always wins, and metadata route params are never passed
-  // through to merchant lookup when no header context exists.
-  const canUseRouteIdentifierOverride =
-    Boolean(routeIdentifierOverrideValue) &&
-    !METADATA_ROUTE_IDENTIFIER_OVERRIDES.has(routeIdentifierOverrideValue);
   const routeIdentifiers = [
     headerRouteIdentifier,
-    canUseRouteIdentifierOverride ? routeIdentifierOverrideValue : '',
+    routeIdentifierOverrideValue,
   ].filter((value, index, values): value is string =>
     Boolean(value && values.indexOf(value) === index)
   );

@@ -9,11 +9,64 @@ import {
 } from './product-mappers';
 
 const PRODUCT_STATUSES = ['draft', 'active', 'archived'] as const;
+const PRODUCT_CONDITIONS = ['new', 'used', 'open_box', 'refurbished'] as const;
 
 function normalizeProductStatus(value: string | null | undefined) {
   return PRODUCT_STATUSES.includes(value as (typeof PRODUCT_STATUSES)[number])
     ? (value as Product['status'])
     : 'active';
+}
+
+function parseOptionalPrice(value: number | string | null | undefined) {
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : undefined;
+}
+
+function parseRequiredQuantity(value: number | string | null | undefined) {
+  return parseOptionalPrice(value) ?? 0;
+}
+
+function isProductCondition(value: unknown): value is Product['condition'] {
+  return PRODUCT_CONDITIONS.includes(
+    value as (typeof PRODUCT_CONDITIONS)[number]
+  );
+}
+
+function normalizeActiveOffers(offers: LegacyCachedProduct['offers']) {
+  if (!Array.isArray(offers)) {
+    return [];
+  }
+
+  return offers.flatMap((offer) => {
+    if (
+      !offer ||
+      offer.status !== 'active' ||
+      !isProductCondition(offer.condition)
+    ) {
+      return [];
+    }
+
+    const price = parseOptionalPrice(offer.price);
+    if (price === undefined || price < 0) {
+      return [];
+    }
+
+    return [
+      {
+        id: offer.id,
+        condition: offer.condition,
+        price,
+        stock_quantity: parseRequiredQuantity(offer.stock_quantity),
+        images: Array.isArray(offer.images) ? offer.images : undefined,
+      },
+    ];
+  });
 }
 
 export interface LegacyCachedProduct {
@@ -34,6 +87,17 @@ export interface LegacyCachedProduct {
   quantity?: number | null;
   images?: RawProductImage[] | null;
   product_variants?: StorefrontProductVariants;
+  has_condition_offers?: boolean | null;
+  offers?:
+    | {
+        id: string;
+        condition: 'new' | 'used' | 'open_box' | 'refurbished';
+        price: number | string | null;
+        stock_quantity?: number | string | null;
+        images?: string[];
+        status?: string | null;
+      }[]
+    | null;
   product_categories?: Array<{
     categories:
       | {
@@ -72,6 +136,7 @@ export function mapLegacyCachedProductToProduct(
       productId: cachedProduct.id,
     }
   );
+  const normalizedOffers = normalizeActiveOffers(cachedProduct.offers);
 
   return {
     id: cachedProduct.id,
@@ -112,6 +177,9 @@ export function mapLegacyCachedProductToProduct(
     category: primaryCategory?.name || undefined,
     category_slug: primaryCategory?.slug || undefined,
     has_variants: normalizedVariants.length > 0,
+    has_condition_offers:
+      cachedProduct.has_condition_offers ?? normalizedOffers.length > 0,
+    offers: normalizedOffers,
     variants: normalizedVariants,
     specifications: cachedProduct.specifications as Product['specifications'],
     product_key_specs: normalizeProductKeySpecs(

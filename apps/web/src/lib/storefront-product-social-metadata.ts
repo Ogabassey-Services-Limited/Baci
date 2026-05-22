@@ -22,9 +22,22 @@ interface StorefrontProductSocialMetadataInput {
   min_variant_price?: number | null;
   max_variant_price?: number | null;
   variants?: Array<
-    { price_override?: number | null } | null | undefined
+    | {
+        price_override?: number | null;
+        stock_quantity?: number | null;
+      }
+    | null
+    | undefined
   > | null;
-  offers?: Array<{ price?: number | null } | null | undefined> | null;
+  offers?: Array<
+    | {
+        price?: number | null;
+        status?: string | null;
+        stock_quantity?: number | null;
+      }
+    | null
+    | undefined
+  > | null;
   stock_quantity?: number | null;
   quantity?: number | null;
   manage_stock?: boolean | null;
@@ -60,7 +73,8 @@ function getProductPriceAmount(
 }
 
 function getProductAvailability(
-  product: StorefrontProductSocialMetadataInput
+  product: StorefrontProductSocialMetadataInput,
+  hasAdvertisablePrice: boolean
 ): 'in stock' | 'out of stock' | undefined {
   const managesStock = Boolean(
     product.manage_stock ?? product.track_quantity ?? false
@@ -68,6 +82,10 @@ function getProductAvailability(
   const stockQuantity = product.stock_quantity ?? product.quantity;
 
   if (!managesStock) {
+    return 'in stock';
+  }
+
+  if (hasAdvertisablePrice) {
     return 'in stock';
   }
 
@@ -98,7 +116,7 @@ export function getStorefrontProductSocialMetadata(
 ) {
   const primaryImage = getPrimaryProductImage(product);
   const priceAmount = getProductPriceAmount(product);
-  const availability = getProductAvailability(product);
+  const availability = getProductAvailability(product, priceAmount !== null);
   const condition = normalizeCondition(product.condition);
 
   const other: Record<string, string> = {};

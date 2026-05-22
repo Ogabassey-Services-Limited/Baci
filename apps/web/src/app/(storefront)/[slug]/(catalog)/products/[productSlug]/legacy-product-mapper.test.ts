@@ -59,6 +59,24 @@ describe('mapLegacyCachedProductToProduct', () => {
         base_price: 500000,
         min_variant_price: 430000,
         max_variant_price: 520000,
+        has_condition_offers: true,
+        offers: [
+          {
+            id: 'offer-used',
+            condition: 'used',
+            price: '390000',
+            stock_quantity: '2',
+            images: ['https://cdn.example.com/used.jpg'],
+            status: 'active',
+          },
+          {
+            id: 'offer-inactive',
+            condition: 'open_box',
+            price: 375000,
+            stock_quantity: 1,
+            status: 'archived',
+          },
+        ],
         track_quantity: null,
         quantity: 4,
         images: ['https://cdn.example.com/1.jpg'],
@@ -88,6 +106,16 @@ describe('mapLegacyCachedProductToProduct', () => {
       stock: 4,
       category: 'Phones',
       category_slug: 'phones',
+      has_condition_offers: true,
+      offers: [
+        {
+          id: 'offer-used',
+          condition: 'used',
+          price: 390000,
+          stock_quantity: 2,
+          images: ['https://cdn.example.com/used.jpg'],
+        },
+      ],
       image: 'https://cdn.example.com/1.jpg',
     });
   });

@@ -277,7 +277,11 @@ describe('sitemap-data', () => {
     expect(context?.merchant.slug).toBe('ogabassey');
   });
 
-  it('does not resolve a literal metadata route identifier without header context', async () => {
+  it('allows a real merchant slug named sitemap without header context', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-sitemap',
+      slug: 'sitemap',
+    });
     const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
 
     const context = await resolveStorefrontSitemapContext(
@@ -285,8 +289,8 @@ describe('sitemap-data', () => {
       'sitemap'
     );
 
-    expect(mockGetMerchantByIdentifier).not.toHaveBeenCalled();
-    expect(context).toBeNull();
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('sitemap');
+    expect(context?.merchant.slug).toBe('sitemap');
   });
 
   it('returns static sitemap entries for the storefront root and faq', async () => {
