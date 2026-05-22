@@ -19,9 +19,16 @@ vi.mock('./actions', () => ({
 vi.mock('./client-page', () => ({
   default: ({
     initialOrders,
+    initialOrdersError,
   }: {
     initialOrders?: Array<{ orderNumber: string }>;
-  }) => <div data-testid="orders-client">{initialOrders?.length ?? 0}</div>,
+    initialOrdersError?: string | null;
+  }) => (
+    <div role="status">
+      orders:{initialOrders?.length ?? 0}
+      {initialOrdersError ? ` error:${initialOrdersError}` : ''}
+    </div>
+  ),
 }));
 
 import OrdersPage from './page';
@@ -51,7 +58,7 @@ describe('OrdersPage', () => {
     expect(mocks.getOrders).toHaveBeenCalledWith('merchant-1', {
       source: 'agentic',
     });
-    expect(screen.getByTestId('orders-client')).toHaveTextContent('0');
+    expect(screen.getByRole('status')).toHaveTextContent('orders:0');
   });
 
   it('keeps the default orders query unfiltered without source=agentic', async () => {
@@ -59,5 +66,27 @@ describe('OrdersPage', () => {
 
     expect(mocks.getOrders).toHaveBeenCalledWith('merchant-1');
     expect(mocks.getOrders).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes an initial orders error to the client when the orders query rejects', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mocks.getOrders.mockRejectedValueOnce(new Error('fetch failed'));
+
+    try {
+      render(await OrdersPage());
+
+      expect(screen.getByRole('status')).toHaveTextContent(
+        'orders:0 error:Could not load orders.'
+      );
+      expect(mocks.getOrderStats).toHaveBeenCalledWith('merchant-1');
+      expect(consoleError).toHaveBeenCalledWith(
+        'Failed to fetch orders:',
+        expect.any(Error)
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });
