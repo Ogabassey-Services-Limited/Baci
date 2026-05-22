@@ -8,6 +8,7 @@ import { buildRequestBaseUrl } from '@/lib/storefront-host';
 import { resolveStorefrontMerchantFromRequest } from '@/lib/storefront-merchant';
 import { buildAgentCommerceTrustReadiness } from '@/lib/storefront-trust/build-agent-commerce-trust-readiness';
 import { buildMerchantTrustProfile } from '@/lib/storefront-trust/build-merchant-trust-profile';
+import { enrichMerchantReviewAuthority } from '@/lib/storefront-trust/enrich-merchant-review-authority';
 
 const AGENT_NATIVE_COMMERCE_CACHE_CONTROL = 'public, max-age=300';
 const AGENT_NATIVE_COMMERCE_CDN_CACHE_CONTROL = 'no-store';
@@ -44,7 +45,9 @@ export async function GET(request: Request) {
       getCachedOpenAIFeedData(merchant.id, true),
       getCachedGoogleMerchantFeedData(merchant.id, merchant.slug),
     ]);
-    const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
+    const trustProfile = await enrichMerchantReviewAuthority(
+      buildMerchantTrustProfile(merchant, baseUrl)
+    );
     const trustReadiness = buildAgentCommerceTrustReadiness({
       baseUrl,
       googleFeedData,
