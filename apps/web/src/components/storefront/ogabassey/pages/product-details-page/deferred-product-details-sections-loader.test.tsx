@@ -3,12 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Product as RelatedProduct } from '@/lib/products';
 import type { NormalizedProductDetails } from './product-details-helpers';
 import type { ProductDetailsActiveTab } from './use-product-details-state';
-import { DeferredProductDetailsSectionsLoader } from './deferred-product-details-sections-loader';
+import { DeferredProductDetailsSectionsLoader, type DeferredProductDetailsSectionsLoaderProps } from './deferred-product-details-sections-loader';
 
 vi.mock('next/dynamic', () => {
   return {
     default: (loader: () => Promise<unknown>) => {
-      return function MockDynamic(props: any) {
+      return function MockDynamic(props: DeferredProductDetailsSectionsLoaderProps) {
         return (
           <section aria-label={`Deferred Details for ${props.productData?.name}`}>
             <h1>Mock Deferred Product Sections</h1>

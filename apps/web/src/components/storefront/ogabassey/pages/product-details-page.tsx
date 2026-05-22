@@ -9,6 +9,7 @@ import { ProductMobileActionBar } from './product-details-page/product-mobile-ac
 import { ProductPurchasePanel } from './product-details-page/product-purchase-panel';
 import { getAvailableOptionsForAxis } from '../variant-attributes';
 import { useProductDetailsState } from './product-details-page/use-product-details-state';
+import { DeferredProductDetailsSectionsLoader } from './product-details-page/deferred-product-details-sections-loader';
 
 const AdUnit = dynamic(
   () => import('../components/AdUnit').then((mod) => mod.AdUnit),
@@ -38,8 +39,6 @@ const SelectionRequiredModal = dynamic(
     ),
   { loading: () => null, ssr: false }
 );
-
-import { DeferredProductDetailsSectionsLoader } from './product-details-page/deferred-product-details-sections-loader';
 
 interface ProductDetailsPageProps {
   product: Product;
