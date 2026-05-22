@@ -148,6 +148,21 @@ function buildReport({ baseline, routeSizes }) {
       baselineLineCount: baselineByPath.get(route.path).lineCount,
     }));
 
+  const shrunkenBaselineEntries = baseline.routes.flatMap((baselineRoute) => {
+    const route = routeSizeByPath.get(baselineRoute.path);
+    if (!route) return [];
+    if (route.lineCount <= baseline.maxLines) return [];
+    if (route.lineCount >= baselineRoute.lineCount) return [];
+
+    return [
+      {
+        ...baselineRoute,
+        currentLineCount: route.lineCount,
+        reason: `now ${route.lineCount} lines, lower the baseline from ${baselineRoute.lineCount}`,
+      },
+    ];
+  });
+
   const staleBaselineEntries = baseline.routes.flatMap((baselineRoute) => {
     const route = routeSizeByPath.get(baselineRoute.path);
     if (!route) {
@@ -169,6 +184,7 @@ function buildReport({ baseline, routeSizes }) {
     grownRoutes,
     newOversizedRoutes,
     oversizedRoutes,
+    shrunkenBaselineEntries,
     staleBaselineEntries,
   };
 }
@@ -202,6 +218,19 @@ function formatFailure({ baseline, report }) {
       )
     );
     sections.push('  Remediation: Extract code until the route is back within its recorded baseline.');
+    sections.push('');
+  }
+
+  if (report.shrunkenBaselineEntries.length > 0) {
+    sections.push('Oversized routes shrank but their baselines were not lowered:');
+    sections.push(
+      ...report.shrunkenBaselineEntries.map(
+        (entry) => `  - ${entry.path}: ${entry.reason}`
+      )
+    );
+    sections.push(
+      '  Remediation: Lower baseline entries whenever oversized routes shrink.'
+    );
     sections.push('');
   }
 
@@ -259,6 +288,7 @@ function main() {
   if (
     report.newOversizedRoutes.length === 0 &&
     report.grownRoutes.length === 0 &&
+    report.shrunkenBaselineEntries.length === 0 &&
     report.staleBaselineEntries.length === 0
   ) {
     const baselineCount = report.oversizedRoutes.length;

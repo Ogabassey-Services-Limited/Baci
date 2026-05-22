@@ -50,9 +50,9 @@ afterEach(() => {
 });
 
 describe('check-route-size', () => {
-  it('passes when oversized routes stay within their decreasing baseline', () => {
+  it('passes when oversized routes stay within their recorded baseline', () => {
     const root = createFixture({
-      'app/checkout.tsx': createLines(320),
+      'app/checkout.tsx': createLines(340),
       'config/route-size-baseline.json': createBaseline([
         { path: 'app/checkout.tsx', lineCount: 340 },
       ]),
@@ -63,6 +63,25 @@ describe('check-route-size', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('[route-size] OK');
     expect(result.stdout).toContain('1 oversized route baseline');
+  });
+
+  it('fails when a baselined route shrinks but remains oversized', () => {
+    const root = createFixture({
+      'app/checkout.tsx': createLines(320),
+      'config/route-size-baseline.json': createBaseline([
+        { path: 'app/checkout.tsx', lineCount: 340 },
+      ]),
+    });
+
+    const result = runRouteSizeCheck(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain(
+      'Oversized routes shrank but their baselines were not lowered'
+    );
+    expect(result.stderr).toContain(
+      'app/checkout.tsx: now 320 lines, lower the baseline from 340'
+    );
   });
 
   it('fails when a new route exceeds the max line budget', () => {
