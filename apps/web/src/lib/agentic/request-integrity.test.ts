@@ -1,6 +1,7 @@
 import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
+  ACP_STABLE_AGENTIC_API_VERSION,
   AGENTIC_API_VERSION,
   verifyAgenticRequestIntegrity,
 } from '@/lib/agentic/request-integrity';
@@ -95,6 +96,26 @@ describe('verifyAgenticRequestIntegrity', () => {
       })
     ).toEqual({
       apiVersion: AGENTIC_API_VERSION,
+      ok: true,
+      requestId: 'req_123',
+    });
+  });
+
+  it('accepts the upstream stable ACP api version', () => {
+    const body = '{"items":[]}';
+
+    expect(
+      verifyAgenticRequestIntegrity({
+        body,
+        headers: signedHeaders({
+          apiVersion: ACP_STABLE_AGENTIC_API_VERSION,
+          body,
+        }),
+        now,
+        secrets: [secret],
+      })
+    ).toEqual({
+      apiVersion: ACP_STABLE_AGENTIC_API_VERSION,
       ok: true,
       requestId: 'req_123',
     });

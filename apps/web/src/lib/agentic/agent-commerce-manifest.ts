@@ -11,10 +11,7 @@ import {
   isAgenticCheckoutRuntimeConfigured,
 } from '@/lib/agentic/merchant-context';
 import { isValidPaystackSubaccountCode } from '@/lib/agentic/paystack';
-import {
-  AGENTIC_API_VERSION,
-  PREVIOUS_AGENTIC_API_VERSION,
-} from '@/lib/agentic/request-integrity';
+import { SUPPORTED_AGENTIC_API_VERSIONS } from '@/lib/agentic/request-integrity';
 import type { CachedMerchant } from '@/lib/cached-data';
 import {
   type AgentPolicyUrls,
@@ -193,7 +190,7 @@ function buildAgenticCheckoutAuth() {
       signed_payload:
         'json(api_version, body, idempotency_key, method, pathname, request_id, timestamp)',
     },
-    supported_api_versions: [AGENTIC_API_VERSION, PREVIOUS_AGENTIC_API_VERSION],
+    supported_api_versions: [...SUPPORTED_AGENTIC_API_VERSIONS] as string[],
   };
 }
 

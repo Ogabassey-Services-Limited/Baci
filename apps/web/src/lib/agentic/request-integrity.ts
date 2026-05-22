@@ -3,9 +3,11 @@ import { getAgenticSigningKeys } from '@/env';
 import { constantTimeEqual } from '@/lib/constant-time-equal';
 
 export const AGENTIC_API_VERSION = '2026-04-30';
+export const ACP_STABLE_AGENTIC_API_VERSION = '2026-04-17';
 export const PREVIOUS_AGENTIC_API_VERSION = '2026-01-01';
 export const SUPPORTED_AGENTIC_API_VERSIONS = [
   AGENTIC_API_VERSION,
+  ACP_STABLE_AGENTIC_API_VERSION,
   PREVIOUS_AGENTIC_API_VERSION,
 ] as const;
 export const AGENTIC_REQUEST_INTEGRITY_ERRORS = {

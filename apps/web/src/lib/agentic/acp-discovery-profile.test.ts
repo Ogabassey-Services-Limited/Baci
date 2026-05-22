@@ -19,7 +19,7 @@ function buildManifest(
         signed_payload:
           'json(api_version, body, idempotency_key, method, pathname, request_id, timestamp)',
       },
-      supported_api_versions: ['2026-04-30', '2026-01-01'],
+      supported_api_versions: ['2026-04-30', '2026-04-17', '2026-01-01'],
     },
     capabilities: [
       'catalog.read',
@@ -85,7 +85,7 @@ describe('buildAcpDiscoveryProfile', () => {
       protocol: {
         name: 'acp',
         version: '2026-04-30',
-        supported_versions: ['2026-01-01', '2026-04-30'],
+        supported_versions: ['2026-01-01', '2026-04-17', '2026-04-30'],
         documentation_url:
           'https://ogabassey.com/.well-known/agent-native-commerce',
       },
@@ -178,6 +178,7 @@ describe('buildAcpDiscoveryProfile', () => {
           ...buildAuth(),
           supported_api_versions: [
             '2026-04-30',
+            '2026-04-17',
             ' ',
             '2026-01-01',
             '2026-04-30',
@@ -188,6 +189,7 @@ describe('buildAcpDiscoveryProfile', () => {
 
     expect(profile.protocol.supported_versions).toEqual([
       '2026-01-01',
+      '2026-04-17',
       '2026-04-30',
     ]);
     expect(profile.protocol.version).toBe('2026-04-30');
