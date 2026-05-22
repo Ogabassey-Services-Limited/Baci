@@ -576,10 +576,10 @@ describe('category page route', () => {
     ]);
   });
 
-  it('defers category first paint to the route loader while route params are pending', () => {
+  it('renders the catalog skeleton while category content is suspended', () => {
     mockCategoryPageContent.mockImplementation(() => {
       throw new Promise(() => {
-        // Keep the category page content suspended behind the route loader.
+        // Keep the category page content suspended behind the page fallback.
       });
     });
 
@@ -595,8 +595,14 @@ describe('category page route', () => {
       </Suspense>
     );
 
-    expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: 'Loading product listing' })
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(screen.queryByText('Category page content')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
   });
 
   it('marks runtime metadata as intentional dynamic content', () => {

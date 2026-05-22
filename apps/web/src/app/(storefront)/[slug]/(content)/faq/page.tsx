@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
+import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import {
   getMerchantByIdentifier,
   getRequestScopedMerchant,
@@ -72,13 +73,13 @@ export async function generateMetadata({
 export default function FAQPage({ params }: PageProps) {
   return (
     <>
-      <Suspense fallback={null}>
-        <StorefrontDynamicMetadataMarker />
-      </Suspense>
+      <StorefrontDynamicMetadataMarker />
       <Suspense fallback={null}>
         <FAQJsonLd params={params} />
       </Suspense>
-      <FAQContent params={params} />
+      <Suspense fallback={<ContentRouteLoading />}>
+        <FAQContent params={params} />
+      </Suspense>
     </>
   );
 }
