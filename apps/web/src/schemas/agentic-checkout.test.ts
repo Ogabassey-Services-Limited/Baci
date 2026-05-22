@@ -3,6 +3,7 @@ import {
   agenticCheckoutCompleteSchema,
   agenticCheckoutUpdateSchema,
   checkoutSessionSchema,
+  createAgenticCheckoutSessionInputSchema,
 } from '@/schemas/agentic-checkout';
 
 describe('checkoutSessionSchema', () => {
@@ -16,6 +17,127 @@ describe('checkoutSessionSchema', () => {
     if (result.success) {
       expect(result.data.currency).toBe('NGN');
     }
+  });
+
+  it('accepts ACP line_items as a checkout session payload alias', () => {
+    const result = checkoutSessionSchema.safeParse({
+      capabilities: {},
+      currency: 'ngn',
+      line_items: [{ id: 'product-1', quantity: 2 }],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toMatchObject({
+        currency: 'NGN',
+        items: [{ id: 'product-1', quantity: 2 }],
+      });
+      expect(result.data).not.toHaveProperty('line_items');
+    }
+  });
+
+  it('accepts native ACP item-shaped line_items and defaults quantity to one', () => {
+    const result = checkoutSessionSchema.safeParse({
+      capabilities: {},
+      currency: 'ngn',
+      fulfillment_details: {
+        name: 'Ada Buyer',
+        phone_number: '+2348012345678',
+        email: 'ada@example.com',
+        address: {
+          name: 'Ada Buyer',
+          line_one: '12 Example Street',
+          line_two: 'Flat 3',
+          city: 'Lagos',
+          state: 'LA',
+          country: 'NG',
+          postal_code: '100001',
+        },
+      },
+      line_items: [{ id: 'product-1' }],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toMatchObject({
+        items: [{ id: 'product-1', quantity: 1 }],
+        shipping_address: {
+          address: '12 Example Street, Flat 3',
+          city: 'Lagos',
+          country_code: 'NG',
+          email: 'ada@example.com',
+          name: 'Ada Buyer',
+          phone: '+2348012345678',
+          postal_code: '100001',
+          state: 'LA',
+        },
+      });
+      expect(result.data).not.toHaveProperty('fulfillment_details');
+    }
+  });
+
+  it('accepts nested ACP item identifiers in line_items', () => {
+    const result = checkoutSessionSchema.safeParse({
+      capabilities: {},
+      currency: 'ngn',
+      line_items: [
+        { id: 'line_product-1', item: { id: 'product-1' }, quantity: 2 },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items).toEqual([{ id: 'product-1', quantity: 2 }]);
+    }
+  });
+
+  it('constructs shipping_address from sparse ACP fulfillment_details address fields', () => {
+    const result = checkoutSessionSchema.safeParse({
+      items: [{ id: 'product-1', quantity: 1 }],
+      fulfillment_details: {
+        address: {
+          line_one: '12 Example Street',
+          city: 'Lagos',
+          state: 'LA',
+          country: 'NG',
+          postal_code: '100001',
+        },
+      },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.shipping_address).toMatchObject({
+        address: '12 Example Street',
+        city: 'Lagos',
+        country_code: 'NG',
+        postal_code: '100001',
+        state: 'LA',
+      });
+      expect(result.data).not.toHaveProperty('fulfillment_details');
+    }
+  });
+
+  it('keeps legacy items when items and line_items are both provided', () => {
+    const result = checkoutSessionSchema.safeParse({
+      items: [{ id: 'product-1', quantity: 1 }],
+      line_items: [{ id: 'product-2', quantity: 2 }],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items).toEqual([{ id: 'product-1', quantity: 1 }]);
+    }
+  });
+
+  it.each([
+    { line_items: [] },
+    { line_items: [{ quantity: 1 }] },
+    { line_items: [{ id: 'product-1', quantity: '2' }] },
+  ])('rejects invalid ACP line_items payloads %#', (payload) => {
+    const result = checkoutSessionSchema.safeParse(payload);
+
+    expect(result.success).toBe(false);
   });
 
   it('rejects an empty items array', () => {
@@ -43,6 +165,70 @@ describe('checkoutSessionSchema', () => {
   });
 });
 
+describe('createAgenticCheckoutSessionInputSchema', () => {
+  it('accepts an MCP checkout session payload with an idempotency key', () => {
+    const result = createAgenticCheckoutSessionInputSchema.safeParse({
+      currency: 'ngn',
+      idempotency_key: 'idem-checkout-1',
+      items: [{ id: 'product-1', quantity: 2 }],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.currency).toBe('NGN');
+      expect(result.data.idempotency_key).toBe('idem-checkout-1');
+    }
+  });
+
+  it('accepts ACP line_items in an MCP checkout session payload', () => {
+    const result = createAgenticCheckoutSessionInputSchema.safeParse({
+      currency: 'ngn',
+      idempotency_key: 'idem-checkout-1',
+      line_items: [{ id: 'product-1', quantity: 2 }],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items).toEqual([{ id: 'product-1', quantity: 2 }]);
+    }
+  });
+
+  it('keeps MCP items when items and line_items are both provided', () => {
+    const result = createAgenticCheckoutSessionInputSchema.safeParse({
+      idempotency_key: 'idem-checkout-1',
+      items: [{ id: 'product-1', quantity: 1 }],
+      line_items: [{ id: 'product-2', quantity: 2 }],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items).toEqual([{ id: 'product-1', quantity: 1 }]);
+    }
+  });
+
+  it('rejects item quantities above the MCP checkout limit', () => {
+    const result = createAgenticCheckoutSessionInputSchema.safeParse({
+      idempotency_key: 'idem-checkout-1',
+      items: [{ id: 'product-1', quantity: 21 }],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it.each([
+    { line_items: [{ id: 'product-1', quantity: 21 }] },
+    { line_items: [{ quantity: 1 }] },
+    { line_items: [{ id: 'product-1', quantity: -1 }] },
+  ])('rejects invalid MCP line_items payloads %#', (payload) => {
+    const result = createAgenticCheckoutSessionInputSchema.safeParse({
+      idempotency_key: 'idem-checkout-1',
+      ...payload,
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
 describe('agenticCheckoutUpdateSchema', () => {
   it('accepts a valid update payload', () => {
     const result = agenticCheckoutUpdateSchema.safeParse({
@@ -54,6 +240,101 @@ describe('agenticCheckoutUpdateSchema', () => {
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it('accepts ACP line_items as an update payload alias', () => {
+    const result = agenticCheckoutUpdateSchema.safeParse({
+      capabilities: {},
+      line_items: [{ id: 'product-1', quantity: 2 }],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items).toEqual([{ id: 'product-1', quantity: 2 }]);
+    }
+  });
+
+  it('accepts native ACP fulfillment_details and selected_fulfillment_options aliases', () => {
+    const result = agenticCheckoutUpdateSchema.safeParse({
+      fulfillment_details: {
+        name: 'Ada Buyer',
+        address: {
+          line_one: '12 Example Street',
+          city: 'Lagos',
+          state: 'LA',
+          country: 'NG',
+          postal_code: '100001',
+        },
+      },
+      selected_fulfillment_options: [
+        {
+          type: 'shipping',
+          option_id: 'shipping_standard',
+          item_ids: ['line_product-1'],
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toMatchObject({
+        fulfillment_option_id: 'shipping_standard',
+        shipping_address: {
+          address: '12 Example Street',
+          city: 'Lagos',
+          country_code: 'NG',
+          name: 'Ada Buyer',
+          postal_code: '100001',
+          state: 'LA',
+        },
+      });
+      expect(result.data).not.toHaveProperty('fulfillment_details');
+      expect(result.data).not.toHaveProperty('selected_fulfillment_options');
+    }
+  });
+
+  it('uses the first native ACP selected fulfillment option when multiple are supplied', () => {
+    const result = agenticCheckoutUpdateSchema.safeParse({
+      selected_fulfillment_options: [
+        {
+          type: 'pickup',
+          option_id: 'pickup_store_1',
+          item_ids: ['line_product-1'],
+        },
+        {
+          type: 'shipping',
+          option_id: 'shipping_standard',
+          item_ids: ['line_product-1'],
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.fulfillment_option_id).toBe('pickup_store_1');
+    }
+  });
+
+  it('keeps update items when items and line_items are both provided', () => {
+    const result = agenticCheckoutUpdateSchema.safeParse({
+      items: [{ id: 'product-1', quantity: 1 }],
+      line_items: [{ id: 'product-2', quantity: 2 }],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items).toEqual([{ id: 'product-1', quantity: 1 }]);
+    }
+  });
+
+  it.each([
+    { line_items: [] },
+    { line_items: [{ quantity: 1 }] },
+    { line_items: [{ id: 'product-1', quantity: '2' }] },
+  ])('rejects invalid update line_items payloads %#', (payload) => {
+    const result = agenticCheckoutUpdateSchema.safeParse(payload);
+
+    expect(result.success).toBe(false);
   });
 
   it('rejects empty update payloads', () => {

@@ -359,6 +359,86 @@ describe('POST /api/agentic/checkout_sessions/[id]', () => {
     );
   });
 
+  it('updates checkout items from an ACP line_items payload without an adapter', async () => {
+    const mock = createCheckoutSupabaseMock({
+      readSession: {
+        ...session,
+        cart_items: [{ id: 'old-product', quantity: 1 }],
+      },
+    });
+    useCheckoutSupabaseMock(mock);
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      createRequest({
+        capabilities: {},
+        line_items: [{ id: 'product-2', quantity: 2 }],
+      }),
+      routeParams()
+    );
+
+    expect(response.status).toBe(200);
+    expect(calculateCheckoutSession).toHaveBeenCalledWith(
+      mock.scopedSupabase,
+      [{ id: 'product-2', quantity: 2 }],
+      'pickup_store_1',
+      'NGN',
+      'merchant-1'
+    );
+    expect(mock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cart_items: [{ id: 'product-2', quantity: 2 }],
+      })
+    );
+  });
+
+  it('updates checkout fulfillment from native ACP selected options and fulfillment_details', async () => {
+    const mock = createCheckoutSupabaseMock();
+    useCheckoutSupabaseMock(mock);
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      createRequest({
+        fulfillment_details: {
+          name: 'Ada Buyer',
+          address: {
+            line_one: '12 Example Street',
+            city: 'Lagos',
+            state: 'LA',
+            country: 'NG',
+            postal_code: '100001',
+          },
+        },
+        selected_fulfillment_options: [
+          {
+            type: 'shipping',
+            option_id: 'shipping_standard',
+            item_ids: ['line_product-1'],
+          },
+        ],
+      }),
+      routeParams()
+    );
+
+    expect(response.status).toBe(200);
+    expect(calculateCheckoutSession).toHaveBeenCalledWith(
+      mock.scopedSupabase,
+      [{ id: 'product-1', quantity: 1 }],
+      'shipping_standard',
+      'NGN',
+      'merchant-1'
+    );
+    expect(mock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shipping_address: expect.objectContaining({
+          address: '12 Example Street',
+          country_code: 'NG',
+        }),
+        shipping_method: 'shipping_standard',
+      })
+    );
+  });
+
   it('supports PUT updates for UCP checkout operation compatibility', async () => {
     const mock = createCheckoutSupabaseMock();
     useCheckoutSupabaseMock(mock);

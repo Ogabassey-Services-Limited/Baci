@@ -130,6 +130,14 @@ function setCustomDomainHeader(domain: string) {
   mockHeaders = new Map<string, string>([['x-custom-domain', domain]]);
 }
 
+function setMerchantDomainHeader(domain: string) {
+  mockHeaders = new Map<string, string>([['x-merchant-domain', domain]]);
+}
+
+function setHostHeader(host: string) {
+  mockHeaders = new Map<string, string>([['host', host]]);
+}
+
 function mockProductsQuery(data: unknown, error: Error | null = null) {
   mockQueryResults.set('products', { data, error });
 }
@@ -211,6 +219,78 @@ describe('sitemap-data', () => {
 
     expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
     expect(context?.storeUrl).toBe('https://ogabassey.com');
+  });
+
+  it('treats x-merchant-domain as a storefront context header for named sitemap rewrites', async () => {
+    setMerchantDomainHeader('ogabassey.com');
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+
+    const context = await resolveStorefrontSitemapContext(
+      mockHeaders as unknown as Headers,
+      'sitemap'
+    );
+
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(context?.storeUrl).toBe('https://ogabassey.com');
+  });
+
+  it('uses the custom-domain host when direct named sitemap routing exposes sitemap as the slug param', async () => {
+    setHostHeader('ogabassey.com');
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-1',
+      slug: 'ogabassey',
+      custom_domain: 'ogabassey.com',
+    });
+    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+
+    const context = await resolveStorefrontSitemapContext(
+      mockHeaders as unknown as Headers,
+      'sitemap'
+    );
+
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('ogabassey.com');
+    expect(context?.storeUrl).toBe('https://ogabassey.com');
+  });
+
+  it('falls back to the explicit slug when the request host is not a merchant domain', async () => {
+    setHostHeader('preview.usebaci.com');
+    mockGetMerchantByIdentifier
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: 'merchant-1',
+        slug: 'ogabassey',
+      });
+    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+
+    const context = await resolveStorefrontSitemapContext(
+      mockHeaders as unknown as Headers,
+      'ogabassey'
+    );
+
+    expect(mockGetMerchantByIdentifier).toHaveBeenNthCalledWith(1, 'preview');
+    expect(mockGetMerchantByIdentifier).toHaveBeenNthCalledWith(2, 'ogabassey');
+    expect(context?.merchant.slug).toBe('ogabassey');
+  });
+
+  it('allows a real merchant slug named sitemap without header context', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValue({
+      id: 'merchant-sitemap',
+      slug: 'sitemap',
+    });
+    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+
+    const context = await resolveStorefrontSitemapContext(
+      mockHeaders as unknown as Headers,
+      'sitemap'
+    );
+
+    expect(mockGetMerchantByIdentifier).toHaveBeenCalledWith('sitemap');
+    expect(context?.merchant.slug).toBe('sitemap');
   });
 
   it('returns static sitemap entries for the storefront root and faq', async () => {

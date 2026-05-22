@@ -33,6 +33,7 @@ import {
 import { normalizeStorefrontCategorySlug } from '@/lib/normalize-storefront-category-slug';
 import { getEffectiveStock } from '@/lib/product-stock';
 import type { Product } from '@/lib/products';
+import { stripHtmlTags } from '@/lib/sanitize-core';
 import { safeJsonLdStringify } from '@/lib/sanitize-json-ld';
 import {
   generateBreadcrumbSchema,
@@ -45,6 +46,8 @@ import {
   getValidatedProductUrl,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
+import { getCachedStorefrontProductLcpImage } from '@/lib/storefront-product-lcp-image';
+import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
 import {
@@ -496,6 +499,30 @@ const getProduct = async (
   };
 };
 
+async function preloadOgabasseyPdpProductImageFromFastLookup(
+  storeSlug: string,
+  productSlug: string
+): Promise<void> {
+  try {
+    const merchant = await getRequestScopedMerchant(storeSlug);
+    if (!merchant || merchant.template_id !== OGABASSEY_TEMPLATE_ID) {
+      return;
+    }
+
+    const primaryProductImage = await getCachedStorefrontProductLcpImage(
+      merchant.id,
+      productSlug
+    );
+    preloadOgabasseyPdpProductImage({ src: primaryProductImage });
+  } catch (error) {
+    console.warn(
+      'Unable to preload OgaBassey PDP product image early:',
+      sanitizeLookupLogValue(productSlug),
+      error
+    );
+  }
+}
+
 export async function generateMetadata({
   params,
   searchParams,
@@ -535,21 +562,29 @@ export async function generateMetadata({
     product.category ||
     DEFAULT_STOREFRONT_SEO_CATEGORY;
   const merchantDisplayName = merchant?.business_name || DEFAULT_STORE_NAME;
+  const currency = merchant.payout_currency || 'NGN';
+  const priceSeoCopy = buildProductPriceSeoCopy({
+    product,
+    merchantDisplayName,
+    categoryName: productCategoryName,
+    currency,
+    country: merchant.country,
+  });
   const seoDescription = generateMetaDescription(
-    product.meta_description || product.description || '',
+    product.meta_description || priceSeoCopy.description,
     160,
     {
       minLength: 110,
-      fallback: `Buy ${product.name} from ${merchantDisplayName}. Shop trusted ${productCategoryName} with delivery and flexible payment options.`,
+      fallback: priceSeoCopy.description,
     }
   );
   const socialMetadata = getStorefrontProductSocialMetadata(
     baseUrl,
     product,
-    merchant.payout_currency || 'USD'
+    currency
   );
   const metadataTitle = generateMetaTitle(
-    product.meta_title || `${product.name} - ${productCategoryName}`,
+    product.meta_title || priceSeoCopy.title,
     {
       maxLength: 70,
       suffix: merchantDisplayName,
@@ -603,8 +638,12 @@ export default async function CategoryProductPage({
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
   }
+  // The fast lookup is only an optimization hint. Start it early, but never
+  // gate the primary PDP data path on the hint resolving.
+  void preloadOgabasseyPdpProductImageFromFastLookup(slug, productSlug);
+  const productResultPromise = getProduct(slug, category, productSlug);
   const resolvedSearchParams = await searchParams;
-  const result = await getProduct(slug, category, productSlug);
+  const result = await productResultPromise;
 
   if (!result) {
     notFound();
@@ -638,7 +677,21 @@ export default async function CategoryProductPage({
     product.category_slug ||
     (product.category ? generateSlug(product.category) : 'products');
   const trustProfile = buildMerchantTrustProfile(merchant, baseUrl);
-  const trustBullets = buildTrustBulletsFromProfile(trustProfile);
+  const currency = merchant.payout_currency || 'NGN';
+  const priceSeoCopy = buildProductPriceSeoCopy({
+    product,
+    merchantDisplayName: merchant?.business_name || DEFAULT_STORE_NAME,
+    categoryName: product.category || 'All Products',
+    currency,
+    country: merchant.country,
+  });
+  const plainProductDescription = stripHtmlTags(product.description)
+    .replace(/\s+/g, ' ')
+    .trim();
+  const trustBullets = [
+    priceSeoCopy.answer,
+    ...buildTrustBulletsFromProfile(trustProfile),
+  ];
   const semanticSections = (
     <Suspense fallback={null}>
       <OgabasseyPdpSemanticSections
@@ -667,7 +720,7 @@ export default async function CategoryProductPage({
   const productSchema = generateProductSchema(
     schemaProduct,
     merchant?.business_name || 'Baci Store',
-    merchant?.payout_currency || 'USD',
+    currency,
     merchant?.country || 'NG',
     merchant?.logo_url,
     trustProfile,
@@ -721,10 +774,8 @@ export default async function CategoryProductPage({
       />
       {/* Hidden crawlable summary without a second page-level heading */}
       <article className="sr-only" aria-label={`${product.name} summary`}>
-        <p>
-          {product.description ||
-            `Buy ${product.name} at the best price in Nigeria. Pay later with flexible options.`}
-        </p>
+        <p>{priceSeoCopy.answer}</p>
+        {plainProductDescription ? <p>{plainProductDescription}</p> : null}
         <dl>
           <dt>Brand</dt>
           <dd>{product.brand || 'OgaBassey'}</dd>
@@ -733,7 +784,7 @@ export default async function CategoryProductPage({
           <dt>Condition</dt>
           <dd>{product.condition || 'New'}</dd>
           <dt>Price</dt>
-          <dd>₦{product.price?.toLocaleString() || 'Contact for price'}</dd>
+          <dd>{priceSeoCopy.priceText || 'Contact for price'}</dd>
         </dl>
       </article>
       {productPage}

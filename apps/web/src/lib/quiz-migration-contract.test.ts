@@ -16,6 +16,10 @@ const rpcSql = readFileSync(
   resolve(migrationsDirectory, '20260516084622_quiz_phase1a_rpcs.sql'),
   'utf8'
 );
+const voucherOrderRpcSql = readFileSync(
+  resolve(migrationsDirectory, '20260522002607_quiz_voucher_order_rpc.sql'),
+  'utf8'
+);
 const regressionSql = readFileSync(
   resolve(migrationsDirectory, 'tests/quiz_phase1a_foundation.sql'),
   'utf8'
@@ -257,6 +261,49 @@ describe('quiz migration contracts', () => {
     );
     expect(cashClaimSql).toMatch(/qa\.id\s*=\s*p_award_id/i);
     expect(cashClaimSql).toMatch(/c\.user_id\s*=\s*p_user_id/i);
+  });
+
+  it('adds a proof-gated voucher order RPC without exposing it to anon callers', () => {
+    expect(voucherOrderRpcSql).toMatch(
+      /ALTER\s+TABLE\s+public\.order_items[\s\S]*ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+quiz_award_id\s+uuid/i
+    );
+    expect(voucherOrderRpcSql).toMatch(
+      /CREATE\s+UNIQUE\s+INDEX\s+IF\s+NOT\s+EXISTS\s+idx_order_items_quiz_award_id_unique/i
+    );
+    expect(voucherOrderRpcSql).toMatch(
+      /CREATE\s+OR\s+REPLACE\s+FUNCTION\s+public\.create_storefront_order_with_quiz_voucher/i
+    );
+    expect(voucherOrderRpcSql).toMatch(/SECURITY\s+DEFINER/i);
+    expect(voucherOrderRpcSql).toMatch(/SET\s+search_path\s*=\s*''/i);
+    expect(voucherOrderRpcSql).toMatch(
+      /public\.quiz_route_proof_valid\s*\(\s*p_route_proof\s*,\s*'create_storefront_order_with_quiz_voucher'\s*,\s*v_award_id::text\s*,\s*p_user_id\s*\)/is
+    );
+    expect(voucherOrderRpcSql).toMatch(
+      /jsonb_array_elements\s*\(\s*p_items\s*\)/i
+    );
+    expect(voucherOrderRpcSql).toMatch(/v_voucher_item_count\s*<>\s*1/i);
+    expect(voucherOrderRpcSql).toMatch(/FOR\s+UPDATE\s+OF\s+qa/i);
+    expect(voucherOrderRpcSql).toMatch(/qa\.status\s*<>\s*'approved'/i);
+    expect(voucherOrderRpcSql).toMatch(/qa\.award_type\s*<>\s*'store_credit'/i);
+    expect(voucherOrderRpcSql).toMatch(/public\.create_storefront_order\s*\(/i);
+    expect(voucherOrderRpcSql).toMatch(
+      /p_discount_amount\s*=>\s*COALESCE\s*\(\s*p_discount_amount\s*,\s*0\s*\)\s*\+\s*COALESCE\s*\(\s*v_award_amount\s*,\s*0\s*\)/i
+    );
+    expect(voucherOrderRpcSql).toMatch(
+      /UPDATE\s+public\.order_items[\s\S]*SET\s+quiz_award_id\s*=\s*v_award_id/is
+    );
+    expect(voucherOrderRpcSql).toMatch(
+      /UPDATE\s+public\.quiz_awards[\s\S]*SET\s+status\s*=\s*'claimed'/is
+    );
+    expect(voucherOrderRpcSql).toMatch(
+      /REVOKE\s+ALL\s+ON\s+FUNCTION\s+public\.create_storefront_order_with_quiz_voucher[\s\S]*FROM\s+PUBLIC,\s+anon,\s+authenticated/i
+    );
+    expect(voucherOrderRpcSql).not.toMatch(
+      /GRANT\s+(?:ALL|EXECUTE)[\s\S]*create_storefront_order_with_quiz_voucher[\s\S]*TO\s+anon/i
+    );
+    expect(voucherOrderRpcSql).toMatch(
+      /GRANT\s+EXECUTE\s+ON\s+FUNCTION\s+public\.create_storefront_order_with_quiz_voucher[\s\S]*TO\s+authenticated,\s+service_role/i
+    );
   });
 
   it('records non-sensitive proof validation failures without granting client access', () => {

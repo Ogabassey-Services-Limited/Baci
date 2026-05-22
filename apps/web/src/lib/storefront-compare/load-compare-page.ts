@@ -16,6 +16,11 @@ import type {
 } from '@/lib/storefront-content/content-cluster-types';
 import { getPublishedClusterPosts } from '@/lib/storefront-content/get-published-cluster-posts';
 import {
+  appendCountryContext,
+  getCountryShoppingContext,
+  getStorefrontLocale,
+} from '@/lib/storefront-localization';
+import {
   buildBrandCompareCandidate,
   buildProductCompareCandidate,
 } from './compare-eligibility';
@@ -267,11 +272,16 @@ export async function loadComparePage(args: {
     args.categorySlug
   );
   const payoutCurrency = merchant.payout_currency || 'NGN';
-  const priceFormatter = new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: payoutCurrency,
-    maximumFractionDigits: 0,
-  });
+  const priceFormatter = new Intl.NumberFormat(
+    getStorefrontLocale(merchant.country),
+    {
+      style: 'currency',
+      currency: payoutCurrency,
+      maximumFractionDigits: 0,
+    }
+  );
+  const countryContext = getCountryShoppingContext(merchant.country);
+  const countrySuffix = countryContext ? ` ${countryContext}` : '';
 
   const leftProduct = normalizedProducts.find(
     (product) => product.slug === parsed.leftKey
@@ -346,24 +356,29 @@ export async function loadComparePage(args: {
       },
     ];
 
+    const compareLabel = appendCountryContext(
+      `${leftDetails.name} vs ${rightDetails.name}`,
+      countryContext
+    );
+
     return {
       kind: 'product',
       canonicalSlug: parsed.canonicalSlug,
       canonicalUrl,
-      metaTitle: `${leftDetails.name} vs ${rightDetails.name} | ${merchant.business_name}`,
-      metaDescription: `Compare ${leftDetails.name} and ${rightDetails.name} across price, specs, and buying priorities on ${merchant.business_name}.`,
-      heading: `${leftDetails.name} vs ${rightDetails.name}`,
-      summaryVerdict: `${leftDetails.name} and ${rightDetails.name} both target ${categoryName.toLowerCase()} buyers, but the deciding factors are ${differenceLabels}.`,
+      metaTitle: `${compareLabel} | ${merchant.business_name}`,
+      metaDescription: `Compare ${leftDetails.name} vs ${rightDetails.name}${countrySuffix} by price, specs, condition, warranty, delivery, and buying priorities on ${merchant.business_name}.`,
+      heading: compareLabel,
+      summaryVerdict: `${leftDetails.name} and ${rightDetails.name} both target ${categoryName.toLowerCase()} buyers${countrySuffix}, but the deciding factors are ${differenceLabels}.`,
       keyDifferences,
       comparisonRows,
       faqItems: [
         {
-          question: `Which is better, ${leftDetails.name} or ${rightDetails.name}?`,
-          answer: `Use the comparison table to choose based on the specs that matter most to you, especially ${differenceLabels}.`,
+          question: `Which is better${countrySuffix}, ${leftDetails.name} or ${rightDetails.name}?`,
+          answer: `Use the comparison table to choose based on the price, condition, and specs that matter most to you, especially ${differenceLabels}.`,
         },
         {
-          question: `Is ${leftDetails.name} worth the price difference?`,
-          answer: `${leftDetails.name} is the better fit if its advantages in ${differenceLabels.split(' and ')[0] || 'key specifications'} matter more than the savings on ${rightDetails.name}.`,
+          question: `Which has better value for the price${countrySuffix}?`,
+          answer: `${leftDetails.name} is the better fit if its advantages in ${differenceLabels.split(' and ')[0] || 'key specifications'} matter more than the savings on ${rightDetails.name}; otherwise compare current prices and availability before buying.`,
         },
       ],
       breadcrumbItems,
@@ -435,7 +450,10 @@ export async function loadComparePage(args: {
     `${brandCandidate.rightBrand} has ${brandCandidate.rightBrandActiveCount} active models in this category.`,
     `${brandCandidate.leftBrand} ranges from ${comparisonRows[1].leftValue}, while ${brandCandidate.rightBrand} ranges from ${comparisonRows[1].rightValue}.`,
   ];
-  const heading = `${brandCandidate.leftBrand} vs ${brandCandidate.rightBrand} ${categoryName}`;
+  const heading = appendCountryContext(
+    `${brandCandidate.leftBrand} vs ${brandCandidate.rightBrand} ${categoryName}`,
+    countryContext
+  );
   const breadcrumbItems = [
     { name: merchant.business_name, url: storeUrl },
     { name: categoryName, url: `${storeUrl}/${args.categorySlug}` },
@@ -447,18 +465,18 @@ export async function loadComparePage(args: {
     canonicalSlug: parsed.canonicalSlug,
     canonicalUrl,
     metaTitle: `${heading} | ${merchant.business_name}`,
-    metaDescription: `Compare ${brandCandidate.leftBrand} and ${brandCandidate.rightBrand} ${categoryName.toLowerCase()} by live model count, pricing, and buying fit on ${merchant.business_name}.`,
+    metaDescription: `Compare ${brandCandidate.leftBrand} and ${brandCandidate.rightBrand} ${categoryName.toLowerCase()}${countrySuffix} by live model count, price range, warranty, delivery, and buying fit on ${merchant.business_name}.`,
     heading,
-    summaryVerdict: `${brandCandidate.leftBrand} and ${brandCandidate.rightBrand} both matter for ${categoryName.toLowerCase()} shoppers, but their active model counts and price positioning differ.`,
+    summaryVerdict: `${brandCandidate.leftBrand} and ${brandCandidate.rightBrand} both matter for ${categoryName.toLowerCase()} shoppers${countrySuffix}, but their active model counts and price positioning differ.`,
     keyDifferences,
     comparisonRows,
     faqItems: [
       {
-        question: `Which brand is better for ${categoryName.toLowerCase()}, ${brandCandidate.leftBrand} or ${brandCandidate.rightBrand}?`,
-        answer: `Use the comparison table to decide whether ${brandCandidate.leftBrand}'s catalog depth or ${brandCandidate.rightBrand}'s price spread is the better fit.`,
+        question: `Which brand is better for ${categoryName.toLowerCase()}${countrySuffix}, ${brandCandidate.leftBrand} or ${brandCandidate.rightBrand}?`,
+        answer: `Use the comparison table to decide whether ${brandCandidate.leftBrand}'s catalog depth or ${brandCandidate.rightBrand}'s price spread is the better fit for your budget and availability needs.`,
       },
       {
-        question: `Does ${brandCandidate.leftBrand} have more options than ${brandCandidate.rightBrand}?`,
+        question: `Does ${brandCandidate.leftBrand} have more options than ${brandCandidate.rightBrand}${countrySuffix}?`,
         answer: `${brandCandidate.leftBrand} currently has ${brandCandidate.leftBrandActiveCount} active models in this category, while ${brandCandidate.rightBrand} has ${brandCandidate.rightBrandActiveCount}.`,
       },
     ],

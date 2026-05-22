@@ -3,7 +3,7 @@ import {
   AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER,
   AGENTIC_PAYMENT_PROVIDER_PAY_ON_DELIVERY,
   AGENTIC_PAYMENT_PROVIDER_PAYSTACK,
-} from '@/config/agentic-payment-methods';
+} from '../config/agentic-payment-methods';
 
 export const agenticCheckoutItemSchema = z.object({
   id: z.string().trim().min(1, 'Item id is required'),
@@ -27,7 +27,7 @@ export const agenticFulfillmentAddressSchema = z.object({
   station_id: z.number().int().nonnegative().optional(),
 });
 
-export const checkoutSessionSchema = z.object({
+const checkoutSessionBaseSchema = z.object({
   items: agenticCheckoutItemsSchema,
   shipping_address: agenticFulfillmentAddressSchema.nullable().optional(),
   currency: z
@@ -39,7 +39,30 @@ export const checkoutSessionSchema = z.object({
     .default('NGN'),
 });
 
-export const agenticCheckoutUpdateSchema = z
+export const checkoutSessionSchema = z.preprocess(
+  normalizeCheckoutAcpAliases,
+  checkoutSessionBaseSchema
+);
+
+const createAgenticCheckoutSessionItemSchema = agenticCheckoutItemSchema.extend(
+  {
+    quantity: z
+      .number()
+      .int()
+      .positive('Quantity must be a positive integer')
+      .max(20, 'Quantity must be 20 or less'),
+  }
+);
+
+export const createAgenticCheckoutSessionInputSchema = z.preprocess(
+  normalizeCheckoutAcpAliases,
+  checkoutSessionBaseSchema.extend({
+    idempotency_key: z.string().trim().min(8).max(128).optional(),
+    items: z.array(createAgenticCheckoutSessionItemSchema).min(1).max(50),
+  })
+);
+
+const agenticCheckoutUpdateBaseSchema = z
   .object({
     items: agenticCheckoutItemsSchema.optional(),
     shipping_address: agenticFulfillmentAddressSchema.nullable().optional(),
@@ -55,6 +78,11 @@ export const agenticCheckoutUpdateSchema = z
         'At least one of items, shipping_address, or fulfillment_option_id is required',
     }
   );
+
+export const agenticCheckoutUpdateSchema = z.preprocess(
+  normalizeCheckoutAcpAliases,
+  agenticCheckoutUpdateBaseSchema
+);
 
 export const agenticCheckoutBuyerSchema = z.object({
   email: z.string().email(),
@@ -129,4 +157,141 @@ export type AgenticCheckoutCompleteInput = z.infer<
 
 function toUppercaseCurrency(value: string) {
   return value.toUpperCase();
+}
+
+function normalizeCheckoutAcpAliases(value: unknown): unknown {
+  if (!isRecord(value)) {
+    return value;
+  }
+
+  let normalized: Record<string, unknown> | null = null;
+  const ensureNormalized = () => {
+    normalized ??= { ...value };
+    return normalized;
+  };
+
+  if (!Object.hasOwn(value, 'items') && Object.hasOwn(value, 'line_items')) {
+    ensureNormalized().items = normalizeCheckoutLineItems(value.line_items);
+  }
+
+  if (
+    !Object.hasOwn(value, 'shipping_address') &&
+    Object.hasOwn(value, 'fulfillment_details')
+  ) {
+    ensureNormalized().shipping_address = normalizeAcpFulfillmentDetails(
+      value.fulfillment_details
+    );
+  }
+
+  if (
+    !Object.hasOwn(value, 'fulfillment_option_id') &&
+    Object.hasOwn(value, 'selected_fulfillment_options')
+  ) {
+    const fulfillmentOptionId = getSelectedFulfillmentOptionId(
+      value.selected_fulfillment_options
+    );
+    if (fulfillmentOptionId !== undefined) {
+      ensureNormalized().fulfillment_option_id = fulfillmentOptionId;
+    }
+  }
+
+  return normalized ?? value;
+}
+
+function normalizeCheckoutLineItems(value: unknown): unknown {
+  if (!Array.isArray(value)) return value;
+
+  return value.map((lineItem) => {
+    if (!isRecord(lineItem)) return lineItem;
+
+    const nestedItem = isRecord(lineItem.item) ? lineItem.item : undefined;
+    const id =
+      getStringField(nestedItem, 'id') ?? getStringField(lineItem, 'id');
+    if (!id) return lineItem;
+
+    return {
+      id,
+      quantity: Object.hasOwn(lineItem, 'quantity') ? lineItem.quantity : 1,
+    };
+  });
+}
+
+function normalizeAcpFulfillmentDetails(value: unknown): unknown {
+  if (value === null) return null;
+  if (!isRecord(value)) return value;
+
+  const address = isRecord(value.address) ? value.address : undefined;
+  const lineOne =
+    getStringField(address, 'line_one') ?? getStringField(value, 'address');
+  const lineTwo = getStringField(address, 'line_two');
+  const country =
+    getStringField(address, 'country') ?? getStringField(value, 'country');
+  const normalized: Record<string, unknown> = {};
+
+  setOptionalField(
+    normalized,
+    'name',
+    getStringField(value, 'name') ?? getStringField(address, 'name')
+  );
+  setOptionalField(normalized, 'email', getStringField(value, 'email'));
+  setOptionalField(
+    normalized,
+    'phone',
+    getStringField(value, 'phone_number') ?? getStringField(value, 'phone')
+  );
+  setOptionalField(normalized, 'address', joinAddressLines(lineOne, lineTwo));
+  setOptionalField(normalized, 'city', getStringField(address, 'city'));
+  setOptionalField(normalized, 'state', getStringField(address, 'state'));
+  setOptionalField(normalized, 'country', country);
+  if (country && /^[A-Za-z]{2,3}$/.test(country)) {
+    normalized.country_code = country.toUpperCase();
+  }
+  setOptionalField(
+    normalized,
+    'postal_code',
+    getStringField(address, 'postal_code')
+  );
+
+  return normalized;
+}
+
+function getSelectedFulfillmentOptionId(value: unknown): unknown {
+  if (!Array.isArray(value)) return undefined;
+
+  const selectedOption = value.find(
+    (option) => isRecord(option) && Object.hasOwn(option, 'option_id')
+  );
+
+  return isRecord(selectedOption) ? selectedOption.option_id : undefined;
+}
+
+function getStringField(
+  value: Record<string, unknown> | undefined,
+  field: string
+): string | undefined {
+  const raw = value?.[field];
+  return typeof raw === 'string' && raw.trim().length > 0
+    ? raw.trim()
+    : undefined;
+}
+
+function joinAddressLines(
+  lineOne: string | undefined,
+  lineTwo: string | undefined
+) {
+  return [lineOne, lineTwo].filter(Boolean).join(', ') || undefined;
+}
+
+function setOptionalField(
+  target: Record<string, unknown>,
+  field: string,
+  value: string | undefined
+) {
+  if (value) {
+    target[field] = value;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

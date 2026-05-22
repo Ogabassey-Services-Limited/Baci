@@ -1,0 +1,105 @@
+{
+  "maxLines": 300,
+  "routes": [
+    {
+      "path": "app/checkout.tsx",
+      "lineCount": 4132,
+      "justification": "Existing Phase 6 checkout route decomposition baseline; shrink or remove this entry as the route is modularized."
+    },
+    {
+      "path": "app/product/[slug].tsx",
+      "lineCount": 1309,
+      "justification": "Existing PDP route decomposition baseline; shrink or remove this entry as product detail logic is modularized."
+    },
+    {
+      "path": "app/orders/[id].tsx",
+      "lineCount": 1189,
+      "justification": "Existing Phase 6 orders detail decomposition baseline; shrink or remove this entry as the route is modularized."
+    },
+    {
+      "path": "app/track-order/index.tsx",
+      "lineCount": 1042,
+      "justification": "Existing oversized tracking route baseline; shrink or remove this entry as the route is modularized."
+    },
+    {
+      "path": "app/auth/login.tsx",
+      "lineCount": 856,
+      "justification": "Existing oversized auth route baseline; shrink or remove this entry as the route is modularized."
+    },
+    {
+      "path": "app/bnpl-checkout/index.tsx",
+      "lineCount": 754,
+      "justification": "Existing oversized BNPL route baseline; shrink or remove this entry as the route is modularized."
+    },
+    {
+      "path": "app/addresses/[id].tsx",
+      "lineCount": 685,
+      "justification": "Existing oversized address-edit route baseline; shrink or remove this entry as the route is modularized."
+    },
+    {
+      "path": "app/(tabs)/cart.tsx",
+      "lineCount": 637,
+      "justification": "Existing oversized cart tab route baseline; shrink or remove this entry as the route is modularized."
+    },
+    {
+      "path": "app/search.tsx",
+      "lineCount": 565,
+      "justification": "Existing oversized search route baseline; shrink or remove this entry as the route is modularized."
+    },
+    {
+      "path": "app/(tabs)/index.tsx",
+      "lineCount": 515,
+      "justification": "Existing oversized home tab route baseline; shrink or remove this entry as the route is modularized."
+    },
+    {
+      "path": "app/order-success.tsx",
+      "lineCount": 504,
+      "justification": "Existing oversized order-success route baseline; shrink or remove this entry as the route is modularized."
+    },
+    {
+      "path": "app/compare/index.tsx",
+      "lineCount": 479,
+      "justification": "Existing oversized compare route baseline; shrink or remove this entry as the route is modularized."
+    },
+    {
+      "path": "app/saved/index.tsx",
+      "lineCount": 458,
+      "justification": "Existing oversized saved-items route baseline; shrink or remove this entry as the route is modularized."
+    },
+    {
+      "path": "app/crypto-payment/index.tsx",
+      "lineCount": 430,
+      "justification": "Existing oversized crypto-payment route baseline; shrink or remove this entry as the route is modularized."
+    },
+    {
+      "path": "app/bank-transfer/index.tsx",
+      "lineCount": 391,
+      "justification": "Existing oversized bank-transfer route baseline; shrink or remove this entry as the route is modularized."
+    },
+    {
+      "path": "app/faq/index.tsx",
+      "lineCount": 360,
+      "justification": "Existing oversized FAQ route baseline; shrink or remove this entry as the route is modularized."
+    },
+    {
+      "path": "app/profile/edit.tsx",
+      "lineCount": 357,
+      "justification": "Existing oversized profile-edit route baseline; shrink or remove this entry as the route is modularized."
+    },
+    {
+      "path": "app/wallet/index.tsx",
+      "lineCount": 354,
+      "justification": "Existing oversized wallet route baseline; shrink or remove this entry as the route is modularized."
+    },
+    {
+      "path": "app/receipts/index.tsx",
+      "lineCount": 339,
+      "justification": "Existing oversized receipts route baseline; shrink or remove this entry as the route is modularized."
+    },
+    {
+      "path": "app/settings/index.tsx",
+      "lineCount": 303,
+      "justification": "Existing oversized settings route baseline; shrink or remove this entry as the route is modularized."
+    }
+  ]
+}

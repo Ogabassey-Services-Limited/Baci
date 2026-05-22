@@ -46,6 +46,7 @@ import {
   type CheckoutStep,
   CheckoutStepper,
 } from '@/components/checkout/CheckoutStepper';
+import { CheckoutContactCard } from '@/components/checkout/CheckoutContactCard';
 import { CheckoutFormField } from '@/components/checkout/CheckoutFormField';
 import { CryptoSelectionModal } from '@/components/checkout/CryptoSelectionModal';
 import { DeliveryMethodCard } from '@/components/checkout/DeliveryMethodCard';
@@ -83,7 +84,6 @@ import type {
 } from '@/components/checkout/types';
 import { AddressAutocomplete } from '@/components/ui/AddressAutocomplete';
 import AppKeyboardContainer from '@/components/ui/AppKeyboardContainer';
-import { PhoneInput } from '@/components/ui/PhoneInput';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors, {
   BRAND,
@@ -1873,266 +1873,23 @@ export default function CheckoutScreen() {
         </Text>
       </View>
 
-      <View
-        style={[
-          styles.card,
-          {
-            backgroundColor: colors.card,
-            borderColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-            overflow: 'visible',
-            zIndex: 20,
-            position: 'relative',
-          },
-        ]}
-      >
-        <View style={styles.cardHeaderActionRow}>
-          <View style={[styles.cardHeader, styles.cardHeaderInline]}>
-            <Ionicons name="person-outline" size={16} color={BRAND.primary} />
-            <Text style={[styles.cardTitle, { color: colors.text }]}>
-              Contact
-            </Text>
-          </View>
-          {isAuthenticated && (isContactCollapsed || hasContactIdentity) && (
-            <Pressable
-              style={styles.inlineEditButton}
-              onPress={() => setIsContactCollapsed((value) => !value)}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel={
-                isContactCollapsed
-                  ? 'Edit contact details'
-                  : 'Collapse contact details'
-              }
-            >
-              <View style={styles.inlineActionContent}>
-                <Ionicons
-                  name={
-                    isContactCollapsed ? 'create-outline' : 'checkmark-outline'
-                  }
-                  size={16}
-                  color={BRAND.primary}
-                />
-                <Text style={styles.inlineActionText}>
-                  {isContactCollapsed ? 'Edit' : 'Done'}
-                </Text>
-              </View>
-            </Pressable>
-          )}
-        </View>
-        {isContactCollapsed ? (
-          <View
-            style={[
-              styles.summaryPanel,
-              {
-                backgroundColor: isDark
-                  ? 'rgba(255, 255, 255, 0.04)'
-                  : palette.gray[50],
-                borderColor: colors.border,
-              },
-            ]}
-          >
-            <View style={styles.summaryMetaRow}>
-              <Ionicons
-                name="person-circle-outline"
-                size={16}
-                color={BRAND.primary}
-              />
-              <Text
-                style={[
-                  styles.summaryMetaLabel,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                Signed in
-              </Text>
-            </View>
-            <Text style={[styles.summaryTitle, { color: colors.text }]}>
-              {currentContactSummary || 'Contact details'}
-            </Text>
-            {watchedEmail ? (
-              <Text
-                style={[styles.summaryLine, { color: colors.textSecondary }]}
-              >
-                {watchedEmail}
-              </Text>
-            ) : null}
-            {watchedPhone ? (
-              <Text
-                style={[styles.summaryLine, { color: colors.textSecondary }]}
-              >
-                {watchedPhone}
-              </Text>
-            ) : null}
-          </View>
-        ) : (
-          <View style={[styles.cardBody, styles.contactCardBody]}>
-            <View style={styles.row}>
-              <View style={styles.halfInput}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>
-                  First Name
-                </Text>
-                <CheckoutFormField
-                  name="firstName"
-                  label=""
-                  placeholder="E.g. John"
-                  control={control}
-                  errors={errors}
-                  colors={colors}
-                  isDark={isDark}
-                  autoCapitalize="words"
-                />
-              </View>
-              <View style={styles.halfInput}>
-                <Text style={[styles.label, { color: colors.textSecondary }]}>
-                  Last Name
-                </Text>
-                <CheckoutFormField
-                  name="lastName"
-                  label=""
-                  placeholder="E.g. Doe"
-                  control={control}
-                  errors={errors}
-                  colors={colors}
-                  isDark={isDark}
-                  autoCapitalize="words"
-                />
-              </View>
-            </View>
-
-            <Text
-              style={[
-                styles.label,
-                { color: colors.textSecondary, marginBottom: 8 },
-              ]}
-            >
-              Phone Number
-            </Text>
-            <Controller
-              control={control}
-              name="phone"
-              render={({ field: { value, onChange, onBlur } }) => (
-                <PhoneInput
-                  value={value}
-                  onChangeText={onChange}
-                  onBlur={onBlur}
-                  error={errors.phone?.message}
-                  containerStyle={styles.compactInputGroup}
-                />
-              )}
-            />
-
-            <Text style={[styles.label, { color: colors.textSecondary }]}>
-              Email Address
-            </Text>
-            <CheckoutFormField
-              name="email"
-              label=""
-              placeholder="john@example.com"
-              control={control}
-              errors={errors}
-              colors={colors}
-              isDark={isDark}
-              containerStyle={styles.compactInputGroup}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-
-            {/* Save Details Checkbox — guests only */}
-            {!isAuthenticated && (
-              <View style={styles.saveDetailsSection}>
-                <Pressable
-                  style={styles.checkboxRow}
-                  onPress={() => setSaveDetails(!saveDetails)}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: saveDetails }}
-                  accessibilityLabel="Save my details for faster checkout"
-                >
-                  <View
-                    style={[
-                      styles.checkbox,
-                      saveDetails && styles.checkboxChecked,
-                      {
-                        borderColor: saveDetails
-                          ? BRAND.primary
-                          : colors.border,
-                      },
-                    ]}
-                  >
-                    {saveDetails && (
-                      <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                    )}
-                  </View>
-                  <Text style={[styles.checkboxLabel, { color: colors.text }]}>
-                    Save my details for faster checkout
-                  </Text>
-                </Pressable>
-
-                {saveDetails && (
-                  <>
-                    <View
-                      style={[
-                        styles.accountInfoBanner,
-                        { backgroundColor: `${BRAND.primary}10` },
-                      ]}
-                    >
-                      <Ionicons
-                        name="information-circle"
-                        size={18}
-                        color={BRAND.primary}
-                      />
-                      <Text
-                        style={[
-                          styles.accountInfoText,
-                          { color: colors.textSecondary },
-                        ]}
-                      >
-                        This will create an account so you can track your order
-                        and checkout faster next time.
-                      </Text>
-                    </View>
-
-                    <View style={styles.inputGroup}>
-                      <Text
-                        style={[styles.label, { color: colors.textSecondary }]}
-                      >
-                        Create a Password
-                      </Text>
-                      <TextInput
-                        style={[
-                          styles.input,
-                          {
-                            backgroundColor: colors.card,
-                            color: colors.text,
-                            borderColor:
-                              accountPassword.length > 0 &&
-                              accountPassword.length < 6
-                                ? '#EF4444'
-                                : colors.border,
-                          },
-                        ]}
-                        value={accountPassword}
-                        onChangeText={setAccountPassword}
-                        placeholder="Min. 6 characters"
-                        placeholderTextColor={colors.textSecondary}
-                        secureTextEntry
-                        autoComplete="new-password"
-                        textContentType="newPassword"
-                        accessibilityLabel="Create a password"
-                      />
-                      {accountPassword.length > 0 &&
-                        accountPassword.length < 6 && (
-                          <Text style={styles.fieldError}>
-                            Password must be at least 6 characters
-                          </Text>
-                        )}
-                    </View>
-                  </>
-                )}
-              </View>
-            )}
-          </View>
-        )}
-      </View>
+      <CheckoutContactCard
+        accountPassword={accountPassword}
+        colors={colors}
+        contactSummary={currentContactSummary}
+        control={control}
+        email={watchedEmail}
+        errors={errors}
+        hasContactIdentity={hasContactIdentity}
+        isAuthenticated={isAuthenticated}
+        isCollapsed={isContactCollapsed}
+        isDark={isDark}
+        onChangeAccountPassword={setAccountPassword}
+        onToggleCollapsed={() => setIsContactCollapsed((value) => !value)}
+        onToggleSaveDetails={() => setSaveDetails(!saveDetails)}
+        phone={watchedPhone}
+        saveDetails={saveDetails}
+      />
 
       <DeliveryMethodCard
         colors={colors}
