@@ -3,10 +3,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
 
 const getActionHealthRequestControlSummary = vi.fn();
+const loadAdminAgenticActionHealthRecords = vi.fn();
 
 vi.mock('@/lib/agentic/action-health-request-controls', () => ({
   getActionHealthRequestControlSummary: (...args: unknown[]) =>
     getActionHealthRequestControlSummary(...args),
+}));
+
+vi.mock('@/lib/agentic/action-health-admin-records', () => ({
+  loadAdminAgenticActionHealthRecords: (...args: unknown[]) =>
+    loadAdminAgenticActionHealthRecords(...args),
 }));
 
 describe('loadAgenticActionHealth', () => {
@@ -174,6 +180,68 @@ describe('loadAgenticActionHealth', () => {
     await expect(
       loadAgenticActionHealth(supabase, 'merchant-1')
     ).rejects.toThrow('rpc failed');
+  });
+
+  it('can load action records directly for admin monitoring', async () => {
+    getActionHealthRequestControlSummary.mockResolvedValue({
+      allowlistCount: 1,
+      denylistCount: 0,
+      error: null,
+      isAgenticCheckoutEnabled: true,
+    });
+    loadAdminAgenticActionHealthRecords.mockResolvedValue({
+      checkout_sessions: [],
+      idempotency_records: [],
+      request_records: [],
+    });
+    const supabase = {
+      rpc: vi.fn(),
+    } as unknown as SupabaseClient;
+
+    const result = await loadAgenticActionHealth(supabase, 'merchant-1', {
+      recordsSource: 'admin_direct',
+    });
+
+    expect(loadAdminAgenticActionHealthRecords).toHaveBeenCalledWith(
+      supabase,
+      'merchant-1',
+      25
+    );
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(result.actions).toEqual([
+      expect.objectContaining({
+        code: 'AGENTIC_ACTIONS_HEALTHY',
+        severity: 'ok',
+      }),
+    ]);
+  });
+
+  it('propagates admin-direct record loading errors without calling the dashboard rpc', async () => {
+    getActionHealthRequestControlSummary.mockResolvedValue({
+      allowlistCount: 1,
+      denylistCount: 0,
+      error: null,
+      isAgenticCheckoutEnabled: true,
+    });
+    loadAdminAgenticActionHealthRecords.mockRejectedValue(
+      new Error('admin direct failed')
+    );
+    const supabase = {
+      rpc: vi.fn(),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      loadAgenticActionHealth(supabase, 'merchant-1', {
+        recordsSource: 'admin_direct',
+      })
+    ).rejects.toThrow('admin direct failed');
+
+    expect(loadAdminAgenticActionHealthRecords).toHaveBeenCalledWith(
+      supabase,
+      'merchant-1',
+      25
+    );
+    expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
   it('ages out old terminal idempotency errors without hiding stale in-progress reservations', async () => {
