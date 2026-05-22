@@ -3,7 +3,7 @@ import {
   AGENTIC_PAYMENT_METHOD_PAYSTACK_BANK_TRANSFER,
   AGENTIC_PAYMENT_PROVIDER_PAY_ON_DELIVERY,
   AGENTIC_PAYMENT_PROVIDER_PAYSTACK,
-} from '@/config/agentic-payment-methods';
+} from '../config/agentic-payment-methods';
 
 export const agenticCheckoutItemSchema = z.object({
   id: z.string().trim().min(1, 'Item id is required'),
@@ -38,6 +38,22 @@ export const checkoutSessionSchema = z.object({
     .optional()
     .default('NGN'),
 });
+
+const createAgenticCheckoutSessionItemSchema = agenticCheckoutItemSchema.extend(
+  {
+    quantity: z
+      .number()
+      .int()
+      .positive('Quantity must be a positive integer')
+      .max(20, 'Quantity must be 20 or less'),
+  }
+);
+
+export const createAgenticCheckoutSessionInputSchema =
+  checkoutSessionSchema.extend({
+    idempotency_key: z.string().trim().min(8).max(128).optional(),
+    items: z.array(createAgenticCheckoutSessionItemSchema).min(1).max(50),
+  });
 
 export const agenticCheckoutUpdateSchema = z
   .object({
