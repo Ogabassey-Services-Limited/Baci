@@ -110,13 +110,13 @@ vi.mock('./novel-features/slash-command', () => ({
     {
       title: 'Heading 1',
       description: 'Big heading',
-      icon: <span>H1</span>,
+      icon: 'H1',
       command: vi.fn(),
     },
     {
       title: 'Bullet List',
       description: 'Create a list',
-      icon: <span>UL</span>,
+      icon: 'UL',
       command: vi.fn(),
     },
   ],
