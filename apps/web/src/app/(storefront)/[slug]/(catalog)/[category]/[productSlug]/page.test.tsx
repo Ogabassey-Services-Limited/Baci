@@ -309,6 +309,61 @@ vi.mock(
 
 import CategoryProductPage, { generateMetadata } from './page';
 
+async function resolveRsc(
+  element: any,
+  options: { stripSuspense?: boolean; skipContent?: boolean } = {}
+): Promise<any> {
+  if (!element) return element;
+
+  if (Array.isArray(element)) {
+    return Promise.all(element.map((item) => resolveRsc(item, options)));
+  }
+
+  if (element instanceof Promise) {
+    const resolvedValue = await element;
+    return resolveRsc(resolvedValue, options);
+  }
+
+  if (typeof element === 'object' && 'type' in element) {
+    const { type, props } = element;
+
+    if (options.stripSuspense && type === Suspense) {
+      return resolveRsc(props.children, options);
+    }
+
+    if (
+      options.skipContent &&
+      typeof type === 'function' &&
+      type.name === 'CategoryProductPageContent'
+    ) {
+      return element;
+    }
+
+    if (typeof type === 'function') {
+      try {
+        const resolved = await type(props);
+        return resolveRsc(resolved, options);
+      } catch {
+        // Return element as-is on suspension or render errors so React can handle it natively
+        return element;
+      }
+    }
+
+    if (props && 'children' in props) {
+      const resolvedChildren = await resolveRsc(props.children, options);
+      return {
+        ...element,
+        props: {
+          ...props,
+          children: resolvedChildren,
+        },
+      };
+    }
+  }
+
+  return element;
+}
+
 const baseMerchant = {
   id: 'merchant-1',
   business_name: 'TestStore',
@@ -685,14 +740,16 @@ describe('[category]/[productSlug] page render', () => {
   });
 
   it('renders only the visible product heading for the page', async () => {
-    const ui = await CategoryProductPage({
-      params: Promise.resolve({
-        slug: 'teststore',
-        category: 'laptops',
-        productSlug: 'hp-laptop-14-ep0063nia',
-      }),
-      searchParams: Promise.resolve({}),
-    });
+    const ui = await resolveRsc(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
 
     const { container } = render(ui);
 
@@ -724,14 +781,16 @@ describe('[category]/[productSlug] page render', () => {
       searchParams: Promise.resolve({}),
     });
 
-    await CategoryProductPage({
-      params: Promise.resolve({
-        slug: 'teststore',
-        category: 'laptops',
-        productSlug: 'hp-laptop-14-ep0063nia',
-      }),
-      searchParams: Promise.resolve({}),
-    });
+    await resolveRsc(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
 
     expect(metadata.other).toMatchObject({
       'product:price:currency': 'NGN',
@@ -755,14 +814,16 @@ describe('[category]/[productSlug] page render', () => {
     });
 
     render(
-      await CategoryProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'laptops',
-          productSlug: 'hp-laptop-14-ep0063nia',
-        }),
-        searchParams: Promise.resolve({}),
-      })
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
     );
 
     expect(
@@ -778,14 +839,16 @@ describe('[category]/[productSlug] page render', () => {
     });
 
     render(
-      await CategoryProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'laptops',
-          productSlug: 'hp-laptop-14-ep0063nia',
-        }),
-        searchParams: Promise.resolve({}),
-      })
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
     );
 
     expect(mockOgabasseyPdpStaticResourceHints).toHaveBeenCalledTimes(1);
@@ -819,6 +882,10 @@ describe('[category]/[productSlug] page render', () => {
       searchParams: Promise.resolve({}),
     });
 
+    // Run the early lookup by calling resolveRsc on the page promise.
+    // This will execute the early lookup component synchronously/asynchronously, while the main content suspends.
+    const resolvedPage = await resolveRsc(pagePromise, { skipContent: true });
+
     await waitFor(() => {
       expect(mockGetCachedStorefrontProductLcpImage).toHaveBeenCalledWith(
         baseMerchant.id,
@@ -831,7 +898,7 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyProductDetailsPage).not.toHaveBeenCalled();
 
     resolveProductDetails?.(categorizedDetailedProduct);
-    render(await pagePromise);
+    render(await resolveRsc(resolvedPage));
 
     expect(mockOgabasseyProductDetailsPage).toHaveBeenCalled();
   });
@@ -851,14 +918,16 @@ describe('[category]/[productSlug] page render', () => {
     });
 
     render(
-      await CategoryProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'laptops',
-          productSlug: 'hp-laptop-14-ep0063nia',
-        }),
-        searchParams: Promise.resolve({}),
-      })
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
     );
 
     expect(mockGetCachedStorefrontProductLcpImage).toHaveBeenCalledWith(
@@ -914,7 +983,7 @@ describe('[category]/[productSlug] page render', () => {
       expect(pageUi).toBeDefined();
     });
 
-    render(pageUi as ReactNode);
+    render(await resolveRsc(pageUi));
     expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
       src: 'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif',
     });
@@ -940,14 +1009,16 @@ describe('[category]/[productSlug] page render', () => {
     });
 
     render(
-      await CategoryProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'laptops',
-          productSlug: 'hp-laptop-14-ep0063nia',
-        }),
-        searchParams: Promise.resolve({}),
-      })
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
     );
 
     expect(mockOgabasseyPdpStaticResourceHints).not.toHaveBeenCalled();
@@ -1007,14 +1078,16 @@ describe('[category]/[productSlug] page render', () => {
 
     // Deliberately render the page only to drive JSON-LD/breadcrumb side effects.
     render(
-      await CategoryProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'smartphones',
-          productSlug: 'iphone-13',
-        }),
-        searchParams: Promise.resolve({}),
-      })
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'smartphones',
+            productSlug: 'iphone-13',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
     );
 
     const ogabasseyProps = mockOgabasseyProductDetailsPage.mock.calls
@@ -1090,14 +1163,16 @@ describe('[category]/[productSlug] page render', () => {
     });
 
     render(
-      await CategoryProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'smartphones',
-          productSlug: 'iphone-15',
-        }),
-        searchParams: Promise.resolve({}),
-      })
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'smartphones',
+            productSlug: 'iphone-15',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
     );
 
     const ogabasseyProps = mockOgabasseyProductDetailsPage.mock.calls
@@ -1139,14 +1214,16 @@ describe('[category]/[productSlug] page render', () => {
 
     // Deliberately render the page only to drive JSON-LD/breadcrumb side effects.
     render(
-      await CategoryProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'laptops',
-          productSlug: 'hp-laptop-14-ep0063nia',
-        }),
-        searchParams: Promise.resolve({}),
-      })
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
     );
 
     const lastProductDetailProps = mockProductDetailClient.mock.calls.at(-1);
@@ -1174,14 +1251,17 @@ describe('[category]/[productSlug] page render', () => {
     render(
       <Suspense fallback={<div>Route loader fallback</div>}>
         {
-          await CategoryProductPage({
-            params: Promise.resolve({
-              slug: 'teststore',
-              category: 'laptops',
-              productSlug: 'hp-laptop-14-ep0063nia',
+          await resolveRsc(
+            await CategoryProductPage({
+              params: Promise.resolve({
+                slug: 'teststore',
+                category: 'laptops',
+                productSlug: 'hp-laptop-14-ep0063nia',
+              }),
+              searchParams: Promise.resolve({}),
             }),
-            searchParams: Promise.resolve({}),
-          })
+            { stripSuspense: true }
+          )
         }
       </Suspense>
     );
@@ -1207,14 +1287,16 @@ describe('[category]/[productSlug] page render', () => {
     });
 
     render(
-      await CategoryProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'laptops',
-          productSlug: 'hp-laptop-14-ep0063nia',
-        }),
-        searchParams: Promise.resolve({}),
-      })
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'laptops',
+            productSlug: 'hp-laptop-14-ep0063nia',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
     );
 
     expect(mockProductDetailClient.mock.calls.at(-1)?.[0]).toEqual(
@@ -1317,14 +1399,16 @@ describe('[category]/[productSlug] page render', () => {
     });
 
     render(
-      await CategoryProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'smartphones',
-          productSlug: 'samsung-galaxy-z-trifold',
-        }),
-        searchParams: Promise.resolve({}),
-      })
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'smartphones',
+            productSlug: 'samsung-galaxy-z-trifold',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
     );
 
     expect(mockOgabasseyPdpSemanticSections).toHaveBeenCalledWith(
@@ -1389,14 +1473,16 @@ describe('[category]/[productSlug] page render', () => {
     });
 
     render(
-      await CategoryProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'smartphones',
-          productSlug: 'samsung-galaxy-z-trifold',
-        }),
-        searchParams: Promise.resolve({}),
-      })
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'smartphones',
+            productSlug: 'samsung-galaxy-z-trifold',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
     );
 
     expect(metadata.alternates?.canonical).toBe(expectedCanonicalUrl);
@@ -1447,14 +1533,16 @@ describe('[category]/[productSlug] page render', () => {
     });
 
     render(
-      await CategoryProductPage({
-        params: Promise.resolve({
-          slug: 'teststore',
-          category: 'smartphones',
-          productSlug: 'samsung-galaxy-z-trifold',
-        }),
-        searchParams: Promise.resolve({}),
-      })
+      await resolveRsc(
+        await CategoryProductPage({
+          params: Promise.resolve({
+            slug: 'teststore',
+            category: 'smartphones',
+            productSlug: 'samsung-galaxy-z-trifold',
+          }),
+          searchParams: Promise.resolve({}),
+        })
+      )
     );
 
     expect(metadata.alternates?.canonical).toBe(expectedCanonicalUrl);

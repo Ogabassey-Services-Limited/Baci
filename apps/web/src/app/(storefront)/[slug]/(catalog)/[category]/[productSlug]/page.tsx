@@ -499,39 +499,6 @@ const getProduct = async (
   };
 };
 
-async function fetchOgabasseyLcpImage(
-  slug: string,
-  productSlug: string
-): Promise<string | null> {
-  const merchant = await getRequestScopedMerchant(slug);
-  if (!merchant || merchant.template_id !== OGABASSEY_TEMPLATE_ID) {
-    return null;
-  }
-
-  return getCachedStorefrontProductLcpImage(merchant.id, productSlug);
-}
-
-async function preloadOgabasseyPdpProductImageFromFastLookup(
-  storeSlug: string,
-  productSlug: string
-): Promise<void> {
-  try {
-    const primaryProductImage = await fetchOgabasseyLcpImage(
-      storeSlug,
-      productSlug
-    );
-    if (primaryProductImage) {
-      preloadOgabasseyPdpProductImage({ src: primaryProductImage });
-    }
-  } catch (error) {
-    console.warn(
-      'Unable to preload OgaBassey PDP product image early:',
-      sanitizeLookupLogValue(productSlug),
-      error
-    );
-  }
-}
-
 export async function generateMetadata({
   params,
   searchParams,
@@ -640,16 +607,22 @@ export async function generateMetadata({
 }
 
 interface OgabasseyPdpProductImagePreloadWrapperProps {
-  slug: string;
   productSlug: string;
+  merchant: CachedMerchant;
 }
 
 async function OgabasseyPdpProductImagePreloadWrapper({
-  slug,
   productSlug,
+  merchant,
 }: OgabasseyPdpProductImagePreloadWrapperProps) {
   try {
-    const primaryProductImage = await fetchOgabasseyLcpImage(slug, productSlug);
+    if (!merchant || merchant.template_id !== OGABASSEY_TEMPLATE_ID) {
+      return null;
+    }
+    const primaryProductImage = await getCachedStorefrontProductLcpImage(
+      merchant.id,
+      productSlug
+    );
 
     if (primaryProductImage) {
       preloadOgabasseyPdpProductImage({ src: primaryProductImage });
@@ -667,7 +640,7 @@ async function OgabasseyPdpProductImagePreloadWrapper({
 
 interface CategoryProductPageContentProps {
   slug: string;
-  searchParams: Awaited<PageProps['searchParams']>;
+  searchParams: PageProps['searchParams'];
   productResultPromise: Promise<CategoryProductResult>;
 }
 
@@ -695,7 +668,8 @@ async function CategoryProductPageContent({
     permanentRedirect(getRedirectTargetPath(slug, product));
   }
 
-  redirectInvalidVariantSelectionParams(slug, product, searchParams);
+  const resolvedSearchParams = await searchParams;
+  redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
   const primaryProductImage = product.imageLarge || product.image;
   if (merchant?.template_id === OGABASSEY_TEMPLATE_ID) {
     preloadOgabasseyPdpProductImage({ src: primaryProductImage });
@@ -834,40 +808,8 @@ export default async function CategoryProductPage({
   const merchant = await getRequestScopedMerchant(slug);
   const isOgabassey = merchant?.template_id === OGABASSEY_TEMPLATE_ID;
 
-  // The fast lookup is only an optimization hint. Start it early, but never
-  // gate the primary PDP data path on the hint resolving.
-  void preloadOgabasseyPdpProductImageFromFastLookup(slug, productSlug);
   const productResultPromise = getProduct(slug, category, productSlug);
-  const resolvedSearchParams = await searchParams;
 
-  // In Vitest unit testing under JSDOM/React 19, async server component elements rendered inside Suspense
-  // without top-level awaiting can cause elements to render as null or fail assertion matching.
-  // We synchronously resolve them during unit testing to ensure 100% test reliability and compatibility.
-  if (process.env.NODE_ENV === 'test') {
-    const preload = isOgabassey
-      ? await OgabasseyPdpProductImagePreloadWrapper({
-          slug,
-          productSlug,
-        })
-      : null;
-    const content = await CategoryProductPageContent({
-      slug,
-      searchParams: resolvedSearchParams,
-      productResultPromise,
-    });
-    return (
-      <>
-        <StorefrontDynamicMetadataMarker />
-        {preload}
-        {content}
-      </>
-    );
-  }
-
-  // In production and development environments, return parallel Suspense boundaries immediately.
-  // This allows Next.js to start streaming the HTML head and the lightweight LCP preload hint
-  // (OgabasseyPdpProductImagePreloadWrapper) within the first 50-100ms, while the heavy database
-  // query and full PDP content render in parallel behind their own Suspense boundaries.
   if (isOgabassey) {
     return (
       <>
@@ -876,14 +818,14 @@ export default async function CategoryProductPage({
         </Suspense>
         <Suspense fallback={null}>
           <OgabasseyPdpProductImagePreloadWrapper
-            slug={slug}
             productSlug={productSlug}
+            merchant={merchant}
           />
         </Suspense>
         <Suspense fallback={null}>
           <CategoryProductPageContent
             slug={slug}
-            searchParams={resolvedSearchParams}
+            searchParams={searchParams}
             productResultPromise={productResultPromise}
           />
         </Suspense>
@@ -899,7 +841,7 @@ export default async function CategoryProductPage({
       <Suspense fallback={null}>
         <CategoryProductPageContent
           slug={slug}
-          searchParams={resolvedSearchParams}
+          searchParams={searchParams}
           productResultPromise={productResultPromise}
         />
       </Suspense>
