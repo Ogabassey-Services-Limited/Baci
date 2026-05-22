@@ -63,7 +63,7 @@ describe('GET /.well-known/acp.json', () => {
       protocol: {
         name: 'acp',
         version: '2026-04-30',
-        supported_versions: ['2026-01-01', '2026-04-30'],
+        supported_versions: ['2026-01-01', '2026-04-17', '2026-04-30'],
       },
       api_base_url: 'https://ogabassey.com/api/agentic',
       transports: ['rest'],
