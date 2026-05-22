@@ -137,4 +137,56 @@ describe('POST /api/orders/reuse', () => {
     expect(response.status).toBe(409);
     expect(data).toEqual({ error: 'Order is no longer reusable' });
   });
+
+  it('maps empty RPC results to 404 instead of 500', async () => {
+    mockRpc.mockResolvedValue({
+      data: [],
+      error: null,
+    });
+
+    const request = new NextRequest('http://localhost/api/orders/reuse', {
+      method: 'POST',
+      body: JSON.stringify({
+        order_id: '4dc0ee52-d9c4-406a-b6ca-80c84eef6a8f',
+        merchant_id: 'e6e2e46c-5e3c-40c1-b0ae-832d6d20f0a2',
+        tracking_token: 'tracking-token-123',
+        customer_email: 'john@example.com',
+        payment_method: 'card',
+      }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(data).toEqual({ error: 'Order not found' });
+  });
+
+  it('maps unexpected RPC failures to reusable-order conflict instead of 500', async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: {
+        message:
+          'new row for relation "orders" violates check constraint "orders_payment_status_check"',
+        code: '23514',
+      },
+    });
+
+    const request = new NextRequest('http://localhost/api/orders/reuse', {
+      method: 'POST',
+      body: JSON.stringify({
+        order_id: '4dc0ee52-d9c4-406a-b6ca-80c84eef6a8f',
+        merchant_id: 'e6e2e46c-5e3c-40c1-b0ae-832d6d20f0a2',
+        tracking_token: 'tracking-token-123',
+        customer_email: 'john@example.com',
+        payment_method: 'card',
+      }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(data).toEqual({ error: 'Order is no longer reusable' });
+  });
 });
