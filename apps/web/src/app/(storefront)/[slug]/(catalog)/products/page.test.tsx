@@ -49,6 +49,12 @@ vi.mock('@/lib/cached-storefront-product-index', () => ({
   getCachedStorefrontProductIndex: vi.fn(),
 }));
 
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => (
+    <div aria-label="dynamic metadata marker" role="status" />
+  ),
+}));
+
 vi.mock('@/lib/routes', () => ({
   asRoute: (path: string) => path,
 }));
@@ -331,6 +337,19 @@ describe('products index page', () => {
 
     expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
     expect(screen.queryByText('Products page content')).not.toBeInTheDocument();
+  });
+
+  it('marks runtime metadata as intentional dynamic content', () => {
+    render(
+      <ProductsPage
+        params={Promise.resolve({ slug: 'test-store' })}
+        searchParams={Promise.resolve({})}
+      />
+    );
+
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
   });
 
   it('uses a self-referencing canonical on paginated product index pages', async () => {
