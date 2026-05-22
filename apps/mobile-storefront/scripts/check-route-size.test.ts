@@ -98,6 +98,21 @@ describe('check-route-size', () => {
     expect(result.stderr).toContain('Extract route-owned UI or add an intentional baseline');
   });
 
+  it('checks oversized non-TSX Expo route files', () => {
+    const root = createFixture({
+      'app/api/checkout.ts': createLines(301),
+      'app/ignored.test.ts': createLines(500),
+      'config/route-size-baseline.json': createBaseline([]),
+    });
+
+    const result = runRouteSizeCheck(root);
+
+    expect(result.status).toBe(1);
+    expect(result.stderr).toContain('New oversized route files');
+    expect(result.stderr).toContain('app/api/checkout.ts: 301 lines');
+    expect(result.stderr).not.toContain('app/ignored.test.ts');
+  });
+
   it('fails when a baselined route grows beyond its recorded line count', () => {
     const root = createFixture({
       'app/checkout.tsx': createLines(321),

@@ -1,10 +1,20 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { formatFailure } from './check-route-size-report.mjs';
 
 const MAX_LINES = 300;
-const ROUTE_EXTENSION = '.tsx';
-const IGNORED_SUFFIXES = ['.test.tsx'];
+const ROUTE_EXTENSIONS = new Set(['.js', '.jsx', '.ts', '.tsx']);
+const IGNORED_SUFFIXES = [
+  '.spec.js',
+  '.spec.jsx',
+  '.spec.ts',
+  '.spec.tsx',
+  '.test.js',
+  '.test.jsx',
+  '.test.ts',
+  '.test.tsx',
+];
 
 function normalizePath(value) {
   return value.replaceAll('\\', '/');
@@ -43,7 +53,7 @@ function listFiles(rootDir) {
       return listFiles(fullPath);
     }
 
-    if (!entry.name.endsWith(ROUTE_EXTENSION)) {
+    if (!ROUTE_EXTENSIONS.has(path.extname(entry.name))) {
       return [];
     }
 
@@ -187,65 +197,6 @@ function buildReport({ baseline, routeSizes }) {
     shrunkenBaselineEntries,
     staleBaselineEntries,
   };
-}
-
-function formatFailure({ baseline, report }) {
-  const sections = [
-    '[route-size] Route-size guard failed.',
-    `Policy: app/**/*.tsx route files must stay at or below ${baseline.maxLines} lines, unless listed in the decreasing baseline. Existing baselines may shrink, but they must not grow.`,
-    '',
-  ];
-
-  if (report.newOversizedRoutes.length > 0) {
-    sections.push('New oversized route files:');
-    sections.push(
-      ...report.newOversizedRoutes.map(
-        (route) => `  - ${route.path}: ${route.lineCount} lines`
-      )
-    );
-    sections.push(
-      '  Remediation: Extract route-owned UI or add an intentional baseline only when decomposition is explicitly scheduled.'
-    );
-    sections.push('');
-  }
-
-  if (report.grownRoutes.length > 0) {
-    sections.push('Oversized routes grew past their baseline:');
-    sections.push(
-      ...report.grownRoutes.map(
-        (route) =>
-          `  - ${route.path}: ${route.lineCount} lines > ${route.baselineLineCount} baseline`
-      )
-    );
-    sections.push('  Remediation: Extract code until the route is back within its recorded baseline.');
-    sections.push('');
-  }
-
-  if (report.shrunkenBaselineEntries.length > 0) {
-    sections.push('Oversized routes shrank but their baselines were not lowered:');
-    sections.push(
-      ...report.shrunkenBaselineEntries.map(
-        (entry) => `  - ${entry.path}: ${entry.reason}`
-      )
-    );
-    sections.push(
-      '  Remediation: Lower baseline entries whenever oversized routes shrink.'
-    );
-    sections.push('');
-  }
-
-  if (report.staleBaselineEntries.length > 0) {
-    sections.push('Stale route-size baseline entries:');
-    sections.push(
-      ...report.staleBaselineEntries.map((entry) => `  - ${entry.path}: ${entry.reason}`)
-    );
-    sections.push(
-      '  Remediation: Remove stale baseline entries so the baseline only tracks active oversized routes.'
-    );
-    sections.push('');
-  }
-
-  return sections.join('\n');
 }
 
 function main() {
