@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { authenticateApiRequest } from '@/lib/api-auth';
+import { createQuizVoucherToken } from '@/lib/quiz-voucher-token';
 import { POST } from './route';
 
 // Hoisted mocks for fire-and-forget side effects so tests don't await emails / push.
@@ -43,6 +44,7 @@ vi.mock('@/env', () => ({
       process.env.QUIZ_PRODUCTION_APPROVED?.trim().toLowerCase() ?? '';
     return normalized === 'true' || normalized === '1' || normalized === 'yes';
   },
+  getQuizRpcServerSecret: () => process.env.QUIZ_RPC_SERVER_SECRET,
 }));
 
 vi.mock('@/lib/api-auth', () => ({
@@ -96,10 +98,25 @@ vi.mock('@/lib/logger', () => ({
 
 const MERCHANT_ID = '123e4567-e89b-12d3-a456-426614174000';
 const CUSTOMER_ID = '11111111-2222-3333-4444-555555555555';
+const AUTH_USER_ID = '123e4567-e89b-12d3-a456-426614174099';
+
+function mockAuthUser(id: string) {
+  return {
+    id,
+    app_metadata: {},
+    user_metadata: {},
+    aud: 'authenticated',
+    created_at: '2026-01-01T00:00:00.000Z',
+  };
+}
 
 interface RpcOverrides {
   // Per-RPC return values. Default values mirror a minimal happy path.
   create_storefront_order?: { data: unknown; error: unknown };
+  create_storefront_order_with_quiz_voucher?: {
+    data: unknown;
+    error: unknown;
+  };
   redeem_wallet_for_order?: { data: unknown; error: unknown };
   finalize_wallet_order_payment?: { data: unknown; error: unknown };
 }
@@ -152,6 +169,19 @@ function buildMockSupabase(overrides: RpcOverrides = {}) {
   const defaultRpcOutcomes: Record<string, { data: unknown; error: unknown }> =
     {
       create_storefront_order: {
+        data: [
+          {
+            id: 'order-id',
+            order_number: 'ORD-123',
+            total: 1000,
+            subtotal: 1000,
+            shipping_fee: 0,
+            customer_id: CUSTOMER_ID,
+          },
+        ],
+        error: null,
+      },
+      create_storefront_order_with_quiz_voucher: {
         data: [
           {
             id: 'order-id',
@@ -237,12 +267,47 @@ describe('POST /api/orders — quiz voucher guard', () => {
     });
   });
 
+  it('requires authentication for voucher-bearing orders before compliance or order RPC work', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    const supabase = buildMockSupabase();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            price: 0,
+            voucher_token: 'quiz-voucher-token',
+          },
+        ],
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(401);
+    expect(body).toEqual({
+      code: 'QUIZ_VOUCHER_AUTH_REQUIRED',
+      error: 'Authentication required for quiz voucher orders',
+    });
+    expect(mockEnforcePrizeProductionGuard).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
   it.each([
     'voucher_token',
     'voucherToken',
     'voucher_award_id',
     'voucherAwardId',
-  ] as const)('rejects quiz voucher orders with %s in Phase 1a before creating an order', async (voucherField) => {
+  ] as const)('requires authentication for quiz voucher orders with %s before creating an order', async (voucherField) => {
     vi.stubEnv('QUIZ_PHASE', '1a');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', '');
     const supabase = buildMockSupabase();
@@ -268,11 +333,12 @@ describe('POST /api/orders — quiz voucher guard', () => {
     const response = await POST(request);
     const body = await readJson(response);
 
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(401);
     expect(body).toEqual({
-      code: 'quiz_production_not_approved',
-      error: 'Quiz vouchers are not approved for production use',
+      code: 'QUIZ_VOUCHER_AUTH_REQUIRED',
+      error: 'Authentication required for quiz voucher orders',
     });
+    expect(mockEnforcePrizeProductionGuard).not.toHaveBeenCalled();
     expect(supabase.rpc).not.toHaveBeenCalled();
   });
 
@@ -284,6 +350,11 @@ describe('POST /api/orders — quiz voucher guard', () => {
     vi.mocked(supabaseMod.createClient).mockImplementation(
       () => supabase as unknown as never
     );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
 
     const request = new NextRequest('http://localhost/api/orders', {
       method: 'POST',
@@ -312,11 +383,29 @@ describe('POST /api/orders — quiz voucher guard', () => {
   it('passes production approval env into the quiz voucher guard', async () => {
     vi.stubEnv('QUIZ_PHASE', 'production');
     vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
     const supabase = buildMockSupabase();
     const supabaseMod = await import('@/lib/supabase/server');
     vi.mocked(supabaseMod.createClient).mockImplementation(
       () => supabase as unknown as never
     );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+    const productId = '22222222-2222-4222-8222-222222222222';
+    const token = createQuizVoucherToken({
+      payload: {
+        awardId: '11111111-1111-4111-8111-111111111111',
+        condition: null,
+        expiresAt: '2099-05-22T12:00:00.000Z',
+        productId,
+        userId: AUTH_USER_ID,
+        variantId: null,
+      },
+      secret: 'voucher-secret',
+    });
 
     const request = new NextRequest('http://localhost/api/orders', {
       method: 'POST',
@@ -325,8 +414,9 @@ describe('POST /api/orders — quiz voucher guard', () => {
         items: [
           {
             ...baseOrderPayload.items[0],
+            product_id: productId,
             price: 0,
-            voucher_token: 'quiz-voucher-token',
+            voucher_token: token,
           },
         ],
       }),
@@ -340,9 +430,177 @@ describe('POST /api/orders — quiz voucher guard', () => {
       true
     );
     expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order_with_quiz_voucher',
+      expect.any(Object)
+    );
+  });
+
+  it('rejects malformed voucher tokens after the production guard allows the voucher path', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
+    const supabase = buildMockSupabase();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            price: 0,
+            voucher_token: 'not-a-valid-voucher-token',
+          },
+        ],
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      code: 'QUIZ_VOUCHER_TOKEN_INVALID',
+      error: 'Invalid quiz voucher token',
+    });
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it('passes the verified voucher award id to the voucher-specific order RPC', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
+    const supabase = buildMockSupabase();
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+    const awardId = '11111111-1111-4111-8111-111111111111';
+    const productId = '22222222-2222-4222-8222-222222222222';
+    const token = createQuizVoucherToken({
+      payload: {
+        awardId,
+        condition: 'new',
+        expiresAt: '2099-05-22T12:00:00.000Z',
+        productId,
+        userId: AUTH_USER_ID,
+        variantId: null,
+      },
+      secret: 'voucher-secret',
+    });
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            condition: 'new',
+            product_id: productId,
+            price: 0,
+            voucher_token: token,
+          },
+        ],
+      }),
+    });
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(201);
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'create_storefront_order_with_quiz_voucher',
+      expect.objectContaining({
+        p_items: [
+          expect.objectContaining({
+            product_id: productId,
+            voucher_award_id: awardId,
+          }),
+        ],
+        p_route_proof: expect.objectContaining({
+          action: 'create_storefront_order_with_quiz_voucher',
+          subject_id: awardId,
+          user_id: AUTH_USER_ID,
+        }),
+        p_user_id: AUTH_USER_ID,
+      })
+    );
+    expect(supabase.rpc).not.toHaveBeenCalledWith(
       'create_storefront_order',
       expect.any(Object)
     );
+  });
+
+  it('maps voucher RPC client errors to a checkout-correctable 400', async () => {
+    vi.stubEnv('QUIZ_PHASE', 'production');
+    vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'yes');
+    vi.stubEnv('QUIZ_RPC_SERVER_SECRET', 'voucher-secret');
+    const supabase = buildMockSupabase({
+      create_storefront_order_with_quiz_voucher: {
+        data: null,
+        error: { message: 'quiz_voucher_award_not_approved' },
+      },
+    });
+    const supabaseMod = await import('@/lib/supabase/server');
+    vi.mocked(supabaseMod.createClient).mockImplementation(
+      () => supabase as unknown as never
+    );
+    vi.mocked(authenticateApiRequest).mockResolvedValue({
+      user: mockAuthUser(AUTH_USER_ID),
+      error: null,
+      supabase: supabase as unknown as never,
+    });
+    const awardId = '11111111-1111-4111-8111-111111111111';
+    const productId = '22222222-2222-4222-8222-222222222222';
+    const token = createQuizVoucherToken({
+      payload: {
+        awardId,
+        condition: null,
+        expiresAt: '2099-05-22T12:00:00.000Z',
+        productId,
+        userId: AUTH_USER_ID,
+        variantId: null,
+      },
+      secret: 'voucher-secret',
+    });
+
+    const request = new NextRequest('http://localhost/api/orders', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...baseOrderPayload,
+        items: [
+          {
+            ...baseOrderPayload.items[0],
+            product_id: productId,
+            price: 0,
+            voucher_token: token,
+          },
+        ],
+      }),
+    });
+
+    const response = await POST(request);
+    const body = await readJson(response);
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      details: 'quiz_voucher_award_not_approved',
+      error: 'Failed to create order',
+    });
   });
 });
 

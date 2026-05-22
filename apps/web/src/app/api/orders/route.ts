@@ -29,11 +29,13 @@ import {
   enforcePrizeProductionGuard,
   QuizProductionNotApprovedError,
 } from '@/lib/quiz-compliance-gate';
+import { createQuizRpcServerProof } from '@/lib/quiz-proof';
+import { verifyQuizVoucherToken } from '@/lib/quiz-voucher-token';
 import { getClientIdentifier } from '@/lib/rate-limit';
 import { sanitizeLikePattern, sanitizeSearchQuery } from '@/lib/sanitize-core';
 import { createClient } from '@/lib/supabase/server';
 import { sendEmail } from '@/lib/zeptomail';
-import { orderCreateSchema } from '@/schemas/orders';
+import { type OrderCreateInput, orderCreateSchema } from '@/schemas/orders';
 
 function isPayOnDelivery(paymentMethod: string): boolean {
   return paymentMethod === 'pod' || paymentMethod === 'pay_on_delivery';
@@ -77,18 +79,56 @@ type QuizVoucherItemCandidate = {
   voucher_award_id?: unknown;
   voucher_token?: unknown;
 };
+type OrderCreateItem = OrderCreateInput['items'][number];
 
-function hasNonEmptyVoucherIdentifier(value: unknown): boolean {
+function hasNonEmptyVoucherIdentifier(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function hasQuizVoucherIdentifier(item: QuizVoucherItemCandidate): boolean {
+  return (
+    hasNonEmptyVoucherIdentifier(item.voucher_award_id) ||
+    hasNonEmptyVoucherIdentifier(item.voucherAwardId) ||
+    hasNonEmptyVoucherIdentifier(item.voucher_token) ||
+    hasNonEmptyVoucherIdentifier(item.voucherToken)
+  );
+}
+
 function hasQuizVoucherItem(items: QuizVoucherItemCandidate[]): boolean {
-  return items.some(
-    (item) =>
-      hasNonEmptyVoucherIdentifier(item.voucher_award_id) ||
-      hasNonEmptyVoucherIdentifier(item.voucherAwardId) ||
-      hasNonEmptyVoucherIdentifier(item.voucher_token) ||
-      hasNonEmptyVoucherIdentifier(item.voucherToken)
+  return items.some((item) => hasQuizVoucherIdentifier(item));
+}
+
+function getQuizVoucherToken(item: QuizVoucherItemCandidate): string | null {
+  if (hasNonEmptyVoucherIdentifier(item.voucher_token)) {
+    return item.voucher_token.trim();
+  }
+
+  if (hasNonEmptyVoucherIdentifier(item.voucherToken)) {
+    return item.voucherToken.trim();
+  }
+
+  return null;
+}
+
+function getOrderItemProductId(item: OrderCreateItem): string | undefined {
+  return item.product_id || item.productId || item.id;
+}
+
+function getOrderItemVariantId(item: OrderCreateItem): string | null {
+  return item.variantId || item.variant_id || null;
+}
+
+function getOrderItemCondition(item: OrderCreateItem): string | null {
+  return item.condition || null;
+}
+
+function invalidQuizVoucherTokenResponse() {
+  return NextResponse.json(
+    {
+      code: 'QUIZ_VOUCHER_TOKEN_INVALID',
+      error: 'Invalid quiz voucher token',
+    },
+    { status: 400 }
   );
 }
 
@@ -240,9 +280,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User mismatch' }, { status: 403 });
     }
 
-    // Phase 1a intentionally runs hasQuizVoucherItem/enforcePrizeProductionGuard
-    // before merchant verification so quiz voucher requests fail closed first.
-    if (hasQuizVoucherItem(items)) {
+    // SECURITY: Only use user_id from authenticated session.
+    // Do NOT trust user_id from body if user is unauthenticated (guest).
+    const resolvedUserId = user?.id || null;
+
+    const hasVoucherItem = hasQuizVoucherItem(items);
+    const verifiedQuizVoucherAwardIdsByIndex = new Map<number, string>();
+
+    // Phase 1b voucher orders are user-bound. Keep the prize path behind the
+    // production guard before any order mutation work.
+    if (hasVoucherItem) {
+      if (!resolvedUserId) {
+        return NextResponse.json(
+          {
+            error: 'Authentication required for quiz voucher orders',
+            code: 'QUIZ_VOUCHER_AUTH_REQUIRED',
+          },
+          { status: 401 }
+        );
+      }
+
       try {
         // Phase 1a has no prize-bearing order path. The later production
         // voucher path must load the quiz event/compliance evidence before
@@ -266,11 +323,60 @@ export async function POST(request: NextRequest) {
 
         throw error;
       }
-    }
 
-    // SECURITY: Only use user_id from authenticated session.
-    // Do NOT trust user_id from body if user is unauthenticated (guest).
-    const resolvedUserId = user?.id || null;
+      for (const [index, item] of items.entries()) {
+        if (!hasQuizVoucherIdentifier(item)) {
+          continue;
+        }
+
+        const voucherToken = getQuizVoucherToken(item);
+        if (!voucherToken) {
+          return invalidQuizVoucherTokenResponse();
+        }
+
+        const tokenVerification = verifyQuizVoucherToken(voucherToken);
+        if (!tokenVerification.ok) {
+          if (tokenVerification.error === 'missing_quiz_voucher_secret') {
+            return NextResponse.json(
+              {
+                code: 'QUIZ_VOUCHER_TOKEN_CONFIG_MISSING',
+                error: 'Quiz voucher verification is not configured',
+              },
+              { status: 500 }
+            );
+          }
+
+          if (tokenVerification.error === 'expired_quiz_voucher_token') {
+            return NextResponse.json(
+              {
+                code: 'QUIZ_VOUCHER_TOKEN_EXPIRED',
+                error: 'Quiz voucher token has expired',
+              },
+              { status: 400 }
+            );
+          }
+
+          return invalidQuizVoucherTokenResponse();
+        }
+
+        const itemProductId = getOrderItemProductId(item);
+        const itemVariantId = getOrderItemVariantId(item);
+        const itemCondition = getOrderItemCondition(item);
+        if (
+          tokenVerification.payload.userId !== resolvedUserId ||
+          tokenVerification.payload.productId !== itemProductId ||
+          tokenVerification.payload.variantId !== itemVariantId ||
+          tokenVerification.payload.condition !== itemCondition
+        ) {
+          return invalidQuizVoucherTokenResponse();
+        }
+
+        verifiedQuizVoucherAwardIdsByIndex.set(
+          index,
+          tokenVerification.payload.awardId
+        );
+      }
+    }
 
     // Fetch merchant to verify it exists (include business_name, slug for email)
     const { data: merchant, error: merchantFetchError } = await supabase
@@ -292,14 +398,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const orderItemsPayload = items.map((item) => {
+    const orderItemsPayload = items.map((item, index) => {
       const hasAssurance = item.has_assurance || false;
       const itemPrice = item.negotiatedPrice ?? item.price;
       // SECURITY: Recompute assurance_fee server-side — never trust client values
       const assuranceFee = hasAssurance ? itemPrice * SERVER_ASSURANCE_RATE : 0;
+      const voucherAwardId = verifiedQuizVoucherAwardIdsByIndex.get(index);
 
       return {
-        product_id: item.product_id || item.productId || item.id,
+        product_id: getOrderItemProductId(item),
         condition: item.condition,
         image_url: item.imageUrl ?? item.image_url ?? null,
         variant_id: item.variantId || item.variant_id,
@@ -308,6 +415,7 @@ export async function POST(request: NextRequest) {
         quantity: item.quantity,
         has_assurance: hasAssurance,
         assurance_fee: assuranceFee,
+        ...(voucherAwardId ? { voucher_award_id: voucherAwardId } : {}),
       };
     });
 
@@ -316,6 +424,43 @@ export async function POST(request: NextRequest) {
         { error: 'Invalid order items' },
         { status: 400 }
       );
+    }
+
+    let quizVoucherRouteProof: ReturnType<
+      typeof createQuizRpcServerProof
+    > | null = null;
+    if (hasVoucherItem) {
+      if (!resolvedUserId) {
+        return NextResponse.json(
+          {
+            error: 'Authentication required for quiz voucher orders',
+            code: 'QUIZ_VOUCHER_AUTH_REQUIRED',
+          },
+          { status: 401 }
+        );
+      }
+
+      const voucherAwardIds = [...verifiedQuizVoucherAwardIdsByIndex.values()];
+      if (voucherAwardIds.length !== 1) {
+        return invalidQuizVoucherTokenResponse();
+      }
+
+      quizVoucherRouteProof = createQuizRpcServerProof({
+        action: 'create_storefront_order_with_quiz_voucher',
+        payload: {
+          items: orderItemsPayload.map((item) => ({
+            condition: item.condition ?? null,
+            product_id: item.product_id,
+            quantity: item.quantity,
+            variant_id: item.variant_id ?? null,
+            voucher_award_id: item.voucher_award_id ?? null,
+          })),
+          merchant_id,
+          user_id: resolvedUserId,
+        },
+        subjectId: voucherAwardIds[0],
+        userId: resolvedUserId,
+      });
     }
 
     const shippingFeeValue = Number.parseFloat(shipping_fee.toString());
@@ -522,8 +667,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const orderCreateRpcName = hasVoucherItem
+      ? 'create_storefront_order_with_quiz_voucher'
+      : 'create_storefront_order';
+
     const { data: orderRows, error: orderError } = await supabase.rpc(
-      'create_storefront_order',
+      orderCreateRpcName,
       {
         p_merchant_id: merchant_id,
         p_customer_email: customer_email,
@@ -568,6 +717,9 @@ export async function POST(request: NextRequest) {
         p_gift_wrapping_fee: giftWrappingFeeValue,
         p_expected_total:
           typeof body.expected_total === 'number' ? body.expected_total : null,
+        ...(quizVoucherRouteProof
+          ? { p_route_proof: quizVoucherRouteProof }
+          : {}),
       }
     );
 
@@ -606,6 +758,12 @@ export async function POST(request: NextRequest) {
         'invalid_tax_basis',
         'tax_amount_mismatch',
         'tax_amount_must_be_zero_for_non_vat_merchant',
+        'quiz_voucher_invalid',
+        'quiz_voucher_user_required',
+        'quiz_voucher_award_not_found',
+        'quiz_voucher_award_not_approved',
+        'quiz_voucher_award_invalid_type',
+        'quiz_voucher_order_item_not_found',
         'gift_wrapping_fee_negative',
         // B3.5 (Codex P1 — PR #1622): RPC RAISES this when the
         // client-supplied `p_expected_total` differs from the

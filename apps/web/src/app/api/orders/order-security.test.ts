@@ -28,6 +28,7 @@ vi.mock('@/env', () => ({
   getQuizPhaseEnv: () => process.env.QUIZ_PHASE ?? '1a',
   getQuizProductionApprovedEnv: () =>
     normalizeEnvBoolean(process.env.QUIZ_PRODUCTION_APPROVED) ?? false,
+  getQuizRpcServerSecret: () => process.env.QUIZ_RPC_SERVER_SECRET,
 }));
 
 vi.mock('@/lib/api-auth', () => ({
@@ -564,6 +565,11 @@ describe('Order API Security', () => {
     it('rejects quiz voucher orders when production approval is false', async () => {
       vi.stubEnv('QUIZ_PHASE', 'production');
       vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'false');
+      vi.mocked(authenticateApiRequest).mockResolvedValue({
+        user: mockAuthUser(validOrderPayload.user_id),
+        error: null,
+        supabase: mockSupabase as unknown as never,
+      });
 
       const request = new NextRequest('http://localhost:3000/api/orders', {
         method: 'POST',
@@ -595,6 +601,11 @@ describe('Order API Security', () => {
     it('keeps quiz voucher orders fail-closed until event permit evidence is wired', async () => {
       vi.stubEnv('QUIZ_PHASE', 'production');
       vi.stubEnv('QUIZ_PRODUCTION_APPROVED', 'true');
+      vi.mocked(authenticateApiRequest).mockResolvedValue({
+        user: mockAuthUser(validOrderPayload.user_id),
+        error: null,
+        supabase: mockSupabase as unknown as never,
+      });
 
       const request = new NextRequest('http://localhost:3000/api/orders', {
         method: 'POST',
