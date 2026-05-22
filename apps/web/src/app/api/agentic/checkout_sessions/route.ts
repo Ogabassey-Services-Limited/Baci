@@ -192,6 +192,16 @@ export async function handleAgenticCheckoutSessionCreate(
       return await respond({ error: 'Checkout calculation failed' }, 500);
     }
 
+    if (sessionCalc.lineItems.length === 0) {
+      return await respond(
+        {
+          error: 'No valid checkout items',
+          messages: sessionCalc.messages,
+        },
+        400
+      );
+    }
+
     // 3. Create Session in DB
     const sessionId = `agentic_${randomUUID()}`;
     const fulfillmentOptionId = sessionCalc.selectedOptionId ?? null;
