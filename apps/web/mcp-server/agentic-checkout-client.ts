@@ -5,6 +5,7 @@ import { createAgenticCheckoutSessionInputSchema } from '../src/schemas/agentic-
 export { createAgenticCheckoutSessionInputSchema };
 
 export const AGENTIC_CHECKOUT_API_VERSION = '2026-04-30';
+export const AGENTIC_CHECKOUT_USER_AGENT = 'OpenAI-Agent Baci-MCP/1.0';
 const AGENTIC_CHECKOUT_PATH = '/api/agentic/checkout_sessions';
 
 export type CreateAgenticCheckoutSessionInput = z.input<
@@ -95,6 +96,7 @@ export async function createAgenticCheckoutSession(
         'request-id': requestId,
         signature,
         timestamp,
+        'user-agent': AGENTIC_CHECKOUT_USER_AGENT,
       },
       method: 'POST',
     });
