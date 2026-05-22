@@ -753,6 +753,7 @@ export async function getCachedProducts(
     limit?: number;
     offset?: number;
     categoryId?: string;
+    /** Deprecated: the products table no longer has an is_featured column. */
     featured?: boolean;
   }
 ) {
@@ -773,7 +774,6 @@ export async function getCachedProducts(
         price,
         compare_at_price,
         status,
-        is_featured,
         is_parent,
         quantity,
         track_quantity,
@@ -797,10 +797,6 @@ export async function getCachedProducts(
 
   if (options?.categoryId) {
     query = query.eq('product_categories.category_id', options.categoryId);
-  }
-
-  if (options?.featured) {
-    query = query.eq('is_featured', true);
   }
 
   if (options?.limit) {
@@ -865,7 +861,6 @@ export async function getCachedProduct(
         min_variant_price,
         max_variant_price,
         status,
-        is_featured,
         quantity,
         track_quantity,
         images,

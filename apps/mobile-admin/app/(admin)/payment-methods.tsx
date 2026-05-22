@@ -20,14 +20,17 @@ import { PaymentMethodsSection } from '@/components/payment-methods/PaymentMetho
 import {
   type PaymentMethodCategory,
   type PaymentMethodField,
-  type PaymentSettings,
+  getRenderablePaymentMethods,
   paymentMethods,
+  paymentSettingsSelectColumns,
 } from '@/components/payment-methods/payment-methods';
+import { fetchPaymentSettings } from '@/components/payment-methods/payment-settings-query';
 import { styles } from '@/components/payment-methods/payment-methods.styles';
 import { ScreenSkeleton } from '@/components/ui/ScreenSkeleton';
 import { useMerchant } from '@/hooks/useMerchant';
 import { useTheme } from '@/hooks/useTheme';
 import { supabase } from '@/lib/supabase';
+import type { PaymentSettings } from '@/schemas/payment-settings';
 
 export default function PaymentMethodsScreen() {
   const { colors, shadows, isDark } = useTheme();
@@ -61,16 +64,8 @@ export default function PaymentMethodsScreen() {
   } = useQuery({
     queryKey: ['payment-settings', merchant?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('merchant_feature_settings')
-        .select(
-          'id, merchant_id, paystack_enabled, korapay_enabled, credit_direct_enabled, credpal_enabled, pay_on_delivery_enabled, juicyway_enabled'
-        )
-        .eq('merchant_id', merchant?.id)
-        .single();
-
-      if (error) throw error;
-      return data as PaymentSettings;
+      if (!merchant?.id) throw new Error('Merchant not found');
+      return fetchPaymentSettings(merchant.id, paymentSettingsSelectColumns);
     },
     enabled: !!merchant?.id,
   });
@@ -149,6 +144,10 @@ export default function PaymentMethodsScreen() {
   };
 
   const loadError = merchantError ?? (isError ? error : null);
+  const renderablePaymentMethods = getRenderablePaymentMethods(
+    settings,
+    paymentMethods
+  );
 
   if (merchantLoading || isLoading) {
     return (
@@ -226,7 +225,7 @@ export default function PaymentMethodsScreen() {
               key={section.category}
               title={section.title}
               category={section.category}
-              methods={paymentMethods}
+              methods={renderablePaymentMethods}
               settings={settings}
               colors={colors}
               shadowStyle={shadows.sm}

@@ -13,7 +13,15 @@ const SCAN_DIRECTORIES = [
   'utils',
 ];
 const EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx']);
-const PLATFORM_PATTERN = /Platform\.(?:OS|select)/;
+const IDENTIFIER_PATTERN = String.raw`[A-Za-z_$][\w$]*`;
+const PLATFORM_USAGE_PATTERN = /\bPlatform\./;
+const PLATFORM_IMPORT_PATTERN =
+  /import\s+(?:[A-Za-z_$][\w$]*\s*,\s*)?\{[^}]*\bPlatform(?:\s+as\s+[A-Za-z_$][\w$]*)?\b[^}]*\}\s*from\s*['"]react-native['"]/;
+const REACT_NATIVE_NAMESPACE_IMPORT_PATTERN = new RegExp(
+  String.raw`import\s+\*\s+as\s+(${IDENTIFIER_PATTERN})\s+from\s*['"]react-native['"]`,
+  'g'
+);
+const CANONICAL_ALLOWLIST = ['config/runtime-platform.ts'];
 const IGNORED_SUFFIXES = ['.test.ts', '.test.tsx', '.test.js', '.test.jsx'];
 const FORBIDDEN_PATTERNS = [
   {
@@ -23,6 +31,10 @@ const FORBIDDEN_PATTERNS = [
       /behavior=\{Platform\.OS === ['"]ios['"] \? ['"]padding['"] : undefined\}/,
   },
 ];
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 function listFiles(rootDir) {
   const output = [];
@@ -49,7 +61,7 @@ function isIgnored(relativePath) {
   return IGNORED_SUFFIXES.some((suffix) => relativePath.endsWith(suffix));
 }
 
-export function findPlatformBranchFiles(projectRoot) {
+function findFilesMatchingSource(projectRoot, matchesSource) {
   return SCAN_DIRECTORIES.flatMap((directory) => {
     const absoluteDirectory = path.join(projectRoot, directory);
     if (!existsSync(absoluteDirectory)) return [];
@@ -59,9 +71,50 @@ export function findPlatformBranchFiles(projectRoot) {
       .filter((relativePath) => !isIgnored(relativePath))
       .filter((relativePath) => {
         const source = readFileSync(path.join(projectRoot, relativePath), 'utf8');
-        return PLATFORM_PATTERN.test(source);
+        return matchesSource(source);
       });
   }).sort();
+}
+
+function findFilesMatchingPattern(projectRoot, pattern) {
+  return findFilesMatchingSource(projectRoot, (source) => pattern.test(source));
+}
+
+function hasReactNativeNamespacePlatformAccess(source) {
+  for (const match of source.matchAll(REACT_NATIVE_NAMESPACE_IMPORT_PATTERN)) {
+    const namespaceIdentifier = match[1];
+    const escapedNamespace = escapeRegExp(namespaceIdentifier);
+    const directAccessPattern = new RegExp(
+      String.raw`\b${escapedNamespace}\.Platform\b`
+    );
+    const destructuredAccessPattern = new RegExp(
+      String.raw`\b(?:const|let|var)\s*\{[^}]*\bPlatform(?:\s*:\s*${IDENTIFIER_PATTERN})?\b[^}]*\}\s*=\s*${escapedNamespace}\b`
+    );
+
+    if (
+      directAccessPattern.test(source) ||
+      destructuredAccessPattern.test(source)
+    ) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function importsPlatformFromReactNative(source) {
+  return (
+    PLATFORM_IMPORT_PATTERN.test(source) ||
+    hasReactNativeNamespacePlatformAccess(source)
+  );
+}
+
+export function findPlatformBranchFiles(projectRoot) {
+  return findFilesMatchingPattern(projectRoot, PLATFORM_USAGE_PATTERN);
+}
+
+export function findPlatformImportFiles(projectRoot) {
+  return findFilesMatchingSource(projectRoot, importsPlatformFromReactNative);
 }
 
 export function findForbiddenPatternViolations(projectRoot, relativePaths) {
@@ -85,6 +138,23 @@ export function findNonAllowlistedFiles(foundFiles, allowlist) {
 export function findStaleAllowlistEntries(allowlist, foundFiles) {
   const foundSet = new Set(foundFiles);
   return allowlist.filter((relativePath) => !foundSet.has(relativePath));
+}
+
+export function isCanonicalAllowlist(
+  allowlist,
+  canonicalAllowlist = CANONICAL_ALLOWLIST
+) {
+  if (!Array.isArray(allowlist) || !Array.isArray(canonicalAllowlist)) {
+    return false;
+  }
+
+  const normalizedAllowlist = [...allowlist].sort();
+  const normalizedCanonical = [...canonicalAllowlist].sort();
+  if (normalizedAllowlist.length !== normalizedCanonical.length) return false;
+
+  return normalizedAllowlist.every(
+    (relativePath, index) => relativePath === normalizedCanonical[index]
+  );
 }
 
 function main() {
@@ -115,9 +185,25 @@ function main() {
     return;
   }
 
-  const foundFiles = findPlatformBranchFiles(projectRoot);
+  if (
+    !Array.isArray(allowlist) ||
+    allowlist.some((entry) => typeof entry !== 'string')
+  ) {
+    console.error(
+      `[platform-drift] Allowlist file must be a JSON string array: ${allowlistPath}`
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  const usageFiles = findPlatformBranchFiles(projectRoot);
+  const importFiles = findPlatformImportFiles(projectRoot);
+  const foundFiles = [...new Set([...usageFiles, ...importFiles])].sort();
   const nonAllowlistedFiles = findNonAllowlistedFiles(foundFiles, allowlist);
+  const nonAllowlistedUsageFiles = findNonAllowlistedFiles(usageFiles, allowlist);
+  const nonAllowlistedImportFiles = findNonAllowlistedFiles(importFiles, allowlist);
   const staleAllowlistEntries = findStaleAllowlistEntries(allowlist, foundFiles);
+  const hasCanonicalAllowlist = isCanonicalAllowlist(allowlist);
   // Forbidden patterns are only enforced on non-allowlisted files so existing
   // grandfathered files are not retroactively blocked.
   const violations = findForbiddenPatternViolations(
@@ -128,7 +214,8 @@ function main() {
   if (
     nonAllowlistedFiles.length === 0 &&
     violations.length === 0 &&
-    staleAllowlistEntries.length === 0
+    staleAllowlistEntries.length === 0 &&
+    hasCanonicalAllowlist
   ) {
     console.log(
       `[platform-drift] OK: ${foundFiles.length} allowlisted platform-specific files, no forbidden drift patterns found.`
@@ -136,8 +223,26 @@ function main() {
     return;
   }
 
+  if (nonAllowlistedUsageFiles.length > 0) {
+    console.error(
+      '[platform-drift] Files with Platform.* usage outside canonical allowlist:'
+    );
+    for (const file of nonAllowlistedUsageFiles) {
+      console.error(`- ${file}`);
+    }
+  }
+
+  if (nonAllowlistedImportFiles.length > 0) {
+    console.error(
+      '[platform-drift] Files importing Platform outside canonical allowlist:'
+    );
+    for (const file of nonAllowlistedImportFiles) {
+      console.error(`- ${file}`);
+    }
+  }
+
   if (nonAllowlistedFiles.length > 0) {
-    console.error('[platform-drift] New files with Platform.OS / Platform.select:');
+    console.error('[platform-drift] New files using Platform APIs:');
     for (const file of nonAllowlistedFiles) {
       console.error(`- ${file}`);
     }
@@ -155,6 +260,12 @@ function main() {
     for (const relativePath of staleAllowlistEntries) {
       console.error(`- ${relativePath}`);
     }
+  }
+
+  if (!hasCanonicalAllowlist) {
+    console.error(
+      `[platform-drift] Allowlist must exactly equal: ${CANONICAL_ALLOWLIST.join(', ')}`
+    );
   }
 
   process.exitCode = 1;
