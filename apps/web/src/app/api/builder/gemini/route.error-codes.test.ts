@@ -139,6 +139,24 @@ describe('/api/builder/gemini structured error codes', () => {
     );
   });
 
+  it('keeps non-provider route failures out of provider error mapping', async () => {
+    mockGetMerchantForApiRequest.mockRejectedValueOnce(
+      new Error('Quota exceeded while loading merchant metadata')
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(createRequest());
+    const body = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(body).toEqual(
+      expect.objectContaining({
+        error: 'Internal server error',
+        requestId: expect.any(String),
+      })
+    );
+  });
+
   it('returns ai_builder_invalid_output when generated content is malformed', async () => {
     vi.mocked(generateObject).mockResolvedValueOnce({
       object: {

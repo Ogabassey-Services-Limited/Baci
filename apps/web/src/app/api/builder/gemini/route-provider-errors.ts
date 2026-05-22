@@ -18,6 +18,41 @@ export type BuilderGeminiFailure = {
   status: number;
 };
 
+export type BuilderGeminiLogContext = {
+  componentCount?: number;
+  merchantId?: string;
+  model?: string;
+  promptLength?: number;
+  userId?: string;
+};
+
+export function logBuilderGeminiError(
+  label: string,
+  error: unknown,
+  requestId: string,
+  context: BuilderGeminiLogContext,
+  logLevel: BuilderGeminiFailure['logLevel']
+): void {
+  const logPayload = {
+    requestId,
+    userId: context.userId,
+    merchantId: context.merchantId,
+    model: context.model,
+    promptLength: context.promptLength,
+    componentCount: context.componentCount,
+    errorName: error instanceof Error ? error.name : 'UnknownError',
+    errorMessage: error instanceof Error ? error.message : String(error),
+    stack: error instanceof Error ? error.stack : undefined,
+  };
+
+  if (logLevel === 'warn') {
+    console.warn(label, logPayload);
+    return;
+  }
+
+  console.error(label, logPayload);
+}
+
 function getErrorText(error: unknown): string {
   if (error instanceof Error) {
     return `${error.name}\n${error.message}\n${error.stack ?? ''}`;

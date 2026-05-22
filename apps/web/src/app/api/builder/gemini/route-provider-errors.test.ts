@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   getBuilderGeminiFailure,
   isBuilderGeminiQuotaError,
+  logBuilderGeminiError,
   runBuilderGeminiWithTimeout,
 } from '@/app/api/builder/gemini/route-provider-errors';
 
@@ -54,6 +55,36 @@ describe('builder Gemini provider errors', () => {
     });
   });
 
+  it('logs provider failures with request context', () => {
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    logBuilderGeminiError(
+      'Gemini AI Builder Error:',
+      new Error('quota exceeded'),
+      'request-log',
+      {
+        userId: 'user-1',
+        merchantId: 'merchant-1',
+        model: 'gemini',
+        promptLength: 10,
+        componentCount: 2,
+      },
+      'warn'
+    );
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Gemini AI Builder Error:',
+      expect.objectContaining({
+        requestId: 'request-log',
+        userId: 'user-1',
+        merchantId: 'merchant-1',
+        errorMessage: 'quota exceeded',
+      })
+    );
+  });
+
   it('maps abort errors to timeout failures', async () => {
     vi.useFakeTimers();
     try {
@@ -74,6 +105,24 @@ describe('builder Gemini provider errors', () => {
 
       await vi.advanceTimersByTimeAsync(25_000);
       await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('returns the result when the provider finishes before timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      const promise = runBuilderGeminiWithTimeout(
+        () =>
+          new Promise((resolve) => {
+            setTimeout(() => resolve({ success: true }), 1000);
+          })
+      );
+
+      await vi.advanceTimersByTimeAsync(1000);
+
+      await expect(promise).resolves.toEqual({ success: true });
     } finally {
       vi.useRealTimers();
     }

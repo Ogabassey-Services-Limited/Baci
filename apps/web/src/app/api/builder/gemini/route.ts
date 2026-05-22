@@ -20,7 +20,9 @@ import { builderConfigSchema } from '@/schemas/builder';
 import { BUILDER_GEMINI_SYSTEM_PROMPT } from '../gemini-system-prompt';
 import {
   BUILDER_GEMINI_RETRY_CONFIG,
+  type BuilderGeminiLogContext,
   getBuilderGeminiFailure,
+  logBuilderGeminiError,
   runBuilderGeminiWithTimeout,
 } from './route-provider-errors';
 
@@ -65,6 +67,8 @@ const builderGeminiRequestSchema = z.object({
   currentConfig: aiBuilderConfigSchema,
 });
 
+type AiBuilderConfig = z.infer<typeof aiBuilderConfigSchema>;
+
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -84,13 +88,7 @@ function mergeThemeValue(existingValue: unknown, nextValue: unknown): unknown {
 
 export async function POST(req: NextRequest) {
   const requestId = crypto.randomUUID();
-  const aiLogContext: {
-    userId?: string;
-    merchantId?: string;
-    model?: string;
-    promptLength?: number;
-    componentCount?: number;
-  } = {};
+  const aiLogContext: BuilderGeminiLogContext = {};
 
   try {
     const { valid, response } = await checkCsrfProtection(req);
@@ -189,19 +187,32 @@ User Request: ${sanitizedPrompt}
 Please return the complete updated configuration as valid JSON. Make intelligent modifications based on the request while preserving all existing structure and content unless explicitly asked to change or remove it.`;
 
     // Generate the updated config using Vercel AI SDK with retry logic
-    const result = await runBuilderGeminiWithTimeout((abortSignal) =>
-      withRetry(async () => {
-        return await generateObject({
-          model: activeTextModel,
-          schema: aiBuilderConfigSchema,
-          system: BUILDER_GEMINI_SYSTEM_PROMPT,
-          prompt: builtPrompt,
-          abortSignal,
-        });
-      }, BUILDER_GEMINI_RETRY_CONFIG)
-    );
+    let updatedConfig: AiBuilderConfig;
+    try {
+      const result = (await runBuilderGeminiWithTimeout((abortSignal) =>
+        withRetry(async () => {
+          return await generateObject({
+            model: activeTextModel,
+            schema: aiBuilderConfigSchema,
+            system: BUILDER_GEMINI_SYSTEM_PROMPT,
+            prompt: builtPrompt,
+            abortSignal,
+          });
+        }, BUILDER_GEMINI_RETRY_CONFIG)
+      )) as { object: AiBuilderConfig };
+      updatedConfig = result.object;
+    } catch (error) {
+      const failure = getBuilderGeminiFailure(error, requestId);
+      logBuilderGeminiError(
+        'Gemini AI Builder Error:',
+        error,
+        requestId,
+        aiLogContext,
+        failure.logLevel
+      );
 
-    let updatedConfig = result.object;
+      return NextResponse.json(failure.response, { status: failure.status });
+    }
 
     // Preserve existing theme sections unless Gemini explicitly changes them.
     const mergedTheme = updatedConfig.theme
@@ -268,25 +279,17 @@ Please return the complete updated configuration as valid JSON. Make intelligent
       }
     );
   } catch (error) {
-    const failure = getBuilderGeminiFailure(error, requestId);
-    const logPayload = {
+    logBuilderGeminiError(
+      'Gemini AI Builder Route Error:',
+      error,
       requestId,
-      userId: aiLogContext.userId,
-      merchantId: aiLogContext.merchantId,
-      model: aiLogContext.model,
-      promptLength: aiLogContext.promptLength,
-      componentCount: aiLogContext.componentCount,
-      errorName: error instanceof Error ? error.name : 'UnknownError',
-      errorMessage: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    };
+      aiLogContext,
+      'error'
+    );
 
-    if (failure.logLevel === 'warn') {
-      console.warn('Gemini AI Builder Error:', logPayload);
-    } else {
-      console.error('Gemini AI Builder Error:', logPayload);
-    }
-
-    return NextResponse.json(failure.response, { status: failure.status });
+    return NextResponse.json(
+      { error: 'Internal server error', requestId },
+      { status: 500 }
+    );
   }
 }
