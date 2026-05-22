@@ -37,6 +37,16 @@ export function getSafeChatBackendErrorMessage(error: unknown): string {
   return message.replace(/https?:\/\/\S+/g, '[url]').slice(0, 300);
 }
 
+export function isChatAbortError(
+  error: unknown,
+  signal?: AbortSignal
+): boolean {
+  return (
+    signal?.aborted === true ||
+    (error instanceof Error && error.name === 'AbortError')
+  );
+}
+
 export async function bufferTextResponse(
   response: Response
 ): Promise<Response> {
@@ -61,5 +71,12 @@ export function createStaticChatFallbackResponse(): Response {
       'Content-Type': 'text/plain; charset=utf-8',
       'x-baci-chat-fallback': 'static',
     },
+  });
+}
+
+export function createClientClosedRequestResponse(): Response {
+  return new Response(JSON.stringify({ error: 'Client Closed Request' }), {
+    status: 499,
+    headers: { 'Content-Type': 'application/json' },
   });
 }

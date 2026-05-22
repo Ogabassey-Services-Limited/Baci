@@ -49,8 +49,10 @@ import {
   bufferTextResponse,
   buildChatMessages,
   CUSTOMER_CHAT_TIMEOUT_MS,
+  createClientClosedRequestResponse,
   createStaticChatFallbackResponse,
   getSafeChatBackendErrorMessage,
+  isChatAbortError,
 } from '@/app/api/chat/route-helpers';
 import { AGENTIC_SYSTEM_PROMPT } from '@/config/agentic-chat-system-prompt';
 import {
@@ -163,14 +165,8 @@ export async function POST(req: Request) {
         });
         return await bufferTextResponse(llmResponse);
       } catch (error) {
-        if (req.signal.aborted) {
-          return new Response(
-            JSON.stringify({ error: 'Client Closed Request' }),
-            {
-              status: 499,
-              headers: { 'Content-Type': 'application/json' },
-            }
-          );
+        if (isChatAbortError(error, req.signal)) {
+          return createClientClosedRequestResponse();
         }
 
         console.warn(
@@ -194,14 +190,8 @@ export async function POST(req: Request) {
           });
           return await bufferTextResponse(ollamaResponse);
         } catch (error) {
-          if (req.signal.aborted) {
-            return new Response(
-              JSON.stringify({ error: 'Client Closed Request' }),
-              {
-                status: 499,
-                headers: { 'Content-Type': 'application/json' },
-              }
-            );
+          if (isChatAbortError(error, req.signal)) {
+            return createClientClosedRequestResponse();
           }
 
           console.warn(
@@ -218,6 +208,7 @@ export async function POST(req: Request) {
         model: activeTextModel,
         system: AGENTIC_SYSTEM_PROMPT,
         messages: sanitizedMessages,
+        abortSignal: req.signal,
         tools: {
           searchProducts: {
             description: TOOL_DESCRIPTIONS.searchProducts,
@@ -273,6 +264,10 @@ export async function POST(req: Request) {
         },
       });
     } catch (error) {
+      if (isChatAbortError(error, req.signal)) {
+        throw error;
+      }
+
       console.error(
         '[Agentic Chat] Gemini fallback failed; returning static response:',
         getSafeChatBackendErrorMessage(error)
@@ -287,6 +282,10 @@ export async function POST(req: Request) {
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },
     });
   } catch (error) {
+    if (isChatAbortError(error, req.signal)) {
+      return createClientClosedRequestResponse();
+    }
+
     console.error('[Agentic Chat] Error:', error);
     return new Response(
       JSON.stringify({

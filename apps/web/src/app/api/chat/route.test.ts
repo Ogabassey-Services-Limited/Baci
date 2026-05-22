@@ -588,6 +588,32 @@ describe('POST /api/chat', () => {
     );
   });
 
+  it('preserves client abort handling when Gemini generation aborts', async () => {
+    const abortError = new Error('The operation was aborted');
+    abortError.name = 'AbortError';
+    generateTextError = abortError;
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    const response = await POST(
+      makeAbortedRequest({
+        messages: [{ role: 'user', content: 'Hello' }],
+      })
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(499);
+    expect(json.error).toBe('Client Closed Request');
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        abortSignal: expect.any(AbortSignal),
+      })
+    );
+    expect(errorSpy).not.toHaveBeenCalled();
+  });
+
   // ---- LLM server (llama.cpp / OpenAI-compatible) cases ----
 
   it('uses the LLM server when LLM_SERVER_URL is configured', async () => {

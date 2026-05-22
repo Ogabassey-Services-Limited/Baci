@@ -3,8 +3,10 @@ import {
   bufferTextResponse,
   buildChatMessages,
   CUSTOMER_CHAT_FALLBACK_TEXT,
+  createClientClosedRequestResponse,
   createStaticChatFallbackResponse,
   getSafeChatBackendErrorMessage,
+  isChatAbortError,
 } from '@/app/api/chat/route-helpers';
 
 describe('chat route helpers', () => {
@@ -54,6 +56,43 @@ describe('chat route helpers', () => {
         new Error('Failed at https://example.com/private-token')
       )
     ).toBe('Failed at [url]');
+  });
+
+  it('sanitizes string backend error messages before logging', () => {
+    expect(
+      getSafeChatBackendErrorMessage(
+        'Failed at https://example.com/private-token'
+      )
+    ).toBe('Failed at [url]');
+  });
+
+  it('uses a safe fallback for unknown backend errors', () => {
+    expect(getSafeChatBackendErrorMessage(null)).toBe('Unknown error');
+    expect(getSafeChatBackendErrorMessage(undefined)).toBe('Unknown error');
+  });
+
+  it('detects aborted chat requests from either signal or error name', () => {
+    const controller = new AbortController();
+    const abortError = new Error('aborted');
+    abortError.name = 'AbortError';
+
+    expect(isChatAbortError(abortError)).toBe(true);
+    expect(isChatAbortError(new Error('network failed'))).toBe(false);
+
+    controller.abort();
+    expect(
+      isChatAbortError(new Error('network failed'), controller.signal)
+    ).toBe(true);
+  });
+
+  it('creates a client-closed response for aborted chat requests', async () => {
+    const response = createClientClosedRequestResponse();
+
+    expect(response.status).toBe(499);
+    expect(response.headers.get('Content-Type')).toBe('application/json');
+    await expect(response.json()).resolves.toEqual({
+      error: 'Client Closed Request',
+    });
   });
 
   it('creates a static text fallback response for exhausted AI backends', async () => {
