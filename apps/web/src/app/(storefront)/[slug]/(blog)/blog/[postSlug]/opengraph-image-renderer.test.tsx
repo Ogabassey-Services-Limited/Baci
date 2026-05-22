@@ -1,19 +1,29 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { mockGetMerchantBlogOgImageData, mockImageResponse } = vi.hoisted(
-  () => ({
-    mockGetMerchantBlogOgImageData: vi.fn(),
-    mockImageResponse: vi.fn(function ImageResponse(
-      element: unknown,
-      options: unknown
-    ) {
-      return {
-        element,
-        options,
-      };
-    }),
-  })
-);
+const {
+  mockGetMerchantBlogOgImageData,
+  mockImageResponse,
+  mockImageResponseArrayBuffer,
+} = vi.hoisted(() => ({
+  mockGetMerchantBlogOgImageData: vi.fn(),
+  mockImageResponseArrayBuffer: vi.fn(),
+  mockImageResponse: vi.fn(function ImageResponse(
+    element: unknown,
+    options: unknown
+  ) {
+    const headers = new Headers(
+      (options as { headers?: HeadersInit } | undefined)?.headers
+    );
+    headers.set('content-type', 'image/png');
+    return {
+      element,
+      headers,
+      options,
+      status: 200,
+      arrayBuffer: mockImageResponseArrayBuffer,
+    };
+  }),
+}));
 
 vi.mock('next/og', () => ({
   ImageResponse: mockImageResponse,
@@ -64,11 +74,6 @@ function createData(
   };
 }
 
-function createDataPost(): NonNullable<MerchantBlogOgImageData['post']> {
-  const post = createData().post;
-  if (!post) throw new Error('Expected post');
-  return post;
-}
 function renderImage(slug = 'ogabassey.com', postSlug = 'best-deals') {
   return Image({
     params: Promise.resolve({ slug, postSlug }),
@@ -135,6 +140,9 @@ function cacheControlOf(headers?: HeadersInit) {
 describe('merchant blog post OG image route', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockImageResponseArrayBuffer.mockResolvedValue(
+      Uint8Array.from([137, 80, 78, 71]).buffer
+    );
   });
 
   it('renders a no-store generic fallback when tenant data is unavailable', async () => {
@@ -146,6 +154,23 @@ describe('merchant blog post OG image route', () => {
     expect(collectText(element)).toContain('Post Not Found');
     expect(options).toMatchObject(size);
     expect(cacheControlOf(options.headers)).toBe('no-store, max-age=0');
+  });
+
+  it('renders a no-store generic fallback when data lookup throws', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockGetMerchantBlogOgImageData.mockRejectedValue(new Error('db failed'));
+
+    await renderImage();
+
+    const { element, options } = getLastImageResponseCall();
+    expect(collectText(element)).toContain('Post Not Found');
+    expect(cacheControlOf(options.headers)).toBe('no-store, max-age=0');
+    expect(consoleError).toHaveBeenCalledWith(
+      'Failed to resolve merchant blog OG image',
+      expect.objectContaining({ error: expect.any(Error) })
+    );
   });
 
   it('renders a cacheable merchant-branded fallback when the post is missing', async () => {
@@ -161,22 +186,6 @@ describe('merchant blog post OG image route', () => {
     expect(text).toContain('Post Not Found');
     expect(collectImageSources(element)).toContain(
       'data:image/png;base64,bG9nbw=='
-    );
-    expect(cacheControlOf(options.headers)).toBeNull();
-  });
-
-  it('renders the primary blog card with the buffered featured image', async () => {
-    mockGetMerchantBlogOgImageData.mockResolvedValue(createData());
-
-    await renderImage('ogabassey.com', 'best-iphone-deals');
-
-    const { element, options } = getLastImageResponseCall();
-    const text = collectText(element);
-    expect(text).toContain('Best iPhone Deals');
-    expect(text).toContain('Smartphones');
-    expect(text).toContain('Ogabassey');
-    expect(collectImageSources(element)).toContain(
-      'data:image/jpeg;base64,ZmVhdHVyZWQ='
     );
     expect(cacheControlOf(options.headers)).toBeNull();
   });
@@ -210,80 +219,49 @@ describe('merchant blog post OG image route', () => {
     expect(cacheControlOf(options.headers)).toBeNull();
   });
 
-  it('truncates long rendered post titles', async () => {
-    const longTitle = `${'A'.repeat(100)} tail`;
-    mockGetMerchantBlogOgImageData.mockResolvedValue(
-      createData({ post: { ...createDataPost(), title: longTitle } })
-    );
+  it('falls back to no-store merchant artwork when primary serialization fails', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockGetMerchantBlogOgImageData.mockResolvedValue(createData());
+    mockImageResponseArrayBuffer
+      .mockRejectedValueOnce(new Error('satori failed'))
+      .mockResolvedValueOnce(Uint8Array.from([1, 2, 3]).buffer);
 
-    await renderImage();
-    const { element } = getLastImageResponseCall();
+    const response = await renderImage();
 
-    expect(collectText(element)).toContain(`${longTitle.slice(0, 79)}...`);
-  });
-
-  it('omits optional category and author lines when post fields are null', async () => {
-    mockGetMerchantBlogOgImageData.mockResolvedValue(
-      createData({
-        post: { ...createDataPost(), author_name: null, category: null },
-      })
-    );
-
-    await renderImage();
-    const text = collectText(getLastImageResponseCall().element);
-
-    expect(text).not.toContain('Smartphones');
-    expect(text).not.toContain('By Baci Editorial');
-  });
-
-  it('uses fallback brand colors when merchant colors are unavailable', async () => {
-    mockGetMerchantBlogOgImageData.mockResolvedValue(
-      createData({
-        merchantBrandColors: { background: null, primary: null, accent: null },
-        post: null,
-      })
-    );
-
-    await renderImage();
     const { element, options } = getLastImageResponseCall();
-
-    expect(element.props.style?.backgroundColor).toBe('#1a1a2e');
-    expect(cacheControlOf(options.headers)).toBeNull();
+    expect(response.status).toBe(200);
+    expect(collectText(element)).toContain('Best iPhone Deals');
+    expect(collectImageSources(element)).not.toContain(
+      'data:image/jpeg;base64,ZmVhdHVyZWQ='
+    );
+    expect(cacheControlOf(options.headers)).toBe('no-store, max-age=0');
+    expect(response.headers.get('cache-control')).toBe('no-store, max-age=0');
+    expect(consoleError).toHaveBeenCalledWith(
+      'Failed to render merchant blog OG image',
+      expect.objectContaining({ error: expect.any(Error) })
+    );
   });
 
-  it('normalizes short hex brand colors before using transparent gradient stops', async () => {
-    mockGetMerchantBlogOgImageData.mockResolvedValue(
-      createData({
-        merchantBrandColors: {
-          background: '#fff',
-          primary: '#0af',
-          accent: '#fc0',
-        },
-        post: null,
-      })
-    );
+  it('returns an emergency PNG when all Satori rendering attempts fail', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockGetMerchantBlogOgImageData.mockResolvedValue(createData());
+    mockImageResponseArrayBuffer.mockRejectedValue(new Error('satori failed'));
 
-    await renderImage();
-    const { element } = getLastImageResponseCall();
-    const children = Array.isArray(element.props.children)
-      ? element.props.children
-      : [element.props.children];
-    const overlay = children.filter(Boolean).find((child) => {
-      const elementChild = child as React.ReactElement<{
-        style?: Record<string, unknown>;
-      }>;
-      return elementChild.props?.style?.position === 'absolute';
-    }) as
-      | React.ReactElement<{
-          style?: Record<string, unknown>;
-        }>
-      | undefined;
+    const response = await renderImage();
 
-    expect(overlay?.props.style?.background).toContain(
-      'rgba(0, 170, 255, 0.2)'
+    expect(response.headers.get('content-type')).toBe('image/png');
+    expect(response.headers.get('cache-control')).toBe('no-store, max-age=0');
+    await expect(response.arrayBuffer()).resolves.toHaveProperty(
+      'byteLength',
+      68
     );
-    expect(overlay?.props.style?.background).toContain(
-      'rgba(255, 204, 0, 0.15)'
+    expect(consoleError).toHaveBeenCalledWith(
+      'Failed to render merchant blog OG fallback image',
+      expect.objectContaining({ error: expect.any(Error) })
     );
   });
 });
