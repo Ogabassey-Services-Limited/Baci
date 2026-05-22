@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getTerminalIdempotencyRecordWindowMs } from '@/env';
 import { buildAgenticHealthActions } from '@/lib/agentic/action-health-actions';
+import { loadAdminAgenticActionHealthRecords } from '@/lib/agentic/action-health-admin-records';
 import { getActionHealthRequestControlSummary } from '@/lib/agentic/action-health-request-controls';
 import {
   getAgenticPaymentState,
@@ -15,6 +16,10 @@ const ACTION_HEALTH_RECORD_LIMIT = 25;
 const CHECKOUT_ACTIVITY_RECORD_LIMIT = 5;
 const STALE_PAYMENT_PENDING_MS = 24 * 60 * 60 * 1000;
 const COMPLETE_ROUTE_SUFFIX = '.complete';
+
+interface LoadAgenticActionHealthOptions {
+  recordsSource?: 'admin_direct' | 'dashboard_rpc';
+}
 
 function getIdempotencyState(statusCode: number | null) {
   if (statusCode == null) return 'in_progress';
@@ -78,25 +83,43 @@ function shouldIncludeIdempotencyRow(
   );
 }
 
-export async function loadAgenticActionHealth(
+async function loadActionHealthRecords(
   supabase: SupabaseClient,
-  merchantId: string
-): Promise<AgenticActionHealthPayload> {
-  const [requestControlSummary, healthResult] = await Promise.all([
-    getActionHealthRequestControlSummary(supabase, merchantId),
-    supabase.rpc('get_agentic_action_health_records', {
-      p_merchant_id: merchantId,
-      p_record_limit: ACTION_HEALTH_RECORD_LIMIT,
-    }),
-  ]);
+  merchantId: string,
+  options: LoadAgenticActionHealthOptions
+) {
+  if (options.recordsSource === 'admin_direct') {
+    return loadAdminAgenticActionHealthRecords(
+      supabase,
+      merchantId,
+      ACTION_HEALTH_RECORD_LIMIT
+    );
+  }
+
+  const healthResult = await supabase.rpc('get_agentic_action_health_records', {
+    p_merchant_id: merchantId,
+    p_record_limit: ACTION_HEALTH_RECORD_LIMIT,
+  });
 
   if (healthResult.error) {
     throw healthResult.error;
   }
 
-  const { idempotencyRows, sessionRows } = parseAgenticActionHealthRpcPayload(
-    healthResult.data
-  );
+  return healthResult.data;
+}
+
+export async function loadAgenticActionHealth(
+  supabase: SupabaseClient,
+  merchantId: string,
+  options: LoadAgenticActionHealthOptions = {}
+): Promise<AgenticActionHealthPayload> {
+  const [requestControlSummary, healthPayload] = await Promise.all([
+    getActionHealthRequestControlSummary(supabase, merchantId),
+    loadActionHealthRecords(supabase, merchantId, options),
+  ]);
+
+  const { idempotencyRows, sessionRows } =
+    parseAgenticActionHealthRpcPayload(healthPayload);
   const nowMs = Date.now();
   const relevantIdempotencyRows = idempotencyRows.filter((row) =>
     shouldIncludeIdempotencyRow(row, nowMs)
