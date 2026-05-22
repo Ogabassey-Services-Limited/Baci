@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { useViewportActivation } from '@/components/storefront/use-viewport-activation';
 import { DeferredDetailsSkeleton } from './deferred-details-skeleton';
 import type { DeferredProductDetailsSectionsProps } from './deferred-product-details-sections';
 
@@ -14,11 +15,25 @@ const DeferredProductDetailsSections = dynamic(
     ),
   {
     loading: () => <DeferredDetailsSkeleton />,
+    ssr: false,
   }
 );
 
 export function DeferredProductDetailsSectionsLoader(
   props: DeferredProductDetailsSectionsLoaderProps
 ) {
-  return <DeferredProductDetailsSections {...props} />;
+  const { ref, isActive } = useViewportActivation<HTMLDivElement>({
+    rootMargin: '200px 0px',
+    timeoutMs: 0,
+  });
+
+  return (
+    <div ref={ref}>
+      {isActive ? (
+        <DeferredProductDetailsSections {...props} />
+      ) : (
+        <DeferredDetailsSkeleton />
+      )}
+    </div>
+  );
 }
