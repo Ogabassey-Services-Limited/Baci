@@ -26,6 +26,10 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import 'dotenv/config';
+import {
+  createAgenticCheckoutSession,
+  createAgenticCheckoutSessionInputSchema,
+} from './agentic-checkout-client';
 
 // =============================================================================
 // CONFIGURATION
@@ -36,6 +40,10 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const OGABASSEY_SLUG = 'ogabassey';
 const PORT = Number(process.env.MCP_PORT ?? 8787);
 const MCP_PATH = '/mcp';
+const AGENTIC_CHECKOUT_API_BASE_URL =
+  process.env.MCP_AGENTIC_CHECKOUT_BASE_URL ?? 'https://ogabassey.com';
+const AGENTIC_CHECKOUT_API_KEY = process.env.OPENAI_AGENTIC_API_KEY;
+const AGENTIC_CHECKOUT_SIGNING_KEY = process.env.OPENAI_AGENTIC_SIGNING_KEY;
 
 // Security settings
 const RATE_LIMIT_WINDOW_MS = 60_000; // 1 minute
@@ -1351,6 +1359,81 @@ function createOgabasseyServer() {
           content: [{ type: 'text', text: '❌ Unable to add item to cart.' }],
         };
       }
+    }
+  );
+
+  server.registerTool(
+    'create_agentic_checkout_session',
+    {
+      title: 'Create Agentic Checkout Session',
+      annotations: {
+        readOnlyHint: false,
+        destructiveHint: false,
+        openWorldHint: true,
+        idempotentHint: false,
+      },
+      description:
+        'Create a real Baci agentic checkout session through the signed and idempotent /api/agentic/checkout_sessions flow. Use this after the customer chooses products and quantities to get authoritative totals, fulfillment options, and the checkout session id. This does not complete payment or create an order. To safely retry requests on failure, generate a unique idempotency_key before the first request and reuse it for subsequent retries.',
+      inputSchema: createAgenticCheckoutSessionInputSchema,
+      _meta: {
+        'openai/toolInvocation/invoking': 'Creating checkout session...',
+        'openai/toolInvocation/invoked': 'Checkout session created',
+      },
+    },
+    async (args) => {
+      const result = await createAgenticCheckoutSession(args, {
+        apiBaseUrl: AGENTIC_CHECKOUT_API_BASE_URL,
+        apiKey: AGENTIC_CHECKOUT_API_KEY,
+        signingKey: AGENTIC_CHECKOUT_SIGNING_KEY,
+      });
+
+      if (result.ok === false) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `❌ Unable to create an agentic checkout session: ${result.error}`,
+            },
+          ],
+          structuredContent: {
+            details: result.details ?? null,
+            endpoint: result.endpoint ?? null,
+            error: result.error,
+            status: 'error',
+            status_code: result.status,
+          },
+        };
+      }
+
+      const session =
+        result.response &&
+        typeof result.response === 'object' &&
+        !Array.isArray(result.response)
+          ? (result.response as Record<string, unknown>)
+          : {};
+      const sessionId =
+        typeof session.id === 'string' ? session.id : 'the new session';
+      const checkoutStatus =
+        typeof session.status === 'string' ? session.status : 'created';
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text:
+              `✅ Created Baci agentic checkout session **${sessionId}**.\n\n` +
+              `Status: **${checkoutStatus}**\n\n` +
+              'Review the returned totals and fulfillment options before asking the buyer to confirm payment.',
+          },
+        ],
+        structuredContent: {
+          checkout_session: result.response,
+          endpoint: result.endpoint,
+          idempotency_key: result.idempotencyKey,
+          request_id: result.requestId,
+          status: 'success',
+        },
+      };
     }
   );
 
