@@ -10,6 +10,7 @@
     "cleanup-push-tokens": "node jobs/cleanup-push-tokens.mjs",
     "cleanup-import-uploads": "node jobs/cleanup-import-uploads.mjs",
     "push-receipts": "node jobs/push-receipts.mjs",
+    "agentic-commerce-health": "node jobs/run-web-cron.mjs /api/cron/agentic-commerce-health",
     "inventory-push-alerts": "node jobs/run-web-cron.mjs /api/inventory/push-alerts",
     "reconcile-vtu-processing": "node jobs/run-web-cron.mjs /api/cron/reconcile-vtu-processing",
     "vtu-cashback-summaries": "node jobs/run-web-cron.mjs /api/cron/vtu-cashback-summaries",
