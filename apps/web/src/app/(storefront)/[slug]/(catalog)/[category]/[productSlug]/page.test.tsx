@@ -908,9 +908,7 @@ describe('[category]/[productSlug] page render', () => {
     );
 
     expect(mockOgabasseyPdpStaticResourceHints).toHaveBeenCalledTimes(1);
-    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
-      src: 'https://cdn.ogabassey.com/core-assets/products/hp-laptop.avif',
-    });
+    expect(mockPreloadOgabasseyPdpProductImage).not.toHaveBeenCalled();
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: 'https://cdn.ogabassey.com/core-assets/products/hp-laptop.avif',
     });
@@ -956,6 +954,7 @@ describe('[category]/[productSlug] page render', () => {
     resolveProductDetails?.(categorizedDetailedProduct);
     render(await resolveRsc(resolvedPage));
 
+    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledTimes(1);
     expect(mockOgabasseyProductDetailsPage).toHaveBeenCalled();
   });
 
@@ -997,7 +996,8 @@ describe('[category]/[productSlug] page render', () => {
         expect.any(Error)
       );
     });
-    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
+    expect(mockPreloadOgabasseyPdpProductImage).not.toHaveBeenCalled();
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: 'https://cdn.ogabassey.com/core-assets/products/fallback-laptop.avif',
     });
     expect(mockOgabasseyProductDetailsPage).toHaveBeenCalled();
@@ -1040,9 +1040,6 @@ describe('[category]/[productSlug] page render', () => {
     });
 
     render(await resolveRsc(pageUi));
-    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
-      src: 'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif',
-    });
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: 'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif',
     });

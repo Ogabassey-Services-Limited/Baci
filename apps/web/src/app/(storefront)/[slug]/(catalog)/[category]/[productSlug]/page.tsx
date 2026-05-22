@@ -608,14 +608,15 @@ export async function generateMetadata({
 
 interface OgabasseyPdpProductImagePreloadWrapperProps {
   productSlug: string;
-  merchant: CachedMerchant;
+  slug: string;
 }
 
 async function OgabasseyPdpProductImagePreloadWrapper({
   productSlug,
-  merchant,
+  slug,
 }: OgabasseyPdpProductImagePreloadWrapperProps) {
   try {
+    const merchant = await getRequestScopedMerchant(slug);
     if (!merchant || merchant.template_id !== OGABASSEY_TEMPLATE_ID) {
       return null;
     }
@@ -626,7 +627,6 @@ async function OgabasseyPdpProductImagePreloadWrapper({
 
     if (primaryProductImage) {
       preloadOgabasseyPdpProductImage({ src: primaryProductImage });
-      return <OgabasseyPdpProductResourceHints src={primaryProductImage} />;
     }
   } catch (error) {
     console.warn(
@@ -671,9 +671,6 @@ async function CategoryProductPageContent({
   const resolvedSearchParams = await searchParams;
   redirectInvalidVariantSelectionParams(slug, product, resolvedSearchParams);
   const primaryProductImage = product.imageLarge || product.image;
-  if (merchant?.template_id === OGABASSEY_TEMPLATE_ID) {
-    preloadOgabasseyPdpProductImage({ src: primaryProductImage });
-  }
   const productResourceHints =
     merchant?.template_id === OGABASSEY_TEMPLATE_ID ? (
       <OgabasseyPdpProductResourceHints src={primaryProductImage} />
@@ -805,38 +802,18 @@ export default async function CategoryProductPage({
     notFound();
   }
 
-  const merchant = await getRequestScopedMerchant(slug);
-  const isOgabassey = merchant?.template_id === OGABASSEY_TEMPLATE_ID;
-
   const productResultPromise = getProduct(slug, category, productSlug);
-
-  if (isOgabassey) {
-    return (
-      <>
-        <Suspense fallback={null}>
-          <StorefrontDynamicMetadataMarker />
-        </Suspense>
-        <Suspense fallback={null}>
-          <OgabasseyPdpProductImagePreloadWrapper
-            productSlug={productSlug}
-            merchant={merchant}
-          />
-        </Suspense>
-        <Suspense fallback={null}>
-          <CategoryProductPageContent
-            slug={slug}
-            searchParams={searchParams}
-            productResultPromise={productResultPromise}
-          />
-        </Suspense>
-      </>
-    );
-  }
 
   return (
     <>
       <Suspense fallback={null}>
         <StorefrontDynamicMetadataMarker />
+      </Suspense>
+      <Suspense fallback={null}>
+        <OgabasseyPdpProductImagePreloadWrapper
+          productSlug={productSlug}
+          slug={slug}
+        />
       </Suspense>
       <Suspense fallback={null}>
         <CategoryProductPageContent
