@@ -1,3 +1,4 @@
+import { getProductPriceRange } from './storefront-product-price-seo';
 import {
   getStorefrontOpenGraphImages,
   getStorefrontTwitterImages,
@@ -18,6 +19,25 @@ interface StorefrontProductSocialMetadataInput {
   price?: number | null;
   base_price?: number | null;
   sale_price?: number | null;
+  min_variant_price?: number | null;
+  max_variant_price?: number | null;
+  variants?: Array<
+    | {
+        price_override?: number | null;
+        stock_quantity?: number | null;
+      }
+    | null
+    | undefined
+  > | null;
+  offers?: Array<
+    | {
+        price?: number | null;
+        status?: string | null;
+        stock_quantity?: number | null;
+      }
+    | null
+    | undefined
+  > | null;
   stock_quantity?: number | null;
   quantity?: number | null;
   manage_stock?: boolean | null;
@@ -49,15 +69,12 @@ function getPrimaryProductImage(
 function getProductPriceAmount(
   product: StorefrontProductSocialMetadataInput
 ): number | null {
-  const rawPrice =
-    product.sale_price ?? product.price ?? product.base_price ?? null;
-  return typeof rawPrice === 'number' && Number.isFinite(rawPrice)
-    ? rawPrice
-    : null;
+  return getProductPriceRange(product)?.min ?? null;
 }
 
 function getProductAvailability(
-  product: StorefrontProductSocialMetadataInput
+  product: StorefrontProductSocialMetadataInput,
+  hasAdvertisablePrice: boolean
 ): 'in stock' | 'out of stock' | undefined {
   const managesStock = Boolean(
     product.manage_stock ?? product.track_quantity ?? false
@@ -65,6 +82,10 @@ function getProductAvailability(
   const stockQuantity = product.stock_quantity ?? product.quantity;
 
   if (!managesStock) {
+    return 'in stock';
+  }
+
+  if (hasAdvertisablePrice) {
     return 'in stock';
   }
 
@@ -95,7 +116,7 @@ export function getStorefrontProductSocialMetadata(
 ) {
   const primaryImage = getPrimaryProductImage(product);
   const priceAmount = getProductPriceAmount(product);
-  const availability = getProductAvailability(product);
+  const availability = getProductAvailability(product, priceAmount !== null);
   const condition = normalizeCondition(product.condition);
 
   const other: Record<string, string> = {};

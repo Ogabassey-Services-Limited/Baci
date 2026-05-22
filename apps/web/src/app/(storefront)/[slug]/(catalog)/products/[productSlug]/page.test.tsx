@@ -495,7 +495,10 @@ describe('products/[productSlug] page', () => {
       expect(metadata.alternates?.canonical).toBe(
         'https://teststore.usebaci.com/products/mystery-item'
       );
-      expect(metadata.title).toContain('Mystery Item');
+      expect(metadata.title).toBe('Mystery Item Price in Nigeria | TestStore');
+      expect(metadata.description).toContain(
+        'Mystery Item price in Nigeria is ₦500,000 on TestStore'
+      );
     });
 
     it('normalizes canonical_url host to the request-scoped storefront domain', async () => {
@@ -695,6 +698,8 @@ describe('products/[productSlug] page', () => {
   it('strips HTML from product metadata descriptions', async () => {
     mockGetCachedProduct.mockResolvedValue({
       ...uncategorizedProduct,
+      meta_description:
+        '<p>The <strong>best</strong> phone for creators and gamers.</p>',
       description:
         '<p>The <strong>best</strong> phone for creators and gamers.</p>',
       images: ['https://cdn.example.com/products/mystery-item.png'],
@@ -771,6 +776,32 @@ describe('products/[productSlug] page', () => {
   });
 
   describe('schema URL consistency', () => {
+    it('uses the same NGN fallback currency for metadata and product JSON-LD', async () => {
+      mockGetRequestScopedMerchant.mockResolvedValue({
+        ...baseMerchant,
+        payout_currency: null,
+      });
+      mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+
+      await ProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'mystery-item',
+        }),
+        searchParams: Promise.resolve({}),
+      });
+
+      expect(mockGenerateProductSchema).toHaveBeenCalledWith(
+        expect.any(Object),
+        'TestStore',
+        'NGN',
+        'NG',
+        null,
+        expect.any(Object),
+        expect.any(Object)
+      );
+    });
+
     it('passes getProductUrl output into JSON-LD and breadcrumb URLs on fallback legacy pages', async () => {
       mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
       mockHeaders.mockReturnValue(makeHeaders({}));
@@ -984,6 +1015,11 @@ describe('products/[productSlug] page', () => {
     expect(screen.getByText('Free returns within 7 days')).toBeInTheDocument();
     expect(screen.getByText('Ships across Nigeria')).toBeInTheDocument();
     expect(screen.getByText('WhatsApp support available')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'The iPhone 17 Pro Max price in Nigeria on TestStore is ₦500,000. Check specs, condition, warranty, delivery, and payment options before you buy.'
+      )
+    ).toBeInTheDocument();
     expect(mockBuildProductSemanticModel).toHaveBeenCalledWith(
       expect.objectContaining({
         storeUrl: 'https://teststore.usebaci.com',
