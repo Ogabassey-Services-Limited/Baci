@@ -80,7 +80,9 @@ describe('checkoutSessionSchema', () => {
     const result = checkoutSessionSchema.safeParse({
       capabilities: {},
       currency: 'ngn',
-      line_items: [{ item: { id: 'product-1' }, quantity: 2 }],
+      line_items: [
+        { id: 'line_product-1', item: { id: 'product-1' }, quantity: 2 },
+      ],
     });
 
     expect(result.success).toBe(true);

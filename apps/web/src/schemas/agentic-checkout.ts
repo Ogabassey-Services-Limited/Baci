@@ -206,7 +206,7 @@ function normalizeCheckoutLineItems(value: unknown): unknown {
 
     const nestedItem = isRecord(lineItem.item) ? lineItem.item : undefined;
     const id =
-      getStringField(lineItem, 'id') ?? getStringField(nestedItem, 'id');
+      getStringField(nestedItem, 'id') ?? getStringField(lineItem, 'id');
     if (!id) return lineItem;
 
     return {
