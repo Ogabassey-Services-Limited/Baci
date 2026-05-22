@@ -2,11 +2,23 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCronSecret } from '@/env';
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
+import {
+  type AgenticCommerceHealthActionSummary,
+  type AgenticCommerceHealthStatus,
+  buildAgentCommerceManifestHealthActions,
+  fetchPrimaryAgenticMerchantDomains,
+  getAgentCommerceManifestStatusReason,
+  getAgenticCommerceHealthStatus,
+  summarizeAgenticCommerceHealthActions,
+} from '@/lib/agentic/agent-commerce-health-monitor';
+import {
+  type AgentCommerceManifestHealthResult,
+  checkAgentCommerceManifestHealth,
+} from '@/lib/agentic/agent-commerce-manifest-health';
 import { hasValidCronSecret } from '@/lib/cron-secret-auth';
 import { logger } from '@/lib/logger';
 import { sanitizeForLog } from '@/lib/sanitize-core';
 import { createAdminClient } from '@/lib/supabase/admin';
-import type { AgenticAction } from '@/schemas/agentic-action-health';
 import { agenticCommerceHealthCronQuerySchema } from '@/schemas/agentic-commerce-health-cron';
 
 export const maxDuration = 300;
@@ -14,24 +26,18 @@ export const maxDuration = 300;
 const DEFAULT_MONITORED_MERCHANT_SLUG = 'ogabassey';
 const MERCHANT_SELECT_COLUMNS = 'id, slug, business_name, is_published';
 
-type AgenticCommerceHealthStatus = 'ok' | 'monitor' | 'attention';
-
 interface MonitoredMerchantRow {
   business_name: string | null;
+  custom_domain?: string | null;
   id: string;
   is_published: boolean | null;
   slug: string | null;
 }
 
-interface AgenticCommerceHealthActionSummary {
-  code: string;
-  count: number;
-  severity: AgenticAction['severity'];
-}
-
 interface AgenticCommerceHealthMerchantResult {
   actions: AgenticCommerceHealthActionSummary[];
   business_name?: string;
+  manifest?: AgentCommerceManifestHealthResult;
   merchant_id?: string;
   slug: string;
   status: AgenticCommerceHealthStatus;
@@ -83,34 +89,6 @@ function getRequestedMonitorSlugs(request: NextRequest) {
         ? parsed.data.merchant_slug
         : getMonitorSlugsFromEnv(),
   };
-}
-
-function summarizeActions(actions: AgenticAction[]) {
-  return actions
-    .filter((action) => action.severity !== 'ok' || action.count > 0)
-    .map((action) => ({
-      code: action.code,
-      count: action.count,
-      severity: action.severity,
-    }));
-}
-
-function getMerchantHealthStatus(actions: AgenticAction[]) {
-  if (
-    actions.some(
-      (action) => action.severity === 'attention' && action.count > 0
-    )
-  ) {
-    return 'attention';
-  }
-
-  if (
-    actions.some((action) => action.severity === 'monitor' && action.count > 0)
-  ) {
-    return 'monitor';
-  }
-
-  return 'ok';
 }
 
 function getOverallStatus(
@@ -174,17 +152,29 @@ async function buildMerchantHealthResult({
   }
 
   try {
-    const health = await loadAgenticActionHealth(supabase, merchant.id, {
-      recordsSource: 'admin_direct',
-    });
-    const status = getMerchantHealthStatus(health.actions);
+    const [health, manifest] = await Promise.all([
+      loadAgenticActionHealth(supabase, merchant.id, {
+        recordsSource: 'admin_direct',
+      }),
+      checkAgentCommerceManifestHealth({
+        custom_domain: merchant.custom_domain,
+        slug,
+      }),
+    ]);
+    const manifestActions = buildAgentCommerceManifestHealthActions(manifest);
+    const mergedActions = [...health.actions, ...manifestActions];
+    const status = getAgenticCommerceHealthStatus(mergedActions);
     return {
-      actions: summarizeActions(health.actions),
+      actions: summarizeAgenticCommerceHealthActions(mergedActions),
       business_name: merchant.business_name ?? undefined,
+      manifest,
       merchant_id: merchant.id,
       slug,
       status,
-      status_reason: `agentic_action_health_${status}`,
+      status_reason: getAgentCommerceManifestStatusReason(
+        manifest,
+        `agentic_action_health_${status}`
+      ),
     };
   } catch (_error) {
     return {
@@ -226,14 +216,25 @@ export async function GET(request: NextRequest) {
       supabase,
       monitorRequest.slugs
     );
+    const primaryDomainsByMerchantId = await fetchPrimaryAgenticMerchantDomains(
+      supabase,
+      Array.from(merchantsBySlug.values(), (merchant) => merchant.id)
+    );
     const merchants = await Promise.all(
-      monitorRequest.slugs.map((slug) =>
-        buildMerchantHealthResult({
-          merchant: merchantsBySlug.get(slug),
+      monitorRequest.slugs.map((slug) => {
+        const merchant = merchantsBySlug.get(slug);
+        return buildMerchantHealthResult({
+          merchant: merchant
+            ? {
+                ...merchant,
+                custom_domain:
+                  primaryDomainsByMerchantId.get(merchant.id) ?? null,
+              }
+            : undefined,
           slug,
           supabase,
-        })
-      )
+        });
+      })
     );
     const status = getOverallStatus(merchants);
     const summary = {

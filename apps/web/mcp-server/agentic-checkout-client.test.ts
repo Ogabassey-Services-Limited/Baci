@@ -2,11 +2,16 @@ import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import {
   AGENTIC_CHECKOUT_API_VERSION,
+  AGENTIC_CHECKOUT_USER_AGENT,
   createAgenticCheckoutSession,
   signAgenticRequest,
 } from './agentic-checkout-client';
 
 describe('createAgenticCheckoutSession', () => {
+  it('uses an OpenAI-identifying default user agent for checkout requests', () => {
+    expect(AGENTIC_CHECKOUT_USER_AGENT.toLowerCase()).toContain('openai');
+  });
+
   it('posts a signed request to the Baci agentic checkout session endpoint', async () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       new Response(
@@ -57,6 +62,7 @@ describe('createAgenticCheckoutSession', () => {
       'idempotency-key': 'idem-checkout-1',
       'request-id': 'request-1',
       timestamp: '2026-05-21T12:00:00.000Z',
+      'user-agent': AGENTIC_CHECKOUT_USER_AGENT,
     });
     const headers = init.headers as Record<string, string>;
     const expectedSignature = createHmac('sha256', 'signing-secret')

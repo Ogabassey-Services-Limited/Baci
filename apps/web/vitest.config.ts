@@ -41,6 +41,10 @@ const sharedAliases = [
     replacement: path.join(sharedPackagePath, 'constants/index.ts'),
   },
   {
+    find: /^@baci\/shared\/imei$/,
+    replacement: path.join(sharedPackagePath, 'imei/index.ts'),
+  },
+  {
     find: /^@baci\/shared\/contracts$/,
     replacement: path.join(sharedPackagePath, 'contracts/index.ts'),
   },
