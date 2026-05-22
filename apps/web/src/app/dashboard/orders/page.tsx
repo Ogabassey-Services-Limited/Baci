@@ -1,12 +1,23 @@
 import { getMerchantForUser } from '@/lib/merchant-server';
 import { getOrderStats, getOrders } from './actions';
+import { parseAgenticOrderSourceFilter } from './agentic-order-source';
 import OrdersClientPage from './client-page';
 
 export const metadata = {
   title: 'Orders - Baci',
 };
 
-export default async function OrdersPage() {
+interface OrdersPageProps {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function OrdersPage({
+  searchParams,
+}: OrdersPageProps = {}) {
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const sourceFilter = parseAgenticOrderSourceFilter(
+    resolvedSearchParams.source
+  );
   const { merchant } = await getMerchantForUser();
 
   if (!merchant) {
@@ -15,7 +26,9 @@ export default async function OrdersPage() {
 
   // Use Promise.allSettled to handle partial failures gracefully
   const results = await Promise.allSettled([
-    getOrders(merchant.id),
+    sourceFilter
+      ? getOrders(merchant.id, { source: sourceFilter })
+      : getOrders(merchant.id),
     getOrderStats(merchant.id),
   ]);
 

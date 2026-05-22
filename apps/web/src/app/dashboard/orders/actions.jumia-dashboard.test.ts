@@ -149,6 +149,20 @@ describe('Jumia dashboard order data', () => {
     expect(ordersQuery.or).not.toHaveBeenCalled();
   });
 
+  it('scopes source=agentic to persisted agentic order rows', async () => {
+    const ordersQuery = createQuery({ data: [], error: null });
+    mocks.from.mockImplementation((table: string) => {
+      if (table === 'orders') return ordersQuery;
+      throw new Error(`Unexpected table: ${table}`);
+    });
+
+    await getOrders(MERCHANT_ID, { source: 'agentic' });
+
+    expect(ordersQuery.eq).toHaveBeenCalledWith('merchant_id', MERCHANT_ID);
+    expect(ordersQuery.eq).toHaveBeenCalledWith('source', 'agentic_ai');
+    expect(mocks.from).not.toHaveBeenCalledWith('jumia_orders');
+  });
+
   it('throws a generic dashboard error when canonical order loading fails', async () => {
     mocks.from.mockImplementation((table: string) => {
       if (table === 'orders') {

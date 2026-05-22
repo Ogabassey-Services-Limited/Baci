@@ -23,6 +23,11 @@ import {
   type OrderStats,
   type ShippingStatus,
 } from './actions';
+import {
+  AGENTIC_ORDER_SOURCE_FILTER,
+  isAgenticOrderSource,
+  parseAgenticOrderSourceFilter,
+} from './agentic-order-source';
 import type { PaymentStatus } from './order-statuses';
 import { OrdersFiltersBar } from './orders-filters-bar';
 import { OrdersListCard } from './orders-list-card';
@@ -79,6 +84,9 @@ export default function OrdersClientPage({
   );
   const agenticIssue = searchParams.get('agentic_issue');
   const agenticOrdersContext = getAgenticOrdersContext(agenticIssue);
+  const sourceFilter = parseAgenticOrderSourceFilter(
+    searchParams.get('source')
+  );
   const isHydrated = useRef(false);
 
   // Fetch active Jumia integrations for order management
@@ -171,6 +179,7 @@ export default function OrdersClientPage({
           paymentStatus: paymentFilter,
           shippingStatus: shippingFilter,
           search: searchTerm,
+          ...(sourceFilter ? { source: sourceFilter } : {}),
         });
         setOrders(fetchedOrders);
       } catch (_error) {
@@ -199,6 +208,7 @@ export default function OrdersClientPage({
     paymentFilter,
     searchTerm,
     shippingFilter,
+    sourceFilter,
     toast,
   ]);
 
@@ -267,8 +277,11 @@ export default function OrdersClientPage({
       searchTerm === '' ||
       order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase());
+    const sourceMatch =
+      sourceFilter !== AGENTIC_ORDER_SOURCE_FILTER ||
+      isAgenticOrderSource(order.source);
 
-    return paymentMatch && shippingMatch && searchMatch;
+    return paymentMatch && shippingMatch && searchMatch && sourceMatch;
   });
 
   const handleSelectOrder = (orderNumber: string, isSelected: boolean) => {
