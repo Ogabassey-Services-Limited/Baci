@@ -256,7 +256,7 @@ export function buildAgentCommerceFeedHealthActions(
           count: issue.count,
           message: issue.message,
           next_step:
-            'Open feed diagnostics and verify product, variant, and image-manifest queries are healthy.',
+            'Open Products and verify product, variant, and image-manifest data is healthy.',
           next_step_url: '/dashboard/products',
           severity: issue.severity,
         };

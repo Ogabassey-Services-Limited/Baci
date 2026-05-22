@@ -1,6 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { GoogleMerchantFeedData } from '@/app/api/feed/google-merchant/feed-data';
-import type { OpenAIFeedData } from '@/app/api/feed/openai/feed-data';
 
 vi.mock('@/app/api/feed/google-merchant/feed-data', () => ({
   getCachedGoogleMerchantFeedData: vi.fn(),
@@ -20,42 +18,16 @@ import { getCachedGoogleMerchantFeedData } from '@/app/api/feed/google-merchant/
 import { getCachedOpenAIFeedData } from '@/app/api/feed/openai/feed-data';
 import { logger } from '@/lib/logger';
 import { checkAgentCommerceFeedHealth } from './agent-commerce-feed-health';
-
-const NOW = new Date('2026-05-22T12:00:00.000Z');
-
-function openAiFeed(productIds: string[]): OpenAIFeedData {
-  return {
-    products: productIds.map((id) => ({
-      description: `${id} description`,
-      id,
-      name: id,
-      price: 1000,
-      stock: 5,
-      updated_at: '2026-05-22T10:00:00.000Z',
-    })),
-  };
-}
-
-function googleFeed(productIds: string[]): GoogleMerchantFeedData {
-  return {
-    custom_domain: 'ogabassey.com',
-    imageManifest: {},
-    products: productIds.map((id) => ({
-      description: `${id} description`,
-      id,
-      name: id,
-      price: 1000,
-      stock: 5,
-      updated_at: '2026-05-22T10:00:00.000Z',
-    })),
-    slug: 'ogabassey',
-  };
-}
+import {
+  AGENT_COMMERCE_FEED_HEALTH_TEST_NOW,
+  googleFeed,
+  openAiFeed,
+} from './agent-commerce-feed-health-test-helpers';
 
 function runCheck() {
   return checkAgentCommerceFeedHealth({
     merchantId: 'merchant-1',
-    now: NOW,
+    now: AGENT_COMMERCE_FEED_HEALTH_TEST_NOW,
     slug: 'ogabassey',
   });
 }
