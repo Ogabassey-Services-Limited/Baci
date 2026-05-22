@@ -3,6 +3,8 @@ export function DeferredDetailsSkeleton() {
     <div
       className="mt-12 min-h-[1200px] [content-visibility:auto] [contain-intrinsic-size:1400px_2200px] w-full"
       data-testid="deferred-product-details-placeholder"
+      role="status"
+      aria-live="polite"
       aria-busy="true"
       aria-label="Loading product details..."
     >
