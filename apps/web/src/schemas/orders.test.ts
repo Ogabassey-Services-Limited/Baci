@@ -289,14 +289,34 @@ describe('orderCreateSchema', () => {
     }
   });
 
-  it('rejects voucher tokens longer than 128 sanitized characters', () => {
+  it('accepts signed quiz voucher tokens up to 512 sanitized characters long', () => {
+    const voucherToken = 'x'.repeat(512);
     const result = orderCreateSchema.safeParse({
       ...validOrder,
       items: [
         {
           ...validOrder.items[0],
-          voucher_award_id: 'x'.repeat(129),
-          voucher_token: 'x'.repeat(129),
+          voucher_award_id: voucherToken,
+          voucher_token: voucherToken,
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items[0].voucher_award_id).toBe(voucherToken);
+      expect(result.data.items[0].voucher_token).toBe(voucherToken);
+    }
+  });
+
+  it('rejects voucher tokens longer than 512 sanitized characters', () => {
+    const result = orderCreateSchema.safeParse({
+      ...validOrder,
+      items: [
+        {
+          ...validOrder.items[0],
+          voucher_award_id: 'x'.repeat(513),
+          voucher_token: 'x'.repeat(513),
         },
       ],
     });
@@ -304,7 +324,7 @@ describe('orderCreateSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('accepts voucher tokens exactly 128 sanitized characters long', () => {
+  it('accepts voucher tokens exactly 128 sanitized characters long for legacy Phase 1a clients', () => {
     const voucherToken = 'x'.repeat(128);
     const result = orderCreateSchema.safeParse({
       ...validOrder,
