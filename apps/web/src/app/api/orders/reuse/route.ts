@@ -7,7 +7,7 @@ import { reuseCheckoutOrderSchema } from '@/schemas/orders';
 function mapReuseOrderError(
   error: { message?: string; code?: string } | null | undefined
 ) {
-  const message = error?.message || 'Failed to reopen order';
+  const message = error?.message || 'order_not_found';
 
   if (message === 'order_not_found') {
     return { status: 404, error: 'Order not found' };
@@ -25,7 +25,31 @@ function mapReuseOrderError(
     return { status: 409, error: 'Order is no longer reusable' };
   }
 
-  return { status: 500, error: 'Failed to reopen order' };
+  return { status: 409, error: 'Order is no longer reusable' };
+}
+
+function isExpectedReuseOrderError(
+  error: { message?: string; code?: string } | null | undefined
+) {
+  return (
+    !error ||
+    [
+      'order_not_found',
+      'unauthorized',
+      'email_mismatch',
+      'merchant_mismatch',
+      'order_already_paid',
+      'order_not_reusable',
+    ].includes(error.message || '')
+  );
+}
+
+function getSafeReuseOrderErrorMessage(
+  error: { message?: string; code?: string } | null | undefined
+) {
+  return (error?.message || 'unknown')
+    .replace(/https?:\/\/\S+/g, '[url]')
+    .slice(0, 300);
 }
 
 export async function POST(request: NextRequest) {
@@ -77,6 +101,13 @@ export async function POST(request: NextRequest) {
 
   if (error || !order) {
     const mappedError = mapReuseOrderError(error);
+    if (!isExpectedReuseOrderError(error)) {
+      console.warn('POST /api/orders/reuse RPC failed', {
+        code: error?.code || null,
+        message: getSafeReuseOrderErrorMessage(error),
+        mappedStatus: mappedError.status,
+      });
+    }
     return NextResponse.json(
       { error: mappedError.error },
       { status: mappedError.status }
