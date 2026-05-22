@@ -8,6 +8,7 @@
     "ios": "NODE_OPTIONS='--no-warnings --import tsx' expo run:ios",
     "web": "NODE_OPTIONS='--no-warnings --import tsx' expo start --web",
     "check:platform-drift": "node ./scripts/check-platform-drift.mjs",
+    "check:route-size": "node ./scripts/check-route-size.mjs",
     "lint": "NODE_OPTIONS='--no-warnings --import tsx' expo lint",
     "typecheck": "tsc --noEmit",
     "test": "jest"
