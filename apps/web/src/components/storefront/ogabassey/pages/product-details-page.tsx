@@ -39,17 +39,7 @@ const SelectionRequiredModal = dynamic(
   { loading: () => null, ssr: false }
 );
 
-import { DeferredDetailsSkeleton } from './product-details-page/deferred-details-skeleton';
-
-const DeferredProductDetailsSectionsLoader = dynamic(
-  () =>
-    import(
-      './product-details-page/deferred-product-details-sections-loader'
-    ).then((mod) => mod.DeferredProductDetailsSectionsLoader),
-  {
-    loading: () => <DeferredDetailsSkeleton />,
-  }
-);
+import { DeferredProductDetailsSectionsLoader } from './product-details-page/deferred-product-details-sections-loader';
 
 interface ProductDetailsPageProps {
   product: Product;

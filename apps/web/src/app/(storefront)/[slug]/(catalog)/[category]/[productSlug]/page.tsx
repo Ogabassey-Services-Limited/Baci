@@ -761,21 +761,15 @@ async function CategoryProductPageContent({
   );
 }
 
-export default async function CategoryProductPage({
-  params,
-  searchParams,
-}: PageProps) {
-  const { slug, category, productSlug } = await params;
-  if (!isValidMerchantIdentifier(slug)) {
-    notFound();
-  }
+interface OgabasseyPdpProductImagePreloadWrapperProps {
+  slug: string;
+  productSlug: string;
+}
 
-  // Start the product fetch first to run in parallel with the preloading lookups
-  const productResultPromise = getProduct(slug, category, productSlug);
-
-  // Preload OgaBassey LCP image synchronously using the warmed request cache.
-  // Because generateMetadata warming run finished immediately prior, these cache ticks resolve in <1ms
-  // allowing the preload tag to stream in the absolute first byte of the HTML head.
+async function OgabasseyPdpProductImagePreloadWrapper({
+  slug,
+  productSlug,
+}: OgabasseyPdpProductImagePreloadWrapperProps) {
   try {
     const merchant = await getRequestScopedMerchant(slug);
     if (merchant && merchant.template_id === OGABASSEY_TEMPLATE_ID) {
@@ -794,11 +788,31 @@ export default async function CategoryProductPage({
       error
     );
   }
+  return null;
+}
+
+export default async function CategoryProductPage({
+  params,
+  searchParams,
+}: PageProps) {
+  const { slug, category, productSlug } = await params;
+  if (!isValidMerchantIdentifier(slug)) {
+    notFound();
+  }
+
+  // Start the product fetch first to run in parallel with the preloading lookups
+  const productResultPromise = getProduct(slug, category, productSlug);
 
   return (
     <>
       <Suspense fallback={null}>
         <StorefrontDynamicMetadataMarker />
+      </Suspense>
+      <Suspense fallback={null}>
+        <OgabasseyPdpProductImagePreloadWrapper
+          slug={slug}
+          productSlug={productSlug}
+        />
       </Suspense>
       <Suspense fallback={null}>
         <CategoryProductPageContent

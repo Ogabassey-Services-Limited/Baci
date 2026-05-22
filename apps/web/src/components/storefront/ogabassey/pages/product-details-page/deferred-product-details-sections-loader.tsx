@@ -1,20 +1,11 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import type { ComponentType } from 'react';
 import { DeferredDetailsSkeleton } from './deferred-details-skeleton';
 import type { DeferredProductDetailsSectionsProps } from './deferred-product-details-sections';
 
-interface DeferredProductDetailsSectionsModule {
-  DeferredProductDetailsSections: ComponentType<
-    DeferredProductDetailsSectionsProps
-  >;
-}
-
 export interface DeferredProductDetailsSectionsLoaderProps
-  extends DeferredProductDetailsSectionsProps {
-  loadDeferredSections?: () => Promise<DeferredProductDetailsSectionsModule>;
-}
+  extends DeferredProductDetailsSectionsProps {}
 
 const DeferredProductDetailsSections = dynamic(
   () =>
@@ -26,9 +17,8 @@ const DeferredProductDetailsSections = dynamic(
   }
 );
 
-export function DeferredProductDetailsSectionsLoader({
-  loadDeferredSections,
-  ...props
-}: DeferredProductDetailsSectionsLoaderProps) {
+export function DeferredProductDetailsSectionsLoader(
+  props: DeferredProductDetailsSectionsLoaderProps
+) {
   return <DeferredProductDetailsSections {...props} />;
 }

@@ -1,5 +1,3 @@
-'use client';
-
 export function DeferredDetailsSkeleton() {
   return (
     <div
@@ -9,10 +7,10 @@ export function DeferredDetailsSkeleton() {
       aria-label="Loading product details..."
     >
       <div className="animate-pulse space-y-6 px-4">
-        <div className="h-10 bg-neutral-200/60 rounded w-1/3" />
-        <div className="h-4 bg-neutral-200/60 rounded w-full" />
-        <div className="h-4 bg-neutral-200/60 rounded w-5/6" />
-        <div className="h-4 bg-neutral-200/60 rounded w-4/5" />
+        <div className="h-10 bg-muted rounded w-1/3" />
+        <div className="h-4 bg-muted rounded w-full" />
+        <div className="h-4 bg-muted rounded w-5/6" />
+        <div className="h-4 bg-muted rounded w-4/5" />
       </div>
     </div>
   );
