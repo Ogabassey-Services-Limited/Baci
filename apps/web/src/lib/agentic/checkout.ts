@@ -91,6 +91,9 @@ interface AgenticVariant {
 
 // --- Helpers ---
 
+const POSTGRES_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function calculateCheckoutSession(
   supabase: SupabaseClient,
   items: CheckoutItem[],
@@ -103,38 +106,46 @@ export async function calculateCheckoutSession(
   // Our new setup uses `id` for both (variants have unique UUIDs usually, or SKU).
   // Ideally we query `products` and `product_variants`.
 
-  // Simplified logic: assume input ID is valid UUID for either product or variant.
-  // Or check SKU.
+  // Product and variant IDs are Postgres UUIDs. External IDs are left to the
+  // per-item validation path below instead of being sent through UUID filters.
   const productIds = items.map((i) => i.id);
+  const lookupProductIds = Array.from(
+    new Set(productIds.filter((id) => POSTGRES_UUID_PATTERN.test(id)))
+  );
 
-  // Try fetching from products first (parents)
-  const { data: products, error: productsError } = await supabase
-    .from('products')
-    .select(
-      'id, name, price, stock, stock_quantity, manage_stock, weight_value, weight_unit'
-    )
-    .in('id', productIds)
-    .eq('merchant_id', merchantId)
-    .returns<AgenticProduct[]>();
-  if (productsError) {
-    throw new Error('Failed to load checkout products');
+  let foundProducts: AgenticProduct[] = [];
+  let foundVariants: AgenticVariant[] = [];
+
+  if (lookupProductIds.length > 0) {
+    // Try fetching from products first (parents)
+    const { data: products, error: productsError } = await supabase
+      .from('products')
+      .select(
+        'id, name, price, stock, stock_quantity, manage_stock, weight_value, weight_unit'
+      )
+      .in('id', lookupProductIds)
+      .eq('merchant_id', merchantId)
+      .returns<AgenticProduct[]>();
+    if (productsError) {
+      throw new Error('Failed to load checkout products');
+    }
+
+    // Try fetching from variants
+    const { data: variants, error: variantsError } = await supabase
+      .from('product_variants')
+      .select(
+        'id, merchant_id, product_id, price_override, stock_quantity, attributes, product:products!product_variants_product_id_fkey(name, price, manage_stock, weight_value, weight_unit)'
+      )
+      .in('id', lookupProductIds)
+      .eq('merchant_id', merchantId)
+      .returns<AgenticVariant[]>();
+    if (variantsError) {
+      throw new Error('Failed to load checkout product variants');
+    }
+
+    foundProducts = products || [];
+    foundVariants = variants || [];
   }
-
-  // Try fetching from variants
-  const { data: variants, error: variantsError } = await supabase
-    .from('product_variants')
-    .select(
-      'id, merchant_id, product_id, price_override, stock_quantity, attributes, product:products!product_variants_product_id_fkey(name, price, manage_stock, weight_value, weight_unit)'
-    )
-    .in('id', productIds)
-    .eq('merchant_id', merchantId)
-    .returns<AgenticVariant[]>();
-  if (variantsError) {
-    throw new Error('Failed to load checkout product variants');
-  }
-
-  const foundProducts = products || [];
-  const foundVariants = variants || [];
 
   const lineItems: GPTLineItem[] = [];
   const messages: GPTMessage[] = [];

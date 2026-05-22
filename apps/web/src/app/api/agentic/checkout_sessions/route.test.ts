@@ -1,5 +1,11 @@
 import { NextRequest } from 'next/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type {
+  GPTFulfillmentOption,
+  GPTLineItem,
+  GPTMessage,
+  GPTTotal,
+} from '@/lib/agentic/checkout';
 import { calculateCheckoutSession } from '@/lib/agentic/checkout';
 import {
   reserveAgenticIdempotencyKey,
@@ -34,6 +40,40 @@ const mockResolveAgenticMerchantContext = vi.fn<
   })
 );
 const mockVerifyAgenticApiKey = vi.fn(() => true);
+
+type CheckoutCalculation = {
+  fulfillmentOptions: GPTFulfillmentOption[];
+  lineItems: GPTLineItem[];
+  messages: GPTMessage[];
+  selectedOptionId: string | undefined;
+  totals: GPTTotal[];
+};
+
+function buildSuccessfulCheckoutCalculation(quantity = 1): CheckoutCalculation {
+  const total = 500000 * quantity;
+  return {
+    fulfillmentOptions: [],
+    lineItems: [
+      {
+        base_amount: total,
+        discount: 0,
+        id: 'line_product-1',
+        item: {
+          id: 'product-1',
+          product_id: 'product-1',
+          quantity,
+          title: 'Phone',
+        },
+        subtotal: total,
+        tax: 0,
+        total,
+      },
+    ],
+    messages: [],
+    selectedOptionId: undefined,
+    totals: [{ amount: total, display_text: 'Total Due', type: 'total' }],
+  };
+}
 
 vi.mock('@/lib/agentic/auth', () => ({
   getIdempotencyKey: mockGetIdempotencyKey,
@@ -367,13 +407,9 @@ describe('POST /api/agentic/checkout_sessions', () => {
     vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
       mockSupabase as never
     );
-    vi.mocked(calculateCheckoutSession).mockResolvedValue({
-      fulfillmentOptions: [],
-      lineItems: [],
-      messages: [],
-      selectedOptionId: undefined,
-      totals: [{ amount: 0, display_text: 'Total Due', type: 'total' }],
-    });
+    vi.mocked(calculateCheckoutSession).mockResolvedValue(
+      buildSuccessfulCheckoutCalculation(2)
+    );
 
     const request = new NextRequest(
       'http://localhost/api/agentic/checkout_sessions',
@@ -435,13 +471,9 @@ describe('POST /api/agentic/checkout_sessions', () => {
     vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
       mockSupabase as never
     );
-    vi.mocked(calculateCheckoutSession).mockResolvedValue({
-      fulfillmentOptions: [],
-      lineItems: [],
-      messages: [],
-      selectedOptionId: undefined,
-      totals: [{ amount: 0, display_text: 'Total Due', type: 'total' }],
-    });
+    vi.mocked(calculateCheckoutSession).mockResolvedValue(
+      buildSuccessfulCheckoutCalculation()
+    );
 
     const request = new NextRequest(
       'http://localhost/api/agentic/checkout_sessions',
@@ -519,13 +551,9 @@ describe('POST /api/agentic/checkout_sessions', () => {
     vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
       mockSupabase as never
     );
-    vi.mocked(calculateCheckoutSession).mockResolvedValue({
-      fulfillmentOptions: [],
-      lineItems: [],
-      messages: [],
-      selectedOptionId: undefined,
-      totals: [{ amount: 0, display_text: 'Total Due', type: 'total' }],
-    });
+    vi.mocked(calculateCheckoutSession).mockResolvedValue(
+      buildSuccessfulCheckoutCalculation(2)
+    );
 
     const request = new NextRequest(
       'http://localhost/api/agentic/checkout-sessions',
@@ -574,6 +602,73 @@ describe('POST /api/agentic/checkout_sessions', () => {
     );
   });
 
+  it('returns 400 without inserting a checkout session when no valid line items are available', async () => {
+    const mockSupabase = {
+      from: vi.fn(() => {
+        throw new Error('Unexpected checkout session insert');
+      }),
+    };
+    vi.mocked(createAdminClient).mockReturnValue(mockSupabase as never);
+    vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
+      mockSupabase as never
+    );
+    vi.mocked(calculateCheckoutSession).mockResolvedValue({
+      fulfillmentOptions: [],
+      lineItems: [],
+      messages: [
+        {
+          code: 'invalid',
+          content: 'Item not-a-uuid not found.',
+          content_type: 'plain',
+          path: '$.items[0]',
+          type: 'error',
+        },
+      ],
+      selectedOptionId: undefined,
+      totals: [{ amount: 0, display_text: 'Total Due', type: 'total' }],
+    });
+
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout_sessions',
+      {
+        body: JSON.stringify({ items: [{ id: 'not-a-uuid', quantity: 1 }] }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'idem-1',
+        },
+        method: 'POST',
+      }
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toEqual({
+      error: 'No valid checkout items',
+      messages: [
+        {
+          code: 'invalid',
+          content: 'Item not-a-uuid not found.',
+          content_type: 'plain',
+          path: '$.items[0]',
+          type: 'error',
+        },
+      ],
+    });
+    expect(mockSupabase.from).not.toHaveBeenCalledWith('checkout_sessions');
+    expect(storeAgenticIdempotencyResponse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: 'idem-1',
+        merchantId: 'merchant-1',
+        response: body,
+        route: 'checkout_sessions.create',
+        status: 400,
+      })
+    );
+  });
+
   it('returns a recoverable error when idempotency response storage fails', async () => {
     const errorSpy = vi
       .spyOn(logger, 'error')
@@ -602,13 +697,9 @@ describe('POST /api/agentic/checkout_sessions', () => {
       error: new Error('idempotency write failed'),
       ok: false,
     });
-    vi.mocked(calculateCheckoutSession).mockResolvedValue({
-      fulfillmentOptions: [],
-      lineItems: [],
-      messages: [],
-      selectedOptionId: undefined,
-      totals: [{ amount: 0, display_text: 'Total Due', type: 'total' }],
-    });
+    vi.mocked(calculateCheckoutSession).mockResolvedValue(
+      buildSuccessfulCheckoutCalculation()
+    );
 
     const request = new NextRequest(
       'http://localhost/api/agentic/checkout_sessions',
