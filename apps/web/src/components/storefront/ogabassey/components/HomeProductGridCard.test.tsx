@@ -1,6 +1,8 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { act, render, screen } from '@testing-library/react';
 import type React from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Product } from '../types';
 
 vi.mock('next/link', () => ({
@@ -106,6 +108,16 @@ describe('HomeProductGridCard', () => {
     expect(screen.getByAltText(baseProduct.name)).toBeInTheDocument();
   });
 
+  // Inject globals.css into the DOM head before running tests to ensure
+  // that global CSS styling (like lazy loading opacity) is parsed and evaluated by JSDOM.
+  beforeAll(() => {
+    const cssPath = path.resolve(__dirname, '../../../../app/globals.css');
+    const cssContent = fs.readFileSync(cssPath, 'utf8');
+    const styleEl = document.createElement('style');
+    styleEl.innerHTML = cssContent;
+    document.head.appendChild(styleEl);
+  });
+
   it('renders lazy product images without hidden styles after activation', () => {
     render(<HomeProductGridCard product={baseProduct} deferImageLoading={true} />);
 
@@ -128,6 +140,13 @@ describe('HomeProductGridCard', () => {
     expect(image).not.toHaveClass('opacity-0');
     expect(image).not.toHaveClass('invisible');
     expect(image).not.toHaveClass('hidden');
+    
+    // Standard JSDOM style check
     expect(image).not.toHaveStyle({ opacity: '0' });
+
+    // Robust computed style check - ensures that global CSS rule regressions 
+    // (such as img[loading="lazy"] { opacity: 0; }) are caught and failed properly.
+    const computedStyle = window.getComputedStyle(image);
+    expect(computedStyle.opacity).not.toBe('0');
   });
 });
