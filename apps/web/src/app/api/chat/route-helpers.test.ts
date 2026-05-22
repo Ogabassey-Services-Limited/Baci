@@ -79,12 +79,12 @@ describe('chat route helpers', () => {
     expect(sanitized.startsWith('prefix ')).toBe(true);
   });
 
-  it('detects aborted chat requests from either signal or error name', () => {
+  it('detects aborted chat requests from the request signal only', () => {
     const controller = new AbortController();
     const abortError = new Error('aborted');
     abortError.name = 'AbortError';
 
-    expect(isChatAbortError(abortError)).toBe(true);
+    expect(isChatAbortError(abortError)).toBe(false);
     expect(isChatAbortError(new Error('network failed'))).toBe(false);
 
     controller.abort();

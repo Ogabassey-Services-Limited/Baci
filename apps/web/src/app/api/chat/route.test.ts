@@ -430,6 +430,34 @@ describe('POST /api/chat', () => {
     expect(warnSpy).not.toHaveBeenCalled();
   });
 
+  it('falls back to Gemini when Ollama raises an internal AbortError', async () => {
+    // Arrange
+    ollamaBaseUrl = 'https://ollama.example.com';
+    ollamaError = new Error('Ollama upstream timed out');
+    ollamaError.name = 'AbortError';
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    // Act
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Show me phones' }],
+      })
+    );
+    const text = await response.text();
+
+    // Assert
+    expect(response.status).toBe(200);
+    expect(text).toBe('AI response');
+    expect(createOllamaChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] Ollama request failed; falling back to Gemini:',
+      'Ollama upstream timed out'
+    );
+  });
+
   it('falls back to Gemini when the Ollama stream fails before completion', async () => {
     // Arrange
     ollamaBaseUrl = 'https://ollama.example.com';
@@ -773,6 +801,32 @@ describe('POST /api/chat', () => {
     expect(createLlmChatResponse).toHaveBeenCalledOnce();
     expect(generateText).not.toHaveBeenCalled();
     expect(warnSpy).not.toHaveBeenCalled();
+  });
+
+  it('falls back to Gemini when the LLM server raises an internal AbortError', async () => {
+    llmServerUrl = TEST_LLM_SERVER_URL;
+    llmServerBearer = TEST_LLM_SERVER_BEARER;
+    llmError = new Error('LLM upstream timed out');
+    llmError.name = 'AbortError';
+    const warnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+
+    const response = await POST(
+      makeRequest({
+        messages: [{ role: 'user', content: 'Hi' }],
+      })
+    );
+    const text = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(text).toBe('AI response');
+    expect(createLlmChatResponse).toHaveBeenCalledOnce();
+    expect(generateText).toHaveBeenCalledOnce();
+    expect(warnSpy).toHaveBeenCalledWith(
+      '[Agentic Chat] LLM server request failed; falling back to Gemini:',
+      'LLM upstream timed out'
+    );
   });
 
   it('does not fall back to Ollama when the LLM server fails (only to Gemini)', async () => {

@@ -38,13 +38,10 @@ export function getSafeChatBackendErrorMessage(error: unknown): string {
 }
 
 export function isChatAbortError(
-  error: unknown,
+  _error: unknown,
   signal?: AbortSignal
 ): boolean {
-  return (
-    signal?.aborted === true ||
-    (error instanceof Error && error.name === 'AbortError')
-  );
+  return signal?.aborted === true;
 }
 
 export async function bufferTextResponse(
