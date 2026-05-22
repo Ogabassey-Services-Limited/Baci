@@ -82,6 +82,7 @@ describe('cached-data product query projections', () => {
     const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
     expect(selectArg).not.toMatch(/\*\s*,/);
     expect(selectArg).not.toMatch(standaloneCurrencyColumnPattern);
+    expect(selectArg).not.toContain('is_featured');
     expect(selectArg).toContain('canonical_url');
   });
 
@@ -150,6 +151,16 @@ describe('cached-data product query projections', () => {
     );
     const selectArg = String(harness.mockSelect.mock.calls.at(-1)?.[0]);
     expect(selectArg).not.toMatch(standaloneCurrencyColumnPattern);
+    expect(selectArg).not.toContain('is_featured');
+  });
+
+  it('getCachedProducts does not filter by the retired is_featured column', async () => {
+    harness.mockListResult.data = productList;
+    harness.mockListResult.error = null;
+
+    await getCachedProducts('merchant-123', { featured: true });
+
+    expect(harness.mockEq).not.toHaveBeenCalledWith('is_featured', true);
   });
 
   it('getCachedProducts maps price fields to legacy base/sale fields', async () => {

@@ -12,6 +12,10 @@ vi.mock('@/lib/cached-data', () => ({
   getRequestScopedMerchant: vi.fn(),
 }));
 
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => null,
+}));
+
 vi.mock('@/lib/merchant-template-data', () => ({
   toTemplateMerchantData: vi.fn((m: unknown) => m),
 }));
