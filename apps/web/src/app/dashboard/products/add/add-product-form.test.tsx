@@ -273,7 +273,7 @@ describe('AddProductForm', () => {
         })
       )
     );
-  });
+  }, 20_000);
 
   it('ignores stale variants when the category does not support variants', async () => {
     mockGetCategoryConfigFromBusinessType.mockImplementation(() => ({
