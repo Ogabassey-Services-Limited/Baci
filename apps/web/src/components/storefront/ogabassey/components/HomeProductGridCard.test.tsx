@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { act, render, screen } from '@testing-library/react';
 import type React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -108,11 +106,28 @@ describe('HomeProductGridCard', () => {
     expect(screen.getByAltText(baseProduct.name)).toBeInTheDocument();
   });
 
-  it('keeps lazy product images visible after they load', () => {
-    const globalsCss = readFileSync(join(process.cwd(), 'src/app/globals.css'), 'utf8');
+  it('renders lazy product images without hidden styles after activation', () => {
+    render(<HomeProductGridCard product={baseProduct} deferImageLoading={true} />);
 
-    expect(globalsCss).not.toMatch(
-      /img\[loading="lazy"\]\s*{[^}]*opacity:\s*0\b/s
-    );
+    act(() => {
+      observerCallback?.(
+        [
+          {
+            isIntersecting: true,
+            target: screen.getByText(baseProduct.name),
+          } as unknown as IntersectionObserverEntry,
+        ],
+        {} as IntersectionObserver
+      );
+    });
+
+    const image = screen.getByRole('img', { name: baseProduct.name });
+
+    expect(image).toHaveAttribute('loading', 'lazy');
+    expect(image).toHaveClass('object-contain');
+    expect(image).not.toHaveClass('opacity-0');
+    expect(image).not.toHaveClass('invisible');
+    expect(image).not.toHaveClass('hidden');
+    expect(image).not.toHaveStyle({ opacity: '0' });
   });
 });
