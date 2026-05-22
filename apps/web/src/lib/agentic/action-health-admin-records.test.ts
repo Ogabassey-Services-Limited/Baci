@@ -110,4 +110,23 @@ describe('loadAdminAgenticActionHealthRecords', () => {
       loadAdminAgenticActionHealthRecords(supabase, 'merchant-1', 25)
     ).rejects.toThrow('record load failed');
   });
+
+  it('throws when checkout session record loading fails', async () => {
+    const idempotencyQuery = createQueryMock({ data: [] });
+    const checkoutQuery = createQueryMock({
+      data: [],
+      error: new Error('checkout load failed'),
+    });
+    const supabase = {
+      from: vi.fn((table: string) =>
+        table === 'agentic_idempotency_records'
+          ? idempotencyQuery
+          : checkoutQuery
+      ),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      loadAdminAgenticActionHealthRecords(supabase, 'merchant-1', 25)
+    ).rejects.toThrow('checkout load failed');
+  });
 });

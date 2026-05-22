@@ -216,6 +216,34 @@ describe('loadAgenticActionHealth', () => {
     ]);
   });
 
+  it('propagates admin-direct record loading errors without calling the dashboard rpc', async () => {
+    getActionHealthRequestControlSummary.mockResolvedValue({
+      allowlistCount: 1,
+      denylistCount: 0,
+      error: null,
+      isAgenticCheckoutEnabled: true,
+    });
+    loadAdminAgenticActionHealthRecords.mockRejectedValue(
+      new Error('admin direct failed')
+    );
+    const supabase = {
+      rpc: vi.fn(),
+    } as unknown as SupabaseClient;
+
+    await expect(
+      loadAgenticActionHealth(supabase, 'merchant-1', {
+        recordsSource: 'admin_direct',
+      })
+    ).rejects.toThrow('admin direct failed');
+
+    expect(loadAdminAgenticActionHealthRecords).toHaveBeenCalledWith(
+      supabase,
+      'merchant-1',
+      25
+    );
+    expect(supabase.rpc).not.toHaveBeenCalled();
+  });
+
   it('ages out old terminal idempotency errors without hiding stale in-progress reservations', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-05-18T10:00:00.000Z'));
