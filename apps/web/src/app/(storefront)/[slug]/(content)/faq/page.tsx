@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
+import { ContentRouteLoading } from '@/app/(storefront)/[slug]/storefront-loading-ui';
 import {
   getMerchantByIdentifier,
   getRequestScopedMerchant,
@@ -76,7 +77,7 @@ export default function FAQPage({ params }: PageProps) {
       <Suspense fallback={null}>
         <FAQJsonLd params={params} />
       </Suspense>
-      <Suspense fallback={null}>
+      <Suspense fallback={<ContentRouteLoading />}>
         <FAQContent params={params} />
       </Suspense>
     </>

@@ -85,7 +85,7 @@ describe('FAQPage', () => {
     expect(screen.queryByRole('heading', { level: 1 })).toBeNull();
   });
 
-  it('does not render a page-owned loading fallback while content is loading', () => {
+  it('renders a layout-preserving loading fallback while content is loading', () => {
     vi.mocked(getRequestScopedMerchant).mockReturnValue(
       new Promise<null>(() => {
         /* deferred: keep Suspense pending */
@@ -99,6 +99,9 @@ describe('FAQPage', () => {
     );
 
     expect(screen.queryByText('Loading FAQ...')).toBeNull();
+    expect(
+      screen.getByRole('status', { name: 'Loading page content' })
+    ).toBeInTheDocument();
   });
 
   it('renders the dynamic metadata marker outside suspended FAQ content', () => {
@@ -116,6 +119,9 @@ describe('FAQPage', () => {
 
     expect(
       screen.getByRole('status', { name: 'dynamic metadata marker' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: 'Loading page content' })
     ).toBeInTheDocument();
   });
 
