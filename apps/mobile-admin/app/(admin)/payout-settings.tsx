@@ -380,6 +380,12 @@ export default function PayoutSettingsScreen() {
                 />
               ) : (
                 <FlatList
+                  // ⚡ Bolt Performance Optimization: Explicit getItemLayout avoids asynchronous measurement cycles on the UI thread
+                  getItemLayout={(_, index) => ({
+                    length: 56,
+                    offset: 56 * index,
+                    index,
+                  })}
                   data={filteredBanks}
                   keyExtractor={(item) => item.code}
                   keyboardDismissMode="on-drag"
@@ -515,7 +521,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: SPACING.lg,
+    paddingHorizontal: SPACING.lg,
+    height: 56,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   bankName: {
