@@ -174,7 +174,9 @@ async function buildMerchantHealthResult({
   }
 
   try {
-    const health = await loadAgenticActionHealth(supabase, merchant.id);
+    const health = await loadAgenticActionHealth(supabase, merchant.id, {
+      recordsSource: 'admin_direct',
+    });
     const status = getMerchantHealthStatus(health.actions);
     return {
       actions: summarizeActions(health.actions),

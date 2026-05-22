@@ -172,7 +172,8 @@ describe('GET /api/cron/agentic-commerce-health', () => {
     ]);
     expect(loadAgenticActionHealth).toHaveBeenCalledWith(
       supabase,
-      'merchant-1'
+      'merchant-1',
+      { recordsSource: 'admin_direct' }
     );
     expect(logger.info).toHaveBeenCalledWith(
       expect.objectContaining({
