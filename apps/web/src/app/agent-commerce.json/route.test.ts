@@ -61,6 +61,11 @@ describe('GET /agent-commerce.json', () => {
       expect(body.capabilities).toContain('checkout.session.complete');
       expect(body.capabilities).toContain('order.read');
       expect(body.auth?.type).toBe('bearer_hmac');
+      expect(body.auth?.supported_api_versions).toEqual([
+        '2026-04-30',
+        '2026-04-17',
+        '2026-01-01',
+      ]);
       expect(body.links.product_feed).toBe(
         'https://ogabassey.com/feeds/openai.jsonl'
       );
