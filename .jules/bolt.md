@@ -18,3 +18,7 @@
 ## 2025-05-19 - Exact getItemLayout only for fixed-axis FlatLists
 **Learning:** React Native's `getItemLayout` is safe only when each item has an exact, deterministic size on the scroll axis. Rough estimates for text-heavy vertical rows, country lists, addresses, or history cards can corrupt offsets when content wraps or font scaling changes.
 **Action:** Provide `getItemLayout` only when the rendered item enforces the exact scroll-axis dimension, such as a horizontal pager whose item width is the viewport width. Leave variable-height lists to React Native's measurement path.
+
+## 2025-05-22 - Prevent full store subscriptions in Zustand v5
+**Learning:** In Zustand v5, calling a store without a selector (e.g., `const { ... } = useStore()`) or returning a new object from a selector without `useShallow` causes the component to subscribe to the entire store state. This triggers unnecessary re-renders whenever ANY property in the store changes, which degrades React Native performance.
+**Action:** Always pass a selector and explicitly wrap it in `useShallow` (e.g., `useStore(useShallow(state => ({ prop: state.prop })))`) when destructuring multiple properties from a Zustand store to ensure re-renders only occur when the selected properties actually change.
