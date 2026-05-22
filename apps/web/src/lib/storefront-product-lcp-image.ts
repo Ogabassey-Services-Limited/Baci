@@ -21,7 +21,7 @@ export async function getCachedStorefrontProductLcpImage(
   merchantId: string,
   productSlug: string
 ): Promise<string | null> {
-  'use cache: remote';
+  'use cache';
   cacheLife('products');
   cacheTag(
     'product',
@@ -65,7 +65,7 @@ function getPrimaryImageUrl(
 
   const { images } = product;
   if (typeof images === 'string' && images.trim()) {
-    return images;
+    return images.trim();
   }
 
   if (!Array.isArray(images)) {
@@ -77,7 +77,7 @@ function getPrimaryImageUrl(
 
 function getImageUrlCandidate(image: unknown): string | null {
   if (typeof image === 'string' && image.trim()) {
-    return image;
+    return image.trim();
   }
 
   if (
@@ -87,7 +87,7 @@ function getImageUrlCandidate(image: unknown): string | null {
     typeof image.url === 'string' &&
     image.url.trim()
   ) {
-    return image.url;
+    return image.url.trim();
   }
 
   return null;
