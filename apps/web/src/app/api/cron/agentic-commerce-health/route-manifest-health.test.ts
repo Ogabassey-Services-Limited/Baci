@@ -13,6 +13,17 @@ vi.mock('@/lib/agentic/agent-commerce-manifest-health', () => ({
   checkAgentCommerceManifestHealth: vi.fn(),
 }));
 
+vi.mock('@/lib/agentic/agent-commerce-feed-health', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/agentic/agent-commerce-feed-health')
+  >('@/lib/agentic/agent-commerce-feed-health');
+
+  return {
+    ...actual,
+    checkAgentCommerceFeedHealth: vi.fn(),
+  };
+});
+
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
@@ -26,6 +37,7 @@ vi.mock('@/lib/supabase/admin', () => ({
 }));
 
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
+import { checkAgentCommerceFeedHealth } from '@/lib/agentic/agent-commerce-feed-health';
 import { checkAgentCommerceManifestHealth } from '@/lib/agentic/agent-commerce-manifest-health';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { GET } from './route';
@@ -84,6 +96,16 @@ describe('GET /api/cron/agentic-commerce-health manifest monitoring', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(createAdminClient).mockReturnValue(createSupabaseMock() as never);
+    vi.mocked(checkAgentCommerceFeedHealth).mockResolvedValue({
+      google_product_count: 2,
+      issue_count: 0,
+      issues: [],
+      latest_product_updated_at: '2026-05-22T10:00:00.000Z',
+      openai_product_count: 2,
+      shared_product_count: 2,
+      stale_product_count: 0,
+      status: 'ok',
+    });
     vi.mocked(loadAgenticActionHealth).mockResolvedValue({
       actions: [
         {
