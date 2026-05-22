@@ -12,6 +12,7 @@ const {
   mockOgabasseyPdpStaticResourceHints,
   mockOgabasseyProductDetailsPage,
   mockPreloadOgabasseyPdpProductImage,
+  mockGetCachedStorefrontProductLcpImage,
   mockProductDetailClient,
 } = vi.hoisted(() => ({
   mockNormalizeStorefrontProductVariants: vi.fn<
@@ -25,6 +26,9 @@ const {
   mockOgabasseyProductDetailsPage: vi.fn<(props: unknown) => void>(),
   mockPreloadOgabasseyPdpProductImage:
     vi.fn<(props: { src: string | null | undefined }) => void>(),
+  mockGetCachedStorefrontProductLcpImage: vi.fn<
+    (merchantId: string, productSlug: string) => Promise<string | null>
+  >(() => Promise.resolve(null)),
   mockProductDetailClient: vi.fn<(props: unknown) => null>(() => null),
 }));
 
@@ -263,6 +267,13 @@ vi.mock('@/lib/store-url', () => ({
 
 vi.mock('@/lib/storefront-product-variants', () => ({
   normalizeStorefrontProductVariants: mockNormalizeStorefrontProductVariants,
+}));
+
+vi.mock('@/lib/storefront-product-lcp-image', () => ({
+  getCachedStorefrontProductLcpImage: (
+    merchantId: string,
+    productSlug: string
+  ) => mockGetCachedStorefrontProductLcpImage(merchantId, productSlug),
 }));
 
 vi.mock('@/lib/validation', () => ({
@@ -569,6 +580,8 @@ describe('[category]/[productSlug] page render', () => {
     mockOgabasseyPdpSemanticSections.mockReset();
     mockOgabasseyPdpStaticResourceHints.mockReset();
     mockOgabasseyProductDetailsPage.mockReset();
+    mockGetCachedStorefrontProductLcpImage.mockReset();
+    mockGetCachedStorefrontProductLcpImage.mockResolvedValue(null);
     mockBuildProductSemanticModel.mockReturnValue({
       trustBullets: [],
       supportLinks: [],
@@ -627,6 +640,86 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
       src: 'https://cdn.ogabassey.com/core-assets/products/hp-laptop.avif',
     });
+  });
+
+  it('preloads the OgaBassey PDP product image before full product details resolve', async () => {
+    let resolveProductDetails:
+      | ((value: typeof categorizedDetailedProduct) => void)
+      | undefined;
+    mockGetCachedProductWithDetails.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveProductDetails = resolve;
+      })
+    );
+    mockGetCachedStorefrontProductLcpImage.mockResolvedValueOnce(
+      'https://cdn.ogabassey.com/core-assets/products/early-lenovo-legion.avif'
+    );
+
+    const pagePromise = CategoryProductPage({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    await waitFor(() => {
+      expect(mockGetCachedStorefrontProductLcpImage).toHaveBeenCalledWith(
+        baseMerchant.id,
+        'hp-laptop-14-ep0063nia'
+      );
+      expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
+        src: 'https://cdn.ogabassey.com/core-assets/products/early-lenovo-legion.avif',
+      });
+    });
+    expect(mockOgabasseyProductDetailsPage).not.toHaveBeenCalled();
+
+    resolveProductDetails?.(categorizedDetailedProduct);
+    render(await pagePromise);
+
+    expect(mockOgabasseyProductDetailsPage).toHaveBeenCalled();
+  });
+
+  it('falls back to the product details image when the early image lookup fails', async () => {
+    const consoleWarnSpy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation(() => undefined);
+    mockGetCachedStorefrontProductLcpImage.mockRejectedValueOnce(
+      new Error('early lookup failed')
+    );
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      images: [
+        'https://cdn.ogabassey.com/core-assets/products/fallback-laptop.avif',
+      ],
+    });
+
+    render(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(mockGetCachedStorefrontProductLcpImage).toHaveBeenCalledWith(
+      baseMerchant.id,
+      'hp-laptop-14-ep0063nia'
+    );
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      'Unable to preload OgaBassey PDP product image early:',
+      'hp-laptop-14-ep0063nia',
+      expect.any(Error)
+    );
+    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
+      src: 'https://cdn.ogabassey.com/core-assets/products/fallback-laptop.avif',
+    });
+    expect(mockOgabasseyProductDetailsPage).toHaveBeenCalled();
+    consoleWarnSpy.mockRestore();
   });
 
   it('renders the OgaBassey product shell before supplemental PDP data resolves', async () => {
