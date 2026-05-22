@@ -57,21 +57,28 @@ export async function resolveStorefrontSitemapContext(
   const canUseRouteIdentifierOverride =
     Boolean(routeIdentifierOverrideValue) &&
     !METADATA_ROUTE_IDENTIFIER_OVERRIDES.has(routeIdentifierOverrideValue);
-  const routeIdentifier =
-    headerRouteIdentifier ||
-    (canUseRouteIdentifierOverride ? routeIdentifierOverrideValue : '');
-  let merchant = null;
+  const routeIdentifiers = [
+    headerRouteIdentifier,
+    canUseRouteIdentifierOverride ? routeIdentifierOverrideValue : '',
+  ].filter((value, index, values): value is string =>
+    Boolean(value && values.indexOf(value) === index)
+  );
 
-  try {
-    merchant = routeIdentifier
-      ? await getMerchantByIdentifier(routeIdentifier)
-      : null;
-  } catch (error) {
-    console.warn('Failed to resolve sitemap merchant', {
-      routeIdentifier,
-      error,
-    });
-    return null;
+  let merchant = null;
+  for (const routeIdentifier of routeIdentifiers) {
+    try {
+      merchant = await getMerchantByIdentifier(routeIdentifier);
+    } catch (error) {
+      console.warn('Failed to resolve sitemap merchant', {
+        routeIdentifier,
+        error,
+      });
+      continue;
+    }
+
+    if (merchant) {
+      break;
+    }
   }
 
   if (!merchant) {

@@ -257,6 +257,26 @@ describe('sitemap-data', () => {
     expect(context?.storeUrl).toBe('https://ogabassey.com');
   });
 
+  it('falls back to the explicit slug when the request host is not a merchant domain', async () => {
+    setHostHeader('preview.usebaci.com');
+    mockGetMerchantByIdentifier
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: 'merchant-1',
+        slug: 'ogabassey',
+      });
+    const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
+
+    const context = await resolveStorefrontSitemapContext(
+      mockHeaders as unknown as Headers,
+      'ogabassey'
+    );
+
+    expect(mockGetMerchantByIdentifier).toHaveBeenNthCalledWith(1, 'preview');
+    expect(mockGetMerchantByIdentifier).toHaveBeenNthCalledWith(2, 'ogabassey');
+    expect(context?.merchant.slug).toBe('ogabassey');
+  });
+
   it('does not resolve a literal metadata route identifier without header context', async () => {
     const { resolveStorefrontSitemapContext } = await import('./sitemap-data');
 

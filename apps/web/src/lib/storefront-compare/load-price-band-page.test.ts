@@ -157,6 +157,28 @@ describe('loadPriceBandPage', () => {
     );
   });
 
+  it('uses localized ceiling text in the heading and metadata title', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValueOnce({
+      ...merchant,
+      country: 'US',
+      payout_currency: 'USD',
+    });
+
+    const result = await loadPriceBandPage({
+      merchantSlug: 'ogabassey',
+      categorySlug: 'smartphones',
+      priceBandSlug: 'under-1m',
+    });
+
+    expect(result?.heading).toBe('Best Smartphones Under $1,000,000');
+    expect(result?.metaTitle).toBe(
+      'Best Smartphones Under $1,000,000 | Ogabassey'
+    );
+    expect(result?.metaDescription).toContain(
+      'best smartphones under $1,000,000'
+    );
+  });
+
   it('returns a non-indexable model when the curated band is below threshold', async () => {
     const result = await loadPriceBandPage({
       merchantSlug: 'ogabassey',

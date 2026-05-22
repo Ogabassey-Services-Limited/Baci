@@ -159,7 +159,7 @@ export async function loadPriceBandPage(args: {
   const ceilingText = priceFormatter.format(band.ceiling);
   const countryContext = getCountryShoppingContext(merchant.country);
   const countrySuffix = countryContext ? ` ${countryContext}` : '';
-  const heading = `${band.label}${countrySuffix}`;
+  const heading = `Best ${categoryName} Under ${ceilingText}${countrySuffix}`;
   const supportedClusterCategory = getSupportedClusterCategory(
     args.categorySlug
   );

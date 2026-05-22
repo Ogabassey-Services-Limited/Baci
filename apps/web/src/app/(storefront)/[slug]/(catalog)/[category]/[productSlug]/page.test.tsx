@@ -702,6 +702,15 @@ describe('[category]/[productSlug] page render', () => {
       template_id: OGABASSEY_TEMPLATE_ID,
     });
 
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
     await CategoryProductPage({
       params: Promise.resolve({
         slug: 'teststore',
@@ -711,6 +720,9 @@ describe('[category]/[productSlug] page render', () => {
       searchParams: Promise.resolve({}),
     });
 
+    expect(metadata.other).toMatchObject({
+      'product:price:currency': 'NGN',
+    });
     expect(mockGenerateProductSchema).toHaveBeenCalledWith(
       expect.any(Object),
       'TestStore',

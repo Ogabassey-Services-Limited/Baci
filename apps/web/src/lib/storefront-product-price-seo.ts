@@ -6,11 +6,13 @@ import {
 
 interface ProductPriceSeoVariant {
   price_override?: number | null;
+  stock_quantity?: number | null;
 }
 
 interface ProductPriceSeoOffer {
   price?: number | null;
   status?: string | null;
+  stock_quantity?: number | null;
 }
 
 export interface ProductPriceSeoProduct {
@@ -20,6 +22,9 @@ export interface ProductPriceSeoProduct {
   sale_price?: number | null;
   min_variant_price?: number | null;
   max_variant_price?: number | null;
+  manage_stock?: boolean | null;
+  stock?: number | null;
+  stock_quantity?: number | null;
   variants?: Array<ProductPriceSeoVariant | null | undefined> | null;
   offers?: Array<ProductPriceSeoOffer | null | undefined> | null;
 }
@@ -62,26 +67,50 @@ function isActiveOffer(offer: ProductPriceSeoOffer | null | undefined) {
   );
 }
 
+function hasAdvertisableStock(
+  product: ProductPriceSeoProduct,
+  stockQuantity: number | null | undefined
+) {
+  if (product.manage_stock === false || product.manage_stock === null) {
+    return true;
+  }
+
+  return stockQuantity === undefined || stockQuantity === null
+    ? true
+    : stockQuantity > 0;
+}
+
 export function getProductPriceRange(
   product: ProductPriceSeoProduct
 ): ProductPriceRange | null {
   const candidates: number[] = [];
 
-  addPriceCandidate(
-    candidates,
-    toFinitePrice(product.sale_price) ??
-      toFinitePrice(product.price) ??
-      product.base_price
+  if (hasAdvertisableStock(product, product.stock_quantity ?? product.stock)) {
+    addPriceCandidate(
+      candidates,
+      toFinitePrice(product.sale_price) ??
+        toFinitePrice(product.price) ??
+        product.base_price
+    );
+  }
+  const variants = (product.variants ?? []).filter(
+    (variant): variant is ProductPriceSeoVariant => Boolean(variant)
   );
-  addPriceCandidate(candidates, product.min_variant_price);
-  addPriceCandidate(candidates, product.max_variant_price);
+  if (variants.length === 0) {
+    addPriceCandidate(candidates, product.min_variant_price);
+    addPriceCandidate(candidates, product.max_variant_price);
+  }
 
-  for (const variant of product.variants ?? []) {
-    addPriceCandidate(candidates, variant?.price_override);
+  for (const variant of variants) {
+    if (hasAdvertisableStock(product, variant.stock_quantity)) {
+      addPriceCandidate(candidates, variant.price_override);
+    }
   }
 
   for (const offer of (product.offers ?? []).filter(isActiveOffer)) {
-    addPriceCandidate(candidates, offer?.price);
+    if (hasAdvertisableStock(product, offer?.stock_quantity)) {
+      addPriceCandidate(candidates, offer?.price);
+    }
   }
 
   if (candidates.length === 0) {

@@ -42,6 +42,30 @@ describe('getProductPriceRange', () => {
     });
   });
 
+  it('ignores out-of-stock variants and offers when computing the advertised range', () => {
+    const range = getProductPriceRange({
+      name: 'iPhone XR',
+      price: 230000,
+      manage_stock: true,
+      stock: 5,
+      min_variant_price: 100000,
+      variants: [
+        { price_override: 100000, stock_quantity: 0 },
+        { price_override: 210000, stock_quantity: 2 },
+      ],
+      offers: [
+        { price: 90000, status: 'active', stock_quantity: 0 },
+        { price: 220000, status: 'active', stock_quantity: 1 },
+      ],
+    });
+
+    expect(range).toEqual({
+      min: 210000,
+      max: 230000,
+      hasRange: true,
+    });
+  });
+
   it('uses the active sale price without treating base price as a range', () => {
     const range = getProductPriceRange({
       name: 'Samsung Galaxy A57',
