@@ -319,10 +319,10 @@ describe('products index page', () => {
     expect(notFound).not.toHaveBeenCalled();
   });
 
-  it('defers products first paint to the route loader when the page content suspends', () => {
+  it('renders the catalog skeleton while products content is suspended', () => {
     mockProductsPageContent.mockImplementation(() => {
       throw new Promise(() => {
-        // Keep the page content suspended behind the route-level loader.
+        // Keep the page content suspended behind the page fallback.
       });
     });
 
@@ -335,8 +335,14 @@ describe('products index page', () => {
       </Suspense>
     );
 
-    expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: 'Loading product listing' })
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Route loader fallback')).not.toBeInTheDocument();
     expect(screen.queryByText('Products page content')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
   });
 
   it('marks runtime metadata as intentional dynamic content', () => {
