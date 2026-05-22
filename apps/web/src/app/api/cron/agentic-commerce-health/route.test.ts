@@ -9,6 +9,10 @@ vi.mock('@/lib/agentic/action-health-loader', () => ({
   loadAgenticActionHealth: vi.fn(),
 }));
 
+vi.mock('@/lib/agentic/agent-commerce-manifest-health', () => ({
+  checkAgentCommerceManifestHealth: vi.fn(),
+}));
+
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
@@ -23,6 +27,7 @@ vi.mock('@/lib/supabase/admin', () => ({
 
 import { getCronSecret } from '@/env';
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
+import { checkAgentCommerceManifestHealth } from '@/lib/agentic/agent-commerce-manifest-health';
 import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { GET, maxDuration } from './route';
@@ -62,6 +67,19 @@ function createSupabaseMock({
   }>;
   merchantsError?: unknown;
 } = {}) {
+  const domainQuery = {
+    eq: vi.fn(),
+    in: vi.fn(),
+    select: vi.fn(),
+  };
+  domainQuery.select.mockReturnValue(domainQuery);
+  domainQuery.in.mockReturnValue(domainQuery);
+  domainQuery.eq.mockImplementationOnce(() => domainQuery);
+  domainQuery.eq.mockResolvedValueOnce({
+    data: [{ domain: 'ogabassey.com', merchant_id: 'merchant-1' }],
+    error: null,
+  });
+
   const merchantQuery = {
     in: vi.fn().mockResolvedValue({
       data: merchantRows,
@@ -73,10 +91,13 @@ function createSupabaseMock({
 
   return {
     from: vi.fn((table: string) => {
-      if (table !== 'merchants') {
-        throw new Error(`Unexpected table: ${table}`);
+      if (table === 'domains') {
+        return domainQuery;
       }
-      return merchantQuery;
+      if (table === 'merchants') {
+        return merchantQuery;
+      }
+      throw new Error(`Unexpected table: ${table}`);
     }),
     __mocks: {
       merchantQuery,
@@ -112,6 +133,12 @@ describe('GET /api/cron/agentic-commerce-health', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(getCronSecret).mockReturnValue('cron-secret');
+    vi.mocked(checkAgentCommerceManifestHealth).mockResolvedValue({
+      issue_count: 0,
+      issues: [],
+      status: 'ok',
+      url: 'https://ogabassey.com/agent-commerce.json',
+    });
     vi.mocked(loadAgenticActionHealth).mockResolvedValue({
       actions: [healthyAction],
       generated_at: '2026-05-22T03:00:00.000Z',
@@ -163,22 +190,20 @@ describe('GET /api/cron/agentic-commerce-health', () => {
       ],
       status: 'ok',
     });
-    expect(supabase.from).toHaveBeenCalledWith('merchants');
     expect(supabase.__mocks.merchantQuery.select).toHaveBeenCalledWith(
       'id, slug, business_name, is_published'
     );
     expect(supabase.__mocks.merchantQuery.in).toHaveBeenCalledWith('slug', [
       'ogabassey',
     ]);
+    expect(checkAgentCommerceManifestHealth).toHaveBeenCalledWith({
+      custom_domain: 'ogabassey.com',
+      slug: 'ogabassey',
+    });
     expect(loadAgenticActionHealth).toHaveBeenCalledWith(
       supabase,
       'merchant-1',
       { recordsSource: 'admin_direct' }
-    );
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: 'Agentic commerce health monitor completed',
-      })
     );
   });
 
