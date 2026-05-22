@@ -92,7 +92,7 @@ const CLASSIFIERS: Array<{
     botName: 'Anthropic',
     family: 'anthropic',
     isAiAgent: true,
-    pattern: /claudebot|anthropic-ai|claude-web/i,
+    pattern: /claudebot|claude-user|claude-searchbot|anthropic-ai|claude-web/i,
   },
   {
     botName: 'Perplexity',
