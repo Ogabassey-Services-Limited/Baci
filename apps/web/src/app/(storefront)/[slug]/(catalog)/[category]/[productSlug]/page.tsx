@@ -46,6 +46,7 @@ import {
   getValidatedProductUrl,
 } from '@/lib/seo-utils';
 import { buildRequestScopedStoreUrl, buildStoreUrl } from '@/lib/store-url';
+import { getCachedStorefrontProductLcpImage } from '@/lib/storefront-product-lcp-image';
 import { buildProductPriceSeoCopy } from '@/lib/storefront-product-price-seo';
 import { getStorefrontProductSocialMetadata } from '@/lib/storefront-product-social-metadata';
 import { normalizeStorefrontProductVariants } from '@/lib/storefront-product-variants';
@@ -498,6 +499,30 @@ const getProduct = async (
   };
 };
 
+async function preloadOgabasseyPdpProductImageFromFastLookup(
+  storeSlug: string,
+  productSlug: string
+): Promise<void> {
+  try {
+    const merchant = await getRequestScopedMerchant(storeSlug);
+    if (!merchant || merchant.template_id !== OGABASSEY_TEMPLATE_ID) {
+      return;
+    }
+
+    const primaryProductImage = await getCachedStorefrontProductLcpImage(
+      merchant.id,
+      productSlug
+    );
+    preloadOgabasseyPdpProductImage({ src: primaryProductImage });
+  } catch (error) {
+    console.warn(
+      'Unable to preload OgaBassey PDP product image early:',
+      sanitizeLookupLogValue(productSlug),
+      error
+    );
+  }
+}
+
 export async function generateMetadata({
   params,
   searchParams,
@@ -613,8 +638,12 @@ export default async function CategoryProductPage({
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
   }
+  // The fast lookup is only an optimization hint. Start it early, but never
+  // gate the primary PDP data path on the hint resolving.
+  void preloadOgabasseyPdpProductImageFromFastLookup(slug, productSlug);
+  const productResultPromise = getProduct(slug, category, productSlug);
   const resolvedSearchParams = await searchParams;
-  const result = await getProduct(slug, category, productSlug);
+  const result = await productResultPromise;
 
   if (!result) {
     notFound();
