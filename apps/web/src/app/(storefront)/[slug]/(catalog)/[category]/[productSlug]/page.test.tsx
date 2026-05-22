@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { render, screen, waitFor } from '@testing-library/react';
-import { type ReactNode, Suspense } from 'react';
+import {
+  cloneElement,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+  Suspense,
+} from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
 
@@ -309,55 +315,105 @@ vi.mock(
 
 import CategoryProductPage, { generateMetadata } from './page';
 
+type ResolveRscOptions = {
+  stripSuspense?: boolean;
+  skipContent?: boolean;
+};
+
+type ResolveRscValue = PromiseLike<ReactNode> | ReactNode;
+
+type ResolveRscElementProps = Record<string, unknown> & {
+  children?: ResolveRscValue;
+};
+
+type ServerComponent = (
+  props: ResolveRscElementProps
+) => PromiseLike<ReactNode> | ReactNode;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function isPromiseLike(value: unknown): value is PromiseLike<unknown> {
+  return isRecord(value) && typeof value.then === 'function';
+}
+
+function isRscElement(
+  value: ResolveRscValue
+): value is ReactElement<ResolveRscElementProps> {
+  return isRecord(value) && isValidElement<ResolveRscElementProps>(value);
+}
+
+function isServerComponent(type: unknown): type is ServerComponent {
+  return typeof type === 'function';
+}
+
+function isDeferredCategoryProductContent(
+  type: unknown,
+  props: ResolveRscElementProps
+) {
+  return (
+    isServerComponent(type) &&
+    typeof props.slug === 'string' &&
+    isPromiseLike(props.searchParams) &&
+    isPromiseLike(props.productResultPromise)
+  );
+}
+
+function isExpectedRscInterruption(error: unknown) {
+  if (isPromiseLike(error)) return true;
+  if (!(error instanceof Error)) return false;
+
+  const digest = isRecord(error) ? error.digest : undefined;
+  const message = `${error.message} ${
+    typeof digest === 'string' ? digest : ''
+  }`;
+  return (
+    message.includes('NEXT_REDIRECT') || message.includes('NEXT_NOT_FOUND')
+  );
+}
+
 async function resolveRsc(
-  element: any,
-  options: { stripSuspense?: boolean; skipContent?: boolean } = {}
-): Promise<any> {
+  element: ResolveRscValue,
+  options: ResolveRscOptions = {}
+): Promise<ReactNode> {
   if (!element) return element;
 
   if (Array.isArray(element)) {
     return Promise.all(element.map((item) => resolveRsc(item, options)));
   }
 
-  if (element instanceof Promise) {
+  if (isPromiseLike(element)) {
     const resolvedValue = await element;
-    return resolveRsc(resolvedValue, options);
+    return resolveRsc(resolvedValue as ResolveRscValue, options);
   }
 
-  if (typeof element === 'object' && 'type' in element) {
+  if (isRscElement(element)) {
     const { type, props } = element;
 
     if (options.stripSuspense && type === Suspense) {
       return resolveRsc(props.children, options);
     }
 
-    if (
-      options.skipContent &&
-      typeof type === 'function' &&
-      type.name === 'CategoryProductPageContent'
-    ) {
+    if (options.skipContent && isDeferredCategoryProductContent(type, props)) {
       return element;
     }
 
-    if (typeof type === 'function') {
+    if (isServerComponent(type)) {
       try {
         const resolved = await type(props);
         return resolveRsc(resolved, options);
-      } catch {
-        // Return element as-is on suspension or render errors so React can handle it natively
+      } catch (error) {
+        if (!isExpectedRscInterruption(error)) {
+          console.error('Unexpected RSC test helper error:', error);
+        }
         return element;
       }
     }
 
-    if (props && 'children' in props) {
+    if ('children' in props) {
       const resolvedChildren = await resolveRsc(props.children, options);
-      return {
-        ...element,
-        props: {
-          ...props,
-          children: resolvedChildren,
-        },
-      };
+      return cloneElement(element, {}, resolvedChildren);
     }
   }
 
