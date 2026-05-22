@@ -359,6 +359,39 @@ describe('POST /api/agentic/checkout_sessions/[id]', () => {
     );
   });
 
+  it('updates checkout items from an ACP line_items payload without an adapter', async () => {
+    const mock = createCheckoutSupabaseMock({
+      readSession: {
+        ...session,
+        cart_items: [{ id: 'old-product', quantity: 1 }],
+      },
+    });
+    useCheckoutSupabaseMock(mock);
+
+    const { POST } = await import('./route');
+    const response = await POST(
+      createRequest({
+        capabilities: {},
+        line_items: [{ id: 'product-2', quantity: 2 }],
+      }),
+      routeParams()
+    );
+
+    expect(response.status).toBe(200);
+    expect(calculateCheckoutSession).toHaveBeenCalledWith(
+      mock.scopedSupabase,
+      [{ id: 'product-2', quantity: 2 }],
+      'pickup_store_1',
+      'NGN',
+      'merchant-1'
+    );
+    expect(mock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cart_items: [{ id: 'product-2', quantity: 2 }],
+      })
+    );
+  });
+
   it('supports PUT updates for UCP checkout operation compatibility', async () => {
     const mock = createCheckoutSupabaseMock();
     useCheckoutSupabaseMock(mock);

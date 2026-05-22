@@ -19,6 +19,45 @@ describe('checkoutSessionSchema', () => {
     }
   });
 
+  it('accepts ACP line_items as a checkout session payload alias', () => {
+    const result = checkoutSessionSchema.safeParse({
+      capabilities: {},
+      currency: 'ngn',
+      line_items: [{ id: 'product-1', quantity: 2 }],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toMatchObject({
+        currency: 'NGN',
+        items: [{ id: 'product-1', quantity: 2 }],
+      });
+      expect(result.data).not.toHaveProperty('line_items');
+    }
+  });
+
+  it('keeps legacy items when items and line_items are both provided', () => {
+    const result = checkoutSessionSchema.safeParse({
+      items: [{ id: 'product-1', quantity: 1 }],
+      line_items: [{ id: 'product-2', quantity: 2 }],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items).toEqual([{ id: 'product-1', quantity: 1 }]);
+    }
+  });
+
+  it.each([
+    { line_items: [] },
+    { line_items: [{ quantity: 1 }] },
+    { line_items: [{ id: 'product-1', quantity: '2' }] },
+  ])('rejects invalid ACP line_items payloads %#', (payload) => {
+    const result = checkoutSessionSchema.safeParse(payload);
+
+    expect(result.success).toBe(false);
+  });
+
   it('rejects an empty items array', () => {
     const result = checkoutSessionSchema.safeParse({
       items: [],
@@ -59,10 +98,49 @@ describe('createAgenticCheckoutSessionInputSchema', () => {
     }
   });
 
+  it('accepts ACP line_items in an MCP checkout session payload', () => {
+    const result = createAgenticCheckoutSessionInputSchema.safeParse({
+      currency: 'ngn',
+      idempotency_key: 'idem-checkout-1',
+      line_items: [{ id: 'product-1', quantity: 2 }],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items).toEqual([{ id: 'product-1', quantity: 2 }]);
+    }
+  });
+
+  it('keeps MCP items when items and line_items are both provided', () => {
+    const result = createAgenticCheckoutSessionInputSchema.safeParse({
+      idempotency_key: 'idem-checkout-1',
+      items: [{ id: 'product-1', quantity: 1 }],
+      line_items: [{ id: 'product-2', quantity: 2 }],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items).toEqual([{ id: 'product-1', quantity: 1 }]);
+    }
+  });
+
   it('rejects item quantities above the MCP checkout limit', () => {
     const result = createAgenticCheckoutSessionInputSchema.safeParse({
       idempotency_key: 'idem-checkout-1',
       items: [{ id: 'product-1', quantity: 21 }],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it.each([
+    { line_items: [{ id: 'product-1', quantity: 21 }] },
+    { line_items: [{ quantity: 1 }] },
+    { line_items: [{ id: 'product-1', quantity: -1 }] },
+  ])('rejects invalid MCP line_items payloads %#', (payload) => {
+    const result = createAgenticCheckoutSessionInputSchema.safeParse({
+      idempotency_key: 'idem-checkout-1',
+      ...payload,
     });
 
     expect(result.success).toBe(false);
@@ -80,6 +158,40 @@ describe('agenticCheckoutUpdateSchema', () => {
     });
 
     expect(result.success).toBe(true);
+  });
+
+  it('accepts ACP line_items as an update payload alias', () => {
+    const result = agenticCheckoutUpdateSchema.safeParse({
+      capabilities: {},
+      line_items: [{ id: 'product-1', quantity: 2 }],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items).toEqual([{ id: 'product-1', quantity: 2 }]);
+    }
+  });
+
+  it('keeps update items when items and line_items are both provided', () => {
+    const result = agenticCheckoutUpdateSchema.safeParse({
+      items: [{ id: 'product-1', quantity: 1 }],
+      line_items: [{ id: 'product-2', quantity: 2 }],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items).toEqual([{ id: 'product-1', quantity: 1 }]);
+    }
+  });
+
+  it.each([
+    { line_items: [] },
+    { line_items: [{ quantity: 1 }] },
+    { line_items: [{ id: 'product-1', quantity: '2' }] },
+  ])('rejects invalid update line_items payloads %#', (payload) => {
+    const result = agenticCheckoutUpdateSchema.safeParse(payload);
+
+    expect(result.success).toBe(false);
   });
 
   it('rejects empty update payloads', () => {
