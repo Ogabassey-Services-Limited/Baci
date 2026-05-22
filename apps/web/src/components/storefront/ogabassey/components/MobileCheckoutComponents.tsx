@@ -51,7 +51,7 @@ export const MobileOrderSummary: React.FC<MobileOrderSummaryProps> = ({
         <div className="lg:hidden bg-gray-50 border-b border-gray-200">
             <div className="max-w-[1400px] mx-auto px-4">
                 {/* Toggle Header */}
-                <button aria-expanded={isExpanded}
+                <button aria-expanded={isExpanded} aria-controls="mobile-order-summary"
                     onClick={() => setIsExpanded(!isExpanded)}
                     className="w-full py-4 flex items-center justify-between text-sm"
                 >
@@ -67,7 +67,7 @@ export const MobileOrderSummary: React.FC<MobileOrderSummaryProps> = ({
 
                 {/* Collapsible Content */}
                 <div
-                    className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[80vh] opacity-100 pb-6' : 'max-h-0 opacity-0'
+                    id="mobile-order-summary" className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[80vh] opacity-100 pb-6' : 'max-h-0 opacity-0'
                         }`}
                 >
                     {/* Items List */}

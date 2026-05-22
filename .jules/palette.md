@@ -26,6 +26,6 @@
 ## 2026-05-21 - Add aria-expanded to toggle buttons
 **Learning:** Toggle buttons (like 'Show more/less') modifying the visual state of content require `aria-expanded` to accurately inform screen readers of their current state.
 **Action:** Always bind `aria-expanded={state}` to any button functioning as an accordion or toggle switch.
-## $(date +%Y-%m-%d) - Add aria-expanded to Toggle Buttons
+## 2026-05-22 - Add aria-expanded to Toggle Buttons
 **Learning:** In the web storefront, custom toggle buttons (like those for filters or expanding order summaries) often miss the `aria-expanded` attribute, causing assistive technologies to remain unaware of the collapsible content's state.
 **Action:** Always ensure that custom disclosure widgets or toggle buttons explicitly implement `aria-expanded={booleanState}` to accurately reflect their expanded or collapsed status to screen readers.
