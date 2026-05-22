@@ -107,7 +107,7 @@ export function FilterBar({
                     Number(tempMaxPrice) || 3000000
                   )
                 }
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.icon}
               />
             </View>
             <Text style={[styles.dash, { color: colors.border }]}>-</Text>
@@ -129,7 +129,7 @@ export function FilterBar({
                     Number(tempMaxPrice) || 3000000
                   )
                 }
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.icon}
               />
             </View>
           </View>
@@ -151,8 +151,8 @@ export function FilterBar({
                   style={[
                     styles.brandChip,
                     isActive
-                      ? styles.brandChipActive
-                      : styles.brandChipInactive,
+                      ? [styles.brandChipActive, { backgroundColor: colors.primary, borderColor: colors.primary, shadowColor: colors.primary }]
+                      : [styles.brandChipInactive, { backgroundColor: colors.card, borderColor: colors.border }],
                   ]}
                   hitSlop={6}
                 >
@@ -166,8 +166,8 @@ export function FilterBar({
                     style={[
                       styles.brandChipText,
                       isActive
-                        ? styles.brandChipTextActive
-                        : styles.brandChipTextInactive,
+                        ? [styles.brandChipTextActive, { color: colors.primaryForeground }]
+                        : [styles.brandChipTextInactive, { color: colors.textSecondary }],
                     ]}
                   >
                     {brand}
@@ -192,7 +192,7 @@ export function FilterBar({
                     styles.segmentItemActive,
                     {
                       backgroundColor: colors.card,
-                      shadowColor: isDark ? 'transparent' : '#000',
+                      shadowColor: isDark ? "transparent" : colors.black,
                     },
                   ],
                 ]}
@@ -225,7 +225,7 @@ export function FilterBar({
                 }
                 style={[
                   styles.ratingChip,
-                  minRating === rating && styles.ratingChipActive,
+                  minRating === rating && [styles.ratingChipActive, { backgroundColor: isDark ? colors.primaryLowOpacity : "#FEF3C7" }],
                 ]}
                 hitSlop={6}
               >
@@ -256,7 +256,8 @@ export function FilterBar({
               <Text
                 style={[
                   styles.anyText,
-                  minRating === 0 && styles.anyTextActive,
+                  { color: colors.textSecondary },
+                  minRating === 0 && [styles.anyTextActive, { color: colors.text }],
                 ]}
               >
                 Any
@@ -381,7 +382,7 @@ export function FilterBar({
                   {
                     backgroundColor: colors.card,
                     borderColor: colors.border,
-                    shadowColor: isDark ? 'transparent' : '#000',
+                    shadowColor: isDark ? "transparent" : colors.black,
                   },
                 ]}
               >
@@ -460,7 +461,7 @@ export function FilterBar({
                   styles.viewBtnActive,
                   {
                     backgroundColor: colors.card,
-                    shadowColor: isDark ? 'transparent' : '#000',
+                    shadowColor: isDark ? "transparent" : colors.black,
                   },
                 ],
               ]}
@@ -480,7 +481,7 @@ export function FilterBar({
                   styles.viewBtnActive,
                   {
                     backgroundColor: colors.card,
-                    shadowColor: isDark ? 'transparent' : '#000',
+                    shadowColor: isDark ? "transparent" : colors.black,
                   },
                 ],
               ]}
