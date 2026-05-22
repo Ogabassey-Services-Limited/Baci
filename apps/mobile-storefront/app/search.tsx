@@ -408,7 +408,7 @@ export default function SearchScreen() {
               returnKeyType="search"
               autoCapitalize="none"
               autoCorrect={false}
-              autoFocus
+              autoFocus // search screen should focus input on open
             />
             {query.length > 0 && (
               <Pressable
