@@ -187,6 +187,39 @@ describe('buildAgentNativeCommerceProof', () => {
     });
   });
 
+  it('warns instead of failing when trust readiness only has warnings', () => {
+    const proof = buildAgentNativeCommerceProof({
+      baseUrl,
+      manifest: manifest(),
+      trustReadiness: trustReadiness({
+        checks: [
+          {
+            id: 'feed-freshness',
+            label: 'Feed freshness',
+            message: 'Some feed timestamps are stale.',
+            severity: 'warn',
+          },
+        ],
+        status: 'warn',
+      }),
+    });
+
+    expect(proof.proof.status).toBe('warn');
+    expect(
+      proof.proof.stages.find((stage) => stage.id === 'trusted')
+    ).toMatchObject({
+      message:
+        'Trust checks are mostly ready, with warnings that should be reviewed before broad promotion.',
+      status: 'warn',
+    });
+    expect(proof.proof.trust.checks).toMatchObject({
+      fail: 0,
+      pass: 0,
+      total: 1,
+      warn: 1,
+    });
+  });
+
   it('fails the proof when trust readiness fails', () => {
     const proof = buildAgentNativeCommerceProof({
       baseUrl,

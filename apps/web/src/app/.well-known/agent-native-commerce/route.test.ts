@@ -5,12 +5,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const mockGetMerchantByIdentifier = vi.fn();
 const mockGetCachedGoogleMerchantFeedData = vi.fn();
 const mockGetCachedOpenAIFeedData = vi.fn();
+const mockGetCachedGooglePlacesReviews = vi.fn();
+const mockLoggerError = vi.fn();
 const PRODUCT_UPDATED_AT = '2026-05-10T00:00:00.000Z';
 
 type TestMerchant = {
   business_name: string;
   business_type: string;
   custom_domain: string;
+  feature_settings?: {
+    google_place_id: string | null;
+    google_reviews_enabled: boolean;
+  };
   id: string;
   pages: {
     privacy: string;
@@ -46,6 +52,19 @@ vi.mock('@/app/api/feed/google-merchant/feed-data', () => ({
 vi.mock('@/app/api/feed/openai/feed-data', () => ({
   getCachedOpenAIFeedData: (...args: unknown[]) =>
     mockGetCachedOpenAIFeedData(...args),
+}));
+
+vi.mock('@/lib/google-places-reviews', () => ({
+  getCachedGooglePlacesReviews: (...args: unknown[]) =>
+    mockGetCachedGooglePlacesReviews(...args),
+}));
+
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    error: (...args: unknown[]) => mockLoggerError(...args),
+    info: vi.fn(),
+    warn: vi.fn(),
+  },
 }));
 
 function stubAgenticEnv() {
@@ -147,6 +166,7 @@ describe('GET /.well-known/agent-native-commerce', () => {
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllEnvs();
   });
 
@@ -212,6 +232,107 @@ describe('GET /.well-known/agent-native-commerce', () => {
       'merchant-1',
       'ogabassey'
     );
+    expect(mockGetCachedGooglePlacesReviews).not.toHaveBeenCalled();
+  });
+
+  it('enriches Google review authority before packaging trust proof', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValueOnce({
+      ...merchant(),
+      feature_settings: {
+        google_place_id: 'places/ChIJ1234',
+        google_reviews_enabled: true,
+      },
+    });
+    mockGetCachedOpenAIFeedData.mockResolvedValueOnce({
+      products: [
+        {
+          category: 'phones',
+          description: 'Flagship phone',
+          id: 'product-1',
+          manage_stock: true,
+          name: 'Samsung Galaxy S25',
+          price: 500_000,
+          slug: 'samsung-galaxy-s25',
+          stock: 5,
+          stock_quantity: 5,
+          updated_at: PRODUCT_UPDATED_AT,
+        },
+      ],
+    });
+    mockGetCachedGooglePlacesReviews.mockResolvedValueOnce({
+      attributionLabel: 'Google Maps',
+      attributions: [],
+      businessName: 'OgaBassey Phones Store',
+      googleMapsUrl: 'https://maps.google.com/?cid=123',
+      rating: 4.6,
+      reviewsSortedBy: 'relevance',
+      source: 'google_maps',
+      totalReviews: 264,
+    });
+
+    const { GET } = await import('./route');
+    const response = await GET(
+      new Request('https://ogabassey.com/.well-known/agent-native-commerce', {
+        headers: { host: 'ogabassey.com' },
+      })
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.proof.status).toBe('pass');
+    expect(body.proof.trust).toMatchObject({
+      checks: {
+        fail: 0,
+      },
+      status: 'pass',
+    });
+    expect(
+      body.proof.stages.find((stage: { id: string }) => stage.id === 'trusted')
+    ).toMatchObject({
+      status: 'pass',
+    });
+    expect(mockGetCachedGooglePlacesReviews).toHaveBeenCalledWith('ChIJ1234');
+  });
+
+  it('returns 500 when trust authority enrichment fails unexpectedly', async () => {
+    const errorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    mockGetMerchantByIdentifier.mockResolvedValueOnce({
+      ...merchant(),
+      feature_settings: {
+        google_place_id: 'places/ChIJ1234',
+        google_reviews_enabled: true,
+      },
+    });
+    const enrichmentModule = await import(
+      '@/lib/storefront-trust/enrich-merchant-review-authority'
+    );
+    const enrichSpy = vi
+      .spyOn(enrichmentModule, 'enrichMerchantReviewAuthority')
+      .mockRejectedValueOnce(new Error('enrichment unavailable'));
+
+    try {
+      const { GET } = await import('./route');
+      const response = await GET(
+        new Request('https://ogabassey.com/.well-known/agent-native-commerce', {
+          headers: { host: 'ogabassey.com' },
+        })
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(body.error).toBe('Failed to build agent-native commerce proof');
+      expect(enrichSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          merchantReviewAuthority: expect.objectContaining({
+            placeId: 'ChIJ1234',
+          }),
+        })
+      );
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 
   it('uses the host header when the request URL is an internal deployment host', async () => {
