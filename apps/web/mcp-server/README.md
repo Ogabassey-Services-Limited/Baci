@@ -84,6 +84,7 @@ server {
 |------|-------------|
 | `search_products` | Search products by name, price range |
 | `get_product` | Get detailed product information |
+| `create_agentic_checkout_session` | Create a signed Baci agentic checkout session with authoritative totals and fulfillment options |
 | `check_order` | Look up order by number or phone |
 | `get_store_info` | Shipping, returns, payment info |
 | `get_recommendations` | AI-powered product recommendations |
@@ -104,6 +105,9 @@ Once connected, users can ask:
 |----------|----------|-------------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key |
+| `OPENAI_AGENTIC_API_KEY` | Yes for checkout | Bearer token for Baci agentic checkout APIs |
+| `OPENAI_AGENTIC_SIGNING_KEY` | Yes for checkout | HMAC signing key for Baci agentic checkout APIs |
+| `MCP_AGENTIC_CHECKOUT_BASE_URL` | No | Baci storefront/API origin for agentic checkout (default: `https://ogabassey.com`) |
 | `MCP_PORT` | No | Server port (default: 8787) |
 | `NGROK_AUTHTOKEN` | No | ngrok auth token for dev tunnel |
 
