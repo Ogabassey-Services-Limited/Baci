@@ -43,3 +43,7 @@
 ## 2026-05-21 - Tab Layout Theming
 **Learning:** Tab Layout requires adapting colors for multiple UI parts.
 **Action:** Use theme instead of hardcoding.
+
+## 2025-05-22 - Replaced hardcoded theming colors in FilterBar.tsx
+**Learning:** Hardcoded literal hex colors `#FFF`, `#F3F4F6`, `#374151`, `#4B5563`, `#6B7280`, `#9CA3AF`, `#EF4444` and `BRAND.primary` were extensively used in `apps/mobile-storefront/components/storefront/FilterBar.tsx` breaking standard UI when dark mode is enabled or another theme color is configured.
+**Action:** Replaced hardcoded literal colors with `colors.x` mappings from the `useTheme` hook, applied via inline style overlays `style={[styles.container, { backgroundColor: colors.background }]}` to leave module-scoped `StyleSheet.create` intact as required by guidelines.
