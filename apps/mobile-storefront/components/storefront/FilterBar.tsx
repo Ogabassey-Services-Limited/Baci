@@ -8,7 +8,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { RADIUS } from '@/constants/Colors';
+import { BRAND, RADIUS } from '@/constants/Colors';
 import { useTheme } from '@/hooks/useTheme';
 
 interface FilterBarProps {
@@ -43,6 +43,7 @@ const CATEGORY_ICONS: Record<string, keyof typeof Feather.glyphMap> = {
 };
 
 export function FilterBar({
+
   categories,
   selectedCategory,
   onSelectCategory,
@@ -59,7 +60,7 @@ export function FilterBar({
   viewMode,
   onViewModeChange,
 }: FilterBarProps) {
-  const { colors, isDark } = useTheme();
+  const { colors } = useTheme();
   const [activeFilterType, setActiveFilterType] = useState<FilterType>('price');
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const [tempMinPrice, setTempMinPrice] = useState(
@@ -89,14 +90,10 @@ export function FilterBar({
       case 'price':
         return (
           <View style={styles.priceRow}>
-            <View
-              style={[styles.priceField, { backgroundColor: colors.input }]}
-            >
-              <Text style={[styles.currency, { color: colors.textSecondary }]}>
-                ₦
-              </Text>
+            <View style={styles.priceField}>
+              <Text style={styles.currency}>₦</Text>
               <TextInput
-                style={[styles.priceInput, { color: colors.text }]}
+                style={styles.priceInput}
                 value={tempMinPrice}
                 onChangeText={setTempMinPrice}
                 placeholder="0"
@@ -107,18 +104,14 @@ export function FilterBar({
                     Number(tempMaxPrice) || 3000000
                   )
                 }
-                placeholderTextColor={colors.icon}
+                placeholderTextColor="#9CA3AF"
               />
             </View>
-            <Text style={[styles.dash, { color: colors.border }]}>-</Text>
-            <View
-              style={[styles.priceField, { backgroundColor: colors.input }]}
-            >
-              <Text style={[styles.currency, { color: colors.textSecondary }]}>
-                ₦
-              </Text>
+            <Text style={styles.dash}>-</Text>
+            <View style={styles.priceField}>
+              <Text style={styles.currency}>₦</Text>
               <TextInput
-                style={[styles.priceInput, { color: colors.text }]}
+                style={styles.priceInput}
                 value={tempMaxPrice}
                 onChangeText={setTempMaxPrice}
                 placeholder="Max"
@@ -129,7 +122,7 @@ export function FilterBar({
                     Number(tempMaxPrice) || 3000000
                   )
                 }
-                placeholderTextColor={colors.icon}
+                placeholderTextColor="#9CA3AF"
               />
             </View>
           </View>
@@ -151,23 +144,23 @@ export function FilterBar({
                   style={[
                     styles.brandChip,
                     isActive
-                      ? [styles.brandChipActive, { backgroundColor: colors.primary, borderColor: colors.primary, shadowColor: colors.primary }]
-                      : [styles.brandChipInactive, { backgroundColor: colors.card, borderColor: colors.border }],
+                      ? styles.brandChipActive
+                      : styles.brandChipInactive,
                   ]}
                   hitSlop={6}
                 >
                   <Feather
                     name="grid"
                     size={13}
-                    color={isActive ? colors.primaryForeground : colors.icon}
+                    color={isActive ? '#FFF' : '#6B7280'}
                     style={styles.brandChipIcon}
                   />
                   <Text
                     style={[
                       styles.brandChipText,
                       isActive
-                        ? [styles.brandChipTextActive, { color: colors.primaryForeground }]
-                        : [styles.brandChipTextInactive, { color: colors.textSecondary }],
+                        ? styles.brandChipTextActive
+                        : styles.brandChipTextInactive,
                     ]}
                   >
                     {brand}
@@ -179,33 +172,21 @@ export function FilterBar({
         );
       case 'condition':
         return (
-          <View
-            style={[styles.conditionSegment, { backgroundColor: colors.input }]}
-          >
+          <View style={styles.conditionSegment}>
             {['All', 'New', 'Open Box', 'Used'].map((condition) => (
               <Pressable
                 key={condition}
                 onPress={() => onSelectCondition(condition)}
                 style={[
                   styles.segmentItem,
-                  selectedCondition === condition && [
-                    styles.segmentItemActive,
-                    {
-                      backgroundColor: colors.card,
-                      shadowColor: isDark ? "transparent" : colors.black,
-                    },
-                  ],
+                  selectedCondition === condition && styles.segmentItemActive,
                 ]}
                 hitSlop={6}
               >
                 <Text
                   style={[
                     styles.segmentText,
-                    { color: colors.textSecondary },
-                    selectedCondition === condition && [
-                      styles.segmentTextActive,
-                      { color: colors.text },
-                    ],
+                    selectedCondition === condition && styles.segmentTextActive,
                   ]}
                 >
                   {condition}
@@ -225,18 +206,14 @@ export function FilterBar({
                 }
                 style={[
                   styles.ratingChip,
-                  minRating === rating && [styles.ratingChipActive, { backgroundColor: isDark ? colors.primaryLowOpacity : "#FEF3C7" }],
+                  minRating === rating && styles.ratingChipActive,
                 ]}
                 hitSlop={6}
               >
                 <Text
                   style={[
                     styles.ratingText,
-                    { color: colors.textSecondary },
-                    minRating === rating && [
-                      styles.ratingTextActive,
-                      { color: colors.rating },
-                    ],
+                    minRating === rating && styles.ratingTextActive,
                   ]}
                 >
                   {rating}+
@@ -244,11 +221,7 @@ export function FilterBar({
                 <Ionicons
                   name="star"
                   size={10}
-                  color={
-                    minRating === rating
-                      ? colors.rating
-                      : colors.mutedForeground
-                  }
+                  color={minRating === rating ? '#B45309' : '#F59E0B'}
                 />
               </Pressable>
             ))}
@@ -256,8 +229,7 @@ export function FilterBar({
               <Text
                 style={[
                   styles.anyText,
-                  { color: colors.textSecondary },
-                  minRating === 0 && [styles.anyTextActive, { color: colors.text }],
+                  minRating === 0 && styles.anyTextActive,
                 ]}
               >
                 Any
@@ -269,15 +241,7 @@ export function FilterBar({
   };
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          backgroundColor: colors.background,
-          borderBottomColor: colors.border,
-        },
-      ]}
-    >
+    <View style={styles.container}>
       {/* Backdrop for dismissal */}
       {isFilterMenuOpen && (
         <Pressable
@@ -290,7 +254,7 @@ export function FilterBar({
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.categoryContent}
-        style={styles.categoryList}
+        style={[styles.categoryList, { borderBottomColor: colors.background }]}
       >
         {categories.map((cat) => {
           const isActive = selectedCategory === cat;
@@ -299,18 +263,7 @@ export function FilterBar({
             <Pressable
               key={cat}
               onPress={() => onSelectCategory(cat)}
-              style={[
-                styles.catPill,
-                { backgroundColor: colors.card, borderColor: colors.border },
-                isActive && [
-                  styles.catPillActive,
-                  {
-                    backgroundColor: colors.primary,
-                    borderColor: colors.primary,
-                    shadowColor: colors.primary,
-                  },
-                ],
-              ]}
+              style={[styles.catPill, isActive && styles.catPillActive]}
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={`${cat} category`}
@@ -319,17 +272,10 @@ export function FilterBar({
               <Feather
                 name={icon}
                 size={15}
-                color={isActive ? colors.primaryForeground : colors.icon}
+                color={isActive ? '#FFF' : '#4B5563'}
               />
               <Text
-                style={[
-                  styles.catText,
-                  { color: colors.textSecondary },
-                  isActive && [
-                    styles.catTextActive,
-                    { color: colors.primaryForeground },
-                  ],
-                ]}
+                style={[styles.catText, isActive && styles.catTextActive]}
                 numberOfLines={1}
               >
                 {cat}
@@ -346,23 +292,15 @@ export function FilterBar({
           <View style={styles.filterWrapper}>
             <Pressable
               onPress={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
-              style={[
-                styles.filterToggle,
-                {
-                  backgroundColor: colors.promoBackground,
-                  borderColor: colors.primaryLowOpacity,
-                },
-              ]}
+              style={styles.filterToggle}
               hitSlop={12}
             >
-              <Feather name="sliders" size={16} color={colors.primary} />
-              <Text style={[styles.filterLabel, { color: colors.primary }]}>
-                {getActiveFilterLabel()}
-              </Text>
+              <Feather name="sliders" size={16} color={BRAND.primary} />
+              <Text style={styles.filterLabel}>{getActiveFilterLabel()}</Text>
               <Feather
                 name="chevron-down"
                 size={12}
-                color={colors.primary}
+                color={BRAND.primary}
                 style={[
                   styles.chevron,
                   {
@@ -376,16 +314,7 @@ export function FilterBar({
 
             {/* Filter Menu Popover */}
             {isFilterMenuOpen && (
-              <View
-                style={[
-                  styles.popover,
-                  {
-                    backgroundColor: colors.card,
-                    borderColor: colors.border,
-                    shadowColor: isDark ? "transparent" : colors.black,
-                  },
-                ]}
-              >
+              <View style={styles.popover}>
                 {[
                   { id: 'price', label: 'Price Range', icon: 'tag' },
                   { id: 'brand', label: 'Brand', icon: 'layers' },
@@ -400,29 +329,21 @@ export function FilterBar({
                     }}
                     style={[
                       styles.popoverItem,
-                      activeFilterType === item.id && [
-                        styles.popoverItemActive,
-                        { backgroundColor: colors.promoBackground },
-                      ],
+                      activeFilterType === item.id && styles.popoverItemActive,
                     ]}
                   >
                     <Feather
                       name={item.icon as keyof typeof Feather.glyphMap}
                       size={16}
                       color={
-                        activeFilterType === item.id
-                          ? colors.primary
-                          : colors.icon
+                        activeFilterType === item.id ? BRAND.primary : '#6B7280'
                       }
                     />
                     <Text
                       style={[
                         styles.popoverText,
-                        { color: colors.textSecondary },
-                        activeFilterType === item.id && [
+                        activeFilterType === item.id &&
                           styles.popoverTextActive,
-                          { color: colors.primary },
-                        ],
                       ]}
                     >
                       {item.label}
@@ -431,7 +352,7 @@ export function FilterBar({
                       <Feather
                         name="check"
                         size={14}
-                        color={colors.primary}
+                        color={BRAND.primary}
                         style={styles.checkIcon}
                       />
                     )}
@@ -441,56 +362,39 @@ export function FilterBar({
             )}
           </View>
 
-          <View style={[styles.vDivider, { backgroundColor: colors.border }]} />
+          <View style={styles.vDivider} />
 
           {/* Dynamic Controls Area */}
           <View style={styles.dynamicArea}>{renderActiveControls()}</View>
 
           {/* View Toggle */}
-          <View
-            style={[
-              styles.viewToggle,
-              { backgroundColor: colors.input, borderColor: colors.border },
-            ]}
-          >
+          <View style={styles.viewToggle}>
             <Pressable
               onPress={() => onViewModeChange('grid')}
               style={[
                 styles.viewBtn,
-                viewMode === 'grid' && [
-                  styles.viewBtnActive,
-                  {
-                    backgroundColor: colors.card,
-                    shadowColor: isDark ? "transparent" : colors.black,
-                  },
-                ],
+                viewMode === 'grid' && styles.viewBtnActive,
               ]}
               hitSlop={8}
             >
               <Feather
                 name="grid"
                 size={15}
-                color={viewMode === 'grid' ? colors.primary : colors.icon}
+                color={viewMode === 'grid' ? BRAND.primary : '#9CA3AF'}
               />
             </Pressable>
             <Pressable
               onPress={() => onViewModeChange('list')}
               style={[
                 styles.viewBtn,
-                viewMode === 'list' && [
-                  styles.viewBtnActive,
-                  {
-                    backgroundColor: colors.card,
-                    shadowColor: isDark ? "transparent" : colors.black,
-                  },
-                ],
+                viewMode === 'list' && styles.viewBtnActive,
               ]}
               hitSlop={8}
             >
               <Feather
                 name="list"
                 size={15}
-                color={viewMode === 'list' ? colors.primary : colors.icon}
+                color={viewMode === 'list' ? BRAND.primary : '#9CA3AF'}
               />
             </Pressable>
           </View>
@@ -502,7 +406,9 @@ export function FilterBar({
 
 const styles = StyleSheet.create({
   container: {
+    backgroundColor: '#FFF',
     borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
     zIndex: 1000,
     elevation: 4,
     paddingBottom: 4,
@@ -510,6 +416,7 @@ const styles = StyleSheet.create({
   // Categories
   categoryList: {
     borderBottomWidth: 1,
+    borderBottomColor: '#F9FAFB',
   },
   categoryContent: {
     paddingHorizontal: 12,
@@ -522,10 +429,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 99,
+    backgroundColor: '#FFF',
     borderWidth: 1,
+    borderColor: '#E5E7EB',
     gap: 6,
   },
   catPillActive: {
+    backgroundColor: BRAND.primary,
+    borderColor: BRAND.primary,
+    shadowColor: BRAND.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -534,9 +446,12 @@ const styles = StyleSheet.create({
   catText: {
     fontSize: 13,
     fontWeight: '700',
+    color: '#374151',
     fontFamily: 'serif',
   },
-  catTextActive: {},
+  catTextActive: {
+    color: '#FFF',
+  },
   // Tools Row
   toolsContainer: {
     paddingHorizontal: 12,
@@ -557,15 +472,18 @@ const styles = StyleSheet.create({
   filterToggle: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#FEF2F2',
     paddingHorizontal: 8,
     paddingVertical: 6,
     borderRadius: 10,
     gap: 6,
     borderWidth: 1,
+    borderColor: '#FEE2E2',
   },
   filterLabel: {
     fontSize: 12,
     fontWeight: '800',
+    color: BRAND.primary,
     fontFamily: 'serif',
   },
   chevron: {
@@ -576,13 +494,16 @@ const styles = StyleSheet.create({
     top: 42,
     left: 0,
     width: 200,
+    backgroundColor: '#FFF',
     borderRadius: 16,
     padding: 6,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 16,
     elevation: 25,
     borderWidth: 1,
+    borderColor: '#F3F4F6',
     zIndex: 4000,
   },
   popoverItem: {
@@ -593,13 +514,17 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     gap: 10,
   },
-  popoverItemActive: {},
+  popoverItemActive: {
+    backgroundColor: '#FEF2F2',
+  },
   popoverText: {
     fontSize: 13,
     fontWeight: '600',
+    color: '#4B5563',
     fontFamily: 'serif',
   },
   popoverTextActive: {
+    color: BRAND.primary,
     fontWeight: '800',
   },
   checkIcon: {
@@ -608,6 +533,7 @@ const styles = StyleSheet.create({
   vDivider: {
     width: 1,
     height: 24,
+    backgroundColor: '#E5E7EB',
   },
   dynamicArea: {
     flex: 1,
@@ -624,12 +550,14 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#F3F4F6',
     borderRadius: 8,
     paddingHorizontal: 8,
     height: 32,
   },
   currency: {
     fontSize: 11,
+    color: '#6B7280',
     fontWeight: '700',
     marginRight: 2,
   },
@@ -637,10 +565,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: '700',
+    color: '#111827',
     padding: 0,
     fontFamily: 'serif',
   },
   dash: {
+    color: '#D1D5DB',
     fontWeight: '700',
     fontSize: 10,
   },
@@ -661,12 +591,18 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   brandChipActive: {
+    backgroundColor: '#EF4444',
+    borderColor: '#EF4444',
+    shadowColor: '#EF4444',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
   },
-  brandChipInactive: {},
+  brandChipInactive: {
+    backgroundColor: '#FFF',
+    borderColor: '#E5E7EB',
+  },
   brandChipIcon: {
     marginRight: 6,
   },
@@ -675,10 +611,15 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontFamily: 'serif',
   },
-  brandChipTextActive: {},
-  brandChipTextInactive: {},
+  brandChipTextActive: {
+    color: '#FFF',
+  },
+  brandChipTextInactive: {
+    color: '#4B5563',
+  },
   conditionSegment: {
     flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
     padding: 2,
     borderRadius: 10,
   },
@@ -689,6 +630,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   segmentItemActive: {
+    backgroundColor: '#FFF',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -697,9 +640,12 @@ const styles = StyleSheet.create({
   segmentText: {
     fontSize: 10,
     fontWeight: '800',
+    color: '#6B7280',
     fontFamily: 'serif',
   },
-  segmentTextActive: {},
+  segmentTextActive: {
+    color: '#111827',
+  },
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -713,33 +659,44 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
   },
-  ratingChipActive: {},
+  ratingChipActive: {
+    backgroundColor: '#FEF3C7',
+  },
   ratingText: {
     fontSize: 11,
     fontWeight: '800',
+    color: '#6B7280',
     fontFamily: 'serif',
   },
-  ratingTextActive: {},
+  ratingTextActive: {
+    color: '#B45309',
+  },
   anyText: {
     fontSize: 11,
+    color: '#9CA3AF',
     textDecorationLine: 'underline',
     fontWeight: '600',
   },
   anyTextActive: {
+    color: '#111827',
     fontWeight: '800',
   },
   // View Toggle
   viewToggle: {
     flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
     padding: 2,
     borderRadius: 10,
     borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   viewBtn: {
     padding: 6,
     borderRadius: 8,
   },
   viewBtnActive: {
+    backgroundColor: '#FFF',
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -755,20 +712,24 @@ const styles = StyleSheet.create({
     zIndex: 105,
   },
   promoBanner: {
+    backgroundColor: '#FFF5F5',
     marginHorizontal: 12,
     marginTop: 12,
     marginBottom: 4,
     paddingVertical: 10,
     borderRadius: RADIUS.full,
     borderWidth: 1,
+    borderColor: '#FEE2E2',
   },
   promoText: {
     fontSize: 13,
+    color: '#374151',
     textAlign: 'center',
     fontFamily: 'serif',
     fontWeight: '600',
   },
   promoHighlight: {
+    color: BRAND.primary,
     fontWeight: '900',
   },
 });
