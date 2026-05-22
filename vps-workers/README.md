@@ -144,6 +144,7 @@ $CRON_SECRET`; `/api/cron/process-settlements` uses `POST` and the others use
 `GET`:
 
 - `/api/ai-jobs/worker`
+- `/api/cron/agentic-commerce-health`
 - `/api/cron/cleanup-orders`
 - `/api/cron/process-settlements`
 - `/api/cron/publish-scheduled-posts`
