@@ -140,11 +140,11 @@ describe('HomeProductGridCard', () => {
     expect(image).not.toHaveClass('opacity-0');
     expect(image).not.toHaveClass('invisible');
     expect(image).not.toHaveClass('hidden');
-    
+
     // Standard JSDOM style check
     expect(image).not.toHaveStyle({ opacity: '0' });
 
-    // Robust computed style check - ensures that global CSS rule regressions 
+    // Robust computed style check - ensures that global CSS rule regressions
     // (such as img[loading="lazy"] { opacity: 0; }) are caught and failed properly.
     const computedStyle = window.getComputedStyle(image);
     expect(computedStyle.opacity).not.toBe('0');
