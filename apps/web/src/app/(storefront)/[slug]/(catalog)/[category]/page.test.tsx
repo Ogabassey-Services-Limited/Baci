@@ -130,6 +130,12 @@ vi.mock('@/lib/normalize-product', () => ({
   }),
 }));
 
+vi.mock('@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker', () => ({
+  StorefrontDynamicMetadataMarker: () => (
+    <div aria-label="dynamic metadata marker" role="status" />
+  ),
+}));
+
 vi.mock('@/lib/sanitize-json-ld', () => ({
   safeJsonLdStringify: vi.fn((value: unknown) => JSON.stringify(value)),
 }));
@@ -591,6 +597,22 @@ describe('category page route', () => {
 
     expect(screen.getByText('Route loader fallback')).toBeInTheDocument();
     expect(screen.queryByText('Category page content')).not.toBeInTheDocument();
+  });
+
+  it('marks runtime metadata as intentional dynamic content', () => {
+    render(
+      <CategoryPageRoute
+        params={Promise.resolve({
+          slug: 'test-store',
+          category: 'smartphones',
+        })}
+        searchParams={Promise.resolve({})}
+      />
+    );
+
+    expect(
+      screen.getByRole('status', { name: /dynamic metadata marker/i })
+    ).toBeInTheDocument();
   });
 
   it('renders curated smartphone hub content when merchant-authored SEO is absent', async () => {
