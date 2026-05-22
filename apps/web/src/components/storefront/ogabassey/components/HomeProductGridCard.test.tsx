@@ -105,4 +105,29 @@ describe('HomeProductGridCard', () => {
 
     expect(screen.getByAltText(baseProduct.name)).toBeInTheDocument();
   });
+
+  it('renders lazy product images without hidden styles after activation', () => {
+    render(<HomeProductGridCard product={baseProduct} deferImageLoading={true} />);
+
+    act(() => {
+      observerCallback?.(
+        [
+          {
+            isIntersecting: true,
+            target: screen.getByText(baseProduct.name),
+          } as unknown as IntersectionObserverEntry,
+        ],
+        {} as IntersectionObserver
+      );
+    });
+
+    const image = screen.getByRole('img', { name: baseProduct.name });
+
+    expect(image).toHaveAttribute('loading', 'lazy');
+    expect(image).toHaveClass('object-contain');
+    expect(image).not.toHaveClass('opacity-0');
+    expect(image).not.toHaveClass('invisible');
+    expect(image).not.toHaveClass('hidden');
+    expect(image).not.toHaveStyle({ opacity: '0' });
+  });
 });
