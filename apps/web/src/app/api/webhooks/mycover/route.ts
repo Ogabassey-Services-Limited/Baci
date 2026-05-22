@@ -1,6 +1,8 @@
+import crypto from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getMyCoverWebhookSecret } from '@/env';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import { createServiceClient } from '@/lib/supabase/service';
 import {
   type MyCoverWebhookPayload,
@@ -18,48 +20,23 @@ type MyCoverUpdatedPolicy = {
 
 const MYCOVER_RENEWAL_DETAILS_URL = 'https://api.mycover.ai/v1/renewals';
 
-async function verifyWebhookSignature(
+function verifyWebhookSignature(
   rawBody: string,
   signature: string | null,
   secret: string
-): Promise<boolean> {
+): boolean {
   if (!signature) {
     console.warn('[MyCover Webhook] Missing signature header');
     return false;
   }
 
   try {
-    const encoder = new TextEncoder();
-    const keyData = encoder.encode(secret);
-    const messageData = encoder.encode(rawBody);
+    const expectedSignature = crypto
+      .createHmac('sha512', secret)
+      .update(rawBody)
+      .digest('hex');
 
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      keyData,
-      { name: 'HMAC', hash: 'SHA-512' },
-      false,
-      ['sign']
-    );
-
-    const signatureBuffer = await crypto.subtle.sign(
-      'HMAC',
-      cryptoKey,
-      messageData
-    );
-    const expectedSignature = Array.from(new Uint8Array(signatureBuffer))
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-
-    const expectedLen = expectedSignature.length;
-    let result = signature.length ^ expectedLen;
-
-    for (let i = 0; i < expectedLen; i++) {
-      const charA = signature.charCodeAt(i) || 0;
-      const charB = expectedSignature.charCodeAt(i);
-      result |= charA ^ charB;
-    }
-
-    return result === 0;
+    return constantTimeEqual(expectedSignature, signature);
   } catch (error) {
     console.error('[MyCover Webhook] Signature verification error:', error);
     return false;
@@ -85,7 +62,7 @@ export async function POST(request: NextRequest) {
     }
 
     const signature = request.headers.get('x-mycoverai-signature');
-    const isValid = await verifyWebhookSignature(
+    const isValid = verifyWebhookSignature(
       rawBody,
       signature,
       myCoverWebhookSecret
