@@ -27,7 +27,7 @@ export const agenticFulfillmentAddressSchema = z.object({
   station_id: z.number().int().nonnegative().optional(),
 });
 
-export const checkoutSessionSchema = z.object({
+const checkoutSessionBaseSchema = z.object({
   items: agenticCheckoutItemsSchema,
   shipping_address: agenticFulfillmentAddressSchema.nullable().optional(),
   currency: z
@@ -39,6 +39,11 @@ export const checkoutSessionSchema = z.object({
     .default('NGN'),
 });
 
+export const checkoutSessionSchema = z.preprocess(
+  normalizeCheckoutLineItemsAlias,
+  checkoutSessionBaseSchema
+);
+
 const createAgenticCheckoutSessionItemSchema = agenticCheckoutItemSchema.extend(
   {
     quantity: z
@@ -49,13 +54,15 @@ const createAgenticCheckoutSessionItemSchema = agenticCheckoutItemSchema.extend(
   }
 );
 
-export const createAgenticCheckoutSessionInputSchema =
-  checkoutSessionSchema.extend({
+export const createAgenticCheckoutSessionInputSchema = z.preprocess(
+  normalizeCheckoutLineItemsAlias,
+  checkoutSessionBaseSchema.extend({
     idempotency_key: z.string().trim().min(8).max(128).optional(),
     items: z.array(createAgenticCheckoutSessionItemSchema).min(1).max(50),
-  });
+  })
+);
 
-export const agenticCheckoutUpdateSchema = z
+const agenticCheckoutUpdateBaseSchema = z
   .object({
     items: agenticCheckoutItemsSchema.optional(),
     shipping_address: agenticFulfillmentAddressSchema.nullable().optional(),
@@ -71,6 +78,11 @@ export const agenticCheckoutUpdateSchema = z
         'At least one of items, shipping_address, or fulfillment_option_id is required',
     }
   );
+
+export const agenticCheckoutUpdateSchema = z.preprocess(
+  normalizeCheckoutLineItemsAlias,
+  agenticCheckoutUpdateBaseSchema
+);
 
 export const agenticCheckoutBuyerSchema = z.object({
   email: z.string().email(),
@@ -145,4 +157,23 @@ export type AgenticCheckoutCompleteInput = z.infer<
 
 function toUppercaseCurrency(value: string) {
   return value.toUpperCase();
+}
+
+function normalizeCheckoutLineItemsAlias(value: unknown): unknown {
+  if (
+    !isRecord(value) ||
+    Object.hasOwn(value, 'items') ||
+    !Object.hasOwn(value, 'line_items')
+  ) {
+    return value;
+  }
+
+  return {
+    ...value,
+    items: value.line_items,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
