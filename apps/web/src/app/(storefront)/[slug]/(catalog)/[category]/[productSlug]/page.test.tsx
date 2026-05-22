@@ -695,6 +695,33 @@ describe('[category]/[productSlug] page render', () => {
     expect(container.querySelectorAll('h1')).toHaveLength(1);
   });
 
+  it('uses the same NGN fallback currency for metadata and product JSON-LD', async () => {
+    mockGetRequestScopedMerchant.mockResolvedValue({
+      ...baseMerchant,
+      payout_currency: null,
+      template_id: OGABASSEY_TEMPLATE_ID,
+    });
+
+    await CategoryProductPage({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(mockGenerateProductSchema).toHaveBeenCalledWith(
+      expect.any(Object),
+      'TestStore',
+      'NGN',
+      'NG',
+      null,
+      expect.any(Object),
+      expect.any(Object)
+    );
+  });
+
   it('strips HTML tags from hidden summary description text', async () => {
     mockGetCachedProductWithDetails.mockResolvedValueOnce({
       ...categorizedDetailedProduct,

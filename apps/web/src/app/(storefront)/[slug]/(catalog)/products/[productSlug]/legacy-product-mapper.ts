@@ -8,6 +8,14 @@ import {
   type StorefrontProductVariants,
 } from './product-mappers';
 
+const PRODUCT_STATUSES = ['draft', 'active', 'archived'] as const;
+
+function normalizeProductStatus(value: string | null | undefined) {
+  return PRODUCT_STATUSES.includes(value as (typeof PRODUCT_STATUSES)[number])
+    ? (value as Product['status'])
+    : 'active';
+}
+
 export interface LegacyCachedProduct {
   id: string;
   name: string;
@@ -69,7 +77,7 @@ export function mapLegacyCachedProductToProduct(
     id: cachedProduct.id,
     name: cachedProduct.name,
     description: cachedProduct.description || '',
-    status: cachedProduct.status as 'draft' | 'active' | 'archived',
+    status: normalizeProductStatus(cachedProduct.status),
     slug: cachedProduct.slug || cachedProduct.id,
     canonical_url: getMappedCanonicalUrl({
       id: cachedProduct.id,

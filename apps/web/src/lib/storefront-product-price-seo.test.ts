@@ -25,6 +25,23 @@ describe('getProductPriceRange', () => {
     });
   });
 
+  it('ignores inactive condition offers when computing the advertised range', () => {
+    const range = getProductPriceRange({
+      name: 'iPhone XR',
+      price: 230000,
+      offers: [
+        { price: 100000, status: 'archived' },
+        { price: 210000, status: 'active' },
+      ],
+    });
+
+    expect(range).toEqual({
+      min: 210000,
+      max: 230000,
+      hasRange: true,
+    });
+  });
+
   it('uses the active sale price without treating base price as a range', () => {
     const range = getProductPriceRange({
       name: 'Samsung Galaxy A57',
@@ -80,6 +97,16 @@ describe('formatProductPriceRange', () => {
         'NGN'
       )
     ).toBe('₦180,000');
+  });
+
+  it('preserves minor currency units for decimal product prices', () => {
+    expect(
+      formatProductPriceRange(
+        { min: 199.99, max: 249.5, hasRange: true },
+        'USD',
+        'en-US'
+      )
+    ).toBe('$199.99 - $249.50');
   });
 });
 

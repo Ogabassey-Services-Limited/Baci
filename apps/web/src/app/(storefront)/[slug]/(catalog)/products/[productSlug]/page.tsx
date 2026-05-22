@@ -458,7 +458,7 @@ export default async function ProductPage({ params, searchParams }: PageProps) {
   const productSchema = generateProductSchema(
     productWithReviews,
     merchant.business_name || 'Baci Store',
-    merchant.payout_currency || 'USD',
+    currency,
     merchant.country || 'NG',
     merchant.logo_url,
     trustProfile,

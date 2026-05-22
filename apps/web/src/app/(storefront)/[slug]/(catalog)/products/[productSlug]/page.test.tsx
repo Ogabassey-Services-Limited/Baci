@@ -776,6 +776,32 @@ describe('products/[productSlug] page', () => {
   });
 
   describe('schema URL consistency', () => {
+    it('uses the same NGN fallback currency for metadata and product JSON-LD', async () => {
+      mockGetRequestScopedMerchant.mockResolvedValue({
+        ...baseMerchant,
+        payout_currency: null,
+      });
+      mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
+
+      await ProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          productSlug: 'mystery-item',
+        }),
+        searchParams: Promise.resolve({}),
+      });
+
+      expect(mockGenerateProductSchema).toHaveBeenCalledWith(
+        expect.any(Object),
+        'TestStore',
+        'NGN',
+        'NG',
+        null,
+        expect.any(Object),
+        expect.any(Object)
+      );
+    });
+
     it('passes getProductUrl output into JSON-LD and breadcrumb URLs on fallback legacy pages', async () => {
       mockGetCachedProduct.mockResolvedValue(uncategorizedProduct);
       mockHeaders.mockReturnValue(makeHeaders({}));

@@ -234,6 +234,7 @@ describe('mapDetailedCachedProductToProduct', () => {
             condition: 'used',
             price: 500000,
             stock_quantity: 9999,
+            status: 'active',
           },
         ],
       },
@@ -247,6 +248,52 @@ describe('mapDetailedCachedProductToProduct', () => {
         condition: 'used',
         price: 500000,
         stock_quantity: 9999,
+        status: 'active',
+      },
+    ]);
+  });
+
+  it('normalizes invalid status, zero compare price, and malformed offers', () => {
+    const product = mapDetailedCachedProductToProduct(
+      {
+        id: 'prod-edge',
+        merchant_id: 'merchant-1',
+        name: 'Promo Phone',
+        status: 'published',
+        price: 'abc',
+        compare_at_price: '0',
+        stock_quantity: null,
+        images: [],
+        category: null,
+        categories: [{ id: 'cat-edge' } as never],
+        product_key_specs: [{ unexpected: 'x' }],
+        offers: [
+          { id: 'inactive', condition: 'used', price: 1, status: 'archived' },
+          { id: 'bad-price', condition: 'used', price: null, status: 'active' },
+          {
+            id: 'bad-condition',
+            condition: 'fair' as never,
+            price: 1,
+            status: 'active',
+          },
+          { id: 'active', condition: 'used', price: '0', status: 'active' },
+        ],
+      },
+      'merchant-1'
+    );
+
+    expect(product).toMatchObject({
+      status: 'active',
+      price: 0,
+      compare_at_price: 0,
+    });
+    expect(product.offers).toEqual([
+      {
+        id: 'active',
+        condition: 'used',
+        price: 0,
+        stock_quantity: 0,
+        status: 'active',
       },
     ]);
   });

@@ -880,7 +880,8 @@ export async function getCachedProduct(
           condition,
           price,
           stock_quantity,
-          images
+          images,
+          status
         ),
         product_categories (
           category_id,

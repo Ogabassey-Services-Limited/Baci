@@ -10,6 +10,7 @@ interface ProductPriceSeoVariant {
 
 interface ProductPriceSeoOffer {
   price?: number | null;
+  status?: string | null;
 }
 
 export interface ProductPriceSeoProduct {
@@ -53,6 +54,14 @@ function addPriceCandidate(
   }
 }
 
+function isActiveOffer(offer: ProductPriceSeoOffer | null | undefined) {
+  return (
+    offer?.status === undefined ||
+    offer.status === null ||
+    offer.status === 'active'
+  );
+}
+
 export function getProductPriceRange(
   product: ProductPriceSeoProduct
 ): ProductPriceRange | null {
@@ -71,7 +80,7 @@ export function getProductPriceRange(
     addPriceCandidate(candidates, variant?.price_override);
   }
 
-  for (const offer of product.offers ?? []) {
+  for (const offer of (product.offers ?? []).filter(isActiveOffer)) {
     addPriceCandidate(candidates, offer?.price);
   }
 
@@ -94,12 +103,17 @@ export function formatProductPrice(
   currency: string,
   locale = getStorefrontLocale()
 ): string {
-  return new Intl.NumberFormat(locale, {
+  const options: Intl.NumberFormatOptions = {
     style: 'currency',
     currency,
-    maximumFractionDigits: 0,
-    minimumFractionDigits: 0,
-  }).format(price);
+  };
+
+  if (Number.isInteger(price)) {
+    options.maximumFractionDigits = 0;
+    options.minimumFractionDigits = 0;
+  }
+
+  return new Intl.NumberFormat(locale, options).format(price);
 }
 
 export function formatProductPriceRange(

@@ -125,4 +125,39 @@ describe('mapLegacyCachedProductToProduct', () => {
       storage_gb: 256,
     });
   });
+
+  it('handles missing legacy category, stock, status, and optional pricing fallbacks', () => {
+    const product = mapLegacyCachedProductToProduct(
+      {
+        id: 'prod-legacy-edge',
+        name: 'Legacy Edge Phone',
+        description: null,
+        status: 'published',
+        slug: null,
+        sale_price: 0,
+        base_price: 0,
+        track_quantity: null,
+        quantity: null,
+        images: null,
+        product_variants: [],
+        product_categories: [{ categories: null }],
+        specifications: null,
+        product_key_specs: [{ unexpected: 'x' }],
+      },
+      'merchant-1'
+    );
+
+    expect(product).toMatchObject({
+      status: 'active',
+      slug: 'prod-legacy-edge',
+      price: 0,
+      compare_at_price: 0,
+      manage_stock: false,
+      stock: 0,
+      category: undefined,
+      category_slug: undefined,
+      image: '',
+    });
+    expect(product.product_key_specs).toEqual({ unexpected: 'x' });
+  });
 });

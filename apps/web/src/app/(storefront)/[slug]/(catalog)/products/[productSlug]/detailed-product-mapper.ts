@@ -10,6 +10,64 @@ import {
   type StorefrontProductVariants,
 } from './product-mappers';
 
+const PRODUCT_STATUSES = ['draft', 'active', 'archived'] as const;
+const PRODUCT_CONDITIONS = ['new', 'used', 'open_box', 'refurbished'] as const;
+
+function normalizeProductStatus(value: string | null | undefined) {
+  return PRODUCT_STATUSES.includes(value as (typeof PRODUCT_STATUSES)[number])
+    ? (value as Product['status'])
+    : 'active';
+}
+
+function parseOptionalPrice(value: number | string | null | undefined) {
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : undefined;
+}
+
+function parseRequiredPrice(value: number | string | null | undefined) {
+  return parseOptionalPrice(value) ?? 0;
+}
+
+function isProductCondition(value: unknown): value is Product['condition'] {
+  return PRODUCT_CONDITIONS.includes(
+    value as (typeof PRODUCT_CONDITIONS)[number]
+  );
+}
+
+function normalizeActiveOffers(offers: DetailedCachedProduct['offers']) {
+  if (!Array.isArray(offers)) return [];
+
+  return offers.flatMap((offer) => {
+    if (
+      !offer ||
+      offer.status !== 'active' ||
+      !isProductCondition(offer.condition)
+    ) {
+      return [];
+    }
+
+    const price = parseOptionalPrice(offer.price);
+    if (price === undefined || price < 0) return [];
+
+    const stockQuantity = parseRequiredPrice(offer.stock_quantity);
+    return [
+      {
+        id: offer.id,
+        condition: offer.condition,
+        price,
+        stock_quantity: stockQuantity,
+        images: Array.isArray(offer.images) ? offer.images : undefined,
+        status: offer.status,
+      },
+    ];
+  });
+}
+
 export interface DetailedCachedProduct {
   id: string;
   merchant_id?: string | null;
@@ -62,9 +120,10 @@ export interface DetailedCachedProduct {
     | {
         id: string;
         condition: 'new' | 'used' | 'open_box' | 'refurbished';
-        price: number;
-        stock_quantity: number;
+        price: number | string | null;
+        stock_quantity?: number | string | null;
         images?: string[];
+        status?: string | null;
       }[]
     | null;
 }
@@ -101,10 +160,7 @@ export function mapDetailedCachedProductToProduct(
     merchant_id: detailedProduct.merchant_id || merchantId,
     name: detailedProduct.name,
     description: detailedProduct.description || '',
-    status: (detailedProduct.status || 'active') as
-      | 'draft'
-      | 'active'
-      | 'archived',
+    status: normalizeProductStatus(detailedProduct.status),
     slug: detailedProduct.slug || detailedProduct.id,
     canonical_url: getMappedCanonicalUrl({
       id: detailedProduct.id,
@@ -126,10 +182,7 @@ export function mapDetailedCachedProductToProduct(
       typeof detailedProduct.price === 'string'
         ? Number.parseFloat(detailedProduct.price) || 0
         : detailedProduct.price || 0,
-    compare_at_price:
-      typeof detailedProduct.compare_at_price === 'string'
-        ? Number.parseFloat(detailedProduct.compare_at_price) || undefined
-        : detailedProduct.compare_at_price || undefined,
+    compare_at_price: parseOptionalPrice(detailedProduct.compare_at_price),
     min_variant_price: detailedProduct.min_variant_price ?? undefined,
     max_variant_price: detailedProduct.max_variant_price ?? undefined,
     manage_stock: detailedProduct.manage_stock ?? false,
@@ -162,7 +215,7 @@ export function mapDetailedCachedProductToProduct(
       )
         ? (detailedProduct.available_conditions as Product['available_conditions'])
         : undefined,
-    offers: detailedProduct.offers ?? [],
+    offers: normalizeActiveOffers(detailedProduct.offers),
     variants: normalizedVariants,
     specifications: detailedProduct.specifications as Product['specifications'],
     product_key_specs: normalizeProductKeySpecs(
