@@ -35,7 +35,6 @@ const SITEMAP_QUERY_PAGE_SIZE = 1000;
 // static/category/commercial URLs plus product URLs stay comfortably under the
 // limit in getRootSitemapEntries.
 const SITEMAP_MAX_PRODUCT_URLS = 45_000;
-
 export interface StorefrontSitemapContext {
   merchant: NonNullable<Awaited<ReturnType<typeof getMerchantByIdentifier>>>;
   storeUrl: string;
@@ -46,24 +45,31 @@ export async function resolveStorefrontSitemapContext(
   headersList: Headers,
   routeIdentifierOverride?: string | null
 ): Promise<StorefrontSitemapContext | null> {
-  const merchantContextHeader =
-    headersList.get('x-custom-domain') || headersList.get('x-merchant-slug');
   const headerRouteIdentifier = resolveRouteIdentifier(headersList);
-  const routeIdentifier = merchantContextHeader?.trim()
-    ? headerRouteIdentifier
-    : routeIdentifierOverride?.trim().toLowerCase() || headerRouteIdentifier;
-  let merchant = null;
+  const routeIdentifierOverrideValue =
+    routeIdentifierOverride?.trim().toLowerCase() || '';
+  const routeIdentifiers = [
+    headerRouteIdentifier,
+    routeIdentifierOverrideValue,
+  ].filter((value, index, values): value is string =>
+    Boolean(value && values.indexOf(value) === index)
+  );
 
-  try {
-    merchant = routeIdentifier
-      ? await getMerchantByIdentifier(routeIdentifier)
-      : null;
-  } catch (error) {
-    console.warn('Failed to resolve sitemap merchant', {
-      routeIdentifier,
-      error,
-    });
-    return null;
+  let merchant = null;
+  for (const routeIdentifier of routeIdentifiers) {
+    try {
+      merchant = await getMerchantByIdentifier(routeIdentifier);
+    } catch (error) {
+      console.warn('Failed to resolve sitemap merchant', {
+        routeIdentifier,
+        error,
+      });
+      continue;
+    }
+
+    if (merchant) {
+      break;
+    }
   }
 
   if (!merchant) {

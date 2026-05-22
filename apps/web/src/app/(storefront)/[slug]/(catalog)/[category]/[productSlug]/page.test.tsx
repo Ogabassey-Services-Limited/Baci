@@ -152,6 +152,8 @@ vi.mock('@/lib/product-stock', () => ({
 
 vi.mock('@/lib/sanitize-core', () => ({
   escapeHtml: (value: string) => value,
+  stripHtmlTags: (value: string | null | undefined) =>
+    value?.replace(/<[^>]+>/g, '') || '',
 }));
 
 vi.mock('@/lib/sanitize-json-ld', () => ({
@@ -464,6 +466,8 @@ describe('[category]/[productSlug] page metadata', () => {
   it('strips HTML from category product metadata descriptions', async () => {
     mockGetCachedProductWithDetails.mockResolvedValue({
       ...categorizedDetailedProduct,
+      meta_description:
+        '<p>A <strong>premium</strong> laptop built for creators.</p>',
       description:
         '<p>A <strong>premium</strong> laptop built for creators.</p>',
       images: ['https://cdn.example.com/products/hp-laptop.png'],
@@ -510,6 +514,94 @@ describe('[category]/[productSlug] page metadata', () => {
     expect(metadata.twitter?.images).toEqual([
       'https://cdn.example.com/products/hp-laptop.png',
     ]);
+  });
+
+  it('targets device price in Nigeria when custom metadata is absent', async () => {
+    mockNormalizeStorefrontProductVariants.mockReturnValue([
+      {
+        id: 'iphone13-128',
+        attributes: { storage: '128GB' },
+        price_override: 390000,
+        stock_quantity: 5,
+      },
+      {
+        id: 'iphone13-256',
+        attributes: { storage: '256GB' },
+        price_override: 520000,
+        stock_quantity: 5,
+      },
+    ]);
+    mockGetCachedProductWithDetails.mockResolvedValue({
+      ...categorizedDetailedProduct,
+      name: 'iPhone 13',
+      slug: 'iphone-13',
+      description: 'Apple iPhone 13 with A15 Bionic.',
+      price: 430000,
+      category: 'Smartphones',
+      categories: {
+        id: 'cat-smartphones',
+        name: 'Smartphones',
+        slug: 'smartphones',
+        parent_id: null,
+      },
+      product_variants: [
+        { id: 'iphone13-128', price_override: 390000 },
+        { id: 'iphone13-256', price_override: 520000 },
+      ],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'smartphones',
+        productSlug: 'iphone-13',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.title).toBe('iPhone 13 Price in Nigeria | TestStore');
+    expect(metadata.description).toContain(
+      'iPhone 13 price in Nigeria starts from ₦390,000 on TestStore'
+    );
+    expect(metadata.other).toMatchObject({
+      'product:price:amount': '390000',
+      'product:price:currency': 'NGN',
+    });
+  });
+
+  it('omits Nigeria price copy for non-Nigerian storefront metadata', async () => {
+    mockGetRequestScopedMerchant.mockResolvedValueOnce({
+      ...baseMerchant,
+      country: 'GH',
+      payout_currency: 'GHS',
+    });
+    mockGetCachedProductWithDetails.mockResolvedValue({
+      ...categorizedDetailedProduct,
+      name: 'Pixel 10',
+      slug: 'pixel-10',
+      description: 'Google Pixel phone.',
+      price: 999,
+      category: 'Smartphones',
+      categories: {
+        id: 'cat-smartphones',
+        name: 'Smartphones',
+        slug: 'smartphones',
+        parent_id: null,
+      },
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'smartphones',
+        productSlug: 'pixel-10',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.title).toBe('Pixel 10 Price | TestStore');
+    expect(metadata.description).toContain('Pixel 10 price is');
+    expect(metadata.description).not.toContain('in Nigeria');
   });
 
   it('redirects attribute-only variant params to the bare family URL', async () => {
@@ -614,6 +706,69 @@ describe('[category]/[productSlug] page render', () => {
       screen.getByRole('status', { name: /dynamic metadata marker/i })
     ).toBeInTheDocument();
     expect(container.querySelectorAll('h1')).toHaveLength(1);
+  });
+
+  it('uses the same NGN fallback currency for metadata and product JSON-LD', async () => {
+    mockGetRequestScopedMerchant.mockResolvedValue({
+      ...baseMerchant,
+      payout_currency: null,
+      template_id: OGABASSEY_TEMPLATE_ID,
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    await CategoryProductPage({
+      params: Promise.resolve({
+        slug: 'teststore',
+        category: 'laptops',
+        productSlug: 'hp-laptop-14-ep0063nia',
+      }),
+      searchParams: Promise.resolve({}),
+    });
+
+    expect(metadata.other).toMatchObject({
+      'product:price:currency': 'NGN',
+    });
+    expect(mockGenerateProductSchema).toHaveBeenCalledWith(
+      expect.any(Object),
+      'TestStore',
+      'NGN',
+      'NG',
+      null,
+      expect.any(Object),
+      expect.any(Object)
+    );
+  });
+
+  it('strips HTML tags from hidden summary description text', async () => {
+    mockGetCachedProductWithDetails.mockResolvedValueOnce({
+      ...categorizedDetailedProduct,
+      description:
+        '<p>A <strong>premium</strong> laptop built for creators.</p>',
+    });
+
+    render(
+      await CategoryProductPage({
+        params: Promise.resolve({
+          slug: 'teststore',
+          category: 'laptops',
+          productSlug: 'hp-laptop-14-ep0063nia',
+        }),
+        searchParams: Promise.resolve({}),
+      })
+    );
+
+    expect(
+      screen.getByText('A premium laptop built for creators.')
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/<strong>/)).not.toBeInTheDocument();
   });
 
   it('mounts the OgaBassey PDP preload hints for the OgaBassey template branch', async () => {
@@ -1181,6 +1336,7 @@ describe('[category]/[productSlug] page render', () => {
           slug: 'samsung-galaxy-z-trifold',
         }),
         trustBullets: expect.arrayContaining([
+          'The Samsung Galaxy Z TriFold price in Nigeria on TestStore is ₦645,600. Check specs, condition, warranty, delivery, and payment options before you buy.',
           'Free returns within 7 days',
           'Ships across Nigeria',
           'WhatsApp support available',

@@ -858,6 +858,8 @@ export async function getCachedProduct(
         canonical_url,
         price,
         compare_at_price,
+        min_variant_price,
+        max_variant_price,
         status,
         quantity,
         track_quantity,
@@ -870,12 +872,16 @@ export async function getCachedProduct(
         variant_model,
         available_conditions,
         has_condition_offers,
+        meta_title,
+        meta_description,
+        keywords,
         offers:product_offers (
           id,
           condition,
           price,
           stock_quantity,
-          images
+          images,
+          status
         ),
         product_categories (
           category_id,

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { loadPriceBandPage } from './load-price-band-page';
 
 const mockGetMerchantByIdentifier = vi.fn();
@@ -126,6 +126,18 @@ describe('loadPriceBandPage', () => {
     expect(result?.canonicalUrl).toBe(
       'http://localhost:3000/ogabassey/smartphones/best-under/under-1m'
     );
+    expect(result?.metaTitle).toBe(
+      'Best Smartphones Under ₦1,000,000 in Nigeria | Ogabassey'
+    );
+    expect(result?.metaDescription).toBe(
+      'Compare the best smartphones under ₦1,000,000 in Nigeria. See live prices, stock, condition, and buying options from Ogabassey.'
+    );
+    expect(result?.heading).toBe(
+      'Best Smartphones Under ₦1,000,000 in Nigeria'
+    );
+    expect(result?.intro).toBe(
+      'These are the strongest smartphones options under ₦1,000,000 in Nigeria, based on live Ogabassey inventory with price, condition, and availability details.'
+    );
     expect(result?.products).toHaveLength(6);
     expect(result?.products).toEqual(
       expect.arrayContaining([
@@ -142,6 +154,28 @@ describe('loadPriceBandPage', () => {
           has_condition_offers: false,
         }),
       ])
+    );
+  });
+
+  it('uses localized ceiling text in the heading and metadata title', async () => {
+    mockGetMerchantByIdentifier.mockResolvedValueOnce({
+      ...merchant,
+      country: 'US',
+      payout_currency: 'USD',
+    });
+
+    const result = await loadPriceBandPage({
+      merchantSlug: 'ogabassey',
+      categorySlug: 'smartphones',
+      priceBandSlug: 'under-1m',
+    });
+
+    expect(result?.heading).toBe('Best Smartphones Under $1,000,000');
+    expect(result?.metaTitle).toBe(
+      'Best Smartphones Under $1,000,000 | Ogabassey'
+    );
+    expect(result?.metaDescription).toContain(
+      'best smartphones under $1,000,000'
     );
   });
 
