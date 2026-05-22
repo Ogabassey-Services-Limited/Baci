@@ -410,6 +410,91 @@ describe('POST /api/agentic/checkout_sessions', () => {
     );
   });
 
+  it('creates a checkout session from native ACP item-shaped line_items and fulfillment_details', async () => {
+    const insertSpy = vi.fn((_: Record<string, unknown>) => ({
+      select: vi.fn(() => ({
+        single: vi.fn().mockResolvedValue({
+          data: { id: 'row-1', session_id: 'agentic_session_1' },
+          error: null,
+        }),
+      })),
+    }));
+    const mockSupabase = {
+      from: vi.fn((table: string) => {
+        if (table === 'checkout_sessions') {
+          return {
+            insert: insertSpy,
+          };
+        }
+
+        throw new Error(`Unexpected table ${table}`);
+      }),
+    };
+
+    vi.mocked(createAdminClient).mockReturnValue(mockSupabase as never);
+    vi.mocked(createAgenticScopedSupabaseClient).mockReturnValue(
+      mockSupabase as never
+    );
+    vi.mocked(calculateCheckoutSession).mockResolvedValue({
+      fulfillmentOptions: [],
+      lineItems: [],
+      messages: [],
+      selectedOptionId: undefined,
+      totals: [{ amount: 0, display_text: 'Total Due', type: 'total' }],
+    });
+
+    const request = new NextRequest(
+      'http://localhost/api/agentic/checkout_sessions',
+      {
+        body: JSON.stringify({
+          capabilities: {},
+          currency: 'ngn',
+          fulfillment_details: {
+            name: 'Ada Buyer',
+            phone_number: '+2348012345678',
+            email: 'ada@example.com',
+            address: {
+              name: 'Ada Buyer',
+              line_one: '12 Example Street',
+              city: 'Lagos',
+              state: 'LA',
+              country: 'NG',
+              postal_code: '100001',
+            },
+          },
+          line_items: [{ id: 'product-1' }],
+        }),
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': 'idem-1',
+        },
+        method: 'POST',
+      }
+    );
+
+    const { POST } = await import('./route');
+    const response = await POST(request);
+
+    expect(response.status).toBe(201);
+    expect(calculateCheckoutSession).toHaveBeenCalledWith(
+      mockSupabase,
+      [{ id: 'product-1', quantity: 1 }],
+      null,
+      'NGN',
+      'merchant-1'
+    );
+    expect(insertSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cart_items: [{ id: 'product-1', quantity: 1 }],
+        shipping_address: expect.objectContaining({
+          address: '12 Example Street',
+          country_code: 'NG',
+          phone: '+2348012345678',
+        }),
+      })
+    );
+  });
+
   it('creates a checkout session from a UCP line_items payload when adapted', async () => {
     const insertSpy = vi.fn((_: Record<string, unknown>) => ({
       select: vi.fn(() => ({

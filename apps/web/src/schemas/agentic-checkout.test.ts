@@ -36,6 +36,86 @@ describe('checkoutSessionSchema', () => {
     }
   });
 
+  it('accepts native ACP item-shaped line_items and defaults quantity to one', () => {
+    const result = checkoutSessionSchema.safeParse({
+      capabilities: {},
+      currency: 'ngn',
+      fulfillment_details: {
+        name: 'Ada Buyer',
+        phone_number: '+2348012345678',
+        email: 'ada@example.com',
+        address: {
+          name: 'Ada Buyer',
+          line_one: '12 Example Street',
+          line_two: 'Flat 3',
+          city: 'Lagos',
+          state: 'LA',
+          country: 'NG',
+          postal_code: '100001',
+        },
+      },
+      line_items: [{ id: 'product-1' }],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toMatchObject({
+        items: [{ id: 'product-1', quantity: 1 }],
+        shipping_address: {
+          address: '12 Example Street, Flat 3',
+          city: 'Lagos',
+          country_code: 'NG',
+          email: 'ada@example.com',
+          name: 'Ada Buyer',
+          phone: '+2348012345678',
+          postal_code: '100001',
+          state: 'LA',
+        },
+      });
+      expect(result.data).not.toHaveProperty('fulfillment_details');
+    }
+  });
+
+  it('accepts nested ACP item identifiers in line_items', () => {
+    const result = checkoutSessionSchema.safeParse({
+      capabilities: {},
+      currency: 'ngn',
+      line_items: [{ item: { id: 'product-1' }, quantity: 2 }],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.items).toEqual([{ id: 'product-1', quantity: 2 }]);
+    }
+  });
+
+  it('constructs shipping_address from sparse ACP fulfillment_details address fields', () => {
+    const result = checkoutSessionSchema.safeParse({
+      items: [{ id: 'product-1', quantity: 1 }],
+      fulfillment_details: {
+        address: {
+          line_one: '12 Example Street',
+          city: 'Lagos',
+          state: 'LA',
+          country: 'NG',
+          postal_code: '100001',
+        },
+      },
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.shipping_address).toMatchObject({
+        address: '12 Example Street',
+        city: 'Lagos',
+        country_code: 'NG',
+        postal_code: '100001',
+        state: 'LA',
+      });
+      expect(result.data).not.toHaveProperty('fulfillment_details');
+    }
+  });
+
   it('keeps legacy items when items and line_items are both provided', () => {
     const result = checkoutSessionSchema.safeParse({
       items: [{ id: 'product-1', quantity: 1 }],
@@ -169,6 +249,67 @@ describe('agenticCheckoutUpdateSchema', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.items).toEqual([{ id: 'product-1', quantity: 2 }]);
+    }
+  });
+
+  it('accepts native ACP fulfillment_details and selected_fulfillment_options aliases', () => {
+    const result = agenticCheckoutUpdateSchema.safeParse({
+      fulfillment_details: {
+        name: 'Ada Buyer',
+        address: {
+          line_one: '12 Example Street',
+          city: 'Lagos',
+          state: 'LA',
+          country: 'NG',
+          postal_code: '100001',
+        },
+      },
+      selected_fulfillment_options: [
+        {
+          type: 'shipping',
+          option_id: 'shipping_standard',
+          item_ids: ['line_product-1'],
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toMatchObject({
+        fulfillment_option_id: 'shipping_standard',
+        shipping_address: {
+          address: '12 Example Street',
+          city: 'Lagos',
+          country_code: 'NG',
+          name: 'Ada Buyer',
+          postal_code: '100001',
+          state: 'LA',
+        },
+      });
+      expect(result.data).not.toHaveProperty('fulfillment_details');
+      expect(result.data).not.toHaveProperty('selected_fulfillment_options');
+    }
+  });
+
+  it('uses the first native ACP selected fulfillment option when multiple are supplied', () => {
+    const result = agenticCheckoutUpdateSchema.safeParse({
+      selected_fulfillment_options: [
+        {
+          type: 'pickup',
+          option_id: 'pickup_store_1',
+          item_ids: ['line_product-1'],
+        },
+        {
+          type: 'shipping',
+          option_id: 'shipping_standard',
+          item_ids: ['line_product-1'],
+        },
+      ],
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.fulfillment_option_id).toBe('pickup_store_1');
     }
   });
 

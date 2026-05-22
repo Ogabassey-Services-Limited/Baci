@@ -40,7 +40,7 @@ const checkoutSessionBaseSchema = z.object({
 });
 
 export const checkoutSessionSchema = z.preprocess(
-  normalizeCheckoutLineItemsAlias,
+  normalizeCheckoutAcpAliases,
   checkoutSessionBaseSchema
 );
 
@@ -55,7 +55,7 @@ const createAgenticCheckoutSessionItemSchema = agenticCheckoutItemSchema.extend(
 );
 
 export const createAgenticCheckoutSessionInputSchema = z.preprocess(
-  normalizeCheckoutLineItemsAlias,
+  normalizeCheckoutAcpAliases,
   checkoutSessionBaseSchema.extend({
     idempotency_key: z.string().trim().min(8).max(128).optional(),
     items: z.array(createAgenticCheckoutSessionItemSchema).min(1).max(50),
@@ -80,7 +80,7 @@ const agenticCheckoutUpdateBaseSchema = z
   );
 
 export const agenticCheckoutUpdateSchema = z.preprocess(
-  normalizeCheckoutLineItemsAlias,
+  normalizeCheckoutAcpAliases,
   agenticCheckoutUpdateBaseSchema
 );
 
@@ -159,19 +159,137 @@ function toUppercaseCurrency(value: string) {
   return value.toUpperCase();
 }
 
-function normalizeCheckoutLineItemsAlias(value: unknown): unknown {
-  if (
-    !isRecord(value) ||
-    Object.hasOwn(value, 'items') ||
-    !Object.hasOwn(value, 'line_items')
-  ) {
+function normalizeCheckoutAcpAliases(value: unknown): unknown {
+  if (!isRecord(value)) {
     return value;
   }
 
-  return {
-    ...value,
-    items: value.line_items,
+  let normalized: Record<string, unknown> | null = null;
+  const ensureNormalized = () => {
+    normalized ??= { ...value };
+    return normalized;
   };
+
+  if (!Object.hasOwn(value, 'items') && Object.hasOwn(value, 'line_items')) {
+    ensureNormalized().items = normalizeCheckoutLineItems(value.line_items);
+  }
+
+  if (
+    !Object.hasOwn(value, 'shipping_address') &&
+    Object.hasOwn(value, 'fulfillment_details')
+  ) {
+    ensureNormalized().shipping_address = normalizeAcpFulfillmentDetails(
+      value.fulfillment_details
+    );
+  }
+
+  if (
+    !Object.hasOwn(value, 'fulfillment_option_id') &&
+    Object.hasOwn(value, 'selected_fulfillment_options')
+  ) {
+    const fulfillmentOptionId = getSelectedFulfillmentOptionId(
+      value.selected_fulfillment_options
+    );
+    if (fulfillmentOptionId !== undefined) {
+      ensureNormalized().fulfillment_option_id = fulfillmentOptionId;
+    }
+  }
+
+  return normalized ?? value;
+}
+
+function normalizeCheckoutLineItems(value: unknown): unknown {
+  if (!Array.isArray(value)) return value;
+
+  return value.map((lineItem) => {
+    if (!isRecord(lineItem)) return lineItem;
+
+    const nestedItem = isRecord(lineItem.item) ? lineItem.item : undefined;
+    const id =
+      getStringField(lineItem, 'id') ?? getStringField(nestedItem, 'id');
+    if (!id) return lineItem;
+
+    return {
+      id,
+      quantity: Object.hasOwn(lineItem, 'quantity') ? lineItem.quantity : 1,
+    };
+  });
+}
+
+function normalizeAcpFulfillmentDetails(value: unknown): unknown {
+  if (value === null) return null;
+  if (!isRecord(value)) return value;
+
+  const address = isRecord(value.address) ? value.address : undefined;
+  const lineOne =
+    getStringField(address, 'line_one') ?? getStringField(value, 'address');
+  const lineTwo = getStringField(address, 'line_two');
+  const country =
+    getStringField(address, 'country') ?? getStringField(value, 'country');
+  const normalized: Record<string, unknown> = {};
+
+  setOptionalField(
+    normalized,
+    'name',
+    getStringField(value, 'name') ?? getStringField(address, 'name')
+  );
+  setOptionalField(normalized, 'email', getStringField(value, 'email'));
+  setOptionalField(
+    normalized,
+    'phone',
+    getStringField(value, 'phone_number') ?? getStringField(value, 'phone')
+  );
+  setOptionalField(normalized, 'address', joinAddressLines(lineOne, lineTwo));
+  setOptionalField(normalized, 'city', getStringField(address, 'city'));
+  setOptionalField(normalized, 'state', getStringField(address, 'state'));
+  setOptionalField(normalized, 'country', country);
+  if (country && /^[A-Za-z]{2,3}$/.test(country)) {
+    normalized.country_code = country.toUpperCase();
+  }
+  setOptionalField(
+    normalized,
+    'postal_code',
+    getStringField(address, 'postal_code')
+  );
+
+  return normalized;
+}
+
+function getSelectedFulfillmentOptionId(value: unknown): unknown {
+  if (!Array.isArray(value)) return undefined;
+
+  const selectedOption = value.find(
+    (option) => isRecord(option) && Object.hasOwn(option, 'option_id')
+  );
+
+  return isRecord(selectedOption) ? selectedOption.option_id : undefined;
+}
+
+function getStringField(
+  value: Record<string, unknown> | undefined,
+  field: string
+): string | undefined {
+  const raw = value?.[field];
+  return typeof raw === 'string' && raw.trim().length > 0
+    ? raw.trim()
+    : undefined;
+}
+
+function joinAddressLines(
+  lineOne: string | undefined,
+  lineTwo: string | undefined
+) {
+  return [lineOne, lineTwo].filter(Boolean).join(', ') || undefined;
+}
+
+function setOptionalField(
+  target: Record<string, unknown>,
+  field: string,
+  value: string | undefined
+) {
+  if (value) {
+    target[field] = value;
+  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
