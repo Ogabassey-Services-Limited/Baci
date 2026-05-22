@@ -710,11 +710,13 @@ describe('[category]/[productSlug] page render', () => {
       baseMerchant.id,
       'hp-laptop-14-ep0063nia'
     );
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      'Unable to preload OgaBassey PDP product image early:',
-      'hp-laptop-14-ep0063nia',
-      expect.any(Error)
-    );
+    await waitFor(() => {
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        'Unable to preload OgaBassey PDP product image early:',
+        'hp-laptop-14-ep0063nia',
+        expect.any(Error)
+      );
+    });
     expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
       src: 'https://cdn.ogabassey.com/core-assets/products/fallback-laptop.avif',
     });

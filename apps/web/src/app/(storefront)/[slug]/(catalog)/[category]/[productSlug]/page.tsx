@@ -628,11 +628,11 @@ export default async function CategoryProductPage({
   if (!isValidMerchantIdentifier(slug)) {
     notFound();
   }
-  const earlyProductImagePreloadPromise =
-    preloadOgabasseyPdpProductImageFromFastLookup(slug, productSlug);
+  // The fast lookup is only an optimization hint. Start it early, but never
+  // gate the primary PDP data path on the hint resolving.
+  void preloadOgabasseyPdpProductImageFromFastLookup(slug, productSlug);
   const productResultPromise = getProduct(slug, category, productSlug);
   const resolvedSearchParams = await searchParams;
-  await earlyProductImagePreloadPromise;
   const result = await productResultPromise;
 
   if (!result) {
