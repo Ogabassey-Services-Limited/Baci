@@ -81,6 +81,7 @@ export function SavedAddressOptions({
             }
           }}
           accessibilityRole="button"
+          accessibilityState={{ selected: !isAddingNewAddress }}
           accessibilityLabel="Use a saved address"
         >
           <Ionicons
@@ -108,6 +109,7 @@ export function SavedAddressOptions({
           ]}
           onPress={onOpenNewAddressEditor}
           accessibilityRole="button"
+          accessibilityState={{ selected: isAddingNewAddress }}
           accessibilityLabel="Add a new delivery address"
         >
           <Ionicons
@@ -147,6 +149,7 @@ export function SavedAddressOptions({
                 },
               ]}
               accessibilityRole="button"
+              accessibilityState={{ selected: isSelected }}
               accessibilityLabel={`Use ${savedAddress.label || 'saved'} address`}
             >
               <View

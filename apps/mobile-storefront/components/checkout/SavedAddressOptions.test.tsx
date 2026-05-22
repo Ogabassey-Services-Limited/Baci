@@ -65,6 +65,18 @@ describe('SavedAddressOptions', () => {
     expect(screen.getByText('12 Marina Road')).toBeTruthy();
     expect(screen.getByText('Default')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Use home address' })).toBeTruthy();
+    expect(
+      screen.getByRole('button', { name: 'Use a saved address' })
+    ).toHaveAccessibilityState({ selected: true });
+    expect(
+      screen.getByRole('button', { name: 'Add a new delivery address' })
+    ).toHaveAccessibilityState({ selected: false });
+    expect(
+      screen.getByRole('button', { name: 'Use home address' })
+    ).toHaveAccessibilityState({ selected: true });
+    expect(
+      screen.getByRole('button', { name: 'Use office address' })
+    ).toHaveAccessibilityState({ selected: false });
   });
 
   it('shows a loader while saved addresses are loading', () => {
@@ -79,6 +91,42 @@ describe('SavedAddressOptions', () => {
     fireEvent.press(screen.getByRole('button', { name: 'Use a saved address' }));
 
     expect(baseProps.onUseSavedAddress).toHaveBeenCalledWith(homeAddress, {
+      collapse: false,
+    });
+  });
+
+  it('falls back to the default address when switching to saved mode without a selected address', () => {
+    render(
+      <SavedAddressOptions
+        {...baseProps}
+        isAddingNewAddress
+        selectedSavedAddress={null}
+        selectedSavedAddressId={null}
+      />
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Use a saved address' }));
+
+    expect(baseProps.onUseSavedAddress).toHaveBeenCalledWith(homeAddress, {
+      collapse: false,
+    });
+  });
+
+  it('falls back to the first saved address when no selected or default address exists', () => {
+    render(
+      <SavedAddressOptions
+        {...baseProps}
+        defaultSavedAddress={null}
+        isAddingNewAddress
+        savedAddresses={[officeAddress, homeAddress]}
+        selectedSavedAddress={null}
+        selectedSavedAddressId={null}
+      />
+    );
+
+    fireEvent.press(screen.getByRole('button', { name: 'Use a saved address' }));
+
+    expect(baseProps.onUseSavedAddress).toHaveBeenCalledWith(officeAddress, {
       collapse: false,
     });
   });
