@@ -111,10 +111,14 @@ export function FilterBar({
               />
             </View>
             <Text style={[styles.dash, { color: colors.border }]}>-</Text>
-            <View style={styles.priceField}>
-              <Text style={styles.currency}>₦</Text>
+            <View
+              style={[styles.priceField, { backgroundColor: colors.input }]}
+            >
+              <Text style={[styles.currency, { color: colors.textSecondary }]}>
+                ₦
+              </Text>
               <TextInput
-                style={styles.priceInput}
+                style={[styles.priceInput, { color: colors.text }]}
                 value={tempMaxPrice}
                 onChangeText={setTempMaxPrice}
                 placeholder="Max"
@@ -184,14 +188,24 @@ export function FilterBar({
                 onPress={() => onSelectCondition(condition)}
                 style={[
                   styles.segmentItem,
-                  selectedCondition === condition && styles.segmentItemActive,
+                  selectedCondition === condition && [
+                    styles.segmentItemActive,
+                    {
+                      backgroundColor: colors.card,
+                      shadowColor: isDark ? 'transparent' : '#000',
+                    },
+                  ],
                 ]}
                 hitSlop={6}
               >
                 <Text
                   style={[
                     styles.segmentText,
-                    selectedCondition === condition && styles.segmentTextActive,
+                    { color: colors.textSecondary },
+                    selectedCondition === condition && [
+                      styles.segmentTextActive,
+                      { color: colors.text },
+                    ],
                   ]}
                 >
                   {condition}
@@ -284,7 +298,18 @@ export function FilterBar({
             <Pressable
               key={cat}
               onPress={() => onSelectCategory(cat)}
-              style={[styles.catPill, isActive && styles.catPillActive]}
+              style={[
+                styles.catPill,
+                { backgroundColor: colors.card, borderColor: colors.border },
+                isActive && [
+                  styles.catPillActive,
+                  {
+                    backgroundColor: colors.primary,
+                    borderColor: colors.primary,
+                    shadowColor: colors.primary,
+                  },
+                ],
+              ]}
               hitSlop={8}
               accessibilityRole="button"
               accessibilityLabel={`${cat} category`}
@@ -296,7 +321,14 @@ export function FilterBar({
                 color={isActive ? colors.primaryForeground : colors.icon}
               />
               <Text
-                style={[styles.catText, isActive && styles.catTextActive]}
+                style={[
+                  styles.catText,
+                  { color: colors.textSecondary },
+                  isActive && [
+                    styles.catTextActive,
+                    { color: colors.primaryForeground },
+                  ],
+                ]}
                 numberOfLines={1}
               >
                 {cat}
@@ -313,11 +345,19 @@ export function FilterBar({
           <View style={styles.filterWrapper}>
             <Pressable
               onPress={() => setIsFilterMenuOpen(!isFilterMenuOpen)}
-              style={styles.filterToggle}
+              style={[
+                styles.filterToggle,
+                {
+                  backgroundColor: colors.promoBackground,
+                  borderColor: colors.primaryLowOpacity,
+                },
+              ]}
               hitSlop={12}
             >
               <Feather name="sliders" size={16} color={colors.primary} />
-              <Text style={styles.filterLabel}>{getActiveFilterLabel()}</Text>
+              <Text style={[styles.filterLabel, { color: colors.primary }]}>
+                {getActiveFilterLabel()}
+              </Text>
               <Feather
                 name="chevron-down"
                 size={12}
@@ -359,7 +399,10 @@ export function FilterBar({
                     }}
                     style={[
                       styles.popoverItem,
-                      activeFilterType === item.id && styles.popoverItemActive,
+                      activeFilterType === item.id && [
+                        styles.popoverItemActive,
+                        { backgroundColor: colors.promoBackground },
+                      ],
                     ]}
                   >
                     <Feather
@@ -374,8 +417,11 @@ export function FilterBar({
                     <Text
                       style={[
                         styles.popoverText,
-                        activeFilterType === item.id &&
+                        { color: colors.textSecondary },
+                        activeFilterType === item.id && [
                           styles.popoverTextActive,
+                          { color: colors.primary },
+                        ],
                       ]}
                     >
                       {item.label}
@@ -410,7 +456,13 @@ export function FilterBar({
               onPress={() => onViewModeChange('grid')}
               style={[
                 styles.viewBtn,
-                viewMode === 'grid' && styles.viewBtnActive,
+                viewMode === 'grid' && [
+                  styles.viewBtnActive,
+                  {
+                    backgroundColor: colors.card,
+                    shadowColor: isDark ? 'transparent' : '#000',
+                  },
+                ],
               ]}
               hitSlop={8}
             >
@@ -424,7 +476,13 @@ export function FilterBar({
               onPress={() => onViewModeChange('list')}
               style={[
                 styles.viewBtn,
-                viewMode === 'list' && styles.viewBtnActive,
+                viewMode === 'list' && [
+                  styles.viewBtnActive,
+                  {
+                    backgroundColor: colors.card,
+                    shadowColor: isDark ? 'transparent' : '#000',
+                  },
+                ],
               ]}
               hitSlop={8}
             >
@@ -477,8 +535,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: 'serif',
   },
-  catTextActive: {
-  },
+  catTextActive: {},
   // Tools Row
   toolsContainer: {
     paddingHorizontal: 12,
@@ -535,8 +592,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     gap: 10,
   },
-  popoverItemActive: {
-  },
+  popoverItemActive: {},
   popoverText: {
     fontSize: 13,
     fontWeight: '600',
@@ -609,8 +665,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  brandChipInactive: {
-  },
+  brandChipInactive: {},
   brandChipIcon: {
     marginRight: 6,
   },
@@ -619,10 +674,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontFamily: 'serif',
   },
-  brandChipTextActive: {
-  },
-  brandChipTextInactive: {
-  },
+  brandChipTextActive: {},
+  brandChipTextInactive: {},
   conditionSegment: {
     flexDirection: 'row',
     padding: 2,
@@ -645,8 +698,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     fontFamily: 'serif',
   },
-  segmentTextActive: {
-  },
+  segmentTextActive: {},
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -660,15 +712,13 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 8,
   },
-  ratingChipActive: {
-  },
+  ratingChipActive: {},
   ratingText: {
     fontSize: 11,
     fontWeight: '800',
     fontFamily: 'serif',
   },
-  ratingTextActive: {
-  },
+  ratingTextActive: {},
   anyText: {
     fontSize: 11,
     textDecorationLine: 'underline',
