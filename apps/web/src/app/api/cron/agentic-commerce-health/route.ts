@@ -2,6 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCronSecret } from '@/env';
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
+import type { AgentCommerceFeedHealthResult } from '@/lib/agentic/agent-commerce-feed-health';
+import {
+  buildAgentCommerceFeedHealthActions,
+  checkAgentCommerceFeedHealth,
+  getAgentCommerceFeedStatusReason,
+} from '@/lib/agentic/agent-commerce-feed-health';
 import {
   type AgenticCommerceHealthActionSummary,
   type AgenticCommerceHealthStatus,
@@ -37,6 +43,7 @@ interface MonitoredMerchantRow {
 interface AgenticCommerceHealthMerchantResult {
   actions: AgenticCommerceHealthActionSummary[];
   business_name?: string;
+  feeds?: AgentCommerceFeedHealthResult;
   manifest?: AgentCommerceManifestHealthResult;
   merchant_id?: string;
   slug: string;
@@ -152,7 +159,7 @@ async function buildMerchantHealthResult({
   }
 
   try {
-    const [health, manifest] = await Promise.all([
+    const [health, manifest, feeds] = await Promise.all([
       loadAgenticActionHealth(supabase, merchant.id, {
         recordsSource: 'admin_direct',
       }),
@@ -160,20 +167,33 @@ async function buildMerchantHealthResult({
         custom_domain: merchant.custom_domain,
         slug,
       }),
+      checkAgentCommerceFeedHealth({
+        merchantId: merchant.id,
+        slug,
+      }),
     ]);
     const manifestActions = buildAgentCommerceManifestHealthActions(manifest);
-    const mergedActions = [...health.actions, ...manifestActions];
+    const feedActions = buildAgentCommerceFeedHealthActions(feeds);
+    const mergedActions = [
+      ...health.actions,
+      ...manifestActions,
+      ...feedActions,
+    ];
     const status = getAgenticCommerceHealthStatus(mergedActions);
     return {
       actions: summarizeAgenticCommerceHealthActions(mergedActions),
       business_name: merchant.business_name ?? undefined,
+      feeds,
       manifest,
       merchant_id: merchant.id,
       slug,
       status,
-      status_reason: getAgentCommerceManifestStatusReason(
-        manifest,
-        `agentic_action_health_${status}`
+      status_reason: getAgentCommerceFeedStatusReason(
+        feeds,
+        getAgentCommerceManifestStatusReason(
+          manifest,
+          `agentic_action_health_${status}`
+        )
       ),
     };
   } catch (_error) {

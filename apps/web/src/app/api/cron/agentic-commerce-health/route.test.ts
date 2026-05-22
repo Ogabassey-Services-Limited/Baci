@@ -13,6 +13,17 @@ vi.mock('@/lib/agentic/agent-commerce-manifest-health', () => ({
   checkAgentCommerceManifestHealth: vi.fn(),
 }));
 
+vi.mock('@/lib/agentic/agent-commerce-feed-health', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/lib/agentic/agent-commerce-feed-health')
+  >('@/lib/agentic/agent-commerce-feed-health');
+
+  return {
+    ...actual,
+    checkAgentCommerceFeedHealth: vi.fn(),
+  };
+});
+
 vi.mock('@/lib/logger', () => ({
   logger: {
     error: vi.fn(),
@@ -27,6 +38,7 @@ vi.mock('@/lib/supabase/admin', () => ({
 
 import { getCronSecret } from '@/env';
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
+import { checkAgentCommerceFeedHealth } from '@/lib/agentic/agent-commerce-feed-health';
 import { checkAgentCommerceManifestHealth } from '@/lib/agentic/agent-commerce-manifest-health';
 import { logger } from '@/lib/logger';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -139,6 +151,16 @@ describe('GET /api/cron/agentic-commerce-health', () => {
       status: 'ok',
       url: 'https://ogabassey.com/agent-commerce.json',
     });
+    vi.mocked(checkAgentCommerceFeedHealth).mockResolvedValue({
+      google_product_count: 2,
+      issue_count: 0,
+      issues: [],
+      latest_product_updated_at: '2026-05-22T10:00:00.000Z',
+      openai_product_count: 2,
+      shared_product_count: 2,
+      stale_product_count: 0,
+      status: 'ok',
+    });
     vi.mocked(loadAgenticActionHealth).mockResolvedValue({
       actions: [healthyAction],
       generated_at: '2026-05-22T03:00:00.000Z',
@@ -182,6 +204,11 @@ describe('GET /api/cron/agentic-commerce-health', () => {
         {
           actions: [],
           business_name: 'Ogabassey',
+          feeds: {
+            google_product_count: 2,
+            openai_product_count: 2,
+            status: 'ok',
+          },
           merchant_id: 'merchant-1',
           slug: 'ogabassey',
           status: 'ok',
@@ -205,6 +232,10 @@ describe('GET /api/cron/agentic-commerce-health', () => {
       'merchant-1',
       { recordsSource: 'admin_direct' }
     );
+    expect(checkAgentCommerceFeedHealth).toHaveBeenCalledWith({
+      merchantId: 'merchant-1',
+      slug: 'ogabassey',
+    });
   });
 
   it('fails the cron response when attention actions are present by default', async () => {
@@ -257,6 +288,95 @@ describe('GET /api/cron/agentic-commerce-health', () => {
               severity: 'monitor',
             },
           ],
+          status: 'monitor',
+        },
+      ],
+      status: 'monitor',
+    });
+  });
+
+  it('fails the cron response when feed generation needs attention', async () => {
+    vi.mocked(checkAgentCommerceFeedHealth).mockResolvedValue({
+      google_product_count: null,
+      issue_count: 1,
+      issues: [
+        {
+          code: 'feed_generation_failed',
+          count: 1,
+          message:
+            'Agent catalog feeds could not be generated for health monitoring.',
+          severity: 'attention',
+        },
+      ],
+      latest_product_updated_at: null,
+      openai_product_count: null,
+      shared_product_count: null,
+      stale_product_count: null,
+      status: 'attention',
+    });
+
+    const response = await GET(createCronRequest());
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      merchants: [
+        {
+          actions: [
+            {
+              code: 'AGENTIC_FEED_GENERATION_FAILED',
+              count: 1,
+              severity: 'attention',
+            },
+          ],
+          feeds: {
+            issue_count: 1,
+            status: 'attention',
+          },
+          status: 'attention',
+          status_reason: 'agent_commerce_feed_generation_failed',
+        },
+      ],
+      status: 'attention',
+    });
+  });
+
+  it('keeps stale feed products as monitor-only actions', async () => {
+    vi.mocked(checkAgentCommerceFeedHealth).mockResolvedValue({
+      google_product_count: 2,
+      issue_count: 1,
+      issues: [
+        {
+          code: 'feed_stale',
+          count: 1,
+          message:
+            'One or more agent-visible products have stale or missing feed timestamps.',
+          severity: 'monitor',
+        },
+      ],
+      latest_product_updated_at: '2026-04-01T10:00:00.000Z',
+      openai_product_count: 2,
+      shared_product_count: 2,
+      stale_product_count: 1,
+      status: 'monitor',
+    });
+
+    const response = await GET(createCronRequest());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      merchants: [
+        {
+          actions: [
+            {
+              code: 'AGENTIC_FEED_STALE_PRODUCTS',
+              count: 1,
+              severity: 'monitor',
+            },
+          ],
+          feeds: {
+            stale_product_count: 1,
+            status: 'monitor',
+          },
           status: 'monitor',
         },
       ],
