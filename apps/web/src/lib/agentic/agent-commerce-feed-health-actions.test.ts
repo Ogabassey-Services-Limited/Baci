@@ -17,6 +17,7 @@ vi.mock('@/lib/logger', () => ({
 import { getCachedGoogleMerchantFeedData } from '@/app/api/feed/google-merchant/feed-data';
 import { getCachedOpenAIFeedData } from '@/app/api/feed/openai/feed-data';
 import {
+  type AgentCommerceFeedHealthResult,
   buildAgentCommerceFeedHealthActions,
   checkAgentCommerceFeedHealth,
   getAgentCommerceFeedStatusReason,
@@ -151,6 +152,36 @@ describe('getAgentCommerceFeedStatusReason', () => {
 
     expect(getAgentCommerceFeedStatusReason(result, 'fallback')).toBe(
       'agent_commerce_feed_generation_failed'
+    );
+  });
+
+  it('returns the first attention feed reason when multiple attention issues exist', () => {
+    const result: AgentCommerceFeedHealthResult = {
+      google_product_count: 2,
+      issue_count: 2,
+      issues: [
+        {
+          code: 'feed_catalog_drift',
+          count: 2,
+          message: 'Catalog drift',
+          severity: 'attention',
+        },
+        {
+          code: 'feed_generation_failed',
+          count: 1,
+          message: 'Feed generation failed',
+          severity: 'attention',
+        },
+      ],
+      latest_product_updated_at: '2026-05-22T10:00:00.000Z',
+      openai_product_count: 2,
+      shared_product_count: 1,
+      stale_product_count: 0,
+      status: 'attention',
+    };
+
+    expect(getAgentCommerceFeedStatusReason(result, 'fallback')).toBe(
+      'agent_commerce_feed_catalog_drift'
     );
   });
 });
