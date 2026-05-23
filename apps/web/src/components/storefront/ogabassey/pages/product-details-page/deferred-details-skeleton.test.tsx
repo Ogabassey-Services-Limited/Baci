@@ -12,4 +12,19 @@ describe('DeferredDetailsSkeleton', () => {
     expect(container).toBeInTheDocument();
     expect(container).toHaveAttribute('aria-busy', 'true');
   });
+
+  it('renders the skeleton with overridden accessibility props', () => {
+    render(
+      <DeferredDetailsSkeleton
+        aria-busy={false}
+        aria-label="loading product details - fallback"
+      />
+    );
+
+    const container = screen.getByRole('status', {
+      name: /loading product details - fallback/i,
+    });
+    expect(container).toBeInTheDocument();
+    expect(container).toHaveAttribute('aria-busy', 'false');
+  });
 });
