@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { StaffAcceptFallback } from '@/app/(platform)/staff/accept/staff-accept-fallback';
 import { createClient } from '@/lib/supabase/server';
+import { staffAcceptSchema } from '@/schemas/staff-accept';
 import ErrorPage from './ErrorPage';
 import InvitePage from './InvitePage';
 
@@ -26,12 +27,12 @@ export async function StaffAcceptPageContent({
   const coercedToken = Array.isArray(rawToken) ? rawToken[0] : rawToken;
   const token = coercedToken?.trim() || undefined;
 
-  // No token provided
-  if (!token) {
+  const result = staffAcceptSchema.safeParse({ token });
+  if (!result.success) {
     return (
       <ErrorPage
         title="Invalid Link"
-        message="No invitation token was provided. Please check your email for the correct link."
+        message={result.error.issues[0].message}
       />
     );
   }
@@ -93,7 +94,7 @@ export async function StaffAcceptPageContent({
         merchantName={merchantName}
         role={invitation.role}
         inviteEmail={invitation.email}
-        token={token}
+        token={result.data.token}
       />
     );
   }
@@ -106,14 +107,14 @@ export async function StaffAcceptPageContent({
         message={`This invitation was sent to ${invitation.email}. Please sign in with that email address.`}
         showLoginLink
         currentEmail={user.email}
-        loginRedirect={`/staff/accept?token=${token}`}
+        loginRedirect={`/staff/accept?token=${result.data.token}`}
       />
     );
   }
 
   // Auto-accept the invitation atomically inside the database under RLS using the secure RPC
   const { error: acceptError } = await supabase.rpc('accept_staff_invite', {
-    p_token: token,
+    p_token: result.data.token,
     p_email: user.email,
   });
 
