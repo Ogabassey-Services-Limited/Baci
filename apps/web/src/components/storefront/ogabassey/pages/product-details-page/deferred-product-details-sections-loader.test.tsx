@@ -67,6 +67,7 @@ describe('DeferredProductDetailsSectionsLoader', () => {
       ref: { current: null },
       isActive: false,
     });
+    mockDynamicState = 'success';
   });
 
   it('renders only the loading fallback skeleton when the viewport is NOT active', () => {
