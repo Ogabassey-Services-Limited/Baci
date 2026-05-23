@@ -13,6 +13,8 @@ describe('crawler observability helpers', () => {
     ['GPTBot/1.0', 'openai', true],
     ['Googlebot/2.1', 'google', true],
     ['ClaudeBot', 'anthropic', true],
+    ['Claude-User', 'anthropic', true],
+    ['Claude-SearchBot', 'anthropic', true],
     ['PerplexityBot', 'perplexity', true],
     ['Bingbot', 'search', false],
     ['InternalAgent', 'generic-agent', true],

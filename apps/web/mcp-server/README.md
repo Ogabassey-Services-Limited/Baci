@@ -13,23 +13,23 @@ This MCP (Model Context Protocol) server enables ChatGPT integration with the Og
 ### Option 1: Docker (Recommended)
 
 ```bash
-# From the mcp-server directory
-cd mcp-server
+# From the repository root
+cd apps/web/mcp-server
 
 # Build and run
-docker-compose up -d
+docker compose up -d
 
 # Check logs
-docker-compose logs -f
+docker compose logs -f
 ```
 
 The server will be available at `http://localhost:8787/mcp`
 
-### Option 2: npm
+### Option 2: pnpm
 
 ```bash
 # From the project root
-npm run mcp
+pnpm --filter @baci/web mcp
 ```
 
 ## Exposing to the Internet
@@ -38,7 +38,7 @@ npm run mcp
 
 ```bash
 # With Docker
-docker-compose --profile dev up -d
+docker compose --profile dev up -d
 
 # Or manually
 ngrok http 8787
@@ -82,12 +82,20 @@ server {
 
 | Tool | Description |
 |------|-------------|
-| `search_products` | Search products by name, price range |
-| `get_product` | Get detailed product information |
+| `browse_categories` | Browse active store categories |
+| `cancel_agentic_checkout_session` | Cancel a mutable signed Baci agentic checkout session |
 | `create_agentic_checkout_session` | Create a signed Baci agentic checkout session with authoritative totals and fulfillment options |
-| `check_order` | Look up order by number or phone |
-| `get_store_info` | Shipping, returns, payment info |
+| `create_cart_link` | Create a storefront cart link for selected products |
+| `get_agentic_checkout_session` | Read a signed Baci agentic checkout session state |
+| `get_brands` | Browse active store brands |
+| `get_product` | Get detailed product information |
+| `get_product_variants` | Get variants, conditions, prices, and availability for a product |
 | `get_recommendations` | AI-powered product recommendations |
+| `get_shipping_quote` | Estimate delivery options for a destination |
+| `get_store_info` | Shipping, returns, payment info |
+| `render_products_widget` | Render product results in the ChatGPT widget UI |
+| `search_products` | Search products by name, price range |
+| `update_agentic_checkout_session` | Update items, shipping details, or fulfillment options on a signed Baci agentic checkout session |
 
 ## Example Prompts
 
@@ -98,6 +106,10 @@ Once connected, users can ask:
 - "Where's my order ORD-12345?"
 - "What's your shipping policy?"
 - "I need a laptop for gaming, budget 800k"
+- "Create a checkout session for two iPhone 15 Pro Max units"
+- "Show me my current checkout session"
+- "Update my checkout session to use my Lagos shipping address"
+- "Cancel my current checkout session"
 
 ## Environment Variables
 

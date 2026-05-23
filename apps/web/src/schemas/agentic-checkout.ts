@@ -62,27 +62,48 @@ export const createAgenticCheckoutSessionInputSchema = z.preprocess(
   })
 );
 
-const agenticCheckoutUpdateBaseSchema = z
-  .object({
-    items: agenticCheckoutItemsSchema.optional(),
-    shipping_address: agenticFulfillmentAddressSchema.nullable().optional(),
-    fulfillment_option_id: z.string().trim().min(1).nullable().optional(),
-  })
-  .refine(
-    (value) =>
-      value.items !== undefined ||
-      value.shipping_address !== undefined ||
-      value.fulfillment_option_id !== undefined,
-    {
-      message:
-        'At least one of items, shipping_address, or fulfillment_option_id is required',
-    }
-  );
+const agenticCheckoutSessionIdInputSchema = z.object({
+  session_id: z.string().trim().min(1, 'Checkout session id is required'),
+});
+
+const agenticCheckoutIdempotencyInputSchema = z.object({
+  idempotency_key: z.string().trim().min(8).max(128).optional(),
+});
+
+const agenticCheckoutUpdateRequiredMessage =
+  'At least one of items, shipping_address, or fulfillment_option_id is required';
+const agenticCheckoutUpdateFieldsSchema = z.object({
+  fulfillment_option_id: z.string().trim().min(1).nullable().optional(),
+  items: agenticCheckoutItemsSchema.optional(),
+  shipping_address: agenticFulfillmentAddressSchema.nullable().optional(),
+});
+const agenticCheckoutUpdateBaseSchema =
+  agenticCheckoutUpdateFieldsSchema.refine(hasAgenticCheckoutUpdateField, {
+    message: agenticCheckoutUpdateRequiredMessage,
+  });
 
 export const agenticCheckoutUpdateSchema = z.preprocess(
   normalizeCheckoutAcpAliases,
   agenticCheckoutUpdateBaseSchema
 );
+
+export const getAgenticCheckoutSessionInputSchema =
+  agenticCheckoutSessionIdInputSchema;
+
+export const updateAgenticCheckoutSessionInputSchema = z.preprocess(
+  normalizeCheckoutAcpAliases,
+  agenticCheckoutSessionIdInputSchema
+    .merge(agenticCheckoutIdempotencyInputSchema)
+    .merge(agenticCheckoutUpdateFieldsSchema)
+    .refine(hasAgenticCheckoutUpdateField, {
+      message: agenticCheckoutUpdateRequiredMessage,
+    })
+);
+
+export const cancelAgenticCheckoutSessionInputSchema =
+  agenticCheckoutSessionIdInputSchema.merge(
+    agenticCheckoutIdempotencyInputSchema
+  );
 
 export const agenticCheckoutBuyerSchema = z.object({
   email: z.string().email(),
@@ -157,6 +178,18 @@ export type AgenticCheckoutCompleteInput = z.infer<
 
 function toUppercaseCurrency(value: string) {
   return value.toUpperCase();
+}
+
+function hasAgenticCheckoutUpdateField(value: {
+  fulfillment_option_id?: unknown;
+  items?: unknown;
+  shipping_address?: unknown;
+}) {
+  return (
+    value.items !== undefined ||
+    value.shipping_address !== undefined ||
+    value.fulfillment_option_id !== undefined
+  );
 }
 
 function normalizeCheckoutAcpAliases(value: unknown): unknown {

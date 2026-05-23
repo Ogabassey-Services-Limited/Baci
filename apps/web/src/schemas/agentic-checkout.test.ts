@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   agenticCheckoutCompleteSchema,
   agenticCheckoutUpdateSchema,
+  cancelAgenticCheckoutSessionInputSchema,
   checkoutSessionSchema,
   createAgenticCheckoutSessionInputSchema,
+  getAgenticCheckoutSessionInputSchema,
+  updateAgenticCheckoutSessionInputSchema,
 } from '@/schemas/agentic-checkout';
 
 describe('checkoutSessionSchema', () => {
@@ -347,6 +350,127 @@ describe('agenticCheckoutUpdateSchema', () => {
     const result = agenticCheckoutUpdateSchema.safeParse({
       fulfillment_option_id: '   ',
     });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('agentic checkout session lifecycle input schemas', () => {
+  it('accepts checkout session reads with a session id', () => {
+    const result = getAgenticCheckoutSessionInputSchema.safeParse({
+      session_id: 'agentic_session_1',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it.each([
+    {},
+    { session_id: '' },
+    { session_id: '   ' },
+  ])('rejects invalid checkout session read input %#', (payload) => {
+    const result = getAgenticCheckoutSessionInputSchema.safeParse(payload);
+
+    expect(result.success).toBe(false);
+  });
+
+  it.each([
+    { items: [{ id: 'product-1', quantity: 1 }] },
+    { shipping_address: { address: '12 Example Street', city: 'Lagos' } },
+    { fulfillment_option_id: 'shipping_standard' },
+  ])('accepts single-field checkout session updates %#', (payload) => {
+    const result = updateAgenticCheckoutSessionInputSchema.safeParse({
+      idempotency_key: 'idem-update-1',
+      session_id: 'agentic_session_1',
+      ...payload,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it('normalizes ACP aliases for checkout session updates', () => {
+    const result = updateAgenticCheckoutSessionInputSchema.safeParse({
+      fulfillment_details: {
+        address: {
+          city: 'Lagos',
+          line_one: '12 Example Street',
+        },
+      },
+      line_items: [{ id: 'product-1', quantity: 2 }],
+      selected_fulfillment_options: [
+        {
+          item_ids: ['line_product-1'],
+          option_id: 'shipping_standard',
+          type: 'shipping',
+        },
+      ],
+      session_id: 'agentic_session_1',
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).toMatchObject({
+        fulfillment_option_id: 'shipping_standard',
+        items: [{ id: 'product-1', quantity: 2 }],
+        shipping_address: {
+          address: '12 Example Street',
+          city: 'Lagos',
+        },
+      });
+    }
+  });
+
+  it('rejects checkout session updates without update fields', () => {
+    const result = updateAgenticCheckoutSessionInputSchema.safeParse({
+      idempotency_key: 'idem-update-1',
+      session_id: 'agentic_session_1',
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it.each([
+    { fulfillment_option_id: 'shipping_standard' },
+    { fulfillment_option_id: 'shipping_standard', session_id: '' },
+    { fulfillment_option_id: 'shipping_standard', session_id: '   ' },
+    {
+      fulfillment_option_id: 'shipping_standard',
+      idempotency_key: 'short',
+      session_id: 'agentic_session_1',
+    },
+    {
+      fulfillment_option_id: 'shipping_standard',
+      idempotency_key: 'x'.repeat(129),
+      session_id: 'agentic_session_1',
+    },
+  ])('rejects invalid checkout session update input %#', (payload) => {
+    const result = updateAgenticCheckoutSessionInputSchema.safeParse(payload);
+
+    expect(result.success).toBe(false);
+  });
+
+  it.each([
+    { session_id: 'agentic_session_1' },
+    {
+      idempotency_key: 'idem-cancel-1',
+      session_id: 'agentic_session_1',
+    },
+  ])('accepts checkout session cancel input %#', (payload) => {
+    const result = cancelAgenticCheckoutSessionInputSchema.safeParse({
+      ...payload,
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it.each([
+    {},
+    { session_id: '' },
+    { session_id: '   ' },
+    { idempotency_key: 'short', session_id: 'agentic_session_1' },
+    { idempotency_key: 'x'.repeat(129), session_id: 'agentic_session_1' },
+  ])('rejects invalid checkout session cancel input %#', (payload) => {
+    const result = cancelAgenticCheckoutSessionInputSchema.safeParse(payload);
 
     expect(result.success).toBe(false);
   });
