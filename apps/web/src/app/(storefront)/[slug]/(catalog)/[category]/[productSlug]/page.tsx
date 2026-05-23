@@ -4,6 +4,7 @@ import { headers } from 'next/headers';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { type ReactNode, Suspense } from 'react';
 import { StorefrontDynamicMetadataMarker } from '@/app/(storefront)/[slug]/storefront-dynamic-metadata-marker';
+import { OgabasseyPdpProductLcpSkeleton } from '@/app/(storefront)/ogabassey/ogabassey-pdp-product-lcp-skeleton';
 import {
   OgabasseyPdpProductResourceHints,
   preloadOgabasseyPdpProductImage,
@@ -814,7 +815,14 @@ export default async function CategoryProductPage({
           productSlug={productSlug}
         />
       </Suspense>
-      <Suspense fallback={null}>
+      <Suspense
+        fallback={
+          <OgabasseyPdpProductLcpSkeleton
+            slug={slug}
+            productSlug={productSlug}
+          />
+        }
+      >
         <CategoryProductPageContent
           slug={slug}
           searchParams={searchParams}
