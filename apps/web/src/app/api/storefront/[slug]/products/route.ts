@@ -3,11 +3,11 @@ import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
 import { STOREFRONT_CACHE } from '@/config/storefront-cache';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
-import { PRODUCT_COLUMNS } from '@/lib/product-queries';
 import {
   coerceStorefrontManageStock,
   getStorefrontAgentAvailability,
 } from '@/lib/storefront-agent-availability';
+import { STOREFRONT_PRODUCTS_SELECT } from '@/lib/storefront-products-select';
 import { storefrontProductsQuerySchema } from '@/schemas/storefront-products-query';
 import { storefrontProductsRouteParamsSchema } from '@/schemas/storefront-products-route-params';
 
@@ -31,6 +31,48 @@ function getStorefrontProductsQueryParams(searchParams: URLSearchParams) {
       searchParams.get(key) ?? undefined,
     ])
   );
+}
+
+function getJoinedCategoryName(product: Record<string, unknown>) {
+  const directCategory = product.categories;
+  if (
+    directCategory &&
+    typeof directCategory === 'object' &&
+    !Array.isArray(directCategory) &&
+    'name' in directCategory &&
+    typeof directCategory.name === 'string' &&
+    directCategory.name.trim()
+  ) {
+    return directCategory.name;
+  }
+
+  const relationCategories = product.product_categories;
+  if (!Array.isArray(relationCategories)) {
+    return null;
+  }
+
+  for (const relation of relationCategories) {
+    if (
+      !relation ||
+      typeof relation !== 'object' ||
+      !('categories' in relation)
+    ) {
+      continue;
+    }
+
+    const category = relation.categories;
+    if (
+      category &&
+      typeof category === 'object' &&
+      'name' in category &&
+      typeof category.name === 'string' &&
+      category.name.trim()
+    ) {
+      return category.name;
+    }
+  }
+
+  return null;
 }
 
 // Map database product to API response format function
@@ -59,7 +101,11 @@ function mapProduct(p: Record<string, unknown>) {
     image: primaryImage,
     imageLarge: primaryImage,
     imageHint: p.image_hint,
-    category: p.category || 'General',
+    category:
+      getJoinedCategoryName(p) ||
+      (typeof p.category === 'string' && p.category.trim()
+        ? p.category
+        : 'General'),
     brand: p.brand,
     status: p.status || 'active',
     has_variants: p.has_variants,
@@ -158,7 +204,7 @@ export async function GET(
     const supabase = createStaticClient(getSupabaseUrl(), getSupabaseAnonKey());
     let productQuery = supabase
       .from('products')
-      .select(PRODUCT_COLUMNS)
+      .select(STOREFRONT_PRODUCTS_SELECT)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .order('created_at', { ascending: false });
