@@ -46,7 +46,36 @@ ngrok http 8787
 
 ### For Production
 
-Deploy to your VPS and set up a reverse proxy (nginx/traefik) pointing to port 8787.
+Production runs Docker Compose behind a reverse proxy. The compose file binds
+MCP to `127.0.0.1:8787`, so nginx/traefik should be the public TLS entrypoint.
+The production VPS keeps secrets in a private `.env` file outside git; pass its
+path as `MCP_REMOTE_ENV_FILE=<PROD_ENV_PATH>`. The repo deploy script copies
+that file into the release as `apps/web/mcp-server/.env` before building the
+container.
+
+```bash
+# From the repository root
+
+# Preview the source bundle without touching the VPS
+MCP_DRY_RUN=1 MCP_VPS_HOST=<VPS_HOST> MCP_VPS_USER=<VPS_USER> .github/scripts/deploy-mcp-server.sh
+
+# Deploy the current checkout
+MCP_VPS_HOST=<VPS_HOST> MCP_VPS_USER=<VPS_USER> .github/scripts/deploy-mcp-server.sh
+```
+
+Provide the real host, user, remote directory, and env path through private
+operator config or CI secrets (`MCP_VPS_HOST`, `MCP_VPS_USER`, optional
+`MCP_REMOTE_DIR`, optional `MCP_REMOTE_ENV_FILE`, optional
+`MCP_RELEASE_KEEP_COUNT`, default `5`). The script packages the MCP application
+source, web build inputs, dependency manifests (not installed `node_modules`),
+and optional patches, uploads them to
+`<MCP_REMOTE_DIR>/releases/<release-id>`, runs
+`docker compose -p ogabassey-mcp up -d --build --remove-orphans`, and verifies
+`http://127.0.0.1:8787/health` before updating the `current` symlink. If the
+new container does not become healthy, it attempts to restore the previously
+running compose release using the previously running container image instead of
+rebuilding during the outage path. Successful deploys prune older release
+directories according to `MCP_RELEASE_KEEP_COUNT`.
 
 Example nginx config:
 ```nginx
