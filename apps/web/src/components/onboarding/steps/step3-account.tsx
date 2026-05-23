@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useFormContext, useWatch } from 'react-hook-form';
-import { sendMagicLink } from '@/app/onboarding/actions';
+import { sendMagicLink } from '@/app/(platform)/onboarding/actions';
 import { PasswordStrengthIndicator } from '@/components/password-strength-indicator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';

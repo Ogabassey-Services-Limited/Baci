@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-@config '../../tailwind.config.ts';
+@config '../../tailwind.storefront.config.ts';
 
 /*
   Storefront theme tokens.
@@ -786,7 +786,7 @@
 }
 
 @utility loaded {
-  &img[loading='lazy'] {
+  & img[loading="lazy"] {
     opacity: 1;
   }
 }

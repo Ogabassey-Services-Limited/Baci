@@ -6,8 +6,10 @@ import { useViewportActivation } from '@/components/storefront/use-viewport-acti
 import { DeferredDetailsSkeleton } from './deferred-details-skeleton';
 import type { DeferredProductDetailsSectionsProps } from './deferred-product-details-sections';
 
-export interface DeferredProductDetailsSectionsLoaderProps
-  extends DeferredProductDetailsSectionsProps {}
+export type DeferredProductDetailsSectionsLoaderProps = Omit<
+  DeferredProductDetailsSectionsProps,
+  'onLoaded'
+>;
 
 const DeferredProductDetailsSections = dynamic(
   () =>
