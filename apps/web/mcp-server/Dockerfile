@@ -17,14 +17,14 @@ ENV NODE_ENV=production
 ENV MCP_PORT=8787
 RUN corepack enable pnpm
 
-COPY --from=deps /app/node_modules /app/node_modules
-COPY --from=deps /app/apps/web/node_modules ./node_modules
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc /app/
-COPY apps/web/package.json ./package.json
-COPY apps/web/tsconfig.json ./tsconfig.json
-COPY apps/web/mcp-server ./mcp-server
-COPY apps/web/src ./src
-COPY packages/shared /app/packages/shared
+COPY --from=deps --chown=node:node /app/node_modules /app/node_modules
+COPY --from=deps --chown=node:node /app/apps/web/node_modules ./node_modules
+COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc /app/
+COPY --chown=node:node apps/web/package.json ./package.json
+COPY --chown=node:node apps/web/tsconfig.json ./tsconfig.json
+COPY --chown=node:node apps/web/mcp-server ./mcp-server
+COPY --chown=node:node apps/web/src ./src
+COPY --chown=node:node packages/shared /app/packages/shared
 
 EXPOSE 8787
 
