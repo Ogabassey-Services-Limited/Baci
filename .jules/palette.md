@@ -30,3 +30,11 @@
 ## 2026-05-23 - Add aria-pressed to toggle buttons
 **Learning:** Toggle buttons (like favorite hearts, color swatches) that modify a boolean state without expanding/collapsing content require `aria-pressed` to accurately inform screen readers of their toggled state.
 **Action:** Always bind `aria-pressed={state}` to any button functioning as a two-state toggle switch that does not expand content.
+
+## 2026-05-23 - Add aria-controls to aria-expanded toggles
+**Learning:** Elements using `aria-expanded` should ideally be paired with `aria-controls` pointing to the ID of the expanded/collapsed container for complete screen reader support.
+**Action:** Always add `aria-controls="id-of-container"` to toggle buttons and ensure the corresponding dropdown containers have matching `id` attributes.
+
+## 2026-05-23 - Suboptimal ARIA label on color swatches
+**Learning:** Using `aria-label={"Select color " + colorName}` alongside `aria-pressed` is redundant because `aria-pressed` already conveys the stateful nature of the button.
+**Action:** Use cleaner labels like `aria-label={colorName}` when using `aria-pressed`.

@@ -160,7 +160,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
                   }`}
                   style={{ backgroundColor: hexColor }}
                   title={colorName}
-                  aria-label={`Select color ${colorName}`}
+                  aria-label={colorName}
                   aria-pressed={isSelected}
                 />
               );

@@ -158,6 +158,7 @@ export const Navbar: React.FC = () => {
                 onClick={() => setIsMenuOpen(true)}
                 aria-label="Open mobile menu"
                 aria-expanded={isMenuOpen}
+                aria-controls="mobile-menu"
               >
                 <Menu size={24} />
               </button>
@@ -197,6 +198,7 @@ export const Navbar: React.FC = () => {
                   onClick={() => setShowNotifications(!showNotifications)}
                   aria-label="Toggle notifications"
                   aria-expanded={showNotifications}
+                  aria-controls="notifications-dropdown"
                 >
                   <Bell size={22} />
                   {/* TODO: notification badge when implemented
@@ -208,7 +210,7 @@ export const Navbar: React.FC = () => {
 
                 {/* Notification Dropdown */}
                 {showNotifications && (
-                  <div className="absolute top-full right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div id="notifications-dropdown" className="absolute top-full right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                     <div className="p-4 border-b border-gray-50 flex justify-between items-center bg-white sticky top-0 z-10">
                       <h3 className="font-bold text-gray-900">Notifications</h3>
                       {/* TODO: mark all read when implemented
@@ -289,7 +291,7 @@ export const Navbar: React.FC = () => {
         initialQuery={query}
       />
 
-      <MobileMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      <MobileMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} id="mobile-menu" />
     </>
   );
 };
