@@ -5,10 +5,14 @@ const DEFAULT_MCP_URL = 'https://mcp.ogabassey.com/mcp';
 const FETCH_ATTEMPTS = 3;
 const FETCH_RETRY_DELAY_MS = 1000;
 const DEFAULT_REQUIRED_TOOLS = [
+  'add_to_cart',
   'browse_categories',
   'cancel_agentic_checkout_session',
+  'check_order',
+  'check_payment_status',
+  'complete_agentic_checkout_session',
   'create_agentic_checkout_session',
-  'create_cart_link',
+  'generate_payment_account',
   'get_agentic_checkout_session',
   'get_brands',
   'get_product',
@@ -16,7 +20,6 @@ const DEFAULT_REQUIRED_TOOLS = [
   'get_recommendations',
   'get_shipping_quote',
   'get_store_info',
-  'render_products_widget',
   'search_products',
   'update_agentic_checkout_session',
 ];

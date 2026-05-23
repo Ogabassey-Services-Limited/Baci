@@ -111,11 +111,14 @@ server {
 
 | Tool | Description |
 |------|-------------|
+| `add_to_cart` | Add a selected product to the in-chat cart handoff |
 | `browse_categories` | Browse active store categories |
 | `cancel_agentic_checkout_session` | Cancel a mutable signed Baci agentic checkout session |
+| `check_order` | Look up order status by order number or phone |
+| `check_payment_status` | Check whether a bank-transfer payment has been received |
 | `complete_agentic_checkout_session` | Complete a signed Baci agentic checkout session with buyer authorization |
 | `create_agentic_checkout_session` | Create a signed Baci agentic checkout session with authoritative totals and fulfillment options |
-| `create_cart_link` | Create a storefront cart link for selected products |
+| `generate_payment_account` | Generate a Paystack dedicated bank account for bank-transfer payment |
 | `get_agentic_checkout_session` | Read a signed Baci agentic checkout session state |
 | `get_brands` | Browse active store brands |
 | `get_product` | Get detailed product information |
@@ -123,7 +126,6 @@ server {
 | `get_recommendations` | AI-powered product recommendations |
 | `get_shipping_quote` | Estimate delivery options for a destination |
 | `get_store_info` | Shipping, returns, payment info |
-| `render_products_widget` | Render product results in the ChatGPT widget UI |
 | `search_products` | Search products by name, price range |
 | `update_agentic_checkout_session` | Update items, shipping details, or fulfillment options on a signed Baci agentic checkout session |
 
