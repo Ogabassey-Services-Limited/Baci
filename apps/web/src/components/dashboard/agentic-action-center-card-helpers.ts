@@ -52,6 +52,10 @@ function formatGeneratedAt(value?: string): string | null {
   }).format(date);
 }
 
+function formatPatternCount(count: number, singular: string): string {
+  return `${count} ${pluralize(singular, count)}`;
+}
+
 function buildAgenticDashboardBriefing(
   actions: AgenticAction[]
 ): AgenticDashboardBriefing {
@@ -111,6 +115,7 @@ function pluralize(noun: string, count: number) {
 export const agenticActionCenterCardHelpers = {
   buildAgenticDashboardBriefing,
   formatGeneratedAt,
+  formatPatternCount,
   getActionHref,
   sumActionCounts,
 };

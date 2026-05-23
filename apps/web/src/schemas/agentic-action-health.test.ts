@@ -119,6 +119,27 @@ describe('agenticActionHealthPayloadSchema', () => {
         },
       }).success
     ).toBe(true);
+    expect(
+      agenticActionHealthPayloadSchema.safeParse({
+        actions: [validAction],
+        request_controls: {
+          allowlist_count: 2,
+          denylist_count: 1,
+          fetch_error: false,
+          is_agentic_checkout_enabled: true,
+        },
+        requests: {
+          recent_count: 1,
+          records: [
+            {
+              api_version: '2026-04-30',
+              created_at: '2026-05-15T03:00:00.000Z',
+              expires_at: '2026-05-15T03:10:00.000Z',
+            },
+          ],
+        },
+      }).success
+    ).toBe(true);
   });
 
   it('rejects malformed action payloads', () => {
@@ -145,6 +166,32 @@ describe('agenticActionHealthPayloadSchema', () => {
       agenticActionHealthPayloadSchema.safeParse({
         actions: [validAction],
         generated_at: 'not-a-valid-date',
+      }).success
+    ).toBe(false);
+    expect(
+      agenticActionHealthPayloadSchema.safeParse({
+        actions: [validAction],
+        request_controls: {
+          allowlist_count: -1,
+          denylist_count: 0,
+          fetch_error: false,
+          is_agentic_checkout_enabled: true,
+        },
+      }).success
+    ).toBe(false);
+    expect(
+      agenticActionHealthPayloadSchema.safeParse({
+        actions: [validAction],
+        requests: {
+          recent_count: 1,
+          records: [
+            {
+              api_version: '2026-04-30',
+              created_at: 'not-a-date',
+              expires_at: '2026-05-15T03:10:00.000Z',
+            },
+          ],
+        },
       }).success
     ).toBe(false);
   });

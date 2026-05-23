@@ -122,6 +122,20 @@ describe('formatGeneratedAt', () => {
   });
 });
 
+describe('formatPatternCount', () => {
+  it('formats singular, zero, and plural count labels', () => {
+    expect(
+      agenticActionCenterCardHelpers.formatPatternCount(1, 'trusted pattern')
+    ).toBe('1 trusted pattern');
+    expect(
+      agenticActionCenterCardHelpers.formatPatternCount(0, 'blocked pattern')
+    ).toBe('0 blocked patterns');
+    expect(
+      agenticActionCenterCardHelpers.formatPatternCount(2, 'recent request')
+    ).toBe('2 recent requests');
+  });
+});
+
 describe('sumActionCounts', () => {
   it('sums finite positive action counts without subtracting negatives', () => {
     expect(

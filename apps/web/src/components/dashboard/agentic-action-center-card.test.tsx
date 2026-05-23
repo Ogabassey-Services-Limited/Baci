@@ -292,6 +292,82 @@ describe('AgenticActionCenterCard', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('renders request controls and recent signed request visibility', () => {
+    render(
+      <AgenticActionCenterCard
+        payload={{
+          actions: [
+            {
+              code: 'AGENTIC_ACTIONS_HEALTHY',
+              count: 0,
+              message: 'No recent agentic action issues need attention.',
+              severity: 'ok',
+            },
+          ],
+          request_controls: {
+            allowlist_count: 2,
+            denylist_count: 1,
+            fetch_error: false,
+            is_agentic_checkout_enabled: true,
+          },
+          requests: {
+            recent_count: 2,
+            records: [
+              {
+                api_version: '2026-04-30',
+                created_at: '2026-05-12T22:40:00.000Z',
+                expires_at: '2026-05-12T22:50:00.000Z',
+              },
+              {
+                api_version: null,
+                created_at: '2026-05-12T22:41:00.000Z',
+                expires_at: '2026-05-12T22:51:00.000Z',
+              },
+            ],
+          },
+        }}
+        state="ready"
+      />
+    );
+
+    expect(screen.getByText('Request controls')).toBeInTheDocument();
+    expect(screen.getByText('Agent checkout enabled')).toBeInTheDocument();
+    expect(screen.getByText('2 trusted patterns')).toBeInTheDocument();
+    expect(screen.getByText('1 blocked pattern')).toBeInTheDocument();
+    expect(screen.getByText('Recent signed requests')).toBeInTheDocument();
+    expect(screen.getByText('2 recent requests')).toBeInTheDocument();
+    expect(screen.getByText('API 2026-04-30')).toBeInTheDocument();
+    expect(screen.getByText('API unknown')).toBeInTheDocument();
+  });
+
+  it('renders request controls error when refresh fails', () => {
+    render(
+      <AgenticActionCenterCard
+        payload={{
+          actions: [
+            {
+              code: 'AGENTIC_ACTIONS_HEALTHY',
+              count: 0,
+              message: 'No recent agentic action issues need attention.',
+              severity: 'ok',
+            },
+          ],
+          request_controls: {
+            allowlist_count: 2,
+            denylist_count: 1,
+            fetch_error: true,
+            is_agentic_checkout_enabled: true,
+          },
+        }}
+        state="ready"
+      />
+    );
+
+    expect(
+      screen.getByText('Controls could not be refreshed.')
+    ).toBeInTheDocument();
+  });
+
   it('uses next_step_url from the payload when present', () => {
     render(
       <AgenticActionCenterCard

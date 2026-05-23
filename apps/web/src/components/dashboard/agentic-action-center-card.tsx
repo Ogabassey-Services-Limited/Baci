@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { agenticActionCenterCardHelpers } from '@/components/dashboard/agentic-action-center-card-helpers';
+import { AgenticRecentSignedRequestsCard } from '@/components/dashboard/agentic-recent-signed-requests-card';
+import { AgenticRequestControlsCard } from '@/components/dashboard/agentic-request-controls-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -100,6 +102,10 @@ export function AgenticActionCenterCard({
           record.state === 'in_progress' || record.state === 'server_error'
       )
       .slice(0, 3) ?? [];
+  const requestControls = payload?.request_controls;
+  const recentRequestRecords = payload?.requests?.records?.slice(0, 3) ?? [];
+  const recentRequestCount =
+    payload?.requests?.recent_count ?? recentRequestRecords.length;
   const statusDescription = failed
     ? 'Agentic checkout health could not be loaded.'
     : attentionCount > 0
@@ -211,6 +217,15 @@ export function AgenticActionCenterCard({
                   ))}
                 </ul>
               </div>
+            )}
+            {requestControls && (
+              <AgenticRequestControlsCard requestControls={requestControls} />
+            )}
+            {recentRequestCount > 0 && (
+              <AgenticRecentSignedRequestsCard
+                recentRequestCount={recentRequestCount}
+                recentRequestRecords={recentRequestRecords}
+              />
             )}
             {actions.map((action) => {
               const tone = getActionTone(action.severity);
