@@ -1,4 +1,3 @@
-import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 import { StaffAcceptFallback } from '@/app/(platform)/staff/accept/staff-accept-fallback';
@@ -36,8 +35,7 @@ export async function StaffAcceptPageContent({
   }
 
   // Get authenticated client
-  const cookieStore = await cookies();
-  const supabase = createClient(cookieStore);
+  const supabase = await createClient();
 
   // Validate invitation token atomically using preview RPC under RLS
   const { data: previewRows, error: previewError } = await supabase.rpc(
@@ -67,17 +65,24 @@ export async function StaffAcceptPageContent({
 
   // Get authenticated user and handle transient auth backend errors explicitly
   const resp = await supabase.auth.getUser();
-  if (resp.error) {
-    console.error('[Staff Accept] Auth getUser error:', resp.error);
-    return (
-      <ErrorPage
-        title="Authentication Error"
-        message="A transient authentication failure occurred. Please refresh or try again later."
-      />
-    );
-  }
+  const user = resp.data?.user || null;
 
-  const user = resp.data.user;
+  if (resp.error) {
+    const isSessionMissing =
+      resp.error.name === 'AuthSessionMissingError' ||
+      resp.error.message?.includes('session') ||
+      resp.error.status === 401;
+
+    if (!isSessionMissing) {
+      console.error('[Staff Accept] Auth getUser error:', resp.error);
+      return (
+        <ErrorPage
+          title="Authentication Error"
+          message="A transient authentication failure occurred. Please refresh or try again later."
+        />
+      );
+    }
+  }
 
   // If not logged in, show invitation preview card
   if (!user) {

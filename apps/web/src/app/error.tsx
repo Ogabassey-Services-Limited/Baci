@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertTriangle, RefreshCcw } from 'lucide-react';
+import './globals.css';
 import { useEffect } from 'react';
 import { PlatformFooter } from '@/components/platform/footer';
 import { PlatformHeader } from '@/components/platform/header';
