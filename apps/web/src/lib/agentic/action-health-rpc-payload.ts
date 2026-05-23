@@ -10,6 +10,7 @@ export interface RequestRow {
   api_version: string | null;
   created_at: string;
   expires_at: string;
+  route: string | null;
 }
 
 export interface CheckoutSessionRow {
@@ -66,6 +67,7 @@ export function parseAgenticActionHealthRpcPayload(value: unknown) {
       api_version: getNullableString(row, 'api_version'),
       created_at: getString(row, 'created_at'),
       expires_at: getString(row, 'expires_at'),
+      route: getNullableString(row, 'route'),
     })),
     sessionRows: toRecordArray(payload.checkout_sessions).map((row) => ({
       metadata: row.metadata,
