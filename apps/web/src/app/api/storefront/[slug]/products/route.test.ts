@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   mockCreateStaticClient,
+  mockProductSelect,
   mockProductLimit,
   mockMerchantSingle,
   mockProductOrder,
@@ -10,6 +11,13 @@ const {
   const mockMerchantSingle = vi.fn();
   const mockProductLimit = vi.fn();
   const mockProductOrder = vi.fn();
+  const mockProductSelect = vi.fn(() => ({
+    eq: vi.fn(() => ({
+      eq: vi.fn(() => ({
+        order: mockProductOrder,
+      })),
+    })),
+  }));
   const mockCreateStaticClient = vi.fn(() => ({
     from: vi.fn((table: string) => {
       if (table === 'merchants') {
@@ -24,13 +32,7 @@ const {
 
       if (table === 'products') {
         return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              eq: vi.fn(() => ({
-                order: mockProductOrder,
-              })),
-            })),
-          })),
+          select: mockProductSelect,
         };
       }
 
@@ -40,6 +42,7 @@ const {
 
   return {
     mockCreateStaticClient,
+    mockProductSelect,
     mockProductLimit,
     mockMerchantSingle,
     mockProductOrder,
@@ -107,6 +110,7 @@ describe('GET /api/storefront/[slug]/products', () => {
     mockMerchantSingle.mockReset();
     mockProductOrder.mockReset();
     mockProductLimit.mockReset();
+    mockProductSelect.mockClear();
   });
 
   it('returns 400 when the route slug is invalid', async () => {
@@ -236,6 +240,46 @@ describe('GET /api/storefront/[slug]/products', () => {
         variant_model: 'sku_matrix',
         available_conditions: ['open_box', 'used'],
         has_condition_offers: true,
+      }),
+    ]);
+  });
+
+  it('uses joined category data for API/feed category parity', async () => {
+    mockMerchantSingle.mockResolvedValue({
+      data: { id: 'merchant-123' },
+      error: null,
+    });
+    mockProductOrder.mockResolvedValue({
+      data: [
+        product({
+          id: 'redmi-a7-pro',
+          name: 'Redmi A7 Pro',
+          category: 'General',
+          categories: {
+            id: 'cat-smartphones',
+            name: 'Smartphones',
+            slug: 'smartphones',
+          },
+          category_id: 'cat-smartphones',
+          slug: 'redmi-a7-pro',
+        }),
+      ],
+      error: null,
+    });
+
+    const response = await requestProducts(
+      'https://example.com/api/storefront/test-store/products'
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockProductSelect).toHaveBeenCalledWith(
+      expect.stringContaining('categories:category_id(id, name, slug)')
+    );
+    expect(data.products).toEqual([
+      expect.objectContaining({
+        id: 'redmi-a7-pro',
+        category: 'Smartphones',
       }),
     ]);
   });
