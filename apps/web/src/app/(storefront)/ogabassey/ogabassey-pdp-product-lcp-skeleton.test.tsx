@@ -1,5 +1,5 @@
 import { renderToString } from 'react-dom/server';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OgabasseyPdpProductLcpSkeleton } from './ogabassey-pdp-product-lcp-skeleton';
 
 vi.mock('server-only', () => ({}));
@@ -38,7 +38,9 @@ const mockMerchant = {
 };
 
 describe('OgabasseyPdpProductLcpSkeleton', () => {
-  vi.clearAllMocks();
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('returns null if merchant does not match template', async () => {
     mockGetRequestScopedMerchant.mockResolvedValueOnce({

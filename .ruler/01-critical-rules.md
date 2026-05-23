@@ -9,7 +9,9 @@
 - **NEVER** add manual `React.memo`, `useCallback`, or `useMemo` — React Compiler handles memoization.
 - **NEVER** add ESLint config files or plugins — we use Biome exclusively.
 - **NEVER** use npm or yarn — this is a pnpm monorepo. Use `pnpm turbo <command>`.
+- **NEVER** run standard cloud builds via Vercel CLI that consume Vercel build minutes (e.g. raw `vercel` or `vercel --prod` without `--prebuilt`). **ALWAYS** build locally on the host VPS using `pnpm turbo build` first, then deploy using `vercel deploy --prebuilt` to save build minutes cost.
 - **NEVER** use `select('*')` — always select specific columns.
+
 
 ## ALWAYS Do
 

@@ -77,7 +77,7 @@ export async function OgabasseyPdpProductLcpSkeleton({
       {/* 2. Primary Product Image Grid Skeleton (Statically painted image) */}
       <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-8">
         <div className="space-y-6 lg:col-span-5">
-          <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-gray-100 bg-gray-50">
+          <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-border/40 bg-muted/5">
             {/* biome-ignore lint/performance/noImgElement: Native HTML img used synchronously inside server-rendered skeleton to ensure instant painting */}
             <img
               src={src}
@@ -103,7 +103,7 @@ export async function OgabasseyPdpProductLcpSkeleton({
         <div className="lg:col-span-4 space-y-6 animate-pulse">
           <div className="h-8 bg-muted/20 rounded w-3/4" />
           <div className="h-6 bg-muted/20 rounded w-1/4" />
-          <hr className="border-gray-100" />
+          <hr className="border-border/40" />
           <div className="h-4 bg-muted/20 rounded w-full" />
           <div className="h-4 bg-muted/20 rounded w-5/6" />
           <div className="h-4 bg-muted/20 rounded w-2/3" />
