@@ -2,6 +2,8 @@
 
 const DEFAULT_HEALTH_URL = 'https://mcp.ogabassey.com/health';
 const DEFAULT_MCP_URL = 'https://mcp.ogabassey.com/mcp';
+const FETCH_ATTEMPTS = 3;
+const FETCH_RETRY_DELAY_MS = 1000;
 const DEFAULT_REQUIRED_TOOLS = [
   'browse_categories',
   'cancel_agentic_checkout_session',
@@ -19,7 +21,7 @@ const DEFAULT_REQUIRED_TOOLS = [
   'update_agentic_checkout_session',
 ];
 
-const timeoutMs = Number(process.env.MCP_SMOKE_TIMEOUT_MS ?? 15000);
+let timeoutMs = 15000;
 const healthUrl = process.env.MCP_HEALTH_URL || DEFAULT_HEALTH_URL;
 const mcpUrl = process.env.MCP_SMOKE_URL || DEFAULT_MCP_URL;
 const requiredTools = parseRequiredTools(
@@ -28,10 +30,12 @@ const requiredTools = parseRequiredTools(
 );
 
 async function main() {
+  timeoutMs = parseTimeoutMs(process.env.MCP_SMOKE_TIMEOUT_MS, timeoutMs);
   await assertHealthy(healthUrl);
   const tools = await listTools(mcpUrl);
   const toolNames = tools.map((tool) => tool.name).sort();
-  const missingTools = requiredTools.filter((tool) => !toolNames.includes(tool));
+  const toolNameSet = new Set(toolNames);
+  const missingTools = requiredTools.filter((tool) => !toolNameSet.has(tool));
 
   if (missingTools.length > 0) {
     throw new Error(
@@ -101,10 +105,31 @@ async function listTools(url) {
 }
 
 async function fetchWithTimeout(url, init) {
-  return fetch(url, {
-    ...init,
-    signal: AbortSignal.timeout(timeoutMs),
-  });
+  let lastError;
+
+  for (let attempt = 1; attempt <= FETCH_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await fetch(url, {
+        ...init,
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+
+      if (response.ok || response.status < 500 || attempt === FETCH_ATTEMPTS) {
+        return response;
+      }
+
+      lastError = new Error(`HTTP ${response.status}`);
+    } catch (error) {
+      if (attempt === FETCH_ATTEMPTS) {
+        throw error;
+      }
+      lastError = error;
+    }
+
+    await sleep(FETCH_RETRY_DELAY_MS * attempt);
+  }
+
+  throw lastError;
 }
 
 function parseRequiredTools(value, fallback) {
@@ -116,6 +141,25 @@ function parseRequiredTools(value, fallback) {
     .filter(Boolean);
 
   return parsed.length > 0 ? parsed : fallback;
+}
+
+function parseTimeoutMs(value, fallback) {
+  if (value == null || value === '') return fallback;
+
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(
+      `Invalid MCP_SMOKE_TIMEOUT_MS: "${value}". Expected a positive integer in milliseconds.`
+    );
+  }
+
+  return parsed;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 main().catch((error) => {
