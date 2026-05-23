@@ -74,6 +74,7 @@ export const agenticActionRequestRecordSchema = z.object({
   api_version: z.string().trim().min(1).nullable(),
   created_at: z.string().datetime({ offset: true }),
   expires_at: z.string().datetime({ offset: true }),
+  route: z.string().trim().min(1).nullable(),
 });
 
 export const agenticActionRequestsSchema = z
