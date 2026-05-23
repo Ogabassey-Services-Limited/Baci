@@ -3,7 +3,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import StaffAcceptPage, {
   StaffAcceptPageContent,
-} from '@/app/staff/accept/page';
+} from '@/app/(platform)/staff/accept/page';
 
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (

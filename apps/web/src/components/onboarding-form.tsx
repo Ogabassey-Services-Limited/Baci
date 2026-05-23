@@ -13,7 +13,7 @@ import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import {
   type ServerActionState,
   submitOnboarding,
-} from '@/app/onboarding/actions';
+} from '@/app/(platform)/onboarding/actions';
 import {
   trackMerchantSignupCompleted,
   trackMerchantSignupStarted,

@@ -90,7 +90,7 @@ Launch the Android dev client with `pnpm --filter baci-mobile-admin android:laun
 | Framework | Next.js 16.0.7 (App Router) |
 | Language | TypeScript 5.5.4 (strict mode) |
 | UI | React 19 + shadcn/ui + Radix UI |
-| Styling | Tailwind CSS 3.4.18 |
+| Styling | Tailwind CSS 4.x (v4.3.0) |
 | Database | Supabase (PostgreSQL with RLS) |
 | Auth | Supabase Auth |
 | State | React Context + Zustand |

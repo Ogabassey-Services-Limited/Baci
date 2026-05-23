@@ -8,7 +8,7 @@ const mockFormAction = vi.fn();
 const mockToast = vi.fn();
 const mockPush = vi.fn();
 
-vi.mock('@/app/onboarding/actions', () => ({
+vi.mock('@/app/(platform)/onboarding/actions', () => ({
   submitOnboarding: vi.fn(),
 }));
 

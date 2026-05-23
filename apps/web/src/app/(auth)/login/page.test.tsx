@@ -15,12 +15,12 @@ const mockLoginClient = vi.hoisted(() =>
   ))
 );
 
-vi.mock('@/app/login/login-client', () => ({
+vi.mock('@/app/(auth)/login/login-client', () => ({
   default: mockLoginClient,
 }));
 
-import LoginLoadingFallback from '@/app/login/login-loading-fallback';
-import LoginPage, { LoginPageContent, metadata } from '@/app/login/page';
+import LoginLoadingFallback from '@/app/(auth)/login/login-loading-fallback';
+import LoginPage, { LoginPageContent, metadata } from '@/app/(auth)/login/page';
 
 describe('LoginPage', () => {
   beforeEach(() => {

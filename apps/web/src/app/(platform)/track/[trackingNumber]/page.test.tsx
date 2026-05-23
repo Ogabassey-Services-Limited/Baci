@@ -1,7 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import TrackingPage from '@/app/track/[trackingNumber]/page';
+import TrackingPage from '@/app/(platform)/track/[trackingNumber]/page';
 
 vi.mock('next/link', () => ({
   default: ({ children, href }: { children: ReactNode; href: string }) => (

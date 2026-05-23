@@ -5,7 +5,7 @@ import {
   getPlatformBlogOgMetadataData,
   type PlatformBlogOgImageData,
   type RemoteImageLoadStatus,
-} from '@/app/blog/[slug]/opengraph-image-data';
+} from '@/app/(platform)/blog/[slug]/opengraph-image-data';
 
 export const size = {
   width: 1200,
