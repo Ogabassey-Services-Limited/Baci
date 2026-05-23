@@ -17,8 +17,8 @@ ENV NODE_ENV=production
 ENV MCP_PORT=8787
 RUN corepack enable pnpm
 
-COPY --from=deps /app/node_modules /app/node_modules
-COPY --from=deps /app/apps/web/node_modules ./node_modules
+COPY --from=deps --chown=node:node /app/node_modules /app/node_modules
+COPY --from=deps --chown=node:node /app/apps/web/node_modules ./node_modules
 COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc /app/
 COPY --chown=node:node apps/web/package.json ./package.json
 COPY --chown=node:node apps/web/tsconfig.json ./tsconfig.json

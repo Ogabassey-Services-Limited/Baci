@@ -5,13 +5,13 @@ const DEFAULT_MCP_URL = 'https://mcp.ogabassey.com/mcp';
 const FETCH_ATTEMPTS = 3;
 const FETCH_RETRY_DELAY_MS = 1000;
 const DEFAULT_REQUIRED_TOOLS = [
+  'add_to_cart',
   'browse_categories',
   'cancel_agentic_checkout_session',
-  'complete_agentic_checkout_session',
-  'create_agentic_checkout_session',
-  'add_to_cart',
   'check_order',
   'check_payment_status',
+  'complete_agentic_checkout_session',
+  'create_agentic_checkout_session',
   'generate_payment_account',
   'get_agentic_checkout_session',
   'get_brands',
