@@ -63,12 +63,34 @@ export const agenticActionIdempotencySchema = z
   })
   .passthrough();
 
+export const agenticActionRequestControlsSchema = z.object({
+  allowlist_count: nonnegativeCountSchema,
+  denylist_count: nonnegativeCountSchema,
+  fetch_error: z.boolean(),
+  is_agentic_checkout_enabled: z.boolean(),
+});
+
+export const agenticActionRequestRecordSchema = z.object({
+  api_version: z.string().trim().min(1).nullable(),
+  created_at: z.string().datetime({ offset: true }),
+  expires_at: z.string().datetime({ offset: true }),
+});
+
+export const agenticActionRequestsSchema = z
+  .object({
+    recent_count: nonnegativeCountSchema.optional(),
+    records: z.array(agenticActionRequestRecordSchema).optional(),
+  })
+  .passthrough();
+
 export const agenticActionHealthPayloadSchema = z
   .object({
     actions: z.array(agenticActionSchema),
     checkout_sessions: agenticActionCheckoutSessionsSchema.optional(),
     generated_at: z.string().datetime().optional(),
     idempotency: agenticActionIdempotencySchema.optional(),
+    request_controls: agenticActionRequestControlsSchema.optional(),
+    requests: agenticActionRequestsSchema.optional(),
   })
   .passthrough();
 
@@ -78,6 +100,9 @@ export type AgenticActionCheckoutSessionRecord = z.infer<
 >;
 export type AgenticActionIdempotencyRecord = z.infer<
   typeof agenticActionIdempotencyRecordSchema
+>;
+export type AgenticActionRequestRecord = z.infer<
+  typeof agenticActionRequestRecordSchema
 >;
 export type AgenticActionHealthPayload = z.infer<
   typeof agenticActionHealthPayloadSchema
