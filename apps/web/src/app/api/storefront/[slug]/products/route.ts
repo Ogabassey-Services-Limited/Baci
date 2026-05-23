@@ -1,13 +1,13 @@
 import { createClient as createStaticClient } from '@supabase/supabase-js';
 import { unstable_cache } from 'next/cache';
 import { type NextRequest, NextResponse } from 'next/server';
-import { storefrontProductsRouteData } from '@/app/api/storefront/products/storefront-products-route-data';
 import { STOREFRONT_CACHE } from '@/config/storefront-cache';
 import { getSupabaseAnonKey, getSupabaseUrl } from '@/env';
 import {
   coerceStorefrontManageStock,
   getStorefrontAgentAvailability,
 } from '@/lib/storefront-agent-availability';
+import { STOREFRONT_PRODUCTS_SELECT } from '@/lib/storefront-products-select';
 import { storefrontProductsQuerySchema } from '@/schemas/storefront-products-query';
 import { storefrontProductsRouteParamsSchema } from '@/schemas/storefront-products-route-params';
 
@@ -204,7 +204,7 @@ export async function GET(
     const supabase = createStaticClient(getSupabaseUrl(), getSupabaseAnonKey());
     let productQuery = supabase
       .from('products')
-      .select(storefrontProductsRouteData.STOREFRONT_PRODUCTS_SELECT)
+      .select(STOREFRONT_PRODUCTS_SELECT)
       .eq('merchant_id', merchantId)
       .eq('status', 'active')
       .order('created_at', { ascending: false });

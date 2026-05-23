@@ -65,10 +65,6 @@ vi.mock('@/env', () => ({
   getSupabaseUrl: vi.fn(() => 'https://example.supabase.co'),
 }));
 
-vi.mock('@/lib/product-queries', () => ({
-  PRODUCT_COLUMNS: 'id,name,images',
-}));
-
 vi.mock('@/lib/product-stock', () => ({
   getEffectiveStock: vi.fn(() => 7),
 }));
@@ -280,6 +276,71 @@ describe('GET /api/storefront/[slug]/products', () => {
       expect.objectContaining({
         id: 'redmi-a7-pro',
         category: 'Smartphones',
+      }),
+    ]);
+  });
+
+  it('falls back through relation categories and legacy category text', async () => {
+    mockMerchantSingle.mockResolvedValue({
+      data: { id: 'merchant-123' },
+      error: null,
+    });
+    mockProductOrder.mockResolvedValue({
+      data: [
+        product({
+          id: 'relation-category-product',
+          name: 'Relation Category Product',
+          category: 'General',
+          categories: null,
+          product_categories: [
+            {
+              categories: {
+                id: 'cat-featured',
+                name: 'Featured Phones',
+                slug: 'featured-phones',
+              },
+            },
+          ],
+        }),
+        product({
+          id: 'legacy-category-product',
+          name: 'Legacy Category Product',
+          category: 'Legacy Accessories',
+          categories: null,
+          product_categories: [],
+        }),
+        product({
+          id: 'default-category-product',
+          name: 'Default Category Product',
+          category: '   ',
+          categories: {},
+          product_categories: [
+            { categories: { name: '   ', slug: 'blank' } },
+            { not_categories: { name: 'Ignored' } },
+          ],
+        }),
+      ],
+      error: null,
+    });
+
+    const response = await requestProducts(
+      'https://example.com/api/storefront/test-store/products'
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.products).toEqual([
+      expect.objectContaining({
+        id: 'relation-category-product',
+        category: 'Featured Phones',
+      }),
+      expect.objectContaining({
+        id: 'legacy-category-product',
+        category: 'Legacy Accessories',
+      }),
+      expect.objectContaining({
+        id: 'default-category-product',
+        category: 'General',
       }),
     ]);
   });
