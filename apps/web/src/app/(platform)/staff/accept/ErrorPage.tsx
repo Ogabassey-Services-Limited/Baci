@@ -47,7 +47,13 @@ export default function ErrorPage({
 
         <div className="space-y-4">
           {showLoginLink && (
-            <Link href={loginRedirect ? `/login?redirect=${encodeURIComponent(loginRedirect)}` : '/login'}>
+            <Link
+              href={
+                loginRedirect
+                  ? `/login?redirect=${encodeURIComponent(loginRedirect)}`
+                  : '/login'
+              }
+            >
               <ThemedButton className="w-full" variant="outline">
                 Sign In with Different Account
               </ThemedButton>
