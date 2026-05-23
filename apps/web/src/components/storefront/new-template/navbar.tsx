@@ -158,7 +158,7 @@ export const Navbar: React.FC = () => {
                 onClick={() => setIsMenuOpen(true)}
                 aria-label="Open mobile menu"
                 aria-expanded={isMenuOpen}
-                aria-controls="mobile-menu"
+                aria-controls={isMenuOpen ? "mobile-menu" : undefined}
               >
                 <Menu size={24} />
               </button>
@@ -198,7 +198,7 @@ export const Navbar: React.FC = () => {
                   onClick={() => setShowNotifications(!showNotifications)}
                   aria-label="Toggle notifications"
                   aria-expanded={showNotifications}
-                  aria-controls="notifications-dropdown"
+                  aria-controls={showNotifications ? "notifications-dropdown" : undefined}
                 >
                   <Bell size={22} />
                   {/* TODO: notification badge when implemented

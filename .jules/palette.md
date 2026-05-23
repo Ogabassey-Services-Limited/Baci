@@ -38,3 +38,7 @@
 ## 2026-05-23 - Suboptimal ARIA label on color swatches
 **Learning:** Using `aria-label={"Select color " + colorName}` alongside `aria-pressed` is redundant because `aria-pressed` already conveys the stateful nature of the button.
 **Action:** Use cleaner labels like `aria-label={colorName}` when using `aria-pressed`.
+
+## 2026-05-23 - Conditionally apply aria-controls for unmounted elements
+**Learning:** If the target of an `aria-controls` attribute is conditionally unmounted (e.g., `return null` when closed instead of hidden via CSS), having a static `aria-controls="id"` on the toggle button will point to a non-existent DOM element, causing an accessibility violation.
+**Action:** When the controlled element is conditionally unmounted, conditionally apply the attribute: `aria-controls={isOpen ? "id-of-container" : undefined}`.
