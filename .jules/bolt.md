@@ -18,3 +18,6 @@
 ## 2025-05-19 - Exact getItemLayout only for fixed-axis FlatLists
 **Learning:** React Native's `getItemLayout` is safe only when each item has an exact, deterministic size on the scroll axis. Rough estimates for text-heavy vertical rows, country lists, addresses, or history cards can corrupt offsets when content wraps or font scaling changes.
 **Action:** Provide `getItemLayout` only when the rendered item enforces the exact scroll-axis dimension, such as a horizontal pager whose item width is the viewport width. Leave variable-height lists to React Native's measurement path.
+## 2025-02-27 - Added staleTime to useDiscounts Hook
+**Learning:** By default, React Query marks cached data as stale immediately. Without a `staleTime`, navigating back and forth to screens that use the `useDiscounts` hook (like product picking or checkout views) results in redundant API calls to Supabase, wasting bandwidth and slowing down the UI.
+**Action:** Always configure an appropriate `staleTime` (e.g., `1000 * 60 * 5` for 5 minutes) in `useQuery` configurations, especially for relatively static entity lists like discount codes, to prevent over-fetching. Depend on explicitly configured invalidations in `useMutation` to refresh the data when updates occur.
