@@ -86,6 +86,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
         {product.colors && product.colors.length > 1 && (
           <>
             <button
+              type="button"
               onClick={handlePrevColor}
               className="absolute -left-2 md:left-2 top-1/2 -translate-y-1/2 z-30 p-2 md:p-1.5 bg-transparent md:bg-white/40 md:backdrop-blur-md border-0 md:border md:border-white/50 rounded-full shadow-none md:shadow-sm text-gray-500 md:text-gray-700 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-200 md:hover:bg-white/60 hover:text-gray-900 pointer-events-auto active:scale-95 touch-manipulation"
               aria-label="Previous color"
@@ -93,6 +94,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
               <ChevronLeft size={24} className="md:w-[18px] md:h-[18px]" />
             </button>
             <button
+              type="button"
               onClick={handleNextColor}
               className="absolute -right-2 md:right-2 top-1/2 -translate-y-1/2 z-30 p-2 md:p-1.5 bg-transparent md:bg-white/40 md:backdrop-blur-md border-0 md:border md:border-white/50 rounded-full shadow-none md:shadow-sm text-gray-500 md:text-gray-700 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all duration-200 md:hover:bg-white/60 hover:text-gray-900 pointer-events-auto active:scale-95 touch-manipulation"
               aria-label="Next color"
@@ -148,6 +150,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
               const isSelected = idx === activeColorIndex;
               return (
                 <button
+                  type="button"
                   key={idx}
                   onClick={(e) => handleColorSelect(e, idx)}
                   className={`rounded-full border border-white shadow-sm transition-all duration-300 ease-out ${
@@ -158,6 +161,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
                   style={{ backgroundColor: hexColor }}
                   title={colorName}
                   aria-label={`Select color ${colorName}`}
+                  aria-pressed={isSelected}
                 />
               );
             })}
@@ -171,6 +175,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
 
         {/* Wishlist Button - Top Right */}
         <button
+          type="button"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -178,6 +183,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
           }}
           className="absolute top-2 right-2 z-20 p-2 rounded-full bg-white/50 md:hover:bg-white active:bg-white backdrop-blur-xs shadow-sm transition-all duration-200 pointer-events-auto group/heart active:scale-90"
           aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+          aria-pressed={isWishlisted}
         >
           <Heart
             size={18}
@@ -191,6 +197,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
 
         {/* Floating Cart Button - Inside Bottom Right */}
         <button
+          type="button"
           onClick={(e) => onAddToCart(e, product)}
           className={`absolute bottom-3 right-3 z-20 h-10 w-10 flex items-center justify-center rounded-full shadow-md border border-gray-100 transition-all duration-200 pointer-events-auto active:scale-90 ${
             isAdded

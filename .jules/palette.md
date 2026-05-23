@@ -26,3 +26,7 @@
 ## 2026-05-21 - Add aria-expanded to toggle buttons
 **Learning:** Toggle buttons (like 'Show more/less') modifying the visual state of content require `aria-expanded` to accurately inform screen readers of their current state.
 **Action:** Always bind `aria-expanded={state}` to any button functioning as an accordion or toggle switch.
+
+## 2026-05-23 - Add aria-pressed to toggle buttons
+**Learning:** Toggle buttons (like favorite hearts, color swatches) that modify a boolean state without expanding/collapsing content require `aria-pressed` to accurately inform screen readers of their toggled state.
+**Action:** Always bind `aria-pressed={state}` to any button functioning as a two-state toggle switch that does not expand content.
