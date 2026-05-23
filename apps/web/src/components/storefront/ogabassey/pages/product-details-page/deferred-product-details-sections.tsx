@@ -10,6 +10,8 @@ import type { NormalizedProductDetails } from './product-details-helpers';
 import { ProductDetailsTabs } from './product-details-tabs';
 import type { ProductDetailsActiveTab } from './use-product-details-state';
 
+import { useEffect } from 'react';
+
 const AdUnit = dynamic(
   () => import('../../components/AdUnit').then((mod) => mod.AdUnit),
   { loading: () => null, ssr: false }
@@ -22,6 +24,7 @@ export interface DeferredProductDetailsSectionsProps {
   productData: NormalizedProductDetails;
   relatedProductsProduct: RelatedProduct;
   storeSlug: string;
+  onLoaded?: () => void;
 }
 
 export function DeferredProductDetailsSections({
@@ -31,7 +34,12 @@ export function DeferredProductDetailsSections({
   productData,
   relatedProductsProduct,
   storeSlug,
+  onLoaded,
 }: DeferredProductDetailsSectionsProps) {
+  useEffect(() => {
+    onLoaded?.();
+  }, [onLoaded]);
+
   return (
     <div className="[content-visibility:auto] [contain-intrinsic-size:1400px_2200px]">
       <div className="mb-12 mt-12">
