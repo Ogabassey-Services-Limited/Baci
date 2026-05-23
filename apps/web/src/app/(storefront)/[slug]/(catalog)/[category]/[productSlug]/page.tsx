@@ -804,6 +804,16 @@ export default async function CategoryProductPage({
   // Start the product fetch first to run in parallel with the preloading lookups
   const productResultPromise = getProduct(slug, category, productSlug);
 
+  // Fetch the merchant and primary LCP image for the skeleton synchronously
+  const merchant = await getRequestScopedMerchant(slug);
+  let primaryProductImage: string | null = null;
+  if (merchant && merchant.template_id === OGABASSEY_TEMPLATE_ID) {
+    primaryProductImage = await getCachedStorefrontProductLcpImage(
+      merchant.id,
+      productSlug
+    );
+  }
+
   return (
     <>
       <Suspense fallback={null}>
@@ -818,8 +828,8 @@ export default async function CategoryProductPage({
       <Suspense
         fallback={
           <OgabasseyPdpProductLcpSkeleton
-            slug={slug}
-            productSlug={productSlug}
+            merchant={merchant}
+            primaryProductImage={primaryProductImage}
           />
         }
       >

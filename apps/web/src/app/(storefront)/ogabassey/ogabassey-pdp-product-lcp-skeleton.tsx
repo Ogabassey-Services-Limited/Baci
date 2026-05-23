@@ -5,28 +5,21 @@ import {
   OGABASSEY_PDP_PRIMARY_IMAGE_SIZES,
 } from '@/components/storefront/ogabassey/config/product-media';
 import { OGABASSEY_TEMPLATE_ID } from '@/config/templates';
-import { getRequestScopedMerchant } from '@/lib/cached-data';
+import type { CachedMerchant } from '@/lib/cached-data';
 import imageLoader from '@/lib/image-loader';
-import { getCachedStorefrontProductLcpImage } from '@/lib/storefront-product-lcp-image';
 
 interface LcpSkeletonProps {
-  slug: string;
-  productSlug: string;
+  merchant: CachedMerchant | null;
+  primaryProductImage: string | null;
 }
 
-export async function OgabasseyPdpProductLcpSkeleton({
-  slug,
-  productSlug,
+export function OgabasseyPdpProductLcpSkeleton({
+  merchant,
+  primaryProductImage,
 }: LcpSkeletonProps) {
-  const merchant = await getRequestScopedMerchant(slug);
   if (!merchant || merchant.template_id !== OGABASSEY_TEMPLATE_ID) {
     return null;
   }
-
-  const primaryProductImage = await getCachedStorefrontProductLcpImage(
-    merchant.id,
-    productSlug
-  );
 
   if (!primaryProductImage) {
     return (
@@ -46,10 +39,8 @@ export async function OgabasseyPdpProductLcpSkeleton({
     );
   }
 
-  const {
-    props: { src, srcSet, sizes },
-  } = getImageProps({
-    alt: 'Product Image',
+  const { props: imgProps } = getImageProps({
+    alt: 'Loading product',
     fill: true,
     loader: imageLoader,
     quality: OGABASSEY_PDP_PRIMARY_IMAGE_QUALITY,
@@ -79,11 +70,9 @@ export async function OgabasseyPdpProductLcpSkeleton({
         <div className="space-y-6 lg:col-span-5">
           <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-border/40 bg-muted/5">
             {/* biome-ignore lint/performance/noImgElement: Native HTML img used synchronously inside server-rendered skeleton to ensure instant painting */}
+            {/* biome-ignore lint/a11y/useAltText: Alt text is provided dynamically via spread of imgProps */}
             <img
-              src={src}
-              srcSet={srcSet}
-              sizes={sizes}
-              alt="Loading product"
+              {...imgProps}
               className="object-cover w-full h-full absolute inset-0"
               fetchPriority="high"
               decoding="sync"

@@ -4,26 +4,14 @@ import { OgabasseyPdpProductLcpSkeleton } from './ogabassey-pdp-product-lcp-skel
 
 vi.mock('server-only', () => ({}));
 
-const { mockGetRequestScopedMerchant, mockGetCachedStorefrontProductLcpImage } =
-  vi.hoisted(() => ({
-    mockGetRequestScopedMerchant: vi.fn(),
-    mockGetCachedStorefrontProductLcpImage: vi.fn(),
-  }));
-
-vi.mock('@/lib/cached-data', () => ({
-  getRequestScopedMerchant: mockGetRequestScopedMerchant,
-}));
-
-vi.mock('@/lib/storefront-product-lcp-image', () => ({
-  getCachedStorefrontProductLcpImage: mockGetCachedStorefrontProductLcpImage,
-}));
-
 const mockGetImageProps = vi.hoisted(() =>
-  vi.fn((props: { src: string; sizes?: string }) => ({
+  vi.fn((props: { src: string; sizes?: string; alt?: string }) => ({
     props: {
       sizes: props.sizes,
       src: props.src,
       srcSet: `${props.src} 640w`,
+      alt: props.alt,
+      style: { position: 'absolute', height: '100%', width: '100%' },
     },
   }))
 );
@@ -42,25 +30,21 @@ describe('OgabasseyPdpProductLcpSkeleton', () => {
     vi.clearAllMocks();
   });
 
-  it('returns null if merchant does not match template', async () => {
-    mockGetRequestScopedMerchant.mockResolvedValueOnce({
-      ...mockMerchant,
-      template_id: 'default',
-    });
-    const result = await OgabasseyPdpProductLcpSkeleton({
-      slug: 'test-store',
-      productSlug: 'test-product',
+  it('returns null if merchant does not match template', () => {
+    const result = OgabasseyPdpProductLcpSkeleton({
+      merchant: {
+        ...mockMerchant,
+        template_id: 'default',
+      } as any,
+      primaryProductImage: 'https://cdn.ogabassey.com/lenovo.avif',
     });
     expect(result).toBeNull();
   });
 
-  it('renders general pulsator fallback if primary LCP image is missing', async () => {
-    mockGetRequestScopedMerchant.mockResolvedValueOnce(mockMerchant);
-    mockGetCachedStorefrontProductLcpImage.mockResolvedValueOnce(null);
-
-    const component = await OgabasseyPdpProductLcpSkeleton({
-      slug: 'test-store',
-      productSlug: 'test-product',
+  it('renders general pulsator fallback if primary LCP image is missing', () => {
+    const component = OgabasseyPdpProductLcpSkeleton({
+      merchant: mockMerchant as any,
+      primaryProductImage: null,
     });
     expect(component).not.toBeNull();
     if (!component) throw new Error('Component is null');
@@ -69,15 +53,10 @@ describe('OgabasseyPdpProductLcpSkeleton', () => {
     expect(html).toContain('animate-pulse');
   });
 
-  it('renders visual grid layout with statically pre-rendered img element when LCP image exists', async () => {
-    mockGetRequestScopedMerchant.mockResolvedValueOnce(mockMerchant);
-    mockGetCachedStorefrontProductLcpImage.mockResolvedValueOnce(
-      'https://cdn.ogabassey.com/lenovo.avif'
-    );
-
-    const component = await OgabasseyPdpProductLcpSkeleton({
-      slug: 'test-store',
-      productSlug: 'test-product',
+  it('renders visual grid layout with statically pre-rendered img element when LCP image exists', () => {
+    const component = OgabasseyPdpProductLcpSkeleton({
+      merchant: mockMerchant as any,
+      primaryProductImage: 'https://cdn.ogabassey.com/lenovo.avif',
     });
     expect(component).not.toBeNull();
     if (!component) throw new Error('Component is null');
@@ -86,6 +65,7 @@ describe('OgabasseyPdpProductLcpSkeleton', () => {
     expect(html).toContain('ogabassey-pdp-lcp-skeleton');
     expect(html).toContain('<img');
     expect(html).toContain('src="https://cdn.ogabassey.com/lenovo.avif"');
+    expect(html).toContain('style="position:absolute;height:100%;width:100%"');
     expect(html).toContain('fetchPriority="high"');
     expect(html).toContain('decoding="sync"');
     expect(html).toContain('Loading product');
