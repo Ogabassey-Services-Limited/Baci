@@ -85,6 +85,9 @@ server {
 | `search_products` | Search products by name, price range |
 | `get_product` | Get detailed product information |
 | `create_agentic_checkout_session` | Create a signed Baci agentic checkout session with authoritative totals and fulfillment options |
+| `get_agentic_checkout_session` | Read a signed Baci agentic checkout session state |
+| `update_agentic_checkout_session` | Update items, shipping details, or fulfillment options on a signed Baci agentic checkout session |
+| `cancel_agentic_checkout_session` | Cancel a mutable signed Baci agentic checkout session |
 | `check_order` | Look up order by number or phone |
 | `get_store_info` | Shipping, returns, payment info |
 | `get_recommendations` | AI-powered product recommendations |
