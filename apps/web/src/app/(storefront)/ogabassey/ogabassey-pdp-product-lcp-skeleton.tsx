@@ -69,8 +69,7 @@ export function OgabasseyPdpProductLcpSkeleton({
       <div className="grid grid-cols-1 gap-12 lg:grid-cols-12 lg:gap-8">
         <div className="space-y-6 lg:col-span-5">
           <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border border-border/40 bg-muted/5">
-            {/* biome-ignore lint/performance/noImgElement: Native HTML img used synchronously inside server-rendered skeleton to ensure instant painting */}
-            {/* biome-ignore lint/a11y/useAltText: Alt text is provided dynamically via spread of imgProps */}
+            {/* biome-ignore lint/performance/noImgElement lint/a11y/useAltText: Native HTML img used synchronously inside server-rendered skeleton to ensure instant painting */}
             <img
               {...imgProps}
               className="object-cover w-full h-full absolute inset-0"

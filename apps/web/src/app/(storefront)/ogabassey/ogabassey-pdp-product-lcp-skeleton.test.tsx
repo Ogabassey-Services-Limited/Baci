@@ -54,12 +54,12 @@ describe('OgabasseyPdpProductLcpSkeleton', () => {
       />
     );
 
-    const skeleton = screen.getByTestId('ogabassey-pdp-lcp-skeleton');
+    const skeleton = screen.getByRole('status', {
+      name: /loading product details/i,
+    });
     expect(skeleton).toBeDefined();
     expect(skeleton.className).toContain('animate-pulse');
-    expect(skeleton.getAttribute('role')).toBe('status');
     expect(skeleton.getAttribute('aria-busy')).toBe('true');
-    expect(skeleton.getAttribute('aria-label')).toBe('Loading product details');
   });
 
   it('renders visual grid layout with statically pre-rendered img element when LCP image exists', () => {
@@ -70,7 +70,9 @@ describe('OgabasseyPdpProductLcpSkeleton', () => {
       />
     );
 
-    const skeleton = screen.getByTestId('ogabassey-pdp-lcp-skeleton');
+    const skeleton = screen.getByRole('status', {
+      name: /loading product details/i,
+    });
     expect(skeleton).toBeDefined();
     expect(skeleton.className).not.toContain('animate-pulse');
 
