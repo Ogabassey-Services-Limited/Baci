@@ -27,6 +27,7 @@ import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import 'dotenv/config';
 import {
+  type AgenticCheckoutClientConfig,
   type AgenticCheckoutSessionRequestResult,
   cancelAgenticCheckoutSession,
   cancelAgenticCheckoutSessionInputSchema,
@@ -52,7 +53,18 @@ const AGENTIC_CHECKOUT_API_BASE_URL =
 const AGENTIC_CHECKOUT_API_KEY = process.env.OPENAI_AGENTIC_API_KEY;
 const AGENTIC_CHECKOUT_SIGNING_KEY = process.env.OPENAI_AGENTIC_SIGNING_KEY;
 
-function getAgenticCheckoutClientConfig() {
+type ConfiguredAgenticCheckoutClientConfig = AgenticCheckoutClientConfig & {
+  apiKey: string;
+  signingKey: string;
+};
+
+function getAgenticCheckoutClientConfig():
+  | ConfiguredAgenticCheckoutClientConfig
+  | null {
+  if (!AGENTIC_CHECKOUT_API_KEY || !AGENTIC_CHECKOUT_SIGNING_KEY) {
+    return null;
+  }
+
   return {
     apiBaseUrl: AGENTIC_CHECKOUT_API_BASE_URL,
     apiKey: AGENTIC_CHECKOUT_API_KEY,
@@ -91,7 +103,7 @@ function getCheckoutSessionField(response: unknown, field: string) {
     return undefined;
   }
 
-  const value = (response as Record<string, unknown>)[field];
+  const value = Object.getOwnPropertyDescriptor(response, field)?.value;
   return typeof value === 'string' ? value : undefined;
 }
 
@@ -1412,228 +1424,235 @@ function createOgabasseyServer() {
     }
   );
 
-  server.registerTool(
-    'create_agentic_checkout_session',
-    {
-      title: 'Create Agentic Checkout Session',
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        openWorldHint: true,
-        idempotentHint: false,
-      },
-      description:
-        'Create a real Baci agentic checkout session through the signed and idempotent /api/agentic/checkout_sessions flow. Use this after the customer chooses products and quantities to get authoritative totals, fulfillment options, and the checkout session id. This does not complete payment or create an order. To safely retry requests on failure, generate a unique idempotency_key before the first request and reuse it for subsequent retries.',
-      inputSchema: createAgenticCheckoutSessionInputSchema,
-      _meta: {
-        'openai/toolInvocation/invoking': 'Creating checkout session...',
-        'openai/toolInvocation/invoked': 'Checkout session created',
-      },
-    },
-    async (args) => {
-      const result = await createAgenticCheckoutSession(
-        args,
-        getAgenticCheckoutClientConfig()
-      );
-
-      if (result.ok === false) {
-        return buildAgenticCheckoutErrorResponse({
-          action: 'create an agentic checkout session',
-          result,
-        });
-      }
-
-      const sessionId =
-        getCheckoutSessionField(result.response, 'id') ?? 'the new session';
-      const checkoutStatus =
-        getCheckoutSessionField(result.response, 'status') ?? 'created';
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text:
-              `✅ Created Baci agentic checkout session **${sessionId}**.\n\n` +
-              `Status: **${checkoutStatus}**\n\n` +
-              'Review the returned totals and fulfillment options before asking the buyer to confirm payment.',
-          },
-        ],
-        structuredContent: {
-          checkout_session: result.response,
-          endpoint: result.endpoint,
-          idempotency_key: result.idempotencyKey,
-          request_id: result.requestId,
-          status: 'success',
+  const agenticCheckoutClientConfig = getAgenticCheckoutClientConfig();
+  if (agenticCheckoutClientConfig) {
+    server.registerTool(
+      'create_agentic_checkout_session',
+      {
+        title: 'Create Agentic Checkout Session',
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          openWorldHint: true,
+          idempotentHint: false,
         },
-      };
-    }
-  );
-
-  server.registerTool(
-    'get_agentic_checkout_session',
-    {
-      title: 'Get Agentic Checkout Session',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        openWorldHint: true,
-        idempotentHint: true,
-      },
-      description:
-        'Read the current state of a Baci agentic checkout session with a signed request. Use this after creating or updating a session to confirm totals, fulfillment options, payment state, and status.',
-      inputSchema: getAgenticCheckoutSessionInputSchema,
-      _meta: {
-        'openai/toolInvocation/invoking': 'Reading checkout session...',
-        'openai/toolInvocation/invoked': 'Checkout session loaded',
-      },
-    },
-    async (args) => {
-      const result = await getAgenticCheckoutSession(
-        args,
-        getAgenticCheckoutClientConfig()
-      );
-
-      if (result.ok === false) {
-        return buildAgenticCheckoutErrorResponse({
-          action: 'read the agentic checkout session',
-          result,
-        });
-      }
-
-      const sessionId =
-        getCheckoutSessionField(result.response, 'id') ?? args.session_id;
-      const checkoutStatus =
-        getCheckoutSessionField(result.response, 'status') ?? 'unknown';
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text:
-              `Checkout session **${sessionId}** is **${checkoutStatus}**.\n\n` +
-              'Use the returned totals and fulfillment options as the authoritative checkout state.',
-          },
-        ],
-        structuredContent: {
-          checkout_session: result.response,
-          endpoint: result.endpoint,
-          request_id: result.requestId,
-          status: 'success',
+        description:
+          'Create a real Baci agentic checkout session through the signed and idempotent /api/agentic/checkout_sessions flow. Use this after the customer chooses products and quantities to get authoritative totals, fulfillment options, and the checkout session id. This does not complete payment or create an order. To safely retry requests on failure, generate a unique idempotency_key before the first request and reuse it for subsequent retries.',
+        inputSchema: createAgenticCheckoutSessionInputSchema,
+        _meta: {
+          'openai/toolInvocation/invoking': 'Creating checkout session...',
+          'openai/toolInvocation/invoked': 'Checkout session created',
         },
-      };
-    }
-  );
-
-  server.registerTool(
-    'update_agentic_checkout_session',
-    {
-      title: 'Update Agentic Checkout Session',
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: false,
-        openWorldHint: true,
-        idempotentHint: false,
       },
-      description:
-        'Update a Baci agentic checkout session through the signed and idempotent /api/agentic/checkout_sessions/{session_id} flow. Use this to change items, add or replace shipping details, or select a fulfillment option before payment confirmation. To safely retry, generate a unique idempotency_key before the first request and reuse it for retries.',
-      inputSchema: updateAgenticCheckoutSessionInputSchema,
-      _meta: {
-        'openai/toolInvocation/invoking': 'Updating checkout session...',
-        'openai/toolInvocation/invoked': 'Checkout session updated',
-      },
-    },
-    async (args) => {
-      const result = await updateAgenticCheckoutSession(
-        args,
-        getAgenticCheckoutClientConfig()
-      );
+      async (args) => {
+        const result = await createAgenticCheckoutSession(
+          args,
+          agenticCheckoutClientConfig
+        );
 
-      if (result.ok === false) {
-        return buildAgenticCheckoutErrorResponse({
-          action: 'update the agentic checkout session',
-          result,
-        });
-      }
+        if (result.ok === false) {
+          return buildAgenticCheckoutErrorResponse({
+            action: 'create an agentic checkout session',
+            result,
+          });
+        }
 
-      const sessionId =
-        getCheckoutSessionField(result.response, 'id') ?? args.session_id;
-      const checkoutStatus =
-        getCheckoutSessionField(result.response, 'status') ?? 'updated';
+        const sessionId =
+          getCheckoutSessionField(result.response, 'id') ?? 'the new session';
+        const checkoutStatus =
+          getCheckoutSessionField(result.response, 'status') ?? 'created';
 
-      return {
-        content: [
-          {
-            type: 'text',
-            text:
-              `Updated checkout session **${sessionId}**.\n\n` +
-              `Status: **${checkoutStatus}**\n\n` +
-              'Review the returned totals and fulfillment options before asking the buyer to confirm payment.',
+        return {
+          content: [
+            {
+              type: 'text',
+              text:
+                `✅ Created Baci agentic checkout session **${sessionId}**.\n\n` +
+                `Status: **${checkoutStatus}**\n\n` +
+                'Review the returned totals and fulfillment options before asking the buyer to confirm payment.',
+            },
+          ],
+          structuredContent: {
+            checkout_session: result.response,
+            endpoint: result.endpoint,
+            idempotency_key: result.idempotencyKey,
+            request_id: result.requestId,
+            status: 'success',
           },
-        ],
-        structuredContent: {
-          checkout_session: result.response,
-          endpoint: result.endpoint,
-          idempotency_key: result.idempotencyKey,
-          request_id: result.requestId,
-          status: 'success',
-        },
-      };
-    }
-  );
-
-  server.registerTool(
-    'cancel_agentic_checkout_session',
-    {
-      title: 'Cancel Agentic Checkout Session',
-      annotations: {
-        readOnlyHint: false,
-        destructiveHint: true,
-        openWorldHint: true,
-        idempotentHint: false,
-      },
-      description:
-        'Cancel a mutable Baci agentic checkout session through the signed and idempotent /api/agentic/checkout_sessions/{session_id}/cancel flow. Use this only when the buyer abandons checkout or asks to discard the session. To safely retry, generate a unique idempotency_key before the first request and reuse it for retries.',
-      inputSchema: cancelAgenticCheckoutSessionInputSchema,
-      _meta: {
-        'openai/toolInvocation/invoking': 'Canceling checkout session...',
-        'openai/toolInvocation/invoked': 'Checkout session canceled',
-      },
-    },
-    async (args) => {
-      const result = await cancelAgenticCheckoutSession(
-        args,
-        getAgenticCheckoutClientConfig()
-      );
-
-      if (result.ok === false) {
-        return buildAgenticCheckoutErrorResponse({
-          action: 'cancel the agentic checkout session',
-          result,
-        });
+        };
       }
+    );
 
-      const sessionId =
-        getCheckoutSessionField(result.response, 'id') ?? args.session_id;
-      const checkoutStatus =
-        getCheckoutSessionField(result.response, 'status') ?? 'canceled';
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Canceled checkout session **${sessionId}**. Status: **${checkoutStatus}**.`,
-          },
-        ],
-        structuredContent: {
-          checkout_session: result.response,
-          endpoint: result.endpoint,
-          idempotency_key: result.idempotencyKey,
-          request_id: result.requestId,
-          status: 'success',
+    server.registerTool(
+      'get_agentic_checkout_session',
+      {
+        title: 'Get Agentic Checkout Session',
+        annotations: {
+          readOnlyHint: true,
+          destructiveHint: false,
+          openWorldHint: true,
+          idempotentHint: true,
         },
-      };
-    }
-  );
+        description:
+          'Read the current state of a Baci agentic checkout session with a signed request. Use this after creating or updating a session to confirm totals, fulfillment options, payment state, and status.',
+        inputSchema: getAgenticCheckoutSessionInputSchema,
+        _meta: {
+          'openai/toolInvocation/invoking': 'Reading checkout session...',
+          'openai/toolInvocation/invoked': 'Checkout session loaded',
+        },
+      },
+      async (args) => {
+        const result = await getAgenticCheckoutSession(
+          args,
+          agenticCheckoutClientConfig
+        );
+
+        if (result.ok === false) {
+          return buildAgenticCheckoutErrorResponse({
+            action: 'read the agentic checkout session',
+            result,
+          });
+        }
+
+        const sessionId =
+          getCheckoutSessionField(result.response, 'id') ?? args.session_id;
+        const checkoutStatus =
+          getCheckoutSessionField(result.response, 'status') ?? 'unknown';
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text:
+                `Checkout session **${sessionId}** is **${checkoutStatus}**.\n\n` +
+                'Use the returned totals and fulfillment options as the authoritative checkout state.',
+            },
+          ],
+          structuredContent: {
+            checkout_session: result.response,
+            endpoint: result.endpoint,
+            request_id: result.requestId,
+            status: 'success',
+          },
+        };
+      }
+    );
+
+    server.registerTool(
+      'update_agentic_checkout_session',
+      {
+        title: 'Update Agentic Checkout Session',
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: false,
+          openWorldHint: true,
+          idempotentHint: false,
+        },
+        description:
+          'Update a Baci agentic checkout session through the signed and idempotent /api/agentic/checkout_sessions/{session_id} flow. Use this to change items, add or replace shipping details, or select a fulfillment option before payment confirmation. To safely retry, generate a unique idempotency_key before the first request and reuse it for retries.',
+        inputSchema: updateAgenticCheckoutSessionInputSchema,
+        _meta: {
+          'openai/toolInvocation/invoking': 'Updating checkout session...',
+          'openai/toolInvocation/invoked': 'Checkout session updated',
+        },
+      },
+      async (args) => {
+        const result = await updateAgenticCheckoutSession(
+          args,
+          agenticCheckoutClientConfig
+        );
+
+        if (result.ok === false) {
+          return buildAgenticCheckoutErrorResponse({
+            action: 'update the agentic checkout session',
+            result,
+          });
+        }
+
+        const sessionId =
+          getCheckoutSessionField(result.response, 'id') ?? args.session_id;
+        const checkoutStatus =
+          getCheckoutSessionField(result.response, 'status') ?? 'updated';
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text:
+                `Updated checkout session **${sessionId}**.\n\n` +
+                `Status: **${checkoutStatus}**\n\n` +
+                'Review the returned totals and fulfillment options before asking the buyer to confirm payment.',
+            },
+          ],
+          structuredContent: {
+            checkout_session: result.response,
+            endpoint: result.endpoint,
+            idempotency_key: result.idempotencyKey,
+            request_id: result.requestId,
+            status: 'success',
+          },
+        };
+      }
+    );
+
+    server.registerTool(
+      'cancel_agentic_checkout_session',
+      {
+        title: 'Cancel Agentic Checkout Session',
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: true,
+          openWorldHint: true,
+          idempotentHint: false,
+        },
+        description:
+          'Cancel a mutable Baci agentic checkout session through the signed and idempotent /api/agentic/checkout_sessions/{session_id}/cancel flow. Use this only when the buyer abandons checkout or asks to discard the session. To safely retry, generate a unique idempotency_key before the first request and reuse it for retries.',
+        inputSchema: cancelAgenticCheckoutSessionInputSchema,
+        _meta: {
+          'openai/toolInvocation/invoking': 'Canceling checkout session...',
+          'openai/toolInvocation/invoked': 'Checkout session canceled',
+        },
+      },
+      async (args) => {
+        const result = await cancelAgenticCheckoutSession(
+          args,
+          agenticCheckoutClientConfig
+        );
+
+        if (result.ok === false) {
+          return buildAgenticCheckoutErrorResponse({
+            action: 'cancel the agentic checkout session',
+            result,
+          });
+        }
+
+        const sessionId =
+          getCheckoutSessionField(result.response, 'id') ?? args.session_id;
+        const checkoutStatus =
+          getCheckoutSessionField(result.response, 'status') ?? 'canceled';
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Canceled checkout session **${sessionId}**. Status: **${checkoutStatus}**.`,
+            },
+          ],
+          structuredContent: {
+            checkout_session: result.response,
+            endpoint: result.endpoint,
+            idempotency_key: result.idempotencyKey,
+            request_id: result.requestId,
+            status: 'success',
+          },
+        };
+      }
+    );
+  } else {
+    console.warn(
+      'Agentic checkout tools disabled: missing OPENAI_AGENTIC_API_KEY or OPENAI_AGENTIC_SIGNING_KEY'
+    );
+  }
 
   // Tool: Get product details
   server.registerTool(

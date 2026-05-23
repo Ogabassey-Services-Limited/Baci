@@ -126,6 +126,31 @@ describe('createAgenticCheckoutSession', () => {
     });
     expect(JSON.stringify(result)).not.toContain('signing-secret');
   });
+
+  it('returns a structured failure when request preparation throws', async () => {
+    const fetchImpl = vi.fn();
+
+    const result = await createAgenticCheckoutSession(
+      { items: [{ id: 'product-1', quantity: 1 }] },
+      {
+        apiBaseUrl: 'https://ogabassey.com',
+        apiKey: 'agentic-api-key',
+        fetchImpl,
+        requestIdFactory: () => {
+          throw new Error('request id failed');
+        },
+        signingKey: 'signing-secret',
+      }
+    );
+
+    expect(result).toMatchObject({
+      error: 'request id failed',
+      ok: false,
+      status: 502,
+    });
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(JSON.stringify(result)).not.toContain('signing-secret');
+  });
 });
 
 describe('getAgenticCheckoutSession', () => {
@@ -342,6 +367,14 @@ describe('updateAgenticCheckoutSession', () => {
         country_code: 'NG',
       },
     });
+    expect(init.headers).toMatchObject({
+      'api-version': AGENTIC_CHECKOUT_API_VERSION,
+      authorization: 'Bearer agentic-api-key',
+      'content-type': 'application/json',
+      'request-id': 'request-1',
+      timestamp: '2026-05-21T12:00:00.000Z',
+      'user-agent': AGENTIC_CHECKOUT_USER_AGENT,
+    });
     const headers = init.headers as Record<string, string>;
     expect(headers['idempotency-key']).toBe('idem-update-1');
     expect(headers.signature).toBe(
@@ -477,6 +510,13 @@ describe('cancelAgenticCheckoutSession', () => {
     const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
     expect(init.method).toBe('POST');
     expect(init.body).toBeUndefined();
+    expect(init.headers).toMatchObject({
+      'api-version': AGENTIC_CHECKOUT_API_VERSION,
+      authorization: 'Bearer agentic-api-key',
+      'request-id': 'request-1',
+      timestamp: '2026-05-21T12:00:00.000Z',
+      'user-agent': AGENTIC_CHECKOUT_USER_AGENT,
+    });
     const headers = init.headers as Record<string, string>;
     expect(headers['idempotency-key']).toBe('idem-cancel-1');
     expect(headers.signature).toBe(
@@ -534,10 +574,36 @@ describe('cancelAgenticCheckoutSession', () => {
     );
 
     expect(result).toMatchObject({
+      error: 'Invalid checkout session cancel input',
       ok: false,
       status: 400,
     });
-    expect(result.error).toContain('session_id');
+    expect(JSON.stringify(result.details)).toContain('session_id');
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('uses a generic cancel validation message for invalid idempotency keys', async () => {
+    const fetchImpl = vi.fn();
+
+    const result = await cancelAgenticCheckoutSession(
+      {
+        idempotency_key: 'short',
+        session_id: 'agentic_session_1',
+      },
+      {
+        apiBaseUrl: 'https://ogabassey.com',
+        apiKey: 'agentic-api-key',
+        fetchImpl,
+        signingKey: 'signing-secret',
+      }
+    );
+
+    expect(result).toMatchObject({
+      error: 'Invalid checkout session cancel input',
+      ok: false,
+      status: 400,
+    });
+    expect(JSON.stringify(result.details)).toContain('idempotency_key');
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 

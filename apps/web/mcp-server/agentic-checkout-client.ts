@@ -1,47 +1,21 @@
 import { createHmac, randomUUID } from 'node:crypto';
-import { z } from 'zod';
+import type { z } from 'zod';
 import {
+  cancelAgenticCheckoutSessionInputSchema,
   agenticCheckoutItemsSchema,
   agenticFulfillmentAddressSchema,
   createAgenticCheckoutSessionInputSchema,
+  getAgenticCheckoutSessionInputSchema,
+  updateAgenticCheckoutSessionInputSchema,
 } from '../src/schemas/agentic-checkout';
 
-const agenticCheckoutSessionIdInputSchema = z.object({
-  session_id: z.string().trim().min(1, 'Checkout session id is required'),
-});
-const agenticCheckoutIdempotencyInputSchema = z.object({
-  idempotency_key: z.string().trim().min(8).max(128).optional(),
-});
-
-export const getAgenticCheckoutSessionInputSchema =
-  agenticCheckoutSessionIdInputSchema;
-export const updateAgenticCheckoutSessionInputSchema =
-  agenticCheckoutSessionIdInputSchema
-    .merge(agenticCheckoutIdempotencyInputSchema)
-    .extend({
-      fulfillment_option_id: z.string().trim().min(1).nullable().optional(),
-      items: agenticCheckoutItemsSchema.optional(),
-      shipping_address: agenticFulfillmentAddressSchema.nullable().optional(),
-    })
-    .refine(
-      (value) =>
-        value.items !== undefined ||
-        value.shipping_address !== undefined ||
-        value.fulfillment_option_id !== undefined,
-      {
-        message:
-          'At least one of items, shipping_address, or fulfillment_option_id is required',
-      }
-    );
-export const cancelAgenticCheckoutSessionInputSchema =
-  agenticCheckoutSessionIdInputSchema.merge(
-    agenticCheckoutIdempotencyInputSchema
-  );
-
 export {
+  cancelAgenticCheckoutSessionInputSchema,
   agenticCheckoutItemsSchema,
   agenticFulfillmentAddressSchema,
   createAgenticCheckoutSessionInputSchema,
+  getAgenticCheckoutSessionInputSchema,
+  updateAgenticCheckoutSessionInputSchema,
 };
 
 export const AGENTIC_CHECKOUT_API_VERSION = '2026-04-30';
@@ -176,7 +150,7 @@ export async function cancelAgenticCheckoutSession(
   if (!parsed.success) {
     return {
       details: parsed.error.flatten(),
-      error: 'Invalid checkout session cancel input: session_id is required',
+      error: 'Invalid checkout session cancel input',
       ok: false,
       status: 400,
     };
@@ -213,38 +187,39 @@ async function sendAgenticCheckoutRequest({
     };
   }
 
-  const endpoint = buildAgenticCheckoutUrl(config.apiBaseUrl, pathname);
-  const requestId =
-    config.requestIdFactory?.() ?? `mcp_checkout_${randomUUID()}`;
-  const timestamp = (config.now?.() ?? new Date()).toISOString();
-  const requestBody = body === undefined ? '' : JSON.stringify(body);
-  const signature = signAgenticRequest({
-    apiVersion: AGENTIC_CHECKOUT_API_VERSION,
-    body: requestBody,
-    idempotencyKey: idempotencyKey ?? '',
-    method,
-    pathname,
-    requestId,
-    signingKey: config.signingKey,
-    timestamp,
-  });
-  const fetchImpl = config.fetchImpl ?? fetch;
-  const headers: Record<string, string> = {
-    'api-version': AGENTIC_CHECKOUT_API_VERSION,
-    authorization: `Bearer ${config.apiKey}`,
-    'request-id': requestId,
-    signature,
-    timestamp,
-    'user-agent': AGENTIC_CHECKOUT_USER_AGENT,
-  };
-  if (body !== undefined) {
-    headers['content-type'] = 'application/json';
-  }
-  if (idempotencyKey) {
-    headers['idempotency-key'] = idempotencyKey;
-  }
-
+  let endpoint: string | undefined;
+  let requestId: string | undefined;
   try {
+    endpoint = buildAgenticCheckoutUrl(config.apiBaseUrl, pathname);
+    requestId = config.requestIdFactory?.() ?? `mcp_checkout_${randomUUID()}`;
+    const timestamp = (config.now?.() ?? new Date()).toISOString();
+    const requestBody = body === undefined ? '' : JSON.stringify(body);
+    const signature = signAgenticRequest({
+      apiVersion: AGENTIC_CHECKOUT_API_VERSION,
+      body: requestBody,
+      idempotencyKey: idempotencyKey ?? '',
+      method,
+      pathname,
+      requestId,
+      signingKey: config.signingKey,
+      timestamp,
+    });
+    const fetchImpl = config.fetchImpl ?? fetch;
+    const headers: Record<string, string> = {
+      'api-version': AGENTIC_CHECKOUT_API_VERSION,
+      authorization: `Bearer ${config.apiKey}`,
+      'request-id': requestId,
+      signature,
+      timestamp,
+      'user-agent': AGENTIC_CHECKOUT_USER_AGENT,
+    };
+    if (body !== undefined) {
+      headers['content-type'] = 'application/json';
+    }
+    if (idempotencyKey) {
+      headers['idempotency-key'] = idempotencyKey;
+    }
+
     const requestInit: RequestInit = {
       headers,
       method,

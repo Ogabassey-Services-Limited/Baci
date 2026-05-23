@@ -101,6 +101,10 @@ Once connected, users can ask:
 - "Where's my order ORD-12345?"
 - "What's your shipping policy?"
 - "I need a laptop for gaming, budget 800k"
+- "Create a checkout session for two iPhone 15 Pro Max units"
+- "Show me my current checkout session"
+- "Update my checkout session to use my Lagos shipping address"
+- "Cancel my current checkout session"
 
 ## Environment Variables
 
