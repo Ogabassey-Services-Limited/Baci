@@ -76,18 +76,26 @@ export default function AgenticDashboardClientPage({
           </CardHeader>
         </Card>
       ) : !isPublished ? (
-        <Card className="border-border/70">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Bot className="h-5 w-5 text-primary" />
-              Agentic centers are paused
-            </CardTitle>
-            <CardDescription>
-              Publish your storefront before agent checkout and trust readiness
-              checks appear here.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+        <div className="space-y-4">
+          <Card className="border-border/70">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Bot className="h-5 w-5 text-primary" />
+                Agentic centers are paused
+              </CardTitle>
+              <CardDescription>
+                Publish your storefront before agent checkout and trust
+                readiness checks appear here.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+          {agentControls ? (
+            <AgentCommerceControlsCard
+              initialCustomSettings={agentControls.customSettings}
+              initialEnabled={agentControls.enabled}
+            />
+          ) : null}
+        </div>
       ) : (
         <Tabs defaultValue={defaultTab} className="space-y-4">
           <TabsList aria-label="Agentic commerce center tabs">
