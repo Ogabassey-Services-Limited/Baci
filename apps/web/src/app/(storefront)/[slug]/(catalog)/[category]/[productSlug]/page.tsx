@@ -808,12 +808,10 @@ export default async function CategoryProductPage({
       <Suspense fallback={null}>
         <StorefrontDynamicMetadataMarker />
       </Suspense>
-      <Suspense fallback={null}>
-        <OgabasseyPdpProductImagePreloadWrapper
-          slug={slug}
-          productSlug={productSlug}
-        />
-      </Suspense>
+      <OgabasseyPdpProductImagePreloadWrapper
+        slug={slug}
+        productSlug={productSlug}
+      />
       <Suspense fallback={null}>
         <CategoryProductPageContent
           slug={slug}
