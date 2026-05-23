@@ -129,7 +129,13 @@ describe('AgenticDashboardClientPage', () => {
       />
     );
 
-    expect(screen.getByText('Agentic centers are paused')).toBeInTheDocument();
+    const pausedTitle = screen.getByText('Agentic centers are paused');
+    const controlsCard = screen
+      .getByText(/Controls card content:true:/)
+      .closest('section');
+    expect(pausedTitle).toBeInTheDocument();
+    expect(controlsCard).not.toBeNull();
+    expect(controlsCard?.parentElement).toContainElement(pausedTitle);
     expect(screen.queryByRole('tab')).not.toBeInTheDocument();
   });
 
