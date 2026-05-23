@@ -7,6 +7,6 @@ export const staffAcceptSchema = z.object({
       invalid_type_error: 'Invitation token is required',
     })
     .min(1, 'Invitation token is required')
-    .max(100, 'Invalid invitation token format')
+    .max(255, 'Invalid invitation token format')
     .regex(/^[a-zA-Z0-9_-]+$/, 'Invalid invitation token characters'),
 });

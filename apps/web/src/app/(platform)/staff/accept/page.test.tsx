@@ -1,3 +1,4 @@
+import type { User } from '@supabase/supabase-js';
 import { render, screen } from '@testing-library/react';
 import { redirect } from 'next/navigation';
 import type { ReactElement, ReactNode } from 'react';
@@ -43,10 +44,30 @@ const mockInvite = {
   email: 'invitee@example.com',
 };
 
+interface MockRpcResponse {
+  data?: Array<{
+    merchant_business_name: string | null;
+    role: string;
+    email: string;
+  }> | null;
+  error: { message: string } | null;
+}
+
+interface MockGetUserResponse {
+  data: {
+    user: Partial<User> | null;
+  };
+  error: {
+    name: string;
+    message: string;
+    status: number;
+  } | null;
+}
+
 async function renderPageContent(
   searchParams: SearchParamsInput,
-  mockRpcValues: any[],
-  mockUserValue?: any
+  mockRpcValues: MockRpcResponse[],
+  mockUserValue?: MockGetUserResponse
 ) {
   for (const val of mockRpcValues) {
     mockRpc.mockResolvedValueOnce(val);

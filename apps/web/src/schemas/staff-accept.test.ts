@@ -4,10 +4,12 @@ import { staffAcceptSchema } from './staff-accept';
 describe('staffAcceptSchema', () => {
   it('successfully validates standard alphanumeric tokens with hyphens and underscores', () => {
     const validTokens = [
+      'a', // 1-character boundary case
       'token-abc-123',
       'invite_token_123',
       'abc123XYZ',
       'some-very-long-token-with-many-parts_and-12345',
+      'a'.repeat(255), // 255-character maximum boundary case
     ];
 
     for (const token of validTokens) {
@@ -30,7 +32,7 @@ describe('staffAcceptSchema', () => {
   });
 
   it('rejects tokens exceeding maximum length limits', () => {
-    const longToken = 'a'.repeat(101);
+    const longToken = 'a'.repeat(256);
     const result = staffAcceptSchema.safeParse({ token: longToken });
     expect(result.success).toBe(false);
     if (!result.success) {
