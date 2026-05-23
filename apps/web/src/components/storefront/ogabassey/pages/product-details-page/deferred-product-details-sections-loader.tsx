@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import { useState } from 'react';
 import { useViewportActivation } from '@/components/storefront/use-viewport-activation';
 import { DeferredDetailsSkeleton } from './deferred-details-skeleton';
 import type { DeferredProductDetailsSectionsProps } from './deferred-product-details-sections';
@@ -34,17 +35,22 @@ export function DeferredProductDetailsSectionsLoader(
     timeoutMs: 0,
   });
 
+  const [isLoaded, setIsLoaded] = useState(false);
+
   return (
     <div
       ref={ref}
       role="status"
       aria-live="polite"
-      aria-busy={!isActive}
-      aria-label={isActive ? 'Product details loaded' : 'Loading product details...'}
+      aria-busy={!isLoaded}
+      aria-label={isLoaded ? 'Product details loaded' : 'Loading product details...'}
       className="w-full"
     >
       {isActive ? (
-        <DeferredProductDetailsSections {...props} />
+        <DeferredProductDetailsSections
+          {...props}
+          onLoaded={() => setIsLoaded(true)}
+        />
       ) : (
         <DeferredDetailsSkeleton
           role=""

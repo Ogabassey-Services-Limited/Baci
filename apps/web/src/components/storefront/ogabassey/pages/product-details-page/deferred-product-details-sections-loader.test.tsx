@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect } from 'react';
 import type { Product as RelatedProduct } from '@/lib/products';
 import type { NormalizedProductDetails } from './product-details-helpers';
 import type { ProductDetailsActiveTab } from './use-product-details-state';
@@ -20,7 +20,17 @@ vi.mock('next/dynamic', () => {
       options?: { loading?: () => ReactNode }
     ) => {
       const FallbackComponent = options?.loading || (() => null);
-      return function MockDynamic(props: DeferredProductDetailsSectionsLoaderProps) {
+      return function MockDynamic(
+        props: DeferredProductDetailsSectionsLoaderProps & { onLoaded?: () => void }
+      ) {
+        const { onLoaded, ...restProps } = props;
+
+        useEffect(() => {
+          if (mockDynamicState === 'success') {
+            onLoaded?.();
+          }
+        }, [onLoaded]);
+
         if (mockDynamicState === 'loading') {
           return <FallbackComponent />;
         }
@@ -28,9 +38,9 @@ vi.mock('next/dynamic', () => {
           return <div role="alert">Failed to load details</div>;
         }
         return (
-          <section aria-label={`Deferred Details for ${props.productData?.name}`}>
+          <section aria-label={`Deferred Details for ${restProps.productData?.name}`}>
             <h1>Mock Deferred Product Sections</h1>
-            <p>{props.productData?.name}</p>
+            <p>{restProps.productData?.name}</p>
           </section>
         );
       };
@@ -114,10 +124,10 @@ describe('DeferredProductDetailsSectionsLoader', () => {
     render(<DeferredProductDetailsSectionsLoader {...baseProps} />);
 
     const wrapper = screen.getByRole('status', {
-      name: /product details loaded/i,
+      name: /loading product details/i,
     });
     expect(wrapper).toBeInTheDocument();
-    expect(wrapper).toHaveAttribute('aria-busy', 'false');
+    expect(wrapper).toHaveAttribute('aria-busy', 'true');
   });
 
   it('renders an error fallback when dynamic import fails and viewport IS active', () => {
