@@ -322,7 +322,7 @@ describe('GET /api/merchant/agentic/action-health', () => {
     });
   });
 
-  it('logs a warning and skips allowlist monitor actions when control lookup fails', async () => {
+  it('logs a warning and surfaces an action when control lookup fails', async () => {
     mockAuthenticateApiRequest.mockResolvedValue({
       error: null,
       supabase: createSupabaseMock({
@@ -344,11 +344,13 @@ describe('GET /api/merchant/agentic/action-health', () => {
     expect(response.status).toBe(200);
     expect(payload.actions).toEqual([
       {
-        code: 'AGENTIC_ACTIONS_HEALTHY',
-        count: 0,
-        message: 'No recent agentic action issues need attention.',
-        next_step: 'No action required right now.',
-        severity: 'ok',
+        code: 'AGENTIC_REQUEST_CONTROLS_UNAVAILABLE',
+        count: 1,
+        message: 'Agent request controls could not be loaded.',
+        next_step:
+          'Open Trust settings and confirm agent request controls are available before advertising checkout.',
+        next_step_url: '/dashboard/settings/trust#agent-checkout-controls',
+        severity: 'attention',
       },
     ]);
     expect(payload.request_controls).toEqual({

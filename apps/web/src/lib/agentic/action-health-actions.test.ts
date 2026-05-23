@@ -19,6 +19,8 @@ const expectedNextStepsByCode = {
   AGENTIC_ACTIONS_HEALTHY: 'No action required right now.',
   AGENTIC_AGENT_ALLOWLIST_UNSET:
     'Open Trust settings and configure trusted agent user-agents before broadly advertising checkout.',
+  AGENTIC_REQUEST_CONTROLS_UNAVAILABLE:
+    'Open Trust settings and confirm agent request controls are available before advertising checkout.',
   AGENTIC_CHECKOUT_COMPLETE_ERRORS:
     'Inspect completion failures, then retry checkout completion with the same idempotency key.',
   AGENTIC_IDEMPOTENCY_ERRORS:
@@ -42,6 +44,8 @@ const expectedNextStepsByCode = {
 const expectedNextStepUrlsByCode = {
   AGENTIC_ACTIONS_HEALTHY: undefined,
   AGENTIC_AGENT_ALLOWLIST_UNSET:
+    '/dashboard/settings/trust#agent-checkout-controls',
+  AGENTIC_REQUEST_CONTROLS_UNAVAILABLE:
     '/dashboard/settings/trust#agent-checkout-controls',
   AGENTIC_CHECKOUT_COMPLETE_ERRORS:
     '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_CHECKOUT_COMPLETE_ERRORS',
@@ -75,6 +79,7 @@ describe('buildAgenticHealthActions', () => {
         paymentClaimingCount: 6,
         paymentPendingCount: 7,
         paymentSetupFailedCount: 4,
+        requestControlFetchError: true,
         staleInProgressCount: 1,
         stalePaymentPendingCount: 8,
         terminalErrorCount: 2,
@@ -125,6 +130,12 @@ describe('buildAgenticHealthActions', () => {
         count: 8,
         next_step_url:
           '/dashboard/orders?source=agentic&agentic_issue=AGENTIC_PAYMENT_PENDING_STALE',
+        severity: 'attention',
+      },
+      {
+        code: 'AGENTIC_REQUEST_CONTROLS_UNAVAILABLE',
+        count: 1,
+        next_step_url: '/dashboard/settings/trust#agent-checkout-controls',
         severity: 'attention',
       },
       {
@@ -230,6 +241,25 @@ describe('buildAgenticHealthActions', () => {
     ]);
   });
 
+  it('surfaces request-control lookup failures before healthy state', () => {
+    const input = {
+      ...healthyInput,
+      requestControlFetchError: true,
+    };
+
+    expect(buildAgenticHealthActions(input)).toEqual([
+      {
+        code: 'AGENTIC_REQUEST_CONTROLS_UNAVAILABLE',
+        count: 1,
+        message: 'Agent request controls could not be loaded.',
+        next_step:
+          'Open Trust settings and confirm agent request controls are available before advertising checkout.',
+        next_step_url: '/dashboard/settings/trust#agent-checkout-controls',
+        severity: 'attention',
+      },
+    ]);
+  });
+
   it('returns a single healthy action when no issue counts are present', () => {
     expect(buildAgenticHealthActions(healthyInput)).toEqual([
       {
@@ -252,6 +282,7 @@ describe('buildAgenticHealthActions', () => {
       paymentClaimingCount: 6,
       paymentPendingCount: 7,
       paymentSetupFailedCount: 4,
+      requestControlFetchError: true,
       staleInProgressCount: 1,
       stalePaymentPendingCount: 8,
       terminalErrorCount: 2,
