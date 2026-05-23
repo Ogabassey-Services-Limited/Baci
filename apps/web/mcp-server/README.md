@@ -113,6 +113,7 @@ server {
 |------|-------------|
 | `browse_categories` | Browse active store categories |
 | `cancel_agentic_checkout_session` | Cancel a mutable signed Baci agentic checkout session |
+| `complete_agentic_checkout_session` | Complete a signed Baci agentic checkout session with buyer authorization |
 | `create_agentic_checkout_session` | Create a signed Baci agentic checkout session with authoritative totals and fulfillment options |
 | `create_cart_link` | Create a storefront cart link for selected products |
 | `get_agentic_checkout_session` | Read a signed Baci agentic checkout session state |
@@ -138,6 +139,7 @@ Once connected, users can ask:
 - "Create a checkout session for two iPhone 15 Pro Max units"
 - "Show me my current checkout session"
 - "Update my checkout session to use my Lagos shipping address"
+- "Complete my checkout session with my confirmed payment authorization"
 - "Cancel my current checkout session"
 
 ## Environment Variables
