@@ -318,11 +318,13 @@ describe('AgenticActionCenterCard', () => {
                 api_version: '2026-04-30',
                 created_at: '2026-05-12T22:40:00.000Z',
                 expires_at: '2026-05-12T22:50:00.000Z',
+                route: 'checkout_sessions.create',
               },
               {
                 api_version: null,
                 created_at: '2026-05-12T22:41:00.000Z',
                 expires_at: '2026-05-12T22:51:00.000Z',
+                route: null,
               },
             ],
           },
@@ -338,6 +340,7 @@ describe('AgenticActionCenterCard', () => {
     expect(screen.getByText('Recent signed requests')).toBeInTheDocument();
     expect(screen.getByText('2 recent requests')).toBeInTheDocument();
     expect(screen.getByText('API 2026-04-30')).toBeInTheDocument();
+    expect(screen.getByText('checkout sessions create')).toBeInTheDocument();
     expect(screen.getByText('API unknown')).toBeInTheDocument();
   });
 
