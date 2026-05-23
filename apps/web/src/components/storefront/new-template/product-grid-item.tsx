@@ -182,7 +182,7 @@ export const ProductGridItem: React.FC<ProductGridItemProps> = ({
             onToggleWishlist(e);
           }}
           className="absolute top-2 right-2 z-20 p-2 rounded-full bg-white/50 md:hover:bg-white active:bg-white backdrop-blur-xs shadow-sm transition-all duration-200 pointer-events-auto group/heart active:scale-90"
-          aria-label={isWishlisted ? "Remove from wishlist" : "Add to wishlist"}
+          aria-label="Toggle wishlist"
           aria-pressed={isWishlisted}
         >
           <Heart
