@@ -31,3 +31,8 @@
 **Vulnerability:** Use of custom `x-cron-secret` HTTP header for secret passing in cron endpoints (`publish-scheduled-posts`, `wallet-payouts`, `insurance/claims/sync`).
 **Learning:** Some background endpoints were using a custom header which is a bad security practice because proxies and other intermediators might strip them or log them improperly. Furthermore, using a standard `Authorization: Bearer <secret>` header ensures consistency across the codebase and aligns with the expected format from calling clients.
 **Prevention:** Always prefer using the standard `Authorization` HTTP header with a bearer token for authentication. In the Baci monorepo, cron endpoints should use the standard `Authorization` header fallback, extracting it and passing it to `constantTimeEqual()` against `getCronSecret()`.
+
+## 2026-05-23 - Fix Timing Attack Vulnerability in Crawler Log API
+**Vulnerability:** The crawler log endpoint (`apps/web/src/app/api/analytics/crawler-log/route.ts`) was using strict string equality (`===`) to compare the incoming `Authorization` header against the expected internal API secret, exposing the endpoint to potential timing attacks.
+**Learning:** Internal service-to-service endpoints and webhook routes often process authentication via simple shared secrets passed in headers. Using strict equality (`===`) for these comparisons is a common anti-pattern that creates timing side-channels, even for internal or "non-critical" analytics endpoints.
+**Prevention:** Always use `constantTimeEqual` from `@/lib/constant-time-equal` for comparing secrets, API keys, or tokens. Ensure that inputs from headers are explicitly null-coalesced to strings (e.g., `?? ''`) to satisfy type requirements before comparison.
