@@ -13,23 +13,23 @@ This MCP (Model Context Protocol) server enables ChatGPT integration with the Og
 ### Option 1: Docker (Recommended)
 
 ```bash
-# From the mcp-server directory
-cd mcp-server
+# From the repository root
+cd apps/web/mcp-server
 
 # Build and run
-docker-compose up -d
+docker compose up -d
 
 # Check logs
-docker-compose logs -f
+docker compose logs -f
 ```
 
 The server will be available at `http://localhost:8787/mcp`
 
-### Option 2: npm
+### Option 2: pnpm
 
 ```bash
 # From the project root
-npm run mcp
+pnpm --filter @baci/web mcp
 ```
 
 ## Exposing to the Internet
@@ -38,7 +38,7 @@ npm run mcp
 
 ```bash
 # With Docker
-docker-compose --profile dev up -d
+docker compose --profile dev up -d
 
 # Or manually
 ngrok http 8787
