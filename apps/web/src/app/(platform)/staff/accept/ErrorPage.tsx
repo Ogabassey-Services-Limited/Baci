@@ -8,6 +8,7 @@ export interface ErrorPageProps {
   message: string;
   showLoginLink?: boolean;
   currentEmail?: string;
+  loginRedirect?: string;
 }
 
 export default function ErrorPage({
@@ -15,6 +16,7 @@ export default function ErrorPage({
   message,
   showLoginLink = false,
   currentEmail,
+  loginRedirect,
 }: ErrorPageProps) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-red-500/5 to-orange-500/5 p-4">
@@ -45,7 +47,7 @@ export default function ErrorPage({
 
         <div className="space-y-4">
           {showLoginLink && (
-            <Link href="/login">
+            <Link href={loginRedirect ? `/login?redirect=${encodeURIComponent(loginRedirect)}` : '/login'}>
               <ThemedButton className="w-full" variant="outline">
                 Sign In with Different Account
               </ThemedButton>

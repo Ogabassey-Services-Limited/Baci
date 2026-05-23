@@ -6,7 +6,7 @@ import ErrorPage from './ErrorPage';
 import InvitePage from './InvitePage';
 
 interface AcceptPageProps {
-  searchParams: Promise<{ token?: string }>;
+  searchParams: Promise<{ token?: string | string[] }>;
 }
 
 export default function StaffAcceptPage(props: AcceptPageProps) {
@@ -22,7 +22,9 @@ export async function StaffAcceptPageContent({
   searchParams,
 }: AcceptPageProps) {
   const params = await searchParams;
-  const token = params.token;
+  const rawToken = params.token;
+  const coercedToken = Array.isArray(rawToken) ? rawToken[0] : rawToken;
+  const token = coercedToken?.trim() || undefined;
 
   // No token provided
   if (!token) {
@@ -104,6 +106,7 @@ export async function StaffAcceptPageContent({
         message={`This invitation was sent to ${invitation.email}. Please sign in with that email address.`}
         showLoginLink
         currentEmail={user.email}
+        loginRedirect={`/staff/accept?token=${token}`}
       />
     );
   }

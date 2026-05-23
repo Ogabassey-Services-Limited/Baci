@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-@config '../../tailwind.storefront.config.ts';
+@config '../../../tailwind.storefront.config.ts';
 
 /*
   Storefront theme tokens.
