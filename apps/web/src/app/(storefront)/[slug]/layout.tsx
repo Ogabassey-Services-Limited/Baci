@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import '../storefront-globals.css';
 import { notFound } from 'next/navigation';
 import type React from 'react';
 import { Suspense } from 'react';

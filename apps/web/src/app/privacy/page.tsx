@@ -1,3 +1,4 @@
+import '@/app/globals.css';
 import type { Metadata } from 'next';
 import AppBody from '@/components/app-body';
 import { PlatformFooter } from '@/components/platform/footer';

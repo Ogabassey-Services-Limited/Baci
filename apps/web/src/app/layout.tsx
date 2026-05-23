@@ -4,7 +4,6 @@ import { Suspense } from 'react';
 import { RootDynamicBody } from '@/app/root-dynamic-body';
 import { Toaster } from '@/components/ui/toaster';
 import { PLATFORM_CONFIG } from '@/config/platform';
-import './globals.css';
 
 const inter = Inter({
   subsets: ['latin'],

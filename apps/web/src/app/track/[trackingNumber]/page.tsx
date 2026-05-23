@@ -1,5 +1,6 @@
 'use client';
 
+import '@/app/globals.css';
 import { AlertCircle, ArrowLeft, Loader2, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import { Suspense, use, useEffect, useState } from 'react';

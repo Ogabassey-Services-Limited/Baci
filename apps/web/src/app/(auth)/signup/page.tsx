@@ -1,3 +1,4 @@
+import '@/app/globals.css';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Suspense } from 'react';

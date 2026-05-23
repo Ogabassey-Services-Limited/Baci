@@ -1,3 +1,4 @@
+import '@/app/globals.css';
 import { Mail, MapPin, Phone } from 'lucide-react';
 import type { Metadata } from 'next';
 import AppBody from '@/components/app-body';

@@ -1,5 +1,6 @@
 'use client';
 
+import '@/app/globals.css';
 import { createBrowserClient } from '@supabase/ssr';
 import {
   Building2,

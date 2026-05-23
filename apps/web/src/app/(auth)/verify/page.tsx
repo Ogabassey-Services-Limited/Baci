@@ -1,3 +1,4 @@
+import '@/app/globals.css';
 import { Loader2 } from 'lucide-react';
 import type { Metadata } from 'next';
 import { Suspense } from 'react';

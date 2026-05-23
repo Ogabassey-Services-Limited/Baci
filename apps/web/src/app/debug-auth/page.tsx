@@ -1,5 +1,6 @@
 'use client';
 
+import '@/app/globals.css';
 import type { Session } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/auth-context';

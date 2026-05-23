@@ -1,3 +1,4 @@
+import '@/app/globals.css';
 import { ArrowLeft, Calendar, Clock } from 'lucide-react';
 import type { Metadata } from 'next';
 import Image from 'next/image';

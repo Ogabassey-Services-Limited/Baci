@@ -1,3 +1,4 @@
+import '@/app/globals.css';
 import { Check, Sparkles } from 'lucide-react';
 import type { Metadata, Route } from 'next';
 import Link from 'next/link';

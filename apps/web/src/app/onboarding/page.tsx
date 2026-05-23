@@ -1,3 +1,4 @@
+import '@/app/globals.css';
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { OnboardingPageContentServer } from './onboarding-page-content-server';

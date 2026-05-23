@@ -11,6 +11,7 @@ import {
   Zap,
 } from 'lucide-react';
 import Link from 'next/link';
+import '@/app/globals.css';
 import AppBody from '@/components/app-body';
 import { FAQItem } from '@/components/landing/faq-item';
 import { MetricCard } from '@/components/landing/metric-card';
