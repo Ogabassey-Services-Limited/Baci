@@ -68,7 +68,8 @@ describe('AgenticActionCenterCard', () => {
     expect(
       screen.getByText('Review affected checkout activity before agents retry.')
     ).toBeInTheDocument();
-    expect(screen.getByText('Recent activity')).toBeInTheDocument();
+    expect(screen.getByText('Checkout session health')).toBeInTheDocument();
+    expect(screen.getByText('1 recent session')).toBeInTheDocument();
     expect(screen.getByText('session-2')).toBeInTheDocument();
     expect(screen.getByText('moved to Order Finalizing.')).toBeInTheDocument();
     expect(screen.getByText('2 open')).toBeInTheDocument();
