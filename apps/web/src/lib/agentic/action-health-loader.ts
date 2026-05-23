@@ -229,6 +229,7 @@ export async function loadAgenticActionHealth(
       paymentClaimingCount,
       paymentPendingCount: paymentPendingCount - stalePaymentPendingCount,
       paymentSetupFailedCount,
+      requestControlFetchError: requestControlSummary.error !== null,
       staleInProgressCount,
       stalePaymentPendingCount,
       terminalErrorCount,

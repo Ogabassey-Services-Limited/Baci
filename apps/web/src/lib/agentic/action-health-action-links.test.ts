@@ -22,10 +22,13 @@ describe('getAgenticActionNextStepUrl', () => {
     );
   });
 
-  it('maps allowlist guidance code to trust settings', () => {
+  it('maps trust-settings guidance codes to trust settings', () => {
     expect(getAgenticActionNextStepUrl('AGENTIC_AGENT_ALLOWLIST_UNSET')).toBe(
       AGENTIC_TRUST_SETTINGS_HREF
     );
+    expect(
+      getAgenticActionNextStepUrl('AGENTIC_REQUEST_CONTROLS_UNAVAILABLE')
+    ).toBe(AGENTIC_TRUST_SETTINGS_HREF);
   });
 
   it('returns undefined for unknown action codes', () => {

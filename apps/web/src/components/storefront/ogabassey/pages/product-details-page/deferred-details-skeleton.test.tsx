@@ -27,7 +27,6 @@ describe('DeferredDetailsSkeleton', () => {
     expect(container).toBeInTheDocument();
     expect(container).toHaveAttribute('aria-busy', 'false');
   });
-
   it('verifies the component\'s passive fallback semantics', () => {
     const { container } = render(
       <DeferredDetailsSkeleton

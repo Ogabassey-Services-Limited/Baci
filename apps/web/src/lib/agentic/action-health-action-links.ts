@@ -20,7 +20,10 @@ function getIssueSpecificOrdersHref(code: string) {
 
 export function getAgenticActionNextStepUrl(code: string): string | undefined {
   if (ORDER_REVIEW_CODES.has(code)) return getIssueSpecificOrdersHref(code);
-  if (code === 'AGENTIC_AGENT_ALLOWLIST_UNSET')
+  if (
+    code === 'AGENTIC_AGENT_ALLOWLIST_UNSET' ||
+    code === 'AGENTIC_REQUEST_CONTROLS_UNAVAILABLE'
+  )
     return AGENTIC_TRUST_SETTINGS_HREF;
   return undefined;
 }
