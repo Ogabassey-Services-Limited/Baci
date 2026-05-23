@@ -201,8 +201,6 @@ knip-results.json
 
 # Additional Custom Ignores for Vercel CLI
 .worktrees/
-apps/mobile-admin/
-apps/mobile-storefront/
 samsung_jumia_v2/
 samsung_deploy_stage/
 vps-workers/

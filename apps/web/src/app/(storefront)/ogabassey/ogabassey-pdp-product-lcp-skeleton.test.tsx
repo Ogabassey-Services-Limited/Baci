@@ -1,5 +1,6 @@
-import { renderToString } from 'react-dom/server';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { CachedMerchant } from '@/lib/cached-data';
 import { OgabasseyPdpProductLcpSkeleton } from './ogabassey-pdp-product-lcp-skeleton';
 
 vi.mock('server-only', () => ({}));
@@ -31,43 +32,57 @@ describe('OgabasseyPdpProductLcpSkeleton', () => {
   });
 
   it('returns null if merchant does not match template', () => {
-    const result = OgabasseyPdpProductLcpSkeleton({
-      merchant: {
-        ...mockMerchant,
-        template_id: 'default',
-      } as any,
-      primaryProductImage: 'https://cdn.ogabassey.com/lenovo.avif',
-    });
-    expect(result).toBeNull();
+    const { container } = render(
+      <OgabasseyPdpProductLcpSkeleton
+        merchant={
+          {
+            ...mockMerchant,
+            template_id: 'default',
+          } as unknown as CachedMerchant
+        }
+        primaryProductImage="https://cdn.ogabassey.com/lenovo.avif"
+      />
+    );
+    expect(container.firstChild).toBeNull();
   });
 
   it('renders general pulsator fallback if primary LCP image is missing', () => {
-    const component = OgabasseyPdpProductLcpSkeleton({
-      merchant: mockMerchant as any,
-      primaryProductImage: null,
-    });
-    expect(component).not.toBeNull();
-    if (!component) throw new Error('Component is null');
-    const html = renderToString(component);
-    expect(html).toContain('ogabassey-pdp-lcp-skeleton');
-    expect(html).toContain('animate-pulse');
+    render(
+      <OgabasseyPdpProductLcpSkeleton
+        merchant={mockMerchant as unknown as CachedMerchant}
+        primaryProductImage={null}
+      />
+    );
+
+    const skeleton = screen.getByTestId('ogabassey-pdp-lcp-skeleton');
+    expect(skeleton).toBeDefined();
+    expect(skeleton.className).toContain('animate-pulse');
+    expect(skeleton.getAttribute('role')).toBe('status');
+    expect(skeleton.getAttribute('aria-busy')).toBe('true');
+    expect(skeleton.getAttribute('aria-label')).toBe('Loading product details');
   });
 
   it('renders visual grid layout with statically pre-rendered img element when LCP image exists', () => {
-    const component = OgabasseyPdpProductLcpSkeleton({
-      merchant: mockMerchant as any,
-      primaryProductImage: 'https://cdn.ogabassey.com/lenovo.avif',
-    });
-    expect(component).not.toBeNull();
-    if (!component) throw new Error('Component is null');
-    const html = renderToString(component);
+    render(
+      <OgabasseyPdpProductLcpSkeleton
+        merchant={mockMerchant as unknown as CachedMerchant}
+        primaryProductImage="https://cdn.ogabassey.com/lenovo.avif"
+      />
+    );
 
-    expect(html).toContain('ogabassey-pdp-lcp-skeleton');
-    expect(html).toContain('<img');
-    expect(html).toContain('src="https://cdn.ogabassey.com/lenovo.avif"');
-    expect(html).toContain('style="position:absolute;height:100%;width:100%"');
-    expect(html).toContain('fetchPriority="high"');
-    expect(html).toContain('decoding="sync"');
-    expect(html).toContain('Loading product');
+    const skeleton = screen.getByTestId('ogabassey-pdp-lcp-skeleton');
+    expect(skeleton).toBeDefined();
+    expect(skeleton.className).not.toContain('animate-pulse');
+
+    const img = screen.getByRole('img', {
+      name: /loading product/i,
+    }) as HTMLImageElement;
+    expect(img).toBeDefined();
+    expect(img.src).toBe('https://cdn.ogabassey.com/lenovo.avif');
+    expect(img.style.position).toBe('absolute');
+    expect(img.style.height).toBe('100%');
+    expect(img.style.width).toBe('100%');
+    expect(img.getAttribute('fetchpriority')).toBe('high');
+    expect(img.getAttribute('decoding')).toBe('sync');
   });
 });
