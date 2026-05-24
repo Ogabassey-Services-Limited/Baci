@@ -43,3 +43,7 @@
 ## 2026-05-21 - Tab Layout Theming
 **Learning:** Tab Layout requires adapting colors for multiple UI parts.
 **Action:** Use theme instead of hardcoding.
+
+## 2026-05-24 - Replace Hardcoded Third-Party Brand Colors
+**Learning:** Hardcoding static brand colors like `#000000` for Amazon or `#FF9900` for Jumia fails to adapt to system themes, causing unreadable text or invisible icons in dark mode.
+**Action:** Replace hardcoded third-party colors with adaptive semantic tokens (e.g., using `colors.text` for black containers with `colors.background` for the inner icon, or mapping to close semantic values like `colors.orange`) to ensure accessibility across both themes.

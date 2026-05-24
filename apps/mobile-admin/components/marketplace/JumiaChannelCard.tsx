@@ -214,7 +214,7 @@ export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
   return (
     <View style={[styles.card, { backgroundColor: colors.card }, shadows.sm]}>
       <View style={styles.channelHeader}>
-        <View style={[styles.iconContainer, { backgroundColor: '#FF9900' }]}>
+        <View style={[styles.iconContainer, { backgroundColor: colors.orange }]}>
           <Text style={styles.iconText}>J</Text>
         </View>
         <View style={styles.channelInfo}>
@@ -277,13 +277,13 @@ export function JumiaChannelCard({ colors, shadows }: JumiaChannelCardProps) {
       >
         {loading || statusLoading ? (
           <ActivityIndicator
-            color={statusLoading ? colors.textMuted : '#FFF'}
+            color={statusLoading ? colors.textMuted : colors.textOnPrimary}
           />
         ) : (
           <Text
             style={[
               styles.connectButtonText,
-              { color: isConnected ? colors.error : '#FFF' },
+              { color: isConnected ? colors.error : colors.textOnPrimary },
             ]}
           >
             {isConnected ? 'Disconnect Jumia Account' : 'Connect Jumia Account'}
