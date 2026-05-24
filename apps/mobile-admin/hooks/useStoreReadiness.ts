@@ -223,6 +223,7 @@ export function useStoreReadiness() {
       return result;
     },
     enabled: !!merchant?.id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   return {
