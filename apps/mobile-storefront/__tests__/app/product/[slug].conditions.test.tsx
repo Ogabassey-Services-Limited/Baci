@@ -69,6 +69,23 @@ describe('ProductDetailScreen condition offer stock gating', () => {
     expect(mockProductDetailsBody).not.toHaveBeenCalled();
   });
 
+  it('renders a message from an object-shaped product error', () => {
+    mockUseLocalSearchParams.mockReturnValue({
+      slug: 'iphone-13-pro',
+    });
+    mockUseProduct.mockReturnValue({
+      product: null,
+      isLoading: false,
+      error: { message: 'Catalog request failed' },
+      refetch: jest.fn(),
+    });
+
+    render(<ProductDetailScreen />);
+
+    expect(screen.getByText('Catalog request failed')).toBeTruthy();
+    expect(screen.queryByText('[object Object]')).toBeNull();
+  });
+
   it('blocks purchase when the selected legacy condition offer is out of stock', async () => {
     mockUseLocalSearchParams.mockReturnValue({
       slug: 'iphone-13-pro',

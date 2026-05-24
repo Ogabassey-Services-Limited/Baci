@@ -188,7 +188,18 @@ function getProductRouteErrorMessage(error: unknown) {
     return error.message;
   }
 
-  return error ? String(error) : 'This product may no longer be available';
+  if (
+    error &&
+    typeof error === 'object' &&
+    'message' in error &&
+    typeof error.message === 'string'
+  ) {
+    return error.message;
+  }
+
+  return typeof error === 'string'
+    ? error
+    : 'This product may no longer be available';
 }
 
 export default function ProductDetailScreen() {

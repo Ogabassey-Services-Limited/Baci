@@ -83,7 +83,10 @@ export function ProductDetailRouteState({
           accessibilityRole="button"
         >
           <Text
-            style={[styles.retryButtonText, { color: colors.background }]}
+            style={[
+              styles.retryButtonText,
+              { color: colors.primaryForeground },
+            ]}
           >
             Go Back
           </Text>

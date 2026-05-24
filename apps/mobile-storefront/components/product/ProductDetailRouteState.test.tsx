@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
 import { jest } from '@jest/globals';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
 import { ProductDetailRouteState } from './ProductDetailRouteState';
 
@@ -22,12 +22,33 @@ describe('ProductDetailRouteState', () => {
     );
 
     expect(screen.getByText('Invalid Product Link')).toBeTruthy();
+    expect(screen.getByText('Go Back').props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ color: Colors.light.primaryForeground }),
+      ])
+    );
 
     fireEvent.press(
       screen.getByRole('button', { name: 'Go back to previous screen' })
     );
 
     expect(onGoBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('uses the primary foreground token for a dark-theme action button', () => {
+    render(
+      <ProductDetailRouteState
+        colors={Colors.dark}
+        onGoBack={jest.fn()}
+        state="invalid"
+      />
+    );
+
+    expect(screen.getByText('Go Back').props.style).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ color: Colors.dark.primaryForeground }),
+      ])
+    );
   });
 
   it('renders the product error state with the provided message', () => {
