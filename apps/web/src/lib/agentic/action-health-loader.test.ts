@@ -331,7 +331,8 @@ describe('loadAgenticActionHealth', () => {
     });
     expect(result.actions).toEqual([
       expect.objectContaining({
-        code: 'AGENTIC_ACTIONS_HEALTHY',
+        code: 'AGENTIC_REQUEST_CONTROLS_UNAVAILABLE',
+        severity: 'attention',
       }),
     ]);
   });

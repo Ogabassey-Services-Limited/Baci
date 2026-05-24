@@ -1,15 +1,52 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { type ReactNode, useEffect } from 'react';
 import type { Product as RelatedProduct } from '@/lib/products';
 import type { NormalizedProductDetails } from './product-details-helpers';
 import type { ProductDetailsActiveTab } from './use-product-details-state';
-import { DeferredProductDetailsSectionsLoader } from './deferred-product-details-sections-loader';
+import { DeferredProductDetailsSectionsLoader, type DeferredProductDetailsSectionsLoaderProps } from './deferred-product-details-sections-loader';
 
+let mockDynamicState: 'success' | 'loading' | 'error' = 'success';
 const mockUseViewportActivation = vi.hoisted(() => vi.fn());
 
 vi.mock('@/components/storefront/use-viewport-activation', () => ({
   useViewportActivation: mockUseViewportActivation,
 }));
+
+vi.mock('next/dynamic', () => {
+  return {
+    default: (
+      loader: () => Promise<unknown>,
+      options?: { loading?: () => ReactNode }
+    ) => {
+      const FallbackComponent = options?.loading || (() => null);
+      return function MockDynamic(
+        props: DeferredProductDetailsSectionsLoaderProps & { onLoaded?: () => void }
+      ) {
+        const { onLoaded, ...restProps } = props;
+
+        useEffect(() => {
+          if (mockDynamicState === 'success') {
+            onLoaded?.();
+          }
+        }, [onLoaded]);
+
+        if (mockDynamicState === 'loading') {
+          return <FallbackComponent />;
+        }
+        if (mockDynamicState === 'error') {
+          return <div role="alert">Failed to load details</div>;
+        }
+        return (
+          <section aria-label={`Deferred Details for ${restProps.productData?.name}`}>
+            <h1>Mock Deferred Product Sections</h1>
+            <p>{restProps.productData?.name}</p>
+          </section>
+        );
+      };
+    },
+  };
+});
 
 const baseProps = {
   activeTab: 'description' as ProductDetailsActiveTab,
@@ -30,49 +67,83 @@ describe('DeferredProductDetailsSectionsLoader', () => {
       ref: { current: null },
       isActive: false,
     });
+    mockDynamicState = 'success';
   });
 
-  it('does not import below-fold product details before viewport activation', () => {
-    const loadDeferredSections = vi.fn();
+  it('renders only the loading fallback skeleton when the viewport is NOT active', () => {
+    mockUseViewportActivation.mockReturnValue({
+      ref: { current: null },
+      isActive: false,
+    });
 
-    render(
-      <DeferredProductDetailsSectionsLoader
-        {...baseProps}
-        loadDeferredSections={loadDeferredSections}
-      />
-    );
+    render(<DeferredProductDetailsSectionsLoader {...baseProps} />);
 
-    expect(loadDeferredSections).not.toHaveBeenCalled();
+    const wrapper = screen.getByRole('status', {
+      name: /loading product details/i,
+    });
+    expect(wrapper).toBeInTheDocument();
+    expect(wrapper).toHaveAttribute('aria-busy', 'true');
+
+    // Dynamic component should not be rendered
     expect(
-      screen.getByTestId('deferred-product-details-placeholder')
-    ).toBeInTheDocument();
+      screen.queryByRole('region', {
+        name: /deferred details for lenovo legion pro 9/i,
+      })
+    ).not.toBeInTheDocument();
   });
 
-  it('imports and renders the details section after viewport activation', async () => {
+  it('renders the dynamic deferred product details sections when the viewport IS active', () => {
     mockUseViewportActivation.mockReturnValue({
       ref: { current: null },
       isActive: true,
     });
-    const loadDeferredSections = vi.fn().mockResolvedValue({
-      DeferredProductDetailsSections: ({
-        productData,
-      }: {
-        productData: { name: string };
-      }) => (
-        <section aria-label="Loaded product details">{productData.name}</section>
-      ),
+    mockDynamicState = 'success';
+
+    render(<DeferredProductDetailsSectionsLoader {...baseProps} />);
+
+    const sections = screen.getByRole('region', {
+      name: /deferred details for lenovo legion pro 9/i,
     });
+    expect(sections).toBeInTheDocument();
+    expect(sections).toHaveTextContent('Lenovo Legion Pro 9');
 
-    render(
-      <DeferredProductDetailsSectionsLoader
-        {...baseProps}
-        loadDeferredSections={loadDeferredSections}
-      />
-    );
+    // Stable parent wrapper should have aria-busy="false"
+    const wrapper = screen.getByRole('status', {
+      name: /product details loaded/i,
+    });
+    expect(wrapper).toBeInTheDocument();
+    expect(wrapper).toHaveAttribute('aria-busy', 'false');
+  });
 
-    await waitFor(() => expect(loadDeferredSections).toHaveBeenCalledOnce());
-    expect(
-      await screen.findByRole('region', { name: 'Loaded product details' })
-    ).toHaveTextContent('Lenovo Legion Pro 9');
+  it('renders the loading fallback skeleton when dynamic import is pending and viewport IS active', () => {
+    mockUseViewportActivation.mockReturnValue({
+      ref: { current: null },
+      isActive: true,
+    });
+    mockDynamicState = 'loading';
+
+    render(<DeferredProductDetailsSectionsLoader {...baseProps} />);
+
+    const wrapper = screen.getByRole('status', {
+      name: /loading product details/i,
+    });
+    expect(wrapper).toBeInTheDocument();
+    expect(wrapper).toHaveAttribute('aria-busy', 'true');
+  });
+
+  it('renders an error fallback when dynamic import fails and viewport IS active', () => {
+    mockUseViewportActivation.mockReturnValue({
+      ref: { current: null },
+      isActive: true,
+    });
+    mockDynamicState = 'error';
+
+    render(<DeferredProductDetailsSectionsLoader {...baseProps} />);
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toBeInTheDocument();
+    expect(alert).toHaveTextContent(/failed to load details/i);
   });
 });
+
+

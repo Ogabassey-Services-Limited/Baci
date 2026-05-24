@@ -606,38 +606,6 @@ export async function generateMetadata({
   };
 }
 
-interface OgabasseyPdpProductImagePreloadWrapperProps {
-  productSlug: string;
-  slug: string;
-}
-
-async function OgabasseyPdpProductImagePreloadWrapper({
-  productSlug,
-  slug,
-}: OgabasseyPdpProductImagePreloadWrapperProps) {
-  try {
-    const merchant = await getRequestScopedMerchant(slug);
-    if (!merchant || merchant.template_id !== OGABASSEY_TEMPLATE_ID) {
-      return null;
-    }
-    const primaryProductImage = await getCachedStorefrontProductLcpImage(
-      merchant.id,
-      productSlug
-    );
-
-    if (primaryProductImage) {
-      preloadOgabasseyPdpProductImage({ src: primaryProductImage });
-    }
-  } catch (error) {
-    console.warn(
-      'Unable to preload OgaBassey PDP product image early:',
-      sanitizeLookupLogValue(productSlug),
-      error
-    );
-  }
-  return null;
-}
-
 interface CategoryProductPageContentProps {
   slug: string;
   searchParams: PageProps['searchParams'];
@@ -793,6 +761,36 @@ async function CategoryProductPageContent({
   );
 }
 
+interface OgabasseyPdpProductImagePreloadWrapperProps {
+  slug: string;
+  productSlug: string;
+}
+
+async function OgabasseyPdpProductImagePreloadWrapper({
+  slug,
+  productSlug,
+}: OgabasseyPdpProductImagePreloadWrapperProps) {
+  try {
+    const merchant = await getRequestScopedMerchant(slug);
+    if (merchant && merchant.template_id === OGABASSEY_TEMPLATE_ID) {
+      const primaryProductImage = await getCachedStorefrontProductLcpImage(
+        merchant.id,
+        productSlug
+      );
+      if (primaryProductImage) {
+        preloadOgabasseyPdpProductImage({ src: primaryProductImage });
+      }
+    }
+  } catch (error) {
+    console.warn(
+      'Unable to preload OgaBassey PDP product image early:',
+      sanitizeLookupLogValue(productSlug),
+      error
+    );
+  }
+  return null;
+}
+
 export default async function CategoryProductPage({
   params,
   searchParams,
@@ -802,6 +800,7 @@ export default async function CategoryProductPage({
     notFound();
   }
 
+  // Start the product fetch first to run in parallel with the preloading lookups
   const productResultPromise = getProduct(slug, category, productSlug);
 
   return (
@@ -811,8 +810,8 @@ export default async function CategoryProductPage({
       </Suspense>
       <Suspense fallback={null}>
         <OgabasseyPdpProductImagePreloadWrapper
-          productSlug={productSlug}
           slug={slug}
+          productSlug={productSlug}
         />
       </Suspense>
       <Suspense fallback={null}>

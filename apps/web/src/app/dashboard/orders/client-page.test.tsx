@@ -1,6 +1,10 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mocks = vi.hoisted(() => ({
+  getOrders: vi.fn(),
+}));
 
 vi.mock('next/image', () => ({
   default: (props: Record<string, unknown>) => (
@@ -46,12 +50,18 @@ vi.mock('@/contexts/auth-context', () => ({
   AuthProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
+vi.mock('./actions', () => ({
+  getOrders: (...args: unknown[]) => mocks.getOrders(...args),
+}));
+
 import { useSearchParams } from 'next/navigation';
 import OrdersClientPage from './client-page';
 
 describe('OrdersClientPage', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    mocks.getOrders.mockReset();
+    mocks.getOrders.mockResolvedValue([]);
     vi.mocked(useSearchParams).mockReturnValue(new URLSearchParams() as never);
     vi.spyOn(globalThis, 'fetch').mockResolvedValue({
       ok: true,
@@ -139,5 +149,78 @@ describe('OrdersClientPage', () => {
       'href',
       '/dashboard/settings/trust#agent-checkout-controls'
     );
+  });
+
+  it('keeps the agentic source filter when loading orders', async () => {
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams('source=agentic') as never
+    );
+
+    render(<OrdersClientPage />);
+
+    await waitFor(() => {
+      expect(mocks.getOrders).toHaveBeenCalledWith(
+        'm-1',
+        expect.objectContaining({ source: 'agentic' })
+      );
+    });
+  });
+
+  it('filters initial orders to agentic source when source=agentic is present', () => {
+    vi.mocked(useSearchParams).mockReturnValue(
+      new URLSearchParams('source=agentic') as never
+    );
+
+    render(
+      <OrdersClientPage
+        initialOrders={[
+          {
+            id: 'order-agentic',
+            orderNumber: 'ORD-AGENTIC',
+            customerName: 'Ada Agent',
+            total: 5000,
+            shippingStatus: 'Pending',
+            paymentStatus: 'Pending',
+            paymentMethod: 'bank_transfer',
+            date: 'May 22, 2026',
+            createdAt: Date.now(),
+            source: 'agentic_ai',
+            items: [
+              {
+                id: 'item-agentic',
+                name: 'Agentic Phone',
+                quantity: 1,
+                price: 5000,
+              },
+            ],
+          },
+          {
+            id: 'order-whatsapp',
+            orderNumber: 'ORD-WHATSAPP',
+            customerName: 'Wale WhatsApp',
+            total: 3000,
+            shippingStatus: 'Pending',
+            paymentStatus: 'Pending',
+            paymentMethod: 'transfer',
+            date: 'May 22, 2026',
+            createdAt: Date.now(),
+            source: 'whatsapp',
+            items: [
+              {
+                id: 'item-whatsapp',
+                name: 'WhatsApp Phone',
+                quantity: 1,
+                price: 3000,
+              },
+            ],
+          },
+        ]}
+      />
+    );
+
+    expect(screen.getByText('1 item: Agentic Phone')).toBeInTheDocument();
+    expect(
+      screen.queryByText('1 item: WhatsApp Phone')
+    ).not.toBeInTheDocument();
   });
 });

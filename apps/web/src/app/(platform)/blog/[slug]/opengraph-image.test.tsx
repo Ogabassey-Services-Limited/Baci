@@ -16,14 +16,14 @@ vi.mock('next/og', () => ({
   ImageResponse: mockImageResponse,
 }));
 
-vi.mock('@/app/blog/[slug]/opengraph-image-data', () => ({
+vi.mock('@/app/(platform)/blog/[slug]/opengraph-image-data', () => ({
   getPlatformBlogOgImageData: (...args: unknown[]) =>
     mockGetPlatformBlogOgImageData(...args),
   getPlatformBlogOgMetadataData: vi.fn(),
 }));
 
-import Image from '@/app/blog/[slug]/opengraph-image';
-import type { PlatformBlogOgImageData } from '@/app/blog/[slug]/opengraph-image-data';
+import Image from '@/app/(platform)/blog/[slug]/opengraph-image';
+import type { PlatformBlogOgImageData } from '@/app/(platform)/blog/[slug]/opengraph-image-data';
 
 function createData(
   overrides: Partial<PlatformBlogOgImageData> = {}

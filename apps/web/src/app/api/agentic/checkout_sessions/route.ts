@@ -150,6 +150,7 @@ export async function handleAgenticCheckoutSessionCreate(
       idempotencyKey: mutation.idempotencyKey,
       merchantId: merchant.id,
       requestId: mutation.requestId,
+      route: CREATE_IDEMPOTENCY_ROUTE,
       supabase,
     });
     if (!replayReservation.ok) {

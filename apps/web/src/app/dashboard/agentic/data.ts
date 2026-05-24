@@ -3,7 +3,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getCachedGoogleMerchantFeedData } from '@/app/api/feed/google-merchant/feed-data';
 import { getCachedOpenAIFeedData } from '@/app/api/feed/openai/feed-data';
-import type { StaffAccess } from '@/hooks/merchant';
+import type { MerchantData, StaffAccess } from '@/hooks/merchant';
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
 import {
   type CrawlerLogSummary,
@@ -26,7 +26,13 @@ import type { AgenticActionHealthPayload } from '@/schemas/agentic-action-health
 
 export type AgenticCenterState = 'ready' | 'error' | 'unauthorized';
 
+export interface AgenticControlsState {
+  customSettings: Record<string, unknown>;
+  enabled: boolean;
+}
+
 export interface AgenticCentersData {
+  agentControls: AgenticControlsState | null;
   actionCenterState: AgenticCenterState;
   actionHealth: AgenticActionHealthPayload | null;
   crawlerCenterState: AgenticCenterState;
@@ -73,6 +79,23 @@ function canViewCrawlerVisibility(staffAccess: StaffAccess): boolean {
   if (staffAccess.isOwner) return true;
   if (!staffAccess.isStaff) return false;
   return staffAccess.permissions.analytics?.view === true;
+}
+
+function getRecordValue(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function buildAgenticControlsState(
+  merchant: Pick<MerchantData, 'feature_settings'>
+): AgenticControlsState {
+  const featureSettings = getRecordValue(merchant.feature_settings);
+  const customSettings = getRecordValue(featureSettings?.custom_settings) ?? {};
+
+  return {
+    customSettings,
+    enabled: featureSettings?.agentic_checkout_enabled !== false,
+  };
 }
 
 function toCrawlerLogSummaryRow(row: CrawlerLogQueryRow): CrawlerLogSummaryRow {
@@ -226,6 +249,7 @@ export async function loadAgenticCentersData(): Promise<AgenticCentersData> {
 
   if (!merchant || (!canViewAgentic && !canViewCrawler)) {
     return {
+      agentControls: null,
       actionCenterState: 'unauthorized',
       actionHealth: null,
       crawlerCenterState: 'unauthorized',
@@ -239,6 +263,9 @@ export async function loadAgenticCentersData(): Promise<AgenticCentersData> {
   const isPublished = Boolean(merchant.is_published);
   if (!isPublished) {
     return {
+      agentControls: canViewAgentic
+        ? buildAgenticControlsState(merchant)
+        : null,
       actionCenterState: canViewAgentic ? 'ready' : 'unauthorized',
       actionHealth: null,
       crawlerCenterState: canViewCrawler ? 'ready' : 'unauthorized',
@@ -302,6 +329,7 @@ export async function loadAgenticCentersData(): Promise<AgenticCentersData> {
       : null;
 
   return {
+    agentControls: canViewAgentic ? buildAgenticControlsState(merchant) : null,
     actionCenterState: !canViewAgentic
       ? 'unauthorized'
       : actionHealth

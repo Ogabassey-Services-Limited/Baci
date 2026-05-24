@@ -1,23 +1,24 @@
-version: '3.8'
-
 services:
-  ogabassey-mcp:
+  mcp-server:
+    image: ${MCP_IMAGE_TAG:-ogabassey-mcp-server:latest}
     build:
-      context: ..
-      dockerfile: mcp-server/Dockerfile
-    container_name: ogabassey-mcp-server
+      context: ../../..
+      dockerfile: apps/web/mcp-server/Dockerfile
     restart: unless-stopped
     ports:
-      - "8787:8787"
+      - "127.0.0.1:8787:8787"
     environment:
       - NODE_ENV=production
       - MCP_PORT=8787
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
       - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - OPENAI_AGENTIC_API_KEY=${OPENAI_AGENTIC_API_KEY}
+      - OPENAI_AGENTIC_SIGNING_KEY=${OPENAI_AGENTIC_SIGNING_KEY}
+      - MCP_AGENTIC_CHECKOUT_BASE_URL=${MCP_AGENTIC_CHECKOUT_BASE_URL:-https://ogabassey.com}
     env_file:
-      - ../.env.local
+      - .env
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8787/"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8787/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -32,17 +33,16 @@ services:
   # Optional: ngrok for quick public access during development
   ngrok:
     image: ngrok/ngrok:latest
-    container_name: ogabassey-mcp-ngrok
     restart: unless-stopped
     environment:
       - NGROK_AUTHTOKEN=${NGROK_AUTHTOKEN}
-    command: http ogabassey-mcp:8787 --log stdout
+    command: http mcp-server:8787 --log stdout
     read_only: true
     security_opt:
       - no-new-privileges:true
     tmpfs:
       - /tmp
     depends_on:
-      - ogabassey-mcp
+      - mcp-server
     profiles:
       - dev

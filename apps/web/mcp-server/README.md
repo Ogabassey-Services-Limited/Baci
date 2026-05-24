@@ -13,23 +13,23 @@ This MCP (Model Context Protocol) server enables ChatGPT integration with the Og
 ### Option 1: Docker (Recommended)
 
 ```bash
-# From the mcp-server directory
-cd mcp-server
+# From the repository root
+cd apps/web/mcp-server
 
 # Build and run
-docker-compose up -d
+docker compose up -d
 
 # Check logs
-docker-compose logs -f
+docker compose logs -f
 ```
 
 The server will be available at `http://localhost:8787/mcp`
 
-### Option 2: npm
+### Option 2: pnpm
 
 ```bash
 # From the project root
-npm run mcp
+pnpm --filter @baci/web mcp
 ```
 
 ## Exposing to the Internet
@@ -38,7 +38,7 @@ npm run mcp
 
 ```bash
 # With Docker
-docker-compose --profile dev up -d
+docker compose --profile dev up -d
 
 # Or manually
 ngrok http 8787
@@ -46,7 +46,36 @@ ngrok http 8787
 
 ### For Production
 
-Deploy to your VPS and set up a reverse proxy (nginx/traefik) pointing to port 8787.
+Production runs Docker Compose behind a reverse proxy. The compose file binds
+MCP to `127.0.0.1:8787`, so nginx/traefik should be the public TLS entrypoint.
+The production VPS keeps secrets in a private `.env` file outside git; pass its
+path as `MCP_REMOTE_ENV_FILE=<PROD_ENV_PATH>`. The repo deploy script copies
+that file into the release as `apps/web/mcp-server/.env` before building the
+container.
+
+```bash
+# From the repository root
+
+# Preview the source bundle without touching the VPS
+MCP_DRY_RUN=1 MCP_VPS_HOST=<VPS_HOST> MCP_VPS_USER=<VPS_USER> .github/scripts/deploy-mcp-server.sh
+
+# Deploy the current checkout
+MCP_VPS_HOST=<VPS_HOST> MCP_VPS_USER=<VPS_USER> .github/scripts/deploy-mcp-server.sh
+```
+
+Provide the real host, user, remote directory, and env path through private
+operator config or CI secrets (`MCP_VPS_HOST`, `MCP_VPS_USER`, optional
+`MCP_REMOTE_DIR`, optional `MCP_REMOTE_ENV_FILE`, optional
+`MCP_RELEASE_KEEP_COUNT`, default `5`). The script packages the MCP application
+source, web build inputs, dependency manifests (not installed `node_modules`),
+and optional patches, uploads them to
+`<MCP_REMOTE_DIR>/releases/<release-id>`, runs
+`docker compose -p ogabassey-mcp up -d --build --remove-orphans`, and verifies
+`http://127.0.0.1:8787/health` before updating the `current` symlink. If the
+new container does not become healthy, it attempts to restore the previously
+running compose release using the previously running container image instead of
+rebuilding during the outage path. Successful deploys prune older release
+directories according to `MCP_RELEASE_KEEP_COUNT`.
 
 Example nginx config:
 ```nginx
@@ -82,12 +111,23 @@ server {
 
 | Tool | Description |
 |------|-------------|
-| `search_products` | Search products by name, price range |
-| `get_product` | Get detailed product information |
+| `add_to_cart` | Add a selected product to the in-chat cart handoff |
+| `browse_categories` | Browse active store categories |
+| `cancel_agentic_checkout_session` | Cancel a mutable signed Baci agentic checkout session |
+| `check_order` | Look up order status by order number or phone |
+| `check_payment_status` | Check whether a bank-transfer payment has been received |
+| `complete_agentic_checkout_session` | Complete a signed Baci agentic checkout session with buyer authorization |
 | `create_agentic_checkout_session` | Create a signed Baci agentic checkout session with authoritative totals and fulfillment options |
-| `check_order` | Look up order by number or phone |
-| `get_store_info` | Shipping, returns, payment info |
+| `generate_payment_account` | Generate a Paystack dedicated bank account for bank-transfer payment |
+| `get_agentic_checkout_session` | Read a signed Baci agentic checkout session state |
+| `get_brands` | Browse active store brands |
+| `get_product` | Get detailed product information |
+| `get_product_variants` | Get variants, conditions, prices, and availability for a product |
 | `get_recommendations` | AI-powered product recommendations |
+| `get_shipping_quote` | Estimate delivery options for a destination |
+| `get_store_info` | Shipping, returns, payment info |
+| `search_products` | Search products by name, price range |
+| `update_agentic_checkout_session` | Update items, shipping details, or fulfillment options on a signed Baci agentic checkout session |
 
 ## Example Prompts
 
@@ -98,6 +138,11 @@ Once connected, users can ask:
 - "Where's my order ORD-12345?"
 - "What's your shipping policy?"
 - "I need a laptop for gaming, budget 800k"
+- "Create a checkout session for two iPhone 15 Pro Max units"
+- "Show me my current checkout session"
+- "Update my checkout session to use my Lagos shipping address"
+- "Complete my checkout session with my confirmed payment authorization"
+- "Cancel my current checkout session"
 
 ## Environment Variables
 

@@ -96,9 +96,9 @@ export default defineConfig({
     testTimeout: 10_000,
     setupFiles: [path.join(__dirname, 'vitest.setup.ts')],
     alias: {
-      '@/app/onboarding/actions': path.resolve(
+      '@/app/(platform)/onboarding/actions': path.resolve(
         __dirname,
-        './src/app/onboarding/__mocks__/actions.ts'
+        './src/app/(platform)/onboarding/__mocks__/actions.ts'
       ),
     },
     server: {

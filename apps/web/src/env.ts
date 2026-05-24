@@ -149,6 +149,7 @@ const serverSchema = z
     SICKW_API_KEY: optionalTrimmedStringSchema,
     IMEI_HASH_SALT: optionalTrimmedStringSchema,
     OPENAI_AGENTIC_API_KEY: z.string().optional(),
+    OPENAI_AGENTIC_API_KEY_PREVIOUS: z.string().optional(),
     OPENAI_AGENTIC_CONFIRMATION_KEY: z.string().optional(),
     OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS: z.string().optional(),
     OPENAI_AGENTIC_MERCHANT_SLUG: z.string().optional(),
@@ -385,6 +386,8 @@ const getEnv = () => {
         IMEI_HASH_SALT: process.env.IMEI_HASH_SALT,
         KUDA_BILL_DEBUG: process.env.KUDA_BILL_DEBUG,
         OPENAI_AGENTIC_API_KEY: process.env.OPENAI_AGENTIC_API_KEY,
+        OPENAI_AGENTIC_API_KEY_PREVIOUS:
+          process.env.OPENAI_AGENTIC_API_KEY_PREVIOUS,
         OPENAI_AGENTIC_CONFIRMATION_KEY:
           process.env.OPENAI_AGENTIC_CONFIRMATION_KEY,
         OPENAI_AGENTIC_CONFIRMATION_KEY_PREVIOUS:
@@ -591,10 +594,21 @@ export const getKlumpWebhookSecret = () => {
 // tests that stub process.env after module load use the current secret values.
 export const getAgenticApiKey = () => {
   if (isBrowserRuntime()) return undefined;
-  const apiKey = trimSecret(
+  return getAgenticApiKeys()[0];
+};
+export const getAgenticApiKeys = () => {
+  if (isBrowserRuntime()) return [];
+  const currentApiKey = trimSecret(
     process.env.OPENAI_AGENTIC_API_KEY ?? env?.OPENAI_AGENTIC_API_KEY
   );
-  return apiKey || undefined;
+  if (!currentApiKey) return [];
+
+  const previousApiKey = trimSecret(
+    process.env.OPENAI_AGENTIC_API_KEY_PREVIOUS ??
+      env?.OPENAI_AGENTIC_API_KEY_PREVIOUS
+  );
+
+  return [currentApiKey, previousApiKey].filter((value) => value.length > 0);
 };
 export const getAgenticConfirmationKeys = () => {
   if (isBrowserRuntime()) return [];

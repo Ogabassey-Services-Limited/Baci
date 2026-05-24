@@ -3,13 +3,13 @@
 import dynamic from 'next/dynamic';
 import { useEffect, useState, type ReactNode } from 'react';
 import type { Product } from '../types';
-import { DeferredProductDetailsSectionsLoader } from './product-details-page/deferred-product-details-sections-loader';
 import { ProductBreadcrumbs } from './product-details-page/product-breadcrumbs';
 import { ProductMediaGallery } from './product-details-page/product-media-gallery';
 import { ProductMobileActionBar } from './product-details-page/product-mobile-action-bar';
 import { ProductPurchasePanel } from './product-details-page/product-purchase-panel';
 import { getAvailableOptionsForAxis } from '../variant-attributes';
 import { useProductDetailsState } from './product-details-page/use-product-details-state';
+import { DeferredProductDetailsSectionsLoader } from './product-details-page/deferred-product-details-sections-loader';
 
 const AdUnit = dynamic(
   () => import('../components/AdUnit').then((mod) => mod.AdUnit),

@@ -110,6 +110,7 @@ function buildRpcData({
       expires_at: '2026-05-12T10:15:00.000Z',
       idempotency_key: 'must-not-leak',
       request_id: 'must-not-leak',
+      route: 'checkout_sessions.create',
     },
   ],
 }: {
@@ -204,7 +205,17 @@ describe('GET /api/merchant/agentic/action-health', () => {
         fetch_error: false,
         is_agentic_checkout_enabled: true,
       },
-      requests: { recent_count: 1 },
+      requests: {
+        recent_count: 1,
+        records: [
+          {
+            api_version: '2026-04-30',
+            created_at: '2026-05-12T10:00:00.000Z',
+            expires_at: '2026-05-12T10:15:00.000Z',
+            route: 'checkout_sessions.create',
+          },
+        ],
+      },
     });
     expect(JSON.stringify(payload)).not.toContain('must-not-leak');
     expect(supabase.rpc).toHaveBeenCalledWith(
@@ -322,7 +333,7 @@ describe('GET /api/merchant/agentic/action-health', () => {
     });
   });
 
-  it('logs a warning and skips allowlist monitor actions when control lookup fails', async () => {
+  it('logs a warning and surfaces an action when control lookup fails', async () => {
     mockAuthenticateApiRequest.mockResolvedValue({
       error: null,
       supabase: createSupabaseMock({
@@ -344,11 +355,13 @@ describe('GET /api/merchant/agentic/action-health', () => {
     expect(response.status).toBe(200);
     expect(payload.actions).toEqual([
       {
-        code: 'AGENTIC_ACTIONS_HEALTHY',
-        count: 0,
-        message: 'No recent agentic action issues need attention.',
-        next_step: 'No action required right now.',
-        severity: 'ok',
+        code: 'AGENTIC_REQUEST_CONTROLS_UNAVAILABLE',
+        count: 1,
+        message: 'Agent request controls could not be loaded.',
+        next_step:
+          'Open Trust settings and confirm agent request controls are available before advertising checkout.',
+        next_step_url: '/dashboard/settings/trust#agent-checkout-controls',
+        severity: 'attention',
       },
     ]);
     expect(payload.request_controls).toEqual({

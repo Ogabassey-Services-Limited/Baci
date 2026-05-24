@@ -15,7 +15,32 @@ vi.mock('@/components/dashboard/agentic-trust-center-card', () => ({
   AgenticTrustCenterCard: () => <section>Trust card content</section>,
 }));
 
+vi.mock(
+  '@/components/dashboard/integrations/agent-commerce-controls-card',
+  () => ({
+    AgentCommerceControlsCard: ({
+      initialCustomSettings,
+      initialEnabled,
+    }: {
+      initialCustomSettings?: Record<string, unknown>;
+      initialEnabled: boolean;
+    }) => (
+      <section>
+        Controls card content:{String(initialEnabled)}:
+        {JSON.stringify(initialCustomSettings ?? {})}
+      </section>
+    ),
+  })
+);
+
 const baseProps = {
+  agentControls: {
+    customSettings: {
+      agentic_agent_allowlist: ['openai-agent'],
+      agentic_agent_denylist: ['legacy-bot'],
+    },
+    enabled: true,
+  },
   actionCenterState: 'ready' as const,
   actionHealth: {
     actions: [
@@ -78,6 +103,11 @@ describe('AgenticDashboardClientPage', () => {
       screen.getByRole('tab', { name: /crawler visibility/i })
     ).toBeVisible();
     expect(screen.getByText('Action card content')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Controls card content:true:{"agentic_agent_allowlist":["openai-agent"],"agentic_agent_denylist":["legacy-bot"]}'
+      )
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: /trust center/i }));
 
@@ -99,7 +129,13 @@ describe('AgenticDashboardClientPage', () => {
       />
     );
 
-    expect(screen.getByText('Agentic centers are paused')).toBeInTheDocument();
+    const pausedTitle = screen.getByText('Agentic centers are paused');
+    const controlsCard = screen
+      .getByText(/Controls card content:true:/)
+      .closest('section');
+    expect(pausedTitle).toBeInTheDocument();
+    expect(controlsCard).not.toBeNull();
+    expect(controlsCard?.parentElement).toContainElement(pausedTitle);
     expect(screen.queryByRole('tab')).not.toBeInTheDocument();
   });
 
@@ -130,6 +166,7 @@ describe('AgenticDashboardClientPage', () => {
     render(
       <AgenticDashboardClientPage
         {...baseProps}
+        agentControls={null}
         actionCenterState="unauthorized"
         actionHealth={null}
       />
@@ -145,6 +182,7 @@ describe('AgenticDashboardClientPage', () => {
     expect(
       screen.getByRole('tab', { name: /crawler visibility/i })
     ).toBeVisible();
+    expect(screen.queryByText(/Controls card content/)).not.toBeInTheDocument();
     expect(screen.getByText('Trust card content')).toBeInTheDocument();
     expect(screen.queryByText('Action card content')).not.toBeInTheDocument();
   });

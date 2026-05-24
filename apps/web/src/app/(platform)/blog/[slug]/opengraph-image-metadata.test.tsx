@@ -8,7 +8,7 @@ vi.mock('next/og', () => ({
   ImageResponse: vi.fn(),
 }));
 
-vi.mock('@/app/blog/[slug]/opengraph-image-data', () => ({
+vi.mock('@/app/(platform)/blog/[slug]/opengraph-image-data', () => ({
   getPlatformBlogOgImageData: vi.fn(),
   getPlatformBlogOgMetadataData: (...args: unknown[]) =>
     mockGetPlatformBlogOgMetadataData(...args),
@@ -20,7 +20,7 @@ import {
   revalidate,
   runtime,
   size,
-} from '@/app/blog/[slug]/opengraph-image';
+} from '@/app/(platform)/blog/[slug]/opengraph-image';
 
 describe('platform blog OG image metadata', () => {
   beforeEach(() => {

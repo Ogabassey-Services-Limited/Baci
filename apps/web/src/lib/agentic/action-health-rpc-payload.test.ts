@@ -29,6 +29,7 @@ describe('action health RPC payload helpers', () => {
           api_version: '2026-04-30',
           created_at: '2026-05-12T10:00:00.000Z',
           expires_at: '2026-05-12T10:15:00.000Z',
+          route: 'checkout_sessions.create',
         },
       ],
     });
@@ -42,7 +43,14 @@ describe('action health RPC payload helpers', () => {
         updated_at: '2026-05-12T10:01:00.000Z',
       },
     ]);
-    expect(result.requestRows).toHaveLength(1);
+    expect(result.requestRows).toEqual([
+      {
+        api_version: '2026-04-30',
+        created_at: '2026-05-12T10:00:00.000Z',
+        expires_at: '2026-05-12T10:15:00.000Z',
+        route: 'checkout_sessions.create',
+      },
+    ]);
     expect(result.sessionRows).toHaveLength(1);
     expect(getAgenticPaymentState(result.sessionRows[0]?.metadata)).toBe(
       'payment_pending'

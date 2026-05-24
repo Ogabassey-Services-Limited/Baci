@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { StaffAcceptFallback } from '@/app/staff/accept/staff-accept-fallback';
+import { StaffAcceptFallback } from '@/app/(platform)/staff/accept/staff-accept-fallback';
 
 vi.mock('@/components/logo', () => ({
   Logo: () => <span>Baci</span>,

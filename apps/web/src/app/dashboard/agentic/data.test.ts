@@ -67,6 +67,14 @@ vi.mock('@/lib/google-places-reviews', () => ({
 const merchant = {
   business_name: 'Demo Store',
   custom_domain: null,
+  feature_settings: {
+    agentic_checkout_enabled: true,
+    custom_settings: {
+      agentic_agent_allowlist: ['openai-agent'],
+      agentic_agent_denylist: ['legacy-bot'],
+      unrelated_setting: 'preserve-me',
+    },
+  },
   id: 'merchant-1',
   is_published: true,
   slug: 'demo',
@@ -327,6 +335,14 @@ describe('loadAgenticCentersData', () => {
     );
     expect(result.actionCenterState).toBe('ready');
     expect(result.actionHealth).toBe(actionHealth);
+    expect(result.agentControls).toEqual({
+      customSettings: {
+        agentic_agent_allowlist: ['openai-agent'],
+        agentic_agent_denylist: ['legacy-bot'],
+        unrelated_setting: 'preserve-me',
+      },
+      enabled: true,
+    });
     expect(result.trustCenterState).toBe('ready');
     expect(result.trustReadiness).not.toHaveProperty('surfaces');
     expect(result.trustReadiness?.checks[0]).toMatchObject({
@@ -345,6 +361,51 @@ describe('loadAgenticCentersData', () => {
       totalCrawls: 2,
       windowDays: 14,
     });
+  });
+
+  it.each([
+    [
+      'disabled checkout',
+      {
+        agentic_checkout_enabled: false,
+        custom_settings: { agentic_agent_allowlist: ['chatgpt'] },
+      },
+      {
+        customSettings: { agentic_agent_allowlist: ['chatgpt'] },
+        enabled: false,
+      },
+    ],
+    [
+      'missing checkout flag',
+      {
+        custom_settings: { agentic_agent_denylist: ['legacy-bot'] },
+      },
+      {
+        customSettings: { agentic_agent_denylist: ['legacy-bot'] },
+        enabled: true,
+      },
+    ],
+    ['null feature settings', null, { customSettings: {}, enabled: true }],
+    [
+      'undefined feature settings',
+      undefined,
+      { customSettings: {}, enabled: true },
+    ],
+    [
+      'missing custom settings',
+      { agentic_checkout_enabled: true },
+      { customSettings: {}, enabled: true },
+    ],
+  ])('builds agent controls for %s', async (_label, featureSettings, expectedAgentControls) => {
+    getMerchantForUser.mockResolvedValue({
+      merchant: { ...merchant, feature_settings: featureSettings },
+      staffAccess: ownerStaffAccess,
+    });
+    const { loadAgenticCentersData } = await import('./data');
+
+    const result = await loadAgenticCentersData();
+
+    expect(result.agentControls).toEqual(expectedAgentControls);
   });
 
   it('enriches Google review authority before building dashboard trust readiness', async () => {
@@ -650,6 +711,14 @@ describe('loadAgenticCentersData', () => {
     expect(getCachedOpenAIFeedData).not.toHaveBeenCalled();
     expect(getCachedGoogleMerchantFeedData).not.toHaveBeenCalled();
     expect(result).toMatchObject({
+      agentControls: {
+        customSettings: {
+          agentic_agent_allowlist: ['openai-agent'],
+          agentic_agent_denylist: ['legacy-bot'],
+          unrelated_setting: 'preserve-me',
+        },
+        enabled: true,
+      },
       actionCenterState: 'ready',
       actionHealth: null,
       crawlerCenterState: 'ready',
@@ -675,6 +744,7 @@ describe('loadAgenticCentersData', () => {
     const result = await loadAgenticCentersData();
 
     expect(result).toMatchObject({
+      agentControls: null,
       actionCenterState: 'unauthorized',
       actionHealth: null,
       crawlerCenterState: 'unauthorized',
@@ -704,6 +774,7 @@ describe('loadAgenticCentersData', () => {
     expect(loadAgenticActionHealth).not.toHaveBeenCalled();
     expect(getCachedOpenAIFeedData).not.toHaveBeenCalled();
     expect(result).toMatchObject({
+      agentControls: null,
       actionCenterState: 'unauthorized',
       actionHealth: null,
       crawlerCenterState: 'unauthorized',
