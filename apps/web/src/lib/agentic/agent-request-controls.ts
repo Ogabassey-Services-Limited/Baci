@@ -56,7 +56,7 @@ function includesAnyPattern(value: string, patterns: string[]): boolean {
 function getNormalizedAgentIdentities(headers: Headers): string[] {
   return [headers.get('agent-id'), headers.get('user-agent')]
     .map((value) => normalizePattern(value ?? ''))
-    .filter((value): value is string => value !== null);
+    .filter((value): value is string => value !== null && value.length > 0);
 }
 
 export function verifyAgenticRequestAccess({

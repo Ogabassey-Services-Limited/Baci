@@ -146,4 +146,16 @@ describe('agent request controls', () => {
       error: AGENTIC_AGENT_NOT_ALLOWLISTED_ERROR,
     });
   });
+
+  it('rejects missing agent identity when allowlist controls are configured', () => {
+    const result = verifyAgenticRequestAccess({
+      controls: { allowlist: ['openai'], denylist: [] },
+      headers: new Headers(),
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: AGENTIC_AGENT_NOT_ALLOWLISTED_ERROR,
+    });
+  });
 });
