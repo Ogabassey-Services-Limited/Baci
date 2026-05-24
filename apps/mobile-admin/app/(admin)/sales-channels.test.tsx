@@ -5,13 +5,29 @@ import { describe, expect, it, vi } from 'vitest';
 import SalesChannelsScreen from './sales-channels';
 
 vi.mock('react-native', () => {
-  const React = require('react');
+  type NativeProps = {
+    children?: React.ReactNode;
+    onPress?: () => void;
+    style?: unknown;
+  };
+  const styleAttribute = (style: unknown) => ({
+    'data-style': JSON.stringify(style),
+  });
+
   return {
     StyleSheet: { create: <T,>(s: T) => s },
-    View: ({ children }: any) => React.createElement('div', null, children),
-    Text: ({ children }: any) => React.createElement('span', null, children),
-    Pressable: ({ children, onPress }: any) => React.createElement('button', { onClick: onPress }, children),
-    ScrollView: ({ children }: any) => React.createElement('div', null, children),
+    View: ({ children, style }: NativeProps) =>
+      React.createElement('div', styleAttribute(style), children),
+    Text: ({ children, style }: NativeProps) =>
+      React.createElement('span', styleAttribute(style), children),
+    Pressable: ({ children, onPress, style }: NativeProps) =>
+      React.createElement(
+        'button',
+        { ...styleAttribute(style), onClick: onPress },
+        children
+      ),
+    ScrollView: ({ children, style }: NativeProps) =>
+      React.createElement('div', styleAttribute(style), children),
   };
 });
 
@@ -21,7 +37,7 @@ vi.mock('expo-router', () => ({
 }));
 
 vi.mock('react-native-safe-area-context', () => ({
-  SafeAreaView: ({ children }: any) => children,
+  SafeAreaView: ({ children }: { children?: React.ReactNode }) => children,
 }));
 
 vi.mock('@/hooks/useTheme', () => ({
@@ -48,14 +64,30 @@ vi.mock('@/components/marketplace/JumiaChannelCard', () => ({
 }));
 
 vi.mock('@expo/vector-icons', () => ({
-  Ionicons: () => null,
+  Ionicons: ({ color, name }: { color?: string; name: string }) =>
+    React.createElement('span', {
+      'data-color': color,
+      'data-testid': `icon-${name}`,
+    }),
 }));
 
 describe('SalesChannelsScreen', () => {
-  it('renders correctly with dynamic theme colors', () => {
+  it('applies dynamic theme tokens to pending marketplace icons', () => {
     render(<SalesChannelsScreen />);
 
     expect(screen.getByText('Konga')).toBeInTheDocument();
     expect(screen.getByText('Amazon')).toBeInTheDocument();
+    expect(screen.getByText('K')).toHaveAttribute(
+      'data-style',
+      expect.stringContaining('#FFFFFF')
+    );
+    expect(screen.getByText('K').parentElement).toHaveAttribute(
+      'data-style',
+      expect.stringContaining('#4A90D9')
+    );
+    expect(screen.getByTestId('icon-logo-amazon')).toHaveAttribute(
+      'data-color',
+      '#0D0D1A'
+    );
   });
 });
