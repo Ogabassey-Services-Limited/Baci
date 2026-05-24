@@ -10,3 +10,7 @@
 ## 2025-02-27 - Unhandled Errors in maybeSingle / single Queries
 **Learning:** Destructuring `{ data }` from `supabase.from().single()` or `maybeSingle()` without checking for the `error` object causes silent failures. If `.single()` expects 0 rows, it incorrectly throws a PGRST116 error that could be swallowed. On the flip side, real database errors on `.maybeSingle()` are ignored if `error` is unchecked, allowing dependent logic to proceed with `data = null` improperly, leading to data integrity issues.
 **Action:** Always extract and handle `error` explicitly when fetching data. Use `.maybeSingle()` when 0 rows is valid, and handle true database errors distinctly from the 0-rows case.
+
+## 2026-05-24 - Missing Query Scoping in Transaction Updates
+**Learning:** When performing updates on resources like transactions, even if the user has been authenticated and the transaction has been fetched using a gateway reference, the subsequent `.update()` call using the record's ID must still explicitly include `.eq('merchant_id', merchantId)`. Relying solely on the ID or prior fetched data creates a vulnerability if an attacker can manipulate IDs or references.
+**Action:** Always append `.eq('merchant_id', merchantId)` to all database mutations (`.update()`, `.delete()`, `.upsert()`) to ensure multi-tenant isolation, regardless of whether the target record's ID was obtained securely.
