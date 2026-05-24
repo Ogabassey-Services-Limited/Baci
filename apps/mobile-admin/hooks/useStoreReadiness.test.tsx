@@ -66,6 +66,16 @@ function wrapper({ children }: { children: ReactNode }) {
   return React.createElement(QueryClientProvider, { client }, children);
 }
 
+function createCachedWrapper() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+
+  return function CachedWrapper({ children }: { children: ReactNode }) {
+    return React.createElement(QueryClientProvider, { client }, children);
+  };
+}
+
 function buildMerchant(overrides: Partial<MerchantStub> = {}): MerchantStub {
   return {
     id: 'merchant-1',
@@ -169,5 +179,36 @@ describe('useStoreReadiness', () => {
       (item) => item.id === 'verify_kyc'
     );
     expect(kyc?.completed).toBe(false);
+  });
+
+  it('reuses fresh readiness data when the hook remounts', async () => {
+    mockMerchant = buildMerchant({ user_id: 'owner-user' });
+    mockRpc.mockResolvedValue({
+      data: {
+        nin_verified: true,
+        bvn_verified: false,
+        cac_verified: false,
+      },
+      error: null,
+    });
+    const cachedWrapper = createCachedWrapper();
+    const firstRender = renderHook(() => useStoreReadiness(), {
+      wrapper: cachedWrapper,
+    });
+
+    await waitFor(() => {
+      expect(firstRender.result.current.isLoading).toBe(false);
+    });
+    firstRender.unmount();
+
+    const secondRender = renderHook(() => useStoreReadiness(), {
+      wrapper: cachedWrapper,
+    });
+
+    await waitFor(() => {
+      expect(secondRender.result.current.isLoading).toBe(false);
+    });
+    expect(mockProductsSelect).toHaveBeenCalledTimes(1);
+    expect(mockRpc).toHaveBeenCalledTimes(1);
   });
 });
