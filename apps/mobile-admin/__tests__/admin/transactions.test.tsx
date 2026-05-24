@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   mutateAsync: vi.fn(),
+  routerPush: vi.fn(),
   useTransactionReview: vi.fn(),
   useUpdateTransactionCostPrice: vi.fn(),
 }));
@@ -86,6 +87,9 @@ vi.mock('expo-router', async () => {
       Screen: () => React.createElement('div'),
     },
     useLocalSearchParams: () => ({}),
+    useRouter: () => ({
+      push: mocks.routerPush,
+    }),
   };
 });
 
@@ -172,6 +176,7 @@ vi.mock('@/components/transactions/TransactionOrderCard', () => ({
         name: string;
         productId: string | null;
         supplierName: string;
+        variantId: string | null;
       }
     ) => void;
     order: {
@@ -183,6 +188,7 @@ vi.mock('@/components/transactions/TransactionOrderCard', () => ({
         name: string;
         productId: string | null;
         supplierName: string;
+        variantId: string | null;
       }>;
       orderNumber: string;
     };
@@ -264,6 +270,7 @@ const sampleOrders = [
     items: [
       {
         costPrice: null,
+        costSource: null,
         imeiValues: ['353232106161443'],
         id: 'item-1',
         name: 'Samsung Galaxy S26',
@@ -276,9 +283,11 @@ const sampleOrders = [
         serialValues: ['SN-123'],
         sku: 'SG-S26',
         supplierName: 'Old Supplier',
+        variantId: null,
       },
       {
         costPrice: 4000,
+        costSource: 'product' as const,
         imeiValues: [],
         id: 'item-known',
         name: 'Known Cost Accessory',
@@ -290,6 +299,7 @@ const sampleOrders = [
         serialValues: [],
         sku: 'KNOWN',
         supplierName: 'Known Supplier',
+        variantId: null,
       },
     ],
     missingCostCount: 1,
@@ -309,6 +319,7 @@ const sampleOrders = [
     items: [
       {
         costPrice: 2000,
+        costSource: 'product' as const,
         imeiValues: [],
         id: 'item-2',
         name: 'Itel Buds Neo 3',
@@ -320,6 +331,7 @@ const sampleOrders = [
         serialValues: [],
         sku: null,
         supplierName: '',
+        variantId: null,
       },
     ],
     missingCostCount: 0,
@@ -445,9 +457,79 @@ describe('TransactionsScreen', () => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
         costPrice: 1200,
         orderId: 'order-1',
+        orderItemId: 'item-1',
         productId: 'product-1',
         supplierName: 'New supplier',
         transactionDateIso: expectedTransactionDateIso,
+        updateProductDefault: false,
+        variantId: null,
+      })
+    );
+  });
+
+  it('opens and saves an unlinked custom transaction row', async () => {
+    const expectedTransactionDateIso = buildTransactionDateIso('2026-04-10');
+    mocks.useTransactionReview.mockReturnValue({
+      data: [
+        {
+          createdAt: '2026-04-10T10:00:00.000Z',
+          customerEmail: null,
+          customerName: 'Custom Customer',
+          customerPhone: null,
+          estimatedProfit: 0,
+          id: 'order-custom',
+          items: [
+            {
+              costPrice: null,
+              costSource: null,
+              imeiValues: [],
+              id: 'item-custom',
+              name: 'Itel Buds Neo 3',
+              productId: null,
+              profit: null,
+              quantity: 1,
+              revenue: 20000,
+              searchText: 'itel buds neo 3',
+              serialValues: [],
+              sku: null,
+              supplierName: '',
+              variantId: null,
+            },
+          ],
+          missingCostCount: 1,
+          orderNumber: 'ORD-CUSTOM',
+          paymentMethod: 'transfer',
+          searchText: 'ord-custom custom customer itel buds neo 3',
+          total: 20000,
+        },
+      ],
+      error: null,
+      isLoading: false,
+      isRefetching: false,
+      refetch: vi.fn(),
+    });
+
+    render(<TransactionsScreen />);
+
+    fireEvent.click(screen.getByText('Edit ORD-CUSTOM'));
+    fireEvent.change(screen.getByLabelText('Cost price input'), {
+      target: { value: '12000' },
+    });
+    fireEvent.change(screen.getByLabelText('Vendor or supplier input'), {
+      target: { value: 'accessories vendor' },
+    });
+    fireEvent.click(screen.getByText('Save cost price'));
+
+    await waitFor(() =>
+      expect(mocks.mutateAsync).toHaveBeenCalledWith({
+        costPrice: 12000,
+        orderId: 'order-custom',
+        orderItemId: 'item-custom',
+        productId: null,
+        supplierName: 'Accessories vendor',
+        transactionDateIso: expectedTransactionDateIso,
+        updateProductDefault: false,
+        variantId: null,
       })
     );
   });
@@ -480,9 +562,12 @@ describe('TransactionsScreen', () => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
         costPrice: 125,
         orderId: 'order-1',
+        orderItemId: 'item-1',
         productId: 'product-1',
         supplierName: 'Old supplier',
         transactionDateIso: expectedTransactionDateIso,
+        updateProductDefault: false,
+        variantId: null,
       })
     );
   });
@@ -580,6 +665,130 @@ describe('TransactionsScreen', () => {
     expect(screen.queryByText('Edit ORD-2')).not.toBeInTheDocument();
   });
 
+  it('links to reconciliation when visible transactions have unreviewed custom rows', () => {
+    mocks.useTransactionReview.mockReturnValue({
+      data: [
+        {
+          createdAt: '2026-04-10T10:00:00.000Z',
+          customerEmail: null,
+          customerName: 'Olayinka',
+          customerPhone: null,
+          estimatedProfit: 0,
+          id: 'order-unmatched',
+          items: [
+            {
+              costPrice: null,
+              costSource: null,
+              imeiValues: ['353232106161443'],
+              id: 'item-unmatched',
+              name: 'iPhone 11 Pro 64gb Premium Used',
+              productId: null,
+              productMatchStatus: 'unreviewed',
+              profit: null,
+              quantity: 1,
+              revenue: 180000,
+              searchText: 'iphone 11 pro 64gb premium used 353232106161443',
+              serialValues: [],
+              sku: null,
+              supplierName: '',
+              variantId: null,
+            },
+            {
+              costPrice: null,
+              costSource: null,
+              imeiValues: [],
+              id: 'item-custom',
+              name: 'Known custom service',
+              productId: null,
+              productMatchStatus: 'custom',
+              profit: null,
+              quantity: 1,
+              revenue: 1000,
+              searchText: 'known custom service',
+              serialValues: [],
+              sku: null,
+              supplierName: '',
+              variantId: null,
+            },
+          ],
+          missingCostCount: 2,
+          orderNumber: 'ORD-UNMATCHED',
+          paymentMethod: 'transfer',
+          searchText:
+            'ord-unmatched olayinka iphone 11 pro 64gb premium used 353232106161443 known custom service',
+          total: 181000,
+        },
+      ],
+      error: null,
+      isLoading: false,
+      isRefetching: false,
+      refetch: vi.fn(),
+    });
+
+    render(<TransactionsScreen />);
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Review 1 unmatched transaction item',
+      })
+    );
+
+    expect(mocks.routerPush).toHaveBeenCalledWith(
+      '/(admin)/transaction-reconciliation'
+    );
+  });
+
+  it('hides the reconciliation entry point when only custom-kept rows remain', () => {
+    mocks.useTransactionReview.mockReturnValue({
+      data: [
+        {
+          createdAt: '2026-04-10T10:00:00.000Z',
+          customerEmail: null,
+          customerName: 'Custom Customer',
+          customerPhone: null,
+          estimatedProfit: 0,
+          id: 'order-custom',
+          items: [
+            {
+              costPrice: null,
+              costSource: null,
+              imeiValues: [],
+              id: 'item-custom',
+              name: 'Known custom service',
+              productId: null,
+              productMatchStatus: 'custom',
+              profit: null,
+              quantity: 1,
+              revenue: 1000,
+              searchText: 'known custom service',
+              serialValues: [],
+              sku: null,
+              supplierName: '',
+              variantId: null,
+            },
+          ],
+          missingCostCount: 1,
+          orderNumber: 'ORD-CUSTOM',
+          paymentMethod: 'transfer',
+          searchText: 'ord-custom custom customer known custom service',
+          total: 1000,
+        },
+      ],
+      error: null,
+      isLoading: false,
+      isRefetching: false,
+      refetch: vi.fn(),
+    });
+
+    render(<TransactionsScreen />);
+
+    expect(
+      screen.queryByRole('button', {
+        name: /Review .* unmatched transaction item/,
+      })
+    ).not.toBeInTheDocument();
+  });
+
   it('does not match paid line items after switching to the missing-cost tab', () => {
     render(<TransactionsScreen />);
 
@@ -608,9 +817,12 @@ describe('TransactionsScreen', () => {
       expect(mocks.mutateAsync).toHaveBeenCalledWith({
         costPrice: 1200,
         orderId: 'order-1',
+        orderItemId: 'item-1',
         productId: 'product-1',
         supplierName: 'Old supplier',
         transactionDateIso: expectedTransactionDateIso,
+        updateProductDefault: false,
+        variantId: null,
       })
     );
 

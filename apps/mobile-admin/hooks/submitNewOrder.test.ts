@@ -192,6 +192,7 @@ describe('submitNewOrder', () => {
     expect(items[0]).toMatchObject({
       name: 'Phone',
       price: 12000,
+      product_match_status: 'linked',
       quantity: 1,
       order_id: 'order-1',
     });

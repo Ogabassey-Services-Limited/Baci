@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import type { TransactionReviewOrder } from './transaction-review-types';
 import {
   filterOrdersForTransactionTab,
   formatCostPriceInput,
   formatCostPriceInputText,
   formatPickerDateInput,
   getSupplierOptionsFromOrders,
-  parseDateInputForPicker,
   parseCostPriceInput,
+  parseDateInputForPicker,
   toSentenceCaseSupplierName,
 } from './transaction-review-inputs';
+import type { TransactionReviewOrder } from './transaction-review-types';
 
 const baseOrder: Omit<TransactionReviewOrder, 'items' | 'missingCostCount'> = {
   createdAt: '2026-05-11T12:30:00.000Z',
@@ -59,10 +59,12 @@ describe('transaction review input helpers', () => {
         items: [
           {
             costPrice: 3000,
+            costSource: 'product',
             id: 'item-known',
             imeiValues: [],
             name: 'Known Cost',
             productId: 'product-1',
+            productMatchStatus: 'linked',
             profit: 2000,
             quantity: 1,
             revenue: 5000,
@@ -70,13 +72,16 @@ describe('transaction review input helpers', () => {
             serialValues: [],
             sku: null,
             supplierName: 'SLOT WHOLESALE',
+            variantId: null,
           },
           {
             costPrice: null,
+            costSource: null,
             id: 'item-missing',
             imeiValues: [],
             name: 'Missing Cost',
             productId: 'product-2',
+            productMatchStatus: 'linked',
             profit: null,
             quantity: 1,
             revenue: 4000,
@@ -84,6 +89,7 @@ describe('transaction review input helpers', () => {
             serialValues: [],
             sku: null,
             supplierName: 'slot wholesale',
+            variantId: null,
           },
         ],
         missingCostCount: 1,

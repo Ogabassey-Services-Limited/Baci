@@ -1,3 +1,4 @@
+import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const queryClientMock = vi.hoisted(() => ({
@@ -49,9 +50,12 @@ import { useUpdateTransactionCostPrice } from './useUpdateTransactionCostPrice';
 type UpdateTransactionReviewDetailsInput = {
   costPrice: number;
   orderId: string;
-  productId: string;
+  orderItemId: string;
+  productId: string | null;
   supplierName: string;
   transactionDateIso: string;
+  updateProductDefault: boolean;
+  variantId: string | null;
 };
 
 type TransactionReviewMutation = {
@@ -60,7 +64,8 @@ type TransactionReviewMutation = {
 };
 
 function getMutation() {
-  return useUpdateTransactionCostPrice() as unknown as TransactionReviewMutation;
+  const { result } = renderHook(() => useUpdateTransactionCostPrice());
+  return result.current as unknown as TransactionReviewMutation;
 }
 
 function makeInput(
@@ -69,9 +74,12 @@ function makeInput(
   return {
     costPrice: 125_000,
     orderId: 'order-1',
+    orderItemId: 'item-1',
     productId: 'product-1',
     supplierName: 'Main Supplier',
     transactionDateIso: '2026-05-12T12:30:15.250Z',
+    updateProductDefault: false,
+    variantId: null,
     ...overrides,
   };
 }
@@ -92,13 +100,16 @@ describe('useUpdateTransactionCostPrice', () => {
     expect(supabaseMock.rpc).toHaveBeenCalledWith(
       'update_transaction_review_details',
       {
-        p_cost_price: 125_000,
         p_client_timezone: expect.any(String),
+        p_cost_price: 125_000,
         p_merchant_id: 'merchant-1',
         p_order_id: 'order-1',
+        p_order_item_id: 'item-1',
         p_product_id: 'product-1',
         p_supplier_name: 'Main Supplier',
         p_transaction_date: '2026-05-12T12:30:15.250Z',
+        p_update_product_default: false,
+        p_variant_id: null,
       }
     );
 
@@ -184,14 +195,60 @@ describe('useUpdateTransactionCostPrice', () => {
     expect(supabaseMock.rpc).not.toHaveBeenCalled();
   });
 
-  it('rejects missing transaction or product identifiers before saving', async () => {
+  it('rejects missing transaction or line item identifiers before saving', async () => {
     const mutation = getMutation();
 
     await expect(
-      mutation.mutationFn(makeInput({ orderId: '   ', productId: '' }))
-    ).rejects.toThrow('Transaction and product are required');
+      mutation.mutationFn(makeInput({ orderId: '   ', orderItemId: '' }))
+    ).rejects.toThrow('Transaction and line item are required');
 
     expect(supabaseMock.rpc).not.toHaveBeenCalled();
+  });
+
+  it('saves an unlinked custom order item without a product id', async () => {
+    const mutation = getMutation();
+
+    await mutation.mutationFn(
+      makeInput({
+        orderItemId: 'item-custom',
+        productId: null,
+        updateProductDefault: false,
+        variantId: null,
+      })
+    );
+
+    expect(supabaseMock.rpc).toHaveBeenCalledWith(
+      'update_transaction_review_details',
+      expect.objectContaining({
+        p_order_item_id: 'item-custom',
+        p_product_id: null,
+        p_update_product_default: false,
+        p_variant_id: null,
+      })
+    );
+  });
+
+  it('passes the variant id when saving a variant-backed order item', async () => {
+    const mutation = getMutation();
+
+    await mutation.mutationFn(
+      makeInput({
+        orderItemId: 'item-variant',
+        productId: 'product-1',
+        updateProductDefault: true,
+        variantId: 'variant-1',
+      })
+    );
+
+    expect(supabaseMock.rpc).toHaveBeenCalledWith(
+      'update_transaction_review_details',
+      expect.objectContaining({
+        p_order_item_id: 'item-variant',
+        p_product_id: 'product-1',
+        p_update_product_default: true,
+        p_variant_id: 'variant-1',
+      })
+    );
   });
 
   it('surfaces RPC save errors', async () => {

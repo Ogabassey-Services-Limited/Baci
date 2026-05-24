@@ -3,16 +3,10 @@ import type {
   TransactionReviewOrder,
   TransactionReviewOrderRow,
   TransactionReviewProductRow,
+  TransactionReviewVariantRow,
 } from './transaction-review-types';
 
 export const TRANSACTION_REVIEW_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
-export type {
-  TransactionReviewItem,
-  TransactionReviewOrder,
-  TransactionReviewOrderRow,
-  TransactionReviewProductRow,
-} from './transaction-review-types';
 
 export {
   filterOrdersForTransactionTab,
@@ -20,10 +14,17 @@ export {
   formatCostPriceInputText,
   formatPickerDateInput,
   getSupplierOptionsFromOrders,
-  parseDateInputForPicker,
   parseCostPriceInput,
+  parseDateInputForPicker,
   toSentenceCaseSupplierName,
 } from './transaction-review-inputs';
+export type {
+  TransactionReviewItem,
+  TransactionReviewOrder,
+  TransactionReviewOrderRow,
+  TransactionReviewProductRow,
+  TransactionReviewVariantRow,
+} from './transaction-review-types';
 
 const SUPPLIER_METADATA_KEYS = [
   'supplier_name',
@@ -39,6 +40,16 @@ function getJoinedProduct(
   value: TransactionReviewProductRow | TransactionReviewProductRow[] | null
 ) {
   return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
+function getJoinedVariant(
+  value:
+    | TransactionReviewVariantRow
+    | TransactionReviewVariantRow[]
+    | null
+    | undefined
+) {
+  return Array.isArray(value) ? (value[0] ?? null) : (value ?? null);
 }
 
 function getTrimmedString(value: unknown) {
@@ -179,14 +190,32 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
     const items = (order.order_items ?? []).map<TransactionReviewItem>(
       (item) => {
         const product = getJoinedProduct(item.products);
+        const variant = getJoinedVariant(item.product_variants);
         const quantity = Number(item.quantity ?? 1);
         const revenue = Number(item.price ?? 0) * quantity;
-        const costPrice =
+        const orderItemCostPrice =
+          item.cost_price == null ? null : Number(item.cost_price);
+        const variantCostPrice =
+          variant?.cost_price == null ? null : Number(variant.cost_price);
+        const productCostPrice =
           product?.cost_price == null ? null : Number(product.cost_price);
-        const supplierName = getSupplierNameFromMetadata(product?.metadata);
+        const costPrice =
+          orderItemCostPrice ?? variantCostPrice ?? productCostPrice;
+        const costSource =
+          orderItemCostPrice != null
+            ? 'order_item'
+            : variantCostPrice != null
+              ? 'variant'
+              : productCostPrice != null
+                ? 'product'
+                : null;
+        const itemSupplierName = getTrimmedString(item.supplier_name);
+        const supplierName =
+          itemSupplierName || getSupplierNameFromMetadata(product?.metadata);
         const searchableDetailValues = [
           item.fulfillment_data,
           order.fulfillment_details,
+          variant?.attributes,
           product?.fulfillment_details,
           product?.metadata,
         ];
@@ -201,10 +230,12 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
 
         return {
           costPrice,
+          costSource,
           id: item.id,
           imeiValues,
           name: item.name ?? 'Product',
           productId: item.product_id,
+          productMatchStatus: item.product_match_status ?? null,
           profit: costPrice == null ? null : revenue - costPrice * quantity,
           quantity,
           revenue,
@@ -214,6 +245,10 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
             item.price,
             item.quantity,
             item.product_id,
+            item.variant_id,
+            variant?.sku,
+            variant?.condition,
+            collectStrings(variant?.attributes),
             product?.sku,
             supplierName,
             collectStrings(item.fulfillment_data),
@@ -221,8 +256,9 @@ export function mapTransactionOrderRows(rows: TransactionReviewOrderRow[]) {
             collectStrings(product?.metadata),
           ]),
           serialValues,
-          sku: product?.sku ?? null,
+          sku: variant?.sku ?? product?.sku ?? null,
           supplierName,
+          variantId: item.variant_id ?? null,
         };
       }
     );

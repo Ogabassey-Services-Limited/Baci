@@ -6,6 +6,23 @@ export const styles = StyleSheet.create({
     fontFamily: TYPOGRAPHY.fontFamily.medium,
     fontSize: TYPOGRAPHY.size.md,
   },
+  catalogDefaultRow: {
+    alignItems: 'center',
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: SPACING.md,
+    padding: SPACING.md,
+  },
+  catalogDefaultSubtitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    fontSize: TYPOGRAPHY.size.xs,
+    marginTop: SPACING.xs,
+  },
+  catalogDefaultTitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.medium,
+    fontSize: TYPOGRAPHY.size.sm,
+  },
   container: {
     flex: 1,
   },
@@ -203,6 +220,29 @@ export const styles = StyleSheet.create({
   orderTitle: {
     fontFamily: TYPOGRAPHY.fontFamily.semiBold,
     fontSize: TYPOGRAPHY.size.lg,
+  },
+  reconciliationButton: {
+    alignItems: 'center',
+    borderRadius: RADIUS.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: SPACING.md,
+    padding: SPACING.md,
+  },
+  reconciliationButtonIcon: {
+    alignItems: 'center',
+    height: 36,
+    justifyContent: 'center',
+    width: 36,
+  },
+  reconciliationButtonSubtitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.regular,
+    fontSize: TYPOGRAPHY.size.xs,
+    marginTop: SPACING.xs,
+  },
+  reconciliationButtonTitle: {
+    fontFamily: TYPOGRAPHY.fontFamily.semiBold,
+    fontSize: TYPOGRAPHY.size.sm,
   },
   actionButton: {
     borderRadius: RADIUS.full,

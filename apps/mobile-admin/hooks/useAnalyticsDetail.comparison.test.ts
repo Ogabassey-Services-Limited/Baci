@@ -16,7 +16,10 @@ const mocks = vi.hoisted(() => {
       table,
     };
     chains.push(record);
-    const chain: Record<string, unknown> = {};
+    const chain = Promise.resolve(record.result) as Promise<
+      typeof record.result
+    > &
+      Record<string, unknown>;
     const passthrough =
       (method: string) =>
       (...args: unknown[]) => {
@@ -27,10 +30,6 @@ const mocks = vi.hoisted(() => {
     for (const method of ['select', 'eq', 'gte', 'lte']) {
       chain[method] = passthrough(method);
     }
-    chain.then = (
-      resolve: (value: typeof record.result) => unknown,
-      reject?: (error: unknown) => unknown
-    ) => Promise.resolve(record.result).then(resolve, reject);
     return chain;
   }
 
@@ -111,6 +110,16 @@ describe('fetchAnalyticsDetailComparison', () => {
       expect.arrayContaining([
         { method: 'eq', args: ['orders.branch_id', 'branch-1'] },
       ])
+    );
+    const orderItemsSelect = mocks.chains
+      .find((chain) => chain.table === 'order_items')
+      ?.calls.find((call) => call.method === 'select')?.args[0];
+    expect(orderItemsSelect).toEqual(expect.stringContaining('cost_price'));
+    expect(orderItemsSelect).toEqual(
+      expect.stringContaining('product_variants(cost_price)')
+    );
+    expect(orderItemsSelect).not.toEqual(
+      expect.stringContaining('products!inner(cost_price)')
     );
   });
 

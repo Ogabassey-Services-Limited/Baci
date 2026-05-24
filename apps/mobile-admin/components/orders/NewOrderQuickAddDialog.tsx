@@ -14,7 +14,11 @@ export function NewOrderQuickAddDialog({
   const {
     colors,
     customItem,
-    handleAddCustomItem,
+    formatPrice,
+    handleContinueAsCustomItem,
+    handleUseQuickAddProductMatch,
+    isLoadingQuickAddProductMatches,
+    quickAddProductMatches,
     setCustomItem,
     setShowCustomItemModal,
     showCustomItemModal,
@@ -69,6 +73,44 @@ export function NewOrderQuickAddDialog({
           ]}
           value={formatPriceInput(customItem.price)}
         />
+        {quickAddProductMatches.length > 0 ? (
+          <View style={styles.quickAddMatches}>
+            <Text
+              style={[styles.sectionEyebrow, { color: colors.textSecondary }]}
+            >
+              This item may already exist
+            </Text>
+            {quickAddProductMatches.map((match) => (
+              <Pressable
+                accessibilityLabel={`Use existing product ${match.name}`}
+                accessibilityRole="button"
+                key={match.id}
+                onPress={() => handleUseQuickAddProductMatch(match)}
+                style={[
+                  styles.quickAddMatchRow,
+                  { borderColor: colors.border },
+                ]}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: colors.text, fontWeight: '600' }}>
+                    {match.name}
+                  </Text>
+                  <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                    {match.matchReason.replace(/-/g, ' ')}
+                  </Text>
+                </View>
+                <Text style={{ color: colors.text }}>
+                  {formatPrice(match.price)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+        {isLoadingQuickAddProductMatches ? (
+          <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+            Checking product catalog...
+          </Text>
+        ) : null}
         <View style={styles.dialogActions}>
           <Pressable
             accessibilityHint="Close this dialog without adding a custom item"
@@ -81,16 +123,22 @@ export function NewOrderQuickAddDialog({
           </Pressable>
           <Pressable
             accessibilityHint="Add this custom item to the order"
-            accessibilityLabel="Add to Cart"
+            accessibilityLabel={
+              quickAddProductMatches.length > 0
+                ? 'Continue as Custom'
+                : 'Add to Cart'
+            }
             accessibilityRole="button"
-            onPress={handleAddCustomItem}
+            onPress={handleContinueAsCustomItem}
             style={[
               styles.dialogBtn,
               { backgroundColor: colors.success, borderRadius: 8 },
             ]}
           >
             <Text style={{ color: colors.textOnPrimary, fontWeight: 'bold' }}>
-              Add to Cart
+              {quickAddProductMatches.length > 0
+                ? 'Continue as Custom'
+                : 'Add to Cart'}
             </Text>
           </Pressable>
         </View>

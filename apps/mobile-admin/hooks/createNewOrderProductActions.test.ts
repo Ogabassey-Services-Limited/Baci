@@ -127,9 +127,58 @@ describe('createNewOrderProductActions', () => {
       price: 1500,
       quantity: 1,
       is_custom: true,
+      product_match_status: 'custom',
     });
     expect(setShowCustomItemModal).toHaveBeenCalledWith(false);
     expect(setCustomItem).toHaveBeenCalled();
+  });
+
+  it('uses a quick-add product match and closes the custom item modal', () => {
+    let orderItems: OrderItem[] = [];
+    const setOrderItems = vi.fn(
+      (updater: OrderItem[] | ((previous: OrderItem[]) => OrderItem[])) => {
+        orderItems =
+          typeof updater === 'function' ? updater(orderItems) : updater;
+      }
+    );
+    const setCustomItem = vi.fn();
+    const setShowCustomItemModal = vi.fn();
+    const setShowProductModal = vi.fn();
+    const product: SelectableOrderProduct = {
+      has_variants: false,
+      id: 'product-1',
+      images: [],
+      name: 'Existing Product',
+      parent_product_id: null,
+      price: 1500,
+      sku: null,
+      variant_attributes: null,
+    };
+
+    const actions = createNewOrderProductActions({
+      customItem: { name: 'Existing Product', price: '1500' },
+      orderItems: [],
+      selectedParentProduct: null,
+      setCustomItem,
+      setOrderItems,
+      setProductSearch: vi.fn(),
+      setSelectedParentProduct: vi.fn(),
+      setShowCustomItemModal,
+      setShowProductModal,
+    });
+
+    actions.handleUseQuickAddProductMatch(product);
+
+    expect(orderItems).toHaveLength(1);
+    expect(orderItems[0]).toMatchObject({
+      id: 'product-1::base',
+      name: 'Existing Product',
+      product_id: 'product-1',
+      quantity: 1,
+    });
+    expect(setCustomItem).toHaveBeenCalledWith(createEmptyCustomItemDraft());
+    expect(setShowCustomItemModal).toHaveBeenCalledWith(false);
+    expect(setShowProductModal).not.toHaveBeenCalled();
   });
 
   it('handleAddCustomItem does not add an item when name is empty', () => {

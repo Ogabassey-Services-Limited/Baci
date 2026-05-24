@@ -155,6 +155,7 @@ export async function submitNewOrder({
             order_id: orderId,
             price: item.price,
             product_id: item.is_custom ? null : item.product_id,
+            product_match_status: item.is_custom ? 'custom' : 'linked',
             quantity: item.quantity,
             variant_id: item.is_custom ? null : (item.variant_id ?? null),
             variant_name: item.is_custom ? null : (item.variant_name ?? null),

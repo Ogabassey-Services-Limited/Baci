@@ -3,6 +3,7 @@ import {
   type AnalyticsOrderItemRow,
   type AnalyticsOrderRow,
   asNumber,
+  resolveOrderItemAnalyticsCost,
 } from '@/lib/merchant-analytics-utils';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -108,13 +109,10 @@ export function buildChartData(
       continue;
     }
 
-    const joinedProduct = Array.isArray(item.products)
-      ? item.products[0]
-      : item.products;
     const quantity = asNumber(item.quantity ?? 1);
     bucket.profit =
       asNumber(bucket.profit) +
-      (asNumber(item.price) - asNumber(joinedProduct?.cost_price)) * quantity;
+      (asNumber(item.price) - resolveOrderItemAnalyticsCost(item)) * quantity;
   }
 
   return Array.from(buckets.values());

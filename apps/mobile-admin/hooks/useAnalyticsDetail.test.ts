@@ -8,7 +8,7 @@ const mocks = vi.hoisted(() => ({
     table: string;
     calls: Array<{ method: string; args: unknown[] }>;
   }>,
-  queryPromises: [] as Array<Promise<unknown>>,
+  queryPromises: [] as Promise<unknown>[],
   queryState: null as {
     data?: unknown;
     error: Error | null;
@@ -24,7 +24,14 @@ function makeChain(table: string) {
     calls: [] as Array<{ method: string; args: unknown[] }>,
   };
   mocks.chains.push(record);
-  const chain: Record<string, unknown> = {};
+  const chain = Promise.resolve({
+    data: [],
+    error: null,
+  }) as unknown as Promise<{
+    data: unknown[];
+    error: null;
+  }> &
+    Record<string, unknown>;
   const passthrough =
     (method: string) =>
     (...args: unknown[]) => {
@@ -35,9 +42,6 @@ function makeChain(table: string) {
   for (const method of ['select', 'eq', 'gte', 'lte']) {
     chain[method] = passthrough(method);
   }
-  chain.then = (
-    resolve: (value: { data: unknown[]; error: null }) => unknown
-  ) => Promise.resolve({ data: [], error: null }).then(resolve);
   return chain;
 }
 
@@ -140,6 +144,26 @@ describe('useAnalyticsDetail', () => {
         )
       )
     ).toEqual([]);
+  });
+
+  it('selects order item and variant costs without dropping unlinked items', async () => {
+    renderHook(() => useAnalyticsDetail(options));
+    await Promise.all(mocks.queryPromises);
+
+    const orderItemsSelect = mocks.chains
+      .find((chain) => chain.table === 'order_items')
+      ?.calls.find((call) => call.method === 'select')?.args[0];
+
+    expect(orderItemsSelect).toEqual(expect.stringContaining('cost_price'));
+    expect(orderItemsSelect).toEqual(
+      expect.stringContaining('product_variants(cost_price)')
+    );
+    expect(orderItemsSelect).toEqual(
+      expect.stringContaining('products(cost_price)')
+    );
+    expect(orderItemsSelect).not.toEqual(
+      expect.stringContaining('products!inner(cost_price)')
+    );
   });
 
   it('returns query errors from React Query', () => {

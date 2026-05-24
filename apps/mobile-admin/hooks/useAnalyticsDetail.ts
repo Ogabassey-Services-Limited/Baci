@@ -4,7 +4,6 @@
  */
 
 import { useQuery } from '@tanstack/react-query';
-import type { Granularity } from '@/hooks/analyticsDetailBuckets';
 import { useBranchScope } from '@/hooks/useBranchScope';
 import { useMerchant } from '@/hooks/useMerchant';
 import {
@@ -18,7 +17,6 @@ import { fetchAnalyticsDetailComparison } from './useAnalyticsDetail.comparison'
 import type {
   AnalyticsDetailData,
   AnalyticsOrder,
-  MetricType,
   OrderItemWithJoins,
   UseAnalyticsDetailOptions,
 } from './useAnalyticsDetail.types';
@@ -102,9 +100,11 @@ export function useAnalyticsDetail({
       let orderItemsQuery = supabase
         .from('order_items')
         .select(`
+          cost_price,
           quantity,
           price,
-          products!inner(cost_price),
+          product_variants(cost_price),
+          products(cost_price),
           orders!inner(id, merchant_id, payment_status, branch_id, created_at)
         `)
         .eq('orders.merchant_id', merchant.id)

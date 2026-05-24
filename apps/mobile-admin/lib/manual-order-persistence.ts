@@ -11,6 +11,7 @@ interface OrderItemInsertRow {
   order_id: string;
   price: number;
   product_id: string | null;
+  product_match_status?: 'custom' | 'linked' | 'unreviewed';
   quantity: number;
   variant_id?: string | null;
   variant_name?: string | null;
@@ -33,12 +34,10 @@ type InsertOrderItems = (
 
 const MISSING_CONDITION_COLUMN_MESSAGE =
   "Could not find the 'condition' column of 'order_items' in the schema cache";
+const MISSING_PRODUCT_MATCH_STATUS_COLUMN_MESSAGE =
+  "Could not find the 'product_match_status' column of 'order_items' in the schema cache";
 
-function isMissingConditionColumnError(
-  error: PostgrestError | null
-): error is PostgrestError {
-  return Boolean(error?.message?.includes(MISSING_CONDITION_COLUMN_MESSAGE));
-}
+type OptionalOrderItemInsertColumn = 'condition' | 'product_match_status';
 
 function isPostgrestError(error: unknown): error is PostgrestError {
   return Boolean(
@@ -57,11 +56,38 @@ function isPostgrestError(error: unknown): error is PostgrestError {
   );
 }
 
-function stripCondition(rows: OrderItemInsertRow[]): OrderItemInsertRow[] {
-  return rows.map(({ condition: _condition, ...row }) => row);
+function getMissingOrderItemInsertColumns(
+  error: PostgrestError | null
+): OptionalOrderItemInsertColumn[] {
+  const missingColumns: OptionalOrderItemInsertColumn[] = [];
+
+  if (error?.message?.includes(MISSING_CONDITION_COLUMN_MESSAGE)) {
+    missingColumns.push('condition');
+  }
+
+  if (error?.message?.includes(MISSING_PRODUCT_MATCH_STATUS_COLUMN_MESSAGE)) {
+    missingColumns.push('product_match_status');
+  }
+
+  return missingColumns;
 }
 
-async function insertOrderItemsWithConditionFallback(
+function stripOrderItemInsertColumns(
+  rows: OrderItemInsertRow[],
+  columns: OptionalOrderItemInsertColumn[]
+): OrderItemInsertRow[] {
+  return rows.map((row) => {
+    const nextRow = { ...row };
+
+    for (const column of columns) {
+      delete nextRow[column];
+    }
+
+    return nextRow;
+  });
+}
+
+async function insertOrderItemsWithMissingColumnFallback(
   insertOrderItems: InsertOrderItems,
   rows: OrderItemInsertRow[]
 ): Promise<void> {
@@ -71,15 +97,21 @@ async function insertOrderItemsWithConditionFallback(
     return;
   }
 
-  if (!isMissingConditionColumnError(error)) {
+  const missingColumns = getMissingOrderItemInsertColumns(error);
+
+  if (missingColumns.length === 0) {
     throw error;
   }
 
   console.warn(
-    '[ManualOrderPersistence] order_items.condition is unavailable in the schema cache; retrying without the condition snapshot.'
+    `[ManualOrderPersistence] order_items columns are unavailable in the schema cache (${missingColumns.join(
+      ', '
+    )}); retrying without them.`
   );
 
-  const { error: retryError } = await insertOrderItems(stripCondition(rows));
+  const { error: retryError } = await insertOrderItems(
+    stripOrderItemInsertColumns(rows, missingColumns)
+  );
 
   if (retryError) {
     throw retryError;
@@ -126,7 +158,7 @@ export async function createManualOrderWithItems<
   }
 
   try {
-    await insertOrderItemsWithConditionFallback(
+    await insertOrderItemsWithMissingColumnFallback(
       dependencies.insertOrderItems,
       payload.buildItems(data.id)
     );

@@ -3,9 +3,9 @@ import {
   buildTransactionDateIso,
   buildTransactionReviewRangeFilters,
   filterOrdersForTransactionTab,
+  filterTransactionOrders,
   formatCostPriceInput,
   formatCostPriceInputText,
-  filterTransactionOrders,
   formatTransactionDateInput,
   getSupplierNameFromMetadata,
   getSupplierOptionsFromOrders,
@@ -66,6 +66,172 @@ describe('transaction review helpers', () => {
     expect(order.searchText).toContain('newton chiemelie');
     expect(order.searchText).toContain('353232106161443');
     expect(order.searchText).toContain('slot wholesale');
+  });
+
+  it('uses order item cost and supplier before product defaults', () => {
+    const [order] = mapTransactionOrderRows([
+      {
+        created_at: '2026-05-11T12:30:00.000Z',
+        transaction_date: null,
+        customer_email: null,
+        customer_name: 'Olayinka Akerele',
+        customer_phone: null,
+        fulfillment_details: null,
+        id: 'order-1',
+        order_items: [
+          {
+            cost_price: 150_000,
+            fulfillment_data: { imei: '353232106161443' },
+            id: 'item-1',
+            name: 'iPhone 11 Pro 64gb Premium Used',
+            price: 180_000,
+            product_id: null,
+            product_variants: null,
+            products: null,
+            quantity: 1,
+            supplier_name: 'Used Phone Supplier',
+            variant_id: null,
+          },
+        ],
+        order_number: 'ORD-110526-74B115',
+        payment_method: 'transfer',
+        total: 180_000,
+      },
+    ]);
+
+    expect(order.missingCostCount).toBe(0);
+    expect(order.estimatedProfit).toBe(30_000);
+    expect(order.items[0]).toMatchObject({
+      costPrice: 150_000,
+      costSource: 'order_item',
+      productId: null,
+      supplierName: 'Used Phone Supplier',
+    });
+  });
+
+  it('preserves order item product match status for reconciliation entry points', () => {
+    const [order] = mapTransactionOrderRows([
+      {
+        created_at: '2026-05-11T12:30:00.000Z',
+        transaction_date: null,
+        customer_email: null,
+        customer_name: 'Custom Customer',
+        customer_phone: null,
+        fulfillment_details: null,
+        id: 'order-1',
+        order_items: [
+          {
+            fulfillment_data: null,
+            id: 'item-1',
+            name: 'Itel Buds Neo 3',
+            price: 20_000,
+            product_id: null,
+            product_match_status: 'custom',
+            product_variants: null,
+            products: null,
+            quantity: 1,
+            variant_id: null,
+          },
+        ],
+        order_number: 'ORD-CUSTOM',
+        payment_method: 'transfer',
+        total: 20_000,
+      },
+    ]);
+
+    expect(order.items[0]?.productMatchStatus).toBe('custom');
+  });
+
+  it('falls back to product cost and supplier when the order item has no override', () => {
+    const [order] = mapTransactionOrderRows([
+      {
+        created_at: '2026-05-11T12:30:00.000Z',
+        transaction_date: null,
+        customer_email: null,
+        customer_name: 'Newton Chiemelie',
+        customer_phone: null,
+        fulfillment_details: null,
+        id: 'order-1',
+        order_items: [
+          {
+            cost_price: null,
+            fulfillment_data: null,
+            id: 'item-1',
+            name: 'Redmi 15 8GB 256GB',
+            price: 200_000,
+            product_id: 'product-1',
+            product_variants: null,
+            products: {
+              cost_price: 180_000,
+              fulfillment_details: null,
+              metadata: { supplier_name: 'Catalog Supplier' },
+              sku: null,
+            },
+            quantity: 1,
+            supplier_name: null,
+            variant_id: null,
+          },
+        ],
+        order_number: 'ORD-110526-38F265',
+        payment_method: 'transfer',
+        total: 200_000,
+      },
+    ]);
+
+    expect(order.items[0]).toMatchObject({
+      costPrice: 180_000,
+      costSource: 'product',
+      supplierName: 'Catalog Supplier',
+    });
+  });
+
+  it('falls back to variant cost before product cost', () => {
+    const [order] = mapTransactionOrderRows([
+      {
+        created_at: '2026-05-11T12:30:00.000Z',
+        transaction_date: null,
+        customer_email: null,
+        customer_name: 'Variant Customer',
+        customer_phone: null,
+        fulfillment_details: null,
+        id: 'order-1',
+        order_items: [
+          {
+            cost_price: null,
+            fulfillment_data: null,
+            id: 'item-1',
+            name: 'iPhone 11 Pro',
+            price: 180_000,
+            product_id: 'product-1',
+            product_variants: {
+              attributes: { storage: '64GB' },
+              condition: 'used',
+              cost_price: 150_000,
+              sku: 'IPH-11P-64-PU',
+            },
+            products: {
+              cost_price: 220_000,
+              fulfillment_details: null,
+              metadata: { supplier_name: 'Catalog Supplier' },
+              sku: 'IPH-11P',
+            },
+            quantity: 1,
+            supplier_name: null,
+            variant_id: 'variant-1',
+          },
+        ],
+        order_number: 'ORD-VARIANT',
+        payment_method: 'transfer',
+        total: 180_000,
+      },
+    ]);
+
+    expect(order.items[0]).toMatchObject({
+      costPrice: 150_000,
+      costSource: 'variant',
+      productId: 'product-1',
+      variantId: 'variant-1',
+    });
   });
 
   it('filters transactions by order, customer, supplier, IMEI, or serial text', () => {
@@ -169,9 +335,9 @@ describe('transaction review helpers', () => {
       },
     ]);
 
-    expect(filterOrdersForTransactionTab(orders, 'paid')[0]?.items).toHaveLength(
-      2
-    );
+    expect(
+      filterOrdersForTransactionTab(orders, 'paid')[0]?.items
+    ).toHaveLength(2);
     expect(filterOrdersForTransactionTab(orders, 'missing-costs')).toEqual([
       expect.objectContaining({
         items: [expect.objectContaining({ id: 'item-missing' })],

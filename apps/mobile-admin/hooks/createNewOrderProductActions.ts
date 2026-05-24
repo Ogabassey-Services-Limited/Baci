@@ -42,7 +42,7 @@ export function createNewOrderProductActions({
     setProductSearch('');
   };
 
-  const handleAddProduct = (product: SelectableOrderProduct) => {
+  const addProductToOrder = (product: SelectableOrderProduct) => {
     setOrderItems((previous) =>
       mergeOrderItem(
         previous,
@@ -53,6 +53,10 @@ export function createNewOrderProductActions({
         })
       )
     );
+  };
+
+  const handleAddProduct = (product: SelectableOrderProduct) => {
+    addProductToOrder(product);
     closeProductModal();
   };
 
@@ -65,7 +69,13 @@ export function createNewOrderProductActions({
     setSelectedParentProduct(product);
   };
 
-  const handleAddCustomItem = () => {
+  const handleUseQuickAddProductMatch = (product: SelectableOrderProduct) => {
+    addProductToOrder(product);
+    setCustomItem(createEmptyCustomItemDraft());
+    setShowCustomItemModal(false);
+  };
+
+  const handleContinueAsCustomItem = () => {
     const normalizedName = customItem.name.trim().replace(/\s+/g, ' ');
     const parsedPrice = Number.parseFloat(customItem.price);
     if (
@@ -83,6 +93,7 @@ export function createNewOrderProductActions({
         is_custom: true,
         name: normalizedName,
         price: parsedPrice,
+        product_match_status: 'custom',
         product_id: null,
         quantity: 1,
         variant_id: null,
@@ -107,10 +118,12 @@ export function createNewOrderProductActions({
 
   return {
     closeProductModal,
-    handleAddCustomItem,
+    handleAddCustomItem: handleContinueAsCustomItem,
     handleAddProduct,
+    handleContinueAsCustomItem,
     handleQuantityChange,
     handleSelectProduct,
+    handleUseQuickAddProductMatch,
     resetProductPickerState,
   };
 }

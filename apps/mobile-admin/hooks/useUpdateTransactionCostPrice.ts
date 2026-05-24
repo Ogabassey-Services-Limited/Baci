@@ -5,9 +5,12 @@ import { supabase } from '@/lib/supabase';
 interface UpdateTransactionReviewDetailsInput {
   costPrice: number;
   orderId: string;
-  productId: string;
+  orderItemId: string;
+  productId: string | null;
   supplierName: string;
   transactionDateIso: string;
+  updateProductDefault: boolean;
+  variantId: string | null;
 }
 
 function getLocalDateKey(date: Date) {
@@ -40,9 +43,12 @@ export function useUpdateTransactionCostPrice() {
     mutationFn: async ({
       costPrice,
       orderId,
+      orderItemId,
       productId,
       supplierName,
       transactionDateIso,
+      updateProductDefault,
+      variantId,
     }: UpdateTransactionReviewDetailsInput) => {
       if (
         typeof costPrice !== 'number' ||
@@ -54,8 +60,11 @@ export function useUpdateTransactionCostPrice() {
       if (!merchant?.id) {
         throw new Error('Merchant context is not ready');
       }
-      if (!orderId.trim() || !productId.trim()) {
-        throw new Error('Transaction and product are required');
+      if (!orderId.trim() || !orderItemId.trim()) {
+        throw new Error('Transaction and line item are required');
+      }
+      if (updateProductDefault && !productId?.trim()) {
+        throw new Error('Product is required to update the catalog default');
       }
       if (!transactionDateIso.trim()) {
         throw new Error('Enter a valid transaction date.');
@@ -78,9 +87,12 @@ export function useUpdateTransactionCostPrice() {
           p_client_timezone: clientTimeZone,
           p_merchant_id: merchant.id,
           p_order_id: orderId.trim(),
-          p_product_id: productId.trim(),
+          p_order_item_id: orderItemId.trim(),
+          p_product_id: productId?.trim() || null,
           p_supplier_name: supplierName,
           p_transaction_date: parsedTransactionDate.toISOString(),
+          p_update_product_default: updateProductDefault,
+          p_variant_id: variantId?.trim() || null,
         }
       );
 

@@ -116,4 +116,34 @@ describe('fetchMerchantAnalyticsData', () => {
 
     expect(results.currentOrdersResult.error).toEqual(new Error('boom'));
   });
+
+  it('selects transaction item and variant costs for profit analytics', async () => {
+    const supabase = createSupabaseMock();
+
+    await fetchMerchantAnalyticsData(
+      supabase as never,
+      'merchant-1',
+      new Date('2026-05-01T00:00:00.000Z'),
+      new Date('2026-05-05T00:00:00.000Z'),
+      new Date('2026-04-26T00:00:00.000Z'),
+      new Date('2026-04-30T00:00:00.000Z')
+    );
+
+    const orderItemSelects = supabase.chains
+      .filter((chain) => chain.table === 'order_items')
+      .map(
+        (chain) => chain.calls.find((call) => call.method === 'select')?.args[0]
+      );
+
+    expect(orderItemSelects).toHaveLength(2);
+    for (const select of orderItemSelects) {
+      expect(select).toEqual(expect.stringContaining('cost_price'));
+      expect(select).toEqual(
+        expect.stringContaining('product_variants(cost_price)')
+      );
+      expect(select).toEqual(
+        expect.stringContaining('products(brand, cost_price)')
+      );
+    }
+  });
 });

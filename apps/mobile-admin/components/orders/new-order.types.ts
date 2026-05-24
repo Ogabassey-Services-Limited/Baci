@@ -9,9 +9,12 @@ export interface ShippingAddress {
   state?: string;
 }
 
+export type ProductMatchStatus = 'custom' | 'linked' | 'unreviewed';
+
 export interface OrderItem {
   id: string;
   product_id: string | null;
+  product_match_status?: ProductMatchStatus;
   name: string;
   quantity: number;
   price: number;

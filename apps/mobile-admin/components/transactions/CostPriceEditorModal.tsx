@@ -4,16 +4,17 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  Switch,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import { styles } from '@/components/transactions/transactions.styles';
+import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import {
   isRuntimePlatform,
   selectRuntimePlatform,
 } from '@/config/runtime-platform';
-import { styles } from '@/components/transactions/transactions.styles';
-import { BottomSheetModal } from '@/components/ui/BottomSheetModal';
 import type { ThemeColors } from '@/constants/theme';
 import type { TransactionReviewItem } from '@/hooks/useTransactionReview';
 import {
@@ -29,6 +30,7 @@ interface CostPriceEditorModalProps {
   onChangeCostPrice: (value: string) => void;
   onChangeDate: (value: string) => void;
   onChangeSupplier: (value: string) => void;
+  onChangeUpdateProductDefault: (value: boolean) => void;
   onClose: () => void;
   onSave: () => void;
   pending: boolean;
@@ -36,6 +38,7 @@ interface CostPriceEditorModalProps {
   selectedItem: TransactionReviewItem | null;
   supplierOptions: string[];
   supplierInput: string;
+  updateProductDefault: boolean;
   visible: boolean;
 }
 
@@ -49,6 +52,7 @@ export function CostPriceEditorModal({
   onChangeCostPrice,
   onChangeDate,
   onChangeSupplier,
+  onChangeUpdateProductDefault,
   onClose,
   onSave,
   pending,
@@ -56,6 +60,7 @@ export function CostPriceEditorModal({
   selectedItem,
   supplierOptions,
   supplierInput,
+  updateProductDefault,
   visible,
 }: CostPriceEditorModalProps) {
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -272,6 +277,40 @@ export function CostPriceEditorModal({
             </View>
           ) : null}
         </View>
+        {selectedItem?.productId ? (
+          <View
+            style={[
+              styles.catalogDefaultRow,
+              {
+                backgroundColor: colors.card,
+                borderColor: colors.border,
+                opacity: pending ? 0.55 : 1,
+              },
+            ]}
+          >
+            <View style={styles.flexOne}>
+              <Text
+                style={[styles.catalogDefaultTitle, { color: colors.text }]}
+              >
+                Update catalog default
+              </Text>
+              <Text
+                style={[
+                  styles.catalogDefaultSubtitle,
+                  { color: colors.textSecondary },
+                ]}
+              >
+                Also save this cost as the product or variant default.
+              </Text>
+            </View>
+            <Switch
+              accessibilityLabel="Update catalog or variant default cost"
+              disabled={pending}
+              onValueChange={onChangeUpdateProductDefault}
+              value={updateProductDefault}
+            />
+          </View>
+        ) : null}
       </View>
       {saveError ? (
         <Text style={[styles.errorText, { color: colors.error }]}>

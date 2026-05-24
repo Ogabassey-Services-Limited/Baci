@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SystemBars } from 'react-native-edge-to-edge';
@@ -34,6 +34,7 @@ type TransactionReviewTab = 'missing-costs' | 'paid';
 export default function TransactionsScreen() {
   const { colors, isDark } = useTheme();
   const { format: formatCurrency, symbol: currencySymbol } = useCurrency();
+  const router = useRouter();
   const params = useLocalSearchParams<{
     endDate?: string | string[];
     startDate?: string | string[];
@@ -76,6 +77,7 @@ export default function TransactionsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
   const [supplierInput, setSupplierInput] = useState('');
+  const [updateProductDefault, setUpdateProductDefault] = useState(false);
 
   const summary = orders.reduce(
     (acc, order) => ({
@@ -88,20 +90,30 @@ export default function TransactionsScreen() {
 
   const tabFilteredOrders = filterOrdersForTransactionTab(orders, activeTab);
   const visibleOrders = filterTransactionOrders(tabFilteredOrders, searchQuery);
+  const unmatchedItemCount = visibleOrders.reduce(
+    (count, order) =>
+      count +
+      order.items.filter(
+        (item) => !item.productId && item.productMatchStatus !== 'custom'
+      ).length,
+    0
+  );
+  const unmatchedItemLabel =
+    unmatchedItemCount === 1
+      ? 'Review 1 unmatched transaction item'
+      : `Review ${unmatchedItemCount} unmatched transaction items`;
   const supplierOptions = getSupplierOptionsFromOrders(orders);
 
   const handleOpenEditor = (
     order: TransactionReviewOrder,
     item: TransactionReviewItem
   ) => {
-    if (!item.productId) {
-      return;
-    }
     setSelectedOrder(order);
     setSelectedItem(item);
     setCostPriceInput(formatCostPriceInput(item.costPrice, currencySymbol));
     setDateInput(formatTransactionDateInput(order.createdAt));
     setSupplierInput(toSentenceCaseSupplierName(item.supplierName ?? ''));
+    setUpdateProductDefault(false);
     setSaveError(null);
   };
 
@@ -112,6 +124,7 @@ export default function TransactionsScreen() {
     setDateInput('');
     setSaveError(null);
     setSupplierInput('');
+    setUpdateProductDefault(false);
   };
 
   const handleChangeCostPrice = (value: string) => {
@@ -123,7 +136,7 @@ export default function TransactionsScreen() {
   };
 
   const handleSave = async () => {
-    if (!selectedOrder || !selectedItem || selectedItem.productId == null) {
+    if (!selectedOrder || !selectedItem) {
       return;
     }
 
@@ -144,9 +157,12 @@ export default function TransactionsScreen() {
       await updateCostPrice.mutateAsync({
         costPrice: nextCostPrice,
         orderId: selectedOrder.id,
+        orderItemId: selectedItem.id,
         productId: selectedItem.productId,
         supplierName: toSentenceCaseSupplierName(supplierInput),
         transactionDateIso: nextTransactionDateIso,
+        updateProductDefault,
+        variantId: selectedItem.variantId,
       });
       handleCloseEditor();
     } catch (err) {
@@ -222,6 +238,53 @@ export default function TransactionsScreen() {
             ) : null}
           </View>
 
+          {unmatchedItemCount > 0 ? (
+            <Pressable
+              accessibilityLabel={unmatchedItemLabel}
+              accessibilityRole="button"
+              onPress={() => router.push('/(admin)/transaction-reconciliation')}
+              style={({ pressed }) => [
+                styles.reconciliationButton,
+                {
+                  backgroundColor: `${colors.primary}12`,
+                  borderColor: `${colors.primary}30`,
+                  opacity: pressed ? 0.75 : 1,
+                },
+              ]}
+            >
+              <View style={styles.reconciliationButtonIcon}>
+                <Ionicons
+                  name="git-compare-outline"
+                  size={18}
+                  color={colors.primary}
+                />
+              </View>
+              <View style={styles.flexOne}>
+                <Text
+                  style={[
+                    styles.reconciliationButtonTitle,
+                    { color: colors.text },
+                  ]}
+                >
+                  {unmatchedItemLabel}
+                </Text>
+                <Text
+                  style={[
+                    styles.reconciliationButtonSubtitle,
+                    { color: colors.textSecondary },
+                  ]}
+                >
+                  Link custom sold rows back to catalog products.
+                </Text>
+              </View>
+              <Ionicons
+                name="chevron-forward"
+                size={18}
+                color={colors.textMuted}
+              />
+            </Pressable>
+          ) : null}
+
           <TransactionListState
             colors={colors}
             error={error}
@@ -271,6 +334,7 @@ export default function TransactionsScreen() {
           onChangeCostPrice={handleChangeCostPrice}
           onChangeDate={setDateInput}
           onChangeSupplier={handleChangeSupplier}
+          onChangeUpdateProductDefault={setUpdateProductDefault}
           onClose={handleCloseEditor}
           onSave={handleSave}
           pending={updateCostPrice.isPending}
@@ -278,6 +342,7 @@ export default function TransactionsScreen() {
           selectedItem={selectedItem}
           supplierOptions={supplierOptions}
           supplierInput={supplierInput}
+          updateProductDefault={updateProductDefault}
           visible={Boolean(selectedItem)}
         />
       </SafeAreaView>
