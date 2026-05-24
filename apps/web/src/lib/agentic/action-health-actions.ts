@@ -4,6 +4,7 @@ import type { AgenticAction } from '@/schemas/agentic-action-health';
 interface BuildAgenticHealthActionsInput {
   activeInProgressCount: number;
   allowlistCount: number;
+  cancelTerminalErrorCount: number;
   completeTerminalErrorCount: number;
   isAgenticCheckoutEnabled: boolean;
   orderFinalizingCount: number;
@@ -19,6 +20,7 @@ interface BuildAgenticHealthActionsInput {
 export function buildAgenticHealthActions({
   activeInProgressCount,
   allowlistCount,
+  cancelTerminalErrorCount,
   completeTerminalErrorCount,
   isAgenticCheckoutEnabled,
   orderFinalizingCount,
@@ -33,7 +35,7 @@ export function buildAgenticHealthActions({
   const actions: AgenticAction[] = [];
   const genericTerminalErrorCount = Math.max(
     0,
-    terminalErrorCount - completeTerminalErrorCount
+    terminalErrorCount - completeTerminalErrorCount - cancelTerminalErrorCount
   );
   const pushAction = (action: AgenticAction) => {
     const nextStepUrl = getAgenticActionNextStepUrl(action.code);
@@ -50,6 +52,17 @@ export function buildAgenticHealthActions({
         'Agentic checkout completions are failing before order finalization.',
       next_step:
         'Inspect completion failures, then retry checkout completion with the same idempotency key.',
+      severity: 'attention',
+    });
+  }
+
+  if (cancelTerminalErrorCount > 0) {
+    pushAction({
+      code: 'AGENTIC_CHECKOUT_CANCEL_ERRORS',
+      count: cancelTerminalErrorCount,
+      message: 'Agentic checkout cancellations are failing.',
+      next_step:
+        'Review cancellation failures before agents or buyers assume the session is closed.',
       severity: 'attention',
     });
   }
