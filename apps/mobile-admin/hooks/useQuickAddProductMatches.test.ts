@@ -8,10 +8,15 @@ const mocks = vi.hoisted(() => ({
   fetchAdminProductSearchRows: vi.fn(),
   fetchAdminProductVariants: vi.fn(),
   merchant: { id: 'merchant-1' } as { id: string } | null,
+  useDebounce: vi.fn((value: string) => value),
 }));
 
 vi.mock('@/hooks/useMerchant', () => ({
   useMerchant: () => ({ merchant: mocks.merchant }),
+}));
+
+vi.mock('@/hooks/useDebounce', () => ({
+  useDebounce: mocks.useDebounce,
 }));
 
 vi.mock('@/lib/product-search', () => ({
@@ -44,6 +49,7 @@ describe('useQuickAddProductMatches', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.merchant = { id: 'merchant-1' };
+    mocks.useDebounce.mockImplementation((value) => value);
     mocks.fetchAdminProductSearchRows.mockResolvedValue({
       nextCursor: null,
       rows: [
@@ -107,6 +113,28 @@ describe('useQuickAddProductMatches', () => {
       merchantId: 'merchant-1',
       parentProduct: expect.objectContaining({ id: 'iphone-11-pro' }),
     });
+  });
+
+  it('queries with the debounced quick-add name instead of raw keystrokes', async () => {
+    mocks.useDebounce.mockReturnValue('iPhone 11 Pro');
+
+    renderHook(
+      () =>
+        useQuickAddProductMatches({
+          name: 'iPhone 11 Pro 6',
+          price: '180000',
+        }),
+      { wrapper: createWrapper() }
+    );
+
+    await waitFor(() => {
+      expect(mocks.fetchAdminProductSearchRows).toHaveBeenCalledWith(
+        expect.objectContaining({
+          filters: { search: 'iPhone 11 Pro' },
+        })
+      );
+    });
+    expect(mocks.useDebounce).toHaveBeenCalledWith('iPhone 11 Pro 6', 300);
   });
 
   it('does not query until the quick-add name has at least two characters', () => {

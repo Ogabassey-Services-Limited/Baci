@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMerchant } from '@/hooks/useMerchant';
 import { formatVariantAttributesSummary } from '@/lib/format-variant-attributes';
+import { fetchAdminProductSearchRows } from '@/lib/product-search';
 import { supabase } from '@/lib/supabase';
 import type { ReconciliationProductCandidate } from '@/lib/transaction-reconciliation';
 
@@ -9,6 +10,12 @@ interface ProductCandidateRow {
   name: string;
   price: number | null;
   status: string | null;
+}
+
+interface UnlinkedOrderItemRow {
+  id: string;
+  name: string | null;
+  price: number | null;
 }
 
 interface VariantCandidateRow {
@@ -34,8 +41,59 @@ interface VariantCandidateRow {
     | null;
 }
 
+const RECONCILIATION_PRODUCT_COLUMNS = 'id, name, price, status';
+const RECONCILIATION_SEARCH_PAGE_SIZE = 20;
+
 function getJoinedParent(value: VariantCandidateRow['products']) {
   return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
+function buildReconciliationSearchTerms(items: UnlinkedOrderItemRow[]) {
+  const terms = new Set<string>();
+
+  for (const item of items) {
+    const normalizedName = (item.name ?? '')
+      .replace(/\[[^\]]+\]/g, ' ')
+      .replace(/\bimei\b[:\s-]*\d+/gi, ' ')
+      .replace(/\bserial\b[:\s-]*[\w-]+/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (normalizedName.length >= 2) {
+      terms.add(normalizedName);
+    }
+  }
+
+  return [...terms];
+}
+
+function dedupeProductRows(rows: ProductCandidateRow[]) {
+  const productsById = new Map<string, ProductCandidateRow>();
+  for (const row of rows) {
+    productsById.set(row.id, row);
+  }
+
+  return [...productsById.values()];
+}
+
+async function fetchUnlinkedOrderItems(merchantId: string) {
+  const { data, error } = await supabase
+    .from('order_items')
+    .select(
+      'id, name, price, quantity, cost_price, supplier_name, product_match_status, orders!inner(id, order_number, merchant_id, customer_name, payment_status, created_at)'
+    )
+    .eq('orders.merchant_id', merchantId)
+    .eq('orders.payment_status', 'paid')
+    .is('product_id', null)
+    .neq('product_match_status', 'custom')
+    .order('created_at', { referencedTable: 'orders', ascending: false })
+    .limit(100);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as UnlinkedOrderItemRow[];
 }
 
 export function useUnlinkedOrderItemReconciliation() {
@@ -50,56 +108,56 @@ export function useUnlinkedOrderItemReconciliation() {
         throw new Error('Merchant context is not ready');
       }
 
-      const { data, error } = await supabase
-        .from('order_items')
-        .select(
-          'id, name, price, quantity, cost_price, supplier_name, product_match_status, orders!inner(id, order_number, merchant_id, customer_name, payment_status, created_at)'
-        )
-        .eq('orders.merchant_id', merchant.id)
-        .eq('orders.payment_status', 'paid')
-        .is('product_id', null)
-        .neq('product_match_status', 'custom')
-        .order('created_at', { referencedTable: 'orders', ascending: false })
-        .limit(100);
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      return data ?? [];
+      return fetchUnlinkedOrderItems(merchant.id);
     },
   });
 
+  const unlinkedItems = (unlinkedItemsQuery.data ?? []) as UnlinkedOrderItemRow[];
+  const searchTerms = buildReconciliationSearchTerms(unlinkedItems);
   const productCandidatesQuery = useQuery({
-    enabled: Boolean(merchant?.id),
-    queryKey: ['transaction-reconciliation-products', merchant?.id],
+    enabled: Boolean(merchant?.id && searchTerms.length > 0),
+    queryKey: ['transaction-reconciliation-products', merchant?.id, searchTerms],
     queryFn: async (): Promise<ReconciliationProductCandidate[]> => {
       if (!merchant?.id) {
         throw new Error('Merchant context is not ready');
       }
 
-      const [
-        { data: products, error: productsError },
-        { data: variants, error: variantsError },
-      ] = await Promise.all([
-        supabase
-          .from('products')
-          .select('id, name, price, status')
-          .eq('merchant_id', merchant.id)
-          .limit(200),
-        supabase
-          .from('product_variants')
-          .select(
-            'id, attributes, condition, price_override, products!inner(id, name, price, status, merchant_id)'
-          )
-          .eq('merchant_id', merchant.id)
-          .eq('products.merchant_id', merchant.id)
-          .limit(200),
-      ]);
-
-      if (productsError) {
-        throw new Error(productsError.message);
+      const itemsForSearch =
+        unlinkedItems.length > 0
+          ? unlinkedItems
+          : await fetchUnlinkedOrderItems(merchant.id);
+      const activeSearchTerms = buildReconciliationSearchTerms(itemsForSearch);
+      if (activeSearchTerms.length === 0) {
+        return [];
       }
+
+      const candidatePages = await Promise.all(
+        activeSearchTerms.map((searchTerm) =>
+          fetchAdminProductSearchRows<ProductCandidateRow>({
+            cursor: 0,
+            filters: { search: searchTerm },
+            merchantId: merchant.id,
+            pageSize: RECONCILIATION_SEARCH_PAGE_SIZE,
+            selectColumns: RECONCILIATION_PRODUCT_COLUMNS,
+          })
+        )
+      );
+      const products = dedupeProductRows(
+        candidatePages.flatMap((page) => page.rows)
+      );
+      if (products.length === 0) {
+        return [];
+      }
+
+      const productIds = products.map((product) => product.id);
+      const { data: variants, error: variantsError } = await supabase
+        .from('product_variants')
+        .select(
+          'id, attributes, condition, price_override, products!inner(id, name, price, status, merchant_id)'
+        )
+        .eq('merchant_id', merchant.id)
+        .eq('products.merchant_id', merchant.id)
+        .in('product_id', productIds);
 
       if (variantsError) {
         throw new Error(variantsError.message);
@@ -176,11 +234,10 @@ export function useUnlinkedOrderItemReconciliation() {
         throw new Error('Merchant context is not ready');
       }
 
-      const { error } = await supabase
-        .from('order_items')
-        .update({ product_match_status: 'custom' })
-        .eq('id', input.orderItemId)
-        .is('product_id', null);
+      const { error } = await supabase.rpc('mark_transaction_order_item_custom', {
+        p_merchant_id: merchant.id,
+        p_order_item_id: input.orderItemId,
+      });
 
       if (error) {
         throw new Error(error.message);

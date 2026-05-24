@@ -65,7 +65,7 @@ function warnTransactionReviewQueryError(
   error: SupabaseQueryError | null
 ) {
   if (__DEV__ && error) {
-    console.warn(`[TransactionReview] ${stage} select failed`, error);
+    console.warn('[TransactionReview] select failed', { error, stage });
   }
 }
 

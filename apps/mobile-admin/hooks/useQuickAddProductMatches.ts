@@ -1,6 +1,7 @@
 import { MOBILE_ADMIN_PRODUCT_COLUMNS } from '@baci/shared';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import type { CustomItemDraft } from '@/components/orders/new-order.types';
+import { useDebounce } from '@/hooks/useDebounce';
 import { useMerchant } from '@/hooks/useMerchant';
 import { fetchAdminProductVariants } from '@/hooks/useProductPickerVariants';
 import type { SelectableManualOrderProduct } from '@/lib/manual-order-line-item';
@@ -13,7 +14,8 @@ const QUICK_ADD_PRODUCT_COLUMNS = `${MOBILE_ADMIN_PRODUCT_COLUMNS}, parent_produ
 export function useQuickAddProductMatches(customItem: CustomItemDraft) {
   const { merchant } = useMerchant();
   const merchantId = merchant?.id;
-  const queryText = customItem.name.trim();
+  const debouncedName = useDebounce(customItem.name, 300);
+  const queryText = debouncedName.trim();
   const isEnabled = Boolean(merchantId && queryText.length >= 2);
 
   const productsQuery = useQuery({

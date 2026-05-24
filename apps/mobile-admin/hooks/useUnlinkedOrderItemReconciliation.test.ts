@@ -9,9 +9,14 @@ const supabaseMock = vi.hoisted(() => {
     data: unknown[] | null;
     error: { message: string } | null;
   };
+  type RpcResult = {
+    data: unknown[] | null;
+    error: { message: string } | null;
+  };
   type QueryRecord = {
     eq: ReturnType<typeof vi.fn>;
     from: string;
+    in: ReturnType<typeof vi.fn>;
     is: ReturnType<typeof vi.fn>;
     limit: ReturnType<typeof vi.fn>;
     neq: ReturnType<typeof vi.fn>;
@@ -20,14 +25,18 @@ const supabaseMock = vi.hoisted(() => {
     update: ReturnType<typeof vi.fn>;
   };
 
+  const defaultRpcResult: RpcResult = { data: null, error: null };
   const results = new Map<string, QueryResult>();
   const queries: QueryRecord[] = [];
-  const rpc = vi.fn(() => Promise.resolve({ error: null }));
+  const rpc = vi.fn((_functionName?: string) =>
+    Promise.resolve(defaultRpcResult)
+  );
 
   function createQuery(table: string) {
     const query = {
       eq: vi.fn(),
       from: table,
+      in: vi.fn(),
       is: vi.fn(),
       limit: vi.fn(),
       neq: vi.fn(),
@@ -45,6 +54,7 @@ const supabaseMock = vi.hoisted(() => {
     };
 
     query.eq.mockImplementation(() => query);
+    query.in.mockImplementation(() => query);
     query.is.mockImplementation(() => query);
     query.limit.mockImplementation(() => query);
     query.neq.mockImplementation(() => query);
@@ -62,7 +72,10 @@ const supabaseMock = vi.hoisted(() => {
     reset: () => {
       queries.length = 0;
       results.clear();
-      rpc.mockClear();
+      rpc.mockReset();
+      rpc.mockImplementation((_functionName?: string) =>
+        Promise.resolve(defaultRpcResult)
+      );
     },
     rpc,
     setResult: (table: string, result: QueryResult) => {
@@ -134,6 +147,26 @@ describe('useUnlinkedOrderItemReconciliation', () => {
   });
 
   it('fetches product and variant candidates scoped to the active merchant', async () => {
+    supabaseMock.setResult('order_items', {
+      data: [
+        {
+          id: 'item-1',
+          name: 'iPhone 11 Pro 64GB Premium Used [IMEI: 353232106161443]',
+          price: 180000,
+        },
+      ],
+      error: null,
+    });
+    supabaseMock.rpc.mockImplementation((functionName?: string) => {
+      if (functionName === 'search_products_v2') {
+        return Promise.resolve({
+          data: [{ product_id: 'product-1', relevance: 1, total_count: 1 }],
+          error: null,
+        });
+      }
+
+      return Promise.resolve({ data: null, error: null });
+    });
     supabaseMock.setResult('products', {
       data: [
         {
@@ -190,6 +223,8 @@ describe('useUnlinkedOrderItemReconciliation', () => {
       'products.merchant_id',
       'merchant-1'
     );
+    expect(variantQuery?.in).toHaveBeenCalledWith('product_id', ['product-1']);
+    expect(variantQuery?.limit).not.toHaveBeenCalled();
   });
 
   it('links an item through the scoped reconciliation RPC', async () => {
@@ -221,18 +256,16 @@ describe('useUnlinkedOrderItemReconciliation', () => {
   });
 
   it('keeps an unlinked item custom without assigning a product', async () => {
-    supabaseMock.setResult('order_items', { data: [], error: null });
     const state = getHookState();
 
     await state.keepCustomMutation.mutationFn({ orderItemId: 'item-2' });
 
-    const orderItemsQuery = supabaseMock.queries.find(
-      (query) => query.from === 'order_items'
+    expect(supabaseMock.rpc).toHaveBeenCalledWith(
+      'mark_transaction_order_item_custom',
+      {
+        p_merchant_id: 'merchant-1',
+        p_order_item_id: 'item-2',
+      }
     );
-    expect(orderItemsQuery?.update).toHaveBeenCalledWith({
-      product_match_status: 'custom',
-    });
-    expect(orderItemsQuery?.eq).toHaveBeenCalledWith('id', 'item-2');
-    expect(orderItemsQuery?.is).toHaveBeenCalledWith('product_id', null);
   });
 });

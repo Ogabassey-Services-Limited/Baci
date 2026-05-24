@@ -22,6 +22,7 @@ DECLARE
   v_item_id uuid := '00000000-0000-4000-8000-00000000e501';
   v_custom_item_id uuid := '00000000-0000-4000-8000-00000000e502';
   v_cross_item_id uuid := '00000000-0000-4000-8000-00000000e503';
+  v_mark_custom_item_id uuid := '00000000-0000-4000-8000-00000000e504';
   v_owner_user_id uuid := '00000000-0000-4000-8000-00000000e100';
 BEGIN
   INSERT INTO auth.users (
@@ -141,6 +142,15 @@ BEGIN
       1000,
       1,
       'unreviewed'
+    ),
+    (
+      v_mark_custom_item_id,
+      v_order_id,
+      NULL,
+      'Standalone custom charger',
+      25000,
+      1,
+      'unreviewed'
     );
 END $$;
 
@@ -152,6 +162,11 @@ SELECT public.link_transaction_order_item_product(
   '00000000-0000-4000-8000-00000000e501'::uuid,
   '00000000-0000-4000-8000-00000000e201'::uuid,
   '00000000-0000-4000-8000-00000000e301'::uuid
+);
+
+SELECT public.mark_transaction_order_item_custom(
+  '00000000-0000-4000-8000-00000000e101'::uuid,
+  '00000000-0000-4000-8000-00000000e504'::uuid
 );
 
 DO $$
@@ -186,6 +201,7 @@ RESET ROLE;
 DO $$
 DECLARE
   v_cross_product_id uuid;
+  v_marked_status text;
   v_saved_product_id uuid;
   v_saved_variant_id uuid;
 BEGIN
@@ -205,6 +221,14 @@ BEGIN
 
   IF v_cross_product_id IS NOT NULL THEN
     RAISE EXCEPTION 'cross-merchant product failure leaked a product_id update';
+  END IF;
+
+  SELECT product_match_status INTO v_marked_status
+  FROM public.order_items
+  WHERE id = '00000000-0000-4000-8000-00000000e504';
+
+  IF v_marked_status <> 'custom' THEN
+    RAISE EXCEPTION 'merchant-scoped custom marker did not update the item';
   END IF;
 END $$;
 
