@@ -4,6 +4,7 @@ import {
   generateRequestRef,
   isValidPhoneNumber,
 } from '@/lib/kuda';
+import { resolveKudaDataPlanForPurchase } from '@/lib/kuda-data-plans';
 import { normalizeVtuNetworkProvider } from '@/lib/normalize-vtu-network-provider';
 import { calculateCommerce } from '@/lib/supabase/client';
 import { COMMISSION_CATEGORY_MAP, type PurchaseInput } from '@/schemas/vtu';
@@ -233,13 +234,29 @@ export async function preparePendingVtuTransaction({
   if (isTelco && !normalizedNetworkProvider) {
     throw new Error(`Invalid network provider: ${input.networkProvider ?? ''}`);
   }
+  let resolvedDataPlan: Awaited<
+    ReturnType<typeof resolveKudaDataPlanForPurchase>
+  > | null = null;
+  if (input.type === 'data') {
+    if (!normalizedNetworkProvider) {
+      throw new Error(
+        `Invalid network provider: ${input.networkProvider ?? ''}`
+      );
+    }
+    resolvedDataPlan = await resolveKudaDataPlanForPurchase({
+      amount: input.amount,
+      dataPlanCode: input.dataPlanCode,
+      networkProvider: normalizedNetworkProvider,
+    });
+  }
+  const purchaseAmount = resolvedDataPlan?.amount ?? input.amount;
 
   const commissionProvider = isTelco
     ? normalizedNetworkProvider
     : (input.billerName ?? 'DEFAULT');
 
   const commissions = await calculateCommerce('calculate_vtu', {
-    amount: input.amount,
+    amount: purchaseAmount,
     provider: commissionProvider,
     category: COMMISSION_CATEGORY_MAP[purchaseType],
     merchantSplit: merchantSplitPercentage,
@@ -271,7 +288,7 @@ export async function preparePendingVtuTransaction({
       phone_number: isTelco
         ? formattedPhone
         : (normalizedCustomerPhone ?? input.customerIdentifier ?? ''),
-      amount: input.amount,
+      amount: purchaseAmount,
       request_reference: requestReference,
       status: 'pending',
       source,
@@ -283,7 +300,20 @@ export async function preparePendingVtuTransaction({
       customer_identifier: input.customerIdentifier ?? null,
       customer_name: input.customerName?.trim() || null,
       metadata: {
-        dataPlanCode: input.dataPlanCode,
+        dataPlanCode: resolvedDataPlan?.itemCode ?? input.dataPlanCode,
+        ...(resolvedDataPlan &&
+        resolvedDataPlan.originalDataPlanCode !== resolvedDataPlan.itemCode
+          ? { originalDataPlanCode: resolvedDataPlan.originalDataPlanCode }
+          : {}),
+        ...(resolvedDataPlan
+          ? {
+              dataPlanAmount: resolvedDataPlan.amount,
+              dataPlanIsAmountFixed: resolvedDataPlan.isAmountFixed,
+              dataPlanName: resolvedDataPlan.itemName,
+              dataPlanProvider: resolvedDataPlan.providerName,
+              dataPlanResolvedFrom: resolvedDataPlan.resolvedFrom,
+            }
+          : {}),
         originalPhoneNumber: input.phoneNumber,
         customerPhone: normalizedCustomerPhone ?? null,
         originalMerchantCommission: commissions.merchantEarning,
@@ -313,7 +343,7 @@ export async function preparePendingVtuTransaction({
           ? {
               paymentSplit: {
                 wallet: input.walletAmount,
-                card: input.amount - input.walletAmount,
+                card: purchaseAmount - input.walletAmount,
               },
             }
           : {}),
