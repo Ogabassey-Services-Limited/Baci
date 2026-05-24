@@ -96,9 +96,7 @@ describe('CompareView', () => {
     expect(screen.getByText('Phone One')).toBeTruthy();
     expect(screen.getByText('256 GB')).toBeTruthy();
 
-    fireEvent.press(
-      screen.getByRole('button', { name: 'Clear comparison' })
-    );
+    fireEvent.press(screen.getByRole('button', { name: 'Clear comparison' }));
     fireEvent.press(
       screen.getByRole('button', {
         name: 'Remove Phone One from comparison',

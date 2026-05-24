@@ -5,8 +5,8 @@ import type { ReactNode } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { BLURHASH_VARIANTS } from '@/components/storefront/ProductCard';
 import Colors, { BRAND, SPACING } from '@/constants/Colors';
-import { formatPrice } from '@/types/product';
 import type { Product } from '@/types/product';
+import { formatPrice } from '@/types/product';
 import { compareStyles as styles } from './compare.styles';
 
 interface CompareViewProps {
@@ -46,9 +46,7 @@ function ValueCell({
   backgroundColor: string;
   children: ReactNode;
 }) {
-  return (
-    <View style={[styles.specCell, { backgroundColor }]}>{children}</View>
-  );
+  return <View style={[styles.specCell, { backgroundColor }]}>{children}</View>;
 }
 
 export function CompareView({
@@ -281,7 +279,11 @@ export function CompareView({
                   ]}
                   onPress={() => onAddToCart(product)}
                 >
-                  <Ionicons name="cart-outline" size={16} color={Colors.light.white} />
+                  <Ionicons
+                    name="cart-outline"
+                    size={16}
+                    color={Colors.light.white}
+                  />
                   <Text style={styles.addToCartText}>Add</Text>
                 </Pressable>
               </View>
