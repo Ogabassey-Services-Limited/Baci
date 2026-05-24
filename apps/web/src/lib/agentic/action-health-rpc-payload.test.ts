@@ -30,7 +30,8 @@ describe('action health RPC payload helpers', () => {
           api_version: '2026-04-30',
           created_at: '2026-05-12T10:00:00.000Z',
           expires_at: '2026-05-12T10:15:00.000Z',
-          route: 'checkout_sessions.create',
+          route: 'orders.read',
+          status_code: 503,
         },
       ],
     });
@@ -50,7 +51,8 @@ describe('action health RPC payload helpers', () => {
         api_version: '2026-04-30',
         created_at: '2026-05-12T10:00:00.000Z',
         expires_at: '2026-05-12T10:15:00.000Z',
-        route: 'checkout_sessions.create',
+        route: 'orders.read',
+        status_code: 503,
       },
     ]);
     expect(result.sessionRows).toHaveLength(1);

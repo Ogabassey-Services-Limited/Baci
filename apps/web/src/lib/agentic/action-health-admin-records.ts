@@ -9,7 +9,7 @@ const CHECKOUT_SESSION_COLUMNS = 'session_id, status, metadata, updated_at';
 const IDEMPOTENCY_RECORD_COLUMNS =
   'route, status_code, created_at, updated_at, expires_at';
 const REQUEST_RECORD_COLUMNS =
-  'agent_id, api_version, route, created_at, expires_at';
+  'agent_id, api_version, route, status_code, created_at, expires_at';
 
 interface AgenticActionHealthRecordsPayload {
   checkout_sessions: CheckoutSessionRow[];

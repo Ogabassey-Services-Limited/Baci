@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getTerminalIdempotencyRecordWindowMs } from '@/env';
 import { buildAgenticHealthActions } from '@/lib/agentic/action-health-actions';
 import { loadAdminAgenticActionHealthRecords } from '@/lib/agentic/action-health-admin-records';
+import { buildAgenticCheckoutActivityRecords } from '@/lib/agentic/action-health-checkout-activity';
 import { getActionHealthRequestControlSummary } from '@/lib/agentic/action-health-request-controls';
 import {
   getAgenticPaymentState,
@@ -13,7 +14,7 @@ import {
 } from '@/schemas/agentic-action-health';
 
 const ACTION_HEALTH_RECORD_LIMIT = 25;
-const CHECKOUT_ACTIVITY_RECORD_LIMIT = 5;
+const ORDER_READ_ROUTE = 'orders.read';
 const STALE_PAYMENT_PENDING_MS = 24 * 60 * 60 * 1000;
 const CANCEL_ROUTE_SUFFIX = '.cancel';
 const COMPLETE_ROUTE_SUFFIX = '.complete';
@@ -44,6 +45,24 @@ function isCancelMutationRoute(route: string | null): boolean {
   return normalized === 'cancel' || normalized.endsWith(CANCEL_ROUTE_SUFFIX);
 }
 
+function isRecentOrderReadFailure(
+  row: {
+    expires_at: string;
+    route: string | null;
+    status_code: number | null;
+  },
+  nowMs: number
+): boolean {
+  const expiresAtMs = Date.parse(row.expires_at);
+  return (
+    row.route?.trim().toLowerCase() === ORDER_READ_ROUTE &&
+    row.status_code !== null &&
+    row.status_code >= 500 &&
+    Number.isFinite(expiresAtMs) &&
+    expiresAtMs > nowMs
+  );
+}
+
 function isExpiredInProgressReservation({
   expiresAt,
   nowMs,
@@ -71,11 +90,6 @@ function isStalePaymentPendingSession({
     Number.isFinite(updatedAtMs) &&
     nowMs - updatedAtMs >= STALE_PAYMENT_PENDING_MS
   );
-}
-
-function toTimestamp(value: string): number {
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) ? parsed : Number.NEGATIVE_INFINITY;
 }
 
 function shouldIncludeIdempotencyRow(
@@ -171,6 +185,9 @@ export async function loadAgenticActionHealth(
   let paymentPendingCount = 0;
   let paymentSetupFailedCount = 0;
   let stalePaymentPendingCount = 0;
+  const orderReadTerminalErrorCount = requestRows.filter((row) =>
+    isRecentOrderReadFailure(row, nowMs)
+  ).length;
 
   for (const row of sessionRows) {
     const paymentState = getAgenticPaymentState(row.metadata);
@@ -198,37 +215,8 @@ export async function loadAgenticActionHealth(
     }
   }
 
-  const checkoutActivityRecords = sessionRows
-    .flatMap((row) => {
-      const paymentState = getAgenticPaymentState(row.metadata);
-      const status =
-        typeof row.status === 'string' && row.status.trim().length > 0
-          ? row.status.trim()
-          : null;
-      const sessionId = row.session_id.trim();
-      if (
-        !paymentState ||
-        !status ||
-        !sessionId ||
-        !Number.isFinite(Date.parse(row.updated_at))
-      ) {
-        return [];
-      }
-
-      return [
-        {
-          payment_state: paymentState,
-          session_id: sessionId,
-          status,
-          updated_at: row.updated_at,
-        },
-      ];
-    })
-    .sort(
-      (left, right) =>
-        toTimestamp(right.updated_at) - toTimestamp(left.updated_at)
-    )
-    .slice(0, CHECKOUT_ACTIVITY_RECORD_LIMIT);
+  const checkoutActivityRecords =
+    buildAgenticCheckoutActivityRecords(sessionRows);
 
   const parsed = agenticActionHealthPayloadSchema.safeParse({
     actions: buildAgenticHealthActions({
@@ -238,6 +226,7 @@ export async function loadAgenticActionHealth(
       completeTerminalErrorCount,
       isAgenticCheckoutEnabled: requestControlSummary.isAgenticCheckoutEnabled,
       orderFinalizingCount,
+      orderReadTerminalErrorCount,
       paymentClaimingCount,
       paymentPendingCount: paymentPendingCount - stalePaymentPendingCount,
       paymentSetupFailedCount,
@@ -289,6 +278,7 @@ export async function loadAgenticActionHealth(
         created_at: row.created_at,
         expires_at: row.expires_at,
         route: row.route,
+        status_code: row.status_code,
       })),
     },
   });
