@@ -281,7 +281,7 @@ describe('GET /api/merchant/agentic/action-health', () => {
         count: 1,
         message: 'No agent allowlist is configured in Trust settings.',
         next_step:
-          'Open Trust settings and configure trusted agent user-agents before broadly advertising checkout.',
+          'Open Trust settings and configure trusted agent IDs or user-agents before broadly advertising checkout.',
         next_step_url: '/dashboard/settings/trust#agent-checkout-controls',
         severity: 'monitor',
       },
@@ -320,7 +320,7 @@ describe('GET /api/merchant/agentic/action-health', () => {
         count: 1,
         message: 'No agent allowlist is configured in Trust settings.',
         next_step:
-          'Open Trust settings and configure trusted agent user-agents before broadly advertising checkout.',
+          'Open Trust settings and configure trusted agent IDs or user-agents before broadly advertising checkout.',
         next_step_url: '/dashboard/settings/trust#agent-checkout-controls',
         severity: 'monitor',
       },

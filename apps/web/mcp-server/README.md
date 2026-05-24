@@ -156,6 +156,9 @@ Once connected, users can ask:
 | `MCP_PORT` | No | Server port (default: 8787) |
 | `NGROK_AUTHTOKEN` | No | ngrok auth token for dev tunnel |
 
+Signed checkout requests identify this MCP bridge with the `agent-id` value
+`openai:baci-mcp`.
+
 ## Testing
 
 Test the MCP server with the official inspector:

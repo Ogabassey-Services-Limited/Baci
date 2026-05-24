@@ -27,6 +27,7 @@ import { createClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 import 'dotenv/config';
 import {
+  AGENTIC_CHECKOUT_AGENT_ID,
   type AgenticCheckoutClientConfig,
   type AgenticCheckoutSessionRequestResult,
   cancelAgenticCheckoutSession,
@@ -68,6 +69,7 @@ function getAgenticCheckoutClientConfig():
   }
 
   return {
+    agentId: AGENTIC_CHECKOUT_AGENT_ID,
     apiBaseUrl: AGENTIC_CHECKOUT_API_BASE_URL,
     apiKey: AGENTIC_CHECKOUT_API_KEY,
     signingKey: AGENTIC_CHECKOUT_SIGNING_KEY,

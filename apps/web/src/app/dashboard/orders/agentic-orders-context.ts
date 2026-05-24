@@ -67,7 +67,7 @@ const AGENTIC_ORDERS_CONTEXT_BY_CODE: Record<
     summary:
       'No trusted agent allowlist is configured for agentic checkout requests.',
     nextStep:
-      'Open Trust settings and configure trusted user-agents before broader exposure.',
+      'Open Trust settings and configure trusted agent IDs or user-agents before broader exposure.',
     trustControlsHref: AGENTIC_TRUST_CONTROLS_HREF,
   },
 };

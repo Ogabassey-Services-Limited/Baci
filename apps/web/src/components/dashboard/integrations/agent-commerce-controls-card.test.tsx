@@ -30,12 +30,12 @@ describe('AgentCommerceControlsCard', () => {
 
     expect(toggle).toBeChecked();
     expect(screen.getByText('Accepting agent checkouts')).toBeInTheDocument();
-    expect(screen.getByLabelText(/trusted agent user-agents/i)).toHaveValue(
-      'openai-agent\nperplexity'
-    );
-    expect(screen.getByLabelText(/blocked agent user-agents/i)).toHaveValue(
-      'badbot\nlegacy-scraper'
-    );
+    expect(
+      screen.getByLabelText(/trusted agent ids or user-agents/i)
+    ).toHaveValue('openai-agent\nperplexity');
+    expect(
+      screen.getByLabelText(/blocked agent ids or user-agents/i)
+    ).toHaveValue('badbot\nlegacy-scraper');
   });
 
   it('shows the paused state when agent checkout is disabled', () => {
@@ -130,11 +130,11 @@ describe('AgentCommerceControlsCard', () => {
     );
 
     await user.type(
-      screen.getByLabelText(/trusted agent user-agents/i),
+      screen.getByLabelText(/trusted agent ids or user-agents/i),
       'OpenAI-Agent\nChatGPT\n'
     );
     await user.type(
-      screen.getByLabelText(/blocked agent user-agents/i),
+      screen.getByLabelText(/blocked agent ids or user-agents/i),
       'BadBot'
     );
     await user.click(

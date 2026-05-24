@@ -192,18 +192,47 @@ describe('submitNewOrder', () => {
     expect(items[0]).toMatchObject({
       name: 'Phone',
       price: 12000,
+      product_match_status: 'linked',
       quantity: 1,
       order_id: 'order-1',
     });
 
     expect(mocks.invalidateQueries).toHaveBeenCalledTimes(3);
-    expect(setLastOrderId).toHaveBeenCalledWith('order-1');
-    expect(setShowSuccessModal).toHaveBeenCalledWith(true);
-    expect(setIsSubmitting).toHaveBeenCalledWith(true);
-    expect(setIsSubmitting).toHaveBeenLastCalledWith(false);
-  });
+	    expect(setLastOrderId).toHaveBeenCalledWith('order-1');
+	    expect(setShowSuccessModal).toHaveBeenCalledWith(true);
+	    expect(setIsSubmitting).toHaveBeenCalledWith(true);
+	    expect(setIsSubmitting).toHaveBeenLastCalledWith(false);
+	  });
 
-  it('handles createManualOrderWithItems failure gracefully', async () => {
+	  it('preserves an explicit product match status on quick-add order items', async () => {
+	    await submitNewOrder(
+	      createSubmitParams({
+	        orderItems: [
+	          createOrderItem({
+	            is_custom: true,
+	            price: 20000,
+	            product_id: null,
+	            product_match_status: 'unreviewed',
+	            variant_id: null,
+	            variant_name: null,
+	          }),
+	        ],
+	      })
+	    );
+
+	    const payload = mocks.createManualOrderWithItems.mock.calls[0][1] as {
+	      buildItems: (orderId: string) => Array<{
+	        product_match_status: string;
+	      }>;
+	    };
+	    const [item] = payload.buildItems('order-1');
+
+	    expect(item).toMatchObject({
+	      product_match_status: 'unreviewed',
+	    });
+	  });
+
+	  it('handles createManualOrderWithItems failure gracefully', async () => {
     const setIsSubmitting = vi.fn();
     const setLastOrderId = vi.fn();
     const setShowSuccessModal = vi.fn();

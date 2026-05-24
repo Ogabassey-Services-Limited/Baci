@@ -36,7 +36,7 @@ describe('agentic action health request provenance RPC contract', () => {
 
     expect(sql).toMatch(/'route',\s*records\.route/i);
     expect(sql).toMatch(
-      /SELECT\s+api_version,\s*route,\s*created_at,\s*expires_at/i
+      /SELECT\s+(?:agent_id,\s*)?api_version,\s*route,\s*created_at,\s*expires_at/i
     );
     expect(sql).not.toMatch(
       /\b(request_id|idempotency_key|request_hash|response_body)\b/i

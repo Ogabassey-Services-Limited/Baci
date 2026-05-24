@@ -53,6 +53,12 @@ function includesAnyPattern(value: string, patterns: string[]): boolean {
   return patterns.some((pattern) => value.includes(pattern));
 }
 
+function getNormalizedAgentIdentities(headers: Headers): string[] {
+  return [headers.get('agent-id'), headers.get('user-agent')]
+    .map((value) => normalizePattern(value ?? ''))
+    .filter((value): value is string => value !== null && value.length > 0);
+}
+
 export function verifyAgenticRequestAccess({
   controls,
   headers,
@@ -60,13 +66,12 @@ export function verifyAgenticRequestAccess({
   controls: AgenticRequestControls;
   headers: Headers;
 }): { ok: true } | { error: string; ok: false } {
-  const normalizedUserAgent =
-    normalizePattern(headers.get('user-agent') ?? '') ?? '';
+  const normalizedIdentities = getNormalizedAgentIdentities(headers);
   const hasAllowlistControls = controls.allowlist.length > 0;
   const hasConfiguredControls =
     hasAllowlistControls || controls.denylist.length > 0;
 
-  if (hasConfiguredControls && normalizedUserAgent.length === 0) {
+  if (hasConfiguredControls && normalizedIdentities.length === 0) {
     return {
       ok: false,
       error: hasAllowlistControls
@@ -76,8 +81,9 @@ export function verifyAgenticRequestAccess({
   }
 
   if (
-    normalizedUserAgent &&
-    includesAnyPattern(normalizedUserAgent, controls.denylist)
+    normalizedIdentities.some((identity) =>
+      includesAnyPattern(identity, controls.denylist)
+    )
   ) {
     return { ok: false, error: AGENTIC_AGENT_BLOCKED_ERROR };
   }
@@ -87,8 +93,9 @@ export function verifyAgenticRequestAccess({
   }
 
   if (
-    normalizedUserAgent &&
-    includesAnyPattern(normalizedUserAgent, controls.allowlist)
+    normalizedIdentities.some((identity) =>
+      includesAnyPattern(identity, controls.allowlist)
+    )
   ) {
     return { ok: true };
   }

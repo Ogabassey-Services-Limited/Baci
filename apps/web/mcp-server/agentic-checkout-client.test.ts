@@ -2,6 +2,7 @@ import { createHmac } from 'node:crypto';
 import { describe, expect, it, vi } from 'vitest';
 import {
   AGENTIC_CHECKOUT_API_VERSION,
+  AGENTIC_CHECKOUT_AGENT_ID,
   AGENTIC_CHECKOUT_USER_AGENT,
   cancelAgenticCheckoutSession,
   createAgenticCheckoutSession,
@@ -32,6 +33,7 @@ describe('createAgenticCheckoutSession', () => {
         items: [{ id: 'product-1', quantity: 2 }],
       },
       {
+        agentId: AGENTIC_CHECKOUT_AGENT_ID,
         apiBaseUrl: 'https://ogabassey.com',
         apiKey: 'agentic-api-key',
         fetchImpl,
@@ -59,6 +61,7 @@ describe('createAgenticCheckoutSession', () => {
       })
     );
     expect(init.headers).toMatchObject({
+      'agent-id': AGENTIC_CHECKOUT_AGENT_ID,
       'api-version': AGENTIC_CHECKOUT_API_VERSION,
       authorization: 'Bearer agentic-api-key',
       'content-type': 'application/json',
@@ -78,6 +81,7 @@ describe('createAgenticCheckoutSession', () => {
           pathname: '/api/agentic/checkout_sessions',
           request_id: 'request-1',
           timestamp: '2026-05-21T12:00:00.000Z',
+          agent_id: AGENTIC_CHECKOUT_AGENT_ID,
         })
       )
       .digest('hex');
@@ -667,6 +671,37 @@ describe('signAgenticRequest', () => {
             pathname: '/api/agentic/checkout_sessions',
             request_id: 'request-1',
             timestamp: '2026-05-21T12:00:00.000Z',
+          })
+        )
+        .digest('hex')
+    );
+  });
+
+  it('includes optional agent identity in the canonical signature payload', () => {
+    expect(
+      signAgenticRequest({
+        agentId: AGENTIC_CHECKOUT_AGENT_ID,
+        apiVersion: AGENTIC_CHECKOUT_API_VERSION,
+        body: '{"items":[]}',
+        idempotencyKey: 'idem-1',
+        method: 'post',
+        pathname: '/api/agentic/checkout_sessions',
+        requestId: 'request-1',
+        signingKey: 'secret',
+        timestamp: '2026-05-21T12:00:00.000Z',
+      })
+    ).toBe(
+      createHmac('sha256', 'secret')
+        .update(
+          JSON.stringify({
+            api_version: AGENTIC_CHECKOUT_API_VERSION,
+            body: '{"items":[]}',
+            idempotency_key: 'idem-1',
+            method: 'POST',
+            pathname: '/api/agentic/checkout_sessions',
+            request_id: 'request-1',
+            timestamp: '2026-05-21T12:00:00.000Z',
+            agent_id: AGENTIC_CHECKOUT_AGENT_ID,
           })
         )
         .digest('hex')

@@ -1,5 +1,4 @@
 import { describe, expect, it } from '@jest/globals';
-import type { ZodSafeParseResult } from 'zod';
 import {
   quizAttemptSchema,
   quizEventSchema,
@@ -49,8 +48,15 @@ const completedResult = {
   prizeEligible: true,
 };
 
+type SafeParseResult =
+  | { data: unknown; success: true }
+  | {
+      error: { issues: Array<{ readonly path: PropertyKey[] }> };
+      success: false;
+    };
+
 function expectInvalidIssue(
-  parseResult: ZodSafeParseResult<unknown>,
+  parseResult: SafeParseResult,
   path: Array<string | number>
 ) {
   expect(parseResult.success).toBe(false);

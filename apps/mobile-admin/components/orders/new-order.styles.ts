@@ -31,6 +31,11 @@ export const styles = StyleSheet.create({
     marginBottom: 8,
     opacity: 0.7,
   },
+  sectionEyebrow: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
   channelScroll: { gap: 8, paddingRight: 16 },
   channelPill: {
     alignItems: 'center',
@@ -159,6 +164,17 @@ export const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   payBtnText: { fontSize: 16, fontWeight: 'bold' },
+  quickAddMatches: {
+    gap: 8,
+  },
+  quickAddMatchRow: {
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    padding: 12,
+  },
   searchBox: {
     alignItems: 'center',
     borderRadius: 8,

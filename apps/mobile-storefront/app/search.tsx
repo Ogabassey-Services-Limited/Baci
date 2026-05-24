@@ -408,7 +408,7 @@ export default function SearchScreen() {
               returnKeyType="search"
               autoCapitalize="none"
               autoCorrect={false}
-              autoFocus // eslint-disable-line jsx-a11y/no-autofocus -- search screen should focus input on open
+              autoFocus // search screen should focus input on open
             />
             {query.length > 0 && (
               <Pressable

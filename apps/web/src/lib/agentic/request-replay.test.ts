@@ -44,6 +44,7 @@ describe('reserveAgenticRequestId', () => {
     const mock = createSupabaseMock();
 
     const result = await reserveAgenticRequestId({
+      agentId: 'openai:chatgpt',
       apiVersion: '2026-04-30',
       idempotencyKey: 'idem-1',
       merchantId: 'merchant-1',
@@ -63,11 +64,38 @@ describe('reserveAgenticRequestId', () => {
     expect(mock.insert).toHaveBeenCalledWith(
       expect.objectContaining({
         api_version: '2026-04-30',
+        agent_id: 'openai:chatgpt',
         expires_at: '2026-04-30T12:15:00.000Z',
         idempotency_key: 'idem-1',
         merchant_id: 'merchant-1',
         request_id: 'req_123',
         route: 'checkout_sessions.create',
+      })
+    );
+  });
+
+  it.each([
+    '',
+    '   ',
+  ])('stores null agent_id when agentId is "%s"', async (agentId) => {
+    const mock = createSupabaseMock();
+
+    const result = await reserveAgenticRequestId({
+      agentId,
+      apiVersion: '2026-04-30',
+      idempotencyKey: 'idem-1',
+      merchantId: 'merchant-1',
+      requestId: 'req_124',
+      route: 'checkout_sessions.create',
+      supabase: mock.supabase as never,
+    });
+
+    expect(result).toEqual({ ok: true });
+    expect(mock.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agent_id: null,
+        merchant_id: 'merchant-1',
+        request_id: 'req_124',
       })
     );
   });

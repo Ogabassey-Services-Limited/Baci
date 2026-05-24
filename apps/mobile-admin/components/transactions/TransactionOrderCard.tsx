@@ -174,22 +174,13 @@ export function TransactionOrderCard({
           {order.items.map((item) => (
             <Pressable
               key={item.id}
-              disabled={!item.productId}
-              style={[
-                styles.itemRow,
-                { borderTopColor: colors.border },
-                !item.productId && styles.itemRowDisabled,
-              ]}
+              style={[styles.itemRow, { borderTopColor: colors.border }]}
               onPress={() => onOpenEditor(order, item)}
               accessibilityRole="button"
               accessibilityLabel={`${item.name}, ${item.quantity} units, revenue ${formatCurrency(item.revenue)}${
                 item.supplierName ? `, supplier ${item.supplierName}` : ''
               }`}
-              accessibilityHint={
-                item.productId
-                  ? 'Opens the transaction editor for this item'
-                  : 'This line item cannot be edited because it is not linked to a product'
-              }
+              accessibilityHint="Opens the transaction editor for this item"
             >
               <View style={styles.flexOne}>
                 <Text style={[styles.itemName, { color: colors.text }]}>
@@ -208,6 +199,13 @@ export function TransactionOrderCard({
                     style={[styles.itemDetailText, { color: colors.textMuted }]}
                   >
                     Supplier {item.supplierName}
+                  </Text>
+                ) : null}
+                {!item.productId ? (
+                  <Text
+                    style={[styles.itemDetailText, { color: colors.textMuted }]}
+                  >
+                    Custom item
                   </Text>
                 ) : null}
                 {item.imeiValues[0] ? (
@@ -236,7 +234,9 @@ export function TransactionOrderCard({
                     styles.orderSubtitle,
                     {
                       color:
-                        item.costPrice == null ? colors.error : colors.textMuted,
+                        item.costPrice == null
+                          ? colors.error
+                          : colors.textMuted,
                     },
                   ]}
                 >
@@ -245,13 +245,11 @@ export function TransactionOrderCard({
                     : `Profit ${formatCurrency(item.profit)}`}
                 </Text>
               </View>
-              {item.productId ? (
-                <Ionicons
-                  name="create-outline"
-                  size={18}
-                  color={colors.textMuted}
-                />
-              ) : null}
+              <Ionicons
+                name="create-outline"
+                size={18}
+                color={colors.textMuted}
+              />
             </Pressable>
           ))}
         </View>

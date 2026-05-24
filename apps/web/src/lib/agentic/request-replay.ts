@@ -17,6 +17,7 @@ export type RequestReplayResult =
     };
 
 export async function reserveAgenticRequestId({
+  agentId,
   apiVersion,
   idempotencyKey,
   merchantId,
@@ -25,6 +26,7 @@ export async function reserveAgenticRequestId({
   route,
   supabase,
 }: {
+  agentId?: string | null;
   apiVersion: string;
   idempotencyKey?: string | null;
   merchantId: string;
@@ -53,6 +55,7 @@ export async function reserveAgenticRequestId({
   const { error } = await supabase
     .from('agentic_request_records')
     .insert({
+      agent_id: agentId?.trim() || null,
       api_version: apiVersion,
       expires_at: expiresAt,
       idempotency_key: idempotencyKey ?? null,

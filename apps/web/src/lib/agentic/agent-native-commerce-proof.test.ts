@@ -17,6 +17,7 @@ function manifest(
       request_signing: {
         algorithm: 'hmac-sha256',
         mutation_required_headers: ['api-version', 'idempotency-key'],
+        optional_identity_headers: ['agent-id'],
         required_headers: ['api-version'],
         signed_payload: 'json(...)',
       },

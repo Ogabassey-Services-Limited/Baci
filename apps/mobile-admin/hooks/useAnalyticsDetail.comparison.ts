@@ -59,9 +59,11 @@ export async function fetchAnalyticsDetailComparison({
     let prevOrderItemsQuery = supabase
       .from('order_items')
       .select(`
+        cost_price,
         quantity,
         price,
-        products!inner(cost_price),
+        product_variants(cost_price),
+        products(cost_price),
         orders!inner(id, merchant_id, payment_status, branch_id, created_at)
       `)
       .eq('orders.merchant_id', merchantId)

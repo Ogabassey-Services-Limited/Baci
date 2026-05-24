@@ -147,6 +147,9 @@ describe('GET /agent-commerce.json checkout capabilities', () => {
           'timestamp',
           'idempotency-key',
         ],
+        optional_identity_headers: ['agent-id'],
+        signed_payload:
+          'json(api_version, body, idempotency_key, method, pathname, request_id, timestamp, optional agent_id)',
       },
     });
     expect(body.links.checkout_sessions).toBe(
