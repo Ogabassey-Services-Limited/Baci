@@ -99,13 +99,14 @@ function makeJob(overrides: Partial<ImportJobRecord> = {}): ImportJobRecord {
 }
 
 function createMockSupabase() {
+  const mockDeleteEq = vi.fn().mockResolvedValue({ error: null });
   const mockUpdate = vi.fn().mockReturnValue({
     eq: vi.fn().mockResolvedValue({ error: null }),
   });
 
   const mockUpsert = vi.fn().mockResolvedValue({ error: null });
   const mockDelete = vi.fn().mockReturnValue({
-    eq: vi.fn().mockResolvedValue({ error: null }),
+    eq: mockDeleteEq,
   });
 
   const mockSelect = vi.fn().mockReturnValue({
@@ -150,7 +151,16 @@ function createMockSupabase() {
       delete: mockDelete,
       select: mockSelect,
     }),
-  } as unknown as SupabaseClient;
+    __mocks: {
+      mockDelete,
+      mockDeleteEq,
+    },
+  } as unknown as SupabaseClient & {
+    __mocks: {
+      mockDelete: typeof mockDelete;
+      mockDeleteEq: typeof mockDeleteEq;
+    };
+  };
 }
 
 describe('runClaimedImportJob', () => {
@@ -170,6 +180,20 @@ describe('runClaimedImportJob', () => {
     const job = makeJob({ status: 'committing', entity_type: 'orders' });
     const result = await runClaimedImportJob(supabase, job);
     expect(result.status).toBe('committed');
+  });
+
+  it('deletes import preview rows after a successful commit', async () => {
+    const supabase = createMockSupabase();
+    const job = makeJob({ status: 'committing', entity_type: 'orders' });
+
+    await runClaimedImportJob(supabase, job);
+
+    expect(supabase.from).toHaveBeenCalledWith('import_job_rows');
+    expect(supabase.__mocks.mockDelete).toHaveBeenCalled();
+    expect(supabase.__mocks.mockDeleteEq).toHaveBeenCalledWith(
+      'import_job_id',
+      job.id
+    );
   });
 
   it('processes a committing job for products', async () => {
