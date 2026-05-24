@@ -20,7 +20,6 @@ const {
   mockOgabasseyPdpStaticResourceHints,
   mockOgabasseyProductDetailsPage,
   mockPreloadOgabasseyPdpProductImage,
-  mockGetCachedStorefrontProductLcpImage,
   mockProductDetailClient,
 } = vi.hoisted(() => ({
   mockNormalizeStorefrontProductVariants: vi.fn<
@@ -34,9 +33,6 @@ const {
   mockOgabasseyProductDetailsPage: vi.fn<(props: unknown) => void>(),
   mockPreloadOgabasseyPdpProductImage:
     vi.fn<(props: { src: string | null | undefined }) => void>(),
-  mockGetCachedStorefrontProductLcpImage: vi.fn<
-    (merchantId: string, productSlug: string) => Promise<string | null>
-  >(() => Promise.resolve(null)),
   mockProductDetailClient: vi.fn<(props: unknown) => null>(() => null),
 }));
 
@@ -281,13 +277,6 @@ vi.mock('@/lib/storefront-product-variants', () => ({
   normalizeStorefrontProductVariants: mockNormalizeStorefrontProductVariants,
 }));
 
-vi.mock('@/lib/storefront-product-lcp-image', () => ({
-  getCachedStorefrontProductLcpImage: (
-    merchantId: string,
-    productSlug: string
-  ) => mockGetCachedStorefrontProductLcpImage(merchantId, productSlug),
-}));
-
 vi.mock('@/lib/validation', () => ({
   isDomainIdentifier: (value: string) => value.includes('.'),
   isValidMerchantIdentifier: (value: string) => {
@@ -463,7 +452,11 @@ const categorizedDetailedProduct = {
   fulfillmentFields: [],
 };
 
-type LegacyProductFixture = Omit<typeof categorizedDetailedProduct, 'price'> & {
+type LegacyProductFixture = Omit<
+  typeof categorizedDetailedProduct,
+  'images' | 'price'
+> & {
+  images?: string[];
   price: number | string;
   specifications?: unknown;
   product_key_specs?: unknown;
@@ -839,8 +832,6 @@ describe('[category]/[productSlug] page render', () => {
     mockOgabasseyPdpSemanticSections.mockReset();
     mockOgabasseyPdpStaticResourceHints.mockReset();
     mockOgabasseyProductDetailsPage.mockReset();
-    mockGetCachedStorefrontProductLcpImage.mockReset();
-    mockGetCachedStorefrontProductLcpImage.mockResolvedValue(null);
     mockBuildProductSemanticModel.mockReturnValue({
       trustBullets: [],
       supportLinks: [],
@@ -969,9 +960,17 @@ describe('[category]/[productSlug] page render', () => {
   });
 
   it('mounts the OgaBassey PDP preload hints for the OgaBassey template branch', async () => {
+    const productImage =
+      'https://cdn.ogabassey.com/core-assets/products/hp-laptop.avif';
+    mockGetCachedProduct.mockResolvedValueOnce(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        images: [productImage],
+      })
+    );
     mockGetCachedProductWithDetails.mockResolvedValueOnce({
       ...categorizedDetailedProduct,
-      images: ['https://cdn.ogabassey.com/core-assets/products/hp-laptop.avif'],
+      images: [productImage],
     });
 
     render(
@@ -988,9 +987,11 @@ describe('[category]/[productSlug] page render', () => {
     );
 
     expect(mockOgabasseyPdpStaticResourceHints).toHaveBeenCalledTimes(1);
-    expect(mockPreloadOgabasseyPdpProductImage).not.toHaveBeenCalled();
+    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
+      src: productImage,
+    });
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: 'https://cdn.ogabassey.com/core-assets/products/hp-laptop.avif',
+      src: productImage,
     });
   });
 
@@ -998,13 +999,18 @@ describe('[category]/[productSlug] page render', () => {
     let resolveProductDetails:
       | ((value: typeof categorizedDetailedProduct) => void)
       | undefined;
+    const earlyProductImage =
+      'https://cdn.ogabassey.com/core-assets/products/early-lenovo-legion.avif';
+    mockGetCachedProduct.mockResolvedValueOnce(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        images: [earlyProductImage],
+      })
+    );
     mockGetCachedProductWithDetails.mockReturnValueOnce(
       new Promise((resolve) => {
         resolveProductDetails = resolve;
       })
-    );
-    mockGetCachedStorefrontProductLcpImage.mockResolvedValueOnce(
-      'https://cdn.ogabassey.com/core-assets/products/early-lenovo-legion.avif'
     );
 
     const pagePromise = CategoryProductPage({
@@ -1020,14 +1026,11 @@ describe('[category]/[productSlug] page render', () => {
     // This will execute the early lookup component synchronously/asynchronously, while the main content suspends.
     const resolvedPage = await resolveRsc(pagePromise, { skipContent: true });
 
-    await waitFor(() => {
-      expect(mockGetCachedStorefrontProductLcpImage).toHaveBeenCalledWith(
-        baseMerchant.id,
-        'hp-laptop-14-ep0063nia'
-      );
-      expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
-        src: 'https://cdn.ogabassey.com/core-assets/products/early-lenovo-legion.avif',
-      });
+    expect(mockPreloadOgabasseyPdpProductImage).toHaveBeenCalledWith({
+      src: earlyProductImage,
+    });
+    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
+      src: earlyProductImage,
     });
     expect(mockOgabasseyProductDetailsPage).not.toHaveBeenCalled();
 
@@ -1038,18 +1041,18 @@ describe('[category]/[productSlug] page render', () => {
     expect(mockOgabasseyProductDetailsPage).toHaveBeenCalled();
   });
 
-  it('falls back to the product details image when the early image lookup fails', async () => {
-    const consoleWarnSpy = vi
-      .spyOn(console, 'warn')
-      .mockImplementation(() => undefined);
-    mockGetCachedStorefrontProductLcpImage.mockRejectedValueOnce(
-      new Error('early lookup failed')
+  it('skips early product preload when the cached product has no image and still renders details', async () => {
+    const fallbackProductImage =
+      'https://cdn.ogabassey.com/core-assets/products/fallback-laptop.avif';
+    mockGetCachedProduct.mockResolvedValueOnce(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        images: [],
+      })
     );
     mockGetCachedProductWithDetails.mockResolvedValueOnce({
       ...categorizedDetailedProduct,
-      images: [
-        'https://cdn.ogabassey.com/core-assets/products/fallback-laptop.avif',
-      ],
+      images: [fallbackProductImage],
     });
 
     render(
@@ -1065,23 +1068,9 @@ describe('[category]/[productSlug] page render', () => {
       )
     );
 
-    expect(mockGetCachedStorefrontProductLcpImage).toHaveBeenCalledWith(
-      baseMerchant.id,
-      'hp-laptop-14-ep0063nia'
-    );
-    await waitFor(() => {
-      expect(consoleWarnSpy).toHaveBeenCalledWith(
-        'Unable to preload OgaBassey PDP product image early:',
-        'hp-laptop-14-ep0063nia',
-        expect.any(Error)
-      );
-    });
     expect(mockPreloadOgabasseyPdpProductImage).not.toHaveBeenCalled();
-    expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: 'https://cdn.ogabassey.com/core-assets/products/fallback-laptop.avif',
-    });
+    expect(mockOgabasseyPdpProductResourceHints).not.toHaveBeenCalled();
     expect(mockOgabasseyProductDetailsPage).toHaveBeenCalled();
-    consoleWarnSpy.mockRestore();
   });
 
   it('renders the OgaBassey product shell before supplemental PDP data resolves', async () => {
@@ -1095,11 +1084,17 @@ describe('[category]/[productSlug] page render', () => {
         resolveCategoryPageData = resolve;
       })
     );
+    const productImage =
+      'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif';
+    mockGetCachedProduct.mockResolvedValueOnce(
+      toLegacyCachedProduct({
+        ...categorizedDetailedProduct,
+        images: [productImage],
+      })
+    );
     mockGetCachedProductWithDetails.mockResolvedValueOnce({
       ...categorizedDetailedProduct,
-      images: [
-        'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif',
-      ],
+      images: [productImage],
     });
 
     const pagePromise = CategoryProductPage({
@@ -1121,13 +1116,12 @@ describe('[category]/[productSlug] page render', () => {
 
     render(await resolveRsc(pageUi));
     expect(mockOgabasseyPdpProductResourceHints).toHaveBeenCalledWith({
-      src: 'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif',
+      src: productImage,
     });
     expect(mockOgabasseyProductDetailsPage).toHaveBeenCalledWith(
       expect.objectContaining({
         product: expect.objectContaining({
-          image:
-            'https://cdn.ogabassey.com/core-assets/products/lenovo-legion.avif',
+          image: productImage,
         }),
       })
     );
