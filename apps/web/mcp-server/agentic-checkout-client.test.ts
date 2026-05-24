@@ -86,6 +86,12 @@ describe('agentic checkout MCP input schemas', () => {
         'shipping_address',
       ])
     );
+
+    const items = expectRecord(properties.items);
+    const itemShape = expectRecord(expectRecord(items.items).properties);
+    expect(items.type).toBe('array');
+    expect(itemShape).toHaveProperty('id');
+    expect(itemShape).toHaveProperty('quantity');
   });
 });
 

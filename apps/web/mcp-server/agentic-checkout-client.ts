@@ -62,7 +62,11 @@ export const createAgenticCheckoutSessionMcpInputSchema = {
 export const updateAgenticCheckoutSessionMcpInputSchema = {
   fulfillment_option_id: z.string().trim().min(1).nullable().optional(),
   idempotency_key: z.string().trim().min(8).max(128).optional(),
-  items: agenticCheckoutItemsSchema.optional(),
+  items: z
+    .array(createAgenticCheckoutSessionMcpItemSchema)
+    .min(1)
+    .max(50)
+    .optional(),
   session_id: z.string().trim().min(1, 'Checkout session id is required'),
   shipping_address: agenticFulfillmentAddressSchema.nullable().optional(),
 } satisfies Record<string, z.ZodTypeAny>;
