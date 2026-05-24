@@ -1,15 +1,93 @@
 import { createHmac } from 'node:crypto';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { z } from 'zod';
 import { describe, expect, it, vi } from 'vitest';
 import {
   AGENTIC_CHECKOUT_API_VERSION,
   AGENTIC_CHECKOUT_AGENT_ID,
   AGENTIC_CHECKOUT_USER_AGENT,
   cancelAgenticCheckoutSession,
+  createAgenticCheckoutSessionMcpInputSchema,
   createAgenticCheckoutSession,
   getAgenticCheckoutSession,
   signAgenticRequest,
+  updateAgenticCheckoutSessionMcpInputSchema,
   updateAgenticCheckoutSession,
 } from './agentic-checkout-client';
+
+async function listToolInputSchema(inputSchema: Record<string, z.ZodTypeAny>) {
+  const server = new McpServer({ name: 'schema-test-server', version: '1.0.0' });
+  const client = new Client({ name: 'schema-test-client', version: '1.0.0' });
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+
+  server.registerTool(
+    'schema_probe',
+    { inputSchema },
+    async () => ({ content: [{ type: 'text' as const, text: 'ok' }] })
+  );
+
+  await server.connect(serverTransport);
+  await client.connect(clientTransport);
+
+  try {
+    const result = await client.listTools();
+    return result.tools.find((tool) => tool.name === 'schema_probe')
+      ?.inputSchema;
+  } finally {
+    await client.close();
+    await server.close();
+  }
+}
+
+function expectRecord(value: unknown): Record<string, unknown> {
+  expect(value).toEqual(expect.any(Object));
+  return value as Record<string, unknown>;
+}
+
+describe('agentic checkout MCP input schemas', () => {
+  it('advertises create checkout session fields to MCP clients', async () => {
+    const schema = expectRecord(
+      await listToolInputSchema(createAgenticCheckoutSessionMcpInputSchema)
+    );
+    const properties = expectRecord(schema.properties);
+
+    expect(schema.required).toEqual(['items']);
+    expect(Object.keys(properties)).toEqual(
+      expect.arrayContaining([
+        'currency',
+        'idempotency_key',
+        'items',
+        'shipping_address',
+      ])
+    );
+
+    const items = expectRecord(properties.items);
+    const itemShape = expectRecord(expectRecord(items.items).properties);
+    expect(items.type).toBe('array');
+    expect(itemShape).toHaveProperty('id');
+    expect(itemShape).toHaveProperty('quantity');
+  });
+
+  it('advertises update checkout session fields to MCP clients', async () => {
+    const schema = expectRecord(
+      await listToolInputSchema(updateAgenticCheckoutSessionMcpInputSchema)
+    );
+    const properties = expectRecord(schema.properties);
+
+    expect(schema.required).toEqual(['session_id']);
+    expect(Object.keys(properties)).toEqual(
+      expect.arrayContaining([
+        'fulfillment_option_id',
+        'idempotency_key',
+        'items',
+        'session_id',
+        'shipping_address',
+      ])
+    );
+  });
+});
 
 describe('createAgenticCheckoutSession', () => {
   it('uses an OpenAI-identifying default user agent for checkout requests', () => {

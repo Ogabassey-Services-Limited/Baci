@@ -37,6 +37,36 @@ export type UpdateAgenticCheckoutSessionInput = z.input<
 export type CancelAgenticCheckoutSessionInput = z.input<
   typeof cancelAgenticCheckoutSessionInputSchema
 >;
+
+const createAgenticCheckoutSessionMcpItemSchema = z.object({
+  id: z.string().trim().min(1, 'Item id is required'),
+  quantity: z
+    .number()
+    .int()
+    .positive('Quantity must be a positive integer')
+    .max(20, 'Quantity must be 20 or less'),
+});
+
+export const createAgenticCheckoutSessionMcpInputSchema = {
+  currency: z
+    .string()
+    .trim()
+    .length(3, 'Currency must be a 3-letter ISO code')
+    .optional()
+    .default('NGN'),
+  idempotency_key: z.string().trim().min(8).max(128).optional(),
+  items: z.array(createAgenticCheckoutSessionMcpItemSchema).min(1).max(50),
+  shipping_address: agenticFulfillmentAddressSchema.nullable().optional(),
+} satisfies Record<string, z.ZodTypeAny>;
+
+export const updateAgenticCheckoutSessionMcpInputSchema = {
+  fulfillment_option_id: z.string().trim().min(1).nullable().optional(),
+  idempotency_key: z.string().trim().min(8).max(128).optional(),
+  items: agenticCheckoutItemsSchema.optional(),
+  session_id: z.string().trim().min(1, 'Checkout session id is required'),
+  shipping_address: agenticFulfillmentAddressSchema.nullable().optional(),
+} satisfies Record<string, z.ZodTypeAny>;
+
 export const completeAgenticCheckoutSessionInputSchema =
   agenticCheckoutCompleteSchema.extend({
     idempotency_key: z.string().trim().min(8).max(128).optional(),
