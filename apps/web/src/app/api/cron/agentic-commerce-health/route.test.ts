@@ -61,6 +61,20 @@ function createCronRequest({
 }
 
 function createSupabaseMock({
+  crawlerError = null,
+  crawlerRows = [
+    {
+      agent_family: 'openai',
+      bot_name: 'OpenAI',
+      cache_outcome: 'hit',
+      crawled_at: '2026-05-22T10:00:00.000Z',
+      host: 'ogabassey.com',
+      response_time_ms: 120,
+      status_code: 200,
+      url_path: '/agent-commerce.json',
+      user_agent: 'GPTBot/1.0',
+    },
+  ],
   merchantRows = [
     {
       business_name: 'Ogabassey',
@@ -71,6 +85,8 @@ function createSupabaseMock({
   ],
   merchantsError = null,
 }: {
+  crawlerError?: unknown;
+  crawlerRows?: unknown[];
   merchantRows?: Array<{
     business_name: string;
     id: string;
@@ -101,6 +117,21 @@ function createSupabaseMock({
   };
   merchantQuery.select.mockReturnValue(merchantQuery);
 
+  const crawlerQuery = {
+    eq: vi.fn(),
+    gte: vi.fn(),
+    limit: vi.fn().mockResolvedValue({
+      data: crawlerRows,
+      error: crawlerError,
+    }),
+    order: vi.fn(),
+    select: vi.fn(),
+  };
+  crawlerQuery.select.mockReturnValue(crawlerQuery);
+  crawlerQuery.eq.mockReturnValue(crawlerQuery);
+  crawlerQuery.gte.mockReturnValue(crawlerQuery);
+  crawlerQuery.order.mockReturnValue(crawlerQuery);
+
   return {
     from: vi.fn((table: string) => {
       if (table === 'domains') {
@@ -109,9 +140,13 @@ function createSupabaseMock({
       if (table === 'merchants') {
         return merchantQuery;
       }
+      if (table === 'crawler_logs') {
+        return crawlerQuery;
+      }
       throw new Error(`Unexpected table: ${table}`);
     }),
     __mocks: {
+      crawlerQuery,
       merchantQuery,
     },
   };
@@ -204,6 +239,10 @@ describe('GET /api/cron/agentic-commerce-health', () => {
         {
           actions: [],
           business_name: 'Ogabassey',
+          crawler: {
+            issue_count: 0,
+            status: 'ok',
+          },
           feeds: {
             google_product_count: 2,
             openai_product_count: 2,
@@ -236,6 +275,13 @@ describe('GET /api/cron/agentic-commerce-health', () => {
       merchantId: 'merchant-1',
       slug: 'ogabassey',
     });
+    expect(supabase.__mocks.crawlerQuery.select).toHaveBeenCalledWith(
+      'agent_family, bot_name, cache_outcome, crawled_at, host, response_time_ms, status_code, url_path, user_agent'
+    );
+    expect(supabase.__mocks.crawlerQuery.eq).toHaveBeenCalledWith(
+      'merchant_id',
+      'merchant-1'
+    );
   });
 
   it('fails the cron response when attention actions are present by default', async () => {
@@ -292,6 +338,126 @@ describe('GET /api/cron/agentic-commerce-health', () => {
         },
       ],
       status: 'monitor',
+    });
+  });
+
+  it('keeps missing AI-agent crawler visibility as a monitor-only action', async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      createSupabaseMock({
+        crawlerRows: [
+          {
+            agent_family: 'search',
+            bot_name: 'Bing',
+            cache_outcome: 'hit',
+            crawled_at: '2026-05-22T10:00:00.000Z',
+            host: 'ogabassey.com',
+            response_time_ms: 120,
+            status_code: 200,
+            url_path: '/agent-commerce.json',
+            user_agent: 'bingbot/1.0',
+          },
+        ],
+      }) as never
+    );
+
+    const response = await GET(createCronRequest());
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      merchants: [
+        {
+          actions: [
+            {
+              code: 'AGENTIC_CRAWLER_VISIBILITY_MISSING',
+              count: 1,
+              severity: 'monitor',
+            },
+          ],
+          crawler: {
+            issue_count: 1,
+            status: 'monitor',
+          },
+          status: 'monitor',
+          status_reason: 'agent_commerce_crawler_visibility_missing',
+        },
+      ],
+      status: 'monitor',
+    });
+  });
+
+  it('fails the cron response when crawler visits are failing', async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      createSupabaseMock({
+        crawlerRows: [
+          {
+            agent_family: 'openai',
+            bot_name: 'OpenAI',
+            cache_outcome: 'miss',
+            crawled_at: '2026-05-22T10:00:00.000Z',
+            host: 'ogabassey.com',
+            response_time_ms: 120,
+            status_code: 500,
+            url_path: '/agent-commerce.json',
+            user_agent: 'GPTBot/1.0',
+          },
+        ],
+      }) as never
+    );
+
+    const response = await GET(createCronRequest());
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      merchants: [
+        {
+          actions: [
+            {
+              code: 'AGENTIC_CRAWLER_FETCH_FAILURES',
+              count: 1,
+              severity: 'attention',
+            },
+          ],
+          crawler: {
+            issue_count: 1,
+            status: 'attention',
+          },
+          status: 'attention',
+          status_reason: 'agent_commerce_crawler_fetch_failures',
+        },
+      ],
+      status: 'attention',
+    });
+  });
+
+  it('fails the cron response when crawler visibility logs cannot be loaded', async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      createSupabaseMock({
+        crawlerError: new Error('query failed'),
+      }) as never
+    );
+
+    const response = await GET(createCronRequest());
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      merchants: [
+        {
+          actions: [
+            {
+              code: 'AGENTIC_CRAWLER_VISIBILITY_UNAVAILABLE',
+              count: 1,
+              severity: 'attention',
+            },
+          ],
+          crawler: {
+            issue_count: 1,
+            status: 'attention',
+          },
+          status: 'attention',
+          status_reason: 'agent_commerce_crawler_log_unavailable',
+        },
+      ],
+      status: 'attention',
     });
   });
 
