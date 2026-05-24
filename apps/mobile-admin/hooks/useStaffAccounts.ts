@@ -63,6 +63,7 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
       return (data || []) as StaffAccount[];
     },
     enabled: !!merchant?.id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   const {
@@ -87,6 +88,7 @@ export function useStaffAccounts(callbacks: UseStaffAccountsCallbacks) {
       return (data || []) as Branch[];
     },
     enabled: !!merchant?.id,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   const createAccountMutation = useMutation({

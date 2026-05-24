@@ -46,6 +46,7 @@ CRON_BLOCK_END="# <<< baci-workers <<<"
 cat <<EOF | ssh "$VPS" "cat > $REMOTE_DIR/crontab.fragment"
 $CRON_BLOCK_START
 0,30 * * * * flock -n $REMOTE_DIR/locks/push-receipts.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/push-receipts.mjs' >> $REMOTE_DIR/logs/push-receipts.log 2>&1
+10 *   * * * flock -n $REMOTE_DIR/locks/cleanup-agentic-request-records.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/cleanup-agentic-request-records.mjs' >> $REMOTE_DIR/logs/cleanup-agentic-request-records.log 2>&1
 0 0    * * * flock -n $REMOTE_DIR/locks/cleanup-push-tokens.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/cleanup-push-tokens.mjs' >> $REMOTE_DIR/logs/cleanup-push-tokens.log 2>&1
 0 1    * * * flock -n $REMOTE_DIR/locks/cleanup-orders.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/run-web-cron.mjs /api/cron/cleanup-orders' >> $REMOTE_DIR/logs/cleanup-orders.log 2>&1
 0 3    * * * flock -n $REMOTE_DIR/locks/cleanup-import-uploads.lock bash -lc 'cd $REMOTE_DIR && $NODE_BIN $REMOTE_DIR/jobs/cleanup-import-uploads.mjs' >> $REMOTE_DIR/logs/cleanup-import-uploads.log 2>&1
