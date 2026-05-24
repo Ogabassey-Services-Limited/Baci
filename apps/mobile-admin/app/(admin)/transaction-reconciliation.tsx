@@ -49,7 +49,8 @@ export default function TransactionReconciliationScreen() {
 
   const items = (unlinkedItemsQuery.data ?? []) as UnlinkedItemRow[];
   const products = productCandidatesQuery.data ?? [];
-  const isLoading = unlinkedItemsQuery.isLoading || productCandidatesQuery.isLoading;
+  const isLoading =
+    unlinkedItemsQuery.isLoading || productCandidatesQuery.isLoading;
   const error = unlinkedItemsQuery.error ?? productCandidatesQuery.error;
   const isMutating = linkItemMutation.isPending || keepCustomMutation.isPending;
 
@@ -114,7 +115,9 @@ export default function TransactionReconciliationScreen() {
             <Text style={[styles.heroTitle, { color: colors.text }]}>
               Review unmatched transaction items
             </Text>
-            <Text style={[styles.heroSubtitle, { color: colors.textSecondary }]}>
+            <Text
+              style={[styles.heroSubtitle, { color: colors.textSecondary }]}
+            >
               Link sold custom rows back to the catalog, or mark them as custom
               so future analytics does not drift.
             </Text>
@@ -154,14 +157,14 @@ export default function TransactionReconciliationScreen() {
               </Text>
               <Pressable
                 accessibilityLabel="Retry unmatched item reconciliation"
-	                accessibilityRole="button"
-	                onPress={() => {
-	                  void Promise.allSettled([
-	                    unlinkedItemsQuery.refetch(),
-	                    productCandidatesQuery.refetch(),
-	                  ]);
-	                }}
-	                style={({ pressed }) => [
+                accessibilityRole="button"
+                onPress={() => {
+                  void Promise.allSettled([
+                    unlinkedItemsQuery.refetch(),
+                    productCandidatesQuery.refetch(),
+                  ]);
+                }}
+                style={({ pressed }) => [
                   styles.primaryButton,
                   {
                     backgroundColor: colors.primary,

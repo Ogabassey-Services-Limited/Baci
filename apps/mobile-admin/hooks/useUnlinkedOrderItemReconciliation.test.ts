@@ -227,6 +227,39 @@ describe('useUnlinkedOrderItemReconciliation', () => {
     expect(variantQuery?.limit).not.toHaveBeenCalled();
   });
 
+  it('limits concurrent product searches when building reconciliation candidates', async () => {
+    const itemCount = 9;
+    let currentSearches = 0;
+    let maxConcurrentSearches = 0;
+
+    supabaseMock.setResult('order_items', {
+      data: Array.from({ length: itemCount }, (_, index) => ({
+        id: `item-${index + 1}`,
+        name: `Unique Reconciliation Product ${index + 1}`,
+        price: 1000 + index,
+      })),
+      error: null,
+    });
+    supabaseMock.rpc.mockImplementation((functionName?: string) => {
+      if (functionName !== 'search_products_v2') {
+        return Promise.resolve({ data: null, error: null });
+      }
+
+      currentSearches += 1;
+      maxConcurrentSearches = Math.max(maxConcurrentSearches, currentSearches);
+
+      return Promise.resolve().then(() => {
+        currentSearches -= 1;
+        return { data: [], error: null };
+      });
+    });
+
+    await getHookState().productCandidatesQuery.queryFn();
+
+    expect(supabaseMock.rpc).toHaveBeenCalledTimes(itemCount);
+    expect(maxConcurrentSearches).toBeLessThanOrEqual(4);
+  });
+
   it('links an item through the scoped reconciliation RPC', async () => {
     const state = getHookState();
 

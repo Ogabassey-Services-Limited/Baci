@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useMerchant } from '@/hooks/useMerchant';
 import { formatVariantAttributesSummary } from '@/lib/format-variant-attributes';
-import { fetchAdminProductSearchRows } from '@/lib/product-search';
+import {
+  type AdminProductSearchPage,
+  fetchAdminProductSearchRows,
+} from '@/lib/product-search';
 import { supabase } from '@/lib/supabase';
 import type { ReconciliationProductCandidate } from '@/lib/transaction-reconciliation';
 
@@ -42,6 +45,7 @@ interface VariantCandidateRow {
 }
 
 const RECONCILIATION_PRODUCT_COLUMNS = 'id, name, price, status';
+const RECONCILIATION_SEARCH_BATCH_SIZE = 4;
 const RECONCILIATION_SEARCH_PAGE_SIZE = 20;
 
 function getJoinedParent(value: VariantCandidateRow['products']) {
@@ -74,6 +78,39 @@ function dedupeProductRows(rows: ProductCandidateRow[]) {
   }
 
   return [...productsById.values()];
+}
+
+async function fetchCandidatePagesInBatches(
+  searchTerms: string[],
+  merchantId: string
+) {
+  const pages: Array<AdminProductSearchPage<ProductCandidateRow>> = [];
+
+  for (
+    let index = 0;
+    index < searchTerms.length;
+    index += RECONCILIATION_SEARCH_BATCH_SIZE
+  ) {
+    const batch = searchTerms.slice(
+      index,
+      index + RECONCILIATION_SEARCH_BATCH_SIZE
+    );
+    const batchPages = await Promise.all(
+      batch.map((searchTerm) =>
+        fetchAdminProductSearchRows<ProductCandidateRow>({
+          cursor: 0,
+          filters: { search: searchTerm },
+          merchantId,
+          pageSize: RECONCILIATION_SEARCH_PAGE_SIZE,
+          selectColumns: RECONCILIATION_PRODUCT_COLUMNS,
+        })
+      )
+    );
+
+    pages.push(...batchPages);
+  }
+
+  return pages;
 }
 
 async function fetchUnlinkedOrderItems(merchantId: string) {
@@ -112,11 +149,16 @@ export function useUnlinkedOrderItemReconciliation() {
     },
   });
 
-  const unlinkedItems = (unlinkedItemsQuery.data ?? []) as UnlinkedOrderItemRow[];
+  const unlinkedItems = (unlinkedItemsQuery.data ??
+    []) as UnlinkedOrderItemRow[];
   const searchTerms = buildReconciliationSearchTerms(unlinkedItems);
   const productCandidatesQuery = useQuery({
     enabled: Boolean(merchant?.id && searchTerms.length > 0),
-    queryKey: ['transaction-reconciliation-products', merchant?.id, searchTerms],
+    queryKey: [
+      'transaction-reconciliation-products',
+      merchant?.id,
+      searchTerms,
+    ],
     queryFn: async (): Promise<ReconciliationProductCandidate[]> => {
       if (!merchant?.id) {
         throw new Error('Merchant context is not ready');
@@ -131,16 +173,9 @@ export function useUnlinkedOrderItemReconciliation() {
         return [];
       }
 
-      const candidatePages = await Promise.all(
-        activeSearchTerms.map((searchTerm) =>
-          fetchAdminProductSearchRows<ProductCandidateRow>({
-            cursor: 0,
-            filters: { search: searchTerm },
-            merchantId: merchant.id,
-            pageSize: RECONCILIATION_SEARCH_PAGE_SIZE,
-            selectColumns: RECONCILIATION_PRODUCT_COLUMNS,
-          })
-        )
+      const candidatePages = await fetchCandidatePagesInBatches(
+        activeSearchTerms,
+        merchant.id
       );
       const products = dedupeProductRows(
         candidatePages.flatMap((page) => page.rows)
@@ -234,10 +269,13 @@ export function useUnlinkedOrderItemReconciliation() {
         throw new Error('Merchant context is not ready');
       }
 
-      const { error } = await supabase.rpc('mark_transaction_order_item_custom', {
-        p_merchant_id: merchant.id,
-        p_order_item_id: input.orderItemId,
-      });
+      const { error } = await supabase.rpc(
+        'mark_transaction_order_item_custom',
+        {
+          p_merchant_id: merchant.id,
+          p_order_item_id: input.orderItemId,
+        }
+      );
 
       if (error) {
         throw new Error(error.message);
