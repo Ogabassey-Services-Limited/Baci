@@ -93,6 +93,23 @@ describe('POST /api/webhooks/mycover', () => {
     expect(mocks.createServiceClient).not.toHaveBeenCalled();
   });
 
+  it('rejects wrong-length MyCover signatures before database writes', async () => {
+    const payload = {
+      data: { id: 'policy-123' },
+      event: 'purchase.successful',
+    };
+    const rawBody = JSON.stringify(payload);
+    const truncatedSignature = signPayload(rawBody, 'MCASECK|secret').slice(
+      0,
+      -2
+    );
+
+    const response = await POST(createRequest(payload, truncatedSignature));
+
+    expect(response.status).toBe(401);
+    expect(mocks.createServiceClient).not.toHaveBeenCalled();
+  });
+
   it('handles documented purchase.successful payloads with data.id purchase ids', async () => {
     const payload = {
       data: {
