@@ -67,12 +67,10 @@ export default function AboutPage({ params }: PageProps) {
   return (
     <>
       <Suspense fallback={null}>
-        <StorefrontDynamicMetadataMarker />
-      </Suspense>
-      <Suspense fallback={null}>
         <AboutJsonLd params={params} />
       </Suspense>
       <AboutContent params={params} />
+      <StorefrontDynamicMetadataMarker />
     </>
   );
 }

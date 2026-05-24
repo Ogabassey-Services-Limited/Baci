@@ -114,10 +114,10 @@ export async function generateMetadata({
 export default function ProductsPage(props: PageProps) {
   return (
     <>
-      <StorefrontDynamicMetadataMarker />
       <Suspense fallback={<CatalogListingLoading />}>
         <ProductsPageContent {...props} />
       </Suspense>
+      <StorefrontDynamicMetadataMarker />
     </>
   );
 }

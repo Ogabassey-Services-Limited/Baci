@@ -151,10 +151,10 @@ export async function generateMetadata({
 export default function CategoryPageRoute(props: PageProps) {
   return (
     <>
-      <StorefrontDynamicMetadataMarker />
       <Suspense fallback={<CatalogListingLoading />}>
         <CategoryPageContent {...props} />
       </Suspense>
+      <StorefrontDynamicMetadataMarker />
     </>
   );
 }
