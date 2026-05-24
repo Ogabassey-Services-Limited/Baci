@@ -429,6 +429,38 @@ describe('GET /api/cron/agentic-commerce-health', () => {
     });
   });
 
+  it('fails the cron response when crawler visibility logs cannot be loaded', async () => {
+    vi.mocked(createAdminClient).mockReturnValue(
+      createSupabaseMock({
+        crawlerError: new Error('query failed'),
+      }) as never
+    );
+
+    const response = await GET(createCronRequest());
+
+    expect(response.status).toBe(503);
+    await expect(response.json()).resolves.toMatchObject({
+      merchants: [
+        {
+          actions: [
+            {
+              code: 'AGENTIC_CRAWLER_VISIBILITY_UNAVAILABLE',
+              count: 1,
+              severity: 'attention',
+            },
+          ],
+          crawler: {
+            issue_count: 1,
+            status: 'attention',
+          },
+          status: 'attention',
+          status_reason: 'agent_commerce_crawler_log_unavailable',
+        },
+      ],
+      status: 'attention',
+    });
+  });
+
   it('fails the cron response when feed generation needs attention', async () => {
     vi.mocked(checkAgentCommerceFeedHealth).mockResolvedValue({
       google_product_count: null,
