@@ -199,6 +199,18 @@ describe('GET /api/cron/agentic-commerce-health', () => {
     vi.mocked(loadAgenticActionHealth).mockResolvedValue({
       actions: [healthyAction],
       generated_at: '2026-05-22T03:00:00.000Z',
+      requests: {
+        recent_count: 1,
+        records: [
+          {
+            agent_id: 'openai:chatgpt',
+            api_version: '2026-04-28',
+            created_at: '2026-05-22T08:03:00.000Z',
+            expires_at: '2026-05-22T08:18:00.000Z',
+            route: 'checkout_sessions.complete',
+          },
+        ],
+      },
     });
     vi.mocked(createAdminClient).mockReturnValue(createSupabaseMock() as never);
   });
@@ -233,11 +245,21 @@ describe('GET /api/cron/agentic-commerce-health', () => {
     );
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
+    const body = await response.json();
+    expect(body).toMatchObject({
       merchant_count: 1,
       merchants: [
         {
           actions: [],
+          action_health: {
+            actions: {
+              ok_count: 1,
+              total_count: 1,
+            },
+            requests: {
+              recent_count: 1,
+            },
+          },
           business_name: 'Ogabassey',
           crawler: {
             issue_count: 0,
@@ -256,6 +278,9 @@ describe('GET /api/cron/agentic-commerce-health', () => {
       ],
       status: 'ok',
     });
+    expect(body.merchants[0].action_health.requests).not.toHaveProperty(
+      'records'
+    );
     expect(supabase.__mocks.merchantQuery.select).toHaveBeenCalledWith(
       'id, slug, business_name, is_published'
     );

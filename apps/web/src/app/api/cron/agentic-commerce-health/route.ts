@@ -2,6 +2,10 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { getCronSecret } from '@/env';
 import { loadAgenticActionHealth } from '@/lib/agentic/action-health-loader';
+import {
+  type AgenticActionHealthSummary,
+  summarizeAgenticActionHealth,
+} from '@/lib/agentic/action-health-summary';
 import type { AgentCommerceFeedHealthResult } from '@/lib/agentic/agent-commerce-feed-health';
 import {
   buildAgentCommerceFeedHealthActions,
@@ -46,6 +50,7 @@ interface MonitoredMerchantRow {
 
 interface AgenticCommerceHealthMerchantResult {
   actions: AgenticCommerceHealthActionSummary[];
+  action_health?: AgenticActionHealthSummary;
   business_name?: string;
   crawler?: AgentCommerceCrawlerHealthResult;
   feeds?: AgentCommerceFeedHealthResult;
@@ -190,6 +195,7 @@ async function buildMerchantHealthResult({
     const status = getAgenticCommerceHealthStatus(mergedActions);
     return {
       actions: summarizeAgenticCommerceHealthActions(mergedActions),
+      action_health: summarizeAgenticActionHealth(health),
       business_name: merchant.business_name ?? undefined,
       crawler,
       feeds,
