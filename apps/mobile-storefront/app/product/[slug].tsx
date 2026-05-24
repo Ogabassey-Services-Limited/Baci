@@ -183,25 +183,6 @@ function getFirstRouteParamValue(
   return typeof value === 'string' ? value : undefined;
 }
 
-function getProductRouteErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  if (
-    error &&
-    typeof error === 'object' &&
-    'message' in error &&
-    typeof error.message === 'string'
-  ) {
-    return error.message;
-  }
-
-  return typeof error === 'string'
-    ? error
-    : 'This product may no longer be available';
-}
-
 export default function ProductDetailScreen() {
   const routeParams = useLocalSearchParams();
   const slug = getFirstRouteParamValue(routeParams.slug);
@@ -713,7 +694,7 @@ export default function ProductDetailScreen() {
     return (
       <ProductDetailRouteState
         colors={colors}
-        errorMessage={getProductRouteErrorMessage(error)}
+        error={error}
         onGoBack={handleProductRouteBack}
         state="error"
       />

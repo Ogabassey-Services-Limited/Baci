@@ -55,7 +55,7 @@ describe('ProductDetailRouteState', () => {
     render(
       <ProductDetailRouteState
         colors={Colors.light}
-        errorMessage="This product may no longer be available"
+        error="This product may no longer be available"
         onGoBack={jest.fn()}
         state="error"
       />

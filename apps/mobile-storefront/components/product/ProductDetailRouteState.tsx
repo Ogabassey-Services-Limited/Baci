@@ -13,7 +13,7 @@ type ProductDetailRouteStateColors = (typeof Colors)['light'];
 
 type ProductDetailRouteStateProps = {
   colors: ProductDetailRouteStateColors;
-  errorMessage?: string;
+  error?: unknown;
   onGoBack?: () => void;
   onRetry?: () => void;
   state: 'error' | 'invalid' | 'loading' | 'offline';
@@ -21,7 +21,7 @@ type ProductDetailRouteStateProps = {
 
 export function ProductDetailRouteState({
   colors,
-  errorMessage,
+  error,
   onGoBack,
   onRetry,
   state,
@@ -73,7 +73,7 @@ export function ProductDetailRouteState({
       <Text style={[styles.errorSubtitle, { color: colors.textSecondary }]}>
         {isInvalid
           ? 'This product link is not valid. Please try searching for the product.'
-          : (errorMessage ?? 'This product may no longer be available')}
+          : getProductRouteErrorMessage(error)}
       </Text>
       {onGoBack ? (
         <Pressable
@@ -94,6 +94,24 @@ export function ProductDetailRouteState({
       ) : null}
     </View>
   );
+}
+
+function getProductRouteErrorMessage(error: unknown): string {
+  if (typeof error === 'string') {
+    return error;
+  }
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (
+    error !== null &&
+    typeof error === 'object' &&
+    'message' in error &&
+    typeof error.message === 'string'
+  ) {
+    return error.message;
+  }
+  return 'This product may no longer be available';
 }
 
 const styles = StyleSheet.create({
