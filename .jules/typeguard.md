@@ -4,3 +4,6 @@
 ## 2024-05-18 - Replacing `as any` in Novel/Tiptap Extensions
 **Learning:** Tiptap types can be complex and are often missing properties like `view` and command extensions (`toggleTaskList`, `setYoutubeVideo`) when accessed through Novel's basic `useEditor` hook. Relying on `(editor as any)` creates widespread type blindness, but asserting to `unknown` triggers errors when passed to expected parameters like `EditorView`.
 **Action:** Always create a targeted `TiptapEditor` interface and a secure `getTiptap()` downcasting function that correctly imports `EditorView` from `prosemirror-view`. Apply this type guard rather than indiscriminately using `as any` to safely invoke nested chained commands.
+## 2026-05-22 - [Properly Type EditorView in Novel Editor]
+**Learning:** The tiptap/novel editor callbacks (like `handleImagePaste` and `handleImageDrop`) pass the editor instance view to user functions. Previously this was typed with `any` causing type safety violations. The correct type for this is `EditorView` from the underlying `prosemirror-view` package which novel relies on.
+**Action:** When working with novel/tiptap custom extensions and callbacks, explicitly import `import type { EditorView } from 'prosemirror-view'` and use it to replace `any` in function signatures.
