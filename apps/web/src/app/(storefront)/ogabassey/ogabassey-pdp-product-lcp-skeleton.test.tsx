@@ -105,5 +105,7 @@ describe('OgabasseyPdpProductLcpSkeleton', () => {
     expect(imageFrame.style.aspectRatio).toBe('1 / 1');
     expect(imageFrame.style.width).toBe('100%');
     expect(imageFrame.style.overflow).toBe('hidden');
+    expect(imageFrame.getAttribute('style')).toContain('var(--muted)');
+    expect(imageFrame.getAttribute('style')).toContain('var(--border)');
   });
 });

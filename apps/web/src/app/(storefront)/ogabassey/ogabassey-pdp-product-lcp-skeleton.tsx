@@ -55,8 +55,8 @@ export function OgabasseyPdpProductLcpSkeleton({
   const imageFrameStyle: CSSProperties = {
     alignItems: 'center',
     aspectRatio: '1 / 1',
-    backgroundColor: 'rgba(249, 250, 251, 0.85)',
-    border: '1px solid rgba(229, 231, 235, 0.8)',
+    backgroundColor: 'hsl(var(--muted) / 0.05)',
+    border: '1px solid hsl(var(--border) / 0.4)',
     borderRadius: '1rem',
     display: 'flex',
     justifyContent: 'center',
