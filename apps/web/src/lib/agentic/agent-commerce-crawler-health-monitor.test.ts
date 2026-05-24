@@ -75,6 +75,42 @@ describe('agent-commerce crawler health', () => {
     ).toBe('agent_commerce_crawler_visibility_missing');
   });
 
+  it('does not let attention-level crawler issues override specific feed or manifest fallbacks', () => {
+    const crawler = {
+      issue_count: 1,
+      issues: [
+        {
+          code: 'crawler_fetch_failures' as const,
+          count: 2,
+          message: 'failed',
+          severity: 'attention' as const,
+        },
+      ],
+      status: 'attention' as const,
+      summary: null,
+      window_days: 14,
+    };
+
+    expect(
+      getAgentCommerceCrawlerStatusReason(
+        crawler,
+        'agent_commerce_feed_generation_failed'
+      )
+    ).toBe('agent_commerce_feed_generation_failed');
+    expect(
+      getAgentCommerceCrawlerStatusReason(
+        crawler,
+        'agent_commerce_manifest_drift'
+      )
+    ).toBe('agent_commerce_manifest_drift');
+    expect(
+      getAgentCommerceCrawlerStatusReason(
+        crawler,
+        'agentic_action_health_attention'
+      )
+    ).toBe('agent_commerce_crawler_fetch_failures');
+  });
+
   it('loads recent crawler logs for the merchant and returns ok for AI-agent visits', async () => {
     const crawlerQuery = {
       eq: vi.fn(),

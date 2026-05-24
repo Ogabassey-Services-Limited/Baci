@@ -12,6 +12,11 @@ const CRAWLER_LOG_SELECT_COLUMNS =
   'agent_family, bot_name, cache_outcome, crawled_at, host, response_time_ms, status_code, url_path, user_agent';
 const CRAWLER_VISIBILITY_RECORD_LIMIT = 1000;
 const CRAWLER_VISIBILITY_WINDOW_DAYS = 14;
+const GENERIC_ACTION_HEALTH_STATUS_REASONS = new Set([
+  'agentic_action_health_attention',
+  'agentic_action_health_monitor',
+  'agentic_action_health_ok',
+]);
 
 export type AgenticCommerceHealthStatus = 'attention' | 'monitor' | 'ok';
 
@@ -154,7 +159,12 @@ export function getAgentCommerceCrawlerStatusReason(
     )
   );
 
-  if (attentionIssue) return `agent_commerce_${attentionIssue}`;
+  if (
+    attentionIssue &&
+    GENERIC_ACTION_HEALTH_STATUS_REASONS.has(fallbackReason)
+  ) {
+    return `agent_commerce_${attentionIssue}`;
+  }
   if (fallbackReason !== 'agentic_action_health_monitor') {
     return fallbackReason;
   }
