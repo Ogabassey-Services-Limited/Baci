@@ -46,3 +46,7 @@
 ## 2026-05-22 - Storefront disclosure toggles need explicit state
 **Learning:** In the web storefront, custom toggle buttons (like those for filters or expanding order summaries) often miss the `aria-expanded` attribute, causing assistive technologies to remain unaware of the collapsible content's state.
 **Action:** Always ensure that custom disclosure widgets or toggle buttons explicitly implement `aria-expanded={booleanState}` to accurately reflect their expanded or collapsed status to screen readers.
+
+## 2026-05-24 - Accessibility for Custom Toggle Switches
+**Learning:** Custom UI switches (like the "Wallet Credit" toggle) built with standard `<button>` tags require specific ARIA attributes to function correctly for screen readers. Simply changing styling based on state is insufficient.
+**Action:** Always assign `role="switch"` and `aria-checked={booleanState}` to binary toggle switches. Additionally, ensure the switch has an explicit `aria-label` or `aria-labelledby` so its purpose is clear to assistive technologies.

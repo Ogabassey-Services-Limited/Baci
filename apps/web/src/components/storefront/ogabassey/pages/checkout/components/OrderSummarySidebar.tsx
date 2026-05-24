@@ -187,6 +187,9 @@ export function OrderSummarySidebar({
                     </div>
                     <button
                       type="button"
+                      role="switch"
+                      aria-checked={payWithWallet}
+                      aria-label="Use Wallet Credit"
                       onClick={() =>
                         setPayWithWallet(!payWithWallet)
                       }

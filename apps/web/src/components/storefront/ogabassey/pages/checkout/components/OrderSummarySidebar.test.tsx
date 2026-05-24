@@ -347,7 +347,7 @@ describe('OrderSummarySidebar', () => {
       render(<OrderSummarySidebar {...propsWithWallet} />);
 
       // Act
-      const toggleButton = screen.getByRole('button', { name: '' });
+      const toggleButton = screen.getByRole('switch', { name: 'Use Wallet Credit' });
       fireEvent.click(toggleButton);
 
       // Assert
@@ -367,7 +367,7 @@ describe('OrderSummarySidebar', () => {
       render(<OrderSummarySidebar {...propsWithWalletEnabled} />);
 
       // Act
-      const toggleButton = screen.getByRole('button', { name: '' });
+      const toggleButton = screen.getByRole('switch', { name: 'Use Wallet Credit' });
       fireEvent.click(toggleButton);
 
       // Assert
