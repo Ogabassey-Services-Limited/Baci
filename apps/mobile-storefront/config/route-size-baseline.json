@@ -32,11 +32,6 @@
       "justification": "Existing oversized BNPL route baseline; shrink or remove this entry as the route is modularized."
     },
     {
-      "path": "app/addresses/[id].tsx",
-      "lineCount": 685,
-      "justification": "Existing oversized address-edit route baseline; shrink or remove this entry as the route is modularized."
-    },
-    {
       "path": "app/(tabs)/cart.tsx",
       "lineCount": 637,
       "justification": "Existing oversized cart tab route baseline; shrink or remove this entry as the route is modularized."
