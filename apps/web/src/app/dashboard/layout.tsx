@@ -1,4 +1,5 @@
 import { type ReactNode, Suspense } from 'react';
+import '@/app/globals.css';
 import { DashboardAuthGuard } from './auth-guard';
 import DashboardLoading from './loading';
 

@@ -31,6 +31,8 @@ import {
   type AgenticCheckoutSessionRequestResult,
   cancelAgenticCheckoutSession,
   cancelAgenticCheckoutSessionInputSchema,
+  completeAgenticCheckoutSession,
+  completeAgenticCheckoutSessionInputSchema,
   createAgenticCheckoutSession,
   createAgenticCheckoutSessionInputSchema,
   getAgenticCheckoutSession,
@@ -1582,6 +1584,67 @@ function createOgabasseyServer() {
                 `Updated checkout session **${sessionId}**.\n\n` +
                 `Status: **${checkoutStatus}**\n\n` +
                 'Review the returned totals and fulfillment options before asking the buyer to confirm payment.',
+            },
+          ],
+          structuredContent: {
+            checkout_session: result.response,
+            endpoint: result.endpoint,
+            idempotency_key: result.idempotencyKey,
+            request_id: result.requestId,
+            status: 'success',
+          },
+        };
+      }
+    );
+
+    server.registerTool(
+      'complete_agentic_checkout_session',
+      {
+        title: 'Complete Agentic Checkout Session',
+        annotations: {
+          readOnlyHint: false,
+          destructiveHint: true,
+          openWorldHint: true,
+          idempotentHint: false,
+        },
+        description:
+          'Complete a Baci agentic checkout session through the signed and idempotent /api/agentic/checkout_sessions/{session_id}/complete flow. Use this only after the buyer provides a verified human confirmation artifact or an accepted payment mandate for the exact session, amount, and currency. Baci fails closed when authorization is missing or invalid, and this may create payment or order side effects when authorization is valid. To safely retry, generate a unique idempotency_key before the first request and reuse it for retries.',
+        inputSchema: completeAgenticCheckoutSessionInputSchema,
+        _meta: {
+          'openai/toolInvocation/invoking': 'Completing checkout session...',
+          'openai/toolInvocation/invoked': 'Checkout session completion requested',
+        },
+      },
+      async (args) => {
+        const result = await completeAgenticCheckoutSession(
+          args,
+          agenticCheckoutClientConfig
+        );
+
+        if (result.ok === false) {
+          return buildAgenticCheckoutErrorResponse({
+            action: 'complete the agentic checkout session',
+            result,
+          });
+        }
+
+        const sessionId =
+          getCheckoutSessionField(result.response, 'id') ?? args.session_id;
+        const checkoutStatus =
+          getCheckoutSessionField(result.response, 'status') ?? 'completed';
+        const paymentState = getCheckoutSessionField(
+          result.response,
+          'payment_state'
+        );
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text:
+                `Checkout completion requested for **${sessionId}**.\n\n` +
+                `Status: **${checkoutStatus}**` +
+                (paymentState ? `\n\nPayment state: **${paymentState}**` : ''),
             },
           ],
           structuredContent: {

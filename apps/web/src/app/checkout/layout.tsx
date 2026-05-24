@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import '@/app/globals.css';
 import { CartProvider } from '@/hooks/use-cart';
 
 export const metadata: Metadata = {

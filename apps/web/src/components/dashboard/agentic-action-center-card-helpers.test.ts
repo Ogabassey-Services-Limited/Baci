@@ -122,6 +122,38 @@ describe('formatGeneratedAt', () => {
   });
 });
 
+describe('formatPatternCount', () => {
+  it('formats singular, zero, and plural count labels', () => {
+    expect(
+      agenticActionCenterCardHelpers.formatPatternCount(1, 'trusted pattern')
+    ).toBe('1 trusted pattern');
+    expect(
+      agenticActionCenterCardHelpers.formatPatternCount(0, 'blocked pattern')
+    ).toBe('0 blocked patterns');
+    expect(
+      agenticActionCenterCardHelpers.formatPatternCount(2, 'recent request')
+    ).toBe('2 recent requests');
+  });
+});
+
+describe('formatUnderscoreStateLabel', () => {
+  it.each([
+    ['', 'Unknown'],
+    ['_', 'Unknown'],
+    ['___', 'Unknown'],
+    ['_ready', 'Ready'],
+    ['ready_', 'Ready'],
+    ['order___finalizing', 'Order Finalizing'],
+    ['order_finalizing', 'Order Finalizing'],
+    ['Order Finalizing', 'Order Finalizing'],
+    ['__', 'Unknown'],
+  ])('formats %s as %s', (value, expected) => {
+    expect(
+      agenticActionCenterCardHelpers.formatUnderscoreStateLabel(value)
+    ).toBe(expected);
+  });
+});
+
 describe('sumActionCounts', () => {
   it('sums finite positive action counts without subtracting negatives', () => {
     expect(

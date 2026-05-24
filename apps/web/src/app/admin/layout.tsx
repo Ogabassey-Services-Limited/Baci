@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import '@/app/globals.css';
 import { type ReactNode, Suspense } from 'react';
 import { CsrfInitializer } from '@/components/csrf-initializer';
 import { getPlatformAdminAuth } from '@/lib/platform-admin-auth';

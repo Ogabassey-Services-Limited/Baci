@@ -10,7 +10,7 @@ import {
 } from '@/schemas/onboarding';
 import Step3_Account from './step3-account';
 
-vi.mock('@/app/onboarding/actions', () => ({
+vi.mock('@/app/(platform)/onboarding/actions', () => ({
   sendMagicLink: vi.fn(),
 }));
 

@@ -5,7 +5,7 @@ import { getAllTemplateIds, TEMPLATE_REGISTRY } from '@/templates/registry';
 import { TemplatePreviewClient } from './preview-client';
 
 // Generate static params for all templates
-export async function generateStaticParams() {
+export function generateStaticParams() {
   return getAllTemplateIds().map((templateId) => ({
     templateId,
   }));

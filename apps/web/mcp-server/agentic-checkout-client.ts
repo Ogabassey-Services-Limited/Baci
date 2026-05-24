@@ -1,8 +1,9 @@
 import { createHmac, randomUUID } from 'node:crypto';
-import type { z } from 'zod';
+import { z } from 'zod';
 import {
   cancelAgenticCheckoutSessionInputSchema,
   agenticCheckoutItemsSchema,
+  agenticCheckoutCompleteSchema,
   agenticFulfillmentAddressSchema,
   createAgenticCheckoutSessionInputSchema,
   getAgenticCheckoutSessionInputSchema,
@@ -13,6 +14,7 @@ export {
   cancelAgenticCheckoutSessionInputSchema,
   agenticCheckoutItemsSchema,
   agenticFulfillmentAddressSchema,
+  agenticCheckoutCompleteSchema,
   createAgenticCheckoutSessionInputSchema,
   getAgenticCheckoutSessionInputSchema,
   updateAgenticCheckoutSessionInputSchema,
@@ -33,6 +35,14 @@ export type UpdateAgenticCheckoutSessionInput = z.input<
 >;
 export type CancelAgenticCheckoutSessionInput = z.input<
   typeof cancelAgenticCheckoutSessionInputSchema
+>;
+export const completeAgenticCheckoutSessionInputSchema =
+  agenticCheckoutCompleteSchema.extend({
+    idempotency_key: z.string().trim().min(8).max(128).optional(),
+    session_id: z.string().trim().min(1, 'Checkout session id is required'),
+  });
+export type CompleteAgenticCheckoutSessionInput = z.input<
+  typeof completeAgenticCheckoutSessionInputSchema
 >;
 
 export type AgenticCheckoutSessionRequestResult =
@@ -163,6 +173,37 @@ export async function cancelAgenticCheckoutSession(
     idempotencyKey,
     method: 'POST',
     pathname: `${buildAgenticCheckoutSessionPath(parsed.data.session_id)}/cancel`,
+  });
+}
+
+export async function completeAgenticCheckoutSession(
+  input: CompleteAgenticCheckoutSessionInput,
+  config: AgenticCheckoutClientConfig
+): Promise<AgenticCheckoutSessionRequestResult> {
+  const parsed = completeAgenticCheckoutSessionInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      details: parsed.error.flatten(),
+      error: 'Invalid checkout session complete input',
+      ok: false,
+      status: 400,
+    };
+  }
+
+  const idempotencyKey =
+    parsed.data.idempotency_key ?? `mcp_checkout_complete_${randomUUID()}`;
+  return sendAgenticCheckoutRequest({
+    body: {
+      buyer: parsed.data.buyer,
+      ...(parsed.data.completion_authorization !== undefined
+        ? { completion_authorization: parsed.data.completion_authorization }
+        : {}),
+      payment_data: parsed.data.payment_data,
+    },
+    config,
+    idempotencyKey,
+    method: 'POST',
+    pathname: `${buildAgenticCheckoutSessionPath(parsed.data.session_id)}/complete`,
   });
 }
 

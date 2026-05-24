@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import LoginClient from '@/app/login/login-client';
-import LoginLoadingFallback from '@/app/login/login-loading-fallback';
+import LoginClient from '@/app/(auth)/login/login-client';
+import LoginLoadingFallback from '@/app/(auth)/login/login-loading-fallback';
 import {
   DEFAULT_AUTH_REDIRECT_PATH,
   sanitizeRelativeRedirectPath,

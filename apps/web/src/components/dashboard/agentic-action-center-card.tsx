@@ -9,6 +9,9 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { agenticActionCenterCardHelpers } from '@/components/dashboard/agentic-action-center-card-helpers';
+import { AgenticCheckoutSessionsCard } from '@/components/dashboard/agentic-checkout-sessions-card';
+import { AgenticRecentSignedRequestsCard } from '@/components/dashboard/agentic-recent-signed-requests-card';
+import { AgenticRequestControlsCard } from '@/components/dashboard/agentic-request-controls-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -58,22 +61,6 @@ function getActionTone(severity: AgenticActionSeverity) {
   }
 }
 
-function formatPaymentStateLabel(paymentState: string): string {
-  return paymentState
-    .split('_')
-    .filter((token) => token.length > 0)
-    .map((token) => token[0]?.toUpperCase() + token.slice(1))
-    .join(' ');
-}
-
-function formatIdempotencyStateLabel(state: string): string {
-  return state
-    .split('_')
-    .filter((token) => token.length > 0)
-    .map((token) => token[0]?.toUpperCase() + token.slice(1))
-    .join(' ');
-}
-
 export function AgenticActionCenterCard({
   payload = null,
   state = 'error',
@@ -91,8 +78,6 @@ export function AgenticActionCenterCard({
   const generatedAt = agenticActionCenterCardHelpers.formatGeneratedAt(
     payload?.generated_at
   );
-  const recentSessionRecords =
-    payload?.checkout_sessions?.records?.slice(0, 3) ?? [];
   const idempotencyPressureRecords =
     payload?.idempotency?.records
       ?.filter(
@@ -100,6 +85,10 @@ export function AgenticActionCenterCard({
           record.state === 'in_progress' || record.state === 'server_error'
       )
       .slice(0, 3) ?? [];
+  const requestControls = payload?.request_controls;
+  const recentRequestRecords = payload?.requests?.records?.slice(0, 3) ?? [];
+  const recentRequestCount =
+    payload?.requests?.recent_count ?? recentRequestRecords.length;
   const statusDescription = failed
     ? 'Agentic checkout health could not be loaded.'
     : attentionCount > 0
@@ -172,23 +161,9 @@ export function AgenticActionCenterCard({
                 <p className="text-sm leading-relaxed">{briefing.nextMove}</p>
               </div>
             </div>
-            {recentSessionRecords.length > 0 && (
-              <div className="rounded-md border bg-muted/20 p-3">
-                <p className="text-xs font-medium uppercase text-muted-foreground">
-                  Recent activity
-                </p>
-                <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-                  {recentSessionRecords.map((record) => (
-                    <li key={`${record.session_id}-${record.updated_at}`}>
-                      <span className="font-medium text-foreground">
-                        {record.session_id}
-                      </span>{' '}
-                      moved to {formatPaymentStateLabel(record.payment_state)}.
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            <AgenticCheckoutSessionsCard
+              checkoutSessions={payload?.checkout_sessions}
+            />
             {idempotencyPressureRecords.length > 0 && (
               <div className="rounded-md border bg-muted/20 p-3">
                 <p className="text-xs font-medium uppercase text-muted-foreground">
@@ -202,7 +177,11 @@ export function AgenticActionCenterCard({
                       <span className="font-medium text-foreground">
                         {record.route}
                       </span>{' '}
-                      is {formatIdempotencyStateLabel(record.state)} (
+                      is{' '}
+                      {agenticActionCenterCardHelpers.formatUnderscoreStateLabel(
+                        record.state
+                      )}{' '}
+                      (
                       {record.status_code == null
                         ? 'pending'
                         : `status ${record.status_code}`}
@@ -211,6 +190,15 @@ export function AgenticActionCenterCard({
                   ))}
                 </ul>
               </div>
+            )}
+            {requestControls && (
+              <AgenticRequestControlsCard requestControls={requestControls} />
+            )}
+            {recentRequestCount > 0 && (
+              <AgenticRecentSignedRequestsCard
+                recentRequestCount={recentRequestCount}
+                recentRequestRecords={recentRequestRecords}
+              />
             )}
             {actions.map((action) => {
               const tone = getActionTone(action.severity);

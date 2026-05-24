@@ -1,6 +1,7 @@
 'use client';
 
 import { ArrowRight, Home } from 'lucide-react';
+import '@/app/globals.css';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
 import { Button } from '@/components/ui/button';

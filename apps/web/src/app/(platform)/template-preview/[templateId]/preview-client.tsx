@@ -1,18 +1,11 @@
 'use client';
 
-import {
-  AlertCircle,
-  CheckCircle,
-  Info,
-  Loader2,
-  XCircle,
-} from 'lucide-react';
+import { AlertCircle, CheckCircle, Info, Loader2, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
 import {
   Card,
   CardContent,
@@ -30,6 +23,7 @@ import {
 } from '@/components/ui/sheet';
 import { CartProvider } from '@/hooks/use-cart';
 import { MerchantProvider } from '@/hooks/use-merchant-client';
+import { useToast } from '@/hooks/use-toast';
 import {
   TEMPLATE_REGISTRY,
   type TemplateComponents,
@@ -67,7 +61,9 @@ function PreviewActionBar({ template }: { template: TemplateDefinition }) {
           </Badge>
           <div className="truncate">
             <h3 className="font-semibold text-sm truncate">{template.name}</h3>
-            <p className="text-xs text-muted-foreground truncate hidden sm:block">{template.description}</p>
+            <p className="text-xs text-muted-foreground truncate hidden sm:block">
+              {template.description}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -181,12 +177,9 @@ function TemplateInfoSheet({ template }: { template: TemplateDefinition }) {
             </CardTitle>
           </CardHeader>
           <CardContent className="text-xs text-muted-foreground">
-            <p>
-              This preview uses mock data. No database connection required.
-            </p>
+            <p>This preview uses mock data. No database connection required.</p>
             <p className="mt-2">
-              Store:{' '}
-              <strong>{template.mockData.merchant.business_name}</strong>
+              Store: <strong>{template.mockData.merchant.business_name}</strong>
             </p>
           </CardContent>
         </Card>
@@ -224,7 +217,9 @@ function ActivateButton({ templateId }: { templateId: string }) {
     const checkAuth = async () => {
       const { createClient } = await import('@/lib/supabase/client');
       const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       setIsAuthenticated(!!session?.user);
     };
     checkAuth();
@@ -239,13 +234,16 @@ function ActivateButton({ templateId }: { templateId: string }) {
       const supabase = createClient();
 
       // Check for real authenticated user
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
       if (!session?.user) {
         toast({
-          title: "Login Required",
-          description: "Please log in to activate this template for your store.",
-          variant: 'destructive'
+          title: 'Login Required',
+          description:
+            'Please log in to activate this template for your store.',
+          variant: 'destructive',
         });
         const loginUrl = `/login?redirect=/template-preview/${templateId}`;
         router.push(loginUrl as '/login');
@@ -261,9 +259,10 @@ function ActivateButton({ templateId }: { templateId: string }) {
 
       if (merchantError || !realMerchant) {
         toast({
-          title: "No Store Found",
-          description: "You need to create a store first before selecting a template.",
-          variant: 'destructive'
+          title: 'No Store Found',
+          description:
+            'You need to create a store first before selecting a template.',
+          variant: 'destructive',
         });
         router.push('/onboarding');
         return;
@@ -280,17 +279,17 @@ function ActivateButton({ templateId }: { templateId: string }) {
       }
 
       toast({
-        title: "Template Activated!",
-        description: "Your store is now using this template.",
+        title: 'Template Activated!',
+        description: 'Your store is now using this template.',
       });
 
       router.push('/dashboard/settings');
     } catch (error) {
       console.error('Template activation error:', error);
       toast({
-        title: "Activation Failed",
-        description: "Could not update store settings. Please try again.",
-        variant: 'destructive'
+        title: 'Activation Failed',
+        description: 'Could not update store settings. Please try again.',
+        variant: 'destructive',
       });
     } finally {
       setIsActivating(false);
@@ -318,7 +317,11 @@ function ActivateButton({ templateId }: { templateId: string }) {
       ) : (
         <CheckCircle className="mr-2 h-4 w-4" />
       )}
-      {isActivating ? "Activating..." : isAuthenticated ? "Use This Template" : "Login to Use Template"}
+      {isActivating
+        ? 'Activating...'
+        : isAuthenticated
+          ? 'Use This Template'
+          : 'Login to Use Template'}
     </Button>
   );
 }
@@ -413,7 +416,9 @@ export function TemplatePreviewClient({
         slug={template.mockData.merchant.slug}
         initialMerchant={template.mockData.merchant}
       >
-        <div className="pb-16"> {/* Add padding for fixed action bar */}
+        <div className="pb-16">
+          {' '}
+          {/* Add padding for fixed action bar */}
           <Suspense fallback={<LoadingDisplay />}>
             <HomeComponent
               storeSlug={template.mockData.merchant.slug}

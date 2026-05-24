@@ -229,6 +229,7 @@ export async function loadAgenticActionHealth(
       paymentClaimingCount,
       paymentPendingCount: paymentPendingCount - stalePaymentPendingCount,
       paymentSetupFailedCount,
+      requestControlFetchError: requestControlSummary.error !== null,
       staleInProgressCount,
       stalePaymentPendingCount,
       terminalErrorCount,
@@ -274,6 +275,7 @@ export async function loadAgenticActionHealth(
         api_version: row.api_version,
         created_at: row.created_at,
         expires_at: row.expires_at,
+        route: row.route,
       })),
     },
   });

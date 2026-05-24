@@ -1,5 +1,6 @@
 'use client';
 
+import '@/app/globals.css';
 import { use } from 'react';
 import { MerchantProvider } from '@/hooks/use-merchant-client';
 
