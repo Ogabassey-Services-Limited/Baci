@@ -53,6 +53,33 @@ function createCronRequest() {
 }
 
 function createSupabaseMock() {
+  const crawlerQuery = {
+    eq: vi.fn(),
+    gte: vi.fn(),
+    limit: vi.fn().mockResolvedValue({
+      data: [
+        {
+          agent_family: 'openai',
+          bot_name: 'OpenAI',
+          cache_outcome: 'hit',
+          crawled_at: '2026-05-22T10:00:00.000Z',
+          host: 'ogabassey.com',
+          response_time_ms: 120,
+          status_code: 200,
+          url_path: '/agent-commerce.json',
+          user_agent: 'GPTBot/1.0',
+        },
+      ],
+      error: null,
+    }),
+    order: vi.fn(),
+    select: vi.fn(),
+  };
+  crawlerQuery.select.mockReturnValue(crawlerQuery);
+  crawlerQuery.eq.mockReturnValue(crawlerQuery);
+  crawlerQuery.gte.mockReturnValue(crawlerQuery);
+  crawlerQuery.order.mockReturnValue(crawlerQuery);
+
   const domainQuery = {
     eq: vi.fn(),
     in: vi.fn(),
@@ -85,6 +112,7 @@ function createSupabaseMock() {
 
   return {
     from: vi.fn((table: string) => {
+      if (table === 'crawler_logs') return crawlerQuery;
       if (table === 'domains') return domainQuery;
       if (table === 'merchants') return merchantQuery;
       throw new Error(`Unexpected table: ${table}`);

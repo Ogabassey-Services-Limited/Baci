@@ -15,6 +15,7 @@ import {
 const ACTION_HEALTH_RECORD_LIMIT = 25;
 const CHECKOUT_ACTIVITY_RECORD_LIMIT = 5;
 const STALE_PAYMENT_PENDING_MS = 24 * 60 * 60 * 1000;
+const CANCEL_ROUTE_SUFFIX = '.cancel';
 const COMPLETE_ROUTE_SUFFIX = '.complete';
 
 interface LoadAgenticActionHealthOptions {
@@ -35,6 +36,12 @@ function isCompleteMutationRoute(route: string | null): boolean {
   return (
     normalized === 'complete' || normalized.endsWith(COMPLETE_ROUTE_SUFFIX)
   );
+}
+
+function isCancelMutationRoute(route: string | null): boolean {
+  if (!route) return false;
+  const normalized = route.trim().toLowerCase();
+  return normalized === 'cancel' || normalized.endsWith(CANCEL_ROUTE_SUFFIX);
 }
 
 function isExpiredInProgressReservation({
@@ -129,6 +136,7 @@ export async function loadAgenticActionHealth(
     shouldIncludeIdempotencyRow(row, nowMs)
   );
   let inProgressCount = 0;
+  let cancelTerminalErrorCount = 0;
   let staleInProgressCount = 0;
   let completeTerminalErrorCount = 0;
   let terminalErrorCount = 0;
@@ -151,6 +159,9 @@ export async function loadAgenticActionHealth(
       terminalErrorCount += 1;
       if (isCompleteMutationRoute(row.route)) {
         completeTerminalErrorCount += 1;
+      }
+      if (isCancelMutationRoute(row.route)) {
+        cancelTerminalErrorCount += 1;
       }
     }
   }
@@ -223,6 +234,7 @@ export async function loadAgenticActionHealth(
     actions: buildAgenticHealthActions({
       activeInProgressCount: inProgressCount - staleInProgressCount,
       allowlistCount: requestControlSummary.allowlistCount,
+      cancelTerminalErrorCount,
       completeTerminalErrorCount,
       isAgenticCheckoutEnabled: requestControlSummary.isAgenticCheckoutEnabled,
       orderFinalizingCount,

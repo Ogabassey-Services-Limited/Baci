@@ -87,6 +87,13 @@ describe('loadAgenticActionHealth', () => {
             status_code: 500,
             updated_at: '2026-05-16T09:18:00.000Z',
           },
+          {
+            created_at: '2026-05-16T09:19:00.000Z',
+            expires_at: '2026-05-16T09:39:00.000Z',
+            route: 'checkout_sessions.cancel',
+            status_code: 502,
+            updated_at: '2026-05-16T09:20:00.000Z',
+          },
         ],
         request_records: [],
       },
@@ -99,6 +106,7 @@ describe('loadAgenticActionHealth', () => {
 
     expect(actionCodes).toContain('AGENTIC_IDEMPOTENCY_ERRORS');
     expect(actionCodes).toContain('AGENTIC_CHECKOUT_COMPLETE_ERRORS');
+    expect(actionCodes).toContain('AGENTIC_CHECKOUT_CANCEL_ERRORS');
     expect(actionCodes).toContain('AGENTIC_IDEMPOTENCY_STALE_IN_PROGRESS');
     expect(actionCodes).toContain('AGENTIC_ORDER_FINALIZING');
     expect(actionCodes).toContain('AGENTIC_PAYMENT_PENDING_STALE');
@@ -140,9 +148,9 @@ describe('loadAgenticActionHealth', () => {
     expect(result.idempotency).toMatchObject({
       active_in_progress_count: 0,
       in_progress_count: 1,
-      recent_count: 3,
+      recent_count: 4,
       stale_in_progress_count: 1,
-      terminal_error_count: 2,
+      terminal_error_count: 3,
       records: [
         expect.objectContaining({
           route: 'COMPLETE',
@@ -159,8 +167,27 @@ describe('loadAgenticActionHealth', () => {
           state: 'server_error',
           status_code: 500,
         }),
+        expect.objectContaining({
+          route: 'checkout_sessions.cancel',
+          state: 'server_error',
+          status_code: 502,
+        }),
       ],
     });
+    expect(result.actions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: 'AGENTIC_CHECKOUT_CANCEL_ERRORS',
+          count: 1,
+          severity: 'attention',
+        }),
+        expect.objectContaining({
+          code: 'AGENTIC_IDEMPOTENCY_ERRORS',
+          count: 1,
+          severity: 'attention',
+        }),
+      ])
+    );
   });
 
   it('throws when rpc returns an error', async () => {
