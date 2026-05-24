@@ -10,6 +10,7 @@ import {
   normalizeCrawlerPath,
 } from '@/lib/agentic/crawler-observability';
 import { authenticateApiRequest, hasPermission } from '@/lib/api-auth';
+import { constantTimeEqual } from '@/lib/constant-time-equal';
 import {
   getMerchantForApiRequest,
   toUserAccess,
@@ -51,7 +52,10 @@ function isAuthorizedInternalCrawlerLogRequest(request: NextRequest) {
 
   return {
     configured: true,
-    ok: request.headers.get('authorization') === `Bearer ${secret}`,
+    ok: constantTimeEqual(
+      request.headers.get('authorization') ?? '',
+      `Bearer ${secret}`
+    ),
   };
 }
 
