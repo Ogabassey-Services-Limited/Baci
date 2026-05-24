@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { Pressable, Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 import { customizeStyles } from './customize.styles';

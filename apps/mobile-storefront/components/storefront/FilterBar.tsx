@@ -1,5 +1,5 @@
-import Feather, { type FeatherIconName } from "@react-native-vector-icons/feather/static";
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Feather, { type FeatherIconName } from "@react-native-vector-icons/feather";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { useState } from 'react';
 import {
   Pressable,

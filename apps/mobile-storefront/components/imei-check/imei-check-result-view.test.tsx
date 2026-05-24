@@ -5,7 +5,7 @@ import Colors from '@/constants/Colors';
 import type { ImeiResult } from '@/lib/validation';
 import { ImeiCheckResultView } from './imei-check-result-view';
 
-jest.mock('@react-native-vector-icons/ionicons/static', () => ({
+jest.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => null,
 
   default: () => null,

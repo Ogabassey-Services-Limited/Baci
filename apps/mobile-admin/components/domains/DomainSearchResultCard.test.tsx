@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { DomainSearchResultCard } from './DomainSearchResultCard';
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => <span>icon</span>,
 
   default: () => <span>icon</span>,

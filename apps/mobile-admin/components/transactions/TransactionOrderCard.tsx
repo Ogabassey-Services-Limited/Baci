@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { styles } from '@/components/transactions/transactions.styles';

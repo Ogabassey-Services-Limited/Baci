@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { Tabs, router } from 'expo-router';
 import type React from 'react';
 import { StyleSheet, Text, View } from 'react-native';

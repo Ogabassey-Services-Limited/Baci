@@ -28,7 +28,7 @@ vi.mock('@/components/ui/AppSheetModal', () => ({
     ) : null,
 }));
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => null,
 
   default: () => null,

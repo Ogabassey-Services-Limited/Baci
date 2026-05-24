@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';
 import { NewOrderCustomerSearchView } from './NewOrderCustomerSearchView';
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => null,
 
   default: () => null,

@@ -7,7 +7,7 @@ const platformState = vi.hoisted(() => ({
   OS: 'web' as 'android' | 'ios' | 'web',
 }));
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => null,
 
   default: () => null,

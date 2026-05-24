@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Redirect, router, Stack } from 'expo-router';
 import type React from 'react';

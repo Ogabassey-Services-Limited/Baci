@@ -9,7 +9,7 @@ vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ bottom: 0 }),
 }));
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: ({
     accessibilityElementsHidden,
     importantForAccessibility,

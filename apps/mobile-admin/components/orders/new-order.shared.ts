@@ -3,7 +3,7 @@ import {
   ORDER_SOURCE_CONFIG,
   type OrderSource,
 } from '@baci/shared';
-import type { IoniconsIconName } from '@react-native-vector-icons/ionicons/static';
+import type { IoniconsIconName } from '@react-native-vector-icons/ionicons';
 import type { CountryCode } from 'react-native-country-picker-modal';
 
 export const MODAL_FLATLIST_PROPS = {

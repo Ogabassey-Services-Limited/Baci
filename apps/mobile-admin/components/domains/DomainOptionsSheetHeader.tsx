@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { Text, View } from 'react-native';
 import { useTheme } from '@/hooks/useTheme';
 import type { Domain } from './domain-types';

@@ -18,7 +18,7 @@ jest.mock('react-native-reanimated', () => ({
   },
 }));
 
-jest.mock('@react-native-vector-icons/ionicons/static', () => {
+jest.mock('@react-native-vector-icons/ionicons', () => {
   const React = jest.requireActual('react');
   const { Text } = jest.requireActual('react-native');
 

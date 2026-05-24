@@ -85,7 +85,7 @@ vi.mock('expo-router', () => ({
   useLocalSearchParams: () => ({ id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11' }),
 }));
 
-vi.mock('@react-native-vector-icons/ionicons/static', async () => {
+vi.mock('@react-native-vector-icons/ionicons', async () => {
   const React = await import('react');
   return {
     Ionicons: ({ name }: { name: string }) =>

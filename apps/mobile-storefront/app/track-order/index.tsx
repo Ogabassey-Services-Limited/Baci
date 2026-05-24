@@ -9,7 +9,7 @@ import {
   getCustomerOrderStatusMeta,
   type CustomerOrderStatusKey,
 } from '@/lib/customer-order-status';
-import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import Constants from 'expo-constants';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';

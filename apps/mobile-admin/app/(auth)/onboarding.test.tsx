@@ -48,7 +48,7 @@ vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => mocks.insets,
 }));
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => <span>icon</span>,
 
   default: () => <span>icon</span>,

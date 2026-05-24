@@ -108,7 +108,7 @@ vi.mock('@react-native-community/datetimepicker', async () => {
   };
 });
 
-vi.mock('@react-native-vector-icons/ionicons/static', async () => {
+vi.mock('@react-native-vector-icons/ionicons', async () => {
   const React = await import('react');
 
   return {

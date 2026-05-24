@@ -49,7 +49,7 @@ vi.mock('react-native', async () => {
   };
 });
 
-vi.mock('@react-native-vector-icons/ionicons/static', async () => {
+vi.mock('@react-native-vector-icons/ionicons', async () => {
   const React = await import('react');
 
   return {

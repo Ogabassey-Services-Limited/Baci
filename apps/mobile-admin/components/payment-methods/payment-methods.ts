@@ -5,7 +5,7 @@ import {
   type PaymentMethodSettingCategory,
   type PaymentMethodSettingDefinition,
 } from '@baci/shared';
-import type { IoniconsIconName } from '@react-native-vector-icons/ionicons/static';
+import type { IoniconsIconName } from '@react-native-vector-icons/ionicons';
 import type { PaymentSettings } from '@/schemas/payment-settings';
 
 export type PaymentMethodCategory = PaymentMethodSettingCategory;

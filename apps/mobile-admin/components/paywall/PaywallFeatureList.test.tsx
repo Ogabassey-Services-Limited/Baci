@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ThemeColors } from '@/constants/theme';
 import PaywallFeatureList from './PaywallFeatureList';
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => <span>icon</span>,
 
   default: () => <span>icon</span>,

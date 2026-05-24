@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { OrderReportStatsPanel } from '@/components/ui/order-report-modal/OrderReportStatsPanel';
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: ({ name }: { name: string }) => <span>{name}</span>,
 
   default: ({ name }: { name: string }) => <span>{name}</span>,

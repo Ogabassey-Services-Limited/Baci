@@ -1,4 +1,4 @@
-import type { IoniconsIconName } from '@react-native-vector-icons/ionicons/static';
+import type { IoniconsIconName } from '@react-native-vector-icons/ionicons';
 
 export interface RepairService {
   title: string;

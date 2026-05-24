@@ -48,7 +48,7 @@ jest.mock('expo-router', () => ({
   },
 }));
 
-jest.mock('@react-native-vector-icons/ionicons/static', () => ({
+jest.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => null,
 
   default: () => null,

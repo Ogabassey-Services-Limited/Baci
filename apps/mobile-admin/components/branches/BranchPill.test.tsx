@@ -3,7 +3,7 @@ import type React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { BranchPill } from './BranchPill';
 
-vi.mock('@react-native-vector-icons/ionicons/static', async () => {
+vi.mock('@react-native-vector-icons/ionicons', async () => {
   const React = await import('react');
   return {
     Ionicons: ({ name }: { name: string }) =>

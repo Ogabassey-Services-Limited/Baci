@@ -59,7 +59,7 @@ vi.mock('react-native-safe-area-context', () => ({
   ),
 }));
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: ({ name, size }: { name: string; size: number }) => (
     <span data-testid={`icon-${name}`} data-size={size} />
   ),

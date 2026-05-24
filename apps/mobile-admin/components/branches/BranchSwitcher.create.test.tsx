@@ -28,7 +28,7 @@ const mocks = vi.hoisted(() => ({
   updateMutateAsync: vi.fn(),
 }));
 
-vi.mock('@react-native-vector-icons/ionicons/static', async () => {
+vi.mock('@react-native-vector-icons/ionicons', async () => {
   const React = await import('react');
   return {
     Ionicons: ({ name }: { name: string }) =>

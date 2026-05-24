@@ -33,7 +33,7 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => <span>icon</span>,
 
   default: () => <span>icon</span>,

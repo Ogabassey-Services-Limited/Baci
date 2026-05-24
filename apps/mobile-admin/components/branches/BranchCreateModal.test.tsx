@@ -6,7 +6,7 @@ import { BranchCreateModal } from './BranchCreateModal';
 
 let lastModalOnRequestClose: (() => void) | undefined;
 
-vi.mock('@react-native-vector-icons/ionicons/static', async () => {
+vi.mock('@react-native-vector-icons/ionicons', async () => {
   const React = await import('react');
   return {
     Ionicons: ({ name }: { name: string }) =>

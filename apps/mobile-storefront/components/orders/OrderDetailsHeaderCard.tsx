@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import type { ComponentProps } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { CustomerOrderStatusMeta } from '@/lib/customer-order-status';

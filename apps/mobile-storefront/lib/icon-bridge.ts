@@ -1,4 +1,4 @@
-import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 
 export type WebIconName =
   | 'Shirt'

@@ -1,5 +1,5 @@
 import { SHIPPING_STATUS_CONFIG, type ShippingStatus } from '@baci/shared';
-import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import { Fragment } from 'react';
 import { Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';

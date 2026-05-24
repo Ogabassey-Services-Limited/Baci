@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import Colors from '@/constants/Colors';
 import { ImeiInsufficientBalanceCta } from './imei-insufficient-balance-cta';
 
-jest.mock('@react-native-vector-icons/ionicons/static', () => ({
+jest.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => null,
 
   default: () => null,

@@ -1,4 +1,4 @@
-import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import * as Linking from 'expo-linking';
 import { Stack } from 'expo-router';
 import { useState } from 'react';

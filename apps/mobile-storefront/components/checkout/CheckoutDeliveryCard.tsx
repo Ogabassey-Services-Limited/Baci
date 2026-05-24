@@ -1,4 +1,4 @@
-import Ionicons from '@react-native-vector-icons/ionicons/static';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import { Controller } from 'react-hook-form';
 import { Pressable, Text, View } from 'react-native';
 import { AddressAutocomplete } from '@/components/ui/AddressAutocomplete';

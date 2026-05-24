@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({
   staffAccountCard: vi.fn(),
 }));
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: ({ name }: { name: string }) => (
     <span
       aria-label={name === 'person-add-outline' ? 'add person' : name}

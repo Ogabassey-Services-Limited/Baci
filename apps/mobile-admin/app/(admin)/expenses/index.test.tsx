@@ -150,7 +150,7 @@ vi.mock('expo-router', () => ({
   useRouter: () => mocks.router,
 }));
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => <span>icon</span>,
 
   default: () => <span>icon</span>,

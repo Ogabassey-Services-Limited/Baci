@@ -4,7 +4,7 @@
  */
 
 import { getCustomerDisplayName } from '@baci/shared';
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import type { ListRenderItemInfo } from '@shopify/flash-list';
 import { FlashList } from '@shopify/flash-list';
 import * as Linking from 'expo-linking';

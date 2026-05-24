@@ -10,7 +10,7 @@ vi.mock('expo-router', () => ({
   useRouter: () => ({ back: vi.fn() }),
 }));
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => null,
 
   default: () => null,

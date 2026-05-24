@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import type React from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
 import type Colors from '@/constants/Colors';

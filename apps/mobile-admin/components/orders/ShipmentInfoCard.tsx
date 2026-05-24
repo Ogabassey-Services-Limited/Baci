@@ -1,4 +1,4 @@
-import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons/static";
+import Ionicons, { type IoniconsIconName } from "@react-native-vector-icons/ionicons";
 import { Text, View } from 'react-native';
 import type { ThemeColors } from '@/constants/theme';
 import { styles } from './ShipmentFlowSheet.styles';

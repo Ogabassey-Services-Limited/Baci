@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { FlashList } from '@shopify/flash-list';
 import { formatDistanceToNow } from 'date-fns';
 import { router, Stack } from 'expo-router';

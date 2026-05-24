@@ -1,4 +1,4 @@
-import Ionicons from '@react-native-vector-icons/ionicons/static';
+import Ionicons from '@react-native-vector-icons/ionicons';
 import type { Control } from 'react-hook-form';
 import { Controller } from 'react-hook-form';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';

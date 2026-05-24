@@ -25,7 +25,7 @@ beforeEach(() => {
   global.fetch = jest.fn() as typeof fetch;
 });
 
-jest.mock('@react-native-vector-icons/ionicons/static', () => ({
+jest.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => null,
 
   default: () => null,

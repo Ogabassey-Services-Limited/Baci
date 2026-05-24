@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { Pressable, Text, View } from 'react-native';
 import SafeImage from '@/components/ui/SafeImage';
 import type { useNewOrderController } from '@/hooks/useNewOrderController';

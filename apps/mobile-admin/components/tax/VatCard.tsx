@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 import { styles } from './styles';
 import type { TaxCardShadow, TaxColors } from './types';

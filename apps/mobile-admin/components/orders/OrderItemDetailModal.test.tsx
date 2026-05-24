@@ -23,7 +23,7 @@ vi.mock('@/components/ui/AppSheetModal', () => ({
     ) : null,
 }));
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: ({ name }: { color?: string; name: string; size?: number }) => name,
 
   default: ({ name }: { color?: string; name: string; size?: number }) => name,

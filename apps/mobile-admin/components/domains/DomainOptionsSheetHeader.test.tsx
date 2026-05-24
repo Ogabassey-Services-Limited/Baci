@@ -24,7 +24,7 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: ({ color, name }: { color?: string; name?: string }) => {
     if (name === 'globe-outline') {
       mocks.iconColor = color ?? '';

@@ -18,7 +18,7 @@ vi.mock('@/components/ui/AppDatePickerField', () => ({
   },
 }));
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => <span>icon</span>,
 
   default: () => <span>icon</span>,

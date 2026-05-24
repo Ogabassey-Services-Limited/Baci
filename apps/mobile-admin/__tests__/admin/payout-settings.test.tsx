@@ -188,7 +188,7 @@ vi.mock('react-native', async () => {
       React.createElement('div', null, children),
   };
 });
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => null,
   default: () => null,
   __esModule: true,

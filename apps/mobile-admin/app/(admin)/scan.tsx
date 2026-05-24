@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { Camera, CameraView } from 'expo-camera';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';

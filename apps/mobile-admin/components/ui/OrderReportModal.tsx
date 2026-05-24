@@ -1,5 +1,5 @@
 import type { Order } from '@baci/shared';
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { useState } from 'react';
 import {
   ActivityIndicator,

@@ -91,7 +91,7 @@ vi.mock('expo-linear-gradient', async () => {
 
 vi.mock('react-native-edge-to-edge', () => ({ SystemBars: () => null }));
 
-vi.mock('@react-native-vector-icons/ionicons/static', async () => {
+vi.mock('@react-native-vector-icons/ionicons', async () => {
   const React = await import('react');
   return {
     useColorScheme: vi.fn(() => 'light'),

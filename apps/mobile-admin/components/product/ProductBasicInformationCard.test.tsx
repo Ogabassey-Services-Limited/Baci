@@ -46,7 +46,7 @@ vi.mock('react-native', async () => {
   };
 });
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => null,
 
   default: () => null,

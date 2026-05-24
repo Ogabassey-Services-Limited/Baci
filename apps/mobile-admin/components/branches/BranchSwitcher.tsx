@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import * as Haptics from 'expo-haptics';
 import {
   ActivityIndicator,

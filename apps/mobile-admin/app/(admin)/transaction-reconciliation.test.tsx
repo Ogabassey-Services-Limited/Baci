@@ -67,7 +67,7 @@ vi.mock('react-native-edge-to-edge', () => ({
   SystemBars: () => null,
 }));
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   default: () => null,
 }));
 

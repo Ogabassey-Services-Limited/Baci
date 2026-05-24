@@ -1,5 +1,5 @@
-import Feather from "@react-native-vector-icons/feather/static";
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Feather from "@react-native-vector-icons/feather";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { type Href, router } from 'expo-router';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';

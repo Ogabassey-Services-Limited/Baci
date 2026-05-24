@@ -29,7 +29,7 @@ vi.mock('@/hooks/useTheme', () => ({
   }),
 }));
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: ({ name }: { name?: string }) => {
     if (name === 'chevron-forward') {
       mocks.chevronCount += 1;

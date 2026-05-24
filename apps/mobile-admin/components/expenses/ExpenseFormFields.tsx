@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { Pressable, Text, TextInput, View } from 'react-native';
 import type { ExpenseCategory } from '@/components/expenses/expense-categories';
 import { expenseFormStyles } from '@/components/expenses/expense-form.styles';

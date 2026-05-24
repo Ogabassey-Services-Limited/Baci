@@ -12,7 +12,7 @@ jest.mock('expo-router', () => ({
   },
 }));
 
-jest.mock('@react-native-vector-icons/ionicons/static', () => {
+jest.mock('@react-native-vector-icons/ionicons', () => {
   const React = jest.requireActual<typeof import('react')>('react');
   const { View } =
     jest.requireActual<typeof import('react-native')>('react-native');

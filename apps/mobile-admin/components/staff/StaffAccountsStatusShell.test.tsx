@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { LIGHT_COLORS } from '@/constants/theme';
 import { StaffAccountsStatusShell } from './StaffAccountsStatusShell';
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: ({ name }: { name: string }) => <span data-icon={name} />,
 
   default: ({ name }: { name: string }) => <span data-icon={name} />,

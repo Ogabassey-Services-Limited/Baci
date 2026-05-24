@@ -86,7 +86,7 @@ const mockTabs = jest.fn(({ children, screenOptions }: MockTabsProps) => (
   </MockView>
 ));
 
-jest.mock('@react-native-vector-icons/ionicons/static', () => {
+jest.mock('@react-native-vector-icons/ionicons', () => {
   const { Text: MockIconText } =
     jest.requireActual<typeof import('react-native')>('react-native');
 

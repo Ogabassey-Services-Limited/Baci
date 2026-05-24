@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { Pressable, Text, View } from 'react-native';
 import {
   DEFAULT_ASSURANCE_PERCENT_LABEL,

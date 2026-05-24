@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 // router removed as it was unused.
 import type React from 'react';
 import { useEffect, useRef, useState } from 'react';
@@ -90,7 +90,6 @@ function CategoryItem({
               styles.circleIconActive,
               { backgroundColor: colors.selectedIconBackground },
             ],
-            isActive && [styles.activeShadow, { shadowColor: colors.black }],
             { transform: [{ scale: iconScale }] },
           ]}
         >
@@ -347,12 +346,6 @@ const styles = StyleSheet.create({
   circleIconActive: {
     borderColor: BRAND.primary,
     borderWidth: 1,
-  },
-  activeShadow: {
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   circleLabel: {
     fontSize: 11,

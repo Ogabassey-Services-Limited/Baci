@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { format } from 'date-fns';
 import { useEffect } from 'react';
 import { Pressable, Switch, Text, TextInput, View } from 'react-native';

@@ -1,4 +1,4 @@
-import Ionicons from "@react-native-vector-icons/ionicons/static";
+import Ionicons from "@react-native-vector-icons/ionicons";
 import { useMutation } from '@tanstack/react-query';
 import type React from 'react';
 import { useEffect, useState } from 'react';

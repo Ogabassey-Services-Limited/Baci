@@ -77,7 +77,7 @@ vi.mock('@/components/ui/ScreenSkeleton', () => ({
   ScreenSkeleton: () => <div>loading skeleton</div>,
 }));
 
-vi.mock('@react-native-vector-icons/ionicons/static', () => ({
+vi.mock('@react-native-vector-icons/ionicons', () => ({
   Ionicons: () => null,
 
   default: () => null,
